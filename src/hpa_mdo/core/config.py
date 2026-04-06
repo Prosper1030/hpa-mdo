@@ -46,6 +46,9 @@ class WingConfig(BaseModel):
     airfoil_root: str = "clarkysm"
     airfoil_tip: str = "fx76mp140"
     max_tip_twist_deg: float = Field(2.0, description="Torsion constraint [deg]")
+    max_tip_deflection_m: Optional[float] = Field(
+        None, description="Max allowable tip deflection [m]"
+    )
 
 
 class SparConfig(BaseModel):

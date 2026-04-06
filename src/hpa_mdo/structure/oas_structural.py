@@ -759,6 +759,31 @@ class TwistConstraintComp(om.ExplicitComponent):
 
 
 # ═════════════════════════════════════════════════════════════════════════
+#  Component 9 : Tip deflection extraction
+# ═════════════════════════════════════════════════════════════════════════
+
+class TipDeflectionConstraintComp(om.ExplicitComponent):
+    """Extract tip deflection from beam displacements.
+
+    tip_deflection = disp[-1, 2]
+    Constraint: tip_deflection <= max_tip_deflection_m.
+    """
+
+    def initialize(self):
+        self.options.declare("n_nodes", types=int)
+
+    def setup(self):
+        nn = self.options["n_nodes"]
+        self.add_input("disp", shape=(nn, 6))
+        self.add_output("tip_deflection_m", val=0.0)
+        self.declare_partials("*", "*", method="cs")
+
+    def compute(self, inputs, outputs):
+        # Vertical displacement (Z) is DOF 2
+        outputs["tip_deflection_m"] = inputs["disp"][-1, 2]
+
+
+# ═════════════════════════════════════════════════════════════════════════
 #  Top-level group
 # ═════════════════════════════════════════════════════════════════════════
 
@@ -944,6 +969,9 @@ class HPAStructuralGroup(om.Group):
         # 8. Twist constraint
         self.add_subsystem("twist", TwistConstraintComp(n_nodes=nn))
 
+        # 9. Tip deflection constraint
+        self.add_subsystem("tip_defl", TipDeflectionConstraintComp(n_nodes=nn))
+
         # ── Connections ──
         self.connect("seg_mapper.main_t_elem", "spar_props.main_t_elem")
         self.connect("seg_mapper.main_r_elem", "spar_props.main_r_elem")
@@ -977,6 +1005,7 @@ class HPAStructuralGroup(om.Group):
             self.connect("stress.vonmises_rear", "failure.vonmises_rear")
 
         self.connect("fem.disp", "twist.disp")
+        self.connect("fem.disp", "tip_defl.disp")
 
 
 def compute_outer_radius_from_wing(wing, spar_cfg) -> np.ndarray:
@@ -1067,6 +1096,13 @@ def build_structural_problem(
         upper=cfg.wing.max_tip_twist_deg,
     )
 
+    # 3. Tip deflection constraint
+    if cfg.wing.max_tip_deflection_m is not None:
+        model.add_constraint(
+            "struct.tip_defl.tip_deflection_m",
+            upper=cfg.wing.max_tip_deflection_m,
+        )
+
     # ── Driver ──
     driver = prob.driver = om.ScipyOptimizeDriver()
     driver.options["optimizer"] = cfg.solver.optimizer
@@ -1150,7 +1186,7 @@ def _extract_results(prob: om.Problem) -> dict:
         "failure": float(prob.get_val("struct.failure.failure")),
         "twist_max_deg": float(prob.get_val("struct.twist.twist_max_deg")),
         "disp": prob.get_val("struct.fem.disp").copy(),
-        "tip_deflection_m": float(prob.get_val("struct.fem.disp")[-1, 2]),
+        "tip_deflection_m": float(prob.get_val("struct.tip_defl.tip_deflection_m")),
         "vonmises_main": prob.get_val("struct.stress.vonmises_main").copy(),
         "main_t_seg": prob.get_val("struct.seg_mapper.main_t_seg").copy(),
         "main_r_seg": prob.get_val("struct.seg_mapper.main_r_seg").copy(),

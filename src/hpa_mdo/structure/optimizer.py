@@ -65,6 +65,7 @@ class OptimizationResult:
     allowable_stress_rear_Pa: float
     failure_index: float           # KS ≤ 0 means feasible
     tip_deflection_m: float
+    max_tip_deflection_m: Optional[float]
     twist_max_deg: float
 
     # Design variables
@@ -80,19 +81,32 @@ class OptimizationResult:
 
     def summary(self) -> str:
         """Human-readable summary."""
+        # Check overall feasibility
+        feasible = (
+            self.failure_index <= 0
+            and (self.max_tip_deflection_m is None or self.tip_deflection_m <= self.max_tip_deflection_m * 1.02)
+        )
+        status_text = "✓ CONVERGED (Feasible)" if (self.success and feasible) else "✗ CONVERGED (Infeasible)" if self.success else "✗ FAILED"
+        
         lines = [
             "=" * 60,
             "  HPA-MDO Spar Optimization Result",
             "=" * 60,
-            f"  Status         : {'✓ CONVERGED' if self.success else '✗ FAILED'} — {self.message}",
+            f"  Status         : {status_text} — {self.message}",
             f"  Total mass     : {self.total_mass_full_kg:.2f} kg (full span)",
             f"  Spar tube mass : {self.spar_mass_full_kg:.2f} kg (full span)",
-            f"  Tip deflection : {self.tip_deflection_m*1000:.0f} mm",
-            f"  Max twist      : {self.twist_max_deg:.2f}°",
-            f"  Failure index  : {self.failure_index:.4f} ({'SAFE' if self.failure_index <= 0 else 'VIOLATED'})",
-            "",
-            "  Main spar segments:",
         ]
+        
+        defl_str = f"{self.tip_deflection_m*1000:.0f} mm"
+        if self.max_tip_deflection_m is not None:
+            defl_status = "OK" if self.tip_deflection_m <= self.max_tip_deflection_m * 1.02 else "VIOLATED"
+            defl_str += f" / {self.max_tip_deflection_m*1000:.0f} mm max ({defl_status})"
+            
+        lines.append(f"  Tip deflection : {defl_str}")
+        lines.append(f"  Max twist      : {self.twist_max_deg:.2f}°")
+        lines.append(f"  Failure index  : {self.failure_index:.4f} ({'SAFE' if self.failure_index <= 0 else 'VIOLATED'})")
+        lines.append("")
+        lines.append("  Main spar segments:")
         for i, (t, r) in enumerate(zip(self.main_t_seg_mm, self.main_r_seg_mm)):
             lines.append(f"    Segment {i+1}: OD={r*2:.1f}mm, t={t:.2f}mm")
         if self.rear_t_seg_mm is not None and self.rear_r_seg_mm is not None:
@@ -226,6 +240,7 @@ class SparOptimizer:
         bounds = bounds_main_t + bounds_main_r + bounds_rear_t + bounds_rear_r
 
         max_twist = cfg.wing.max_tip_twist_deg
+        max_defl = cfg.wing.max_tip_deflection_m if cfg.wing.max_tip_deflection_m is not None else float("inf")
 
         # Evaluation cache
         _cache = {}
@@ -248,6 +263,7 @@ class SparOptimizer:
                 "mass": float(self._prob.get_val("struct.mass.total_mass_full")),
                 "failure": float(self._prob.get_val("struct.failure.failure")),
                 "twist": float(self._prob.get_val("struct.twist.twist_max_deg")),
+                "tip_defl": float(self._prob.get_val("struct.tip_defl.tip_deflection_m")),
             }
             _cache[key] = res
             return res
@@ -265,6 +281,10 @@ class SparOptimizer:
             if r["twist"] > max_twist:
                 excess = (r["twist"] - max_twist) / max_twist
                 penalty += 1000.0 * excess ** 2
+            # Deflection violation
+            if max_defl < float("inf") and r["tip_defl"] > max_defl:
+                excess_defl = (r["tip_defl"] - max_defl) / max_defl
+                penalty += 1000.0 * excess_defl ** 2
             # Physically impossible tube: wall thickness > 95% of radius
             x_main_t = x[:n_seg]
             x_main_r = x[n_seg:2*n_seg]
@@ -279,6 +299,7 @@ class SparOptimizer:
                     penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_rear, 0.0) ** 2))
             return r["mass"] * (1.0 + penalty)
 
+        print("  [Phase 1] Differential Evolution global search...")
         de_result = differential_evolution(
             penalty_obj, bounds=bounds, seed=42,
             maxiter=200, tol=1e-5, polish=False,
@@ -301,6 +322,8 @@ class SparOptimizer:
             {"type": "ineq", "fun": lambda x: -_eval(x)["failure"]},
             {"type": "ineq", "fun": lambda x: max_twist - _eval(x)["twist"]},
         ]
+        if max_defl < float("inf"):
+            constraints.append({"type": "ineq", "fun": lambda x: max_defl - _eval(x)["tip_defl"]})
 
         slsqp = scipy_minimize(
             obj, x_de, method="SLSQP",
@@ -314,9 +337,10 @@ class SparOptimizer:
 
         tol_f = 0.01  # failure tolerance
         tol_tw = max_twist * 1.02  # 2% tolerance on twist
+        tol_df = max_defl * 1.02 if max_defl < float("inf") else float("inf")
 
-        de_feas = r_de["failure"] <= tol_f and r_de["twist"] <= tol_tw
-        sq_feas = r_sq["failure"] <= tol_f and r_sq["twist"] <= tol_tw
+        de_feas = r_de["failure"] <= tol_f and r_de["twist"] <= tol_tw and r_de["tip_defl"] <= tol_df
+        sq_feas = r_sq["failure"] <= tol_f and r_sq["twist"] <= tol_tw and r_sq["tip_defl"] <= tol_df
 
         # ALWAYS prefer feasible over infeasible
         if sq_feas and de_feas:
@@ -331,7 +355,13 @@ class SparOptimizer:
         else:
             # Neither feasible — pick the one with less constraint violation
             v_de = max(0, r_de["failure"]) + max(0, r_de["twist"] - max_twist)
+            if max_defl < float("inf"):
+                v_de += max(0, r_de["tip_defl"] - max_defl) / max_defl  # Normalized
+            
             v_sq = max(0, r_sq["failure"]) + max(0, r_sq["twist"] - max_twist)
+            if max_defl < float("inf"):
+                v_sq += max(0, r_sq["tip_defl"] - max_defl) / max_defl
+
             x_best = slsqp.x if v_sq <= v_de else x_de
             msg = "scipy: no fully feasible solution — best compromise"
 
@@ -343,7 +373,7 @@ class SparOptimizer:
             self._prob.set_val("struct.seg_mapper.rear_r_seg", x_best[3*n_seg:], units="m")
         raw = run_analysis(self._prob)
         best_r = _eval(x_best)
-        success = best_r["failure"] <= tol_f and best_r["twist"] <= tol_tw
+        success = best_r["failure"] <= tol_f and best_r["twist"] <= tol_tw and best_r["tip_defl"] <= tol_df
         return self._to_result(raw, success=success, message=msg)
 
     def _to_result(self, raw: dict, success: bool, message: str) -> OptimizationResult:
@@ -370,6 +400,7 @@ class SparOptimizer:
             allowable_stress_rear_Pa=sigma_a_rear,
             failure_index=raw["failure"],
             tip_deflection_m=raw["tip_deflection_m"],
+            max_tip_deflection_m=cfg.wing.max_tip_deflection_m,
             twist_max_deg=raw["twist_max_deg"],
             main_t_seg_mm=raw["main_t_seg"] * 1000.0,
             main_r_seg_mm=raw["main_r_seg"] * 1000.0,

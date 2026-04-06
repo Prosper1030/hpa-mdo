@@ -160,7 +160,17 @@ def plot_beam_analysis(
     # ── 6. Mass summary ───────────────────────────────────────────────────
     ax6 = fig.add_subplot(gs[1, 2])
     ax6.axis("off")
-    status_str = "CONVERGED" if result.success else "FAILED"
+    feasible = (
+        result.failure_index <= 0
+        and (result.max_tip_deflection_m is None or result.tip_deflection_m <= result.max_tip_deflection_m * 1.02)
+    )
+    if result.success and feasible:
+        status_str = "CONVERGED (Feasible)"
+    elif result.success:
+        status_str = "CONVERGED (Infeasible)"
+    else:
+        status_str = "FAILED"
+        
     summary_text = (
         f"Mass Summary\n"
         f"{'=' * 30}\n"
@@ -332,7 +342,17 @@ def write_optimization_summary(
         The formatted summary string.
     """
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    status = "CONVERGED" if result.success else "FAILED"
+    
+    feasible = (
+        result.failure_index <= 0
+        and (result.max_tip_deflection_m is None or result.tip_deflection_m <= result.max_tip_deflection_m * 1.02)
+    )
+    if result.success and feasible:
+        status = "CONVERGED (Feasible)"
+    elif result.success:
+        status = "CONVERGED (Infeasible)"
+    else:
+        status = "FAILED"
 
     # ── Header ────────────────────────────────────────────────────────────
     lines = [
@@ -351,8 +371,15 @@ def write_optimization_summary(
         "-" * 64,
         "  STRUCTURAL PERFORMANCE",
         "-" * 64,
-        f"  Tip deflection  : {result.tip_deflection_m * 1000:.2f} mm  "
-        f"({result.tip_deflection_m:.5f} m)",
+    ]
+    
+    defl_str = f"  Tip deflection  : {result.tip_deflection_m * 1000:.2f} mm  ({result.tip_deflection_m:.5f} m)"
+    if result.max_tip_deflection_m is not None:
+        defl_status = "OK" if result.tip_deflection_m <= result.max_tip_deflection_m * 1.02 else "VIOLATED"
+        defl_str += f" / MAX: {result.max_tip_deflection_m*1000:.1f} mm ({defl_status})"
+    lines.append(defl_str)
+    
+    lines += [
         f"  Max twist       : {result.twist_max_deg:.3f} deg",
         f"  Failure index   : {result.failure_index:.5f}  "
         f"({'SAFE' if result.failure_index <= 0 else 'VIOLATED'})",

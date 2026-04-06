@@ -9,6 +9,7 @@
 5. 材料必須透過 `MaterialDB` 以鍵值方式從 `data/materials.yaml` 載入 -- 不得有行內材料定義，Python 程式碼中任何地方都不得有硬編碼的 E/G/density/strength 數值。
 6. VSPAero 的外部氣動力載荷重新量綱化，必須使用實際飛行條件（V=config.flight.velocity、rho=config.flight.air_density）-- 絕不直接使用 VSPAero 的參考條件，因為 VSPAero 的執行 Vinf/rho 可能與實際巡航狀態不同。
 7. 任何求解器崩潰或結果不符合物理時，必須輸出 `val_weight: 99999` 並優雅地結束 -- 絕不讓程序以未處理的例外中止。`val_weight` 輸出協定由上游 AI 代理迴圈消費。
+8. 未來所有的高階系統文件（如 README、操作手冊、架構說明等），必須一律使用繁體中文 (Traditional Chinese) 撰寫與更新。終端機的 Log、程式註解與輸出的 .txt 報告保持英文。
 
 ## 架構規則
 
