@@ -1,0 +1,59 @@
+# =============================================================================
+# HPA-MDO Baseline Configuration: Black Cat 004
+# Human-Powered Aircraft — Wing Spar Structural Optimization
+# =============================================================================
+
+project_name: "Black Cat 004"
+
+# --- Flight condition ---
+flight:
+  velocity: 6.5              # cruise TAS [m/s]
+  altitude: 0.0              # sea level [m]
+  air_density: 1.225         # ISA sea level [kg/m³]
+  kinematic_viscosity: 1.46e-5
+  load_factor: 3.0           # 2G * 1.5 safety margin
+
+# --- Mass breakdown ---
+weight:
+  airframe_kg: 40.0
+  pilot_kg: 56.0             # pilot + equipment
+  max_takeoff_kg: 100.0
+
+# --- Wing planform ---
+wing:
+  span: 33.0                 # full wingspan [m]  (from VSP: Bref = 33.0)
+  root_chord: 1.39           # [m] (from VSP geometry)
+  tip_chord: 0.47            # [m] (from VSP tip section)
+  dihedral_root_deg: 0.0     # starts flat at root
+  dihedral_tip_deg: 6.0      # 6° at tip (progressive along span)
+  spar_location_xc: 0.25     # spar at quarter-chord
+  airfoil_root: "clarkysm"   # Clark Y SM (11.7% t/c)
+  airfoil_tip: "fx76mp140"   # FX 76-MP-140 (14.0% t/c)
+
+# --- Spar structural parameters ---
+spar:
+  material: "carbon_fiber_hm"
+  # Outer diameter auto-computed from airfoil thickness
+  outer_diameter_root: null   # auto: 65% of airfoil thickness at root
+  outer_diameter_tip: null    # auto: 80% of airfoil thickness at tip
+  thickness_fraction_root: 0.65
+  thickness_fraction_tip: 0.80
+  min_wall_thickness: 0.8e-3  # 0.8 mm minimum
+  safety_factor: 4.0          # on tensile strength
+
+# --- Solver settings ---
+solver:
+  n_beam_nodes: 60            # FD nodes per half-span
+  optimizer_method: "SLSQP"
+  optimizer_tol: 1.0e-6
+  optimizer_maxiter: 500
+  fsi_max_iter: 20
+  fsi_tol: 1.0e-3
+
+# --- File paths ---
+io:
+  vsp_model: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3"
+  vsp_lod: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
+  vsp_polar: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar"
+  airfoil_dir: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/airfoil"
+  output_dir: "output/blackcat_004"

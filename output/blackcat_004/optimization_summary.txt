@@ -1,0 +1,17 @@
+============================================================
+  HPA-MDO Spar Optimization Results
+============================================================
+  Status:           CONVERGED
+  Message:          DE solution used (SLSQP failed: Positive directional derivative for linesearch)
+------------------------------------------------------------
+  Spar Mass (full): 53.523 kg
+  Spar Mass (half): 26.761 kg
+------------------------------------------------------------
+  d_i root:         101.48 mm
+  d_i tip:          51.04 mm
+------------------------------------------------------------
+  Tip Deflection:   1738.8 mm  (1.7388 m)
+  Max Stress:       453.4 MPa
+  Allowable Stress: 625.0 MPa
+  Stress Margin:    27.5%
+============================================================
