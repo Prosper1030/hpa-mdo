@@ -100,17 +100,31 @@ def main(config_path: str = "configs/blackcat_004.yaml") -> float:
     result = opt.optimize(method="scipy")
     print(result.summary())
 
-    # ── 7. Export ANSYS files ──────────────────────────────────────────
-    print("[7/9] Exporting ANSYS files...")
+    # ── 7. Generate visualizations ─────────────────────────────────────────
+    print("[7/9] Generating visualizations...")
     output_dir = Path(cfg.io.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    from hpa_mdo.utils.visualization import (
+        plot_beam_analysis,
+        plot_spar_geometry,
+        write_optimization_summary,
+    )
+    seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
+    plot_beam_analysis(result, ac.wing.y, output_dir)
+    plot_spar_geometry(result, ac.wing.y, seg_lengths, output_dir)
+    summary_path = output_dir / "optimization_summary.txt"
+    write_optimization_summary(result, summary_path)
+    print(f"       Saved: beam_analysis.png, spar_geometry.png, optimization_summary.txt")
+
+    # ── 8. Export ANSYS files ──────────────────────────────────────────
+    print("[8/9] Exporting ANSYS files...")
 
     # Write design-variable summary CSV
     _export_design_summary(cfg, result, output_dir)
     print(f"       Output dir: {output_dir}")
 
-    # ── 8. Record to training database ─────────────────────────────────
-    print("[8/9] Recording to training database...")
+    # ── 9. Record to training database ─────────────────────────────────
+    print("[9/9] Recording to training database...")
     aero_info = {
         "aoa_deg": cruise_aoa,
         "total_lift_N": cruise_lift,
@@ -119,8 +133,8 @@ def main(config_path: str = "configs/blackcat_004.yaml") -> float:
     db_path = collector.record(cfg, result, aero_info=aero_info)
     print(f"       Database: {db_path}")
 
-    # ── 9. Print summary ───────────────────────────────────────────────
-    print("[9/9] Done.")
+    # ── Done ───────────────────────────────────────────────────────────
+    print("Done.")
     total_mass = result.total_mass_full_kg
     print(f"\n  Total spar system mass: {total_mass:.4f} kg")
     print(f"  Feasible: {result.failure_index <= 0}")

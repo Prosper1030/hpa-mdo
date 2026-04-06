@@ -1,10 +1,10 @@
-# HPA-MDO: Human-Powered Aircraft Multidisciplinary Design Optimization Framework
+# HPA-MDO：人力飛機多學科設計最佳化框架
 
-A Python framework for structural optimization of human-powered aircraft wing spars, with integrated aerodynamic load parsing, finite element analysis, and CAE export. Built for the **Black Cat 004** -- a 33 m wingspan HPA.
+一套用於人力飛機機翼翼梁結構最佳化的 Python 框架，整合了氣動力載荷解析、有限元素分析與 CAE 匯出功能。專為 **Black Cat 004**（翼展 33 m 的人力飛機）而建。
 
 ---
 
-## Architecture Overview
+## 架構概觀
 
 ```
                         configs/blackcat_004.yaml
@@ -55,24 +55,24 @@ A Python framework for structural optimization of human-powered aircraft wing sp
 
 ---
 
-## Features
+## 功能特色
 
-- **OpenMDAO-based 6-DOF Timoshenko beam FEM** (SpatialBeam formulation) with analytic derivatives
-- **Segmented carbon-fiber tube design** -- 11 tubes at 3.0 m each, half-span modeled as 6 segments [1.5, 3.0, 3.0, 3.0, 3.0, 3.0] m
-- **Dual-spar equivalent stiffness** -- main spar at 25% chord, rear spar at 70% chord, combined via parallel axis theorem for EI and GJ
-- **Lift wire support** -- vertical displacement constraint at wire attachment joint positions
-- **VSPAero integration** -- parses `.lod` (spanwise loads) and `.polar` (integrated coefficients) output files
-- **ANSYS APDL / Workbench CSV / NASTRAN BDF export** -- auto-generated input files for independent FEA verification
-- **FastAPI + MCP server** for AI agent integration (Claude Code, remote batch jobs, web dashboards)
-- **Surrogate model training data collection** -- writes design evaluations to CSV for ML model training
-- **Separate safety factors** -- `aerodynamic_load_factor` for loads, `material_safety_factor` for allowable stress (never conflated)
-- **External material database** -- all properties loaded from `data/materials.yaml` by key
+- **基於 OpenMDAO 的 6-DOF Timoshenko 梁有限元素模型**（SpatialBeam 配方），具解析導數
+- **分段碳纖維管設計** -- 11 根管材，每根 3.0 m，半翼展建模為 6 段 [1.5, 3.0, 3.0, 3.0, 3.0, 3.0] m
+- **雙翼梁等效剛度** -- 主翼梁位於 25% 弦長處，後翼梁位於 70% 弦長處，透過平行軸定理合併計算 EI 與 GJ
+- **升力鋼索支撐** -- 在鋼索連接接頭位置施加垂直撓度約束條件
+- **VSPAero 整合** -- 解析 `.lod`（展向載荷）與 `.polar`（積分係數）輸出檔案
+- **ANSYS APDL / Workbench CSV / NASTRAN BDF 匯出** -- 自動生成用於獨立有限元驗證的輸入檔案
+- **FastAPI + MCP 伺服器**，用於 AI 代理整合（Claude Code、遠端批次作業、網頁儀表板）
+- **代理模型訓練資料收集** -- 將設計評估結果寫入 CSV 供機器學習模型訓練
+- **獨立的安全係數** -- `aerodynamic_load_factor` 用於載荷，`material_safety_factor` 用於容許應力（永不混用）
+- **外部材料資料庫** -- 所有材料屬性以鍵值方式從 `data/materials.yaml` 載入
 
 ---
 
-## Installation
+## 安裝方式
 
-Requires Python 3.10+. Compatible with Mac (Apple Silicon / Intel) and Windows.
+需要 Python 3.10 以上版本。相容 Mac（Apple Silicon / Intel）及 Windows。
 
 ```bash
 git clone https://github.com/Prosper1030/hpa-mdo.git
@@ -80,133 +80,133 @@ cd hpa-mdo
 pip install -e ".[all]"
 ```
 
-Optional dependency groups:
+選用相依套件群組：
 
-| Group | Packages | Purpose |
-|-------|----------|---------|
-| `oas` | openaerostruct, openmdao | FEM solver (required for optimization) |
-| `api` | fastapi, uvicorn | REST API server |
-| `mcp` | mcp | Model Context Protocol for AI agents |
-| `dev` | pytest, pytest-cov, ruff | Development and testing |
-| `all` | All of the above | Full installation |
+| 群組 | 套件 | 用途 |
+|------|------|------|
+| `oas` | openaerostruct, openmdao | 有限元素求解器（最佳化必要） |
+| `api` | fastapi, uvicorn | REST API 伺服器 |
+| `mcp` | mcp | 供 AI 代理使用的 Model Context Protocol |
+| `dev` | pytest, pytest-cov, ruff | 開發與測試 |
+| `all` | 以上全部 | 完整安裝 |
 
-Install a subset with `pip install -e ".[oas,api]"`.
+使用 `pip install -e ".[oas,api]"` 安裝部分群組。
 
 ---
 
-## Quick Start
+## 快速開始
 
-Run the full optimization pipeline on the Black Cat 004 configuration:
+對 Black Cat 004 配置執行完整最佳化流程：
 
 ```bash
 python examples/blackcat_004_optimize.py
 ```
 
-Or using the configuration flag pattern:
+或使用配置旗標模式：
 
 ```bash
 python scripts/run_optimization.py --config configs/blackcat_004.yaml
 ```
 
-This will:
-1. Load the YAML configuration and build the aircraft model
-2. Parse VSPAero aerodynamic data (`.lod` file)
-3. Map aero loads onto structural beam nodes, re-dimensionalizing with actual flight conditions
-4. Optimize segment wall thicknesses to minimize spar mass
-5. Export results to ANSYS formats and save plots
+執行後將會：
+1. 載入 YAML 配置並建立飛機模型
+2. 解析 VSPAero 氣動力資料（`.lod` 檔）
+3. 將氣動力載荷對應至結構梁節點，並依實際飛行條件重新量綱化
+4. 最佳化各段管壁厚度以最小化翼梁質量
+5. 將結果匯出為 ANSYS 格式並儲存圖表
 
-The last line of stdout is always `val_weight: <float>` (the optimized full-span spar mass in kg), which serves as the objective value for upstream AI agent loops.
+stdout 的最後一行永遠為 `val_weight: <float>`（最佳化後全翼展翼梁系統質量，單位 kg），作為上游 AI 代理迴圈的目標函數值。
 
 ---
 
-## Project Structure
+## 專案結構
 
 ```
 hpa-mdo/
   configs/
-    blackcat_004.yaml          # Primary aircraft configuration
+    blackcat_004.yaml          # 主要飛機配置檔
   data/
-    materials.yaml             # Material property database
+    materials.yaml             # 材料屬性資料庫
   database/
-    training_data.csv          # Surrogate model training samples
+    training_data.csv          # 代理模型訓練樣本
   examples/
-    blackcat_004_optimize.py   # End-to-end optimization example
+    blackcat_004_optimize.py   # 端對端最佳化範例
   output/
-    blackcat_004/              # Results, plots, ANSYS exports
+    blackcat_004/              # 結果、圖表、ANSYS 匯出檔
   src/hpa_mdo/
     core/
-      config.py                # Pydantic schema (mirrors YAML exactly)
-      aircraft.py              # Wing geometry, flight condition, airfoil data
-      materials.py             # MaterialDB loader (external YAML)
+      config.py                # Pydantic 綱要（完全對應 YAML 結構）
+      aircraft.py              # 機翼幾何、飛行條件、翼型資料
+      materials.py             # MaterialDB 載入器（外部 YAML）
     aero/
-      base.py                  # SpanwiseLoad dataclass, AeroParser ABC
-      vsp_aero.py              # VSPAero .lod/.polar parser
-      xflr5.py                 # XFLR5 parser (alternative)
-      load_mapper.py           # Aero-to-structure load interpolation
+      base.py                  # SpanwiseLoad 資料類別、AeroParser 抽象基底類別
+      vsp_aero.py              # VSPAero .lod/.polar 解析器
+      xflr5.py                 # XFLR5 解析器（替代方案）
+      load_mapper.py           # 氣動力至結構載荷內插
     structure/
-      spar.py                  # TubularSpar geometry builder
-      spar_model.py            # Tube section properties, dual-spar math
-      oas_structural.py        # OpenMDAO Timoshenko beam components
-      optimizer.py             # SparOptimizer (OpenMDAO + scipy fallback)
-      ansys_export.py          # APDL, Workbench CSV, NASTRAN BDF writers
+      spar.py                  # TubularSpar 幾何建構器
+      spar_model.py            # 管截面屬性、雙翼梁數學
+      oas_structural.py        # OpenMDAO Timoshenko 梁元件
+      optimizer.py             # SparOptimizer（OpenMDAO + scipy 備援）
+      ansys_export.py          # APDL、Workbench CSV、NASTRAN BDF 寫入器
     fsi/
-      coupling.py              # One-way and two-way FSI coupling
+      coupling.py              # 單向與雙向流固耦合
     api/
-      server.py                # FastAPI REST endpoints
-      mcp_server.py            # MCP server for AI agent tools
+      server.py                # FastAPI REST 端點
+      mcp_server.py            # 供 AI 代理工具使用的 MCP 伺服器
     utils/
-      visualization.py         # Matplotlib plotting utilities
+      visualization.py         # Matplotlib 繪圖工具
   tests/
-  pyproject.toml               # Build config, dependencies
+  pyproject.toml               # 建置配置、相依套件
 ```
 
 ---
 
-## Configuration
+## 配置說明
 
-All engineering parameters are defined in `configs/blackcat_004.yaml`. The config is validated at load time by the Pydantic schema in `core/config.py`.
+所有工程參數均定義於 `configs/blackcat_004.yaml`。配置於載入時由 `core/config.py` 中的 Pydantic 綱要驗證。
 
-### Key Sections
+### 主要區段
 
-**`flight`** -- Cruise conditions used for load re-dimensionalization.
+**`flight`** -- 用於載荷重新量綱化的巡航條件。
 ```yaml
 flight:
-  velocity: 6.5        # cruise TAS [m/s]
-  air_density: 1.225    # ISA sea level [kg/m^3]
+  velocity: 6.5        # 巡航真空速 [m/s]
+  air_density: 1.225    # ISA 海平面 [kg/m^3]
 ```
 
-**`safety`** -- Separate factors for loads and materials.
+**`safety`** -- 載荷與材料的獨立安全係數。
 ```yaml
 safety:
-  aerodynamic_load_factor: 2.0   # design limit load [G]
-  material_safety_factor: 1.5    # knock-down on UTS
+  aerodynamic_load_factor: 2.0   # 設計極限載荷係數 [G]
+  material_safety_factor: 1.5    # 極限抗拉強度折減係數
 ```
 
-**`wing`** -- Planform geometry, airfoil definitions, and torsion constraint.
+**`wing`** -- 翼面幾何、翼型定義與扭轉角約束條件。
 ```yaml
 wing:
   span: 33.0
   root_chord: 1.39
   tip_chord: 0.47
-  max_tip_twist_deg: 2.0   # torsion constraint
+  max_tip_twist_deg: 2.0   # 扭轉角約束條件
 ```
 
-**`main_spar` / `rear_spar`** -- Segmented tube definitions. The `segments` list defines half-span tube lengths (root to tip). The `material` key references `data/materials.yaml`.
+**`main_spar` / `rear_spar`** -- 分段管材定義。`segments` 列表定義半翼展管材長度（翼根至翼尖）。`material` 鍵值對應 `data/materials.yaml`。
 ```yaml
 main_spar:
   material: "carbon_fiber_hm"
-  segments: [1.5, 3.0, 3.0, 3.0, 3.0, 3.0]   # sum = 16.5 m half-span
-  min_wall_thickness: 0.8e-3                     # manufacturing lower bound [m]
+  segments: [1.5, 3.0, 3.0, 3.0, 3.0, 3.0]   # 總和 = 16.5 m 半翼展
+  min_wall_thickness: 0.8e-3                     # 製造下限 [m]
 ```
 
-**`lift_wires`** -- Cable attachment positions (must coincide with joint locations).
+**`lift_wires`** -- 鋼索連接位置（必須與接頭位置重合）。
 ```yaml
 lift_wires:
   attachments:
     - { y: 7.5, fuselage_z: -1.5, label: "wire-1" }
 ```
 
-**`solver`** -- FEM discretization and optimizer settings.
+**`solver`** -- 有限元素離散化與最佳化器設定。
 ```yaml
 solver:
   n_beam_nodes: 60
@@ -214,49 +214,49 @@ solver:
   fsi_coupling: "one-way"
 ```
 
-**`io`** -- File paths for VSPAero data, airfoil coordinates, and output directories.
+**`io`** -- VSPAero 資料、翼型座標及輸出目錄的檔案路徑。
 
 ---
 
-## API Usage
+## API 使用方式
 
-### FastAPI REST Server
+### FastAPI REST 伺服器
 
-Launch the server:
+啟動伺服器：
 
 ```bash
 uvicorn hpa_mdo.api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Or via the installed entry point:
+或透過已安裝的進入點：
 
 ```bash
 hpa-mdo
 ```
 
-Example endpoints:
+端點範例：
 
 ```bash
-# Health check
+# 健康狀態檢查
 curl http://localhost:8000/health
 
-# List materials
+# 列出材料
 curl http://localhost:8000/materials
 
-# Run optimization (POST)
+# 執行最佳化（POST）
 curl -X POST http://localhost:8000/optimize \
   -H "Content-Type: application/json" \
   -d '{"config": {...}, "lod_file_path": "/path/to/file.lod", "aoa_deg": 3.0}'
 
-# Export ANSYS APDL
+# 匯出 ANSYS APDL
 curl -X POST http://localhost:8000/export/ansys-apdl \
   -H "Content-Type: application/json" \
   -d '{"config": {...}, "lod_file_path": "/path/to/file.lod"}'
 ```
 
-### MCP Server (for AI Agents)
+### MCP 伺服器（供 AI 代理使用）
 
-Add to Claude Code's MCP configuration:
+新增至 Claude Code 的 MCP 配置：
 
 ```json
 {
@@ -269,47 +269,47 @@ Add to Claude Code's MCP configuration:
 }
 ```
 
-Available MCP tools:
+可用的 MCP 工具：
 
-| Tool | Description |
-|------|-------------|
-| `list_materials` | List all materials in the database |
-| `parse_vspaero` | Parse a `.lod` file and return spanwise load distribution |
-| `optimize_spar` | Run full spar optimization from config + aero data |
-| `export_ansys` | Optimize and export to APDL, CSV, and/or NASTRAN formats |
-| `beam_analysis` | Evaluate a specific design point without optimization |
+| 工具 | 說明 |
+|------|------|
+| `list_materials` | 列出資料庫中的所有材料 |
+| `parse_vspaero` | 解析 `.lod` 檔並回傳展向載荷分佈 |
+| `optimize_spar` | 從配置與氣動力資料執行完整翼梁最佳化 |
+| `export_ansys` | 最佳化並匯出為 APDL、CSV 及/或 NASTRAN 格式 |
+| `beam_analysis` | 評估特定設計點而不執行最佳化 |
 
 ---
 
-## For AI Agents
+## 供 AI 代理使用
 
-The framework is designed for automated optimization loops. Every successful run prints a final line:
+本框架專為自動化最佳化迴圈而設計。每次成功執行後會輸出最終一行：
 
 ```
 val_weight: <float>
 ```
 
-where `<float>` is the optimized full-span spar system mass in kilograms. On solver failure or unphysical results, this value is `99999`. Upstream agents should parse this value as the objective to minimize.
+其中 `<float>` 為最佳化後全翼展翼梁系統質量（單位：公斤）。若求解器失敗或結果不符合物理，此值為 `99999`。上游代理應解析此值作為最小化的目標函數。
 
-Design variables are the 12 segment wall thicknesses (6 per spar, 2 spars). Constraints are stress ratio (failure_index <= 0), tip twist (<= 2 degrees), and deflection. The optimizer uses a two-phase strategy: differential evolution for global search, then SLSQP for local refinement.
-
----
-
-## Target Aircraft
-
-**Black Cat 004** is a human-powered aircraft with:
-
-- 33.0 m wingspan
-- 96 kg operating weight (40 kg airframe + 56 kg pilot)
-- 6.5 m/s cruise speed at sea level
-- Clark Y SM root airfoil, FX 76-MP-140 tip airfoil
-- Progressive dihedral (0 to 6 degrees)
-- Main spar at 25% chord, rear spar at 70% chord
-- High-modulus carbon fiber tubes (Toray M46J class, E = 230 GPa)
-- Lift wire at 7.5 m span station
+設計變數為 12 段管壁厚度（每根翼梁 6 段，共 2 根翼梁）。約束條件為應力比（failure_index <= 0）、翼尖扭轉角（<= 2 度）及撓度。最佳化器採用兩階段策略：差分演化法進行全局搜尋，再以 SLSQP 進行局部精修。
 
 ---
 
-## License
+## 目標飛機
+
+**Black Cat 004** 是一架具有下列規格的人力飛機：
+
+- 翼展 33.0 m
+- 操作重量 96 kg（機體 40 kg + 飛行員 56 kg）
+- 海平面巡航速度 6.5 m/s
+- 翼根翼型 Clark Y SM，翼尖翼型 FX 76-MP-140
+- 漸進式上反角（0 至 6 度）
+- 主翼梁位於 25% 弦長處，後翼梁位於 70% 弦長處
+- 高模量碳纖維管（Toray M46J 等級，E = 230 GPa）
+- 升力鋼索位於翼展 7.5 m 位置
+
+---
+
+## 授權條款
 
 MIT

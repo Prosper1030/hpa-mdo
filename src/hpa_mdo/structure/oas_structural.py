@@ -41,10 +41,12 @@ from hpa_mdo.structure.spar_model import (
 # ═════════════════════════════════════════════════════════════════════════
 
 class SegmentToElementComp(om.ExplicitComponent):
-    """Map segment-level wall thicknesses to per-element values.
+    """Map segment-level wall thicknesses and outer radii to per-element values.
 
-    Inputs : main_t_seg (n_seg,), rear_t_seg (n_seg,)
-    Outputs: main_t_elem (n_elem,), rear_t_elem (n_elem,)
+    Inputs : main_t_seg (n_seg,), main_r_seg (n_seg,),
+             rear_t_seg (n_seg,), rear_r_seg (n_seg,)  [if rear_enabled]
+    Outputs: main_t_elem (n_elem,), main_r_elem (n_elem,),
+             rear_t_elem (n_elem,), rear_r_elem (n_elem,)  [if rear_enabled]
     """
 
     def initialize(self):
@@ -61,11 +63,17 @@ class SegmentToElementComp(om.ExplicitComponent):
         self.add_input("main_t_seg", shape=(ns,), units="m")
         self.add_output("main_t_elem", shape=(ne,), units="m")
 
+        self.add_input("main_r_seg", shape=(ns,), units="m")
+        self.add_output("main_r_elem", shape=(ne,), units="m")
+
         if self.options["rear_enabled"]:
             self.add_input("rear_t_seg", shape=(ns,), units="m")
             self.add_output("rear_t_elem", shape=(ne,), units="m")
 
-        # Precompute the mapping matrix (constant: ∂t_elem/∂t_seg)
+            self.add_input("rear_r_seg", shape=(ns,), units="m")
+            self.add_output("rear_r_elem", shape=(ne,), units="m")
+
+        # Precompute the mapping matrix (constant: ∂x_elem/∂x_seg)
         sb = self.options["segment_boundaries"]
         ec = self.options["element_centres"]
         self._map_matrix = np.zeros((ne, ns))
@@ -75,14 +83,18 @@ class SegmentToElementComp(om.ExplicitComponent):
             self._map_matrix[i, seg_idx] = 1.0
 
         self.declare_partials("main_t_elem", "main_t_seg", val=self._map_matrix)
+        self.declare_partials("main_r_elem", "main_r_seg", val=self._map_matrix)
         if self.options["rear_enabled"]:
             self.declare_partials("rear_t_elem", "rear_t_seg", val=self._map_matrix)
+            self.declare_partials("rear_r_elem", "rear_r_seg", val=self._map_matrix)
 
     def compute(self, inputs, outputs):
         M = self._map_matrix
         outputs["main_t_elem"] = M @ inputs["main_t_seg"]
+        outputs["main_r_elem"] = M @ inputs["main_r_seg"]
         if self.options["rear_enabled"]:
             outputs["rear_t_elem"] = M @ inputs["rear_t_seg"]
+            outputs["rear_r_elem"] = M @ inputs["rear_r_seg"]
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -97,10 +109,6 @@ class DualSparPropertiesComp(om.ExplicitComponent):
 
     def initialize(self):
         self.options.declare("n_elements", types=int)
-        self.options.declare("R_main", types=np.ndarray,
-                             desc="Outer radius of main spar per element [m]")
-        self.options.declare("R_rear", types=np.ndarray,
-                             desc="Outer radius of rear spar per element [m]")
         self.options.declare("z_main", types=np.ndarray,
                              desc="Z-offset of main spar (camber fraction)")
         self.options.declare("z_rear", types=np.ndarray,
@@ -119,6 +127,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         ne = self.options["n_elements"]
 
         self.add_input("main_t_elem", shape=(ne,), units="m")
+        self.add_input("main_r_elem", shape=(ne,), units="m")
         self.add_output("A_equiv", shape=(ne,), units="m**2")
         self.add_output("Iy_equiv", shape=(ne,), units="m**4")
         self.add_output("J_equiv", shape=(ne,), units="m**4")
@@ -133,13 +142,14 @@ class DualSparPropertiesComp(om.ExplicitComponent):
 
         if self.options["rear_enabled"]:
             self.add_input("rear_t_elem", shape=(ne,), units="m")
+            self.add_input("rear_r_elem", shape=(ne,), units="m")
 
         # Use complex-step for derivatives (simpler, accurate)
         self.declare_partials("*", "*", method="cs")
 
     def compute(self, inputs, outputs):
         ne = self.options["n_elements"]
-        R_m = self.options["R_main"]
+        R_m = inputs["main_r_elem"]
         rho_m = self.options["rho_main"]
         E_m = self.options["E_main"]
         G_m = self.options["G_main"]
@@ -157,7 +167,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         outputs["I_main"] = I_m
 
         if self.options["rear_enabled"]:
-            R_r = self.options["R_rear"]
+            R_r = inputs["rear_r_elem"]
             rho_r = self.options["rho_rear"]
             E_r = self.options["E_rear"]
             G_r = self.options["G_rear"]
@@ -866,8 +876,6 @@ class HPAStructuralGroup(om.Group):
         # 2. Dual spar properties
         self.add_subsystem("spar_props", DualSparPropertiesComp(
             n_elements=ne,
-            R_main=R_main_elem,
-            R_rear=R_rear_elem,
             z_main=z_main_elem,
             z_rear=z_rear_elem,
             d_chord=d_chord_elem,
@@ -903,9 +911,10 @@ class HPAStructuralGroup(om.Group):
         # Set node coordinates as fixed input
         indeps = self.add_subsystem("indeps", om.IndepVarComp())
         indeps.add_output("nodes", val=nodes_3d, units="m")
-        indeps.add_output("R_main_elem", val=R_main_elem, units="m")
-        if rear_on:
-            indeps.add_output("R_rear_elem", val=R_rear_elem, units="m")
+
+        # Store initial element radii for use in build_structural_problem()
+        self._R_main_elem_init = R_main_elem
+        self._R_rear_elem_init = R_rear_elem if rear_on else None
 
         # 5. Stress computation
         self.add_subsystem("stress", VonMisesStressComp(
@@ -937,8 +946,10 @@ class HPAStructuralGroup(om.Group):
 
         # ── Connections ──
         self.connect("seg_mapper.main_t_elem", "spar_props.main_t_elem")
+        self.connect("seg_mapper.main_r_elem", "spar_props.main_r_elem")
         if rear_on:
             self.connect("seg_mapper.rear_t_elem", "spar_props.rear_t_elem")
+            self.connect("seg_mapper.rear_r_elem", "spar_props.rear_r_elem")
 
         self.connect("spar_props.mass_per_length", "ext_loads.mass_per_length")
         self.connect("spar_props.mass_per_length", "mass.mass_per_length")
@@ -953,12 +964,12 @@ class HPAStructuralGroup(om.Group):
 
         self.connect("fem.disp", "stress.disp")
         self.connect("indeps.nodes", "stress.nodes")
-        self.connect("indeps.R_main_elem", "stress.R_main_elem")
+        self.connect("seg_mapper.main_r_elem", "stress.R_main_elem")
         self.connect("spar_props.I_main", "stress.I_main")
         self.connect("spar_props.EI_flap", "stress.EI_flap")
         self.connect("spar_props.GJ", "stress.GJ")
         if rear_on:
-            self.connect("indeps.R_rear_elem", "stress.R_rear_elem")
+            self.connect("seg_mapper.rear_r_elem", "stress.R_rear_elem")
             self.connect("spar_props.I_rear", "stress.I_rear")
 
         self.connect("stress.vonmises_main", "failure.vonmises_main")
@@ -1001,16 +1012,18 @@ def build_structural_problem(
     prob = om.Problem()
     model = prob.model
 
-    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+    seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
+    n_seg = len(seg_lengths)
     rear_on = cfg.rear_spar.enabled
 
     # Add the structural group
-    model.add_subsystem("struct", HPAStructuralGroup(
+    struct_group = HPAStructuralGroup(
         cfg=cfg,
         aircraft=aircraft,
         aero_loads=aero_loads,
         materials_db=materials_db,
-    ))
+    )
+    model.add_subsystem("struct", struct_group)
 
     # ── Design Variables ──
     min_t = cfg.main_spar.min_wall_thickness
@@ -1022,12 +1035,23 @@ def build_structural_problem(
         ref=0.002,  # scaling reference
     )
 
+    model.add_design_var(
+        "struct.seg_mapper.main_r_seg",
+        lower=0.010, upper=0.060,   # 20mm–120mm OD → 10mm–60mm radius
+        ref=0.025,
+    )
+
     if rear_on:
         min_t_r = cfg.rear_spar.min_wall_thickness
         model.add_design_var(
             "struct.seg_mapper.rear_t_seg",
             lower=min_t_r, upper=max_t,
             ref=0.002,
+        )
+        model.add_design_var(
+            "struct.seg_mapper.rear_r_seg",
+            lower=0.010, upper=0.060,
+            ref=0.025,
         )
 
     # ── Objective: minimise total spar mass ──
@@ -1056,13 +1080,49 @@ def build_structural_problem(
     prob.setup()
 
     # ── Initial values ──
-    # Start with moderate wall thickness (2 mm)
+    # Wall thickness: start with moderate value (2 mm)
     init_t = np.ones(n_seg) * 0.002
     prob.set_val("struct.seg_mapper.main_t_seg", init_t, units="m")
     if rear_on:
         prob.set_val("struct.seg_mapper.rear_t_seg", init_t * 0.7, units="m")
 
+    # Outer radii: derive from wing geometry (element values averaged per segment)
+    # The group stores these after setup — retrieve from the instantiated subsystem.
+    wing = aircraft.wing
+    seg_bounds = segment_boundaries_from_lengths(seg_lengths)
+    nn = wing.n_stations
+    y = wing.y
+    elem_centres = (y[:-1] + y[1:]) / 2.0
+
+    R_main_elem_init = struct_group._R_main_elem_init
+    main_r_seg_init = _elem_to_seg_mean(R_main_elem_init, elem_centres, seg_bounds, n_seg)
+    prob.set_val("struct.seg_mapper.main_r_seg", main_r_seg_init, units="m")
+
+    if rear_on:
+        R_rear_elem_init = struct_group._R_rear_elem_init
+        rear_r_seg_init = _elem_to_seg_mean(R_rear_elem_init, elem_centres, seg_bounds, n_seg)
+        prob.set_val("struct.seg_mapper.rear_r_seg", rear_r_seg_init, units="m")
+
     return prob
+
+
+def _elem_to_seg_mean(
+    elem_vals: np.ndarray,
+    elem_centres: np.ndarray,
+    seg_bounds: np.ndarray,
+    n_seg: int,
+) -> np.ndarray:
+    """Average element values within each segment to produce per-segment values."""
+    seg_vals = np.zeros(n_seg)
+    for s in range(n_seg):
+        mask = (elem_centres >= seg_bounds[s]) & (elem_centres < seg_bounds[s + 1])
+        if np.any(mask):
+            seg_vals[s] = np.mean(elem_vals[mask])
+        else:
+            # No elements in segment — fall back to nearest element
+            dists = np.abs(elem_centres - 0.5 * (seg_bounds[s] + seg_bounds[s + 1]))
+            seg_vals[s] = elem_vals[np.argmin(dists)]
+    return seg_vals
 
 
 def run_analysis(prob: om.Problem) -> dict:
@@ -1093,10 +1153,12 @@ def _extract_results(prob: om.Problem) -> dict:
         "tip_deflection_m": float(prob.get_val("struct.fem.disp")[-1, 2]),
         "vonmises_main": prob.get_val("struct.stress.vonmises_main").copy(),
         "main_t_seg": prob.get_val("struct.seg_mapper.main_t_seg").copy(),
+        "main_r_seg": prob.get_val("struct.seg_mapper.main_r_seg").copy(),
     }
 
     if rear_on:
         res["vonmises_rear"] = prob.get_val("struct.stress.vonmises_rear").copy()
         res["rear_t_seg"] = prob.get_val("struct.seg_mapper.rear_t_seg").copy()
+        res["rear_r_seg"] = prob.get_val("struct.seg_mapper.rear_r_seg").copy()
 
     return res

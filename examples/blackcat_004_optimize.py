@@ -1,221 +1,199 @@
 #!/usr/bin/env python3
-"""
-Black Cat 004 — Full Spar Optimization Pipeline
-================================================
+"""Black Cat 004 — Full Spar Optimization Pipeline (v2 API)
+===========================================================
 
-This example demonstrates the complete HPA-MDO workflow:
+This example demonstrates the complete HPA-MDO v2 workflow:
 
     1. Load configuration from YAML
-    2. Parse VSPAero aerodynamic data
-    3. Map loads onto structural beam nodes
-    4. Run spar optimization (minimize mass subject to stress + deflection)
-    5. Visualize results
-    6. Export to ANSYS (APDL, CSV, NASTRAN)
+    2. Build aircraft geometry and material database
+    3. Parse VSPAero aerodynamic data
+    4. Find cruise angle of attack (lift ≈ weight)
+    5. Map loads with aerodynamic safety factor
+    6. Run spar optimization (minimize mass subject to stress + deflection)
+    7. Generate visualizations (beam analysis, spar geometry)
+    8. Write optimization summary text file
 
-Usage:
-    cd /Users/linyuan/hpa-mdo
+This script mirrors ``scripts/run_optimization.py`` but with more verbose
+comments at each step for educational purposes.  All imports use the v2 API
+— the legacy EulerBernoulliBeam, TubularSpar, BeamResult, and plot_beam_result
+interfaces have been removed.
+
+Usage
+-----
+    cd /Volumes/Samsung\ SSD/hpa-mdo
     python examples/blackcat_004_optimize.py
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
-
-# Add src to path for development
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from typing import Optional
 
 import numpy as np
 
-from hpa_mdo.core.config import load_config
-from hpa_mdo.core.aircraft import Aircraft
-from hpa_mdo.core.materials import MaterialDB
-from hpa_mdo.aero.vsp_aero import VSPAeroParser
-from hpa_mdo.aero.load_mapper import LoadMapper
-from hpa_mdo.structure.beam_model import EulerBernoulliBeam
-from hpa_mdo.structure.spar import TubularSpar
-from hpa_mdo.structure.optimizer import SparOptimizer
-from hpa_mdo.structure.ansys_export import ANSYSExporter
+# Allow running directly from the repository without installing the package.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+# ── v2 imports ────────────────────────────────────────────────────────────
+from hpa_mdo.core import load_config, Aircraft, MaterialDB
+from hpa_mdo.aero import VSPAeroParser, LoadMapper
+from hpa_mdo.structure import SparOptimizer
 from hpa_mdo.utils.visualization import (
-    plot_beam_result,
+    plot_beam_analysis,
     plot_spar_geometry,
+    write_optimization_summary,
     print_optimization_summary,
 )
 
 
-def main():
+def main() -> float:
+    """Run the full pipeline and return total_mass_full_kg."""
+
     # ====================================================================
-    # Step 1: Load configuration
+    # Step 1 — Load configuration
     # ====================================================================
-    config_path = Path(__file__).resolve().parent.parent / "configs" / "blackcat_004.yaml"
+    # The YAML file specifies wing geometry, flight conditions, material
+    # properties, segment definitions, and file paths for VSPAero data.
+    config_path = (
+        Path(__file__).resolve().parent.parent / "configs" / "blackcat_004.yaml"
+    )
+    print(f"[1/8] Loading config: {config_path}")
     cfg = load_config(config_path)
-    print(f"Project: {cfg.project_name}")
-    print(f"Wing span: {cfg.wing.span} m, Cruise: {cfg.flight.velocity} m/s")
-    print(f"Total mass: {cfg.weight.operating_kg} kg, Load factor: {cfg.flight.load_factor}")
-    print()
+    print(f"       Project : {cfg.project_name}")
+    print(f"       Span    : {cfg.wing.span} m")
+    print(f"       Velocity: {cfg.flight.velocity} m/s")
 
     # ====================================================================
-    # Step 2: Build aircraft model
+    # Step 2 — Build aircraft geometry and material database
     # ====================================================================
-    aircraft = Aircraft.from_config(cfg)
-    db = MaterialDB()
-    material = db.get(cfg.spar.material)
-    print(f"Material: {material.name}")
-    print(f"  E = {material.E/1e9:.1f} GPa, σ_ult = {material.tensile_strength/1e6:.0f} MPa")
-    print(f"  Allowable stress (SF={cfg.spar.safety_factor}): "
-          f"{material.tensile_strength/cfg.spar.safety_factor/1e6:.0f} MPa")
-    print()
+    # Aircraft.from_config() constructs the wing planform, computes spanwise
+    # node positions (ac.wing.y), reference areas, and operating weight.
+    print("[2/8] Building aircraft geometry...")
+    ac = Aircraft.from_config(cfg)
+    mat_db = MaterialDB()
+    target_weight = ac.weight_N  # full-span weight [N]
+    print(f"       Operating mass  : {ac.mass_total_kg:.1f} kg ({target_weight:.1f} N)")
 
     # ====================================================================
-    # Step 3: Parse VSPAero aerodynamic data
+    # Step 3 — Parse VSPAero aerodynamic data
     # ====================================================================
-    lod_path = cfg.io.vsp_lod
-    polar_path = cfg.io.vsp_polar
-    print(f"Parsing VSPAero data: {lod_path}")
-
-    parser = VSPAeroParser(lod_path, polar_path)
+    # VSPAeroParser reads the .lod (spanwise lift distribution) and .polar
+    # (integrated coefficients) files produced by OpenVSP's VSPAERO solver.
+    # It returns a list of AeroCase objects, one per angle of attack.
+    print("[3/8] Parsing VSPAero loads...")
+    parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
     cases = parser.parse()
-    print(f"  Found {len(cases)} AoA cases")
+    print(f"       Found {len(cases)} AoA case(s)")
 
-    # Select design AoA — find the case where CL produces enough lift at
-    # our actual flight conditions (V=6.5 m/s, rho=1.225 kg/m³).
-    # VSPAero was run at different reference conditions so we must
-    # re-dimensionalise: L = q_actual * S * CL_total.
-    target_lift_half = aircraft.weight_N / 2.0  # half-span lift at 1G
-    q_actual = aircraft.flight.dynamic_pressure
-    wing_area_half = aircraft.wing.area_half
-    CL_required = target_lift_half / (q_actual * wing_area_half)
-    print(f"  Target half-span lift (1G): {target_lift_half:.1f} N")
-    print(f"  q_actual = {q_actual:.2f} Pa, wing area (half) = {wing_area_half:.2f} m²")
-    print(f"  Required CL = {CL_required:.4f}")
+    # ====================================================================
+    # Step 4 — Find cruise angle of attack (lift ≈ weight)
+    # ====================================================================
+    # LoadMapper.map_loads() re-dimensionalises the VSPAero coefficients to
+    # actual flight conditions (velocity, air density) and interpolates the
+    # distributed lift onto the structural node positions (ac.wing.y).
+    #
+    # We loop over all AoA cases, compute the total full-span lift for each,
+    # and select the case whose lift most closely equals the aircraft weight.
+    print("[4/8] Finding cruise angle of attack (L ≈ W)...")
+    mapper = LoadMapper()
 
-    # Compute total CL for each case from Cl distribution
-    best_case = None
-    best_diff = float("inf")
+    best_case: Optional[object] = None
+    best_residual = float("inf")
+    best_loads: Optional[dict] = None
+
     for case in cases:
-        # Total CL = integral(Cl * c dy) / (S/2)
-        case_CL = float(np.trapz(case.cl * case.chord, case.y)) / wing_area_half
-        case_lift_actual = q_actual * wing_area_half * case_CL
-        diff = abs(case_lift_actual - target_lift_half)
-        if diff < best_diff:
-            best_diff = diff
+        loads = mapper.map_loads(
+            case, ac.wing.y,
+            actual_velocity=cfg.flight.velocity,
+            actual_density=cfg.flight.air_density,
+        )
+        # map_loads returns half-span quantities; full-span lift = 2×
+        full_lift = 2.0 * loads["total_lift"]
+        residual = abs(full_lift - target_weight)
+        if residual < best_residual:
+            best_residual = residual
             best_case = case
-            best_CL = case_CL
-            best_lift_actual = case_lift_actual
+            best_loads = loads
 
-    if best_case is None:
-        print("ERROR: No valid aero cases found.")
-        sys.exit(1)
+    if best_case is None or best_loads is None:
+        raise RuntimeError("No valid AoA case found in VSPAero data")
 
-    print(f"  Selected AoA = {best_case.aoa_deg}° "
-          f"(CL = {best_CL:.4f}, "
-          f"actual lift = {best_lift_actual:.1f} N, "
-          f"target = {target_lift_half:.1f} N)")
-    print()
+    cruise_aoa = best_case.aoa_deg
+    cruise_lift = 2.0 * best_loads["total_lift"]
+    print(f"       Cruise AoA  : {cruise_aoa:.2f} deg")
+    print(f"       Full lift   : {cruise_lift:.1f} N  (target = {target_weight:.1f} N)")
 
     # ====================================================================
-    # Step 4: Map aero loads onto structural nodes
+    # Step 5 — Apply aerodynamic load factor
     # ====================================================================
-    spar = TubularSpar.from_wing_geometry(aircraft.wing, cfg.spar, material)
-    mapper = LoadMapper(method="cubic")
-
-    # Map loads: re-dimensionalise Cl using actual flight conditions,
-    # then scale by the design load factor
-    mapped = mapper.map_loads(
-        best_case,
-        spar.y,
-        scale_factor=cfg.flight.load_factor,
-        actual_velocity=cfg.flight.velocity,
-        actual_density=cfg.flight.air_density,
+    # The aerodynamic load factor (e.g. 1.5× for 1G cruise with 50% margin)
+    # scales the distributed lift to the design limit loads.
+    # Note: this is distinct from the material safety factor, which is applied
+    # inside the optimizer when comparing stress to the allowable.
+    print("[5/8] Applying aerodynamic load factor...")
+    design_loads = LoadMapper.apply_load_factor(
+        best_loads, cfg.safety.aerodynamic_load_factor
     )
-    print(f"Load mapping: {best_case.n_stations} aero stations → {spar.n_nodes} struct nodes")
-    print(f"  Mapped total half-span lift (at n={cfg.flight.load_factor}): "
-          f"{mapped['total_lift']:.1f} N")
-    print()
+    print(f"       Load factor : {cfg.safety.aerodynamic_load_factor}G")
+    print(f"       Design lift : {2.0 * design_loads['total_lift']:.1f} N (full span)")
 
     # ====================================================================
-    # Step 5: Compute target tip deflection from dihedral
+    # Step 6 — Run spar optimization
     # ====================================================================
-    half_span = aircraft.wing.half_span
-    target_tip_defl = half_span * np.tan(np.radians(cfg.wing.dihedral_tip_deg))
-    print(f"Half-span: {half_span:.2f} m")
-    print(f"Target tip deflection (for {cfg.wing.dihedral_tip_deg}° dihedral): "
-          f"{target_tip_defl:.3f} m ({target_tip_defl*1000:.1f} mm)")
-    print()
+    # SparOptimizer wraps an OpenMDAO structural FEM problem.
+    # The "scipy" method uses two phases:
+    #   Phase 1 — Differential Evolution (global, robust)
+    #   Phase 2 — SLSQP local refinement (fast convergence near optimum)
+    #
+    # Design variables : segment wall thicknesses (main + rear spar)
+    # Objective        : minimize total spar system mass
+    # Constraints      : von Mises stress ≤ allowable,
+    #                    max twist ≤ cfg.wing.max_tip_twist_deg,
+    #                    tip deflection ≤ limit (encoded in failure_index)
+    print("[6/8] Running spar optimization...")
+    opt = SparOptimizer(cfg, ac, design_loads, mat_db)
+    result = opt.optimize(method="scipy")
+
+    # Print a rich summary to stdout
+    print_optimization_summary(result)
 
     # ====================================================================
-    # Step 6: Run spar optimization
+    # Step 7 — Generate visualizations
     # ====================================================================
-    print("Running spar optimization...")
-    beam = EulerBernoulliBeam()
-
-    optimizer = SparOptimizer(
-        spar=spar,
-        beam_solver=beam,
-        f_ext=mapped["lift_per_span"],
-        safety_factor=cfg.spar.safety_factor,
-        max_tip_deflection=target_tip_defl,
-    )
-
-    result = optimizer.optimize(
-        method=cfg.solver.optimizer_method,
-        tol=cfg.solver.optimizer_tol,
-        maxiter=cfg.solver.optimizer_maxiter,
-    )
-
-    # Print summary
-    summary = print_optimization_summary(result)
-    print(summary)
-    print()
-
-    # ====================================================================
-    # Step 7: Visualize results
-    # ====================================================================
+    # Two figures are saved to the output directory:
+    #   beam_analysis.png  — deflection, twist, von Mises stress, mass summary
+    #   spar_geometry.png  — OD, wall thickness, ID, cross-section area per segment
+    print("[7/8] Generating visualizations...")
     output_dir = Path(cfg.io.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if result.beam_result:
-        sigma_allow = material.tensile_strength / cfg.spar.safety_factor
+    # seg_lengths lists the spanwise extent [m] of each segment definition,
+    # e.g. [1.5, 3.0, 3.0, 3.0, 3.0, 3.0] for a 15 m half-span with 6 segments.
+    seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
 
-        plot_beam_result(
-            result.beam_result,
-            E=material.E,
-            sigma_allow=sigma_allow,
-            title=f"{cfg.project_name} — Beam Analysis (AoA={best_case.aoa_deg}°, n={cfg.flight.load_factor})",
-            save_path=output_dir / "beam_analysis.png",
-        )
-        print(f"Saved: {output_dir / 'beam_analysis.png'}")
+    plot_beam_analysis(result, ac.wing.y, output_dir)
+    plot_spar_geometry(result, ac.wing.y, seg_lengths, output_dir)
 
-    if result.spar_props:
-        plot_spar_geometry(
-            y=spar.y,
-            outer_d=spar.outer_diameter,
-            inner_d=result.spar_props["inner_diameter"],
-            wall_thickness=result.spar_props["wall_thickness"],
-            title=f"{cfg.project_name} — Optimized Spar Geometry",
-            save_path=output_dir / "spar_geometry.png",
-        )
-        print(f"Saved: {output_dir / 'spar_geometry.png'}")
+    print(f"       Saved: {output_dir / 'beam_analysis.png'}")
+    print(f"       Saved: {output_dir / 'spar_geometry.png'}")
 
     # ====================================================================
-    # Step 8: Export to ANSYS
+    # Step 8 — Write optimization summary text file
     # ====================================================================
-    if result.beam_result and result.spar_props:
-        exporter = ANSYSExporter(spar, result.spar_props, result.beam_result, material)
+    # A human-readable plain-text file with full mass breakdown, structural
+    # performance metrics, and per-segment OD/thickness tables.
+    print("[8/8] Writing optimization summary...")
+    summary_path = output_dir / "optimization_summary.txt"
+    write_optimization_summary(result, summary_path)
+    print(f"       Saved: {summary_path}")
 
-        apdl_path = exporter.write_apdl(output_dir / "ansys" / "spar_model.mac")
-        print(f"Saved ANSYS APDL: {apdl_path}")
+    total_mass = result.total_mass_full_kg
+    print(f"\nDone.  Total spar system mass = {total_mass:.4f} kg")
+    print(f"       Feasible  : {result.failure_index <= 0}")
+    print(f"       Converged : {result.success}")
 
-        csv_path = exporter.write_workbench_csv(output_dir / "ansys" / "spar_data.csv")
-        print(f"Saved Workbench CSV: {csv_path}")
-
-        bdf_path = exporter.write_nastran_bdf(output_dir / "ansys" / "spar_model.bdf")
-        print(f"Saved NASTRAN BDF: {bdf_path}")
-
-    # Save text summary
-    with open(output_dir / "optimization_summary.txt", "w") as f:
-        f.write(summary)
-    print(f"\nSaved summary: {output_dir / 'optimization_summary.txt'}")
-
-    print("\nDone!")
+    return total_mass
 
 
 if __name__ == "__main__":
