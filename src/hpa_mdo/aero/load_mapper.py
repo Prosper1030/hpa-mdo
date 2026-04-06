@@ -3,9 +3,16 @@
 Aerodynamic solvers and the structural beam model typically use different
 spanwise discretisations.  LoadMapper performs conservative interpolation
 to transfer loads while preserving the total integrated force and moment.
+
+Handles:
+    - Lift per span (Fz)
+    - Drag per span (Fx)
+    - Pitching moment / torque per span (Mx) from Cmy
 """
 
 from __future__ import annotations
+
+from typing import Optional
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -31,9 +38,9 @@ class LoadMapper:
         aero_load: SpanwiseLoad,
         struct_y: np.ndarray,
         scale_factor: float = 1.0,
-        actual_velocity: float | None = None,
-        actual_density: float | None = None,
-    ) -> dict[str, np.ndarray]:
+        actual_velocity: Optional[float] = None,
+        actual_density: Optional[float] = None,
+    ) -> dict:  # noqa: E501
         """Interpolate aerodynamic loads onto structural nodes.
 
         Parameters
@@ -57,12 +64,14 @@ class LoadMapper:
         Returns
         -------
         dict with keys:
-            'y'             : structural y coordinates [m]
-            'lift_per_span' : interpolated lift/span [N/m]
-            'drag_per_span' : interpolated drag/span [N/m]
-            'chord'         : interpolated chord [m]
-            'cl'            : interpolated lift coefficient
-            'total_lift'    : integrated half-span lift [N] (for sanity check)
+            'y'                : structural y coordinates [m]
+            'lift_per_span'    : interpolated lift/span [N/m]
+            'drag_per_span'    : interpolated drag/span [N/m]
+            'torque_per_span'  : interpolated pitching-moment torque [N.m/m]
+            'chord'            : interpolated chord [m]
+            'cl'               : interpolated lift coefficient
+            'cm'               : interpolated pitching moment coefficient
+            'total_lift'       : integrated half-span lift [N]
         """
         y_a = aero_load.y
         y_s = struct_y
@@ -77,6 +86,7 @@ class LoadMapper:
         chord = _interp(aero_load.chord)
         cl = _interp(aero_load.cl)
         cd = _interp(aero_load.cd)
+        cm = _interp(aero_load.cm)
 
         # Re-dimensionalise with actual flight conditions if specified
         if actual_velocity is not None or actual_density is not None:
@@ -88,9 +98,13 @@ class LoadMapper:
             q_actual = 0.5 * rho * v**2
             lift = q_actual * chord * cl * scale_factor
             drag = q_actual * chord * cd * scale_factor
+            # Torque = q * c² * Cm (dimensional pitching moment per unit span)
+            torque = q_actual * chord**2 * cm * scale_factor
         else:
             lift = _interp(aero_load.lift_per_span) * scale_factor
             drag = _interp(aero_load.drag_per_span) * scale_factor
+            q_ref = aero_load.dynamic_pressure
+            torque = q_ref * chord**2 * cm * scale_factor
 
         total_lift = float(np.trapz(lift, y_s))
 
@@ -98,8 +112,10 @@ class LoadMapper:
             "y": y_s,
             "lift_per_span": lift,
             "drag_per_span": drag,
+            "torque_per_span": torque,
             "chord": chord,
             "cl": cl,
+            "cm": cm,
             "total_lift": total_lift,
         }
 
@@ -109,5 +125,6 @@ class LoadMapper:
         out = dict(mapped)
         out["lift_per_span"] = mapped["lift_per_span"] * n
         out["drag_per_span"] = mapped["drag_per_span"] * n
+        out["torque_per_span"] = mapped["torque_per_span"] * n
         out["total_lift"] = mapped["total_lift"] * n
         return out

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -24,7 +25,7 @@ from hpa_mdo.aero.base import AeroParser, SpanwiseLoad
 class VSPAeroParser(AeroParser):
     """Parse VSPAero `.lod` and `.polar` output files."""
 
-    def __init__(self, lod_path: str | Path, polar_path: str | Path | None = None):
+    def __init__(self, lod_path, polar_path=None):
         self.lod_path = Path(lod_path)
         self.polar_path = Path(polar_path) if polar_path else None
         self._cases: list[SpanwiseLoad] = []
@@ -33,7 +34,7 @@ class VSPAeroParser(AeroParser):
     # Public API
     # ------------------------------------------------------------------
 
-    def parse(self, **kwargs) -> list[SpanwiseLoad]:
+    def parse(self, **kwargs) -> List[SpanwiseLoad]:
         """Parse the .lod file and return one SpanwiseLoad per AoA case."""
         raw_text = self.lod_path.read_text()
         header_block, data_blocks = self._split_cases(raw_text)
@@ -54,7 +55,7 @@ class VSPAeroParser(AeroParser):
         best = min(self._cases, key=lambda c: abs(c.aoa_deg - aoa_deg))
         return best
 
-    def get_polar_df(self) -> pd.DataFrame | None:
+    def get_polar_df(self) -> Optional[pd.DataFrame]:
         """Parse the .polar file into a DataFrame (if provided)."""
         if self.polar_path is None or not self.polar_path.exists():
             return None
@@ -70,7 +71,7 @@ class VSPAeroParser(AeroParser):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _split_cases(text: str) -> tuple[str, list[str]]:
+    def _split_cases(text: str) -> Tuple[str, List[str]]:
         """Split the .lod file into the header block and per-AoA data blocks.
 
         VSPAero .lod files contain a header with reference values repeated
@@ -98,7 +99,7 @@ class VSPAeroParser(AeroParser):
                 ref[key] = float(m.group(2))
         return ref
 
-    def _parse_one_case(self, block: str, ref_defaults: dict) -> SpanwiseLoad | None:
+    def _parse_one_case(self, block: str, ref_defaults: dict) -> Optional[SpanwiseLoad]:
         """Parse a single AoA case block from the .lod file."""
         lines = block.splitlines()
 

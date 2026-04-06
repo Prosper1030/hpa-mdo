@@ -4,10 +4,10 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "hpa-mdo"
-version = "0.1.0"
+version = "2.0.0"
 description = "Human-Powered Aircraft Multidisciplinary Design Optimization Framework"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 dependencies = [
     "numpy>=1.24",
@@ -16,10 +16,11 @@ dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.0",
     "matplotlib>=3.7",
+    "openmdao>=3.28",
 ]
 
 [project.optional-dependencies]
-oas = ["openaerostruct>=2.7", "openmdao>=3.28"]
+oas = ["openaerostruct>=2.7"]
 api = ["fastapi>=0.100", "uvicorn>=0.23"]
 mcp = ["mcp>=1.0"]
 dev = ["pytest>=7.0", "pytest-cov", "ruff"]
@@ -33,4 +34,4 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py39"

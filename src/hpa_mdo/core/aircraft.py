@@ -1,47 +1,96 @@
-"""Aircraft data model — runtime representation of geometry and flight state.
+"""Aircraft data model — geometry, flight state, and airfoil utilities.
 
-This module converts the declarative HPAConfig into rich objects that carry
-derived quantities (Reynolds number, dynamic pressure, wing area, etc.) and
-are passed to solver modules.
+Converts HPAConfig into runtime objects with derived quantities.
+Computes airfoil-aware spar Z positions for dual-spar stiffness.
 """
-
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional
+
 import numpy as np
-from dataclasses import dataclass, field
 
 
 @dataclass
 class FlightCondition:
-    """Immutable snapshot of the flight environment."""
-    velocity: float          # m/s
-    air_density: float       # kg/m³
-    kinematic_viscosity: float  # m²/s
-    load_factor: float       # dimensionless
+    velocity: float
+    air_density: float
+    kinematic_viscosity: float
 
     @property
     def dynamic_pressure(self) -> float:
-        """q = 0.5 * rho * V^2"""
         return 0.5 * self.air_density * self.velocity ** 2
 
     def reynolds(self, chord: float) -> float:
-        """Chord Reynolds number."""
         return self.velocity * chord / self.kinematic_viscosity
 
 
 @dataclass
-class WingGeometry:
-    """Discretised half-span wing geometry.
+class AirfoilData:
+    """Upper and lower surface coordinates for an airfoil."""
+    name: str
+    x: np.ndarray  # chordwise [0..1]
+    z_upper: np.ndarray
+    z_lower: np.ndarray
 
-    All arrays are sized (n_stations,) and run from root (index 0)
-    to tip (index -1).
-    """
-    y: np.ndarray             # spanwise station positions [m] (half-span)
-    chord: np.ndarray         # local chord [m]
-    twist_deg: np.ndarray     # local twist angle [deg]
-    dihedral_deg: np.ndarray  # local dihedral angle [deg]
-    spar_xc: float            # chordwise spar position (fraction of chord)
-    airfoil_thickness: np.ndarray  # local max-thickness / chord
+    def camber_z_at(self, xc: float) -> float:
+        """Z-coordinate on the camber line at a given x/c."""
+        z_u = float(np.interp(xc, self.x, self.z_upper))
+        z_l = float(np.interp(xc, self.x, self.z_lower))
+        return (z_u + z_l) / 2.0
+
+    def thickness_at(self, xc: float) -> float:
+        """Airfoil thickness at x/c (fraction of chord)."""
+        z_u = float(np.interp(xc, self.x, self.z_upper))
+        z_l = float(np.interp(xc, self.x, self.z_lower))
+        return z_u - z_l
+
+    @classmethod
+    def from_dat(cls, path: Path, name: str = "") -> AirfoilData:
+        """Read Selig-format .dat file."""
+        lines = path.read_text().splitlines()
+        header = lines[0].strip()
+        coords = []
+        for line in lines[1:]:
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    coords.append((float(parts[0]), float(parts[1])))
+                except ValueError:
+                    continue
+        coords = np.array(coords)
+
+        # Selig format: upper surface (TE→LE) then lower (LE→TE)
+        # Find the leading edge (min x)
+        le_idx = np.argmin(coords[:, 0])
+        upper = coords[:le_idx + 1][::-1]  # LE → TE
+        lower = coords[le_idx:]             # LE → TE
+
+        # Ensure sorted by x
+        upper = upper[np.argsort(upper[:, 0])]
+        lower = lower[np.argsort(lower[:, 0])]
+
+        return cls(
+            name=name or header,
+            x=upper[:, 0],
+            z_upper=upper[:, 1],
+            z_lower=np.interp(upper[:, 0], lower[:, 0], lower[:, 1]),
+        )
+
+
+@dataclass
+class WingGeometry:
+    y: np.ndarray             # spanwise stations [m], root→tip
+    chord: np.ndarray
+    twist_deg: np.ndarray
+    dihedral_deg: np.ndarray
+    airfoil_thickness: np.ndarray  # max t/c
+    main_spar_xc: float
+    rear_spar_xc: float
+    # Z-offsets of spar tubes within the airfoil section (fraction of chord)
+    main_spar_z_camber: np.ndarray
+    rear_spar_z_camber: np.ndarray
 
     @property
     def n_stations(self) -> int:
@@ -53,13 +102,15 @@ class WingGeometry:
 
     @property
     def area_half(self) -> float:
-        """Half-wing planform area via trapezoidal integration."""
         return float(np.trapz(self.chord, self.y))
+
+    def spar_separation(self) -> np.ndarray:
+        """Chordwise distance between main and rear spar [m]."""
+        return (self.rear_spar_xc - self.main_spar_xc) * self.chord
 
 
 @dataclass
 class Aircraft:
-    """Top-level aircraft representation combining geometry + flight state."""
     name: str
     wing: WingGeometry
     flight: FlightCondition
@@ -70,54 +121,76 @@ class Aircraft:
     def weight_N(self) -> float:
         return self.mass_total_kg * 9.80665
 
-    @property
-    def design_load_N(self) -> float:
-        """Total design load = W * n (load factor)."""
-        return self.weight_N * self.flight.load_factor
-
     @classmethod
     def from_config(cls, cfg) -> Aircraft:
-        """Build Aircraft from an HPAConfig object."""
         from hpa_mdo.core.config import HPAConfig
         assert isinstance(cfg, HPAConfig)
 
         n = cfg.solver.n_beam_nodes
-        half_span = cfg.wing.span / 2.0
+        half_span = cfg.half_span
         y = np.linspace(0, half_span, n)
-        eta = y / half_span  # normalised span 0..1
+        eta = y / half_span
 
         chord = cfg.wing.root_chord + eta * (cfg.wing.tip_chord - cfg.wing.root_chord)
         dihedral = cfg.wing.dihedral_root_deg + eta * (
-            cfg.wing.dihedral_tip_deg - cfg.wing.dihedral_root_deg
-        )
-        twist = np.zeros(n)  # TODO: populate from VSP / user input
+            cfg.wing.dihedral_tip_deg - cfg.wing.dihedral_root_deg)
+        twist = np.zeros(n)
 
-        # Approximate airfoil max thickness/chord — linear interpolation
-        # Clark Y SM ≈ 11.7%, FX 76-MP-140 ≈ 14.0%
-        tc_root = 0.117
-        tc_tip = 0.140
+        tc_root, tc_tip = 0.117, 0.140
         airfoil_tc = tc_root + eta * (tc_tip - tc_root)
 
+        # Try to load airfoil .dat files for accurate Z positions
+        main_xc = cfg.main_spar.location_xc
+        rear_xc = cfg.rear_spar.location_xc
+
+        main_z = np.zeros(n)
+        rear_z = np.zeros(n)
+
+        if cfg.io.airfoil_dir and Path(cfg.io.airfoil_dir).exists():
+            airfoil_dir = Path(cfg.io.airfoil_dir)
+            root_af = _try_load_airfoil(airfoil_dir, cfg.wing.airfoil_root)
+            tip_af = _try_load_airfoil(airfoil_dir, cfg.wing.airfoil_tip)
+
+            if root_af and tip_af:
+                tc_root = root_af.thickness_at(main_xc)
+                tc_tip = tip_af.thickness_at(main_xc)
+                airfoil_tc = tc_root + eta * (tc_tip - tc_root)
+
+                main_z_root = root_af.camber_z_at(main_xc)
+                main_z_tip = tip_af.camber_z_at(main_xc)
+                main_z = main_z_root + eta * (main_z_tip - main_z_root)
+
+                rear_z_root = root_af.camber_z_at(rear_xc)
+                rear_z_tip = tip_af.camber_z_at(rear_xc)
+                rear_z = rear_z_root + eta * (rear_z_tip - rear_z_root)
+
         wing = WingGeometry(
-            y=y,
-            chord=chord,
-            twist_deg=twist,
+            y=y, chord=chord, twist_deg=twist,
             dihedral_deg=dihedral,
-            spar_xc=cfg.wing.spar_location_xc,
             airfoil_thickness=airfoil_tc,
+            main_spar_xc=main_xc,
+            rear_spar_xc=rear_xc,
+            main_spar_z_camber=main_z,
+            rear_spar_z_camber=rear_z,
         )
 
         flight = FlightCondition(
             velocity=cfg.flight.velocity,
             air_density=cfg.flight.air_density,
             kinematic_viscosity=cfg.flight.kinematic_viscosity,
-            load_factor=cfg.flight.load_factor,
         )
 
         return cls(
             name=cfg.project_name,
-            wing=wing,
-            flight=flight,
+            wing=wing, flight=flight,
             mass_total_kg=cfg.weight.operating_kg,
             mass_airframe_kg=cfg.weight.airframe_kg,
         )
+
+
+def _try_load_airfoil(directory: Path, name: str) -> Optional[AirfoilData]:
+    for suffix in [".dat", ".txt", ""]:
+        p = directory / f"{name}{suffix}"
+        if p.exists():
+            return AirfoilData.from_dat(p, name)
+    return None

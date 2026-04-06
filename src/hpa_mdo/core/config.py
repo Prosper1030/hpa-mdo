@@ -1,37 +1,35 @@
-"""Centralized configuration management for HPA-MDO.
+"""Centralized configuration management for HPA-MDO v2.
 
-All design parameters, file paths, and solver settings are defined here
-using Pydantic models for validation. Configs can be loaded from YAML files
-or constructed programmatically for API / agent use.
+Schema mirrors configs/blackcat_004.yaml exactly.
+All engineering constants are read from YAML — nothing is hardcoded.
 """
-
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field
 
 
-# ---------------------------------------------------------------------------
-# Sub-configs
-# ---------------------------------------------------------------------------
+# ── Sub-configs ─────────────────────────────────────────────────────────────
 
-class FlightConditionConfig(BaseModel):
-    """Atmospheric and kinematic flight state."""
-    velocity: float = Field(..., description="Cruise true airspeed [m/s]")
-    altitude: float = Field(0.0, description="Altitude ASL [m]")
-    air_density: float = Field(1.225, description="Air density [kg/m³]")
-    kinematic_viscosity: float = Field(1.46e-5, description="Kinematic viscosity [m²/s]")
-    load_factor: float = Field(3.0, description="Design limit load factor (n)")
+class FlightConfig(BaseModel):
+    velocity: float = Field(..., description="Cruise TAS [m/s]")
+    altitude: float = Field(0.0)
+    air_density: float = Field(1.225, description="[kg/m³]")
+    kinematic_viscosity: float = Field(1.46e-5)
+
+
+class SafetyConfig(BaseModel):
+    aerodynamic_load_factor: float = Field(2.0, description="Limit load [G]")
+    material_safety_factor: float = Field(1.5, description="Knock-down on UTS")
 
 
 class WeightConfig(BaseModel):
-    """Mass breakdown."""
-    airframe_kg: float = Field(..., description="Airframe dry mass [kg]")
-    pilot_kg: float = Field(..., description="Pilot + equipment mass [kg]")
-    max_takeoff_kg: float = Field(..., description="Maximum design MTOW [kg]")
+    airframe_kg: float
+    pilot_kg: float
+    max_takeoff_kg: float
 
     @property
     def operating_kg(self) -> float:
@@ -39,67 +37,113 @@ class WeightConfig(BaseModel):
 
 
 class WingConfig(BaseModel):
-    """Wing planform definition."""
-    span: float = Field(..., description="Full wingspan [m]")
-    root_chord: float = Field(..., description="Root chord length [m]")
-    tip_chord: float = Field(..., description="Tip chord length [m]")
-    dihedral_root_deg: float = Field(0.0, description="Dihedral at root [deg]")
-    dihedral_tip_deg: float = Field(6.0, description="Dihedral at tip [deg]")
-    spar_location_xc: float = Field(0.25, description="Spar chordwise position x/c")
-    airfoil_root: str = Field("clarkysm", description="Root airfoil name")
-    airfoil_tip: str = Field("fx76mp140", description="Tip airfoil name")
+    span: float
+    root_chord: float
+    tip_chord: float
+    dihedral_root_deg: float = 0.0
+    dihedral_tip_deg: float = 6.0
+    spar_location_xc: float = 0.25
+    airfoil_root: str = "clarkysm"
+    airfoil_tip: str = "fx76mp140"
+    max_tip_twist_deg: float = Field(2.0, description="Torsion constraint [deg]")
 
 
 class SparConfig(BaseModel):
-    """Spar structural parameters."""
-    material: str = Field("carbon_fiber_hm", description="Material key in MaterialDB")
-    outer_diameter_root: Optional[float] = Field(
-        None, description="Root outer diameter [m]. None = auto from airfoil thickness"
-    )
-    outer_diameter_tip: Optional[float] = Field(None, description="Tip outer diameter [m]")
-    thickness_fraction_root: float = Field(0.65, description="OD / airfoil-thickness at root")
-    thickness_fraction_tip: float = Field(0.80, description="OD / airfoil-thickness at tip")
-    min_wall_thickness: float = Field(0.8e-3, description="Minimum wall thickness [m]")
-    safety_factor: float = Field(4.0, description="Safety factor on tensile strength")
+    """Shared schema for main_spar and rear_spar."""
+    material: str = "carbon_fiber_hm"
+    location_xc: float = 0.25
+
+    outer_diameter_root: Optional[float] = None
+    outer_diameter_tip: Optional[float] = None
+    thickness_fraction_root: float = 0.65
+    thickness_fraction_tip: float = 0.80
+
+    min_wall_thickness: float = 0.8e-3
+    max_segment_length: float = 3.0
+
+    segments: Optional[List[float]] = None
+
+    joint_material: str = "aluminum_6061_t6"
+    joint_mass_kg: float = 0.15
+
+    enabled: bool = True
+
+
+class LiftWireAttachment(BaseModel):
+    y: float
+    fuselage_z: float = -1.5
+    label: str = ""
+
+
+class LiftWireConfig(BaseModel):
+    enabled: bool = True
+    cable_material: str = "steel_4130"
+    cable_diameter: float = 2.0e-3
+    max_tension_fraction: float = 0.5
+    attachments: List[LiftWireAttachment] = []
 
 
 class SolverConfig(BaseModel):
-    """Numerical solver settings."""
-    n_beam_nodes: int = Field(50, description="Number of beam FD nodes per half-span")
-    optimizer_method: Literal["SLSQP", "trust-constr", "COBYLA"] = Field("SLSQP")
-    optimizer_tol: float = Field(1e-6, description="Optimizer convergence tolerance")
-    optimizer_maxiter: int = Field(500, description="Max optimizer iterations")
-    fsi_max_iter: int = Field(20, description="Max FSI coupling iterations")
-    fsi_tol: float = Field(1e-3, description="FSI convergence tolerance on tip deflection [m]")
+    n_beam_nodes: int = 60
+    optimizer: str = "SLSQP"
+    optimizer_tol: float = 1e-6
+    optimizer_maxiter: int = 500
+    fsi_coupling: Literal["one-way", "two-way"] = "one-way"
+    fsi_max_iter: int = 20
+    fsi_tol: float = 1e-3
 
 
 class IOConfig(BaseModel):
-    """Paths for input data and output results."""
-    vsp_model: Optional[Path] = Field(None, description="Path to .vsp3 file")
-    vsp_lod: Optional[Path] = Field(None, description="Path to VSPAero .lod file")
-    vsp_polar: Optional[Path] = Field(None, description="Path to VSPAero .polar file")
-    xflr5_csv: Optional[Path] = Field(None, description="Path to XFLR5 exported CSV")
-    airfoil_dir: Optional[Path] = Field(None, description="Directory containing .dat airfoil files")
-    output_dir: Path = Field(Path("output"), description="Output directory")
+    vsp_model: Optional[Path] = None
+    vsp_lod: Optional[Path] = None
+    vsp_polar: Optional[Path] = None
+    airfoil_dir: Optional[Path] = None
+    output_dir: Path = Path("output")
+    training_db: Path = Path("database/training_data.csv")
 
 
-# ---------------------------------------------------------------------------
-# Top-level config
-# ---------------------------------------------------------------------------
+# ── Top-level ───────────────────────────────────────────────────────────────
 
 class HPAConfig(BaseModel):
-    """Root configuration for the entire MDO framework."""
-    project_name: str = Field("HPA-MDO", description="Project identifier")
-    flight: FlightConditionConfig
+    project_name: str = "HPA-MDO"
+    flight: FlightConfig
+    safety: SafetyConfig = SafetyConfig()
     weight: WeightConfig
     wing: WingConfig
-    spar: SparConfig = SparConfig()
+    main_spar: SparConfig
+    rear_spar: SparConfig = SparConfig(
+        enabled=True, location_xc=0.70,
+        thickness_fraction_root=0.55, thickness_fraction_tip=0.65,
+        joint_mass_kg=0.10,
+    )
+    lift_wires: LiftWireConfig = LiftWireConfig()
     solver: SolverConfig = SolverConfig()
     io: IOConfig = IOConfig()
 
+    @property
+    def half_span(self) -> float:
+        return self.wing.span / 2.0
 
-def load_config(path: "str | Path") -> HPAConfig:
-    """Load configuration from a YAML file."""
+    def spar_segment_lengths(self, spar_cfg: SparConfig) -> List[float]:
+        """Return segment lengths, auto-dividing if not explicit."""
+        if spar_cfg.segments:
+            return list(spar_cfg.segments)
+        hs = self.half_span
+        msl = spar_cfg.max_segment_length
+        n = int(hs // msl)
+        remainder = hs - n * msl
+        segs = ([remainder] if remainder > 0.01 else []) + [msl] * n
+        return segs
+
+    @staticmethod
+    def joint_positions(segments: List[float]) -> List[float]:
+        """Cumulative sum excluding the last element → joint y-coords."""
+        import numpy as np
+        cs = list(np.cumsum(segments))
+        return cs[:-1]  # last entry is the tip, not a joint
+
+
+def load_config(path) -> HPAConfig:
     with open(path) as f:
         data = yaml.safe_load(f)
     return HPAConfig(**data)

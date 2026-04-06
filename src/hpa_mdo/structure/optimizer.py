@@ -1,25 +1,50 @@
-"""Spar structural optimizer using SQP (Sequential Quadratic Programming).
+"""Spar structural optimiser — OpenMDAO-based.
 
-Minimises spar mass subject to:
-    1. Stress constraint  : σ_max ≤ σ_allow / SF
-    2. Deflection constraint : u_tip ≤ u_target  (or u_tip == u_target)
-    3. Non-negative deflection everywhere
-    4. Minimum wall thickness (enforced via bounds)
+Replaces the legacy scipy-only optimizer with a full OpenMDAO
+architecture using the SpatialBeam FEM formulation.
 
-Design variables: [d_i_root, d_i_tip] — inner diameters at root and tip.
+Design variables : segment wall thicknesses (main + rear spar)
+Objective        : total spar system mass [kg]
+Constraints      : stress ≤ allowable, twist ≤ ±2°, deflection
+Safety factors   : aerodynamic_load_factor applied to loads,
+                   material_safety_factor applied to allowable stress
+                   (these are NEVER conflated).
+
+Usage
+-----
+    from hpa_mdo.core import load_config, Aircraft, MaterialDB
+    from hpa_mdo.aero import VSPAeroParser, LoadMapper
+    from hpa_mdo.structure import SparOptimizer
+
+    cfg = load_config("configs/blackcat_004.yaml")
+    ac = Aircraft.from_config(cfg)
+    mat_db = MaterialDB()
+    parser = VSPAeroParser(cfg.io.vsp_lod)
+    aero = parser.parse()
+    mapper = LoadMapper()
+    loads = mapper.map_loads(aero[0], ac.wing.y,
+                             actual_velocity=cfg.flight.velocity,
+                             actual_density=cfg.flight.air_density)
+
+    opt = SparOptimizer(cfg, ac, loads, mat_db)
+    result = opt.run()
+    print(result)
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
-from scipy.optimize import minimize, OptimizeResult, differential_evolution
 
-from hpa_mdo.core.materials import Material
-from hpa_mdo.structure.beam_model import EulerBernoulliBeam, BeamResult
-from hpa_mdo.structure.spar import TubularSpar
+from scipy.optimize import minimize as scipy_minimize
+from scipy.optimize import differential_evolution
+
+from hpa_mdo.structure.oas_structural import (
+    build_structural_problem,
+    run_analysis,
+    run_optimization,
+)
 
 
 @dataclass
@@ -27,208 +52,301 @@ class OptimizationResult:
     """Output of the spar optimization."""
     success: bool
     message: str
-    d_i_root: float           # optimal inner diameter at root [m]
-    d_i_tip: float            # optimal inner diameter at tip [m]
-    spar_mass_kg: float       # minimised spar mass for half-span [kg]
-    spar_mass_full_kg: float  # full-span spar mass [kg]
-    max_stress_Pa: float      # max bending stress [Pa]
-    allowable_stress_Pa: float
+
+    # Mass breakdown
+    spar_mass_half_kg: float
+    spar_mass_full_kg: float
+    total_mass_full_kg: float  # includes joint penalty
+
+    # Structural performance
+    max_stress_main_Pa: float
+    max_stress_rear_Pa: float
+    allowable_stress_main_Pa: float
+    allowable_stress_rear_Pa: float
+    failure_index: float           # KS ≤ 0 means feasible
     tip_deflection_m: float
-    beam_result: Optional[BeamResult] = None
-    spar_props: Optional[dict] = None
-    scipy_result: Optional[OptimizeResult] = field(default=None, repr=False)
+    twist_max_deg: float
+
+    # Design variables
+    main_t_seg_mm: np.ndarray      # main spar segment thicknesses [mm]
+    rear_t_seg_mm: Optional[np.ndarray] = None
+
+    # Full results
+    disp: Optional[np.ndarray] = field(default=None, repr=False)
+    vonmises_main: Optional[np.ndarray] = field(default=None, repr=False)
+    vonmises_rear: Optional[np.ndarray] = field(default=None, repr=False)
+
+    def summary(self) -> str:
+        """Human-readable summary."""
+        lines = [
+            "=" * 60,
+            "  HPA-MDO Spar Optimization Result",
+            "=" * 60,
+            f"  Status         : {'✓ CONVERGED' if self.success else '✗ FAILED'} — {self.message}",
+            f"  Total mass     : {self.total_mass_full_kg:.2f} kg (full span)",
+            f"  Spar tube mass : {self.spar_mass_full_kg:.2f} kg (full span)",
+            f"  Tip deflection : {self.tip_deflection_m*1000:.0f} mm",
+            f"  Max twist      : {self.twist_max_deg:.2f}°",
+            f"  Failure index  : {self.failure_index:.4f} ({'SAFE' if self.failure_index <= 0 else 'VIOLATED'})",
+            "",
+            "  Main spar segments [mm]:",
+        ]
+        for i, t in enumerate(self.main_t_seg_mm):
+            lines.append(f"    Segment {i+1}: {t:.2f} mm")
+        if self.rear_t_seg_mm is not None:
+            lines.append("  Rear spar segments [mm]:")
+            for i, t in enumerate(self.rear_t_seg_mm):
+                lines.append(f"    Segment {i+1}: {t:.2f} mm")
+        lines.append(f"  Max σ (main)   : {self.max_stress_main_Pa/1e6:.1f} MPa "
+                      f"/ {self.allowable_stress_main_Pa/1e6:.1f} MPa allowable")
+        if self.max_stress_rear_Pa > 0:
+            lines.append(f"  Max σ (rear)   : {self.max_stress_rear_Pa/1e6:.1f} MPa "
+                          f"/ {self.allowable_stress_rear_Pa/1e6:.1f} MPa allowable")
+        lines.append("=" * 60)
+        return "\n".join(lines)
 
 
 class SparOptimizer:
-    """Spar mass minimiser with cached evaluations.
+    """High-level interface for HPA spar structural optimization.
 
-    Uses a single cached evaluation per design point so that the
-    objective and all constraint functions see consistent results,
-    avoiding the gradient confusion that plagued separate evaluations.
+    Wraps the OpenMDAO model with a clean API for:
+        - Single analysis (given thicknesses → results)
+        - Full optimization (find minimum mass)
+        - Parameter sweeps
     """
 
     def __init__(
         self,
-        spar: TubularSpar,
-        beam_solver: EulerBernoulliBeam,
-        f_ext: np.ndarray,
-        safety_factor: float = 4.0,
-        max_tip_deflection: Optional[float] = None,
-        target_tip_deflection: Optional[float] = None,
-        point_loads: Optional[dict] = None,
+        cfg,
+        aircraft,
+        aero_loads: dict,
+        materials_db,
     ):
-        self.spar = spar
-        self.beam = beam_solver
-        self.f_ext_base = f_ext
-        self.safety_factor = safety_factor
-        self.max_tip_deflection = max_tip_deflection
-        self.target_tip_deflection = target_tip_deflection
-        self.point_loads = point_loads
-
-        self.material: Material = spar.material
-        self.sigma_allow = self.material.tensile_strength / self.safety_factor
-
-        # Evaluation cache — avoids redundant beam solves within one
-        # optimizer iteration (objective + constraints share the result).
-        self._cache_key: Optional[tuple] = None
-        self._cache_val: Optional[tuple] = None
-
-    def _evaluate(self, x: np.ndarray) -> tuple[float, BeamResult, dict, float]:
-        """Evaluate spar mass, beam result, props, max_stress for design x.
-
-        Returns (mass, beam_result, spar_props, max_stress_Pa).
         """
-        key = (float(x[0]), float(x[1]))
-        if self._cache_key == key and self._cache_val is not None:
-            return self._cache_val
-
-        d_i_root, d_i_tip = x
-        props = self.spar.compute(d_i_root, d_i_tip)
-
-        g = 9.80665
-        spar_weight_per_span = props["mass_per_length"] * g
-        f_net = self.f_ext_base - spar_weight_per_span
-
-        result = self.beam.solve(
-            y=self.spar.y,
-            EI=props["EI"],
-            f_ext=f_net,
-            outer_radius=props["outer_radius"],
-            point_loads=self.point_loads,
-        )
-
-        max_stress = float(np.max(np.abs(result.stress * self.material.E)))
-        val = (props["total_mass"], result, props, max_stress)
-        self._cache_key = key
-        self._cache_val = val
-        return val
-
-    def _penalty_objective(self, x: np.ndarray) -> float:
-        """Combined objective with penalty terms for robustness.
-
-        Uses an augmented Lagrangian-style penalty so that gradient-based
-        optimizers see a smooth landscape even when starting far from
-        the feasible region.
+        Parameters
+        ----------
+        cfg : HPAConfig
+            Full configuration.
+        aircraft : Aircraft
+            Aircraft geometry and flight condition.
+        aero_loads : dict
+            Output of LoadMapper.map_loads() — must contain
+            'lift_per_span' and optionally 'torque_per_span'.
+        materials_db : MaterialDB
         """
-        mass, result, props, max_stress = self._evaluate(x)
+        self.cfg = cfg
+        self.aircraft = aircraft
+        self.aero_loads = aero_loads
+        self.materials_db = materials_db
 
-        penalty = 0.0
-        rho = 100.0  # penalty weight
+        # Build the OpenMDAO problem
+        self._prob = build_structural_problem(
+            cfg, aircraft, aero_loads, materials_db)
 
-        # Stress violation penalty
-        stress_violation = max(0.0, max_stress - self.sigma_allow)
-        penalty += rho * (stress_violation / self.sigma_allow) ** 2
-
-        # Deflection violation penalty
-        if self.max_tip_deflection is not None:
-            defl_violation = max(0.0, result.tip_deflection - self.max_tip_deflection)
-            penalty += rho * (defl_violation / self.max_tip_deflection) ** 2
-
-        if self.target_tip_deflection is not None:
-            defl_err = (result.tip_deflection - self.target_tip_deflection)
-            penalty += rho * (defl_err / self.target_tip_deflection) ** 2
-
-        # Negative deflection penalty
-        min_defl = float(np.min(result.deflection))
-        if min_defl < 0:
-            penalty += rho * (min_defl ** 2)
-
-        return mass * (1.0 + penalty)
-
-    def optimize(
+    def analyze(
         self,
-        method: str = "SLSQP",
-        x0: Optional[np.ndarray] = None,
-        tol: float = 1e-6,
-        maxiter: int = 500,
+        main_t_seg: Optional[np.ndarray] = None,
+        rear_t_seg: Optional[np.ndarray] = None,
     ) -> OptimizationResult:
-        """Run the optimization.
+        """Run a single structural analysis (no optimization).
 
-        Strategy: first run differential_evolution (global, gradient-free)
-        to find a good starting point, then refine with SLSQP.
+        Parameters
+        ----------
+        main_t_seg : (n_seg,) array or None
+            Main spar segment wall thicknesses [m].
+            If None, uses the current values.
+        rear_t_seg : (n_seg,) array or None
+            Rear spar segment thicknesses [m].
         """
-        bounds = self.spar.design_variable_bounds()
+        if main_t_seg is not None:
+            self._prob.set_val("struct.seg_mapper.main_t_seg", main_t_seg, units="m")
+        if rear_t_seg is not None and self.cfg.rear_spar.enabled:
+            self._prob.set_val("struct.seg_mapper.rear_t_seg", rear_t_seg, units="m")
 
-        # --- Phase 1: Global search with differential_evolution ---
+        raw = run_analysis(self._prob)
+        return self._to_result(raw, success=True, message="Analysis complete")
+
+    def optimize(self, method: str = "auto") -> OptimizationResult:
+        """Run the full structural optimization.
+
+        Parameters
+        ----------
+        method : str
+            "openmdao" — use OpenMDAO driver (needs working derivatives)
+            "scipy"    — use scipy DE+SLSQP (robust, no derivatives needed)
+            "auto"     — try OpenMDAO first, fall back to scipy
+
+        Returns OptimizationResult with optimal thicknesses and performance.
+        """
+        if method == "openmdao":
+            return self._optimize_openmdao()
+        elif method == "scipy":
+            return self._optimize_scipy()
+        else:  # auto
+            try:
+                result = self._optimize_openmdao()
+                if result.success and result.failure_index <= 0.01:
+                    return result
+            except Exception:
+                pass
+            return self._optimize_scipy()
+
+    def _optimize_openmdao(self) -> OptimizationResult:
+        """Optimization via OpenMDAO ScipyOptimizeDriver."""
+        raw = run_optimization(self._prob)
+        success = raw["failure"] <= 0.01
+        msg = "OpenMDAO converged" if success else "OpenMDAO did not fully converge"
+        return self._to_result(raw, success=success, message=msg)
+
+    def _optimize_scipy(self) -> OptimizationResult:
+        """Robust optimization using scipy DE → SLSQP.
+
+        Wraps the OpenMDAO model as a black-box function evaluator
+        and uses scipy.optimize for the optimization loop.
+        """
+        cfg = self.cfg
+        n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+        rear_on = cfg.rear_spar.enabled
+        n_dv = n_seg * (2 if rear_on else 1)
+        min_t_main = cfg.main_spar.min_wall_thickness
+        min_t_rear = cfg.rear_spar.min_wall_thickness if rear_on else min_t_main
+        max_t = 0.012  # 12 mm
+
+        bounds_main = [(min_t_main, max_t)] * n_seg
+        bounds_rear = [(min_t_rear, max_t)] * n_seg if rear_on else []
+        bounds = bounds_main + bounds_rear
+
+        max_twist = cfg.wing.max_tip_twist_deg
+
+        # Evaluation cache
+        _cache = {}
+
+        def _eval(x):
+            key = tuple(np.round(x, 8))
+            if key in _cache:
+                return _cache[key]
+            x_main = x[:n_seg]
+            self._prob.set_val("struct.seg_mapper.main_t_seg", x_main, units="m")
+            if rear_on:
+                x_rear = x[n_seg:]
+                self._prob.set_val("struct.seg_mapper.rear_t_seg", x_rear, units="m")
+            run_analysis(self._prob)
+            res = {
+                "mass": float(self._prob.get_val("struct.mass.total_mass_full")),
+                "failure": float(self._prob.get_val("struct.failure.failure")),
+                "twist": float(self._prob.get_val("struct.twist.twist_max_deg")),
+            }
+            _cache[key] = res
+            return res
+
+        # ── Phase 1: Global search with differential evolution ──
+        print("  [Phase 1] Differential Evolution global search...")
+
+        def penalty_obj(x):
+            r = _eval(x)
+            penalty = 0.0
+            # Stress violation — strong quadratic penalty
+            if r["failure"] > 0:
+                penalty += 500.0 * (1.0 + r["failure"]) ** 2
+            # Twist violation — very strong penalty (this is the binding constraint)
+            if r["twist"] > max_twist:
+                excess = (r["twist"] - max_twist) / max_twist
+                penalty += 1000.0 * excess ** 2
+            return r["mass"] * (1.0 + penalty)
+
         de_result = differential_evolution(
-            self._penalty_objective,
-            bounds=bounds,
-            seed=42,
-            maxiter=200,
-            tol=1e-4,
-            polish=False,
-            init="sobol",
+            penalty_obj, bounds=bounds, seed=42,
+            maxiter=200, tol=1e-5, polish=False,
+            init="sobol", workers=1, popsize=20,
         )
         x_de = de_result.x
+        r_de = _eval(x_de)
+        print(f"    DE best: mass={r_de['mass']:.2f} kg, twist={r_de['twist']:.2f}°, "
+              f"failure={r_de['failure']:.4f}")
 
-        # --- Phase 2: Local refinement with constrained optimizer ---
-        if x0 is None:
-            x0 = x_de
+        # ── Phase 2: Local refinement with SLSQP ──
+        print("  [Phase 2] SLSQP local refinement...")
 
-        self._cache_key = None  # clear cache
+        _cache.clear()
 
-        def objective(x):
-            mass, _, _, _ = self._evaluate(x)
-            return mass
+        def obj(x):
+            return _eval(x)["mass"]
 
-        constraints = []
+        constraints = [
+            {"type": "ineq", "fun": lambda x: -_eval(x)["failure"]},
+            {"type": "ineq", "fun": lambda x: max_twist - _eval(x)["twist"]},
+        ]
 
-        def stress_constraint(x):
-            _, _, _, max_stress = self._evaluate(x)
-            return self.sigma_allow - max_stress
-        constraints.append({"type": "ineq", "fun": stress_constraint})
-
-        if self.target_tip_deflection is not None:
-            def deflection_eq(x):
-                _, result, _, _ = self._evaluate(x)
-                return result.tip_deflection - self.target_tip_deflection
-            constraints.append({"type": "eq", "fun": deflection_eq})
-        elif self.max_tip_deflection is not None:
-            def deflection_ineq(x):
-                _, result, _, _ = self._evaluate(x)
-                return self.max_tip_deflection - result.tip_deflection
-            constraints.append({"type": "ineq", "fun": deflection_ineq})
-
-        def no_negative_deflection(x):
-            _, result, _, _ = self._evaluate(x)
-            return float(np.min(result.deflection))
-        constraints.append({"type": "ineq", "fun": no_negative_deflection})
-
-        res = minimize(
-            objective,
-            x0,
-            method="SLSQP",
-            bounds=bounds,
-            constraints=constraints,
-            tol=tol,
-            options={"maxiter": maxiter, "disp": False, "ftol": tol},
+        slsqp = scipy_minimize(
+            obj, x_de, method="SLSQP",
+            bounds=bounds, constraints=constraints,
+            options={"maxiter": 500, "ftol": 1e-7, "disp": True},
         )
 
-        # If SLSQP failed, fall back to the DE result
-        if not res.success:
-            mass_slsqp, _, _, stress_slsqp = self._evaluate(res.x)
-            mass_de, _, _, stress_de = self._evaluate(x_de)
-            # Pick the lighter feasible solution
-            slsqp_feasible = stress_slsqp <= self.sigma_allow * 1.01
-            de_feasible = stress_de <= self.sigma_allow * 1.01
-            if de_feasible and (not slsqp_feasible or mass_de < mass_slsqp):
-                res.x = x_de
-                res.message = f"DE solution used (SLSQP failed: {res.message})"
+        # Pick best feasible solution
+        r_de = _eval(x_de)
+        r_sq = _eval(slsqp.x)
 
-        # Final evaluation at optimum
-        mass, beam_result, spar_props, max_stress = self._evaluate(res.x)
+        tol_f = 0.01  # failure tolerance
+        tol_tw = max_twist * 1.02  # 2% tolerance on twist
+
+        de_feas = r_de["failure"] <= tol_f and r_de["twist"] <= tol_tw
+        sq_feas = r_sq["failure"] <= tol_f and r_sq["twist"] <= tol_tw
+
+        # ALWAYS prefer feasible over infeasible
+        if sq_feas and de_feas:
+            x_best = slsqp.x if r_sq["mass"] <= r_de["mass"] else x_de
+            msg = "scipy converged (feasible)"
+        elif sq_feas:
+            x_best = slsqp.x
+            msg = "scipy SLSQP converged (DE infeasible)"
+        elif de_feas:
+            x_best = x_de
+            msg = "scipy DE solution (SLSQP infeasible)"
+        else:
+            # Neither feasible — pick the one with less constraint violation
+            v_de = max(0, r_de["failure"]) + max(0, r_de["twist"] - max_twist)
+            v_sq = max(0, r_sq["failure"]) + max(0, r_sq["twist"] - max_twist)
+            x_best = slsqp.x if v_sq <= v_de else x_de
+            msg = "scipy: no fully feasible solution — best compromise"
+
+        # Set best solution and extract full results
+        self._prob.set_val("struct.seg_mapper.main_t_seg", x_best[:n_seg], units="m")
+        if rear_on:
+            self._prob.set_val("struct.seg_mapper.rear_t_seg", x_best[n_seg:], units="m")
+        raw = run_analysis(self._prob)
+        best_r = _eval(x_best)
+        success = best_r["failure"] <= tol_f and best_r["twist"] <= tol_tw
+        return self._to_result(raw, success=success, message=msg)
+
+    def _to_result(self, raw: dict, success: bool, message: str) -> OptimizationResult:
+        """Convert raw results dict to OptimizationResult."""
+        cfg = self.cfg
+        mat_db = self.materials_db
+        mat_main = mat_db.get(cfg.main_spar.material)
+        mat_rear = mat_db.get(cfg.rear_spar.material)
+        sigma_a_main = mat_main.tensile_strength / cfg.safety.material_safety_factor
+        sigma_a_rear = mat_rear.tensile_strength / cfg.safety.material_safety_factor
+
+        vm_main = raw.get("vonmises_main", np.array([0.0]))
+        vm_rear = raw.get("vonmises_rear", np.array([0.0]))
 
         return OptimizationResult(
-            success=res.success or max_stress <= self.sigma_allow * 1.01,
-            message=res.message,
-            d_i_root=float(res.x[0]),
-            d_i_tip=float(res.x[1]),
-            spar_mass_kg=mass,
-            spar_mass_full_kg=mass * 2,
-            max_stress_Pa=max_stress,
-            allowable_stress_Pa=self.sigma_allow,
-            tip_deflection_m=beam_result.tip_deflection,
-            beam_result=beam_result,
-            spar_props=spar_props,
-            scipy_result=res,
+            success=success,
+            message=message,
+            spar_mass_half_kg=raw["spar_mass_half_kg"],
+            spar_mass_full_kg=raw["spar_mass_full_kg"],
+            total_mass_full_kg=raw["total_mass_full_kg"],
+            max_stress_main_Pa=float(np.max(vm_main)) if len(vm_main) > 0 else 0.0,
+            max_stress_rear_Pa=float(np.max(vm_rear)) if len(vm_rear) > 0 else 0.0,
+            allowable_stress_main_Pa=sigma_a_main,
+            allowable_stress_rear_Pa=sigma_a_rear,
+            failure_index=raw["failure"],
+            tip_deflection_m=raw["tip_deflection_m"],
+            twist_max_deg=raw["twist_max_deg"],
+            main_t_seg_mm=raw["main_t_seg"] * 1000.0,
+            rear_t_seg_mm=raw["rear_t_seg"] * 1000.0 if raw.get("rear_t_seg") is not None else None,
+            disp=raw.get("disp"),
+            vonmises_main=vm_main,
+            vonmises_rear=vm_rear if len(vm_rear) > 0 else None,
         )

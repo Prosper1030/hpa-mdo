@@ -1,0 +1,655 @@
+"""Generate OpenVSP geometry from HPAConfig and optionally run VSPAero.
+
+Workflow:
+    1. Instantiate VSPBuilder with an HPAConfig object.
+    2. Call build_vsp3() to write a .vsp3 file via the OpenVSP Python API.
+    3. Call run_vspaero() to execute a VLM/panel sweep over specified AoA list.
+    4. Or use build_and_run() as a single convenience entry-point.
+
+If the ``openvsp`` package is not installed the builder falls back to
+generating a ``.vspscript`` text file that can be executed inside the
+OpenVSP GUI (File -> Run Script).
+
+Error philosophy — **never crash**:
+    * Every OpenVSP / subprocess call is wrapped in try/except.
+    * On any failure the builder prints ``val_weight: 99999`` (the
+      sentinel understood by the optimiser loop) and returns a failure
+      dict so the caller can inspect ``result["success"]``.
+"""
+
+from __future__ import annotations
+
+import logging
+import shutil
+import subprocess
+import textwrap
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from hpa_mdo.core.config import HPAConfig
+
+logger = logging.getLogger(__name__)
+
+# Sentinel printed on ANY failure so the optimiser does not hang.
+_FAILURE_WEIGHT = 99999
+
+# Default timeout for VSPAero subprocess (seconds).
+_VSPAERO_TIMEOUT = 600
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _has_openvsp() -> bool:
+    """Return True if the openvsp Python module is importable."""
+    try:
+        import openvsp  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def _failure_dict(msg: str) -> Dict[str, Any]:
+    """Return a standardised failure payload and print the sentinel."""
+    print(f"val_weight: {_FAILURE_WEIGHT}")
+    logger.error("VSPBuilder failure: %s", msg)
+    return {
+        "success": False,
+        "error": msg,
+        "vsp3_path": None,
+        "lod_path": None,
+        "polar_path": None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Main class
+# ---------------------------------------------------------------------------
+
+class VSPBuilder:
+    """Build OpenVSP wing geometry from an HPAConfig and run VSPAero.
+
+    Parameters
+    ----------
+    cfg : HPAConfig
+        Fully-loaded configuration (see ``hpa_mdo.core.config``).
+    vspaero_timeout : int
+        Maximum seconds to wait for VSPAero to finish.  Default 600.
+    """
+
+    def __init__(self, cfg: HPAConfig, vspaero_timeout: int = _VSPAERO_TIMEOUT):
+        self.cfg = cfg
+        self.vspaero_timeout = vspaero_timeout
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def build_vsp3(self, output_path: str) -> Path:
+        """Generate a ``.vsp3`` file from config parameters.
+
+        If the ``openvsp`` module is available the native Python API is
+        used; otherwise a ``.vspscript`` text file is written to the same
+        directory and the method returns the path to that script.
+
+        Returns
+        -------
+        Path
+            Absolute path to the generated ``.vsp3`` (or ``.vspscript``).
+        """
+        output = Path(output_path).resolve()
+        output.parent.mkdir(parents=True, exist_ok=True)
+
+        if _has_openvsp():
+            return self._build_with_api(output)
+        else:
+            logger.warning(
+                "openvsp Python module not found — generating .vspscript fallback."
+            )
+            script_path = output.with_suffix(".vspscript")
+            return self._build_vspscript_fallback(script_path, output)
+
+    def run_vspaero(
+        self,
+        vsp3_path: str,
+        aoa_list: List[float],
+        output_dir: str,
+    ) -> Dict[str, Any]:
+        """Run VSPAero analysis on an existing ``.vsp3`` file.
+
+        Tries the OpenVSP Python API first; falls back to the ``vspaero``
+        CLI executable.
+
+        Parameters
+        ----------
+        vsp3_path : str
+            Path to the ``.vsp3`` geometry file.
+        aoa_list : list[float]
+            Angles of attack to sweep [deg].
+        output_dir : str
+            Directory for VSPAero output files.
+
+        Returns
+        -------
+        dict
+            ``success``, ``lod_path``, ``polar_path``, ``error`` keys.
+        """
+        vsp3 = Path(vsp3_path).resolve()
+        out_dir = Path(output_dir).resolve()
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        if not vsp3.exists():
+            return _failure_dict(f"vsp3 file not found: {vsp3}")
+
+        # Try the OpenVSP Python API route first.
+        if _has_openvsp():
+            return self._run_vspaero_api(vsp3, aoa_list, out_dir)
+
+        # Fall back to the CLI binary.
+        return self._run_vspaero_cli(vsp3, aoa_list, out_dir)
+
+    def build_and_run(
+        self,
+        output_dir: str,
+        aoa_list: Optional[List[float]] = None,
+    ) -> Dict[str, Any]:
+        """Convenience: build geometry + run analysis in one call.
+
+        Parameters
+        ----------
+        output_dir : str
+            Root directory for the ``.vsp3`` and VSPAero output files.
+        aoa_list : list[float] | None
+            Angles of attack [deg].  Defaults to ``[-2, 0, 2, 4, 6, 8]``.
+
+        Returns
+        -------
+        dict
+            Merged result with ``vsp3_path``, ``lod_path``, ``polar_path``,
+            ``success`` and ``error`` keys.
+        """
+        if aoa_list is None:
+            aoa_list = [-2.0, 0.0, 2.0, 4.0, 6.0, 8.0]
+
+        out = Path(output_dir).resolve()
+        out.mkdir(parents=True, exist_ok=True)
+
+        vsp3_filename = self.cfg.project_name.replace(" ", "_").lower() + ".vsp3"
+        vsp3_path = out / vsp3_filename
+
+        try:
+            built_path = self.build_vsp3(str(vsp3_path))
+        except Exception as exc:
+            return _failure_dict(f"build_vsp3 raised: {exc}")
+
+        # If the fallback produced a .vspscript instead of .vsp3 we
+        # cannot run VSPAero automatically.
+        if built_path.suffix == ".vspscript":
+            logger.info(
+                "Generated .vspscript at %s — manual execution required.",
+                built_path,
+            )
+            return {
+                "success": True,
+                "vsp3_path": None,
+                "vspscript_path": str(built_path),
+                "lod_path": None,
+                "polar_path": None,
+                "note": "Manual execution of .vspscript required (openvsp not installed).",
+            }
+
+        try:
+            result = self.run_vspaero(str(built_path), aoa_list, str(out))
+        except Exception as exc:
+            return _failure_dict(f"run_vspaero raised: {exc}")
+
+        result["vsp3_path"] = str(built_path)
+        return result
+
+    # ------------------------------------------------------------------
+    # OpenVSP Python API path
+    # ------------------------------------------------------------------
+
+    def _build_with_api(self, output: Path) -> Path:
+        """Use ``import openvsp as vsp`` to create the .vsp3 file."""
+        try:
+            import openvsp as vsp
+        except ImportError:
+            raise RuntimeError("openvsp is not available")
+
+        w = self.cfg.wing
+        half_span = self.cfg.half_span
+
+        try:
+            vsp.ClearVSPModel()
+
+            # ── Create wing component ────────────────────────────────
+            wing_id = vsp.AddGeom("WING")
+            vsp.SetGeomName(wing_id, "MainWing")
+
+            # Wing is defined with one XSec_Surf containing XSecs.
+            # OpenVSP wings default to two XSecs (root and tip).
+            # We set root section parameters then add a tip section.
+
+            # -- Root section (XSec index 0 is the blank cap, 1 is root) --
+            xsec_surf = vsp.GetXSecSurf(wing_id, 0)
+
+            # Root XSec (index 1)
+            root_xs = vsp.GetXSec(xsec_surf, 1)
+            vsp.SetParmVal(
+                vsp.GetXSecParm(root_xs, "Root_Chord"),
+                w.root_chord,
+            )
+
+            # -- Tip section (index 2 — already exists on default wing) --
+            tip_xs = vsp.GetXSec(xsec_surf, 2)
+            vsp.SetParmVal(
+                vsp.GetXSecParm(tip_xs, "Tip_Chord"),
+                w.tip_chord,
+            )
+            vsp.SetParmVal(
+                vsp.GetXSecParm(tip_xs, "Span"),
+                half_span,
+            )
+
+            # Dihedral — OpenVSP section dihedral applies to the
+            # outboard panel attached to that XSec.
+            vsp.SetParmVal(
+                vsp.GetXSecParm(root_xs, "Dihedral"),
+                w.dihedral_root_deg,
+            )
+            vsp.SetParmVal(
+                vsp.GetXSecParm(tip_xs, "Dihedral"),
+                w.dihedral_tip_deg,
+            )
+
+            # Sweep — linear taper, zero sweep at quarter-chord.
+            vsp.SetParmVal(
+                vsp.GetXSecParm(tip_xs, "Sweep"),
+                0.0,
+            )
+            vsp.SetParmVal(
+                vsp.GetXSecParm(tip_xs, "Sweep_Location"),
+                w.spar_location_xc,
+            )
+
+            # ── Airfoil assignment ───────────────────────────────────
+            self._assign_airfoil_api(vsp, xsec_surf, 1, w.airfoil_root)
+            self._assign_airfoil_api(vsp, xsec_surf, 2, w.airfoil_tip)
+
+            # ── Symmetry (full wing from half definition) ────────────
+            vsp.SetParmVal(
+                vsp.FindParm(wing_id, "Sym_Planar_Flag", "Sym"),
+                vsp.SYM_XZ,
+            )
+
+            vsp.Update()
+
+            # ── Save ─────────────────────────────────────────────────
+            vsp.WriteVSPFile(str(output))
+            logger.info("Wrote .vsp3 via API: %s", output)
+
+        except Exception as exc:
+            # Last-resort safety net — do NOT propagate.
+            logger.exception("OpenVSP API error during build")
+            script_fb = output.with_suffix(".vspscript")
+            logger.info("Falling back to .vspscript at %s", script_fb)
+            return self._build_vspscript_fallback(script_fb, output)
+
+        return output
+
+    def _assign_airfoil_api(
+        self,
+        vsp: Any,
+        xsec_surf: str,
+        xsec_idx: int,
+        airfoil_name: str,
+    ) -> None:
+        """Try to load an airfoil .dat file; fall back to NACA 4412."""
+        xs = vsp.GetXSec(xsec_surf, xsec_idx)
+        dat_path = self._resolve_airfoil_dat(airfoil_name)
+
+        if dat_path is not None:
+            try:
+                vsp.ChangeXSecShape(xsec_surf, xsec_idx, vsp.XS_FILE_AIRFOIL)
+                xs = vsp.GetXSec(xsec_surf, xsec_idx)
+                vsp.ReadFileAirfoil(xs, str(dat_path))
+                logger.info("Loaded airfoil %s from %s", airfoil_name, dat_path)
+                return
+            except Exception:
+                logger.warning(
+                    "Failed to load airfoil file %s — using NACA fallback",
+                    dat_path,
+                )
+
+        # Fallback: NACA 4-series placeholder.
+        try:
+            vsp.ChangeXSecShape(xsec_surf, xsec_idx, vsp.XS_FOUR_SERIES)
+            xs = vsp.GetXSec(xsec_surf, xsec_idx)
+            # NACA 4412 is a reasonable HPA-like fallback.
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Camber"), 0.04)
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "CamberLoc"), 0.4)
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "ThickChord"), 0.12)
+        except Exception:
+            logger.warning("Could not set NACA fallback for xsec %d", xsec_idx)
+
+    # ------------------------------------------------------------------
+    # VSPAero execution
+    # ------------------------------------------------------------------
+
+    def _run_vspaero_api(
+        self,
+        vsp3: Path,
+        aoa_list: List[float],
+        out_dir: Path,
+    ) -> Dict[str, Any]:
+        """Run VSPAero through the OpenVSP Python API."""
+        try:
+            import openvsp as vsp
+        except ImportError:
+            return _failure_dict("openvsp import failed in _run_vspaero_api")
+
+        try:
+            vsp.ClearVSPModel()
+            vsp.ReadVSPFile(str(vsp3))
+            vsp.Update()
+
+            # ── DegenGeom (required before VSPAero) ──────────────────
+            vsp.SetAnalysisInputDefaults("VSPAEROComputeGeometry")
+            vsp.ExecAnalysis("VSPAEROComputeGeometry")
+
+            # ── Configure solver ─────────────────────────────────────
+            analysis_name = "VSPAEROSweep"
+            vsp.SetAnalysisInputDefaults(analysis_name)
+
+            # Flight conditions.
+            flt = self.cfg.flight
+            vsp.SetDoubleAnalysisInput(analysis_name, "Vinf", [flt.velocity])
+            vsp.SetDoubleAnalysisInput(analysis_name, "Rho", [flt.air_density])
+
+            # Reference area — wing planform.
+            w = self.cfg.wing
+            s_ref = 0.5 * (w.root_chord + w.tip_chord) * w.span
+            vsp.SetDoubleAnalysisInput(analysis_name, "Sref", [s_ref])
+            vsp.SetDoubleAnalysisInput(analysis_name, "bref", [w.span])
+            vsp.SetDoubleAnalysisInput(analysis_name, "cref", [0.5 * (w.root_chord + w.tip_chord)])
+
+            # AoA sweep.
+            vsp.SetDoubleAnalysisInput(analysis_name, "AlphaStart", [min(aoa_list)])
+            vsp.SetDoubleAnalysisInput(analysis_name, "AlphaEnd", [max(aoa_list)])
+            n_aoa = len(aoa_list)
+            vsp.SetIntAnalysisInput(analysis_name, "AlphaNpts", [n_aoa])
+
+            # VLM solver type (0 = VLM, 1 = Panel).
+            vsp.SetIntAnalysisInput(analysis_name, "AnalysisMethod", [0])
+
+            # ── Execute ──────────────────────────────────────────────
+            results_id = vsp.ExecAnalysis(analysis_name)
+
+            # ── Locate output files ──────────────────────────────────
+            stem = vsp3.stem
+            lod_path = self._find_output(out_dir, stem, ".lod") or self._find_output(vsp3.parent, stem, ".lod")
+            polar_path = self._find_output(out_dir, stem, ".polar") or self._find_output(vsp3.parent, stem, ".polar")
+
+            # VSPAero sometimes writes next to the .vsp3 — copy if needed.
+            if lod_path and lod_path.parent != out_dir:
+                dst = out_dir / lod_path.name
+                shutil.copy2(lod_path, dst)
+                lod_path = dst
+            if polar_path and polar_path.parent != out_dir:
+                dst = out_dir / polar_path.name
+                shutil.copy2(polar_path, dst)
+                polar_path = dst
+
+            return {
+                "success": True,
+                "lod_path": str(lod_path) if lod_path else None,
+                "polar_path": str(polar_path) if polar_path else None,
+                "results_id": results_id,
+                "error": None,
+            }
+
+        except Exception as exc:
+            return _failure_dict(f"VSPAero API execution failed: {exc}")
+
+    def _run_vspaero_cli(
+        self,
+        vsp3: Path,
+        aoa_list: List[float],
+        out_dir: Path,
+    ) -> Dict[str, Any]:
+        """Run VSPAero via the command-line ``vspaero`` binary."""
+        vspaero_bin = shutil.which("vspaero")
+        if vspaero_bin is None:
+            return _failure_dict(
+                "vspaero binary not found on PATH and openvsp module unavailable"
+            )
+
+        # VSPAero CLI requires a DegenGeom CSV.  Generate it with the
+        # lightweight vspscript approach if the API is unavailable.
+        # The CLI expects a .vspaero setup file.
+        stem = vsp3.stem
+        setup_path = out_dir / f"{stem}.vspaero"
+
+        w = self.cfg.wing
+        flt = self.cfg.flight
+        s_ref = 0.5 * (w.root_chord + w.tip_chord) * w.span
+        c_ref = 0.5 * (w.root_chord + w.tip_chord)
+
+        try:
+            setup_lines = [
+                f"Sref = {s_ref:.6f}",
+                f"bref = {w.span:.6f}",
+                f"cref = {c_ref:.6f}",
+                f"Xref = {0.25 * w.root_chord:.6f}",
+                "Yref = 0.000000",
+                "Zref = 0.000000",
+                f"Mach = {flt.velocity / 343.0:.6f}",
+                f"AoA = {', '.join(f'{a:.2f}' for a in aoa_list)}",
+                "Beta = 0.000000",
+                f"Vinf = {flt.velocity:.4f}",
+                f"Rho = {flt.air_density:.6f}",
+                "ClMax = -1.000000",
+                "MaxTurningAngle = -1.000000",
+                "Symmetry = NO",
+                "FarDist = -1.000000",
+                "NumWakeNodes = -1",
+                "WakeIters = 3",
+            ]
+            setup_path.write_text("\n".join(setup_lines) + "\n")
+
+            cmd = [vspaero_bin, str(setup_path)]
+            logger.info("Running VSPAero CLI: %s", " ".join(cmd))
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=self.vspaero_timeout,
+                cwd=str(out_dir),
+            )
+
+            if result.returncode != 0:
+                return _failure_dict(
+                    f"vspaero exited with code {result.returncode}: "
+                    f"{result.stderr[:500]}"
+                )
+
+            lod_path = self._find_output(out_dir, stem, ".lod")
+            polar_path = self._find_output(out_dir, stem, ".polar")
+
+            return {
+                "success": True,
+                "lod_path": str(lod_path) if lod_path else None,
+                "polar_path": str(polar_path) if polar_path else None,
+                "error": None,
+            }
+
+        except subprocess.TimeoutExpired:
+            return _failure_dict(
+                f"vspaero timed out after {self.vspaero_timeout}s"
+            )
+        except FileNotFoundError:
+            return _failure_dict("vspaero binary disappeared from PATH")
+        except Exception as exc:
+            return _failure_dict(f"vspaero CLI failed: {exc}")
+
+    # ------------------------------------------------------------------
+    # .vspscript fallback
+    # ------------------------------------------------------------------
+
+    def _build_vspscript_fallback(self, script_path: Path, vsp3_target: Path) -> Path:
+        """Write a VSPScript that recreates the wing geometry.
+
+        The script can be executed inside OpenVSP via File -> Run Script,
+        or from the command line with ``vsp -script <file>``.
+        """
+        w = self.cfg.wing
+        half_span = self.cfg.half_span
+        root_af_dat = self._resolve_airfoil_dat(w.airfoil_root)
+        tip_af_dat = self._resolve_airfoil_dat(w.airfoil_tip)
+
+        # Build airfoil loading snippet.  If the .dat file is found we
+        # use ReadFileAirfoil; otherwise we fall back to NACA 4412.
+        root_af_block = self._vspscript_airfoil_block(
+            xsec_idx=1,
+            dat_path=root_af_dat,
+            label=w.airfoil_root,
+        )
+        tip_af_block = self._vspscript_airfoil_block(
+            xsec_idx=2,
+            dat_path=tip_af_dat,
+            label=w.airfoil_tip,
+        )
+
+        script = textwrap.dedent(f"""\
+            // ─────────────────────────────────────────────────────────────
+            // VSPScript: {self.cfg.project_name} wing geometry
+            // Generated by hpa_mdo.aero.vsp_builder (fallback mode)
+            // ─────────────────────────────────────────────────────────────
+
+            void main()
+            {{
+                // Clear existing model
+                ClearVSPModel();
+
+                // ── Create wing ─────────────────────────────────────────
+                string wing_id = AddGeom( "WING" );
+                SetGeomName( wing_id, "MainWing" );
+
+                // XSec surf for the wing
+                string xsec_surf = GetXSecSurf( wing_id, 0 );
+
+                // ── Root section (XSec index 1) ─────────────────────────
+                string root_xs = GetXSec( xsec_surf, 1 );
+                SetParmVal( GetXSecParm( root_xs, "Root_Chord" ), {w.root_chord:.6f} );
+                SetParmVal( GetXSecParm( root_xs, "Dihedral" ), {w.dihedral_root_deg:.4f} );
+
+                // ── Tip section (XSec index 2) ──────────────────────────
+                string tip_xs = GetXSec( xsec_surf, 2 );
+                SetParmVal( GetXSecParm( tip_xs, "Tip_Chord" ), {w.tip_chord:.6f} );
+                SetParmVal( GetXSecParm( tip_xs, "Span" ), {half_span:.6f} );
+                SetParmVal( GetXSecParm( tip_xs, "Dihedral" ), {w.dihedral_tip_deg:.4f} );
+                SetParmVal( GetXSecParm( tip_xs, "Sweep" ), 0.0 );
+                SetParmVal( GetXSecParm( tip_xs, "Sweep_Location" ), {w.spar_location_xc:.4f} );
+
+                // ── Airfoil assignment ───────────────────────────────────
+            {textwrap.indent(root_af_block, '    ')}
+            {textwrap.indent(tip_af_block, '    ')}
+
+                // ── Symmetry (mirror about XZ plane for full wing) ──────
+                string sym_parm = FindParm( wing_id, "Sym_Planar_Flag", "Sym" );
+                SetParmVal( sym_parm, SYM_XZ );
+
+                Update();
+
+                // ── Save ────────────────────────────────────────────────
+                WriteVSPFile( "{str(vsp3_target).replace(chr(92), '/')}" );
+                Print( "Saved: {vsp3_target.name}" );
+            }}
+        """)
+
+        try:
+            script_path.parent.mkdir(parents=True, exist_ok=True)
+            script_path.write_text(script)
+            logger.info("Wrote .vspscript fallback: %s", script_path)
+        except Exception as exc:
+            # Even fallback writing failed — return failure but never crash.
+            print(f"val_weight: {_FAILURE_WEIGHT}")
+            logger.error("Failed to write .vspscript: %s", exc)
+
+        return script_path
+
+    # ------------------------------------------------------------------
+    # Utility helpers
+    # ------------------------------------------------------------------
+
+    def _resolve_airfoil_dat(self, name: str) -> Optional[Path]:
+        """Locate an airfoil ``.dat`` file in the configured airfoil_dir.
+
+        Tries several common naming conventions:
+            <name>.dat, <name>.DAT, <NAME>.dat, <name>_coords.dat
+        """
+        af_dir = self.cfg.io.airfoil_dir
+        if af_dir is None:
+            return None
+        af_dir = Path(af_dir)
+        if not af_dir.is_dir():
+            return None
+
+        candidates = [
+            af_dir / f"{name}.dat",
+            af_dir / f"{name}.DAT",
+            af_dir / f"{name.upper()}.dat",
+            af_dir / f"{name.lower()}.dat",
+            af_dir / f"{name}_coords.dat",
+        ]
+        for c in candidates:
+            if c.is_file():
+                return c
+        return None
+
+    @staticmethod
+    def _vspscript_airfoil_block(
+        xsec_idx: int,
+        dat_path: Optional[Path],
+        label: str,
+    ) -> str:
+        """Return a VSPScript snippet that sets the airfoil for one XSec."""
+        if dat_path is not None:
+            safe_path = str(dat_path).replace("\\", "/")
+            return textwrap.dedent(f"""\
+                // Airfoil: {label}
+                ChangeXSecShape( xsec_surf, {xsec_idx}, XS_FILE_AIRFOIL );
+                string xs_{xsec_idx} = GetXSec( xsec_surf, {xsec_idx} );
+                ReadFileAirfoil( xs_{xsec_idx}, "{safe_path}" );
+            """)
+        else:
+            return textwrap.dedent(f"""\
+                // Airfoil: {label} (file not found — NACA 4412 fallback)
+                ChangeXSecShape( xsec_surf, {xsec_idx}, XS_FOUR_SERIES );
+                string xs_{xsec_idx} = GetXSec( xsec_surf, {xsec_idx} );
+                SetParmVal( GetXSecParm( xs_{xsec_idx}, "Camber" ), 0.04 );
+                SetParmVal( GetXSecParm( xs_{xsec_idx}, "CamberLoc" ), 0.4 );
+                SetParmVal( GetXSecParm( xs_{xsec_idx}, "ThickChord" ), 0.12 );
+            """)
+
+    @staticmethod
+    def _find_output(directory: Path, stem: str, suffix: str) -> Optional[Path]:
+        """Search *directory* for a file matching ``*<stem>*<suffix>``."""
+        if not directory.is_dir():
+            return None
+        # Exact match first.
+        exact = directory / f"{stem}{suffix}"
+        if exact.is_file():
+            return exact
+        # Glob for variants (e.g. ``stem_DegenGeom.lod``).
+        candidates = sorted(directory.glob(f"*{stem}*{suffix}"))
+        if candidates:
+            return candidates[-1]  # newest by name
+        # Broaden: any file with the right suffix.
+        any_match = sorted(directory.glob(f"*{suffix}"))
+        if any_match:
+            return any_match[-1]
+        return None

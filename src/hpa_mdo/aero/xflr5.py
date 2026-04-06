@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -34,16 +35,16 @@ class XFLR5Parser(AeroParser):
 
     def __init__(
         self,
-        csv_path: str | Path,
+        csv_path: Union[str, Path],
         velocity: float = 6.5,
         air_density: float = 1.225,
     ):
         self.csv_path = Path(csv_path)
         self.velocity = velocity
         self.air_density = air_density
-        self._cases: list[SpanwiseLoad] = []
+        self._cases: List[SpanwiseLoad] = []
 
-    def parse(self, **kwargs) -> list[SpanwiseLoad]:
+    def parse(self, **kwargs) -> List[SpanwiseLoad]:
         """Auto-detect format and parse."""
         text = self.csv_path.read_text(encoding="utf-8", errors="replace")
 
@@ -96,8 +97,8 @@ class XFLR5Parser(AeroParser):
 
     @staticmethod
     def _find_col(
-        df: pd.DataFrame, candidates: list[str], allow_missing: bool = False
-    ) -> np.ndarray | None:
+        df: pd.DataFrame, candidates: List[str], allow_missing: bool = False
+    ) -> Optional[np.ndarray]:
         for name in candidates:
             if name in df.columns:
                 return df[name].to_numpy(dtype=float)

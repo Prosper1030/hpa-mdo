@@ -1,0 +1,77 @@
+# =============================================================================
+# HPA-MDO Material Database
+#
+# All material properties used by the framework.
+# Add new materials by appending entries below.
+# Keys must be unique and referenced in config.yaml.
+# =============================================================================
+
+carbon_fiber_hm:
+  name: "High-Modulus Carbon Fiber (unidirectional)"
+  E: 230.0e9              # Young's modulus [Pa]
+  G: 15.0e9               # Shear modulus [Pa]
+  density: 1600.0          # [kg/m³]
+  tensile_strength: 2500.0e6   # UTS [Pa]
+  compressive_strength: 1500.0e6
+  poisson_ratio: 0.27
+  description: "Toray M46J class HM CF tube layup"
+
+carbon_fiber_std:
+  name: "Standard-Modulus Carbon Fiber"
+  E: 135.0e9
+  G: 5.0e9
+  density: 1550.0
+  tensile_strength: 1800.0e6
+  compressive_strength: 1200.0e6
+  poisson_ratio: 0.30
+  description: "T300/T700 class CF"
+
+carbon_fiber_im:
+  name: "Intermediate-Modulus Carbon Fiber"
+  E: 175.0e9
+  G: 10.0e9
+  density: 1580.0
+  tensile_strength: 2100.0e6
+  compressive_strength: 1400.0e6
+  poisson_ratio: 0.28
+  description: "T800/IM7 class CF"
+
+aluminum_6061_t6:
+  name: "Aluminum 6061-T6"
+  E: 68.9e9
+  G: 26.0e9
+  density: 2700.0
+  tensile_strength: 310.0e6
+  compressive_strength: 310.0e6
+  poisson_ratio: 0.33
+  description: "Common joint/fitting material"
+
+steel_4130:
+  name: "4130 Chromoly Steel"
+  E: 205.0e9
+  G: 80.0e9
+  density: 7850.0
+  tensile_strength: 670.0e6
+  compressive_strength: 670.0e6
+  poisson_ratio: 0.29
+  description: "Lift wire cable / landing gear"
+
+balsa:
+  name: "Balsa Wood (structural grade)"
+  E: 3.4e9
+  G: 0.2e9
+  density: 160.0
+  tensile_strength: 20.0e6
+  compressive_strength: 12.0e6
+  poisson_ratio: 0.23
+  description: "Ribs, trailing edge, fairings"
+
+kevlar_49:
+  name: "Kevlar 49"
+  E: 112.0e9
+  G: 2.0e9
+  density: 1440.0
+  tensile_strength: 3000.0e6
+  compressive_strength: null
+  poisson_ratio: 0.36
+  description: "Reinforcement / abrasion protection"

@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project output
+output/
+database/
+*.sql
+*.sqlite
+
+# OpenMDAO
+*.db
+reports/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+.env
+credentials.json
+
+# Temporary
+<stdin>_out/

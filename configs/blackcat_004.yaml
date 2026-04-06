@@ -1,59 +1,129 @@
 # =============================================================================
 # HPA-MDO Baseline Configuration: Black Cat 004
 # Human-Powered Aircraft — Wing Spar Structural Optimization
+#
+# RULES (see claude.md):
+#   - ALL engineering parameters live HERE, never hardcoded in Python
+#   - Materials are looked up from data/materials.yaml by key
+#   - Carbon tube specs are looked up from data/carbon_tubes.csv
+#   - Modify this file BEFORE changing any solver code
 # =============================================================================
 
 project_name: "Black Cat 004"
 
-# --- Flight condition ---
+# ── Flight Condition ────────────────────────────────────────────────────────
 flight:
   velocity: 6.5              # cruise TAS [m/s]
   altitude: 0.0              # sea level [m]
   air_density: 1.225         # ISA sea level [kg/m³]
   kinematic_viscosity: 1.46e-5
-  load_factor: 3.0           # 2G * 1.5 safety margin
 
-# --- Mass breakdown ---
+# ── Safety Factors (SEPARATE — never conflate) ─────────────────────────────
+safety:
+  aerodynamic_load_factor: 2.0   # design limit load [G]
+  material_safety_factor: 1.5    # applied to material ultimate strength
+
+# ── Mass Breakdown ──────────────────────────────────────────────────────────
 weight:
   airframe_kg: 40.0
   pilot_kg: 56.0             # pilot + equipment
   max_takeoff_kg: 100.0
 
-# --- Wing planform ---
+# ── Wing Planform ───────────────────────────────────────────────────────────
 wing:
-  span: 33.0                 # full wingspan [m]  (from VSP: Bref = 33.0)
-  root_chord: 1.39           # [m] (from VSP geometry)
-  tip_chord: 0.47            # [m] (from VSP tip section)
-  dihedral_root_deg: 0.0     # starts flat at root
-  dihedral_tip_deg: 6.0      # 6° at tip (progressive along span)
-  spar_location_xc: 0.25     # spar at quarter-chord
+  span: 33.0                 # full wingspan [m]
+  root_chord: 1.39           # [m]
+  tip_chord: 0.47            # [m]
+  dihedral_root_deg: 0.0
+  dihedral_tip_deg: 6.0      # progressive along span
+  spar_location_xc: 0.25     # main spar at quarter-chord
   airfoil_root: "clarkysm"   # Clark Y SM (11.7% t/c)
   airfoil_tip: "fx76mp140"   # FX 76-MP-140 (14.0% t/c)
+  max_tip_twist_deg: 2.0     # torsion constraint [±deg]
 
-# --- Spar structural parameters ---
-spar:
-  material: "carbon_fiber_hm"
-  # Outer diameter auto-computed from airfoil thickness
-  outer_diameter_root: null   # auto: 65% of airfoil thickness at root
-  outer_diameter_tip: null    # auto: 80% of airfoil thickness at tip
+# ── Main Spar — Segmented Carbon-Fiber Tube ─────────────────────────────────
+#
+# Full wing = 11 tubes × 3.0 m.  The centre tube straddles the
+# symmetry plane → half-span sees [1.5, 3.0, 3.0, 3.0, 3.0, 3.0].
+# Joints at y = 1.5, 4.5, 7.5, 10.5, 13.5 m.
+# Design variables = wall thickness of each of the 6 segments.
+#
+main_spar:
+  material: "carbon_fiber_hm"            # key in data/materials.yaml
+  location_xc: 0.25                      # chordwise position (= wing.spar_location_xc)
+
+  # Outer diameter — auto from airfoil thickness if null
+  outer_diameter_root: null
+  outer_diameter_tip: null
   thickness_fraction_root: 0.65
   thickness_fraction_tip: 0.80
-  min_wall_thickness: 0.8e-3  # 0.8 mm minimum
-  safety_factor: 4.0          # on tensile strength
 
-# --- Solver settings ---
+  # Manufacturing constraints
+  min_wall_thickness: 0.8e-3             # [m]
+  max_segment_length: 3.0                # [m]
+
+  # Segment layout (half-span, root → tip).
+  # Sum must equal half_span = 16.5 m.
+  segments: [1.5, 3.0, 3.0, 3.0, 3.0, 3.0]
+
+  # Splice joints
+  joint_material: "aluminum_6061_t6"
+  joint_mass_kg: 0.15                    # per joint [kg]
+  # Joint positions auto-derived: cumsum(segments)[:-1] = [1.5, 4.5, 7.5, 10.5, 13.5]
+
+# ── Rear Spar (Secondary Spar) — Torsion Resistance ────────────────────────
+#
+# Prevents excessive wing twist under aerodynamic pitching moment.
+# Same segmented-tube concept as main spar.
+#
+rear_spar:
+  enabled: true
+  material: "carbon_fiber_hm"
+  location_xc: 0.70                      # at 70% chord
+
+  outer_diameter_root: null
+  outer_diameter_tip: null
+  thickness_fraction_root: 0.55          # typically smaller tube
+  thickness_fraction_tip: 0.65
+
+  min_wall_thickness: 0.8e-3
+  max_segment_length: 3.0
+
+  # Uses same segmentation as main spar for rib alignment
+  segments: [1.5, 3.0, 3.0, 3.0, 3.0, 3.0]
+
+  joint_material: "aluminum_6061_t6"
+  joint_mass_kg: 0.10                    # smaller joints
+
+# ── Lift Wires ──────────────────────────────────────────────────────────────
+#
+# Attachment y MUST coincide with a joint position (metal fitting).
+# Allowed positions: 1.5, 4.5, 7.5, 10.5, 13.5 m.
+#
+lift_wires:
+  enabled: true
+  cable_material: "steel_4130"
+  cable_diameter: 2.0e-3                 # [m]
+  max_tension_fraction: 0.5              # fraction of cable UTS
+
+  attachments:
+    - { y: 7.5, fuselage_z: -1.5, label: "wire-1" }
+
+# ── Solver Settings ─────────────────────────────────────────────────────────
 solver:
-  n_beam_nodes: 60            # FD nodes per half-span
-  optimizer_method: "SLSQP"
+  n_beam_nodes: 60
+  optimizer: "SLSQP"                     # SNOPT if available, else SLSQP
   optimizer_tol: 1.0e-6
   optimizer_maxiter: 500
+  fsi_coupling: "one-way"
   fsi_max_iter: 20
   fsi_tol: 1.0e-3
 
-# --- File paths ---
+# ── File Paths ──────────────────────────────────────────────────────────────
 io:
   vsp_model: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3"
   vsp_lod: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
   vsp_polar: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar"
   airfoil_dir: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/airfoil"
   output_dir: "output/blackcat_004"
+  training_db: "database/training_data.csv"
