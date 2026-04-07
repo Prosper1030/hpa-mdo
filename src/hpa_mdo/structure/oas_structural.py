@@ -24,6 +24,7 @@ from typing import Optional
 import numpy as np
 import openmdao.api as om
 
+from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.spar_model import (
     tube_area,
     tube_Ixx,
@@ -34,6 +35,8 @@ from hpa_mdo.structure.spar_model import (
     compute_dual_spar_section,
     DualSparSection,
 )
+
+logger = get_logger(__name__)
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -1041,6 +1044,11 @@ def build_structural_problem(
     seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
     n_seg = len(seg_lengths)
     rear_on = cfg.rear_spar.enabled
+    logger.debug(
+        "Building structural problem (n_seg=%d, rear_on=%s).",
+        n_seg,
+        rear_on,
+    )
 
     # Add the structural group
     struct_group = HPAStructuralGroup(
