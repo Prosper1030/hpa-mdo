@@ -13,9 +13,11 @@ Safety factors   : aerodynamic_load_factor applied to loads,
 Usage
 -----
     from hpa_mdo.core import load_config, Aircraft, MaterialDB
+    from hpa_mdo.core.logging import get_logger
     from hpa_mdo.aero import VSPAeroParser, LoadMapper
     from hpa_mdo.structure import SparOptimizer
 
+    logger = get_logger(__name__)
     cfg = load_config("configs/blackcat_004.yaml")
     ac = Aircraft.from_config(cfg)
     mat_db = MaterialDB()
@@ -28,7 +30,7 @@ Usage
 
     opt = SparOptimizer(cfg, ac, loads, mat_db)
     result = opt.run()
-    print(result)
+    logger.info("%s", result)
 """
 from __future__ import annotations
 
@@ -40,11 +42,14 @@ import numpy as np
 from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import differential_evolution
 
+from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.oas_structural import (
     build_structural_problem,
     run_analysis,
     run_optimization,
 )
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -271,7 +276,7 @@ class SparOptimizer:
             return res
 
         # ── Phase 1: Global search with differential evolution ──
-        print("  [Phase 1] Differential Evolution global search...")
+        logger.info("  [Phase 1] Differential Evolution global search...")
 
         def penalty_obj(x):
             r = _eval(x)
@@ -301,7 +306,7 @@ class SparOptimizer:
                     penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_rear, 0.0) ** 2))
             return r["mass"] * (1.0 + penalty)
 
-        print("  [Phase 1] Differential Evolution global search...")
+        logger.info("  [Phase 1] Differential Evolution global search...")
         de_result = differential_evolution(
             penalty_obj, bounds=bounds, seed=42,
             maxiter=200, tol=1e-5, polish=False,
@@ -309,11 +314,15 @@ class SparOptimizer:
         )
         x_de = de_result.x
         r_de = _eval(x_de)
-        print(f"    DE best: mass={r_de['mass']:.2f} kg, twist={r_de['twist']:.2f}°, "
-              f"failure={r_de['failure']:.4f}")
+        logger.info(
+            "    DE best: mass=%.2f kg, twist=%.2f°, failure=%.4f",
+            r_de["mass"],
+            r_de["twist"],
+            r_de["failure"],
+        )
 
         # ── Phase 2: Local refinement with SLSQP ──
-        print("  [Phase 2] SLSQP local refinement...")
+        logger.info("  [Phase 2] SLSQP local refinement...")
 
         _cache.clear()
 
