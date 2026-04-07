@@ -25,6 +25,8 @@ try:
 except ImportError:
     raise ImportError("FastAPI not installed. Run: pip install 'hpa-mdo[api]'")
 
+from hpa_mdo.core.errors import ErrorCode
+
 
 app = FastAPI(
     title="HPA-MDO API",
@@ -51,6 +53,7 @@ def _json_safe(obj):
 def _result_to_dict(result) -> dict:
     """Convert an OptimizationResult to a JSON-safe dict."""
     return {
+        "error_code": None,
         "success": result.success,
         "message": result.message,
         "spar_mass_half_kg": round(result.spar_mass_half_kg, 4),
@@ -69,6 +72,11 @@ def _result_to_dict(result) -> dict:
             if result.rear_t_seg_mm is not None else None
         ),
     }
+
+
+def _success_json(payload: dict) -> dict:
+    """Append success error_code to endpoint payloads."""
+    return {"error_code": None, **payload}
 
 
 def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
@@ -112,9 +120,17 @@ def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
     return cfg, ac, mat_db, aero_loads, opt, best_case
 
 
-def _error_json(e: Exception) -> dict:
+def _error_json(
+    e: Exception,
+    code: ErrorCode = ErrorCode.SOLVER_DIVERGED,
+    *,
+    include_val_weight: bool = False,
+) -> dict:
     """Standard error dict for any endpoint failure."""
-    return {"error": str(e), "val_weight": 99999}
+    out = {"error": str(e), "error_code": code.value}
+    if include_val_weight:
+        out["val_weight"] = 99999
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +175,7 @@ class ConfigRequest(PydanticModel):
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "ok", "version": "2.0.0", "framework": "hpa-mdo"}
+    return _success_json({"status": "ok", "version": "2.0.0", "framework": "hpa-mdo"})
 
 
 @app.get("/materials")
@@ -179,9 +195,12 @@ async def list_materials():
                 "tensile_strength_MPa": round(m.tensile_strength / 1e6, 0),
                 "poisson_ratio": m.poisson_ratio,
             }
-        return result
+        return _success_json({"materials": result})
     except Exception as e:
-        return JSONResponse(status_code=500, content=_error_json(e))
+        return JSONResponse(
+            status_code=500,
+            content=_error_json(e, ErrorCode.CONFIG_INVALID),
+        )
 
 
 @app.post("/parse-vspaero")
@@ -192,7 +211,7 @@ async def parse_vspaero(req: ParseVSPAeroRequest):
         parser = VSPAeroParser(req.lod_path)
         cases = parser.parse()
         best = min(cases, key=lambda c: abs(c.aoa_deg - req.aoa_deg))
-        return {
+        return _success_json({
             "aoa_deg": best.aoa_deg,
             "n_stations": best.n_stations,
             "n_cases_parsed": len(cases),
@@ -200,9 +219,12 @@ async def parse_vspaero(req: ParseVSPAeroRequest):
             "total_lift_N": round(float(np.trapz(best.lift_per_span, best.y)), 3),
             "y_range_m": [round(float(best.y[0]), 3), round(float(best.y[-1]), 3)],
             "cl_range": [round(float(best.cl.min()), 4), round(float(best.cl.max()), 4)],
-        }
+        })
     except Exception as e:
-        return JSONResponse(status_code=500, content=_error_json(e))
+        return JSONResponse(
+            status_code=500,
+            content=_error_json(e, ErrorCode.AERO_PARSE_FAIL),
+        )
 
 
 @app.post("/optimize")
@@ -216,7 +238,14 @@ async def optimize(req: OptimizeRequest):
         out["aoa_used_deg"] = best_case.aoa_deg
         return out
     except Exception as e:
-        return JSONResponse(status_code=500, content=_error_json(e))
+        return JSONResponse(
+            status_code=500,
+            content=_error_json(
+                e,
+                ErrorCode.SOLVER_DIVERGED,
+                include_val_weight=True,
+            ),
+        )
 
 
 @app.post("/analyze")
@@ -236,7 +265,14 @@ async def analyze(req: AnalyzeRequest):
         out["aoa_used_deg"] = best_case.aoa_deg
         return out
     except Exception as e:
-        return JSONResponse(status_code=500, content=_error_json(e))
+        return JSONResponse(
+            status_code=500,
+            content=_error_json(
+                e,
+                ErrorCode.SOLVER_DIVERGED,
+                include_val_weight=True,
+            ),
+        )
 
 
 @app.post("/export")
@@ -271,7 +307,10 @@ async def export_ansys(req: ExportRequest):
         out_dict["aoa_used_deg"] = best_case.aoa_deg
         return out_dict
     except Exception as e:
-        return JSONResponse(status_code=500, content=_error_json(e))
+        return JSONResponse(
+            status_code=500,
+            content=_error_json(e, ErrorCode.EXPORT_FAIL),
+        )
 
 
 @app.get("/config")
@@ -283,9 +322,12 @@ async def get_config(config_yaml_path: str):
     try:
         from hpa_mdo.core.config import load_config
         cfg = load_config(config_yaml_path)
-        return json.loads(cfg.model_dump_json())
+        return _success_json({"config": json.loads(cfg.model_dump_json())})
     except Exception as e:
-        return JSONResponse(status_code=500, content=_error_json(e))
+        return JSONResponse(
+            status_code=500,
+            content=_error_json(e, ErrorCode.CONFIG_INVALID),
+        )
 
 
 # ---------------------------------------------------------------------------
