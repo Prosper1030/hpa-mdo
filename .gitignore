@@ -44,3 +44,4 @@ configs/local_paths.yaml
 
 # Temporary
 <stdin>_out/
+run_optimization_out/
