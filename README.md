@@ -77,7 +77,10 @@
 ```bash
 git clone https://github.com/Prosper1030/hpa-mdo.git
 cd hpa-mdo
-pip install -e ".[all]"
+uv venv --python 3.10 .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # macOS
+uv pip install -e ".[all]"
 ```
 
 選用相依套件群組：
@@ -87,10 +90,21 @@ pip install -e ".[all]"
 | `oas` | openaerostruct, openmdao | 有限元素求解器（最佳化必要） |
 | `api` | fastapi, uvicorn | REST API 伺服器 |
 | `mcp` | mcp | 供 AI 代理使用的 Model Context Protocol |
+| `cad` | cadquery | STEP 幾何匯出 |
 | `dev` | pytest, pytest-cov, ruff | 開發與測試 |
 | `all` | 以上全部 | 完整安裝 |
 
 使用 `pip install -e ".[oas,api]"` 安裝部分群組。
+
+### 跨平台路徑設定
+
+外部 VSPAero / OpenVSP / 翼型檔案路徑請放在 `configs/local_paths.yaml`，不要直接改主配置檔。
+
+```bash
+cp configs/local_paths.example.yaml configs/local_paths.yaml
+```
+
+`configs/blackcat_004.yaml` 只保留相對於 `io.sync_root` 的外部資料路徑，因此同一份工程配置可以在 Windows 與 macOS 共用。
 
 ---
 
@@ -125,6 +139,7 @@ stdout 的最後一行永遠為 `val_weight: <float>`（最佳化後全翼展翼
 hpa-mdo/
   configs/
     blackcat_004.yaml          # 主要飛機配置檔
+    local_paths.example.yaml   # 各機器的外部資料根目錄範例
   data/
     materials.yaml             # 材料屬性資料庫
   database/
@@ -155,6 +170,7 @@ hpa-mdo/
       server.py                # FastAPI REST 端點
       mcp_server.py            # 供 AI 代理工具使用的 MCP 伺服器
     utils/
+      cad_export.py            # STEP 匯出核心工具
       visualization.py         # Matplotlib 繪圖工具
   tests/
   pyproject.toml               # 建置配置、相依套件
@@ -214,7 +230,15 @@ solver:
   fsi_coupling: "one-way"
 ```
 
-**`io`** -- VSPAero 資料、翼型座標及輸出目錄的檔案路徑。
+**`io`** -- VSPAero 資料、翼型座標及輸出目錄的檔案路徑。外部資料檔請以 `sync_root + 相對路徑` 的方式管理，本機差異放在 `configs/local_paths.yaml`。
+
+```yaml
+io:
+  sync_root: null
+  vsp_lod: "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
+  airfoil_dir: "Aerodynamics/airfoil"
+  output_dir: "output/blackcat_004"
+```
 
 ---
 
@@ -246,12 +270,12 @@ curl http://localhost:8000/materials
 # 執行最佳化（POST）
 curl -X POST http://localhost:8000/optimize \
   -H "Content-Type: application/json" \
-  -d '{"config": {...}, "lod_file_path": "/path/to/file.lod", "aoa_deg": 3.0}'
+  -d '{"config_yaml_path": "configs/blackcat_004.yaml", "aoa_deg": 3.0}'
 
-# 匯出 ANSYS APDL
-curl -X POST http://localhost:8000/export/ansys-apdl \
+# 匯出 ANSYS / NASTRAN / CSV
+curl -X POST http://localhost:8000/export \
   -H "Content-Type: application/json" \
-  -d '{"config": {...}, "lod_file_path": "/path/to/file.lod"}'
+  -d '{"config_yaml_path": "configs/blackcat_004.yaml", "output_dir": "output/blackcat_004/ansys", "formats": ["apdl", "csv", "nastran"]}'
 ```
 
 ### MCP 伺服器（供 AI 代理使用）

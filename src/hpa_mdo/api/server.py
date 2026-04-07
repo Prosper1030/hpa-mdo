@@ -13,14 +13,13 @@ Launch:
 from __future__ import annotations
 
 import json
-import traceback
 from pathlib import Path
-from typing import Any, Optional, List
+from typing import List, Optional
 
 import numpy as np
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel as PydanticModel, Field
 except ImportError:
@@ -73,7 +72,7 @@ def _result_to_dict(result) -> dict:
 
 
 def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
-    """Shared pipeline: config -> aircraft -> aero parse -> load map -> optimizer.
+    """Shared pipeline: config -> aircraft -> aero parse -> design loads -> optimizer.
 
     Returns (cfg, ac, mat_db, aero_loads, opt, best_case).
     """
@@ -87,7 +86,7 @@ def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
     cfg = load_config(config_yaml_path)
     ac = Aircraft.from_config(cfg)
     mat_db = MaterialDB()
-    parser = VSPAeroParser(cfg.io.vsp_lod)
+    parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
     cases = parser.parse()
     mapper = LoadMapper()
 
@@ -100,10 +99,13 @@ def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
                              actual_density=cfg.flight.air_density)["total_lift"]
             - ac.weight_N / 2))
 
-    aero_loads = mapper.map_loads(
+    trim_loads = mapper.map_loads(
         best_case, ac.wing.y,
         actual_velocity=cfg.flight.velocity,
         actual_density=cfg.flight.air_density,
+    )
+    aero_loads = LoadMapper.apply_load_factor(
+        trim_loads, cfg.safety.aerodynamic_load_factor
     )
 
     opt = SparOptimizer(cfg, ac, aero_loads, mat_db)
@@ -247,13 +249,7 @@ async def export_ansys(req: ExportRequest):
             req.config_yaml_path, req.aoa_deg)
         result = opt.optimize(method="scipy")
 
-        main_mat = mat_db.get(cfg.main_spar.material)
-        exporter = ANSYSExporter(
-            spar=opt._prob.model.struct if hasattr(opt._prob, "model") else None,
-            spar_props={"inner_diameter": result.disp} if result.disp is not None else {},
-            beam_result=result,
-            material=main_mat,
-        )
+        exporter = ANSYSExporter(cfg, ac, result, aero_loads, mat_db)
 
         out_path = Path(req.output_dir)
         out_path.mkdir(parents=True, exist_ok=True)

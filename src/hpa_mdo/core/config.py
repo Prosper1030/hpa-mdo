@@ -1,15 +1,22 @@
 """Centralized configuration management for HPA-MDO v2.
 
 Schema mirrors configs/blackcat_004.yaml exactly.
-All engineering constants are read from YAML — nothing is hardcoded.
+All engineering constants are read from YAML, with an optional local
+overlay file for per-machine path differences.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field
+
+
+_LOCAL_PATHS_FILENAME = "local_paths.yaml"
+_EXTERNAL_IO_FIELDS = ("vsp_model", "vsp_lod", "vsp_polar", "airfoil_dir")
+_INTERNAL_IO_FIELDS = ("output_dir", "training_db")
 
 
 # ── Sub-configs ─────────────────────────────────────────────────────────────
@@ -83,7 +90,7 @@ class LiftWireConfig(BaseModel):
     cable_material: str = "steel_4130"
     cable_diameter: float = 2.0e-3
     max_tension_fraction: float = 0.5
-    attachments: List[LiftWireAttachment] = []
+    attachments: List[LiftWireAttachment] = Field(default_factory=list)
 
 
 class SolverConfig(BaseModel):
@@ -97,6 +104,7 @@ class SolverConfig(BaseModel):
 
 
 class IOConfig(BaseModel):
+    sync_root: Optional[Path] = None
     vsp_model: Optional[Path] = None
     vsp_lod: Optional[Path] = None
     vsp_polar: Optional[Path] = None
@@ -146,7 +154,90 @@ class HPAConfig(BaseModel):
         return cs[:-1]  # last entry is the tip, not a joint
 
 
-def load_config(path) -> HPAConfig:
-    with open(path) as f:
-        data = yaml.safe_load(f)
-    return HPAConfig(**data)
+def _read_yaml(path: Path) -> Dict[str, Any]:
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"YAML root must be a mapping: {path}")
+    return data
+
+
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _discover_local_paths_path(
+    config_path: Path,
+    local_paths_path: Optional[Path | str],
+) -> Optional[Path]:
+    if local_paths_path is not None:
+        candidate = Path(local_paths_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = (config_path.parent / candidate).resolve()
+        return candidate
+
+    env_override = os.getenv("HPA_MDO_LOCAL_PATHS")
+    if env_override:
+        return Path(env_override).expanduser().resolve()
+
+    return (config_path.parent / _LOCAL_PATHS_FILENAME).resolve()
+
+
+def _project_root_from_config(config_path: Path) -> Path:
+    if config_path.parent.name == "configs":
+        return config_path.parent.parent
+    return config_path.parent
+
+
+def _resolve_path(path_value: Optional[Path], base_dir: Path) -> Optional[Path]:
+    if path_value is None:
+        return None
+    if path_value.is_absolute():
+        return path_value
+    return (base_dir / path_value).resolve()
+
+
+def _resolve_io_paths(cfg: HPAConfig, project_root: Path) -> HPAConfig:
+    sync_root = _resolve_path(cfg.io.sync_root, project_root)
+    cfg.io.sync_root = sync_root
+
+    for field_name in _EXTERNAL_IO_FIELDS:
+        raw_path = getattr(cfg.io, field_name)
+        if raw_path is None:
+            continue
+        if raw_path.is_absolute():
+            resolved = raw_path
+        elif sync_root is not None:
+            resolved = (sync_root / raw_path).resolve()
+        else:
+            resolved = (project_root / raw_path).resolve()
+        setattr(cfg.io, field_name, resolved)
+
+    for field_name in _INTERNAL_IO_FIELDS:
+        resolved = _resolve_path(getattr(cfg.io, field_name), project_root)
+        if resolved is not None:
+            setattr(cfg.io, field_name, resolved)
+
+    return cfg
+
+
+def load_config(
+    path,
+    local_paths_path: Optional[Path | str] = None,
+) -> HPAConfig:
+    config_path = Path(path).expanduser().resolve()
+    project_root = _project_root_from_config(config_path)
+
+    data = _read_yaml(config_path)
+    overlay_path = _discover_local_paths_path(config_path, local_paths_path)
+    if overlay_path is not None and overlay_path.exists():
+        data = _deep_merge(data, _read_yaml(overlay_path))
+
+    cfg = HPAConfig(**data)
+    return _resolve_io_paths(cfg, project_root)

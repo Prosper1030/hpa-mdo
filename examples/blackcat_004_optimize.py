@@ -172,11 +172,13 @@ def main() -> float:
     # e.g. [1.5, 3.0, 3.0, 3.0, 3.0, 3.0] for a 15 m half-span with 6 segments.
     seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
 
-    plot_beam_analysis(result, ac.wing.y, output_dir)
-    plot_spar_geometry(result, ac.wing.y, seg_lengths, output_dir)
-
-    print(f"       Saved: {output_dir / 'beam_analysis.png'}")
-    print(f"       Saved: {output_dir / 'spar_geometry.png'}")
+    try:
+        plot_beam_analysis(result, ac.wing.y, output_dir)
+        plot_spar_geometry(result, ac.wing.y, seg_lengths, output_dir)
+        print(f"       Saved: {output_dir / 'beam_analysis.png'}")
+        print(f"       Saved: {output_dir / 'spar_geometry.png'}")
+    except Exception as exc:
+        print(f"       Visualization skipped: {exc}")
 
     # ====================================================================
     # Step 8 — Write optimization summary text file

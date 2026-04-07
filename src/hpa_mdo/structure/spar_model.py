@@ -192,6 +192,7 @@ def compute_dual_spar_section(
     # ── Chordwise bending (horizontal plane, about spar axis) ──
     # x_main ≈ 0 (reference), x_rear = d_chord
     x_main = np.zeros_like(d_chord)
+    x_rear = d_chord
     x_na = (E_main * A_m * x_main + E_rear * A_r * d_chord) / (
         E_main * A_m + E_rear * A_r + 1e-30
     )

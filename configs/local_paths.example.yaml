@@ -1,0 +1,9 @@
+io:
+  # Copy this file to configs/local_paths.yaml and keep only the entry
+  # that matches your machine.
+
+  # Windows example
+  sync_root: "D:/SyncFile"
+
+  # macOS example
+  # sync_root: "/Volumes/Samsung SSD/SyncFile"

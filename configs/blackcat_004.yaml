@@ -122,9 +122,12 @@ solver:
 
 # ── File Paths ──────────────────────────────────────────────────────────────
 io:
-  vsp_model: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3"
-  vsp_lod: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
-  vsp_polar: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar"
-  airfoil_dir: "/Volumes/Samsung SSD/SyncFile/Aerodynamics/airfoil"
+  # External aero assets are resolved relative to io.sync_root.
+  # Keep machine-specific values in configs/local_paths.yaml (not committed).
+  sync_root: null
+  vsp_model: "Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3"
+  vsp_lod: "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
+  vsp_polar: "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar"
+  airfoil_dir: "Aerodynamics/airfoil"
   output_dir: "output/blackcat_004"
   training_db: "database/training_data.csv"

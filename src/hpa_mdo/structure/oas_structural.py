@@ -673,7 +673,7 @@ class ExternalLoadsComp(om.ExplicitComponent):
     """Convert aero lift/torque distributions + spar weight into FEM loads.
 
     Applies:
-        - Aerodynamic lift (Fz) with load factor
+        - Aerodynamic lift (Fz) at design load level
         - Aerodynamic pitching moment (Mx torque)
         - Spar self-weight (negative Fz)
     """
@@ -681,10 +681,9 @@ class ExternalLoadsComp(om.ExplicitComponent):
     def initialize(self):
         self.options.declare("n_nodes", types=int)
         self.options.declare("lift_per_span", types=np.ndarray,
-                             desc="Aero lift [N/m] at nodes (already at 1G)")
+                             desc="Aero lift [N/m] at nodes (already scaled for design)")
         self.options.declare("torque_per_span", types=np.ndarray,
                              desc="Aero torque [N.m/m] at nodes")
-        self.options.declare("load_factor", types=float, default=1.0)
         self.options.declare("node_spacings", types=np.ndarray,
                              desc="Tributary length for each node [m]")
 
@@ -698,7 +697,6 @@ class ExternalLoadsComp(om.ExplicitComponent):
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
         ne = nn - 1
-        nf = self.options["load_factor"]
         lift = self.options["lift_per_span"]
         torque = self.options["torque_per_span"]
         ds = self.options["node_spacings"]
@@ -716,11 +714,11 @@ class ExternalLoadsComp(om.ExplicitComponent):
             weight_per_span[e + 1] += w / 2.0
 
         for i in range(nn):
-            # Fz = lift * load_factor - weight
-            loads[i, 2] = (lift[i] * nf - weight_per_span[i]) * ds[i]
-            # My = torque * load_factor (torsion about span/Y axis)
+            # Fz = design lift - weight
+            loads[i, 2] = (lift[i] - weight_per_span[i]) * ds[i]
+            # My = design torque (torsion about span/Y axis)
             # For beam along Y: torsion maps to global DOF 4 (θy)
-            loads[i, 4] = torque[i] * nf * ds[i]
+            loads[i, 4] = torque[i] * ds[i]
 
         outputs["loads"] = loads
 
@@ -918,7 +916,6 @@ class HPAStructuralGroup(om.Group):
             n_nodes=nn,
             lift_per_span=lift,
             torque_per_span=torque,
-            load_factor=cfg.safety.aerodynamic_load_factor,
             node_spacings=node_spacings,
         ))
 

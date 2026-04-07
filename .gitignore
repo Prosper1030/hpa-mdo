@@ -11,6 +11,7 @@ build/
 .venv/
 venv/
 env/
+.uv-cache/
 
 # IDE
 .vscode/
@@ -39,6 +40,7 @@ reports/
 # Secrets
 .env
 credentials.json
+configs/local_paths.yaml
 
 # Temporary
 <stdin>_out/

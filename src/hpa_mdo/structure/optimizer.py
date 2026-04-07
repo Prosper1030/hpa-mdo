@@ -152,6 +152,8 @@ class SparOptimizer:
         aero_loads : dict
             Output of LoadMapper.map_loads() — must contain
             'lift_per_span' and optionally 'torque_per_span'.
+            These loads must already be scaled to the design load case
+            (for example via LoadMapper.apply_load_factor()).
         materials_db : MaterialDB
         """
         self.cfg = cfg

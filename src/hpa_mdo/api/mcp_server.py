@@ -44,7 +44,7 @@ def _error_response(e: Exception) -> str:
 
 
 def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
-    """Shared pipeline: load config -> build aircraft -> parse aero -> map loads -> optimizer.
+    """Shared pipeline: load config -> build aircraft -> design loads -> optimizer.
 
     Returns (cfg, ac, mat_db, aero_loads, opt, best_case).
     If aoa_deg is None, auto-selects the AoA closest to trim.
@@ -59,7 +59,7 @@ def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
     cfg = load_config(config_yaml_path)
     ac = Aircraft.from_config(cfg)
     mat_db = MaterialDB()
-    parser = VSPAeroParser(cfg.io.vsp_lod)
+    parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
     cases = parser.parse()
     mapper = LoadMapper()
 
@@ -74,10 +74,13 @@ def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
                              actual_density=cfg.flight.air_density)["total_lift"]
             - ac.weight_N / 2))
 
-    aero_loads = mapper.map_loads(
+    trim_loads = mapper.map_loads(
         best_case, ac.wing.y,
         actual_velocity=cfg.flight.velocity,
         actual_density=cfg.flight.air_density,
+    )
+    aero_loads = LoadMapper.apply_load_factor(
+        trim_loads, cfg.safety.aerodynamic_load_factor
     )
 
     opt = SparOptimizer(cfg, ac, aero_loads, mat_db)
@@ -259,15 +262,7 @@ def _make_server():
                 config_yaml_path, aoa_deg)
             result = opt.optimize(method="scipy")
 
-            # The ANSYS exporter uses the legacy spar/beam interface;
-            # build from optimization result if available
-            main_mat = mat_db.get(cfg.main_spar.material)
-            exporter = ANSYSExporter(
-                spar=opt._prob.model.struct if hasattr(opt._prob, "model") else None,
-                spar_props={"inner_diameter": result.disp} if result.disp is not None else {},
-                beam_result=result,
-                material=main_mat,
-            )
+            exporter = ANSYSExporter(cfg, ac, result, aero_loads, mat_db)
 
             out = Path(output_dir)
             out.mkdir(parents=True, exist_ok=True)

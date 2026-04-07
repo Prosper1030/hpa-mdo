@@ -22,6 +22,9 @@ import traceback
 from pathlib import Path
 from typing import Optional
 
+# Allow running directly from the repository without installing the package.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
 # ---------------------------------------------------------------------------
 # Entire script wrapped in try/except so that val_weight is ALWAYS printed.
 # ---------------------------------------------------------------------------
@@ -104,23 +107,50 @@ def main(config_path: str = "configs/blackcat_004.yaml") -> float:
     print("[7/9] Generating visualizations...")
     output_dir = Path(cfg.io.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    from hpa_mdo.utils.visualization import (
-        plot_beam_analysis,
-        plot_spar_geometry,
-        write_optimization_summary,
-    )
-    seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
-    plot_beam_analysis(result, ac.wing.y, output_dir)
-    plot_spar_geometry(result, ac.wing.y, seg_lengths, output_dir)
-    summary_path = output_dir / "optimization_summary.txt"
-    write_optimization_summary(result, summary_path)
-    print(f"       Saved: beam_analysis.png, spar_geometry.png, optimization_summary.txt")
+    try:
+        from hpa_mdo.utils.visualization import (
+            plot_beam_analysis,
+            plot_spar_geometry,
+            write_optimization_summary,
+        )
+
+        seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
+        plot_beam_analysis(result, ac.wing.y, output_dir)
+        plot_spar_geometry(result, ac.wing.y, seg_lengths, output_dir)
+        summary_path = output_dir / "optimization_summary.txt"
+        write_optimization_summary(result, summary_path)
+        print(
+            "       Saved: beam_analysis.png, spar_geometry.png, optimization_summary.txt"
+        )
+    except Exception as exc:
+        print(f"       Visualization skipped: {exc}")
 
     # ── 8. Export ANSYS files ──────────────────────────────────────────
-    print("[8/9] Exporting ANSYS files...")
-
-    # Write design-variable summary CSV
+    print("[8/9] Exporting analysis artifacts...")
     _export_design_summary(cfg, result, output_dir)
+    try:
+        from hpa_mdo.structure.ansys_export import ANSYSExporter
+
+        ansys_dir = output_dir / "ansys"
+        ansys_dir.mkdir(parents=True, exist_ok=True)
+        exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
+
+        apdl_path = exporter.write_apdl(ansys_dir / "spar_model.mac")
+        csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")
+        bdf_path = exporter.write_nastran_bdf(ansys_dir / "spar_model.bdf")
+        print(f"       Saved: {apdl_path.name}, {csv_path.name}, {bdf_path.name}")
+
+        try:
+            from hpa_mdo.utils.cad_export import export_step_from_csv
+
+            step_path = output_dir / "spar_model.step"
+            engine_name = export_step_from_csv(csv_path, step_path, engine="auto")
+            print(f"       Saved: {step_path.name} ({engine_name})")
+        except Exception as exc:
+            print(f"       STEP export skipped: {exc}")
+    except Exception as exc:
+        print(f"       ANSYS export skipped: {exc}")
+
     print(f"       Output dir: {output_dir}")
 
     # ── 9. Record to training database ─────────────────────────────────
@@ -129,9 +159,12 @@ def main(config_path: str = "configs/blackcat_004.yaml") -> float:
         "aoa_deg": cruise_aoa,
         "total_lift_N": cruise_lift,
     }
-    collector = DataCollector(str(cfg.io.training_db))
-    db_path = collector.record(cfg, result, aero_info=aero_info)
-    print(f"       Database: {db_path}")
+    try:
+        collector = DataCollector(str(cfg.io.training_db))
+        db_path = collector.record(cfg, result, aero_info=aero_info)
+        print(f"       Database: {db_path}")
+    except Exception as exc:
+        print(f"       Database write skipped: {exc}")
 
     # ── Done ───────────────────────────────────────────────────────────
     print("Done.")
