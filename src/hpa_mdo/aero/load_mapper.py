@@ -76,8 +76,9 @@ class LoadMapper:
             'cm'               : interpolated pitching moment coefficient
             'total_lift'       : integrated half-span lift [N]
         """
-        y_a = aero_load.y
-        y_s = struct_y
+        y_a = np.asarray(aero_load.y, dtype=float)
+        y_s = np.asarray(struct_y, dtype=float)
+        self._validate_inputs(aero_load, y_s)
 
         # Clamp structural nodes to aero range to avoid extrapolation
         y_s_clamped = np.clip(y_s, y_a.min(), y_a.max())
@@ -96,6 +97,9 @@ class LoadMapper:
         cl = _interp(aero_load.cl)
         cd = _interp(aero_load.cd)
         cm = _interp(aero_load.cm)
+
+        if not np.all(np.isfinite(chord)) or np.any(chord <= 0.0):
+            raise ValueError("Mapped chord contains invalid values (NaN/Inf or <= 0).")
 
         # Re-dimensionalise with actual flight conditions if specified
         if actual_velocity is not None or actual_density is not None:
@@ -128,6 +132,44 @@ class LoadMapper:
             "cm": cm,
             "total_lift": total_lift,
         }
+
+    @staticmethod
+    def _validate_inputs(aero_load: SpanwiseLoad, struct_y: np.ndarray) -> None:
+        fields = {
+            "y": aero_load.y,
+            "chord": aero_load.chord,
+            "cl": aero_load.cl,
+            "cd": aero_load.cd,
+            "cm": aero_load.cm,
+            "lift_per_span": aero_load.lift_per_span,
+            "drag_per_span": aero_load.drag_per_span,
+        }
+
+        n = len(np.asarray(aero_load.y))
+        if n < 2:
+            raise ValueError("SpanwiseLoad must contain at least 2 stations.")
+
+        for name, values in fields.items():
+            arr = np.asarray(values, dtype=float).ravel()
+            if arr.size != n:
+                raise ValueError(
+                    f"SpanwiseLoad.{name} length mismatch: expected {n}, got {arr.size}."
+                )
+            if not np.all(np.isfinite(arr)):
+                raise ValueError(f"SpanwiseLoad.{name} contains NaN/Inf.")
+
+        chord = np.asarray(aero_load.chord, dtype=float)
+        if np.any(chord <= 0.0):
+            raise ValueError("SpanwiseLoad.chord must be strictly positive.")
+
+        y = np.asarray(aero_load.y, dtype=float)
+        if not np.all(np.diff(y) > 0.0):
+            raise ValueError("SpanwiseLoad.y must be strictly increasing.")
+
+        if not np.all(np.isfinite(struct_y)):
+            raise ValueError("struct_y contains NaN/Inf.")
+        if struct_y.size < 2:
+            raise ValueError("struct_y must contain at least 2 nodes.")
 
     @staticmethod
     def apply_load_factor(mapped: dict, n: float) -> dict:

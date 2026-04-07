@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+import yaml
+from pydantic import ValidationError
+
 from hpa_mdo.core.config import load_config
 
 
@@ -45,3 +49,39 @@ def test_load_config_honors_environment_override(tmp_path, monkeypatch):
     cfg = load_config(config_path)
 
     assert cfg.io.sync_root == sync_root.resolve()
+
+
+def test_blackcat_airfoil_tc_loaded_from_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.wing.airfoil_root_tc == pytest.approx(0.117)
+    assert cfg.wing.airfoil_tip_tc == pytest.approx(0.140)
+
+
+def test_load_config_rejects_segment_sum_mismatch(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["main_spar"]["segments"] = [1.0, 3.0, 3.0, 3.0, 3.0, 3.0]  # sum = 16.0
+
+    bad_cfg = tmp_path / "bad_segments.yaml"
+    bad_cfg.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValidationError):
+        load_config(bad_cfg)
+
+
+def test_load_config_rejects_lift_wire_not_on_joint(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["lift_wires"]["attachments"][0]["y"] = 7.4
+
+    bad_cfg = tmp_path / "bad_lift_wire.yaml"
+    bad_cfg.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValidationError):
+        load_config(bad_cfg)

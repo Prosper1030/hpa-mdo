@@ -136,7 +136,8 @@ class Aircraft:
             cfg.wing.dihedral_tip_deg - cfg.wing.dihedral_root_deg)
         twist = np.zeros(n)
 
-        tc_root, tc_tip = 0.117, 0.140
+        tc_root = cfg.wing.airfoil_root_tc
+        tc_tip = cfg.wing.airfoil_tip_tc
         airfoil_tc = tc_root + eta * (tc_tip - tc_root)
 
         # Try to load airfoil .dat files for accurate Z positions

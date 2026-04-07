@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 _LOCAL_PATHS_FILENAME = "local_paths.yaml"
@@ -52,6 +52,8 @@ class WingConfig(BaseModel):
     spar_location_xc: float = 0.25
     airfoil_root: str = "clarkysm"
     airfoil_tip: str = "fx76mp140"
+    airfoil_root_tc: float = Field(0.117, description="Root airfoil max t/c")
+    airfoil_tip_tc: float = Field(0.140, description="Tip airfoil max t/c")
     max_tip_twist_deg: float = Field(2.0, description="Torsion constraint [deg]")
     max_tip_deflection_m: Optional[float] = Field(
         None, description="Max allowable tip deflection [m]"
@@ -152,6 +154,38 @@ class HPAConfig(BaseModel):
         import numpy as np
         cs = list(np.cumsum(segments))
         return cs[:-1]  # last entry is the tip, not a joint
+
+    @model_validator(mode="after")
+    def validate_spanwise_layout(self) -> HPAConfig:
+        tol = 1e-6
+        half_span = self.half_span
+
+        for spar_name, spar_cfg in (
+            ("main_spar", self.main_spar),
+            ("rear_spar", self.rear_spar),
+        ):
+            if not spar_cfg.enabled:
+                continue
+            segments = self.spar_segment_lengths(spar_cfg)
+            total = float(sum(segments))
+            if abs(total - half_span) > tol:
+                raise ValueError(
+                    f"{spar_name}.segments sum to {total:.9f} m, "
+                    f"but wing.span/2 is {half_span:.9f} m."
+                )
+
+        if self.lift_wires.enabled and self.lift_wires.attachments:
+            main_joints = self.joint_positions(
+                self.spar_segment_lengths(self.main_spar)
+            )
+            for att in self.lift_wires.attachments:
+                if not any(abs(att.y - jy) <= tol for jy in main_joints):
+                    raise ValueError(
+                        "lift_wires attachment y must lie on a segment boundary "
+                        f"(got y={att.y})."
+                    )
+
+        return self
 
 
 def _read_yaml(path: Path) -> Dict[str, Any]:

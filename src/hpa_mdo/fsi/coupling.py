@@ -1,194 +1,191 @@
-"""Fluid–Structure Interaction coupling module.
-
-Supports two coupling strategies:
-
-1. **One-way** (recommended for initial design):
-   Aero loads computed on the undeformed wing → structural deflection.
-   As shown in the reference paper (Vanderhoydonck et al., 2016), for
-   high-aspect-ratio HPA wings, the first iteration is already within
-   0.2% of the converged FSI result.
-
-2. **Two-way** (iterative Gauss–Seidel):
-   Aero → Structure → update wing shape → re-run Aero → ...
-   Converges when tip deflection change < tolerance.
-
-For two-way coupling, the aero solver must support re-meshing on a
-deformed geometry. VSPAero via the OpenVSP Python API can do this;
-XFLR5 cannot (one-way only).
-"""
+"""Fluid–Structure Interaction coupling for the OpenMDAO structural stack."""
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
+from typing import Callable, Optional
 
 import numpy as np
 
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.aero.load_mapper import LoadMapper
-from hpa_mdo.structure.beam_model import EulerBernoulliBeam, BeamResult
-from hpa_mdo.structure.spar import TubularSpar
-from hpa_mdo.structure.optimizer import SparOptimizer, OptimizationResult
-from hpa_mdo.core.materials import Material
+from hpa_mdo.structure.optimizer import OptimizationResult, SparOptimizer
 
 
 @dataclass
 class FSIResult:
     """Result of an FSI coupling analysis."""
+
     converged: bool
     n_iterations: int
     tip_deflection_history: list[float]
     optimization_result: OptimizationResult
-    final_beam_result: BeamResult
+    final_beam_result: Optional[np.ndarray]
     deformed_y: np.ndarray
     deformed_z: np.ndarray
 
 
 class FSICoupling:
-    """Aeroelastic coupling engine.
-
-    Orchestrates the load transfer between aerodynamic and structural
-    solvers, optionally iterating to convergence.
-    """
+    """Aeroelastic coupling engine using the current OpenMDAO path."""
 
     def __init__(
         self,
-        spar: TubularSpar,
-        material: Material,
-        load_mapper: LoadMapper,
-        safety_factor: float = 4.0,
-        max_tip_deflection: float | None = None,
-        target_tip_deflection: float | None = None,
+        cfg,
+        aircraft,
+        materials_db,
+        load_mapper: Optional[LoadMapper] = None,
     ):
-        self.spar = spar
-        self.material = material
-        self.mapper = load_mapper
-        self.beam = EulerBernoulliBeam()
-        self.safety_factor = safety_factor
-        self.max_tip_deflection = max_tip_deflection
-        self.target_tip_deflection = target_tip_deflection
+        self.cfg = cfg
+        self.aircraft = aircraft
+        self.materials_db = materials_db
+        self.mapper = load_mapper or LoadMapper()
+
+    @staticmethod
+    def _normalize_optimizer_method(method: str) -> str:
+        raw = method.strip().lower()
+        if raw in {"openmdao", "scipy", "auto"}:
+            return raw
+        if raw in {"slsqp", "snopt", "ipopt"}:
+            return "openmdao"
+        return "auto"
+
+    def _solve_once(
+        self,
+        aero_load: SpanwiseLoad,
+        load_factor: float,
+        optimizer_method: str,
+    ) -> tuple[OptimizationResult, np.ndarray]:
+        mapped = self.mapper.map_loads(
+            aero_load,
+            self.aircraft.wing.y,
+            scale_factor=load_factor,
+            actual_velocity=self.cfg.flight.velocity,
+            actual_density=self.cfg.flight.air_density,
+        )
+
+        optimizer = SparOptimizer(self.cfg, self.aircraft, mapped, self.materials_db)
+        result = optimizer.optimize(method=self._normalize_optimizer_method(optimizer_method))
+        return result, self._extract_deformed_z(result)
+
+    def _extract_deformed_z(self, result: OptimizationResult) -> np.ndarray:
+        span_y = np.asarray(self.aircraft.wing.y)
+        if result.disp is None:
+            return np.zeros_like(span_y, dtype=float)
+
+        disp = np.asarray(result.disp)
+        if disp.ndim == 2 and disp.shape[0] == span_y.size and disp.shape[1] >= 3:
+            return np.asarray(disp[:, 2], dtype=float)
+
+        if disp.ndim == 1 and disp.size == span_y.size * 6:
+            return np.asarray(disp.reshape(span_y.size, 6)[:, 2], dtype=float)
+
+        return np.zeros_like(span_y, dtype=float)
 
     def run_one_way(
         self,
         aero_load: SpanwiseLoad,
         load_factor: float = 1.0,
-        optimizer_method: str = "SLSQP",
+        optimizer_method: str = "openmdao",
     ) -> FSIResult:
-        """One-way coupling: aero → structure (single pass).
+        """One-way coupling: aero -> structure (single pass)."""
 
-        Parameters
-        ----------
-        aero_load : SpanwiseLoad
-            Aerodynamic load from any parser.
-        load_factor : float
-            Design load factor (e.g. 3.0 for 2G * 1.5).
-        optimizer_method : str
-            SciPy optimization method.
-        """
-        # Map aero loads onto structural nodes
-        mapped = self.mapper.map_loads(
-            aero_load, self.spar.y, scale_factor=load_factor
-        )
-        f_ext = mapped["lift_per_span"]
-
-        # Run structural optimization
-        opt = SparOptimizer(
-            spar=self.spar,
-            beam_solver=self.beam,
-            f_ext=f_ext,
-            safety_factor=self.safety_factor,
-            max_tip_deflection=self.max_tip_deflection,
-            target_tip_deflection=self.target_tip_deflection,
-        )
-        result = opt.optimize(method=optimizer_method)
-
-        # Compute deformed shape
-        defl = result.beam_result.deflection if result.beam_result else np.zeros_like(self.spar.y)
-        deformed_z = defl  # deflection is in the Z direction
-
+        result, deformed_z = self._solve_once(aero_load, load_factor, optimizer_method)
         return FSIResult(
             converged=True,
             n_iterations=1,
             tip_deflection_history=[result.tip_deflection_m],
             optimization_result=result,
-            final_beam_result=result.beam_result,
-            deformed_y=self.spar.y,
+            final_beam_result=result.disp,
+            deformed_y=np.asarray(self.aircraft.wing.y, dtype=float),
             deformed_z=deformed_z,
         )
 
     def run_two_way(
         self,
-        aero_load_func,
+        aero_load_func: Callable[[np.ndarray, np.ndarray], SpanwiseLoad],
         load_factor: float = 1.0,
         max_iter: int = 20,
         tol: float = 1e-3,
-        optimizer_method: str = "SLSQP",
+        optimizer_method: str = "openmdao",
+        aero_solver: str = "vsp",
     ) -> FSIResult:
         """Two-way iterative FSI coupling.
 
         Parameters
         ----------
-        aero_load_func : callable
-            Function(deformed_y, deformed_z) -> SpanwiseLoad
-            Must re-compute aero loads on the deformed wing shape.
-            Typically wraps OpenVSP Python API calls.
-        load_factor : float
-            Design load factor.
-        max_iter : int
-            Maximum coupling iterations.
-        tol : float
-            Convergence tolerance on tip deflection change [m].
-        optimizer_method : str
-            SciPy optimization method.
+        aero_load_func:
+            Function(deformed_y, deformed_z) -> SpanwiseLoad.
+        aero_solver:
+            Aero backend name. ``"xflr5"`` is explicitly unsupported for
+            two-way coupling; ``"vsp"`` requires OpenVSP Python bindings.
         """
-        tip_history = []
-        deformed_z = np.zeros_like(self.spar.y)
+
+        self._validate_two_way_backend(aero_solver)
+
+        if max_iter < 1:
+            raise ValueError("max_iter must be >= 1")
+
+        span_y = np.asarray(self.aircraft.wing.y, dtype=float)
+        tip_history: list[float] = []
+        deformed_z = np.zeros_like(span_y)
         prev_tip = 0.0
+        last_result: Optional[OptimizationResult] = None
 
         for iteration in range(1, max_iter + 1):
-            # Get aero loads on current (possibly deformed) shape
-            aero_load = aero_load_func(self.spar.y, deformed_z)
-
-            # Map loads
-            mapped = self.mapper.map_loads(
-                aero_load, self.spar.y, scale_factor=load_factor
+            aero_load = aero_load_func(span_y, deformed_z)
+            last_result, deformed_z = self._solve_once(
+                aero_load, load_factor, optimizer_method
             )
-            f_ext = mapped["lift_per_span"]
-
-            # Structural optimization
-            opt = SparOptimizer(
-                spar=self.spar,
-                beam_solver=self.beam,
-                f_ext=f_ext,
-                safety_factor=self.safety_factor,
-                max_tip_deflection=self.max_tip_deflection,
-                target_tip_deflection=self.target_tip_deflection,
-            )
-            result = opt.optimize(method=optimizer_method)
-
-            deformed_z = result.beam_result.deflection if result.beam_result else deformed_z
-            current_tip = result.tip_deflection_m
+            current_tip = last_result.tip_deflection_m
             tip_history.append(current_tip)
 
-            # Check convergence
             if iteration > 1 and abs(current_tip - prev_tip) < tol:
                 return FSIResult(
                     converged=True,
                     n_iterations=iteration,
                     tip_deflection_history=tip_history,
-                    optimization_result=result,
-                    final_beam_result=result.beam_result,
-                    deformed_y=self.spar.y,
+                    optimization_result=last_result,
+                    final_beam_result=last_result.disp,
+                    deformed_y=span_y,
                     deformed_z=deformed_z,
                 )
 
             prev_tip = current_tip
 
+        if last_result is None:
+            raise RuntimeError("Two-way FSI did not execute any iteration.")
+
         return FSIResult(
             converged=False,
             n_iterations=max_iter,
             tip_deflection_history=tip_history,
-            optimization_result=result,
-            final_beam_result=result.beam_result,
-            deformed_y=self.spar.y,
+            optimization_result=last_result,
+            final_beam_result=last_result.disp,
+            deformed_y=span_y,
             deformed_z=deformed_z,
         )
+
+    @staticmethod
+    def _validate_two_way_backend(aero_solver: str) -> None:
+        backend = aero_solver.strip().lower()
+        if backend == "xflr5":
+            raise NotImplementedError(
+                "Two-way FSI is not supported for XFLR5. "
+                "Use one-way mode or switch to OpenVSP."
+            )
+
+        if backend in {"vsp", "vspaero", "openvsp"}:
+            try:
+                importlib.import_module("openvsp")
+            except Exception as exc:  # pragma: no cover - depends on local env
+                raise RuntimeError(
+                    "Two-way FSI requires OpenVSP Python API (`openvsp`)."
+                ) from exc
+            return
+
+        if backend not in {"custom", "callable"}:
+            raise ValueError(
+                f"Unsupported aero_solver '{aero_solver}'. "
+                "Use 'vsp', 'xflr5', or 'custom'."
+            )

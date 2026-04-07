@@ -39,6 +39,8 @@ wing:
   spar_location_xc: 0.25     # main spar at quarter-chord
   airfoil_root: "clarkysm"   # Clark Y SM (11.7% t/c)
   airfoil_tip: "fx76mp140"   # FX 76-MP-140 (14.0% t/c)
+  airfoil_root_tc: 0.117     # root max thickness ratio t/c
+  airfoil_tip_tc: 0.140      # tip max thickness ratio t/c
   max_tip_twist_deg: 2.0     # torsion constraint [±deg]
   max_tip_deflection_m: 2.5  # max allowable tip deflection [m]
 
