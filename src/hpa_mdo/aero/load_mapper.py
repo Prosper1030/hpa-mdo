@@ -18,6 +18,9 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 from hpa_mdo.aero.base import SpanwiseLoad
+from hpa_mdo.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class LoadMapper:
@@ -78,6 +81,12 @@ class LoadMapper:
 
         # Clamp structural nodes to aero range to avoid extrapolation
         y_s_clamped = np.clip(y_s, y_a.min(), y_a.max())
+        if not np.array_equal(y_s_clamped, y_s):
+            logger.warning(
+                "struct_y exceeded aero y-range; clamped to [%.3f, %.3f].",
+                float(np.min(y_a)),
+                float(np.max(y_a)),
+            )
 
         def _interp(vals: np.ndarray) -> np.ndarray:
             f = interp1d(y_a, vals, kind=self.method, fill_value="extrapolate")
@@ -107,6 +116,7 @@ class LoadMapper:
             torque = q_ref * chord**2 * cm * scale_factor
 
         total_lift = float(np.trapz(lift, y_s))
+        logger.debug("Load mapping complete (total_lift=%.3f N).", total_lift)
 
         return {
             "y": y_s,
