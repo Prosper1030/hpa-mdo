@@ -1168,14 +1168,28 @@ def _elem_to_seg_mean(
 
 def run_analysis(prob: om.Problem) -> dict:
     """Run a single analysis (no optimization) and return results."""
+    logger.debug("Running structural analysis model.")
     prob.run_model()
-    return _extract_results(prob)
+    results = _extract_results(prob)
+    logger.debug(
+        "Structural analysis complete (mass=%.3f kg, failure=%.4f).",
+        results["total_mass_full_kg"],
+        results["failure"],
+    )
+    return results
 
 
 def run_optimization(prob: om.Problem) -> dict:
     """Run the full optimization and return results."""
+    logger.info("Running structural optimization driver.")
     prob.run_driver()
-    return _extract_results(prob)
+    results = _extract_results(prob)
+    logger.info(
+        "Structural optimization complete (mass=%.3f kg, failure=%.4f).",
+        results["total_mass_full_kg"],
+        results["failure"],
+    )
+    return results
 
 
 def _extract_results(prob: om.Problem) -> dict:
