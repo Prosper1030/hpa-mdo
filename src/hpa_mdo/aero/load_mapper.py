@@ -18,6 +18,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 from hpa_mdo.aero.base import SpanwiseLoad
+from hpa_mdo.core.errors import ErrorCode, HPAError
 from hpa_mdo.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -99,7 +100,10 @@ class LoadMapper:
         cm = _interp(aero_load.cm)
 
         if not np.all(np.isfinite(chord)) or np.any(chord <= 0.0):
-            raise ValueError("Mapped chord contains invalid values (NaN/Inf or <= 0).")
+            raise HPAError(
+                ErrorCode.LOAD_VALIDATION_FAIL,
+                "Mapped chord contains invalid values (NaN/Inf or <= 0).",
+            )
 
         # Re-dimensionalise with actual flight conditions if specified
         if actual_velocity is not None or actual_density is not None:
@@ -147,29 +151,48 @@ class LoadMapper:
 
         n = len(np.asarray(aero_load.y))
         if n < 2:
-            raise ValueError("SpanwiseLoad must contain at least 2 stations.")
+            raise HPAError(
+                ErrorCode.LOAD_VALIDATION_FAIL,
+                "SpanwiseLoad must contain at least 2 stations.",
+            )
 
         for name, values in fields.items():
             arr = np.asarray(values, dtype=float).ravel()
             if arr.size != n:
-                raise ValueError(
-                    f"SpanwiseLoad.{name} length mismatch: expected {n}, got {arr.size}."
+                raise HPAError(
+                    ErrorCode.LOAD_VALIDATION_FAIL,
+                    f"SpanwiseLoad.{name} length mismatch: expected {n}, got {arr.size}.",
                 )
             if not np.all(np.isfinite(arr)):
-                raise ValueError(f"SpanwiseLoad.{name} contains NaN/Inf.")
+                raise HPAError(
+                    ErrorCode.LOAD_VALIDATION_FAIL,
+                    f"SpanwiseLoad.{name} contains NaN/Inf.",
+                )
 
         chord = np.asarray(aero_load.chord, dtype=float)
         if np.any(chord <= 0.0):
-            raise ValueError("SpanwiseLoad.chord must be strictly positive.")
+            raise HPAError(
+                ErrorCode.LOAD_VALIDATION_FAIL,
+                "SpanwiseLoad.chord must be strictly positive.",
+            )
 
         y = np.asarray(aero_load.y, dtype=float)
         if not np.all(np.diff(y) > 0.0):
-            raise ValueError("SpanwiseLoad.y must be strictly increasing.")
+            raise HPAError(
+                ErrorCode.LOAD_VALIDATION_FAIL,
+                "SpanwiseLoad.y must be strictly increasing.",
+            )
 
         if not np.all(np.isfinite(struct_y)):
-            raise ValueError("struct_y contains NaN/Inf.")
+            raise HPAError(
+                ErrorCode.LOAD_VALIDATION_FAIL,
+                "struct_y contains NaN/Inf.",
+            )
         if struct_y.size < 2:
-            raise ValueError("struct_y must contain at least 2 nodes.")
+            raise HPAError(
+                ErrorCode.LOAD_VALIDATION_FAIL,
+                "struct_y must contain at least 2 nodes.",
+            )
 
     @staticmethod
     def apply_load_factor(mapped: dict, n: float) -> dict:

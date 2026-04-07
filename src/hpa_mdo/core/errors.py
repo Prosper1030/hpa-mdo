@@ -10,7 +10,7 @@ class ErrorCode(str, Enum):
     LOAD_VALIDATION_FAIL = "LOAD_VALIDATION_FAIL"
 
 
-class HPAError(Exception):
+class HPAError(ValueError):
     def __init__(self, code: ErrorCode, message: str):
         self.code = code
         super().__init__(f"[{code}] {message}")
