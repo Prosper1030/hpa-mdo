@@ -12,7 +12,9 @@ Supported workflow:
 
 from __future__ import annotations
 
+import os
 import re
+from collections import OrderedDict
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -24,6 +26,8 @@ from hpa_mdo.aero.base import AeroParser, SpanwiseLoad
 
 class VSPAeroParser(AeroParser):
     """Parse VSPAero `.lod` and `.polar` output files."""
+    _CACHE_MAX_SIZE = 32
+    _parse_cache: "OrderedDict[tuple[str, int], list[SpanwiseLoad]]" = OrderedDict()
 
     def __init__(self, lod_path, polar_path=None):
         self.lod_path = Path(lod_path)
@@ -36,6 +40,12 @@ class VSPAeroParser(AeroParser):
 
     def parse(self, **kwargs) -> List[SpanwiseLoad]:
         """Parse the .lod file and return one SpanwiseLoad per AoA case."""
+        cache_key = self._cache_key(self.lod_path)
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            self._cases = cached
+            return cached
+
         raw_text = self.lod_path.read_text()
         header_block, data_blocks = self._split_cases(raw_text)
         ref = self._parse_header(header_block)
@@ -46,6 +56,7 @@ class VSPAeroParser(AeroParser):
             if sl is not None:
                 self._cases.append(sl)
 
+        self._cache_put(cache_key, self._cases)
         return self._cases
 
     def get_load_at_aoa(self, aoa_deg: float) -> SpanwiseLoad:
@@ -69,6 +80,25 @@ class VSPAeroParser(AeroParser):
     # ------------------------------------------------------------------
     # Internal parsing helpers
     # ------------------------------------------------------------------
+
+    @classmethod
+    def _cache_key(cls, file_path: Path) -> tuple[str, int]:
+        st = os.stat(file_path)
+        return str(file_path.resolve()), int(st.st_mtime_ns)
+
+    @classmethod
+    def _cache_get(cls, key: tuple[str, int]) -> Optional[list[SpanwiseLoad]]:
+        cached = cls._parse_cache.get(key)
+        if cached is not None:
+            cls._parse_cache.move_to_end(key)
+        return cached
+
+    @classmethod
+    def _cache_put(cls, key: tuple[str, int], cases: list[SpanwiseLoad]) -> None:
+        cls._parse_cache[key] = cases
+        cls._parse_cache.move_to_end(key)
+        while len(cls._parse_cache) > cls._CACHE_MAX_SIZE:
+            cls._parse_cache.popitem(last=False)
 
     @staticmethod
     def _split_cases(text: str) -> Tuple[str, List[str]]:
