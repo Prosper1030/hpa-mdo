@@ -53,6 +53,20 @@
          api/server  api/mcp_server  DB csv    val_weight
 ```
 
+### OpenMDAO Component DAG
+
+```mermaid
+graph LR
+    DV["設計變數<br/>main_t_seg / rear_t_seg"] --> S2E["SegmentToElementComp"]
+    S2E --> DSP["DualSparPropertiesComp<br/>平行軸定理 EI/GJ"]
+    DSP --> SB["SpatialBeamComp<br/>6-DOF Timoshenko FEM"]
+    SB --> SC["StressComp<br/>von Mises + KS聚合"]
+    SC --> OBJ["目標函數<br/>total_mass_full_kg"]
+    SC --> C1["約束：failure_index ≤ 0"]
+    SB --> C2["約束：twist_max_deg ≤ 2°"]
+    SB --> C3["約束：tip_deflection_m ≤ 2.5m"]
+```
+
 ---
 
 ## 功能特色
