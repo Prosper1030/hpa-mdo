@@ -35,6 +35,7 @@ Usage
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from time import perf_counter
 from typing import Optional
 
 import numpy as np
@@ -83,6 +84,7 @@ class OptimizationResult:
     disp: Optional[np.ndarray] = field(default=None, repr=False)
     vonmises_main: Optional[np.ndarray] = field(default=None, repr=False)
     vonmises_rear: Optional[np.ndarray] = field(default=None, repr=False)
+    timing_s: dict[str, float] = field(default_factory=dict)
 
     def summary(self) -> str:
         """Human-readable summary."""
@@ -248,6 +250,7 @@ class SparOptimizer:
 
         max_twist = cfg.wing.max_tip_twist_deg
         max_defl = cfg.wing.max_tip_deflection_m if cfg.wing.max_tip_deflection_m is not None else float("inf")
+        t_total_start = perf_counter()
 
         # Evaluation cache
         _cache = {}
@@ -307,11 +310,13 @@ class SparOptimizer:
             return r["mass"] * (1.0 + penalty)
 
         logger.info("  [Phase 1] Differential Evolution global search...")
+        t_de_start = perf_counter()
         de_result = differential_evolution(
             penalty_obj, bounds=bounds, seed=42,
             maxiter=200, tol=1e-5, polish=False,
             init="sobol", workers=1, popsize=20,
         )
+        de_global_s = perf_counter() - t_de_start
         x_de = de_result.x
         r_de = _eval(x_de)
         logger.info(
@@ -336,11 +341,13 @@ class SparOptimizer:
         if max_defl < float("inf"):
             constraints.append({"type": "ineq", "fun": lambda x: max_defl - _eval(x)["tip_defl"]})
 
+        t_slsqp_start = perf_counter()
         slsqp = scipy_minimize(
             obj, x_de, method="SLSQP",
             bounds=bounds, constraints=constraints,
             options={"maxiter": 500, "ftol": 1e-7, "disp": True},
         )
+        slsqp_local_s = perf_counter() - t_slsqp_start
 
         # Pick best feasible solution
         r_de = _eval(x_de)
@@ -385,9 +392,25 @@ class SparOptimizer:
         raw = run_analysis(self._prob)
         best_r = _eval(x_best)
         success = best_r["failure"] <= tol_f and best_r["twist"] <= tol_tw and best_r["tip_defl"] <= tol_df
-        return self._to_result(raw, success=success, message=msg)
+        total_s = perf_counter() - t_total_start
+        return self._to_result(
+            raw,
+            success=success,
+            message=msg,
+            timing_s={
+                "de_global_s": de_global_s,
+                "slsqp_local_s": slsqp_local_s,
+                "total_s": total_s,
+            },
+        )
 
-    def _to_result(self, raw: dict, success: bool, message: str) -> OptimizationResult:
+    def _to_result(
+        self,
+        raw: dict,
+        success: bool,
+        message: str,
+        timing_s: Optional[dict[str, float]] = None,
+    ) -> OptimizationResult:
         """Convert raw results dict to OptimizationResult."""
         cfg = self.cfg
         mat_db = self.materials_db
@@ -420,4 +443,5 @@ class SparOptimizer:
             disp=raw.get("disp"),
             vonmises_main=vm_main,
             vonmises_rear=vm_rear if len(vm_rear) > 0 else None,
+            timing_s=timing_s or {},
         )

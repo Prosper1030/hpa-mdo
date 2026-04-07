@@ -428,6 +428,16 @@ def write_optimization_summary(
             "  REAR SPAR: disabled",
         ]
 
+    timing = getattr(result, "timing_s", {}) or {}
+    lines += [
+        "-" * 64,
+        "  OPTIMIZATION TIMING [s]",
+        "-" * 64,
+        f"  DE global search : {float(timing.get('de_global_s', 0.0)):.6f}",
+        f"  SLSQP local refine: {float(timing.get('slsqp_local_s', 0.0)):.6f}",
+        f"  Total            : {float(timing.get('total_s', 0.0)):.6f}",
+    ]
+
     lines.append("=" * 64)
     summary = "\n".join(lines) + "\n"
 
