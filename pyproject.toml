@@ -29,6 +29,7 @@ all = ["hpa-mdo[oas,api,mcp,dev,cad]"]
 
 [project.scripts]
 hpa-mdo = "hpa_mdo.api.server:main"
+hpa-optimize = "hpa_mdo.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

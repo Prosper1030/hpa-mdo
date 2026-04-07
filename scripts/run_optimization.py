@@ -29,7 +29,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 # Entire script wrapped in try/except so that val_weight is ALWAYS printed.
 # ---------------------------------------------------------------------------
 
-def main(config_path: str = "configs/blackcat_004.yaml") -> float:
+def main(
+    config_path: str,
+    output_dir: Optional[str] = None,
+    quiet: bool = False,
+    no_export: bool = False,
+    aoa_deg: Optional[float] = None,
+) -> float:
     """Run the full HPA-MDO pipeline and return total_mass_full_kg."""
 
     import numpy as np
@@ -42,6 +48,9 @@ def main(config_path: str = "configs/blackcat_004.yaml") -> float:
     # ── 1. Load configuration ──────────────────────────────────────────
     print(f"[1/9] Loading config: {config_path}")
     cfg = load_config(config_path)
+    if output_dir is not None:
+        cfg.io.output_dir = Path(output_dir).expanduser().resolve()
+        print(f"       Overriding output_dir -> {cfg.io.output_dir}")
     print(f"       Project: {cfg.project_name}")
     print(f"       Span: {cfg.wing.span} m  |  V={cfg.flight.velocity} m/s")
 
@@ -67,27 +76,42 @@ def main(config_path: str = "configs/blackcat_004.yaml") -> float:
     best_residual = float("inf")
     best_loads: Optional[dict] = None
 
-    for case in cases:
-        loads = mapper.map_loads(
-            case, ac.wing.y,
+    if aoa_deg is None:
+        for case in cases:
+            loads = mapper.map_loads(
+                case, ac.wing.y,
+                actual_velocity=cfg.flight.velocity,
+                actual_density=cfg.flight.air_density,
+            )
+            # total_lift is half-span; full-span lift = 2 * total_lift
+            full_lift = 2.0 * loads["total_lift"]
+            residual = abs(full_lift - target_weight)
+            if residual < best_residual:
+                best_residual = residual
+                best_case = case
+                best_loads = loads
+    else:
+        best_case = min(cases, key=lambda c: abs(c.aoa_deg - aoa_deg))
+        best_loads = mapper.map_loads(
+            best_case,
+            ac.wing.y,
             actual_velocity=cfg.flight.velocity,
             actual_density=cfg.flight.air_density,
         )
-        # total_lift is half-span; full-span lift = 2 * total_lift
-        full_lift = 2.0 * loads["total_lift"]
-        residual = abs(full_lift - target_weight)
-        if residual < best_residual:
-            best_residual = residual
-            best_case = case
-            best_loads = loads
 
     if best_case is None or best_loads is None:
         raise RuntimeError("No valid AoA case found in VSPAero data")
 
     cruise_aoa = best_case.aoa_deg
     cruise_lift = 2.0 * best_loads["total_lift"]
-    print(f"       Cruise AoA: {cruise_aoa:.2f} deg  "
-          f"(lift={cruise_lift:.1f} N vs weight={target_weight:.1f} N)")
+    if aoa_deg is None:
+        print(f"       Cruise AoA: {cruise_aoa:.2f} deg  "
+              f"(lift={cruise_lift:.1f} N vs weight={target_weight:.1f} N)")
+    else:
+        print(
+            f"       Requested AoA: {aoa_deg:.2f} deg -> using closest case "
+            f"{cruise_aoa:.2f} deg (lift={cruise_lift:.1f} N)"
+        )
 
     # ── 5. Map loads with aerodynamic load factor ──────────────────────
     print("[5/9] Mapping loads with safety factor...")
@@ -122,34 +146,39 @@ def main(config_path: str = "configs/blackcat_004.yaml") -> float:
         print(
             "       Saved: beam_analysis.png, spar_geometry.png, optimization_summary.txt"
         )
+        if quiet:
+            print("       Quiet mode: plots were written to files only.")
     except Exception as exc:
         print(f"       Visualization skipped: {exc}")
 
     # ── 8. Export ANSYS files ──────────────────────────────────────────
     print("[8/9] Exporting analysis artifacts...")
     _export_design_summary(cfg, result, output_dir)
-    try:
-        from hpa_mdo.structure.ansys_export import ANSYSExporter
-
-        ansys_dir = output_dir / "ansys"
-        ansys_dir.mkdir(parents=True, exist_ok=True)
-        exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
-
-        apdl_path = exporter.write_apdl(ansys_dir / "spar_model.mac")
-        csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")
-        bdf_path = exporter.write_nastran_bdf(ansys_dir / "spar_model.bdf")
-        print(f"       Saved: {apdl_path.name}, {csv_path.name}, {bdf_path.name}")
-
+    if no_export:
+        print("       ANSYS/STEP export skipped (--no-export).")
+    else:
         try:
-            from hpa_mdo.utils.cad_export import export_step_from_csv
+            from hpa_mdo.structure.ansys_export import ANSYSExporter
 
-            step_path = output_dir / "spar_model.step"
-            engine_name = export_step_from_csv(csv_path, step_path, engine="auto")
-            print(f"       Saved: {step_path.name} ({engine_name})")
+            ansys_dir = output_dir / "ansys"
+            ansys_dir.mkdir(parents=True, exist_ok=True)
+            exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
+
+            apdl_path = exporter.write_apdl(ansys_dir / "spar_model.mac")
+            csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")
+            bdf_path = exporter.write_nastran_bdf(ansys_dir / "spar_model.bdf")
+            print(f"       Saved: {apdl_path.name}, {csv_path.name}, {bdf_path.name}")
+
+            try:
+                from hpa_mdo.utils.cad_export import export_step_from_csv
+
+                step_path = output_dir / "spar_model.step"
+                engine_name = export_step_from_csv(csv_path, step_path, engine="auto")
+                print(f"       Saved: {step_path.name} ({engine_name})")
+            except Exception as exc:
+                print(f"       STEP export skipped: {exc}")
         except Exception as exc:
-            print(f"       STEP export skipped: {exc}")
-    except Exception as exc:
-        print(f"       ANSYS export skipped: {exc}")
+            print(f"       ANSYS export skipped: {exc}")
 
     print(f"       Output dir: {output_dir}")
 
@@ -198,24 +227,67 @@ def _export_design_summary(cfg, result, output_dir: Path) -> None:
 
 # ── Entry point ────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    try:
-        ap = argparse.ArgumentParser(
-            description="HPA-MDO end-to-end spar optimisation pipeline."
-        )
-        ap.add_argument(
-            "--config",
-            default="configs/blackcat_004.yaml",
-            help="Path to YAML configuration file (default: configs/blackcat_004.yaml)",
-        )
-        args = ap.parse_args()
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="HPA-MDO end-to-end spar optimisation pipeline."
+    )
+    parser.add_argument(
+        "--config",
+        required=True,
+        help="Path to YAML configuration file",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Override output directory from config",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Do not display interactive plots; only write image/report files",
+    )
+    parser.add_argument(
+        "--no-export",
+        action="store_true",
+        help="Skip ANSYS/STEP export",
+    )
+    parser.add_argument(
+        "--aoa",
+        default="auto",
+        help="Target AoA in degrees, or 'auto' to pick closest L~=W case",
+    )
+    return parser
 
-        mass = main(config_path=args.config)
+
+def _parse_aoa_value(aoa: str) -> Optional[float]:
+    if aoa.lower() == "auto":
+        return None
+    return float(aoa)
+
+
+def cli(argv: Optional[list[str]] = None) -> float:
+    try:
+        parser = _build_arg_parser()
+        args = parser.parse_args(argv)
+        aoa_deg = _parse_aoa_value(args.aoa)
+
+        mass = main(
+            config_path=args.config,
+            output_dir=args.output_dir,
+            quiet=args.quiet,
+            no_export=args.no_export,
+            aoa_deg=aoa_deg,
+        )
         # LAST LINE — parseable by autoresearch agents
         print(f"val_weight: {mass}")
+        return mass
 
     except Exception:
         traceback.print_exc()
         # LAST LINE — parseable by autoresearch agents (sentinel for failure)
         print("val_weight: 99999")
         sys.exit(0)  # exit gracefully even on error
+
+
+if __name__ == "__main__":
+    cli()
