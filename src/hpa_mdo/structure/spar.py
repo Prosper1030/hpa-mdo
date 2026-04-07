@@ -1,4 +1,7 @@
-"""Parametric tubular spar model.
+"""DEPRECATED: This module (v1 parametric spar model) is no longer used.
+It will be removed in a future release. Do not import.
+
+Parametric tubular spar model.
 
 Defines the cross-section geometry (hollow circular tube) and computes
 structural properties (I, EI, mass) as functions of the design variables
