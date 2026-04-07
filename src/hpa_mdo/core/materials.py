@@ -35,7 +35,7 @@ class MaterialDB:
     """Load materials from an external YAML file."""
 
     def __init__(self, path: Optional[Path] = None):
-        self._db: dict[str, Material] = {}
+        self._materials: dict[str, Material] = {}
         db_path = path or _DEFAULT_DB_PATH
         if db_path.exists():
             self._load(db_path)
@@ -44,7 +44,7 @@ class MaterialDB:
         with open(path) as f:
             raw = yaml.safe_load(f)
         for key, props in raw.items():
-            self._db[key] = Material(
+            self._materials[key] = Material(
                 name=props.get("name", key),
                 E=float(props["E"]),
                 G=float(props["G"]) if "G" in props else float(props["E"]) / (2 * (1 + float(props.get("poisson_ratio", 0.3)))),
@@ -56,16 +56,22 @@ class MaterialDB:
             )
 
     def get(self, key: str) -> Material:
-        if key not in self._db:
-            available = ", ".join(sorted(self._db))
+        if key not in self._materials:
+            available = ", ".join(sorted(self._materials))
             raise KeyError(f"Material '{key}' not found. Available: {available}")
-        return self._db[key]
+        return self._materials[key]
 
     def register(self, key: str, material: Material) -> None:
-        self._db[key] = material
+        self._materials[key] = material
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._materials
+
+    def keys(self):
+        return self._materials.keys()
 
     def list_materials(self) -> list:
-        return sorted(self._db.keys())
+        return sorted(self._materials.keys())
 
     def as_dict(self) -> dict:
-        return {k: v.__dict__ for k, v in self._db.items()}
+        return {k: v.__dict__ for k, v in self._materials.items()}
