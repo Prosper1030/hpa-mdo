@@ -12,14 +12,13 @@ OpenVSP GUI (File -> Run Script).
 
 Error philosophy — **never crash**:
     * Every OpenVSP / subprocess call is wrapped in try/except.
-    * On any failure the builder prints ``val_weight: 99999`` (the
+    * On any failure the builder logs ``val_weight: 99999`` (the
       sentinel understood by the optimiser loop) and returns a failure
       dict so the caller can inspect ``result["success"]``.
 """
 
 from __future__ import annotations
 
-import logging
 import shutil
 import subprocess
 import textwrap
@@ -27,10 +26,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from hpa_mdo.core.config import HPAConfig
+from hpa_mdo.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-# Sentinel printed on ANY failure so the optimiser does not hang.
+# Sentinel logged on ANY failure so the optimiser does not hang.
 _FAILURE_WEIGHT = 99999
 
 # Default timeout for VSPAero subprocess (seconds).
@@ -51,8 +51,8 @@ def _has_openvsp() -> bool:
 
 
 def _failure_dict(msg: str) -> Dict[str, Any]:
-    """Return a standardised failure payload and print the sentinel."""
-    print(f"val_weight: {_FAILURE_WEIGHT}")
+    """Return a standardised failure payload and log the sentinel."""
+    logger.warning("val_weight: %s", _FAILURE_WEIGHT)
     logger.error("VSPBuilder failure: %s", msg)
     return {
         "success": False,
@@ -576,7 +576,7 @@ class VSPBuilder:
             logger.info("Wrote .vspscript fallback: %s", script_path)
         except Exception as exc:
             # Even fallback writing failed — return failure but never crash.
-            print(f"val_weight: {_FAILURE_WEIGHT}")
+            logger.warning("val_weight: %s", _FAILURE_WEIGHT)
             logger.error("Failed to write .vspscript: %s", exc)
 
         return script_path
