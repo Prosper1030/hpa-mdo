@@ -63,7 +63,7 @@ def test_map_loads_returns_finite_output_for_valid_data():
     assert np.all(np.isfinite(mapped["lift_per_span"]))
     assert np.all(np.isfinite(mapped["torque_per_span"]))
     assert mapped["total_lift"] == pytest.approx(
-        float(np.trapz(mapped["lift_per_span"], struct_y))
+        float(np.trapezoid(mapped["lift_per_span"], struct_y))
     )
 
 
@@ -155,7 +155,7 @@ def test_total_lift_integration_accuracy():
         actual_velocity=cfg.flight.velocity,
         actual_density=cfg.flight.air_density,
     )
-    integrated = float(np.trapz(result["lift_per_span"], result["y"]))
+    integrated = float(np.trapezoid(result["lift_per_span"], result["y"]))
     if abs(result["total_lift"]) < 1e-12:
         pytest.skip("total_lift is too small for a stable relative-error check.")
 

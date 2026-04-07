@@ -123,7 +123,7 @@ class LoadMapper:
             q_ref = aero_load.dynamic_pressure
             torque = q_ref * chord**2 * cm * scale_factor
 
-        total_lift = float(np.trapz(lift, y_s))
+        total_lift = float(np.trapezoid(lift, y_s))
         logger.debug("Load mapping complete (total_lift=%.3f N).", total_lift)
 
         return {
