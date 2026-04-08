@@ -1257,6 +1257,7 @@ def build_structural_problem(
     aircraft,
     aero_loads: dict,
     materials_db,
+    force_alloc_complex: bool = False,
 ) -> om.Problem:
     """Build the OpenMDAO structural optimization problem.
 
@@ -1266,6 +1267,9 @@ def build_structural_problem(
     aircraft : Aircraft
     aero_loads : dict from LoadMapper.map_loads()
     materials_db : MaterialDB
+    force_alloc_complex : bool, optional
+        Forwarded to ``Problem.setup()`` so tests can run complex-step total
+        derivative checks through the assembled structural model.
 
     Returns
     -------
@@ -1354,7 +1358,7 @@ def build_structural_problem(
     # ── Recorder (optional) ──
     # prob.driver.add_recorder(om.SqliteRecorder("hpa_opt.sql"))
 
-    prob.setup()
+    prob.setup(force_alloc_complex=force_alloc_complex)
 
     # ── Initial values ──
     # Wall thickness: start with moderate value (2 mm)
