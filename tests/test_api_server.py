@@ -39,6 +39,19 @@ def test_optimize_missing_config_returns_error() -> None:
     assert response.json()["val_weight"] == 99999
 
 
+@patch("hpa_mdo.api.server._run_pipeline", side_effect=RuntimeError("forced fail"))
+def test_optimize_failure_returns_val_weight_99999(_mock_run_pipeline) -> None:
+    response = client.post(
+        "/optimize",
+        json={"config_yaml_path": "configs/blackcat_004.yaml", "aoa_deg": 3.0},
+    )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload["val_weight"] == 99999
+    assert payload["error_code"] == "SOLVER_DIVERGED"
+
+
 @patch("hpa_mdo.structure.optimizer.SparOptimizer.optimize")
 def test_optimize_valid_config_returns_result(mock_optimize) -> None:
     mock_optimize.return_value = SimpleNamespace(
@@ -87,3 +100,21 @@ def test_export_missing_config_returns_error() -> None:
     payload = response.json()
     assert payload["error_code"] == "EXPORT_FAIL"
     assert "error" in payload
+
+
+@patch("hpa_mdo.api.server._run_pipeline", side_effect=RuntimeError("forced fail"))
+def test_analyze_failure_returns_val_weight_99999(_mock_run_pipeline) -> None:
+    response = client.post(
+        "/analyze",
+        json={
+            "config_yaml_path": "configs/blackcat_004.yaml",
+            "main_t_mm": [1.0, 1.0],
+            "rear_t_mm": [1.0, 1.0],
+            "aoa_deg": 3.0,
+        },
+    )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload["val_weight"] == 99999
+    assert payload["error_code"] == "SOLVER_DIVERGED"

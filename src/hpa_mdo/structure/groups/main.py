@@ -795,10 +795,40 @@ def run_optimization(prob: om.Problem) -> dict:
     return results
 
 
+def _require_finite_scalar(name: str, value) -> float:
+    """Return scalar as float, raising AnalysisError on non-finite values."""
+    try:
+        scalar = float(np.asarray(value).item())
+    except Exception as exc:
+        raise om.AnalysisError(f"Failed to extract scalar '{name}'.") from exc
+    if not np.isfinite(scalar):
+        raise om.AnalysisError(f"Non-finite scalar output '{name}': {scalar}.")
+    return scalar
+
+
+def _require_finite_array(name: str, values) -> np.ndarray:
+    """Return array copy, raising AnalysisError when any value is non-finite."""
+    arr = np.asarray(values)
+    if np.iscomplexobj(arr):
+        imag = np.imag(arr)
+        if np.any(np.abs(imag) > 1e-12):
+            raise om.AnalysisError(
+                f"Complex-valued output '{name}' has non-negligible imaginary part."
+            )
+        arr = np.real(arr)
+    arr = np.asarray(arr, dtype=float)
+    if not np.all(np.isfinite(arr)):
+        raise om.AnalysisError(f"Non-finite array output '{name}'.")
+    return arr.copy()
+
+
 def _extract_results(prob: om.Problem) -> dict:
     """Extract key results from solved problem."""
     def _get_scalar(name: str) -> float:
-        return float(np.asarray(prob.get_val(name)).item())
+        return _require_finite_scalar(name, prob.get_val(name))
+
+    def _get_array(name: str) -> np.ndarray:
+        return _require_finite_array(name, prob.get_val(name))
 
     struct_group = prob.model.struct
     nn = struct_group.options["aircraft"].wing.n_stations
@@ -811,9 +841,9 @@ def _extract_results(prob: om.Problem) -> dict:
         "spar_mass_full_kg": _get_scalar("struct.mass.spar_mass_full"),
         "total_mass_full_kg": _get_scalar("struct.mass.total_mass_full"),
         "case_names": case_names,
-        "main_t_seg": prob.get_val("struct.seg_mapper.main_t_seg").copy(),
-        "main_r_seg": prob.get_val("struct.seg_mapper.main_r_seg").copy(),
-        "EI_main_elem": prob.get_val("struct.spar_props.EI_main").copy(),
+        "main_t_seg": _get_array("struct.seg_mapper.main_t_seg"),
+        "main_r_seg": _get_array("struct.seg_mapper.main_r_seg"),
+        "EI_main_elem": _get_array("struct.spar_props.EI_main"),
     }
 
     if multi_case:
@@ -825,11 +855,11 @@ def _extract_results(prob: om.Problem) -> dict:
                 "buckling_index": _get_scalar(f"{case_path}.buckling_index"),
                 "twist_max_deg": _get_scalar(f"{case_path}.twist_max_deg"),
                 "tip_deflection_m": _get_scalar(f"{case_path}.tip_deflection_m"),
-                "disp": prob.get_val(f"{case_path}.disp").copy(),
-                "vonmises_main": prob.get_val(f"{case_path}.vonmises_main").copy(),
+                "disp": _get_array(f"{case_path}.disp"),
+                "vonmises_main": _get_array(f"{case_path}.vonmises_main"),
             }
             if rear_on:
-                case_res["vonmises_rear"] = prob.get_val(f"{case_path}.vonmises_rear").copy()
+                case_res["vonmises_rear"] = _get_array(f"{case_path}.vonmises_rear")
             case_results[case_name] = case_res
 
         res["cases"] = case_results
@@ -845,15 +875,15 @@ def _extract_results(prob: om.Problem) -> dict:
         res["failure"] = _get_scalar("struct.failure.failure")
         res["buckling_index"] = _get_scalar("struct.buckling.buckling_index")
         res["twist_max_deg"] = _get_scalar("struct.twist.twist_max_deg")
-        res["disp"] = prob.get_val("struct.fem.disp").copy()
+        res["disp"] = _get_array("struct.fem.disp")
         res["tip_deflection_m"] = _get_scalar("struct.tip_defl.tip_deflection_m")
-        res["vonmises_main"] = prob.get_val("struct.stress.vonmises_main").copy()
+        res["vonmises_main"] = _get_array("struct.stress.vonmises_main")
         if rear_on:
-            res["vonmises_rear"] = prob.get_val("struct.stress.vonmises_rear").copy()
+            res["vonmises_rear"] = _get_array("struct.stress.vonmises_rear")
 
     if rear_on:
-        res["rear_t_seg"] = prob.get_val("struct.seg_mapper.rear_t_seg").copy()
-        res["rear_r_seg"] = prob.get_val("struct.seg_mapper.rear_r_seg").copy()
-        res["EI_rear_elem"] = prob.get_val("struct.spar_props.EI_rear").copy()
+        res["rear_t_seg"] = _get_array("struct.seg_mapper.rear_t_seg")
+        res["rear_r_seg"] = _get_array("struct.seg_mapper.rear_r_seg")
+        res["EI_rear_elem"] = _get_array("struct.spar_props.EI_rear")
 
     return res

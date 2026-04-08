@@ -57,6 +57,8 @@ def _error_json(
     """Standard error dict for any endpoint failure."""
     out = {"error": str(e), "error_code": code.value}
     if include_val_weight:
+        # Top-level endpoint failure sentinel only.
+        # Internal optimizer failures use separate normalized penalties.
         out["val_weight"] = 99999
     return out
 

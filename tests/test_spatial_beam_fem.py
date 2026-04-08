@@ -80,3 +80,28 @@ def test_spatial_beam_fem_uses_independent_iz_for_lateral_bending():
     disp_small_iz = abs(_run_tip_lateral_deflection(iz_val=0.002))
     disp_large_iz = abs(_run_tip_lateral_deflection(iz_val=0.02))
     assert disp_large_iz < disp_small_iz * 0.6
+
+
+def test_compute_partials_zero_jacobian_fallback_is_counted():
+    nn = 3
+    ndof = nn * 6
+    prob = om.Problem()
+    prob.model.add_subsystem(
+        "fem",
+        SpatialBeamFEM(
+            n_nodes=nn,
+            E_avg=1.0,
+            G_avg=1.0,
+            fixed_node=0,
+            lift_wire_nodes=None,
+        ),
+        promotes=["*"],
+    )
+    prob.setup()
+
+    comp = prob.model._get_subsystem("fem")
+    partials = {("disp", "loads"): np.zeros(ndof * ndof)}
+    comp.compute_partials(inputs=None, partials=partials)
+
+    assert comp._zero_jacobian_fallback_count == 1
+    assert np.allclose(partials["disp", "loads"], 0.0)

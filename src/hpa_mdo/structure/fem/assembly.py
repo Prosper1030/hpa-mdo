@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 import openmdao.api as om
 
+from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.fem.elements import (
     _cs_norm,
     _has_only_finite_values,
@@ -11,6 +12,8 @@ from hpa_mdo.structure.fem.elements import (
     _timoshenko_element_stiffness,
     _transform_12x12,
 )
+
+logger = get_logger(__name__)
 
 
 class SpatialBeamFEM(om.ExplicitComponent):
@@ -108,6 +111,18 @@ class SpatialBeamFEM(om.ExplicitComponent):
             "loads",
             rows=self._load_partial_rows,
             cols=self._load_partial_cols,
+        )
+        self._zero_jacobian_fallback_count = 0
+
+    def _record_zero_jacobian_fallback(self, reason: str) -> None:
+        """Track and log Jacobian fallback-to-zero events for visibility."""
+        self._zero_jacobian_fallback_count = int(
+            getattr(self, "_zero_jacobian_fallback_count", 0)
+        ) + 1
+        logger.warning(
+            "SpatialBeamFEM.compute_partials fallback to zero Jacobian (%s). count=%d",
+            reason,
+            self._zero_jacobian_fallback_count,
         )
 
     def compute(self, inputs, outputs):
@@ -244,18 +259,21 @@ class SpatialBeamFEM(om.ExplicitComponent):
         ndof = nn * 6
 
         if k_global is None or load_selector is None:
+            self._record_zero_jacobian_fallback("missing_cached_linear_system")
             partials["disp", "loads"] = np.zeros((ndof, ndof))
             return
 
         try:
             load_jac = np.linalg.solve(k_global, load_selector)
         except np.linalg.LinAlgError:
+            self._record_zero_jacobian_fallback("singular_k_global")
             load_jac = np.zeros((ndof, ndof), dtype=k_global.dtype)
 
         if (
             not _has_only_finite_values(load_jac)
             or float(np.max(np.abs(load_jac))) > max_disp_entry
         ):
+            self._record_zero_jacobian_fallback("non_finite_or_overflow_jacobian")
             load_jac = np.zeros((ndof, ndof), dtype=k_global.dtype)
 
         partials["disp", "loads"] = np.real(load_jac).ravel()

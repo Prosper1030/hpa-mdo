@@ -279,6 +279,8 @@ def cli(argv: Optional[list[str]] = None) -> float:
             aoa_deg=aoa_deg,
         )
         # LAST LINE — parseable by autoresearch agents
+        # NOTE: This sentinel is only for top-level pipeline failures.
+        # Internal optimizer evaluation failures are normalized separately.
         print(f"val_weight: {mass}")
         return mass
 
