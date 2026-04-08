@@ -41,6 +41,7 @@ from time import perf_counter
 from typing import Optional
 
 import numpy as np
+import openmdao.api as om
 
 from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import differential_evolution
@@ -99,14 +100,23 @@ class _ScipyBlackBoxEvaluator:
             )
             self.prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg:], units="m")
 
-        run_analysis(self.prob)
-        res = {
-            "mass": self._get_scalar("struct.mass.total_mass_full"),
-            "failure": self._get_scalar("struct.failure.failure"),
-            "twist": self._get_scalar("struct.twist.twist_max_deg"),
-            "tip_defl": self._get_scalar("struct.tip_defl.tip_deflection_m"),
-            "buckling": self._get_scalar("struct.buckling.buckling_index"),
-        }
+        try:
+            run_analysis(self.prob)
+            res = {
+                "mass": self._get_scalar("struct.mass.total_mass_full"),
+                "failure": self._get_scalar("struct.failure.failure"),
+                "twist": self._get_scalar("struct.twist.twist_max_deg"),
+                "tip_defl": self._get_scalar("struct.tip_defl.tip_deflection_m"),
+                "buckling": self._get_scalar("struct.buckling.buckling_index"),
+            }
+        except om.AnalysisError:
+            res = {
+                "mass": 1e12,
+                "failure": 1e3,
+                "twist": 1e3,
+                "tip_defl": 1e3,
+                "buckling": 1e3,
+            }
         self._cache[key] = res
         return res
 

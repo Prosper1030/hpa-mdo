@@ -140,3 +140,59 @@ def test_scipy_optimizer_rejects_multi_case_configuration():
 
     with pytest.raises(NotImplementedError):
         opt.optimize(method="scipy")
+
+
+def test_load_case_aero_scale_is_applied_to_external_aero_loads():
+    """Per-case aero_scale should amplify aero loads without changing gravity scaling."""
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg = load_config(repo_root / "configs" / "blackcat_004.yaml")
+    cfg.flight.cases = [
+        LoadCaseConfig(
+            name="cruise",
+            aero_scale=1.0,
+            nz=1.0,
+            velocity=cfg.flight.velocity,
+            air_density=cfg.flight.air_density,
+        )
+    ]
+
+    with patch.object(cfg.solver, "n_beam_nodes", 10):
+        aircraft = Aircraft.from_config(cfg)
+
+    mapper = LoadMapper(method="linear")
+    fake_load = SpanwiseLoad(
+        y=np.linspace(0.0, aircraft.wing.half_span, 12),
+        chord=np.linspace(cfg.wing.root_chord, cfg.wing.tip_chord, 12),
+        cl=np.full(12, 0.55),
+        cd=np.full(12, 0.02),
+        cm=np.full(12, 0.04),
+        lift_per_span=np.full(12, 75.0),
+        drag_per_span=np.full(12, 2.0),
+        aoa_deg=3.0,
+        velocity=cfg.flight.velocity,
+        dynamic_pressure=0.5 * cfg.flight.air_density * cfg.flight.velocity**2,
+    )
+    mapped = mapper.map_loads(fake_load, aircraft.wing.y)
+    mat_db = MaterialDB()
+
+    prob_base = build_structural_problem(cfg, aircraft, {"cruise": mapped}, mat_db)
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+    prob_base.set_val("struct.seg_mapper.main_t_seg", np.full(n_seg, 0.0016), units="m")
+    prob_base.set_val("struct.seg_mapper.main_r_seg", np.full(n_seg, 0.028), units="m")
+    if cfg.rear_spar.enabled:
+        prob_base.set_val("struct.seg_mapper.rear_t_seg", np.full(n_seg, 0.0012), units="m")
+        prob_base.set_val("struct.seg_mapper.rear_r_seg", np.full(n_seg, 0.022), units="m")
+    prob_base.run_model()
+    base_tip = float(np.asarray(prob_base.get_val("struct.tip_defl.tip_deflection_m")).item())
+
+    cfg.flight.cases[0].aero_scale = 2.0
+    prob_scaled = build_structural_problem(cfg, aircraft, {"cruise": mapped}, mat_db)
+    prob_scaled.set_val("struct.seg_mapper.main_t_seg", np.full(n_seg, 0.0016), units="m")
+    prob_scaled.set_val("struct.seg_mapper.main_r_seg", np.full(n_seg, 0.028), units="m")
+    if cfg.rear_spar.enabled:
+        prob_scaled.set_val("struct.seg_mapper.rear_t_seg", np.full(n_seg, 0.0012), units="m")
+        prob_scaled.set_val("struct.seg_mapper.rear_r_seg", np.full(n_seg, 0.022), units="m")
+    prob_scaled.run_model()
+    scaled_tip = float(np.asarray(prob_scaled.get_val("struct.tip_defl.tip_deflection_m")).item())
+
+    assert scaled_tip > base_tip * 1.8

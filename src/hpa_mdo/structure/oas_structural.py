@@ -713,7 +713,7 @@ class SpatialBeamFEM(om.ExplicitComponent):
             dx = nj - ni
             L = _cs_norm(dx)
             if np.real(L) < 1e-10:
-                continue
+                raise om.AnalysisError(f"Degenerate beam element length at element {e}.")
 
             # Use the equivalent Iy, J for this element
             Iy_e = Iy[e]
@@ -726,13 +726,19 @@ class SpatialBeamFEM(om.ExplicitComponent):
                 or np.real(Iy_e) <= 1e-20
                 or np.real(J_e) <= 1e-20
             ):
-                continue
+                raise om.AnalysisError(
+                    f"Invalid section properties at element {e} "
+                    f"(A={A_e}, Iy={Iy_e}, J={J_e})."
+                )
 
             # Compute effective E, G from EI and I
             E_eff = EI[e] / (Iy_e + 1e-30)
             G_eff = GJ_arr[e] / (J_e + 1e-30)
             if not _has_only_finite_values(np.array([E_eff, G_eff])):
-                continue
+                raise om.AnalysisError(
+                    f"Invalid effective material properties at element {e} "
+                    f"(E_eff={E_eff}, G_eff={G_eff})."
+                )
 
             K_local = _timoshenko_element_stiffness(
                 L, E_eff, G_eff, A_e, Iy_e, Iz_e, J_e)
@@ -740,17 +746,21 @@ class SpatialBeamFEM(om.ExplicitComponent):
                 not _has_only_finite_values(K_local)
                 or float(np.max(np.abs(K_local))) > max_matrix_entry
             ):
-                continue
+                raise om.AnalysisError(
+                    f"Local stiffness matrix overflow/non-finite at element {e}."
+                )
 
             # Transform to global coordinates
             R3 = _rotation_matrix(ni, nj)
             T = _transform_12x12(R3)
             if not _has_only_finite_values(T):
-                continue
+                raise om.AnalysisError(f"Invalid element rotation transform at element {e}.")
             with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
                 K_elem_global = T.T @ K_local @ T
             if not _has_only_finite_values(K_elem_global):
-                continue
+                raise om.AnalysisError(
+                    f"Global element stiffness matrix became non-finite at element {e}."
+                )
 
             # Assemble into global matrix
             for ii in range(12):
@@ -782,13 +792,15 @@ class SpatialBeamFEM(om.ExplicitComponent):
         # Solve (works with both real and complex matrices)
         try:
             u = np.linalg.solve(K_global, f)
-        except np.linalg.LinAlgError:
-            u = np.zeros(ndof, dtype=dtype)
+        except np.linalg.LinAlgError as exc:
+            raise om.AnalysisError("Global stiffness matrix is singular.") from exc
         if (
             not _has_only_finite_values(u)
             or float(np.max(np.abs(u))) > max_disp_entry
         ):
-            u = np.zeros(ndof, dtype=dtype)
+            raise om.AnalysisError(
+                "FEM displacement solve diverged or produced non-finite values."
+            )
 
         self._last_k_global = K_global.copy()
         self._last_load_selector = load_selector
@@ -1219,13 +1231,16 @@ class StructuralLoadCaseGroup(om.Group):
         load_case = self.options["load_case"]
         nn = self.options["n_nodes"]
         rear_on = self.options["rear_enabled"]
+        aero_scale = load_case.aero_scale
+        lift = np.asarray(self.options["lift_per_span"]) * aero_scale
+        torque = np.asarray(self.options["torque_per_span"]) * aero_scale
 
         self.add_subsystem(
             "ext_loads",
             ExternalLoadsComp(
                 n_nodes=nn,
-                lift_per_span=self.options["lift_per_span"],
-                torque_per_span=self.options["torque_per_span"],
+                lift_per_span=lift,
+                torque_per_span=torque,
                 node_spacings=self.options["node_spacings"],
                 element_lengths=self.options["element_lengths"],
                 gravity_scale=load_case.gravity_scale,
@@ -1469,8 +1484,9 @@ class HPAStructuralGroup(om.Group):
 
         if len(case_entries) == 1:
             load_case, case_loads = next(iter(case_entries.values()))
-            lift = case_loads["lift_per_span"]
-            torque = case_loads.get("torque_per_span", np.zeros(nn))
+            aero_scale = load_case.aero_scale
+            lift = np.asarray(case_loads["lift_per_span"]) * aero_scale
+            torque = np.asarray(case_loads.get("torque_per_span", np.zeros(nn))) * aero_scale
 
             # 3. External loads
             self.add_subsystem("ext_loads", ExternalLoadsComp(

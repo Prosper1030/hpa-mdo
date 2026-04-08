@@ -79,9 +79,7 @@ def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
         actual_velocity=cfg.flight.velocity,
         actual_density=cfg.flight.air_density,
     )
-    aero_loads = LoadMapper.apply_load_factor(
-        trim_loads, cfg.safety.aerodynamic_load_factor
-    )
+    aero_loads = trim_loads
 
     opt = SparOptimizer(cfg, ac, aero_loads, mat_db)
     return cfg, ac, mat_db, aero_loads, opt, best_case
