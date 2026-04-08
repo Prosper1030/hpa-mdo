@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-import pytest
+from types import SimpleNamespace
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from hpa_mdo.api.server import app
@@ -37,8 +39,26 @@ def test_optimize_missing_config_returns_error() -> None:
     assert response.json()["val_weight"] == 99999
 
 
-@pytest.mark.slow
-def test_optimize_valid_config_returns_result() -> None:
+@patch("hpa_mdo.structure.optimizer.SparOptimizer.optimize")
+def test_optimize_valid_config_returns_result(mock_optimize) -> None:
+    mock_optimize.return_value = SimpleNamespace(
+        success=True,
+        message="mocked optimize",
+        spar_mass_half_kg=5.93,
+        spar_mass_full_kg=11.86,
+        total_mass_full_kg=14.35,
+        max_stress_main_Pa=3.70e8,
+        max_stress_rear_Pa=5.34e8,
+        allowable_stress_main_Pa=1.667e9,
+        allowable_stress_rear_Pa=1.667e9,
+        failure_index=-0.67,
+        buckling_index=-0.85,
+        tip_deflection_m=2.41,
+        twist_max_deg=0.33,
+        main_t_seg_mm=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        rear_t_seg_mm=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    )
+
     response = client.post(
         "/optimize",
         json={"config_yaml_path": "configs/blackcat_004.yaml"},
@@ -49,7 +69,8 @@ def test_optimize_valid_config_returns_result() -> None:
     assert payload["error_code"] is None
     assert payload["success"] is True
     assert "failure_index" in payload
-    assert "total_mass_full_kg" in payload
+    assert payload["total_mass_full_kg"] == 14.35
+    mock_optimize.assert_called_once_with(method="scipy")
 
 
 def test_export_missing_config_returns_error() -> None:
