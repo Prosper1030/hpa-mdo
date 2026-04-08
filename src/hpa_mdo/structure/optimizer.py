@@ -49,6 +49,7 @@ from scipy.optimize import differential_evolution
 
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.oas_structural import (
+    _normalise_load_case_inputs,
     build_structural_problem,
     run_analysis,
     run_optimization,
@@ -521,6 +522,75 @@ class SparOptimizer:
                 return False
 
         return True
+
+    def _normalise_load_case_inputs_for_update(self, aero_loads: dict) -> dict[str, tuple[object, dict]]:
+        """Return normalized load-case inputs using the structural model helper."""
+        return _normalise_load_case_inputs(self.cfg, aero_loads)
+
+    def update_aero_loads(self, aero_loads: dict) -> None:
+        """Replace aerodynamic loads on the existing OpenMDAO problem.
+
+        This is the FSI-friendly path: ``build_structural_problem()`` is
+        expensive (component setup, partial declarations, matrix allocation),
+        so iterative FSI should reuse the same ``Problem`` instance and only
+        refresh external load inputs between iterations.
+
+        Parameters
+        ----------
+        aero_loads : dict
+            Same shape accepted by ``SparOptimizer.__init__``:
+            either a legacy single mapped-load dict or
+            ``{case_name: mapped_loads}`` for multi-case configs.
+
+        Notes
+        -----
+        The updated loads must match the existing structural mesh
+        (same number of beam nodes). Mesh/topology changes require rebuilding
+        the optimizer and OpenMDAO problem from scratch.
+        """
+        case_entries = self._normalise_load_case_inputs_for_update(aero_loads)
+        struct_group = self._prob.model._get_subsystem("struct")
+        is_multi_case_problem = bool(getattr(struct_group, "_multi_case", False))
+
+        if is_multi_case_problem != (len(case_entries) > 1):
+            raise ValueError(
+                "Load-case count mismatch when updating aerodynamic loads. "
+                "Rebuild SparOptimizer if load-case topology changes."
+            )
+
+        self.aero_loads = aero_loads
+
+        for case_name, (load_case, case_loads) in case_entries.items():
+            ext_loads_path = (
+                f"struct.case_{case_name}.ext_loads" if is_multi_case_problem else "struct.ext_loads"
+            )
+            comp = self._prob.model._get_subsystem(ext_loads_path)
+            if comp is None:
+                raise RuntimeError(
+                    f"Cannot locate ExternalLoadsComp at '{ext_loads_path}' to refresh FSI loads."
+                )
+
+            n_nodes = int(comp.options["n_nodes"])
+            lift = np.asarray(case_loads["lift_per_span"], dtype=float)
+            if lift.shape != (n_nodes,):
+                raise ValueError(
+                    f"lift_per_span shape mismatch for '{case_name}': expected {(n_nodes,)}, got {lift.shape}."
+                )
+
+            torque_raw = case_loads.get("torque_per_span")
+            if torque_raw is None:
+                torque = np.zeros(n_nodes, dtype=float)
+            else:
+                torque = np.asarray(torque_raw, dtype=float)
+                if torque.shape != (n_nodes,):
+                    raise ValueError(
+                        f"torque_per_span shape mismatch for '{case_name}': "
+                        f"expected {(n_nodes,)}, got {torque.shape}."
+                    )
+
+            aero_scale = float(load_case.aero_scale)
+            comp.options["lift_per_span"] = lift * aero_scale
+            comp.options["torque_per_span"] = torque * aero_scale
 
     def analyze(
         self,

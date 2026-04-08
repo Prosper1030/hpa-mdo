@@ -40,6 +40,9 @@ class FSICoupling:
         self.aircraft = aircraft
         self.materials_db = materials_db
         self.mapper = load_mapper or LoadMapper()
+        # Reuse one optimizer instance for iterative FSI to avoid paying
+        # OpenMDAO setup overhead on every coupling iteration.
+        self._optimizer: Optional[SparOptimizer] = None
 
     @staticmethod
     def _normalize_optimizer_method(method: str) -> str:
@@ -64,8 +67,19 @@ class FSICoupling:
             actual_density=self.cfg.flight.air_density,
         )
 
-        optimizer = SparOptimizer(self.cfg, self.aircraft, mapped, self.materials_db)
-        result = optimizer.optimize(method=self._normalize_optimizer_method(optimizer_method))
+        if self._optimizer is None:
+            self._optimizer = SparOptimizer(
+                self.cfg,
+                self.aircraft,
+                mapped,
+                self.materials_db,
+            )
+        else:
+            self._optimizer.update_aero_loads(mapped)
+
+        result = self._optimizer.optimize(
+            method=self._normalize_optimizer_method(optimizer_method)
+        )
         return result, self._extract_deformed_z(result)
 
     def _extract_deformed_z(self, result: OptimizationResult) -> np.ndarray:
