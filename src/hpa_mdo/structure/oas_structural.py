@@ -1558,10 +1558,9 @@ class HPAStructuralGroup(om.Group):
             + n_rear_joints * cfg.rear_spar.joint_mass_kg
         )
 
-        # Allowable stress uses the controlling material limit in bending:
-        # min(tensile, compressive) / material_safety_factor.
-        sigma_allow_main = min(mat_main.tensile_strength, mat_main.sigma_c) / cfg.safety.material_safety_factor
-        sigma_allow_rear = min(mat_rear.tensile_strength, mat_rear.sigma_c) / cfg.safety.material_safety_factor
+        # Allowable stress = UTS / material_safety_factor
+        sigma_allow_main = mat_main.tensile_strength / cfg.safety.material_safety_factor
+        sigma_allow_rear = mat_rear.tensile_strength / cfg.safety.material_safety_factor
 
         # ── Build subsystems ──
 

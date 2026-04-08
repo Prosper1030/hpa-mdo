@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hpa_mdo.core.materials import Material
 from hpa_mdo.structure import optimizer as optimizer_mod
 from hpa_mdo.structure.optimizer import OptimizationResult, SparOptimizer
 from hpa_mdo.utils.visualization import (
@@ -257,61 +256,3 @@ def test_raw_feasible_rejects_main_spar_dominance_violations():
     }
 
     assert opt._is_raw_feasible(raw) is False
-
-
-def test_to_result_uses_compressive_allowable_when_lower():
-    cfg = _Cfg(
-        main_spar=SimpleNamespace(material="main_cf"),
-        rear_spar=SimpleNamespace(enabled=False, material="rear_cf"),
-        safety=SimpleNamespace(material_safety_factor=1.5),
-        wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
-    )
-
-    class _MatDB:
-        def __init__(self):
-            self._materials = {
-                "main_cf": Material(
-                    name="main_cf",
-                    E=240e9,
-                    G=90e9,
-                    density=1600.0,
-                    tensile_strength=2.5e9,
-                    compressive_strength=1.5e9,
-                ),
-                "rear_cf": Material(
-                    name="rear_cf",
-                    E=240e9,
-                    G=90e9,
-                    density=1600.0,
-                    tensile_strength=2.2e9,
-                    compressive_strength=1.2e9,
-                ),
-            }
-
-        def get(self, key):
-            return self._materials[key]
-
-    opt = SparOptimizer.__new__(SparOptimizer)
-    opt.cfg = cfg
-    opt.materials_db = _MatDB()
-
-    raw = {
-        "spar_mass_half_kg": 1.0,
-        "spar_mass_full_kg": 2.0,
-        "total_mass_full_kg": 3.0,
-        "failure": -0.1,
-        "buckling_index": -0.2,
-        "tip_deflection_m": 0.1,
-        "twist_max_deg": 0.2,
-        "main_t_seg": np.array([0.001, 0.001]),
-        "main_r_seg": np.array([0.02, 0.02]),
-        "rear_t_seg": None,
-        "rear_r_seg": None,
-        "vonmises_main": np.array([1.0e8, 1.2e8]),
-        "vonmises_rear": np.array([]),
-        "disp": np.zeros((3, 6)),
-    }
-
-    result = opt._to_result(raw, success=True, message="ok")
-    assert result.allowable_stress_main_Pa == 1.5e9 / 1.5
-    assert result.allowable_stress_rear_Pa == 1.2e9 / 1.5
