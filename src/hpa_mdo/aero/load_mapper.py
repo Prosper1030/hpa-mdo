@@ -81,6 +81,8 @@ class LoadMapper:
         y_s = np.asarray(struct_y, dtype=float)
         self._validate_inputs(aero_load, y_s)
 
+        in_range_mask = (y_s >= y_a.min()) & (y_s <= y_a.max())
+
         # Clamp structural nodes to aero range to avoid extrapolation
         y_s_clamped = np.clip(y_s, y_a.min(), y_a.max())
         if not np.array_equal(y_s_clamped, y_s):
@@ -122,6 +124,16 @@ class LoadMapper:
             drag = _interp(aero_load.drag_per_span) * scale_factor
             q_ref = aero_load.dynamic_pressure
             torque = q_ref * chord**2 * cm * scale_factor
+
+        # Physical convention:
+        # nodes outside the aerodynamic span do not carry aerodynamic loads.
+        if not np.all(in_range_mask):
+            lift = np.asarray(lift).copy()
+            drag = np.asarray(drag).copy()
+            torque = np.asarray(torque).copy()
+            lift[~in_range_mask] = 0.0
+            drag[~in_range_mask] = 0.0
+            torque[~in_range_mask] = 0.0
 
         total_lift = float(np.trapezoid(lift, y_s))
         logger.debug("Load mapping complete (total_lift=%.3f N).", total_lift)
