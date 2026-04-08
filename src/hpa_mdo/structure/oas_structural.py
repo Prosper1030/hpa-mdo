@@ -436,30 +436,36 @@ def _timoshenko_element_stiffness(
 
     Shear correction factor κ = 0.5 (thin-walled circular tube).
     """
+    eps = 1e-30
     kappa = 0.5  # shear correction for hollow tube
     GA = kappa * G * A
-    phi_y = 12.0 * E * Iz / (GA * L**2) if GA > 1e-20 else 0.0
-    phi_z = 12.0 * E * Iy / (GA * L**2) if GA > 1e-20 else 0.0
-
     dtype = np.result_type(L, E, G, A, Iy, Iz, J, float)
+    L_safe = L + np.array(eps, dtype=dtype)
+    ga_l2 = GA * L**2
+    ga_guard = np.array(eps, dtype=dtype)
+    if np.real(np.abs(ga_l2)) > 1e-20:
+        ga_guard = ga_l2 + np.array(eps, dtype=dtype)
+    phi_y = 12.0 * E * Iz / ga_guard
+    phi_z = 12.0 * E * Iy / ga_guard
+
     K = np.zeros((12, 12), dtype=dtype)
 
     # Axial (u)
-    ea_L = E * A / L
+    ea_L = E * A / L_safe
     K[0, 0] = ea_L
     K[0, 6] = -ea_L
     K[6, 0] = -ea_L
     K[6, 6] = ea_L
 
     # Torsion (θx)
-    gj_L = G * J / L
+    gj_L = G * J / L_safe
     K[3, 3] = gj_L
     K[3, 9] = -gj_L
     K[9, 3] = -gj_L
     K[9, 9] = gj_L
 
     # Bending in x-z plane (w, θy)
-    c1 = E * Iy / (L**3 * (1 + phi_z))
+    c1 = E * Iy / ((L**3 + np.array(eps, dtype=dtype)) * (1 + phi_z))
     K[2, 2] = 12.0 * c1
     K[2, 4] = 6.0 * L * c1
     K[2, 8] = -12.0 * c1
@@ -478,7 +484,7 @@ def _timoshenko_element_stiffness(
     K[10, 10] = (4.0 + phi_z) * L**2 * c1
 
     # Bending in x-y plane (v, θz)
-    c2 = E * Iz / (L**3 * (1 + phi_y))
+    c2 = E * Iz / ((L**3 + np.array(eps, dtype=dtype)) * (1 + phi_y))
     K[1, 1] = 12.0 * c2
     K[1, 5] = -6.0 * L * c2
     K[1, 7] = -12.0 * c2
@@ -501,7 +507,13 @@ def _timoshenko_element_stiffness(
 
 def _cs_norm(x):
     """Complex-step compatible vector norm: sqrt(dot(x,x))."""
-    return np.sqrt(np.dot(x, x))
+    return np.sqrt(np.dot(x, x) + 1e-30)
+
+
+def _has_only_finite_values(x: np.ndarray | float | complex) -> bool:
+    """Return True when both real and imaginary parts are finite."""
+    arr = np.asarray(x)
+    return bool(np.all(np.isfinite(arr.real)) and np.all(np.isfinite(arr.imag)))
 
 
 def _rotation_matrix(node_i: np.ndarray, node_j: np.ndarray) -> np.ndarray:
@@ -516,7 +528,9 @@ def _rotation_matrix(node_i: np.ndarray, node_j: np.ndarray) -> np.ndarray:
     L = _cs_norm(dx)
     if np.real(L) < 1e-12:
         return np.eye(3, dtype=dx.dtype)
-    e1 = dx / L  # local x
+    e1 = dx / (L + 1e-30)  # local x
+    if not _has_only_finite_values(e1):
+        return np.eye(3, dtype=dx.dtype)
 
     # Pick a reference direction (global Z unless nearly parallel to element)
     ref = np.array([0.0, 0.0, 1.0], dtype=dx.dtype)
@@ -528,9 +542,13 @@ def _rotation_matrix(node_i: np.ndarray, node_j: np.ndarray) -> np.ndarray:
     norm_e2 = _cs_norm(e2)
     if np.real(norm_e2) < 1e-12:
         return np.eye(3, dtype=dx.dtype)
-    e2 = e2 / norm_e2
+    e2 = e2 / (norm_e2 + 1e-30)
+    if not _has_only_finite_values(e2):
+        return np.eye(3, dtype=dx.dtype)
     e3 = np.cross(e1, e2)
     e3 = e3 / (_cs_norm(e3) + 1e-30)
+    if not _has_only_finite_values(e3):
+        return np.eye(3, dtype=dx.dtype)
 
     return np.array([e1, e2, e3])
 
@@ -589,7 +607,36 @@ class SpatialBeamFEM(om.ExplicitComponent):
 
         self.add_output("disp", shape=(nn, 6))
 
-        self.declare_partials("disp", "*", method="cs")
+        ndof = nn * 6
+        node_size = nn * 3
+        elem_size = ne
+        dense_rows_nodes, dense_cols_nodes = np.indices((ndof, node_size))
+        dense_rows_elem, dense_cols_elem = np.indices((ndof, elem_size))
+        rows, cols = np.indices((ndof, ndof))
+        self._load_partial_rows = rows.ravel()
+        self._load_partial_cols = cols.ravel()
+
+        self.declare_partials(
+            "disp",
+            "nodes",
+            rows=dense_rows_nodes.ravel(),
+            cols=dense_cols_nodes.ravel(),
+            method="cs",
+        )
+        for name in ("EI_flap", "GJ", "A_equiv", "Iy_equiv", "J_equiv"):
+            self.declare_partials(
+                "disp",
+                name,
+                rows=dense_rows_elem.ravel(),
+                cols=dense_cols_elem.ravel(),
+                method="cs",
+            )
+        self.declare_partials(
+            "disp",
+            "loads",
+            rows=self._load_partial_rows,
+            cols=self._load_partial_cols,
+        )
 
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
@@ -610,6 +657,9 @@ class SpatialBeamFEM(om.ExplicitComponent):
         # Use same dtype as inputs for complex-step compatibility
         dtype = EI.dtype
         K_global = np.zeros((ndof, ndof), dtype=dtype)
+        max_matrix_entry = 1e12
+        max_disp_entry = 1e2
+        load_selector = np.eye(ndof, dtype=dtype)
 
         for e in range(ne):
             ni = nodes[e]
@@ -624,18 +674,37 @@ class SpatialBeamFEM(om.ExplicitComponent):
             Iz_e = Iy[e]  # symmetric tube approximation
             J_e = J[e]
             A_e = A[e]
+            if (
+                not _has_only_finite_values(np.array([A_e, Iy_e, J_e, EI[e], GJ_arr[e]]))
+                or np.real(A_e) <= 1e-20
+                or np.real(Iy_e) <= 1e-20
+                or np.real(J_e) <= 1e-20
+            ):
+                continue
 
             # Compute effective E, G from EI and I
             E_eff = EI[e] / (Iy_e + 1e-30)
             G_eff = GJ_arr[e] / (J_e + 1e-30)
+            if not _has_only_finite_values(np.array([E_eff, G_eff])):
+                continue
 
             K_local = _timoshenko_element_stiffness(
                 L, E_eff, G_eff, A_e, Iy_e, Iz_e, J_e)
+            if (
+                not _has_only_finite_values(K_local)
+                or float(np.max(np.abs(K_local))) > max_matrix_entry
+            ):
+                continue
 
             # Transform to global coordinates
             R3 = _rotation_matrix(ni, nj)
             T = _transform_12x12(R3)
-            K_elem_global = T.T @ K_local @ T
+            if not _has_only_finite_values(T):
+                continue
+            with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+                K_elem_global = T.T @ K_local @ T
+            if not _has_only_finite_values(K_elem_global):
+                continue
 
             # Assemble into global matrix
             for ii in range(12):
@@ -662,14 +731,48 @@ class SpatialBeamFEM(om.ExplicitComponent):
         for dof in bc_dofs:
             K_global[dof, dof] += penalty_val
             f[dof] = zero_val
+            load_selector[dof, dof] = zero_val
 
         # Solve (works with both real and complex matrices)
         try:
             u = np.linalg.solve(K_global, f)
         except np.linalg.LinAlgError:
             u = np.zeros(ndof, dtype=dtype)
+        if (
+            not _has_only_finite_values(u)
+            or float(np.max(np.abs(u))) > max_disp_entry
+        ):
+            u = np.zeros(ndof, dtype=dtype)
 
+        self._last_k_global = K_global.copy()
+        self._last_load_selector = load_selector
+        self._max_disp_entry = max_disp_entry
         outputs["disp"] = u.reshape((nn, 6))
+
+    def compute_partials(self, inputs, partials):
+        """Exact Jacobian for ``disp`` with respect to nodal loads."""
+        k_global = getattr(self, "_last_k_global", None)
+        load_selector = getattr(self, "_last_load_selector", None)
+        max_disp_entry = getattr(self, "_max_disp_entry", 1e2)
+        nn = self.options["n_nodes"]
+        ndof = nn * 6
+
+        if k_global is None or load_selector is None:
+            partials["disp", "loads"] = np.zeros((ndof, ndof))
+            return
+
+        try:
+            load_jac = np.linalg.solve(k_global, load_selector)
+        except np.linalg.LinAlgError:
+            load_jac = np.zeros((ndof, ndof), dtype=k_global.dtype)
+
+        if (
+            not _has_only_finite_values(load_jac)
+            or float(np.max(np.abs(load_jac))) > max_disp_entry
+        ):
+            load_jac = np.zeros((ndof, ndof), dtype=k_global.dtype)
+
+        partials["disp", "loads"] = np.real(load_jac).ravel()
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -713,7 +816,34 @@ class VonMisesStressComp(om.ExplicitComponent):
             self.add_input("I_rear", shape=(ne,), units="m**4")
             self.add_output("vonmises_rear", shape=(ne,), units="Pa")
 
-        self.declare_partials("*", "*", method="cs")
+        disp_rows = []
+        disp_cols = []
+        for e in range(ne):
+            for node_idx in (e, e + 1):
+                base = node_idx * 6
+                for dof in range(6):
+                    disp_rows.append(e)
+                    disp_cols.append(base + dof)
+        self._disp_partial_rows = np.asarray(disp_rows, dtype=int)
+        self._disp_partial_cols = np.asarray(disp_cols, dtype=int)
+
+        self.declare_partials(
+            "vonmises_main",
+            "disp",
+            rows=self._disp_partial_rows,
+            cols=self._disp_partial_cols,
+            method="cs",
+        )
+        self.declare_partials("vonmises_main", ["nodes", "R_main_elem", "I_main", "EI_flap", "GJ"], method="cs")
+        if self.options["rear_enabled"]:
+            self.declare_partials(
+                "vonmises_rear",
+                "disp",
+                rows=self._disp_partial_rows,
+                cols=self._disp_partial_cols,
+                method="cs",
+            )
+            self.declare_partials("vonmises_rear", ["nodes", "R_rear_elem", "I_rear"], method="cs")
 
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
@@ -896,7 +1026,17 @@ class ExternalLoadsComp(om.ExplicitComponent):
         ne = nn - 1
         self.add_input("mass_per_length", shape=(ne,), units="kg/m")
         self.add_output("loads", shape=(nn, 6))
-        self.declare_partials("*", "*", method="cs")
+        g = 9.80665
+        element_lengths = self.options["element_lengths"]
+        rows = []
+        cols = []
+        vals = []
+        for e, length in enumerate(element_lengths):
+            weight_sensitivity = -0.5 * g * length
+            rows.extend([e * 6 + 2, (e + 1) * 6 + 2])
+            cols.extend([e, e])
+            vals.extend([weight_sensitivity, weight_sensitivity])
+        self.declare_partials("loads", "mass_per_length", rows=rows, cols=cols, val=vals)
 
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
@@ -1434,19 +1574,22 @@ def run_optimization(prob: om.Problem) -> dict:
 
 def _extract_results(prob: om.Problem) -> dict:
     """Extract key results from solved problem."""
+    def _get_scalar(name: str) -> float:
+        return float(np.asarray(prob.get_val(name)).item())
+
     nn = prob.model.struct.options["aircraft"].wing.n_stations
     ne = nn - 1
     rear_on = prob.model.struct.options["cfg"].rear_spar.enabled
 
     res = {
-        "spar_mass_half_kg": float(prob.get_val("struct.mass.spar_mass_half")),
-        "spar_mass_full_kg": float(prob.get_val("struct.mass.spar_mass_full")),
-        "total_mass_full_kg": float(prob.get_val("struct.mass.total_mass_full")),
-        "failure": float(prob.get_val("struct.failure.failure")),
-        "buckling_index": float(prob.get_val("struct.buckling.buckling_index")),
-        "twist_max_deg": float(prob.get_val("struct.twist.twist_max_deg")),
+        "spar_mass_half_kg": _get_scalar("struct.mass.spar_mass_half"),
+        "spar_mass_full_kg": _get_scalar("struct.mass.spar_mass_full"),
+        "total_mass_full_kg": _get_scalar("struct.mass.total_mass_full"),
+        "failure": _get_scalar("struct.failure.failure"),
+        "buckling_index": _get_scalar("struct.buckling.buckling_index"),
+        "twist_max_deg": _get_scalar("struct.twist.twist_max_deg"),
         "disp": prob.get_val("struct.fem.disp").copy(),
-        "tip_deflection_m": float(prob.get_val("struct.tip_defl.tip_deflection_m")),
+        "tip_deflection_m": _get_scalar("struct.tip_defl.tip_deflection_m"),
         "vonmises_main": prob.get_val("struct.stress.vonmises_main").copy(),
         "main_t_seg": prob.get_val("struct.seg_mapper.main_t_seg").copy(),
         "main_r_seg": prob.get_val("struct.seg_mapper.main_r_seg").copy(),
