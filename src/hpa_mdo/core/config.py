@@ -19,6 +19,24 @@ _EXTERNAL_IO_FIELDS = ("vsp_model", "vsp_lod", "vsp_polar", "airfoil_dir")
 _INTERNAL_IO_FIELDS = ("output_dir", "training_db")
 
 
+class LoadCaseConfig(BaseModel):
+    name: str
+    aero_scale: float = Field(1.0, description="Scale factor on aerodynamic loads")
+    nz: float = Field(1.0, description="Gravity/inertial scale factor in g")
+    velocity: Optional[float] = Field(None, description="Flight speed [m/s]")
+    air_density: Optional[float] = Field(None, description="Air density [kg/m^3]")
+    max_tip_deflection_m: Optional[float] = Field(
+        None, description="Optional per-case deflection constraint override [m]"
+    )
+    max_twist_deg: Optional[float] = Field(
+        None, description="Optional per-case twist constraint override [deg]"
+    )
+
+    @property
+    def gravity_scale(self) -> float:
+        return self.nz
+
+
 # ── Sub-configs ─────────────────────────────────────────────────────────────
 
 class FlightConfig(BaseModel):
@@ -26,6 +44,16 @@ class FlightConfig(BaseModel):
     altitude: float = Field(0.0)
     air_density: float = Field(1.225, description="[kg/m³]")
     kinematic_viscosity: float = Field(1.46e-5)
+    cases: List[LoadCaseConfig] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def populate_case_defaults(self) -> FlightConfig:
+        for case in self.cases:
+            if case.velocity is None:
+                case.velocity = self.velocity
+            if case.air_density is None:
+                case.air_density = self.air_density
+        return self
 
 
 class SafetyConfig(BaseModel):
@@ -177,6 +205,23 @@ class HPAConfig(BaseModel):
         remainder = hs - n * msl
         segs = ([remainder] if remainder > 0.01 else []) + [msl] * n
         return segs
+
+    def structural_load_cases(self) -> List[LoadCaseConfig]:
+        """Return explicit structural load cases, falling back to legacy single-case mode."""
+        if self.flight.cases:
+            return list(self.flight.cases)
+
+        return [
+            LoadCaseConfig(
+                name="default",
+                aero_scale=self.safety.aerodynamic_load_factor,
+                nz=self.safety.aerodynamic_load_factor,
+                velocity=self.flight.velocity,
+                air_density=self.flight.air_density,
+                max_tip_deflection_m=self.wing.max_tip_deflection_m,
+                max_twist_deg=self.wing.max_tip_twist_deg,
+            )
+        ]
 
     @staticmethod
     def joint_positions(segments: List[float]) -> List[float]:

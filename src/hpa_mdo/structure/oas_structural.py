@@ -1007,7 +1007,7 @@ class ExternalLoadsComp(om.ExplicitComponent):
     Applies:
         - Aerodynamic lift (Fz) at design load level
         - Aerodynamic pitching moment (Mx torque)
-        - Spar self-weight (negative Fz)
+        - Spar self-weight / inertia (negative Fz), scaled by load factor
     """
 
     def initialize(self):
@@ -1020,6 +1020,12 @@ class ExternalLoadsComp(om.ExplicitComponent):
                              desc="Tributary length for each node [m]")
         self.options.declare("element_lengths", types=np.ndarray,
                              desc="Element lengths [m]")
+        self.options.declare(
+            "gravity_scale",
+            types=float,
+            default=1.0,
+            desc="Scale factor on gravity/inertial loads (e.g. maneuver nz)",
+        )
 
     def setup(self):
         nn = self.options["n_nodes"]
@@ -1027,12 +1033,13 @@ class ExternalLoadsComp(om.ExplicitComponent):
         self.add_input("mass_per_length", shape=(ne,), units="kg/m")
         self.add_output("loads", shape=(nn, 6))
         g = 9.80665
+        g_scaled = g * self.options["gravity_scale"]
         element_lengths = self.options["element_lengths"]
         rows = []
         cols = []
         vals = []
         for e, length in enumerate(element_lengths):
-            weight_sensitivity = -0.5 * g * length
+            weight_sensitivity = -0.5 * g_scaled * length
             rows.extend([e * 6 + 2, (e + 1) * 6 + 2])
             cols.extend([e, e])
             vals.extend([weight_sensitivity, weight_sensitivity])
@@ -1046,7 +1053,7 @@ class ExternalLoadsComp(om.ExplicitComponent):
         ds = self.options["node_spacings"]
         element_lengths = self.options["element_lengths"]
         mpl = inputs["mass_per_length"]
-        g = 9.80665
+        g = 9.80665 * self.options["gravity_scale"]
 
         loads = np.zeros((nn, 6), dtype=mpl.dtype)
 
