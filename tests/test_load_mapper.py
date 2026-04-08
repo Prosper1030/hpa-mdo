@@ -161,3 +161,40 @@ def test_total_lift_integration_accuracy():
 
     rel_err = abs(integrated - result["total_lift"]) / abs(result["total_lift"])
     assert rel_err < 0.05
+
+
+def test_clip_bug_total_lift_matches_integration():
+    """驗證當 struct_y 超出 aero y 範圍時，
+    total_lift 與實際積分結果一致，不會被 clip 放大。"""
+    # aero 資料只覆蓋 y in [0, 3.0]
+    y_aero = np.linspace(0, 3.0, 6)
+    chord = np.ones(6) * 1.0
+    cl = np.ones(6) * 0.5  # 均勻升力
+    load = SpanwiseLoad(
+        y=y_aero,
+        chord=chord,
+        cl=cl,
+        cd=np.zeros(6),
+        cm=np.zeros(6),
+        lift_per_span=np.ones(6) * 50,
+        drag_per_span=np.zeros(6),
+        aoa_deg=3.0,
+        velocity=7.0,
+        dynamic_pressure=25.0,
+    )
+
+    # 結構網格延伸到 y=5.0（超出 aero 範圍）
+    struct_y = np.linspace(0, 5.0, 21)
+    mapper = LoadMapper(method="linear")
+    result = mapper.map_loads(load, struct_y, scale_factor=1.0)
+
+    # 獨立積分驗證：只在 aero 有效範圍內積分
+    valid_mask = struct_y <= y_aero[-1]
+    valid_lift = result["lift_per_span"][valid_mask]
+    valid_y = struct_y[valid_mask]
+    expected = float(np.trapezoid(valid_lift, valid_y))
+
+    # total_lift 不應該包含 clip 後的延伸段
+    assert result["total_lift"] == pytest.approx(expected, rel=0.05), (
+        f"LoadMapper clip bug: total_lift={result['total_lift']}, expected={expected}"
+    )
