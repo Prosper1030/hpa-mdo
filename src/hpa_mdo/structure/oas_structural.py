@@ -108,7 +108,8 @@ class SegmentToElementComp(om.ExplicitComponent):
 class DualSparPropertiesComp(om.ExplicitComponent):
     """Compute equivalent beam A, Iy, Iz, J from dual hollow-tube spars.
 
-    Uses parallel-axis theorem for EI, warping term for GJ.
+    Uses parallel-axis theorem for EI, with an optional knockdown on the
+    rigid-rib torsional warping term in GJ.
     """
 
     # Class-level call counters for benchmarking (not thread-safe).
@@ -135,6 +136,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         self.options.declare("G_rear", types=float)
         self.options.declare("rho_rear", types=float)
         self.options.declare("rear_enabled", types=bool, default=True)
+        self.options.declare("warping_knockdown", types=float, default=1.0)
 
     def setup(self):
         ne = self.options["n_elements"]
@@ -219,6 +221,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             z_m = self.options["z_main"]
             z_r = self.options["z_rear"]
             d = self.options["d_chord"]
+            warping_knockdown = self.options["warping_knockdown"]
             t_r = inputs["rear_t_elem"]
 
             t_r = np.minimum(t_r, R_r - 1e-6)
@@ -241,7 +244,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
 
             # Torsion: tubes + warping coupling
             GJ_tubes = G_m * J_m + G_r * J_r
-            GJ_warping = (E_m * A_m * E_r * A_r) / denom * d ** 2
+            GJ_warping = warping_knockdown * (E_m * A_m * E_r * A_r) / denom * d ** 2
             GJ_total = GJ_tubes + GJ_warping
 
             outputs["A_equiv"] = A_m + A_r
@@ -310,6 +313,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             z_m = self.options["z_main"]
             z_r = self.options["z_rear"]
             d = self.options["d_chord"]
+            warping_knockdown = self.options["warping_knockdown"]
 
             R_r = inputs["rear_r_elem"]
             t_r = np.minimum(inputs["rear_t_elem"], R_r - 1e-6)
@@ -348,9 +352,9 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             dEI_dAm = E_m * dz_m**2 - 2.0 * eps * z_na * dz_na_dAm
             dEI_dAr = E_r * dz_r**2 - 2.0 * eps * z_na * dz_na_dAr
 
-            GJ_val = G_m * J_m + G_r * J_r + (p * q / denom_e) * d**2
-            dGJ_dAm = E_m * q * (q + eps) * d**2 / denom_e**2
-            dGJ_dAr = E_r * p * (p + eps) * d**2 / denom_e**2
+            GJ_val = G_m * J_m + G_r * J_r + warping_knockdown * (p * q / denom_e) * d**2
+            dGJ_dAm = warping_knockdown * E_m * q * (q + eps) * d**2 / denom_e**2
+            dGJ_dAr = warping_knockdown * E_r * p * (p + eps) * d**2 / denom_e**2
 
             A_sum = A_m + A_r
             a_sum_guard = A_sum + eps
@@ -1116,6 +1120,7 @@ class HPAStructuralGroup(om.Group):
             G_rear=mat_rear.G,
             rho_rear=mat_rear.density,
             rear_enabled=rear_on,
+            warping_knockdown=cfg.safety.dual_spar_warping_knockdown,
         ))
 
         # 3. External loads

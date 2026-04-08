@@ -52,6 +52,15 @@ class SafetyConfig(BaseModel):
         ge=1.0,
         le=2.0,
     )
+    dual_spar_warping_knockdown: float = Field(
+        default=1.0,
+        description=(
+            "Reduction factor on the rigid-rib dual-spar torsional coupling term "
+            "(1.0 = fully rigid ribs)"
+        ),
+        ge=0.0,
+        le=1.0,
+    )
 
 
 class WeightConfig(BaseModel):

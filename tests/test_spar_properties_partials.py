@@ -15,7 +15,7 @@ from hpa_mdo.structure.oas_structural import DualSparPropertiesComp
 NE = 4
 
 
-def _build_prob(rear: bool) -> om.Problem:
+def _build_prob(rear: bool, warping_knockdown: float = 1.0) -> om.Problem:
     z_m = np.array([0.05, 0.04, 0.03, 0.02])
     z_r = np.array([-0.02, -0.02, -0.01, -0.01])
     d = np.array([0.12, 0.18, 0.22, 0.25])
@@ -35,6 +35,7 @@ def _build_prob(rear: bool) -> om.Problem:
             G_rear=75e9,
             rho_rear=1550.0,
             rear_enabled=rear,
+            warping_knockdown=warping_knockdown,
         ),
         promotes=["*"],
     )
@@ -85,3 +86,18 @@ def test_sparsity_is_diagonal() -> None:
             continue
         np.testing.assert_array_equal(meta["rows"], expected)
         np.testing.assert_array_equal(meta["cols"], expected)
+
+
+def test_warping_knockdown_reduces_dual_spar_gj() -> None:
+    """Lower rigid-rib warping knockdown should reduce torsional stiffness."""
+    prob_rigid = _build_prob(rear=True, warping_knockdown=1.0)
+    _set_interior_inputs(prob_rigid, rear=True)
+    prob_rigid.run_model()
+
+    prob_flexible = _build_prob(rear=True, warping_knockdown=0.25)
+    _set_interior_inputs(prob_flexible, rear=True)
+    prob_flexible.run_model()
+
+    gj_rigid = prob_rigid.get_val("GJ")
+    gj_flexible = prob_flexible.get_val("GJ")
+    np.testing.assert_array_less(gj_flexible, gj_rigid)

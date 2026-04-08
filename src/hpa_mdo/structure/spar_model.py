@@ -4,9 +4,10 @@ Computes equivalent beam section properties (A, Iy, Iz, J) for a
 dual-spar wing with piecewise-constant wall thickness segments.
 
 The main spar (at 0.25c) and rear spar (at 0.70c) are modelled as
-hollow circular tubes connected by rigid ribs.  The combined section
-is reduced to a single equivalent beam for FEM analysis using the
-parallel-axis theorem.
+hollow circular tubes connected by ribs. The combined section is
+reduced to a single equivalent beam for FEM analysis using the
+parallel-axis theorem, with an optional knockdown on the rigid-rib
+torsional coupling term.
 
 All units are SI: metres, Pascals, kg.
 """
@@ -154,6 +155,7 @@ def compute_dual_spar_section(
     E_rear: float,
     G_rear: float,
     rho_rear: float,
+    warping_knockdown: float = 1.0,
 ) -> DualSparSection:
     """Compute equivalent beam section for dual-spar wing.
 
@@ -202,11 +204,11 @@ def compute_dual_spar_section(
     )
 
     # ── Torsion ──
-    # Individual tube torsion + coupling from spar separation
-    # Conservative (no closed-cell skin): GJ = G*J_m + G*J_r
-    # With coupling: add (E*A_m*A_r/(A_m+A_r)) * d^2 warping term
+    # Individual tube torsion + coupling from spar separation.
+    # The warping term assumes rigid ribs; `warping_knockdown` lets the
+    # caller reduce that idealised coupling for flexible rib bays.
     GJ_tubes = G_main * J_m + G_rear * J_r
-    GJ_warping = (E_main * A_m * E_rear * A_r) / (
+    GJ_warping = warping_knockdown * (E_main * A_m * E_rear * A_r) / (
         E_main * A_m + E_rear * A_r + 1e-30
     ) * d_chord ** 2
     GJ_total = GJ_tubes + GJ_warping
