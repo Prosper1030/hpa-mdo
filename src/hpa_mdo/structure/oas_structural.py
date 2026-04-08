@@ -756,9 +756,13 @@ class TwistConstraintComp(om.ExplicitComponent):
         # KS aggregation for max |θ| across all nodes (CS-safe)
         theta_abs_sq = theta_twist ** 2 + 1e-30  # [nn]
         theta_abs = np.sqrt(theta_abs_sq)  # [nn], strictly positive
-        # KS smooth-max with rho=100
+        # KS smooth-max with rho=100 (dimensionless scaling avoids
+        # node-count-dependent offset when absolute twists are very small).
         rho = 100.0
-        theta_max_ks = (1.0 / rho) * np.log(np.sum(np.exp(rho * theta_abs)))
+        theta_scale = np.real(theta_abs).max() + 1e-12
+        theta_nd = theta_abs / theta_scale
+        theta_max_ks_nd = (1.0 / rho) * np.log(np.sum(np.exp(rho * theta_nd)))
+        theta_max_ks = theta_max_ks_nd * theta_scale
         outputs["twist_max_deg"] = theta_max_ks * 180.0 / np.pi
 
 
