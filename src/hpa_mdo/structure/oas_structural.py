@@ -40,6 +40,59 @@ from hpa_mdo.structure.spar_model import (
 logger = get_logger(__name__)
 
 
+def _is_single_mapped_load(aero_loads: dict) -> bool:
+    """Return True when ``aero_loads`` looks like a single mapped load dict."""
+    return isinstance(aero_loads, dict) and "lift_per_span" in aero_loads
+
+
+def _normalise_load_case_inputs(cfg, aero_loads: dict) -> dict[str, tuple[object, dict]]:
+    """Return ``{case_name: (load_case_cfg, mapped_loads)}`` with backward compatibility."""
+    from hpa_mdo.core.config import LoadCaseConfig
+
+    if _is_single_mapped_load(aero_loads):
+        if len(cfg.flight.cases) > 1:
+            raise ValueError(
+                "cfg.flight.cases declares multiple load cases, but aero_loads contains only one case."
+            )
+        default_case = cfg.structural_load_cases()[0]
+        return {default_case.name: (default_case, aero_loads)}
+
+    if not isinstance(aero_loads, dict):
+        raise TypeError("aero_loads must be a mapped-load dict or {case_name: mapped_loads}.")
+
+    explicit_cases = {case.name: case for case in cfg.flight.cases}
+    case_entries: dict[str, tuple[object, dict]] = {}
+
+    for case_name, case_loads in aero_loads.items():
+        if not _is_single_mapped_load(case_loads):
+            raise ValueError(
+                f"aero_loads['{case_name}'] must be a mapped load dict with 'lift_per_span'."
+            )
+
+        load_case = explicit_cases.get(case_name)
+        if load_case is None:
+            load_case = LoadCaseConfig(
+                name=case_name,
+                velocity=cfg.flight.velocity,
+                air_density=cfg.flight.air_density,
+            )
+
+        case_entries[case_name] = (load_case, case_loads)
+
+    if explicit_cases:
+        missing = sorted(set(explicit_cases) - set(case_entries))
+        extra = sorted(set(case_entries) - set(explicit_cases))
+        if missing or extra:
+            details = []
+            if missing:
+                details.append(f"missing load cases: {', '.join(missing)}")
+            if extra:
+                details.append(f"unexpected load cases: {', '.join(extra)}")
+            raise ValueError("; ".join(details))
+
+    return case_entries
+
+
 # ═════════════════════════════════════════════════════════════════════════
 #  Component 1 : Segment DVs → element-level wall thicknesses
 # ═════════════════════════════════════════════════════════════════════════
@@ -1139,6 +1192,143 @@ class TipDeflectionConstraintComp(om.ExplicitComponent):
 
 
 # ═════════════════════════════════════════════════════════════════════════
+#  Per-case group
+# ═════════════════════════════════════════════════════════════════════════
+
+class StructuralLoadCaseGroup(om.Group):
+    """One structural load case branch sharing geometry and spar properties."""
+
+    def initialize(self):
+        self.options.declare("load_case", desc="LoadCaseConfig object")
+        self.options.declare("n_nodes", types=int)
+        self.options.declare("lift_per_span", types=np.ndarray)
+        self.options.declare("torque_per_span", types=np.ndarray)
+        self.options.declare("node_spacings", types=np.ndarray)
+        self.options.declare("element_lengths", types=np.ndarray)
+        self.options.declare("E_avg", types=float)
+        self.options.declare("G_avg", types=float)
+        self.options.declare("E_main", types=float)
+        self.options.declare("E_rear", types=float)
+        self.options.declare("G_main", types=float)
+        self.options.declare("G_rear", types=float)
+        self.options.declare("sigma_allow_main", types=float)
+        self.options.declare("sigma_allow_rear", types=float)
+        self.options.declare("rear_enabled", types=bool, default=True)
+        self.options.declare("fixed_node", types=int, default=0)
+        self.options.declare("lift_wire_nodes", default=None)
+        self.options.declare("shell_buckling_knockdown", types=float)
+        self.options.declare("shell_buckling_bending_enhancement", types=float)
+        self.options.declare("ks_rho_stress", types=float)
+        self.options.declare("ks_rho_buckling", types=float)
+        self.options.declare("ks_rho_twist", types=float)
+
+    def setup(self):
+        load_case = self.options["load_case"]
+        nn = self.options["n_nodes"]
+        rear_on = self.options["rear_enabled"]
+
+        self.add_subsystem(
+            "ext_loads",
+            ExternalLoadsComp(
+                n_nodes=nn,
+                lift_per_span=self.options["lift_per_span"],
+                torque_per_span=self.options["torque_per_span"],
+                node_spacings=self.options["node_spacings"],
+                element_lengths=self.options["element_lengths"],
+                gravity_scale=load_case.gravity_scale,
+            ),
+            promotes_inputs=["mass_per_length"],
+            promotes_outputs=["loads"],
+        )
+
+        self.add_subsystem(
+            "fem",
+            SpatialBeamFEM(
+                n_nodes=nn,
+                E_avg=self.options["E_avg"],
+                G_avg=self.options["G_avg"],
+                fixed_node=self.options["fixed_node"],
+                lift_wire_nodes=self.options["lift_wire_nodes"],
+            ),
+            promotes_inputs=["nodes", "EI_flap", "GJ", "A_equiv", "Iy_equiv", "J_equiv"],
+            promotes_outputs=["disp"],
+        )
+        self.connect("loads", "fem.loads")
+
+        stress_inputs = ["disp", "nodes", "R_main_elem", "I_main", "EI_flap", "GJ"]
+        if rear_on:
+            stress_inputs.extend(["R_rear_elem", "I_rear"])
+
+        stress_outputs = ["vonmises_main"]
+        if rear_on:
+            stress_outputs.append("vonmises_rear")
+
+        self.add_subsystem(
+            "stress",
+            VonMisesStressComp(
+                n_nodes=nn,
+                E_main=self.options["E_main"],
+                E_rear=self.options["E_rear"],
+                G_main=self.options["G_main"],
+                G_rear=self.options["G_rear"],
+                rear_enabled=rear_on,
+            ),
+            promotes_inputs=stress_inputs,
+            promotes_outputs=stress_outputs,
+        )
+
+        buckling_inputs = ["disp", "nodes", "main_r_elem", "main_t_elem"]
+        if rear_on:
+            buckling_inputs.extend(["rear_r_elem", "rear_t_elem"])
+
+        self.add_subsystem(
+            "buckling",
+            BucklingComp(
+                n_nodes=nn,
+                E_main=self.options["E_main"],
+                E_rear=self.options["E_rear"] if rear_on else 0.0,
+                rear_enabled=rear_on,
+                knockdown_factor=self.options["shell_buckling_knockdown"],
+                bending_enhancement=self.options["shell_buckling_bending_enhancement"],
+                ks_rho=self.options["ks_rho_buckling"],
+            ),
+            promotes_inputs=buckling_inputs,
+            promotes_outputs=["buckling_index"],
+        )
+
+        failure_inputs = ["vonmises_main"]
+        if rear_on:
+            failure_inputs.append("vonmises_rear")
+
+        self.add_subsystem(
+            "failure_comp",
+            KSFailureComp(
+                n_elements=nn - 1,
+                sigma_allow_main=self.options["sigma_allow_main"],
+                sigma_allow_rear=self.options["sigma_allow_rear"],
+                rear_enabled=rear_on,
+                rho_ks=self.options["ks_rho_stress"],
+            ),
+            promotes_inputs=failure_inputs,
+            promotes_outputs=[("failure", "failure")],
+        )
+
+        self.add_subsystem(
+            "twist",
+            TwistConstraintComp(n_nodes=nn, ks_rho=self.options["ks_rho_twist"]),
+            promotes_inputs=["disp"],
+            promotes_outputs=["twist_max_deg"],
+        )
+
+        self.add_subsystem(
+            "tip_defl",
+            TipDeflectionConstraintComp(n_nodes=nn),
+            promotes_inputs=["disp"],
+            promotes_outputs=["tip_deflection_m"],
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════
 #  Top-level group
 # ═════════════════════════════════════════════════════════════════════════
 
@@ -1202,13 +1392,9 @@ class HPAStructuralGroup(om.Group):
         chord_elem = (wing.chord[:-1] + wing.chord[1:]) / 2.0
         d_chord_elem = (wing.rear_spar_xc - wing.main_spar_xc) * chord_elem
 
-        # Aero loads at structural nodes
-        lift = aero["lift_per_span"]
-        # Torque from Cmy: τ = q * c² * Cm (per unit span)
-        if "torque_per_span" in aero:
-            torque = aero["torque_per_span"]
-        else:
-            torque = np.zeros(nn)
+        case_entries = _normalise_load_case_inputs(cfg, aero)
+        self._case_names = tuple(case_entries)
+        self._multi_case = len(case_entries) > 1
 
         # Lift wire nodes
         lw_node_indices = None
@@ -1270,25 +1456,8 @@ class HPAStructuralGroup(om.Group):
             warping_knockdown=cfg.safety.dual_spar_warping_knockdown,
         ))
 
-        # 3. External loads
-        self.add_subsystem("ext_loads", ExternalLoadsComp(
-            n_nodes=nn,
-            lift_per_span=lift,
-            torque_per_span=torque,
-            node_spacings=node_spacings,
-            element_lengths=dy,
-        ))
-
-        # 4. FEM solver
         E_avg = (mat_main.E + mat_rear.E) / 2.0 if rear_on else mat_main.E
         G_avg = (mat_main.G + mat_rear.G) / 2.0 if rear_on else mat_main.G
-        self.add_subsystem("fem", SpatialBeamFEM(
-            n_nodes=nn,
-            E_avg=E_avg,
-            G_avg=G_avg,
-            fixed_node=0,
-            lift_wire_nodes=lw_node_indices,
-        ))
 
         # Set node coordinates as fixed input
         indeps = self.add_subsystem("indeps", om.IndepVarComp())
@@ -1298,36 +1467,6 @@ class HPAStructuralGroup(om.Group):
         self._R_main_elem_init = R_main_elem
         self._R_rear_elem_init = R_rear_elem if rear_on else None
 
-        # 5. Stress computation
-        self.add_subsystem("stress", VonMisesStressComp(
-            n_nodes=nn,
-            E_main=mat_main.E,
-            E_rear=mat_rear.E,
-            G_main=mat_main.G,
-            G_rear=mat_rear.G,
-            rear_enabled=rear_on,
-        ))
-
-        # 6. Shell buckling
-        self.add_subsystem("buckling", BucklingComp(
-            n_nodes=nn,
-            E_main=mat_main.E,
-            E_rear=mat_rear.E if rear_on else 0.0,
-            rear_enabled=rear_on,
-            knockdown_factor=cfg.safety.shell_buckling_knockdown,
-            bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
-            ks_rho=cfg.safety.ks_rho_buckling,
-        ))
-
-        # 7. KS failure
-        self.add_subsystem("failure", KSFailureComp(
-            n_elements=ne,
-            sigma_allow_main=sigma_allow_main,
-            sigma_allow_rear=sigma_allow_rear,
-            rear_enabled=rear_on,
-            rho_ks=cfg.safety.ks_rho_stress,
-        ))
-
         # 8. Structural mass
         self.add_subsystem("mass", StructuralMassComp(
             n_elements=ne,
@@ -1335,14 +1474,101 @@ class HPAStructuralGroup(om.Group):
             joint_mass_total=joint_mass_half,
         ))
 
-        # 9. Twist constraint
-        self.add_subsystem(
-            "twist",
-            TwistConstraintComp(n_nodes=nn, ks_rho=cfg.safety.ks_rho_twist),
-        )
+        if len(case_entries) == 1:
+            load_case, case_loads = next(iter(case_entries.values()))
+            lift = case_loads["lift_per_span"]
+            torque = case_loads.get("torque_per_span", np.zeros(nn))
 
-        # 10. Tip deflection constraint
-        self.add_subsystem("tip_defl", TipDeflectionConstraintComp(n_nodes=nn))
+            # 3. External loads
+            self.add_subsystem("ext_loads", ExternalLoadsComp(
+                n_nodes=nn,
+                lift_per_span=lift,
+                torque_per_span=torque,
+                node_spacings=node_spacings,
+                element_lengths=dy,
+                gravity_scale=load_case.gravity_scale,
+            ))
+
+            # 4. FEM solver
+            self.add_subsystem("fem", SpatialBeamFEM(
+                n_nodes=nn,
+                E_avg=E_avg,
+                G_avg=G_avg,
+                fixed_node=0,
+                lift_wire_nodes=lw_node_indices,
+            ))
+
+            # 5. Stress computation
+            self.add_subsystem("stress", VonMisesStressComp(
+                n_nodes=nn,
+                E_main=mat_main.E,
+                E_rear=mat_rear.E,
+                G_main=mat_main.G,
+                G_rear=mat_rear.G,
+                rear_enabled=rear_on,
+            ))
+
+            # 6. Shell buckling
+            self.add_subsystem("buckling", BucklingComp(
+                n_nodes=nn,
+                E_main=mat_main.E,
+                E_rear=mat_rear.E if rear_on else 0.0,
+                rear_enabled=rear_on,
+                knockdown_factor=cfg.safety.shell_buckling_knockdown,
+                bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
+                ks_rho=cfg.safety.ks_rho_buckling,
+            ))
+
+            # 7. KS failure
+            self.add_subsystem("failure", KSFailureComp(
+                n_elements=ne,
+                sigma_allow_main=sigma_allow_main,
+                sigma_allow_rear=sigma_allow_rear,
+                rear_enabled=rear_on,
+                rho_ks=cfg.safety.ks_rho_stress,
+            ))
+
+            # 9. Twist constraint
+            self.add_subsystem(
+                "twist",
+                TwistConstraintComp(n_nodes=nn, ks_rho=cfg.safety.ks_rho_twist),
+            )
+
+            # 10. Tip deflection constraint
+            self.add_subsystem("tip_defl", TipDeflectionConstraintComp(n_nodes=nn))
+        else:
+            for case_name, (load_case, case_loads) in case_entries.items():
+                lift = case_loads["lift_per_span"]
+                torque = case_loads.get("torque_per_span", np.zeros(nn))
+                case_group_name = f"case_{case_name}"
+
+                self.add_subsystem(
+                    case_group_name,
+                    StructuralLoadCaseGroup(
+                        load_case=load_case,
+                        n_nodes=nn,
+                        lift_per_span=lift,
+                        torque_per_span=torque,
+                        node_spacings=node_spacings,
+                        element_lengths=dy,
+                        E_avg=E_avg,
+                        G_avg=G_avg,
+                        E_main=mat_main.E,
+                        E_rear=mat_rear.E,
+                        G_main=mat_main.G,
+                        G_rear=mat_rear.G,
+                        sigma_allow_main=sigma_allow_main,
+                        sigma_allow_rear=sigma_allow_rear,
+                        rear_enabled=rear_on,
+                        fixed_node=0,
+                        lift_wire_nodes=lw_node_indices,
+                        shell_buckling_knockdown=cfg.safety.shell_buckling_knockdown,
+                        shell_buckling_bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
+                        ks_rho_stress=cfg.safety.ks_rho_stress,
+                        ks_rho_buckling=cfg.safety.ks_rho_buckling,
+                        ks_rho_twist=cfg.safety.ks_rho_twist,
+                    ),
+                )
 
         # ── Connections ──
         self.connect("seg_mapper.main_t_elem", "spar_props.main_t_elem")
@@ -1351,41 +1577,59 @@ class HPAStructuralGroup(om.Group):
             self.connect("seg_mapper.rear_t_elem", "spar_props.rear_t_elem")
             self.connect("seg_mapper.rear_r_elem", "spar_props.rear_r_elem")
 
-        self.connect("spar_props.mass_per_length", "ext_loads.mass_per_length")
         self.connect("spar_props.mass_per_length", "mass.mass_per_length")
+        if len(case_entries) == 1:
+            self.connect("spar_props.mass_per_length", "ext_loads.mass_per_length")
 
-        self.connect("indeps.nodes", "fem.nodes")
-        self.connect("spar_props.EI_flap", "fem.EI_flap")
-        self.connect("spar_props.GJ", "fem.GJ")
-        self.connect("spar_props.A_equiv", "fem.A_equiv")
-        self.connect("spar_props.Iy_equiv", "fem.Iy_equiv")
-        self.connect("spar_props.J_equiv", "fem.J_equiv")
-        self.connect("ext_loads.loads", "fem.loads")
+            self.connect("indeps.nodes", "fem.nodes")
+            self.connect("spar_props.EI_flap", "fem.EI_flap")
+            self.connect("spar_props.GJ", "fem.GJ")
+            self.connect("spar_props.A_equiv", "fem.A_equiv")
+            self.connect("spar_props.Iy_equiv", "fem.Iy_equiv")
+            self.connect("spar_props.J_equiv", "fem.J_equiv")
+            self.connect("ext_loads.loads", "fem.loads")
 
-        self.connect("fem.disp", "stress.disp")
-        self.connect("indeps.nodes", "stress.nodes")
-        self.connect("seg_mapper.main_r_elem", "stress.R_main_elem")
-        self.connect("spar_props.I_main", "stress.I_main")
-        self.connect("spar_props.EI_flap", "stress.EI_flap")
-        self.connect("spar_props.GJ", "stress.GJ")
-        if rear_on:
-            self.connect("seg_mapper.rear_r_elem", "stress.R_rear_elem")
-            self.connect("spar_props.I_rear", "stress.I_rear")
+            self.connect("fem.disp", "stress.disp")
+            self.connect("indeps.nodes", "stress.nodes")
+            self.connect("seg_mapper.main_r_elem", "stress.R_main_elem")
+            self.connect("spar_props.I_main", "stress.I_main")
+            self.connect("spar_props.EI_flap", "stress.EI_flap")
+            self.connect("spar_props.GJ", "stress.GJ")
+            if rear_on:
+                self.connect("seg_mapper.rear_r_elem", "stress.R_rear_elem")
+                self.connect("spar_props.I_rear", "stress.I_rear")
 
-        self.connect("fem.disp", "buckling.disp")
-        self.connect("indeps.nodes", "buckling.nodes")
-        self.connect("seg_mapper.main_r_elem", "buckling.main_r_elem")
-        self.connect("seg_mapper.main_t_elem", "buckling.main_t_elem")
-        if rear_on:
-            self.connect("seg_mapper.rear_r_elem", "buckling.rear_r_elem")
-            self.connect("seg_mapper.rear_t_elem", "buckling.rear_t_elem")
+            self.connect("fem.disp", "buckling.disp")
+            self.connect("indeps.nodes", "buckling.nodes")
+            self.connect("seg_mapper.main_r_elem", "buckling.main_r_elem")
+            self.connect("seg_mapper.main_t_elem", "buckling.main_t_elem")
+            if rear_on:
+                self.connect("seg_mapper.rear_r_elem", "buckling.rear_r_elem")
+                self.connect("seg_mapper.rear_t_elem", "buckling.rear_t_elem")
 
-        self.connect("stress.vonmises_main", "failure.vonmises_main")
-        if rear_on:
-            self.connect("stress.vonmises_rear", "failure.vonmises_rear")
+            self.connect("stress.vonmises_main", "failure.vonmises_main")
+            if rear_on:
+                self.connect("stress.vonmises_rear", "failure.vonmises_rear")
 
-        self.connect("fem.disp", "twist.disp")
-        self.connect("fem.disp", "tip_defl.disp")
+            self.connect("fem.disp", "twist.disp")
+            self.connect("fem.disp", "tip_defl.disp")
+        else:
+            for case_name in case_entries:
+                case_group_name = f"case_{case_name}"
+                self.connect("spar_props.mass_per_length", f"{case_group_name}.mass_per_length")
+                self.connect("indeps.nodes", f"{case_group_name}.nodes")
+                self.connect("spar_props.EI_flap", f"{case_group_name}.EI_flap")
+                self.connect("spar_props.GJ", f"{case_group_name}.GJ")
+                self.connect("spar_props.A_equiv", f"{case_group_name}.A_equiv")
+                self.connect("spar_props.Iy_equiv", f"{case_group_name}.Iy_equiv")
+                self.connect("spar_props.J_equiv", f"{case_group_name}.J_equiv")
+                self.connect("seg_mapper.main_r_elem", f"{case_group_name}.R_main_elem")
+                self.connect("seg_mapper.main_t_elem", f"{case_group_name}.main_t_elem")
+                self.connect("spar_props.I_main", f"{case_group_name}.I_main")
+                if rear_on:
+                    self.connect("seg_mapper.rear_r_elem", f"{case_group_name}.R_rear_elem")
+                    self.connect("seg_mapper.rear_t_elem", f"{case_group_name}.rear_t_elem")
+                    self.connect("spar_props.I_rear", f"{case_group_name}.I_rear")
 
 
 def compute_outer_radius_from_wing(wing, spar_cfg) -> np.ndarray:
@@ -1422,6 +1666,7 @@ def build_structural_problem(
     -------
     prob : om.Problem (setup but not run)
     """
+    case_entries = _normalise_load_case_inputs(cfg, aero_loads)
     prob = om.Problem()
     model = prob.model
 
@@ -1476,24 +1721,55 @@ def build_structural_problem(
     model.add_objective("struct.mass.total_mass_full", ref=10.0)
 
     # ── Constraints ──
-    # 1. Stress: KS(σ/σ_allow - 1) ≤ 0
-    model.add_constraint("struct.failure.failure", upper=0.0)
-
-    # 2. Shell buckling: KS(buckling_ratio - 1) ≤ 0
-    model.add_constraint("struct.buckling.buckling_index", upper=0.0)
-
-    # 3. Twist: |θ_max| ≤ max_tip_twist_deg
-    model.add_constraint(
-        "struct.twist.twist_max_deg",
-        upper=cfg.wing.max_tip_twist_deg,
-    )
-
-    # 4. Tip deflection constraint
-    if cfg.wing.max_tip_deflection_m is not None:
-        model.add_constraint(
-            "struct.tip_defl.tip_deflection_m",
-            upper=cfg.wing.max_tip_deflection_m,
+    if len(case_entries) == 1:
+        load_case, _ = next(iter(case_entries.values()))
+        twist_limit = (
+            load_case.max_twist_deg
+            if load_case.max_twist_deg is not None
+            else cfg.wing.max_tip_twist_deg
         )
+        deflection_limit = (
+            load_case.max_tip_deflection_m
+            if load_case.max_tip_deflection_m is not None
+            else cfg.wing.max_tip_deflection_m
+        )
+
+        # 1. Stress: KS(σ/σ_allow - 1) ≤ 0
+        model.add_constraint("struct.failure.failure", upper=0.0)
+
+        # 2. Shell buckling: KS(buckling_ratio - 1) ≤ 0
+        model.add_constraint("struct.buckling.buckling_index", upper=0.0)
+
+        # 3. Twist: |θ_max| ≤ max_tip_twist_deg
+        model.add_constraint("struct.twist.twist_max_deg", upper=twist_limit)
+
+        # 4. Tip deflection constraint
+        if deflection_limit is not None:
+            model.add_constraint(
+                "struct.tip_defl.tip_deflection_m",
+                upper=deflection_limit,
+            )
+    else:
+        for case_name, (load_case, _) in case_entries.items():
+            twist_limit = (
+                load_case.max_twist_deg
+                if load_case.max_twist_deg is not None
+                else cfg.wing.max_tip_twist_deg
+            )
+            deflection_limit = (
+                load_case.max_tip_deflection_m
+                if load_case.max_tip_deflection_m is not None
+                else cfg.wing.max_tip_deflection_m
+            )
+            case_path = f"struct.case_{case_name}"
+            model.add_constraint(f"{case_path}.failure", upper=0.0)
+            model.add_constraint(f"{case_path}.buckling_index", upper=0.0)
+            model.add_constraint(f"{case_path}.twist_max_deg", upper=twist_limit)
+            if deflection_limit is not None:
+                model.add_constraint(
+                    f"{case_path}.tip_deflection_m",
+                    upper=deflection_limit,
+                )
 
     # ── Driver ──
     driver = prob.driver = om.ScipyOptimizeDriver()
