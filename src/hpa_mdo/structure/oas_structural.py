@@ -199,6 +199,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         self.add_input("main_r_elem", shape=(ne,), units="m")
         self.add_output("A_equiv", shape=(ne,), units="m**2")
         self.add_output("Iy_equiv", shape=(ne,), units="m**4")
+        self.add_output("Iz_equiv", shape=(ne,), units="m**4")
         self.add_output("J_equiv", shape=(ne,), units="m**4")
         self.add_output("EI_flap", shape=(ne,), units="N*m**2")
         self.add_output("EI_main", shape=(ne,), units="N*m**2")
@@ -226,6 +227,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             "GJ",
             "mass_per_length",
             "Iy_equiv",
+            "Iz_equiv",
             "J_equiv",
         ]
         outputs_with_rear = [
@@ -237,6 +239,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             "GJ",
             "mass_per_length",
             "Iy_equiv",
+            "Iz_equiv",
             "J_equiv",
         ]
         inputs_main = ["main_t_elem", "main_r_elem"]
@@ -294,6 +297,12 @@ class DualSparPropertiesComp(om.ExplicitComponent):
                 E_m * (I_m + A_m * (z_m - z_na) ** 2)
                 + E_r * (I_r + A_r * (z_r - z_na) ** 2)
             )
+            # Chordwise EI (about span axis) from spar chordwise separation.
+            x_na = E_r * A_r * d / denom
+            EI_chord = (
+                E_m * (I_m + A_m * x_na**2)
+                + E_r * (I_r + A_r * (d - x_na) ** 2)
+            )
 
             # Torsion: tubes + warping coupling
             GJ_tubes = G_m * J_m + G_r * J_r
@@ -309,6 +318,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             E_avg = (E_m * A_m + E_r * A_r) / (A_m + A_r + 1e-30)
             G_avg = (G_m * A_m + G_r * A_r) / (A_m + A_r + 1e-30)
             outputs["Iy_equiv"] = EI_flap / (E_avg + 1e-30)
+            outputs["Iz_equiv"] = EI_chord / (E_avg + 1e-30)
             outputs["J_equiv"] = GJ_total / (G_avg + 1e-30)
         else:
             outputs["A_rear"] = np.zeros(ne)
@@ -318,6 +328,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             outputs["GJ"] = G_m * J_m
             outputs["mass_per_length"] = rho_m * A_m
             outputs["Iy_equiv"] = I_m
+            outputs["Iz_equiv"] = I_m
             outputs["J_equiv"] = J_m
 
     def compute_partials(self, inputs, partials):
@@ -404,8 +415,31 @@ class DualSparPropertiesComp(om.ExplicitComponent):
                 E_m * (I_m + A_m * dz_m**2)
                 + E_r * (I_r + A_r * dz_r**2)
             )
+            x_na = q * d / denom_e
+            dx_na_dAm = -E_m * q * d / denom_e**2
+            dx_na_dAr = E_r * (p + eps) * d / denom_e**2
+            x_off_m = -x_na
+            x_off_r = d - x_na
+            dx_off_m_dAm = -dx_na_dAm
+            dx_off_r_dAm = -dx_na_dAm
+            dx_off_m_dAr = -dx_na_dAr
+            dx_off_r_dAr = -dx_na_dAr
+            EI_chord = (
+                E_m * (I_m + A_m * x_off_m**2)
+                + E_r * (I_r + A_r * x_off_r**2)
+            )
             dEI_dAm = E_m * dz_m**2 - 2.0 * eps * z_na * dz_na_dAm
             dEI_dAr = E_r * dz_r**2 - 2.0 * eps * z_na * dz_na_dAr
+            dEI_chord_dAm = (
+                E_m * x_off_m**2
+                + 2.0 * E_m * A_m * x_off_m * dx_off_m_dAm
+                + 2.0 * E_r * A_r * x_off_r * dx_off_r_dAm
+            )
+            dEI_chord_dAr = (
+                E_r * x_off_r**2
+                + 2.0 * E_m * A_m * x_off_m * dx_off_m_dAr
+                + 2.0 * E_r * A_r * x_off_r * dx_off_r_dAr
+            )
 
             GJ_val = G_m * J_m + G_r * J_r + warping_knockdown * (p * q / denom_e) * d**2
             dGJ_dAm = warping_knockdown * E_m * q * (q + eps) * d**2 / denom_e**2
@@ -442,11 +476,19 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             dIyeq_dAr = dEI_dAr / iy_denom - EI_flap * dEavg_dAr / iy_denom**2
             dIyeq_dIm = E_m / iy_denom
             dIyeq_dIr = E_r / iy_denom
+            dIzeq_dAm = dEI_chord_dAm / iy_denom - EI_chord * dEavg_dAm / iy_denom**2
+            dIzeq_dAr = dEI_chord_dAr / iy_denom - EI_chord * dEavg_dAr / iy_denom**2
+            dIzeq_dIm = E_m / iy_denom
+            dIzeq_dIr = E_r / iy_denom
 
             partials["Iy_equiv", "main_t_elem"] = dIyeq_dAm * dA_m_dt + dIyeq_dIm * dI_m_dt
             partials["Iy_equiv", "main_r_elem"] = dIyeq_dAm * dA_m_dR + dIyeq_dIm * dI_m_dR
             partials["Iy_equiv", "rear_t_elem"] = dIyeq_dAr * dA_r_dt + dIyeq_dIr * dI_r_dt
             partials["Iy_equiv", "rear_r_elem"] = dIyeq_dAr * dA_r_dR + dIyeq_dIr * dI_r_dR
+            partials["Iz_equiv", "main_t_elem"] = dIzeq_dAm * dA_m_dt + dIzeq_dIm * dI_m_dt
+            partials["Iz_equiv", "main_r_elem"] = dIzeq_dAm * dA_m_dR + dIzeq_dIm * dI_m_dR
+            partials["Iz_equiv", "rear_t_elem"] = dIzeq_dAr * dA_r_dt + dIzeq_dIr * dI_r_dt
+            partials["Iz_equiv", "rear_r_elem"] = dIzeq_dAr * dA_r_dR + dIzeq_dIr * dI_r_dR
 
             G_avg = (G_m * A_m + G_r * A_r) / a_sum_guard
             j_denom = G_avg + eps
@@ -472,6 +514,8 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             partials["mass_per_length", "main_r_elem"] = rho_m * dA_m_dR
             partials["Iy_equiv", "main_t_elem"] = dI_m_dt
             partials["Iy_equiv", "main_r_elem"] = dI_m_dR
+            partials["Iz_equiv", "main_t_elem"] = dI_m_dt
+            partials["Iz_equiv", "main_r_elem"] = dI_m_dR
             partials["J_equiv", "main_t_elem"] = dJ_m_dt
             partials["J_equiv", "main_r_elem"] = dJ_m_dR
 
@@ -631,6 +675,7 @@ class SpatialBeamFEM(om.ExplicitComponent):
     GJ : (ne,) torsional stiffness [N.m^2]
     A_equiv : (ne,) equivalent cross-section area [m^2]
     Iy_equiv : (ne,) second moment of area [m^4]
+    Iz_equiv : (ne,) second moment of area in chordwise plane [m^4]
     J_equiv : (ne,) polar moment [m^4]
     loads : (nn, 6) external loads at each node
 
@@ -675,6 +720,7 @@ class SpatialBeamFEM(om.ExplicitComponent):
         self.add_input("GJ", shape=(ne,), units="N*m**2")
         self.add_input("A_equiv", shape=(ne,), units="m**2")
         self.add_input("Iy_equiv", shape=(ne,), units="m**4")
+        self.add_input("Iz_equiv", shape=(ne,), units="m**4")
         self.add_input("J_equiv", shape=(ne,), units="m**4")
         self.add_input("loads", shape=(nn, 6))
 
@@ -696,7 +742,7 @@ class SpatialBeamFEM(om.ExplicitComponent):
             cols=dense_cols_nodes.ravel(),
             method="cs",
         )
-        for name in ("EI_flap", "GJ", "A_equiv", "Iy_equiv", "J_equiv"):
+        for name in ("EI_flap", "GJ", "A_equiv", "Iy_equiv", "Iz_equiv", "J_equiv"):
             self.declare_partials(
                 "disp",
                 name,
@@ -723,6 +769,7 @@ class SpatialBeamFEM(om.ExplicitComponent):
         GJ_arr = inputs["GJ"]
         A = inputs["A_equiv"]
         Iy = inputs["Iy_equiv"]
+        Iz = inputs["Iz_equiv"]
         J = inputs["J_equiv"]
         loads = inputs["loads"]
 
@@ -744,18 +791,19 @@ class SpatialBeamFEM(om.ExplicitComponent):
 
             # Use the equivalent Iy, J for this element
             Iy_e = Iy[e]
-            Iz_e = Iy[e]  # symmetric tube approximation
+            Iz_e = Iz[e]
             J_e = J[e]
             A_e = A[e]
             if (
-                not _has_only_finite_values(np.array([A_e, Iy_e, J_e, EI[e], GJ_arr[e]]))
+                not _has_only_finite_values(np.array([A_e, Iy_e, Iz_e, J_e, EI[e], GJ_arr[e]]))
                 or np.real(A_e) <= 1e-20
                 or np.real(Iy_e) <= 1e-20
+                or np.real(Iz_e) <= 1e-20
                 or np.real(J_e) <= 1e-20
             ):
                 raise om.AnalysisError(
                     f"Invalid section properties at element {e} "
-                    f"(A={A_e}, Iy={Iy_e}, J={J_e})."
+                    f"(A={A_e}, Iy={Iy_e}, Iz={Iz_e}, J={J_e})."
                 )
 
             # Compute effective E, G from EI and I
@@ -1331,7 +1379,7 @@ class StructuralLoadCaseGroup(om.Group):
                 max_disp_entry=self.options["fem_max_disp_entry"],
                 bc_penalty=self.options["fem_bc_penalty"],
             ),
-            promotes_inputs=["nodes", "EI_flap", "GJ", "A_equiv", "Iy_equiv", "J_equiv"],
+            promotes_inputs=["nodes", "EI_flap", "GJ", "A_equiv", "Iy_equiv", "Iz_equiv", "J_equiv"],
             promotes_outputs=["disp"],
         )
         self.connect("loads", "fem.loads")
@@ -1685,6 +1733,7 @@ class HPAStructuralGroup(om.Group):
             self.connect("spar_props.GJ", "fem.GJ")
             self.connect("spar_props.A_equiv", "fem.A_equiv")
             self.connect("spar_props.Iy_equiv", "fem.Iy_equiv")
+            self.connect("spar_props.Iz_equiv", "fem.Iz_equiv")
             self.connect("spar_props.J_equiv", "fem.J_equiv")
             self.connect("ext_loads.loads", "fem.loads")
 
@@ -1724,6 +1773,7 @@ class HPAStructuralGroup(om.Group):
                 self.connect("spar_props.GJ", f"{case_group_name}.GJ")
                 self.connect("spar_props.A_equiv", f"{case_group_name}.A_equiv")
                 self.connect("spar_props.Iy_equiv", f"{case_group_name}.Iy_equiv")
+                self.connect("spar_props.Iz_equiv", f"{case_group_name}.Iz_equiv")
                 self.connect("spar_props.J_equiv", f"{case_group_name}.J_equiv")
                 self.connect("seg_mapper.main_r_elem", f"{case_group_name}.R_main_elem")
                 self.connect("seg_mapper.main_t_elem", f"{case_group_name}.main_t_elem")
