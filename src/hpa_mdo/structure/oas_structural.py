@@ -148,8 +148,39 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             self.add_input("rear_t_elem", shape=(ne,), units="m")
             self.add_input("rear_r_elem", shape=(ne,), units="m")
 
-        # Use complex-step for derivatives (simpler, accurate)
-        self.declare_partials("*", "*", method="cs")
+        row_col = np.arange(ne)
+        rear_on = self.options["rear_enabled"]
+        outputs_always = [
+            "A_main",
+            "I_main",
+            "A_equiv",
+            "EI_flap",
+            "GJ",
+            "mass_per_length",
+            "Iy_equiv",
+            "J_equiv",
+        ]
+        outputs_with_rear = [
+            "A_rear",
+            "I_rear",
+            "A_equiv",
+            "EI_flap",
+            "GJ",
+            "mass_per_length",
+            "Iy_equiv",
+            "J_equiv",
+        ]
+        inputs_main = ["main_t_elem", "main_r_elem"]
+        inputs_rear = ["rear_t_elem", "rear_r_elem"]
+
+        for out in outputs_always:
+            for inp in inputs_main:
+                self.declare_partials(out, inp, rows=row_col, cols=row_col)
+
+        if rear_on:
+            for out in outputs_with_rear:
+                for inp in inputs_rear:
+                    self.declare_partials(out, inp, rows=row_col, cols=row_col)
 
     def compute(self, inputs, outputs):
         ne = self.options["n_elements"]
@@ -222,6 +253,157 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             outputs["mass_per_length"] = rho_m * A_m
             outputs["Iy_equiv"] = I_m
             outputs["J_equiv"] = J_m
+
+    def compute_partials(self, inputs, partials):
+        """Analytic partials for the exact guarded `compute()` equations.
+
+        With r = R - t:
+            A = pi * (2 * R * t - t**2),  dA/dt = 2 * pi * r,  dA/dR = 2 * pi * t
+            I = pi / 4 * (R**4 - r**4),   dI/dt = pi * r**3,   dI/dR = pi * (R**3 - r**3)
+            J = 2 * I,                    dJ/dt = 2 * pi * r**3,
+                                          dJ/dR = 2 * pi * (R**3 - r**3)
+
+        Equivalent-section derivatives are chained from the same `compute()`
+        intermediates, including the 1e-30 denominator guards.
+        """
+        eps = 1e-30
+        rear_on = self.options["rear_enabled"]
+
+        E_m = self.options["E_main"]
+        G_m = self.options["G_main"]
+        rho_m = self.options["rho_main"]
+        R_m = inputs["main_r_elem"]
+        t_m = np.minimum(inputs["main_t_elem"], R_m - 1e-6)
+        t_m = np.maximum(t_m, 1e-6)
+        r_m = R_m - t_m
+        A_m = np.pi * (R_m**2 - r_m**2)
+        I_m = np.pi / 4.0 * (R_m**4 - r_m**4)
+        J_m = 2.0 * I_m
+
+        dA_m_dt = 2.0 * np.pi * r_m
+        dA_m_dR = 2.0 * np.pi * t_m
+        dI_m_dt = np.pi * r_m**3
+        dI_m_dR = np.pi * (R_m**3 - r_m**3)
+        dJ_m_dt = 2.0 * np.pi * r_m**3
+        dJ_m_dR = 2.0 * np.pi * (R_m**3 - r_m**3)
+
+        partials["A_main", "main_t_elem"] = dA_m_dt
+        partials["A_main", "main_r_elem"] = dA_m_dR
+        partials["I_main", "main_t_elem"] = dI_m_dt
+        partials["I_main", "main_r_elem"] = dI_m_dR
+
+        if rear_on:
+            E_r = self.options["E_rear"]
+            G_r = self.options["G_rear"]
+            rho_r = self.options["rho_rear"]
+            z_m = self.options["z_main"]
+            z_r = self.options["z_rear"]
+            d = self.options["d_chord"]
+
+            R_r = inputs["rear_r_elem"]
+            t_r = np.minimum(inputs["rear_t_elem"], R_r - 1e-6)
+            t_r = np.maximum(t_r, 1e-6)
+            r_r = R_r - t_r
+            A_r = np.pi * (R_r**2 - r_r**2)
+            I_r = np.pi / 4.0 * (R_r**4 - r_r**4)
+            J_r = 2.0 * I_r
+
+            dA_r_dt = 2.0 * np.pi * r_r
+            dA_r_dR = 2.0 * np.pi * t_r
+            dI_r_dt = np.pi * r_r**3
+            dI_r_dR = np.pi * (R_r**3 - r_r**3)
+            dJ_r_dt = 2.0 * np.pi * r_r**3
+            dJ_r_dR = 2.0 * np.pi * (R_r**3 - r_r**3)
+
+            partials["A_rear", "rear_t_elem"] = dA_r_dt
+            partials["A_rear", "rear_r_elem"] = dA_r_dR
+            partials["I_rear", "rear_t_elem"] = dI_r_dt
+            partials["I_rear", "rear_r_elem"] = dI_r_dR
+
+            p = E_m * A_m
+            q = E_r * A_r
+            denom_e = p + q + eps
+            numer_z = p * z_m + q * z_r
+            z_na = numer_z / denom_e
+            dz_m = z_m - z_na
+            dz_r = z_r - z_na
+            dz_na_dAm = E_m * dz_m / denom_e
+            dz_na_dAr = E_r * dz_r / denom_e
+
+            EI_flap = (
+                E_m * (I_m + A_m * dz_m**2)
+                + E_r * (I_r + A_r * dz_r**2)
+            )
+            dEI_dAm = E_m * dz_m**2 - 2.0 * eps * z_na * dz_na_dAm
+            dEI_dAr = E_r * dz_r**2 - 2.0 * eps * z_na * dz_na_dAr
+
+            GJ_val = G_m * J_m + G_r * J_r + (p * q / denom_e) * d**2
+            dGJ_dAm = E_m * q * (q + eps) * d**2 / denom_e**2
+            dGJ_dAr = E_r * p * (p + eps) * d**2 / denom_e**2
+
+            A_sum = A_m + A_r
+            a_sum_guard = A_sum + eps
+
+            partials["A_equiv", "main_t_elem"] = dA_m_dt
+            partials["A_equiv", "main_r_elem"] = dA_m_dR
+            partials["A_equiv", "rear_t_elem"] = dA_r_dt
+            partials["A_equiv", "rear_r_elem"] = dA_r_dR
+
+            partials["mass_per_length", "main_t_elem"] = rho_m * dA_m_dt
+            partials["mass_per_length", "main_r_elem"] = rho_m * dA_m_dR
+            partials["mass_per_length", "rear_t_elem"] = rho_r * dA_r_dt
+            partials["mass_per_length", "rear_r_elem"] = rho_r * dA_r_dR
+
+            partials["EI_flap", "main_t_elem"] = dEI_dAm * dA_m_dt + E_m * dI_m_dt
+            partials["EI_flap", "main_r_elem"] = dEI_dAm * dA_m_dR + E_m * dI_m_dR
+            partials["EI_flap", "rear_t_elem"] = dEI_dAr * dA_r_dt + E_r * dI_r_dt
+            partials["EI_flap", "rear_r_elem"] = dEI_dAr * dA_r_dR + E_r * dI_r_dR
+
+            partials["GJ", "main_t_elem"] = dGJ_dAm * dA_m_dt + G_m * dJ_m_dt
+            partials["GJ", "main_r_elem"] = dGJ_dAm * dA_m_dR + G_m * dJ_m_dR
+            partials["GJ", "rear_t_elem"] = dGJ_dAr * dA_r_dt + G_r * dJ_r_dt
+            partials["GJ", "rear_r_elem"] = dGJ_dAr * dA_r_dR + G_r * dJ_r_dR
+
+            E_avg = (p + q) / a_sum_guard
+            iy_denom = E_avg + eps
+            dEavg_dAm = ((E_m - E_r) * A_r + E_m * eps) / a_sum_guard**2
+            dEavg_dAr = ((E_r - E_m) * A_m + E_r * eps) / a_sum_guard**2
+            dIyeq_dAm = dEI_dAm / iy_denom - EI_flap * dEavg_dAm / iy_denom**2
+            dIyeq_dAr = dEI_dAr / iy_denom - EI_flap * dEavg_dAr / iy_denom**2
+            dIyeq_dIm = E_m / iy_denom
+            dIyeq_dIr = E_r / iy_denom
+
+            partials["Iy_equiv", "main_t_elem"] = dIyeq_dAm * dA_m_dt + dIyeq_dIm * dI_m_dt
+            partials["Iy_equiv", "main_r_elem"] = dIyeq_dAm * dA_m_dR + dIyeq_dIm * dI_m_dR
+            partials["Iy_equiv", "rear_t_elem"] = dIyeq_dAr * dA_r_dt + dIyeq_dIr * dI_r_dt
+            partials["Iy_equiv", "rear_r_elem"] = dIyeq_dAr * dA_r_dR + dIyeq_dIr * dI_r_dR
+
+            G_avg = (G_m * A_m + G_r * A_r) / a_sum_guard
+            j_denom = G_avg + eps
+            dGavg_dAm = ((G_m - G_r) * A_r + G_m * eps) / a_sum_guard**2
+            dGavg_dAr = ((G_r - G_m) * A_m + G_r * eps) / a_sum_guard**2
+            dJeq_dAm = dGJ_dAm / j_denom - GJ_val * dGavg_dAm / j_denom**2
+            dJeq_dAr = dGJ_dAr / j_denom - GJ_val * dGavg_dAr / j_denom**2
+            dJeq_dJm = G_m / j_denom
+            dJeq_dJr = G_r / j_denom
+
+            partials["J_equiv", "main_t_elem"] = dJeq_dAm * dA_m_dt + dJeq_dJm * dJ_m_dt
+            partials["J_equiv", "main_r_elem"] = dJeq_dAm * dA_m_dR + dJeq_dJm * dJ_m_dR
+            partials["J_equiv", "rear_t_elem"] = dJeq_dAr * dA_r_dt + dJeq_dJr * dJ_r_dt
+            partials["J_equiv", "rear_r_elem"] = dJeq_dAr * dA_r_dR + dJeq_dJr * dJ_r_dR
+        else:
+            partials["A_equiv", "main_t_elem"] = dA_m_dt
+            partials["A_equiv", "main_r_elem"] = dA_m_dR
+            partials["EI_flap", "main_t_elem"] = E_m * dI_m_dt
+            partials["EI_flap", "main_r_elem"] = E_m * dI_m_dR
+            partials["GJ", "main_t_elem"] = G_m * dJ_m_dt
+            partials["GJ", "main_r_elem"] = G_m * dJ_m_dR
+            partials["mass_per_length", "main_t_elem"] = rho_m * dA_m_dt
+            partials["mass_per_length", "main_r_elem"] = rho_m * dA_m_dR
+            partials["Iy_equiv", "main_t_elem"] = dI_m_dt
+            partials["Iy_equiv", "main_r_elem"] = dI_m_dR
+            partials["J_equiv", "main_t_elem"] = dJ_m_dt
+            partials["J_equiv", "main_r_elem"] = dJ_m_dR
 
 
 # ═════════════════════════════════════════════════════════════════════════
