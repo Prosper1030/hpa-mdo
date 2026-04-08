@@ -20,7 +20,9 @@ def test_materials_returns_list() -> None:
     response = client.get("/materials")
 
     assert response.status_code == 200
-    materials = response.json()
+    payload = response.json()
+    assert payload["error_code"] is None
+    materials = payload["materials"]
     assert len(materials) > 0
     assert "carbon_fiber_hm" in materials
 
