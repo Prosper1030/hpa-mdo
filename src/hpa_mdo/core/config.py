@@ -31,6 +31,18 @@ class FlightConfig(BaseModel):
 class SafetyConfig(BaseModel):
     aerodynamic_load_factor: float = Field(2.0, description="Limit load [G]")
     material_safety_factor: float = Field(1.5, description="Knock-down on UTS")
+    shell_buckling_knockdown: float = Field(
+        default=0.65,
+        description="NASA SP-8007 knockdown factor for CF tube shell buckling",
+        ge=0.1,
+        le=1.0,
+    )
+    shell_buckling_bending_enhancement: float = Field(
+        default=1.3,
+        description="Enhancement factor for pure bending vs pure axial",
+        ge=1.0,
+        le=2.0,
+    )
 
 
 class WeightConfig(BaseModel):

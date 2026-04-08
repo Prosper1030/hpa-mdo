@@ -22,6 +22,8 @@ flight:
 safety:
   aerodynamic_load_factor: 2.0   # design limit load [G]
   material_safety_factor: 1.5    # applied to material ultimate strength
+  shell_buckling_knockdown: 0.65
+  shell_buckling_bending_enhancement: 1.3
 
 # ── Mass Breakdown ──────────────────────────────────────────────────────────
 weight:
