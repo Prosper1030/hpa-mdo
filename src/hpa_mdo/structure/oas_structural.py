@@ -25,6 +25,7 @@ import numpy as np
 import openmdao.api as om
 
 from hpa_mdo.core.logging import get_logger
+from hpa_mdo.structure.buckling import BucklingComp
 from hpa_mdo.structure.spar_model import (
     tube_area,
     tube_Ixx,
@@ -799,7 +800,8 @@ class HPAStructuralGroup(om.Group):
     """Complete structural analysis group for HPA wing spar optimization.
 
     Subsystems:
-        seg_mapper → spar_props → ext_loads → fem → stress → failure, mass, twist
+        seg_mapper → spar_props → ext_loads → fem → stress → buckling
+        → failure, mass, twist
     """
 
     def initialize(self):
@@ -959,7 +961,17 @@ class HPAStructuralGroup(om.Group):
             rear_enabled=rear_on,
         ))
 
-        # 6. KS failure
+        # 6. Shell buckling
+        self.add_subsystem("buckling", BucklingComp(
+            n_nodes=nn,
+            E_main=mat_main.E,
+            E_rear=mat_rear.E if rear_on else 0.0,
+            rear_enabled=rear_on,
+            knockdown_factor=cfg.safety.shell_buckling_knockdown,
+            bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
+        ))
+
+        # 7. KS failure
         self.add_subsystem("failure", KSFailureComp(
             n_elements=ne,
             sigma_allow_main=sigma_allow_main,
@@ -967,17 +979,17 @@ class HPAStructuralGroup(om.Group):
             rear_enabled=rear_on,
         ))
 
-        # 7. Structural mass
+        # 8. Structural mass
         self.add_subsystem("mass", StructuralMassComp(
             n_elements=ne,
             element_lengths=dy,
             joint_mass_total=joint_mass_half,
         ))
 
-        # 8. Twist constraint
+        # 9. Twist constraint
         self.add_subsystem("twist", TwistConstraintComp(n_nodes=nn))
 
-        # 9. Tip deflection constraint
+        # 10. Tip deflection constraint
         self.add_subsystem("tip_defl", TipDeflectionConstraintComp(n_nodes=nn))
 
         # ── Connections ──
@@ -1007,6 +1019,14 @@ class HPAStructuralGroup(om.Group):
         if rear_on:
             self.connect("seg_mapper.rear_r_elem", "stress.R_rear_elem")
             self.connect("spar_props.I_rear", "stress.I_rear")
+
+        self.connect("fem.disp", "buckling.disp")
+        self.connect("indeps.nodes", "buckling.nodes")
+        self.connect("seg_mapper.main_r_elem", "buckling.main_r_elem")
+        self.connect("seg_mapper.main_t_elem", "buckling.main_t_elem")
+        if rear_on:
+            self.connect("seg_mapper.rear_r_elem", "buckling.rear_r_elem")
+            self.connect("seg_mapper.rear_t_elem", "buckling.rear_t_elem")
 
         self.connect("stress.vonmises_main", "failure.vonmises_main")
         if rear_on:
@@ -1103,13 +1123,16 @@ def build_structural_problem(
     # 1. Stress: KS(σ/σ_allow - 1) ≤ 0
     model.add_constraint("struct.failure.failure", upper=0.0)
 
-    # 2. Twist: |θ_max| ≤ max_tip_twist_deg
+    # 2. Shell buckling: KS(buckling_ratio - 1) ≤ 0
+    model.add_constraint("struct.buckling.buckling_index", upper=0.0)
+
+    # 3. Twist: |θ_max| ≤ max_tip_twist_deg
     model.add_constraint(
         "struct.twist.twist_max_deg",
         upper=cfg.wing.max_tip_twist_deg,
     )
 
-    # 3. Tip deflection constraint
+    # 4. Tip deflection constraint
     if cfg.wing.max_tip_deflection_m is not None:
         model.add_constraint(
             "struct.tip_defl.tip_deflection_m",
