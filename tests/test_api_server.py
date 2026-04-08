@@ -62,4 +62,7 @@ def test_export_missing_config_returns_error() -> None:
         },
     )
 
-    assert response.json()["val_weight"] == 99999
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload["error_code"] == "EXPORT_FAIL"
+    assert "error" in payload
