@@ -50,6 +50,7 @@ _RESPONSE_COLUMNS = [
     "max_stress_main_MPa",
     "max_stress_rear_MPa",
     "failure_index",
+    "buckling_index",
 ]
 
 _AERO_COLUMNS = [
@@ -243,6 +244,7 @@ class DataCollector:
         row["max_stress_main_MPa"] = res.max_stress_main_Pa / 1e6
         row["max_stress_rear_MPa"] = res.max_stress_rear_Pa / 1e6
         row["failure_index"] = res.failure_index
+        row["buckling_index"] = res.buckling_index
 
         # Optional aero data
         row["aoa_deg"] = aero.get("aoa_deg", float("nan"))

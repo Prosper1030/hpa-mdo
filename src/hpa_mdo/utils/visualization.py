@@ -92,6 +92,10 @@ def plot_beam_analysis(
     # ── 2. Twist angle ────────────────────────────────────────────────────
     ax2 = fig.add_subplot(gs[0, 1])
     if has_disp:
+        # TODO: project to local beam axis to match TwistConstraintComp.
+        # For straight wings (no sweep/dihedral) this is identical to disp[:, 4],
+        # but for future swept-wing support we should use the same rotation matrix
+        # that TwistConstraintComp applies. Tracked: M2 hygiene pack note.
         twist_deg = result.disp[:, 4] * (180.0 / math.pi)
         ax2.plot(y_nodes, twist_deg, "r-", linewidth=1.8)
         ax2.set_ylabel("Twist [deg]")

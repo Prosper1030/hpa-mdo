@@ -51,6 +51,10 @@ def test_data_collector_uses_dynamic_segment_columns(tmp_path):
     assert "rear_t_seg_5" in header
     assert "main_t_seg_6" not in header
     assert "rear_t_seg_6" not in header
+    assert "buckling_index" in header
+
+    df = collector.load()
+    assert df.loc[0, "buckling_index"] == -0.3
 
 
 def test_data_collector_merges_columns_when_segment_count_grows(tmp_path):

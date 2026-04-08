@@ -11,6 +11,8 @@ from typing import List, Optional
 
 import numpy as np
 
+from hpa_mdo.core.constants import G_STANDARD
+
 
 @dataclass
 class FlightCondition:
@@ -119,7 +121,7 @@ class Aircraft:
 
     @property
     def weight_N(self) -> float:
-        return self.mass_total_kg * 9.80665
+        return self.mass_total_kg * G_STANDARD
 
     @classmethod
     def from_config(cls, cfg) -> Aircraft:

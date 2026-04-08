@@ -24,6 +24,7 @@ from typing import Optional
 import numpy as np
 import openmdao.api as om
 
+from hpa_mdo.core.constants import G_STANDARD
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.buckling import BucklingComp
 from hpa_mdo.structure.spar_model import (
@@ -1106,7 +1107,7 @@ class ExternalLoadsComp(om.ExplicitComponent):
         ne = nn - 1
         self.add_input("mass_per_length", shape=(ne,), units="kg/m")
         self.add_output("loads", shape=(nn, 6))
-        g = 9.80665
+        g = G_STANDARD
         g_scaled = g * self.options["gravity_scale"]
         element_lengths = self.options["element_lengths"]
         rows = []
@@ -1127,7 +1128,7 @@ class ExternalLoadsComp(om.ExplicitComponent):
         ds = self.options["node_spacings"]
         element_lengths = self.options["element_lengths"]
         mpl = inputs["mass_per_length"]
-        g = 9.80665 * self.options["gravity_scale"]
+        g = G_STANDARD * self.options["gravity_scale"]
 
         loads = np.zeros((nn, 6), dtype=mpl.dtype)
 

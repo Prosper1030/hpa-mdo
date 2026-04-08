@@ -647,8 +647,6 @@ class SparOptimizer:
 
         # ── Phase 1: Global search with differential evolution ──
         logger.info("  [Phase 1] Differential Evolution global search...")
-
-        logger.info("  [Phase 1] Differential Evolution global search...")
         logger.info("  已啟用多核心運算，預期 CPU 使用率將會飆高")
         de_workers = 1
         de_func = evaluator.penalty
