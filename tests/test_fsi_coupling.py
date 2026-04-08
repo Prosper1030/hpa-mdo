@@ -65,6 +65,7 @@ def _fake_optimization_result(tip_deflection_m: float) -> OptimizationResult:
         allowable_stress_main_Pa=300e6,
         allowable_stress_rear_Pa=300e6,
         failure_index=-0.2,
+        buckling_index=-0.3,
         tip_deflection_m=tip_deflection_m,
         max_tip_deflection_m=2.5,
         twist_max_deg=0.6,

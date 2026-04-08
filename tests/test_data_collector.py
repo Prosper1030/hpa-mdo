@@ -25,6 +25,7 @@ def _fake_result(n_main: int, n_rear: int) -> OptimizationResult:
         allowable_stress_main_Pa=2.0e8,
         allowable_stress_rear_Pa=2.0e8,
         failure_index=-0.2,
+        buckling_index=-0.3,
         tip_deflection_m=0.15,
         max_tip_deflection_m=2.5,
         twist_max_deg=0.9,
