@@ -255,6 +255,9 @@ class SparOptimizer:
         # Evaluation cache
         _cache = {}
 
+        def _get_scalar(name: str) -> float:
+            return float(np.asarray(self._prob.get_val(name)).item())
+
         def _eval(x):
             key = tuple(np.round(x, 8))
             if key in _cache:
@@ -270,10 +273,10 @@ class SparOptimizer:
                 self._prob.set_val("struct.seg_mapper.rear_r_seg", x_rear_r, units="m")
             run_analysis(self._prob)
             res = {
-                "mass": float(self._prob.get_val("struct.mass.total_mass_full")),
-                "failure": float(self._prob.get_val("struct.failure.failure")),
-                "twist": float(self._prob.get_val("struct.twist.twist_max_deg")[0]),
-                "tip_defl": float(self._prob.get_val("struct.tip_defl.tip_deflection_m")[0]),
+                "mass": _get_scalar("struct.mass.total_mass_full"),
+                "failure": _get_scalar("struct.failure.failure"),
+                "twist": _get_scalar("struct.twist.twist_max_deg"),
+                "tip_defl": _get_scalar("struct.tip_defl.tip_deflection_m"),
             }
             _cache[key] = res
             return res
