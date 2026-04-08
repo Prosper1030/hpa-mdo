@@ -66,6 +66,9 @@ _RADIUS_MAX_M = 0.060
 _MAX_THICKNESS_TO_RADIUS_RATIO = 0.8
 _MAIN_SPAR_DOMINANCE_MARGIN_M = 0.005
 _MAIN_SPAR_EI_RATIO = 2.0
+_REAR_MIN_INNER_RADIUS_M = 1.0e-4
+_REAR_INBOARD_EI_TO_MAIN_RATIO_MAX = 0.20
+_REAR_INBOARD_SPAN_M = 1.5
 
 
 class _ScipyBlackBoxEvaluator:
@@ -81,6 +84,9 @@ class _ScipyBlackBoxEvaluator:
         max_thickness_to_radius_ratio: float,
         main_spar_dominance_margin_m: float,
         main_spar_ei_ratio: float,
+        rear_min_inner_radius_m: float,
+        rear_inboard_ei_to_main_ratio_max: float,
+        inboard_ei_element_indices: np.ndarray,
         cache_size: int = _SCIPY_EVAL_CACHE_SIZE,
     ):
         self.prob = prob
@@ -91,6 +97,11 @@ class _ScipyBlackBoxEvaluator:
         self.max_thickness_to_radius_ratio = max_thickness_to_radius_ratio
         self.main_spar_dominance_margin_m = max(float(main_spar_dominance_margin_m), 0.0)
         self.main_spar_ei_ratio = max(float(main_spar_ei_ratio), 0.0)
+        self.rear_min_inner_radius_m = max(float(rear_min_inner_radius_m), 0.0)
+        self.rear_inboard_ei_to_main_ratio_max = max(
+            float(rear_inboard_ei_to_main_ratio_max), 0.0
+        )
+        self.inboard_ei_element_indices = np.asarray(inboard_ei_element_indices, dtype=int)
         self._cache_size = max(int(cache_size), 0)
         self._cache: OrderedDict[tuple[float, ...], dict[str, float]] = OrderedDict()
 
@@ -136,8 +147,15 @@ class _ScipyBlackBoxEvaluator:
             "buckling": self._get_scalar("struct.buckling.buckling_index"),
         }
         if self.rear_on:
+            main_t = np.asarray(self.prob.get_val("struct.seg_mapper.main_t_seg"), dtype=float)
             main_r = np.asarray(self.prob.get_val("struct.seg_mapper.main_r_seg"), dtype=float)
+            result["main_hollow_margin_min"] = float(np.min(main_r - main_t))
+
+            rear_t = np.asarray(self.prob.get_val("struct.seg_mapper.rear_t_seg"), dtype=float)
             rear_r = np.asarray(self.prob.get_val("struct.seg_mapper.rear_r_seg"), dtype=float)
+            rear_hollow_margin = rear_r - rear_t - self.rear_min_inner_radius_m
+            result["rear_hollow_margin_min"] = float(np.min(rear_hollow_margin))
+
             radius_margin = main_r - rear_r - self.main_spar_dominance_margin_m
             result["radius_dominance_margin_min"] = float(np.min(radius_margin))
 
@@ -147,15 +165,65 @@ class _ScipyBlackBoxEvaluator:
             ei_ratio_margin = ei_main / (ei_rear + 1e-30) - self.main_spar_ei_ratio
             result["ei_dominance_margin_min"] = float(np.min(ei_margin))
             result["ei_ratio_margin_min"] = float(np.min(ei_ratio_margin))
+
+            if self.inboard_ei_element_indices.size > 0:
+                idx = self.inboard_ei_element_indices
+                inboard_margin = (
+                    self.rear_inboard_ei_to_main_ratio_max * ei_main[idx] - ei_rear[idx]
+                )
+                result["rear_inboard_ei_margin_min"] = float(np.min(inboard_margin))
+            else:
+                result["rear_inboard_ei_margin_min"] = float("inf")
         else:
+            result["main_hollow_margin_min"] = float("inf")
+            result["rear_hollow_margin_min"] = float("inf")
             result["radius_dominance_margin_min"] = float("inf")
             result["ei_dominance_margin_min"] = float("inf")
             result["ei_ratio_margin_min"] = float("inf")
+            result["rear_inboard_ei_margin_min"] = float("inf")
 
         return result
 
     def evaluate(self, x):
         x_arr = np.asarray(x, dtype=float)
+        n_seg = self.n_seg
+        x_main_t = x_arr[:n_seg]
+        x_main_r = x_arr[n_seg:2 * n_seg]
+        if np.any(x_main_r - x_main_t <= 0.0):
+            # Physical invalidity for hollow tube model.
+            return {
+                "mass": 1e12,
+                "failure": 1e3,
+                "twist": 1e3,
+                "tip_defl": 1e3,
+                "buckling": 1e3,
+                "main_hollow_margin_min": float(np.min(x_main_r - x_main_t)),
+                "rear_hollow_margin_min": -1e3,
+                "radius_dominance_margin_min": -1e3,
+                "ei_dominance_margin_min": -1e3,
+                "ei_ratio_margin_min": -1e3,
+                "rear_inboard_ei_margin_min": -1e3,
+            }
+        if self.rear_on:
+            x_rear_t = x_arr[2 * n_seg:3 * n_seg]
+            x_rear_r = x_arr[3 * n_seg:]
+            rear_hollow_margin = x_rear_r - x_rear_t - self.rear_min_inner_radius_m
+            if np.any(rear_hollow_margin < 0.0):
+                # Hard guard: never allow invalid/near-solid rear tube geometry.
+                return {
+                    "mass": 1e12,
+                    "failure": 1e3,
+                    "twist": 1e3,
+                    "tip_defl": 1e3,
+                    "buckling": 1e3,
+                    "main_hollow_margin_min": float(np.min(x_main_r - x_main_t)),
+                    "rear_hollow_margin_min": float(np.min(rear_hollow_margin)),
+                    "radius_dominance_margin_min": -1e3,
+                    "ei_dominance_margin_min": -1e3,
+                    "ei_ratio_margin_min": -1e3,
+                    "rear_inboard_ei_margin_min": -1e3,
+                }
+
         key = tuple(np.round(x_arr, 8))
         cached = self._cache_get(key)
         if cached is not None:
@@ -172,9 +240,12 @@ class _ScipyBlackBoxEvaluator:
                 "twist": 1e3,
                 "tip_defl": 1e3,
                 "buckling": 1e3,
+                "main_hollow_margin_min": -1e3,
+                "rear_hollow_margin_min": -1e3,
                 "radius_dominance_margin_min": -1e3,
                 "ei_dominance_margin_min": -1e3,
                 "ei_ratio_margin_min": -1e3,
+                "rear_inboard_ei_margin_min": -1e3,
             }
         self._cache_set(key, res)
         return res
@@ -216,6 +287,15 @@ class _ScipyBlackBoxEvaluator:
             ei_ratio_margin_min = r["ei_ratio_margin_min"]
             if ei_ratio_margin_min < 0.0:
                 penalty += 1200.0 * (abs(ei_ratio_margin_min)) ** 2
+
+            rear_hollow_margin_min = r["rear_hollow_margin_min"]
+            if rear_hollow_margin_min < 0.0:
+                norm = max(self.rear_min_inner_radius_m, 1e-9)
+                penalty += 2000.0 * (abs(rear_hollow_margin_min) / norm) ** 2
+
+            rear_inboard_ei_margin_min = r["rear_inboard_ei_margin_min"]
+            if rear_inboard_ei_margin_min < 0.0:
+                penalty += 1200.0 * (abs(rear_inboard_ei_margin_min)) ** 2
 
         return r["mass"] * (1.0 + penalty)
 
@@ -426,6 +506,60 @@ class SparOptimizer:
         max_deflection = float("inf") if deflection_limit is None else float(deflection_limit)
         return float(twist_limit), max_deflection
 
+    def _rear_min_inner_radius_m(self) -> float:
+        solver_cfg = getattr(self.cfg, "solver", None)
+        return max(
+            float(
+                getattr(
+                    solver_cfg,
+                    "rear_min_inner_radius_m",
+                    _REAR_MIN_INNER_RADIUS_M,
+                )
+            ),
+            0.0,
+        )
+
+    def _rear_inboard_ei_to_main_ratio_max(self) -> float:
+        solver_cfg = getattr(self.cfg, "solver", None)
+        return max(
+            float(
+                getattr(
+                    solver_cfg,
+                    "rear_inboard_ei_to_main_ratio_max",
+                    _REAR_INBOARD_EI_TO_MAIN_RATIO_MAX,
+                )
+            ),
+            0.0,
+        )
+
+    def _inboard_ei_element_indices(self, n_elem: int | None = None) -> np.ndarray:
+        solver_cfg = getattr(self.cfg, "solver", None)
+        inboard_span = max(
+            float(
+                getattr(
+                    solver_cfg,
+                    "rear_inboard_span_m",
+                    _REAR_INBOARD_SPAN_M,
+                )
+            ),
+            0.0,
+        )
+        if inboard_span <= 0.0:
+            return np.zeros(0, dtype=int)
+
+        prob = getattr(self, "_prob", None)
+        struct_group = getattr(getattr(prob, "model", None), "struct", None)
+        elem_centres = np.asarray(getattr(struct_group, "_elem_centres", np.array([])), dtype=float)
+        if elem_centres.size == 0:
+            if n_elem is None:
+                return np.zeros(0, dtype=int)
+            elem_centres = np.linspace(0.0, 1.0, int(n_elem), endpoint=False, dtype=float)
+
+        idx = np.where(elem_centres <= inboard_span + 1e-12)[0]
+        if idx.size == 0 and elem_centres.size > 0:
+            idx = np.array([0], dtype=int)
+        return np.asarray(idx, dtype=int)
+
     def _is_raw_feasible(self, raw: dict) -> bool:
         """Check full feasibility (stress, buckling, twist, tip deflection)."""
         tol = 1.02
@@ -453,6 +587,7 @@ class SparOptimizer:
         rear_enabled = bool(getattr(rear_cfg, "enabled", False))
 
         if rear_enabled:
+            rear_min_inner_radius = self._rear_min_inner_radius_m()
             dominance_margin = float(
                 getattr(
                     solver_cfg,
@@ -471,6 +606,11 @@ class SparOptimizer:
                 rear_ratio_margin = ratio_limit * np.asarray(rear_r) - np.asarray(rear_t)
                 if float(np.min(np.real(rear_ratio_margin))) < -1e-9:
                     return False
+                rear_hollow_margin = (
+                    np.asarray(rear_r) - np.asarray(rear_t) - rear_min_inner_radius
+                )
+                if float(np.min(np.real(rear_hollow_margin))) < -1e-9:
+                    return False
 
             ei_main = raw.get("EI_main_elem")
             ei_rear = raw.get("EI_rear_elem")
@@ -485,6 +625,14 @@ class SparOptimizer:
                 ei_margin = np.asarray(ei_main) - ei_ratio * np.asarray(ei_rear)
                 if float(np.min(np.real(ei_margin))) < -1e-9:
                     return False
+                inboard_ratio = self._rear_inboard_ei_to_main_ratio_max()
+                inboard_idx = self._inboard_ei_element_indices(len(np.asarray(ei_main)))
+                if inboard_ratio < 1.0 and inboard_idx.size > 0:
+                    ei_main_arr = np.asarray(ei_main)
+                    ei_rear_arr = np.asarray(ei_rear)
+                    inboard_margin = inboard_ratio * ei_main_arr[inboard_idx] - ei_rear_arr[inboard_idx]
+                    if float(np.min(np.real(inboard_margin))) < -1e-9:
+                        return False
 
         case_limits = self._constraint_limits_by_case()
         case_outputs = raw.get("cases")
@@ -690,6 +838,21 @@ class SparOptimizer:
                 _MAIN_SPAR_EI_RATIO,
             )
         )
+        rear_min_inner_radius = self._rear_min_inner_radius_m()
+        rear_inboard_ei_to_main_ratio_max = self._rear_inboard_ei_to_main_ratio_max()
+        n_elem_guess = None
+        if hasattr(self, "aircraft") and self.aircraft is not None:
+            n_elem_guess = int(self.aircraft.wing.n_stations - 1)
+        else:
+            struct_group = getattr(getattr(self._prob, "model", None), "struct", None)
+            elem_centres = np.asarray(getattr(struct_group, "_elem_centres", np.array([])), dtype=float)
+            if elem_centres.size > 0:
+                n_elem_guess = int(elem_centres.size)
+            else:
+                n_elem_guess = n_seg
+        inboard_ei_element_indices = self._inboard_ei_element_indices(
+            n_elem_guess
+        )
         # DV layout: [main_t_seg..., main_r_seg..., rear_t_seg..., rear_r_seg...]
         min_t_main = cfg.main_spar.min_wall_thickness
         min_t_rear = cfg.rear_spar.min_wall_thickness if rear_on else min_t_main
@@ -712,6 +875,9 @@ class SparOptimizer:
             max_thickness_to_radius_ratio=ratio_limit,
             main_spar_dominance_margin_m=dominance_margin,
             main_spar_ei_ratio=main_spar_ei_ratio,
+            rear_min_inner_radius_m=rear_min_inner_radius,
+            rear_inboard_ei_to_main_ratio_max=rear_inboard_ei_to_main_ratio_max,
+            inboard_ei_element_indices=inboard_ei_element_indices,
             cache_size=cache_size,
         )
 
@@ -798,6 +964,20 @@ class SparOptimizer:
             constraints.append(
                 {
                     "type": "ineq",
+                    "fun": (
+                        lambda x, n=n_seg, min_core=rear_min_inner_radius: (
+                            np.min(
+                                np.asarray(x, dtype=float)[3 * n:4 * n]
+                                - np.asarray(x, dtype=float)[2 * n:3 * n]
+                                - min_core
+                            )
+                        )
+                    ),
+                }
+            )
+            constraints.append(
+                {
+                    "type": "ineq",
                     "fun": lambda x: evaluator.evaluate(x)["radius_dominance_margin_min"],
                 }
             )
@@ -807,6 +987,13 @@ class SparOptimizer:
                     "fun": lambda x: evaluator.evaluate(x)["ei_ratio_margin_min"],
                 }
             )
+            if inboard_ei_element_indices.size > 0 and rear_inboard_ei_to_main_ratio_max < 1.0:
+                constraints.append(
+                    {
+                        "type": "ineq",
+                        "fun": lambda x: evaluator.evaluate(x)["rear_inboard_ei_margin_min"],
+                    }
+                )
         if max_defl < float("inf"):
             constraints.append(
                 {"type": "ineq", "fun": lambda x: max_defl - evaluator.evaluate(x)["tip_defl"]}
@@ -841,8 +1028,22 @@ class SparOptimizer:
                 )
             return main_margin_min, rear_margin_min
 
+        def _hollow_margin_mins(x: np.ndarray) -> tuple[float, Optional[float]]:
+            x_arr = np.asarray(x, dtype=float)
+            main_hollow_margin_min = float(
+                np.min(x_arr[n_seg:2 * n_seg] - x_arr[:n_seg])
+            )
+            rear_hollow_margin_min: Optional[float] = None
+            if rear_on:
+                rear_hollow_margin_min = float(
+                    np.min(x_arr[3 * n_seg:4 * n_seg] - x_arr[2 * n_seg:3 * n_seg] - rear_min_inner_radius)
+                )
+            return main_hollow_margin_min, rear_hollow_margin_min
+
         de_main_ratio_margin_min, de_rear_ratio_margin_min = _ratio_margin_mins(x_de)
         sq_main_ratio_margin_min, sq_rear_ratio_margin_min = _ratio_margin_mins(slsqp.x)
+        de_main_hollow_margin_min, de_rear_hollow_margin_min = _hollow_margin_mins(x_de)
+        sq_main_hollow_margin_min, sq_rear_hollow_margin_min = _hollow_margin_mins(slsqp.x)
 
         de_feas = (
             r_de["failure"] <= tol_f
@@ -850,9 +1051,12 @@ class SparOptimizer:
             and r_de["twist"] <= tol_tw
             and r_de["tip_defl"] <= tol_df
             and de_main_ratio_margin_min >= 0.0
+            and de_main_hollow_margin_min >= 0.0
             and (not rear_on or (de_rear_ratio_margin_min is not None and de_rear_ratio_margin_min >= 0.0))
+            and (not rear_on or (de_rear_hollow_margin_min is not None and de_rear_hollow_margin_min >= 0.0))
             and (not rear_on or r_de["radius_dominance_margin_min"] >= 0.0)
             and (not rear_on or r_de["ei_ratio_margin_min"] >= 0.0)
+            and (not rear_on or r_de["rear_inboard_ei_margin_min"] >= 0.0)
         )
         sq_feas = (
             r_sq["failure"] <= tol_f
@@ -860,9 +1064,12 @@ class SparOptimizer:
             and r_sq["twist"] <= tol_tw
             and r_sq["tip_defl"] <= tol_df
             and sq_main_ratio_margin_min >= 0.0
+            and sq_main_hollow_margin_min >= 0.0
             and (not rear_on or (sq_rear_ratio_margin_min is not None and sq_rear_ratio_margin_min >= 0.0))
+            and (not rear_on or (sq_rear_hollow_margin_min is not None and sq_rear_hollow_margin_min >= 0.0))
             and (not rear_on or r_sq["radius_dominance_margin_min"] >= 0.0)
             and (not rear_on or r_sq["ei_ratio_margin_min"] >= 0.0)
+            and (not rear_on or r_sq["rear_inboard_ei_margin_min"] >= 0.0)
         )
 
         # ALWAYS prefer feasible over infeasible
@@ -881,21 +1088,29 @@ class SparOptimizer:
             if max_defl < float("inf"):
                 v_de += max(0, r_de["tip_defl"] - max_defl) / max_defl  # Normalized
             v_de += max(0, -de_main_ratio_margin_min) / max(ratio_limit * min_r, 1e-9)
+            v_de += max(0, -de_main_hollow_margin_min) / max(min_r, 1e-9)
             if rear_on:
                 if de_rear_ratio_margin_min is not None:
                     v_de += max(0, -de_rear_ratio_margin_min) / max(ratio_limit * min_r, 1e-9)
+                if de_rear_hollow_margin_min is not None:
+                    v_de += max(0, -de_rear_hollow_margin_min) / max(rear_min_inner_radius, 1e-9)
                 v_de += max(0, -r_de["radius_dominance_margin_min"]) / max(dominance_margin, 1e-9)
                 v_de += max(0, -r_de["ei_ratio_margin_min"])
+                v_de += max(0, -r_de["rear_inboard_ei_margin_min"])
             
             v_sq = max(0, r_sq["failure"]) + max(0, r_sq["twist"] - max_twist) + max(0, r_sq["buckling"])
             if max_defl < float("inf"):
                 v_sq += max(0, r_sq["tip_defl"] - max_defl) / max_defl
             v_sq += max(0, -sq_main_ratio_margin_min) / max(ratio_limit * min_r, 1e-9)
+            v_sq += max(0, -sq_main_hollow_margin_min) / max(min_r, 1e-9)
             if rear_on:
                 if sq_rear_ratio_margin_min is not None:
                     v_sq += max(0, -sq_rear_ratio_margin_min) / max(ratio_limit * min_r, 1e-9)
+                if sq_rear_hollow_margin_min is not None:
+                    v_sq += max(0, -sq_rear_hollow_margin_min) / max(rear_min_inner_radius, 1e-9)
                 v_sq += max(0, -r_sq["radius_dominance_margin_min"]) / max(dominance_margin, 1e-9)
                 v_sq += max(0, -r_sq["ei_ratio_margin_min"])
+                v_sq += max(0, -r_sq["rear_inboard_ei_margin_min"])
 
             x_best = slsqp.x if v_sq <= v_de else x_de
             msg = "scipy: no fully feasible solution — best compromise"
@@ -912,8 +1127,10 @@ class SparOptimizer:
         if rear_on:
             success = (
                 success
+                and best_r["rear_hollow_margin_min"] >= 0.0
                 and best_r["radius_dominance_margin_min"] >= 0.0
                 and best_r["ei_ratio_margin_min"] >= 0.0
+                and best_r["rear_inboard_ei_margin_min"] >= 0.0
             )
         total_s = perf_counter() - t_total_start
         return self._to_result(

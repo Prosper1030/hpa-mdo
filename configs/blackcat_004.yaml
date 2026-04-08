@@ -128,6 +128,9 @@ solver:
   min_radius_m: 0.010
   max_radius_m: 0.060
   max_thickness_to_radius_ratio: 0.8
+  rear_min_inner_radius_m: 1.0e-4
+  rear_inboard_span_m: 1.5
+  rear_inboard_ei_to_main_ratio_max: 0.20
   fem_max_matrix_entry: 1.0e12
   fem_max_disp_entry: 1.0e2
   fem_bc_penalty: 1.0e15

@@ -256,3 +256,89 @@ def test_raw_feasible_rejects_main_spar_dominance_violations():
     }
 
     assert opt._is_raw_feasible(raw) is False
+
+
+def test_raw_feasible_rejects_rear_tube_validity_violation_even_if_ratio_passes():
+    cfg = _Cfg(
+        rear_spar=SimpleNamespace(
+            enabled=True, min_wall_thickness=0.001, material="carbon_fiber_hm"
+        ),
+        wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
+        solver=SimpleNamespace(
+            max_thickness_to_radius_ratio=2.0,  # deliberately loose for isolation
+            rear_min_inner_radius_m=1e-4,
+            main_spar_dominance_margin_m=0.0,
+            main_spar_ei_ratio=1.0,
+            rear_inboard_ei_to_main_ratio_max=1.0,
+            rear_inboard_span_m=1.0,
+        ),
+        _structural_cases=[
+            SimpleNamespace(
+                name="default",
+                max_twist_deg=2.0,
+                max_tip_deflection_m=1.0,
+            )
+        ],
+    )
+    opt = SparOptimizer.__new__(SparOptimizer)
+    opt.cfg = cfg
+    opt._prob = SimpleNamespace(model=SimpleNamespace(struct=SimpleNamespace(_elem_centres=np.array([0.5]))))
+
+    raw = {
+        "failure": -0.10,
+        "buckling_index": -0.20,
+        "twist_max_deg": 0.2,
+        "tip_deflection_m": 0.1,
+        "main_t_seg": np.array([0.002, 0.002]),
+        "main_r_seg": np.array([0.020, 0.020]),
+        "rear_t_seg": np.array([0.0105, 0.001]),
+        "rear_r_seg": np.array([0.0100, 0.012]),
+        "EI_main_elem": np.array([10.0]),
+        "EI_rear_elem": np.array([1.0]),
+    }
+
+    assert opt._is_raw_feasible(raw) is False
+
+
+def test_raw_feasible_rejects_inboard_rear_ei_overdominance():
+    cfg = _Cfg(
+        rear_spar=SimpleNamespace(
+            enabled=True, min_wall_thickness=0.001, material="carbon_fiber_hm"
+        ),
+        wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
+        solver=SimpleNamespace(
+            max_thickness_to_radius_ratio=0.8,
+            rear_min_inner_radius_m=1e-4,
+            main_spar_dominance_margin_m=0.0,
+            main_spar_ei_ratio=2.0,  # global cap: EI_rear <= 0.5 * EI_main
+            rear_inboard_ei_to_main_ratio_max=0.2,  # stricter root-side cap
+            rear_inboard_span_m=1.0,
+        ),
+        _structural_cases=[
+            SimpleNamespace(
+                name="default",
+                max_twist_deg=2.0,
+                max_tip_deflection_m=1.0,
+            )
+        ],
+    )
+    opt = SparOptimizer.__new__(SparOptimizer)
+    opt.cfg = cfg
+    opt._prob = SimpleNamespace(
+        model=SimpleNamespace(struct=SimpleNamespace(_elem_centres=np.array([0.5, 2.0])))
+    )
+
+    raw = {
+        "failure": -0.10,
+        "buckling_index": -0.20,
+        "twist_max_deg": 0.2,
+        "tip_deflection_m": 0.1,
+        "main_t_seg": np.array([0.001, 0.001]),
+        "main_r_seg": np.array([0.020, 0.020]),
+        "rear_t_seg": np.array([0.001, 0.001]),
+        "rear_r_seg": np.array([0.012, 0.012]),
+        "EI_main_elem": np.array([10.0, 10.0]),
+        "EI_rear_elem": np.array([2.5, 1.0]),  # root element violates only inboard cap
+    }
+
+    assert opt._is_raw_feasible(raw) is False

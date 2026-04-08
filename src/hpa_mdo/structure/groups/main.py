@@ -117,6 +117,7 @@ class HPAStructuralGroup(om.Group):
 
         # Element centres (midpoint of each element)
         elem_centres = (y[:-1] + y[1:]) / 2.0
+        self._elem_centres = elem_centres
 
         # Node spacings (tributary length per node for load distribution)
         node_spacings = np.zeros(nn)
@@ -433,6 +434,7 @@ def build_structural_problem(
     seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
     n_seg = len(seg_lengths)
     n_elem = aircraft.wing.n_stations - 1
+    elem_centres = (aircraft.wing.y[:-1] + aircraft.wing.y[1:]) / 2.0
     rear_on = cfg.rear_spar.enabled
     logger.debug(
         "Building structural problem (n_seg=%d, rear_on=%s).",
@@ -523,6 +525,10 @@ def build_structural_problem(
         model.add_constraint("main_radius_taper.margin", lower=0.0)
 
     if rear_on:
+        rear_min_inner_radius = max(
+            0.0,
+            float(getattr(solver_cfg, "rear_min_inner_radius_m", 0.0)),
+        )
         model.add_subsystem(
             "rear_thickness_ratio",
             om.ExecComp(
@@ -536,6 +542,22 @@ def build_structural_problem(
         model.connect("struct.seg_mapper.rear_r_seg", "rear_thickness_ratio.radius")
         model.connect("struct.seg_mapper.rear_t_seg", "rear_thickness_ratio.thickness")
         model.add_constraint("rear_thickness_ratio.margin", lower=0.0)
+
+        # Physical tube validity guard for rear spar:
+        # keep a strictly positive inner radius (R - t > 0).
+        model.add_subsystem(
+            "rear_hollow_tube_validity",
+            om.ExecComp(
+                "margin = radius - thickness - min_core",
+                margin={"shape": (n_seg,), "units": "m"},
+                radius={"shape": (n_seg,), "units": "m"},
+                thickness={"shape": (n_seg,), "units": "m"},
+                min_core=rear_min_inner_radius,
+            ),
+        )
+        model.connect("struct.seg_mapper.rear_r_seg", "rear_hollow_tube_validity.radius")
+        model.connect("struct.seg_mapper.rear_t_seg", "rear_hollow_tube_validity.thickness")
+        model.add_constraint("rear_hollow_tube_validity.margin", lower=0.0)
 
         if n_seg > 1:
             model.add_subsystem(
@@ -597,6 +619,43 @@ def build_structural_problem(
         model.connect("struct.spar_props.EI_main", "main_rear_ei_dominance.ei_main")
         model.connect("struct.spar_props.EI_rear", "main_rear_ei_dominance.ei_rear")
         model.add_constraint("main_rear_ei_dominance.margin", lower=0.0)
+
+        # Inboard rear-secondary cap: rear EI must remain a bounded fraction
+        # of main EI near the root, preserving "main primary, rear secondary".
+        inboard_span = max(
+            0.0,
+            float(getattr(solver_cfg, "rear_inboard_span_m", 0.0)),
+        )
+        inboard_ratio = float(
+            getattr(solver_cfg, "rear_inboard_ei_to_main_ratio_max", 1.0)
+        )
+        if inboard_span > 0.0 and inboard_ratio < 1.0:
+            inboard_elem_idx = np.where(elem_centres <= inboard_span + 1e-12)[0]
+            if inboard_elem_idx.size == 0:
+                inboard_elem_idx = np.array([0], dtype=int)
+            n_inboard = int(inboard_elem_idx.size)
+            model.add_subsystem(
+                "main_rear_inboard_ei_cap",
+                om.ExecComp(
+                    "margin = ratio * ei_main - ei_rear",
+                    margin={"shape": (n_inboard,), "units": "N*m**2"},
+                    ei_main={"shape": (n_inboard,), "units": "N*m**2"},
+                    ei_rear={"shape": (n_inboard,), "units": "N*m**2"},
+                    ratio=inboard_ratio,
+                    has_diag_partials=True,
+                ),
+            )
+            model.connect(
+                "struct.spar_props.EI_main",
+                "main_rear_inboard_ei_cap.ei_main",
+                src_indices=inboard_elem_idx,
+            )
+            model.connect(
+                "struct.spar_props.EI_rear",
+                "main_rear_inboard_ei_cap.ei_rear",
+                src_indices=inboard_elem_idx,
+            )
+            model.add_constraint("main_rear_inboard_ei_cap.margin", lower=0.0)
 
     # ── Objective: minimise total spar mass ──
     model.add_objective("struct.mass.total_mass_full", ref=10.0)

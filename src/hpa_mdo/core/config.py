@@ -193,6 +193,30 @@ class SolverConfig(BaseModel):
         2.0,
         description="Main spar element bending stiffness must satisfy EI_main >= ratio * EI_rear",
     )
+    rear_min_inner_radius_m: float = Field(
+        1.0e-4,
+        description=(
+            "Hard physical guard for rear hollow tube validity: "
+            "rear inner radius (R - t) must be at least this value [m]"
+        ),
+        ge=0.0,
+    )
+    rear_inboard_span_m: float = Field(
+        1.5,
+        description=(
+            "Root-side span extent [m] where an additional rear-secondary EI cap is enforced"
+        ),
+        ge=0.0,
+    )
+    rear_inboard_ei_to_main_ratio_max: float = Field(
+        0.20,
+        description=(
+            "Inboard rear-secondary cap: enforce EI_rear <= ratio * EI_main "
+            "within rear_inboard_span_m"
+        ),
+        ge=0.0,
+        le=1.0,
+    )
     fsi_coupling: Literal["one-way", "two-way"] = "one-way"
     fsi_max_iter: int = 20
     fsi_tol: float = 1e-3
