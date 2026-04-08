@@ -27,6 +27,7 @@ Usage
 from __future__ import annotations
 
 import sys
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -189,6 +190,23 @@ def main() -> float:
     summary_path = output_dir / "optimization_summary.txt"
     write_optimization_summary(result, summary_path)
     print(f"       Saved: {summary_path}")
+
+    # Keep docs/examples snapshots in sync so teammates can inspect baseline
+    # outputs without rerunning optimization locally.
+    docs_examples_dir = Path(__file__).resolve().parent.parent / "docs" / "examples"
+    docs_examples_dir.mkdir(parents=True, exist_ok=True)
+
+    docs_summary_path = docs_examples_dir / "optimization_summary.txt"
+    shutil.copy2(summary_path, docs_summary_path)
+    print(f"       Synced: {docs_summary_path}")
+
+    beam_plot_path = output_dir / "beam_analysis.png"
+    if beam_plot_path.exists():
+        docs_beam_plot_path = docs_examples_dir / "beam_analysis.png"
+        shutil.copy2(beam_plot_path, docs_beam_plot_path)
+        print(f"       Synced: {docs_beam_plot_path}")
+    else:
+        print(f"       Skip sync (missing): {beam_plot_path}")
 
     total_mass = result.total_mass_full_kg
     print(f"\nDone.  Total spar system mass = {total_mass:.4f} kg")
