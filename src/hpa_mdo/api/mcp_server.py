@@ -26,87 +26,13 @@ from typing import Optional, List
 
 import numpy as np
 
-
-def _json_safe(obj):
-    """Convert numpy types to JSON-serializable Python types."""
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, (np.float32, np.float64)):
-        return float(obj)
-    if isinstance(obj, (np.int32, np.int64)):
-        return int(obj)
-    return obj
-
+from hpa_mdo.api._shared import json_safe as _json_safe
+from hpa_mdo.api._shared import run_pipeline as _run_pipeline
+from hpa_mdo.api._shared import result_to_dict as _result_to_dict
 
 def _error_response(e: Exception) -> str:
     """Standard error JSON for any tool failure."""
     return json.dumps({"error": str(e), "val_weight": 99999}, indent=2)
-
-
-def _run_pipeline(config_yaml_path: str, aoa_deg: Optional[float] = None):
-    """Shared pipeline: load config -> build aircraft -> design loads -> optimizer.
-
-    Returns (cfg, ac, mat_db, aero_loads, opt, best_case).
-    If aoa_deg is None, auto-selects the AoA closest to trim.
-    """
-    from hpa_mdo.core.config import load_config
-    from hpa_mdo.core.aircraft import Aircraft
-    from hpa_mdo.core.materials import MaterialDB
-    from hpa_mdo.aero.vsp_aero import VSPAeroParser
-    from hpa_mdo.aero.load_mapper import LoadMapper
-    from hpa_mdo.structure.optimizer import SparOptimizer
-
-    cfg = load_config(config_yaml_path)
-    ac = Aircraft.from_config(cfg)
-    mat_db = MaterialDB()
-    parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
-    cases = parser.parse()
-    mapper = LoadMapper()
-
-    if aoa_deg is not None:
-        # Find the case closest to the requested AoA
-        best_case = min(cases, key=lambda c: abs(c.aoa_deg - aoa_deg))
-    else:
-        # Auto-select AoA closest to trim (lift = weight/2 for half-span)
-        best_case = min(cases, key=lambda c: abs(
-            mapper.map_loads(c, ac.wing.y,
-                             actual_velocity=cfg.flight.velocity,
-                             actual_density=cfg.flight.air_density)["total_lift"]
-            - ac.weight_N / 2))
-
-    trim_loads = mapper.map_loads(
-        best_case, ac.wing.y,
-        actual_velocity=cfg.flight.velocity,
-        actual_density=cfg.flight.air_density,
-    )
-    aero_loads = trim_loads
-
-    opt = SparOptimizer(cfg, ac, aero_loads, mat_db)
-    return cfg, ac, mat_db, aero_loads, opt, best_case
-
-
-def _result_to_dict(result) -> dict:
-    """Convert an OptimizationResult to a JSON-safe dict."""
-    return {
-        "success": result.success,
-        "message": result.message,
-        "spar_mass_half_kg": round(result.spar_mass_half_kg, 4),
-        "spar_mass_full_kg": round(result.spar_mass_full_kg, 4),
-        "total_mass_full_kg": round(result.total_mass_full_kg, 4),
-        "max_stress_main_MPa": round(result.max_stress_main_Pa / 1e6, 2),
-        "max_stress_rear_MPa": round(result.max_stress_rear_Pa / 1e6, 2),
-        "allowable_stress_main_MPa": round(result.allowable_stress_main_Pa / 1e6, 2),
-        "allowable_stress_rear_MPa": round(result.allowable_stress_rear_Pa / 1e6, 2),
-        "failure_index": round(result.failure_index, 4),
-        "buckling_index": round(result.buckling_index, 4),
-        "tip_deflection_m": round(result.tip_deflection_m, 4),
-        "twist_max_deg": round(result.twist_max_deg, 2),
-        "main_t_seg_mm": [round(float(t), 3) for t in result.main_t_seg_mm],
-        "rear_t_seg_mm": (
-            [round(float(t), 3) for t in result.rear_t_seg_mm]
-            if result.rear_t_seg_mm is not None else None
-        ),
-    }
 
 
 def _make_server():
