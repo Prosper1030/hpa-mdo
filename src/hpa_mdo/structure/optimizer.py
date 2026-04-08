@@ -244,6 +244,7 @@ class OptimizationResult:
     vonmises_main: Optional[np.ndarray] = field(default=None, repr=False)
     vonmises_rear: Optional[np.ndarray] = field(default=None, repr=False)
     timing_s: dict[str, float] = field(default_factory=dict)
+    max_twist_limit_deg: Optional[float] = None
 
     def summary(self) -> str:
         """Human-readable summary."""
@@ -251,6 +252,10 @@ class OptimizationResult:
         feasible = (
             self.failure_index <= 0
             and self.buckling_index <= 0
+            and (
+                self.max_twist_limit_deg is None
+                or self.twist_max_deg <= self.max_twist_limit_deg * 1.02
+            )
             and (self.max_tip_deflection_m is None or self.tip_deflection_m <= self.max_tip_deflection_m * 1.02)
         )
         status_text = "✓ CONVERGED (Feasible)" if (self.success and feasible) else "✗ CONVERGED (Infeasible)" if self.success else "✗ FAILED"
@@ -270,7 +275,15 @@ class OptimizationResult:
             defl_str += f" / {self.max_tip_deflection_m*1000:.0f} mm max ({defl_status})"
             
         lines.append(f"  Tip deflection : {defl_str}")
-        lines.append(f"  Max twist      : {self.twist_max_deg:.2f}°")
+        twist_str = f"{self.twist_max_deg:.2f}°"
+        if self.max_twist_limit_deg is not None:
+            twist_status = (
+                "OK"
+                if self.twist_max_deg <= self.max_twist_limit_deg * 1.02
+                else "VIOLATED"
+            )
+            twist_str += f" / {self.max_twist_limit_deg:.2f}° max ({twist_status})"
+        lines.append(f"  Max twist      : {twist_str}")
         lines.append(f"  Failure index  : {self.failure_index:.4f} ({'SAFE' if self.failure_index <= 0 else 'VIOLATED'})")
         lines.append(
             f"  Buckling index : {self.buckling_index:.4f} "
@@ -349,6 +362,78 @@ class SparOptimizer:
         struct = getattr(model, "struct", None)
         return bool(getattr(struct, "_multi_case", False))
 
+    def _constraint_limits_by_case(self) -> dict[str, tuple[float, Optional[float]]]:
+        """Return per-case (twist_limit_deg, tip_deflection_limit_m) limits."""
+        default_twist = float(self.cfg.wing.max_tip_twist_deg)
+        default_deflection = self.cfg.wing.max_tip_deflection_m
+
+        case_limits: dict[str, tuple[float, Optional[float]]] = {}
+        for case in self.cfg.structural_load_cases():
+            twist_limit = (
+                default_twist if case.max_twist_deg is None else float(case.max_twist_deg)
+            )
+            deflection_limit = (
+                default_deflection
+                if case.max_tip_deflection_m is None
+                else float(case.max_tip_deflection_m)
+            )
+            case_limits[case.name] = (twist_limit, deflection_limit)
+        return case_limits
+
+    def _single_case_limits(self) -> tuple[float, float]:
+        """Return (twist_limit_deg, deflection_limit_m_or_inf) for single-case mode."""
+        case_limits = self._constraint_limits_by_case()
+        if len(case_limits) != 1:
+            raise ValueError("Single-case limits requested with multiple configured load cases.")
+        twist_limit, deflection_limit = next(iter(case_limits.values()))
+        max_deflection = float("inf") if deflection_limit is None else float(deflection_limit)
+        return float(twist_limit), max_deflection
+
+    def _is_raw_feasible(self, raw: dict) -> bool:
+        """Check full feasibility (stress, buckling, twist, tip deflection)."""
+        tol = 1.02
+        if float(raw["failure"]) > 0.01:
+            return False
+        if float(raw.get("buckling_index", raw.get("buckling", 0.0))) > 0.01:
+            return False
+
+        case_limits = self._constraint_limits_by_case()
+        case_outputs = raw.get("cases")
+        if case_outputs:
+            default_twist = float(self.cfg.wing.max_tip_twist_deg)
+            default_deflection = self.cfg.wing.max_tip_deflection_m
+            for case_name, case_raw in case_outputs.items():
+                twist_limit, deflection_limit = case_limits.get(
+                    case_name, (default_twist, default_deflection)
+                )
+                if float(case_raw["twist_max_deg"]) > float(twist_limit) * tol:
+                    return False
+                if (
+                    deflection_limit is not None
+                    and float(case_raw["tip_deflection_m"]) > float(deflection_limit) * tol
+                ):
+                    return False
+            return True
+
+        twist_candidates = [lim[0] for lim in case_limits.values()]
+        twist_limit = (
+            min(twist_candidates)
+            if twist_candidates
+            else float(self.cfg.wing.max_tip_twist_deg)
+        )
+        if float(raw["twist_max_deg"]) > twist_limit * tol:
+            return False
+
+        deflection_candidates = [
+            lim[1] for lim in case_limits.values() if lim[1] is not None
+        ]
+        if deflection_candidates:
+            deflection_limit = min(float(v) for v in deflection_candidates)
+            if float(raw["tip_deflection_m"]) > deflection_limit * tol:
+                return False
+
+        return True
+
     def analyze(
         self,
         main_t_seg: Optional[np.ndarray] = None,
@@ -402,7 +487,7 @@ class SparOptimizer:
     def _optimize_openmdao(self) -> OptimizationResult:
         """Optimization via OpenMDAO ScipyOptimizeDriver."""
         raw = run_optimization(self._prob)
-        success = raw["failure"] <= 0.01 and raw["buckling_index"] <= 0.01
+        success = self._is_raw_feasible(raw)
         msg = "OpenMDAO converged" if success else "OpenMDAO did not fully converge"
         return self._to_result(raw, success=success, message=msg)
 
@@ -443,8 +528,7 @@ class SparOptimizer:
         bounds_rear_r = [(min_r, max_r)] * n_seg if rear_on else []
         bounds = bounds_main_t + bounds_main_r + bounds_rear_t + bounds_rear_r
 
-        max_twist = cfg.wing.max_tip_twist_deg
-        max_defl = cfg.wing.max_tip_deflection_m if cfg.wing.max_tip_deflection_m is not None else float("inf")
+        max_twist, max_defl = self._single_case_limits()
         t_total_start = perf_counter()
 
         evaluator = _ScipyBlackBoxEvaluator(
@@ -605,12 +689,7 @@ class SparOptimizer:
             self._prob.set_val("struct.seg_mapper.rear_r_seg", x_best[3*n_seg:], units="m")
         raw = run_analysis(self._prob)
         best_r = evaluator.evaluate(x_best)
-        success = (
-            best_r["failure"] <= tol_f
-            and best_r["buckling"] <= tol_b
-            and best_r["twist"] <= tol_tw
-            and best_r["tip_defl"] <= tol_df
-        )
+        success = self._is_raw_feasible(raw)
         total_s = perf_counter() - t_total_start
         return self._to_result(
             raw,
@@ -669,6 +748,12 @@ class SparOptimizer:
             max_stress_rear = float(np.max(vm_rear)) if len(vm_rear) > 0 else 0.0
             disp = raw.get("disp")
 
+        case_limits = self._constraint_limits_by_case()
+        twist_candidates = [lim[0] for lim in case_limits.values()]
+        deflection_candidates = [lim[1] for lim in case_limits.values() if lim[1] is not None]
+        twist_limit = min(twist_candidates) if twist_candidates else float(cfg.wing.max_tip_twist_deg)
+        deflection_limit = min(float(v) for v in deflection_candidates) if deflection_candidates else None
+
         return OptimizationResult(
             success=success,
             message=message,
@@ -682,7 +767,7 @@ class SparOptimizer:
             failure_index=raw["failure"],
             buckling_index=raw.get("buckling_index", raw.get("buckling", 0.0)),
             tip_deflection_m=raw["tip_deflection_m"],
-            max_tip_deflection_m=cfg.wing.max_tip_deflection_m,
+            max_tip_deflection_m=deflection_limit,
             twist_max_deg=raw["twist_max_deg"],
             case_metrics=case_metrics,
             main_t_seg_mm=raw["main_t_seg"] * 1000.0,
@@ -693,4 +778,5 @@ class SparOptimizer:
             vonmises_main=vm_main,
             vonmises_rear=vm_rear if vm_rear is not None and len(vm_rear) > 0 else None,
             timing_s=timing_s or {},
+            max_twist_limit_deg=twist_limit,
         )

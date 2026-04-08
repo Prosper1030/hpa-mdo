@@ -16,6 +16,18 @@ class _Cfg(SimpleNamespace):
     def spar_segment_lengths(self, spar):
         return [1.0, 1.0]
 
+    def structural_load_cases(self):
+        configured = getattr(self, "_structural_cases", None)
+        if configured is not None:
+            return list(configured)
+        return [
+            SimpleNamespace(
+                name="default",
+                max_twist_deg=self.wing.max_tip_twist_deg,
+                max_tip_deflection_m=self.wing.max_tip_deflection_m,
+            )
+        ]
+
 
 class _FakeProb:
     def __init__(self) -> None:
@@ -153,3 +165,59 @@ def test_summary_text_contains_buckling_line(tmp_path):
     summary_file = write_optimization_summary(result, out_path)
     assert "Buckling index" in summary_file
     assert "Buckling index" in out_path.read_text(encoding="utf-8")
+
+
+def test_openmdao_feasibility_checks_twist_and_deflection(monkeypatch):
+    cfg = _Cfg(
+        wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
+        _structural_cases=[
+            SimpleNamespace(
+                name="default",
+                max_twist_deg=0.30,
+                max_tip_deflection_m=0.05,
+            )
+        ],
+    )
+
+    opt = SparOptimizer.__new__(SparOptimizer)
+    opt.cfg = cfg
+    opt._prob = object()
+
+    raw = {
+        "failure": -0.10,
+        "buckling_index": -0.20,
+        "twist_max_deg": 0.40,
+        "tip_deflection_m": 0.06,
+    }
+
+    monkeypatch.setattr(optimizer_mod, "run_optimization", lambda _prob: raw)
+    monkeypatch.setattr(
+        SparOptimizer,
+        "_to_result",
+        lambda self, raw, success, message, timing_s=None: {"success": success, "message": message},
+    )
+
+    result = opt._optimize_openmdao()
+    assert result["success"] is False
+
+
+def test_raw_feasible_honors_per_case_limits():
+    cfg = _Cfg(
+        wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
+        _structural_cases=[
+            SimpleNamespace(name="cruise", max_twist_deg=0.5, max_tip_deflection_m=0.2),
+            SimpleNamespace(name="pullup", max_twist_deg=1.0, max_tip_deflection_m=0.4),
+        ],
+    )
+    opt = SparOptimizer.__new__(SparOptimizer)
+    opt.cfg = cfg
+
+    raw = {
+        "failure": -0.10,
+        "buckling_index": -0.20,
+        "cases": {
+            "cruise": {"twist_max_deg": 0.40, "tip_deflection_m": 0.10},
+            "pullup": {"twist_max_deg": 1.10, "tip_deflection_m": 0.30},
+        },
+    }
+    assert opt._is_raw_feasible(raw) is False

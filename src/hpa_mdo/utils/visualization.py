@@ -161,6 +161,12 @@ def plot_beam_analysis(
     ax6 = fig.add_subplot(gs[1, 2])
     ax6.axis("off")
     feasible = (
+        result.success
+        and (
+            getattr(result, "max_twist_limit_deg", None) is None
+            or result.twist_max_deg <= result.max_twist_limit_deg * 1.02
+        )
+        and
         result.failure_index <= 0
         and result.buckling_index <= 0
         and (result.max_tip_deflection_m is None or result.tip_deflection_m <= result.max_tip_deflection_m * 1.02)
@@ -172,6 +178,15 @@ def plot_beam_analysis(
     else:
         status_str = "FAILED"
         
+    twist_line = f"Max twist:      {result.twist_max_deg:.2f} deg"
+    if getattr(result, "max_twist_limit_deg", None) is not None:
+        twist_status = (
+            "OK"
+            if result.twist_max_deg <= result.max_twist_limit_deg * 1.02
+            else "VIOLATED"
+        )
+        twist_line += f" / MAX: {result.max_twist_limit_deg:.2f} deg ({twist_status})"
+
     summary_text = (
         f"Mass Summary\n"
         f"{'=' * 30}\n"
@@ -181,7 +196,7 @@ def plot_beam_analysis(
         f"Status: {status_str}\n"
         f"{result.message}\n\n"
         f"Tip deflection: {result.tip_deflection_m * 1000:.1f} mm\n"
-        f"Max twist:      {result.twist_max_deg:.2f} deg\n"
+        f"{twist_line}\n"
         f"Failure index:  {result.failure_index:.4f}\n"
         f"Buckling index: {result.buckling_index:.4f}"
     )
@@ -346,6 +361,12 @@ def write_optimization_summary(
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     feasible = (
+        result.success
+        and (
+            getattr(result, "max_twist_limit_deg", None) is None
+            or result.twist_max_deg <= result.max_twist_limit_deg * 1.02
+        )
+        and
         result.failure_index <= 0
         and result.buckling_index <= 0
         and (result.max_tip_deflection_m is None or result.tip_deflection_m <= result.max_tip_deflection_m * 1.02)
@@ -382,8 +403,19 @@ def write_optimization_summary(
         defl_str += f" / MAX: {result.max_tip_deflection_m*1000:.1f} mm ({defl_status})"
     lines.append(defl_str)
     
+    twist_line = f"  Max twist       : {result.twist_max_deg:.3f} deg"
+    if getattr(result, "max_twist_limit_deg", None) is not None:
+        twist_status = (
+            "OK"
+            if result.twist_max_deg <= result.max_twist_limit_deg * 1.02
+            else "VIOLATED"
+        )
+        twist_line += (
+            f" / MAX: {result.max_twist_limit_deg:.3f} deg ({twist_status})"
+        )
+
     lines += [
-        f"  Max twist       : {result.twist_max_deg:.3f} deg",
+        twist_line,
         f"  Failure index   : {result.failure_index:.5f}  "
         f"({'SAFE' if result.failure_index <= 0 else 'VIOLATED'})",
         f"  Buckling index  : {result.buckling_index:.5f}  "
