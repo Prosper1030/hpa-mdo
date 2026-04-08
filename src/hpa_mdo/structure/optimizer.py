@@ -869,8 +869,8 @@ class SparOptimizer:
         mat_db = self.materials_db
         mat_main = mat_db.get(cfg.main_spar.material)
         mat_rear = mat_db.get(cfg.rear_spar.material)
-        sigma_a_main = mat_main.tensile_strength / cfg.safety.material_safety_factor
-        sigma_a_rear = mat_rear.tensile_strength / cfg.safety.material_safety_factor
+        sigma_a_main = min(mat_main.tensile_strength, mat_main.sigma_c) / cfg.safety.material_safety_factor
+        sigma_a_rear = min(mat_rear.tensile_strength, mat_rear.sigma_c) / cfg.safety.material_safety_factor
 
         case_metrics: dict[str, dict[str, float]] = {}
         if raw.get("cases"):
