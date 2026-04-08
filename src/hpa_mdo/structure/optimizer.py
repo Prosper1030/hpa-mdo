@@ -272,8 +272,8 @@ class SparOptimizer:
             res = {
                 "mass": float(self._prob.get_val("struct.mass.total_mass_full")),
                 "failure": float(self._prob.get_val("struct.failure.failure")),
-                "twist": float(self._prob.get_val("struct.twist.twist_max_deg")),
-                "tip_defl": float(self._prob.get_val("struct.tip_defl.tip_deflection_m")),
+                "twist": float(self._prob.get_val("struct.twist.twist_max_deg")[0]),
+                "tip_defl": float(self._prob.get_val("struct.tip_defl.tip_deflection_m")[0]),
             }
             _cache[key] = res
             return res
