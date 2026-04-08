@@ -27,7 +27,7 @@ safety:
   ks_rho_twist: 100.0
   shell_buckling_knockdown: 0.65
   shell_buckling_bending_enhancement: 1.3
-  dual_spar_warping_knockdown: 0.5  # conservative default for finite rib shear stiffness
+  dual_spar_warping_knockdown: 1.0  # 1.0 = rigid rib coupling; reduce if rib shear flexibility is significant
 
 # ── Mass Breakdown ──────────────────────────────────────────────────────────
 weight:
