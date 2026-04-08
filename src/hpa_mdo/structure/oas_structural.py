@@ -733,8 +733,10 @@ class ExternalLoadsComp(om.ExplicitComponent):
 class TwistConstraintComp(om.ExplicitComponent):
     """Extract maximum twist angle from beam displacements.
 
-    twist_max = max(|θ_x|) along the span, converted to degrees.
-    Constraint: twist_max ≤ max_twist_deg.
+    twist_max = KS smooth max of |θ_y| along span, in degrees.
+    Previously only used tip value (assumes monotonic twist),
+    but this assumption fails for wings with sign-changing pitching
+    moment or complex lift distributions. KS aggregation is more robust.
     """
 
     def initialize(self):
@@ -750,13 +752,13 @@ class TwistConstraintComp(om.ExplicitComponent):
         # Torsion = rotation about span (Y) axis = global DOF 4 (θy)
         theta_twist = inputs["disp"][:, 4]  # torsion rotation [rad]
 
-        # Find max |θ| — use tip value as the critical location
-        # (twist monotonically increases from root to tip for cantilevered beam)
-        # This is simpler and more robust than KS aggregation for small values.
-        theta_tip = theta_twist[-1]  # tip node has max twist
-        # CS-safe absolute value: sqrt(x² + ε)
-        theta_abs = np.sqrt(theta_tip ** 2 + 1e-30)
-        outputs["twist_max_deg"] = theta_abs * 180.0 / np.pi
+        # KS aggregation for max |θ| across all nodes (CS-safe)
+        theta_abs_sq = theta_twist ** 2 + 1e-30  # [nn]
+        theta_abs = np.sqrt(theta_abs_sq)  # [nn], strictly positive
+        # KS smooth-max with rho=100
+        rho = 100.0
+        theta_max_ks = (1.0 / rho) * np.log(np.sum(np.exp(rho * theta_abs)))
+        outputs["twist_max_deg"] = theta_max_ks * 180.0 / np.pi
 
 
 # ═════════════════════════════════════════════════════════════════════════
