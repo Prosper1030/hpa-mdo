@@ -3,15 +3,15 @@
     "method": "openmdao",
     "success": true,
     "message": "OpenMDAO converged",
-    "total_mass_full_kg": 45.1505696788908,
-    "failure_index": -0.9350911870909231,
-    "buckling_index": -0.9009643190582602,
-    "twist_max_deg": 0.04115561096232322,
-    "tip_deflection_m": 0.20572565477711535,
-    "wall_time_s": 4.266361415968277,
+    "total_mass_full_kg": 10.898229839348756,
+    "failure_index": -0.7348760243531632,
+    "buckling_index": -0.8153772368967638,
+    "twist_max_deg": 0.421276356079525,
+    "tip_deflection_m": 2.500000055452567,
+    "wall_time_s": 64.85467233299278,
     "timing_s": {},
-    "n_compute": 2,
-    "n_compute_partials": 1
+    "n_compute": 19,
+    "n_compute_partials": 18
   },
   {
     "method": "scipy",
@@ -22,11 +22,11 @@
     "buckling_index": -0.8152887197471889,
     "twist_max_deg": 0.4212485274359134,
     "tip_deflection_m": 2.499964291848492,
-    "wall_time_s": 109.4331988330232,
+    "wall_time_s": 111.52660166600253,
     "timing_s": {
-      "de_global_s": 107.43708987499122,
-      "slsqp_local_s": 1.9670215420192108,
-      "total_s": 109.43310195801314
+      "de_global_s": 109.47602312499657,
+      "slsqp_local_s": 2.0196190420538187,
+      "total_s": 111.52647170901764
     },
     "n_compute": 388,
     "n_compute_partials": 0

@@ -437,7 +437,8 @@ def _timoshenko_element_stiffness(
     phi_y = 12.0 * E * Iz / (GA * L**2) if GA > 1e-20 else 0.0
     phi_z = 12.0 * E * Iy / (GA * L**2) if GA > 1e-20 else 0.0
 
-    K = np.zeros((12, 12))
+    dtype = np.result_type(L, E, G, A, Iy, Iz, J, float)
+    K = np.zeros((12, 12), dtype=dtype)
 
     # Axial (u)
     ea_L = E * A / L
@@ -532,7 +533,7 @@ def _rotation_matrix(node_i: np.ndarray, node_j: np.ndarray) -> np.ndarray:
 
 def _transform_12x12(R3: np.ndarray) -> np.ndarray:
     """Build 12×12 transformation matrix from 3×3 rotation."""
-    T = np.zeros((12, 12))
+    T = np.zeros((12, 12), dtype=R3.dtype)
     for i in range(4):
         T[3*i:3*i+3, 3*i:3*i+3] = R3
     return T
@@ -856,7 +857,7 @@ class StructuralMassComp(om.ExplicitComponent):
         jm = self.options["joint_mass_total"]
         mpl = inputs["mass_per_length"]
 
-        half = float(np.sum(mpl * dL))
+        half = np.sum(mpl * dL)
         outputs["spar_mass_half"] = half
         outputs["spar_mass_full"] = half * 2.0
         outputs["total_mass_full"] = half * 2.0 + jm * 2.0
