@@ -162,6 +162,7 @@ def plot_beam_analysis(
     ax6.axis("off")
     feasible = (
         result.failure_index <= 0
+        and result.buckling_index <= 0
         and (result.max_tip_deflection_m is None or result.tip_deflection_m <= result.max_tip_deflection_m * 1.02)
     )
     if result.success and feasible:
@@ -181,7 +182,8 @@ def plot_beam_analysis(
         f"{result.message}\n\n"
         f"Tip deflection: {result.tip_deflection_m * 1000:.1f} mm\n"
         f"Max twist:      {result.twist_max_deg:.2f} deg\n"
-        f"Failure index:  {result.failure_index:.4f}"
+        f"Failure index:  {result.failure_index:.4f}\n"
+        f"Buckling index: {result.buckling_index:.4f}"
     )
     ax6.text(
         0.05, 0.95, summary_text,
@@ -345,6 +347,7 @@ def write_optimization_summary(
     
     feasible = (
         result.failure_index <= 0
+        and result.buckling_index <= 0
         and (result.max_tip_deflection_m is None or result.tip_deflection_m <= result.max_tip_deflection_m * 1.02)
     )
     if result.success and feasible:
@@ -383,6 +386,8 @@ def write_optimization_summary(
         f"  Max twist       : {result.twist_max_deg:.3f} deg",
         f"  Failure index   : {result.failure_index:.5f}  "
         f"({'SAFE' if result.failure_index <= 0 else 'VIOLATED'})",
+        f"  Buckling index  : {result.buckling_index:.5f}  "
+        f"({'SAFE' if result.buckling_index <= 0 else 'VIOLATED'})",
         "",
         f"  Max stress — main : {result.max_stress_main_Pa / 1e6:.2f} MPa",
         f"  Allowable  — main : {result.allowable_stress_main_Pa / 1e6:.2f} MPa",

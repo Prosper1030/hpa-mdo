@@ -64,6 +64,7 @@ def _result_to_dict(result) -> dict:
         "allowable_stress_main_MPa": round(result.allowable_stress_main_Pa / 1e6, 2),
         "allowable_stress_rear_MPa": round(result.allowable_stress_rear_Pa / 1e6, 2),
         "failure_index": round(result.failure_index, 4),
+        "buckling_index": round(result.buckling_index, 4),
         "tip_deflection_m": round(result.tip_deflection_m, 4),
         "twist_max_deg": round(result.twist_max_deg, 2),
         "main_t_seg_mm": [round(float(t), 3) for t in result.main_t_seg_mm],

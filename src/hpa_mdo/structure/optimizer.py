@@ -70,6 +70,7 @@ class OptimizationResult:
     allowable_stress_main_Pa: float
     allowable_stress_rear_Pa: float
     failure_index: float           # KS ≤ 0 means feasible
+    buckling_index: float          # KS ≤ 0 means feasible
     tip_deflection_m: float
     max_tip_deflection_m: Optional[float]
     twist_max_deg: float
@@ -91,6 +92,7 @@ class OptimizationResult:
         # Check overall feasibility
         feasible = (
             self.failure_index <= 0
+            and self.buckling_index <= 0
             and (self.max_tip_deflection_m is None or self.tip_deflection_m <= self.max_tip_deflection_m * 1.02)
         )
         status_text = "✓ CONVERGED (Feasible)" if (self.success and feasible) else "✗ CONVERGED (Infeasible)" if self.success else "✗ FAILED"
@@ -112,6 +114,10 @@ class OptimizationResult:
         lines.append(f"  Tip deflection : {defl_str}")
         lines.append(f"  Max twist      : {self.twist_max_deg:.2f}°")
         lines.append(f"  Failure index  : {self.failure_index:.4f} ({'SAFE' if self.failure_index <= 0 else 'VIOLATED'})")
+        lines.append(
+            f"  Buckling index : {self.buckling_index:.4f} "
+            f"({'SAFE' if self.buckling_index <= 0 else 'VIOLATED'})"
+        )
         lines.append("")
         lines.append("  Main spar segments:")
         for i, (t, r) in enumerate(zip(self.main_t_seg_mm, self.main_r_seg_mm)):
@@ -214,7 +220,7 @@ class SparOptimizer:
         else:  # auto
             try:
                 result = self._optimize_openmdao()
-                if result.success and result.failure_index <= 0.01:
+                if result.success and result.failure_index <= 0.01 and result.buckling_index <= 0.01:
                     return result
             except Exception:
                 pass
@@ -223,7 +229,7 @@ class SparOptimizer:
     def _optimize_openmdao(self) -> OptimizationResult:
         """Optimization via OpenMDAO ScipyOptimizeDriver."""
         raw = run_optimization(self._prob)
-        success = raw["failure"] <= 0.01
+        success = raw["failure"] <= 0.01 and raw["buckling_index"] <= 0.01
         msg = "OpenMDAO converged" if success else "OpenMDAO did not fully converge"
         return self._to_result(raw, success=success, message=msg)
 
@@ -277,6 +283,7 @@ class SparOptimizer:
                 "failure": _get_scalar("struct.failure.failure"),
                 "twist": _get_scalar("struct.twist.twist_max_deg"),
                 "tip_defl": _get_scalar("struct.tip_defl.tip_deflection_m"),
+                "buckling": _get_scalar("struct.buckling.buckling_index"),
             }
             _cache[key] = res
             return res
@@ -294,6 +301,9 @@ class SparOptimizer:
             if r["twist"] > max_twist:
                 excess = (r["twist"] - max_twist) / max_twist
                 penalty += 1000.0 * excess ** 2
+            # Buckling violation — strong penalty (latent silent failure if missed)
+            if r["buckling"] > 0:
+                penalty += 800.0 * (1.0 + r["buckling"]) ** 2
             # Deflection violation
             if max_defl < float("inf") and r["tip_defl"] > max_defl:
                 excess_defl = (r["tip_defl"] - max_defl) / max_defl
@@ -323,10 +333,11 @@ class SparOptimizer:
         x_de = de_result.x
         r_de = _eval(x_de)
         logger.info(
-            "    DE best: mass=%.2f kg, twist=%.2f°, failure=%.4f",
+            "    DE best: mass=%.2f kg, twist=%.2f°, failure=%.4f, buckling=%.4f",
             r_de["mass"],
             r_de["twist"],
             r_de["failure"],
+            r_de["buckling"],
         )
 
         # ── Phase 2: Local refinement with SLSQP ──
@@ -340,6 +351,7 @@ class SparOptimizer:
         constraints = [
             {"type": "ineq", "fun": lambda x: -_eval(x)["failure"]},
             {"type": "ineq", "fun": lambda x: max_twist - _eval(x)["twist"]},
+            {"type": "ineq", "fun": lambda x: -_eval(x)["buckling"]},
         ]
         if max_defl < float("inf"):
             constraints.append({"type": "ineq", "fun": lambda x: max_defl - _eval(x)["tip_defl"]})
@@ -357,11 +369,22 @@ class SparOptimizer:
         r_sq = _eval(slsqp.x)
 
         tol_f = 0.01  # failure tolerance
+        tol_b = 0.01  # buckling tolerance
         tol_tw = max_twist * 1.02  # 2% tolerance on twist
         tol_df = max_defl * 1.02 if max_defl < float("inf") else float("inf")
 
-        de_feas = r_de["failure"] <= tol_f and r_de["twist"] <= tol_tw and r_de["tip_defl"] <= tol_df
-        sq_feas = r_sq["failure"] <= tol_f and r_sq["twist"] <= tol_tw and r_sq["tip_defl"] <= tol_df
+        de_feas = (
+            r_de["failure"] <= tol_f
+            and r_de["buckling"] <= tol_b
+            and r_de["twist"] <= tol_tw
+            and r_de["tip_defl"] <= tol_df
+        )
+        sq_feas = (
+            r_sq["failure"] <= tol_f
+            and r_sq["buckling"] <= tol_b
+            and r_sq["twist"] <= tol_tw
+            and r_sq["tip_defl"] <= tol_df
+        )
 
         # ALWAYS prefer feasible over infeasible
         if sq_feas and de_feas:
@@ -375,11 +398,11 @@ class SparOptimizer:
             msg = "scipy DE solution (SLSQP infeasible)"
         else:
             # Neither feasible — pick the one with less constraint violation
-            v_de = max(0, r_de["failure"]) + max(0, r_de["twist"] - max_twist)
+            v_de = max(0, r_de["failure"]) + max(0, r_de["twist"] - max_twist) + max(0, r_de["buckling"])
             if max_defl < float("inf"):
                 v_de += max(0, r_de["tip_defl"] - max_defl) / max_defl  # Normalized
             
-            v_sq = max(0, r_sq["failure"]) + max(0, r_sq["twist"] - max_twist)
+            v_sq = max(0, r_sq["failure"]) + max(0, r_sq["twist"] - max_twist) + max(0, r_sq["buckling"])
             if max_defl < float("inf"):
                 v_sq += max(0, r_sq["tip_defl"] - max_defl) / max_defl
 
@@ -394,7 +417,12 @@ class SparOptimizer:
             self._prob.set_val("struct.seg_mapper.rear_r_seg", x_best[3*n_seg:], units="m")
         raw = run_analysis(self._prob)
         best_r = _eval(x_best)
-        success = best_r["failure"] <= tol_f and best_r["twist"] <= tol_tw and best_r["tip_defl"] <= tol_df
+        success = (
+            best_r["failure"] <= tol_f
+            and best_r["buckling"] <= tol_b
+            and best_r["twist"] <= tol_tw
+            and best_r["tip_defl"] <= tol_df
+        )
         total_s = perf_counter() - t_total_start
         return self._to_result(
             raw,
@@ -436,6 +464,7 @@ class SparOptimizer:
             allowable_stress_main_Pa=sigma_a_main,
             allowable_stress_rear_Pa=sigma_a_rear,
             failure_index=raw["failure"],
+            buckling_index=raw.get("buckling_index", raw.get("buckling", 0.0)),
             tip_deflection_m=raw["tip_deflection_m"],
             max_tip_deflection_m=cfg.wing.max_tip_deflection_m,
             twist_max_deg=raw["twist_max_deg"],

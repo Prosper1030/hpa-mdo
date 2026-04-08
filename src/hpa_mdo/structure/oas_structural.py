@@ -1240,6 +1240,7 @@ def _extract_results(prob: om.Problem) -> dict:
         "spar_mass_full_kg": float(prob.get_val("struct.mass.spar_mass_full")),
         "total_mass_full_kg": float(prob.get_val("struct.mass.total_mass_full")),
         "failure": float(prob.get_val("struct.failure.failure")),
+        "buckling_index": float(prob.get_val("struct.buckling.buckling_index")),
         "twist_max_deg": float(prob.get_val("struct.twist.twist_max_deg")),
         "disp": prob.get_val("struct.fem.disp").copy(),
         "tip_deflection_m": float(prob.get_val("struct.tip_defl.tip_deflection_m")),
