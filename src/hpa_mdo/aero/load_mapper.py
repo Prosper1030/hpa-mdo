@@ -56,6 +56,8 @@ class LoadMapper:
         scale_factor : float
             Multiplicative factor applied to loads (e.g. load_factor for
             gust/manoeuvre cases). Default 1.0.
+            **Do not combine with** ``LoadMapper.apply_load_factor()`` on the
+            same result — use one or the other to avoid double-scaling.
         actual_velocity : float | None
             If set, recompute dimensional loads using this velocity [m/s]
             instead of the aero solver's reference velocity.  This is
@@ -87,7 +89,8 @@ class LoadMapper:
         y_s_clamped = np.clip(y_s, y_a.min(), y_a.max())
         if not np.array_equal(y_s_clamped, y_s):
             logger.warning(
-                "struct_y exceeded aero y-range; clamped to [%.3f, %.3f].",
+                "struct_y exceeded aero y-range [%.3f, %.3f]; "
+                "out-of-range nodes carry zero aero load.",
                 float(np.min(y_a)),
                 float(np.max(y_a)),
             )
@@ -125,8 +128,9 @@ class LoadMapper:
             q_ref = aero_load.dynamic_pressure
             torque = q_ref * chord**2 * cm * scale_factor
 
-        # Physical convention:
-        # nodes outside the aerodynamic span do not carry aerodynamic loads.
+        # Physical convention: nodes outside the aerodynamic span carry no load.
+        # chord/cl/cm are geometry/coefficients and are left as interpolated
+        # (clamped boundary) values — only the force/moment intensities are zeroed.
         if not np.all(in_range_mask):
             lift = np.asarray(lift).copy()
             drag = np.asarray(drag).copy()
