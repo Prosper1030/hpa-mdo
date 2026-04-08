@@ -111,6 +111,15 @@ class DualSparPropertiesComp(om.ExplicitComponent):
     Uses parallel-axis theorem for EI, warping term for GJ.
     """
 
+    # Class-level call counters for benchmarking (not thread-safe).
+    _n_compute = 0
+    _n_compute_partials = 0
+
+    @classmethod
+    def reset_counters(cls) -> None:
+        cls._n_compute = 0
+        cls._n_compute_partials = 0
+
     def initialize(self):
         self.options.declare("n_elements", types=int)
         self.options.declare("z_main", types=np.ndarray,
@@ -183,6 +192,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
                     self.declare_partials(out, inp, rows=row_col, cols=row_col)
 
     def compute(self, inputs, outputs):
+        type(self)._n_compute += 1
         ne = self.options["n_elements"]
         R_m = inputs["main_r_elem"]
         rho_m = self.options["rho_main"]
@@ -255,6 +265,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             outputs["J_equiv"] = J_m
 
     def compute_partials(self, inputs, partials):
+        type(self)._n_compute_partials += 1
         """Analytic partials for the exact guarded `compute()` equations.
 
         With r = R - t:
