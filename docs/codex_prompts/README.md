@@ -12,16 +12,17 @@
 
 | 順序 | 檔案 | 狀態 | 預估工時 |
 |-----|------|------|---------|
-| A | `verify_slsqp_speedup.md` | ⬜ 待派工 | 30 min |
-| B | `openmdao_check_partials_test.md` | ⬜ 待派工 | 1 h |
-| C | `multi_load_case_optimization.md` | ⬜ 待派工 | 4 h ⚠️ |
 | D | `surrogate_model_warm_start.md` | ⬜ 待派工 | 6 h ⚠️ |
-| E | `example_output_snapshots.md` | ⬜ 待派工 | 30 min |
 
 ## 已完成（保留作為範例）
 
 - `cleanup_low_priority_warnings.md` ✅ 完成於 `0ec4576` / `bfdb0c3` / `a307361`
 - `enforce_buckling_in_scipy_path.md` ✅ 完成於 `e6acd35` / `35b0517`
+- `verify_slsqp_speedup.md` ✅ 完成於 `7a6ffc6`（confirmed scipy path treats OpenMDAO as black-box）
+- `benchmark_openmdao_vs_scipy.md` ✅ 完成於 `7a6ffc6`
+- `openmdao_check_partials_test.md` ✅ 完成於 `4b54dd9`（全模型 check_totals 通過）
+- `multi_load_case_optimization.md` ✅ 完成於 `adf5adc` / `57df543` / `3db3a2f`（Milestone 1）
+- `example_output_snapshots.md` ✅ 完成於 `9c21265`（auto-sync to docs/examples）
 
 ## 給 Claude 的協作備忘
 

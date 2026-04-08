@@ -1,14 +1,16 @@
 # HPA-MDO 專案 Review 與優化清單
 
-> 產出日期：2026-04-07｜最後更新：2026-04-08（P3#13 解析偏導完成）
+> 產出日期：2026-04-07｜最後更新：2026-04-08（**Milestone 1：多工況最佳化 + C 級清道夫行動完成**）
 > 基於完整原始碼靜態分析
 
 ## 整體評價
 
 架構乾淨、config 管理嚴謹、安全係數分離正確、跨平台 path 處理良好。
-**目前 52 個測試全部通過，P0–P3、P5–P6、P4#15–16 已完成。**
+**Milestone 1 達成**：P0–P3、P5–P6、P4#15–17 已完成；
+全模型 `check_totals` 通過（單工況 + 多工況），C1–C3 致命技術債清除，H1–H2 效能瓶頸消除。
 所有 Finding 1/2/3 物理 bug 已修正，屈曲約束已上線並強制執行於所有優化路徑。
 `DualSparPropertiesComp` 已改為解析對角稀疏 Jacobian。
+詳見 `docs/milestone_1_release_notes.md`。
 
 **Active constraint 分析（端到端驗證 14.3579 kg）**：
 - `tip_deflection` : 96.4% budget（**唯一綁定約束**）
@@ -27,10 +29,11 @@
 | P1 測試補強 | ✅ 完成 | 46 tests passing |
 | P2 可觀測性 | ✅ 完成 | logging、errors.py、API error_code |
 | P3 效能優化 | ✅ 完成 | VSPAero cache、計時器、解析偏導（P3#13） |
-| P4 功能擴展 | 🔄 進行中 | 可變段數 ✅、殼體屈曲 ✅、多工況 ⬜、surrogate ⬜ |
+| P4 功能擴展 | 🔄 進行中 | 可變段數 ✅、殼體屈曲 ✅、**多工況 ✅**、surrogate ⬜ |
 | P5 DevOps | ✅ 完成 | CI、pre-commit、CLI argparse |
 | P6 Quick wins | ✅ 完成 | MaterialDB、__init__、spar.py、README |
 | **Physics fixes** | ✅ 完成 | Finding 1 (KS twist)、Finding 2 (lumped mass)、Finding 3 (clip bug) |
+| **Milestone 1** | ✅ 完成 | 多工況拓撲、check_totals 全模型驗證、C1–C3 清道夫、H1–H2 效能 |
 
 ---
 
@@ -55,8 +58,11 @@
 ### 6. Integration test ✅
 - `test_blackcat_pipeline.py` ✅（@pytest.mark.slow）
 
-### 7. OpenMDAO check_partials ⬜ 待做
-- `tests/test_partials.py`
+### 7. OpenMDAO check_partials / check_totals ✅
+- `tests/test_partials.py` 涵蓋元件級 `check_partials` 與全模型 `check_totals`
+- `test_check_totals_full_structural_model`（單工況）通過 atol/rtol = 1e-5
+- `test_check_totals_multi_case_structural_model`（cruise + pullup）通過 atol/rtol = 1e-5
+- Commits: `4b54dd9`, `b336135`（warping 折減係數參數化）, `ad4f37b`（complex-step 安全 cast）
 
 ### 8. API endpoint tests ✅
 - `test_api_server.py` ✅（5 tests）
@@ -116,10 +122,22 @@
 - check_partials（cs method）驗證通過 ✅
 - 質量影響：12.77 → 14.36 kg（+12.4%），壁厚從 0.8mm 上限被推離，符合工程預期
 
-### 17. 多工況優化 ⬜ 待做
-- config 支援 `flight_cases` 列表
-- 每個 case 各有 `failure_index_<case> ≤ 0` 約束
-- objective 仍為單一 mass
+### 17. 多工況優化 ✅
+- `LoadCaseConfig` schema 加入 `core/config.py`，欄位：`name`, `aero_scale`, `nz`, 
+  `velocity`, `air_density`, `max_tip_deflection_m`, `max_twist_deg`
+- `HPAConfig.structural_load_cases()` 提供 backward-compat fallback
+  （legacy 單工況自動包成 `name="default"`）
+- `HPAStructuralGroup` 拓撲：共用 `seg_mapper` / `spar_props` / `mass`，
+  在多工況時為每個 case 加 `case_<name>` 子群組（`StructuralLoadCaseGroup`），
+  各自擁有 `ext_loads` / `fem` / `stress` / `failure` / `buckling` / `twist` / `tip_defl`
+- `build_structural_problem()` 在多工況時對每個 case 註冊
+  `failure / buckling_index / twist_max_deg / tip_deflection_m` 約束
+- `aero_scale` 與 `gravity_scale (nz)` 在 `ExternalLoadsComp` 內生效，**不在載荷對應再乘**
+- `_normalise_load_case_inputs()` 接受兩種輸入：legacy mapped-loads dict
+  或 `{case_name: mapped_loads}` dict；缺漏 / 多餘 case 名會丟錯
+- 測試：`tests/test_multi_load_case.py`（cruise + pullup 完整流程）+
+  `test_check_totals_multi_case_structural_model`
+- Commits: `adf5adc`（schema）、`57df543`（拓撲分岔）、`3db3a2f`（DV/constraint 多工況註冊）
 
 ### 18. Surrogate model ⬜ 待做
 - `utils/surrogate.py`
@@ -202,8 +220,42 @@
 | `BucklingComp` ks_rho=50 與 Twist 不一致 | 統一從 `config.safety` 讀取 | ✅ 已修（`a307361`） |
 | **scipy 路徑沒檢查 buckling**（latent silent failure） | 補強 `_eval` / penalty / SLSQP / feasibility | ✅ 已修（`e6acd35`、`35b0517`） |
 | `oas_structural.py:425` | `Iz_e = Iy[e]` 對稱管近似（Finding 4），HPA 可接受 | 低（保留） |
-| `oas_structural.py:440` | DE 邊界 `K_elem_global = T.T @ K_local @ T` divide-by-zero RuntimeWarning | 低（DE 探索退化設計，不影響收斂） |
-| `test_api_server.py` slow tests | 在 Mac Mini 環境耗時 5+ 分鐘 | 低（用 `-m 'not slow'` 規避） |
+| `oas_structural.py:440` | DE 邊界 `K_elem_global = T.T @ K_local @ T` divide-by-zero RuntimeWarning | ✅ 已修（`7ebcdf5`） |
+| `test_api_server.py` slow tests | 在 Mac Mini 環境耗時 5+ 分鐘 | ✅ 已透過 mock 加速（`f38b324`） |
+
+---
+
+## Milestone 1 — 清道夫行動（C 級致命技術債 + H 級效能） ✅
+
+### C1：FEM 失敗 silent fallback ✅
+- **Bug**：`_run_fem_safe()` 在求解失敗時回傳零位移，讓最佳化器以為設計可行
+- **Fix**：改為丟出 `AnalysisError`，讓上游 `_eval` / driver 統一處理
+- 同時：`ExternalLoadsComp` 內套用 `aero_scale`（M1 修正：以前在 LoadMapper 重複乘）
+- 測試：`test_spatial_beam_fem.py` 新增 40 行驗證；`test_multi_load_case.py` +56 行
+- Commit: `ca0853e`
+
+### C2 / C3：壁厚 clipping 不一致 + ANSYS 匯出未用 optimized radii ✅
+- **C2**：`optimizer.py` 與 `oas_structural.py` 兩處 clip 邏輯不一致（一邊 0.95R，一邊 0.8R）
+  → 統一收斂到 `cfg.solver.max_thickness_to_radius_ratio = 0.8`，並改為 OpenMDAO
+  `ExecComp` 約束 `t ≤ η·R`（main / rear 各一）
+- **C3**：`ansys_export.py` 直接讀初始 radius 而非最佳化後的 `main_r_seg`，
+  匯出 BDF / MAC / CSV 與 OpenMDAO 內部模型不一致
+- 測試：`test_ansys_export.py` 新增 89 行
+- Commit: `ddc1a69`
+
+### H1 / H2：lightweight evaluator + DE worker / cache 上限 ✅
+- **H1**：`_ScipyBlackBoxEvaluator` 抽出 `_set_design_vector` / `_evaluate_scalars`，
+  cache 改為有上限的 `OrderedDict` LRU（避免長時間 DE 把記憶體吃爆）
+- **H2**：DE workers 從 `-1` 改為由 `cfg.solver.de_max_workers`（預設 4）封頂，
+  避免在 8C/16T 機器上被 DE × OpenMDAO setup 開記憶體洪水
+- 新增 `cfg.solver` 欄位：`max_wall_thickness_m`, `min_radius_m`, `max_radius_m`,
+  `max_thickness_to_radius_ratio`, `fem_max_matrix_entry`, `fem_max_disp_entry`,
+  `fem_bc_penalty`, `scipy_eval_cache_size`, `de_max_workers`
+- Commit: `fbaa928`
+
+### STEP 檔匯出 ✅
+- `examples/blackcat_004_optimize.py` 加入 STEP 匯出（CAD inspection）
+- Commit: `3157d78`
 
 ---
 
@@ -211,11 +263,12 @@
 
 | # | 任務 | 對應 prompt 檔 | 預計工時 |
 |---|------|----------------|---------|
-| A | **P3#13 SLSQP 加速驗證**（read-only 量測） | `verify_slsqp_speedup.md` | 30 min |
-| B | **P1#7 OpenMDAO check_partials 全面測試** | `openmdao_check_partials_test.md` | 1 h |
-| C | **P4#17 多工況優化**（巡航 + 陣風 + 急轉） | `multi_load_case_optimization.md` | 4 h |
+| ~~A~~ | ~~P3#13 SLSQP 加速驗證~~ | ~~`verify_slsqp_speedup.md`~~ | ✅ 完成（`7a6ffc6` benchmark） |
+| ~~B~~ | ~~P1#7 OpenMDAO check_partials 全面測試~~ | ~~`openmdao_check_partials_test.md`~~ | ✅ 完成（`4b54dd9` check_totals） |
+| ~~C~~ | ~~P4#17 多工況優化~~ | ~~`multi_load_case_optimization.md`~~ | ✅ 完成（Milestone 1） |
 | D | **P4#18 Surrogate warm start**（GP / XGBoost） | `surrogate_model_warm_start.md` | 6 h |
-| E | **P5#22 範例輸出快照** | `example_output_snapshots.md` | 30 min |
+| E | **P5#22 範例輸出快照** | `example_output_snapshots.md` | 30 min ✅ 已快照（`9c21265`） |
+| F | **H 級剩餘技術債 + STEP 匯出** | （Codex 進行中） | — |
 
 所有 prompt 檔皆位於 `docs/codex_prompts/`，採「自包含」格式：所需公式、檔案路徑、
 驗收標準全部寫死，Codex 不需要先自己 grep。
