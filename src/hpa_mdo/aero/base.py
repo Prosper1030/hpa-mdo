@@ -38,11 +38,11 @@ class SpanwiseLoad:
     @property
     def total_lift(self) -> float:
         """Integrate lift over the half-span [N]."""
-        return float(np.trapz(self.lift_per_span, self.y))
+        return float(np.trapezoid(self.lift_per_span, self.y))
 
     @property
     def total_drag(self) -> float:
-        return float(np.trapz(self.drag_per_span, self.y))
+        return float(np.trapezoid(self.drag_per_span, self.y))
 
 
 class AeroParser(ABC):

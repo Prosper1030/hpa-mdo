@@ -102,7 +102,7 @@ class WingGeometry:
 
     @property
     def area_half(self) -> float:
-        return float(np.trapz(self.chord, self.y))
+        return float(np.trapezoid(self.chord, self.y))
 
     def spar_separation(self) -> np.ndarray:
         """Chordwise distance between main and rear spar [m]."""

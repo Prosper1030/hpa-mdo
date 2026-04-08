@@ -129,7 +129,7 @@ class TubularSpar:
         I_xx = np.pi / 64 * (d_o**4 - d_i**4)
         EI = self.material.E * I_xx
         mass_per_length = self.material.density * area
-        total_mass = float(np.trapz(mass_per_length, self.y))
+        total_mass = float(np.trapezoid(mass_per_length, self.y))
 
         sections = [
             SparSection(

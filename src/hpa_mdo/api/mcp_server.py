@@ -169,7 +169,7 @@ def _make_server():
                 "n_stations": best.n_stations,
                 "n_cases_parsed": len(cases),
                 "available_aoa": [c.aoa_deg for c in cases],
-                "total_lift_N": round(float(np.trapz(best.lift_per_span, best.y)), 3),
+                "total_lift_N": round(float(np.trapezoid(best.lift_per_span, best.y)), 3),
                 "y_range_m": [round(float(best.y[0]), 3), round(float(best.y[-1]), 3)],
                 "cl_range": [round(float(best.cl.min()), 4), round(float(best.cl.max()), 4)],
             }, indent=2)
