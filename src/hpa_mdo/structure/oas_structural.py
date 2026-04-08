@@ -689,6 +689,8 @@ class ExternalLoadsComp(om.ExplicitComponent):
                              desc="Aero torque [N.m/m] at nodes")
         self.options.declare("node_spacings", types=np.ndarray,
                              desc="Tributary length for each node [m]")
+        self.options.declare("element_lengths", types=np.ndarray,
+                             desc="Element lengths [m]")
 
     def setup(self):
         nn = self.options["n_nodes"]
@@ -703,25 +705,24 @@ class ExternalLoadsComp(om.ExplicitComponent):
         lift = self.options["lift_per_span"]
         torque = self.options["torque_per_span"]
         ds = self.options["node_spacings"]
+        element_lengths = self.options["element_lengths"]
         mpl = inputs["mass_per_length"]
         g = 9.80665
 
-        loads = np.zeros((nn, 6))
+        loads = np.zeros((nn, 6), dtype=mpl.dtype)
 
-        # Compute element weight per unit span → distribute to nodes
-        # Element weight acts at element center → half to each node
-        weight_per_span = np.zeros(nn)
-        for e in range(ne):
-            w = mpl[e] * g
-            weight_per_span[e] += w / 2.0
-            weight_per_span[e + 1] += w / 2.0
-
+        # Lift contribution (integrate over tributary length)
         for i in range(nn):
-            # Fz = design lift - weight
-            loads[i, 2] = (lift[i] - weight_per_span[i]) * ds[i]
+            loads[i, 2] = lift[i] * ds[i]
             # My = design torque (torsion about span/Y axis)
             # For beam along Y: torsion maps to global DOF 4 (θy)
             loads[i, 4] = torque[i] * ds[i]
+
+        # Weight contribution (lumped mass per element, split to endpoints)
+        for e in range(ne):
+            element_weight = mpl[e] * g * element_lengths[e]
+            loads[e, 2] -= element_weight / 2.0
+            loads[e + 1, 2] -= element_weight / 2.0
 
         outputs["loads"] = loads
 
@@ -922,6 +923,7 @@ class HPAStructuralGroup(om.Group):
             lift_per_span=lift,
             torque_per_span=torque,
             node_spacings=node_spacings,
+            element_lengths=dy,
         ))
 
         # 4. FEM solver
