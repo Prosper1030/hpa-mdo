@@ -39,8 +39,6 @@ from hpa_mdo.structure.spar_model import (
 
 logger = get_logger(__name__)
 
-THICKNESS_TO_RADIUS_MAX_RATIO = 0.8
-
 
 def _is_single_mapped_load(aero_loads: dict) -> bool:
     """Return True when ``aero_loads`` looks like a single mapped load dict."""
@@ -638,6 +636,24 @@ class SpatialBeamFEM(om.ExplicitComponent):
                              desc="Index of fixed BC node (root)")
         self.options.declare("lift_wire_nodes", default=None,
                              desc="List of node indices with lift wire support")
+        self.options.declare(
+            "max_matrix_entry",
+            types=float,
+            default=1e12,
+            desc="Numerical guard on local element stiffness entries",
+        )
+        self.options.declare(
+            "max_disp_entry",
+            types=float,
+            default=1e2,
+            desc="Numerical guard on solved displacements / load Jacobian entries",
+        )
+        self.options.declare(
+            "bc_penalty",
+            types=float,
+            default=1e15,
+            desc="Penalty stiffness added to constrained DOFs",
+        )
 
     def setup(self):
         nn = self.options["n_nodes"]
@@ -703,8 +719,8 @@ class SpatialBeamFEM(om.ExplicitComponent):
         # Use same dtype as inputs for complex-step compatibility
         dtype = EI.dtype
         K_global = np.zeros((ndof, ndof), dtype=dtype)
-        max_matrix_entry = 1e12
-        max_disp_entry = 1e2
+        max_matrix_entry = self.options["max_matrix_entry"]
+        max_disp_entry = self.options["max_disp_entry"]
         load_selector = np.eye(ndof, dtype=dtype)
 
         for e in range(ne):
@@ -782,7 +798,7 @@ class SpatialBeamFEM(om.ExplicitComponent):
                 bc_dofs.append(lw_idx * 6 + 2)  # vertical DOF
 
         # Penalty method for BCs
-        penalty_val = np.array(1e15, dtype=dtype)
+        penalty_val = np.array(self.options["bc_penalty"], dtype=dtype)
         zero_val = np.array(0.0, dtype=dtype)
         for dof in bc_dofs:
             K_global[dof, dof] += penalty_val
@@ -912,12 +928,11 @@ class VonMisesStressComp(om.ExplicitComponent):
         disp = inputs["disp"]
         nodes = inputs["nodes"]
         R_m = inputs["R_main_elem"]
-        I_m = inputs["I_main"]
-        EI = inputs["EI_flap"]
-        GJ = inputs["GJ"]
 
         # Complex-step compatible: use du**2 instead of abs(du)
         sigma_vm_main = np.zeros(ne, dtype=disp.dtype)
+        kappa2_elem = np.zeros(ne, dtype=disp.dtype)
+        gamma2_elem = np.zeros(ne, dtype=disp.dtype)
 
         for e in range(ne):
             dx = nodes[e+1] - nodes[e]
@@ -926,17 +941,15 @@ class VonMisesStressComp(om.ExplicitComponent):
                 continue
 
             du = disp[e+1] - disp[e]  # 6-DOF delta
-
-            # For beam along Y-axis:
-            #   Flapwise curvature = Δθ_x_global / L (DOF 3 = bending slope)
-            #   Chordwise curvature = Δθ_z_global / L (DOF 5)
-            #   Torsion rate = Δθ_y_global / L (DOF 4 = twist about span)
-            kappa_flap2 = (du[3] / L) ** 2
-            kappa_chord2 = (du[5] / L) ** 2
-            kappa2 = kappa_flap2 + kappa_chord2
-
-            # Twist rate (torsion about span axis = θy global = DOF 4)
-            gamma2 = (du[4] / L) ** 2
+            R3 = _rotation_matrix(nodes[e], nodes[e + 1])
+            dtheta_local = R3 @ du[3:6]
+            # Local beam formulation:
+            #   torsion rate = d(theta_x_local)/dx
+            #   bending curvatures use theta_y_local, theta_z_local gradients.
+            kappa2 = (dtheta_local[1] / L) ** 2 + (dtheta_local[2] / L) ** 2
+            gamma2 = (dtheta_local[0] / L) ** 2
+            kappa2_elem[e] = kappa2
+            gamma2_elem[e] = gamma2
 
             # Main spar bending stress: σ = E * κ * R
             sigma_bend2 = (E_m * R_m[e]) ** 2 * kappa2
@@ -953,18 +966,11 @@ class VonMisesStressComp(om.ExplicitComponent):
             E_r = self.options["E_rear"]
             G_r = self.options["G_rear"]
             R_r = inputs["R_rear_elem"]
-            I_r = inputs["I_rear"]
 
             sigma_vm_rear = np.zeros(ne, dtype=disp.dtype)
             for e in range(ne):
-                dx = nodes[e+1] - nodes[e]
-                L = _cs_norm(dx)
-                if np.real(L) < 1e-10:
-                    continue
-                du = disp[e+1] - disp[e]
-
-                kappa2 = (du[3] / L) ** 2 + (du[5] / L) ** 2
-                gamma2 = (du[4] / L) ** 2
+                kappa2 = kappa2_elem[e]
+                gamma2 = gamma2_elem[e]
 
                 sigma_bend2 = (E_r * R_r[e]) ** 2 * kappa2
                 tau2 = (G_r * R_r[e]) ** 2 * gamma2
@@ -1151,12 +1157,24 @@ class TwistConstraintComp(om.ExplicitComponent):
     def setup(self):
         nn = self.options["n_nodes"]
         self.add_input("disp", shape=(nn, 6))
+        self.add_input("nodes", shape=(nn, 3), units="m")
         self.add_output("twist_max_deg", val=0.0)
         self.declare_partials("*", "*", method="cs")
 
     def compute(self, inputs, outputs):
-        # Torsion = rotation about span (Y) axis = global DOF 4 (θy)
-        theta_twist = inputs["disp"][:, 4]  # torsion rotation [rad]
+        disp = inputs["disp"]
+        nodes = inputs["nodes"]
+        nn = self.options["n_nodes"]
+
+        # Project nodal rotation vectors to each node's local beam axis.
+        theta_twist = np.zeros(nn, dtype=disp.dtype)
+        for i in range(nn):
+            if i < nn - 1:
+                R3 = _rotation_matrix(nodes[i], nodes[i + 1])
+            else:
+                R3 = _rotation_matrix(nodes[i - 1], nodes[i])
+            theta_local = R3 @ disp[i, 3:6]
+            theta_twist[i] = theta_local[0]
 
         # KS aggregation for max |θ| across all nodes (CS-safe)
         theta_abs_sq = theta_twist ** 2 + 1e-30  # [nn]
@@ -1226,6 +1244,9 @@ class StructuralLoadCaseGroup(om.Group):
         self.options.declare("ks_rho_stress", types=float)
         self.options.declare("ks_rho_buckling", types=float)
         self.options.declare("ks_rho_twist", types=float)
+        self.options.declare("fem_max_matrix_entry", types=float)
+        self.options.declare("fem_max_disp_entry", types=float)
+        self.options.declare("fem_bc_penalty", types=float)
 
     def setup(self):
         load_case = self.options["load_case"]
@@ -1257,6 +1278,9 @@ class StructuralLoadCaseGroup(om.Group):
                 G_avg=self.options["G_avg"],
                 fixed_node=self.options["fixed_node"],
                 lift_wire_nodes=self.options["lift_wire_nodes"],
+                max_matrix_entry=self.options["fem_max_matrix_entry"],
+                max_disp_entry=self.options["fem_max_disp_entry"],
+                bc_penalty=self.options["fem_bc_penalty"],
             ),
             promotes_inputs=["nodes", "EI_flap", "GJ", "A_equiv", "Iy_equiv", "J_equiv"],
             promotes_outputs=["disp"],
@@ -1324,7 +1348,7 @@ class StructuralLoadCaseGroup(om.Group):
         self.add_subsystem(
             "twist",
             TwistConstraintComp(n_nodes=nn, ks_rho=self.options["ks_rho_twist"]),
-            promotes_inputs=["disp"],
+            promotes_inputs=["disp", "nodes"],
             promotes_outputs=["twist_max_deg"],
         )
 
@@ -1505,6 +1529,9 @@ class HPAStructuralGroup(om.Group):
                 G_avg=G_avg,
                 fixed_node=0,
                 lift_wire_nodes=lw_node_indices,
+                max_matrix_entry=cfg.solver.fem_max_matrix_entry,
+                max_disp_entry=cfg.solver.fem_max_disp_entry,
+                bc_penalty=cfg.solver.fem_bc_penalty,
             ))
 
             # 5. Stress computation
@@ -1576,6 +1603,9 @@ class HPAStructuralGroup(om.Group):
                         ks_rho_stress=cfg.safety.ks_rho_stress,
                         ks_rho_buckling=cfg.safety.ks_rho_buckling,
                         ks_rho_twist=cfg.safety.ks_rho_twist,
+                        fem_max_matrix_entry=cfg.solver.fem_max_matrix_entry,
+                        fem_max_disp_entry=cfg.solver.fem_max_disp_entry,
+                        fem_bc_penalty=cfg.solver.fem_bc_penalty,
                     ),
                 )
 
@@ -1621,6 +1651,7 @@ class HPAStructuralGroup(om.Group):
                 self.connect("stress.vonmises_rear", "failure.vonmises_rear")
 
             self.connect("fem.disp", "twist.disp")
+            self.connect("indeps.nodes", "twist.nodes")
             self.connect("fem.disp", "tip_defl.disp")
         else:
             for case_name in case_entries:
@@ -1698,8 +1729,9 @@ def build_structural_problem(
     model.add_subsystem("struct", struct_group)
 
     # ── Design Variables ──
+    solver_cfg = cfg.solver
     min_t = cfg.main_spar.min_wall_thickness
-    max_t = 0.015  # 15 mm max wall thickness
+    max_t = solver_cfg.max_wall_thickness_m
 
     model.add_design_var(
         "struct.seg_mapper.main_t_seg",
@@ -1709,7 +1741,7 @@ def build_structural_problem(
 
     model.add_design_var(
         "struct.seg_mapper.main_r_seg",
-        lower=0.010, upper=0.060,   # 20mm–120mm OD → 10mm–60mm radius
+        lower=solver_cfg.min_radius_m, upper=solver_cfg.max_radius_m,
         ref=0.025,
     )
 
@@ -1722,12 +1754,12 @@ def build_structural_problem(
         )
         model.add_design_var(
             "struct.seg_mapper.rear_r_seg",
-            lower=0.010, upper=0.060,
+            lower=solver_cfg.min_radius_m, upper=solver_cfg.max_radius_m,
             ref=0.025,
         )
 
     # Thickness-to-radius geometric feasibility: t <= eta * R.
-    ratio_limit = THICKNESS_TO_RADIUS_MAX_RATIO
+    ratio_limit = solver_cfg.max_thickness_to_radius_ratio
     model.add_subsystem(
         "main_thickness_ratio",
         om.ExecComp(

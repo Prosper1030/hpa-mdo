@@ -121,3 +121,22 @@ def test_buckling_scales_with_bending_enhancement():
     bi_low = _run(1.0)
     bi_high = _run(1.5)
     assert bi_high < bi_low
+
+
+def test_buckling_ignores_pure_torsion_about_local_axis():
+    """Pure local-axis torsion should not be interpreted as bending buckling demand."""
+    prob = _build_prob(nn=5, rear=False)
+    nn = 5
+    ne = nn - 1
+
+    prob["disp"] = np.zeros((nn, 6))
+    # Beam aligned with global X: DOF 3 is local torsion.
+    prob["disp"][:, 3] = np.linspace(0.0, 0.3, nn)
+    prob["nodes"] = np.column_stack(
+        [np.linspace(0.0, 4.0, nn), np.zeros(nn), np.zeros(nn)]
+    )
+    prob["main_r_elem"] = np.full(ne, 0.04)
+    prob["main_t_elem"] = np.full(ne, 0.001)
+
+    prob.run_model()
+    assert _get_scalar(prob, "buckling_index") < 0.0

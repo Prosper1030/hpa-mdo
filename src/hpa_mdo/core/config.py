@@ -158,6 +158,33 @@ class SolverConfig(BaseModel):
     optimizer: str = "SLSQP"
     optimizer_tol: float = 1e-6
     optimizer_maxiter: int = 500
+    max_wall_thickness_m: float = Field(
+        0.015, description="Global upper bound for spar wall thickness design vars [m]"
+    )
+    min_radius_m: float = Field(
+        0.010, description="Global lower bound for spar outer-radius design vars [m]"
+    )
+    max_radius_m: float = Field(
+        0.060, description="Global upper bound for spar outer-radius design vars [m]"
+    )
+    max_thickness_to_radius_ratio: float = Field(
+        0.8, description="Geometric limit enforced as t <= ratio * R"
+    )
+    fem_max_matrix_entry: float = Field(
+        1e12, description="Numerical guard: max allowed absolute FEM matrix entry"
+    )
+    fem_max_disp_entry: float = Field(
+        1e2, description="Numerical guard: max allowed absolute displacement/Jacobian entry"
+    )
+    fem_bc_penalty: float = Field(
+        1e15, description="Penalty stiffness added on constrained DOFs"
+    )
+    scipy_eval_cache_size: int = Field(
+        2048, description="LRU cache size for SciPy black-box evaluations"
+    )
+    de_max_workers: int = Field(
+        4, description="Upper bound on DE multiprocessing workers to limit memory footprint"
+    )
     fsi_coupling: Literal["one-way", "two-way"] = "one-way"
     fsi_max_iter: int = 20
     fsi_tol: float = 1e-3

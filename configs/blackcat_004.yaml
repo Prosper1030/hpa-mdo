@@ -124,6 +124,15 @@ solver:
   optimizer: "SLSQP"                     # SNOPT if available, else SLSQP
   optimizer_tol: 1.0e-6
   optimizer_maxiter: 500
+  max_wall_thickness_m: 0.015
+  min_radius_m: 0.010
+  max_radius_m: 0.060
+  max_thickness_to_radius_ratio: 0.8
+  fem_max_matrix_entry: 1.0e12
+  fem_max_disp_entry: 1.0e2
+  fem_bc_penalty: 1.0e15
+  scipy_eval_cache_size: 2048
+  de_max_workers: 4
   fsi_coupling: "one-way"
   fsi_max_iter: 20
   fsi_tol: 1.0e-3

@@ -14,6 +14,25 @@ def _cs_norm(x: np.ndarray) -> np.ndarray:
     return np.sqrt(np.dot(x, x) + 1e-30)
 
 
+def _rotation_matrix(node_i: np.ndarray, node_j: np.ndarray) -> np.ndarray:
+    """3x3 local-to-global rotation matrix with local x aligned to element axis."""
+    dx = node_j - node_i
+    L = _cs_norm(dx)
+    if np.real(L) < 1e-12:
+        return np.eye(3, dtype=dx.dtype)
+
+    e1 = dx / (L + 1e-30)
+    ref = np.array([0.0, 0.0, 1.0], dtype=dx.dtype)
+    if abs(np.real(np.dot(e1, ref))) > 0.99:
+        ref = np.array([1.0, 0.0, 0.0], dtype=dx.dtype)
+
+    e2 = np.cross(ref, e1)
+    e2 = e2 / (_cs_norm(e2) + 1e-30)
+    e3 = np.cross(e1, e2)
+    e3 = e3 / (_cs_norm(e3) + 1e-30)
+    return np.array([e1, e2, e3], dtype=dx.dtype)
+
+
 class BucklingComp(om.ExplicitComponent):
     """Shell local buckling constraint for thin-walled circular CF tubes.
 
@@ -67,15 +86,22 @@ class BucklingComp(om.ExplicitComponent):
         R_main = inputs["main_r_elem"]
         t_main = inputs["main_t_elem"]
 
-        kappa_flap = np.zeros(ne, dtype=disp.dtype)
+        kappa_mag = np.zeros(ne, dtype=disp.dtype)
         for e in range(ne):
             dx = nodes[e + 1] - nodes[e]
             L = _cs_norm(dx)
             du = disp[e + 1] - disp[e]
-            kappa_flap[e] = du[3] / L
+            R3 = _rotation_matrix(nodes[e], nodes[e + 1])
+            dtheta_local = R3 @ du[3:6]
+            # Include both local bending planes for shell-buckling demand.
+            kappa_mag[e] = np.sqrt(
+                (dtheta_local[1] / (L + 1e-30)) ** 2
+                + (dtheta_local[2] / (L + 1e-30)) ** 2
+                + 1e-30
+            )
 
         coef = SHELL_BUCKLING_CLASSICAL_FACTOR * gamma * beta
-        abs_kappa = np.sqrt(kappa_flap**2 + 1e-30)
+        abs_kappa = kappa_mag
 
         sigma_bend_main = E_main * R_main * abs_kappa
         sigma_cr_main = coef * E_main * t_main / (R_main + 1e-30)

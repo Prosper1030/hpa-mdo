@@ -49,7 +49,6 @@ from scipy.optimize import differential_evolution
 
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.oas_structural import (
-    THICKNESS_TO_RADIUS_MAX_RATIO,
     build_structural_problem,
     run_analysis,
     run_optimization,
@@ -60,6 +59,10 @@ logger = get_logger(__name__)
 _DE_EVALUATOR = None
 _SCIPY_EVAL_CACHE_SIZE = 2048
 _DE_MAX_WORKERS = 4
+_MAX_WALL_THICKNESS_M = 0.015
+_RADIUS_MIN_M = 0.010
+_RADIUS_MAX_M = 0.060
+_MAX_THICKNESS_TO_RADIUS_RATIO = 0.8
 
 
 class _ScipyBlackBoxEvaluator:
@@ -201,10 +204,10 @@ class _ForkPoolMap:
         self._pool.join()
 
 
-def _recommended_de_workers() -> int:
+def _recommended_de_workers(max_workers: int) -> int:
     """Return a bounded worker count to avoid DE memory blow-up."""
     cpu_count = os.cpu_count() or 1
-    return max(1, min(cpu_count, _DE_MAX_WORKERS))
+    return max(1, min(cpu_count, max_workers))
 
 
 @dataclass
@@ -417,15 +420,27 @@ class SparOptimizer:
         cfg = self.cfg
         n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
         rear_on = cfg.rear_spar.enabled
+        solver_cfg = getattr(cfg, "solver", None)
+        max_t = float(getattr(solver_cfg, "max_wall_thickness_m", _MAX_WALL_THICKNESS_M))
+        min_r = float(getattr(solver_cfg, "min_radius_m", _RADIUS_MIN_M))
+        max_r = float(getattr(solver_cfg, "max_radius_m", _RADIUS_MAX_M))
+        ratio_limit = float(
+            getattr(
+                solver_cfg,
+                "max_thickness_to_radius_ratio",
+                _MAX_THICKNESS_TO_RADIUS_RATIO,
+            )
+        )
+        cache_size = int(getattr(solver_cfg, "scipy_eval_cache_size", _SCIPY_EVAL_CACHE_SIZE))
+        de_max_workers = int(getattr(solver_cfg, "de_max_workers", _DE_MAX_WORKERS))
         # DV layout: [main_t_seg..., main_r_seg..., rear_t_seg..., rear_r_seg...]
         min_t_main = cfg.main_spar.min_wall_thickness
         min_t_rear = cfg.rear_spar.min_wall_thickness if rear_on else min_t_main
-        max_t = 0.012  # 12 mm
 
         bounds_main_t = [(min_t_main, max_t)] * n_seg
-        bounds_main_r = [(0.010, 0.060)] * n_seg
+        bounds_main_r = [(min_r, max_r)] * n_seg
         bounds_rear_t = [(min_t_rear, max_t)] * n_seg if rear_on else []
-        bounds_rear_r = [(0.010, 0.060)] * n_seg if rear_on else []
+        bounds_rear_r = [(min_r, max_r)] * n_seg if rear_on else []
         bounds = bounds_main_t + bounds_main_r + bounds_rear_t + bounds_rear_r
 
         max_twist = cfg.wing.max_tip_twist_deg
@@ -438,7 +453,8 @@ class SparOptimizer:
             rear_on=rear_on,
             max_twist=max_twist,
             max_defl=max_defl,
-            max_thickness_to_radius_ratio=THICKNESS_TO_RADIUS_MAX_RATIO,
+            max_thickness_to_radius_ratio=ratio_limit,
+            cache_size=cache_size,
         )
 
         # ── Phase 1: Global search with differential evolution ──
@@ -452,7 +468,7 @@ class SparOptimizer:
         if "fork" in mp.get_all_start_methods():
             global _DE_EVALUATOR
             _DE_EVALUATOR = evaluator
-            worker_count = _recommended_de_workers()
+            worker_count = _recommended_de_workers(de_max_workers)
             pool_map = _ForkPoolMap(processes=worker_count)
             de_workers = pool_map
             de_func = _de_penalty_worker
@@ -500,7 +516,7 @@ class SparOptimizer:
             {
                 "type": "ineq",
                 "fun": (
-                    lambda x, n=n_seg, eta=THICKNESS_TO_RADIUS_MAX_RATIO: (
+                    lambda x, n=n_seg, eta=ratio_limit: (
                         np.min(
                             eta * np.asarray(x, dtype=float)[n:2 * n]
                             - np.asarray(x, dtype=float)[:n]
@@ -514,7 +530,7 @@ class SparOptimizer:
                 {
                     "type": "ineq",
                     "fun": (
-                        lambda x, n=n_seg, eta=THICKNESS_TO_RADIUS_MAX_RATIO: (
+                        lambda x, n=n_seg, eta=ratio_limit: (
                             np.min(
                                 eta * np.asarray(x, dtype=float)[3 * n:4 * n]
                                 - np.asarray(x, dtype=float)[2 * n:3 * n]
