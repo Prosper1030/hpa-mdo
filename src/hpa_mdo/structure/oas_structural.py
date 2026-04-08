@@ -1837,6 +1837,33 @@ def build_structural_problem(
     model.connect("struct.seg_mapper.main_t_seg", "main_thickness_ratio.thickness")
     model.add_constraint("main_thickness_ratio.margin", lower=0.0)
 
+    if n_seg > 1:
+        # Segment manufacturability: enforce monotonic taper on outer radius.
+        # Prevent oscillating OD patterns that cannot be joined in practice.
+        seg_idx_in = np.arange(n_seg - 1, dtype=int)
+        seg_idx_out = np.arange(1, n_seg, dtype=int)
+        model.add_subsystem(
+            "main_radius_taper",
+            om.ExecComp(
+                "margin = r_in - r_out",
+                margin={"shape": (n_seg - 1,), "units": "m"},
+                r_in={"shape": (n_seg - 1,), "units": "m"},
+                r_out={"shape": (n_seg - 1,), "units": "m"},
+                has_diag_partials=True,
+            ),
+        )
+        model.connect(
+            "struct.seg_mapper.main_r_seg",
+            "main_radius_taper.r_in",
+            src_indices=seg_idx_in,
+        )
+        model.connect(
+            "struct.seg_mapper.main_r_seg",
+            "main_radius_taper.r_out",
+            src_indices=seg_idx_out,
+        )
+        model.add_constraint("main_radius_taper.margin", lower=0.0)
+
     if rear_on:
         model.add_subsystem(
             "rear_thickness_ratio",
@@ -1851,6 +1878,29 @@ def build_structural_problem(
         model.connect("struct.seg_mapper.rear_r_seg", "rear_thickness_ratio.radius")
         model.connect("struct.seg_mapper.rear_t_seg", "rear_thickness_ratio.thickness")
         model.add_constraint("rear_thickness_ratio.margin", lower=0.0)
+
+        if n_seg > 1:
+            model.add_subsystem(
+                "rear_radius_taper",
+                om.ExecComp(
+                    "margin = r_in - r_out",
+                    margin={"shape": (n_seg - 1,), "units": "m"},
+                    r_in={"shape": (n_seg - 1,), "units": "m"},
+                    r_out={"shape": (n_seg - 1,), "units": "m"},
+                    has_diag_partials=True,
+                ),
+            )
+            model.connect(
+                "struct.seg_mapper.rear_r_seg",
+                "rear_radius_taper.r_in",
+                src_indices=np.arange(n_seg - 1, dtype=int),
+            )
+            model.connect(
+                "struct.seg_mapper.rear_r_seg",
+                "rear_radius_taper.r_out",
+                src_indices=np.arange(1, n_seg, dtype=int),
+            )
+            model.add_constraint("rear_radius_taper.margin", lower=0.0)
 
         # Main spar dominance constraints:
         #   1) radius margin per segment

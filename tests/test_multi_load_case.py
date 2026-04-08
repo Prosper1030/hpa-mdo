@@ -120,6 +120,38 @@ def test_multi_case_problem_builds_and_exposes_case_constraints():
         prob.get_val("struct.failure.failure")
 
 
+def test_radius_taper_constraints_flag_non_monotonic_segment_radii():
+    """Radius taper margins should be negative for oscillating segment ODs."""
+    prob, cfg, *_ = _build_problem()
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+    if n_seg < 2:
+        pytest.skip("Need at least two spar segments for taper constraints.")
+
+    oscillating = np.where(np.arange(n_seg) % 2 == 0, 0.024, 0.032)
+    prob.set_val("struct.seg_mapper.main_r_seg", oscillating, units="m")
+    if cfg.rear_spar.enabled:
+        prob.set_val("struct.seg_mapper.rear_r_seg", oscillating - 0.006, units="m")
+    prob.run_model()
+
+    main_margin = np.asarray(prob.get_val("main_radius_taper.margin"))
+    assert np.min(main_margin) < 0.0
+    if cfg.rear_spar.enabled:
+        rear_margin = np.asarray(prob.get_val("rear_radius_taper.margin"))
+        assert np.min(rear_margin) < 0.0
+
+    monotonic = np.linspace(0.032, 0.024, n_seg)
+    prob.set_val("struct.seg_mapper.main_r_seg", monotonic, units="m")
+    if cfg.rear_spar.enabled:
+        prob.set_val("struct.seg_mapper.rear_r_seg", monotonic - 0.006, units="m")
+    prob.run_model()
+
+    main_margin = np.asarray(prob.get_val("main_radius_taper.margin"))
+    assert np.min(main_margin) >= -1e-12
+    if cfg.rear_spar.enabled:
+        rear_margin = np.asarray(prob.get_val("rear_radius_taper.margin"))
+        assert np.min(rear_margin) >= -1e-12
+
+
 def test_pullup_case_produces_higher_main_spar_stress_than_cruise():
     """The 1.5G pull-up branch should be more demanding than cruise."""
     prob, *_ = _build_problem(multi_case=True)
