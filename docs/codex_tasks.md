@@ -1,13 +1,20 @@
 # HPA-MDO 專案 Review 與優化清單
 
-> 產出日期：2026-04-07｜最後更新：2026-04-08（end-to-end 驗證 + P4#16 完成）
+> 產出日期：2026-04-07｜最後更新：2026-04-08（buckling silent failure 補強完成）
 > 基於完整原始碼靜態分析
 
 ## 整體評價
 
 架構乾淨、config 管理嚴謹、安全係數分離正確、跨平台 path 處理良好。
-**目前 46 個測試全部通過，P0–P3、P5–P6、P4#15–16 已完成。**
-所有 Finding 1/2/3 物理 bug 已修正，屈曲約束已上線（質量 +12.4%，物理合理）。
+**目前 49 個測試全部通過，P0–P3、P5–P6、P4#15–16 已完成。**
+所有 Finding 1/2/3 物理 bug 已修正，屈曲約束已上線並強制執行於所有優化路徑。
+
+**Active constraint 分析（端到端驗證 14.3579 kg）**：
+- `tip_deflection` : 96.4% budget（**唯一綁定約束**）
+- `failure_index`  : 32.1% budget（78% margin）
+- `twist_max`      : 16.4% budget
+- `buckling_index` : 14.4% budget（被動滿足，-0.856）
+- 結論：Black Cat 004 為「剛度受限」設計，不是強度或屈曲受限
 
 ---
 
@@ -163,16 +170,36 @@
 - 測試：`test_clip_bug_total_lift_matches_integration` 驗證舊行為 250N vs 正確 150N
 - Commits: `9ca6e33`, `bb47f2a`, `59c6b14`（docstring polish）
 
+### Buckling Silent Failure：scipy 路徑強制執行屈曲約束 ✅
+- **Bug**：`BucklingComp` 在 OpenMDAO 已透過 `add_constraint` 註冊，但 scipy DE/SLSQP 路徑把 OpenMDAO 當 black-box，`_eval()` 字典只含 mass/failure/twist/tip_defl，**沒有 buckling**。導致 scipy 路徑完全忽略屈曲約束（silent failure mode）
+- 端到端驗證後發現：目前運氣好，因為 `tip_deflection` 主導把牆推厚到 buckling 被動滿足（-0.856），但 config 改動可能無預警產生違反屈曲的「最佳解」
+- **Fix**：
+  - `_eval` 字典加入 `buckling`
+  - `penalty_obj` 加入 800 × (1 + buckling)² 懲罰
+  - SLSQP `constraints` 加入 buckling 不等式
+  - `de_feas / sq_feas / 最終 success` 三處可行性檢查都加入 buckling
+  - infeasible fallback 的 violation sum 加入 buckling
+  - `_optimize_openmdao` 與 `auto` 模式也加入 buckling 檢查
+  - `OptimizationResult` 加入 `buckling_index` 必填欄位（連動 server.py / mcp_server.py / test fixtures）
+  - `visualization.py` 兩處 feasibility + summary 報告加入 `Buckling index` 行
+  - `_extract_results` 加入 `buckling_index` key
+- 驗證：`val_weight: 14.3579 kg`（與 baseline 完全相同，證明懲罰沒扭曲 DE 搜尋）
+- 測試：`test_optimizer_buckling.py` 三個測試（dataclass 欄位、_eval 字典、summary 文字）
+- Commits: `e6acd35`（程式邏輯）、`35b0517`（測試）
+
 ---
 
 ## 已知小問題（待修）
 
 | 位置 | 問題 | 優先度 |
 |------|------|--------|
-| `optimizer.py:275-276` | `ndim>0 array→scalar` DeprecationWarning | 低 |
-| `np.trapz` in tests | 部分仍有 deprecation warning | 低 |
-| `BucklingComp` ks_rho=50 | 與 TwistConstraintComp 的 ρ=100 不一致，可考慮統一或從 config 讀 | 低 |
-| `oas_structural.py:425` | `Iz_e = Iy[e]` 對稱管近似（Finding 4），HPA 可接受 | 低 |
+| `optimizer.py:275-276` | `ndim>0 array→scalar` DeprecationWarning | ✅ 已修（`0ec4576`） |
+| `np.trapz` deprecation | 全面改用 `np.trapezoid` | ✅ 已修（`bfdb0c3`） |
+| `BucklingComp` ks_rho=50 與 Twist 不一致 | 統一從 `config.safety` 讀取 | ✅ 已修（`a307361`） |
+| **scipy 路徑沒檢查 buckling**（latent silent failure） | 補強 `_eval` / penalty / SLSQP / feasibility | ✅ 已修（`e6acd35`、`35b0517`） |
+| `oas_structural.py:425` | `Iz_e = Iy[e]` 對稱管近似（Finding 4），HPA 可接受 | 低（保留） |
+| `oas_structural.py:440` | DE 邊界 `K_elem_global = T.T @ K_local @ T` divide-by-zero RuntimeWarning | 低（DE 探索退化設計，不影響收斂） |
+| `test_api_server.py` slow tests | 在 Mac Mini 環境耗時 5+ 分鐘 | 低（用 `-m 'not slow'` 規避） |
 
 ---
 
