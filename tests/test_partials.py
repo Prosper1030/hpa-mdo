@@ -87,6 +87,8 @@ def test_check_totals_full_structural_model():
             "struct.buckling.buckling_index",
             "struct.twist.twist_max_deg",
             "struct.tip_defl.tip_deflection_m",
+            "main_rear_radius_dominance.margin",
+            "main_rear_ei_dominance.margin",
         ],
         wrt=[
             "struct.seg_mapper.main_t_seg",
@@ -115,6 +117,8 @@ def test_check_totals_multi_case_structural_model():
             "struct.case_pullup.twist_max_deg",
             "struct.case_cruise.tip_deflection_m",
             "struct.case_pullup.tip_deflection_m",
+            "main_rear_radius_dominance.margin",
+            "main_rear_ei_dominance.margin",
         ],
         wrt=[
             "struct.seg_mapper.main_t_seg",

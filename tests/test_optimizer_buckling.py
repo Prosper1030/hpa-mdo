@@ -221,3 +221,38 @@ def test_raw_feasible_honors_per_case_limits():
         },
     }
     assert opt._is_raw_feasible(raw) is False
+
+
+def test_raw_feasible_rejects_main_spar_dominance_violations():
+    cfg = _Cfg(
+        rear_spar=SimpleNamespace(
+            enabled=True, min_wall_thickness=0.001, material="carbon_fiber_hm"
+        ),
+        wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
+        solver=SimpleNamespace(
+            main_spar_dominance_margin_m=0.005,
+            main_spar_ei_ratio=2.0,
+        ),
+        _structural_cases=[
+            SimpleNamespace(
+                name="default",
+                max_twist_deg=2.0,
+                max_tip_deflection_m=1.0,
+            )
+        ],
+    )
+    opt = SparOptimizer.__new__(SparOptimizer)
+    opt.cfg = cfg
+
+    raw = {
+        "failure": -0.10,
+        "buckling_index": -0.20,
+        "twist_max_deg": 0.2,
+        "tip_deflection_m": 0.1,
+        "main_r_seg": np.array([0.020, 0.030]),
+        "rear_r_seg": np.array([0.018, 0.028]),  # violates 5 mm margin
+        "EI_main_elem": np.array([10.0, 10.0]),
+        "EI_rear_elem": np.array([6.0, 6.0]),  # violates EI ratio 2.0
+    }
+
+    assert opt._is_raw_feasible(raw) is False

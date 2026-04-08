@@ -185,6 +185,14 @@ class SolverConfig(BaseModel):
     de_max_workers: int = Field(
         4, description="Upper bound on DE multiprocessing workers to limit memory footprint"
     )
+    main_spar_dominance_margin_m: float = Field(
+        0.005,
+        description="Main spar segment radius must exceed rear spar radius by at least this margin [m]",
+    )
+    main_spar_ei_ratio: float = Field(
+        2.0,
+        description="Main spar element bending stiffness must satisfy EI_main >= ratio * EI_rear",
+    )
     fsi_coupling: Literal["one-way", "two-way"] = "one-way"
     fsi_max_iter: int = 20
     fsi_tol: float = 1e-3

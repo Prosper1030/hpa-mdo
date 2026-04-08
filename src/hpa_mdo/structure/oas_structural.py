@@ -200,6 +200,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         self.add_output("Iy_equiv", shape=(ne,), units="m**4")
         self.add_output("J_equiv", shape=(ne,), units="m**4")
         self.add_output("EI_flap", shape=(ne,), units="N*m**2")
+        self.add_output("EI_main", shape=(ne,), units="N*m**2")
         self.add_output("GJ", shape=(ne,), units="N*m**2")
         self.add_output("mass_per_length", shape=(ne,), units="kg/m")
         # Stress-check arrays (individual tubes)
@@ -211,12 +212,14 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         if self.options["rear_enabled"]:
             self.add_input("rear_t_elem", shape=(ne,), units="m")
             self.add_input("rear_r_elem", shape=(ne,), units="m")
+            self.add_output("EI_rear", shape=(ne,), units="N*m**2")
 
         row_col = np.arange(ne)
         rear_on = self.options["rear_enabled"]
         outputs_always = [
             "A_main",
             "I_main",
+            "EI_main",
             "A_equiv",
             "EI_flap",
             "GJ",
@@ -227,6 +230,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         outputs_with_rear = [
             "A_rear",
             "I_rear",
+            "EI_rear",
             "A_equiv",
             "EI_flap",
             "GJ",
@@ -261,6 +265,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
 
         outputs["A_main"] = A_m
         outputs["I_main"] = I_m
+        outputs["EI_main"] = E_m * I_m
 
         if self.options["rear_enabled"]:
             R_r = inputs["rear_r_elem"]
@@ -279,6 +284,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
 
             outputs["A_rear"] = A_r
             outputs["I_rear"] = I_r
+            outputs["EI_rear"] = E_r * I_r
 
             # Parallel-axis theorem for flapwise EI
             denom = E_m * A_m + E_r * A_r + 1e-30
@@ -350,6 +356,8 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         partials["A_main", "main_r_elem"] = dA_m_dR
         partials["I_main", "main_t_elem"] = dI_m_dt
         partials["I_main", "main_r_elem"] = dI_m_dR
+        partials["EI_main", "main_t_elem"] = E_m * dI_m_dt
+        partials["EI_main", "main_r_elem"] = E_m * dI_m_dR
 
         if rear_on:
             E_r = self.options["E_rear"]
@@ -378,6 +386,8 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             partials["A_rear", "rear_r_elem"] = dA_r_dR
             partials["I_rear", "rear_t_elem"] = dI_r_dt
             partials["I_rear", "rear_r_elem"] = dI_r_dR
+            partials["EI_rear", "rear_t_elem"] = E_r * dI_r_dt
+            partials["EI_rear", "rear_r_elem"] = E_r * dI_r_dR
 
             p = E_m * A_m
             q = E_r * A_r
@@ -1712,6 +1722,7 @@ def build_structural_problem(
 
     seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
     n_seg = len(seg_lengths)
+    n_elem = aircraft.wing.n_stations - 1
     rear_on = cfg.rear_spar.enabled
     logger.debug(
         "Building structural problem (n_seg=%d, rear_on=%s).",
@@ -1764,9 +1775,9 @@ def build_structural_problem(
         "main_thickness_ratio",
         om.ExecComp(
             "margin = eta * radius - thickness",
-            margin=np.zeros(n_seg),
-            radius=np.zeros(n_seg),
-            thickness=np.zeros(n_seg),
+            margin={"shape": (n_seg,), "units": "m"},
+            radius={"shape": (n_seg,), "units": "m"},
+            thickness={"shape": (n_seg,), "units": "m"},
             eta=ratio_limit,
         ),
     )
@@ -1779,15 +1790,53 @@ def build_structural_problem(
             "rear_thickness_ratio",
             om.ExecComp(
                 "margin = eta * radius - thickness",
-                margin=np.zeros(n_seg),
-                radius=np.zeros(n_seg),
-                thickness=np.zeros(n_seg),
+                margin={"shape": (n_seg,), "units": "m"},
+                radius={"shape": (n_seg,), "units": "m"},
+                thickness={"shape": (n_seg,), "units": "m"},
                 eta=ratio_limit,
             ),
         )
         model.connect("struct.seg_mapper.rear_r_seg", "rear_thickness_ratio.radius")
         model.connect("struct.seg_mapper.rear_t_seg", "rear_thickness_ratio.thickness")
         model.add_constraint("rear_thickness_ratio.margin", lower=0.0)
+
+        # Main spar dominance constraints:
+        #   1) radius margin per segment
+        #   2) EI margin per element
+        dominance_margin = solver_cfg.main_spar_dominance_margin_m
+        ei_ratio = solver_cfg.main_spar_ei_ratio
+
+        model.add_subsystem(
+            "main_rear_radius_dominance",
+            om.ExecComp(
+                "margin = main_r - rear_r",
+                margin={"shape": (n_seg,), "units": "m"},
+                main_r={"shape": (n_seg,), "units": "m"},
+                rear_r={"shape": (n_seg,), "units": "m"},
+                has_diag_partials=True,
+            ),
+        )
+        model.connect("struct.seg_mapper.main_r_seg", "main_rear_radius_dominance.main_r")
+        model.connect("struct.seg_mapper.rear_r_seg", "main_rear_radius_dominance.rear_r")
+        model.add_constraint(
+            "main_rear_radius_dominance.margin",
+            lower=dominance_margin,
+        )
+
+        model.add_subsystem(
+            "main_rear_ei_dominance",
+            om.ExecComp(
+                "margin = ei_main - ratio * ei_rear",
+                margin={"shape": (n_elem,), "units": "N*m**2"},
+                ei_main={"shape": (n_elem,), "units": "N*m**2"},
+                ei_rear={"shape": (n_elem,), "units": "N*m**2"},
+                ratio=ei_ratio,
+                has_diag_partials=True,
+            ),
+        )
+        model.connect("struct.spar_props.EI_main", "main_rear_ei_dominance.ei_main")
+        model.connect("struct.spar_props.EI_rear", "main_rear_ei_dominance.ei_rear")
+        model.add_constraint("main_rear_ei_dominance.margin", lower=0.0)
 
     # ── Objective: minimise total spar mass ──
     model.add_objective("struct.mass.total_mass_full", ref=10.0)
@@ -1945,6 +1994,7 @@ def _extract_results(prob: om.Problem) -> dict:
         "case_names": case_names,
         "main_t_seg": prob.get_val("struct.seg_mapper.main_t_seg").copy(),
         "main_r_seg": prob.get_val("struct.seg_mapper.main_r_seg").copy(),
+        "EI_main_elem": prob.get_val("struct.spar_props.EI_main").copy(),
     }
 
     if multi_case:
@@ -1985,5 +2035,6 @@ def _extract_results(prob: om.Problem) -> dict:
     if rear_on:
         res["rear_t_seg"] = prob.get_val("struct.seg_mapper.rear_t_seg").copy()
         res["rear_r_seg"] = prob.get_val("struct.seg_mapper.rear_r_seg").copy()
+        res["EI_rear_elem"] = prob.get_val("struct.spar_props.EI_rear").copy()
 
     return res
