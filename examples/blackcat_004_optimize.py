@@ -40,6 +40,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from hpa_mdo.core import load_config, Aircraft, MaterialDB
 from hpa_mdo.aero import VSPAeroParser, LoadMapper
 from hpa_mdo.structure import SparOptimizer
+from hpa_mdo.structure.ansys_export import ANSYSExporter
+from hpa_mdo.utils import export_step_from_csv
 from hpa_mdo.utils.visualization import (
     plot_beam_analysis,
     plot_spar_geometry,
@@ -186,10 +188,25 @@ def main() -> float:
     # ====================================================================
     # A human-readable plain-text file with full mass breakdown, structural
     # performance metrics, and per-segment OD/thickness tables.
-    print("[8/8] Writing optimization summary...")
+    print("[8/9] Writing optimization summary...")
     summary_path = output_dir / "optimization_summary.txt"
     write_optimization_summary(result, summary_path)
     print(f"       Saved: {summary_path}")
+
+    # ====================================================================
+    # Step 9 — Export STEP geometry for CAD inspection
+    # ====================================================================
+    print("[9/9] Exporting STEP geometry for CAD inspection...")
+    ansys_dir = output_dir / "ansys"
+    ansys_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
+        csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")
+        step_path = output_dir / "spar_geometry.step"
+        engine_name = export_step_from_csv(csv_path, step_path, engine="auto")
+        print(f"       Saved: {step_path} ({engine_name})")
+    except Exception as exc:
+        print(f"       STEP export skipped: {exc}")
 
     # Keep docs/examples snapshots in sync so teammates can inspect baseline
     # outputs without rerunning optimization locally.
