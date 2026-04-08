@@ -47,6 +47,7 @@ from scipy.optimize import differential_evolution
 
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.oas_structural import (
+    THICKNESS_TO_RADIUS_MAX_RATIO,
     build_structural_problem,
     run_analysis,
     run_optimization,
@@ -67,12 +68,14 @@ class _ScipyBlackBoxEvaluator:
         rear_on: bool,
         max_twist: float,
         max_defl: float,
+        max_thickness_to_radius_ratio: float,
     ):
         self.prob = prob
         self.n_seg = n_seg
         self.rear_on = rear_on
         self.max_twist = max_twist
         self.max_defl = max_defl
+        self.max_thickness_to_radius_ratio = max_thickness_to_radius_ratio
         self._cache = {}
 
     def clear_cache(self) -> None:
@@ -125,16 +128,16 @@ class _ScipyBlackBoxEvaluator:
         x_arr = np.asarray(x, dtype=float)
         x_main_t = x_arr[:n_seg]
         x_main_r = x_arr[n_seg:2 * n_seg]
-        t_r_ratio_main = x_main_t / (x_main_r + 1e-10) - 0.95
-        if np.any(t_r_ratio_main > 0):
-            penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_main, 0.0) ** 2))
+        t_r_margin_main = x_main_t - self.max_thickness_to_radius_ratio * x_main_r
+        if np.any(t_r_margin_main > 0):
+            penalty += 400.0 * float(np.sum(np.maximum(t_r_margin_main, 0.0) ** 2))
 
         if self.rear_on:
             x_rear_t = x_arr[2 * n_seg:3 * n_seg]
             x_rear_r = x_arr[3 * n_seg:]
-            t_r_ratio_rear = x_rear_t / (x_rear_r + 1e-10) - 0.95
-            if np.any(t_r_ratio_rear > 0):
-                penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_rear, 0.0) ** 2))
+            t_r_margin_rear = x_rear_t - self.max_thickness_to_radius_ratio * x_rear_r
+            if np.any(t_r_margin_rear > 0):
+                penalty += 400.0 * float(np.sum(np.maximum(t_r_margin_rear, 0.0) ** 2))
 
         return r["mass"] * (1.0 + penalty)
 
@@ -391,6 +394,7 @@ class SparOptimizer:
             rear_on=rear_on,
             max_twist=max_twist,
             max_defl=max_defl,
+            max_thickness_to_radius_ratio=THICKNESS_TO_RADIUS_MAX_RATIO,
         )
 
         # ── Phase 1: Global search with differential evolution ──
@@ -447,7 +451,32 @@ class SparOptimizer:
             {"type": "ineq", "fun": lambda x: -evaluator.evaluate(x)["failure"]},
             {"type": "ineq", "fun": lambda x: max_twist - evaluator.evaluate(x)["twist"]},
             {"type": "ineq", "fun": lambda x: -evaluator.evaluate(x)["buckling"]},
+            {
+                "type": "ineq",
+                "fun": (
+                    lambda x, n=n_seg, eta=THICKNESS_TO_RADIUS_MAX_RATIO: (
+                        np.min(
+                            eta * np.asarray(x, dtype=float)[n:2 * n]
+                            - np.asarray(x, dtype=float)[:n]
+                        )
+                    )
+                ),
+            },
         ]
+        if rear_on:
+            constraints.append(
+                {
+                    "type": "ineq",
+                    "fun": (
+                        lambda x, n=n_seg, eta=THICKNESS_TO_RADIUS_MAX_RATIO: (
+                            np.min(
+                                eta * np.asarray(x, dtype=float)[3 * n:4 * n]
+                                - np.asarray(x, dtype=float)[2 * n:3 * n]
+                            )
+                        )
+                    ),
+                }
+            )
         if max_defl < float("inf"):
             constraints.append(
                 {"type": "ineq", "fun": lambda x: max_defl - evaluator.evaluate(x)["tip_defl"]}

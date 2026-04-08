@@ -39,6 +39,8 @@ from hpa_mdo.structure.spar_model import (
 
 logger = get_logger(__name__)
 
+THICKNESS_TO_RADIUS_MAX_RATIO = 0.8
+
 
 def _is_single_mapped_load(aero_loads: dict) -> bool:
     """Return True when ``aero_loads`` looks like a single mapped load dict."""
@@ -255,10 +257,6 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         G_m = self.options["G_main"]
         t_m = inputs["main_t_elem"]
 
-        # Clamp thickness to valid range
-        t_m = np.minimum(t_m, R_m - 1e-6)
-        t_m = np.maximum(t_m, 1e-6)
-
         A_m = tube_area(R_m, t_m)
         I_m = tube_Ixx(R_m, t_m)
         J_m = tube_J(R_m, t_m)
@@ -276,9 +274,6 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             d = self.options["d_chord"]
             warping_knockdown = self.options["warping_knockdown"]
             t_r = inputs["rear_t_elem"]
-
-            t_r = np.minimum(t_r, R_r - 1e-6)
-            t_r = np.maximum(t_r, 1e-6)
 
             A_r = tube_area(R_r, t_r)
             I_r = tube_Ixx(R_r, t_r)
@@ -340,8 +335,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         G_m = self.options["G_main"]
         rho_m = self.options["rho_main"]
         R_m = inputs["main_r_elem"]
-        t_m = np.minimum(inputs["main_t_elem"], R_m - 1e-6)
-        t_m = np.maximum(t_m, 1e-6)
+        t_m = inputs["main_t_elem"]
         r_m = R_m - t_m
         A_m = np.pi * (R_m**2 - r_m**2)
         I_m = np.pi / 4.0 * (R_m**4 - r_m**4)
@@ -369,8 +363,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             warping_knockdown = self.options["warping_knockdown"]
 
             R_r = inputs["rear_r_elem"]
-            t_r = np.minimum(inputs["rear_t_elem"], R_r - 1e-6)
-            t_r = np.maximum(t_r, 1e-6)
+            t_r = inputs["rear_t_elem"]
             r_r = R_r - t_r
             A_r = np.pi * (R_r**2 - r_r**2)
             I_r = np.pi / 4.0 * (R_r**4 - r_r**4)
@@ -1716,6 +1709,37 @@ def build_structural_problem(
             lower=0.010, upper=0.060,
             ref=0.025,
         )
+
+    # Thickness-to-radius geometric feasibility: t <= eta * R.
+    ratio_limit = THICKNESS_TO_RADIUS_MAX_RATIO
+    model.add_subsystem(
+        "main_thickness_ratio",
+        om.ExecComp(
+            "margin = eta * radius - thickness",
+            margin=np.zeros(n_seg),
+            radius=np.zeros(n_seg),
+            thickness=np.zeros(n_seg),
+            eta=ratio_limit,
+        ),
+    )
+    model.connect("struct.seg_mapper.main_r_seg", "main_thickness_ratio.radius")
+    model.connect("struct.seg_mapper.main_t_seg", "main_thickness_ratio.thickness")
+    model.add_constraint("main_thickness_ratio.margin", lower=0.0)
+
+    if rear_on:
+        model.add_subsystem(
+            "rear_thickness_ratio",
+            om.ExecComp(
+                "margin = eta * radius - thickness",
+                margin=np.zeros(n_seg),
+                radius=np.zeros(n_seg),
+                thickness=np.zeros(n_seg),
+                eta=ratio_limit,
+            ),
+        )
+        model.connect("struct.seg_mapper.rear_r_seg", "rear_thickness_ratio.radius")
+        model.connect("struct.seg_mapper.rear_t_seg", "rear_thickness_ratio.thickness")
+        model.add_constraint("rear_thickness_ratio.margin", lower=0.0)
 
     # ── Objective: minimise total spar mass ──
     model.add_objective("struct.mass.total_mass_full", ref=10.0)

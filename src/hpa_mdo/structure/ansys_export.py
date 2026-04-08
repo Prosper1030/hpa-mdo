@@ -40,23 +40,57 @@ logger = logging.getLogger(__name__)
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _segment_values_to_nodes(
+    seg_values: np.ndarray,
+    seg_lengths: list,
+    y_nodes: np.ndarray,
+    *,
+    scale: float,
+) -> np.ndarray:
+    """Map segment-level values to each structural node.
+
+    Parameters
+    ----------
+    seg_values
+        Segment values (for example mm-level thickness/radius arrays).
+    seg_lengths
+        Segment lengths [m].
+    y_nodes
+        Structural node locations [m].
+    scale
+        Unit conversion factor applied to ``seg_values``.
+    """
+    boundaries = segment_boundaries_from_lengths(seg_lengths)
+    seg_values = np.asarray(seg_values, dtype=float).ravel()
+    if seg_values.size != len(seg_lengths):
+        raise ValueError(
+            f"Expected {len(seg_lengths)} segment values, got {seg_values.size}."
+        )
+    values_si = seg_values * scale
+    out = np.empty(len(y_nodes), dtype=float)
+    for i, yy in enumerate(y_nodes):
+        idx = int(np.searchsorted(boundaries[1:], yy, side="right"))
+        idx = min(idx, len(values_si) - 1)
+        out[i] = values_si[idx]
+    return out
+
+
 def _seg_thickness_to_nodes(
     t_seg_mm: np.ndarray,
     seg_lengths: list,
     y_nodes: np.ndarray,
 ) -> np.ndarray:
-    """Convert segment wall thicknesses (mm) to per-node values (m).
+    """Convert segment wall thicknesses (mm) to per-node values (m)."""
+    return _segment_values_to_nodes(t_seg_mm, seg_lengths, y_nodes, scale=1e-3)
 
-    Each node receives the thickness of the segment it belongs to.
-    """
-    boundaries = segment_boundaries_from_lengths(seg_lengths)
-    t_seg_m = t_seg_mm * 1e-3
-    out = np.empty(len(y_nodes))
-    for i, yy in enumerate(y_nodes):
-        idx = int(np.searchsorted(boundaries[1:], yy, side="right"))
-        idx = min(idx, len(t_seg_m) - 1)
-        out[i] = t_seg_m[idx]
-    return out
+
+def _seg_radius_to_nodes(
+    r_seg_mm: np.ndarray,
+    seg_lengths: list,
+    y_nodes: np.ndarray,
+) -> np.ndarray:
+    """Convert segment outer radii (mm) to per-node values (m)."""
+    return _segment_values_to_nodes(r_seg_mm, seg_lengths, y_nodes, scale=1e-3)
 
 
 def _dihedral_z(y: np.ndarray, dihedral_deg: np.ndarray) -> np.ndarray:
@@ -117,11 +151,27 @@ class ANSYSExporter:
         else:
             self.t_rear = np.full(self.nn, cfg.rear_spar.min_wall_thickness)
 
-        # Outer radii
-        self.R_main = compute_outer_radius(
-            self.y, wing.chord, wing.airfoil_thickness, cfg.main_spar)
-        self.R_rear = compute_outer_radius(
-            self.y, wing.chord, wing.airfoil_thickness, cfg.rear_spar)
+        # Outer radii: prefer optimized radii from solution; fall back to
+        # geometry-based reconstruction only when radii are unavailable.
+        R_main_default = compute_outer_radius(
+            self.y, wing.chord, wing.airfoil_thickness, cfg.main_spar
+        )
+        R_rear_default = compute_outer_radius(
+            self.y, wing.chord, wing.airfoil_thickness, cfg.rear_spar
+        )
+        if opt_result.main_r_seg_mm is not None:
+            self.R_main = _seg_radius_to_nodes(
+                opt_result.main_r_seg_mm, main_seg_L, self.y
+            )
+        else:
+            self.R_main = R_main_default
+
+        if opt_result.rear_r_seg_mm is not None:
+            self.R_rear = _seg_radius_to_nodes(
+                opt_result.rear_r_seg_mm, rear_seg_L, self.y
+            )
+        else:
+            self.R_rear = R_rear_default
 
         # Dihedral Z
         self.z_dih = _dihedral_z(self.y, wing.dihedral_deg)
