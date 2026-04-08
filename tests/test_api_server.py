@@ -46,8 +46,10 @@ def test_optimize_valid_config_returns_result() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert "val_weight" in payload
-    assert payload["val_weight"] != 99999
+    assert payload["error_code"] is None
+    assert payload["success"] is True
+    assert "failure_index" in payload
+    assert "total_mass_full_kg" in payload
 
 
 def test_export_missing_config_returns_error() -> None:
