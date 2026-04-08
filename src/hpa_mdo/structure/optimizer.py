@@ -323,11 +323,12 @@ class SparOptimizer:
             return r["mass"] * (1.0 + penalty)
 
         logger.info("  [Phase 1] Differential Evolution global search...")
+        logger.info("  已啟用多核心運算，預期 CPU 使用率將會飆高")
         t_de_start = perf_counter()
         de_result = differential_evolution(
             penalty_obj, bounds=bounds, seed=42,
             maxiter=200, tol=1e-5, polish=False,
-            init="sobol", workers=1, popsize=20,
+            init="sobol", workers=-1, popsize=20,
         )
         de_global_s = perf_counter() - t_de_start
         x_de = de_result.x
