@@ -1860,26 +1860,57 @@ def _extract_results(prob: om.Problem) -> dict:
     def _get_scalar(name: str) -> float:
         return float(np.asarray(prob.get_val(name)).item())
 
-    nn = prob.model.struct.options["aircraft"].wing.n_stations
-    ne = nn - 1
-    rear_on = prob.model.struct.options["cfg"].rear_spar.enabled
+    struct_group = prob.model.struct
+    nn = struct_group.options["aircraft"].wing.n_stations
+    rear_on = struct_group.options["cfg"].rear_spar.enabled
+    case_names = tuple(getattr(struct_group, "_case_names", ("default",)))
+    multi_case = bool(getattr(struct_group, "_multi_case", False))
 
     res = {
         "spar_mass_half_kg": _get_scalar("struct.mass.spar_mass_half"),
         "spar_mass_full_kg": _get_scalar("struct.mass.spar_mass_full"),
         "total_mass_full_kg": _get_scalar("struct.mass.total_mass_full"),
-        "failure": _get_scalar("struct.failure.failure"),
-        "buckling_index": _get_scalar("struct.buckling.buckling_index"),
-        "twist_max_deg": _get_scalar("struct.twist.twist_max_deg"),
-        "disp": prob.get_val("struct.fem.disp").copy(),
-        "tip_deflection_m": _get_scalar("struct.tip_defl.tip_deflection_m"),
-        "vonmises_main": prob.get_val("struct.stress.vonmises_main").copy(),
+        "case_names": case_names,
         "main_t_seg": prob.get_val("struct.seg_mapper.main_t_seg").copy(),
         "main_r_seg": prob.get_val("struct.seg_mapper.main_r_seg").copy(),
     }
 
+    if multi_case:
+        case_results = {}
+        for case_name in case_names:
+            case_path = f"struct.case_{case_name}"
+            case_res = {
+                "failure": _get_scalar(f"{case_path}.failure"),
+                "buckling_index": _get_scalar(f"{case_path}.buckling_index"),
+                "twist_max_deg": _get_scalar(f"{case_path}.twist_max_deg"),
+                "tip_deflection_m": _get_scalar(f"{case_path}.tip_deflection_m"),
+                "disp": prob.get_val(f"{case_path}.disp").copy(),
+                "vonmises_main": prob.get_val(f"{case_path}.vonmises_main").copy(),
+            }
+            if rear_on:
+                case_res["vonmises_rear"] = prob.get_val(f"{case_path}.vonmises_rear").copy()
+            case_results[case_name] = case_res
+
+        res["cases"] = case_results
+        res["failure"] = max(case["failure"] for case in case_results.values())
+        res["buckling_index"] = max(case["buckling_index"] for case in case_results.values())
+        res["twist_max_deg"] = max(case["twist_max_deg"] for case in case_results.values())
+        res["tip_deflection_m"] = max(case["tip_deflection_m"] for case in case_results.values())
+        res["disp"] = None
+        res["vonmises_main"] = None
+        if rear_on:
+            res["vonmises_rear"] = None
+    else:
+        res["failure"] = _get_scalar("struct.failure.failure")
+        res["buckling_index"] = _get_scalar("struct.buckling.buckling_index")
+        res["twist_max_deg"] = _get_scalar("struct.twist.twist_max_deg")
+        res["disp"] = prob.get_val("struct.fem.disp").copy()
+        res["tip_deflection_m"] = _get_scalar("struct.tip_defl.tip_deflection_m")
+        res["vonmises_main"] = prob.get_val("struct.stress.vonmises_main").copy()
+        if rear_on:
+            res["vonmises_rear"] = prob.get_val("struct.stress.vonmises_rear").copy()
+
     if rear_on:
-        res["vonmises_rear"] = prob.get_val("struct.stress.vonmises_rear").copy()
         res["rear_t_seg"] = prob.get_val("struct.seg_mapper.rear_t_seg").copy()
         res["rear_r_seg"] = prob.get_val("struct.seg_mapper.rear_r_seg").copy()
 

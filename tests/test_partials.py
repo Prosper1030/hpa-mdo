@@ -9,14 +9,31 @@ from openmdao.utils.assert_utils import assert_check_totals
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.aero.load_mapper import LoadMapper
 from hpa_mdo.core.aircraft import Aircraft
-from hpa_mdo.core.config import load_config
+from hpa_mdo.core.config import LoadCaseConfig, load_config
 from hpa_mdo.core.materials import MaterialDB
 from hpa_mdo.structure.oas_structural import build_structural_problem
 
 
-def _build_structural_prob():
+def _build_structural_prob(*, multi_case: bool = False):
     repo_root = Path(__file__).resolve().parents[1]
     cfg = load_config(repo_root / "configs" / "blackcat_004.yaml")
+    if multi_case:
+        cfg.flight.cases = [
+            LoadCaseConfig(
+                name="cruise",
+                aero_scale=1.0,
+                nz=1.0,
+                velocity=cfg.flight.velocity,
+                air_density=cfg.flight.air_density,
+            ),
+            LoadCaseConfig(
+                name="pullup",
+                aero_scale=1.5,
+                nz=1.5,
+                velocity=cfg.flight.velocity,
+                air_density=cfg.flight.air_density,
+            ),
+        ]
 
     with patch.object(cfg.solver, "n_beam_nodes", 10):
         aircraft = Aircraft.from_config(cfg)
@@ -36,11 +53,17 @@ def _build_structural_prob():
             dynamic_pressure=0.5 * cfg.flight.air_density * cfg.flight.velocity**2,
         )
         mapped_loads = mapper.map_loads(fake_load, aircraft.wing.y)
+        aero_loads = mapped_loads
+        if multi_case:
+            aero_loads = {
+                "cruise": mapped_loads,
+                "pullup": LoadMapper.apply_load_factor(mapped_loads, 1.5),
+            }
 
         prob = build_structural_problem(
             cfg,
             aircraft,
-            mapped_loads,
+            aero_loads,
             mat_db,
             force_alloc_complex=True,
         )
@@ -64,6 +87,34 @@ def test_check_totals_full_structural_model():
             "struct.buckling.buckling_index",
             "struct.twist.twist_max_deg",
             "struct.tip_defl.tip_deflection_m",
+        ],
+        wrt=[
+            "struct.seg_mapper.main_t_seg",
+            "struct.seg_mapper.main_r_seg",
+            "struct.seg_mapper.rear_t_seg",
+            "struct.seg_mapper.rear_r_seg",
+        ],
+        method="cs",
+        out_stream=None,
+    )
+
+    assert_check_totals(totals, atol=1e-5, rtol=1e-5)
+
+
+def test_check_totals_multi_case_structural_model():
+    """Multi-case total derivatives should also match complex-step."""
+    prob = _build_structural_prob(multi_case=True)
+    totals = prob.check_totals(
+        of=[
+            "struct.mass.total_mass_full",
+            "struct.case_cruise.failure",
+            "struct.case_pullup.failure",
+            "struct.case_cruise.buckling_index",
+            "struct.case_pullup.buckling_index",
+            "struct.case_cruise.twist_max_deg",
+            "struct.case_pullup.twist_max_deg",
+            "struct.case_cruise.tip_deflection_m",
+            "struct.case_pullup.tip_deflection_m",
         ],
         wrt=[
             "struct.seg_mapper.main_t_seg",

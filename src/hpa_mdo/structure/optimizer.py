@@ -187,6 +187,7 @@ class OptimizationResult:
     main_r_seg_mm: np.ndarray      # main spar outer radius per segment [mm]
     rear_t_seg_mm: Optional[np.ndarray] = None
     rear_r_seg_mm: Optional[np.ndarray] = field(default=None, repr=False)  # rear spar OD [mm]
+    case_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
 
     # Full results
     disp: Optional[np.ndarray] = field(default=None, repr=False)
@@ -225,6 +226,14 @@ class OptimizationResult:
             f"  Buckling index : {self.buckling_index:.4f} "
             f"({'SAFE' if self.buckling_index <= 0 else 'VIOLATED'})"
         )
+        if self.case_metrics:
+            lines.append("  Load cases:")
+            for case_name, metrics in self.case_metrics.items():
+                defl_mm = metrics["tip_deflection_m"] * 1000.0
+                lines.append(
+                    f"    {case_name}: defl={defl_mm:.0f} mm, twist={metrics['twist_max_deg']:.2f}°, "
+                    f"failure={metrics['failure_index']:.4f}, buckling={metrics['buckling_index']:.4f}"
+                )
         lines.append("")
         lines.append("  Main spar segments:")
         for i, (t, r) in enumerate(zip(self.main_t_seg_mm, self.main_r_seg_mm)):
@@ -285,6 +294,11 @@ class SparOptimizer:
         self._prob = build_structural_problem(
             cfg, aircraft, aero_loads, materials_db)
 
+    def _has_multiple_load_cases(self) -> bool:
+        model = getattr(self._prob, "model", None)
+        struct = getattr(model, "struct", None)
+        return bool(getattr(struct, "_multi_case", False))
+
     def analyze(
         self,
         main_t_seg: Optional[np.ndarray] = None,
@@ -325,6 +339,8 @@ class SparOptimizer:
         elif method == "scipy":
             return self._optimize_scipy()
         else:  # auto
+            if self._has_multiple_load_cases():
+                return self._optimize_openmdao()
             try:
                 result = self._optimize_openmdao()
                 if result.success and result.failure_index <= 0.01 and result.buckling_index <= 0.01:
@@ -346,6 +362,11 @@ class SparOptimizer:
         Wraps the OpenMDAO model as a black-box function evaluator
         and uses scipy.optimize for the optimization loop.
         """
+        if self._has_multiple_load_cases():
+            raise NotImplementedError(
+                "SciPy multi-load-case optimization is not supported; use method='openmdao'."
+            )
+
         cfg = self.cfg
         n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
         rear_on = cfg.rear_spar.enabled
@@ -526,8 +547,36 @@ class SparOptimizer:
         sigma_a_main = mat_main.tensile_strength / cfg.safety.material_safety_factor
         sigma_a_rear = mat_rear.tensile_strength / cfg.safety.material_safety_factor
 
-        vm_main = raw.get("vonmises_main", np.array([0.0]))
-        vm_rear = raw.get("vonmises_rear", np.array([0.0]))
+        case_metrics: dict[str, dict[str, float]] = {}
+        if raw.get("cases"):
+            case_outputs = raw["cases"]
+            for case_name, case_raw in case_outputs.items():
+                vm_main_case = case_raw.get("vonmises_main")
+                vm_rear_case = case_raw.get("vonmises_rear")
+                case_metrics[case_name] = {
+                    "failure_index": float(case_raw["failure"]),
+                    "buckling_index": float(case_raw["buckling_index"]),
+                    "tip_deflection_m": float(case_raw["tip_deflection_m"]),
+                    "twist_max_deg": float(case_raw["twist_max_deg"]),
+                    "max_stress_main_Pa": (
+                        float(np.max(vm_main_case)) if vm_main_case is not None and len(vm_main_case) > 0 else 0.0
+                    ),
+                    "max_stress_rear_Pa": (
+                        float(np.max(vm_rear_case)) if vm_rear_case is not None and len(vm_rear_case) > 0 else 0.0
+                    ),
+                }
+
+            max_stress_main = max(m["max_stress_main_Pa"] for m in case_metrics.values())
+            max_stress_rear = max(m["max_stress_rear_Pa"] for m in case_metrics.values())
+            vm_main = None
+            vm_rear = None
+            disp = None
+        else:
+            vm_main = raw.get("vonmises_main", np.array([0.0]))
+            vm_rear = raw.get("vonmises_rear", np.array([0.0]))
+            max_stress_main = float(np.max(vm_main)) if len(vm_main) > 0 else 0.0
+            max_stress_rear = float(np.max(vm_rear)) if len(vm_rear) > 0 else 0.0
+            disp = raw.get("disp")
 
         return OptimizationResult(
             success=success,
@@ -535,8 +584,8 @@ class SparOptimizer:
             spar_mass_half_kg=raw["spar_mass_half_kg"],
             spar_mass_full_kg=raw["spar_mass_full_kg"],
             total_mass_full_kg=raw["total_mass_full_kg"],
-            max_stress_main_Pa=float(np.max(vm_main)) if len(vm_main) > 0 else 0.0,
-            max_stress_rear_Pa=float(np.max(vm_rear)) if len(vm_rear) > 0 else 0.0,
+            max_stress_main_Pa=max_stress_main,
+            max_stress_rear_Pa=max_stress_rear,
             allowable_stress_main_Pa=sigma_a_main,
             allowable_stress_rear_Pa=sigma_a_rear,
             failure_index=raw["failure"],
@@ -544,12 +593,13 @@ class SparOptimizer:
             tip_deflection_m=raw["tip_deflection_m"],
             max_tip_deflection_m=cfg.wing.max_tip_deflection_m,
             twist_max_deg=raw["twist_max_deg"],
+            case_metrics=case_metrics,
             main_t_seg_mm=raw["main_t_seg"] * 1000.0,
             main_r_seg_mm=raw["main_r_seg"] * 1000.0,
             rear_t_seg_mm=raw["rear_t_seg"] * 1000.0 if raw.get("rear_t_seg") is not None else None,
             rear_r_seg_mm=raw["rear_r_seg"] * 1000.0 if raw.get("rear_r_seg") is not None else None,
-            disp=raw.get("disp"),
+            disp=disp,
             vonmises_main=vm_main,
-            vonmises_rear=vm_rear if len(vm_rear) > 0 else None,
+            vonmises_rear=vm_rear if vm_rear is not None and len(vm_rear) > 0 else None,
             timing_s=timing_s or {},
         )
