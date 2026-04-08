@@ -1,13 +1,14 @@
 # HPA-MDO 專案 Review 與優化清單
 
-> 產出日期：2026-04-07｜最後更新：2026-04-08（buckling silent failure 補強完成）
+> 產出日期：2026-04-07｜最後更新：2026-04-08（P3#13 解析偏導完成）
 > 基於完整原始碼靜態分析
 
 ## 整體評價
 
 架構乾淨、config 管理嚴謹、安全係數分離正確、跨平台 path 處理良好。
-**目前 49 個測試全部通過，P0–P3、P5–P6、P4#15–16 已完成。**
+**目前 52 個測試全部通過，P0–P3、P5–P6、P4#15–16 已完成。**
 所有 Finding 1/2/3 物理 bug 已修正，屈曲約束已上線並強制執行於所有優化路徑。
+`DualSparPropertiesComp` 已改為解析對角稀疏 Jacobian。
 
 **Active constraint 分析（端到端驗證 14.3579 kg）**：
 - `tip_deflection` : 96.4% budget（**唯一綁定約束**）
@@ -25,7 +26,7 @@
 | P0 必修缺陷 | ✅ 完成 | FSI修復、移除硬編碼、輸入驗證、動態段數 |
 | P1 測試補強 | ✅ 完成 | 46 tests passing |
 | P2 可觀測性 | ✅ 完成 | logging、errors.py、API error_code |
-| P3 效能優化 | ✅ 部分 | VSPAero cache、計時器（解析導數待做） |
+| P3 效能優化 | ✅ 完成 | VSPAero cache、計時器、解析偏導（P3#13） |
 | P4 功能擴展 | 🔄 進行中 | 可變段數 ✅、殼體屈曲 ✅、多工況 ⬜、surrogate ⬜ |
 | P5 DevOps | ✅ 完成 | CI、pre-commit、CLI argparse |
 | P6 Quick wins | ✅ 完成 | MaterialDB、__init__、spar.py、README |
@@ -83,10 +84,13 @@
 - mtime-based LRU cache，第二次 parse < 1ms ✅
 - `test_vspaero_cache.py` ✅
 
-### 13. `DualSparPropertiesComp` 解析導數 ⬜ 待做
-- **高優先**：目前用 complex-step，比 analytic 慢 10x
-- 需手寫平行軸定理的 compute_partials()
-- 完成後跑 check_partials 驗證
+### 13. `DualSparPropertiesComp` 解析導數 ✅
+- 對角稀疏 Jacobian（rows=cols=arange(ne)）
+- 用 reduced-mass form 推導 EI_flap / GJ 偏導，避開顯式 z_na 代換
+- `tests/test_spar_properties_partials.py` 三個測試（check_partials cs / 對角 sparsity / 數值正確性）✅
+- Commits: `fe41ee9`（程式邏輯）、`729068f`（測試）
+- **DE 段沒有加速**（實測 +4.3%，屬量測雜訊）：DE 是 gradient-free，不呼叫 compute_partials
+- SLSQP 段預期會明顯變快（待補驗證腳本，見 `verify_slsqp_speedup.md`）
 
 ### 14. 兩階段計時 ✅
 - `OptimizationResult.timing_s` dict ✅
@@ -200,6 +204,21 @@
 | `oas_structural.py:425` | `Iz_e = Iy[e]` 對稱管近似（Finding 4），HPA 可接受 | 低（保留） |
 | `oas_structural.py:440` | DE 邊界 `K_elem_global = T.T @ K_local @ T` divide-by-zero RuntimeWarning | 低（DE 探索退化設計，不影響收斂） |
 | `test_api_server.py` slow tests | 在 Mac Mini 環境耗時 5+ 分鐘 | 低（用 `-m 'not slow'` 規避） |
+
+---
+
+## 下一階段待辦（依優先序）
+
+| # | 任務 | 對應 prompt 檔 | 預計工時 |
+|---|------|----------------|---------|
+| A | **P3#13 SLSQP 加速驗證**（read-only 量測） | `verify_slsqp_speedup.md` | 30 min |
+| B | **P1#7 OpenMDAO check_partials 全面測試** | `openmdao_check_partials_test.md` | 1 h |
+| C | **P4#17 多工況優化**（巡航 + 陣風 + 急轉） | `multi_load_case_optimization.md` | 4 h |
+| D | **P4#18 Surrogate warm start**（GP / XGBoost） | `surrogate_model_warm_start.md` | 6 h |
+| E | **P5#22 範例輸出快照** | `example_output_snapshots.md` | 30 min |
+
+所有 prompt 檔皆位於 `docs/codex_prompts/`，採「自包含」格式：所需公式、檔案路徑、
+驗收標準全部寫死，Codex 不需要先自己 grep。
 
 ---
 
