@@ -47,3 +47,4 @@ configs/local_paths.yaml
 run_optimization_out/
 uv.lock
 pytest_out/
+__main__*_out/
