@@ -33,6 +33,12 @@ def _rotation_matrix(node_i: np.ndarray, node_j: np.ndarray) -> np.ndarray:
     return np.array([e1, e2, e3], dtype=dx.dtype)
 
 
+def _tube_area(R: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """Thin-walled circular tube area (outer radius R, wall thickness t)."""
+    r = R - t
+    return np.pi * (R**2 - r**2)
+
+
 class BucklingComp(om.ExplicitComponent):
     """Shell local buckling constraint for thin-walled circular CF tubes.
 
@@ -51,6 +57,8 @@ class BucklingComp(om.ExplicitComponent):
         self.options.declare("E_main", types=float)
         self.options.declare("E_rear", types=float)
         self.options.declare("rear_enabled", types=bool, default=True)
+        self.options.declare("z_main", default=None, allow_none=True)
+        self.options.declare("z_rear", default=None, allow_none=True)
         self.options.declare("knockdown_factor", types=float, default=0.65)
         self.options.declare("bending_enhancement", types=float, default=1.3)
         self.options.declare("ks_rho", types=float, default=50.0)
@@ -85,6 +93,10 @@ class BucklingComp(om.ExplicitComponent):
         nodes = inputs["nodes"]
         R_main = inputs["main_r_elem"]
         t_main = inputs["main_t_elem"]
+        z_main = self.options["z_main"]
+        if z_main is None:
+            z_main = np.zeros(ne)
+        z_main = np.asarray(z_main)
 
         kappa_mag = np.zeros(ne, dtype=disp.dtype)
         for e in range(ne):
@@ -103,18 +115,37 @@ class BucklingComp(om.ExplicitComponent):
         coef = SHELL_BUCKLING_CLASSICAL_FACTOR * gamma * beta
         abs_kappa = kappa_mag
 
-        sigma_bend_main = E_main * R_main * abs_kappa
+        if self.options["rear_enabled"]:
+            E_rear = self.options["E_rear"]
+            R_rear = inputs["rear_r_elem"]
+            t_rear = inputs["rear_t_elem"]
+            z_rear = self.options["z_rear"]
+            if z_rear is None:
+                z_rear = np.zeros(ne)
+            z_rear = np.asarray(z_rear)
+
+            A_main = _tube_area(R_main, t_main)
+            A_rear = _tube_area(R_rear, t_rear)
+            denom = E_main * A_main + E_rear * A_rear + 1e-30
+            z_na = (E_main * A_main * z_main + E_rear * A_rear * z_rear) / denom
+            dz_main = z_main - z_na
+            dz_rear = z_rear - z_na
+            dz_main_abs = np.sqrt(dz_main**2 + 1e-30)
+            dz_rear_abs = np.sqrt(dz_rear**2 + 1e-30)
+        else:
+            R_rear = None
+            t_rear = None
+            dz_main_abs = np.zeros(ne, dtype=disp.dtype)
+            dz_rear_abs = None
+
+        sigma_bend_main = E_main * (R_main + dz_main_abs) * abs_kappa
         sigma_cr_main = coef * E_main * t_main / (R_main + 1e-30)
         ratio_main = sigma_bend_main / (sigma_cr_main + 1e-30)
 
         ratios = [ratio_main]
 
         if self.options["rear_enabled"]:
-            E_rear = self.options["E_rear"]
-            R_rear = inputs["rear_r_elem"]
-            t_rear = inputs["rear_t_elem"]
-
-            sigma_bend_rear = E_rear * R_rear * abs_kappa
+            sigma_bend_rear = E_rear * (R_rear + dz_rear_abs) * abs_kappa
             sigma_cr_rear = coef * E_rear * t_rear / (R_rear + 1e-30)
             ratio_rear = sigma_bend_rear / (sigma_cr_rear + 1e-30)
             ratios.append(ratio_rear)

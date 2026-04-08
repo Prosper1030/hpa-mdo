@@ -6,7 +6,18 @@ import openmdao.api as om
 from hpa_mdo.structure.buckling import BucklingComp
 
 
-def _build_prob(nn: int = 5, rear: bool = True) -> om.Problem:
+def _build_prob(
+    nn: int = 5,
+    rear: bool = True,
+    z_main: np.ndarray | None = None,
+    z_rear: np.ndarray | None = None,
+) -> om.Problem:
+    ne = nn - 1
+    if z_main is None:
+        z_main = np.zeros(ne)
+    if z_rear is None:
+        z_rear = np.zeros(ne)
+
     prob = om.Problem()
     prob.model.add_subsystem(
         "buckling",
@@ -15,6 +26,8 @@ def _build_prob(nn: int = 5, rear: bool = True) -> om.Problem:
             E_main=240e9,
             E_rear=240e9,
             rear_enabled=rear,
+            z_main=np.asarray(z_main),
+            z_rear=np.asarray(z_rear),
             knockdown_factor=0.65,
             bending_enhancement=1.3,
         ),
@@ -121,6 +134,39 @@ def test_buckling_scales_with_bending_enhancement():
     bi_low = _run(1.0)
     bi_high = _run(1.5)
     assert bi_high < bi_low
+
+
+def test_parallel_axis_offset_increases_buckling_demand():
+    """Non-zero main/rear Z offsets should increase buckling demand."""
+    nn = 5
+    ne = nn - 1
+
+    prob_no_offset = _build_prob(
+        nn=nn,
+        rear=True,
+        z_main=np.zeros(ne),
+        z_rear=np.zeros(ne),
+    )
+    prob_with_offset = _build_prob(
+        nn=nn,
+        rear=True,
+        z_main=np.full(ne, 0.04),
+        z_rear=np.zeros(ne),
+    )
+
+    for prob in (prob_no_offset, prob_with_offset):
+        prob["disp"] = np.zeros((nn, 6))
+        prob["disp"][:, 3] = np.linspace(0.0, 0.02, nn)
+        prob["nodes"] = np.column_stack(
+            [np.zeros(nn), np.linspace(0.0, 4.0, nn), np.zeros(nn)]
+        )
+        prob["main_r_elem"] = np.full(ne, 0.04)
+        prob["main_t_elem"] = np.full(ne, 0.001)
+        prob["rear_r_elem"] = np.full(ne, 0.04)
+        prob["rear_t_elem"] = np.full(ne, 0.001)
+        prob.run_model()
+
+    assert _get_scalar(prob_with_offset, "buckling_index") > _get_scalar(prob_no_offset, "buckling_index")
 
 
 def test_buckling_ignores_pure_torsion_about_local_axis():

@@ -868,7 +868,7 @@ class VonMisesStressComp(om.ExplicitComponent):
     """Compute von Mises stress in each spar at each element.
 
     For beam elements, the max stress occurs at the tube surface:
-        σ_bending = M * R / I = E * κ * R
+        σ_bending = E * κ * (R + |d_z|)  (dual-spar equivalent-beam recovery)
         τ_torsion = T * R / J = G * γ * R
         σ_vm = sqrt(σ² + 3τ²)
 
@@ -881,6 +881,8 @@ class VonMisesStressComp(om.ExplicitComponent):
         self.options.declare("E_rear", types=float)
         self.options.declare("G_main", types=float)
         self.options.declare("G_rear", types=float)
+        self.options.declare("z_main", default=None, allow_none=True)
+        self.options.declare("z_rear", default=None, allow_none=True)
         self.options.declare("rear_enabled", types=bool, default=True)
 
     def setup(self):
@@ -890,6 +892,7 @@ class VonMisesStressComp(om.ExplicitComponent):
         self.add_input("disp", shape=(nn, 6))
         self.add_input("nodes", shape=(nn, 3), units="m")
         self.add_input("R_main_elem", shape=(ne,), units="m")
+        self.add_input("main_t_elem", shape=(ne,), units="m")
         self.add_input("I_main", shape=(ne,), units="m**4")
         self.add_input("EI_flap", shape=(ne,), units="N*m**2")
         self.add_input("GJ", shape=(ne,), units="N*m**2")
@@ -898,6 +901,7 @@ class VonMisesStressComp(om.ExplicitComponent):
 
         if self.options["rear_enabled"]:
             self.add_input("R_rear_elem", shape=(ne,), units="m")
+            self.add_input("rear_t_elem", shape=(ne,), units="m")
             self.add_input("I_rear", shape=(ne,), units="m**4")
             self.add_output("vonmises_rear", shape=(ne,), units="Pa")
 
@@ -919,7 +923,11 @@ class VonMisesStressComp(om.ExplicitComponent):
             cols=self._disp_partial_cols,
             method="cs",
         )
-        self.declare_partials("vonmises_main", ["nodes", "R_main_elem", "I_main", "EI_flap", "GJ"], method="cs")
+        self.declare_partials(
+            "vonmises_main",
+            ["nodes", "R_main_elem", "main_t_elem", "I_main", "EI_flap", "GJ"],
+            method="cs",
+        )
         if self.options["rear_enabled"]:
             self.declare_partials(
                 "vonmises_rear",
@@ -928,7 +936,11 @@ class VonMisesStressComp(om.ExplicitComponent):
                 cols=self._disp_partial_cols,
                 method="cs",
             )
-            self.declare_partials("vonmises_rear", ["nodes", "R_rear_elem", "I_rear"], method="cs")
+            self.declare_partials(
+                "vonmises_rear",
+                ["nodes", "R_rear_elem", "rear_t_elem", "I_rear"],
+                method="cs",
+            )
 
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
@@ -939,11 +951,36 @@ class VonMisesStressComp(om.ExplicitComponent):
         disp = inputs["disp"]
         nodes = inputs["nodes"]
         R_m = inputs["R_main_elem"]
+        t_m = inputs["main_t_elem"]
+        z_m = self.options["z_main"]
+        if z_m is None:
+            z_m = np.zeros(ne)
+        z_m = np.asarray(z_m)
 
         # Complex-step compatible: use du**2 instead of abs(du)
         sigma_vm_main = np.zeros(ne, dtype=disp.dtype)
         kappa2_elem = np.zeros(ne, dtype=disp.dtype)
         gamma2_elem = np.zeros(ne, dtype=disp.dtype)
+
+        if self.options["rear_enabled"]:
+            E_r = self.options["E_rear"]
+            R_r = inputs["R_rear_elem"]
+            t_r = inputs["rear_t_elem"]
+            z_r = self.options["z_rear"]
+            if z_r is None:
+                z_r = np.zeros(ne)
+            z_r = np.asarray(z_r)
+
+            A_m = tube_area(R_m, t_m)
+            A_r = tube_area(R_r, t_r)
+            denom = E_m * A_m + E_r * A_r + 1e-30
+            z_na = (E_m * A_m * z_m + E_r * A_r * z_r) / denom
+            dz_main_abs = np.sqrt((z_m - z_na) ** 2 + 1e-30)
+            dz_rear_abs = np.sqrt((z_r - z_na) ** 2 + 1e-30)
+        else:
+            R_r = None
+            dz_main_abs = np.zeros(ne, dtype=disp.dtype)
+            dz_rear_abs = None
 
         for e in range(ne):
             dx = nodes[e+1] - nodes[e]
@@ -962,8 +999,9 @@ class VonMisesStressComp(om.ExplicitComponent):
             kappa2_elem[e] = kappa2
             gamma2_elem[e] = gamma2
 
-            # Main spar bending stress: σ = E * κ * R
-            sigma_bend2 = (E_m * R_m[e]) ** 2 * kappa2
+            # Main spar bending stress with parallel-axis axial component:
+            #   σ = E * κ * (R + |d_z|)
+            sigma_bend2 = (E_m * (R_m[e] + dz_main_abs[e])) ** 2 * kappa2
 
             # Torsion shear stress: τ = G * γ * R
             tau2 = (G_m * R_m[e]) ** 2 * gamma2
@@ -974,16 +1012,14 @@ class VonMisesStressComp(om.ExplicitComponent):
         outputs["vonmises_main"] = sigma_vm_main
 
         if self.options["rear_enabled"]:
-            E_r = self.options["E_rear"]
             G_r = self.options["G_rear"]
-            R_r = inputs["R_rear_elem"]
 
             sigma_vm_rear = np.zeros(ne, dtype=disp.dtype)
             for e in range(ne):
                 kappa2 = kappa2_elem[e]
                 gamma2 = gamma2_elem[e]
 
-                sigma_bend2 = (E_r * R_r[e]) ** 2 * kappa2
+                sigma_bend2 = (E_r * (R_r[e] + dz_rear_abs[e])) ** 2 * kappa2
                 tau2 = (G_r * R_r[e]) ** 2 * gamma2
                 sigma_vm_rear[e] = np.sqrt(sigma_bend2 + 3.0 * tau2 + 1e-30)
 
@@ -1245,6 +1281,8 @@ class StructuralLoadCaseGroup(om.Group):
         self.options.declare("E_rear", types=float)
         self.options.declare("G_main", types=float)
         self.options.declare("G_rear", types=float)
+        self.options.declare("z_main", types=np.ndarray)
+        self.options.declare("z_rear", types=np.ndarray)
         self.options.declare("sigma_allow_main", types=float)
         self.options.declare("sigma_allow_rear", types=float)
         self.options.declare("rear_enabled", types=bool, default=True)
@@ -1298,9 +1336,9 @@ class StructuralLoadCaseGroup(om.Group):
         )
         self.connect("loads", "fem.loads")
 
-        stress_inputs = ["disp", "nodes", "R_main_elem", "I_main", "EI_flap", "GJ"]
+        stress_inputs = ["disp", "nodes", "R_main_elem", "main_t_elem", "I_main", "EI_flap", "GJ"]
         if rear_on:
-            stress_inputs.extend(["R_rear_elem", "I_rear"])
+            stress_inputs.extend(["R_rear_elem", "rear_t_elem", "I_rear"])
 
         stress_outputs = ["vonmises_main"]
         if rear_on:
@@ -1314,6 +1352,8 @@ class StructuralLoadCaseGroup(om.Group):
                 E_rear=self.options["E_rear"],
                 G_main=self.options["G_main"],
                 G_rear=self.options["G_rear"],
+                z_main=self.options["z_main"],
+                z_rear=self.options["z_rear"],
                 rear_enabled=rear_on,
             ),
             promotes_inputs=stress_inputs,
@@ -1330,6 +1370,8 @@ class StructuralLoadCaseGroup(om.Group):
                 n_nodes=nn,
                 E_main=self.options["E_main"],
                 E_rear=self.options["E_rear"] if rear_on else 0.0,
+                z_main=self.options["z_main"],
+                z_rear=self.options["z_rear"],
                 rear_enabled=rear_on,
                 knockdown_factor=self.options["shell_buckling_knockdown"],
                 bending_enhancement=self.options["shell_buckling_bending_enhancement"],
@@ -1552,6 +1594,8 @@ class HPAStructuralGroup(om.Group):
                 E_rear=mat_rear.E,
                 G_main=mat_main.G,
                 G_rear=mat_rear.G,
+                z_main=z_main_elem,
+                z_rear=z_rear_elem,
                 rear_enabled=rear_on,
             ))
 
@@ -1560,6 +1604,8 @@ class HPAStructuralGroup(om.Group):
                 n_nodes=nn,
                 E_main=mat_main.E,
                 E_rear=mat_rear.E if rear_on else 0.0,
+                z_main=z_main_elem,
+                z_rear=z_rear_elem,
                 rear_enabled=rear_on,
                 knockdown_factor=cfg.safety.shell_buckling_knockdown,
                 bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
@@ -1604,6 +1650,8 @@ class HPAStructuralGroup(om.Group):
                         E_rear=mat_rear.E,
                         G_main=mat_main.G,
                         G_rear=mat_rear.G,
+                        z_main=z_main_elem,
+                        z_rear=z_rear_elem,
                         sigma_allow_main=sigma_allow_main,
                         sigma_allow_rear=sigma_allow_rear,
                         rear_enabled=rear_on,
@@ -1642,11 +1690,13 @@ class HPAStructuralGroup(om.Group):
             self.connect("fem.disp", "stress.disp")
             self.connect("indeps.nodes", "stress.nodes")
             self.connect("seg_mapper.main_r_elem", "stress.R_main_elem")
+            self.connect("seg_mapper.main_t_elem", "stress.main_t_elem")
             self.connect("spar_props.I_main", "stress.I_main")
             self.connect("spar_props.EI_flap", "stress.EI_flap")
             self.connect("spar_props.GJ", "stress.GJ")
             if rear_on:
                 self.connect("seg_mapper.rear_r_elem", "stress.R_rear_elem")
+                self.connect("seg_mapper.rear_t_elem", "stress.rear_t_elem")
                 self.connect("spar_props.I_rear", "stress.I_rear")
 
             self.connect("fem.disp", "buckling.disp")
