@@ -743,6 +743,7 @@ class TwistConstraintComp(om.ExplicitComponent):
 
     def initialize(self):
         self.options.declare("n_nodes", types=int)
+        self.options.declare("ks_rho", types=float, default=100.0)
 
     def setup(self):
         nn = self.options["n_nodes"]
@@ -757,9 +758,9 @@ class TwistConstraintComp(om.ExplicitComponent):
         # KS aggregation for max |θ| across all nodes (CS-safe)
         theta_abs_sq = theta_twist ** 2 + 1e-30  # [nn]
         theta_abs = np.sqrt(theta_abs_sq)  # [nn], strictly positive
-        # KS smooth-max with rho=100 (dimensionless scaling avoids
-        # node-count-dependent offset when absolute twists are very small).
-        rho = 100.0
+        # KS smooth-max (dimensionless scaling avoids node-count-dependent
+        # offset when absolute twists are very small).
+        rho = self.options["ks_rho"]
         theta_scale = np.real(theta_abs).max() + 1e-12
         theta_nd = theta_abs / theta_scale
         theta_max_ks_nd = (1.0 / rho) * np.log(np.sum(np.exp(rho * theta_nd)))
@@ -969,6 +970,7 @@ class HPAStructuralGroup(om.Group):
             rear_enabled=rear_on,
             knockdown_factor=cfg.safety.shell_buckling_knockdown,
             bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
+            ks_rho=cfg.safety.ks_rho_buckling,
         ))
 
         # 7. KS failure
@@ -977,6 +979,7 @@ class HPAStructuralGroup(om.Group):
             sigma_allow_main=sigma_allow_main,
             sigma_allow_rear=sigma_allow_rear,
             rear_enabled=rear_on,
+            rho_ks=cfg.safety.ks_rho_stress,
         ))
 
         # 8. Structural mass
@@ -987,7 +990,10 @@ class HPAStructuralGroup(om.Group):
         ))
 
         # 9. Twist constraint
-        self.add_subsystem("twist", TwistConstraintComp(n_nodes=nn))
+        self.add_subsystem(
+            "twist",
+            TwistConstraintComp(n_nodes=nn, ks_rho=cfg.safety.ks_rho_twist),
+        )
 
         # 10. Tip deflection constraint
         self.add_subsystem("tip_defl", TipDeflectionConstraintComp(n_nodes=nn))

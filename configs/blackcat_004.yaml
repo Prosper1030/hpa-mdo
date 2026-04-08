@@ -22,6 +22,9 @@ flight:
 safety:
   aerodynamic_load_factor: 2.0   # design limit load [G]
   material_safety_factor: 1.5    # applied to material ultimate strength
+  ks_rho_stress: 100.0
+  ks_rho_buckling: 50.0
+  ks_rho_twist: 100.0
   shell_buckling_knockdown: 0.65
   shell_buckling_bending_enhancement: 1.3
 

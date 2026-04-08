@@ -31,6 +31,15 @@ class FlightConfig(BaseModel):
 class SafetyConfig(BaseModel):
     aerodynamic_load_factor: float = Field(2.0, description="Limit load [G]")
     material_safety_factor: float = Field(1.5, description="Knock-down on UTS")
+    ks_rho_stress: float = Field(
+        100.0, description="KS aggregation sharpness for stress constraint"
+    )
+    ks_rho_buckling: float = Field(
+        50.0, description="KS aggregation sharpness for buckling constraint"
+    )
+    ks_rho_twist: float = Field(
+        100.0, description="KS aggregation sharpness for twist constraint"
+    )
     shell_buckling_knockdown: float = Field(
         default=0.65,
         description="NASA SP-8007 knockdown factor for CF tube shell buckling",
