@@ -34,6 +34,8 @@ Usage
 """
 from __future__ import annotations
 
+import multiprocessing as mp
+import os
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Optional
@@ -51,6 +53,111 @@ from hpa_mdo.structure.oas_structural import (
 )
 
 logger = get_logger(__name__)
+
+_DE_EVALUATOR = None
+
+
+class _ScipyBlackBoxEvaluator:
+    """Evaluate the structural problem for SciPy black-box optimization."""
+
+    def __init__(
+        self,
+        prob,
+        n_seg: int,
+        rear_on: bool,
+        max_twist: float,
+        max_defl: float,
+    ):
+        self.prob = prob
+        self.n_seg = n_seg
+        self.rear_on = rear_on
+        self.max_twist = max_twist
+        self.max_defl = max_defl
+        self._cache = {}
+
+    def clear_cache(self) -> None:
+        self._cache.clear()
+
+    def _get_scalar(self, name: str) -> float:
+        return float(np.asarray(self.prob.get_val(name)).item())
+
+    def evaluate(self, x):
+        x_arr = np.asarray(x, dtype=float)
+        key = tuple(np.round(x_arr, 8))
+        if key in self._cache:
+            return self._cache[key]
+
+        n_seg = self.n_seg
+        self.prob.set_val("struct.seg_mapper.main_t_seg", x_arr[:n_seg], units="m")
+        self.prob.set_val("struct.seg_mapper.main_r_seg", x_arr[n_seg:2 * n_seg], units="m")
+        if self.rear_on:
+            self.prob.set_val(
+                "struct.seg_mapper.rear_t_seg", x_arr[2 * n_seg:3 * n_seg], units="m"
+            )
+            self.prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg:], units="m")
+
+        run_analysis(self.prob)
+        res = {
+            "mass": self._get_scalar("struct.mass.total_mass_full"),
+            "failure": self._get_scalar("struct.failure.failure"),
+            "twist": self._get_scalar("struct.twist.twist_max_deg"),
+            "tip_defl": self._get_scalar("struct.tip_defl.tip_deflection_m"),
+            "buckling": self._get_scalar("struct.buckling.buckling_index"),
+        }
+        self._cache[key] = res
+        return res
+
+    def penalty(self, x):
+        r = self.evaluate(x)
+        penalty = 0.0
+        if r["failure"] > 0:
+            penalty += 500.0 * (1.0 + r["failure"]) ** 2
+        if r["twist"] > self.max_twist:
+            excess = (r["twist"] - self.max_twist) / self.max_twist
+            penalty += 1000.0 * excess ** 2
+        if r["buckling"] > 0:
+            penalty += 800.0 * (1.0 + r["buckling"]) ** 2
+        if self.max_defl < float("inf") and r["tip_defl"] > self.max_defl:
+            excess_defl = (r["tip_defl"] - self.max_defl) / self.max_defl
+            penalty += 1000.0 * excess_defl ** 2
+
+        n_seg = self.n_seg
+        x_arr = np.asarray(x, dtype=float)
+        x_main_t = x_arr[:n_seg]
+        x_main_r = x_arr[n_seg:2 * n_seg]
+        t_r_ratio_main = x_main_t / (x_main_r + 1e-10) - 0.95
+        if np.any(t_r_ratio_main > 0):
+            penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_main, 0.0) ** 2))
+
+        if self.rear_on:
+            x_rear_t = x_arr[2 * n_seg:3 * n_seg]
+            x_rear_r = x_arr[3 * n_seg:]
+            t_r_ratio_rear = x_rear_t / (x_rear_r + 1e-10) - 0.95
+            if np.any(t_r_ratio_rear > 0):
+                penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_rear, 0.0) ** 2))
+
+        return r["mass"] * (1.0 + penalty)
+
+
+def _de_penalty_worker(x):
+    if _DE_EVALUATOR is None:
+        raise RuntimeError("DE evaluator was not initialized before worker dispatch.")
+    return _DE_EVALUATOR.penalty(x)
+
+
+class _ForkPoolMap:
+    """Map-like wrapper for SciPy DE using a forked multiprocessing pool."""
+
+    def __init__(self, processes: int):
+        self._ctx = mp.get_context("fork")
+        self._pool = self._ctx.Pool(processes=processes)
+
+    def __call__(self, func, iterable):
+        return self._pool.map(func, iterable)
+
+    def close(self) -> None:
+        self._pool.close()
+        self._pool.join()
 
 
 @dataclass
@@ -243,7 +350,6 @@ class SparOptimizer:
         n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
         rear_on = cfg.rear_spar.enabled
         # DV layout: [main_t_seg..., main_r_seg..., rear_t_seg..., rear_r_seg...]
-        n_dv = n_seg * (4 if rear_on else 2)
         min_t_main = cfg.main_spar.min_wall_thickness
         min_t_rear = cfg.rear_spar.min_wall_thickness if rear_on else min_t_main
         max_t = 0.012  # 12 mm
@@ -258,81 +364,48 @@ class SparOptimizer:
         max_defl = cfg.wing.max_tip_deflection_m if cfg.wing.max_tip_deflection_m is not None else float("inf")
         t_total_start = perf_counter()
 
-        # Evaluation cache
-        _cache = {}
-
-        def _get_scalar(name: str) -> float:
-            return float(np.asarray(self._prob.get_val(name)).item())
-
-        def _eval(x):
-            key = tuple(np.round(x, 8))
-            if key in _cache:
-                return _cache[key]
-            x_main_t = x[:n_seg]
-            x_main_r = x[n_seg:2*n_seg]
-            self._prob.set_val("struct.seg_mapper.main_t_seg", x_main_t, units="m")
-            self._prob.set_val("struct.seg_mapper.main_r_seg", x_main_r, units="m")
-            if rear_on:
-                x_rear_t = x[2*n_seg:3*n_seg]
-                x_rear_r = x[3*n_seg:]
-                self._prob.set_val("struct.seg_mapper.rear_t_seg", x_rear_t, units="m")
-                self._prob.set_val("struct.seg_mapper.rear_r_seg", x_rear_r, units="m")
-            run_analysis(self._prob)
-            res = {
-                "mass": _get_scalar("struct.mass.total_mass_full"),
-                "failure": _get_scalar("struct.failure.failure"),
-                "twist": _get_scalar("struct.twist.twist_max_deg"),
-                "tip_defl": _get_scalar("struct.tip_defl.tip_deflection_m"),
-                "buckling": _get_scalar("struct.buckling.buckling_index"),
-            }
-            _cache[key] = res
-            return res
+        evaluator = _ScipyBlackBoxEvaluator(
+            self._prob,
+            n_seg=n_seg,
+            rear_on=rear_on,
+            max_twist=max_twist,
+            max_defl=max_defl,
+        )
 
         # ── Phase 1: Global search with differential evolution ──
         logger.info("  [Phase 1] Differential Evolution global search...")
 
-        def penalty_obj(x):
-            r = _eval(x)
-            penalty = 0.0
-            # Stress violation — strong quadratic penalty
-            if r["failure"] > 0:
-                penalty += 500.0 * (1.0 + r["failure"]) ** 2
-            # Twist violation — very strong penalty (this is the binding constraint)
-            if r["twist"] > max_twist:
-                excess = (r["twist"] - max_twist) / max_twist
-                penalty += 1000.0 * excess ** 2
-            # Buckling violation — strong penalty (latent silent failure if missed)
-            if r["buckling"] > 0:
-                penalty += 800.0 * (1.0 + r["buckling"]) ** 2
-            # Deflection violation
-            if max_defl < float("inf") and r["tip_defl"] > max_defl:
-                excess_defl = (r["tip_defl"] - max_defl) / max_defl
-                penalty += 1000.0 * excess_defl ** 2
-            # Physically impossible tube: wall thickness > 95% of radius
-            x_main_t = x[:n_seg]
-            x_main_r = x[n_seg:2*n_seg]
-            t_r_ratio_main = x_main_t / (x_main_r + 1e-10) - 0.95
-            if np.any(t_r_ratio_main > 0):
-                penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_main, 0.0) ** 2))
-            if rear_on:
-                x_rear_t = x[2*n_seg:3*n_seg]
-                x_rear_r = x[3*n_seg:]
-                t_r_ratio_rear = x_rear_t / (x_rear_r + 1e-10) - 0.95
-                if np.any(t_r_ratio_rear > 0):
-                    penalty += 200.0 * float(np.sum(np.maximum(t_r_ratio_rear, 0.0) ** 2))
-            return r["mass"] * (1.0 + penalty)
-
         logger.info("  [Phase 1] Differential Evolution global search...")
         logger.info("  已啟用多核心運算，預期 CPU 使用率將會飆高")
+        de_workers = 1
+        de_func = evaluator.penalty
+        pool_map = None
+        if "fork" in mp.get_all_start_methods():
+            global _DE_EVALUATOR
+            _DE_EVALUATOR = evaluator
+            pool_map = _ForkPoolMap(processes=os.cpu_count() or 1)
+            de_workers = pool_map
+            de_func = _de_penalty_worker
+        else:
+            logger.warning(
+                "No 'fork' multiprocessing start method is available; "
+                "falling back to serial DE evaluation."
+            )
+
         t_de_start = perf_counter()
-        de_result = differential_evolution(
-            penalty_obj, bounds=bounds, seed=42,
-            maxiter=200, tol=1e-5, polish=False,
-            init="sobol", workers=-1, popsize=20,
-        )
+        try:
+            de_result = differential_evolution(
+                de_func, bounds=bounds, seed=42,
+                maxiter=200, tol=1e-5, polish=False,
+                init="sobol", workers=de_workers, popsize=20,
+            )
+        finally:
+            if pool_map is not None:
+                pool_map.close()
+                _DE_EVALUATOR = None
         de_global_s = perf_counter() - t_de_start
         x_de = de_result.x
-        r_de = _eval(x_de)
+        r_de = evaluator.evaluate(x_de)
         logger.info(
             "    DE best: mass=%.2f kg, twist=%.2f°, failure=%.4f, buckling=%.4f",
             r_de["mass"],
@@ -344,18 +417,20 @@ class SparOptimizer:
         # ── Phase 2: Local refinement with SLSQP ──
         logger.info("  [Phase 2] SLSQP local refinement...")
 
-        _cache.clear()
+        evaluator.clear_cache()
 
         def obj(x):
-            return _eval(x)["mass"]
+            return evaluator.evaluate(x)["mass"]
 
         constraints = [
-            {"type": "ineq", "fun": lambda x: -_eval(x)["failure"]},
-            {"type": "ineq", "fun": lambda x: max_twist - _eval(x)["twist"]},
-            {"type": "ineq", "fun": lambda x: -_eval(x)["buckling"]},
+            {"type": "ineq", "fun": lambda x: -evaluator.evaluate(x)["failure"]},
+            {"type": "ineq", "fun": lambda x: max_twist - evaluator.evaluate(x)["twist"]},
+            {"type": "ineq", "fun": lambda x: -evaluator.evaluate(x)["buckling"]},
         ]
         if max_defl < float("inf"):
-            constraints.append({"type": "ineq", "fun": lambda x: max_defl - _eval(x)["tip_defl"]})
+            constraints.append(
+                {"type": "ineq", "fun": lambda x: max_defl - evaluator.evaluate(x)["tip_defl"]}
+            )
 
         t_slsqp_start = perf_counter()
         slsqp = scipy_minimize(
@@ -366,8 +441,8 @@ class SparOptimizer:
         slsqp_local_s = perf_counter() - t_slsqp_start
 
         # Pick best feasible solution
-        r_de = _eval(x_de)
-        r_sq = _eval(slsqp.x)
+        r_de = evaluator.evaluate(x_de)
+        r_sq = evaluator.evaluate(slsqp.x)
 
         tol_f = 0.01  # failure tolerance
         tol_b = 0.01  # buckling tolerance
@@ -417,7 +492,7 @@ class SparOptimizer:
             self._prob.set_val("struct.seg_mapper.rear_t_seg", x_best[2*n_seg:3*n_seg], units="m")
             self._prob.set_val("struct.seg_mapper.rear_r_seg", x_best[3*n_seg:], units="m")
         raw = run_analysis(self._prob)
-        best_r = _eval(x_best)
+        best_r = evaluator.evaluate(x_best)
         success = (
             best_r["failure"] <= tol_f
             and best_r["buckling"] <= tol_b

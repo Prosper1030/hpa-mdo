@@ -8,19 +8,27 @@
     "buckling_index": -0.9009643190582602,
     "twist_max_deg": 0.04115561096232322,
     "tip_deflection_m": 0.20572565477711535,
-    "wall_time_s": 4.0404097500722855,
+    "wall_time_s": 4.266361415968277,
     "timing_s": {},
     "n_compute": 2,
     "n_compute_partials": 1
   },
   {
     "method": "scipy",
-    "success": false,
-    "error": "AttributeError: Can't pickle local object 'SparOptimizer._optimize_scipy.<locals>.penalty_obj'",
-    "wall_time_s": 0.29455349990166724,
-    "timing_s": {},
-    "traceback": "Traceback (most recent call last):\n  File \"/Volumes/Samsung SSD/hpa-mdo/examples/benchmark_openmdao_vs_scipy.py\", line 97, in main\n    rows.append(_run_one(method))\n  File \"/Volumes/Samsung SSD/hpa-mdo/examples/benchmark_openmdao_vs_scipy.py\", line 86, in _run_one\n    result = optimizer.optimize(method=method)\n  File \"/Volumes/Samsung SSD/hpa-mdo/src/hpa_mdo/structure/optimizer.py\", line 219, in optimize\n    return self._optimize_scipy()\n  File \"/Volumes/Samsung SSD/hpa-mdo/src/hpa_mdo/structure/optimizer.py\", line 328, in _optimize_scipy\n    de_result = differential_evolution(\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/scipy/_lib/_util.py\", line 440, in wrapper\n    return fun(*args, **kwargs)\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/scipy/optimize/_differentialevolution.py\", line 501, in differential_evolution\n    ret = solver.solve()\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/scipy/optimize/_differentialevolution.py\", line 1176, in solve\n    self._calculate_population_energies(\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/scipy/optimize/_differentialevolution.py\", line 1338, in _calculate_population_energies\n    self._mapwrapper(self.func, parameters_pop[0:S])\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/scipy/_lib/_util.py\", line 727, in __call__\n    return self._mapfunc(func, iterable)\n  File \"/Users/linyuan/.local/share/uv/python/cpython-3.10.18-macos-aarch64-none/lib/python3.10/multiprocessing/pool.py\", line 367, in map\n    return self._map_async(func, iterable, mapstar, chunksize).get()\n  File \"/Users/linyuan/.local/share/uv/python/cpython-3.10.18-macos-aarch64-none/lib/python3.10/multiprocessing/pool.py\", line 774, in get\n    raise self._value\n  File \"/Users/linyuan/.local/share/uv/python/cpython-3.10.18-macos-aarch64-none/lib/python3.10/multiprocessing/pool.py\", line 540, in _handle_tasks\n    put(task)\n  File \"/Users/linyuan/.local/share/uv/python/cpython-3.10.18-macos-aarch64-none/lib/python3.10/multiprocessing/connection.py\", line 206, in send\n    self._send_bytes(_ForkingPickler.dumps(obj))\n  File \"/Users/linyuan/.local/share/uv/python/cpython-3.10.18-macos-aarch64-none/lib/python3.10/multiprocessing/reduction.py\", line 51, in dumps\n    cls(buf, protocol).dump(obj)\nAttributeError: Can't pickle local object 'SparOptimizer._optimize_scipy.<locals>.penalty_obj'\n",
-    "n_compute": 0,
+    "success": true,
+    "message": "scipy converged (feasible)",
+    "total_mass_full_kg": 10.898327252701927,
+    "failure_index": -0.7350832820994461,
+    "buckling_index": -0.8152887197471889,
+    "twist_max_deg": 0.4212485274359134,
+    "tip_deflection_m": 2.499964291848492,
+    "wall_time_s": 109.4331988330232,
+    "timing_s": {
+      "de_global_s": 107.43708987499122,
+      "slsqp_local_s": 1.9670215420192108,
+      "total_s": 109.43310195801314
+    },
+    "n_compute": 388,
     "n_compute_partials": 0
   }
 ]
