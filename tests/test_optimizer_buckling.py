@@ -33,6 +33,9 @@ class _FakeProb:
     def get_val(self, name):
         return np.asarray(self.values[name])
 
+    def run_model(self) -> None:
+        return
+
 
 def _dummy_result() -> OptimizationResult:
     return OptimizationResult(

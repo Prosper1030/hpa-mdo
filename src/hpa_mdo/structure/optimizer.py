@@ -34,6 +34,7 @@ Usage
 """
 from __future__ import annotations
 
+from collections import OrderedDict
 import multiprocessing as mp
 import os
 from dataclasses import dataclass, field
@@ -57,6 +58,8 @@ from hpa_mdo.structure.oas_structural import (
 logger = get_logger(__name__)
 
 _DE_EVALUATOR = None
+_SCIPY_EVAL_CACHE_SIZE = 2048
+_DE_MAX_WORKERS = 4
 
 
 class _ScipyBlackBoxEvaluator:
@@ -70,6 +73,7 @@ class _ScipyBlackBoxEvaluator:
         max_twist: float,
         max_defl: float,
         max_thickness_to_radius_ratio: float,
+        cache_size: int = _SCIPY_EVAL_CACHE_SIZE,
     ):
         self.prob = prob
         self.n_seg = n_seg
@@ -77,7 +81,8 @@ class _ScipyBlackBoxEvaluator:
         self.max_twist = max_twist
         self.max_defl = max_defl
         self.max_thickness_to_radius_ratio = max_thickness_to_radius_ratio
-        self._cache = {}
+        self._cache_size = max(int(cache_size), 0)
+        self._cache: OrderedDict[tuple[float, ...], dict[str, float]] = OrderedDict()
 
     def clear_cache(self) -> None:
         self._cache.clear()
@@ -85,12 +90,23 @@ class _ScipyBlackBoxEvaluator:
     def _get_scalar(self, name: str) -> float:
         return float(np.asarray(self.prob.get_val(name)).item())
 
-    def evaluate(self, x):
-        x_arr = np.asarray(x, dtype=float)
-        key = tuple(np.round(x_arr, 8))
-        if key in self._cache:
-            return self._cache[key]
+    def _cache_get(self, key: tuple[float, ...]) -> Optional[dict[str, float]]:
+        if self._cache_size <= 0:
+            return None
+        cached = self._cache.get(key)
+        if cached is not None:
+            self._cache.move_to_end(key)
+        return cached
 
+    def _cache_set(self, key: tuple[float, ...], value: dict[str, float]) -> None:
+        if self._cache_size <= 0:
+            return
+        self._cache[key] = value
+        self._cache.move_to_end(key)
+        while len(self._cache) > self._cache_size:
+            self._cache.popitem(last=False)
+
+    def _set_design_vector(self, x_arr: np.ndarray) -> None:
         n_seg = self.n_seg
         self.prob.set_val("struct.seg_mapper.main_t_seg", x_arr[:n_seg], units="m")
         self.prob.set_val("struct.seg_mapper.main_r_seg", x_arr[n_seg:2 * n_seg], units="m")
@@ -100,15 +116,27 @@ class _ScipyBlackBoxEvaluator:
             )
             self.prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg:], units="m")
 
+    def _evaluate_scalars(self) -> dict[str, float]:
+        self.prob.run_model()
+        return {
+            "mass": self._get_scalar("struct.mass.total_mass_full"),
+            "failure": self._get_scalar("struct.failure.failure"),
+            "twist": self._get_scalar("struct.twist.twist_max_deg"),
+            "tip_defl": self._get_scalar("struct.tip_defl.tip_deflection_m"),
+            "buckling": self._get_scalar("struct.buckling.buckling_index"),
+        }
+
+    def evaluate(self, x):
+        x_arr = np.asarray(x, dtype=float)
+        key = tuple(np.round(x_arr, 8))
+        cached = self._cache_get(key)
+        if cached is not None:
+            return cached
+
+        self._set_design_vector(x_arr)
+
         try:
-            run_analysis(self.prob)
-            res = {
-                "mass": self._get_scalar("struct.mass.total_mass_full"),
-                "failure": self._get_scalar("struct.failure.failure"),
-                "twist": self._get_scalar("struct.twist.twist_max_deg"),
-                "tip_defl": self._get_scalar("struct.tip_defl.tip_deflection_m"),
-                "buckling": self._get_scalar("struct.buckling.buckling_index"),
-            }
+            res = self._evaluate_scalars()
         except om.AnalysisError:
             res = {
                 "mass": 1e12,
@@ -117,7 +145,7 @@ class _ScipyBlackBoxEvaluator:
                 "tip_defl": 1e3,
                 "buckling": 1e3,
             }
-        self._cache[key] = res
+        self._cache_set(key, res)
         return res
 
     def penalty(self, x):
@@ -171,6 +199,12 @@ class _ForkPoolMap:
     def close(self) -> None:
         self._pool.close()
         self._pool.join()
+
+
+def _recommended_de_workers() -> int:
+    """Return a bounded worker count to avoid DE memory blow-up."""
+    cpu_count = os.cpu_count() or 1
+    return max(1, min(cpu_count, _DE_MAX_WORKERS))
 
 
 @dataclass
@@ -418,9 +452,11 @@ class SparOptimizer:
         if "fork" in mp.get_all_start_methods():
             global _DE_EVALUATOR
             _DE_EVALUATOR = evaluator
-            pool_map = _ForkPoolMap(processes=os.cpu_count() or 1)
+            worker_count = _recommended_de_workers()
+            pool_map = _ForkPoolMap(processes=worker_count)
             de_workers = pool_map
             de_func = _de_penalty_worker
+            logger.info("  DE worker pool size: %d", worker_count)
         else:
             logger.warning(
                 "No 'fork' multiprocessing start method is available; "
