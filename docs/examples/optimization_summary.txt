@@ -1,39 +1,39 @@
 ================================================================
   HPA-MDO Spar Optimization Summary
-  Generated: 2026-04-09 16:34:13
+  Generated: 2026-04-09 18:59:06
 ================================================================
   Status          : CONVERGED (Feasible)
   Message         : OpenMDAO converged
 ----------------------------------------------------------------
   MASS BREAKDOWN
 ----------------------------------------------------------------
-  Spar mass (half): 5.7033 kg
-  Spar mass (full): 11.4066 kg
-  Total mass (full): 13.9066 kg
+  Spar mass (half): 5.7036 kg
+  Spar mass (full): 11.4072 kg
+  Total mass (full): 13.9072 kg
 ----------------------------------------------------------------
   STRUCTURAL PERFORMANCE
 ----------------------------------------------------------------
   Tip deflection  : 2500.00 mm  (2.50000 m) / MAX: 2500.0 mm (OK)
-  Max twist       : 0.392 deg / MAX: 2.000 deg (OK)
-  Failure index   : -0.34610  (SAFE)
-  Buckling index  : -0.70273  (SAFE)
+  Max twist       : 0.424 deg / MAX: 2.000 deg (OK)
+  Failure index   : -0.33322  (SAFE)
+  Buckling index  : -0.69825  (SAFE)
 
-  Max stress — main : 649.09 MPa
+  Max stress — main : 664.87 MPa
   Allowable  — main : 1666.67 MPa
-  Margin     — main : 61.1%
+  Margin     — main : 60.1%
 
-  Max stress — rear : 211.29 MPa
+  Max stress — rear : 296.13 MPa
   Allowable  — rear : 1666.67 MPa
-  Margin     — rear : 87.3%
+  Margin     — rear : 82.2%
 ----------------------------------------------------------------
   MAIN SPAR SEGMENTS
 ----------------------------------------------------------------
    Seg      t [mm]     OD [mm]
-     1      0.8000      80.263
-     2      0.8000      80.263
-     3      0.8000      80.263
-     4      0.8000      80.263
-     5      0.8000      60.586
+     1      0.8000      80.269
+     2      0.8000      80.269
+     3      0.8000      80.269
+     4      0.8000      80.269
+     5      0.8000      60.592
      6      0.8000      30.000
 ----------------------------------------------------------------
   REAR SPAR SEGMENTS

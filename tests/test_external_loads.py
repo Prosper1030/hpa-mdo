@@ -51,7 +51,7 @@ def test_external_loads_adds_rear_gravity_torque_to_torsion_dof():
         rear_gravity_torque_per_span=np.array([1.0, 2.0, 3.0, 4.0]),
     )
 
-    expected_my = (np.array([4.0, 3.0, 2.0, 1.0]) + 1.5 * np.array([1.0, 2.0, 3.0, 4.0])) * node_spacings
+    expected_my = (np.array([4.0, 3.0, 2.0, 1.0]) - 1.5 * np.array([1.0, 2.0, 3.0, 4.0])) * node_spacings
     np.testing.assert_allclose(loads[:, 4], expected_my)
     np.testing.assert_allclose(loads[:, 2], 0.0)
 

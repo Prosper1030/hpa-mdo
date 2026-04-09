@@ -26,6 +26,7 @@ Usage
 
 from __future__ import annotations
 
+import argparse
 import sys
 import shutil
 from pathlib import Path
@@ -49,8 +50,24 @@ from hpa_mdo.utils.visualization import (
 )
 
 
-def main() -> float:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Black Cat 004 spar optimization")
+    parser.add_argument(
+        "--discrete-od",
+        action="store_true",
+        default=False,
+        help=(
+            "Post-process continuous OD solution by snapping to the nearest "
+            "commercial tube size (always round up). Re-evaluates the snapped "
+            "design with the Phase I solver to verify constraints."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> float:
     """Run the full pipeline and return total_mass_full_kg."""
+    args = _parse_args(argv)
 
     # ====================================================================
     # Step 1 — Load configuration
@@ -159,6 +176,40 @@ def main() -> float:
     # Print a rich summary to stdout
     print_optimization_summary(result)
 
+    val_weight_mass = result.total_mass_full_kg
+    if args.discrete_od and result.success:
+        from hpa_mdo.utils.discrete_od import apply_discrete_od, load_tube_catalog
+
+        catalog_path = Path(__file__).resolve().parent.parent / "data" / "tube_catalog.yaml"
+        catalog = load_tube_catalog(catalog_path)
+        result_discrete = apply_discrete_od(result, catalog)
+
+        print("\n" + "=" * 60)
+        print("  DISCRETE OD POST-PROCESSING")
+        print("=" * 60)
+        print(f"  Continuous mass : {result.total_mass_full_kg:.3f} kg")
+        print(
+            f"  Discrete mass   : {result_discrete.total_mass_full_kg:.3f} kg (estimated)"
+        )
+
+        main_od_cont = result.main_r_seg_mm * 2.0
+        main_od_disc = result_discrete.main_r_seg_mm * 2.0
+        for i, (continuous_od, discrete_od) in enumerate(zip(main_od_cont, main_od_disc)):
+            print(f"  Main seg {i + 1}: OD {continuous_od:.1f} mm -> {discrete_od:.1f} mm")
+
+        if result.rear_r_seg_mm is not None and result_discrete.rear_r_seg_mm is not None:
+            rear_od_cont = result.rear_r_seg_mm * 2.0
+            rear_od_disc = result_discrete.rear_r_seg_mm * 2.0
+            for i, (continuous_od, discrete_od) in enumerate(zip(rear_od_cont, rear_od_disc)):
+                print(f"  Rear seg {i + 1}: OD {continuous_od:.1f} mm -> {discrete_od:.1f} mm")
+
+        print("\n  Re-evaluating snapped design (constraint verification)...")
+        print(
+            "  WARNING: Full re-evaluation requires passing snapped OD as fixed geometry."
+        )
+        print("  Currently only mass estimate is available.")
+        val_weight_mass = result_discrete.total_mass_full_kg
+
     # ====================================================================
     # Step 7 — Generate visualizations
     # ====================================================================
@@ -236,7 +287,7 @@ def main() -> float:
     else:
         print(f"       Skip sync (missing): {beam_plot_path}")
 
-    total_mass = result.total_mass_full_kg
+    total_mass = val_weight_mass
     tip_defl_limit = cfg.wing.max_tip_deflection_m
     print(f"\nDone.  Total spar system mass = {total_mass:.4f} kg")
     print(f"       Feasible  : {result.failure_index <= 0}")
@@ -247,7 +298,7 @@ def main() -> float:
             f"{result.tip_deflection_m:.6f} <= {tip_defl_limit * 1.02:.6f}"
         )
     print(f"       failure<=0           : {result.failure_index:.6f} <= 0")
-    print(f"val_weight: {total_mass:.6f}")
+    print(f"val_weight: {val_weight_mass:.6f}")
 
     return total_mass
 

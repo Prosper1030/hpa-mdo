@@ -90,8 +90,9 @@ class ExternalLoadsComp(om.ExplicitComponent):
                 )
             g_scale = self.options["gravity_scale"]
             for i in range(nn):
-                # Same sign as aerodynamic pitching moment (trailing edge down -> +My)
-                loads[i, 4] += rgt_arr[i] * ds[i] * g_scale
+                # Positive rear-gravity magnitude corresponds to trailing-edge-down
+                # physical torque, which maps to negative My in the FEM sign convention.
+                loads[i, 4] -= rgt_arr[i] * ds[i] * g_scale
 
         # Weight contribution (lumped mass per element, split to endpoints)
         for e in range(ne):
