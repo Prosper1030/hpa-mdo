@@ -537,6 +537,63 @@ def build_structural_problem(
         )
         model.add_constraint("main_radius_taper.margin", lower=0.0)
 
+        # Segment manufacturability: enforce adjacent wall-thickness smoothness.
+        model.add_subsystem(
+            "main_t_step_dec",
+            om.ExecComp(
+                "margin = max_step - (t_in - t_out)",
+                margin={"shape": (n_seg - 1,), "units": "m"},
+                t_in={"shape": (n_seg - 1,), "units": "m"},
+                t_out={"shape": (n_seg - 1,), "units": "m"},
+                max_step={"units": "m"},
+                has_diag_partials=True,
+            ),
+        )
+        model.connect(
+            "struct.seg_mapper.main_t_seg",
+            "main_t_step_dec.t_in",
+            src_indices=seg_idx_in,
+        )
+        model.connect(
+            "struct.seg_mapper.main_t_seg",
+            "main_t_step_dec.t_out",
+            src_indices=seg_idx_out,
+        )
+        model.set_input_defaults(
+            "main_t_step_dec.max_step",
+            val=max_thickness_step,
+            units="m",
+        )
+        model.add_constraint("main_t_step_dec.margin", lower=0.0)
+
+        model.add_subsystem(
+            "main_t_step_inc",
+            om.ExecComp(
+                "margin = max_step - (t_out - t_in)",
+                margin={"shape": (n_seg - 1,), "units": "m"},
+                t_in={"shape": (n_seg - 1,), "units": "m"},
+                t_out={"shape": (n_seg - 1,), "units": "m"},
+                max_step={"units": "m"},
+                has_diag_partials=True,
+            ),
+        )
+        model.connect(
+            "struct.seg_mapper.main_t_seg",
+            "main_t_step_inc.t_in",
+            src_indices=seg_idx_in,
+        )
+        model.connect(
+            "struct.seg_mapper.main_t_seg",
+            "main_t_step_inc.t_out",
+            src_indices=seg_idx_out,
+        )
+        model.set_input_defaults(
+            "main_t_step_inc.max_step",
+            val=max_thickness_step,
+            units="m",
+        )
+        model.add_constraint("main_t_step_inc.margin", lower=0.0)
+
     if rear_on:
         rear_min_inner_radius = max(
             0.0,
@@ -586,14 +643,70 @@ def build_structural_problem(
             model.connect(
                 "struct.seg_mapper.rear_r_seg",
                 "rear_radius_taper.r_in",
-                src_indices=np.arange(n_seg - 1, dtype=int),
+                src_indices=seg_idx_in,
             )
             model.connect(
                 "struct.seg_mapper.rear_r_seg",
                 "rear_radius_taper.r_out",
-                src_indices=np.arange(1, n_seg, dtype=int),
+                src_indices=seg_idx_out,
             )
             model.add_constraint("rear_radius_taper.margin", lower=0.0)
+
+            model.add_subsystem(
+                "rear_t_step_dec",
+                om.ExecComp(
+                    "margin = max_step - (t_in - t_out)",
+                    margin={"shape": (n_seg - 1,), "units": "m"},
+                    t_in={"shape": (n_seg - 1,), "units": "m"},
+                    t_out={"shape": (n_seg - 1,), "units": "m"},
+                    max_step={"units": "m"},
+                    has_diag_partials=True,
+                ),
+            )
+            model.connect(
+                "struct.seg_mapper.rear_t_seg",
+                "rear_t_step_dec.t_in",
+                src_indices=seg_idx_in,
+            )
+            model.connect(
+                "struct.seg_mapper.rear_t_seg",
+                "rear_t_step_dec.t_out",
+                src_indices=seg_idx_out,
+            )
+            model.set_input_defaults(
+                "rear_t_step_dec.max_step",
+                val=max_thickness_step,
+                units="m",
+            )
+            model.add_constraint("rear_t_step_dec.margin", lower=0.0)
+
+            model.add_subsystem(
+                "rear_t_step_inc",
+                om.ExecComp(
+                    "margin = max_step - (t_out - t_in)",
+                    margin={"shape": (n_seg - 1,), "units": "m"},
+                    t_in={"shape": (n_seg - 1,), "units": "m"},
+                    t_out={"shape": (n_seg - 1,), "units": "m"},
+                    max_step={"units": "m"},
+                    has_diag_partials=True,
+                ),
+            )
+            model.connect(
+                "struct.seg_mapper.rear_t_seg",
+                "rear_t_step_inc.t_in",
+                src_indices=seg_idx_in,
+            )
+            model.connect(
+                "struct.seg_mapper.rear_t_seg",
+                "rear_t_step_inc.t_out",
+                src_indices=seg_idx_out,
+            )
+            model.set_input_defaults(
+                "rear_t_step_inc.max_step",
+                val=max_thickness_step,
+                units="m",
+            )
+            model.add_constraint("rear_t_step_inc.margin", lower=0.0)
 
         # Main spar dominance constraints:
         #   1) radius margin per segment
