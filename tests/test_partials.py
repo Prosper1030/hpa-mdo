@@ -57,7 +57,7 @@ def _build_structural_prob(*, multi_case: bool = False):
         if multi_case:
             aero_loads = {
                 "cruise": mapped_loads,
-                "pullup": LoadMapper.apply_load_factor(mapped_loads, 1.5),
+                "pullup": mapped_loads,
             }
 
         prob = build_structural_problem(

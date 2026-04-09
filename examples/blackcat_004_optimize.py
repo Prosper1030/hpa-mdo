@@ -144,18 +144,18 @@ def main(argv: list[str] | None = None) -> float:
     print(f"       Full lift   : {cruise_lift:.1f} N  (target = {target_weight:.1f} N)")
 
     # ====================================================================
-    # Step 5 — Apply aerodynamic load factor
+    # Step 5 — Prepare structural load case scaling
     # ====================================================================
-    # The aerodynamic load factor (e.g. 1.5× for 1G cruise with 50% margin)
-    # scales the distributed lift to the design limit loads.
-    # Note: this is distinct from the material safety factor, which is applied
-    # inside the optimizer when comparing stress to the allowable.
-    print("[5/8] Applying aerodynamic load factor...")
-    design_loads = LoadMapper.apply_load_factor(
-        best_loads, cfg.safety.aerodynamic_load_factor
-    )
-    print(f"       Load factor : {cfg.safety.aerodynamic_load_factor}G")
-    print(f"       Design lift : {2.0 * design_loads['total_lift']:.1f} N (full span)")
+    # Keep mapped aero loads at their raw physical level for SparOptimizer.
+    # The structural case owns the aerodynamic maneuver scaling via
+    # LoadCaseConfig.aero_scale inside the OpenMDAO model.
+    print("[5/8] Preparing structural load case scaling...")
+    mapped_loads = best_loads
+    design_case = cfg.structural_load_cases()[0]
+    export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
+    design_full_lift = 2.0 * mapped_loads["total_lift"] * design_case.aero_scale
+    print(f"       Load factor : {design_case.aero_scale}G")
+    print(f"       Design lift : {design_full_lift:.1f} N (full span)")
 
     # ====================================================================
     # Step 6 — Run spar optimization
@@ -170,7 +170,7 @@ def main(argv: list[str] | None = None) -> float:
     #                    max twist ≤ cfg.wing.max_tip_twist_deg,
     #                    tip deflection ≤ limit (encoded in failure_index)
     print("[6/8] Running spar optimization...")
-    opt = SparOptimizer(cfg, ac, design_loads, mat_db)
+    opt = SparOptimizer(cfg, ac, mapped_loads, mat_db)
     result = opt.optimize(method="auto")
 
     # Print a rich summary to stdout
@@ -276,7 +276,7 @@ def main(argv: list[str] | None = None) -> float:
     ansys_dir = output_dir / "ansys"
     ansys_dir.mkdir(parents=True, exist_ok=True)
     try:
-        exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
+        exporter = ANSYSExporter(cfg, ac, result, export_loads, mat_db)
         csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")
         jig_step_path = output_dir / "spar_jig_shape.step"
         flight_step_path = output_dir / "spar_flight_shape.step"

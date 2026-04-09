@@ -69,9 +69,8 @@ class StructuralLoadCaseGroup(om.Group):
         load_case = self.options["load_case"]
         nn = self.options["n_nodes"]
         rear_on = self.options["rear_enabled"]
-        aero_scale = load_case.aero_scale
-        lift = np.asarray(self.options["lift_per_span"]) * aero_scale
-        torque = np.asarray(self.options["torque_per_span"]) * aero_scale
+        lift = np.asarray(self.options["lift_per_span"], dtype=float)
+        torque = np.asarray(self.options["torque_per_span"], dtype=float)
 
         self.add_subsystem(
             "ext_loads",

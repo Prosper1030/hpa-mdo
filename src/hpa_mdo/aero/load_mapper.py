@@ -22,6 +22,7 @@ from hpa_mdo.core.errors import ErrorCode, HPAError
 from hpa_mdo.core.logging import get_logger
 
 logger = get_logger(__name__)
+APPLIED_AERO_SCALE_KEY = "_applied_aero_scale"
 
 
 class LoadMapper:
@@ -151,6 +152,7 @@ class LoadMapper:
             "cl": cl,
             "cm": cm,
             "total_lift": total_lift,
+            APPLIED_AERO_SCALE_KEY: float(scale_factor),
         }
 
     @staticmethod
@@ -218,4 +220,5 @@ class LoadMapper:
         out["drag_per_span"] = mapped["drag_per_span"] * n
         out["torque_per_span"] = mapped["torque_per_span"] * n
         out["total_lift"] = mapped["total_lift"] * n
+        out[APPLIED_AERO_SCALE_KEY] = float(mapped.get(APPLIED_AERO_SCALE_KEY, 1.0)) * float(n)
         return out

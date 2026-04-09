@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 
 from hpa_mdo.aero.base import SpanwiseLoad
+from hpa_mdo.aero.load_mapper import LoadMapper
 from hpa_mdo.core.aircraft import Aircraft
 from hpa_mdo.core.config import load_config
 from hpa_mdo.core.materials import MaterialDB
@@ -18,7 +19,7 @@ from hpa_mdo.structure.optimizer import SparOptimizer
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _make_aero(span_half: float) -> SpanwiseLoad:
+def _make_aero(span_half: float, *, lift_per_span: float = 75.0) -> SpanwiseLoad:
     y = np.linspace(0.0, span_half, 12)
     return SpanwiseLoad(
         y=y,
@@ -26,7 +27,7 @@ def _make_aero(span_half: float) -> SpanwiseLoad:
         cl=np.full(12, 0.55),
         cd=np.full(12, 0.02),
         cm=np.full(12, 0.04),
-        lift_per_span=np.full(12, 75.0),
+        lift_per_span=np.full(12, lift_per_span),
         drag_per_span=np.full(12, 2.0),
         aoa_deg=3.0,
         velocity=10.0,
@@ -100,3 +101,26 @@ def test_fsi_one_way_still_works():
 
     assert result.converged is True
     assert result.n_iterations == 1
+
+
+def test_update_aero_loads_refreshes_wire_precompression():
+    cfg = load_config(REPO_ROOT / "configs" / "blackcat_004.yaml")
+    with patch.object(cfg.solver, "n_beam_nodes", 10):
+        aircraft = Aircraft.from_config(cfg)
+
+    mat_db = MaterialDB()
+    mapper = LoadMapper(method="linear")
+    initial_loads = mapper.map_loads(_make_aero(aircraft.wing.half_span), aircraft.wing.y)
+    optimizer = SparOptimizer(cfg, aircraft, initial_loads, mat_db)
+
+    stress_comp = optimizer._prob.model._get_subsystem("struct.stress")
+    before = np.asarray(stress_comp.options["wire_precompression"], dtype=float).copy()
+
+    updated_loads = mapper.map_loads(
+        _make_aero(aircraft.wing.half_span, lift_per_span=150.0),
+        aircraft.wing.y,
+    )
+    optimizer.update_aero_loads(updated_loads)
+
+    after = np.asarray(stress_comp.options["wire_precompression"], dtype=float)
+    np.testing.assert_allclose(after, before * 2.0, rtol=1e-10, atol=1e-10)

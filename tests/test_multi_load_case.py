@@ -70,7 +70,7 @@ def _build_structural_inputs(*, explicit_single_case: bool = False, multi_case: 
     elif multi_case:
         aero_loads = {
             "cruise": mapped_loads,
-            "pullup": LoadMapper.apply_load_factor(mapped_loads, 1.5),
+            "pullup": mapped_loads,
         }
 
     return cfg, aircraft, MaterialDB(), aero_loads
@@ -105,6 +105,14 @@ def test_single_case_backward_compatibility_matches_explicit_case():
     assert legacy["twist_max_deg"] == pytest.approx(explicit["twist_max_deg"])
     assert legacy["tip_deflection_m"] == pytest.approx(explicit["tip_deflection_m"])
     assert legacy["total_mass_full_kg"] == pytest.approx(explicit["total_mass_full_kg"])
+
+
+def test_multi_case_rejects_double_owned_aero_scaling():
+    cfg, aircraft, mat_db, aero_loads = _build_structural_inputs(multi_case=True)
+    aero_loads["pullup"] = LoadMapper.apply_load_factor(aero_loads["pullup"], 1.5)
+
+    with pytest.raises(ValueError, match="Load scaling ownership conflict"):
+        build_structural_problem(cfg, aircraft, aero_loads, mat_db)
 
 
 def test_multi_case_problem_builds_and_exposes_case_constraints():

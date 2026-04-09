@@ -59,10 +59,16 @@ class FSICoupling:
         load_factor: float,
         optimizer_method: str,
     ) -> tuple[OptimizationResult, np.ndarray]:
+        if not np.isclose(load_factor, 1.0):
+            raise ValueError(
+                "FSICoupling.load_factor must remain 1.0. Express maneuver/load "
+                "scaling in cfg.flight.cases or cfg.safety.aerodynamic_load_factor "
+                "so aerodynamic and gravity scaling stay consistent."
+            )
+
         mapped = self.mapper.map_loads(
             aero_load,
             self.aircraft.wing.y,
-            scale_factor=load_factor,
             actual_velocity=self.cfg.flight.velocity,
             actual_density=self.cfg.flight.air_density,
         )
@@ -102,7 +108,14 @@ class FSICoupling:
         load_factor: float = 1.0,
         optimizer_method: str = "openmdao",
     ) -> FSIResult:
-        """One-way coupling: aero -> structure (single pass)."""
+        """One-way coupling: aero -> structure (single pass).
+
+        Notes
+        -----
+        ``load_factor`` must stay at ``1.0``. Structural maneuver scaling
+        belongs in ``cfg.flight.cases`` / ``cfg.safety.aerodynamic_load_factor``
+        so aerodynamic and gravity loads remain owned by the same case.
+        """
 
         result, deformed_z = self._solve_once(aero_load, load_factor, optimizer_method)
         return FSIResult(

@@ -37,23 +37,20 @@ from hpa_mdo.structure.optimizer import SparOptimizer
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-# Frozen baseline (Milestone 1 + main spar dominance).
-# Generated: 2026-04-08
-# Last updated by: a25ae3e (M5 golden value test initialization)
+# Frozen baseline (single-case production example, unified load ownership).
+# Generated: 2026-04-09
+# Last updated after removing legacy double-owned aero scaling.
 # Run on: macOS / Python 3.10.18 / numpy 2.2.6 / scipy 1.15.3
-BASELINE_TOTAL_MASS_KG = 13.906550190509066
-BASELINE_FAILURE_INDEX = -0.68210
-BASELINE_BUCKLING_INDEX = -0.85250
-BASELINE_TIP_DEFLECTION_M = 1.85389
-BASELINE_TWIST_MAX_DEG = 0.125
+BASELINE_TOTAL_MASS_KG = 11.963507222400219
+BASELINE_FAILURE_INDEX = -0.46574
+BASELINE_BUCKLING_INDEX = -0.80078
+BASELINE_TIP_DEFLECTION_M = 2.50000
+BASELINE_TWIST_MAX_DEG = 0.213
 
 BASELINE_TOTAL_MASS_TOL_KG = 0.30  # ±2% design target (tightened absolute cap)
 
 # Frozen baseline (Milestone 3b multi-load-case production example, 2-case variant).
-# Note: this path currently compounds load scaling for pullup_2g:
-# aerodynamic_load_factor (2.0) × case aero_scale (2.0) => 4G-equivalent.
-# Keep as regression guard for multi-case topology behavior, not as a
-# representative 2G design target.
+# Multi-case configs own scaling explicitly through cfg.flight.cases.
 # Generated: 2026-04-09
 BASELINE_MULTI_TOTAL_MASS_KG = 40.28377880671066
 BASELINE_MULTI_TOTAL_MASS_TOL_KG = 0.50
@@ -107,11 +104,7 @@ def test_blackcat_004_baseline_mass_and_constraints() -> None:
             best_loads = loads
 
     assert best_loads is not None, "Failed to map loads for all VSPAero cases"
-    design_loads = LoadMapper.apply_load_factor(
-        best_loads, cfg.safety.aerodynamic_load_factor
-    )
-
-    optimizer = SparOptimizer(cfg, aircraft, design_loads, mat_db)
+    optimizer = SparOptimizer(cfg, aircraft, best_loads, mat_db)
     result = optimizer.optimize(method="auto")
 
     # Mass: ±2% of frozen baseline (absolute cap 0.30 kg).

@@ -112,17 +112,19 @@ def main(
             f"{cruise_aoa:.2f} deg (lift={cruise_lift:.1f} N)"
         )
 
-    # ── 5. Map loads with aerodynamic load factor ──────────────────────
-    print("[5/9] Mapping loads with safety factor...")
-    design_loads = LoadMapper.apply_load_factor(
-        best_loads, cfg.safety.aerodynamic_load_factor
+    # ── 5. Prepare structural load case scaling ────────────────────────
+    print("[5/9] Preparing structural load case scaling...")
+    mapped_loads = best_loads
+    design_case = cfg.structural_load_cases()[0]
+    export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
+    print(
+        f"       Load factor: {design_case.aero_scale}G  "
+        f"-> design lift = {2.0 * mapped_loads['total_lift'] * design_case.aero_scale:.1f} N"
     )
-    print(f"       Load factor: {cfg.safety.aerodynamic_load_factor}G  "
-          f"-> design lift = {2.0 * design_loads['total_lift']:.1f} N")
 
     # ── 6. Run structural optimization ─────────────────────────────────
     print("[6/9] Running spar optimization (method=auto)...")
-    opt = SparOptimizer(cfg, ac, design_loads, mat_db)
+    opt = SparOptimizer(cfg, ac, mapped_loads, mat_db)
     result = opt.optimize(method="auto")
     print(result.summary())
 
@@ -161,7 +163,7 @@ def main(
 
             ansys_dir = output_dir / "ansys"
             ansys_dir.mkdir(parents=True, exist_ok=True)
-            exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
+            exporter = ANSYSExporter(cfg, ac, result, export_loads, mat_db)
 
             apdl_path = exporter.write_apdl(ansys_dir / "spar_model.mac")
             csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")

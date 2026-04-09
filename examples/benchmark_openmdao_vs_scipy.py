@@ -56,10 +56,7 @@ def _build_optimizer() -> SparOptimizer:
     if best_loads is None:
         raise RuntimeError("No valid AoA case found in VSPAero data")
 
-    design_loads = LoadMapper.apply_load_factor(
-        best_loads, cfg.safety.aerodynamic_load_factor
-    )
-    return SparOptimizer(cfg, aircraft, design_loads, materials_db)
+    return SparOptimizer(cfg, aircraft, best_loads, materials_db)
 
 
 def _result_to_dict(method: str, elapsed: float, result) -> dict:

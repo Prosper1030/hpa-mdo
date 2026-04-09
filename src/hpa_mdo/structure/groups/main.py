@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 import openmdao.api as om
 
+from hpa_mdo.aero.load_mapper import APPLIED_AERO_SCALE_KEY
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.buckling import BucklingComp
 from hpa_mdo.structure.components.constraints import (
@@ -79,6 +80,85 @@ def _normalise_load_case_inputs(cfg, aero_loads: dict) -> dict[str, tuple[object
     return case_entries
 
 
+def _validate_aero_scale_ownership(case_name: str, load_case, case_loads: dict) -> None:
+    """Reject ambiguous cases where mapped loads and load_case both scale aero loads."""
+    applied_scale = float(case_loads.get(APPLIED_AERO_SCALE_KEY, 1.0))
+    case_scale = float(load_case.aero_scale)
+    if not np.isclose(applied_scale, 1.0) and not np.isclose(case_scale, 1.0):
+        raise ValueError(
+            f"Load scaling ownership conflict for case '{case_name}': mapped loads "
+            f"already carry aerodynamic scale {applied_scale:.6g}, but "
+            f"load_case.aero_scale={case_scale:.6g}. Apply aerodynamic scaling "
+            "in exactly one place."
+        )
+
+
+def _scaled_case_aero_distributions(
+    case_name: str,
+    load_case,
+    case_loads: dict,
+    n_nodes: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return lift/torque arrays after enforcing single ownership of aero scaling."""
+    _validate_aero_scale_ownership(case_name, load_case, case_loads)
+
+    lift = np.asarray(case_loads["lift_per_span"], dtype=float)
+    if lift.shape != (n_nodes,):
+        raise ValueError(
+            f"lift_per_span shape mismatch for '{case_name}': expected {(n_nodes,)}, got {lift.shape}."
+        )
+
+    torque_raw = case_loads.get("torque_per_span")
+    if torque_raw is None:
+        torque = np.zeros(n_nodes, dtype=float)
+    else:
+        torque = np.asarray(torque_raw, dtype=float)
+        if torque.shape != (n_nodes,):
+            raise ValueError(
+                f"torque_per_span shape mismatch for '{case_name}': expected {(n_nodes,)}, got {torque.shape}."
+            )
+
+    scale = float(load_case.aero_scale)
+    return lift * scale, torque * scale
+
+
+def _lift_wire_node_indices(cfg, y_nodes: np.ndarray) -> list[int] | None:
+    """Return nearest structural node index for each configured lift-wire attachment."""
+    if not (cfg.lift_wires.enabled and cfg.lift_wires.attachments):
+        return None
+
+    return [int(np.argmin(np.abs(y_nodes - att.y))) for att in cfg.lift_wires.attachments]
+
+
+def _wire_precompression_for_case(
+    cfg,
+    y_nodes: np.ndarray,
+    node_spacings: np.ndarray,
+    lift_wire_nodes: list[int] | None,
+    load_case,
+    case_loads: dict,
+    *,
+    case_name: str,
+) -> np.ndarray | None:
+    """Compute lift-wire-induced spar precompression for the current load case."""
+    if not (cfg.lift_wires.enabled and lift_wire_nodes):
+        return None
+
+    lift_scaled, _ = _scaled_case_aero_distributions(
+        case_name=case_name,
+        load_case=load_case,
+        case_loads=case_loads,
+        n_nodes=y_nodes.size,
+    )
+    return wire_axial_precompression(
+        y_nodes=y_nodes,
+        lift_per_span=lift_scaled,
+        node_spacings=node_spacings,
+        wire_attachment_indices=lift_wire_nodes,
+        wire_angle_deg=cfg.lift_wires.wire_angle_deg,
+    )
+
+
 class HPAStructuralGroup(om.Group):
     """Complete structural analysis group for HPA wing spar optimization.
 
@@ -146,25 +226,7 @@ class HPAStructuralGroup(om.Group):
         self._multi_case = len(case_entries) > 1
 
         # Lift wire nodes
-        lw_node_indices = None
-        if cfg.lift_wires.enabled and cfg.lift_wires.attachments:
-            lw_node_indices = []
-            for att in cfg.lift_wires.attachments:
-                idx = int(np.argmin(np.abs(y - att.y)))
-                lw_node_indices.append(idx)
-
-        def _wire_precompression_for_case(load_case, case_loads):
-            if not (cfg.lift_wires.enabled and lw_node_indices):
-                return None
-
-            lift_scaled = np.asarray(case_loads["lift_per_span"]) * load_case.aero_scale
-            return wire_axial_precompression(
-                y_nodes=y,
-                lift_per_span=lift_scaled,
-                node_spacings=node_spacings,
-                wire_attachment_indices=lw_node_indices,
-                wire_angle_deg=cfg.lift_wires.wire_angle_deg,
-            )
+        lw_node_indices = _lift_wire_node_indices(cfg, y)
 
         # FEM nodes (3D coordinates)
         # Y along span, Z from dihedral, X at spar location
@@ -250,10 +312,21 @@ class HPAStructuralGroup(om.Group):
 
         if len(case_entries) == 1:
             load_case, case_loads = next(iter(case_entries.values()))
-            aero_scale = load_case.aero_scale
-            lift = np.asarray(case_loads["lift_per_span"]) * aero_scale
-            torque = np.asarray(case_loads.get("torque_per_span", np.zeros(nn))) * aero_scale
-            wire_precompression = _wire_precompression_for_case(load_case, case_loads)
+            lift, torque = _scaled_case_aero_distributions(
+                case_name=load_case.name,
+                load_case=load_case,
+                case_loads=case_loads,
+                n_nodes=nn,
+            )
+            wire_precompression = _wire_precompression_for_case(
+                cfg,
+                y,
+                node_spacings,
+                lw_node_indices,
+                load_case,
+                case_loads,
+                case_name=load_case.name,
+            )
 
             # 3. External loads
             self.add_subsystem("ext_loads", ExternalLoadsComp(
@@ -324,9 +397,21 @@ class HPAStructuralGroup(om.Group):
             self.add_subsystem("tip_defl", TipDeflectionConstraintComp(n_nodes=nn))
         else:
             for case_name, (load_case, case_loads) in case_entries.items():
-                lift = case_loads["lift_per_span"]
-                torque = case_loads.get("torque_per_span", np.zeros(nn))
-                wire_precompression = _wire_precompression_for_case(load_case, case_loads)
+                lift, torque = _scaled_case_aero_distributions(
+                    case_name=case_name,
+                    load_case=load_case,
+                    case_loads=case_loads,
+                    n_nodes=nn,
+                )
+                wire_precompression = _wire_precompression_for_case(
+                    cfg,
+                    y,
+                    node_spacings,
+                    lw_node_indices,
+                    load_case,
+                    case_loads,
+                    case_name=case_name,
+                )
                 case_group_name = f"case_{case_name}"
 
                 self.add_subsystem(

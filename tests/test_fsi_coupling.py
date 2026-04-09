@@ -143,3 +143,11 @@ def test_one_way_load_factor_applied_once(monkeypatch):
         result_heavy.optimization_result.tip_deflection_m
         > result_light.optimization_result.tip_deflection_m
     )
+
+
+def test_one_way_rejects_non_unit_load_factor():
+    coupling = _build_fsi()
+    aero_load = _spanwise_load_from_dict(_fake_aero_load_dict(lift_value=50.0))
+
+    with pytest.raises(ValueError, match="load_factor must remain 1.0"):
+        coupling.run_one_way(aero_load, load_factor=2.0)

@@ -126,36 +126,32 @@ def main() -> float:
     print(f"       Full lift   : {cruise_lift:.1f} N  (target = {target_weight:.1f} N)")
 
     # ====================================================================
-    # Step 5 — Apply aerodynamic load factor
+    # Step 5 — Prepare structural load case scaling
     # ====================================================================
-    # The aerodynamic load factor (e.g. 1.5× for 1G cruise with 50% margin)
-    # scales the distributed lift to the design limit loads.
-    # Note: this is distinct from the material safety factor, which is applied
-    # inside the optimizer when comparing stress to the allowable.
-    print("[5/9] Applying aerodynamic load factor...")
-    design_load_factor = cfg.safety.aerodynamic_load_factor
-    design_loads = mapper.map_loads(
-        best_case,
-        ac.wing.y,
-        scale_factor=design_load_factor,
-        actual_velocity=cfg.flight.velocity,
-        actual_density=cfg.flight.air_density,
+    # Keep mapped aero loads raw; the structural case in cfg owns the design
+    # maneuver scaling for both aerodynamic and gravity loads.
+    print("[5/9] Preparing structural load case scaling...")
+    mapped_loads = best_loads
+    design_case = cfg.structural_load_cases()[0]
+    export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
+    print(f"       Load factor : {design_case.aero_scale}G")
+    print(
+        f"       Design lift : "
+        f"{2.0 * mapped_loads['total_lift'] * design_case.aero_scale:.1f} N (full span)"
     )
-    print(f"       Load factor : {design_load_factor}G")
-    print(f"       Design lift : {2.0 * design_loads['total_lift']:.1f} N (full span)")
 
     # ====================================================================
     # Step 6 — Run one-way FSI coupling
     # ====================================================================
     # One-way FSI performs a single aero->structure pass:
     #   Spanwise aero load -> mapped structural loads -> structural optimization
-    # For this workflow we pass the cruise aero case and apply design load
-    # factor through run_one_way(load_factor=...).
+    # Load scaling comes from cfg.structural_load_cases(); keep the FSI call
+    # itself at unit load factor to avoid split ownership.
     print("[6/9] Running one-way FSI coupling...")
     fsi = FSICoupling(cfg, ac, mat_db)
     fsi_result = fsi.run_one_way(
         aero_load=best_case,
-        load_factor=design_load_factor,
+        load_factor=1.0,
         optimizer_method="auto",
     )
     result = fsi_result.optimization_result
@@ -208,7 +204,7 @@ def main() -> float:
     ansys_dir = output_dir / "ansys"
     ansys_dir.mkdir(parents=True, exist_ok=True)
     try:
-        exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
+        exporter = ANSYSExporter(cfg, ac, result, export_loads, mat_db)
         csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")
         jig_step_path = output_dir / "spar_jig_shape.step"
         flight_step_path = output_dir / "spar_flight_shape.step"

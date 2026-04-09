@@ -48,6 +48,11 @@ from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import differential_evolution
 
 from hpa_mdo.core.logging import get_logger
+from hpa_mdo.structure.groups.main import (
+    _lift_wire_node_indices,
+    _scaled_case_aero_distributions,
+    _wire_precompression_for_case,
+)
 from hpa_mdo.structure.oas_structural import (
     _normalise_load_case_inputs,
     build_structural_problem,
@@ -546,8 +551,9 @@ class SparOptimizer:
         aero_loads : dict
             Output of LoadMapper.map_loads() — must contain
             'lift_per_span' and optionally 'torque_per_span'.
-            These loads must already be scaled to the design load case
-            (for example via LoadMapper.apply_load_factor()).
+            These loads should remain at their mapped physical level.
+            Case-level aerodynamic scaling belongs to ``load_case.aero_scale``
+            inside the structural model; do not apply it again externally.
         materials_db : MaterialDB
         """
         self.cfg = cfg
@@ -863,26 +869,44 @@ class SparOptimizer:
                 )
 
             n_nodes = int(comp.options["n_nodes"])
-            lift = np.asarray(case_loads["lift_per_span"], dtype=float)
-            if lift.shape != (n_nodes,):
-                raise ValueError(
-                    f"lift_per_span shape mismatch for '{case_name}': expected {(n_nodes,)}, got {lift.shape}."
-                )
+            lift, torque = _scaled_case_aero_distributions(
+                case_name=case_name,
+                load_case=load_case,
+                case_loads=case_loads,
+                n_nodes=n_nodes,
+            )
+            comp.options["lift_per_span"] = lift
+            comp.options["torque_per_span"] = torque
 
-            torque_raw = case_loads.get("torque_per_span")
-            if torque_raw is None:
-                torque = np.zeros(n_nodes, dtype=float)
-            else:
-                torque = np.asarray(torque_raw, dtype=float)
-                if torque.shape != (n_nodes,):
-                    raise ValueError(
-                        f"torque_per_span shape mismatch for '{case_name}': "
-                        f"expected {(n_nodes,)}, got {torque.shape}."
-                    )
+            struct_y = np.asarray(self.aircraft.wing.y, dtype=float)
+            node_spacings = np.zeros(n_nodes)
+            dy = np.diff(struct_y)
+            node_spacings[0] = dy[0] / 2.0
+            node_spacings[-1] = dy[-1] / 2.0
+            for i in range(1, n_nodes - 1):
+                node_spacings[i] = (dy[i - 1] + dy[i]) / 2.0
 
-            aero_scale = float(load_case.aero_scale)
-            comp.options["lift_per_span"] = lift * aero_scale
-            comp.options["torque_per_span"] = torque * aero_scale
+            lift_wire_nodes = _lift_wire_node_indices(self.cfg, struct_y)
+            wire_precompression = _wire_precompression_for_case(
+                self.cfg,
+                struct_y,
+                node_spacings,
+                lift_wire_nodes,
+                load_case,
+                case_loads,
+                case_name=case_name,
+            )
+
+            stress_path = f"struct.case_{case_name}.stress" if is_multi_case_problem else "struct.stress"
+            buckling_path = (
+                f"struct.case_{case_name}.buckling" if is_multi_case_problem else "struct.buckling"
+            )
+            stress_comp = self._prob.model._get_subsystem(stress_path)
+            buckling_comp = self._prob.model._get_subsystem(buckling_path)
+            if stress_comp is not None:
+                stress_comp.options["wire_precompression"] = wire_precompression
+            if buckling_comp is not None:
+                buckling_comp.options["wire_precompression"] = wire_precompression
 
     def analyze(
         self,
