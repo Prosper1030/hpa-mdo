@@ -5,9 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
-TestClient = pytest.importorskip("fastapi.testclient").TestClient
-
-from hpa_mdo.api.server import app
+try:
+    from fastapi.testclient import TestClient
+    from hpa_mdo.api.server import app
+except ImportError:
+    pytest.skip(
+        "FastAPI not installed; install with hpa-mdo[api] to run API server tests.",
+        allow_module_level=True,
+    )
 
 
 client = TestClient(app)
