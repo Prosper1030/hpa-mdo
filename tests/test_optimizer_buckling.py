@@ -201,6 +201,48 @@ def test_openmdao_feasibility_checks_twist_and_deflection(monkeypatch):
     assert result["success"] is False
 
 
+def test_auto_mode_falls_back_when_openmdao_raw_is_not_fully_feasible(monkeypatch):
+    cfg = _Cfg(
+        wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
+        _structural_cases=[
+            SimpleNamespace(
+                name="default",
+                max_twist_deg=2.0,
+                max_tip_deflection_m=1.0,
+            )
+        ],
+    )
+
+    opt = SparOptimizer.__new__(SparOptimizer)
+    opt.cfg = cfg
+    opt._prob = object()
+
+    openmdao_result = SimpleNamespace(
+        success=True,
+        failure_index=-0.2,
+        buckling_index=-0.2,
+        message="OpenMDAO converged",
+    )
+    scipy_result = SimpleNamespace(message="scipy fallback")
+
+    monkeypatch.setattr(SparOptimizer, "_has_multiple_load_cases", lambda _self: False)
+    monkeypatch.setattr(SparOptimizer, "_optimize_openmdao", lambda _self: openmdao_result)
+    monkeypatch.setattr(SparOptimizer, "_optimize_scipy", lambda _self: scipy_result)
+    monkeypatch.setattr(
+        optimizer_mod,
+        "run_analysis",
+        lambda _prob: {
+            "failure": -0.2,
+            "buckling_index": -0.2,
+            "twist_max_deg": 2.2,  # violates 2.0 deg cap
+            "tip_deflection_m": 0.1,
+        },
+    )
+
+    result = opt.optimize(method="auto")
+    assert result is scipy_result
+
+
 def test_raw_feasible_honors_per_case_limits():
     cfg = _Cfg(
         wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),

@@ -919,7 +919,8 @@ class SparOptimizer:
                 return self._optimize_openmdao()
             try:
                 result = self._optimize_openmdao()
-                if result.success and result.failure_index <= 0.01 and result.buckling_index <= 0.01:
+                raw = run_analysis(self._prob)
+                if self._is_raw_feasible(raw):
                     return result
             except Exception:
                 pass
