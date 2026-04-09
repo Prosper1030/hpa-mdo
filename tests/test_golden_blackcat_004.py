@@ -22,6 +22,7 @@ Marked @pytest.mark.slow - runs the full DE+SLSQP loop. Run with
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -47,6 +48,11 @@ BASELINE_TIP_DEFLECTION_M = 1.85389
 BASELINE_TWIST_MAX_DEG = 0.125
 
 BASELINE_TOTAL_MASS_TOL_KG = 0.30  # ±2% design target (tightened absolute cap)
+
+# Frozen baseline (Milestone 3b multi-load-case production example).
+# Generated: 2026-04-09
+BASELINE_MULTI_TOTAL_MASS_KG = 41.36838746921641
+BASELINE_MULTI_TOTAL_MASS_TOL_KG = 0.50
 
 # Constraints that must hold (these are physics, not stochastic).
 MAX_FAILURE_INDEX = 0.01
@@ -141,3 +147,123 @@ def test_blackcat_004_baseline_mass_and_constraints() -> None:
         f"twist_max = {result.twist_max_deg:.3f} deg > {twist_limit:.3f} deg "
         f"(twist constraint violated, including {MAX_TWIST_MARGIN_DEG:.2f} deg slop)"
     )
+
+
+@pytest.mark.slow
+@pytest.mark.requires_vspaero
+def test_golden_multi_case() -> None:
+    """Multi-case optimization produces physically reasonable results."""
+    cfg = load_config(REPO_ROOT / "configs" / "blackcat_004_multi.yaml")
+    missing_assets = [
+        str(path)
+        for path in (cfg.io.vsp_lod, cfg.io.vsp_polar)
+        if path is not None and not Path(path).exists()
+    ]
+    if missing_assets:
+        pytest.skip(
+            "Missing VSPAero test assets required for golden regression: "
+            + ", ".join(missing_assets)
+        )
+
+    # Multi-case OpenMDAO with full 60-node mesh can be very expensive.
+    # Keep this golden test bounded while still exercising full 3-case topology.
+    with patch.object(cfg.solver, "n_beam_nodes", 20), patch.object(
+        cfg.solver, "optimizer_maxiter", 50
+    ):
+        aircraft = Aircraft.from_config(cfg)
+        mat_db = MaterialDB()
+        target_weight = aircraft.weight_N
+
+        parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
+        aero_cases = parser.parse()
+        assert len(aero_cases) > 0, "VSPAero parser returned no cases"
+
+        mapper = LoadMapper()
+        best_residual = float("inf")
+        best_case = None
+
+        for aero in aero_cases:
+            loads = mapper.map_loads(
+                aero,
+                aircraft.wing.y,
+                actual_velocity=cfg.flight.velocity,
+                actual_density=cfg.flight.air_density,
+            )
+            full_lift = 2.0 * loads["total_lift"]
+            residual = abs(full_lift - target_weight)
+            if residual < best_residual:
+                best_residual = residual
+                best_case = aero
+
+        assert best_case is not None, "Failed to identify cruise AoA from VSPAero cases"
+
+        design_loads = {}
+        for load_case in cfg.structural_load_cases():
+            design_loads[load_case.name] = mapper.map_loads(
+                best_case,
+                aircraft.wing.y,
+                actual_velocity=load_case.velocity,
+                actual_density=load_case.air_density,
+            )
+
+        optimizer = SparOptimizer(cfg, aircraft, design_loads, mat_db)
+        result = optimizer.optimize(method="auto")
+
+    expected_case_names = {case.name for case in cfg.structural_load_cases()}
+    assert set(result.case_metrics) == expected_case_names
+
+    mass_delta = abs(result.total_mass_full_kg - BASELINE_MULTI_TOTAL_MASS_KG)
+    assert mass_delta <= BASELINE_MULTI_TOTAL_MASS_TOL_KG, (
+        "\nBlack Cat 004 multi-case mass regression detected:\n"
+        f"  Current : {result.total_mass_full_kg:.4f} kg\n"
+        f"  Baseline: {BASELINE_MULTI_TOTAL_MASS_KG:.4f} kg\n"
+        f"  Delta   : {mass_delta:.4f} kg "
+        f"(tolerance ±{BASELINE_MULTI_TOTAL_MASS_TOL_KG:.2f} kg)\n\n"
+        "If this change is intentional, update the BASELINE_MULTI_* constants in\n"
+        "this file and explain the reason in the commit message.\n"
+        "If unintentional, find and revert the offending physics change."
+    )
+
+    assert result.failure_index <= MAX_FAILURE_INDEX, (
+        f"aggregate failure_index = {result.failure_index:.5f} > "
+        f"{MAX_FAILURE_INDEX:.2f} (stress constraint violated)"
+    )
+    assert result.buckling_index <= MAX_BUCKLING_INDEX, (
+        f"aggregate buckling_index = {result.buckling_index:.5f} > "
+        f"{MAX_BUCKLING_INDEX:.2f} (shell buckling constraint violated)"
+    )
+
+    cases_by_name = {case.name: case for case in cfg.structural_load_cases()}
+    for case_name, metrics in result.case_metrics.items():
+        assert metrics["failure_index"] <= MAX_FAILURE_INDEX, (
+            f"{case_name}: failure_index = {metrics['failure_index']:.5f} > "
+            f"{MAX_FAILURE_INDEX:.2f}"
+        )
+        assert metrics["buckling_index"] <= MAX_BUCKLING_INDEX, (
+            f"{case_name}: buckling_index = {metrics['buckling_index']:.5f} > "
+            f"{MAX_BUCKLING_INDEX:.2f}"
+        )
+
+        case_cfg = cases_by_name[case_name]
+        twist_limit = (
+            cfg.wing.max_tip_twist_deg
+            if case_cfg.max_twist_deg is None
+            else float(case_cfg.max_twist_deg)
+        )
+        assert metrics["twist_max_deg"] <= twist_limit + MAX_TWIST_MARGIN_DEG, (
+            f"{case_name}: twist_max = {metrics['twist_max_deg']:.3f} deg > "
+            f"{twist_limit + MAX_TWIST_MARGIN_DEG:.3f} deg"
+        )
+
+        max_deflection_m = (
+            cfg.wing.max_tip_deflection_m
+            if case_cfg.max_tip_deflection_m is None
+            else float(case_cfg.max_tip_deflection_m)
+        )
+        if max_deflection_m is not None:
+            deflection_ratio = metrics["tip_deflection_m"] / max_deflection_m
+            assert deflection_ratio <= MAX_TIP_DEFLECTION_RATIO, (
+                f"{case_name}: tip_deflection = {metrics['tip_deflection_m']:.5f} m "
+                f"({deflection_ratio*100:.2f}% of limit), "
+                f"exceeds {MAX_TIP_DEFLECTION_RATIO*100:.0f}% tolerance"
+            )
