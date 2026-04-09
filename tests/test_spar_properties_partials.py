@@ -101,3 +101,15 @@ def test_warping_knockdown_reduces_dual_spar_gj() -> None:
     gj_rigid = prob_rigid.get_val("GJ")
     gj_flexible = prob_flexible.get_val("GJ")
     np.testing.assert_array_less(gj_flexible, gj_rigid)
+
+
+def test_rear_mass_per_length_matches_rear_tube_area_times_density() -> None:
+    prob = _build_prob(rear=True)
+    _set_interior_inputs(prob, rear=True)
+    prob.run_model()
+
+    radius = 0.020
+    thickness = 0.0010
+    expected_area = np.pi * (radius**2 - (radius - thickness) ** 2)
+    expected_rear_mpl = np.full(NE, 1550.0 * expected_area)
+    np.testing.assert_allclose(prob.get_val("rear_mass_per_length"), expected_rear_mpl)

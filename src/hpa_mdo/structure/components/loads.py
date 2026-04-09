@@ -14,6 +14,7 @@ class ExternalLoadsComp(om.ExplicitComponent):
         - Aerodynamic lift (Fz) at design load level
         - Aerodynamic pitching moment (Mx torque)
         - Spar self-weight / inertia (negative Fz), scaled by load factor
+        - Rear spar gravity torque about the span axis (negative My)
     """
 
     def initialize(self):
@@ -42,11 +43,22 @@ class ExternalLoadsComp(om.ExplicitComponent):
                 "torsion). None = disabled (legacy behaviour)."
             ),
         )
+        self.options.declare(
+            "rear_torque_arm",
+            default=None,
+            allow_none=True,
+            desc=(
+                "(ne,) chordwise lever arm from beam axis to rear spar centroid [m]. "
+                "When provided, rear_mass_per_length generates rear-spar gravity "
+                "torsion using the current structural design."
+            ),
+        )
 
     def setup(self):
         nn = self.options["n_nodes"]
         ne = nn - 1
         self.add_input("mass_per_length", shape=(ne,), units="kg/m")
+        self.add_input("rear_mass_per_length", shape=(ne,), units="kg/m", val=np.zeros(ne))
         self.add_output("loads", shape=(nn, 6))
         g = G_STANDARD
         g_scaled = g * self.options["gravity_scale"]
@@ -61,6 +73,31 @@ class ExternalLoadsComp(om.ExplicitComponent):
             vals.extend([weight_sensitivity, weight_sensitivity])
         self.declare_partials("loads", "mass_per_length", rows=rows, cols=cols, val=vals)
 
+        rear_torque_arm = self.options["rear_torque_arm"]
+        if rear_torque_arm is not None:
+            rear_torque_arm_arr = np.asarray(rear_torque_arm, dtype=float)
+            if rear_torque_arm_arr.shape != (ne,):
+                raise ValueError(
+                    "rear_torque_arm must have shape "
+                    f"({ne},), got {rear_torque_arm_arr.shape}"
+                )
+
+            torque_rows = []
+            torque_cols = []
+            torque_vals = []
+            for e, (length, arm) in enumerate(zip(element_lengths, rear_torque_arm_arr, strict=True)):
+                torque_sensitivity = -0.5 * g_scaled * arm * length
+                torque_rows.extend([e * 6 + 4, (e + 1) * 6 + 4])
+                torque_cols.extend([e, e])
+                torque_vals.extend([torque_sensitivity, torque_sensitivity])
+            self.declare_partials(
+                "loads",
+                "rear_mass_per_length",
+                rows=torque_rows,
+                cols=torque_cols,
+                val=torque_vals,
+            )
+
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
         ne = nn - 1
@@ -69,6 +106,7 @@ class ExternalLoadsComp(om.ExplicitComponent):
         ds = self.options["node_spacings"]
         element_lengths = self.options["element_lengths"]
         mpl = inputs["mass_per_length"]
+        rear_mpl = inputs["rear_mass_per_length"]
         g = G_STANDARD * self.options["gravity_scale"]
 
         loads = np.zeros((nn, 6), dtype=mpl.dtype)
@@ -79,6 +117,22 @@ class ExternalLoadsComp(om.ExplicitComponent):
             # My = design torque (torsion about span/Y axis)
             # For beam along Y: torsion maps to global DOF 4 (θy)
             loads[i, 4] = torque[i] * ds[i]
+
+        rear_torque_arm = self.options["rear_torque_arm"]
+        if rear_torque_arm is not None:
+            rear_torque_arm_arr = np.asarray(rear_torque_arm, dtype=rear_mpl.dtype)
+            if rear_torque_arm_arr.shape != (ne,):
+                raise ValueError(
+                    "rear_torque_arm must have shape "
+                    f"({ne},), got {rear_torque_arm_arr.shape}"
+                )
+
+            for e in range(ne):
+                # Rear spar self-weight acts downward aft of the beam axis.
+                # In the FEM sign convention that trailing-edge-down torsion maps to -My.
+                element_torque = rear_mpl[e] * g * rear_torque_arm_arr[e] * element_lengths[e]
+                loads[e, 4] -= element_torque / 2.0
+                loads[e + 1, 4] -= element_torque / 2.0
 
         rgt = self.options["rear_gravity_torque_per_span"]
         if rgt is not None:

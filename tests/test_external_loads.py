@@ -15,10 +15,13 @@ def _run_external_loads(
     node_spacings: np.ndarray,
     element_lengths: np.ndarray,
     mass_per_length: np.ndarray,
+    rear_mass_per_length: np.ndarray | None = None,
     gravity_scale: float = 1.0,
     rear_gravity_torque_per_span: np.ndarray | None = None,
+    rear_torque_arm: np.ndarray | None = None,
 ) -> np.ndarray:
     nn = int(lift_per_span.size)
+    ne = nn - 1
     prob = om.Problem()
     prob.model.add_subsystem(
         "ext_loads",
@@ -30,11 +33,16 @@ def _run_external_loads(
             element_lengths=element_lengths,
             gravity_scale=gravity_scale,
             rear_gravity_torque_per_span=rear_gravity_torque_per_span,
+            rear_torque_arm=rear_torque_arm,
         ),
         promotes=["*"],
     )
     prob.setup()
     prob.set_val("mass_per_length", mass_per_length, units="kg/m")
+    if rear_mass_per_length is not None:
+        prob.set_val("rear_mass_per_length", rear_mass_per_length, units="kg/m")
+    else:
+        prob.set_val("rear_mass_per_length", np.zeros(ne), units="kg/m")
     prob.run_model()
     return np.asarray(prob.get_val("loads"))
 
@@ -52,6 +60,36 @@ def test_external_loads_adds_rear_gravity_torque_to_torsion_dof():
     )
 
     expected_my = (np.array([4.0, 3.0, 2.0, 1.0]) - 1.5 * np.array([1.0, 2.0, 3.0, 4.0])) * node_spacings
+    np.testing.assert_allclose(loads[:, 4], expected_my)
+    np.testing.assert_allclose(loads[:, 2], 0.0)
+
+
+def test_external_loads_rear_gravity_torque_tracks_rear_mass_distribution():
+    element_lengths = np.array([1.0, 2.0, 1.5])
+    rear_mass_per_length = np.array([1.0, 2.0, 3.0])
+    rear_torque_arm = np.array([0.4, 0.3, 0.2])
+    gravity_scale = 1.25
+
+    loads = _run_external_loads(
+        lift_per_span=np.zeros(4),
+        torque_per_span=np.zeros(4),
+        node_spacings=np.array([0.5, 1.5, 1.75, 0.75]),
+        element_lengths=element_lengths,
+        mass_per_length=np.zeros(3),
+        rear_mass_per_length=rear_mass_per_length,
+        gravity_scale=gravity_scale,
+        rear_torque_arm=rear_torque_arm,
+    )
+
+    elem_torque = rear_mass_per_length * G_STANDARD * gravity_scale * rear_torque_arm * element_lengths
+    expected_my = np.array(
+        [
+            -0.5 * elem_torque[0],
+            -0.5 * (elem_torque[0] + elem_torque[1]),
+            -0.5 * (elem_torque[1] + elem_torque[2]),
+            -0.5 * elem_torque[2],
+        ]
+    )
     np.testing.assert_allclose(loads[:, 4], expected_my)
     np.testing.assert_allclose(loads[:, 2], 0.0)
 

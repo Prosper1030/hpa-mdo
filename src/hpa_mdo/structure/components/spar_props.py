@@ -110,6 +110,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
         self.add_output("EI_main", shape=(ne,), units="N*m**2")
         self.add_output("GJ", shape=(ne,), units="N*m**2")
         self.add_output("mass_per_length", shape=(ne,), units="kg/m")
+        self.add_output("rear_mass_per_length", shape=(ne,), units="kg/m")
         # Stress-check arrays (individual tubes)
         self.add_output("A_main", shape=(ne,), units="m**2")
         self.add_output("I_main", shape=(ne,), units="m**4")
@@ -139,6 +140,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             "A_rear",
             "I_rear",
             "EI_rear",
+            "rear_mass_per_length",
             "A_equiv",
             "EI_flap",
             "GJ",
@@ -218,6 +220,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             outputs["EI_flap"] = EI_flap
             outputs["GJ"] = GJ_total
             outputs["mass_per_length"] = rho_m * A_m + rho_r * A_r
+            outputs["rear_mass_per_length"] = rho_r * A_r
 
             # Equivalent section properties (for single-beam FEM)
             E_avg = (E_m * A_m + E_r * A_r) / (A_m + A_r + 1e-30)
@@ -232,6 +235,7 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             outputs["EI_flap"] = E_m * I_m
             outputs["GJ"] = G_m * J_m
             outputs["mass_per_length"] = rho_m * A_m
+            outputs["rear_mass_per_length"] = np.zeros(ne)
             outputs["Iy_equiv"] = I_m
             outputs["Iz_equiv"] = I_m
             outputs["J_equiv"] = J_m
@@ -305,6 +309,8 @@ class DualSparPropertiesComp(om.ExplicitComponent):
             partials["I_rear", "rear_r_elem"] = dI_r_dR
             partials["EI_rear", "rear_t_elem"] = E_r * dI_r_dt
             partials["EI_rear", "rear_r_elem"] = E_r * dI_r_dR
+            partials["rear_mass_per_length", "rear_t_elem"] = rho_r * dA_r_dt
+            partials["rear_mass_per_length", "rear_r_elem"] = rho_r * dA_r_dR
 
             p = E_m * A_m
             q = E_r * A_r
