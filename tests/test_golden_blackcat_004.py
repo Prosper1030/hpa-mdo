@@ -49,11 +49,14 @@ BASELINE_TWIST_MAX_DEG = 0.213
 
 BASELINE_TOTAL_MASS_TOL_KG = 0.30  # ±2% design target (tightened absolute cap)
 
-# Frozen baseline (Milestone 3b multi-load-case production example, 2-case variant).
+# Frozen baseline (multi-load-case production example, 2-case variant).
 # Multi-case configs own scaling explicitly through cfg.flight.cases.
-# Generated: 2026-04-09
-BASELINE_MULTI_TOTAL_MASS_KG = 40.28377880671066
-BASELINE_MULTI_TOTAL_MASS_TOL_KG = 0.50
+# Generated: 2026-04-10
+# Fix: BucklingComp main_r_elem/rear_r_elem were unconnected in multi-case
+# topology (defaulted to 1.0 m → grossly wrong σ_cr → mass inflated 4×).
+# After fix, pullup_2g dominates and result tracks single-case closely.
+BASELINE_MULTI_TOTAL_MASS_KG = 11.070134548085988
+BASELINE_MULTI_TOTAL_MASS_TOL_KG = 0.30
 
 # Constraints that must hold (these are physics, not stochastic).
 MAX_FAILURE_INDEX = 0.01

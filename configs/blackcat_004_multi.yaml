@@ -95,6 +95,11 @@ main_spar:
 # Prevents excessive wing twist under aerodynamic pitching moment.
 # Same segmented-tube concept as main spar.
 #
+# ── Rear Spar (Secondary Spar) — Torsion Resistance ────────────────────────
+#
+# Chordwise offset from main spar (0.70 - 0.25 = 0.45c) creates a gravity
+# torque arm about the main spar elastic axis. This is accounted for in
+# ExternalLoadsComp via rear_gravity_torque_per_span (Finding F12).
 rear_spar:
   enabled: true
   material: "carbon_fiber_hm"

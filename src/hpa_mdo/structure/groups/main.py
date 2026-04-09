@@ -517,10 +517,19 @@ class HPAStructuralGroup(om.Group):
                 self.connect("seg_mapper.main_r_elem", f"{case_group_name}.R_main_elem")
                 self.connect("seg_mapper.main_t_elem", f"{case_group_name}.main_t_elem")
                 self.connect("spar_props.I_main", f"{case_group_name}.I_main")
+                # BucklingComp promotes main_r_elem / rear_r_elem (distinct
+                # from VonMisesStressComp which uses R_main_elem / R_rear_elem).
+                self.connect(
+                    "seg_mapper.main_r_elem", f"{case_group_name}.main_r_elem"
+                )
                 if rear_on:
                     self.connect("seg_mapper.rear_r_elem", f"{case_group_name}.R_rear_elem")
                     self.connect("seg_mapper.rear_t_elem", f"{case_group_name}.rear_t_elem")
                     self.connect("spar_props.I_rear", f"{case_group_name}.I_rear")
+                    self.connect(
+                        "seg_mapper.rear_r_elem",
+                        f"{case_group_name}.rear_r_elem",
+                    )
 
 
 def compute_outer_radius_from_wing(wing, spar_cfg) -> np.ndarray:
