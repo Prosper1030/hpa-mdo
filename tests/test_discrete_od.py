@@ -18,6 +18,7 @@ def test_catalog_loads() -> None:
     assert all(isinstance(od, float) for od in catalog)
     assert catalog == sorted(catalog), "catalog must be sorted ascending"
     assert catalog[0] > 0.0
+    assert catalog[-1] == pytest.approx(0.120)
 
 
 def test_snap_rounds_up_exact() -> None:
@@ -56,3 +57,9 @@ def test_snap_with_real_catalog() -> None:
         assert snapped >= od - 1e-9, (
             f"snap_to_catalog({od * 1000:.3f}mm) -> {snapped * 1000:.3f}mm is smaller"
         )
+
+
+def test_real_catalog_can_round_up_blackcat_main_spar_od() -> None:
+    catalog = load_tube_catalog(CATALOG_PATH)
+    snapped = snap_to_catalog(0.080264, catalog)
+    assert snapped == pytest.approx(0.085)

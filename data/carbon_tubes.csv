@@ -1,6 +1,12 @@
 vendor,product,material_key,outer_diameter_mm,inner_diameter_mm,wall_thickness_mm,length_mm,mass_per_meter_kg,price_per_meter_usd,note
+generic,CF-HM-120x118,carbon_fiber_hm,120.0,118.0,1.0,3000,0.593,105.0,HM 120mm tube 1mm wall
+generic,CF-HM-120x116,carbon_fiber_hm,120.0,116.0,2.0,3000,1.177,150.0,HM 120mm tube 2mm wall
+generic,CF-HM-110x108,carbon_fiber_hm,110.0,108.0,1.0,3000,0.543,95.0,HM 110mm tube 1mm wall
+generic,CF-HM-110x106,carbon_fiber_hm,110.0,106.0,2.0,3000,1.078,136.0,HM 110mm tube 2mm wall
 generic,CF-HM-100x98,carbon_fiber_hm,100.0,98.0,1.0,3000,0.494,85.0,HM 100mm tube 1mm wall
 generic,CF-HM-100x96,carbon_fiber_hm,100.0,96.0,2.0,3000,0.980,120.0,HM 100mm tube 2mm wall
+generic,CF-HM-90x88,carbon_fiber_hm,90.0,88.0,1.0,3000,0.444,78.0,HM 90mm tube 1mm wall
+generic,CF-HM-90x86,carbon_fiber_hm,90.0,86.0,2.0,3000,0.881,112.0,HM 90mm tube 2mm wall
 generic,CF-HM-80x78,carbon_fiber_hm,80.0,78.0,1.0,3000,0.394,70.0,HM 80mm tube 1mm wall
 generic,CF-HM-80x76,carbon_fiber_hm,80.0,76.0,2.0,3000,0.782,100.0,HM 80mm tube 2mm wall
 generic,CF-HM-60x58,carbon_fiber_hm,60.0,58.0,1.0,3000,0.294,55.0,HM 60mm tube 1mm wall
@@ -9,6 +15,9 @@ generic,CF-HM-50x48,carbon_fiber_hm,50.0,48.0,1.0,3000,0.245,50.0,HM 50mm tube 1
 generic,CF-HM-50x46,carbon_fiber_hm,50.0,46.0,2.0,3000,0.483,72.0,HM 50mm tube 2mm wall
 generic,CF-HM-40x38,carbon_fiber_hm,40.0,38.0,1.0,3000,0.195,42.0,HM 40mm tube 1mm wall
 generic,CF-HM-40x36,carbon_fiber_hm,40.0,36.0,2.0,3000,0.384,60.0,HM 40mm tube 2mm wall
+generic,CF-STD-120x118,carbon_fiber_std,120.0,118.0,1.0,3000,0.576,62.0,Std CF 120mm 1mm wall
+generic,CF-STD-110x106,carbon_fiber_std,110.0,106.0,2.0,3000,1.050,82.0,Std CF 110mm 2mm wall
 generic,CF-STD-100x98,carbon_fiber_std,100.0,98.0,1.0,3000,0.480,50.0,Std CF 100mm 1mm wall
+generic,CF-STD-90x86,carbon_fiber_std,90.0,86.0,2.0,3000,0.860,72.0,Std CF 90mm 2mm wall
 generic,CF-STD-80x76,carbon_fiber_std,80.0,76.0,2.0,3000,0.760,65.0,Std CF 80mm 2mm wall
 generic,CF-STD-60x56,carbon_fiber_std,60.0,56.0,2.0,3000,0.565,48.0,Std CF 60mm 2mm wall
