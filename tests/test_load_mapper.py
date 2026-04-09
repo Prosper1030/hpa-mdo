@@ -67,6 +67,36 @@ def test_map_loads_returns_finite_output_for_valid_data():
     )
 
 
+def test_default_mapper_uses_linear_to_avoid_cubic_overshoot():
+    y = np.linspace(0.0, 4.0, 5)
+    load = SpanwiseLoad(
+        y=y,
+        chord=np.ones_like(y),
+        cl=np.zeros_like(y),
+        cd=np.zeros_like(y),
+        cm=np.zeros_like(y),
+        lift_per_span=np.array([0.0, 2.0, 0.0, 2.0, 0.0]),
+        drag_per_span=np.zeros_like(y),
+        aoa_deg=0.0,
+        velocity=1.0,
+        dynamic_pressure=1.0,
+    )
+    struct_y = np.linspace(0.0, 4.0, 9)
+
+    default_total = float(
+        np.trapezoid(LoadMapper().map_loads(load, struct_y)["lift_per_span"], struct_y)
+    )
+    cubic_total = float(
+        np.trapezoid(
+            LoadMapper(method="cubic").map_loads(load, struct_y)["lift_per_span"],
+            struct_y,
+        )
+    )
+
+    assert default_total == pytest.approx(4.0)
+    assert cubic_total > default_total
+
+
 def test_load_factor_applied_exactly_once():
     load = _sample_spanwise_load()
     struct_y = np.linspace(0.0, 4.0, 9)

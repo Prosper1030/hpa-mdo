@@ -1,8 +1,12 @@
 """Map aerodynamic loads onto structural beam nodes.
 
 Aerodynamic solvers and the structural beam model typically use different
-spanwise discretisations.  LoadMapper performs conservative interpolation
-to transfer loads while preserving the total integrated force and moment.
+spanwise discretisations. LoadMapper interpolates sectional loads between
+those grids.
+
+The default is linear interpolation because cubic splines can overshoot on
+sparse or oscillatory load distributions and silently change the integrated
+force/moment. This utility is not a conservative remap scheme.
 
 Handles:
     - Lift per span (Fz)
@@ -28,13 +32,14 @@ APPLIED_AERO_SCALE_KEY = "_applied_aero_scale"
 class LoadMapper:
     """Interpolate SpanwiseLoad data onto a structural node grid."""
 
-    def __init__(self, method: str = "cubic"):
+    def __init__(self, method: str = "linear"):
         """
         Parameters
         ----------
         method : str
             Interpolation kind passed to scipy.interpolate.interp1d.
-            'linear', 'cubic', 'nearest', etc.
+            'linear', 'cubic', 'nearest', etc. Linear is the default because
+            it avoids spline overshoot on sparse aero grids.
         """
         self.method = method
 
