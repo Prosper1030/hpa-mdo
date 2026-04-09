@@ -83,9 +83,9 @@ class DualSparPropertiesComp(om.ExplicitComponent):
     def initialize(self):
         self.options.declare("n_elements", types=int)
         self.options.declare("z_main", types=np.ndarray,
-                             desc="Z-offset of main spar (camber fraction)")
+                             desc="Z-offset of main spar centroid [m]")
         self.options.declare("z_rear", types=np.ndarray,
-                             desc="Z-offset of rear spar (camber fraction)")
+                             desc="Z-offset of rear spar centroid [m]")
         self.options.declare("d_chord", types=np.ndarray,
                              desc="Chordwise spar separation [m]")
         self.options.declare("E_main", types=float)

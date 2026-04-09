@@ -90,7 +90,7 @@ class WingGeometry:
     airfoil_thickness: np.ndarray  # max t/c
     main_spar_xc: float
     rear_spar_xc: float
-    # Z-offsets of spar tubes within the airfoil section (fraction of chord)
+    # Z-offsets of spar tubes within the airfoil section [m]
     main_spar_z_camber: np.ndarray
     rear_spar_z_camber: np.ndarray
 
@@ -166,6 +166,11 @@ class Aircraft:
                 rear_z_root = root_af.camber_z_at(rear_xc)
                 rear_z_tip = tip_af.camber_z_at(rear_xc)
                 rear_z = rear_z_root + eta * (rear_z_tip - rear_z_root)
+
+        # Airfoil camber coordinates are chord-normalized fractions; convert once
+        # at aircraft-build time so the structural path uses consistent SI units.
+        main_z *= chord
+        rear_z *= chord
 
         wing = WingGeometry(
             y=y, chord=chord, twist_deg=twist,

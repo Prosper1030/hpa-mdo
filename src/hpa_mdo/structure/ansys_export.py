@@ -177,9 +177,9 @@ class ANSYSExporter:
 
         # Spar X and Z coordinates (physical, in metres)
         self.x_main = wing.main_spar_xc * wing.chord
-        self.z_main = self.z_dih + wing.main_spar_z_camber * wing.chord
+        self.z_main = self.z_dih + wing.main_spar_z_camber
         self.x_rear = wing.rear_spar_xc * wing.chord
-        self.z_rear = self.z_dih + wing.rear_spar_z_camber * wing.chord
+        self.z_rear = self.z_dih + wing.rear_spar_z_camber
 
         # Joint / rib positions (y-coordinates)
         main_joints = HPAConfig.joint_positions(main_seg_L)

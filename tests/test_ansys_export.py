@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from hpa_mdo.core.aircraft import Aircraft
+from hpa_mdo.core.aircraft import AirfoilData, Aircraft
 from hpa_mdo.core.config import load_config
 from hpa_mdo.core.materials import MaterialDB
 from hpa_mdo.structure.ansys_export import ANSYSExporter
@@ -87,3 +87,33 @@ def test_ansys_exporter_prefers_optimized_radii():
         aircraft.wing.y, aircraft.wing.chord, aircraft.wing.airfoil_thickness, cfg.main_spar
     )
     assert not np.allclose(expected_main, fallback_main)
+
+
+def test_ansys_exporter_uses_physical_camber_offsets_without_extra_chord_factor():
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg = load_config(repo_root / "configs" / "blackcat_004.yaml")
+    fake_airfoil = AirfoilData(
+        name="unit-test",
+        x=np.array([0.0, 1.0]),
+        z_upper=np.array([0.10, 0.10]),
+        z_lower=np.array([0.00, 0.00]),
+    )
+    with patch("hpa_mdo.core.aircraft._try_load_airfoil", side_effect=[fake_airfoil, fake_airfoil]):
+        with patch.object(cfg.solver, "n_beam_nodes", 10):
+            aircraft = Aircraft.from_config(cfg)
+
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+    result = _build_result(
+        n_seg,
+        np.full(n_seg, 12.0),
+        np.full(n_seg, 9.0),
+    )
+    aero_loads = {
+        "lift_per_span": np.zeros(aircraft.wing.n_stations),
+        "torque_per_span": np.zeros(aircraft.wing.n_stations),
+    }
+
+    exporter = ANSYSExporter(cfg, aircraft, result, aero_loads, MaterialDB())
+
+    np.testing.assert_allclose(exporter.z_main - exporter.z_dih, aircraft.wing.main_spar_z_camber)
+    np.testing.assert_allclose(exporter.z_rear - exporter.z_dih, aircraft.wing.rear_spar_z_camber)

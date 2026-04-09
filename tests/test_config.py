@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
+import numpy as np
 import pytest
 import yaml
 from pydantic import ValidationError
 
+from hpa_mdo.core.aircraft import Aircraft, AirfoilData
 from hpa_mdo.core.config import load_config
 
 
@@ -68,6 +71,27 @@ def test_blackcat_lift_wire_angle_loaded_from_config():
     cfg = load_config(config_path)
 
     assert cfg.lift_wires.wire_angle_deg == pytest.approx(11.3)
+
+
+def test_aircraft_converts_airfoil_camber_fraction_to_meters():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path)
+
+    fake_airfoil = AirfoilData(
+        name="unit-test",
+        x=np.array([0.0, 1.0]),
+        z_upper=np.array([0.10, 0.10]),
+        z_lower=np.array([0.00, 0.00]),
+    )
+
+    with patch("hpa_mdo.core.aircraft._try_load_airfoil", side_effect=[fake_airfoil, fake_airfoil]):
+        with patch.object(cfg.solver, "n_beam_nodes", 5):
+            aircraft = Aircraft.from_config(cfg)
+
+    expected_camber = 0.05 * aircraft.wing.chord
+    np.testing.assert_allclose(aircraft.wing.main_spar_z_camber, expected_camber)
+    np.testing.assert_allclose(aircraft.wing.rear_spar_z_camber, expected_camber)
 
 
 def test_load_config_rejects_segment_sum_mismatch(tmp_path):
