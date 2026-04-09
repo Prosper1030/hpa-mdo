@@ -50,6 +50,10 @@ BASELINE_TWIST_MAX_DEG = 0.125
 BASELINE_TOTAL_MASS_TOL_KG = 0.30  # ±2% design target (tightened absolute cap)
 
 # Frozen baseline (Milestone 3b multi-load-case production example, 2-case variant).
+# Note: this path currently compounds load scaling for pullup_2g:
+# aerodynamic_load_factor (2.0) × case aero_scale (2.0) => 4G-equivalent.
+# Keep as regression guard for multi-case topology behavior, not as a
+# representative 2G design target.
 # Generated: 2026-04-09
 BASELINE_MULTI_TOTAL_MASS_KG = 40.28377880671066
 BASELINE_MULTI_TOTAL_MASS_TOL_KG = 0.50
@@ -152,7 +156,7 @@ def test_blackcat_004_baseline_mass_and_constraints() -> None:
 @pytest.mark.slow
 @pytest.mark.requires_vspaero
 def test_golden_multi_case() -> None:
-    """Multi-case optimization produces physically reasonable results."""
+    """Multi-case topology regression (currently 4G-equivalent pullup path)."""
     cfg = load_config(REPO_ROOT / "configs" / "blackcat_004_multi.yaml")
     missing_assets = [
         str(path)
