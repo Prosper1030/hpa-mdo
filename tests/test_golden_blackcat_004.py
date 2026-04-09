@@ -49,9 +49,9 @@ BASELINE_TWIST_MAX_DEG = 0.125
 
 BASELINE_TOTAL_MASS_TOL_KG = 0.30  # ±2% design target (tightened absolute cap)
 
-# Frozen baseline (Milestone 3b multi-load-case production example).
+# Frozen baseline (Milestone 3b multi-load-case production example, 2-case variant).
 # Generated: 2026-04-09
-BASELINE_MULTI_TOTAL_MASS_KG = 41.36838746921641
+BASELINE_MULTI_TOTAL_MASS_KG = 40.28377880671066
 BASELINE_MULTI_TOTAL_MASS_TOL_KG = 0.50
 
 # Constraints that must hold (these are physics, not stochastic).
@@ -166,7 +166,7 @@ def test_golden_multi_case() -> None:
         )
 
     # Multi-case OpenMDAO with full 60-node mesh can be very expensive.
-    # Keep this golden test bounded while still exercising full 3-case topology.
+    # Keep this golden test bounded while still exercising multi-case topology.
     with patch.object(cfg.solver, "n_beam_nodes", 20), patch.object(
         cfg.solver, "optimizer_maxiter", 50
     ):

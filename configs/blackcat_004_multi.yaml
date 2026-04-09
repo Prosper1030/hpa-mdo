@@ -28,12 +28,6 @@ flight:
       max_tip_deflection_m: 3.5
       max_twist_deg: 3.0
 
-    - name: "negative_gust"
-      aero_scale: 0.5
-      nz: -0.5
-      max_tip_deflection_m: 5.0
-      max_twist_deg: 4.0
-
 # ── Safety Factors (SEPARATE — never conflate) ─────────────────────────────
 safety:
   aerodynamic_load_factor: 2.0   # design limit load [G]

@@ -8,7 +8,7 @@ This example demonstrates the complete HPA-MDO v2 workflow:
     2. Build aircraft geometry and material database
     3. Parse VSPAero aerodynamic data
     4. Find cruise angle of attack (lift ≈ weight)
-    5. Build multi-case mapped loads (cruise / pull-up / negative gust)
+    5. Build multi-case mapped loads (cruise / pull-up 2g)
     6. Run multi-case spar optimization (OpenMDAO path via method="auto")
     7. Generate visualizations (beam analysis, spar geometry)
     8. Write optimization summary text file
