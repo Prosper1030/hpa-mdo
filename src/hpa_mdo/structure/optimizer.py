@@ -1007,6 +1007,14 @@ class SparOptimizer:
         bounds_rear_r = [(min_r, max_r)] * n_seg if rear_on else []
         bounds = bounds_main_t + bounds_main_r + bounds_rear_t + bounds_rear_r
 
+        def _set_design_vars(x: np.ndarray) -> None:
+            x_arr = np.asarray(x, dtype=float)
+            self._prob.set_val("struct.seg_mapper.main_t_seg", x_arr[:n_seg], units="m")
+            self._prob.set_val("struct.seg_mapper.main_r_seg", x_arr[n_seg:2 * n_seg], units="m")
+            if rear_on:
+                self._prob.set_val("struct.seg_mapper.rear_t_seg", x_arr[2 * n_seg:3 * n_seg], units="m")
+                self._prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg:], units="m")
+
         max_twist, max_defl = self._single_case_limits()
         t_total_start = perf_counter()
 
@@ -1299,6 +1307,45 @@ class SparOptimizer:
         elif de_feas:
             x_best = x_de
             msg = "scipy DE solution (SLSQP infeasible)"
+            try:
+                _set_design_vars(slsqp.x)
+                slsqp_raw = run_analysis(self._prob)
+                if not self._is_raw_feasible(slsqp_raw):
+                    failure_v = float(np.asarray(slsqp_raw.get("failure", np.nan)).item())
+                    buckling_v = float(
+                        np.asarray(slsqp_raw.get("buckling_index", slsqp_raw.get("buckling", np.nan))).item()
+                    )
+                    twist_v = float(np.asarray(slsqp_raw.get("twist_max_deg", np.nan)).item())
+                    tip_defl_v = float(np.asarray(slsqp_raw.get("tip_deflection_m", np.nan)).item())
+                    reject_reasons: list[str] = []
+                    if np.isfinite(failure_v) and failure_v > 0.01:
+                        reject_reasons.append("failure")
+                    if np.isfinite(buckling_v) and buckling_v > 0.01:
+                        reject_reasons.append("buckling")
+                    if np.isfinite(twist_v) and twist_v > max_twist * 1.02:
+                        reject_reasons.append("twist")
+                    if max_defl < float("inf") and np.isfinite(tip_defl_v) and tip_defl_v > max_defl * 1.02:
+                        reject_reasons.append("tip_deflection")
+                    if not reject_reasons:
+                        reject_reasons.append("other_feasibility_constraints")
+                    logger.warning(
+                        "SLSQP candidate rejected by _is_raw_feasible; falling back to DE. "
+                        "reasons=%s; failure=%.6f; buckling=%.6f; twist=%.6f (limit=%.6f); "
+                        "tip_deflection=%.6f (limit=%.6f)",
+                        ",".join(reject_reasons),
+                        failure_v,
+                        buckling_v,
+                        twist_v,
+                        max_twist,
+                        tip_defl_v,
+                        max_defl,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to log SLSQP rejection diagnostics before DE fallback: %s: %s",
+                    type(exc).__name__,
+                    exc,
+                )
         else:
             # Neither feasible — pick the one with less constraint violation
             v_de = _constraint_violation_score(
@@ -1322,11 +1369,7 @@ class SparOptimizer:
             msg = "scipy: no fully feasible solution — best compromise"
 
         # Set best solution and extract full results
-        self._prob.set_val("struct.seg_mapper.main_t_seg", x_best[:n_seg], units="m")
-        self._prob.set_val("struct.seg_mapper.main_r_seg", x_best[n_seg:2*n_seg], units="m")
-        if rear_on:
-            self._prob.set_val("struct.seg_mapper.rear_t_seg", x_best[2*n_seg:3*n_seg], units="m")
-            self._prob.set_val("struct.seg_mapper.rear_r_seg", x_best[3*n_seg:], units="m")
+        _set_design_vars(x_best)
         raw = run_analysis(self._prob)
         best_r = evaluator.evaluate(x_best)
         best_valid = _is_eval_valid(best_r, rear_on=rear_on)
