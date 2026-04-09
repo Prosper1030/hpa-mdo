@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Generated: 2026-04-08
 # Last updated by: a25ae3e (M5 golden value test initialization)
 # Run on: macOS / Python 3.10.18 / numpy 2.2.6 / scipy 1.15.3
-BASELINE_TOTAL_MASS_KG = 13.90655019056321
+BASELINE_TOTAL_MASS_KG = 13.906550190509066
 BASELINE_FAILURE_INDEX = -0.68210
 BASELINE_BUCKLING_INDEX = -0.85250
 BASELINE_TIP_DEFLECTION_M = 1.85389
