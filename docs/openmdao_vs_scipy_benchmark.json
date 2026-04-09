@@ -3,32 +3,32 @@
     "method": "openmdao",
     "success": true,
     "message": "OpenMDAO converged",
-    "total_mass_full_kg": 10.898229839348756,
-    "failure_index": -0.7348760243531632,
-    "buckling_index": -0.8153772368967638,
-    "twist_max_deg": 0.421276356079525,
-    "tip_deflection_m": 2.500000055452567,
-    "wall_time_s": 64.85467233299278,
+    "total_mass_full_kg": 13.90655019056321,
+    "failure_index": -0.6046058545277148,
+    "buckling_index": -0.7027323982383249,
+    "twist_max_deg": 0.19693012307753263,
+    "tip_deflection_m": 2.5000003715517507,
+    "wall_time_s": 71.02243520901538,
     "timing_s": {},
-    "n_compute": 19,
-    "n_compute_partials": 18
+    "n_compute": 13,
+    "n_compute_partials": 12
   },
   {
     "method": "scipy",
     "success": true,
-    "message": "scipy converged (feasible)",
-    "total_mass_full_kg": 10.898327252701927,
-    "failure_index": -0.7350832820994461,
-    "buckling_index": -0.8152887197471889,
-    "twist_max_deg": 0.4212485274359134,
-    "tip_deflection_m": 2.499964291848492,
-    "wall_time_s": 111.52660166600253,
+    "message": "scipy DE solution (SLSQP infeasible)",
+    "total_mass_full_kg": 21.561920372632162,
+    "failure_index": -0.6475178489339785,
+    "buckling_index": -0.7779961369316892,
+    "twist_max_deg": 0.10973647186074625,
+    "tip_deflection_m": 1.3076602970480342,
+    "wall_time_s": 356.6426504170522,
     "timing_s": {
-      "de_global_s": 109.47602312499657,
-      "slsqp_local_s": 2.0196190420538187,
-      "total_s": 111.52647170901764
+      "de_global_s": 355.65308145899326,
+      "slsqp_local_s": 0.9473023749887943,
+      "total_s": 356.6425459580496
     },
-    "n_compute": 388,
+    "n_compute": 78,
     "n_compute_partials": 0
   }
 ]
