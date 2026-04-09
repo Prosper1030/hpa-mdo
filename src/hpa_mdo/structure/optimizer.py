@@ -441,6 +441,7 @@ class OptimizationResult:
     case_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
 
     # Full results
+    nodes: Optional[np.ndarray] = field(default=None, repr=False)
     disp: Optional[np.ndarray] = field(default=None, repr=False)
     vonmises_main: Optional[np.ndarray] = field(default=None, repr=False)
     vonmises_rear: Optional[np.ndarray] = field(default=None, repr=False)
@@ -1472,6 +1473,7 @@ class SparOptimizer:
             main_r_seg_mm=raw["main_r_seg"] * 1000.0,
             rear_t_seg_mm=raw["rear_t_seg"] * 1000.0 if raw.get("rear_t_seg") is not None else None,
             rear_r_seg_mm=raw["rear_r_seg"] * 1000.0 if raw.get("rear_r_seg") is not None else None,
+            nodes=raw.get("nodes"),
             disp=disp,
             vonmises_main=vm_main,
             vonmises_rear=vm_rear if vm_rear is not None and len(vm_rear) > 0 else None,

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import numpy as np
+from types import SimpleNamespace
 
 from hpa_mdo.structure.spar_model import compute_dual_spar_section
-from hpa_mdo.utils.cad_export import load_tube_paths
+from hpa_mdo.utils.cad_export import (
+    TubePath,
+    TubeProfile,
+    _apply_deformed_nodes,
+    compute_deformed_nodes,
+    load_tube_paths,
+)
 
 
 def test_compute_dual_spar_section_returns_finite_chordwise_stiffness():
@@ -45,3 +52,51 @@ def test_load_tube_paths_supports_dual_spar_csv(tmp_path):
     assert len(tube_paths[0].profiles) == 2
     assert tube_paths[0].profiles[0].outer_radius_mm == 50.0
     assert tube_paths[1].profiles[1].inner_radius_mm == 24.0
+
+
+def test_compute_deformed_nodes_adds_translational_displacements():
+    result = SimpleNamespace(
+        nodes=np.array([[0.2, 0.0, 0.0], [0.2, 1.0, 0.1]], dtype=float),
+        disp=np.array(
+            [
+                [0.001, 0.005, 0.003, 0.0, 0.0, 0.0],
+                [-0.002, 0.006, -0.003, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        ),
+    )
+
+    deformed = compute_deformed_nodes(result)
+    expected = np.array([[0.201, 0.005, 0.003], [0.198, 1.006, 0.097]], dtype=float)
+    assert np.allclose(deformed, expected)
+
+
+def test_apply_deformed_nodes_shifts_all_paths_by_same_node_deltas():
+    main_profiles = [
+        TubeProfile(200.0, 0.0, 0.0, outer_radius_mm=50.0, inner_radius_mm=49.0),
+        TubeProfile(200.0, 1000.0, 100.0, outer_radius_mm=45.0, inner_radius_mm=44.0),
+    ]
+    rear_profiles = [
+        TubeProfile(700.0, 0.0, 0.0, outer_radius_mm=30.0, inner_radius_mm=29.0),
+        TubeProfile(700.0, 1000.0, 100.0, outer_radius_mm=25.0, inner_radius_mm=24.0),
+    ]
+    tube_paths = [
+        TubePath(name="main_spar", profiles=main_profiles),
+        TubePath(name="rear_spar", profiles=rear_profiles),
+    ]
+
+    deformed_nodes = np.array([[0.201, 0.005, 0.003], [0.198, 1.006, 0.097]], dtype=float)
+    shifted = _apply_deformed_nodes(tube_paths, deformed_nodes)
+
+    # Node deltas [mm]: [+1,+5,+3], [-2,+6,-3]
+    assert shifted[0].profiles[0].x_mm == 201.0
+    assert shifted[0].profiles[1].x_mm == 198.0
+    assert shifted[1].profiles[0].x_mm == 701.0
+    assert shifted[1].profiles[1].x_mm == 698.0
+
+    assert shifted[1].profiles[1].y_mm == 1006.0
+    assert shifted[1].profiles[1].z_mm == 97.0
+
+    # Tube section geometry is unchanged.
+    assert shifted[1].profiles[1].outer_radius_mm == 25.0
+    assert shifted[1].profiles[1].inner_radius_mm == 24.0

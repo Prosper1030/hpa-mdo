@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
+import numpy as np
+
 
 @dataclass(frozen=True)
 class TubeProfile:
@@ -48,9 +50,12 @@ def export_step_from_csv(
     csv_file: str | Path,
     step_file: str | Path,
     engine: str = "auto",
+    deformed_nodes: np.ndarray | None = None,
 ) -> str:
     """Export STEP geometry from spar CSV and return the engine used."""
     tube_paths = load_tube_paths(csv_file)
+    if deformed_nodes is not None:
+        tube_paths = _apply_deformed_nodes(tube_paths, deformed_nodes)
     step_path = Path(step_file)
     step_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -60,6 +65,80 @@ def export_step_from_csv(
     else:
         _export_with_build123d(tube_paths, step_path)
     return resolved_engine
+
+
+def compute_deformed_nodes(result) -> np.ndarray:
+    """Compute deformed node positions from an OptimizationResult-like object."""
+    nodes = getattr(result, "nodes", None)
+    disp = getattr(result, "disp", None)
+    if nodes is None or disp is None:
+        raise ValueError("Result must provide both 'nodes' and 'disp' for deformed export.")
+
+    nodes_arr = np.asarray(nodes, dtype=float)
+    disp_arr = np.asarray(disp, dtype=float)
+    if nodes_arr.ndim != 2 or nodes_arr.shape[1] != 3:
+        raise ValueError(f"nodes must have shape (n_nodes, 3), got {nodes_arr.shape}.")
+    if disp_arr.ndim != 2 or disp_arr.shape[0] != nodes_arr.shape[0] or disp_arr.shape[1] < 3:
+        raise ValueError(
+            "disp must have shape (n_nodes, >=3) and match nodes length; "
+            f"got {disp_arr.shape} for nodes {nodes_arr.shape}."
+        )
+
+    return nodes_arr + disp_arr[:, :3]
+
+
+def _apply_deformed_nodes(
+    tube_paths: List[TubePath],
+    deformed_nodes: np.ndarray,
+) -> List[TubePath]:
+    """Shift tube profiles by nodal translation implied by deformed beam nodes."""
+    if not tube_paths:
+        raise ValueError("No tube paths available for deformed export.")
+
+    deformed = np.asarray(deformed_nodes, dtype=float)
+    if deformed.ndim != 2 or deformed.shape[1] != 3:
+        raise ValueError(
+            f"deformed_nodes must have shape (n_nodes, 3), got {deformed.shape}."
+        )
+
+    reference_path = next((path for path in tube_paths if path.name == "main_spar"), tube_paths[0])
+    n_profiles = len(reference_path.profiles)
+    if n_profiles == 0:
+        raise ValueError("Reference tube path has no profiles.")
+    if deformed.shape[0] != n_profiles:
+        raise ValueError(
+            "deformed_nodes length must match profile count. "
+            f"Expected {n_profiles}, got {deformed.shape[0]}."
+        )
+
+    reference_xyz_mm = np.array(
+        [[p.x_mm, p.y_mm, p.z_mm] for p in reference_path.profiles],
+        dtype=float,
+    )
+    deltas_mm = deformed * 1000.0 - reference_xyz_mm
+
+    transformed_paths: List[TubePath] = []
+    for path in tube_paths:
+        if len(path.profiles) != n_profiles:
+            raise ValueError(
+                f"All tube paths must have {n_profiles} profiles for deformed export; "
+                f"path '{path.name}' has {len(path.profiles)}."
+            )
+        transformed_profiles: List[TubeProfile] = []
+        for i, profile in enumerate(path.profiles):
+            dx_mm, dy_mm, dz_mm = deltas_mm[i]
+            transformed_profiles.append(
+                TubeProfile(
+                    x_mm=profile.x_mm + float(dx_mm),
+                    y_mm=profile.y_mm + float(dy_mm),
+                    z_mm=profile.z_mm + float(dz_mm),
+                    outer_radius_mm=profile.outer_radius_mm,
+                    inner_radius_mm=profile.inner_radius_mm,
+                )
+            )
+        transformed_paths.append(TubePath(name=path.name, profiles=transformed_profiles))
+
+    return transformed_paths
 
 
 def _load_dual_spar_rows(rows: List[dict]) -> List[TubePath]:

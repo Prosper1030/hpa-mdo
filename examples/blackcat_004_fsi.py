@@ -39,7 +39,7 @@ from hpa_mdo.core import load_config, Aircraft, MaterialDB
 from hpa_mdo.aero import VSPAeroParser, LoadMapper
 from hpa_mdo.fsi.coupling import FSICoupling
 from hpa_mdo.structure.ansys_export import ANSYSExporter
-from hpa_mdo.utils import export_step_from_csv
+from hpa_mdo.utils import compute_deformed_nodes, export_step_from_csv
 from hpa_mdo.utils.visualization import (
     plot_beam_analysis,
     plot_spar_geometry,
@@ -202,7 +202,7 @@ def main() -> float:
     print(f"       Saved: {summary_path}")
 
     # ====================================================================
-    # Step 9 — Export STEP geometry for CAD inspection
+    # Step 9 — Export STEP geometry for CAD inspection (jig + flight shape)
     # ====================================================================
     print("[9/9] Exporting STEP geometry for CAD inspection...")
     ansys_dir = output_dir / "ansys"
@@ -210,9 +210,18 @@ def main() -> float:
     try:
         exporter = ANSYSExporter(cfg, ac, result, design_loads, mat_db)
         csv_path = exporter.write_workbench_csv(ansys_dir / "spar_data.csv")
-        step_path = output_dir / "spar_geometry.step"
-        engine_name = export_step_from_csv(csv_path, step_path, engine="auto")
-        print(f"       Saved: {step_path} ({engine_name})")
+        jig_step_path = output_dir / "spar_jig_shape.step"
+        flight_step_path = output_dir / "spar_flight_shape.step"
+        engine_name = export_step_from_csv(csv_path, jig_step_path, engine="auto")
+        deformed_nodes = compute_deformed_nodes(result)
+        export_step_from_csv(
+            csv_path,
+            flight_step_path,
+            engine=engine_name,
+            deformed_nodes=deformed_nodes,
+        )
+        print(f"       Saved: {jig_step_path} ({engine_name})")
+        print(f"       Saved: {flight_step_path} ({engine_name})")
     except Exception as exc:
         print(f"       STEP export skipped: {exc}")
 

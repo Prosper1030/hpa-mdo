@@ -965,6 +965,7 @@ def _extract_results(prob: om.Problem) -> dict:
         "spar_mass_full_kg": _get_scalar("struct.mass.spar_mass_full"),
         "total_mass_full_kg": _get_scalar("struct.mass.total_mass_full"),
         "case_names": case_names,
+        "nodes": _get_array("struct.indeps.nodes"),
         "main_t_seg": _get_array("struct.seg_mapper.main_t_seg"),
         "main_r_seg": _get_array("struct.seg_mapper.main_r_seg"),
         "EI_main_elem": _get_array("struct.spar_props.EI_main"),
