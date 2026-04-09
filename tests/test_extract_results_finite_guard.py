@@ -31,6 +31,7 @@ def _base_values() -> dict:
         "struct.mass.spar_mass_half": np.array([1.2]),
         "struct.mass.spar_mass_full": np.array([2.4]),
         "struct.mass.total_mass_full": np.array([3.6]),
+        "struct.indeps.nodes": np.zeros((3, 3)),
         "struct.seg_mapper.main_t_seg": np.array([0.0011, 0.0012]),
         "struct.seg_mapper.main_r_seg": np.array([0.0210, 0.0220]),
         "struct.spar_props.EI_main": np.array([10.0, 9.0]),
