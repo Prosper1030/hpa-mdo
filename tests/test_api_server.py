@@ -3,7 +3,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
+import pytest
+
+TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
 from hpa_mdo.api.server import app
 

@@ -41,7 +41,10 @@ target-version = "py310"
 [tool.pytest.ini_options]
 addopts = "-v"
 testpaths = ["tests"]
-markers = ["requires_vspaero: tests that need VSPAero binary"]
+markers = [
+    "requires_vspaero: tests that need VSPAero binary",
+    "slow: long-running integration/regression tests",
+]
 
 [tool.coverage.run]
 source = ["hpa_mdo"]
