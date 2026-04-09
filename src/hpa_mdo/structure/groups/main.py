@@ -172,9 +172,21 @@ class HPAStructuralGroup(om.Group):
             + n_rear_joints * cfg.rear_spar.joint_mass_kg
         )
 
-        # Allowable stress = UTS / material_safety_factor
-        sigma_allow_main = mat_main.tensile_strength / cfg.safety.material_safety_factor
-        sigma_allow_rear = mat_rear.tensile_strength / cfg.safety.material_safety_factor
+        # Allowable stress uses the weaker of tensile/compressive strengths.
+        sigma_allow_main = (
+            min(
+                mat_main.tensile_strength,
+                mat_main.compressive_strength or mat_main.tensile_strength,
+            )
+            / cfg.safety.material_safety_factor
+        )
+        sigma_allow_rear = (
+            min(
+                mat_rear.tensile_strength,
+                mat_rear.compressive_strength or mat_rear.tensile_strength,
+            )
+            / cfg.safety.material_safety_factor
+        )
 
         # ── Build subsystems ──
 
