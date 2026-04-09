@@ -298,7 +298,7 @@ class _ScipyBlackBoxEvaluator:
                     rear_hollow_margin_min=float(np.min(rear_hollow_margin)),
                 )
 
-        key = tuple(np.round(x_arr, 8))
+        key = tuple(np.round(x_arr, 12))
         cached = self._cache_get(key)
         if cached is not None:
             return cached
