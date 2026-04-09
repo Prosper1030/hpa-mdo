@@ -495,6 +495,7 @@ def build_structural_problem(
 
     # Thickness-to-radius geometric feasibility: t <= eta * R.
     ratio_limit = solver_cfg.max_thickness_to_radius_ratio
+    max_thickness_step = solver_cfg.max_thickness_step_m
     model.add_subsystem(
         "main_thickness_ratio",
         om.ExecComp(

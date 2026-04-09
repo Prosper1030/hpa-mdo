@@ -125,6 +125,7 @@ solver:
   optimizer_tol: 1.0e-6
   optimizer_maxiter: 500
   max_wall_thickness_m: 0.015
+  max_thickness_step_m: 0.003          # max adjacent segment wall-thickness step [m]
   min_radius_m: 0.010
   max_radius_m: 0.060
   max_thickness_to_radius_ratio: 0.8

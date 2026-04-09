@@ -161,6 +161,10 @@ class SolverConfig(BaseModel):
     max_wall_thickness_m: float = Field(
         0.015, description="Global upper bound for spar wall thickness design vars [m]"
     )
+    max_thickness_step_m: float = Field(
+        0.003,
+        description="Maximum wall thickness change between adjacent segments [m]",
+    )
     min_radius_m: float = Field(
         0.010, description="Global lower bound for spar outer-radius design vars [m]"
     )
