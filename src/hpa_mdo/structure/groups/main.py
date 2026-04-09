@@ -19,6 +19,7 @@ from hpa_mdo.structure.components.spar_props import (
     SegmentToElementComp,
 )
 from hpa_mdo.structure.fem.assembly import SpatialBeamFEM
+from hpa_mdo.structure.fem.wire_precompression import wire_axial_precompression
 from hpa_mdo.structure.groups.load_case import StructuralLoadCaseGroup
 from hpa_mdo.structure.spar_model import segment_boundaries_from_lengths
 
@@ -151,6 +152,19 @@ class HPAStructuralGroup(om.Group):
                 idx = int(np.argmin(np.abs(y - att.y)))
                 lw_node_indices.append(idx)
 
+        def _wire_precompression_for_case(load_case, case_loads):
+            if not (cfg.lift_wires.enabled and lw_node_indices):
+                return None
+
+            lift_scaled = np.asarray(case_loads["lift_per_span"]) * load_case.aero_scale
+            return wire_axial_precompression(
+                y_nodes=y,
+                lift_per_span=lift_scaled,
+                node_spacings=node_spacings,
+                wire_attachment_indices=lw_node_indices,
+                wire_angle_deg=cfg.lift_wires.wire_angle_deg,
+            )
+
         # FEM nodes (3D coordinates)
         # Y along span, Z from dihedral, X at spar location
         nodes_3d = np.zeros((nn, 3))
@@ -238,6 +252,7 @@ class HPAStructuralGroup(om.Group):
             aero_scale = load_case.aero_scale
             lift = np.asarray(case_loads["lift_per_span"]) * aero_scale
             torque = np.asarray(case_loads.get("torque_per_span", np.zeros(nn))) * aero_scale
+            wire_precompression = _wire_precompression_for_case(load_case, case_loads)
 
             # 3. External loads
             self.add_subsystem("ext_loads", ExternalLoadsComp(
@@ -271,6 +286,7 @@ class HPAStructuralGroup(om.Group):
                 z_main=z_main_elem,
                 z_rear=z_rear_elem,
                 rear_enabled=rear_on,
+                wire_precompression=wire_precompression,
             ))
 
             # 6. Shell buckling
@@ -284,6 +300,7 @@ class HPAStructuralGroup(om.Group):
                 knockdown_factor=cfg.safety.shell_buckling_knockdown,
                 bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
                 ks_rho=cfg.safety.ks_rho_buckling,
+                wire_precompression=wire_precompression,
             ))
 
             # 7. KS failure
@@ -307,6 +324,7 @@ class HPAStructuralGroup(om.Group):
             for case_name, (load_case, case_loads) in case_entries.items():
                 lift = case_loads["lift_per_span"]
                 torque = case_loads.get("torque_per_span", np.zeros(nn))
+                wire_precompression = _wire_precompression_for_case(load_case, case_loads)
                 case_group_name = f"case_{case_name}"
 
                 self.add_subsystem(
@@ -339,6 +357,7 @@ class HPAStructuralGroup(om.Group):
                         fem_max_matrix_entry=cfg.solver.fem_max_matrix_entry,
                         fem_max_disp_entry=cfg.solver.fem_max_disp_entry,
                         fem_bc_penalty=cfg.solver.fem_bc_penalty,
+                        wire_precompression=wire_precompression,
                     ),
                 )
 

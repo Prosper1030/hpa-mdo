@@ -28,6 +28,12 @@ class VonMisesStressComp(om.ExplicitComponent):
         self.options.declare("z_main", default=None, allow_none=True)
         self.options.declare("z_rear", default=None, allow_none=True)
         self.options.declare("rear_enabled", types=bool, default=True)
+        self.options.declare(
+            "wire_precompression",
+            default=None,
+            allow_none=True,
+            desc="(ne,) axial pre-compression [N] from lift-wire reaction. None disables pre-stress.",
+        )
 
     def setup(self):
         nn = self.options["n_nodes"]
@@ -100,6 +106,17 @@ class VonMisesStressComp(om.ExplicitComponent):
         if z_m is None:
             z_m = np.zeros(ne)
         z_m = np.asarray(z_m)
+        A_m = tube_area(R_m, t_m)
+
+        wire_precomp_opt = self.options["wire_precompression"]
+        if wire_precomp_opt is None:
+            wire_precomp = np.zeros(ne, dtype=disp.dtype)
+        else:
+            wire_precomp = np.asarray(wire_precomp_opt, dtype=disp.dtype)
+            if wire_precomp.shape != (ne,):
+                raise om.AnalysisError(
+                    f"wire_precompression must have shape ({ne},), got {wire_precomp.shape}."
+                )
 
         # Complex-step compatible: use du**2 instead of abs(du)
         sigma_vm_main = np.zeros(ne, dtype=disp.dtype)
@@ -115,7 +132,6 @@ class VonMisesStressComp(om.ExplicitComponent):
                 z_r = np.zeros(ne)
             z_r = np.asarray(z_r)
 
-            A_m = tube_area(R_m, t_m)
             A_r = tube_area(R_r, t_r)
             denom = E_m * A_m + E_r * A_r + 1e-30
             z_na = (E_m * A_m * z_m + E_r * A_r * z_r) / denom
@@ -146,12 +162,14 @@ class VonMisesStressComp(om.ExplicitComponent):
             # Main spar bending stress with parallel-axis axial component:
             #   σ = E * κ * (R + |d_z|)
             sigma_bend2 = (E_m * (R_m[e] + dz_main_abs[e])) ** 2 * kappa2
+            sigma_bend = np.sqrt(sigma_bend2 + 1e-30)
+            sigma_axial = wire_precomp[e] / (A_m[e] + 1e-30)
 
             # Torsion shear stress: τ = G * γ * R
             tau2 = (G_m * R_m[e]) ** 2 * gamma2
 
-            # Von Mises: σ_vm = sqrt(σ² + 3τ²)
-            sigma_vm_main[e] = np.sqrt(sigma_bend2 + 3.0 * tau2 + 1e-30)
+            # Von Mises: σ_vm = sqrt((σ_bend + σ_axial)^2 + 3τ²)
+            sigma_vm_main[e] = np.sqrt((sigma_bend + sigma_axial) ** 2 + 3.0 * tau2 + 1e-30)
 
         outputs["vonmises_main"] = sigma_vm_main
 
@@ -164,8 +182,10 @@ class VonMisesStressComp(om.ExplicitComponent):
                 gamma2 = gamma2_elem[e]
 
                 sigma_bend2 = (E_r * (R_r[e] + dz_rear_abs[e])) ** 2 * kappa2
+                sigma_bend = np.sqrt(sigma_bend2 + 1e-30)
+                sigma_axial = wire_precomp[e] / (A_r[e] + 1e-30)
                 tau2 = (G_r * R_r[e]) ** 2 * gamma2
-                sigma_vm_rear[e] = np.sqrt(sigma_bend2 + 3.0 * tau2 + 1e-30)
+                sigma_vm_rear[e] = np.sqrt((sigma_bend + sigma_axial) ** 2 + 3.0 * tau2 + 1e-30)
 
             outputs["vonmises_rear"] = sigma_vm_rear
 

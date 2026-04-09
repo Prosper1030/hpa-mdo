@@ -11,6 +11,7 @@ def _build_prob(
     rear: bool = True,
     z_main: np.ndarray | None = None,
     z_rear: np.ndarray | None = None,
+    wire_precompression: np.ndarray | None = None,
 ) -> om.Problem:
     ne = nn - 1
     if z_main is None:
@@ -30,6 +31,7 @@ def _build_prob(
             z_rear=np.asarray(z_rear),
             knockdown_factor=0.65,
             bending_enhancement=1.3,
+            wire_precompression=wire_precompression,
         ),
         promotes=["*"],
     )
@@ -186,3 +188,20 @@ def test_buckling_ignores_pure_torsion_about_local_axis():
 
     prob.run_model()
     assert _get_scalar(prob, "buckling_index") < 0.0
+
+
+def test_wire_precompression_increases_buckling_demand():
+    nn = 5
+    ne = nn - 1
+
+    prob_base = _build_prob(nn=nn, rear=False, wire_precompression=None)
+    prob_pre = _build_prob(nn=nn, rear=False, wire_precompression=np.full(ne, 2.0e4))
+
+    for prob in (prob_base, prob_pre):
+        prob["disp"] = np.zeros((nn, 6))
+        prob["nodes"] = np.column_stack([np.zeros(nn), np.linspace(0.0, 4.0, nn), np.zeros(nn)])
+        prob["main_r_elem"] = np.full(ne, 0.04)
+        prob["main_t_elem"] = np.full(ne, 0.001)
+        prob.run_model()
+
+    assert _get_scalar(prob_pre, "buckling_index") > _get_scalar(prob_base, "buckling_index")

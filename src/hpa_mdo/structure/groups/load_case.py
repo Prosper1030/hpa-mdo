@@ -38,6 +38,12 @@ class StructuralLoadCaseGroup(om.Group):
         self.options.declare("rear_enabled", types=bool, default=True)
         self.options.declare("fixed_node", types=int, default=0)
         self.options.declare("lift_wire_nodes", default=None)
+        self.options.declare(
+            "wire_precompression",
+            default=None,
+            allow_none=True,
+            desc="(ne,) axial pre-compression [N] from lift-wire reaction.",
+        )
         self.options.declare("shell_buckling_knockdown", types=float)
         self.options.declare("shell_buckling_bending_enhancement", types=float)
         self.options.declare("ks_rho_stress", types=float)
@@ -105,6 +111,7 @@ class StructuralLoadCaseGroup(om.Group):
                 z_main=self.options["z_main"],
                 z_rear=self.options["z_rear"],
                 rear_enabled=rear_on,
+                wire_precompression=self.options["wire_precompression"],
             ),
             promotes_inputs=stress_inputs,
             promotes_outputs=stress_outputs,
@@ -126,6 +133,7 @@ class StructuralLoadCaseGroup(om.Group):
                 knockdown_factor=self.options["shell_buckling_knockdown"],
                 bending_enhancement=self.options["shell_buckling_bending_enhancement"],
                 ks_rho=self.options["ks_rho_buckling"],
+                wire_precompression=self.options["wire_precompression"],
             ),
             promotes_inputs=buckling_inputs,
             promotes_outputs=["buckling_index"],

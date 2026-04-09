@@ -6,6 +6,7 @@ from hpa_mdo.structure.fem.elements import (
     _rotation_matrix,
     _transform_12x12,
 )
+from hpa_mdo.structure.fem.wire_precompression import wire_axial_precompression
 
 __all__ = [
     "SpatialBeamFEM",
@@ -14,4 +15,5 @@ __all__ = [
     "_has_only_finite_values",
     "_rotation_matrix",
     "_transform_12x12",
+    "wire_axial_precompression",
 ]

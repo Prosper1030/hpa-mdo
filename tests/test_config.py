@@ -61,6 +61,15 @@ def test_blackcat_airfoil_tc_loaded_from_config():
     assert cfg.wing.airfoil_tip_tc == pytest.approx(0.140)
 
 
+def test_blackcat_lift_wire_angle_loaded_from_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.lift_wires.wire_angle_deg == pytest.approx(11.3)
+
+
 def test_load_config_rejects_segment_sum_mismatch(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"

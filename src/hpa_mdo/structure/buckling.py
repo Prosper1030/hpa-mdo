@@ -62,6 +62,12 @@ class BucklingComp(om.ExplicitComponent):
         self.options.declare("knockdown_factor", types=float, default=0.65)
         self.options.declare("bending_enhancement", types=float, default=1.3)
         self.options.declare("ks_rho", types=float, default=50.0)
+        self.options.declare(
+            "wire_precompression",
+            default=None,
+            allow_none=True,
+            desc="(ne,) axial pre-compression [N] from lift-wire reaction.",
+        )
 
     def setup(self):
         nn = self.options["n_nodes"]
@@ -97,6 +103,17 @@ class BucklingComp(om.ExplicitComponent):
         if z_main is None:
             z_main = np.zeros(ne)
         z_main = np.asarray(z_main)
+        A_main = _tube_area(R_main, t_main)
+
+        wire_precomp_opt = self.options["wire_precompression"]
+        if wire_precomp_opt is None:
+            wire_precomp = np.zeros(ne, dtype=disp.dtype)
+        else:
+            wire_precomp = np.asarray(wire_precomp_opt, dtype=disp.dtype)
+            if wire_precomp.shape != (ne,):
+                raise om.AnalysisError(
+                    f"wire_precompression must have shape ({ne},), got {wire_precomp.shape}."
+                )
 
         kappa_mag = np.zeros(ne, dtype=disp.dtype)
         for e in range(ne):
@@ -124,7 +141,6 @@ class BucklingComp(om.ExplicitComponent):
                 z_rear = np.zeros(ne)
             z_rear = np.asarray(z_rear)
 
-            A_main = _tube_area(R_main, t_main)
             A_rear = _tube_area(R_rear, t_rear)
             denom = E_main * A_main + E_rear * A_rear + 1e-30
             z_na = (E_main * A_main * z_main + E_rear * A_rear * z_rear) / denom
@@ -139,15 +155,17 @@ class BucklingComp(om.ExplicitComponent):
             dz_rear_abs = None
 
         sigma_bend_main = E_main * (R_main + dz_main_abs) * abs_kappa
+        sigma_axial_main = wire_precomp / (A_main + 1e-30)
         sigma_cr_main = coef * E_main * t_main / (R_main + 1e-30)
-        ratio_main = sigma_bend_main / (sigma_cr_main + 1e-30)
+        ratio_main = (sigma_bend_main + sigma_axial_main) / (sigma_cr_main + 1e-30)
 
         ratios = [ratio_main]
 
         if self.options["rear_enabled"]:
             sigma_bend_rear = E_rear * (R_rear + dz_rear_abs) * abs_kappa
+            sigma_axial_rear = wire_precomp / (A_rear + 1e-30)
             sigma_cr_rear = coef * E_rear * t_rear / (R_rear + 1e-30)
-            ratio_rear = sigma_bend_rear / (sigma_cr_rear + 1e-30)
+            ratio_rear = (sigma_bend_rear + sigma_axial_rear) / (sigma_cr_rear + 1e-30)
             ratios.append(ratio_rear)
 
         all_ratios = np.concatenate(ratios)

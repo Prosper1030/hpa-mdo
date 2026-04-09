@@ -150,6 +150,16 @@ class LiftWireConfig(BaseModel):
     cable_material: str = "steel_4130"
     cable_diameter: float = 2.0e-3
     max_tension_fraction: float = 0.5
+    wire_angle_deg: float = Field(
+        default=45.0,
+        description=(
+            "Inclination of lift wire from horizontal plane [deg]. "
+            "Used to split wire tension into vertical (reaction) and "
+            "horizontal (spar compression) components."
+        ),
+        gt=0.0,
+        lt=90.0,
+    )
     attachments: List[LiftWireAttachment] = Field(default_factory=list)
 
 

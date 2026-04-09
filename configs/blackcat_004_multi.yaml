@@ -124,6 +124,7 @@ lift_wires:
   cable_material: "steel_4130"
   cable_diameter: 2.0e-3                 # [m]
   max_tension_fraction: 0.5              # fraction of cable UTS
+  wire_angle_deg: 11.3                   # atan(1.5 m drop / 7.5 m span)
 
   attachments:
     - { y: 7.5, fuselage_z: -1.5, label: "wire-1" }
