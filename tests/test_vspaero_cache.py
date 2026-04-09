@@ -44,15 +44,22 @@ def test_cache_invalidates_when_mtime_changes(tmp_path, monkeypatch):
     lod_path = _write_sample_lod(tmp_path)
     parser = VSPAeroParser(lod_path)
 
-    mtime_values = iter([1_000_000_000, 2_000_000_000])
+    old_mtime_ns = 1_000_000_000
+    new_mtime_ns = 2_000_000_000
+    served_old_mtime = False
     real_stat = vsp_aero_module.os.stat
     lod_path_str = str(lod_path)
 
     def fake_stat(path, *args, **kwargs):
+        nonlocal served_old_mtime
         st = real_stat(path, *args, **kwargs)
         if str(path) != lod_path_str:
             return st
-        mtime_ns = next(mtime_values)
+        if not served_old_mtime:
+            mtime_ns = old_mtime_ns
+            served_old_mtime = True
+        else:
+            mtime_ns = new_mtime_ns
         return SimpleNamespace(
             st_mode=st.st_mode,
             st_ino=st.st_ino,
