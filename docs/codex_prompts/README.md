@@ -8,24 +8,26 @@
 2. **明確列出「不要做的事」**，避免 Codex 自由發揮 refactor
 3. **附 git commit 訊息範本**
 
+## 已完成任務
+
+### Milestone 4（Design Fidelity）
+- `F10_lift_wire_compression.md` ✅ `0dd1275` wire precompression, angle=11.3°
+- `F11_discrete_od_postprocessing.md` ✅ `fe64842` tube_catalog 12–120mm, snap-up
+- `F12_gravity_torque_rear_spar.md` ✅ `bb02d13` rear spar gravity torque → theta_y
+- `F8_torsion_shear_buckling.md` ✅ `ff350ea` torsion-shear interaction
+
+### Phase II — 材料資料庫擴充
+- `II_1_materials_expansion.md` ✅ `e704aa4` 15 materials (+8 new)
+
 ## 待執行任務（依優先序）
 
-### Phase I — Milestone 4（Design Fidelity）
-
-| 順序 | 檔案 | 預估工時 | 前置條件 |
+| 順序 | 任務 | 預估工時 | 前置條件 |
 |-----|------|---------|---------|
-| F10 | `F10_lift_wire_compression.md` | 4–6 h | 無（可立即開始） |
-| F11 | `F11_discrete_od_postprocessing.md` | 3–4 h | 無（可與 F10 平行） |
-| F12 | `F12_gravity_torque_rear_spar.md` | 3–4 h | 無（可與 F10 平行） |
-| F8  | `F8_torsion_shear_buckling.md` | 3–4 h | F10 已 push；確認 buckling margin 仍 < -0.3 |
-
-### Phase II — 材料資料庫擴充（可與 M4 平行）
-
-| 順序 | 檔案 | 預估工時 | 前置條件 |
-|-----|------|---------|---------|
-| II-1 | `II_1_materials_expansion.md` | 2–3 h | 無（完全獨立） |
-
-**並行性**：F10、F11、F12、II-1 均可立即、平行開始。F8 等 F10 完成後確認 margin。
+| 1 | M4-4e: ANSYS cross-validation（Prompt TBD） | 4–6 h | 無 |
+| 2 | 多工況 4G 雙重計算修正 | 2 h | 無 |
+| 3 | II-2: tube_catalog 強化 | 3–4 h | 無 |
+| 4 | II-4: rib_properties → auto warping_knockdown | 4–6 h | 無 |
+| 5 | III-1: DOE 取樣器 + 批次 runner | 8–12 h | Phase I 完成 |
 
 ## 已完成
 
