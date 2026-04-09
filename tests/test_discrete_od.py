@@ -41,10 +41,10 @@ def test_snap_never_rounds_down() -> None:
         )
 
 
-def test_snap_clamps_at_max() -> None:
+def test_snap_raises_when_catalog_cannot_round_up() -> None:
     catalog = [0.020, 0.025, 0.030]
-    result = snap_to_catalog(0.050, catalog)
-    assert result == pytest.approx(0.030)
+    with pytest.raises(ValueError, match="conservative snap-up is impossible"):
+        snap_to_catalog(0.050, catalog)
 
 
 def test_snap_with_real_catalog() -> None:

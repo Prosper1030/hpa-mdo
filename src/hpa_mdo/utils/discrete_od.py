@@ -5,7 +5,6 @@ OD, always rounding up for conservative structural sizing.
 """
 from __future__ import annotations
 
-import logging
 from dataclasses import replace
 from pathlib import Path
 from typing import List
@@ -13,7 +12,6 @@ from typing import List
 import numpy as np
 import yaml
 
-_LOG = logging.getLogger(__name__)
 _FLOAT_TOL = 1e-9
 
 
@@ -29,7 +27,7 @@ def snap_to_catalog(od_continuous_m: float, catalog_m: List[float]) -> float:
     """Return the smallest catalog OD >= od_continuous_m.
 
     When od_continuous_m is larger than the largest available catalog OD,
-    the largest catalog entry is returned and a warning is logged.
+    raise ValueError because a conservative snap-up is impossible.
     """
     if not catalog_m:
         raise ValueError("catalog_m must not be empty.")
@@ -39,12 +37,11 @@ def snap_to_catalog(od_continuous_m: float, catalog_m: List[float]) -> float:
             return od
 
     max_od = catalog_m[-1]
-    _LOG.warning(
-        "Requested OD %.4f mm exceeds catalog max %.4f mm; clamping to max catalog value.",
-        od_continuous_m * 1000.0,
-        max_od * 1000.0,
+    raise ValueError(
+        "Requested OD "
+        f"{od_continuous_m * 1000.0:.4f} mm exceeds catalog max {max_od * 1000.0:.4f} mm; "
+        "conservative snap-up is impossible with the current catalog."
     )
-    return max_od
 
 
 def apply_discrete_od(result, catalog_m: List[float]) -> object:

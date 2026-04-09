@@ -183,7 +183,14 @@ def main(argv: list[str] | None = None) -> float:
         catalog_path = Path(__file__).resolve().parent.parent / "data" / "tube_catalog.yaml"
         catalog = load_tube_catalog(catalog_path)
         result_continuous = result
-        result_discrete_preview = apply_discrete_od(result_continuous, catalog)
+        try:
+            result_discrete_preview = apply_discrete_od(result_continuous, catalog)
+        except ValueError as exc:
+            raise RuntimeError(
+                "Discrete OD post-processing failed: the current tube catalog cannot "
+                "conservatively round up this optimized design. Expand "
+                "data/tube_catalog.yaml or rerun without --discrete-od."
+            ) from exc
 
         print("\n" + "=" * 60)
         print("  DISCRETE OD POST-PROCESSING")
