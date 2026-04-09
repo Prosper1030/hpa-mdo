@@ -10,22 +10,22 @@
 
 ## 待執行任務（依優先序）
 
-### Phase I — Milestone 2 Phase 2（Physics hardening 收尾）
+### Phase I — Milestone 4（Design Fidelity）
 
 | 順序 | 檔案 | 預估工時 | 前置條件 |
 |-----|------|---------|---------|
-| F6 | `F6_thickness_smoothness.md` | 1–2 h | 無（可立即開始） |
-| F8 | `F8_torsion_shear_buckling.md` | 3–4 h | F6 已 push；若 F6 後 buckling margin 仍大（< -0.3）可延後到 M4 |
+| F10 | `F10_lift_wire_compression.md` | 4–6 h | 無（可立即開始） |
+| F11 | `F11_discrete_od_postprocessing.md` | 3–4 h | 無（可與 F10 平行） |
+| F12 | `F12_gravity_torque_rear_spar.md` | 3–4 h | 無（可與 F10 平行） |
+| F8  | `F8_torsion_shear_buckling.md` | 3–4 h | F10 已 push；確認 buckling margin 仍 < -0.3 |
 
-### Phase I — Milestone 3（MDO Integration）
+### Phase II — 材料資料庫擴充（可與 M4 平行）
 
 | 順序 | 檔案 | 預估工時 | 前置條件 |
 |-----|------|---------|---------|
-| M3a | `M3a_fsi_production_pipeline.md` | 4–6 h | M2 Phase 2 完成 |
-| M3b | `M3b_multi_load_case_example.md` | 3–4 h | 無（可與 M3a 平行） |
-| M3c | `M3c_step_deformed_shape.md` | 2–3 h | M3a 已 push |
+| II-1 | `II_1_materials_expansion.md` | 2–3 h | 無（完全獨立） |
 
-**並行性**：F6 可立即開始。M3a 與 M3b 可平行。M3c 等 M3a。F8 視 F6 結果決定。
+**並行性**：F10、F11、F12、II-1 均可立即、平行開始。F8 等 F10 完成後確認 margin。
 
 ## 已完成
 
@@ -50,12 +50,19 @@
 - Phase B1: cache fix `111fced`, auto feasibility `ae75ff8`, counters `d939a62`
 - Phase B2: production → `method="auto"` `c9b22aa`, SLSQP rejection warning `d13c600`
 
+### Milestone 3（MDO Integration）
+- `M3a_fsi_production_pipeline.md` ✅ `blackcat_004_fsi.py`, 13.91 kg
+- `M3b_multi_load_case_example.md` ✅ cruise+pullup_2g, 40.28 kg (4G架構展示)
+- `M3c_step_deformed_shape.md` ✅ `768ba08` compute_deformed_nodes()
+
 ### Physics Findings（F-series）
 - F1 (VM parallel-axis) ✅
 - F2 (Buckling parallel-axis) ✅
 - F3 (Monotonic taper) ✅
 - F4 (Iz_equiv) ✅
 - F5 (Main spar dominance) ✅ Mission M
+- F6 (Thickness smoothness) ✅ `max_thickness_step_m=0.003`, buckling_idx=−0.70
+- F8 (Torsion buckling) ⏸️ Deferred（margin 充裕）→ M4 `F8_torsion_shear_buckling.md`
 - F9 (Warping knockdown 0.5) ✅ `9fbee5a`
 - F13 (Compressive strength) ✅ `577eff8`
 
