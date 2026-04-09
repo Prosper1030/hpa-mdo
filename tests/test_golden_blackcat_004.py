@@ -56,8 +56,20 @@ MAX_TWIST_MARGIN_DEG = 0.05  # tolerate 0.05° over max twist
 
 
 @pytest.mark.slow
+@pytest.mark.requires_vspaero
 def test_blackcat_004_baseline_mass_and_constraints() -> None:
     cfg = load_config(REPO_ROOT / "configs" / "blackcat_004.yaml")
+    missing_assets = [
+        str(path)
+        for path in (cfg.io.vsp_lod, cfg.io.vsp_polar)
+        if path is not None and not Path(path).exists()
+    ]
+    if missing_assets:
+        pytest.skip(
+            "Missing VSPAero test assets required for golden regression: "
+            + ", ".join(missing_assets)
+        )
+
     aircraft = Aircraft.from_config(cfg)
     mat_db = MaterialDB()
 
