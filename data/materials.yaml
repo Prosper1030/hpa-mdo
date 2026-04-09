@@ -75,3 +75,90 @@ kevlar_49:
   compressive_strength: null
   poisson_ratio: 0.36
   description: "Reinforcement / abrasion protection"
+
+# =============================================================================
+# Phase II additions — HPA expanded material library
+# Added: 2026-04-09 (Phase II Milestone II-1)
+# =============================================================================
+
+rohacell_31:
+  name: "Rohacell 31 IG (closed-cell PMI foam)"
+  E: 36.0e6               # Young's modulus [Pa]
+  G: 13.0e6               # Shear modulus [Pa]
+  density: 32.0            # [kg/m³]
+  tensile_strength: 0.5e6  # UTS [Pa]
+  compressive_strength: 0.4e6
+  poisson_ratio: 0.38
+  description: "Rib core, sandwich panel core — very low density"
+
+rohacell_51:
+  name: "Rohacell 51 IG (closed-cell PMI foam)"
+  E: 70.0e6
+  G: 24.0e6
+  density: 52.0
+  tensile_strength: 1.0e6
+  compressive_strength: 0.8e6
+  poisson_ratio: 0.38
+  description: "Rib core — higher density/stiffness than Rohacell 31"
+
+kevlar_49_ud:
+  name: "Kevlar 49 Unidirectional"
+  E: 125.0e9
+  G: 2.9e9
+  density: 1380.0
+  tensile_strength: 3600.0e6
+  compressive_strength: 290.0e6
+  poisson_ratio: 0.34
+  description: "UD Kevlar tape; high tensile strength, poor in compression"
+
+eglass_ud:
+  name: "E-Glass UD (unidirectional)"
+  E: 45.0e9
+  G: 5.0e9
+  density: 2100.0
+  tensile_strength: 1000.0e6
+  compressive_strength: 620.0e6
+  poisson_ratio: 0.28
+  description: "E-glass UD roving/tape; skin and rib face-sheet layups"
+
+dyneema_sk75:
+  name: "Dyneema SK75 (UHMWPE fibre)"
+  E: 108.0e9
+  G: null                  # tension-only member; shear mode irrelevant
+  density: 970.0
+  tensile_strength: 3500.0e6
+  compressive_strength: null
+  poisson_ratio: null
+  tension_only: true
+  description: "Lift wire / bracing cord — tension only, zero buckling capacity"
+
+titanium_6al4v:
+  name: "Titanium 6Al-4V (Grade 5)"
+  E: 114.0e9
+  G: 44.0e9
+  density: 4430.0
+  tensile_strength: 950.0e6
+  compressive_strength: 950.0e6
+  poisson_ratio: 0.34
+  description: "High-stress fittings, hinges, cable end-fittings"
+
+cfrp_prepreg_t700:
+  name: "CFRP Prepreg UD T700/250°F epoxy"
+  E: 135.0e9
+  G: 5.5e9
+  density: 1550.0
+  tensile_strength: 2550.0e6
+  compressive_strength: 1500.0e6
+  poisson_ratio: 0.30
+  description: "Autoclave-cured UD tape; spar cap strip, D-box skin"
+
+eglass_woven:
+  name: "E-Glass Plain Weave Fabric (cured)"
+  E: 23.0e9               # balanced in-plane modulus [Pa]
+  G: 4.5e9
+  density: 1850.0
+  tensile_strength: 350.0e6
+  compressive_strength: 280.0e6
+  shear_strength: 65.0e6
+  poisson_ratio: 0.17
+  description: "0/90 balanced weave; skin closeout and torsion box wrap"

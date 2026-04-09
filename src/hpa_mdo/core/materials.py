@@ -19,6 +19,8 @@ class Material:
     density: float          # [kg/m³]
     tensile_strength: float # UTS [Pa]
     compressive_strength: Optional[float] = None
+    shear_strength: Optional[float] = None   # in-plane shear failure strength [Pa]
+    tension_only: Optional[bool] = None      # True = member carries tension only (e.g. cables)
     poisson_ratio: float = 0.3
     description: str = ""
 
@@ -47,11 +49,15 @@ class MaterialDB:
             self._materials[key] = Material(
                 name=props.get("name", key),
                 E=float(props["E"]),
-                G=float(props["G"]) if "G" in props else float(props["E"]) / (2 * (1 + float(props.get("poisson_ratio", 0.3)))),
+                G=float(props["G"]) if props.get("G") is not None else (
+                    float(props["E"]) / (2 * (1 + float(props.get("poisson_ratio") or 0.3)))
+                ),
                 density=float(props["density"]),
                 tensile_strength=float(props["tensile_strength"]),
                 compressive_strength=float(props["compressive_strength"]) if props.get("compressive_strength") else None,
-                poisson_ratio=float(props.get("poisson_ratio", 0.3)),
+                shear_strength=float(props["shear_strength"]) if props.get("shear_strength") else None,
+                tension_only=bool(props["tension_only"]) if props.get("tension_only") is not None else None,
+                poisson_ratio=float(props["poisson_ratio"]) if props.get("poisson_ratio") is not None else 0.3,
                 description=props.get("description", ""),
             )
 
