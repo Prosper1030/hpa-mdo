@@ -887,7 +887,9 @@ class SparOptimizer:
     def analyze(
         self,
         main_t_seg: Optional[np.ndarray] = None,
+        main_r_seg: Optional[np.ndarray] = None,
         rear_t_seg: Optional[np.ndarray] = None,
+        rear_r_seg: Optional[np.ndarray] = None,
     ) -> OptimizationResult:
         """Run a single structural analysis (no optimization).
 
@@ -896,13 +898,22 @@ class SparOptimizer:
         main_t_seg : (n_seg,) array or None
             Main spar segment wall thicknesses [m].
             If None, uses the current values.
+        main_r_seg : (n_seg,) array or None
+            Main spar outer radii [m].
+            If None, uses the current values.
         rear_t_seg : (n_seg,) array or None
             Rear spar segment thicknesses [m].
+        rear_r_seg : (n_seg,) array or None
+            Rear spar outer radii [m].
         """
         if main_t_seg is not None:
             self._prob.set_val("struct.seg_mapper.main_t_seg", main_t_seg, units="m")
+        if main_r_seg is not None:
+            self._prob.set_val("struct.seg_mapper.main_r_seg", main_r_seg, units="m")
         if rear_t_seg is not None and self.cfg.rear_spar.enabled:
             self._prob.set_val("struct.seg_mapper.rear_t_seg", rear_t_seg, units="m")
+        if rear_r_seg is not None and self.cfg.rear_spar.enabled:
+            self._prob.set_val("struct.seg_mapper.rear_r_seg", rear_r_seg, units="m")
 
         raw = run_analysis(self._prob)
         return self._to_result(raw, success=True, message="Analysis complete")

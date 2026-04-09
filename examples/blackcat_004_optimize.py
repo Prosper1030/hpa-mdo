@@ -182,33 +182,53 @@ def main(argv: list[str] | None = None) -> float:
 
         catalog_path = Path(__file__).resolve().parent.parent / "data" / "tube_catalog.yaml"
         catalog = load_tube_catalog(catalog_path)
-        result_discrete = apply_discrete_od(result, catalog)
+        result_continuous = result
+        result_discrete_preview = apply_discrete_od(result_continuous, catalog)
 
         print("\n" + "=" * 60)
         print("  DISCRETE OD POST-PROCESSING")
         print("=" * 60)
-        print(f"  Continuous mass : {result.total_mass_full_kg:.3f} kg")
+        print(f"  Continuous mass : {result_continuous.total_mass_full_kg:.3f} kg")
         print(
-            f"  Discrete mass   : {result_discrete.total_mass_full_kg:.3f} kg (estimated)"
+            f"  Preview mass    : {result_discrete_preview.total_mass_full_kg:.3f} kg (scaled estimate)"
         )
 
-        main_od_cont = result.main_r_seg_mm * 2.0
-        main_od_disc = result_discrete.main_r_seg_mm * 2.0
+        main_od_cont = result_continuous.main_r_seg_mm * 2.0
+        main_od_disc = result_discrete_preview.main_r_seg_mm * 2.0
         for i, (continuous_od, discrete_od) in enumerate(zip(main_od_cont, main_od_disc)):
             print(f"  Main seg {i + 1}: OD {continuous_od:.1f} mm -> {discrete_od:.1f} mm")
 
-        if result.rear_r_seg_mm is not None and result_discrete.rear_r_seg_mm is not None:
-            rear_od_cont = result.rear_r_seg_mm * 2.0
-            rear_od_disc = result_discrete.rear_r_seg_mm * 2.0
+        if (
+            result_continuous.rear_r_seg_mm is not None
+            and result_discrete_preview.rear_r_seg_mm is not None
+        ):
+            rear_od_cont = result_continuous.rear_r_seg_mm * 2.0
+            rear_od_disc = result_discrete_preview.rear_r_seg_mm * 2.0
             for i, (continuous_od, discrete_od) in enumerate(zip(rear_od_cont, rear_od_disc)):
                 print(f"  Rear seg {i + 1}: OD {continuous_od:.1f} mm -> {discrete_od:.1f} mm")
 
-        print("\n  Re-evaluating snapped design (constraint verification)...")
-        print(
-            "  WARNING: Full re-evaluation requires passing snapped OD as fixed geometry."
+        print("\n  Re-evaluating snapped design with the structural solver...")
+        result = opt.analyze(
+            main_t_seg=result_continuous.main_t_seg_mm / 1000.0,
+            main_r_seg=result_discrete_preview.main_r_seg_mm / 1000.0,
+            rear_t_seg=(
+                result_continuous.rear_t_seg_mm / 1000.0
+                if result_continuous.rear_t_seg_mm is not None
+                else None
+            ),
+            rear_r_seg=(
+                result_discrete_preview.rear_r_seg_mm / 1000.0
+                if result_discrete_preview.rear_r_seg_mm is not None
+                else None
+            ),
         )
-        print("  Currently only mass estimate is available.")
-        val_weight_mass = result_discrete.total_mass_full_kg
+        result.message = "Discrete OD design re-verified with snapped catalog radii"
+        print(f"  Verified mass   : {result.total_mass_full_kg:.3f} kg")
+        print(f"  Verified failure: {result.failure_index:.5f}")
+        print(f"  Verified buckling: {result.buckling_index:.5f}")
+        print(f"  Verified twist  : {result.twist_max_deg:.3f} deg")
+        print(f"  Verified defl.  : {result.tip_deflection_m:.5f} m")
+        val_weight_mass = result.total_mass_full_kg
 
     # ====================================================================
     # Step 7 — Generate visualizations

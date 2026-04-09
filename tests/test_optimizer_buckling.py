@@ -167,6 +167,40 @@ def test_summary_text_contains_buckling_line(tmp_path):
     assert "Buckling index" in out_path.read_text(encoding="utf-8")
 
 
+def test_analyze_accepts_snapped_segment_radii(monkeypatch):
+    cfg = _Cfg(rear_spar=SimpleNamespace(enabled=True))
+    prob = _FakeProb()
+
+    opt = SparOptimizer.__new__(SparOptimizer)
+    opt.cfg = cfg
+    opt._prob = prob
+
+    monkeypatch.setattr(optimizer_mod, "run_analysis", lambda _prob: {"ok": True})
+    monkeypatch.setattr(
+        SparOptimizer,
+        "_to_result",
+        lambda self, raw, success, message, timing_s=None: {
+            "raw": raw,
+            "success": success,
+            "message": message,
+        },
+    )
+
+    result = opt.analyze(
+        main_t_seg=np.array([0.0012, 0.0011]),
+        main_r_seg=np.array([0.040, 0.035]),
+        rear_t_seg=np.array([0.0009, 0.0008]),
+        rear_r_seg=np.array([0.020, 0.018]),
+    )
+
+    np.testing.assert_allclose(prob.values["struct.seg_mapper.main_t_seg"], np.array([0.0012, 0.0011]))
+    np.testing.assert_allclose(prob.values["struct.seg_mapper.main_r_seg"], np.array([0.040, 0.035]))
+    np.testing.assert_allclose(prob.values["struct.seg_mapper.rear_t_seg"], np.array([0.0009, 0.0008]))
+    np.testing.assert_allclose(prob.values["struct.seg_mapper.rear_r_seg"], np.array([0.020, 0.018]))
+    assert result["success"] is True
+    assert result["message"] == "Analysis complete"
+
+
 def test_openmdao_feasibility_checks_twist_and_deflection(monkeypatch):
     cfg = _Cfg(
         wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
