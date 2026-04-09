@@ -26,6 +26,8 @@ def _build_prob(
             n_nodes=nn,
             E_main=240e9,
             E_rear=240e9,
+            G_main=25e9,
+            G_rear=25e9,
             rear_enabled=rear,
             z_main=np.asarray(z_main),
             z_rear=np.asarray(z_rear),
@@ -112,6 +114,8 @@ def test_buckling_scales_with_bending_enhancement():
                 n_nodes=5,
                 E_main=240e9,
                 E_rear=240e9,
+                G_main=25e9,
+                G_rear=25e9,
                 rear_enabled=True,
                 knockdown_factor=0.65,
                 bending_enhancement=beta,
@@ -171,23 +175,29 @@ def test_parallel_axis_offset_increases_buckling_demand():
     assert _get_scalar(prob_with_offset, "buckling_index") > _get_scalar(prob_no_offset, "buckling_index")
 
 
-def test_buckling_ignores_pure_torsion_about_local_axis():
-    """Pure local-axis torsion should not be interpreted as bending buckling demand."""
-    prob = _build_prob(nn=5, rear=False)
+def test_pure_torsion_increases_buckling_demand():
+    """Pure local-axis torsion should now contribute shear-buckling demand."""
+    prob_base = _build_prob(nn=5, rear=False)
+    prob_torsion = _build_prob(nn=5, rear=False)
     nn = 5
     ne = nn - 1
 
-    prob["disp"] = np.zeros((nn, 6))
-    # Beam aligned with global X: DOF 3 is local torsion.
-    prob["disp"][:, 3] = np.linspace(0.0, 0.3, nn)
-    prob["nodes"] = np.column_stack(
-        [np.linspace(0.0, 4.0, nn), np.zeros(nn), np.zeros(nn)]
-    )
-    prob["main_r_elem"] = np.full(ne, 0.04)
-    prob["main_t_elem"] = np.full(ne, 0.001)
+    for prob in (prob_base, prob_torsion):
+        prob["disp"] = np.zeros((nn, 6))
+        prob["nodes"] = np.column_stack(
+            [np.linspace(0.0, 4.0, nn), np.zeros(nn), np.zeros(nn)]
+        )
+        prob["main_r_elem"] = np.full(ne, 0.04)
+        prob["main_t_elem"] = np.full(ne, 0.001)
 
-    prob.run_model()
-    assert _get_scalar(prob, "buckling_index") < 0.0
+    # Beam aligned with global X: DOF 3 is local torsion.
+    prob_torsion["disp"][:, 3] = np.linspace(0.0, 0.3, nn)
+
+    prob_base.run_model()
+    prob_torsion.run_model()
+
+    assert _get_scalar(prob_torsion, "buckling_index") > _get_scalar(prob_base, "buckling_index")
+    assert _get_scalar(prob_torsion, "buckling_index") < 0.0
 
 
 def test_wire_precompression_increases_buckling_demand():

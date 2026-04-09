@@ -140,6 +140,8 @@ class StructuralLoadCaseGroup(om.Group):
                 n_nodes=nn,
                 E_main=self.options["E_main"],
                 E_rear=self.options["E_rear"] if rear_on else 0.0,
+                G_main=self.options["G_main"],
+                G_rear=self.options["G_rear"] if rear_on else None,
                 z_main=self.options["z_main"],
                 z_rear=self.options["z_rear"],
                 rear_enabled=rear_on,

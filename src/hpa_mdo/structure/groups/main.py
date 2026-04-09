@@ -369,6 +369,8 @@ class HPAStructuralGroup(om.Group):
                 n_nodes=nn,
                 E_main=mat_main.E,
                 E_rear=mat_rear.E if rear_on else 0.0,
+                G_main=mat_main.G,
+                G_rear=mat_rear.G if rear_on else None,
                 z_main=z_main_elem,
                 z_rear=z_rear_elem,
                 rear_enabled=rear_on,

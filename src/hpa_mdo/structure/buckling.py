@@ -7,6 +7,7 @@ import openmdao.api as om
 
 SHELL_BUCKLING_CLASSICAL_FACTOR = 0.605
 SHELL_BUCKLING_COEFFICIENT = 0.512
+SHELL_TORSION_SHEAR_BUCKLING_COEFFICIENT = 0.272
 
 
 def _cs_norm(x: np.ndarray) -> np.ndarray:
@@ -56,6 +57,8 @@ class BucklingComp(om.ExplicitComponent):
         self.options.declare("n_nodes", types=int)
         self.options.declare("E_main", types=float)
         self.options.declare("E_rear", types=float)
+        self.options.declare("G_main", types=float)
+        self.options.declare("G_rear", default=None, allow_none=True)
         self.options.declare("rear_enabled", types=bool, default=True)
         self.options.declare("z_main", default=None, allow_none=True)
         self.options.declare("z_rear", default=None, allow_none=True)
@@ -91,6 +94,7 @@ class BucklingComp(om.ExplicitComponent):
         ne = nn - 1
 
         E_main = self.options["E_main"]
+        G_main = self.options["G_main"]
         gamma = self.options["knockdown_factor"]
         beta = self.options["bending_enhancement"]
         rho = self.options["ks_rho"]
@@ -116,12 +120,14 @@ class BucklingComp(om.ExplicitComponent):
                 )
 
         kappa_mag = np.zeros(ne, dtype=disp.dtype)
+        gamma_mag = np.zeros(ne, dtype=disp.dtype)
         for e in range(ne):
             dx = nodes[e + 1] - nodes[e]
             L = _cs_norm(dx)
             du = disp[e + 1] - disp[e]
             R3 = _rotation_matrix(nodes[e], nodes[e + 1])
             dtheta_local = R3 @ du[3:6]
+            gamma_mag[e] = np.sqrt((dtheta_local[0] / (L + 1e-30)) ** 2 + 1e-30)
             # Include both local bending planes for shell-buckling demand.
             kappa_mag[e] = np.sqrt(
                 (dtheta_local[1] / (L + 1e-30)) ** 2
@@ -134,6 +140,9 @@ class BucklingComp(om.ExplicitComponent):
 
         if self.options["rear_enabled"]:
             E_rear = self.options["E_rear"]
+            G_rear = self.options["G_rear"]
+            if G_rear is None:
+                raise om.AnalysisError("G_rear must be provided when rear_enabled=True.")
             R_rear = inputs["rear_r_elem"]
             t_rear = inputs["rear_t_elem"]
             z_rear = self.options["z_rear"]
@@ -157,7 +166,16 @@ class BucklingComp(om.ExplicitComponent):
         sigma_bend_main = E_main * (R_main + dz_main_abs) * abs_kappa
         sigma_axial_main = wire_precomp / (A_main + 1e-30)
         sigma_cr_main = coef * E_main * t_main / (R_main + 1e-30)
-        ratio_main = (sigma_bend_main + sigma_axial_main) / (sigma_cr_main + 1e-30)
+        tau_main = G_main * R_main * gamma_mag
+        tau_cr_main = (
+            SHELL_TORSION_SHEAR_BUCKLING_COEFFICIENT
+            * gamma
+            * E_main
+            * (t_main / (R_main + 1e-30)) ** 1.25
+        )
+        ratio_main_normal = (sigma_bend_main + sigma_axial_main) / (sigma_cr_main + 1e-30)
+        ratio_main_shear = tau_main / (tau_cr_main + 1e-30)
+        ratio_main = np.sqrt(ratio_main_normal**2 + ratio_main_shear**2 + 1e-30)
 
         ratios = [ratio_main]
 
@@ -165,7 +183,16 @@ class BucklingComp(om.ExplicitComponent):
             sigma_bend_rear = E_rear * (R_rear + dz_rear_abs) * abs_kappa
             sigma_axial_rear = wire_precomp / (A_rear + 1e-30)
             sigma_cr_rear = coef * E_rear * t_rear / (R_rear + 1e-30)
-            ratio_rear = (sigma_bend_rear + sigma_axial_rear) / (sigma_cr_rear + 1e-30)
+            tau_rear = G_rear * R_rear * gamma_mag
+            tau_cr_rear = (
+                SHELL_TORSION_SHEAR_BUCKLING_COEFFICIENT
+                * gamma
+                * E_rear
+                * (t_rear / (R_rear + 1e-30)) ** 1.25
+            )
+            ratio_rear_normal = (sigma_bend_rear + sigma_axial_rear) / (sigma_cr_rear + 1e-30)
+            ratio_rear_shear = tau_rear / (tau_cr_rear + 1e-30)
+            ratio_rear = np.sqrt(ratio_rear_normal**2 + ratio_rear_shear**2 + 1e-30)
             ratios.append(ratio_rear)
 
         all_ratios = np.concatenate(ratios)
