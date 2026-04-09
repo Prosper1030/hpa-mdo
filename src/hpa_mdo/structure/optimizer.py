@@ -156,6 +156,9 @@ class _ScipyBlackBoxEvaluator:
         self.inboard_ei_element_indices = np.asarray(inboard_ei_element_indices, dtype=int)
         self._cache_size = max(int(cache_size), 0)
         self._cache: OrderedDict[tuple[float, ...], dict[str, float]] = OrderedDict()
+        self._n_run_model = 0
+        self._n_cache_hit = 0
+        self._n_cache_miss = 0
 
     def clear_cache(self) -> None:
         self._cache.clear()
@@ -199,10 +202,14 @@ class _ScipyBlackBoxEvaluator:
 
     def _cache_get(self, key: tuple[float, ...]) -> Optional[dict[str, float]]:
         if self._cache_size <= 0:
+            self._n_cache_miss += 1
             return None
         cached = self._cache.get(key)
-        if cached is not None:
-            self._cache.move_to_end(key)
+        if cached is None:
+            self._n_cache_miss += 1
+            return None
+        self._n_cache_hit += 1
+        self._cache.move_to_end(key)
         return cached
 
     def _cache_set(self, key: tuple[float, ...], value: dict[str, float]) -> None:
@@ -224,6 +231,7 @@ class _ScipyBlackBoxEvaluator:
             self.prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg:], units="m")
 
     def _evaluate_scalars(self) -> dict[str, float]:
+        self._n_run_model += 1
         self.prob.run_model()
         main_t = self._get_finite_array("struct.seg_mapper.main_t_seg")
         main_r = self._get_finite_array("struct.seg_mapper.main_r_seg")
@@ -1332,6 +1340,12 @@ class SparOptimizer:
                 and best_r["rear_inboard_ei_margin_min"] >= 0.0
             )
         total_s = perf_counter() - t_total_start
+        logger.info(
+            "    Evaluator counters: n_run_model=%d, n_cache_hit=%d, n_cache_miss=%d",
+            int(getattr(evaluator, "_n_run_model", -1)),
+            int(getattr(evaluator, "_n_cache_hit", -1)),
+            int(getattr(evaluator, "_n_cache_miss", -1)),
+        )
         return self._to_result(
             raw,
             success=success,
