@@ -121,9 +121,9 @@ def main(
           f"-> design lift = {2.0 * design_loads['total_lift']:.1f} N")
 
     # ── 6. Run structural optimization ─────────────────────────────────
-    print("[6/9] Running spar optimization (method=scipy)...")
+    print("[6/9] Running spar optimization (method=auto)...")
     opt = SparOptimizer(cfg, ac, design_loads, mat_db)
-    result = opt.optimize(method="scipy")
+    result = opt.optimize(method="auto")
     print(result.summary())
 
     # ── 7. Generate visualizations ─────────────────────────────────────────

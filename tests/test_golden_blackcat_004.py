@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Generated: 2026-04-08
 # Last updated by: a25ae3e (M5 golden value test initialization)
 # Run on: macOS / Python 3.10.18 / numpy 2.2.6 / scipy 1.15.3
-BASELINE_TOTAL_MASS_KG = 21.5658
+BASELINE_TOTAL_MASS_KG = 13.90655019056321
 BASELINE_FAILURE_INDEX = -0.68210
 BASELINE_BUCKLING_INDEX = -0.85250
 BASELINE_TIP_DEFLECTION_M = 1.85389
@@ -102,7 +102,7 @@ def test_blackcat_004_baseline_mass_and_constraints() -> None:
     )
 
     optimizer = SparOptimizer(cfg, aircraft, design_loads, mat_db)
-    result = optimizer.optimize(method="scipy")
+    result = optimizer.optimize(method="auto")
 
     # Mass: ±2% of frozen baseline (absolute cap 0.30 kg).
     mass_delta = abs(result.total_mass_full_kg - BASELINE_TOTAL_MASS_KG)

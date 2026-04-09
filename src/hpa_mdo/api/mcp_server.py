@@ -119,7 +119,7 @@ def _make_server():
         try:
             cfg, ac, mat_db, aero_loads, opt, best_case = _run_pipeline(
                 config_yaml_path, aoa_deg)
-            result = opt.optimize(method="scipy")
+            result = opt.optimize(method="auto")
             out = _result_to_dict(result)
             out["aoa_used_deg"] = best_case.aoa_deg
             return json.dumps(out, indent=2)
@@ -183,7 +183,7 @@ def _make_server():
 
             cfg, ac, mat_db, aero_loads, opt, best_case = _run_pipeline(
                 config_yaml_path, aoa_deg)
-            result = opt.optimize(method="scipy")
+            result = opt.optimize(method="auto")
 
             exporter = ANSYSExporter(cfg, ac, result, aero_loads, mat_db)
 

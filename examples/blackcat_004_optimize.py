@@ -144,9 +144,8 @@ def main() -> float:
     # Step 6 — Run spar optimization
     # ====================================================================
     # SparOptimizer wraps an OpenMDAO structural FEM problem.
-    # The "scipy" method uses two phases:
-    #   Phase 1 — Differential Evolution (global, robust)
-    #   Phase 2 — SLSQP local refinement (fast convergence near optimum)
+    # The "auto" method prioritizes OpenMDAO's gradient-based optimizer
+    # and falls back to scipy when needed.
     #
     # Design variables : segment wall thicknesses (main + rear spar)
     # Objective        : minimize total spar system mass
@@ -155,7 +154,7 @@ def main() -> float:
     #                    tip deflection ≤ limit (encoded in failure_index)
     print("[6/8] Running spar optimization...")
     opt = SparOptimizer(cfg, ac, design_loads, mat_db)
-    result = opt.optimize(method="scipy")
+    result = opt.optimize(method="auto")
 
     # Print a rich summary to stdout
     print_optimization_summary(result)
@@ -225,9 +224,17 @@ def main() -> float:
         print(f"       Skip sync (missing): {beam_plot_path}")
 
     total_mass = result.total_mass_full_kg
+    tip_defl_limit = cfg.wing.max_tip_deflection_m
     print(f"\nDone.  Total spar system mass = {total_mass:.4f} kg")
     print(f"       Feasible  : {result.failure_index <= 0}")
     print(f"       Converged : {result.success}")
+    if tip_defl_limit is not None:
+        print(
+            "       tip_defl<=1.02*limit : "
+            f"{result.tip_deflection_m:.6f} <= {tip_defl_limit * 1.02:.6f}"
+        )
+    print(f"       failure<=0           : {result.failure_index:.6f} <= 0")
+    print(f"val_weight: {total_mass:.6f}")
 
     return total_mass
 
