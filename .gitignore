@@ -43,10 +43,5 @@ credentials.json
 configs/local_paths.yaml
 
 # Temporary
-<stdin>_out/
-run_optimization_out/
+*_out/
 uv.lock
-pytest_out/
-pytest*_out/
-verify_*_out/
-__main__*_out/
