@@ -32,6 +32,16 @@ class ExternalLoadsComp(om.ExplicitComponent):
             default=1.0,
             desc="Scale factor on gravity/inertial loads (e.g. maneuver nz)",
         )
+        self.options.declare(
+            "rear_gravity_torque_per_span",
+            default=None,
+            allow_none=True,
+            desc=(
+                "(nn,) distributed torsional moment from rear spar self-weight "
+                "[N.m/m] at each spanwise node. Applied at DOF 4 (My, spanwise "
+                "torsion). None = disabled (legacy behaviour)."
+            ),
+        )
 
     def setup(self):
         nn = self.options["n_nodes"]
@@ -69,6 +79,19 @@ class ExternalLoadsComp(om.ExplicitComponent):
             # My = design torque (torsion about span/Y axis)
             # For beam along Y: torsion maps to global DOF 4 (θy)
             loads[i, 4] = torque[i] * ds[i]
+
+        rgt = self.options["rear_gravity_torque_per_span"]
+        if rgt is not None:
+            rgt_arr = np.asarray(rgt)
+            if rgt_arr.shape != (nn,):
+                raise ValueError(
+                    "rear_gravity_torque_per_span must have shape "
+                    f"({nn},), got {rgt_arr.shape}"
+                )
+            g_scale = self.options["gravity_scale"]
+            for i in range(nn):
+                # Same sign as aerodynamic pitching moment (trailing edge down -> +My)
+                loads[i, 4] += rgt_arr[i] * ds[i] * g_scale
 
         # Weight contribution (lumped mass per element, split to endpoints)
         for e in range(ne):

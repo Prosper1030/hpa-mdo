@@ -23,6 +23,12 @@ class StructuralLoadCaseGroup(om.Group):
         self.options.declare("n_nodes", types=int)
         self.options.declare("lift_per_span", types=np.ndarray)
         self.options.declare("torque_per_span", types=np.ndarray)
+        self.options.declare(
+            "rear_gravity_torque_per_span",
+            default=None,
+            allow_none=True,
+            desc="(nn,) rear spar gravity torque distribution [N.m/m]. None = disabled.",
+        )
         self.options.declare("node_spacings", types=np.ndarray)
         self.options.declare("element_lengths", types=np.ndarray)
         self.options.declare("E_avg", types=float)
@@ -70,6 +76,7 @@ class StructuralLoadCaseGroup(om.Group):
                 node_spacings=self.options["node_spacings"],
                 element_lengths=self.options["element_lengths"],
                 gravity_scale=load_case.gravity_scale,
+                rear_gravity_torque_per_span=self.options["rear_gravity_torque_per_span"],
             ),
             promotes_inputs=["mass_per_length"],
             promotes_outputs=["loads"],

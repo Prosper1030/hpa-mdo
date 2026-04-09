@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 import openmdao.api as om
 
+from hpa_mdo.core.constants import G_STANDARD
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.buckling import BucklingComp
 from hpa_mdo.structure.components.constraints import (
@@ -21,7 +22,10 @@ from hpa_mdo.structure.components.spar_props import (
 from hpa_mdo.structure.fem.assembly import SpatialBeamFEM
 from hpa_mdo.structure.fem.wire_precompression import wire_axial_precompression
 from hpa_mdo.structure.groups.load_case import StructuralLoadCaseGroup
-from hpa_mdo.structure.spar_model import segment_boundaries_from_lengths
+from hpa_mdo.structure.spar_model import (
+    segment_boundaries_from_lengths,
+    tube_area as _tube_area,
+)
 
 logger = get_logger(__name__)
 
@@ -139,6 +143,29 @@ class HPAStructuralGroup(om.Group):
         z_rear_elem = (wing.rear_spar_z_camber[:-1] + wing.rear_spar_z_camber[1:]) / 2.0
         chord_elem = (wing.chord[:-1] + wing.chord[1:]) / 2.0
         d_chord_elem = (wing.rear_spar_xc - wing.main_spar_xc) * chord_elem
+        if rear_on:
+            t_nominal_frac = (
+                cfg.rear_spar.thickness_fraction_root
+                + cfg.rear_spar.thickness_fraction_tip
+            ) / 2.0
+            # Setup-time nominal estimate (options are fixed during model assembly).
+            t_nominal_elem = t_nominal_frac * R_rear_elem * 0.10
+            t_min = cfg.rear_spar.min_wall_thickness
+            t_upper = np.maximum(t_min, 0.4 * R_rear_elem)
+            t_nominal_elem = np.clip(t_nominal_elem, t_min, t_upper)
+
+            m_rear_elem = mat_rear.density * _tube_area(R_rear_elem, t_nominal_elem)
+            q_rear_grav_elem = m_rear_elem * G_STANDARD * d_chord_elem
+
+            q_rear_grav_nodes = np.zeros(nn)
+            q_rear_grav_nodes[0] = q_rear_grav_elem[0]
+            q_rear_grav_nodes[-1] = q_rear_grav_elem[-1]
+            for i in range(1, nn - 1):
+                q_rear_grav_nodes[i] = (
+                    q_rear_grav_elem[i - 1] + q_rear_grav_elem[i]
+                ) / 2.0
+        else:
+            q_rear_grav_nodes = None
 
         case_entries = _normalise_load_case_inputs(cfg, aero)
         self._case_names = tuple(case_entries)
@@ -262,6 +289,7 @@ class HPAStructuralGroup(om.Group):
                 node_spacings=node_spacings,
                 element_lengths=dy,
                 gravity_scale=load_case.gravity_scale,
+                rear_gravity_torque_per_span=q_rear_grav_nodes,
             ))
 
             # 4. FEM solver
@@ -336,6 +364,7 @@ class HPAStructuralGroup(om.Group):
                         torque_per_span=torque,
                         node_spacings=node_spacings,
                         element_lengths=dy,
+                        rear_gravity_torque_per_span=q_rear_grav_nodes,
                         E_avg=E_avg,
                         G_avg=G_avg,
                         E_main=mat_main.E,

@@ -87,6 +87,9 @@ main_spar:
 #
 rear_spar:
   enabled: true
+  # Chordwise offset from main spar (0.70 - 0.25 = 0.45c) creates a gravity
+  # torque arm about the main spar elastic axis. This is accounted for in
+  # ExternalLoadsComp via rear_gravity_torque_per_span (Finding F12).
   material: "carbon_fiber_hm"
   location_xc: 0.70                      # at 70% chord
 
