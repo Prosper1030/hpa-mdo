@@ -128,8 +128,6 @@ class SpatialBeamFEM(om.ExplicitComponent):
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
         ne = nn - 1
-        E = self.options["E_avg"]
-        G = self.options["G_avg"]
         fix = self.options["fixed_node"]
 
         nodes = inputs["nodes"]

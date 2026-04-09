@@ -26,7 +26,6 @@ except ImportError:
     raise ImportError("FastAPI not installed. Run: pip install 'hpa-mdo[api]'")
 
 from hpa_mdo.core.errors import ErrorCode
-from hpa_mdo.api._shared import json_safe as _json_safe
 from hpa_mdo.api._shared import run_pipeline as _run_pipeline
 from hpa_mdo.api._shared import result_to_dict as _result_to_dict
 

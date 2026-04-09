@@ -190,7 +190,7 @@ def _cadquery_circle(profile: TubeProfile, radius_mm: float):
 
 
 def _export_with_build123d(tube_paths: List[TubePath], step_path: Path) -> None:
-    from build123d import BuildPart, BuildSketch, Circle, Plane, export_step, loft
+    from build123d import BuildPart, BuildSketch, Circle, export_step, loft
 
     model = None
     for tube_path in tube_paths:

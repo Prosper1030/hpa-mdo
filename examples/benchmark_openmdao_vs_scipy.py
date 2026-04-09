@@ -23,10 +23,10 @@ os.environ.setdefault("OPENMDAO_REPORTS", "0")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from hpa_mdo.aero import LoadMapper, VSPAeroParser
-from hpa_mdo.core import Aircraft, MaterialDB, load_config
-from hpa_mdo.structure import SparOptimizer
-from hpa_mdo.structure.oas_structural import DualSparPropertiesComp
+from hpa_mdo.aero import LoadMapper, VSPAeroParser  # noqa: E402
+from hpa_mdo.core import Aircraft, MaterialDB, load_config  # noqa: E402
+from hpa_mdo.structure import SparOptimizer  # noqa: E402
+from hpa_mdo.structure.oas_structural import DualSparPropertiesComp  # noqa: E402
 
 
 def _build_optimizer() -> SparOptimizer:

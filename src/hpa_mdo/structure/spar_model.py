@@ -14,11 +14,10 @@ All units are SI: metres, Pascals, kg.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List
 
 import numpy as np
 
-from hpa_mdo.core.materials import Material
 
 
 # ── Tube cross-section helpers ────────────────────────────────────────────

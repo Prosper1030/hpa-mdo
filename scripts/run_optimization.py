@@ -38,7 +38,6 @@ def main(
 ) -> float:
     """Run the full HPA-MDO pipeline and return total_mass_full_kg."""
 
-    import numpy as np
 
     from hpa_mdo.core import load_config, Aircraft, MaterialDB
     from hpa_mdo.aero import VSPAeroParser, LoadMapper

@@ -31,7 +31,6 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 
 # Allow running directly from the repository without installing the package.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))

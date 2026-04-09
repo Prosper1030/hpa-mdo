@@ -67,4 +67,13 @@ __all__ = [
     "run_analysis",
     "run_optimization",
     "compute_outer_radius_from_wing",
+    "_timoshenko_element_stiffness",
+    "_cs_norm",
+    "_has_only_finite_values",
+    "_rotation_matrix",
+    "_transform_12x12",
+    "_is_single_mapped_load",
+    "_normalise_load_case_inputs",
+    "_elem_to_seg_mean",
+    "_extract_results",
 ]

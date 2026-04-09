@@ -290,7 +290,7 @@ class VSPBuilder:
             vsp.WriteVSPFile(str(output))
             logger.info("Wrote .vsp3 via API: %s", output)
 
-        except Exception as exc:
+        except Exception:
             # Last-resort safety net — do NOT propagate.
             logger.exception("OpenVSP API error during build")
             script_fb = output.with_suffix(".vspscript")

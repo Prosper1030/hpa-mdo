@@ -734,7 +734,6 @@ def build_structural_problem(
     # The group stores these after setup — retrieve from the instantiated subsystem.
     wing = aircraft.wing
     seg_bounds = segment_boundaries_from_lengths(seg_lengths)
-    nn = wing.n_stations
     y = wing.y
     elem_centres = (y[:-1] + y[1:]) / 2.0
 
@@ -831,7 +830,6 @@ def _extract_results(prob: om.Problem) -> dict:
         return _require_finite_array(name, prob.get_val(name))
 
     struct_group = prob.model.struct
-    nn = struct_group.options["aircraft"].wing.n_stations
     rear_on = struct_group.options["cfg"].rear_spar.enabled
     case_names = tuple(getattr(struct_group, "_case_names", ("default",)))
     multi_case = bool(getattr(struct_group, "_multi_case", False))

@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Analytic partial derivatives for DualSparPropertiesComp.
 
 Uses ``check_partials(method="cs")`` to verify analytic derivatives against
 complex-step. Operating points are chosen strictly in the clip interior.
 """
+
+from __future__ import annotations
 
 import numpy as np
 import openmdao.api as om

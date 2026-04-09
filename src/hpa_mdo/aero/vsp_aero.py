@@ -71,7 +71,7 @@ class VSPAeroParser(AeroParser):
         if self.polar_path is None or not self.polar_path.exists():
             return None
         text = self.polar_path.read_text()
-        lines = [l for l in text.strip().splitlines() if l.strip()]
+        lines = [line for line in text.strip().splitlines() if line.strip()]
         header = lines[0].split()
         rows = [line.split() for line in lines[1:]]
         df = pd.DataFrame(rows, columns=header).astype(float)

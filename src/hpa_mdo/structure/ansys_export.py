@@ -19,18 +19,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional, TextIO
+from typing import TextIO
 
 import numpy as np
 
-from hpa_mdo.core.config import HPAConfig, SparConfig
+from hpa_mdo.core.config import HPAConfig
 from hpa_mdo.core.aircraft import Aircraft, WingGeometry
 from hpa_mdo.core.materials import Material, MaterialDB
 from hpa_mdo.structure.optimizer import OptimizationResult
 from hpa_mdo.structure.spar_model import (
     compute_outer_radius,
     segment_boundaries_from_lengths,
-    segments_to_elements,
 )
 
 logger = logging.getLogger(__name__)
