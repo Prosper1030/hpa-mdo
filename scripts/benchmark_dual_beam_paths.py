@@ -35,6 +35,7 @@ from hpa_mdo.structure.dual_beam_analysis import DualBeamAnalysisResult, run_dua
 from scripts.ansys_crossval import _select_cruise_loads
 
 import scripts.dual_beam_refinement as dbr
+import scripts.direct_dual_beam_v1 as dbv1
 
 
 @dataclass(frozen=True)
@@ -475,10 +476,128 @@ def _run_direct_path(
     )
 
 
+def _run_direct_v1_path(
+    *,
+    cfg,
+    aircraft,
+    mat_db,
+    mapped_loads,
+    export_loads,
+    optimizer_method: str,
+    tip_improve_frac: float,
+    max_uz_improve_frac: float,
+    rear_main_tip_ratio_slack: float,
+    mass_cap_frac: float,
+    main_s1_4_grid: tuple[float, ...],
+    main_s5_6_grid: tuple[float, ...],
+    rear_grid: tuple[float, ...],
+    thickness_grid: tuple[float, ...],
+    scale_lower: tuple[float, ...],
+    scale_upper: tuple[float, ...],
+    cobyla_maxiter: int,
+    cobyla_rhobeg: float,
+) -> PathMetrics:
+    optimizer = SparOptimizer(cfg, aircraft, mapped_loads, mat_db)
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+
+    with _count_prob_run_model_calls(optimizer._prob) as run_model_counter, _count_optimizer_analyze_calls(
+        optimizer
+    ) as analyze_counter, _count_dbr_dual_analysis_calls() as dual_counter:
+        t0 = perf_counter()
+
+        warm_eq = optimizer.optimize(method=optimizer_method)
+        x_warm = np.concatenate(
+            [
+                np.asarray(warm_eq.main_t_seg_mm, dtype=float) * 1e-3,
+                np.asarray(warm_eq.main_r_seg_mm, dtype=float) * 1e-3,
+                np.asarray(warm_eq.rear_t_seg_mm, dtype=float) * 1e-3,
+                np.asarray(warm_eq.rear_r_seg_mm, dtype=float) * 1e-3,
+            ]
+        )
+        if x_warm.size != 4 * n_seg:
+            raise RuntimeError("Direct V1 path requires dual-spar design variables.")
+
+        warm_dual = dbr.run_dual_beam_analysis(
+            cfg=cfg,
+            aircraft=aircraft,
+            opt_result=warm_eq,
+            export_loads=export_loads,
+            materials_db=mat_db,
+            bc_penalty=cfg.solver.fem_bc_penalty,
+        )
+        warm = dbr.DualBeamCandidate(
+            x=x_warm.copy(),
+            main_t_seg_m=x_warm[:n_seg].copy(),
+            main_r_seg_m=x_warm[n_seg : 2 * n_seg].copy(),
+            rear_t_seg_m=x_warm[2 * n_seg : 3 * n_seg].copy(),
+            rear_r_seg_m=x_warm[3 * n_seg : 4 * n_seg].copy(),
+            eq_mass_kg=float(warm_eq.spar_mass_full_kg),
+            eq_tip_deflection_m=float(abs(warm_eq.tip_deflection_m)),
+            eq_failure_index=float(warm_eq.failure_index),
+            eq_buckling_index=float(warm_eq.buckling_index),
+            dual=warm_dual,
+        )
+        targets = dbv1.build_targets_from_warm(
+            warm=warm,
+            tip_improve_frac=float(tip_improve_frac),
+            max_uz_improve_frac=float(max_uz_improve_frac),
+            rear_main_tip_ratio_slack=float(rear_main_tip_ratio_slack),
+            mass_cap_frac=float(mass_cap_frac),
+        )
+        outcome = dbv1.optimize_reduced_direct_dual_beam_v1(
+            cfg=cfg,
+            optimizer=optimizer,
+            aircraft=aircraft,
+            mat_db=mat_db,
+            export_loads=export_loads,
+            warm=warm,
+            targets=targets,
+            main_s1_4_grid=main_s1_4_grid,
+            main_s5_6_grid=main_s5_6_grid,
+            rear_grid=rear_grid,
+            thickness_grid=thickness_grid,
+            scale_lower=scale_lower,
+            scale_upper=scale_upper,
+            cobyla_maxiter=int(cobyla_maxiter),
+            cobyla_rhobeg=float(cobyla_rhobeg),
+        )
+
+        refined = outcome.refined
+        eq_result = optimizer.analyze(
+            main_t_seg=refined.main_t_seg_m,
+            main_r_seg=refined.main_r_seg_m,
+            rear_t_seg=refined.rear_t_seg_m,
+            rear_r_seg=refined.rear_r_seg_m,
+        )
+        wall_s = perf_counter() - t0
+
+    tip_main, max_uz, rear_tip, ratio = _dual_metrics(refined.dual)
+    feasible = bool(outcome.success) and _is_eq_feasible(eq_result=eq_result, cfg=cfg)
+
+    return PathMetrics(
+        path="direct_dual_beam_v1",
+        wall_time_s=float(wall_s),
+        success=bool(outcome.success),
+        feasible=bool(feasible),
+        message=str(outcome.message),
+        eq_mass_kg=float(eq_result.spar_mass_full_kg),
+        dual_mass_kg=float(refined.dual_mass_kg),
+        tip_main_m=tip_main,
+        max_uz_m=max_uz,
+        rear_tip_m=rear_tip,
+        rear_main_tip_ratio=ratio,
+        optimizer_iterations=int(outcome.nit) if outcome.nit >= 0 else None,
+        function_evaluations=int(outcome.nfev),
+        analysis_calls_eq=int(analyze_counter["n"]),
+        analysis_calls_dual=int(dual_counter["n"]),
+        run_model_calls=int(run_model_counter["n"]),
+    )
+
+
 def _format_metrics_table(metrics: list[PathMetrics]) -> str:
     lines: list[str] = []
     lines.append("=" * 118)
-    lines.append("Baseline Benchmark: equivalent vs hybrid vs direct dual-beam")
+    lines.append("Baseline Benchmark: equivalent vs hybrid vs direct dual-beam vs reduced V1")
     lines.append("=" * 118)
     lines.append(
         "path               wall[s]   success feasible  eq_mass[kg] dual_mass[kg]  tip_main[mm] max|UZ|[mm] rear_tip[mm] ratio    nfev   nit"
@@ -601,6 +720,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=1.0e-3,
         help="Hybrid COBYLA initial trust region.",
     )
+    parser.add_argument("--v1-tip-improve-frac", type=float, default=0.13)
+    parser.add_argument("--v1-max-uz-improve-frac", type=float, default=0.12)
+    parser.add_argument("--v1-rear-main-tip-ratio-slack", type=float, default=0.02)
+    parser.add_argument("--v1-mass-cap-frac", type=float, default=0.08)
+    parser.add_argument("--v1-main-s1-4-grid", default="1.0,1.025,1.05,1.075,1.10,1.125")
+    parser.add_argument("--v1-main-s5-6-grid", default="1.0,1.025,1.05,1.075,1.10")
+    parser.add_argument("--v1-rear-grid", default="1.0,1.025,1.05,1.075,1.10")
+    parser.add_argument("--v1-thickness-grid", default="1.0")
+    parser.add_argument("--v1-scale-lower", default="1.0,1.0,1.0,1.0")
+    parser.add_argument("--v1-scale-upper", default="1.14,1.14,1.14,1.08")
+    parser.add_argument("--v1-cobyla-maxiter", type=int, default=260)
+    parser.add_argument("--v1-cobyla-rhobeg", type=float, default=0.025)
     return parser
 
 
@@ -659,6 +790,28 @@ def main(argv: list[str] | None = None) -> int:
             include_eq_tip_limit=bool(args.direct_include_eq_tip_limit),
         )
     )
+    metrics.append(
+        _run_direct_v1_path(
+            cfg=cfg,
+            aircraft=aircraft,
+            mat_db=mat_db,
+            mapped_loads=mapped_loads,
+            export_loads=export_loads,
+            optimizer_method=args.optimizer_method,
+            tip_improve_frac=float(args.v1_tip_improve_frac),
+            max_uz_improve_frac=float(args.v1_max_uz_improve_frac),
+            rear_main_tip_ratio_slack=float(args.v1_rear_main_tip_ratio_slack),
+            mass_cap_frac=float(args.v1_mass_cap_frac),
+            main_s1_4_grid=dbv1._parse_grid(args.v1_main_s1_4_grid),
+            main_s5_6_grid=dbv1._parse_grid(args.v1_main_s5_6_grid),
+            rear_grid=dbv1._parse_grid(args.v1_rear_grid),
+            thickness_grid=dbv1._parse_grid(args.v1_thickness_grid),
+            scale_lower=dbv1._parse_grid(args.v1_scale_lower),
+            scale_upper=dbv1._parse_grid(args.v1_scale_upper),
+            cobyla_maxiter=int(args.v1_cobyla_maxiter),
+            cobyla_rhobeg=float(args.v1_cobyla_rhobeg),
+        )
+    )
 
     summary = BenchmarkSummary(
         generated_at=datetime.now().astimezone().isoformat(),
@@ -679,9 +832,17 @@ def main(argv: list[str] | None = None) -> int:
         ratio_lines.append(
             f"  direct_dual_beam / equivalent : {wall['direct_dual_beam'] / wall['equivalent']:.3f}x"
         )
+        ratio_lines.append(
+            f"  direct_dual_beam_v1 / equivalent : "
+            f"{wall['direct_dual_beam_v1'] / wall['equivalent']:.3f}x"
+        )
     if "hybrid" in wall and wall["hybrid"] > 0:
         ratio_lines.append(
             f"  direct_dual_beam / hybrid     : {wall['direct_dual_beam'] / wall['hybrid']:.3f}x"
+        )
+        ratio_lines.append(
+            f"  direct_dual_beam_v1 / hybrid : "
+            f"{wall['direct_dual_beam_v1'] / wall['hybrid']:.3f}x"
         )
 
     lines: list[str] = []
@@ -707,8 +868,18 @@ def main(argv: list[str] | None = None) -> int:
                         if wall.get("equivalent", 0.0) > 0
                         else None
                     ),
+                    "direct_v1_over_equivalent": (
+                        wall["direct_dual_beam_v1"] / wall["equivalent"]
+                        if wall.get("equivalent", 0.0) > 0
+                        else None
+                    ),
                     "direct_over_hybrid": (
                         wall["direct_dual_beam"] / wall["hybrid"] if wall.get("hybrid", 0.0) > 0 else None
+                    ),
+                    "direct_v1_over_hybrid": (
+                        wall["direct_dual_beam_v1"] / wall["hybrid"]
+                        if wall.get("hybrid", 0.0) > 0
+                        else None
                     ),
                 },
             },
