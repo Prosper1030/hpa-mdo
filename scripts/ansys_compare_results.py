@@ -47,6 +47,7 @@ class AnsysMetrics:
     root_reaction_fz_n: Optional[float] = None
     max_twist_deg: Optional[float] = None
     total_spar_mass_kg: Optional[float] = None
+    root_only_reaction_fz_n: Optional[float] = None
     total_constrained_reaction_fz_n: Optional[float] = None
     total_input_fz_n: Optional[float] = None
 
@@ -91,11 +92,21 @@ def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -
         text,
         "max_twist_deg",
     )
-    total_spar_mass_kg = _extract_float(
-        r"Total spar mass \(full-span\)\s+([+-]?\d+(?:\.\d+)?)\s+kg",
-        text,
-        "total_spar_mass_kg",
-    )
+    # Backward compatibility:
+    # - Old report label: "Total spar mass (full-span)"
+    # - New report label: "Spar tube mass (full-span)"
+    try:
+        total_spar_mass_kg = _extract_float(
+            r"Spar tube mass \(full-span\)\s+([+-]?\d+(?:\.\d+)?)\s+kg",
+            text,
+            "total_spar_mass_kg",
+        )
+    except ValueError:
+        total_spar_mass_kg = _extract_float(
+            r"Total spar mass \(full-span\)\s+([+-]?\d+(?:\.\d+)?)\s+kg",
+            text,
+            "total_spar_mass_kg",
+        )
 
     tip_node = int(_extract_float(r"\*GET,TIP_UZ,NODE,(\d+),U,Z", text, "tip_node"))
 
@@ -120,7 +131,7 @@ def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -
 
 
 def _extract_mass_from_out_files(ansys_dir: Path) -> Optional[float]:
-    """Extract total mass from MAPDL *.out files (if available)."""
+    """Extract approximate total mass from MAPDL *.out files (if available)."""
     type_mass: dict[int, float] = {}
     pattern = re.compile(
         r"\*\*\*\s*MASS SUMMARY BY ELEMENT TYPE\s*\*\*\*.*?^\s*TYPE\s+MASS\s*$"
@@ -141,6 +152,87 @@ def _extract_mass_from_out_files(ansys_dir: Path) -> Optional[float]:
     if not type_mass:
         return None
     return float(sum(type_mass.values()))
+
+
+def _extract_mass_from_mac(mac_path: Path) -> Optional[float]:
+    """Compute full-span spar mass from APDL geometry/material cards.
+
+    This is robust against distributed MAPDL runs where *.out mass summaries
+    may be split across ranks and under-reported.
+    """
+    if not mac_path.exists():
+        return None
+
+    text = mac_path.read_text(encoding="utf-8", errors="ignore")
+
+    dens_pattern = re.compile(
+        r"^\s*MP,\s*DENS,\s*(\d+)\s*,\s*([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)",
+        flags=re.MULTILINE,
+    )
+    kp_pattern = re.compile(
+        r"^\s*K,\s*(\d+)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)",
+        flags=re.MULTILINE,
+    )
+    line_pattern = re.compile(r"^\s*L,\s*(\d+)\s*,\s*(\d+)\s*$", flags=re.MULTILINE)
+    sec_pattern = re.compile(
+        r"SECTYPE,\s*(\d+)\s*,\s*BEAM\s*,\s*CTUBE\s*\n\s*SECDATA,\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)",
+        flags=re.MULTILINE,
+    )
+
+    densities = {int(m.group(1)): float(m.group(2)) for m in dens_pattern.finditer(text)}
+    keypoints = {
+        int(m.group(1)): (float(m.group(2)), float(m.group(3)), float(m.group(4)))
+        for m in kp_pattern.finditer(text)
+    }
+
+    # APDL line IDs are implicit in creation order in this exporter.
+    line_id_to_nodes: dict[int, tuple[int, int]] = {}
+    for idx, m in enumerate(line_pattern.finditer(text), start=1):
+        line_id_to_nodes[idx] = (int(m.group(1)), int(m.group(2)))
+
+    section_id_to_radii = {
+        int(m.group(1)): (float(m.group(2)), float(m.group(3)))
+        for m in sec_pattern.finditer(text)
+    }
+
+    if not densities or not keypoints or not line_id_to_nodes or not section_id_to_radii:
+        return None
+
+    mappings: list[tuple[int, int, int]] = []
+    current_line_id: Optional[int] = None
+    for ln in text.splitlines():
+        line_match = re.match(r"^\s*LSEL,\s*S,\s*LINE,,\s*(\d+)\s*$", ln)
+        if line_match:
+            current_line_id = int(line_match.group(1))
+            continue
+
+        latt_match = re.match(r"^\s*LATT,\s*(\d+)\s*,,\s*\d+,,,,\s*(\d+)", ln)
+        if latt_match and current_line_id is not None:
+            mat_id = int(latt_match.group(1))
+            sec_id = int(latt_match.group(2))
+            mappings.append((current_line_id, mat_id, sec_id))
+
+    if not mappings:
+        return None
+
+    half_mass_kg = 0.0
+    for line_id, mat_id, sec_id in mappings:
+        if mat_id not in densities or sec_id not in section_id_to_radii or line_id not in line_id_to_nodes:
+            continue
+        n1, n2 = line_id_to_nodes[line_id]
+        if n1 not in keypoints or n2 not in keypoints:
+            continue
+
+        x1, y1, z1 = keypoints[n1]
+        x2, y2, z2 = keypoints[n2]
+        length = float(np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2))
+
+        r_i, r_o = section_id_to_radii[sec_id]
+        area = float(np.pi * max(r_o**2 - r_i**2, 0.0))
+        half_mass_kg += area * length * densities[mat_id]
+
+    # Model is half-span; crossval baseline mass is full-span.
+    return 2.0 * half_mass_kg
 
 
 def extract_ansys_metrics_from_rst(
@@ -179,26 +271,36 @@ def extract_ansys_metrics_from_rst(
     max_vm_main_mpa = float(np.nanmax(seqv_pa[main_mask]) / 1e6) if np.any(main_mask) else None
     max_vm_rear_mpa = float(np.nanmax(seqv_pa[rear_mask]) / 1e6) if np.any(rear_mask) else None
 
-    # Root reaction Fz: use constrained root nodes only (main root=1, rear root=nn+1).
+    # Root reaction diagnostics:
+    # - root_only_fz: main/rear root nodes only (1 and nn+1)
+    # - total_reaction_fz: all constrained nodes (includes wire support)
     rforces, rnodes, rdof = result.nodal_reaction_forces(0)
     fz_mask = rdof == 3
     root_mask = (rnodes == 1) | (rnodes == nn + 1)
-    root_fz = float(np.sum(rforces[fz_mask & root_mask])) if np.any(fz_mask & root_mask) else None
+    root_only_fz = float(np.sum(rforces[fz_mask & root_mask])) if np.any(fz_mask & root_mask) else None
     total_reaction_fz = float(np.sum(rforces[fz_mask])) if np.any(fz_mask) else None
 
     input_nodes, input_dof, input_force = result.nodal_input_force(0)
     input_fz = float(np.sum(input_force[input_dof == 3])) if np.any(input_dof == 3) else None
 
-    total_mass_kg = _extract_mass_from_out_files(ansys_dir)
+    mac_path = ansys_dir / "spar_model.mac"
+    total_mass_kg = _extract_mass_from_mac(mac_path)
+    if total_mass_kg is None:
+        total_mass_kg = _extract_mass_from_out_files(ansys_dir)
+
+    # Baseline "Root reaction Fz" is equilibrium-based (total applied lift).
+    # For wire-supported models, compare against total constrained Fz magnitude.
+    reaction_for_comparison = abs(total_reaction_fz) if total_reaction_fz is not None else None
 
     return AnsysMetrics(
         tip_deflection_mm=tip_uz_mm,
         max_uz_mm=max_uz_mm,
         max_vm_main_mpa=max_vm_main_mpa,
         max_vm_rear_mpa=max_vm_rear_mpa,
-        root_reaction_fz_n=root_fz,
+        root_reaction_fz_n=reaction_for_comparison,
         max_twist_deg=None,  # Not directly available from this RST/post setup.
         total_spar_mass_kg=total_mass_kg,
+        root_only_reaction_fz_n=root_only_fz,
         total_constrained_reaction_fz_n=total_reaction_fz,
         total_input_fz_n=input_fz,
     )
@@ -273,6 +375,9 @@ def build_report_text(
         )
 
     lines.append("-" * 88)
+    lines.append(
+        f"Aux: root-only reaction Fz (nodes 1 & nn+1) = {_fmt(ansys.root_only_reaction_fz_n)} N"
+    )
     lines.append(
         f"Aux: total constrained reaction Fz = {_fmt(ansys.total_constrained_reaction_fz_n)} N"
     )

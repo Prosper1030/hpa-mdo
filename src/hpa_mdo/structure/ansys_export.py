@@ -447,12 +447,9 @@ class ANSYSExporter:
         f.write("/POST1\n")
         f.write("SET,LAST\n")
         f.write(f"*GET,TIP_UZ,NODE,{self.nn},U,Z\n")
-        f.write("*GET,UZ_MAX,NODE,0,U,Z,MAX\n")
-        f.write("*GET,UZ_MIN,NODE,0,U,Z,MIN\n")
         f.write("\n")
         f.write("! Restrict beam result post-processing to BEAM188 types only.\n")
         f.write("ESEL,S,TYPE,,1,2\n")
-        f.write("PRESOL,SMISC\n")
         f.write("ETABLE,VM_I,SMISC,31   ! BEAM188 von Mises at i-end\n")
         f.write("ETABLE,VM_J,SMISC,36   ! BEAM188 von Mises at j-end\n")
         f.write("*GET,VM_I_MAX,ETAB,VM_I,MAX\n")
@@ -462,10 +459,10 @@ class ANSYSExporter:
         f.write("\n")
         f.write("/OUTPUT,ansys_post,txt\n")
         f.write(
-            "*VWRITE,TIP_UZ,UZ_MAX,UZ_MIN,VM_I_MAX,VM_J_MAX\n"
+            "*VWRITE,TIP_UZ,VM_I_MAX,VM_J_MAX\n"
         )
         f.write(
-            "('TIP_UZ=',E16.8,', UZ_MAX=',E16.8,', UZ_MIN=',E16.8,', VM_I_MAX=',E16.8,', VM_J_MAX=',E16.8)\n"
+            "('TIP_UZ=',E16.8,', VM_I_MAX=',E16.8,', VM_J_MAX=',E16.8)\n"
         )
         f.write("/OUTPUT\n")
         f.write("FINISH\n")

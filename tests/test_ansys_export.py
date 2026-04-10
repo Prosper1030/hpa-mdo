@@ -217,3 +217,6 @@ def test_ansys_apdl_post_commands_are_beam188_compatible(tmp_path):
     assert "ETABLE,VM_J,SMISC,36" in apdl_text
     assert "PRRSOL,FZ" in apdl_text
     assert "ETABLE,VONM,S,EQV" not in apdl_text
+    assert "PRESOL,SMISC" not in apdl_text
+    assert "*GET,UZ_MAX,NODE,0,U,Z,MAX" not in apdl_text
+    assert "*GET,UZ_MIN,NODE,0,U,Z,MIN" not in apdl_text
