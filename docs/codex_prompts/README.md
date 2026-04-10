@@ -15,6 +15,7 @@
 - `F11_discrete_od_postprocessing.md` ✅ `fe64842` tube_catalog 12–120mm, snap-up
 - `F12_gravity_torque_rear_spar.md` ✅ `bb02d13` rear spar gravity torque → theta_y
 - `F8_torsion_shear_buckling.md` ✅ `ff350ea` torsion-shear interaction
+- `M4_ansys_cross_validation.md` ✅ `35486d8` / `fd20c2d` equivalent-beam ANSYS validation gate PASS
 
 ### Phase II — 材料資料庫擴充
 - `II_1_materials_expansion.md` ✅ `e704aa4` 15 materials (+8 new)
@@ -23,11 +24,12 @@
 
 | 順序 | 任務 | 預估工時 | 前置條件 |
 |-----|------|---------|---------|
-| 1 | M4-4e: ANSYS cross-validation（Prompt TBD） | 4–6 h | 無 |
+| 1 | M4-4f: dual-spar adequacy spot-check（非 gate） | 2–4 h | 4e PASS |
 | 2 | 多工況 4G 雙重計算修正 | 2 h | 無 |
 | 3 | II-2: tube_catalog 強化 | 3–4 h | 無 |
 | 4 | II-4: rib_properties → auto warping_knockdown | 4–6 h | 無 |
-| 5 | III-1: DOE 取樣器 + 批次 runner | 8–12 h | Phase I 完成 |
+| 5 | M5 advanced capabilities scope decision | 1 h | 4f 完成 |
+| 6 | III-1: DOE 取樣器 + 批次 runner | 8–12 h | Phase I 完成 |
 
 ## 已完成
 
