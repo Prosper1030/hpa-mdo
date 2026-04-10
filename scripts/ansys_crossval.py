@@ -310,41 +310,31 @@ def _build_crossval_report(
     return "\n".join(lines) + "\n"
 
 
-def generate_cross_validation_package(
-    config_path: str | Path | None = None,
-    output_dir: str | Path | None = None,
+def export_cross_validation_package_from_result(
     *,
-    n_beam_nodes: int | None = None,
-    optimizer_maxiter: int | None = None,
+    config_path: str | Path,
+    cfg: HPAConfig,
+    aircraft: Aircraft,
+    result: OptimizationResult,
+    mapped_loads: dict[str, Any],
+    export_loads: dict[str, Any],
+    mat_db: MaterialDB,
+    cruise_aoa_deg: float,
+    output_dir: str | Path | None = None,
     export_mode: str = "equivalent_beam",
+    ansys_subdir: str = "ansys",
 ) -> CrossValidationPackage:
-    """Run optimization, export ANSYS files, and write cross-validation report."""
-    repo_root = Path(__file__).resolve().parent.parent
-    resolved_config = (
-        Path(config_path).expanduser().resolve()
-        if config_path is not None
-        else repo_root / "configs" / "blackcat_004.yaml"
-    )
-
-    cfg = load_config(resolved_config)
+    """Export ANSYS files and report from an already available design result."""
+    resolved_config = Path(config_path).expanduser().resolve()
     if output_dir is not None:
         cfg.io.output_dir = Path(output_dir).expanduser().resolve()
-    if n_beam_nodes is not None:
-        cfg.solver.n_beam_nodes = int(n_beam_nodes)
-    if optimizer_maxiter is not None:
-        cfg.solver.optimizer_maxiter = int(optimizer_maxiter)
 
-    aircraft = Aircraft.from_config(cfg)
-    mat_db = MaterialDB()
+    subdir = str(ansys_subdir).strip()
+    if not subdir:
+        raise ValueError("ansys_subdir must be a non-empty path segment.")
 
-    cruise_aoa_deg, mapped_loads = _select_cruise_loads(cfg, aircraft)
     design_case = cfg.structural_load_cases()[0]
-    export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
-
-    optimizer = SparOptimizer(cfg, aircraft, mapped_loads, mat_db)
-    result = optimizer.optimize(method="auto")
-
-    ansys_dir = Path(cfg.io.output_dir) / "ansys"
+    ansys_dir = Path(cfg.io.output_dir) / subdir
     ansys_dir.mkdir(parents=True, exist_ok=True)
     exporter = ANSYSExporter(cfg, aircraft, result, export_loads, mat_db, mode=export_mode)
 
@@ -379,7 +369,56 @@ def generate_cross_validation_package(
         export_loads=export_loads,
         design_case=design_case,
         exporter=exporter,
+        cruise_aoa_deg=float(cruise_aoa_deg),
+    )
+
+
+def generate_cross_validation_package(
+    config_path: str | Path | None = None,
+    output_dir: str | Path | None = None,
+    *,
+    n_beam_nodes: int | None = None,
+    optimizer_maxiter: int | None = None,
+    export_mode: str = "equivalent_beam",
+) -> CrossValidationPackage:
+    """Run optimization, export ANSYS files, and write cross-validation report."""
+    repo_root = Path(__file__).resolve().parent.parent
+    resolved_config = (
+        Path(config_path).expanduser().resolve()
+        if config_path is not None
+        else repo_root / "configs" / "blackcat_004.yaml"
+    )
+
+    cfg = load_config(resolved_config)
+    if output_dir is not None:
+        cfg.io.output_dir = Path(output_dir).expanduser().resolve()
+    if n_beam_nodes is not None:
+        cfg.solver.n_beam_nodes = int(n_beam_nodes)
+    if optimizer_maxiter is not None:
+        cfg.solver.optimizer_maxiter = int(optimizer_maxiter)
+
+    aircraft = Aircraft.from_config(cfg)
+    mat_db = MaterialDB()
+
+    cruise_aoa_deg, mapped_loads = _select_cruise_loads(cfg, aircraft)
+    design_case = cfg.structural_load_cases()[0]
+    export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
+
+    optimizer = SparOptimizer(cfg, aircraft, mapped_loads, mat_db)
+    result = optimizer.optimize(method="auto")
+
+    return export_cross_validation_package_from_result(
+        config_path=resolved_config,
+        cfg=cfg,
+        aircraft=aircraft,
+        result=result,
+        mapped_loads=mapped_loads,
+        export_loads=export_loads,
+        mat_db=mat_db,
         cruise_aoa_deg=cruise_aoa_deg,
+        output_dir=None,
+        export_mode=export_mode,
+        ansys_subdir="ansys",
     )
 
 

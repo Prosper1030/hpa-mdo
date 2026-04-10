@@ -30,7 +30,7 @@ from hpa_mdo.aero import LoadMapper
 from hpa_mdo.core import Aircraft, MaterialDB, load_config
 from hpa_mdo.structure import SparOptimizer
 from hpa_mdo.structure.dual_beam_analysis import DualBeamAnalysisResult, run_dual_beam_analysis
-from scripts.ansys_crossval import _select_cruise_loads
+from scripts.ansys_crossval import _select_cruise_loads, export_cross_validation_package_from_result
 
 
 @dataclass(frozen=True)
@@ -554,6 +554,22 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=1.0e-3,
         help="Initial COBYLA trust region size in design-variable units [m].",
     )
+    parser.add_argument(
+        "--export-ansys-dual-spar",
+        action="store_true",
+        help=(
+            "Export ANSYS dual-spar package for the final refined design. "
+            "Writes spar_model.mac/.bdf, spar_data.csv, and crossval_report.txt."
+        ),
+    )
+    parser.add_argument(
+        "--ansys-subdir",
+        default="ansys_refined",
+        help=(
+            "Subdirectory under --output-dir for refined-design ANSYS export "
+            "when --export-ansys-dual-spar is enabled."
+        ),
+    )
     return parser
 
 
@@ -725,6 +741,28 @@ def main(argv: list[str] | None = None) -> int:
     report_text = "\n".join(lines) + "\n"
     report_path.write_text(report_text, encoding="utf-8")
 
+    refined_ansys_package = None
+    if args.export_ansys_dual_spar:
+        refined_eq = optimizer.analyze(
+            main_t_seg=r.main_t_seg_m,
+            main_r_seg=r.main_r_seg_m,
+            rear_t_seg=r.rear_t_seg_m,
+            rear_r_seg=r.rear_r_seg_m,
+        )
+        refined_ansys_package = export_cross_validation_package_from_result(
+            config_path=cfg_path,
+            cfg=cfg,
+            aircraft=aircraft,
+            result=refined_eq,
+            mapped_loads=mapped_loads,
+            export_loads=export_loads,
+            mat_db=mat_db,
+            cruise_aoa_deg=cruise_aoa_deg,
+            output_dir=output_dir,
+            export_mode="dual_spar",
+            ansys_subdir=args.ansys_subdir,
+        )
+
     print("Dual-beam refinement complete.")
     print(f"  Report: {report_path}")
     print(f"  Success: {outcome.success}")
@@ -732,6 +770,19 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Refined dual max|UZ| (mm): {r.dual_max_uz_m * 1000.0:.3f}")
     print(f"  Warm dual mass (kg): {w.dual_mass_kg:.3f}")
     print(f"  Refined dual mass (kg): {r.dual_mass_kg:.3f}")
+    if refined_ansys_package is not None:
+        print("Refined-design dual-spar ANSYS package generated.")
+        print(f"  Output dir: {refined_ansys_package.ansys_dir}")
+        print(f"  APDL macro: {refined_ansys_package.apdl_path.name}")
+        print(f"  NASTRAN BDF: {refined_ansys_package.bdf_path.name}")
+        print(f"  Workbench CSV: {refined_ansys_package.csv_path.name}")
+        print(f"  Baseline report: {refined_ansys_package.report_path.name}")
+        print("  Next step: run ANSYS manually, then compare with:")
+        print(
+            "    uv run python scripts/ansys_dual_spar_spotcheck.py compare "
+            f"--ansys-dir {refined_ansys_package.ansys_dir} "
+            f"--baseline-report {refined_ansys_package.report_path}"
+        )
     return 0
 
 

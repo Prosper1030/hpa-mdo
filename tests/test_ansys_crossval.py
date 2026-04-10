@@ -7,6 +7,7 @@ import sys
 import numpy as np
 import pytest
 
+from hpa_mdo.core import MaterialDB
 from hpa_mdo.core.config import load_config
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.ansys_crossval import (  # noqa: E402
     CrossValidationPackage,
+    export_cross_validation_package_from_result,
     generate_cross_validation_package,
 )
 
@@ -187,3 +189,38 @@ def test_apdl_force_equilibrium(crossval_package: CrossValidationPackage) -> Non
         f"APDL force equilibrium mismatch: FK sum={total_apdl_fz:.6f} N, "
         f"expected total Fz={expected_total_fz:.6f} N, rel_err={rel_err:.6%}"
     )
+
+
+@pytest.mark.requires_vspaero
+def test_export_from_existing_result_dual_spar_subdir(
+    tmp_path: Path,
+    crossval_package: CrossValidationPackage,
+) -> None:
+    package = export_cross_validation_package_from_result(
+        config_path=CONFIG_PATH,
+        cfg=crossval_package.cfg,
+        aircraft=crossval_package.aircraft,
+        result=crossval_package.result,
+        mapped_loads=crossval_package.mapped_loads,
+        export_loads=crossval_package.export_loads,
+        mat_db=MaterialDB(),
+        cruise_aoa_deg=crossval_package.cruise_aoa_deg,
+        output_dir=tmp_path,
+        export_mode="dual_spar",
+        ansys_subdir="ansys_refined",
+    )
+
+    assert package.result is crossval_package.result
+    assert package.ansys_dir == tmp_path / "ansys_refined"
+
+    for path in (
+        package.apdl_path,
+        package.bdf_path,
+        package.csv_path,
+        package.report_path,
+    ):
+        assert path.exists(), f"Expected output file was not created: {path}"
+
+    report_text = package.report_path.read_text(encoding="utf-8")
+    assert "Export mode: dual_spar" in report_text
+    assert "dual-spar inspection mode" in report_text
