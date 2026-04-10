@@ -942,6 +942,51 @@ class SparOptimizer:
         raw = run_analysis(self._prob)
         return self._to_result(raw, success=True, message="Analysis complete")
 
+    def analyze_dual_beam(
+        self,
+        main_t_seg: Optional[np.ndarray] = None,
+        main_r_seg: Optional[np.ndarray] = None,
+        rear_t_seg: Optional[np.ndarray] = None,
+        rear_r_seg: Optional[np.ndarray] = None,
+    ):
+        """Run the internal dual-beam analysis path for the current design variables.
+
+        This does not modify the existing optimization topology or Phase I gate.
+        It is a separate analysis-only route for higher-fidelity model-form checks.
+        """
+        from hpa_mdo.structure.dual_beam_analysis import run_dual_beam_analysis
+
+        design_result = self.analyze(
+            main_t_seg=main_t_seg,
+            main_r_seg=main_r_seg,
+            rear_t_seg=rear_t_seg,
+            rear_r_seg=rear_r_seg,
+        )
+
+        case_entries = _normalise_load_case_inputs(self.cfg, self.aero_loads)
+        case_name = next(iter(case_entries))
+        load_case, case_loads = case_entries[case_name]
+        lift, torque = _scaled_case_aero_distributions(
+            case_name=case_name,
+            load_case=load_case,
+            case_loads=case_loads,
+            n_nodes=self.aircraft.wing.n_stations,
+        )
+        export_loads = {
+            "lift_per_span": lift,
+            "torque_per_span": torque,
+            "total_lift": float(np.trapezoid(lift, self.aircraft.wing.y)),
+        }
+
+        return run_dual_beam_analysis(
+            cfg=self.cfg,
+            aircraft=self.aircraft,
+            opt_result=design_result,
+            export_loads=export_loads,
+            materials_db=self.materials_db,
+            bc_penalty=self.cfg.solver.fem_bc_penalty,
+        )
+
     def optimize(self, method: str = "auto") -> OptimizationResult:
         """Run the full structural optimization.
 

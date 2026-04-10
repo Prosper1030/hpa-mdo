@@ -8,6 +8,7 @@ from hpa_mdo.structure.spar_model import (
     tube_J,
 )
 from hpa_mdo.structure.optimizer import SparOptimizer, OptimizationResult
+from hpa_mdo.structure.dual_beam_analysis import DualBeamAnalysisResult, run_dual_beam_analysis
 
 __all__ = [
     "DualSparSection",
@@ -19,4 +20,6 @@ __all__ = [
     "tube_J",
     "SparOptimizer",
     "OptimizationResult",
+    "DualBeamAnalysisResult",
+    "run_dual_beam_analysis",
 ]
