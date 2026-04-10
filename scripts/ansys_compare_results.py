@@ -272,23 +272,35 @@ def extract_ansys_metrics_from_rst(
     tip_uz_mm = float(abs(disp[node_to_idx[baseline.tip_node], 2]) * 1000.0)
     max_uz_mm = float(np.max(np.abs(disp[:, 2])) * 1000.0)
 
-    pnnum, principal = result.principal_nodal_stress(0)
-    seqv_pa = np.abs(principal[:, 4])
-
     nn = baseline.nodes_per_spar
-    if baseline.export_mode == "equivalent_beam":
-        main_mask = (pnnum >= 1) & (pnnum <= nn)
-        rear_mask = np.zeros_like(main_mask, dtype=bool)
-    else:
-        main_mask = (pnnum >= 1) & (pnnum <= nn)
-        rear_mask = (pnnum >= nn + 1) & (pnnum <= 2 * nn)
+    max_vm_main_mpa = None
+    max_vm_rear_mpa = None
+    try:
+        pnnum, principal = result.principal_nodal_stress(0)
+        seqv_pa = np.abs(principal[:, 4])
 
-    max_vm_main_mpa = float(np.nanmax(seqv_pa[main_mask]) / 1e6) if np.any(main_mask) else None
-    max_vm_rear_mpa = float(np.nanmax(seqv_pa[rear_mask]) / 1e6) if np.any(rear_mask) else None
+        if baseline.export_mode == "equivalent_beam":
+            main_mask = (pnnum >= 1) & (pnnum <= nn)
+            rear_mask = np.zeros_like(main_mask, dtype=bool)
+        else:
+            main_mask = (pnnum >= 1) & (pnnum <= nn)
+            rear_mask = (pnnum >= nn + 1) & (pnnum <= 2 * nn)
+
+        max_vm_main_mpa = (
+            float(np.nanmax(seqv_pa[main_mask]) / 1e6) if np.any(main_mask) else None
+        )
+        max_vm_rear_mpa = (
+            float(np.nanmax(seqv_pa[rear_mask]) / 1e6) if np.any(rear_mask) else None
+        )
+    except Exception:
+        # Stress is provisional/non-gating for Phase I. Some MAPDL result
+        # files omit ENS nodal stresses entirely, especially for equivalent
+        # beam validation decks, so keep reporting the true gate metrics.
+        pass
 
     # Root reaction diagnostics:
-    # - root_only_fz: main/rear root nodes only (1 and nn+1)
-    # - total_reaction_fz: all constrained nodes (includes wire support)
+    # - root_only_fz: root node(s) only, auxiliary diagnostic
+    # - total_reaction_fz: all constrained supports, including wire supports
     rforces, rnodes, rdof = result.nodal_reaction_forces(0)
     fz_mask = rdof == 3
     if baseline.export_mode == "equivalent_beam":
@@ -306,8 +318,8 @@ def extract_ansys_metrics_from_rst(
     if total_mass_kg is None:
         total_mass_kg = _extract_mass_from_out_files(ansys_dir)
 
-    # Baseline "Root reaction Fz" is equilibrium-based (total applied lift).
-    # For wire-supported models, compare against total constrained Fz magnitude.
+    # Compare against all constrained support reactions. In equivalent-beam
+    # validation mode this includes the lift-wire UZ support, not just root.
     reaction_for_comparison = abs(total_reaction_fz) if total_reaction_fz is not None else None
 
     return AnsysMetrics(
@@ -373,7 +385,14 @@ def build_report_text(
             stress_gate,
             "stress provisional",
         ),
-        ("Root/support reaction Fz (N)", baseline.root_reaction_fz_n, ansys.root_reaction_fz_n, 1.0, is_equiv, "gate"),
+        (
+            "Support reaction Fz (all supports) (N)",
+            baseline.root_reaction_fz_n,
+            ansys.root_reaction_fz_n,
+            1.0,
+            is_equiv,
+            "gate",
+        ),
         ("Max twist angle (deg)", baseline.max_twist_deg, ansys.max_twist_deg, threshold_pct, False, "info"),
         ("Total spar mass full-span (kg)", baseline.total_spar_mass_kg, ansys.total_spar_mass_kg, 1.0, is_equiv, "gate"),
     ]
@@ -424,10 +443,11 @@ def build_report_text(
 
     lines.append("-" * 88)
     lines.append(
-        f"Aux: root-only reaction Fz (nodes 1 & nn+1) = {_fmt(ansys.root_only_reaction_fz_n)} N"
+        f"Aux only: root-node(s) reaction Fz = {_fmt(ansys.root_only_reaction_fz_n)} N"
     )
     lines.append(
-        f"Aux: total constrained reaction Fz = {_fmt(ansys.total_constrained_reaction_fz_n)} N"
+        "Gate source: total constrained supports reaction Fz = "
+        f"{_fmt(ansys.total_constrained_reaction_fz_n)} N"
     )
     lines.append(f"Aux: total input Fz from RST      = {_fmt(ansys.total_input_fz_n)} N")
     lines.append("")

@@ -50,6 +50,8 @@ def test_equivalent_beam_report_gates_only_phase_i_metrics(tmp_path: Path) -> No
 
     assert "Phase I gate    : equivalent-beam validation metrics only" in report
     assert "Overall verdict: PASS" in report
+    assert "Max Von Mises rear spar (MPa)" in report
+    assert "N/A" in report
     assert "Stress note: ANSYS beam stress extraction is provisional here." in report
     assert "Python von Mises bug" in report
 
@@ -71,7 +73,7 @@ def test_equivalent_beam_report_fails_true_validation_gate(tmp_path: Path) -> No
     )
 
     assert "Overall verdict: FAIL" in report
-    assert "Root/support reaction Fz" in report
+    assert "Support reaction Fz (all supports)" in report
     assert "Equivalent nodal load mismatch" in report
 
 
