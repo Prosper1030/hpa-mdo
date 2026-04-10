@@ -13,9 +13,10 @@ from hpa_mdo.core.materials import MaterialDB
 from hpa_mdo.structure.oas_structural import build_structural_problem
 
 
-def _build_prob():
+def _build_prob(*, rear_main_radius_ratio_min: float = 0.0):
     repo_root = Path(__file__).resolve().parents[1]
     cfg = load_config(repo_root / "configs" / "blackcat_004.yaml")
+    cfg.solver.rear_main_radius_ratio_min = float(rear_main_radius_ratio_min)
 
     with patch.object(cfg.solver, "n_beam_nodes", 10):
         aircraft = Aircraft.from_config(cfg)
@@ -52,6 +53,12 @@ def test_rear_engineering_constraints_are_registered():
 
     assert "rear_hollow_tube_validity.margin" in constraints
     assert "main_rear_inboard_ei_cap.margin" in constraints
+
+
+def test_rear_radius_ratio_guardrail_constraint_is_registered_when_enabled():
+    prob, _cfg = _build_prob(rear_main_radius_ratio_min=0.40)
+    constraints = prob.model.get_constraints()
+    assert "rear_main_radius_ratio_guardrail.margin" in constraints
 
 
 def test_rear_hollow_tube_validity_rejects_t_ge_r():
@@ -91,3 +98,16 @@ def test_inboard_ei_cap_preserves_main_primary_role():
     # Root-side EI cap must detect rear spar becoming too dominant inboard.
     inboard_margin = np.asarray(prob.get_val("main_rear_inboard_ei_cap.margin"), dtype=float)
     assert np.min(inboard_margin) < 0.0
+
+
+def test_rear_radius_ratio_guardrail_rejects_soft_rear_radius_pattern():
+    prob, cfg = _build_prob(rear_main_radius_ratio_min=0.40)
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+
+    # Main and rear radii chosen so rear/main ratio = 0.30 < 0.40.
+    prob.set_val("struct.seg_mapper.main_r_seg", np.full(n_seg, 0.0300), units="m")
+    prob.set_val("struct.seg_mapper.rear_r_seg", np.full(n_seg, 0.0090), units="m")
+    prob.run_model()
+
+    margin = np.asarray(prob.get_val("rear_main_radius_ratio_guardrail.margin"), dtype=float)
+    assert np.min(margin) < 0.0

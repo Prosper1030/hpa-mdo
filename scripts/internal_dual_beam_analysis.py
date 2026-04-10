@@ -96,6 +96,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default="file.rst",
         help="Optional RST filename under --ansys-dir.",
     )
+    parser.add_argument(
+        "--rear-main-radius-ratio-min",
+        type=float,
+        default=None,
+        help=(
+            "Optional optimizer guardrail: enforce rear radius >= ratio * main radius "
+            "per segment during the equivalent-beam optimization run."
+        ),
+    )
     return parser
 
 
@@ -108,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
     report_path = output_dir / "dual_beam_internal_report.txt"
 
     cfg = load_config(cfg_path)
+    if args.rear_main_radius_ratio_min is not None:
+        cfg.solver.rear_main_radius_ratio_min = float(args.rear_main_radius_ratio_min)
     aircraft = Aircraft.from_config(cfg)
     mat_db = MaterialDB()
 
@@ -234,6 +245,9 @@ def main(argv: list[str] | None = None) -> int:
     lines.append(f"  rear_r_scale : {args.rear_r_scale:.4f}")
     lines.append(f"  main_t_scale : {args.main_t_scale:.4f}")
     lines.append(f"  rear_t_scale : {args.rear_t_scale:.4f}")
+    lines.append(
+        f"  rear/main radius guardrail min ratio : {cfg.solver.rear_main_radius_ratio_min:.4f}"
+    )
     lines.append("")
     lines.append("Internal dual-beam outputs:")
     lines.append(f"  Tip deflection main (mm)         : {abs(dual.tip_deflection_main_m) * 1000.0:.3f}")

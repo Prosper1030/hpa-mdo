@@ -854,6 +854,29 @@ def build_structural_problem(
             lower=dominance_margin,
         )
 
+        rear_main_ratio_min = float(getattr(solver_cfg, "rear_main_radius_ratio_min", 0.0))
+        if rear_main_ratio_min > 0.0:
+            model.add_subsystem(
+                "rear_main_radius_ratio_guardrail",
+                om.ExecComp(
+                    "margin = rear_r - ratio * main_r",
+                    margin={"shape": (n_seg,), "units": "m"},
+                    rear_r={"shape": (n_seg,), "units": "m"},
+                    main_r={"shape": (n_seg,), "units": "m"},
+                    ratio=rear_main_ratio_min,
+                    has_diag_partials=True,
+                ),
+            )
+            model.connect(
+                "struct.seg_mapper.rear_r_seg",
+                "rear_main_radius_ratio_guardrail.rear_r",
+            )
+            model.connect(
+                "struct.seg_mapper.main_r_seg",
+                "rear_main_radius_ratio_guardrail.main_r",
+            )
+            model.add_constraint("rear_main_radius_ratio_guardrail.margin", lower=0.0)
+
         model.add_subsystem(
             "main_rear_ei_dominance",
             om.ExecComp(

@@ -203,6 +203,15 @@ class SolverConfig(BaseModel):
         0.005,
         description="Main spar segment radius must exceed rear spar radius by at least this margin [m]",
     )
+    rear_main_radius_ratio_min: float = Field(
+        0.0,
+        description=(
+            "Optional rear-spar softness guardrail: enforce rear_r >= ratio * main_r "
+            "per segment. Set to 0 to disable."
+        ),
+        ge=0.0,
+        le=1.0,
+    )
     main_spar_ei_ratio: float = Field(
         2.0,
         description="Main spar element bending stiffness must satisfy EI_main >= ratio * EI_rear",
