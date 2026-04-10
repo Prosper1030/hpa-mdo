@@ -387,9 +387,15 @@ class ANSYSExporter:
     def _apdl_loads(self, f: TextIO) -> None:
         nn = self.nn
         dy = np.diff(self.y)
+        tol = 1e-10
+
+        # Accumulate nodal loads first so each node/DOF is written once.
+        # APDL's FK command overwrites prior loads on the same node and DOF.
+        fz_main = np.zeros(nn, dtype=float)
+        fz_rear = np.zeros(nn, dtype=float)
 
         # --- Fz lift on main spar ---
-        f.write("! --- Applied lift loads (Fz) on main spar ---\n")
+        f.write("! --- Applied lift loads (Fz) on main spar (accumulated) ---\n")
         for j in range(nn):
             if j == 0:
                 F_node = self.fz_lift[j] * dy[0] / 2.0
@@ -397,16 +403,14 @@ class ANSYSExporter:
                 F_node = self.fz_lift[j] * dy[-1] / 2.0
             else:
                 F_node = self.fz_lift[j] * (dy[j - 1] + dy[j]) / 2.0
-            if abs(F_node) > 1e-10:
-                f.write(f"FK,{j + 1},FZ,{F_node:.6f}    ! y={self.y[j]:.3f}m\n")
-        f.write("\n")
+            fz_main[j] += F_node
 
         # --- My torque distributed to both spars ---
         # Torque is reacted by a couple: F_chord * spar_separation
         # Split proportionally by local bending stiffness, but for
         # simplicity use 50/50 as vertical couple forces on the two spars.
         spar_sep = self.x_rear - self.x_main  # chordwise separation [m]
-        f.write("! --- Applied torque (My) as vertical couple on both spars ---\n")
+        f.write("! --- Applied torque (My) as vertical couple on both spars (accumulated) ---\n")
         for j in range(nn):
             if j == 0:
                 M_node = self.my_torque[j] * dy[0] / 2.0
@@ -414,13 +418,21 @@ class ANSYSExporter:
                 M_node = self.my_torque[j] * dy[-1] / 2.0
             else:
                 M_node = self.my_torque[j] * (dy[j - 1] + dy[j]) / 2.0
-            if abs(M_node) > 1e-10 and abs(spar_sep[j]) > 1e-6:
+            if abs(M_node) > tol and abs(spar_sep[j]) > 1e-6:
                 Fz_couple = M_node / spar_sep[j]
                 # +Fz on main, -Fz on rear (positive My → nose-up)
-                kp_main = j + 1
-                kp_rear = nn + j + 1
-                f.write(f"FK,{kp_main},FZ,{Fz_couple:.6f}    ! Torque couple, y={self.y[j]:.3f}m\n")
-                f.write(f"FK,{kp_rear},FZ,{-Fz_couple:.6f}\n")
+                fz_main[j] += Fz_couple
+                fz_rear[j] -= Fz_couple
+
+        f.write("! --- Final nodal FZ loads after summation (one FK per node DOF) ---\n")
+        for j in range(nn):
+            val_main = fz_main[j]
+            if abs(val_main) > tol:
+                f.write(f"FK,{j + 1},FZ,{val_main:.6f}    ! main y={self.y[j]:.3f}m\n")
+
+            val_rear = fz_rear[j]
+            if abs(val_rear) > tol:
+                f.write(f"FK,{nn + j + 1},FZ,{val_rear:.6f}    ! rear y={self.y[j]:.3f}m\n")
         f.write("\n")
 
     def _apdl_solve(self, f: TextIO) -> None:
@@ -434,10 +446,28 @@ class ANSYSExporter:
         f.write("! --- Post-processing ---\n")
         f.write("/POST1\n")
         f.write("SET,LAST\n")
-        f.write("PLNSOL,U,Z         ! Plot Z-deflection (flapwise)\n")
-        f.write("PLNSOL,U,X         ! Plot X-deflection (chordwise)\n")
-        f.write("PRESOL,SMISC       ! Beam element results\n")
-        f.write("ETABLE,VONM,S,EQV  ! Von Mises stress\n")
+        f.write(f"*GET,TIP_UZ,NODE,{self.nn},U,Z\n")
+        f.write("*GET,UZ_MAX,NODE,0,U,Z,MAX\n")
+        f.write("*GET,UZ_MIN,NODE,0,U,Z,MIN\n")
+        f.write("\n")
+        f.write("! Restrict beam result post-processing to BEAM188 types only.\n")
+        f.write("ESEL,S,TYPE,,1,2\n")
+        f.write("PRESOL,SMISC\n")
+        f.write("ETABLE,VM_I,SMISC,31   ! BEAM188 von Mises at i-end\n")
+        f.write("ETABLE,VM_J,SMISC,36   ! BEAM188 von Mises at j-end\n")
+        f.write("*GET,VM_I_MAX,ETAB,VM_I,MAX\n")
+        f.write("*GET,VM_J_MAX,ETAB,VM_J,MAX\n")
+        f.write("ALLSEL,ALL\n")
+        f.write("PRRSOL,FZ\n")
+        f.write("\n")
+        f.write("/OUTPUT,ansys_post,txt\n")
+        f.write(
+            "*VWRITE,TIP_UZ,UZ_MAX,UZ_MIN,VM_I_MAX,VM_J_MAX\n"
+        )
+        f.write(
+            "('TIP_UZ=',E16.8,', UZ_MAX=',E16.8,', UZ_MIN=',E16.8,', VM_I_MAX=',E16.8,', VM_J_MAX=',E16.8)\n"
+        )
+        f.write("/OUTPUT\n")
         f.write("FINISH\n")
 
     # ==================================================================

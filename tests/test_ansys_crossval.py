@@ -72,18 +72,18 @@ def test_crossval_report_generation(crossval_package: CrossValidationPackage) ->
         "Max Von Mises (rear spar)",
         "Root reaction Fz",
         "Max twist angle",
-        "Total spar mass (full-span)",
+        "Spar tube mass (full-span)",
     ]
     for metric in required_metrics:
         assert metric in report_text
 
     tip_deflection_mm = _extract_metric_value(report_text, "Tip deflection (uz, y=16.5m)", "mm")
     max_vm_main_mpa = _extract_metric_value(report_text, "Max Von Mises (main spar)", "MPa")
-    mass_full_kg = _extract_metric_value(report_text, "Total spar mass (full-span)", "kg")
+    mass_full_kg = _extract_metric_value(report_text, "Spar tube mass (full-span)", "kg")
 
     assert 0.0 < tip_deflection_mm < 5000.0
     assert 0.0 < max_vm_main_mpa < 2000.0
-    assert abs(mass_full_kg - crossval_package.result.total_mass_full_kg) <= 0.01
+    assert abs(mass_full_kg - crossval_package.result.spar_mass_full_kg) <= 0.01
 
     apdl_lines = apdl_path.read_text(encoding="utf-8").splitlines()
     bdf_lines = bdf_path.read_text(encoding="utf-8").splitlines()

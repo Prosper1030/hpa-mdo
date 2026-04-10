@@ -127,7 +127,9 @@ def _build_crossval_report(
     max_vm_main_mpa = float(result.max_stress_main_Pa) / 1e6
     max_vm_rear_mpa = float(result.max_stress_rear_Pa) / 1e6
     twist_deg = float(result.twist_max_deg)
-    mass_full_kg = float(result.total_mass_full_kg)
+    spar_mass_half_kg = float(result.spar_mass_half_kg)
+    spar_mass_full_kg = float(result.spar_mass_full_kg)
+    total_mass_full_kg = float(result.total_mass_full_kg)
 
     seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
     main_mat_key = cfg.main_spar.material
@@ -213,8 +215,16 @@ def _build_crossval_report(
         f"{_format_target_pm5(twist_deg, 'deg', 3)}"
     )
     lines.append(
-        f"  Total spar mass (full-span)    {mass_full_kg:11.3f} kg   "
-        "(check via APDL *GET)"
+        f"  Spar tube mass (half-span)     {spar_mass_half_kg:11.3f} kg   "
+        "(compare with APDL element mass)"
+    )
+    lines.append(
+        f"  Spar tube mass (full-span)     {spar_mass_full_kg:11.3f} kg   "
+        "(2x half-span APDL element mass)"
+    )
+    lines.append(
+        f"  Total optimized mass (full)    {total_mass_full_kg:11.3f} kg   "
+        "(includes joint/penalty terms; not APDL beam-only)"
     )
 
     lines.append("")
@@ -232,7 +242,10 @@ def _build_crossval_report(
     lines.append("  /POST1")
     lines.append("  SET,LAST")
     lines.append(f"  *GET,TIP_UZ,NODE,{tip_node},U,Z")
-    lines.append("  *GET,MAX_VM_MAIN,ELEM,0,SMISC,31   ! BEAM188 von Mises")
+    lines.append("  ETABLE,VM_I,SMISC,31")
+    lines.append("  ETABLE,VM_J,SMISC,36")
+    lines.append("  *GET,VM_I_MAX,ETAB,VM_I,MAX")
+    lines.append("  *GET,VM_J_MAX,ETAB,VM_J,MAX")
     lines.append("  PRRSOL,FZ                           ! Root reaction")
     lines.append("=" * 64)
 
