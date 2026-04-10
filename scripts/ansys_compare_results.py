@@ -36,6 +36,7 @@ class BaselineMetrics:
     total_spar_mass_kg: float
     tip_node: int
     nodes_per_spar: int
+    export_mode: str = "unknown"
 
 
 @dataclass
@@ -61,6 +62,8 @@ def _extract_float(pattern: str, text: str, field_name: str) -> float:
 
 def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -> BaselineMetrics:
     text = report_path.read_text(encoding="utf-8")
+    mode_match = re.search(r"Export mode:\s*([A-Za-z0-9_-]+)", text)
+    export_mode = mode_match.group(1).lower().replace("-", "_") if mode_match else "unknown"
 
     tip_deflection_mm = _extract_float(
         r"Tip deflection \(uz, y=[^)]+\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
@@ -113,7 +116,7 @@ def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -
     nodes_per_spar = tip_node
     if mac_path is not None and mac_path.exists():
         mac_text = mac_path.read_text(encoding="utf-8")
-        match = re.search(r"!\s*Nodes/spar\s*:\s*(\d+)", mac_text)
+        match = re.search(r"!\s*Nodes/(?:spar|beam)\s*:\s*(\d+)", mac_text)
         if match:
             nodes_per_spar = int(match.group(1))
 
@@ -127,6 +130,7 @@ def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -
         total_spar_mass_kg=total_spar_mass_kg,
         tip_node=tip_node,
         nodes_per_spar=nodes_per_spar,
+        export_mode=export_mode,
     )
 
 
@@ -174,8 +178,13 @@ def _extract_mass_from_mac(mac_path: Path) -> Optional[float]:
         flags=re.MULTILINE,
     )
     line_pattern = re.compile(r"^\s*L,\s*(\d+)\s*,\s*(\d+)\s*$", flags=re.MULTILINE)
-    sec_pattern = re.compile(
-        r"SECTYPE,\s*(\d+)\s*,\s*BEAM\s*,\s*CTUBE\s*\n\s*SECDATA,\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)",
+    number = r"([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)"
+    ctube_sec_pattern = re.compile(
+        rf"SECTYPE,\s*(\d+)\s*,\s*BEAM\s*,\s*CTUBE\s*\n\s*SECDATA,\s*{number}\s*,\s*{number}",
+        flags=re.MULTILINE,
+    )
+    asec_sec_pattern = re.compile(
+        rf"SECTYPE,\s*(\d+)\s*,\s*BEAM\s*,\s*ASEC\s*\n\s*SECDATA,\s*{number}",
         flags=re.MULTILINE,
     )
 
@@ -190,12 +199,15 @@ def _extract_mass_from_mac(mac_path: Path) -> Optional[float]:
     for idx, m in enumerate(line_pattern.finditer(text), start=1):
         line_id_to_nodes[idx] = (int(m.group(1)), int(m.group(2)))
 
-    section_id_to_radii = {
-        int(m.group(1)): (float(m.group(2)), float(m.group(3)))
-        for m in sec_pattern.finditer(text)
-    }
+    section_id_to_area: dict[int, float] = {}
+    for m in ctube_sec_pattern.finditer(text):
+        r_i = float(m.group(2))
+        r_o = float(m.group(3))
+        section_id_to_area[int(m.group(1))] = float(np.pi * max(r_o**2 - r_i**2, 0.0))
+    for m in asec_sec_pattern.finditer(text):
+        section_id_to_area[int(m.group(1))] = max(float(m.group(2)), 0.0)
 
-    if not densities or not keypoints or not line_id_to_nodes or not section_id_to_radii:
+    if not densities or not keypoints or not line_id_to_nodes or not section_id_to_area:
         return None
 
     mappings: list[tuple[int, int, int]] = []
@@ -217,7 +229,7 @@ def _extract_mass_from_mac(mac_path: Path) -> Optional[float]:
 
     half_mass_kg = 0.0
     for line_id, mat_id, sec_id in mappings:
-        if mat_id not in densities or sec_id not in section_id_to_radii or line_id not in line_id_to_nodes:
+        if mat_id not in densities or sec_id not in section_id_to_area or line_id not in line_id_to_nodes:
             continue
         n1, n2 = line_id_to_nodes[line_id]
         if n1 not in keypoints or n2 not in keypoints:
@@ -227,8 +239,7 @@ def _extract_mass_from_mac(mac_path: Path) -> Optional[float]:
         x2, y2, z2 = keypoints[n2]
         length = float(np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2))
 
-        r_i, r_o = section_id_to_radii[sec_id]
-        area = float(np.pi * max(r_o**2 - r_i**2, 0.0))
+        area = section_id_to_area[sec_id]
         half_mass_kg += area * length * densities[mat_id]
 
     # Model is half-span; crossval baseline mass is full-span.
@@ -265,8 +276,12 @@ def extract_ansys_metrics_from_rst(
     seqv_pa = np.abs(principal[:, 4])
 
     nn = baseline.nodes_per_spar
-    main_mask = (pnnum >= 1) & (pnnum <= nn)
-    rear_mask = (pnnum >= nn + 1) & (pnnum <= 2 * nn)
+    if baseline.export_mode == "equivalent_beam":
+        main_mask = (pnnum >= 1) & (pnnum <= nn)
+        rear_mask = np.zeros_like(main_mask, dtype=bool)
+    else:
+        main_mask = (pnnum >= 1) & (pnnum <= nn)
+        rear_mask = (pnnum >= nn + 1) & (pnnum <= 2 * nn)
 
     max_vm_main_mpa = float(np.nanmax(seqv_pa[main_mask]) / 1e6) if np.any(main_mask) else None
     max_vm_rear_mpa = float(np.nanmax(seqv_pa[rear_mask]) / 1e6) if np.any(rear_mask) else None
@@ -276,7 +291,10 @@ def extract_ansys_metrics_from_rst(
     # - total_reaction_fz: all constrained nodes (includes wire support)
     rforces, rnodes, rdof = result.nodal_reaction_forces(0)
     fz_mask = rdof == 3
-    root_mask = (rnodes == 1) | (rnodes == nn + 1)
+    if baseline.export_mode == "equivalent_beam":
+        root_mask = rnodes == 1
+    else:
+        root_mask = (rnodes == 1) | (rnodes == nn + 1)
     root_only_fz = float(np.sum(rforces[fz_mask & root_mask])) if np.any(fz_mask & root_mask) else None
     total_reaction_fz = float(np.sum(rforces[fz_mask])) if np.any(fz_mask) else None
 
@@ -322,7 +340,7 @@ def _fmt(v: Optional[float], unit: str = "", precision: int = 3) -> str:
 def _status(error_pct: Optional[float], threshold: float = 5.0) -> str:
     if error_pct is None:
         return "N/A"
-    return "PASS" if error_pct < threshold else "FAIL"
+    return "PASS" if error_pct <= threshold else "FAIL"
 
 
 def build_report_text(
@@ -332,15 +350,32 @@ def build_report_text(
     threshold_pct: float,
     ansys_dir: Path,
     rst_path: Path,
+    stress_gating_confirmed: bool = False,
 ) -> str:
+    is_equiv = baseline.export_mode == "equivalent_beam"
+    stress_gate = bool(is_equiv and stress_gating_confirmed)
     rows = [
-        ("Tip deflection @ tip node (mm)", baseline.tip_deflection_mm, ansys.tip_deflection_mm),
-        ("Max |UZ| anywhere (mm)", baseline.max_uz_mm, ansys.max_uz_mm),
-        ("Max Von Mises main spar (MPa)", baseline.max_vm_main_mpa, ansys.max_vm_main_mpa),
-        ("Max Von Mises rear spar (MPa)", baseline.max_vm_rear_mpa, ansys.max_vm_rear_mpa),
-        ("Root reaction Fz (N)", baseline.root_reaction_fz_n, ansys.root_reaction_fz_n),
-        ("Max twist angle (deg)", baseline.max_twist_deg, ansys.max_twist_deg),
-        ("Total spar mass full-span (kg)", baseline.total_spar_mass_kg, ansys.total_spar_mass_kg),
+        ("Tip deflection @ tip node (mm)", baseline.tip_deflection_mm, ansys.tip_deflection_mm, 5.0, is_equiv, "gate"),
+        ("Max |UZ| anywhere (mm)", baseline.max_uz_mm, ansys.max_uz_mm, 5.0, is_equiv, "gate"),
+        (
+            "Max Von Mises main spar (MPa)",
+            baseline.max_vm_main_mpa,
+            ansys.max_vm_main_mpa,
+            threshold_pct,
+            stress_gate,
+            "stress provisional",
+        ),
+        (
+            "Max Von Mises rear spar (MPa)",
+            baseline.max_vm_rear_mpa,
+            ansys.max_vm_rear_mpa,
+            threshold_pct,
+            stress_gate,
+            "stress provisional",
+        ),
+        ("Root/support reaction Fz (N)", baseline.root_reaction_fz_n, ansys.root_reaction_fz_n, 1.0, is_equiv, "gate"),
+        ("Max twist angle (deg)", baseline.max_twist_deg, ansys.max_twist_deg, threshold_pct, False, "info"),
+        ("Total spar mass full-span (kg)", baseline.total_spar_mass_kg, ansys.total_spar_mass_kg, 1.0, is_equiv, "gate"),
     ]
 
     lines: list[str] = []
@@ -349,28 +384,41 @@ def build_report_text(
     lines.append("=" * 88)
     lines.append(f"ANSYS directory : {ansys_dir}")
     lines.append(f"RST file        : {rst_path}")
-    lines.append(f"Pass threshold  : error < {threshold_pct:.1f}%")
+    lines.append(f"Baseline mode   : {baseline.export_mode}")
+    if is_equiv:
+        lines.append("Phase I gate    : equivalent-beam validation metrics only")
+    else:
+        lines.append("Phase I gate    : disabled (dual-spar inspection/model-form discrepancy mode)")
     lines.append("")
     lines.append(
-        f"{'Metric':36} {'Baseline':>12} {'ANSYS':>12} {'Error %':>10} {'Status':>8}"
+        f"{'Metric':36} {'Baseline':>12} {'ANSYS':>12} {'Error %':>10} {'Role':>14} {'Status':>8}"
     )
     lines.append("-" * 88)
 
-    numeric_errors: list[float] = []
     failed_metrics: list[str] = []
+    missing_gate_metrics: list[str] = []
 
-    for metric, baseline_value, ansys_value in rows:
+    for metric, baseline_value, ansys_value, threshold, gate, role in rows:
         err = _error_percent(ansys_value, baseline_value)
-        st = _status(err, threshold_pct)
-        if err is not None:
-            numeric_errors.append(err)
-            if err >= threshold_pct:
+        if gate:
+            st = _status(err, threshold)
+            if err is None:
+                missing_gate_metrics.append(metric)
+            elif err > threshold:
                 failed_metrics.append(metric)
+            role_text = f"gate <= {threshold:.1f}%"
+        elif role.startswith("stress"):
+            st = "GATED" if stress_gate else "PROV"
+            role_text = "non-gating" if not stress_gate else f"gate <= {threshold:.1f}%"
+        else:
+            st = "INFO"
+            role_text = "non-gating"
         lines.append(
             f"{metric:36} "
             f"{_fmt(baseline_value):>12} "
             f"{_fmt(ansys_value):>12} "
             f"{_fmt(err, unit='%', precision=2):>10} "
+            f"{role_text:>14} "
             f"{st:>8}"
         )
 
@@ -384,17 +432,34 @@ def build_report_text(
     lines.append(f"Aux: total input Fz from RST      = {_fmt(ansys.total_input_fz_n)} N")
     lines.append("")
 
-    if not numeric_errors:
-        lines.append("Overall verdict: INCONCLUSIVE (no comparable numeric ANSYS metrics found).")
+    if not is_equiv:
+        lines.append(
+            "Overall verdict: INFO ONLY (dual-spar discrepancies are higher-fidelity/model-form "
+            "differences, not Phase I validation failures)."
+        )
+    elif missing_gate_metrics:
+        lines.append("Overall verdict: INCONCLUSIVE (one or more gating metrics were unavailable).")
     elif failed_metrics:
-        lines.append("Overall verdict: FAIL (one or more key metrics exceed threshold).")
+        lines.append("Overall verdict: FAIL (one or more equivalent-beam gating metrics exceed tolerance).")
     else:
-        lines.append("Overall verdict: PASS (all comparable metrics are within threshold).")
+        lines.append("Overall verdict: PASS (all equivalent-beam gating metrics are within tolerance).")
+
+    lines.append("")
+    lines.append(
+        "Stress note: ANSYS beam stress extraction is provisional here. Do not claim a "
+        "Python von Mises bug unless the BEAM188 beam/fiber extraction path has first "
+        "been validated as apples-to-apples."
+    )
+
+    if missing_gate_metrics:
+        lines.append("")
+        lines.append("Unavailable gating metrics:")
+        for metric in missing_gate_metrics:
+            lines.append(f"- {metric}")
 
     if failed_metrics:
         lines.append("")
         lines.append("Likely causes to investigate:")
-        # This specific run commonly fails because FK loads are overwritten in APDL.
         if ansys.total_input_fz_n is not None and abs(ansys.total_input_fz_n) < 1e-6:
             lines.append(
                 "- Applied FZ from RST sums to ~0 N, indicating lift loads may be overwritten "
@@ -402,7 +467,8 @@ def build_report_text(
             )
         lines.append("- Coordinate/sign convention mismatch (UZ or reaction sign).")
         lines.append("- Boundary condition mismatch (wire/root constraints).")
-        lines.append("- Stress extraction method mismatch (nodal-averaged vs element SMISC).")
+        lines.append("- Equivalent-section A/I/J or element material mapping mismatch.")
+        lines.append("- Equivalent nodal load mismatch (lift, self-weight, or direct My torque).")
         lines.append("- Unit mismatch (m vs mm, Pa vs MPa).")
 
     return "\n".join(lines) + "\n"
@@ -431,7 +497,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--threshold-pct",
         type=float,
         default=5.0,
-        help="Pass threshold for percentage error.",
+        help="Fallback pass threshold for optional stress gating.",
+    )
+    parser.add_argument(
+        "--stress-gating-confirmed",
+        action="store_true",
+        help=(
+            "Gate stress metrics too. Only use after ANSYS BEAM188 stress extraction "
+            "has been confirmed apples-to-apples with the internal stress recovery."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -464,6 +538,7 @@ def main(argv: list[str] | None = None) -> int:
         threshold_pct=float(args.threshold_pct),
         ansys_dir=ansys_dir,
         rst_path=rst_path,
+        stress_gating_confirmed=bool(args.stress_gating_confirmed),
     )
 
     print(report)

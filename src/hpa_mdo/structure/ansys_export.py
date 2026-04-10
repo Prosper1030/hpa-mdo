@@ -1,11 +1,17 @@
-"""Export optimised dual-spar geometry and loads to ANSYS-compatible formats.
+"""Export optimised structural models to ANSYS-compatible formats.
 
 Supported formats:
-    1. ANSYS APDL macro (.mac) — 3-D dual-beam model with rigid rib links
-    2. Workbench External Data CSV — tabular data for both spars
-    3. NASTRAN bulk data (.bdf) — CBAR beams + MPC rigid links
+    1. ANSYS APDL macro (.mac)
+    2. Workbench External Data CSV
+    3. NASTRAN bulk data (.bdf)
 
-The exported model includes:
+Supported export modes:
+    - ``dual_spar``: the original higher-fidelity inspection model with two
+      beam lines and rigid rib links.
+    - ``equivalent_beam``: a validation model that mirrors the internal FEM
+      equivalent-beam assumptions used by the optimizer.
+
+The dual-spar inspection model includes:
     - Two beam lines (main spar at 0.25c, rear spar at 0.70c)
     - BEAM188 elements with CTUBE cross-sections per element
     - Rigid links (MPC184 / CE constraints) at rib/joint positions
@@ -19,20 +25,27 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TextIO
+from typing import Literal, TextIO
 
 import numpy as np
 
 from hpa_mdo.core.config import HPAConfig
 from hpa_mdo.core.aircraft import Aircraft, WingGeometry
+from hpa_mdo.core.constants import G_STANDARD
 from hpa_mdo.core.materials import Material, MaterialDB
 from hpa_mdo.structure.optimizer import OptimizationResult
 from hpa_mdo.structure.spar_model import (
+    DualSparSection,
+    compute_dual_spar_section,
     compute_outer_radius,
     segment_boundaries_from_lengths,
 )
 
 logger = logging.getLogger(__name__)
+
+
+ExportMode = Literal["dual_spar", "equivalent_beam"]
+VALID_EXPORT_MODES = {"dual_spar", "equivalent_beam"}
 
 
 # ---------------------------------------------------------------------------
@@ -107,12 +120,32 @@ def _find_nearest_node(y_nodes: np.ndarray, y_target: float) -> int:
     return int(np.argmin(np.abs(y_nodes - y_target)))
 
 
+def _node_spacings(y_nodes: np.ndarray) -> np.ndarray:
+    """Return tributary length per node, matching ExternalLoadsComp."""
+    dy = np.diff(y_nodes)
+    out = np.zeros(len(y_nodes), dtype=float)
+    out[0] = dy[0] / 2.0
+    out[-1] = dy[-1] / 2.0
+    for i in range(1, len(y_nodes) - 1):
+        out[i] = (dy[i - 1] + dy[i]) / 2.0
+    return out
+
+
+def _normalise_mode(mode: str) -> str:
+    """Normalise and validate an ANSYS export mode name."""
+    normalised = mode.lower().replace("-", "_")
+    if normalised not in VALID_EXPORT_MODES:
+        choices = ", ".join(sorted(VALID_EXPORT_MODES))
+        raise ValueError(f"Unknown ANSYS export mode '{mode}'. Expected one of: {choices}.")
+    return normalised
+
+
 # ---------------------------------------------------------------------------
 # ANSYSExporter
 # ---------------------------------------------------------------------------
 
 class ANSYSExporter:
-    """Generate ANSYS / NASTRAN input files for the v2 dual-spar HPA wing."""
+    """Generate ANSYS / NASTRAN input files for the v2 HPA wing structure."""
 
     def __init__(
         self,
@@ -121,17 +154,25 @@ class ANSYSExporter:
         opt_result: OptimizationResult,
         aero_loads: dict,
         materials_db: MaterialDB,
+        *,
+        mode: ExportMode = "dual_spar",
     ):
         self.cfg = cfg
         self.aircraft = aircraft
         self.opt_result = opt_result
         self.aero_loads = aero_loads
         self.materials_db = materials_db
+        self.mode = _normalise_mode(mode)
+        self.load_case = cfg.structural_load_cases()[0]
 
         wing: WingGeometry = aircraft.wing
         self.y = wing.y
         self.chord = wing.chord
         self.nn = wing.n_stations  # number of nodes per spar
+        self.n_elem = self.nn - 1
+        self.element_lengths = np.diff(self.y)
+        self.element_centres = (self.y[:-1] + self.y[1:]) / 2.0
+        self.node_spacings = _node_spacings(self.y)
 
         # Materials
         self.mat_main: Material = materials_db.get(cfg.main_spar.material)
@@ -140,15 +181,22 @@ class ANSYSExporter:
         # Segment thicknesses → per-node wall thickness [m]
         main_seg_L = cfg.spar_segment_lengths(cfg.main_spar)
         rear_seg_L = cfg.spar_segment_lengths(cfg.rear_spar)
+        self.main_seg_lengths = main_seg_L
+        self.rear_seg_lengths = rear_seg_L
 
         self.t_main = _seg_thickness_to_nodes(
             opt_result.main_t_seg_mm, main_seg_L, self.y)
+        self.t_main_elem = _seg_thickness_to_nodes(
+            opt_result.main_t_seg_mm, main_seg_L, self.element_centres)
 
         if opt_result.rear_t_seg_mm is not None:
             self.t_rear = _seg_thickness_to_nodes(
                 opt_result.rear_t_seg_mm, rear_seg_L, self.y)
+            self.t_rear_elem = _seg_thickness_to_nodes(
+                opt_result.rear_t_seg_mm, rear_seg_L, self.element_centres)
         else:
             self.t_rear = np.full(self.nn, cfg.rear_spar.min_wall_thickness)
+            self.t_rear_elem = np.full(self.n_elem, cfg.rear_spar.min_wall_thickness)
 
         # Outer radii: prefer optimized radii from solution; fall back to
         # geometry-based reconstruction only when radii are unavailable.
@@ -162,15 +210,23 @@ class ANSYSExporter:
             self.R_main = _seg_radius_to_nodes(
                 opt_result.main_r_seg_mm, main_seg_L, self.y
             )
+            self.R_main_elem = _seg_radius_to_nodes(
+                opt_result.main_r_seg_mm, main_seg_L, self.element_centres
+            )
         else:
             self.R_main = R_main_default
+            self.R_main_elem = 0.5 * (R_main_default[:-1] + R_main_default[1:])
 
         if opt_result.rear_r_seg_mm is not None:
             self.R_rear = _seg_radius_to_nodes(
                 opt_result.rear_r_seg_mm, rear_seg_L, self.y
             )
+            self.R_rear_elem = _seg_radius_to_nodes(
+                opt_result.rear_r_seg_mm, rear_seg_L, self.element_centres
+            )
         else:
             self.R_rear = R_rear_default
+            self.R_rear_elem = 0.5 * (R_rear_default[:-1] + R_rear_default[1:])
 
         # Dihedral Z
         self.z_dih = _dihedral_z(self.y, wing.dihedral_deg)
@@ -180,6 +236,12 @@ class ANSYSExporter:
         self.z_main = self.z_dih + wing.main_spar_z_camber
         self.x_rear = wing.rear_spar_xc * wing.chord
         self.z_rear = self.z_dih + wing.rear_spar_z_camber
+
+        # The internal FEM is the MDO engine: one beam line at the main spar
+        # chordwise station, with dihedral only in nodal Z and dual-spar
+        # stiffness collapsed into equivalent section properties.
+        self.x_equiv = wing.main_spar_xc * wing.chord
+        self.z_equiv = self.z_dih
 
         # Joint / rib positions (y-coordinates)
         main_joints = HPAConfig.joint_positions(main_seg_L)
@@ -200,26 +262,92 @@ class ANSYSExporter:
         self.fz_lift = np.asarray(aero_loads.get("lift_per_span", np.zeros(self.nn)))
         self.my_torque = np.asarray(aero_loads.get("torque_per_span", np.zeros(self.nn)))
 
+        self.z_main_elem = 0.5 * (wing.main_spar_z_camber[:-1] + wing.main_spar_z_camber[1:])
+        self.z_rear_elem = 0.5 * (wing.rear_spar_z_camber[:-1] + wing.rear_spar_z_camber[1:])
+        chord_elem = 0.5 * (wing.chord[:-1] + wing.chord[1:])
+        self.d_chord_elem = (wing.rear_spar_xc - wing.main_spar_xc) * chord_elem
+
+        self.equivalent_section = self._compute_equivalent_section()
+        self.equivalent_E = self.equivalent_section.EI_flap / (
+            self.equivalent_section.Iy_equiv + 1e-30
+        )
+        self.equivalent_G = self.equivalent_section.GJ / (
+            self.equivalent_section.J_equiv + 1e-30
+        )
+        self.equivalent_density = self.equivalent_section.mass_per_length / (
+            self.equivalent_section.A_equiv + 1e-30
+        )
+        self.equivalent_rear_mass_per_length = (
+            self.mat_rear.density * self.equivalent_section.A_rear
+        )
+        self.equivalent_fz_nodal, self.equivalent_my_nodal = self._equivalent_nodal_loads()
+        self.equivalent_total_fz_n = float(np.sum(self.equivalent_fz_nodal))
+        self.equivalent_total_my_nm = float(np.sum(self.equivalent_my_nodal))
+
+    def _compute_equivalent_section(self) -> DualSparSection:
+        """Compute the exact equivalent section arrays used by internal FEM."""
+        return compute_dual_spar_section(
+            self.R_main_elem,
+            self.t_main_elem,
+            self.R_rear_elem,
+            self.t_rear_elem,
+            self.z_main_elem,
+            self.z_rear_elem,
+            self.d_chord_elem,
+            self.mat_main.E,
+            self.mat_main.G,
+            self.mat_main.density,
+            self.mat_rear.E,
+            self.mat_rear.G,
+            self.mat_rear.density,
+            warping_knockdown=self.cfg.safety.dual_spar_warping_knockdown,
+        )
+
+    def _equivalent_nodal_loads(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return nodal Fz/My loads that match ExternalLoadsComp assumptions."""
+        fz = self.fz_lift * self.node_spacings
+        my = self.my_torque * self.node_spacings
+        g_scaled = G_STANDARD * self.load_case.gravity_scale
+        section = self.equivalent_section
+
+        for e, length in enumerate(self.element_lengths):
+            element_weight = section.mass_per_length[e] * g_scaled * length
+            fz[e] -= element_weight / 2.0
+            fz[e + 1] -= element_weight / 2.0
+
+            # Rear spar self-weight acts aft of the equivalent beam axis and
+            # is represented internally as a spanwise torsional moment.
+            rear_weight_torque = (
+                self.equivalent_rear_mass_per_length[e] * g_scaled * self.d_chord_elem[e] * length
+            )
+            my[e] -= rear_weight_torque / 2.0
+            my[e + 1] -= rear_weight_torque / 2.0
+
+        return fz, my
+
     # ==================================================================
     # APDL macro (.mac)
     # ==================================================================
 
     def write_apdl(self, path: str | Path) -> Path:
-        """Write a 3-D dual-beam ANSYS APDL macro file."""
+        """Write an ANSYS APDL macro file for the selected export mode."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(path, "w") as f:
-                self._apdl_header(f)
-                self._apdl_materials(f)
-                self._apdl_element_types(f)
-                self._apdl_keypoints_and_lines(f)
-                self._apdl_sections(f)
-                self._apdl_mesh(f)
-                self._apdl_rigid_links(f)
-                self._apdl_bc(f)
-                self._apdl_loads(f)
-                self._apdl_solve(f)
+                if self.mode == "equivalent_beam":
+                    self._apdl_equivalent_write(f)
+                else:
+                    self._apdl_header(f)
+                    self._apdl_materials(f)
+                    self._apdl_element_types(f)
+                    self._apdl_keypoints_and_lines(f)
+                    self._apdl_sections(f)
+                    self._apdl_mesh(f)
+                    self._apdl_rigid_links(f)
+                    self._apdl_bc(f)
+                    self._apdl_loads(f)
+                    self._apdl_solve(f)
             logger.info("APDL macro written to %s", path)
         except Exception:
             logger.exception("Failed to write APDL macro to %s", path)
@@ -467,16 +595,169 @@ class ANSYSExporter:
         f.write("/OUTPUT\n")
         f.write("FINISH\n")
 
+    # -- Equivalent-beam APDL helpers ---------------------------------
+
+    def _apdl_equivalent_write(self, f: TextIO) -> None:
+        self._apdl_equivalent_header(f)
+        self._apdl_equivalent_materials(f)
+        self._apdl_equivalent_element_types(f)
+        self._apdl_equivalent_keypoints_and_lines(f)
+        self._apdl_equivalent_sections(f)
+        self._apdl_equivalent_mesh(f)
+        self._apdl_equivalent_bc(f)
+        self._apdl_equivalent_loads(f)
+        self._apdl_equivalent_solve(f)
+
+    def _apdl_equivalent_header(self, f: TextIO) -> None:
+        f.write("! ============================================================\n")
+        f.write("! HPA-MDO v2: Equivalent-beam ANSYS APDL input (auto-generated)\n")
+        f.write(f"! Project     : {self.cfg.project_name}\n")
+        f.write("! Export mode : equivalent_beam\n")
+        f.write("! Purpose     : Phase I validation against the internal FEM model\n")
+        f.write(f"! Nodes/beam  : {self.nn}\n")
+        f.write(f"! Wire attach : {len(self.wire_nodes)} node(s)\n")
+        f.write("! Notes       : Single BEAM188 line uses the same equivalent A/I/J\n")
+        f.write("!               properties and nodal load assumptions as the MDO solver.\n")
+        f.write("!               The dual_spar mode remains available for inspection only.\n")
+        f.write("! ============================================================\n\n")
+        f.write("/PREP7\n\n")
+
+    def _apdl_equivalent_materials(self, f: TextIO) -> None:
+        f.write("! --- Elementwise equivalent materials ---\n")
+        f.write("! E/G/density are back-computed from the internal equivalent section arrays.\n")
+        for e in range(self.n_elem):
+            mat_id = e + 1
+            E = float(self.equivalent_E[e])
+            G = float(self.equivalent_G[e])
+            rho = float(self.equivalent_density[e])
+            nu = E / (2.0 * G) - 1.0 if G > 0.0 else self.mat_main.poisson_ratio
+            nu = float(np.clip(nu, 0.0, 0.499))
+            f.write(f"MP,EX,{mat_id},{E:.6e}       ! Equivalent Young's modulus [Pa]\n")
+            f.write(f"MP,GXY,{mat_id},{G:.6e}      ! Equivalent shear modulus [Pa]\n")
+            f.write(f"MP,DENS,{mat_id},{rho:.6e}   ! Equivalent density [kg/m3]\n")
+            f.write(f"MP,PRXY,{mat_id},{nu:.6f}    ! Derived from E/(2G)-1\n")
+        f.write("\n")
+
+    def _apdl_equivalent_element_types(self, f: TextIO) -> None:
+        f.write("! --- Element type ---\n")
+        f.write("ET,1,BEAM188\n")
+        f.write("KEYOPT,1,1,0    ! No warping DOF, matching internal beam topology\n")
+        f.write("KEYOPT,1,3,2    ! Cubic shape functions\n\n")
+
+    def _apdl_equivalent_keypoints_and_lines(self, f: TextIO) -> None:
+        f.write("! --- Equivalent beam keypoints (1 .. %d) ---\n" % self.nn)
+        for j in range(self.nn):
+            f.write(
+                f"K,{j + 1}, {self.x_equiv[j]:.6f}, {self.y[j]:.6f}, {self.z_equiv[j]:.6f}\n"
+            )
+        f.write("\n")
+
+        f.write("! --- Equivalent beam lines ---\n")
+        for j in range(self.n_elem):
+            f.write(f"L,{j + 1},{j + 2}\n")
+        f.write("\n")
+
+    def _apdl_equivalent_sections(self, f: TextIO) -> None:
+        f.write("! --- Equivalent beam sections (ASEC) ---\n")
+        f.write(
+            "! SECDATA convention used here: A, IYY, IYZ, IZZ, IW, J, "
+            "CGY, CGZ, SHY, SHZ, TKZ, TKY, TSXZ, TSXY.\n"
+        )
+        f.write("! These are effective properties for stiffness validation, not physical tube fibers.\n")
+        section = self.equivalent_section
+        for e in range(self.n_elem):
+            sec_id = e + 1
+            area = float(section.A_equiv[e])
+            tkz = float(np.sqrt(max(12.0 * section.Iy_equiv[e] / max(area, 1e-30), 0.0)))
+            tky = float(np.sqrt(max(12.0 * section.Iz_equiv[e] / max(area, 1e-30), 0.0)))
+            f.write(f"SECTYPE,{sec_id},BEAM,ASEC\n")
+            f.write(
+                "SECDATA,"
+                f"{section.A_equiv[e]:.8e},"
+                f"{section.Iy_equiv[e]:.8e},"
+                "0.00000000e+00,"
+                f"{section.Iz_equiv[e]:.8e},"
+                "0.00000000e+00,"
+                f"{section.J_equiv[e]:.8e},"
+                "0.00000000e+00,0.00000000e+00,"
+                "0.00000000e+00,0.00000000e+00,"
+                f"{tkz:.8e},{tky:.8e},"
+                "5.00000000e-01,5.00000000e-01\n"
+            )
+        f.write("\n")
+
+    def _apdl_equivalent_mesh(self, f: TextIO) -> None:
+        f.write("! --- Mesh equivalent beam ---\n")
+        for e in range(self.n_elem):
+            line_id = e + 1
+            mat_id = e + 1
+            sec_id = e + 1
+            f.write(f"LSEL,S,LINE,,{line_id}\n")
+            f.write(f"LATT,{mat_id},,1,,,,{sec_id}    ! MAT={mat_id}, TYPE=1, SECNUM={sec_id}\n")
+            f.write("LESIZE,ALL,,,1\n")
+            f.write("LMESH,ALL\n")
+        f.write("ALLSEL,ALL\n\n")
+
+    def _apdl_equivalent_bc(self, f: TextIO) -> None:
+        f.write("! --- Boundary conditions: fixed root on the internal FEM beam ---\n")
+        f.write("DK,1,ALL,0\n\n")
+
+        if self.wire_nodes:
+            f.write("! --- Lift wire vertical constraint, same node mapping as internal FEM ---\n")
+            for wn in self.wire_nodes:
+                kp = wn + 1
+                f.write(f"DK,{kp},UZ,0   ! Wire attachment at y={self.y[wn]:.2f}m\n")
+            f.write("\n")
+
+    def _apdl_equivalent_loads(self, f: TextIO) -> None:
+        tol = 1e-10
+        f.write("! --- Equivalent FEM nodal loads ---\n")
+        f.write("! FZ includes aero lift plus spar self-weight/inertia from mass_per_length.\n")
+        f.write("! MY is applied directly as the internal spanwise torsional moment DOF.\n")
+        for j in range(self.nn):
+            fz = self.equivalent_fz_nodal[j]
+            my = self.equivalent_my_nodal[j]
+            if abs(fz) > tol:
+                f.write(f"FK,{j + 1},FZ,{fz:.6f}    ! y={self.y[j]:.3f}m\n")
+            if abs(my) > tol:
+                f.write(f"FK,{j + 1},MY,{my:.6f}    ! y={self.y[j]:.3f}m\n")
+        f.write("\n")
+
+    def _apdl_equivalent_solve(self, f: TextIO) -> None:
+        f.write("! --- Solution ---\n")
+        f.write("FINISH\n")
+        f.write("/SOLU\n")
+        f.write("ANTYPE,STATIC\n")
+        f.write("SOLVE\n")
+        f.write("FINISH\n\n")
+
+        f.write("! --- Post-processing ---\n")
+        f.write("/POST1\n")
+        f.write("SET,LAST\n")
+        f.write(f"*GET,TIP_UZ,NODE,{self.nn},U,Z\n")
+        f.write("PRRSOL,FZ\n")
+        f.write("\n")
+        f.write("! Stress is intentionally non-gating in equivalent_beam mode.\n")
+        f.write("! ASEC stresses are effective-section stresses, not the internal main/rear tube fiber checks.\n")
+        f.write("/OUTPUT,ansys_post,txt\n")
+        f.write("*VWRITE,TIP_UZ\n")
+        f.write("('TIP_UZ=',E16.8)\n")
+        f.write("/OUTPUT\n")
+        f.write("FINISH\n")
+
     # ==================================================================
     # Workbench External Data CSV
     # ==================================================================
 
     def write_workbench_csv(self, path: str | Path) -> Path:
-        """Write dual-spar geometry + loads as CSV for ANSYS Workbench."""
+        """Write geometry + loads as CSV for ANSYS Workbench."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             import csv
+
+            if self.mode == "equivalent_beam":
+                return self._write_equivalent_workbench_csv(path)
 
             with open(path, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
@@ -518,17 +799,76 @@ class ANSYSExporter:
             raise
         return path
 
+    def _write_equivalent_workbench_csv(self, path: Path) -> Path:
+        """Write equivalent-beam geometry/properties for validation imports."""
+        import csv
+
+        section = self.equivalent_section
+        with open(path, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([
+                "Node",
+                "Y_Position_m",
+                "Beam_X_m",
+                "Beam_Z_m",
+                "FZ_N",
+                "MY_Nm",
+                "Is_Wire_Attach",
+                "Element_After",
+                "A_equiv_m2",
+                "Iy_equiv_m4",
+                "Iz_equiv_m4",
+                "J_equiv_m4",
+                "E_equiv_Pa",
+                "G_equiv_Pa",
+                "Mass_Per_Length_kg_m",
+            ])
+
+            wire_set = set(self.wire_nodes)
+            for j in range(self.nn):
+                if j < self.n_elem:
+                    elem = j + 1
+                    elem_values = [
+                        elem,
+                        f"{section.A_equiv[j]:.8e}",
+                        f"{section.Iy_equiv[j]:.8e}",
+                        f"{section.Iz_equiv[j]:.8e}",
+                        f"{section.J_equiv[j]:.8e}",
+                        f"{self.equivalent_E[j]:.8e}",
+                        f"{self.equivalent_G[j]:.8e}",
+                        f"{section.mass_per_length[j]:.8e}",
+                    ]
+                else:
+                    elem_values = ["", "", "", "", "", "", "", ""]
+
+                writer.writerow([
+                    j + 1,
+                    f"{self.y[j]:.8e}",
+                    f"{self.x_equiv[j]:.8e}",
+                    f"{self.z_equiv[j]:.8e}",
+                    f"{self.equivalent_fz_nodal[j]:.8e}",
+                    f"{self.equivalent_my_nodal[j]:.8e}",
+                    1 if j in wire_set else 0,
+                    *elem_values,
+                ])
+
+        logger.info("Workbench CSV written to %s", path)
+        return path
+
     # ==================================================================
     # NASTRAN Bulk Data (.bdf)
     # ==================================================================
 
     def write_nastran_bdf(self, path: str | Path) -> Path:
-        """Write a NASTRAN BDF with CBAR elements + MPC rigid links."""
+        """Write a NASTRAN BDF for the selected export mode."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(path, "w") as f:
-                self._bdf_write(f)
+                if self.mode == "equivalent_beam":
+                    self._bdf_equivalent_write(f)
+                else:
+                    self._bdf_write(f)
             logger.info("NASTRAN BDF written to %s", path)
         except Exception:
             logger.exception("Failed to write NASTRAN BDF to %s", path)
@@ -648,5 +988,60 @@ class ANSYSExporter:
                 # Rear spar (opposite sign)
                 d2 = -d1
                 f.write(f"FORCE,1,{nn + j + 1},,{abs(Fz_couple):.6f},0.0,0.0,{d2}\n")
+
+        f.write("ENDDATA\n")
+
+    def _bdf_equivalent_write(self, f: TextIO) -> None:
+        nn = self.nn
+        n_elem = self.n_elem
+        section = self.equivalent_section
+
+        f.write("$ HPA-MDO v2: Equivalent-beam NASTRAN Bulk Data (auto-generated)\n")
+        f.write("$ Export mode: equivalent_beam; Phase I validation model\n")
+        f.write("BEGIN BULK\n")
+
+        for e in range(n_elem):
+            mid = e + 1
+            E = float(self.equivalent_E[e])
+            G = float(self.equivalent_G[e])
+            rho = float(self.equivalent_density[e])
+            nu = E / (2.0 * G) - 1.0 if G > 0.0 else self.mat_main.poisson_ratio
+            nu = float(np.clip(nu, 0.0, 0.499))
+            f.write(f"MAT1,{mid},{E:.4e},{G:.4e},{nu:.6f},{rho:.6e}\n")
+
+        f.write("$ --- Equivalent beam grid points ---\n")
+        for j in range(nn):
+            gid = j + 1
+            f.write(
+                f"GRID,{gid},,{self.x_equiv[j]:.6f},{self.y[j]:.6f},{self.z_equiv[j]:.6f}\n"
+            )
+
+        f.write("$ --- Equivalent CBAR elements/properties ---\n")
+        for e in range(n_elem):
+            eid = e + 1
+            pid = e + 1
+            mid = e + 1
+            f.write(
+                f"PBAR,{pid},{mid},{section.A_equiv[e]:.8e},"
+                f"{section.Iy_equiv[e]:.8e},{section.Iz_equiv[e]:.8e},"
+                f"{section.J_equiv[e]:.8e}\n"
+            )
+            f.write(f"CBAR,{eid},{pid},{e + 1},{e + 2},0.0,0.0,1.0\n")
+
+        f.write("$ --- Fixed root and lift-wire vertical support ---\n")
+        f.write("SPC1,1,123456,1\n")
+        for wn in self.wire_nodes:
+            f.write(f"SPC1,1,3,{wn + 1}   $ Wire at y={self.y[wn]:.2f}m\n")
+
+        f.write("$ --- Equivalent FEM nodal loads ---\n")
+        for j in range(nn):
+            fz = self.equivalent_fz_nodal[j]
+            if abs(fz) > 1e-10:
+                direction = 1.0 if fz > 0 else -1.0
+                f.write(f"FORCE,1,{j + 1},,{abs(fz):.6f},0.0,0.0,{direction}\n")
+            my = self.equivalent_my_nodal[j]
+            if abs(my) > 1e-10:
+                direction = 1.0 if my > 0 else -1.0
+                f.write(f"MOMENT,1,{j + 1},,{abs(my):.6f},0.0,{direction},0.0\n")
 
         f.write("ENDDATA\n")

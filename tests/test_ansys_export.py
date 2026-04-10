@@ -11,7 +11,11 @@ from hpa_mdo.core.config import load_config
 from hpa_mdo.core.materials import MaterialDB
 from hpa_mdo.structure.ansys_export import ANSYSExporter
 from hpa_mdo.structure.optimizer import OptimizationResult
-from hpa_mdo.structure.spar_model import compute_outer_radius, segment_boundaries_from_lengths
+from hpa_mdo.structure.spar_model import (
+    compute_dual_spar_section,
+    compute_outer_radius,
+    segment_boundaries_from_lengths,
+)
 
 
 def _build_result(
@@ -220,3 +224,116 @@ def test_ansys_apdl_post_commands_are_beam188_compatible(tmp_path):
     assert "PRESOL,SMISC" not in apdl_text
     assert "*GET,UZ_MAX,NODE,0,U,Z,MAX" not in apdl_text
     assert "*GET,UZ_MIN,NODE,0,U,Z,MIN" not in apdl_text
+
+
+def test_equivalent_beam_export_uses_internal_section_properties(tmp_path):
+    """Validation mode should use the same equivalent A/I/J as the internal FEM."""
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg = load_config(repo_root / "configs" / "blackcat_004.yaml")
+    with patch.object(cfg.solver, "n_beam_nodes", 10):
+        aircraft = Aircraft.from_config(cfg)
+
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+    result = _build_result(
+        n_seg,
+        np.linspace(12.0, 18.0, n_seg),
+        np.linspace(9.0, 13.0, n_seg),
+    )
+    aero_loads = {
+        "lift_per_span": np.linspace(30.0, 10.0, aircraft.wing.n_stations),
+        "torque_per_span": np.linspace(-4.0, -1.0, aircraft.wing.n_stations),
+    }
+    mat_db = MaterialDB()
+    exporter = ANSYSExporter(
+        cfg,
+        aircraft,
+        result,
+        aero_loads,
+        mat_db,
+        mode="equivalent_beam",
+    )
+
+    mat_main = mat_db.get(cfg.main_spar.material)
+    mat_rear = mat_db.get(cfg.rear_spar.material)
+    expected = compute_dual_spar_section(
+        exporter.R_main_elem,
+        exporter.t_main_elem,
+        exporter.R_rear_elem,
+        exporter.t_rear_elem,
+        exporter.z_main_elem,
+        exporter.z_rear_elem,
+        exporter.d_chord_elem,
+        mat_main.E,
+        mat_main.G,
+        mat_main.density,
+        mat_rear.E,
+        mat_rear.G,
+        mat_rear.density,
+        warping_knockdown=cfg.safety.dual_spar_warping_knockdown,
+    )
+
+    np.testing.assert_allclose(exporter.equivalent_section.A_equiv, expected.A_equiv)
+    np.testing.assert_allclose(exporter.equivalent_section.Iy_equiv, expected.Iy_equiv)
+    np.testing.assert_allclose(exporter.equivalent_section.Iz_equiv, expected.Iz_equiv)
+    np.testing.assert_allclose(exporter.equivalent_section.J_equiv, expected.J_equiv)
+
+    path = exporter.write_apdl(tmp_path / "equivalent.mac")
+    apdl_text = path.read_text(encoding="utf-8")
+
+    assert "Export mode : equivalent_beam" in apdl_text
+    assert "SECTYPE,1,BEAM,ASEC" in apdl_text
+    assert "BEAM,CTUBE" not in apdl_text
+    assert "MPC184" not in apdl_text
+    assert "ETABLE,VM_I,SMISC,31" not in apdl_text
+
+    keypoint_ids = [
+        int(match.group(1))
+        for match in re.finditer(r"^K,(\d+),", apdl_text, flags=re.MULTILINE)
+    ]
+    assert keypoint_ids == list(range(1, exporter.nn + 1))
+
+    fz_values = [
+        float(match.group(1))
+        for match in re.finditer(
+            r"^FK,\s*\d+\s*,\s*FZ,\s*([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)",
+            apdl_text,
+            flags=re.MULTILINE,
+        )
+    ]
+    my_values = [
+        float(match.group(1))
+        for match in re.finditer(
+            r"^FK,\s*\d+\s*,\s*MY,\s*([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)",
+            apdl_text,
+            flags=re.MULTILINE,
+        )
+    ]
+    np.testing.assert_allclose(np.sum(fz_values), exporter.equivalent_total_fz_n, atol=1e-6)
+    np.testing.assert_allclose(np.sum(my_values), exporter.equivalent_total_my_nm, atol=1e-6)
+
+
+def test_dual_spar_mode_remains_the_default_export(tmp_path):
+    """Existing exporter semantics should remain the dual-spar inspection model."""
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg = load_config(repo_root / "configs" / "blackcat_004.yaml")
+    with patch.object(cfg.solver, "n_beam_nodes", 10):
+        aircraft = Aircraft.from_config(cfg)
+
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+    result = _build_result(
+        n_seg,
+        np.full(n_seg, 12.0),
+        np.full(n_seg, 9.0),
+    )
+    aero_loads = {
+        "lift_per_span": np.zeros(aircraft.wing.n_stations),
+        "torque_per_span": np.zeros(aircraft.wing.n_stations),
+    }
+    exporter = ANSYSExporter(cfg, aircraft, result, aero_loads, MaterialDB())
+
+    assert exporter.mode == "dual_spar"
+    path = exporter.write_apdl(tmp_path / "dual.mac")
+    apdl_text = path.read_text(encoding="utf-8")
+    assert "Dual-spar ANSYS APDL input" in apdl_text
+    assert "BEAM,CTUBE" in apdl_text
+    assert "MPC184" in apdl_text

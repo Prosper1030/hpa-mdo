@@ -8,8 +8,6 @@ import numpy as np
 import pytest
 
 from hpa_mdo.core.config import load_config
-from hpa_mdo.core.materials import MaterialDB
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "configs" / "blackcat_004.yaml"
@@ -66,6 +64,9 @@ def test_crossval_report_generation(crossval_package: CrossValidationPackage) ->
 
     report_text = report_path.read_text(encoding="utf-8")
     required_metrics = [
+        "Export mode: equivalent_beam",
+        "equivalent-beam validation mode",
+        "Phase I gate: YES",
         "Tip deflection (uz, y=",
         "Max uz anywhere",
         "Max Von Mises (main spar)",
@@ -89,43 +90,50 @@ def test_crossval_report_generation(crossval_package: CrossValidationPackage) ->
     bdf_lines = bdf_path.read_text(encoding="utf-8").splitlines()
     exporter = crossval_package.exporter
     nn = exporter.nn
+    assert exporter.mode == "equivalent_beam"
 
-    # APDL keypoints: 1..nn (main) and nn+1..2*nn (rear)
+    # APDL keypoints: 1..nn for the single equivalent FEM beam.
     keypoint_ids = []
     for line in apdl_lines:
         match = re.match(r"^K,(\d+),", line.strip())
         if match:
             keypoint_ids.append(int(match.group(1)))
-    assert len(keypoint_ids) == 2 * nn
-    assert sorted(keypoint_ids) == list(range(1, 2 * nn + 1))
+    assert len(keypoint_ids) == nn
+    assert sorted(keypoint_ids) == list(range(1, nn + 1))
 
-    # APDL CTUBE sections should map 1:1 to elements for both spars.
-    secdata_pairs = []
+    # APDL ASEC sections should map 1:1 to equivalent FEM elements.
+    secdata_rows = []
     for line in apdl_lines:
         match = re.match(
             r"^SECDATA,([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?),"
+            r"([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?),"
+            r"([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?),"
+            r"([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?),"
+            r"([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?),"
             r"([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)",
             line.strip(),
         )
         if match:
-            secdata_pairs.append((float(match.group(1)), float(match.group(2))))
-    assert len(secdata_pairs) == 2 * (nn - 1)
+            secdata_rows.append(tuple(float(match.group(i)) for i in range(1, 7)))
+    assert len(secdata_rows) == nn - 1
 
-    expected_pairs = []
+    expected_rows = []
+    section = exporter.equivalent_section
     for j in range(nn - 1):
-        ro = 0.5 * (exporter.R_main[j] + exporter.R_main[j + 1])
-        tw = 0.5 * (exporter.t_main[j] + exporter.t_main[j + 1])
-        ri = max(ro - tw, 0.0)
-        expected_pairs.append((ri, ro))
-    for j in range(nn - 1):
-        ro = 0.5 * (exporter.R_rear[j] + exporter.R_rear[j + 1])
-        tw = 0.5 * (exporter.t_rear[j] + exporter.t_rear[j + 1])
-        ri = max(ro - tw, 0.0)
-        expected_pairs.append((ri, ro))
+        expected_rows.append(
+            (
+                section.A_equiv[j],
+                section.Iy_equiv[j],
+                0.0,
+                section.Iz_equiv[j],
+                0.0,
+                section.J_equiv[j],
+            )
+        )
 
-    np.testing.assert_allclose(secdata_pairs, expected_pairs, rtol=0.0, atol=1e-6)
+    np.testing.assert_allclose(secdata_rows, expected_rows, rtol=0.0, atol=1e-10)
 
-    # Material cards in APDL should match data/materials.yaml values.
+    # Equivalent material cards should match the back-computed internal FEM E/G.
     mp_values: dict[tuple[str, int], float] = {}
     for line in apdl_lines:
         match = re.match(
@@ -135,34 +143,31 @@ def test_crossval_report_generation(crossval_package: CrossValidationPackage) ->
         if match:
             mp_values[(match.group(1), int(match.group(2)))] = float(match.group(3))
 
-    mat_db = MaterialDB()
-    main_mat = mat_db.get(crossval_package.cfg.main_spar.material)
-    rear_mat = mat_db.get(crossval_package.cfg.rear_spar.material)
-    np.testing.assert_allclose(mp_values[("EX", 1)], main_mat.E, rtol=1e-12)
-    np.testing.assert_allclose(mp_values[("GXY", 1)], main_mat.G, rtol=1e-12)
-    np.testing.assert_allclose(mp_values[("DENS", 1)], main_mat.density, rtol=1e-12)
-    np.testing.assert_allclose(mp_values[("EX", 2)], rear_mat.E, rtol=1e-12)
-    np.testing.assert_allclose(mp_values[("GXY", 2)], rear_mat.G, rtol=1e-12)
-    np.testing.assert_allclose(mp_values[("DENS", 2)], rear_mat.density, rtol=1e-12)
+    assert len({mat_id for _, mat_id in mp_values}) == nn - 1
+    np.testing.assert_allclose(mp_values[("EX", 1)], exporter.equivalent_E[0], rtol=1e-6)
+    np.testing.assert_allclose(mp_values[("GXY", 1)], exporter.equivalent_G[0], rtol=1e-6)
+    np.testing.assert_allclose(
+        mp_values[("DENS", 1)], exporter.equivalent_density[0], rtol=1e-6
+    )
 
-    # Root BC and wire constraints should exist on the expected nodes.
+    # Root BC and wire constraints should exist on the equivalent beam nodes.
     assert any(line.strip().startswith("DK,1,ALL,0") for line in apdl_lines)
-    assert any(line.strip().startswith(f"DK,{nn + 1},ALL,0") for line in apdl_lines)
+    assert not any(line.strip().startswith(f"DK,{nn + 1},ALL,0") for line in apdl_lines)
     for wire_node in exporter.wire_nodes:
         assert any(line.strip().startswith(f"DK,{wire_node + 1},UZ,0") for line in apdl_lines)
 
-    # BDF completeness: GRID/CBAR/PBARL counts.
+    # BDF completeness: GRID/CBAR/PBAR counts for equivalent beam.
     grid_count = sum(1 for line in bdf_lines if line.startswith("GRID,"))
     cbar_count = sum(1 for line in bdf_lines if line.startswith("CBAR,"))
-    pbarl_count = sum(1 for line in bdf_lines if line.startswith("PBARL,"))
-    assert grid_count == 2 * nn
-    assert cbar_count == 2 * (nn - 1)
-    assert pbarl_count == 2 * (nn - 1)
+    pbar_count = sum(1 for line in bdf_lines if line.startswith("PBAR,"))
+    assert grid_count == nn
+    assert cbar_count == nn - 1
+    assert pbar_count == nn - 1
 
 
 @pytest.mark.requires_vspaero
 def test_apdl_force_equilibrium(crossval_package: CrossValidationPackage) -> None:
-    """Sum of FK,*,FZ in APDL is approximately total lift (within 1%)."""
+    """Sum of equivalent FK,*,FZ loads matches internal FEM nodal load total."""
     apdl_text = crossval_package.apdl_path.read_text(encoding="utf-8")
     fz_values = []
     for line in apdl_text.splitlines():
@@ -175,10 +180,10 @@ def test_apdl_force_equilibrium(crossval_package: CrossValidationPackage) -> Non
 
     assert fz_values, "No FK,*,FZ loads found in generated APDL macro."
     total_apdl_fz = float(np.sum(fz_values))
-    expected_total_lift = float(crossval_package.export_loads["total_lift"])
+    expected_total_fz = float(crossval_package.exporter.equivalent_total_fz_n)
 
-    rel_err = abs(total_apdl_fz - expected_total_lift) / max(abs(expected_total_lift), 1.0)
+    rel_err = abs(total_apdl_fz - expected_total_fz) / max(abs(expected_total_fz), 1.0)
     assert rel_err <= 0.01, (
         f"APDL force equilibrium mismatch: FK sum={total_apdl_fz:.6f} N, "
-        f"expected total_lift={expected_total_lift:.6f} N, rel_err={rel_err:.6%}"
+        f"expected total Fz={expected_total_fz:.6f} N, rel_err={rel_err:.6%}"
     )

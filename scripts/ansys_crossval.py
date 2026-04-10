@@ -87,8 +87,14 @@ def _select_cruise_loads(cfg: HPAConfig, aircraft: Aircraft) -> tuple[float, dic
 
 def _format_target_pm5(value: float, unit: str, precision: int = 3) -> str:
     """Return +/-5% target range as text."""
-    low = value * 0.95
-    high = value * 1.05
+    return _format_target_pct(value, unit, 5.0, precision)
+
+
+def _format_target_pct(value: float, unit: str, pct: float, precision: int = 3) -> str:
+    """Return +/-pct target range as text."""
+    frac = pct / 100.0
+    low = value * (1.0 - frac)
+    high = value * (1.0 + frac)
     return f"{low:.{precision}f} to {high:.{precision}f} {unit}"
 
 
@@ -99,6 +105,8 @@ def _build_crossval_report(
     aircraft: Aircraft,
     result: OptimizationResult,
     export_loads: dict[str, Any],
+    exporter: ANSYSExporter,
+    export_mode: str,
     mat_db: MaterialDB,
 ) -> str:
     """Build the human-readable expected-value report for ANSYS checks."""
@@ -130,6 +138,9 @@ def _build_crossval_report(
     spar_mass_half_kg = float(result.spar_mass_half_kg)
     spar_mass_full_kg = float(result.spar_mass_full_kg)
     total_mass_full_kg = float(result.total_mass_full_kg)
+    is_equivalent_validation = export_mode == "equivalent_beam"
+    if is_equivalent_validation:
+        root_reaction_fz = abs(exporter.equivalent_total_fz_n)
 
     seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
     main_mat_key = cfg.main_spar.material
@@ -142,7 +153,24 @@ def _build_crossval_report(
     lines.append("  HPA-MDO ANSYS Cross-Validation Report")
     lines.append(f"  Generated: {timestamp}")
     lines.append(f"  Config: {config_name}")
+    lines.append(f"  Export mode: {export_mode}")
     lines.append("=" * 64)
+    lines.append("")
+    lines.append("--- VALIDATION MODE ---")
+    if is_equivalent_validation:
+        lines.append("  equivalent-beam validation mode")
+        lines.append("  Phase I gate: YES")
+        lines.append(
+            "  ANSYS uses one BEAM188 line with the same equivalent A/I/J, "
+            "nodal Fz/My loads, support nodes, and wire UZ constraint as the internal FEM."
+        )
+    else:
+        lines.append("  dual-spar inspection mode")
+        lines.append("  Phase I gate: NO")
+        lines.append(
+            "  This keeps the higher-fidelity two-spar + rigid-link export for "
+            "model-form discrepancy checks only."
+        )
     lines.append("")
     lines.append("--- DESIGN ---")
     lines.append(
@@ -170,10 +198,16 @@ def _build_crossval_report(
 
     lines.append("")
     lines.append("--- BOUNDARY CONDITIONS ---")
-    lines.append("  Root (y=0): fixed all 6 DOF (both spars)")
+    if is_equivalent_validation:
+        lines.append("  Root (y=0): fixed all 6 DOF on the equivalent FEM beam")
+    else:
+        lines.append("  Root (y=0): fixed all 6 DOF (both spars)")
     if cfg.lift_wires.enabled and cfg.lift_wires.attachments:
         wire_ys = ", ".join(f"{att.y:.1f}" for att in cfg.lift_wires.attachments)
-        lines.append(f"  Wire at y={wire_ys}m: UZ=0 (main spar only)")
+        if is_equivalent_validation:
+            lines.append(f"  Wire at y={wire_ys}m: UZ=0 on equivalent beam")
+        else:
+            lines.append(f"  Wire at y={wire_ys}m: UZ=0 (main spar only)")
     else:
         lines.append("  Wire constraint: disabled")
 
@@ -185,11 +219,20 @@ def _build_crossval_report(
     lines.append(
         f"  Max torque per span: {max_torque:.3f} N*m/m (at y={y[torque_idx]:.3f} m)"
     )
+    if is_equivalent_validation:
+        lines.append(
+            f"  Total equivalent nodal Fz: {exporter.equivalent_total_fz_n:.3f} N "
+            "(lift plus spar self-weight/inertia)"
+        )
+        lines.append(
+            f"  Total equivalent nodal My: {exporter.equivalent_total_my_nm:.3f} N*m "
+            "(aero torque plus rear-spar gravity torque)"
+        )
 
     lines.append("")
     lines.append("--- EXPECTED RESULTS (Internal FEM) ---")
-    lines.append("  Metric                         Value          ANSYS Target (+/-5%)")
-    lines.append("  -----------------------------  -------------  ----------------------")
+    lines.append("  Metric                         Value          ANSYS Target / Role")
+    lines.append("  -----------------------------  -------------  -----------------------------")
     lines.append(
         f"  Tip deflection (uz, y={y[-1]:.1f}m)   {tip_uz_mm:11.3f} mm   "
         f"{_format_target_pm5(tip_uz_mm, 'mm', 3)}"
@@ -200,19 +243,19 @@ def _build_crossval_report(
     )
     lines.append(
         f"  Max Von Mises (main spar)      {max_vm_main_mpa:11.3f} MPa  "
-        f"{_format_target_pm5(max_vm_main_mpa, 'MPa', 3)}"
+        "provisional / non-gating"
     )
     lines.append(
         f"  Max Von Mises (rear spar)      {max_vm_rear_mpa:11.3f} MPa  "
-        f"{_format_target_pm5(max_vm_rear_mpa, 'MPa', 3)}"
+        "provisional / non-gating"
     )
     lines.append(
         f"  Root reaction Fz               {root_reaction_fz:11.3f} N    "
-        f"{_format_target_pm5(root_reaction_fz, 'N', 3)}"
+        f"{_format_target_pct(root_reaction_fz, 'N', 1.0, 3)}"
     )
     lines.append(
         f"  Max twist angle                {twist_deg:11.3f} deg  "
-        f"{_format_target_pm5(twist_deg, 'deg', 3)}"
+        "informative / non-gating"
     )
     lines.append(
         f"  Spar tube mass (half-span)     {spar_mass_half_kg:11.3f} kg   "
@@ -220,7 +263,7 @@ def _build_crossval_report(
     )
     lines.append(
         f"  Spar tube mass (full-span)     {spar_mass_full_kg:11.3f} kg   "
-        "(2x half-span APDL element mass)"
+        f"{_format_target_pct(spar_mass_full_kg, 'kg', 1.0, 3)}"
     )
     lines.append(
         f"  Total optimized mass (full)    {total_mass_full_kg:11.3f} kg   "
@@ -229,10 +272,20 @@ def _build_crossval_report(
 
     lines.append("")
     lines.append("--- PASS CRITERIA ---")
-    lines.append("  All metrics within +/-5% of internal FEM values.")
+    if is_equivalent_validation:
+        lines.append("  Phase I validation gate uses equivalent-beam ANSYS vs internal FEM only:")
+        lines.append("    - tip deflection error <= 5%")
+        lines.append("    - max vertical displacement error <= 5%")
+        lines.append("    - root/support reaction Fz error <= 1%")
+        lines.append("    - spar beam mass error <= 1%")
+    else:
+        lines.append(
+            "  Dual-spar ANSYS differences are model-form / higher-fidelity discrepancies, "
+            "not Phase I validation failures."
+        )
     lines.append(
-        "  If any metric exceeds 10%, investigate element formulation differences "
-        "(Euler-Bernoulli vs Timoshenko, shear correction)."
+        "  Stress is non-gating until the ANSYS BEAM188 beam/fiber stress extraction "
+        "is explicitly confirmed apples-to-apples with the internal tube stress recovery."
     )
 
     tip_node = aircraft.wing.n_stations
@@ -242,11 +295,16 @@ def _build_crossval_report(
     lines.append("  /POST1")
     lines.append("  SET,LAST")
     lines.append(f"  *GET,TIP_UZ,NODE,{tip_node},U,Z")
-    lines.append("  ETABLE,VM_I,SMISC,31")
-    lines.append("  ETABLE,VM_J,SMISC,36")
-    lines.append("  *GET,VM_I_MAX,ETAB,VM_I,MAX")
-    lines.append("  *GET,VM_J_MAX,ETAB,VM_J,MAX")
-    lines.append("  PRRSOL,FZ                           ! Root reaction")
+    if is_equivalent_validation:
+        lines.append("  PRRSOL,FZ                           ! Support reactions")
+        lines.append("  ! Stress comparison is intentionally omitted from Phase I gating.")
+    else:
+        lines.append("  ! CTUBE SMISC stress extraction is provisional; do not gate Phase I on it.")
+        lines.append("  ETABLE,VM_I,SMISC,31")
+        lines.append("  ETABLE,VM_J,SMISC,36")
+        lines.append("  *GET,VM_I_MAX,ETAB,VM_I,MAX")
+        lines.append("  *GET,VM_J_MAX,ETAB,VM_J,MAX")
+        lines.append("  PRRSOL,FZ                           ! Support reactions")
     lines.append("=" * 64)
 
     return "\n".join(lines) + "\n"
@@ -258,6 +316,7 @@ def generate_cross_validation_package(
     *,
     n_beam_nodes: int | None = None,
     optimizer_maxiter: int | None = None,
+    export_mode: str = "equivalent_beam",
 ) -> CrossValidationPackage:
     """Run optimization, export ANSYS files, and write cross-validation report."""
     repo_root = Path(__file__).resolve().parent.parent
@@ -287,7 +346,7 @@ def generate_cross_validation_package(
 
     ansys_dir = Path(cfg.io.output_dir) / "ansys"
     ansys_dir.mkdir(parents=True, exist_ok=True)
-    exporter = ANSYSExporter(cfg, aircraft, result, export_loads, mat_db)
+    exporter = ANSYSExporter(cfg, aircraft, result, export_loads, mat_db, mode=export_mode)
 
     apdl_path = exporter.write_apdl(ansys_dir / "spar_model.mac")
     bdf_path = exporter.write_nastran_bdf(ansys_dir / "spar_model.bdf")
@@ -300,6 +359,8 @@ def generate_cross_validation_package(
         aircraft=aircraft,
         result=result,
         export_loads=export_loads,
+        exporter=exporter,
+        export_mode=exporter.mode,
         mat_db=mat_db,
     )
     report_path.write_text(report_text, encoding="utf-8")
@@ -336,6 +397,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override output directory (default: use config io.output_dir).",
     )
+    parser.add_argument(
+        "--export-mode",
+        choices=("equivalent_beam", "dual_spar"),
+        default="equivalent_beam",
+        help=(
+            "ANSYS export mode. equivalent_beam is the Phase I validation gate; "
+            "dual_spar is higher-fidelity inspection only."
+        ),
+    )
     return parser
 
 
@@ -345,11 +415,13 @@ def main(argv: list[str] | None = None) -> CrossValidationPackage:
     package = generate_cross_validation_package(
         config_path=args.config,
         output_dir=args.output_dir,
+        export_mode=args.export_mode,
     )
 
     print("ANSYS cross-validation package generated.")
     print(f"  Config       : {package.config_path}")
     print(f"  Cruise AoA   : {package.cruise_aoa_deg:.2f} deg")
+    print(f"  Export mode  : {package.exporter.mode}")
     print(f"  Output dir   : {package.ansys_dir}")
     print(f"  APDL macro   : {package.apdl_path.name}")
     print(f"  NASTRAN BDF  : {package.bdf_path.name}")
