@@ -112,6 +112,10 @@ class MaterialProxyCandidate:
     eval_wall_time_s: float
     tube_mass_kg: float
     total_structural_mass_kg: float
+    raw_main_tip_m: float
+    raw_rear_tip_m: float
+    raw_max_uz_m: float
+    raw_max_location: str
     psi_u_all_m: float
     psi_u_rear_m: float
     psi_u_rear_outboard_m: float
@@ -471,6 +475,12 @@ class MaterialProxyEvaluator:
                 eval_wall_time_s=float(perf_counter() - t0),
                 tube_mass_kg=float(production.recovery.spar_tube_mass_full_kg),
                 total_structural_mass_kg=float(production.recovery.total_structural_mass_full_kg),
+                raw_main_tip_m=float(abs(production.report.tip_deflection_main_m)),
+                raw_rear_tip_m=float(abs(production.report.tip_deflection_rear_m)),
+                raw_max_uz_m=float(abs(production.report.max_vertical_displacement_m)),
+                raw_max_location=(
+                    f"{production.report.max_vertical_spar} node {production.report.max_vertical_node}"
+                ),
                 psi_u_all_m=float(production.optimizer.psi_u_all_m),
                 psi_u_rear_m=float(production.optimizer.psi_u_rear_m),
                 psi_u_rear_outboard_m=float(production.optimizer.psi_u_rear_outboard_m),
@@ -507,6 +517,10 @@ class MaterialProxyEvaluator:
                 eval_wall_time_s=float(perf_counter() - t0),
                 tube_mass_kg=float("inf"),
                 total_structural_mass_kg=float("inf"),
+                raw_main_tip_m=float("inf"),
+                raw_rear_tip_m=float("inf"),
+                raw_max_uz_m=float("inf"),
+                raw_max_location="analysis_failed",
                 psi_u_all_m=float("inf"),
                 psi_u_rear_m=float("inf"),
                 psi_u_rear_outboard_m=float("inf"),
@@ -749,6 +763,10 @@ def candidate_to_summary_dict(candidate: MaterialProxyCandidate | None) -> dict[
         "eval_wall_time_s": candidate.eval_wall_time_s,
         "tube_mass_kg": candidate.tube_mass_kg,
         "total_structural_mass_kg": candidate.total_structural_mass_kg,
+        "raw_main_tip_m": candidate.raw_main_tip_m,
+        "raw_rear_tip_m": candidate.raw_rear_tip_m,
+        "raw_max_uz_m": candidate.raw_max_uz_m,
+        "raw_max_location": candidate.raw_max_location,
         "psi_u_all_m": candidate.psi_u_all_m,
         "psi_u_rear_m": candidate.psi_u_rear_m,
         "psi_u_rear_outboard_m": candidate.psi_u_rear_outboard_m,
