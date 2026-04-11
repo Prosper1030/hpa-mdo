@@ -28,11 +28,13 @@ from scripts.direct_dual_beam_v2m import (
     DEFAULT_CATALOG_PROFILE,
     BaselineDesign,
     build_manufacturing_map_config,
+    design_from_manufacturing_choice,
 )
 from scripts.direct_dual_beam_v2m_material_proxy import (
+    GeometrySeed,
     MaterialProxyCandidate,
     MaterialProxyEvaluator,
-    build_geometry_seeds,
+    build_geometry_seeds as build_compact_geometry_seeds,
     catalog_to_summary_dict,
     candidate_to_summary_dict,
 )
@@ -48,6 +50,37 @@ DEFAULT_OUTPUT_DIR = (
     Path(__file__).resolve().parent.parent / "output" / "direct_dual_beam_v2m_joint_material"
 )
 TOP_K = 10
+COMPACT_STRATEGY = "compact"
+EXPANDED_STRATEGY = "expanded"
+DEFAULT_STRATEGY = EXPANDED_STRATEGY
+EXPANDED_PAIRWISE_GEOMETRY_SPECS = (
+    ("light_main_plus_rear_general", {0: -1, 2: +1}, "Lighter main plateau with one-step rear global reserve."),
+    (
+        "light_main_plus_rear_outboard_minus1",
+        {0: -1, 3: -1},
+        "Lighter main plateau with one-step lighter rear seg5-6 sleeve.",
+    ),
+    (
+        "light_main_plus_rear_outboard_plus1",
+        {0: -1, 3: +1},
+        "Lighter main plateau with one-step stiffer rear seg5-6 sleeve.",
+    ),
+    (
+        "light_main_plus_global_wall",
+        {0: -1, 4: +1},
+        "Lighter main plateau offset by one-step global wall thickening.",
+    ),
+    (
+        "rear_general_plus1_plus_outboard_plus1",
+        {2: +1, 3: +1},
+        "Rear reserve stack: one-step rear global reserve plus stiffer outboard sleeve.",
+    ),
+    (
+        "main_outboard_plus1_plus_rear_outboard_plus1",
+        {1: +1, 3: +1},
+        "Main outboard pair thickening coupled with one-step stiffer rear sleeve.",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -68,6 +101,7 @@ class JointMaterialOutcome:
     success: bool
     feasible: bool
     message: str
+    search_strategy: str
     total_wall_time_s: float
     geometry_seed_count: int
     evaluated_candidate_count: int
@@ -76,6 +110,9 @@ class JointMaterialOutcome:
     production_analysis_calls: int
     reference_candidate: MaterialProxyCandidate
     selected_candidate: MaterialProxyCandidate
+    mass_first_candidate_feasible: MaterialProxyCandidate | None
+    margin_first_candidate_feasible: MaterialProxyCandidate | None
+    balanced_compromise_candidate_feasible: MaterialProxyCandidate | None
     best_margin_candidate_feasible: MaterialProxyCandidate | None
     best_violation: MaterialProxyCandidate
     geometry_best_rows: tuple[JointGeometryBestRow, ...]
@@ -90,6 +127,246 @@ def _mm(value_m: float | None) -> float:
 
 def _signed_mm_delta(delta_m: float) -> float:
     return float(delta_m) * 1000.0
+
+
+def _choice_signature(candidate: MaterialProxyCandidate) -> tuple[tuple[int, int, int, int, int], str, str]:
+    return (
+        tuple(int(value) for value in candidate.geometry_choice),
+        str(candidate.main_family_key),
+        str(candidate.rear_outboard_pkg_key),
+    )
+
+
+def _candidate_joint_choice(
+    *,
+    candidate: MaterialProxyCandidate,
+    main_index_map: dict[str, int],
+    outboard_index_map: dict[str, int],
+) -> tuple[int, int, int, int, int, int, int]:
+    return build_joint_choice_indices(
+        geometry_choice=candidate.geometry_choice,
+        main_family_index=main_index_map[candidate.main_family_key],
+        rear_outboard_index=outboard_index_map[candidate.rear_outboard_pkg_key],
+    )
+
+
+def _append_candidate_block(
+    *,
+    lines: list[str],
+    title: str,
+    candidate: MaterialProxyCandidate | None,
+    main_index_map: dict[str, int],
+    outboard_index_map: dict[str, int],
+) -> None:
+    lines.append(title)
+    if candidate is None:
+        lines.append("  none")
+        lines.append("")
+        return
+    joint_choice = _candidate_joint_choice(
+        candidate=candidate,
+        main_index_map=main_index_map,
+        outboard_index_map=outboard_index_map,
+    )
+    lines.append(f"  geometry seed               : {candidate.geometry_label}")
+    lines.append(f"  geometry choice             : {candidate.geometry_choice}")
+    lines.append(f"  joint choice indices        : {joint_choice}")
+    lines.append(f"  main_spar_family            : {candidate.main_family_key}")
+    lines.append(f"  rear_outboard_pkg           : {candidate.rear_outboard_pkg_key}")
+    lines.append(f"  mass                        : {candidate.tube_mass_kg:11.3f} kg")
+    lines.append(f"  total structural mass       : {candidate.total_structural_mass_kg:11.3f} kg")
+    lines.append(f"  raw main tip                : {_mm(candidate.raw_main_tip_m):11.3f} mm")
+    lines.append(f"  raw rear tip                : {_mm(candidate.raw_rear_tip_m):11.3f} mm")
+    lines.append(f"  raw max |UZ|                : {_mm(candidate.raw_max_uz_m):11.3f} mm")
+    lines.append(f"  raw max |UZ| location       : {candidate.raw_max_location}")
+    lines.append(f"  psi_u_all                   : {_mm(candidate.psi_u_all_m):11.3f} mm")
+    lines.append(f"  candidate margin            : {_mm(candidate.candidate_margin_m):11.3f} mm")
+    lines.append(f"  hard / candidate            : {candidate.overall_hard_feasible} / {candidate.overall_optimizer_candidate_feasible}")
+    lines.append("")
+
+
+def _axis_sizes_from_map_config(map_config) -> tuple[int, int, int, int, int]:
+    return (
+        len(map_config.main_plateau_delta_catalog_m),
+        len(map_config.main_outboard_pair_delta_catalog_m),
+        len(map_config.rear_general_radius_delta_catalog_m),
+        len(map_config.rear_outboard_tip_delta_t_catalog_m),
+        len(map_config.global_wall_delta_t_catalog_m),
+    )
+
+
+def _offset_choice(
+    *,
+    base_choice: tuple[int, int, int, int, int],
+    axis_deltas: dict[int, int],
+    axis_sizes: tuple[int, int, int, int, int],
+) -> tuple[int, int, int, int, int] | None:
+    next_choice = list(base_choice)
+    for axis, delta in axis_deltas.items():
+        next_choice[axis] += int(delta)
+        if next_choice[axis] < 0 or next_choice[axis] >= axis_sizes[axis]:
+            return None
+    return tuple(int(value) for value in next_choice)
+
+
+def _append_geometry_seed(
+    *,
+    seeds: list[GeometrySeed],
+    seen: set[tuple[int, int, int, int, int]],
+    label: str,
+    choice: tuple[int, int, int, int, int] | None,
+    note: str,
+    baseline: BaselineDesign,
+    map_config,
+) -> None:
+    if choice is None or choice in seen:
+        return
+    main_t, main_r, rear_t, rear_r = design_from_manufacturing_choice(
+        baseline=baseline,
+        choice=choice,
+        map_config=map_config,
+    )
+    seeds.append(
+        GeometrySeed(
+            label=label,
+            choice=choice,
+            note=note,
+            main_t_seg_m=main_t.copy(),
+            main_r_seg_m=main_r.copy(),
+            rear_t_seg_m=rear_t.copy(),
+            rear_r_seg_m=rear_r.copy(),
+        )
+    )
+    seen.add(choice)
+
+
+def build_expanded_geometry_seeds(
+    *,
+    selected_choice: tuple[int, int, int, int, int],
+    baseline: BaselineDesign,
+    map_config,
+) -> tuple[GeometrySeed, ...]:
+    seeds = list(
+        build_compact_geometry_seeds(
+            selected_choice=selected_choice,
+            baseline=baseline,
+            map_config=map_config,
+        )
+    )
+    seen = {tuple(int(value) for value in seed.choice) for seed in seeds}
+    axis_sizes = _axis_sizes_from_map_config(map_config)
+
+    single_axis_specs = (
+        ("main_outboard_plus1", {1: +1}, "One-step main outboard pair thickening neighbor."),
+        ("global_wall_plus1", {4: +1}, "One-step global wall thickening neighbor."),
+        ("main_plateau_minus2", {0: -2}, "Two-step lighter main plateau neighbor."),
+        ("rear_general_plus2", {2: +2}, "Two-step rear global reserve neighbor."),
+        ("rear_outboard_minus2", {3: -2}, "Two-step lighter rear seg5-6 sleeve neighbor."),
+        ("rear_outboard_plus2", {3: +2}, "Two-step stiffer rear seg5-6 sleeve neighbor."),
+    )
+    for label, axis_deltas, note in single_axis_specs:
+        _append_geometry_seed(
+            seeds=seeds,
+            seen=seen,
+            label=label,
+            choice=_offset_choice(
+                base_choice=selected_choice,
+                axis_deltas=axis_deltas,
+                axis_sizes=axis_sizes,
+            ),
+            note=note,
+            baseline=baseline,
+            map_config=map_config,
+        )
+
+    for label, axis_deltas, note in EXPANDED_PAIRWISE_GEOMETRY_SPECS:
+        _append_geometry_seed(
+            seeds=seeds,
+            seen=seen,
+            label=label,
+            choice=_offset_choice(
+                base_choice=selected_choice,
+                axis_deltas=axis_deltas,
+                axis_sizes=axis_sizes,
+            ),
+            note=note,
+            baseline=baseline,
+            map_config=map_config,
+        )
+
+    return tuple(seeds)
+
+
+def build_joint_geometry_seeds(
+    *,
+    strategy: str,
+    selected_choice: tuple[int, int, int, int, int],
+    baseline: BaselineDesign,
+    map_config,
+) -> tuple[GeometrySeed, ...]:
+    if strategy == COMPACT_STRATEGY:
+        return build_compact_geometry_seeds(
+            selected_choice=selected_choice,
+            baseline=baseline,
+            map_config=map_config,
+        )
+    if strategy == EXPANDED_STRATEGY:
+        return build_expanded_geometry_seeds(
+            selected_choice=selected_choice,
+            baseline=baseline,
+            map_config=map_config,
+        )
+    raise ValueError(f"Unsupported joint search strategy: {strategy}")
+
+
+def select_balanced_compromise_candidate(
+    feasible_candidates: tuple[MaterialProxyCandidate, ...],
+    *,
+    mass_first_candidate: MaterialProxyCandidate | None,
+    margin_first_candidate: MaterialProxyCandidate | None,
+) -> MaterialProxyCandidate | None:
+    if not feasible_candidates:
+        return None
+
+    masses = np.asarray([candidate.tube_mass_kg for candidate in feasible_candidates], dtype=float)
+    margins = np.asarray([candidate.candidate_margin_m for candidate in feasible_candidates], dtype=float)
+    mass_min = float(np.min(masses))
+    mass_max = float(np.max(masses))
+    margin_min = float(np.min(margins))
+    margin_max = float(np.max(margins))
+    mass_span = max(mass_max - mass_min, 0.0)
+    margin_span = max(margin_max - margin_min, 0.0)
+
+    excluded_signatures = set()
+    if mass_first_candidate is not None:
+        excluded_signatures.add(_choice_signature(mass_first_candidate))
+    if margin_first_candidate is not None:
+        excluded_signatures.add(_choice_signature(margin_first_candidate))
+
+    candidate_pool = [
+        candidate for candidate in feasible_candidates if _choice_signature(candidate) not in excluded_signatures
+    ]
+    if not candidate_pool:
+        candidate_pool = list(feasible_candidates)
+
+    def _score(candidate: MaterialProxyCandidate) -> tuple[float, float, float, float, float]:
+        mass_score = 1.0 if mass_span <= 1.0e-12 else (mass_max - candidate.tube_mass_kg) / mass_span
+        margin_score = 1.0 if margin_span <= 1.0e-12 else (candidate.candidate_margin_m - margin_min) / margin_span
+        harmonic_score = (
+            0.0
+            if (mass_score + margin_score) <= 1.0e-12
+            else (2.0 * mass_score * margin_score) / (mass_score + margin_score)
+        )
+        balance_gap = abs(mass_score - margin_score)
+        return (
+            float(harmonic_score),
+            float(-balance_gap),
+            float(mass_score + margin_score),
+            float(candidate.candidate_margin_m),
+            float(-candidate.tube_mass_kg),
+        )
+
+    return max(candidate_pool, key=_score)
 
 
 def _load_v2m_selected_choice(path: Path) -> tuple[int, int, int, int, int]:
@@ -179,6 +456,7 @@ def build_joint_choice_indices(
 
 def run_joint_material_search(
     *,
+    search_strategy: str,
     cfg,
     aircraft,
     materials_db: MaterialDB,
@@ -270,17 +548,24 @@ def run_joint_material_search(
         raise RuntimeError("Joint geometry/material search produced no candidates.")
     selected_candidate = best_mass_candidate_feasible or best_violation
 
-    top_candidate_feasible = tuple(
+    feasible_candidates = tuple(
         sorted(
             (cand for cand in evaluator.archive.candidates if cand.overall_optimizer_candidate_feasible),
             key=lambda cand: (cand.tube_mass_kg, cand.psi_u_all_m, -cand.candidate_margin_m),
-        )[:TOP_K]
+        )
     )
+    balanced_compromise = select_balanced_compromise_candidate(
+        feasible_candidates,
+        mass_first_candidate=best_mass_candidate_feasible,
+        margin_first_candidate=best_margin_candidate_feasible,
+    )
+    top_candidate_feasible = feasible_candidates[:TOP_K]
 
     return catalog, JointMaterialOutcome(
         success=bool(selected_candidate.overall_hard_feasible),
         feasible=bool(selected_candidate.overall_optimizer_candidate_feasible),
         message=str(selected_candidate.message),
+        search_strategy=search_strategy,
         total_wall_time_s=float(perf_counter() - total_start),
         geometry_seed_count=len(geometry_seeds),
         evaluated_candidate_count=len(evaluator.archive.candidates),
@@ -289,6 +574,9 @@ def run_joint_material_search(
         production_analysis_calls=int(evaluator.production_analysis_calls),
         reference_candidate=reference_candidate,
         selected_candidate=selected_candidate,
+        mass_first_candidate_feasible=best_mass_candidate_feasible,
+        margin_first_candidate_feasible=best_margin_candidate_feasible,
+        balanced_compromise_candidate_feasible=balanced_compromise,
         best_margin_candidate_feasible=best_margin_candidate_feasible,
         best_violation=best_violation,
         geometry_best_rows=tuple(geometry_best_rows),
@@ -317,11 +605,6 @@ def build_report_text(
     outboard_packages = catalog_summary["rear_outboard_reinforcement_pkg"]["packages"]
     main_index_map = {pkg["key"]: idx for idx, pkg in enumerate(main_packages)}
     outboard_index_map = {pkg["key"]: idx for idx, pkg in enumerate(outboard_packages)}
-    selected_joint_choice = build_joint_choice_indices(
-        geometry_choice=selected.geometry_choice,
-        main_family_index=main_index_map[selected.main_family_key],
-        rear_outboard_index=outboard_index_map[selected.rear_outboard_pkg_key],
-    )
 
     lines: list[str] = []
     lines.append("=" * 120)
@@ -336,7 +619,11 @@ def build_report_text(
     lines.append("Search strategy:")
     lines.append("  Promote only main_spar_family and rear_outboard_reinforcement_pkg to formal discrete axes.")
     lines.append("  Keep rear_spar_family fixed at rear_ref for this phase.")
-    lines.append("  Search only the selected V2.m++ point plus a small nearby geometry neighborhood.")
+    if outcome.search_strategy == COMPACT_STRATEGY:
+        lines.append("  Search only the selected V2.m++ point plus a compact nearby geometry neighborhood.")
+    else:
+        lines.append("  Search the selected V2.m++ point, valid one-step neighbors, a few two-step checks, and a small set of pairwise couplings.")
+    lines.append(f"  Strategy                     : {outcome.search_strategy}")
     lines.append(
         f"  Search-space size            : {outcome.search_space_size} = {outcome.geometry_seed_count} geometry seeds x "
         f"{len(main_packages)} main families x {len(outboard_packages)} outboard packages"
@@ -383,32 +670,27 @@ def build_report_text(
     lines.append(f"  equivalent analysis calls   : {outcome.equivalent_analysis_calls}")
     lines.append(f"  production analysis calls   : {outcome.production_analysis_calls}")
     lines.append("")
-    lines.append("Selected joint candidate (mass-first among candidate-feasible points):")
-    lines.append(f"  geometry seed               : {selected.geometry_label}")
-    lines.append(f"  geometry choice             : {selected.geometry_choice}")
-    lines.append(f"  joint choice indices        : {selected_joint_choice}")
-    lines.append(f"  main_spar_family            : {selected.main_family_key}")
-    lines.append(f"  rear_outboard_pkg           : {selected.rear_outboard_pkg_key}")
-    lines.append(f"  mass                        : {selected.tube_mass_kg:11.3f} kg")
-    lines.append(f"  total structural mass       : {selected.total_structural_mass_kg:11.3f} kg")
-    lines.append(f"  raw main tip                : {_mm(selected.raw_main_tip_m):11.3f} mm")
-    lines.append(f"  raw rear tip                : {_mm(selected.raw_rear_tip_m):11.3f} mm")
-    lines.append(f"  raw max |UZ|                : {_mm(selected.raw_max_uz_m):11.3f} mm")
-    lines.append(f"  raw max |UZ| location       : {selected.raw_max_location}")
-    lines.append(f"  psi_u_all                   : {_mm(selected.psi_u_all_m):11.3f} mm")
-    lines.append(f"  candidate margin            : {_mm(selected.candidate_margin_m):11.3f} mm")
-    lines.append(f"  hard / candidate            : {selected.overall_hard_feasible} / {selected.overall_optimizer_candidate_feasible}")
-    lines.append("")
-    if best_margin is not None:
-        lines.append("Best candidate-feasible by candidate margin:")
-        lines.append(f"  geometry seed               : {best_margin.geometry_label}")
-        lines.append(f"  geometry choice             : {best_margin.geometry_choice}")
-        lines.append(f"  main_spar_family            : {best_margin.main_family_key}")
-        lines.append(f"  rear_outboard_pkg           : {best_margin.rear_outboard_pkg_key}")
-        lines.append(f"  mass                        : {best_margin.tube_mass_kg:11.3f} kg")
-        lines.append(f"  psi_u_all                   : {_mm(best_margin.psi_u_all_m):11.3f} mm")
-        lines.append(f"  candidate margin            : {_mm(best_margin.candidate_margin_m):11.3f} mm")
-        lines.append("")
+    _append_candidate_block(
+        lines=lines,
+        title="Mass-first candidate-feasible representative:",
+        candidate=outcome.mass_first_candidate_feasible,
+        main_index_map=main_index_map,
+        outboard_index_map=outboard_index_map,
+    )
+    _append_candidate_block(
+        lines=lines,
+        title="Margin-first candidate-feasible representative:",
+        candidate=best_margin,
+        main_index_map=main_index_map,
+        outboard_index_map=outboard_index_map,
+    )
+    _append_candidate_block(
+        lines=lines,
+        title="Balanced compromise candidate-feasible representative:",
+        candidate=outcome.balanced_compromise_candidate_feasible,
+        main_index_map=main_index_map,
+        outboard_index_map=outboard_index_map,
+    )
     lines.append("Best promoted-material combination by geometry seed:")
     lines.append("  geometry                 joint choice                  mass[kg]   psi[mm]   margin[mm]   cand")
     for row in outcome.geometry_best_rows:
@@ -453,11 +735,25 @@ def build_summary_json(
     main_index_map = {pkg["key"]: idx for idx, pkg in enumerate(main_packages)}
     outboard_index_map = {pkg["key"]: idx for idx, pkg in enumerate(outboard_packages)}
     selected = outcome.selected_candidate
-    selected_joint_choice = build_joint_choice_indices(
-        geometry_choice=selected.geometry_choice,
-        main_family_index=main_index_map[selected.main_family_key],
-        rear_outboard_index=outboard_index_map[selected.rear_outboard_pkg_key],
+    selected_joint_choice = _candidate_joint_choice(
+        candidate=selected,
+        main_index_map=main_index_map,
+        outboard_index_map=outboard_index_map,
     )
+
+    def _representative_dict(candidate: MaterialProxyCandidate | None) -> dict[str, object] | None:
+        if candidate is None:
+            return None
+        return {
+            **candidate_to_summary_dict(candidate),
+            "joint_choice_indices": list(
+                _candidate_joint_choice(
+                    candidate=candidate,
+                    main_index_map=main_index_map,
+                    outboard_index_map=outboard_index_map,
+                )
+            ),
+        }
 
     return {
         "generated_at": datetime.now().astimezone().isoformat(),
@@ -465,7 +761,12 @@ def build_summary_json(
         "design_report": str(design_report),
         "v2m_summary_json": str(v2m_summary_json),
         "search_strategy": {
-            "geometry_seed_strategy": "selected_plus_nearby_v2m_neighbors",
+            "geometry_seed_strategy": (
+                "selected_plus_nearby_v2m_neighbors"
+                if outcome.search_strategy == COMPACT_STRATEGY
+                else "selected_plus_controlled_joint_neighbors"
+            ),
+            "strategy_name": outcome.search_strategy,
             "geometry_seed_count": len(geometry_seeds),
             "promoted_axes": ["main_spar_family", "rear_outboard_reinforcement_pkg"],
             "fixed_axes": {"rear_spar_family": "rear_ref"},
@@ -496,6 +797,11 @@ def build_summary_json(
             "selected_candidate": {
                 **candidate_to_summary_dict(outcome.selected_candidate),
                 "joint_choice_indices": list(selected_joint_choice),
+            },
+            "representative_candidates": {
+                "mass_first_feasible": _representative_dict(outcome.mass_first_candidate_feasible),
+                "margin_first_feasible": _representative_dict(outcome.margin_first_candidate_feasible),
+                "balanced_compromise": _representative_dict(outcome.balanced_compromise_candidate_feasible),
             },
             "best_margin_candidate_feasible": candidate_to_summary_dict(
                 outcome.best_margin_candidate_feasible
@@ -533,6 +839,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--output-dir",
         default=str(DEFAULT_OUTPUT_DIR),
     )
+    parser.add_argument(
+        "--strategy",
+        choices=(COMPACT_STRATEGY, EXPANDED_STRATEGY),
+        default=DEFAULT_STRATEGY,
+    )
     return parser
 
 
@@ -565,7 +876,8 @@ def main(argv: list[str] | None = None) -> int:
         catalog_profile=DEFAULT_CATALOG_PROFILE,
     )
     selected_choice = _load_v2m_selected_choice(v2m_summary_json)
-    geometry_seeds = build_geometry_seeds(
+    geometry_seeds = build_joint_geometry_seeds(
+        strategy=args.strategy,
         selected_choice=selected_choice,
         baseline=baseline_design,
         map_config=map_config,
@@ -576,6 +888,7 @@ def main(argv: list[str] | None = None) -> int:
     export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
 
     catalog, outcome = run_joint_material_search(
+        search_strategy=args.strategy,
         cfg=cfg,
         aircraft=aircraft,
         materials_db=materials_db,
@@ -625,6 +938,7 @@ def main(argv: list[str] | None = None) -> int:
     print("Direct dual-beam V2.m++ joint geometry + material search complete.")
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
+    print(f"  Strategy            : {args.strategy}")
     print(f"  Success / feasible  : {outcome.success} / {outcome.feasible}")
     print(f"  Total wall time     : {outcome.total_wall_time_s:.3f} s")
     print(f"  Search-space size   : {outcome.search_space_size}")

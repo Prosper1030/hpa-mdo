@@ -10,11 +10,11 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.direct_dual_beam_v2m import BaselineDesign, ManufacturingMapConfig  # noqa: E402
 from scripts.direct_dual_beam_v2m_joint_material import (  # noqa: E402
+    COMPACT_STRATEGY,
+    EXPANDED_STRATEGY,
     build_joint_choice_indices,
+    build_joint_geometry_seeds,
     build_joint_search_space,
-)
-from scripts.direct_dual_beam_v2m_material_proxy import (  # noqa: E402
-    build_geometry_seeds,
 )
 from hpa_mdo.structure.material_proxy_catalog import build_default_material_proxy_catalog  # noqa: E402
 
@@ -41,7 +41,8 @@ def _map_config() -> ManufacturingMapConfig:
 
 def test_joint_search_space_uses_only_promoted_axes_and_small_geometry_neighborhood() -> None:
     catalog = build_default_material_proxy_catalog()
-    geometry_seeds = build_geometry_seeds(
+    geometry_seeds = build_joint_geometry_seeds(
+        strategy=COMPACT_STRATEGY,
         selected_choice=(4, 0, 0, 2, 0),
         baseline=_baseline_design(),
         map_config=_map_config(),
@@ -66,6 +67,36 @@ def test_joint_search_space_uses_only_promoted_axes_and_small_geometry_neighborh
         "ob_balanced_sleeve",
         "ob_torsion_patch",
     }
+
+
+def test_expanded_joint_geometry_strategy_is_bounded_and_adds_pairwise_neighbors() -> None:
+    catalog = build_default_material_proxy_catalog()
+    geometry_seeds = build_joint_geometry_seeds(
+        strategy=EXPANDED_STRATEGY,
+        selected_choice=(4, 0, 0, 2, 0),
+        baseline=_baseline_design(),
+        map_config=_map_config(),
+    )
+
+    search_space = build_joint_search_space(
+        geometry_seeds=geometry_seeds,
+        main_packages=catalog.main_spar_family,
+        rear_outboard_packages=catalog.rear_outboard_reinforcement_pkg,
+    )
+
+    labels = {seed.label for seed in geometry_seeds}
+    assert len(geometry_seeds) == 17
+    assert len({seed.choice for seed in geometry_seeds}) == len(geometry_seeds)
+    assert {
+        "selected",
+        "main_outboard_plus1",
+        "global_wall_plus1",
+        "main_plateau_minus2",
+        "rear_general_plus2",
+        "light_main_plus_rear_general",
+        "rear_general_plus1_plus_outboard_plus1",
+    } <= labels
+    assert len(search_space) == 17 * 3 * 4
 
 
 def test_joint_choice_indices_append_promoted_material_axes_after_geometry_axes() -> None:
