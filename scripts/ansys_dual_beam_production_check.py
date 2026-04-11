@@ -59,6 +59,26 @@ def _extract_float(pattern: str, text: str, field_name: str) -> float:
     return float(match.group(1))
 
 
+def _extract_first_float(text: str, field_name: str, *patterns: str) -> float:
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.MULTILINE)
+        if match:
+            return float(match.group(1))
+    raise ValueError(f"Could not parse {field_name} from any supported pattern.")
+
+
+def _extract_optional_first_float(
+    text: str,
+    default: float,
+    *patterns: str,
+) -> float:
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.MULTILINE)
+        if match:
+            return float(match.group(1))
+    return float(default)
+
+
 def _extract_design_block(text: str, heading: str) -> list[tuple[float, float]]:
     rows: list[tuple[float, float]] = []
     in_block = False
@@ -101,35 +121,27 @@ def build_specimen_result_from_crossval_report(report_path: Path) -> Optimizatio
         text,
         "total_mass_full_kg",
     )
-    tip_deflection_m = (
-        _extract_float(
-            r"Tip deflection \(uz, y=[^)]+\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
-            text,
-            "tip_deflection_mm",
-        )
-        * 1.0e-3
+    tip_deflection_m = 1.0e-3 * _extract_first_float(
+        text,
+        "tip_deflection_mm",
+        r"Tip deflection \(uz, y=[^)]+\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
+        r"Main tip deflection \(uz, y=tip\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
     )
     max_tip_deflection_m = None
-    max_stress_main_pa = (
-        _extract_float(
-            r"Max Von Mises \(main spar\)\s+([+-]?\d+(?:\.\d+)?)\s+MPa",
-            text,
-            "max_vm_main_mpa",
-        )
-        * 1.0e6
+    max_stress_main_pa = 1.0e6 * _extract_optional_first_float(
+        text,
+        0.0,
+        r"Max Von Mises \(main spar\)\s+([+-]?\d+(?:\.\d+)?)\s+MPa",
     )
-    max_stress_rear_pa = (
-        _extract_float(
-            r"Max Von Mises \(rear spar\)\s+([+-]?\d+(?:\.\d+)?)\s+MPa",
-            text,
-            "max_vm_rear_mpa",
-        )
-        * 1.0e6
+    max_stress_rear_pa = 1.0e6 * _extract_optional_first_float(
+        text,
+        0.0,
+        r"Max Von Mises \(rear spar\)\s+([+-]?\d+(?:\.\d+)?)\s+MPa",
     )
-    twist_max_deg = _extract_float(
-        r"Max twist angle\s+([+-]?\d+(?:\.\d+)?)\s+deg",
+    twist_max_deg = _extract_first_float(
         text,
         "max_twist_deg",
+        r"Max twist angle\s+([+-]?\d+(?:\.\d+)?)\s+deg",
     )
 
     main_od_mm = np.array([row[0] for row in main_rows], dtype=float)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from hpa_mdo.structure.dual_beam_mainline import (
     AnalysisModeName,
@@ -8,6 +9,7 @@ from hpa_mdo.structure.dual_beam_mainline import (
     DualBeamMainlineModel,
     LinkMode,
     RootBCMode,
+    SmoothAggregationResult,
     TorqueInputDefinition,
     TorqueReferenceMode,
     WireBCMode,
@@ -20,6 +22,12 @@ from hpa_mdo.structure.dual_beam_mainline.load_split import (
     collapse_explicit_rear_weight_to_equivalent_my_n,
     convert_torque_to_main_spar_reference,
 )
+from hpa_mdo.structure.dual_beam_mainline.optimizer_view import (
+    build_feasibility_summary,
+    build_geometry_validity_margins,
+    build_optimizer_facing_metrics,
+)
+from hpa_mdo.structure.dual_beam_mainline.smooth import build_default_smooth_scales
 
 
 def _simple_model(
@@ -44,18 +52,22 @@ def _simple_model(
         y_nodes_m=y_nodes_m,
         node_spacings_m=np.array([0.5, 1.0, 0.5], dtype=float),
         element_lengths_m=np.array([1.0, 1.0], dtype=float),
+        main_t_seg_m=np.array([0.0020, 0.0018], dtype=float),
+        main_r_seg_m=np.array([0.0400, 0.0360], dtype=float),
+        rear_t_seg_m=np.array([0.0014, 0.0012], dtype=float),
+        rear_r_seg_m=np.array([0.0240, 0.0220], dtype=float),
         nodes_main_m=nodes_main_m,
         nodes_rear_m=nodes_rear_m,
         spar_offset_vectors_m=spar_offset_vectors_m,
         spar_separation_nodes_m=spar_separation_nodes_m,
         main_area_m2=np.full(ne, 1.0e-3),
-        main_iy_m4=np.full(ne, 8.0e-7),
-        main_iz_m4=np.full(ne, 8.0e-7),
-        main_j_m4=np.full(ne, 1.6e-6),
+        main_iy_m4=np.full(ne, 1.8e-6),
+        main_iz_m4=np.full(ne, 1.8e-6),
+        main_j_m4=np.full(ne, 3.6e-6),
         rear_area_m2=np.full(ne, 1.0e-3),
-        rear_iy_m4=np.full(ne, 8.0e-7),
-        rear_iz_m4=np.full(ne, 8.0e-7),
-        rear_j_m4=np.full(ne, 1.6e-6),
+        rear_iy_m4=np.full(ne, 2.5e-7),
+        rear_iz_m4=np.full(ne, 2.5e-7),
+        rear_j_m4=np.full(ne, 5.0e-7),
         main_radius_elem_m=np.full(ne, 0.04),
         rear_radius_elem_m=np.full(ne, 0.04),
         main_mass_per_length_kgpm=np.full(ne, 0.5)
@@ -79,11 +91,26 @@ def _simple_model(
         torque_input=torque_input or TorqueInputDefinition(),
         gravity_scale=1.0,
         max_tip_deflection_limit_m=2.5,
+        max_thickness_step_m=0.003,
+        max_thickness_to_radius_ratio=0.8,
+        main_spar_dominance_margin_m=0.005,
+        rear_main_radius_ratio_min=0.0,
+        main_spar_ei_ratio=2.0,
+        rear_min_inner_radius_m=1.0e-4,
+        rear_inboard_span_m=1.5,
+        rear_inboard_ei_to_main_ratio_max=0.20,
         joint_node_indices=joint_node_indices,
         dense_link_node_indices=tuple(range(1, nn - 1)),
         wire_node_indices=wire_node_indices,
         joint_mass_half_kg=0.2,
         fitting_mass_half_kg=0.0,
+        equivalent_analysis_success=True,
+        equivalent_failure_index=-0.20,
+        equivalent_buckling_index=-0.30,
+        equivalent_tip_deflection_m=1.2,
+        equivalent_tip_deflection_limit_m=2.5,
+        equivalent_twist_max_deg=0.8,
+        equivalent_twist_limit_deg=2.0,
     )
 
 
@@ -252,3 +279,81 @@ def test_constraint_assembly_exposes_explicit_boundary_groups() -> None:
     assert constraints.wire_slice.stop - constraints.wire_slice.start == 1
     assert len(constraints.link_row_slices) == 1
     assert constraints.link_row_slices[0].stop - constraints.link_row_slices[0].start == 6
+
+
+def test_phase2_optimizer_metrics_keep_raw_report_channels_separate() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, 18.0, 36.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+    )
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+    )
+
+    assert result.optimizer.psi_u_all_m >= abs(result.report.max_vertical_displacement_m)
+    assert result.optimizer.psi_u_rear_m >= abs(result.report.tip_deflection_rear_m)
+    assert result.optimizer.psi_u_rear_outboard_m >= abs(result.report.tip_deflection_rear_m)
+    assert result.report.rear_main_tip_ratio == pytest.approx(
+        abs(result.report.tip_deflection_rear_m)
+        / max(abs(result.report.tip_deflection_main_m), 1.0e-12)
+    )
+    assert result.report.link_force_hotspot_node == 2
+    assert result.feasibility.overall_hard_feasible is True
+    assert result.feasibility.overall_optimizer_candidate_feasible is True
+    with pytest.raises(AttributeError):
+        _ = result.optimizer.rear_main_tip_ratio
+
+
+def test_default_smooth_scale_is_run_constant_and_limit_anchored() -> None:
+    model_a = _simple_model(
+        lift_per_span_npm=np.array([0.0, 5.0, 10.0]),
+    )
+    model_b = _simple_model(
+        lift_per_span_npm=np.array([0.0, 50.0, 100.0]),
+    )
+
+    scales_a = build_default_smooth_scales(model_a)
+    scales_b = build_default_smooth_scales(model_b)
+
+    assert scales_a.u_scale_m == pytest.approx(2.5)
+    assert scales_b.u_scale_m == pytest.approx(2.5)
+    assert scales_a.lambda_scale_n == pytest.approx(scales_b.lambda_scale_n)
+
+
+def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None:
+    model = _simple_model()
+    optimizer_metrics = build_optimizer_facing_metrics(
+        model=model,
+        smooth=SmoothAggregationResult(
+            u_scale_m=2.5,
+            lambda_scale_n=1.0,
+            psi_u_all_m=2.8,
+            psi_u_rear_m=2.7,
+            psi_u_rear_outboard_m=2.6,
+            psi_link_n=120.0,
+        ),
+    )
+    feasibility = build_feasibility_summary(
+        optimizer_metrics=optimizer_metrics,
+        analysis_succeeded=True,
+    )
+
+    assert feasibility.overall_hard_feasible is True
+    assert feasibility.dual_displacement_candidate_passed is False
+    assert feasibility.overall_optimizer_candidate_feasible is False
+    assert feasibility.hard_failures == ()
+    assert feasibility.candidate_constraint_failures == ("dual_displacement_candidate",)
+
+
+def test_geometry_validity_margins_flag_invalid_ratio_or_taper() -> None:
+    model = _simple_model()
+    model.main_t_seg_m = np.array([0.050, 0.001], dtype=float)
+    model.main_r_seg_m = np.array([0.040, 0.041], dtype=float)
+
+    margins = build_geometry_validity_margins(model)
+
+    assert margins.valid is False
+    assert margins.main_thickness_ratio_margin_min_m < 0.0
+    assert margins.main_radius_taper_margin_min_m < 0.0

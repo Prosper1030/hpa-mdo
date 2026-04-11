@@ -5,6 +5,10 @@ from __future__ import annotations
 from hpa_mdo.structure.dual_beam_mainline.builder import build_dual_beam_mainline_model
 from hpa_mdo.structure.dual_beam_mainline.constraints import build_constraint_assembly
 from hpa_mdo.structure.dual_beam_mainline.load_split import build_dual_beam_load_split
+from hpa_mdo.structure.dual_beam_mainline.optimizer_view import (
+    build_feasibility_summary,
+    build_optimizer_facing_metrics,
+)
 from hpa_mdo.structure.dual_beam_mainline.recovery import (
     build_report_metrics,
     recover_reactions,
@@ -107,6 +111,14 @@ def run_dual_beam_mainline_kernel(
         disp_rear_m=disp_rear_m,
         reactions=reactions,
     )
+    optimizer = build_optimizer_facing_metrics(
+        model=model,
+        smooth=smooth,
+    )
+    feasibility = build_feasibility_summary(
+        optimizer_metrics=optimizer,
+        analysis_succeeded=True,
+    )
     return DualBeamMainlineResult(
         mode_definition=mode_definition,
         constraint_mode=constraint_mode,
@@ -116,6 +128,8 @@ def run_dual_beam_mainline_kernel(
         reactions=reactions,
         recovery=recovery,
         smooth=smooth,
+        optimizer=optimizer,
+        feasibility=feasibility,
         report=report,
     )
 

@@ -90,3 +90,33 @@ def test_build_robustness_report_lists_mode_deltas() -> None:
     assert "production_default" in report
     assert "Delta vs parity -> production_default" in report
     assert "hottest link nodes=(28, 39, 49)" in report
+
+
+def test_build_specimen_result_from_production_crossval_report_supports_new_format(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "crossval_report.txt"
+    report_path.write_text(
+        "\n".join(
+            [
+                "Spar tube mass (full-span)             9.454 kg",
+                "Total optimized mass (full)           11.954 kg",
+                "  Main tip deflection (uz, y=tip)    2393.720 mm   inspection / compare directly",
+                "  Rear tip deflection (uz, y=tip)    3228.426 mm   inspection / compare directly",
+                "  Max twist angle                      0.000 deg  informative / non-gating",
+                "  Main spar:",
+                "    Seg 1: OD=61.27mm, t=0.80mm",
+                "    Seg 2: OD=45.95mm, t=0.90mm",
+                "  Rear spar:",
+                "    Seg 1: OD=20.00mm, t=0.80mm",
+                "    Seg 2: OD=21.00mm, t=0.85mm",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = build_specimen_result_from_crossval_report(report_path)
+
+    assert result.tip_deflection_m == 2.39372
+    assert result.max_stress_main_Pa == 0.0
+    assert result.max_stress_rear_Pa == 0.0

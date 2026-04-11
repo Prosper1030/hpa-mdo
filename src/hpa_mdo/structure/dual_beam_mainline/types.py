@@ -108,6 +108,10 @@ class DualBeamMainlineModel:
     y_nodes_m: np.ndarray
     node_spacings_m: np.ndarray
     element_lengths_m: np.ndarray
+    main_t_seg_m: np.ndarray
+    main_r_seg_m: np.ndarray
+    rear_t_seg_m: np.ndarray
+    rear_r_seg_m: np.ndarray
     nodes_main_m: np.ndarray
     nodes_rear_m: np.ndarray
     spar_offset_vectors_m: np.ndarray
@@ -137,11 +141,26 @@ class DualBeamMainlineModel:
     torque_input: TorqueInputDefinition
     gravity_scale: float
     max_tip_deflection_limit_m: float | None
+    max_thickness_step_m: float
+    max_thickness_to_radius_ratio: float
+    main_spar_dominance_margin_m: float
+    rear_main_radius_ratio_min: float
+    main_spar_ei_ratio: float
+    rear_min_inner_radius_m: float
+    rear_inboard_span_m: float
+    rear_inboard_ei_to_main_ratio_max: float
     joint_node_indices: tuple[int, ...]
     dense_link_node_indices: tuple[int, ...]
     wire_node_indices: tuple[int, ...]
     joint_mass_half_kg: float
     fitting_mass_half_kg: float
+    equivalent_analysis_success: bool
+    equivalent_failure_index: float
+    equivalent_buckling_index: float
+    equivalent_tip_deflection_m: float
+    equivalent_tip_deflection_limit_m: float | None
+    equivalent_twist_max_deg: float
+    equivalent_twist_limit_deg: float | None
 
 
 @dataclass
@@ -236,11 +255,84 @@ class SmoothAggregationResult:
 
 
 @dataclass
+class GeometryValidityMargins:
+    """Optimizer-facing geometry and manufacturability margin summary."""
+
+    main_thickness_ratio_margin_min_m: float
+    rear_thickness_ratio_margin_min_m: float
+    main_hollow_margin_min_m: float
+    rear_hollow_margin_min_m: float
+    main_radius_taper_margin_min_m: float
+    rear_radius_taper_margin_min_m: float
+    main_thickness_step_margin_min_m: float
+    rear_thickness_step_margin_min_m: float
+    radius_dominance_margin_min_m: float
+    rear_main_radius_ratio_margin_min_m: float
+    ei_dominance_margin_min_nm2: float
+    ei_ratio_margin_min: float
+    rear_inboard_ei_margin_min_nm2: float
+    valid: bool
+
+
+@dataclass
+class EquivalentGateResult:
+    """Validated equivalent-beam gate values kept available beside the new dual path."""
+
+    analysis_success: bool
+    failure_index: float
+    failure_margin: float
+    failure_passed: bool
+    buckling_index: float
+    buckling_margin: float
+    buckling_passed: bool
+    tip_deflection_m: float
+    tip_limit_m: float | None
+    tip_margin_m: float
+    tip_passed: bool
+    twist_max_deg: float
+    twist_limit_deg: float | None
+    twist_margin_deg: float
+    twist_passed: bool
+
+
+@dataclass
+class OptimizerFacingMetrics:
+    """Smooth quantities and validated gates exposed to future optimizers."""
+
+    psi_u_all_m: float
+    psi_u_rear_m: float
+    psi_u_rear_outboard_m: float
+    dual_displacement_limit_m: float | None
+    dual_displacement_margin_m: float
+    geometry_validity: GeometryValidityMargins
+    equivalent_gates: EquivalentGateResult
+
+
+@dataclass
+class FeasibilitySummary:
+    """Phase-2 evaluator summary with hard-fail and candidate-only splits."""
+
+    analysis_succeeded: bool
+    geometry_validity_succeeded: bool
+    dual_displacement_candidate_passed: bool
+    equivalent_failure_passed: bool
+    equivalent_buckling_passed: bool
+    equivalent_tip_passed: bool
+    equivalent_twist_passed: bool
+    overall_hard_feasible: bool
+    overall_optimizer_candidate_feasible: bool
+    hard_failures: tuple[str, ...]
+    candidate_constraint_failures: tuple[str, ...]
+    report_only_channels: tuple[str, ...]
+
+
+@dataclass
 class ReportMetrics:
     """Raw engineering report quantities."""
 
     tip_deflection_main_m: float
     tip_deflection_rear_m: float
+    rear_main_tip_ratio: float
     max_vertical_displacement_m: float
     max_vertical_spar: str
     max_vertical_node: int
@@ -248,6 +340,7 @@ class ReportMetrics:
     root_reaction_rear_n: np.ndarray
     wire_reaction_total_n: float
     link_force_max_n: float
+    link_force_hotspot_node: int | None
 
 
 @dataclass
@@ -262,6 +355,8 @@ class DualBeamMainlineResult:
     reactions: ReactionRecoveryResult
     recovery: RecoveryResult
     smooth: SmoothAggregationResult
+    optimizer: OptimizerFacingMetrics
+    feasibility: FeasibilitySummary
     report: ReportMetrics
 
 

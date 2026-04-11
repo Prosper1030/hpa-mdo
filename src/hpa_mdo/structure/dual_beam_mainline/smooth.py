@@ -32,7 +32,10 @@ def ks_smooth_max(values: np.ndarray, rho: float) -> float:
 def build_default_smooth_scales(model: DualBeamMainlineModel) -> SmoothScaleConfig:
     """Return run-constant defaults that do not depend on the solved state."""
 
-    u_scale_m = max(float(model.max_tip_deflection_limit_m or 0.0), 1.0e-3)
+    limit_m = model.max_tip_deflection_limit_m
+    if limit_m is None:
+        limit_m = model.equivalent_tip_deflection_limit_m
+    u_scale_m = max(float(limit_m or 0.0), 1.0e-3)
     return SmoothScaleConfig(
         u_scale_m=u_scale_m,
         lambda_scale_n=1.0,

@@ -175,6 +175,7 @@ def build_report_metrics(
 
     tip_deflection_main_m = float(disp_main_m[-1, 2])
     tip_deflection_rear_m = float(disp_rear_m[-1, 2])
+    rear_main_tip_ratio = abs(tip_deflection_rear_m) / max(abs(tip_deflection_main_m), 1.0e-12)
 
     main_abs = np.abs(disp_main_m[:, 2])
     rear_abs = np.abs(disp_rear_m[:, 2])
@@ -191,15 +192,19 @@ def build_report_metrics(
         max_vertical_spar = "main"
         max_vertical_node = main_max_index + 1
 
-    link_force_max_n = (
-        float(np.max(np.linalg.norm(reactions.link_resultants_n, axis=1)))
-        if reactions.link_resultants_n.size
-        else 0.0
-    )
+    if reactions.link_resultants_n.size:
+        link_norms = np.linalg.norm(reactions.link_resultants_n, axis=1)
+        hotspot_index = int(np.argmax(link_norms))
+        link_force_max_n = float(link_norms[hotspot_index])
+        link_force_hotspot_node = int(reactions.link_node_indices[hotspot_index]) + 1
+    else:
+        link_force_max_n = 0.0
+        link_force_hotspot_node = None
 
     return ReportMetrics(
         tip_deflection_main_m=tip_deflection_main_m,
         tip_deflection_rear_m=tip_deflection_rear_m,
+        rear_main_tip_ratio=float(rear_main_tip_ratio),
         max_vertical_displacement_m=max_vertical_displacement_m,
         max_vertical_spar=max_vertical_spar,
         max_vertical_node=max_vertical_node,
@@ -207,4 +212,5 @@ def build_report_metrics(
         root_reaction_rear_n=np.asarray(reactions.root_rear_reaction_n, dtype=float),
         wire_reaction_total_n=float(np.sum(reactions.wire_reactions_n)),
         link_force_max_n=link_force_max_n,
+        link_force_hotspot_node=link_force_hotspot_node,
     )

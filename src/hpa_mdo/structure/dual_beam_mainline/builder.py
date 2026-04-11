@@ -42,6 +42,23 @@ def _segment_values_to_stations(
     return out
 
 
+def _node_values_to_segment_midpoints(
+    node_values: np.ndarray,
+    seg_lengths: list[float],
+    y_nodes_m: np.ndarray,
+) -> np.ndarray:
+    """Sample nodal values at segment midpoints for segment-level validity checks."""
+
+    node_values = np.asarray(node_values, dtype=float).reshape(-1)
+    y_nodes_m = np.asarray(y_nodes_m, dtype=float).reshape(-1)
+    if node_values.shape != y_nodes_m.shape:
+        raise ValueError("node_values and y_nodes_m must have the same shape.")
+
+    boundaries = np.concatenate(([0.0], np.cumsum(np.asarray(seg_lengths, dtype=float))))
+    midpoints_m = 0.5 * (boundaries[:-1] + boundaries[1:])
+    return np.interp(midpoints_m, y_nodes_m, node_values)
+
+
 def _dihedral_z(y_nodes_m: np.ndarray, dihedral_deg: np.ndarray) -> np.ndarray:
     """Integrate dihedral to nodal Z offset using the existing export convention."""
 
@@ -97,15 +114,24 @@ def build_dual_beam_mainline_model(
 
     main_seg_lengths = cfg.spar_segment_lengths(cfg.main_spar)
     rear_seg_lengths = cfg.spar_segment_lengths(cfg.rear_spar)
+    main_t_seg_m = np.asarray(opt_result.main_t_seg_mm, dtype=float).reshape(-1) * 1.0e-3
 
     main_t_elem_m = _segment_values_to_stations(
-        opt_result.main_t_seg_mm, main_seg_lengths, element_centres_m, scale=1.0e-3
+        main_t_seg_m,
+        main_seg_lengths,
+        element_centres_m,
+        scale=1.0,
     )
     if opt_result.rear_t_seg_mm is None:
+        rear_t_seg_m = np.full(len(rear_seg_lengths), cfg.rear_spar.min_wall_thickness, dtype=float)
         rear_t_elem_m = np.full(nn - 1, cfg.rear_spar.min_wall_thickness, dtype=float)
     else:
+        rear_t_seg_m = np.asarray(opt_result.rear_t_seg_mm, dtype=float).reshape(-1) * 1.0e-3
         rear_t_elem_m = _segment_values_to_stations(
-            opt_result.rear_t_seg_mm, rear_seg_lengths, element_centres_m, scale=1.0e-3
+            rear_t_seg_m,
+            rear_seg_lengths,
+            element_centres_m,
+            scale=1.0,
         )
 
     default_main_radius_nodes_m = compute_outer_radius(
@@ -128,17 +154,35 @@ def build_dual_beam_mainline_model(
     )
 
     if opt_result.main_r_seg_mm is None:
+        main_r_seg_m = _node_values_to_segment_midpoints(
+            default_main_radius_nodes_m,
+            main_seg_lengths,
+            y_nodes_m,
+        )
         main_radius_elem_m = default_main_radius_elem_m
     else:
+        main_r_seg_m = np.asarray(opt_result.main_r_seg_mm, dtype=float).reshape(-1) * 1.0e-3
         main_radius_elem_m = _segment_values_to_stations(
-            opt_result.main_r_seg_mm, main_seg_lengths, element_centres_m, scale=1.0e-3
+            main_r_seg_m,
+            main_seg_lengths,
+            element_centres_m,
+            scale=1.0,
         )
 
     if opt_result.rear_r_seg_mm is None:
+        rear_r_seg_m = _node_values_to_segment_midpoints(
+            default_rear_radius_nodes_m,
+            rear_seg_lengths,
+            y_nodes_m,
+        )
         rear_radius_elem_m = default_rear_radius_elem_m
     else:
+        rear_r_seg_m = np.asarray(opt_result.rear_r_seg_mm, dtype=float).reshape(-1) * 1.0e-3
         rear_radius_elem_m = _segment_values_to_stations(
-            opt_result.rear_r_seg_mm, rear_seg_lengths, element_centres_m, scale=1.0e-3
+            rear_r_seg_m,
+            rear_seg_lengths,
+            element_centres_m,
+            scale=1.0,
         )
 
     z_dihedral_m = _dihedral_z(y_nodes_m, np.asarray(wing.dihedral_deg, dtype=float))
@@ -212,6 +256,10 @@ def build_dual_beam_mainline_model(
         y_nodes_m=y_nodes_m,
         node_spacings_m=node_spacings_m,
         element_lengths_m=element_lengths_m,
+        main_t_seg_m=main_t_seg_m,
+        main_r_seg_m=main_r_seg_m,
+        rear_t_seg_m=rear_t_seg_m,
+        rear_r_seg_m=rear_r_seg_m,
         nodes_main_m=nodes_main_m,
         nodes_rear_m=nodes_rear_m,
         spar_offset_vectors_m=spar_offset_vectors_m,
@@ -241,9 +289,32 @@ def build_dual_beam_mainline_model(
         torque_input=torque_input or TorqueInputDefinition(),
         gravity_scale=float(load_case.gravity_scale),
         max_tip_deflection_limit_m=load_case.max_tip_deflection_m,
+        max_thickness_step_m=float(cfg.solver.max_thickness_step_m),
+        max_thickness_to_radius_ratio=float(cfg.solver.max_thickness_to_radius_ratio),
+        main_spar_dominance_margin_m=float(cfg.solver.main_spar_dominance_margin_m),
+        rear_main_radius_ratio_min=float(cfg.solver.rear_main_radius_ratio_min),
+        main_spar_ei_ratio=float(cfg.solver.main_spar_ei_ratio),
+        rear_min_inner_radius_m=float(cfg.solver.rear_min_inner_radius_m),
+        rear_inboard_span_m=float(cfg.solver.rear_inboard_span_m),
+        rear_inboard_ei_to_main_ratio_max=float(cfg.solver.rear_inboard_ei_to_main_ratio_max),
         joint_node_indices=joint_node_indices,
         dense_link_node_indices=dense_link_node_indices,
         wire_node_indices=wire_node_indices,
         joint_mass_half_kg=float(joint_mass_half_kg),
         fitting_mass_half_kg=0.0,
+        equivalent_analysis_success=bool(opt_result.success),
+        equivalent_failure_index=float(opt_result.failure_index),
+        equivalent_buckling_index=float(opt_result.buckling_index),
+        equivalent_tip_deflection_m=float(opt_result.tip_deflection_m),
+        equivalent_tip_deflection_limit_m=(
+            opt_result.max_tip_deflection_m
+            if opt_result.max_tip_deflection_m is not None
+            else load_case.max_tip_deflection_m
+        ),
+        equivalent_twist_max_deg=float(opt_result.twist_max_deg),
+        equivalent_twist_limit_deg=(
+            opt_result.max_twist_limit_deg
+            if opt_result.max_twist_limit_deg is not None
+            else load_case.max_twist_deg
+        ),
     )
