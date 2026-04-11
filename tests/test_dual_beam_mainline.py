@@ -114,6 +114,7 @@ def test_mode_matrix_freezes_reviewer_required_load_and_bc_ownership() -> None:
     assert production.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
     assert robustness.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
     assert robustness.ownership.hardware_mass_structural_loads == "report_only"
+    assert LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY in robustness.allowed_link_modes
 
 
 def test_torque_conversion_and_dual_beam_split_use_one_signed_main_spar_rule() -> None:

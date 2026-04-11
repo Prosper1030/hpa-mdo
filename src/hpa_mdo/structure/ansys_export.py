@@ -8,6 +8,9 @@ Supported formats:
 Supported export modes:
     - ``dual_spar``: the original higher-fidelity inspection model with two
       beam lines and rigid rib links.
+    - ``dual_beam_production``: the new physics-first production analysis
+      export with explicit main/rear beam-line self-weight and offset-rigid
+      joint links.
     - ``equivalent_beam``: a validation model that mirrors the internal FEM
       equivalent-beam assumptions used by the optimizer.
 
@@ -33,6 +36,13 @@ from hpa_mdo.core.config import HPAConfig
 from hpa_mdo.core.aircraft import Aircraft, WingGeometry
 from hpa_mdo.core.constants import G_STANDARD
 from hpa_mdo.core.materials import Material, MaterialDB
+from hpa_mdo.structure.dual_beam_mainline.builder import build_dual_beam_mainline_model
+from hpa_mdo.structure.dual_beam_mainline.load_split import build_dual_beam_load_split
+from hpa_mdo.structure.dual_beam_mainline.types import (
+    AnalysisModeName,
+    LoadSplitResult,
+    get_analysis_mode_definition,
+)
 from hpa_mdo.structure.optimizer import OptimizationResult
 from hpa_mdo.structure.spar_model import (
     DualSparSection,
@@ -44,8 +54,8 @@ from hpa_mdo.structure.spar_model import (
 logger = logging.getLogger(__name__)
 
 
-ExportMode = Literal["dual_spar", "equivalent_beam"]
-VALID_EXPORT_MODES = {"dual_spar", "equivalent_beam"}
+ExportMode = Literal["dual_spar", "dual_beam_production", "equivalent_beam"]
+VALID_EXPORT_MODES = {"dual_spar", "dual_beam_production", "equivalent_beam"}
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +293,23 @@ class ANSYSExporter:
         self.equivalent_fz_nodal, self.equivalent_my_nodal = self._equivalent_nodal_loads()
         self.equivalent_total_fz_n = float(np.sum(self.equivalent_fz_nodal))
         self.equivalent_total_my_nm = float(np.sum(self.equivalent_my_nodal))
+        self.dual_beam_export_load_split: LoadSplitResult | None = None
+        if self.mode in {"dual_spar", "dual_beam_production"}:
+            analysis_mode = (
+                AnalysisModeName.DUAL_SPAR_ANSYS_PARITY
+                if self.mode == "dual_spar"
+                else AnalysisModeName.DUAL_BEAM_PRODUCTION
+            )
+            self.dual_beam_export_load_split = build_dual_beam_load_split(
+                model=build_dual_beam_mainline_model(
+                    cfg=cfg,
+                    aircraft=aircraft,
+                    opt_result=opt_result,
+                    export_loads=aero_loads,
+                    materials_db=materials_db,
+                ),
+                mode_definition=get_analysis_mode_definition(analysis_mode),
+            )
 
     def _compute_equivalent_section(self) -> DualSparSection:
         """Compute the exact equivalent section arrays used by internal FEM."""
@@ -325,6 +352,16 @@ class ANSYSExporter:
 
         return fz, my
 
+    def _dual_beam_main_nodal_fz(self) -> np.ndarray:
+        if self.dual_beam_export_load_split is None:
+            raise RuntimeError("Dual-beam nodal loads requested for a non dual-beam export mode.")
+        return np.asarray(self.dual_beam_export_load_split.main_loads_n[:, 2], dtype=float)
+
+    def _dual_beam_rear_nodal_fz(self) -> np.ndarray:
+        if self.dual_beam_export_load_split is None:
+            raise RuntimeError("Dual-beam nodal loads requested for a non dual-beam export mode.")
+        return np.asarray(self.dual_beam_export_load_split.rear_loads_n[:, 2], dtype=float)
+
     # ==================================================================
     # APDL macro (.mac)
     # ==================================================================
@@ -357,9 +394,15 @@ class ANSYSExporter:
     # -- APDL helpers ---------------------------------------------------
 
     def _apdl_header(self, f: TextIO) -> None:
+        title = (
+            "Dual-beam production ANSYS APDL input"
+            if self.mode == "dual_beam_production"
+            else "Dual-spar ANSYS APDL input"
+        )
         f.write("! ============================================================\n")
-        f.write("! HPA-MDO v2: Dual-spar ANSYS APDL input (auto-generated)\n")
+        f.write(f"! HPA-MDO v2: {title} (auto-generated)\n")
         f.write(f"! Project     : {self.cfg.project_name}\n")
+        f.write(f"! Export mode : {self.mode}\n")
         f.write(f"! Main spar   : {self.mat_main.name} at {self.cfg.main_spar.location_xc:.0%}c\n")
         f.write(f"! Rear spar   : {self.mat_rear.name} at {self.cfg.rear_spar.location_xc:.0%}c\n")
         f.write(f"! Nodes/spar  : {self.nn}\n")
@@ -478,22 +521,28 @@ class ANSYSExporter:
         f.write("ALLSEL,ALL\n\n")
 
     def _apdl_rigid_links(self, f: TextIO) -> None:
-        """Constraint equations (CE) connecting main↔rear nodes at rib joints."""
+        """Connect main↔rear nodes at rib joints with mode-specific rigid links."""
         if len(self.joint_node_indices) == 0:
             f.write("! --- No rib links (no joints) ---\n\n")
             return
 
         nn = self.nn
-        f.write("! --- Rigid rib links (CE constraints at joint positions) ---\n")
-        f.write("! Main spar node N  <-->  Rear spar node N+%d\n" % nn)
-        f.write("! All 6 DOFs coupled (rigid rib)\n")
-
-        for idx in self.joint_node_indices:
-            main_node = idx + 1           # 1-based APDL node number
-            rear_node = nn + idx + 1      # rear spar node
-            # Couple all 6 DOFs via CE command
-            for dof_label in ["UX", "UY", "UZ", "ROTX", "ROTY", "ROTZ"]:
-                f.write(f"CE,NEXT,0, {main_node},{dof_label},1, {rear_node},{dof_label},-1\n")
+        if self.mode == "dual_beam_production":
+            f.write("! --- Offset-rigid rib links (CERIG at joint positions) ---\n")
+            f.write("! Main spar node N is the master; rear spar node N+%d is the slave.\n" % nn)
+            for idx in self.joint_node_indices:
+                main_node = idx + 1
+                rear_node = nn + idx + 1
+                f.write(f"CERIG,{main_node},{rear_node},ALL\n")
+        else:
+            f.write("! --- Rigid rib links (CE constraints at joint positions) ---\n")
+            f.write("! Main spar node N  <-->  Rear spar node N+%d\n" % nn)
+            f.write("! All 6 DOFs coupled with parity-style equal-DOF constraints.\n")
+            for idx in self.joint_node_indices:
+                main_node = idx + 1           # 1-based APDL node number
+                rear_node = nn + idx + 1      # rear spar node
+                for dof_label in ["UX", "UY", "UZ", "ROTX", "ROTY", "ROTZ"]:
+                    f.write(f"CE,NEXT,0, {main_node},{dof_label},1, {rear_node},{dof_label},-1\n")
         f.write("\n")
 
     def _apdl_bc(self, f: TextIO) -> None:
@@ -514,45 +563,25 @@ class ANSYSExporter:
 
     def _apdl_loads(self, f: TextIO) -> None:
         nn = self.nn
-        dy = np.diff(self.y)
         tol = 1e-10
 
-        # Accumulate nodal loads first so each node/DOF is written once.
-        # APDL's FK command overwrites prior loads on the same node and DOF.
-        fz_main = np.zeros(nn, dtype=float)
-        fz_rear = np.zeros(nn, dtype=float)
+        if self.dual_beam_export_load_split is None:
+            raise RuntimeError("Dual-beam APDL loads require an explicit dual-beam load split.")
 
-        # --- Fz lift on main spar ---
-        f.write("! --- Applied lift loads (Fz) on main spar (accumulated) ---\n")
-        for j in range(nn):
-            if j == 0:
-                F_node = self.fz_lift[j] * dy[0] / 2.0
-            elif j == nn - 1:
-                F_node = self.fz_lift[j] * dy[-1] / 2.0
-            else:
-                F_node = self.fz_lift[j] * (dy[j - 1] + dy[j]) / 2.0
-            fz_main[j] += F_node
+        fz_main = self._dual_beam_main_nodal_fz()
+        fz_rear = self._dual_beam_rear_nodal_fz()
 
-        # --- My torque distributed to both spars ---
-        # Torque is reacted by a couple: F_chord * spar_separation
-        # Split proportionally by local bending stiffness, but for
-        # simplicity use 50/50 as vertical couple forces on the two spars.
-        spar_sep = self.x_rear - self.x_main  # chordwise separation [m]
-        f.write("! --- Applied torque (My) as vertical couple on both spars (accumulated) ---\n")
-        for j in range(nn):
-            if j == 0:
-                M_node = self.my_torque[j] * dy[0] / 2.0
-            elif j == nn - 1:
-                M_node = self.my_torque[j] * dy[-1] / 2.0
-            else:
-                M_node = self.my_torque[j] * (dy[j - 1] + dy[j]) / 2.0
-            if abs(M_node) > tol and abs(spar_sep[j]) > 1e-6:
-                Fz_couple = M_node / spar_sep[j]
-                # +Fz on main, -Fz on rear (positive My → nose-up)
-                fz_main[j] += Fz_couple
-                fz_rear[j] -= Fz_couple
+        if self.mode == "dual_beam_production":
+            f.write("! --- Production dual-beam nodal FZ loads from the mainline load split ---\n")
+            f.write("! Main spar FZ includes lift, aerodynamic torque couple, and main tube self-weight.\n")
+            f.write("! Rear spar FZ includes aerodynamic torque couple and rear tube self-weight.\n")
+            f.write("! No equivalent-beam rear-gravity torque is added in this export mode.\n")
+        else:
+            f.write("! --- Parity dual-spar nodal FZ loads from the mainline parity split ---\n")
+            f.write("! Main spar FZ includes lift and aerodynamic torque couple only.\n")
+            f.write("! Rear spar FZ includes the equal/opposite aerodynamic torque couple only.\n")
 
-        f.write("! --- Final nodal FZ loads after summation (one FK per node DOF) ---\n")
+        f.write("! --- Final nodal FZ loads (one FK per node DOF) ---\n")
         for j in range(nn):
             val_main = fz_main[j]
             if abs(val_main) > tol:
@@ -575,6 +604,8 @@ class ANSYSExporter:
         f.write("/POST1\n")
         f.write("SET,LAST\n")
         f.write(f"*GET,TIP_UZ,NODE,{self.nn},U,Z\n")
+        if self.mode == "dual_beam_production":
+            f.write(f"*GET,TIP_REAR_UZ,NODE,{2 * self.nn},U,Z\n")
         f.write("\n")
         f.write("! Restrict beam result post-processing to BEAM188 types only.\n")
         f.write("ESEL,S,TYPE,,1,2\n")
@@ -772,6 +803,7 @@ class ANSYSExporter:
                     "Rear_Outer_Radius_m", "Rear_Wall_Thickness_m",
                     # Loads
                     "Lift_Per_Span_N_m", "Torque_Per_Span_Nm_m",
+                    "Main_FZ_N", "Rear_FZ_N",
                     # Flags
                     "Is_Joint", "Is_Wire_Attach",
                 ]
@@ -779,6 +811,16 @@ class ANSYSExporter:
 
                 joint_set = set(self.joint_node_indices)
                 wire_set = set(self.wire_nodes)
+                main_fz = (
+                    self._dual_beam_main_nodal_fz()
+                    if self.dual_beam_export_load_split is not None
+                    else np.zeros(self.nn, dtype=float)
+                )
+                rear_fz = (
+                    self._dual_beam_rear_nodal_fz()
+                    if self.dual_beam_export_load_split is not None
+                    else np.zeros(self.nn, dtype=float)
+                )
 
                 for j in range(self.nn):
                     writer.writerow([
@@ -789,6 +831,7 @@ class ANSYSExporter:
                         f"{self.x_rear[j]:.8e}", f"{self.z_rear[j]:.8e}",
                         f"{self.R_rear[j]:.8e}", f"{self.t_rear[j]:.8e}",
                         f"{self.fz_lift[j]:.8e}", f"{self.my_torque[j]:.8e}",
+                        f"{main_fz[j]:.8e}", f"{rear_fz[j]:.8e}",
                         1 if j in joint_set else 0,
                         1 if j in wire_set else 0,
                     ])
@@ -878,7 +921,6 @@ class ANSYSExporter:
     def _bdf_write(self, f: TextIO) -> None:
         nn = self.nn
         n_elem = nn - 1
-        dy = np.diff(self.y)
 
         f.write("$ HPA-MDO v2: Dual-spar NASTRAN Bulk Data (auto-generated)\n")
         f.write("BEGIN BULK\n")
@@ -935,12 +977,15 @@ class ANSYSExporter:
 
         # -- Rigid links at joint/rib positions (MPC / RBE2) --
         if self.joint_node_indices:
-            f.write("$ --- Rigid rib links (RBE2) ---\n")
+            if self.mode == "dual_beam_production":
+                f.write("$ --- Offset-rigid rib links (RBE2) ---\n")
+            else:
+                f.write("$ --- Parity-style rib links (RBE2 export surrogate) ---\n")
             rbe_id = 2 * n_elem + 1
             for idx in self.joint_node_indices:
                 main_gid = idx + 1
                 rear_gid = nn + idx + 1
-                # RBE2: independent = main, dependent = rear, all 6 DOFs
+                # RBE2 with non-coincident grids behaves as an offset-rigid link.
                 f.write(f"RBE2,{rbe_id},{main_gid},123456,{rear_gid}\n")
                 rbe_id += 1
 
@@ -956,38 +1001,23 @@ class ANSYSExporter:
                 gid = wn + 1
                 f.write(f"SPC1,1,3,{gid}   $ Wire at y={self.y[wn]:.2f}m\n")
 
-        # -- Applied loads --
-        # Fz lift on main spar
-        f.write("$ --- Lift forces on main spar ---\n")
-        for j in range(nn):
-            if j == 0:
-                F_node = self.fz_lift[j] * dy[0] / 2.0
-            elif j == nn - 1:
-                F_node = self.fz_lift[j] * dy[-1] / 2.0
-            else:
-                F_node = self.fz_lift[j] * (dy[j - 1] + dy[j]) / 2.0
-            if abs(F_node) > 1e-10:
-                direction = 1.0 if F_node > 0 else -1.0
-                f.write(f"FORCE,1,{j + 1},,{abs(F_node):.6f},0.0,0.0,{direction}\n")
+        if self.dual_beam_export_load_split is None:
+            raise RuntimeError("Dual-beam BDF export requires an explicit dual-beam load split.")
 
-        # My torque as vertical couple
-        spar_sep = self.x_rear - self.x_main
-        f.write("$ --- Torque as vertical couple on both spars ---\n")
+        main_fz = self._dual_beam_main_nodal_fz()
+        rear_fz = self._dual_beam_rear_nodal_fz()
+
+        # -- Applied loads --
+        f.write("$ --- Dual-beam nodal FZ loads ---\n")
         for j in range(nn):
-            if j == 0:
-                M_node = self.my_torque[j] * dy[0] / 2.0
-            elif j == nn - 1:
-                M_node = self.my_torque[j] * dy[-1] / 2.0
-            else:
-                M_node = self.my_torque[j] * (dy[j - 1] + dy[j]) / 2.0
-            if abs(M_node) > 1e-10 and abs(spar_sep[j]) > 1e-6:
-                Fz_couple = M_node / spar_sep[j]
-                # Main spar
-                d1 = 1.0 if Fz_couple > 0 else -1.0
-                f.write(f"FORCE,1,{j + 1},,{abs(Fz_couple):.6f},0.0,0.0,{d1}\n")
-                # Rear spar (opposite sign)
-                d2 = -d1
-                f.write(f"FORCE,1,{nn + j + 1},,{abs(Fz_couple):.6f},0.0,0.0,{d2}\n")
+            main_val = main_fz[j]
+            if abs(main_val) > 1e-10:
+                direction = 1.0 if main_val > 0 else -1.0
+                f.write(f"FORCE,1,{j + 1},,{abs(main_val):.6f},0.0,0.0,{direction}\n")
+            rear_val = rear_fz[j]
+            if abs(rear_val) > 1e-10:
+                direction = 1.0 if rear_val > 0 else -1.0
+                f.write(f"FORCE,1,{nn + j + 1},,{abs(rear_val):.6f},0.0,0.0,{direction}\n")
 
         f.write("ENDDATA\n")
 

@@ -337,3 +337,56 @@ def test_dual_spar_mode_remains_the_default_export(tmp_path):
     assert "Dual-spar ANSYS APDL input" in apdl_text
     assert "BEAM,CTUBE" in apdl_text
     assert "MPC184" in apdl_text
+
+
+def test_dual_beam_production_export_uses_mainline_load_split_and_offset_rigid_links(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg = load_config(repo_root / "configs" / "blackcat_004.yaml")
+    with patch.object(cfg.solver, "n_beam_nodes", 10):
+        aircraft = Aircraft.from_config(cfg)
+
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+    result = _build_result(
+        n_seg,
+        np.full(n_seg, 12.0),
+        np.full(n_seg, 9.0),
+    )
+    aero_loads = {
+        "lift_per_span": np.linspace(30.0, 10.0, aircraft.wing.n_stations),
+        "torque_per_span": np.linspace(-20.0, -5.0, aircraft.wing.n_stations),
+        "total_lift": 200.0,
+    }
+
+    exporter = ANSYSExporter(
+        cfg,
+        aircraft,
+        result,
+        aero_loads,
+        MaterialDB(),
+        mode="dual_beam_production",
+    )
+    path = exporter.write_apdl(tmp_path / "production.mac")
+    apdl_text = path.read_text(encoding="utf-8")
+
+    assert exporter.dual_beam_export_load_split is not None
+    assert exporter.mode == "dual_beam_production"
+    assert "CERIG" in apdl_text
+    assert "CE,NEXT" not in apdl_text
+    assert "No equivalent-beam rear-gravity torque is added" in apdl_text
+
+    fk_matches = re.findall(
+        r"^FK,\s*(\d+)\s*,\s*FZ,\s*([+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)",
+        apdl_text,
+        flags=re.MULTILINE,
+    )
+    observed = {int(node): float(val) for node, val in fk_matches}
+    expected_main = exporter.dual_beam_export_load_split.main_loads_n[:, 2]
+    expected_rear = exporter.dual_beam_export_load_split.rear_loads_n[:, 2]
+
+    for j in range(exporter.nn):
+        main_node = j + 1
+        rear_node = exporter.nn + j + 1
+        if abs(expected_main[j]) > 1e-10:
+            np.testing.assert_allclose(observed[main_node], expected_main[j], atol=1e-6)
+        if abs(expected_rear[j]) > 1e-10:
+            np.testing.assert_allclose(observed[rear_node], expected_rear[j], atol=1e-6)

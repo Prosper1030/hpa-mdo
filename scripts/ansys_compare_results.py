@@ -37,15 +37,25 @@ class BaselineMetrics:
     tip_node: int
     nodes_per_spar: int
     export_mode: str = "unknown"
+    rear_tip_deflection_mm: Optional[float] = None
+    root_main_reaction_fz_n: Optional[float] = None
+    root_rear_reaction_fz_n: Optional[float] = None
+    wire_reaction_fz_n: Optional[float] = None
+    rear_tip_node: Optional[int] = None
+    wire_nodes: tuple[int, ...] = ()
 
 
 @dataclass
 class AnsysMetrics:
     tip_deflection_mm: Optional[float] = None
+    rear_tip_deflection_mm: Optional[float] = None
     max_uz_mm: Optional[float] = None
     max_vm_main_mpa: Optional[float] = None
     max_vm_rear_mpa: Optional[float] = None
     root_reaction_fz_n: Optional[float] = None
+    root_main_reaction_fz_n: Optional[float] = None
+    root_rear_reaction_fz_n: Optional[float] = None
+    wire_reaction_fz_n: Optional[float] = None
     max_twist_deg: Optional[float] = None
     total_spar_mass_kg: Optional[float] = None
     root_only_reaction_fz_n: Optional[float] = None
@@ -60,35 +70,94 @@ def _extract_float(pattern: str, text: str, field_name: str) -> float:
     return float(match.group(1))
 
 
+def _extract_optional_float(pattern: str, text: str) -> Optional[float]:
+    match = re.search(pattern, text, flags=re.MULTILINE)
+    if not match:
+        return None
+    return float(match.group(1))
+
+
+def _extract_first_available_float(
+    patterns: list[str],
+    text: str,
+    field_name: str,
+) -> float:
+    for pattern in patterns:
+        value = _extract_optional_float(pattern, text)
+        if value is not None:
+            return value
+    raise ValueError(f"Could not parse baseline metric: {field_name}")
+
+
+def _extract_wire_nodes_from_mac(mac_path: Path) -> tuple[int, ...]:
+    if not mac_path.exists():
+        return ()
+
+    text = mac_path.read_text(encoding="utf-8", errors="ignore")
+    nodes = [
+        int(match.group(1))
+        for match in re.finditer(
+            r"^\s*DK,\s*(\d+)\s*,\s*UZ\s*,\s*0(?:\.0+)?\b",
+            text,
+            flags=re.MULTILINE,
+        )
+    ]
+    return tuple(nodes)
+
+
 def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -> BaselineMetrics:
     text = report_path.read_text(encoding="utf-8")
     mode_match = re.search(r"Export mode:\s*([A-Za-z0-9_-]+)", text)
     export_mode = mode_match.group(1).lower().replace("-", "_") if mode_match else "unknown"
 
-    tip_deflection_mm = _extract_float(
-        r"Tip deflection \(uz, y=[^)]+\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
+    tip_deflection_mm = _extract_first_available_float(
+        [
+            r"Main tip deflection \(uz, y=[^)]+\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
+            r"Tip deflection \(uz, y=[^)]+\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
+        ],
         text,
         "tip_deflection_mm",
+    )
+    rear_tip_deflection_mm = _extract_optional_float(
+        r"Rear tip deflection \(uz, y=[^)]+\)\s+([+-]?\d+(?:\.\d+)?)\s+mm",
+        text,
     )
     max_uz_mm = _extract_float(
         r"Max uz anywhere\s+([+-]?\d+(?:\.\d+)?)\s+mm",
         text,
         "max_uz_mm",
     )
-    max_vm_main_mpa = _extract_float(
+    max_vm_main_mpa = _extract_optional_float(
         r"Max Von Mises \(main spar\)\s+([+-]?\d+(?:\.\d+)?)\s+MPa",
         text,
-        "max_vm_main_mpa",
     )
-    max_vm_rear_mpa = _extract_float(
+    max_vm_rear_mpa = _extract_optional_float(
         r"Max Von Mises \(rear spar\)\s+([+-]?\d+(?:\.\d+)?)\s+MPa",
         text,
-        "max_vm_rear_mpa",
     )
-    root_reaction_fz_n = _extract_float(
-        r"Root reaction Fz\s+([+-]?\d+(?:\.\d+)?)\s+N",
+    if max_vm_main_mpa is None:
+        max_vm_main_mpa = 0.0
+    if max_vm_rear_mpa is None:
+        max_vm_rear_mpa = 0.0
+    root_reaction_fz_n = _extract_first_available_float(
+        [
+            r"Support reaction Fz all supports\s+([+-]?\d+(?:\.\d+)?)\s+N",
+            r"Root reaction Fz\s+([+-]?\d+(?:\.\d+)?)\s+N",
+        ],
         text,
         "root_reaction_fz_n",
+    )
+    root_main_reaction_fz_n = _extract_optional_float(
+        r"Root main reaction Fz\s+([+-]?\d+(?:\.\d+)?)\s+N",
+        text,
+    )
+    root_rear_reaction_fz_n = _extract_optional_float(
+        r"Root rear reaction Fz\s+([+-]?\d+(?:\.\d+)?)\s+N",
+        text,
+    )
+    wire_reaction_fz_n = _extract_optional_float(
+        r"Wire reaction Fz total\s+([+-]?\d+(?:\.\d+)?)\s+N",
+        text,
     )
     max_twist_deg = _extract_float(
         r"Max twist angle\s+([+-]?\d+(?:\.\d+)?)\s+deg",
@@ -119,6 +188,12 @@ def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -
         match = re.search(r"!\s*Nodes/(?:spar|beam)\s*:\s*(\d+)", mac_text)
         if match:
             nodes_per_spar = int(match.group(1))
+    rear_tip_node = (
+        2 * nodes_per_spar
+        if export_mode in {"dual_spar", "dual_beam_production"}
+        else None
+    )
+    wire_nodes = _extract_wire_nodes_from_mac(mac_path) if mac_path is not None else ()
 
     return BaselineMetrics(
         tip_deflection_mm=tip_deflection_mm,
@@ -131,6 +206,12 @@ def parse_baseline_metrics(report_path: Path, mac_path: Optional[Path] = None) -
         tip_node=tip_node,
         nodes_per_spar=nodes_per_spar,
         export_mode=export_mode,
+        rear_tip_deflection_mm=rear_tip_deflection_mm,
+        root_main_reaction_fz_n=root_main_reaction_fz_n,
+        root_rear_reaction_fz_n=root_rear_reaction_fz_n,
+        wire_reaction_fz_n=wire_reaction_fz_n,
+        rear_tip_node=rear_tip_node,
+        wire_nodes=wire_nodes,
     )
 
 
@@ -270,6 +351,13 @@ def extract_ansys_metrics_from_rst(
         )
 
     tip_uz_mm = float(abs(disp[node_to_idx[baseline.tip_node], 2]) * 1000.0)
+    rear_tip_uz_mm = None
+    if baseline.rear_tip_node is not None:
+        if baseline.rear_tip_node not in node_to_idx:
+            raise RuntimeError(
+                f"Rear tip node {baseline.rear_tip_node} not found in RST nodal solution."
+            )
+        rear_tip_uz_mm = float(abs(disp[node_to_idx[baseline.rear_tip_node], 2]) * 1000.0)
     max_uz_mm = float(np.max(np.abs(disp[:, 2])) * 1000.0)
 
     nn = baseline.nodes_per_spar
@@ -309,6 +397,18 @@ def extract_ansys_metrics_from_rst(
         root_mask = (rnodes == 1) | (rnodes == nn + 1)
     root_only_fz = float(np.sum(rforces[fz_mask & root_mask])) if np.any(fz_mask & root_mask) else None
     total_reaction_fz = float(np.sum(rforces[fz_mask])) if np.any(fz_mask) else None
+    root_main_fz = float(np.sum(rforces[fz_mask & (rnodes == 1)])) if np.any(fz_mask & (rnodes == 1)) else None
+    root_rear_node = nn + 1 if baseline.export_mode != "equivalent_beam" else None
+    root_rear_fz = (
+        float(np.sum(rforces[fz_mask & (rnodes == root_rear_node)]))
+        if root_rear_node is not None and np.any(fz_mask & (rnodes == root_rear_node))
+        else None
+    )
+    wire_reaction_fz = (
+        float(np.sum(rforces[fz_mask & np.isin(rnodes, baseline.wire_nodes)]))
+        if baseline.wire_nodes and np.any(fz_mask & np.isin(rnodes, baseline.wire_nodes))
+        else None
+    )
 
     input_nodes, input_dof, input_force = result.nodal_input_force(0)
     input_fz = float(np.sum(input_force[input_dof == 3])) if np.any(input_dof == 3) else None
@@ -324,10 +424,14 @@ def extract_ansys_metrics_from_rst(
 
     return AnsysMetrics(
         tip_deflection_mm=tip_uz_mm,
+        rear_tip_deflection_mm=rear_tip_uz_mm,
         max_uz_mm=max_uz_mm,
         max_vm_main_mpa=max_vm_main_mpa,
         max_vm_rear_mpa=max_vm_rear_mpa,
         root_reaction_fz_n=reaction_for_comparison,
+        root_main_reaction_fz_n=root_main_fz,
+        root_rear_reaction_fz_n=root_rear_fz,
+        wire_reaction_fz_n=wire_reaction_fz,
         max_twist_deg=None,  # Not directly available from this RST/post setup.
         total_spar_mass_kg=total_mass_kg,
         root_only_reaction_fz_n=root_only_fz,
@@ -336,8 +440,8 @@ def extract_ansys_metrics_from_rst(
     )
 
 
-def _error_percent(ansys_value: Optional[float], baseline_value: float) -> Optional[float]:
-    if ansys_value is None:
+def _error_percent(ansys_value: Optional[float], baseline_value: Optional[float]) -> Optional[float]:
+    if ansys_value is None or baseline_value is None:
         return None
     denom = max(abs(baseline_value), 1e-12)
     return abs(ansys_value - baseline_value) / denom * 100.0
@@ -365,37 +469,92 @@ def build_report_text(
     stress_gating_confirmed: bool = False,
 ) -> str:
     is_equiv = baseline.export_mode == "equivalent_beam"
+    is_production = baseline.export_mode == "dual_beam_production"
     stress_gate = bool(is_equiv and stress_gating_confirmed)
-    rows = [
-        ("Tip deflection @ tip node (mm)", baseline.tip_deflection_mm, ansys.tip_deflection_mm, 5.0, is_equiv, "gate"),
-        ("Max |UZ| anywhere (mm)", baseline.max_uz_mm, ansys.max_uz_mm, 5.0, is_equiv, "gate"),
-        (
-            "Max Von Mises main spar (MPa)",
-            baseline.max_vm_main_mpa,
-            ansys.max_vm_main_mpa,
-            threshold_pct,
-            stress_gate,
-            "stress provisional",
-        ),
-        (
-            "Max Von Mises rear spar (MPa)",
-            baseline.max_vm_rear_mpa,
-            ansys.max_vm_rear_mpa,
-            threshold_pct,
-            stress_gate,
-            "stress provisional",
-        ),
-        (
-            "Support reaction Fz (all supports) (N)",
-            baseline.root_reaction_fz_n,
-            ansys.root_reaction_fz_n,
-            1.0,
-            is_equiv,
-            "gate",
-        ),
-        ("Max twist angle (deg)", baseline.max_twist_deg, ansys.max_twist_deg, threshold_pct, False, "info"),
-        ("Total spar mass full-span (kg)", baseline.total_spar_mass_kg, ansys.total_spar_mass_kg, 1.0, is_equiv, "gate"),
-    ]
+    if is_production:
+        rows = [
+            ("Main tip deflection (mm)", baseline.tip_deflection_mm, ansys.tip_deflection_mm, 5.0, False, "production inspect"),
+            (
+                "Rear tip deflection (mm)",
+                baseline.rear_tip_deflection_mm,
+                ansys.rear_tip_deflection_mm,
+                5.0,
+                False,
+                "production inspect",
+            ),
+            ("Max |UZ| anywhere (mm)", baseline.max_uz_mm, ansys.max_uz_mm, 5.0, False, "production inspect"),
+            (
+                "Root main reaction Fz (N)",
+                baseline.root_main_reaction_fz_n,
+                ansys.root_main_reaction_fz_n,
+                3.0,
+                False,
+                "reaction partition",
+            ),
+            (
+                "Root rear reaction Fz (N)",
+                baseline.root_rear_reaction_fz_n,
+                ansys.root_rear_reaction_fz_n,
+                3.0,
+                False,
+                "reaction partition",
+            ),
+            (
+                "Wire reaction Fz total (N)",
+                baseline.wire_reaction_fz_n,
+                ansys.wire_reaction_fz_n,
+                3.0,
+                False,
+                "reaction partition",
+            ),
+            (
+                "Support reaction Fz (all supports) (N)",
+                baseline.root_reaction_fz_n,
+                ansys.root_reaction_fz_n,
+                1.0,
+                False,
+                "load balance",
+            ),
+            (
+                "Total spar mass full-span (kg)",
+                baseline.total_spar_mass_kg,
+                ansys.total_spar_mass_kg,
+                1.0,
+                False,
+                "mass",
+            ),
+        ]
+    else:
+        rows = [
+            ("Tip deflection @ tip node (mm)", baseline.tip_deflection_mm, ansys.tip_deflection_mm, 5.0, is_equiv, "gate"),
+            ("Max |UZ| anywhere (mm)", baseline.max_uz_mm, ansys.max_uz_mm, 5.0, is_equiv, "gate"),
+            (
+                "Max Von Mises main spar (MPa)",
+                baseline.max_vm_main_mpa,
+                ansys.max_vm_main_mpa,
+                threshold_pct,
+                stress_gate,
+                "stress provisional",
+            ),
+            (
+                "Max Von Mises rear spar (MPa)",
+                baseline.max_vm_rear_mpa,
+                ansys.max_vm_rear_mpa,
+                threshold_pct,
+                stress_gate,
+                "stress provisional",
+            ),
+            (
+                "Support reaction Fz (all supports) (N)",
+                baseline.root_reaction_fz_n,
+                ansys.root_reaction_fz_n,
+                1.0,
+                is_equiv,
+                "gate",
+            ),
+            ("Max twist angle (deg)", baseline.max_twist_deg, ansys.max_twist_deg, threshold_pct, False, "info"),
+            ("Total spar mass full-span (kg)", baseline.total_spar_mass_kg, ansys.total_spar_mass_kg, 1.0, is_equiv, "gate"),
+        ]
 
     lines: list[str] = []
     lines.append("=" * 88)
@@ -406,6 +565,8 @@ def build_report_text(
     lines.append(f"Baseline mode   : {baseline.export_mode}")
     if is_equiv:
         lines.append("Phase I gate    : equivalent-beam validation metrics only")
+    elif is_production:
+        lines.append("Phase I gate    : disabled (dual-beam production ANSYS cross-check / inspection mode)")
     else:
         lines.append("Phase I gate    : disabled (dual-spar inspection/model-form discrepancy mode)")
     lines.append("")
@@ -429,6 +590,9 @@ def build_report_text(
         elif role.startswith("stress"):
             st = "GATED" if stress_gate else "PROV"
             role_text = "non-gating" if not stress_gate else f"gate <= {threshold:.1f}%"
+        elif is_production:
+            st = "CHECK" if err is None or err > threshold else "OK"
+            role_text = f"inspect <= {threshold:.1f}%"
         else:
             st = "INFO"
             role_text = "non-gating"
@@ -452,7 +616,12 @@ def build_report_text(
     lines.append(f"Aux: total input Fz from RST      = {_fmt(ansys.total_input_fz_n)} N")
     lines.append("")
 
-    if not is_equiv:
+    if is_production:
+        lines.append(
+            "Overall verdict: INFO ONLY (production-mode ANSYS comparison is an inspection "
+            "workflow for the new dual-beam mainline, not a hard gate yet)."
+        )
+    elif not is_equiv:
         lines.append(
             "Overall verdict: INFO ONLY (dual-spar discrepancies are higher-fidelity/model-form "
             "differences, not Phase I validation failures)."

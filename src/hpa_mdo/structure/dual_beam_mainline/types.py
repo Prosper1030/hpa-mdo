@@ -336,6 +336,7 @@ _MODE_DEFINITIONS = {
         wire_bc=WireBCMode.WIRE_MAIN_VERTICAL,
         default_link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
         allowed_link_modes=(
+            LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY,
             LinkMode.JOINT_ONLY_OFFSET_RIGID,
             LinkMode.DENSE_OFFSET_RIGID,
             LinkMode.DENSE_FINITE_RIB,
