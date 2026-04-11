@@ -27,6 +27,7 @@ from hpa_mdo.structure.dual_beam_mainline.optimizer_view import (
     build_geometry_validity_margins,
     build_optimizer_facing_metrics,
 )
+from hpa_mdo.structure.dual_beam_mainline.recovery import recover_structural_response
 from hpa_mdo.structure.dual_beam_mainline.smooth import build_default_smooth_scales
 
 
@@ -357,3 +358,47 @@ def test_geometry_validity_margins_flag_invalid_ratio_or_taper() -> None:
     assert margins.valid is False
     assert margins.main_thickness_ratio_margin_min_m < 0.0
     assert margins.main_radius_taper_margin_min_m < 0.0
+
+
+def test_kernel_accepts_elementwise_material_arrays_and_uses_local_stiffness() -> None:
+    baseline = _simple_model(
+        lift_per_span_npm=np.array([0.0, 0.0, 40.0]),
+        joint_node_indices=(1,),
+    )
+    stiffened = _simple_model(
+        lift_per_span_npm=np.array([0.0, 0.0, 40.0]),
+        joint_node_indices=(1,),
+    )
+    stiffened.main_young_pa = np.array([70.0e9, 140.0e9], dtype=float)
+    stiffened.main_shear_pa = np.array([27.0e9, 54.0e9], dtype=float)
+    stiffened.rear_young_pa = np.array([70.0e9, 140.0e9], dtype=float)
+    stiffened.rear_shear_pa = np.array([27.0e9, 54.0e9], dtype=float)
+
+    baseline_result = run_dual_beam_mainline_kernel(
+        model=baseline,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+    )
+    stiffened_result = run_dual_beam_mainline_kernel(
+        model=stiffened,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+    )
+
+    assert abs(stiffened_result.report.tip_deflection_main_m) < abs(baseline_result.report.tip_deflection_main_m)
+    assert stiffened_result.optimizer.psi_u_all_m < baseline_result.optimizer.psi_u_all_m
+
+
+def test_recovery_uses_elementwise_allowables_for_failure_index() -> None:
+    model = _simple_model()
+    model.main_allowable_stress_pa = np.array([1.0e12, 1.0e6], dtype=float)
+    disp_main = np.zeros((3, 6), dtype=float)
+    disp_rear = np.zeros((3, 6), dtype=float)
+    disp_main[2, 3] = 0.02
+
+    recovery = recover_structural_response(
+        model=model,
+        disp_main_m=disp_main,
+        disp_rear_m=disp_rear,
+    )
+
+    assert recovery.max_vm_main_pa > 0.0
+    assert recovery.failure_index > 0.0

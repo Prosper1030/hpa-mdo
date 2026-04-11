@@ -128,14 +128,14 @@ class DualBeamMainlineModel:
     rear_radius_elem_m: np.ndarray
     main_mass_per_length_kgpm: np.ndarray
     rear_mass_per_length_kgpm: np.ndarray
-    main_young_pa: float
-    main_shear_pa: float
-    rear_young_pa: float
-    rear_shear_pa: float
-    main_density_kgpm3: float
-    rear_density_kgpm3: float
-    main_allowable_stress_pa: float
-    rear_allowable_stress_pa: float
+    main_young_pa: np.ndarray | float
+    main_shear_pa: np.ndarray | float
+    rear_young_pa: np.ndarray | float
+    rear_shear_pa: np.ndarray | float
+    main_density_kgpm3: np.ndarray | float
+    rear_density_kgpm3: np.ndarray | float
+    main_allowable_stress_pa: np.ndarray | float
+    rear_allowable_stress_pa: np.ndarray | float
     lift_per_span_npm: np.ndarray
     torque_per_span_nmpm: np.ndarray
     torque_input: TorqueInputDefinition

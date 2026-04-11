@@ -252,6 +252,8 @@ def build_dual_beam_mainline_model(
         mat_rear.compressive_strength or mat_rear.tensile_strength,
     ) / cfg.safety.material_safety_factor
 
+    ne = element_lengths_m.size
+
     return DualBeamMainlineModel(
         y_nodes_m=y_nodes_m,
         node_spacings_m=node_spacings_m,
@@ -276,14 +278,14 @@ def build_dual_beam_mainline_model(
         rear_radius_elem_m=rear_radius_elem_m,
         main_mass_per_length_kgpm=main_mass_per_length_kgpm,
         rear_mass_per_length_kgpm=rear_mass_per_length_kgpm,
-        main_young_pa=float(mat_main.E),
-        main_shear_pa=float(mat_main.G),
-        rear_young_pa=float(mat_rear.E),
-        rear_shear_pa=float(mat_rear.G),
-        main_density_kgpm3=float(mat_main.density),
-        rear_density_kgpm3=float(mat_rear.density),
-        main_allowable_stress_pa=float(main_allowable_stress_pa),
-        rear_allowable_stress_pa=float(rear_allowable_stress_pa),
+        main_young_pa=np.full(ne, float(mat_main.E), dtype=float),
+        main_shear_pa=np.full(ne, float(mat_main.G), dtype=float),
+        rear_young_pa=np.full(ne, float(mat_rear.E), dtype=float),
+        rear_shear_pa=np.full(ne, float(mat_rear.G), dtype=float),
+        main_density_kgpm3=np.full(ne, float(mat_main.density), dtype=float),
+        rear_density_kgpm3=np.full(ne, float(mat_rear.density), dtype=float),
+        main_allowable_stress_pa=np.full(ne, float(main_allowable_stress_pa), dtype=float),
+        rear_allowable_stress_pa=np.full(ne, float(rear_allowable_stress_pa), dtype=float),
         lift_per_span_npm=lift_per_span_npm,
         torque_per_span_nmpm=torque_per_span_nmpm,
         torque_input=torque_input or TorqueInputDefinition(),

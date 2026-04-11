@@ -14,6 +14,15 @@ from hpa_mdo.structure.fem.elements import (
 from hpa_mdo.structure.dual_beam_mainline.types import ConstraintAssemblyResult, DualBeamMainlineModel
 
 
+def _elementwise_property_array(values: np.ndarray | float, ne: int, name: str) -> np.ndarray:
+    arr = np.asarray(values, dtype=float)
+    if arr.ndim == 0:
+        return np.full(ne, float(arr), dtype=float)
+    if arr.shape != (ne,):
+        raise ValueError(f"{name} must be scalar or have shape ({ne},), got {arr.shape}.")
+    return arr
+
+
 def _assemble_chain_beam(
     *,
     stiffness_matrix: np.ndarray,
@@ -29,6 +38,8 @@ def _assemble_chain_beam(
     """Assemble one 6-DOF/node Timoshenko beam chain into the global stiffness matrix."""
 
     ne = nodes_m.shape[0] - 1
+    young_elem_pa = _elementwise_property_array(young_pa, ne, "young_pa")
+    shear_elem_pa = _elementwise_property_array(shear_pa, ne, "shear_pa")
     for element_index in range(ne):
         node_i = nodes_m[element_index]
         node_j = nodes_m[element_index + 1]
@@ -46,8 +57,8 @@ def _assemble_chain_beam(
 
         k_local = _timoshenko_element_stiffness(
             length_m,
-            young_pa,
-            shear_pa,
+            young_elem_pa[element_index],
+            shear_elem_pa[element_index],
             area_m2[element_index],
             iy_m4[element_index],
             iz_m4[element_index],

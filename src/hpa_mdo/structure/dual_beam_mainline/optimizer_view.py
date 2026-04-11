@@ -53,8 +53,8 @@ def _rear_inboard_element_indices(model: DualBeamMainlineModel) -> np.ndarray:
 def build_geometry_validity_margins(model: DualBeamMainlineModel) -> GeometryValidityMargins:
     """Build explicit geometry/manufacturability margins from the prepared model."""
 
-    main_ei = model.main_young_pa * model.main_iy_m4
-    rear_ei = model.rear_young_pa * model.rear_iy_m4
+    main_ei = np.asarray(model.main_young_pa, dtype=float) * np.asarray(model.main_iy_m4, dtype=float)
+    rear_ei = np.asarray(model.rear_young_pa, dtype=float) * np.asarray(model.rear_iy_m4, dtype=float)
     rear_inboard_idx = _rear_inboard_element_indices(model)
 
     margins = GeometryValidityMargins(

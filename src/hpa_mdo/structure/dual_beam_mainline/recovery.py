@@ -15,6 +15,15 @@ from hpa_mdo.structure.dual_beam_mainline.types import (
 )
 
 
+def _elementwise_property_array(values: np.ndarray | float, ne: int, name: str) -> np.ndarray:
+    arr = np.asarray(values, dtype=float)
+    if arr.ndim == 0:
+        return np.full(ne, float(arr), dtype=float)
+    if arr.shape != (ne,):
+        raise ValueError(f"{name} must be scalar or have shape ({ne},), got {arr.shape}.")
+    return arr
+
+
 def _beam_von_mises(
     *,
     nodes_m: np.ndarray,
@@ -27,6 +36,8 @@ def _beam_von_mises(
 
     ne = nodes_m.shape[0] - 1
     vm = np.zeros(ne, dtype=float)
+    young_elem_pa = _elementwise_property_array(young_pa, ne, "young_pa")
+    shear_elem_pa = _elementwise_property_array(shear_pa, ne, "shear_pa")
     for element_index in range(ne):
         length_m = _cs_norm(nodes_m[element_index + 1] - nodes_m[element_index])
         if np.real(length_m) < 1.0e-12:
@@ -38,8 +49,8 @@ def _beam_von_mises(
             (dtheta_local[1] / length_m) ** 2 + (dtheta_local[2] / length_m) ** 2
         )
         torsion = dtheta_local[0] / length_m
-        sigma_bending = young_pa * radius_elem_m[element_index] * curvature
-        tau_torsion = shear_pa * radius_elem_m[element_index] * torsion
+        sigma_bending = young_elem_pa[element_index] * radius_elem_m[element_index] * curvature
+        tau_torsion = shear_elem_pa[element_index] * radius_elem_m[element_index] * torsion
         vm[element_index] = float(np.sqrt(sigma_bending**2 + 3.0 * tau_torsion**2))
     return vm
 
@@ -134,9 +145,19 @@ def recover_structural_response(
     )
     max_vm_main_pa = float(np.max(vm_main_pa)) if vm_main_pa.size else 0.0
     max_vm_rear_pa = float(np.max(vm_rear_pa)) if vm_rear_pa.size else 0.0
+    main_allowable_pa = _elementwise_property_array(
+        model.main_allowable_stress_pa,
+        vm_main_pa.size,
+        "main_allowable_stress_pa",
+    )
+    rear_allowable_pa = _elementwise_property_array(
+        model.rear_allowable_stress_pa,
+        vm_rear_pa.size,
+        "rear_allowable_stress_pa",
+    )
     failure_index = max(
-        max_vm_main_pa / max(model.main_allowable_stress_pa, 1.0e-30),
-        max_vm_rear_pa / max(model.rear_allowable_stress_pa, 1.0e-30),
+        float(np.max(vm_main_pa / np.maximum(main_allowable_pa, 1.0e-30))) if vm_main_pa.size else 0.0,
+        float(np.max(vm_rear_pa / np.maximum(rear_allowable_pa, 1.0e-30))) if vm_rear_pa.size else 0.0,
     ) - 1.0
 
     spar_tube_mass_half_kg = float(
