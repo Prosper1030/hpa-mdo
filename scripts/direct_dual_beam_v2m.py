@@ -55,6 +55,26 @@ EQ_MARGIN_NAMES = (
     "equivalent_twist_margin",
 )
 HARD_MARGIN_NAMES = GEOMETRY_MARGIN_NAMES + EQ_MARGIN_NAMES
+LEGACY_CATALOG_PROFILE = "legacy"
+TUNED_CATALOG_PROFILE = "tuned"
+DEFAULT_CATALOG_PROFILE = TUNED_CATALOG_PROFILE
+
+CATALOG_PROFILE_VALUES_MM: dict[str, dict[str, tuple[float, ...]]] = {
+    LEGACY_CATALOG_PROFILE: {
+        "main_plateau_delta_mm": (0.0, 1.5, 2.3, 2.811, 3.4),
+        "main_outboard_pair_delta_mm": (0.0, 0.15, 0.306, 0.45),
+        "rear_general_radius_delta_mm": (0.0, 0.2, 0.4),
+        "rear_outboard_tip_delta_t_mm": (0.0, 0.03, 0.06, 0.09, 0.12),
+        "global_wall_delta_t_mm": (0.0, 0.05),
+    },
+    TUNED_CATALOG_PROFILE: {
+        "main_plateau_delta_mm": (0.0, 1.5, 2.3, 2.7, 2.8, 2.95, 3.4),
+        "main_outboard_pair_delta_mm": (0.0, 0.03, 0.06, 0.09, 0.12, 0.225, 0.306),
+        "rear_general_radius_delta_mm": (0.0, 0.2, 0.4),
+        "rear_outboard_tip_delta_t_mm": (0.0, 0.03, 0.06, 0.075, 0.09, 0.105, 0.12),
+        "global_wall_delta_t_mm": (0.0, 0.05),
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -219,29 +239,47 @@ def _candidate_reference_key(candidate: ManufacturingCandidate | None) -> tuple[
     )
 
 
-def build_manufacturing_map_config(*, baseline: BaselineDesign, cfg) -> ManufacturingMapConfig:
+def get_catalog_profile_values_mm(catalog_profile: str) -> dict[str, tuple[float, ...]]:
+    catalogs = CATALOG_PROFILE_VALUES_MM.get(catalog_profile)
+    if catalogs is None:
+        valid = ", ".join(sorted(CATALOG_PROFILE_VALUES_MM))
+        raise ValueError(f"Unsupported catalog profile '{catalog_profile}'. Expected one of: {valid}.")
+    return catalogs
+
+
+def build_manufacturing_map_config(
+    *,
+    baseline: BaselineDesign,
+    cfg,
+    catalog_profile: str = DEFAULT_CATALOG_PROFILE,
+) -> ManufacturingMapConfig:
     solver = cfg.solver
     max_t = float(solver.max_wall_thickness_m)
     ratio_limit = float(solver.max_thickness_to_radius_ratio)
     rear_inner = float(solver.rear_min_inner_radius_m)
     max_radius = float(solver.max_radius_m)
+    catalogs_mm = get_catalog_profile_values_mm(catalog_profile)
 
     rear_outboard_mask = np.array([0.0, 0.0, 0.0, 0.0, 0.35, 1.0], dtype=float)
 
     main_plateau_delta_catalog_m = tuple(
         1.0e-3 * value_mm
-        for value_mm in (0.0, 1.5, 2.3, 2.811, 3.4)
+        for value_mm in catalogs_mm["main_plateau_delta_mm"]
         if baseline.main_r_seg_m[3] + 1.0e-3 * value_mm <= max_radius + 1.0e-12
     )
-    main_outboard_pair_delta_catalog_m = tuple(1.0e-3 * value_mm for value_mm in (0.0, 0.15, 0.306, 0.45))
+    main_outboard_pair_delta_catalog_m = tuple(
+        1.0e-3 * value_mm for value_mm in catalogs_mm["main_outboard_pair_delta_mm"]
+    )
     rear_general_radius_delta_catalog_m = tuple(
         1.0e-3 * value_mm
-        for value_mm in (0.0, 0.2, 0.4)
+        for value_mm in catalogs_mm["rear_general_radius_delta_mm"]
         if baseline.rear_r_seg_m[0] + 1.0e-3 * value_mm <= max_radius + 1.0e-12
     )
 
-    raw_global_wall_catalog_m = tuple(1.0e-3 * value_mm for value_mm in (0.0, 0.05))
-    raw_rear_tip_delta_catalog_m = tuple(1.0e-3 * value_mm for value_mm in (0.0, 0.03, 0.06, 0.09, 0.12))
+    raw_global_wall_catalog_m = tuple(1.0e-3 * value_mm for value_mm in catalogs_mm["global_wall_delta_t_mm"])
+    raw_rear_tip_delta_catalog_m = tuple(
+        1.0e-3 * value_mm for value_mm in catalogs_mm["rear_outboard_tip_delta_t_mm"]
+    )
 
     global_wall_delta_t_catalog_m: list[float] = []
     for delta_t in raw_global_wall_catalog_m:
@@ -658,6 +696,7 @@ def build_report_text(
     config_path: Path,
     design_report: Path,
     cruise_aoa_deg: float,
+    catalog_profile: str,
     map_config: ManufacturingMapConfig,
     outcome: ManufacturingOutcome,
     continuous_reference: dict[str, object] | None,
@@ -665,18 +704,20 @@ def build_report_text(
     baseline = outcome.baseline
     selected = outcome.selected
     generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    profile_label = "V2.m+" if catalog_profile == TUNED_CATALOG_PROFILE else "V2.m"
 
     lines: list[str] = []
     lines.append("=" * 108)
-    lines.append("Direct Dual-Beam V2.m Report (Manufacturing-Aware Grouped/Discrete Map)")
+    lines.append(f"Direct Dual-Beam {profile_label} Report (Manufacturing-Aware Grouped/Discrete Map)")
     lines.append("=" * 108)
     lines.append(f"Generated                     : {generated}")
     lines.append(f"Config                        : {config_path}")
     lines.append(f"Design report                 : {design_report}")
     lines.append(f"Cruise AoA                    : {cruise_aoa_deg:.3f} deg")
+    lines.append(f"Catalog profile               : {catalog_profile}")
     lines.append("Loop                          : baseline specimen -> grouped/discrete catalog search")
     lines.append("")
-    lines.append("Manufacturing-aware V1 map:")
+    lines.append(f"Manufacturing-aware {profile_label} map:")
     lines.append("  main plateau group          : seg1-4 share one discrete tube family")
     lines.append("  main outboard pair          : seg5-6 share one discrete companion delta")
     lines.append("  main tip                    : derived from baseline taper; downgraded from free variable")
@@ -817,6 +858,7 @@ def build_summary_json(
     config_path: Path,
     design_report: Path,
     cruise_aoa_deg: float,
+    catalog_profile: str,
     map_config: ManufacturingMapConfig,
     outcome: ManufacturingOutcome,
     continuous_reference: dict[str, object] | None,
@@ -827,6 +869,7 @@ def build_summary_json(
         "design_report": str(design_report),
         "cruise_aoa_deg": float(cruise_aoa_deg),
         "map_config": {
+            "catalog_profile": catalog_profile,
             "main_plateau_delta_catalog_mm": [_mm(value) for value in map_config.main_plateau_delta_catalog_m],
             "main_outboard_pair_delta_catalog_mm": [
                 _mm(value) for value in map_config.main_outboard_pair_delta_catalog_m
@@ -884,7 +927,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output-dir",
-        default=str(Path(__file__).resolve().parent.parent / "output" / "direct_dual_beam_v2m_baseline"),
+        default=None,
         help="Directory for the manufacturing-aware report and JSON summary.",
     )
     parser.add_argument(
@@ -897,15 +940,31 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
         help="Optional summary JSON from the current continuous reduced map.",
     )
+    parser.add_argument(
+        "--catalog-profile",
+        choices=sorted(CATALOG_PROFILE_VALUES_MM),
+        default=DEFAULT_CATALOG_PROFILE,
+        help="Discrete ladder profile to evaluate.",
+    )
     return parser
+
+
+def _default_output_dir(catalog_profile: str) -> Path:
+    name = "direct_dual_beam_v2m_baseline" if catalog_profile == LEGACY_CATALOG_PROFILE else "direct_dual_beam_v2m_plus"
+    return Path(__file__).resolve().parent.parent / "output" / name
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
+    profile_label = "V2.m+" if args.catalog_profile == TUNED_CATALOG_PROFILE else "V2.m"
 
     config_path = Path(args.config).expanduser().resolve()
     design_report = Path(args.design_report).expanduser().resolve()
-    output_dir = Path(args.output_dir).expanduser().resolve()
+    output_dir = (
+        Path(args.output_dir).expanduser().resolve()
+        if args.output_dir is not None
+        else _default_output_dir(args.catalog_profile).resolve()
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     continuous_reference_path = Path(args.continuous_reference_json).expanduser().resolve()
 
@@ -927,7 +986,11 @@ def main(argv: list[str] | None = None) -> int:
         rear_t_seg_m=np.asarray(baseline_result.rear_t_seg_mm, dtype=float) * 1.0e-3,
         rear_r_seg_m=np.asarray(baseline_result.rear_r_seg_mm, dtype=float) * 1.0e-3,
     )
-    map_config = build_manufacturing_map_config(baseline=baseline_design, cfg=cfg)
+    map_config = build_manufacturing_map_config(
+        baseline=baseline_design,
+        cfg=cfg,
+        catalog_profile=args.catalog_profile,
+    )
 
     outcome = run_direct_dual_beam_v2m(
         cfg=cfg,
@@ -944,6 +1007,7 @@ def main(argv: list[str] | None = None) -> int:
         config_path=config_path,
         design_report=design_report,
         cruise_aoa_deg=cruise_aoa_deg,
+        catalog_profile=args.catalog_profile,
         map_config=map_config,
         outcome=outcome,
         continuous_reference=continuous_reference,
@@ -955,6 +1019,7 @@ def main(argv: list[str] | None = None) -> int:
         config_path=config_path,
         design_report=design_report,
         cruise_aoa_deg=cruise_aoa_deg,
+        catalog_profile=args.catalog_profile,
         map_config=map_config,
         outcome=outcome,
         continuous_reference=continuous_reference,
@@ -963,9 +1028,10 @@ def main(argv: list[str] | None = None) -> int:
     json_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
     selected = outcome.selected
-    print("Direct dual-beam V2.m complete.")
+    print(f"Direct dual-beam {profile_label} complete.")
     print(f"  Config              : {config_path}")
     print(f"  Design report       : {design_report}")
+    print(f"  Catalog profile     : {args.catalog_profile}")
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
     print(f"  Success / feasible  : {outcome.success} / {outcome.feasible}")

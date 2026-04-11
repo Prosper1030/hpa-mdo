@@ -2,18 +2,25 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.direct_dual_beam_v2m import (  # noqa: E402
     BaselineDesign,
+    DEFAULT_CATALOG_PROFILE,
+    LEGACY_CATALOG_PROFILE,
+    TUNED_CATALOG_PROFILE,
     CandidateArchive,
     ManufacturingCandidate,
     ManufacturingMapConfig,
+    build_manufacturing_map_config,
     design_from_manufacturing_choice,
+    get_catalog_profile_values_mm,
 )
 
 
@@ -141,3 +148,60 @@ def test_candidate_archive_prefers_candidate_feasible_then_hard_feasible_then_lo
     assert archive.best_hard_feasible is candidate
     assert archive.best_violation is candidate
     assert archive.selected is candidate
+
+
+def _cfg() -> SimpleNamespace:
+    return SimpleNamespace(
+        solver=SimpleNamespace(
+            max_wall_thickness_m=0.002,
+            max_thickness_to_radius_ratio=0.2,
+            rear_min_inner_radius_m=0.003,
+            max_radius_m=0.04,
+        )
+    )
+
+
+def test_catalog_profiles_preserve_legacy_values_and_default_to_tuned() -> None:
+    assert DEFAULT_CATALOG_PROFILE == TUNED_CATALOG_PROFILE
+    assert get_catalog_profile_values_mm(LEGACY_CATALOG_PROFILE)["main_plateau_delta_mm"] == (
+        0.0,
+        1.5,
+        2.3,
+        2.811,
+        3.4,
+    )
+    assert get_catalog_profile_values_mm(TUNED_CATALOG_PROFILE)["main_plateau_delta_mm"] == (
+        0.0,
+        1.5,
+        2.3,
+        2.7,
+        2.8,
+        2.95,
+        3.4,
+    )
+
+
+def test_build_manufacturing_map_config_tuned_profile_refines_active_ladders() -> None:
+    baseline = _baseline_design()
+
+    legacy = build_manufacturing_map_config(baseline=baseline, cfg=_cfg(), catalog_profile=LEGACY_CATALOG_PROFILE)
+    tuned = build_manufacturing_map_config(baseline=baseline, cfg=_cfg(), catalog_profile=TUNED_CATALOG_PROFILE)
+
+    assert np.allclose(
+        np.asarray(legacy.main_outboard_pair_delta_catalog_m) * 1000.0,
+        [0.0, 0.15, 0.306, 0.45],
+    )
+    assert np.allclose(
+        np.asarray(tuned.main_outboard_pair_delta_catalog_m) * 1000.0,
+        [0.0, 0.03, 0.06, 0.09, 0.12, 0.225, 0.306],
+    )
+    assert np.allclose(
+        np.asarray(tuned.rear_outboard_tip_delta_t_catalog_m) * 1000.0,
+        [0.0, 0.03, 0.06, 0.075, 0.09, 0.105, 0.12],
+    )
+    assert np.allclose(np.asarray(tuned.global_wall_delta_t_catalog_m) * 1000.0, [0.0, 0.05])
+
+
+def test_get_catalog_profile_values_mm_rejects_unknown_profile() -> None:
+    with pytest.raises(ValueError, match="Unsupported catalog profile"):
+        get_catalog_profile_values_mm("unknown")
