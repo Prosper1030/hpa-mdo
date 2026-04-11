@@ -12,6 +12,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.direct_dual_beam_v2m import (  # noqa: E402
     BaselineDesign,
+    CLEANUP_CATALOG_PROFILE,
     DEFAULT_CATALOG_PROFILE,
     LEGACY_CATALOG_PROFILE,
     TUNED_CATALOG_PROFILE,
@@ -161,8 +162,8 @@ def _cfg() -> SimpleNamespace:
     )
 
 
-def test_catalog_profiles_preserve_legacy_values_and_default_to_tuned() -> None:
-    assert DEFAULT_CATALOG_PROFILE == TUNED_CATALOG_PROFILE
+def test_catalog_profiles_preserve_legacy_tuned_values_and_default_to_cleanup() -> None:
+    assert DEFAULT_CATALOG_PROFILE == CLEANUP_CATALOG_PROFILE
     assert get_catalog_profile_values_mm(LEGACY_CATALOG_PROFILE)["main_plateau_delta_mm"] == (
         0.0,
         1.5,
@@ -179,13 +180,23 @@ def test_catalog_profiles_preserve_legacy_values_and_default_to_tuned() -> None:
         2.95,
         3.4,
     )
+    assert get_catalog_profile_values_mm(CLEANUP_CATALOG_PROFILE)["main_plateau_delta_mm"] == (
+        0.0,
+        1.5,
+        2.3,
+        2.8,
+        2.95,
+    )
 
 
-def test_build_manufacturing_map_config_tuned_profile_refines_active_ladders() -> None:
+def test_build_manufacturing_map_config_cleanup_profile_trims_ladders_without_changing_direction() -> None:
     baseline = _baseline_design()
 
     legacy = build_manufacturing_map_config(baseline=baseline, cfg=_cfg(), catalog_profile=LEGACY_CATALOG_PROFILE)
     tuned = build_manufacturing_map_config(baseline=baseline, cfg=_cfg(), catalog_profile=TUNED_CATALOG_PROFILE)
+    cleanup = build_manufacturing_map_config(
+        baseline=baseline, cfg=_cfg(), catalog_profile=CLEANUP_CATALOG_PROFILE
+    )
 
     assert np.allclose(
         np.asarray(legacy.main_outboard_pair_delta_catalog_m) * 1000.0,
@@ -198,6 +209,18 @@ def test_build_manufacturing_map_config_tuned_profile_refines_active_ladders() -
     assert np.allclose(
         np.asarray(tuned.rear_outboard_tip_delta_t_catalog_m) * 1000.0,
         [0.0, 0.03, 0.06, 0.075, 0.09, 0.105, 0.12],
+    )
+    assert np.allclose(
+        np.asarray(cleanup.main_plateau_delta_catalog_m) * 1000.0,
+        [0.0, 1.5, 2.3, 2.8, 2.95],
+    )
+    assert np.allclose(
+        np.asarray(cleanup.main_outboard_pair_delta_catalog_m) * 1000.0,
+        [0.0, 0.03, 0.06, 0.09],
+    )
+    assert np.allclose(
+        np.asarray(cleanup.rear_outboard_tip_delta_t_catalog_m) * 1000.0,
+        [0.0, 0.03, 0.06, 0.09, 0.12],
     )
     assert np.allclose(np.asarray(tuned.global_wall_delta_t_catalog_m) * 1000.0, [0.0, 0.05])
 

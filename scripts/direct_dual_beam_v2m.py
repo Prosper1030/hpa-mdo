@@ -57,7 +57,8 @@ EQ_MARGIN_NAMES = (
 HARD_MARGIN_NAMES = GEOMETRY_MARGIN_NAMES + EQ_MARGIN_NAMES
 LEGACY_CATALOG_PROFILE = "legacy"
 TUNED_CATALOG_PROFILE = "tuned"
-DEFAULT_CATALOG_PROFILE = TUNED_CATALOG_PROFILE
+CLEANUP_CATALOG_PROFILE = "cleanup"
+DEFAULT_CATALOG_PROFILE = CLEANUP_CATALOG_PROFILE
 
 CATALOG_PROFILE_VALUES_MM: dict[str, dict[str, tuple[float, ...]]] = {
     LEGACY_CATALOG_PROFILE: {
@@ -74,7 +75,22 @@ CATALOG_PROFILE_VALUES_MM: dict[str, dict[str, tuple[float, ...]]] = {
         "rear_outboard_tip_delta_t_mm": (0.0, 0.03, 0.06, 0.075, 0.09, 0.105, 0.12),
         "global_wall_delta_t_mm": (0.0, 0.05),
     },
+    CLEANUP_CATALOG_PROFILE: {
+        "main_plateau_delta_mm": (0.0, 1.5, 2.3, 2.8, 2.95),
+        "main_outboard_pair_delta_mm": (0.0, 0.03, 0.06, 0.09),
+        "rear_general_radius_delta_mm": (0.0, 0.2, 0.4),
+        "rear_outboard_tip_delta_t_mm": (0.0, 0.03, 0.06, 0.09, 0.12),
+        "global_wall_delta_t_mm": (0.0, 0.05),
+    },
 }
+
+
+def _profile_display_label(catalog_profile: str) -> str:
+    if catalog_profile == CLEANUP_CATALOG_PROFILE:
+        return "V2.m++"
+    if catalog_profile == TUNED_CATALOG_PROFILE:
+        return "V2.m+"
+    return "V2.m"
 
 
 @dataclass(frozen=True)
@@ -704,7 +720,7 @@ def build_report_text(
     baseline = outcome.baseline
     selected = outcome.selected
     generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
-    profile_label = "V2.m+" if catalog_profile == TUNED_CATALOG_PROFILE else "V2.m"
+    profile_label = _profile_display_label(catalog_profile)
 
     lines: list[str] = []
     lines.append("=" * 108)
@@ -950,13 +966,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 
 def _default_output_dir(catalog_profile: str) -> Path:
-    name = "direct_dual_beam_v2m_baseline" if catalog_profile == LEGACY_CATALOG_PROFILE else "direct_dual_beam_v2m_plus"
+    if catalog_profile == LEGACY_CATALOG_PROFILE:
+        name = "direct_dual_beam_v2m_baseline"
+    elif catalog_profile == TUNED_CATALOG_PROFILE:
+        name = "direct_dual_beam_v2m_plus"
+    else:
+        name = "direct_dual_beam_v2m_plusplus"
     return Path(__file__).resolve().parent.parent / "output" / name
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
-    profile_label = "V2.m+" if args.catalog_profile == TUNED_CATALOG_PROFILE else "V2.m"
+    profile_label = _profile_display_label(args.catalog_profile)
 
     config_path = Path(args.config).expanduser().resolve()
     design_report = Path(args.design_report).expanduser().resolve()
