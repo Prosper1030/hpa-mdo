@@ -1,0 +1,344 @@
+axes:
+  main_spar_family:
+    description: "Phase 3.1 preliminary grouped/discrete main spar family table."
+    integration_mode: "global_family_material"
+    promotion_state: "candidate_ready"
+    default_base_material_key: "carbon_fiber_hm"
+    packages:
+      - key: "main_ref"
+        label: "Baseline/reference"
+        promotion_state: "candidate_ready"
+        layup_reference: "tube_family_total"
+        layup_fractions:
+          axial_0: 0.60
+          shear_pm45: 0.30
+          hoop_90: 0.10
+        source_material_grade: "Common HM CFRP tube baseline (M40J/M46J-class equivalent)"
+        young_scale: 1.00
+        shear_scale: 1.00
+        density_scale: 1.00
+        allowable_scale: 1.00
+        description: "Current V2.m++ main spar HM tube family used as the reference package."
+        family_description: "Balanced+symmetric HM baseline that preserves all three 0/+/-45/90 roles."
+        intended_role: "Reference global family for main spar promotion and nearby-seed screening."
+        manufacturing_notes: "Treat as the existing roll-wrapped HM tube family; keep balanced+symmetric and taper transitions gentle."
+        buckling_note: "Keeps an explicit 10% hoop share so Brazier/local wall stability is not treated as free."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Common HM CFRP tube grade anchored to current carbon_fiber_hm baseline."
+          shear: "Preliminary engineering estimate for a 60/30/10 balanced+symmetric family."
+          density: "Common cured CFRP tube density already embedded in the current HM baseline."
+          allowable: "Base HM compressive allowable divided by material safety factor; no extra package knockdown."
+        buckling_rules:
+          minimum_hoop_fraction: 0.10
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 1.00
+          allowed_region: "all_span"
+          local_buckling_reserve: "baseline"
+          equivalent_gate_credit: "full_global"
+
+      - key: "main_light_ud"
+        label: "Light UD / axial-dominant"
+        promotion_state: "candidate_ready"
+        layup_reference: "tube_family_total"
+        layup_fractions:
+          axial_0: 0.72
+          shear_pm45: 0.18
+          hoop_90: 0.10
+        source_material_grade: "HM-dominant UD-biased tube family inspired by Daedalus/Atlas-style axial emphasis"
+        young_scale: 1.04
+        shear_scale: 0.95
+        density_scale: 0.975
+        allowable_scale: 1.00
+        description: "Axial-dominant main tube family that buys mass and bending efficiency at the cost of shear reserve."
+        family_description: "Low-dimensional UD-biased family with the minimum retained +/-45 and hoop content."
+        intended_role: "Mass-side candidate for the main spar when geometry already carries torsion safely."
+        manufacturing_notes: "Use only as a balanced+symmetric family; keep a non-0 outer wrap and avoid abrupt ply-drop style transitions."
+        buckling_note: "Carries a deliberate extra allowable knockdown because lower +/-45 content and minimum hoop content make local stability less forgiving."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Preliminary engineering estimate anchored to higher 0-degree share and the existing HM baseline."
+          shear: "Preliminary engineering estimate with explicit penalty for reduced +/-45 content."
+          density: "Preliminary engineering estimate representing a lighter UD-biased family on the current HM baseline."
+          allowable: "Base HM allowable held flat before an explicit conservative buckling/local-stability knockdown."
+        buckling_rules:
+          minimum_hoop_fraction: 0.10
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 0.93
+          allowed_region: "all_span_non_primary_joint_preferred"
+          local_buckling_reserve: "reduced"
+          equivalent_gate_credit: "full_global"
+
+      - key: "main_balanced_hm"
+        label: "Balanced HM"
+        promotion_state: "candidate_ready"
+        layup_reference: "tube_family_total"
+        layup_fractions:
+          axial_0: 0.55
+          shear_pm45: 0.30
+          hoop_90: 0.15
+        source_material_grade: "Balanced HM family with tougher wrap content and explicit hoop reserve"
+        young_scale: 0.99
+        shear_scale: 1.10
+        density_scale: 1.03
+        allowable_scale: 1.04
+        description: "More balanced HM family that trades a small mass increase for better shear and local-stability reserve."
+        family_description: "Balanced+symmetric HM family with extra hoop support relative to the reference tube."
+        intended_role: "Margin-side candidate for the main spar when deflection and local reserve both matter."
+        manufacturing_notes: "Suitable for the same grouped/discrete manufacturing flow as the reference family; keep 90-degree support plies present through taper regions."
+        buckling_note: "Extra hoop content is treated as local stability reserve, but still with a mild knockdown instead of full CLT credit."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Preliminary engineering estimate with slight axial penalty for a more balanced HM layup."
+          shear: "Preliminary engineering estimate that credits additional +/-45 and hoop participation."
+          density: "Common cured HM tube density plus modest wrap/resin increase."
+          allowable: "Common HM allowables with a small balanced-layup uplift, then a mild conservative knockdown."
+        buckling_rules:
+          minimum_hoop_fraction: 0.15
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 0.97
+          allowed_region: "all_span"
+          local_buckling_reserve: "moderate"
+          equivalent_gate_credit: "full_global"
+
+  rear_spar_family:
+    description: "Screening-only rear spar family table retained for small V2.m++ package screens."
+    integration_mode: "global_family_material"
+    promotion_state: "screening_only"
+    default_base_material_key: "carbon_fiber_hm"
+    packages:
+      - key: "rear_ref"
+        label: "Baseline/reference"
+        promotion_state: "screening_only"
+        layup_reference: "tube_family_total"
+        layup_fractions:
+          axial_0: 0.30
+          shear_pm45: 0.60
+          hoop_90: 0.10
+        source_material_grade: "Common HM rear spar baseline for current V2.m++ screening"
+        young_scale: 1.00
+        shear_scale: 1.00
+        density_scale: 1.00
+        allowable_scale: 1.00
+        description: "Current V2.m++ rear spar tube family."
+        family_description: "Reference torsion-oriented rear spar family."
+        intended_role: "Screening reference only; not a formal promotion target in this phase."
+        manufacturing_notes: "Keep the rear family balanced+symmetric and do not let hoop support vanish."
+        buckling_note: "Baseline rear family keeps only the minimum hoop reserve needed for a first-pass rear tube."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Current HM baseline."
+          shear: "Current HM baseline used as the rear screening anchor."
+          density: "Current HM baseline."
+          allowable: "Current HM baseline allowable / safety factor."
+        buckling_rules:
+          minimum_hoop_fraction: 0.10
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 1.00
+          allowed_region: "all_span"
+          local_buckling_reserve: "baseline"
+          equivalent_gate_credit: "full_global"
+
+      - key: "rear_balanced_shear"
+        label: "Balanced shear"
+        promotion_state: "screening_only"
+        layup_reference: "tube_family_total"
+        layup_fractions:
+          axial_0: 0.25
+          shear_pm45: 0.60
+          hoop_90: 0.15
+        source_material_grade: "Balanced rear family with more shear and hoop support"
+        young_scale: 0.97
+        shear_scale: 1.15
+        density_scale: 1.03
+        allowable_scale: 1.04
+        description: "Rear family tilted toward shear/torsion reserve at modest mass cost."
+        family_description: "Balanced+symmetric rear family with slightly tougher wrap share."
+        intended_role: "Keep as a rear screening package; do not formally promote yet."
+        manufacturing_notes: "Use only as a grouped/discrete rear family, not as a ply-by-ply optimizer axis."
+        buckling_note: "Hoop share is lifted to 15% to keep local stability from being starved."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Preliminary engineering estimate for a slightly more off-axis rear family."
+          shear: "Preliminary engineering estimate for more +/-45 participation."
+          density: "Common cured CFRP density plus a modest extra wrap penalty."
+          allowable: "Common HM allowables with modest balanced-layup uplift, then mild knockdown."
+        buckling_rules:
+          minimum_hoop_fraction: 0.15
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 0.97
+          allowed_region: "all_span"
+          local_buckling_reserve: "moderate"
+          equivalent_gate_credit: "full_global"
+
+      - key: "rear_toughened_balance"
+        label: "Toughened balance"
+        promotion_state: "screening_only"
+        layup_reference: "tube_family_total"
+        layup_fractions:
+          axial_0: 0.30
+          shear_pm45: 0.50
+          hoop_90: 0.20
+        source_material_grade: "Toughened/balanced rear family with higher hoop content"
+        young_scale: 0.95
+        shear_scale: 1.08
+        density_scale: 1.05
+        allowable_scale: 1.06
+        description: "Rear family biased toward damage tolerance and local reserve rather than low mass."
+        family_description: "Toughened rear family kept for screening only."
+        intended_role: "Rear reserve screening package, not a formal promotion target in this phase."
+        manufacturing_notes: "Keep this family out of full Cartesian expansion until rear-spar promotion is re-opened."
+        buckling_note: "Extra hoop content is treated as reserve, but still receives a conservative knockdown."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Preliminary engineering estimate with deliberate axial penalty."
+          shear: "Preliminary engineering estimate with moderate shear uplift."
+          density: "Common cured CFRP density with extra toughened wrap penalty."
+          allowable: "Common HM allowables with modest uplift, then conservative knockdown."
+        buckling_rules:
+          minimum_hoop_fraction: 0.20
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 0.96
+          allowed_region: "all_span"
+          local_buckling_reserve: "moderate"
+          equivalent_gate_credit: "full_global"
+
+  rear_outboard_reinforcement_pkg:
+    description: "Phase 3.1 preliminary local reinforcement package table for rear seg5-6."
+    integration_mode: "local_production_overlay"
+    promotion_state: "candidate_ready"
+    default_base_material_key: "carbon_fiber_hm"
+    packages:
+      - key: "ob_none"
+        label: "None"
+        promotion_state: "candidate_ready"
+        layup_reference: "added_overlay_only"
+        layup_fractions:
+          axial_0: 0.00
+          shear_pm45: 0.00
+          hoop_90: 0.00
+        source_material_grade: "No added overlay; inherits the active rear spar family"
+        young_scale: 1.00
+        shear_scale: 1.00
+        density_scale: 1.00
+        allowable_scale: 1.00
+        description: "No local layup/material reinforcement on rear seg5-6."
+        family_description: "Reference package for the rear outboard local axis."
+        intended_role: "Baseline local package when rear seg5-6 receives no extra sleeve/wrap."
+        manufacturing_notes: "No added overlay; keep rear seg5-6 exactly as defined by the chosen rear spar family."
+        buckling_note: "No extra local buckling reserve beyond the base rear family."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Inherits the active rear spar base material."
+          shear: "Inherits the active rear spar base material."
+          density: "Inherits the active rear spar base material."
+          allowable: "Inherits the active rear spar allowable / safety factor."
+        buckling_rules:
+          minimum_hoop_fraction: 0.00
+          forbid_outer_pure_axial: false
+          conservative_allowable_knockdown: 1.00
+          allowed_region: "rear_seg5_6_only"
+          local_buckling_reserve: "baseline"
+          equivalent_gate_credit: "production_local_only"
+
+      - key: "ob_light_wrap"
+        label: "Light wrap"
+        promotion_state: "candidate_ready"
+        layup_reference: "added_overlay_only"
+        layup_fractions:
+          axial_0: 0.15
+          shear_pm45: 0.65
+          hoop_90: 0.20
+        source_material_grade: "Single braided carbon sleeve style overlay with hoop keeper band"
+        young_scale: 1.03
+        shear_scale: 1.14
+        density_scale: 1.04
+        allowable_scale: 1.02
+        description: "Small sleeve/wrap reserve package that mimics a single light braided overwrap."
+        family_description: "Local additive overlay; not a global rear-family replacement."
+        intended_role: "Lowest-cost rear seg5-6 reinforcement when a little torsion and hoop support are enough."
+        manufacturing_notes: "Interpret as roughly one light braided sleeve plus a hoop-keeper outer wrap; taper into the base tube instead of a hard stop."
+        buckling_note: "Outermost added plies cannot be pure 0-degree, and the final allowable keeps a knockdown for termination/local-instability uncertainty."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Preliminary engineering estimate for a light local overlay on the rear HM baseline."
+          shear: "Preliminary engineering estimate anchored to sleeve-style +/-45 reinforcement."
+          density: "Preliminary engineering estimate that lumps added local wall and resin into an equivalent density delta."
+          allowable: "Small local reinforcement uplift followed by conservative knockdown for patch termination and CLT uncertainty."
+        overlay_layers_equivalent: 1.0
+        overlay_construction: "single braided sleeve + thin hoop keeper"
+        buckling_rules:
+          minimum_hoop_fraction: 0.20
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 0.95
+          allowed_region: "rear_seg5_6_outboard_non_joint_only"
+          local_buckling_reserve: "moderate"
+          equivalent_gate_credit: "production_local_only"
+
+      - key: "ob_balanced_sleeve"
+        label: "Balanced sleeve"
+        promotion_state: "candidate_ready"
+        layup_reference: "added_overlay_only"
+        layup_fractions:
+          axial_0: 0.25
+          shear_pm45: 0.50
+          hoop_90: 0.25
+        source_material_grade: "Balanced sleeve/overwrap package with explicit hoop support"
+        young_scale: 1.06
+        shear_scale: 1.24
+        density_scale: 1.08
+        allowable_scale: 1.06
+        description: "Best first-pass local reinforcement package for rear seg5-6 when both reserve and manufacturability matter."
+        family_description: "Local sleeve package intended to be the first formal rear-outboard promotion target."
+        intended_role: "Margin-side local package for rear seg5-6, especially when local stability matters alongside torsion."
+        manufacturing_notes: "Interpret as a balanced sleeve or sleeve-plus-wrap package with continuous taper; acceptable for rear outboard reserve but still keep it local."
+        buckling_note: "Adds the strongest first-pass local buckling reserve in the catalog, but still does not claim validated composite buckling truth."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Preliminary engineering estimate for a balanced local overlay that buys some axial support."
+          shear: "Preliminary engineering estimate anchored to strong +/-45 sleeve participation."
+          density: "Preliminary engineering estimate representing both added wrap mass and resin/consolidation penalty."
+          allowable: "Balanced local reinforcement uplift followed by a still-conservative knockdown rather than full laminate credit."
+        overlay_layers_equivalent: 1.5
+        overlay_construction: "balanced sleeve / sleeve-plus-wrap"
+        buckling_rules:
+          minimum_hoop_fraction: 0.25
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 0.96
+          allowed_region: "rear_seg5_6_outboard_non_joint_only"
+          local_buckling_reserve: "high"
+          equivalent_gate_credit: "production_local_only"
+
+      - key: "ob_torsion_patch"
+        label: "Torsion patch"
+        promotion_state: "candidate_ready"
+        layup_reference: "added_overlay_only"
+        layup_fractions:
+          axial_0: 0.10
+          shear_pm45: 0.75
+          hoop_90: 0.15
+        source_material_grade: "Torsion-oriented braid/patch overlay folded into the same discrete rear-outboard axis"
+        young_scale: 1.00
+        shear_scale: 1.34
+        density_scale: 1.09
+        allowable_scale: 1.00
+        description: "Torsion-oriented local patch package for rear seg5-6 hot spots."
+        family_description: "Local reinforcement package with the strongest shear/torsion bias in the first-pass catalog."
+        intended_role: "Use only for torsion-dominant rear outboard hot spots, not as a generic global reserve knob."
+        manufacturing_notes: "Interpret as a local braid/patch stack with explicit taper; do not use as an untapered hard-stop patch or in primary joint regions."
+        buckling_note: "The package keeps some hoop support, but receives the strongest allowable knockdown because patch terminations and off-axis local fields are less certain."
+        requires_balanced_symmetric: true
+        property_sources:
+          young: "Held flat because the package is intentionally torsion-first rather than axial-first."
+          shear: "Preliminary engineering estimate anchored to the highest +/-45 content in the local catalog."
+          density: "Preliminary engineering estimate that lumps added local patch mass into an equivalent density delta."
+          allowable: "No nominal local uplift before a strong conservative knockdown for torsion-patch uncertainty."
+        overlay_layers_equivalent: 2.0
+        overlay_construction: "torsion-oriented braid/patch with hoop keeper"
+        buckling_rules:
+          minimum_hoop_fraction: 0.15
+          forbid_outer_pure_axial: true
+          conservative_allowable_knockdown: 0.94
+          allowed_region: "rear_seg5_6_outboard_non_joint_only"
+          local_buckling_reserve: "moderate"
+          equivalent_gate_credit: "production_local_only"

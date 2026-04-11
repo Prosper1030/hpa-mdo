@@ -20,10 +20,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hpa_mdo.aero import LoadMapper
-from hpa_mdo.core import Aircraft, Material, MaterialDB, load_config
+from hpa_mdo.core import Aircraft, MaterialDB, load_config
 from hpa_mdo.structure import AnalysisModeName, SparOptimizer
 from hpa_mdo.structure.dual_beam_mainline.api import run_dual_beam_mainline_kernel
 from hpa_mdo.structure.dual_beam_mainline.builder import build_dual_beam_mainline_model
+from hpa_mdo.structure.material_proxy_catalog import (
+    EffectiveMaterialProperties,
+    MaterialProxyCatalog,
+    MaterialScalePackage,
+    build_default_material_proxy_catalog,
+    effective_properties,
+    register_package_material,
+    resolve_catalog_property_rows,
+)
 from scripts.ansys_compare_results import parse_baseline_metrics
 from scripts.ansys_crossval import _select_cruise_loads
 from scripts.ansys_dual_beam_production_check import build_specimen_result_from_crossval_report
@@ -45,33 +54,6 @@ DEFAULT_V2M_SUMMARY_JSON = (
 )
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output" / "direct_dual_beam_v2m_material_proxy"
 SCREEN_TOP_K = 10
-
-
-@dataclass(frozen=True)
-class MaterialScalePackage:
-    key: str
-    label: str
-    scope: str
-    young_scale: float
-    shear_scale: float
-    density_scale: float
-    allowable_scale: float
-    description: str
-
-
-@dataclass(frozen=True)
-class MaterialProxyCatalog:
-    main_spar_family: tuple[MaterialScalePackage, ...]
-    rear_spar_family: tuple[MaterialScalePackage, ...]
-    rear_outboard_reinforcement_pkg: tuple[MaterialScalePackage, ...]
-
-
-@dataclass(frozen=True)
-class EffectiveMaterialProperties:
-    E_eff_pa: float
-    G_eff_pa: float
-    density_eff_kgpm3: float
-    allowable_eff_pa: float
 
 
 @dataclass(frozen=True)
@@ -228,160 +210,6 @@ def _segment_values_to_stations(
     return out
 
 
-def _base_strength(material: Material) -> float:
-    return float(min(material.tensile_strength, material.compressive_strength or material.tensile_strength))
-
-
-def _effective_properties(
-    base_material: Material,
-    package: MaterialScalePackage,
-    *,
-    safety_factor: float,
-) -> EffectiveMaterialProperties:
-    strength_eff = _base_strength(base_material) * float(package.allowable_scale)
-    return EffectiveMaterialProperties(
-        E_eff_pa=float(base_material.E) * float(package.young_scale),
-        G_eff_pa=float(base_material.G) * float(package.shear_scale),
-        density_eff_kgpm3=float(base_material.density) * float(package.density_scale),
-        allowable_eff_pa=float(strength_eff / safety_factor),
-    )
-
-
-def _register_family_material(
-    *,
-    materials_db: MaterialDB,
-    base_material: Material,
-    package: MaterialScalePackage,
-    key: str,
-) -> None:
-    materials_db.register(
-        key,
-        Material(
-            name=f"{base_material.name} [{package.label}]",
-            E=float(base_material.E) * float(package.young_scale),
-            G=float(base_material.G) * float(package.shear_scale),
-            density=float(base_material.density) * float(package.density_scale),
-            tensile_strength=float(base_material.tensile_strength) * float(package.allowable_scale),
-            compressive_strength=float(base_material.sigma_c) * float(package.allowable_scale),
-            shear_strength=base_material.shear_strength,
-            tension_only=base_material.tension_only,
-            poisson_ratio=float(base_material.poisson_ratio),
-            description=f"{base_material.description} | {package.description}",
-        ),
-    )
-
-
-def build_default_material_proxy_catalog() -> MaterialProxyCatalog:
-    return MaterialProxyCatalog(
-        main_spar_family=(
-            MaterialScalePackage(
-                key="main_ref",
-                label="HM reference",
-                scope="main_spar_family",
-                young_scale=1.00,
-                shear_scale=1.00,
-                density_scale=1.00,
-                allowable_scale=1.00,
-                description="Current V2.m++ main spar tube family.",
-            ),
-            MaterialScalePackage(
-                key="main_light_ud",
-                label="Light UD bias",
-                scope="main_spar_family",
-                young_scale=1.03,
-                shear_scale=0.97,
-                density_scale=0.97,
-                allowable_scale=0.97,
-                description="More UD-dominant main tube; small weight drop, weaker shear reserve.",
-            ),
-            MaterialScalePackage(
-                key="main_balanced_hm",
-                label="Balanced HM",
-                scope="main_spar_family",
-                young_scale=0.98,
-                shear_scale=1.12,
-                density_scale=1.03,
-                allowable_scale=1.06,
-                description="Adds balanced wrap/toughened resin without leaving the HM family.",
-            ),
-        ),
-        rear_spar_family=(
-            MaterialScalePackage(
-                key="rear_ref",
-                label="HM reference",
-                scope="rear_spar_family",
-                young_scale=1.00,
-                shear_scale=1.00,
-                density_scale=1.00,
-                allowable_scale=1.00,
-                description="Current V2.m++ rear spar tube family.",
-            ),
-            MaterialScalePackage(
-                key="rear_balanced_shear",
-                label="Balanced shear",
-                scope="rear_spar_family",
-                young_scale=0.97,
-                shear_scale=1.18,
-                density_scale=1.03,
-                allowable_scale=1.06,
-                description="Rear family tilted toward +/-45 torsion reserve at modest mass cost.",
-            ),
-            MaterialScalePackage(
-                key="rear_toughened_balance",
-                label="Toughened balance",
-                scope="rear_spar_family",
-                young_scale=0.95,
-                shear_scale=1.10,
-                density_scale=1.05,
-                allowable_scale=1.10,
-                description="More damage-tolerant/balanced rear laminate; reserve first, not lightest.",
-            ),
-        ),
-        rear_outboard_reinforcement_pkg=(
-            MaterialScalePackage(
-                key="ob_none",
-                label="None",
-                scope="rear_outboard_reinforcement_pkg",
-                young_scale=1.00,
-                shear_scale=1.00,
-                density_scale=1.00,
-                allowable_scale=1.00,
-                description="No local layup/material reinforcement on rear seg5-6.",
-            ),
-            MaterialScalePackage(
-                key="ob_light_wrap",
-                label="Light wrap",
-                scope="rear_outboard_reinforcement_pkg",
-                young_scale=1.04,
-                shear_scale=1.15,
-                density_scale=1.04,
-                allowable_scale=1.08,
-                description="Small sleeve/wrap reserve that targets the active rear-outboard mode.",
-            ),
-            MaterialScalePackage(
-                key="ob_balanced_sleeve",
-                label="Balanced sleeve",
-                scope="rear_outboard_reinforcement_pkg",
-                young_scale=1.08,
-                shear_scale=1.28,
-                density_scale=1.08,
-                allowable_scale=1.12,
-                description="Best first-pass local reinforcement package for seg5-6.",
-            ),
-            MaterialScalePackage(
-                key="ob_torsion_patch",
-                label="Torsion patch",
-                scope="rear_outboard_reinforcement_pkg",
-                young_scale=1.00,
-                shear_scale=1.40,
-                density_scale=1.10,
-                allowable_scale=1.06,
-                description="Torsion-oriented local package folded into the same discrete axis.",
-            ),
-        ),
-    )
-
-
 def _load_v2m_selected_choice(path: Path) -> tuple[int, int, int, int, int]:
     obj = json.loads(path.read_text())
     selected = obj["outcome"]["selected"]
@@ -474,7 +302,7 @@ def apply_rear_outboard_reinforcement(
     young_blend = 1.0 + mask * (float(package.young_scale) - 1.0)
     shear_blend = 1.0 + mask * (float(package.shear_scale) - 1.0)
     density_blend = 1.0 + mask * (float(package.density_scale) - 1.0)
-    allowable_blend = 1.0 + mask * (float(package.allowable_scale) - 1.0)
+    allowable_blend = 1.0 + mask * (float(package.final_allowable_scale) - 1.0)
 
     model.rear_young_pa = rear_young_pa * young_blend
     model.rear_shear_pa = rear_shear_pa * shear_blend
@@ -532,13 +360,13 @@ class MaterialProxyEvaluator:
 
         main_key = f"material_proxy::{main_package.scope}::{main_package.key}"
         rear_key = f"material_proxy::{rear_package.scope}::{rear_package.key}"
-        _register_family_material(
+        register_package_material(
             materials_db=proxy_db,
             base_material=self.materials_db.get(self.cfg.main_spar.material),
             package=main_package,
             key=main_key,
         )
-        _register_family_material(
+        register_package_material(
             materials_db=proxy_db,
             base_material=self.materials_db.get(self.cfg.rear_spar.material),
             package=rear_package,
@@ -576,12 +404,12 @@ class MaterialProxyEvaluator:
             main_package=main_package,
             rear_package=rear_package,
         )
-        main_family_properties = _effective_properties(
+        main_family_properties = effective_properties(
             self.materials_db.get(self.cfg.main_spar.material),
             main_package,
             safety_factor=float(self.cfg.safety.material_safety_factor),
         )
-        rear_family_properties = _effective_properties(
+        rear_family_properties = effective_properties(
             self.materials_db.get(self.cfg.rear_spar.material),
             rear_package,
             safety_factor=float(self.cfg.safety.material_safety_factor),
@@ -947,33 +775,65 @@ def catalog_to_summary_dict(
     cfg,
     materials_db: MaterialDB,
 ) -> dict[str, object]:
-    safety_factor = float(cfg.safety.material_safety_factor)
-    base_main = materials_db.get(cfg.main_spar.material)
-    base_rear = materials_db.get(cfg.rear_spar.material)
+    resolved = resolve_catalog_property_rows(
+        catalog=catalog,
+        materials_db=materials_db,
+        axis_base_material_keys={
+            "main_spar_family": cfg.main_spar.material,
+            "rear_spar_family": cfg.rear_spar.material,
+            "rear_outboard_reinforcement_pkg": cfg.rear_spar.material,
+        },
+        safety_factor=float(cfg.safety.material_safety_factor),
+    )
 
-    def _pack(axis_packages: tuple[MaterialScalePackage, ...], base_material: Material) -> list[dict[str, object]]:
-        out: list[dict[str, object]] = []
-        for package in axis_packages:
-            props = _effective_properties(base_material, package, safety_factor=safety_factor)
-            out.append(
+    summary: dict[str, object] = {}
+    for axis_name, rows in resolved.items():
+        axis_info = catalog.axis_info(axis_name)
+        packages: list[dict[str, object]] = []
+        for row in rows:
+            package = row.package
+            props = row.effective_properties
+            packages.append(
                 {
                     "key": package.key,
                     "label": package.label,
                     "scope": package.scope,
                     "description": package.description,
+                    "family_description": package.family_description,
+                    "intended_role": package.intended_role,
+                    "manufacturing_notes": package.manufacturing_notes,
+                    "buckling_note": package.buckling_note,
+                    "promotion_state": package.promotion_state,
+                    "source_material_grade": package.source_material_grade,
+                    "layup_reference": package.layup_reference,
+                    "layup_fractions": asdict(package.layup_fractions),
+                    "requires_balanced_symmetric": package.requires_balanced_symmetric,
+                    "property_sources": asdict(package.property_sources),
+                    "buckling_rules": asdict(package.buckling_rules),
+                    "overlay_layers_equivalent": package.overlay_layers_equivalent,
+                    "overlay_construction": package.overlay_construction,
+                    "base_material_key": row.base_material_key,
+                    "base_material_name": row.base_material_name,
+                    "young_scale": package.young_scale,
+                    "shear_scale": package.shear_scale,
+                    "density_scale": package.density_scale,
+                    "allowable_scale": package.allowable_scale,
+                    "final_allowable_scale": package.final_allowable_scale,
                     "E_eff_pa": props.E_eff_pa,
                     "G_eff_pa": props.G_eff_pa,
                     "density_eff_kgpm3": props.density_eff_kgpm3,
                     "allowable_eff_pa": props.allowable_eff_pa,
                 }
             )
-        return out
-
-    return {
-        "main_spar_family": _pack(catalog.main_spar_family, base_main),
-        "rear_spar_family": _pack(catalog.rear_spar_family, base_rear),
-        "rear_outboard_reinforcement_pkg": _pack(catalog.rear_outboard_reinforcement_pkg, base_rear),
-    }
+        summary[axis_name] = {
+            "axis": axis_name,
+            "description": axis_info.description,
+            "integration_mode": axis_info.integration_mode,
+            "promotion_state": axis_info.promotion_state,
+            "default_base_material_key": axis_info.default_base_material_key,
+            "packages": packages,
+        }
+    return summary
 
 
 def build_report_text(
@@ -1007,8 +867,14 @@ def build_report_text(
     lines.append("")
     lines.append("Proxy catalog (current baseline-material interpretation):")
     for axis_name in ("main_spar_family", "rear_spar_family", "rear_outboard_reinforcement_pkg"):
-        lines.append(f"  {axis_name}:")
-        for package in catalog_summary[axis_name]:
+        axis_summary = catalog_summary[axis_name]
+        lines.append(
+            f"  {axis_name}: integration={axis_summary['integration_mode']}  promotion={axis_summary['promotion_state']}"
+        )
+        lines.append(f"    {axis_summary['description']}")
+        for package in axis_summary["packages"]:
+            layup = package["layup_fractions"]
+            rules = package["buckling_rules"]
             lines.append(
                 "    "
                 f"{package['key']:24s} E={package['E_eff_pa'] / 1.0e9:7.2f} GPa  "
@@ -1017,6 +883,20 @@ def build_report_text(
                 f"allow={package['allowable_eff_pa'] / 1.0e6:7.1f} MPa"
             )
             lines.append(f"      {package['description']}")
+            lines.append(
+                "      "
+                f"layup[{package['layup_reference']}] 0={layup['axial_0'] * 100:4.0f}%  "
+                f"+/-45={layup['shear_pm45'] * 100:4.0f}%  90={layup['hoop_90'] * 100:4.0f}%  "
+                f"grade={package['source_material_grade']}"
+            )
+            lines.append(
+                "      "
+                f"rules: hoop>={rules['minimum_hoop_fraction'] * 100:4.0f}%  "
+                f"outer_pure_0_forbidden={rules['forbid_outer_pure_axial']}  "
+                f"allow_kd={rules['conservative_allowable_knockdown']:.2f}  "
+                f"region={rules['allowed_region']}  "
+                f"buckling_reserve={rules['local_buckling_reserve']}"
+            )
     lines.append("")
     lines.append("Geometry seeds:")
     for seed in geometry_seeds:
