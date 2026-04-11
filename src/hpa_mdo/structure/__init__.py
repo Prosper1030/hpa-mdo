@@ -9,6 +9,13 @@ from hpa_mdo.structure.spar_model import (
 )
 from hpa_mdo.structure.optimizer import SparOptimizer, OptimizationResult
 from hpa_mdo.structure.dual_beam_analysis import DualBeamAnalysisResult, run_dual_beam_analysis
+from hpa_mdo.structure.dual_beam_mainline import (
+    AnalysisModeName,
+    LinkMode,
+    RootBCMode,
+    WireBCMode,
+    run_dual_beam_mainline_analysis,
+)
 
 __all__ = [
     "DualSparSection",
@@ -22,4 +29,9 @@ __all__ = [
     "OptimizationResult",
     "DualBeamAnalysisResult",
     "run_dual_beam_analysis",
+    "AnalysisModeName",
+    "LinkMode",
+    "RootBCMode",
+    "WireBCMode",
+    "run_dual_beam_mainline_analysis",
 ]
