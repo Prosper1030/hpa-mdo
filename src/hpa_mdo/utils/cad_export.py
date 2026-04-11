@@ -254,7 +254,14 @@ def _export_with_cadquery(tube_paths: List[TubePath], step_path: Path) -> None:
     if model is None:
         raise ValueError("No geometry generated for STEP export.")
 
-    cq.exporters.export(model, str(step_path))
+    _export_cadquery_step_model(model, step_path)
+
+
+def _export_cadquery_step_model(model, step_path: Path) -> None:
+    """Export a cadquery model as STEP regardless of .step/.stp suffix."""
+    import cadquery as cq
+
+    cq.exporters.export(model, str(step_path), exportType="STEP")
 
 
 def _cadquery_circle(profile: TubeProfile, radius_mm: float):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 import numpy as np
 from types import SimpleNamespace
 
@@ -8,6 +9,7 @@ from hpa_mdo.utils.cad_export import (
     TubePath,
     TubeProfile,
     _apply_deformed_nodes,
+    _export_cadquery_step_model,
     compute_deformed_nodes,
     load_tube_paths,
 )
@@ -100,3 +102,28 @@ def test_apply_deformed_nodes_shifts_all_paths_by_same_node_deltas():
     # Tube section geometry is unchanged.
     assert shifted[1].profiles[1].outer_radius_mm == 25.0
     assert shifted[1].profiles[1].inner_radius_mm == 24.0
+
+
+def test_export_cadquery_step_model_forces_step_type_for_stp_suffix(monkeypatch):
+    export_call = {}
+
+    class FakeExporters:
+        @staticmethod
+        def export(model, path, exportType=None):
+            export_call["model"] = model
+            export_call["path"] = path
+            export_call["exportType"] = exportType
+
+    class FakeCadQuery:
+        exporters = FakeExporters()
+
+    monkeypatch.setitem(__import__("sys").modules, "cadquery", FakeCadQuery())
+
+    model = object()
+    _export_cadquery_step_model(model, Path("dual_beam.stp"))
+
+    assert export_call == {
+        "model": model,
+        "path": "dual_beam.stp",
+        "exportType": "STEP",
+    }
