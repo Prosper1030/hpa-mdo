@@ -39,6 +39,9 @@
 - `config.path` / `config.sha256`
 - `design_report.path` / `design_report.sha256`
 - `v2m_summary_json.path` / `v2m_summary_json.sha256`
+- `config.snapshot_path` / `config.snapshot_success`
+- `design_report.snapshot_path` / `design_report.snapshot_success`
+- `v2m_summary_json.snapshot_path` / `v2m_summary_json.snapshot_success`
 - `output_dir`
 - `producer_cli_overrides`
 

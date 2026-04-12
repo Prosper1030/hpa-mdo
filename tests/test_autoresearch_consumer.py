@@ -202,6 +202,7 @@ def test_autoresearch_cli_prints_score_line(capsys, monkeypatch, tmp_path: Path)
     assert "Score rule: -Primary.mass_kg" in captured.out
     assert "分數: -10.500000" in captured.out
     assert "Run fingerprint:" in captured.out
+    assert "Input snapshots: complete (3/3)" in captured.out
     assert "Run record:" in captured.out
     assert latest_record["score"] == -10.5
     assert latest_record["primary_mass_kg"] == 10.5
@@ -218,10 +219,26 @@ def test_autoresearch_cli_prints_score_line(capsys, monkeypatch, tmp_path: Path)
         producer_cli_overrides={"primary_margin_floor_mm": 60.0},
     )
     assert latest_record["run_fingerprint_version"] == RUN_FINGERPRINT_VERSION
+    assert latest_record["input_snapshot_status"] == "complete"
+    assert latest_record["input_snapshot_retained_count"] == 3
+    assert latest_record["input_snapshot_expected_count"] == 3
+    assert latest_record["input_provenance"]["config"]["snapshot_success"] is True
+    assert latest_record["input_provenance"]["config"]["snapshot_status"] == "archived"
+    assert Path(latest_record["input_provenance"]["config"]["snapshot_path"]).exists()
+    assert latest_record["input_provenance"]["design_report"]["snapshot_success"] is True
+    assert Path(latest_record["input_provenance"]["design_report"]["snapshot_path"]).exists()
+    assert latest_record["input_provenance"]["v2m_summary_json"]["snapshot_success"] is True
+    assert Path(latest_record["input_provenance"]["v2m_summary_json"]["snapshot_path"]).exists()
     assert Path(latest_record["decision_json_snapshot_path"]).exists()
 
 
 def test_autoresearch_cli_records_failure_runs(capsys, monkeypatch, tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("wing: blackcat\n", encoding="utf-8")
+    design_report_path = tmp_path / "missing_design_report.txt"
+    v2m_summary_json_path = tmp_path / "v2m_summary.json"
+    v2m_summary_json_path.write_text(json.dumps({"summary": "ok"}) + "\n", encoding="utf-8")
+
     def _raise_failure(config):
         raise consumer_impl.AutoresearchConsumerError("boom")
 
@@ -230,7 +247,18 @@ def test_autoresearch_cli_records_failure_runs(capsys, monkeypatch, tmp_path: Pa
     monkeypatch.setattr(history_impl, "resolve_git_branch", lambda cwd=None: "main")
     monkeypatch.setattr(history_impl, "resolve_git_worktree_dirty", lambda cwd=None: True)
 
-    exit_code = autoresearch_main.main(["--output-dir", str(tmp_path / "run")])
+    exit_code = autoresearch_main.main(
+        [
+            "--output-dir",
+            str(tmp_path / "run"),
+            "--config",
+            str(config_path),
+            "--design-report",
+            str(design_report_path),
+            "--v2m-summary-json",
+            str(v2m_summary_json_path),
+        ]
+    )
     captured = capsys.readouterr()
     latest_record = json.loads(
         history_impl.latest_record_path(default_history_dir(tmp_path / "run")).read_text(encoding="utf-8")
@@ -244,44 +272,79 @@ def test_autoresearch_cli_records_failure_runs(capsys, monkeypatch, tmp_path: Pa
     assert latest_record["producer_name"] == "hpa_mdo.dual_beam_joint_decision"
     assert latest_record["run_fingerprint"] is not None
     assert latest_record["git_worktree_dirty"] is True
+    assert latest_record["input_snapshot_status"] == "partial"
+    assert latest_record["input_snapshot_retained_count"] == 2
+    assert latest_record["input_snapshot_expected_count"] == 3
+    assert latest_record["input_provenance"]["config"]["snapshot_success"] is True
+    assert Path(latest_record["input_provenance"]["config"]["snapshot_path"]).exists()
+    assert latest_record["input_provenance"]["design_report"]["snapshot_success"] is False
+    assert latest_record["input_provenance"]["design_report"]["snapshot_status"] == "missing"
+    assert latest_record["input_provenance"]["design_report"]["snapshot_path"] is None
+    assert latest_record["input_provenance"]["v2m_summary_json"]["snapshot_success"] is True
+    assert Path(latest_record["input_provenance"]["v2m_summary_json"]["snapshot_path"]).exists()
 
 
 def test_autoresearch_summary_cli_lists_recent_runs(capsys, tmp_path: Path) -> None:
     history_dir = tmp_path / "history"
+    shared_config_path, shared_design_report_path, shared_v2m_summary_json_path = _write_input_sources(tmp_path)
     shared_input_provenance = build_joint_decision_input_provenance(
-        config_path=tmp_path / "config.yaml",
-        design_report_path=tmp_path / "design_report.txt",
-        v2m_summary_json_path=tmp_path / "v2m_summary.json",
+        config_path=shared_config_path,
+        design_report_path=shared_design_report_path,
+        v2m_summary_json_path=shared_v2m_summary_json_path,
         output_dir=tmp_path / "run_shared",
         primary_margin_floor_mm=60.0,
         balanced_min_margin_mm=None,
         balanced_max_mass_delta_kg=None,
         conservative_mode=None,
     )
+    archived_shared_input_provenance = history_impl.archive_input_provenance(
+        shared_input_provenance,
+        history_dir=history_dir,
+        run_id="run-001",
+    )
+    shared_snapshot_summary = history_impl.summarize_input_snapshots(archived_shared_input_provenance)
+    archived_shared_input_provenance_run2 = history_impl.archive_input_provenance(
+        shared_input_provenance,
+        history_dir=history_dir,
+        run_id="run-002",
+    )
     shared_fingerprint = compute_run_fingerprint(
         producer_name="hpa_mdo.dual_beam_joint_decision",
         producer_interface_version="v1",
         decision_schema_name=consumer_impl.EXPECTED_DECISION_SCHEMA_NAME,
         decision_schema_version=consumer_impl.EXPECTED_DECISION_SCHEMA_VERSION,
-        input_provenance=shared_input_provenance,
+        input_provenance=archived_shared_input_provenance,
         producer_cli_overrides={"primary_margin_floor_mm": 60.0},
     )
+    alternative_config_path = tmp_path / "config_alt.yaml"
+    alternative_config_path.write_text("wing: blackcat-alt\n", encoding="utf-8")
+    alternative_design_report_path = tmp_path / "design_report_alt.txt"
+    alternative_v2m_summary_json_path = tmp_path / "v2m_summary_alt.json"
+    alternative_v2m_summary_json_path.write_text(json.dumps({"summary": "alt"}) + "\n", encoding="utf-8")
     alternative_input_provenance = build_joint_decision_input_provenance(
-        config_path=tmp_path / "config_alt.yaml",
-        design_report_path=tmp_path / "design_report_alt.txt",
-        v2m_summary_json_path=tmp_path / "v2m_summary_alt.json",
+        config_path=alternative_config_path,
+        design_report_path=alternative_design_report_path,
+        v2m_summary_json_path=alternative_v2m_summary_json_path,
         output_dir=tmp_path / "run_alt",
         primary_margin_floor_mm=None,
         balanced_min_margin_mm=None,
         balanced_max_mass_delta_kg=None,
         conservative_mode=None,
     )
+    archived_alternative_input_provenance = history_impl.archive_input_provenance(
+        alternative_input_provenance,
+        history_dir=history_dir,
+        run_id="run-003",
+    )
+    alternative_snapshot_summary = history_impl.summarize_input_snapshots(
+        archived_alternative_input_provenance
+    )
     alternative_fingerprint = compute_run_fingerprint(
         producer_name="hpa_mdo.dual_beam_joint_decision",
         producer_interface_version="v1",
         decision_schema_name=consumer_impl.EXPECTED_DECISION_SCHEMA_NAME,
         decision_schema_version=consumer_impl.EXPECTED_DECISION_SCHEMA_VERSION,
-        input_provenance=alternative_input_provenance,
+        input_provenance=archived_alternative_input_provenance,
         producer_cli_overrides={},
     )
     records = [
@@ -307,9 +370,12 @@ def test_autoresearch_summary_cli_lists_recent_runs(capsys, tmp_path: Path) -> N
             primary_slot_status="selected",
             primary_fallback_reason_code="none",
             producer_cli_overrides={"primary_margin_floor_mm": 60.0},
-            input_provenance=shared_input_provenance,
+            input_provenance=archived_shared_input_provenance,
             run_fingerprint=shared_fingerprint,
             run_fingerprint_version=RUN_FINGERPRINT_VERSION,
+            input_snapshot_status=shared_snapshot_summary["status"],
+            input_snapshot_retained_count=shared_snapshot_summary["retained_count"],
+            input_snapshot_expected_count=shared_snapshot_summary["expected_count"],
             git_branch="main",
             git_worktree_dirty=False,
         ),
@@ -335,9 +401,12 @@ def test_autoresearch_summary_cli_lists_recent_runs(capsys, tmp_path: Path) -> N
             primary_slot_status="selected",
             primary_fallback_reason_code="none",
             producer_cli_overrides={"primary_margin_floor_mm": 60.0},
-            input_provenance=shared_input_provenance,
+            input_provenance=archived_shared_input_provenance_run2,
             run_fingerprint=shared_fingerprint,
             run_fingerprint_version=RUN_FINGERPRINT_VERSION,
+            input_snapshot_status=shared_snapshot_summary["status"],
+            input_snapshot_retained_count=shared_snapshot_summary["retained_count"],
+            input_snapshot_expected_count=shared_snapshot_summary["expected_count"],
             git_branch="main",
             git_worktree_dirty=False,
         ),
@@ -362,9 +431,12 @@ def test_autoresearch_summary_cli_lists_recent_runs(capsys, tmp_path: Path) -> N
             git_commit_hash="ghi",
             primary_slot_status=None,
             primary_fallback_reason_code=None,
-            input_provenance=alternative_input_provenance,
+            input_provenance=archived_alternative_input_provenance,
             run_fingerprint=alternative_fingerprint,
             run_fingerprint_version=RUN_FINGERPRINT_VERSION,
+            input_snapshot_status=alternative_snapshot_summary["status"],
+            input_snapshot_retained_count=alternative_snapshot_summary["retained_count"],
+            input_snapshot_expected_count=alternative_snapshot_summary["expected_count"],
             git_branch="main",
             git_worktree_dirty=True,
             error_message="producer failed",
@@ -382,12 +454,15 @@ def test_autoresearch_summary_cli_lists_recent_runs(capsys, tmp_path: Path) -> N
 
     assert exit_code == 0
     assert "Total runs: 3" in captured.out
-    assert "Best score: -9.500000" in captured.out
+    assert "Best score: -9.500000 (run_id=run-002, fp=" in captured.out
     assert "Run fingerprint version: input_definition_v1" in captured.out
+    assert "snapshots=complete (3/3)" in captured.out
     assert "Repeated lineages:" in captured.out
     assert "run_id=run-003" in captured.out
     assert summary["best_run"]["run_id"] == "run-002"
     assert summary["recent_runs"][0]["run_fingerprint"] == alternative_fingerprint
+    assert summary["recent_runs"][0]["input_snapshot_status"] == "partial"
+    assert summary["recent_runs"][0]["input_snapshot_missing_sources"] == ["design_report"]
     assert summary["recent_runs"][1]["same_lineage_run_count"] == 2
     assert "git_commit_hash" in summary["recent_runs"][1]["provenance_diff_vs_previous"]
     assert summary["lineage_groups"][0]["run_fingerprint"] == alternative_fingerprint
@@ -432,3 +507,4 @@ def test_load_run_records_accepts_legacy_v1_records(tmp_path: Path) -> None:
     assert records[0].run_id == "run-legacy"
     assert records[0].run_fingerprint is None
     assert records[0].producer_command is None
+    assert records[0].input_snapshot_status is None

@@ -73,12 +73,22 @@ def _format_source_label(source: object) -> str:
         return "n/a"
     path_value = source.get("path")
     sha_value = source.get("sha256")
+    snapshot_status = source.get("snapshot_status")
     if path_value is None:
         return "n/a"
     label = Path(str(path_value)).name
     if sha_value is None:
+        if snapshot_status == "archived":
+            return f"{label}[snap]"
+        if snapshot_status == "missing":
+            return f"{label}[missing]"
         return label
-    return f"{label}@{str(sha_value)[:8]}"
+    label = f"{label}@{str(sha_value)[:8]}"
+    if snapshot_status == "archived":
+        return f"{label}[snap]"
+    if snapshot_status == "missing":
+        return f"{label}[missing]"
+    return label
 
 
 def _run_mode(argv: list[str]) -> int:
@@ -143,6 +153,10 @@ def _run_mode(argv: list[str]) -> int:
     print(f"Config provenance: {_format_source_label(input_provenance.get('config'))}")
     print(f"Design report provenance: {_format_source_label(input_provenance.get('design_report'))}")
     print(f"V2M summary provenance: {_format_source_label(input_provenance.get('v2m_summary_json'))}")
+    snapshot_status = record.input_snapshot_status or "n/a"
+    retained_count = record.input_snapshot_retained_count or 0
+    expected_count = record.input_snapshot_expected_count or 0
+    print(f"Input snapshots: {snapshot_status} ({retained_count}/{expected_count})")
     git_branch = record.git_branch or "n/a"
     git_commit_hash = record.git_commit_hash or "n/a"
     if record.git_worktree_dirty is None:

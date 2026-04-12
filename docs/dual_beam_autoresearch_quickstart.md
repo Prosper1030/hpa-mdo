@@ -89,12 +89,14 @@ Primary margin (mm): 59.706287
 - `OUTPUT_DIR/autoresearch_history/autoresearch_run_records.jsonl`
 - `OUTPUT_DIR/autoresearch_history/autoresearch_latest_run_record.json`
 - `OUTPUT_DIR/autoresearch_history/decision_snapshots/`
+- `OUTPUT_DIR/autoresearch_history/input_snapshots/`
 
 其中：
 
 - `autoresearch_run_records.jsonl` 是 append-only ledger
 - `autoresearch_latest_run_record.json` 方便快速看最近一次結果
 - `decision_snapshots/` 會保存每次 run 的 decision JSON snapshot，避免原 output 被覆寫後記錄失效
+- `input_snapshots/` 會保存 `config` / `design_report` / `v2m_summary_json` 的 snapshot，避免 provenance 只剩 path
 
 如果你想把不同 `output_dir` 的 run 聚合到同一份 history，可以加：
 
@@ -141,6 +143,9 @@ uv run python -m hpa_mdo.autoresearch \
 - `config.path` / `config.sha256`
 - `design_report.path` / `design_report.sha256`
 - `v2m_summary_json.path` / `v2m_summary_json.sha256`
+- `config.snapshot_path` / `config.snapshot_success` / `config.snapshot_status`
+- `design_report.snapshot_path` / `design_report.snapshot_success` / `design_report.snapshot_status`
+- `v2m_summary_json.snapshot_path` / `v2m_summary_json.snapshot_success` / `v2m_summary_json.snapshot_status`
 - `output_dir`
 - `producer_cli_overrides`
 
@@ -167,6 +172,7 @@ uv run python -m hpa_mdo.autoresearch summary \
 - 最好 score
 - governance version / fingerprint version
 - 每筆 run 的 `run_fingerprint`
+- 每筆 run 的 input snapshot retention 狀態
 - 每筆 run 與前一次 run 的關鍵 provenance 差異
 - 哪些 run 屬於同一個 lineage
 - 每筆 run 的 primary mass / margin

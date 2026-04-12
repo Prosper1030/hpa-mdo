@@ -14,6 +14,7 @@ from uuid import uuid4
 from hpa_mdo.provenance import (
     EXPERIMENT_GOVERNANCE_VERSION,
     RUN_FINGERPRINT_VERSION,
+    TRACEABLE_INPUT_SOURCE_KEYS,
     build_joint_decision_input_provenance,
     compute_run_fingerprint,
 )
@@ -22,10 +23,11 @@ if TYPE_CHECKING:
     from hpa_mdo.autoresearch.consumer import AutoresearchPrimaryConfig, AutoresearchPrimaryRun
 
 RUN_RECORD_SCHEMA_NAME = "hpa_mdo.autoresearch.primary_run_record"
-RUN_RECORD_SCHEMA_VERSION = "v2"
+RUN_RECORD_SCHEMA_VERSION = "v3"
 RUN_RECORDS_FILENAME = "autoresearch_run_records.jsonl"
 LATEST_RECORD_FILENAME = "autoresearch_latest_run_record.json"
 DECISION_SNAPSHOT_DIRNAME = "decision_snapshots"
+INPUT_SNAPSHOT_DIRNAME = "input_snapshots"
 SCORE_NAME = "negative_primary_mass_kg"
 SCORE_RULE = "-Primary.mass_kg"
 
@@ -72,6 +74,9 @@ class AutoresearchRunRecord:
     input_provenance: dict[str, Any] | None = None
     run_fingerprint: str | None = None
     run_fingerprint_version: str | None = None
+    input_snapshot_status: str | None = None
+    input_snapshot_retained_count: int | None = None
+    input_snapshot_expected_count: int | None = None
     git_branch: str | None = None
     git_worktree_dirty: bool | None = None
     error_message: str | None = None
@@ -108,6 +113,9 @@ class AutoresearchRunRecord:
             "input_provenance": self.input_provenance,
             "run_fingerprint": self.run_fingerprint,
             "run_fingerprint_version": self.run_fingerprint_version,
+            "input_snapshot_status": self.input_snapshot_status,
+            "input_snapshot_retained_count": self.input_snapshot_retained_count,
+            "input_snapshot_expected_count": self.input_snapshot_expected_count,
             "git_branch": self.git_branch,
             "git_worktree_dirty": self.git_worktree_dirty,
             "error_message": self.error_message,
@@ -156,6 +164,9 @@ class AutoresearchRunRecord:
             input_provenance=_as_optional_dict(payload.get("input_provenance")),
             run_fingerprint=_as_optional_str(payload.get("run_fingerprint")),
             run_fingerprint_version=_as_optional_str(payload.get("run_fingerprint_version")),
+            input_snapshot_status=_as_optional_str(payload.get("input_snapshot_status")),
+            input_snapshot_retained_count=_as_optional_int(payload.get("input_snapshot_retained_count")),
+            input_snapshot_expected_count=_as_optional_int(payload.get("input_snapshot_expected_count")),
             git_branch=_as_optional_str(payload.get("git_branch")),
             git_worktree_dirty=_as_optional_bool(payload.get("git_worktree_dirty")),
             error_message=_as_optional_str(payload.get("error_message")),
@@ -197,6 +208,12 @@ def _as_optional_bool(value: Any) -> bool | None:
         if lowered in {"false", "0", "no"}:
             return False
     return None
+
+
+def _as_optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 def default_history_dir(output_dir: Path | str) -> Path:
@@ -282,7 +299,11 @@ def build_success_run_record(
         history_dir=context.history_dir,
         run_id=context.run_id,
     )
-    input_provenance = _resolve_input_provenance(run.manifest.get("input_provenance"), run.config)
+    input_provenance = archive_input_provenance(
+        _resolve_input_provenance(run.manifest.get("input_provenance"), run.config),
+        history_dir=context.history_dir,
+        run_id=context.run_id,
+    )
     producer_name = _as_optional_str(run.manifest.get("producer_name"))
     producer_interface_version = _as_optional_str(run.manifest.get("producer_interface_version"))
     decision_schema_name = _as_optional_str(run.decision_interface.get("schema_name"))
@@ -291,6 +312,7 @@ def build_success_run_record(
         run.manifest.get("producer_cli_overrides"),
         input_provenance,
     )
+    input_snapshot_summary = summarize_input_snapshots(input_provenance)
 
     return AutoresearchRunRecord(
         run_record_schema_name=RUN_RECORD_SCHEMA_NAME,
@@ -326,6 +348,9 @@ def build_success_run_record(
             producer_cli_overrides=producer_cli_overrides,
         ),
         run_fingerprint_version=RUN_FINGERPRINT_VERSION,
+        input_snapshot_status=input_snapshot_summary["status"],
+        input_snapshot_retained_count=input_snapshot_summary["retained_count"],
+        input_snapshot_expected_count=input_snapshot_summary["expected_count"],
         git_branch=context.git_branch,
         git_worktree_dirty=context.git_worktree_dirty,
     )
@@ -344,8 +369,13 @@ def build_failure_run_record(
     from hpa_mdo.producer import PRODUCER_INTERFACE_VERSION, PRODUCER_NAME
 
     producer_command = tuple(build_producer_cli_argv(config))
-    input_provenance = _build_input_provenance_from_config(config)
+    input_provenance = archive_input_provenance(
+        _build_input_provenance_from_config(config),
+        history_dir=context.history_dir,
+        run_id=context.run_id,
+    )
     producer_cli_overrides = _resolve_producer_cli_overrides(None, input_provenance)
+    input_snapshot_summary = summarize_input_snapshots(input_provenance)
 
     return AutoresearchRunRecord(
         run_record_schema_name=RUN_RECORD_SCHEMA_NAME,
@@ -381,6 +411,9 @@ def build_failure_run_record(
             producer_cli_overrides=producer_cli_overrides,
         ),
         run_fingerprint_version=RUN_FINGERPRINT_VERSION,
+        input_snapshot_status=input_snapshot_summary["status"],
+        input_snapshot_retained_count=input_snapshot_summary["retained_count"],
+        input_snapshot_expected_count=input_snapshot_summary["expected_count"],
         git_branch=context.git_branch,
         git_worktree_dirty=context.git_worktree_dirty,
         error_message=error_message,
@@ -400,6 +433,92 @@ def archive_decision_json(
     snapshot_path = snapshot_dir / f"{run_id}_{source.name}"
     shutil.copyfile(source, snapshot_path)
     return snapshot_path
+
+
+def archive_input_provenance(
+    input_provenance: dict[str, Any],
+    *,
+    history_dir: Path | str,
+    run_id: str,
+) -> dict[str, Any]:
+    archived: dict[str, Any] = {}
+    for key, value in input_provenance.items():
+        if key not in TRACEABLE_INPUT_SOURCE_KEYS:
+            archived[key] = value
+            continue
+
+        if not isinstance(value, dict):
+            archived[key] = value
+            continue
+
+        source_record = dict(value)
+        snapshot_path, snapshot_status, snapshot_success = archive_input_source(
+            source_name=key,
+            source_record=source_record,
+            history_dir=history_dir,
+            run_id=run_id,
+        )
+        source_record["snapshot_path"] = None if snapshot_path is None else str(snapshot_path)
+        source_record["snapshot_status"] = snapshot_status
+        source_record["snapshot_success"] = snapshot_success
+        archived[key] = source_record
+    return archived
+
+
+def archive_input_source(
+    *,
+    source_name: str,
+    source_record: dict[str, Any],
+    history_dir: Path | str,
+    run_id: str,
+) -> tuple[Path | None, str, bool]:
+    path_value = source_record.get("path")
+    if path_value is None:
+        return None, "missing", False
+
+    source_path = Path(path_value).expanduser().resolve()
+    if not source_path.exists() or not source_path.is_file():
+        return None, "missing", False
+
+    snapshot_dir = Path(history_dir).expanduser().resolve() / INPUT_SNAPSHOT_DIRNAME / source_name
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = snapshot_dir / f"{run_id}_{source_path.name}"
+    shutil.copyfile(source_path, snapshot_path)
+    return snapshot_path, "archived", True
+
+
+def summarize_input_snapshots(input_provenance: dict[str, Any] | None) -> dict[str, Any]:
+    retained_sources: list[str] = []
+    missing_sources: list[str] = []
+    expected_count = 0
+
+    normalized_input_provenance = input_provenance or {}
+    for source_name in TRACEABLE_INPUT_SOURCE_KEYS:
+        source_record = normalized_input_provenance.get(source_name)
+        if not isinstance(source_record, dict):
+            continue
+        expected_count += 1
+        if source_record.get("snapshot_success") is True and source_record.get("snapshot_path"):
+            retained_sources.append(source_name)
+        else:
+            missing_sources.append(source_name)
+
+    if expected_count == 0:
+        status = "n/a"
+    elif len(retained_sources) == expected_count:
+        status = "complete"
+    elif retained_sources:
+        status = "partial"
+    else:
+        status = "missing"
+
+    return {
+        "status": status,
+        "expected_count": expected_count,
+        "retained_count": len(retained_sources),
+        "retained_sources": retained_sources,
+        "missing_sources": missing_sources,
+    }
 
 
 def append_run_record(record: AutoresearchRunRecord, history_dir: Path | str) -> tuple[Path, Path]:
@@ -509,6 +628,7 @@ def _record_summary(
             run_id for run_id in lineage_group["run_ids"] if run_id != record.run_id
         ]
         same_lineage_run_count = int(lineage_group["run_count"])
+    input_snapshot_summary = summarize_input_snapshots(record.input_provenance)
 
     return {
         **record.to_dict(),
@@ -526,6 +646,8 @@ def _record_summary(
         ),
         "same_lineage_run_count": same_lineage_run_count,
         "same_lineage_other_run_ids": same_lineage_run_ids,
+        "input_snapshot_missing_sources": input_snapshot_summary["missing_sources"],
+        "input_snapshot_retained_sources": input_snapshot_summary["retained_sources"],
         "provenance_diff_vs_previous": _build_provenance_diff(
             current=record,
             previous=previous_record,
@@ -558,6 +680,9 @@ def _build_lineage_groups(records: list[AutoresearchRunRecord]) -> list[dict[str
                 "git_commit_hashes": sorted(
                     {value for value in (item.git_commit_hash for item in ordered_items) if value}
                 ),
+                "input_snapshot_status": ordered_items[0].input_snapshot_status,
+                "input_snapshot_retained_count": ordered_items[0].input_snapshot_retained_count,
+                "input_snapshot_expected_count": ordered_items[0].input_snapshot_expected_count,
                 "provenance_highlights": _build_provenance_highlights(ordered_items[0]),
             }
         )
@@ -606,6 +731,7 @@ def _build_provenance_highlights(record: AutoresearchRunRecord) -> dict[str, str
         "design_report": _format_source_label(record, "design_report"),
         "v2m_summary_json": _format_source_label(record, "v2m_summary_json"),
         "overrides": _format_overrides_label(record.producer_cli_overrides),
+        "input_snapshots": _format_input_snapshot_label(record),
         "git": _format_git_label(record),
     }
 
@@ -617,13 +743,18 @@ def _format_source_label(record: AutoresearchRunRecord, source_name: str) -> str
 
     path_value = source.get("path")
     sha_value = source.get("sha256")
+    snapshot_status = source.get("snapshot_status")
     if path_value is None and sha_value is None:
         return "n/a"
 
     label = "n/a" if path_value is None else Path(path_value).name
-    if sha_value is None:
-        return label
-    return f"{label}@{str(sha_value)[:8]}"
+    if sha_value is not None:
+        label = f"{label}@{str(sha_value)[:8]}"
+    if snapshot_status == "archived":
+        return f"{label}[snap]"
+    if snapshot_status == "missing":
+        return f"{label}[missing]"
+    return label
 
 
 def _format_overrides_label(overrides: dict[str, Any] | None) -> str:
@@ -641,6 +772,22 @@ def _format_git_label(record: AutoresearchRunRecord) -> str:
     else:
         cleanliness = "dirty=yes" if record.git_worktree_dirty else "dirty=no"
     return f"{branch}@{commit} {cleanliness}"
+
+
+def _format_input_snapshot_label(record: AutoresearchRunRecord) -> str:
+    input_snapshot_summary = summarize_input_snapshots(record.input_provenance)
+    status = input_snapshot_summary["status"]
+    retained_count = input_snapshot_summary["retained_count"]
+    expected_count = input_snapshot_summary["expected_count"]
+    if status == "n/a":
+        return "n/a"
+    missing_sources = input_snapshot_summary["missing_sources"]
+    if not missing_sources:
+        return f"{status}({retained_count}/{expected_count})"
+    return (
+        f"{status}({retained_count}/{expected_count};"
+        f"missing={','.join(missing_sources)})"
+    )
 
 
 def _get_input_source(record: AutoresearchRunRecord, source_name: str) -> dict[str, Any] | None:
@@ -754,6 +901,9 @@ def render_run_summary(summary: dict[str, Any], history_dir: Path | str) -> str:
             f"{_format_optional_float(best_run['score'])} "
             f"(run_id={best_run['run_id']}, "
             f"fp={best_run.get('run_fingerprint') or 'n/a'}, "
+            f"snapshots={best_run.get('input_snapshot_status') or 'n/a'} "
+            f"({best_run.get('input_snapshot_retained_count') or 0}/"
+            f"{best_run.get('input_snapshot_expected_count') or 0}), "
             f"mass={_format_optional_float(best_run['primary_mass_kg'])} kg, "
             f"margin={_format_optional_float(best_run['primary_margin_mm'])} mm)"
         )
@@ -770,6 +920,9 @@ def render_run_summary(summary: dict[str, Any], history_dir: Path | str) -> str:
             f"mass={_format_optional_float(item['primary_mass_kg'])}kg "
             f"margin={_format_optional_float(item['primary_margin_mm'])}mm "
             f"fp={item.get('run_fingerprint') or 'n/a'} "
+            f"snapshots={item.get('input_snapshot_status') or 'n/a'} "
+            f"({item.get('input_snapshot_retained_count') or 0}/"
+            f"{item.get('input_snapshot_expected_count') or 0}) "
             f"same_lineage_runs={item.get('same_lineage_run_count') or 0} "
             f"delta_mass_vs_best={_format_optional_float(item['mass_delta_vs_best_kg'])}kg "
             f"delta_margin_vs_best={_format_optional_float(item['margin_delta_vs_best_mm'])}mm "
@@ -783,6 +936,7 @@ def render_run_summary(summary: dict[str, Any], history_dir: Path | str) -> str:
             f"design_report={provenance['design_report']} "
             f"v2m_summary_json={provenance['v2m_summary_json']} "
             f"overrides={provenance['overrides']} "
+            f"snapshots={provenance['input_snapshots']} "
             f"git={provenance['git']}"
         )
 
@@ -796,6 +950,9 @@ def render_run_summary(summary: dict[str, Any], history_dir: Path | str) -> str:
                 f"fp={item['run_fingerprint']} "
                 f"runs={item['run_count']} "
                 f"latest_run={item['latest_run_id']} "
+                f"snapshots={item.get('input_snapshot_status') or 'n/a'} "
+                f"({item.get('input_snapshot_retained_count') or 0}/"
+                f"{item.get('input_snapshot_expected_count') or 0}) "
                 f"score_min={_format_optional_float(item['score_min'])} "
                 f"score_max={_format_optional_float(item['score_max'])} "
                 f"score_var={'yes' if item['has_score_variation'] else 'no'} "
