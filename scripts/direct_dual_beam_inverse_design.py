@@ -121,9 +121,74 @@ class CandidateArchive:
     def feasible_count(self) -> int:
         return sum(1 for cand in self.candidates if cand.overall_feasible)
 
+    def ranked_feasible(self) -> list[InverseCandidate]:
+        return sorted(
+            (cand for cand in self.candidates if cand.overall_feasible),
+            key=_feasible_key,
+        )
+
+    def ranked_by_violation(self) -> list[InverseCandidate]:
+        return sorted(self.candidates, key=_violation_key)
+
+    def local_refine_starts(
+        self,
+        *,
+        feasible_limit: int,
+        near_feasible_limit: int,
+        baseline: InverseCandidate | None = None,
+    ) -> tuple[InverseCandidate, ...]:
+        ranked: list[InverseCandidate] = []
+        seen: set[tuple[float, ...]] = set()
+
+        def _add(candidate: InverseCandidate | None) -> None:
+            if candidate is None:
+                return
+            key = tuple(np.round(np.asarray(candidate.z, dtype=float).reshape(-1), 10))
+            if key in seen:
+                return
+            seen.add(key)
+            ranked.append(candidate)
+
+        for candidate in self.ranked_feasible()[: max(0, int(feasible_limit))]:
+            _add(candidate)
+
+        near_feasible = [
+            cand
+            for cand in self.ranked_by_violation()
+            if (not cand.overall_feasible)
+            and cand.analysis_succeeded
+            and np.isfinite(cand.total_structural_mass_kg)
+        ]
+        for candidate in near_feasible[: max(0, int(near_feasible_limit))]:
+            _add(candidate)
+
+        _add(self.selected)
+        _add(baseline)
+        return tuple(ranked)
+
+
+@dataclass(frozen=True)
+class LocalRefineAttempt:
+    seed_source: str
+    seed_mass_kg: float
+    seed_overall_feasible: bool
+    seed_hard_violation_score: float
+    end_source: str
+    end_mass_kg: float
+    end_overall_feasible: bool
+    success: bool
+    message: str
+    nfev: int
+    nit: int
+
 
 @dataclass(frozen=True)
 class LocalRefineSummary:
+    coarse_selected_source: str
+    coarse_selected_mass_kg: float
+    coarse_candidate_count: int
+    coarse_feasible_count: int
+    seed_count: int
     start_source: str
     start_mass_kg: float
     end_mass_kg: float
@@ -131,6 +196,7 @@ class LocalRefineSummary:
     message: str
     nfev: int
     nit: int
+    attempts: tuple[LocalRefineAttempt, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -157,6 +223,9 @@ class InverseOutcome:
     cache_hits: int
     feasible_count: int
     baseline: InverseCandidate
+    coarse_selected: InverseCandidate
+    coarse_candidate_count: int
+    coarse_feasible_count: int
     selected: InverseCandidate
     local_refine: LocalRefineSummary | None
     manufacturing_limit_source: str
@@ -1133,6 +1202,9 @@ def build_summary_json(
             "cache_hits": outcome.cache_hits,
             "feasible_count": outcome.feasible_count,
             "baseline": candidate_to_summary_dict(outcome.baseline),
+            "coarse_selected": candidate_to_summary_dict(outcome.coarse_selected),
+            "coarse_candidate_count": outcome.coarse_candidate_count,
+            "coarse_feasible_count": outcome.coarse_feasible_count,
             "selected": candidate_to_summary_dict(outcome.selected),
             "local_refine": None if outcome.local_refine is None else asdict(outcome.local_refine),
         },
@@ -1159,6 +1231,12 @@ def _build_refresh_iteration_summary(iteration: RefreshIterationResult) -> dict[
             "unique_evaluations": iteration.outcome.unique_evaluations,
             "cache_hits": iteration.outcome.cache_hits,
             "feasible_count": iteration.outcome.feasible_count,
+        },
+        "search_diagnostics": {
+            "coarse_candidate_count": iteration.outcome.coarse_candidate_count,
+            "coarse_feasible_count": iteration.outcome.coarse_feasible_count,
+            "coarse_selected": candidate_to_summary_dict(iteration.outcome.coarse_selected),
+            "local_refine": None if iteration.outcome.local_refine is None else asdict(iteration.outcome.local_refine),
         },
         "selected": candidate_to_summary_dict(selected),
         "forward_check": None if iteration.forward_check is None else asdict(iteration.forward_check),
@@ -1254,9 +1332,16 @@ def build_refresh_report_text(
 
     for iteration in outcome.iterations:
         selected = iteration.outcome.selected
+        coarse_selected = iteration.outcome.coarse_selected
         lines.append(f"Iteration {iteration.iteration_index}:")
         lines.append(f"  load source                 : {iteration.load_source}")
+        lines.append(f"  coarse selected mass        : {coarse_selected.total_structural_mass_kg:11.3f} kg")
+        lines.append(f"  coarse candidate count      : {iteration.outcome.coarse_candidate_count:11d}")
+        lines.append(f"  coarse feasible count       : {iteration.outcome.coarse_feasible_count:11d}")
         lines.append(f"  total structural mass       : {selected.total_structural_mass_kg:11.3f} kg")
+        lines.append(
+            f"  coarse -> selected delta    : {selected.total_structural_mass_kg - coarse_selected.total_structural_mass_kg:+11.3f} kg"
+        )
         lines.append(f"  inverse target error max    : {_mm(selected.target_shape_error_max_m):11.6f} mm")
         lines.append(f"  inverse target error rms    : {_mm(selected.target_shape_error_rms_m):11.6f} mm")
         lines.append(f"  jig min ground clearance    : {_mm(selected.jig_ground_clearance_min_m):11.3f} mm")
@@ -1280,6 +1365,25 @@ def build_refresh_report_text(
         lines.append(
             f"  AoA clip fraction           : {100.0 * iteration.load_metrics.aoa_clip_fraction:11.3f} %"
         )
+        if iteration.outcome.local_refine is not None:
+            lines.append("  local refine diagnostics:")
+            lines.append(f"    seed count                : {iteration.outcome.local_refine.seed_count}")
+            lines.append(f"    best seed                 : {iteration.outcome.local_refine.start_source}")
+            lines.append(
+                f"    best seed mass            : {iteration.outcome.local_refine.start_mass_kg:11.3f} kg"
+            )
+            lines.append(
+                f"    best end mass             : {iteration.outcome.local_refine.end_mass_kg:11.3f} kg"
+            )
+            lines.append(
+                f"    aggregate nfev / nit      : {iteration.outcome.local_refine.nfev} / {iteration.outcome.local_refine.nit}"
+            )
+            for idx, attempt in enumerate(iteration.outcome.local_refine.attempts, start=1):
+                lines.append(
+                    f"    attempt {idx:02d}                : "
+                    f"{attempt.seed_mass_kg:8.3f} kg -> {attempt.end_mass_kg:8.3f} kg"
+                    f"  feasible={attempt.end_overall_feasible}"
+                )
         if iteration.forward_check is not None:
             lines.append("  forward check on previous jig:")
             lines.append(
@@ -1469,6 +1573,8 @@ def run_inverse_design(
     cobyla_maxiter: int,
     cobyla_rhobeg: float,
     skip_local_refine: bool,
+    local_refine_feasible_seeds: int,
+    local_refine_near_feasible_seeds: int,
 ) -> InverseOutcome:
     baseline_design = BaselineDesign(
         main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
@@ -1505,6 +1611,10 @@ def run_inverse_design(
     for point in coarse_grid:
         evaluator.evaluate(np.asarray(point, dtype=float), source="coarse_grid")
 
+    coarse_selected = evaluator.archive.selected or baseline
+    coarse_candidate_count = len(evaluator.archive.candidates)
+    coarse_feasible_count = evaluator.archive.feasible_count
+
     lb = np.zeros(5, dtype=float)
     ub = np.ones(5, dtype=float)
     local_refine: LocalRefineSummary | None = None
@@ -1513,38 +1623,84 @@ def run_inverse_design(
 
     if not skip_local_refine:
         constraints = build_constraint_functions(evaluator=evaluator, lb=lb, ub=ub)
-        start_candidate = evaluator.archive.selected or baseline
-        objective_calls = {"n": 0}
-
-        def _objective(z: np.ndarray) -> float:
-            objective_calls["n"] += 1
-            cand = evaluator.evaluate(z, source="local_objective")
-            return float(cand.total_structural_mass_kg)
-
-        opt = minimize(
-            _objective,
-            np.asarray(start_candidate.z, dtype=float),
-            method="COBYLA",
-            constraints=constraints,
-            options={
-                "maxiter": int(cobyla_maxiter),
-                "rhobeg": float(cobyla_rhobeg),
-                "tol": 1.0e-6,
-                "catol": 1.0e-6,
-            },
+        start_candidates = evaluator.archive.local_refine_starts(
+            feasible_limit=int(local_refine_feasible_seeds),
+            near_feasible_limit=int(local_refine_near_feasible_seeds),
+            baseline=baseline,
         )
-        end_candidate = evaluator.evaluate(np.asarray(opt.x, dtype=float), source="local_final")
-        total_nfev = int(getattr(opt, "nfev", objective_calls["n"]))
-        total_nit = int(getattr(opt, "nit", 0) or 0)
-        local_refine = LocalRefineSummary(
-            start_source=start_candidate.source,
-            start_mass_kg=float(start_candidate.total_structural_mass_kg),
-            end_mass_kg=float(end_candidate.total_structural_mass_kg),
-            success=bool(getattr(opt, "success", False)),
-            message=str(getattr(opt, "message", "")),
-            nfev=total_nfev,
-            nit=total_nit,
-        )
+        attempts: list[tuple[LocalRefineAttempt, InverseCandidate, InverseCandidate]] = []
+
+        for seed_index, start_candidate in enumerate(start_candidates):
+            objective_calls = {"n": 0}
+            objective_source = f"local_objective_seed{seed_index}"
+            final_source = f"local_final_seed{seed_index}"
+
+            def _objective(z: np.ndarray, *, source_name: str = objective_source) -> float:
+                objective_calls["n"] += 1
+                cand = evaluator.evaluate(z, source=source_name)
+                return float(cand.total_structural_mass_kg)
+
+            opt = minimize(
+                _objective,
+                np.asarray(start_candidate.z, dtype=float),
+                method="COBYLA",
+                constraints=constraints,
+                options={
+                    "maxiter": int(cobyla_maxiter),
+                    "rhobeg": float(cobyla_rhobeg),
+                    "tol": 1.0e-6,
+                    "catol": 1.0e-6,
+                },
+            )
+            end_candidate = evaluator.evaluate(np.asarray(opt.x, dtype=float), source=final_source)
+            nfev = int(getattr(opt, "nfev", objective_calls["n"]))
+            nit = int(getattr(opt, "nit", 0) or 0)
+            total_nfev += nfev
+            total_nit += nit
+            attempts.append(
+                (
+                    LocalRefineAttempt(
+                        seed_source=start_candidate.source,
+                        seed_mass_kg=float(start_candidate.total_structural_mass_kg),
+                        seed_overall_feasible=bool(start_candidate.overall_feasible),
+                        seed_hard_violation_score=float(start_candidate.hard_violation_score),
+                        end_source=end_candidate.source,
+                        end_mass_kg=float(end_candidate.total_structural_mass_kg),
+                        end_overall_feasible=bool(end_candidate.overall_feasible),
+                        success=bool(getattr(opt, "success", False)),
+                        message=str(getattr(opt, "message", "")),
+                        nfev=nfev,
+                        nit=nit,
+                    ),
+                    start_candidate,
+                    end_candidate,
+                )
+            )
+
+        if attempts:
+            best_attempt, best_start_candidate, best_end_candidate = min(
+                attempts,
+                key=lambda item: (
+                    _feasible_key(item[2])
+                    if item[2].overall_feasible
+                    else _violation_key(item[2])
+                ),
+            )
+            local_refine = LocalRefineSummary(
+                coarse_selected_source=coarse_selected.source,
+                coarse_selected_mass_kg=float(coarse_selected.total_structural_mass_kg),
+                coarse_candidate_count=int(coarse_candidate_count),
+                coarse_feasible_count=int(coarse_feasible_count),
+                seed_count=len(start_candidates),
+                start_source=best_start_candidate.source,
+                start_mass_kg=float(best_start_candidate.total_structural_mass_kg),
+                end_mass_kg=float(best_end_candidate.total_structural_mass_kg),
+                success=best_attempt.success,
+                message=best_attempt.message,
+                nfev=int(total_nfev),
+                nit=int(total_nit),
+                attempts=tuple(attempt for attempt, _, _ in attempts),
+            )
 
     selected = evaluator.archive.selected or baseline
     total_wall_time_s = float(perf_counter() - total_start)
@@ -1562,6 +1718,9 @@ def run_inverse_design(
         cache_hits=int(evaluator.cache_hits),
         feasible_count=int(evaluator.archive.feasible_count),
         baseline=baseline,
+        coarse_selected=coarse_selected,
+        coarse_candidate_count=int(coarse_candidate_count),
+        coarse_feasible_count=int(coarse_feasible_count),
         selected=selected,
         local_refine=local_refine,
         manufacturing_limit_source=manufacturing_limit_source,
@@ -1592,6 +1751,8 @@ def run_inverse_design_load_refresh_refinement(
     cobyla_maxiter: int,
     cobyla_rhobeg: float,
     skip_local_refine: bool,
+    local_refine_feasible_seeds: int,
+    local_refine_near_feasible_seeds: int,
     initial_mapped_loads: dict,
     refresh_model: LightweightLoadRefreshModel,
     refresh_steps: int,
@@ -1623,6 +1784,8 @@ def run_inverse_design_load_refresh_refinement(
         cobyla_maxiter=cobyla_maxiter,
         cobyla_rhobeg=cobyla_rhobeg,
         skip_local_refine=skip_local_refine,
+        local_refine_feasible_seeds=local_refine_feasible_seeds,
+        local_refine_near_feasible_seeds=local_refine_near_feasible_seeds,
     )
     iterations.append(
         _build_refresh_iteration_result(
@@ -1680,6 +1843,8 @@ def run_inverse_design_load_refresh_refinement(
             cobyla_maxiter=cobyla_maxiter,
             cobyla_rhobeg=cobyla_rhobeg,
             skip_local_refine=skip_local_refine,
+            local_refine_feasible_seeds=local_refine_feasible_seeds,
+            local_refine_near_feasible_seeds=local_refine_near_feasible_seeds,
         )
         iterations.append(
             _build_refresh_iteration_result(
@@ -1744,6 +1909,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cobyla-maxiter", type=int, default=160)
     parser.add_argument("--cobyla-rhobeg", type=float, default=0.18)
     parser.add_argument("--skip-local-refine", action="store_true")
+    parser.add_argument(
+        "--local-refine-feasible-seeds",
+        type=int,
+        default=1,
+        help="Number of best feasible coarse candidates to use as local-refine starts per stage.",
+    )
+    parser.add_argument(
+        "--local-refine-near-feasible-seeds",
+        type=int,
+        default=2,
+        help="Number of low-violation coarse candidates to use as additional local-refine starts per stage.",
+    )
     parser.add_argument("--clearance-floor-z-m", type=float, default=0.0)
     parser.add_argument("--target-shape-error-tol-m", type=float, default=1.0e-9)
     parser.add_argument("--max-jig-vertical-prebend-m", type=float, default=None)
@@ -1877,6 +2054,8 @@ def main(argv: list[str] | None = None) -> int:
         cobyla_maxiter=int(args.cobyla_maxiter),
         cobyla_rhobeg=float(args.cobyla_rhobeg),
         skip_local_refine=bool(args.skip_local_refine),
+        local_refine_feasible_seeds=int(args.local_refine_feasible_seeds),
+        local_refine_near_feasible_seeds=int(args.local_refine_near_feasible_seeds),
         initial_mapped_loads=mapped_loads,
         refresh_model=refresh_model,
         refresh_steps=int(args.refresh_steps),
@@ -1945,6 +2124,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Summary JSON        : {json_path}")
     print(f"  Refresh steps       : {refinement.refresh_steps_completed}/{refinement.refresh_steps_requested}")
     print(f"  Feasible            : {refinement.final_iteration.outcome.feasible}")
+    print(
+        "  Coarse mass         : "
+        f"{refinement.final_iteration.outcome.coarse_selected.total_structural_mass_kg:.3f} kg"
+    )
     print(f"  Total mass          : {final_selected.total_structural_mass_kg:.3f} kg")
     print(f"  Target error max    : {_mm(final_selected.target_shape_error_max_m):.6f} mm")
     print(f"  Jig clearance min   : {_mm(final_selected.jig_ground_clearance_min_m):.3f} mm")

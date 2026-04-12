@@ -21,12 +21,62 @@ from hpa_mdo.structure.inverse_design import (
 )
 from hpa_mdo.aero.base import SpanwiseLoad
 from scripts.direct_dual_beam_inverse_design import (
+    CandidateArchive,
+    InverseCandidate,
     LightweightLoadRefreshModel,
     _mapped_load_delta_metrics,
 )
 
 
 class InverseDesignTests(unittest.TestCase):
+    @staticmethod
+    def _make_inverse_candidate(
+        *,
+        mass_kg: float,
+        source: str,
+        feasible: bool,
+        violation: float,
+    ) -> InverseCandidate:
+        zeros = np.zeros(2, dtype=float)
+        z = np.array([mass_kg, violation, float(feasible), 0.0, 0.0], dtype=float) * 1.0e-3
+        return InverseCandidate(
+            z=z,
+            source=source,
+            message="ok",
+            eval_wall_time_s=0.0,
+            main_plateau_scale=1.0,
+            main_taper_fill=1.0,
+            rear_radius_scale=1.0,
+            rear_outboard_fraction=1.0,
+            wall_thickness_fraction=1.0,
+            main_t_seg_m=zeros.copy(),
+            main_r_seg_m=zeros.copy(),
+            rear_t_seg_m=zeros.copy(),
+            rear_r_seg_m=zeros.copy(),
+            tube_mass_kg=mass_kg,
+            total_structural_mass_kg=mass_kg,
+            equivalent_failure_index=-0.5,
+            equivalent_buckling_index=-0.5,
+            equivalent_tip_deflection_m=0.0,
+            equivalent_twist_max_deg=0.0,
+            analysis_succeeded=True,
+            geometry_validity_succeeded=True,
+            target_shape_error_max_m=0.0,
+            target_shape_error_rms_m=0.0,
+            jig_ground_clearance_min_m=0.01,
+            jig_ground_clearance_margin_m=0.01,
+            max_jig_vertical_prebend_m=0.1,
+            max_jig_vertical_curvature_per_m=0.01,
+            safety_passed=feasible,
+            manufacturing_passed=feasible,
+            overall_feasible=feasible,
+            failures=tuple(),
+            hard_margins={"dummy": 1.0},
+            hard_violation_score=violation,
+            inverse_result=None,
+            equivalent_result=None,
+        )
+
     def test_build_frozen_load_inverse_design_backsolves_jig_shape_and_margins(self) -> None:
         target = StructuralNodeShape(
             main_nodes_m=np.array(
@@ -292,6 +342,44 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(lift_peak, 3.0)
         self.assertAlmostEqual(torque_rms, float(np.sqrt((1.0 + 4.0 + 9.0) / 3.0)))
         self.assertAlmostEqual(torque_peak, 3.0)
+
+    def test_candidate_archive_local_refine_starts_prioritizes_feasible_then_near_feasible(self) -> None:
+        archive = CandidateArchive()
+        baseline = self._make_inverse_candidate(
+            mass_kg=40.0,
+            source="baseline",
+            feasible=False,
+            violation=10.0,
+        )
+        heavy_feasible = self._make_inverse_candidate(
+            mass_kg=50.0,
+            source="heavy_feasible",
+            feasible=True,
+            violation=0.0,
+        )
+        light_feasible = self._make_inverse_candidate(
+            mass_kg=30.0,
+            source="light_feasible",
+            feasible=True,
+            violation=0.0,
+        )
+        near_feasible = self._make_inverse_candidate(
+            mass_kg=20.0,
+            source="near_feasible",
+            feasible=False,
+            violation=0.25,
+        )
+        archive.add(heavy_feasible)
+        archive.add(light_feasible)
+        archive.add(near_feasible)
+
+        starts = archive.local_refine_starts(
+            feasible_limit=1,
+            near_feasible_limit=1,
+            baseline=baseline,
+        )
+
+        self.assertEqual([candidate.source for candidate in starts], ["light_feasible", "near_feasible", "baseline"])
 
 
 if __name__ == "__main__":
