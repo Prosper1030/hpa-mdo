@@ -166,6 +166,47 @@ uv run python -m hpa_mdo.producer --output-dir /abs/path/to/run_dir
 - [workflow / architecture overview](docs/dual_beam_workflow_architecture_overview.md)
 - [decision interface v1 spec](docs/dual_beam_decision_interface_v1_spec.md)
 - [consumer integration guide](docs/dual_beam_consumer_integration_guide.md)
+- [built-in autoresearch quickstart](docs/dual_beam_autoresearch_quickstart.md)
+
+---
+
+## Built-In Autoresearch Consumer
+
+現在 repo 內已經內建一個第一版最小 consumer / autoresearch 入口：
+
+```bash
+uv run python -m hpa_mdo.autoresearch --output-dir /abs/path/to/run_dir
+```
+
+或：
+
+```bash
+uv run hpa-autoresearch --output-dir /abs/path/to/run_dir
+```
+
+這個第一版入口只做一件事：
+
+- 呼叫正式 producer：`python -m hpa_mdo.producer`
+- 讀 decision interface v1 JSON
+- 只吃 `Primary design`
+- 固定 score：`-Primary.mass_kg`
+
+stdout 會輸出 machine-readable-friendly 的摘要資訊，以及最後一行：
+
+```text
+分數: -10.089649
+```
+
+目前還**沒有**做：
+
+- Balanced / Conservative 混合評分
+- 多目標 decision
+- 大型 agent orchestration / batch platform
+- 更高階的 search strategy
+
+相關文件：
+
+- [built-in autoresearch quickstart](docs/dual_beam_autoresearch_quickstart.md)
 
 ---
 
@@ -185,6 +226,9 @@ hpa-mdo/
   output/
     blackcat_004/              # 結果、圖表、ANSYS 匯出檔
   src/hpa_mdo/
+    autoresearch/
+      consumer.py              # 第一版內建 consumer：Primary-only score = -mass
+      __main__.py              # `python -m hpa_mdo.autoresearch` CLI
     core/
       config.py                # Pydantic 綱要（完全對應 YAML 結構）
       aircraft.py              # 機翼幾何、飛行條件、翼型資料
