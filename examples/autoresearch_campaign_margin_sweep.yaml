@@ -1,0 +1,21 @@
+campaign_name: primary-margin-floor-sweep
+results_dir: ../output/autoresearch_campaigns/primary-margin-floor-sweep
+
+defaults:
+  config: ../configs/blackcat_004.yaml
+  design_report: ../output/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt
+  v2m_summary_json: ../output/direct_dual_beam_v2m_plusplus_compare/direct_dual_beam_v2m_summary.json
+
+runs:
+  - name: baseline
+    output_dir: ../output/autoresearch_campaigns/primary-margin-floor-sweep/baseline
+
+  - name: margin_floor_60
+    output_dir: ../output/autoresearch_campaigns/primary-margin-floor-sweep/margin_floor_60
+    producer_overrides:
+      primary_margin_floor_mm: 60.0
+
+  - name: margin_floor_80
+    output_dir: ../output/autoresearch_campaigns/primary-margin-floor-sweep/margin_floor_80
+    producer_overrides:
+      primary_margin_floor_mm: 80.0
