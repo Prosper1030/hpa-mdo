@@ -1,0 +1,43 @@
+"""Stable producer entry points for consumer-facing HPA-MDO workflows."""
+
+from hpa_mdo.producer.joint_decision import (
+    DECISION_JSON_FILENAME,
+    DECISION_TEXT_FILENAME,
+    PRODUCER_INTERFACE_VERSION,
+    PRODUCER_NAME,
+    REPORT_FILENAME,
+    SUMMARY_JSON_FILENAME,
+    JointDecisionProducerArtifacts,
+    JointDecisionProducerConfig,
+    JointDecisionProducerRun,
+    build_joint_decision_cli_argv,
+    decision_artifact_paths,
+    default_config_path,
+    default_design_report_path,
+    default_output_dir,
+    default_v2m_summary_json_path,
+    load_decision_interface,
+    load_summary_json,
+    produce_joint_decision_interface,
+)
+
+__all__ = [
+    "DECISION_JSON_FILENAME",
+    "DECISION_TEXT_FILENAME",
+    "PRODUCER_INTERFACE_VERSION",
+    "PRODUCER_NAME",
+    "REPORT_FILENAME",
+    "SUMMARY_JSON_FILENAME",
+    "JointDecisionProducerArtifacts",
+    "JointDecisionProducerConfig",
+    "JointDecisionProducerRun",
+    "build_joint_decision_cli_argv",
+    "decision_artifact_paths",
+    "default_config_path",
+    "default_design_report_path",
+    "default_output_dir",
+    "default_v2m_summary_json_path",
+    "load_decision_interface",
+    "load_summary_json",
+    "produce_joint_decision_interface",
+]

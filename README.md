@@ -147,6 +147,28 @@ stdout 的最後一行永遠為 `val_weight: <float>`（最佳化後全翼展翼
 
 ---
 
+## Dual-Beam Decision Producer
+
+如果外部系統只需要 dual-beam joint workflow 的正式 decision output，現在建議不要直接碰研究型 script。
+
+正式 producer 入口：
+
+```bash
+uv run python -m hpa_mdo.producer --output-dir /abs/path/to/run_dir
+```
+
+正式 consumer payload：
+
+- `direct_dual_beam_v2m_joint_material_decision_interface.json`
+
+相關文件：
+
+- [workflow / architecture overview](docs/dual_beam_workflow_architecture_overview.md)
+- [decision interface v1 spec](docs/dual_beam_decision_interface_v1_spec.md)
+- [consumer integration guide](docs/dual_beam_consumer_integration_guide.md)
+
+---
+
 ## 專案結構
 
 ```
@@ -183,6 +205,9 @@ hpa-mdo/
     api/
       server.py                # FastAPI REST 端點
       mcp_server.py            # 供 AI 代理工具使用的 MCP 伺服器
+    producer/
+      joint_decision.py        # 對外穩定 dual-beam decision producer API
+      __main__.py              # 對外穩定 dual-beam decision producer CLI
     utils/
       cad_export.py            # STEP 匯出核心工具
       visualization.py         # Matplotlib 繪圖工具
