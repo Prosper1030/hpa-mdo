@@ -4,6 +4,7 @@ import csv
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 import numpy as np
@@ -17,6 +18,11 @@ from hpa_mdo.structure.inverse_design import (
     build_frozen_load_inverse_design,
     build_inverse_design_margins,
     write_shape_csv_from_template,
+)
+from hpa_mdo.aero.base import SpanwiseLoad
+from scripts.direct_dual_beam_inverse_design import (
+    LightweightLoadRefreshModel,
+    _mapped_load_delta_metrics,
 )
 
 
@@ -208,6 +214,84 @@ class InverseDesignTests(unittest.TestCase):
             self.assertEqual(rows[0]["Rear_X_m"], "0.82")
             self.assertEqual(rows[0]["Rear_Z_m"], "0.03")
             self.assertEqual(rows[1]["Main_Outer_Radius_m"], "0.03")
+
+    def test_lightweight_load_refresh_interpolates_lower_effective_aoa_from_twist(self) -> None:
+        y = np.array([0.0, 1.0, 2.0], dtype=float)
+        chord = np.array([1.0, 1.0, 1.0], dtype=float)
+        q = 50.0
+        low_case = SpanwiseLoad(
+            y=y,
+            chord=chord,
+            cl=np.array([0.2, 0.2, 0.2], dtype=float),
+            cd=np.array([0.01, 0.01, 0.01], dtype=float),
+            cm=np.array([0.05, 0.05, 0.05], dtype=float),
+            lift_per_span=q * chord * 0.2,
+            drag_per_span=q * chord * 0.01,
+            aoa_deg=0.0,
+            velocity=10.0,
+            dynamic_pressure=q,
+        )
+        high_case = SpanwiseLoad(
+            y=y,
+            chord=chord,
+            cl=np.array([1.0, 1.0, 1.0], dtype=float),
+            cd=np.array([0.05, 0.05, 0.05], dtype=float),
+            cm=np.array([0.15, 0.15, 0.15], dtype=float),
+            lift_per_span=q * chord * 1.0,
+            drag_per_span=q * chord * 0.05,
+            aoa_deg=10.0,
+            velocity=10.0,
+            dynamic_pressure=q,
+        )
+        cfg = SimpleNamespace(flight=SimpleNamespace(velocity=10.0, air_density=1.0))
+        aircraft = SimpleNamespace(wing=SimpleNamespace(y=y))
+        model = LightweightLoadRefreshModel(
+            aero_cases=[high_case, low_case],
+            baseline_case=high_case,
+            cfg=cfg,
+            aircraft=aircraft,
+            washout_scale=1.0,
+        )
+        equivalent_result = SimpleNamespace(
+            nodes=np.column_stack((np.zeros_like(y), y, np.zeros_like(y))),
+            disp=np.array(
+                [
+                    [0.0, 0.0, 0.0, 0.0, np.radians(0.0), 0.0],
+                    [0.0, 0.0, 0.0, 0.0, np.radians(3.0), 0.0],
+                    [0.0, 0.0, 0.0, 0.0, np.radians(6.0), 0.0],
+                ],
+                dtype=float,
+            ),
+        )
+
+        refreshed, metrics = model.refresh_mapped_loads(equivalent_result=equivalent_result)
+
+        expected_cl = np.array([1.0, 0.76, 0.52], dtype=float)
+        self.assertTrue(np.allclose(refreshed["cl"], expected_cl, atol=1.0e-9))
+        self.assertTrue(np.allclose(refreshed["lift_per_span"], q * chord * expected_cl, atol=1.0e-9))
+        self.assertAlmostEqual(metrics.twist_abs_max_deg, 6.0, places=6)
+        self.assertAlmostEqual(metrics.aoa_eff_min_deg, 4.0, places=6)
+        self.assertAlmostEqual(metrics.aoa_eff_max_deg, 10.0, places=6)
+        self.assertAlmostEqual(metrics.aoa_clip_fraction, 0.0, places=6)
+
+    def test_mapped_load_delta_metrics_reports_rms_and_peak_changes(self) -> None:
+        previous = {
+            "y": np.array([0.0, 1.0, 2.0], dtype=float),
+            "lift_per_span": np.array([10.0, 20.0, 30.0], dtype=float),
+            "torque_per_span": np.array([1.0, 2.0, 3.0], dtype=float),
+        }
+        current = {
+            "y": np.array([0.0, 1.0, 2.0], dtype=float),
+            "lift_per_span": np.array([13.0, 17.0, 33.0], dtype=float),
+            "torque_per_span": np.array([0.0, 4.0, 6.0], dtype=float),
+        }
+
+        lift_rms, lift_peak, torque_rms, torque_peak = _mapped_load_delta_metrics(previous, current)
+
+        self.assertAlmostEqual(lift_rms, float(np.sqrt((9.0 + 9.0 + 9.0) / 3.0)))
+        self.assertAlmostEqual(lift_peak, 3.0)
+        self.assertAlmostEqual(torque_rms, float(np.sqrt((1.0 + 4.0 + 9.0) / 3.0)))
+        self.assertAlmostEqual(torque_peak, 3.0)
 
 
 if __name__ == "__main__":

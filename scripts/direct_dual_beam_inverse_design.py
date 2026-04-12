@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Frozen-load aeroelastic inverse-design MVP for the direct dual-beam V2 path."""
+"""Inverse-design load-refresh refinement for the direct dual-beam V2 path."""
 
 from __future__ import annotations
 
@@ -20,7 +20,8 @@ from scipy.optimize import minimize
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hpa_mdo.aero import LoadMapper
+from hpa_mdo.aero import LoadMapper, VSPAeroParser
+from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.core import Aircraft, MaterialDB, load_config
 from hpa_mdo.structure import (
     AnalysisModeName,
@@ -31,15 +32,16 @@ from hpa_mdo.structure import (
     shape_to_dict,
     write_shape_csv_from_template,
 )
+from hpa_mdo.structure.inverse_design import predict_loaded_shape
 from hpa_mdo.structure.ansys_export import ANSYSExporter
 from hpa_mdo.structure.dual_beam_mainline import (
     build_dual_beam_mainline_model,
     run_dual_beam_mainline_kernel,
 )
 from hpa_mdo.structure.optimizer import OptimizationResult
+from hpa_mdo.structure.fem.elements import _rotation_matrix
 from hpa_mdo.utils.cad_export import export_step_from_csv
 from scripts.ansys_compare_results import parse_baseline_metrics
-from scripts.ansys_crossval import _select_cruise_loads
 from scripts.ansys_dual_beam_production_check import build_specimen_result_from_crossval_report
 from scripts.direct_dual_beam_v2 import (
     HARD_MARGIN_NAMES,
@@ -94,6 +96,7 @@ class InverseCandidate:
     hard_margins: dict[str, float]
     hard_violation_score: float
     inverse_result: object | None = field(default=None, repr=False)
+    equivalent_result: OptimizationResult | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -162,6 +165,68 @@ class InverseOutcome:
     artifacts: ArtifactBundle | None = None
 
 
+@dataclass(frozen=True)
+class RefreshLoadMetrics:
+    total_lift_half_n: float
+    total_drag_half_n: float
+    total_abs_torque_half_nm: float
+    max_lift_per_span_npm: float
+    max_abs_torque_per_span_nmpm: float
+    twist_abs_max_deg: float
+    aoa_eff_min_deg: float
+    aoa_eff_max_deg: float
+    aoa_clip_fraction: float
+
+
+@dataclass(frozen=True)
+class ForwardRefreshCheck:
+    previous_iteration_index: int
+    target_shape_error_max_m: float
+    target_shape_error_rms_m: float
+    equivalent_tip_deflection_m: float
+    equivalent_twist_max_deg: float
+
+
+@dataclass
+class RefreshIterationResult:
+    iteration_index: int
+    load_source: str
+    outcome: InverseOutcome
+    load_metrics: RefreshLoadMetrics
+    mapped_loads: dict = field(repr=False)
+    forward_check: ForwardRefreshCheck | None = None
+    lift_rms_delta_npm: float | None = None
+    lift_max_abs_delta_npm: float | None = None
+    torque_rms_delta_nmpm: float | None = None
+    torque_max_abs_delta_nmpm: float | None = None
+    mass_delta_kg: float | None = None
+    inverse_target_error_delta_m: float | None = None
+    ground_clearance_delta_m: float | None = None
+    prebend_delta_m: float | None = None
+    curvature_delta_per_m: float | None = None
+    failure_delta: float | None = None
+    buckling_delta: float | None = None
+    tip_deflection_delta_m: float | None = None
+    twist_delta_deg: float | None = None
+
+
+@dataclass(frozen=True)
+class RefreshRefinementOutcome:
+    refresh_steps_requested: int
+    refresh_steps_completed: int
+    manufacturing_limit_source: str
+    max_jig_vertical_prebend_limit_m: float | None
+    max_jig_vertical_curvature_limit_per_m: float | None
+    iterations: tuple[RefreshIterationResult, ...]
+    artifacts: ArtifactBundle | None = None
+
+    @property
+    def final_iteration(self) -> RefreshIterationResult:
+        if not self.iterations:
+            raise RuntimeError("Refresh refinement outcome has no iterations.")
+        return self.iterations[-1]
+
+
 def _parse_grid(text: str) -> tuple[float, ...]:
     values = tuple(float(part.strip()) for part in text.split(",") if part.strip())
     if not values:
@@ -201,6 +266,209 @@ def _violation_key(candidate: InverseCandidate) -> tuple[float, float, float]:
         float(candidate.total_structural_mass_kg),
         float(candidate.max_jig_vertical_prebend_m),
     )
+
+
+def _extract_abs_twist_profile_deg(result: OptimizationResult) -> np.ndarray:
+    nodes = getattr(result, "nodes", None)
+    disp = getattr(result, "disp", None)
+    if nodes is None or disp is None:
+        return np.zeros(0, dtype=float)
+
+    nodes_arr = np.asarray(nodes, dtype=float)
+    disp_arr = np.asarray(disp, dtype=float)
+    if nodes_arr.ndim != 2 or nodes_arr.shape[1] != 3:
+        return np.zeros(0, dtype=float)
+    if disp_arr.ndim != 2 or disp_arr.shape[0] != nodes_arr.shape[0] or disp_arr.shape[1] < 6:
+        return np.zeros(0, dtype=float)
+
+    nn = nodes_arr.shape[0]
+    theta_twist = np.zeros(nn, dtype=float)
+    for i in range(nn):
+        if i < nn - 1:
+            r3 = _rotation_matrix(nodes_arr[i], nodes_arr[i + 1])
+        else:
+            r3 = _rotation_matrix(nodes_arr[i - 1], nodes_arr[i])
+        theta_local = r3 @ disp_arr[i, 3:6]
+        theta_twist[i] = abs(float(theta_local[0])) * 180.0 / np.pi
+    return theta_twist
+
+
+def _load_metrics_from_mapped_loads(
+    mapped_loads: dict,
+    *,
+    twist_abs_max_deg: float,
+    aoa_eff_min_deg: float,
+    aoa_eff_max_deg: float,
+    aoa_clip_fraction: float,
+) -> RefreshLoadMetrics:
+    y = np.asarray(mapped_loads["y"], dtype=float)
+    lift = np.asarray(mapped_loads["lift_per_span"], dtype=float)
+    drag = np.asarray(mapped_loads["drag_per_span"], dtype=float)
+    torque = np.asarray(mapped_loads["torque_per_span"], dtype=float)
+    return RefreshLoadMetrics(
+        total_lift_half_n=float(np.trapezoid(lift, y)),
+        total_drag_half_n=float(np.trapezoid(drag, y)),
+        total_abs_torque_half_nm=float(np.trapezoid(np.abs(torque), y)),
+        max_lift_per_span_npm=float(np.max(lift)),
+        max_abs_torque_per_span_nmpm=float(np.max(np.abs(torque))),
+        twist_abs_max_deg=float(twist_abs_max_deg),
+        aoa_eff_min_deg=float(aoa_eff_min_deg),
+        aoa_eff_max_deg=float(aoa_eff_max_deg),
+        aoa_clip_fraction=float(aoa_clip_fraction),
+    )
+
+
+class LightweightLoadRefreshModel:
+    """Twist-based local-AoA refresh using the existing VSPAero AoA sweep."""
+
+    def __init__(
+        self,
+        *,
+        aero_cases: list[SpanwiseLoad],
+        baseline_case: SpanwiseLoad,
+        cfg,
+        aircraft,
+        washout_scale: float = 1.0,
+    ):
+        if not aero_cases:
+            raise ValueError("Need at least one aerodynamic case for load refresh.")
+
+        self.cfg = cfg
+        self.aircraft = aircraft
+        self.mapper = LoadMapper()
+        self.washout_scale = float(washout_scale)
+
+        self._cases = tuple(sorted(aero_cases, key=lambda case: float(case.aoa_deg)))
+        self._aoa_deg = np.asarray([float(case.aoa_deg) for case in self._cases], dtype=float)
+        self._baseline_case = min(
+            self._cases,
+            key=lambda case: abs(float(case.aoa_deg) - float(baseline_case.aoa_deg)),
+        )
+        self._y_aero = np.asarray(self._baseline_case.y, dtype=float)
+        self._chord = np.asarray(self._baseline_case.chord, dtype=float)
+        self._cl_table = np.vstack([np.asarray(case.cl, dtype=float) for case in self._cases])
+        self._cd_table = np.vstack([np.asarray(case.cd, dtype=float) for case in self._cases])
+        self._cm_table = np.vstack([np.asarray(case.cm, dtype=float) for case in self._cases])
+        self._validate_case_tables()
+
+    def _validate_case_tables(self) -> None:
+        ref_n = self._y_aero.size
+        if ref_n < 2:
+            raise ValueError("Aerodynamic refresh requires at least two spanwise stations.")
+        for case in self._cases:
+            if np.asarray(case.y, dtype=float).shape != (ref_n,):
+                raise ValueError("All aerodynamic cases must share the same spanwise grid.")
+        if self._aoa_deg.size < 2:
+            raise ValueError("Lightweight load refresh needs at least two AoA cases.")
+
+    def baseline_metrics(self, mapped_loads: dict) -> RefreshLoadMetrics:
+        aoa = float(self._baseline_case.aoa_deg)
+        return _load_metrics_from_mapped_loads(
+            mapped_loads,
+            twist_abs_max_deg=0.0,
+            aoa_eff_min_deg=aoa,
+            aoa_eff_max_deg=aoa,
+            aoa_clip_fraction=0.0,
+        )
+
+    def _interp_table(self, table: np.ndarray, aoa_profile_deg: np.ndarray) -> np.ndarray:
+        out = np.zeros_like(aoa_profile_deg, dtype=float)
+        for idx in range(table.shape[1]):
+            out[idx] = float(np.interp(aoa_profile_deg[idx], self._aoa_deg, table[:, idx]))
+        return out
+
+    def refresh_mapped_loads(
+        self,
+        *,
+        equivalent_result: OptimizationResult,
+    ) -> tuple[dict, RefreshLoadMetrics]:
+        twist_deg_nodes = _extract_abs_twist_profile_deg(equivalent_result)
+        nodes = getattr(equivalent_result, "nodes", None)
+        if nodes is None or twist_deg_nodes.size == 0:
+            struct_y = np.asarray(self.aircraft.wing.y, dtype=float)
+            twist_deg_nodes = np.zeros_like(struct_y)
+        else:
+            struct_y = np.asarray(nodes, dtype=float)[:, 1]
+
+        twist_deg_aero = np.interp(
+            self._y_aero,
+            struct_y,
+            twist_deg_nodes,
+            left=float(twist_deg_nodes[0]),
+            right=float(twist_deg_nodes[-1]),
+        )
+        aoa_raw_deg = float(self._baseline_case.aoa_deg) - self.washout_scale * twist_deg_aero
+        aoa_eff_deg = np.clip(aoa_raw_deg, float(self._aoa_deg[0]), float(self._aoa_deg[-1]))
+
+        cl = self._interp_table(self._cl_table, aoa_eff_deg)
+        cd = self._interp_table(self._cd_table, aoa_eff_deg)
+        cm = self._interp_table(self._cm_table, aoa_eff_deg)
+        q = float(self._baseline_case.dynamic_pressure)
+        refreshed_case = SpanwiseLoad(
+            y=self._y_aero.copy(),
+            chord=self._chord.copy(),
+            cl=cl,
+            cd=cd,
+            cm=cm,
+            lift_per_span=q * self._chord * cl,
+            drag_per_span=q * self._chord * cd,
+            aoa_deg=float(self._baseline_case.aoa_deg),
+            velocity=float(self._baseline_case.velocity),
+            dynamic_pressure=q,
+        )
+        mapped = self.mapper.map_loads(
+            refreshed_case,
+            np.asarray(self.aircraft.wing.y, dtype=float),
+            actual_velocity=self.cfg.flight.velocity,
+            actual_density=self.cfg.flight.air_density,
+        )
+        metrics = _load_metrics_from_mapped_loads(
+            mapped,
+            twist_abs_max_deg=float(np.max(twist_deg_nodes)) if twist_deg_nodes.size else 0.0,
+            aoa_eff_min_deg=float(np.min(aoa_eff_deg)),
+            aoa_eff_max_deg=float(np.max(aoa_eff_deg)),
+            aoa_clip_fraction=float(
+                np.mean(np.abs(aoa_eff_deg - aoa_raw_deg) > 1.0e-12)
+            ),
+        )
+        return mapped, metrics
+
+
+def _select_cruise_case_and_mapped_loads(
+    cfg,
+    aircraft,
+    aero_cases: list[SpanwiseLoad] | None = None,
+) -> tuple[SpanwiseLoad, dict]:
+    cases = aero_cases
+    if cases is None:
+        parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
+        cases = parser.parse()
+    if not cases:
+        raise RuntimeError("No aerodynamic cases found in VSPAero data.")
+
+    mapper = LoadMapper()
+    target_weight = aircraft.weight_N
+    best_case = None
+    best_residual = float("inf")
+    best_mapped = None
+
+    for case in cases:
+        mapped = mapper.map_loads(
+            case,
+            aircraft.wing.y,
+            actual_velocity=cfg.flight.velocity,
+            actual_density=cfg.flight.air_density,
+        )
+        full_lift = 2.0 * float(mapped["total_lift"])
+        residual = abs(full_lift - target_weight)
+        if residual < best_residual:
+            best_case = case
+            best_mapped = mapped
+            best_residual = residual
+
+    if best_case is None or best_mapped is None:
+        raise RuntimeError("Failed to determine cruise aerodynamic case from VSPAero data.")
+    return best_case, best_mapped
 
 
 class InverseDesignEvaluator:
@@ -355,6 +623,7 @@ class InverseDesignEvaluator:
                 hard_margins=hard_margins,
                 hard_violation_score=float(hard_violation_score),
                 inverse_result=inverse,
+                equivalent_result=eq_result,
             )
         except Exception as exc:  # pragma: no cover - runtime failure guard
             hard_margins = {name: FAILED_MARGIN for name in ALL_MARGIN_NAMES}
@@ -393,6 +662,7 @@ class InverseDesignEvaluator:
                 hard_margins=hard_margins,
                 hard_violation_score=float("inf"),
                 inverse_result=None,
+                equivalent_result=None,
             )
 
         self.unique_evaluations += 1
@@ -454,6 +724,156 @@ def build_opt_result_from_candidate(candidate: InverseCandidate, cfg) -> Optimiz
         vonmises_main=None,
         vonmises_rear=None,
     )
+
+
+def _shape_error_stats(*, target_shape, predicted_shape) -> tuple[float, float]:
+    error_main = (
+        np.asarray(predicted_shape.main_nodes_m, dtype=float)
+        - np.asarray(target_shape.main_nodes_m, dtype=float)
+    )
+    error_rear = (
+        np.asarray(predicted_shape.rear_nodes_m, dtype=float)
+        - np.asarray(target_shape.rear_nodes_m, dtype=float)
+    )
+    stacked = np.vstack((error_main, error_rear))
+    node_norms = np.linalg.norm(stacked, axis=1) if stacked.size else np.zeros(0, dtype=float)
+    max_abs_error_m = float(np.max(node_norms)) if node_norms.size else 0.0
+    rms_error_m = float(np.sqrt(np.mean(np.square(node_norms)))) if node_norms.size else 0.0
+    return max_abs_error_m, rms_error_m
+
+
+def _mapped_load_delta_metrics(previous_loads: dict, current_loads: dict) -> tuple[float, float, float, float]:
+    y_curr = np.asarray(current_loads["y"], dtype=float)
+    y_prev = np.asarray(previous_loads["y"], dtype=float)
+    lift_prev = np.interp(
+        y_curr,
+        y_prev,
+        np.asarray(previous_loads["lift_per_span"], dtype=float),
+        left=0.0,
+        right=0.0,
+    )
+    lift_curr = np.asarray(current_loads["lift_per_span"], dtype=float)
+    torque_prev = np.interp(
+        y_curr,
+        y_prev,
+        np.asarray(previous_loads["torque_per_span"], dtype=float),
+        left=0.0,
+        right=0.0,
+    )
+    torque_curr = np.asarray(current_loads["torque_per_span"], dtype=float)
+    lift_delta = lift_curr - lift_prev
+    torque_delta = torque_curr - torque_prev
+    return (
+        float(np.sqrt(np.mean(np.square(lift_delta)))),
+        float(np.max(np.abs(lift_delta))),
+        float(np.sqrt(np.mean(np.square(torque_delta)))),
+        float(np.max(np.abs(torque_delta))),
+    )
+
+
+def _run_forward_refresh_check(
+    *,
+    cfg,
+    aircraft,
+    materials_db: MaterialDB,
+    optimizer: SparOptimizer,
+    export_loads: dict,
+    candidate: InverseCandidate,
+    previous_iteration_index: int,
+) -> ForwardRefreshCheck | None:
+    if candidate.inverse_result is None:
+        return None
+
+    eq_result = optimizer.analyze(
+        main_t_seg=np.asarray(candidate.main_t_seg_m, dtype=float),
+        main_r_seg=np.asarray(candidate.main_r_seg_m, dtype=float),
+        rear_t_seg=np.asarray(candidate.rear_t_seg_m, dtype=float),
+        rear_r_seg=np.asarray(candidate.rear_r_seg_m, dtype=float),
+    )
+    model = build_dual_beam_mainline_model(
+        cfg=cfg,
+        aircraft=aircraft,
+        opt_result=eq_result,
+        export_loads=export_loads,
+        materials_db=materials_db,
+    )
+    refreshed = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+    )
+    predicted_loaded_shape = predict_loaded_shape(
+        jig_shape=candidate.inverse_result.jig_shape,
+        disp_main_m=refreshed.disp_main_m,
+        disp_rear_m=refreshed.disp_rear_m,
+    )
+    max_err_m, rms_err_m = _shape_error_stats(
+        target_shape=candidate.inverse_result.target_loaded_shape,
+        predicted_shape=predicted_loaded_shape,
+    )
+    return ForwardRefreshCheck(
+        previous_iteration_index=int(previous_iteration_index),
+        target_shape_error_max_m=max_err_m,
+        target_shape_error_rms_m=rms_err_m,
+        equivalent_tip_deflection_m=float(refreshed.optimizer.equivalent_gates.tip_deflection_m),
+        equivalent_twist_max_deg=float(refreshed.optimizer.equivalent_gates.twist_max_deg),
+    )
+
+
+def _build_refresh_iteration_result(
+    *,
+    iteration_index: int,
+    load_source: str,
+    outcome: InverseOutcome,
+    mapped_loads: dict,
+    load_metrics: RefreshLoadMetrics,
+    previous: RefreshIterationResult | None,
+    forward_check: ForwardRefreshCheck | None,
+) -> RefreshIterationResult:
+    result = RefreshIterationResult(
+        iteration_index=int(iteration_index),
+        load_source=str(load_source),
+        outcome=outcome,
+        load_metrics=load_metrics,
+        mapped_loads=dict(mapped_loads),
+        forward_check=forward_check,
+    )
+    if previous is None:
+        return result
+
+    prev_selected = previous.outcome.selected
+    curr_selected = outcome.selected
+    (
+        result.lift_rms_delta_npm,
+        result.lift_max_abs_delta_npm,
+        result.torque_rms_delta_nmpm,
+        result.torque_max_abs_delta_nmpm,
+    ) = _mapped_load_delta_metrics(previous.mapped_loads, mapped_loads)
+    result.mass_delta_kg = float(curr_selected.total_structural_mass_kg - prev_selected.total_structural_mass_kg)
+    result.inverse_target_error_delta_m = float(
+        curr_selected.target_shape_error_max_m - prev_selected.target_shape_error_max_m
+    )
+    result.ground_clearance_delta_m = float(
+        curr_selected.jig_ground_clearance_min_m - prev_selected.jig_ground_clearance_min_m
+    )
+    result.prebend_delta_m = float(
+        curr_selected.max_jig_vertical_prebend_m - prev_selected.max_jig_vertical_prebend_m
+    )
+    result.curvature_delta_per_m = float(
+        curr_selected.max_jig_vertical_curvature_per_m - prev_selected.max_jig_vertical_curvature_per_m
+    )
+    result.failure_delta = float(
+        curr_selected.equivalent_failure_index - prev_selected.equivalent_failure_index
+    )
+    result.buckling_delta = float(
+        curr_selected.equivalent_buckling_index - prev_selected.equivalent_buckling_index
+    )
+    result.tip_deflection_delta_m = float(
+        curr_selected.equivalent_tip_deflection_m - prev_selected.equivalent_tip_deflection_m
+    )
+    result.twist_delta_deg = float(
+        curr_selected.equivalent_twist_max_deg - prev_selected.equivalent_twist_max_deg
+    )
+    return result
 
 
 def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
@@ -720,6 +1140,248 @@ def build_summary_json(
     }
 
 
+def _build_refresh_iteration_summary(iteration: RefreshIterationResult) -> dict[str, object]:
+    selected = iteration.outcome.selected
+    return {
+        "iteration_index": iteration.iteration_index,
+        "load_source": iteration.load_source,
+        "load_metrics": asdict(iteration.load_metrics),
+        "run_metrics": {
+            "success": iteration.outcome.success,
+            "feasible": iteration.outcome.feasible,
+            "message": iteration.outcome.message,
+            "total_wall_time_s": iteration.outcome.total_wall_time_s,
+            "baseline_eval_wall_time_s": iteration.outcome.baseline_eval_wall_time_s,
+            "nfev": iteration.outcome.nfev,
+            "nit": iteration.outcome.nit,
+            "equivalent_analysis_calls": iteration.outcome.equivalent_analysis_calls,
+            "production_analysis_calls": iteration.outcome.production_analysis_calls,
+            "unique_evaluations": iteration.outcome.unique_evaluations,
+            "cache_hits": iteration.outcome.cache_hits,
+            "feasible_count": iteration.outcome.feasible_count,
+        },
+        "selected": candidate_to_summary_dict(selected),
+        "forward_check": None if iteration.forward_check is None else asdict(iteration.forward_check),
+        "deltas_vs_previous": {
+            "mass_delta_kg": iteration.mass_delta_kg,
+            "inverse_target_error_delta_m": iteration.inverse_target_error_delta_m,
+            "ground_clearance_delta_m": iteration.ground_clearance_delta_m,
+            "prebend_delta_m": iteration.prebend_delta_m,
+            "curvature_delta_per_m": iteration.curvature_delta_per_m,
+            "failure_delta": iteration.failure_delta,
+            "buckling_delta": iteration.buckling_delta,
+            "tip_deflection_delta_m": iteration.tip_deflection_delta_m,
+            "twist_delta_deg": iteration.twist_delta_deg,
+            "lift_rms_delta_npm": iteration.lift_rms_delta_npm,
+            "lift_max_abs_delta_npm": iteration.lift_max_abs_delta_npm,
+            "torque_rms_delta_nmpm": iteration.torque_rms_delta_nmpm,
+            "torque_max_abs_delta_nmpm": iteration.torque_max_abs_delta_nmpm,
+        },
+    }
+
+
+def build_refresh_report_text(
+    *,
+    config_path: Path,
+    design_report: Path,
+    cruise_aoa_deg: float,
+    map_config: ReducedMapConfig,
+    outcome: RefreshRefinementOutcome,
+    refresh_washout_scale: float,
+) -> str:
+    generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    final_iteration = outcome.final_iteration
+
+    lines: list[str] = []
+    lines.append("=" * 108)
+    lines.append("Inverse-Design Load Refresh Refinement")
+    lines.append("=" * 108)
+    lines.append(f"Generated                     : {generated}")
+    lines.append(f"Config                        : {config_path}")
+    lines.append(f"Design report                 : {design_report}")
+    lines.append(f"Baseline cruise AoA           : {cruise_aoa_deg:.3f} deg")
+    lines.append("")
+    lines.append("Definition:")
+    lines.append("  target_loaded_shape         : current VSP / structural cruise geometry at the beam nodes")
+    lines.append("  jig_shape                   : nodes_target - structural displacement")
+    lines.append("  refresh method              : reuse existing VSPAero AoA sweep, reduce local effective AoA by structural twist")
+    lines.append("  outer updates               : 1-2 one-way refresh steps only; no inner converged aero-structural loop")
+    lines.append("")
+    lines.append("Physics assumptions:")
+    lines.append("  1. Each stage is still a one-way structural solve on the existing beam-line target shape.")
+    lines.append("  2. Refreshed loads are interpolated from existing VSPAero AoA cases; OpenVSP is not rerun.")
+    lines.append("  3. Structural twist is treated as local washout with a simple scalar scale factor.")
+    lines.append("  4. The forward refresh check estimates frozen-load bias by applying refreshed displacement to the previous jig.")
+    lines.append("")
+    lines.append("Difference from full coupling:")
+    lines.append("  - capped outer refresh count instead of iterating to convergence")
+    lines.append("  - no geometry rebuild / CFD rerun between stages")
+    lines.append("  - no trim solve or dynamic design-space update")
+    lines.append("")
+    lines.append("Reduced map (unchanged V2 design variables):")
+    lines.append(f"  main_plateau_scale upper    : {map_config.main_plateau_scale_upper:.4f}")
+    lines.append(f"  main_taper_fill upper       : {map_config.main_taper_fill_upper:.4f}")
+    lines.append(f"  rear_radius_scale upper     : {map_config.rear_radius_scale_upper:.4f}")
+    lines.append(f"  delta_t_global_max          : {_mm(map_config.delta_t_global_max_m):.3f} mm")
+    lines.append(f"  delta_t_rear_outboard_max   : {_mm(map_config.delta_t_rear_outboard_max_m):.3f} mm")
+    lines.append("")
+    lines.append("Manufacturing limits:")
+    lines.append(f"  source                      : {outcome.manufacturing_limit_source}")
+    lines.append(
+        "  max jig vertical prebend    : "
+        + (
+            f"{_mm(outcome.max_jig_vertical_prebend_limit_m):.3f} mm"
+            if outcome.max_jig_vertical_prebend_limit_m is not None
+            else "none"
+        )
+    )
+    lines.append(
+        "  max jig vertical curvature  : "
+        + (
+            f"{outcome.max_jig_vertical_curvature_limit_per_m:.6f} 1/m"
+            if outcome.max_jig_vertical_curvature_limit_per_m is not None
+            else "none"
+        )
+    )
+    lines.append(f"  refresh washout scale       : {float(refresh_washout_scale):.3f}")
+    lines.append("")
+    lines.append("Refresh summary:")
+    lines.append(f"  requested outer steps       : {outcome.refresh_steps_requested}")
+    lines.append(f"  completed outer steps       : {outcome.refresh_steps_completed}")
+    lines.append(f"  final feasible              : {final_iteration.outcome.feasible}")
+    lines.append(f"  final selected source       : {final_iteration.outcome.selected.source}")
+    lines.append("")
+
+    for iteration in outcome.iterations:
+        selected = iteration.outcome.selected
+        lines.append(f"Iteration {iteration.iteration_index}:")
+        lines.append(f"  load source                 : {iteration.load_source}")
+        lines.append(f"  total structural mass       : {selected.total_structural_mass_kg:11.3f} kg")
+        lines.append(f"  inverse target error max    : {_mm(selected.target_shape_error_max_m):11.6f} mm")
+        lines.append(f"  inverse target error rms    : {_mm(selected.target_shape_error_rms_m):11.6f} mm")
+        lines.append(f"  jig min ground clearance    : {_mm(selected.jig_ground_clearance_min_m):11.3f} mm")
+        lines.append(f"  max jig prebend             : {_mm(selected.max_jig_vertical_prebend_m):11.3f} mm")
+        lines.append(f"  max jig curvature           : {selected.max_jig_vertical_curvature_per_m:11.6f} 1/m")
+        lines.append(f"  equivalent failure          : {selected.equivalent_failure_index:11.6f}")
+        lines.append(f"  equivalent buckling         : {selected.equivalent_buckling_index:11.6f}")
+        lines.append(f"  equivalent tip              : {_mm(selected.equivalent_tip_deflection_m):11.3f} mm")
+        lines.append(f"  equivalent twist            : {selected.equivalent_twist_max_deg:11.6f} deg")
+        lines.append(f"  total half-span lift        : {iteration.load_metrics.total_lift_half_n:11.3f} N")
+        lines.append(f"  total half-span drag        : {iteration.load_metrics.total_drag_half_n:11.3f} N")
+        lines.append(
+            f"  total |torque| half-span    : {iteration.load_metrics.total_abs_torque_half_nm:11.3f} N*m"
+        )
+        lines.append(
+            f"  effective AoA range         : {iteration.load_metrics.aoa_eff_min_deg:8.3f} .. {iteration.load_metrics.aoa_eff_max_deg:8.3f} deg"
+        )
+        lines.append(
+            f"  twist abs max (refresh)     : {iteration.load_metrics.twist_abs_max_deg:11.6f} deg"
+        )
+        lines.append(
+            f"  AoA clip fraction           : {100.0 * iteration.load_metrics.aoa_clip_fraction:11.3f} %"
+        )
+        if iteration.forward_check is not None:
+            lines.append("  forward check on previous jig:")
+            lines.append(
+                f"    target mismatch max       : {_mm(iteration.forward_check.target_shape_error_max_m):11.6f} mm"
+            )
+            lines.append(
+                f"    target mismatch rms       : {_mm(iteration.forward_check.target_shape_error_rms_m):11.6f} mm"
+            )
+            lines.append(
+                f"    refreshed tip             : {_mm(iteration.forward_check.equivalent_tip_deflection_m):11.3f} mm"
+            )
+            lines.append(
+                f"    refreshed twist           : {iteration.forward_check.equivalent_twist_max_deg:11.6f} deg"
+            )
+        if iteration.mass_delta_kg is not None:
+            lines.append("  delta vs previous iteration:")
+            lines.append(f"    mass                      : {iteration.mass_delta_kg:+11.3f} kg")
+            lines.append(
+                f"    inverse target error max  : {_mm(iteration.inverse_target_error_delta_m):+11.6f} mm"
+            )
+            lines.append(
+                f"    jig ground clearance      : {_mm(iteration.ground_clearance_delta_m):+11.3f} mm"
+            )
+            lines.append(f"    jig prebend               : {_mm(iteration.prebend_delta_m):+11.3f} mm")
+            lines.append(
+                f"    jig curvature             : {iteration.curvature_delta_per_m:+11.6f} 1/m"
+            )
+            lines.append(f"    failure index             : {iteration.failure_delta:+11.6f}")
+            lines.append(f"    buckling index            : {iteration.buckling_delta:+11.6f}")
+            lines.append(
+                f"    tip deflection            : {_mm(iteration.tip_deflection_delta_m):+11.3f} mm"
+            )
+            lines.append(f"    twist                     : {iteration.twist_delta_deg:+11.6f} deg")
+            lines.append(f"    lift RMS                  : {iteration.lift_rms_delta_npm:11.3f} N/m")
+            lines.append(f"    lift max abs              : {iteration.lift_max_abs_delta_npm:11.3f} N/m")
+            lines.append(f"    torque RMS                : {iteration.torque_rms_delta_nmpm:11.3f} N*m/m")
+            lines.append(f"    torque max abs            : {iteration.torque_max_abs_delta_nmpm:11.3f} N*m/m")
+        lines.append("")
+
+    lines.append("Artifacts:")
+    if outcome.artifacts is not None:
+        lines.append(f"  target shape CSV             : {outcome.artifacts.target_shape_csv or 'not written'}")
+        lines.append(f"  jig shape CSV                : {outcome.artifacts.jig_shape_csv or 'not written'}")
+        lines.append(f"  jig STEP                     : {outcome.artifacts.jig_step_path or 'not written'}")
+        lines.append(f"  STEP engine                  : {outcome.artifacts.step_engine or 'not run'}")
+        if outcome.artifacts.step_error:
+            lines.append(f"  STEP export note             : {outcome.artifacts.step_error}")
+    else:
+        lines.append("  no artifacts exported")
+    return "\n".join(lines) + "\n"
+
+
+def build_refresh_summary_json(
+    *,
+    config_path: Path,
+    design_report: Path,
+    cruise_aoa_deg: float,
+    map_config: ReducedMapConfig,
+    outcome: RefreshRefinementOutcome,
+    refresh_washout_scale: float,
+) -> dict[str, object]:
+    return {
+        "generated_at": datetime.now().astimezone().isoformat(),
+        "config": str(config_path),
+        "design_report": str(design_report),
+        "cruise_aoa_deg": float(cruise_aoa_deg),
+        "refinement_definition": {
+            "target_loaded_shape": "current VSP / structural cruise geometry on main and rear spar beam nodes",
+            "jig_shape_rule": "nodes_jig = nodes_target - delta_u",
+            "refresh_method": "reuse existing VSPAero AoA sweep and reduce local effective AoA by structural twist-derived washout",
+            "refresh_steps_requested": outcome.refresh_steps_requested,
+            "refresh_steps_completed": outcome.refresh_steps_completed,
+            "refresh_washout_scale": float(refresh_washout_scale),
+            "physics_assumptions": [
+                "each outer stage is still one-way with frozen loads inside that stage",
+                "beam-line target shape is fixed across refreshes",
+                "no OpenVSP rerun; loads come from interpolation across existing AoA cases",
+                "forward refresh check estimates old-jig mismatch under refreshed displacement",
+            ],
+            "difference_from_full_coupling": [
+                "no convergence loop to aero-structural tolerance",
+                "no geometry rebuild or new aerodynamic solve between stages",
+                "no trim update or dynamic design-space rewrite",
+            ],
+        },
+        "map_config": {
+            "main_plateau_scale_upper": map_config.main_plateau_scale_upper,
+            "main_taper_fill_upper": map_config.main_taper_fill_upper,
+            "rear_radius_scale_upper": map_config.rear_radius_scale_upper,
+            "delta_t_global_max_m": map_config.delta_t_global_max_m,
+            "delta_t_rear_outboard_max_m": map_config.delta_t_rear_outboard_max_m,
+        },
+        "manufacturing_limits": {
+            "source": outcome.manufacturing_limit_source,
+            "max_jig_vertical_prebend_m": outcome.max_jig_vertical_prebend_limit_m,
+            "max_jig_vertical_curvature_per_m": outcome.max_jig_vertical_curvature_limit_per_m,
+        },
+        "iterations": [_build_refresh_iteration_summary(iteration) for iteration in outcome.iterations],
+        "artifacts": None if outcome.artifacts is None else asdict(outcome.artifacts),
+    }
+
+
 def export_inverse_design_artifacts(
     *,
     output_dir: Path,
@@ -909,9 +1571,142 @@ def run_inverse_design(
     )
 
 
+def run_inverse_design_load_refresh_refinement(
+    *,
+    cfg,
+    aircraft,
+    materials_db: MaterialDB,
+    optimizer: SparOptimizer,
+    baseline_result,
+    map_config: ReducedMapConfig,
+    clearance_floor_z_m: float,
+    target_shape_error_tol_m: float,
+    max_jig_vertical_prebend_m: float | None,
+    max_jig_vertical_curvature_per_m: float | None,
+    manufacturing_limit_source: str,
+    main_plateau_grid: Iterable[float],
+    main_taper_fill_grid: Iterable[float],
+    rear_radius_grid: Iterable[float],
+    rear_outboard_grid: Iterable[float],
+    wall_thickness_grid: Iterable[float],
+    cobyla_maxiter: int,
+    cobyla_rhobeg: float,
+    skip_local_refine: bool,
+    initial_mapped_loads: dict,
+    refresh_model: LightweightLoadRefreshModel,
+    refresh_steps: int,
+) -> RefreshRefinementOutcome:
+    design_case = cfg.structural_load_cases()[0]
+    refresh_steps = int(refresh_steps)
+    iterations: list[RefreshIterationResult] = []
+
+    optimizer.update_aero_loads(initial_mapped_loads)
+    initial_export_loads = LoadMapper.apply_load_factor(initial_mapped_loads, design_case.aero_scale)
+    frozen_outcome = run_inverse_design(
+        cfg=cfg,
+        aircraft=aircraft,
+        materials_db=materials_db,
+        optimizer=optimizer,
+        export_loads=initial_export_loads,
+        baseline_result=baseline_result,
+        map_config=map_config,
+        clearance_floor_z_m=clearance_floor_z_m,
+        target_shape_error_tol_m=target_shape_error_tol_m,
+        max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
+        max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+        manufacturing_limit_source=manufacturing_limit_source,
+        main_plateau_grid=main_plateau_grid,
+        main_taper_fill_grid=main_taper_fill_grid,
+        rear_radius_grid=rear_radius_grid,
+        rear_outboard_grid=rear_outboard_grid,
+        wall_thickness_grid=wall_thickness_grid,
+        cobyla_maxiter=cobyla_maxiter,
+        cobyla_rhobeg=cobyla_rhobeg,
+        skip_local_refine=skip_local_refine,
+    )
+    iterations.append(
+        _build_refresh_iteration_result(
+            iteration_index=0,
+            load_source=f"target_shape_frozen_aoa_{float(refresh_model._baseline_case.aoa_deg):.3f}deg",
+            outcome=frozen_outcome,
+            mapped_loads=initial_mapped_loads,
+            load_metrics=refresh_model.baseline_metrics(initial_mapped_loads),
+            previous=None,
+            forward_check=None,
+        )
+    )
+
+    for step in range(1, refresh_steps + 1):
+        previous_iteration = iterations[-1]
+        previous_selected = previous_iteration.outcome.selected
+        if previous_selected.equivalent_result is None:
+            break
+
+        refreshed_mapped_loads, refreshed_metrics = refresh_model.refresh_mapped_loads(
+            equivalent_result=previous_selected.equivalent_result,
+        )
+        optimizer.update_aero_loads(refreshed_mapped_loads)
+        refreshed_export_loads = LoadMapper.apply_load_factor(
+            refreshed_mapped_loads,
+            design_case.aero_scale,
+        )
+        forward_check = _run_forward_refresh_check(
+            cfg=cfg,
+            aircraft=aircraft,
+            materials_db=materials_db,
+            optimizer=optimizer,
+            export_loads=refreshed_export_loads,
+            candidate=previous_selected,
+            previous_iteration_index=previous_iteration.iteration_index,
+        )
+        refreshed_outcome = run_inverse_design(
+            cfg=cfg,
+            aircraft=aircraft,
+            materials_db=materials_db,
+            optimizer=optimizer,
+            export_loads=refreshed_export_loads,
+            baseline_result=baseline_result,
+            map_config=map_config,
+            clearance_floor_z_m=clearance_floor_z_m,
+            target_shape_error_tol_m=target_shape_error_tol_m,
+            max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
+            max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+            manufacturing_limit_source=manufacturing_limit_source,
+            main_plateau_grid=main_plateau_grid,
+            main_taper_fill_grid=main_taper_fill_grid,
+            rear_radius_grid=rear_radius_grid,
+            rear_outboard_grid=rear_outboard_grid,
+            wall_thickness_grid=wall_thickness_grid,
+            cobyla_maxiter=cobyla_maxiter,
+            cobyla_rhobeg=cobyla_rhobeg,
+            skip_local_refine=skip_local_refine,
+        )
+        iterations.append(
+            _build_refresh_iteration_result(
+                iteration_index=step,
+                load_source=f"refresh_{step}_from_iteration_{previous_iteration.iteration_index}",
+                outcome=refreshed_outcome,
+                mapped_loads=refreshed_mapped_loads,
+                load_metrics=refreshed_metrics,
+                previous=previous_iteration,
+                forward_check=forward_check,
+            )
+        )
+
+    return RefreshRefinementOutcome(
+        refresh_steps_requested=refresh_steps,
+        refresh_steps_completed=max(0, len(iterations) - 1),
+        manufacturing_limit_source=manufacturing_limit_source,
+        max_jig_vertical_prebend_limit_m=max_jig_vertical_prebend_m,
+        max_jig_vertical_curvature_limit_per_m=max_jig_vertical_curvature_per_m,
+        iterations=tuple(iterations),
+        artifacts=None,
+    )
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the frozen-load aeroelastic inverse-design MVP on the reduced direct dual-beam V2 map."
+        description="Run the inverse-design lightweight load-refresh refinement on the reduced direct dual-beam V2 map."
     )
     parser.add_argument(
         "--config",
@@ -934,7 +1729,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=str(
             Path(__file__).resolve().parent.parent
             / "output"
-            / "direct_dual_beam_inverse_design_mvp"
+            / "direct_dual_beam_inverse_design_refresh"
         ),
         help="Directory for the inverse-design report, summary, and shape artifacts.",
     )
@@ -959,6 +1754,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=1.10,
         help="If an explicit manufacturing limit is omitted, scale the baseline inverse metric by this factor.",
     )
+    parser.add_argument(
+        "--refresh-steps",
+        type=int,
+        default=2,
+        choices=(0, 1, 2),
+        help="Number of lightweight outer load-refresh updates to run after the frozen-load stage.",
+    )
+    parser.add_argument(
+        "--refresh-washout-scale",
+        type=float,
+        default=1.0,
+        help="Scale factor that converts structural twist into local effective-AoA reduction during refresh.",
+    )
     parser.add_argument("--step-engine", default="auto", choices=("auto", "cadquery", "build123d"))
     parser.add_argument("--skip-step-export", action="store_true")
     return parser
@@ -979,10 +1787,23 @@ def main(argv: list[str] | None = None) -> int:
     materials_db = MaterialDB()
     baseline_result = build_specimen_result_from_crossval_report(design_report)
 
-    cruise_aoa_deg, mapped_loads = _select_cruise_loads(cfg, aircraft)
+    aero_cases = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar).parse()
+    cruise_case, mapped_loads = _select_cruise_case_and_mapped_loads(
+        cfg,
+        aircraft,
+        aero_cases,
+    )
+    cruise_aoa_deg = float(cruise_case.aoa_deg)
     design_case = cfg.structural_load_cases()[0]
     export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
     optimizer = SparOptimizer(cfg, aircraft, mapped_loads, materials_db)
+    refresh_model = LightweightLoadRefreshModel(
+        aero_cases=aero_cases,
+        baseline_case=cruise_case,
+        cfg=cfg,
+        aircraft=aircraft,
+        washout_scale=float(args.refresh_washout_scale),
+    )
 
     baseline_design = BaselineDesign(
         main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
@@ -1033,15 +1854,14 @@ def main(argv: list[str] | None = None) -> int:
             max_jig_vertical_curvature_per_m = max(
                 float(baseline_seed.max_jig_vertical_curvature_per_m) * float(args.manufacturing_limit_scale),
                 1.0e-9,
-            )
+        )
         manufacturing_limit_source = f"baseline_seed x {float(args.manufacturing_limit_scale):.3f}"
 
-    outcome = run_inverse_design(
+    refinement = run_inverse_design_load_refresh_refinement(
         cfg=cfg,
         aircraft=aircraft,
         materials_db=materials_db,
         optimizer=optimizer,
-        export_loads=export_loads,
         baseline_result=baseline_result,
         map_config=map_config,
         clearance_floor_z_m=float(args.clearance_floor_z_m),
@@ -1057,61 +1877,59 @@ def main(argv: list[str] | None = None) -> int:
         cobyla_maxiter=int(args.cobyla_maxiter),
         cobyla_rhobeg=float(args.cobyla_rhobeg),
         skip_local_refine=bool(args.skip_local_refine),
+        initial_mapped_loads=mapped_loads,
+        refresh_model=refresh_model,
+        refresh_steps=int(args.refresh_steps),
     )
 
+    final_iteration = refinement.final_iteration
+    final_export_loads = LoadMapper.apply_load_factor(
+        final_iteration.mapped_loads,
+        design_case.aero_scale,
+    )
     artifacts = export_inverse_design_artifacts(
         output_dir=output_dir,
         cfg=cfg,
         aircraft=aircraft,
         materials_db=materials_db,
-        export_loads=export_loads,
-        candidate=outcome.selected,
+        export_loads=final_export_loads,
+        candidate=final_iteration.outcome.selected,
         step_engine=args.step_engine,
         skip_step_export=bool(args.skip_step_export),
     )
-    outcome = InverseOutcome(
-        success=outcome.success,
-        feasible=outcome.feasible,
-        message=outcome.message,
-        total_wall_time_s=outcome.total_wall_time_s,
-        baseline_eval_wall_time_s=outcome.baseline_eval_wall_time_s,
-        nfev=outcome.nfev,
-        nit=outcome.nit,
-        equivalent_analysis_calls=outcome.equivalent_analysis_calls,
-        production_analysis_calls=outcome.production_analysis_calls,
-        unique_evaluations=outcome.unique_evaluations,
-        cache_hits=outcome.cache_hits,
-        feasible_count=outcome.feasible_count,
-        baseline=outcome.baseline,
-        selected=outcome.selected,
-        local_refine=outcome.local_refine,
-        manufacturing_limit_source=outcome.manufacturing_limit_source,
-        max_jig_vertical_prebend_limit_m=outcome.max_jig_vertical_prebend_limit_m,
-        max_jig_vertical_curvature_limit_per_m=outcome.max_jig_vertical_curvature_limit_per_m,
+    refinement = RefreshRefinementOutcome(
+        refresh_steps_requested=refinement.refresh_steps_requested,
+        refresh_steps_completed=refinement.refresh_steps_completed,
+        manufacturing_limit_source=refinement.manufacturing_limit_source,
+        max_jig_vertical_prebend_limit_m=refinement.max_jig_vertical_prebend_limit_m,
+        max_jig_vertical_curvature_limit_per_m=refinement.max_jig_vertical_curvature_limit_per_m,
+        iterations=refinement.iterations,
         artifacts=artifacts,
     )
 
-    report_path = output_dir / "direct_dual_beam_inverse_design_report.txt"
+    report_path = output_dir / "direct_dual_beam_inverse_design_refresh_report.txt"
     report_path.write_text(
-        build_report_text(
+        build_refresh_report_text(
             config_path=config_path,
             design_report=design_report,
             cruise_aoa_deg=cruise_aoa_deg,
             map_config=map_config,
-            outcome=outcome,
+            outcome=refinement,
+            refresh_washout_scale=float(args.refresh_washout_scale),
         ),
         encoding="utf-8",
     )
 
-    json_path = output_dir / "direct_dual_beam_inverse_design_summary.json"
+    json_path = output_dir / "direct_dual_beam_inverse_design_refresh_summary.json"
     json_path.write_text(
         json.dumps(
-            build_summary_json(
+            build_refresh_summary_json(
                 config_path=config_path,
                 design_report=design_report,
                 cruise_aoa_deg=cruise_aoa_deg,
                 map_config=map_config,
-                outcome=outcome,
+                outcome=refinement,
+                refresh_washout_scale=float(args.refresh_washout_scale),
             ),
             indent=2,
         )
@@ -1119,19 +1937,26 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
 
-    print("Frozen-load aeroelastic inverse design MVP complete.")
+    final_selected = refinement.final_iteration.outcome.selected
+    print("Inverse-design lightweight load-refresh refinement complete.")
     print(f"  Config              : {config_path}")
     print(f"  Design report       : {design_report}")
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
-    print(f"  Feasible            : {outcome.feasible}")
-    print(f"  Total mass          : {outcome.selected.total_structural_mass_kg:.3f} kg")
-    print(f"  Target error max    : {_mm(outcome.selected.target_shape_error_max_m):.6f} mm")
-    print(f"  Jig clearance min   : {_mm(outcome.selected.jig_ground_clearance_min_m):.3f} mm")
-    if outcome.artifacts is not None:
-        print(f"  Target shape CSV    : {outcome.artifacts.target_shape_csv}")
-        print(f"  Jig shape CSV       : {outcome.artifacts.jig_shape_csv}")
-        print(f"  Jig STEP            : {outcome.artifacts.jig_step_path or 'not written'}")
+    print(f"  Refresh steps       : {refinement.refresh_steps_completed}/{refinement.refresh_steps_requested}")
+    print(f"  Feasible            : {refinement.final_iteration.outcome.feasible}")
+    print(f"  Total mass          : {final_selected.total_structural_mass_kg:.3f} kg")
+    print(f"  Target error max    : {_mm(final_selected.target_shape_error_max_m):.6f} mm")
+    print(f"  Jig clearance min   : {_mm(final_selected.jig_ground_clearance_min_m):.3f} mm")
+    if refinement.final_iteration.forward_check is not None:
+        print(
+            "  Forward mismatch    : "
+            f"{_mm(refinement.final_iteration.forward_check.target_shape_error_max_m):.6f} mm"
+        )
+    if refinement.artifacts is not None:
+        print(f"  Target shape CSV    : {refinement.artifacts.target_shape_csv}")
+        print(f"  Jig shape CSV       : {refinement.artifacts.jig_shape_csv}")
+        print(f"  Jig STEP            : {refinement.artifacts.jig_step_path or 'not written'}")
     return 0
 
 
