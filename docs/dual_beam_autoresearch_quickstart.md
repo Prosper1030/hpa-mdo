@@ -77,7 +77,88 @@ Primary margin (mm): 59.706287
 - `direct_dual_beam_v2m_joint_material_decision_interface.json`
 - `direct_dual_beam_v2m_joint_material_decision_interface.txt`
 
-## 4. 第一版固定規則
+### autoresearch run history
+
+現在每次 `python -m hpa_mdo.autoresearch` 跑完，也會自動留下 run record。
+
+預設位置：
+
+- `OUTPUT_DIR/autoresearch_history/autoresearch_run_records.jsonl`
+- `OUTPUT_DIR/autoresearch_history/autoresearch_latest_run_record.json`
+- `OUTPUT_DIR/autoresearch_history/decision_snapshots/`
+
+其中：
+
+- `autoresearch_run_records.jsonl` 是 append-only ledger
+- `autoresearch_latest_run_record.json` 方便快速看最近一次結果
+- `decision_snapshots/` 會保存每次 run 的 decision JSON snapshot，避免原 output 被覆寫後記錄失效
+
+如果你想把不同 `output_dir` 的 run 聚合到同一份 history，可以加：
+
+```bash
+uv run python -m hpa_mdo.autoresearch \
+  --output-dir /abs/path/to/run_dir \
+  --history-dir /abs/path/to/shared_history
+```
+
+## 4. run record 格式
+
+每筆 run record 固定至少包含：
+
+- `run_id`
+- `run_timestamp_utc`
+- `status`
+- `score_name`
+- `score_rule`
+- `score`
+- `primary_mass_kg`
+- `primary_margin_mm`
+- `output_dir`
+- `decision_json_path`
+- `decision_json_snapshot_path`
+- `decision_schema_name`
+- `decision_schema_version`
+- `git_commit_hash`
+
+格式選 JSONL，原因是：
+
+- append 新 run 很便宜，不需要重寫整個 history
+- JSON 比 CSV / TSV 更適合 path、nullable 欄位與未來擴欄
+- 後續 batch / agent / app / reporting 可以逐行 parse
+
+## 5. compare / summary
+
+現在可以直接讀 history 做最薄比較：
+
+```bash
+uv run python -m hpa_mdo.autoresearch summary
+```
+
+或指定 history 目錄：
+
+```bash
+uv run python -m hpa_mdo.autoresearch summary \
+  --history-dir /abs/path/to/shared_history \
+  --limit 10
+```
+
+它會列出：
+
+- 最近幾次 run
+- 成功 / 失敗數
+- 最好 score
+- 每筆 run 的 primary mass / margin
+- 相對最佳 run 的 mass / margin 差值
+
+如果要 machine-readable summary，也可以輸出 JSON：
+
+```bash
+uv run python -m hpa_mdo.autoresearch summary \
+  --history-dir /abs/path/to/shared_history \
+  --json-out /abs/path/to/autoresearch_summary.json
+```
+
+## 6. 第一版固定規則
 
 這版 consumer 故意很小，固定如下：
 
@@ -86,7 +167,7 @@ Primary margin (mm): 59.706287
 - score 固定為 `-Primary.mass_kg`
 - 先檢查 `schema_name` / `schema_version`
 
-## 5. 目前沒有做的事
+## 7. 目前沒有做的事
 
 這版還**沒有**：
 
