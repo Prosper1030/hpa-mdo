@@ -13,6 +13,7 @@ from scripts.direct_dual_beam_v2m_joint_material import (  # noqa: E402
     COMPACT_STRATEGY,
     EXPANDED_STRATEGY,
     JointRepresentativeRegion,
+    build_ridge_refinement_geometry_seeds,
     build_pareto_frontier_candidates,
     build_joint_choice_indices,
     build_joint_geometry_seeds,
@@ -193,6 +194,28 @@ def test_representative_support_geometry_seeds_expand_controlled_local_neighborh
     assert {seed.label for seed in support_seeds} >= {
         "mass_first_center",
         "balanced_center",
+    }
+
+
+def test_ridge_refinement_geometry_seeds_stay_small_and_follow_margin_balanced_branch() -> None:
+    ridge_seeds = build_ridge_refinement_geometry_seeds(
+        representative_centres=(
+            ("margin_first", (4, 0, 1, 2, 1)),
+            ("balanced", (4, 0, 2, 3, 0)),
+        ),
+        baseline=_baseline_design(),
+        map_config=_map_config(),
+        existing_choices={(4, 0, 1, 2, 1), (4, 0, 2, 3, 0)},
+    )
+
+    assert len(ridge_seeds) == 5
+    assert len({seed.choice for seed in ridge_seeds}) == len(ridge_seeds)
+    assert {seed.choice for seed in ridge_seeds} == {
+        (4, 0, 2, 2, 1),
+        (4, 0, 1, 3, 1),
+        (4, 0, 2, 3, 1),
+        (4, 0, 2, 4, 0),
+        (4, 0, 2, 4, 1),
     }
 
 

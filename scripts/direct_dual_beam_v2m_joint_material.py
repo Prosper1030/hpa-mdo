@@ -56,6 +56,42 @@ EXPANDED_STRATEGY = "expanded"
 WORKFLOW_STRATEGY = "workflow"
 DEFAULT_STRATEGY = WORKFLOW_STRATEGY
 REPRESENTATIVE_REGION_RADIUS_L1 = 1
+RIDGE_REFINEMENT_GEOMETRY_SPECS = {
+    "margin_first": (
+        (
+            "ridge_rear_general_plus1",
+            {2: +1},
+            "Push one step further along rear global reserve at the current margin-side wall level.",
+        ),
+        (
+            "ridge_rear_outboard_plus1",
+            {3: +1},
+            "Push one step stiffer in rear seg5-6 sleeve while keeping the current margin-side wall level.",
+        ),
+        (
+            "ridge_rear_general_plus1_plus_outboard_plus1",
+            {2: +1, 3: +1},
+            "Couple rear global reserve and rear seg5-6 sleeve to extend the margin ridge.",
+        ),
+    ),
+    "balanced": (
+        (
+            "ridge_global_wall_plus1",
+            {4: +1},
+            "Add one-step global wall reserve on top of the current balanced ridge point.",
+        ),
+        (
+            "ridge_rear_outboard_plus1",
+            {3: +1},
+            "Push one step stiffer in rear seg5-6 sleeve along the balanced ridge.",
+        ),
+        (
+            "ridge_rear_outboard_plus1_plus_global_wall_plus1",
+            {3: +1, 4: +1},
+            "Couple rear sleeve and global wall reserve to probe the upper balanced-to-margin ridge.",
+        ),
+    ),
+}
 EXPANDED_PAIRWISE_GEOMETRY_SPECS = (
     ("light_main_plus_rear_general", {0: -1, 2: +1}, "Lighter main plateau with one-step rear global reserve."),
     (
@@ -109,6 +145,7 @@ class JointMaterialOutcome:
     geometry_seed_count: int
     discovery_geometry_seed_count: int
     support_geometry_seed_count: int
+    ridge_geometry_seed_count: int
     evaluated_candidate_count: int
     search_space_size: int
     equivalent_analysis_calls: int
@@ -371,6 +408,37 @@ def build_representative_support_geometry_seeds(
                 label=f"{region_key}_{label_suffix}",
                 choice=compact_seed.choice,
                 note=f"{region_key} stability neighborhood: {compact_seed.note}",
+                baseline=baseline,
+                map_config=map_config,
+            )
+
+    return tuple(seeds)
+
+
+def build_ridge_refinement_geometry_seeds(
+    *,
+    representative_centres: tuple[tuple[str, tuple[int, int, int, int, int]], ...],
+    baseline: BaselineDesign,
+    map_config,
+    existing_choices: set[tuple[int, int, int, int, int]] | None = None,
+) -> tuple[GeometrySeed, ...]:
+    seeds: list[GeometrySeed] = []
+    seen = set() if existing_choices is None else {tuple(choice) for choice in existing_choices}
+    axis_sizes = _axis_sizes_from_map_config(map_config)
+
+    for region_key, choice in representative_centres:
+        region_specs = RIDGE_REFINEMENT_GEOMETRY_SPECS.get(region_key, ())
+        for label_suffix, axis_deltas, note in region_specs:
+            _append_geometry_seed(
+                seeds=seeds,
+                seen=seen,
+                label=f"{region_key}_{label_suffix}",
+                choice=_offset_choice(
+                    base_choice=choice,
+                    axis_deltas=axis_deltas,
+                    axis_sizes=axis_sizes,
+                ),
+                note=f"{region_key} ridge refinement: {note}",
                 baseline=baseline,
                 map_config=map_config,
             )
@@ -697,6 +765,7 @@ def _build_joint_material_outcome(
     geometry_seeds: tuple[GeometrySeed, ...],
     discovery_geometry_seed_count: int,
     support_geometry_seed_count: int,
+    ridge_geometry_seed_count: int,
     search_space_size: int,
     total_start: float,
     reference_candidate: MaterialProxyCandidate,
@@ -745,6 +814,7 @@ def _build_joint_material_outcome(
         geometry_seed_count=len(geometry_seeds),
         discovery_geometry_seed_count=discovery_geometry_seed_count,
         support_geometry_seed_count=support_geometry_seed_count,
+        ridge_geometry_seed_count=ridge_geometry_seed_count,
         evaluated_candidate_count=len(evaluator.archive.candidates),
         search_space_size=search_space_size,
         equivalent_analysis_calls=int(evaluator.equivalent_analysis_calls),
@@ -810,6 +880,7 @@ def run_joint_material_search(
         geometry_seeds=tuple(geometry_seeds),
         discovery_geometry_seed_count=len(geometry_seeds),
         support_geometry_seed_count=0,
+        ridge_geometry_seed_count=0,
         search_space_size=len(geometry_seeds)
         * len(catalog.main_spar_family)
         * len(catalog.rear_outboard_reinforcement_pkg),
@@ -871,6 +942,7 @@ def run_joint_material_workflow_search(
         geometry_seeds=discovery_geometry_seeds,
         discovery_geometry_seed_count=len(discovery_geometry_seeds),
         support_geometry_seed_count=0,
+        ridge_geometry_seed_count=0,
         search_space_size=len(discovery_geometry_seeds)
         * len(catalog.main_spar_family)
         * len(catalog.rear_outboard_reinforcement_pkg),
@@ -904,13 +976,53 @@ def run_joint_material_workflow_search(
             rear_outboard_packages=catalog.rear_outboard_reinforcement_pkg,
             source="joint_promoted_grid:representative_support",
         )
-    combined_geometry_seeds = tuple(discovery_geometry_seeds) + tuple(support_geometry_seeds)
-    combined_index_map = {**discovery_index_map, **support_index_map}
+    support_combined_geometry_seeds = tuple(discovery_geometry_seeds) + tuple(support_geometry_seeds)
+    support_combined_index_map = {**discovery_index_map, **support_index_map}
+    support_outcome = _build_joint_material_outcome(
+        search_strategy=WORKFLOW_STRATEGY,
+        geometry_seeds=support_combined_geometry_seeds,
+        discovery_geometry_seed_count=len(discovery_geometry_seeds),
+        support_geometry_seed_count=len(support_geometry_seeds),
+        ridge_geometry_seed_count=0,
+        search_space_size=len(support_combined_geometry_seeds)
+        * len(catalog.main_spar_family)
+        * len(catalog.rear_outboard_reinforcement_pkg),
+        total_start=total_start,
+        reference_candidate=reference_candidate,
+        evaluator=evaluator,
+        best_index_map=support_combined_index_map,
+    )
+    ridge_geometry_seeds = build_ridge_refinement_geometry_seeds(
+        representative_centres=tuple(
+            (region_key, candidate.geometry_choice)
+            for region_key, candidate in (
+                ("margin_first", support_outcome.margin_first_candidate_feasible),
+                ("balanced", support_outcome.balanced_compromise_candidate_feasible),
+            )
+            if candidate is not None
+        ),
+        baseline=baseline,
+        map_config=map_config,
+        existing_choices={seed.choice for seed in support_combined_geometry_seeds},
+    )
+    ridge_index_map = {}
+    if ridge_geometry_seeds:
+        ridge_index_map = _evaluate_joint_search_grid(
+            evaluator=evaluator,
+            geometry_seeds=ridge_geometry_seeds,
+            main_packages=catalog.main_spar_family,
+            rear_ref=rear_ref,
+            rear_outboard_packages=catalog.rear_outboard_reinforcement_pkg,
+            source="joint_promoted_grid:ridge_refinement",
+        )
+    combined_geometry_seeds = support_combined_geometry_seeds + tuple(ridge_geometry_seeds)
+    combined_index_map = {**support_combined_index_map, **ridge_index_map}
     outcome = _build_joint_material_outcome(
         search_strategy=WORKFLOW_STRATEGY,
         geometry_seeds=combined_geometry_seeds,
         discovery_geometry_seed_count=len(discovery_geometry_seeds),
         support_geometry_seed_count=len(support_geometry_seeds),
+        ridge_geometry_seed_count=len(ridge_geometry_seeds),
         search_space_size=len(combined_geometry_seeds)
         * len(catalog.main_spar_family)
         * len(catalog.rear_outboard_reinforcement_pkg),
@@ -1007,6 +1119,7 @@ def build_report_text(
     else:
         lines.append("  Workflow stage 1: expanded discovery around the selected V2.m++ point.")
         lines.append("  Workflow stage 2: compact local support neighborhoods around the discovered mass-first / margin-first / balanced representatives.")
+        lines.append("  Workflow stage 3: a very small ridge-refinement set along the current margin / balanced tradeoff branch.")
     lines.append(f"  Strategy                     : {outcome.search_strategy}")
     lines.append(
         f"  Search-space size            : {outcome.search_space_size} = {outcome.geometry_seed_count} geometry seeds x "
@@ -1015,6 +1128,7 @@ def build_report_text(
     if outcome.search_strategy == WORKFLOW_STRATEGY:
         lines.append(f"  Discovery geometry seeds     : {outcome.discovery_geometry_seed_count}")
         lines.append(f"  Support geometry seeds       : {outcome.support_geometry_seed_count}")
+        lines.append(f"  Ridge geometry seeds         : {outcome.ridge_geometry_seed_count}")
     lines.append("")
     lines.append("Promoted axes:")
     for axis_name in ("main_spar_family", "rear_outboard_reinforcement_pkg"):
@@ -1211,6 +1325,7 @@ def build_summary_json(
             "geometry_seed_count": len(geometry_seeds),
             "discovery_geometry_seed_count": outcome.discovery_geometry_seed_count,
             "support_geometry_seed_count": outcome.support_geometry_seed_count,
+            "ridge_geometry_seed_count": outcome.ridge_geometry_seed_count,
             "representative_region_radius_l1": REPRESENTATIVE_REGION_RADIUS_L1,
             "promoted_axes": ["main_spar_family", "rear_outboard_reinforcement_pkg"],
             "fixed_axes": {"rear_spar_family": "rear_ref"},
