@@ -61,6 +61,13 @@ class InverseDesignTests(unittest.TestCase):
             equivalent_twist_max_deg=0.0,
             analysis_succeeded=True,
             geometry_validity_succeeded=True,
+            loaded_shape_main_z_error_max_m=0.0,
+            loaded_shape_main_z_error_rms_m=0.0,
+            loaded_shape_twist_error_max_deg=0.0,
+            loaded_shape_twist_error_rms_deg=0.0,
+            loaded_shape_normalized_error=0.0,
+            loaded_shape_penalty_kg=0.0,
+            objective_value_kg=mass_kg,
             target_shape_error_max_m=0.0,
             target_shape_error_rms_m=0.0,
             jig_ground_clearance_min_m=0.01,
@@ -145,7 +152,8 @@ class InverseDesignTests(unittest.TestCase):
         self.assertTrue(result.feasibility.overall_feasible)
 
         margins = build_inverse_design_margins(result)
-        self.assertAlmostEqual(margins["target_shape_error_margin_m"], 1.0e-9)
+        self.assertAlmostEqual(margins["loaded_shape_main_z_margin_m"], 0.025)
+        self.assertAlmostEqual(margins["loaded_shape_twist_margin_deg"], 0.15)
         self.assertAlmostEqual(margins["ground_clearance_margin_m"], 0.0)
         self.assertAlmostEqual(margins["jig_prebend_margin_m"], 0.05)
         self.assertAlmostEqual(margins["jig_curvature_margin_per_m"], 0.01)
@@ -209,6 +217,95 @@ class InverseDesignTests(unittest.TestCase):
         self.assertIn("ground_clearance", result.feasibility.failures)
         self.assertIn("jig_prebend", result.feasibility.failures)
         self.assertIn("jig_curvature", result.feasibility.failures)
+
+    def test_low_dim_loaded_shape_matching_relaxes_nodewise_closure(self) -> None:
+        target = StructuralNodeShape(
+            main_nodes_m=np.array(
+                [
+                    [0.0, 0.0, 0.00],
+                    [0.0, 1.0, 0.10],
+                    [0.0, 2.0, 0.25],
+                    [0.0, 3.0, 0.45],
+                    [0.0, 4.0, 0.70],
+                ],
+                dtype=float,
+            ),
+            rear_nodes_m=np.array(
+                [
+                    [1.0, 0.0, -0.05],
+                    [1.0, 1.0, 0.04],
+                    [1.0, 2.0, 0.18],
+                    [1.0, 3.0, 0.37],
+                    [1.0, 4.0, 0.61],
+                ],
+                dtype=float,
+            ),
+        )
+        disp_main = np.array(
+            [
+                [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.14, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.20, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.32, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.55, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+        disp_rear = np.array(
+            [
+                [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.10, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.14, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.24, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.43, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+
+        exact = build_frozen_load_inverse_design(
+            target_loaded_shape=target,
+            disp_main_m=disp_main,
+            disp_rear_m=disp_rear,
+            y_nodes_m=np.array([0.0, 1.0, 2.0, 3.0, 4.0], dtype=float),
+            analysis_succeeded=True,
+            geometry_validity_passed=True,
+            equivalent_failure_passed=True,
+            equivalent_buckling_passed=True,
+            equivalent_tip_passed=True,
+            equivalent_twist_passed=True,
+            max_abs_vertical_prebend_m=None,
+            max_abs_vertical_curvature_per_m=None,
+            loaded_shape_mode="exact_nodal",
+            loaded_shape_control_station_fractions=(0.0, 0.5, 1.0),
+            loaded_shape_main_z_tol_m=1.0e-9,
+            loaded_shape_twist_tol_deg=1.0e-9,
+        )
+        low_dim = build_frozen_load_inverse_design(
+            target_loaded_shape=target,
+            disp_main_m=disp_main,
+            disp_rear_m=disp_rear,
+            y_nodes_m=np.array([0.0, 1.0, 2.0, 3.0, 4.0], dtype=float),
+            analysis_succeeded=True,
+            geometry_validity_passed=True,
+            equivalent_failure_passed=True,
+            equivalent_buckling_passed=True,
+            equivalent_tip_passed=True,
+            equivalent_twist_passed=True,
+            max_abs_vertical_prebend_m=None,
+            max_abs_vertical_curvature_per_m=None,
+            loaded_shape_mode="low_dim_descriptor",
+            loaded_shape_control_station_fractions=(0.0, 0.5, 1.0),
+            loaded_shape_main_z_tol_m=1.0e-9,
+            loaded_shape_twist_tol_deg=1.0e-9,
+        )
+
+        self.assertAlmostEqual(exact.target_shape_error.max_abs_error_m, 0.0)
+        self.assertTrue(low_dim.loaded_shape_match.passed)
+        self.assertGreater(low_dim.target_shape_error.max_abs_error_m, 0.01)
+        self.assertGreater(low_dim.jig_shape.main_nodes_m[1, 2], exact.jig_shape.main_nodes_m[1, 2])
+        margins = build_inverse_design_margins(low_dim)
+        self.assertGreaterEqual(margins["loaded_shape_main_z_margin_m"], -1.0e-12)
+        self.assertGreaterEqual(margins["loaded_shape_twist_margin_deg"], -1.0e-12)
 
     def test_write_shape_csv_from_template_rewrites_main_and_rear_coordinates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

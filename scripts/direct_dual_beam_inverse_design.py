@@ -83,6 +83,13 @@ class InverseCandidate:
     equivalent_twist_max_deg: float
     analysis_succeeded: bool
     geometry_validity_succeeded: bool
+    loaded_shape_main_z_error_max_m: float
+    loaded_shape_main_z_error_rms_m: float
+    loaded_shape_twist_error_max_deg: float
+    loaded_shape_twist_error_rms_deg: float
+    loaded_shape_normalized_error: float
+    loaded_shape_penalty_kg: float
+    objective_value_kg: float
     target_shape_error_max_m: float
     target_shape_error_rms_m: float
     jig_ground_clearance_min_m: float
@@ -361,6 +368,16 @@ def _parse_grid(text: str) -> tuple[float, ...]:
     return values
 
 
+def _parse_control_fractions(text: str) -> tuple[float, ...]:
+    values = tuple(float(part.strip()) for part in text.split(",") if part.strip())
+    if not values:
+        raise ValueError("Control-station specification must contain at least one float.")
+    for value in values:
+        if value < -1.0e-12 or value > 1.0 + 1.0e-12:
+            raise ValueError("Control-station fractions must stay within [0, 1].")
+    return values
+
+
 def _mm(value_m: float | None) -> float:
     if value_m is None:
         return float("nan")
@@ -376,28 +393,31 @@ def _fmt_array_mm(values_m: np.ndarray) -> str:
     return "[" + ", ".join(f"{value:.3f}" for value in values_mm) + "]"
 
 
-def _feasible_key(candidate: InverseCandidate) -> tuple[float, float, float]:
+def _feasible_key(candidate: InverseCandidate) -> tuple[float, float, float, float]:
     return (
         float(candidate.total_structural_mass_kg),
+        float(candidate.loaded_shape_normalized_error),
         float(candidate.max_jig_vertical_prebend_m),
         float(candidate.max_jig_vertical_curvature_per_m),
     )
 
 
-def _violation_key(candidate: InverseCandidate) -> tuple[float, float, float]:
+def _violation_key(candidate: InverseCandidate) -> tuple[float, float, float, float]:
     return (
         float(candidate.hard_violation_score),
         float(candidate.total_structural_mass_kg),
+        float(candidate.loaded_shape_normalized_error),
         float(candidate.max_jig_vertical_prebend_m),
     )
 
 
-def _target_violation_key(candidate: InverseCandidate) -> tuple[float, float, float]:
+def _target_violation_key(candidate: InverseCandidate) -> tuple[float, float, float, float]:
     overshoot_kg = max(-float(candidate.mass_margin_kg), 0.0)
     return (
         float(candidate.target_violation_score),
         float(overshoot_kg),
         float(candidate.total_structural_mass_kg),
+        float(candidate.loaded_shape_normalized_error),
     )
 
 
@@ -631,6 +651,11 @@ class InverseDesignEvaluator:
         target_shape_error_tol_m: float,
         max_jig_vertical_prebend_m: float | None,
         max_jig_vertical_curvature_per_m: float | None,
+        loaded_shape_mode: str,
+        loaded_shape_control_station_fractions: tuple[float, ...],
+        loaded_shape_main_z_tol_m: float,
+        loaded_shape_twist_tol_deg: float,
+        loaded_shape_penalty_weight_kg: float,
         target_mass_kg: float | None = None,
     ):
         self.cfg = cfg
@@ -644,6 +669,13 @@ class InverseDesignEvaluator:
         self.target_shape_error_tol_m = float(target_shape_error_tol_m)
         self.max_jig_vertical_prebend_m = max_jig_vertical_prebend_m
         self.max_jig_vertical_curvature_per_m = max_jig_vertical_curvature_per_m
+        self.loaded_shape_mode = str(loaded_shape_mode)
+        self.loaded_shape_control_station_fractions = tuple(
+            float(value) for value in loaded_shape_control_station_fractions
+        )
+        self.loaded_shape_main_z_tol_m = float(loaded_shape_main_z_tol_m)
+        self.loaded_shape_twist_tol_deg = float(loaded_shape_twist_tol_deg)
+        self.loaded_shape_penalty_weight_kg = float(loaded_shape_penalty_weight_kg)
         self.target_mass_kg = None if target_mass_kg is None else float(target_mass_kg)
         self.archive = CandidateArchive(target_mass_kg=self.target_mass_kg)
         self._cache: dict[tuple[float, ...], InverseCandidate] = {}
@@ -705,6 +737,10 @@ class InverseDesignEvaluator:
                 target_shape_error_tol_m=self.target_shape_error_tol_m,
                 max_abs_vertical_prebend_m=self.max_jig_vertical_prebend_m,
                 max_abs_vertical_curvature_per_m=self.max_jig_vertical_curvature_per_m,
+                loaded_shape_mode=self.loaded_shape_mode,
+                loaded_shape_control_station_fractions=self.loaded_shape_control_station_fractions,
+                loaded_shape_main_z_tol_m=self.loaded_shape_main_z_tol_m,
+                loaded_shape_twist_tol_deg=self.loaded_shape_twist_tol_deg,
             )
             hard_margins = {
                 **build_candidate_hard_margins(production),
@@ -726,6 +762,12 @@ class InverseDesignEvaluator:
                 target_mass_kg=self.target_mass_kg,
             )
             overall_target_feasible = bool(inverse.feasibility.overall_feasible and target_mass_passed)
+            loaded_shape_penalty_kg = float(
+                self.loaded_shape_penalty_weight_kg * inverse.loaded_shape_match.normalized_rms_error
+            )
+            objective_value_kg = float(
+                production.recovery.total_structural_mass_full_kg + loaded_shape_penalty_kg
+            )
 
             finite_scalars = [
                 float(production.recovery.spar_tube_mass_full_kg),
@@ -734,6 +776,13 @@ class InverseDesignEvaluator:
                 float(production.optimizer.equivalent_gates.buckling_index),
                 float(production.optimizer.equivalent_gates.tip_deflection_m),
                 float(production.optimizer.equivalent_gates.twist_max_deg),
+                float(inverse.loaded_shape_match.main_z_max_abs_error_m),
+                float(inverse.loaded_shape_match.main_z_rms_error_m),
+                float(inverse.loaded_shape_match.twist_max_abs_error_deg),
+                float(inverse.loaded_shape_match.twist_rms_error_deg),
+                float(inverse.loaded_shape_match.normalized_rms_error),
+                float(loaded_shape_penalty_kg),
+                float(objective_value_kg),
                 float(inverse.target_shape_error.max_abs_error_m),
                 float(inverse.target_shape_error.rms_error_m),
                 float(inverse.ground_clearance.min_z_m),
@@ -767,6 +816,13 @@ class InverseDesignEvaluator:
                 equivalent_twist_max_deg=float(production.optimizer.equivalent_gates.twist_max_deg),
                 analysis_succeeded=bool(production.feasibility.analysis_succeeded),
                 geometry_validity_succeeded=bool(production.feasibility.geometry_validity_succeeded),
+                loaded_shape_main_z_error_max_m=float(inverse.loaded_shape_match.main_z_max_abs_error_m),
+                loaded_shape_main_z_error_rms_m=float(inverse.loaded_shape_match.main_z_rms_error_m),
+                loaded_shape_twist_error_max_deg=float(inverse.loaded_shape_match.twist_max_abs_error_deg),
+                loaded_shape_twist_error_rms_deg=float(inverse.loaded_shape_match.twist_rms_error_deg),
+                loaded_shape_normalized_error=float(inverse.loaded_shape_match.normalized_rms_error),
+                loaded_shape_penalty_kg=float(loaded_shape_penalty_kg),
+                objective_value_kg=float(objective_value_kg),
                 target_shape_error_max_m=float(inverse.target_shape_error.max_abs_error_m),
                 target_shape_error_rms_m=float(inverse.target_shape_error.rms_error_m),
                 jig_ground_clearance_min_m=float(inverse.ground_clearance.min_z_m),
@@ -815,6 +871,13 @@ class InverseDesignEvaluator:
                 equivalent_twist_max_deg=float("inf"),
                 analysis_succeeded=False,
                 geometry_validity_succeeded=False,
+                loaded_shape_main_z_error_max_m=float("inf"),
+                loaded_shape_main_z_error_rms_m=float("inf"),
+                loaded_shape_twist_error_max_deg=float("inf"),
+                loaded_shape_twist_error_rms_deg=float("inf"),
+                loaded_shape_normalized_error=float("inf"),
+                loaded_shape_penalty_kg=float("inf"),
+                objective_value_kg=FAILED_MASS_KG,
                 target_shape_error_max_m=float("inf"),
                 target_shape_error_rms_m=float("inf"),
                 jig_ground_clearance_min_m=float("-inf"),
@@ -1069,12 +1132,14 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
             "equivalent_buckling_passed": inverse.feasibility.equivalent_buckling_passed,
             "equivalent_tip_passed": inverse.feasibility.equivalent_tip_passed,
             "equivalent_twist_passed": inverse.feasibility.equivalent_twist_passed,
+            "loaded_shape_match_passed": inverse.feasibility.loaded_shape_match_passed,
             "target_shape_error_passed": inverse.feasibility.target_shape_error_passed,
             "ground_clearance_passed": inverse.feasibility.ground_clearance_passed,
             "manufacturing_passed": inverse.feasibility.manufacturing_passed,
             "safety_passed": inverse.feasibility.safety_passed,
             "overall_feasible": inverse.feasibility.overall_feasible,
             "failures": list(inverse.feasibility.failures),
+            "loaded_shape_match": asdict(inverse.loaded_shape_match),
             "target_shape_error": asdict(inverse.target_shape_error),
             "ground_clearance": asdict(inverse.ground_clearance),
             "manufacturing": asdict(inverse.manufacturing),
@@ -1101,6 +1166,13 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "equivalent_twist_max_deg": candidate.equivalent_twist_max_deg,
         "analysis_succeeded": candidate.analysis_succeeded,
         "geometry_validity_succeeded": candidate.geometry_validity_succeeded,
+        "loaded_shape_main_z_error_max_m": candidate.loaded_shape_main_z_error_max_m,
+        "loaded_shape_main_z_error_rms_m": candidate.loaded_shape_main_z_error_rms_m,
+        "loaded_shape_twist_error_max_deg": candidate.loaded_shape_twist_error_max_deg,
+        "loaded_shape_twist_error_rms_deg": candidate.loaded_shape_twist_error_rms_deg,
+        "loaded_shape_normalized_error": candidate.loaded_shape_normalized_error,
+        "loaded_shape_penalty_kg": candidate.loaded_shape_penalty_kg,
+        "objective_value_kg": candidate.objective_value_kg,
         "target_shape_error_max_m": candidate.target_shape_error_max_m,
         "target_shape_error_rms_m": candidate.target_shape_error_rms_m,
         "jig_ground_clearance_min_m": candidate.jig_ground_clearance_min_m,
@@ -1141,6 +1213,8 @@ def build_report_text(
     baseline = outcome.baseline
     selected = outcome.selected
     generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    selected_inverse = selected.inverse_result
+    loaded_shape_match = None if selected_inverse is None else selected_inverse.loaded_shape_match
 
     lines: list[str] = []
     lines.append("=" * 108)
@@ -1154,13 +1228,21 @@ def build_report_text(
     lines.append("Definition:")
     lines.append("  target_loaded_shape         : current VSP / structural cruise geometry at the beam nodes")
     lines.append("  frozen_load_source          : cruise mapped loads on that target shape (no load refresh loop)")
-    lines.append("  jig_shape                   : nodes_target - structural displacement")
-    lines.append("  predicted_loaded_shape      : jig_shape + same frozen displacement")
+    if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor":
+        lines.append("  jig_shape                   : nodes_target - projected displacement that matches main-beam Z and twist at a few control stations")
+        lines.append("  predicted_loaded_shape      : jig_shape + full structural displacement; noncritical nodewise mismatch is allowed")
+    else:
+        lines.append("  jig_shape                   : nodes_target - structural displacement")
+        lines.append("  predicted_loaded_shape      : jig_shape + same frozen displacement")
     lines.append("")
     lines.append("Physics assumptions:")
     lines.append("  1. One-way frozen-load aeroelastic solve; aerodynamic loads are not refreshed after jig back-out.")
     lines.append("  2. Cruise target shape is represented on the existing main/rear spar beam lines, not the full wing skin.")
-    lines.append("  3. Jig back-out uses the translational structural response from the production dual-beam kernel.")
+    if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor":
+        lines.append("  3. Loaded-shape matching is enforced only on low-dimensional descriptors: main-beam prebend and spanwise twist at control stations.")
+        lines.append("  4. Total structural mass remains the main objective; loaded-shape RMS only enters as a small penalty/tie-break.")
+    else:
+        lines.append("  3. Jig back-out uses the translational structural response from the production dual-beam kernel.")
     lines.append("")
     lines.append("Reduced map (existing V2 design variables):")
     lines.append(f"  main_plateau_scale upper    : {map_config.main_plateau_scale_upper:.4f}")
@@ -1203,7 +1285,9 @@ def build_report_text(
     lines.append("")
     lines.append("Baseline candidate:")
     lines.append(f"  Total structural mass       {baseline.total_structural_mass_kg:11.3f} kg")
-    lines.append(f"  Target shape error max      {_mm(baseline.target_shape_error_max_m):11.6f} mm")
+    lines.append(f"  Loaded-shape main-Z max     {_mm(baseline.loaded_shape_main_z_error_max_m):11.6f} mm")
+    lines.append(f"  Loaded-shape twist max      {baseline.loaded_shape_twist_error_max_deg:11.6f} deg")
+    lines.append(f"  Nodewise mismatch max       {_mm(baseline.target_shape_error_max_m):11.6f} mm")
     lines.append(f"  Jig min ground clearance    {_mm(baseline.jig_ground_clearance_min_m):11.3f} mm")
     lines.append(f"  Max jig prebend             {_mm(baseline.max_jig_vertical_prebend_m):11.3f} mm")
     lines.append(f"  Max jig curvature           {baseline.max_jig_vertical_curvature_per_m:11.6f} 1/m")
@@ -1216,8 +1300,14 @@ def build_report_text(
     lines.append(f"  Message                      {selected.message}")
     lines.append(f"  Total structural mass        {selected.total_structural_mass_kg:11.3f} kg")
     lines.append(f"  Spar tube mass               {selected.tube_mass_kg:11.3f} kg")
-    lines.append(f"  Target shape error max       {_mm(selected.target_shape_error_max_m):11.6f} mm")
-    lines.append(f"  Target shape error rms       {_mm(selected.target_shape_error_rms_m):11.6f} mm")
+    lines.append(f"  Loaded-shape main-Z max      {_mm(selected.loaded_shape_main_z_error_max_m):11.6f} mm")
+    lines.append(f"  Loaded-shape main-Z rms      {_mm(selected.loaded_shape_main_z_error_rms_m):11.6f} mm")
+    lines.append(f"  Loaded-shape twist max       {selected.loaded_shape_twist_error_max_deg:11.6f} deg")
+    lines.append(f"  Loaded-shape twist rms       {selected.loaded_shape_twist_error_rms_deg:11.6f} deg")
+    lines.append(f"  Loaded-shape penalty         {selected.loaded_shape_penalty_kg:11.6f} kg")
+    lines.append(f"  Penalized objective          {selected.objective_value_kg:11.6f} kg")
+    lines.append(f"  Nodewise mismatch max        {_mm(selected.target_shape_error_max_m):11.6f} mm")
+    lines.append(f"  Nodewise mismatch rms        {_mm(selected.target_shape_error_rms_m):11.6f} mm")
     lines.append(f"  Jig min ground clearance     {_mm(selected.jig_ground_clearance_min_m):11.3f} mm")
     lines.append(f"  Jig clearance margin         {_mm(selected.jig_ground_clearance_margin_m):11.3f} mm")
     lines.append(f"  Max jig prebend              {_mm(selected.max_jig_vertical_prebend_m):11.3f} mm")
@@ -1275,6 +1365,8 @@ def build_summary_json(
     map_config: ReducedMapConfig,
     outcome: InverseOutcome,
 ) -> dict[str, object]:
+    selected_inverse = outcome.selected.inverse_result
+    loaded_shape_match = None if selected_inverse is None else selected_inverse.loaded_shape_match
     return {
         "generated_at": datetime.now().astimezone().isoformat(),
         "config": str(config_path),
@@ -1282,12 +1374,31 @@ def build_summary_json(
         "cruise_aoa_deg": float(cruise_aoa_deg),
         "mvp_definition": {
             "target_loaded_shape": "current VSP / structural cruise geometry on main and rear spar beam nodes",
-            "jig_shape_rule": "nodes_jig = nodes_target - delta_u",
+            "jig_shape_rule": (
+                "nodes_jig = nodes_target - projected_delta_u on main-beam Z and twist descriptors"
+                if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor"
+                else "nodes_jig = nodes_target - delta_u"
+            ),
             "frozen_load_source": "cruise mapped loads on the target shape; no aerodynamic load refresh loop in this MVP",
+            "loaded_shape_matching": (
+                None
+                if loaded_shape_match is None
+                else {
+                    "mode": loaded_shape_match.mode,
+                    "control_station_fractions": list(loaded_shape_match.control_station_fractions),
+                    "main_z_tolerance_m": loaded_shape_match.main_z_tolerance_m,
+                    "twist_tolerance_deg": loaded_shape_match.twist_tolerance_deg,
+                    "descriptors": ["main_beam_z", "spanwise_twist"],
+                }
+            ),
             "physics_assumptions": [
                 "one-way frozen-load structural solve",
                 "beam-line target shape, not full wing skin",
-                "loaded-shape closure uses the same frozen displacement field",
+                (
+                    "loaded shape is enforced on low-dimensional descriptors instead of exact nodewise closure"
+                    if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor"
+                    else "loaded-shape closure uses the same frozen displacement field"
+                ),
             ],
         },
         "map_config": {
@@ -1401,6 +1512,8 @@ def build_refresh_report_text(
 ) -> str:
     generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     final_iteration = outcome.final_iteration
+    final_inverse = final_iteration.outcome.selected.inverse_result
+    loaded_shape_match = None if final_inverse is None else final_inverse.loaded_shape_match
 
     lines: list[str] = []
     lines.append("=" * 108)
@@ -1415,7 +1528,10 @@ def build_refresh_report_text(
     lines.append("")
     lines.append("Definition:")
     lines.append("  target_loaded_shape         : current VSP / structural cruise geometry at the beam nodes")
-    lines.append("  jig_shape                   : nodes_target - structural displacement")
+    if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor":
+        lines.append("  jig_shape                   : nodes_target - projected displacement field that only enforces main-beam Z and twist descriptors")
+    else:
+        lines.append("  jig_shape                   : nodes_target - structural displacement")
     lines.append("  refresh method              : reuse existing VSPAero AoA sweep, reduce local effective AoA by structural twist")
     lines.append("  outer updates               : 1-2 one-way refresh steps only; no inner converged aero-structural loop")
     lines.append("")
@@ -1424,6 +1540,8 @@ def build_refresh_report_text(
     lines.append("  2. Refreshed loads are interpolated from existing VSPAero AoA cases; OpenVSP is not rerun.")
     lines.append("  3. Structural twist is treated as local washout with a simple scalar scale factor.")
     lines.append("  4. The forward refresh check estimates frozen-load bias by applying refreshed displacement to the previous jig.")
+    if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor":
+        lines.append("  5. Loaded-shape matching is constrained only on main-beam Z and twist at a few control stations.")
     lines.append("")
     lines.append("Difference from full coupling:")
     lines.append("  - capped outer refresh count instead of iterating to convergence")
@@ -1491,8 +1609,13 @@ def build_refresh_report_text(
         if iteration.outcome.target_mass_kg is not None:
             lines.append(f"  target mass passed          : {selected.target_mass_passed}")
             lines.append(f"  mass margin                 : {selected.mass_margin_kg:+11.3f} kg")
-        lines.append(f"  inverse target error max    : {_mm(selected.target_shape_error_max_m):11.6f} mm")
-        lines.append(f"  inverse target error rms    : {_mm(selected.target_shape_error_rms_m):11.6f} mm")
+        lines.append(f"  loaded-shape main-Z max     : {_mm(selected.loaded_shape_main_z_error_max_m):11.6f} mm")
+        lines.append(f"  loaded-shape main-Z rms     : {_mm(selected.loaded_shape_main_z_error_rms_m):11.6f} mm")
+        lines.append(f"  loaded-shape twist max      : {selected.loaded_shape_twist_error_max_deg:11.6f} deg")
+        lines.append(f"  loaded-shape twist rms      : {selected.loaded_shape_twist_error_rms_deg:11.6f} deg")
+        lines.append(f"  nodewise mismatch max       : {_mm(selected.target_shape_error_max_m):11.6f} mm")
+        lines.append(f"  nodewise mismatch rms       : {_mm(selected.target_shape_error_rms_m):11.6f} mm")
+        lines.append(f"  loaded-shape penalty        : {selected.loaded_shape_penalty_kg:11.6f} kg")
         lines.append(f"  jig min ground clearance    : {_mm(selected.jig_ground_clearance_min_m):11.3f} mm")
         lines.append(f"  max jig prebend             : {_mm(selected.max_jig_vertical_prebend_m):11.3f} mm")
         lines.append(f"  max jig curvature           : {selected.max_jig_vertical_curvature_per_m:11.6f} 1/m")
@@ -1558,7 +1681,7 @@ def build_refresh_report_text(
             lines.append("  delta vs previous iteration:")
             lines.append(f"    mass                      : {iteration.mass_delta_kg:+11.3f} kg")
             lines.append(
-                f"    inverse target error max  : {_mm(iteration.inverse_target_error_delta_m):+11.6f} mm"
+                f"    nodewise mismatch max     : {_mm(iteration.inverse_target_error_delta_m):+11.6f} mm"
             )
             lines.append(
                 f"    jig ground clearance      : {_mm(iteration.ground_clearance_delta_m):+11.3f} mm"
@@ -1601,6 +1724,8 @@ def build_refresh_summary_json(
     outcome: RefreshRefinementOutcome,
     refresh_washout_scale: float,
 ) -> dict[str, object]:
+    final_inverse = outcome.final_iteration.outcome.selected.inverse_result
+    loaded_shape_match = None if final_inverse is None else final_inverse.loaded_shape_match
     return {
         "generated_at": datetime.now().astimezone().isoformat(),
         "config": str(config_path),
@@ -1608,12 +1733,27 @@ def build_refresh_summary_json(
         "cruise_aoa_deg": float(cruise_aoa_deg),
         "refinement_definition": {
             "target_loaded_shape": "current VSP / structural cruise geometry on main and rear spar beam nodes",
-            "jig_shape_rule": "nodes_jig = nodes_target - delta_u",
+            "jig_shape_rule": (
+                "nodes_jig = nodes_target - projected_delta_u on low-dimensional descriptors"
+                if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor"
+                else "nodes_jig = nodes_target - delta_u"
+            ),
             "refresh_method": "reuse existing VSPAero AoA sweep and reduce local effective AoA by structural twist-derived washout",
             "target_mass_kg": outcome.final_iteration.outcome.target_mass_kg,
             "refresh_steps_requested": outcome.refresh_steps_requested,
             "refresh_steps_completed": outcome.refresh_steps_completed,
             "refresh_washout_scale": float(refresh_washout_scale),
+            "loaded_shape_matching": (
+                None
+                if loaded_shape_match is None
+                else {
+                    "mode": loaded_shape_match.mode,
+                    "control_station_fractions": list(loaded_shape_match.control_station_fractions),
+                    "main_z_tolerance_m": loaded_shape_match.main_z_tolerance_m,
+                    "twist_tolerance_deg": loaded_shape_match.twist_tolerance_deg,
+                    "descriptors": ["main_beam_z", "spanwise_twist"],
+                }
+            ),
             "physics_assumptions": [
                 "each outer stage is still one-way with frozen loads inside that stage",
                 "beam-line target shape is fixed across refreshes",
@@ -1721,6 +1861,11 @@ def run_inverse_design(
     target_shape_error_tol_m: float,
     max_jig_vertical_prebend_m: float | None,
     max_jig_vertical_curvature_per_m: float | None,
+    loaded_shape_mode: str,
+    loaded_shape_control_station_fractions: tuple[float, ...],
+    loaded_shape_main_z_tol_m: float,
+    loaded_shape_twist_tol_deg: float,
+    loaded_shape_penalty_weight_kg: float,
     manufacturing_limit_source: str,
     main_plateau_grid: Iterable[float],
     main_taper_fill_grid: Iterable[float],
@@ -1755,6 +1900,11 @@ def run_inverse_design(
         target_shape_error_tol_m=target_shape_error_tol_m,
         max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
         max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+        loaded_shape_mode=loaded_shape_mode,
+        loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+        loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+        loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+        loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
         target_mass_kg=target_mass_kg,
     )
 
@@ -1806,7 +1956,7 @@ def run_inverse_design(
             def _objective(z: np.ndarray, *, source_name: str = objective_source) -> float:
                 objective_calls["n"] += 1
                 cand = evaluator.evaluate(z, source=source_name)
-                return float(cand.total_structural_mass_kg)
+                return float(cand.objective_value_kg)
 
             opt = minimize(
                 _objective,
@@ -1943,6 +2093,11 @@ def run_inverse_design_load_refresh_refinement(
     target_shape_error_tol_m: float,
     max_jig_vertical_prebend_m: float | None,
     max_jig_vertical_curvature_per_m: float | None,
+    loaded_shape_mode: str,
+    loaded_shape_control_station_fractions: tuple[float, ...],
+    loaded_shape_main_z_tol_m: float,
+    loaded_shape_twist_tol_deg: float,
+    loaded_shape_penalty_weight_kg: float,
     manufacturing_limit_source: str,
     main_plateau_grid: Iterable[float],
     main_taper_fill_grid: Iterable[float],
@@ -1980,6 +2135,11 @@ def run_inverse_design_load_refresh_refinement(
         target_shape_error_tol_m=target_shape_error_tol_m,
         max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
         max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+        loaded_shape_mode=loaded_shape_mode,
+        loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+        loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+        loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+        loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
         manufacturing_limit_source=manufacturing_limit_source,
         main_plateau_grid=main_plateau_grid,
         main_taper_fill_grid=main_taper_fill_grid,
@@ -2043,6 +2203,11 @@ def run_inverse_design_load_refresh_refinement(
             target_shape_error_tol_m=target_shape_error_tol_m,
             max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
             max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+            loaded_shape_mode=loaded_shape_mode,
+            loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+            loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+            loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+            loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
             manufacturing_limit_source=manufacturing_limit_source,
             main_plateau_grid=main_plateau_grid,
             main_taper_fill_grid=main_taper_fill_grid,
@@ -2122,6 +2287,35 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cobyla-maxiter", type=int, default=160)
     parser.add_argument("--cobyla-rhobeg", type=float, default=0.18)
     parser.add_argument("--skip-local-refine", action="store_true")
+    parser.add_argument(
+        "--loaded-shape-mode",
+        default="low_dim_descriptor",
+        choices=("exact_nodal", "low_dim_descriptor"),
+        help="How the inverse jig backout enforces the loaded-shape target.",
+    )
+    parser.add_argument(
+        "--loaded-shape-control-stations",
+        default="0.0,0.5,1.0",
+        help="Span fractions used by the low-dimensional loaded-shape matching descriptors.",
+    )
+    parser.add_argument(
+        "--loaded-shape-main-z-tol-mm",
+        type=float,
+        default=35.0,
+        help="Maximum allowed main-beam loaded-shape error at the control stations.",
+    )
+    parser.add_argument(
+        "--loaded-shape-twist-tol-deg",
+        type=float,
+        default=0.5,
+        help="Maximum allowed twist error at the control stations.",
+    )
+    parser.add_argument(
+        "--loaded-shape-penalty-kg",
+        type=float,
+        default=0.05,
+        help="Small objective penalty weight on normalized loaded-shape RMS error; mass remains the primary objective.",
+    )
     parser.add_argument(
         "--target-mass-kg",
         type=float,
@@ -2218,6 +2412,10 @@ def main(argv: list[str] | None = None) -> int:
         aircraft=aircraft,
         washout_scale=float(args.refresh_washout_scale),
     )
+    loaded_shape_control_station_fractions = _parse_control_fractions(args.loaded_shape_control_stations)
+    loaded_shape_main_z_tol_m = float(args.loaded_shape_main_z_tol_mm) * 1.0e-3
+    loaded_shape_twist_tol_deg = float(args.loaded_shape_twist_tol_deg)
+    loaded_shape_penalty_weight_kg = float(args.loaded_shape_penalty_kg)
 
     baseline_design = BaselineDesign(
         main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
@@ -2257,6 +2455,11 @@ def main(argv: list[str] | None = None) -> int:
                 if max_jig_vertical_curvature_per_m is not None
                 else 1.0e6
             ),
+            loaded_shape_mode=str(args.loaded_shape_mode),
+            loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+            loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+            loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+            loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
         )
         baseline_seed = seed_evaluator.evaluate(np.zeros(5, dtype=float), source="baseline_seed")
         if max_jig_vertical_prebend_m is None:
@@ -2282,6 +2485,11 @@ def main(argv: list[str] | None = None) -> int:
         target_shape_error_tol_m=float(args.target_shape_error_tol_m),
         max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
         max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+        loaded_shape_mode=str(args.loaded_shape_mode),
+        loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+        loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+        loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+        loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
         manufacturing_limit_source=manufacturing_limit_source,
         main_plateau_grid=_parse_grid(args.main_plateau_grid),
         main_taper_fill_grid=_parse_grid(args.main_taper_fill_grid),
@@ -2372,7 +2580,9 @@ def main(argv: list[str] | None = None) -> int:
         f"{refinement.final_iteration.outcome.coarse_selected.total_structural_mass_kg:.3f} kg"
     )
     print(f"  Total mass          : {final_selected.total_structural_mass_kg:.3f} kg")
-    print(f"  Target error max    : {_mm(final_selected.target_shape_error_max_m):.6f} mm")
+    print(f"  Loaded-shape Z max  : {_mm(final_selected.loaded_shape_main_z_error_max_m):.6f} mm")
+    print(f"  Loaded-shape twist  : {final_selected.loaded_shape_twist_error_max_deg:.6f} deg")
+    print(f"  Nodewise mismatch   : {_mm(final_selected.target_shape_error_max_m):.6f} mm")
     print(f"  Jig clearance min   : {_mm(final_selected.jig_ground_clearance_min_m):.3f} mm")
     if refinement.final_iteration.forward_check is not None:
         print(

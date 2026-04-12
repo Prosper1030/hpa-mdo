@@ -15,7 +15,8 @@ from hpa_mdo.structure.dual_beam_mainline.types import (
 
 
 INVERSE_MARGIN_NAMES = (
-    "target_shape_error_margin_m",
+    "loaded_shape_main_z_margin_m",
+    "loaded_shape_twist_margin_deg",
     "ground_clearance_margin_m",
     "jig_prebend_margin_m",
     "jig_curvature_margin_per_m",
@@ -37,6 +38,30 @@ class ShapeErrorMetrics:
     max_abs_error_m: float
     rms_error_m: float
     tolerance_m: float
+    passed: bool
+
+
+@dataclass(frozen=True)
+class LoadedShapeMatchMetrics:
+    """Low-dimensional loaded-shape matching metrics on a few control stations."""
+
+    mode: str
+    control_station_fractions: tuple[float, ...]
+    control_station_y_m: tuple[float, ...]
+    main_z_target_m: tuple[float, ...]
+    main_z_loaded_m: tuple[float, ...]
+    main_z_error_m: tuple[float, ...]
+    twist_target_deg: tuple[float, ...]
+    twist_loaded_deg: tuple[float, ...]
+    twist_error_deg: tuple[float, ...]
+    main_z_tolerance_m: float
+    twist_tolerance_deg: float
+    main_z_max_abs_error_m: float
+    main_z_rms_error_m: float
+    twist_max_abs_error_deg: float
+    twist_rms_error_deg: float
+    normalized_max_error: float
+    normalized_rms_error: float
     passed: bool
 
 
@@ -77,6 +102,7 @@ class InverseDesignFeasibility:
     equivalent_buckling_passed: bool
     equivalent_tip_passed: bool
     equivalent_twist_passed: bool
+    loaded_shape_match_passed: bool
     target_shape_error_passed: bool
     ground_clearance_passed: bool
     manufacturing_passed: bool
@@ -94,6 +120,7 @@ class FrozenLoadInverseDesignResult:
     predicted_loaded_shape: StructuralNodeShape
     displacement_main_m: np.ndarray
     displacement_rear_m: np.ndarray
+    loaded_shape_match: LoadedShapeMatchMetrics
     target_shape_error: ShapeErrorMetrics
     ground_clearance: GroundClearanceMetrics
     manufacturing: ManufacturingMetrics
@@ -145,6 +172,49 @@ def backout_jig_shape(
     )
 
 
+def backout_jig_shape_low_dim(
+    *,
+    target_loaded_shape: StructuralNodeShape,
+    disp_main_m: np.ndarray,
+    disp_rear_m: np.ndarray,
+    y_nodes_m: np.ndarray,
+    control_station_fractions: tuple[float, ...],
+) -> StructuralNodeShape:
+    """Back out a jig shape that only matches low-dimensional loaded-shape descriptors."""
+
+    main_translation = _translation_columns(disp_main_m, "disp_main_m")
+    rear_translation = _translation_columns(disp_rear_m, "disp_rear_m")
+    y_arr = np.asarray(y_nodes_m, dtype=float).reshape(-1)
+    if y_arr.ndim != 1 or y_arr.size != target_loaded_shape.main_nodes_m.shape[0]:
+        raise ValueError("y_nodes_m must be a 1D array matching the beam-node count.")
+    if y_arr.size != target_loaded_shape.rear_nodes_m.shape[0]:
+        raise ValueError("main and rear beam-node counts must match for low-dimensional matching.")
+    if np.any(np.diff(y_arr) <= 0.0):
+        raise ValueError("y_nodes_m must be strictly increasing.")
+
+    y_ctrl = _control_station_y(y_arr, control_station_fractions)
+    main_dz = np.asarray(main_translation[:, 2], dtype=float)
+    rear_dz = np.asarray(rear_translation[:, 2], dtype=float)
+    delta_dz = rear_dz - main_dz
+
+    main_dz_ctrl = np.interp(y_ctrl, y_arr, main_dz)
+    delta_dz_ctrl = np.interp(y_ctrl, y_arr, delta_dz)
+    main_dz_proj = np.interp(y_arr, y_ctrl, main_dz_ctrl)
+    delta_dz_proj = np.interp(y_arr, y_ctrl, delta_dz_ctrl)
+    rear_dz_proj = main_dz_proj + delta_dz_proj
+
+    main_nodes = _copy_nodes(target_loaded_shape.main_nodes_m)
+    rear_nodes = _copy_nodes(target_loaded_shape.rear_nodes_m)
+    main_nodes[:, 0] -= main_translation[:, 0]
+    main_nodes[:, 1] -= main_translation[:, 1]
+    main_nodes[:, 2] -= main_dz_proj
+    rear_nodes[:, 0] -= rear_translation[:, 0]
+    rear_nodes[:, 1] -= rear_translation[:, 1]
+    rear_nodes[:, 2] -= rear_dz_proj
+
+    return StructuralNodeShape(main_nodes_m=main_nodes, rear_nodes_m=rear_nodes)
+
+
 def predict_loaded_shape(
     *,
     jig_shape: StructuralNodeShape,
@@ -159,6 +229,95 @@ def predict_loaded_shape(
     return StructuralNodeShape(
         main_nodes_m=_copy_nodes(jig_shape.main_nodes_m) + main_translation,
         rear_nodes_m=_copy_nodes(jig_shape.rear_nodes_m) + rear_translation,
+    )
+
+
+def _control_station_y(y_nodes_m: np.ndarray, control_station_fractions: tuple[float, ...]) -> np.ndarray:
+    y_arr = np.asarray(y_nodes_m, dtype=float).reshape(-1)
+    if y_arr.size == 0:
+        raise ValueError("Need at least one beam node to define control stations.")
+    if np.any(np.diff(y_arr) < 0.0):
+        raise ValueError("y_nodes_m must be monotonic.")
+    fractions = np.asarray(control_station_fractions, dtype=float).reshape(-1)
+    if fractions.size == 0:
+        raise ValueError("Need at least one control-station fraction.")
+    if np.any(fractions < -1.0e-12) or np.any(fractions > 1.0 + 1.0e-12):
+        raise ValueError("Control-station fractions must stay within [0, 1].")
+    span = float(y_arr[-1] - y_arr[0])
+    if span <= 0.0:
+        return np.full_like(fractions, y_arr[0], dtype=float)
+    return y_arr[0] + np.clip(fractions, 0.0, 1.0) * span
+
+
+def _interp_component_at_y(nodes_m: np.ndarray, y_query_m: np.ndarray, component_idx: int) -> np.ndarray:
+    nodes_arr = _copy_nodes(nodes_m)
+    return np.interp(
+        np.asarray(y_query_m, dtype=float),
+        np.asarray(nodes_arr[:, 1], dtype=float),
+        np.asarray(nodes_arr[:, component_idx], dtype=float),
+    )
+
+
+def _shape_twist_deg_at_y(shape: StructuralNodeShape, y_query_m: np.ndarray) -> np.ndarray:
+    main_x = _interp_component_at_y(shape.main_nodes_m, y_query_m, 0)
+    main_z = _interp_component_at_y(shape.main_nodes_m, y_query_m, 2)
+    rear_x = _interp_component_at_y(shape.rear_nodes_m, y_query_m, 0)
+    rear_z = _interp_component_at_y(shape.rear_nodes_m, y_query_m, 2)
+    chord_dx = rear_x - main_x
+    chord_dz = rear_z - main_z
+    return np.degrees(np.arctan2(chord_dz, chord_dx))
+
+
+def _loaded_shape_match_metrics(
+    *,
+    target_loaded_shape: StructuralNodeShape,
+    predicted_loaded_shape: StructuralNodeShape,
+    y_nodes_m: np.ndarray,
+    control_station_fractions: tuple[float, ...],
+    main_z_tolerance_m: float,
+    twist_tolerance_deg: float,
+    mode: str,
+) -> LoadedShapeMatchMetrics:
+    y_ctrl = _control_station_y(np.asarray(y_nodes_m, dtype=float), control_station_fractions)
+    main_z_target = _interp_component_at_y(target_loaded_shape.main_nodes_m, y_ctrl, 2)
+    main_z_loaded = _interp_component_at_y(predicted_loaded_shape.main_nodes_m, y_ctrl, 2)
+    main_z_error = main_z_loaded - main_z_target
+    twist_target = _shape_twist_deg_at_y(target_loaded_shape, y_ctrl)
+    twist_loaded = _shape_twist_deg_at_y(predicted_loaded_shape, y_ctrl)
+    twist_error = twist_loaded - twist_target
+
+    main_z_max_abs = float(np.max(np.abs(main_z_error))) if main_z_error.size else 0.0
+    main_z_rms = float(np.sqrt(np.mean(np.square(main_z_error)))) if main_z_error.size else 0.0
+    twist_max_abs = float(np.max(np.abs(twist_error))) if twist_error.size else 0.0
+    twist_rms = float(np.sqrt(np.mean(np.square(twist_error)))) if twist_error.size else 0.0
+
+    z_scale = max(float(main_z_tolerance_m), 1.0e-12)
+    twist_scale = max(float(twist_tolerance_deg), 1.0e-12)
+    normalized_max = float(max(main_z_max_abs / z_scale, twist_max_abs / twist_scale))
+    normalized_rms = float(np.sqrt((main_z_rms / z_scale) ** 2 + (twist_rms / twist_scale) ** 2))
+
+    return LoadedShapeMatchMetrics(
+        mode=str(mode),
+        control_station_fractions=tuple(float(value) for value in control_station_fractions),
+        control_station_y_m=tuple(float(value) for value in y_ctrl),
+        main_z_target_m=tuple(float(value) for value in main_z_target),
+        main_z_loaded_m=tuple(float(value) for value in main_z_loaded),
+        main_z_error_m=tuple(float(value) for value in main_z_error),
+        twist_target_deg=tuple(float(value) for value in twist_target),
+        twist_loaded_deg=tuple(float(value) for value in twist_loaded),
+        twist_error_deg=tuple(float(value) for value in twist_error),
+        main_z_tolerance_m=float(main_z_tolerance_m),
+        twist_tolerance_deg=float(twist_tolerance_deg),
+        main_z_max_abs_error_m=main_z_max_abs,
+        main_z_rms_error_m=main_z_rms,
+        twist_max_abs_error_deg=twist_max_abs,
+        twist_rms_error_deg=twist_rms,
+        normalized_max_error=normalized_max,
+        normalized_rms_error=normalized_rms,
+        passed=bool(
+            main_z_max_abs <= float(main_z_tolerance_m) + 1.0e-12
+            and twist_max_abs <= float(twist_tolerance_deg) + 1.0e-12
+        ),
     )
 
 
@@ -302,18 +461,42 @@ def build_frozen_load_inverse_design(
     target_shape_error_tol_m: float = 1.0e-9,
     max_abs_vertical_prebend_m: float | None = None,
     max_abs_vertical_curvature_per_m: float | None = None,
+    loaded_shape_mode: str = "exact_nodal",
+    loaded_shape_control_station_fractions: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
+    loaded_shape_main_z_tol_m: float = 0.025,
+    loaded_shape_twist_tol_deg: float = 0.15,
 ) -> FrozenLoadInverseDesignResult:
     """Construct the frozen-load inverse-design result for one candidate."""
 
-    jig_shape = backout_jig_shape(
-        target_loaded_shape=target_loaded_shape,
-        disp_main_m=disp_main_m,
-        disp_rear_m=disp_rear_m,
-    )
+    if loaded_shape_mode == "exact_nodal":
+        jig_shape = backout_jig_shape(
+            target_loaded_shape=target_loaded_shape,
+            disp_main_m=disp_main_m,
+            disp_rear_m=disp_rear_m,
+        )
+    elif loaded_shape_mode == "low_dim_descriptor":
+        jig_shape = backout_jig_shape_low_dim(
+            target_loaded_shape=target_loaded_shape,
+            disp_main_m=disp_main_m,
+            disp_rear_m=disp_rear_m,
+            y_nodes_m=np.asarray(y_nodes_m, dtype=float),
+            control_station_fractions=tuple(loaded_shape_control_station_fractions),
+        )
+    else:
+        raise ValueError(f"Unsupported loaded_shape_mode: {loaded_shape_mode}")
     predicted_loaded_shape = predict_loaded_shape(
         jig_shape=jig_shape,
         disp_main_m=disp_main_m,
         disp_rear_m=disp_rear_m,
+    )
+    loaded_shape_match = _loaded_shape_match_metrics(
+        target_loaded_shape=target_loaded_shape,
+        predicted_loaded_shape=predicted_loaded_shape,
+        y_nodes_m=np.asarray(y_nodes_m, dtype=float),
+        control_station_fractions=tuple(loaded_shape_control_station_fractions),
+        main_z_tolerance_m=float(loaded_shape_main_z_tol_m),
+        twist_tolerance_deg=float(loaded_shape_twist_tol_deg),
+        mode=str(loaded_shape_mode),
     )
     target_shape_error = _shape_error_metrics(
         target_loaded_shape=target_loaded_shape,
@@ -345,8 +528,8 @@ def build_frozen_load_inverse_design(
         failures.append("equivalent_tip_deflection")
     if not equivalent_twist_passed:
         failures.append("equivalent_twist")
-    if not target_shape_error.passed:
-        failures.append("target_shape_error")
+    if not loaded_shape_match.passed:
+        failures.append("loaded_shape_match")
     if not ground_clearance.passed:
         failures.append("ground_clearance")
     if not manufacturing.prebend_passed:
@@ -369,6 +552,7 @@ def build_frozen_load_inverse_design(
         equivalent_buckling_passed=bool(equivalent_buckling_passed),
         equivalent_tip_passed=bool(equivalent_tip_passed),
         equivalent_twist_passed=bool(equivalent_twist_passed),
+        loaded_shape_match_passed=bool(loaded_shape_match.passed),
         target_shape_error_passed=bool(target_shape_error.passed),
         ground_clearance_passed=bool(ground_clearance.passed),
         manufacturing_passed=bool(manufacturing.passed),
@@ -382,6 +566,7 @@ def build_frozen_load_inverse_design(
         predicted_loaded_shape=predicted_loaded_shape,
         displacement_main_m=_translation_columns(disp_main_m, "disp_main_m"),
         displacement_rear_m=_translation_columns(disp_rear_m, "disp_rear_m"),
+        loaded_shape_match=loaded_shape_match,
         target_shape_error=target_shape_error,
         ground_clearance=ground_clearance,
         manufacturing=manufacturing,
@@ -397,6 +582,10 @@ def build_frozen_load_inverse_design_from_mainline(
     target_shape_error_tol_m: float = 1.0e-9,
     max_abs_vertical_prebend_m: float | None = None,
     max_abs_vertical_curvature_per_m: float | None = None,
+    loaded_shape_mode: str = "exact_nodal",
+    loaded_shape_control_station_fractions: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
+    loaded_shape_main_z_tol_m: float = 0.025,
+    loaded_shape_twist_tol_deg: float = 0.15,
 ) -> FrozenLoadInverseDesignResult:
     """Convenience wrapper for the current dual-beam production result."""
 
@@ -415,6 +604,10 @@ def build_frozen_load_inverse_design_from_mainline(
         target_shape_error_tol_m=target_shape_error_tol_m,
         max_abs_vertical_prebend_m=max_abs_vertical_prebend_m,
         max_abs_vertical_curvature_per_m=max_abs_vertical_curvature_per_m,
+        loaded_shape_mode=loaded_shape_mode,
+        loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+        loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+        loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
     )
 
 
@@ -424,8 +617,11 @@ def build_inverse_design_margins(
     """Return scalar hard margins used by the inverse-design optimizer."""
 
     return {
-        "target_shape_error_margin_m": float(
-            result.target_shape_error.tolerance_m - result.target_shape_error.max_abs_error_m
+        "loaded_shape_main_z_margin_m": float(
+            result.loaded_shape_match.main_z_tolerance_m - result.loaded_shape_match.main_z_max_abs_error_m
+        ),
+        "loaded_shape_twist_margin_deg": float(
+            result.loaded_shape_match.twist_tolerance_deg - result.loaded_shape_match.twist_max_abs_error_deg
         ),
         "ground_clearance_margin_m": float(result.ground_clearance.margin_m),
         "jig_prebend_margin_m": float(result.manufacturing.prebend_margin_m),

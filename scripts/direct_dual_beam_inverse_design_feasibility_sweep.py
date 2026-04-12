@@ -45,7 +45,7 @@ def _parse_targets(text: str) -> tuple[float, ...]:
 def _blocker_category(margin_name: str) -> str:
     if margin_name == "ground_clearance_margin_m":
         return "ground clearance"
-    if margin_name == "target_shape_error_margin_m":
+    if margin_name in {"loaded_shape_main_z_margin_m", "loaded_shape_twist_margin_deg"}:
         return "loaded-shape closure"
     if margin_name == "equivalent_failure_margin":
         return "failure"
