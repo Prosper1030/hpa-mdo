@@ -70,9 +70,13 @@ class InverseDesignTests(unittest.TestCase):
             safety_passed=feasible,
             manufacturing_passed=feasible,
             overall_feasible=feasible,
+            mass_margin_kg=5.0,
+            target_mass_passed=True,
+            overall_target_feasible=feasible,
             failures=tuple(),
             hard_margins={"dummy": 1.0},
             hard_violation_score=violation,
+            target_violation_score=violation,
             inverse_result=None,
             equivalent_result=None,
         )
@@ -380,6 +384,47 @@ class InverseDesignTests(unittest.TestCase):
         )
 
         self.assertEqual([candidate.source for candidate in starts], ["light_feasible", "near_feasible", "baseline"])
+
+    def test_candidate_archive_target_mass_prefers_target_feasible_then_target_violation(self) -> None:
+        archive = CandidateArchive(target_mass_kg=22.0)
+        over_cap_feasible = self._make_inverse_candidate(
+            mass_kg=24.0,
+            source="over_cap_feasible",
+            feasible=True,
+            violation=0.0,
+        )
+        over_cap_feasible = InverseCandidate(
+            **{**over_cap_feasible.__dict__, "mass_margin_kg": -2.0, "target_mass_passed": False, "overall_target_feasible": False, "target_violation_score": (2.0 / 22.0) ** 2}
+        )
+        under_cap_feasible = self._make_inverse_candidate(
+            mass_kg=21.5,
+            source="under_cap_feasible",
+            feasible=True,
+            violation=0.0,
+        )
+        under_cap_feasible = InverseCandidate(
+            **{**under_cap_feasible.__dict__, "mass_margin_kg": 0.5, "target_mass_passed": True, "overall_target_feasible": True, "target_violation_score": 0.0}
+        )
+        under_cap_violate = self._make_inverse_candidate(
+            mass_kg=21.0,
+            source="under_cap_violate",
+            feasible=False,
+            violation=0.2,
+        )
+        under_cap_violate = InverseCandidate(
+            **{**under_cap_violate.__dict__, "mass_margin_kg": 1.0, "target_mass_passed": True, "overall_target_feasible": False, "target_violation_score": 0.2}
+        )
+        archive.add(over_cap_feasible)
+        archive.add(under_cap_feasible)
+        archive.add(under_cap_violate)
+
+        self.assertEqual(archive.selected.source, "under_cap_feasible")
+        starts = archive.local_refine_starts(
+            feasible_limit=1,
+            near_feasible_limit=1,
+            max_starts=3,
+        )
+        self.assertEqual([candidate.source for candidate in starts], ["under_cap_feasible", "over_cap_feasible"])
 
 
 if __name__ == "__main__":

@@ -92,18 +92,25 @@ class InverseCandidate:
     safety_passed: bool
     manufacturing_passed: bool
     overall_feasible: bool
+    mass_margin_kg: float
+    target_mass_passed: bool
+    overall_target_feasible: bool
     failures: tuple[str, ...]
     hard_margins: dict[str, float]
     hard_violation_score: float
+    target_violation_score: float
     inverse_result: object | None = field(default=None, repr=False)
     equivalent_result: OptimizationResult | None = field(default=None, repr=False)
 
 
 @dataclass
 class CandidateArchive:
+    target_mass_kg: float | None = None
     candidates: list[InverseCandidate] = field(default_factory=list)
     best_feasible: InverseCandidate | None = None
     best_violation: InverseCandidate | None = None
+    best_target_feasible: InverseCandidate | None = None
+    best_target_violation: InverseCandidate | None = None
 
     def add(self, cand: InverseCandidate) -> None:
         self.candidates.append(cand)
@@ -112,14 +119,34 @@ class CandidateArchive:
                 self.best_feasible = cand
         if self.best_violation is None or _violation_key(cand) < _violation_key(self.best_violation):
             self.best_violation = cand
+        if self.target_mass_kg is not None:
+            if cand.overall_target_feasible:
+                if (
+                    self.best_target_feasible is None
+                    or _feasible_key(cand) < _feasible_key(self.best_target_feasible)
+                ):
+                    self.best_target_feasible = cand
+            if (
+                self.best_target_violation is None
+                or _target_violation_key(cand) < _target_violation_key(self.best_target_violation)
+            ):
+                self.best_target_violation = cand
 
     @property
     def selected(self) -> InverseCandidate | None:
+        if self.target_mass_kg is not None:
+            return self.best_target_feasible or self.best_target_violation or self.best_feasible or self.best_violation
         return self.best_feasible or self.best_violation
 
     @property
     def feasible_count(self) -> int:
         return sum(1 for cand in self.candidates if cand.overall_feasible)
+
+    @property
+    def target_feasible_count(self) -> int:
+        if self.target_mass_kg is None:
+            return self.feasible_count
+        return sum(1 for cand in self.candidates if cand.overall_target_feasible)
 
     def ranked_feasible(self) -> list[InverseCandidate]:
         return sorted(
@@ -127,7 +154,15 @@ class CandidateArchive:
             key=_feasible_key,
         )
 
+    def ranked_target_feasible(self) -> list[InverseCandidate]:
+        return sorted(
+            (cand for cand in self.candidates if cand.overall_target_feasible),
+            key=_feasible_key,
+        )
+
     def ranked_by_violation(self) -> list[InverseCandidate]:
+        if self.target_mass_kg is not None:
+            return sorted(self.candidates, key=_target_violation_key)
         return sorted(self.candidates, key=_violation_key)
 
     def local_refine_starts(
@@ -135,6 +170,7 @@ class CandidateArchive:
         *,
         feasible_limit: int,
         near_feasible_limit: int,
+        max_starts: int | None = None,
         baseline: InverseCandidate | None = None,
     ) -> tuple[InverseCandidate, ...]:
         ranked: list[InverseCandidate] = []
@@ -149,13 +185,22 @@ class CandidateArchive:
             seen.add(key)
             ranked.append(candidate)
 
-        for candidate in self.ranked_feasible()[: max(0, int(feasible_limit))]:
+        feasible_pool = (
+            self.ranked_target_feasible()
+            if self.target_mass_kg is not None and self.ranked_target_feasible()
+            else self.ranked_feasible()
+        )
+        for candidate in feasible_pool[: max(0, int(feasible_limit))]:
             _add(candidate)
 
         near_feasible = [
             cand
             for cand in self.ranked_by_violation()
-            if (not cand.overall_feasible)
+            if (
+                not (
+                    cand.overall_target_feasible if self.target_mass_kg is not None else cand.overall_feasible
+                )
+            )
             and cand.analysis_succeeded
             and np.isfinite(cand.total_structural_mass_kg)
         ]
@@ -164,6 +209,8 @@ class CandidateArchive:
 
         _add(self.selected)
         _add(baseline)
+        if max_starts is not None:
+            ranked = ranked[: max(0, int(max_starts))]
         return tuple(ranked)
 
 
@@ -188,6 +235,7 @@ class LocalRefineSummary:
     coarse_selected_mass_kg: float
     coarse_candidate_count: int
     coarse_feasible_count: int
+    coarse_target_feasible_count: int
     seed_count: int
     start_source: str
     start_mass_kg: float
@@ -196,6 +244,8 @@ class LocalRefineSummary:
     message: str
     nfev: int
     nit: int
+    early_stop_triggered: bool = False
+    early_stop_reason: str | None = None
     attempts: tuple[LocalRefineAttempt, ...] = ()
 
 
@@ -212,6 +262,7 @@ class ArtifactBundle:
 class InverseOutcome:
     success: bool
     feasible: bool
+    target_mass_kg: float | None
     message: str
     total_wall_time_s: float
     baseline_eval_wall_time_s: float
@@ -222,10 +273,14 @@ class InverseOutcome:
     unique_evaluations: int
     cache_hits: int
     feasible_count: int
+    target_feasible_count: int
     baseline: InverseCandidate
+    best_overall_feasible: InverseCandidate | None
+    best_target_feasible: InverseCandidate | None
     coarse_selected: InverseCandidate
     coarse_candidate_count: int
     coarse_feasible_count: int
+    coarse_target_feasible_count: int
     selected: InverseCandidate
     local_refine: LocalRefineSummary | None
     manufacturing_limit_source: str
@@ -335,6 +390,25 @@ def _violation_key(candidate: InverseCandidate) -> tuple[float, float, float]:
         float(candidate.total_structural_mass_kg),
         float(candidate.max_jig_vertical_prebend_m),
     )
+
+
+def _target_violation_key(candidate: InverseCandidate) -> tuple[float, float, float]:
+    overshoot_kg = max(-float(candidate.mass_margin_kg), 0.0)
+    return (
+        float(candidate.target_violation_score),
+        float(overshoot_kg),
+        float(candidate.total_structural_mass_kg),
+    )
+
+
+def _target_violation_score(*, hard_violation_score: float, total_mass_kg: float, target_mass_kg: float | None) -> float:
+    if target_mass_kg is None:
+        return float(hard_violation_score)
+    if not np.isfinite(total_mass_kg) or not np.isfinite(hard_violation_score):
+        return float("inf")
+    overshoot_kg = max(float(total_mass_kg) - float(target_mass_kg), 0.0)
+    mass_scale_kg = max(abs(float(target_mass_kg)), 1.0)
+    return float(hard_violation_score + (overshoot_kg / mass_scale_kg) ** 2)
 
 
 def _extract_abs_twist_profile_deg(result: OptimizationResult) -> np.ndarray:
@@ -557,6 +631,7 @@ class InverseDesignEvaluator:
         target_shape_error_tol_m: float,
         max_jig_vertical_prebend_m: float | None,
         max_jig_vertical_curvature_per_m: float | None,
+        target_mass_kg: float | None = None,
     ):
         self.cfg = cfg
         self.aircraft = aircraft
@@ -569,7 +644,8 @@ class InverseDesignEvaluator:
         self.target_shape_error_tol_m = float(target_shape_error_tol_m)
         self.max_jig_vertical_prebend_m = max_jig_vertical_prebend_m
         self.max_jig_vertical_curvature_per_m = max_jig_vertical_curvature_per_m
-        self.archive = CandidateArchive()
+        self.target_mass_kg = None if target_mass_kg is None else float(target_mass_kg)
+        self.archive = CandidateArchive(target_mass_kg=self.target_mass_kg)
         self._cache: dict[tuple[float, ...], InverseCandidate] = {}
         self.unique_evaluations = 0
         self.cache_hits = 0
@@ -638,6 +714,18 @@ class InverseDesignEvaluator:
                 hard_margins,
                 analysis_succeeded=bool(production.feasibility.analysis_succeeded),
             )
+            mass_margin_kg = (
+                float("inf")
+                if self.target_mass_kg is None
+                else float(self.target_mass_kg - float(production.recovery.total_structural_mass_full_kg))
+            )
+            target_mass_passed = bool(mass_margin_kg >= -1.0e-12)
+            target_violation_score = _target_violation_score(
+                hard_violation_score=float(hard_violation_score),
+                total_mass_kg=float(production.recovery.total_structural_mass_full_kg),
+                target_mass_kg=self.target_mass_kg,
+            )
+            overall_target_feasible = bool(inverse.feasibility.overall_feasible and target_mass_passed)
 
             finite_scalars = [
                 float(production.recovery.spar_tube_mass_full_kg),
@@ -688,14 +776,23 @@ class InverseDesignEvaluator:
                 safety_passed=bool(inverse.feasibility.safety_passed),
                 manufacturing_passed=bool(inverse.feasibility.manufacturing_passed),
                 overall_feasible=bool(inverse.feasibility.overall_feasible),
+                mass_margin_kg=float(mass_margin_kg),
+                target_mass_passed=bool(target_mass_passed),
+                overall_target_feasible=bool(overall_target_feasible),
                 failures=tuple(inverse.feasibility.failures),
                 hard_margins=hard_margins,
                 hard_violation_score=float(hard_violation_score),
+                target_violation_score=float(target_violation_score),
                 inverse_result=inverse,
                 equivalent_result=eq_result,
             )
         except Exception as exc:  # pragma: no cover - runtime failure guard
             hard_margins = {name: FAILED_MARGIN for name in ALL_MARGIN_NAMES}
+            failed_mass_margin_kg = (
+                float("inf")
+                if self.target_mass_kg is None
+                else float(self.target_mass_kg - FAILED_MASS_KG)
+            )
             candidate = InverseCandidate(
                 z=z_bounded.copy(),
                 source=source,
@@ -727,9 +824,13 @@ class InverseDesignEvaluator:
                 safety_passed=False,
                 manufacturing_passed=False,
                 overall_feasible=False,
+                mass_margin_kg=float(failed_mass_margin_kg),
+                target_mass_passed=False if self.target_mass_kg is not None else True,
+                overall_target_feasible=False,
                 failures=("analysis_exception",),
                 hard_margins=hard_margins,
                 hard_violation_score=float("inf"),
+                target_violation_score=float("inf"),
                 inverse_result=None,
                 equivalent_result=None,
             )
@@ -759,6 +860,15 @@ def build_constraint_functions(
                 "type": "ineq",
                 "fun": lambda z, margin_name=key: float(
                     evaluator.evaluate(z, source=f"constraint:{margin_name}").hard_margins[margin_name]
+                ),
+            }
+        )
+    if evaluator.target_mass_kg is not None:
+        constraints.append(
+            {
+                "type": "ineq",
+                "fun": lambda z: float(
+                    evaluator.evaluate(z, source="constraint:target_mass").mass_margin_kg
                 ),
             }
         )
@@ -1000,8 +1110,12 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "safety_passed": candidate.safety_passed,
         "manufacturing_passed": candidate.manufacturing_passed,
         "overall_feasible": candidate.overall_feasible,
+        "mass_margin_kg": candidate.mass_margin_kg,
+        "target_mass_passed": candidate.target_mass_passed,
+        "overall_target_feasible": candidate.overall_target_feasible,
         "failures": list(candidate.failures),
         "hard_violation_score": candidate.hard_violation_score,
+        "target_violation_score": candidate.target_violation_score,
         "hard_margins": {key: float(value) for key, value in candidate.hard_margins.items()},
         "design_mm": {
             "main_t": [float(value * 1000.0) for value in candidate.main_t_seg_m],
@@ -1191,6 +1305,7 @@ def build_summary_json(
         "outcome": {
             "success": outcome.success,
             "feasible": outcome.feasible,
+            "target_mass_kg": outcome.target_mass_kg,
             "message": outcome.message,
             "total_wall_time_s": outcome.total_wall_time_s,
             "baseline_eval_wall_time_s": outcome.baseline_eval_wall_time_s,
@@ -1201,10 +1316,18 @@ def build_summary_json(
             "unique_evaluations": outcome.unique_evaluations,
             "cache_hits": outcome.cache_hits,
             "feasible_count": outcome.feasible_count,
+            "target_feasible_count": outcome.target_feasible_count,
             "baseline": candidate_to_summary_dict(outcome.baseline),
+            "best_overall_feasible": (
+                None if outcome.best_overall_feasible is None else candidate_to_summary_dict(outcome.best_overall_feasible)
+            ),
+            "best_target_feasible": (
+                None if outcome.best_target_feasible is None else candidate_to_summary_dict(outcome.best_target_feasible)
+            ),
             "coarse_selected": candidate_to_summary_dict(outcome.coarse_selected),
             "coarse_candidate_count": outcome.coarse_candidate_count,
             "coarse_feasible_count": outcome.coarse_feasible_count,
+            "coarse_target_feasible_count": outcome.coarse_target_feasible_count,
             "selected": candidate_to_summary_dict(outcome.selected),
             "local_refine": None if outcome.local_refine is None else asdict(outcome.local_refine),
         },
@@ -1221,6 +1344,7 @@ def _build_refresh_iteration_summary(iteration: RefreshIterationResult) -> dict[
         "run_metrics": {
             "success": iteration.outcome.success,
             "feasible": iteration.outcome.feasible,
+            "target_mass_kg": iteration.outcome.target_mass_kg,
             "message": iteration.outcome.message,
             "total_wall_time_s": iteration.outcome.total_wall_time_s,
             "baseline_eval_wall_time_s": iteration.outcome.baseline_eval_wall_time_s,
@@ -1231,10 +1355,18 @@ def _build_refresh_iteration_summary(iteration: RefreshIterationResult) -> dict[
             "unique_evaluations": iteration.outcome.unique_evaluations,
             "cache_hits": iteration.outcome.cache_hits,
             "feasible_count": iteration.outcome.feasible_count,
+            "target_feasible_count": iteration.outcome.target_feasible_count,
         },
         "search_diagnostics": {
             "coarse_candidate_count": iteration.outcome.coarse_candidate_count,
             "coarse_feasible_count": iteration.outcome.coarse_feasible_count,
+            "coarse_target_feasible_count": iteration.outcome.coarse_target_feasible_count,
+            "best_overall_feasible": (
+                None if iteration.outcome.best_overall_feasible is None else candidate_to_summary_dict(iteration.outcome.best_overall_feasible)
+            ),
+            "best_target_feasible": (
+                None if iteration.outcome.best_target_feasible is None else candidate_to_summary_dict(iteration.outcome.best_target_feasible)
+            ),
             "coarse_selected": candidate_to_summary_dict(iteration.outcome.coarse_selected),
             "local_refine": None if iteration.outcome.local_refine is None else asdict(iteration.outcome.local_refine),
         },
@@ -1278,6 +1410,8 @@ def build_refresh_report_text(
     lines.append(f"Config                        : {config_path}")
     lines.append(f"Design report                 : {design_report}")
     lines.append(f"Baseline cruise AoA           : {cruise_aoa_deg:.3f} deg")
+    if final_iteration.outcome.target_mass_kg is not None:
+        lines.append(f"Target mass cap               : {final_iteration.outcome.target_mass_kg:.3f} kg")
     lines.append("")
     lines.append("Definition:")
     lines.append("  target_loaded_shape         : current VSP / structural cruise geometry at the beam nodes")
@@ -1328,6 +1462,16 @@ def build_refresh_report_text(
     lines.append(f"  completed outer steps       : {outcome.refresh_steps_completed}")
     lines.append(f"  final feasible              : {final_iteration.outcome.feasible}")
     lines.append(f"  final selected source       : {final_iteration.outcome.selected.source}")
+    if final_iteration.outcome.best_overall_feasible is not None:
+        lines.append(
+            "  best overall feasible mass  : "
+            f"{final_iteration.outcome.best_overall_feasible.total_structural_mass_kg:.3f} kg"
+        )
+    if final_iteration.outcome.best_target_feasible is not None:
+        lines.append(
+            "  best target-feasible mass   : "
+            f"{final_iteration.outcome.best_target_feasible.total_structural_mass_kg:.3f} kg"
+        )
     lines.append("")
 
     for iteration in outcome.iterations:
@@ -1338,10 +1482,15 @@ def build_refresh_report_text(
         lines.append(f"  coarse selected mass        : {coarse_selected.total_structural_mass_kg:11.3f} kg")
         lines.append(f"  coarse candidate count      : {iteration.outcome.coarse_candidate_count:11d}")
         lines.append(f"  coarse feasible count       : {iteration.outcome.coarse_feasible_count:11d}")
+        lines.append(f"  coarse target-feasible cnt  : {iteration.outcome.coarse_target_feasible_count:11d}")
         lines.append(f"  total structural mass       : {selected.total_structural_mass_kg:11.3f} kg")
         lines.append(
             f"  coarse -> selected delta    : {selected.total_structural_mass_kg - coarse_selected.total_structural_mass_kg:+11.3f} kg"
         )
+        lines.append(f"  overall feasible            : {selected.overall_feasible}")
+        if iteration.outcome.target_mass_kg is not None:
+            lines.append(f"  target mass passed          : {selected.target_mass_passed}")
+            lines.append(f"  mass margin                 : {selected.mass_margin_kg:+11.3f} kg")
         lines.append(f"  inverse target error max    : {_mm(selected.target_shape_error_max_m):11.6f} mm")
         lines.append(f"  inverse target error rms    : {_mm(selected.target_shape_error_rms_m):11.6f} mm")
         lines.append(f"  jig min ground clearance    : {_mm(selected.jig_ground_clearance_min_m):11.3f} mm")
@@ -1378,6 +1527,13 @@ def build_refresh_report_text(
             lines.append(
                 f"    aggregate nfev / nit      : {iteration.outcome.local_refine.nfev} / {iteration.outcome.local_refine.nit}"
             )
+            lines.append(
+                f"    early stop                : {iteration.outcome.local_refine.early_stop_triggered}"
+            )
+            if iteration.outcome.local_refine.early_stop_reason is not None:
+                lines.append(
+                    f"    early stop reason         : {iteration.outcome.local_refine.early_stop_reason}"
+                )
             for idx, attempt in enumerate(iteration.outcome.local_refine.attempts, start=1):
                 lines.append(
                     f"    attempt {idx:02d}                : "
@@ -1454,6 +1610,7 @@ def build_refresh_summary_json(
             "target_loaded_shape": "current VSP / structural cruise geometry on main and rear spar beam nodes",
             "jig_shape_rule": "nodes_jig = nodes_target - delta_u",
             "refresh_method": "reuse existing VSPAero AoA sweep and reduce local effective AoA by structural twist-derived washout",
+            "target_mass_kg": outcome.final_iteration.outcome.target_mass_kg,
             "refresh_steps_requested": outcome.refresh_steps_requested,
             "refresh_steps_completed": outcome.refresh_steps_completed,
             "refresh_washout_scale": float(refresh_washout_scale),
@@ -1573,8 +1730,12 @@ def run_inverse_design(
     cobyla_maxiter: int,
     cobyla_rhobeg: float,
     skip_local_refine: bool,
+    target_mass_kg: float | None,
     local_refine_feasible_seeds: int,
     local_refine_near_feasible_seeds: int,
+    local_refine_max_starts: int,
+    local_refine_early_stop_patience: int,
+    local_refine_early_stop_abs_improvement_kg: float,
 ) -> InverseOutcome:
     baseline_design = BaselineDesign(
         main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
@@ -1594,6 +1755,7 @@ def run_inverse_design(
         target_shape_error_tol_m=target_shape_error_tol_m,
         max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
         max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+        target_mass_kg=target_mass_kg,
     )
 
     total_start = perf_counter()
@@ -1614,6 +1776,7 @@ def run_inverse_design(
     coarse_selected = evaluator.archive.selected or baseline
     coarse_candidate_count = len(evaluator.archive.candidates)
     coarse_feasible_count = evaluator.archive.feasible_count
+    coarse_target_feasible_count = evaluator.archive.target_feasible_count
 
     lb = np.zeros(5, dtype=float)
     ub = np.ones(5, dtype=float)
@@ -1626,9 +1789,14 @@ def run_inverse_design(
         start_candidates = evaluator.archive.local_refine_starts(
             feasible_limit=int(local_refine_feasible_seeds),
             near_feasible_limit=int(local_refine_near_feasible_seeds),
+            max_starts=int(local_refine_max_starts),
             baseline=baseline,
         )
         attempts: list[tuple[LocalRefineAttempt, InverseCandidate, InverseCandidate]] = []
+        best_eligible_mass_kg = float("inf")
+        stagnation_count = 0
+        early_stop_triggered = False
+        early_stop_reason: str | None = None
 
         for seed_index, start_candidate in enumerate(start_candidates):
             objective_calls = {"n": 0}
@@ -1676,6 +1844,31 @@ def run_inverse_design(
                     end_candidate,
                 )
             )
+            eligible = (
+                bool(end_candidate.overall_target_feasible)
+                if target_mass_kg is not None
+                else bool(end_candidate.overall_feasible)
+            )
+            if eligible:
+                improvement_kg = best_eligible_mass_kg - float(end_candidate.total_structural_mass_kg)
+                if improvement_kg > float(local_refine_early_stop_abs_improvement_kg):
+                    best_eligible_mass_kg = float(end_candidate.total_structural_mass_kg)
+                    stagnation_count = 0
+                else:
+                    if np.isfinite(best_eligible_mass_kg):
+                        stagnation_count += 1
+                if (
+                    np.isfinite(best_eligible_mass_kg)
+                    and int(local_refine_early_stop_patience) > 0
+                    and stagnation_count >= int(local_refine_early_stop_patience)
+                ):
+                    early_stop_triggered = True
+                    early_stop_reason = (
+                        "local_refine_stagnated_after_feasible_hit"
+                        if target_mass_kg is None
+                        else "target_mass_feasible_stagnated"
+                    )
+                    break
 
         if attempts:
             best_attempt, best_start_candidate, best_end_candidate = min(
@@ -1691,6 +1884,7 @@ def run_inverse_design(
                 coarse_selected_mass_kg=float(coarse_selected.total_structural_mass_kg),
                 coarse_candidate_count=int(coarse_candidate_count),
                 coarse_feasible_count=int(coarse_feasible_count),
+                coarse_target_feasible_count=int(coarse_target_feasible_count),
                 seed_count=len(start_candidates),
                 start_source=best_start_candidate.source,
                 start_mass_kg=float(best_start_candidate.total_structural_mass_kg),
@@ -1699,14 +1893,17 @@ def run_inverse_design(
                 message=best_attempt.message,
                 nfev=int(total_nfev),
                 nit=int(total_nit),
+                early_stop_triggered=bool(early_stop_triggered),
+                early_stop_reason=early_stop_reason,
                 attempts=tuple(attempt for attempt, _, _ in attempts),
             )
 
     selected = evaluator.archive.selected or baseline
     total_wall_time_s = float(perf_counter() - total_start)
     return InverseOutcome(
-        success=bool(selected.overall_feasible),
-        feasible=bool(selected.overall_feasible),
+        success=bool(selected.overall_target_feasible if target_mass_kg is not None else selected.overall_feasible),
+        feasible=bool(selected.overall_target_feasible if target_mass_kg is not None else selected.overall_feasible),
+        target_mass_kg=None if target_mass_kg is None else float(target_mass_kg),
         message=selected.message,
         total_wall_time_s=total_wall_time_s,
         baseline_eval_wall_time_s=float(baseline.eval_wall_time_s),
@@ -1717,10 +1914,14 @@ def run_inverse_design(
         unique_evaluations=int(evaluator.unique_evaluations),
         cache_hits=int(evaluator.cache_hits),
         feasible_count=int(evaluator.archive.feasible_count),
+        target_feasible_count=int(evaluator.archive.target_feasible_count),
         baseline=baseline,
+        best_overall_feasible=evaluator.archive.best_feasible,
+        best_target_feasible=evaluator.archive.best_target_feasible,
         coarse_selected=coarse_selected,
         coarse_candidate_count=int(coarse_candidate_count),
         coarse_feasible_count=int(coarse_feasible_count),
+        coarse_target_feasible_count=int(coarse_target_feasible_count),
         selected=selected,
         local_refine=local_refine,
         manufacturing_limit_source=manufacturing_limit_source,
@@ -1751,8 +1952,12 @@ def run_inverse_design_load_refresh_refinement(
     cobyla_maxiter: int,
     cobyla_rhobeg: float,
     skip_local_refine: bool,
+    target_mass_kg: float | None,
     local_refine_feasible_seeds: int,
     local_refine_near_feasible_seeds: int,
+    local_refine_max_starts: int,
+    local_refine_early_stop_patience: int,
+    local_refine_early_stop_abs_improvement_kg: float,
     initial_mapped_loads: dict,
     refresh_model: LightweightLoadRefreshModel,
     refresh_steps: int,
@@ -1784,8 +1989,12 @@ def run_inverse_design_load_refresh_refinement(
         cobyla_maxiter=cobyla_maxiter,
         cobyla_rhobeg=cobyla_rhobeg,
         skip_local_refine=skip_local_refine,
+        target_mass_kg=target_mass_kg,
         local_refine_feasible_seeds=local_refine_feasible_seeds,
         local_refine_near_feasible_seeds=local_refine_near_feasible_seeds,
+        local_refine_max_starts=local_refine_max_starts,
+        local_refine_early_stop_patience=local_refine_early_stop_patience,
+        local_refine_early_stop_abs_improvement_kg=local_refine_early_stop_abs_improvement_kg,
     )
     iterations.append(
         _build_refresh_iteration_result(
@@ -1843,8 +2052,12 @@ def run_inverse_design_load_refresh_refinement(
             cobyla_maxiter=cobyla_maxiter,
             cobyla_rhobeg=cobyla_rhobeg,
             skip_local_refine=skip_local_refine,
+            target_mass_kg=target_mass_kg,
             local_refine_feasible_seeds=local_refine_feasible_seeds,
             local_refine_near_feasible_seeds=local_refine_near_feasible_seeds,
+            local_refine_max_starts=local_refine_max_starts,
+            local_refine_early_stop_patience=local_refine_early_stop_patience,
+            local_refine_early_stop_abs_improvement_kg=local_refine_early_stop_abs_improvement_kg,
         )
         iterations.append(
             _build_refresh_iteration_result(
@@ -1910,6 +2123,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cobyla-rhobeg", type=float, default=0.18)
     parser.add_argument("--skip-local-refine", action="store_true")
     parser.add_argument(
+        "--target-mass-kg",
+        type=float,
+        default=None,
+        help="Optional feasibility mass cap; when set, search prioritizes candidates that satisfy all constraints and total mass <= target.",
+    )
+    parser.add_argument(
         "--local-refine-feasible-seeds",
         type=int,
         default=1,
@@ -1920,6 +2139,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=2,
         help="Number of low-violation coarse candidates to use as additional local-refine starts per stage.",
+    )
+    parser.add_argument(
+        "--local-refine-max-starts",
+        type=int,
+        default=4,
+        help="Maximum number of local-refine starts to run per stage after seed ranking and deduplication.",
+    )
+    parser.add_argument(
+        "--local-refine-early-stop-patience",
+        type=int,
+        default=2,
+        help="Stop local-refine restarts after this many feasible starts fail to improve the best mass by the configured tolerance.",
+    )
+    parser.add_argument(
+        "--local-refine-early-stop-abs-improvement-kg",
+        type=float,
+        default=0.05,
+        help="Absolute mass improvement threshold that resets local-refine stagnation counting.",
     )
     parser.add_argument("--clearance-floor-z-m", type=float, default=0.0)
     parser.add_argument("--target-shape-error-tol-m", type=float, default=1.0e-9)
@@ -2054,8 +2291,12 @@ def main(argv: list[str] | None = None) -> int:
         cobyla_maxiter=int(args.cobyla_maxiter),
         cobyla_rhobeg=float(args.cobyla_rhobeg),
         skip_local_refine=bool(args.skip_local_refine),
+        target_mass_kg=None if args.target_mass_kg is None else float(args.target_mass_kg),
         local_refine_feasible_seeds=int(args.local_refine_feasible_seeds),
         local_refine_near_feasible_seeds=int(args.local_refine_near_feasible_seeds),
+        local_refine_max_starts=int(args.local_refine_max_starts),
+        local_refine_early_stop_patience=int(args.local_refine_early_stop_patience),
+        local_refine_early_stop_abs_improvement_kg=float(args.local_refine_early_stop_abs_improvement_kg),
         initial_mapped_loads=mapped_loads,
         refresh_model=refresh_model,
         refresh_steps=int(args.refresh_steps),
@@ -2124,6 +2365,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Summary JSON        : {json_path}")
     print(f"  Refresh steps       : {refinement.refresh_steps_completed}/{refinement.refresh_steps_requested}")
     print(f"  Feasible            : {refinement.final_iteration.outcome.feasible}")
+    if refinement.final_iteration.outcome.target_mass_kg is not None:
+        print(f"  Target mass cap     : {refinement.final_iteration.outcome.target_mass_kg:.3f} kg")
     print(
         "  Coarse mass         : "
         f"{refinement.final_iteration.outcome.coarse_selected.total_structural_mass_kg:.3f} kg"
