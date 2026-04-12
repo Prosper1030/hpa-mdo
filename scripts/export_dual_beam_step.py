@@ -22,6 +22,13 @@ from hpa_mdo.structure.optimizer import OptimizationResult
 from hpa_mdo.utils.cad_export import export_step_from_csv
 from scripts.ansys_compare_results import parse_baseline_metrics
 from scripts.ansys_crossval import _select_cruise_loads
+from scripts.ansys_dual_beam_production_check import build_specimen_result_from_crossval_report
+from scripts.direct_dual_beam_v2m import (
+    DEFAULT_CATALOG_PROFILE,
+    BaselineDesign,
+    build_manufacturing_map_config,
+    design_from_manufacturing_choice,
+)
 
 
 DEFAULT_SUMMARY_JSON = (
@@ -30,6 +37,9 @@ DEFAULT_SUMMARY_JSON = (
     / "direct_dual_beam_v2m_plusplus_compare"
     / "direct_dual_beam_v2m_summary.json"
 )
+LEGACY_SELECTION_NAMES = ("selected", "baseline")
+FORMAL_SELECTION_NAMES = ("primary", "balanced", "conservative")
+SUPPORTED_SELECTION_NAMES = LEGACY_SELECTION_NAMES + FORMAL_SELECTION_NAMES
 
 
 @dataclass(frozen=True)
@@ -38,7 +48,10 @@ class DualBeamStepSelection:
     config_path: Path
     design_report_path: Path
     selection_name: str
+    selection_label: str
+    selection_status: str
     selection_source: str
+    geometry_choice: tuple[int, int, int, int, int] | None
     opt_result: OptimizationResult
 
 
@@ -130,6 +143,158 @@ def build_opt_result_from_summary_selection(
     )
 
 
+def build_opt_result_from_formal_selection(
+    selection: dict[str, object],
+    *,
+    selection_name: str,
+    cfg,
+    design_report_path: Path,
+) -> tuple[OptimizationResult, tuple[int, int, int, int, int], str]:
+    """Rebuild an OptimizationResult-like design from a formal workflow slot."""
+
+    selected_candidate = selection.get("selected_candidate")
+    if not isinstance(selected_candidate, dict):
+        raise ValueError(
+            f"Formal selection '{selection_name}' must include a selected_candidate object."
+        )
+
+    geometry_choice_raw = selected_candidate.get("geometry_choice")
+    if not isinstance(geometry_choice_raw, list) or len(geometry_choice_raw) != 5:
+        raise ValueError(
+            f"Formal selection '{selection_name}' must include a 5-axis geometry_choice."
+        )
+    geometry_choice = tuple(int(value) for value in geometry_choice_raw)
+
+    baseline_result = build_specimen_result_from_crossval_report(design_report_path)
+    if baseline_result.rear_t_seg_mm is None or baseline_result.rear_r_seg_mm is None:
+        raise ValueError("Crossval report must provide both main and rear spar segment geometry.")
+
+    baseline_design = BaselineDesign(
+        main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
+        main_r_seg_m=np.asarray(baseline_result.main_r_seg_mm, dtype=float) * 1.0e-3,
+        rear_t_seg_m=np.asarray(baseline_result.rear_t_seg_mm, dtype=float) * 1.0e-3,
+        rear_r_seg_m=np.asarray(baseline_result.rear_r_seg_mm, dtype=float) * 1.0e-3,
+    )
+    map_config = build_manufacturing_map_config(
+        baseline=baseline_design,
+        cfg=cfg,
+        catalog_profile=DEFAULT_CATALOG_PROFILE,
+    )
+    main_t_m, main_r_m, rear_t_m, rear_r_m = design_from_manufacturing_choice(
+        baseline=baseline_design,
+        choice=geometry_choice,
+        map_config=map_config,
+    )
+
+    tip_deflection_m = float(
+        selected_candidate.get(
+            "equivalent_tip_deflection_m",
+            selected_candidate.get("raw_main_tip_m", 0.0),
+        )
+    )
+    twist_max_deg = float(selected_candidate.get("equivalent_twist_max_deg", 0.0))
+    failure_index = float(selected_candidate.get("equivalent_failure_index", 0.0))
+    buckling_index = float(selected_candidate.get("equivalent_buckling_index", 0.0))
+    spar_mass_full_kg = float(selected_candidate.get("tube_mass_kg", 0.0))
+    total_mass_full_kg = float(
+        selected_candidate.get("total_structural_mass_kg", spar_mass_full_kg)
+    )
+    dual_displacement_limit_m = selected_candidate.get("dual_displacement_limit_m")
+    max_tip_deflection_m = (
+        None
+        if dual_displacement_limit_m is None
+        else float(dual_displacement_limit_m)
+    )
+    selection_source = str(selected_candidate.get("source", "formal_design_selection"))
+
+    result = OptimizationResult(
+        success=True,
+        message=(
+            f"reconstructed from {selection_name} ({selection_source}) "
+            f"formal workflow selection"
+        ),
+        spar_mass_half_kg=0.5 * spar_mass_full_kg,
+        spar_mass_full_kg=spar_mass_full_kg,
+        total_mass_full_kg=total_mass_full_kg,
+        max_stress_main_Pa=0.0,
+        max_stress_rear_Pa=0.0,
+        allowable_stress_main_Pa=1.0,
+        allowable_stress_rear_Pa=1.0,
+        failure_index=failure_index,
+        buckling_index=buckling_index,
+        tip_deflection_m=tip_deflection_m,
+        max_tip_deflection_m=max_tip_deflection_m,
+        twist_max_deg=twist_max_deg,
+        main_t_seg_mm=np.asarray(main_t_m, dtype=float) * 1000.0,
+        main_r_seg_mm=np.asarray(main_r_m, dtype=float) * 1000.0,
+        rear_t_seg_mm=np.asarray(rear_t_m, dtype=float) * 1000.0,
+        rear_r_seg_mm=np.asarray(rear_r_m, dtype=float) * 1000.0,
+        disp=None,
+        vonmises_main=None,
+        vonmises_rear=None,
+    )
+    return result, geometry_choice, selection_source
+
+
+def _load_summary_paths(obj: dict[str, object], summary_path: Path) -> tuple[Path, Path]:
+    config_raw = obj.get("config")
+    design_report_raw = obj.get("design_report")
+    if not isinstance(config_raw, str) or not config_raw.strip():
+        raise ValueError(f"Summary JSON {summary_path} is missing a valid 'config' path.")
+    if not isinstance(design_report_raw, str) or not design_report_raw.strip():
+        raise ValueError(f"Summary JSON {summary_path} is missing a valid 'design_report' path.")
+    return (
+        Path(config_raw).expanduser().resolve(),
+        Path(design_report_raw).expanduser().resolve(),
+    )
+
+
+def _load_formal_selection(
+    *,
+    summary_path: Path,
+    obj: dict[str, object],
+    selection_name: str,
+) -> DualBeamStepSelection:
+    outcome = obj.get("outcome")
+    if not isinstance(outcome, dict):
+        raise ValueError(f"Summary JSON {summary_path} is missing an 'outcome' object.")
+
+    formal_design_selections = outcome.get("formal_design_selections")
+    if not isinstance(formal_design_selections, dict):
+        raise ValueError(
+            f"Summary JSON {summary_path} is missing outcome.formal_design_selections."
+        )
+
+    selection = formal_design_selections.get(selection_name)
+    if not isinstance(selection, dict):
+        raise ValueError(
+            f"Summary JSON {summary_path} is missing outcome.formal_design_selections.{selection_name}."
+        )
+
+    config_path, design_report_path = _load_summary_paths(obj, summary_path)
+    cfg = load_config(config_path)
+    opt_result, geometry_choice, selection_source = build_opt_result_from_formal_selection(
+        selection,
+        selection_name=selection_name,
+        cfg=cfg,
+        design_report_path=design_report_path,
+    )
+    selection_label = str(selection.get("label", selection_name))
+    selection_status = str(selection.get("selection_status", "selected"))
+
+    return DualBeamStepSelection(
+        summary_path=summary_path,
+        config_path=config_path,
+        design_report_path=design_report_path,
+        selection_name=selection_name,
+        selection_label=selection_label,
+        selection_status=selection_status,
+        selection_source=selection_source,
+        geometry_choice=geometry_choice,
+        opt_result=opt_result,
+    )
+
+
 def load_dual_beam_step_selection(
     summary_json: str | Path,
     *,
@@ -143,25 +308,28 @@ def load_dual_beam_step_selection(
     if not isinstance(outcome, dict):
         raise ValueError(f"Summary JSON {summary_path} is missing an 'outcome' object.")
 
-    selection = outcome.get(selection_name)
-    if not isinstance(selection, dict):
-        raise ValueError(
-            f"Summary JSON {summary_path} is missing outcome.{selection_name}."
+    config_path, design_report_path = _load_summary_paths(obj, summary_path)
+
+    if selection_name in FORMAL_SELECTION_NAMES:
+        return _load_formal_selection(
+            summary_path=summary_path,
+            obj=obj,
+            selection_name=selection_name,
         )
 
-    config_raw = obj.get("config")
-    design_report_raw = obj.get("design_report")
-    if not isinstance(config_raw, str) or not config_raw.strip():
-        raise ValueError(f"Summary JSON {summary_path} is missing a valid 'config' path.")
-    if not isinstance(design_report_raw, str) or not design_report_raw.strip():
-        raise ValueError(f"Summary JSON {summary_path} is missing a valid 'design_report' path.")
+    selection = outcome.get(selection_name)
+    if not isinstance(selection, dict):
+        raise ValueError(f"Summary JSON {summary_path} is missing outcome.{selection_name}.")
 
     return DualBeamStepSelection(
         summary_path=summary_path,
-        config_path=Path(config_raw).expanduser().resolve(),
-        design_report_path=Path(design_report_raw).expanduser().resolve(),
+        config_path=config_path,
+        design_report_path=design_report_path,
         selection_name=selection_name,
+        selection_label=selection_name,
+        selection_status="selected",
         selection_source=str(selection.get("source", "summary")),
+        geometry_choice=None,
         opt_result=build_opt_result_from_summary_selection(
             selection,
             selection_name=selection_name,
@@ -231,9 +399,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--selection",
-        choices=("selected", "baseline"),
+        choices=SUPPORTED_SELECTION_NAMES,
         default="selected",
-        help="Which outcome block to export.",
+        help="Which legacy outcome block or formal workflow slot to export.",
     )
     parser.add_argument(
         "--output",
@@ -273,7 +441,14 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Dual-beam STEP export complete.")
     print(f"  Summary JSON  : {selection.summary_path}")
-    print(f"  Selection     : {selection.selection_name} ({selection.selection_source})")
+    print(
+        "  Selection     : "
+        f"{selection.selection_name} [{selection.selection_label}] "
+        f"status={selection.selection_status} "
+        f"source={selection.selection_source}"
+    )
+    if selection.geometry_choice is not None:
+        print(f"  Geometry      : {selection.geometry_choice}")
     print(f"  Config        : {selection.config_path}")
     print(f"  Design report : {selection.design_report_path}")
     print(f"  CSV           : {csv_output}")

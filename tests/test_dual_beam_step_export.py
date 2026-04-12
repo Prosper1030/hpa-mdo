@@ -35,6 +35,27 @@ def _selection_dict() -> dict[str, object]:
     }
 
 
+def _formal_selection_candidate(geometry_choice: list[int]) -> dict[str, object]:
+    return {
+        "geometry_label": "formal_slot",
+        "geometry_choice": geometry_choice,
+        "source": "formal_rule",
+        "message": "analysis complete",
+        "tube_mass_kg": 10.302836528412621,
+        "total_structural_mass_kg": 12.802836528412621,
+        "raw_main_tip_m": 1.6921124839744115,
+        "raw_rear_tip_m": 2.3138286446336447,
+        "raw_max_uz_m": 2.3138286446336447,
+        "psi_u_all_m": 2.315226614599065,
+        "dual_displacement_limit_m": 2.5,
+        "candidate_margin_m": 0.18477338540093502,
+        "equivalent_failure_index": -0.5299403772772855,
+        "equivalent_buckling_index": -0.8223885185119802,
+        "equivalent_tip_deflection_m": 1.759087520601689,
+        "equivalent_twist_max_deg": 0.19819554485393906,
+    }
+
+
 def test_build_opt_result_from_summary_selection_reconstructs_segment_arrays() -> None:
     result = dual_beam_step.build_opt_result_from_summary_selection(
         _selection_dict(),
@@ -75,6 +96,66 @@ def test_load_dual_beam_step_selection_reads_summary_paths(tmp_path: Path) -> No
     assert selection.design_report_path == design_report_path.resolve()
     assert selection.selection_name == "selected"
     assert selection.selection_source == "catalog_grid"
+
+
+def test_load_dual_beam_step_selection_reads_formal_design_slot(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.yaml"
+    design_report_path = tmp_path / "crossval_report.txt"
+    config_path.write_text("dummy: true\n", encoding="utf-8")
+    design_report_path.write_text("dummy\n", encoding="utf-8")
+    summary_path = tmp_path / "summary.json"
+    summary_path.write_text(
+        json.dumps(
+            {
+                "config": str(config_path),
+                "design_report": str(design_report_path),
+                "outcome": {
+                    "formal_design_selections": {
+                        "balanced": {
+                            "label": "Balanced design",
+                            "selection_status": "selected",
+                            "selected_candidate": _formal_selection_candidate([4, 0, 2, 4, 0]),
+                        }
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = SimpleNamespace(
+        solver=SimpleNamespace(
+            max_wall_thickness_m=0.01,
+            max_thickness_to_radius_ratio=1.0,
+            rear_min_inner_radius_m=0.0,
+            max_radius_m=1.0,
+        )
+    )
+    monkeypatch.setattr(dual_beam_step, "load_config", lambda path: cfg)
+    monkeypatch.setattr(
+        dual_beam_step,
+        "build_specimen_result_from_crossval_report",
+        lambda path: SimpleNamespace(
+            main_t_seg_mm=np.array([0.8, 0.8, 0.8, 0.8, 0.8, 0.8]),
+            main_r_seg_mm=np.array([33.585, 33.585, 33.585, 33.585, 25.925, 17.95]),
+            rear_t_seg_mm=np.array([0.8, 0.8, 0.8, 0.8, 0.8, 0.8]),
+            rear_r_seg_mm=np.array([10.0, 10.0, 10.0, 10.0, 10.0, 10.0]),
+        ),
+    )
+
+    selection = dual_beam_step.load_dual_beam_step_selection(
+        summary_path,
+        selection_name="balanced",
+    )
+
+    assert selection.selection_name == "balanced"
+    assert selection.selection_label == "Balanced design"
+    assert selection.selection_status == "selected"
+    assert selection.selection_source == "formal_rule"
+    assert selection.geometry_choice == (4, 0, 2, 4, 0)
+    assert selection.opt_result.main_t_seg_mm.tolist() == [0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
+    assert np.allclose(selection.opt_result.rear_t_seg_mm, [0.8, 0.8, 0.8, 0.8, 0.842, 0.92])
+    assert np.allclose(selection.opt_result.rear_r_seg_mm, [10.4, 10.4, 10.4, 10.4, 10.4, 10.4])
 
 
 def test_export_dual_beam_step_uses_existing_csv_to_step_pipeline(
