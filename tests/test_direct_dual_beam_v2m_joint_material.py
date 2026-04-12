@@ -11,9 +11,13 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.direct_dual_beam_v2m import BaselineDesign, ManufacturingMapConfig  # noqa: E402
 from scripts.direct_dual_beam_v2m_joint_material import (  # noqa: E402
     COMPACT_STRATEGY,
+    CONSERVATIVE_MODE_MAX_MARGIN,
+    DecisionLayerConfig,
     EXPANDED_STRATEGY,
     JointRepresentativeRegion,
     build_formal_design_rules,
+    build_decision_interface_dict,
+    build_decision_interface_records,
     build_ridge_refinement_geometry_seeds,
     build_pareto_frontier_candidates,
     build_joint_choice_indices,
@@ -110,6 +114,10 @@ def _candidate(
         rear_family_properties=props,
         rear_outboard_tip_properties=props,
     )
+
+
+def _decision_config() -> DecisionLayerConfig:
+    return DecisionLayerConfig()
 
 
 def test_joint_search_space_uses_only_promoted_axes_and_small_geometry_neighborhood() -> None:
@@ -394,10 +402,14 @@ def test_formal_design_selection_rules_pick_primary_balanced_and_conservative_ca
         mass_first_candidate=pareto_candidates[0],
         balanced_compromise_candidate=pareto_candidates[2],
         margin_first_candidate=pareto_candidates[4],
+        decision_layer_config=_decision_config(),
     )
     selection_map = {selection.design_role: selection for selection in selections}
 
-    assert [rule.design_role for rule in build_formal_design_rules()] == [
+    assert [
+        rule.design_role
+        for rule in build_formal_design_rules(decision_layer_config=_decision_config())
+    ] == [
         "primary",
         "balanced",
         "conservative",
@@ -408,3 +420,95 @@ def test_formal_design_selection_rules_pick_primary_balanced_and_conservative_ca
     assert selection_map["balanced"].selected_candidate.geometry_label == "balanced"
     assert selection_map["conservative"].selected_candidate is not None
     assert selection_map["conservative"].selected_candidate.geometry_label == "conservative"
+
+
+def test_decision_interface_records_expose_fixed_design_fields() -> None:
+    selections = select_formal_design_selections(
+        pareto_candidates=(
+            _candidate(
+                geometry_label="primary",
+                geometry_choice=(4, 0, 0, 2, 0),
+                main_family_key="main_light_ud",
+                rear_outboard_pkg_key="ob_none",
+                tube_mass_kg=10.09,
+                candidate_margin_m=0.060,
+            ),
+            _candidate(
+                geometry_label="balanced",
+                geometry_choice=(4, 0, 2, 4, 0),
+                main_family_key="main_light_ud",
+                rear_outboard_pkg_key="ob_balanced_sleeve",
+                tube_mass_kg=10.30,
+                candidate_margin_m=0.185,
+            ),
+            _candidate(
+                geometry_label="conservative",
+                geometry_choice=(4, 0, 2, 4, 1),
+                main_family_key="main_light_ud",
+                rear_outboard_pkg_key="ob_balanced_sleeve",
+                tube_mass_kg=10.93,
+                candidate_margin_m=0.332,
+            ),
+        ),
+        mass_first_candidate=None,
+        balanced_compromise_candidate=None,
+        margin_first_candidate=None,
+        decision_layer_config=_decision_config(),
+    )
+
+    records = build_decision_interface_records(formal_design_selections=selections)
+    assert [record.design_class for record in records] == ["primary", "balanced", "conservative"]
+    assert records[0].main_spar_family == "main_light_ud"
+    assert records[0].rear_outboard_reinforcement_pkg == "ob_none"
+    assert records[1].candidate_margin_mm == 185.0
+
+
+def test_decision_interface_dict_carries_config_and_flat_design_payload() -> None:
+    config = DecisionLayerConfig(
+        primary_margin_floor_m=0.055,
+        balanced_min_margin_m=0.190,
+        balanced_max_mass_delta_from_primary_kg=0.275,
+        conservative_mode=CONSERVATIVE_MODE_MAX_MARGIN,
+    )
+    selections = select_formal_design_selections(
+        pareto_candidates=(
+            _candidate(
+                geometry_label="primary",
+                geometry_choice=(4, 0, 0, 2, 0),
+                main_family_key="main_light_ud",
+                rear_outboard_pkg_key="ob_none",
+                tube_mass_kg=10.09,
+                candidate_margin_m=0.060,
+            ),
+            _candidate(
+                geometry_label="balanced",
+                geometry_choice=(4, 0, 2, 4, 0),
+                main_family_key="main_light_ud",
+                rear_outboard_pkg_key="ob_balanced_sleeve",
+                tube_mass_kg=10.32,
+                candidate_margin_m=0.200,
+            ),
+            _candidate(
+                geometry_label="conservative",
+                geometry_choice=(4, 0, 2, 4, 1),
+                main_family_key="main_light_ud",
+                rear_outboard_pkg_key="ob_balanced_sleeve",
+                tube_mass_kg=10.93,
+                candidate_margin_m=0.332,
+            ),
+        ),
+        mass_first_candidate=None,
+        balanced_compromise_candidate=None,
+        margin_first_candidate=None,
+        decision_layer_config=config,
+    )
+
+    class _Outcome:
+        decision_layer_config = config
+        decision_interface_records = build_decision_interface_records(formal_design_selections=selections)
+
+    payload = build_decision_interface_dict(outcome=_Outcome())
+    assert payload["interface_version"] == "v1"
+    assert payload["decision_layer_config"]["primary_margin_floor_mm"] == 55.0
+    assert payload["designs"][1]["material_choice"]["rear_outboard_reinforcement_pkg"] == "ob_balanced_sleeve"
+    assert payload["designs"][2]["design_class"] == "conservative"

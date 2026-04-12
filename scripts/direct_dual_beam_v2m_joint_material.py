@@ -59,6 +59,8 @@ REPRESENTATIVE_REGION_RADIUS_L1 = 1
 PRIMARY_MIN_MARGIN_M = 0.050
 BALANCED_MIN_MARGIN_M = 0.180
 BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG = 0.250
+DECISION_INTERFACE_VERSION = "v1"
+CONSERVATIVE_MODE_MAX_MARGIN = "max_margin"
 RIDGE_REFINEMENT_GEOMETRY_SPECS = {
     "margin_first": (
         (
@@ -144,6 +146,7 @@ class JointMaterialOutcome:
     feasible: bool
     message: str
     search_strategy: str
+    decision_layer_config: DecisionLayerConfig
     total_wall_time_s: float
     geometry_seed_count: int
     discovery_geometry_seed_count: int
@@ -164,6 +167,7 @@ class JointMaterialOutcome:
     pareto_frontier_candidate_feasible: tuple[MaterialProxyCandidate, ...]
     representative_regions: tuple["JointRepresentativeRegion", ...]
     formal_design_selections: tuple["FormalDesignSelection", ...]
+    decision_interface_records: tuple["WorkflowDesignDecisionRecord", ...]
     top_candidate_feasible: tuple[MaterialProxyCandidate, ...]
 
 
@@ -203,6 +207,34 @@ class FormalDesignSelection:
     selected_candidate: MaterialProxyCandidate | None
     qualifying_candidate_count: int
     rationale: str
+
+
+@dataclass(frozen=True)
+class DecisionLayerConfig:
+    interface_version: str = DECISION_INTERFACE_VERSION
+    primary_margin_floor_m: float = PRIMARY_MIN_MARGIN_M
+    balanced_min_margin_m: float = BALANCED_MIN_MARGIN_M
+    balanced_max_mass_delta_from_primary_kg: float = BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG
+    conservative_mode: str = CONSERVATIVE_MODE_MAX_MARGIN
+
+
+@dataclass(frozen=True)
+class WorkflowDesignDecisionRecord:
+    design_class: str
+    design_label: str
+    geometry_seed: str
+    geometry_choice: tuple[int, int, int, int, int]
+    main_spar_family: str
+    rear_outboard_reinforcement_pkg: str
+    mass_kg: float
+    raw_main_tip_mm: float
+    raw_rear_tip_mm: float
+    raw_max_uz_mm: float
+    psi_u_all_mm: float
+    candidate_margin_mm: float
+    rule_trigger: str
+    selection_rationale: str
+    qualifying_candidate_count: int
 
 
 def _mm(value_m: float | None) -> float:
@@ -634,14 +666,17 @@ def build_representative_regions(
     return tuple(regions)
 
 
-def build_formal_design_rules() -> tuple[FormalDesignRule, ...]:
+def build_formal_design_rules(
+    *,
+    decision_layer_config: DecisionLayerConfig,
+) -> tuple[FormalDesignRule, ...]:
     return (
         FormalDesignRule(
             design_role="primary",
             label="Primary design",
             candidate_pool="pareto_feasible",
             selection_intent="Default release candidate: stay on the light side, keep reserve above a simple floor, and avoid opening the local sleeve unless needed.",
-            min_candidate_margin_m=PRIMARY_MIN_MARGIN_M,
+            min_candidate_margin_m=decision_layer_config.primary_margin_floor_m,
             prefer_without_ob_balanced_sleeve=True,
             tie_break_rule="Choose the lowest mass candidate; then lower psi_u_all; then larger candidate margin.",
         ),
@@ -650,9 +685,9 @@ def build_formal_design_rules() -> tuple[FormalDesignRule, ...]:
             label="Balanced design",
             candidate_pool="pareto_feasible",
             selection_intent="Moderate reserve upgrade: open ob_balanced_sleeve only when it buys a clearly stronger margin band without paying a large mass premium over the primary design.",
-            min_candidate_margin_m=BALANCED_MIN_MARGIN_M,
+            min_candidate_margin_m=decision_layer_config.balanced_min_margin_m,
             require_ob_balanced_sleeve=True,
-            max_mass_delta_from_primary_kg=BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG,
+            max_mass_delta_from_primary_kg=decision_layer_config.balanced_max_mass_delta_from_primary_kg,
             tie_break_rule="Among qualifying candidates choose the lowest mass; then larger candidate margin; then lower psi_u_all.",
         ),
         FormalDesignRule(
@@ -676,12 +711,13 @@ def select_formal_design_selections(
     mass_first_candidate: MaterialProxyCandidate | None,
     balanced_compromise_candidate: MaterialProxyCandidate | None,
     margin_first_candidate: MaterialProxyCandidate | None,
+    decision_layer_config: DecisionLayerConfig,
 ) -> tuple[FormalDesignSelection, ...]:
     candidate_pool = pareto_candidates
     if not candidate_pool:
         return tuple()
 
-    rules = build_formal_design_rules()
+    rules = build_formal_design_rules(decision_layer_config=decision_layer_config)
     selections: list[FormalDesignSelection] = []
 
     primary_rule = next(rule for rule in rules if rule.design_role == "primary")
@@ -696,13 +732,15 @@ def select_formal_design_selections(
     if primary_no_sleeve:
         primary_qualifying = primary_no_sleeve
         primary_rationale = (
-            f"Used the no-sleeve subset with candidate margin >= {PRIMARY_MIN_MARGIN_M * 1000.0:.0f} mm, "
+            "Used the no-sleeve subset with candidate margin >= "
+            f"{decision_layer_config.primary_margin_floor_m * 1000.0:.0f} mm, "
             "then picked the lowest-mass non-dominated candidate."
         )
     else:
         primary_qualifying = primary_candidates
         primary_rationale = (
-            f"No non-sleeve candidate cleared the {PRIMARY_MIN_MARGIN_M * 1000.0:.0f} mm floor, "
+            "No non-sleeve candidate cleared the "
+            f"{decision_layer_config.primary_margin_floor_m * 1000.0:.0f} mm floor, "
             "so the rule fell back to the full Pareto-feasible pool."
         )
     primary_candidate = (
@@ -743,8 +781,10 @@ def select_formal_design_selections(
         else balanced_compromise_candidate
     )
     balanced_rationale = (
-        f"Required ob_balanced_sleeve, candidate margin >= {BALANCED_MIN_MARGIN_M * 1000.0:.0f} mm, "
-        f"and mass <= primary + {BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG:.3f} kg."
+        "Required ob_balanced_sleeve, candidate margin >= "
+        f"{decision_layer_config.balanced_min_margin_m * 1000.0:.0f} mm, "
+        "and mass <= primary + "
+        f"{decision_layer_config.balanced_max_mass_delta_from_primary_kg:.3f} kg."
     )
     selections.append(
         FormalDesignSelection(
@@ -761,6 +801,8 @@ def select_formal_design_selections(
     conservative_qualifying = [
         candidate for candidate in candidate_pool if _candidate_uses_balanced_sleeve(candidate)
     ]
+    if decision_layer_config.conservative_mode != CONSERVATIVE_MODE_MAX_MARGIN:
+        raise ValueError(f"Unsupported conservative mode: {decision_layer_config.conservative_mode}")
     conservative_candidate = (
         select_margin_first_candidate(tuple(conservative_qualifying))
         if conservative_qualifying
@@ -778,6 +820,119 @@ def select_formal_design_selections(
     )
 
     return tuple(selections)
+
+
+def build_decision_interface_records(
+    *,
+    formal_design_selections: tuple[FormalDesignSelection, ...],
+) -> tuple[WorkflowDesignDecisionRecord, ...]:
+    records: list[WorkflowDesignDecisionRecord] = []
+    for selection in formal_design_selections:
+        candidate = selection.selected_candidate
+        if candidate is None:
+            continue
+        records.append(
+            WorkflowDesignDecisionRecord(
+                design_class=selection.design_role,
+                design_label=selection.label,
+                geometry_seed=candidate.geometry_label,
+                geometry_choice=candidate.geometry_choice,
+                main_spar_family=candidate.main_family_key,
+                rear_outboard_reinforcement_pkg=candidate.rear_outboard_pkg_key,
+                mass_kg=float(candidate.tube_mass_kg),
+                raw_main_tip_mm=_mm(candidate.raw_main_tip_m),
+                raw_rear_tip_mm=_mm(candidate.raw_rear_tip_m),
+                raw_max_uz_mm=_mm(candidate.raw_max_uz_m),
+                psi_u_all_mm=_mm(candidate.psi_u_all_m),
+                candidate_margin_mm=_mm(candidate.candidate_margin_m),
+                rule_trigger=selection.rule.selection_intent,
+                selection_rationale=selection.rationale,
+                qualifying_candidate_count=selection.qualifying_candidate_count,
+            )
+        )
+    return tuple(records)
+
+
+def _decision_layer_config_to_dict(decision_layer_config: DecisionLayerConfig) -> dict[str, object]:
+    return {
+        "interface_version": decision_layer_config.interface_version,
+        "primary_margin_floor_mm": _mm(decision_layer_config.primary_margin_floor_m),
+        "balanced_min_margin_mm": _mm(decision_layer_config.balanced_min_margin_m),
+        "balanced_max_mass_delta_from_primary_kg": decision_layer_config.balanced_max_mass_delta_from_primary_kg,
+        "conservative_mode": decision_layer_config.conservative_mode,
+    }
+
+
+def build_decision_interface_dict(
+    *,
+    outcome: JointMaterialOutcome,
+) -> dict[str, object]:
+    return {
+        "interface_version": outcome.decision_layer_config.interface_version,
+        "decision_layer_config": _decision_layer_config_to_dict(outcome.decision_layer_config),
+        "designs": [
+            {
+                "design_class": record.design_class,
+                "design_label": record.design_label,
+                "geometry_seed": record.geometry_seed,
+                "geometry_choice": list(record.geometry_choice),
+                "material_choice": {
+                    "main_spar_family": record.main_spar_family,
+                    "rear_outboard_reinforcement_pkg": record.rear_outboard_reinforcement_pkg,
+                },
+                "mass_kg": record.mass_kg,
+                "raw_main_tip_mm": record.raw_main_tip_mm,
+                "raw_rear_tip_mm": record.raw_rear_tip_mm,
+                "raw_max_uz_mm": record.raw_max_uz_mm,
+                "psi_u_all_mm": record.psi_u_all_mm,
+                "candidate_margin_mm": record.candidate_margin_mm,
+                "rule_trigger": record.rule_trigger,
+                "selection_rationale": record.selection_rationale,
+                "qualifying_candidate_count": record.qualifying_candidate_count,
+            }
+            for record in outcome.decision_interface_records
+        ],
+    }
+
+
+def build_decision_interface_text(
+    *,
+    outcome: JointMaterialOutcome,
+) -> str:
+    lines: list[str] = []
+    lines.append("=" * 108)
+    lines.append("Direct Dual-Beam V2.m++ Decision Interface")
+    lines.append("=" * 108)
+    config = _decision_layer_config_to_dict(outcome.decision_layer_config)
+    lines.append(f"Interface version             : {config['interface_version']}")
+    lines.append(f"Primary margin floor          : {config['primary_margin_floor_mm']:.3f} mm")
+    lines.append(f"Balanced min margin           : {config['balanced_min_margin_mm']:.3f} mm")
+    lines.append(
+        "Balanced max mass delta       : "
+        f"{config['balanced_max_mass_delta_from_primary_kg']:.3f} kg"
+    )
+    lines.append(f"Conservative mode             : {config['conservative_mode']}")
+    lines.append("")
+    for record in outcome.decision_interface_records:
+        lines.append(f"{record.design_label}:")
+        lines.append(f"  design class               : {record.design_class}")
+        lines.append(f"  geometry seed              : {record.geometry_seed}")
+        lines.append(f"  geometry choice            : {record.geometry_choice}")
+        lines.append(
+            "  material choice            : "
+            f"{record.main_spar_family} / {record.rear_outboard_reinforcement_pkg}"
+        )
+        lines.append(f"  mass                       : {record.mass_kg:11.3f} kg")
+        lines.append(f"  raw main tip               : {record.raw_main_tip_mm:11.3f} mm")
+        lines.append(f"  raw rear tip               : {record.raw_rear_tip_mm:11.3f} mm")
+        lines.append(f"  raw max |UZ|               : {record.raw_max_uz_mm:11.3f} mm")
+        lines.append(f"  psi_u_all                  : {record.psi_u_all_mm:11.3f} mm")
+        lines.append(f"  candidate margin           : {record.candidate_margin_mm:11.3f} mm")
+        lines.append(f"  rule trigger               : {record.rule_trigger}")
+        lines.append(f"  selection rationale        : {record.selection_rationale}")
+        lines.append(f"  qualifying candidates      : {record.qualifying_candidate_count}")
+        lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def _load_v2m_selected_choice(path: Path) -> tuple[int, int, int, int, int]:
@@ -935,6 +1090,7 @@ def _build_geometry_best_rows(
 def _build_joint_material_outcome(
     *,
     search_strategy: str,
+    decision_layer_config: DecisionLayerConfig,
     geometry_seeds: tuple[GeometrySeed, ...],
     discovery_geometry_seed_count: int,
     support_geometry_seed_count: int,
@@ -981,6 +1137,10 @@ def _build_joint_material_outcome(
         mass_first_candidate=best_mass_candidate_feasible,
         balanced_compromise_candidate=balanced_compromise,
         margin_first_candidate=best_margin_candidate_feasible,
+        decision_layer_config=decision_layer_config,
+    )
+    decision_interface_records = build_decision_interface_records(
+        formal_design_selections=formal_design_selections,
     )
     selected_candidate = best_mass_candidate_feasible or best_violation
 
@@ -989,6 +1149,7 @@ def _build_joint_material_outcome(
         feasible=bool(selected_candidate.overall_optimizer_candidate_feasible),
         message=str(selected_candidate.message),
         search_strategy=search_strategy,
+        decision_layer_config=decision_layer_config,
         total_wall_time_s=float(perf_counter() - total_start),
         geometry_seed_count=len(geometry_seeds),
         discovery_geometry_seed_count=discovery_geometry_seed_count,
@@ -1009,6 +1170,7 @@ def _build_joint_material_outcome(
         pareto_frontier_candidate_feasible=pareto_frontier,
         representative_regions=representative_regions,
         formal_design_selections=formal_design_selections,
+        decision_interface_records=decision_interface_records,
         top_candidate_feasible=feasible_candidates[:TOP_K],
     )
 
@@ -1016,6 +1178,7 @@ def _build_joint_material_outcome(
 def run_joint_material_search(
     *,
     search_strategy: str,
+    decision_layer_config: DecisionLayerConfig,
     cfg,
     aircraft,
     materials_db: MaterialDB,
@@ -1057,6 +1220,7 @@ def run_joint_material_search(
 
     return catalog, _build_joint_material_outcome(
         search_strategy=search_strategy,
+        decision_layer_config=decision_layer_config,
         geometry_seeds=tuple(geometry_seeds),
         discovery_geometry_seed_count=len(geometry_seeds),
         support_geometry_seed_count=0,
@@ -1073,6 +1237,7 @@ def run_joint_material_search(
 
 def run_joint_material_workflow_search(
     *,
+    decision_layer_config: DecisionLayerConfig,
     cfg,
     aircraft,
     materials_db: MaterialDB,
@@ -1119,6 +1284,7 @@ def run_joint_material_workflow_search(
     )
     discovery_outcome = _build_joint_material_outcome(
         search_strategy=EXPANDED_STRATEGY,
+        decision_layer_config=decision_layer_config,
         geometry_seeds=discovery_geometry_seeds,
         discovery_geometry_seed_count=len(discovery_geometry_seeds),
         support_geometry_seed_count=0,
@@ -1160,6 +1326,7 @@ def run_joint_material_workflow_search(
     support_combined_index_map = {**discovery_index_map, **support_index_map}
     support_outcome = _build_joint_material_outcome(
         search_strategy=WORKFLOW_STRATEGY,
+        decision_layer_config=decision_layer_config,
         geometry_seeds=support_combined_geometry_seeds,
         discovery_geometry_seed_count=len(discovery_geometry_seeds),
         support_geometry_seed_count=len(support_geometry_seeds),
@@ -1199,6 +1366,7 @@ def run_joint_material_workflow_search(
     combined_index_map = {**support_combined_index_map, **ridge_index_map}
     outcome = _build_joint_material_outcome(
         search_strategy=WORKFLOW_STRATEGY,
+        decision_layer_config=decision_layer_config,
         geometry_seeds=combined_geometry_seeds,
         discovery_geometry_seed_count=len(discovery_geometry_seeds),
         support_geometry_seed_count=len(support_geometry_seeds),
@@ -1217,6 +1385,7 @@ def run_joint_material_workflow_search(
 def run_joint_material_strategy(
     *,
     search_strategy: str,
+    decision_layer_config: DecisionLayerConfig,
     cfg,
     aircraft,
     materials_db: MaterialDB,
@@ -1228,6 +1397,7 @@ def run_joint_material_strategy(
 ) -> tuple[tuple[GeometrySeed, ...], object, JointMaterialOutcome]:
     if search_strategy == WORKFLOW_STRATEGY:
         return run_joint_material_workflow_search(
+            decision_layer_config=decision_layer_config,
             cfg=cfg,
             aircraft=aircraft,
             materials_db=materials_db,
@@ -1246,6 +1416,7 @@ def run_joint_material_strategy(
     )
     catalog, outcome = run_joint_material_search(
         search_strategy=search_strategy,
+        decision_layer_config=decision_layer_config,
         cfg=cfg,
         aircraft=aircraft,
         materials_db=materials_db,
@@ -1346,6 +1517,7 @@ def build_report_text(
     lines.append("Run summary:")
     lines.append(f"  success                     : {outcome.success}")
     lines.append(f"  feasible                    : {outcome.feasible}")
+    lines.append(f"  decision interface version  : {outcome.decision_layer_config.interface_version}")
     lines.append(f"  total wall time             : {outcome.total_wall_time_s:.3f} s")
     lines.append(f"  evaluated candidates        : {outcome.evaluated_candidate_count}")
     lines.append(f"  Pareto-feasible candidates  : {len(outcome.pareto_frontier_candidate_feasible)}")
@@ -1424,6 +1596,20 @@ def build_report_text(
         lines.append("")
     if outcome.formal_design_selections:
         lines.append("Formal design decision layer:")
+        lines.append(
+            f"  primary margin floor        : {_mm(outcome.decision_layer_config.primary_margin_floor_m):.3f} mm"
+        )
+        lines.append(
+            f"  balanced min margin         : {_mm(outcome.decision_layer_config.balanced_min_margin_m):.3f} mm"
+        )
+        lines.append(
+            "  balanced max mass delta     : "
+            f"{outcome.decision_layer_config.balanced_max_mass_delta_from_primary_kg:.3f} kg"
+        )
+        lines.append(
+            f"  conservative mode           : {outcome.decision_layer_config.conservative_mode}"
+        )
+        lines.append("")
         for selection in outcome.formal_design_selections:
             lines.append(f"  {selection.label}:")
             lines.append(f"    candidate pool            : {selection.rule.candidate_pool}")
@@ -1452,6 +1638,20 @@ def build_report_text(
                 main_index_map=main_index_map,
                 outboard_index_map=outboard_index_map,
             )
+    if outcome.decision_interface_records:
+        lines.append("Stable decision interface output:")
+        lines.append(
+            "  design class   geometry                 material choice                 mass[kg]   "
+            "psi[mm]   margin[mm]"
+        )
+        for record in outcome.decision_interface_records:
+            material_choice = f"{record.main_spar_family}/{record.rear_outboard_reinforcement_pkg}"
+            lines.append(
+                f"  {record.design_label.split()[0]:14s} {str(record.geometry_choice):24s} "
+                f"{material_choice:30s} {record.mass_kg:8.3f} {record.psi_u_all_mm:9.3f} "
+                f"{record.candidate_margin_mm:11.3f}"
+            )
+        lines.append("")
     lines.append("Best promoted-material combination by geometry seed:")
     lines.append("  geometry                 joint choice                  mass[kg]   psi[mm]   margin[mm]   cand")
     for row in outcome.geometry_best_rows:
@@ -1521,6 +1721,10 @@ def build_summary_json(
         "config": str(config_path),
         "design_report": str(design_report),
         "v2m_summary_json": str(v2m_summary_json),
+        "decision_layer": {
+            "interface_version": outcome.decision_layer_config.interface_version,
+            "config": _decision_layer_config_to_dict(outcome.decision_layer_config),
+        },
         "search_strategy": {
             "geometry_seed_strategy": (
                 "selected_plus_nearby_v2m_neighbors"
@@ -1614,6 +1818,7 @@ def build_summary_json(
                 }
                 for selection in outcome.formal_design_selections
             },
+            "decision_interface": build_decision_interface_dict(outcome=outcome),
             "best_margin_candidate_feasible": candidate_to_summary_dict(
                 outcome.best_margin_candidate_feasible
             ),
@@ -1655,7 +1860,36 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         choices=(COMPACT_STRATEGY, EXPANDED_STRATEGY, WORKFLOW_STRATEGY),
         default=DEFAULT_STRATEGY,
     )
+    parser.add_argument(
+        "--primary-margin-floor-mm",
+        type=float,
+        default=_mm(PRIMARY_MIN_MARGIN_M),
+    )
+    parser.add_argument(
+        "--balanced-min-margin-mm",
+        type=float,
+        default=_mm(BALANCED_MIN_MARGIN_M),
+    )
+    parser.add_argument(
+        "--balanced-max-mass-delta-kg",
+        type=float,
+        default=BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG,
+    )
+    parser.add_argument(
+        "--conservative-mode",
+        choices=(CONSERVATIVE_MODE_MAX_MARGIN,),
+        default=CONSERVATIVE_MODE_MAX_MARGIN,
+    )
     return parser
+
+
+def _decision_layer_config_from_args(args: argparse.Namespace) -> DecisionLayerConfig:
+    return DecisionLayerConfig(
+        primary_margin_floor_m=float(args.primary_margin_floor_mm) * 1.0e-3,
+        balanced_min_margin_m=float(args.balanced_min_margin_mm) * 1.0e-3,
+        balanced_max_mass_delta_from_primary_kg=float(args.balanced_max_mass_delta_kg),
+        conservative_mode=str(args.conservative_mode),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1686,6 +1920,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg=cfg,
         catalog_profile=DEFAULT_CATALOG_PROFILE,
     )
+    decision_layer_config = _decision_layer_config_from_args(args)
     selected_choice = _load_v2m_selected_choice(v2m_summary_json)
 
     _, mapped_loads = _select_cruise_loads(cfg, aircraft)
@@ -1694,6 +1929,7 @@ def main(argv: list[str] | None = None) -> int:
 
     geometry_seeds, catalog, outcome = run_joint_material_strategy(
         search_strategy=args.strategy,
+        decision_layer_config=decision_layer_config,
         cfg=cfg,
         aircraft=aircraft,
         materials_db=materials_db,
@@ -1740,10 +1976,24 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
 
+    decision_json_path = output_dir / "direct_dual_beam_v2m_joint_material_decision_interface.json"
+    decision_json_path.write_text(
+        json.dumps(build_decision_interface_dict(outcome=outcome), indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    decision_text_path = output_dir / "direct_dual_beam_v2m_joint_material_decision_interface.txt"
+    decision_text_path.write_text(
+        build_decision_interface_text(outcome=outcome),
+        encoding="utf-8",
+    )
+
     selected = outcome.selected_candidate
     print("Direct dual-beam V2.m++ joint geometry + material search complete.")
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
+    print(f"  Decision JSON       : {decision_json_path}")
+    print(f"  Decision text       : {decision_text_path}")
     print(f"  Strategy            : {args.strategy}")
     print(f"  Success / feasible  : {outcome.success} / {outcome.feasible}")
     print(f"  Total wall time     : {outcome.total_wall_time_s:.3f} s")
