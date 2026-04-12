@@ -59,8 +59,28 @@ REPRESENTATIVE_REGION_RADIUS_L1 = 1
 PRIMARY_MIN_MARGIN_M = 0.050
 BALANCED_MIN_MARGIN_M = 0.180
 BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG = 0.250
-DECISION_INTERFACE_VERSION = "v1"
+DECISION_INTERFACE_SCHEMA_NAME = "direct_dual_beam_v2m_joint_material_decision_interface"
+DECISION_INTERFACE_SCHEMA_VERSION = "v1"
 CONSERVATIVE_MODE_MAX_MARGIN = "max_margin"
+DECISION_INTERFACE_STATUS_COMPLETE = "complete"
+DECISION_INTERFACE_STATUS_COMPLETE_WITH_FALLBACKS = "complete_with_fallbacks"
+DECISION_INTERFACE_STATUS_PARTIAL = "partial"
+DECISION_INTERFACE_STATUS_EMPTY = "empty"
+DECISION_SLOT_STATUS_SELECTED = "selected"
+DECISION_SLOT_STATUS_FALLBACK_SELECTED = "fallback_selected"
+DECISION_SLOT_STATUS_UNAVAILABLE = "unavailable"
+DECISION_FALLBACK_REASON_NONE = "none"
+DECISION_FALLBACK_REASON_NO_PARETO_CANDIDATES = "no_pareto_candidates"
+DECISION_FALLBACK_REASON_PRIMARY_NO_NON_SLEEVE_MATCH = (
+    "primary_no_non_sleeve_candidate_above_margin_floor"
+)
+DECISION_FALLBACK_REASON_PRIMARY_NO_MARGIN_MATCH = "primary_no_candidate_above_margin_floor"
+DECISION_FALLBACK_REASON_BALANCED_NO_BAND_MATCH = (
+    "balanced_no_candidate_meets_margin_and_mass_gate"
+)
+DECISION_FALLBACK_REASON_CONSERVATIVE_NO_SLEEVE_MATCH = (
+    "conservative_no_balanced_sleeve_candidate"
+)
 RIDGE_REFINEMENT_GEOMETRY_SPECS = {
     "margin_first": (
         (
@@ -206,12 +226,14 @@ class FormalDesignSelection:
     rule: FormalDesignRule
     selected_candidate: MaterialProxyCandidate | None
     qualifying_candidate_count: int
+    selection_status: str
+    fallback_reason_code: str
     rationale: str
 
 
 @dataclass(frozen=True)
 class DecisionLayerConfig:
-    interface_version: str = DECISION_INTERFACE_VERSION
+    schema_version: str = DECISION_INTERFACE_SCHEMA_VERSION
     primary_margin_floor_m: float = PRIMARY_MIN_MARGIN_M
     balanced_min_margin_m: float = BALANCED_MIN_MARGIN_M
     balanced_max_mass_delta_from_primary_kg: float = BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG
@@ -222,16 +244,18 @@ class DecisionLayerConfig:
 class WorkflowDesignDecisionRecord:
     design_class: str
     design_label: str
-    geometry_seed: str
-    geometry_choice: tuple[int, int, int, int, int]
-    main_spar_family: str
-    rear_outboard_reinforcement_pkg: str
-    mass_kg: float
-    raw_main_tip_mm: float
-    raw_rear_tip_mm: float
-    raw_max_uz_mm: float
-    psi_u_all_mm: float
-    candidate_margin_mm: float
+    slot_status: str
+    fallback_reason_code: str
+    geometry_seed: str | None
+    geometry_choice: tuple[int, int, int, int, int] | None
+    main_spar_family: str | None
+    rear_outboard_reinforcement_pkg: str | None
+    mass_kg: float | None
+    raw_main_tip_mm: float | None
+    raw_rear_tip_mm: float | None
+    raw_max_uz_mm: float | None
+    psi_u_all_mm: float | None
+    candidate_margin_mm: float | None
     rule_trigger: str
     selection_rationale: str
     qualifying_candidate_count: int
@@ -705,6 +729,57 @@ def _candidate_uses_balanced_sleeve(candidate: MaterialProxyCandidate) -> bool:
     return candidate.rear_outboard_pkg_key == "ob_balanced_sleeve"
 
 
+def _formal_selection(
+    *,
+    rule: FormalDesignRule,
+    selected_candidate: MaterialProxyCandidate | None,
+    qualifying_candidate_count: int,
+    selection_status: str,
+    fallback_reason_code: str,
+    rationale: str,
+) -> FormalDesignSelection:
+    return FormalDesignSelection(
+        design_role=rule.design_role,
+        label=rule.label,
+        rule=rule,
+        selected_candidate=selected_candidate,
+        qualifying_candidate_count=qualifying_candidate_count,
+        selection_status=selection_status,
+        fallback_reason_code=fallback_reason_code,
+        rationale=rationale,
+    )
+
+
+def _decision_interface_status(
+    records: tuple[WorkflowDesignDecisionRecord, ...],
+) -> str:
+    if not records:
+        return DECISION_INTERFACE_STATUS_EMPTY
+
+    slot_statuses = [record.slot_status for record in records]
+    if all(status == DECISION_SLOT_STATUS_SELECTED for status in slot_statuses):
+        return DECISION_INTERFACE_STATUS_COMPLETE
+    if all(
+        status in {DECISION_SLOT_STATUS_SELECTED, DECISION_SLOT_STATUS_FALLBACK_SELECTED}
+        for status in slot_statuses
+    ):
+        return DECISION_INTERFACE_STATUS_COMPLETE_WITH_FALLBACKS
+    if any(
+        status in {DECISION_SLOT_STATUS_SELECTED, DECISION_SLOT_STATUS_FALLBACK_SELECTED}
+        for status in slot_statuses
+    ):
+        return DECISION_INTERFACE_STATUS_PARTIAL
+    return DECISION_INTERFACE_STATUS_EMPTY
+
+
+def _format_optional_metric(value: float | None) -> str:
+    return "null" if value is None else f"{value:11.3f}"
+
+
+def _format_optional_text(value: object | None) -> str:
+    return "null" if value is None else str(value)
+
+
 def select_formal_design_selections(
     *,
     pareto_candidates: tuple[MaterialProxyCandidate, ...],
@@ -713,12 +788,20 @@ def select_formal_design_selections(
     margin_first_candidate: MaterialProxyCandidate | None,
     decision_layer_config: DecisionLayerConfig,
 ) -> tuple[FormalDesignSelection, ...]:
+    rules = build_formal_design_rules(decision_layer_config=decision_layer_config)
     candidate_pool = pareto_candidates
     if not candidate_pool:
-        return tuple()
-
-    rules = build_formal_design_rules(decision_layer_config=decision_layer_config)
-    selections: list[FormalDesignSelection] = []
+        return tuple(
+            _formal_selection(
+                rule=rule,
+                selected_candidate=None,
+                qualifying_candidate_count=0,
+                selection_status=DECISION_SLOT_STATUS_UNAVAILABLE,
+                fallback_reason_code=DECISION_FALLBACK_REASON_NO_PARETO_CANDIDATES,
+                rationale="No Pareto-feasible candidates were available, so this design slot stayed empty.",
+            )
+            for rule in rules
+        )
 
     primary_rule = next(rule for rule in rules if rule.design_role == "primary")
     primary_candidates = [
@@ -731,33 +814,55 @@ def select_formal_design_selections(
     ]
     if primary_no_sleeve:
         primary_qualifying = primary_no_sleeve
+        primary_status = DECISION_SLOT_STATUS_SELECTED
+        primary_reason_code = DECISION_FALLBACK_REASON_NONE
         primary_rationale = (
             "Used the no-sleeve subset with candidate margin >= "
             f"{decision_layer_config.primary_margin_floor_m * 1000.0:.0f} mm, "
             "then picked the lowest-mass non-dominated candidate."
         )
-    else:
+        primary_candidate = select_mass_first_candidate(tuple(primary_qualifying))
+    elif primary_candidates:
         primary_qualifying = primary_candidates
+        primary_status = DECISION_SLOT_STATUS_FALLBACK_SELECTED
+        primary_reason_code = DECISION_FALLBACK_REASON_PRIMARY_NO_NON_SLEEVE_MATCH
         primary_rationale = (
             "No non-sleeve candidate cleared the "
             f"{decision_layer_config.primary_margin_floor_m * 1000.0:.0f} mm floor, "
             "so the rule fell back to the full Pareto-feasible pool."
         )
-    primary_candidate = (
-        select_mass_first_candidate(tuple(primary_qualifying))
-        if primary_qualifying
-        else mass_first_candidate
-    )
-    selections.append(
-        FormalDesignSelection(
-            design_role=primary_rule.design_role,
-            label=primary_rule.label,
+        primary_candidate = select_mass_first_candidate(tuple(primary_qualifying))
+    else:
+        primary_qualifying = []
+        primary_candidate = mass_first_candidate
+        primary_status = (
+            DECISION_SLOT_STATUS_FALLBACK_SELECTED
+            if primary_candidate is not None
+            else DECISION_SLOT_STATUS_UNAVAILABLE
+        )
+        primary_reason_code = DECISION_FALLBACK_REASON_PRIMARY_NO_MARGIN_MATCH
+        if primary_candidate is not None:
+            primary_rationale = (
+                "No Pareto candidate cleared the "
+                f"{decision_layer_config.primary_margin_floor_m * 1000.0:.0f} mm floor, "
+                "so the rule fell back to the mass-first feasible representative."
+            )
+        else:
+            primary_rationale = (
+                "No Pareto candidate cleared the "
+                f"{decision_layer_config.primary_margin_floor_m * 1000.0:.0f} mm floor, "
+                "so this design slot stayed empty."
+            )
+    selections = [
+        _formal_selection(
             rule=primary_rule,
             selected_candidate=primary_candidate,
             qualifying_candidate_count=len(primary_qualifying),
+            selection_status=primary_status,
+            fallback_reason_code=primary_reason_code,
             rationale=primary_rationale,
         )
-    )
+    ]
 
     balanced_rule = next(rule for rule in rules if rule.design_role == "balanced")
     primary_mass = None if primary_candidate is None else float(primary_candidate.tube_mass_kg)
@@ -772,27 +877,44 @@ def select_formal_design_selections(
             <= primary_mass + float(balanced_rule.max_mass_delta_from_primary_kg or 0.0) + 1.0e-12
         )
     ]
-    balanced_candidate = (
-        min(
+    if balanced_qualifying:
+        balanced_candidate = min(
             balanced_qualifying,
             key=lambda cand: (cand.tube_mass_kg, -cand.candidate_margin_m, cand.psi_u_all_m),
         )
-        if balanced_qualifying
-        else balanced_compromise_candidate
-    )
-    balanced_rationale = (
-        "Required ob_balanced_sleeve, candidate margin >= "
-        f"{decision_layer_config.balanced_min_margin_m * 1000.0:.0f} mm, "
-        "and mass <= primary + "
-        f"{decision_layer_config.balanced_max_mass_delta_from_primary_kg:.3f} kg."
-    )
+        balanced_status = DECISION_SLOT_STATUS_SELECTED
+        balanced_reason_code = DECISION_FALLBACK_REASON_NONE
+        balanced_rationale = (
+            "Required ob_balanced_sleeve, candidate margin >= "
+            f"{decision_layer_config.balanced_min_margin_m * 1000.0:.0f} mm, "
+            "and mass <= primary + "
+            f"{decision_layer_config.balanced_max_mass_delta_from_primary_kg:.3f} kg."
+        )
+    else:
+        balanced_candidate = balanced_compromise_candidate
+        balanced_status = (
+            DECISION_SLOT_STATUS_FALLBACK_SELECTED
+            if balanced_candidate is not None
+            else DECISION_SLOT_STATUS_UNAVAILABLE
+        )
+        balanced_reason_code = DECISION_FALLBACK_REASON_BALANCED_NO_BAND_MATCH
+        if balanced_candidate is not None:
+            balanced_rationale = (
+                "No Pareto candidate met the ob_balanced_sleeve + margin band + mass-delta gate, "
+                "so the rule fell back to the balanced representative."
+            )
+        else:
+            balanced_rationale = (
+                "No Pareto candidate met the ob_balanced_sleeve + margin band + mass-delta gate, "
+                "so this design slot stayed empty."
+            )
     selections.append(
-        FormalDesignSelection(
-            design_role=balanced_rule.design_role,
-            label=balanced_rule.label,
+        _formal_selection(
             rule=balanced_rule,
             selected_candidate=balanced_candidate,
             qualifying_candidate_count=len(balanced_qualifying),
+            selection_status=balanced_status,
+            fallback_reason_code=balanced_reason_code,
             rationale=balanced_rationale,
         )
     )
@@ -803,19 +925,37 @@ def select_formal_design_selections(
     ]
     if decision_layer_config.conservative_mode != CONSERVATIVE_MODE_MAX_MARGIN:
         raise ValueError(f"Unsupported conservative mode: {decision_layer_config.conservative_mode}")
-    conservative_candidate = (
-        select_margin_first_candidate(tuple(conservative_qualifying))
-        if conservative_qualifying
-        else margin_first_candidate
-    )
+    if conservative_qualifying:
+        conservative_candidate = select_margin_first_candidate(tuple(conservative_qualifying))
+        conservative_status = DECISION_SLOT_STATUS_SELECTED
+        conservative_reason_code = DECISION_FALLBACK_REASON_NONE
+        conservative_rationale = "Took the highest-margin Pareto-feasible ob_balanced_sleeve candidate."
+    else:
+        conservative_candidate = margin_first_candidate
+        conservative_status = (
+            DECISION_SLOT_STATUS_FALLBACK_SELECTED
+            if conservative_candidate is not None
+            else DECISION_SLOT_STATUS_UNAVAILABLE
+        )
+        conservative_reason_code = DECISION_FALLBACK_REASON_CONSERVATIVE_NO_SLEEVE_MATCH
+        if conservative_candidate is not None:
+            conservative_rationale = (
+                "No Pareto-feasible ob_balanced_sleeve candidate was available, "
+                "so the rule fell back to the margin-first feasible representative."
+            )
+        else:
+            conservative_rationale = (
+                "No Pareto-feasible ob_balanced_sleeve candidate was available, "
+                "so this design slot stayed empty."
+            )
     selections.append(
-        FormalDesignSelection(
-            design_role=conservative_rule.design_role,
-            label=conservative_rule.label,
+        _formal_selection(
             rule=conservative_rule,
             selected_candidate=conservative_candidate,
             qualifying_candidate_count=len(conservative_qualifying),
-            rationale="Took the highest-margin Pareto-feasible ob_balanced_sleeve candidate.",
+            selection_status=conservative_status,
+            fallback_reason_code=conservative_reason_code,
+            rationale=conservative_rationale,
         )
     )
 
@@ -829,22 +969,24 @@ def build_decision_interface_records(
     records: list[WorkflowDesignDecisionRecord] = []
     for selection in formal_design_selections:
         candidate = selection.selected_candidate
-        if candidate is None:
-            continue
         records.append(
             WorkflowDesignDecisionRecord(
                 design_class=selection.design_role,
                 design_label=selection.label,
-                geometry_seed=candidate.geometry_label,
-                geometry_choice=candidate.geometry_choice,
-                main_spar_family=candidate.main_family_key,
-                rear_outboard_reinforcement_pkg=candidate.rear_outboard_pkg_key,
-                mass_kg=float(candidate.tube_mass_kg),
-                raw_main_tip_mm=_mm(candidate.raw_main_tip_m),
-                raw_rear_tip_mm=_mm(candidate.raw_rear_tip_m),
-                raw_max_uz_mm=_mm(candidate.raw_max_uz_m),
-                psi_u_all_mm=_mm(candidate.psi_u_all_m),
-                candidate_margin_mm=_mm(candidate.candidate_margin_m),
+                slot_status=selection.selection_status,
+                fallback_reason_code=selection.fallback_reason_code,
+                geometry_seed=None if candidate is None else candidate.geometry_label,
+                geometry_choice=None if candidate is None else candidate.geometry_choice,
+                main_spar_family=None if candidate is None else candidate.main_family_key,
+                rear_outboard_reinforcement_pkg=(
+                    None if candidate is None else candidate.rear_outboard_pkg_key
+                ),
+                mass_kg=None if candidate is None else float(candidate.tube_mass_kg),
+                raw_main_tip_mm=None if candidate is None else _mm(candidate.raw_main_tip_m),
+                raw_rear_tip_mm=None if candidate is None else _mm(candidate.raw_rear_tip_m),
+                raw_max_uz_mm=None if candidate is None else _mm(candidate.raw_max_uz_m),
+                psi_u_all_mm=None if candidate is None else _mm(candidate.psi_u_all_m),
+                candidate_margin_mm=None if candidate is None else _mm(candidate.candidate_margin_m),
                 rule_trigger=selection.rule.selection_intent,
                 selection_rationale=selection.rationale,
                 qualifying_candidate_count=selection.qualifying_candidate_count,
@@ -855,7 +997,7 @@ def build_decision_interface_records(
 
 def _decision_layer_config_to_dict(decision_layer_config: DecisionLayerConfig) -> dict[str, object]:
     return {
-        "interface_version": decision_layer_config.interface_version,
+        "schema_version": decision_layer_config.schema_version,
         "primary_margin_floor_mm": _mm(decision_layer_config.primary_margin_floor_m),
         "balanced_min_margin_mm": _mm(decision_layer_config.balanced_min_margin_m),
         "balanced_max_mass_delta_from_primary_kg": decision_layer_config.balanced_max_mass_delta_from_primary_kg,
@@ -863,35 +1005,41 @@ def _decision_layer_config_to_dict(decision_layer_config: DecisionLayerConfig) -
     }
 
 
+def _decision_record_to_dict(record: WorkflowDesignDecisionRecord) -> dict[str, object]:
+    return {
+        "design_class": record.design_class,
+        "design_label": record.design_label,
+        "slot_status": record.slot_status,
+        "fallback_reason_code": record.fallback_reason_code,
+        "geometry_seed": record.geometry_seed,
+        "geometry_choice": None if record.geometry_choice is None else list(record.geometry_choice),
+        "material_choice": {
+            "main_spar_family": record.main_spar_family,
+            "rear_outboard_reinforcement_pkg": record.rear_outboard_reinforcement_pkg,
+        },
+        "mass_kg": record.mass_kg,
+        "raw_main_tip_mm": record.raw_main_tip_mm,
+        "raw_rear_tip_mm": record.raw_rear_tip_mm,
+        "raw_max_uz_mm": record.raw_max_uz_mm,
+        "psi_u_all_mm": record.psi_u_all_mm,
+        "candidate_margin_mm": record.candidate_margin_mm,
+        "rule_trigger": record.rule_trigger,
+        "selection_rationale": record.selection_rationale,
+        "qualifying_candidate_count": record.qualifying_candidate_count,
+    }
+
+
 def build_decision_interface_dict(
     *,
     outcome: JointMaterialOutcome,
 ) -> dict[str, object]:
+    records = outcome.decision_interface_records
     return {
-        "interface_version": outcome.decision_layer_config.interface_version,
+        "schema_name": DECISION_INTERFACE_SCHEMA_NAME,
+        "schema_version": outcome.decision_layer_config.schema_version,
+        "status": _decision_interface_status(records),
         "decision_layer_config": _decision_layer_config_to_dict(outcome.decision_layer_config),
-        "designs": [
-            {
-                "design_class": record.design_class,
-                "design_label": record.design_label,
-                "geometry_seed": record.geometry_seed,
-                "geometry_choice": list(record.geometry_choice),
-                "material_choice": {
-                    "main_spar_family": record.main_spar_family,
-                    "rear_outboard_reinforcement_pkg": record.rear_outboard_reinforcement_pkg,
-                },
-                "mass_kg": record.mass_kg,
-                "raw_main_tip_mm": record.raw_main_tip_mm,
-                "raw_rear_tip_mm": record.raw_rear_tip_mm,
-                "raw_max_uz_mm": record.raw_max_uz_mm,
-                "psi_u_all_mm": record.psi_u_all_mm,
-                "candidate_margin_mm": record.candidate_margin_mm,
-                "rule_trigger": record.rule_trigger,
-                "selection_rationale": record.selection_rationale,
-                "qualifying_candidate_count": record.qualifying_candidate_count,
-            }
-            for record in outcome.decision_interface_records
-        ],
+        "designs": [_decision_record_to_dict(record) for record in records],
     }
 
 
@@ -903,8 +1051,11 @@ def build_decision_interface_text(
     lines.append("=" * 108)
     lines.append("Direct Dual-Beam V2.m++ Decision Interface")
     lines.append("=" * 108)
+    interface_payload = build_decision_interface_dict(outcome=outcome)
     config = _decision_layer_config_to_dict(outcome.decision_layer_config)
-    lines.append(f"Interface version             : {config['interface_version']}")
+    lines.append(f"Schema name                   : {interface_payload['schema_name']}")
+    lines.append(f"Schema version                : {interface_payload['schema_version']}")
+    lines.append(f"Interface status              : {interface_payload['status']}")
     lines.append(f"Primary margin floor          : {config['primary_margin_floor_mm']:.3f} mm")
     lines.append(f"Balanced min margin           : {config['balanced_min_margin_mm']:.3f} mm")
     lines.append(
@@ -916,18 +1067,27 @@ def build_decision_interface_text(
     for record in outcome.decision_interface_records:
         lines.append(f"{record.design_label}:")
         lines.append(f"  design class               : {record.design_class}")
-        lines.append(f"  geometry seed              : {record.geometry_seed}")
-        lines.append(f"  geometry choice            : {record.geometry_choice}")
+        lines.append(f"  slot status                : {record.slot_status}")
+        lines.append(f"  fallback reason code       : {record.fallback_reason_code}")
+        lines.append(f"  geometry seed              : {_format_optional_text(record.geometry_seed)}")
+        lines.append(f"  geometry choice            : {_format_optional_text(record.geometry_choice)}")
         lines.append(
             "  material choice            : "
-            f"{record.main_spar_family} / {record.rear_outboard_reinforcement_pkg}"
+            f"{_format_optional_text(record.main_spar_family)} / "
+            f"{_format_optional_text(record.rear_outboard_reinforcement_pkg)}"
         )
-        lines.append(f"  mass                       : {record.mass_kg:11.3f} kg")
-        lines.append(f"  raw main tip               : {record.raw_main_tip_mm:11.3f} mm")
-        lines.append(f"  raw rear tip               : {record.raw_rear_tip_mm:11.3f} mm")
-        lines.append(f"  raw max |UZ|               : {record.raw_max_uz_mm:11.3f} mm")
-        lines.append(f"  psi_u_all                  : {record.psi_u_all_mm:11.3f} mm")
-        lines.append(f"  candidate margin           : {record.candidate_margin_mm:11.3f} mm")
+        lines.append(f"  mass                       : {_format_optional_metric(record.mass_kg)} kg")
+        lines.append(
+            f"  raw main tip               : {_format_optional_metric(record.raw_main_tip_mm)} mm"
+        )
+        lines.append(
+            f"  raw rear tip               : {_format_optional_metric(record.raw_rear_tip_mm)} mm"
+        )
+        lines.append(f"  raw max |UZ|               : {_format_optional_metric(record.raw_max_uz_mm)} mm")
+        lines.append(f"  psi_u_all                  : {_format_optional_metric(record.psi_u_all_mm)} mm")
+        lines.append(
+            f"  candidate margin           : {_format_optional_metric(record.candidate_margin_mm)} mm"
+        )
         lines.append(f"  rule trigger               : {record.rule_trigger}")
         lines.append(f"  selection rationale        : {record.selection_rationale}")
         lines.append(f"  qualifying candidates      : {record.qualifying_candidate_count}")
@@ -1517,7 +1677,7 @@ def build_report_text(
     lines.append("Run summary:")
     lines.append(f"  success                     : {outcome.success}")
     lines.append(f"  feasible                    : {outcome.feasible}")
-    lines.append(f"  decision interface version  : {outcome.decision_layer_config.interface_version}")
+    lines.append(f"  decision interface version  : {outcome.decision_layer_config.schema_version}")
     lines.append(f"  total wall time             : {outcome.total_wall_time_s:.3f} s")
     lines.append(f"  evaluated candidates        : {outcome.evaluated_candidate_count}")
     lines.append(f"  Pareto-feasible candidates  : {len(outcome.pareto_frontier_candidate_feasible)}")
@@ -1629,6 +1789,8 @@ def build_report_text(
                 )
             lines.append(f"    tie break                 : {selection.rule.tie_break_rule}")
             lines.append(f"    qualifying candidates     : {selection.qualifying_candidate_count}")
+            lines.append(f"    slot status               : {selection.selection_status}")
+            lines.append(f"    fallback reason code      : {selection.fallback_reason_code}")
             lines.append(f"    rationale                 : {selection.rationale}")
             lines.append("")
             _append_candidate_block(
@@ -1641,15 +1803,23 @@ def build_report_text(
     if outcome.decision_interface_records:
         lines.append("Stable decision interface output:")
         lines.append(
-            "  design class   geometry                 material choice                 mass[kg]   "
-            "psi[mm]   margin[mm]"
+            "  design class   status             fallback reason                          geometry                 "
+            "material choice                 mass[kg]   psi[mm]   margin[mm]"
         )
         for record in outcome.decision_interface_records:
-            material_choice = f"{record.main_spar_family}/{record.rear_outboard_reinforcement_pkg}"
+            material_choice = (
+                f"{record.main_spar_family}/{record.rear_outboard_reinforcement_pkg}"
+                if record.main_spar_family is not None
+                and record.rear_outboard_reinforcement_pkg is not None
+                else "null/null"
+            )
             lines.append(
-                f"  {record.design_label.split()[0]:14s} {str(record.geometry_choice):24s} "
-                f"{material_choice:30s} {record.mass_kg:8.3f} {record.psi_u_all_mm:9.3f} "
-                f"{record.candidate_margin_mm:11.3f}"
+                f"  {record.design_label.split()[0]:14s} {record.slot_status:18s} "
+                f"{record.fallback_reason_code:38s} "
+                f"{str(record.geometry_choice):24s} {material_choice:30s} "
+                f"{_format_optional_metric(record.mass_kg):>8s} "
+                f"{_format_optional_metric(record.psi_u_all_mm):>9s} "
+                f"{_format_optional_metric(record.candidate_margin_mm):>11s}"
             )
         lines.append("")
     lines.append("Best promoted-material combination by geometry seed:")
@@ -1722,7 +1892,9 @@ def build_summary_json(
         "design_report": str(design_report),
         "v2m_summary_json": str(v2m_summary_json),
         "decision_layer": {
-            "interface_version": outcome.decision_layer_config.interface_version,
+            "schema_name": DECISION_INTERFACE_SCHEMA_NAME,
+            "schema_version": outcome.decision_layer_config.schema_version,
+            "status": _decision_interface_status(outcome.decision_interface_records),
             "config": _decision_layer_config_to_dict(outcome.decision_layer_config),
         },
         "search_strategy": {
@@ -1803,6 +1975,8 @@ def build_summary_json(
             "formal_design_selections": {
                 selection.design_role: {
                     "label": selection.label,
+                    "selection_status": selection.selection_status,
+                    "fallback_reason_code": selection.fallback_reason_code,
                     "qualifying_candidate_count": selection.qualifying_candidate_count,
                     "rationale": selection.rationale,
                     "rule": {

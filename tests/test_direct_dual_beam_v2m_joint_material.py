@@ -12,12 +12,20 @@ from scripts.direct_dual_beam_v2m import BaselineDesign, ManufacturingMapConfig 
 from scripts.direct_dual_beam_v2m_joint_material import (  # noqa: E402
     COMPACT_STRATEGY,
     CONSERVATIVE_MODE_MAX_MARGIN,
+    DECISION_FALLBACK_REASON_BALANCED_NO_BAND_MATCH,
+    DECISION_FALLBACK_REASON_NO_PARETO_CANDIDATES,
+    DECISION_INTERFACE_STATUS_COMPLETE,
+    DECISION_INTERFACE_STATUS_COMPLETE_WITH_FALLBACKS,
+    DECISION_INTERFACE_STATUS_EMPTY,
+    DECISION_SLOT_STATUS_FALLBACK_SELECTED,
+    DECISION_SLOT_STATUS_SELECTED,
+    DECISION_SLOT_STATUS_UNAVAILABLE,
     DecisionLayerConfig,
     EXPANDED_STRATEGY,
     JointRepresentativeRegion,
-    build_formal_design_rules,
     build_decision_interface_dict,
     build_decision_interface_records,
+    build_formal_design_rules,
     build_ridge_refinement_geometry_seeds,
     build_pareto_frontier_candidates,
     build_joint_choice_indices,
@@ -416,10 +424,13 @@ def test_formal_design_selection_rules_pick_primary_balanced_and_conservative_ca
     ]
     assert selection_map["primary"].selected_candidate is not None
     assert selection_map["primary"].selected_candidate.geometry_label == "primary"
+    assert selection_map["primary"].selection_status == DECISION_SLOT_STATUS_SELECTED
     assert selection_map["balanced"].selected_candidate is not None
     assert selection_map["balanced"].selected_candidate.geometry_label == "balanced"
+    assert selection_map["balanced"].selection_status == DECISION_SLOT_STATUS_SELECTED
     assert selection_map["conservative"].selected_candidate is not None
     assert selection_map["conservative"].selected_candidate.geometry_label == "conservative"
+    assert selection_map["conservative"].selection_status == DECISION_SLOT_STATUS_SELECTED
 
 
 def test_decision_interface_records_expose_fixed_design_fields() -> None:
@@ -458,6 +469,7 @@ def test_decision_interface_records_expose_fixed_design_fields() -> None:
 
     records = build_decision_interface_records(formal_design_selections=selections)
     assert [record.design_class for record in records] == ["primary", "balanced", "conservative"]
+    assert [record.slot_status for record in records] == [DECISION_SLOT_STATUS_SELECTED] * 3
     assert records[0].main_spar_family == "main_light_ud"
     assert records[0].rear_outboard_reinforcement_pkg == "ob_none"
     assert records[1].candidate_margin_mm == 185.0
@@ -508,7 +520,84 @@ def test_decision_interface_dict_carries_config_and_flat_design_payload() -> Non
         decision_interface_records = build_decision_interface_records(formal_design_selections=selections)
 
     payload = build_decision_interface_dict(outcome=_Outcome())
-    assert payload["interface_version"] == "v1"
+    assert payload["schema_name"] == "direct_dual_beam_v2m_joint_material_decision_interface"
+    assert payload["schema_version"] == "v1"
+    assert payload["status"] == DECISION_INTERFACE_STATUS_COMPLETE
     assert payload["decision_layer_config"]["primary_margin_floor_mm"] == 55.0
     assert payload["designs"][1]["material_choice"]["rear_outboard_reinforcement_pkg"] == "ob_balanced_sleeve"
     assert payload["designs"][2]["design_class"] == "conservative"
+
+
+def test_decision_interface_marks_fallback_selected_slots() -> None:
+    config = DecisionLayerConfig()
+    pareto_candidates = (
+        _candidate(
+            geometry_label="primary",
+            geometry_choice=(4, 0, 0, 2, 0),
+            main_family_key="main_light_ud",
+            rear_outboard_pkg_key="ob_none",
+            tube_mass_kg=10.09,
+            candidate_margin_m=0.060,
+        ),
+        _candidate(
+            geometry_label="conservative",
+            geometry_choice=(4, 0, 2, 4, 1),
+            main_family_key="main_light_ud",
+            rear_outboard_pkg_key="ob_balanced_sleeve",
+            tube_mass_kg=10.60,
+            candidate_margin_m=0.332,
+        ),
+    )
+    selections = select_formal_design_selections(
+        pareto_candidates=pareto_candidates,
+        mass_first_candidate=pareto_candidates[0],
+        balanced_compromise_candidate=pareto_candidates[1],
+        margin_first_candidate=pareto_candidates[1],
+        decision_layer_config=config,
+    )
+
+    class _Outcome:
+        decision_layer_config = config
+        decision_interface_records = build_decision_interface_records(formal_design_selections=selections)
+
+    payload = build_decision_interface_dict(outcome=_Outcome())
+    balanced_slot = next(design for design in payload["designs"] if design["design_class"] == "balanced")
+    assert payload["status"] == DECISION_INTERFACE_STATUS_COMPLETE_WITH_FALLBACKS
+    assert balanced_slot["slot_status"] == DECISION_SLOT_STATUS_FALLBACK_SELECTED
+    assert balanced_slot["fallback_reason_code"] == DECISION_FALLBACK_REASON_BALANCED_NO_BAND_MATCH
+    assert balanced_slot["material_choice"]["rear_outboard_reinforcement_pkg"] == "ob_balanced_sleeve"
+
+
+def test_decision_interface_keeps_fixed_slot_schema_when_no_design_is_available() -> None:
+    config = DecisionLayerConfig()
+    selections = select_formal_design_selections(
+        pareto_candidates=(),
+        mass_first_candidate=None,
+        balanced_compromise_candidate=None,
+        margin_first_candidate=None,
+        decision_layer_config=config,
+    )
+
+    class _Outcome:
+        decision_layer_config = config
+        decision_interface_records = build_decision_interface_records(formal_design_selections=selections)
+
+    payload = build_decision_interface_dict(outcome=_Outcome())
+    assert payload["status"] == DECISION_INTERFACE_STATUS_EMPTY
+    assert [design["design_class"] for design in payload["designs"]] == [
+        "primary",
+        "balanced",
+        "conservative",
+    ]
+    first_keys = set(payload["designs"][0].keys())
+    for design in payload["designs"]:
+        assert set(design.keys()) == first_keys
+        assert design["slot_status"] == DECISION_SLOT_STATUS_UNAVAILABLE
+        assert design["fallback_reason_code"] == DECISION_FALLBACK_REASON_NO_PARETO_CANDIDATES
+        assert design["geometry_seed"] is None
+        assert design["geometry_choice"] is None
+        assert design["material_choice"] == {
+            "main_spar_family": None,
+            "rear_outboard_reinforcement_pkg": None,
+        }
+        assert design["mass_kg"] is None

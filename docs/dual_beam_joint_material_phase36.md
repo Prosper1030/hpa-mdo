@@ -33,12 +33,38 @@ workflow 現在除了原本的：
 - [decision interface json](/Volumes/Samsung SSD/hpa-mdo/output/direct_dual_beam_v2m_joint_material_workflow_interface/direct_dual_beam_v2m_joint_material_decision_interface.json)
 - [decision interface text](/Volumes/Samsung SSD/hpa-mdo/output/direct_dual_beam_v2m_joint_material_workflow_interface/direct_dual_beam_v2m_joint_material_decision_interface.txt)
 
-### 2. 固定 decision interface schema
+### 2. schema versioning + machine-readable status
+
+decision interface 現在固定有 top-level schema metadata：
+
+- `schema_name = direct_dual_beam_v2m_joint_material_decision_interface`
+- `schema_version = v1`
+- `status`
+
+其中 `status` 為 machine-readable enum：
+
+- `complete`
+- `complete_with_fallbacks`
+- `partial`
+- `empty`
+
+每個 design slot 也固定有 machine-readable status：
+
+- `slot_status = selected`
+- `slot_status = fallback_selected`
+- `slot_status = unavailable`
+
+### 3. 固定 decision interface schema
+
+Primary / Balanced / Conservative 三個 slot 現在欄位完全一致。
+即使某個 slot 沒有選到 candidate，也會保留相同欄位並以 `null` 表示缺值。
 
 每個 design class 都會穩定輸出：
 
 - `design_class`
 - `design_label`
+- `slot_status`
+- `fallback_reason_code`
 - `geometry_seed`
 - `geometry_choice`
 - `material_choice.main_spar_family`
@@ -53,7 +79,18 @@ workflow 現在除了原本的：
 - `selection_rationale`
 - `qualifying_candidate_count`
 
-### 3. decision layer 參數可配置
+### 4. fallback reason enum
+
+目前固定 fallback / unavailable reason code：
+
+- `none`
+- `no_pareto_candidates`
+- `primary_no_non_sleeve_candidate_above_margin_floor`
+- `primary_no_candidate_above_margin_floor`
+- `balanced_no_candidate_meets_margin_and_mass_gate`
+- `conservative_no_balanced_sleeve_candidate`
+
+### 5. decision layer 參數可配置
 
 目前開放成簡單參數：
 
@@ -121,28 +158,28 @@ workflow 現在除了原本的：
 
 理由：
 
-- schema 固定
-- 三類設計槽位固定
+- schema version 明確
+- top-level 與 per-slot status 都 machine-readable
+- fallback reason code 固定
+- 三類設計槽位固定且欄位一致
 - 規則門檻可配置
-- 輸出欄位完整
 - 文字版與 JSON 版都可直接消費
 
 ### 還缺什麼才更像產品級輸出
 
-還差的比較像產品化配套，而不是工程邏輯本身：
+還差的比較像消費端整合配套，而不是 decision interface 本身：
 
-- schema versioning 更正式
-- 往後相容欄位約定
-- 更明確的 machine-readable status / error handling
-- 若無 qualifying candidate 時的 fallback code / reason enum
+- schema deprecation / backward-compatibility policy
+- app / autoresearch 消費端的正式對接
+- 若日後跨 workflow 複用，可能需要共用 enum registry
 
 ### 下一步最值得做什麼
 
 下一步最值得做的是：
 
-1. 固化更多 reporting / interface
-2. 把這套 decision interface 和 app / autoresearch 的消費端對齊
-3. 之後才考慮更後面的研究議題
+1. 把這套 decision interface 和 app / autoresearch 的消費端對齊
+2. 把這條 workflow 線正式收掉
+3. 後面另開新階段時，再討論新的研究主題
 
 現在還不需要拉 `rear_spar_family`。
 rib/link 更後面。
