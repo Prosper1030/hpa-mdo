@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from hpa_mdo.provenance import build_joint_decision_input_provenance  # noqa: E402
 from hpa_mdo.producer import (  # noqa: E402
     DECISION_JSON_FILENAME,
     DECISION_TEXT_FILENAME,
@@ -111,6 +112,16 @@ class _FakeInternalJointModule:
         return 0
 
 
+def _write_input_sources(tmp_path: Path) -> tuple[Path, Path, Path]:
+    config_path = tmp_path / "config.yaml"
+    design_report_path = tmp_path / "design_report.txt"
+    v2m_summary_json_path = tmp_path / "v2m_summary.json"
+    config_path.write_text("wing: blackcat\n", encoding="utf-8")
+    design_report_path.write_text("margin report\n", encoding="utf-8")
+    v2m_summary_json_path.write_text(json.dumps({"summary": "ok"}) + "\n", encoding="utf-8")
+    return config_path, design_report_path, v2m_summary_json_path
+
+
 def test_build_joint_decision_cli_argv_forces_workflow_strategy(tmp_path: Path) -> None:
     config = JointDecisionProducerConfig(
         output_dir=tmp_path / "out",
@@ -131,12 +142,19 @@ def test_produce_joint_decision_interface_returns_manifest_and_artifacts(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    config_path, design_report_path, v2m_summary_json_path = _write_input_sources(tmp_path)
     monkeypatch.setattr(
         producer_impl,
         "_load_internal_joint_material_module",
         lambda: _FakeInternalJointModule(),
     )
-    config = JointDecisionProducerConfig(output_dir=tmp_path / "producer_run")
+    config = JointDecisionProducerConfig(
+        config_path=config_path,
+        design_report_path=design_report_path,
+        v2m_summary_json_path=v2m_summary_json_path,
+        output_dir=tmp_path / "producer_run",
+        primary_margin_floor_mm=60.0,
+    )
 
     run = produce_joint_decision_interface(config)
 
@@ -148,9 +166,21 @@ def test_produce_joint_decision_interface_returns_manifest_and_artifacts(
     manifest = run.to_manifest_dict()
     assert manifest["decision_status"] == "complete"
     assert manifest["design_statuses"][0]["design_class"] == "primary"
+    assert manifest["producer_cli_overrides"] == {"primary_margin_floor_mm": 60.0}
+    assert manifest["input_provenance"] == build_joint_decision_input_provenance(
+        config_path=config_path,
+        design_report_path=design_report_path,
+        v2m_summary_json_path=v2m_summary_json_path,
+        output_dir=tmp_path / "producer_run",
+        primary_margin_floor_mm=60.0,
+        balanced_min_margin_mm=None,
+        balanced_max_mass_delta_kg=None,
+        conservative_mode=None,
+    )
 
 
 def test_producer_cli_prints_machine_readable_manifest(capsys, monkeypatch, tmp_path: Path) -> None:
+    config_path, design_report_path, v2m_summary_json_path = _write_input_sources(tmp_path)
     artifacts = JointDecisionProducerArtifacts(
         output_dir=tmp_path / "run",
         report_path=tmp_path / "run" / REPORT_FILENAME,
@@ -161,7 +191,13 @@ def test_producer_cli_prints_machine_readable_manifest(capsys, monkeypatch, tmp_
     fake_run = JointDecisionProducerRun(
         producer_name=PRODUCER_NAME,
         producer_interface_version=PRODUCER_INTERFACE_VERSION,
-        config=JointDecisionProducerConfig(output_dir=tmp_path / "run"),
+        config=JointDecisionProducerConfig(
+            config_path=config_path,
+            design_report_path=design_report_path,
+            v2m_summary_json_path=v2m_summary_json_path,
+            output_dir=tmp_path / "run",
+            balanced_min_margin_mm=190.0,
+        ),
         artifacts=artifacts,
         decision_interface={
             "schema_name": "direct_dual_beam_v2m_joint_material_decision_interface",
@@ -188,3 +224,6 @@ def test_producer_cli_prints_machine_readable_manifest(capsys, monkeypatch, tmp_
     assert payload["producer_name"] == PRODUCER_NAME
     assert payload["decision_schema_version"] == "v1"
     assert payload["artifacts"]["decision_json_path"].endswith(DECISION_JSON_FILENAME)
+    assert payload["producer_cli_overrides"] == {"balanced_min_margin_mm": 190.0}
+    assert payload["input_provenance"]["config"]["path"] == str(config_path.resolve())
+    assert payload["input_provenance"]["config"]["sha256"] is not None

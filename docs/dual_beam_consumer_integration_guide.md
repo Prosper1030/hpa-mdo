@@ -79,6 +79,11 @@ uv run python -m hpa_mdo.producer \
 - `decision_schema_name`
 - `decision_schema_version`
 - `decision_status`
+- `producer_cli_overrides`
+- `input_provenance.config`
+- `input_provenance.design_report`
+- `input_provenance.v2m_summary_json`
+- `input_provenance.output_dir`
 - `artifacts.output_dir`
 - `artifacts.report_path`
 - `artifacts.summary_json_path`
@@ -87,6 +92,9 @@ uv run python -m hpa_mdo.producer \
 - `design_statuses`
 
 consumer 可以 parse 這份 manifest，但正式 payload 仍然是 decision JSON 本身。
+
+其中 `input_provenance.*.sha256` 的目的是讓下游不只知道「用了哪個 path」，
+也能知道「當時那個 path 的內容指紋是什麼」，避免同一路徑後續被覆寫時無法追蹤。
 
 ## 3. 會輸出哪些檔案
 

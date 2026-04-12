@@ -62,6 +62,25 @@ def _resolve_history_dir(args_history_dir: str | None, output_dir: Path) -> Path
     return default_history_dir(output_dir)
 
 
+def _format_overrides(overrides: dict[str, object] | None) -> str:
+    if not overrides:
+        return "none"
+    return ", ".join(f"{key}={overrides[key]}" for key in sorted(overrides))
+
+
+def _format_source_label(source: object) -> str:
+    if not isinstance(source, dict):
+        return "n/a"
+    path_value = source.get("path")
+    sha_value = source.get("sha256")
+    if path_value is None:
+        return "n/a"
+    label = Path(str(path_value)).name
+    if sha_value is None:
+        return label
+    return f"{label}@{str(sha_value)[:8]}"
+
+
 def _run_mode(argv: list[str]) -> int:
     args = _build_run_arg_parser().parse_args(argv)
     config = AutoresearchPrimaryConfig(
@@ -118,6 +137,19 @@ def _run_mode(argv: list[str]) -> int:
     print(f"Decision JSON: {run.decision_json_path}")
     print(f"Decision JSON snapshot: {record.decision_json_snapshot_path}")
     print(f"Artifacts output dir: {run.config.output_dir}")
+    print(f"Run fingerprint: {record.run_fingerprint or 'n/a'}")
+    print(f"Producer overrides: {_format_overrides(record.producer_cli_overrides)}")
+    input_provenance = record.input_provenance or {}
+    print(f"Config provenance: {_format_source_label(input_provenance.get('config'))}")
+    print(f"Design report provenance: {_format_source_label(input_provenance.get('design_report'))}")
+    print(f"V2M summary provenance: {_format_source_label(input_provenance.get('v2m_summary_json'))}")
+    git_branch = record.git_branch or "n/a"
+    git_commit_hash = record.git_commit_hash or "n/a"
+    if record.git_worktree_dirty is None:
+        git_dirty = "n/a"
+    else:
+        git_dirty = "yes" if record.git_worktree_dirty else "no"
+    print(f"Git context: branch={git_branch} commit={git_commit_hash} dirty={git_dirty}")
     print(f"Run record: {latest_path}")
     print(f"Run ledger: {ledger_path}")
     print("Score rule: -Primary.mass_kg")

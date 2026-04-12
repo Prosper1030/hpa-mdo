@@ -12,6 +12,11 @@ import sys
 from types import ModuleType
 from typing import Any
 
+from hpa_mdo.provenance import (
+    build_joint_decision_cli_overrides,
+    build_joint_decision_input_provenance,
+)
+
 PRODUCER_NAME = "hpa_mdo.dual_beam_joint_decision"
 PRODUCER_INTERFACE_VERSION = "v1"
 INTERNAL_SEARCH_STRATEGY = "workflow"
@@ -107,6 +112,12 @@ class JointDecisionProducerRun:
             }
             for design in self.decision_interface.get("designs", [])
         ]
+        producer_cli_overrides = build_joint_decision_cli_overrides(
+            primary_margin_floor_mm=self.config.primary_margin_floor_mm,
+            balanced_min_margin_mm=self.config.balanced_min_margin_mm,
+            balanced_max_mass_delta_kg=self.config.balanced_max_mass_delta_kg,
+            conservative_mode=self.config.conservative_mode,
+        )
         return {
             "producer_name": self.producer_name,
             "producer_interface_version": self.producer_interface_version,
@@ -114,6 +125,17 @@ class JointDecisionProducerRun:
             "decision_schema_name": self.decision_interface.get("schema_name"),
             "decision_schema_version": self.decision_interface.get("schema_version"),
             "decision_status": self.decision_interface.get("status"),
+            "producer_cli_overrides": producer_cli_overrides,
+            "input_provenance": build_joint_decision_input_provenance(
+                config_path=self.config.config_path,
+                design_report_path=self.config.design_report_path,
+                v2m_summary_json_path=self.config.v2m_summary_json_path,
+                output_dir=self.config.output_dir,
+                primary_margin_floor_mm=self.config.primary_margin_floor_mm,
+                balanced_min_margin_mm=self.config.balanced_min_margin_mm,
+                balanced_max_mass_delta_kg=self.config.balanced_max_mass_delta_kg,
+                conservative_mode=self.config.conservative_mode,
+            ),
             "artifacts": self.artifacts.to_dict(),
             "design_statuses": design_statuses,
         }

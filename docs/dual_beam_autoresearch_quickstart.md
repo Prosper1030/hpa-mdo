@@ -51,6 +51,9 @@ consumer 會輸出：
 
 - producer command
 - decision schema / status
+- run fingerprint
+- input provenance 摘要
+- git context
 - Primary slot status
 - Primary fallback reason
 - Primary mass
@@ -118,6 +121,13 @@ uv run python -m hpa_mdo.autoresearch \
 - `decision_json_snapshot_path`
 - `decision_schema_name`
 - `decision_schema_version`
+- `producer_command`
+- `producer_cli_overrides`
+- `input_provenance`
+- `run_fingerprint`
+- `run_fingerprint_version`
+- `git_branch`
+- `git_worktree_dirty`
 - `git_commit_hash`
 
 格式選 JSONL，原因是：
@@ -125,6 +135,14 @@ uv run python -m hpa_mdo.autoresearch \
 - append 新 run 很便宜，不需要重寫整個 history
 - JSON 比 CSV / TSV 更適合 path、nullable 欄位與未來擴欄
 - 後續 batch / agent / app / reporting 可以逐行 parse
+
+其中 `input_provenance` 目前會穩定記：
+
+- `config.path` / `config.sha256`
+- `design_report.path` / `design_report.sha256`
+- `v2m_summary_json.path` / `v2m_summary_json.sha256`
+- `output_dir`
+- `producer_cli_overrides`
 
 ## 5. compare / summary
 
@@ -147,6 +165,10 @@ uv run python -m hpa_mdo.autoresearch summary \
 - 最近幾次 run
 - 成功 / 失敗數
 - 最好 score
+- governance version / fingerprint version
+- 每筆 run 的 `run_fingerprint`
+- 每筆 run 與前一次 run 的關鍵 provenance 差異
+- 哪些 run 屬於同一個 lineage
 - 每筆 run 的 primary mass / margin
 - 相對最佳 run 的 mass / margin 差值
 
@@ -158,6 +180,19 @@ uv run python -m hpa_mdo.autoresearch summary \
   --json-out /abs/path/to/autoresearch_summary.json
 ```
 
+`compare` 目前仍是 `summary` 的 alias，但輸出已經包含 traceability：
+
+- `recent_runs[].run_fingerprint`
+- `recent_runs[].same_lineage_run_count`
+- `recent_runs[].provenance_diff_vs_previous`
+- `lineage_groups[]`
+
+所以現在已經能回答：
+
+- 最近兩次 run 的輸入 lineage 是不是同一組
+- 只是 git commit 不同，還是真的 config / report / override 變了
+- 哪些 run 雖然分數不同，但其實 fingerprint 一樣
+
 ## 6. 第一版固定規則
 
 這版 consumer 故意很小，固定如下：
@@ -166,6 +201,7 @@ uv run python -m hpa_mdo.autoresearch summary \
 - 不讀 Balanced / Conservative 做評分
 - score 固定為 `-Primary.mass_kg`
 - 先檢查 `schema_name` / `schema_version`
+- `run_fingerprint` 只看輸入定義，不把 `output_dir` / `git_commit_hash` 算進去
 
 ## 7. 目前沒有做的事
 
@@ -176,5 +212,9 @@ uv run python -m hpa_mdo.autoresearch summary \
 - 多案例 orchestration
 - 自動 agent loop / commit loop
 - 更高階 reporting / ranking layer
+
+更完整的 lineage / governance 規則，請看：
+
+- [docs/autoresearch_experiment_governance_v1.md](</Volumes/Samsung SSD/hpa-mdo/docs/autoresearch_experiment_governance_v1.md>)
 
 如果之後要擴，也建議先保持 producer / consumer 邊界，再逐步疊上去。
