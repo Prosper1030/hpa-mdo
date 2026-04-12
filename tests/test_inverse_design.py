@@ -20,10 +20,13 @@ from hpa_mdo.structure.inverse_design import (
     write_shape_csv_from_template,
 )
 from hpa_mdo.aero.base import SpanwiseLoad
+from hpa_mdo.core import MaterialDB
 from scripts.direct_dual_beam_inverse_design import (
     CandidateArchive,
     InverseCandidate,
     LightweightLoadRefreshModel,
+    _clearance_risk_metrics,
+    _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
 )
 
@@ -67,6 +70,14 @@ class InverseDesignTests(unittest.TestCase):
             loaded_shape_twist_error_rms_deg=0.0,
             loaded_shape_normalized_error=0.0,
             loaded_shape_penalty_kg=0.0,
+            clearance_risk_score=0.0,
+            clearance_hotspot_count=0,
+            clearance_hotspot_mean_m=0.01,
+            clearance_penalty_kg=0.0,
+            active_wall_risk_score=0.0,
+            active_wall_tight_count=0,
+            active_wall_penalty_kg=0.0,
+            technically_clearance_fragile=False,
             objective_value_kg=mass_kg,
             target_shape_error_max_m=0.0,
             target_shape_error_rms_m=0.0,
@@ -86,6 +97,8 @@ class InverseDesignTests(unittest.TestCase):
             target_violation_score=violation,
             inverse_result=None,
             equivalent_result=None,
+            mainline_model=None,
+            production_result=None,
         )
 
     def test_build_frozen_load_inverse_design_backsolves_jig_shape_and_margins(self) -> None:
@@ -443,6 +456,101 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(lift_peak, 3.0)
         self.assertAlmostEqual(torque_rms, float(np.sqrt((1.0 + 4.0 + 9.0) / 3.0)))
         self.assertAlmostEqual(torque_peak, 3.0)
+
+    def test_clearance_risk_metrics_uses_top_hotspots_and_flags_fragility(self) -> None:
+        inverse_result = SimpleNamespace(
+            jig_shape=StructuralNodeShape(
+                main_nodes_m=np.array(
+                    [
+                        [0.0, 0.0, 0.0000],
+                        [0.0, 1.0, 0.0040],
+                        [0.0, 2.0, 0.0200],
+                    ],
+                    dtype=float,
+                ),
+                rear_nodes_m=np.array(
+                    [
+                        [1.0, 0.0, 0.0010],
+                        [1.0, 1.0, 0.0060],
+                        [1.0, 2.0, 0.0300],
+                    ],
+                    dtype=float,
+                ),
+            )
+        )
+
+        metrics = _clearance_risk_metrics(
+            inverse_result=inverse_result,
+            clearance_floor_z_m=0.0,
+            threshold_m=0.010,
+            top_k=4,
+        )
+
+        self.assertAlmostEqual(metrics.minimum_clearance_m, 0.0)
+        self.assertEqual(metrics.hotspot_count_below_threshold, 4)
+        self.assertTrue(metrics.fragile)
+        self.assertEqual(metrics.hotspots[0].spar, "main")
+        self.assertGreater(metrics.risk_score, 0.0)
+
+    def test_lift_wire_rigging_records_backsolve_cut_length_from_tension(self) -> None:
+        cfg = SimpleNamespace(
+            lift_wires=SimpleNamespace(
+                enabled=True,
+                cable_material="steel_4130",
+                cable_diameter=0.002,
+                max_tension_fraction=0.4,
+                wire_angle_deg=30.0,
+                attachments=(SimpleNamespace(label="wire-1", fuselage_z=-1.50),),
+            )
+        )
+        candidate = self._make_inverse_candidate(
+            mass_kg=25.0,
+            source="wire_case",
+            feasible=True,
+            violation=0.0,
+        )
+        candidate = InverseCandidate(
+            **{
+                **candidate.__dict__,
+                "mainline_model": SimpleNamespace(
+                    wire_node_indices=(1,),
+                    nodes_main_m=np.array(
+                        [
+                            [0.0, 0.0, 0.0],
+                            [0.5, 7.5, 1.0],
+                        ],
+                        dtype=float,
+                    ),
+                    y_nodes_m=np.array([0.0, 7.5], dtype=float),
+                ),
+                "production_result": SimpleNamespace(
+                    disp_main_m=np.array(
+                        [
+                            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.1, 0.0, 0.2, 0.0, 0.0, 0.0],
+                        ],
+                        dtype=float,
+                    ),
+                    reactions=SimpleNamespace(
+                        wire_reactions_n=np.array([100.0], dtype=float),
+                    ),
+                ),
+            }
+        )
+
+        records = _lift_wire_rigging_records(
+            candidate=candidate,
+            cfg=cfg,
+            materials_db=MaterialDB(),
+        )
+
+        self.assertEqual(len(records), 1)
+        record = records[0]
+        self.assertEqual(record.identifier, "wire-1")
+        self.assertAlmostEqual(record.tension_force_n, 200.0, places=6)
+        self.assertGreater(record.L_flight_m, record.L_cut_m)
+        self.assertAlmostEqual(record.delta_L_m, record.L_flight_m - record.L_cut_m, places=12)
+        self.assertGreater(record.tension_margin_n, 0.0)
 
     def test_candidate_archive_local_refine_starts_prioritizes_feasible_then_near_feasible(self) -> None:
         archive = CandidateArchive()

@@ -47,6 +47,7 @@ from scripts.direct_dual_beam_v2 import (
     HARD_MARGIN_NAMES,
     BaselineDesign,
     ReducedMapConfig,
+    SCALE_NAMES,
     build_candidate_hard_margins,
     build_reduced_map_config,
     decode_reduced_variables,
@@ -58,6 +59,16 @@ from scripts.direct_dual_beam_v2 import (
 FAILED_MASS_KG = 1.0e12
 FAILED_MARGIN = -1.0e3
 ALL_MARGIN_NAMES = HARD_MARGIN_NAMES + INVERSE_MARGIN_NAMES
+CLEARANCE_RISK_WALL_NAMES = (
+    "rear_thickness_step_margin_min_m",
+    "main_radius_taper_margin_min_m",
+    "rear_radius_taper_margin_min_m",
+)
+CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME = {
+    "rear_thickness_step_margin_min_m": 0.25e-3,
+    "main_radius_taper_margin_min_m": 0.50e-3,
+    "rear_radius_taper_margin_min_m": 0.50e-3,
+}
 
 
 @dataclass(frozen=True)
@@ -89,6 +100,14 @@ class InverseCandidate:
     loaded_shape_twist_error_rms_deg: float
     loaded_shape_normalized_error: float
     loaded_shape_penalty_kg: float
+    clearance_risk_score: float
+    clearance_hotspot_count: int
+    clearance_hotspot_mean_m: float
+    clearance_penalty_kg: float
+    active_wall_risk_score: float
+    active_wall_tight_count: int
+    active_wall_penalty_kg: float
+    technically_clearance_fragile: bool
     objective_value_kg: float
     target_shape_error_max_m: float
     target_shape_error_rms_m: float
@@ -108,6 +127,8 @@ class InverseCandidate:
     target_violation_score: float
     inverse_result: object | None = field(default=None, repr=False)
     equivalent_result: OptimizationResult | None = field(default=None, repr=False)
+    mainline_model: object | None = field(default=None, repr=False)
+    production_result: object | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -263,6 +284,72 @@ class ArtifactBundle:
     jig_step_path: str | None
     step_engine: str | None
     step_error: str | None
+    diagnostics_json: str | None = None
+    wire_rigging_json: str | None = None
+
+
+@dataclass(frozen=True)
+class ClearanceHotspot:
+    rank: int
+    spar: str
+    side: str
+    node_index: int
+    y_m: float
+    z_m: float
+    clearance_m: float
+
+
+@dataclass(frozen=True)
+class ClearanceRiskMetrics:
+    threshold_m: float
+    top_k: int
+    minimum_clearance_m: float
+    hotspot_mean_clearance_m: float
+    hotspot_count_below_threshold: int
+    risk_score: float
+    fragile: bool
+    hotspots: tuple[ClearanceHotspot, ...]
+
+
+@dataclass(frozen=True)
+class ActiveWallEntry:
+    name: str
+    category: str
+    margin: float
+    buffer: float
+    risk_score: float
+    location: str
+    boundary_state: str
+    detail: str
+
+
+@dataclass(frozen=True)
+class ActiveWallDiagnostics:
+    principal_bottleneck: str
+    primary_driver: str
+    active_wall_risk_score: float
+    tight_wall_count: int
+    geometry_walls: tuple[ActiveWallEntry, ...]
+    reduced_variable_bounds: tuple[ActiveWallEntry, ...]
+    lighten_probes: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
+class LiftWireRiggingRecord:
+    identifier: str
+    side: str
+    attach_node_index: int
+    attach_y_m: float
+    attach_point_loaded_m: tuple[float, float, float]
+    anchor_point_m: tuple[float, float, float]
+    L_flight_m: float
+    delta_L_m: float
+    L_cut_m: float
+    tension_force_n: float
+    vertical_reaction_n: float
+    allowable_tension_n: float | None
+    tension_margin_n: float | None
+    attach_label: str
 
 
 @dataclass(frozen=True)
@@ -290,6 +377,7 @@ class InverseOutcome:
     coarse_target_feasible_count: int
     selected: InverseCandidate
     local_refine: LocalRefineSummary | None
+    active_wall_diagnostics: ActiveWallDiagnostics | None
     manufacturing_limit_source: str
     max_jig_vertical_prebend_limit_m: float | None
     max_jig_vertical_curvature_limit_per_m: float | None
@@ -393,31 +481,283 @@ def _fmt_array_mm(values_m: np.ndarray) -> str:
     return "[" + ", ".join(f"{value:.3f}" for value in values_mm) + "]"
 
 
-def _feasible_key(candidate: InverseCandidate) -> tuple[float, float, float, float]:
-    return (
-        float(candidate.total_structural_mass_kg),
-        float(candidate.loaded_shape_normalized_error),
-        float(candidate.max_jig_vertical_prebend_m),
-        float(candidate.max_jig_vertical_curvature_per_m),
+def _clearance_hotspots(
+    *,
+    inverse_result,
+    clearance_floor_z_m: float,
+    top_k: int,
+) -> tuple[ClearanceHotspot, ...]:
+    jig_shape = inverse_result.jig_shape
+    rows: list[tuple[str, int, float, float, float]] = []
+    for spar, nodes in (("main", jig_shape.main_nodes_m), ("rear", jig_shape.rear_nodes_m)):
+        for idx, node in enumerate(np.asarray(nodes, dtype=float)):
+            rows.append(
+                (
+                    spar,
+                    int(idx),
+                    float(node[1]),
+                    float(node[2]),
+                    float(node[2] - clearance_floor_z_m),
+                )
+            )
+    rows.sort(key=lambda item: (item[4], item[2], item[0], item[1]))
+    return tuple(
+        ClearanceHotspot(
+            rank=rank,
+            spar=spar,
+            side="positive_half_span",
+            node_index=node_index,
+            y_m=y_m,
+            z_m=z_m,
+            clearance_m=clearance_m,
+        )
+        for rank, (spar, node_index, y_m, z_m, clearance_m) in enumerate(rows[: max(1, int(top_k))], start=1)
     )
 
 
-def _violation_key(candidate: InverseCandidate) -> tuple[float, float, float, float]:
+def _clearance_risk_metrics(
+    *,
+    inverse_result,
+    clearance_floor_z_m: float,
+    threshold_m: float,
+    top_k: int,
+) -> ClearanceRiskMetrics:
+    hotspots = _clearance_hotspots(
+        inverse_result=inverse_result,
+        clearance_floor_z_m=clearance_floor_z_m,
+        top_k=top_k,
+    )
+    clearances = np.asarray([hotspot.clearance_m for hotspot in hotspots], dtype=float)
+    if clearances.size == 0:
+        clearances = np.zeros(1, dtype=float)
+    threshold = max(float(threshold_m), 1.0e-9)
+    deficits = np.maximum(threshold - clearances, 0.0) / threshold
+    risk_score = float(np.mean(np.square(deficits)))
+    hotspot_count = int(np.sum(clearances <= threshold + 1.0e-12))
+    minimum_clearance_m = float(np.min(clearances))
+    hotspot_mean_clearance_m = float(np.mean(clearances))
+    fragile = bool(minimum_clearance_m <= 1.0e-3 or risk_score >= 0.25)
+    return ClearanceRiskMetrics(
+        threshold_m=threshold,
+        top_k=max(1, int(top_k)),
+        minimum_clearance_m=minimum_clearance_m,
+        hotspot_mean_clearance_m=hotspot_mean_clearance_m,
+        hotspot_count_below_threshold=hotspot_count,
+        risk_score=risk_score,
+        fragile=fragile,
+        hotspots=hotspots,
+    )
+
+
+def _active_wall_risk_score(hard_margins: dict[str, float]) -> tuple[float, int]:
+    risks: list[float] = []
+    tight_count = 0
+    for name in CLEARANCE_RISK_WALL_NAMES:
+        buffer = float(CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME[name])
+        margin = float(hard_margins.get(name, float("inf")))
+        deficit = max(buffer - margin, 0.0) / max(buffer, 1.0e-12)
+        risk = float(deficit * deficit)
+        risks.append(risk)
+        if margin <= buffer + 1.0e-12:
+            tight_count += 1
+    if not risks:
+        return 0.0, 0
+    return float(np.mean(risks)), int(tight_count)
+
+
+def _risk_level(boundary_margin: float, buffer: float) -> str:
+    if boundary_margin < -1.0e-12:
+        return "violated"
+    if boundary_margin <= buffer + 1.0e-12:
+        return "active"
+    return "inactive"
+
+
+def _segment_ranges_m(segments: list[float] | tuple[float, ...]) -> list[tuple[float, float]]:
+    ranges: list[tuple[float, float]] = []
+    start = 0.0
+    for length in segments:
+        end = start + float(length)
+        ranges.append((start, end))
+        start = end
+    return ranges
+
+
+def _geometry_wall_entries(candidate: InverseCandidate, cfg) -> tuple[ActiveWallEntry, ...]:
+    entries: list[ActiveWallEntry] = []
+    main_ranges = _segment_ranges_m(list(cfg.main_spar.segments or []))
+    rear_ranges = _segment_ranges_m(list(cfg.rear_spar.segments or []))
+
+    def _append_step(values: np.ndarray, *, name: str, label: str, ranges: list[tuple[float, float]]) -> None:
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        if arr.size < 2:
+            return
+        steps = np.abs(np.diff(arr))
+        margins = float(cfg.solver.max_thickness_step_m) - steps
+        idx = int(np.argmin(margins))
+        y_loc = ranges[idx][1] if idx < len(ranges) else float(idx + 1)
+        entries.append(
+            ActiveWallEntry(
+                name=name,
+                category="geometry / discrete boundary",
+                margin=float(margins[idx]),
+                buffer=float(CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME.get(name, 0.25e-3)),
+                risk_score=float(
+                    (max(CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME.get(name, 0.25e-3) - float(margins[idx]), 0.0)
+                    / max(CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME.get(name, 0.25e-3), 1.0e-12)) ** 2
+                ),
+                location=f"interface {idx + 1}->{idx + 2} @ y={y_loc:.3f} m",
+                boundary_state="upper_bound",
+                detail=(
+                    f"{label} |Δ|={steps[idx] * 1000.0:.3f} mm "
+                    f"(limit={float(cfg.solver.max_thickness_step_m) * 1000.0:.3f} mm)"
+                ),
+            )
+        )
+
+    def _append_taper(values: np.ndarray, *, name: str, label: str, ranges: list[tuple[float, float]]) -> None:
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        if arr.size < 2:
+            return
+        diffs = arr[:-1] - arr[1:]
+        idx = int(np.argmin(diffs))
+        y_loc = ranges[idx][1] if idx < len(ranges) else float(idx + 1)
+        buffer = float(CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME.get(name, 0.50e-3))
+        entries.append(
+            ActiveWallEntry(
+                name=name,
+                category="geometry / discrete boundary",
+                margin=float(diffs[idx]),
+                buffer=buffer,
+                risk_score=float((max(buffer - float(diffs[idx]), 0.0) / max(buffer, 1.0e-12)) ** 2),
+                location=f"interface {idx + 1}->{idx + 2} @ y={y_loc:.3f} m",
+                boundary_state="equality_wall",
+                detail=f"{label} inboard={arr[idx] * 1000.0:.3f} mm outboard={arr[idx + 1] * 1000.0:.3f} mm",
+            )
+        )
+
+    def _append_segment_margin(values: np.ndarray, *, name: str, label: str, ranges: list[tuple[float, float]], buffer: float, detail_fn) -> None:
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        idx = int(np.argmin(arr))
+        y0, y1 = ranges[idx] if idx < len(ranges) else (float(idx), float(idx + 1))
+        entries.append(
+            ActiveWallEntry(
+                name=name,
+                category="geometry / discrete boundary",
+                margin=float(arr[idx]),
+                buffer=float(buffer),
+                risk_score=float((max(float(buffer) - float(arr[idx]), 0.0) / max(float(buffer), 1.0e-12)) ** 2),
+                location=f"segment {idx + 1} @ y={y0:.3f}..{y1:.3f} m",
+                boundary_state="lower_bound",
+                detail=str(detail_fn(idx)),
+            )
+        )
+
+    _append_taper(candidate.main_r_seg_m, name="main_radius_taper_margin_min_m", label="main radius taper", ranges=main_ranges)
+    _append_taper(candidate.rear_r_seg_m, name="rear_radius_taper_margin_min_m", label="rear radius taper", ranges=rear_ranges)
+    _append_step(candidate.main_t_seg_m, name="main_thickness_step_margin_min_m", label="main thickness step", ranges=main_ranges)
+    _append_step(candidate.rear_t_seg_m, name="rear_thickness_step_margin_min_m", label="rear thickness step", ranges=rear_ranges)
+
+    dominance_margin = (
+        np.asarray(candidate.main_r_seg_m, dtype=float)
+        - np.asarray(candidate.rear_r_seg_m, dtype=float)
+        - float(cfg.solver.main_spar_dominance_margin_m)
+    )
+    _append_segment_margin(
+        dominance_margin,
+        name="radius_dominance_margin_min_m",
+        label="main vs rear radius dominance",
+        ranges=main_ranges,
+        buffer=1.0e-3,
+        detail_fn=lambda idx: (
+            f"main_r={candidate.main_r_seg_m[idx] * 1000.0:.3f} mm rear_r={candidate.rear_r_seg_m[idx] * 1000.0:.3f} mm "
+            f"(required gap={float(cfg.solver.main_spar_dominance_margin_m) * 1000.0:.3f} mm)"
+        ),
+    )
+    if float(cfg.solver.rear_main_radius_ratio_min) > 0.0:
+        ratio_margin = (
+            np.asarray(candidate.rear_r_seg_m, dtype=float)
+            - float(cfg.solver.rear_main_radius_ratio_min) * np.asarray(candidate.main_r_seg_m, dtype=float)
+        )
+        _append_segment_margin(
+            ratio_margin,
+            name="rear_main_radius_ratio_margin_min_m",
+            label="rear/main radius ratio",
+            ranges=rear_ranges,
+            buffer=0.5e-3,
+            detail_fn=lambda idx: (
+                f"rear_r={candidate.rear_r_seg_m[idx] * 1000.0:.3f} mm "
+                f"ratio*main={float(cfg.solver.rear_main_radius_ratio_min) * candidate.main_r_seg_m[idx] * 1000.0:.3f} mm"
+            ),
+        )
+    return tuple(sorted(entries, key=lambda entry: (entry.margin, entry.risk_score)))
+
+
+def _reduced_variable_bound_entries(candidate: InverseCandidate) -> tuple[ActiveWallEntry, ...]:
+    entries: list[ActiveWallEntry] = []
+    z_arr = np.asarray(candidate.z, dtype=float).reshape(-1)
+    for idx, (name, value) in enumerate(zip(SCALE_NAMES, z_arr, strict=True)):
+        lower_margin = float(value)
+        upper_margin = float(1.0 - value)
+        if lower_margin <= upper_margin:
+            margin = lower_margin
+            boundary_state = "lower_bound"
+        else:
+            margin = upper_margin
+            boundary_state = "upper_bound"
+        buffer = 0.05
+        entries.append(
+            ActiveWallEntry(
+                name=name,
+                category="reduced variable bound",
+                margin=margin,
+                buffer=buffer,
+                risk_score=float((max(buffer - margin, 0.0) / buffer) ** 2),
+                location=f"z[{idx}]",
+                boundary_state=boundary_state,
+                detail=f"value={value:.6f}  lower_margin={lower_margin:.6f}  upper_margin={upper_margin:.6f}",
+            )
+        )
+    return tuple(sorted(entries, key=lambda entry: (entry.margin, entry.risk_score)))
+
+
+def _dominant_blocker_name(candidate: InverseCandidate) -> str:
+    if candidate.failures:
+        return str(candidate.failures[0])
+    if not candidate.hard_margins:
+        return "none"
+    return str(min(candidate.hard_margins.items(), key=lambda item: float(item[1]))[0])
+
+
+def _feasible_key(candidate: InverseCandidate) -> tuple[float, float, float, float, float]:
+    return (
+        float(candidate.objective_value_kg),
+        float(candidate.total_structural_mass_kg),
+        float(candidate.clearance_risk_score),
+        float(candidate.active_wall_risk_score),
+        float(candidate.max_jig_vertical_prebend_m),
+    )
+
+
+def _violation_key(candidate: InverseCandidate) -> tuple[float, float, float, float, float]:
     return (
         float(candidate.hard_violation_score),
+        float(candidate.objective_value_kg),
         float(candidate.total_structural_mass_kg),
-        float(candidate.loaded_shape_normalized_error),
+        float(candidate.clearance_risk_score),
+        float(candidate.active_wall_risk_score),
         float(candidate.max_jig_vertical_prebend_m),
     )
 
 
-def _target_violation_key(candidate: InverseCandidate) -> tuple[float, float, float, float]:
+def _target_violation_key(candidate: InverseCandidate) -> tuple[float, float, float, float, float]:
     overshoot_kg = max(-float(candidate.mass_margin_kg), 0.0)
     return (
         float(candidate.target_violation_score),
         float(overshoot_kg),
-        float(candidate.total_structural_mass_kg),
-        float(candidate.loaded_shape_normalized_error),
+        float(candidate.objective_value_kg),
+        float(candidate.clearance_risk_score),
+        float(candidate.active_wall_risk_score),
     )
 
 
@@ -656,6 +996,10 @@ class InverseDesignEvaluator:
         loaded_shape_main_z_tol_m: float,
         loaded_shape_twist_tol_deg: float,
         loaded_shape_penalty_weight_kg: float,
+        clearance_risk_threshold_m: float,
+        clearance_risk_top_k: int,
+        clearance_penalty_weight_kg: float,
+        active_wall_penalty_weight_kg: float,
         target_mass_kg: float | None = None,
     ):
         self.cfg = cfg
@@ -676,6 +1020,10 @@ class InverseDesignEvaluator:
         self.loaded_shape_main_z_tol_m = float(loaded_shape_main_z_tol_m)
         self.loaded_shape_twist_tol_deg = float(loaded_shape_twist_tol_deg)
         self.loaded_shape_penalty_weight_kg = float(loaded_shape_penalty_weight_kg)
+        self.clearance_risk_threshold_m = float(clearance_risk_threshold_m)
+        self.clearance_risk_top_k = int(clearance_risk_top_k)
+        self.clearance_penalty_weight_kg = float(clearance_penalty_weight_kg)
+        self.active_wall_penalty_weight_kg = float(active_wall_penalty_weight_kg)
         self.target_mass_kg = None if target_mass_kg is None else float(target_mass_kg)
         self.archive = CandidateArchive(target_mass_kg=self.target_mass_kg)
         self._cache: dict[tuple[float, ...], InverseCandidate] = {}
@@ -762,11 +1110,25 @@ class InverseDesignEvaluator:
                 target_mass_kg=self.target_mass_kg,
             )
             overall_target_feasible = bool(inverse.feasibility.overall_feasible and target_mass_passed)
+            clearance_risk = _clearance_risk_metrics(
+                inverse_result=inverse,
+                clearance_floor_z_m=self.clearance_floor_z_m,
+                threshold_m=self.clearance_risk_threshold_m,
+                top_k=self.clearance_risk_top_k,
+            )
+            active_wall_risk_score, active_wall_tight_count = _active_wall_risk_score(hard_margins)
             loaded_shape_penalty_kg = float(
                 self.loaded_shape_penalty_weight_kg * inverse.loaded_shape_match.normalized_rms_error
             )
+            clearance_penalty_kg = float(self.clearance_penalty_weight_kg * clearance_risk.risk_score)
+            active_wall_penalty_kg = float(
+                self.active_wall_penalty_weight_kg * active_wall_risk_score
+            )
             objective_value_kg = float(
-                production.recovery.total_structural_mass_full_kg + loaded_shape_penalty_kg
+                production.recovery.total_structural_mass_full_kg
+                + loaded_shape_penalty_kg
+                + clearance_penalty_kg
+                + active_wall_penalty_kg
             )
 
             finite_scalars = [
@@ -782,6 +1144,11 @@ class InverseDesignEvaluator:
                 float(inverse.loaded_shape_match.twist_rms_error_deg),
                 float(inverse.loaded_shape_match.normalized_rms_error),
                 float(loaded_shape_penalty_kg),
+                float(clearance_risk.risk_score),
+                float(clearance_risk.hotspot_mean_clearance_m),
+                float(clearance_penalty_kg),
+                float(active_wall_risk_score),
+                float(active_wall_penalty_kg),
                 float(objective_value_kg),
                 float(inverse.target_shape_error.max_abs_error_m),
                 float(inverse.target_shape_error.rms_error_m),
@@ -822,6 +1189,14 @@ class InverseDesignEvaluator:
                 loaded_shape_twist_error_rms_deg=float(inverse.loaded_shape_match.twist_rms_error_deg),
                 loaded_shape_normalized_error=float(inverse.loaded_shape_match.normalized_rms_error),
                 loaded_shape_penalty_kg=float(loaded_shape_penalty_kg),
+                clearance_risk_score=float(clearance_risk.risk_score),
+                clearance_hotspot_count=int(clearance_risk.hotspot_count_below_threshold),
+                clearance_hotspot_mean_m=float(clearance_risk.hotspot_mean_clearance_m),
+                clearance_penalty_kg=float(clearance_penalty_kg),
+                active_wall_risk_score=float(active_wall_risk_score),
+                active_wall_tight_count=int(active_wall_tight_count),
+                active_wall_penalty_kg=float(active_wall_penalty_kg),
+                technically_clearance_fragile=bool(clearance_risk.fragile),
                 objective_value_kg=float(objective_value_kg),
                 target_shape_error_max_m=float(inverse.target_shape_error.max_abs_error_m),
                 target_shape_error_rms_m=float(inverse.target_shape_error.rms_error_m),
@@ -841,6 +1216,8 @@ class InverseDesignEvaluator:
                 target_violation_score=float(target_violation_score),
                 inverse_result=inverse,
                 equivalent_result=eq_result,
+                mainline_model=model,
+                production_result=production,
             )
         except Exception as exc:  # pragma: no cover - runtime failure guard
             hard_margins = {name: FAILED_MARGIN for name in ALL_MARGIN_NAMES}
@@ -877,6 +1254,14 @@ class InverseDesignEvaluator:
                 loaded_shape_twist_error_rms_deg=float("inf"),
                 loaded_shape_normalized_error=float("inf"),
                 loaded_shape_penalty_kg=float("inf"),
+                clearance_risk_score=float("inf"),
+                clearance_hotspot_count=0,
+                clearance_hotspot_mean_m=float("-inf"),
+                clearance_penalty_kg=float("inf"),
+                active_wall_risk_score=float("inf"),
+                active_wall_tight_count=0,
+                active_wall_penalty_kg=float("inf"),
+                technically_clearance_fragile=False,
                 objective_value_kg=FAILED_MASS_KG,
                 target_shape_error_max_m=float("inf"),
                 target_shape_error_rms_m=float("inf"),
@@ -896,6 +1281,8 @@ class InverseDesignEvaluator:
                 target_violation_score=float("inf"),
                 inverse_result=None,
                 equivalent_result=None,
+                mainline_model=None,
+                production_result=None,
             )
 
         self.unique_evaluations += 1
@@ -1124,7 +1511,16 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
     target_shape = None
     jig_shape = None
     predicted_loaded_shape = None
+    clearance_hotspots = None
     if inverse is not None:
+        clearance_hotspots = [
+            asdict(hotspot)
+            for hotspot in _clearance_hotspots(
+                inverse_result=inverse,
+                clearance_floor_z_m=float(inverse.ground_clearance.clearance_floor_z_m),
+                top_k=5,
+            )
+        ]
         feasibility_report = {
             "analysis_succeeded": inverse.feasibility.analysis_succeeded,
             "geometry_validity_passed": inverse.feasibility.geometry_validity_passed,
@@ -1172,6 +1568,14 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "loaded_shape_twist_error_rms_deg": candidate.loaded_shape_twist_error_rms_deg,
         "loaded_shape_normalized_error": candidate.loaded_shape_normalized_error,
         "loaded_shape_penalty_kg": candidate.loaded_shape_penalty_kg,
+        "clearance_risk_score": candidate.clearance_risk_score,
+        "clearance_hotspot_count": candidate.clearance_hotspot_count,
+        "clearance_hotspot_mean_m": candidate.clearance_hotspot_mean_m,
+        "clearance_penalty_kg": candidate.clearance_penalty_kg,
+        "active_wall_risk_score": candidate.active_wall_risk_score,
+        "active_wall_tight_count": candidate.active_wall_tight_count,
+        "active_wall_penalty_kg": candidate.active_wall_penalty_kg,
+        "technically_clearance_fragile": candidate.technically_clearance_fragile,
         "objective_value_kg": candidate.objective_value_kg,
         "target_shape_error_max_m": candidate.target_shape_error_max_m,
         "target_shape_error_rms_m": candidate.target_shape_error_rms_m,
@@ -1189,6 +1593,7 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "hard_violation_score": candidate.hard_violation_score,
         "target_violation_score": candidate.target_violation_score,
         "hard_margins": {key: float(value) for key, value in candidate.hard_margins.items()},
+        "clearance_hotspots": clearance_hotspots,
         "design_mm": {
             "main_t": [float(value * 1000.0) for value in candidate.main_t_seg_m],
             "main_r": [float(value * 1000.0) for value in candidate.main_r_seg_m],
@@ -1200,6 +1605,148 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "predicted_loaded_shape": predicted_loaded_shape,
         "feasibility_report": feasibility_report,
     }
+
+
+def _build_lighten_probe_diagnostics(
+    *,
+    evaluator: InverseDesignEvaluator,
+    selected: InverseCandidate,
+    step_size: float = 0.03,
+) -> tuple[dict[str, object], ...]:
+    probes: list[dict[str, object]] = []
+    z_base = np.asarray(selected.z, dtype=float).reshape(-1)
+    for idx, name in enumerate(SCALE_NAMES):
+        candidates: list[InverseCandidate] = []
+        for direction, delta in (("minus", -float(step_size)), ("plus", float(step_size))):
+            z_try = z_base.copy()
+            z_try[idx] = np.clip(z_try[idx] + delta, 0.0, 1.0)
+            if np.max(np.abs(z_try - z_base)) < 1.0e-12:
+                continue
+            candidates.append(evaluator.evaluate(z_try, source=f"probe:{name}:{direction}"))
+        if not candidates:
+            continue
+        lighter = min(candidates, key=lambda cand: float(cand.total_structural_mass_kg))
+        probes.append(
+            {
+                "variable": name,
+                "selected_z": float(z_base[idx]),
+                "trial_z": float(lighter.z[idx]),
+                "mass_delta_kg": float(lighter.total_structural_mass_kg - selected.total_structural_mass_kg),
+                "clearance_delta_m": float(lighter.jig_ground_clearance_min_m - selected.jig_ground_clearance_min_m),
+                "failure_delta": float(lighter.equivalent_failure_index - selected.equivalent_failure_index),
+                "buckling_delta": float(lighter.equivalent_buckling_index - selected.equivalent_buckling_index),
+                "dominant_blocker": _dominant_blocker_name(lighter),
+                "dominant_blocker_margin": float(
+                    min(lighter.hard_margins.items(), key=lambda item: float(item[1]))[1]
+                ),
+                "overall_feasible": bool(lighter.overall_feasible),
+                "target_mass_passed": bool(lighter.target_mass_passed),
+                "clearance_risk_score": float(lighter.clearance_risk_score),
+            }
+        )
+    return tuple(sorted(probes, key=lambda item: (item["mass_delta_kg"], item["dominant_blocker"])))
+
+
+def _active_wall_diagnostics_for_candidate(
+    *,
+    candidate: InverseCandidate,
+    cfg,
+    lighten_probes: tuple[dict[str, object], ...],
+) -> ActiveWallDiagnostics:
+    geometry_walls = _geometry_wall_entries(candidate, cfg)
+    reduced_bounds = _reduced_variable_bound_entries(candidate)
+    blocker_counts: dict[str, int] = {}
+    for probe in lighten_probes:
+        blocker = str(probe["dominant_blocker"])
+        blocker_counts[blocker] = blocker_counts.get(blocker, 0) + 1
+    principal_bottleneck = (
+        max(blocker_counts.items(), key=lambda item: item[1])[0]
+        if blocker_counts
+        else _dominant_blocker_name(candidate)
+    )
+    if candidate.jig_ground_clearance_min_m <= 1.0e-6:
+        primary_driver = "ground clearance"
+    elif geometry_walls:
+        primary_driver = geometry_walls[0].name
+    else:
+        primary_driver = principal_bottleneck
+    return ActiveWallDiagnostics(
+        principal_bottleneck=str(principal_bottleneck),
+        primary_driver=str(primary_driver),
+        active_wall_risk_score=float(candidate.active_wall_risk_score),
+        tight_wall_count=int(candidate.active_wall_tight_count),
+        geometry_walls=geometry_walls,
+        reduced_variable_bounds=reduced_bounds,
+        lighten_probes=lighten_probes,
+    )
+
+
+def _lift_wire_rigging_records(
+    *,
+    candidate: InverseCandidate,
+    cfg,
+    materials_db: MaterialDB,
+) -> tuple[LiftWireRiggingRecord, ...]:
+    if candidate.mainline_model is None or candidate.production_result is None:
+        return ()
+    if not (cfg.lift_wires.enabled and cfg.lift_wires.attachments):
+        return ()
+
+    model = candidate.mainline_model
+    result = candidate.production_result
+    wire_node_indices = tuple(int(idx) for idx in getattr(model, "wire_node_indices", ()))
+    if not wire_node_indices:
+        return ()
+
+    wire_material = materials_db.get(cfg.lift_wires.cable_material)
+    theta = np.deg2rad(float(cfg.lift_wires.wire_angle_deg))
+    sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
+    cable_area_m2 = float(np.pi * (0.5 * float(cfg.lift_wires.cable_diameter)) ** 2)
+    allowable_tension_n = (
+        float(cfg.lift_wires.max_tension_fraction) * float(wire_material.tensile_strength) * cable_area_m2
+    )
+
+    records: list[LiftWireRiggingRecord] = []
+    for att, node_index, vertical_reaction_n in zip(
+        cfg.lift_wires.attachments,
+        wire_node_indices,
+        np.asarray(result.reactions.wire_reactions_n, dtype=float),
+        strict=True,
+    ):
+        loaded_attach = np.asarray(model.nodes_main_m[node_index], dtype=float) + np.asarray(
+            result.disp_main_m[node_index, :3],
+            dtype=float,
+        )
+        anchor = np.array(
+            [
+                float(model.nodes_main_m[node_index, 0]),
+                0.0,
+                float(att.fuselage_z),
+            ],
+            dtype=float,
+        )
+        L_flight_m = float(np.linalg.norm(loaded_attach - anchor))
+        tension_force_n = float(abs(vertical_reaction_n) / sin_theta)
+        delta_L_m = float(tension_force_n * L_flight_m / max(cable_area_m2 * float(wire_material.E), 1.0e-12))
+        records.append(
+            LiftWireRiggingRecord(
+                identifier=str(att.label or f"wire-{len(records) + 1}"),
+                side="positive_half_span",
+                attach_node_index=int(node_index),
+                attach_y_m=float(model.y_nodes_m[node_index]),
+                attach_point_loaded_m=tuple(float(value) for value in loaded_attach),
+                anchor_point_m=tuple(float(value) for value in anchor),
+                L_flight_m=L_flight_m,
+                delta_L_m=delta_L_m,
+                L_cut_m=float(L_flight_m - delta_L_m),
+                tension_force_n=tension_force_n,
+                vertical_reaction_n=float(vertical_reaction_n),
+                allowable_tension_n=float(allowable_tension_n),
+                tension_margin_n=float(allowable_tension_n - tension_force_n),
+                attach_label=str(att.label or ""),
+            )
+        )
+    return tuple(records)
 
 
 def build_report_text(
@@ -1441,6 +1988,9 @@ def build_summary_json(
             "coarse_target_feasible_count": outcome.coarse_target_feasible_count,
             "selected": candidate_to_summary_dict(outcome.selected),
             "local_refine": None if outcome.local_refine is None else asdict(outcome.local_refine),
+            "active_wall_diagnostics": (
+                None if outcome.active_wall_diagnostics is None else asdict(outcome.active_wall_diagnostics)
+            ),
         },
         "artifacts": None if outcome.artifacts is None else asdict(outcome.artifacts),
     }
@@ -1480,6 +2030,11 @@ def _build_refresh_iteration_summary(iteration: RefreshIterationResult) -> dict[
             ),
             "coarse_selected": candidate_to_summary_dict(iteration.outcome.coarse_selected),
             "local_refine": None if iteration.outcome.local_refine is None else asdict(iteration.outcome.local_refine),
+            "active_wall_diagnostics": (
+                None
+                if iteration.outcome.active_wall_diagnostics is None
+                else asdict(iteration.outcome.active_wall_diagnostics)
+            ),
         },
         "selected": candidate_to_summary_dict(selected),
         "forward_check": None if iteration.forward_check is None else asdict(iteration.forward_check),
@@ -1617,6 +2172,14 @@ def build_refresh_report_text(
         lines.append(f"  nodewise mismatch rms       : {_mm(selected.target_shape_error_rms_m):11.6f} mm")
         lines.append(f"  loaded-shape penalty        : {selected.loaded_shape_penalty_kg:11.6f} kg")
         lines.append(f"  jig min ground clearance    : {_mm(selected.jig_ground_clearance_min_m):11.3f} mm")
+        lines.append(f"  clearance risk score        : {selected.clearance_risk_score:11.6f}")
+        lines.append(f"  clearance hotspot count     : {selected.clearance_hotspot_count:11d}")
+        lines.append(f"  hotspot mean clearance      : {_mm(selected.clearance_hotspot_mean_m):11.3f} mm")
+        lines.append(f"  clearance penalty           : {selected.clearance_penalty_kg:11.6f} kg")
+        lines.append(f"  active-wall risk score      : {selected.active_wall_risk_score:11.6f}")
+        lines.append(f"  active-wall tight count     : {selected.active_wall_tight_count:11d}")
+        lines.append(f"  active-wall penalty         : {selected.active_wall_penalty_kg:11.6f} kg")
+        lines.append(f"  clearance fragile           : {selected.technically_clearance_fragile}")
         lines.append(f"  max jig prebend             : {_mm(selected.max_jig_vertical_prebend_m):11.3f} mm")
         lines.append(f"  max jig curvature           : {selected.max_jig_vertical_curvature_per_m:11.6f} 1/m")
         lines.append(f"  equivalent failure          : {selected.equivalent_failure_index:11.6f}")
@@ -1702,11 +2265,58 @@ def build_refresh_report_text(
             lines.append(f"    torque max abs            : {iteration.torque_max_abs_delta_nmpm:11.3f} N*m/m")
         lines.append("")
 
+    selected = final_iteration.outcome.selected
+    hotspots = ()
+    if selected.inverse_result is not None:
+        hotspots = _clearance_hotspots(
+            inverse_result=selected.inverse_result,
+            clearance_floor_z_m=float(selected.inverse_result.ground_clearance.clearance_floor_z_m),
+            top_k=5,
+        )
+    diagnostics = final_iteration.outcome.active_wall_diagnostics
+    if hotspots or diagnostics is not None:
+        lines.append("Active-wall diagnostics:")
+        if hotspots:
+            lines.append("  clearance hotspots:")
+            for hotspot in hotspots:
+                lines.append(
+                    f"    rank {hotspot.rank:02d}                 : "
+                    f"{hotspot.spar} node {hotspot.node_index} "
+                    f"side={hotspot.side} y={hotspot.y_m:.3f} m "
+                    f"z={hotspot.z_m:.6f} m clearance={hotspot.clearance_m * 1000.0:.6f} mm"
+                )
+        if diagnostics is not None:
+            lines.append(f"  principal bottleneck        : {diagnostics.principal_bottleneck}")
+            lines.append(f"  primary driver              : {diagnostics.primary_driver}")
+            lines.append(f"  active-wall risk score      : {diagnostics.active_wall_risk_score:.6f}")
+            for entry in diagnostics.geometry_walls[:5]:
+                lines.append(
+                    f"  wall {entry.name:<26} : margin={entry.margin * 1000.0:9.6f} mm  "
+                    f"state={entry.boundary_state}  {entry.location}  {entry.detail}"
+                )
+            for entry in diagnostics.reduced_variable_bounds[:5]:
+                lines.append(
+                    f"  reduced var {entry.name:<19} : margin={entry.margin:8.6f}  "
+                    f"state={entry.boundary_state}  {entry.detail}"
+                )
+            if diagnostics.lighten_probes:
+                lines.append("  lightening probes:")
+                for probe in diagnostics.lighten_probes:
+                    lines.append(
+                        f"    {probe['variable']:<24}: "
+                        f"dm={probe['mass_delta_kg']:+8.3f} kg  "
+                        f"dclear={probe['clearance_delta_m'] * 1000.0:+9.3f} mm  "
+                        f"blocker={probe['dominant_blocker']}"
+                    )
+        lines.append("")
+
     lines.append("Artifacts:")
     if outcome.artifacts is not None:
         lines.append(f"  target shape CSV             : {outcome.artifacts.target_shape_csv or 'not written'}")
         lines.append(f"  jig shape CSV                : {outcome.artifacts.jig_shape_csv or 'not written'}")
         lines.append(f"  jig STEP                     : {outcome.artifacts.jig_step_path or 'not written'}")
+        lines.append(f"  diagnostics JSON             : {outcome.artifacts.diagnostics_json or 'not written'}")
+        lines.append(f"  wire rigging JSON            : {outcome.artifacts.wire_rigging_json or 'not written'}")
         lines.append(f"  STEP engine                  : {outcome.artifacts.step_engine or 'not run'}")
         if outcome.artifacts.step_error:
             lines.append(f"  STEP export note             : {outcome.artifacts.step_error}")
@@ -1783,6 +2393,43 @@ def build_refresh_summary_json(
     }
 
 
+def _build_selected_diagnostics_payload(
+    *,
+    candidate: InverseCandidate,
+    cfg,
+    active_wall_diagnostics: ActiveWallDiagnostics | None,
+) -> dict[str, object]:
+    inverse = candidate.inverse_result
+    hotspots = []
+    if inverse is not None:
+        hotspots = [
+            asdict(hotspot)
+            for hotspot in _clearance_hotspots(
+                inverse_result=inverse,
+                clearance_floor_z_m=float(inverse.ground_clearance.clearance_floor_z_m),
+                top_k=5,
+            )
+        ]
+    return {
+        "selected_source": candidate.source,
+        "mass_kg": float(candidate.total_structural_mass_kg),
+        "minimum_clearance_m": float(candidate.jig_ground_clearance_min_m),
+        "clearance_risk_score": float(candidate.clearance_risk_score),
+        "clearance_hotspot_count": int(candidate.clearance_hotspot_count),
+        "clearance_hotspot_mean_m": float(candidate.clearance_hotspot_mean_m),
+        "technically_clearance_fragile": bool(candidate.technically_clearance_fragile),
+        "clearance_hotspots": hotspots,
+        "active_wall_diagnostics": (
+            None if active_wall_diagnostics is None else asdict(active_wall_diagnostics)
+        ),
+        "hard_margins": {key: float(value) for key, value in candidate.hard_margins.items()},
+        "reduced_variables": {
+            name: float(value)
+            for name, value in zip(SCALE_NAMES, np.asarray(candidate.z, dtype=float).reshape(-1), strict=True)
+        },
+    }
+
+
 def export_inverse_design_artifacts(
     *,
     output_dir: Path,
@@ -1791,6 +2438,7 @@ def export_inverse_design_artifacts(
     materials_db: MaterialDB,
     export_loads: dict,
     candidate: InverseCandidate,
+    active_wall_diagnostics: ActiveWallDiagnostics | None,
     step_engine: str,
     skip_step_export: bool,
 ) -> ArtifactBundle:
@@ -1839,12 +2487,45 @@ def export_inverse_design_artifacts(
         except Exception as exc:  # pragma: no cover - depends on local CAD stack
             step_error = f"{type(exc).__name__}: {exc}"
 
+    diagnostics_json_path = output_dir / "active_wall_diagnostics.json"
+    diagnostics_json_path.write_text(
+        json.dumps(
+            _build_selected_diagnostics_payload(
+                candidate=candidate,
+                cfg=cfg,
+                active_wall_diagnostics=active_wall_diagnostics,
+            ),
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    wire_records = _lift_wire_rigging_records(
+        candidate=candidate,
+        cfg=cfg,
+        materials_db=materials_db,
+    )
+    wire_json_path = output_dir / "lift_wire_rigging.json"
+    wire_json_path.write_text(
+        json.dumps(
+            {
+                "wire_rigging": [asdict(record) for record in wire_records],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
     return ArtifactBundle(
         target_shape_csv=str(target_csv_path.resolve()),
         jig_shape_csv=str(jig_csv_path.resolve()),
         jig_step_path=jig_step_path,
         step_engine=resolved_engine,
         step_error=step_error,
+        diagnostics_json=str(diagnostics_json_path.resolve()),
+        wire_rigging_json=str(wire_json_path.resolve()),
     )
 
 
@@ -1866,6 +2547,10 @@ def run_inverse_design(
     loaded_shape_main_z_tol_m: float,
     loaded_shape_twist_tol_deg: float,
     loaded_shape_penalty_weight_kg: float,
+    clearance_risk_threshold_m: float,
+    clearance_risk_top_k: int,
+    clearance_penalty_weight_kg: float,
+    active_wall_penalty_weight_kg: float,
     manufacturing_limit_source: str,
     main_plateau_grid: Iterable[float],
     main_taper_fill_grid: Iterable[float],
@@ -1905,6 +2590,10 @@ def run_inverse_design(
         loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
         loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
         loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
+        clearance_risk_threshold_m=clearance_risk_threshold_m,
+        clearance_risk_top_k=clearance_risk_top_k,
+        clearance_penalty_weight_kg=clearance_penalty_weight_kg,
+        active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
         target_mass_kg=target_mass_kg,
     )
 
@@ -2049,6 +2738,14 @@ def run_inverse_design(
             )
 
     selected = evaluator.archive.selected or baseline
+    active_wall_diagnostics = _active_wall_diagnostics_for_candidate(
+        candidate=selected,
+        cfg=cfg,
+        lighten_probes=_build_lighten_probe_diagnostics(
+            evaluator=evaluator,
+            selected=selected,
+        ),
+    )
     total_wall_time_s = float(perf_counter() - total_start)
     return InverseOutcome(
         success=bool(selected.overall_target_feasible if target_mass_kg is not None else selected.overall_feasible),
@@ -2074,6 +2771,7 @@ def run_inverse_design(
         coarse_target_feasible_count=int(coarse_target_feasible_count),
         selected=selected,
         local_refine=local_refine,
+        active_wall_diagnostics=active_wall_diagnostics,
         manufacturing_limit_source=manufacturing_limit_source,
         max_jig_vertical_prebend_limit_m=max_jig_vertical_prebend_m,
         max_jig_vertical_curvature_limit_per_m=max_jig_vertical_curvature_per_m,
@@ -2098,6 +2796,10 @@ def run_inverse_design_load_refresh_refinement(
     loaded_shape_main_z_tol_m: float,
     loaded_shape_twist_tol_deg: float,
     loaded_shape_penalty_weight_kg: float,
+    clearance_risk_threshold_m: float,
+    clearance_risk_top_k: int,
+    clearance_penalty_weight_kg: float,
+    active_wall_penalty_weight_kg: float,
     manufacturing_limit_source: str,
     main_plateau_grid: Iterable[float],
     main_taper_fill_grid: Iterable[float],
@@ -2140,6 +2842,10 @@ def run_inverse_design_load_refresh_refinement(
         loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
         loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
         loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
+        clearance_risk_threshold_m=clearance_risk_threshold_m,
+        clearance_risk_top_k=clearance_risk_top_k,
+        clearance_penalty_weight_kg=clearance_penalty_weight_kg,
+        active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
         manufacturing_limit_source=manufacturing_limit_source,
         main_plateau_grid=main_plateau_grid,
         main_taper_fill_grid=main_taper_fill_grid,
@@ -2208,6 +2914,10 @@ def run_inverse_design_load_refresh_refinement(
             loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
             loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
             loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
+            clearance_risk_threshold_m=clearance_risk_threshold_m,
+            clearance_risk_top_k=clearance_risk_top_k,
+            clearance_penalty_weight_kg=clearance_penalty_weight_kg,
+            active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
             manufacturing_limit_source=manufacturing_limit_source,
             main_plateau_grid=main_plateau_grid,
             main_taper_fill_grid=main_taper_fill_grid,
@@ -2289,7 +2999,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-local-refine", action="store_true")
     parser.add_argument(
         "--loaded-shape-mode",
-        default="low_dim_descriptor",
+        default="exact_nodal",
         choices=("exact_nodal", "low_dim_descriptor"),
         help="How the inverse jig backout enforces the loaded-shape target.",
     )
@@ -2315,6 +3025,30 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.05,
         help="Small objective penalty weight on normalized loaded-shape RMS error; mass remains the primary objective.",
+    )
+    parser.add_argument(
+        "--clearance-risk-threshold-mm",
+        type=float,
+        default=10.0,
+        help="Clearance threshold used by the top-hotspot clearance risk metric.",
+    )
+    parser.add_argument(
+        "--clearance-risk-top-k",
+        type=int,
+        default=5,
+        help="Number of most critical jig nodes included in the clearance risk metric.",
+    )
+    parser.add_argument(
+        "--clearance-penalty-kg",
+        type=float,
+        default=0.25,
+        help="Small objective penalty weight on the clearance risk score.",
+    )
+    parser.add_argument(
+        "--active-wall-penalty-kg",
+        type=float,
+        default=0.05,
+        help="Small objective penalty weight on active geometry/discrete wall risk.",
     )
     parser.add_argument(
         "--target-mass-kg",
@@ -2416,6 +3150,10 @@ def main(argv: list[str] | None = None) -> int:
     loaded_shape_main_z_tol_m = float(args.loaded_shape_main_z_tol_mm) * 1.0e-3
     loaded_shape_twist_tol_deg = float(args.loaded_shape_twist_tol_deg)
     loaded_shape_penalty_weight_kg = float(args.loaded_shape_penalty_kg)
+    clearance_risk_threshold_m = float(args.clearance_risk_threshold_mm) * 1.0e-3
+    clearance_risk_top_k = int(args.clearance_risk_top_k)
+    clearance_penalty_weight_kg = float(args.clearance_penalty_kg)
+    active_wall_penalty_weight_kg = float(args.active_wall_penalty_kg)
 
     baseline_design = BaselineDesign(
         main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
@@ -2460,6 +3198,10 @@ def main(argv: list[str] | None = None) -> int:
             loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
             loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
             loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
+            clearance_risk_threshold_m=clearance_risk_threshold_m,
+            clearance_risk_top_k=clearance_risk_top_k,
+            clearance_penalty_weight_kg=clearance_penalty_weight_kg,
+            active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
         )
         baseline_seed = seed_evaluator.evaluate(np.zeros(5, dtype=float), source="baseline_seed")
         if max_jig_vertical_prebend_m is None:
@@ -2471,7 +3213,7 @@ def main(argv: list[str] | None = None) -> int:
             max_jig_vertical_curvature_per_m = max(
                 float(baseline_seed.max_jig_vertical_curvature_per_m) * float(args.manufacturing_limit_scale),
                 1.0e-9,
-        )
+            )
         manufacturing_limit_source = f"baseline_seed x {float(args.manufacturing_limit_scale):.3f}"
 
     refinement = run_inverse_design_load_refresh_refinement(
@@ -2490,6 +3232,10 @@ def main(argv: list[str] | None = None) -> int:
         loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
         loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
         loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
+        clearance_risk_threshold_m=clearance_risk_threshold_m,
+        clearance_risk_top_k=clearance_risk_top_k,
+        clearance_penalty_weight_kg=clearance_penalty_weight_kg,
+        active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
         manufacturing_limit_source=manufacturing_limit_source,
         main_plateau_grid=_parse_grid(args.main_plateau_grid),
         main_taper_fill_grid=_parse_grid(args.main_taper_fill_grid),
@@ -2522,6 +3268,7 @@ def main(argv: list[str] | None = None) -> int:
         materials_db=materials_db,
         export_loads=final_export_loads,
         candidate=final_iteration.outcome.selected,
+        active_wall_diagnostics=final_iteration.outcome.active_wall_diagnostics,
         step_engine=args.step_engine,
         skip_step_export=bool(args.skip_step_export),
     )
@@ -2584,6 +3331,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Loaded-shape twist  : {final_selected.loaded_shape_twist_error_max_deg:.6f} deg")
     print(f"  Nodewise mismatch   : {_mm(final_selected.target_shape_error_max_m):.6f} mm")
     print(f"  Jig clearance min   : {_mm(final_selected.jig_ground_clearance_min_m):.3f} mm")
+    print(f"  Clearance risk      : {final_selected.clearance_risk_score:.6f}")
+    print(f"  Active-wall risk    : {final_selected.active_wall_risk_score:.6f}")
     if refinement.final_iteration.forward_check is not None:
         print(
             "  Forward mismatch    : "
@@ -2593,6 +3342,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Target shape CSV    : {refinement.artifacts.target_shape_csv}")
         print(f"  Jig shape CSV       : {refinement.artifacts.jig_shape_csv}")
         print(f"  Jig STEP            : {refinement.artifacts.jig_step_path or 'not written'}")
+        print(f"  Diagnostics JSON    : {refinement.artifacts.diagnostics_json or 'not written'}")
+        print(f"  Wire rigging JSON   : {refinement.artifacts.wire_rigging_json or 'not written'}")
     return 0
 
 
