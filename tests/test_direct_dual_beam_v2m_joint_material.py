@@ -13,6 +13,7 @@ from scripts.direct_dual_beam_v2m_joint_material import (  # noqa: E402
     COMPACT_STRATEGY,
     EXPANDED_STRATEGY,
     JointRepresentativeRegion,
+    build_formal_design_rules,
     build_ridge_refinement_geometry_seeds,
     build_pareto_frontier_candidates,
     build_joint_choice_indices,
@@ -20,6 +21,7 @@ from scripts.direct_dual_beam_v2m_joint_material import (  # noqa: E402
     build_joint_search_space,
     build_representative_regions,
     build_representative_support_geometry_seeds,
+    select_formal_design_selections,
     select_balanced_compromise_candidate,
     select_margin_first_candidate,
     select_mass_first_candidate,
@@ -341,3 +343,68 @@ def test_representative_regions_summarize_local_material_roles() -> None:
     assert balanced_region.pareto_rear_outboard_pkg_counts[0][0] == "ob_balanced_sleeve"
     assert balanced_region.best_margin_candidate_feasible is not None
     assert balanced_region.best_margin_candidate_feasible.geometry_label == "balanced_plus"
+
+
+def test_formal_design_selection_rules_pick_primary_balanced_and_conservative_candidates() -> None:
+    pareto_candidates = (
+        _candidate(
+            geometry_label="mass_first",
+            geometry_choice=(3, 0, 0, 1, 0),
+            main_family_key="main_light_ud",
+            rear_outboard_pkg_key="ob_none",
+            tube_mass_kg=10.028,
+            candidate_margin_m=0.013,
+        ),
+        _candidate(
+            geometry_label="primary",
+            geometry_choice=(4, 0, 0, 2, 0),
+            main_family_key="main_light_ud",
+            rear_outboard_pkg_key="ob_none",
+            tube_mass_kg=10.090,
+            candidate_margin_m=0.060,
+        ),
+        _candidate(
+            geometry_label="balanced",
+            geometry_choice=(4, 0, 2, 4, 0),
+            main_family_key="main_light_ud",
+            rear_outboard_pkg_key="ob_balanced_sleeve",
+            tube_mass_kg=10.303,
+            candidate_margin_m=0.185,
+        ),
+        _candidate(
+            geometry_label="heavy_balanced",
+            geometry_choice=(4, 0, 2, 4, 1),
+            main_family_key="main_light_ud",
+            rear_outboard_pkg_key="ob_balanced_sleeve",
+            tube_mass_kg=10.380,
+            candidate_margin_m=0.220,
+        ),
+        _candidate(
+            geometry_label="conservative",
+            geometry_choice=(4, 0, 3, 4, 1),
+            main_family_key="main_light_ud",
+            rear_outboard_pkg_key="ob_balanced_sleeve",
+            tube_mass_kg=10.926,
+            candidate_margin_m=0.332,
+        ),
+    )
+
+    selections = select_formal_design_selections(
+        pareto_candidates=pareto_candidates,
+        mass_first_candidate=pareto_candidates[0],
+        balanced_compromise_candidate=pareto_candidates[2],
+        margin_first_candidate=pareto_candidates[4],
+    )
+    selection_map = {selection.design_role: selection for selection in selections}
+
+    assert [rule.design_role for rule in build_formal_design_rules()] == [
+        "primary",
+        "balanced",
+        "conservative",
+    ]
+    assert selection_map["primary"].selected_candidate is not None
+    assert selection_map["primary"].selected_candidate.geometry_label == "primary"
+    assert selection_map["balanced"].selected_candidate is not None
+    assert selection_map["balanced"].selected_candidate.geometry_label == "balanced"
+    assert selection_map["conservative"].selected_candidate is not None
+    assert selection_map["conservative"].selected_candidate.geometry_label == "conservative"

@@ -56,6 +56,9 @@ EXPANDED_STRATEGY = "expanded"
 WORKFLOW_STRATEGY = "workflow"
 DEFAULT_STRATEGY = WORKFLOW_STRATEGY
 REPRESENTATIVE_REGION_RADIUS_L1 = 1
+PRIMARY_MIN_MARGIN_M = 0.050
+BALANCED_MIN_MARGIN_M = 0.180
+BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG = 0.250
 RIDGE_REFINEMENT_GEOMETRY_SPECS = {
     "margin_first": (
         (
@@ -160,6 +163,7 @@ class JointMaterialOutcome:
     geometry_best_rows: tuple[JointGeometryBestRow, ...]
     pareto_frontier_candidate_feasible: tuple[MaterialProxyCandidate, ...]
     representative_regions: tuple["JointRepresentativeRegion", ...]
+    formal_design_selections: tuple["FormalDesignSelection", ...]
     top_candidate_feasible: tuple[MaterialProxyCandidate, ...]
 
 
@@ -176,6 +180,29 @@ class JointRepresentativeRegion:
     balanced_compromise_candidate_feasible: MaterialProxyCandidate | None
     pareto_main_family_counts: tuple[tuple[str, int], ...]
     pareto_rear_outboard_pkg_counts: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True)
+class FormalDesignRule:
+    design_role: str
+    label: str
+    candidate_pool: str
+    selection_intent: str
+    min_candidate_margin_m: float | None = None
+    require_ob_balanced_sleeve: bool = False
+    prefer_without_ob_balanced_sleeve: bool = False
+    max_mass_delta_from_primary_kg: float | None = None
+    tie_break_rule: str = ""
+
+
+@dataclass(frozen=True)
+class FormalDesignSelection:
+    design_role: str
+    label: str
+    rule: FormalDesignRule
+    selected_candidate: MaterialProxyCandidate | None
+    qualifying_candidate_count: int
+    rationale: str
 
 
 def _mm(value_m: float | None) -> float:
@@ -607,6 +634,152 @@ def build_representative_regions(
     return tuple(regions)
 
 
+def build_formal_design_rules() -> tuple[FormalDesignRule, ...]:
+    return (
+        FormalDesignRule(
+            design_role="primary",
+            label="Primary design",
+            candidate_pool="pareto_feasible",
+            selection_intent="Default release candidate: stay on the light side, keep reserve above a simple floor, and avoid opening the local sleeve unless needed.",
+            min_candidate_margin_m=PRIMARY_MIN_MARGIN_M,
+            prefer_without_ob_balanced_sleeve=True,
+            tie_break_rule="Choose the lowest mass candidate; then lower psi_u_all; then larger candidate margin.",
+        ),
+        FormalDesignRule(
+            design_role="balanced",
+            label="Balanced design",
+            candidate_pool="pareto_feasible",
+            selection_intent="Moderate reserve upgrade: open ob_balanced_sleeve only when it buys a clearly stronger margin band without paying a large mass premium over the primary design.",
+            min_candidate_margin_m=BALANCED_MIN_MARGIN_M,
+            require_ob_balanced_sleeve=True,
+            max_mass_delta_from_primary_kg=BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG,
+            tie_break_rule="Among qualifying candidates choose the lowest mass; then larger candidate margin; then lower psi_u_all.",
+        ),
+        FormalDesignRule(
+            design_role="conservative",
+            label="Conservative design",
+            candidate_pool="pareto_feasible",
+            selection_intent="Reserve-biased option: once the local sleeve is open, take the highest-margin non-dominated candidate for risk burn-down / early hardware confidence.",
+            require_ob_balanced_sleeve=True,
+            tie_break_rule="Choose the largest candidate margin; then lower mass; then lower psi_u_all.",
+        ),
+    )
+
+
+def _candidate_uses_balanced_sleeve(candidate: MaterialProxyCandidate) -> bool:
+    return candidate.rear_outboard_pkg_key == "ob_balanced_sleeve"
+
+
+def select_formal_design_selections(
+    *,
+    pareto_candidates: tuple[MaterialProxyCandidate, ...],
+    mass_first_candidate: MaterialProxyCandidate | None,
+    balanced_compromise_candidate: MaterialProxyCandidate | None,
+    margin_first_candidate: MaterialProxyCandidate | None,
+) -> tuple[FormalDesignSelection, ...]:
+    candidate_pool = pareto_candidates
+    if not candidate_pool:
+        return tuple()
+
+    rules = build_formal_design_rules()
+    selections: list[FormalDesignSelection] = []
+
+    primary_rule = next(rule for rule in rules if rule.design_role == "primary")
+    primary_candidates = [
+        candidate
+        for candidate in candidate_pool
+        if candidate.candidate_margin_m >= float(primary_rule.min_candidate_margin_m or 0.0)
+    ]
+    primary_no_sleeve = [
+        candidate for candidate in primary_candidates if not _candidate_uses_balanced_sleeve(candidate)
+    ]
+    if primary_no_sleeve:
+        primary_qualifying = primary_no_sleeve
+        primary_rationale = (
+            f"Used the no-sleeve subset with candidate margin >= {PRIMARY_MIN_MARGIN_M * 1000.0:.0f} mm, "
+            "then picked the lowest-mass non-dominated candidate."
+        )
+    else:
+        primary_qualifying = primary_candidates
+        primary_rationale = (
+            f"No non-sleeve candidate cleared the {PRIMARY_MIN_MARGIN_M * 1000.0:.0f} mm floor, "
+            "so the rule fell back to the full Pareto-feasible pool."
+        )
+    primary_candidate = (
+        select_mass_first_candidate(tuple(primary_qualifying))
+        if primary_qualifying
+        else mass_first_candidate
+    )
+    selections.append(
+        FormalDesignSelection(
+            design_role=primary_rule.design_role,
+            label=primary_rule.label,
+            rule=primary_rule,
+            selected_candidate=primary_candidate,
+            qualifying_candidate_count=len(primary_qualifying),
+            rationale=primary_rationale,
+        )
+    )
+
+    balanced_rule = next(rule for rule in rules if rule.design_role == "balanced")
+    primary_mass = None if primary_candidate is None else float(primary_candidate.tube_mass_kg)
+    balanced_qualifying = [
+        candidate
+        for candidate in candidate_pool
+        if _candidate_uses_balanced_sleeve(candidate)
+        and candidate.candidate_margin_m >= float(balanced_rule.min_candidate_margin_m or 0.0)
+        and (
+            primary_mass is None
+            or candidate.tube_mass_kg
+            <= primary_mass + float(balanced_rule.max_mass_delta_from_primary_kg or 0.0) + 1.0e-12
+        )
+    ]
+    balanced_candidate = (
+        min(
+            balanced_qualifying,
+            key=lambda cand: (cand.tube_mass_kg, -cand.candidate_margin_m, cand.psi_u_all_m),
+        )
+        if balanced_qualifying
+        else balanced_compromise_candidate
+    )
+    balanced_rationale = (
+        f"Required ob_balanced_sleeve, candidate margin >= {BALANCED_MIN_MARGIN_M * 1000.0:.0f} mm, "
+        f"and mass <= primary + {BALANCED_MAX_MASS_DELTA_FROM_PRIMARY_KG:.3f} kg."
+    )
+    selections.append(
+        FormalDesignSelection(
+            design_role=balanced_rule.design_role,
+            label=balanced_rule.label,
+            rule=balanced_rule,
+            selected_candidate=balanced_candidate,
+            qualifying_candidate_count=len(balanced_qualifying),
+            rationale=balanced_rationale,
+        )
+    )
+
+    conservative_rule = next(rule for rule in rules if rule.design_role == "conservative")
+    conservative_qualifying = [
+        candidate for candidate in candidate_pool if _candidate_uses_balanced_sleeve(candidate)
+    ]
+    conservative_candidate = (
+        select_margin_first_candidate(tuple(conservative_qualifying))
+        if conservative_qualifying
+        else margin_first_candidate
+    )
+    selections.append(
+        FormalDesignSelection(
+            design_role=conservative_rule.design_role,
+            label=conservative_rule.label,
+            rule=conservative_rule,
+            selected_candidate=conservative_candidate,
+            qualifying_candidate_count=len(conservative_qualifying),
+            rationale="Took the highest-margin Pareto-feasible ob_balanced_sleeve candidate.",
+        )
+    )
+
+    return tuple(selections)
+
+
 def _load_v2m_selected_choice(path: Path) -> tuple[int, int, int, int, int]:
     obj = json.loads(path.read_text())
     selected = obj["outcome"]["selected"]
@@ -803,6 +976,12 @@ def _build_joint_material_outcome(
         margin_first_candidate=best_margin_candidate_feasible,
         balanced_candidate=balanced_compromise,
     )
+    formal_design_selections = select_formal_design_selections(
+        pareto_candidates=pareto_frontier,
+        mass_first_candidate=best_mass_candidate_feasible,
+        balanced_compromise_candidate=balanced_compromise,
+        margin_first_candidate=best_margin_candidate_feasible,
+    )
     selected_candidate = best_mass_candidate_feasible or best_violation
 
     return JointMaterialOutcome(
@@ -829,6 +1008,7 @@ def _build_joint_material_outcome(
         geometry_best_rows=geometry_best_rows,
         pareto_frontier_candidate_feasible=pareto_frontier,
         representative_regions=representative_regions,
+        formal_design_selections=formal_design_selections,
         top_candidate_feasible=feasible_candidates[:TOP_K],
     )
 
@@ -1242,6 +1422,36 @@ def build_report_text(
                 f"    local pareto outboard pkg  : {_format_count_pairs(region.pareto_rear_outboard_pkg_counts)}"
             )
         lines.append("")
+    if outcome.formal_design_selections:
+        lines.append("Formal design decision layer:")
+        for selection in outcome.formal_design_selections:
+            lines.append(f"  {selection.label}:")
+            lines.append(f"    candidate pool            : {selection.rule.candidate_pool}")
+            lines.append(f"    intent                    : {selection.rule.selection_intent}")
+            if selection.rule.min_candidate_margin_m is not None:
+                lines.append(
+                    f"    min candidate margin      : {_mm(selection.rule.min_candidate_margin_m):.3f} mm"
+                )
+            if selection.rule.prefer_without_ob_balanced_sleeve:
+                lines.append("    sleeve preference         : prefer no ob_balanced_sleeve")
+            if selection.rule.require_ob_balanced_sleeve:
+                lines.append("    sleeve requirement        : require ob_balanced_sleeve")
+            if selection.rule.max_mass_delta_from_primary_kg is not None:
+                lines.append(
+                    "    max mass delta vs primary : "
+                    f"{selection.rule.max_mass_delta_from_primary_kg:+.3f} kg"
+                )
+            lines.append(f"    tie break                 : {selection.rule.tie_break_rule}")
+            lines.append(f"    qualifying candidates     : {selection.qualifying_candidate_count}")
+            lines.append(f"    rationale                 : {selection.rationale}")
+            lines.append("")
+            _append_candidate_block(
+                lines=lines,
+                title=f"{selection.label} selected candidate:",
+                candidate=selection.selected_candidate,
+                main_index_map=main_index_map,
+                outboard_index_map=outboard_index_map,
+            )
     lines.append("Best promoted-material combination by geometry seed:")
     lines.append("  geometry                 joint choice                  mass[kg]   psi[mm]   margin[mm]   cand")
     for row in outcome.geometry_best_rows:
@@ -1385,6 +1595,24 @@ def build_summary_json(
                     },
                 }
                 for region in outcome.representative_regions
+            },
+            "formal_design_selections": {
+                selection.design_role: {
+                    "label": selection.label,
+                    "qualifying_candidate_count": selection.qualifying_candidate_count,
+                    "rationale": selection.rationale,
+                    "rule": {
+                        "candidate_pool": selection.rule.candidate_pool,
+                        "selection_intent": selection.rule.selection_intent,
+                        "min_candidate_margin_m": selection.rule.min_candidate_margin_m,
+                        "require_ob_balanced_sleeve": selection.rule.require_ob_balanced_sleeve,
+                        "prefer_without_ob_balanced_sleeve": selection.rule.prefer_without_ob_balanced_sleeve,
+                        "max_mass_delta_from_primary_kg": selection.rule.max_mass_delta_from_primary_kg,
+                        "tie_break_rule": selection.rule.tie_break_rule,
+                    },
+                    "selected_candidate": _representative_dict(selection.selected_candidate),
+                }
+                for selection in outcome.formal_design_selections
             },
             "best_margin_candidate_feasible": candidate_to_summary_dict(
                 outcome.best_margin_candidate_feasible
