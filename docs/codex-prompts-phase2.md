@@ -1,10 +1,10 @@
 # Codex Prompts — Phase 2 Dihedral Sweep
 
-> 每個 prompt 獨立可執行。
-> - Task 1 ✅ 已完成（wire 升級 dyneema_sk75）
-> - Task 2 → Task 6 是主線 blocking chain
-> - Task 3/4/5 可並行
-> - Task 7 是新增的 VSP→AVL pipeline（非 blocking，為 M8 鋪路）
+> 每個 prompt 獨立可執行；目前本文件對應的 Phase 2 主線已完成。
+> - Task 1 → Task 7i：全部 ✅
+> - Task 8（M8 foundation）：8a-8c ✅，8d 尚待整合進 YAML/runtime schema
+> - **建議下一份 prompt：9a fine dihedral sweep（step 0.1，extend to 3.5×）**
+> - **可並行補完：8d config schema extension（tail/fin 進 YAML/runtime model）**
 
 ---
 
@@ -29,7 +29,7 @@
    - lift_wires.cable_material: "dyneema_sk75"
    - lift_wires.cable_diameter: 2.5e-3  （2.5mm Dyneema SK75 繩索）
    - lift_wires.max_tension_fraction: 0.40  （Dyneema 長期負載建議用 40% UTS）
-   
+
 2. configs/blackcat_004_multi.yaml:
    - 同上修改（如果有 lift_wires 區塊的話）
 
@@ -117,7 +117,7 @@ commit message: "feat: upgrade wire material from steel_4130 to dyneema_sk75 (68
   y=10.5:  chord=0.68, Zle=0.77
   y=13.5:  chord=0.55, Zle=1.31
   y=16.5:  chord=0.47, Zle=1.73
-  
+
   chord 按線性插值：chord(y) = 1.39 - (1.39-0.47)/16.5 × y
   Zle 按 progressive dihedral：大約 dihedral(y) = 6° × (y/16.5)，
   所以 Zle(y) ≈ ∫₀ʸ tan(6° × s/16.5) ds
@@ -259,7 +259,7 @@ commit message: "feat: add optional component filter to VSPAeroParser"
 
 ---
 
-## Task 6：重跑 Dihedral Sweep（Task 1+2 完成後）
+## Task 6：重跑 Dihedral Sweep（Task 1+2 完成後）— 已完成 ✅
 
 ### Prompt
 
@@ -275,7 +275,7 @@ commit message: "feat: add optional component filter to VSPAeroParser"
 1. 確認 wire 設定：
    - configs/blackcat_004.yaml 的 lift_wires.cable_material 應為 "dyneema_sk75"
    - cable_diameter 應為 2.5e-3
-   
+
 2. 確認 AVL 模型：
    - data/blackcat_004_full.avl 存在且包含 Wing + Elevator + Fin
 
@@ -316,7 +316,7 @@ commit message: "feat: add optional component filter to VSPAeroParser"
 
 ---
 
-## Task 7e：氣動性能門檻檢查（Aero Performance Gates）
+## Task 7e：氣動性能門檻檢查（Aero Performance Gates）— 已完成 ✅
 
 ### Prompt
 
@@ -357,7 +357,7 @@ AVL 能做的：
 1. **在 dihedral_sweep_campaign.py 加入 AVL trim 分析**
 
    在現有的 AVL stability 分析之後（或同時），加一個 AVL trim run：
-   
+
    AVL 命令序列（trim at specified CL）：
    ```
    OPER
@@ -365,7 +365,7 @@ AVL 能做的：
    X                ! execute
    ST               ! print total forces
    ```
-   
+
    或更好的方法：用 AVL 的 constraint 系統：
    ```
    OPER
@@ -377,7 +377,7 @@ AVL 能做的：
 
    從 AVL 輸出解析：
    - CLtot (total lift coefficient)
-   - CDind (induced drag coefficient)  
+   - CDind (induced drag coefficient)
    - e (Oswald/span efficiency)
    - Alpha (trim angle of attack)
 
@@ -425,7 +425,7 @@ AVL 能做的：
        aero_feasible = False
        reason = "ld_below_minimum"
    if lift_total < min_lift_kg * 9.81:
-       aero_feasible = False  
+       aero_feasible = False
        reason = "insufficient_lift"
    ```
 
@@ -488,7 +488,7 @@ commit message: "feat: add aero performance gates (min lift, L/D) to dihedral sw
 
 ---
 
-## Task 7f：Phase-2 Dihedral Sweep Re-run
+## Task 7f：Phase-2 Dihedral Sweep Re-run — 已完成 ✅
 
 ### Prompt
 
@@ -538,7 +538,428 @@ commit message: "chore: phase-2 dihedral sweep with full aero gates"
 
 ---
 
-## Task 8：VSP3→AVL 自動化 Pipeline（M8）— 已完成 ✅
+## Task 7g：Progressive Dihedral Scaling（非均勻 Z 縮放）— 已完成 ✅
+
+### Prompt
+
+```
+你在 /Volumes/Samsung SSD/hpa-mdo 工作。
+完成後請 push 到 main。
+
+目標：將 dihedral sweep 中的「均勻 Z 縮放」替換為「漸進式 dihedral 縮放」，
+讓翼尖段承擔更多 dihedral，翼根段幾乎不動。
+
+### 為什麼需要改
+
+目前程式碼在兩處做均勻 Z 乘法：
+
+1. scripts/dihedral_sweep_campaign.py 的 scale_avl_dihedral_text():
+   values[2] *= float(multiplier)   # 所有 section 的 Zle 乘以相同倍率
+
+2. src/hpa_mdo/structure/inverse_design.py 的 build_target_loaded_shape():
+   main_nodes_m[:, 2] *= scale       # 所有結構節點的 Z 乘以相同倍率
+
+物理上 dihedral 是角度，不是位移。均勻 Z 乘法等於把翼根也抬高，
+但 HPA（包括 Daedalus）的翼根段幾乎水平，dihedral 集中在外段。
+
+### 正確做法
+
+用 span-weighted scaling function：
+
+  Z_new(η) = Z_base(η) × [1 + (multiplier - 1) × η^p]
+
+其中：
+  η = y / half_span（0 at root, 1 at tip）
+  p = dihedral_exponent（config 參數，default = 1.0）
+  - p = 0: 均勻（舊行為）
+  - p = 1: 線性漸進（翼根不動，翼尖效果 = multiplier）
+  - p = 2: 二次漸進（翼尖更強調）
+
+### 具體修改
+
+1. **configs/blackcat_004.yaml** — 在 wing: 區塊加入：
+   ```yaml
+   dihedral_scaling_exponent: 1.0  # progressive dihedral: 0=uniform, 1=linear, 2=quadratic
+   ```
+
+2. **core/config.py** — 在 WingConfig 加入：
+   ```python
+   dihedral_scaling_exponent: float = 1.0
+   ```
+
+3. **src/hpa_mdo/structure/inverse_design.py** — 修改 build_target_loaded_shape():
+
+   目前簽名：
+   def build_target_loaded_shape(*, model, z_scale=1.0) -> StructuralNodeShape
+
+   改為：
+   def build_target_loaded_shape(
+       *, model, z_scale=1.0, dihedral_exponent=1.0,
+   ) -> StructuralNodeShape
+
+   內部邏輯從：
+     main_nodes_m[:, 2] *= scale
+     rear_nodes_m[:, 2] *= scale
+
+   改為：
+     half_span = float(model.nodes_main_m[-1, 1])  # 最外側 Y 座標
+     if half_span > 0:
+         eta_main = np.clip(model.nodes_main_m[:, 1] / half_span, 0.0, 1.0)
+         eta_rear = np.clip(model.nodes_rear_m[:, 1] / half_span, 0.0, 1.0)
+     else:
+         eta_main = np.zeros(len(model.nodes_main_m))
+         eta_rear = np.zeros(len(model.nodes_rear_m))
+
+     exp = float(dihedral_exponent)
+     factor_main = 1.0 + (scale - 1.0) * eta_main ** exp
+     factor_rear = 1.0 + (scale - 1.0) * eta_rear ** exp
+     main_nodes_m[:, 2] *= factor_main
+     rear_nodes_m[:, 2] *= factor_rear
+
+   當 scale=1.0 時 factor=1.0（不變），行為完全向後相容。
+   當 exponent=0 時退化為 factor = scale（舊的均勻行為）。
+
+4. **scripts/dihedral_sweep_campaign.py** — 修改 scale_avl_dihedral_text():
+
+   目前簽名：
+   def scale_avl_dihedral_text(text, *, multiplier, target_surface_names=("wing",))
+
+   改為：
+   def scale_avl_dihedral_text(
+       text, *, multiplier, target_surface_names=("wing",),
+       half_span=16.5, dihedral_exponent=1.0,
+   )
+
+   內部邏輯從：
+     values[2] *= float(multiplier)
+
+   改為：
+     y_section = abs(values[1])  # AVL section 的 Yle
+     eta = min(y_section / half_span, 1.0) if half_span > 0 else 0.0
+     local_factor = 1.0 + (float(multiplier) - 1.0) * eta ** dihedral_exponent
+     values[2] *= local_factor
+
+   注意：AVL section data 行格式是 Xle Yle Zle Chord Ainc，
+   所以 values[1] 是 Yle（span position），values[2] 是 Zle。
+
+5. **呼叫端更新** — 在 dihedral_sweep_campaign.py 的 main loop 中：
+   - 從 config 讀取 cfg.wing.dihedral_scaling_exponent
+   - 傳給 scale_avl_dihedral_text() 的 dihedral_exponent 參數
+   - 傳給 inverse design subprocess 的 --z-scale 和 --dihedral-exponent 參數
+
+   在 direct_dual_beam_inverse_design.py 中：
+   - 加 CLI 參數 --dihedral-exponent (default 1.0)
+   - 傳給 build_target_loaded_shape() 的 dihedral_exponent 參數
+
+6. **在 scale_avl_dihedral_text 呼叫處傳入 half_span**:
+   half_span 應從 config 計算：cfg.wing.span / 2.0
+
+### 驗證
+
+- 用 multiplier=1.0 跑：結果必須和修改前完全一致（factor=1.0）
+- 用 multiplier=2.0, exponent=0 跑：結果必須和舊的均勻縮放一致
+- 用 multiplier=2.0, exponent=1 跑：翼根 Z 不變，翼尖 Z ≈ 2× 原值
+- 印出 3-5 個 section 的 (y, Z_old, Z_new, local_factor) 供人工核對
+
+### 注意事項
+
+- 遵守 CLAUDE.md：新參數必須同時進 YAML + Pydantic model
+- from __future__ import annotations
+- 行長度 <= 100 字元
+- 不要改動 AVL stability parsing、trim 邏輯、或 wire 計算
+- half_span 如果從 config 來，用 cfg.wing.span / 2.0
+- build_target_loaded_shape 的 model.nodes_main_m 是 (n_nodes, 3) ndarray，
+  column 1 是 Y（展向位置），column 2 是 Z（vertical）
+
+commit message: "feat: progressive dihedral scaling with span-weighted exponent (Task 7g)"
+```
+
+---
+
+## Task 7h：Loaded Shape STEP Export + Per-Node Deflection Output — 已完成 ✅
+
+### Prompt
+
+```
+你在 /Volumes/Samsung SSD/hpa-mdo 工作。
+完成後請 push 到 main。
+
+目標：在 inverse design 的輸出中加入兩項目前缺少的產物：
+(A) loaded shape 的 STEP 幾何檔案（與現有 jig_shape.step 對應）
+(B) 每個節點的撓度 CSV 檔案
+
+### 背景
+
+目前 scripts/direct_dual_beam_inverse_design.py 的 _export_artifacts() 函式
+（約 L2470-2530）已經做了：
+  ✅ target_shape_spar_data.csv（target loaded shape 的 beam CSV）
+  ✅ jig_shape_spar_data.csv（jig shape 的 beam CSV）
+  ✅ jig_shape.step（jig shape 的 STEP 幾何）
+  ❌ loaded_shape.step（缺！）
+  ❌ deflection.csv（缺！）
+
+所有需要的資料都已在記憶體中：
+- candidate.inverse_result.predicted_loaded_shape（StructuralNodeShape）
+- candidate.inverse_result.displacement_main_m（np.ndarray, shape (n_nodes, 6)）
+- candidate.inverse_result.displacement_rear_m（np.ndarray, shape (n_nodes, 6)）
+- candidate.inverse_result.jig_shape（StructuralNodeShape）
+
+### 具體修改
+
+1. **在 _export_artifacts() 中，jig STEP export 之後加入 loaded shape STEP export**
+
+   已有的 jig STEP block（約 L2482-2491）：
+   ```python
+   if not skip_step_export:
+       try:
+           resolved_engine = export_step_from_csv(
+               jig_csv_path,
+               output_dir / "jig_shape.step",
+               engine=step_engine,
+           )
+   ```
+
+   在這之後加入：
+   ```python
+   loaded_csv_path = output_dir / "loaded_shape_spar_data.csv"
+   write_shape_csv_from_template(
+       template_csv_path=target_csv_path,
+       output_csv_path=loaded_csv_path,
+       shape=candidate.inverse_result.predicted_loaded_shape,
+   )
+   loaded_step_path: str | None = None
+   loaded_step_error: str | None = None
+   if not skip_step_export:
+       try:
+           export_step_from_csv(
+               loaded_csv_path,
+               output_dir / "loaded_shape.step",
+               engine=step_engine,
+           )
+           loaded_step_path = str(
+               (output_dir / "loaded_shape.step").resolve()
+           )
+       except Exception as exc:
+           loaded_step_error = f"{type(exc).__name__}: {exc}"
+   ```
+
+2. **在 _export_artifacts() 中寫出 deflection CSV**
+
+   在 wire rigging export 之前加入：
+   ```python
+   _write_deflection_csv(
+       output_dir / "node_deflections.csv",
+       candidate=candidate,
+       model=model,   # 需要從上層傳入或從 candidate 取得
+   )
+   ```
+
+   新增 helper 函式 _write_deflection_csv():
+   ```python
+   def _write_deflection_csv(
+       path: Path,
+       *,
+       candidate,   # 你的 candidate type
+       model,       # DualBeamMainlineModel
+   ) -> None:
+       """Write per-node deflection data for both spars."""
+       inv = candidate.inverse_result
+       disp_main = np.asarray(inv.displacement_main_m)
+       disp_rear = np.asarray(inv.displacement_rear_m)
+       y_main = model.nodes_main_m[:, 1]
+       y_rear = model.nodes_rear_m[:, 1]
+
+       with path.open("w", encoding="utf-8", newline="") as f:
+           writer = csv.writer(f)
+           writer.writerow([
+               "spar", "node_index", "y_m",
+               "ux_m", "uy_m", "uz_m",
+               "theta_x_rad", "theta_y_rad", "theta_z_rad",
+           ])
+           for i in range(len(y_main)):
+               row = ["main", i, f"{y_main[i]:.6f}"]
+               for j in range(min(6, disp_main.shape[1])):
+                   row.append(f"{disp_main[i, j]:.8e}")
+               # 如果 displacement 少於 6 columns，補零
+               for _ in range(6 - min(6, disp_main.shape[1])):
+                   row.append("0.0")
+               writer.writerow(row)
+           for i in range(len(y_rear)):
+               row = ["rear", i, f"{y_rear[i]:.6f}"]
+               for j in range(min(6, disp_rear.shape[1])):
+                   row.append(f"{disp_rear[i, j]:.8e}")
+               for _ in range(6 - min(6, disp_rear.shape[1])):
+                   row.append("0.0")
+               writer.writerow(row)
+   ```
+
+3. **更新 ArtifactBundle dataclass** — 加入新欄位：
+   ```python
+   loaded_shape_csv: str | None = None
+   loaded_step_path: str | None = None
+   loaded_step_error: str | None = None
+   deflection_csv: str | None = None
+   ```
+
+4. **更新 summary JSON** — 確保新檔案路徑出現在最終的 summary JSON 中
+
+5. **確保 model 可在 _export_artifacts 中取得**
+   如果 _export_artifacts() 的現有簽名沒有 model 參數，
+   需要加入或從 candidate 中取得（看現有程式碼結構決定最好的方式）。
+
+### 驗證
+
+- 跑一次 inverse design，確認輸出目錄中出現：
+  - jig_shape.step（已有，不能壞）
+  - loaded_shape.step（新增）
+  - loaded_shape_spar_data.csv（新增）
+  - node_deflections.csv（新增）
+- node_deflections.csv 的 uz_m column 應全部 ≥ 0（向上撓曲）
+- loaded_shape.step 的管材形狀應與 jig_shape.step 不同（loaded 向上彎更多）
+
+### 注意事項
+
+- 遵守 CLAUDE.md：不硬編碼，路徑用 pathlib.Path
+- from __future__ import annotations
+- 行長度 <= 100 字元
+- 不要修改任何計算邏輯，這是純 I/O 改動
+- export_step_from_csv 和 write_shape_csv_from_template 已在 import 中
+- 如果 CAD engine 不可用（cadquery/build123d 未安裝），STEP export 應
+  gracefully fail 並記錄 error，不影響其他輸出
+
+commit message: "feat: add loaded shape STEP export and per-node deflection CSV (Task 7h)"
+```
+
+---
+
+## Task 7i：Monotonic Deflection Diagnostic Check — 已完成 ✅
+
+### Prompt
+
+```
+你在 /Volumes/Samsung SSD/hpa-mdo 工作。
+完成後請 push 到 main。
+
+目標：加入一個 diagnostic check，驗證 FEM 計算的垂直撓度 uz
+在每個無支撐段內是否單調遞增（從翼根到翼尖方向）。
+
+### 物理背景
+
+對懸臂梁（固定端在翼根），在向上的分佈升力下，垂直撓度 uz(y)
+必須沿展向單調遞增。如果有 wire support 在某個 y 位置：
+- 0 → wire 段：uz 從 0（root BC）到 ≈0（wire constraint），可能微微正
+- wire → tip 段：uz 從 ≈0（wire constraint）到 max（tip）
+
+在每個段內，uz 應該是單調的。非單調意味著數值問題或載荷映射錯誤。
+
+### 具體修改
+
+1. **在 src/hpa_mdo/structure/inverse_design.py 新增函式：**
+
+   ```python
+   @dataclass(frozen=True)
+   class MonotonicDeflectionCheck:
+       """Diagnostic: per-segment monotonicity of vertical deflection."""
+       segments_checked: int
+       segments_monotonic: int
+       worst_violation_m: float
+       worst_violation_node_y_m: float
+       passed: bool
+       details: tuple[str, ...]
+
+   def check_monotonic_deflection(
+       *,
+       y_nodes_m: np.ndarray,
+       uz_m: np.ndarray,
+       wire_y_positions: tuple[float, ...] = (),
+       tolerance_m: float = 1.0e-4,
+   ) -> MonotonicDeflectionCheck:
+       """Check that uz increases monotonically within each span segment."""
+   ```
+
+   邏輯：
+   - 將展向分段：[0, wire_1_y, wire_2_y, ..., tip_y]
+   - 在每段內，檢查 uz[i+1] >= uz[i] - tolerance_m
+   - 如果有違反，記錄位置和大小
+   - passed = all segments monotonic
+
+2. **在 FrozenLoadInverseDesignResult dataclass 加入新欄位：**
+   ```python
+   monotonic_deflection: MonotonicDeflectionCheck | None = None
+   ```
+   （用 None 是為了向後相容，不影響既有的 dataclass 實例化）
+
+   注意：FrozenLoadInverseDesignResult 是 frozen=True 的 dataclass。
+   如果加入 default=None 的欄位，它必須放在已有無 default 欄位的後面。
+   如果 dataclass 的所有現有欄位都沒有 default，那在最後加即可。
+
+3. **在 build_frozen_load_inverse_design_from_mainline() 中呼叫 check：**
+
+   找到組裝 FrozenLoadInverseDesignResult 的位置，在那之前加入：
+   ```python
+   wire_y = tuple(
+       float(a.y) for a in cfg.lift_wires.attachments
+   ) if cfg.lift_wires.enabled else ()
+
+   monotonic_check = check_monotonic_deflection(
+       y_nodes_m=model.nodes_main_m[:, 1],
+       uz_m=disp_main_m[:, 2],  # column 2 = uz
+       wire_y_positions=wire_y,
+   )
+   ```
+   然後傳入 result dataclass。
+
+   如果 build_frozen_load_inverse_design_from_mainline() 目前沒有
+   接收 cfg 參數，需要加入或從外部傳入 wire positions。
+   （看現有簽名決定最好的方式。如果加參數不方便，
+    可以讓 wire_y_positions 由呼叫端傳入。）
+
+4. **在 summary JSON 中輸出 check 結果：**
+   在 direct_dual_beam_inverse_design.py 的 summary payload 中加入：
+   ```python
+   "monotonic_deflection": asdict(result.monotonic_deflection)
+       if result.monotonic_deflection is not None
+       else None,
+   ```
+
+5. **如果 check 失敗，印出 WARNING（不影響 feasibility）：**
+   ```python
+   if not monotonic_check.passed:
+       logger.warning(
+           "Non-monotonic deflection detected: "
+           "worst violation %.4f m at y=%.2f m",
+           monotonic_check.worst_violation_m,
+           monotonic_check.worst_violation_node_y_m,
+       )
+   ```
+
+### 重要：這是 diagnostic，不是 constraint
+
+- 不影響 feasibility 判斷（不加入 InverseDesignFeasibility）
+- 不影響 val_weight 輸出
+- 只在 summary JSON 和 log 中出現
+- 如果某天想升級為 constraint，只需在 feasibility check 中加一行
+
+### 驗證
+
+- 正常 case 應通過（passed=True）
+- 可以用一個假的 uz 陣列（人為加入 dip）測試 check 函式本身
+- wire 分段應正確：wire at y=7.5 → 兩段 [0, 7.5] 和 [7.5, 16.5]
+
+### 注意事項
+
+- 遵守 CLAUDE.md
+- from __future__ import annotations
+- 行長度 <= 100 字元
+- frozen dataclass 不能用 mutable default（用 tuple 不用 list）
+- np.ndarray 的 column indexing：[:, 1] = Y, [:, 2] = Z
+
+commit message: "feat: add monotonic deflection diagnostic check (Task 7i)"
+```
+
+---
+
+## Task 8：VSP3→AVL 自動化 Pipeline（M8 foundation）— 8a-c 已完成 ✅
 
 ### Prompt
 
@@ -566,10 +987,10 @@ commit message: "chore: phase-2 dihedral sweep with full aero gates"
 
    class VSPGeometryParser:
        """Parse OpenVSP .vsp3 XML files to extract all surface geometry."""
-       
+
        def __init__(self, vsp3_path: Path):
            ...
-       
+
        def parse(self) -> VSPGeometryModel:
            """Parse all wing/tail/fin surfaces from the XML."""
            ...
@@ -582,7 +1003,7 @@ commit message: "chore: phase-2 dihedral sweep with full aero gates"
        rotation: tuple[float, float, float]  # X, Y, Z rotation [deg]
        symmetry: str                # "xz" (左右對稱) or "none"
        sections: list[VSPSection]   # ordered root→tip
-   
+
    @dataclass
    class VSPSection:
        x_le: float                  # leading edge X (local)
@@ -591,11 +1012,11 @@ commit message: "chore: phase-2 dihedral sweep with full aero gates"
        chord: float
        twist: float                 # incidence [deg]
        airfoil: str                 # e.g., "NACA 2412" or name
-   
+
    @dataclass
    class VSPGeometryModel:
        surfaces: list[VSPSurface]
-       
+
        def get_wing(self) -> VSPSurface | None: ...
        def get_h_stab(self) -> VSPSurface | None: ...
        def get_v_fin(self) -> VSPSurface | None: ...
@@ -606,7 +1027,7 @@ commit message: "chore: phase-2 dihedral sweep with full aero gates"
    - <Sym> → Sym_Planar_Flag (2 = XZ plane symmetry)
    - <WingGeom> → section data 在 <XSec_Surf> 下的多個 <XSec> 裡
    - 每個 <XSec> 有 span, chord, twist, sweep, dihedral 等參數
-   
+
    用 xml.etree.ElementTree 解析。
 
 2. **新建 `src/hpa_mdo/aero/avl_exporter.py`**
@@ -666,14 +1087,21 @@ commit message: "feat: add VSP3 XML geometry parser and AVL exporter (M8 foundat
 | 3 | Error handling | ✅ |
 | 4 | Tolerance 進 config | ✅ |
 | 5 | .lod component filter | ✅ |
-| 7 (M8) | VSP→AVL pipeline | ✅ |
-| **7e** | **Aero performance gates** | **⏭️ NEXT** |
-| **7f** | **Phase-2 sweep re-run** | **⏭️ 等 7e** |
+| 6 | Re-run dihedral sweep（Task 1+2） | ✅ |
+| 7e | Aero performance gates | ✅ |
+| 7f | Phase-2 sweep re-run | ✅ |
+| 7g | Progressive dihedral scaling | ✅ |
+| 7h | Loaded STEP + deflection CSV | ✅ |
+| 7i | Monotonic deflection diagnostic | ✅ |
+| 8 (M8) | VSP→AVL pipeline foundation | ✅（8a-c） |
+| 8d | Config schema extension | ⏭️ backlog |
 
 ## 下一步執行順序
 
 ```
-Task 7e (aero gates) → Task 7f (re-run sweep) → 分析結果 → 決策
+Task 9a (fine dihedral sweep, step 0.1 + extend to 3.5×)
+→ Task 9b (multi-wire sweep + drag penalty)
+→ Task 9c (multi-objective Pareto front)
 ```
 
-Task 7e 是當前唯一 blocker。完成後直接跑 7f。
+並行：8d config schema extension（tail/fin 幾何接進 YAML/runtime model）
