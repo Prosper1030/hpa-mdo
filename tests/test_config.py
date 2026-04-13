@@ -73,6 +73,16 @@ def test_blackcat_lift_wire_angle_loaded_from_config():
     assert cfg.lift_wires.wire_angle_deg == pytest.approx(11.3)
 
 
+def test_blackcat_loaded_shape_tolerances_loaded_from_solver_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.solver.loaded_shape_z_tol_m == pytest.approx(0.025)
+    assert cfg.solver.loaded_shape_twist_tol_deg == pytest.approx(0.15)
+
+
 def test_aircraft_converts_airfoil_camber_fraction_to_meters(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"

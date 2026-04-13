@@ -143,6 +143,8 @@ solver:
   de_max_workers: 4
   main_spar_dominance_margin_m: 0.005
   main_spar_ei_ratio: 2.0
+  loaded_shape_z_tol_m: 0.025
+  loaded_shape_twist_tol_deg: 0.15
   fsi_coupling: "one-way"
   fsi_max_iter: 20
   fsi_tol: 1.0e-3

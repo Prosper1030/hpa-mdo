@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
+from hpa_mdo.core.config import SolverConfig
 from hpa_mdo.structure.dual_beam_mainline.types import (
     DualBeamMainlineModel,
     DualBeamMainlineResult,
@@ -20,6 +21,12 @@ INVERSE_MARGIN_NAMES = (
     "ground_clearance_margin_m",
     "jig_prebend_margin_m",
     "jig_curvature_margin_per_m",
+)
+
+_DEFAULT_SOLVER_CONFIG = SolverConfig()
+DEFAULT_LOADED_SHAPE_Z_TOL_M = float(_DEFAULT_SOLVER_CONFIG.loaded_shape_z_tol_m)
+DEFAULT_LOADED_SHAPE_TWIST_TOL_DEG = float(
+    _DEFAULT_SOLVER_CONFIG.loaded_shape_twist_tol_deg
 )
 
 
@@ -473,8 +480,8 @@ def build_frozen_load_inverse_design(
     max_abs_vertical_curvature_per_m: float | None = None,
     loaded_shape_mode: str = "exact_nodal",
     loaded_shape_control_station_fractions: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
-    loaded_shape_main_z_tol_m: float = 0.025,
-    loaded_shape_twist_tol_deg: float = 0.15,
+    loaded_shape_main_z_tol_m: float = DEFAULT_LOADED_SHAPE_Z_TOL_M,
+    loaded_shape_twist_tol_deg: float = DEFAULT_LOADED_SHAPE_TWIST_TOL_DEG,
 ) -> FrozenLoadInverseDesignResult:
     """Construct the frozen-load inverse-design result for one candidate."""
 
@@ -594,8 +601,8 @@ def build_frozen_load_inverse_design_from_mainline(
     max_abs_vertical_curvature_per_m: float | None = None,
     loaded_shape_mode: str = "exact_nodal",
     loaded_shape_control_station_fractions: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
-    loaded_shape_main_z_tol_m: float = 0.025,
-    loaded_shape_twist_tol_deg: float = 0.15,
+    loaded_shape_main_z_tol_m: float = DEFAULT_LOADED_SHAPE_Z_TOL_M,
+    loaded_shape_twist_tol_deg: float = DEFAULT_LOADED_SHAPE_TWIST_TOL_DEG,
     target_loaded_shape_z_scale: float = 1.0,
 ) -> FrozenLoadInverseDesignResult:
     """Convenience wrapper for the current dual-beam production result."""

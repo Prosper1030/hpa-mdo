@@ -240,6 +240,20 @@ class SolverConfig(BaseModel):
         ge=0.0,
         le=1.0,
     )
+    loaded_shape_z_tol_m: float = Field(
+        0.025,
+        description=(
+            "Maximum allowed main-beam loaded-shape control-station "
+            "error used by inverse design [m]"
+        ),
+    )
+    loaded_shape_twist_tol_deg: float = Field(
+        0.15,
+        description=(
+            "Maximum allowed loaded-shape twist control-station error "
+            "used by inverse design [deg]"
+        ),
+    )
     fsi_coupling: Literal["one-way", "two-way"] = "one-way"
     fsi_max_iter: int = 20
     fsi_tol: float = 1e-3

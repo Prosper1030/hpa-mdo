@@ -26,6 +26,7 @@ from scripts.direct_dual_beam_inverse_design import (
     CandidateArchive,
     InverseCandidate,
     LightweightLoadRefreshModel,
+    _build_arg_parser,
     _clearance_risk_metrics,
     _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
@@ -101,6 +102,25 @@ class InverseDesignTests(unittest.TestCase):
             mainline_model=None,
             production_result=None,
         )
+
+    def test_loaded_shape_tolerance_cli_overrides_accept_new_and_legacy_flags(self) -> None:
+        args = _build_arg_parser().parse_args(
+            [
+                "--loaded-shape-z-tol",
+                "0.031",
+                "--loaded-shape-twist-tol",
+                "0.22",
+                "--loaded-shape-main-z-tol-mm",
+                "40.0",
+                "--loaded-shape-twist-tol-deg",
+                "0.6",
+            ]
+        )
+
+        self.assertAlmostEqual(args.loaded_shape_z_tol, 0.031)
+        self.assertAlmostEqual(args.loaded_shape_twist_tol, 0.22)
+        self.assertAlmostEqual(args.loaded_shape_main_z_tol_mm, 40.0)
+        self.assertAlmostEqual(args.loaded_shape_twist_tol_deg, 0.6)
 
     def test_build_frozen_load_inverse_design_backsolves_jig_shape_and_margins(self) -> None:
         target = StructuralNodeShape(

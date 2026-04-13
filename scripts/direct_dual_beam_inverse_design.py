@@ -3017,16 +3017,40 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Span fractions used by the low-dimensional loaded-shape matching descriptors.",
     )
     parser.add_argument(
+        "--loaded-shape-z-tol",
+        type=float,
+        default=None,
+        help=(
+            "Override for maximum allowed main-beam loaded-shape error at control stations [m]. "
+            "Default comes from config solver.loaded_shape_z_tol_m."
+        ),
+    )
+    parser.add_argument(
+        "--loaded-shape-twist-tol",
+        type=float,
+        default=None,
+        help=(
+            "Override for maximum allowed twist error at control stations [deg]. "
+            "Default comes from config solver.loaded_shape_twist_tol_deg."
+        ),
+    )
+    parser.add_argument(
         "--loaded-shape-main-z-tol-mm",
         type=float,
-        default=35.0,
-        help="Maximum allowed main-beam loaded-shape error at the control stations.",
+        default=None,
+        help=(
+            "Legacy alias for --loaded-shape-z-tol (millimeters). "
+            "When omitted, uses config solver.loaded_shape_z_tol_m."
+        ),
     )
     parser.add_argument(
         "--loaded-shape-twist-tol-deg",
         type=float,
-        default=0.5,
-        help="Maximum allowed twist error at the control stations.",
+        default=None,
+        help=(
+            "Legacy alias for --loaded-shape-twist-tol (degrees). "
+            "When omitted, uses config solver.loaded_shape_twist_tol_deg."
+        ),
     )
     parser.add_argument(
         "--loaded-shape-penalty-kg",
@@ -3161,8 +3185,16 @@ def main(argv: list[str] | None = None) -> int:
         washout_scale=float(args.refresh_washout_scale),
     )
     loaded_shape_control_station_fractions = _parse_control_fractions(args.loaded_shape_control_stations)
-    loaded_shape_main_z_tol_m = float(args.loaded_shape_main_z_tol_mm) * 1.0e-3
-    loaded_shape_twist_tol_deg = float(args.loaded_shape_twist_tol_deg)
+    loaded_shape_main_z_tol_m = float(cfg.solver.loaded_shape_z_tol_m)
+    if args.loaded_shape_main_z_tol_mm is not None:
+        loaded_shape_main_z_tol_m = float(args.loaded_shape_main_z_tol_mm) * 1.0e-3
+    if args.loaded_shape_z_tol is not None:
+        loaded_shape_main_z_tol_m = float(args.loaded_shape_z_tol)
+    loaded_shape_twist_tol_deg = float(cfg.solver.loaded_shape_twist_tol_deg)
+    if args.loaded_shape_twist_tol_deg is not None:
+        loaded_shape_twist_tol_deg = float(args.loaded_shape_twist_tol_deg)
+    if args.loaded_shape_twist_tol is not None:
+        loaded_shape_twist_tol_deg = float(args.loaded_shape_twist_tol)
     loaded_shape_penalty_weight_kg = float(args.loaded_shape_penalty_kg)
     target_shape_z_scale = float(args.target_shape_z_scale)
     clearance_risk_threshold_m = float(args.clearance_risk_threshold_mm) * 1.0e-3
