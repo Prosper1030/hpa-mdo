@@ -4,7 +4,7 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-13  
-> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a/9b/9c/9d/9e/9f 已完成（9a 極限 probe：`x6.28` 最後可行、`x6.30` 首次因 trim AoA fail，mass plateau = 11.95 kg；9b: single-wire 高反角仍勝出；9c: Pareto front 收斂到 single + dual 兩支；9d: vendor-aware tube catalog 顯示商規離散化將帶來 +2.8~+9.6 kg tube penalty；9e: full-aircraft rigging BOM 顯示 cable mass 僅 0.07~0.15 kg；9f: dynamic design space 已落地，refresh 後 `delta_t_global_max` 由 7.2 mm 收斂到 3.6 mm），下一步進入 9g higher-fidelity load coupling，8d 作為幾何整合補完
+> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a–9g 全數完成（9a 極限 probe：`x6.28` 最後可行、`x6.30` 首次因 trim AoA fail，mass plateau = 11.95 kg；9b: single-wire 高反角仍勝出；9c: Pareto front 收斂到 single + dual 兩支；9d: vendor-aware tube catalog 顯示商規離散化將帶來 +2.8~+9.6 kg tube penalty；9e: full-aircraft rigging BOM 顯示 cable mass 僅 0.07~0.15 kg；9f: dynamic design space 已落地，refresh 後 `delta_t_global_max` 由 7.2 mm 收斂到 3.6 mm；9g: higher-fidelity load coupling 可在第 2 步收斂），下一步回到 8d config schema extension，之後進入 M10 ASWING
 
 ---
 
@@ -207,7 +207,8 @@
            │      full-aircraft cable BOM        │
            │ 9f ✅ dynamic design space           │
            │      reduced-map rebuild in refresh │
-           │ 9g. higher-fidelity load coupling    │
+           │ 9g ✅ higher-fidelity load coupling  │
+           │      converged outer refresh loop   │
            └──────────────┬───────────────────────┘
                           │
            ┌──────────────▼───────────────────────┐
@@ -281,6 +282,7 @@
 | vendor-aware tube catalog (9d) | ✅ | 4 representative designs 全數離散化；tube BOM penalty +2.8~+9.6 kg |
 | full wire/rigging system (9e) | ✅ | full-aircraft wire schedule + BOM；cable mass 0.07~0.15 kg |
 | dynamic design space (9f) | ✅ | refresh iteration 內建 reduced-map rebuild；`delta_t_global_max` 7.2→3.6 mm |
+| higher-fidelity load coupling (9g) | ✅ | converged outer loop；第 2 步 load/mass delta 收斂 |
 
 ---
 
@@ -613,6 +615,12 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
   delta_t_global_max: 7.2 mm → 3.6 mm after first rebuild
   light comparison run: final mass / clearance unchanged vs static map
   report: docs/dynamic_design_space_phase9f_report.md
+
+9g higher-fidelity load coupling highlights:
+  converged outer loop: 2 refresh steps (tol-based stop)
+  dynamic map remained active during convergence
+  light comparison run: final mass unchanged vs fixed 2-step dynamic run
+  report: docs/higher_fidelity_load_coupling_phase9g_report.md
 ```
 
 ### 已驗證的工程結論
@@ -627,15 +635,16 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | 商規離散化不能忽略 | 9d 顯示假想 vendor catalog 仍會帶來 +2.8~+9.6 kg tube penalty，採購層級會改變 ranking |
 | cable mass 不是主導變數 | 9e full-aircraft rigging BOM 只有 0.07~0.15 kg，真正代價在 complexity 與 fittings，不在 cable 自重 |
 | refresh 主線不再綁死 specimen-only map | 9f 已可在 refresh iteration 中重建 reduced design space；這次 light case 雖未改變 final mass，但 search bounds 已動態收斂 |
+| lightweight refresh path 已具備收斂外圈 | 9g 已能以 load/mass delta 作為停機條件；剩餘差距主要是外部 aero rerun 與 trim update |
 
 ### 下一步（優先順序）
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **1** | 9g: higher-fidelity load coupling | M9 | Codex | ⏭️ **NEXT** |
-| **2** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可並行 |
-| **3** | focused crossover sweep（1.5→2.2，如需） | M9 | 規劃中 | ⏭️ 可選 |
-| **4** | 10a-b: ASWING 安裝 + .asw 產生器 | M10 | 評估中 | ❌ |
+| **1** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ **NEXT** |
+| **2** | focused crossover sweep（1.5→2.2，如需） | M9 | 規劃中 | ⏭️ 可選 |
+| **3** | 10a-b: ASWING 安裝 + .asw 產生器 | M10 | 評估中 | ❌ |
+| **4** | real vendor catalog / hardware catalog | M9+ | 規劃中 | ⏭️ 後續資料化 |
 
 ### 已完成（本輪）
 
@@ -658,13 +667,14 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | vendor-aware tube catalog | M9 | ✅ 4 representative designs discrete BOM + cost；tube penalty +2.8~+9.6 kg |
 | full wire/rigging system | M9 | ✅ mirrored aircraft wire schedule + BOM；cable mass 0.07~0.15 kg |
 | dynamic design space | M9 | ✅ `--dynamic-design-space` + iteration map trace；7.2 mm→3.6 mm map contraction |
+| higher-fidelity load coupling | M9 | ✅ `--refresh-until-converged`；2-step convergence on light comparison case |
 
 ### 關鍵路徑
 
 ```
-9g (higher-fidelity load coupling)
-   → 將 refresh 從固定 1-2 step 擴成可收斂的外圈 / load-coupling loop
-   → 正式縮小「light refresh」與「full coupling」之間的差距
+8d (config schema extension)
+   → 將 tail / fin 幾何正式接入 YAML 與 runtime model
+   → 為 M10 ASWING / 全機幾何一致性做收尾
 
 並行補完：8d (config schema extension，tail/fin 幾何進 YAML/runtime model)
 

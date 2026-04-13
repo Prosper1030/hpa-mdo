@@ -442,6 +442,8 @@ class RefreshRefinementOutcome:
     refresh_steps_completed: int
     dynamic_design_space_enabled: bool
     dynamic_design_space_rebuilds: int
+    converged: bool
+    convergence_reason: str | None
     manufacturing_limit_source: str
     max_jig_vertical_prebend_limit_m: float | None
     max_jig_vertical_curvature_limit_per_m: float | None
@@ -533,6 +535,24 @@ def _rebuild_dynamic_map_config(
         rear_radius_scale_upper=float(previous_map_config.rear_radius_scale_upper),
     )
     return baseline, rebuilt
+
+
+def _refresh_iteration_converged(
+    iteration: RefreshIterationResult,
+    *,
+    mass_tol_kg: float,
+    lift_rms_tol_npm: float,
+    torque_rms_tol_nmpm: float,
+) -> bool:
+    if iteration.mass_delta_kg is None:
+        return False
+    if iteration.lift_rms_delta_npm is None or iteration.torque_rms_delta_nmpm is None:
+        return False
+    return bool(
+        abs(float(iteration.mass_delta_kg)) <= float(mass_tol_kg)
+        and abs(float(iteration.lift_rms_delta_npm)) <= float(lift_rms_tol_npm)
+        and abs(float(iteration.torque_rms_delta_nmpm)) <= float(torque_rms_tol_nmpm)
+    )
 
 
 def _clearance_hotspots(
@@ -2183,6 +2203,9 @@ def build_refresh_report_text(
     lines.append(
         f"  dynamic design space        : {'enabled' if outcome.dynamic_design_space_enabled else 'disabled'}"
     )
+    lines.append(
+        f"  converged outer loop        : {'yes' if outcome.converged else 'no'}"
+    )
     lines.append("")
     lines.append("Physics assumptions:")
     lines.append("  1. Each stage is still a one-way structural solve on the existing beam-line target shape.")
@@ -2193,7 +2216,10 @@ def build_refresh_report_text(
         lines.append("  5. Loaded-shape matching is constrained only on main-beam Z and twist at a few control stations.")
     lines.append("")
     lines.append("Difference from full coupling:")
-    lines.append("  - capped outer refresh count instead of iterating to convergence")
+    if outcome.converged:
+        lines.append("  - lightweight outer loop converges on load/mass deltas, not full aeroelastic residuals")
+    else:
+        lines.append("  - capped outer refresh count instead of iterating to convergence")
     lines.append("  - no geometry rebuild / CFD rerun between stages")
     if outcome.dynamic_design_space_enabled:
         lines.append("  - no trim solve; dynamic design space only rebuilds the reduced V2 map")
@@ -2231,6 +2257,9 @@ def build_refresh_report_text(
     lines.append(f"  requested outer steps       : {outcome.refresh_steps_requested}")
     lines.append(f"  completed outer steps       : {outcome.refresh_steps_completed}")
     lines.append(f"  dynamic map rebuilds        : {outcome.dynamic_design_space_rebuilds}")
+    lines.append(f"  converged                   : {outcome.converged}")
+    if outcome.convergence_reason is not None:
+        lines.append(f"  convergence reason          : {outcome.convergence_reason}")
     lines.append(f"  final feasible              : {final_iteration.outcome.feasible}")
     lines.append(f"  final selected source       : {final_iteration.outcome.selected.source}")
     if final_iteration.outcome.best_overall_feasible is not None:
@@ -2469,6 +2498,8 @@ def build_refresh_summary_json(
             "refresh_steps_completed": outcome.refresh_steps_completed,
             "dynamic_design_space_enabled": outcome.dynamic_design_space_enabled,
             "dynamic_design_space_rebuilds": outcome.dynamic_design_space_rebuilds,
+            "converged": outcome.converged,
+            "convergence_reason": outcome.convergence_reason,
             "refresh_washout_scale": float(refresh_washout_scale),
             "loaded_shape_matching": (
                 None
@@ -2488,7 +2519,11 @@ def build_refresh_summary_json(
                 "forward refresh check estimates old-jig mismatch under refreshed displacement",
             ],
             "difference_from_full_coupling": [
-                "no convergence loop to aero-structural tolerance",
+                (
+                    "outer loop converges only on lightweight load/mass deltas, not full aeroelastic residuals"
+                    if outcome.converged
+                    else "no convergence loop to aero-structural tolerance"
+                ),
                 "no geometry rebuild or new aerodynamic solve between stages",
                 (
                     "no trim update; dynamic design space only rebuilds the reduced V2 map"
@@ -3051,14 +3086,25 @@ def run_inverse_design_load_refresh_refinement(
     refresh_model: LightweightLoadRefreshModel,
     refresh_steps: int,
     dynamic_design_space: bool = False,
+    refresh_until_converged: bool = False,
+    refresh_max_steps: int | None = None,
+    refresh_convergence_mass_tol_kg: float = 0.05,
+    refresh_convergence_lift_rms_tol_npm: float = 1.0,
+    refresh_convergence_torque_rms_tol_nmpm: float = 0.5,
 ) -> RefreshRefinementOutcome:
     design_case = cfg.structural_load_cases()[0]
     refresh_steps = int(refresh_steps)
     iterations: list[RefreshIterationResult] = []
     dynamic_design_space = bool(dynamic_design_space)
+    refresh_until_converged = bool(refresh_until_converged)
     dynamic_rebuilds = 0
+    converged = False
+    convergence_reason: str | None = None
     current_baseline_design = _baseline_design_from_result(baseline_result)
     current_map_config = map_config
+    requested_steps = refresh_steps
+    if refresh_until_converged:
+        requested_steps = max(1, int(refresh_max_steps or max(refresh_steps, 1)))
 
     optimizer.update_aero_loads(initial_mapped_loads)
     initial_export_loads = LoadMapper.apply_load_factor(initial_mapped_loads, design_case.aero_scale)
@@ -3116,10 +3162,11 @@ def run_inverse_design_load_refresh_refinement(
         )
     )
 
-    for step in range(1, refresh_steps + 1):
+    for step in range(1, requested_steps + 1):
         previous_iteration = iterations[-1]
         previous_selected = previous_iteration.outcome.selected
         if previous_selected.equivalent_result is None:
+            convergence_reason = "selected_candidate_missing_equivalent_result"
             break
 
         refreshed_mapped_loads, refreshed_metrics = refresh_model.refresh_mapped_loads(
@@ -3188,25 +3235,35 @@ def run_inverse_design_load_refresh_refinement(
             local_refine_early_stop_patience=local_refine_early_stop_patience,
             local_refine_early_stop_abs_improvement_kg=local_refine_early_stop_abs_improvement_kg,
         )
-        iterations.append(
-            _build_refresh_iteration_result(
-                iteration_index=step,
-                load_source=f"refresh_{step}_from_iteration_{previous_iteration.iteration_index}",
-                outcome=refreshed_outcome,
-                mapped_loads=refreshed_mapped_loads,
-                load_metrics=refreshed_metrics,
-                map_config=current_map_config,
-                dynamic_design_space_applied=map_rebuilt,
-                previous=previous_iteration,
-                forward_check=forward_check,
-            )
+        iteration_result = _build_refresh_iteration_result(
+            iteration_index=step,
+            load_source=f"refresh_{step}_from_iteration_{previous_iteration.iteration_index}",
+            outcome=refreshed_outcome,
+            mapped_loads=refreshed_mapped_loads,
+            load_metrics=refreshed_metrics,
+            map_config=current_map_config,
+            dynamic_design_space_applied=map_rebuilt,
+            previous=previous_iteration,
+            forward_check=forward_check,
         )
+        iterations.append(iteration_result)
+        if refresh_until_converged and _refresh_iteration_converged(
+            iteration_result,
+            mass_tol_kg=float(refresh_convergence_mass_tol_kg),
+            lift_rms_tol_npm=float(refresh_convergence_lift_rms_tol_npm),
+            torque_rms_tol_nmpm=float(refresh_convergence_torque_rms_tol_nmpm),
+        ):
+            converged = True
+            convergence_reason = "load_and_mass_delta_below_tolerance"
+            break
 
     return RefreshRefinementOutcome(
-        refresh_steps_requested=refresh_steps,
+        refresh_steps_requested=requested_steps,
         refresh_steps_completed=max(0, len(iterations) - 1),
         dynamic_design_space_enabled=dynamic_design_space,
         dynamic_design_space_rebuilds=int(dynamic_rebuilds),
+        converged=bool(converged),
+        convergence_reason=convergence_reason,
         manufacturing_limit_source=manufacturing_limit_source,
         max_jig_vertical_prebend_limit_m=max_jig_vertical_prebend_m,
         max_jig_vertical_curvature_limit_per_m=max_jig_vertical_curvature_per_m,
@@ -3401,6 +3458,35 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Number of lightweight outer load-refresh updates to run after the frozen-load stage.",
     )
     parser.add_argument(
+        "--refresh-until-converged",
+        action="store_true",
+        help="Continue outer refresh updates until load/mass deltas fall below the configured tolerances.",
+    )
+    parser.add_argument(
+        "--refresh-max-steps",
+        type=int,
+        default=5,
+        help="Maximum outer refresh steps when --refresh-until-converged is enabled.",
+    )
+    parser.add_argument(
+        "--refresh-convergence-mass-tol-kg",
+        type=float,
+        default=0.05,
+        help="Mass-delta convergence threshold for --refresh-until-converged.",
+    )
+    parser.add_argument(
+        "--refresh-convergence-lift-rms-tol-npm",
+        type=float,
+        default=1.0,
+        help="Lift RMS delta threshold [N/m] for --refresh-until-converged.",
+    )
+    parser.add_argument(
+        "--refresh-convergence-torque-rms-tol-nmpm",
+        type=float,
+        default=0.5,
+        help="Torque RMS delta threshold [N*m/m] for --refresh-until-converged.",
+    )
+    parser.add_argument(
         "--refresh-washout-scale",
         type=float,
         default=1.0,
@@ -3573,6 +3659,11 @@ def main(argv: list[str] | None = None) -> int:
         refresh_model=refresh_model,
         refresh_steps=int(args.refresh_steps),
         dynamic_design_space=bool(args.dynamic_design_space),
+        refresh_until_converged=bool(args.refresh_until_converged),
+        refresh_max_steps=int(args.refresh_max_steps),
+        refresh_convergence_mass_tol_kg=float(args.refresh_convergence_mass_tol_kg),
+        refresh_convergence_lift_rms_tol_npm=float(args.refresh_convergence_lift_rms_tol_npm),
+        refresh_convergence_torque_rms_tol_nmpm=float(args.refresh_convergence_torque_rms_tol_nmpm),
     )
 
     final_iteration = refinement.final_iteration
@@ -3596,6 +3687,8 @@ def main(argv: list[str] | None = None) -> int:
         refresh_steps_completed=refinement.refresh_steps_completed,
         dynamic_design_space_enabled=refinement.dynamic_design_space_enabled,
         dynamic_design_space_rebuilds=refinement.dynamic_design_space_rebuilds,
+        converged=refinement.converged,
+        convergence_reason=refinement.convergence_reason,
         manufacturing_limit_source=refinement.manufacturing_limit_source,
         max_jig_vertical_prebend_limit_m=refinement.max_jig_vertical_prebend_limit_m,
         max_jig_vertical_curvature_limit_per_m=refinement.max_jig_vertical_curvature_limit_per_m,
@@ -3641,6 +3734,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Summary JSON        : {json_path}")
     print(f"  Refresh steps       : {refinement.refresh_steps_completed}/{refinement.refresh_steps_requested}")
     print(f"  Dynamic map rebuild : {refinement.dynamic_design_space_rebuilds}")
+    print(f"  Converged           : {refinement.converged}")
+    if refinement.convergence_reason is not None:
+        print(f"  Convergence reason  : {refinement.convergence_reason}")
     print(f"  Feasible            : {refinement.final_iteration.outcome.feasible}")
     if refinement.final_iteration.outcome.target_mass_kg is not None:
         print(f"  Target mass cap     : {refinement.final_iteration.outcome.target_mass_kg:.3f} kg")
