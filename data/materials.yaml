@@ -132,6 +132,15 @@ dyneema_sk75:
   tension_only: true
   description: "Lift wire / bracing cord — tension only, zero buckling capacity"
 
+piano_wire_swpb:
+  description: "High-carbon piano wire (SWP-B/JIS G3522) — flying wire"
+  E: 206.0e9
+  G: 79.3e9
+  density: 7850.0
+  tensile_strength: 2000.0e6
+  yield_strength: 1700.0e6
+  tension_only: true
+
 titanium_6al4v:
   name: "Titanium 6Al-4V (Grade 5)"
   E: 114.0e9

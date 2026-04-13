@@ -126,9 +126,9 @@ rear_spar:
 #
 lift_wires:
   enabled: true
-  cable_material: "steel_4130"
-  cable_diameter: 2.0e-3                 # [m]
-  max_tension_fraction: 0.5              # fraction of cable UTS
+  cable_material: "dyneema_sk75"
+  cable_diameter: 2.5e-3                 # [m]
+  max_tension_fraction: 0.40             # fraction of cable UTS
   wire_angle_deg: 11.3                   # atan(1.5 m drop / 7.5 m span)
 
   attachments:
