@@ -221,6 +221,22 @@ class AeroGatesConfig(BaseModel):
         12.0,
         description="Maximum acceptable trim angle of attack before stall margin is exceeded [deg]",
     )
+    max_sideslip_deg: float = Field(
+        12.0,
+        description="Maximum required trimmed sideslip angle [deg]",
+    )
+    beta_sweep_values: List[float] = Field(
+        default_factory=lambda: [0.0, 5.0, 10.0, 12.0],
+        description="AVL beta sweep values [deg] for directional stability checks",
+    )
+
+    @model_validator(mode="after")
+    def validate_beta_sweep_values(self) -> AeroGatesConfig:
+        if not self.beta_sweep_values:
+            raise ValueError("aero_gates.beta_sweep_values must not be empty.")
+        if any(float(value) < 0.0 for value in self.beta_sweep_values):
+            raise ValueError("aero_gates.beta_sweep_values must be non-negative.")
+        return self
 
 
 class SolverConfig(BaseModel):

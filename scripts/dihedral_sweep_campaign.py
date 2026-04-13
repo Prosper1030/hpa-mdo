@@ -116,6 +116,27 @@ class AeroPerformanceEvaluation:
 
 
 @dataclass(frozen=True)
+class BetaSweepPoint:
+    beta_deg: float
+    cl_trim: float | None
+    cd_induced: float | None
+    aoa_trim_deg: float | None
+    cn_total: float | None
+    cl_roll_total: float | None
+    trim_converged: bool
+
+
+@dataclass(frozen=True)
+class BetaSweepEvaluation:
+    beta_values_deg: tuple[float, ...]
+    points: tuple[BetaSweepPoint, ...]
+    max_trimmed_beta_deg: float | None
+    directional_stable: bool
+    sideslip_feasible: bool
+    sideslip_reason: str
+
+
+@dataclass(frozen=True)
 class SweepResult:
     dihedral_multiplier: float
     avl_case_path: str
@@ -135,6 +156,9 @@ class SweepResult:
     span_efficiency: float | None
     lift_total_n: float | None
     aero_power_w: float | None
+    beta_sweep_max_beta_deg: float | None
+    beta_sweep_directional_stable: bool | None
+    beta_sweep_sideslip_feasible: bool | None
     structure_status: str
     total_mass_kg: float | None
     min_jig_clearance_mm: float | None
@@ -559,7 +583,16 @@ def parse_avl_force_totals(path: Path) -> dict[str, float] | None:
     cd_induced = _parse_force_scalar(text, "CDind")
     aoa_trim_deg = _parse_force_scalar(text, "Alpha")
     span_efficiency = _parse_force_scalar(text, "e")
-    if cl_trim is None and cd_induced is None and aoa_trim_deg is None and span_efficiency is None:
+    cl_roll_total = _parse_force_scalar(text, "Cltot")
+    cn_total = _parse_force_scalar(text, "Cntot")
+    if (
+        cl_trim is None
+        and cd_induced is None
+        and aoa_trim_deg is None
+        and span_efficiency is None
+        and cl_roll_total is None
+        and cn_total is None
+    ):
         return None
     payload: dict[str, float] = {}
     if cl_trim is not None:
@@ -570,6 +603,10 @@ def parse_avl_force_totals(path: Path) -> dict[str, float] | None:
         payload["aoa_trim_deg"] = float(aoa_trim_deg)
     if span_efficiency is not None:
         payload["span_efficiency"] = float(span_efficiency)
+    if cl_roll_total is not None:
+        payload["cl_roll_total"] = float(cl_roll_total)
+    if cn_total is not None:
+        payload["cn_total"] = float(cn_total)
     return payload
 
 
@@ -579,21 +616,28 @@ def run_avl_trim_case(
     case_avl_path: Path,
     case_dir: Path,
     cl_required: float,
+    beta_deg: float | None = None,
+    output_stem: str = "trim",
 ) -> AvlTrimEvaluation:
-    trim_file = case_dir / "case_trim.ft"
-    stdout_log = case_dir / "avl_trim_stdout.log"
+    trim_file = case_dir / f"case_{output_stem}.ft"
+    stdout_log = case_dir / f"avl_{output_stem}_stdout.log"
     if trim_file.exists():
         trim_file.unlink()
+    oper_lines = [
+        "oper",
+        "c1",
+        f"c {float(cl_required):.9f}",
+        "",
+    ]
+    if beta_deg is not None:
+        oper_lines.append(f"b b {float(beta_deg):.9f}")
     command_text = "\n".join(
         [
             "plop",
             "g",
             "",
             f"load {case_avl_path.name}",
-            "oper",
-            "c1",
-            f"c {float(cl_required):.9f}",
-            "",
+            *oper_lines,
             "x",
             "ft",
             trim_file.name,
@@ -623,7 +667,7 @@ def run_avl_trim_case(
         trim_status = "trim_not_converged"
     elif parsed is None:
         trim_status = "trim_output_missing"
-    elif {"cl_trim", "cd_induced", "aoa_trim_deg"} - set(parsed):
+    elif {"cl_trim", "aoa_trim_deg"} - set(parsed):
         trim_status = "trim_output_incomplete"
     else:
         trim_status = "trim_converged"
@@ -638,6 +682,142 @@ def run_avl_trim_case(
         cd_induced=None if parsed is None else parsed.get("cd_induced"),
         aoa_trim_deg=None if parsed is None else parsed.get("aoa_trim_deg"),
         span_efficiency=None if parsed is None else parsed.get("span_efficiency"),
+    )
+
+
+def _resolve_beta_sweep_values(
+    configured_values_deg: Iterable[float],
+    *,
+    max_sideslip_deg: float,
+) -> tuple[float, ...]:
+    unique_values = {0.0}
+    limit = float(max_sideslip_deg)
+    if limit < 0.0:
+        raise ValueError("max_sideslip_deg must be >= 0.0.")
+    for value in configured_values_deg:
+        beta = float(value)
+        if beta < 0.0:
+            raise ValueError("aero_gates.beta_sweep_values must be non-negative.")
+        if beta <= limit + 1.0e-12:
+            unique_values.add(beta)
+    unique_values.add(limit)
+    return tuple(sorted(unique_values))
+
+
+def _evaluate_beta_sweep_points(
+    points: tuple[BetaSweepPoint, ...],
+    *,
+    required_max_beta_deg: float,
+) -> BetaSweepEvaluation:
+    if not points:
+        return BetaSweepEvaluation(
+            beta_values_deg=(),
+            points=(),
+            max_trimmed_beta_deg=None,
+            directional_stable=False,
+            sideslip_feasible=False,
+            sideslip_reason="no_beta_points",
+        )
+
+    ordered_points = tuple(sorted(points, key=lambda point: float(point.beta_deg)))
+    max_trimmed_beta_deg: float | None = None
+    for point in ordered_points:
+        if not point.trim_converged:
+            break
+        max_trimmed_beta_deg = float(point.beta_deg)
+
+    sideslip_feasible = (
+        max_trimmed_beta_deg is not None
+        and max_trimmed_beta_deg >= float(required_max_beta_deg) - 1.0e-9
+    )
+
+    zero_beta_point = next(
+        (point for point in ordered_points if abs(float(point.beta_deg)) <= 1.0e-9),
+        None,
+    )
+    baseline_cn = 0.0 if zero_beta_point is None or zero_beta_point.cn_total is None else float(
+        zero_beta_point.cn_total
+    )
+    converged_nonzero = [
+        point
+        for point in ordered_points
+        if point.trim_converged and abs(float(point.beta_deg)) > 1.0e-9
+    ]
+    directional_stable = True
+    stability_reason = "ok"
+    if not converged_nonzero:
+        directional_stable = False
+        stability_reason = "no_converged_nonzero_beta_points"
+    else:
+        for point in converged_nonzero:
+            if point.cn_total is None:
+                directional_stable = False
+                stability_reason = f"cntot_missing_at_beta_{point.beta_deg:.1f}"
+                break
+            delta_cn = float(point.cn_total) - baseline_cn
+            if delta_cn * float(point.beta_deg) > 1.0e-9:
+                directional_stable = False
+                stability_reason = "cn_beta_positive"
+                break
+
+    reason = stability_reason
+    if not sideslip_feasible:
+        reason = f"trim_not_converged_at_beta_{float(required_max_beta_deg):.1f}"
+    elif not directional_stable:
+        reason = stability_reason
+
+    return BetaSweepEvaluation(
+        beta_values_deg=tuple(float(point.beta_deg) for point in ordered_points),
+        points=ordered_points,
+        max_trimmed_beta_deg=max_trimmed_beta_deg,
+        directional_stable=bool(directional_stable),
+        sideslip_feasible=bool(sideslip_feasible),
+        sideslip_reason=reason,
+    )
+
+
+def run_avl_beta_sweep(
+    *,
+    avl_bin: str | Path,
+    case_avl_path: Path,
+    case_dir: Path,
+    cl_required: float,
+    beta_values_deg: tuple[float, ...] = (0.0, 5.0, 10.0, 12.0),
+    mode_params: AvlModeParameters,
+) -> BetaSweepEvaluation:
+    del mode_params
+    avl_bin_path = Path(avl_bin).expanduser().resolve()
+    points: list[BetaSweepPoint] = []
+    ordered_betas = tuple(sorted(float(value) for value in beta_values_deg))
+    for beta_deg in ordered_betas:
+        output_stem = f"beta_{_slug(beta_deg)}"
+        trim_eval = run_avl_trim_case(
+            avl_bin=avl_bin_path,
+            case_avl_path=case_avl_path,
+            case_dir=case_dir,
+            cl_required=cl_required,
+            beta_deg=float(beta_deg),
+            output_stem=output_stem,
+        )
+        parsed = None
+        if trim_eval.trim_file_path is not None:
+            parsed = parse_avl_force_totals(Path(trim_eval.trim_file_path))
+        points.append(
+            BetaSweepPoint(
+                beta_deg=float(beta_deg),
+                cl_trim=trim_eval.cl_trim,
+                cd_induced=trim_eval.cd_induced,
+                aoa_trim_deg=trim_eval.aoa_trim_deg,
+                cn_total=None if parsed is None else parsed.get("cn_total"),
+                cl_roll_total=None if parsed is None else parsed.get("cl_roll_total"),
+                trim_converged=bool(trim_eval.trim_converged),
+            )
+        )
+
+    required_max_beta_deg = max(ordered_betas) if ordered_betas else 0.0
+    return _evaluate_beta_sweep_points(
+        tuple(points),
+        required_max_beta_deg=float(required_max_beta_deg),
     )
 
 
@@ -836,6 +1016,7 @@ def _build_result_row(
     multiplier: float,
     avl_eval: AvlEvaluation,
     aero_perf_eval: AeroPerformanceEvaluation,
+    beta_eval: BetaSweepEvaluation | None,
     summary_payload: dict[str, object] | None,
     selected_output_dir: str | None,
     summary_json_path: str | None,
@@ -862,6 +1043,9 @@ def _build_result_row(
             span_efficiency=aero_perf_eval.span_efficiency,
             lift_total_n=aero_perf_eval.lift_total_n,
             aero_power_w=aero_perf_eval.aero_power_w,
+            beta_sweep_max_beta_deg=None if beta_eval is None else beta_eval.max_trimmed_beta_deg,
+            beta_sweep_directional_stable=None if beta_eval is None else beta_eval.directional_stable,
+            beta_sweep_sideslip_feasible=None if beta_eval is None else beta_eval.sideslip_feasible,
             structure_status=structure_status,
             total_mass_kg=None,
             min_jig_clearance_mm=None,
@@ -898,6 +1082,9 @@ def _build_result_row(
         span_efficiency=aero_perf_eval.span_efficiency,
         lift_total_n=aero_perf_eval.lift_total_n,
         aero_power_w=aero_perf_eval.aero_power_w,
+        beta_sweep_max_beta_deg=None if beta_eval is None else beta_eval.max_trimmed_beta_deg,
+        beta_sweep_directional_stable=None if beta_eval is None else beta_eval.directional_stable,
+        beta_sweep_sideslip_feasible=None if beta_eval is None else beta_eval.sideslip_feasible,
         structure_status="feasible" if bool(selected["overall_feasible"]) else "infeasible",
         total_mass_kg=float(selected["total_structural_mass_kg"]),
         min_jig_clearance_mm=float(selected["jig_ground_clearance_min_m"]) * 1000.0,
@@ -932,6 +1119,9 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "span_efficiency",
         "lift_total_n",
         "aero_power_w",
+        "beta_sweep_max_beta_deg",
+        "beta_sweep_directional_stable",
+        "beta_sweep_sideslip_feasible",
         "structure_status",
         "total_mass_kg",
         "min_jig_clearance_mm",
@@ -1005,6 +1195,17 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip AVL trim-derived aero performance gates and keep stability-only filtering.",
     )
+    parser.add_argument(
+        "--skip-beta-sweep",
+        action="store_true",
+        help="Skip AVL beta-sweep sideslip checks for faster smoke testing.",
+    )
+    parser.add_argument(
+        "--max-sideslip-deg",
+        type=float,
+        default=None,
+        help="Override the maximum required trimmed sideslip [deg]. Defaults to config.",
+    )
     parser.add_argument("--avl-velocity", type=float, default=None)
     parser.add_argument("--avl-density", type=float, default=None)
     parser.add_argument("--avl-gravity", type=float, default=None)
@@ -1074,6 +1275,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     cd_profile_estimate = float(cfg.aero_gates.cd_profile_estimate)
     max_trim_aoa_deg = float(cfg.aero_gates.max_trim_aoa_deg)
+    max_sideslip_deg = (
+        float(cfg.aero_gates.max_sideslip_deg)
+        if args.max_sideslip_deg is None
+        else float(args.max_sideslip_deg)
+    )
+    beta_sweep_values_deg = _resolve_beta_sweep_values(
+        cfg.aero_gates.beta_sweep_values,
+        max_sideslip_deg=float(max_sideslip_deg),
+    )
     min_lift_n = float(min_lift_kg) * 9.81
     reference_area_m2 = estimate_reference_area(cfg)
     dynamic_pressure_pa = 0.5 * float(cfg.flight.air_density) * float(cfg.flight.velocity) ** 2
@@ -1135,13 +1345,16 @@ def main(argv: list[str] | None = None) -> int:
                         "min_lift_kg": float(min_lift_kg),
                         "min_lift_n": float(min_lift_n),
                         "min_ld_ratio": float(min_ld_ratio),
-                        "cd_profile_estimate": float(cd_profile_estimate),
-                        "max_trim_aoa_deg": float(max_trim_aoa_deg),
-                        "skip_aero_gates": bool(args.skip_aero_gates),
-                    },
+                    "cd_profile_estimate": float(cd_profile_estimate),
+                    "max_trim_aoa_deg": float(max_trim_aoa_deg),
+                    "skip_aero_gates": bool(args.skip_aero_gates),
+                    "skip_beta_sweep": bool(args.skip_beta_sweep),
+                    "max_sideslip_deg": float(max_sideslip_deg),
+                    "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
                 },
-                indent=2,
-            )
+            },
+            indent=2,
+        )
             + "\n",
             encoding="utf-8",
         )
@@ -1190,11 +1403,28 @@ def main(argv: list[str] | None = None) -> int:
                 max_trim_aoa_deg=max_trim_aoa_deg,
             )
 
+        beta_eval: BetaSweepEvaluation | None = None
+        if avl_eval.aero_feasible and not args.skip_beta_sweep:
+            beta_eval = run_avl_beta_sweep(
+                avl_bin=avl_bin,
+                case_avl_path=case_avl_path,
+                case_dir=case_dir,
+                cl_required=cl_required,
+                beta_values_deg=beta_sweep_values_deg,
+                mode_params=mode_params,
+            )
+
+        beta_gate_passed = (
+            True
+            if beta_eval is None
+            else beta_eval.sideslip_feasible and beta_eval.directional_stable
+        )
+
         summary_payload: dict[str, object] | None = None
         selected_output_dir: str | None = None
         summary_json_path: str | None = None
         inverse_error_message: str | None = None
-        if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible:
+        if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible and beta_gate_passed:
             inverse_output_dir = case_dir / "inverse_design"
             selected_output_dir = str(inverse_output_dir.resolve())
             summary_json_path, _, inverse_error_message = run_inverse_design_case(
@@ -1224,6 +1454,7 @@ def main(argv: list[str] | None = None) -> int:
                 multiplier=float(multiplier),
                 avl_eval=avl_eval,
                 aero_perf_eval=aero_perf_eval,
+                beta_eval=beta_eval,
                 summary_payload=summary_payload,
                 selected_output_dir=selected_output_dir,
                 summary_json_path=summary_json_path,
@@ -1253,6 +1484,9 @@ def main(argv: list[str] | None = None) -> int:
                     "cd_profile_estimate": float(cd_profile_estimate),
                     "max_trim_aoa_deg": float(max_trim_aoa_deg),
                     "skip_aero_gates": bool(args.skip_aero_gates),
+                    "skip_beta_sweep": bool(args.skip_beta_sweep),
+                    "max_sideslip_deg": float(max_sideslip_deg),
+                    "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
                 },
                 "cases": [asdict(row) for row in rows],
             },
@@ -1273,10 +1507,20 @@ def main(argv: list[str] | None = None) -> int:
         clear_text = "n/a" if row.min_jig_clearance_mm is None else f"{row.min_jig_clearance_mm:.3f} mm"
         wire_text = "n/a" if row.wire_tension_n is None else f"{row.wire_tension_n:.1f} N"
         ld_text = "n/a" if row.ld_ratio is None else f"{row.ld_ratio:.2f}"
+        beta_text = (
+            "n/a"
+            if row.beta_sweep_max_beta_deg is None
+            else (
+                f"beta<={row.beta_sweep_max_beta_deg:.1f}, "
+                f"dir={'ok' if row.beta_sweep_directional_stable else 'fail'}, "
+                f"trim={'ok' if row.beta_sweep_sideslip_feasible else 'fail'}"
+            )
+        )
         print(
             "  "
             f"x{row.dihedral_multiplier:.3f}: aero={row.aero_status}, "
             f"perf={row.aero_performance_reason}, L/D={ld_text}, "
+            f"beta={beta_text}, "
             f"struct={row.structure_status}, mass={mass_text}, "
             f"clearance={clear_text}, wire={wire_text}"
         )

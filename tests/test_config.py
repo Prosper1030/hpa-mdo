@@ -119,6 +119,16 @@ def test_blackcat_spar_layup_defaults_loaded_from_config():
     assert cfg.rear_spar.ply_material == "cfrp_ply_hm"
 
 
+def test_blackcat_beta_sweep_gates_loaded_from_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.aero_gates.max_sideslip_deg == pytest.approx(12.0)
+    assert cfg.aero_gates.beta_sweep_values == pytest.approx([0.0, 5.0, 10.0, 12.0])
+
+
 def test_aircraft_converts_airfoil_camber_fraction_to_meters(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"

@@ -15,8 +15,10 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.dihedral_sweep_campaign import (
     AeroPerformanceEvaluation,
     AvlEvaluation,
+    BetaSweepPoint,
     _build_arg_parser,
     _build_result_row,
+    _evaluate_beta_sweep_points,
     evaluate_aero_performance,
     parse_avl_force_totals,
     parse_avl_eigenvalue_file,
@@ -164,6 +166,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
                 aero_performance_feasible=True,
                 aero_performance_reason="ok",
             ),
+            beta_eval=None,
             summary_payload=None,
             selected_output_dir="/tmp/inverse",
             summary_json_path=None,
@@ -242,6 +245,9 @@ class DihedralSweepCampaignTests(unittest.TestCase):
                     [
                         "  Alpha =  11.03899",
                         "  CLtot =   1.24000",
+                        "  Beta  =   5.00000",
+                        "  CXtot =   0.22036     Cltot =  -0.01234",
+                        "  CZtot =  -1.22039     Cntot =  -0.05678",
                         "  CDvis =   0.00000     CDind = 0.0173939",
                         "  CYff  =   0.00000         e =    0.6381    | Plane",
                     ]
@@ -257,6 +263,8 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertAlmostEqual(payload["cd_induced"], 0.0173939, places=7)
         self.assertAlmostEqual(payload["aoa_trim_deg"], 11.03899, places=5)
         self.assertAlmostEqual(payload["span_efficiency"], 0.6381, places=4)
+        self.assertAlmostEqual(payload["cl_roll_total"], -0.01234, places=5)
+        self.assertAlmostEqual(payload["cn_total"], -0.05678, places=5)
 
     def test_evaluate_aero_performance_flags_low_ld(self) -> None:
         trim_eval = mock.Mock(
@@ -282,6 +290,90 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertFalse(perf.aero_performance_feasible)
         self.assertEqual(perf.aero_performance_reason, "ld_below_minimum")
         self.assertIsNotNone(perf.ld_ratio)
+
+    def test_evaluate_beta_sweep_points_flags_positive_cn_slope_as_unstable(self) -> None:
+        beta_eval = _evaluate_beta_sweep_points(
+            (
+                BetaSweepPoint(
+                    beta_deg=0.0,
+                    cl_trim=1.24,
+                    cd_induced=0.017,
+                    aoa_trim_deg=11.0,
+                    cn_total=0.0,
+                    cl_roll_total=0.0,
+                    trim_converged=True,
+                ),
+                BetaSweepPoint(
+                    beta_deg=5.0,
+                    cl_trim=1.24,
+                    cd_induced=0.018,
+                    aoa_trim_deg=11.2,
+                    cn_total=0.02,
+                    cl_roll_total=0.0,
+                    trim_converged=True,
+                ),
+                BetaSweepPoint(
+                    beta_deg=12.0,
+                    cl_trim=1.24,
+                    cd_induced=0.020,
+                    aoa_trim_deg=11.5,
+                    cn_total=0.05,
+                    cl_roll_total=0.0,
+                    trim_converged=True,
+                ),
+            ),
+            required_max_beta_deg=12.0,
+        )
+
+        self.assertTrue(beta_eval.sideslip_feasible)
+        self.assertFalse(beta_eval.directional_stable)
+        self.assertEqual(beta_eval.sideslip_reason, "cn_beta_positive")
+
+    def test_evaluate_beta_sweep_points_flags_missing_required_trim(self) -> None:
+        beta_eval = _evaluate_beta_sweep_points(
+            (
+                BetaSweepPoint(
+                    beta_deg=0.0,
+                    cl_trim=1.24,
+                    cd_induced=0.017,
+                    aoa_trim_deg=11.0,
+                    cn_total=0.0,
+                    cl_roll_total=0.0,
+                    trim_converged=True,
+                ),
+                BetaSweepPoint(
+                    beta_deg=5.0,
+                    cl_trim=1.24,
+                    cd_induced=0.018,
+                    aoa_trim_deg=11.2,
+                    cn_total=-0.02,
+                    cl_roll_total=0.0,
+                    trim_converged=True,
+                ),
+                BetaSweepPoint(
+                    beta_deg=12.0,
+                    cl_trim=None,
+                    cd_induced=None,
+                    aoa_trim_deg=None,
+                    cn_total=None,
+                    cl_roll_total=None,
+                    trim_converged=False,
+                ),
+            ),
+            required_max_beta_deg=12.0,
+        )
+
+        self.assertEqual(beta_eval.max_trimmed_beta_deg, 5.0)
+        self.assertFalse(beta_eval.sideslip_feasible)
+        self.assertEqual(beta_eval.sideslip_reason, "trim_not_converged_at_beta_12.0")
+
+    def test_arg_parser_accepts_beta_sweep_flags(self) -> None:
+        args = _build_arg_parser().parse_args(
+            ["--skip-beta-sweep", "--max-sideslip-deg", "8.0"]
+        )
+
+        self.assertTrue(args.skip_beta_sweep)
+        self.assertAlmostEqual(args.max_sideslip_deg, 8.0)
 
 
 if __name__ == "__main__":
