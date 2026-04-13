@@ -12,6 +12,7 @@ Supported workflow:
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections import OrderedDict
@@ -23,16 +24,29 @@ import pandas as pd
 
 from hpa_mdo.aero.base import AeroParser, SpanwiseLoad
 
+LOGGER = logging.getLogger(__name__)
+
 
 class VSPAeroParser(AeroParser):
     """Parse VSPAero `.lod` and `.polar` output files."""
     _CACHE_MAX_SIZE = 32
-    _parse_cache: "OrderedDict[tuple[str, int], list[SpanwiseLoad]]" = OrderedDict()
+    _parse_cache: "OrderedDict[tuple[str, int, tuple[int, ...] | None], list[SpanwiseLoad]]" = OrderedDict()
 
-    def __init__(self, lod_path, polar_path=None):
+    def __init__(
+        self,
+        lod_path,
+        polar_path=None,
+        component_ids: list[int] | None = None,
+    ):
         self.lod_path = Path(lod_path)
         self.polar_path = Path(polar_path) if polar_path else None
+        self.component_ids = (
+            None
+            if component_ids is None
+            else tuple(sorted({int(component_id) for component_id in component_ids}))
+        )
         self._cases: list[SpanwiseLoad] = []
+        self._warned_multi_component = False
 
     # ------------------------------------------------------------------
     # Public API
@@ -40,7 +54,7 @@ class VSPAeroParser(AeroParser):
 
     def parse(self, **kwargs) -> List[SpanwiseLoad]:
         """Parse the .lod file and return one SpanwiseLoad per AoA case."""
-        cache_key = self._cache_key(self.lod_path)
+        cache_key = self._cache_key(self.lod_path, self.component_ids)
         cached = self._cache_get(cache_key)
         if cached is not None:
             self._cases = cached
@@ -82,19 +96,30 @@ class VSPAeroParser(AeroParser):
     # ------------------------------------------------------------------
 
     @classmethod
-    def _cache_key(cls, file_path: Path) -> tuple[str, int]:
+    def _cache_key(
+        cls,
+        file_path: Path,
+        component_ids: tuple[int, ...] | None,
+    ) -> tuple[str, int, tuple[int, ...] | None]:
         st = os.stat(file_path)
-        return str(file_path.resolve()), int(st.st_mtime_ns)
+        return str(file_path.resolve()), int(st.st_mtime_ns), component_ids
 
     @classmethod
-    def _cache_get(cls, key: tuple[str, int]) -> Optional[list[SpanwiseLoad]]:
+    def _cache_get(
+        cls,
+        key: tuple[str, int, tuple[int, ...] | None],
+    ) -> Optional[list[SpanwiseLoad]]:
         cached = cls._parse_cache.get(key)
         if cached is not None:
             cls._parse_cache.move_to_end(key)
         return cached
 
     @classmethod
-    def _cache_put(cls, key: tuple[str, int], cases: list[SpanwiseLoad]) -> None:
+    def _cache_put(
+        cls,
+        key: tuple[str, int, tuple[int, ...] | None],
+        cases: list[SpanwiseLoad],
+    ) -> None:
         cls._parse_cache[key] = cases
         cls._parse_cache.move_to_end(key)
         while len(cls._parse_cache) > cls._CACHE_MAX_SIZE:
@@ -175,7 +200,24 @@ class VSPAeroParser(AeroParser):
         if not rows:
             return None
 
-        data = np.array(rows)
+        data_df = pd.DataFrame(rows)
+        component_values = data_df.iloc[:, 0].to_numpy(dtype=float)
+        component_ids_detected = tuple(sorted({int(round(value)) for value in component_values}))
+        if self.component_ids is None and len(component_ids_detected) > 1 and not self._warned_multi_component:
+            LOGGER.warning(
+                "VSPAeroParser detected multiple component IDs in %s with no component filter: %s; "
+                "parsed loads may mix multiple surfaces.",
+                self.lod_path,
+                ", ".join(str(component_id) for component_id in component_ids_detected),
+            )
+            self._warned_multi_component = True
+        if self.component_ids is not None:
+            filter_ids = {float(component_id) for component_id in self.component_ids}
+            data_df = data_df[data_df.iloc[:, 0].isin(filter_ids)]
+            if data_df.empty:
+                return None
+
+        data = data_df.to_numpy(dtype=float)
         # VSPAero .lod columns (typical):
         # Wing, S, Xavg, Yavg, Zavg, Chord, V/Vref, Cl, Cd, Cs, Cx, Cy, Cz, Cmx, Cmy, Cmz
         # Index:  0    1     2     3     4      5       6   7   8   9  10  11  12   13   14   15

@@ -79,3 +79,49 @@ def test_parse_header_extracts_reference_values():
     assert ref["bref"] == pytest.approx(33.0)
     assert ref["cref"] == pytest.approx(1.1)
     assert ref["aoa"] == pytest.approx(3.5)
+
+
+def _mock_lod_block() -> str:
+    return "\n".join(
+        [
+            "Sref_ 35.1750000 Lunit^2",
+            "Bref_ 33.0000000 Lunit",
+            "Cref_ 1.1000000 Lunit",
+            "AoA_ 3.0000000 Deg",
+            "Rho_ 1.2250000 kg/m^3",
+            "Vinf_ 10.0000000 m/s",
+            "Wing S Xavg Yavg Zavg Chord V/Vref Cl Cd Cs Cx Cy Cz Cmx Cmy Cmz",
+            "1 1.0 0.0 0.50 0.0 1.0 1.0 0.50 0.01 0.0 0.0 0.0 0.0 0.0 0.020 0.0",
+            "2 1.0 0.0 1.00 0.0 0.9 1.0 0.40 0.01 0.0 0.0 0.0 0.0 0.0 0.015 0.0",
+            "1 1.0 0.0 -0.50 0.0 1.0 1.0 0.45 0.01 0.0 0.0 0.0 0.0 0.0 0.018 0.0",
+        ]
+    )
+
+
+def test_component_filter_selects_only_requested_component(tmp_path):
+    VSPAeroParser._parse_cache.clear()
+    lod_path = tmp_path / "mock_components.lod"
+    lod_path.write_text(_mock_lod_block() + "\n", encoding="utf-8")
+
+    all_components = VSPAeroParser(lod_path).parse()
+    wing_only = VSPAeroParser(lod_path, component_ids=[1]).parse()
+    tail_only = VSPAeroParser(lod_path, component_ids=[2]).parse()
+
+    assert len(all_components) == 1
+    assert len(wing_only) == 1
+    assert len(tail_only) == 1
+    np.testing.assert_allclose(all_components[0].y, np.array([0.5, 1.0]))
+    np.testing.assert_allclose(wing_only[0].y, np.array([0.5]))
+    np.testing.assert_allclose(tail_only[0].y, np.array([1.0]))
+
+
+def test_parser_warns_when_multiple_components_without_filter(tmp_path, caplog):
+    VSPAeroParser._parse_cache.clear()
+    lod_path = tmp_path / "mock_components_warning.lod"
+    lod_path.write_text(_mock_lod_block() + "\n", encoding="utf-8")
+
+    with caplog.at_level("WARNING"):
+        parser = VSPAeroParser(lod_path)
+        parser.parse()
+
+    assert "multiple component IDs" in caplog.text
