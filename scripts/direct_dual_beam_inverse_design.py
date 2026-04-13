@@ -997,6 +997,7 @@ class InverseDesignEvaluator:
         loaded_shape_twist_tol_deg: float,
         loaded_shape_penalty_weight_kg: float,
         target_shape_z_scale: float,
+        dihedral_exponent: float,
         clearance_risk_threshold_m: float,
         clearance_risk_top_k: int,
         clearance_penalty_weight_kg: float,
@@ -1022,6 +1023,7 @@ class InverseDesignEvaluator:
         self.loaded_shape_twist_tol_deg = float(loaded_shape_twist_tol_deg)
         self.loaded_shape_penalty_weight_kg = float(loaded_shape_penalty_weight_kg)
         self.target_shape_z_scale = float(target_shape_z_scale)
+        self.dihedral_exponent = float(dihedral_exponent)
         self.clearance_risk_threshold_m = float(clearance_risk_threshold_m)
         self.clearance_risk_top_k = int(clearance_risk_top_k)
         self.clearance_penalty_weight_kg = float(clearance_penalty_weight_kg)
@@ -1092,6 +1094,7 @@ class InverseDesignEvaluator:
                 loaded_shape_main_z_tol_m=self.loaded_shape_main_z_tol_m,
                 loaded_shape_twist_tol_deg=self.loaded_shape_twist_tol_deg,
                 target_loaded_shape_z_scale=self.target_shape_z_scale,
+                target_loaded_shape_dihedral_exponent=self.dihedral_exponent,
             )
             hard_margins = {
                 **build_candidate_hard_margins(production),
@@ -2551,6 +2554,7 @@ def run_inverse_design(
     loaded_shape_twist_tol_deg: float,
     loaded_shape_penalty_weight_kg: float,
     target_shape_z_scale: float,
+    dihedral_exponent: float,
     clearance_risk_threshold_m: float,
     clearance_risk_top_k: int,
     clearance_penalty_weight_kg: float,
@@ -2595,6 +2599,7 @@ def run_inverse_design(
         loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
         loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
         target_shape_z_scale=target_shape_z_scale,
+        dihedral_exponent=dihedral_exponent,
         clearance_risk_threshold_m=clearance_risk_threshold_m,
         clearance_risk_top_k=clearance_risk_top_k,
         clearance_penalty_weight_kg=clearance_penalty_weight_kg,
@@ -2802,6 +2807,7 @@ def run_inverse_design_load_refresh_refinement(
     loaded_shape_twist_tol_deg: float,
     loaded_shape_penalty_weight_kg: float,
     target_shape_z_scale: float,
+    dihedral_exponent: float,
     clearance_risk_threshold_m: float,
     clearance_risk_top_k: int,
     clearance_penalty_weight_kg: float,
@@ -2849,6 +2855,7 @@ def run_inverse_design_load_refresh_refinement(
         loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
         loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
         target_shape_z_scale=target_shape_z_scale,
+        dihedral_exponent=dihedral_exponent,
         clearance_risk_threshold_m=clearance_risk_threshold_m,
         clearance_risk_top_k=clearance_risk_top_k,
         clearance_penalty_weight_kg=clearance_penalty_weight_kg,
@@ -2922,6 +2929,7 @@ def run_inverse_design_load_refresh_refinement(
             loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
             loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
             target_shape_z_scale=target_shape_z_scale,
+            dihedral_exponent=dihedral_exponent,
             clearance_risk_threshold_m=clearance_risk_threshold_m,
             clearance_risk_top_k=clearance_risk_top_k,
             clearance_penalty_weight_kg=clearance_penalty_weight_kg,
@@ -3065,6 +3073,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Scale factor applied to the target loaded-shape Z coordinates before inverse jig backout.",
     )
     parser.add_argument(
+        "--dihedral-exponent",
+        type=float,
+        default=1.0,
+        help=(
+            "Progressive dihedral scaling exponent for target-shape Z scaling "
+            "(0=uniform, 1=linear root-to-tip ramp)."
+        ),
+    )
+    parser.add_argument(
         "--clearance-risk-threshold-mm",
         type=float,
         default=10.0,
@@ -3197,6 +3214,9 @@ def main(argv: list[str] | None = None) -> int:
         loaded_shape_twist_tol_deg = float(args.loaded_shape_twist_tol)
     loaded_shape_penalty_weight_kg = float(args.loaded_shape_penalty_kg)
     target_shape_z_scale = float(args.target_shape_z_scale)
+    dihedral_exponent = float(args.dihedral_exponent)
+    if dihedral_exponent < 0.0:
+        raise ValueError("--dihedral-exponent must be >= 0.0.")
     clearance_risk_threshold_m = float(args.clearance_risk_threshold_mm) * 1.0e-3
     clearance_risk_top_k = int(args.clearance_risk_top_k)
     clearance_penalty_weight_kg = float(args.clearance_penalty_kg)
@@ -3246,6 +3266,7 @@ def main(argv: list[str] | None = None) -> int:
             loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
             loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
             target_shape_z_scale=target_shape_z_scale,
+            dihedral_exponent=dihedral_exponent,
             clearance_risk_threshold_m=clearance_risk_threshold_m,
             clearance_risk_top_k=clearance_risk_top_k,
             clearance_penalty_weight_kg=clearance_penalty_weight_kg,
@@ -3281,6 +3302,7 @@ def main(argv: list[str] | None = None) -> int:
         loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
         loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
         target_shape_z_scale=target_shape_z_scale,
+        dihedral_exponent=dihedral_exponent,
         clearance_risk_threshold_m=clearance_risk_threshold_m,
         clearance_risk_top_k=clearance_risk_top_k,
         clearance_penalty_weight_kg=clearance_penalty_weight_kg,
@@ -3381,6 +3403,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Nodewise mismatch   : {_mm(final_selected.target_shape_error_max_m):.6f} mm")
     print(f"  Jig clearance min   : {_mm(final_selected.jig_ground_clearance_min_m):.3f} mm")
     print(f"  Target Z scale      : {target_shape_z_scale:.6f}")
+    print(f"  Dihedral exponent   : {dihedral_exponent:.6f}")
     print(f"  Clearance risk      : {final_selected.clearance_risk_score:.6f}")
     print(f"  Active-wall risk    : {final_selected.active_wall_risk_score:.6f}")
     if refinement.final_iteration.forward_check is not None:

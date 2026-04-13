@@ -114,6 +114,8 @@ class InverseDesignTests(unittest.TestCase):
                 "40.0",
                 "--loaded-shape-twist-tol-deg",
                 "0.6",
+                "--dihedral-exponent",
+                "2.0",
             ]
         )
 
@@ -121,6 +123,7 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(args.loaded_shape_twist_tol, 0.22)
         self.assertAlmostEqual(args.loaded_shape_main_z_tol_mm, 40.0)
         self.assertAlmostEqual(args.loaded_shape_twist_tol_deg, 0.6)
+        self.assertAlmostEqual(args.dihedral_exponent, 2.0)
 
     def test_build_frozen_load_inverse_design_backsolves_jig_shape_and_margins(self) -> None:
         target = StructuralNodeShape(
@@ -400,13 +403,29 @@ class InverseDesignTests(unittest.TestCase):
             self.assertEqual(rows[0]["Rear_Z_m"], "0.03")
             self.assertEqual(rows[1]["Main_Outer_Radius_m"], "0.03")
 
-    def test_build_target_loaded_shape_scales_z_coordinates(self) -> None:
+    def test_build_target_loaded_shape_scales_z_coordinates_progressively(self) -> None:
         model = SimpleNamespace(
             nodes_main_m=np.array([[0.0, 0.0, 0.10], [0.0, 1.0, 0.30]], dtype=float),
             nodes_rear_m=np.array([[1.0, 0.0, 0.05], [1.0, 1.0, 0.25]], dtype=float),
         )
 
         shape = build_target_loaded_shape(model=model, z_scale=2.0)
+
+        # Default exponent=1.0 keeps root nearly fixed and scales tip most.
+        self.assertTrue(np.allclose(shape.main_nodes_m[:, 2], [0.10, 0.60]))
+        self.assertTrue(np.allclose(shape.rear_nodes_m[:, 2], [0.05, 0.50]))
+
+    def test_build_target_loaded_shape_exponent_zero_matches_uniform_scaling(self) -> None:
+        model = SimpleNamespace(
+            nodes_main_m=np.array([[0.0, 0.0, 0.10], [0.0, 1.0, 0.30]], dtype=float),
+            nodes_rear_m=np.array([[1.0, 0.0, 0.05], [1.0, 1.0, 0.25]], dtype=float),
+        )
+
+        shape = build_target_loaded_shape(
+            model=model,
+            z_scale=2.0,
+            dihedral_exponent=0.0,
+        )
 
         self.assertTrue(np.allclose(shape.main_nodes_m[:, 2], [0.20, 0.60]))
         self.assertTrue(np.allclose(shape.rear_nodes_m[:, 2], [0.10, 0.50]))

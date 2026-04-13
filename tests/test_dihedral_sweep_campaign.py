@@ -28,13 +28,15 @@ from scripts.dihedral_sweep_campaign import (
 
 
 class DihedralSweepCampaignTests(unittest.TestCase):
-    def test_scale_avl_dihedral_text_multiplies_only_wing_surface(self) -> None:
+    def test_scale_avl_dihedral_text_applies_progressive_scaling_only_to_wing_surface(self) -> None:
         base_text = "\n".join(
             [
                 "SURFACE",
                 "Wing",
                 "SECTION",
                 "0.0  0.0  0.100000000  1.2  0.0",
+                "SECTION",
+                "0.0  10.0  0.200000000  1.0  0.0",
                 "SURFACE",
                 "Elevator",
                 "SECTION",
@@ -43,12 +45,46 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             ]
         )
 
-        scaled_text, count = scale_avl_dihedral_text(base_text, multiplier=2.0)
+        scaled_text, count, samples = scale_avl_dihedral_text(
+            base_text,
+            multiplier=2.0,
+            half_span=10.0,
+            dihedral_exponent=1.0,
+        )
+
+        self.assertEqual(count, 2)
+        # Root section keeps original Z (eta=0 => factor=1).
+        self.assertIn("0.100000000", scaled_text)
+        # Tip section uses full multiplier (eta=1 => factor=2).
+        self.assertIn("0.400000000", scaled_text)
+        self.assertIn("0.300000000", scaled_text)
+        self.assertIn("! fixed", scaled_text)
+        self.assertEqual(len(samples), 2)
+        self.assertAlmostEqual(samples[0].local_factor, 1.0)
+        self.assertAlmostEqual(samples[1].local_factor, 2.0)
+
+    def test_scale_avl_dihedral_text_exponent_zero_matches_uniform_scaling(self) -> None:
+        base_text = "\n".join(
+            [
+                "SURFACE",
+                "Wing",
+                "SECTION",
+                "0.0  0.0  0.100000000  1.2  0.0",
+                "",
+            ]
+        )
+
+        scaled_text, count, samples = scale_avl_dihedral_text(
+            base_text,
+            multiplier=2.0,
+            half_span=10.0,
+            dihedral_exponent=0.0,
+        )
 
         self.assertEqual(count, 1)
         self.assertIn("0.200000000", scaled_text)
-        self.assertIn("0.300000000", scaled_text)
-        self.assertIn("! fixed", scaled_text)
+        self.assertEqual(len(samples), 1)
+        self.assertAlmostEqual(samples[0].local_factor, 2.0)
 
     def test_parse_mode_stdout_and_select_dutch_roll(self) -> None:
         stdout_text = """
@@ -150,6 +186,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
                 design_report=Path("/tmp/design.txt"),
                 output_dir=output_dir,
                 target_shape_z_scale=1.0,
+                dihedral_exponent=1.0,
                 python_executable=Path(sys.executable),
                 main_plateau_grid="0.0,1.0",
                 main_taper_fill_grid="0.0,1.0",
@@ -181,6 +218,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
                     design_report=Path("/tmp/design.txt"),
                     output_dir=output_dir,
                     target_shape_z_scale=1.0,
+                    dihedral_exponent=1.0,
                     python_executable=Path(sys.executable),
                     main_plateau_grid="0.0,1.0",
                     main_taper_fill_grid="0.0,1.0",

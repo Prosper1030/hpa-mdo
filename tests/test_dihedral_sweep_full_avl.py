@@ -19,7 +19,7 @@ class DihedralSweepFullAvlTests(unittest.TestCase):
                 "SURFACE",
                 "Wing",
                 "SECTION",
-                "0.0  0.0  0.100000000  1.2  0.0",
+                "0.0  16.5  0.100000000  1.2  0.0",
                 "SURFACE",
                 "Elevator",
                 "SECTION",
@@ -28,12 +28,14 @@ class DihedralSweepFullAvlTests(unittest.TestCase):
             ]
         )
 
-        scaled_text, count = scale_avl_dihedral_text(base_text, multiplier=2.0)
+        scaled_text, count, samples = scale_avl_dihedral_text(base_text, multiplier=2.0)
 
         self.assertEqual(count, 1)
         self.assertIn("0.200000000", scaled_text)
         self.assertIn("0.300000000", scaled_text)
         self.assertIn("! fixed", scaled_text)
+        self.assertEqual(len(samples), 1)
+        self.assertAlmostEqual(samples[0].local_factor, 2.0)
 
 
 if __name__ == "__main__":

@@ -49,6 +49,7 @@ wing:
   tip_chord: 0.47            # [m]
   dihedral_root_deg: 0.0
   dihedral_tip_deg: 6.0      # progressive along span
+  dihedral_scaling_exponent: 1.0  # 0=uniform, 1=linear, 2=quadratic
   spar_location_xc: 0.25     # main spar at quarter-chord
   airfoil_root: "clarkysm"   # Clark Y SM (11.7% t/c)
   airfoil_tip: "fx76mp140"   # FX 76-MP-140 (14.0% t/c)

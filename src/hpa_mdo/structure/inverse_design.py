@@ -152,6 +152,7 @@ def build_target_loaded_shape(
     *,
     model: DualBeamMainlineModel,
     z_scale: float = 1.0,
+    dihedral_exponent: float = 1.0,
 ) -> StructuralNodeShape:
     """Return the current structural beam geometry as the loaded target shape."""
 
@@ -159,8 +160,18 @@ def build_target_loaded_shape(
     rear_nodes_m = _copy_nodes(model.nodes_rear_m)
     scale = float(z_scale)
     if abs(scale - 1.0) > 1.0e-12:
-        main_nodes_m[:, 2] *= scale
-        rear_nodes_m[:, 2] *= scale
+        exp = float(dihedral_exponent)
+        half_span = float(model.nodes_main_m[-1, 1]) if model.nodes_main_m.size else 0.0
+        if half_span > 0.0:
+            eta_main = np.clip(np.asarray(model.nodes_main_m[:, 1], dtype=float) / half_span, 0.0, 1.0)
+            eta_rear = np.clip(np.asarray(model.nodes_rear_m[:, 1], dtype=float) / half_span, 0.0, 1.0)
+        else:
+            eta_main = np.zeros(main_nodes_m.shape[0], dtype=float)
+            eta_rear = np.zeros(rear_nodes_m.shape[0], dtype=float)
+        factor_main = 1.0 + (scale - 1.0) * np.power(eta_main, exp)
+        factor_rear = 1.0 + (scale - 1.0) * np.power(eta_rear, exp)
+        main_nodes_m[:, 2] *= factor_main
+        rear_nodes_m[:, 2] *= factor_rear
     return StructuralNodeShape(
         main_nodes_m=main_nodes_m,
         rear_nodes_m=rear_nodes_m,
@@ -604,6 +615,7 @@ def build_frozen_load_inverse_design_from_mainline(
     loaded_shape_main_z_tol_m: float = DEFAULT_LOADED_SHAPE_Z_TOL_M,
     loaded_shape_twist_tol_deg: float = DEFAULT_LOADED_SHAPE_TWIST_TOL_DEG,
     target_loaded_shape_z_scale: float = 1.0,
+    target_loaded_shape_dihedral_exponent: float = 1.0,
 ) -> FrozenLoadInverseDesignResult:
     """Convenience wrapper for the current dual-beam production result."""
 
@@ -611,6 +623,7 @@ def build_frozen_load_inverse_design_from_mainline(
         target_loaded_shape=build_target_loaded_shape(
             model=model,
             z_scale=target_loaded_shape_z_scale,
+            dihedral_exponent=target_loaded_shape_dihedral_exponent,
         ),
         disp_main_m=result.disp_main_m,
         disp_rear_m=result.disp_rear_m,

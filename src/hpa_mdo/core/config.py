@@ -107,6 +107,14 @@ class WingConfig(BaseModel):
     tip_chord: float
     dihedral_root_deg: float = 0.0
     dihedral_tip_deg: float = 6.0
+    dihedral_scaling_exponent: float = Field(
+        1.0,
+        description=(
+            "Progressive dihedral scaling exponent "
+            "(0=uniform, 1=linear root-to-tip ramp, 2=quadratic ramp)"
+        ),
+        ge=0.0,
+    )
     spar_location_xc: float = 0.25
     airfoil_root: str = "clarkysm"
     airfoil_tip: str = "fx76mp140"

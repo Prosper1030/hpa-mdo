@@ -148,6 +148,14 @@ class SweepResult:
     error_message: str | None
 
 
+@dataclass(frozen=True)
+class DihedralScaleSample:
+    y_section_m: float
+    z_old_m: float
+    z_new_m: float
+    local_factor: float
+
+
 def _parse_multiplier_list(text: str) -> tuple[float, ...]:
     values = tuple(float(part.strip()) for part in text.split(",") if part.strip())
     if not values:
@@ -199,15 +207,34 @@ def _surface_matches(surface_name: str | None, target_surface_names: Iterable[st
     return normalized in targets
 
 
+def _progressive_dihedral_factor(
+    *,
+    multiplier: float,
+    y_section_m: float,
+    half_span: float,
+    dihedral_exponent: float,
+) -> float:
+    span = float(half_span)
+    if span <= 0.0:
+        eta = 0.0
+    else:
+        eta = min(max(abs(float(y_section_m)) / span, 0.0), 1.0)
+    return 1.0 + (float(multiplier) - 1.0) * (eta ** float(dihedral_exponent))
+
+
 def scale_avl_dihedral_text(
     text: str,
     *,
     multiplier: float,
     target_surface_names: Iterable[str] = ("wing",),
-) -> tuple[str, int]:
+    half_span: float = 16.5,
+    dihedral_exponent: float = 1.0,
+    sample_limit: int = 5,
+) -> tuple[str, int, tuple[DihedralScaleSample, ...]]:
     lines = text.splitlines(keepends=True)
     out = list(lines)
     scaled = 0
+    samples: list[DihedralScaleSample] = []
     idx = 0
     current_surface_name: str | None = None
     while idx < len(out):
@@ -223,7 +250,24 @@ def scale_avl_dihedral_text(
                     continue
                 values = _try_parse_section_data(out[scan])
                 if values is not None:
-                    values[2] *= float(multiplier)
+                    y_section_m = float(values[1])
+                    z_old_m = float(values[2])
+                    local_factor = _progressive_dihedral_factor(
+                        multiplier=float(multiplier),
+                        y_section_m=y_section_m,
+                        half_span=float(half_span),
+                        dihedral_exponent=float(dihedral_exponent),
+                    )
+                    values[2] *= float(local_factor)
+                    if len(samples) < max(0, int(sample_limit)):
+                        samples.append(
+                            DihedralScaleSample(
+                                y_section_m=y_section_m,
+                                z_old_m=z_old_m,
+                                z_new_m=float(values[2]),
+                                local_factor=float(local_factor),
+                            )
+                        )
                     _, comment = _split_comment(out[scan])
                     numeric = "  ".join(f"{value:.9f}" for value in values)
                     suffix = f" {comment}" if comment else ""
@@ -231,7 +275,7 @@ def scale_avl_dihedral_text(
                     scaled += 1
                 break
         idx += 1
-    return "".join(out), scaled
+    return "".join(out), scaled, tuple(samples)
 
 
 def generate_wing_only_avl_from_config(*, cfg, path: Path) -> Path:
@@ -698,6 +742,7 @@ def run_inverse_design_case(
     design_report: Path,
     output_dir: Path,
     target_shape_z_scale: float,
+    dihedral_exponent: float,
     python_executable: Path,
     main_plateau_grid: str,
     main_taper_fill_grid: str,
@@ -720,6 +765,8 @@ def run_inverse_design_case(
         str(output_dir),
         "--target-shape-z-scale",
         f"{float(target_shape_z_scale):.9f}",
+        "--dihedral-exponent",
+        f"{float(dihedral_exponent):.9f}",
         "--loaded-shape-mode",
         "exact_nodal",
         "--main-plateau-grid",
@@ -1011,6 +1058,10 @@ def main(argv: list[str] | None = None) -> int:
         y_cg=default_mode_params.y_cg if args.avl_ycg is None else float(args.avl_ycg),
         z_cg=default_mode_params.z_cg if args.avl_zcg is None else float(args.avl_zcg),
     )
+    wing_half_span = 0.5 * float(cfg.wing.span)
+    dihedral_exponent = float(cfg.wing.dihedral_scaling_exponent)
+    if dihedral_exponent < 0.0:
+        raise ValueError("wing.dihedral_scaling_exponent must be >= 0.0.")
     min_lift_kg = (
         float(cfg.aero_gates.min_lift_kg)
         if args.min_lift_kg is None
@@ -1049,9 +1100,23 @@ def main(argv: list[str] | None = None) -> int:
     for multiplier in multipliers:
         case_dir = output_dir / f"mult_{_slug(multiplier)}"
         case_dir.mkdir(parents=True, exist_ok=True)
-        scaled_text, scaled_sections = scale_avl_dihedral_text(base_text, multiplier=float(multiplier))
+        scaled_text, scaled_sections, scale_samples = scale_avl_dihedral_text(
+            base_text,
+            multiplier=float(multiplier),
+            half_span=float(wing_half_span),
+            dihedral_exponent=float(dihedral_exponent),
+        )
         case_avl_path = case_dir / "case.avl"
         case_avl_path.write_text(scaled_text, encoding="utf-8")
+        sample_payload = [
+            {
+                "y_section_m": float(sample.y_section_m),
+                "z_old_m": float(sample.z_old_m),
+                "z_new_m": float(sample.z_new_m),
+                "local_factor": float(sample.local_factor),
+            }
+            for sample in scale_samples
+        ]
         (case_dir / "case_metadata.json").write_text(
             json.dumps(
                 {
@@ -1059,6 +1124,9 @@ def main(argv: list[str] | None = None) -> int:
                     "base_avl_source": base_avl_source,
                     "base_avl_path": str(base_avl_path),
                     "scaled_section_count": int(scaled_sections),
+                    "dihedral_scaling_half_span_m": float(wing_half_span),
+                    "dihedral_scaling_exponent": float(dihedral_exponent),
+                    "dihedral_scaling_samples": sample_payload,
                     "mode_parameters": asdict(mode_params),
                     "allow_missing_dutch_roll": bool(args.allow_missing_dutch_roll),
                     "structural_weight_n": float(aircraft.weight_N),
@@ -1077,6 +1145,16 @@ def main(argv: list[str] | None = None) -> int:
             + "\n",
             encoding="utf-8",
         )
+        if scale_samples:
+            print(f"  x{float(multiplier):.3f} progressive dihedral samples (y, z_old, z_new, factor):")
+            for sample in scale_samples[:5]:
+                print(
+                    "    "
+                    f"y={sample.y_section_m:.3f} m, "
+                    f"z_old={sample.z_old_m:.6f} m, "
+                    f"z_new={sample.z_new_m:.6f} m, "
+                    f"factor={sample.local_factor:.6f}"
+                )
         avl_eval = run_avl_stability_case(
             avl_bin=avl_bin,
             case_avl_path=case_avl_path,
@@ -1125,6 +1203,7 @@ def main(argv: list[str] | None = None) -> int:
                 design_report=design_report,
                 output_dir=inverse_output_dir,
                 target_shape_z_scale=float(multiplier),
+                dihedral_exponent=float(dihedral_exponent),
                 python_executable=Path(sys.executable),
                 main_plateau_grid=str(args.main_plateau_grid),
                 main_taper_fill_grid=str(args.main_taper_fill_grid),
@@ -1163,6 +1242,8 @@ def main(argv: list[str] | None = None) -> int:
                 "base_avl_path": str(base_avl_path),
                 "base_avl_source": base_avl_source,
                 "mode_parameters": asdict(mode_params),
+                "dihedral_scaling_half_span_m": float(wing_half_span),
+                "dihedral_scaling_exponent": float(dihedral_exponent),
                 "multipliers": [float(value) for value in multipliers],
                 "aero_gate_settings": {
                     "cl_required": float(cl_required),
