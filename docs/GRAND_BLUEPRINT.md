@@ -4,7 +4,7 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-13  
-> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成，下一步先做 M9 9a fine dihedral sweep，8d 作為幾何整合補完
+> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a fine dihedral sweep 已完成（1.0→3.5 全 pass，最佳 x3.5 = 11.99 kg），下一步進入 9b multi-wire campaign，8d 作為幾何整合補完
 
 ---
 
@@ -193,8 +193,8 @@
            ┌──────────────▼───────────────────────┐
            │ Milestone 9 — Design Space Maturity  │
            │                                       │
-           │ 9a. fine dihedral sweep (0.1 step)   │
-           │     extend to 3.5×, use progressive │
+           │ 9a ✅ fine dihedral sweep (0.1 step) │
+           │      1.0→3.5 全 pass, best x3.5     │
            │ 9b. multi-wire sweep campaign        │
            │     1/2/3 wires × dihedral grid     │
            │     + wire drag penalty (CD ~0.003) │
@@ -272,6 +272,7 @@
 | monotonic deflection check | ✅ | Task 7i — diagnostic warning in summary/log |
 | VSP3→AVL pipeline | ✅ | vsp_geometry_parser + avl_exporter + CLI |
 | phase-2 gate stack | ✅ | stability + min_lift + L/D + structural gates 全部啟用 |
+| fine dihedral sweep (9a) | ✅ | 1.0→3.5 / 0.1 step，26 cases all pass，best x3.5 = 11.99 kg |
 
 ---
 
@@ -563,6 +564,12 @@ Dihedral ×2.5:  mass=13.1 kg, clearance=8.4 mm, wire=3875 N
 
 Wire allowable (dyneema_sk75, 2.5mm, 40%):  ≈6872 N  ← 全部 feasible
 Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
+
+9a fine sweep highlights:
+  x3.0:  mass=12.47 kg, clearance=1.49 mm, wire=3912 N
+  x3.4:  mass=12.13 kg, clearance=4.42 mm, wire=3931 N
+  x3.5:  mass=11.99 kg, clearance=2.05 mm, wire=3939 N
+  report: docs/dihedral_sweep_phase9a_report.md
 ```
 
 ### 已驗證的工程結論
@@ -572,16 +579,16 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | 13-15 kg 主翼重量合理 | 日本團隊實績（CHicK-2000: 15.44 kg, Windnauts: ~12-14 kg） |
 | 3000-4000 N wire tension 可行 | Dyneema SK75 2.5mm ≈ 6872N allowable, 鋼琴線 2.0mm ≈ 6280N |
 | 21-22 kg floor 非 search/coupling 問題 | 驗證過 shape matching 放鬆無效，瓶頸在 ground clearance |
-| target dihedral 是核心設計變數 | 增大 dihedral → mass 大幅下降，且 phase-2 gates 目前全部守住 |
+| target dihedral 是核心設計變數 | fine sweep 證實到 x3.5 仍全 pass，mass 可降至 11.99 kg |
 
 ### 下一步（優先順序）
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **1** | 9a: fine dihedral sweep（step 0.1，extend to 3.5×） | M9 | Codex | ⏭️ **NEXT** |
-| **2** | 9b: multi-wire sweep campaign（1/2/3 wires + drag penalty） | M9 | Codex | ⏭️ 等 9a |
-| **3** | 9c: multi-objective Pareto front | M9 | 規劃中 | ⏭️ 等 9b |
-| **4** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可並行 |
+| **1** | 9b: multi-wire sweep campaign（1/2/3 wires + drag penalty） | M9 | Codex | ⏭️ **NEXT** |
+| **2** | 9c: multi-objective Pareto front | M9 | 規劃中 | ⏭️ 等 9b |
+| **3** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可並行 |
+| **4** | 9d: vendor-aware tube catalog | M9 | 規劃中 | ⏭️ 等 9c |
 | **5** | 10a-b: ASWING 安裝 + .asw 產生器 | M10 | 評估中 | ❌ |
 
 ### 已完成（本輪）
@@ -599,13 +606,13 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | loaded STEP + deflection CSV | M7 | ✅ loaded_shape.step + node_deflections.csv |
 | monotonic deflection diagnostic | M7 | ✅ summary JSON + warning hook |
 | VSP3→AVL pipeline | M8 | ✅ parser + exporter + CLI + tests |
+| fine dihedral sweep | M9 | ✅ 26 cases, all pass, best x3.5 = 11.99 kg |
 
 ### 關鍵路徑
 
 ```
-9a (fine sweep，step 0.1 + progressive scaling)
-   → 鎖定最佳 dihedral 區間與敏感度
-   → 9b (multi-wire + drag penalty)
+9b (multi-wire + drag penalty)
+   → 驗證高 dihedral 最優區在加入 wire-count/drag 後是否仍成立
    → 9c (Pareto: mass × stability × wire × aero)
 
 並行補完：8d (config schema extension，tail/fin 幾何進 YAML/runtime model)
