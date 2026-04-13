@@ -35,6 +35,13 @@ weight:
   pilot_kg: 56.0             # pilot + equipment
   max_takeoff_kg: 100.0
 
+# ── Aero Performance Gates ──────────────────────────────────────────────────
+aero_gates:
+  min_lift_kg: 100.0         # minimum total lift [kg]
+  min_ld_ratio: 25.0         # minimum L/D ratio
+  cd_profile_estimate: 0.010 # estimated profile drag coefficient
+  max_trim_aoa_deg: 12.0     # maximum trim AoA before stall margin concern [deg]
+
 # ── Wing Planform ───────────────────────────────────────────────────────────
 wing:
   span: 33.0                 # full wingspan [m]

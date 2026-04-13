@@ -37,6 +37,7 @@ DEFAULT_DESIGN_REPORT = (
 OSCILLATORY_IMAG_TOL = 1.0e-9
 LATERAL_STATE_NAMES = ("v", "p", "r", "phi", "psi", "y")
 LONGITUDINAL_STATE_NAMES = ("u", "w", "q", "the", "x", "z")
+FLOAT_TOKEN = r"[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[Ee][-+]?\d+)?"
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,32 @@ class AvlEvaluation:
 
 
 @dataclass(frozen=True)
+class AvlTrimEvaluation:
+    trim_file_path: str | None
+    stdout_log_path: str | None
+    trim_status: str
+    trim_converged: bool
+    cl_trim: float | None
+    cd_induced: float | None
+    aoa_trim_deg: float | None
+    span_efficiency: float | None
+
+
+@dataclass(frozen=True)
+class AeroPerformanceEvaluation:
+    cl_trim: float | None
+    cd_induced: float | None
+    cd_total_est: float | None
+    ld_ratio: float | None
+    aoa_trim_deg: float | None
+    span_efficiency: float | None
+    lift_total_n: float | None
+    aero_power_w: float | None
+    aero_performance_feasible: bool
+    aero_performance_reason: str
+
+
+@dataclass(frozen=True)
 class SweepResult:
     dihedral_multiplier: float
     avl_case_path: str
@@ -98,6 +125,16 @@ class SweepResult:
     dutch_roll_real: float | None
     dutch_roll_imag: float | None
     aero_status: str
+    aero_performance_feasible: bool
+    aero_performance_reason: str
+    cl_trim: float | None
+    cd_induced: float | None
+    cd_total_est: float | None
+    ld_ratio: float | None
+    aoa_trim_deg: float | None
+    span_efficiency: float | None
+    lift_total_n: float | None
+    aero_power_w: float | None
     structure_status: str
     total_mass_kg: float | None
     min_jig_clearance_mm: float | None
@@ -387,6 +424,8 @@ def run_avl_stability_case(
 ) -> AvlEvaluation:
     mode_file = case_dir / "case_modes.st"
     stdout_log = case_dir / "avl_mode_stdout.log"
+    if mode_file.exists():
+        mode_file.unlink()
     command_text = "\n".join(
         [
             "plop",
@@ -458,6 +497,198 @@ def run_avl_stability_case(
         aero_feasible=aero_feasible,
         eigenvalue_count=len(eigenvalues),
     )
+
+
+def _parse_force_scalar(text: str, label: str) -> float | None:
+    pattern = re.compile(rf"\b{re.escape(label)}\s*=\s*(?P<value>{FLOAT_TOKEN})")
+    match = pattern.search(text)
+    if match is None:
+        return None
+    return float(match.group("value"))
+
+
+def parse_avl_force_totals(path: Path) -> dict[str, float] | None:
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    cl_trim = _parse_force_scalar(text, "CLtot")
+    cd_induced = _parse_force_scalar(text, "CDind")
+    aoa_trim_deg = _parse_force_scalar(text, "Alpha")
+    span_efficiency = _parse_force_scalar(text, "e")
+    if cl_trim is None and cd_induced is None and aoa_trim_deg is None and span_efficiency is None:
+        return None
+    payload: dict[str, float] = {}
+    if cl_trim is not None:
+        payload["cl_trim"] = float(cl_trim)
+    if cd_induced is not None:
+        payload["cd_induced"] = float(cd_induced)
+    if aoa_trim_deg is not None:
+        payload["aoa_trim_deg"] = float(aoa_trim_deg)
+    if span_efficiency is not None:
+        payload["span_efficiency"] = float(span_efficiency)
+    return payload
+
+
+def run_avl_trim_case(
+    *,
+    avl_bin: Path,
+    case_avl_path: Path,
+    case_dir: Path,
+    cl_required: float,
+) -> AvlTrimEvaluation:
+    trim_file = case_dir / "case_trim.ft"
+    stdout_log = case_dir / "avl_trim_stdout.log"
+    if trim_file.exists():
+        trim_file.unlink()
+    command_text = "\n".join(
+        [
+            "plop",
+            "g",
+            "",
+            f"load {case_avl_path.name}",
+            "oper",
+            "c1",
+            f"c {float(cl_required):.9f}",
+            "",
+            "x",
+            "ft",
+            trim_file.name,
+            "",
+            "",
+            "quit",
+            "",
+        ]
+    )
+    proc = subprocess.run(
+        [str(avl_bin)],
+        input=command_text,
+        text=True,
+        capture_output=True,
+        cwd=case_dir,
+        check=False,
+    )
+    stdout_text = proc.stdout + (("\n" + proc.stderr) if proc.stderr else "")
+    stdout_log.write_text(stdout_text, encoding="utf-8")
+
+    parsed = parse_avl_force_totals(trim_file)
+    trim_status = "trim_output_missing"
+    trim_converged = False
+    if proc.returncode != 0:
+        trim_status = "avl_runtime_error"
+    elif "Cannot trim." in stdout_text:
+        trim_status = "trim_not_converged"
+    elif parsed is None:
+        trim_status = "trim_output_missing"
+    elif {"cl_trim", "cd_induced", "aoa_trim_deg"} - set(parsed):
+        trim_status = "trim_output_incomplete"
+    else:
+        trim_status = "trim_converged"
+        trim_converged = True
+
+    return AvlTrimEvaluation(
+        trim_file_path=str(trim_file.resolve()) if trim_file.exists() else None,
+        stdout_log_path=str(stdout_log.resolve()),
+        trim_status=trim_status,
+        trim_converged=trim_converged,
+        cl_trim=None if parsed is None else parsed.get("cl_trim"),
+        cd_induced=None if parsed is None else parsed.get("cd_induced"),
+        aoa_trim_deg=None if parsed is None else parsed.get("aoa_trim_deg"),
+        span_efficiency=None if parsed is None else parsed.get("span_efficiency"),
+    )
+
+
+def _empty_aero_performance(
+    *,
+    feasible: bool,
+    reason: str,
+) -> AeroPerformanceEvaluation:
+    return AeroPerformanceEvaluation(
+        cl_trim=None,
+        cd_induced=None,
+        cd_total_est=None,
+        ld_ratio=None,
+        aoa_trim_deg=None,
+        span_efficiency=None,
+        lift_total_n=None,
+        aero_power_w=None,
+        aero_performance_feasible=bool(feasible),
+        aero_performance_reason=str(reason),
+    )
+
+
+def evaluate_aero_performance(
+    *,
+    trim_eval: AvlTrimEvaluation,
+    dynamic_pressure_pa: float,
+    reference_area_m2: float,
+    cruise_velocity_mps: float,
+    min_lift_n: float,
+    min_ld_ratio: float,
+    cd_profile_estimate: float,
+    max_trim_aoa_deg: float,
+) -> AeroPerformanceEvaluation:
+    if not trim_eval.trim_converged:
+        return _empty_aero_performance(feasible=False, reason=trim_eval.trim_status)
+
+    cl_trim = trim_eval.cl_trim
+    cd_induced = trim_eval.cd_induced
+    aoa_trim_deg = trim_eval.aoa_trim_deg
+    span_efficiency = trim_eval.span_efficiency
+    if cl_trim is None or cd_induced is None or aoa_trim_deg is None:
+        return _empty_aero_performance(feasible=False, reason="trim_output_incomplete")
+
+    cd_total_est = float(cd_induced) + float(cd_profile_estimate)
+    if cd_total_est <= 0.0:
+        return AeroPerformanceEvaluation(
+            cl_trim=float(cl_trim),
+            cd_induced=float(cd_induced),
+            cd_total_est=float(cd_total_est),
+            ld_ratio=None,
+            aoa_trim_deg=float(aoa_trim_deg),
+            span_efficiency=None if span_efficiency is None else float(span_efficiency),
+            lift_total_n=None,
+            aero_power_w=None,
+            aero_performance_feasible=False,
+            aero_performance_reason="nonpositive_drag_estimate",
+        )
+
+    ld_ratio = float(cl_trim) / float(cd_total_est)
+    lift_total_n = float(cl_trim) * float(dynamic_pressure_pa) * float(reference_area_m2)
+    aero_power_w = None
+    if ld_ratio > 0.0:
+        aero_power_w = float(lift_total_n) * float(cruise_velocity_mps) / float(ld_ratio)
+
+    feasible = True
+    reason = "ok"
+    if float(aoa_trim_deg) > float(max_trim_aoa_deg):
+        feasible = False
+        reason = "trim_aoa_exceeds_limit"
+    elif float(ld_ratio) < float(min_ld_ratio):
+        feasible = False
+        reason = "ld_below_minimum"
+    elif float(lift_total_n) < float(min_lift_n):
+        feasible = False
+        reason = "insufficient_lift"
+
+    return AeroPerformanceEvaluation(
+        cl_trim=float(cl_trim),
+        cd_induced=float(cd_induced),
+        cd_total_est=float(cd_total_est),
+        ld_ratio=float(ld_ratio),
+        aoa_trim_deg=float(aoa_trim_deg),
+        span_efficiency=None if span_efficiency is None else float(span_efficiency),
+        lift_total_n=float(lift_total_n),
+        aero_power_w=None if aero_power_w is None else float(aero_power_w),
+        aero_performance_feasible=bool(feasible),
+        aero_performance_reason=str(reason),
+    )
+
+
+def estimate_reference_area(cfg) -> float:
+    span = float(cfg.wing.span)
+    root_chord = float(cfg.wing.root_chord)
+    tip_chord = float(cfg.wing.tip_chord)
+    return 0.5 * span * (root_chord + tip_chord)
 
 
 def run_inverse_design_case(
@@ -557,6 +788,7 @@ def _build_result_row(
     *,
     multiplier: float,
     avl_eval: AvlEvaluation,
+    aero_perf_eval: AeroPerformanceEvaluation,
     summary_payload: dict[str, object] | None,
     selected_output_dir: str | None,
     summary_json_path: str | None,
@@ -573,6 +805,16 @@ def _build_result_row(
             dutch_roll_real=avl_eval.dutch_roll_real,
             dutch_roll_imag=avl_eval.dutch_roll_imag,
             aero_status=avl_eval.aero_status,
+            aero_performance_feasible=aero_perf_eval.aero_performance_feasible,
+            aero_performance_reason=aero_perf_eval.aero_performance_reason,
+            cl_trim=aero_perf_eval.cl_trim,
+            cd_induced=aero_perf_eval.cd_induced,
+            cd_total_est=aero_perf_eval.cd_total_est,
+            ld_ratio=aero_perf_eval.ld_ratio,
+            aoa_trim_deg=aero_perf_eval.aoa_trim_deg,
+            span_efficiency=aero_perf_eval.span_efficiency,
+            lift_total_n=aero_perf_eval.lift_total_n,
+            aero_power_w=aero_perf_eval.aero_power_w,
             structure_status=structure_status,
             total_mass_kg=None,
             min_jig_clearance_mm=None,
@@ -599,6 +841,16 @@ def _build_result_row(
         dutch_roll_real=avl_eval.dutch_roll_real,
         dutch_roll_imag=avl_eval.dutch_roll_imag,
         aero_status=avl_eval.aero_status,
+        aero_performance_feasible=aero_perf_eval.aero_performance_feasible,
+        aero_performance_reason=aero_perf_eval.aero_performance_reason,
+        cl_trim=aero_perf_eval.cl_trim,
+        cd_induced=aero_perf_eval.cd_induced,
+        cd_total_est=aero_perf_eval.cd_total_est,
+        ld_ratio=aero_perf_eval.ld_ratio,
+        aoa_trim_deg=aero_perf_eval.aoa_trim_deg,
+        span_efficiency=aero_perf_eval.span_efficiency,
+        lift_total_n=aero_perf_eval.lift_total_n,
+        aero_power_w=aero_perf_eval.aero_power_w,
         structure_status="feasible" if bool(selected["overall_feasible"]) else "infeasible",
         total_mass_kg=float(selected["total_structural_mass_kg"]),
         min_jig_clearance_mm=float(selected["jig_ground_clearance_min_m"]) * 1000.0,
@@ -623,6 +875,16 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "dutch_roll_real",
         "dutch_roll_imag",
         "aero_status",
+        "aero_performance_feasible",
+        "aero_performance_reason",
+        "cl_trim",
+        "cd_induced",
+        "cd_total_est",
+        "ld_ratio",
+        "aoa_trim_deg",
+        "span_efficiency",
+        "lift_total_n",
+        "aero_power_w",
         "structure_status",
         "total_mass_kg",
         "min_jig_clearance_mm",
@@ -679,6 +941,23 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Abort the campaign on the first inverse-design subprocess failure.",
     )
+    parser.add_argument(
+        "--min-lift-kg",
+        type=float,
+        default=None,
+        help="Override minimum required lift gate [kg]. Defaults to config aero_gates.min_lift_kg.",
+    )
+    parser.add_argument(
+        "--min-ld-ratio",
+        type=float,
+        default=None,
+        help="Override minimum L/D gate. Defaults to config aero_gates.min_ld_ratio.",
+    )
+    parser.add_argument(
+        "--skip-aero-gates",
+        action="store_true",
+        help="Skip AVL trim-derived aero performance gates and keep stability-only filtering.",
+    )
     parser.add_argument("--avl-velocity", type=float, default=None)
     parser.add_argument("--avl-density", type=float, default=None)
     parser.add_argument("--avl-gravity", type=float, default=None)
@@ -732,6 +1011,28 @@ def main(argv: list[str] | None = None) -> int:
         y_cg=default_mode_params.y_cg if args.avl_ycg is None else float(args.avl_ycg),
         z_cg=default_mode_params.z_cg if args.avl_zcg is None else float(args.avl_zcg),
     )
+    min_lift_kg = (
+        float(cfg.aero_gates.min_lift_kg)
+        if args.min_lift_kg is None
+        else float(args.min_lift_kg)
+    )
+    min_ld_ratio = (
+        float(cfg.aero_gates.min_ld_ratio)
+        if args.min_ld_ratio is None
+        else float(args.min_ld_ratio)
+    )
+    cd_profile_estimate = float(cfg.aero_gates.cd_profile_estimate)
+    max_trim_aoa_deg = float(cfg.aero_gates.max_trim_aoa_deg)
+    min_lift_n = float(min_lift_kg) * 9.81
+    reference_area_m2 = estimate_reference_area(cfg)
+    dynamic_pressure_pa = 0.5 * float(cfg.flight.air_density) * float(cfg.flight.velocity) ** 2
+    if reference_area_m2 <= 0.0:
+        raise ValueError("Computed wing reference area must be positive for aero-gate trim analysis.")
+    if dynamic_pressure_pa <= 0.0:
+        raise ValueError("Dynamic pressure must be positive for aero-gate trim analysis.")
+    cl_required = (
+        float(cfg.weight.max_takeoff_kg) * 9.81 / (float(dynamic_pressure_pa) * float(reference_area_m2))
+    )
 
     multipliers = _parse_multiplier_list(args.multipliers)
     base_text = base_avl_path.read_text(encoding="utf-8", errors="ignore")
@@ -761,6 +1062,15 @@ def main(argv: list[str] | None = None) -> int:
                     "mode_parameters": asdict(mode_params),
                     "allow_missing_dutch_roll": bool(args.allow_missing_dutch_roll),
                     "structural_weight_n": float(aircraft.weight_N),
+                    "aero_gate_settings": {
+                        "cl_required": float(cl_required),
+                        "min_lift_kg": float(min_lift_kg),
+                        "min_lift_n": float(min_lift_n),
+                        "min_ld_ratio": float(min_ld_ratio),
+                        "cd_profile_estimate": float(cd_profile_estimate),
+                        "max_trim_aoa_deg": float(max_trim_aoa_deg),
+                        "skip_aero_gates": bool(args.skip_aero_gates),
+                    },
                 },
                 indent=2,
             )
@@ -774,12 +1084,39 @@ def main(argv: list[str] | None = None) -> int:
             mode_params=mode_params,
             allow_missing_mode=bool(args.allow_missing_dutch_roll),
         )
+        if not avl_eval.aero_feasible:
+            aero_perf_eval = _empty_aero_performance(
+                feasible=False,
+                reason="stability_failed",
+            )
+        elif args.skip_aero_gates:
+            aero_perf_eval = _empty_aero_performance(
+                feasible=True,
+                reason="skipped",
+            )
+        else:
+            trim_eval = run_avl_trim_case(
+                avl_bin=avl_bin,
+                case_avl_path=case_avl_path,
+                case_dir=case_dir,
+                cl_required=cl_required,
+            )
+            aero_perf_eval = evaluate_aero_performance(
+                trim_eval=trim_eval,
+                dynamic_pressure_pa=dynamic_pressure_pa,
+                reference_area_m2=reference_area_m2,
+                cruise_velocity_mps=float(cfg.flight.velocity),
+                min_lift_n=min_lift_n,
+                min_ld_ratio=min_ld_ratio,
+                cd_profile_estimate=cd_profile_estimate,
+                max_trim_aoa_deg=max_trim_aoa_deg,
+            )
 
         summary_payload: dict[str, object] | None = None
         selected_output_dir: str | None = None
         summary_json_path: str | None = None
         inverse_error_message: str | None = None
-        if avl_eval.aero_feasible:
+        if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible:
             inverse_output_dir = case_dir / "inverse_design"
             selected_output_dir = str(inverse_output_dir.resolve())
             summary_json_path, _, inverse_error_message = run_inverse_design_case(
@@ -807,6 +1144,7 @@ def main(argv: list[str] | None = None) -> int:
             _build_result_row(
                 multiplier=float(multiplier),
                 avl_eval=avl_eval,
+                aero_perf_eval=aero_perf_eval,
                 summary_payload=summary_payload,
                 selected_output_dir=selected_output_dir,
                 summary_json_path=summary_json_path,
@@ -826,6 +1164,15 @@ def main(argv: list[str] | None = None) -> int:
                 "base_avl_source": base_avl_source,
                 "mode_parameters": asdict(mode_params),
                 "multipliers": [float(value) for value in multipliers],
+                "aero_gate_settings": {
+                    "cl_required": float(cl_required),
+                    "min_lift_kg": float(min_lift_kg),
+                    "min_lift_n": float(min_lift_n),
+                    "min_ld_ratio": float(min_ld_ratio),
+                    "cd_profile_estimate": float(cd_profile_estimate),
+                    "max_trim_aoa_deg": float(max_trim_aoa_deg),
+                    "skip_aero_gates": bool(args.skip_aero_gates),
+                },
                 "cases": [asdict(row) for row in rows],
             },
             indent=2,
@@ -844,9 +1191,11 @@ def main(argv: list[str] | None = None) -> int:
         mass_text = "n/a" if row.total_mass_kg is None else f"{row.total_mass_kg:.3f} kg"
         clear_text = "n/a" if row.min_jig_clearance_mm is None else f"{row.min_jig_clearance_mm:.3f} mm"
         wire_text = "n/a" if row.wire_tension_n is None else f"{row.wire_tension_n:.1f} N"
+        ld_text = "n/a" if row.ld_ratio is None else f"{row.ld_ratio:.2f}"
         print(
             "  "
             f"x{row.dihedral_multiplier:.3f}: aero={row.aero_status}, "
+            f"perf={row.aero_performance_reason}, L/D={ld_text}, "
             f"struct={row.structure_status}, mass={mass_text}, "
             f"clearance={clear_text}, wire={wire_text}"
         )

@@ -13,9 +13,12 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.dihedral_sweep_campaign import (
+    AeroPerformanceEvaluation,
     AvlEvaluation,
     _build_arg_parser,
     _build_result_row,
+    evaluate_aero_performance,
+    parse_avl_force_totals,
     parse_avl_eigenvalue_file,
     parse_avl_mode_stdout,
     run_inverse_design_case,
@@ -113,6 +116,18 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         row = _build_result_row(
             multiplier=1.5,
             avl_eval=avl_eval,
+            aero_perf_eval=AeroPerformanceEvaluation(
+                cl_trim=1.24,
+                cd_induced=0.017,
+                cd_total_est=0.027,
+                ld_ratio=45.9,
+                aoa_trim_deg=11.0,
+                span_efficiency=0.64,
+                lift_total_n=981.0,
+                aero_power_w=138.9,
+                aero_performance_feasible=True,
+                aero_performance_reason="ok",
+            ),
             summary_payload=None,
             selected_output_dir="/tmp/inverse",
             summary_json_path=None,
@@ -180,6 +195,55 @@ class DihedralSweepCampaignTests(unittest.TestCase):
     def test_arg_parser_accepts_strict_flag(self) -> None:
         args = _build_arg_parser().parse_args(["--strict"])
         self.assertTrue(args.strict)
+
+    def test_parse_avl_force_totals_extracts_trim_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            force_path = Path(tmp) / "case_trim.ft"
+            force_path.write_text(
+                "\n".join(
+                    [
+                        "  Alpha =  11.03899",
+                        "  CLtot =   1.24000",
+                        "  CDvis =   0.00000     CDind = 0.0173939",
+                        "  CYff  =   0.00000         e =    0.6381    | Plane",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            payload = parse_avl_force_totals(force_path)
+
+        self.assertIsNotNone(payload)
+        assert payload is not None
+        self.assertAlmostEqual(payload["cl_trim"], 1.24, places=6)
+        self.assertAlmostEqual(payload["cd_induced"], 0.0173939, places=7)
+        self.assertAlmostEqual(payload["aoa_trim_deg"], 11.03899, places=5)
+        self.assertAlmostEqual(payload["span_efficiency"], 0.6381, places=4)
+
+    def test_evaluate_aero_performance_flags_low_ld(self) -> None:
+        trim_eval = mock.Mock(
+            trim_converged=True,
+            trim_status="trim_converged",
+            cl_trim=1.24,
+            cd_induced=0.09,
+            aoa_trim_deg=8.0,
+            span_efficiency=0.4,
+        )
+
+        perf = evaluate_aero_performance(
+            trim_eval=trim_eval,
+            dynamic_pressure_pa=25.878125,
+            reference_area_m2=30.69,
+            cruise_velocity_mps=6.5,
+            min_lift_n=981.0,
+            min_ld_ratio=25.0,
+            cd_profile_estimate=0.010,
+            max_trim_aoa_deg=12.0,
+        )
+
+        self.assertFalse(perf.aero_performance_feasible)
+        self.assertEqual(perf.aero_performance_reason, "ld_below_minimum")
+        self.assertIsNotNone(perf.ld_ratio)
 
 
 if __name__ == "__main__":

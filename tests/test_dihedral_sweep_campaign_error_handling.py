@@ -13,6 +13,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.dihedral_sweep_campaign import (
+    AeroPerformanceEvaluation,
     AvlEvaluation,
     _build_arg_parser,
     _build_result_row,
@@ -38,6 +39,18 @@ class DihedralSweepCampaignErrorHandlingTests(unittest.TestCase):
         row = _build_result_row(
             multiplier=1.5,
             avl_eval=avl_eval,
+            aero_perf_eval=AeroPerformanceEvaluation(
+                cl_trim=1.24,
+                cd_induced=0.017,
+                cd_total_est=0.027,
+                ld_ratio=45.9,
+                aoa_trim_deg=11.0,
+                span_efficiency=0.64,
+                lift_total_n=981.0,
+                aero_power_w=138.9,
+                aero_performance_feasible=True,
+                aero_performance_reason="ok",
+            ),
             summary_payload=None,
             selected_output_dir="/tmp/inverse",
             summary_json_path=None,

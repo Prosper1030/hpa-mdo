@@ -163,6 +163,19 @@ class LiftWireConfig(BaseModel):
     attachments: List[LiftWireAttachment] = Field(default_factory=list)
 
 
+class AeroGatesConfig(BaseModel):
+    min_lift_kg: float = Field(100.0, description="Minimum acceptable lift [kg]")
+    min_ld_ratio: float = Field(25.0, description="Minimum acceptable lift-to-drag ratio")
+    cd_profile_estimate: float = Field(
+        0.010,
+        description="Estimated profile drag coefficient for AVL induced-drag correction",
+    )
+    max_trim_aoa_deg: float = Field(
+        12.0,
+        description="Maximum acceptable trim angle of attack before stall margin is exceeded [deg]",
+    )
+
+
 class SolverConfig(BaseModel):
     n_beam_nodes: int = 60
     optimizer: str = "SLSQP"
@@ -284,6 +297,7 @@ class HPAConfig(BaseModel):
         joint_mass_kg=0.10,
     )
     lift_wires: LiftWireConfig = LiftWireConfig()
+    aero_gates: AeroGatesConfig = AeroGatesConfig()
     solver: SolverConfig = SolverConfig()
     io: IOConfig = IOConfig()
 
