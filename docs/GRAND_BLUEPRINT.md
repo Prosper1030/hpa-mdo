@@ -3,7 +3,8 @@
 > **文件性質**：最高指導文件 — 定義專案從求解器核心到全自動化設計 App 的五階段演進路線。  
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
-> **狀態**：Phase I 收尾（4e equivalent-beam ANSYS validation 已通過；下一步 4f dual-spar adequacy spot-check）
+> **最後更新**：2026-04-13  
+> **狀態**：Phase I-B 氣動彈性逆向設計主線已成立；外圈 Dihedral Sweep MVP-1 已打通，正在強化
 
 ---
 
@@ -126,6 +127,91 @@
            │ 5e. Control surface coupling         │
            │ 5f. Drivetrain / propeller sizing    │
            └──────────────────────────────────────┘
+
+  ═══════════════════════════════════════════════════════════
+
+  Phase I-B — 氣動彈性逆向設計主線（2026-04 新增）
+
+           ┌──────────────────────────────────────┐
+           │ Milestone 6 — Inverse Design  ✅     │
+           │                                       │
+           │ 6a ✅ dual-beam production mainline  │
+           │      builder/solver/recovery/optview │
+           │ 6b ✅ 離散 geometry + decision layer │
+           │      Primary/Balanced/Conservative   │
+           │ 6c ✅ 材料 proxy 家族               │
+           │      main_spar_family / rear_pkg     │
+           │ 6d ✅ producer / autoresearch /      │
+           │      campaign framework              │
+           │ 6e ✅ exact-nodal inverse design MVP │
+           │      jig = target - ΔU              │
+           │ 6f ✅ light load refresh (1-2 iter) │
+           │ 6g ✅ active-wall diagnostics       │
+           │ 6h ✅ clearance-aware ranking       │
+           │ 6i ✅ wire / rigging minimal output │
+           │ 6j ✅ STEP export (jig + decisions) │
+           └──────────────┬───────────────────────┘
+                          │
+           ┌──────────────▼───────────────────────┐
+           │ Milestone 7 — Outer-Loop Campaign    │
+           │                                       │
+           │ 7a ✅ dihedral sweep MVP-1           │
+           │      AVL→stability→inner loop→CSV   │
+           │ 7b ✅ wire material upgrade          │
+           │      steel_4130→dyneema_sk75        │
+           │ 7c ✅ full-body AVL model            │
+           │      wing+elevator+fin              │
+           │ 7d ✅ sweep error handling           │
+           │      per-case collection + --strict  │
+           │ 7e ⏭️ aero performance gates        │
+           │      min_lift≥100kg, L/D check      │
+           │      AVL trim → CL/CD/L/D extract   │
+           │                          ◀ NEXT     │
+           │ 7f ⏭️ phase-2 sweep re-run          │
+           │      (stability + aero gates)       │
+           └──────────────┬───────────────────────┘
+                          │
+           ┌──────────────▼───────────────────────┐
+           │ Milestone 8 — VSP→AVL Pipeline  ✅   │
+           │      (full-aircraft geometry flow)    │
+           │                                       │
+           │ 8a ✅ VSP3 XML parser                │
+           │      vsp_geometry_parser.py          │
+           │ 8b ✅ AVL exporter                   │
+           │      avl_exporter.py                 │
+           │ 8c ✅ CLI utility                    │
+           │      scripts/vsp_to_avl.py           │
+           │ 8d. Config schema extension          │
+           │     tail/fin sections in YAML        │
+           └──────────────┬───────────────────────┘
+                          │
+           ┌──────────────▼───────────────────────┐
+           │ Milestone 9 — Design Space Maturity  │
+           │                                       │
+           │ 9a. fine dihedral sweep (0.1 step)   │
+           │ 9b. multi-objective Pareto front     │
+           │     (mass × stability × wire ×       │
+           │      aero performance)               │
+           │ 9c. vendor-aware tube catalog        │
+           │ 9d. full wire/rigging system         │
+           │ 9e. dynamic design space             │
+           │ 9f. higher-fidelity load coupling    │
+           └──────────────┬───────────────────────┘
+                          │
+           ┌──────────────▼───────────────────────┐
+           │ Milestone 10 — ASWING Integration    │
+           │      (nonlinear aeroelastic solver)  │
+           │                                       │
+           │ 10a. ASWING binary install/build     │
+           │ 10b. .asw geometry generator         │
+           │      from config + VSP geometry      │
+           │ 10c. ASWING subprocess wrapper       │
+           │      trim → eigenmode → parse output │
+           │ 10d. Cross-validation vs internal FEM│
+           │      deflection/stress/flutter       │
+           │ 10e. ASWING-in-the-loop campaign     │
+           │      replace AVL stability filter    │
+           └──────────────────────────────────────┘
 ```
 
 ### Phase I 完成判準
@@ -148,29 +234,31 @@
 | Dual-spar Timoshenko FEM | ✅ | Parallel-axis EI/GJ, independent Iz |
 | Analytic + CS partials | ✅ | check_totals 全模型 + multi-case 通過 |
 | Production optimizer path | ✅ | `method="auto"`, OpenMDAO driver, 13.91 kg |
-| Physics F1 (VM parallel-axis) | ✅ | `σ = E×κ×(R+\|d_z\|)` |
-| Physics F2 (Buckling parallel-axis) | ✅ | Same correction in BucklingComp |
-| Physics F3 (Monotonic taper) | ✅ | `r_in >= r_out` constraint |
-| Physics F4 (Iz_equiv ≠ Iy_equiv) | ✅ | EI_chord computed and connected |
-| Physics F5 (Main spar dominance) | ✅ | EI + radius dominance constraints |
-| Physics F9 (Warping knockdown) | ✅ | 1.0 → 0.5 in config |
-| Physics F13 (Compressive strength) | ✅ | `min(tensile, compressive)/SF` |
-| Physics F6 (Thickness smoothness) | ✅ | `\|t[i]-t[i+1]\| ≤ 0.003 m`, buckling_idx = −0.70 |
-| Physics F8 (Torsion-shear buckling) | ✅ | Torsion-shear interaction in BucklingComp |
-| Physics F10 (Wire compression) | ✅ | `wire_precompression.py`, angle=11.3° |
-| Physics F11 (Discrete OD) | ✅ | `discrete_od.py`, tube_catalog 12–120mm, snap-up |
-| Physics F12 (Gravity torque) | ✅ | rear spar mass × g × d_chord → theta_y loads |
-| FSI one-way in production | ✅ | `blackcat_004_fsi.py`, 13.91 kg |
-| FSI two-way | ❌ | M5 |
-| Multi-load-case production example | ✅ | cruise + pullup_2g, 40.28 kg (4G noted) |
-| STEP deformed shape | ✅ | `compute_deformed_nodes()`, jig+flight .step |
-| Flutter / aeroelastic | ❌ | M5 |
-| Ply-level composite | ❌ | M5 |
-| ANSYS equivalent-beam validation | ✅ | 4e 正式 Phase I gate；四項 gating metrics PASS |
-| ANSYS dual-spar adequacy spot-check | ⏭️ | 4f 下一步；非 gate，檢查模型形式風險 |
-| Code hygiene M2-M6 | ✅ | God-file split, API DRY, FSI reuse, golden test, constants |
+| Physics F1-F13 全數 | ✅ | VM/Buckling/Taper/Iz/Dominance/Warping/Compression/Smooth/Torsion/Wire/OD/Torque |
+| FSI one-way | ✅ | `blackcat_004_fsi.py`, 13.91 kg |
+| ANSYS 4e gate | ✅ | equivalent-beam validation PASS |
 | STEP + ANSYS export | ✅ | cadquery/build123d, APDL/BDF/CSV |
 | API server (REST + MCP) | ✅ | FastAPI + MCP, shared helpers |
+
+### Phase I-B 目前狀態明細
+
+| 項目 | 狀態 | 備註 |
+|------|------|------|
+| dual-beam production mainline | ✅ | builder/solver/recovery/optimizer_view |
+| 離散 geometry + decision layer | ✅ | Primary/Balanced/Conservative |
+| 材料 proxy 家族 | ✅ | main_spar_family / rear_outboard_reinforcement_pkg |
+| producer / autoresearch / campaign | ✅ | history/compare/provenance/fingerprint/lineage |
+| exact-nodal inverse design | ✅ | frozen-load MVP + light load refresh |
+| active-wall diagnostics | ✅ | ground clearance 確認為主瓶頸 |
+| clearance-aware ranking | ✅ | 解從擦地 → 可行但更重 |
+| wire / rigging minimal output | ✅ | L_flight/ΔL/L_cut/tension/margin |
+| wire material upgrade | ✅ | dyneema_sk75, allowable ≈ 6872N |
+| dihedral sweep MVP-1 | ✅ | AVL→stability→inner loop→CSV 流程打通 |
+| full-body AVL model | ✅ | wing+elevator+fin，data/blackcat_004_full.avl |
+| sweep error handling | ✅ | per-case collection + --strict flag |
+| VSP3→AVL pipeline | ✅ | vsp_geometry_parser + avl_exporter + CLI |
+| aero performance gates | ⏭️ | min lift ≥ 100kg + L/D 檢查，**當前最高優先** |
+| 穩定性濾網（真正啟用） | ⏭️ | 需 aero gates 後一起 re-run |
 
 ---
 
@@ -444,41 +532,80 @@ Phase IV ───────────────────────�
 |--------|------|----------|
 | Phase I — Milestone 1 | ✅ | OpenMDAO topology, multi-case, check_totals, M2-M6 |
 | Phase I — Milestone B | ✅ | Production → `method="auto"`, 21.57→13.91 kg (−35%), 5× speedup |
-| Phase I — Milestone 2 Phase 1 | ✅ | F13 compressive strength, F9 warping 0.5 |
-| Phase I — Milestone 2 Phase 2 | ✅ | F6 壁厚平滑 (buckling_idx=−0.70), F8 deferred |
-| Phase I — Milestone 3 | ✅ | FSI one-way, multi-case example, STEP deformed shape |
-| Phase I — Milestone 4 (4a–4d) | ✅ | F10 wire precomp, F11 discrete OD, F12 gravity torque, F8 torsion-shear |
-| Phase I — Milestone 4e | ✅ | equivalent-beam ANSYS validation PASS；正式 Phase I gate |
-| Phase I — Milestone 4f | ⏭️ | dual-spar adequacy spot-check；非 gate，高保真模型形式風險 |
-| Phase II — II-1 | ✅ | 15 materials (Rohacell/Kevlar/Dyneema/Ti-6Al-4V/CFRP prepreg) |
+| Phase I — Milestone 2 | ✅ | F13 compressive / F9 warping / F6 壁厚平滑 / F8 torsion-shear |
+| Phase I — Milestone 3 | ✅ | FSI one-way, multi-case, STEP deformed shape |
+| Phase I — Milestone 4 | ✅ | F10 wire precomp / F11 discrete OD / F12 gravity torque / 4e ANSYS PASS |
+| Phase I-B — Milestone 6 | ✅ | dual-beam mainline, inverse design MVP, discrete geometry, decision layer |
+| Phase I-B — Milestone 7a-d | ✅ | dihedral sweep MVP-1, wire 升級, full-body AVL, error handling |
+| Phase I-B — Milestone 8a-c | ✅ | VSP3 XML parser, AVL exporter, CLI utility |
+| Phase II — II-1 | ✅ | 17 materials（含 dyneema_sk75, piano_wire_swpb） |
 
-### 目前 Production 指標
+### 目前 Inverse Design 指標（dihedral sweep smoke）
 
 ```
-Total spar mass   = 11.954 kg  (full-span, dual-spar w/ joints)
-Failure index     = -0.466     (safe, 46.6% margin)
-Buckling index    = -0.801     (safe, 80.1% margin)
-Twist             = 0.213°     / 2.0° limit
-Tip deflection    = 2.500 m    / 2.5 m limit (active constraint)
-Main spar OD      = 61.3–30.0 mm (t=0.8mm min bound)
-Rear spar OD      = 20.0 mm   (all segments at min)
-ANSYS 4e gate     = PASS (tip/max UZ/reaction/mass all within tolerance)
-Tests             = 155 passed, 1 skipped, 1 xpassed
+Dihedral ×1.0:  mass=23.1 kg, clearance=9.4 mm, wire=3244 N
+Dihedral ×1.5:  mass=19.7 kg, clearance=2.4 mm, wire=3335 N
+Dihedral ×2.0:  mass=14.6 kg, clearance=4.7 mm, wire=3716 N
+Dihedral ×2.5:  mass=13.1 kg, clearance=8.4 mm, wire=3875 N
+
+Wire allowable (dyneema_sk75, 2.5mm, 40%):  ≈6872 N  ← 全部 feasible
+Stability filter:  尚未啟用（需完整機體 .avl）
 ```
+
+### 已驗證的工程結論
+
+| 結論 | 來源 |
+|------|------|
+| 13-15 kg 主翼重量合理 | 日本團隊實績（CHicK-2000: 15.44 kg, Windnauts: ~12-14 kg） |
+| 3000-4000 N wire tension 可行 | Dyneema SK75 2.5mm ≈ 6872N allowable, 鋼琴線 2.0mm ≈ 6280N |
+| 21-22 kg floor 非 search/coupling 問題 | 驗證過 shape matching 放鬆無效，瓶頸在 ground clearance |
+| target dihedral 是核心設計變數 | 增大 dihedral → mass 大幅下降，wire margin 在升級後 OK |
 
 ### 下一步（優先順序）
 
-| 優先序 | 任務 | Phase | 預估工時 | 狀態 |
-|--------|------|-------|----------|------|
-| **1** | M4-4f: dual-spar adequacy spot-check（非 gate） | I | 2-4 h | ⏭️ NEXT |
-| **2** | 多工況 4G 雙重計算修正（正式方案） | I | 2 h | ❌ |
-| **3** | II-2: 碳管規格庫 tube_catalog 強化（供應商/價格/層數） | II | 3-4 h | ❌ |
-| **4** | II-4: rib_properties.yaml → 自動 warping_knockdown | II | 4-6 h | ❌ |
-| **5** | II-3: 翼型資料庫 airfoil_db 統一格式 | II | 3-4 h | ❌ |
-| **6** | M5 advanced capabilities scope decision | I/M5 | 1 h | ⏸️ 等 4f |
-| **7** | III-1: DOE 取樣器 + 批次 runner | III | 8-12 h | ❌ |
+| 優先序 | 任務 | Milestone | 負責 | 狀態 |
+|--------|------|-----------|------|------|
+| **1** | 7e: 氣動性能門檻（min lift ≥ 100kg + L/D） | M7 | Codex | ⏭️ **NEXT** |
+| **2** | 7f: phase-2 sweep re-run（stability + aero gates） | M7 | Codex | ⏭️ 等 7e |
+| **3** | 9a: fine dihedral sweep（step 0.1） | M9 | Codex | ❌ 等 7f |
+| **4** | 9b: multi-objective Pareto front | M9 | 規劃中 | ❌ |
+| **5** | 10a-b: ASWING 安裝 + .asw 產生器 | M10 | 評估中 | ❌ |
 
-**關鍵路徑**：4e 已證明 internal FEM 在同模型假設下正確；先完成 4f dual-spar adequacy spot-check，再決定是否正式開啟 M5 advanced capabilities。
+### 已完成（本輪）
+
+| 任務 | Milestone | 結果 |
+|------|-----------|------|
+| wire 材料升級 | M7 | ✅ dyneema_sk75, allowable ≈ 6872N |
+| full-body AVL | M7 | ✅ wing + elevator + fin |
+| sweep error handling | M7 | ✅ per-case collection + --strict |
+| tolerance 進 config | M7 | ✅ Pydantic + YAML + CLI |
+| .lod component filter | M7 | ✅ optional component_ids + WARNING |
+| VSP3→AVL pipeline | M8 | ✅ parser + exporter + CLI + tests |
+
+### 關鍵路徑
+
+```
+7e (aero gates) → 7f (re-run sweep) → 真正的多維 feasibility 數據
+   min lift ≥ 100kg                    stability + mass + wire +
+   L/D ≥ 25 (pilot power budget)      aero performance 一起看
+                                     → 決定最佳 dihedral 範圍
+                                     → 9a (fine sweep) → 9b (Pareto)
+
+未來：10a-e (ASWING) — 非線性氣動彈性驗證，取代/補強 AVL
+```
+
+### Daedalus 參考數據（來自文獻，用於交叉驗證）
+
+| 參數 | 數值 | 來源 |
+|------|------|------|
+| 巡航速度 | 6.7 m/s | Sullivan & Zerweckh |
+| 失速速度 | 5.9 m/s | Cruz & Drela |
+| 設計載荷係數 | 1.75 g | Cruz & Drela |
+| 機動速度 | 7.8 m/s | Cruz & Drela |
+| 翼尖撓度 | 2.0 m | Cruz & Drela |
+| 空機重 | 41.7 kg (92 lb) | Sullivan & Zerweckh |
+| 設計 CL | 0.8-1.2 | Drela |
+| 最大側滑角 | 30° | Cruz & Drela |
 
 ---
 
@@ -504,6 +631,39 @@ Tests             = 155 passed, 1 skipped, 1 xpassed
 | Phase III surrogate 外推失敗 | IV 探索到 surrogate 未見過的設計空間 | 主動學習迴圈 + Phase I 驗證閘門 |
 | Phase IV Agent 過度自信 | 產出不可行設計 | `_is_raw_feasible` 作為硬閘門，val_weight 協定不可繞過 |
 | Phase V 使用者信任過度 | 非工程師直接送製造 | 報告必須標示所有假設與限制，STEP 附安全警語 |
+| dihedral sweep 載荷不一致 | mass 偏樂觀 | 目前用 ×1.0 載荷算所有 dihedral；M9 補 AVL/VSPAero load refresh |
+| AVL 穩定性假陽性/假陰性 | 錯誤篩選 | 慣量參數需從 config 讀取；full-body .avl 是最低門檻 |
+| .lod parser 無 component filter | 多元件 VSP 載荷汙染 | 已列入 Task 5；目前 .lod 只有 wing 所以安全 |
+
+---
+
+## 11. 設計防線（Design Guardrails）
+
+以下結論已由系統性實驗驗證，**不可在未有新證據的情況下重新質疑**：
+
+1. **inverse-design 方向正確** — loaded shape → jig shape 是主線
+2. **shape matching 放鬆無效** — 已測試低維匹配，mass 無明顯改善，mismatch 變大
+3. **不急著擴設計空間** — 先用外圈確認 target dihedral
+4. **wire margin 是硬約束** — 不是裝飾輸出，已是實際瓶頸之一
+5. **23 kg 是診斷結果不是設計答案** — 原因是 target dihedral 太小
+6. **wire allowable 1052N 是錯的** — 已修正為 dyneema_sk75 ≈ 6872N
+7. **氣動性能必須檢查** — 高 dihedral 可能降低有效升力和 L/D，min lift ≥ 100kg 是硬門檻
+8. **ASWING 是終極驗證工具** — Drela 的非線性氣動彈性求解器，支援柔性翼+鋼索+flutter
+
+---
+
+## 12. 團隊分工
+
+| 角色 | 負責人 | 職責 |
+|------|--------|------|
+| 總工程師 | 使用者 | 工程判斷、domain knowledge、最終拍板 |
+| 技術主管 | Claude | 規劃、審查、物理 sanity check、架構決策 |
+| 實作工程師 | Codex (5.4/5.3 xhigh) | 寫 code、跑測試、修 bug |
+
+原則：
+- Claude 不主動寫 code，除非是一行改動或時間緊迫
+- Codex 收到完整 prompt 後獨立執行，交付後由 Claude 審查
+- 所有設計方向變更由總工程師拍板
 
 ---
 
