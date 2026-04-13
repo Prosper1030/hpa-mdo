@@ -141,12 +141,22 @@ def _translation_columns(disp_m: np.ndarray, label: str) -> np.ndarray:
     return arr[:, :3].copy()
 
 
-def build_target_loaded_shape(*, model: DualBeamMainlineModel) -> StructuralNodeShape:
+def build_target_loaded_shape(
+    *,
+    model: DualBeamMainlineModel,
+    z_scale: float = 1.0,
+) -> StructuralNodeShape:
     """Return the current structural beam geometry as the loaded target shape."""
 
+    main_nodes_m = _copy_nodes(model.nodes_main_m)
+    rear_nodes_m = _copy_nodes(model.nodes_rear_m)
+    scale = float(z_scale)
+    if abs(scale - 1.0) > 1.0e-12:
+        main_nodes_m[:, 2] *= scale
+        rear_nodes_m[:, 2] *= scale
     return StructuralNodeShape(
-        main_nodes_m=_copy_nodes(model.nodes_main_m),
-        rear_nodes_m=_copy_nodes(model.nodes_rear_m),
+        main_nodes_m=main_nodes_m,
+        rear_nodes_m=rear_nodes_m,
     )
 
 
@@ -586,11 +596,15 @@ def build_frozen_load_inverse_design_from_mainline(
     loaded_shape_control_station_fractions: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
     loaded_shape_main_z_tol_m: float = 0.025,
     loaded_shape_twist_tol_deg: float = 0.15,
+    target_loaded_shape_z_scale: float = 1.0,
 ) -> FrozenLoadInverseDesignResult:
     """Convenience wrapper for the current dual-beam production result."""
 
     return build_frozen_load_inverse_design(
-        target_loaded_shape=build_target_loaded_shape(model=model),
+        target_loaded_shape=build_target_loaded_shape(
+            model=model,
+            z_scale=target_loaded_shape_z_scale,
+        ),
         disp_main_m=result.disp_main_m,
         disp_rear_m=result.disp_rear_m,
         y_nodes_m=model.y_nodes_m,

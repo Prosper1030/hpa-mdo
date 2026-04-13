@@ -17,6 +17,7 @@ from hpa_mdo.structure.inverse_design import (
     StructuralNodeShape,
     build_frozen_load_inverse_design,
     build_inverse_design_margins,
+    build_target_loaded_shape,
     write_shape_csv_from_template,
 )
 from hpa_mdo.aero.base import SpanwiseLoad
@@ -378,6 +379,17 @@ class InverseDesignTests(unittest.TestCase):
             self.assertEqual(rows[0]["Rear_X_m"], "0.82")
             self.assertEqual(rows[0]["Rear_Z_m"], "0.03")
             self.assertEqual(rows[1]["Main_Outer_Radius_m"], "0.03")
+
+    def test_build_target_loaded_shape_scales_z_coordinates(self) -> None:
+        model = SimpleNamespace(
+            nodes_main_m=np.array([[0.0, 0.0, 0.10], [0.0, 1.0, 0.30]], dtype=float),
+            nodes_rear_m=np.array([[1.0, 0.0, 0.05], [1.0, 1.0, 0.25]], dtype=float),
+        )
+
+        shape = build_target_loaded_shape(model=model, z_scale=2.0)
+
+        self.assertTrue(np.allclose(shape.main_nodes_m[:, 2], [0.20, 0.60]))
+        self.assertTrue(np.allclose(shape.rear_nodes_m[:, 2], [0.10, 0.50]))
 
     def test_lightweight_load_refresh_interpolates_lower_effective_aoa_from_twist(self) -> None:
         y = np.array([0.0, 1.0, 2.0], dtype=float)
