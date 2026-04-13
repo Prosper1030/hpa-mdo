@@ -161,6 +161,36 @@ cfrp_prepreg_t700:
   poisson_ratio: 0.30
   description: "Autoclave-cured UD tape; spar cap strip, D-box skin"
 
+cfrp_ply_hm:
+  description: "HM CFRP UD ply (M46J/epoxy equivalent)"
+  material_type: "composite_ply"
+  E1: 230.0e9
+  E2: 8.0e9
+  G12: 5.0e9
+  nu12: 0.27
+  t_ply: 0.125e-3
+  density: 1600.0
+  F1t: 2500.0e6
+  F1c: 1500.0e6
+  F2t: 50.0e6
+  F2c: 200.0e6
+  F6: 100.0e6
+
+cfrp_ply_sm:
+  description: "SM CFRP UD ply (T300/epoxy equivalent)"
+  material_type: "composite_ply"
+  E1: 130.0e9
+  E2: 10.0e9
+  G12: 5.5e9
+  nu12: 0.28
+  t_ply: 0.125e-3
+  density: 1550.0
+  F1t: 1800.0e6
+  F1c: 1200.0e6
+  F2t: 60.0e6
+  F2c: 180.0e6
+  F6: 90.0e6
+
 eglass_woven:
   name: "E-Glass Plain Weave Fabric (cured)"
   E: 23.0e9               # balanced in-plane modulus [Pa]

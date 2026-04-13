@@ -131,6 +131,20 @@ class SparConfig(BaseModel):
     """Shared schema for main_spar and rear_spar."""
     material: str = "carbon_fiber_hm"
     location_xc: float = 0.25
+    layup_mode: Literal["isotropic", "discrete_clt"] = "isotropic"
+    ply_material: str | None = None
+    min_plies_0: int = Field(1, ge=1, description="Minimum 0° plies per half-layup")
+    min_plies_45_pairs: int = Field(
+        1,
+        ge=1,
+        description="Minimum ±45° ply pairs per half-layup",
+    )
+    min_plies_90: int = Field(0, ge=0, description="Minimum 90° plies per half-layup")
+    max_total_plies: int = Field(
+        14,
+        ge=2,
+        description="Maximum total symmetric laminate plies",
+    )
 
     outer_diameter_root: Optional[float] = None
     outer_diameter_tip: Optional[float] = None

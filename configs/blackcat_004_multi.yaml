@@ -78,6 +78,8 @@ wing:
 main_spar:
   material: "carbon_fiber_hm"            # key in data/materials.yaml
   location_xc: 0.25                      # chordwise position (= wing.spar_location_xc)
+  layup_mode: "isotropic"
+  ply_material: "cfrp_ply_hm"
 
   # Outer diameter — auto from airfoil thickness if null
   outer_diameter_root: null
@@ -112,6 +114,8 @@ rear_spar:
   enabled: true
   material: "carbon_fiber_hm"
   location_xc: 0.70                      # at 70% chord
+  layup_mode: "isotropic"
+  ply_material: "cfrp_ply_hm"
 
   outer_diameter_root: null
   outer_diameter_tip: null

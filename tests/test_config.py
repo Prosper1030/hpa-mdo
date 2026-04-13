@@ -103,6 +103,22 @@ def test_blackcat_loaded_shape_tolerances_loaded_from_solver_config():
     assert cfg.solver.loaded_shape_twist_tol_deg == pytest.approx(0.15)
 
 
+def test_blackcat_spar_layup_defaults_loaded_from_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.main_spar.layup_mode == "isotropic"
+    assert cfg.main_spar.ply_material == "cfrp_ply_hm"
+    assert cfg.main_spar.min_plies_0 == 1
+    assert cfg.main_spar.min_plies_45_pairs == 1
+    assert cfg.main_spar.min_plies_90 == 0
+    assert cfg.main_spar.max_total_plies == 14
+    assert cfg.rear_spar.layup_mode == "isotropic"
+    assert cfg.rear_spar.ply_material == "cfrp_ply_hm"
+
+
 def test_aircraft_converts_airfoil_camber_fraction_to_meters(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"
