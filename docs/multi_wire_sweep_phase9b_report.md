@@ -11,6 +11,8 @@ Date: 2026-04-13
   - `single = [7.5]`
   - `dual = [4.5, 10.5]`
   - `triple = [4.5, 7.5, 10.5]`
+- Current anchor geometry: `fuselage_z = -1.5 m`
+- Allowed joint-aligned wire positions from config: `1.5, 4.5, 7.5, 10.5, 13.5 m`
 - Wire drag penalty: `ΔCD = 0.003 × wire_count`
 - Output: `output/multi_wire_sweep_phase9b`
 
@@ -63,6 +65,36 @@ Command:
 - Dutch Roll damping is unchanged across layouts at fixed dihedral because the current wire model
   only penalizes drag in the trim/L-D estimate, not AVL geometry or inertia.
 
+## Current Wire Geometry
+
+- The committed baseline config currently uses one wire at `y = 7.5 m`, `fuselage_z = -1.5 m`,
+  `wire_angle = 11.3 deg`.
+- In this campaign, multi-wire layouts keep the same `fuselage_z = -1.5 m` anchor drop and only
+  move spanwise attachment positions.
+- Effective per-wire angles are therefore:
+  - `single [7.5] -> 11.31 deg`
+  - `dual [4.5, 10.5] -> 18.43 deg, 8.13 deg`
+  - `triple [4.5, 7.5, 10.5] -> 18.43 deg, 11.31 deg, 8.13 deg`
+- Yes, this is adjustable. We can change `lift_wires.attachments` in
+  `configs/blackcat_004.yaml`, or sweep alternative spanwise layouts with
+  `scripts/multi_wire_sweep_campaign.py --wire-layouts ...`.
+
+## Deflection Snapshot
+
+`loaded tip z` is the height relative to the global horizontal/root reference plane. `max uz` is the
+elastic deflection increment relative to the jig / undeformed structure.
+
+| case | equivalent_tip_deflection_m | main_tip_z_m | rear_tip_z_m | main_max_uz_m | rear_max_uz_m |
+|---|---:|---:|---:|---:|---:|
+| `single x1.0` | 0.695 | 0.893 | 0.892 | 0.691 | 0.892 |
+| `single x3.5` | 2.417 | 3.127 | 3.123 | 2.317 | 3.116 |
+| `dual x3.5` | 0.275 | 3.127 | 3.123 | 0.218 | 0.720 |
+| `triple x3.5` | 0.300 | 3.127 | 3.123 | 0.237 | 0.741 |
+
+At fixed dihedral, the loaded tip height is the same across wire layouts because the campaign keeps
+the same target loaded shape. What changes is how much elastic deflection and structural mass are
+required to hit that target.
+
 ## Wire-Count Tradeoff
 
 - In the low-dihedral regime, extra wires help structure:
@@ -83,16 +115,20 @@ Command:
 - High target dihedral has already replaced extra wire count as the dominant structural lever.
 - For the currently sampled high-dihedral window, the best design direction is:
   `single wire + high progressive dihedral`.
-- The remaining open question is not "should we go above 3.5?".
-  It is "where is the crossover between low-dihedral multi-wire benefit and high-dihedral
-  single-wire benefit?" That crossover likely sits somewhere between `x1.0` and `x2.5`.
+- A follow-up probe to `single x3.6 → x4.0` also passed all gates and flattened at
+  `11.954 kg`, so `>3.5` is feasible but already in diminishing-return territory.
+- The remaining open question is therefore the crossover between low-dihedral multi-wire benefit
+  and high-dihedral single-wire benefit. That crossover likely sits somewhere between `x1.0`
+  and `x2.5`.
 
 ## Recommended Next Step
 
 Proceed to `9c multi-objective Pareto front`, using:
 
-1. `single x3.2–x3.5` as the high-performance family.
+1. `single x3.5–x4.0` as the high-performance family.
 2. `dual/triple x1.0` as low-dihedral structural-support reference points.
+3. Keep line-position changes as a separate focused variable if we later decide to sweep
+   `1.5 / 4.5 / 7.5 / 10.5 / 13.5 m` combinations more broadly.
 
 If we later need a sharper wire-count crossover boundary, run one focused bridge sweep in the
 missing region `x1.5 → x2.2`.

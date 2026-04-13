@@ -8,6 +8,7 @@ Date: 2026-04-13
 - AVL model: `data/blackcat_004_full.avl`
 - Dihedral scaling: progressive (`wing.dihedral_scaling_exponent = 1.0`)
 - Multipliers: `1.0 → 3.5` with `step = 0.1` (26 cases)
+- Baseline wire geometry: single wire at `y = 7.5 m`, `fuselage_z = -1.5 m`, `wire_angle = 11.3 deg`
 - Output: `output/dihedral_sweep_phase9a`
 
 Command:
@@ -56,7 +57,7 @@ Command:
 ## Key Findings
 
 - All 26 cases passed stability, aero performance, and structural feasibility gates.
-- Lightest feasible case: `x3.5`, `11.988 kg`.
+- Within the original `1.0 → 3.5` sweep, the lightest feasible case is `x3.5`, `11.988 kg`.
 - Relative to `x1.0`, `x3.5` reduces structural mass by about `52.0%`.
 - Highest L/D and strongest Dutch Roll damping remain at `x1.0`, but degradation at `x3.5` is mild:
   `L/D 45.319 → 43.851` (`-3.24%`), damping `5.94463 → 5.79975` (`-2.44%`).
@@ -66,20 +67,55 @@ Command:
 - Clearance is not monotonic in the high-dihedral regime; `x3.4` has noticeably better jig clearance
   than `x3.0`, `x3.2`, and `x3.5` despite very similar mass.
 
+## Deflection Snapshot
+
+`loaded tip z` is the height relative to the global horizontal/root reference plane. `max uz` is the
+elastic deflection increment relative to the jig / undeformed structure.
+
+| case | equivalent_tip_deflection_m | main_tip_z_m | rear_tip_z_m | main_max_uz_m | rear_max_uz_m | note |
+|---|---:|---:|---:|---:|---:|---|
+| `x3.5` | 2.417 | 3.127 | 3.123 | 2.317 | 3.116 | below `2.5 m` tip-deflection gate |
+| `x4.0` probe | 2.426 | 3.573 | 3.569 | 2.323 | 3.138 | still below `2.5 m` tip-deflection gate |
+
+## Extension Probe Above `x3.5`
+
+A focused follow-up probe was also run for `3.6 → 4.0`:
+
+```bash
+./.venv/bin/python scripts/dihedral_sweep_campaign.py \
+  --config configs/blackcat_004.yaml \
+  --base-avl data/blackcat_004_full.avl \
+  --multipliers 3.6,3.7,3.8,3.9,4.0 \
+  --output-dir output/dihedral_sweep_phase9a_extension \
+  --skip-step-export
+```
+
+| multiplier | mass_kg | ld_ratio | clearance_mm | equivalent_tip_deflection_m | overall |
+|---:|---:|---:|---:|---:|:---:|
+| 3.6 | 11.954 | 43.80 | 1.695 | 2.426 | yes |
+| 3.7 | 11.954 | 43.74 | 1.973 | 2.426 | yes |
+| 3.8 | 11.954 | 43.68 | 2.251 | 2.426 | yes |
+| 3.9 | 11.954 | 43.63 | 2.529 | 2.426 | yes |
+| 4.0 | 11.954 | 43.54 | 2.807 | 2.426 | yes |
+
 ## Engineering Interpretation
 
 - Progressive dihedral scaling keeps paying off well beyond the old `x2.5` ceiling.
 - The dominant trade-off is no longer a hard aero/stability gate. It is now a softer choice between:
-  lowest mass (`x3.5`), best clearance among near-optimal cases (`x3.4`), and slightly stronger
-  damping / L/D at lower multipliers.
-- Because all high-dihedral cases still pass, the next campaign should stop asking
-  "is high dihedral allowed?" and instead ask "how many wires are worth carrying once drag is priced in?"
+  the first low-mass plateau (`x3.6+ = 11.954 kg`), better clearance at very similar mass (`x3.9/x4.0`),
+  and slightly stronger damping / L/D at lower multipliers.
+- Going above `x3.5` is therefore feasible, but the returns are now very small:
+  `x3.5 → x4.0` only saves about `0.034 kg` while L/D drops further and the wing sits higher.
+- The main unanswered question is no longer the upper dihedral limit. It is how this high-dihedral
+  single-wire family compares against multi-wire families once drag is priced in.
 
 ## Recommended Next Step
 
-Proceed to `9b multi-wire sweep campaign` with two layers:
+With `9b` now complete, proceed to `9c multi-objective Pareto front` using:
 
-1. Keep anchor points `x1.0`, `x2.5`, and `x3.5` for full-range context.
-2. Densely probe `x3.0` to `x3.5` with `1/2/3 wires` plus explicit wire drag penalty.
+1. `single x3.5 → x4.0` as the high-dihedral low-mass family.
+2. `dual/triple x1.0` as low-dihedral structural-support reference points.
+3. One optional crossover bridge in `x1.5 → x2.2` if we later need a sharper handoff boundary.
 
-This keeps the new apparent optimum region in focus while preserving one low-dihedral reference.
+This keeps the plateau region in scope without wasting time on ever-higher dihedral values that only
+buy marginal extra mass reduction.

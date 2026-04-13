@@ -4,7 +4,7 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-13  
-> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a/9b 已完成（9a: best x3.5 = 11.99 kg；9b: single-wire 高反角仍勝出），下一步進入 9c Pareto front，8d 作為幾何整合補完
+> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a/9b 已完成（9a 後續 probe 到 x4.0 仍全 pass、plateau = 11.95 kg；9b: single-wire 高反角仍勝出），下一步進入 9c Pareto front，8d 作為幾何整合補完
 
 ---
 
@@ -570,6 +570,7 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
   x3.0:  mass=12.47 kg, clearance=1.49 mm, wire=3912 N
   x3.4:  mass=12.13 kg, clearance=4.42 mm, wire=3931 N
   x3.5:  mass=11.99 kg, clearance=2.05 mm, wire=3939 N
+  x4.0 probe: mass=11.95 kg, clearance=2.81 mm, eq_tip=2.426 m
   report: docs/dihedral_sweep_phase9a_report.md
 
 9b multi-wire highlights:
@@ -586,7 +587,7 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | 13-15 kg 主翼重量合理 | 日本團隊實績（CHicK-2000: 15.44 kg, Windnauts: ~12-14 kg） |
 | 3000-4000 N wire tension 可行 | Dyneema SK75 2.5mm ≈ 6872N allowable, 鋼琴線 2.0mm ≈ 6280N |
 | 21-22 kg floor 非 search/coupling 問題 | 驗證過 shape matching 放鬆無效，瓶頸在 ground clearance |
-| target dihedral 是核心設計變數 | fine sweep 證實到 x3.5 仍全 pass，mass 可降至 11.99 kg |
+| target dihedral 是核心設計變數 | fine sweep + extension probe 證實到 x4.0 仍全 pass，mass plateau 約 11.95 kg |
 
 ### 下一步（優先順序）
 
