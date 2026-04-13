@@ -131,6 +131,8 @@ class BetaSweepEvaluation:
     beta_values_deg: tuple[float, ...]
     points: tuple[BetaSweepPoint, ...]
     max_trimmed_beta_deg: float | None
+    cn_beta_per_rad: float | None
+    cl_beta_per_rad: float | None
     directional_stable: bool
     sideslip_feasible: bool
     sideslip_reason: str
@@ -157,6 +159,8 @@ class SweepResult:
     lift_total_n: float | None
     aero_power_w: float | None
     beta_sweep_max_beta_deg: float | None
+    beta_sweep_cn_beta_per_rad: float | None
+    beta_sweep_cl_beta_per_rad: float | None
     beta_sweep_directional_stable: bool | None
     beta_sweep_sideslip_feasible: bool | None
     structure_status: str
@@ -714,6 +718,8 @@ def _evaluate_beta_sweep_points(
             beta_values_deg=(),
             points=(),
             max_trimmed_beta_deg=None,
+            cn_beta_per_rad=None,
+            cl_beta_per_rad=None,
             directional_stable=False,
             sideslip_feasible=False,
             sideslip_reason="no_beta_points",
@@ -731,24 +737,40 @@ def _evaluate_beta_sweep_points(
         and max_trimmed_beta_deg >= float(required_max_beta_deg) - 1.0e-9
     )
 
-    zero_beta_point = next(
-        (point for point in ordered_points if abs(float(point.beta_deg)) <= 1.0e-9),
-        None,
-    )
-    baseline_cn = 0.0 if zero_beta_point is None or zero_beta_point.cn_total is None else float(
-        zero_beta_point.cn_total
-    )
     converged_nonzero = [
         point
         for point in ordered_points
         if point.trim_converged and abs(float(point.beta_deg)) > 1.0e-9
     ]
+    cn_beta_per_rad = _fit_beta_derivative_per_rad(
+        ordered_points,
+        response_getter=lambda point: point.cn_total,
+    )
+    cl_beta_per_rad = _fit_beta_derivative_per_rad(
+        ordered_points,
+        response_getter=lambda point: point.cl_roll_total,
+    )
     directional_stable = True
     stability_reason = "ok"
     if not converged_nonzero:
         directional_stable = False
         stability_reason = "no_converged_nonzero_beta_points"
+    elif cn_beta_per_rad is None:
+        directional_stable = False
+        stability_reason = "cn_beta_unavailable"
+    elif cn_beta_per_rad >= -1.0e-9:
+        directional_stable = False
+        stability_reason = "cn_beta_positive"
     else:
+        zero_beta_point = next(
+            (point for point in ordered_points if abs(float(point.beta_deg)) <= 1.0e-9),
+            None,
+        )
+        baseline_cn = (
+            0.0
+            if zero_beta_point is None or zero_beta_point.cn_total is None
+            else float(zero_beta_point.cn_total)
+        )
         for point in converged_nonzero:
             if point.cn_total is None:
                 directional_stable = False
@@ -770,10 +792,43 @@ def _evaluate_beta_sweep_points(
         beta_values_deg=tuple(float(point.beta_deg) for point in ordered_points),
         points=ordered_points,
         max_trimmed_beta_deg=max_trimmed_beta_deg,
+        cn_beta_per_rad=cn_beta_per_rad,
+        cl_beta_per_rad=cl_beta_per_rad,
         directional_stable=bool(directional_stable),
         sideslip_feasible=bool(sideslip_feasible),
         sideslip_reason=reason,
     )
+
+
+def _fit_beta_derivative_per_rad(
+    points: tuple[BetaSweepPoint, ...],
+    *,
+    response_getter,
+) -> float | None:
+    sample_pairs: list[tuple[float, float]] = []
+    for point in points:
+        if not point.trim_converged:
+            continue
+        response = response_getter(point)
+        if response is None:
+            continue
+        beta_rad = math.radians(float(point.beta_deg))
+        sample_pairs.append((beta_rad, float(response)))
+
+    if len(sample_pairs) < 2:
+        return None
+
+    beta_mean = sum(beta for beta, _ in sample_pairs) / len(sample_pairs)
+    response_mean = sum(response for _, response in sample_pairs) / len(sample_pairs)
+    denominator = sum((beta - beta_mean) ** 2 for beta, _ in sample_pairs)
+    if denominator <= 1.0e-18:
+        return None
+
+    numerator = sum(
+        (beta - beta_mean) * (response - response_mean)
+        for beta, response in sample_pairs
+    )
+    return numerator / denominator
 
 
 def run_avl_beta_sweep(
@@ -1044,6 +1099,8 @@ def _build_result_row(
             lift_total_n=aero_perf_eval.lift_total_n,
             aero_power_w=aero_perf_eval.aero_power_w,
             beta_sweep_max_beta_deg=None if beta_eval is None else beta_eval.max_trimmed_beta_deg,
+            beta_sweep_cn_beta_per_rad=None if beta_eval is None else beta_eval.cn_beta_per_rad,
+            beta_sweep_cl_beta_per_rad=None if beta_eval is None else beta_eval.cl_beta_per_rad,
             beta_sweep_directional_stable=None if beta_eval is None else beta_eval.directional_stable,
             beta_sweep_sideslip_feasible=None if beta_eval is None else beta_eval.sideslip_feasible,
             structure_status=structure_status,
@@ -1083,6 +1140,8 @@ def _build_result_row(
         lift_total_n=aero_perf_eval.lift_total_n,
         aero_power_w=aero_perf_eval.aero_power_w,
         beta_sweep_max_beta_deg=None if beta_eval is None else beta_eval.max_trimmed_beta_deg,
+        beta_sweep_cn_beta_per_rad=None if beta_eval is None else beta_eval.cn_beta_per_rad,
+        beta_sweep_cl_beta_per_rad=None if beta_eval is None else beta_eval.cl_beta_per_rad,
         beta_sweep_directional_stable=None if beta_eval is None else beta_eval.directional_stable,
         beta_sweep_sideslip_feasible=None if beta_eval is None else beta_eval.sideslip_feasible,
         structure_status="feasible" if bool(selected["overall_feasible"]) else "infeasible",
@@ -1120,6 +1179,8 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "lift_total_n",
         "aero_power_w",
         "beta_sweep_max_beta_deg",
+        "beta_sweep_cn_beta_per_rad",
+        "beta_sweep_cl_beta_per_rad",
         "beta_sweep_directional_stable",
         "beta_sweep_sideslip_feasible",
         "structure_status",
@@ -1507,11 +1568,23 @@ def main(argv: list[str] | None = None) -> int:
         clear_text = "n/a" if row.min_jig_clearance_mm is None else f"{row.min_jig_clearance_mm:.3f} mm"
         wire_text = "n/a" if row.wire_tension_n is None else f"{row.wire_tension_n:.1f} N"
         ld_text = "n/a" if row.ld_ratio is None else f"{row.ld_ratio:.2f}"
+        cn_beta_text = (
+            "n/a"
+            if row.beta_sweep_cn_beta_per_rad is None
+            else f"{row.beta_sweep_cn_beta_per_rad:.3f}/rad"
+        )
+        cl_beta_text = (
+            "n/a"
+            if row.beta_sweep_cl_beta_per_rad is None
+            else f"{row.beta_sweep_cl_beta_per_rad:.3f}/rad"
+        )
         beta_text = (
             "n/a"
             if row.beta_sweep_max_beta_deg is None
             else (
                 f"beta<={row.beta_sweep_max_beta_deg:.1f}, "
+                f"Cn_beta={cn_beta_text}, "
+                f"Cl_beta={cl_beta_text}, "
                 f"dir={'ok' if row.beta_sweep_directional_stable else 'fail'}, "
                 f"trim={'ok' if row.beta_sweep_sideslip_feasible else 'fail'}"
             )

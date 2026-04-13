@@ -1,6 +1,7 @@
 # ruff: noqa: E402
 from __future__ import annotations
 
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -328,6 +329,9 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertTrue(beta_eval.sideslip_feasible)
         self.assertFalse(beta_eval.directional_stable)
         self.assertEqual(beta_eval.sideslip_reason, "cn_beta_positive")
+        self.assertIsNotNone(beta_eval.cn_beta_per_rad)
+        assert beta_eval.cn_beta_per_rad is not None
+        self.assertGreater(beta_eval.cn_beta_per_rad, 0.0)
 
     def test_evaluate_beta_sweep_points_flags_missing_required_trim(self) -> None:
         beta_eval = _evaluate_beta_sweep_points(
@@ -366,6 +370,47 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertEqual(beta_eval.max_trimmed_beta_deg, 5.0)
         self.assertFalse(beta_eval.sideslip_feasible)
         self.assertEqual(beta_eval.sideslip_reason, "trim_not_converged_at_beta_12.0")
+
+    def test_evaluate_beta_sweep_points_extracts_directional_derivatives(self) -> None:
+        beta_eval = _evaluate_beta_sweep_points(
+            (
+                BetaSweepPoint(
+                    beta_deg=0.0,
+                    cl_trim=1.24,
+                    cd_induced=0.017,
+                    aoa_trim_deg=11.0,
+                    cn_total=0.0,
+                    cl_roll_total=0.0,
+                    trim_converged=True,
+                ),
+                BetaSweepPoint(
+                    beta_deg=5.0,
+                    cl_trim=1.24,
+                    cd_induced=0.018,
+                    aoa_trim_deg=11.2,
+                    cn_total=-0.1,
+                    cl_roll_total=-0.02,
+                    trim_converged=True,
+                ),
+                BetaSweepPoint(
+                    beta_deg=10.0,
+                    cl_trim=1.24,
+                    cd_induced=0.019,
+                    aoa_trim_deg=11.3,
+                    cn_total=-0.2,
+                    cl_roll_total=-0.04,
+                    trim_converged=True,
+                ),
+            ),
+            required_max_beta_deg=10.0,
+        )
+
+        self.assertTrue(beta_eval.sideslip_feasible)
+        self.assertTrue(beta_eval.directional_stable)
+        assert beta_eval.cn_beta_per_rad is not None
+        assert beta_eval.cl_beta_per_rad is not None
+        self.assertAlmostEqual(beta_eval.cn_beta_per_rad, -0.02 / math.radians(1.0), places=6)
+        self.assertAlmostEqual(beta_eval.cl_beta_per_rad, -0.004 / math.radians(1.0), places=6)
 
     def test_arg_parser_accepts_beta_sweep_flags(self) -> None:
         args = _build_arg_parser().parse_args(
