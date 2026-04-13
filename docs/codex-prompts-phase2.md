@@ -1096,12 +1096,570 @@ commit message: "feat: add VSP3 XML geometry parser and AVL exporter (M8 foundat
 | 8 (M8) | VSP→AVL pipeline foundation | ✅（8a-c） |
 | 8d | Config schema extension | ⏭️ backlog |
 
-## 下一步執行順序
+## 下一階段：Phase 3 — M11 CLT 疊層 + M12 控制β約束
+
+> M9 全數完成。下一步分三條主線：
+> - **M11 CLT composite layup** — 離散疊層最佳化（最高優先）
+> - **M12 control & β constraint** — AVL 側滑分析
+> - **M10 ASWING** — 非線性氣彈（較長期）
+>
+> M11 建議拆為 11a→11b→11c→11d 順序執行（blocking chain）
+> M12 建議 12a→12b→12c 順序執行
+> M11 與 M12 可並行
+
+---
+
+## Task 11a：PlyMaterial Dataclass + YAML Entries
+
+### Prompt
 
 ```
-Task 9a (fine dihedral sweep, step 0.1 + extend to 3.5×)
-→ Task 9b (multi-wire sweep + drag penalty)
-→ Task 9c (multi-objective Pareto front)
+你在 /Volumes/Samsung SSD/hpa-mdo 工作。
+完成後請 push 到 main。
+
+目標：為 CLT（Classical Lamination Theory）疊層計算建立材料基礎設施。
+
+### 背景
+
+目前的材料系統（data/materials.yaml + core/materials.py）只有等向性管材屬性
+（E, G, density, tensile_strength）。為了做複合材料疊層最佳化，需要
+單層（lamina/ply）級的正交異向性屬性。
+
+### 具體修改
+
+1. **在 data/materials.yaml 新增 ply-level 材料條目：**
+
+   ```yaml
+   cfrp_ply_hm:
+     description: "HM CFRP UD ply (M46J/epoxy equivalent)"
+     material_type: "composite_ply"
+     E1: 230.0e9          # fiber-direction modulus [Pa]
+     E2: 8.0e9            # transverse modulus [Pa]
+     G12: 5.0e9           # in-plane shear modulus [Pa]
+     nu12: 0.27           # major Poisson's ratio
+     t_ply: 0.125e-3      # cured ply thickness [m]
+     density: 1600.0      # [kg/m3]
+     F1t: 2500.0e6        # tensile strength, fiber direction [Pa]
+     F1c: 1500.0e6        # compressive strength, fiber direction [Pa]
+     F2t: 50.0e6          # tensile strength, transverse [Pa]
+     F2c: 200.0e6         # compressive strength, transverse [Pa]
+     F6: 100.0e6          # in-plane shear strength [Pa]
+
+   cfrp_ply_sm:
+     description: "SM CFRP UD ply (T300/epoxy equivalent)"
+     material_type: "composite_ply"
+     E1: 130.0e9
+     E2: 10.0e9
+     G12: 5.5e9
+     nu12: 0.28
+     t_ply: 0.125e-3
+     density: 1550.0
+     F1t: 1800.0e6
+     F1c: 1200.0e6
+     F2t: 60.0e6
+     F2c: 180.0e6
+     F6: 90.0e6
+   ```
+
+2. **在 src/hpa_mdo/core/materials.py 新增 PlyMaterial dataclass：**
+
+   ```python
+   @dataclass(frozen=True)
+   class PlyMaterial:
+       """Single ply (lamina) properties for CLT."""
+       name: str
+       E1: float        # fiber-direction Young's modulus [Pa]
+       E2: float        # transverse Young's modulus [Pa]
+       G12: float       # in-plane shear modulus [Pa]
+       nu12: float      # major Poisson's ratio
+       t_ply: float     # cured ply thickness [m]
+       density: float   # [kg/m3]
+       F1t: float       # tensile strength fiber-dir [Pa]
+       F1c: float       # compressive strength fiber-dir [Pa]
+       F2t: float       # tensile strength transverse [Pa]
+       F2c: float       # compressive strength transverse [Pa]
+       F6: float        # in-plane shear strength [Pa]
+
+       @property
+       def nu21(self) -> float:
+           return self.nu12 * self.E2 / self.E1
+   ```
+
+3. **在 MaterialDB 中加入 ply material loader：**
+
+   在 MaterialDB class 新增方法：
+   ```python
+   def get_ply(self, key: str) -> PlyMaterial:
+       """Load a composite ply material by key."""
+   ```
+   辨識方式：檢查 material_type == "composite_ply"
+   或檢查是否有 E1 欄位（backward-compatible）
+
+4. **在 core/config.py 的 SparConfig 加入 layup 相關欄位：**
+   ```python
+   layup_mode: str = "isotropic"     # "isotropic" | "discrete_clt"
+   ply_material: str | None = None   # key in materials.yaml
+   min_plies_0: int = 1              # minimum 0° plies per half-layup
+   min_plies_45_pairs: int = 1       # minimum ±45° ply pairs
+   min_plies_90: int = 0             # minimum 90° plies
+   max_total_plies: int = 14         # maximum total plies (full symmetric)
+   ```
+
+5. **在 configs/blackcat_004.yaml 的 main_spar 和 rear_spar 加入：**
+   ```yaml
+   layup_mode: "isotropic"           # default: use existing E/G scalar
+   ply_material: "cfrp_ply_hm"       # ready for CLT when switched
+   ```
+   注意：layup_mode 保持 "isotropic" 以確保現有功能不受影響。
+
+6. **單元測試：**
+   - test_materials.py: 驗證 PlyMaterial 載入
+   - 驗證 nu21 計算正確
+   - 驗證 E1/E2/G12/strengths 數值合理
+   - 驗證 isotropic 材料仍正常工作（不 break 現有行為）
+
+### 注意事項
+
+- 遵守 CLAUDE.md：新參數必須同時進 YAML + Pydantic model
+- from __future__ import annotations
+- 行長度 <= 100 字元
+- 不要修改現有 Material dataclass（它是 isotropic 的，保持原樣）
+- PlyMaterial 是新的 class，與 Material 平行存在
+- 不改動任何求解器或最佳化器邏輯
+
+commit message: "feat: add PlyMaterial dataclass and ply-level YAML entries for CLT (M11a)"
 ```
 
-並行：8d config schema extension（tail/fin 幾何接進 YAML/runtime model）
+---
+
+## Task 11b：CLT Engine — laminate.py
+
+### Prompt
+
+```
+你在 /Volumes/Samsung SSD/hpa-mdo 工作。
+完成後請 push 到 main。
+
+前置條件：Task 11a（PlyMaterial + YAML）已完成。
+
+目標：建立 Classical Lamination Theory (CLT) 計算引擎，
+從離散疊層定義計算管材的等效梁屬性。
+
+### 物理推導
+
+CLT 把多層複合材料的行為濃縮成 ABD 矩陣。對圓管梁，
+我們只需要 A 矩陣（membrane stiffness）來算等效 E 和 G：
+
+1. 每層的 Q 矩陣（3×3 reduced stiffness）從 E1, E2, G12, nu12 計算
+2. 旋轉 Q 到任意角度 θ 得到 Q_bar(θ)
+3. 積分所有層得到 A, B, D 矩陣（symmetric layup → B=0）
+4. 等效管材屬性：
+   - E_axial = A_11 / h（h = total wall thickness）
+   - G_shear = A_66 / h
+   - EI = π × R³ × A_11（thin-wall tube）
+   - GJ = 4π × R³ × A_66（Bredt formula）
+
+### 具體要求
+
+1. **新建 src/hpa_mdo/structure/laminate.py**
+
+   內含以下核心元件：
+
+   a) **PlyStack dataclass（frozen=True）**
+   ```python
+   @dataclass(frozen=True)
+   class PlyStack:
+       """Discrete ply schedule: half-layup, symmetric assumed."""
+       n_0: int      # number of 0° plies in half-layup
+       n_45: int     # number of ±45° ply PAIRS in half-layup
+       n_90: int     # number of 90° plies in half-layup
+   ```
+   
+   Properties:
+   - total_half_plies() = n_0 + 2*n_45 + n_90
+   - total_plies() = 2 * total_half_plies()
+   - wall_thickness(t_ply) = total_plies() * t_ply
+   - angle_sequence_half() → list: [90°s at core, 0°s middle, ±45°s outside]
+   - validate() → list[str]: check min plies, structural integrity
+   
+   製造約束：
+   - n_0 >= 1（需要 bending stiffness）
+   - n_45 >= 1（需要 torsional stiffness）
+   - total_plies >= 4（結構最小值）
+   - 90° plies NOT at outermost position（buckling rule）
+
+   b) **ply_Q_matrix(E1, E2, G12, nu12) → ndarray (3,3)**
+   On-axis reduced stiffness matrix.
+
+   c) **rotated_Q(Q, theta_deg) → ndarray (3,3)**
+   Transform Q to off-axis angle using standard rotation.
+   Use Tsai convention: T matrix based on cos/sin of theta.
+
+   d) **compute_ABD(ply_angles_deg, t_ply, Q, symmetric=True)**
+   → tuple[A, B, D]
+   For symmetric layup: B should be zeros (verify with assertion).
+
+   e) **TubeEquivalentProperties dataclass（frozen=True）**
+   ```python
+   @dataclass(frozen=True)
+   class TubeEquivalentProperties:
+       E_axial: float       # effective axial modulus [Pa]
+       G_shear: float       # effective shear modulus [Pa]
+       wall_thickness: float # total wall [m]
+       density: float       # composite density [kg/m3]
+       A11: float           # membrane axial stiffness [N/m]
+       A66: float           # membrane shear stiffness [N/m]
+   ```
+
+   f) **tube_equivalent_from_layup(stack, ply_mat, R_outer)**
+   → TubeEquivalentProperties
+   Main entry point：給一個 PlyStack + PlyMaterial + 外徑，
+   回傳等效管材屬性。
+
+2. **驗證用 unit tests（tests/test_laminate.py）：**
+
+   a) **Q matrix 驗證**：用已知 E1=230 GPa, E2=8 GPa 計算，
+      Q11 ≈ 230.2 GPa, Q22 ≈ 8.0 GPa, Q12 ≈ 2.16 GPa
+
+   b) **旋轉驗證**：θ=0° 時 Q_bar == Q；θ=90° 時 Q_bar[0,0] ≈ Q[1,1]
+
+   c) **ABD symmetric 驗證**：symmetric layup → B 矩陣全為零
+
+   d) **管材等效驗證**：
+      [0/±45/0]_s (8 plies, h=1.0mm) 的 E_axial 應在 100-160 GPa 之間
+      （混合 0° 和 ±45° 的效果，不可能等於純 E1=230 GPa）
+
+   e) **退化驗證**：純 [0]_s (全 0°) 的 E_axial 應 ≈ E1
+
+3. **不需要的東西（在後續 Task 做）：**
+   - OpenMDAO component（11c 以後）
+   - 最佳化邏輯
+   - Tsai-Wu failure（11e）
+   - 與現有求解器的整合
+
+### 數學細節
+
+Q matrix:
+```
+nu21 = nu12 * E2 / E1
+denom = 1 - nu12 * nu21
+Q11 = E1 / denom
+Q22 = E2 / denom
+Q12 = nu12 * E2 / denom
+Q66 = G12
+```
+
+Rotation (Tsai convention):
+```
+c = cos(θ), s = sin(θ)
+T = [[c², s², 2cs], [s², c², -2cs], [-cs, cs, c²-s²]]
+Q_bar = T_inv @ Q @ T_inv.T
+```
+
+ABD integration:
+```
+for each ply k with angle θ_k:
+    z_bot = -h/2 + k*t_ply
+    z_top = z_bot + t_ply
+    Q_bar_k = rotated_Q(Q, θ_k)
+    A += Q_bar_k * (z_top - z_bot)
+    B += 0.5 * Q_bar_k * (z_top² - z_bot²)
+    D += (1/3) * Q_bar_k * (z_top³ - z_bot³)
+```
+
+### 注意事項
+
+- 遵守 CLAUDE.md
+- from __future__ import annotations
+- 行長度 <= 100 字元
+- 純 numpy 實作，不引入外部依賴
+- 所有角度函式用 degrees 輸入（內部轉 radians）
+- frozen dataclass，tuple 取代 list
+
+commit message: "feat: add CLT engine with PlyStack and tube equivalent properties (M11b)"
+```
+
+---
+
+## Task 11c：PlyStack Catalog + Snap-to-Stack Post-Processor
+
+### Prompt
+
+```
+你在 /Volumes/Samsung SSD/hpa-mdo 工作。
+完成後請 push 到 main。
+
+前置條件：Task 11a + 11b 已完成。
+
+目標：建立離散疊層目錄（enumerate valid PlyStacks）和
+snap-to-stack post-processor（把連續最佳化結果對應到最近的可行疊層）。
+
+### 背景
+
+目前的最佳化器輸出每個 segment 的連續壁厚（如 0.87 mm）。
+我們需要把它轉換成實際的疊層設計：
+  "Segment 3: [0/±45/0/90/0/±45/0]_s, 10 plies total, h=1.25 mm"
+
+這跟現有的 discrete_od.py（外徑離散化 snap-up）是完全相同的模式。
+
+### 具體要求
+
+1. **新建 src/hpa_mdo/utils/discrete_layup.py**
+
+   a) **enumerate_valid_stacks(config) → list[PlyStack]**
+   
+   根據 config 的 min_plies_0, min_plies_45_pairs, min_plies_90,
+   max_total_plies 枚舉所有有效的 PlyStack 組合。
+   
+   典型參數：
+   - n_0 ∈ {1, 2, 3, 4, 5, 6, 7}
+   - n_45 ∈ {1, 2, 3}
+   - n_90 ∈ {0, 1, 2}
+   - total_plies ≤ max_total_plies (14)
+   - validate() 通過
+   
+   預期結果：約 30-40 個有效 PlyStack
+   
+   按 wall_thickness 排序（ascending）。
+
+   b) **snap_to_nearest_stack(target_thickness, stacks, ply_mat) → PlyStack**
+   
+   找到 wall_thickness >= target_thickness 的最薄 PlyStack（snap-up）。
+   如果沒有足夠厚的 stack，回傳最厚的並 log warning。
+
+   c) **discretize_layup_per_segment(
+         continuous_thicknesses, R_outer_per_seg,
+         stacks, ply_mat,
+         ply_drop_limit=2,
+       ) → list[PlyStack]**
+   
+   對每個 segment 做 snap-to-stack，同時滿足 ply-drop constraint：
+   相鄰 segment 的 total_plies 差異 ≤ ply_drop_limit。
+   
+   從翼根往翼尖掃：
+   - Segment 0 先 snap
+   - Segment 1 的選擇不能超過 Segment 0 的 total_plies + ply_drop_limit
+   - ...以此類推
+   
+   如果 ply-drop 約束導致某 segment 需要比 snap 結果更厚，向上調整。
+
+   d) **format_layup_report(segments_stacks, ply_mat) → str**
+   
+   格式化輸出，例如：
+   ```
+   Segment 1 (y=0.0-1.5m): [90/0/0/0/+45/-45/0/0/0/90]_s
+     14 plies, h=1.750 mm, E_eff=168.2 GPa, G_eff=18.4 GPa
+   Segment 2 (y=1.5-4.5m): [90/0/0/+45/-45/0/0/90]_s
+     12 plies, h=1.500 mm, E_eff=152.7 GPa, G_eff=20.1 GPa
+   ...
+   ```
+
+2. **新建 scripts/discrete_layup_postprocess.py**
+
+   CLI script 讀取已有的 inverse design 結果（summary JSON），
+   提取每 segment 的最佳壁厚，然後 discretize：
+   
+   ```
+   python scripts/discrete_layup_postprocess.py \
+     --summary output/path/inverse_design_summary.json \
+     --ply-material cfrp_ply_hm \
+     --output output/path/layup_report.txt
+   ```
+   
+   輸出：
+   - layup_report.txt（人可讀的疊層報告）
+   - layup_schedule.json（machine-readable）
+   - 連續 vs 離散的 mass penalty 比較
+
+3. **單元測試 tests/test_discrete_layup.py：**
+   - enumerate_valid_stacks 回傳數量合理（25-50）
+   - snap_to_nearest_stack 正確 snap-up
+   - ply-drop constraint 正確執行
+   - format_layup_report 輸出格式正確
+
+### 注意事項
+
+- 遵守 CLAUDE.md
+- 現有的 utils/discrete_od.py 是很好的參考模式
+- from __future__ import annotations
+- 行長度 <= 100 字元
+- 不改動任何求解器或最佳化器
+- 這是純 post-processing，不影響最佳化流程
+
+commit message: "feat: add discrete layup catalog and snap-to-stack post-processor (M11c)"
+```
+
+---
+
+## Task 12a：AVL β-Sweep Trim Analysis
+
+### Prompt
+
+```
+你在 /Volumes/Samsung SSD/hpa-mdo 工作。
+完成後請 push 到 main。
+
+目標：在 dihedral sweep campaign 中加入 AVL 側滑角（β）掃掠分析，
+評估每個 dihedral multiplier 在不同 β 下的方向穩定性和控制力矩。
+
+### 背景
+
+目前 AVL trim 分析只在 β=0° 執行。然而根據 MIT Daedalus 飛測報告
+（docs/research/MIT 人力飛機 HPA 控制系統深度研究報告.md），
+穩態轉彎時側滑角會累積到 ~12°，直接壓縮方向舵控制裕度。
+
+HPA 沒有副翼，必須靠方向舵+上反角耦合做橫向控制。
+因此 β ≠ 0 下的方向穩定性是設計可行性的一級約束。
+
+### AVL 命令序列
+
+在現有 trim 之後，加入 β sweep：
+
+```text
+PLOP
+G
+
+LOAD case.avl
+OPER
+C1
+{cl_required}
+B B {beta_deg}
+X
+FT
+{beta_trim_file}
+
+QUIT
+```
+
+注意：AVL 的 OPER 模式中，`B B {value}` 設定 sideslip angle beta。
+或者可能需要用 `A B {value}` 來設定 beta constraint。
+請查看 AVL documentation 確認正確語法。
+
+如果無法確定 AVL 的 beta 命令語法，可以用以下替代方式：
+- 在 .run file 中寫入 `beta {value}`
+- 或者修改 AVL case file 的 `Beta = {value}` 行
+
+### 具體修改
+
+1. **在 dihedral_sweep_campaign.py 新增函式：**
+
+   ```python
+   def run_avl_beta_sweep(
+       *,
+       avl_bin: str | Path,
+       case_avl_path: Path,
+       case_dir: Path,
+       cl_required: float,
+       beta_values_deg: tuple[float, ...] = (0.0, 5.0, 10.0, 12.0),
+       mode_params: AvlModeParameters,
+   ) -> list[BetaSweepPoint]:
+   ```
+
+2. **新增 dataclass：**
+
+   ```python
+   @dataclass(frozen=True)
+   class BetaSweepPoint:
+       beta_deg: float
+       cl_trim: float | None
+       cd_induced: float | None
+       aoa_trim_deg: float | None
+       cn_total: float | None       # yaw moment coefficient
+       cl_roll_total: float | None  # roll moment coefficient
+       trim_converged: bool
+
+   @dataclass(frozen=True)
+   class BetaSweepEvaluation:
+       beta_values_deg: tuple[float, ...]
+       points: tuple[BetaSweepPoint, ...]
+       max_trimmed_beta_deg: float | None
+       directional_stable: bool
+       sideslip_feasible: bool
+       sideslip_reason: str
+   ```
+
+3. **在 AVL force output 中解析新欄位：**
+
+   AVL 的 FT output 包含：
+   - CLtot（已有 parser）
+   - CDind（已有）
+   - Cltot（roll moment coefficient — 注意大小寫：CL=lift, Cl=roll）
+   - Cmtot（pitch moment）
+   - Cntot（yaw moment）
+   
+   需要擴展 parse_avl_force_totals() 來提取 Cltot 和 Cntot。
+
+4. **在 SweepResult 加入 β sweep 結果：**
+
+   ```python
+   beta_sweep_max_beta_deg: float | None = None
+   beta_sweep_directional_stable: bool | None = None
+   beta_sweep_sideslip_feasible: bool | None = None
+   ```
+
+5. **在 sweep main loop 中呼叫 β sweep：**
+
+   在現有 trim 之後，如果 trim 成功，加入：
+   ```python
+   beta_eval = run_avl_beta_sweep(
+       avl_bin=avl_bin,
+       case_avl_path=case_avl_path,
+       case_dir=case_dir,
+       cl_required=cl_required,
+       beta_values_deg=(0.0, 5.0, 10.0, 12.0),
+       mode_params=mode_params,
+   )
+   ```
+
+6. **Gate 邏輯：**
+   - 如果在 β=12° 時 AVL trim 不收斂 → sideslip_feasible = False
+   - 如果 Cn 在 β 增加時不是反向恢復（Cn_β > 0 = 不穩定）→ directional_stable = False
+   - Gate 結果加入 summary CSV/JSON
+
+7. **Config 參數：**
+   ```yaml
+   aero_gates:
+     max_sideslip_deg: 12.0        # Daedalus flight test limit
+     beta_sweep_values: [0, 5, 10, 12]
+   ```
+
+8. **CLI 參數：**
+   ```
+   --skip-beta-sweep        跳過 β 分析（加速測試）
+   --max-sideslip-deg 12.0  覆寫 config
+   ```
+
+### 注意事項
+
+- 遵守 CLAUDE.md：門檻值從 config 讀取
+- from __future__ import annotations
+- 行長度 <= 100 字元
+- β sweep 是 optional（--skip-beta-sweep），不 break 現有流程
+- AVL 的 Cl (roll) 和 CL (lift) 大小寫不同，parsing 要注意
+- 每個 β 值會跑一次 AVL trim，所以會增加執行時間
+  （4 beta × 每次 ~2s = ~8s extra per dihedral case）
+
+commit message: "feat: add AVL beta-sweep trim analysis for sideslip constraint (M12a)"
+```
+
+---
+
+## 下一步執行順序（Phase 3）
+
+```
+並行軌道 A：M11 CLT 疊層
+  Task 11a (PlyMaterial + YAML)
+  → Task 11b (CLT engine)
+  → Task 11c (catalog + snap-to-stack + layup report)
+  → [後續] 11d Tsai-Wu failure
+  → [後續] 11e ply-drop constraint in optimizer
+
+並行軌道 B：M12 控制與 β 約束
+  Task 12a (AVL β-sweep)
+  → [後續] 12b directional stability derivatives
+  → [後續] 12c spiral stability check
+
+獨立：M10 ASWING（較長期，需安裝 binary）
+```
+
+M11a/11b/11c 與 12a 無程式碼交集，可完全並行給 Codex。

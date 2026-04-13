@@ -4,7 +4,7 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-13  
-> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a–9g 全數完成（9a 極限 probe：`x6.28` 最後可行、`x6.30` 首次因 trim AoA fail，mass plateau = 11.95 kg；9b: single-wire 高反角仍勝出；9c: Pareto front 收斂到 single + dual 兩支；9d: vendor-aware tube catalog 顯示商規離散化將帶來 +2.8~+9.6 kg tube penalty；9e: full-aircraft rigging BOM 顯示 cable mass 僅 0.07~0.15 kg；9f: dynamic design space 已落地，refresh 後 `delta_t_global_max` 由 7.2 mm 收斂到 3.6 mm；9g: higher-fidelity load coupling 可在第 2 步收斂），下一步回到 8d config schema extension，之後進入 M10 ASWING
+> **狀態**：Phase I-B M6-M9 全數完成；M10 ASWING / M11 CLT 疊層 / M12 控制β約束 為下一階段三大主線
 
 ---
 
@@ -224,6 +224,42 @@
            │      deflection/stress/flutter       │
            │ 10e. ASWING-in-the-loop campaign     │
            │      replace AVL stability filter    │
+           └──────────────┬───────────────────────┘
+                          │
+           ┌──────────────▼───────────────────────┐
+           │ Milestone 11 — CLT Composite Layup   │
+           │      (discrete ply-level design)      │
+           │                                       │
+           │ 11a. PlyMaterial dataclass + YAML     │
+           │      E1/E2/G12/nu12/t_ply/strengths  │
+           │ 11b. CLT engine (laminate.py)         │
+           │      Q→ABD→tube EI/GJ/EA             │
+           │ 11c. PlyStack discrete catalog        │
+           │      enumerate valid n_0/n_45/n_90   │
+           │ 11d. snap-to-stack post-processor     │
+           │      continuous t → nearest PlyStack  │
+           │ 11e. Tsai-Wu ply failure criterion    │
+           │      per-ply stress check             │
+           │ 11f. ply-drop adjacency constraint    │
+           │      max 2-ply step between segments  │
+           │ 11g. layup output formatter           │
+           │      "Segment 1: [0/±45/0/90/0]_s"   │
+           └──────────────┬───────────────────────┘
+                          │
+           ┌──────────────▼───────────────────────┐
+           │ Milestone 12 — Control & β Constraint│
+           │      (sideslip + directional stability)│
+           │                                       │
+           │ 12a. AVL β-sweep trim analysis        │
+           │      β=[0,5,10,12]° at fixed CL      │
+           │ 12b. directional stability extraction │
+           │      Cn_β, Cl_β, Cn_rudder           │
+           │ 12c. β-dependent gate in sweep        │
+           │      max_sideslip ≤ 12° (Daedalus)   │
+           │ 12d. control coupling metrics         │
+           │      dCl/dRudder vs dCn/dRudder      │
+           │ 12e. spiral stability check           │
+           │      time-to-double > 10 s            │
            └──────────────────────────────────────┘
 ```
 
