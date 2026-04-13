@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from itertools import product
@@ -279,11 +280,15 @@ class LocalRefineSummary:
 
 @dataclass(frozen=True)
 class ArtifactBundle:
-    target_shape_csv: str | None
-    jig_shape_csv: str | None
-    jig_step_path: str | None
-    step_engine: str | None
-    step_error: str | None
+    target_shape_csv: str | None = None
+    jig_shape_csv: str | None = None
+    loaded_shape_csv: str | None = None
+    deflection_csv: str | None = None
+    jig_step_path: str | None = None
+    loaded_step_path: str | None = None
+    step_engine: str | None = None
+    step_error: str | None = None
+    loaded_step_error: str | None = None
     diagnostics_json: str | None = None
     wire_rigging_json: str | None = None
 
@@ -1892,10 +1897,15 @@ def build_report_text(
     if outcome.artifacts is not None:
         lines.append(f"  target shape CSV             : {outcome.artifacts.target_shape_csv or 'not written'}")
         lines.append(f"  jig shape CSV                : {outcome.artifacts.jig_shape_csv or 'not written'}")
+        lines.append(f"  loaded shape CSV             : {outcome.artifacts.loaded_shape_csv or 'not written'}")
+        lines.append(f"  deflection CSV               : {outcome.artifacts.deflection_csv or 'not written'}")
         lines.append(f"  jig STEP                     : {outcome.artifacts.jig_step_path or 'not written'}")
+        lines.append(f"  loaded STEP                  : {outcome.artifacts.loaded_step_path or 'not written'}")
         lines.append(f"  STEP engine                  : {outcome.artifacts.step_engine or 'not run'}")
         if outcome.artifacts.step_error:
-            lines.append(f"  STEP export note             : {outcome.artifacts.step_error}")
+            lines.append(f"  Jig STEP export note         : {outcome.artifacts.step_error}")
+        if outcome.artifacts.loaded_step_error:
+            lines.append(f"  Loaded STEP export note      : {outcome.artifacts.loaded_step_error}")
     else:
         lines.append("  no artifacts exported")
     if outcome.local_refine is not None:
@@ -2320,12 +2330,17 @@ def build_refresh_report_text(
     if outcome.artifacts is not None:
         lines.append(f"  target shape CSV             : {outcome.artifacts.target_shape_csv or 'not written'}")
         lines.append(f"  jig shape CSV                : {outcome.artifacts.jig_shape_csv or 'not written'}")
+        lines.append(f"  loaded shape CSV             : {outcome.artifacts.loaded_shape_csv or 'not written'}")
+        lines.append(f"  deflection CSV               : {outcome.artifacts.deflection_csv or 'not written'}")
         lines.append(f"  jig STEP                     : {outcome.artifacts.jig_step_path or 'not written'}")
+        lines.append(f"  loaded STEP                  : {outcome.artifacts.loaded_step_path or 'not written'}")
         lines.append(f"  diagnostics JSON             : {outcome.artifacts.diagnostics_json or 'not written'}")
         lines.append(f"  wire rigging JSON            : {outcome.artifacts.wire_rigging_json or 'not written'}")
         lines.append(f"  STEP engine                  : {outcome.artifacts.step_engine or 'not run'}")
         if outcome.artifacts.step_error:
-            lines.append(f"  STEP export note             : {outcome.artifacts.step_error}")
+            lines.append(f"  Jig STEP export note         : {outcome.artifacts.step_error}")
+        if outcome.artifacts.loaded_step_error:
+            lines.append(f"  Loaded STEP export note      : {outcome.artifacts.loaded_step_error}")
     else:
         lines.append("  no artifacts exported")
     return "\n".join(lines) + "\n"
@@ -2436,6 +2451,80 @@ def _build_selected_diagnostics_payload(
     }
 
 
+def _write_deflection_csv(
+    path: Path,
+    *,
+    candidate: InverseCandidate,
+    model,
+) -> None:
+    """Write per-node displacement/rotation rows for main and rear spars."""
+
+    inverse = candidate.inverse_result
+    if inverse is None:
+        raise ValueError("Cannot export deflection CSV without inverse_result.")
+    if model is None:
+        raise ValueError("Cannot export deflection CSV without mainline model.")
+    main_nodes = (
+        getattr(model, "nodes_main_m", None)
+        if getattr(model, "nodes_main_m", None) is not None
+        else getattr(model, "main_nodes_m", None)
+    )
+    rear_nodes = (
+        getattr(model, "nodes_rear_m", None)
+        if getattr(model, "nodes_rear_m", None) is not None
+        else getattr(model, "rear_nodes_m", None)
+    )
+    if main_nodes is None or rear_nodes is None:
+        raise ValueError("Model must expose main/rear node arrays.")
+
+    disp_main = np.asarray(inverse.displacement_main_m, dtype=float)
+    disp_rear = np.asarray(inverse.displacement_rear_m, dtype=float)
+    production = candidate.production_result
+    if production is not None:
+        prod_main = np.asarray(production.disp_main_m, dtype=float)
+        prod_rear = np.asarray(production.disp_rear_m, dtype=float)
+        if prod_main.ndim == 2 and prod_main.shape[0] == disp_main.shape[0]:
+            disp_main = prod_main
+        if prod_rear.ndim == 2 and prod_rear.shape[0] == disp_rear.shape[0]:
+            disp_rear = prod_rear
+
+    y_main = np.asarray(main_nodes, dtype=float)[:, 1]
+    y_rear = np.asarray(rear_nodes, dtype=float)[:, 1]
+    if y_main.shape[0] != disp_main.shape[0]:
+        raise ValueError("Main-node count and displacement row count do not match.")
+    if y_rear.shape[0] != disp_rear.shape[0]:
+        raise ValueError("Rear-node count and displacement row count do not match.")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            [
+                "spar",
+                "node_index",
+                "y_m",
+                "ux_m",
+                "uy_m",
+                "uz_m",
+                "theta_x_rad",
+                "theta_y_rad",
+                "theta_z_rad",
+            ]
+        )
+        for spar_name, y_arr, disp_arr in (
+            ("main", y_main, disp_main),
+            ("rear", y_rear, disp_rear),
+        ):
+            value_cols = min(6, int(disp_arr.shape[1])) if disp_arr.ndim == 2 else 0
+            for idx in range(y_arr.shape[0]):
+                row: list[str | int] = [spar_name, idx, f"{float(y_arr[idx]):.6f}"]
+                for col in range(value_cols):
+                    row.append(f"{float(disp_arr[idx, col]):.8e}")
+                for _ in range(6 - value_cols):
+                    row.append("0.0")
+                writer.writerow(row)
+
+
 def export_inverse_design_artifacts(
     *,
     output_dir: Path,
@@ -2448,7 +2537,7 @@ def export_inverse_design_artifacts(
     step_engine: str,
     skip_step_export: bool,
 ) -> ArtifactBundle:
-    """Write target/jig CSV artifacts and optionally export a jig STEP model."""
+    """Write shape/deflection artifacts and optionally export jig+loaded STEP models."""
 
     if candidate.inverse_result is None:
         return ArtifactBundle(
@@ -2478,10 +2567,18 @@ def export_inverse_design_artifacts(
         output_csv_path=jig_csv_path,
         shape=candidate.inverse_result.jig_shape,
     )
+    loaded_csv_path = output_dir / "loaded_shape_spar_data.csv"
+    write_shape_csv_from_template(
+        template_csv_path=target_csv_path,
+        output_csv_path=loaded_csv_path,
+        shape=candidate.inverse_result.predicted_loaded_shape,
+    )
 
     jig_step_path: str | None = None
+    loaded_step_path: str | None = None
     resolved_engine: str | None = None
     step_error: str | None = None
+    loaded_step_error: str | None = None
     if not skip_step_export:
         try:
             resolved_engine = export_step_from_csv(
@@ -2492,6 +2589,18 @@ def export_inverse_design_artifacts(
             jig_step_path = str((output_dir / "jig_shape.step").resolve())
         except Exception as exc:  # pragma: no cover - depends on local CAD stack
             step_error = f"{type(exc).__name__}: {exc}"
+        try:
+            loaded_engine = resolved_engine or step_engine
+            export_step_from_csv(
+                loaded_csv_path,
+                output_dir / "loaded_shape.step",
+                engine=loaded_engine,
+            )
+            loaded_step_path = str((output_dir / "loaded_shape.step").resolve())
+            if resolved_engine is None:
+                resolved_engine = loaded_engine
+        except Exception as exc:  # pragma: no cover - depends on local CAD stack
+            loaded_step_error = f"{type(exc).__name__}: {exc}"
 
     diagnostics_json_path = output_dir / "active_wall_diagnostics.json"
     diagnostics_json_path.write_text(
@@ -2505,6 +2614,16 @@ def export_inverse_design_artifacts(
         )
         + "\n",
         encoding="utf-8",
+    )
+
+    model_for_deflection = candidate.mainline_model
+    if model_for_deflection is None:
+        model_for_deflection = candidate.inverse_result.target_loaded_shape
+    deflection_csv_path = output_dir / "node_deflections.csv"
+    _write_deflection_csv(
+        deflection_csv_path,
+        candidate=candidate,
+        model=model_for_deflection,
     )
 
     wire_records = _lift_wire_rigging_records(
@@ -2527,9 +2646,13 @@ def export_inverse_design_artifacts(
     return ArtifactBundle(
         target_shape_csv=str(target_csv_path.resolve()),
         jig_shape_csv=str(jig_csv_path.resolve()),
+        loaded_shape_csv=str(loaded_csv_path.resolve()),
+        deflection_csv=str(deflection_csv_path.resolve()),
         jig_step_path=jig_step_path,
+        loaded_step_path=loaded_step_path,
         step_engine=resolved_engine,
         step_error=step_error,
+        loaded_step_error=loaded_step_error,
         diagnostics_json=str(diagnostics_json_path.resolve()),
         wire_rigging_json=str(wire_json_path.resolve()),
     )
@@ -3414,7 +3537,10 @@ def main(argv: list[str] | None = None) -> int:
     if refinement.artifacts is not None:
         print(f"  Target shape CSV    : {refinement.artifacts.target_shape_csv}")
         print(f"  Jig shape CSV       : {refinement.artifacts.jig_shape_csv}")
+        print(f"  Loaded shape CSV    : {refinement.artifacts.loaded_shape_csv}")
+        print(f"  Deflection CSV      : {refinement.artifacts.deflection_csv}")
         print(f"  Jig STEP            : {refinement.artifacts.jig_step_path or 'not written'}")
+        print(f"  Loaded STEP         : {refinement.artifacts.loaded_step_path or 'not written'}")
         print(f"  Diagnostics JSON    : {refinement.artifacts.diagnostics_json or 'not written'}")
         print(f"  Wire rigging JSON   : {refinement.artifacts.wire_rigging_json or 'not written'}")
     return 0
