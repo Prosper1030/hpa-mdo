@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +29,7 @@ DEFAULT_LOADED_SHAPE_Z_TOL_M = float(_DEFAULT_SOLVER_CONFIG.loaded_shape_z_tol_m
 DEFAULT_LOADED_SHAPE_TWIST_TOL_DEG = float(
     _DEFAULT_SOLVER_CONFIG.loaded_shape_twist_tol_deg
 )
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,18 @@ class ManufacturingMetrics:
 
 
 @dataclass(frozen=True)
+class MonotonicDeflectionCheck:
+    """Diagnostic summary for per-segment monotonic vertical deflection."""
+
+    segments_checked: int
+    segments_monotonic: int
+    worst_violation_m: float
+    worst_violation_node_y_m: float
+    passed: bool
+    details: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class InverseDesignFeasibility:
     """Aggregated feasibility state for the inverse-design MVP."""
 
@@ -132,6 +146,7 @@ class FrozenLoadInverseDesignResult:
     ground_clearance: GroundClearanceMetrics
     manufacturing: ManufacturingMetrics
     feasibility: InverseDesignFeasibility
+    monotonic_deflection: MonotonicDeflectionCheck | None = None
 
 
 def _copy_nodes(nodes_m: np.ndarray) -> np.ndarray:
@@ -415,6 +430,82 @@ def _max_abs_vertical_curvature_per_m(y_nodes_m: np.ndarray, z_offset_m: np.ndar
     return max(curvatures, default=0.0)
 
 
+def check_monotonic_deflection(
+    *,
+    y_nodes_m: np.ndarray,
+    uz_m: np.ndarray,
+    wire_y_positions: tuple[float, ...] = (),
+    tolerance_m: float = 1.0e-4,
+) -> MonotonicDeflectionCheck:
+    """Check uz monotonicity in each span segment split by wire attachment Y."""
+
+    y_arr = np.asarray(y_nodes_m, dtype=float).reshape(-1)
+    uz_arr = np.asarray(uz_m, dtype=float).reshape(-1)
+    if y_arr.size != uz_arr.size:
+        raise ValueError("y_nodes_m and uz_m must have the same length.")
+    if y_arr.size == 0:
+        return MonotonicDeflectionCheck(
+            segments_checked=0,
+            segments_monotonic=0,
+            worst_violation_m=0.0,
+            worst_violation_node_y_m=0.0,
+            passed=True,
+            details=(),
+        )
+    if np.any(np.diff(y_arr) < 0.0):
+        raise ValueError("y_nodes_m must be monotonic non-decreasing.")
+
+    root_y = float(y_arr[0])
+    tip_y = float(y_arr[-1])
+    interior_wire_y = sorted(
+        {
+            float(y)
+            for y in wire_y_positions
+            if root_y < float(y) < tip_y
+        }
+    )
+    boundaries = [root_y, *interior_wire_y, tip_y]
+    tolerance = float(tolerance_m)
+    segment_details: list[str] = []
+    segments_checked = 0
+    segments_monotonic = 0
+    worst_violation = 0.0
+    worst_y = root_y
+
+    for start_y, end_y in zip(boundaries[:-1], boundaries[1:]):
+        node_mask = (y_arr >= float(start_y) - 1.0e-12) & (y_arr <= float(end_y) + 1.0e-12)
+        idx = np.flatnonzero(node_mask)
+        if idx.size < 2:
+            continue
+        segments_checked += 1
+        segment_passed = True
+        for left, right in zip(idx[:-1], idx[1:]):
+            violation = float(uz_arr[left] - uz_arr[right] - tolerance)
+            if violation > 0.0:
+                segment_passed = False
+                if violation > worst_violation:
+                    worst_violation = violation
+                    worst_y = float(y_arr[right])
+                segment_details.append(
+                    (
+                        f"segment [{start_y:.3f}, {end_y:.3f}] m: non-monotonic at "
+                        f"y={float(y_arr[right]):.3f} m, violation={violation:.6e} m"
+                    )
+                )
+        if segment_passed:
+            segments_monotonic += 1
+
+    passed = bool(segments_checked == segments_monotonic)
+    return MonotonicDeflectionCheck(
+        segments_checked=int(segments_checked),
+        segments_monotonic=int(segments_monotonic),
+        worst_violation_m=float(worst_violation),
+        worst_violation_node_y_m=float(worst_y),
+        passed=passed,
+        details=tuple(segment_details),
+    )
+
+
 def _manufacturing_metrics(
     *,
     target_loaded_shape: StructuralNodeShape,
@@ -493,6 +584,7 @@ def build_frozen_load_inverse_design(
     loaded_shape_control_station_fractions: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
     loaded_shape_main_z_tol_m: float = DEFAULT_LOADED_SHAPE_Z_TOL_M,
     loaded_shape_twist_tol_deg: float = DEFAULT_LOADED_SHAPE_TWIST_TOL_DEG,
+    monotonic_deflection: MonotonicDeflectionCheck | None = None,
 ) -> FrozenLoadInverseDesignResult:
     """Construct the frozen-load inverse-design result for one candidate."""
 
@@ -599,6 +691,7 @@ def build_frozen_load_inverse_design(
         ground_clearance=ground_clearance,
         manufacturing=manufacturing,
         feasibility=feasibility,
+        monotonic_deflection=monotonic_deflection,
     )
 
 
@@ -616,8 +709,23 @@ def build_frozen_load_inverse_design_from_mainline(
     loaded_shape_twist_tol_deg: float = DEFAULT_LOADED_SHAPE_TWIST_TOL_DEG,
     target_loaded_shape_z_scale: float = 1.0,
     target_loaded_shape_dihedral_exponent: float = 1.0,
+    wire_y_positions: tuple[float, ...] = (),
+    monotonic_tolerance_m: float = 1.0e-4,
 ) -> FrozenLoadInverseDesignResult:
     """Convenience wrapper for the current dual-beam production result."""
+
+    monotonic_check = check_monotonic_deflection(
+        y_nodes_m=np.asarray(model.nodes_main_m[:, 1], dtype=float),
+        uz_m=np.asarray(result.disp_main_m[:, 2], dtype=float),
+        wire_y_positions=tuple(float(value) for value in wire_y_positions),
+        tolerance_m=float(monotonic_tolerance_m),
+    )
+    if not monotonic_check.passed:
+        LOGGER.warning(
+            "Non-monotonic deflection detected: worst violation %.4f m at y=%.2f m",
+            float(monotonic_check.worst_violation_m),
+            float(monotonic_check.worst_violation_node_y_m),
+        )
 
     return build_frozen_load_inverse_design(
         target_loaded_shape=build_target_loaded_shape(
@@ -642,6 +750,7 @@ def build_frozen_load_inverse_design_from_mainline(
         loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
         loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
         loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+        monotonic_deflection=monotonic_check,
     )
 
 

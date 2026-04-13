@@ -15,7 +15,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from hpa_mdo.structure.inverse_design import (
     StructuralNodeShape,
+    check_monotonic_deflection,
     build_frozen_load_inverse_design,
+    build_frozen_load_inverse_design_from_mainline,
     build_inverse_design_margins,
     build_target_loaded_shape,
     write_shape_csv_from_template,
@@ -30,6 +32,7 @@ from scripts.direct_dual_beam_inverse_design import (
     _clearance_risk_metrics,
     _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
+    _write_deflection_csv,
 )
 
 
@@ -429,6 +432,143 @@ class InverseDesignTests(unittest.TestCase):
 
         self.assertTrue(np.allclose(shape.main_nodes_m[:, 2], [0.20, 0.60]))
         self.assertTrue(np.allclose(shape.rear_nodes_m[:, 2], [0.10, 0.50]))
+
+    def test_write_deflection_csv_exports_main_and_rear_with_rotation_columns(self) -> None:
+        inverse_result = SimpleNamespace(
+            displacement_main_m=np.array(
+                [
+                    [0.0, 0.0, 0.01],
+                    [0.0, 0.0, 0.02],
+                ],
+                dtype=float,
+            ),
+            displacement_rear_m=np.array(
+                [
+                    [0.0, 0.0, 0.03],
+                    [0.0, 0.0, 0.04],
+                ],
+                dtype=float,
+            ),
+        )
+        production_result = SimpleNamespace(
+            disp_main_m=np.array(
+                [
+                    [1.0, 2.0, 3.0, 0.1, 0.2, 0.3],
+                    [4.0, 5.0, 6.0, 0.4, 0.5, 0.6],
+                ],
+                dtype=float,
+            ),
+            disp_rear_m=np.array(
+                [
+                    [7.0, 8.0, 9.0, 0.7, 0.8, 0.9],
+                    [10.0, 11.0, 12.0, 1.0, 1.1, 1.2],
+                ],
+                dtype=float,
+            ),
+        )
+        candidate = SimpleNamespace(
+            inverse_result=inverse_result,
+            production_result=production_result,
+        )
+        model = SimpleNamespace(
+            nodes_main_m=np.array([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=float),
+            nodes_rear_m=np.array([[1.0, 0.0, 0.0], [1.0, 1.0, 0.0]], dtype=float),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "node_deflections.csv"
+            _write_deflection_csv(path, candidate=candidate, model=model)
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(rows[0]["spar"], "main")
+        self.assertEqual(rows[2]["spar"], "rear")
+        self.assertEqual(rows[0]["y_m"], "0.000000")
+        self.assertEqual(rows[1]["y_m"], "1.000000")
+        self.assertEqual(rows[0]["uz_m"], "3.00000000e+00")
+        self.assertEqual(rows[0]["theta_x_rad"], "1.00000000e-01")
+        self.assertEqual(rows[0]["theta_y_rad"], "2.00000000e-01")
+        self.assertEqual(rows[0]["theta_z_rad"], "3.00000000e-01")
+
+    def test_check_monotonic_deflection_passes_with_wire_segment_split(self) -> None:
+        check = check_monotonic_deflection(
+            y_nodes_m=np.array([0.0, 3.0, 7.5, 12.0, 16.5], dtype=float),
+            uz_m=np.array([0.0, 0.01, 0.02, 0.08, 0.15], dtype=float),
+            wire_y_positions=(7.5,),
+            tolerance_m=1.0e-4,
+        )
+
+        self.assertTrue(check.passed)
+        self.assertEqual(check.segments_checked, 2)
+        self.assertEqual(check.segments_monotonic, 2)
+        self.assertAlmostEqual(check.worst_violation_m, 0.0)
+        self.assertEqual(check.details, ())
+
+    def test_check_monotonic_deflection_reports_worst_violation(self) -> None:
+        check = check_monotonic_deflection(
+            y_nodes_m=np.array([0.0, 3.0, 7.5, 12.0, 16.5], dtype=float),
+            uz_m=np.array([0.0, 0.01, 0.02, 0.015, 0.15], dtype=float),
+            wire_y_positions=(7.5,),
+            tolerance_m=1.0e-4,
+        )
+
+        self.assertFalse(check.passed)
+        self.assertEqual(check.segments_checked, 2)
+        self.assertEqual(check.segments_monotonic, 1)
+        self.assertGreater(check.worst_violation_m, 0.0)
+        self.assertAlmostEqual(check.worst_violation_node_y_m, 12.0)
+        self.assertGreaterEqual(len(check.details), 1)
+
+    def test_build_from_mainline_populates_monotonic_deflection_diagnostic(self) -> None:
+        model = SimpleNamespace(
+            nodes_main_m=np.array(
+                [[0.0, 0.0, 0.0], [0.0, 1.0, 0.1], [0.0, 2.0, 0.2]],
+                dtype=float,
+            ),
+            nodes_rear_m=np.array(
+                [[1.0, 0.0, 0.0], [1.0, 1.0, 0.1], [1.0, 2.0, 0.2]],
+                dtype=float,
+            ),
+            y_nodes_m=np.array([0.0, 1.0, 2.0], dtype=float),
+        )
+        result = SimpleNamespace(
+            disp_main_m=np.array(
+                [
+                    [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.05, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.10, 0.0, 0.0, 0.0],
+                ],
+                dtype=float,
+            ),
+            disp_rear_m=np.array(
+                [
+                    [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.04, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.09, 0.0, 0.0, 0.0],
+                ],
+                dtype=float,
+            ),
+            feasibility=SimpleNamespace(
+                analysis_succeeded=True,
+                geometry_validity_succeeded=True,
+                equivalent_failure_passed=True,
+                equivalent_buckling_passed=True,
+                equivalent_tip_passed=True,
+                equivalent_twist_passed=True,
+            ),
+        )
+
+        inverse = build_frozen_load_inverse_design_from_mainline(
+            model=model,
+            result=result,
+            wire_y_positions=(1.0,),
+        )
+
+        self.assertIsNotNone(inverse.monotonic_deflection)
+        assert inverse.monotonic_deflection is not None
+        self.assertTrue(inverse.monotonic_deflection.passed)
+        self.assertEqual(inverse.monotonic_deflection.segments_checked, 2)
 
     def test_lightweight_load_refresh_interpolates_lower_effective_aoa_from_twist(self) -> None:
         y = np.array([0.0, 1.0, 2.0], dtype=float)

@@ -1100,6 +1100,11 @@ class InverseDesignEvaluator:
                 loaded_shape_twist_tol_deg=self.loaded_shape_twist_tol_deg,
                 target_loaded_shape_z_scale=self.target_shape_z_scale,
                 target_loaded_shape_dihedral_exponent=self.dihedral_exponent,
+                wire_y_positions=(
+                    tuple(float(att.y) for att in self.cfg.lift_wires.attachments)
+                    if self.cfg.lift_wires.enabled
+                    else ()
+                ),
             )
             hard_margins = {
                 **build_candidate_hard_margins(production),
@@ -1550,6 +1555,11 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
             "target_shape_error": asdict(inverse.target_shape_error),
             "ground_clearance": asdict(inverse.ground_clearance),
             "manufacturing": asdict(inverse.manufacturing),
+            "monotonic_deflection": (
+                None
+                if inverse.monotonic_deflection is None
+                else asdict(inverse.monotonic_deflection)
+            ),
         }
         target_shape = shape_to_dict(inverse.target_loaded_shape)
         jig_shape = shape_to_dict(inverse.jig_shape)
@@ -1614,6 +1624,11 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "target_loaded_shape": target_shape,
         "jig_shape": jig_shape,
         "predicted_loaded_shape": predicted_loaded_shape,
+        "monotonic_deflection": (
+            None
+            if inverse is None or inverse.monotonic_deflection is None
+            else asdict(inverse.monotonic_deflection)
+        ),
         "feasibility_report": feasibility_report,
     }
 
