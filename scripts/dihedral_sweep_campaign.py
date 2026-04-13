@@ -107,6 +107,7 @@ class SweepResult:
     selected_output_dir: str | None
     summary_json_path: str | None
     wire_rigging_json_path: str | None
+    error_message: str | None
 
 
 def _parse_multiplier_list(text: str) -> tuple[float, ...]:
@@ -440,7 +441,8 @@ def run_inverse_design_case(
     wall_thickness_grid: str,
     refresh_steps: int,
     skip_step_export: bool,
-) -> tuple[str, str | None, str | None]:
+    strict: bool = False,
+) -> tuple[str | None, str | None, str | None]:
     output_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         str(python_executable),
@@ -482,9 +484,12 @@ def run_inverse_design_case(
     stdout_log.write_text(stdout_text, encoding="utf-8")
     summary_path = output_dir / "direct_dual_beam_inverse_design_refresh_summary.json"
     if proc.returncode != 0 or not summary_path.exists():
-        raise RuntimeError(
+        error_message = (
             f"inverse-design subprocess failed (rc={proc.returncode}); see {stdout_log}"
         )
+        if strict:
+            raise RuntimeError(error_message)
+        return None, str(stdout_log.resolve()), error_message
     return str(summary_path.resolve()), str(stdout_log.resolve()), None
 
 
@@ -521,8 +526,10 @@ def _build_result_row(
     summary_payload: dict[str, object] | None,
     selected_output_dir: str | None,
     summary_json_path: str | None,
+    error_message: str | None,
 ) -> SweepResult:
     if summary_payload is None:
+        structure_status = "structural_failed" if error_message else "skipped"
         return SweepResult(
             dihedral_multiplier=float(multiplier),
             avl_case_path=avl_eval.avl_case_path,
@@ -532,7 +539,7 @@ def _build_result_row(
             dutch_roll_real=avl_eval.dutch_roll_real,
             dutch_roll_imag=avl_eval.dutch_roll_imag,
             aero_status=avl_eval.aero_status,
-            structure_status="skipped",
+            structure_status=structure_status,
             total_mass_kg=None,
             min_jig_clearance_mm=None,
             wire_tension_n=None,
@@ -542,6 +549,7 @@ def _build_result_row(
             selected_output_dir=selected_output_dir,
             summary_json_path=summary_json_path,
             wire_rigging_json_path=None,
+            error_message=error_message,
         )
 
     iterations = summary_payload["iterations"]
@@ -567,6 +575,7 @@ def _build_result_row(
         selected_output_dir=selected_output_dir,
         summary_json_path=summary_json_path,
         wire_rigging_json_path=wire_json_path,
+        error_message=error_message,
     )
 
 
@@ -590,6 +599,7 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "selected_output_dir",
         "summary_json_path",
         "wire_rigging_json_path",
+        "error_message",
     ]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -626,6 +636,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wall-thickness-grid", default="0.0,1.0")
     parser.add_argument("--refresh-steps", type=int, default=2, choices=(0, 1, 2))
     parser.add_argument("--skip-step-export", action="store_true")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Abort the campaign on the first inverse-design subprocess failure.",
+    )
     parser.add_argument("--avl-velocity", type=float, default=None)
     parser.add_argument("--avl-density", type=float, default=None)
     parser.add_argument("--avl-gravity", type=float, default=None)
@@ -687,6 +702,7 @@ def main(argv: list[str] | None = None) -> int:
         raise FileNotFoundError(f"AVL executable not found: {args.avl_bin}")
 
     rows: list[SweepResult] = []
+    failed_cases: list[tuple[float, str]] = []
     for multiplier in multipliers:
         case_dir = output_dir / f"mult_{_slug(multiplier)}"
         case_dir.mkdir(parents=True, exist_ok=True)
@@ -720,9 +736,11 @@ def main(argv: list[str] | None = None) -> int:
         summary_payload: dict[str, object] | None = None
         selected_output_dir: str | None = None
         summary_json_path: str | None = None
+        inverse_error_message: str | None = None
         if avl_eval.aero_feasible:
             inverse_output_dir = case_dir / "inverse_design"
-            summary_json_path, _, _ = run_inverse_design_case(
+            selected_output_dir = str(inverse_output_dir.resolve())
+            summary_json_path, _, inverse_error_message = run_inverse_design_case(
                 inverse_script=inverse_script,
                 config_path=config_path,
                 design_report=design_report,
@@ -736,9 +754,12 @@ def main(argv: list[str] | None = None) -> int:
                 wall_thickness_grid=str(args.wall_thickness_grid),
                 refresh_steps=int(args.refresh_steps),
                 skip_step_export=bool(args.skip_step_export),
+                strict=bool(args.strict),
             )
-            summary_payload = _read_inverse_summary(Path(summary_json_path))
-            selected_output_dir = str(inverse_output_dir.resolve())
+            if inverse_error_message:
+                failed_cases.append((float(multiplier), inverse_error_message))
+            elif summary_json_path is not None:
+                summary_payload = _read_inverse_summary(Path(summary_json_path))
 
         rows.append(
             _build_result_row(
@@ -747,6 +768,7 @@ def main(argv: list[str] | None = None) -> int:
                 summary_payload=summary_payload,
                 selected_output_dir=selected_output_dir,
                 summary_json_path=summary_json_path,
+                error_message=inverse_error_message,
             )
         )
 
@@ -786,6 +808,10 @@ def main(argv: list[str] | None = None) -> int:
             f"struct={row.structure_status}, mass={mass_text}, "
             f"clearance={clear_text}, wire={wire_text}"
         )
+    if failed_cases:
+        print("WARNING: inverse-design failed for one or more multipliers (marked structural_failed).")
+        for failed_multiplier, message in failed_cases:
+            print(f"  x{failed_multiplier:.3f}: {message}")
     return 0
 
 
