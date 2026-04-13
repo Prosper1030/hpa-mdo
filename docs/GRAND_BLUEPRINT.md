@@ -4,7 +4,7 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-13  
-> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a/9b 已完成（9a 極限 probe：`x6.28` 最後可行、`x6.30` 首次因 trim AoA fail，mass plateau = 11.95 kg；9b: single-wire 高反角仍勝出），下一步進入 9c Pareto front，8d 作為幾何整合補完
+> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a/9b/9c 已完成（9a 極限 probe：`x6.28` 最後可行、`x6.30` 首次因 trim AoA fail，mass plateau = 11.95 kg；9b: single-wire 高反角仍勝出；9c: Pareto front 收斂到 single + dual 兩支），下一步進入 9d vendor-aware tube catalog，8d 作為幾何整合補完
 
 ---
 
@@ -198,9 +198,9 @@
            │ 9b ✅ multi-wire sweep campaign      │
            │      1/2/3 wires × dihedral grid    │
            │      + wire drag; single high-dihedral wins │
-           │ 9c. multi-objective Pareto front     │
-           │     (mass × stability × wire ×       │
-           │      aero performance)               │
+           │ 9c ✅ multi-objective Pareto front    │
+           │      54 feasible → 21 Pareto pts     │
+           │      mass-first single x5.0          │
            │ 9d. vendor-aware tube catalog        │
            │ 9e. full wire/rigging system         │
            │ 9f. dynamic design space             │
@@ -274,6 +274,7 @@
 | phase-2 gate stack | ✅ | stability + min_lift + L/D + structural gates 全部啟用 |
 | fine dihedral sweep (9a) | ✅ | 1.0→3.5 / 0.1 step，26 cases all pass，best x3.5 = 11.99 kg |
 | multi-wire sweep (9b) | ✅ | 1/2/3 wires + drag penalty；single x3.5 still best |
+| multi-objective Pareto front (9c) | ✅ | 54 feasible → 21 Pareto points；triple wire 脫離 frontier |
 
 ---
 
@@ -579,6 +580,13 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
   dual   x3.5: 14.71 kg, L/D 36.15
   triple x3.5: 14.87 kg, L/D 33.23
   report: docs/multi_wire_sweep_phase9b_report.md
+
+9c Pareto highlights:
+  mass-first:      single x5.0  (11.95 kg, L/D 40.19)
+  aero/stability:  single x1.0  (24.97 kg, L/D 40.83, damping 5.94463)
+  balanced:        single x2.0  (14.81 kg, L/D 40.28)
+  only multi-wire Pareto point: dual x1.0
+  report: docs/pareto_front_phase9c_report.md
 ```
 
 ### 已驗證的工程結論
@@ -589,15 +597,16 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | 3000-4000 N wire tension 可行 | Dyneema SK75 2.5mm ≈ 6872N allowable, 鋼琴線 2.0mm ≈ 6280N |
 | 21-22 kg floor 非 search/coupling 問題 | 驗證過 shape matching 放鬆無效，瓶頸在 ground clearance |
 | target dihedral 是核心設計變數 | extreme probe 證實到 `x6.28` 仍全 pass，`x6.30` 才首次碰到 trim AoA gate，mass plateau 約 11.95 kg |
+| triple wire 不值得進主線 | 9c Pareto front 中 triple wire 全數被 dual/single 支配 |
 
 ### 下一步（優先順序）
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **1** | 9c: multi-objective Pareto front | M9 | Codex | ⏭️ **NEXT** |
+| **1** | 9d: vendor-aware tube catalog | M9 | Codex | ⏭️ **NEXT** |
 | **2** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可並行 |
 | **3** | focused crossover sweep（1.5→2.2，如需） | M9 | 規劃中 | ⏭️ 可選 |
-| **4** | 9d: vendor-aware tube catalog | M9 | 規劃中 | ⏭️ 等 9c |
+| **4** | 9e: full wire/rigging system | M9 | 規劃中 | ⏭️ 等 9d |
 | **5** | 10a-b: ASWING 安裝 + .asw 產生器 | M10 | 評估中 | ❌ |
 
 ### 已完成（本輪）
@@ -617,13 +626,14 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | VSP3→AVL pipeline | M8 | ✅ parser + exporter + CLI + tests |
 | fine dihedral sweep | M9 | ✅ 26 cases, all pass, best x3.5 = 11.99 kg |
 | multi-wire sweep + drag penalty | M9 | ✅ 24 cases, all pass, single x3.5 still best |
+| multi-objective Pareto front | M9 | ✅ 54 feasible → 21 frontier points，mass-first single x5.0 |
 
 ### 關鍵路徑
 
 ```
-9c (Pareto: mass × stability × wire × aero)
-   → 以 single/dual/triple + dihedral 作離散設計族群比較
-   → 如需補 crossover，再做 1.5→2.2 focused sweep
+9d (vendor-aware tube catalog)
+   → 在 9c Pareto 候選族群上導入商規碳管離散化
+   → 保持 single x2.0 / x5.0 / dual x1.0 這些代表點可追蹤
 
 並行補完：8d (config schema extension，tail/fin 幾何進 YAML/runtime model)
 
