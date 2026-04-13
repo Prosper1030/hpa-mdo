@@ -26,6 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "dihedral_sweep_campaign"
 DEFAULT_INVERSE_SCRIPT = REPO_ROOT / "scripts" / "direct_dual_beam_inverse_design.py"
 DEFAULT_CONFIG = REPO_ROOT / "configs" / "blackcat_004.yaml"
+DEFAULT_BASE_AVL = REPO_ROOT / "data" / "blackcat_004_full.avl"
 DEFAULT_DESIGN_REPORT = (
     REPO_ROOT
     / "output"
@@ -142,13 +143,41 @@ def _try_parse_section_data(line: str) -> list[float] | None:
     return values
 
 
-def scale_avl_dihedral_text(text: str, *, multiplier: float) -> tuple[str, int]:
+def _surface_name_from_lines(lines: list[str], start_index: int) -> str | None:
+    scan = start_index + 1
+    while scan < len(lines):
+        stripped = lines[scan].strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("!"):
+            scan += 1
+            continue
+        return stripped
+    return None
+
+
+def _surface_matches(surface_name: str | None, target_surface_names: Iterable[str]) -> bool:
+    if surface_name is None:
+        return False
+    normalized = surface_name.strip().casefold()
+    targets = {name.strip().casefold() for name in target_surface_names}
+    return normalized in targets
+
+
+def scale_avl_dihedral_text(
+    text: str,
+    *,
+    multiplier: float,
+    target_surface_names: Iterable[str] = ("wing",),
+) -> tuple[str, int]:
     lines = text.splitlines(keepends=True)
     out = list(lines)
     scaled = 0
     idx = 0
+    current_surface_name: str | None = None
     while idx < len(out):
-        if out[idx].strip().upper() == "SECTION":
+        stripped = out[idx].strip().upper()
+        if stripped == "SURFACE":
+            current_surface_name = _surface_name_from_lines(out, idx)
+        if stripped == "SECTION" and _surface_matches(current_surface_name, target_surface_names):
             scan = idx + 1
             while scan < len(out):
                 stripped = out[scan].strip()
@@ -231,7 +260,12 @@ def estimate_mode_parameters(cfg) -> AvlModeParameters:
     mass_kg = float(cfg.weight.max_takeoff_kg)
     span = float(cfg.wing.span)
     half_span = 0.5 * span
-    mean_chord = 0.5 * (float(cfg.wing.root_chord) + float(cfg.wing.tip_chord))
+    root_chord = float(cfg.wing.root_chord)
+    tip_chord = float(cfg.wing.tip_chord)
+    taper_ratio = tip_chord / max(root_chord, 1.0e-12)
+    mean_chord = (2.0 / 3.0) * root_chord * (
+        (1.0 + taper_ratio + taper_ratio ** 2) / max(1.0 + taper_ratio, 1.0e-12)
+    )
     fuselage_length = max(3.0 * mean_chord, 3.0)
     roll_radius = max(0.35 * half_span, 1.0)
     pitch_radius = max(0.35 * fuselage_length, 0.5)
@@ -244,7 +278,7 @@ def estimate_mode_parameters(cfg) -> AvlModeParameters:
         ixx=mass_kg * roll_radius ** 2,
         iyy=mass_kg * pitch_radius ** 2,
         izz=mass_kg * yaw_radius ** 2,
-        x_cg=0.0,
+        x_cg=0.25 * mean_chord,
         y_cg=0.0,
         z_cg=0.0,
     )
@@ -612,7 +646,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run a lightweight outer-loop dihedral sweep campaign with AVL filtering plus inverse design."
     )
-    parser.add_argument("--base-avl", default=None, help="Path to the baseline AVL geometry file.")
+    parser.add_argument(
+        "--base-avl",
+        default=str(DEFAULT_BASE_AVL),
+        help="Path to the baseline AVL geometry file.",
+    )
     parser.add_argument(
         "--generate-wing-only-avl-fallback",
         action="store_true",
@@ -668,7 +706,11 @@ def main(argv: list[str] | None = None) -> int:
     base_avl_source = "provided"
     if args.base_avl:
         base_avl_path = Path(args.base_avl).expanduser().resolve()
-        if not base_avl_path.exists():
+        if not base_avl_path.exists() and args.generate_wing_only_avl_fallback:
+            base_avl_source = "generated_wing_only_fallback"
+            base_avl_path = output_dir / "generated_base_wing_only.avl"
+            generate_wing_only_avl_from_config(cfg=cfg, path=base_avl_path)
+        elif not base_avl_path.exists():
             raise FileNotFoundError(f"Base AVL file not found: {base_avl_path}")
     elif args.generate_wing_only_avl_fallback:
         base_avl_source = "generated_wing_only_fallback"
