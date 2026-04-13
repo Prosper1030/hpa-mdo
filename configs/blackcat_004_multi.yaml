@@ -52,6 +52,7 @@ aero_gates:
   cd_profile_estimate: 0.010 # estimated profile drag coefficient
   max_trim_aoa_deg: 12.0     # maximum trim AoA before stall margin concern [deg]
   max_sideslip_deg: 12.0     # maximum required trimmed sideslip [deg]
+  min_spiral_time_to_double_s: 10.0
   beta_sweep_values: [0.0, 5.0, 10.0, 12.0]
 
 # ── Wing Planform ───────────────────────────────────────────────────────────

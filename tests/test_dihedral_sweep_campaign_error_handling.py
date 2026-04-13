@@ -52,6 +52,7 @@ class DihedralSweepCampaignErrorHandlingTests(unittest.TestCase):
                 aero_performance_reason="ok",
             ),
             beta_eval=None,
+            control_eval=None,
             summary_payload=None,
             selected_output_dir="/tmp/inverse",
             summary_json_path=None,

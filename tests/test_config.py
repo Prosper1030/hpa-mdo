@@ -126,6 +126,7 @@ def test_blackcat_beta_sweep_gates_loaded_from_config():
     cfg = load_config(config_path)
 
     assert cfg.aero_gates.max_sideslip_deg == pytest.approx(12.0)
+    assert cfg.aero_gates.min_spiral_time_to_double_s == pytest.approx(10.0)
     assert cfg.aero_gates.beta_sweep_values == pytest.approx([0.0, 5.0, 10.0, 12.0])
 
 

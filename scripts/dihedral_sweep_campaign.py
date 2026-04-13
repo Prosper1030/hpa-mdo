@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import json
 import math
 from pathlib import Path
@@ -35,6 +35,7 @@ DEFAULT_DESIGN_REPORT = (
     / "crossval_report.txt"
 )
 OSCILLATORY_IMAG_TOL = 1.0e-9
+SPIRAL_LATERAL_RATIO_MIN = 0.35
 LATERAL_STATE_NAMES = ("v", "p", "r", "phi", "psi", "y")
 LONGITUDINAL_STATE_NAMES = ("u", "w", "q", "the", "x", "z")
 FLOAT_TOKEN = r"[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[Ee][-+]?\d+)?"
@@ -76,6 +77,31 @@ class AvlModeBlock:
 
 
 @dataclass(frozen=True)
+class SpiralModeEvaluation:
+    mode_found: bool
+    selection: str
+    real: float | None
+    time_to_double_s: float | None
+    time_to_half_s: float | None
+    feasible: bool | None
+    reason: str
+
+
+def _unavailable_spiral_mode_evaluation(
+    reason: str = "spiral_mode_unavailable",
+) -> SpiralModeEvaluation:
+    return SpiralModeEvaluation(
+        mode_found=False,
+        selection="spiral_mode_unavailable",
+        real=None,
+        time_to_double_s=None,
+        time_to_half_s=None,
+        feasible=None,
+        reason=str(reason),
+    )
+
+
+@dataclass(frozen=True)
 class AvlEvaluation:
     avl_case_path: str
     mode_file_path: str | None
@@ -87,6 +113,7 @@ class AvlEvaluation:
     aero_status: str
     aero_feasible: bool
     eigenvalue_count: int
+    spiral_eval: SpiralModeEvaluation = field(default_factory=_unavailable_spiral_mode_evaluation)
 
 
 @dataclass(frozen=True)
@@ -113,6 +140,16 @@ class AeroPerformanceEvaluation:
     aero_power_w: float | None
     aero_performance_feasible: bool
     aero_performance_reason: str
+
+
+@dataclass(frozen=True)
+class ControlCouplingEvaluation:
+    st_file_path: str | None
+    stdout_log_path: str | None
+    cl_rudder_derivative: float | None
+    cn_rudder_derivative: float | None
+    roll_to_yaw_ratio: float | None
+    coupling_reason: str
 
 
 @dataclass(frozen=True)
@@ -163,6 +200,15 @@ class SweepResult:
     beta_sweep_cl_beta_per_rad: float | None
     beta_sweep_directional_stable: bool | None
     beta_sweep_sideslip_feasible: bool | None
+    rudder_cl_derivative: float | None
+    rudder_cn_derivative: float | None
+    rudder_roll_to_yaw_ratio: float | None
+    rudder_coupling_reason: str | None
+    spiral_mode_real: float | None
+    spiral_time_to_double_s: float | None
+    spiral_time_to_half_s: float | None
+    spiral_check_ok: bool | None
+    spiral_reason: str | None
     structure_status: str
     total_mass_kg: float | None
     min_jig_clearance_mm: float | None
@@ -486,6 +532,60 @@ def select_dutch_roll_mode(
     return False, "mode_not_found", None, None
 
 
+def select_spiral_mode(
+    *,
+    mode_blocks: tuple[AvlModeBlock, ...],
+    min_time_to_double_s: float,
+) -> SpiralModeEvaluation:
+    candidates = [
+        block
+        for block in mode_blocks
+        if abs(float(block.imag)) <= OSCILLATORY_IMAG_TOL
+        and float(block.lateral_ratio) >= SPIRAL_LATERAL_RATIO_MIN
+    ]
+    if not candidates:
+        return _unavailable_spiral_mode_evaluation()
+
+    selected = max(
+        candidates,
+        key=lambda block: (float(block.real), float(block.lateral_ratio)),
+    )
+    real = float(selected.real)
+    if real > OSCILLATORY_IMAG_TOL:
+        time_to_double_s = math.log(2.0) / real
+        feasible = time_to_double_s >= float(min_time_to_double_s)
+        reason = "ok" if feasible else "time_to_double_below_limit"
+        return SpiralModeEvaluation(
+            mode_found=True,
+            selection="least_stable_aperiodic_lateral_mode",
+            real=real,
+            time_to_double_s=float(time_to_double_s),
+            time_to_half_s=None,
+            feasible=bool(feasible),
+            reason=reason,
+        )
+    if real < -OSCILLATORY_IMAG_TOL:
+        time_to_half_s = math.log(2.0) / abs(real)
+        return SpiralModeEvaluation(
+            mode_found=True,
+            selection="least_stable_aperiodic_lateral_mode",
+            real=real,
+            time_to_double_s=None,
+            time_to_half_s=float(time_to_half_s),
+            feasible=True,
+            reason="stable",
+        )
+    return SpiralModeEvaluation(
+        mode_found=True,
+        selection="least_stable_aperiodic_lateral_mode",
+        real=real,
+        time_to_double_s=None,
+        time_to_half_s=None,
+        feasible=False,
+        reason="neutral_spiral_mode",
+    )
+
+
 def run_avl_stability_case(
     *,
     avl_bin: Path,
@@ -493,6 +593,7 @@ def run_avl_stability_case(
     case_dir: Path,
     mode_params: AvlModeParameters,
     allow_missing_mode: bool,
+    min_spiral_time_to_double_s: float,
 ) -> AvlEvaluation:
     mode_file = case_dir / "case_modes.st"
     stdout_log = case_dir / "avl_mode_stdout.log"
@@ -548,6 +649,10 @@ def run_avl_stability_case(
         mode_blocks=mode_blocks,
         allow_missing_mode=allow_missing_mode,
     )
+    spiral_eval = select_spiral_mode(
+        mode_blocks=mode_blocks,
+        min_time_to_double_s=float(min_spiral_time_to_double_s),
+    )
     aero_status = "mode_not_found"
     aero_feasible = False
     if dutch_real is not None:
@@ -568,27 +673,34 @@ def run_avl_stability_case(
         aero_status=aero_status,
         aero_feasible=aero_feasible,
         eigenvalue_count=len(eigenvalues),
+        spiral_eval=spiral_eval,
     )
 
 
-def _parse_force_scalar(text: str, label: str) -> float | None:
-    pattern = re.compile(rf"\b{re.escape(label)}\s*=\s*(?P<value>{FLOAT_TOKEN})")
+def _parse_avl_scalar(text: str, label: str, *, ignore_case: bool = False) -> float | None:
+    pattern = re.compile(
+        rf"\b{re.escape(label)}\s*=\s*(?P<value>{FLOAT_TOKEN}|\*{{3,}})",
+        flags=re.IGNORECASE if ignore_case else 0,
+    )
     match = pattern.search(text)
     if match is None:
         return None
-    return float(match.group("value"))
+    value_text = match.group("value")
+    if "*" in value_text:
+        return None
+    return float(value_text)
 
 
 def parse_avl_force_totals(path: Path) -> dict[str, float] | None:
     if not path.exists():
         return None
     text = path.read_text(encoding="utf-8", errors="ignore")
-    cl_trim = _parse_force_scalar(text, "CLtot")
-    cd_induced = _parse_force_scalar(text, "CDind")
-    aoa_trim_deg = _parse_force_scalar(text, "Alpha")
-    span_efficiency = _parse_force_scalar(text, "e")
-    cl_roll_total = _parse_force_scalar(text, "Cltot")
-    cn_total = _parse_force_scalar(text, "Cntot")
+    cl_trim = _parse_avl_scalar(text, "CLtot")
+    cd_induced = _parse_avl_scalar(text, "CDind")
+    aoa_trim_deg = _parse_avl_scalar(text, "Alpha")
+    span_efficiency = _parse_avl_scalar(text, "e")
+    cl_roll_total = _parse_avl_scalar(text, "Cltot")
+    cn_total = _parse_avl_scalar(text, "Cntot")
     if (
         cl_trim is None
         and cd_induced is None
@@ -612,6 +724,102 @@ def parse_avl_force_totals(path: Path) -> dict[str, float] | None:
     if cn_total is not None:
         payload["cn_total"] = float(cn_total)
     return payload
+
+
+def parse_avl_stability_derivatives(path: Path) -> dict[str, float | None] | None:
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    keys = ("clb", "cnb", "cld02", "cnd02")
+    payload = {key: _parse_avl_scalar(text, key, ignore_case=True) for key in keys}
+    if all(value is None for value in payload.values()):
+        return None
+    return payload
+
+
+def run_avl_stability_derivatives_case(
+    *,
+    avl_bin: Path,
+    case_avl_path: Path,
+    case_dir: Path,
+    cl_required: float,
+) -> ControlCouplingEvaluation:
+    st_file = case_dir / "case_trim_derivatives.st"
+    stdout_log = case_dir / "avl_trim_derivatives_stdout.log"
+    if st_file.exists():
+        st_file.unlink()
+    command_text = "\n".join(
+        [
+            "plop",
+            "g",
+            "",
+            f"load {case_avl_path.name}",
+            "oper",
+            "c1",
+            f"c {float(cl_required):.9f}",
+            "",
+            "x",
+            "st",
+            st_file.name,
+            "",
+            "quit",
+            "",
+        ]
+    )
+    proc = subprocess.run(
+        [str(avl_bin)],
+        input=command_text,
+        text=True,
+        capture_output=True,
+        cwd=case_dir,
+        check=False,
+    )
+    stdout_text = proc.stdout + (("\n" + proc.stderr) if proc.stderr else "")
+    stdout_log.write_text(stdout_text, encoding="utf-8")
+
+    derivatives = parse_avl_stability_derivatives(st_file)
+    if proc.returncode != 0:
+        return ControlCouplingEvaluation(
+            st_file_path=str(st_file.resolve()) if st_file.exists() else None,
+            stdout_log_path=str(stdout_log.resolve()),
+            cl_rudder_derivative=None,
+            cn_rudder_derivative=None,
+            roll_to_yaw_ratio=None,
+            coupling_reason="stability_derivative_runtime_error",
+        )
+    if derivatives is None:
+        return ControlCouplingEvaluation(
+            st_file_path=str(st_file.resolve()) if st_file.exists() else None,
+            stdout_log_path=str(stdout_log.resolve()),
+            cl_rudder_derivative=None,
+            cn_rudder_derivative=None,
+            roll_to_yaw_ratio=None,
+            coupling_reason="stability_derivatives_missing",
+        )
+
+    cl_rudder = derivatives.get("cld02")
+    cn_rudder = derivatives.get("cnd02")
+    if cn_rudder is None:
+        ratio = None
+        reason = "rudder_yaw_derivative_missing"
+    elif abs(float(cn_rudder)) <= 1.0e-12:
+        ratio = None
+        reason = "rudder_yaw_authority_zero"
+    elif cl_rudder is None:
+        ratio = None
+        reason = "rudder_roll_derivative_missing"
+    else:
+        ratio = abs(float(cl_rudder)) / abs(float(cn_rudder))
+        reason = "ok"
+
+    return ControlCouplingEvaluation(
+        st_file_path=str(st_file.resolve()) if st_file.exists() else None,
+        stdout_log_path=str(stdout_log.resolve()),
+        cl_rudder_derivative=None if cl_rudder is None else float(cl_rudder),
+        cn_rudder_derivative=None if cn_rudder is None else float(cn_rudder),
+        roll_to_yaw_ratio=None if ratio is None else float(ratio),
+        coupling_reason=reason,
+    )
 
 
 def run_avl_trim_case(
@@ -1072,6 +1280,7 @@ def _build_result_row(
     avl_eval: AvlEvaluation,
     aero_perf_eval: AeroPerformanceEvaluation,
     beta_eval: BetaSweepEvaluation | None,
+    control_eval: ControlCouplingEvaluation | None,
     summary_payload: dict[str, object] | None,
     selected_output_dir: str | None,
     summary_json_path: str | None,
@@ -1103,6 +1312,15 @@ def _build_result_row(
             beta_sweep_cl_beta_per_rad=None if beta_eval is None else beta_eval.cl_beta_per_rad,
             beta_sweep_directional_stable=None if beta_eval is None else beta_eval.directional_stable,
             beta_sweep_sideslip_feasible=None if beta_eval is None else beta_eval.sideslip_feasible,
+            rudder_cl_derivative=None if control_eval is None else control_eval.cl_rudder_derivative,
+            rudder_cn_derivative=None if control_eval is None else control_eval.cn_rudder_derivative,
+            rudder_roll_to_yaw_ratio=None if control_eval is None else control_eval.roll_to_yaw_ratio,
+            rudder_coupling_reason=None if control_eval is None else control_eval.coupling_reason,
+            spiral_mode_real=avl_eval.spiral_eval.real,
+            spiral_time_to_double_s=avl_eval.spiral_eval.time_to_double_s,
+            spiral_time_to_half_s=avl_eval.spiral_eval.time_to_half_s,
+            spiral_check_ok=avl_eval.spiral_eval.feasible,
+            spiral_reason=avl_eval.spiral_eval.reason,
             structure_status=structure_status,
             total_mass_kg=None,
             min_jig_clearance_mm=None,
@@ -1144,6 +1362,15 @@ def _build_result_row(
         beta_sweep_cl_beta_per_rad=None if beta_eval is None else beta_eval.cl_beta_per_rad,
         beta_sweep_directional_stable=None if beta_eval is None else beta_eval.directional_stable,
         beta_sweep_sideslip_feasible=None if beta_eval is None else beta_eval.sideslip_feasible,
+        rudder_cl_derivative=None if control_eval is None else control_eval.cl_rudder_derivative,
+        rudder_cn_derivative=None if control_eval is None else control_eval.cn_rudder_derivative,
+        rudder_roll_to_yaw_ratio=None if control_eval is None else control_eval.roll_to_yaw_ratio,
+        rudder_coupling_reason=None if control_eval is None else control_eval.coupling_reason,
+        spiral_mode_real=avl_eval.spiral_eval.real,
+        spiral_time_to_double_s=avl_eval.spiral_eval.time_to_double_s,
+        spiral_time_to_half_s=avl_eval.spiral_eval.time_to_half_s,
+        spiral_check_ok=avl_eval.spiral_eval.feasible,
+        spiral_reason=avl_eval.spiral_eval.reason,
         structure_status="feasible" if bool(selected["overall_feasible"]) else "infeasible",
         total_mass_kg=float(selected["total_structural_mass_kg"]),
         min_jig_clearance_mm=float(selected["jig_ground_clearance_min_m"]) * 1000.0,
@@ -1183,6 +1410,15 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "beta_sweep_cl_beta_per_rad",
         "beta_sweep_directional_stable",
         "beta_sweep_sideslip_feasible",
+        "rudder_cl_derivative",
+        "rudder_cn_derivative",
+        "rudder_roll_to_yaw_ratio",
+        "rudder_coupling_reason",
+        "spiral_mode_real",
+        "spiral_time_to_double_s",
+        "spiral_time_to_half_s",
+        "spiral_check_ok",
+        "spiral_reason",
         "structure_status",
         "total_mass_kg",
         "min_jig_clearance_mm",
@@ -1267,6 +1503,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override the maximum required trimmed sideslip [deg]. Defaults to config.",
     )
+    parser.add_argument(
+        "--min-spiral-time-to-double-s",
+        type=float,
+        default=None,
+        help="Override the minimum acceptable spiral-mode time-to-double [s]. Defaults to config.",
+    )
     parser.add_argument("--avl-velocity", type=float, default=None)
     parser.add_argument("--avl-density", type=float, default=None)
     parser.add_argument("--avl-gravity", type=float, default=None)
@@ -1341,6 +1583,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.max_sideslip_deg is None
         else float(args.max_sideslip_deg)
     )
+    min_spiral_time_to_double_s = (
+        float(cfg.aero_gates.min_spiral_time_to_double_s)
+        if args.min_spiral_time_to_double_s is None
+        else float(args.min_spiral_time_to_double_s)
+    )
     beta_sweep_values_deg = _resolve_beta_sweep_values(
         cfg.aero_gates.beta_sweep_values,
         max_sideslip_deg=float(max_sideslip_deg),
@@ -1403,14 +1650,15 @@ def main(argv: list[str] | None = None) -> int:
                     "structural_weight_n": float(aircraft.weight_N),
                     "aero_gate_settings": {
                         "cl_required": float(cl_required),
-                        "min_lift_kg": float(min_lift_kg),
-                        "min_lift_n": float(min_lift_n),
-                        "min_ld_ratio": float(min_ld_ratio),
+                    "min_lift_kg": float(min_lift_kg),
+                    "min_lift_n": float(min_lift_n),
+                    "min_ld_ratio": float(min_ld_ratio),
                     "cd_profile_estimate": float(cd_profile_estimate),
                     "max_trim_aoa_deg": float(max_trim_aoa_deg),
                     "skip_aero_gates": bool(args.skip_aero_gates),
                     "skip_beta_sweep": bool(args.skip_beta_sweep),
                     "max_sideslip_deg": float(max_sideslip_deg),
+                    "min_spiral_time_to_double_s": float(min_spiral_time_to_double_s),
                     "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
                 },
             },
@@ -1435,6 +1683,7 @@ def main(argv: list[str] | None = None) -> int:
             case_dir=case_dir,
             mode_params=mode_params,
             allow_missing_mode=bool(args.allow_missing_dutch_roll),
+            min_spiral_time_to_double_s=float(min_spiral_time_to_double_s),
         )
         if not avl_eval.aero_feasible:
             aero_perf_eval = _empty_aero_performance(
@@ -1473,6 +1722,15 @@ def main(argv: list[str] | None = None) -> int:
                 cl_required=cl_required,
                 beta_values_deg=beta_sweep_values_deg,
                 mode_params=mode_params,
+            )
+
+        control_eval: ControlCouplingEvaluation | None = None
+        if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible:
+            control_eval = run_avl_stability_derivatives_case(
+                avl_bin=avl_bin,
+                case_avl_path=case_avl_path,
+                case_dir=case_dir,
+                cl_required=cl_required,
             )
 
         beta_gate_passed = (
@@ -1516,6 +1774,7 @@ def main(argv: list[str] | None = None) -> int:
                 avl_eval=avl_eval,
                 aero_perf_eval=aero_perf_eval,
                 beta_eval=beta_eval,
+                control_eval=control_eval,
                 summary_payload=summary_payload,
                 selected_output_dir=selected_output_dir,
                 summary_json_path=summary_json_path,
@@ -1547,6 +1806,7 @@ def main(argv: list[str] | None = None) -> int:
                     "skip_aero_gates": bool(args.skip_aero_gates),
                     "skip_beta_sweep": bool(args.skip_beta_sweep),
                     "max_sideslip_deg": float(max_sideslip_deg),
+                    "min_spiral_time_to_double_s": float(min_spiral_time_to_double_s),
                     "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
                 },
                 "cases": [asdict(row) for row in rows],
@@ -1578,6 +1838,36 @@ def main(argv: list[str] | None = None) -> int:
             if row.beta_sweep_cl_beta_per_rad is None
             else f"{row.beta_sweep_cl_beta_per_rad:.3f}/rad"
         )
+        rudder_text = (
+            "n/a"
+            if row.rudder_coupling_reason is None
+            else (
+                f"Cl_dR={row.rudder_cl_derivative:.3f}, "
+                f"Cn_dR={row.rudder_cn_derivative:.3f}, "
+                f"|Cl/Cn|={row.rudder_roll_to_yaw_ratio:.3f}"
+                if (
+                    row.rudder_cl_derivative is not None
+                    and row.rudder_cn_derivative is not None
+                    and row.rudder_roll_to_yaw_ratio is not None
+                )
+                else row.rudder_coupling_reason
+            )
+        )
+        spiral_text = (
+            row.spiral_reason or "n/a"
+            if row.spiral_mode_real is None
+            else (
+                f"real={row.spiral_mode_real:.4f}, "
+                f"ttd={row.spiral_time_to_double_s:.2f}s"
+                if row.spiral_time_to_double_s is not None
+                else (
+                    f"real={row.spiral_mode_real:.4f}, "
+                    f"t_half={row.spiral_time_to_half_s:.2f}s"
+                    if row.spiral_time_to_half_s is not None
+                    else f"real={row.spiral_mode_real:.4f}, {row.spiral_reason}"
+                )
+            )
+        )
         beta_text = (
             "n/a"
             if row.beta_sweep_max_beta_deg is None
@@ -1594,6 +1884,7 @@ def main(argv: list[str] | None = None) -> int:
             f"x{row.dihedral_multiplier:.3f}: aero={row.aero_status}, "
             f"perf={row.aero_performance_reason}, L/D={ld_text}, "
             f"beta={beta_text}, "
+            f"rudder={rudder_text}, spiral={spiral_text}, "
             f"struct={row.structure_status}, mass={mass_text}, "
             f"clearance={clear_text}, wire={wire_text}"
         )

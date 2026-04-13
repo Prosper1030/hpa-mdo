@@ -22,11 +22,13 @@ from scripts.dihedral_sweep_campaign import (
     _evaluate_beta_sweep_points,
     evaluate_aero_performance,
     parse_avl_force_totals,
+    parse_avl_stability_derivatives,
     parse_avl_eigenvalue_file,
     parse_avl_mode_stdout,
     run_inverse_design_case,
     scale_avl_dihedral_text,
     select_dutch_roll_mode,
+    select_spiral_mode,
 )  # noqa: E402
 
 
@@ -168,6 +170,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
                 aero_performance_reason="ok",
             ),
             beta_eval=None,
+            control_eval=None,
             summary_payload=None,
             selected_output_dir="/tmp/inverse",
             summary_json_path=None,
@@ -266,6 +269,60 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertAlmostEqual(payload["span_efficiency"], 0.6381, places=4)
         self.assertAlmostEqual(payload["cl_roll_total"], -0.01234, places=5)
         self.assertAlmostEqual(payload["cn_total"], -0.05678, places=5)
+
+    def test_parse_avl_stability_derivatives_extracts_beta_and_rudder_terms(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            st_path = Path(tmp) / "case_trim.st"
+            st_path.write_text(
+                "\n".join(
+                    [
+                        " Stability-axis derivatives...",
+                        "",
+                        " x' mom.  Cl'|    Cla =  -0.000000    Clb =   0.031415",
+                        " z' mom.  Cn'|    Cna =  -0.000000    Cnb =  -0.120000",
+                        "",
+                        "                  elevator     d01     rudder       d02 ",
+                        " x' mom.  Cl'|   Cld01 =  -0.000000   Cld02 =   0.015000",
+                        " z' mom.  Cn'|   Cnd01 =  -0.000000   Cnd02 =  -0.040000",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = parse_avl_stability_derivatives(st_path)
+
+        self.assertIsNotNone(payload)
+        assert payload is not None
+        self.assertAlmostEqual(payload["clb"], 0.031415, places=6)
+        self.assertAlmostEqual(payload["cnb"], -0.12, places=6)
+        self.assertAlmostEqual(payload["cld02"], 0.015, places=6)
+        self.assertAlmostEqual(payload["cnd02"], -0.04, places=6)
+
+    def test_parse_avl_stability_derivatives_treats_starred_entries_as_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            st_path = Path(tmp) / "case_trim.st"
+            st_path.write_text(
+                "\n".join(
+                    [
+                        " x' mom.  Cl'|    Cla =  -0.000000    Clb =***********",
+                        " z' mom.  Cn'|    Cna =  -0.000000    Cnb =   0.000000",
+                        " x' mom.  Cl'|   Cld01 =  -0.000000   Cld02 =***********",
+                        " z' mom.  Cn'|   Cnd01 =  -0.000000   Cnd02 =  -0.000000",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = parse_avl_stability_derivatives(st_path)
+
+        self.assertIsNotNone(payload)
+        assert payload is not None
+        self.assertIsNone(payload["clb"])
+        self.assertIsNone(payload["cld02"])
+        self.assertEqual(payload["cnb"], 0.0)
+        self.assertEqual(payload["cnd02"], -0.0)
 
     def test_evaluate_aero_performance_flags_low_ld(self) -> None:
         trim_eval = mock.Mock(
@@ -412,6 +469,56 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertAlmostEqual(beta_eval.cn_beta_per_rad, -0.02 / math.radians(1.0), places=6)
         self.assertAlmostEqual(beta_eval.cl_beta_per_rad, -0.004 / math.radians(1.0), places=6)
 
+    def test_select_spiral_mode_uses_lateral_real_root_time_to_double(self) -> None:
+        stdout_text = """
+ Run case  1:   example
+
+  mode 1:   0.05000       0.00000
+ u  :     0.1000     0.0000      v  :     4.0000     0.0000      x  :   0.000       0.000
+ w  :     0.0500     0.0000      p  :     2.0000     0.0000      y  :   0.100       0.000
+ q  :     0.0200     0.0000      r  :     3.0000     0.0000      z  :   0.000       0.000
+ the:     0.0100     0.0000      phi:     1.5000     0.0000      psi:   1.200       0.000
+
+  mode 2:   0.20000       0.00000
+ u  :     5.0000     0.0000      v  :     0.2000     0.0000      x  :   0.000       0.000
+ w  :     2.0000     0.0000      p  :     0.1000     0.0000      y  :   0.000       0.000
+ q  :     1.0000     0.0000      r  :     0.1000     0.0000      z  :   0.000       0.000
+ the:     0.5000     0.0000      phi:     0.1000     0.0000      psi:   0.100       0.000
+ """
+        blocks = parse_avl_mode_stdout(stdout_text)
+
+        spiral = select_spiral_mode(
+            mode_blocks=blocks,
+            min_time_to_double_s=10.0,
+        )
+
+        self.assertTrue(spiral.mode_found)
+        self.assertAlmostEqual(spiral.real, 0.05)
+        assert spiral.time_to_double_s is not None
+        self.assertAlmostEqual(spiral.time_to_double_s, math.log(2.0) / 0.05, places=6)
+        self.assertTrue(spiral.feasible)
+
+    def test_select_spiral_mode_marks_unavailable_when_no_lateral_real_mode_exists(self) -> None:
+        stdout_text = """
+ Run case  1:   example
+
+  mode 1:  -0.20000       0.00000
+ u  :     5.0000     0.0000      v  :     0.0000     0.0000      x  :   0.000       0.000
+ w  :     2.0000     0.0000      p  :     0.0000     0.0000      y  :   0.000       0.000
+ q  :     1.0000     0.0000      r  :     0.0000     0.0000      z  :   0.000       0.000
+ the:     0.5000     0.0000      phi:     0.0000     0.0000      psi:   0.000       0.000
+ """
+        blocks = parse_avl_mode_stdout(stdout_text)
+
+        spiral = select_spiral_mode(
+            mode_blocks=blocks,
+            min_time_to_double_s=10.0,
+        )
+
+        self.assertFalse(spiral.mode_found)
+        self.assertIsNone(spiral.real)
+        self.assertEqual(spiral.reason, "spiral_mode_unavailable")
+
     def test_arg_parser_accepts_beta_sweep_flags(self) -> None:
         args = _build_arg_parser().parse_args(
             ["--skip-beta-sweep", "--max-sideslip-deg", "8.0"]
@@ -419,6 +526,13 @@ class DihedralSweepCampaignTests(unittest.TestCase):
 
         self.assertTrue(args.skip_beta_sweep)
         self.assertAlmostEqual(args.max_sideslip_deg, 8.0)
+
+    def test_arg_parser_accepts_spiral_time_override(self) -> None:
+        args = _build_arg_parser().parse_args(
+            ["--min-spiral-time-to-double-s", "12.5"]
+        )
+
+        self.assertAlmostEqual(args.min_spiral_time_to_double_s, 12.5)
 
 
 if __name__ == "__main__":

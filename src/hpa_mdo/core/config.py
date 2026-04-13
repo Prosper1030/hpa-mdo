@@ -261,6 +261,11 @@ class AeroGatesConfig(BaseModel):
         12.0,
         description="Maximum required trimmed sideslip angle [deg]",
     )
+    min_spiral_time_to_double_s: float = Field(
+        10.0,
+        description="Minimum acceptable spiral-mode time-to-double [s]",
+        gt=0.0,
+    )
     beta_sweep_values: List[float] = Field(
         default_factory=lambda: [0.0, 5.0, 10.0, 12.0],
         description="AVL beta sweep values [deg] for directional stability checks",
