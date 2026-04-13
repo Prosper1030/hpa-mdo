@@ -112,12 +112,43 @@ class WingGeometry:
 
 
 @dataclass
+class LiftingSurfaceGeometry:
+    name: str
+    origin: tuple[float, float, float]
+    span: float
+    root_chord: float
+    tip_chord: float
+    airfoil: str
+    incidence_deg: float
+    rotation_deg: tuple[float, float, float]
+    symmetry: str
+    control_surface_name: str | None = None
+    control_surface_limit_deg: float | None = None
+
+    @property
+    def half_span(self) -> float:
+        if self.symmetry == "xz":
+            return 0.5 * self.span
+        return self.span
+
+    @property
+    def area(self) -> float:
+        return 0.5 * self.span * (self.root_chord + self.tip_chord)
+
+    def chord_at(self, eta: float) -> float:
+        """Linearly interpolated chord at normalized span coordinate eta in [0, 1]."""
+        return self.root_chord + eta * (self.tip_chord - self.root_chord)
+
+
+@dataclass
 class Aircraft:
     name: str
     wing: WingGeometry
     flight: FlightCondition
     mass_total_kg: float
     mass_airframe_kg: float
+    horizontal_tail: LiftingSurfaceGeometry | None = None
+    vertical_fin: LiftingSurfaceGeometry | None = None
 
     @property
     def weight_N(self) -> float:
@@ -188,11 +219,16 @@ class Aircraft:
             kinematic_viscosity=cfg.flight.kinematic_viscosity,
         )
 
+        horizontal_tail = _surface_from_config(cfg.horizontal_tail)
+        vertical_fin = _surface_from_config(cfg.vertical_fin)
+
         return cls(
             name=cfg.project_name,
             wing=wing, flight=flight,
             mass_total_kg=cfg.weight.operating_kg,
             mass_airframe_kg=cfg.weight.airframe_kg,
+            horizontal_tail=horizontal_tail,
+            vertical_fin=vertical_fin,
         )
 
 
@@ -202,3 +238,21 @@ def _try_load_airfoil(directory: Path, name: str) -> Optional[AirfoilData]:
         if p.exists():
             return AirfoilData.from_dat(p, name)
     return None
+
+
+def _surface_from_config(cfg) -> LiftingSurfaceGeometry | None:
+    if not cfg.enabled:
+        return None
+    return LiftingSurfaceGeometry(
+        name=cfg.name,
+        origin=(cfg.x_location, cfg.y_location, cfg.z_location),
+        span=cfg.span,
+        root_chord=cfg.root_chord,
+        tip_chord=cfg.tip_chord,
+        airfoil=cfg.airfoil,
+        incidence_deg=cfg.incidence_deg,
+        rotation_deg=(cfg.x_rotation_deg, cfg.y_rotation_deg, cfg.z_rotation_deg),
+        symmetry=cfg.symmetry,
+        control_surface_name=cfg.control_surface_name,
+        control_surface_limit_deg=cfg.control_surface_limit_deg,
+    )

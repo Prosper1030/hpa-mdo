@@ -129,6 +129,23 @@ def test_blackcat_beta_sweep_gates_loaded_from_config():
     assert cfg.aero_gates.beta_sweep_values == pytest.approx([0.0, 5.0, 10.0, 12.0])
 
 
+def test_blackcat_empennage_geometry_loaded_from_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.horizontal_tail.name == "Elevator"
+    assert cfg.horizontal_tail.span == pytest.approx(3.0)
+    assert cfg.horizontal_tail.symmetry == "xz"
+    assert cfg.horizontal_tail.control_surface_limit_deg == pytest.approx(20.0)
+
+    assert cfg.vertical_fin.name == "Fin"
+    assert cfg.vertical_fin.z_location == pytest.approx(-0.7)
+    assert cfg.vertical_fin.x_rotation_deg == pytest.approx(90.0)
+    assert cfg.vertical_fin.control_surface_limit_deg == pytest.approx(25.0)
+
+
 def test_aircraft_converts_airfoil_camber_fraction_to_meters(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"
@@ -149,6 +166,42 @@ def test_aircraft_converts_airfoil_camber_fraction_to_meters(tmp_path):
     expected_camber = 0.05 * aircraft.wing.chord
     np.testing.assert_allclose(aircraft.wing.main_spar_z_camber, expected_camber)
     np.testing.assert_allclose(aircraft.wing.rear_spar_z_camber, expected_camber)
+
+
+def test_aircraft_builds_tail_and_fin_runtime_geometry():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path)
+
+    aircraft = Aircraft.from_config(cfg)
+
+    assert aircraft.horizontal_tail is not None
+    assert aircraft.horizontal_tail.origin == pytest.approx((4.0, 0.0, 0.0))
+    assert aircraft.horizontal_tail.half_span == pytest.approx(1.5)
+    assert aircraft.horizontal_tail.area == pytest.approx(2.4)
+    assert aircraft.horizontal_tail.control_surface_name == "elevator"
+
+    assert aircraft.vertical_fin is not None
+    assert aircraft.vertical_fin.origin == pytest.approx((5.0, 0.0, -0.7))
+    assert aircraft.vertical_fin.half_span == pytest.approx(2.4)
+    assert aircraft.vertical_fin.chord_at(0.5) == pytest.approx(0.7)
+    assert aircraft.vertical_fin.rotation_deg == pytest.approx((90.0, 0.0, 0.0))
+
+
+def test_aircraft_omits_disabled_empennage_surfaces(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["horizontal_tail"]["enabled"] = False
+    data["vertical_fin"]["enabled"] = False
+
+    cfg_path = tmp_path / "empennage_disabled.yaml"
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    aircraft = Aircraft.from_config(load_config(cfg_path))
+
+    assert aircraft.horizontal_tail is None
+    assert aircraft.vertical_fin is None
 
 
 def test_load_config_rejects_segment_sum_mismatch(tmp_path):

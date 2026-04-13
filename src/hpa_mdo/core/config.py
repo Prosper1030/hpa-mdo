@@ -127,6 +127,42 @@ class WingConfig(BaseModel):
     )
 
 
+class LiftingSurfaceConfig(BaseModel):
+    enabled: bool = True
+    name: str
+    x_location: float
+    y_location: float = 0.0
+    z_location: float = 0.0
+    span: float = Field(..., gt=0.0, description="Full span or vertical extent [m]")
+    root_chord: float = Field(..., gt=0.0)
+    tip_chord: float = Field(..., gt=0.0)
+    airfoil: str
+    incidence_deg: float = 0.0
+    x_rotation_deg: float = 0.0
+    y_rotation_deg: float = 0.0
+    z_rotation_deg: float = 0.0
+    symmetry: Literal["xz", "none"] = "none"
+    control_surface_name: Optional[str] = None
+    control_surface_limit_deg: Optional[float] = Field(None, ge=0.0)
+
+
+class HorizontalTailConfig(LiftingSurfaceConfig):
+    name: str = "Elevator"
+    airfoil: str = "NACA 0009"
+    symmetry: Literal["xz", "none"] = "xz"
+    control_surface_name: Optional[str] = "elevator"
+    control_surface_limit_deg: Optional[float] = Field(20.0, ge=0.0)
+
+
+class VerticalFinConfig(LiftingSurfaceConfig):
+    name: str = "Fin"
+    airfoil: str = "NACA 0009"
+    x_rotation_deg: float = 90.0
+    symmetry: Literal["xz", "none"] = "none"
+    control_surface_name: Optional[str] = "rudder"
+    control_surface_limit_deg: Optional[float] = Field(25.0, ge=0.0)
+
+
 class SparConfig(BaseModel):
     """Shared schema for main_spar and rear_spar."""
     material: str = "carbon_fiber_hm"
@@ -353,6 +389,19 @@ class HPAConfig(BaseModel):
     safety: SafetyConfig = SafetyConfig()
     weight: WeightConfig
     wing: WingConfig
+    horizontal_tail: HorizontalTailConfig = HorizontalTailConfig(
+        x_location=4.0,
+        span=3.0,
+        root_chord=0.8,
+        tip_chord=0.8,
+    )
+    vertical_fin: VerticalFinConfig = VerticalFinConfig(
+        x_location=5.0,
+        z_location=-0.7,
+        span=2.4,
+        root_chord=0.7,
+        tip_chord=0.7,
+    )
     main_spar: SparConfig
     rear_spar: SparConfig = SparConfig(
         enabled=True, location_xc=0.70,

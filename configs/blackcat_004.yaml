@@ -60,6 +60,43 @@ wing:
   max_tip_twist_deg: 2.0     # torsion constraint [±deg]
   max_tip_deflection_m: 2.5  # max allowable tip deflection [m]
 
+# ── Empennage Geometry ──────────────────────────────────────────────────────
+horizontal_tail:
+  enabled: true
+  name: "Elevator"
+  x_location: 4.0
+  y_location: 0.0
+  z_location: 0.0
+  span: 3.0                  # full span [m]
+  root_chord: 0.8
+  tip_chord: 0.8
+  airfoil: "NACA 0009"
+  incidence_deg: 0.0
+  x_rotation_deg: 0.0
+  y_rotation_deg: 0.0
+  z_rotation_deg: 0.0
+  symmetry: "xz"
+  control_surface_name: "elevator"
+  control_surface_limit_deg: 20.0
+
+vertical_fin:
+  enabled: true
+  name: "Fin"
+  x_location: 5.0
+  y_location: 0.0
+  z_location: -0.7
+  span: 2.4                  # vertical extent [m]
+  root_chord: 0.7
+  tip_chord: 0.7
+  airfoil: "NACA 0009"
+  incidence_deg: 0.0
+  x_rotation_deg: 90.0
+  y_rotation_deg: 0.0
+  z_rotation_deg: 0.0
+  symmetry: "none"
+  control_surface_name: "rudder"
+  control_surface_limit_deg: 25.0
+
 # ── Main Spar — Segmented Carbon-Fiber Tube ─────────────────────────────────
 #
 # Full wing = 11 tubes × 3.0 m.  The centre tube straddles the
