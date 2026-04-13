@@ -418,6 +418,8 @@ class RefreshIterationResult:
     outcome: InverseOutcome
     load_metrics: RefreshLoadMetrics
     mapped_loads: dict = field(repr=False)
+    map_config_summary: dict[str, float] = field(default_factory=dict)
+    dynamic_design_space_applied: bool = False
     forward_check: ForwardRefreshCheck | None = None
     lift_rms_delta_npm: float | None = None
     lift_max_abs_delta_npm: float | None = None
@@ -438,6 +440,8 @@ class RefreshIterationResult:
 class RefreshRefinementOutcome:
     refresh_steps_requested: int
     refresh_steps_completed: int
+    dynamic_design_space_enabled: bool
+    dynamic_design_space_rebuilds: int
     manufacturing_limit_source: str
     max_jig_vertical_prebend_limit_m: float | None
     max_jig_vertical_curvature_limit_per_m: float | None
@@ -484,6 +488,51 @@ def _status(flag: bool) -> str:
 def _fmt_array_mm(values_m: np.ndarray) -> str:
     values_mm = np.asarray(values_m, dtype=float) * 1000.0
     return "[" + ", ".join(f"{value:.3f}" for value in values_mm) + "]"
+
+
+def _baseline_design_from_result(baseline_result) -> BaselineDesign:
+    return BaselineDesign(
+        main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
+        main_r_seg_m=np.asarray(baseline_result.main_r_seg_mm, dtype=float) * 1.0e-3,
+        rear_t_seg_m=np.asarray(baseline_result.rear_t_seg_mm, dtype=float) * 1.0e-3,
+        rear_r_seg_m=np.asarray(baseline_result.rear_r_seg_mm, dtype=float) * 1.0e-3,
+    )
+
+
+def _baseline_design_from_candidate(candidate) -> BaselineDesign:
+    return BaselineDesign(
+        main_t_seg_m=np.asarray(candidate.main_t_seg_m, dtype=float),
+        main_r_seg_m=np.asarray(candidate.main_r_seg_m, dtype=float),
+        rear_t_seg_m=np.asarray(candidate.rear_t_seg_m, dtype=float),
+        rear_r_seg_m=np.asarray(candidate.rear_r_seg_m, dtype=float),
+    )
+
+
+def _map_config_to_dict(map_config: ReducedMapConfig) -> dict[str, float]:
+    return {
+        "main_plateau_scale_upper": float(map_config.main_plateau_scale_upper),
+        "main_taper_fill_upper": float(map_config.main_taper_fill_upper),
+        "rear_radius_scale_upper": float(map_config.rear_radius_scale_upper),
+        "delta_t_global_max_m": float(map_config.delta_t_global_max_m),
+        "delta_t_rear_outboard_max_m": float(map_config.delta_t_rear_outboard_max_m),
+    }
+
+
+def _rebuild_dynamic_map_config(
+    *,
+    selected_candidate,
+    cfg,
+    previous_map_config: ReducedMapConfig,
+) -> tuple[BaselineDesign, ReducedMapConfig]:
+    baseline = _baseline_design_from_candidate(selected_candidate)
+    rebuilt = build_reduced_map_config(
+        baseline=baseline,
+        cfg=cfg,
+        main_plateau_scale_upper=float(previous_map_config.main_plateau_scale_upper),
+        main_taper_fill_upper=float(previous_map_config.main_taper_fill_upper),
+        rear_radius_scale_upper=float(previous_map_config.rear_radius_scale_upper),
+    )
+    return baseline, rebuilt
 
 
 def _clearance_hotspots(
@@ -1471,6 +1520,8 @@ def _build_refresh_iteration_result(
     outcome: InverseOutcome,
     mapped_loads: dict,
     load_metrics: RefreshLoadMetrics,
+    map_config: ReducedMapConfig,
+    dynamic_design_space_applied: bool,
     previous: RefreshIterationResult | None,
     forward_check: ForwardRefreshCheck | None,
 ) -> RefreshIterationResult:
@@ -1480,6 +1531,8 @@ def _build_refresh_iteration_result(
         outcome=outcome,
         load_metrics=load_metrics,
         mapped_loads=dict(mapped_loads),
+        map_config_summary=_map_config_to_dict(map_config),
+        dynamic_design_space_applied=bool(dynamic_design_space_applied),
         forward_check=forward_check,
     )
     if previous is None:
@@ -2037,6 +2090,8 @@ def _build_refresh_iteration_summary(iteration: RefreshIterationResult) -> dict[
     return {
         "iteration_index": iteration.iteration_index,
         "load_source": iteration.load_source,
+        "dynamic_design_space_applied": iteration.dynamic_design_space_applied,
+        "map_config": dict(iteration.map_config_summary),
         "load_metrics": asdict(iteration.load_metrics),
         "run_metrics": {
             "success": iteration.outcome.success,
@@ -2125,6 +2180,9 @@ def build_refresh_report_text(
         lines.append("  jig_shape                   : nodes_target - structural displacement")
     lines.append("  refresh method              : reuse existing VSPAero AoA sweep, reduce local effective AoA by structural twist")
     lines.append("  outer updates               : 1-2 one-way refresh steps only; no inner converged aero-structural loop")
+    lines.append(
+        f"  dynamic design space        : {'enabled' if outcome.dynamic_design_space_enabled else 'disabled'}"
+    )
     lines.append("")
     lines.append("Physics assumptions:")
     lines.append("  1. Each stage is still a one-way structural solve on the existing beam-line target shape.")
@@ -2137,9 +2195,12 @@ def build_refresh_report_text(
     lines.append("Difference from full coupling:")
     lines.append("  - capped outer refresh count instead of iterating to convergence")
     lines.append("  - no geometry rebuild / CFD rerun between stages")
-    lines.append("  - no trim solve or dynamic design-space update")
+    if outcome.dynamic_design_space_enabled:
+        lines.append("  - no trim solve; dynamic design space only rebuilds the reduced V2 map")
+    else:
+        lines.append("  - no trim solve or dynamic design-space update")
     lines.append("")
-    lines.append("Reduced map (unchanged V2 design variables):")
+    lines.append("Initial reduced map:")
     lines.append(f"  main_plateau_scale upper    : {map_config.main_plateau_scale_upper:.4f}")
     lines.append(f"  main_taper_fill upper       : {map_config.main_taper_fill_upper:.4f}")
     lines.append(f"  rear_radius_scale upper     : {map_config.rear_radius_scale_upper:.4f}")
@@ -2169,6 +2230,7 @@ def build_refresh_report_text(
     lines.append("Refresh summary:")
     lines.append(f"  requested outer steps       : {outcome.refresh_steps_requested}")
     lines.append(f"  completed outer steps       : {outcome.refresh_steps_completed}")
+    lines.append(f"  dynamic map rebuilds        : {outcome.dynamic_design_space_rebuilds}")
     lines.append(f"  final feasible              : {final_iteration.outcome.feasible}")
     lines.append(f"  final selected source       : {final_iteration.outcome.selected.source}")
     if final_iteration.outcome.best_overall_feasible is not None:
@@ -2188,6 +2250,18 @@ def build_refresh_report_text(
         coarse_selected = iteration.outcome.coarse_selected
         lines.append(f"Iteration {iteration.iteration_index}:")
         lines.append(f"  load source                 : {iteration.load_source}")
+        lines.append(f"  dynamic map rebuild         : {iteration.dynamic_design_space_applied}")
+        lines.append(
+            f"  map plateau / taper / rear  : "
+            f"{iteration.map_config_summary.get('main_plateau_scale_upper', float('nan')):.4f} / "
+            f"{iteration.map_config_summary.get('main_taper_fill_upper', float('nan')):.4f} / "
+            f"{iteration.map_config_summary.get('rear_radius_scale_upper', float('nan')):.4f}"
+        )
+        lines.append(
+            f"  map delta_t / rear_outboard : "
+            f"{_mm(iteration.map_config_summary.get('delta_t_global_max_m')):11.6f} mm / "
+            f"{_mm(iteration.map_config_summary.get('delta_t_rear_outboard_max_m')):11.6f} mm"
+        )
         lines.append(f"  coarse selected mass        : {coarse_selected.total_structural_mass_kg:11.3f} kg")
         lines.append(f"  coarse candidate count      : {iteration.outcome.coarse_candidate_count:11d}")
         lines.append(f"  coarse feasible count       : {iteration.outcome.coarse_feasible_count:11d}")
@@ -2393,6 +2467,8 @@ def build_refresh_summary_json(
             "target_mass_kg": outcome.final_iteration.outcome.target_mass_kg,
             "refresh_steps_requested": outcome.refresh_steps_requested,
             "refresh_steps_completed": outcome.refresh_steps_completed,
+            "dynamic_design_space_enabled": outcome.dynamic_design_space_enabled,
+            "dynamic_design_space_rebuilds": outcome.dynamic_design_space_rebuilds,
             "refresh_washout_scale": float(refresh_washout_scale),
             "loaded_shape_matching": (
                 None
@@ -2414,7 +2490,11 @@ def build_refresh_summary_json(
             "difference_from_full_coupling": [
                 "no convergence loop to aero-structural tolerance",
                 "no geometry rebuild or new aerodynamic solve between stages",
-                "no trim update or dynamic design-space rewrite",
+                (
+                    "no trim update; dynamic design space only rebuilds the reduced V2 map"
+                    if outcome.dynamic_design_space_enabled
+                    else "no trim update or dynamic design-space rewrite"
+                ),
             ],
         },
         "map_config": {
@@ -2687,6 +2767,7 @@ def run_inverse_design(
     export_loads: dict,
     baseline_result,
     map_config: ReducedMapConfig,
+    baseline_design: BaselineDesign | None = None,
     clearance_floor_z_m: float,
     target_shape_error_tol_m: float,
     max_jig_vertical_prebend_m: float | None,
@@ -2718,12 +2799,8 @@ def run_inverse_design(
     local_refine_early_stop_patience: int,
     local_refine_early_stop_abs_improvement_kg: float,
 ) -> InverseOutcome:
-    baseline_design = BaselineDesign(
-        main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
-        main_r_seg_m=np.asarray(baseline_result.main_r_seg_mm, dtype=float) * 1.0e-3,
-        rear_t_seg_m=np.asarray(baseline_result.rear_t_seg_mm, dtype=float) * 1.0e-3,
-        rear_r_seg_m=np.asarray(baseline_result.rear_r_seg_mm, dtype=float) * 1.0e-3,
-    )
+    if baseline_design is None:
+        baseline_design = _baseline_design_from_result(baseline_result)
     evaluator = InverseDesignEvaluator(
         cfg=cfg,
         aircraft=aircraft,
@@ -2973,10 +3050,15 @@ def run_inverse_design_load_refresh_refinement(
     initial_mapped_loads: dict,
     refresh_model: LightweightLoadRefreshModel,
     refresh_steps: int,
+    dynamic_design_space: bool = False,
 ) -> RefreshRefinementOutcome:
     design_case = cfg.structural_load_cases()[0]
     refresh_steps = int(refresh_steps)
     iterations: list[RefreshIterationResult] = []
+    dynamic_design_space = bool(dynamic_design_space)
+    dynamic_rebuilds = 0
+    current_baseline_design = _baseline_design_from_result(baseline_result)
+    current_map_config = map_config
 
     optimizer.update_aero_loads(initial_mapped_loads)
     initial_export_loads = LoadMapper.apply_load_factor(initial_mapped_loads, design_case.aero_scale)
@@ -2987,7 +3069,8 @@ def run_inverse_design_load_refresh_refinement(
         optimizer=optimizer,
         export_loads=initial_export_loads,
         baseline_result=baseline_result,
-        map_config=map_config,
+        map_config=current_map_config,
+        baseline_design=current_baseline_design,
         clearance_floor_z_m=clearance_floor_z_m,
         target_shape_error_tol_m=target_shape_error_tol_m,
         max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
@@ -3026,6 +3109,8 @@ def run_inverse_design_load_refresh_refinement(
             outcome=frozen_outcome,
             mapped_loads=initial_mapped_loads,
             load_metrics=refresh_model.baseline_metrics(initial_mapped_loads),
+            map_config=current_map_config,
+            dynamic_design_space_applied=False,
             previous=None,
             forward_check=None,
         )
@@ -3054,6 +3139,15 @@ def run_inverse_design_load_refresh_refinement(
             candidate=previous_selected,
             previous_iteration_index=previous_iteration.iteration_index,
         )
+        map_rebuilt = False
+        if dynamic_design_space and previous_selected.overall_feasible:
+            current_baseline_design, current_map_config = _rebuild_dynamic_map_config(
+                selected_candidate=previous_selected,
+                cfg=cfg,
+                previous_map_config=current_map_config,
+            )
+            dynamic_rebuilds += 1
+            map_rebuilt = True
         refreshed_outcome = run_inverse_design(
             cfg=cfg,
             aircraft=aircraft,
@@ -3061,7 +3155,8 @@ def run_inverse_design_load_refresh_refinement(
             optimizer=optimizer,
             export_loads=refreshed_export_loads,
             baseline_result=baseline_result,
-            map_config=map_config,
+            map_config=current_map_config,
+            baseline_design=current_baseline_design,
             clearance_floor_z_m=clearance_floor_z_m,
             target_shape_error_tol_m=target_shape_error_tol_m,
             max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
@@ -3100,6 +3195,8 @@ def run_inverse_design_load_refresh_refinement(
                 outcome=refreshed_outcome,
                 mapped_loads=refreshed_mapped_loads,
                 load_metrics=refreshed_metrics,
+                map_config=current_map_config,
+                dynamic_design_space_applied=map_rebuilt,
                 previous=previous_iteration,
                 forward_check=forward_check,
             )
@@ -3108,6 +3205,8 @@ def run_inverse_design_load_refresh_refinement(
     return RefreshRefinementOutcome(
         refresh_steps_requested=refresh_steps,
         refresh_steps_completed=max(0, len(iterations) - 1),
+        dynamic_design_space_enabled=dynamic_design_space,
+        dynamic_design_space_rebuilds=int(dynamic_rebuilds),
         manufacturing_limit_source=manufacturing_limit_source,
         max_jig_vertical_prebend_limit_m=max_jig_vertical_prebend_m,
         max_jig_vertical_curvature_limit_per_m=max_jig_vertical_curvature_per_m,
@@ -3307,6 +3406,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=1.0,
         help="Scale factor that converts structural twist into local effective-AoA reduction during refresh.",
     )
+    parser.add_argument(
+        "--dynamic-design-space",
+        action="store_true",
+        help="Rebuild the reduced V2 search map after each feasible refresh iteration.",
+    )
     parser.add_argument("--step-engine", default="auto", choices=("auto", "cadquery", "build123d"))
     parser.add_argument("--skip-step-export", action="store_true")
     return parser
@@ -3468,6 +3572,7 @@ def main(argv: list[str] | None = None) -> int:
         initial_mapped_loads=mapped_loads,
         refresh_model=refresh_model,
         refresh_steps=int(args.refresh_steps),
+        dynamic_design_space=bool(args.dynamic_design_space),
     )
 
     final_iteration = refinement.final_iteration
@@ -3489,6 +3594,8 @@ def main(argv: list[str] | None = None) -> int:
     refinement = RefreshRefinementOutcome(
         refresh_steps_requested=refinement.refresh_steps_requested,
         refresh_steps_completed=refinement.refresh_steps_completed,
+        dynamic_design_space_enabled=refinement.dynamic_design_space_enabled,
+        dynamic_design_space_rebuilds=refinement.dynamic_design_space_rebuilds,
         manufacturing_limit_source=refinement.manufacturing_limit_source,
         max_jig_vertical_prebend_limit_m=refinement.max_jig_vertical_prebend_limit_m,
         max_jig_vertical_curvature_limit_per_m=refinement.max_jig_vertical_curvature_limit_per_m,
@@ -3533,6 +3640,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
     print(f"  Refresh steps       : {refinement.refresh_steps_completed}/{refinement.refresh_steps_requested}")
+    print(f"  Dynamic map rebuild : {refinement.dynamic_design_space_rebuilds}")
     print(f"  Feasible            : {refinement.final_iteration.outcome.feasible}")
     if refinement.final_iteration.outcome.target_mass_kg is not None:
         print(f"  Target mass cap     : {refinement.final_iteration.outcome.target_mass_kg:.3f} kg")
