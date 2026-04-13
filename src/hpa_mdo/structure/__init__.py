@@ -15,6 +15,14 @@ from hpa_mdo.structure.material_proxy_catalog import (
     build_default_material_proxy_catalog,
     resolve_catalog_property_rows,
 )
+from hpa_mdo.structure.laminate import (
+    PlyStack,
+    TubeEquivalentProperties,
+    compute_ABD,
+    ply_Q_matrix,
+    rotated_Q,
+    tube_equivalent_from_layup,
+)
 from hpa_mdo.structure.inverse_design import (
     INVERSE_MARGIN_NAMES,
     FrozenLoadInverseDesignResult,
@@ -55,6 +63,12 @@ __all__ = [
     "MaterialScalePackage",
     "build_default_material_proxy_catalog",
     "resolve_catalog_property_rows",
+    "PlyStack",
+    "TubeEquivalentProperties",
+    "ply_Q_matrix",
+    "rotated_Q",
+    "compute_ABD",
+    "tube_equivalent_from_layup",
     "INVERSE_MARGIN_NAMES",
     "StructuralNodeShape",
     "ShapeErrorMetrics",
