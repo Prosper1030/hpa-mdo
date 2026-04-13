@@ -155,7 +155,7 @@ def _wire_precompression_for_case(
         lift_per_span=lift_scaled,
         node_spacings=node_spacings,
         wire_attachment_indices=lift_wire_nodes,
-        wire_angle_deg=cfg.lift_wires.wire_angle_deg,
+        wire_angle_deg=cfg.lift_wires.attachment_wire_angles_deg(),
     )
 
 

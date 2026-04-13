@@ -73,6 +73,26 @@ def test_blackcat_lift_wire_angle_loaded_from_config():
     assert cfg.lift_wires.wire_angle_deg == pytest.approx(11.3)
 
 
+def test_multi_wire_layout_derives_per_attachment_angles(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["lift_wires"]["attachments"] = [
+        {"y": 4.5, "fuselage_z": -1.5, "label": "wire-1"},
+        {"y": 10.5, "fuselage_z": -1.5, "label": "wire-2"},
+    ]
+
+    cfg_path = tmp_path / "multi_wire.yaml"
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    cfg = load_config(cfg_path)
+
+    angles = cfg.lift_wires.attachment_wire_angles_deg()
+    assert len(angles) == 2
+    assert angles[0] == pytest.approx(np.degrees(np.arctan2(1.5, 4.5)))
+    assert angles[1] == pytest.approx(np.degrees(np.arctan2(1.5, 10.5)))
+
+
 def test_blackcat_loaded_shape_tolerances_loaded_from_solver_config():
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"

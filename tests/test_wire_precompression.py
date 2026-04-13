@@ -52,3 +52,34 @@ def test_wire_precompression_clips_negative_outboard_lift():
     )
 
     np.testing.assert_allclose(p, np.zeros(5), rtol=1e-12, atol=1e-12)
+
+
+def test_wire_precompression_accepts_per_wire_angles():
+    y = np.linspace(0.0, 5.0, 6)
+    lift = np.full_like(y, 10.0)
+    ds = np.ones_like(y)
+
+    p = wire_axial_precompression(
+        y_nodes=y,
+        lift_per_span=lift,
+        node_spacings=ds,
+        wire_attachment_indices=[2, 4],
+        wire_angle_deg=[45.0, 30.0],
+    )
+
+    expected_first = 40.0 / np.tan(np.deg2rad(45.0))
+    expected_second = 20.0 / np.tan(np.deg2rad(30.0))
+    np.testing.assert_allclose(
+        p,
+        np.array(
+                [
+                    expected_first + expected_second,
+                    expected_first + expected_second,
+                    expected_second,
+                    expected_second,
+                    0.0,
+                ]
+            ),
+        rtol=1e-12,
+        atol=1e-12,
+    )

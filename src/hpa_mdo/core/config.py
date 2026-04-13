@@ -6,6 +6,7 @@ overlay file for per-machine path differences.
 """
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
@@ -169,6 +170,30 @@ class LiftWireConfig(BaseModel):
         lt=90.0,
     )
     attachments: List[LiftWireAttachment] = Field(default_factory=list)
+
+    def attachment_wire_angles_deg(self) -> List[float]:
+        """Return one effective wire angle per configured attachment.
+
+        For the historical single-wire baseline, preserve the explicit
+        config value to avoid perturbing established regressions. For
+        multi-wire layouts, derive each angle from that wire's spanwise
+        reach and vertical drop when possible.
+        """
+        if not self.attachments:
+            return []
+        if len(self.attachments) == 1:
+            return [float(self.wire_angle_deg)]
+
+        angles: List[float] = []
+        fallback = float(self.wire_angle_deg)
+        for attachment in self.attachments:
+            reach_m = abs(float(attachment.y))
+            drop_m = abs(float(attachment.fuselage_z))
+            if reach_m > 0.0 and drop_m > 0.0:
+                angles.append(math.degrees(math.atan2(drop_m, reach_m)))
+            else:
+                angles.append(fallback)
+        return angles
 
 
 class AeroGatesConfig(BaseModel):

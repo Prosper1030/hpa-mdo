@@ -9,7 +9,7 @@ def wire_axial_precompression(
     lift_per_span: np.ndarray,
     node_spacings: np.ndarray,
     wire_attachment_indices: list[int],
-    wire_angle_deg: float,
+    wire_angle_deg: float | list[float] | np.ndarray,
 ) -> np.ndarray:
     """Return axial pre-compression force [N] at each FEM element.
 
@@ -31,17 +31,24 @@ def wire_axial_precompression(
         raise ValueError("lift_per_span must have shape (n_nodes,).")
     if spacing_arr.shape != (nn,):
         raise ValueError("node_spacings must have shape (n_nodes,).")
-    if wire_angle_deg <= 0.0 or wire_angle_deg >= 90.0:
-        raise ValueError("wire_angle_deg must satisfy 0 < wire_angle_deg < 90.")
-
     ne = nn - 1
-    theta = np.deg2rad(float(wire_angle_deg))
-    tan_theta = np.tan(theta)
-    if np.abs(tan_theta) < 1e-30:
-        raise ValueError("wire_angle_deg is too close to 0 deg.")
+    if np.isscalar(wire_angle_deg):
+        angle_values = np.full(len(wire_attachment_indices), float(wire_angle_deg), dtype=float)
+    else:
+        angle_values = np.asarray(wire_angle_deg, dtype=float).reshape(-1)
+        if angle_values.size != len(wire_attachment_indices):
+            raise ValueError(
+                "wire_angle_deg must be a scalar or match wire_attachment_indices length."
+            )
 
     p_precomp = np.zeros(ne, dtype=float)
-    for att_raw in wire_attachment_indices:
+    for att_raw, angle_deg in zip(wire_attachment_indices, angle_values, strict=True):
+        if angle_deg <= 0.0 or angle_deg >= 90.0:
+            raise ValueError("wire_angle_deg must satisfy 0 < wire_angle_deg < 90.")
+        theta = np.deg2rad(float(angle_deg))
+        tan_theta = np.tan(theta)
+        if np.abs(tan_theta) < 1e-30:
+            raise ValueError("wire_angle_deg is too close to 0 deg.")
         att_idx = int(att_raw)
         if att_idx < 0 or att_idx >= nn:
             raise ValueError(f"wire attachment index {att_idx} out of bounds for {nn} nodes.")

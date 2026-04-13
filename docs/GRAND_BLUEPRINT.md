@@ -4,7 +4,7 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-13  
-> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a fine dihedral sweep 已完成（1.0→3.5 全 pass，最佳 x3.5 = 11.99 kg），下一步進入 9b multi-wire campaign，8d 作為幾何整合補完
+> **狀態**：Phase I-B M7 已完成（7a–7i 全數落地）；M8 基礎設施 8a–8c 已完成；M9 9a/9b 已完成（9a: best x3.5 = 11.99 kg；9b: single-wire 高反角仍勝出），下一步進入 9c Pareto front，8d 作為幾何整合補完
 
 ---
 
@@ -195,9 +195,9 @@
            │                                       │
            │ 9a ✅ fine dihedral sweep (0.1 step) │
            │      1.0→3.5 全 pass, best x3.5     │
-           │ 9b. multi-wire sweep campaign        │
-           │     1/2/3 wires × dihedral grid     │
-           │     + wire drag penalty (CD ~0.003) │
+           │ 9b ✅ multi-wire sweep campaign      │
+           │      1/2/3 wires × dihedral grid    │
+           │      + wire drag; single high-dihedral wins │
            │ 9c. multi-objective Pareto front     │
            │     (mass × stability × wire ×       │
            │      aero performance)               │
@@ -273,6 +273,7 @@
 | VSP3→AVL pipeline | ✅ | vsp_geometry_parser + avl_exporter + CLI |
 | phase-2 gate stack | ✅ | stability + min_lift + L/D + structural gates 全部啟用 |
 | fine dihedral sweep (9a) | ✅ | 1.0→3.5 / 0.1 step，26 cases all pass，best x3.5 = 11.99 kg |
+| multi-wire sweep (9b) | ✅ | 1/2/3 wires + drag penalty；single x3.5 still best |
 
 ---
 
@@ -570,6 +571,12 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
   x3.4:  mass=12.13 kg, clearance=4.42 mm, wire=3931 N
   x3.5:  mass=11.99 kg, clearance=2.05 mm, wire=3939 N
   report: docs/dihedral_sweep_phase9a_report.md
+
+9b multi-wire highlights:
+  single x3.5: 11.99 kg, L/D 39.63
+  dual   x3.5: 14.71 kg, L/D 36.15
+  triple x3.5: 14.87 kg, L/D 33.23
+  report: docs/multi_wire_sweep_phase9b_report.md
 ```
 
 ### 已驗證的工程結論
@@ -585,9 +592,9 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **1** | 9b: multi-wire sweep campaign（1/2/3 wires + drag penalty） | M9 | Codex | ⏭️ **NEXT** |
-| **2** | 9c: multi-objective Pareto front | M9 | 規劃中 | ⏭️ 等 9b |
-| **3** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可並行 |
+| **1** | 9c: multi-objective Pareto front | M9 | Codex | ⏭️ **NEXT** |
+| **2** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可並行 |
+| **3** | focused crossover sweep（1.5→2.2，如需） | M9 | 規劃中 | ⏭️ 可選 |
 | **4** | 9d: vendor-aware tube catalog | M9 | 規劃中 | ⏭️ 等 9c |
 | **5** | 10a-b: ASWING 安裝 + .asw 產生器 | M10 | 評估中 | ❌ |
 
@@ -607,13 +614,14 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | monotonic deflection diagnostic | M7 | ✅ summary JSON + warning hook |
 | VSP3→AVL pipeline | M8 | ✅ parser + exporter + CLI + tests |
 | fine dihedral sweep | M9 | ✅ 26 cases, all pass, best x3.5 = 11.99 kg |
+| multi-wire sweep + drag penalty | M9 | ✅ 24 cases, all pass, single x3.5 still best |
 
 ### 關鍵路徑
 
 ```
-9b (multi-wire + drag penalty)
-   → 驗證高 dihedral 最優區在加入 wire-count/drag 後是否仍成立
-   → 9c (Pareto: mass × stability × wire × aero)
+9c (Pareto: mass × stability × wire × aero)
+   → 以 single/dual/triple + dihedral 作離散設計族群比較
+   → 如需補 crossover，再做 1.5→2.2 focused sweep
 
 並行補完：8d (config schema extension，tail/fin 幾何進 YAML/runtime model)
 

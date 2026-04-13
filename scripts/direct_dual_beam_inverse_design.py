@@ -1725,20 +1725,25 @@ def _lift_wire_rigging_records(
         return ()
 
     wire_material = materials_db.get(cfg.lift_wires.cable_material)
-    theta = np.deg2rad(float(cfg.lift_wires.wire_angle_deg))
-    sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
     cable_area_m2 = float(np.pi * (0.5 * float(cfg.lift_wires.cable_diameter)) ** 2)
     allowable_tension_n = (
         float(cfg.lift_wires.max_tension_fraction) * float(wire_material.tensile_strength) * cable_area_m2
     )
+    if hasattr(cfg.lift_wires, "attachment_wire_angles_deg"):
+        wire_angles_deg = cfg.lift_wires.attachment_wire_angles_deg()
+    else:
+        wire_angles_deg = [float(cfg.lift_wires.wire_angle_deg)] * len(cfg.lift_wires.attachments)
 
     records: list[LiftWireRiggingRecord] = []
-    for att, node_index, vertical_reaction_n in zip(
+    for att, angle_deg, node_index, vertical_reaction_n in zip(
         cfg.lift_wires.attachments,
+        wire_angles_deg,
         wire_node_indices,
         np.asarray(result.reactions.wire_reactions_n, dtype=float),
         strict=True,
     ):
+        theta = np.deg2rad(float(angle_deg))
+        sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
         loaded_attach = np.asarray(model.nodes_main_m[node_index], dtype=float) + np.asarray(
             result.disp_main_m[node_index, :3],
             dtype=float,
