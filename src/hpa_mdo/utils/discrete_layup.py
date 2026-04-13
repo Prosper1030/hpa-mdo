@@ -1,0 +1,278 @@
+"""Discrete symmetric layup catalog helpers and post-processing utilities."""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+import logging
+from typing import Sequence
+
+from hpa_mdo.core.config import SparConfig
+from hpa_mdo.core.materials import PlyMaterial
+from hpa_mdo.structure.laminate import (
+    PlyStack,
+    TubeEquivalentProperties,
+    tube_equivalent_from_layup,
+)
+
+
+LOGGER = logging.getLogger(__name__)
+_FLOAT_TOL = 1.0e-12
+
+
+@dataclass(frozen=True)
+class SegmentLayupResult:
+    """Discrete layup selection for one spanwise segment."""
+
+    segment_index: int
+    y_start_m: float
+    y_end_m: float
+    target_thickness_m: float
+    outer_radius_m: float
+    stack: PlyStack
+    equivalent_properties: TubeEquivalentProperties
+    continuous_mass_full_wing_kg: float
+    discrete_mass_full_wing_kg: float
+    catalog_capped: bool
+
+    @property
+    def mass_penalty_full_wing_kg(self) -> float:
+        return self.discrete_mass_full_wing_kg - self.continuous_mass_full_wing_kg
+
+    @property
+    def stack_notation(self) -> str:
+        return format_stack_notation(self.stack)
+
+
+def _stack_sort_key(stack: PlyStack) -> tuple[int, int, int, int]:
+    return (stack.total_plies(), stack.n_90, stack.n_45, stack.n_0)
+
+
+def format_stack_notation(stack: PlyStack) -> str:
+    tokens: list[str] = []
+    for angle in stack.angle_sequence_half():
+        if angle > 0.0:
+            tokens.append(f"+{int(angle)}")
+        elif angle < 0.0:
+            tokens.append(f"{int(angle)}")
+        else:
+            tokens.append("0")
+    return "[" + "/".join(tokens) + "]_s"
+
+
+def enumerate_valid_stacks(config: SparConfig) -> list[PlyStack]:
+    """Enumerate structurally valid symmetric ply stacks from config limits."""
+    max_half_plies = max(int(config.max_total_plies) // 2, 1)
+    stacks: list[PlyStack] = []
+    for n_0 in range(int(config.min_plies_0), max_half_plies + 1):
+        for n_45 in range(int(config.min_plies_45_pairs), max_half_plies + 1):
+            for n_90 in range(int(config.min_plies_90), max_half_plies + 1):
+                stack = PlyStack(n_0=n_0, n_45=n_45, n_90=n_90)
+                if stack.total_plies() > int(config.max_total_plies):
+                    continue
+                if stack.validate():
+                    continue
+                stacks.append(stack)
+    return sorted(stacks, key=_stack_sort_key)
+
+
+def snap_to_nearest_stack(
+    target_thickness: float,
+    stacks: Sequence[PlyStack],
+    ply_mat: PlyMaterial,
+) -> PlyStack:
+    """Snap up to the thinnest stack whose wall thickness meets the target."""
+    if not stacks:
+        raise ValueError("stacks must not be empty.")
+
+    for stack in stacks:
+        if stack.wall_thickness(ply_mat.t_ply) >= float(target_thickness) - _FLOAT_TOL:
+            return stack
+
+    thickest = max(stacks, key=lambda item: item.wall_thickness(ply_mat.t_ply))
+    LOGGER.warning(
+        "Target wall thickness %.6f m exceeds catalog max %.6f m; returning the thickest stack.",
+        float(target_thickness),
+        thickest.wall_thickness(ply_mat.t_ply),
+    )
+    return thickest
+
+
+def discretize_layup_per_segment(
+    continuous_thicknesses: Sequence[float],
+    R_outer_per_seg: Sequence[float],
+    stacks: Sequence[PlyStack],
+    ply_mat: PlyMaterial,
+    ply_drop_limit: int = 2,
+) -> list[PlyStack]:
+    """Snap each segment thickness to a discrete stack with ply-drop control."""
+    if len(continuous_thicknesses) != len(R_outer_per_seg):
+        raise ValueError("continuous_thicknesses and R_outer_per_seg must have the same length.")
+    if ply_drop_limit < 0:
+        raise ValueError("ply_drop_limit must be non-negative.")
+
+    ordered = sorted(stacks, key=lambda stack: (stack.wall_thickness(ply_mat.t_ply), _stack_sort_key(stack)))
+    selected: list[PlyStack] = []
+
+    for idx, target in enumerate(continuous_thicknesses):
+        stack = snap_to_nearest_stack(float(target), ordered, ply_mat)
+        if idx > 0:
+            min_total_plies = max(selected[-1].total_plies() - int(ply_drop_limit), 0)
+            if stack.total_plies() < min_total_plies:
+                eligible = [
+                    candidate
+                    for candidate in ordered
+                    if candidate.total_plies() >= min_total_plies
+                    and candidate.wall_thickness(ply_mat.t_ply) >= float(target) - _FLOAT_TOL
+                ]
+                if eligible:
+                    stack = eligible[0]
+                else:
+                    stack = ordered[-1]
+                    LOGGER.warning(
+                        "Segment %d requires at least %d plies to satisfy ply-drop control; "
+                        "using the thickest available stack.",
+                        idx + 1,
+                        min_total_plies,
+                    )
+        selected.append(stack)
+
+    return selected
+
+
+def build_segment_layup_results(
+    *,
+    segment_lengths_m: Sequence[float],
+    continuous_thicknesses_m: Sequence[float],
+    outer_radii_m: Sequence[float],
+    stacks: Sequence[PlyStack],
+    ply_mat: PlyMaterial,
+    ply_drop_limit: int = 2,
+) -> list[SegmentLayupResult]:
+    """Build per-segment layup selections with geometry and mass annotations."""
+    if not (
+        len(segment_lengths_m) == len(continuous_thicknesses_m) == len(outer_radii_m)
+    ):
+        raise ValueError(
+            "segment_lengths_m, continuous_thicknesses_m, and outer_radii_m must match in length."
+        )
+
+    selected = discretize_layup_per_segment(
+        continuous_thicknesses=continuous_thicknesses_m,
+        R_outer_per_seg=outer_radii_m,
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=ply_drop_limit,
+    )
+    results: list[SegmentLayupResult] = []
+    y_start = 0.0
+    for idx, (length_m, target_t_m, outer_r_m, stack) in enumerate(
+        zip(segment_lengths_m, continuous_thicknesses_m, outer_radii_m, selected, strict=True),
+        start=1,
+    ):
+        y_end = y_start + float(length_m)
+        equiv = tube_equivalent_from_layup(stack, ply_mat, R_outer=float(outer_r_m))
+        continuous_mass = _segment_full_wing_mass(
+            segment_length_m=float(length_m),
+            outer_radius_m=float(outer_r_m),
+            wall_thickness_m=float(target_t_m),
+            density_kgpm3=ply_mat.density,
+        )
+        discrete_mass = _segment_full_wing_mass(
+            segment_length_m=float(length_m),
+            outer_radius_m=float(outer_r_m),
+            wall_thickness_m=equiv.wall_thickness,
+            density_kgpm3=ply_mat.density,
+        )
+        results.append(
+            SegmentLayupResult(
+                segment_index=idx,
+                y_start_m=y_start,
+                y_end_m=y_end,
+                target_thickness_m=float(target_t_m),
+                outer_radius_m=float(outer_r_m),
+                stack=stack,
+                equivalent_properties=equiv,
+                continuous_mass_full_wing_kg=continuous_mass,
+                discrete_mass_full_wing_kg=discrete_mass,
+                catalog_capped=equiv.wall_thickness + _FLOAT_TOL < float(target_t_m),
+            )
+        )
+        y_start = y_end
+
+    return results
+
+
+def format_layup_report(
+    segments_stacks: Sequence[SegmentLayupResult],
+    ply_mat: PlyMaterial,
+) -> str:
+    """Format a human-readable layup schedule report."""
+    lines = [
+        f"Ply material: {ply_mat.name}",
+        f"Ply thickness: {ply_mat.t_ply * 1000.0:.3f} mm",
+        "",
+    ]
+    for result in segments_stacks:
+        note = " [catalog max reached]" if result.catalog_capped else ""
+        lines.append(
+            "Segment "
+            f"{result.segment_index} (y={result.y_start_m:.1f}-{result.y_end_m:.1f}m): "
+            f"{result.stack_notation}{note}"
+        )
+        lines.append(
+            f"  {result.stack.total_plies()} plies, "
+            f"h={result.equivalent_properties.wall_thickness * 1000.0:.3f} mm, "
+            f"E_eff={result.equivalent_properties.E_axial / 1.0e9:.1f} GPa, "
+            f"G_eff={result.equivalent_properties.G_shear / 1.0e9:.1f} GPa"
+        )
+        lines.append(
+            f"  target={result.target_thickness_m * 1000.0:.3f} mm, "
+            f"mass_penalty={result.mass_penalty_full_wing_kg:+.3f} kg/full wing"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def summarize_layup_results(
+    segments_stacks: Sequence[SegmentLayupResult],
+) -> dict[str, object]:
+    """Return a machine-readable summary for JSON export."""
+    return {
+        "segment_count": len(segments_stacks),
+        "continuous_mass_full_wing_kg": sum(
+            result.continuous_mass_full_wing_kg for result in segments_stacks
+        ),
+        "discrete_mass_full_wing_kg": sum(
+            result.discrete_mass_full_wing_kg for result in segments_stacks
+        ),
+        "mass_penalty_full_wing_kg": sum(
+            result.mass_penalty_full_wing_kg for result in segments_stacks
+        ),
+        "segments": [
+            {
+                "segment_index": result.segment_index,
+                "y_start_m": result.y_start_m,
+                "y_end_m": result.y_end_m,
+                "target_thickness_m": result.target_thickness_m,
+                "outer_radius_m": result.outer_radius_m,
+                "stack": asdict(result.stack),
+                "stack_notation": result.stack_notation,
+                "equivalent_properties": asdict(result.equivalent_properties),
+                "continuous_mass_full_wing_kg": result.continuous_mass_full_wing_kg,
+                "discrete_mass_full_wing_kg": result.discrete_mass_full_wing_kg,
+                "mass_penalty_full_wing_kg": result.mass_penalty_full_wing_kg,
+                "catalog_capped": result.catalog_capped,
+            }
+            for result in segments_stacks
+        ],
+    }
+
+
+def _segment_full_wing_mass(
+    *,
+    segment_length_m: float,
+    outer_radius_m: float,
+    wall_thickness_m: float,
+    density_kgpm3: float,
+) -> float:
+    inner_radius_m = max(float(outer_radius_m) - float(wall_thickness_m), 0.0)
+    area_m2 = 3.141592653589793 * (float(outer_radius_m) ** 2 - inner_radius_m**2)
+    return 2.0 * float(segment_length_m) * float(density_kgpm3) * area_m2
