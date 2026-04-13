@@ -116,7 +116,8 @@ required to hit that target.
 - For the currently sampled high-dihedral window, the best design direction is:
   `single wire + high progressive dihedral`.
 - A follow-up probe to `single x3.6 → x4.0` also passed all gates and flattened at
-  `11.954 kg`, so `>3.5` is feasible but already in diminishing-return territory.
+  `11.954 kg`, and an upper-bound probe later showed `single x6.28` still passes while
+  `x6.30` is the first trim-AoA failure.
 - The remaining open question is therefore the crossover between low-dihedral multi-wire benefit
   and high-dihedral single-wire benefit. That crossover likely sits somewhere between `x1.0`
   and `x2.5`.
@@ -125,7 +126,7 @@ required to hit that target.
 
 Proceed to `9c multi-objective Pareto front`, using:
 
-1. `single x3.5–x4.0` as the high-performance family.
+1. `single x3.6–x6.28` as the high-performance family.
 2. `dual/triple x1.0` as low-dihedral structural-support reference points.
 3. Keep line-position changes as a separate focused variable if we later decide to sweep
    `1.5 / 4.5 / 7.5 / 10.5 / 13.5 m` combinations more broadly.

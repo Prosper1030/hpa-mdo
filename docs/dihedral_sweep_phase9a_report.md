@@ -98,24 +98,68 @@ A focused follow-up probe was also run for `3.6 → 4.0`:
 | 3.9 | 11.954 | 43.63 | 2.529 | 2.426 | yes |
 | 4.0 | 11.954 | 43.54 | 2.807 | 2.426 | yes |
 
+## Extreme Upper-Bound Probe
+
+To find the first real failure point, the multiplier was then pushed upward until a gate broke:
+
+```bash
+./.venv/bin/python scripts/dihedral_sweep_campaign.py \
+  --config configs/blackcat_004.yaml \
+  --base-avl data/blackcat_004_full.avl \
+  --multipliers 4.5,5.0,6.0,7.5,10.0 \
+  --output-dir output/dihedral_sweep_extreme_probe_01 \
+  --skip-step-export
+
+./.venv/bin/python scripts/dihedral_sweep_campaign.py \
+  --config configs/blackcat_004.yaml \
+  --base-avl data/blackcat_004_full.avl \
+  --multipliers 6.2,6.4,6.6,6.8,7.0,7.2,7.4 \
+  --output-dir output/dihedral_sweep_extreme_probe_02 \
+  --skip-step-export
+
+./.venv/bin/python scripts/dihedral_sweep_campaign.py \
+  --config configs/blackcat_004.yaml \
+  --base-avl data/blackcat_004_full.avl \
+  --multipliers 6.24,6.26,6.28,6.30,6.32,6.34,6.36,6.38 \
+  --output-dir output/dihedral_sweep_extreme_probe_03 \
+  --skip-step-export
+```
+
+| multiplier | aoa_trim_deg | ld_ratio | structure_status | result |
+|---:|---:|---:|:---:|---|
+| 6.00 | 11.91373 | 43.99 | feasible | pass |
+| 6.24 | 11.98492 | 43.83 | feasible | pass |
+| 6.26 | 11.99086 | 43.81 | feasible | pass |
+| 6.28 | 11.99680 | 43.80 | feasible | last pass |
+| 6.30 | 12.00274 | 43.78 | skipped | first fail: `trim_aoa_exceeds_limit` |
+| 7.50 | 12.36448 | 42.88 | skipped | trim AoA gate fail |
+| 10.00 | 13.22147 | 40.28 | skipped | trim AoA gate fail |
+
+- The limiter is therefore the aero performance gate, not structure.
+- `single x6.28` still keeps the low-mass plateau: `11.954 kg`, `9.148 mm` clearance,
+  `equivalent_tip_deflection = 2.426 m`.
+- The first sampled failure appears immediately at `x6.30`, where trim AoA crosses the
+  configured `12.0 deg` ceiling.
+
 ## Engineering Interpretation
 
 - Progressive dihedral scaling keeps paying off well beyond the old `x2.5` ceiling.
 - The dominant trade-off is no longer a hard aero/stability gate. It is now a softer choice between:
-  the first low-mass plateau (`x3.6+ = 11.954 kg`), better clearance at very similar mass (`x3.9/x4.0`),
-  and slightly stronger damping / L/D at lower multipliers.
-- Going above `x3.5` is therefore feasible, but the returns are now very small:
-  `x3.5 → x4.0` only saves about `0.034 kg` while L/D drops further and the wing sits higher.
-- The main unanswered question is no longer the upper dihedral limit. It is how this high-dihedral
-  single-wire family compares against multi-wire families once drag is priced in.
+  the wide low-mass plateau (`x3.6 → x6.28 = 11.954 kg`), more clearance as dihedral rises, and
+  slightly stronger damping / L/D at lower multipliers.
+- The real upper bound is now known: the first sampled failure is `x6.30`, caused by
+  `trim_aoa_exceeds_limit`, not by structural infeasibility or tip-deflection violation.
+- The main unanswered question is therefore not "how far can dihedral go?".
+  It is how this broad high-dihedral single-wire plateau compares against multi-wire families
+  once drag is priced in.
 
 ## Recommended Next Step
 
 With `9b` now complete, proceed to `9c multi-objective Pareto front` using:
 
-1. `single x3.5 → x4.0` as the high-dihedral low-mass family.
+1. `single x3.6 → x6.28` as the high-dihedral low-mass family.
 2. `dual/triple x1.0` as low-dihedral structural-support reference points.
 3. One optional crossover bridge in `x1.5 → x2.2` if we later need a sharper handoff boundary.
 
-This keeps the plateau region in scope without wasting time on ever-higher dihedral values that only
-buy marginal extra mass reduction.
+This keeps the entire feasible plateau in scope while avoiding values at or above `x6.30`, where the
+trim AoA gate already starts failing.
