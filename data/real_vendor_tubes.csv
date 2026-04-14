@@ -1,0 +1,25 @@
+vendor,product,material_key,outer_diameter_mm,inner_diameter_mm,wall_thickness_mm,length_mm,mass_per_meter_kg,price_per_meter_usd,source_doc,note
+GTI,CCH015011,carbon_fiber_std,15.50,11.00,2.250,RFQ,0.1452,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH018013A,carbon_fiber_std,18.35,13.00,2.675,RFQ,0.2042,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH018013B,carbon_fiber_std,18.35,13.80,2.275,RFQ,0.1781,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH020008,carbon_fiber_std,20.00,8.00,6.000,RFQ,0.4090,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH022015,carbon_fiber_std,22.00,15.80,3.100,RFQ,0.2853,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH023018,carbon_fiber_std,23.00,18.00,2.500,RFQ,0.2496,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH025021,carbon_fiber_std,25.00,21.00,2.000,RFQ,0.2240,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH028022,carbon_fiber_std,28.00,22.50,2.750,RFQ,0.3381,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH028024,carbon_fiber_std,28.00,24.00,2.000,RFQ,0.2532,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH030022,carbon_fiber_std,30.00,22.00,4.000,RFQ,0.5064,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH030024,carbon_fiber_std,30.00,24.00,3.000,RFQ,0.3946,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH035029,carbon_fiber_std,35.00,29.00,3.000,RFQ,0.5451,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH038032,carbon_fiber_std,38.00,32.00,3.000,RFQ,0.6098,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH040034,carbon_fiber_std,40.00,34.00,3.000,RFQ,0.6518,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH045039,carbon_fiber_std,45.00,39.00,3.000,RFQ,0.7571,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH050044,carbon_fiber_std,50.00,44.00,3.000,RFQ,0.8571,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH060052,carbon_fiber_std,60.00,52.00,4.000,RFQ,1.4145,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH070062,carbon_fiber_std,70.00,62.00,4.000,RFQ,1.6868,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH080072,carbon_fiber_std,80.00,72.00,4.000,RFQ,1.9592,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+GTI,CCH095087,carbon_fiber_std,95.00,87.00,4.000,RFQ,2.4449,RFQ,台灣碳纖維管製造商型號與規格深度調查報告.pdf,GTI pultruded CF tube SM-class
+Pan_Taiwan,PT-CUSTOM-OEM,carbon_fiber_std,custom,custom,custom,RFQ,RFQ,RFQ,台灣HPA用碳纖維管供應商與適配性分析報告.pdf,Pan Taiwan roll-wrap+filament wind OEM; OD up to 3200mm
+YFCM,YFCM-CUSTOM,carbon_fiber_std,custom,custom,custom,RFQ,RFQ,RFQ,台灣HPA用碳纖維管供應商與適配性分析報告.pdf,YFCM custom tubes; torsion/bending specs available on request
+GR_Applied,GR-ROUND,carbon_fiber_std,custom,custom,custom,RFQ,RFQ,RFQ,台灣HPA用碳纖維管供應商與適配性分析報告.pdf,GR Applied round/square/octagonal tubes; REACH+SGS compliant
+Chris,CHRIS-PULTRUDED,carbon_fiber_std,custom,custom,custom,RFQ,RFQ,RFQ,台灣HPA用碳纖維管供應商與適配性分析報告.pdf,Chris pultruded tubes; TDS available on request
