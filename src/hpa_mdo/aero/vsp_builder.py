@@ -19,6 +19,7 @@ Error philosophy — **never crash**:
 
 from __future__ import annotations
 
+import math
 import re
 import shutil
 import subprocess
@@ -108,9 +109,26 @@ class VSPBuilder:
         Maximum seconds to wait for VSPAero to finish.  Default 600.
     """
 
-    def __init__(self, cfg: HPAConfig, vspaero_timeout: int = _VSPAERO_TIMEOUT):
+    def __init__(
+        self,
+        cfg: HPAConfig,
+        vspaero_timeout: int = _VSPAERO_TIMEOUT,
+        *,
+        dihedral_multiplier: float = 1.0,
+        dihedral_exponent: float | None = None,
+    ):
         self.cfg = cfg
         self.vspaero_timeout = vspaero_timeout
+        if dihedral_multiplier < 0.0:
+            raise ValueError("dihedral_multiplier must be >= 0.0")
+        self.dihedral_multiplier = float(dihedral_multiplier)
+        self.dihedral_exponent = (
+            float(cfg.wing.dihedral_scaling_exponent)
+            if dihedral_exponent is None
+            else float(dihedral_exponent)
+        )
+        if self.dihedral_exponent < 0.0:
+            raise ValueError("dihedral_exponent must be >= 0.0")
 
     # ------------------------------------------------------------------
     # Public API
@@ -779,8 +797,59 @@ class VSPBuilder:
         """
         reference = self._reference_vsp_wing_section_schedule(vsp)
         if reference is not None:
-            return reference
-        return self._config_wing_section_schedule()
+            return self._apply_dihedral_multiplier_to_schedule(reference)
+        return self._apply_dihedral_multiplier_to_schedule(self._config_wing_section_schedule())
+
+    def _apply_dihedral_multiplier_to_schedule(
+        self,
+        schedule: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Apply AVL-style progressive z scaling and refit segment dihedral.
+
+        The dihedral sweep campaign scales SECTION z values by
+        ``1 + (multiplier - 1) * eta**exponent``.  OpenVSP wing segments
+        instead store a constant dihedral angle per segment, so we
+        reconstruct station z, scale those stations, then recover the
+        per-segment angles that best reproduce the swept cruise OML.
+        """
+        if len(schedule) < 2 or abs(self.dihedral_multiplier - 1.0) <= 1.0e-12:
+            return [dict(item) for item in schedule]
+
+        half_span = float(self.cfg.half_span)
+        z_stations = [0.0]
+        for idx in range(1, len(schedule)):
+            left = schedule[idx - 1]
+            right = schedule[idx]
+            dy = float(right["y"]) - float(left["y"])
+            local_dih = float(
+                right.get(
+                    "segment_dihedral_deg",
+                    0.5 * (float(left["dihedral_deg"]) + float(right["dihedral_deg"])),
+                )
+            )
+            z_stations.append(z_stations[-1] + dy * math.tan(math.radians(local_dih)))
+
+        scaled_z: list[float] = []
+        scale_factors: list[float] = []
+        for item, z_val in zip(schedule, z_stations):
+            eta = 0.0 if half_span <= 0.0 else min(max(abs(float(item["y"])) / half_span, 0.0), 1.0)
+            factor = 1.0 + (self.dihedral_multiplier - 1.0) * (eta ** self.dihedral_exponent)
+            scale_factors.append(factor)
+            scaled_z.append(z_val * factor)
+
+        scaled_schedule: list[dict[str, Any]] = []
+        for idx, item in enumerate(schedule):
+            entry = dict(item)
+            entry["dihedral_scale_factor"] = scale_factors[idx]
+            entry["z_m"] = scaled_z[idx]
+            if idx > 0:
+                dy = float(schedule[idx]["y"]) - float(schedule[idx - 1]["y"])
+                local_dih = math.degrees(math.atan2(scaled_z[idx] - scaled_z[idx - 1], dy))
+                entry["dihedral_deg"] = local_dih
+                entry["segment_dihedral_deg"] = local_dih
+            scaled_schedule.append(entry)
+
+        return scaled_schedule
 
     def _config_wing_section_schedule(self) -> List[Dict[str, Any]]:
         """Return a config-derived wing station schedule."""

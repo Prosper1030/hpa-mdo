@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
@@ -156,3 +157,94 @@ def test_api_build_prefers_reference_vsp_sections_for_cfd_fidelity(tmp_path) -> 
     assert tip_chords == pytest.approx([1.30, 1.30, 1.175, 1.04, 0.83, 0.435])
     assert dihedrals == pytest.approx([1.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     assert 2.0 * sum(areas) == pytest.approx(35.175)
+
+
+def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_path) -> None:
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    builder = VSPBuilder(cfg, dihedral_multiplier=3.6, dihedral_exponent=1.0)
+
+    schedule = [
+        {
+            "y": 0.0,
+            "chord": 1.30,
+            "dihedral_deg": 1.0,
+            "segment_dihedral_deg": 1.0,
+            "airfoil": "clarkysm",
+            "source": "reference_vsp",
+        },
+        {
+            "y": 1.5,
+            "chord": 1.30,
+            "dihedral_deg": 1.0,
+            "segment_dihedral_deg": 1.0,
+            "airfoil": "clarkysm",
+            "source": "reference_vsp",
+        },
+        {
+            "y": 4.5,
+            "chord": 1.175,
+            "dihedral_deg": 2.0,
+            "segment_dihedral_deg": 2.0,
+            "airfoil": "clarkysm",
+            "source": "reference_vsp",
+        },
+        {
+            "y": 7.5,
+            "chord": 1.04,
+            "dihedral_deg": 3.0,
+            "segment_dihedral_deg": 3.0,
+            "airfoil": "clarkysm",
+            "source": "reference_vsp",
+        },
+        {
+            "y": 10.5,
+            "chord": 0.83,
+            "dihedral_deg": 4.0,
+            "segment_dihedral_deg": 4.0,
+            "airfoil": "fx76mp140",
+            "source": "reference_vsp",
+        },
+        {
+            "y": 13.5,
+            "chord": 0.62,
+            "dihedral_deg": 5.0,
+            "segment_dihedral_deg": 5.0,
+            "airfoil": "fx76mp140",
+            "source": "reference_vsp",
+        },
+        {
+            "y": 16.5,
+            "chord": 0.435,
+            "dihedral_deg": 5.0,
+            "segment_dihedral_deg": 5.0,
+            "airfoil": "fx76mp140",
+            "source": "reference_vsp",
+        },
+    ]
+
+    scaled = builder._apply_dihedral_multiplier_to_schedule(schedule)
+
+    base_z = [0.0]
+    refit_z = [0.0]
+    for idx in range(1, len(schedule)):
+        dy = schedule[idx]["y"] - schedule[idx - 1]["y"]
+        base_z.append(
+            base_z[-1]
+            + dy * math.tan(math.radians(schedule[idx]["segment_dihedral_deg"]))
+        )
+        refit_z.append(
+            refit_z[-1]
+            + dy * math.tan(math.radians(scaled[idx]["segment_dihedral_deg"]))
+        )
+
+    expected_z = []
+    for item, z_val in zip(schedule, base_z):
+        eta = item["y"] / cfg.half_span
+        expected_z.append(z_val * (1.0 + 2.6 * eta))
+
+    assert [item["y"] for item in scaled] == [item["y"] for item in schedule]
+    assert [item["chord"] for item in scaled] == [item["chord"] for item in schedule]
+    assert refit_z == pytest.approx(expected_z)
+    assert scaled[1]["segment_dihedral_deg"] > schedule[1]["segment_dihedral_deg"]
+    assert scaled[-1]["segment_dihedral_deg"] > schedule[-1]["segment_dihedral_deg"]
