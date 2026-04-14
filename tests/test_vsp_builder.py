@@ -40,7 +40,7 @@ def test_vspscript_fallback_includes_empennage_surfaces(tmp_path, monkeypatch) -
 def test_api_build_preserves_progressive_wing_sections(tmp_path) -> None:
     openvsp = pytest.importorskip("openvsp")
     config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
-    cfg = load_config(config_path)
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
 
     vsp3_path = VSPBuilder(cfg).build_vsp3(str(tmp_path / "blackcat_004.vsp3"))
 
@@ -83,3 +83,76 @@ def test_api_build_preserves_progressive_wing_sections(tmp_path) -> None:
             5.4545454545,
         ]
     )
+
+
+def test_api_build_prefers_reference_vsp_sections_for_cfd_fidelity(tmp_path) -> None:
+    openvsp = pytest.importorskip("openvsp")
+    reference_path = tmp_path / "reference.vsp3"
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+
+    openvsp.ClearVSPModel()
+    wing_id = openvsp.AddGeom("WING")
+    openvsp.SetGeomName(wing_id, "Main Wing")
+    xsec_surf = openvsp.GetXSecSurf(wing_id, 0)
+    for _ in range(4):
+        openvsp.InsertXSec(wing_id, 1, openvsp.XS_FOUR_SERIES)
+
+    reference_segments = [
+        (1.30, 1.30, 4.5, 1.0),
+        (1.30, 1.175, 3.0, 2.0),
+        (1.175, 1.04, 3.0, 3.0),
+        (1.04, 0.83, 3.0, 4.0),
+        (0.83, 0.435, 3.0, 5.0),
+    ]
+    for xsec_idx, (root_chord, tip_chord, span, dihedral) in enumerate(
+        reference_segments,
+        start=1,
+    ):
+        openvsp.SetDriverGroup(
+            wing_id,
+            xsec_idx,
+            openvsp.SPAN_WSECT_DRIVER,
+            openvsp.ROOTC_WSECT_DRIVER,
+            openvsp.TIPC_WSECT_DRIVER,
+        )
+        xs = openvsp.GetXSec(xsec_surf, xsec_idx)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Root_Chord"), root_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Tip_Chord"), tip_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Span"), span)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Dihedral"), dihedral)
+        openvsp.Update()
+    openvsp.WriteVSPFile(str(reference_path))
+
+    cfg.io.vsp_model = reference_path
+    vsp3_path = VSPBuilder(cfg).build_vsp3(str(tmp_path / "cfd_fidelity.vsp3"))
+
+    openvsp.ClearVSPModel()
+    openvsp.ReadVSPFile(str(vsp3_path))
+    openvsp.Update()
+
+    geoms = {
+        openvsp.GetGeomName(geom_id): geom_id
+        for geom_id in openvsp.FindGeoms()
+    }
+    xsec_surf = openvsp.GetXSecSurf(geoms["MainWing"], 0)
+    assert openvsp.GetNumXSec(xsec_surf) == 7
+
+    spans = []
+    root_chords = []
+    tip_chords = []
+    dihedrals = []
+    areas = []
+    for xsec_idx in range(1, 7):
+        xs = openvsp.GetXSec(xsec_surf, xsec_idx)
+        spans.append(openvsp.GetParmVal(openvsp.GetXSecParm(xs, "Span")))
+        root_chords.append(openvsp.GetParmVal(openvsp.GetXSecParm(xs, "Root_Chord")))
+        tip_chords.append(openvsp.GetParmVal(openvsp.GetXSecParm(xs, "Tip_Chord")))
+        dihedrals.append(openvsp.GetParmVal(openvsp.GetXSecParm(xs, "Dihedral")))
+        areas.append(openvsp.GetParmVal(openvsp.GetXSecParm(xs, "Area")))
+
+    assert spans == pytest.approx([1.5, 3.0, 3.0, 3.0, 3.0, 3.0])
+    assert root_chords == pytest.approx([1.30, 1.30, 1.30, 1.175, 1.04, 0.83])
+    assert tip_chords == pytest.approx([1.30, 1.30, 1.175, 1.04, 0.83, 0.435])
+    assert dihedrals == pytest.approx([1.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    assert 2.0 * sum(areas) == pytest.approx(35.175)

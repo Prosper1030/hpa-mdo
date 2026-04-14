@@ -87,6 +87,11 @@ def _progressive_dihedral_deg(
     ) * (eta ** float(exponent))
 
 
+def _airfoil_for_eta(cfg: HPAConfig, eta: float) -> str:
+    """Return the configured root/tip airfoil choice at normalized span *eta*."""
+    return cfg.wing.airfoil_root if eta < 0.5 else cfg.wing.airfoil_tip
+
+
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
@@ -247,7 +252,7 @@ class VSPBuilder:
             raise RuntimeError("openvsp is not available")
 
         w = self.cfg.wing
-        schedule = self._wing_section_schedule()
+        schedule = self._wing_section_schedule(vsp=vsp)
 
         try:
             vsp.ClearVSPModel()
@@ -289,10 +294,14 @@ class VSPBuilder:
                 vsp.SetParmVal(vsp.GetXSecParm(xs, "Sweep"), 0.0)
                 vsp.SetParmVal(vsp.GetXSecParm(xs, "Sweep_Location"), w.spar_location_xc)
 
-                # Local dihedral: average dihedral angle for this segment.
                 # OpenVSP applies the segment dihedral as a constant
-                # angle across the segment span.
-                local_dih = 0.5 * (inboard["dihedral_deg"] + outboard["dihedral_deg"])
+                # angle across the segment span.  Reference-VSP schedules
+                # carry this directly; config-derived schedules store
+                # station angles and use the trapezoid average.
+                local_dih = outboard.get(
+                    "segment_dihedral_deg",
+                    0.5 * (inboard["dihedral_deg"] + outboard["dihedral_deg"]),
+                )
                 vsp.SetParmVal(vsp.GetXSecParm(xs, "Dihedral"), local_dih)
                 vsp.Update()
 
@@ -300,9 +309,8 @@ class VSPBuilder:
                 self._assign_airfoil_api(vsp, xsec_surf, outboard_xsec_idx, outboard["airfoil"])
 
             logger.info(
-                "MainWing: %d segments, progressive dihedral %.1f°→%.1f° (exp=%.1f)",
-                n_segments, w.dihedral_root_deg, w.dihedral_tip_deg,
-                w.dihedral_scaling_exponent,
+                "MainWing: %d segments from %s",
+                n_segments, schedule[0].get("source", "config"),
             )
 
             # ── Symmetry (full wing from half definition) ────────────
@@ -625,7 +633,10 @@ class VSPBuilder:
             inboard = schedule[seg_idx]
             outboard = schedule[seg_idx + 1]
             seg_span = outboard["y"] - inboard["y"]
-            local_dih = 0.5 * (inboard["dihedral_deg"] + outboard["dihedral_deg"])
+            local_dih = outboard.get(
+                "segment_dihedral_deg",
+                0.5 * (inboard["dihedral_deg"] + outboard["dihedral_deg"]),
+            )
 
             seg_lines.append(f'    // ── Segment {seg_idx}: y={inboard["y"]:.1f}→{outboard["y"]:.1f} m, dih={local_dih:.2f}° ──')
             seg_lines.append(f'    string seg{seg_idx}_xs = GetXSec( xsec_surf, {outboard_idx} );')
@@ -750,7 +761,7 @@ class VSPBuilder:
             return 0.5 * float(surface.span)
         return float(surface.span)
 
-    def _wing_section_schedule(self) -> List[Dict[str, Any]]:
+    def _wing_section_schedule(self, vsp: Any | None = None) -> List[Dict[str, Any]]:
         """Return the list of wing section stations for VSP multi-segment construction.
 
         Each entry is a dict with keys:
@@ -759,10 +770,20 @@ class VSPBuilder:
             dihedral_deg — local dihedral angle [deg]
             airfoil      — airfoil name (interpolated between root and tip)
 
-        Stations are placed at each spar segment boundary
-        (from ``cfg.main_spar.segments``), which aligns the VSP
-        geometry with the structural FEM model.
+        If ``cfg.io.vsp_model`` is available and the OpenVSP API is in
+        use, its main-wing section schedule is treated as authoritative
+        for CFD geometry fidelity.  The schedule is then densified at
+        spar segment boundaries so structural joints remain explicit.
+        If no reference VSP can be read, stations are generated from
+        the config's spar segment boundaries and root/tip planform.
         """
+        reference = self._reference_vsp_wing_section_schedule(vsp)
+        if reference is not None:
+            return reference
+        return self._config_wing_section_schedule()
+
+    def _config_wing_section_schedule(self) -> List[Dict[str, Any]]:
+        """Return a config-derived wing station schedule."""
         w = self.cfg.wing
         half_span = self.cfg.half_span
         segments = self.cfg.spar_segment_lengths(self.cfg.main_spar)
@@ -792,16 +813,190 @@ class VSPBuilder:
                 w.dihedral_tip_deg,
                 w.dihedral_scaling_exponent,
             )
-            # Interpolate airfoil: use root for eta < 0.5, tip for eta >= 0.5.
-            airfoil = w.airfoil_root if eta < 0.5 else w.airfoil_tip
             schedule.append({
                 "y": y_val,
                 "chord": chord,
                 "dihedral_deg": dihedral_deg,
-                "airfoil": airfoil,
+                "airfoil": _airfoil_for_eta(self.cfg, eta),
+                "source": "config",
             })
 
         return schedule
+
+    def _reference_vsp_wing_section_schedule(self, vsp: Any | None) -> List[Dict[str, Any]] | None:
+        """Extract and densify the main-wing schedule from an existing VSP model."""
+        if vsp is None:
+            return None
+        vsp_model = self.cfg.io.vsp_model
+        if vsp_model is None or not Path(vsp_model).is_file():
+            return None
+
+        try:
+            vsp.ClearVSPModel()
+            vsp.ReadVSPFile(str(vsp_model))
+            vsp.Update()
+            wing_id = self._find_reference_wing_geom(vsp)
+            if wing_id is None:
+                return None
+            schedule = self._extract_reference_wing_schedule(vsp, wing_id)
+            if len(schedule) < 2:
+                return None
+            densified = self._densify_reference_schedule(schedule)
+            logger.info(
+                "Using reference VSP main-wing section schedule from %s (%d stations)",
+                vsp_model,
+                len(densified),
+            )
+            return densified
+        except Exception:
+            logger.exception("Failed to extract reference VSP wing schedule; using config geometry")
+            return None
+        finally:
+            try:
+                vsp.ClearVSPModel()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _find_reference_wing_geom(vsp: Any) -> str | None:
+        geoms = list(vsp.FindGeoms())
+        if not geoms:
+            return None
+
+        def norm(name: str) -> str:
+            return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+        preferred = {"mainwing", "main"}
+        fallback: str | None = None
+        for geom_id in geoms:
+            name = norm(vsp.GetGeomName(geom_id))
+            if name in preferred:
+                return geom_id
+            if fallback is None and "wing" in name and "elevator" not in name and "fin" not in name:
+                fallback = geom_id
+        return fallback
+
+    def _extract_reference_wing_schedule(self, vsp: Any, wing_id: str) -> List[Dict[str, Any]]:
+        xsec_surf = vsp.GetXSecSurf(wing_id, 0)
+        n_xsecs = int(vsp.GetNumXSec(xsec_surf))
+        if n_xsecs < 2:
+            return []
+
+        half_span = self.cfg.half_span
+        schedule: List[Dict[str, Any]] = []
+        y_accum = 0.0
+
+        for xsec_idx in range(1, n_xsecs):
+            xs = vsp.GetXSec(xsec_surf, xsec_idx)
+            root_chord = float(vsp.GetParmVal(vsp.GetXSecParm(xs, "Root_Chord")))
+            tip_chord = float(vsp.GetParmVal(vsp.GetXSecParm(xs, "Tip_Chord")))
+            span = float(vsp.GetParmVal(vsp.GetXSecParm(xs, "Span")))
+            segment_dihedral = float(vsp.GetParmVal(vsp.GetXSecParm(xs, "Dihedral")))
+            if span <= 1.0e-9:
+                continue
+
+            if not schedule:
+                schedule.append(
+                    self._reference_schedule_entry(
+                        y=0.0,
+                        chord=root_chord,
+                        dihedral_deg=segment_dihedral,
+                        airfoil=self.cfg.wing.airfoil_root,
+                    )
+                )
+            y_accum += span
+            eta = 0.0 if half_span <= 0.0 else min(max(y_accum / half_span, 0.0), 1.0)
+            schedule.append(
+                self._reference_schedule_entry(
+                    y=y_accum,
+                    chord=tip_chord,
+                    dihedral_deg=segment_dihedral,
+                    segment_dihedral_deg=segment_dihedral,
+                    airfoil=_airfoil_for_eta(self.cfg, eta),
+                )
+            )
+
+        if schedule and abs(schedule[-1]["y"] - half_span) > 1.0e-3:
+            logger.warning(
+                "Reference VSP half span %.6f m differs from config half span %.6f m",
+                schedule[-1]["y"],
+                half_span,
+            )
+        return schedule
+
+    def _densify_reference_schedule(self, schedule: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        half_span = self.cfg.half_span
+        y_targets = {0.0, half_span}
+
+        for item in schedule:
+            y_targets.add(float(item["y"]))
+
+        cumsum = 0.0
+        for seg_len in self.cfg.spar_segment_lengths(self.cfg.main_spar):
+            cumsum += float(seg_len)
+            if -1.0e-9 <= cumsum <= half_span + 1.0e-9:
+                y_targets.add(min(max(cumsum, 0.0), half_span))
+
+        return [
+            self._interpolate_reference_schedule(schedule, y)
+            for y in sorted(y_targets)
+            if -1.0e-9 <= y <= half_span + 1.0e-9
+        ]
+
+    def _interpolate_reference_schedule(
+        self,
+        schedule: List[Dict[str, Any]],
+        y_target: float,
+    ) -> Dict[str, Any]:
+        half_span = self.cfg.half_span
+        if y_target <= float(schedule[0]["y"]) + 1.0e-9:
+            entry = dict(schedule[0])
+            entry["y"] = 0.0
+            entry["airfoil"] = self.cfg.wing.airfoil_root
+            entry["source"] = "reference_vsp"
+            return entry
+
+        for idx in range(1, len(schedule)):
+            left = schedule[idx - 1]
+            right = schedule[idx]
+            y_left = float(left["y"])
+            y_right = float(right["y"])
+            if y_target <= y_right + 1.0e-9:
+                denom = max(y_right - y_left, 1.0e-12)
+                frac = min(max((y_target - y_left) / denom, 0.0), 1.0)
+                eta = 0.0 if half_span <= 0.0 else min(max(y_target / half_span, 0.0), 1.0)
+                return self._reference_schedule_entry(
+                    y=y_target,
+                    chord=float(left["chord"]) + frac * (float(right["chord"]) - float(left["chord"])),
+                    dihedral_deg=float(right["dihedral_deg"]),
+                    segment_dihedral_deg=float(right.get("segment_dihedral_deg", right["dihedral_deg"])),
+                    airfoil=_airfoil_for_eta(self.cfg, eta),
+                )
+
+        entry = dict(schedule[-1])
+        entry["y"] = half_span
+        entry["source"] = "reference_vsp"
+        return entry
+
+    @staticmethod
+    def _reference_schedule_entry(
+        *,
+        y: float,
+        chord: float,
+        dihedral_deg: float,
+        segment_dihedral_deg: float | None = None,
+        airfoil: str | None = None,
+    ) -> Dict[str, Any]:
+        entry: Dict[str, Any] = {
+            "y": float(y),
+            "chord": float(chord),
+            "dihedral_deg": float(dihedral_deg),
+            "airfoil": airfoil,
+            "source": "reference_vsp",
+        }
+        if segment_dihedral_deg is not None:
+            entry["segment_dihedral_deg"] = float(segment_dihedral_deg)
+        return entry
 
     # ------------------------------------------------------------------
     # Utility helpers
