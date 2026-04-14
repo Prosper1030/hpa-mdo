@@ -112,7 +112,7 @@ def export_avl(
                     [
                         "! rudder command limit is applied externally (e.g. +/-25 deg)",
                         "CONTROL",
-                        "rudder  1.0  0.0  0.0 0.0 0.0  1.0",
+                        "rudder  1.0  0.0  0.0 0.0 1.0  1.0",
                     ]
                 )
             lines.append("#")
