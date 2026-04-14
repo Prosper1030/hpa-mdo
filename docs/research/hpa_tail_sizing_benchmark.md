@@ -81,6 +81,28 @@ Re-running the current `data/blackcat_004_full.avl` baseline on 2026-04-14 gives
 
 Interpretation: lateral/directional stability is acceptable for the current AVL audit. The two items to keep watching are the high trim alpha and the still-modest rudder authority.
 
+## Trim Alpha Interpretation
+
+The current baseline trim alpha is `10.99 deg`. That is below the active `max_trim_aoa_deg = 12.0 deg` hard gate, so it is not a current stability-gate failure. It is still high for a cruise design point because it leaves limited margin for low-Re airfoil polar error, local separation, gusts, and flexible-wing incidence changes.
+
+Use the following working targets until the airfoil polar/stall model is refreshed:
+
+- Hard gate: keep `max_trim_aoa_deg = 12.0 deg` for sweep compatibility and to avoid overreacting to AVL-only induced-drag modeling.
+- Soft design target: prefer baseline/cruise trim alpha at or below about `10 deg`.
+- Healthy cruise target: aim for about `8-9 deg` if the wing incidence, tail trim, or loading trade can achieve it without a mass/control penalty.
+
+So the current `10.99 deg` result is acceptable for continuing the pipeline, but it should be treated as a design-warning item rather than a comfortable final cruise point.
+
+## OpenVSP Geometry Status
+
+The local machine currently does not have the `openvsp` Python module, so the builder cannot directly write a `.vsp3` file here through the OpenVSP API. The VSP fallback has been expanded to generate a full-aircraft `.vspscript` with `MainWing`, `Elevator`, and `Fin` geometry from `configs/blackcat_004.yaml`.
+
+Generated visual script:
+
+`output/blackcat_004_visual/blackcat_004_full_aircraft.vspscript`
+
+Because `output/` is ignored, that generated script is not committed. To create the corresponding prettier `.vsp3`, run the script in the OpenVSP GUI or rerun `VSPBuilder.build_vsp3(...)` in an environment where the OpenVSP Python bindings are installed.
+
 ## Decision
 
 Do not resize the fin in this pass. Keep `Sfin = 1.68 m2`, fix the AVL exporter so regenerated models preserve the explicit vertical rudder hinge axis, and treat future fin growth as a design trade:
