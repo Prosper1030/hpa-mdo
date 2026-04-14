@@ -201,3 +201,18 @@ eglass_woven:
   shear_strength: 65.0e6
   poisson_ratio: 0.17
   description: "0/90 balanced weave; skin closeout and torsion box wrap"
+
+carbon_t700_proxy:
+  description: "T700/epoxy UD ply — conservative proxy (Gemini-sourced, verified 2026-04-14)"
+  material_type: "composite_ply"
+  E1: 135.0e9             # fibre-direction modulus [Pa]
+  E2: 10.0e9              # transverse modulus [Pa]
+  G12: 5.0e9              # in-plane shear modulus [Pa]
+  nu12: 0.30
+  t_ply: 0.125e-3         # nominal ply thickness [m]
+  density: 1550.0         # [kg/m³]
+  F1t: 1500.0e6           # fibre tensile strength (conservative; real T700S ~2400 MPa) [Pa]
+  F1c: 1200.0e6           # fibre compressive strength [Pa]
+  F2t: 50.0e6             # transverse tensile strength [Pa]
+  F2c: 250.0e6            # transverse compressive strength [Pa]
+  F6: 70.0e6              # in-plane shear strength [Pa]

@@ -31,6 +31,22 @@ def test_get_known_ply_material_returns_expected_properties(mat_db: MaterialDB) 
     assert ply.F6 == pytest.approx(100.0e6)
 
 
+def test_get_carbon_t700_proxy_ply_material(mat_db: MaterialDB) -> None:
+    ply = mat_db.get_ply("carbon_t700_proxy")
+
+    assert isinstance(ply, PlyMaterial)
+    assert ply.E1 == pytest.approx(135.0e9)
+    assert ply.E2 == pytest.approx(10.0e9)
+    assert ply.G12 == pytest.approx(5.0e9)
+    assert ply.t_ply == pytest.approx(0.125e-3)
+    assert ply.density == pytest.approx(1550.0)
+    assert ply.F1t == pytest.approx(1500.0e6)
+    assert ply.F1c == pytest.approx(1200.0e6)
+    assert ply.F2t == pytest.approx(50.0e6)
+    assert ply.F2c == pytest.approx(250.0e6)
+    assert ply.F6 == pytest.approx(70.0e6)
+
+
 @pytest.mark.parametrize(
     ("key", "expected_nu21"),
     [
