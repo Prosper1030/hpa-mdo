@@ -199,6 +199,28 @@ def test_summary_text_contains_buckling_line(tmp_path):
     assert "Buckling index" in out_path.read_text(encoding="utf-8")
 
 
+def test_summary_text_contains_manufacturing_gates(tmp_path):
+    result = _dummy_result()
+    result.manufacturing_gates = {
+        "passed": True,
+        "spars": {
+            "main_spar": {
+                "passed": True,
+                "ply_count_step_margin_min": 0.25,
+                "run_length_margin_min_m": 1.5,
+            }
+        },
+    }
+
+    summary_file = write_optimization_summary(
+        result,
+        tmp_path / "optimization_summary.txt",
+    )
+
+    assert "MANUFACTURING GATES" in summary_file
+    assert "main_spar: PASS" in summary_file
+
+
 def test_analyze_accepts_snapped_segment_radii(monkeypatch):
     cfg = _Cfg(rear_spar=SimpleNamespace(enabled=True))
     prob = _FakeProb()

@@ -130,6 +130,8 @@ main_spar:
   # Manufacturing constraints
   min_wall_thickness: 0.8e-3             # [m]
   max_segment_length: 3.0                # [m]
+  max_ply_drop_per_segment: 1            # max half-layup ply-count step between segments
+  min_layup_run_length_m: 1.5            # [m] minimum constant-ply run length
 
   # Segment layout (half-span, root → tip).
   # Sum must equal half_span = 16.5 m.
@@ -164,6 +166,8 @@ rear_spar:
 
   min_wall_thickness: 0.8e-3
   max_segment_length: 3.0
+  max_ply_drop_per_segment: 1            # max half-layup ply-count step between segments
+  min_layup_run_length_m: 1.5            # [m] minimum constant-ply run length
 
   # Uses same segmentation as main spar for rib alignment
   segments: [1.5, 3.0, 3.0, 3.0, 3.0, 3.0]

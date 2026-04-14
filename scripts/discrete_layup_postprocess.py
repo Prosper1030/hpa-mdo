@@ -45,8 +45,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--ply-drop-limit",
         type=int,
-        default=2,
-        help="Maximum allowed ply-count drop between adjacent segments.",
+        default=None,
+        help=(
+            "Optional override for maximum half-layup ply-count step between "
+            "adjacent segments. Defaults to each spar config."
+        ),
     )
     parser.add_argument(
         "--strain-envelope",
@@ -88,6 +91,7 @@ def _build_for_spar(
     ply_material_key: str,
     materials_db: MaterialDB,
     ply_drop_limit: int,
+    min_run_length_m: float,
     strain_envelopes: list[dict[str, float]] | None = None,
 ) -> tuple[str, dict[str, object]]:
     if not radii_mm or not thickness_mm:
@@ -107,8 +111,17 @@ def _build_for_spar(
         strain_envelopes=strain_envelopes,
     )
     return ply_material_key, {
-        "report": format_layup_report(results, ply_mat),
-        "summary": summarize_layup_results(results),
+        "report": format_layup_report(
+            results,
+            ply_mat,
+            ply_drop_limit=ply_drop_limit,
+            min_run_length_m=min_run_length_m,
+        ),
+        "summary": summarize_layup_results(
+            results,
+            ply_drop_limit=ply_drop_limit,
+            min_run_length_m=min_run_length_m,
+        ),
     }
 
 
@@ -221,6 +234,11 @@ def main() -> int:
         raise ValueError("No ply material was provided and config.main_spar.ply_material is empty.")
 
     sections: dict[str, dict[str, object]] = {}
+    main_ply_drop_limit = (
+        int(cfg.main_spar.max_ply_drop_per_segment)
+        if args.ply_drop_limit is None
+        else int(args.ply_drop_limit)
+    )
     _, main_section = _build_for_spar(
         label="main_spar",
         spar_cfg=cfg.main_spar,
@@ -229,7 +247,8 @@ def main() -> int:
         thickness_mm=[float(value) for value in design_mm["main_t"]],
         ply_material_key=str(main_ply_material),
         materials_db=materials_db,
-        ply_drop_limit=int(args.ply_drop_limit),
+        ply_drop_limit=main_ply_drop_limit,
+        min_run_length_m=float(cfg.main_spar.min_layup_run_length_m),
         strain_envelopes=_strain_envelopes_for_spar(
             strain_source,
             label="main_spar",
@@ -242,6 +261,11 @@ def main() -> int:
     rear_t = design_mm.get("rear_t")
     if cfg.rear_spar.enabled and isinstance(rear_r, list) and isinstance(rear_t, list) and rear_r and rear_t:
         rear_ply_material = args.ply_material or cfg.rear_spar.ply_material or main_ply_material
+        rear_ply_drop_limit = (
+            int(cfg.rear_spar.max_ply_drop_per_segment)
+            if args.ply_drop_limit is None
+            else int(args.ply_drop_limit)
+        )
         _, rear_section = _build_for_spar(
             label="rear_spar",
             spar_cfg=cfg.rear_spar,
@@ -250,7 +274,8 @@ def main() -> int:
             thickness_mm=[float(value) for value in rear_t],
             ply_material_key=str(rear_ply_material),
             materials_db=materials_db,
-            ply_drop_limit=int(args.ply_drop_limit),
+            ply_drop_limit=rear_ply_drop_limit,
+            min_run_length_m=float(cfg.rear_spar.min_layup_run_length_m),
             strain_envelopes=_strain_envelopes_for_spar(
                 strain_source,
                 label="rear_spar",
@@ -266,6 +291,10 @@ def main() -> int:
         float(section["summary"]["discrete_mass_full_wing_kg"]) for section in sections.values()
     )
     total_mass_penalty = total_discrete_mass - total_continuous_mass
+    manufacturing_passed = all(
+        bool(section["summary"].get("manufacturing_gates", {}).get("passed", True))
+        for section in sections.values()
+    )
 
     report_lines = [
         "Discrete Layup Post-Process",
@@ -280,6 +309,7 @@ def main() -> int:
         f"Continuous full-wing mass: {total_continuous_mass:.3f} kg",
         f"Discrete full-wing mass  : {total_discrete_mass:.3f} kg",
         f"Mass penalty             : {total_mass_penalty:+.3f} kg",
+        f"Manufacturing gates      : {'PASS' if manufacturing_passed else 'FAIL'}",
         "",
     ]
     for name, section in sections.items():
@@ -299,6 +329,7 @@ def main() -> int:
                 "discrete_full_wing_mass_kg": total_discrete_mass,
                 "mass_penalty_full_wing_kg": total_mass_penalty,
                 "strain_envelope_source": strain_source_label,
+                "manufacturing_gates_passed": manufacturing_passed,
                 "spars": {
                     name: section["summary"]
                     for name, section in sections.items()

@@ -119,10 +119,12 @@ def test_blackcat_spar_layup_defaults_loaded_from_config():
     assert cfg.main_spar.min_plies_45_pairs == 1
     assert cfg.main_spar.min_plies_90 == 0
     assert cfg.main_spar.max_total_plies == 14
-    assert cfg.main_spar.max_ply_drop_per_segment == 2
+    assert cfg.main_spar.max_ply_drop_per_segment == 1
+    assert cfg.main_spar.min_layup_run_length_m == pytest.approx(1.5)
     assert cfg.rear_spar.layup_mode == "isotropic"
     assert cfg.rear_spar.ply_material == "cfrp_ply_hm"
-    assert cfg.rear_spar.max_ply_drop_per_segment == 2
+    assert cfg.rear_spar.max_ply_drop_per_segment == 1
+    assert cfg.rear_spar.min_layup_run_length_m == pytest.approx(1.5)
 
 
 def test_blackcat_beta_sweep_gates_loaded_from_config():

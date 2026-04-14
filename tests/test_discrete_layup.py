@@ -12,10 +12,12 @@ from hpa_mdo.core import MaterialDB, load_config
 from hpa_mdo.structure.laminate import PlyStack, ply_Q_matrix
 from hpa_mdo.utils.discrete_layup import (
     build_segment_layup_results,
+    continuous_ply_count_step_margin_min,
     discretize_layup_per_segment,
     effective_layup_thickness_step_limit,
     enumerate_valid_stacks,
     format_layup_report,
+    manufacturing_gate_summary,
     summarize_layup_results,
     summarize_segment_tsai_wu,
     summarize_segment_tsai_wu_envelope,
@@ -72,10 +74,29 @@ def test_discretize_layup_applies_ply_drop_limit(ply_mat) -> None:
     assert [stack.total_plies() for stack in selected] == [12, 10]
 
 
-def test_effective_layup_thickness_step_limit_tightens_discrete_clt(cfg, ply_mat) -> None:
-    spar_cfg = cfg.main_spar.model_copy(
-        update={"layup_mode": "discrete_clt", "max_ply_drop_per_segment": 2}
+def test_discretize_layup_limits_large_ply_count_increases(ply_mat) -> None:
+    stacks = [
+        PlyStack(n_0=1, n_45=1, n_90=0),  # 6 plies, half count 3
+        PlyStack(n_0=2, n_45=1, n_90=0),  # 8 plies, half count 4
+        PlyStack(n_0=4, n_45=1, n_90=0),  # 12 plies, half count 6
+    ]
+
+    selected = discretize_layup_per_segment(
+        continuous_thicknesses=[0.70e-3, 1.50e-3],
+        R_outer_per_seg=[0.03, 0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
     )
+
+    assert [stack.total_plies() for stack in selected] == [6, 8]
+
+
+def test_effective_layup_thickness_step_limit_tightens_to_one_half_layup_step(
+    cfg,
+    ply_mat,
+) -> None:
+    spar_cfg = cfg.main_spar.model_copy(update={"max_ply_drop_per_segment": 1})
 
     limit = effective_layup_thickness_step_limit(
         spar_cfg,
@@ -84,6 +105,18 @@ def test_effective_layup_thickness_step_limit_tightens_discrete_clt(cfg, ply_mat
     )
 
     assert limit == pytest.approx(2 * ply_mat.t_ply)
+
+
+def test_continuous_ply_count_step_margin_uses_half_layup_steps(cfg, ply_mat) -> None:
+    spar_cfg = cfg.main_spar.model_copy(update={"max_ply_drop_per_segment": 1})
+
+    margin = continuous_ply_count_step_margin_min(
+        [1.00e-3, 0.75e-3, 0.25e-3],
+        spar_cfg,
+        MaterialDB(REPO_ROOT / "data" / "materials.yaml"),
+    )
+
+    assert margin == pytest.approx(-1.0)
 
 
 def test_thickness_step_margin_reports_ply_drop_violation() -> None:
@@ -103,12 +136,45 @@ def test_format_layup_report_contains_schedule_and_effective_properties(cfg, ply
         ply_drop_limit=2,
     )
 
-    report = format_layup_report(results, ply_mat)
+    report = format_layup_report(
+        results,
+        ply_mat,
+        ply_drop_limit=1,
+        min_run_length_m=1.5,
+    )
 
     assert "Segment 1 (y=0.0-1.5m):" in report
     assert "_s" in report
     assert "E_eff=" in report
     assert "G_eff=" in report
+    assert "Manufacturing gates:" in report
+
+
+def test_summarize_layup_results_reports_manufacturing_gate_margins(cfg, ply_mat) -> None:
+    stacks = enumerate_valid_stacks(cfg.main_spar)
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.5, 3.0],
+        continuous_thicknesses_m=[1.10e-3, 0.90e-3],
+        outer_radii_m=[0.03, 0.028],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+    )
+
+    gate = manufacturing_gate_summary(
+        results,
+        ply_drop_limit=1,
+        min_run_length_m=1.5,
+    )
+    machine_summary = summarize_layup_results(
+        results,
+        ply_drop_limit=1,
+        min_run_length_m=1.5,
+    )
+
+    assert gate["passed"] is True
+    assert gate["ply_count_step_margin_min"] >= 0.0
+    assert machine_summary["manufacturing_gates"]["passed"] is True
 
 
 def test_summarize_segment_tsai_wu_reports_critical_ply(ply_mat) -> None:
@@ -278,5 +344,7 @@ def test_discrete_layup_postprocess_script_writes_report_and_schedule(tmp_path) 
     assert "Tsai-Wu FI=" in report_text
     assert "main_spar" in schedule["spars"]
     assert "rear_spar" in schedule["spars"]
+    assert schedule["manufacturing_gates_passed"] is True
+    assert schedule["spars"]["main_spar"]["manufacturing_gates"]["passed"] is True
     assert schedule["spars"]["main_spar"]["segments"][0]["strain_envelope"] is not None
     assert schedule["spars"]["main_spar"]["segments"][0]["tsai_wu_summary"] is not None

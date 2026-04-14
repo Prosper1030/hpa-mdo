@@ -8,7 +8,10 @@ from typing import Sequence
 
 from hpa_mdo.core.config import SparConfig
 from hpa_mdo.core.layup_constraints import (
+    continuous_ply_count_step_margin_min as continuous_ply_count_step_margin_min,
     effective_layup_thickness_step_limit as effective_layup_thickness_step_limit,
+    ply_count_step_margin_min as ply_count_step_margin_min,
+    ply_run_length_margin_min as ply_run_length_margin_min,
     thickness_step_margin_min as thickness_step_margin_min,
 )
 from hpa_mdo.core.materials import PlyMaterial
@@ -80,6 +83,10 @@ def _stack_sort_key(stack: PlyStack) -> tuple[int, int, int, int]:
     return (stack.total_plies(), stack.n_90, stack.n_45, stack.n_0)
 
 
+def _half_layup_ply_count(stack: PlyStack) -> int:
+    return int(stack.total_plies() // 2)
+
+
 def format_stack_notation(stack: PlyStack) -> str:
     tokens: list[str] = []
     for angle in stack.angle_sequence_half():
@@ -135,9 +142,9 @@ def discretize_layup_per_segment(
     R_outer_per_seg: Sequence[float],
     stacks: Sequence[PlyStack],
     ply_mat: PlyMaterial,
-    ply_drop_limit: int = 2,
+    ply_drop_limit: int = 1,
 ) -> list[PlyStack]:
-    """Snap each segment thickness to a discrete stack with ply-drop control."""
+    """Snap each segment thickness to a discrete stack with ply-step control."""
     if len(continuous_thicknesses) != len(R_outer_per_seg):
         raise ValueError("continuous_thicknesses and R_outer_per_seg must have the same length.")
     if ply_drop_limit < 0:
@@ -151,12 +158,15 @@ def discretize_layup_per_segment(
     for idx, target in enumerate(continuous_thicknesses):
         stack = snap_to_nearest_stack(float(target), ordered, ply_mat)
         if idx > 0:
-            min_total_plies = max(selected[-1].total_plies() - int(ply_drop_limit), 0)
-            if stack.total_plies() < min_total_plies:
+            previous_half_count = _half_layup_ply_count(selected[-1])
+            min_half_count = max(previous_half_count - int(ply_drop_limit), 0)
+            max_half_count = previous_half_count + int(ply_drop_limit)
+            half_count = _half_layup_ply_count(stack)
+            if half_count < min_half_count:
                 eligible = [
                     candidate
                     for candidate in ordered
-                    if candidate.total_plies() >= min_total_plies
+                    if _half_layup_ply_count(candidate) >= min_half_count
                     and candidate.wall_thickness(ply_mat.t_ply) >= float(target) - _FLOAT_TOL
                 ]
                 if eligible:
@@ -167,8 +177,24 @@ def discretize_layup_per_segment(
                         "Segment %d requires at least %d plies to satisfy ply-drop control; "
                         "using the thickest available stack.",
                         idx + 1,
-                        min_total_plies,
+                        2 * min_half_count,
                     )
+            elif half_count > max_half_count:
+                eligible = [
+                    candidate
+                    for candidate in ordered
+                    if _half_layup_ply_count(candidate) <= max_half_count
+                ]
+                if eligible:
+                    stack = eligible[-1]
+                    LOGGER.warning(
+                        "Segment %d target requires a jump above the ply-step limit; "
+                        "using %d plies and reporting the thickness shortfall.",
+                        idx + 1,
+                        stack.total_plies(),
+                    )
+                else:
+                    stack = ordered[0]
         selected.append(stack)
 
     return selected
@@ -294,7 +320,7 @@ def build_segment_layup_results(
     outer_radii_m: Sequence[float],
     stacks: Sequence[PlyStack],
     ply_mat: PlyMaterial,
-    ply_drop_limit: int = 2,
+    ply_drop_limit: int = 1,
     midplane_strains: Sequence[Sequence[float]] | None = None,
     curvatures: Sequence[Sequence[float]] | None = None,
     strain_envelopes: Sequence[dict[str, float]] | None = None,
@@ -394,6 +420,9 @@ def build_segment_layup_results(
 def format_layup_report(
     segments_stacks: Sequence[SegmentLayupResult],
     ply_mat: PlyMaterial,
+    *,
+    ply_drop_limit: int | None = None,
+    min_run_length_m: float = 0.0,
 ) -> str:
     """Format a human-readable layup schedule report."""
     lines = [
@@ -435,14 +464,41 @@ def format_layup_report(
                 f"critical_ply={summary.critical_ply_index} "
                 f"({summary.critical_ply_angle_deg:+.0f} deg)"
             )
+    if ply_drop_limit is not None:
+        gate = manufacturing_gate_summary(
+            segments_stacks,
+            ply_drop_limit=ply_drop_limit,
+            min_run_length_m=min_run_length_m,
+        )
+        status = "PASS" if gate["passed"] else "FAIL"
+        lines.extend(
+            [
+                "",
+                "Manufacturing gates:",
+                f"  status={status}",
+                (
+                    "  half-layup ply step margin="
+                    f"{gate['ply_count_step_margin_min']:+.3f} "
+                    f"(limit={gate['max_half_layup_ply_step']})"
+                ),
+                (
+                    "  run length margin="
+                    f"{gate['run_length_margin_min_m']:+.3f} m "
+                    f"(min={gate['min_run_length_m']:.3f} m)"
+                ),
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
 def summarize_layup_results(
     segments_stacks: Sequence[SegmentLayupResult],
+    *,
+    ply_drop_limit: int | None = None,
+    min_run_length_m: float = 0.0,
 ) -> dict[str, object]:
     """Return a machine-readable summary for JSON export."""
-    return {
+    summary = {
         "segment_count": len(segments_stacks),
         "continuous_mass_full_wing_kg": sum(
             result.continuous_mass_full_wing_kg for result in segments_stacks
@@ -476,6 +532,38 @@ def summarize_layup_results(
             }
             for result in segments_stacks
         ],
+    }
+    if ply_drop_limit is not None:
+        summary["manufacturing_gates"] = manufacturing_gate_summary(
+            segments_stacks,
+            ply_drop_limit=ply_drop_limit,
+            min_run_length_m=min_run_length_m,
+        )
+    return summary
+
+
+def manufacturing_gate_summary(
+    segments_stacks: Sequence[SegmentLayupResult],
+    *,
+    ply_drop_limit: int,
+    min_run_length_m: float = 0.0,
+) -> dict[str, object]:
+    """Return manufacturing gate margins for a discrete layup schedule."""
+    counts = [_half_layup_ply_count(result.stack) for result in segments_stacks]
+    lengths = [
+        float(result.y_end_m) - float(result.y_start_m)
+        for result in segments_stacks
+    ]
+    step_margin = ply_count_step_margin_min(counts, int(ply_drop_limit))
+    run_margin = ply_run_length_margin_min(counts, lengths, float(min_run_length_m))
+    passed = step_margin >= -1.0e-9 and run_margin >= -1.0e-9
+    return {
+        "passed": bool(passed),
+        "max_half_layup_ply_step": int(ply_drop_limit),
+        "ply_count_step_margin_min": float(step_margin),
+        "min_run_length_m": float(min_run_length_m),
+        "run_length_margin_min_m": float(run_margin),
+        "half_layup_ply_counts": counts,
     }
 
 

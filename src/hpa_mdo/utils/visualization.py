@@ -469,6 +469,23 @@ def write_optimization_summary(
             "  REAR SPAR: disabled",
         ]
 
+    manufacturing = getattr(result, "manufacturing_gates", {}) or {}
+    if manufacturing:
+        status = "PASS" if manufacturing.get("passed", True) else "FAIL"
+        lines += [
+            "-" * 64,
+            "  MANUFACTURING GATES",
+            "-" * 64,
+            f"  Overall: {status}",
+        ]
+        for spar_name, gate in (manufacturing.get("spars", {}) or {}).items():
+            spar_status = "PASS" if gate.get("passed", True) else "FAIL"
+            lines.append(
+                f"  {spar_name}: {spar_status}, "
+                f"ply-step margin={float(gate.get('ply_count_step_margin_min', 0.0)):+.3f}, "
+                f"run-length margin={float(gate.get('run_length_margin_min_m', 0.0)):+.3f} m"
+            )
+
     timing = getattr(result, "timing_s", {}) or {}
     lines += [
         "-" * 64,

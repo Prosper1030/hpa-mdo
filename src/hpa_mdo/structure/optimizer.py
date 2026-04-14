@@ -49,6 +49,7 @@ from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import differential_evolution
 
 from hpa_mdo.core.layup_constraints import (
+    continuous_ply_count_step_margin_min,
     effective_layup_thickness_step_limit,
     thickness_step_margin_min,
 )
@@ -122,6 +123,48 @@ def _optimizer_thickness_step_limit_m(spar_cfg, solver_cfg, materials_db) -> flo
     except Exception as exc:
         logger.warning("Failed to derive layup thickness-step limit: %s", exc)
         return 0.0
+
+
+def _optimizer_manufacturing_gate(
+    *,
+    spar_cfg,
+    thicknesses_m,
+    segment_lengths_m,
+    materials_db,
+) -> dict[str, object]:
+    """Return optimizer-side manufacturing margins for a spar."""
+    thickness_arr = np.asarray(thicknesses_m, dtype=float)
+    lengths_arr = np.asarray(segment_lengths_m, dtype=float)
+    try:
+        ply_step_margin = continuous_ply_count_step_margin_min(
+            thickness_arr,
+            spar_cfg,
+            materials_db,
+        )
+    except Exception as exc:
+        logger.warning("Failed to compute ply-count step margin: %s", exc)
+        ply_step_margin = float("-inf")
+
+    min_run_length = float(getattr(spar_cfg, "min_layup_run_length_m", 0.0))
+    if lengths_arr.size:
+        run_margin = float(np.min(lengths_arr) - min_run_length)
+    else:
+        run_margin = float("inf")
+
+    passed = ply_step_margin >= -1.0e-9 and run_margin >= -1.0e-9
+    return {
+        "passed": bool(passed),
+        "max_half_layup_ply_step": int(getattr(spar_cfg, "max_ply_drop_per_segment", 1)),
+        "ply_count_step_margin_min": float(ply_step_margin),
+        "min_run_length_m": min_run_length,
+        "run_length_margin_min_m": float(run_margin),
+    }
+
+
+def _combine_manufacturing_gates(gates: dict[str, dict[str, object]]) -> dict[str, object]:
+    """Return a top-level manufacturing gate summary from spar-level gates."""
+    passed = all(bool(gate.get("passed", True)) for gate in gates.values())
+    return {"passed": bool(passed), "spars": gates}
 
 
 def _is_eval_valid(res: dict[str, float], *, rear_on: bool) -> bool:
@@ -517,6 +560,7 @@ class OptimizationResult:
     rear_t_seg_mm: Optional[np.ndarray] = None
     rear_r_seg_mm: Optional[np.ndarray] = field(default=None, repr=False)  # rear spar OD [mm]
     case_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
+    manufacturing_gates: dict[str, object] = field(default_factory=dict)
 
     # Full results
     nodes: Optional[np.ndarray] = field(default=None, repr=False)
@@ -589,6 +633,9 @@ class OptimizationResult:
                     f"    {case_name}: defl={defl_mm:.0f} mm, twist={metrics['twist_max_deg']:.2f}°, "
                     f"failure={metrics['failure_index']:.4f}, buckling={metrics['buckling_index']:.4f}"
                 )
+        if self.manufacturing_gates:
+            status = "PASS" if self.manufacturing_gates.get("passed", True) else "FAIL"
+            lines.append(f"  Manufacturing : {status}")
         lines.append("")
         lines.append("  Main spar segments:")
         for i, (t, r) in enumerate(zip(self.main_t_seg_mm, self.main_r_seg_mm)):
@@ -1777,6 +1824,22 @@ class SparOptimizer:
         deflection_limit = (
             min(float(v) for v in deflection_candidates) if deflection_candidates else None
         )
+        manufacturing_spars: dict[str, dict[str, object]] = {
+            "main_spar": _optimizer_manufacturing_gate(
+                spar_cfg=cfg.main_spar,
+                thicknesses_m=raw["main_t_seg"],
+                segment_lengths_m=cfg.spar_segment_lengths(cfg.main_spar),
+                materials_db=mat_db,
+            )
+        }
+        if raw.get("rear_t_seg") is not None and getattr(cfg.rear_spar, "enabled", False):
+            manufacturing_spars["rear_spar"] = _optimizer_manufacturing_gate(
+                spar_cfg=cfg.rear_spar,
+                thicknesses_m=raw["rear_t_seg"],
+                segment_lengths_m=cfg.spar_segment_lengths(cfg.rear_spar),
+                materials_db=mat_db,
+            )
+        manufacturing_gates = _combine_manufacturing_gates(manufacturing_spars)
 
         return OptimizationResult(
             success=success,
@@ -1798,6 +1861,7 @@ class SparOptimizer:
             main_r_seg_mm=raw["main_r_seg"] * 1000.0,
             rear_t_seg_mm=raw["rear_t_seg"] * 1000.0 if raw.get("rear_t_seg") is not None else None,
             rear_r_seg_mm=raw["rear_r_seg"] * 1000.0 if raw.get("rear_r_seg") is not None else None,
+            manufacturing_gates=manufacturing_gates,
             nodes=raw.get("nodes"),
             disp=disp,
             vonmises_main=vm_main,

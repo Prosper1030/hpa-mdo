@@ -183,11 +183,19 @@ class SparConfig(BaseModel):
         description="Maximum total symmetric laminate plies",
     )
     max_ply_drop_per_segment: int = Field(
-        2,
+        1,
         ge=0,
         description=(
-            "Maximum total-ply count change between adjacent segments when "
-            "layup_mode='discrete_clt'"
+            "Maximum half-layup ply-count change between adjacent segments. "
+            "For symmetric laminates, one step equals two physical plies in wall thickness."
+        ),
+    )
+    min_layup_run_length_m: float = Field(
+        1.5,
+        ge=0.0,
+        description=(
+            "Minimum spanwise length for a continuous constant-ply layup run. "
+            "Set to 0 to disable the run-length report gate."
         ),
     )
 

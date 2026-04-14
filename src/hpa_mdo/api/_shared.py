@@ -88,4 +88,5 @@ def result_to_dict(result) -> dict:
             if result.rear_t_seg_mm is not None else None
         ),
         "strain_envelope": json_safe(result.strain_envelope),
+        "manufacturing_gates": json_safe(getattr(result, "manufacturing_gates", {})),
     }
