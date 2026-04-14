@@ -1,4 +1,5 @@
 """Classical lamination theory helpers for discrete symmetric tube layups."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,11 +28,7 @@ class PlyStack:
         return self.total_plies() * float(t_ply)
 
     def angle_sequence_half(self) -> tuple[float, ...]:
-        return (
-            (90.0,) * self.n_90
-            + (0.0,) * self.n_0
-            + (45.0, -45.0) * self.n_45
-        )
+        return (90.0,) * self.n_90 + (0.0,) * self.n_0 + (45.0, -45.0) * self.n_45
 
     def validate(self) -> list[str]:
         issues: list[str] = []
@@ -64,6 +61,31 @@ class TubeEquivalentProperties:
     EA_axial: float
     EI_bending: float
     GJ_torsion: float
+
+
+@dataclass(frozen=True)
+class PlyFailureResult:
+    """Tsai-Wu failure result for one ply at its mid-surface."""
+
+    ply_index: int
+    theta_deg: float
+    z_mid: float
+    stress_xy: tuple[float, float, float]
+    stress_12: tuple[float, float, float]
+    failure_index: float
+    strength_ratio: float
+
+
+@dataclass(frozen=True)
+class TsaiWuCoefficients:
+    """Plane-stress Tsai-Wu coefficients for a lamina."""
+
+    F1: float
+    F2: float
+    F11: float
+    F22: float
+    F66: float
+    F12: float
 
 
 def ply_Q_matrix(E1: float, E2: float, G12: float, nu12: float) -> np.ndarray:
@@ -118,6 +140,11 @@ def rotated_Q(Q: np.ndarray, theta_deg: float) -> np.ndarray:
     )
 
 
+def _full_layup_angles(ply_angles_deg: Sequence[float], symmetric: bool) -> tuple[float, ...]:
+    half_angles = tuple(float(angle) for angle in ply_angles_deg)
+    return tuple(reversed(half_angles)) + half_angles if symmetric else half_angles
+
+
 def compute_ABD(
     ply_angles_deg: Sequence[float],
     t_ply: float,
@@ -134,8 +161,7 @@ def compute_ABD(
     if t_ply <= 0.0:
         raise ValueError("t_ply must be positive.")
 
-    half_angles = tuple(float(angle) for angle in ply_angles_deg)
-    full_angles = tuple(reversed(half_angles)) + half_angles if symmetric else half_angles
+    full_angles = _full_layup_angles(ply_angles_deg, symmetric)
     total_thickness = len(full_angles) * float(t_ply)
     z_bot = -0.5 * total_thickness
 
@@ -157,6 +183,166 @@ def compute_ABD(
             raise AssertionError("Symmetric laminate should produce a near-zero B matrix.")
 
     return A, B, D
+
+
+def tsai_wu_coefficients(
+    ply_mat: PlyMaterial,
+    interaction_coefficient: float = -0.5,
+) -> TsaiWuCoefficients:
+    """Return Tsai-Wu coefficients using the common estimated F12 interaction."""
+    strengths = (ply_mat.F1t, ply_mat.F1c, ply_mat.F2t, ply_mat.F2c, ply_mat.F6)
+    if any(float(value) <= 0.0 for value in strengths):
+        raise ValueError("Tsai-Wu strengths must all be positive.")
+
+    F11 = 1.0 / (float(ply_mat.F1t) * float(ply_mat.F1c))
+    F22 = 1.0 / (float(ply_mat.F2t) * float(ply_mat.F2c))
+    return TsaiWuCoefficients(
+        F1=1.0 / float(ply_mat.F1t) - 1.0 / float(ply_mat.F1c),
+        F2=1.0 / float(ply_mat.F2t) - 1.0 / float(ply_mat.F2c),
+        F11=F11,
+        F22=F22,
+        F66=1.0 / float(ply_mat.F6) ** 2,
+        F12=float(interaction_coefficient) * float(np.sqrt(F11 * F22)),
+    )
+
+
+def transform_global_stress_to_ply(
+    stress_xy: Sequence[float],
+    theta_deg: float,
+) -> tuple[float, float, float]:
+    """Transform laminate x-y stress components to local 1-2 ply axes."""
+    if len(stress_xy) != 3:
+        raise ValueError("stress_xy must contain sigma_x, sigma_y, tau_xy.")
+
+    sigma_x, sigma_y, tau_xy = (float(value) for value in stress_xy)
+    theta_rad = np.deg2rad(float(theta_deg))
+    c = float(np.cos(theta_rad))
+    s = float(np.sin(theta_rad))
+    c2 = c * c
+    s2 = s * s
+    cs = c * s
+
+    sigma_1 = c2 * sigma_x + s2 * sigma_y + 2.0 * cs * tau_xy
+    sigma_2 = s2 * sigma_x + c2 * sigma_y - 2.0 * cs * tau_xy
+    tau_12 = -cs * sigma_x + cs * sigma_y + (c2 - s2) * tau_xy
+    return float(sigma_1), float(sigma_2), float(tau_12)
+
+
+def tsai_wu_failure_index(
+    stress_12: Sequence[float],
+    ply_mat: PlyMaterial,
+    interaction_coefficient: float = -0.5,
+) -> float:
+    """Evaluate Tsai-Wu failure index from local ply stresses."""
+    if len(stress_12) != 3:
+        raise ValueError("stress_12 must contain sigma_1, sigma_2, tau_12.")
+
+    sigma_1, sigma_2, tau_12 = (float(value) for value in stress_12)
+    coeffs = tsai_wu_coefficients(ply_mat, interaction_coefficient)
+    return float(
+        coeffs.F1 * sigma_1
+        + coeffs.F2 * sigma_2
+        + coeffs.F11 * sigma_1**2
+        + coeffs.F22 * sigma_2**2
+        + coeffs.F66 * tau_12**2
+        + 2.0 * coeffs.F12 * sigma_1 * sigma_2
+    )
+
+
+def tsai_wu_strength_ratio(
+    stress_12: Sequence[float],
+    ply_mat: PlyMaterial,
+    interaction_coefficient: float = -0.5,
+) -> float:
+    """Return the positive load multiplier that drives Tsai-Wu index to 1."""
+    if len(stress_12) != 3:
+        raise ValueError("stress_12 must contain sigma_1, sigma_2, tau_12.")
+
+    sigma_1, sigma_2, tau_12 = (float(value) for value in stress_12)
+    if max(abs(sigma_1), abs(sigma_2), abs(tau_12)) <= 0.0:
+        return float("inf")
+
+    coeffs = tsai_wu_coefficients(ply_mat, interaction_coefficient)
+    linear = coeffs.F1 * sigma_1 + coeffs.F2 * sigma_2
+    quadratic = (
+        coeffs.F11 * sigma_1**2
+        + coeffs.F22 * sigma_2**2
+        + coeffs.F66 * tau_12**2
+        + 2.0 * coeffs.F12 * sigma_1 * sigma_2
+    )
+
+    if abs(quadratic) <= 1.0e-18:
+        return float("inf") if linear <= 0.0 else float(1.0 / linear)
+
+    discriminant = linear**2 + 4.0 * quadratic
+    if discriminant < 0.0:
+        return float("inf")
+
+    sqrt_discriminant = float(np.sqrt(discriminant))
+    roots = (
+        (-linear + sqrt_discriminant) / (2.0 * quadratic),
+        (-linear - sqrt_discriminant) / (2.0 * quadratic),
+    )
+    positive_roots = [root for root in roots if root > 0.0]
+    return float(min(positive_roots)) if positive_roots else float("inf")
+
+
+def evaluate_laminate_tsai_wu(
+    ply_angles_deg: Sequence[float],
+    t_ply: float,
+    ply_mat: PlyMaterial,
+    midplane_strain: Sequence[float],
+    curvature: Sequence[float] = (0.0, 0.0, 0.0),
+    symmetric: bool = True,
+    interaction_coefficient: float = -0.5,
+) -> tuple[PlyFailureResult, ...]:
+    """Evaluate per-ply Tsai-Wu indices from CLT midplane strain and curvature."""
+    if not ply_angles_deg:
+        raise ValueError("ply_angles_deg must not be empty.")
+    if t_ply <= 0.0:
+        raise ValueError("t_ply must be positive.")
+    if len(midplane_strain) != 3:
+        raise ValueError("midplane_strain must contain epsilon_x, epsilon_y, gamma_xy.")
+    if len(curvature) != 3:
+        raise ValueError("curvature must contain kappa_x, kappa_y, kappa_xy.")
+
+    full_angles = _full_layup_angles(ply_angles_deg, symmetric)
+    total_thickness = len(full_angles) * float(t_ply)
+    z_bot = -0.5 * total_thickness
+    eps0 = np.asarray(midplane_strain, dtype=float)
+    kappa = np.asarray(curvature, dtype=float)
+    Q = ply_Q_matrix(ply_mat.E1, ply_mat.E2, ply_mat.G12, ply_mat.nu12)
+
+    results: list[PlyFailureResult] = []
+    for ply_index, angle in enumerate(full_angles, start=1):
+        z_top = z_bot + float(t_ply)
+        z_mid = 0.5 * (z_bot + z_top)
+        strain_xy = eps0 + z_mid * kappa
+        stress_xy_array = rotated_Q(Q, angle) @ strain_xy
+        stress_xy = tuple(float(value) for value in stress_xy_array)
+        stress_12 = transform_global_stress_to_ply(stress_xy, angle)
+        results.append(
+            PlyFailureResult(
+                ply_index=ply_index,
+                theta_deg=float(angle),
+                z_mid=float(z_mid),
+                stress_xy=stress_xy,
+                stress_12=stress_12,
+                failure_index=tsai_wu_failure_index(
+                    stress_12,
+                    ply_mat,
+                    interaction_coefficient=interaction_coefficient,
+                ),
+                strength_ratio=tsai_wu_strength_ratio(
+                    stress_12,
+                    ply_mat,
+                    interaction_coefficient=interaction_coefficient,
+                ),
+            )
+        )
+        z_bot = z_top
+
+    return tuple(results)
 
 
 def tube_equivalent_from_layup(
