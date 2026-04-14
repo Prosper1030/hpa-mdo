@@ -230,20 +230,20 @@
            │ Milestone 11 — CLT Composite Layup   │
            │      (discrete ply-level design)      │
            │                                       │
-           │ 11a. PlyMaterial dataclass + YAML     │
+           │ 11a. ✅ PlyMaterial dataclass + YAML  │
            │      E1/E2/G12/nu12/t_ply/strengths  │
-           │ 11b. CLT engine (laminate.py)         │
+           │ 11b. ✅ CLT engine (laminate.py)      │
            │      Q→ABD→tube EI/GJ/EA             │
-           │ 11c. PlyStack discrete catalog        │
+           │ 11c. ✅ PlyStack discrete catalog     │
            │      enumerate valid n_0/n_45/n_90   │
-           │ 11d. snap-to-stack post-processor     │
+           │ 11d. ✅ snap-to-stack post-processor  │
            │      continuous t → nearest PlyStack  │
-           │ 11e. Tsai-Wu ply failure criterion    │
-           │      per-ply stress check             │
-           │ 11f. ply-drop adjacency constraint    │
-           │      max 2-ply step between segments  │
-           │ 11g. layup output formatter           │
-           │      "Segment 1: [0/±45/0/90/0]_s"   │
+           │ 11e. ✅ Tsai-Wu ply failure criterion │
+           │      + optional layup summary margin  │
+           │ 11f. △ optimizer ply-drop constraint  │
+           │      post-process guard exists        │
+           │ 11g. ✅ layup output formatter        │
+           │      schedule + optional Tsai-Wu line │
            └──────────────┬───────────────────────┘
                           │
            ┌──────────────▼───────────────────────┐
@@ -755,7 +755,7 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | Phase IV Agent 過度自信 | 產出不可行設計 | `_is_raw_feasible` 作為硬閘門，val_weight 協定不可繞過 |
 | Phase V 使用者信任過度 | 非工程師直接送製造 | 報告必須標示所有假設與限制，STEP 附安全警語 |
 | dihedral sweep 載荷不一致 | mass 偏樂觀 | 目前用 ×1.0 載荷算所有 dihedral；M9 補 AVL/VSPAero load refresh |
-| AVL 穩定性假陽性/假陰性 | 錯誤篩選 | 慣量參數需從 config 讀取；full-body .avl 是最低門檻 |
+| AVL 穩定性假陽性/假陰性 | 錯誤篩選 | full-body .avl 是最低門檻；2026-04-14 baseline 顯示 Dutch roll/spiral/β sweep 均在穩定側 |
 | 多元件 VSP 載荷未指定 component_ids | 載荷可能混入 tail/fin strips | parser 已支援 filter；多元件案例需顯式指定 wing component |
 
 ---
@@ -772,6 +772,7 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 6. **wire allowable 1052N 是錯的** — 已修正為 dyneema_sk75 ≈ 6872N
 7. **氣動性能門檻已建立** — min lift ≥ 100kg、L/D ≥ 25、trim AoA 已納入 sweep gate
 8. **ASWING 是終極驗證工具** — Drela 的非線性氣動彈性求解器，支援柔性翼+鋼索+flutter
+9. **目前不放大垂尾** — HPA benchmark 支援先維持 `Sfin=1.68m²`；若要偏 TBT 類型，優先測約 3.0m²，不直接跳 4-5m²
 
 ---
 

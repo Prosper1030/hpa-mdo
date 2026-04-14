@@ -56,7 +56,7 @@ So the first design step would be closer to 3.0 m2, not 4-5 m2.
 
 - The main-wing-to-fin distance is not being read short. Current AVL reference and fin x-location give `Lfin = 4.75 m`, matching the handoff estimate.
 - The `IYsym=0` and `YDUPLICATE` pattern is correct for lateral/directional derivatives: wing and horizontal tail are duplicated; the centerline vertical fin is not duplicated.
-- `Xhinge=0.0` is acceptable for the all-moving tail use case. The AVL manual describes `CONTROL` gain as degrees of deflection per control variable and supports whole-chord controls.
+- `Xhinge=0.0` is acceptable for the all-moving tail use case. The archived AVL manual at `docs/Manual/avl_doc.txt` describes `CONTROL` gain as degrees of deflection per control variable and supports whole-chord controls.
 - AVL reports control derivatives with respect to the control variable. With the current control gain, `Cnd02 = 0.000486` is per degree, not per radian. Interpreting it as `/rad` underestimates rudder authority by about 57.3x.
 
 At cruise:
@@ -68,6 +68,18 @@ At cruise:
 - yaw moment from 3 deg rudder is about `38 N m`
 
 That is still modest, but it is not the sub-1 N m result from the earlier unit interpretation.
+
+## Baseline Stability Snapshot
+
+Re-running the current `data/blackcat_004_full.avl` baseline on 2026-04-14 gives:
+
+- Dutch roll mode: found, real = -0.215666, imag = 0.549299, status = stable.
+- Spiral mode: real = -0.001998, stable with time-to-half about 347 s.
+- Beta sweep: trimmed through 12 deg, `Cn_beta = -0.0242 / rad`, `Cl_beta = -0.135 / rad`.
+- Trim: `CL = 1.235`, alpha = 10.99 deg, `CDind = 0.0173`, span efficiency = 0.638.
+- Rudder derivative: `Cnd02 = 0.000486 / deg`, coupling parse status = ok.
+
+Interpretation: lateral/directional stability is acceptable for the current AVL audit. The two items to keep watching are the high trim alpha and the still-modest rudder authority.
 
 ## Decision
 
