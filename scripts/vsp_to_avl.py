@@ -28,6 +28,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--yref", type=float, default=0.0)
     parser.add_argument("--zref", type=float, default=0.0)
     parser.add_argument("--mach", type=float, default=0.0)
+    parser.add_argument(
+        "--airfoil-dir",
+        default=None,
+        help="Directory to search for .dat airfoil coordinate files "
+        "(emits AVL AFILE directive for non-NACA airfoils).",
+    )
     return parser
 
 
@@ -48,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         yref=args.yref,
         zref=args.zref,
         mach=args.mach,
+        airfoil_dir=args.airfoil_dir,
     )
 
     print(f"Wrote AVL model: {avl_path}")

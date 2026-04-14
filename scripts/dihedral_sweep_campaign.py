@@ -1578,6 +1578,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     cd_profile_estimate = float(cfg.aero_gates.cd_profile_estimate)
     max_trim_aoa_deg = float(cfg.aero_gates.max_trim_aoa_deg)
+    soft_trim_aoa_deg = float(cfg.aero_gates.soft_trim_aoa_deg)
+    stall_alpha_deg = float(cfg.aero_gates.stall_alpha_deg)
+    min_stall_margin_deg = float(cfg.aero_gates.min_stall_margin_deg)
     max_sideslip_deg = (
         float(cfg.aero_gates.max_sideslip_deg)
         if args.max_sideslip_deg is None
@@ -1655,6 +1658,9 @@ def main(argv: list[str] | None = None) -> int:
                     "min_ld_ratio": float(min_ld_ratio),
                     "cd_profile_estimate": float(cd_profile_estimate),
                     "max_trim_aoa_deg": float(max_trim_aoa_deg),
+                    "soft_trim_aoa_deg": float(soft_trim_aoa_deg),
+                    "stall_alpha_deg": float(stall_alpha_deg),
+                    "min_stall_margin_deg": float(min_stall_margin_deg),
                     "skip_aero_gates": bool(args.skip_aero_gates),
                     "skip_beta_sweep": bool(args.skip_beta_sweep),
                     "max_sideslip_deg": float(max_sideslip_deg),
@@ -1803,6 +1809,9 @@ def main(argv: list[str] | None = None) -> int:
                     "min_ld_ratio": float(min_ld_ratio),
                     "cd_profile_estimate": float(cd_profile_estimate),
                     "max_trim_aoa_deg": float(max_trim_aoa_deg),
+                    "soft_trim_aoa_deg": float(soft_trim_aoa_deg),
+                    "stall_alpha_deg": float(stall_alpha_deg),
+                    "min_stall_margin_deg": float(min_stall_margin_deg),
                     "skip_aero_gates": bool(args.skip_aero_gates),
                     "skip_beta_sweep": bool(args.skip_beta_sweep),
                     "max_sideslip_deg": float(max_sideslip_deg),

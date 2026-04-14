@@ -21,6 +21,7 @@ def export_avl(
     yref: float = 0.0,
     zref: float = 0.0,
     mach: float = 0.0,
+    airfoil_dir: Path | str | None = None,
 ) -> Path:
     """Export VSPGeometryModel to AVL format .avl file."""
     out = Path(output_path).expanduser().resolve()
@@ -96,9 +97,13 @@ def export_avl(
                     ),
                 ]
             )
-            naca_digits = _naca_digits(section.airfoil)
-            if naca_digits is not None:
-                lines.extend(["NACA", naca_digits])
+            dat_path = _resolve_airfoil_dat(section.airfoil, airfoil_dir)
+            if dat_path is not None:
+                lines.extend(["AFILE", str(dat_path)])
+            else:
+                naca_digits = _naca_digits(section.airfoil)
+                if naca_digits is not None:
+                    lines.extend(["NACA", naca_digits])
             if surface.surface_type == "h_stab":
                 lines.extend(
                     [
@@ -193,7 +198,66 @@ def _surface_span(surface: VSPSurface) -> float:
 
 
 def _naca_digits(airfoil: str) -> str | None:
-    match = re.search(r"([0-9]{4,5})", str(airfoil))
+    # Only treat the name as NACA if it begins with "naca" (case-insensitive).
+    # Plain digit substrings in names like "fx76mp140" must not trigger NACA.
+    match = re.match(r"\s*naca[\s_-]*([0-9]{4,5})", str(airfoil), flags=re.IGNORECASE)
     if match is None:
         return None
     return match.group(1)
+
+
+def _resolve_airfoil_dat(
+    airfoil: str,
+    airfoil_dir: Path | str | None,
+) -> Path | None:
+    """Locate an airfoil .dat coordinate file for AVL's AFILE directive.
+
+    Searches, in order: the provided airfoil_dir, the repo's data/airfoils,
+    the configured SyncFile path, and any absolute path given as the name.
+    Returns None if no file is found or the name is clearly a NACA series
+    (which AVL handles natively via the NACA directive).
+    """
+    name = str(airfoil).strip()
+    if not name:
+        return None
+    if _naca_digits(name) is not None:
+        # NACA takes precedence — AVL handles it natively.
+        return None
+
+    candidates: list[Path] = []
+    as_path = Path(name)
+    if as_path.is_absolute() and as_path.exists():
+        return as_path.resolve()
+
+    search_dirs: list[Path] = []
+    if airfoil_dir is not None:
+        search_dirs.append(Path(airfoil_dir).expanduser())
+    # Repo-local fallback locations.
+    repo_guess = Path(__file__).resolve().parents[3]
+    search_dirs.extend(
+        [
+            repo_guess / "data" / "airfoils",
+            repo_guess / "Aerodynamics" / "airfoil",
+        ]
+    )
+    # SyncFile location used elsewhere in the project.
+    search_dirs.append(Path("/Volumes/Samsung SSD/SyncFile/Aerodynamics/airfoil"))
+
+    stem = as_path.stem or name
+    for directory in search_dirs:
+        if not directory.exists():
+            continue
+        for suffix in (".dat", ".txt"):
+            candidate = directory / f"{stem}{suffix}"
+            if candidate.exists():
+                candidates.append(candidate)
+        # Case-insensitive match as a last resort.
+        try:
+            for entry in directory.iterdir():
+                if entry.is_file() and entry.stem.lower() == stem.lower():
+                    candidates.append(entry)
+        except OSError:
+            continue
+        if candidates:
+            return candidates[0].resolve()
+    return None

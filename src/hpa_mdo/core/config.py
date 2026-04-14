@@ -264,7 +264,24 @@ class AeroGatesConfig(BaseModel):
     )
     max_trim_aoa_deg: float = Field(
         12.0,
-        description="Maximum acceptable trim angle of attack before stall margin is exceeded [deg]",
+        description="Hard upper bound on trim AoA [deg]. Above this the sweep "
+        "rejects the design. Sets the lower edge of the stall-margin budget.",
+    )
+    soft_trim_aoa_deg: float = Field(
+        10.0,
+        description="Soft design target for trim AoA [deg]. Trim above this "
+        "value still passes the sweep but raises a design-warning flag.",
+    )
+    stall_alpha_deg: float = Field(
+        13.5,
+        description="Conservative stall angle for the wing root airfoil at "
+        "cruise Re [deg]. Default is tuned for Clark Y SM / FX 76 MP 140 "
+        "family at Re ~ 5e5; override per-airfoil if you change sections.",
+    )
+    min_stall_margin_deg: float = Field(
+        2.0,
+        description="Minimum required (stall_alpha_deg - trim_alpha_deg) [deg]. "
+        "Designs below this margin are flagged for review.",
     )
     max_sideslip_deg: float = Field(
         12.0,

@@ -231,54 +231,27 @@ class VSPBuilder:
             vsp.SetGeomName(wing_id, "MainWing")
 
             # Wing is defined with one XSec_Surf containing XSecs.
-            # OpenVSP wings default to two XSecs (root and tip).
-            # We set root section parameters then add a tip section.
-
-            # -- Root section (XSec index 0 is the blank cap, 1 is root) --
+            # OpenVSP wings default to two XSecs (indices 0 = root,
+            # 1 = tip). ALL segment driver parms (Root_Chord,
+            # Tip_Chord, Span, Sweep, Sweep_Location, Dihedral, Twist)
+            # live on the OUTBOARD XSec (index 1) of the single
+            # default segment. Setting them on the inboard XSec is a
+            # no-op for driver purposes.
             xsec_surf = vsp.GetXSecSurf(wing_id, 0)
 
-            # Root XSec (index 1)
-            root_xs = vsp.GetXSec(xsec_surf, 1)
-            vsp.SetParmVal(
-                vsp.GetXSecParm(root_xs, "Root_Chord"),
-                w.root_chord,
-            )
+            root_xs = vsp.GetXSec(xsec_surf, 0)  # inboard XSec — used for airfoil only
+            tip_xs = vsp.GetXSec(xsec_surf, 1)   # outboard XSec — carries all segment drivers
 
-            # -- Tip section (index 2 — already exists on default wing) --
-            tip_xs = vsp.GetXSec(xsec_surf, 2)
-            vsp.SetParmVal(
-                vsp.GetXSecParm(tip_xs, "Tip_Chord"),
-                w.tip_chord,
-            )
-            vsp.SetParmVal(
-                vsp.GetXSecParm(tip_xs, "Span"),
-                half_span,
-            )
-
-            # Dihedral — OpenVSP section dihedral applies to the
-            # outboard panel attached to that XSec.
-            vsp.SetParmVal(
-                vsp.GetXSecParm(root_xs, "Dihedral"),
-                w.dihedral_root_deg,
-            )
-            vsp.SetParmVal(
-                vsp.GetXSecParm(tip_xs, "Dihedral"),
-                w.dihedral_tip_deg,
-            )
-
-            # Sweep — linear taper, zero sweep at quarter-chord.
-            vsp.SetParmVal(
-                vsp.GetXSecParm(tip_xs, "Sweep"),
-                0.0,
-            )
-            vsp.SetParmVal(
-                vsp.GetXSecParm(tip_xs, "Sweep_Location"),
-                w.spar_location_xc,
-            )
+            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Root_Chord"), w.root_chord)
+            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Tip_Chord"), w.tip_chord)
+            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Span"), half_span)
+            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Dihedral"), w.dihedral_tip_deg)
+            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep"), 0.0)
+            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep_Location"), w.spar_location_xc)
 
             # ── Airfoil assignment ───────────────────────────────────
-            self._assign_airfoil_api(vsp, xsec_surf, 1, w.airfoil_root)
-            self._assign_airfoil_api(vsp, xsec_surf, 2, w.airfoil_tip)
+            self._assign_airfoil_api(vsp, xsec_surf, 0, w.airfoil_root)
+            self._assign_airfoil_api(vsp, xsec_surf, 1, w.airfoil_tip)
 
             # ── Symmetry (full wing from half definition) ────────────
             vsp.SetParmVal(
@@ -325,16 +298,17 @@ class VSPBuilder:
         )
 
         xsec_surf = vsp.GetXSecSurf(geom_id, 0)
-        root_xs = vsp.GetXSec(xsec_surf, 1)
-        tip_xs = vsp.GetXSec(xsec_surf, 2)
-        vsp.SetParmVal(vsp.GetXSecParm(root_xs, "Root_Chord"), surface.root_chord)
+        root_xs = vsp.GetXSec(xsec_surf, 0)
+        tip_xs = vsp.GetXSec(xsec_surf, 1)
+        # All segment drivers live on the outboard XSec (index 1).
+        vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Root_Chord"), surface.root_chord)
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Tip_Chord"), surface.tip_chord)
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Span"), self._vsp_surface_span(surface))
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep"), 0.0)
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep_Location"), 0.25)
 
+        self._assign_airfoil_api(vsp, xsec_surf, 0, surface.airfoil)
         self._assign_airfoil_api(vsp, xsec_surf, 1, surface.airfoil)
-        self._assign_airfoil_api(vsp, xsec_surf, 2, surface.airfoil)
 
         sym_flag = vsp.SYM_XZ if surface.symmetry == "xz" else 0
         vsp.SetParmVal(vsp.FindParm(geom_id, "Sym_Planar_Flag", "Sym"), sym_flag)
@@ -565,12 +539,12 @@ class VSPBuilder:
         # Build airfoil loading snippet.  If the .dat file is found we
         # use ReadFileAirfoil; otherwise we fall back to parsed NACA 4-series values.
         root_af_block = self._vspscript_airfoil_block(
-            xsec_idx=1,
+            xsec_idx=0,
             dat_path=root_af_dat,
             label=w.airfoil_root,
         )
         tip_af_block = self._vspscript_airfoil_block(
-            xsec_idx=2,
+            xsec_idx=1,
             dat_path=tip_af_dat,
             label=w.airfoil_tip,
         )
@@ -598,13 +572,10 @@ class VSPBuilder:
                 // XSec surf for the wing
                 string xsec_surf = GetXSecSurf( wing_id, 0 );
 
-                // ── Root section (XSec index 1) ─────────────────────────
-                string root_xs = GetXSec( xsec_surf, 1 );
-                SetParmVal( GetXSecParm( root_xs, "Root_Chord" ), {w.root_chord:.6f} );
-                SetParmVal( GetXSecParm( root_xs, "Dihedral" ), {w.dihedral_root_deg:.4f} );
-
-                // ── Tip section (XSec index 2) ──────────────────────────
-                string tip_xs = GetXSec( xsec_surf, 2 );
+                // All segment drivers live on the outboard XSec (index 1).
+                string root_xs = GetXSec( xsec_surf, 0 );
+                string tip_xs = GetXSec( xsec_surf, 1 );
+                SetParmVal( GetXSecParm( tip_xs, "Root_Chord" ), {w.root_chord:.6f} );
                 SetParmVal( GetXSecParm( tip_xs, "Tip_Chord" ), {w.tip_chord:.6f} );
                 SetParmVal( GetXSecParm( tip_xs, "Span" ), {half_span:.6f} );
                 SetParmVal( GetXSecParm( tip_xs, "Dihedral" ), {w.dihedral_tip_deg:.4f} );
@@ -645,14 +616,14 @@ class VSPBuilder:
         af_dat = self._resolve_airfoil_dat(surface.airfoil)
         surface_id = self._safe_script_identifier(surface.name)
         root_af_block = self._vspscript_airfoil_block(
-            xsec_idx=1,
+            xsec_idx=0,
             dat_path=af_dat,
             label=surface.airfoil,
             xsec_surf_var=f"{surface_id}_surf",
             var_prefix=f"{surface_id}_",
         )
         tip_af_block = self._vspscript_airfoil_block(
-            xsec_idx=2,
+            xsec_idx=1,
             dat_path=af_dat,
             label=surface.airfoil,
             xsec_surf_var=f"{surface_id}_surf",
@@ -671,14 +642,14 @@ class VSPBuilder:
             SetParmVal( FindParm( {surface_id}_id, "Z_Rel_Rotation", "XForm" ), {surface.z_rotation_deg:.6f} );
 
             string {surface_id}_surf = GetXSecSurf( {surface_id}_id, 0 );
-            string {surface_id}_root_xs = GetXSec( {surface_id}_surf, 1 );
-            string {surface_id}_tip_xs = GetXSec( {surface_id}_surf, 2 );
-            SetParmVal( GetXSecParm( {surface_id}_root_xs, "Root_Chord" ), {surface.root_chord:.6f} );
+            string {surface_id}_root_xs = GetXSec( {surface_id}_surf, 0 );
+            string {surface_id}_tip_xs = GetXSec( {surface_id}_surf, 1 );
+            // Segment drivers live on the outboard XSec (index 1).
+            SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Root_Chord" ), {surface.root_chord:.6f} );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Tip_Chord" ), {surface.tip_chord:.6f} );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Span" ), {self._vsp_surface_span(surface):.6f} );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Sweep" ), 0.0 );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Sweep_Location" ), 0.25 );
-            SetParmVal( GetXSecParm( {surface_id}_root_xs, "Dihedral" ), 0.0 );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Dihedral" ), 0.0 );
 
         {textwrap.indent(root_af_block, "    ")}
