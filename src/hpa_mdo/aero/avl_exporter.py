@@ -41,15 +41,17 @@ def export_avl(
     if wing_sections and xref == 0.0:
         xref_out = 0.25 * float(wing_sections[0].chord)
 
-    has_xz_symmetry = any(surface.symmetry == "xz" for surface in geometry.surfaces)
-    ysym = 1 if has_xz_symmetry else 0
+    # Always use IYsym=0 so AVL can compute lateral/directional stability
+    # derivatives (CYb, Cnb, Clb).  Symmetric surfaces (wing, h_stab) get
+    # YDUPLICATE instead.  The vertical fin sits on the centerline and must
+    # NOT be duplicated.
 
     lines: list[str] = [
         "Generated from VSP3 geometry",
         "#Mach",
         f"{float(mach):.6f}",
         "#IYsym  iZsym  Zsym",
-        f"{ysym}  0  0.000000",
+        "0  0  0.000000",
         "#Sref  Cref  Bref",
         f"{sref_out:.9f}  {cref_out:.9f}  {bref_out:.9f}",
         "#Xref  Yref  Zref",
@@ -72,9 +74,15 @@ def export_avl(
             ]
         )
         if surface.surface_type == "wing":
-            lines.extend(["COMPONENT", "1", "#"])
+            lines.extend(["COMPONENT", "1"])
+            if surface.symmetry == "xz":
+                lines.extend(["YDUPLICATE", "0.0"])
+            lines.append("#")
         elif surface.surface_type == "h_stab":
-            lines.extend(["COMPONENT", "2", "#"])
+            lines.extend(["COMPONENT", "2"])
+            if surface.symmetry == "xz":
+                lines.extend(["YDUPLICATE", "0.0"])
+            lines.append("#")
         elif surface.surface_type == "v_fin":
             lines.extend(["COMPONENT", "3", "#"])
 
