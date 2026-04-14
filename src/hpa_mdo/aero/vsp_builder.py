@@ -66,6 +66,27 @@ def _failure_dict(msg: str) -> Dict[str, Any]:
     }
 
 
+def _progressive_dihedral_deg(
+    eta: float,
+    dihedral_root_deg: float,
+    dihedral_tip_deg: float,
+    exponent: float,
+) -> float:
+    """Compute local dihedral angle at normalized span coordinate *eta* ∈ [0, 1].
+
+    The formula is::
+
+        dihedral(eta) = root + (tip - root) * eta^exponent
+
+    With exponent=1 this gives a linear ramp; exponent=2 a quadratic ramp
+    that concentrates dihedral outboard.
+    """
+    eta = max(0.0, min(float(eta), 1.0))
+    return float(dihedral_root_deg) + (
+        float(dihedral_tip_deg) - float(dihedral_root_deg)
+    ) * (eta ** float(exponent))
+
+
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
@@ -214,14 +235,19 @@ class VSPBuilder:
     # ------------------------------------------------------------------
 
     def _build_with_api(self, output: Path) -> Path:
-        """Use ``import openvsp as vsp`` to create the .vsp3 file."""
+        """Use ``import openvsp as vsp`` to create the .vsp3 file.
+
+        The main wing is built with **multiple segments** matching the
+        spar segment layout, each carrying its own local dihedral angle
+        to represent the progressive dihedral schedule from config.
+        """
         try:
             import openvsp as vsp
         except ImportError:
             raise RuntimeError("openvsp is not available")
 
         w = self.cfg.wing
-        half_span = self.cfg.half_span
+        schedule = self._wing_section_schedule()
 
         try:
             vsp.ClearVSPModel()
@@ -230,28 +256,54 @@ class VSPBuilder:
             wing_id = vsp.AddGeom("WING")
             vsp.SetGeomName(wing_id, "MainWing")
 
-            # Wing is defined with one XSec_Surf containing XSecs.
-            # OpenVSP wings default to two XSecs (indices 0 = root,
-            # 1 = tip). ALL segment driver parms (Root_Chord,
-            # Tip_Chord, Span, Sweep, Sweep_Location, Dihedral, Twist)
-            # live on the OUTBOARD XSec (index 1) of the single
-            # default segment. Setting them on the inboard XSec is a
-            # no-op for driver purposes.
+            # OpenVSP wings default to one segment (2 XSecs, indices 0
+            # and 1).  We need (len(schedule) - 1) segments, so insert
+            # additional XSecs.
             xsec_surf = vsp.GetXSecSurf(wing_id, 0)
+            n_segments = len(schedule) - 1
+            for _ in range(n_segments - 1):
+                vsp.InsertXSec(wing_id, 1, vsp.XS_FOUR_SERIES)
 
-            root_xs = vsp.GetXSec(xsec_surf, 0)  # inboard XSec — used for airfoil only
-            tip_xs = vsp.GetXSec(xsec_surf, 1)   # outboard XSec — carries all segment drivers
+            # Assign airfoil on root XSec (index 0) — this is the
+            # inboard XSec and does not carry segment driver parms.
+            self._assign_airfoil_api(vsp, xsec_surf, 0, schedule[0]["airfoil"])
 
-            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Root_Chord"), w.root_chord)
-            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Tip_Chord"), w.tip_chord)
-            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Span"), half_span)
-            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Dihedral"), w.dihedral_tip_deg)
-            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep"), 0.0)
-            vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep_Location"), w.spar_location_xc)
+            # Configure each segment via its outboard XSec.
+            for seg_idx in range(n_segments):
+                outboard_xsec_idx = seg_idx + 1
+                inboard = schedule[seg_idx]
+                outboard = schedule[seg_idx + 1]
+                seg_span = outboard["y"] - inboard["y"]
 
-            # ── Airfoil assignment ───────────────────────────────────
-            self._assign_airfoil_api(vsp, xsec_surf, 0, w.airfoil_root)
-            self._assign_airfoil_api(vsp, xsec_surf, 1, w.airfoil_tip)
+                xs = vsp.GetXSec(xsec_surf, outboard_xsec_idx)
+                vsp.SetDriverGroup(
+                    wing_id,
+                    outboard_xsec_idx,
+                    vsp.SPAN_WSECT_DRIVER,
+                    vsp.ROOTC_WSECT_DRIVER,
+                    vsp.TIPC_WSECT_DRIVER,
+                )
+                vsp.SetParmVal(vsp.GetXSecParm(xs, "Root_Chord"), inboard["chord"])
+                vsp.SetParmVal(vsp.GetXSecParm(xs, "Tip_Chord"), outboard["chord"])
+                vsp.SetParmVal(vsp.GetXSecParm(xs, "Span"), seg_span)
+                vsp.SetParmVal(vsp.GetXSecParm(xs, "Sweep"), 0.0)
+                vsp.SetParmVal(vsp.GetXSecParm(xs, "Sweep_Location"), w.spar_location_xc)
+
+                # Local dihedral: average dihedral angle for this segment.
+                # OpenVSP applies the segment dihedral as a constant
+                # angle across the segment span.
+                local_dih = 0.5 * (inboard["dihedral_deg"] + outboard["dihedral_deg"])
+                vsp.SetParmVal(vsp.GetXSecParm(xs, "Dihedral"), local_dih)
+                vsp.Update()
+
+                # Assign airfoil on the outboard XSec.
+                self._assign_airfoil_api(vsp, xsec_surf, outboard_xsec_idx, outboard["airfoil"])
+
+            logger.info(
+                "MainWing: %d segments, progressive dihedral %.1f°→%.1f° (exp=%.1f)",
+                n_segments, w.dihedral_root_deg, w.dihedral_tip_deg,
+                w.dihedral_scaling_exponent,
+            )
 
             # ── Symmetry (full wing from half definition) ────────────
             vsp.SetParmVal(
@@ -301,11 +353,19 @@ class VSPBuilder:
         root_xs = vsp.GetXSec(xsec_surf, 0)
         tip_xs = vsp.GetXSec(xsec_surf, 1)
         # All segment drivers live on the outboard XSec (index 1).
+        vsp.SetDriverGroup(
+            geom_id,
+            1,
+            vsp.SPAN_WSECT_DRIVER,
+            vsp.ROOTC_WSECT_DRIVER,
+            vsp.TIPC_WSECT_DRIVER,
+        )
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Root_Chord"), surface.root_chord)
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Tip_Chord"), surface.tip_chord)
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Span"), self._vsp_surface_span(surface))
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep"), 0.0)
         vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep_Location"), 0.25)
+        vsp.Update()
 
         self._assign_airfoil_api(vsp, xsec_surf, 0, surface.airfoil)
         self._assign_airfoil_api(vsp, xsec_surf, 1, surface.airfoil)
@@ -528,36 +588,70 @@ class VSPBuilder:
     def _build_vspscript_fallback(self, script_path: Path, vsp3_target: Path) -> Path:
         """Write a VSPScript that recreates the wing geometry.
 
-        The script can be executed inside OpenVSP via File -> Run Script,
+        The script uses multiple segments with progressive dihedral,
+        matching the spar segment layout.
+
+        Can be executed inside OpenVSP via File -> Run Script,
         or from the command line with ``vsp -script <file>``.
         """
         w = self.cfg.wing
-        half_span = self.cfg.half_span
-        root_af_dat = self._resolve_airfoil_dat(w.airfoil_root)
-        tip_af_dat = self._resolve_airfoil_dat(w.airfoil_tip)
+        schedule = self._wing_section_schedule()
+        n_segments = len(schedule) - 1
 
-        # Build airfoil loading snippet.  If the .dat file is found we
-        # use ReadFileAirfoil; otherwise we fall back to parsed NACA 4-series values.
-        root_af_block = self._vspscript_airfoil_block(
-            xsec_idx=0,
-            dat_path=root_af_dat,
-            label=w.airfoil_root,
-        )
-        tip_af_block = self._vspscript_airfoil_block(
-            xsec_idx=1,
-            dat_path=tip_af_dat,
-            label=w.airfoil_tip,
-        )
         tail_blocks = "\n".join(
             self._vspscript_lifting_surface_block(surface)
             for surface in (self.cfg.horizontal_tail, self.cfg.vertical_fin)
             if surface.enabled
         )
 
+        # Build the multi-segment wing body.
+        seg_lines: List[str] = []
+
+        # Insert additional XSecs for segments beyond the default first one.
+        for i in range(n_segments - 1):
+            seg_lines.append(f'    InsertXSec( wing_id, 1, XS_FOUR_SERIES );')
+
+        # Assign root airfoil (XSec index 0).
+        root_af_block = self._vspscript_airfoil_block(
+            xsec_idx=0,
+            dat_path=self._resolve_airfoil_dat(schedule[0]["airfoil"]),
+            label=schedule[0]["airfoil"],
+        )
+        seg_lines.append(textwrap.indent(root_af_block, "    "))
+
+        # Configure each segment via its outboard XSec.
+        for seg_idx in range(n_segments):
+            outboard_idx = seg_idx + 1
+            inboard = schedule[seg_idx]
+            outboard = schedule[seg_idx + 1]
+            seg_span = outboard["y"] - inboard["y"]
+            local_dih = 0.5 * (inboard["dihedral_deg"] + outboard["dihedral_deg"])
+
+            seg_lines.append(f'    // ── Segment {seg_idx}: y={inboard["y"]:.1f}→{outboard["y"]:.1f} m, dih={local_dih:.2f}° ──')
+            seg_lines.append(f'    string seg{seg_idx}_xs = GetXSec( xsec_surf, {outboard_idx} );')
+            seg_lines.append(f'    SetDriverGroup( wing_id, {outboard_idx}, SPAN_WSECT_DRIVER, ROOTC_WSECT_DRIVER, TIPC_WSECT_DRIVER );')
+            seg_lines.append(f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Root_Chord" ), {inboard["chord"]:.6f} );')
+            seg_lines.append(f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Tip_Chord" ), {outboard["chord"]:.6f} );')
+            seg_lines.append(f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Span" ), {seg_span:.6f} );')
+            seg_lines.append(f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Sweep" ), 0.0 );')
+            seg_lines.append(f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Sweep_Location" ), {w.spar_location_xc:.4f} );')
+            seg_lines.append(f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Dihedral" ), {local_dih:.6f} );')
+            seg_lines.append('    Update();')
+
+            # Outboard XSec airfoil.
+            af_block = self._vspscript_airfoil_block(
+                xsec_idx=outboard_idx,
+                dat_path=self._resolve_airfoil_dat(outboard["airfoil"]),
+                label=outboard["airfoil"],
+            )
+            seg_lines.append(textwrap.indent(af_block, "    "))
+
+        segment_body = "\n".join(seg_lines)
+
         script = textwrap.dedent(f"""\
             // ─────────────────────────────────────────────────────────────
             // VSPScript: {self.cfg.project_name} aircraft geometry
-            // Generated by hpa_mdo.aero.vsp_builder (fallback mode)
+            // Generated by hpa_mdo.aero.vsp_builder (multi-segment mode)
             // ─────────────────────────────────────────────────────────────
 
             void main()
@@ -565,26 +659,12 @@ class VSPBuilder:
                 // Clear existing model
                 ClearVSPModel();
 
-                // ── Create wing ─────────────────────────────────────────
+                // ── Create wing ({n_segments} segments, progressive dihedral) ──
                 string wing_id = AddGeom( "WING" );
                 SetGeomName( wing_id, "MainWing" );
-
-                // XSec surf for the wing
                 string xsec_surf = GetXSecSurf( wing_id, 0 );
 
-                // All segment drivers live on the outboard XSec (index 1).
-                string root_xs = GetXSec( xsec_surf, 0 );
-                string tip_xs = GetXSec( xsec_surf, 1 );
-                SetParmVal( GetXSecParm( tip_xs, "Root_Chord" ), {w.root_chord:.6f} );
-                SetParmVal( GetXSecParm( tip_xs, "Tip_Chord" ), {w.tip_chord:.6f} );
-                SetParmVal( GetXSecParm( tip_xs, "Span" ), {half_span:.6f} );
-                SetParmVal( GetXSecParm( tip_xs, "Dihedral" ), {w.dihedral_tip_deg:.4f} );
-                SetParmVal( GetXSecParm( tip_xs, "Sweep" ), 0.0 );
-                SetParmVal( GetXSecParm( tip_xs, "Sweep_Location" ), {w.spar_location_xc:.4f} );
-
-                // ── Airfoil assignment ───────────────────────────────────
-            {textwrap.indent(root_af_block, "    ")}
-            {textwrap.indent(tip_af_block, "    ")}
+            {textwrap.indent(segment_body, "    ")}
 
                 // ── Symmetry (mirror about XZ plane for full wing) ──────
                 string sym_parm = FindParm( wing_id, "Sym_Planar_Flag", "Sym" );
@@ -595,7 +675,7 @@ class VSPBuilder:
                 Update();
 
                 // ── Save ────────────────────────────────────────────────
-                WriteVSPFile( "{str(vsp3_target).replace(chr(92), "/")}" );
+                WriteVSPFile( "{str(vsp3_target).replace(chr(92), '/')}" );
                 Print( "Saved: {vsp3_target.name}" );
             }}
         """)
@@ -603,7 +683,7 @@ class VSPBuilder:
         try:
             script_path.parent.mkdir(parents=True, exist_ok=True)
             script_path.write_text(script)
-            logger.info("Wrote .vspscript fallback: %s", script_path)
+            logger.info("Wrote .vspscript fallback: %s (%d segments)", script_path, n_segments)
         except Exception as exc:
             # Even fallback writing failed — return failure but never crash.
             logger.warning("val_weight: %s", _FAILURE_WEIGHT)
@@ -645,12 +725,14 @@ class VSPBuilder:
             string {surface_id}_root_xs = GetXSec( {surface_id}_surf, 0 );
             string {surface_id}_tip_xs = GetXSec( {surface_id}_surf, 1 );
             // Segment drivers live on the outboard XSec (index 1).
+            SetDriverGroup( {surface_id}_id, 1, SPAN_WSECT_DRIVER, ROOTC_WSECT_DRIVER, TIPC_WSECT_DRIVER );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Root_Chord" ), {surface.root_chord:.6f} );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Tip_Chord" ), {surface.tip_chord:.6f} );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Span" ), {self._vsp_surface_span(surface):.6f} );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Sweep" ), 0.0 );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Sweep_Location" ), 0.25 );
             SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Dihedral" ), 0.0 );
+            Update();
 
         {textwrap.indent(root_af_block, "    ")}
         {textwrap.indent(tip_af_block, "    ")}
@@ -667,6 +749,59 @@ class VSPBuilder:
         if surface.symmetry == "xz":
             return 0.5 * float(surface.span)
         return float(surface.span)
+
+    def _wing_section_schedule(self) -> List[Dict[str, Any]]:
+        """Return the list of wing section stations for VSP multi-segment construction.
+
+        Each entry is a dict with keys:
+            y            — spanwise station [m]
+            chord        — local chord [m]
+            dihedral_deg — local dihedral angle [deg]
+            airfoil      — airfoil name (interpolated between root and tip)
+
+        Stations are placed at each spar segment boundary
+        (from ``cfg.main_spar.segments``), which aligns the VSP
+        geometry with the structural FEM model.
+        """
+        w = self.cfg.wing
+        half_span = self.cfg.half_span
+        segments = self.cfg.spar_segment_lengths(self.cfg.main_spar)
+
+        # Build cumulative y stations from segment layout.
+        y_stations = [0.0]
+        cumsum = 0.0
+        for seg_len in segments:
+            cumsum += float(seg_len)
+            y_stations.append(min(cumsum, half_span))
+        # Ensure the tip is included.
+        if abs(y_stations[-1] - half_span) > 1.0e-9:
+            y_stations.append(half_span)
+        # Deduplicate.
+        unique_y: List[float] = []
+        for y_val in y_stations:
+            if not unique_y or abs(y_val - unique_y[-1]) > 1.0e-9:
+                unique_y.append(y_val)
+
+        schedule: List[Dict[str, Any]] = []
+        for y_val in unique_y:
+            eta = 0.0 if half_span <= 0.0 else min(max(y_val / half_span, 0.0), 1.0)
+            chord = w.root_chord + eta * (w.tip_chord - w.root_chord)
+            dihedral_deg = _progressive_dihedral_deg(
+                eta,
+                w.dihedral_root_deg,
+                w.dihedral_tip_deg,
+                w.dihedral_scaling_exponent,
+            )
+            # Interpolate airfoil: use root for eta < 0.5, tip for eta >= 0.5.
+            airfoil = w.airfoil_root if eta < 0.5 else w.airfoil_tip
+            schedule.append({
+                "y": y_val,
+                "chord": chord,
+                "dihedral_deg": dihedral_deg,
+                "airfoil": airfoil,
+            })
+
+        return schedule
 
     # ------------------------------------------------------------------
     # Utility helpers
