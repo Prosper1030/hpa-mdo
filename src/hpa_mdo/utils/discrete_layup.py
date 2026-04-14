@@ -1,4 +1,5 @@
 """Discrete symmetric layup catalog helpers and post-processing utilities."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -8,14 +9,28 @@ from typing import Sequence
 from hpa_mdo.core.config import SparConfig
 from hpa_mdo.core.materials import PlyMaterial
 from hpa_mdo.structure.laminate import (
+    PlyFailureResult,
     PlyStack,
     TubeEquivalentProperties,
+    evaluate_laminate_tsai_wu,
     tube_equivalent_from_layup,
 )
 
 
 LOGGER = logging.getLogger(__name__)
 _FLOAT_TOL = 1.0e-12
+
+
+@dataclass(frozen=True)
+class SegmentTsaiWuSummary:
+    """Worst-ply Tsai-Wu summary for a segment load envelope."""
+
+    max_failure_index: float
+    min_strength_ratio: float
+    critical_ply_index: int
+    critical_ply_angle_deg: float
+    critical_z_mid_m: float
+    critical_stress_12_pa: tuple[float, float, float]
 
 
 @dataclass(frozen=True)
@@ -32,6 +47,7 @@ class SegmentLayupResult:
     continuous_mass_full_wing_kg: float
     discrete_mass_full_wing_kg: float
     catalog_capped: bool
+    tsai_wu_summary: SegmentTsaiWuSummary | None = None
 
     @property
     def mass_penalty_full_wing_kg(self) -> float:
@@ -109,7 +125,9 @@ def discretize_layup_per_segment(
     if ply_drop_limit < 0:
         raise ValueError("ply_drop_limit must be non-negative.")
 
-    ordered = sorted(stacks, key=lambda stack: (stack.wall_thickness(ply_mat.t_ply), _stack_sort_key(stack)))
+    ordered = sorted(
+        stacks, key=lambda stack: (stack.wall_thickness(ply_mat.t_ply), _stack_sort_key(stack))
+    )
     selected: list[PlyStack] = []
 
     for idx, target in enumerate(continuous_thicknesses):
@@ -138,6 +156,38 @@ def discretize_layup_per_segment(
     return selected
 
 
+def summarize_segment_tsai_wu(
+    *,
+    stack: PlyStack,
+    ply_mat: PlyMaterial,
+    midplane_strain: Sequence[float],
+    curvature: Sequence[float] = (0.0, 0.0, 0.0),
+) -> SegmentTsaiWuSummary:
+    """Summarize the critical ply under a CLT strain/curvature state."""
+    ply_results = evaluate_laminate_tsai_wu(
+        ply_angles_deg=stack.angle_sequence_half(),
+        t_ply=ply_mat.t_ply,
+        ply_mat=ply_mat,
+        midplane_strain=midplane_strain,
+        curvature=curvature,
+    )
+    max_failure = max(ply_results, key=lambda result: float(result.failure_index))
+    critical = min(ply_results, key=_strength_ratio_sort_key)
+    return SegmentTsaiWuSummary(
+        max_failure_index=float(max_failure.failure_index),
+        min_strength_ratio=float(critical.strength_ratio),
+        critical_ply_index=int(critical.ply_index),
+        critical_ply_angle_deg=float(critical.theta_deg),
+        critical_z_mid_m=float(critical.z_mid),
+        critical_stress_12_pa=critical.stress_12,
+    )
+
+
+def _strength_ratio_sort_key(result: PlyFailureResult) -> tuple[int, float]:
+    strength_ratio = float(result.strength_ratio)
+    return (0 if strength_ratio == strength_ratio else 1, strength_ratio)
+
+
 def build_segment_layup_results(
     *,
     segment_lengths_m: Sequence[float],
@@ -146,14 +196,18 @@ def build_segment_layup_results(
     stacks: Sequence[PlyStack],
     ply_mat: PlyMaterial,
     ply_drop_limit: int = 2,
+    midplane_strains: Sequence[Sequence[float]] | None = None,
+    curvatures: Sequence[Sequence[float]] | None = None,
 ) -> list[SegmentLayupResult]:
     """Build per-segment layup selections with geometry and mass annotations."""
-    if not (
-        len(segment_lengths_m) == len(continuous_thicknesses_m) == len(outer_radii_m)
-    ):
+    if not (len(segment_lengths_m) == len(continuous_thicknesses_m) == len(outer_radii_m)):
         raise ValueError(
             "segment_lengths_m, continuous_thicknesses_m, and outer_radii_m must match in length."
         )
+    if midplane_strains is not None and len(midplane_strains) != len(segment_lengths_m):
+        raise ValueError("midplane_strains must match the segment count when provided.")
+    if curvatures is not None and len(curvatures) != len(segment_lengths_m):
+        raise ValueError("curvatures must match the segment count when provided.")
 
     selected = discretize_layup_per_segment(
         continuous_thicknesses=continuous_thicknesses_m,
@@ -182,6 +236,15 @@ def build_segment_layup_results(
             wall_thickness_m=equiv.wall_thickness,
             density_kgpm3=ply_mat.density,
         )
+        tsai_wu_summary = None
+        if midplane_strains is not None:
+            curvature = (0.0, 0.0, 0.0) if curvatures is None else curvatures[idx - 1]
+            tsai_wu_summary = summarize_segment_tsai_wu(
+                stack=stack,
+                ply_mat=ply_mat,
+                midplane_strain=midplane_strains[idx - 1],
+                curvature=curvature,
+            )
         results.append(
             SegmentLayupResult(
                 segment_index=idx,
@@ -194,6 +257,7 @@ def build_segment_layup_results(
                 continuous_mass_full_wing_kg=continuous_mass,
                 discrete_mass_full_wing_kg=discrete_mass,
                 catalog_capped=equiv.wall_thickness + _FLOAT_TOL < float(target_t_m),
+                tsai_wu_summary=tsai_wu_summary,
             )
         )
         y_start = y_end
@@ -228,6 +292,15 @@ def format_layup_report(
             f"  target={result.target_thickness_m * 1000.0:.3f} mm, "
             f"mass_penalty={result.mass_penalty_full_wing_kg:+.3f} kg/full wing"
         )
+        if result.tsai_wu_summary is not None:
+            summary = result.tsai_wu_summary
+            lines.append(
+                "  Tsai-Wu "
+                f"FI={summary.max_failure_index:.3f}, "
+                f"SR={_format_strength_ratio(summary.min_strength_ratio)}, "
+                f"critical_ply={summary.critical_ply_index} "
+                f"({summary.critical_ply_angle_deg:+.0f} deg)"
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -260,6 +333,9 @@ def summarize_layup_results(
                 "discrete_mass_full_wing_kg": result.discrete_mass_full_wing_kg,
                 "mass_penalty_full_wing_kg": result.mass_penalty_full_wing_kg,
                 "catalog_capped": result.catalog_capped,
+                "tsai_wu_summary": (
+                    None if result.tsai_wu_summary is None else asdict(result.tsai_wu_summary)
+                ),
             }
             for result in segments_stacks
         ],
@@ -276,3 +352,9 @@ def _segment_full_wing_mass(
     inner_radius_m = max(float(outer_radius_m) - float(wall_thickness_m), 0.0)
     area_m2 = 3.141592653589793 * (float(outer_radius_m) ** 2 - inner_radius_m**2)
     return 2.0 * float(segment_length_m) * float(density_kgpm3) * area_m2
+
+
+def _format_strength_ratio(value: float) -> str:
+    if value == float("inf"):
+        return "inf"
+    return f"{float(value):.2f}"

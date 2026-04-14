@@ -5,15 +5,18 @@ from pathlib import Path
 import subprocess
 import sys
 
+import numpy as np
 import pytest
 
 from hpa_mdo.core import MaterialDB, load_config
-from hpa_mdo.structure.laminate import PlyStack
+from hpa_mdo.structure.laminate import PlyStack, ply_Q_matrix
 from hpa_mdo.utils.discrete_layup import (
     build_segment_layup_results,
     discretize_layup_per_segment,
     enumerate_valid_stacks,
     format_layup_report,
+    summarize_layup_results,
+    summarize_segment_tsai_wu,
     snap_to_nearest_stack,
 )
 
@@ -83,6 +86,59 @@ def test_format_layup_report_contains_schedule_and_effective_properties(cfg, ply
     assert "_s" in report
     assert "E_eff=" in report
     assert "G_eff=" in report
+
+
+def test_summarize_segment_tsai_wu_reports_critical_ply(ply_mat) -> None:
+    stack = PlyStack(n_0=1, n_45=0, n_90=0)
+    Q = ply_Q_matrix(
+        E1=ply_mat.E1,
+        E2=ply_mat.E2,
+        G12=ply_mat.G12,
+        nu12=ply_mat.nu12,
+    )
+    midplane_strain = np.linalg.solve(Q, np.array([0.5 * ply_mat.F1t, 0.0, 0.0]))
+
+    summary = summarize_segment_tsai_wu(
+        stack=stack,
+        ply_mat=ply_mat,
+        midplane_strain=midplane_strain,
+    )
+
+    assert summary.max_failure_index < 1.0
+    assert summary.min_strength_ratio == pytest.approx(2.0)
+    assert summary.critical_ply_angle_deg == pytest.approx(0.0)
+
+
+def test_build_segment_layup_results_can_include_tsai_wu_report(ply_mat) -> None:
+    stack = PlyStack(n_0=1, n_45=0, n_90=0)
+    Q = ply_Q_matrix(
+        E1=ply_mat.E1,
+        E2=ply_mat.E2,
+        G12=ply_mat.G12,
+        nu12=ply_mat.nu12,
+    )
+    midplane_strain = np.linalg.solve(Q, np.array([0.5 * ply_mat.F1t, 0.0, 0.0]))
+
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.0],
+        continuous_thicknesses_m=[0.10e-3],
+        outer_radii_m=[0.03],
+        stacks=[stack],
+        ply_mat=ply_mat,
+        midplane_strains=[midplane_strain],
+    )
+
+    report = format_layup_report(results, ply_mat)
+    machine_summary = summarize_layup_results(results)
+    summary = results[0].tsai_wu_summary
+    assert results[0].tsai_wu_summary is not None
+    assert summary is not None
+    assert summary.min_strength_ratio == pytest.approx(2.0)
+    assert "Tsai-Wu FI=" in report
+    assert "SR=2.00" in report
+    assert machine_summary["segments"][0]["tsai_wu_summary"]["min_strength_ratio"] == pytest.approx(
+        2.0
+    )
 
 
 def test_discrete_layup_postprocess_script_writes_report_and_schedule(tmp_path) -> None:
