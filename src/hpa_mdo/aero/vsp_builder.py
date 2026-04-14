@@ -19,13 +19,14 @@ Error philosophy — **never crash**:
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from hpa_mdo.core.config import HPAConfig
+from hpa_mdo.core.config import HPAConfig, LiftingSurfaceConfig
 from hpa_mdo.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -41,10 +42,12 @@ _VSPAERO_TIMEOUT = 600
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _has_openvsp() -> bool:
     """Return True if the openvsp Python module is importable."""
     try:
         import openvsp  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -66,6 +69,7 @@ def _failure_dict(msg: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class VSPBuilder:
     """Build OpenVSP wing geometry from an HPAConfig and run VSPAero.
@@ -104,9 +108,7 @@ class VSPBuilder:
         if _has_openvsp():
             return self._build_with_api(output)
         else:
-            logger.warning(
-                "openvsp Python module not found — generating .vspscript fallback."
-            )
+            logger.warning("openvsp Python module not found — generating .vspscript fallback.")
             script_path = output.with_suffix(".vspscript")
             return self._build_vspscript_fallback(script_path, output)
 
@@ -284,6 +286,9 @@ class VSPBuilder:
                 vsp.SYM_XZ,
             )
 
+            self._add_lifting_surface_api(vsp, self.cfg.horizontal_tail)
+            self._add_lifting_surface_api(vsp, self.cfg.vertical_fin)
+
             vsp.Update()
 
             # ── Save ─────────────────────────────────────────────────
@@ -299,6 +304,54 @@ class VSPBuilder:
 
         return output
 
+    def _add_lifting_surface_api(self, vsp: Any, surface: LiftingSurfaceConfig) -> None:
+        """Add a simple OpenVSP wing-like lifting surface from config."""
+        if not surface.enabled:
+            return
+
+        geom_id = vsp.AddGeom("WING")
+        vsp.SetGeomName(geom_id, surface.name)
+        self._try_set_geom_parm(vsp, geom_id, ("X_Rel_Location", "X_Location"), surface.x_location)
+        self._try_set_geom_parm(vsp, geom_id, ("Y_Rel_Location", "Y_Location"), surface.y_location)
+        self._try_set_geom_parm(vsp, geom_id, ("Z_Rel_Location", "Z_Location"), surface.z_location)
+        self._try_set_geom_parm(
+            vsp, geom_id, ("X_Rel_Rotation", "X_Rotation"), surface.x_rotation_deg
+        )
+        self._try_set_geom_parm(
+            vsp, geom_id, ("Y_Rel_Rotation", "Y_Rotation"), surface.y_rotation_deg
+        )
+        self._try_set_geom_parm(
+            vsp, geom_id, ("Z_Rel_Rotation", "Z_Rotation"), surface.z_rotation_deg
+        )
+
+        xsec_surf = vsp.GetXSecSurf(geom_id, 0)
+        root_xs = vsp.GetXSec(xsec_surf, 1)
+        tip_xs = vsp.GetXSec(xsec_surf, 2)
+        vsp.SetParmVal(vsp.GetXSecParm(root_xs, "Root_Chord"), surface.root_chord)
+        vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Tip_Chord"), surface.tip_chord)
+        vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Span"), self._vsp_surface_span(surface))
+        vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep"), 0.0)
+        vsp.SetParmVal(vsp.GetXSecParm(tip_xs, "Sweep_Location"), 0.25)
+
+        self._assign_airfoil_api(vsp, xsec_surf, 1, surface.airfoil)
+        self._assign_airfoil_api(vsp, xsec_surf, 2, surface.airfoil)
+
+        sym_flag = vsp.SYM_XZ if surface.symmetry == "xz" else 0
+        vsp.SetParmVal(vsp.FindParm(geom_id, "Sym_Planar_Flag", "Sym"), sym_flag)
+
+    @staticmethod
+    def _try_set_geom_parm(vsp: Any, geom_id: str, names: tuple[str, ...], value: float) -> None:
+        """Set the first available geometry parameter name, tolerating VSP version drift."""
+        for name in names:
+            try:
+                parm_id = vsp.FindParm(geom_id, name, "XForm")
+                if parm_id:
+                    vsp.SetParmVal(parm_id, float(value))
+                    return
+            except Exception:
+                continue
+        logger.warning("Could not set OpenVSP XForm parameter %s on %s", names[0], geom_id)
+
     def _assign_airfoil_api(
         self,
         vsp: Any,
@@ -306,7 +359,7 @@ class VSPBuilder:
         xsec_idx: int,
         airfoil_name: str,
     ) -> None:
-        """Try to load an airfoil .dat file; fall back to NACA 4412."""
+        """Try to load an airfoil .dat file; fall back to NACA 4-series parameters."""
         xs = vsp.GetXSec(xsec_surf, xsec_idx)
         dat_path = self._resolve_airfoil_dat(airfoil_name)
 
@@ -323,14 +376,14 @@ class VSPBuilder:
                     dat_path,
                 )
 
-        # Fallback: NACA 4-series placeholder.
+        # Fallback: parsed NACA 4-series when available, otherwise a HPA-like placeholder.
         try:
             vsp.ChangeXSecShape(xsec_surf, xsec_idx, vsp.XS_FOUR_SERIES)
             xs = vsp.GetXSec(xsec_surf, xsec_idx)
-            # NACA 4412 is a reasonable HPA-like fallback.
-            vsp.SetParmVal(vsp.GetXSecParm(xs, "Camber"), 0.04)
-            vsp.SetParmVal(vsp.GetXSecParm(xs, "CamberLoc"), 0.4)
-            vsp.SetParmVal(vsp.GetXSecParm(xs, "ThickChord"), 0.12)
+            camber, camber_loc, thick_chord = self._naca_4_series_params(airfoil_name)
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Camber"), camber)
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "CamberLoc"), camber_loc)
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "ThickChord"), thick_chord)
         except Exception:
             logger.warning("Could not set NACA fallback for xsec %d", xsec_idx)
 
@@ -389,8 +442,12 @@ class VSPBuilder:
 
             # ── Locate output files ──────────────────────────────────
             stem = vsp3.stem
-            lod_path = self._find_output(out_dir, stem, ".lod") or self._find_output(vsp3.parent, stem, ".lod")
-            polar_path = self._find_output(out_dir, stem, ".polar") or self._find_output(vsp3.parent, stem, ".polar")
+            lod_path = self._find_output(out_dir, stem, ".lod") or self._find_output(
+                vsp3.parent, stem, ".lod"
+            )
+            polar_path = self._find_output(out_dir, stem, ".polar") or self._find_output(
+                vsp3.parent, stem, ".polar"
+            )
 
             # VSPAero sometimes writes next to the .vsp3 — copy if needed.
             if lod_path and lod_path.parent != out_dir:
@@ -422,9 +479,7 @@ class VSPBuilder:
         """Run VSPAero via the command-line ``vspaero`` binary."""
         vspaero_bin = shutil.which("vspaero")
         if vspaero_bin is None:
-            return _failure_dict(
-                "vspaero binary not found on PATH and openvsp module unavailable"
-            )
+            return _failure_dict("vspaero binary not found on PATH and openvsp module unavailable")
 
         # VSPAero CLI requires a DegenGeom CSV.  Generate it with the
         # lightweight vspscript approach if the API is unavailable.
@@ -472,8 +527,7 @@ class VSPBuilder:
 
             if result.returncode != 0:
                 return _failure_dict(
-                    f"vspaero exited with code {result.returncode}: "
-                    f"{result.stderr[:500]}"
+                    f"vspaero exited with code {result.returncode}: {result.stderr[:500]}"
                 )
 
             lod_path = self._find_output(out_dir, stem, ".lod")
@@ -487,9 +541,7 @@ class VSPBuilder:
             }
 
         except subprocess.TimeoutExpired:
-            return _failure_dict(
-                f"vspaero timed out after {self.vspaero_timeout}s"
-            )
+            return _failure_dict(f"vspaero timed out after {self.vspaero_timeout}s")
         except FileNotFoundError:
             return _failure_dict("vspaero binary disappeared from PATH")
         except Exception as exc:
@@ -511,7 +563,7 @@ class VSPBuilder:
         tip_af_dat = self._resolve_airfoil_dat(w.airfoil_tip)
 
         # Build airfoil loading snippet.  If the .dat file is found we
-        # use ReadFileAirfoil; otherwise we fall back to NACA 4412.
+        # use ReadFileAirfoil; otherwise we fall back to parsed NACA 4-series values.
         root_af_block = self._vspscript_airfoil_block(
             xsec_idx=1,
             dat_path=root_af_dat,
@@ -522,10 +574,15 @@ class VSPBuilder:
             dat_path=tip_af_dat,
             label=w.airfoil_tip,
         )
+        tail_blocks = "\n".join(
+            self._vspscript_lifting_surface_block(surface)
+            for surface in (self.cfg.horizontal_tail, self.cfg.vertical_fin)
+            if surface.enabled
+        )
 
         script = textwrap.dedent(f"""\
             // ─────────────────────────────────────────────────────────────
-            // VSPScript: {self.cfg.project_name} wing geometry
+            // VSPScript: {self.cfg.project_name} aircraft geometry
             // Generated by hpa_mdo.aero.vsp_builder (fallback mode)
             // ─────────────────────────────────────────────────────────────
 
@@ -555,17 +612,19 @@ class VSPBuilder:
                 SetParmVal( GetXSecParm( tip_xs, "Sweep_Location" ), {w.spar_location_xc:.4f} );
 
                 // ── Airfoil assignment ───────────────────────────────────
-            {textwrap.indent(root_af_block, '    ')}
-            {textwrap.indent(tip_af_block, '    ')}
+            {textwrap.indent(root_af_block, "    ")}
+            {textwrap.indent(tip_af_block, "    ")}
 
                 // ── Symmetry (mirror about XZ plane for full wing) ──────
                 string sym_parm = FindParm( wing_id, "Sym_Planar_Flag", "Sym" );
                 SetParmVal( sym_parm, SYM_XZ );
 
+            {textwrap.indent(tail_blocks, "    ")}
+
                 Update();
 
                 // ── Save ────────────────────────────────────────────────
-                WriteVSPFile( "{str(vsp3_target).replace(chr(92), '/')}" );
+                WriteVSPFile( "{str(vsp3_target).replace(chr(92), "/")}" );
                 Print( "Saved: {vsp3_target.name}" );
             }}
         """)
@@ -580,6 +639,63 @@ class VSPBuilder:
             logger.error("Failed to write .vspscript: %s", exc)
 
         return script_path
+
+    def _vspscript_lifting_surface_block(self, surface: LiftingSurfaceConfig) -> str:
+        """Return a VSPScript block for a tail/fin wing-like lifting surface."""
+        af_dat = self._resolve_airfoil_dat(surface.airfoil)
+        surface_id = self._safe_script_identifier(surface.name)
+        root_af_block = self._vspscript_airfoil_block(
+            xsec_idx=1,
+            dat_path=af_dat,
+            label=surface.airfoil,
+            xsec_surf_var=f"{surface_id}_surf",
+            var_prefix=f"{surface_id}_",
+        )
+        tip_af_block = self._vspscript_airfoil_block(
+            xsec_idx=2,
+            dat_path=af_dat,
+            label=surface.airfoil,
+            xsec_surf_var=f"{surface_id}_surf",
+            var_prefix=f"{surface_id}_",
+        )
+        sym_value = "SYM_XZ" if surface.symmetry == "xz" else "0"
+        return textwrap.dedent(f"""\
+            // ── {surface.name} ──────────────────────────────────────────
+            string {surface_id}_id = AddGeom( "WING" );
+            SetGeomName( {surface_id}_id, "{surface.name}" );
+            SetParmVal( FindParm( {surface_id}_id, "X_Rel_Location", "XForm" ), {surface.x_location:.6f} );
+            SetParmVal( FindParm( {surface_id}_id, "Y_Rel_Location", "XForm" ), {surface.y_location:.6f} );
+            SetParmVal( FindParm( {surface_id}_id, "Z_Rel_Location", "XForm" ), {surface.z_location:.6f} );
+            SetParmVal( FindParm( {surface_id}_id, "X_Rel_Rotation", "XForm" ), {surface.x_rotation_deg:.6f} );
+            SetParmVal( FindParm( {surface_id}_id, "Y_Rel_Rotation", "XForm" ), {surface.y_rotation_deg:.6f} );
+            SetParmVal( FindParm( {surface_id}_id, "Z_Rel_Rotation", "XForm" ), {surface.z_rotation_deg:.6f} );
+
+            string {surface_id}_surf = GetXSecSurf( {surface_id}_id, 0 );
+            string {surface_id}_root_xs = GetXSec( {surface_id}_surf, 1 );
+            string {surface_id}_tip_xs = GetXSec( {surface_id}_surf, 2 );
+            SetParmVal( GetXSecParm( {surface_id}_root_xs, "Root_Chord" ), {surface.root_chord:.6f} );
+            SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Tip_Chord" ), {surface.tip_chord:.6f} );
+            SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Span" ), {self._vsp_surface_span(surface):.6f} );
+            SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Sweep" ), 0.0 );
+            SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Sweep_Location" ), 0.25 );
+            SetParmVal( GetXSecParm( {surface_id}_root_xs, "Dihedral" ), 0.0 );
+            SetParmVal( GetXSecParm( {surface_id}_tip_xs, "Dihedral" ), 0.0 );
+
+        {textwrap.indent(root_af_block, "    ")}
+        {textwrap.indent(tip_af_block, "    ")}
+            SetParmVal( FindParm( {surface_id}_id, "Sym_Planar_Flag", "Sym" ), {sym_value} );
+        """)
+
+    @staticmethod
+    def _safe_script_identifier(name: str) -> str:
+        cleaned = "".join(ch.lower() if ch.isalnum() else "_" for ch in name)
+        return cleaned.strip("_") or "surface"
+
+    @staticmethod
+    def _vsp_surface_span(surface: LiftingSurfaceConfig) -> float:
+        if surface.symmetry == "xz":
+            return 0.5 * float(surface.span)
+        return float(surface.span)
 
     # ------------------------------------------------------------------
     # Utility helpers
@@ -615,25 +731,41 @@ class VSPBuilder:
         xsec_idx: int,
         dat_path: Optional[Path],
         label: str,
+        xsec_surf_var: str = "xsec_surf",
+        var_prefix: str = "",
     ) -> str:
         """Return a VSPScript snippet that sets the airfoil for one XSec."""
+        xsec_var = f"{var_prefix}xs_{xsec_idx}"
         if dat_path is not None:
             safe_path = str(dat_path).replace("\\", "/")
             return textwrap.dedent(f"""\
                 // Airfoil: {label}
-                ChangeXSecShape( xsec_surf, {xsec_idx}, XS_FILE_AIRFOIL );
-                string xs_{xsec_idx} = GetXSec( xsec_surf, {xsec_idx} );
-                ReadFileAirfoil( xs_{xsec_idx}, "{safe_path}" );
+                ChangeXSecShape( {xsec_surf_var}, {xsec_idx}, XS_FILE_AIRFOIL );
+                string {xsec_var} = GetXSec( {xsec_surf_var}, {xsec_idx} );
+                ReadFileAirfoil( {xsec_var}, "{safe_path}" );
             """)
         else:
+            camber, camber_loc, thick_chord = VSPBuilder._naca_4_series_params(label)
             return textwrap.dedent(f"""\
-                // Airfoil: {label} (file not found — NACA 4412 fallback)
-                ChangeXSecShape( xsec_surf, {xsec_idx}, XS_FOUR_SERIES );
-                string xs_{xsec_idx} = GetXSec( xsec_surf, {xsec_idx} );
-                SetParmVal( GetXSecParm( xs_{xsec_idx}, "Camber" ), 0.04 );
-                SetParmVal( GetXSecParm( xs_{xsec_idx}, "CamberLoc" ), 0.4 );
-                SetParmVal( GetXSecParm( xs_{xsec_idx}, "ThickChord" ), 0.12 );
+                // Airfoil: {label} (file not found — NACA 4-series fallback)
+                ChangeXSecShape( {xsec_surf_var}, {xsec_idx}, XS_FOUR_SERIES );
+                string {xsec_var} = GetXSec( {xsec_surf_var}, {xsec_idx} );
+                SetParmVal( GetXSecParm( {xsec_var}, "Camber" ), {camber:.6f} );
+                SetParmVal( GetXSecParm( {xsec_var}, "CamberLoc" ), {camber_loc:.6f} );
+                SetParmVal( GetXSecParm( {xsec_var}, "ThickChord" ), {thick_chord:.6f} );
             """)
+
+    @staticmethod
+    def _naca_4_series_params(name: str) -> tuple[float, float, float]:
+        """Return OpenVSP four-series camber/location/thickness parameters."""
+        match = re.search(r"NACA\s*([0-9]{4})", str(name).upper())
+        if match is None:
+            return 0.04, 0.4, 0.12
+        digits = match.group(1)
+        camber = int(digits[0]) / 100.0
+        camber_loc = int(digits[1]) / 10.0
+        thick_chord = int(digits[2:]) / 100.0
+        return camber, camber_loc, thick_chord
 
     @staticmethod
     def _find_output(directory: Path, stem: str, suffix: str) -> Optional[Path]:
