@@ -83,7 +83,9 @@ def test_eval_dict_includes_buckling(monkeypatch):
     """SparOptimizer._optimize_scipy._eval returns dict with 'buckling' key."""
     cfg = _Cfg(
         main_spar=SimpleNamespace(min_wall_thickness=0.001, material="carbon_fiber_hm"),
-        rear_spar=SimpleNamespace(enabled=False, min_wall_thickness=0.001, material="carbon_fiber_hm"),
+        rear_spar=SimpleNamespace(
+            enabled=False, min_wall_thickness=0.001, material="carbon_fiber_hm"
+        ),
         wing=SimpleNamespace(max_tip_twist_deg=2.0, max_tip_deflection_m=1.0),
     )
     prob = _FakeProb()
@@ -154,6 +156,36 @@ def test_eval_dict_includes_buckling(monkeypatch):
     assert checks["constraints_include_buckling"]
 
 
+def test_scipy_evaluator_penalizes_thickness_step_violation():
+    prob = _FakeProb()
+    evaluator = optimizer_mod._ScipyBlackBoxEvaluator(
+        prob,
+        n_seg=2,
+        rear_on=False,
+        max_twist=2.0,
+        max_defl=1.0,
+        max_thickness_to_radius_ratio=0.8,
+        max_main_thickness_step_m=0.0002,
+        max_rear_thickness_step_m=0.0002,
+        main_spar_dominance_margin_m=0.0,
+        main_spar_ei_ratio=1.0,
+        rear_main_radius_ratio_min=0.0,
+        rear_min_inner_radius_m=1e-4,
+        rear_inboard_ei_to_main_ratio_max=1.0,
+        inboard_ei_element_indices=np.zeros(0, dtype=int),
+        cache_size=0,
+    )
+    x_good = np.array([0.0010, 0.0011, 0.020, 0.020])
+    x_bad = np.array([0.0010, 0.0014, 0.020, 0.020])
+
+    good = evaluator.evaluate(x_good)
+    bad = evaluator.evaluate(x_bad)
+
+    assert np.isclose(good["main_thickness_step_margin_min"], 0.0001)
+    assert np.isclose(bad["main_thickness_step_margin_min"], -0.0002)
+    assert evaluator.penalty(x_bad) > evaluator.penalty(x_good)
+
+
 def test_summary_text_contains_buckling_line(tmp_path):
     """Summary text output contains 'Buckling index' line."""
     result = _dummy_result()
@@ -193,10 +225,18 @@ def test_analyze_accepts_snapped_segment_radii(monkeypatch):
         rear_r_seg=np.array([0.020, 0.018]),
     )
 
-    np.testing.assert_allclose(prob.values["struct.seg_mapper.main_t_seg"], np.array([0.0012, 0.0011]))
-    np.testing.assert_allclose(prob.values["struct.seg_mapper.main_r_seg"], np.array([0.040, 0.035]))
-    np.testing.assert_allclose(prob.values["struct.seg_mapper.rear_t_seg"], np.array([0.0009, 0.0008]))
-    np.testing.assert_allclose(prob.values["struct.seg_mapper.rear_r_seg"], np.array([0.020, 0.018]))
+    np.testing.assert_allclose(
+        prob.values["struct.seg_mapper.main_t_seg"], np.array([0.0012, 0.0011])
+    )
+    np.testing.assert_allclose(
+        prob.values["struct.seg_mapper.main_r_seg"], np.array([0.040, 0.035])
+    )
+    np.testing.assert_allclose(
+        prob.values["struct.seg_mapper.rear_t_seg"], np.array([0.0009, 0.0008])
+    )
+    np.testing.assert_allclose(
+        prob.values["struct.seg_mapper.rear_r_seg"], np.array([0.020, 0.018])
+    )
     assert result["success"] is True
     assert result["message"] == "Analysis complete"
 
@@ -358,7 +398,9 @@ def test_raw_feasible_rejects_rear_tube_validity_violation_even_if_ratio_passes(
     )
     opt = SparOptimizer.__new__(SparOptimizer)
     opt.cfg = cfg
-    opt._prob = SimpleNamespace(model=SimpleNamespace(struct=SimpleNamespace(_elem_centres=np.array([0.5]))))
+    opt._prob = SimpleNamespace(
+        model=SimpleNamespace(struct=SimpleNamespace(_elem_centres=np.array([0.5])))
+    )
 
     raw = {
         "failure": -0.10,

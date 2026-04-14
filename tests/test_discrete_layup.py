@@ -13,10 +13,12 @@ from hpa_mdo.structure.laminate import PlyStack, ply_Q_matrix
 from hpa_mdo.utils.discrete_layup import (
     build_segment_layup_results,
     discretize_layup_per_segment,
+    effective_layup_thickness_step_limit,
     enumerate_valid_stacks,
     format_layup_report,
     summarize_layup_results,
     summarize_segment_tsai_wu,
+    thickness_step_margin_min,
     snap_to_nearest_stack,
 )
 
@@ -67,6 +69,26 @@ def test_discretize_layup_applies_ply_drop_limit(ply_mat) -> None:
     )
 
     assert [stack.total_plies() for stack in selected] == [12, 10]
+
+
+def test_effective_layup_thickness_step_limit_tightens_discrete_clt(cfg, ply_mat) -> None:
+    spar_cfg = cfg.main_spar.model_copy(
+        update={"layup_mode": "discrete_clt", "max_ply_drop_per_segment": 2}
+    )
+
+    limit = effective_layup_thickness_step_limit(
+        spar_cfg,
+        solver_max_step_m=3.0e-3,
+        materials_db=MaterialDB(REPO_ROOT / "data" / "materials.yaml"),
+    )
+
+    assert limit == pytest.approx(2 * ply_mat.t_ply)
+
+
+def test_thickness_step_margin_reports_ply_drop_violation() -> None:
+    margin = thickness_step_margin_min([1.00e-3, 0.60e-3], max_step_m=0.25e-3)
+
+    assert margin == pytest.approx(-0.15e-3)
 
 
 def test_format_layup_report_contains_schedule_and_effective_properties(cfg, ply_mat) -> None:

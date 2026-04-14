@@ -240,8 +240,8 @@
            │      continuous t → nearest PlyStack  │
            │ 11e. ✅ Tsai-Wu ply failure criterion │
            │      + optional layup summary margin  │
-           │ 11f. △ optimizer ply-drop constraint  │
-           │      post-process guard exists        │
+           │ 11f. ✅ optimizer ply-drop constraint │
+           │      discrete_clt step cap + guard    │
            │ 11g. ✅ layup output formatter        │
            │      schedule + optional Tsai-Wu line │
            └──────────────┬───────────────────────┘

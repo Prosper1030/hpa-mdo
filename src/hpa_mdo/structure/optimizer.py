@@ -32,6 +32,7 @@ Usage
     result = opt.run()
     logger.info("%s", result)
 """
+
 from __future__ import annotations
 
 from collections import OrderedDict
@@ -47,6 +48,10 @@ import openmdao.api as om
 from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import differential_evolution
 
+from hpa_mdo.core.layup_constraints import (
+    effective_layup_thickness_step_limit,
+    thickness_step_margin_min,
+)
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.groups.main import (
     _lift_wire_node_indices,
@@ -66,6 +71,7 @@ _DE_EVALUATOR = None
 _SCIPY_EVAL_CACHE_SIZE = 2048
 _DE_MAX_WORKERS = 4
 _MAX_WALL_THICKNESS_M = 0.015
+_MAX_THICKNESS_STEP_M = 0.003
 _RADIUS_MIN_M = 0.010
 _RADIUS_MAX_M = 0.060
 _MAX_THICKNESS_TO_RADIUS_RATIO = 0.8
@@ -87,10 +93,25 @@ def _format_design_vector_summary(x_arr: np.ndarray) -> str:
         return "size=0"
     if not np.all(np.isfinite(x_arr)):
         return f"size={x_arr.size}, finite=False"
-    return (
-        f"size={x_arr.size}, min={float(np.min(x_arr)):.6g}, "
-        f"max={float(np.max(x_arr)):.6g}"
+    return f"size={x_arr.size}, min={float(np.min(x_arr)):.6g}, max={float(np.max(x_arr)):.6g}"
+
+
+def _optimizer_thickness_step_limit_m(spar_cfg, solver_cfg, materials_db) -> float:
+    """Return the continuous optimizer step cap, tightened by ply-drop settings when enabled."""
+    base_limit = float(
+        getattr(
+            solver_cfg,
+            "max_thickness_step_m",
+            _MAX_THICKNESS_STEP_M,
+        )
     )
+    if spar_cfg is None:
+        return base_limit
+    try:
+        return effective_layup_thickness_step_limit(spar_cfg, base_limit, materials_db)
+    except Exception as exc:
+        logger.warning("Failed to derive layup thickness-step limit: %s", exc)
+        return 0.0
 
 
 def _is_eval_valid(res: dict[str, float], *, rear_on: bool) -> bool:
@@ -105,11 +126,13 @@ def _is_eval_valid(res: dict[str, float], *, rear_on: bool) -> bool:
         "tip_defl",
         "buckling",
         "main_hollow_margin_min",
+        "main_thickness_step_margin_min",
     ]
     if rear_on:
         required.extend(
             [
                 "rear_hollow_margin_min",
+                "rear_thickness_step_margin_min",
                 "rear_main_radius_ratio_margin_min",
                 "radius_dominance_margin_min",
                 "ei_ratio_margin_min",
@@ -141,6 +164,8 @@ class _ScipyBlackBoxEvaluator:
         max_twist: float,
         max_defl: float,
         max_thickness_to_radius_ratio: float,
+        max_main_thickness_step_m: float,
+        max_rear_thickness_step_m: float,
         main_spar_dominance_margin_m: float,
         main_spar_ei_ratio: float,
         rear_main_radius_ratio_min: float,
@@ -155,13 +180,13 @@ class _ScipyBlackBoxEvaluator:
         self.max_twist = max_twist
         self.max_defl = max_defl
         self.max_thickness_to_radius_ratio = max_thickness_to_radius_ratio
+        self.max_main_thickness_step_m = max(float(max_main_thickness_step_m), 0.0)
+        self.max_rear_thickness_step_m = max(float(max_rear_thickness_step_m), 0.0)
         self.main_spar_dominance_margin_m = max(float(main_spar_dominance_margin_m), 0.0)
         self.main_spar_ei_ratio = max(float(main_spar_ei_ratio), 0.0)
         self.rear_main_radius_ratio_min = max(float(rear_main_radius_ratio_min), 0.0)
         self.rear_min_inner_radius_m = max(float(rear_min_inner_radius_m), 0.0)
-        self.rear_inboard_ei_to_main_ratio_max = max(
-            float(rear_inboard_ei_to_main_ratio_max), 0.0
-        )
+        self.rear_inboard_ei_to_main_ratio_max = max(float(rear_inboard_ei_to_main_ratio_max), 0.0)
         self.inboard_ei_element_indices = np.asarray(inboard_ei_element_indices, dtype=int)
         self._cache_size = max(int(cache_size), 0)
         self._cache: OrderedDict[tuple[float, ...], dict[str, float]] = OrderedDict()
@@ -189,7 +214,9 @@ class _ScipyBlackBoxEvaluator:
         reason: str,
         *,
         main_hollow_margin_min: float = _FAILED_EVAL_NEG_MARGIN,
+        main_thickness_step_margin_min: float = _FAILED_EVAL_NEG_MARGIN,
         rear_hollow_margin_min: float = _FAILED_EVAL_NEG_MARGIN,
+        rear_thickness_step_margin_min: float = _FAILED_EVAL_NEG_MARGIN,
         rear_main_radius_ratio_margin_min: float = _FAILED_EVAL_NEG_MARGIN,
         radius_dominance_margin_min: float = _FAILED_EVAL_NEG_MARGIN,
         ei_dominance_margin_min: float = _FAILED_EVAL_NEG_MARGIN,
@@ -203,7 +230,9 @@ class _ScipyBlackBoxEvaluator:
             "tip_defl": _FAILED_EVAL_CONSTRAINT_VALUE,
             "buckling": _FAILED_EVAL_CONSTRAINT_VALUE,
             "main_hollow_margin_min": float(main_hollow_margin_min),
+            "main_thickness_step_margin_min": float(main_thickness_step_margin_min),
             "rear_hollow_margin_min": float(rear_hollow_margin_min),
+            "rear_thickness_step_margin_min": float(rear_thickness_step_margin_min),
             "rear_main_radius_ratio_margin_min": float(rear_main_radius_ratio_margin_min),
             "radius_dominance_margin_min": float(radius_dominance_margin_min),
             "ei_dominance_margin_min": float(ei_dominance_margin_min),
@@ -234,12 +263,12 @@ class _ScipyBlackBoxEvaluator:
     def _set_design_vector(self, x_arr: np.ndarray) -> None:
         n_seg = self.n_seg
         self.prob.set_val("struct.seg_mapper.main_t_seg", x_arr[:n_seg], units="m")
-        self.prob.set_val("struct.seg_mapper.main_r_seg", x_arr[n_seg:2 * n_seg], units="m")
+        self.prob.set_val("struct.seg_mapper.main_r_seg", x_arr[n_seg : 2 * n_seg], units="m")
         if self.rear_on:
             self.prob.set_val(
-                "struct.seg_mapper.rear_t_seg", x_arr[2 * n_seg:3 * n_seg], units="m"
+                "struct.seg_mapper.rear_t_seg", x_arr[2 * n_seg : 3 * n_seg], units="m"
             )
-            self.prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg:], units="m")
+            self.prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg :], units="m")
 
     def _evaluate_scalars(self) -> dict[str, float]:
         self._n_run_model += 1
@@ -253,12 +282,18 @@ class _ScipyBlackBoxEvaluator:
             "tip_defl": self._get_scalar("struct.tip_defl.tip_deflection_m"),
             "buckling": self._get_scalar("struct.buckling.buckling_index"),
             "main_hollow_margin_min": float(np.min(main_r - main_t)),
+            "main_thickness_step_margin_min": thickness_step_margin_min(
+                main_t, self.max_main_thickness_step_m
+            ),
         }
         if self.rear_on:
             rear_t = self._get_finite_array("struct.seg_mapper.rear_t_seg")
             rear_r = self._get_finite_array("struct.seg_mapper.rear_r_seg")
             rear_hollow_margin = rear_r - rear_t - self.rear_min_inner_radius_m
             result["rear_hollow_margin_min"] = float(np.min(rear_hollow_margin))
+            result["rear_thickness_step_margin_min"] = thickness_step_margin_min(
+                rear_t, self.max_rear_thickness_step_m
+            )
 
             radius_ratio_margin = rear_r - self.rear_main_radius_ratio_min * main_r
             result["rear_main_radius_ratio_margin_min"] = float(np.min(radius_ratio_margin))
@@ -283,6 +318,7 @@ class _ScipyBlackBoxEvaluator:
                 result["rear_inboard_ei_margin_min"] = float("inf")
         else:
             result["rear_hollow_margin_min"] = float("inf")
+            result["rear_thickness_step_margin_min"] = float("inf")
             result["rear_main_radius_ratio_margin_min"] = float("inf")
             result["radius_dominance_margin_min"] = float("inf")
             result["ei_dominance_margin_min"] = float("inf")
@@ -302,7 +338,7 @@ class _ScipyBlackBoxEvaluator:
 
         n_seg = self.n_seg
         x_main_t = x_arr[:n_seg]
-        x_main_r = x_arr[n_seg:2 * n_seg]
+        x_main_r = x_arr[n_seg : 2 * n_seg]
         if np.any(x_main_r - x_main_t <= 0.0):
             # Physical invalidity for hollow tube model.
             return self._failed_eval(
@@ -310,8 +346,8 @@ class _ScipyBlackBoxEvaluator:
                 main_hollow_margin_min=float(np.min(x_main_r - x_main_t)),
             )
         if self.rear_on:
-            x_rear_t = x_arr[2 * n_seg:3 * n_seg]
-            x_rear_r = x_arr[3 * n_seg:]
+            x_rear_t = x_arr[2 * n_seg : 3 * n_seg]
+            x_rear_r = x_arr[3 * n_seg :]
             rear_hollow_margin = x_rear_r - x_rear_t - self.rear_min_inner_radius_m
             if np.any(rear_hollow_margin < 0.0):
                 # Hard guard: never allow invalid/near-solid rear tube geometry.
@@ -356,27 +392,37 @@ class _ScipyBlackBoxEvaluator:
             penalty += 500.0 * (1.0 + r["failure"]) ** 2
         if r["twist"] > self.max_twist:
             excess = (r["twist"] - self.max_twist) / self.max_twist
-            penalty += 1000.0 * excess ** 2
+            penalty += 1000.0 * excess**2
         if r["buckling"] > 0:
             penalty += 800.0 * (1.0 + r["buckling"]) ** 2
         if self.max_defl < float("inf") and r["tip_defl"] > self.max_defl:
             excess_defl = (r["tip_defl"] - self.max_defl) / self.max_defl
-            penalty += 1000.0 * excess_defl ** 2
+            penalty += 1000.0 * excess_defl**2
 
         n_seg = self.n_seg
         x_arr = np.asarray(x, dtype=float)
         x_main_t = x_arr[:n_seg]
-        x_main_r = x_arr[n_seg:2 * n_seg]
+        x_main_r = x_arr[n_seg : 2 * n_seg]
         t_r_margin_main = x_main_t - self.max_thickness_to_radius_ratio * x_main_r
         if np.any(t_r_margin_main > 0):
             penalty += 400.0 * float(np.sum(np.maximum(t_r_margin_main, 0.0) ** 2))
 
+        main_step_margin_min = r["main_thickness_step_margin_min"]
+        if main_step_margin_min < 0.0:
+            norm = max(self.max_main_thickness_step_m, 1e-9)
+            penalty += 1200.0 * (abs(main_step_margin_min) / norm) ** 2
+
         if self.rear_on:
-            x_rear_t = x_arr[2 * n_seg:3 * n_seg]
-            x_rear_r = x_arr[3 * n_seg:]
+            x_rear_t = x_arr[2 * n_seg : 3 * n_seg]
+            x_rear_r = x_arr[3 * n_seg :]
             t_r_margin_rear = x_rear_t - self.max_thickness_to_radius_ratio * x_rear_r
             if np.any(t_r_margin_rear > 0):
                 penalty += 400.0 * float(np.sum(np.maximum(t_r_margin_rear, 0.0) ** 2))
+
+            rear_step_margin_min = r["rear_thickness_step_margin_min"]
+            if rear_step_margin_min < 0.0:
+                norm = max(self.max_rear_thickness_step_m, 1e-9)
+                penalty += 1200.0 * (abs(rear_step_margin_min) / norm) ** 2
 
             radius_margin_min = r["radius_dominance_margin_min"]
             if radius_margin_min < 0.0:
@@ -435,6 +481,7 @@ def _recommended_de_workers(max_workers: int) -> int:
 @dataclass
 class OptimizationResult:
     """Output of the spar optimization."""
+
     success: bool
     message: str
 
@@ -448,15 +495,15 @@ class OptimizationResult:
     max_stress_rear_Pa: float
     allowable_stress_main_Pa: float
     allowable_stress_rear_Pa: float
-    failure_index: float           # KS ≤ 0 means feasible
-    buckling_index: float          # KS ≤ 0 means feasible
+    failure_index: float  # KS ≤ 0 means feasible
+    buckling_index: float  # KS ≤ 0 means feasible
     tip_deflection_m: float
     max_tip_deflection_m: Optional[float]
     twist_max_deg: float
 
     # Design variables
-    main_t_seg_mm: np.ndarray      # main spar segment thicknesses [mm]
-    main_r_seg_mm: np.ndarray      # main spar outer radius per segment [mm]
+    main_t_seg_mm: np.ndarray  # main spar segment thicknesses [mm]
+    main_r_seg_mm: np.ndarray  # main spar outer radius per segment [mm]
     rear_t_seg_mm: Optional[np.ndarray] = None
     rear_r_seg_mm: Optional[np.ndarray] = field(default=None, repr=False)  # rear spar OD [mm]
     case_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
@@ -479,10 +526,19 @@ class OptimizationResult:
                 self.max_twist_limit_deg is None
                 or self.twist_max_deg <= self.max_twist_limit_deg * 1.02
             )
-            and (self.max_tip_deflection_m is None or self.tip_deflection_m <= self.max_tip_deflection_m * 1.02)
+            and (
+                self.max_tip_deflection_m is None
+                or self.tip_deflection_m <= self.max_tip_deflection_m * 1.02
+            )
         )
-        status_text = "✓ CONVERGED (Feasible)" if (self.success and feasible) else "✗ CONVERGED (Infeasible)" if self.success else "✗ FAILED"
-        
+        status_text = (
+            "✓ CONVERGED (Feasible)"
+            if (self.success and feasible)
+            else "✗ CONVERGED (Infeasible)"
+            if self.success
+            else "✗ FAILED"
+        )
+
         lines = [
             "=" * 60,
             "  HPA-MDO Spar Optimization Result",
@@ -491,23 +547,25 @@ class OptimizationResult:
             f"  Total mass     : {self.total_mass_full_kg:.2f} kg (full span)",
             f"  Spar tube mass : {self.spar_mass_full_kg:.2f} kg (full span)",
         ]
-        
-        defl_str = f"{self.tip_deflection_m*1000:.0f} mm"
+
+        defl_str = f"{self.tip_deflection_m * 1000:.0f} mm"
         if self.max_tip_deflection_m is not None:
-            defl_status = "OK" if self.tip_deflection_m <= self.max_tip_deflection_m * 1.02 else "VIOLATED"
-            defl_str += f" / {self.max_tip_deflection_m*1000:.0f} mm max ({defl_status})"
-            
+            defl_status = (
+                "OK" if self.tip_deflection_m <= self.max_tip_deflection_m * 1.02 else "VIOLATED"
+            )
+            defl_str += f" / {self.max_tip_deflection_m * 1000:.0f} mm max ({defl_status})"
+
         lines.append(f"  Tip deflection : {defl_str}")
         twist_str = f"{self.twist_max_deg:.2f}°"
         if self.max_twist_limit_deg is not None:
             twist_status = (
-                "OK"
-                if self.twist_max_deg <= self.max_twist_limit_deg * 1.02
-                else "VIOLATED"
+                "OK" if self.twist_max_deg <= self.max_twist_limit_deg * 1.02 else "VIOLATED"
             )
             twist_str += f" / {self.max_twist_limit_deg:.2f}° max ({twist_status})"
         lines.append(f"  Max twist      : {twist_str}")
-        lines.append(f"  Failure index  : {self.failure_index:.4f} ({'SAFE' if self.failure_index <= 0 else 'VIOLATED'})")
+        lines.append(
+            f"  Failure index  : {self.failure_index:.4f} ({'SAFE' if self.failure_index <= 0 else 'VIOLATED'})"
+        )
         lines.append(
             f"  Buckling index : {self.buckling_index:.4f} "
             f"({'SAFE' if self.buckling_index <= 0 else 'VIOLATED'})"
@@ -523,20 +581,24 @@ class OptimizationResult:
         lines.append("")
         lines.append("  Main spar segments:")
         for i, (t, r) in enumerate(zip(self.main_t_seg_mm, self.main_r_seg_mm)):
-            lines.append(f"    Segment {i+1}: OD={r*2:.1f}mm, t={t:.2f}mm")
+            lines.append(f"    Segment {i + 1}: OD={r * 2:.1f}mm, t={t:.2f}mm")
         if self.rear_t_seg_mm is not None and self.rear_r_seg_mm is not None:
             lines.append("  Rear spar segments:")
             for i, (t, r) in enumerate(zip(self.rear_t_seg_mm, self.rear_r_seg_mm)):
-                lines.append(f"    Segment {i+1}: OD={r*2:.1f}mm, t={t:.2f}mm")
+                lines.append(f"    Segment {i + 1}: OD={r * 2:.1f}mm, t={t:.2f}mm")
         elif self.rear_t_seg_mm is not None:
             lines.append("  Rear spar segments [mm]:")
             for i, t in enumerate(self.rear_t_seg_mm):
-                lines.append(f"    Segment {i+1}: {t:.2f} mm")
-        lines.append(f"  Max σ (main)   : {self.max_stress_main_Pa/1e6:.1f} MPa "
-                      f"/ {self.allowable_stress_main_Pa/1e6:.1f} MPa allowable")
+                lines.append(f"    Segment {i + 1}: {t:.2f} mm")
+        lines.append(
+            f"  Max σ (main)   : {self.max_stress_main_Pa / 1e6:.1f} MPa "
+            f"/ {self.allowable_stress_main_Pa / 1e6:.1f} MPa allowable"
+        )
         if self.max_stress_rear_Pa > 0:
-            lines.append(f"  Max σ (rear)   : {self.max_stress_rear_Pa/1e6:.1f} MPa "
-                          f"/ {self.allowable_stress_rear_Pa/1e6:.1f} MPa allowable")
+            lines.append(
+                f"  Max σ (rear)   : {self.max_stress_rear_Pa / 1e6:.1f} MPa "
+                f"/ {self.allowable_stress_rear_Pa / 1e6:.1f} MPa allowable"
+            )
         lines.append("=" * 60)
         return "\n".join(lines)
 
@@ -578,8 +640,7 @@ class SparOptimizer:
         self.materials_db = materials_db
 
         # Build the OpenMDAO problem
-        self._prob = build_structural_problem(
-            cfg, aircraft, aero_loads, materials_db)
+        self._prob = build_structural_problem(cfg, aircraft, aero_loads, materials_db)
 
     def _has_multiple_load_cases(self) -> bool:
         model = getattr(self._prob, "model", None)
@@ -593,9 +654,7 @@ class SparOptimizer:
 
         case_limits: dict[str, tuple[float, Optional[float]]] = {}
         for case in self.cfg.structural_load_cases():
-            twist_limit = (
-                default_twist if case.max_twist_deg is None else float(case.max_twist_deg)
-            )
+            twist_limit = default_twist if case.max_twist_deg is None else float(case.max_twist_deg)
             deflection_limit = (
                 default_deflection
                 if case.max_tip_deflection_m is None
@@ -728,6 +787,13 @@ class SparOptimizer:
             main_ratio_margin = ratio_limit * main_r_arr - main_t_arr
             if float(np.min(np.real(main_ratio_margin))) < -1e-9:
                 return False
+            main_step_limit = _optimizer_thickness_step_limit_m(
+                getattr(self.cfg, "main_spar", None),
+                solver_cfg,
+                getattr(self, "materials_db", None),
+            )
+            if thickness_step_margin_min(main_t_arr, main_step_limit) < -1e-9:
+                return False
 
         rear_cfg = getattr(self.cfg, "rear_spar", None)
         rear_enabled = bool(getattr(rear_cfg, "enabled", False))
@@ -777,6 +843,13 @@ class SparOptimizer:
                 rear_hollow_margin = rear_r_arr - rear_t_arr - rear_min_inner_radius
                 if float(np.min(np.real(rear_hollow_margin))) < -1e-9:
                     return False
+                rear_step_limit = _optimizer_thickness_step_limit_m(
+                    getattr(self.cfg, "rear_spar", None),
+                    solver_cfg,
+                    getattr(self, "materials_db", None),
+                )
+                if thickness_step_margin_min(rear_t_arr, rear_step_limit) < -1e-9:
+                    return False
 
             ei_main = raw.get("EI_main_elem")
             ei_rear = raw.get("EI_rear_elem")
@@ -798,7 +871,9 @@ class SparOptimizer:
                 inboard_ratio = self._rear_inboard_ei_to_main_ratio_max()
                 inboard_idx = self._inboard_ei_element_indices(len(ei_main_arr))
                 if inboard_ratio < 1.0 and inboard_idx.size > 0:
-                    inboard_margin = inboard_ratio * ei_main_arr[inboard_idx] - ei_rear_arr[inboard_idx]
+                    inboard_margin = (
+                        inboard_ratio * ei_main_arr[inboard_idx] - ei_rear_arr[inboard_idx]
+                    )
                     if float(np.min(np.real(inboard_margin))) < -1e-9:
                         return False
 
@@ -816,7 +891,9 @@ class SparOptimizer:
                 case_buckling = _finite_scalar(case_raw, "buckling_index", "buckling")
                 case_twist = _finite_scalar(case_raw, "twist_max_deg")
                 case_deflection = _finite_scalar(case_raw, "tip_deflection_m")
-                if any(v is None for v in (case_failure, case_buckling, case_twist, case_deflection)):
+                if any(
+                    v is None for v in (case_failure, case_buckling, case_twist, case_deflection)
+                ):
                     return False
                 if case_failure > 0.01 or case_buckling > 0.01:
                     return False
@@ -825,25 +902,18 @@ class SparOptimizer:
                 )
                 if case_twist > float(twist_limit) * tol:
                     return False
-                if (
-                    deflection_limit is not None
-                    and case_deflection > float(deflection_limit) * tol
-                ):
+                if deflection_limit is not None and case_deflection > float(deflection_limit) * tol:
                     return False
             return True
 
         twist_candidates = [lim[0] for lim in case_limits.values()]
         twist_limit = (
-            min(twist_candidates)
-            if twist_candidates
-            else float(self.cfg.wing.max_tip_twist_deg)
+            min(twist_candidates) if twist_candidates else float(self.cfg.wing.max_tip_twist_deg)
         )
         if twist > twist_limit * tol:
             return False
 
-        deflection_candidates = [
-            lim[1] for lim in case_limits.values() if lim[1] is not None
-        ]
+        deflection_candidates = [lim[1] for lim in case_limits.values() if lim[1] is not None]
         if deflection_candidates:
             deflection_limit = min(float(v) for v in deflection_candidates)
             if tip_defl > deflection_limit * tol:
@@ -851,7 +921,9 @@ class SparOptimizer:
 
         return True
 
-    def _normalise_load_case_inputs_for_update(self, aero_loads: dict) -> dict[str, tuple[object, dict]]:
+    def _normalise_load_case_inputs_for_update(
+        self, aero_loads: dict
+    ) -> dict[str, tuple[object, dict]]:
         """Return normalized load-case inputs using the structural model helper."""
         return _normalise_load_case_inputs(self.cfg, aero_loads)
 
@@ -890,7 +962,9 @@ class SparOptimizer:
 
         for case_name, (load_case, case_loads) in case_entries.items():
             ext_loads_path = (
-                f"struct.case_{case_name}.ext_loads" if is_multi_case_problem else "struct.ext_loads"
+                f"struct.case_{case_name}.ext_loads"
+                if is_multi_case_problem
+                else "struct.ext_loads"
             )
             comp = self._prob.model._get_subsystem(ext_loads_path)
             if comp is None:
@@ -927,7 +1001,9 @@ class SparOptimizer:
                 case_name=case_name,
             )
 
-            stress_path = f"struct.case_{case_name}.stress" if is_multi_case_problem else "struct.stress"
+            stress_path = (
+                f"struct.case_{case_name}.stress" if is_multi_case_problem else "struct.stress"
+            )
             buckling_path = (
                 f"struct.case_{case_name}.buckling" if is_multi_case_problem else "struct.buckling"
             )
@@ -1077,6 +1153,16 @@ class SparOptimizer:
                 _MAX_THICKNESS_TO_RADIUS_RATIO,
             )
         )
+        max_main_thickness_step = _optimizer_thickness_step_limit_m(
+            cfg.main_spar,
+            solver_cfg,
+            self.materials_db,
+        )
+        max_rear_thickness_step = (
+            _optimizer_thickness_step_limit_m(cfg.rear_spar, solver_cfg, self.materials_db)
+            if rear_on
+            else float("inf")
+        )
         cache_size = int(getattr(solver_cfg, "scipy_eval_cache_size", _SCIPY_EVAL_CACHE_SIZE))
         de_max_workers = int(getattr(solver_cfg, "de_max_workers", _DE_MAX_WORKERS))
         dominance_margin = float(
@@ -1110,14 +1196,14 @@ class SparOptimizer:
             n_elem_guess = int(self.aircraft.wing.n_stations - 1)
         else:
             struct_group = getattr(getattr(self._prob, "model", None), "struct", None)
-            elem_centres = np.asarray(getattr(struct_group, "_elem_centres", np.array([])), dtype=float)
+            elem_centres = np.asarray(
+                getattr(struct_group, "_elem_centres", np.array([])), dtype=float
+            )
             if elem_centres.size > 0:
                 n_elem_guess = int(elem_centres.size)
             else:
                 n_elem_guess = n_seg
-        inboard_ei_element_indices = self._inboard_ei_element_indices(
-            n_elem_guess
-        )
+        inboard_ei_element_indices = self._inboard_ei_element_indices(n_elem_guess)
         # DV layout: [main_t_seg..., main_r_seg..., rear_t_seg..., rear_r_seg...]
         min_t_main = cfg.main_spar.min_wall_thickness
         min_t_rear = cfg.rear_spar.min_wall_thickness if rear_on else min_t_main
@@ -1131,10 +1217,12 @@ class SparOptimizer:
         def _set_design_vars(x: np.ndarray) -> None:
             x_arr = np.asarray(x, dtype=float)
             self._prob.set_val("struct.seg_mapper.main_t_seg", x_arr[:n_seg], units="m")
-            self._prob.set_val("struct.seg_mapper.main_r_seg", x_arr[n_seg:2 * n_seg], units="m")
+            self._prob.set_val("struct.seg_mapper.main_r_seg", x_arr[n_seg : 2 * n_seg], units="m")
             if rear_on:
-                self._prob.set_val("struct.seg_mapper.rear_t_seg", x_arr[2 * n_seg:3 * n_seg], units="m")
-                self._prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg:], units="m")
+                self._prob.set_val(
+                    "struct.seg_mapper.rear_t_seg", x_arr[2 * n_seg : 3 * n_seg], units="m"
+                )
+                self._prob.set_val("struct.seg_mapper.rear_r_seg", x_arr[3 * n_seg :], units="m")
 
         max_twist, max_defl = self._single_case_limits()
         t_total_start = perf_counter()
@@ -1146,6 +1234,8 @@ class SparOptimizer:
             max_twist=max_twist,
             max_defl=max_defl,
             max_thickness_to_radius_ratio=ratio_limit,
+            max_main_thickness_step_m=max_main_thickness_step,
+            max_rear_thickness_step_m=max_rear_thickness_step,
             main_spar_dominance_margin_m=dominance_margin,
             main_spar_ei_ratio=main_spar_ei_ratio,
             rear_main_radius_ratio_min=rear_main_radius_ratio_min,
@@ -1178,9 +1268,15 @@ class SparOptimizer:
         t_de_start = perf_counter()
         try:
             de_result = differential_evolution(
-                de_func, bounds=bounds, seed=42,
-                maxiter=200, tol=1e-5, polish=False,
-                init="sobol", workers=de_workers, popsize=20,
+                de_func,
+                bounds=bounds,
+                seed=42,
+                maxiter=200,
+                tol=1e-5,
+                polish=False,
+                init="sobol",
+                workers=de_workers,
+                popsize=20,
             )
         finally:
             if pool_map is not None:
@@ -1212,39 +1308,56 @@ class SparOptimizer:
             {
                 "type": "ineq",
                 "fun": (
-                    lambda x, n=n_seg, eta=ratio_limit: (
-                        np.min(
-                            eta * np.asarray(x, dtype=float)[n:2 * n]
-                            - np.asarray(x, dtype=float)[:n]
-                        )
+                    lambda x, n=n_seg, eta=ratio_limit: np.min(
+                        eta * np.asarray(x, dtype=float)[n : 2 * n] - np.asarray(x, dtype=float)[:n]
                     )
                 ),
             },
         ]
+        if n_seg > 1:
+            constraints.append(
+                {
+                    "type": "ineq",
+                    "fun": (
+                        lambda x, n=n_seg, max_step=max_main_thickness_step: (
+                            thickness_step_margin_min(np.asarray(x, dtype=float)[:n], max_step)
+                        )
+                    ),
+                }
+            )
         if rear_on:
             constraints.append(
                 {
                     "type": "ineq",
                     "fun": (
-                        lambda x, n=n_seg, eta=ratio_limit: (
-                            np.min(
-                                eta * np.asarray(x, dtype=float)[3 * n:4 * n]
-                                - np.asarray(x, dtype=float)[2 * n:3 * n]
-                            )
+                        lambda x, n=n_seg, eta=ratio_limit: np.min(
+                            eta * np.asarray(x, dtype=float)[3 * n : 4 * n]
+                            - np.asarray(x, dtype=float)[2 * n : 3 * n]
                         )
                     ),
                 }
             )
+            if n_seg > 1:
+                constraints.append(
+                    {
+                        "type": "ineq",
+                        "fun": (
+                            lambda x, n=n_seg, max_step=max_rear_thickness_step: (
+                                thickness_step_margin_min(
+                                    np.asarray(x, dtype=float)[2 * n : 3 * n], max_step
+                                )
+                            )
+                        ),
+                    }
+                )
             constraints.append(
                 {
                     "type": "ineq",
                     "fun": (
-                        lambda x, n=n_seg, min_core=rear_min_inner_radius: (
-                            np.min(
-                                np.asarray(x, dtype=float)[3 * n:4 * n]
-                                - np.asarray(x, dtype=float)[2 * n:3 * n]
-                                - min_core
-                            )
+                        lambda x, n=n_seg, min_core=rear_min_inner_radius: np.min(
+                            np.asarray(x, dtype=float)[3 * n : 4 * n]
+                            - np.asarray(x, dtype=float)[2 * n : 3 * n]
+                            - min_core
                         )
                     ),
                 }
@@ -1282,8 +1395,11 @@ class SparOptimizer:
 
         t_slsqp_start = perf_counter()
         slsqp = scipy_minimize(
-            obj, x_de, method="SLSQP",
-            bounds=bounds, constraints=constraints,
+            obj,
+            x_de,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
             options={"maxiter": 500, "ftol": 1e-7, "disp": True},
         )
         slsqp_local_s = perf_counter() - t_slsqp_start
@@ -1308,12 +1424,12 @@ class SparOptimizer:
             if not np.all(np.isfinite(x_arr)):
                 return float("-inf"), (float("-inf") if rear_on else None)
             main_margin_min = _min_finite_or_neg_inf(
-                ratio_limit * x_arr[n_seg:2 * n_seg] - x_arr[:n_seg]
+                ratio_limit * x_arr[n_seg : 2 * n_seg] - x_arr[:n_seg]
             )
             rear_margin_min: Optional[float] = None
             if rear_on:
                 rear_margin_min = _min_finite_or_neg_inf(
-                    ratio_limit * x_arr[3 * n_seg:4 * n_seg] - x_arr[2 * n_seg:3 * n_seg]
+                    ratio_limit * x_arr[3 * n_seg : 4 * n_seg] - x_arr[2 * n_seg : 3 * n_seg]
                 )
             return main_margin_min, rear_margin_min
 
@@ -1322,12 +1438,14 @@ class SparOptimizer:
             if not np.all(np.isfinite(x_arr)):
                 return float("-inf"), (float("-inf") if rear_on else None)
             main_hollow_margin_min = _min_finite_or_neg_inf(
-                x_arr[n_seg:2 * n_seg] - x_arr[:n_seg]
+                x_arr[n_seg : 2 * n_seg] - x_arr[:n_seg]
             )
             rear_hollow_margin_min: Optional[float] = None
             if rear_on:
                 rear_hollow_margin_min = _min_finite_or_neg_inf(
-                    x_arr[3 * n_seg:4 * n_seg] - x_arr[2 * n_seg:3 * n_seg] - rear_min_inner_radius
+                    x_arr[3 * n_seg : 4 * n_seg]
+                    - x_arr[2 * n_seg : 3 * n_seg]
+                    - rear_min_inner_radius
                 )
             return main_hollow_margin_min, rear_hollow_margin_min
 
@@ -1345,7 +1463,9 @@ class SparOptimizer:
             if rear_on:
                 if rear_ratio_margin_min is None or rear_hollow_margin_min is None:
                     return False
-                if not np.isfinite(rear_ratio_margin_min) or not np.isfinite(rear_hollow_margin_min):
+                if not np.isfinite(rear_ratio_margin_min) or not np.isfinite(
+                    rear_hollow_margin_min
+                ):
                     return False
             return True
 
@@ -1369,12 +1489,20 @@ class SparOptimizer:
                 violation += max(0.0, eval_result["tip_defl"] - max_defl) / max(max_defl, 1e-9)
             violation += max(0.0, -main_ratio_margin_min) / max(ratio_limit * min_r, 1e-9)
             violation += max(0.0, -main_hollow_margin_min) / max(min_r, 1e-9)
+            violation += max(0.0, -eval_result["main_thickness_step_margin_min"]) / max(
+                max_main_thickness_step, 1e-9
+            )
             if rear_on:
                 if rear_ratio_margin_min is None or rear_hollow_margin_min is None:
                     return float("inf")
                 violation += max(0.0, -rear_ratio_margin_min) / max(ratio_limit * min_r, 1e-9)
                 violation += max(0.0, -rear_hollow_margin_min) / max(rear_min_inner_radius, 1e-9)
-                violation += max(0.0, -eval_result["radius_dominance_margin_min"]) / max(dominance_margin, 1e-9)
+                violation += max(0.0, -eval_result["rear_thickness_step_margin_min"]) / max(
+                    max_rear_thickness_step, 1e-9
+                )
+                violation += max(0.0, -eval_result["radius_dominance_margin_min"]) / max(
+                    dominance_margin, 1e-9
+                )
                 if rear_main_radius_ratio_min > 0.0:
                     violation += max(0.0, -eval_result["rear_main_radius_ratio_margin_min"]) / max(
                         rear_main_radius_ratio_min * min_r, 1e-9
@@ -1410,8 +1538,16 @@ class SparOptimizer:
             and r_de["tip_defl"] <= tol_df
             and de_main_ratio_margin_min >= 0.0
             and de_main_hollow_margin_min >= 0.0
-            and (not rear_on or (de_rear_ratio_margin_min is not None and de_rear_ratio_margin_min >= 0.0))
-            and (not rear_on or (de_rear_hollow_margin_min is not None and de_rear_hollow_margin_min >= 0.0))
+            and r_de["main_thickness_step_margin_min"] >= 0.0
+            and (
+                not rear_on
+                or (de_rear_ratio_margin_min is not None and de_rear_ratio_margin_min >= 0.0)
+            )
+            and (
+                not rear_on
+                or (de_rear_hollow_margin_min is not None and de_rear_hollow_margin_min >= 0.0)
+            )
+            and (not rear_on or r_de["rear_thickness_step_margin_min"] >= 0.0)
             and (not rear_on or r_de["radius_dominance_margin_min"] >= 0.0)
             and (
                 not rear_on
@@ -1428,8 +1564,16 @@ class SparOptimizer:
             and r_sq["tip_defl"] <= tol_df
             and sq_main_ratio_margin_min >= 0.0
             and sq_main_hollow_margin_min >= 0.0
-            and (not rear_on or (sq_rear_ratio_margin_min is not None and sq_rear_ratio_margin_min >= 0.0))
-            and (not rear_on or (sq_rear_hollow_margin_min is not None and sq_rear_hollow_margin_min >= 0.0))
+            and r_sq["main_thickness_step_margin_min"] >= 0.0
+            and (
+                not rear_on
+                or (sq_rear_ratio_margin_min is not None and sq_rear_ratio_margin_min >= 0.0)
+            )
+            and (
+                not rear_on
+                or (sq_rear_hollow_margin_min is not None and sq_rear_hollow_margin_min >= 0.0)
+            )
+            and (not rear_on or r_sq["rear_thickness_step_margin_min"] >= 0.0)
             and (not rear_on or r_sq["radius_dominance_margin_min"] >= 0.0)
             and (
                 not rear_on
@@ -1456,7 +1600,9 @@ class SparOptimizer:
                 if not self._is_raw_feasible(slsqp_raw):
                     failure_v = float(np.asarray(slsqp_raw.get("failure", np.nan)).item())
                     buckling_v = float(
-                        np.asarray(slsqp_raw.get("buckling_index", slsqp_raw.get("buckling", np.nan))).item()
+                        np.asarray(
+                            slsqp_raw.get("buckling_index", slsqp_raw.get("buckling", np.nan))
+                        ).item()
                     )
                     twist_v = float(np.asarray(slsqp_raw.get("twist_max_deg", np.nan)).item())
                     tip_defl_v = float(np.asarray(slsqp_raw.get("tip_deflection_m", np.nan)).item())
@@ -1467,7 +1613,11 @@ class SparOptimizer:
                         reject_reasons.append("buckling")
                     if np.isfinite(twist_v) and twist_v > max_twist * 1.02:
                         reject_reasons.append("twist")
-                    if max_defl < float("inf") and np.isfinite(tip_defl_v) and tip_defl_v > max_defl * 1.02:
+                    if (
+                        max_defl < float("inf")
+                        and np.isfinite(tip_defl_v)
+                        and tip_defl_v > max_defl * 1.02
+                    ):
                         reject_reasons.append("tip_deflection")
                     if not reject_reasons:
                         reject_reasons.append("other_feasibility_constraints")
@@ -1517,10 +1667,12 @@ class SparOptimizer:
         best_r = evaluator.evaluate(x_best)
         best_valid = _is_eval_valid(best_r, rear_on=rear_on)
         success = best_valid and self._is_raw_feasible(raw)
+        success = success and best_r["main_thickness_step_margin_min"] >= 0.0
         if rear_on:
             success = (
                 success
                 and best_r["rear_hollow_margin_min"] >= 0.0
+                and best_r["rear_thickness_step_margin_min"] >= 0.0
                 and best_r["radius_dominance_margin_min"] >= 0.0
                 and (
                     rear_main_radius_ratio_min <= 0.0
@@ -1574,10 +1726,14 @@ class SparOptimizer:
                     "tip_deflection_m": float(case_raw["tip_deflection_m"]),
                     "twist_max_deg": float(case_raw["twist_max_deg"]),
                     "max_stress_main_Pa": (
-                        float(np.max(vm_main_case)) if vm_main_case is not None and len(vm_main_case) > 0 else 0.0
+                        float(np.max(vm_main_case))
+                        if vm_main_case is not None and len(vm_main_case) > 0
+                        else 0.0
                     ),
                     "max_stress_rear_Pa": (
-                        float(np.max(vm_rear_case)) if vm_rear_case is not None and len(vm_rear_case) > 0 else 0.0
+                        float(np.max(vm_rear_case))
+                        if vm_rear_case is not None and len(vm_rear_case) > 0
+                        else 0.0
                     ),
                 }
 
@@ -1596,8 +1752,12 @@ class SparOptimizer:
         case_limits = self._constraint_limits_by_case()
         twist_candidates = [lim[0] for lim in case_limits.values()]
         deflection_candidates = [lim[1] for lim in case_limits.values() if lim[1] is not None]
-        twist_limit = min(twist_candidates) if twist_candidates else float(cfg.wing.max_tip_twist_deg)
-        deflection_limit = min(float(v) for v in deflection_candidates) if deflection_candidates else None
+        twist_limit = (
+            min(twist_candidates) if twist_candidates else float(cfg.wing.max_tip_twist_deg)
+        )
+        deflection_limit = (
+            min(float(v) for v in deflection_candidates) if deflection_candidates else None
+        )
 
         return OptimizationResult(
             success=success,

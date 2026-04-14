@@ -7,6 +7,10 @@ import logging
 from typing import Sequence
 
 from hpa_mdo.core.config import SparConfig
+from hpa_mdo.core.layup_constraints import (
+    effective_layup_thickness_step_limit as effective_layup_thickness_step_limit,
+    thickness_step_margin_min as thickness_step_margin_min,
+)
 from hpa_mdo.core.materials import PlyMaterial
 from hpa_mdo.structure.laminate import (
     PlyFailureResult,

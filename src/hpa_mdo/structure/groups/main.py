@@ -1,10 +1,12 @@
 """Top-level structural group assembly and problem entry points."""
+
 from __future__ import annotations
 
 import numpy as np
 import openmdao.api as om
 
 from hpa_mdo.aero.load_mapper import APPLIED_AERO_SCALE_KEY
+from hpa_mdo.core.layup_constraints import effective_layup_thickness_step_limit
 from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.buckling import BucklingComp
 from hpa_mdo.structure.components.constraints import (
@@ -175,6 +177,7 @@ class HPAStructuralGroup(om.Group):
 
     def setup(self):
         from hpa_mdo.core.config import HPAConfig
+
         cfg: HPAConfig = self.options["cfg"]
         ac = self.options["aircraft"]
         aero = self.options["aero_loads"]
@@ -205,11 +208,13 @@ class HPAStructuralGroup(om.Group):
         node_spacings[0] = dy[0] / 2.0
         node_spacings[-1] = dy[-1] / 2.0
         for i in range(1, nn - 1):
-            node_spacings[i] = (dy[i-1] + dy[i]) / 2.0
+            node_spacings[i] = (dy[i - 1] + dy[i]) / 2.0
 
         # Outer radii (constant — from airfoil geometry)
         R_main_nodes = compute_outer_radius_from_wing(wing, cfg.main_spar)
-        R_rear_nodes = compute_outer_radius_from_wing(wing, cfg.rear_spar) if rear_on else np.zeros(nn)
+        R_rear_nodes = (
+            compute_outer_radius_from_wing(wing, cfg.rear_spar) if rear_on else np.zeros(nn)
+        )
         # Element-averaged outer radii
         R_main_elem = (R_main_nodes[:-1] + R_main_nodes[1:]) / 2.0
         R_rear_elem = (R_rear_nodes[:-1] + R_rear_nodes[1:]) / 2.0
@@ -236,14 +241,15 @@ class HPAStructuralGroup(om.Group):
         dih_rad = np.deg2rad(wing.dihedral_deg)
         z_dihedral = np.zeros(nn)
         for i in range(1, nn):
-            z_dihedral[i] = z_dihedral[i-1] + dy[i-1] * np.tan(dih_rad[i])
+            z_dihedral[i] = z_dihedral[i - 1] + dy[i - 1] * np.tan(dih_rad[i])
         nodes_3d[:, 2] = z_dihedral
         nodes_3d[:, 0] = wing.main_spar_xc * wing.chord  # chordwise position
 
         # Joint mass
         n_main_joints = len(cfg.joint_positions(seg_lengths))
-        n_rear_joints = len(cfg.joint_positions(
-            cfg.spar_segment_lengths(cfg.rear_spar))) if rear_on else 0
+        n_rear_joints = (
+            len(cfg.joint_positions(cfg.spar_segment_lengths(cfg.rear_spar))) if rear_on else 0
+        )
         joint_mass_half = (
             n_main_joints * cfg.main_spar.joint_mass_kg
             + n_rear_joints * cfg.rear_spar.joint_mass_kg
@@ -268,29 +274,35 @@ class HPAStructuralGroup(om.Group):
         # ── Build subsystems ──
 
         # 1. Segment mapper
-        self.add_subsystem("seg_mapper", SegmentToElementComp(
-            n_segments=n_seg,
-            n_elements=ne,
-            segment_boundaries=seg_bounds,
-            element_centres=elem_centres,
-            rear_enabled=rear_on,
-        ))
+        self.add_subsystem(
+            "seg_mapper",
+            SegmentToElementComp(
+                n_segments=n_seg,
+                n_elements=ne,
+                segment_boundaries=seg_bounds,
+                element_centres=elem_centres,
+                rear_enabled=rear_on,
+            ),
+        )
 
         # 2. Dual spar properties
-        self.add_subsystem("spar_props", DualSparPropertiesComp(
-            n_elements=ne,
-            z_main=z_main_elem,
-            z_rear=z_rear_elem,
-            d_chord=d_chord_elem,
-            E_main=mat_main.E,
-            G_main=mat_main.G,
-            rho_main=mat_main.density,
-            E_rear=mat_rear.E,
-            G_rear=mat_rear.G,
-            rho_rear=mat_rear.density,
-            rear_enabled=rear_on,
-            warping_knockdown=cfg.safety.dual_spar_warping_knockdown,
-        ))
+        self.add_subsystem(
+            "spar_props",
+            DualSparPropertiesComp(
+                n_elements=ne,
+                z_main=z_main_elem,
+                z_rear=z_rear_elem,
+                d_chord=d_chord_elem,
+                E_main=mat_main.E,
+                G_main=mat_main.G,
+                rho_main=mat_main.density,
+                E_rear=mat_rear.E,
+                G_rear=mat_rear.G,
+                rho_rear=mat_rear.density,
+                rear_enabled=rear_on,
+                warping_knockdown=cfg.safety.dual_spar_warping_knockdown,
+            ),
+        )
 
         E_avg = (mat_main.E + mat_rear.E) / 2.0 if rear_on else mat_main.E
         G_avg = (mat_main.G + mat_rear.G) / 2.0 if rear_on else mat_main.G
@@ -304,11 +316,14 @@ class HPAStructuralGroup(om.Group):
         self._R_rear_elem_init = R_rear_elem if rear_on else None
 
         # 8. Structural mass
-        self.add_subsystem("mass", StructuralMassComp(
-            n_elements=ne,
-            element_lengths=dy,
-            joint_mass_total=joint_mass_half,
-        ))
+        self.add_subsystem(
+            "mass",
+            StructuralMassComp(
+                n_elements=ne,
+                element_lengths=dy,
+                joint_mass_total=joint_mass_half,
+            ),
+        )
 
         if len(case_entries) == 1:
             load_case, case_loads = next(iter(case_entries.values()))
@@ -329,65 +344,80 @@ class HPAStructuralGroup(om.Group):
             )
 
             # 3. External loads
-            self.add_subsystem("ext_loads", ExternalLoadsComp(
-                n_nodes=nn,
-                lift_per_span=lift,
-                torque_per_span=torque,
-                node_spacings=node_spacings,
-                element_lengths=dy,
-                gravity_scale=load_case.gravity_scale,
-                rear_torque_arm=rear_torque_arm,
-            ))
+            self.add_subsystem(
+                "ext_loads",
+                ExternalLoadsComp(
+                    n_nodes=nn,
+                    lift_per_span=lift,
+                    torque_per_span=torque,
+                    node_spacings=node_spacings,
+                    element_lengths=dy,
+                    gravity_scale=load_case.gravity_scale,
+                    rear_torque_arm=rear_torque_arm,
+                ),
+            )
 
             # 4. FEM solver
-            self.add_subsystem("fem", SpatialBeamFEM(
-                n_nodes=nn,
-                E_avg=E_avg,
-                G_avg=G_avg,
-                fixed_node=0,
-                lift_wire_nodes=lw_node_indices,
-                max_matrix_entry=cfg.solver.fem_max_matrix_entry,
-                max_disp_entry=cfg.solver.fem_max_disp_entry,
-                bc_penalty=cfg.solver.fem_bc_penalty,
-            ))
+            self.add_subsystem(
+                "fem",
+                SpatialBeamFEM(
+                    n_nodes=nn,
+                    E_avg=E_avg,
+                    G_avg=G_avg,
+                    fixed_node=0,
+                    lift_wire_nodes=lw_node_indices,
+                    max_matrix_entry=cfg.solver.fem_max_matrix_entry,
+                    max_disp_entry=cfg.solver.fem_max_disp_entry,
+                    bc_penalty=cfg.solver.fem_bc_penalty,
+                ),
+            )
 
             # 5. Stress computation
-            self.add_subsystem("stress", VonMisesStressComp(
-                n_nodes=nn,
-                E_main=mat_main.E,
-                E_rear=mat_rear.E,
-                G_main=mat_main.G,
-                G_rear=mat_rear.G,
-                z_main=z_main_elem,
-                z_rear=z_rear_elem,
-                rear_enabled=rear_on,
-                wire_precompression=wire_precompression,
-            ))
+            self.add_subsystem(
+                "stress",
+                VonMisesStressComp(
+                    n_nodes=nn,
+                    E_main=mat_main.E,
+                    E_rear=mat_rear.E,
+                    G_main=mat_main.G,
+                    G_rear=mat_rear.G,
+                    z_main=z_main_elem,
+                    z_rear=z_rear_elem,
+                    rear_enabled=rear_on,
+                    wire_precompression=wire_precompression,
+                ),
+            )
 
             # 6. Shell buckling
-            self.add_subsystem("buckling", BucklingComp(
-                n_nodes=nn,
-                E_main=mat_main.E,
-                E_rear=mat_rear.E if rear_on else 0.0,
-                G_main=mat_main.G,
-                G_rear=mat_rear.G if rear_on else None,
-                z_main=z_main_elem,
-                z_rear=z_rear_elem,
-                rear_enabled=rear_on,
-                knockdown_factor=cfg.safety.shell_buckling_knockdown,
-                bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
-                ks_rho=cfg.safety.ks_rho_buckling,
-                wire_precompression=wire_precompression,
-            ))
+            self.add_subsystem(
+                "buckling",
+                BucklingComp(
+                    n_nodes=nn,
+                    E_main=mat_main.E,
+                    E_rear=mat_rear.E if rear_on else 0.0,
+                    G_main=mat_main.G,
+                    G_rear=mat_rear.G if rear_on else None,
+                    z_main=z_main_elem,
+                    z_rear=z_rear_elem,
+                    rear_enabled=rear_on,
+                    knockdown_factor=cfg.safety.shell_buckling_knockdown,
+                    bending_enhancement=cfg.safety.shell_buckling_bending_enhancement,
+                    ks_rho=cfg.safety.ks_rho_buckling,
+                    wire_precompression=wire_precompression,
+                ),
+            )
 
             # 7. KS failure
-            self.add_subsystem("failure", KSFailureComp(
-                n_elements=ne,
-                sigma_allow_main=sigma_allow_main,
-                sigma_allow_rear=sigma_allow_rear,
-                rear_enabled=rear_on,
-                rho_ks=cfg.safety.ks_rho_stress,
-            ))
+            self.add_subsystem(
+                "failure",
+                KSFailureComp(
+                    n_elements=ne,
+                    sigma_allow_main=sigma_allow_main,
+                    sigma_allow_rear=sigma_allow_rear,
+                    rear_enabled=rear_on,
+                    rho_ks=cfg.safety.ks_rho_stress,
+                ),
+            )
 
             # 9. Twist constraint
             self.add_subsystem(
@@ -519,9 +549,7 @@ class HPAStructuralGroup(om.Group):
                 self.connect("spar_props.I_main", f"{case_group_name}.I_main")
                 # BucklingComp promotes main_r_elem / rear_r_elem (distinct
                 # from VonMisesStressComp which uses R_main_elem / R_rear_elem).
-                self.connect(
-                    "seg_mapper.main_r_elem", f"{case_group_name}.main_r_elem"
-                )
+                self.connect("seg_mapper.main_r_elem", f"{case_group_name}.main_r_elem")
                 if rear_on:
                     self.connect("seg_mapper.rear_r_elem", f"{case_group_name}.R_rear_elem")
                     self.connect("seg_mapper.rear_t_elem", f"{case_group_name}.rear_t_elem")
@@ -535,8 +563,8 @@ class HPAStructuralGroup(om.Group):
 def compute_outer_radius_from_wing(wing, spar_cfg) -> np.ndarray:
     """Compute outer tube radius at each wing station."""
     from hpa_mdo.structure.spar_model import compute_outer_radius
-    return compute_outer_radius(
-        wing.y, wing.chord, wing.airfoil_thickness, spar_cfg)
+
+    return compute_outer_radius(wing.y, wing.chord, wing.airfoil_thickness, spar_cfg)
 
 
 def build_structural_problem(
@@ -593,13 +621,15 @@ def build_structural_problem(
 
     model.add_design_var(
         "struct.seg_mapper.main_t_seg",
-        lower=min_t, upper=max_t,
+        lower=min_t,
+        upper=max_t,
         ref=0.002,  # scaling reference
     )
 
     model.add_design_var(
         "struct.seg_mapper.main_r_seg",
-        lower=solver_cfg.min_radius_m, upper=solver_cfg.max_radius_m,
+        lower=solver_cfg.min_radius_m,
+        upper=solver_cfg.max_radius_m,
         ref=0.025,
     )
 
@@ -607,18 +637,24 @@ def build_structural_problem(
         min_t_r = cfg.rear_spar.min_wall_thickness
         model.add_design_var(
             "struct.seg_mapper.rear_t_seg",
-            lower=min_t_r, upper=max_t,
+            lower=min_t_r,
+            upper=max_t,
             ref=0.002,
         )
         model.add_design_var(
             "struct.seg_mapper.rear_r_seg",
-            lower=solver_cfg.min_radius_m, upper=solver_cfg.max_radius_m,
+            lower=solver_cfg.min_radius_m,
+            upper=solver_cfg.max_radius_m,
             ref=0.025,
         )
 
     # Thickness-to-radius geometric feasibility: t <= eta * R.
     ratio_limit = solver_cfg.max_thickness_to_radius_ratio
-    max_thickness_step = solver_cfg.max_thickness_step_m
+    max_main_thickness_step = effective_layup_thickness_step_limit(
+        cfg.main_spar,
+        solver_cfg.max_thickness_step_m,
+        materials_db,
+    )
     model.add_subsystem(
         "main_thickness_ratio",
         om.ExecComp(
@@ -684,7 +720,7 @@ def build_structural_problem(
         )
         model.set_input_defaults(
             "main_t_step_dec.max_step",
-            val=max_thickness_step,
+            val=max_main_thickness_step,
             units="m",
         )
         model.add_constraint("main_t_step_dec.margin", lower=0.0)
@@ -712,12 +748,17 @@ def build_structural_problem(
         )
         model.set_input_defaults(
             "main_t_step_inc.max_step",
-            val=max_thickness_step,
+            val=max_main_thickness_step,
             units="m",
         )
         model.add_constraint("main_t_step_inc.margin", lower=0.0)
 
     if rear_on:
+        max_rear_thickness_step = effective_layup_thickness_step_limit(
+            cfg.rear_spar,
+            solver_cfg.max_thickness_step_m,
+            materials_db,
+        )
         rear_min_inner_radius = max(
             0.0,
             float(getattr(solver_cfg, "rear_min_inner_radius_m", 0.0)),
@@ -798,7 +839,7 @@ def build_structural_problem(
             )
             model.set_input_defaults(
                 "rear_t_step_dec.max_step",
-                val=max_thickness_step,
+                val=max_rear_thickness_step,
                 units="m",
             )
             model.add_constraint("rear_t_step_dec.margin", lower=0.0)
@@ -826,7 +867,7 @@ def build_structural_problem(
             )
             model.set_input_defaults(
                 "rear_t_step_inc.max_step",
-                val=max_thickness_step,
+                val=max_rear_thickness_step,
                 units="m",
             )
             model.add_constraint("rear_t_step_inc.margin", lower=0.0)
@@ -898,9 +939,7 @@ def build_structural_problem(
             0.0,
             float(getattr(solver_cfg, "rear_inboard_span_m", 0.0)),
         )
-        inboard_ratio = float(
-            getattr(solver_cfg, "rear_inboard_ei_to_main_ratio_max", 1.0)
-        )
+        inboard_ratio = float(getattr(solver_cfg, "rear_inboard_ei_to_main_ratio_max", 1.0))
         if inboard_span > 0.0 and inboard_ratio < 1.0:
             inboard_elem_idx = np.where(elem_centres <= inboard_span + 1e-12)[0]
             if inboard_elem_idx.size == 0:
@@ -1095,6 +1134,7 @@ def _require_finite_array(name: str, values) -> np.ndarray:
 
 def _extract_results(prob: om.Problem) -> dict:
     """Extract key results from solved problem."""
+
     def _get_scalar(name: str) -> float:
         return _require_finite_scalar(name, prob.get_val(name))
 

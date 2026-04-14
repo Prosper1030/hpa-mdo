@@ -4,6 +4,7 @@ Schema mirrors configs/blackcat_004.yaml exactly.
 All engineering constants are read from YAML, with an optional local
 overlay file for per-machine path differences.
 """
+
 from __future__ import annotations
 
 import math
@@ -40,6 +41,7 @@ class LoadCaseConfig(BaseModel):
 
 # ── Sub-configs ─────────────────────────────────────────────────────────────
 
+
 class FlightConfig(BaseModel):
     velocity: float = Field(..., description="Cruise TAS [m/s]")
     altitude: float = Field(0.0)
@@ -66,9 +68,7 @@ class SafetyConfig(BaseModel):
     ks_rho_buckling: float = Field(
         50.0, description="KS aggregation sharpness for buckling constraint"
     )
-    ks_rho_twist: float = Field(
-        100.0, description="KS aggregation sharpness for twist constraint"
-    )
+    ks_rho_twist: float = Field(100.0, description="KS aggregation sharpness for twist constraint")
     shell_buckling_knockdown: float = Field(
         default=0.65,
         description="NASA SP-8007 knockdown factor for CF tube shell buckling",
@@ -165,6 +165,7 @@ class VerticalFinConfig(LiftingSurfaceConfig):
 
 class SparConfig(BaseModel):
     """Shared schema for main_spar and rear_spar."""
+
     material: str = "carbon_fiber_hm"
     location_xc: float = 0.25
     layup_mode: Literal["isotropic", "discrete_clt"] = "isotropic"
@@ -180,6 +181,14 @@ class SparConfig(BaseModel):
         14,
         ge=2,
         description="Maximum total symmetric laminate plies",
+    )
+    max_ply_drop_per_segment: int = Field(
+        2,
+        ge=0,
+        description=(
+            "Maximum total-ply count change between adjacent segments when "
+            "layup_mode='discrete_clt'"
+        ),
     )
 
     outer_diameter_root: Optional[float] = None
@@ -307,9 +316,7 @@ class SolverConfig(BaseModel):
     fem_max_disp_entry: float = Field(
         1e2, description="Numerical guard: max allowed absolute displacement/Jacobian entry"
     )
-    fem_bc_penalty: float = Field(
-        1e15, description="Penalty stiffness added on constrained DOFs"
-    )
+    fem_bc_penalty: float = Field(1e15, description="Penalty stiffness added on constrained DOFs")
     scipy_eval_cache_size: int = Field(
         2048, description="LRU cache size for SciPy black-box evaluations"
     )
@@ -367,8 +374,7 @@ class SolverConfig(BaseModel):
     loaded_shape_twist_tol_deg: float = Field(
         0.15,
         description=(
-            "Maximum allowed loaded-shape twist control-station error "
-            "used by inverse design [deg]"
+            "Maximum allowed loaded-shape twist control-station error used by inverse design [deg]"
         ),
     )
     fsi_coupling: Literal["one-way", "two-way"] = "one-way"
@@ -387,6 +393,7 @@ class IOConfig(BaseModel):
 
 
 # ── Top-level ───────────────────────────────────────────────────────────────
+
 
 class HPAConfig(BaseModel):
     project_name: str = "HPA-MDO"
@@ -409,8 +416,10 @@ class HPAConfig(BaseModel):
     )
     main_spar: SparConfig
     rear_spar: SparConfig = SparConfig(
-        enabled=True, location_xc=0.70,
-        thickness_fraction_root=0.55, thickness_fraction_tip=0.65,
+        enabled=True,
+        location_xc=0.70,
+        thickness_fraction_root=0.55,
+        thickness_fraction_tip=0.65,
         joint_mass_kg=0.10,
     )
     lift_wires: LiftWireConfig = LiftWireConfig()
@@ -454,6 +463,7 @@ class HPAConfig(BaseModel):
     def joint_positions(segments: List[float]) -> List[float]:
         """Cumulative sum excluding the last element → joint y-coords."""
         import numpy as np
+
         cs = list(np.cumsum(segments))
         return cs[:-1]  # last entry is the tip, not a joint
 
@@ -477,14 +487,11 @@ class HPAConfig(BaseModel):
                 )
 
         if self.lift_wires.enabled and self.lift_wires.attachments:
-            main_joints = self.joint_positions(
-                self.spar_segment_lengths(self.main_spar)
-            )
+            main_joints = self.joint_positions(self.spar_segment_lengths(self.main_spar))
             for att in self.lift_wires.attachments:
                 if not any(abs(att.y - jy) <= tol for jy in main_joints):
                     raise ValueError(
-                        "lift_wires attachment y must lie on a segment boundary "
-                        f"(got y={att.y})."
+                        f"lift_wires attachment y must lie on a segment boundary (got y={att.y})."
                     )
 
         return self

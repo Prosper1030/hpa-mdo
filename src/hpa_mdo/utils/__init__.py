@@ -13,10 +13,12 @@ from hpa_mdo.utils.discrete_layup import (
     SegmentLayupResult,
     build_segment_layup_results,
     discretize_layup_per_segment,
+    effective_layup_thickness_step_limit,
     enumerate_valid_stacks,
     format_layup_report,
     snap_to_nearest_stack,
     summarize_layup_results,
+    thickness_step_margin_min,
 )
 
 __all__ = [
@@ -26,6 +28,7 @@ __all__ = [
     "build_segment_layup_results",
     "compute_deformed_nodes",
     "discretize_layup_per_segment",
+    "effective_layup_thickness_step_limit",
     "enumerate_valid_stacks",
     "export_step_from_csv",
     "format_layup_report",
@@ -34,4 +37,5 @@ __all__ = [
     "snap_to_nearest_stack",
     "snap_to_catalog",
     "summarize_layup_results",
+    "thickness_step_margin_min",
 ]

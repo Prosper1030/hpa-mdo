@@ -18,20 +18,25 @@ def test_load_config_applies_local_sync_root_overlay(tmp_path):
     sync_root = tmp_path / "SyncFile"
     overlay_path = tmp_path / "local_paths.yaml"
     overlay_path.write_text(
-        "io:\n"
-        f"  sync_root: \"{sync_root.as_posix()}\"\n",
+        f'io:\n  sync_root: "{sync_root.as_posix()}"\n',
         encoding="utf-8",
     )
 
     cfg = load_config(config_path, local_paths_path=overlay_path)
 
     assert cfg.io.sync_root == sync_root.resolve()
-    assert cfg.io.vsp_lod == (
-        sync_root / "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
-    ).resolve()
-    assert cfg.io.vsp_polar == (
-        sync_root / "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar"
-    ).resolve()
+    assert (
+        cfg.io.vsp_lod
+        == (
+            sync_root / "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
+        ).resolve()
+    )
+    assert (
+        cfg.io.vsp_polar
+        == (
+            sync_root / "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar"
+        ).resolve()
+    )
     assert cfg.io.airfoil_dir == (sync_root / "Aerodynamics/airfoil").resolve()
     assert cfg.io.output_dir == (repo_root / "output/blackcat_004").resolve()
     assert cfg.io.training_db == (repo_root / "database/training_data.csv").resolve()
@@ -43,8 +48,7 @@ def test_load_config_honors_environment_override(tmp_path, monkeypatch):
     overlay_path = tmp_path / "local_paths.yaml"
     sync_root = tmp_path / "SharedSync"
     overlay_path.write_text(
-        "io:\n"
-        f"  sync_root: \"{sync_root.as_posix()}\"\n",
+        f'io:\n  sync_root: "{sync_root.as_posix()}"\n',
         encoding="utf-8",
     )
     monkeypatch.setenv("HPA_MDO_LOCAL_PATHS", str(overlay_path))
@@ -115,8 +119,10 @@ def test_blackcat_spar_layup_defaults_loaded_from_config():
     assert cfg.main_spar.min_plies_45_pairs == 1
     assert cfg.main_spar.min_plies_90 == 0
     assert cfg.main_spar.max_total_plies == 14
+    assert cfg.main_spar.max_ply_drop_per_segment == 2
     assert cfg.rear_spar.layup_mode == "isotropic"
     assert cfg.rear_spar.ply_material == "cfrp_ply_hm"
+    assert cfg.rear_spar.max_ply_drop_per_segment == 2
 
 
 def test_blackcat_beta_sweep_gates_loaded_from_config():
@@ -160,7 +166,9 @@ def test_aircraft_converts_airfoil_camber_fraction_to_meters(tmp_path):
     )
 
     with patch.object(cfg.io, "airfoil_dir", tmp_path):
-        with patch("hpa_mdo.core.aircraft._try_load_airfoil", side_effect=[fake_airfoil, fake_airfoil]):
+        with patch(
+            "hpa_mdo.core.aircraft._try_load_airfoil", side_effect=[fake_airfoil, fake_airfoil]
+        ):
             with patch.object(cfg.solver, "n_beam_nodes", 5):
                 aircraft = Aircraft.from_config(cfg)
 
