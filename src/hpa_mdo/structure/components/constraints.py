@@ -264,6 +264,80 @@ class StructuralMassComp(om.ExplicitComponent):
         outputs["total_mass_full"] = half * 2.0 + jm * 2.0
 
 
+class StrainEnvelopeComp(om.ExplicitComponent):
+    """Recover per-segment beam strain envelopes from nodal displacement.
+
+    The outputs are report-only kinematic envelopes shared by main/rear
+    spar layup checks:
+        epsilon_x_absmax      centerline axial strain
+        kappa_absmax          bending curvature magnitude [1/m]
+        torsion_rate_absmax   local twist rate [1/m]
+    """
+
+    def initialize(self):
+        self.options.declare("n_nodes", types=int)
+        self.options.declare("segment_boundaries", types=np.ndarray)
+        self.options.declare("element_centres", types=np.ndarray)
+
+    def setup(self):
+        nn = self.options["n_nodes"]
+        seg_bounds = np.asarray(self.options["segment_boundaries"], dtype=float)
+        n_seg = len(seg_bounds) - 1
+        if n_seg <= 0:
+            raise ValueError("segment_boundaries must define at least one segment.")
+
+        self.add_input("disp", shape=(nn, 6))
+        self.add_input("nodes", shape=(nn, 3), units="m")
+        self.add_output("epsilon_x_absmax", shape=(n_seg,))
+        self.add_output("kappa_absmax", shape=(n_seg,), units="1/m")
+        self.add_output("torsion_rate_absmax", shape=(n_seg,), units="1/m")
+
+    def compute(self, inputs, outputs):
+        nn = self.options["n_nodes"]
+        ne = nn - 1
+        seg_bounds = np.asarray(self.options["segment_boundaries"], dtype=float)
+        elem_centres = np.asarray(self.options["element_centres"], dtype=float)
+        n_seg = len(seg_bounds) - 1
+
+        disp = inputs["disp"]
+        nodes = inputs["nodes"]
+        epsilon_x = np.zeros(n_seg, dtype=disp.dtype)
+        kappa = np.zeros(n_seg, dtype=disp.dtype)
+        torsion_rate = np.zeros(n_seg, dtype=disp.dtype)
+
+        for e in range(ne):
+            dx = nodes[e + 1] - nodes[e]
+            L = _cs_norm(dx)
+            if np.real(L) < 1e-10:
+                continue
+
+            seg_idx = int(np.searchsorted(seg_bounds[1:], elem_centres[e], side="right"))
+            seg_idx = min(max(seg_idx, 0), n_seg - 1)
+
+            du = disp[e + 1] - disp[e]
+            R3 = _rotation_matrix(nodes[e], nodes[e + 1])
+            du_local = R3 @ du[:3]
+            dtheta_local = R3 @ du[3:6]
+
+            eps_e = du_local[0] / L
+            kappa_e = np.sqrt(
+                (dtheta_local[1] / L) ** 2 + (dtheta_local[2] / L) ** 2 + 1e-30
+            )
+            torsion_e = np.sqrt((dtheta_local[0] / L) ** 2 + 1e-30)
+            eps_abs_e = np.sqrt(eps_e**2 + 1e-30)
+
+            if np.real(eps_abs_e) > np.real(epsilon_x[seg_idx]):
+                epsilon_x[seg_idx] = eps_abs_e
+            if np.real(kappa_e) > np.real(kappa[seg_idx]):
+                kappa[seg_idx] = kappa_e
+            if np.real(torsion_e) > np.real(torsion_rate[seg_idx]):
+                torsion_rate[seg_idx] = torsion_e
+
+        outputs["epsilon_x_absmax"] = epsilon_x
+        outputs["kappa_absmax"] = kappa
+        outputs["torsion_rate_absmax"] = torsion_rate
+
+
 class TwistConstraintComp(om.ExplicitComponent):
     """Extract maximum twist angle from beam displacements.
 

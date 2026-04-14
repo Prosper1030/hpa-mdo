@@ -48,6 +48,15 @@ def _parse_args() -> argparse.Namespace:
         default=2,
         help="Maximum allowed ply-count drop between adjacent segments.",
     )
+    parser.add_argument(
+        "--strain-envelope",
+        type=Path,
+        default=None,
+        help=(
+            "Optional JSON with OpenMDAO per-segment epsilon_x_absmax, "
+            "kappa_absmax, and torsion_rate_absmax arrays."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -79,6 +88,7 @@ def _build_for_spar(
     ply_material_key: str,
     materials_db: MaterialDB,
     ply_drop_limit: int,
+    strain_envelopes: list[dict[str, float]] | None = None,
 ) -> tuple[str, dict[str, object]]:
     if not radii_mm or not thickness_mm:
         raise ValueError(f"{label} summary is missing radii or thickness arrays.")
@@ -94,11 +104,95 @@ def _build_for_spar(
         stacks=stacks,
         ply_mat=ply_mat,
         ply_drop_limit=ply_drop_limit,
+        strain_envelopes=strain_envelopes,
     )
     return ply_material_key, {
         "report": format_layup_report(results, ply_mat),
         "summary": summarize_layup_results(results),
     }
+
+
+def _load_strain_envelope_source(
+    *,
+    payload: dict[str, object],
+    selected: dict[str, object],
+    envelope_path: Path | None,
+) -> tuple[dict[str, object] | None, str | None]:
+    if envelope_path is not None:
+        resolved = envelope_path.expanduser().resolve()
+        return json.loads(resolved.read_text(encoding="utf-8")), str(resolved)
+
+    selected_env = selected.get("strain_envelope")
+    if isinstance(selected_env, dict):
+        return selected_env, "selected.strain_envelope"
+
+    payload_env = payload.get("strain_envelope")
+    if isinstance(payload_env, dict):
+        return payload_env, "summary.strain_envelope"
+
+    return None, None
+
+
+def _strain_envelopes_for_spar(
+    source: dict[str, object] | None,
+    *,
+    label: str,
+    n_segments: int,
+) -> list[dict[str, float]] | None:
+    if source is None:
+        return None
+
+    candidate: object = source
+    if isinstance(candidate, dict) and "strain_envelope" in candidate:
+        candidate = candidate["strain_envelope"]
+    if isinstance(candidate, dict) and label in candidate:
+        candidate = candidate[label]
+    if isinstance(candidate, dict) and "combined" in candidate:
+        candidate = candidate["combined"]
+
+    if not isinstance(candidate, dict):
+        raise ValueError(f"strain envelope for {label} must be a JSON object.")
+
+    eps = _array_from_envelope(candidate, "epsilon_x_absmax", n_segments)
+    kappa = _array_from_envelope(
+        candidate,
+        "kappa_absmax",
+        n_segments,
+        aliases=("kappa_absmax_1pm",),
+    )
+    torsion = _array_from_envelope(
+        candidate,
+        "torsion_rate_absmax",
+        n_segments,
+        aliases=("torsion_rate_absmax_1pm", "tau_absmax"),
+    )
+    return [
+        {
+            "epsilon_x_absmax": eps[idx],
+            "kappa_absmax": kappa[idx],
+            "torsion_rate_absmax": torsion[idx],
+        }
+        for idx in range(n_segments)
+    ]
+
+
+def _array_from_envelope(
+    envelope: dict[str, object],
+    key: str,
+    n_segments: int,
+    aliases: tuple[str, ...] = (),
+) -> list[float]:
+    raw = envelope.get(key)
+    for alias in aliases:
+        if raw is None:
+            raw = envelope.get(alias)
+    if raw is None:
+        raise ValueError(f"strain envelope is missing '{key}'.")
+    if not isinstance(raw, list) or len(raw) != n_segments:
+        raise ValueError(
+            f"strain envelope '{key}' must be a list with {n_segments} values."
+        )
+    return [float(value) for value in raw]
 
 
 def main() -> int:
@@ -112,6 +206,11 @@ def main() -> int:
     config_path = Path(str(payload["config"])).expanduser().resolve()
     cfg = load_config(config_path)
     materials_db = MaterialDB(REPO_ROOT / "data" / "materials.yaml")
+    strain_source, strain_source_label = _load_strain_envelope_source(
+        payload=payload,
+        selected=selected,
+        envelope_path=args.strain_envelope,
+    )
 
     design_mm = selected.get("design_mm")
     if not isinstance(design_mm, dict):
@@ -131,6 +230,11 @@ def main() -> int:
         ply_material_key=str(main_ply_material),
         materials_db=materials_db,
         ply_drop_limit=int(args.ply_drop_limit),
+        strain_envelopes=_strain_envelopes_for_spar(
+            strain_source,
+            label="main_spar",
+            n_segments=len(cfg.spar_segment_lengths(cfg.main_spar)),
+        ),
     )
     sections["main_spar"] = main_section
 
@@ -147,6 +251,11 @@ def main() -> int:
             ply_material_key=str(rear_ply_material),
             materials_db=materials_db,
             ply_drop_limit=int(args.ply_drop_limit),
+            strain_envelopes=_strain_envelopes_for_spar(
+                strain_source,
+                label="rear_spar",
+                n_segments=len(cfg.spar_segment_lengths(cfg.rear_spar)),
+            ),
         )
         sections["rear_spar"] = rear_section
 
@@ -166,6 +275,7 @@ def main() -> int:
         f"Config      : {config_path}",
         f"Report path : {output_path}",
         f"Schedule JSON: {schedule_path}",
+        f"Strain env  : {strain_source_label or 'not provided'}",
         "",
         f"Continuous full-wing mass: {total_continuous_mass:.3f} kg",
         f"Discrete full-wing mass  : {total_discrete_mass:.3f} kg",
@@ -188,6 +298,7 @@ def main() -> int:
                 "continuous_full_wing_mass_kg": total_continuous_mass,
                 "discrete_full_wing_mass_kg": total_discrete_mass,
                 "mass_penalty_full_wing_kg": total_mass_penalty,
+                "strain_envelope_source": strain_source_label,
                 "spars": {
                     name: section["summary"]
                     for name, section in sections.items()

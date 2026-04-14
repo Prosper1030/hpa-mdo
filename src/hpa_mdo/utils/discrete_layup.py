@@ -35,6 +35,19 @@ class SegmentTsaiWuSummary:
     critical_ply_angle_deg: float
     critical_z_mid_m: float
     critical_stress_12_pa: tuple[float, float, float]
+    critical_midplane_strain: tuple[float, float, float] | None = None
+    critical_curvature: tuple[float, float, float] | None = None
+
+
+@dataclass(frozen=True)
+class SegmentStrainEnvelope:
+    """Kinematic strain envelope used for laminate recovery in one spar segment."""
+
+    epsilon_x_absmax: float
+    kappa_absmax_1pm: float
+    torsion_rate_absmax_1pm: float
+    surface_epsilon_x_absmax: float
+    gamma_xy_absmax: float
 
 
 @dataclass(frozen=True)
@@ -51,6 +64,7 @@ class SegmentLayupResult:
     continuous_mass_full_wing_kg: float
     discrete_mass_full_wing_kg: float
     catalog_capped: bool
+    strain_envelope: SegmentStrainEnvelope | None = None
     tsai_wu_summary: SegmentTsaiWuSummary | None = None
 
     @property
@@ -184,12 +198,93 @@ def summarize_segment_tsai_wu(
         critical_ply_angle_deg=float(critical.theta_deg),
         critical_z_mid_m=float(critical.z_mid),
         critical_stress_12_pa=critical.stress_12,
+        critical_midplane_strain=tuple(float(value) for value in midplane_strain),
+        critical_curvature=tuple(float(value) for value in curvature),
     )
 
 
 def _strength_ratio_sort_key(result: PlyFailureResult) -> tuple[int, float]:
     strength_ratio = float(result.strength_ratio)
     return (0 if strength_ratio == strength_ratio else 1, strength_ratio)
+
+
+def summarize_segment_tsai_wu_envelope(
+    *,
+    stack: PlyStack,
+    ply_mat: PlyMaterial,
+    epsilon_x_absmax: float,
+    kappa_absmax: float,
+    torsion_rate_absmax: float,
+    outer_radius_m: float,
+) -> tuple[SegmentTsaiWuSummary, SegmentStrainEnvelope]:
+    """Evaluate conservative CLT/Tsai-Wu margins from a beam strain envelope.
+
+    Beam bending curvature is recovered as the critical tube-wall axial strain
+    ``epsilon_x +/- R * kappa``.  That cross-section bending effect is not the
+    same as laminate through-thickness CLT curvature, so each candidate wall
+    state is evaluated with zero CLT curvature and signed axial/shear strain.
+    """
+    radius = abs(float(outer_radius_m))
+    eps_abs = abs(float(epsilon_x_absmax))
+    kappa_abs = abs(float(kappa_absmax))
+    torsion_abs = abs(float(torsion_rate_absmax))
+    surface_eps_abs = eps_abs + radius * kappa_abs
+    gamma_abs = radius * torsion_abs
+    strain_envelope = SegmentStrainEnvelope(
+        epsilon_x_absmax=eps_abs,
+        kappa_absmax_1pm=kappa_abs,
+        torsion_rate_absmax_1pm=torsion_abs,
+        surface_epsilon_x_absmax=surface_eps_abs,
+        gamma_xy_absmax=gamma_abs,
+    )
+
+    candidate_summaries: list[SegmentTsaiWuSummary] = []
+    for eps in _signed_envelope_values(surface_eps_abs):
+        for gamma in _signed_envelope_values(gamma_abs):
+            candidate_summaries.append(
+                summarize_segment_tsai_wu(
+                    stack=stack,
+                    ply_mat=ply_mat,
+                    midplane_strain=(eps, 0.0, gamma),
+                    curvature=(0.0, 0.0, 0.0),
+                )
+            )
+
+    critical = min(candidate_summaries, key=_summary_strength_ratio_sort_key)
+    failure_values = [
+        float(summary.max_failure_index)
+        for summary in candidate_summaries
+        if float(summary.max_failure_index) == float(summary.max_failure_index)
+    ]
+    max_failure = max(failure_values) if failure_values else float("nan")
+    summary = SegmentTsaiWuSummary(
+        max_failure_index=max_failure,
+        min_strength_ratio=critical.min_strength_ratio,
+        critical_ply_index=critical.critical_ply_index,
+        critical_ply_angle_deg=critical.critical_ply_angle_deg,
+        critical_z_mid_m=critical.critical_z_mid_m,
+        critical_stress_12_pa=critical.critical_stress_12_pa,
+        critical_midplane_strain=critical.critical_midplane_strain,
+        critical_curvature=critical.critical_curvature,
+    )
+    return summary, strain_envelope
+
+
+def _signed_envelope_values(abs_value: float) -> tuple[float, ...]:
+    value = abs(float(abs_value))
+    if value <= _FLOAT_TOL:
+        return (0.0,)
+    return (-value, value)
+
+
+def _summary_strength_ratio_sort_key(summary: SegmentTsaiWuSummary) -> tuple[int, float, float]:
+    strength_ratio = float(summary.min_strength_ratio)
+    failure_index = float(summary.max_failure_index)
+    return (
+        0 if strength_ratio == strength_ratio else 1,
+        strength_ratio,
+        -failure_index if failure_index == failure_index else 0.0,
+    )
 
 
 def build_segment_layup_results(
@@ -202,16 +297,21 @@ def build_segment_layup_results(
     ply_drop_limit: int = 2,
     midplane_strains: Sequence[Sequence[float]] | None = None,
     curvatures: Sequence[Sequence[float]] | None = None,
+    strain_envelopes: Sequence[dict[str, float]] | None = None,
 ) -> list[SegmentLayupResult]:
     """Build per-segment layup selections with geometry and mass annotations."""
     if not (len(segment_lengths_m) == len(continuous_thicknesses_m) == len(outer_radii_m)):
         raise ValueError(
             "segment_lengths_m, continuous_thicknesses_m, and outer_radii_m must match in length."
         )
+    if midplane_strains is not None and strain_envelopes is not None:
+        raise ValueError("Provide either midplane_strains or strain_envelopes, not both.")
     if midplane_strains is not None and len(midplane_strains) != len(segment_lengths_m):
         raise ValueError("midplane_strains must match the segment count when provided.")
     if curvatures is not None and len(curvatures) != len(segment_lengths_m):
         raise ValueError("curvatures must match the segment count when provided.")
+    if strain_envelopes is not None and len(strain_envelopes) != len(segment_lengths_m):
+        raise ValueError("strain_envelopes must match the segment count when provided.")
 
     selected = discretize_layup_per_segment(
         continuous_thicknesses=continuous_thicknesses_m,
@@ -241,6 +341,7 @@ def build_segment_layup_results(
             density_kgpm3=ply_mat.density,
         )
         tsai_wu_summary = None
+        strain_envelope = None
         if midplane_strains is not None:
             curvature = (0.0, 0.0, 0.0) if curvatures is None else curvatures[idx - 1]
             tsai_wu_summary = summarize_segment_tsai_wu(
@@ -248,6 +349,26 @@ def build_segment_layup_results(
                 ply_mat=ply_mat,
                 midplane_strain=midplane_strains[idx - 1],
                 curvature=curvature,
+            )
+        elif strain_envelopes is not None:
+            envelope = strain_envelopes[idx - 1]
+            tsai_wu_summary, strain_envelope = summarize_segment_tsai_wu_envelope(
+                stack=stack,
+                ply_mat=ply_mat,
+                epsilon_x_absmax=float(envelope["epsilon_x_absmax"]),
+                kappa_absmax=float(
+                    envelope.get("kappa_absmax", envelope.get("kappa_absmax_1pm", 0.0))
+                ),
+                torsion_rate_absmax=float(
+                    envelope.get(
+                        "torsion_rate_absmax",
+                        envelope.get(
+                            "torsion_rate_absmax_1pm",
+                            envelope.get("tau_absmax", 0.0),
+                        ),
+                    )
+                ),
+                outer_radius_m=float(outer_r_m),
             )
         results.append(
             SegmentLayupResult(
@@ -261,6 +382,7 @@ def build_segment_layup_results(
                 continuous_mass_full_wing_kg=continuous_mass,
                 discrete_mass_full_wing_kg=discrete_mass,
                 catalog_capped=equiv.wall_thickness + _FLOAT_TOL < float(target_t_m),
+                strain_envelope=strain_envelope,
                 tsai_wu_summary=tsai_wu_summary,
             )
         )
@@ -298,6 +420,14 @@ def format_layup_report(
         )
         if result.tsai_wu_summary is not None:
             summary = result.tsai_wu_summary
+            if result.strain_envelope is not None:
+                envelope = result.strain_envelope
+                lines.append(
+                    "  strain envelope "
+                    f"eps={envelope.surface_epsilon_x_absmax:.3e}, "
+                    f"kappa={envelope.kappa_absmax_1pm:.3e} 1/m, "
+                    f"gamma={envelope.gamma_xy_absmax:.3e}"
+                )
             lines.append(
                 "  Tsai-Wu "
                 f"FI={summary.max_failure_index:.3f}, "
@@ -337,6 +467,9 @@ def summarize_layup_results(
                 "discrete_mass_full_wing_kg": result.discrete_mass_full_wing_kg,
                 "mass_penalty_full_wing_kg": result.mass_penalty_full_wing_kg,
                 "catalog_capped": result.catalog_capped,
+                "strain_envelope": (
+                    None if result.strain_envelope is None else asdict(result.strain_envelope)
+                ),
                 "tsai_wu_summary": (
                     None if result.tsai_wu_summary is None else asdict(result.tsai_wu_summary)
                 ),

@@ -96,6 +96,16 @@ def _format_design_vector_summary(x_arr: np.ndarray) -> str:
     return f"size={x_arr.size}, min={float(np.min(x_arr)):.6g}, max={float(np.max(x_arr)):.6g}"
 
 
+def _max_array_metric(values) -> float:
+    """Return max finite array value for optional report metrics."""
+    if values is None:
+        return 0.0
+    arr = np.asarray(values, dtype=float)
+    if arr.size == 0:
+        return 0.0
+    return float(np.max(arr))
+
+
 def _optimizer_thickness_step_limit_m(spar_cfg, solver_cfg, materials_db) -> float:
     """Return the continuous optimizer step cap, tightened by ply-drop settings when enabled."""
     base_limit = float(
@@ -513,6 +523,7 @@ class OptimizationResult:
     disp: Optional[np.ndarray] = field(default=None, repr=False)
     vonmises_main: Optional[np.ndarray] = field(default=None, repr=False)
     vonmises_rear: Optional[np.ndarray] = field(default=None, repr=False)
+    strain_envelope: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
     timing_s: dict[str, float] = field(default_factory=dict)
     max_twist_limit_deg: Optional[float] = None
 
@@ -1720,6 +1731,7 @@ class SparOptimizer:
             for case_name, case_raw in case_outputs.items():
                 vm_main_case = case_raw.get("vonmises_main")
                 vm_rear_case = case_raw.get("vonmises_rear")
+                strain_env_case = case_raw.get("strain_envelope") or {}
                 case_metrics[case_name] = {
                     "failure_index": float(case_raw["failure"]),
                     "buckling_index": float(case_raw["buckling_index"]),
@@ -1734,6 +1746,13 @@ class SparOptimizer:
                         float(np.max(vm_rear_case))
                         if vm_rear_case is not None and len(vm_rear_case) > 0
                         else 0.0
+                    ),
+                    "epsilon_x_absmax": _max_array_metric(
+                        strain_env_case.get("epsilon_x_absmax")
+                    ),
+                    "kappa_absmax": _max_array_metric(strain_env_case.get("kappa_absmax")),
+                    "torsion_rate_absmax": _max_array_metric(
+                        strain_env_case.get("torsion_rate_absmax")
                     ),
                 }
 
@@ -1783,6 +1802,7 @@ class SparOptimizer:
             disp=disp,
             vonmises_main=vm_main,
             vonmises_rear=vm_rear if vm_rear is not None and len(vm_rear) > 0 else None,
+            strain_envelope=raw.get("strain_envelope", {}),
             timing_s=timing_s or {},
             max_twist_limit_deg=twist_limit,
         )

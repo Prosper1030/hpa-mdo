@@ -41,6 +41,9 @@ def _base_values() -> dict:
         "struct.fem.disp": np.zeros((3, 6)),
         "struct.tip_defl.tip_deflection_m": np.array([0.1]),
         "struct.stress.vonmises_main": np.array([1.0e8, 8.0e7]),
+        "struct.strain_env.epsilon_x_absmax": np.array([1.0e-4, 2.0e-4]),
+        "struct.strain_env.kappa_absmax": np.array([1.0e-3, 2.0e-3]),
+        "struct.strain_env.torsion_rate_absmax": np.array([3.0e-3, 4.0e-3]),
     }
 
 
@@ -62,3 +65,13 @@ def test_extract_results_raises_on_nonfinite_array():
 
     with pytest.raises(om.AnalysisError, match="struct.fem.disp"):
         _extract_results(prob)
+
+
+def test_extract_results_includes_strain_envelope():
+    prob = _FakeProb(_base_values())
+
+    results = _extract_results(prob)
+
+    assert results["strain_envelope"]["epsilon_x_absmax"].tolist() == [1.0e-4, 2.0e-4]
+    assert results["strain_envelope"]["kappa_absmax"].tolist() == [1.0e-3, 2.0e-3]
+    assert results["strain_envelope"]["torsion_rate_absmax"].tolist() == [3.0e-3, 4.0e-3]

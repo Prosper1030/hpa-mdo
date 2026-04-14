@@ -123,6 +123,8 @@ def test_multi_case_problem_builds_and_exposes_case_constraints():
     assert np.isfinite(float(np.asarray(prob.get_val("struct.case_pullup.failure")).item()))
     assert np.isfinite(float(np.asarray(prob.get_val("struct.case_cruise.tip_deflection_m")).item()))
     assert np.isfinite(float(np.asarray(prob.get_val("struct.case_pullup.tip_deflection_m")).item()))
+    assert np.all(np.isfinite(prob.get_val("struct.case_cruise.epsilon_x_absmax")))
+    assert np.all(np.isfinite(prob.get_val("struct.case_pullup.kappa_absmax")))
 
     with pytest.raises(KeyError):
         prob.get_val("struct.failure.failure")
@@ -171,6 +173,22 @@ def test_pullup_case_produces_higher_main_spar_stress_than_cruise():
 
     assert np.max(pullup_vm) > np.max(cruise_vm)
     assert pullup_defl > cruise_defl
+
+
+def test_run_analysis_returns_combined_strain_envelope_for_multi_case():
+    prob, cfg, *_ = _build_problem(multi_case=True)
+
+    results = run_analysis(prob)
+    n_seg = len(cfg.spar_segment_lengths(cfg.main_spar))
+
+    assert results["strain_envelope"]["epsilon_x_absmax"].shape == (n_seg,)
+    np.testing.assert_allclose(
+        results["strain_envelope"]["kappa_absmax"],
+        np.maximum(
+            results["cases"]["cruise"]["strain_envelope"]["kappa_absmax"],
+            results["cases"]["pullup"]["strain_envelope"]["kappa_absmax"],
+        ),
+    )
 
 
 def test_scipy_optimizer_rejects_multi_case_configuration():

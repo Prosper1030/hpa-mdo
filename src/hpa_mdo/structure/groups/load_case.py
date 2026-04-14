@@ -7,6 +7,7 @@ import openmdao.api as om
 from hpa_mdo.structure.buckling import BucklingComp
 from hpa_mdo.structure.components.constraints import (
     KSFailureComp,
+    StrainEnvelopeComp,
     TipDeflectionConstraintComp,
     TwistConstraintComp,
     VonMisesStressComp,
@@ -37,6 +38,8 @@ class StructuralLoadCaseGroup(om.Group):
         )
         self.options.declare("node_spacings", types=np.ndarray)
         self.options.declare("element_lengths", types=np.ndarray)
+        self.options.declare("segment_boundaries", types=np.ndarray)
+        self.options.declare("element_centres", types=np.ndarray)
         self.options.declare("E_avg", types=float)
         self.options.declare("G_avg", types=float)
         self.options.declare("E_main", types=float)
@@ -128,6 +131,21 @@ class StructuralLoadCaseGroup(om.Group):
             ),
             promotes_inputs=stress_inputs,
             promotes_outputs=stress_outputs,
+        )
+
+        self.add_subsystem(
+            "strain_env",
+            StrainEnvelopeComp(
+                n_nodes=nn,
+                segment_boundaries=self.options["segment_boundaries"],
+                element_centres=self.options["element_centres"],
+            ),
+            promotes_inputs=["disp", "nodes"],
+            promotes_outputs=[
+                "epsilon_x_absmax",
+                "kappa_absmax",
+                "torsion_rate_absmax",
+            ],
         )
 
         buckling_inputs = ["disp", "nodes", "main_r_elem", "main_t_elem"]

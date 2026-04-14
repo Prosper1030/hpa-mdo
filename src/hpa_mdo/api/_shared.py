@@ -15,6 +15,10 @@ def json_safe(obj):
     """Convert numpy types to JSON-serializable Python types."""
     if isinstance(obj, np.ndarray):
         return obj.tolist()
+    if isinstance(obj, dict):
+        return {key: json_safe(value) for key, value in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [json_safe(value) for value in obj]
     if isinstance(obj, (np.float32, np.float64)):
         return float(obj)
     if isinstance(obj, (np.int32, np.int64)):
@@ -83,4 +87,5 @@ def result_to_dict(result) -> dict:
             [round(float(t), 3) for t in result.rear_t_seg_mm]
             if result.rear_t_seg_mm is not None else None
         ),
+        "strain_envelope": json_safe(result.strain_envelope),
     }

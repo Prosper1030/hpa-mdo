@@ -11,6 +11,7 @@ from hpa_mdo.core.logging import get_logger
 from hpa_mdo.structure.buckling import BucklingComp
 from hpa_mdo.structure.components.constraints import (
     KSFailureComp,
+    StrainEnvelopeComp,
     StructuralMassComp,
     TipDeflectionConstraintComp,
     TwistConstraintComp,
@@ -388,6 +389,15 @@ class HPAStructuralGroup(om.Group):
                 ),
             )
 
+            self.add_subsystem(
+                "strain_env",
+                StrainEnvelopeComp(
+                    n_nodes=nn,
+                    segment_boundaries=seg_bounds,
+                    element_centres=elem_centres,
+                ),
+            )
+
             # 6. Shell buckling
             self.add_subsystem(
                 "buckling",
@@ -455,6 +465,8 @@ class HPAStructuralGroup(om.Group):
                         torque_per_span=torque,
                         node_spacings=node_spacings,
                         element_lengths=dy,
+                        segment_boundaries=seg_bounds,
+                        element_centres=elem_centres,
                         rear_torque_arm=rear_torque_arm,
                         E_avg=E_avg,
                         G_avg=G_avg,
@@ -513,6 +525,9 @@ class HPAStructuralGroup(om.Group):
                 self.connect("seg_mapper.rear_r_elem", "stress.R_rear_elem")
                 self.connect("seg_mapper.rear_t_elem", "stress.rear_t_elem")
                 self.connect("spar_props.I_rear", "stress.I_rear")
+
+            self.connect("fem.disp", "strain_env.disp")
+            self.connect("indeps.nodes", "strain_env.nodes")
 
             self.connect("fem.disp", "buckling.disp")
             self.connect("indeps.nodes", "buckling.nodes")
@@ -1168,16 +1183,28 @@ def _extract_results(prob: om.Problem) -> dict:
                 "tip_deflection_m": _get_scalar(f"{case_path}.tip_deflection_m"),
                 "disp": _get_array(f"{case_path}.disp"),
                 "vonmises_main": _get_array(f"{case_path}.vonmises_main"),
+                "strain_envelope": {
+                    "epsilon_x_absmax": _get_array(f"{case_path}.epsilon_x_absmax"),
+                    "kappa_absmax": _get_array(f"{case_path}.kappa_absmax"),
+                    "torsion_rate_absmax": _get_array(f"{case_path}.torsion_rate_absmax"),
+                },
             }
             if rear_on:
                 case_res["vonmises_rear"] = _get_array(f"{case_path}.vonmises_rear")
             case_results[case_name] = case_res
 
+        strain_keys = ("epsilon_x_absmax", "kappa_absmax", "torsion_rate_absmax")
         res["cases"] = case_results
         res["failure"] = max(case["failure"] for case in case_results.values())
         res["buckling_index"] = max(case["buckling_index"] for case in case_results.values())
         res["twist_max_deg"] = max(case["twist_max_deg"] for case in case_results.values())
         res["tip_deflection_m"] = max(case["tip_deflection_m"] for case in case_results.values())
+        res["strain_envelope"] = {
+            key: np.maximum.reduce(
+                [case["strain_envelope"][key] for case in case_results.values()]
+            )
+            for key in strain_keys
+        }
         res["disp"] = None
         res["vonmises_main"] = None
         if rear_on:
@@ -1189,6 +1216,11 @@ def _extract_results(prob: om.Problem) -> dict:
         res["disp"] = _get_array("struct.fem.disp")
         res["tip_deflection_m"] = _get_scalar("struct.tip_defl.tip_deflection_m")
         res["vonmises_main"] = _get_array("struct.stress.vonmises_main")
+        res["strain_envelope"] = {
+            "epsilon_x_absmax": _get_array("struct.strain_env.epsilon_x_absmax"),
+            "kappa_absmax": _get_array("struct.strain_env.kappa_absmax"),
+            "torsion_rate_absmax": _get_array("struct.strain_env.torsion_rate_absmax"),
+        }
         if rear_on:
             res["vonmises_rear"] = _get_array("struct.stress.vonmises_rear")
 

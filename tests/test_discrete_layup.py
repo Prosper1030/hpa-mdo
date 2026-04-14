@@ -18,6 +18,7 @@ from hpa_mdo.utils.discrete_layup import (
     format_layup_report,
     summarize_layup_results,
     summarize_segment_tsai_wu,
+    summarize_segment_tsai_wu_envelope,
     thickness_step_margin_min,
     snap_to_nearest_stack,
 )
@@ -163,6 +164,51 @@ def test_build_segment_layup_results_can_include_tsai_wu_report(ply_mat) -> None
     )
 
 
+def test_tsai_wu_envelope_folds_beam_curvature_and_torsion_into_laminate_state(ply_mat) -> None:
+    stack = PlyStack(n_0=1, n_45=1, n_90=0)
+
+    summary, envelope = summarize_segment_tsai_wu_envelope(
+        stack=stack,
+        ply_mat=ply_mat,
+        epsilon_x_absmax=2.0e-4,
+        kappa_absmax=1.0e-2,
+        torsion_rate_absmax=3.0e-2,
+        outer_radius_m=0.03,
+    )
+
+    assert envelope.surface_epsilon_x_absmax == pytest.approx(5.0e-4)
+    assert envelope.gamma_xy_absmax == pytest.approx(9.0e-4)
+    assert summary.min_strength_ratio > 1.0
+    assert summary.critical_midplane_strain is not None
+    assert abs(summary.critical_midplane_strain[0]) == pytest.approx(5.0e-4)
+
+
+def test_build_segment_layup_results_can_include_strain_envelope_artifact(cfg, ply_mat) -> None:
+    stacks = enumerate_valid_stacks(cfg.main_spar)
+
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.0],
+        continuous_thicknesses_m=[0.90e-3],
+        outer_radii_m=[0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        strain_envelopes=[
+            {
+                "epsilon_x_absmax": 1.0e-4,
+                "kappa_absmax": 2.0e-3,
+                "torsion_rate_absmax": 4.0e-3,
+            }
+        ],
+    )
+
+    machine_summary = summarize_layup_results(results)
+    segment = machine_summary["segments"][0]
+    assert results[0].strain_envelope is not None
+    assert results[0].tsai_wu_summary is not None
+    assert segment["strain_envelope"]["surface_epsilon_x_absmax"] == pytest.approx(1.6e-4)
+    assert segment["tsai_wu_summary"]["min_strength_ratio"] > 1.0
+
+
 def test_discrete_layup_postprocess_script_writes_report_and_schedule(tmp_path) -> None:
     summary_path = tmp_path / "inverse_design_summary.json"
     report_path = tmp_path / "layup_report.txt"
@@ -175,7 +221,33 @@ def test_discrete_layup_postprocess_script_writes_report_and_schedule(tmp_path) 
                     "main_r": [35.0, 34.0, 33.0, 32.0, 31.0, 30.0],
                     "rear_t": [0.90, 0.85, 0.80, 0.80, 0.80, 0.80],
                     "rear_r": [22.0, 21.5, 21.0, 20.5, 20.0, 19.5],
-                }
+                },
+                "strain_envelope": {
+                    "epsilon_x_absmax": [
+                        1.0e-4,
+                        1.1e-4,
+                        1.2e-4,
+                        1.3e-4,
+                        1.4e-4,
+                        1.5e-4,
+                    ],
+                    "kappa_absmax": [
+                        1.0e-3,
+                        1.1e-3,
+                        1.2e-3,
+                        1.3e-3,
+                        1.4e-3,
+                        1.5e-3,
+                    ],
+                    "torsion_rate_absmax": [
+                        2.0e-3,
+                        2.1e-3,
+                        2.2e-3,
+                        2.3e-3,
+                        2.4e-3,
+                        2.5e-3,
+                    ],
+                },
             }
         },
     }
@@ -203,5 +275,8 @@ def test_discrete_layup_postprocess_script_writes_report_and_schedule(tmp_path) 
     report_text = report_path.read_text(encoding="utf-8")
     schedule = json.loads(schedule_path.read_text(encoding="utf-8"))
     assert "Discrete Layup Post-Process" in report_text
+    assert "Tsai-Wu FI=" in report_text
     assert "main_spar" in schedule["spars"]
     assert "rear_spar" in schedule["spars"]
+    assert schedule["spars"]["main_spar"]["segments"][0]["strain_envelope"] is not None
+    assert schedule["spars"]["main_spar"]["segments"][0]["tsai_wu_summary"] is not None
