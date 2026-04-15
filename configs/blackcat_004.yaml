@@ -46,10 +46,16 @@ aero_gates:
   beta_sweep_values: [0.0, 5.0, 10.0, 12.0]
 
 # ── Wing Planform ───────────────────────────────────────────────────────────
+# NOTE: root_chord / tip_chord are calibrated to the reference .vsp3
+# (see scripts/vsp_consistency_check.py).  The reference VSP has a
+# 6-station schedule with a flat inboard region (y=0→4.5 m, c=1.30 m);
+# config only stores the extremes, while the full schedule is read from
+# the reference .vsp3 by VSPBuilder._wing_section_schedule.
+#   VSP truth: Sref=35.175 m²  Cref(MAC)=1.130 m  Bref=33.0 m
 wing:
   span: 33.0                 # full wingspan [m]
-  root_chord: 1.39           # [m]
-  tip_chord: 0.47            # [m]
+  root_chord: 1.30           # [m] — VSP-calibrated (was 1.39)
+  tip_chord: 0.435           # [m] — VSP-calibrated (was 0.47)
   dihedral_root_deg: 0.0
   dihedral_tip_deg: 6.0      # progressive along span
   dihedral_scaling_exponent: 1.0  # 0=uniform, 1=linear, 2=quadratic
@@ -216,3 +222,24 @@ io:
   airfoil_dir: "Aerodynamics/airfoil"
   output_dir: "output/blackcat_004"
   training_db: "database/training_data.csv"
+
+# ── High-Fidelity Validation Stack (Apple Silicon Mac mini) ────────────────
+# Blueprint section — see docs/hi_fidelity_validation_stack.md.
+# All solvers default to disabled.  Put per-machine binary paths in
+# configs/local_paths.yaml so this file stays portable.
+hi_fidelity:
+  gmsh:
+    enabled: false
+    binary: null                 # e.g. /opt/homebrew/bin/gmsh
+    mesh_size_m: 0.05
+  calculix:
+    enabled: false
+    ccx_binary: null             # e.g. /opt/homebrew/bin/ccx
+    cgx_binary: null
+  paraview:
+    enabled: false
+    binary: null                 # e.g. /Applications/ParaView.app/Contents/MacOS/paraview
+  su2:
+    enabled: false               # planned, not yet implemented
+    binary: null
+    cfg_template: null

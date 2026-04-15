@@ -114,8 +114,11 @@ def main(argv: list[str] | None = None) -> int:
     cfg_bref = float(cfg.wing.span)
     cfg_root = float(cfg.wing.root_chord)
     cfg_tip = float(cfg.wing.tip_chord)
-    # Linear trapezoid from root/tip only (what the AVL file implicitly
-    # assumes before the multi-section fix).
+    vsp_root = float(vsp_m["chords_m"][0])
+    vsp_tip = float(vsp_m["chords_m"][-1])
+    # Informational: Sref and MAC from a PURE linear root/tip taper.
+    # For the real VSP (which carries a flat inboard region etc.) this
+    # disagrees by design; do not include in the tolerance check.
     cfg_sref_linear = 0.5 * (cfg_root + cfg_tip) * cfg_bref
     cfg_cref_linear = (
         (cfg_root * cfg_root + cfg_root * cfg_tip + cfg_tip * cfg_tip)
@@ -127,10 +130,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Baseline AVL  : {args.avl}")
     print(f"\nVSP planform: {vsp_m['n_stations']} stations, taper {vsp_m['taper']:.3f}\n")
 
+    # Flagged rows (checked against --tolerance-pct).
     rows: list[tuple[str, float, float]] = [
-        ("Sref [m^2]  (config root/tip linear)", cfg_sref_linear, vsp_m["sref_m2"]),
         ("Bref [m]    (config.wing.span)       ", cfg_bref, vsp_m["bref_m"]),
-        ("Cref [m]    (config root/tip linear) ", cfg_cref_linear, vsp_m["cref_m"]),
+        ("Root chord  (config.wing.root_chord) ", cfg_root, vsp_root),
+        ("Tip chord   (config.wing.tip_chord)  ", cfg_tip, vsp_tip),
     ]
     if avl_ref is not None:
         rows += [
@@ -138,6 +142,11 @@ def main(argv: list[str] | None = None) -> int:
             ("Bref [m]    (baseline AVL file)      ", avl_ref["bref_m"], vsp_m["bref_m"]),
             ("Cref [m]    (baseline AVL file)      ", avl_ref["cref_m"], vsp_m["cref_m"]),
         ]
+    # Informational-only rows (not flagged).
+    info_rows: list[tuple[str, float, float]] = [
+        ("Sref [m^2]  (config root/tip linear) ", cfg_sref_linear, vsp_m["sref_m2"]),
+        ("Cref [m]    (config root/tip linear) ", cfg_cref_linear, vsp_m["cref_m"]),
+    ]
 
     print(f"{'Metric':<40}{'Source':>14}{'VSP truth':>14}{'Diff':>12}")
     print("-" * 80)
@@ -151,6 +160,14 @@ def main(argv: list[str] | None = None) -> int:
         vv_s = f"{vv:>14.4f}"
         diff_s = f"{diff:>+10.2f}%" if np.isfinite(diff) else f"{'n/a':>12}"
         print(f"{label:<40}{src_s}{vv_s}{diff_s}{flag}")
+
+    print("\nInformational (not flagged — VSP has non-linear planform):")
+    for label, src, vv in info_rows:
+        diff = _pct(src, vv)
+        src_s = f"{src:>14.4f}" if np.isfinite(src) else f"{'n/a':>14}"
+        vv_s = f"{vv:>14.4f}"
+        diff_s = f"{diff:>+10.2f}%" if np.isfinite(diff) else f"{'n/a':>12}"
+        print(f"{label:<40}{src_s}{vv_s}{diff_s}")
 
     print("\n7-station schedule from reference VSP:")
     print(f"{'y [m]':>8}{'chord [m]':>12}")

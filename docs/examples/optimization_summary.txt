@@ -1,39 +1,39 @@
 ================================================================
   HPA-MDO Spar Optimization Summary
-  Generated: 2026-04-09 23:53:36
+  Generated: 2026-04-15 11:47:47
 ================================================================
   Status          : CONVERGED (Feasible)
   Message         : OpenMDAO converged
 ----------------------------------------------------------------
   MASS BREAKDOWN
 ----------------------------------------------------------------
-  Spar mass (half): 4.7270 kg
-  Spar mass (full): 9.4540 kg
-  Total mass (full): 11.9540 kg
+  Spar mass (half): 4.7279 kg
+  Spar mass (full): 9.4558 kg
+  Total mass (full): 11.9558 kg
 ----------------------------------------------------------------
   STRUCTURAL PERFORMANCE
 ----------------------------------------------------------------
   Tip deflection  : 2500.00 mm  (2.50000 m) / MAX: 2500.0 mm (OK)
-  Max twist       : 0.213 deg / MAX: 2.000 deg (OK)
-  Failure index   : -0.46588  (SAFE)
-  Buckling index  : -0.80105  (SAFE)
+  Max twist       : 0.244 deg / MAX: 2.000 deg (OK)
+  Failure index   : -0.46681  (SAFE)
+  Buckling index  : -0.80128  (SAFE)
 
-  Max stress — main : 530.82 MPa
+  Max stress — main : 529.89 MPa
   Allowable  — main : 1666.67 MPa
   Margin     — main : 68.2%
 
-  Max stress — rear : 257.21 MPa
+  Max stress — rear : 253.81 MPa
   Allowable  — rear : 1666.67 MPa
-  Margin     — rear : 84.6%
+  Margin     — rear : 84.8%
 ----------------------------------------------------------------
   MAIN SPAR SEGMENTS
 ----------------------------------------------------------------
    Seg      t [mm]     OD [mm]
-     1      0.8000      61.270
-     2      0.8000      61.270
-     3      0.8000      61.270
-     4      0.8000      61.270
-     5      0.8000      45.946
+     1      0.8000      61.290
+     2      0.8000      61.290
+     3      0.8000      61.290
+     4      0.8000      61.290
+     5      0.8000      45.952
      6      0.8000      30.000
 ----------------------------------------------------------------
   REAR SPAR SEGMENTS
@@ -45,6 +45,12 @@
      4      0.8000      20.000
      5      0.8000      20.000
      6      0.8000      20.000
+----------------------------------------------------------------
+  MANUFACTURING GATES
+----------------------------------------------------------------
+  Overall: PASS
+  main_spar: PASS, ply-step margin=+1.000, run-length margin=+0.000 m
+  rear_spar: PASS, ply-step margin=+1.000, run-length margin=+0.000 m
 ----------------------------------------------------------------
   OPTIMIZATION TIMING [s]
 ----------------------------------------------------------------
