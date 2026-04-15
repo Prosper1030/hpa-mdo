@@ -475,6 +475,11 @@ class GmshConfig(BaseModel):
     enabled: bool = False
     binary: Optional[str] = None
     mesh_size_m: float = Field(0.05, gt=0.0)
+    # Max distance [m] a NamedPoint coordinate may sit from the nearest mesh
+    # node when building Physical Groups (root / tip / wire-joint tags) in
+    # ``hpa_mdo.hifi.gmsh_runner``.  Kept tight by default; override per-config
+    # for coarser meshes.
+    point_tol_m: float = Field(1.0e-3, gt=0.0)
 
 
 class CalculiXConfig(BaseModel):

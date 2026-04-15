@@ -102,6 +102,31 @@ def test_root_boundary_and_tip_node_from_mesh(tmp_path: Path) -> None:
     assert tip_node_from_mesh(mesh) == 2
 
 
+MESH_WITH_NSETS = """*NODE
+1, 0.0, 0.0, 0.0
+2, 0.0, 1.0, 0.0
+3, 0.1, 1.0, 0.0
+4, 0.0, 0.0, 0.1
+*NSET, NSET=ROOT
+1
+*NSET, NSET=TIP
+3
+*ELEMENT, TYPE=C3D4
+10, 1, 2, 3, 4
+"""
+
+
+def test_root_boundary_prefers_nset(tmp_path: Path) -> None:
+    mesh = tmp_path / "mesh.inp"
+    mesh.write_text(MESH_WITH_NSETS, encoding="utf-8")
+
+    # NSET=ROOT is authoritative — only node 1 is clamped, ignoring the
+    # two nodes that happen to sit at y=0 in the coordinate heuristic.
+    assert root_boundary_from_mesh(mesh) == [(1, (1, 2, 3))]
+    # NSET=TIP picks node 3 rather than the y-max heuristic (node 2 or 3).
+    assert tip_node_from_mesh(mesh) == 3
+
+
 def test_run_static_skips_gracefully_when_ccx_missing(tmp_path: Path, monkeypatch) -> None:
     cfg = _cfg(tmp_path)
     cfg.hi_fidelity.calculix.enabled = True

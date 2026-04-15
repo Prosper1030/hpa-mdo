@@ -265,18 +265,61 @@ def root_boundary_from_mesh(
     mesh_inp_path: str | Path,
     *,
     tolerance: float = 1.0e-9,
+    prefer_nset: str = "ROOT",
 ) -> list[BoundaryEntry]:
-    """Clamp all nodes at the minimum spanwise ``y`` station."""
+    """Clamp all nodes at the minimum spanwise ``y`` station.
 
+    Prefers the ``NSET=<prefer_nset>`` block written by
+    :func:`hpa_mdo.hifi.gmsh_runner.annotate_inp_with_named_points`; falls
+    back to the y-min heuristic when the NSET is absent.  A WARN line is
+    printed when the heuristic path is taken.
+    """
+
+    try:
+        from hpa_mdo.hifi.gmsh_runner import parse_nset_from_inp
+
+        nsets = parse_nset_from_inp(mesh_inp_path)
+    except Exception:
+        nsets = {}
+    prefer = prefer_nset.upper()
+    if prefer in nsets and nsets[prefer]:
+        return [(int(node_id), (1, 2, 3)) for node_id in nsets[prefer]]
+
+    print(
+        f"WARN: NSET={prefer} not found in {mesh_inp_path}; "
+        "falling back to y-min heuristic for root boundary."
+    )
     nodes = parse_inp_nodes(mesh_inp_path)
     y_min = float(np.min(nodes[:, 2]))
     root_nodes = nodes[np.abs(nodes[:, 2] - y_min) <= tolerance, 0].astype(int)
     return [(int(node_id), (1, 2, 3)) for node_id in root_nodes]
 
 
-def tip_node_from_mesh(mesh_inp_path: str | Path) -> int:
-    """Return the node id at maximum spanwise ``y``."""
+def tip_node_from_mesh(
+    mesh_inp_path: str | Path,
+    *,
+    prefer_nset: str = "TIP",
+) -> int:
+    """Return the node id at maximum spanwise ``y``.
 
+    Prefers the ``NSET=<prefer_nset>`` single-node block; falls back to
+    the y-max heuristic when the NSET is absent (and prints a WARN).
+    """
+
+    try:
+        from hpa_mdo.hifi.gmsh_runner import parse_nset_from_inp
+
+        nsets = parse_nset_from_inp(mesh_inp_path)
+    except Exception:
+        nsets = {}
+    prefer = prefer_nset.upper()
+    if prefer in nsets and nsets[prefer]:
+        return int(nsets[prefer][0])
+
+    print(
+        f"WARN: NSET={prefer} not found in {mesh_inp_path}; "
+        "falling back to y-max heuristic for tip node."
+    )
     nodes = parse_inp_nodes(mesh_inp_path)
     idx = int(np.argmax(nodes[:, 2]))
     return int(nodes[idx, 0])

@@ -1,11 +1,51 @@
-"""Gmsh CLI runner for high-fidelity validation meshes."""
+"""Gmsh CLI runner for high-fidelity validation meshes.
+
+The runner wraps the Gmsh CLI to mesh STEP geometry to CalculiX-compatible
+``.inp``.  On top of the raw mesh we layer named node sets (``*NSET``) so
+downstream CalculiX decks can refer to ``NSET=ROOT`` / ``NSET=TIP`` /
+``NSET=WIRE_1`` instead of re-deriving them from coordinate heuristics.
+
+The named-NSET pass is implemented as a post-process over the ``.inp``
+rather than via the (optional) ``gmsh`` Python API so the dependency
+footprint stays limited to the Gmsh binary.  For each :class:`NamedPoint`
+we search the meshed node cloud for the closest node within ``tol_m``
+and append ``*NSET, NSET=<NAME>\\n<node_id>`` before the ``*ELEMENT``
+block — this is what Gmsh itself would emit for a Physical Point with
+``Mesh.SaveGroupsOfNodes = -1111``.
+"""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import subprocess
+from typing import Sequence
+
+import numpy as np
 
 from hpa_mdo.core.config import HPAConfig
+
+
+@dataclass(frozen=True)
+class NamedPoint:
+    """A coordinate-tagged node to promote into a CalculiX ``*NSET``.
+
+    Parameters
+    ----------
+    name:
+        ``*NSET, NSET=<name>`` label.  Upper-cased when written.
+    xyz:
+        Target coordinate in mesh units (meters).  The nearest node in the
+        produced ``.inp`` within ``tol_m`` becomes the member of the NSET.
+    tol_m:
+        Maximum acceptable distance [m] between ``xyz`` and the nearest
+        node.  When ``None`` the caller-supplied ``GmshConfig.point_tol_m``
+        is applied.
+    """
+
+    name: str
+    xyz: tuple[float, float, float]
+    tol_m: float | None = None
 
 
 def find_gmsh(cfg: HPAConfig) -> str | None:
@@ -37,8 +77,18 @@ def mesh_step_to_inp(
     cfg: HPAConfig,
     *,
     order: int = 1,
+    named_points: Sequence[NamedPoint] | None = None,
 ) -> Path | None:
-    """Mesh a STEP file to CalculiX-compatible ``.inp`` via the Gmsh CLI."""
+    """Mesh a STEP file to CalculiX-compatible ``.inp`` via the Gmsh CLI.
+
+    When ``named_points`` is provided the produced ``.inp`` is augmented
+    with ``*NSET, NSET=<name>`` entries — one per point — whose single
+    member is the mesh node closest to the requested coordinate (subject
+    to ``tol_m`` / ``GmshConfig.point_tol_m``).
+
+    Named points that cannot be matched within tolerance are reported via
+    ``print("INFO: ...")`` and skipped; no exception is raised.
+    """
 
     gmsh = find_gmsh(cfg)
     if gmsh is None:
@@ -77,12 +127,140 @@ def mesh_step_to_inp(
         print(f"INFO: Gmsh failed to start: {exc}")
         return None
 
-    if result.returncode == 0 and out.exists():
-        return out
+    if result.returncode != 0 or not out.exists():
+        stderr = result.stderr.strip() or result.stdout.strip()
+        if stderr:
+            print(f"INFO: Gmsh mesh failed:\n{stderr}")
+        else:
+            print(f"INFO: Gmsh mesh failed with return code {result.returncode}.")
+        return None
 
-    stderr = result.stderr.strip() or result.stdout.strip()
-    if stderr:
-        print(f"INFO: Gmsh mesh failed:\n{stderr}")
-    else:
-        print(f"INFO: Gmsh mesh failed with return code {result.returncode}.")
-    return None
+    if named_points:
+        default_tol = float(cfg.hi_fidelity.gmsh.point_tol_m)
+        try:
+            annotate_inp_with_named_points(out, named_points, default_tol_m=default_tol)
+        except Exception as exc:  # noqa: BLE001
+            print(f"INFO: NSET annotation skipped ({exc}).")
+    return out
+
+
+def annotate_inp_with_named_points(
+    inp_path: str | Path,
+    named_points: Sequence[NamedPoint],
+    *,
+    default_tol_m: float = 1.0e-3,
+) -> list[str]:
+    """Inject ``*NSET, NSET=<name>`` blocks into an existing ``.inp`` file.
+
+    Returns the list of NSET names that were actually written (in order);
+    names whose coordinate could not be matched within tolerance are
+    skipped and reported via ``print``.
+    """
+
+    inp = Path(inp_path)
+    text = inp.read_text(encoding="utf-8")
+    # Parse node table from the existing .inp.  The coordinate parser is
+    # shared with calculix_runner.parse_inp_nodes but re-implemented here
+    # to avoid a circular import.
+    nodes = _parse_inp_nodes(text)  # shape (N, 4) => [id, x, y, z]
+    if nodes.size == 0:
+        raise ValueError(f"No *NODE entries found in {inp}")
+
+    coords = nodes[:, 1:4]
+    ids = nodes[:, 0].astype(int)
+
+    nset_blocks: list[str] = []
+    written: list[str] = []
+    for point in named_points:
+        tol = float(point.tol_m) if point.tol_m is not None else float(default_tol_m)
+        target = np.asarray(point.xyz, dtype=float)
+        d = np.linalg.norm(coords - target[None, :], axis=1)
+        idx = int(np.argmin(d))
+        if d[idx] > tol:
+            print(
+                f"INFO: NamedPoint '{point.name}' unmatched: "
+                f"nearest node {ids[idx]} is {d[idx]:.4g} m away "
+                f"(> tol {tol:.4g} m); skipping."
+            )
+            continue
+        nset_name = str(point.name).upper()
+        nset_blocks.append(f"*NSET, NSET={nset_name}\n{ids[idx]}")
+        written.append(nset_name)
+
+    if not nset_blocks:
+        return written
+
+    # Insert the NSET blocks before the first *ELEMENT to mirror the
+    # layout Gmsh itself produces with Mesh.SaveGroupsOfNodes enabled.
+    marker = "*ELEMENT"
+    lines = text.splitlines()
+    insert_at = len(lines)
+    for i, line in enumerate(lines):
+        if line.lstrip().upper().startswith(marker):
+            insert_at = i
+            break
+    block = "\n".join(nset_blocks)
+    new_text = "\n".join(lines[:insert_at]) + "\n" + block + "\n" + "\n".join(lines[insert_at:])
+    if not new_text.endswith("\n"):
+        new_text += "\n"
+    inp.write_text(new_text, encoding="utf-8")
+    return written
+
+
+def _parse_inp_nodes(text: str) -> np.ndarray:
+    rows: list[tuple[float, float, float, float]] = []
+    in_block = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        upper = line.upper()
+        if upper.startswith("*NODE"):
+            in_block = True
+            continue
+        if line.startswith("*"):
+            in_block = False
+            continue
+        if in_block:
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) >= 4:
+                rows.append(tuple(float(p) for p in parts[:4]))
+    if not rows:
+        return np.empty((0, 4), dtype=float)
+    return np.asarray(rows, dtype=float)
+
+
+def parse_nset_from_inp(inp_path: str | Path) -> dict[str, list[int]]:
+    """Return a mapping ``{NSET_NAME: [node_ids, ...]}`` parsed from ``.inp``."""
+
+    inp = Path(inp_path)
+    nsets: dict[str, list[int]] = {}
+    current: str | None = None
+    for raw in inp.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        upper = line.upper()
+        if upper.startswith("*NSET"):
+            # Parse "*NSET, NSET=ROOT" or "*NSET, NSET=ROOT, ..."
+            current = None
+            for token in line.split(","):
+                token = token.strip()
+                if token.upper().startswith("NSET="):
+                    current = token.split("=", 1)[1].strip().upper()
+                    break
+            if current:
+                nsets.setdefault(current, [])
+            continue
+        if line.startswith("*"):
+            current = None
+            continue
+        if current is not None:
+            for token in line.split(","):
+                token = token.strip()
+                if token:
+                    try:
+                        nsets[current].append(int(token))
+                    except ValueError:
+                        pass
+    return nsets
