@@ -9,12 +9,13 @@ from hpa_mdo.core import load_config
 from hpa_mdo.hifi import calculix_runner
 from hpa_mdo.hifi.calculix_runner import (
     find_ccx,
+    prepare_buckle_inp,
     prepare_static_inp,
     root_boundary_from_mesh,
     run_static,
     tip_node_from_mesh,
 )
-from hpa_mdo.hifi.frd_parser import parse_displacement
+from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues, parse_displacement
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -70,6 +71,29 @@ def test_prepare_static_inp_appends_calculix_blocks(tmp_path: Path) -> None:
     assert "*NODE FILE, OUTPUT=3D\nU\n*END STEP" in text
 
 
+def test_prepare_buckle_inp_appends_static_and_buckle_steps(tmp_path: Path) -> None:
+    mesh = tmp_path / "mesh.inp"
+    out = tmp_path / "buckle.inp"
+    mesh.write_text(MESH_TEXT, encoding="utf-8")
+
+    result = prepare_buckle_inp(
+        mesh,
+        out,
+        {"E": 230e9, "nu": 0.27, "rho": 1600.0},
+        [(1, (1, 2, 3)), (4, (1, 2, 3))],
+        [(2, 3, -50.0)],
+        n_modes=3,
+    )
+
+    text = result.read_text(encoding="utf-8")
+    assert "*ELSET, ELSET=EALL\n10" in text
+    assert "*MATERIAL, NAME=HPA_MATERIAL" in text
+    assert "*STEP, NAME=reference_static\n*STATIC\n1.0, 1.0" in text
+    assert "*CLOAD\n2, 3, -50" in text
+    assert "*END STEP\n*STEP, NAME=buckle\n*BUCKLE\n3" in text
+    assert "*NODE FILE, OUTPUT=3D\nU\n*END STEP" in text
+
+
 def test_root_boundary_and_tip_node_from_mesh(tmp_path: Path) -> None:
     mesh = tmp_path / "mesh.inp"
     mesh.write_text(MESH_TEXT, encoding="utf-8")
@@ -116,3 +140,20 @@ def test_parse_displacement_reads_last_disp_block(tmp_path: Path) -> None:
             ]
         ),
     )
+
+
+def test_parse_buckle_eigenvalues_reads_dat_table(tmp_path: Path) -> None:
+    dat = tmp_path / "case.dat"
+    dat.write_text(
+        """
+ E I G E N V A L U E   O U T P U T
+
+ MODE NO    EIGENVALUE
+       1    1.234500E+00
+       2    2.500000E+00
+ eigenvalue number 3 = 3.750000D+00
+""",
+        encoding="utf-8",
+    )
+
+    assert parse_buckle_eigenvalues(dat) == [1.2345, 2.5, 3.75]

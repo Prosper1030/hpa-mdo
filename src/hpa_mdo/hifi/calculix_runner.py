@@ -99,6 +99,74 @@ def prepare_static_inp(
     return out
 
 
+def prepare_buckle_inp(
+    mesh_inp_path: str | Path,
+    out_inp_path: str | Path,
+    material: dict[str, float],
+    boundary: BoundaryEntry | Sequence[BoundaryEntry],
+    reference_load: Sequence[LoadEntry],
+    *,
+    n_modes: int = 5,
+) -> Path:
+    """Append a CalculiX reference static step followed by a BUCKLE step."""
+
+    if n_modes < 1:
+        raise ValueError("n_modes must be >= 1")
+
+    mesh = Path(mesh_inp_path)
+    out = Path(out_inp_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    mesh_text = mesh.read_text(encoding="utf-8")
+    element_ids = parse_inp_element_ids(mesh)
+    boundary_entries = _normalise_boundary(boundary)
+    material_name = "HPA_MATERIAL"
+    elset_name = "EALL"
+
+    parts = [
+        mesh_text.rstrip(),
+        "",
+        _format_elset(elset_name, element_ids),
+        f"*MATERIAL, NAME={material_name}",
+        "*ELASTIC",
+        f"{material['E']:.9g}, {material['nu']:.9g}",
+        "*DENSITY",
+        f"{material['rho']:.9g}",
+        f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={material_name}",
+        "",
+        "*BOUNDARY",
+    ]
+    for node_id, dofs in boundary_entries:
+        for dof in dofs:
+            parts.append(f"{int(node_id)}, {int(dof)}, {int(dof)}, 0.0")
+
+    parts.extend(
+        [
+            "*STEP, NAME=reference_static",
+            "*STATIC",
+            "1.0, 1.0",
+            "*CLOAD",
+        ]
+    )
+    for node_id, dof, magnitude in reference_load:
+        parts.append(f"{int(node_id)}, {int(dof)}, {float(magnitude):.9g}")
+
+    parts.extend(
+        [
+            "*END STEP",
+            "*STEP, NAME=buckle",
+            "*BUCKLE",
+            str(int(n_modes)),
+            "*NODE FILE, OUTPUT=3D",
+            "U",
+            "*END STEP",
+            "",
+        ]
+    )
+    out.write_text("\n".join(parts), encoding="utf-8")
+    return out
+
+
 def run_static(
     inp_path: str | Path,
     cfg: HPAConfig,
