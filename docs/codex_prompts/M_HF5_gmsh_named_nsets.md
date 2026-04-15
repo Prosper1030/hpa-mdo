@@ -14,6 +14,30 @@ M-HF2 的 `prepare_static_inp()` 得靠「y 最大節點」硬算 root/tip。
 `.inp` 裡直接出現 `NSET=ROOT`、`NSET=TIP`、`NSET=WIRE_1` …，
 CalculiX 可以直接 `*BOUNDARY, ROOT` / `*CLOAD, TIP, 3, -100.`。
 
+## 關鍵 Gmsh API（來自 `docs/research/hi_fidelity_refs/` Gmsh 報告）
+
+```python
+# 產 Physical Group 的三步驟
+gmsh.model.occ.synchronize()   # 必要：getEntities 前
+grp_tag = gmsh.model.addPhysicalGroup(dim, [entity_tag, ...])
+gmsh.model.setPhysicalName(dim, grp_tag, "ROOT")   # 這串就是 .inp 的 NSET 名
+# dim: 0=point, 1=curve, 2=surface, 3=volume
+```
+
+**致命 pitfall — NSET 沒出現在 `.inp`：**
+`Mesh.SaveGroupsOfNodes = 1` 對 2D boundary group 會失效。**一定要**用
+```python
+gmsh.option.setNumber("Mesh.SaveGroupsOfNodes", -1111)
+gmsh.option.setNumber("Mesh.SaveGroupsOfElements", 1)
+gmsh.option.setNumber("Mesh.Format", 39)   # Abaqus/CalculiX INP
+```
+四位負 bitmask 逐位啟用 0D/1D/2D/3D group 的節點匯出，才能全部吐成 `*NSET`。
+
+**點 Physical Group（我們這個 use case）：**
+對 NamedPoint，`findBestMatchingNode(xyz, tol)`（自己用 kdtree 寫，Gmsh 沒有
+內建 single-node API） → `addPhysicalGroup(0, [node_tag])` → `setPhysicalName(
+0, grp, "WIRE_1")`。
+
 ## 目標
 
 1. 擴充 `hpa_mdo.hifi.gmsh_runner`：

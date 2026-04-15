@@ -15,6 +15,45 @@
 交給控制組。控制組需要線性化模型 `ẋ = A x + B u` 來設計 PID / LQR，
 AVL 其實可以一次吐齊，只是我們沒有 parser。
 
+## 關鍵 AVL 細節（來自 `docs/research/hi_fidelity_refs/` AVL 報告）
+
+### `.st` 檔格式
+- Fortran 固定欄寬 `F10.5`（10 字元寬、5 位小數）。
+- 欄位名 case-sensitive：`Cma`、`Cmq`、`Clda`、`Cmd3`、`Cnd2` …
+- 單位：**α-導數 = 1/rad**；**控制面導數 = 1/deg**。程式內要統一換單位。
+- **Pitfall**：導數過大時 Fortran 會把負號吃掉空白（`0.04321-12.01234`）。
+  **一定要用 regex 解析**，不能用 `str.split()`：
+  ```python
+  r'(?P<name>[A-Za-z0-9_]+)\s*=\s*(?P<value>-?\d+\.\d+)'
+  ```
+
+### 控制面對應
+- AVL 讀 `.avl` 的 CONTROL 區段**按順序**指派成 `d1/d2/d3`；第一個 CONTROL 就是 d1。
+- `.st` 輸出的欄位名是 `Cmd1, Cmd2, Cmd3`（不是控制面的中文名）。
+  Parser 必須建 `control_name → index` 的 mapping：掃 `.avl` 的 CONTROL 宣告
+  順序 → 記 `{"Elevator": 1, "Aileron": 2, "Rudder": 3}` → 對應 `.st` 欄位。
+
+### Trim → `.st` 指令序列（critical）
+```
+LOAD geometry.avl
+MASS mass.mass
+MSET 0              <- 一定要，強制 CG 吃 .mass 檔
+OPER
+M                   <- 進 constraints menu
+C                   <- 選 CL 約束
+C 0.95              <- 給定 trim CL
+A                   <- 釋放 alpha
+PM 0.0              <- 俯仰力矩 = 0
+D3                  <- 釋放 d3（升降舵 trim）
+D1 5.0              <- 鎖 d1 = 5 deg
+D2 0.0              <- 鎖 d2 = 0 deg
+                    <- 空行退 M
+X                   <- 解 trim
+ST output.st
+                    <- 空行退 OPER
+QUIT
+```
+
 ## 目標
 
 1. **新增** `src/hpa_mdo/aero/avl_stability_parser.py`：

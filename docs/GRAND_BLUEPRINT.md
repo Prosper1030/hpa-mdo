@@ -748,7 +748,8 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **1** | M-HF5: Gmsh Physical Group → NSET | M-HF | Codex | ⏭️ **NEXT** |
+| **0** | **F-Layup: 離散疊層接進主管線 + summary 印疊層表（師傅看得懂）** | F-series | Codex | ⏭️ **NEXT** |
+| **1** | M-HF5: Gmsh Physical Group → NSET | M-HF | Codex | ⏭️ 基礎穩健化 |
 | **2** | F13: Tsai-Wu 取代 von Mises（CFRP 破壞準則） | F-series | Codex | ⏭️ 次要 |
 | **3** | M13a-c: AVL 全套 stability + control derivative 矩陣抽取 | M13 | Codex | ⏭️ 控制組優先 |
 | **4** | M14a-d: mass/CG/inertia budget + AVL .mass 輸出 | M14 | Codex | ⏭️ 系統整合 |

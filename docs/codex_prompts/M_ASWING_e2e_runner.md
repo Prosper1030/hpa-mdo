@@ -15,6 +15,46 @@ ASWING（Drela）是非線性大位移氣動彈性 solver，在高展弦比 HPA 
 目標：用 ASWING 獨立跑一次配平，把翼尖 uz / 扭轉與 MDO 結果比對，差距
 > 10% 時印 WARN（不改 optimizer）。
 
+## 關鍵 ASWING 細節（來自 `docs/research/hi_fidelity_refs/` ASWING 報告）
+
+### `.asw` 檔段落
+- `STRUT N` → 彈性梁元素；給 (X,Y,Z) 節點 + `NNODE` + EI / GJ / mass-per-length。
+- `SURFACE` → 氣動升力面；透過 `STRUT N` 綁定到 strut；給弦、扭角、翼型極線。
+- `JOINT N` → 多梁連接；兩個 STRUT reference + 節點位置 + 6-DOF 勁度
+  `(Kx, Ky, Kz, Krx, Kry, Krz)`。升力鋼索就是 JOINT + 單向壓應變很低的 STRUT。
+
+### 批次指令序列
+```
+load model.asw
+OPER
+v 6.5           <- 空速 m/s
+rho 1.225
+trim            <- 非線性 trim（6-DOF + 梁平衡）
+wr trim_results.txt
+MODE
+n 12            <- 抽 12 個模態
+eig
+wr eigen_summary.txt
+..
+FLUT            <- 可選，M-ASWING 本輪不做 flutter
+vran 80 300 5
+pk
+save_vg flutter_vg.txt
+quit
+```
+
+### 輸出解析
+- `trim_results.txt` — 含翼尖撓度與 6-DOF trim state；grep "deflection" 起頭
+  的 block，座標緊接在後。
+- `eigen_summary.txt` — 每模態一行，`Mode N: f = X.XX Hz, g = Y.YY`；
+  g 是 damping factor（正值代表 aerodynamic damping，負值代表 flutter）。
+- **座標慣例**：body axes，與 M13 / M14 一致（X 前 / Y 右 / Z 下）。
+
+### Pitfall
+- `trim → eig → flut` 是不可逆序列，全部基於同一個非線性 trim 線性化。要重算
+  就從 `OPER → trim` 開始。
+- ASWING stdout 解析用 regex，不要靠欄位寬度。版本差異很大。
+
 ## 目標
 
 1. 新增 `src/hpa_mdo/hifi/aswing_runner.py`：

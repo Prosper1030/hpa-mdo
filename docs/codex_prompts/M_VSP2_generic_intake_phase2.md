@@ -13,6 +13,39 @@ Phase 1 已完成：`src/hpa_mdo/aero/vsp_introspect.py` 可以從任何符合
 3. `main_spar.segments` 固定 `[1.5, 3.0, 3.0, ...]`，對不同 span 的飛機會出錯。
 4. dihedral schedule 只被抽了「每段常數」，曲線翼尖會失真。
 
+## 關鍵 OpenVSP API（來自 `docs/research/hi_fidelity_refs/` OpenVSP 報告）
+
+### 翼型抽取
+```python
+import openvsp as vsp
+xsec_surf = vsp.GetXSecSurf(wing_id, 0)       # surface 0 就是翼型面
+xsec = vsp.GetXSec(xsec_surf, i)              # 第 i 個 XSec
+# 判斷來源：FILE_AIRFOIL → ReadFileAirfoil；NACA → Num_Digits
+up = vsp.GetAirfoilUpperPnts(xsec)            # list of vec3d
+low = vsp.GetAirfoilLowerPnts(xsec)
+for p in up: print(p.x(), p.y(), p.z())
+```
+
+### SubSurface / 控制面
+```python
+# AddSubSurf 回傳 id；SS_CONTROL 是 flap/ aileron / elevator / rudder 的統一 type
+cs_id = vsp.AddSubSurf(wing_id, vsp.SS_CONTROL, 0)
+# 每個控制面有這四個 parm（SubSurface_N group 下）
+vsp.GetParmVal(cs_id, "Eta_Start",    "SubSurface_1")   # 0..1 span fraction
+vsp.GetParmVal(cs_id, "Eta_End",      "SubSurface_1")
+vsp.GetParmVal(cs_id, "Length_C_Start", "SubSurface_1") # 0..1 chord fraction
+vsp.GetParmVal(cs_id, "Length_C_End",   "SubSurface_1")
+```
+控制面與 VSPAERO group 的 pairing：`AutoGroupVSPAEROControlSurfaces()` 可
+自動對稱配對；然後 `CreateVSPAEROControlSurfaceGroup()` / `AddSelectedToCSGroup()`
+組隊。**索引是 1-based**，Python zip 要手動 `+1`。
+
+### Critical gotchas
+- `SetDriverGroup()` / SubSurface 改動後必 `vsp.Update()`。
+- Eta 別設 `0.0` / `1.0`（參數化奇異），clamp 到 `[0.001, 0.999]`。
+- `ExportFile(..., EXPORT_GMSH)` 會產 invisible 暫存 geom；用完 `DeleteGeom()`
+  否則 leak。
+
 ## 目標
 
 ### 1. 翼型抽取
