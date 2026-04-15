@@ -32,6 +32,8 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+
 
 # Allow running directly from the repository without installing the package.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -296,6 +298,38 @@ def main(argv: list[str] | None = None) -> float:
             print("       Skipped flight-shape STEP export: missing displacement output")
     except Exception as exc:
         print(f"       STEP export skipped: {exc}")
+
+    # ── Cruise wing OML export ──────────────────────────────────────────
+    # Deform the reference jig planform by the structural uz/θy field to
+    # produce cruise.vsp3 (for CFD) and the jig counterpart.  This is the
+    # geometry counterpart to the spar flight_shape STEP above — STEP is
+    # the structural tube cores, cruise.vsp3 is the aero OML.
+    if result.nodes is not None and result.disp is not None:
+        try:
+            from hpa_mdo.aero.cruise_vsp_builder import CruiseVSPBuilder
+            from hpa_mdo.aero.vsp_builder import VSPBuilder
+
+            y_nodes = np.asarray(result.nodes)[:, 1]
+            uz = np.asarray(result.disp)[:, 2]
+            theta_y = np.asarray(result.disp)[:, 4]
+
+            jig_vsp_path = output_dir / "wing_jig.vsp3"
+            cruise_vsp_path = output_dir / "wing_cruise.vsp3"
+
+            VSPBuilder(cfg).build_vsp3(str(jig_vsp_path))
+            print(f"       Saved: {jig_vsp_path}")
+
+            cruise_info = CruiseVSPBuilder(cfg, y_nodes, uz, theta_y).build(cruise_vsp_path)
+            if cruise_info.get("success"):
+                print(
+                    f"       Saved: {cruise_vsp_path} "
+                    f"(tip z {cruise_info['tip_z_m']:+.3f} m, "
+                    f"tip twist {cruise_info['tip_twist_deg']:+.3f} deg)"
+                )
+            else:
+                print(f"       Cruise VSP skipped: {cruise_info.get('error')}")
+        except Exception as exc:
+            print(f"       Cruise VSP skipped: {exc}")
 
     # Keep docs/examples snapshots in sync so teammates can inspect baseline
     # outputs without rerunning optimization locally.
