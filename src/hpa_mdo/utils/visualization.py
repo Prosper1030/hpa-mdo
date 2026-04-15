@@ -30,6 +30,36 @@ from hpa_mdo.structure.spar_model import segment_boundaries_from_lengths
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _append_layup_block(lines: list, title: str, layup) -> None:
+    """Append a per-segment discrete layup schedule block to ``lines``."""
+    if not layup:
+        return
+    lines.append(f"  {title}:")
+    for seg in layup:
+        stack = seg.stack
+        n_plies = stack.total_plies()
+        t_mm = seg.equivalent_properties.wall_thickness * 1000.0
+        notation = seg.stack_notation
+        tw = seg.tsai_wu_summary
+        if tw is not None:
+            sr = tw.min_strength_ratio
+            if not math.isfinite(sr):
+                sr_str = "SR=inf"
+                safe = "SAFE"
+            else:
+                sr_str = f"SR={sr:.2f}"
+                safe = "SAFE" if sr >= 1.0 else "VIOLATED"
+            tw_part = f" TW_{sr_str} ({safe})"
+        else:
+            tw_part = ""
+        capped = " [catalog max]" if seg.catalog_capped else ""
+        lines.append(
+            f"    Seg {seg.segment_index} "
+            f"({seg.y_start_m:.2f}-{seg.y_end_m:.2f} m): "
+            f"{notation:<22s} n={n_plies:>2d}, t={t_mm:5.2f} mm,{tw_part}{capped}"
+        )
+
+
 def _step_xy(seg_boundaries: np.ndarray, values: np.ndarray):
     """Return (x, y) arrays for a step-function plot.
 
@@ -485,6 +515,28 @@ def write_optimization_summary(
                 f"ply-step margin={float(gate.get('ply_count_step_margin_min', 0.0)):+.3f}, "
                 f"run-length margin={float(gate.get('run_length_margin_min_m', 0.0)):+.3f} m"
             )
+
+    layup_main = getattr(result, "layup_main", None)
+    layup_rear = getattr(result, "layup_rear", None)
+    if layup_main or layup_rear:
+        lines += [
+            "-" * 64,
+            "  DISCRETE LAYUP SCHEDULE",
+            "-" * 64,
+        ]
+        _append_layup_block(lines, "Main spar", layup_main)
+        if layup_rear:
+            _append_layup_block(lines, "Rear spar", layup_rear)
+        layup_main_summary = getattr(result, "layup_main_summary", None) or {}
+        layup_rear_summary = getattr(result, "layup_rear_summary", None) or {}
+        penalty = 0.0
+        if isinstance(layup_main_summary, dict):
+            penalty += float(layup_main_summary.get("mass_penalty_full_wing_kg", 0.0) or 0.0)
+        if isinstance(layup_rear_summary, dict):
+            penalty += float(layup_rear_summary.get("mass_penalty_full_wing_kg", 0.0) or 0.0)
+        lines.append(
+            f"  Total stack mass penalty vs continuous: {penalty:+.3f} kg (full wing)"
+        )
 
     timing = getattr(result, "timing_s", {}) or {}
     lines += [

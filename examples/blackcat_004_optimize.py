@@ -72,6 +72,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "scripts/analyze_vsp.py). Defaults to configs/blackcat_004.yaml."
         ),
     )
+    parser.add_argument(
+        "--discrete-layup",
+        action="store_true",
+        default=False,
+        help=(
+            "Post-process continuous wall-thickness design by snapping each "
+            "segment to the nearest valid integer ply stack (0/+-45/90), "
+            "re-evaluating Tsai-Wu FI per segment. Combines with --discrete-od "
+            "(OD is snapped first, then layup)."
+        ),
+    )
+    parser.add_argument(
+        "--ply-material",
+        default=None,
+        help=(
+            "Override ply material key in data/materials.yaml used for the "
+            "discrete layup post-process (default: cfg.main_spar.ply_material)."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -249,6 +268,153 @@ def main(argv: list[str] | None = None) -> float:
         print(f"  Verified twist  : {result.twist_max_deg:.3f} deg")
         print(f"  Verified defl.  : {result.tip_deflection_m:.5f} m")
         val_weight_mass = result.total_mass_full_kg
+
+    if args.discrete_layup and result.success:
+        from hpa_mdo.utils.discrete_layup import (
+            build_segment_layup_results,
+            enumerate_valid_stacks,
+            summarize_layup_results,
+        )
+
+        print("\n" + "=" * 60)
+        print("  DISCRETE LAYUP POST-PROCESSING")
+        print("=" * 60)
+
+        def _build_spar_layup(spar_cfg, t_seg_mm, r_seg_mm, label):
+            ply_key = args.ply_material or getattr(spar_cfg, "ply_material", None)
+            if ply_key is None:
+                print(
+                    f"  {label}: discrete layup skipped "
+                    "(spar.ply_material not set in config)."
+                )
+                return None, None
+            try:
+                ply_mat = mat_db.get_ply(ply_key)
+            except Exception as exc:
+                print(f"  {label}: discrete layup skipped (ply '{ply_key}' not found: {exc}).")
+                return None, None
+            try:
+                stacks = enumerate_valid_stacks(spar_cfg)
+            except Exception as exc:
+                print(f"  {label}: enumerate_valid_stacks failed ({exc}).")
+                return None, None
+            if not stacks:
+                print(f"  {label}: no valid stacks enumerated from config limits; skipping.")
+                return None, None
+
+            seg_lengths = cfg.spar_segment_lengths(spar_cfg)
+            n_seg = len(seg_lengths)
+            t_seg_m = np.asarray(t_seg_mm, dtype=float) / 1000.0
+            r_seg_m = np.asarray(r_seg_mm, dtype=float) / 1000.0
+
+            env = result.strain_envelope or {}
+            eps_arr = np.asarray(env.get("epsilon_x_absmax", np.zeros(n_seg)), dtype=float)
+            kap_arr = np.asarray(env.get("kappa_absmax", np.zeros(n_seg)), dtype=float)
+            tor_arr = np.asarray(env.get("torsion_rate_absmax", np.zeros(n_seg)), dtype=float)
+
+            def _safe(a, i):
+                return float(a[i]) if i < len(a) else 0.0
+
+            strain_envs = [
+                {
+                    "epsilon_x_absmax": _safe(eps_arr, i),
+                    "kappa_absmax": _safe(kap_arr, i),
+                    "torsion_rate_absmax": _safe(tor_arr, i),
+                }
+                for i in range(n_seg)
+            ]
+
+            try:
+                layup = build_segment_layup_results(
+                    segment_lengths_m=seg_lengths,
+                    continuous_thicknesses_m=t_seg_m.tolist(),
+                    outer_radii_m=r_seg_m.tolist(),
+                    stacks=stacks,
+                    ply_mat=ply_mat,
+                    ply_drop_limit=int(getattr(spar_cfg, "max_ply_drop_per_segment", 1)),
+                    strain_envelopes=strain_envs,
+                )
+            except Exception as exc:
+                print(f"  {label}: build_segment_layup_results failed ({exc}).")
+                return None, None
+
+            summary = summarize_layup_results(
+                layup,
+                ply_drop_limit=int(getattr(spar_cfg, "max_ply_drop_per_segment", 1)),
+                min_run_length_m=float(getattr(spar_cfg, "min_layup_run_length_m", 0.0)),
+            )
+            return layup, summary
+
+        layup_main, layup_main_summary = _build_spar_layup(
+            cfg.main_spar, result.main_t_seg_mm, result.main_r_seg_mm, "main_spar"
+        )
+        layup_rear, layup_rear_summary = (None, None)
+        if (
+            getattr(cfg.rear_spar, "enabled", False)
+            and result.rear_t_seg_mm is not None
+            and result.rear_r_seg_mm is not None
+        ):
+            layup_rear, layup_rear_summary = _build_spar_layup(
+                cfg.rear_spar, result.rear_t_seg_mm, result.rear_r_seg_mm, "rear_spar"
+            )
+
+        if layup_main is not None:
+            result.layup_main = layup_main
+            result.layup_main_summary = layup_main_summary
+        if layup_rear is not None:
+            result.layup_rear = layup_rear
+            result.layup_rear_summary = layup_rear_summary
+
+        # Re-analyze using the discrete-equivalent wall thicknesses so the
+        # summary reports Tsai-Wu / failure / deflection under the stack we
+        # actually plan to build.  OD is preserved (already snapped if
+        # --discrete-od ran earlier).
+        if layup_main is not None:
+            main_t_equiv_m = np.array(
+                [seg.equivalent_properties.wall_thickness for seg in layup_main],
+                dtype=float,
+            )
+            if layup_rear is not None:
+                rear_t_equiv_m = np.array(
+                    [seg.equivalent_properties.wall_thickness for seg in layup_rear],
+                    dtype=float,
+                )
+            else:
+                rear_t_equiv_m = (
+                    result.rear_t_seg_mm / 1000.0
+                    if result.rear_t_seg_mm is not None
+                    else None
+                )
+
+            print("  Re-evaluating snapped layup with the structural solver...")
+            prev_layup_main = layup_main
+            prev_layup_rear = layup_rear
+            prev_layup_main_summary = layup_main_summary
+            prev_layup_rear_summary = layup_rear_summary
+            try:
+                result = opt.analyze(
+                    main_t_seg=main_t_equiv_m,
+                    main_r_seg=result.main_r_seg_mm / 1000.0,
+                    rear_t_seg=rear_t_equiv_m,
+                    rear_r_seg=(
+                        result.rear_r_seg_mm / 1000.0
+                        if result.rear_r_seg_mm is not None
+                        else None
+                    ),
+                )
+                result.message = "Discrete layup design re-verified with integer ply stacks"
+                result.layup_main = prev_layup_main
+                result.layup_main_summary = prev_layup_main_summary
+                if prev_layup_rear is not None:
+                    result.layup_rear = prev_layup_rear
+                    result.layup_rear_summary = prev_layup_rear_summary
+                print(f"  Verified mass   : {result.total_mass_full_kg:.3f} kg")
+                print(f"  Verified failure: {result.failure_index:.5f}")
+                print(f"  Verified twist  : {result.twist_max_deg:.3f} deg")
+                print(f"  Verified defl.  : {result.tip_deflection_m:.5f} m")
+                val_weight_mass = result.total_mass_full_kg
+            except Exception as exc:
+                print(f"  Re-analyze skipped ({exc}); keeping continuous result.")
 
     # ====================================================================
     # Step 7 — Generate visualizations
