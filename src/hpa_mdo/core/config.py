@@ -508,6 +508,111 @@ class HiFidelityConfig(BaseModel):
     su2: SU2Config = SU2Config()
 
 
+# ── Mass / CG / Inertia budget (M14) ────────────────────────────────────────
+
+_MASS_BUDGET_STANDARD_KEYS = (
+    "pilot",
+    "fuselage_structure",
+    "wing_secondary_structure",
+    "drivetrain",
+    "propeller",
+    "empennage",
+    "controls",
+    "avionics",
+    "landing_gear",
+    "payload",
+    "ballast",
+    "miscellaneous",
+)
+
+
+class MassItemConfig(BaseModel):
+    m_kg: float = Field(default=0.0, ge=0.0)
+    xyz_m: List[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0])
+    sigma_kg: float = Field(default=0.0, ge=0.0)
+    principal_inertia_kgm2: Optional[List[float]] = None
+    enabled: bool = True
+    notes: str = ""
+    source: str = "estimated"
+
+    @model_validator(mode="after")
+    def _check_shapes(self) -> MassItemConfig:
+        if len(self.xyz_m) != 3:
+            raise ValueError("mass_budget item xyz_m must be length 3.")
+        if self.principal_inertia_kgm2 is not None and len(self.principal_inertia_kgm2) != 3:
+            raise ValueError("mass_budget item principal_inertia_kgm2 must be length 3.")
+        return self
+
+
+class MassBudgetConfig(BaseModel):
+    """Aircraft-wide mass accounting with reserved top-level slots.
+
+    The named fields cover the usual full-aircraft buckets while
+    ``extra_items`` provides an escape hatch for any project-specific
+    subsystem that does not fit the baseline template.
+    """
+
+    reference_point_m: List[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0])
+    target_total_mass_kg: Optional[float] = None
+    include_spar_from_optimization: bool = True
+    include_lift_wires_from_geometry: bool = True
+
+    pilot: Optional[MassItemConfig] = None
+    fuselage_structure: Optional[MassItemConfig] = None
+    wing_secondary_structure: Optional[MassItemConfig] = None
+    drivetrain: Optional[MassItemConfig] = None
+    propeller: Optional[MassItemConfig] = None
+    empennage: Optional[MassItemConfig] = None
+    controls: Optional[MassItemConfig] = None
+    avionics: Optional[MassItemConfig] = None
+    landing_gear: Optional[MassItemConfig] = None
+    payload: Optional[MassItemConfig] = None
+    ballast: Optional[MassItemConfig] = None
+    miscellaneous: Optional[MassItemConfig] = None
+
+    extra_items: Dict[str, MassItemConfig] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_items(cls, data):
+        if not isinstance(data, dict):
+            return data
+
+        payload = dict(data)
+        if "mtow_target_kg" in payload and "target_total_mass_kg" not in payload:
+            payload["target_total_mass_kg"] = payload.pop("mtow_target_kg")
+
+        legacy_items = payload.pop("items", None) or []
+        extra_items = dict(payload.get("extra_items") or {})
+        for raw_item in legacy_items:
+            if not isinstance(raw_item, dict):
+                continue
+            name = str(raw_item.get("name", "")).strip()
+            if not name:
+                continue
+            item_payload = {
+                "m_kg": raw_item.get("m_kg", raw_item.get("mass_kg", 0.0)),
+                "xyz_m": raw_item.get("xyz_m", raw_item.get("cg_m", [0.0, 0.0, 0.0])),
+                "sigma_kg": raw_item.get("sigma_kg", 0.0),
+                "principal_inertia_kgm2": raw_item.get("principal_inertia_kgm2"),
+                "enabled": raw_item.get("enabled", True),
+                "notes": raw_item.get("notes", ""),
+                "source": raw_item.get("source", "estimated"),
+            }
+            if name in _MASS_BUDGET_STANDARD_KEYS and payload.get(name) is None:
+                payload[name] = item_payload
+            else:
+                extra_items[name] = item_payload
+        payload["extra_items"] = extra_items
+        return payload
+
+    @model_validator(mode="after")
+    def _check_shapes(self) -> MassBudgetConfig:
+        if len(self.reference_point_m) != 3:
+            raise ValueError("mass_budget.reference_point_m must be length 3.")
+        return self
+
+
 # ── Top-level ───────────────────────────────────────────────────────────────
 
 
@@ -544,6 +649,7 @@ class HPAConfig(BaseModel):
     io: IOConfig = IOConfig()
     aswing: ASWINGExportConfig = ASWINGExportConfig()
     hi_fidelity: HiFidelityConfig = HiFidelityConfig()
+    mass_budget: MassBudgetConfig = MassBudgetConfig()
 
     @property
     def half_span(self) -> float:

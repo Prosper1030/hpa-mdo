@@ -109,7 +109,7 @@ def main(argv: list[str] | None = None) -> float:
         config_path = (
             Path(__file__).resolve().parent.parent / "configs" / "blackcat_004.yaml"
         )
-    print(f"[1/8] Loading config: {config_path}")
+    print(f"[1/10] Loading config: {config_path}")
     cfg = load_config(config_path)
     print(f"       Project : {cfg.project_name}")
     print(f"       Span    : {cfg.wing.span} m")
@@ -120,7 +120,7 @@ def main(argv: list[str] | None = None) -> float:
     # ====================================================================
     # Aircraft.from_config() constructs the wing planform, computes spanwise
     # node positions (ac.wing.y), reference areas, and operating weight.
-    print("[2/8] Building aircraft geometry...")
+    print("[2/10] Building aircraft geometry...")
     ac = Aircraft.from_config(cfg)
     mat_db = MaterialDB()
     target_weight = ac.weight_N  # full-span weight [N]
@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> float:
     # VSPAeroParser reads the .lod (spanwise lift distribution) and .polar
     # (integrated coefficients) files produced by OpenVSP's VSPAERO solver.
     # It returns a list of AeroCase objects, one per angle of attack.
-    print("[3/8] Parsing VSPAero loads...")
+    print("[3/10] Parsing VSPAero loads...")
     parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
     cases = parser.parse()
     print(f"       Found {len(cases)} AoA case(s)")
@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> float:
     #
     # We loop over all AoA cases, compute the total full-span lift for each,
     # and select the case whose lift most closely equals the aircraft weight.
-    print("[4/8] Finding cruise angle of attack (L ≈ W)...")
+    print("[4/10] Finding cruise angle of attack (L ≈ W)...")
     mapper = LoadMapper()
 
     best_case: Optional[object] = None
@@ -181,7 +181,7 @@ def main(argv: list[str] | None = None) -> float:
     # Keep mapped aero loads at their raw physical level for SparOptimizer.
     # The structural case owns the aerodynamic maneuver scaling via
     # LoadCaseConfig.aero_scale inside the OpenMDAO model.
-    print("[5/8] Preparing structural load case scaling...")
+    print("[5/10] Preparing structural load case scaling...")
     mapped_loads = best_loads
     design_case = cfg.structural_load_cases()[0]
     export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
@@ -201,7 +201,7 @@ def main(argv: list[str] | None = None) -> float:
     # Constraints      : von Mises stress ≤ allowable,
     #                    max twist ≤ cfg.wing.max_tip_twist_deg,
     #                    tip deflection ≤ limit (encoded in failure_index)
-    print("[6/8] Running spar optimization...")
+    print("[6/10] Running spar optimization...")
     opt = SparOptimizer(cfg, ac, mapped_loads, mat_db)
     result = opt.optimize(method="auto")
 
@@ -422,7 +422,7 @@ def main(argv: list[str] | None = None) -> float:
     # Two figures are saved to the output directory:
     #   beam_analysis.png  — deflection, twist, von Mises stress, mass summary
     #   spar_geometry.png  — OD, wall thickness, ID, cross-section area per segment
-    print("[7/8] Generating visualizations...")
+    print("[7/10] Generating visualizations...")
     output_dir = Path(cfg.io.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -443,7 +443,7 @@ def main(argv: list[str] | None = None) -> float:
     # ====================================================================
     # A human-readable plain-text file with full mass breakdown, structural
     # performance metrics, and per-segment OD/thickness tables.
-    print("[8/9] Writing optimization summary...")
+    print("[8/10] Writing optimization summary...")
     summary_path = output_dir / "optimization_summary.txt"
     write_optimization_summary(result, summary_path)
     print(f"       Saved: {summary_path}")
@@ -451,7 +451,7 @@ def main(argv: list[str] | None = None) -> float:
     # ====================================================================
     # Step 9 — Export STEP geometry for CAD inspection (jig + flight shape)
     # ====================================================================
-    print("[9/9] Exporting STEP geometry for CAD inspection...")
+    print("[9/10] Exporting STEP geometry for CAD inspection...")
     ansys_dir = output_dir / "ansys"
     ansys_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -524,6 +524,40 @@ def main(argv: list[str] | None = None) -> float:
         print(f"       Synced: {docs_beam_plot_path}")
     else:
         print(f"       Skip sync (missing): {beam_plot_path}")
+
+    # ====================================================================
+    # Step 10 — Aircraft mass / CG / inertia budget (M14, non-invasive)
+    # ====================================================================
+    # Merges the post-process structural result with the aircraft-wide
+    # mass_budget config.  Emits yaml / markdown / AVL artifacts without
+    # affecting val_weight.
+    print("[10/10] Exporting mass / CG / inertia budget...")
+    try:
+        from hpa_mdo.mass import build_mass_budget_from_config
+
+        budget = build_mass_budget_from_config(
+            cfg,
+            result,
+            aircraft=ac,
+            materials_db=mat_db,
+        )
+        budget.to_yaml(output_dir / "mass_budget.yaml")
+        budget.write_report(output_dir / "mass_budget_report.md")
+        budget.to_avl_mass(output_dir / "avl_mass.mass", rho=float(cfg.flight.air_density))
+        for warning in budget.warnings:
+            print(f"       {warning}")
+
+        cg = budget.center_of_gravity()
+        gate = budget.sanity_check()
+        gate_flag = "PASS" if gate["passed"] else "WARN"
+        print(
+            f"       Mass: {budget.total_mass():.3f} kg "
+            f"(σ {budget.total_sigma():.3f} kg), "
+            f"CG=[{cg[0]:+.3f}, {cg[1]:+.3f}, {cg[2]:+.3f}] m, "
+            f"sanity {gate_flag}"
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"       WARN: mass budget skipped: {exc}")
 
     total_mass = val_weight_mass
     tip_defl_limit = cfg.wing.max_tip_deflection_m

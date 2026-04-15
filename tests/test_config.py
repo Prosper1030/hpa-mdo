@@ -155,6 +155,20 @@ def test_blackcat_empennage_geometry_loaded_from_config():
     assert cfg.vertical_fin.control_surface_limit_deg == pytest.approx(25.0)
 
 
+def test_blackcat_mass_budget_loaded_from_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.mass_budget.target_total_mass_kg == pytest.approx(96.0)
+    assert cfg.mass_budget.pilot is not None
+    assert cfg.mass_budget.pilot.m_kg == pytest.approx(56.0)
+    assert cfg.mass_budget.drivetrain is not None
+    assert cfg.mass_budget.drivetrain.xyz_m == pytest.approx([1.2, 0.0, -0.25])
+    assert "telemetry_spare" in cfg.mass_budget.extra_items
+
+
 def test_aircraft_converts_airfoil_camber_fraction_to_meters(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"

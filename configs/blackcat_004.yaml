@@ -243,3 +243,110 @@ hi_fidelity:
     enabled: false               # planned, not yet implemented
     binary: null
     cfg_template: null
+
+# ── Mass / CG / Inertia Budget (M14) ───────────────────────────────────────
+# Coordinate frame: +X aft (toward tail, matching the current project
+# geometry), +Y right, +Z down. Origin = aircraft nose tip.
+#
+# The reserved slots below cover the whole aircraft. Main/rear spar tubes,
+# spar joints, and lift wires are auto-derived from the optimizer result and
+# should NOT be duplicated here.
+mass_budget:
+  reference_point_m: [0.0, 0.0, 0.0]
+  target_total_mass_kg: 96.0              # weight.airframe_kg + weight.pilot_kg
+  include_spar_from_optimization: true
+  include_lift_wires_from_geometry: true
+
+  pilot:
+    m_kg: 56.0
+    xyz_m: [1.60, 0.0, -0.50]
+    sigma_kg: 2.0
+    principal_inertia_kgm2: [4.0, 12.0, 10.0]
+    notes: "pilot + clothing + hydration"
+    source: estimated
+
+  fuselage_structure:
+    m_kg: 11.0
+    xyz_m: [2.10, 0.0, -0.15]
+    sigma_kg: 1.2
+    notes: "boom, pod shell, seat frame, local reinforcements"
+    source: estimated
+
+  wing_secondary_structure:
+    m_kg: 7.8
+    xyz_m: [0.42, 0.0, 0.02]
+    sigma_kg: 0.9
+    notes: "ribs, film covering, LE/TE members, non-spar fittings"
+    source: estimated
+
+  drivetrain:
+    m_kg: 3.4
+    xyz_m: [1.20, 0.0, -0.25]
+    sigma_kg: 0.3
+    notes: "crank, chain, bearings, shafting"
+    source: estimated
+
+  propeller:
+    m_kg: 0.9
+    xyz_m: [3.75, 0.0, 0.0]
+    sigma_kg: 0.1
+    principal_inertia_kgm2: [0.020, 0.040, 0.040]
+    notes: "blades + hub"
+    source: vendor
+
+  empennage:
+    m_kg: 2.4
+    xyz_m: [5.20, 0.0, -0.05]
+    sigma_kg: 0.3
+    notes: "horizontal tail, fin, rudder/elevator structure"
+    source: estimated
+
+  controls:
+    m_kg: 0.8
+    xyz_m: [3.20, 0.0, -0.10]
+    sigma_kg: 0.1
+    notes: "control cables, horns, guides, return springs"
+    source: estimated
+
+  avionics:
+    m_kg: 0.35
+    xyz_m: [1.35, 0.0, -0.40]
+    sigma_kg: 0.05
+    notes: "altimeter, variometer, logger"
+    source: vendor
+
+  landing_gear:
+    m_kg: 0.45
+    xyz_m: [1.20, 0.0, 0.20]
+    sigma_kg: 0.05
+    notes: "main skid and abrasion protection"
+    source: estimated
+
+  payload:
+    m_kg: 0.25
+    xyz_m: [1.60, 0.0, -0.45]
+    sigma_kg: 0.05
+    notes: "water bottle / emergency items"
+    source: estimated
+
+  ballast:
+    m_kg: 0.0
+    xyz_m: [0.15, 0.0, 0.0]
+    sigma_kg: 0.0
+    notes: "trim ballast placeholder"
+    source: placeholder
+
+  miscellaneous:
+    m_kg: 0.6
+    xyz_m: [2.20, 0.0, -0.10]
+    sigma_kg: 0.1
+    notes: "bolts, adhesive, fairing scraps, small hardware margin"
+    source: estimated
+
+  extra_items:
+    telemetry_spare:
+      m_kg: 0.0
+      xyz_m: [1.40, 0.0, -0.35]
+      sigma_kg: 0.0
+      notes: "reserved slot for future onboard instrumentation"
+      source: placeholder
