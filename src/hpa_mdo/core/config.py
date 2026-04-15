@@ -465,6 +465,44 @@ class ASWINGExportConfig(BaseModel):
     )
 
 
+# ── High-fidelity validation stack (blueprint — see ────────────────────────
+#    docs/hi_fidelity_validation_stack.md).  All solvers default to
+#    disabled.  Populate binaries in configs/local_paths.yaml so this
+#    file stays portable.
+
+
+class GmshConfig(BaseModel):
+    enabled: bool = False
+    binary: Optional[str] = None
+    mesh_size_m: float = Field(0.05, gt=0.0)
+
+
+class CalculiXConfig(BaseModel):
+    enabled: bool = False
+    ccx_binary: Optional[str] = None
+    cgx_binary: Optional[str] = None
+
+
+class ParaViewConfig(BaseModel):
+    enabled: bool = False
+    binary: Optional[str] = None
+
+
+class SU2Config(BaseModel):
+    """Blueprint only — CFD runner not yet implemented."""
+    enabled: bool = False
+    binary: Optional[str] = None
+    cfg_template: Optional[str] = None
+
+
+class HiFidelityConfig(BaseModel):
+    """External solver stack for last-mile validation on Apple Silicon."""
+    gmsh: GmshConfig = GmshConfig()
+    calculix: CalculiXConfig = CalculiXConfig()
+    paraview: ParaViewConfig = ParaViewConfig()
+    su2: SU2Config = SU2Config()
+
+
 # ── Top-level ───────────────────────────────────────────────────────────────
 
 
@@ -500,6 +538,7 @@ class HPAConfig(BaseModel):
     solver: SolverConfig = SolverConfig()
     io: IOConfig = IOConfig()
     aswing: ASWINGExportConfig = ASWINGExportConfig()
+    hi_fidelity: HiFidelityConfig = HiFidelityConfig()
 
     @property
     def half_span(self) -> float:

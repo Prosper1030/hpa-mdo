@@ -7,50 +7,55 @@
 ## 架構概觀
 
 ```
-                        configs/blackcat_004.yaml
-                                 |
-                                 v
-                    +------------------------+
-                    |   Config (Pydantic)     |
-                    |   core/config.py        |
-                    +------------------------+
-                         |            |
-                         v            v
-              +----------------+  +------------------+
-              | VSPAero Parser |  | Aircraft Builder  |
-              | aero/vsp_aero  |  | core/aircraft     |
-              +----------------+  +------------------+
-                         |            |
-                         v            v
+         configs/blackcat_004.yaml         參考 .vsp3（幾何真值）
+                   |                              |
+                   v                              v
+          +-----------------+             +------------------+
+          | Config (Pydantic)|  ───────▶  | VSPBuilder       |
+          | core/config.py   |            | aero/vsp_builder |
+          +-----------------+             +------------------+
+                   |                              |
+                   v                              v
+          +-----------------+             +------------------+
+          | VSPAero Parser  |             | Aircraft Builder  |
+          | aero/vsp_aero   |             | core/aircraft     |
+          +-----------------+             +------------------+
+                        \                /
+                         v              v
                     +------------------------+
                     |   Load Mapper           |
                     |   aero/load_mapper      |
                     +------------------------+
-                                 |
-                                 v
+                                |
+                                v
                     +------------------------+
                     |  OpenMDAO FEM Solver    |
                     |  (6-DOF Timoshenko)     |
                     |  structure/oas_struct   |
                     +------------------------+
-                                 |
-                                 v
+                                |
+                                v
                     +------------------------+
-                    |  Spar Optimizer         |
+                    |  Spar Optimizer         |  → disp (uz, θy)
                     |  structure/optimizer    |
                     +------------------------+
-                         |            |
-                         v            v
-              +----------------+  +------------------+
-              | ANSYS Export   |  | Results / Plots   |
-              | APDL/CSV/BDF  |  | utils/visual       |
-              +----------------+  +------------------+
-                                 |
-              +-----------+------+------+-----------+
-              |           |             |           |
-              v           v             v           v
-          FastAPI     MCP Server    Surrogate    stdout
-         api/server  api/mcp_server  DB csv    val_weight
+                        |        |         |
+                        v        v         v
+          +----------------+  +--------+  +-----------------------+
+          | ANSYS Export   |  | Plots  |  | CruiseVSPBuilder       |
+          | APDL/CSV/BDF  |  +--------+  | aero/cruise_vsp_builder|
+          +----------------+              +-----------------------+
+                                                    |
+                                                    v
+                                          +-----------------+
+                                          | vsp_to_cfd.py   |
+                                          | STEP / STL      |
+                                          +-----------------+
+                                                    |
+                                                    v
+                               [Hi-Fi 驗證層：藍圖]
+                               Gmsh → CalculiX → ParaView
+                               SU2（規劃中）
 ```
 
 ### OpenMDAO Component DAG
@@ -285,10 +290,17 @@ safety:
 ```yaml
 wing:
   span: 33.0
-  root_chord: 1.39
-  tip_chord: 0.47
+  root_chord: 1.30         # VSP-calibrated（原 1.39）
+  tip_chord: 0.435         # VSP-calibrated（原 0.47）
   max_tip_twist_deg: 2.0   # 扭轉角約束條件
 ```
+
+> **幾何真值**：`configs/blackcat_004.yaml` 的 `wing.root_chord` 與
+> `wing.tip_chord` 只存「端點極值」。完整翼展 chord / dihedral 排程由
+> `io.vsp_model` 指向的參考 `.vsp3` 讀取（含 y=0→4.5 m 等弦內段），由
+> `VSPBuilder._wing_section_schedule()` 優先採用。執行
+> `python scripts/vsp_consistency_check.py` 會檢查三份記錄是否一致：
+> 參考 `.vsp3`、`configs/*.yaml`、`data/*.avl` 檔頭 `Sref/Cref/Bref`。
 
 **`main_spar` / `rear_spar`** -- 分段管材定義。`segments` 列表定義半翼展管材長度（翼根至翼尖）。`material` 鍵值對應 `data/materials.yaml`。
 ```yaml
@@ -399,6 +411,60 @@ val_weight: <float>
 其中 `<float>` 為最佳化後全翼展翼梁系統質量（單位：公斤）。若求解器失敗或結果不符合物理，此值為 `99999`。上游代理應解析此值作為最小化的目標函數。
 
 設計變數為 12 段管壁厚度（每根翼梁 6 段，共 2 根翼梁）。約束條件為應力比（failure_index <= 0）、翼尖扭轉角（<= 2 度）及撓度。最佳化器採用兩階段策略：差分演化法進行全局搜尋，再以 SLSQP 進行局部精修。
+
+---
+
+## 幾何管線（Reference VSP → Jig → Cruise → CFD）
+
+```
+參考 .vsp3（原始設計，幾何真值）
+  │  VSPBuilder._wing_section_schedule()
+  ▼
+雙梁結構模型（jig shape）
+  │  OpenMDAO FEM 求解 → disp (nn, 6) = [ux, uy, uz, θx, θy, θz]
+  ▼
+自動調整上反角 / 翼梁壁厚
+  │  CruiseVSPBuilder(cfg, y, uz, θy)
+  ▼
+cruise.vsp3（巡航下的變形外型）
+  │  scripts/vsp_to_cfd.py
+  ▼
+STEP / STL → CFD（或轉交高保真驗證層）
+```
+
+相關指令：
+
+```bash
+# 完整 MDO（jig 最佳化 + 輸出 optimized jig STEP）
+python examples/blackcat_004_optimize.py
+
+# 幾何三者一致性檢查（參考 .vsp3 vs YAML vs AVL）
+python scripts/vsp_consistency_check.py
+
+# 由 .vsp3 轉檔給 CFD（STEP / STL / IGES / OBJ / DXF）
+python scripts/vsp_to_cfd.py \
+    --vsp output/blackcat_004/cruise.vsp3 \
+    --out output/blackcat_004/cruise \
+    --formats step stl
+```
+
+---
+
+## 高保真驗證層（Apple Silicon Mac mini 路線圖）
+
+為了把最後一哩驗證留在同一台機器上，不再每次切到 Windows 跑 ANSYS，
+規劃下列開源工具鏈。**目前僅預留 `cfg.hi_fidelity.*` 介面與文件藍圖，程式碼尚未實作**（詳見 [`docs/hi_fidelity_validation_stack.md`](docs/hi_fidelity_validation_stack.md)）。
+
+| 層 | 工具 | 角色 | 狀態 |
+|----|------|------|------|
+| 結構 | **Gmsh** | STEP→網格（`.inp`） | 預留介面 |
+| 結構 | **CalculiX (ccx)** | 非線性靜力 / 挫曲 solver | 預留介面 |
+| 後處理 | **ParaView** | 結構 (`.frd`) + CFD (`.vtu`) 統一檢視 | 預留介面 |
+| 氣動 | **SU2** | RANS / Euler CFD | **藍圖** — 暫不實作 |
+
+呼叫時機：**主最佳化迴圈不觸發高保真層**，只在使用者手動驗證時透過
+獨立 script 啟動，且所有 binary 路徑從 `configs/local_paths.yaml` 覆
+蓋，維持跨機器可攜。
 
 ---
 
