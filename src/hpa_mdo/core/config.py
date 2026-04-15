@@ -417,6 +417,54 @@ class IOConfig(BaseModel):
     training_db: Path = Path("database/training_data.csv")
 
 
+class ASWINGExportConfig(BaseModel):
+    """Seed values for the ASWING .asw exporter.
+
+    Flight physics constants (air density, gravity) come from
+    `flight` and `safety`; material properties come from MaterialDB.
+    This block holds only the ASWING-file-format seed parameters
+    that ASWING itself needs but that the rest of the MDO does not
+    carry elsewhere.
+    """
+
+    sonic_speed_mps: float = Field(
+        343.0,
+        description="Speed of sound at cruise altitude [m/s].",
+    )
+    cl_alpha_per_rad: float = Field(
+        2.0 * math.pi,
+        description="Sectional lift-curve slope [1/rad]. Default is thin-airfoil 2pi.",
+    )
+    cl_max: float = Field(
+        1.35,
+        description="Positive-stall sectional Cl_max used for ASWING gust/beta limits.",
+    )
+    cl_min: float = Field(
+        -1.10,
+        description="Negative-stall sectional Cl_min used for ASWING gust/beta limits.",
+    )
+    tail_stiffness_eicc_n_m2: float = Field(
+        5.0e3,
+        description="Chordwise bending stiffness EIcc for tail beam blocks [N*m^2].",
+    )
+    tail_stiffness_einn_n_m2: float = Field(
+        2.0e3,
+        description="Normal bending stiffness EInn for tail beam blocks [N*m^2].",
+    )
+    tail_stiffness_gj_n_m2: float = Field(
+        1.0e3,
+        description="Torsional stiffness GJ for tail beam blocks [N*m^2].",
+    )
+    tail_axial_stiffness_ea_n: float = Field(
+        5.0e5,
+        description="Axial stiffness EA for tail beam blocks [N].",
+    )
+    tail_weight_per_length_npm: float = Field(
+        0.35,
+        description="Distributed weight per unit length for tail beam blocks [N/m].",
+    )
+
+
 # ── Top-level ───────────────────────────────────────────────────────────────
 
 
@@ -451,6 +499,7 @@ class HPAConfig(BaseModel):
     aero_gates: AeroGatesConfig = AeroGatesConfig()
     solver: SolverConfig = SolverConfig()
     io: IOConfig = IOConfig()
+    aswing: ASWINGExportConfig = ASWINGExportConfig()
 
     @property
     def half_span(self) -> float:

@@ -63,7 +63,14 @@ class AVLModel:
 
 @dataclass(frozen=True)
 class ASWINGExportOptions:
-    """Knobs for generated ASWING seed-file metadata."""
+    """Knobs for generated ASWING seed-file metadata.
+
+    Values should normally be sourced from `cfg.aswing` via
+    :meth:`from_config`; the dataclass defaults here match the
+    Pydantic defaults in `ASWINGExportConfig` and exist only as a
+    safety net if the exporter is called without a config (e.g. a
+    unit-test that constructs an AVL model in-memory).
+    """
 
     sonic_speed_mps: float = 343.0
     cl_alpha_per_rad: float = 2.0 * math.pi
@@ -74,6 +81,22 @@ class ASWINGExportOptions:
     tail_stiffness_gj: float = 1.0e3
     tail_axial_stiffness_ea: float = 5.0e5
     tail_weight_per_length_npm: float = 0.35
+
+    @classmethod
+    def from_config(cls, cfg: HPAConfig) -> "ASWINGExportOptions":
+        """Build options by reading from ``cfg.aswing`` — the single source of truth."""
+        a = cfg.aswing
+        return cls(
+            sonic_speed_mps=float(a.sonic_speed_mps),
+            cl_alpha_per_rad=float(a.cl_alpha_per_rad),
+            cl_max=float(a.cl_max),
+            cl_min=float(a.cl_min),
+            tail_stiffness_eicc=float(a.tail_stiffness_eicc_n_m2),
+            tail_stiffness_einn=float(a.tail_stiffness_einn_n_m2),
+            tail_stiffness_gj=float(a.tail_stiffness_gj_n_m2),
+            tail_axial_stiffness_ea=float(a.tail_axial_stiffness_ea_n),
+            tail_weight_per_length_npm=float(a.tail_weight_per_length_npm),
+        )
 
 
 def parse_avl(path: str | Path) -> AVLModel:
@@ -157,7 +180,7 @@ def export_aswing(
 
     model = parse_avl(avl_path)
     materials = materials_db or MaterialDB()
-    opts = options or ASWINGExportOptions()
+    opts = options or ASWINGExportOptions.from_config(cfg)
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
