@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+from pathlib import Path
+import shutil
+
+import numpy as np
+
+from hpa_mdo.core import load_config
+from hpa_mdo.hifi import calculix_runner
+from hpa_mdo.hifi.calculix_runner import (
+    find_ccx,
+    prepare_static_inp,
+    root_boundary_from_mesh,
+    run_static,
+    tip_node_from_mesh,
+)
+from hpa_mdo.hifi.frd_parser import parse_displacement
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CONFIG_PATH = REPO_ROOT / "configs" / "blackcat_004.yaml"
+
+
+MESH_TEXT = """*NODE
+1, 0.0, 0.0, 0.0
+2, 0.0, 1.0, 0.0
+3, 0.1, 1.0, 0.0
+4, 0.0, 0.0, 0.1
+*ELEMENT, TYPE=C3D4
+10, 1, 2, 3, 4
+"""
+
+
+def _cfg(tmp_path: Path):
+    return load_config(CONFIG_PATH, local_paths_path=tmp_path / "missing_local_paths.yaml")
+
+
+def test_find_ccx_returns_none_when_disabled(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.calculix.enabled = False
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/local/bin/ccx")
+
+    assert find_ccx(cfg) is None
+
+
+def test_prepare_static_inp_appends_calculix_blocks(tmp_path: Path) -> None:
+    mesh = tmp_path / "mesh.inp"
+    out = tmp_path / "static.inp"
+    mesh.write_text(MESH_TEXT, encoding="utf-8")
+
+    result = prepare_static_inp(
+        mesh,
+        out,
+        {"E": 230e9, "nu": 0.27, "rho": 1600.0},
+        (1, (1, 2, 3)),
+        [(2, 3, -100.0)],
+    )
+
+    text = result.read_text(encoding="utf-8")
+    assert "*NODE\n1, 0.0, 0.0, 0.0" in text
+    assert "*ELEMENT, TYPE=C3D4\n10, 1, 2, 3, 4" in text
+    assert "*ELSET, ELSET=EALL\n10" in text
+    assert "*MATERIAL, NAME=HPA_MATERIAL" in text
+    assert "*ELASTIC\n2.3e+11, 0.27" in text
+    assert "*DENSITY\n1600" in text
+    assert "*SOLID SECTION, ELSET=EALL, MATERIAL=HPA_MATERIAL" in text
+    assert "*BOUNDARY\n1, 1, 1, 0.0\n1, 2, 2, 0.0\n1, 3, 3, 0.0" in text
+    assert "*STEP, NAME=cruise\n*STATIC\n1.0, 1.0" in text
+    assert "*CLOAD\n2, 3, -100" in text
+    assert "*NODE FILE, OUTPUT=3D\nU\n*END STEP" in text
+
+
+def test_root_boundary_and_tip_node_from_mesh(tmp_path: Path) -> None:
+    mesh = tmp_path / "mesh.inp"
+    mesh.write_text(MESH_TEXT, encoding="utf-8")
+
+    assert root_boundary_from_mesh(mesh) == [(1, (1, 2, 3)), (4, (1, 2, 3))]
+    assert tip_node_from_mesh(mesh) == 2
+
+
+def test_run_static_skips_gracefully_when_ccx_missing(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.calculix.enabled = True
+    monkeypatch.setattr(calculix_runner, "find_ccx", lambda _cfg: None)
+
+    result = run_static(tmp_path / "missing.inp", cfg)
+
+    assert result["returncode"] is None
+    assert "ccx not found" in result["error"]
+
+
+def test_parse_displacement_reads_last_disp_block(tmp_path: Path) -> None:
+    frd = tmp_path / "case.frd"
+    frd.write_text(
+        """
+ -4  DISP        4    1
+ -1         1  1.00000E-03  2.00000E-03 -3.00000E-03
+ -3
+ -4  DISP        4    2
+ -1         1  4.00000E-03  5.00000E-03 -6.00000E-03
+ -1         2  7.00000E-03  8.00000E-03 -9.00000E-03
+ -3
+""",
+        encoding="utf-8",
+    )
+
+    disp = parse_displacement(frd)
+
+    assert disp.shape == (2, 4)
+    np.testing.assert_allclose(
+        disp,
+        np.asarray(
+            [
+                [1.0, 4.0e-3, 5.0e-3, -6.0e-3],
+                [2.0, 7.0e-3, 8.0e-3, -9.0e-3],
+            ]
+        ),
+    )
