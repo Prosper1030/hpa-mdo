@@ -1,6 +1,6 @@
 ================================================================
   HPA-MDO Spar Optimization Summary
-  Generated: 2026-04-15 11:47:47
+  Generated: 2026-04-15 11:56:48
 ================================================================
   Status          : CONVERGED (Feasible)
   Message         : OpenMDAO converged
