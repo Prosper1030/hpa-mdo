@@ -1,39 +1,39 @@
 ================================================================
   HPA-MDO Spar Optimization Summary
-  Generated: 2026-04-15 11:56:48
+  Generated: 2026-04-15 15:34:10
 ================================================================
   Status          : CONVERGED (Feasible)
   Message         : OpenMDAO converged
 ----------------------------------------------------------------
   MASS BREAKDOWN
 ----------------------------------------------------------------
-  Spar mass (half): 4.7279 kg
-  Spar mass (full): 9.4558 kg
-  Total mass (full): 11.9558 kg
+  Spar mass (half): 4.7358 kg
+  Spar mass (full): 9.4716 kg
+  Total mass (full): 11.9716 kg
 ----------------------------------------------------------------
   STRUCTURAL PERFORMANCE
 ----------------------------------------------------------------
   Tip deflection  : 2500.00 mm  (2.50000 m) / MAX: 2500.0 mm (OK)
   Max twist       : 0.244 deg / MAX: 2.000 deg (OK)
-  Failure index   : -0.46681  (SAFE)
-  Buckling index  : -0.80128  (SAFE)
+  Failure index   : -0.48079  (SAFE)
+  Buckling index  : -0.80498  (SAFE)
 
-  Max stress — main : 529.89 MPa
+  Max stress — main : 515.85 MPa
   Allowable  — main : 1666.67 MPa
-  Margin     — main : 68.2%
+  Margin     — main : 69.0%
 
-  Max stress — rear : 253.81 MPa
+  Max stress — rear : 206.26 MPa
   Allowable  — rear : 1666.67 MPa
-  Margin     — rear : 84.8%
+  Margin     — rear : 87.6%
 ----------------------------------------------------------------
   MAIN SPAR SEGMENTS
 ----------------------------------------------------------------
    Seg      t [mm]     OD [mm]
-     1      0.8000      61.290
-     2      0.8000      61.290
-     3      0.8000      61.290
-     4      0.8000      61.290
-     5      0.8000      45.952
+     1      0.8000      61.455
+     2      0.8000      61.455
+     3      0.8000      61.455
+     4      0.8000      61.455
+     5      0.8000      46.028
      6      0.8000      30.000
 ----------------------------------------------------------------
   REAR SPAR SEGMENTS

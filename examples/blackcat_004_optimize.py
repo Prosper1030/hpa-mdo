@@ -64,6 +64,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "design with the Phase I solver to verify constraints."
         ),
     )
+    parser.add_argument(
+        "--config",
+        default=None,
+        help=(
+            "Path to an alternate HPAConfig YAML (e.g. one produced by "
+            "scripts/analyze_vsp.py). Defaults to configs/blackcat_004.yaml."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -76,9 +84,12 @@ def main(argv: list[str] | None = None) -> float:
     # ====================================================================
     # The YAML file specifies wing geometry, flight conditions, material
     # properties, segment definitions, and file paths for VSPAero data.
-    config_path = (
-        Path(__file__).resolve().parent.parent / "configs" / "blackcat_004.yaml"
-    )
+    if args.config:
+        config_path = Path(args.config).resolve()
+    else:
+        config_path = (
+            Path(__file__).resolve().parent.parent / "configs" / "blackcat_004.yaml"
+        )
     print(f"[1/8] Loading config: {config_path}")
     cfg = load_config(config_path)
     print(f"       Project : {cfg.project_name}")

@@ -150,6 +150,25 @@ python scripts/run_optimization.py --config configs/blackcat_004.yaml
 
 stdout 的最後一行永遠為 `val_weight: <float>`（最佳化後全翼展翼梁系統質量，單位 kg），作為上游 AI 代理迴圈的目標函數值。
 
+### 用你自己的 VSP 試跑（Generic VSP intake）
+
+只要 `.vsp3` 遵循「主翼（XZ 對稱）＋ 水平尾（XZ 對稱）＋ 垂直尾」的標準
+慣例，可以直接讓管線自動抽幾何、產 config、跑最佳化，不用手改 YAML：
+
+```bash
+python scripts/analyze_vsp.py --vsp path/to/any.vsp3
+```
+
+搭配選項：
+
+- `--no-run`：只產 `output/<vsp_stem>/resolved_config.yaml`，不跑求解器。
+- `--template configs/my.yaml`：用自己的工程參數模板（預設沿用
+  `configs/blackcat_004.yaml` 的材料、安全係數、翼梁分段）。
+- `--dump-summary out.json`：把 VSP 解析結果落地成 JSON 供偵錯。
+
+辨識規則見 `src/hpa_mdo/aero/vsp_introspect.py`；完整 Phase 1 限制與
+Phase 2 計畫見 `docs/hi_fidelity_validation_stack.md`。
+
 ---
 
 ## Dual-Beam Decision Producer
