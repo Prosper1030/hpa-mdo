@@ -515,12 +515,44 @@ class SU2Config(BaseModel):
     cfg_template: Optional[str] = None
 
 
+class ASWINGRunConfig(BaseModel):
+    """ASWING nonlinear aeroelastic runner (M-ASWING)."""
+    enabled: bool = False
+    binary: Optional[str] = Field(
+        None,
+        description="Path to aswing binary; auto-detected from PATH if null.",
+    )
+    timeout_s: int = Field(
+        600,
+        description="Subprocess timeout [s] before ASWING is killed.",
+        gt=0,
+    )
+    n_panels: int = Field(
+        20,
+        description="ASWING spanwise vortex panels per wing half-span.",
+        gt=0,
+    )
+    vinf_mps: Optional[float] = Field(
+        None,
+        description="Trim airspeed [m/s]; null inherits from flight.velocity.",
+    )
+    warn_threshold_pct: float = Field(
+        10.0,
+        description=(
+            "Percentage difference above which the ASWING vs MDO comparison "
+            "is flagged WARN (not an error) in the report."
+        ),
+        gt=0.0,
+    )
+
+
 class HiFidelityConfig(BaseModel):
     """External solver stack for last-mile validation on Apple Silicon."""
     gmsh: GmshConfig = GmshConfig()
     calculix: CalculiXConfig = CalculiXConfig()
     paraview: ParaViewConfig = ParaViewConfig()
     su2: SU2Config = SU2Config()
+    aswing: ASWINGRunConfig = ASWINGRunConfig()
 
 
 # ── Mass / CG / Inertia budget (M14) ────────────────────────────────────────

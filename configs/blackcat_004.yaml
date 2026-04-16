@@ -253,6 +253,13 @@ hi_fidelity:
     enabled: false               # planned, not yet implemented
     binary: null
     cfg_template: null
+  aswing:
+    enabled: false               # set true + binary path on Mac mini with ASWING installed
+    binary: null                 # e.g. /usr/local/bin/aswing
+    timeout_s: 600
+    n_panels: 20                 # vortex panels per half-span
+    vinf_mps: null               # null → inherit from flight.velocity (6.5 m/s)
+    warn_threshold_pct: 10.0     # % diff before WARN in comparison report
 
 # ── Mass / CG / Inertia Budget (M14) ───────────────────────────────────────
 # Coordinate frame: +X aft (toward tail, matching the current project
