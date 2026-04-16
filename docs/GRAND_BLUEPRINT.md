@@ -3,12 +3,12 @@
 > **文件性質**：最高指導文件 — 定義專案從求解器核心到全自動化設計 App 的五階段演進路線。  
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
-> **最後更新**：2026-04-15  
-> **狀態**：Phase I-B M6-M9、M11 CLT 全數完成；接下來四條主線並行：
-> (1) M-HF 高保真驗證層（Mac mini 本機，M-HF1/2/3 ✅，M-HF4/5 待做）
-> (2) M10 ASWING 非線性氣動彈（評估中）
-> (3) M12 控制 β 約束 → M13 控制矩陣輸出（新增）
-> (4) M-VSP 通用 VSP 輸入（Phase 1 ✅, Phase 2 規劃中）+ M14 質量/CG 預算（新增）
+> **最後更新**：2026-04-17
+> **狀態**：Phase I-B M6-M9、M11 CLT、M13、M14、M-VSP Phase 2 已完成；接下來主線聚焦：
+> (1) Generic VSP intake 的控制面 / 翼型 / 幾何真值真正接進 AVL / ASWING 下游
+> (2) M10 ASWING 非線性氣動彈實機驗證（seed/export/runner 已有，待 binary）
+> (3) P4#18 surrogate warm start（目前真正未開工的大項）
+> (4) vendor / hardware catalog 資料化與必要 crossover sweep
 
 ---
 
@@ -744,21 +744,26 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | refresh 主線不再綁死 specimen-only map | 9f 已可在 refresh iteration 中重建 reduced design space；這次 light case 雖未改變 final mass，但 search bounds 已動態收斂 |
 | lightweight refresh path 已具備收斂外圈 | 9g 已能以 load/mass delta 作為停機條件；剩餘差距主要是外部 aero rerun 與 trim update |
 
-### 下一步（優先順序，2026-04-15 重排）
+### 下一步（優先順序，2026-04-17 repo 現況校正）
+
+2026-04-17 交叉檢查後，下列項目已不再列為主待辦：
+
+- `F-Layup` 已接進主管線，`examples/blackcat_004_optimize.py --discrete-layup` 可跑（`20a5d4f`）。
+- `F13` Tsai-Wu / CLT layup pipeline 已完成並有對應測試。
+- `M-HF4` ParaView state generator 已完成（`4c33136`）。
+- `M-HF5` Gmsh named `NSET`（`ROOT` / `TIP` / `WIRE_N`）已完成（`725bb4c`）。
+- `M13` AVL controls matrix exporter 已完成（`1edc805`）。
+- `M14` mass / CG / inertia budget + AVL `.mass` exporter 已完成（`ae8880d`）。
+- `8d` tail / fin schema 與 runtime model 已完成，`Aircraft.from_config()` 已可直接帶出尾翼/垂尾。
+- `M-VSP Phase 2` 已完成；`analyze_vsp.py` + `vsp_to_avl.py` 支援 VSP 優先 / YAML fallback。
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **0** | **F-Layup: 離散疊層接進主管線 + summary 印疊層表（師傅看得懂）** | F-series | Codex | ⏭️ **NEXT** |
-| **1** | M-HF5: Gmsh Physical Group → NSET | M-HF | Codex | ⏭️ 基礎穩健化 |
-| **2** | F13: Tsai-Wu 取代 von Mises（CFRP 破壞準則） | F-series | Codex | ⏭️ 次要 |
-| **3** | M13a-c: AVL 全套 stability + control derivative 矩陣抽取 | M13 | Codex | ⏭️ 控制組優先 |
-| **4** | M14a-d: mass/CG/inertia budget + AVL .mass 輸出 | M14 | Codex | ⏭️ 系統整合 |
-| **5** | M10a-b: ASWING 安裝 + .asw 產生器 | M10 | 使用者（ASWING compile）+ Codex | ❌ 等 ASWING binary |
-| **6** | M-HF4: ParaView state generator | M-HF | Codex | ⏭️ QoL |
-| **7** | M-VSP Phase 2: 翼型 / 控制面 / 分段縮放 | M-VSP | Codex | ✅ 已完成；`analyze_vsp.py` + `vsp_to_avl.py` 支援 VSP 優先 / YAML fallback |
-| **8** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可與 M14 併做 |
-| **9** | focused crossover sweep（1.5→2.2，如需） | M9 | 規劃中 | ⏭️ 可選 |
-| **10** | real vendor catalog / hardware catalog | M9+ | 規劃中 | ⏭️ 後續資料化 |
+| **0** | **M-VSP 下游整合：把 `controls.json` / airfoil / geometry 真正接進 AVL / ASWING exporter，收掉 `avl_exporter.py` 對 elevator / rudder 的 hard-coded 假設** | M-VSP + M13 + M10 | Codex | ⏭️ **NEXT** |
+| **1** | M10 實機驗證：ASWING binary install + seed/run/report cross-validation（exporter / runner 已有） | M10 | 使用者（ASWING compile）+ Codex | ⏭️ 等 binary 後立即做 |
+| **2** | P4#18 surrogate warm start（GP / XGBoost optional dependency） | Phase III bridge | Codex | ⬜ 真正未開工 |
+| **3** | real vendor catalog / hardware catalog 資料化，讓 discrete OD / rigging ranking 更接近採購現實 | M9+ | 規劃中 | ⏭️ 後續資料化 |
+| **4** | focused crossover sweep（1.5→2.2）只在 vendor catalog 或新幾何改變 ranking 時再跑 | M9 | 規劃中 | ⏭️ 有需要再做 |
 
 > **P0/P1 參考資料交付期限**：見 `docs/hi_fidelity_validation_stack.md` 「高保真驗證層參考資料清單」。
 > 近期最急：CalculiX 2.22 manual、Gmsh reference、OpenVSP API、AVL 3.40 manual、ASWING manual。
@@ -790,13 +795,15 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 ### 關鍵路徑
 
 ```
-8d (config schema extension)
-   → 將 tail / fin 幾何正式接入 YAML 與 runtime model
-   → 為 M10 ASWING / 全機幾何一致性做收尾
+M-VSP Phase 2（已完成）
+   → 把 controls / airfoil / section schedule 真正餵進 AVL / ASWING
+   → 消除 VSP 與 YAML / exporter 間的幾何分叉
 
-並行補完：8d (config schema extension，tail/fin 幾何進 YAML/runtime model)
+並行補完：M10 binary-ready validation
+   → 有 ASWING binary 後做 trim / deflection / CL cross-check report
 
-未來：10a-e (ASWING) — 非線性氣動彈性驗證，取代/補強 AVL
+中期：P4#18 surrogate warm start
+   → 把 Phase I data collector 接到 optional surrogate backend
 ```
 
 ### Daedalus 參考數據（來自文獻，用於交叉驗證）

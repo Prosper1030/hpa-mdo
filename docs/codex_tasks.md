@@ -1,6 +1,6 @@
 # HPA-MDO 專案 Review 與優化清單
 
-> 產出日期：2026-04-07｜最後更新：2026-04-08（**Milestone 1：多工況最佳化 + C 級清道夫行動完成**）
+> 產出日期：2026-04-07｜最後更新：2026-04-17（**repo 現況校正：已完成項目同步到 backlog**）
 > 基於完整原始碼靜態分析
 
 ## 整體評價
@@ -151,8 +151,9 @@
 ### 19. GitHub Actions CI ✅
 ### 20. pre-commit hooks ✅
 ### 21. README mermaid 架構圖 ✅
-### 22. 範例輸出快照 ⬜ 待做
-- `docs/examples/` 放 optimization_summary.txt、beam_analysis.png
+### 22. 範例輸出快照 ✅
+- `docs/examples/` 已納入 `optimization_summary.txt`、`beam_analysis.png`
+- 最近一次 baseline 對齊：`9c21265`、`322bb0d`
 ### 23. CLI 工具化 ✅
 - argparse（--config、--output-dir、--quiet、--no-export、--aoa）✅
 - `hpa-optimize` entry point ✅
@@ -272,6 +273,18 @@
 
 所有 prompt 檔皆位於 `docs/codex_prompts/`，採「自包含」格式：所需公式、檔案路徑、
 驗收標準全部寫死，Codex 不需要先自己 grep。
+
+## 2026-04-17 建議接續（repo 現況校正版）
+
+以下清單是我之後會優先回來看的 backlog，依目前 code / tests / docs 交叉檢查後重排：
+
+| # | 任務 | 為什麼值得做 | 狀態 |
+|---|------|--------------|------|
+| A | **Generic VSP controls 真正接進 AVL / ASWING exporter** | `analyze_vsp.py` 已能寫 `controls.json`，但 `avl_exporter.py` 仍 hard-code elevator / rudder，generic downstream 還沒接通 | **NEXT** |
+| B | **ASWING binary cross-validation** | `.asw` exporter、runner、validation script 都在；真正缺的是有 binary 的實跑對比與報告 | 等 binary |
+| C | **P4#18 surrogate warm start** | 目前唯一明確還沒開工的大功能項；可直接吃既有 data collector / campaign 資料 | 待做 |
+| D | **real vendor / hardware catalog 資料化** | 現在 discrete OD / rigging ranking 仍帶 proxy 味道，離採購 reality 還差最後一段 | 後續 |
+| E | **focused crossover sweep（1.5→2.2）** | 只有在 vendor catalog 或新幾何讓 ranking 接近交叉時才值得補跑 | 視需要 |
 
 ---
 
