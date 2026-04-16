@@ -417,9 +417,8 @@ def _beam_block(
         )
     )
 
-    control_index = _control_index(surface)
-    if control_index is not None:
-        sign = -1.0 if control_index == 3 else 1.0
+    for control_name, control_index in _control_indices(surface):
+        sign = -1.0 if "rudd" in control_name.lower() else 1.0
         lines.extend(
             _distribution_block(
                 f"t dCLdF{control_index:d} dCMdF{control_index:d}",
@@ -554,19 +553,45 @@ def _is_wing_surface(surface: AVLSurface) -> bool:
     return name in {"wing", "mainwing"}
 
 
-def _control_index(surface: AVLSurface) -> int | None:
-    controls = " ".join(
+def _control_indices(surface: AVLSurface) -> list[tuple[str, int]]:
+    controls = [
         control.lower()
         for section in surface.sections
         for control in section.controls
-    )
-    if "elev" in controls:
-        return 2
-    if "rud" in controls:
-        return 3
-    if controls:
-        return 1
-    return None
+    ]
+    if not controls:
+        return []
+
+    ordered_unique = list(dict.fromkeys(controls))
+    index_by_name = {
+        "aileron": 1,
+        "elevator": 2,
+        "rudder": 3,
+        "flap": 4,
+        "spoiler": 5,
+    }
+    next_generic_index = 6
+    resolved: list[tuple[str, int]] = []
+    for control in ordered_unique:
+        control_key = control.lower()
+        if "ail" in control_key:
+            resolved.append((control, index_by_name["aileron"]))
+            continue
+        if "elev" in control_key:
+            resolved.append((control, index_by_name["elevator"]))
+            continue
+        if "rudd" in control_key:
+            resolved.append((control, index_by_name["rudder"]))
+            continue
+        if "flap" in control_key:
+            resolved.append((control, index_by_name["flap"]))
+            continue
+        if "spoil" in control_key:
+            resolved.append((control, index_by_name["spoiler"]))
+            continue
+        resolved.append((control, next_generic_index))
+        next_generic_index += 1
+    return resolved
 
 
 def _interpolate_xz_at_y(surface: AVLSurface, y_target: float) -> tuple[float, float]:

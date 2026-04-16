@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import textwrap
 
 import pytest
 
@@ -72,3 +73,68 @@ def test_export_aswing_writes_seed_blocks(tmp_path: Path) -> None:
     assert "Beam 3 Fin" in text
     assert "-0.7 0.7 7 0 -0.7 0.3" in text
     assert "# t dCLdF3 dCMdF3" in text
+
+
+def test_export_aswing_preserves_multiple_generic_wing_controls(tmp_path: Path) -> None:
+    avl_path = tmp_path / "wing_controls.avl"
+    avl_path.write_text(
+        textwrap.dedent(
+            """\
+            Wing Controls Demo
+            #Mach
+            0.000000
+            #IYsym  iZsym  Zsym
+            0  0  0.000000
+            #Sref  Cref  Bref
+            30.000000000  1.000000000  20.000000000
+            #Xref  Yref  Zref
+            0.250000000  0.000000000  0.000000000
+            #CDp
+            0.000000
+            #
+            SURFACE
+            Wing
+            12  1.0  30  -2.0
+            #
+            COMPONENT
+            1
+            YDUPLICATE
+            0.0
+            #
+            SECTION
+            0.000000000  0.000000000  0.000000000  1.300000000  0.000000000
+            NACA
+            2412
+            #
+            SECTION
+            0.000000000  6.000000000  0.200000000  0.900000000  0.000000000
+            NACA
+            2412
+            CONTROL
+            flap  1.0  0.700000  0.0 0.0 0.0  1.0
+            #
+            SECTION
+            0.000000000  10.000000000  0.500000000  0.600000000  0.000000000
+            NACA
+            2412
+            CONTROL
+            aileron  1.0  0.750000  0.0 0.0 0.0  -1.0
+            #
+            """
+        ),
+        encoding="utf-8",
+    )
+    cfg = load_config(CONFIG_PATH, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    output_path = tmp_path / "wing_controls.asw"
+
+    export_aswing(
+        avl_path,
+        cfg,
+        output_path,
+        materials_db=MaterialDB(MATERIALS_PATH),
+    )
+
+    text = output_path.read_text(encoding="utf-8")
+    assert "Beam 1 Wing" in text
+    assert "# t dCLdF1 dCMdF1" in text
+    assert "# t dCLdF4 dCMdF4" in text
