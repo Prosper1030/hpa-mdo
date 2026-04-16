@@ -14,6 +14,7 @@ def export_avl(
     geometry: VSPGeometryModel,
     output_path: Path,
     *,
+    title: str | None = None,
     sref: float | None = None,
     cref: float | None = None,
     bref: float | None = None,
@@ -48,7 +49,7 @@ def export_avl(
     # NOT be duplicated.
 
     lines: list[str] = [
-        "Generated from VSP3 geometry",
+        title or "Generated from geometry",
         "#Mach",
         f"{float(mach):.6f}",
         "#IYsym  iZsym  Zsym",
@@ -181,7 +182,7 @@ def _surface_area(surface: VSPSurface) -> float:
         y = np.asarray([float(section.y_le) for section in sections], dtype=float)
         chord = np.asarray([float(section.chord) for section in sections], dtype=float)
         order = np.argsort(y)
-        base_area = float(abs(np.trapz(chord[order], y[order])))
+        base_area = float(abs(np.trapezoid(chord[order], y[order])))
     if surface.symmetry == "xz":
         base_area *= 2.0
     return float(base_area)

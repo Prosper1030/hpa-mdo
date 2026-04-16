@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Convert an OpenVSP .vsp3 geometry file into an AVL .avl model file."""
+"""Convert aircraft geometry into an AVL ``.avl`` model file.
+
+Prefers a reference ``.vsp3`` when available; otherwise falls back to
+geometry declared in a YAML config.
+"""
 
 from __future__ import annotations
 
@@ -12,14 +16,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hpa_mdo.aero.avl_exporter import export_avl
-from hpa_mdo.aero.vsp_geometry_parser import VSPGeometryParser
+from hpa_mdo.aero.vsp_geometry_parser import VSPGeometryParser, geometry_model_from_config
+from hpa_mdo.core.config import load_config
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Parse VSP3 XML geometry and export an AVL model file."
+        description=(
+            "Export an AVL model from a reference .vsp3 when available, "
+            "otherwise from YAML geometry."
+        )
     )
-    parser.add_argument("--vsp3", required=True, help="Path to source .vsp3 file.")
+    parser.add_argument(
+        "--vsp3",
+        default=None,
+        help="Path to source .vsp3 file. Overrides config io.vsp_model when provided.",
+    )
+    parser.add_argument(
+        "--config",
+        default=None,
+        help=(
+            "Optional YAML config. If --vsp3 is omitted, the script will try "
+            "config.io.vsp_model first, then fall back to YAML geometry."
+        ),
+    )
     parser.add_argument("--output", required=True, help="Path to output .avl file.")
     parser.add_argument("--sref", type=float, default=None)
     parser.add_argument("--cref", type=float, default=None)
@@ -39,14 +59,39 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
-    vsp3_path = Path(args.vsp3).expanduser().resolve()
     output_path = Path(args.output).expanduser().resolve()
+    cfg = load_config(args.config) if args.config is not None else None
 
-    parser = VSPGeometryParser(vsp3_path)
-    geometry = parser.parse()
+    explicit_vsp = None
+    if args.vsp3 is not None:
+        explicit_vsp = Path(args.vsp3).expanduser().resolve()
+        if not explicit_vsp.is_file():
+            raise FileNotFoundError(f"VSP3 file not found: {explicit_vsp}")
+
+    config_vsp = None
+    if cfg is not None and cfg.io.vsp_model is not None:
+        candidate = Path(cfg.io.vsp_model).expanduser()
+        if candidate.is_file():
+            config_vsp = candidate.resolve()
+
+    source_vsp = explicit_vsp or config_vsp
+    if source_vsp is not None:
+        geometry = VSPGeometryParser(source_vsp).parse()
+        source_label = str(source_vsp)
+    elif cfg is not None:
+        geometry = geometry_model_from_config(cfg)
+        source_label = f"config:{Path(args.config).expanduser().resolve()}"
+    else:
+        raise ValueError("Provide --vsp3 or --config so geometry can be resolved.")
+
+    airfoil_dir = args.airfoil_dir
+    if airfoil_dir is None and cfg is not None and cfg.io.airfoil_dir is not None:
+        airfoil_dir = str(cfg.io.airfoil_dir)
+
     avl_path = export_avl(
         geometry=geometry,
         output_path=output_path,
+        title=cfg.project_name if cfg is not None else None,
         sref=args.sref,
         cref=args.cref,
         bref=args.bref,
@@ -54,10 +99,11 @@ def main(argv: list[str] | None = None) -> int:
         yref=args.yref,
         zref=args.zref,
         mach=args.mach,
-        airfoil_dir=args.airfoil_dir,
+        airfoil_dir=airfoil_dir,
     )
 
     print(f"Wrote AVL model: {avl_path}")
+    print(f"Geometry source: {source_label}")
     for surface in geometry.surfaces:
         print(
             f"  {surface.name}: type={surface.surface_type}, "

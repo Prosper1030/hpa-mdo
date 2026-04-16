@@ -1,4 +1,8 @@
-"""Parse OpenVSP .vsp3 XML files into a simple geometry model."""
+"""Parse OpenVSP .vsp3 XML files into a simple geometry model.
+
+The same geometry model is also used as a neutral in-memory shape for
+YAML-defined aircraft when no reference ``.vsp3`` is available.
+"""
 
 from __future__ import annotations
 
@@ -73,6 +77,167 @@ class VSPGeometryModel:
             if surface.surface_type == "v_fin":
                 return surface
         return None
+
+
+def geometry_model_from_config(cfg) -> VSPGeometryModel:
+    """Build a geometry model from ``HPAConfig`` when no VSP file exists.
+
+    This provides a YAML fallback path so downstream exporters can use a
+    single geometry representation regardless of whether the source of
+    truth is a reference ``.vsp3`` or the config file.
+    """
+    from hpa_mdo.aero.vsp_builder import VSPBuilder
+
+    builder = VSPBuilder(cfg)
+    wing_schedule = builder._config_wing_section_schedule()
+    surfaces = [
+        VSPSurface(
+            name="MainWing",
+            surface_type="wing",
+            origin=(0.0, 0.0, 0.0),
+            rotation=(0.0, 0.0, 0.0),
+            symmetry="xz",
+            sections=_wing_sections_from_schedule(wing_schedule),
+        )
+    ]
+
+    h_tail = _surface_from_config(
+        name=cfg.horizontal_tail.name,
+        surface_type="h_stab",
+        x_location=cfg.horizontal_tail.x_location,
+        y_location=cfg.horizontal_tail.y_location,
+        z_location=cfg.horizontal_tail.z_location,
+        span=cfg.horizontal_tail.span,
+        root_chord=cfg.horizontal_tail.root_chord,
+        tip_chord=cfg.horizontal_tail.tip_chord,
+        airfoil=cfg.horizontal_tail.airfoil,
+        incidence_deg=cfg.horizontal_tail.incidence_deg,
+        rotation_deg=(
+            cfg.horizontal_tail.x_rotation_deg,
+            cfg.horizontal_tail.y_rotation_deg,
+            cfg.horizontal_tail.z_rotation_deg,
+        ),
+        symmetry=cfg.horizontal_tail.symmetry,
+        enabled=cfg.horizontal_tail.enabled,
+    )
+    if h_tail is not None:
+        surfaces.append(h_tail)
+
+    v_fin = _surface_from_config(
+        name=cfg.vertical_fin.name,
+        surface_type="v_fin",
+        x_location=cfg.vertical_fin.x_location,
+        y_location=cfg.vertical_fin.y_location,
+        z_location=cfg.vertical_fin.z_location,
+        span=cfg.vertical_fin.span,
+        root_chord=cfg.vertical_fin.root_chord,
+        tip_chord=cfg.vertical_fin.tip_chord,
+        airfoil=cfg.vertical_fin.airfoil,
+        incidence_deg=cfg.vertical_fin.incidence_deg,
+        rotation_deg=(
+            cfg.vertical_fin.x_rotation_deg,
+            cfg.vertical_fin.y_rotation_deg,
+            cfg.vertical_fin.z_rotation_deg,
+        ),
+        symmetry=cfg.vertical_fin.symmetry,
+        enabled=cfg.vertical_fin.enabled,
+    )
+    if v_fin is not None:
+        surfaces.append(v_fin)
+
+    return VSPGeometryModel(surfaces=surfaces)
+
+
+def _wing_sections_from_schedule(schedule: list[dict[str, float | str]]) -> list[VSPSection]:
+    sections: list[VSPSection] = []
+    if not schedule:
+        return sections
+
+    z_stations: list[float] = [float(schedule[0].get("z_m", 0.0))]
+    for idx in range(1, len(schedule)):
+        right = schedule[idx]
+        if "z_m" in right:
+            z_stations.append(float(right["z_m"]))
+            continue
+
+        left = schedule[idx - 1]
+        dy = float(right["y"]) - float(left["y"])
+        local_dih = float(
+            right.get(
+                "segment_dihedral_deg",
+                0.5 * (float(left["dihedral_deg"]) + float(right["dihedral_deg"])),
+            )
+        )
+        z_stations.append(z_stations[-1] + dy * math.tan(math.radians(local_dih)))
+
+    for item, z_m in zip(schedule, z_stations):
+        sections.append(
+            VSPSection(
+                x_le=0.0,
+                y_le=float(item["y"]),
+                z_le=float(z_m),
+                chord=float(item["chord"]),
+                twist=0.0,
+                airfoil=str(item.get("airfoil") or "NACA 0012"),
+            )
+        )
+    return sections
+
+
+def _surface_from_config(
+    *,
+    name: str,
+    surface_type: str,
+    x_location: float,
+    y_location: float,
+    z_location: float,
+    span: float,
+    root_chord: float,
+    tip_chord: float,
+    airfoil: str,
+    incidence_deg: float,
+    rotation_deg: tuple[float, float, float],
+    symmetry: str,
+    enabled: bool,
+) -> VSPSurface | None:
+    if not enabled:
+        return None
+
+    origin = (float(x_location), float(y_location), float(z_location))
+    span_extent = 0.5 * float(span) if symmetry == "xz" else float(span)
+    tip_local = (0.0, span_extent, 0.0)
+    tip_rotated = VSPGeometryParser._rotate_point(tip_local, rotation_deg)
+    tip_global = (
+        origin[0] + tip_rotated[0],
+        origin[1] + tip_rotated[1],
+        origin[2] + tip_rotated[2],
+    )
+
+    return VSPSurface(
+        name=str(name),
+        surface_type=surface_type,
+        origin=origin,
+        rotation=tuple(float(v) for v in rotation_deg),
+        symmetry=str(symmetry),
+        sections=[
+            VSPSection(
+                x_le=origin[0],
+                y_le=origin[1],
+                z_le=origin[2],
+                chord=float(root_chord),
+                twist=float(incidence_deg),
+                airfoil=str(airfoil),
+            ),
+            VSPSection(
+                x_le=tip_global[0],
+                y_le=tip_global[1],
+                z_le=tip_global[2],
+                chord=float(tip_chord),
+                twist=float(incidence_deg),
+                airfoil=str(airfoil),
+            ),
+        ],
+    )
 
 
 class VSPGeometryParser:
