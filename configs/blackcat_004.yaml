@@ -71,12 +71,12 @@ wing:
 horizontal_tail:
   enabled: true
   name: "Elevator"
-  x_location: 4.0
+  x_location: 6.5            # extended tail arm: L_arm/c_ref≈5.5 (Daedalus-proportional)
   y_location: 0.0
   z_location: 0.0
-  span: 3.0                  # full span [m]
-  root_chord: 0.8
-  tip_chord: 0.8
+  span: 4.0                  # full span [m] — enlarged for VH≈0.55
+  root_chord: 0.9
+  tip_chord: 0.9
   airfoil: "NACA 0009"
   incidence_deg: 0.0
   x_rotation_deg: 0.0
@@ -89,7 +89,7 @@ horizontal_tail:
 vertical_fin:
   enabled: true
   name: "Fin"
-  x_location: 5.0
+  x_location: 7.0            # moved aft with HT
   y_location: 0.0
   z_location: -0.7
   span: 2.4                  # vertical extent [m]
@@ -259,17 +259,17 @@ mass_budget:
 
   pilot:
     m_kg: 56.0
-    xyz_m: [1.60, 0.0, -0.50]
+    xyz_m: [0.40, 0.0, -0.50]   # recumbent under main spar — Daedalus-style pod
     sigma_kg: 2.0
     principal_inertia_kgm2: [4.0, 12.0, 10.0]
-    notes: "pilot + clothing + hydration"
+    notes: "pilot + clothing + hydration; recumbent, CG at 35% chord behind LE"
     source: estimated
 
   fuselage_structure:
     m_kg: 11.0
-    xyz_m: [2.10, 0.0, -0.15]
+    xyz_m: [1.50, 0.0, -0.15]   # pod heavy, tail boom is light CF tube; CG forward
     sigma_kg: 1.2
-    notes: "boom, pod shell, seat frame, local reinforcements"
+    notes: "cockpit pod + tail boom; pod dominates mass, slender boom extends to tail"
     source: estimated
 
   wing_secondary_structure:
@@ -281,29 +281,29 @@ mass_budget:
 
   drivetrain:
     m_kg: 3.4
-    xyz_m: [1.20, 0.0, -0.25]
+    xyz_m: [0.80, 0.0, -0.25]   # BB/crank at pilot's feet, chain runs aft
     sigma_kg: 0.3
     notes: "crank, chain, bearings, shafting"
     source: estimated
 
   propeller:
     m_kg: 0.9
-    xyz_m: [3.75, 0.0, 0.0]
+    xyz_m: [1.80, 0.0, 0.0]     # pusher prop mounted directly behind cockpit pod
     sigma_kg: 0.1
     principal_inertia_kgm2: [0.020, 0.040, 0.040]
-    notes: "blades + hub"
+    notes: "pusher blades + hub; located aft of cockpit pod"
     source: vendor
 
   empennage:
     m_kg: 2.4
-    xyz_m: [5.20, 0.0, -0.05]
+    xyz_m: [6.80, 0.0, -0.05]   # HT at 6.5m, fin at 7.0m → CG at 6.8m
     sigma_kg: 0.3
     notes: "horizontal tail, fin, rudder/elevator structure"
     source: estimated
 
   controls:
     m_kg: 0.8
-    xyz_m: [3.20, 0.0, -0.10]
+    xyz_m: [3.50, 0.0, -0.10]   # cables run full tail-boom length ~7m
     sigma_kg: 0.1
     notes: "control cables, horns, guides, return springs"
     source: estimated
@@ -324,7 +324,7 @@ mass_budget:
 
   payload:
     m_kg: 0.25
-    xyz_m: [1.60, 0.0, -0.45]
+    xyz_m: [0.40, 0.0, -0.45]   # in cockpit with pilot
     sigma_kg: 0.05
     notes: "water bottle / emergency items"
     source: estimated
