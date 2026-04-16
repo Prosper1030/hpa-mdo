@@ -41,7 +41,12 @@ def _candidate(
     twist: float,
     tip_defl: float,
     main_hollow_margin_min: float = 1.0,
+    main_thickness_step_margin_min: float = 1.0,
 ) -> dict[str, float]:
+    # NOTE: `_is_eval_valid` requires every "required" margin key to be
+    # finite — `float("inf")` fails `np.isfinite()`.  Use large finite
+    # sentinels (1e6) for non-required margins just to stay consistent.
+    _BIG = 1.0e6
     return {
         "mass": mass,
         "failure": failure,
@@ -49,11 +54,14 @@ def _candidate(
         "twist": twist,
         "tip_defl": tip_defl,
         "main_hollow_margin_min": main_hollow_margin_min,
-        "rear_hollow_margin_min": float("inf"),
-        "radius_dominance_margin_min": float("inf"),
-        "ei_dominance_margin_min": float("inf"),
-        "ei_ratio_margin_min": float("inf"),
-        "rear_inboard_ei_margin_min": float("inf"),
+        "main_thickness_step_margin_min": main_thickness_step_margin_min,
+        "rear_hollow_margin_min": _BIG,
+        "rear_thickness_step_margin_min": _BIG,
+        "rear_main_radius_ratio_margin_min": _BIG,
+        "radius_dominance_margin_min": _BIG,
+        "ei_dominance_margin_min": _BIG,
+        "ei_ratio_margin_min": _BIG,
+        "rear_inboard_ei_margin_min": _BIG,
     }
 
 
