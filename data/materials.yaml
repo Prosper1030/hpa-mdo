@@ -15,6 +15,13 @@ carbon_fiber_hm:
   compressive_strength: 1500.0e6
   poisson_ratio: 0.27
   description: "Toray M46J class HM CF tube layup"
+  # Tsai-Wu lamina strength parameters (for anisotropic failure criteria)
+  # Source: conservative M46J UD ply values; tube-level effective strengths.
+  F1t: 1500.0e6    # longitudinal tensile  [Pa]
+  F1c: 1000.0e6    # longitudinal compressive [Pa]  (HM CF weaker in compression)
+  F2t:   50.0e6    # transverse tensile    [Pa]  (matrix-dominated)
+  F2c:  200.0e6    # transverse compressive [Pa]
+  F6:    70.0e6    # in-plane shear strength [Pa]
 
 carbon_fiber_std:
   name: "Standard-Modulus Carbon Fiber"
@@ -25,6 +32,12 @@ carbon_fiber_std:
   compressive_strength: 1200.0e6
   poisson_ratio: 0.30
   description: "T300/T700 class CF"
+  # Tsai-Wu lamina strength parameters
+  F1t: 1200.0e6    # longitudinal tensile  [Pa]
+  F1c:  800.0e6    # longitudinal compressive [Pa]
+  F2t:   50.0e6    # transverse tensile    [Pa]
+  F2c:  200.0e6    # transverse compressive [Pa]
+  F6:    70.0e6    # in-plane shear strength [Pa]
 
 carbon_fiber_im:
   name: "Intermediate-Modulus Carbon Fiber"
@@ -35,6 +48,12 @@ carbon_fiber_im:
   compressive_strength: 1400.0e6
   poisson_ratio: 0.28
   description: "T800/IM7 class CF"
+  # Tsai-Wu lamina strength parameters
+  F1t: 1400.0e6    # longitudinal tensile  [Pa]
+  F1c:  900.0e6    # longitudinal compressive [Pa]
+  F2t:   50.0e6    # transverse tensile    [Pa]
+  F2c:  200.0e6    # transverse compressive [Pa]
+  F6:    70.0e6    # in-plane shear strength [Pa]
 
 aluminum_6061_t6:
   name: "Aluminum 6061-T6"

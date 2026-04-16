@@ -407,6 +407,21 @@ class SolverConfig(BaseModel):
     fsi_tol: float = 1e-3
 
 
+class StructureConfig(BaseModel):
+    """Structural solver options beyond what SolverConfig carries."""
+
+    failure_criterion: Literal["von_mises", "tsai_hill", "tsai_wu"] = Field(
+        "von_mises",
+        description=(
+            "Failure criterion applied to spar tube elements. "
+            "'von_mises' uses isotropic σ_vm ≤ σ_allow; "
+            "'tsai_hill' uses the Tsai-Hill anisotropic quadratic; "
+            "'tsai_wu' uses the full Tsai-Wu tensor polynomial. "
+            "Both composite criteria require F1t/F1c/F2t/F2c/F6 in materials.yaml."
+        ),
+    )
+
+
 class IOConfig(BaseModel):
     sync_root: Optional[Path] = None
     vsp_model: Optional[Path] = None
@@ -646,6 +661,7 @@ class HPAConfig(BaseModel):
     lift_wires: LiftWireConfig = LiftWireConfig()
     aero_gates: AeroGatesConfig = AeroGatesConfig()
     solver: SolverConfig = SolverConfig()
+    structure: StructureConfig = StructureConfig()
     io: IOConfig = IOConfig()
     aswing: ASWINGExportConfig = ASWINGExportConfig()
     hi_fidelity: HiFidelityConfig = HiFidelityConfig()

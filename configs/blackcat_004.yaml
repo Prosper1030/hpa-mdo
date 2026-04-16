@@ -184,6 +184,16 @@ lift_wires:
   attachments:
     - { y: 7.5, fuselage_z: -1.5, label: "wire-1" }
 
+# ── Structural Solver Options ───────────────────────────────────────────────
+#
+# failure_criterion controls which material failure criterion is used:
+#   "von_mises"  — isotropic σ_vm ≤ σ_allow (default, backward compatible)
+#   "tsai_hill"  — Tsai-Hill quadratic for UD CF plies
+#   "tsai_wu"    — full Tsai-Wu tensor polynomial (requires F1t/F1c/F2t/F2c/F6)
+#
+structure:
+  failure_criterion: "von_mises"
+
 # ── Solver Settings ─────────────────────────────────────────────────────────
 solver:
   n_beam_nodes: 60

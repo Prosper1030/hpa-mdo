@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 import openmdao.api as om
 
+from hpa_mdo.structure.failure_criteria import tsai_hill_index, tsai_wu_index
 from hpa_mdo.structure.fem.elements import _cs_norm, _rotation_matrix
 from hpa_mdo.structure.spar_model import tube_area
 
@@ -48,12 +49,17 @@ class VonMisesStressComp(om.ExplicitComponent):
         self.add_input("GJ", shape=(ne,), units="N*m**2")
 
         self.add_output("vonmises_main", shape=(ne,), units="Pa")
+        # Individual stress components for composite failure criteria
+        self.add_output("sigma_lon_main", shape=(ne,), units="Pa")
+        self.add_output("tau_main", shape=(ne,), units="Pa")
 
         if self.options["rear_enabled"]:
             self.add_input("R_rear_elem", shape=(ne,), units="m")
             self.add_input("rear_t_elem", shape=(ne,), units="m")
             self.add_input("I_rear", shape=(ne,), units="m**4")
             self.add_output("vonmises_rear", shape=(ne,), units="Pa")
+            self.add_output("sigma_lon_rear", shape=(ne,), units="Pa")
+            self.add_output("tau_rear", shape=(ne,), units="Pa")
 
         disp_rows = []
         disp_cols = []
@@ -78,6 +84,20 @@ class VonMisesStressComp(om.ExplicitComponent):
             ["nodes", "R_main_elem", "main_t_elem", "I_main", "EI_flap", "GJ"],
             method="cs",
         )
+        # Stress-component partials for composite criteria
+        for out_name in ("sigma_lon_main", "tau_main"):
+            self.declare_partials(
+                out_name,
+                "disp",
+                rows=self._disp_partial_rows,
+                cols=self._disp_partial_cols,
+                method="cs",
+            )
+            self.declare_partials(
+                out_name,
+                ["nodes", "R_main_elem", "main_t_elem", "I_main", "EI_flap", "GJ"],
+                method="cs",
+            )
         if self.options["rear_enabled"]:
             self.declare_partials(
                 "vonmises_rear",
@@ -91,6 +111,19 @@ class VonMisesStressComp(om.ExplicitComponent):
                 ["nodes", "R_rear_elem", "rear_t_elem", "I_rear"],
                 method="cs",
             )
+            for out_name in ("sigma_lon_rear", "tau_rear"):
+                self.declare_partials(
+                    out_name,
+                    "disp",
+                    rows=self._disp_partial_rows,
+                    cols=self._disp_partial_cols,
+                    method="cs",
+                )
+                self.declare_partials(
+                    out_name,
+                    ["nodes", "R_rear_elem", "rear_t_elem", "I_rear"],
+                    method="cs",
+                )
 
     def compute(self, inputs, outputs):
         nn = self.options["n_nodes"]
@@ -120,6 +153,8 @@ class VonMisesStressComp(om.ExplicitComponent):
 
         # Complex-step compatible: use du**2 instead of abs(du)
         sigma_vm_main = np.zeros(ne, dtype=disp.dtype)
+        sigma_lon_main_arr = np.zeros(ne, dtype=disp.dtype)
+        tau_main_arr = np.zeros(ne, dtype=disp.dtype)
         kappa2_elem = np.zeros(ne, dtype=disp.dtype)
         gamma2_elem = np.zeros(ne, dtype=disp.dtype)
 
@@ -168,15 +203,24 @@ class VonMisesStressComp(om.ExplicitComponent):
             # Torsion shear stress: τ = G * γ * R
             tau2 = (G_m * R_m[e]) ** 2 * gamma2
 
+            tau_e = np.sqrt(tau2 + 1e-30)
+            sigma_lon_e = sigma_bend + sigma_axial
+
             # Von Mises: σ_vm = sqrt((σ_bend + σ_axial)^2 + 3τ²)
-            sigma_vm_main[e] = np.sqrt((sigma_bend + sigma_axial) ** 2 + 3.0 * tau2 + 1e-30)
+            sigma_vm_main[e] = np.sqrt(sigma_lon_e ** 2 + 3.0 * tau2 + 1e-30)
+            sigma_lon_main_arr[e] = sigma_lon_e
+            tau_main_arr[e] = tau_e
 
         outputs["vonmises_main"] = sigma_vm_main
+        outputs["sigma_lon_main"] = sigma_lon_main_arr
+        outputs["tau_main"] = tau_main_arr
 
         if self.options["rear_enabled"]:
             G_r = self.options["G_rear"]
 
             sigma_vm_rear = np.zeros(ne, dtype=disp.dtype)
+            sigma_lon_rear_arr = np.zeros(ne, dtype=disp.dtype)
+            tau_rear_arr = np.zeros(ne, dtype=disp.dtype)
             for e in range(ne):
                 kappa2 = kappa2_elem[e]
                 gamma2 = gamma2_elem[e]
@@ -185,9 +229,15 @@ class VonMisesStressComp(om.ExplicitComponent):
                 sigma_bend = np.sqrt(sigma_bend2 + 1e-30)
                 sigma_axial = wire_precomp[e] / (A_r[e] + 1e-30)
                 tau2 = (G_r * R_r[e]) ** 2 * gamma2
-                sigma_vm_rear[e] = np.sqrt((sigma_bend + sigma_axial) ** 2 + 3.0 * tau2 + 1e-30)
+                tau_e = np.sqrt(tau2 + 1e-30)
+                sigma_lon_e = sigma_bend + sigma_axial
+                sigma_vm_rear[e] = np.sqrt(sigma_lon_e ** 2 + 3.0 * tau2 + 1e-30)
+                sigma_lon_rear_arr[e] = sigma_lon_e
+                tau_rear_arr[e] = tau_e
 
             outputs["vonmises_rear"] = sigma_vm_rear
+            outputs["sigma_lon_rear"] = sigma_lon_rear_arr
+            outputs["tau_rear"] = tau_rear_arr
 
 
 class KSFailureComp(om.ExplicitComponent):
@@ -233,6 +283,109 @@ class KSFailureComp(om.ExplicitComponent):
         shifted = ratios - max_ratio  # numerical stability
         ks = max_ratio + (1.0 / rho) * np.log(np.sum(np.exp(rho * shifted)))
 
+        outputs["failure"] = ks
+
+
+class TsaiWuKSComp(om.ExplicitComponent):
+    """KS-aggregated Tsai-Hill or Tsai-Wu failure index for composite spar tubes.
+
+    Input stress components (σ_lon, τ) come from VonMisesStressComp.
+    σ₂ (transverse hoop stress) is assumed zero for thin-wall CF tubes.
+
+    Failure index sign convention (same as KSFailureComp):
+        KS ≤ 0 → all elements safe
+        KS  > 0 → at least one element failed
+
+    Options
+    -------
+    criterion : str  "tsai_hill" or "tsai_wu"
+    F1t, F1c, F2t, F2c, F6 : float  Strength parameters [Pa] from material.
+    rho_ks : float  KS smoothing parameter (default 100).
+    """
+
+    def initialize(self):
+        self.options.declare("n_elements", types=int)
+        self.options.declare("criterion", default="tsai_wu",
+                             values=["tsai_hill", "tsai_wu"])
+        self.options.declare("F1t", types=float)
+        self.options.declare("F1c", types=float)
+        self.options.declare("F2t", types=float)
+        self.options.declare("F2c", types=float)
+        self.options.declare("F6", types=float)
+        self.options.declare("F1t_rear", types=float, default=None, allow_none=True)
+        self.options.declare("F1c_rear", types=float, default=None, allow_none=True)
+        self.options.declare("F2t_rear", types=float, default=None, allow_none=True)
+        self.options.declare("F2c_rear", types=float, default=None, allow_none=True)
+        self.options.declare("F6_rear", types=float, default=None, allow_none=True)
+        self.options.declare("rear_enabled", types=bool, default=True)
+        self.options.declare("rho_ks", types=float, default=100.0)
+        self.options.declare("msf", types=float, default=1.5,
+                             desc="Material safety factor — strengths divided by msf.")
+
+    def setup(self):
+        ne = self.options["n_elements"]
+        self.add_input("sigma_lon_main", shape=(ne,), units="Pa")
+        self.add_input("tau_main", shape=(ne,), units="Pa")
+        if self.options["rear_enabled"]:
+            self.add_input("sigma_lon_rear", shape=(ne,), units="Pa")
+            self.add_input("tau_rear", shape=(ne,), units="Pa")
+        self.add_output("failure", val=0.0)
+        self.declare_partials("*", "*", method="cs")
+
+    def _fi_vec(
+        self,
+        sigma_lon: "np.ndarray",
+        tau: "np.ndarray",
+        F1t: float,
+        F1c: float,
+        F2t: float,
+        F2c: float,
+        F6: float,
+    ) -> "np.ndarray":
+        """Compute failure index vector for one spar with safety-factor-scaled strengths."""
+        msf = self.options["msf"]
+        sigma2 = np.zeros_like(sigma_lon)
+        if self.options["criterion"] == "tsai_hill":
+            return tsai_hill_index(
+                sigma_lon, sigma2, tau,
+                F1t / msf, F1c / msf, F2t / msf, F2c / msf, F6 / msf,
+            )
+        else:  # tsai_wu
+            return tsai_wu_index(
+                sigma_lon, sigma2, tau,
+                F1t / msf, F1c / msf, F2t / msf, F2c / msf, F6 / msf,
+            )
+
+    def compute(self, inputs, outputs):
+        rho = self.options["rho_ks"]
+
+        fi_main = self._fi_vec(
+            inputs["sigma_lon_main"],
+            inputs["tau_main"],
+            self.options["F1t"],
+            self.options["F1c"],
+            self.options["F2t"],
+            self.options["F2c"],
+            self.options["F6"],
+        )
+        all_fi = fi_main
+
+        if self.options["rear_enabled"]:
+            F1t_r = self.options["F1t_rear"] or self.options["F1t"]
+            F1c_r = self.options["F1c_rear"] or self.options["F1c"]
+            F2t_r = self.options["F2t_rear"] or self.options["F2t"]
+            F2c_r = self.options["F2c_rear"] or self.options["F2c"]
+            F6_r  = self.options["F6_rear"]  or self.options["F6"]
+            fi_rear = self._fi_vec(
+                inputs["sigma_lon_rear"],
+                inputs["tau_rear"],
+                F1t_r, F1c_r, F2t_r, F2c_r, F6_r,
+            )
+            all_fi = np.concatenate([fi_main, fi_rear])
+
+        max_fi = np.real(all_fi).max()
+        shifted = all_fi - max_fi
+        ks = max_fi + (1.0 / rho) * np.log(np.sum(np.exp(rho * shifted)))
         outputs["failure"] = ks
 
 

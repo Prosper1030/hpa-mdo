@@ -23,6 +23,12 @@ class Material:
     tension_only: Optional[bool] = None      # True = member carries tension only (e.g. cables)
     poisson_ratio: float = 0.3
     description: str = ""
+    # Tsai-Wu / Tsai-Hill lamina strength parameters (optional; CFRP only)
+    F1t: Optional[float] = None  # longitudinal tensile strength  [Pa]
+    F1c: Optional[float] = None  # longitudinal compressive strength [Pa]
+    F2t: Optional[float] = None  # transverse tensile strength    [Pa]
+    F2c: Optional[float] = None  # transverse compressive strength [Pa]
+    F6:  Optional[float] = None  # in-plane shear strength        [Pa]
 
     @property
     def sigma_c(self) -> float:
@@ -107,6 +113,11 @@ class MaterialDB:
                 if props.get("poisson_ratio") is not None
                 else 0.3,
                 description=props.get("description", ""),
+                F1t=float(props["F1t"]) if props.get("F1t") is not None else None,
+                F1c=float(props["F1c"]) if props.get("F1c") is not None else None,
+                F2t=float(props["F2t"]) if props.get("F2t") is not None else None,
+                F2c=float(props["F2c"]) if props.get("F2c") is not None else None,
+                F6=float(props["F6"]) if props.get("F6") is not None else None,
             )
 
     def get(self, key: str) -> Material:

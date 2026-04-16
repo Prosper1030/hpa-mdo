@@ -14,6 +14,7 @@ from hpa_mdo.structure.components.constraints import (
     StrainEnvelopeComp,
     StructuralMassComp,
     TipDeflectionConstraintComp,
+    TsaiWuKSComp,
     TwistConstraintComp,
     VonMisesStressComp,
 )
@@ -417,17 +418,48 @@ class HPAStructuralGroup(om.Group):
                 ),
             )
 
-            # 7. KS failure
-            self.add_subsystem(
-                "failure",
-                KSFailureComp(
+            # 7. KS failure — criterion selected by cfg.structure.failure_criterion
+            fc = cfg.structure.failure_criterion
+            if fc == "von_mises":
+                failure_comp = KSFailureComp(
                     n_elements=ne,
                     sigma_allow_main=sigma_allow_main,
                     sigma_allow_rear=sigma_allow_rear,
                     rear_enabled=rear_on,
                     rho_ks=cfg.safety.ks_rho_stress,
-                ),
-            )
+                )
+            else:
+                # Composite criterion: require Tsai-Wu strength params on material
+                def _require_tw(mat, label: str) -> dict:
+                    for attr in ("F1t", "F1c", "F2t", "F2c", "F6"):
+                        if getattr(mat, attr, None) is None:
+                            raise ValueError(
+                                f"failure_criterion='{fc}' requires {attr} on material "
+                                f"'{label}' (data/materials.yaml)."
+                            )
+                    return {a: getattr(mat, a) for a in ("F1t", "F1c", "F2t", "F2c", "F6")}
+
+                tw_main = _require_tw(mat_main, cfg.main_spar.material)
+                tw_rear = _require_tw(mat_rear, cfg.rear_spar.material)
+                msf = cfg.safety.material_safety_factor
+                failure_comp = TsaiWuKSComp(
+                    n_elements=ne,
+                    criterion=fc,
+                    F1t=tw_main["F1t"],
+                    F1c=tw_main["F1c"],
+                    F2t=tw_main["F2t"],
+                    F2c=tw_main["F2c"],
+                    F6=tw_main["F6"],
+                    F1t_rear=tw_rear["F1t"],
+                    F1c_rear=tw_rear["F1c"],
+                    F2t_rear=tw_rear["F2t"],
+                    F2c_rear=tw_rear["F2c"],
+                    F6_rear=tw_rear["F6"],
+                    rear_enabled=rear_on,
+                    rho_ks=cfg.safety.ks_rho_stress,
+                    msf=msf,
+                )
+            self.add_subsystem("failure", failure_comp)
 
             # 9. Twist constraint
             self.add_subsystem(
@@ -537,9 +569,16 @@ class HPAStructuralGroup(om.Group):
                 self.connect("seg_mapper.rear_r_elem", "buckling.rear_r_elem")
                 self.connect("seg_mapper.rear_t_elem", "buckling.rear_t_elem")
 
-            self.connect("stress.vonmises_main", "failure.vonmises_main")
-            if rear_on:
-                self.connect("stress.vonmises_rear", "failure.vonmises_rear")
+            if fc == "von_mises":
+                self.connect("stress.vonmises_main", "failure.vonmises_main")
+                if rear_on:
+                    self.connect("stress.vonmises_rear", "failure.vonmises_rear")
+            else:
+                self.connect("stress.sigma_lon_main", "failure.sigma_lon_main")
+                self.connect("stress.tau_main", "failure.tau_main")
+                if rear_on:
+                    self.connect("stress.sigma_lon_rear", "failure.sigma_lon_rear")
+                    self.connect("stress.tau_rear", "failure.tau_rear")
 
             self.connect("fem.disp", "twist.disp")
             self.connect("indeps.nodes", "twist.nodes")

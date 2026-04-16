@@ -6,6 +6,7 @@ from hpa_mdo.structure.components.loads import ExternalLoadsComp
 from hpa_mdo.structure.components.constraints import (
     VonMisesStressComp,
     KSFailureComp,
+    TsaiWuKSComp,
     StrainEnvelopeComp,
     StructuralMassComp,
     TwistConstraintComp,
@@ -18,6 +19,7 @@ __all__ = [
     "ExternalLoadsComp",
     "VonMisesStressComp",
     "KSFailureComp",
+    "TsaiWuKSComp",
     "StrainEnvelopeComp",
     "StructuralMassComp",
     "TwistConstraintComp",
