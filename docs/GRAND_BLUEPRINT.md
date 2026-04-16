@@ -4,11 +4,10 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-17
-> **狀態**：Phase I-B M6-M9、M11 CLT、M13、M14、M-VSP Phase 2 已完成；接下來主線聚焦：
-> (1) Generic VSP intake 的控制面 / 翼型 / 幾何真值真正接進 AVL / ASWING 下游
-> (2) M10 ASWING 非線性氣動彈實機驗證（seed/export/runner 已有，待 binary）
-> (3) P4#18 surrogate warm start（目前真正未開工的大項）
-> (4) vendor / hardware catalog 資料化與必要 crossover sweep
+> **狀態**：Phase I-B M6-M9、M11 CLT、M13、M14、M-VSP Phase 2 已完成；generic VSP controls 已接進 AVL / ASWING 匯出鏈，接下來主線聚焦：
+> (1) M10 ASWING 非線性氣動彈實機驗證（seed/export/runner 已有，待 binary）
+> (2) P4#18 surrogate warm start（目前真正未開工的大項）
+> (3) vendor / hardware catalog 資料化與必要 crossover sweep
 
 ---
 
@@ -756,14 +755,14 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 - `M14` mass / CG / inertia budget + AVL `.mass` exporter 已完成（`ae8880d`）。
 - `8d` tail / fin schema 與 runtime model 已完成，`Aircraft.from_config()` 已可直接帶出尾翼/垂尾。
 - `M-VSP Phase 2` 已完成；`analyze_vsp.py` + `vsp_to_avl.py` 支援 VSP 優先 / YAML fallback。
+- generic VSP controls 已接進 AVL / ASWING 匯出鏈（`4d0bedc`、`6217ee5`）。
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **0** | **M-VSP 下游整合：把 `controls.json` / airfoil / geometry 真正接進 AVL / ASWING exporter，收掉 `avl_exporter.py` 對 elevator / rudder 的 hard-coded 假設** | M-VSP + M13 + M10 | Codex | ⏭️ **NEXT** |
-| **1** | M10 實機驗證：ASWING binary install + seed/run/report cross-validation（exporter / runner 已有） | M10 | 使用者（ASWING compile）+ Codex | ⏭️ 等 binary 後立即做 |
-| **2** | P4#18 surrogate warm start（GP / XGBoost optional dependency） | Phase III bridge | Codex | ⬜ 真正未開工 |
-| **3** | real vendor catalog / hardware catalog 資料化，讓 discrete OD / rigging ranking 更接近採購現實 | M9+ | 規劃中 | ⏭️ 後續資料化 |
-| **4** | focused crossover sweep（1.5→2.2）只在 vendor catalog 或新幾何改變 ranking 時再跑 | M9 | 規劃中 | ⏭️ 有需要再做 |
+| **0** | **M10 實機驗證：ASWING binary install + seed/run/report cross-validation（exporter / runner 已有）** | M10 | 使用者（ASWING compile）+ Codex | ⏭️ **NEXT** |
+| **1** | P4#18 surrogate warm start（GP / XGBoost optional dependency） | Phase III bridge | Codex | ⬜ 真正未開工 |
+| **2** | real vendor catalog / hardware catalog 資料化，讓 discrete OD / rigging ranking 更接近採購現實 | M9+ | 規劃中 | ⏭️ 後續資料化 |
+| **3** | focused crossover sweep（1.5→2.2）只在 vendor catalog 或新幾何改變 ranking 時再跑 | M9 | 規劃中 | ⏭️ 有需要再做 |
 
 > **P0/P1 參考資料交付期限**：見 `docs/hi_fidelity_validation_stack.md` 「高保真驗證層參考資料清單」。
 > 近期最急：CalculiX 2.22 manual、Gmsh reference、OpenVSP API、AVL 3.40 manual、ASWING manual。
@@ -796,8 +795,8 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 
 ```
 M-VSP Phase 2（已完成）
-   → 把 controls / airfoil / section schedule 真正餵進 AVL / ASWING
-   → 消除 VSP 與 YAML / exporter 間的幾何分叉
+   → controls / airfoil / section schedule 已餵進 AVL / ASWING exporter
+   → VSP 與 YAML / exporter 的幾何分叉先收掉一輪
 
 並行補完：M10 binary-ready validation
    → 有 ASWING binary 後做 trim / deflection / CL cross-check report

@@ -280,8 +280,8 @@
 
 | # | 任務 | 為什麼值得做 | 狀態 |
 |---|------|--------------|------|
-| A | **Generic VSP controls 真正接進 AVL / ASWING exporter** | `analyze_vsp.py` 已能寫 `controls.json`，但 `avl_exporter.py` 仍 hard-code elevator / rudder，generic downstream 還沒接通 | **NEXT** |
-| B | **ASWING binary cross-validation** | `.asw` exporter、runner、validation script 都在；真正缺的是有 binary 的實跑對比與報告 | 等 binary |
+| A | **Generic VSP controls 接進 AVL / ASWING exporter** | 已完成：`avl_exporter.py` 不再只 hard-code elevator / rudder，`vsp_to_avl.py` 會附著 introspected controls，ASWING seed 也保留多個 generic controls | ✅ 完成（`4d0bedc`、`6217ee5`） |
+| B | **ASWING binary cross-validation** | `.asw` exporter、runner、validation script 都在；真正缺的是有 binary 的實跑對比與報告 | **NEXT** |
 | C | **P4#18 surrogate warm start** | 目前唯一明確還沒開工的大功能項；可直接吃既有 data collector / campaign 資料 | 待做 |
 | D | **real vendor / hardware catalog 資料化** | 現在 discrete OD / rigging ranking 仍帶 proxy 味道，離採購 reality 還差最後一段 | 後續 |
 | E | **focused crossover sweep（1.5→2.2）** | 只有在 vendor catalog 或新幾何讓 ranking 接近交叉時才值得補跑 | 視需要 |
