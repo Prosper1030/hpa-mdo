@@ -872,6 +872,9 @@ class VSPBuilder:
             if not unique_y or abs(y_val - unique_y[-1]) > 1.0e-9:
                 unique_y.append(y_val)
 
+        if w.dihedral_schedule:
+            return self._config_wing_schedule_from_dihedral_schedule(unique_y)
+
         schedule: List[Dict[str, Any]] = []
         for y_val in unique_y:
             eta = 0.0 if half_span <= 0.0 else min(max(y_val / half_span, 0.0), 1.0)
@@ -891,6 +894,62 @@ class VSPBuilder:
             })
 
         return schedule
+
+    def _config_wing_schedule_from_dihedral_schedule(
+        self,
+        y_stations: List[float],
+    ) -> List[Dict[str, Any]]:
+        """Build a config-derived schedule from an explicit ``z(y)`` curve."""
+        w = self.cfg.wing
+        half_span = self.cfg.half_span
+        points = [(float(y), float(z)) for y, z in (w.dihedral_schedule or [])]
+        z_stations = [self._interp_piecewise_linear(points, y_val) for y_val in y_stations]
+
+        schedule: List[Dict[str, Any]] = []
+        for idx, (y_val, z_val) in enumerate(zip(y_stations, z_stations)):
+            eta = 0.0 if half_span <= 0.0 else min(max(y_val / half_span, 0.0), 1.0)
+            chord = w.root_chord + eta * (w.tip_chord - w.root_chord)
+            entry: Dict[str, Any] = {
+                "y": y_val,
+                "chord": chord,
+                "dihedral_deg": 0.0,
+                "airfoil": _airfoil_for_eta(self.cfg, eta),
+                "source": "config_dihedral_schedule",
+                "z_m": z_val,
+            }
+            if idx > 0:
+                dy = y_val - y_stations[idx - 1]
+                seg_dihedral = 0.0 if dy <= 1.0e-12 else math.degrees(
+                    math.atan2(z_val - z_stations[idx - 1], dy)
+                )
+                entry["dihedral_deg"] = seg_dihedral
+                entry["segment_dihedral_deg"] = seg_dihedral
+            schedule.append(entry)
+
+        if len(schedule) > 1:
+            root_seg_dihedral = float(schedule[1].get("segment_dihedral_deg", 0.0))
+            schedule[0]["dihedral_deg"] = root_seg_dihedral
+            schedule[0]["segment_dihedral_deg"] = root_seg_dihedral
+
+        return schedule
+
+    @staticmethod
+    def _interp_piecewise_linear(points: List[tuple[float, float]], y_target: float) -> float:
+        """Linearly interpolate z(y) from a monotone list of schedule points."""
+        if not points:
+            return 0.0
+        if y_target <= points[0][0] + 1.0e-9:
+            return float(points[0][1])
+
+        for idx in range(1, len(points)):
+            y_left, z_left = points[idx - 1]
+            y_right, z_right = points[idx]
+            if y_target <= y_right + 1.0e-9:
+                span = max(y_right - y_left, 1.0e-12)
+                frac = min(max((y_target - y_left) / span, 0.0), 1.0)
+                return float(z_left) + frac * (float(z_right) - float(z_left))
+
+        return float(points[-1][1])
 
     def _reference_vsp_wing_section_schedule(self, vsp: Any | None) -> List[Dict[str, Any]] | None:
         """Extract and densify the main-wing schedule from an existing VSP model."""

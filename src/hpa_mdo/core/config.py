@@ -106,6 +106,14 @@ class WingConfig(BaseModel):
     span: float
     root_chord: float
     tip_chord: float
+    dihedral_schedule: Optional[List[List[float]]] = Field(
+        None,
+        description=(
+            "Optional half-wing dihedral schedule as [[y_m, z_m], ...]. "
+            "When provided, VSP builders reconstruct segment dihedral from this "
+            "piecewise-linear z(y) curve instead of the legacy root/tip ramp."
+        ),
+    )
     dihedral_root_deg: float = 0.0
     dihedral_tip_deg: float = 6.0
     dihedral_scaling_exponent: float = Field(
@@ -125,6 +133,32 @@ class WingConfig(BaseModel):
     max_tip_deflection_m: Optional[float] = Field(
         None, description="Max allowable tip deflection [m]"
     )
+
+    @model_validator(mode="after")
+    def validate_dihedral_schedule(self) -> WingConfig:
+        if not self.dihedral_schedule:
+            return self
+
+        half_span = 0.5 * float(self.span)
+        prev_y = -math.inf
+        for idx, pair in enumerate(self.dihedral_schedule):
+            if len(pair) != 2:
+                raise ValueError("wing.dihedral_schedule entries must be [y_m, z_m].")
+            y_m = float(pair[0])
+            if y_m < prev_y - 1.0e-9:
+                raise ValueError("wing.dihedral_schedule y stations must be non-decreasing.")
+            if y_m < -1.0e-9 or y_m > half_span + 1.0e-9:
+                raise ValueError(
+                    f"wing.dihedral_schedule y={y_m:.6f} lies outside [0, span/2={half_span:.6f}]."
+                )
+            if idx == 0 and abs(y_m) > 1.0e-9:
+                raise ValueError("wing.dihedral_schedule must start at y=0.0.")
+            prev_y = y_m
+
+        if abs(float(self.dihedral_schedule[-1][0]) - half_span) > 1.0e-6:
+            raise ValueError("wing.dihedral_schedule must end at wing.span/2.")
+
+        return self
 
 
 class LiftingSurfaceConfig(BaseModel):

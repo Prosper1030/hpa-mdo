@@ -33,6 +33,7 @@ Files NOT written by this CLI:
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -54,6 +55,44 @@ def _write_yaml(data: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(data, fh, sort_keys=False, allow_unicode=True)
+
+
+def _write_json(data: dict, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+
+
+def _controls_sidecar(summary: dict) -> dict:
+    surfaces: dict[str, dict] = {}
+    flat_controls: list[dict] = []
+    for surface_key in ("main_wing", "horizontal_tail", "vertical_fin"):
+        surface = summary.get(surface_key)
+        if surface is None:
+            continue
+        controls = [dict(item) for item in (surface.get("controls") or [])]
+        if not controls:
+            continue
+        surface_name = surface.get("name", surface_key)
+        surfaces[surface_key] = {
+            "name": surface_name,
+            "controls": controls,
+        }
+        for control in controls:
+            flat_controls.append(
+                {
+                    "surface": surface_key,
+                    "surface_name": surface_name,
+                    **control,
+                }
+            )
+    return {
+        "schema_version": "vsp_controls_v1",
+        "source_path": str(summary["source_path"]),
+        "surfaces": surfaces,
+        "controls": flat_controls,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -86,25 +125,31 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[ERR] VSP file not found: {args.vsp}", file=sys.stderr)
         return 2
 
-    print(f"[1/4] Reading {vsp_path}")
+    template_path = Path(args.template).expanduser()
+
+    print(f"[1/4] Loading template: {template_path}")
+    template = _load_yaml(template_path)
+    from hpa_mdo.core.config import HPAConfig, load_config
+
+    template_cfg = load_config(template_path)
+    template_airfoil_dir = template_cfg.io.airfoil_dir
+
+    print(f"[2/4] Reading {vsp_path}")
     from hpa_mdo.aero.vsp_introspect import (
         summarize_vsp_surfaces, merge_into_config_dict
     )
     try:
-        summary = summarize_vsp_surfaces(vsp_path)
+        summary = summarize_vsp_surfaces(vsp_path, airfoil_dir=template_airfoil_dir)
     except Exception as exc:
         print(f"[ERR] Introspection failed: {exc}", file=sys.stderr)
         return 3
 
     if args.dump_summary:
-        import json
         Path(args.dump_summary).parent.mkdir(parents=True, exist_ok=True)
         with open(args.dump_summary, "w", encoding="utf-8") as fh:
             json.dump(summary, fh, indent=2, default=str)
         print(f"        Dumped summary → {args.dump_summary}")
 
-    print(f"[2/4] Loading template: {args.template}")
-    template = _load_yaml(Path(args.template))
     merged = merge_into_config_dict(template, summary)
 
     # Per-VSP output dir.
@@ -139,10 +184,12 @@ def main(argv: list[str] | None = None) -> int:
     resolved_cfg_path = out_dir / "resolved_config.yaml"
     _write_yaml(merged, resolved_cfg_path)
     print(f"        Wrote merged config → {resolved_cfg_path}")
+    controls_path = out_dir / "controls.json"
+    _write_json(_controls_sidecar(summary), controls_path)
+    print(f"        Wrote controls sidecar → {controls_path}")
 
     # Sanity: validate via Pydantic before running anything heavy.
     print("[3/4] Validating merged config via HPAConfig …")
-    from hpa_mdo.core.config import HPAConfig
     HPAConfig(**merged)  # raises on failure
     print("        OK")
 
