@@ -16,7 +16,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hpa_mdo.aero.avl_exporter import export_avl
-from hpa_mdo.aero.vsp_geometry_parser import VSPGeometryParser, geometry_model_from_config
+from hpa_mdo.aero.vsp_geometry_parser import (
+    VSPGeometryParser,
+    attach_controls_from_summary,
+    geometry_model_from_config,
+)
+from hpa_mdo.aero.vsp_introspect import summarize_vsp_surfaces
 from hpa_mdo.core.config import load_config
 
 
@@ -77,6 +82,15 @@ def main(argv: list[str] | None = None) -> int:
     source_vsp = explicit_vsp or config_vsp
     if source_vsp is not None:
         geometry = VSPGeometryParser(source_vsp).parse()
+        try:
+            summary = summarize_vsp_surfaces(
+                source_vsp,
+                airfoil_dir=(cfg.io.airfoil_dir if cfg is not None else None),
+            )
+        except Exception as exc:
+            print(f"WARN: control-surface introspection skipped ({exc})")
+        else:
+            geometry = attach_controls_from_summary(geometry, summary)
         source_label = str(source_vsp)
     elif cfg is not None:
         geometry = geometry_model_from_config(cfg)

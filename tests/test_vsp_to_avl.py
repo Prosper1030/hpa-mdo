@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import vsp_to_avl  # noqa: E402
+from hpa_mdo.aero.vsp_geometry_parser import VSPGeometryModel, VSPSection, VSPSurface  # noqa: E402
 
 
 def _write_minimal_config(path: Path, *, extra_io: list[str] | None = None) -> None:
@@ -109,16 +111,31 @@ def test_vsp_to_avl_uses_yaml_geometry_when_no_vsp_exists(tmp_path: Path) -> Non
     assert "0.000000000  10.000000000  0.524438142  0.600000000  0.000000000" in text
     assert "SURFACE\nElevator" in text
     assert "6.000000000  2.000000000  0.100000000  0.800000000  0.000000000" in text
+    assert "elevator" in text
     assert "SURFACE\nFin" in text
     assert "6.500000000  0.000000000  1.900000000  0.700000000  0.000000000" in text
+    assert "rudder" in text
 
 
-def test_vsp_to_avl_prefers_config_vsp_model_over_yaml_fallback(tmp_path: Path) -> None:
+def test_vsp_to_avl_prefers_config_vsp_model_over_yaml_fallback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     vsp3_path = tmp_path / "reference.vsp3"
     vsp3_path.write_text(_mock_vsp3_xml(), encoding="utf-8")
     config_path = tmp_path / "config.yaml"
     output_path = tmp_path / "from_vsp.avl"
     _write_minimal_config(config_path, extra_io=[f"  vsp_model: {vsp3_path}"])
+    monkeypatch.setattr(
+        vsp_to_avl,
+        "summarize_vsp_surfaces",
+        lambda _path, airfoil_dir=None: {
+            "source_path": str(vsp3_path),
+            "main_wing": None,
+            "horizontal_tail": None,
+            "vertical_fin": None,
+        },
+    )
 
     rc = vsp_to_avl.main(["--config", str(config_path), "--output", str(output_path)])
 
@@ -128,3 +145,67 @@ def test_vsp_to_avl_prefers_config_vsp_model_over_yaml_fallback(tmp_path: Path) 
     assert "0.000000000  0.000000000  0.000000000  1.390000000  0.000000000" in text
     assert "0.000000000  16.500000000  1.730000000  0.470000000  0.000000000" in text
     assert "10.000000000  0.874886635" not in text
+
+
+def test_vsp_to_avl_attaches_introspected_controls_when_vsp_is_present(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    vsp3_path = tmp_path / "reference.vsp3"
+    vsp3_path.write_text(_mock_vsp3_xml(), encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    output_path = tmp_path / "from_vsp_controls.avl"
+    _write_minimal_config(config_path, extra_io=[f"  vsp_model: {vsp3_path}"])
+
+    geometry = VSPGeometryModel(
+        surfaces=[
+            VSPSurface(
+                name="Main Wing",
+                surface_type="wing",
+                origin=(0.0, 0.0, 0.0),
+                rotation=(0.0, 0.0, 0.0),
+                symmetry="xz",
+                sections=[
+                    VSPSection(0.0, 0.0, 0.0, 1.39, 0.0, "NACA 2412"),
+                    VSPSection(0.0, 16.5, 1.73, 0.47, 0.0, "NACA 2412"),
+                ],
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(
+        vsp_to_avl,
+        "VSPGeometryParser",
+        lambda _path: SimpleNamespace(parse=lambda: geometry),
+    )
+    monkeypatch.setattr(
+        vsp_to_avl,
+        "summarize_vsp_surfaces",
+        lambda _path, airfoil_dir=None: {
+            "source_path": str(vsp3_path),
+            "main_wing": {
+                "controls": [
+                    {
+                        "name": "Outboard Aileron",
+                        "type": "aileron",
+                        "eta_start": 0.6,
+                        "eta_end": 1.0,
+                        "chord_fraction_start": 0.25,
+                        "chord_fraction_end": 0.25,
+                        "edge": "trailing",
+                        "surf_type": "both",
+                    }
+                ]
+            },
+            "horizontal_tail": None,
+            "vertical_fin": None,
+        },
+    )
+
+    rc = vsp_to_avl.main(["--config", str(config_path), "--output", str(output_path)])
+
+    assert rc == 0
+    text = output_path.read_text(encoding="utf-8")
+    assert "aileron" in text
+    assert "9.900000000" in text
+    assert "aileron  1.0  0.750000  0.0 0.0 0.0  -1.0" in text

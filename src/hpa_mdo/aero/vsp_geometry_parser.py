@@ -6,7 +6,7 @@ YAML-defined aircraft when no reference ``.vsp3`` is available.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 from pathlib import Path
 import re
@@ -47,6 +47,18 @@ class VSPSection:
 
 
 @dataclass(frozen=True)
+class VSPControl:
+    name: str
+    control_type: str
+    eta_start: float | None = None
+    eta_end: float | None = None
+    chord_fraction_start: float | None = None
+    chord_fraction_end: float | None = None
+    edge: str = "trailing"
+    surf_type: str = "both"
+
+
+@dataclass(frozen=True)
 class VSPSurface:
     name: str
     surface_type: str
@@ -54,6 +66,7 @@ class VSPSurface:
     rotation: tuple[float, float, float]
     symmetry: str
     sections: list[VSPSection]
+    controls: list[VSPControl] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -118,6 +131,7 @@ def geometry_model_from_config(cfg) -> VSPGeometryModel:
             cfg.horizontal_tail.z_rotation_deg,
         ),
         symmetry=cfg.horizontal_tail.symmetry,
+        control_surface_name=cfg.horizontal_tail.control_surface_name,
         enabled=cfg.horizontal_tail.enabled,
     )
     if h_tail is not None:
@@ -140,6 +154,7 @@ def geometry_model_from_config(cfg) -> VSPGeometryModel:
             cfg.vertical_fin.z_rotation_deg,
         ),
         symmetry=cfg.vertical_fin.symmetry,
+        control_surface_name=cfg.vertical_fin.control_surface_name,
         enabled=cfg.vertical_fin.enabled,
     )
     if v_fin is not None:
@@ -198,6 +213,7 @@ def _surface_from_config(
     incidence_deg: float,
     rotation_deg: tuple[float, float, float],
     symmetry: str,
+    control_surface_name: str | None,
     enabled: bool,
 ) -> VSPSurface | None:
     if not enabled:
@@ -237,7 +253,94 @@ def _surface_from_config(
                 airfoil=str(airfoil),
             ),
         ],
+        controls=_default_controls_from_name(control_surface_name),
     )
+
+
+def attach_controls_from_summary(
+    geometry: VSPGeometryModel,
+    summary: dict | None,
+) -> VSPGeometryModel:
+    """Return a copy of ``geometry`` with control metadata merged from VSP summary.
+
+    The XML-based ``VSPGeometryParser`` can recover section geometry but not
+    OpenVSP ``SS_CONTROL`` SubSurface metadata.  ``summarize_vsp_surfaces``
+    exposes those controls as plain dicts; this helper stitches them back onto
+    the neutral ``VSPGeometryModel`` so downstream exporters stay VSP-first.
+    """
+    if not summary:
+        return geometry
+
+    summary_key_by_surface_type = {
+        "wing": "main_wing",
+        "h_stab": "horizontal_tail",
+        "v_fin": "vertical_fin",
+    }
+
+    surfaces: list[VSPSurface] = []
+    for surface in geometry.surfaces:
+        summary_key = summary_key_by_surface_type.get(surface.surface_type)
+        summary_surface = summary.get(summary_key) if summary_key is not None else None
+        controls_payload = (summary_surface or {}).get("controls") or []
+        controls = _controls_from_payload(controls_payload)
+        surfaces.append(
+            VSPSurface(
+                name=surface.name,
+                surface_type=surface.surface_type,
+                origin=surface.origin,
+                rotation=surface.rotation,
+                symmetry=surface.symmetry,
+                sections=surface.sections,
+                controls=controls or surface.controls,
+            )
+        )
+    return VSPGeometryModel(surfaces=surfaces)
+
+
+def _controls_from_payload(payload: Iterable[dict]) -> list[VSPControl]:
+    controls: list[VSPControl] = []
+    for item in payload:
+        control_type = str(item.get("type") or "unknown").strip().lower()
+        raw_name = str(item.get("name") or control_type or "control")
+        controls.append(
+            VSPControl(
+                name=_canonical_control_name(raw_name, control_type),
+                control_type=control_type,
+                eta_start=_parse_float(item.get("eta_start")),
+                eta_end=_parse_float(item.get("eta_end")),
+                chord_fraction_start=_parse_float(item.get("chord_fraction_start")),
+                chord_fraction_end=_parse_float(item.get("chord_fraction_end")),
+                edge=str(item.get("edge") or "trailing").strip().lower(),
+                surf_type=str(item.get("surf_type") or "both").strip().lower(),
+            )
+        )
+    return controls
+
+
+def _default_controls_from_name(control_surface_name: str | None) -> list[VSPControl]:
+    if not control_surface_name:
+        return []
+    control_type = _canonical_control_name(control_surface_name, str(control_surface_name))
+    return [
+        VSPControl(
+            name=control_type,
+            control_type=control_type,
+            eta_start=0.0,
+            eta_end=1.0,
+            chord_fraction_start=1.0,
+            chord_fraction_end=1.0,
+            edge="trailing",
+            surf_type="both",
+        )
+    ]
+
+
+def _canonical_control_name(name: str, control_type: str) -> str:
+    canonical_type = str(control_type or "").strip().lower()
+    if canonical_type in {"aileron", "flap", "elevator", "rudder", "spoiler"}:
+        return canonical_type
+    sanitized = re.sub(r"[^a-z0-9_]+", "_", str(name).strip().lower()).strip("_")
+    return sanitized or "control"
 
 
 class VSPGeometryParser:

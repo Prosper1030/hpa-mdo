@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import re
 
 import numpy as np
 
-from hpa_mdo.aero.vsp_geometry_parser import VSPGeometryModel, VSPSection, VSPSurface
+from hpa_mdo.aero.vsp_geometry_parser import (
+    VSPControl,
+    VSPGeometryModel,
+    VSPSection,
+    VSPSurface,
+)
+
+
+@dataclass(frozen=True)
+class _AVLExportSection:
+    section: VSPSection
+    controls: tuple[VSPControl, ...] = ()
+    position: float = 0.0
 
 
 def export_avl(
@@ -64,8 +77,8 @@ def export_avl(
     ]
 
     for surface in geometry.surfaces:
-        sections = _sections_for_export(surface)
-        if not sections:
+        export_sections = _sections_with_controls(surface)
+        if not export_sections:
             continue
         lines.extend(
             [
@@ -88,7 +101,8 @@ def export_avl(
         elif surface.surface_type == "v_fin":
             lines.extend(["COMPONENT", "3", "#"])
 
-        for section in sections:
+        for export_section in export_sections:
+            section = export_section.section
             lines.extend(
                 [
                     "SECTION",
@@ -105,20 +119,14 @@ def export_avl(
                 naca_digits = _naca_digits(section.airfoil)
                 if naca_digits is not None:
                     lines.extend(["NACA", naca_digits])
-            if surface.surface_type == "h_stab":
+            for control in export_section.controls:
+                comment = _control_comment(control)
+                if comment is not None:
+                    lines.append(comment)
                 lines.extend(
                     [
-                        "! elevator command limit is applied externally (e.g. +/-20 deg)",
                         "CONTROL",
-                        "elevator  1.0  0.0  0.0 0.0 0.0  1.0",
-                    ]
-                )
-            elif surface.surface_type == "v_fin":
-                lines.extend(
-                    [
-                        "! rudder command limit is applied externally (e.g. +/-25 deg)",
-                        "CONTROL",
-                        "rudder  1.0  0.0  0.0 0.0 1.0  1.0",
+                        _format_control_line(surface, control, export_section.position),
                     ]
                 )
             lines.append("#")
@@ -148,6 +156,214 @@ def _sections_for_export(surface: VSPSurface) -> list[VSPSection]:
             )
         )
     return sorted(mirrored, key=lambda section: float(section.y_le))
+
+
+def _sections_with_controls(surface: VSPSurface) -> list[_AVLExportSection]:
+    sections = _sections_for_export(surface)
+    if not sections:
+        return []
+
+    controls = surface.controls or _default_surface_controls(surface)
+    if not controls:
+        return [
+            _AVLExportSection(section=section, controls=(), position=position)
+            for section, position in zip(sections, _normalized_span_positions(sections), strict=False)
+        ]
+
+    base_positions = _normalized_span_positions(sections)
+    sample_positions = list(base_positions)
+    control_intervals = [_control_interval(control) for control in controls]
+    for start, end in control_intervals:
+        sample_positions.extend((start, end))
+    sample_positions = _merge_positions(sample_positions)
+
+    export_sections: list[_AVLExportSection] = []
+    for position in sample_positions:
+        section = _interpolate_section_at_position(sections, base_positions, position)
+        active_controls = tuple(
+            control
+            for control, (start, end) in zip(controls, control_intervals, strict=False)
+            if start - 1.0e-9 <= position <= end + 1.0e-9
+        )
+        export_sections.append(
+            _AVLExportSection(
+                section=section,
+                controls=active_controls,
+                position=position,
+            )
+        )
+    return export_sections
+
+
+def _normalized_span_positions(sections: list[VSPSection]) -> list[float]:
+    if len(sections) == 1:
+        return [0.0]
+
+    cumulative = [0.0]
+    for left, right in zip(sections[:-1], sections[1:], strict=False):
+        ds = float(
+            np.linalg.norm(
+                [
+                    float(right.x_le) - float(left.x_le),
+                    float(right.y_le) - float(left.y_le),
+                    float(right.z_le) - float(left.z_le),
+                ]
+            )
+        )
+        cumulative.append(cumulative[-1] + max(ds, 0.0))
+
+    total = cumulative[-1]
+    if total <= 1.0e-12:
+        return [0.0 for _ in sections]
+    return [value / total for value in cumulative]
+
+
+def _merge_positions(values: list[float], tol: float = 1.0e-9) -> list[float]:
+    merged: list[float] = []
+    for value in sorted(min(max(float(v), 0.0), 1.0) for v in values):
+        if not merged or abs(value - merged[-1]) > tol:
+            merged.append(value)
+    return merged
+
+
+def _interpolate_section_at_position(
+    sections: list[VSPSection],
+    positions: list[float],
+    position: float,
+) -> VSPSection:
+    for existing, existing_position in zip(sections, positions, strict=False):
+        if abs(position - existing_position) <= 1.0e-9:
+            return existing
+
+    idx = int(np.searchsorted(np.asarray(positions, dtype=float), position, side="right"))
+    hi = min(max(idx, 1), len(sections) - 1)
+    lo = hi - 1
+    start = positions[lo]
+    end = positions[hi]
+    span = max(end - start, 1.0e-12)
+    weight = min(max((position - start) / span, 0.0), 1.0)
+
+    left = sections[lo]
+    right = sections[hi]
+
+    def _lerp(a: float, b: float) -> float:
+        return (1.0 - weight) * float(a) + weight * float(b)
+
+    airfoil = left.airfoil if weight <= 0.5 else right.airfoil
+    return VSPSection(
+        x_le=_lerp(left.x_le, right.x_le),
+        y_le=_lerp(left.y_le, right.y_le),
+        z_le=_lerp(left.z_le, right.z_le),
+        chord=_lerp(left.chord, right.chord),
+        twist=_lerp(left.twist, right.twist),
+        airfoil=str(airfoil),
+    )
+
+
+def _default_surface_controls(surface: VSPSurface) -> list[VSPControl]:
+    if surface.surface_type == "h_stab":
+        return [
+            VSPControl(
+                name="elevator",
+                control_type="elevator",
+                eta_start=0.0,
+                eta_end=1.0,
+                chord_fraction_start=1.0,
+                chord_fraction_end=1.0,
+            )
+        ]
+    if surface.surface_type == "v_fin":
+        return [
+            VSPControl(
+                name="rudder",
+                control_type="rudder",
+                eta_start=0.0,
+                eta_end=1.0,
+                chord_fraction_start=1.0,
+                chord_fraction_end=1.0,
+            )
+        ]
+    return []
+
+
+def _control_interval(control: VSPControl) -> tuple[float, float]:
+    start = 0.0 if control.eta_start is None else float(control.eta_start)
+    end = 1.0 if control.eta_end is None else float(control.eta_end)
+    start = min(max(start, 0.0), 1.0)
+    end = min(max(end, 0.0), 1.0)
+    if end < start:
+        start, end = end, start
+    return start, end
+
+
+def _control_comment(control: VSPControl) -> str | None:
+    control_type = str(control.control_type).lower()
+    if control_type == "elevator":
+        return "! elevator command limit is applied externally"
+    if control_type == "rudder":
+        return "! rudder command limit is applied externally"
+    return None
+
+
+def _format_control_line(
+    surface: VSPSurface,
+    control: VSPControl,
+    position: float,
+) -> str:
+    xhinge = _control_xhinge(surface, control, position)
+    hx, hy, hz = _control_hinge_vector(surface, control)
+    sign_dup = _control_sign_dup(surface, control)
+    return (
+        f"{control.name}  1.0  {xhinge:.6f}  "
+        f"{hx:.1f} {hy:.1f} {hz:.1f}  {sign_dup:.1f}"
+    )
+
+
+def _control_xhinge(surface: VSPSurface, control: VSPControl, position: float) -> float:
+    chord_fraction = _control_chord_fraction(surface, control, position)
+    edge = str(control.edge or "trailing").lower()
+    if edge == "leading":
+        return min(max(chord_fraction, 0.0), 1.0)
+    return min(max(1.0 - chord_fraction, 0.0), 1.0)
+
+
+def _control_chord_fraction(
+    surface: VSPSurface,
+    control: VSPControl,
+    position: float,
+) -> float:
+    c0 = control.chord_fraction_start
+    c1 = control.chord_fraction_end
+    if c0 is None and c1 is None:
+        if surface.surface_type in {"h_stab", "v_fin"} and control.control_type in {"elevator", "rudder"}:
+            return 1.0
+        return 0.25
+    if c0 is None:
+        c0 = c1
+    if c1 is None:
+        c1 = c0
+    start, end = _control_interval(control)
+    if end - start <= 1.0e-12:
+        fraction = float(c0)
+    else:
+        blend = min(max((position - start) / (end - start), 0.0), 1.0)
+        fraction = (1.0 - blend) * float(c0) + blend * float(c1)
+    return min(max(float(fraction), 0.0), 1.0)
+
+
+def _control_hinge_vector(surface: VSPSurface, control: VSPControl) -> tuple[float, float, float]:
+    control_type = str(control.control_type).lower()
+    if surface.surface_type == "v_fin" or control_type == "rudder":
+        return (0.0, 0.0, 1.0)
+    return (0.0, 0.0, 0.0)
+
+
+def _control_sign_dup(surface: VSPSurface, control: VSPControl) -> float:
+    if surface.symmetry != "xz":
+        return 1.0
+    if str(control.control_type).lower() == "aileron":
+        return -1.0
+    return 1.0
 
 
 def _auto_sref(*, geometry: VSPGeometryModel, wing: VSPSurface | None) -> float:
