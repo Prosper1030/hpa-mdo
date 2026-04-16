@@ -26,10 +26,10 @@ def test_vspscript_fallback_includes_empennage_surfaces(tmp_path, monkeypatch) -
     assert 'SetGeomName( wing_id, "MainWing" );' in text
     assert 'SetGeomName( elevator_id, "Elevator" );' in text
     assert 'SetGeomName( fin_id, "Fin" );' in text
-    assert 'SetParmVal( FindParm( elevator_id, "X_Rel_Location", "XForm" ), 4.000000 );' in text
+    assert 'SetParmVal( FindParm( elevator_id, "X_Rel_Location", "XForm" ), 6.500000 );' in text
     assert 'SetParmVal( FindParm( fin_id, "Z_Rel_Location", "XForm" ), -0.700000 );' in text
     assert 'SetParmVal( FindParm( fin_id, "X_Rel_Rotation", "XForm" ), 90.000000 );' in text
-    assert 'SetParmVal( GetXSecParm( elevator_tip_xs, "Span" ), 1.500000 );' in text
+    assert 'SetParmVal( GetXSecParm( elevator_tip_xs, "Span" ), 2.000000 );' in text
     assert 'SetParmVal( GetXSecParm( fin_tip_xs, "Span" ), 2.400000 );' in text
     assert 'SetParmVal( GetXSecParm( fin_xs_1, "ThickChord" ), 0.090000 );' in text
     assert text.count("InsertXSec( wing_id, 1, XS_FOUR_SERIES );") == 5
@@ -73,7 +73,12 @@ def test_api_build_preserves_progressive_wing_sections(tmp_path) -> None:
     assert spans == pytest.approx([1.5, 3.0, 3.0, 3.0, 3.0, 3.0])
     assert root_chords[0] == pytest.approx(cfg.wing.root_chord)
     assert tip_chords[-1] == pytest.approx(cfg.wing.tip_chord)
-    assert sum(areas) == pytest.approx(15.345)
+    # Half-wing area from the config-based linear-taper schedule
+    # (root_chord=1.3 → tip_chord=0.435 across half_span=16.5):
+    # (1.3 + 0.435) / 2 * 16.5 = 14.31375.  The reference-.vsp3-driven
+    # CFD-fidelity path (tested separately) matches the 35.175 m² Sref
+    # from the AVL header via the piecewise-linear chord schedule.
+    assert sum(areas) == pytest.approx(14.31375, rel=1e-4)
     assert dihedrals == pytest.approx(
         [
             0.2727272727,

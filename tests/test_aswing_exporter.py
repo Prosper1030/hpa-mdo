@@ -18,19 +18,19 @@ def test_parse_avl_reads_full_aircraft_geometry() -> None:
     model = parse_avl(AVL_PATH)
 
     assert model.title == "Black Cat 004 full aircraft"
-    assert model.sref == pytest.approx(30.69)
-    assert model.cref == pytest.approx(1.005842294)
+    assert model.sref == pytest.approx(35.175)
+    assert model.cref == pytest.approx(1.13017474)
     assert model.bref == pytest.approx(33.0)
     assert [surface.name for surface in model.surfaces] == ["Wing", "Elevator", "Fin"]
 
     wing = model.surfaces[0]
     assert wing.symmetric is True
-    assert len(wing.sections) == 7
+    assert len(wing.sections) == 6
     assert [section.y for section in wing.sections] == pytest.approx(
-        [0.0, 1.5, 4.5, 7.5, 10.5, 13.5, 16.5]
+        [0.0, 4.5, 7.5, 10.5, 13.5, 16.5]
     )
-    assert wing.sections[-1].z == pytest.approx(1.73)
-    assert wing.sections[-1].airfoil == "NACA 2412"
+    assert wing.sections[-1].z == pytest.approx(0.812804556)
+    assert wing.sections[-1].airfoil == "fx76mp140.dat"
 
     elevator = model.surfaces[1]
     assert elevator.sections[0].controls == ("elevator",)
@@ -54,21 +54,21 @@ def test_export_aswing_writes_seed_blocks(tmp_path: Path) -> None:
     text = output_path.read_text(encoding="utf-8")
     assert "Name\nBlack Cat 004 full aircraft - ASWING seed\nEnd" in text
     assert "Units\nL 1.0 m\nT 1.0 s\nF 1.0 N\nEnd" in text
-    assert "# Sref Cref Bref\n30.69 1.00584229 33" in text
+    assert "# Sref Cref Bref\n35.175 1.13017474 33" in text
     assert "! load_case default: aero_scale=2 nz=2 V=6.5 rho=1.225" in text
     assert "Weight\n# Nbeam t Xp Yp Zp Mg CDA Vol Hx Hy Hz" in text
     assert "Strut\n# Nbeam t Xp Yp Zp Xw Yw Zw dL EAw" in text
-    assert "1 7.5 0 7.5 0.38 0.0 0.0 -1.5 0.0" in text
-    assert "1 -7.5 0 -7.5 0.38 0.0 0.0 -1.5 0.0" in text
+    assert "1 7.5 0 7.5 0.183300624 0.0 0.0 -1.5 0.0" in text
+    assert "1 -7.5 0 -7.5 0.183300624 0.0 0.0 -1.5 0.0" in text
 
     assert "Beam 1 Wing" in text
-    assert "0 1.39 0 0 0 0.25" in text
-    assert "16.5 0.47 0 16.5 1.73 0.25" in text
+    assert "0 1.3 0 0 0 0.25" in text
+    assert "16.5 0.435 0 16.5 0.812804556 0.25" in text
     assert "# t EIcc EInn GJ" in text
     assert "# t EA mg" in text
 
     assert "Beam 2 Elevator" in text
     assert "# t dCLdF2 dCMdF2" in text
     assert "Beam 3 Fin" in text
-    assert "-0.7 0.7 5 0 -0.7 0.3" in text
+    assert "-0.7 0.7 7 0 -0.7 0.3" in text
     assert "# t dCLdF3 dCMdF3" in text

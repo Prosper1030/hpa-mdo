@@ -145,7 +145,7 @@ def test_blackcat_empennage_geometry_loaded_from_config():
     cfg = load_config(config_path)
 
     assert cfg.horizontal_tail.name == "Elevator"
-    assert cfg.horizontal_tail.span == pytest.approx(3.0)
+    assert cfg.horizontal_tail.span == pytest.approx(4.0)
     assert cfg.horizontal_tail.symmetry == "xz"
     assert cfg.horizontal_tail.control_surface_limit_deg == pytest.approx(20.0)
 
@@ -165,7 +165,7 @@ def test_blackcat_mass_budget_loaded_from_config():
     assert cfg.mass_budget.pilot is not None
     assert cfg.mass_budget.pilot.m_kg == pytest.approx(56.0)
     assert cfg.mass_budget.drivetrain is not None
-    assert cfg.mass_budget.drivetrain.xyz_m == pytest.approx([1.2, 0.0, -0.25])
+    assert cfg.mass_budget.drivetrain.xyz_m == pytest.approx([0.8, 0.0, -0.25])
     assert "telemetry_spare" in cfg.mass_budget.extra_items
 
 
@@ -201,13 +201,13 @@ def test_aircraft_builds_tail_and_fin_runtime_geometry():
     aircraft = Aircraft.from_config(cfg)
 
     assert aircraft.horizontal_tail is not None
-    assert aircraft.horizontal_tail.origin == pytest.approx((4.0, 0.0, 0.0))
-    assert aircraft.horizontal_tail.half_span == pytest.approx(1.5)
-    assert aircraft.horizontal_tail.area == pytest.approx(2.4)
+    assert aircraft.horizontal_tail.origin == pytest.approx((6.5, 0.0, 0.0))
+    assert aircraft.horizontal_tail.half_span == pytest.approx(2.0)
+    assert aircraft.horizontal_tail.area == pytest.approx(3.6)
     assert aircraft.horizontal_tail.control_surface_name == "elevator"
 
     assert aircraft.vertical_fin is not None
-    assert aircraft.vertical_fin.origin == pytest.approx((5.0, 0.0, -0.7))
+    assert aircraft.vertical_fin.origin == pytest.approx((7.0, 0.0, -0.7))
     assert aircraft.vertical_fin.half_span == pytest.approx(2.4)
     assert aircraft.vertical_fin.chord_at(0.5) == pytest.approx(0.7)
     assert aircraft.vertical_fin.rotation_deg == pytest.approx((90.0, 0.0, 0.0))
