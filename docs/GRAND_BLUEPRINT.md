@@ -324,7 +324,7 @@
            │                                       │
            │ Phase 1 ✅ span/root/tip/位置抽取     │
            │     scripts/analyze_vsp.py + CLI     │
-           │ Phase 2 ⏳ 翼型 AFILE / 控制面 /      │
+           │ Phase 2 ✅ 翼型 AFILE / 控制面 /      │
            │     翼梁分段自動縮放 / 連續 dihedral  │
            └──────────────────────────────────────┘
 
@@ -755,7 +755,7 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | **4** | M14a-d: mass/CG/inertia budget + AVL .mass 輸出 | M14 | Codex | ⏭️ 系統整合 |
 | **5** | M10a-b: ASWING 安裝 + .asw 產生器 | M10 | 使用者（ASWING compile）+ Codex | ❌ 等 ASWING binary |
 | **6** | M-HF4: ParaView state generator | M-HF | Codex | ⏭️ QoL |
-| **7** | M-VSP Phase 2: 翼型 / 控制面 / 分段縮放 | M-VSP | Codex | ⏭️ 等第二台 HPA VSP |
+| **7** | M-VSP Phase 2: 翼型 / 控制面 / 分段縮放 | M-VSP | Codex | ✅ 已完成；`analyze_vsp.py` + `vsp_to_avl.py` 支援 VSP 優先 / YAML fallback |
 | **8** | 8d: config schema extension（tail/fin 進 YAML/runtime model） | M8 | Codex | ⏭️ 可與 M14 併做 |
 | **9** | focused crossover sweep（1.5→2.2，如需） | M9 | 規劃中 | ⏭️ 可選 |
 | **10** | real vendor catalog / hardware catalog | M9+ | 規劃中 | ⏭️ 後續資料化 |
