@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pytest
 
@@ -25,6 +27,7 @@ from hpa_mdo.structure.dual_beam_mainline.load_split import (
 from hpa_mdo.structure.dual_beam_mainline.optimizer_view import (
     build_feasibility_summary,
     build_geometry_validity_margins,
+    build_numerical_consistency_result,
     build_optimizer_facing_metrics,
 )
 from hpa_mdo.structure.dual_beam_mainline.recovery import recover_structural_response
@@ -385,6 +388,8 @@ def test_phase2_optimizer_metrics_keep_raw_report_channels_separate() -> None:
     assert result.report.link_force_hotspot_node == 2
     assert result.feasibility.overall_hard_feasible is True
     assert result.feasibility.overall_optimizer_candidate_feasible is True
+    assert result.optimizer.numerical_consistency.force_closure_passed is True
+    assert result.optimizer.numerical_consistency.moment_closure_passed is True
     with pytest.raises(AttributeError):
         _ = result.optimizer.rear_main_tip_ratio
 
@@ -471,6 +476,61 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
     assert feasibility.global_observables_passed is True
     assert feasibility.wire_support_validity_passed is True
     assert feasibility.legacy_reference_passed is True
+
+
+def test_numerical_consistency_detects_force_closure_violation_from_tampered_reaction() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, 12.0, 30.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+    )
+    production = get_analysis_mode_definition(AnalysisModeName.DUAL_BEAM_PRODUCTION)
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=production.root_bc,
+        wire_bc=production.wire_bc,
+        link_mode=production.default_link_mode,
+    )
+    load_split = build_dual_beam_load_split(model=model, mode_definition=production)
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+    disp_main_m, disp_rear_m, multipliers, stiffness = solve_dual_beam_state(
+        model=model,
+        main_loads_n=load_split.main_loads_n,
+        rear_loads_n=load_split.rear_loads_n,
+        constraints=constraints,
+    )
+    reactions = recover_reactions(
+        constraints=constraints,
+        multipliers=multipliers,
+        nn=model.y_nodes_m.size,
+    )
+
+    baseline = build_numerical_consistency_result(
+        model=model,
+        stiffness=stiffness,
+        constraints=constraints,
+        multipliers=multipliers,
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        load_split=load_split,
+        reactions=reactions,
+    )
+    assert baseline.force_closure_passed is True
+    assert baseline.moment_closure_passed is True
+
+    tampered = copy.deepcopy(reactions)
+    tampered.total_constraint_reaction_vector_n[2] += 1.0
+    violated = build_numerical_consistency_result(
+        model=model,
+        stiffness=stiffness,
+        constraints=constraints,
+        multipliers=multipliers,
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        load_split=load_split,
+        reactions=tampered,
+    )
+    assert violated.force_closure_passed is False
+    assert violated.passed is False
 
 
 def test_equivalent_gates_are_legacy_reference_only_for_dual_beam_feasibility() -> None:

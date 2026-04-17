@@ -329,6 +329,8 @@ class NumericalConsistencyResult:
 
     equilibrium_residual_n: float
     compatibility_residual: float
+    force_closure_residual_n: float
+    moment_closure_residual_nm: float
     scaled_constraint_condition_number: float
     raw_constraint_rows: int
     active_constraint_rows: int
@@ -336,6 +338,8 @@ class NumericalConsistencyResult:
     full_row_rank: bool
     equilibrium_passed: bool
     compatibility_passed: bool
+    force_closure_passed: bool
+    moment_closure_passed: bool
     conditioning_passed: bool
     passed: bool
 

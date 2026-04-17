@@ -27,6 +27,8 @@ _EQ_LIMIT_TOL = 1.02
 _GEOMETRY_TOL = 1.0e-12
 _EQUILIBRIUM_TOL_N = 1.0e-6
 _COMPATIBILITY_TOL = 1.0e-8
+_FORCE_CLOSURE_TOL_N = 1.0e-6
+_MOMENT_CLOSURE_TOL_NM = 1.0e-6
 _CONDITION_LIMIT = 1.0e12
 
 
@@ -208,14 +210,79 @@ def _build_dual_load_vector(
     )
 
 
+def _nodal_resultant(
+    *,
+    nodes_m: np.ndarray,
+    nodal_loads_n: np.ndarray,
+    origin_m: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    resultant_force_n = np.zeros(3, dtype=float)
+    resultant_moment_nm = np.zeros(3, dtype=float)
+    for node_m, load_row in zip(
+        np.asarray(nodes_m, dtype=float),
+        np.asarray(nodal_loads_n, dtype=float),
+        strict=True,
+    ):
+        force_n = np.asarray(load_row[:3], dtype=float)
+        moment_nm = np.asarray(load_row[3:6], dtype=float)
+        resultant_force_n += force_n
+        resultant_moment_nm += moment_nm + np.cross(node_m - origin_m, force_n)
+    return resultant_force_n, resultant_moment_nm
+
+
+def _global_force_and_moment_closure(
+    *,
+    model: DualBeamMainlineModel,
+    load_split: LoadSplitResult,
+    reactions: ReactionRecoveryResult,
+) -> tuple[float, float]:
+    origin_m = np.asarray(model.nodes_main_m[0], dtype=float)
+    applied_main_force_n, applied_main_moment_nm = _nodal_resultant(
+        nodes_m=model.nodes_main_m,
+        nodal_loads_n=load_split.main_loads_n,
+        origin_m=origin_m,
+    )
+    applied_rear_force_n, applied_rear_moment_nm = _nodal_resultant(
+        nodes_m=model.nodes_rear_m,
+        nodal_loads_n=load_split.rear_loads_n,
+        origin_m=origin_m,
+    )
+    applied_force_n = applied_main_force_n + applied_rear_force_n
+    applied_moment_nm = applied_main_moment_nm + applied_rear_moment_nm
+
+    nn = model.y_nodes_m.size
+    constraint_resultant_force_n = np.zeros(3, dtype=float)
+    constraint_resultant_moment_nm = np.zeros(3, dtype=float)
+    total_constraint_vector_n = np.asarray(reactions.total_constraint_reaction_vector_n, dtype=float)
+    for node_index, node_m in enumerate(np.asarray(model.nodes_main_m, dtype=float)):
+        base = node_index * 6
+        force_n = total_constraint_vector_n[base : base + 3]
+        moment_nm = total_constraint_vector_n[base + 3 : base + 6]
+        constraint_resultant_force_n += force_n
+        constraint_resultant_moment_nm += np.cross(node_m - origin_m, force_n) - moment_nm
+    for node_index, node_m in enumerate(np.asarray(model.nodes_rear_m, dtype=float)):
+        base = (nn + node_index) * 6
+        force_n = total_constraint_vector_n[base : base + 3]
+        moment_nm = total_constraint_vector_n[base + 3 : base + 6]
+        constraint_resultant_force_n += force_n
+        constraint_resultant_moment_nm += np.cross(node_m - origin_m, force_n) - moment_nm
+
+    return (
+        float(np.linalg.norm(applied_force_n + constraint_resultant_force_n)),
+        float(np.linalg.norm(applied_moment_nm + constraint_resultant_moment_nm)),
+    )
+
+
 def build_numerical_consistency_result(
     *,
+    model: DualBeamMainlineModel,
     stiffness: np.ndarray,
     constraints: ConstraintAssemblyResult,
     multipliers: np.ndarray,
     disp_main_m: np.ndarray,
     disp_rear_m: np.ndarray,
     load_split: LoadSplitResult,
+    reactions: ReactionRecoveryResult,
 ) -> NumericalConsistencyResult:
     """Summarize solver residuals and constraint health for hard gating."""
 
@@ -257,10 +324,17 @@ def build_numerical_consistency_result(
             )
         )
     )
+    force_closure_residual_n, moment_closure_residual_nm = _global_force_and_moment_closure(
+        model=model,
+        load_split=load_split,
+        reactions=reactions,
+    )
     condition_number = float(constraints.audit.scaled_condition_number)
     full_row_rank = bool(constraints.audit.full_row_rank)
     equilibrium_passed = bool(equilibrium_residual_n <= _EQUILIBRIUM_TOL_N)
     compatibility_passed = bool(compatibility_residual <= _COMPATIBILITY_TOL)
+    force_closure_passed = bool(force_closure_residual_n <= _FORCE_CLOSURE_TOL_N)
+    moment_closure_passed = bool(moment_closure_residual_nm <= _MOMENT_CLOSURE_TOL_NM)
     conditioning_passed = bool(
         full_row_rank
         and np.isfinite(condition_number)
@@ -270,6 +344,8 @@ def build_numerical_consistency_result(
     return NumericalConsistencyResult(
         equilibrium_residual_n=equilibrium_residual_n,
         compatibility_residual=compatibility_residual,
+        force_closure_residual_n=force_closure_residual_n,
+        moment_closure_residual_nm=moment_closure_residual_nm,
         scaled_constraint_condition_number=condition_number,
         raw_constraint_rows=int(constraints.audit.raw_row_count),
         active_constraint_rows=int(constraints.audit.active_row_count),
@@ -277,8 +353,17 @@ def build_numerical_consistency_result(
         full_row_rank=full_row_rank,
         equilibrium_passed=equilibrium_passed,
         compatibility_passed=compatibility_passed,
+        force_closure_passed=force_closure_passed,
+        moment_closure_passed=moment_closure_passed,
         conditioning_passed=conditioning_passed,
-        passed=bool(full_row_rank and equilibrium_passed and compatibility_passed and conditioning_passed),
+        passed=bool(
+            full_row_rank
+            and equilibrium_passed
+            and compatibility_passed
+            and force_closure_passed
+            and moment_closure_passed
+            and conditioning_passed
+        ),
     )
 
 
@@ -371,12 +456,14 @@ def build_optimizer_facing_metrics(
         geometry_validity=build_geometry_validity_margins(model),
         equivalent_gates=build_equivalent_gate_result(model),
         numerical_consistency=build_numerical_consistency_result(
+            model=model,
             stiffness=stiffness,
             constraints=constraints,
             multipliers=multipliers,
             disp_main_m=disp_main_m,
             disp_rear_m=disp_rear_m,
             load_split=load_split,
+            reactions=reactions,
         ),
         global_observables=build_global_observable_readiness(
             report=report,
@@ -409,6 +496,10 @@ def build_feasibility_summary(
         hard_failures.append("equilibrium_residual")
     if not optimizer_metrics.numerical_consistency.compatibility_passed:
         hard_failures.append("constraint_compatibility")
+    if not optimizer_metrics.numerical_consistency.force_closure_passed:
+        hard_failures.append("force_closure")
+    if not optimizer_metrics.numerical_consistency.moment_closure_passed:
+        hard_failures.append("moment_closure")
     if not optimizer_metrics.numerical_consistency.conditioning_passed:
         hard_failures.append("constraint_conditioning")
     if not optimizer_metrics.global_observables.passed:
