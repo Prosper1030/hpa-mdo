@@ -2,6 +2,45 @@
 
 一套用於人力飛機機翼翼梁結構最佳化的 Python 框架，整合了氣動力載荷解析、有限元素分析與 CAE 匯出功能。專為 **Black Cat 004**（翼展 33 m 的人力飛機）而建。
 
+目前這個 repo 的正式主線不是舊的單梁 parity 路線，而是 **dual-beam production / inverse-design / decision producer** 這條可持續擴充的工程主線。第一次進 repo 時，請把它當成「可執行的設計引擎 + 正式輸出 contract」，不要把 `equivalent_beam` 或零散研究型 script 當成目前 sign-off 入口。
+
+---
+
+## 你現在應該看哪裡
+
+| 你現在要做什麼 | 先看哪裡 | 為什麼 |
+|---|---|---|
+| 第一次進 repo，想知道怎麼開始 | [README.md](README.md) | 這份就是 landing page，先用它判斷正式入口與第一個指令 |
+| 想快速找到所有重要文件 | [docs/README.md](docs/README.md) | 文件索引，會告訴你哪些是正式 contract、哪些是研究/歷史文件 |
+| 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
+| 想理解長期願景與五階段藍圖 | [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md) | 長期 blueprint，不是日常入口 |
+
+## 三條閱讀路徑
+
+### 第一次使用
+
+1. 先看下面的「安裝方式」與「快速開始」。
+2. 跑一次 `python examples/blackcat_004_optimize.py` 或 `python scripts/run_optimization.py --config configs/blackcat_004.yaml`。
+3. 如果要理解正式工程主線，再讀：
+   - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
+   - [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
+
+### 協作開發
+
+- 先以本頁的「目前正式判準」為準，確認不要沿用 legacy parity path。
+- 接著讀：
+  - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
+  - [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
+  - [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
+
+### AI / automation
+
+- 正式對外 machine-readable 入口是 `python -m hpa_mdo.producer` 輸出的 decision interface JSON。
+- 如果只需要 consumer contract，請優先讀：
+  - [docs/dual_beam_consumer_integration_guide.md](docs/dual_beam_consumer_integration_guide.md)
+  - [docs/dual_beam_decision_interface_v1_spec.md](docs/dual_beam_decision_interface_v1_spec.md)
+  - [docs/dual_beam_autoresearch_quickstart.md](docs/dual_beam_autoresearch_quickstart.md)
+
 ---
 
 ## 架構概觀
@@ -100,9 +139,9 @@ graph LR
 
 如果你是人或 AI 代理，對 Black Cat 004 的後續開發請優先讀：
 
-- [docs/dual_beam_workflow_architecture_overview.md](</Volumes/Samsung SSD/hpa-mdo/docs/dual_beam_workflow_architecture_overview.md>)
-- [docs/dual_beam_consumer_integration_guide.md](</Volumes/Samsung SSD/hpa-mdo/docs/dual_beam_consumer_integration_guide.md>)
-- [docs/GRAND_BLUEPRINT.md](</Volumes/Samsung SSD/hpa-mdo/docs/GRAND_BLUEPRINT.md>)
+- [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
+- [docs/dual_beam_consumer_integration_guide.md](docs/dual_beam_consumer_integration_guide.md)
+- [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
 
 ---
 
