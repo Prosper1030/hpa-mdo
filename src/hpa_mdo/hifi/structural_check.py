@@ -294,6 +294,7 @@ def run_structural_check(
         cfg=cfg,
         output_dir=output_dir,
         mesh_path=resolved_mesh,
+        summary_path=resolved_summary,
         step_path=resolved_step,
         explicit_tip_load_n=tip_load_n,
         mesh_length_scale_m_per_unit=mesh_length_scale_m,
@@ -1011,6 +1012,7 @@ def _build_load_model(
     cfg: HPAConfig,
     output_dir: Path,
     mesh_path: Path,
+    summary_path: Path | None,
     step_path: Path | None,
     explicit_tip_load_n: float | None,
     mesh_length_scale_m_per_unit: float,
@@ -1027,7 +1029,11 @@ def _build_load_model(
             comparison_note="Explicit tip loads are useful for controlled spot-checks, but not a direct like-for-like MDO load replay.",
         )
 
-    source_candidates = _default_spar_csv_candidates(output_dir=output_dir, step_path=step_path)
+    source_candidates = _default_spar_csv_candidates(
+        output_dir=output_dir,
+        summary_path=summary_path,
+        step_path=step_path,
+    )
 
     for csv_path in source_candidates:
         load_model = _load_model_from_spar_csv(
@@ -1059,9 +1065,16 @@ def _build_load_model(
     )
 
 
-def _default_spar_csv_candidates(*, output_dir: Path, step_path: Path | None) -> list[Path]:
+def _default_spar_csv_candidates(
+    *,
+    output_dir: Path,
+    summary_path: Path | None,
+    step_path: Path | None,
+) -> list[Path]:
     source_hint = "" if step_path is None else step_path.stem.lower()
     candidates: list[Path] = []
+    if summary_path is not None:
+        candidates.extend(_summary_related_spar_csv_candidates(summary_path))
     root_candidates = _current_standard_output_roots(output_dir)
     root_first = "jig" in source_hint or "spar" in source_hint
 
@@ -1071,6 +1084,24 @@ def _default_spar_csv_candidates(*, output_dir: Path, step_path: Path | None) ->
     for root in ordered_roots:
         candidates.append(root / "fsi_one_way" / "ansys" / "spar_data.csv")
 
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append(resolved)
+    return deduped
+
+
+def _summary_related_spar_csv_candidates(summary_path: Path) -> list[Path]:
+    base = summary_path.resolve()
+    candidates = [
+        base.with_name("spar_data.csv"),
+        base.parent / "spar_data.csv",
+        base.parent / "ansys" / "spar_data.csv",
+    ]
     deduped: list[Path] = []
     seen: set[Path] = set()
     for candidate in candidates:
