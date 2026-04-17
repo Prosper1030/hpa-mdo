@@ -1,0 +1,70 @@
+# Agent Handoff Quickstart
+
+> 這份文件是給使用者直接複製貼上用的。
+> 如果你現在要把任務丟給另一個 AI agent，通常只要貼下面其中一段，再指定要做哪個 track。
+
+## 最短版回答
+
+可以。
+你現在最簡單的做法，就是直接貼對應模板，然後把 `track_c_mac_hifi_spotcheck` 換成你要的任務 ID。
+
+## 通用交辦模板
+
+```text
+請先閱讀以下文件，先建立上下文，不要自行改主線定義：
+/Volumes/Samsung SSD/hpa-mdo/CURRENT_MAINLINE.md
+/Volumes/Samsung SSD/hpa-mdo/project_state.yaml
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/README.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/TASKS.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
+
+接著只執行這份任務：
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_c_mac_hifi_spotcheck.md
+
+限制：
+- 只能修改 task pack 指定的 write scope
+- 不要碰 README / CURRENT_MAINLINE / GRAND_BLUEPRINT / configs/blackcat_004.yaml，除非 prompt 明確要求
+- 每完成一個獨立任務就單獨 commit
+- 先做最小必要驗證，再回報結果、風險、未完成處
+```
+
+## 如果你現在就是要派 `Track C`
+
+你可以直接貼下面這段，不需要再自己重寫：
+
+```text
+請先閱讀以下文件，先建立上下文，不要自行改主線定義：
+/Volumes/Samsung SSD/hpa-mdo/CURRENT_MAINLINE.md
+/Volumes/Samsung SSD/hpa-mdo/project_state.yaml
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/README.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/TASKS.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
+
+接著只執行這份任務：
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_c_mac_hifi_spotcheck.md
+
+你的目標是把 Mac 上的 structural spot-check 往「更穩定、更可比較」推進，但不要把任何單一歷史 APDL case 寫死成唯一 benchmark。
+
+限制：
+- 只能修改 `src/hpa_mdo/hifi/**`, `scripts/hifi_*`, `tests/test_hifi_*`
+- 不要改 `scripts/direct_dual_beam_inverse_design.py`
+- 不要改 `README.md`, `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml`
+- 每完成一個獨立任務就單獨 commit
+- 先做最小必要驗證，再回報結果、風險、未完成處
+```
+
+## 什麼時候只寫「做 Track C」就夠
+
+只有在對方 agent 已經知道這個 repo，或你確定它會先讀 `CURRENT_MAINLINE.md` / `project_state.yaml` 的情況下，才建議只寫：
+
+```text
+請照 current_parallel_work task pack 做 Track C。
+```
+
+如果是新 agent，或你不確定它會不會自己找文件，請不要只寫這一句，否則很容易理解不完整。
+
+## 推薦做法
+
+- 新 agent：直接貼完整模板
+- 已經在這個 repo 工作過的 agent：可以貼短版，再補 task id
+- 一次派多個 agent：每個 agent 只給一個 track，不要一個 prompt 裡混兩件事

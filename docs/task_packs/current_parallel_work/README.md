@@ -27,6 +27,7 @@
   - 先讀上面的 `Read Order`
   - 再讀一份指定 prompt
   - 然後只在 prompt 允許的檔案範圍內工作
+- 如果你想直接把任務貼給另一個 agent，請優先用 [HANDOFF_QUICKSTART.md](HANDOFF_QUICKSTART.md) 裡的現成模板。
 - 如果 agent 要改 `README.md`、`CURRENT_MAINLINE.md`、`docs/GRAND_BLUEPRINT.md` 或 `configs/blackcat_004.yaml`，應先停下來，不要自行擴張範圍。
 - 如果 agent 發現 prompt 與 `CURRENT_MAINLINE.md` 衝突，以 `CURRENT_MAINLINE.md` 為準。
 
