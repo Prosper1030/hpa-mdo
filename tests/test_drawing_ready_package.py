@@ -25,8 +25,10 @@ def test_export_drawing_ready_package_writes_manifest_and_readme(tmp_path: Path)
 
     manifest_path = package_dir / "drawing_ready_manifest.json"
     readme_path = package_dir / "README.md"
+    handoff_path = package_dir / "DRAWING_HANDOFF.md"
     assert manifest_path.exists()
     assert readme_path.exists()
+    assert handoff_path.exists()
     assert (package_dir / "geometry" / "spar_jig_shape.step").exists()
     assert (package_dir / "design" / "optimization_summary.txt").exists()
     assert (package_dir / "design" / "discrete_layup_final_design.json").exists()
@@ -38,10 +40,15 @@ def test_export_drawing_ready_package_writes_manifest_and_readme(tmp_path: Path)
     assert manifest["primary_drawing_truth"]["final_design_basis"] == (
         "design/discrete_layup_final_design.json"
     )
+    assert manifest["primary_drawing_truth"]["handoff_note"] == "DRAWING_HANDOFF.md"
 
     readme = readme_path.read_text(encoding="utf-8")
     assert "Use `geometry/spar_jig_shape.step` as the primary spar drawing truth." in readme
     assert "Do not use `crossval_report.txt` as drawing truth" in readme
+
+    handoff = handoff_path.read_text(encoding="utf-8")
+    assert "Primary spar drawing geometry: `geometry/spar_jig_shape.step`" in handoff
+    assert "Do not use `crossval_report.txt` as drawing truth or validation truth." in handoff
 
 
 def test_export_drawing_ready_package_requires_core_artifacts(tmp_path: Path) -> None:

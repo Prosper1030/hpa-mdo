@@ -144,6 +144,25 @@ def _write_package_readme(package_dir: Path, records: list[dict[str, object]]) -
     (package_dir / "README.md").write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_drawing_handoff(package_dir: Path) -> None:
+    lines = [
+        "# Drawing Handoff",
+        "",
+        "Use these files first:",
+        "- Primary spar drawing geometry: `geometry/spar_jig_shape.step`",
+        "- Final design basis: `design/discrete_layup_final_design.json`",
+        "- Human-readable summary: `design/optimization_summary.txt`",
+        "- Tabular geometry contract: `data/spar_data.csv`",
+        "",
+        "Reference only:",
+        "- `references/*` are loaded-shape / cruise-state references, not jig drawing truth.",
+        "",
+        "Do not use `crossval_report.txt` as drawing truth or validation truth.",
+        "",
+    ]
+    (package_dir / "DRAWING_HANDOFF.md").write_text("\n".join(lines), encoding="utf-8")
+
+
 def export_drawing_ready_package(
     output_dir: str | Path,
     *,
@@ -182,6 +201,7 @@ def export_drawing_ready_package(
             "final_design_basis": "design/discrete_layup_final_design.json",
             "human_summary": "design/optimization_summary.txt",
             "tabular_geometry": "data/spar_data.csv",
+            "handoff_note": "DRAWING_HANDOFF.md",
         },
         "artifacts": records,
     }
@@ -190,4 +210,5 @@ def export_drawing_ready_package(
         encoding="utf-8",
     )
     _write_package_readme(package_dir, records)
+    _write_drawing_handoff(package_dir)
     return package_dir

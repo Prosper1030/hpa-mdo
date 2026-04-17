@@ -620,6 +620,12 @@ def main(argv: list[str] | None = None) -> float:
     try:
         drawing_package_dir = export_drawing_ready_package(output_dir)
         print(f"       Saved: {drawing_package_dir}")
+        print(f"       Draw from : {drawing_package_dir / 'geometry' / 'spar_jig_shape.step'}")
+        print(
+            "       Design via: "
+            f"{drawing_package_dir / 'design' / 'discrete_layup_final_design.json'}"
+        )
+        print(f"       Handoff    : {drawing_package_dir / 'DRAWING_HANDOFF.md'}")
     except Exception as exc:  # noqa: BLE001
         print(f"       WARN: drawing-ready package skipped: {exc}")
 

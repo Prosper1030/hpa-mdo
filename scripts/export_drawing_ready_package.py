@@ -34,6 +34,9 @@ def main(argv: list[str] | None = None) -> int:
         package_dir_name=args.package_name,
     )
     print(f"Drawing-ready package exported: {package_dir}")
+    print(f"  Handoff  : {package_dir / 'DRAWING_HANDOFF.md'}")
+    print(f"  Geometry : {package_dir / 'geometry' / 'spar_jig_shape.step'}")
+    print(f"  Design   : {package_dir / 'design' / 'discrete_layup_final_design.json'}")
     print(f"  README   : {package_dir / 'README.md'}")
     print(f"  Manifest : {package_dir / 'drawing_ready_manifest.json'}")
     return 0
