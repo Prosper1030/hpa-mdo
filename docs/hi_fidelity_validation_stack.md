@@ -129,6 +129,8 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - `output/blackcat_004/hifi_dual_beam_production_stepdiag/structural_check.md`
 - `output/blackcat_004/hifi_dual_beam_production_stepdiag/structural_check.json`
 - `output/blackcat_004/hifi_dual_beam_production_stepdiag/spar_jig_shape.mesh_diagnostics.json`
+- `output/blackcat_004/hifi_heal_probe/spar_jig_shape.mesh_diagnostics.json`
+- `output/blackcat_004/hifi_heal_structcheck/structural_check.json`
 
 該案例目前是：
 
@@ -147,6 +149,20 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
   - `invalid_surface_elements x38`
   - `equivalent_triangles x2128`
   - `duplicate_shell_facets x599`
+- 在此之後，`gmsh_runner` 又加入了 OpenCASCADE healing wrapper（`HealShapes + Coherence`）與 bounded coarse fallback：
+  - 最新 healed mesh sidecar 已降成：
+    - `invalid_surface_elements x12`
+    - `equivalent_triangles x340`
+    - `duplicate_shell_facets x259`
+  - 先前的 `overlapping_boundary_mesh x1`
+  - `no_elements_in_volume x1`
+  - `duplicate_boundary_facets x2`
+    已不再出現
+  - healed mesh 重新進 CalculiX 後，solver diagnostics 也從
+    `opposite_normals x3370 / nonpositive_jacobian x34`
+    降到
+    `opposite_normals x732 / nonpositive_jacobian x10`
+  - `ROOT/TIP/WIRE_1` 在 healed coarse mesh 上仍可維持
 
 另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
 
@@ -156,7 +172,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 所以目前最大問題比較像：
 
-- STEP / Gmsh surface 本身的 overlapping / invalid facets
+- STEP / Gmsh surface 仍殘留的 invalid facets / equivalent triangles / shell duplication
 - shell mesh normals / Jacobian 仍未收斂
 
 而不是：

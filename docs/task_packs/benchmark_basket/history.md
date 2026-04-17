@@ -33,3 +33,23 @@
       - `equivalent_triangles x2128`
       - `duplicate_shell_facets x599`
     - 這代表 Mac hi-fi 現在不只知道「CalculiX 因 mesh_quality fail」，也能在 report 裡直接指出較上游的 STEP/Gmsh 問題來源
+  - 接著補上 `fix: 補上 gmsh OCC healing wrapper` 與 `fix: 放寬 coarse mesh named point 容差`：
+    - STEP meshing 現在會先套 `HealShapes + Coherence`
+    - 還是維持最多一次 coarse retry，不會無限重試
+    - healed mesh sidecar 已改善成：
+      - `invalid_surface_elements x12`
+      - `equivalent_triangles x340`
+      - `duplicate_shell_facets x259`
+    - 先前的
+      - `overlapping_boundary_mesh x1`
+      - `no_elements_in_volume x1`
+      - `duplicate_boundary_facets x2`
+      已不再出現
+    - coarse healed mesh 仍可保住 `ROOT/TIP/WIRE_1` NSET
+    - healed mesh 再進 CalculiX 後，solver diagnostics 也從
+      - `opposite_normals x3370`
+      - `nonpositive_jacobian x34`
+      改善成
+      - `opposite_normals x732`
+      - `nonpositive_jacobian x10`
+    - 這代表 OCC healing 對現在的主 blocker 是有效的，但還不足以讓 Mac hi-fi 升格成 benchmark-ready
