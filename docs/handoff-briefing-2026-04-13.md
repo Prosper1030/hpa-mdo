@@ -1,6 +1,7 @@
 # HPA-MDO 專案接手簡報
 
 > 日期：2026-04-13
+> 文件定位：這份是歷史接手簡報，用來保留當時的背景與轉向脈絡；如果你現在要判斷正式入口或近期優先順序，請先看 [README.md](../README.md)、[docs/README.md](README.md)、[NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md)。
 
 ---
 

@@ -2,6 +2,8 @@
 
 更新時間：2026-04-12 CST
 
+如果你是第一次進 repo，請先看 [README.md](../README.md)；想找文件入口與近期路線，請看 [docs/README.md](README.md) 與 [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md)。這份文件只負責說明目前 dual-beam 正式 workflow 與 producer / consumer 邊界。
+
 這份文件是給兩種人看的：
 
 - `hpa-mdo` 內部維護者：確認目前 dual-beam 線有哪些層、哪些屬於研究內部
@@ -13,8 +15,8 @@
 
 1. **Production structural mainline**
    - 位置：
-     - [src/hpa_mdo/structure/dual_beam_mainline/api.py](</Volumes/Samsung SSD/hpa-mdo/src/hpa_mdo/structure/dual_beam_mainline/api.py>)
-     - [src/hpa_mdo/structure/dual_beam_mainline/solver.py](</Volumes/Samsung SSD/hpa-mdo/src/hpa_mdo/structure/dual_beam_mainline/solver.py>)
+     - [src/hpa_mdo/structure/dual_beam_mainline/api.py](../src/hpa_mdo/structure/dual_beam_mainline/api.py)
+     - [src/hpa_mdo/structure/dual_beam_mainline/solver.py](../src/hpa_mdo/structure/dual_beam_mainline/solver.py)
    - 角色：
      - dual-beam 主線結構求解
      - reaction recovery
@@ -24,8 +26,8 @@
 
 2. **Production compare / validation**
    - 位置：
-     - [scripts/ansys_dual_beam_production_check.py](</Volumes/Samsung SSD/hpa-mdo/scripts/ansys_dual_beam_production_check.py>)
-     - [scripts/ansys_crossval.py](</Volumes/Samsung SSD/hpa-mdo/scripts/ansys_crossval.py>)
+     - [scripts/ansys_dual_beam_production_check.py](../scripts/ansys_dual_beam_production_check.py)
+     - [scripts/ansys_crossval.py](../scripts/ansys_crossval.py)
    - 角色：
      - ANSYS compare
      - production baseline 對齊
@@ -40,7 +42,7 @@
 
 4. **Manufacturing-aware discrete geometry layer**
    - 位置：
-     - [scripts/direct_dual_beam_v2m.py](</Volumes/Samsung SSD/hpa-mdo/scripts/direct_dual_beam_v2m.py>)
+     - [scripts/direct_dual_beam_v2m.py](../scripts/direct_dual_beam_v2m.py)
    - 角色：
      - discrete geometry choice
      - manufacturing-aware V2.m++
@@ -49,8 +51,8 @@
 
 5. **Material proxy layer**
    - 位置：
-     - [scripts/direct_dual_beam_v2m_material_proxy.py](</Volumes/Samsung SSD/hpa-mdo/scripts/direct_dual_beam_v2m_material_proxy.py>)
-     - [src/hpa_mdo/structure/material_proxy_catalog.py](</Volumes/Samsung SSD/hpa-mdo/src/hpa_mdo/structure/material_proxy_catalog.py>)
+     - [scripts/direct_dual_beam_v2m_material_proxy.py](../scripts/direct_dual_beam_v2m_material_proxy.py)
+     - [src/hpa_mdo/structure/material_proxy_catalog.py](../src/hpa_mdo/structure/material_proxy_catalog.py)
    - 角色：
      - `main_spar_family`
      - `rear_outboard_reinforcement_pkg`
@@ -59,7 +61,7 @@
 
 6. **Joint geometry + material workflow**
    - 位置：
-     - [scripts/direct_dual_beam_v2m_joint_material.py](</Volumes/Samsung SSD/hpa-mdo/scripts/direct_dual_beam_v2m_joint_material.py>)
+     - [scripts/direct_dual_beam_v2m_joint_material.py](../scripts/direct_dual_beam_v2m_joint_material.py)
    - 角色：
      - joint search workflow
      - representative region check
@@ -79,8 +81,8 @@
 
 8. **Producer boundary**
    - 位置：
-     - [src/hpa_mdo/producer/joint_decision.py](</Volumes/Samsung SSD/hpa-mdo/src/hpa_mdo/producer/joint_decision.py>)
-     - [src/hpa_mdo/producer/__main__.py](</Volumes/Samsung SSD/hpa-mdo/src/hpa_mdo/producer/__main__.py>)
+     - [src/hpa_mdo/producer/joint_decision.py](../src/hpa_mdo/producer/joint_decision.py)
+     - [src/hpa_mdo/producer/__main__.py](../src/hpa_mdo/producer/__main__.py)
    - 角色：
      - 對外穩定 CLI / Python API
      - 固定執行 workflow strategy

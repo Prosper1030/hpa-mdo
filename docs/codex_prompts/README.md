@@ -73,8 +73,10 @@
 ## 給 Claude 的協作備忘
 
 當使用者要派新任務時：
-1. 先讀 `docs/GRAND_BLUEPRINT.md` 看總藍圖位置
-2. 讀 `docs/codex_tasks.md` 看當前進度
-3. 在這裡寫一個 self-contained `<task_name>.md`
-4. 把 prompt 內容直接貼回對話讓使用者複製
-5. 任務完成後把對應的 .md 移到「已完成」清單
+1. 先讀 [README.md](../../README.md) 和 [docs/README.md](../README.md) 看正式入口與文件導航
+2. 再讀 [NOW_NEXT_BLUEPRINT.md](../NOW_NEXT_BLUEPRINT.md) 看近期優先順序
+3. 需要長期 phase 背景時，再讀 [GRAND_BLUEPRINT.md](../GRAND_BLUEPRINT.md)
+4. 讀 [docs/codex_tasks.md](../codex_tasks.md) 看當前進度與歷史 task log
+5. 在這裡寫一個 self-contained `<task_name>.md`
+6. 把 prompt 內容直接貼回對話讓使用者複製
+7. 任務完成後把對應的 .md 移到「已完成」清單
