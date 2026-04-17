@@ -49,6 +49,7 @@ def _simple_model(
     wire_anchor_points_m: np.ndarray | None = None,
     torque_input: TorqueInputDefinition | None = None,
     wire_unstretched_lengths_m: np.ndarray | None = None,
+    wire_allowable_tension_n: np.ndarray | None = None,
 ) -> DualBeamMainlineModel:
     y_nodes_m = np.array([0.0, 1.0, 2.0], dtype=float)
     nodes_main_m = np.column_stack((np.zeros(3), y_nodes_m, np.zeros(3)))
@@ -89,6 +90,13 @@ def _simple_model(
     )
     wire_young_pa = (
         np.full(len(wire_node_indices), 70.0e9, dtype=float)
+        if wire_node_indices
+        else np.zeros(0, dtype=float)
+    )
+    resolved_wire_allowable_tension_n = (
+        np.asarray(wire_allowable_tension_n, dtype=float)
+        if wire_allowable_tension_n is not None
+        else np.full(len(wire_node_indices), 1.0e9, dtype=float)
         if wire_node_indices
         else np.zeros(0, dtype=float)
     )
@@ -161,6 +169,7 @@ def _simple_model(
         wire_anchor_points_m=resolved_wire_anchor_points_m,
         wire_area_m2=wire_area_m2,
         wire_young_pa=wire_young_pa,
+        wire_allowable_tension_n=resolved_wire_allowable_tension_n,
         wire_reference_lengths_m=wire_reference_lengths_m,
         wire_unstretched_lengths_m=resolved_wire_unstretched_lengths_m,
         joint_mass_half_kg=0.2,
@@ -719,6 +728,39 @@ def test_explicit_wire_truss_uses_unstretched_length_to_apply_installed_pretensi
     assert result.reactions.wire_resultants_n[0] == pytest.approx(target_pretension_n[0], rel=1.0e-9)
     assert result.recovery.wire_tension_estimates_n[0] == pytest.approx(target_pretension_n[0], rel=1.0e-9)
     assert result.recovery.wire_tension_only_passed is True
+
+
+def test_wire_tension_limit_is_a_hard_gate_when_explicit_truss_exceeds_allowable() -> None:
+    wire_area_m2 = np.array([np.pi * (0.5 * 2.0e-3) ** 2], dtype=float)
+    wire_young_pa = np.array([70.0e9], dtype=float)
+    reference_length_m = np.array([1.0], dtype=float)
+    target_pretension_n = np.array([250.0], dtype=float)
+    wire_unstretched_lengths_m = _wire_unstretched_lengths_from_pretension(
+        reference_lengths_m=reference_length_m,
+        area_m2=wire_area_m2,
+        young_pa=wire_young_pa,
+        pretension_n=target_pretension_n,
+    )
+    model = _simple_model(
+        joint_node_indices=(1,),
+        wire_node_indices=(0,),
+        wire_attachment_angles_deg=(45.0,),
+        wire_anchor_points_m=np.array([[0.0, 0.0, -1.0]], dtype=float),
+        wire_unstretched_lengths_m=wire_unstretched_lengths_m,
+        wire_allowable_tension_n=np.array([200.0], dtype=float),
+    )
+
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+    )
+
+    assert result.recovery.max_wire_tension_n > result.recovery.max_wire_allowable_tension_n
+    assert result.recovery.max_wire_tension_utilization > 1.0
+    assert result.recovery.wire_tension_limit_passed is False
+    assert result.feasibility.wire_support_validity_passed is False
+    assert "wire_tension_limit" in result.feasibility.hard_failures
 
 
 def test_wire_axial_mode_flags_compression_resultant_as_invalid() -> None:

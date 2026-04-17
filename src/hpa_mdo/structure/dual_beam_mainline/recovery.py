@@ -252,6 +252,16 @@ def recover_structural_response(
             ),
         )
     )
+    wire_allowable_tension_n = np.asarray(model.wire_allowable_tension_n, dtype=float)
+    if wire_allowable_tension_n.shape != np.asarray(wire_tension_estimates_n, dtype=float).shape:
+        raise ValueError("wire_allowable_tension_n must align with wire_tension_estimates_n.")
+    wire_tension_utilization = np.divide(
+        np.asarray(wire_tension_estimates_n, dtype=float),
+        np.maximum(wire_allowable_tension_n, 1.0e-30),
+    )
+    wire_tension_limit_passed = bool(
+        np.all(np.asarray(wire_tension_estimates_n, dtype=float) <= wire_allowable_tension_n + 1.0e-9)
+    )
 
     vm_main_pa = _beam_von_mises(
         nodes_m=model.nodes_main_m,
@@ -307,9 +317,16 @@ def recover_structural_response(
         wire_tension_estimates_n=np.asarray(wire_tension_estimates_n, dtype=float),
         wire_precompression_n=np.asarray(wire_precompression_n, dtype=float),
         max_wire_tension_n=float(np.max(wire_tension_estimates_n)) if wire_tension_estimates_n.size else 0.0,
+        max_wire_allowable_tension_n=(
+            float(np.max(wire_allowable_tension_n)) if wire_allowable_tension_n.size else 0.0
+        ),
+        max_wire_tension_utilization=(
+            float(np.max(wire_tension_utilization)) if wire_tension_utilization.size else 0.0
+        ),
         max_wire_precompression_n=float(np.max(wire_precompression_n)) if wire_precompression_n.size else 0.0,
         max_wire_upward_reaction_n=float(max_wire_upward_reaction_n),
         wire_tension_only_passed=bool(wire_tension_only_passed),
+        wire_tension_limit_passed=bool(wire_tension_limit_passed),
         spar_tube_mass_half_kg=spar_tube_mass_half_kg,
         spar_tube_mass_full_kg=2.0 * spar_tube_mass_half_kg,
         joint_mass_half_kg=joint_mass_half_kg,

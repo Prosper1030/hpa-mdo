@@ -420,10 +420,13 @@ def build_wire_support_validity(
     return WireSupportValidityResult(
         wire_count=wire_count,
         max_tension_n=float(recovery.max_wire_tension_n),
+        max_allowable_tension_n=float(recovery.max_wire_allowable_tension_n),
+        max_tension_utilization=float(recovery.max_wire_tension_utilization),
         max_precompression_n=float(recovery.max_wire_precompression_n),
         max_upward_reaction_n=float(recovery.max_wire_upward_reaction_n),
         tension_only_passed=bool(recovery.wire_tension_only_passed),
-        passed=bool(recovery.wire_tension_only_passed),
+        tension_limit_passed=bool(recovery.wire_tension_limit_passed),
+        passed=bool(recovery.wire_tension_only_passed and recovery.wire_tension_limit_passed),
     )
 
 
@@ -509,7 +512,10 @@ def build_feasibility_summary(
     if not optimizer_metrics.global_observables.passed:
         hard_failures.append("global_observables")
     if not optimizer_metrics.wire_support_validity.passed:
-        hard_failures.append("wire_tension_only")
+        if not optimizer_metrics.wire_support_validity.tension_only_passed:
+            hard_failures.append("wire_tension_only")
+        if not optimizer_metrics.wire_support_validity.tension_limit_passed:
+            hard_failures.append("wire_tension_limit")
 
     eq = optimizer_metrics.equivalent_gates
     if not eq.analysis_success:

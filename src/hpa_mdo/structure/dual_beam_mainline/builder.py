@@ -284,6 +284,16 @@ def build_dual_beam_mainline_model(
             dtype=float,
         )
         wire_young_pa = np.full(len(wire_node_indices), float(wire_material.E), dtype=float)
+        wire_allowable_tension_n = np.full(
+            len(wire_node_indices),
+            (
+                float(cfg.lift_wires.max_tension_fraction)
+                * float(wire_material.tensile_strength)
+                * wire_area_m2[0]
+                / float(cfg.safety.material_safety_factor)
+            ),
+            dtype=float,
+        )
         wire_reference_lengths_m = np.linalg.norm(
             np.asarray(nodes_main_m[list(wire_node_indices)], dtype=float) - wire_anchor_points_m,
             axis=1,
@@ -297,6 +307,7 @@ def build_dual_beam_mainline_model(
     else:
         wire_area_m2 = np.zeros(0, dtype=float)
         wire_young_pa = np.zeros(0, dtype=float)
+        wire_allowable_tension_n = np.zeros(0, dtype=float)
         wire_reference_lengths_m = np.zeros(0, dtype=float)
         wire_unstretched_lengths_m = np.zeros(0, dtype=float)
 
@@ -385,6 +396,7 @@ def build_dual_beam_mainline_model(
         wire_anchor_points_m=wire_anchor_points_m,
         wire_area_m2=wire_area_m2,
         wire_young_pa=wire_young_pa,
+        wire_allowable_tension_n=wire_allowable_tension_n,
         wire_reference_lengths_m=wire_reference_lengths_m,
         wire_unstretched_lengths_m=wire_unstretched_lengths_m,
         joint_mass_half_kg=float(joint_mass_half_kg),

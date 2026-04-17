@@ -157,6 +157,7 @@ class DualBeamMainlineModel:
     wire_anchor_points_m: np.ndarray
     wire_area_m2: np.ndarray
     wire_young_pa: np.ndarray
+    wire_allowable_tension_n: np.ndarray
     wire_reference_lengths_m: np.ndarray
     wire_unstretched_lengths_m: np.ndarray
     joint_mass_half_kg: float
@@ -265,9 +266,12 @@ class RecoveryResult:
     wire_tension_estimates_n: np.ndarray
     wire_precompression_n: np.ndarray
     max_wire_tension_n: float
+    max_wire_allowable_tension_n: float
+    max_wire_tension_utilization: float
     max_wire_precompression_n: float
     max_wire_upward_reaction_n: float
     wire_tension_only_passed: bool
+    wire_tension_limit_passed: bool
     spar_tube_mass_half_kg: float
     spar_tube_mass_full_kg: float
     joint_mass_half_kg: float
@@ -378,9 +382,12 @@ class WireSupportValidityResult:
 
     wire_count: int
     max_tension_n: float
+    max_allowable_tension_n: float
+    max_tension_utilization: float
     max_precompression_n: float
     max_upward_reaction_n: float
     tension_only_passed: bool
+    tension_limit_passed: bool
     passed: bool
 
 
