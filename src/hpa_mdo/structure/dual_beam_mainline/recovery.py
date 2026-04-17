@@ -12,6 +12,7 @@ from hpa_mdo.structure.dual_beam_mainline.types import (
     ReactionRecoveryResult,
     RecoveryResult,
     ReportMetrics,
+    WireBCMode,
 )
 
 
@@ -85,27 +86,44 @@ def _wire_load_path_metrics(
         raise ValueError(
             "wire_attachment_angles_deg must align with wire_node_indices for wire load recovery."
         )
+    if model.wire_anchor_points_m.shape != (n_wires, 3):
+        raise ValueError("wire_anchor_points_m must have shape (n_wires, 3) for wire load recovery.")
 
     tensions_n = np.zeros(n_wires, dtype=float)
     precompression_n = np.zeros(ne, dtype=float)
     max_upward_reaction_n = 0.0
-    for idx, (node_index, angle_deg, vertical_reaction_n) in enumerate(
+    for idx, (node_index, angle_deg, anchor_point_m, reaction_vector_n, wire_resultant_n) in enumerate(
         zip(
             model.wire_node_indices,
             model.wire_attachment_angles_deg,
-            np.asarray(reactions.wire_reactions_n, dtype=float),
+            np.asarray(model.wire_anchor_points_m, dtype=float),
+            np.asarray(reactions.wire_reaction_vectors_n, dtype=float),
+            np.asarray(reactions.wire_resultants_n, dtype=float),
             strict=True,
         )
     ):
-        theta = np.deg2rad(float(angle_deg))
-        sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
-        tan_theta = max(abs(float(np.tan(theta))), 1.0e-12)
-        downward_reaction_n = max(float(-vertical_reaction_n), 0.0)
-        upward_reaction_n = max(float(vertical_reaction_n), 0.0)
+        attachment_point_m = np.asarray(model.nodes_main_m[node_index], dtype=float)
+        axis_vector = attachment_point_m - np.asarray(anchor_point_m, dtype=float)
+        axis_norm = np.linalg.norm(axis_vector)
+        if axis_norm <= 1.0e-30:
+            raise ValueError("Wire anchor point must not coincide with the attachment point.")
+        axis_unit = axis_vector / axis_norm
+        spanwise_component = max(abs(float(axis_unit[1])), 1.0e-12)
+
+        if reactions.wire_constraint_mode == WireBCMode.WIRE_MAIN_AXIAL:
+            tension_n = max(float(wire_resultant_n), 0.0)
+            upward_reaction_n = max(float(-wire_resultant_n), 0.0)
+        else:
+            theta = np.deg2rad(float(angle_deg))
+            sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
+            downward_reaction_n = max(float(-reaction_vector_n[2]), 0.0)
+            upward_reaction_n = max(float(reaction_vector_n[2]), 0.0)
+            tension_n = downward_reaction_n / sin_theta
+
         max_upward_reaction_n = max(max_upward_reaction_n, upward_reaction_n)
-        tensions_n[idx] = downward_reaction_n / sin_theta
+        tensions_n[idx] = tension_n
         if int(node_index) > 0:
-            precompression_n[: min(int(node_index), ne)] += downward_reaction_n / tan_theta
+            precompression_n[: min(int(node_index), ne)] += tension_n * spanwise_component
 
     return tensions_n, precompression_n, float(max_upward_reaction_n), bool(max_upward_reaction_n <= 1.0e-9)
 
@@ -151,6 +169,11 @@ def recover_reactions(
         [wire_vector[node_index * 6 + 2] for node_index in constraints.wire_node_indices],
         dtype=float,
     )
+    wire_reaction_vectors_n = np.array(
+        [wire_vector[node_index * 6 : node_index * 6 + 3] for node_index in constraints.wire_node_indices],
+        dtype=float,
+    )
+    wire_resultants_n = np.asarray(multipliers[constraints.wire_slice], dtype=float)
 
     link_resultants = []
     link_reaction_on_main = []
@@ -169,8 +192,11 @@ def recover_reactions(
         total_constraint_reaction_vector_n=np.asarray(total_constraint_reaction_vector_n, dtype=float),
         root_main_reaction_n=np.asarray(root_main_reaction_n, dtype=float),
         root_rear_reaction_n=np.asarray(root_rear_reaction_n, dtype=float),
+        wire_reaction_vectors_n=wire_reaction_vectors_n,
         wire_reactions_n=wire_reactions_n,
+        wire_resultants_n=wire_resultants_n,
         wire_node_indices=constraints.wire_node_indices,
+        wire_constraint_mode=constraints.constraint_mode.wire_bc,
         link_resultants_n=_pad_rows(link_resultants),
         link_reaction_on_main_n=(
             np.vstack(link_reaction_on_main) if link_reaction_on_main else np.zeros((0, 6), dtype=float)
@@ -202,8 +228,11 @@ def recover_structural_response(
                     total_constraint_reaction_vector_n=np.zeros(2 * model.y_nodes_m.size * 6, dtype=float),
                     root_main_reaction_n=np.zeros(6, dtype=float),
                     root_rear_reaction_n=np.zeros(6, dtype=float),
+                    wire_reaction_vectors_n=np.zeros((len(model.wire_node_indices), 3), dtype=float),
                     wire_reactions_n=np.zeros(len(model.wire_node_indices), dtype=float),
+                    wire_resultants_n=np.zeros(len(model.wire_node_indices), dtype=float),
                     wire_node_indices=model.wire_node_indices,
+                    wire_constraint_mode=None,
                     link_resultants_n=np.zeros((0, 0), dtype=float),
                     link_reaction_on_main_n=np.zeros((0, 6), dtype=float),
                     link_reaction_on_rear_n=np.zeros((0, 6), dtype=float),

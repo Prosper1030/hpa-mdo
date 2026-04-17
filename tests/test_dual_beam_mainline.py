@@ -45,6 +45,7 @@ def _simple_model(
     joint_node_indices: tuple[int, ...] = (1,),
     wire_node_indices: tuple[int, ...] = (),
     wire_attachment_angles_deg: tuple[float, ...] | None = None,
+    wire_anchor_points_m: np.ndarray | None = None,
     torque_input: TorqueInputDefinition | None = None,
 ) -> DualBeamMainlineModel:
     y_nodes_m = np.array([0.0, 1.0, 2.0], dtype=float)
@@ -54,6 +55,31 @@ def _simple_model(
     spar_separation_nodes_m = spar_offset_vectors_m[:, 0]
     nn = y_nodes_m.size
     ne = nn - 1
+    resolved_wire_angles_deg = (
+        tuple(float(value) for value in wire_attachment_angles_deg)
+        if wire_attachment_angles_deg is not None
+        else tuple(45.0 for _ in wire_node_indices)
+    )
+    resolved_wire_anchor_points_m = (
+        np.asarray(wire_anchor_points_m, dtype=float)
+        if wire_anchor_points_m is not None
+        else np.asarray(
+            [
+                [
+                    float(nodes_main_m[node_index, 0]),
+                    0.0,
+                    float(
+                        nodes_main_m[node_index, 2]
+                        - y_nodes_m[node_index] * np.tan(np.deg2rad(angle_deg))
+                    ),
+                ]
+                for node_index, angle_deg in zip(wire_node_indices, resolved_wire_angles_deg, strict=True)
+            ],
+            dtype=float,
+        )
+        if wire_node_indices
+        else np.zeros((0, 3), dtype=float)
+    )
 
     return DualBeamMainlineModel(
         y_nodes_m=y_nodes_m,
@@ -109,11 +135,8 @@ def _simple_model(
         joint_node_indices=joint_node_indices,
         dense_link_node_indices=tuple(range(1, nn - 1)),
         wire_node_indices=wire_node_indices,
-        wire_attachment_angles_deg=(
-            tuple(float(value) for value in wire_attachment_angles_deg)
-            if wire_attachment_angles_deg is not None
-            else tuple(45.0 for _ in wire_node_indices)
-        ),
+        wire_attachment_angles_deg=resolved_wire_angles_deg,
+        wire_anchor_points_m=resolved_wire_anchor_points_m,
         joint_mass_half_kg=0.2,
         fitting_mass_half_kg=0.0,
         equivalent_analysis_success=True,
@@ -288,6 +311,28 @@ def test_wire_recovery_estimates_tension_and_inboard_precompression_from_downwar
         rtol=1.0e-10,
         atol=1.0e-10,
     )
+
+
+def test_wire_axial_mode_constrains_displacement_along_cable_axis() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, 0.0, 40.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+    )
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+        wire_bc=WireBCMode.WIRE_MAIN_AXIAL,
+    )
+
+    cable_axis = model.nodes_main_m[1] - model.wire_anchor_points_m[0]
+    cable_axis = cable_axis / np.linalg.norm(cable_axis)
+    assert np.dot(result.disp_main_m[1, :3], cable_axis) == pytest.approx(0.0, abs=1.0e-10)
+    assert result.reactions.wire_resultants_n.shape == (1,)
+    assert result.reactions.wire_resultants_n[0] > 0.0
+    assert result.recovery.wire_tension_only_passed is True
 
 
 def test_link_mode_constraints_are_enforced_with_mode_specific_kinematics() -> None:
@@ -578,6 +623,27 @@ def test_wire_tension_only_violation_is_a_hard_gate_when_support_reaction_turns_
     assert result.feasibility.wire_support_validity_passed is False
     assert "wire_tension_only" in result.feasibility.hard_failures
     assert result.feasibility.overall_hard_feasible is False
+
+
+def test_wire_axial_mode_flags_compression_resultant_as_invalid() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, -10.0, -20.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+    )
+
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+        wire_bc=WireBCMode.WIRE_MAIN_AXIAL,
+    )
+
+    assert result.reactions.wire_resultants_n[0] < 0.0
+    assert result.recovery.wire_tension_only_passed is False
+    assert result.feasibility.wire_support_validity_passed is False
+    assert "wire_tension_only" in result.feasibility.hard_failures
 
 
 def test_geometry_validity_margins_flag_invalid_ratio_or_taper() -> None:

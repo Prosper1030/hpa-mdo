@@ -85,6 +85,26 @@ def _append_equal_dof_rows(
         rows.append(row)
 
 
+def _append_wire_axial_row(
+    rows: list[np.ndarray],
+    ndof: int,
+    *,
+    node_index: int,
+    anchor_point_m: np.ndarray,
+    attachment_point_m: np.ndarray,
+) -> None:
+    axis = np.asarray(attachment_point_m, dtype=float) - np.asarray(anchor_point_m, dtype=float)
+    axis_norm = np.linalg.norm(axis)
+    if axis_norm <= _CONSTRAINT_NORM_TOL:
+        raise ValueError("Wire anchor point must not coincide with the attachment point.")
+    axis_unit = axis / axis_norm
+
+    row = np.zeros(ndof, dtype=float)
+    for dof, coeff in enumerate(axis_unit):
+        row[_main_dof(node_index, dof)] = coeff
+    rows.append(row)
+
+
 def _append_offset_rigid_rows(
     rows: list[np.ndarray],
     ndof: int,
@@ -223,7 +243,22 @@ def build_constraint_assembly(
             row[_main_dof(node_index, 2)] = 1.0
             rows.append(row)
     elif constraint_mode.wire_bc == WireBCMode.WIRE_MAIN_AXIAL:
-        raise NotImplementedError("wire_main_axial is reserved for a future validated wire model.")
+        if model.wire_anchor_points_m.shape != (len(model.wire_node_indices), 3):
+            raise ValueError(
+                "wire_anchor_points_m must have shape (n_wires, 3) when wire_main_axial is used."
+            )
+        for node_index, anchor_point_m in zip(
+            model.wire_node_indices,
+            model.wire_anchor_points_m,
+            strict=True,
+        ):
+            _append_wire_axial_row(
+                rows,
+                ndof,
+                node_index=node_index,
+                anchor_point_m=anchor_point_m,
+                attachment_point_m=model.nodes_main_m[node_index],
+            )
     elif constraint_mode.wire_bc is not None:
         raise ValueError(f"Unsupported wire BC mode: {constraint_mode.wire_bc}.")
     wire_stop = len(rows)

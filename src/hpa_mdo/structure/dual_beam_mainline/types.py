@@ -153,6 +153,7 @@ class DualBeamMainlineModel:
     dense_link_node_indices: tuple[int, ...]
     wire_node_indices: tuple[int, ...]
     wire_attachment_angles_deg: tuple[float, ...]
+    wire_anchor_points_m: np.ndarray
     joint_mass_half_kg: float
     fitting_mass_half_kg: float
     equivalent_analysis_success: bool
@@ -226,8 +227,11 @@ class ReactionRecoveryResult:
     total_constraint_reaction_vector_n: np.ndarray
     root_main_reaction_n: np.ndarray
     root_rear_reaction_n: np.ndarray
+    wire_reaction_vectors_n: np.ndarray
     wire_reactions_n: np.ndarray
+    wire_resultants_n: np.ndarray
     wire_node_indices: tuple[int, ...]
+    wire_constraint_mode: WireBCMode | None
     link_resultants_n: np.ndarray
     link_reaction_on_main_n: np.ndarray
     link_reaction_on_rear_n: np.ndarray
