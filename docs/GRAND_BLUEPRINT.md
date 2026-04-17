@@ -4,10 +4,10 @@
 > **維護者**：總工程師 + AI 架構師  
 > **建立日期**：2026-04-09  
 > **最後更新**：2026-04-17
-> **狀態**：Phase I-B M6-M9、M11 CLT、M13、M14、M-VSP Phase 2 已完成；generic VSP controls 已接進 AVL / ASWING 匯出鏈，接下來主線聚焦：
-> (1) M10 ASWING 非線性氣動彈實機驗證（seed/export/runner 已有，待 binary）
-> (2) P4#18 surrogate warm start（目前真正未開工的大項）
-> (3) vendor / hardware catalog 資料化與必要 crossover sweep
+> **狀態**：Phase I-B M6-M9、M11 CLT、M13、M14、M-VSP Phase 2 已完成；generic VSP controls 已接進 AVL / ASWING 匯出鏈。經 2026-04-17 路線評估後：
+> (1) **P4#18 surrogate warm start** 成為主線 NEXT
+> (2) **M10 改為外部非線性氣動彈驗證**：有 ASWING binary 就拿來 benchmark；沒有就先做 open-source / 最小自研替代
+> (3) vendor / hardware catalog 資料化與必要 crossover sweep 照常推進
 
 ---
 
@@ -215,18 +215,22 @@
            └──────────────┬───────────────────────┘
                           │
            ┌──────────────▼───────────────────────┐
-           │ Milestone 10 — ASWING Integration    │
-           │      (nonlinear aeroelastic solver)  │
+           │ Milestone 10 — External Aeroelastic  │
+           │      Validation / Replacement        │
            │                                       │
-           │ 10a. ASWING binary install/build     │
-           │ 10b. .asw geometry generator         │
-           │      from config + VSP geometry      │
-           │ 10c. ASWING subprocess wrapper       │
-           │      trim → eigenmode → parse output │
+           │ 10a. Optional ASWING benchmark       │
+           │      if licensed binary becomes      │
+           │      available                        │
+           │ 10b. Open-source spike               │
+           │      SHARPy Docker / Julia beam      │
+           │      aeroelastic toolchain           │
+           │ 10c. Minimal in-house trim solver    │
+           │      static nonlinear aeroelastic    │
+           │      validation only                 │
            │ 10d. Cross-validation vs internal FEM│
-           │      deflection/stress/flutter       │
-           │ 10e. ASWING-in-the-loop campaign     │
-           │      replace AVL stability filter    │
+           │      deflection / trim / mode trend  │
+           │ 10e. Only after 10b/10c stable       │
+           │      consider in-the-loop campaign   │
            └──────────────┬───────────────────────┘
                           │
            ┌──────────────▼───────────────────────┐
