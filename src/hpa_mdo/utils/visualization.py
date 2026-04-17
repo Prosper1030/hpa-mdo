@@ -60,6 +60,73 @@ def _append_layup_block(lines: list, title: str, layup) -> None:
         )
 
 
+def _append_discrete_final_design_block(
+    lines: list[str],
+    summary: dict[str, object],
+    artifact_path: str | None,
+) -> None:
+    """Append the top-level discrete final-design verdict to ``lines``."""
+    if not summary:
+        return
+
+    overall = str(summary.get("overall_status", "unknown")).upper()
+    manufacturing = "PASS" if bool(summary.get("manufacturing_gates_passed", True)) else "FAIL"
+    lines += [
+        "-" * 64,
+        "  DISCRETE FINAL DESIGN",
+        "-" * 64,
+        f"  Overall status : {overall}",
+        f"  Design layer   : {summary.get('design_layer', 'discrete_final')}",
+        f"  Manufacturing  : {manufacturing}",
+    ]
+
+    critical_strength = summary.get("critical_strength_ratio")
+    if isinstance(critical_strength, dict) and critical_strength.get("value") is not None:
+        spar = critical_strength.get("spar") or "unknown"
+        seg = critical_strength.get("segment_index")
+        seg_suffix = "" if seg in (None, "") else f" seg {int(seg)}"
+        lines.append(
+            f"  Critical SR    : {float(critical_strength['value']):.3f} @ {spar}{seg_suffix}"
+        )
+
+    critical_failure = summary.get("critical_failure_index")
+    if isinstance(critical_failure, dict) and critical_failure.get("value") is not None:
+        spar = critical_failure.get("spar") or "unknown"
+        seg = critical_failure.get("segment_index")
+        seg_suffix = "" if seg in (None, "") else f" seg {int(seg)}"
+        lines.append(
+            f"  Critical FI    : {float(critical_failure['value']):.3f} @ {spar}{seg_suffix}"
+        )
+
+    spars = summary.get("spars")
+    if isinstance(spars, dict) and spars:
+        status_parts = []
+        for spar_name, spar_summary in spars.items():
+            if not isinstance(spar_summary, dict):
+                continue
+            status_parts.append(f"{spar_name}={str(spar_summary.get('status', 'unknown')).upper()}")
+        if status_parts:
+            lines.append(f"  Spar statuses  : {', '.join(status_parts)}")
+
+    structural_recheck = summary.get("structural_recheck")
+    if isinstance(structural_recheck, dict) and structural_recheck:
+        if bool(structural_recheck.get("success", False)):
+            lines.append(
+                "  Structural recheck: "
+                f"PASS, mass={float(structural_recheck.get('total_mass_full_kg', 0.0)):.3f} kg, "
+                f"FI={float(structural_recheck.get('failure_index', 0.0)):.5f}, "
+                f"buckling={float(structural_recheck.get('buckling_index', 0.0)):.5f}, "
+                f"twist={float(structural_recheck.get('twist_max_deg', 0.0)):.3f} deg, "
+                f"defl={float(structural_recheck.get('tip_deflection_m', 0.0)):.5f} m"
+            )
+        else:
+            reason = structural_recheck.get("message", "not available")
+            lines.append(f"  Structural recheck: SKIPPED ({reason})")
+
+    if artifact_path:
+        lines.append(f"  JSON artifact  : {artifact_path}")
+
+
 def _step_xy(seg_boundaries: np.ndarray, values: np.ndarray):
     """Return (x, y) arrays for a step-function plot.
 
@@ -536,6 +603,15 @@ def write_optimization_summary(
             penalty += float(layup_rear_summary.get("mass_penalty_full_wing_kg", 0.0) or 0.0)
         lines.append(
             f"  Total stack mass penalty vs continuous: {penalty:+.3f} kg (full wing)"
+        )
+
+    discrete_final_design_summary = getattr(result, "discrete_final_design_summary", None) or {}
+    discrete_final_design_json_path = getattr(result, "discrete_final_design_json_path", None)
+    if isinstance(discrete_final_design_summary, dict) and discrete_final_design_summary:
+        _append_discrete_final_design_block(
+            lines,
+            discrete_final_design_summary,
+            discrete_final_design_json_path,
         )
 
     timing = getattr(result, "timing_s", {}) or {}

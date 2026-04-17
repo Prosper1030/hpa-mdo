@@ -221,6 +221,52 @@ def test_summary_text_contains_manufacturing_gates(tmp_path):
     assert "main_spar: PASS" in summary_file
 
 
+def test_summary_text_contains_discrete_final_design_status(tmp_path):
+    result = _dummy_result()
+    result.discrete_final_design_summary = {
+        "design_layer": "discrete_final",
+        "overall_status": "warn",
+        "manufacturing_gates_passed": True,
+        "critical_strength_ratio": {
+            "value": 1.18,
+            "spar": "main_spar",
+            "segment_index": 2,
+        },
+        "critical_failure_index": {
+            "value": 0.85,
+            "spar": "rear_spar",
+            "segment_index": 1,
+        },
+        "spars": {
+            "main_spar": {"status": "pass"},
+            "rear_spar": {"status": "warn"},
+        },
+        "structural_recheck": {
+            "success": True,
+            "total_mass_full_kg": 2.75,
+            "failure_index": -0.15,
+            "buckling_index": -0.05,
+            "twist_max_deg": 0.7,
+            "tip_deflection_m": 0.18,
+        },
+    }
+    result.discrete_final_design_json_path = str(tmp_path / "discrete_layup_final_design.json")
+
+    summary_file = write_optimization_summary(
+        result,
+        tmp_path / "optimization_summary.txt",
+    )
+
+    assert "DISCRETE FINAL DESIGN" in summary_file
+    assert "Overall status : WARN" in summary_file
+    assert "Manufacturing  : PASS" in summary_file
+    assert "Critical SR    : 1.180 @ main_spar seg 2" in summary_file
+    assert "Critical FI    : 0.850 @ rear_spar seg 1" in summary_file
+    assert "Spar statuses  : main_spar=PASS, rear_spar=WARN" in summary_file
+    assert "Structural recheck: PASS, mass=2.750 kg" in summary_file
+    assert "JSON artifact  :" in summary_file
+
+
 def test_analyze_accepts_snapped_segment_radii(monkeypatch):
     cfg = _Cfg(rear_spar=SimpleNamespace(enabled=True))
     prob = _FakeProb()

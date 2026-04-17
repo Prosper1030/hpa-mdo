@@ -561,6 +561,8 @@ class OptimizationResult:
     rear_r_seg_mm: Optional[np.ndarray] = field(default=None, repr=False)  # rear spar OD [mm]
     case_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
     manufacturing_gates: dict[str, object] = field(default_factory=dict)
+    discrete_final_design_summary: dict[str, object] = field(default_factory=dict, repr=False)
+    discrete_final_design_json_path: Optional[str] = field(default=None, repr=False)
 
     # Full results
     nodes: Optional[np.ndarray] = field(default=None, repr=False)

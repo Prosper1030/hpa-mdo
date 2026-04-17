@@ -483,8 +483,6 @@ def main(argv: list[str] | None = None) -> float:
     # performance metrics, and per-segment OD/thickness tables.
     print("[8/10] Writing optimization summary...")
     summary_path = output_dir / "optimization_summary.txt"
-    write_optimization_summary(result, summary_path)
-    print(f"       Saved: {summary_path}")
     if discrete_final_design_payload is not None:
         final_design_path = output_dir / "discrete_layup_final_design.json"
         final_design_payload = {
@@ -493,11 +491,15 @@ def main(argv: list[str] | None = None) -> float:
             "config": str(config_path),
             **discrete_final_design_payload,
         }
+        result.discrete_final_design_summary = final_design_payload
+        result.discrete_final_design_json_path = str(final_design_path.resolve())
         final_design_path.write_text(
             json.dumps(final_design_payload, indent=2) + "\n",
             encoding="utf-8",
         )
         print(f"       Saved: {final_design_path}")
+    write_optimization_summary(result, summary_path)
+    print(f"       Saved: {summary_path}")
 
     # ====================================================================
     # Step 9 — Export STEP geometry for CAD inspection (jig + flight shape)
