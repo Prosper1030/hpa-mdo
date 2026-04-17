@@ -13,6 +13,7 @@ from hpa_mdo.core.config import HPAConfig
 
 BoundaryEntry = tuple[int, Sequence[int]]
 LoadEntry = tuple[int, int, float]
+ReactionOutputSets = dict[str, Sequence[int]]
 
 
 # Conservative shell-quality gate for the Mac hi-fi spot-check path.  The goal
@@ -53,6 +54,7 @@ def prepare_static_inp(
     load: Sequence[LoadEntry],
     *,
     section_thickness: float | None = None,
+    reaction_output_sets: ReactionOutputSets | None = None,
     step_name: str = "cruise",
 ) -> Path:
     """Append a minimal CalculiX linear static step to a mesh ``.inp``."""
@@ -82,6 +84,7 @@ def prepare_static_inp(
             element_dim,
             section_thickness=section_thickness,
         ),
+        *_format_nsets(reaction_output_sets),
         "*BOUNDARY",
     ]
     for node_id, dofs in boundary_entries:
@@ -98,6 +101,15 @@ def prepare_static_inp(
     )
     for node_id, dof, magnitude in load:
         parts.append(f"{int(node_id)}, {int(dof)}, {float(magnitude):.9g}")
+
+    if reaction_output_sets:
+        for set_name in reaction_output_sets:
+            parts.extend(
+                [
+                    f"*NODE PRINT, NSET={set_name}, TOTALS=ONLY",
+                    "RF",
+                ]
+            )
 
     parts.extend(
         [
@@ -807,3 +819,22 @@ def _format_elset(name: str, element_ids: Sequence[int]) -> str:
     if chunk:
         lines.append(", ".join(chunk))
     return "\n".join(lines)
+
+
+def _format_nsets(nsets: ReactionOutputSets | None) -> list[str]:
+    if not nsets:
+        return []
+    lines: list[str] = []
+    for name, node_ids in nsets.items():
+        if not node_ids:
+            continue
+        lines.append(f"*NSET, NSET={name}")
+        chunk: list[str] = []
+        for node_id in node_ids:
+            chunk.append(str(int(node_id)))
+            if len(chunk) == 16:
+                lines.append(", ".join(chunk))
+                chunk = []
+        if chunk:
+            lines.append(", ".join(chunk))
+    return lines

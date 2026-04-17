@@ -82,6 +82,7 @@ class StructuralCheckResult:
     paraview_script_path: Path | None
     load_description: str
     support_description: str
+    support_reactions: dict[str, Any] | None
     static: StructuralCheckSection
     buckle: StructuralCheckSection
 
@@ -110,6 +111,10 @@ def parse_optimization_summary(summary_path: str | Path) -> dict[str, float | No
     metrics: dict[str, float | None] = {
         "tip_deflection_m": None,
         "buckling_index": None,
+        "support_reaction_fz_n": None,
+        "root_main_reaction_fz_n": None,
+        "root_rear_reaction_fz_n": None,
+        "wire_reaction_fz_n": None,
     }
 
     tip_match = re.search(
@@ -131,6 +136,23 @@ def parse_optimization_summary(summary_path: str | Path) -> dict[str, float | No
     )
     if buckling_match:
         metrics["buckling_index"] = float(buckling_match.group(1).replace("D", "E"))
+
+    support_match = re.search(
+        rf"Support reaction Fz all supports\s+({NUMBER_RE})\s+N",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if support_match:
+        metrics["support_reaction_fz_n"] = float(support_match.group(1).replace("D", "E"))
+
+    for key, pattern in (
+        ("root_main_reaction_fz_n", rf"Root main reaction Fz\s+({NUMBER_RE})\s+N"),
+        ("root_rear_reaction_fz_n", rf"Root rear reaction Fz\s+({NUMBER_RE})\s+N"),
+        ("wire_reaction_fz_n", rf"Wire reaction Fz total\s+({NUMBER_RE})\s+N"),
+    ):
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            metrics[key] = float(match.group(1).replace("D", "E"))
 
     if metrics["tip_deflection_m"] is None:
         for pattern in (
@@ -251,6 +273,7 @@ def run_structural_check(
             paraview_script_path=None,
             load_model=None,
             support_description="No mesh available; no structural supports were derived.",
+            support_reactions=None,
             static=static,
             buckle=buckle,
             reference_metrics=summary_metrics,
@@ -264,6 +287,7 @@ def run_structural_check(
             paraview_script_path=None,
             load_model=None,
             support_description="No mesh available; no structural supports were derived.",
+            support_reactions=None,
             static=static,
             buckle=buckle,
             reference_metrics=summary_metrics,
@@ -279,6 +303,7 @@ def run_structural_check(
             paraview_script_path=None,
             load_description="No mesh available; no loads were applied.",
             support_description="No mesh available; no structural supports were derived.",
+            support_reactions=None,
             static=static,
             buckle=buckle,
         )
@@ -318,6 +343,14 @@ def run_structural_check(
         mesh_length_scale_m_per_unit=mesh_length_scale_m,
         section_thickness_units=section_thickness_units,
     )
+    support_reactions = _build_support_reaction_summary(
+        hifi_dir=hifi_root,
+        mesh_path=resolved_mesh,
+        boundary_entries=boundary_entries,
+        load_model=load_model,
+        reference_metrics=summary_metrics,
+        static=static,
+    )
     buckle = _run_buckle_check(
         mesh_path=resolved_mesh,
         hifi_dir=hifi_root,
@@ -354,6 +387,7 @@ def run_structural_check(
         paraview_script_path=paraview_script_path,
         load_model=load_model,
         support_description=_support_description(boundary_entries, cfg),
+        support_reactions=support_reactions,
         static=static,
         buckle=buckle,
         reference_metrics=summary_metrics,
@@ -367,6 +401,7 @@ def run_structural_check(
         paraview_script_path=paraview_script_path,
         load_model=load_model,
         support_description=_support_description(boundary_entries, cfg),
+        support_reactions=support_reactions,
         static=static,
         buckle=buckle,
         reference_metrics=summary_metrics,
@@ -383,6 +418,7 @@ def run_structural_check(
         paraview_script_path=paraview_script_path,
         load_description=load_model.description,
         support_description=_support_description(boundary_entries, cfg),
+        support_reactions=support_reactions,
         static=static,
         buckle=buckle,
     )
@@ -411,6 +447,7 @@ def _run_static_check(
         )
 
     static_inp = hifi_dir / f"{mesh_path.stem}_static.inp"
+    reaction_output_sets = _reaction_output_sets(boundary_entries)
     prepare_static_inp(
         mesh_path,
         static_inp,
@@ -418,6 +455,7 @@ def _run_static_check(
         _boundary_arg(boundary_entries),
         list(load_model.entries),
         section_thickness=section_thickness_units,
+        reaction_output_sets=reaction_output_sets,
     )
     result = run_static(static_inp, cfg)
     if result.get("error"):
@@ -812,6 +850,7 @@ def _write_combined_report(
     paraview_script_path: Path | None,
     load_model: StructuralLoadModel | None,
     support_description: str,
+    support_reactions: dict[str, Any] | None,
     static: StructuralCheckSection,
     buckle: StructuralCheckSection,
     reference_metrics: dict[str, float | None],
@@ -838,6 +877,8 @@ def _write_combined_report(
         "",
         f"- Tip deflection [m]: {_fmt(reference_metrics.get('tip_deflection_m'))}",
         f"- Buckling index: {_fmt(reference_metrics.get('buckling_index'))}",
+        f"- Support reaction Fz all supports [N]: {_fmt(reference_metrics.get('support_reaction_fz_n'))}",
+        f"- Wire reaction Fz total [N]: {_fmt(reference_metrics.get('wire_reaction_fz_n'))}",
         "",
         "## Mesh Diagnostics",
         "",
@@ -868,6 +909,18 @@ def _write_combined_report(
         f"- Artifact: {static.artifact_path or '—'}",
         f"- Solver log: {static.log_path or '—'}",
         "",
+        "## Support Reactions",
+        "",
+        f"- Comparability: {support_reactions.get('comparability') if support_reactions is not None else '—'}",
+        f"- Status: {support_reactions.get('status') if support_reactions is not None else '—'}",
+        f"- Message: {support_reactions.get('message') if support_reactions is not None else '—'}",
+        f"- Hifi total support reaction |Fz| [N]: {_fmt(None if support_reactions is None else support_reactions.get('actual_total_fz_n'))}",
+        f"- Reference support reaction |Fz| [N]: {_fmt(None if support_reactions is None else support_reactions.get('expected_total_fz_n'))}",
+        f"- Diff [%]: {_fmt(None if support_reactions is None else support_reactions.get('diff_pct'))}",
+        f"- Hifi root support Fz [N]: {_fmt(None if support_reactions is None else support_reactions.get('root_reaction_fz_n'))}",
+        f"- Hifi wire support Fz [N]: {_fmt(None if support_reactions is None else support_reactions.get('wire_reaction_fz_n'))}",
+        f"- Dat file: {support_reactions.get('dat_path') if support_reactions is not None else '—'}",
+        "",
         "## Buckling",
         "",
         f"- Status: {buckle.status}",
@@ -896,6 +949,7 @@ def _write_combined_summary_json(
     paraview_script_path: Path | None,
     load_model: StructuralLoadModel | None,
     support_description: str,
+    support_reactions: dict[str, Any] | None,
     static: StructuralCheckSection,
     buckle: StructuralCheckSection,
     reference_metrics: dict[str, float | None],
@@ -909,6 +963,7 @@ def _write_combined_summary_json(
         "mesh_diagnostics": None if mesh_diagnostics is None else mesh_diagnostics.to_dict(),
         "paraview_script_path": None if paraview_script_path is None else str(paraview_script_path),
         "support_description": support_description,
+        "support_reactions": support_reactions,
         "load_model": {
             "description": None if load_model is None else load_model.description,
             "total_fz_n": None if load_model is None else load_model.total_fz_n,
@@ -920,6 +975,10 @@ def _write_combined_summary_json(
         "reference_metrics": {
             "tip_deflection_m": reference_metrics.get("tip_deflection_m"),
             "buckling_index": reference_metrics.get("buckling_index"),
+            "support_reaction_fz_n": reference_metrics.get("support_reaction_fz_n"),
+            "root_main_reaction_fz_n": reference_metrics.get("root_main_reaction_fz_n"),
+            "root_rear_reaction_fz_n": reference_metrics.get("root_rear_reaction_fz_n"),
+            "wire_reaction_fz_n": reference_metrics.get("wire_reaction_fz_n"),
         },
         "static": _section_payload(static),
         "buckle": _section_payload(buckle),
@@ -1031,6 +1090,136 @@ def _support_description(boundary_entries: list[BoundaryEntry], cfg: HPAConfig) 
     if cfg.lift_wires.enabled:
         return f"ROOT clamp nodes={root_count}; wire U3 supports={wire_count}"
     return f"ROOT clamp nodes={root_count}; no wire supports"
+
+
+def _reaction_output_sets(boundary_entries: list[BoundaryEntry]) -> dict[str, tuple[int, ...]]:
+    root_nodes = tuple(
+        int(node_id)
+        for node_id, dofs in boundary_entries
+        if tuple(sorted(dofs)) == (1, 2, 3)
+    )
+    wire_nodes = tuple(
+        int(node_id)
+        for node_id, dofs in boundary_entries
+        if tuple(sorted(dofs)) == (3,)
+    )
+    support_all = tuple(sorted({*root_nodes, *wire_nodes}))
+    sets: dict[str, tuple[int, ...]] = {}
+    if support_all:
+        sets["HPA_SUPPORT_ALL"] = support_all
+    if root_nodes:
+        sets["HPA_SUPPORT_ROOT"] = root_nodes
+    if wire_nodes:
+        sets["HPA_SUPPORT_WIRE"] = wire_nodes
+    return sets
+
+
+def _parse_total_force_from_dat(dat_path: Path, set_name: str) -> tuple[float, float, float] | None:
+    if not dat_path.exists():
+        return None
+    lines = dat_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    header = re.compile(
+        rf"total force \(fx,fy,fz\) for set\s+{re.escape(set_name)}\s+and time",
+        flags=re.IGNORECASE,
+    )
+    values = re.compile(rf"^\s*({NUMBER_RE})\s+({NUMBER_RE})\s+({NUMBER_RE})\s*$", flags=re.IGNORECASE)
+    for idx, raw in enumerate(lines):
+        if not header.search(raw):
+            continue
+        for candidate in lines[idx + 1 : idx + 6]:
+            match = values.match(candidate)
+            if match:
+                return tuple(float(match.group(group).replace("D", "E")) for group in range(1, 4))  # type: ignore[return-value]
+        return None
+    return None
+
+
+def _support_set_applied_fz(load_entries: tuple[LoadEntry, ...], node_ids: Sequence[int]) -> float:
+    node_set = {int(node_id) for node_id in node_ids}
+    return float(
+        sum(
+            float(magnitude)
+            for node_id, dof, magnitude in load_entries
+            if int(dof) == 3 and int(node_id) in node_set
+        )
+    )
+
+
+def _build_support_reaction_summary(
+    *,
+    hifi_dir: Path,
+    mesh_path: Path,
+    boundary_entries: list[BoundaryEntry],
+    load_model: StructuralLoadModel,
+    reference_metrics: dict[str, float | None],
+    static: StructuralCheckSection,
+) -> dict[str, Any] | None:
+    dat_path = hifi_dir / f"{mesh_path.stem}_static.dat"
+    support_sets = _reaction_output_sets(boundary_entries)
+    if not support_sets:
+        return None
+
+    total_force = _parse_total_force_from_dat(dat_path, "HPA_SUPPORT_ALL")
+    root_force = _parse_total_force_from_dat(dat_path, "HPA_SUPPORT_ROOT")
+    wire_force = _parse_total_force_from_dat(dat_path, "HPA_SUPPORT_WIRE")
+    if total_force is None and root_force is None and wire_force is None:
+        return {
+            "status": "SKIP",
+            "comparability": "NOT_COMPARABLE",
+            "message": "No support reaction totals were found in the CalculiX .dat output.",
+            "actual_total_fz_n": None,
+            "expected_total_fz_n": reference_metrics.get("support_reaction_fz_n"),
+            "diff_pct": None,
+            "root_reaction_fz_n": None,
+            "wire_reaction_fz_n": None,
+            "dat_path": str(dat_path),
+        }
+
+    total_actual = None
+    if total_force is not None:
+        total_actual = float(
+            total_force[2] - _support_set_applied_fz(load_model.entries, support_sets.get("HPA_SUPPORT_ALL", ()))
+        )
+    root_actual = None
+    if root_force is not None:
+        root_actual = float(
+            root_force[2] - _support_set_applied_fz(load_model.entries, support_sets.get("HPA_SUPPORT_ROOT", ()))
+        )
+    wire_actual = None
+    if wire_force is not None:
+        wire_actual = float(
+            wire_force[2] - _support_set_applied_fz(load_model.entries, support_sets.get("HPA_SUPPORT_WIRE", ()))
+        )
+
+    expected_total = reference_metrics.get("support_reaction_fz_n")
+    diff_pct = None
+    status = "SKIP"
+    comparability = "LIMITED"
+    message = "Support reaction totals were extracted from the CalculiX .dat output."
+    if total_actual is not None and expected_total is not None:
+        diff_pct = abs(abs(total_actual) - abs(expected_total)) / max(abs(expected_total), 1.0e-12) * 100.0
+        status = "PASS" if diff_pct <= 5.0 else "WARN"
+        comparability = "COMPARABLE"
+        message = "Support reaction totals were extracted from the CalculiX .dat output and compared against the reference support reaction."
+    elif total_actual is not None:
+        status = "SKIP"
+        comparability = "LIMITED"
+        message = "Support reaction totals were extracted from the CalculiX .dat output, but no reference support reaction was available."
+    elif static.comparability == "NOT_COMPARABLE":
+        comparability = "NOT_COMPARABLE"
+        message = "Support reaction totals could not be trusted because the static run was not comparable."
+
+    return {
+        "status": status,
+        "comparability": comparability,
+        "message": message,
+        "actual_total_fz_n": None if total_actual is None else abs(float(total_actual)),
+        "expected_total_fz_n": expected_total,
+        "diff_pct": diff_pct,
+        "root_reaction_fz_n": root_actual,
+        "wire_reaction_fz_n": wire_actual,
+        "dat_path": str(dat_path),
+    }
 
 
 def _wire_support_targets_from_spar_csv(

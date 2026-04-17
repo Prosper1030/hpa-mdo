@@ -115,6 +115,10 @@ def test_parse_optimization_summary_extracts_main_tip_from_production_report(
                 "HPA-MDO Dual-Beam Production ANSYS Cross-Check Report",
                 "  Export mode: dual_beam_production",
                 "  Main tip deflection (uz, y=tip)    2393.720 mm",
+                "  Root main reaction Fz                 87.230 N",
+                "  Root rear reaction Fz               -116.270 N",
+                "  Wire reaction Fz total             -788.740 N",
+                "  Support reaction Fz all supports     817.783 N",
             ]
         ),
         encoding="utf-8",
@@ -124,6 +128,9 @@ def test_parse_optimization_summary_extracts_main_tip_from_production_report(
 
     assert metrics["tip_deflection_m"] == 2.39372
     assert metrics["buckling_index"] is None
+    assert metrics["support_reaction_fz_n"] == 817.783
+    assert metrics["root_main_reaction_fz_n"] == 87.23
+    assert metrics["wire_reaction_fz_n"] == -788.74
 
 
 def test_parse_optimization_summary_extracts_tip_from_equivalent_crossval_report(
@@ -236,7 +243,24 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
         frd = inp_path.with_suffix(".frd")
         dat = inp_path.with_suffix(".dat")
         frd.write_text("stub", encoding="utf-8")
-        dat.write_text("stub", encoding="utf-8")
+        dat.write_text(
+            "\n".join(
+                [
+                    " total force (fx,fy,fz) for set HPA_SUPPORT_ALL and time  0.1000000E+01",
+                    "",
+                    "   0.000000E+00  0.000000E+00  6.000000E+01",
+                    "",
+                    " total force (fx,fy,fz) for set HPA_SUPPORT_ROOT and time  0.1000000E+01",
+                    "",
+                    "   0.000000E+00  0.000000E+00  1.000000E+01",
+                    "",
+                    " total force (fx,fy,fz) for set HPA_SUPPORT_WIRE and time  0.1000000E+01",
+                    "",
+                    "   0.000000E+00  0.000000E+00  5.000000E+01",
+                ]
+            ),
+            encoding="utf-8",
+        )
         return {
             "frd": frd,
             "dat": dat,
@@ -280,6 +304,8 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
     assert summary_payload["overall_status"] == "PASS"
     assert summary_payload["overall_comparability"] == "COMPARABLE"
     assert summary_payload["load_model"]["source_kind"] == "spar_csv"
+    assert summary_payload["support_reactions"]["actual_total_fz_n"] == 90.0
+    assert summary_payload["support_reactions"]["comparability"] == "LIMITED"
     assert summary_payload["static"]["comparability"] == "COMPARABLE"
     assert summary_payload["mesh_diagnostics"]["mesh_path"] == str(mesh.resolve())
     assert summary_payload["mesh_diagnostics"]["diagnostics_path"].endswith(
@@ -740,3 +766,21 @@ def test_support_boundary_uses_small_cluster_for_near_tied_main_spar_targets(
     )
 
     assert boundaries == [(1, (1, 2, 3)), (2, (3,)), (3, (3,))]
+
+
+def test_parse_total_force_from_dat_extracts_requested_set(tmp_path: Path) -> None:
+    dat_path = tmp_path / "job.dat"
+    dat_path.write_text(
+        "\n".join(
+            [
+                " total force (fx,fy,fz) for set HPA_SUPPORT_ALL and time  0.1000000E+01",
+                "",
+                "   1.000000E+00  2.000000E+00  3.000000E+00",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    total_force = structural_check._parse_total_force_from_dat(dat_path, "HPA_SUPPORT_ALL")
+
+    assert total_force == (1.0, 2.0, 3.0)
