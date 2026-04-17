@@ -47,3 +47,13 @@ do_not_touch:
 commit_policy:
   style: "One independent task per commit."
   note: "Do not mix multiple tracks into one commit."
+
+research_policy:
+  browse_when_needed: true
+  rule: "If local repo context is insufficient, or a tooling / solver / library fact may have drifted, browse instead of staying blocked."
+  preferred_sources:
+    - "official docs"
+    - "solver manuals"
+    - "research papers"
+    - "other primary sources"
+  reporting_note: "Briefly report what was browsed and what it changed."

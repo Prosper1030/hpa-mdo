@@ -88,6 +88,9 @@ multi_agent_rules:
     - "Always read canonical_read_order before touching code."
     - "Use project_state.yaml + one task-pack prompt as the minimum context bundle."
     - "If CURRENT_MAINLINE.md and an old report conflict, CURRENT_MAINLINE.md wins."
+    - "If local repo context is insufficient, or a tooling / solver / library fact may have drifted, proactively browse instead of staying blocked."
+    - "When browsing, prefer official docs, solver manuals, research papers, and other primary sources over summaries."
+    - "In the final report, briefly note what you browsed and what it changed."
   ownership:
     safe_parallel_areas:
       - "docs/task_packs/**"

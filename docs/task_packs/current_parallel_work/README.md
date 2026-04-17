@@ -30,6 +30,8 @@
 - 如果你想直接把任務貼給另一個 agent，請優先用 [HANDOFF_QUICKSTART.md](HANDOFF_QUICKSTART.md) 裡的現成模板。
 - 如果 agent 要改 `README.md`、`CURRENT_MAINLINE.md`、`docs/GRAND_BLUEPRINT.md` 或 `configs/blackcat_004.yaml`，應先停下來，不要自行擴張範圍。
 - 如果 agent 發現 prompt 與 `CURRENT_MAINLINE.md` 衝突，以 `CURRENT_MAINLINE.md` 為準。
+- 如果本地 repo 資訊不夠，或工具 / solver / library 的事實可能已經變動，agent 可以自行上網查，不要卡在舊文件裡。
+- 上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報裡簡短說明查了什麼、改變了什麼判斷。
 
 ## Success Criteria
 

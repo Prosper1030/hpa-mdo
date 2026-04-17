@@ -21,6 +21,9 @@
 接著只執行這份任務：
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_c_mac_hifi_spotcheck.md
 
+如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
+上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
+
 限制：
 - 只能修改 task pack 指定的 write scope
 - 不要碰 README / CURRENT_MAINLINE / GRAND_BLUEPRINT / configs/blackcat_004.yaml，除非 prompt 明確要求
@@ -45,6 +48,9 @@
 
 你的目標是把 Mac 上的 structural spot-check 往「更穩定、更可比較」推進，但不要把任何單一歷史 APDL case 寫死成唯一 benchmark。
 
+如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
+上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
+
 限制：
 - 只能修改 `src/hpa_mdo/hifi/**`, `scripts/hifi_*`, `tests/test_hifi_*`
 - 不要改 `scripts/direct_dual_beam_inverse_design.py`
@@ -68,3 +74,4 @@
 - 新 agent：直接貼完整模板
 - 已經在這個 repo 工作過的 agent：可以貼短版，再補 task id
 - 一次派多個 agent：每個 agent 只給一個 track，不要一個 prompt 裡混兩件事
+- 如果本地資訊不夠，就允許 agent 主動查官方 / 第一手資料，不要把它綁死在 repo 舊文件
