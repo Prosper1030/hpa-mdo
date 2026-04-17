@@ -12,6 +12,12 @@
 - 不直接碰 `autoresearch-通用`
 - 先把 `hpa-mdo` 整理成穩定 producer
 
+另外一個重要前提：
+
+- `equivalent_beam` 只視為 legacy parity / regression 路徑
+- 外部 consumer 不應再把 `equivalent_beam` cross-validation artifact 當成目前正式設計判準
+- 正式判準請以 `dual_beam_production` 與 producer decision interface 為準
+
 ## 1. 正式推薦入口
 
 ### 正式推薦入口：CLI

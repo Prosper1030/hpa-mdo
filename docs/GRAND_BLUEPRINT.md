@@ -343,7 +343,7 @@ Phase 2 prompt：docs/codex_prompts/M_VSP2_generic_intake_phase2.md
 - [x] check_totals 全模型 + 多工況 RE < 1e-5
 - [x] Golden regression test 守住所有 production config（11.954 kg baseline）
 - [x] STEP export 包含變形後幾何（jig + flight shape）
-- [x] equivalent-beam ANSYS validation 對內部 FEM 結果交叉驗證通過（正式 Phase I gate）
+- [x] equivalent-beam ANSYS validation 對內部 FEM 結果交叉驗證通過（歷史 / legacy Phase I parity gate；不再作為目前 production sign-off）
 - [ ] dual-spar high-fidelity adequacy spot-check（非 gate，用於模型形式風險判斷）
 
 ### Phase I 目前狀態明細
@@ -356,7 +356,7 @@ Phase 2 prompt：docs/codex_prompts/M_VSP2_generic_intake_phase2.md
 | Production optimizer path | ✅ | `method="auto"`, OpenMDAO driver, 13.91 kg |
 | Physics F1-F13 全數 | ✅ | VM/Buckling/Taper/Iz/Dominance/Warping/Compression/Smooth/Torsion/Wire/OD/Torque |
 | FSI one-way | ✅ | `blackcat_004_fsi.py`, 13.91 kg |
-| ANSYS 4e gate | ✅ | equivalent-beam validation PASS |
+| ANSYS 4e gate | ✅ | equivalent-beam validation PASS（legacy parity evidence） |
 | STEP + ANSYS export | ✅ | cadquery/build123d, APDL/BDF/CSV |
 | API server (REST + MCP) | ✅ | FastAPI + MCP, shared helpers |
 

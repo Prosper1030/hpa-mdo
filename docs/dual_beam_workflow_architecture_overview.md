@@ -88,6 +88,21 @@
    - 性質：
      - 外部 consumer 應優先使用的 producer 入口
 
+### Equivalent-Beam 目前定位
+
+- `equivalent_beam` 仍然保留在 repo 裡，但目前應視為 **legacy parity / regression 路徑**。
+- 它保留的理由是：
+  - 保存歷史 Phase I parity 證據
+  - 回歸檢查舊的 equivalent internal FEM 假設
+  - 幫助辨識 model-form drift
+- 它不是目前的：
+  - 正式 structural truth
+  - dual-beam joint workflow 設計判準
+  - jig / inverse-design / hi-fi validation 最終比較基準
+  - 推薦給外部 consumer 直接依賴的 producer input
+
+目前正式主線應以 `dual_beam_production`、producer decision interface，以及對應的 dual-beam production / jig artifacts 為準。
+
 ## 2. 哪些是 producer，哪些不是
 
 ### 正式 producer 層

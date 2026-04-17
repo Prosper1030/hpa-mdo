@@ -78,7 +78,7 @@ graph LR
 
 - **基於 OpenMDAO 的 6-DOF Timoshenko 梁有限元素模型**（SpatialBeam 配方），具解析導數
 - **分段碳纖維管設計** -- 11 根管材，每根 3.0 m，半翼展建模為 6 段 [1.5, 3.0, 3.0, 3.0, 3.0, 3.0] m
-- **雙翼梁等效剛度** -- 主翼梁位於 25% 弦長處，後翼梁位於 70% 弦長處，透過平行軸定理合併計算 EI 與 GJ
+- **雙梁主線結構分析** -- `dual_beam_mainline` / `dual_beam_production` 是目前正式 structural truth；`equivalent_beam` 只保留為 legacy parity / regression 路徑
 - **升力鋼索支撐** -- 在鋼索連接接頭位置施加垂直撓度約束條件
 - **VSPAero 整合** -- 解析 `.lod`（展向載荷）與 `.polar`（積分係數）輸出檔案
 - **ANSYS APDL / Workbench CSV / NASTRAN BDF 匯出** -- 自動生成用於獨立有限元驗證的輸入檔案
@@ -86,6 +86,23 @@ graph LR
 - **代理模型訓練資料收集** -- 將設計評估結果寫入 CSV 供機器學習模型訓練
 - **獨立的安全係數** -- `aerodynamic_load_factor` 用於載荷，`material_safety_factor` 用於容許應力（永不混用）
 - **外部材料資料庫** -- 所有材料屬性以鍵值方式從 `data/materials.yaml` 載入
+
+---
+
+## 目前正式判準
+
+這個 repo 目前有兩條容易混淆的結構路線，請以這裡為準：
+
+- **正式 structural truth / 設計判準**：`src/hpa_mdo/structure/dual_beam_mainline/` 的 `dual_beam_production` 模式，以及其上游的 joint workflow / producer 輸出。
+- **正式對外 consumer contract**：`python -m hpa_mdo.producer` 產出的 decision interface JSON。
+- **legacy parity path**：`equivalent_beam` 與 `scripts/ansys_crossval.py --export-mode equivalent_beam` 只保留為歷史 Phase I parity / regression 參考，不應再當成目前的設計 sign-off、排名基準或高保真比對目標。
+- **高保真幾何/驗證目標**：應優先對齊 dual-beam production / inverse-design artifacts，例如 production check report、selected design summary、`spar_jig_shape.step`、loaded-shape artifacts；不要預設拿 `output/blackcat_004/optimization_summary.txt` 或 `spar_model.step` 當最後真值。
+
+如果你是人或 AI 代理，對 Black Cat 004 的後續開發請優先讀：
+
+- [docs/dual_beam_workflow_architecture_overview.md](</Volumes/Samsung SSD/hpa-mdo/docs/dual_beam_workflow_architecture_overview.md>)
+- [docs/dual_beam_consumer_integration_guide.md](</Volumes/Samsung SSD/hpa-mdo/docs/dual_beam_consumer_integration_guide.md>)
+- [docs/GRAND_BLUEPRINT.md](</Volumes/Samsung SSD/hpa-mdo/docs/GRAND_BLUEPRINT.md>)
 
 ---
 

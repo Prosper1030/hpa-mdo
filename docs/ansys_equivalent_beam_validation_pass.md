@@ -2,12 +2,24 @@
 
 Date: 2026-04-10
 
+## Current Status
+
+This note is kept as **historical Phase I parity evidence**.
+
+- It documents that the old `equivalent_beam` ANSYS parity gate passed against
+  the internal equivalent-beam FEM assumptions.
+- It does **not** mean `equivalent_beam` is still the current production
+  structural truth.
+- For current design judgement, producer workflows, jig validation, and future
+  hi-fi comparison targets, prefer `dual_beam_production` and the newer
+  dual-beam / jig artifacts.
+
 ## Scope
 
-This document records the Phase I ANSYS validation result for the internal
-structural solver. The official Phase I gate is the **equivalent-beam
-validation mode**, because it compares ANSYS against the same effective beam
-model assumptions used by the internal FEM and optimizer.
+This document records the historical Phase I ANSYS validation result for the
+internal structural solver. At that stage the official gate was the
+**equivalent-beam validation mode**, because it compared ANSYS against the same
+effective beam model assumptions used by the internal FEM and optimizer.
 
 The internal MDO solver remains the optimization engine. ANSYS validation must
 therefore compare the same equivalent section properties, support assumptions,

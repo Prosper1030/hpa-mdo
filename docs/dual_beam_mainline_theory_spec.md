@@ -47,9 +47,10 @@ Repo evidence:
 
 ### What Is Verified
 
-- Equivalent-beam internal FEM versus equivalent-beam ANSYS passes the official
-  Phase I validation gate: tip and max vertical displacement error 0.67%,
-  support reaction error about 0%, full-span spar beam mass error 0.17%.
+- Equivalent-beam internal FEM versus equivalent-beam ANSYS passes the
+  historical Phase I parity gate: tip and max vertical displacement error
+  0.67%, support reaction error about 0%, full-span spar beam mass error
+  0.17%.
 - The inspected internal dual-beam topology matches dual-spar ANSYS closely:
   main tip 0.56% error, max `|UZ|` 0.51% error, support reaction 0.00% error,
   full-span spar beam mass 0.18% error.
@@ -87,6 +88,9 @@ Repo evidence:
 - The best robust link mode for production ranking is not yet proven.
 - The proposed rear-outboard local reserve mapping must be benchmarked before
   it becomes a production default.
+
+Equivalent-beam parity remains useful evidence, but it should now be treated as
+legacy validation history rather than the current production sign-off basis.
 
 ## Part 1. Dual-Beam Problem From First Principles
 

@@ -441,8 +441,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         choices=("equivalent_beam", "dual_spar"),
         default="equivalent_beam",
         help=(
-            "ANSYS export mode. equivalent_beam is the Phase I validation gate; "
-            "dual_spar is higher-fidelity inspection only."
+            "ANSYS export mode. equivalent_beam is a legacy Phase I parity / "
+            "regression path retained for comparison; it is not the current "
+            "production sign-off basis. dual_spar is higher-fidelity inspection only."
         ),
     )
     return parser
