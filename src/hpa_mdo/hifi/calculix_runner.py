@@ -327,7 +327,9 @@ def _extract_analysis_mesh(mesh_text: str) -> tuple[str, list[int], int]:
     target_dim = max(element_dims)
     kept_lines: list[str] = []
     element_ids: list[int] = []
+    seen_connectivity: set[tuple[int, ...]] = set()
     current_keep = False
+    current_type = ""
     in_element_block = False
 
     for raw in lines:
@@ -346,10 +348,15 @@ def _extract_analysis_mesh(mesh_text: str) -> tuple[str, list[int], int]:
             kept_lines.append(raw)
             continue
         if current_keep:
+            parts = [part.strip() for part in line.split(",") if part.strip()]
+            if len(parts) <= 1:
+                continue
+            connectivity = _dedupe_connectivity_key(current_type, parts[1:], target_dim)
+            if connectivity in seen_connectivity:
+                continue
+            seen_connectivity.add(connectivity)
             kept_lines.append(raw)
-            first = line.split(",", 1)[0].strip()
-            if first:
-                element_ids.append(int(first))
+            element_ids.append(int(parts[0]))
         elif not in_element_block:
             kept_lines.append(raw)
 
@@ -422,6 +429,20 @@ def _normalised_element_card(card_line: str, target_dim: int) -> str:
         else:
             tokens.append(token)
     return ",".join(tokens)
+
+
+def _dedupe_connectivity_key(
+    element_type: str,
+    connectivity_tokens: Sequence[str],
+    target_dim: int,
+) -> tuple[int, ...]:
+    node_ids = tuple(int(token) for token in connectivity_tokens)
+    if target_dim in {1, 2}:
+        return tuple(sorted(node_ids))
+    upper = element_type.upper()
+    if upper.startswith("C3D"):
+        return tuple(sorted(node_ids))
+    return node_ids
 
 
 def root_boundary_from_mesh(

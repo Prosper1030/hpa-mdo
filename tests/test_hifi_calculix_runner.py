@@ -44,6 +44,19 @@ MIXED_SURFACE_LINE_MESH = """*NODE
 20, 3, 4
 """
 
+MIXED_SURFACE_WITH_DUPLICATE_FACETS = """*NODE
+1, 0.0, 0.0, 0.0
+2, 1.0, 0.0, 0.0
+3, 0.0, 1.0, 0.0
+4, 0.0, 2.0, 0.0
+*ELEMENT, TYPE=CPS3
+10, 1, 2, 3
+11, 3, 2, 1
+12, 2, 3, 4
+*ELEMENT, TYPE=T3D2
+20, 3, 4
+"""
+
 
 def _cfg(tmp_path: Path):
     return load_config(CONFIG_PATH, local_paths_path=tmp_path / "missing_local_paths.yaml")
@@ -127,6 +140,27 @@ def test_prepare_static_inp_filters_line_elements_and_adds_surface_thickness(tmp
     assert "*ELEMENT, TYPE=T3D2" not in text
     assert "*ELSET, ELSET=EALL\n10" in text
     assert "*SHELL SECTION, ELSET=EALL, MATERIAL=HPA_MATERIAL\n0.8" in text
+
+
+def test_prepare_static_inp_deduplicates_duplicate_surface_facets(tmp_path: Path) -> None:
+    mesh = tmp_path / "duplicate_surface_mesh.inp"
+    out = tmp_path / "static_surface_deduped.inp"
+    mesh.write_text(MIXED_SURFACE_WITH_DUPLICATE_FACETS, encoding="utf-8")
+
+    result = prepare_static_inp(
+        mesh,
+        out,
+        {"E": 230e9, "nu": 0.27, "rho": 1600.0},
+        (1, (1, 2, 3)),
+        [(3, 3, -10.0)],
+        section_thickness=0.8,
+    )
+
+    text = result.read_text(encoding="utf-8")
+    assert "*ELSET, ELSET=EALL\n10, 12" in text
+    assert "11, 3, 2, 1" not in text
+    assert text.count("10, 1, 2, 3") == 1
+    assert text.count("12, 2, 3, 4") == 1
 
 
 def test_root_boundary_and_tip_node_from_mesh(tmp_path: Path) -> None:
