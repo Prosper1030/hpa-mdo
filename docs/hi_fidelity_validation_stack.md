@@ -195,6 +195,15 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
       `output/_archive_pre_2026_04_15/blackcat_004_dual_beam_production_check/ansys/spar_data.csv`
     - static tip deflection 進一步收斂到 `3.02214 m`
     - 相對 reference `2.39372 m` 的差距也再從 `32.07%` 降到 `26.25%`
+  - 接著又補上 wire-support 與同一份 `spar_data.csv` 的 main spar 幾何對齊：
+    - 若 `load_model.source_kind = spar_csv`，現在 wire support 會優先用同一份 CSV 的 `Main_X_m / Main_Z_m` 幾何位置挑 support node
+    - 不再盲目沿用 mesh 內建的 `WIRE_n` NSET
+    - fresh representative rerun：`output/blackcat_004/hifi_wire_support_aligned_rerun_20260418/structural_check.json`
+    - `static comparability` 仍是 `COMPARABLE`
+    - `overall_comparability` 仍是 `LIMITED`
+    - static tip deflection 再從 `3.02214 m` 收斂到 `2.96129 m`
+    - 相對 reference `2.39372 m` 的差距也再從 `26.25%` 降到 `23.71%`
+    - 這代表 wire-support contract 仍有工程影響，但剩餘 blocker 已更集中在 shell / section / support completeness，而不是 evidence-root 或 generic wire NSET 選錯
 
 另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
 
@@ -221,6 +230,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - **能力層**：Mac structural spot-check 的 compare/diagnostic schema 已存在
 - **可診斷性層**：report / JSON 已能同時講出 CalculiX failure 與 Gmsh upstream root cause
 - **contract 收斂層**：`spar_data.csv` 現在已能做 spatial main/rear load replay，而且 summary / load evidence root 已可對齊，代表最粗的雙梁載重扁平化與跨 root 對照問題都先被修掉
+- **support 對齊層**：wire support 現在也能優先對齊到同一份 `spar_data.csv` 的 main spar 幾何位置，代表 generic `WIRE_n` NSET 帶來的次級誤差也開始被壓掉
 - **benchmark basket 層**：fresh representative run 已經補齊，但它仍不能升格成正式 candidate，因為 blocker 已轉成 shell / section / support / load completeness，而不是 mesh fail 本身
 
 ## 5. benchmark policy：先保持開放，不先釘死

@@ -97,3 +97,13 @@
     - 但 static tip deflection 又從 `3.16127 m` 進一步收斂到 `3.02214 m`
     - 相對 reference `2.39372 m` 的差距也再從約 `32.07%` 降到 `26.25%`
     - 這代表跨 evidence-root 的對照誤差已先被清掉；剩下的主 blocker 更集中在 shell / section / support completeness
+  - 接著又補上 `fix: 對齊 hifi wire support 到 main spar 幾何座標`：
+    - 若 `load_model.source_kind = spar_csv`，wire support 現在會優先使用同一份 `spar_data.csv` 的 `Main_X_m / Main_Z_m` 幾何位置選 support node
+    - 不再盲目沿用 mesh 內建 `WIRE_n` NSET
+    - fresh representative rerun 已落在：
+      - `output/blackcat_004/hifi_wire_support_aligned_rerun_20260418/structural_check.json`
+    - `static comparability` 仍是 `COMPARABLE`
+    - `overall_comparability` 仍是 `LIMITED`
+    - 但 static tip deflection 又從 `3.02214 m` 進一步收斂到 `2.96129 m`
+    - 相對 reference `2.39372 m` 的差距也再從約 `26.25%` 降到 `23.71%`
+    - 這代表 generic wire NSET 的次級誤差也開始被壓掉；剩下的主 blocker 更集中在 shell / section / support completeness 本體

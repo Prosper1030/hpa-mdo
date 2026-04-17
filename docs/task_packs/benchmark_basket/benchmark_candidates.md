@@ -31,7 +31,7 @@
 | `blackcat_004_dual_beam_refinement` | `historical_evidence` | 保留了 warm/refined eq/dual 對照，也有 refined ANSYS spot-check summary | refined eq mass `9.871 kg`、refined dual mass `9.872 kg`；ANSYS refined spot-check 仍是 `MODEL-FORM RISK` | 用來觀察「往更硬設計移動後」相對趨勢是否一致 |
 | `blackcat_004_dual_spar_spotcheck` | `historical_evidence` | 最完整的 legacy dual-spar baseline 對照案例 | tip deflection error `14.14%`、max \|UZ\| error `35.64%`、support reaction error `0.00%`、mass error `0.19%`；整體 `MODEL-FORM RISK` | 保留作 model-form risk baseline，不再當唯一 benchmark 真值 |
 | `blackcat_004_dual_spar_spotcheck_neighbors` | `historical_evidence` | baseline / harder / softer 三點一起看，能評估 ranking flip 風險 | baseline `9.454 kg / 2500 mm`、harder `9.744 kg / 2274 mm`、softer `9.164 kg / 2756 mm`；各點 ANSYS compare 仍是 `MODEL-FORM RISK` | 當 sensitivity package，用來看接近設計是否可能因 hi-fi 對照而翻盤 |
-| `output/blackcat_004/hifi_summary_aligned_rerun_20260418` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，而且現在 STEP meshing 會先經過 OCC healing wrapper（`HealShapes + Coherence`），再配 bounded coarse fallback；analysis deck 也加入 shell normals consistency 與極低品質 sliver shell 過濾；`spar_data.csv` 也已升級成 spatial main/rear load replay，且會優先對齊指定 summary 所在 evidence root | fresh representative JSON 現在已不再是純 `mesh_quality fail`：`static` 進到 `COMPARABLE`、`buckle` 可完成，`overall_comparability = LIMITED`；static tip deflection 已從 `4.7992 m` 收斂到 `3.02214 m`，相對 reference `2.39372 m` 的差距約 `26.25%`，但仍不足以升格成 benchmark candidate | 保留成最新本機診斷證據；現在最主要的 blocker 已從「solver 直接炸」轉成「shell / section / support completeness 與 reference 還不對齊」 |
+| `output/blackcat_004/hifi_wire_support_aligned_rerun_20260418` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，而且現在 STEP meshing 會先經過 OCC healing wrapper（`HealShapes + Coherence`），再配 bounded coarse fallback；analysis deck 也加入 shell normals consistency 與極低品質 sliver shell 過濾；`spar_data.csv` 已升級成 spatial main/rear load replay、優先對齊指定 summary 所在 evidence root，wire support 也會優先對齊同一份 CSV 的 main spar 幾何位置 | fresh representative JSON 現在已不再是純 `mesh_quality fail`：`static` 進到 `COMPARABLE`、`buckle` 可完成，`overall_comparability = LIMITED`；static tip deflection 已從 `4.7992 m` 收斂到 `2.96129 m`，相對 reference `2.39372 m` 的差距約 `23.71%`，但仍不足以升格成 benchmark candidate | 保留成最新本機診斷證據；現在最主要的 blocker 已從「solver 直接炸」轉成「shell / section / support completeness 與 reference 還不對齊」 |
 
 ## Evidence Notes
 
@@ -84,12 +84,12 @@
   - 仍然是 legacy dual-spar family。
   - 更適合當 sensitivity evidence，而不是新主線的唯一 benchmark。
 
-### 5. `output/blackcat_004/hifi_summary_aligned_rerun_20260418`
+### 5. `output/blackcat_004/hifi_wire_support_aligned_rerun_20260418`
 
 - Paths:
-  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_summary_aligned_rerun_20260418/structural_check.md`
-  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_summary_aligned_rerun_20260418/structural_check.json`
-  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_summary_aligned_rerun_20260418/spar_jig_shape.mesh_diagnostics.json`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_wire_support_aligned_rerun_20260418/structural_check.md`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_wire_support_aligned_rerun_20260418/structural_check.json`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_wire_support_aligned_rerun_20260418/spar_jig_shape.mesh_diagnostics.json`
   - `src/hpa_mdo/hifi/structural_check.py`
 - Why it matters:
   - 本機 Mac route 是未來最值得持續投資的 validation path。
@@ -99,6 +99,7 @@
   - analysis deck 現在也會去除完全重複、只差方向的 shell facets，並補上 shell normals consistency 與極低品質 sliver shell 過濾。
   - `spar_data.csv` 現在若帶有 `Main_X/Z`、`Rear_X/Z`，會做 spatial main/rear load replay，而不是把 `Main_FZ_N + Rear_FZ_N` 壓成單一節點。
   - 若 `hifi_structural_check` 指定了 summary / crossval report，現在會優先選同一個 evidence root 旁邊的 `spar_data.csv`，避免拿 archived summary 去比 current output 的 load table。
+  - 若 `load_model.source_kind = spar_csv`，wire support 也會優先對齊到同一份 CSV 的 `Main_X_m / Main_Z_m` 幾何位置，而不是盲目沿用 mesh 內建 `WIRE_n` NSET。
   - 這次 fresh representative healed run 已把 reference 對齊到：
     `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
 - Current caution:
@@ -109,15 +110,15 @@
     - `no_elements_in_volume`
     - `duplicate_boundary_facets`
   - 經過 shell normals consistency + sliver filter，再加上 spatial main/rear load replay 與 summary-root 對齊後：
-    - `static` 已可完成並回傳 `|uz_tip| = 3.02214 m`
-    - `buckle` 已可完成並回傳 `lambda_1 = 123429.7`
+    - `static` 已可完成並回傳 `|uz_tip| = 2.96129 m`
+    - `buckle` 已可完成並回傳 `lambda_1 = 6693.72`
     - `static comparability = COMPARABLE`
     - `buckle comparability = LIMITED`
   - 最新 mesh 維度診斷也已明確指出：
     - `analysis_reality = shell_plus_beam`
     - `element_family_counts = beam 2439 / shell 12918 / solid 0`
     - `has_volume_elements = false`
-  - 但 static tip deflection 相對 reference 仍差約 `26.25%`，所以目前最該修的是 shell-truth / section / support contract 的剩餘差距，而不是再回頭重查 named-point / boundary contract。
+  - 但 static tip deflection 相對 reference 仍差約 `23.71%`，所以目前最該修的是 shell-truth / section / support contract 的剩餘差距，而不是再回頭重查 named-point / boundary contract。
 
 ## Practical Recommendation
 
