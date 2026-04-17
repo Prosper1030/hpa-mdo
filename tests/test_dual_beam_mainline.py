@@ -763,6 +763,42 @@ def test_wire_tension_limit_is_a_hard_gate_when_explicit_truss_exceeds_allowable
     assert "wire_tension_limit" in result.feasibility.hard_failures
 
 
+def test_explicit_wire_truss_reaction_aligns_with_current_cable_axis_under_x_load() -> None:
+    model = _simple_model(
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+    )
+    production = get_analysis_mode_definition(AnalysisModeName.DUAL_BEAM_PRODUCTION)
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=production.root_bc,
+        wire_bc=production.wire_bc,
+        link_mode=production.default_link_mode,
+    )
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+    main_loads_n = np.zeros((model.y_nodes_m.size, 6), dtype=float)
+    rear_loads_n = np.zeros_like(main_loads_n)
+    main_loads_n[1, 0] = 150.0
+
+    disp_main_m, _, multipliers, _, explicit_wire_support = solve_dual_beam_state(
+        model=model,
+        main_loads_n=main_loads_n,
+        rear_loads_n=rear_loads_n,
+        constraints=constraints,
+    )
+    reactions = recover_reactions(
+        constraints=constraints,
+        multipliers=multipliers,
+        nn=model.y_nodes_m.size,
+        explicit_wire_support=explicit_wire_support,
+    )
+
+    current_axis = model.nodes_main_m[1] + disp_main_m[1, :3] - model.wire_anchor_points_m[0]
+    current_axis = current_axis / np.linalg.norm(current_axis)
+    reaction_axis = reactions.wire_reaction_vectors_n[0] / np.linalg.norm(reactions.wire_reaction_vectors_n[0])
+    np.testing.assert_allclose(reaction_axis, -current_axis, atol=1.0e-8)
+
+
 def test_wire_axial_mode_flags_compression_resultant_as_invalid() -> None:
     model = _simple_model(
         lift_per_span_npm=np.array([0.0, -10.0, -20.0]),

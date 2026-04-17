@@ -125,6 +125,7 @@ def run_dual_beam_mainline_kernel(
         reactions=reactions,
         report=report,
         recovery=recovery,
+        explicit_wire_support=explicit_wire_support,
     )
     feasibility = build_feasibility_summary(
         optimizer_metrics=optimizer,

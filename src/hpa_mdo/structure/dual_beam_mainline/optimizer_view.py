@@ -287,6 +287,7 @@ def build_numerical_consistency_result(
     disp_rear_m: np.ndarray,
     load_split: LoadSplitResult,
     reactions: ReactionRecoveryResult,
+    explicit_wire_support: object | None = None,
 ) -> NumericalConsistencyResult:
     """Summarize solver residuals and constraint health for hard gating."""
 
@@ -300,6 +301,11 @@ def build_numerical_consistency_result(
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
         equilibrium_vector = (
             np.asarray(stiffness, dtype=float) @ state
+            + (
+                np.asarray(explicit_wire_support.internal_force_vector_n, dtype=float)
+                if explicit_wire_support is not None
+                else 0.0
+            )
             + np.asarray(constraints.matrix, dtype=float).T @ multiplier_vec
             - load_vector
         )
@@ -443,6 +449,7 @@ def build_optimizer_facing_metrics(
     reactions: ReactionRecoveryResult,
     report: ReportMetrics,
     recovery: RecoveryResult,
+    explicit_wire_support=None,
 ) -> OptimizerFacingMetrics:
     """Build future-optimizer metrics while keeping raw report channels separate."""
 
@@ -471,6 +478,7 @@ def build_optimizer_facing_metrics(
             disp_rear_m=disp_rear_m,
             load_split=load_split,
             reactions=reactions,
+            explicit_wire_support=explicit_wire_support,
         ),
         global_observables=build_global_observable_readiness(
             report=report,

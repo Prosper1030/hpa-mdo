@@ -249,6 +249,7 @@ class ExplicitWireSupportResult:
     """Recovered explicit wire-support state for truss-based wire modes."""
 
     active_mask: np.ndarray
+    internal_force_vector_n: np.ndarray
     support_reaction_vector_n: np.ndarray
     wire_reaction_vectors_n: np.ndarray
     wire_resultants_n: np.ndarray

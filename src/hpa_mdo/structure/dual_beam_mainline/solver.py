@@ -19,7 +19,11 @@ from hpa_mdo.structure.dual_beam_mainline.types import (
 )
 
 _WIRE_ACTIVE_TOL_N = 1.0e-9
-_WIRE_ACTIVE_SET_MAX_ITERS = 8
+_WIRE_NEWTON_MAX_ITERS = 20
+_WIRE_NEWTON_RESIDUAL_TOL = 1.0e-9
+_WIRE_NEWTON_STEP_TOL = 1.0e-10
+_WIRE_LINE_SEARCH_MAX_ITERS = 8
+_WIRE_LINE_SEARCH_MIN_STEP = 1.0 / 128.0
 
 
 def _elementwise_property_array(values: np.ndarray | float, ne: int, name: str) -> np.ndarray:
@@ -120,24 +124,35 @@ def assemble_dual_beam_stiffness(model: DualBeamMainlineModel) -> np.ndarray:
     return stiffness
 
 
-def _assemble_explicit_wire_truss_support(
+def _evaluate_explicit_wire_truss_support(
     *,
     model: DualBeamMainlineModel,
-    active_mask: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Assemble linearized wire-truss support stiffness and prestrain offset."""
+    disp_main_m: np.ndarray,
+) -> tuple[ExplicitWireSupportResult, np.ndarray]:
+    """Evaluate nonlinear explicit wire support and its tangent stiffness."""
 
     nn = model.y_nodes_m.size
     ndof = 2 * nn * 6
-    stiffness = np.zeros((ndof, ndof), dtype=float)
-    offset_vector = np.zeros(ndof, dtype=float)
-    if len(model.wire_node_indices) == 0:
-        return stiffness, offset_vector
+    tangent_stiffness = np.zeros((ndof, ndof), dtype=float)
+    internal_force_vector_n = np.zeros(ndof, dtype=float)
+    support_reaction_vector_n = np.zeros(ndof, dtype=float)
+    n_wires = len(model.wire_node_indices)
+    wire_reaction_vectors_n = np.zeros((n_wires, 3), dtype=float)
+    wire_resultants_n = np.zeros(n_wires, dtype=float)
+    active_mask = np.zeros(n_wires, dtype=bool)
+    if n_wires == 0:
+        return (
+            ExplicitWireSupportResult(
+                active_mask=active_mask,
+                internal_force_vector_n=internal_force_vector_n,
+                support_reaction_vector_n=support_reaction_vector_n,
+                wire_reaction_vectors_n=wire_reaction_vectors_n,
+                wire_resultants_n=wire_resultants_n,
+            ),
+            tangent_stiffness,
+        )
 
-    active = np.asarray(active_mask, dtype=bool).reshape(-1)
-    if active.shape != (len(model.wire_node_indices),):
-        raise ValueError("active_mask must align with wire_node_indices.")
-    if model.wire_anchor_points_m.shape != (len(model.wire_node_indices), 3):
+    if model.wire_anchor_points_m.shape != (n_wires, 3):
         raise ValueError("wire_anchor_points_m must have shape (n_wires, 3) for truss support.")
 
     for wire_index, (node_index, anchor_point_m, area_m2, young_pa, ref_length_m, unstretched_m) in enumerate(
@@ -151,76 +166,50 @@ def _assemble_explicit_wire_truss_support(
             strict=True,
         )
     ):
-        if not active[wire_index]:
-            continue
-        axis = np.asarray(model.nodes_main_m[node_index], dtype=float) - np.asarray(anchor_point_m, dtype=float)
-        axis_norm = np.linalg.norm(axis)
-        if axis_norm <= 1.0e-12:
-            raise ValueError("Wire anchor point must not coincide with the attachment point.")
         if ref_length_m <= 1.0e-12 or unstretched_m <= 1.0e-12:
             raise ValueError("Wire truss lengths must stay positive.")
-        axis_unit = axis / axis_norm
-        axial_stiffness_npm = float(young_pa) * float(area_m2) / float(unstretched_m)
-        node_slice = slice(node_index * 6, node_index * 6 + 3)
-        stiffness[node_slice, node_slice] += axial_stiffness_npm * np.outer(axis_unit, axis_unit)
-        initial_extension_m = float(ref_length_m) - float(unstretched_m)
-        if abs(initial_extension_m) > 0.0:
-            offset_vector[node_slice] += axial_stiffness_npm * initial_extension_m * axis_unit
-
-    return stiffness, offset_vector
-
-
-def _evaluate_explicit_wire_truss_support(
-    *,
-    model: DualBeamMainlineModel,
-    disp_main_m: np.ndarray,
-) -> ExplicitWireSupportResult:
-    """Recover explicit wire-support reactions from the solved main-beam displacements."""
-
-    nn = model.y_nodes_m.size
-    ndof = 2 * nn * 6
-    support_reaction_vector_n = np.zeros(ndof, dtype=float)
-    n_wires = len(model.wire_node_indices)
-    wire_reaction_vectors_n = np.zeros((n_wires, 3), dtype=float)
-    wire_resultants_n = np.zeros(n_wires, dtype=float)
-    active_mask = np.zeros(n_wires, dtype=bool)
-
-    for wire_index, (node_index, anchor_point_m, area_m2, young_pa, ref_length_m, unstretched_m) in enumerate(
-        zip(
-            model.wire_node_indices,
-            np.asarray(model.wire_anchor_points_m, dtype=float),
-            np.asarray(model.wire_area_m2, dtype=float),
-            np.asarray(model.wire_young_pa, dtype=float),
-            np.asarray(model.wire_reference_lengths_m, dtype=float),
-            np.asarray(model.wire_unstretched_lengths_m, dtype=float),
-            strict=True,
+        attachment_point_m = (
+            np.asarray(model.nodes_main_m[node_index], dtype=float)
+            + np.asarray(disp_main_m[node_index, :3], dtype=float)
         )
-    ):
-        axis = np.asarray(model.nodes_main_m[node_index], dtype=float) - np.asarray(anchor_point_m, dtype=float)
+        axis = attachment_point_m - np.asarray(anchor_point_m, dtype=float)
         axis_norm = np.linalg.norm(axis)
         if axis_norm <= 1.0e-12:
             raise ValueError("Wire anchor point must not coincide with the attachment point.")
-        if ref_length_m <= 1.0e-12 or unstretched_m <= 1.0e-12:
-            raise ValueError("Wire truss lengths must stay positive.")
         axis_unit = axis / axis_norm
-        axial_stiffness_npm = float(young_pa) * float(area_m2) / float(unstretched_m)
-        projected_extension_m = float(np.dot(np.asarray(disp_main_m[node_index, :3], dtype=float), axis_unit))
-        initial_extension_m = float(ref_length_m) - float(unstretched_m)
-        axial_force_n = axial_stiffness_npm * (projected_extension_m + initial_extension_m)
+        material_stiffness_npm = float(young_pa) * float(area_m2) / float(unstretched_m)
+        extension_m = float(axis_norm - float(unstretched_m))
+        axial_force_n = material_stiffness_npm * extension_m
         tension_n = max(axial_force_n, 0.0)
         if tension_n > _WIRE_ACTIVE_TOL_N:
             active_mask[wire_index] = True
+            geometric_coeff_npm = tension_n / axis_norm
+            tangent_local = (
+                material_stiffness_npm * np.outer(axis_unit, axis_unit)
+                + geometric_coeff_npm * (np.eye(3, dtype=float) - np.outer(axis_unit, axis_unit))
+            )
+        else:
+            tangent_local = np.zeros((3, 3), dtype=float)
+            tension_n = 0.0
+
+        internal_force_n = tension_n * axis_unit
         reaction_vector_n = -tension_n * axis_unit
         wire_reaction_vectors_n[wire_index] = reaction_vector_n
         wire_resultants_n[wire_index] = tension_n
         node_slice = slice(node_index * 6, node_index * 6 + 3)
+        internal_force_vector_n[node_slice] += internal_force_n
         support_reaction_vector_n[node_slice] += reaction_vector_n
+        tangent_stiffness[node_slice, node_slice] += tangent_local
 
-    return ExplicitWireSupportResult(
-        active_mask=active_mask,
-        support_reaction_vector_n=support_reaction_vector_n,
-        wire_reaction_vectors_n=wire_reaction_vectors_n,
-        wire_resultants_n=wire_resultants_n,
+    return (
+        ExplicitWireSupportResult(
+            active_mask=active_mask,
+            internal_force_vector_n=internal_force_vector_n,
+            support_reaction_vector_n=support_reaction_vector_n,
+            wire_reaction_vectors_n=wire_reaction_vectors_n,
+            wire_resultants_n=wire_resultants_n,
+        ),
+        tangent_stiffness,
     )
 
 
@@ -273,35 +262,109 @@ def solve_dual_beam_state(
     explicit_wire_support: ExplicitWireSupportResult | None = None
 
     if constraints.constraint_mode.wire_bc == WireBCMode.WIRE_MAIN_TRUSS and len(model.wire_node_indices) > 0:
-        active_mask = np.asarray(
-            np.asarray(model.wire_reference_lengths_m, dtype=float)
-            > np.asarray(model.wire_unstretched_lengths_m, dtype=float) + 1.0e-12,
-            dtype=bool,
-        )
         state = np.zeros(ndof, dtype=float)
         multipliers_scaled = np.zeros(constraints.scaled_matrix.shape[0], dtype=float)
+        constraint_matrix = np.asarray(constraints.scaled_matrix, dtype=float)
+        constraint_rhs = np.asarray(constraints.scaled_rhs, dtype=float)
         stiffness = beam_stiffness
-        for _ in range(_WIRE_ACTIVE_SET_MAX_ITERS):
-            wire_stiffness, wire_offset_vector = _assemble_explicit_wire_truss_support(
+
+        def _residual_for(
+            trial_state: np.ndarray,
+            trial_multipliers_scaled: np.ndarray,
+        ) -> tuple[np.ndarray, np.ndarray, float, ExplicitWireSupportResult, np.ndarray]:
+            trial_disp_main = trial_state[: nn * 6].reshape((nn, 6))
+            trial_wire_support, trial_wire_tangent = _evaluate_explicit_wire_truss_support(
                 model=model,
-                active_mask=active_mask,
+                disp_main_m=trial_disp_main,
             )
-            stiffness = beam_stiffness + wire_stiffness
-            state, multipliers_scaled = _solve_saddle_point(
-                stiffness=stiffness,
-                load_vector=load_vector - wire_offset_vector,
-                constraints=constraints,
+            with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+                trial_equilibrium = (
+                    beam_stiffness @ trial_state
+                    + np.asarray(trial_wire_support.internal_force_vector_n, dtype=float)
+                    + constraint_matrix.T @ trial_multipliers_scaled
+                    - load_vector
+                )
+                trial_compatibility = constraint_matrix @ trial_state - constraint_rhs
+            trial_residual_norm = float(
+                max(
+                    np.linalg.norm(
+                        np.nan_to_num(
+                            trial_equilibrium,
+                            nan=np.inf,
+                            posinf=np.inf,
+                            neginf=np.inf,
+                        )
+                    ),
+                    np.linalg.norm(
+                        np.nan_to_num(
+                            trial_compatibility,
+                            nan=np.inf,
+                            posinf=np.inf,
+                            neginf=np.inf,
+                        )
+                    ),
+                )
             )
-            disp_main_trial = state[: nn * 6].reshape((nn, 6))
-            explicit_wire_support = _evaluate_explicit_wire_truss_support(
-                model=model,
-                disp_main_m=disp_main_trial,
+            return (
+                trial_equilibrium,
+                trial_compatibility,
+                trial_residual_norm,
+                trial_wire_support,
+                trial_wire_tangent,
             )
-            if np.array_equal(explicit_wire_support.active_mask, active_mask):
+
+        for _ in range(_WIRE_NEWTON_MAX_ITERS):
+            (
+                equilibrium_residual,
+                compatibility_residual,
+                residual_norm,
+                explicit_wire_support,
+                wire_tangent,
+            ) = _residual_for(
+                state,
+                multipliers_scaled,
+            )
+            stiffness = beam_stiffness + wire_tangent
+            if residual_norm <= _WIRE_NEWTON_RESIDUAL_TOL:
                 break
-            active_mask = explicit_wire_support.active_mask.copy()
+            n_constraints = constraint_matrix.shape[0]
+            saddle_matrix = np.zeros((ndof + n_constraints, ndof + n_constraints), dtype=float)
+            saddle_matrix[:ndof, :ndof] = stiffness
+            saddle_matrix[:ndof, ndof:] = constraint_matrix.T
+            saddle_matrix[ndof:, :ndof] = constraint_matrix
+            rhs = np.zeros(ndof + n_constraints, dtype=float)
+            rhs[:ndof] = -equilibrium_residual
+            rhs[ndof:] = -compatibility_residual
+            try:
+                delta = np.linalg.solve(saddle_matrix, rhs)
+            except np.linalg.LinAlgError as exc:
+                raise RuntimeError("Dual-beam mainline nonlinear wire solve is singular.") from exc
+            delta_state = delta[:ndof]
+            delta_multipliers = delta[ndof:]
+            step = 1.0
+            accepted = False
+            for _ in range(_WIRE_LINE_SEARCH_MAX_ITERS):
+                trial_state = state + step * delta_state
+                trial_multipliers = multipliers_scaled + step * delta_multipliers
+                if not np.all(np.isfinite(trial_state)) or not np.all(np.isfinite(trial_multipliers)):
+                    step *= 0.5
+                    continue
+                _, _, trial_norm, _, _ = _residual_for(
+                    trial_state,
+                    trial_multipliers,
+                )
+                if trial_norm <= residual_norm or step <= _WIRE_LINE_SEARCH_MIN_STEP:
+                    state = trial_state
+                    multipliers_scaled = trial_multipliers
+                    accepted = True
+                    break
+                step *= 0.5
+            if not accepted:
+                raise RuntimeError("Explicit wire truss line search failed to find a finite update.")
+            if float(max(np.linalg.norm(delta_state), np.linalg.norm(delta_multipliers))) <= _WIRE_NEWTON_STEP_TOL:
+                break
         else:
-            raise RuntimeError("Explicit wire truss active-set solve did not converge.")
+            raise RuntimeError("Explicit wire truss Newton solve did not converge.")
     else:
         stiffness = beam_stiffness
         state, multipliers_scaled = _solve_saddle_point(
@@ -317,8 +380,8 @@ def solve_dual_beam_state(
     disp_main = state[: nn * 6].reshape((nn, 6))
     disp_rear = state[nn * 6 :].reshape((nn, 6))
     if constraints.constraint_mode.wire_bc == WireBCMode.WIRE_MAIN_TRUSS and len(model.wire_node_indices) > 0:
-        explicit_wire_support = _evaluate_explicit_wire_truss_support(
+        explicit_wire_support, _ = _evaluate_explicit_wire_truss_support(
             model=model,
             disp_main_m=disp_main,
         )
-    return disp_main, disp_rear, multipliers, stiffness, explicit_wire_support
+    return disp_main, disp_rear, multipliers, beam_stiffness, explicit_wire_support
