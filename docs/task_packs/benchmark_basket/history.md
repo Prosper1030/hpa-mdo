@@ -21,3 +21,15 @@
     - 主要 blocker 仍是 `mesh_quality`，診斷仍含 `nonpositive_jacobian x34`
     - Gmsh `-3` probe 也已明確暴露 root cause：`Invalid boundary mesh (overlapping facets)` / `No elements in volume`
     - 這讓下一步工作更明確：先打 STEP/Gmsh surface 的 mesh robustness，不再優先懷疑 boundary / named-point contract 或 duplicate shell facets
+  - 之後又補上一輪 `feat: 補上 hifi mesh diagnostics sidecar 與報告`：
+    - 直接從 `spar_jig_shape.step` 開始跑的代表性案例已落在 `output/blackcat_004/hifi_dual_beam_production_stepdiag/`
+    - `structural_check.json` 現在會帶出 `mesh_diagnostics`
+    - `spar_jig_shape.mesh_diagnostics.json` 會獨立寫出 Gmsh upstream 問題
+    - 最新可直接讀到的 issue hints 包含：
+      - `overlapping_boundary_mesh x1`
+      - `no_elements_in_volume x1`
+      - `duplicate_boundary_facets x2`
+      - `invalid_surface_elements x38`
+      - `equivalent_triangles x2128`
+      - `duplicate_shell_facets x599`
+    - 這代表 Mac hi-fi 現在不只知道「CalculiX 因 mesh_quality fail」，也能在 report 裡直接指出較上游的 STEP/Gmsh 問題來源
