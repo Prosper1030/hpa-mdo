@@ -1094,11 +1094,18 @@ def _load_model_from_spar_csv(
 
     y_stations_m: list[float] = []
     fz_nodal: list[float] = []
+    point_entries: list[tuple[float, float | None, float | None, float]] = []
     with csv_path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         required = {"Y_Position_m", "Main_FZ_N", "Rear_FZ_N"}
         if reader.fieldnames is None or not required.issubset(reader.fieldnames):
             return None
+        has_spatial_split = {
+            "Main_X_m",
+            "Main_Z_m",
+            "Rear_X_m",
+            "Rear_Z_m",
+        }.issubset(reader.fieldnames)
         for row in reader:
             try:
                 y_m = float(row["Y_Position_m"])
@@ -1108,32 +1115,65 @@ def _load_model_from_spar_csv(
                 continue
             y_stations_m.append(y_m)
             fz_nodal.append(main_fz + rear_fz)
+            if has_spatial_split:
+                try:
+                    main_x_m = float(row["Main_X_m"])
+                    main_z_m = float(row["Main_Z_m"])
+                    rear_x_m = float(row["Rear_X_m"])
+                    rear_z_m = float(row["Rear_Z_m"])
+                except (TypeError, ValueError):
+                    has_spatial_split = False
+                else:
+                    if abs(main_fz) > 1.0e-12:
+                        point_entries.append((y_m, main_x_m, main_z_m, main_fz))
+                    if abs(rear_fz) > 1.0e-12:
+                        point_entries.append((y_m, rear_x_m, rear_z_m, rear_fz))
 
     if not y_stations_m:
         return None
 
-    entries = _map_spanwise_forces_to_mesh(
-        mesh_path=mesh_path,
-        cfg=cfg,
-        y_stations_m=np.asarray(y_stations_m, dtype=float),
-        force_z_n=np.asarray(fz_nodal, dtype=float),
-        mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
-    )
+    if point_entries:
+        entries = _map_point_forces_to_mesh(
+            mesh_path=mesh_path,
+            cfg=cfg,
+            point_forces=point_entries,
+            mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+        )
+    else:
+        entries = _map_spanwise_forces_to_mesh(
+            mesh_path=mesh_path,
+            cfg=cfg,
+            y_stations_m=np.asarray(y_stations_m, dtype=float),
+            force_z_n=np.asarray(fz_nodal, dtype=float),
+            mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+        )
     if not entries:
         return None
 
     total_fz_n = float(np.sum(fz_nodal))
-    return StructuralLoadModel(
-        description=(
+    description = (
+        f"spatially resolved main/rear nodal Fz from {_display_path(csv_path)} "
+        f"({len(entries)} mesh nodes, total {total_fz_n:.3f} N)"
+        if point_entries
+        else (
             f"distributed nodal Fz from {_display_path(csv_path)} "
             f"({len(entries)} mesh nodes, total {total_fz_n:.3f} N)"
-        ),
+        )
+    )
+    comparison_note = (
+        "Distributed spar loads were replayed using the exported main/rear spar "
+        "coordinates, which is the most comparable local load contract currently available."
+        if point_entries
+        else "Distributed spar loads came from a generated spanwise load table, which is the most comparable local replay currently available."
+    )
+    return StructuralLoadModel(
+        description=description,
         entries=tuple(entries),
         total_fz_n=total_fz_n,
         source_path=csv_path,
         source_kind="spar_csv",
         comparison_basis="direct",
-        comparison_note="Distributed spar loads came from a generated spanwise load table, which is the most comparable local replay currently available.",
+        comparison_note=comparison_note,
     )
 
 
@@ -1235,6 +1275,39 @@ def _map_spanwise_forces_to_mesh(
     ]
 
 
+def _map_point_forces_to_mesh(
+    *,
+    mesh_path: Path,
+    cfg: HPAConfig,
+    point_forces: list[tuple[float, float | None, float | None, float]],
+    mesh_length_scale_m_per_unit: float,
+) -> list[LoadEntry]:
+    nodes = parse_inp_nodes(mesh_path)
+    if nodes.size == 0:
+        return []
+
+    force_by_node: dict[int, float] = {}
+    for y_m, x_m, z_m, force_n in point_forces:
+        if abs(float(force_n)) <= 1.0e-12:
+            continue
+        node_id = _nearest_node_for_spanwise_y(
+            mesh_path,
+            float(y_m),
+            cfg,
+            mesh_nodes=nodes,
+            mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+            x_target_m=x_m,
+            z_target_m=z_m,
+        )
+        force_by_node[node_id] = force_by_node.get(node_id, 0.0) + float(force_n)
+
+    return [
+        (node_id, 3, magnitude)
+        for node_id, magnitude in sorted(force_by_node.items())
+        if abs(magnitude) > 1.0e-9
+    ]
+
+
 def _nearest_node_for_spanwise_y(
     mesh_path: Path,
     y_target_m: float,
@@ -1242,6 +1315,8 @@ def _nearest_node_for_spanwise_y(
     *,
     mesh_nodes: np.ndarray | None = None,
     mesh_length_scale_m_per_unit: float | None = None,
+    x_target_m: float | None = None,
+    z_target_m: float | None = None,
 ) -> int:
     nodes = parse_inp_nodes(mesh_path) if mesh_nodes is None else mesh_nodes
     if mesh_length_scale_m_per_unit is None:
@@ -1258,8 +1333,14 @@ def _nearest_node_for_spanwise_y(
     candidate_indices = np.where(candidate_mask)[0]
     if candidate_indices.size == 0:
         candidate_indices = np.asarray([int(np.argmin(delta_y))], dtype=int)
-    x_ref = float(np.median(x_coords[candidate_indices]))
-    z_ref = float(np.median(z_coords[candidate_indices]))
+    if x_target_m is None:
+        x_ref = float(np.median(x_coords[candidate_indices]))
+    else:
+        x_ref = float(x_target_m) / float(mesh_length_scale_m_per_unit)
+    if z_target_m is None:
+        z_ref = float(np.median(z_coords[candidate_indices]))
+    else:
+        z_ref = float(z_target_m) / float(mesh_length_scale_m_per_unit)
     distance = delta_y[candidate_indices] + 1.0e-6 * (
         np.abs(x_coords[candidate_indices] - x_ref) + np.abs(z_coords[candidate_indices] - z_ref)
     )

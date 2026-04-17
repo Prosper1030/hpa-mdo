@@ -40,6 +40,16 @@ MESH_WITH_WIRE_AND_MM_UNITS = """*NODE
 10, 1, 2, 3, 1
 """
 
+MESH_WITH_SPLIT_SPARS_MM_UNITS = """*NODE
+1, 0.0, 0.0, 0.0
+2, 1000.0, 7500.0, 0.0
+3, 9000.0, 7500.0, 0.0
+4, 1000.0, 16500.0, 0.0
+5, 9000.0, 16500.0, 0.0
+*ELEMENT, TYPE=C3D4
+10, 1, 2, 3, 4
+"""
+
 
 def _cfg(tmp_path: Path):
     return load_config(CONFIG_PATH, local_paths_path=tmp_path / "missing_local_paths.yaml")
@@ -522,6 +532,54 @@ def test_build_load_model_prefers_dual_beam_production_csv(tmp_path: Path, monke
 
     assert load_model.source_path == production_csv.resolve()
     assert load_model.total_fz_n == 60.0
+
+
+def test_build_load_model_replays_main_and_rear_forces_to_separate_mesh_nodes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cfg = _cfg(tmp_path)
+    output_dir = tmp_path / "out"
+    ansys_dir = output_dir / "ansys"
+    ansys_dir.mkdir(parents=True)
+
+    mesh = output_dir / "spar_model.inp"
+    mesh.write_text(MESH_WITH_SPLIT_SPARS_MM_UNITS, encoding="utf-8")
+    csv_path = ansys_dir / "spar_data.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "Y_Position_m,Main_X_m,Main_Z_m,Main_FZ_N,Rear_X_m,Rear_Z_m,Rear_FZ_N",
+                "0.0,0.0,0.0,0.0,0.0,0.0,0.0",
+                "7.5,1.0,0.0,10.0,9.0,0.0,20.0",
+                "16.5,1.0,0.0,-5.0,9.0,0.0,35.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg.io.output_dir = str(output_dir)
+    monkeypatch.setattr(structural_check, "load_config", lambda _path: cfg)
+
+    scale = structural_check._mesh_length_scale_m_per_unit(mesh, cfg)
+    load_model = structural_check._build_load_model(
+        cfg=cfg,
+        output_dir=output_dir,
+        mesh_path=mesh,
+        step_path=output_dir / "spar_jig_shape.step",
+        explicit_tip_load_n=None,
+        mesh_length_scale_m_per_unit=scale,
+    )
+
+    assert scale == 0.001
+    assert "spatially resolved main/rear nodal Fz from" in load_model.description
+    assert load_model.total_fz_n == 60.0
+    assert load_model.entries == (
+        (2, 3, 10.0),
+        (3, 3, 20.0),
+        (4, 3, -5.0),
+        (5, 3, 35.0),
+    )
 
 
 def test_support_boundary_uses_wire_nset_when_present(tmp_path: Path) -> None:
