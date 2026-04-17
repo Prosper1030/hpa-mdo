@@ -7,6 +7,7 @@ from hpa_mdo.core import load_config
 from hpa_mdo.hifi import gmsh_runner
 from hpa_mdo.hifi.gmsh_runner import (
     collect_mesh_diagnostics,
+    _healing_wrapper_geo_path,
     NamedPoint,
     annotate_inp_with_named_points,
     find_gmsh,
@@ -63,12 +64,19 @@ def test_mesh_step_invokes_gmsh_cli(tmp_path: Path, monkeypatch) -> None:
     out_path = tmp_path / "mesh.inp"
     step_path.write_text("STEP", encoding="utf-8")
     monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
+    wrapper_path = _healing_wrapper_geo_path(out_path)
 
     def fake_run(cmd, **kwargs):
         out_path.write_text("*NODE\n", encoding="utf-8")
+        assert wrapper_path.exists()
+        wrapper_text = wrapper_path.read_text(encoding="utf-8")
+        assert 'SetFactory("OpenCASCADE");' in wrapper_text
+        assert "HealShapes;" in wrapper_text
+        assert "Coherence;" in wrapper_text
+        assert f'ShapeFromFile("{step_path.resolve()}");' in wrapper_text
         assert cmd == [
             "/opt/bin/gmsh",
-            str(step_path),
+            str(wrapper_path),
             "-3",
             "-format",
             "inp",
@@ -87,6 +95,7 @@ def test_mesh_step_invokes_gmsh_cli(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(gmsh_runner.subprocess, "run", fake_run)
 
     assert mesh_step_to_inp(step_path, out_path, cfg) == out_path
+    assert not wrapper_path.exists()
 
 
 STEP_MM = """ISO-10303-21;
@@ -139,12 +148,13 @@ def test_mesh_step_scales_clmax_and_named_points_for_mm_step(tmp_path: Path, mon
     out_path = tmp_path / "mesh.inp"
     step_path.write_text(STEP_MM, encoding="utf-8")
     monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
+    wrapper_path = _healing_wrapper_geo_path(out_path)
 
     def fake_run(cmd, **kwargs):
         out_path.write_text(_SAMPLE_INP_MM, encoding="utf-8")
         assert cmd == [
             "/opt/bin/gmsh",
-            str(step_path),
+            str(wrapper_path),
             "-3",
             "-format",
             "inp",
@@ -430,6 +440,7 @@ def test_mesh_step_writes_mesh_diagnostics_sidecar(tmp_path: Path, monkeypatch) 
     assert diagnostics.overlapping_boundary_mesh_count == 1
     assert diagnostics.attempt_count == 2
     assert diagnostics.mesh_size_m == cfg.hi_fidelity.gmsh.mesh_size_m
+    assert diagnostics.healing_applied is True
 
 
 def test_mesh_step_retries_once_with_coarser_mesh_on_surface_blockers(

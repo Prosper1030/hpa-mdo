@@ -78,6 +78,7 @@ class MeshDiagnostics:
     mesh_size_m: float | None = None
     attempt_index: int | None = None
     attempt_count: int | None = None
+    healing_applied: bool = False
 
     @property
     def issue_hints(self) -> tuple[str, ...]:
@@ -121,6 +122,7 @@ class MeshDiagnostics:
             "mesh_size_m": self.mesh_size_m,
             "attempt_index": self.attempt_index,
             "attempt_count": self.attempt_count,
+            "healing_applied": self.healing_applied,
             "issue_hints": list(self.issue_hints),
         }
 
@@ -254,6 +256,7 @@ def mesh_step_to_inp(
             mesh_size_m=float(mesh_size_m),
             attempt_index=attempt_index,
             attempt_count=attempt_count,
+            healing_applied=True,
         )
         attempt_records.append((candidate_out, diagnostics))
 
@@ -332,6 +335,32 @@ def _default_named_point_tolerance_units(
     return tol_m / float(length_scale_m_per_unit)
 
 
+def _healing_wrapper_geo_path(out_path: Path) -> Path:
+    return out_path.with_suffix(".mesh_heal.geo")
+
+
+def _write_healing_geo_wrapper(wrapper_path: Path, step_path: Path) -> None:
+    wrapper_text = "\n".join(
+        [
+            'SetFactory("OpenCASCADE");',
+            "Geometry.OCCFixDegenerated = 1;",
+            "Geometry.OCCFixSmallEdges = 1;",
+            "Geometry.OCCFixSmallFaces = 1;",
+            "Geometry.OCCSewFaces = 1;",
+            "Geometry.OCCMakeSolids = 1;",
+            f"ShapeFromFile({_geo_string(step_path)});",
+            "HealShapes;",
+            "Coherence;",
+            "",
+        ]
+    )
+    wrapper_path.write_text(wrapper_text, encoding="utf-8")
+
+
+def _geo_string(path: Path) -> str:
+    return json.dumps(str(path.resolve()))
+
+
 def _run_gmsh_meshing_attempt(
     *,
     gmsh: str,
@@ -340,9 +369,11 @@ def _run_gmsh_meshing_attempt(
     order: int,
     clmax_units: float,
 ) -> subprocess.CompletedProcess[str] | None:
+    wrapper_geo = _healing_wrapper_geo_path(out)
+    _write_healing_geo_wrapper(wrapper_geo, step)
     cmd = [
         gmsh,
-        str(step),
+        str(wrapper_geo),
         "-3",
         "-format",
         "inp",
@@ -367,6 +398,9 @@ def _run_gmsh_meshing_attempt(
     except OSError as exc:
         print(f"INFO: Gmsh failed to start: {exc}")
         return None
+    finally:
+        if wrapper_geo.exists():
+            wrapper_geo.unlink()
 
 
 def _report_gmsh_failure(
@@ -502,6 +536,7 @@ def load_mesh_diagnostics(inp_path: str | Path) -> MeshDiagnostics | None:
         mesh_size_m=payload.get("mesh_size_m"),
         attempt_index=payload.get("attempt_index"),
         attempt_count=payload.get("attempt_count"),
+        healing_applied=bool(payload.get("healing_applied", False)),
     )
 
 
