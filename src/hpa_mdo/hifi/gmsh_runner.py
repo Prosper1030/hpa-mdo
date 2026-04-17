@@ -230,7 +230,11 @@ def mesh_step_to_inp(
             )
 
         if named_points:
-            default_tol = float(cfg.hi_fidelity.gmsh.point_tol_m) / length_scale_m_per_unit
+            default_tol = _default_named_point_tolerance_units(
+                point_tol_m=float(cfg.hi_fidelity.gmsh.point_tol_m),
+                mesh_size_m=float(mesh_size_m),
+                length_scale_m_per_unit=length_scale_m_per_unit,
+            )
             try:
                 annotate_inp_with_named_points(
                     candidate_out,
@@ -313,6 +317,19 @@ def _attempt_out_path(out_path: Path, attempt_index: int, *, attempt_count: int)
     if attempt_count <= 1 or attempt_index == 1:
         return out_path
     return out_path.with_name(f"{out_path.stem}.attempt{attempt_index}{out_path.suffix}")
+
+
+def _default_named_point_tolerance_units(
+    *,
+    point_tol_m: float,
+    mesh_size_m: float,
+    length_scale_m_per_unit: float,
+) -> float:
+    tol_m = max(
+        float(point_tol_m),
+        min(0.05 * float(mesh_size_m), 1.0e-2),
+    )
+    return tol_m / float(length_scale_m_per_unit)
 
 
 def _run_gmsh_meshing_attempt(
@@ -528,8 +545,8 @@ def annotate_inp_with_named_points(
         if not node_ids:
             print(
                 f"INFO: NamedPoint '{point.name}' unmatched: "
-                f"nearest node {ids[int(np.argmin(np.linalg.norm(coords - target[None, :], axis=1)))]} is {nearest_distance:.4g} m away "
-                f"(> tol {tol:.4g} m); skipping."
+                f"nearest node {ids[int(np.argmin(np.linalg.norm(coords - target[None, :], axis=1)))]} is {nearest_distance:.4g} mesh units away "
+                f"(> tol {tol:.4g} mesh units); skipping."
             )
             continue
         nset_name = str(point.name).upper()

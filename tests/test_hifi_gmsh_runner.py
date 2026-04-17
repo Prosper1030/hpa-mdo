@@ -110,6 +110,18 @@ test
 1, 1, 2, 3, 4
 """
 
+_COARSE_MATCH_INP_MM = """\
+*HEADING
+coarse-match
+*NODE
+1, 0.0, 0.0, 0.0
+2, 0.0, 7501.8, 0.0
+3, 0.0, 16500.0, 0.0
+4, 0.0, 20000.0, 0.0
+*ELEMENT, TYPE=C3D4, ELSET=EALL
+1, 1, 2, 3, 4
+"""
+
 
 def test_step_length_scale_reads_millimetre_units(tmp_path: Path) -> None:
     step = tmp_path / "part.step"
@@ -158,6 +170,38 @@ def test_mesh_step_scales_clmax_and_named_points_for_mm_step(tmp_path: Path, mon
     )
     nsets = parse_nset_from_inp(out_path)
     assert nsets.get("TIP") == [4]
+
+
+def test_mesh_step_relaxes_named_point_tolerance_for_coarse_mm_mesh(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.gmsh.enabled = True
+    cfg.hi_fidelity.gmsh.mesh_size_m = 0.1
+    cfg.hi_fidelity.gmsh.point_tol_m = 1.0e-3
+    step_path = tmp_path / "part.step"
+    out_path = tmp_path / "mesh.inp"
+    step_path.write_text(STEP_MM, encoding="utf-8")
+    monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
+
+    def fake_run(cmd, **kwargs):
+        out_path.write_text(_COARSE_MATCH_INP_MM, encoding="utf-8")
+        return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(gmsh_runner.subprocess, "run", fake_run)
+
+    assert (
+        mesh_step_to_inp(
+            step_path,
+            out_path,
+            cfg,
+            named_points=[NamedPoint("WIRE_1", (0.0, 7.5, 0.0), match_mode="nearest_spanwise_y")],
+        )
+        == out_path
+    )
+    nsets = parse_nset_from_inp(out_path)
+    assert nsets.get("WIRE_1") == [2]
 
 
 def test_mesh_step_accepts_partial_mesh_when_gmsh_writes_elements(tmp_path: Path, monkeypatch) -> None:
