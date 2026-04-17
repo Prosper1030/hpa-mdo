@@ -258,6 +258,73 @@ class InverseDesignTests(unittest.TestCase):
         self.assertIn("jig_prebend", result.feasibility.failures)
         self.assertIn("jig_curvature", result.feasibility.failures)
 
+    def test_build_frozen_load_inverse_design_keeps_equivalent_gates_as_legacy_reference_only(self) -> None:
+        target = StructuralNodeShape(
+            main_nodes_m=np.array(
+                [
+                    [0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.10],
+                    [0.0, 2.0, 0.25],
+                ],
+                dtype=float,
+            ),
+            rear_nodes_m=np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [1.0, 1.0, 0.08],
+                    [1.0, 2.0, 0.22],
+                ],
+                dtype=float,
+            ),
+        )
+        disp_main = np.array(
+            [
+                [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.10, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.20, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+        disp_rear = np.array(
+            [
+                [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.08, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.16, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+
+        result = build_frozen_load_inverse_design(
+            target_loaded_shape=target,
+            disp_main_m=disp_main,
+            disp_rear_m=disp_rear,
+            y_nodes_m=np.array([0.0, 1.0, 2.0], dtype=float),
+            analysis_succeeded=True,
+            geometry_validity_passed=True,
+            equivalent_failure_passed=False,
+            equivalent_buckling_passed=False,
+            equivalent_tip_passed=False,
+            equivalent_twist_passed=False,
+            clearance_floor_z_m=0.0,
+            target_shape_error_tol_m=1.0e-9,
+            max_abs_vertical_prebend_m=0.25,
+            max_abs_vertical_curvature_per_m=0.01,
+        )
+
+        self.assertTrue(result.feasibility.safety_passed)
+        self.assertTrue(result.feasibility.overall_feasible)
+        self.assertFalse(result.feasibility.legacy_reference_passed)
+        self.assertEqual(
+            result.feasibility.legacy_reference_failures,
+            (
+                "equivalent_failure",
+                "equivalent_buckling",
+                "equivalent_tip_deflection",
+                "equivalent_twist",
+            ),
+        )
+        self.assertEqual(result.feasibility.failures, ())
+
     def test_low_dim_loaded_shape_matching_relaxes_nodewise_closure(self) -> None:
         target = StructuralNodeShape(
             main_nodes_m=np.array(

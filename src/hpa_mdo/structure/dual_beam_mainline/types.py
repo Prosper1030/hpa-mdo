@@ -315,6 +315,32 @@ class EquivalentGateResult:
 
 
 @dataclass
+class NumericalConsistencyResult:
+    """Numerical-consistency diagnostics for the explicit dual-beam solve."""
+
+    equilibrium_residual_n: float
+    compatibility_residual: float
+    scaled_constraint_condition_number: float
+    raw_constraint_rows: int
+    active_constraint_rows: int
+    removed_constraint_rows: int
+    full_row_rank: bool
+    equilibrium_passed: bool
+    compatibility_passed: bool
+    conditioning_passed: bool
+    passed: bool
+
+
+@dataclass
+class GlobalObservableReadinessResult:
+    """Whether the run produced finite global observables usable for downstream checks."""
+
+    report_finite: bool
+    reactions_finite: bool
+    passed: bool
+
+
+@dataclass
 class OptimizerFacingMetrics:
     """Smooth quantities and validated gates exposed to future optimizers."""
 
@@ -325,6 +351,8 @@ class OptimizerFacingMetrics:
     dual_displacement_margin_m: float
     geometry_validity: GeometryValidityMargins
     equivalent_gates: EquivalentGateResult
+    numerical_consistency: NumericalConsistencyResult
+    global_observables: GlobalObservableReadinessResult
 
 
 @dataclass
@@ -343,6 +371,10 @@ class FeasibilitySummary:
     hard_failures: tuple[str, ...]
     candidate_constraint_failures: tuple[str, ...]
     report_only_channels: tuple[str, ...]
+    numerical_consistency_passed: bool = True
+    global_observables_passed: bool = True
+    legacy_reference_passed: bool = True
+    legacy_reference_failures: tuple[str, ...] = ()
 
 
 @dataclass

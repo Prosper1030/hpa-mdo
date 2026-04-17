@@ -130,6 +130,8 @@ class InverseDesignFeasibility:
     safety_passed: bool
     overall_feasible: bool
     failures: tuple[str, ...]
+    legacy_reference_passed: bool = True
+    legacy_reference_failures: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -636,18 +638,19 @@ def build_frozen_load_inverse_design(
     )
 
     failures: list[str] = []
+    legacy_reference_failures: list[str] = []
     if not analysis_succeeded:
         failures.append("dual_beam_analysis")
     if not geometry_validity_passed:
         failures.append("geometry_validity")
     if not equivalent_failure_passed:
-        failures.append("equivalent_failure")
+        legacy_reference_failures.append("equivalent_failure")
     if not equivalent_buckling_passed:
-        failures.append("equivalent_buckling")
+        legacy_reference_failures.append("equivalent_buckling")
     if not equivalent_tip_passed:
-        failures.append("equivalent_tip_deflection")
+        legacy_reference_failures.append("equivalent_tip_deflection")
     if not equivalent_twist_passed:
-        failures.append("equivalent_twist")
+        legacy_reference_failures.append("equivalent_twist")
     if not loaded_shape_match.passed:
         failures.append("loaded_shape_match")
     if not ground_clearance.passed:
@@ -660,10 +663,6 @@ def build_frozen_load_inverse_design(
     safety_passed = bool(
         analysis_succeeded
         and geometry_validity_passed
-        and equivalent_failure_passed
-        and equivalent_buckling_passed
-        and equivalent_tip_passed
-        and equivalent_twist_passed
     )
     feasibility = InverseDesignFeasibility(
         analysis_succeeded=bool(analysis_succeeded),
@@ -679,6 +678,8 @@ def build_frozen_load_inverse_design(
         safety_passed=bool(safety_passed),
         overall_feasible=not failures,
         failures=tuple(failures),
+        legacy_reference_passed=not legacy_reference_failures,
+        legacy_reference_failures=tuple(legacy_reference_failures),
     )
     return FrozenLoadInverseDesignResult(
         target_loaded_shape=target_loaded_shape,

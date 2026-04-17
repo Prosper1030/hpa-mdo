@@ -5,11 +5,17 @@ from __future__ import annotations
 import numpy as np
 
 from hpa_mdo.structure.dual_beam_mainline.types import (
+    ConstraintAssemblyResult,
     DualBeamMainlineModel,
     EquivalentGateResult,
     FeasibilitySummary,
+    GlobalObservableReadinessResult,
     GeometryValidityMargins,
+    LoadSplitResult,
+    NumericalConsistencyResult,
     OptimizerFacingMetrics,
+    ReactionRecoveryResult,
+    ReportMetrics,
     SmoothAggregationResult,
 )
 
@@ -17,6 +23,9 @@ _EQ_FAILURE_TOL = 0.01
 _EQ_BUCKLING_TOL = 0.01
 _EQ_LIMIT_TOL = 1.02
 _GEOMETRY_TOL = 1.0e-12
+_EQUILIBRIUM_TOL_N = 1.0e-6
+_COMPATIBILITY_TOL = 1.0e-8
+_CONDITION_LIMIT = 1.0e12
 
 
 def _min_or_inf(values: np.ndarray) -> float:
@@ -172,10 +181,156 @@ def build_equivalent_gate_result(model: DualBeamMainlineModel) -> EquivalentGate
     )
 
 
+def _build_dual_state_vector(
+    *,
+    disp_main_m: np.ndarray,
+    disp_rear_m: np.ndarray,
+) -> np.ndarray:
+    return np.concatenate(
+        (
+            np.asarray(disp_main_m, dtype=float).reshape(-1),
+            np.asarray(disp_rear_m, dtype=float).reshape(-1),
+        )
+    )
+
+
+def _build_dual_load_vector(
+    *,
+    load_split: LoadSplitResult,
+) -> np.ndarray:
+    return np.concatenate(
+        (
+            np.asarray(load_split.main_loads_n, dtype=float).reshape(-1),
+            np.asarray(load_split.rear_loads_n, dtype=float).reshape(-1),
+        )
+    )
+
+
+def build_numerical_consistency_result(
+    *,
+    stiffness: np.ndarray,
+    constraints: ConstraintAssemblyResult,
+    multipliers: np.ndarray,
+    disp_main_m: np.ndarray,
+    disp_rear_m: np.ndarray,
+    load_split: LoadSplitResult,
+) -> NumericalConsistencyResult:
+    """Summarize solver residuals and constraint health for hard gating."""
+
+    state = _build_dual_state_vector(
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+    )
+    load_vector = _build_dual_load_vector(load_split=load_split)
+    multiplier_vec = np.asarray(multipliers, dtype=float).reshape(-1)
+
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        equilibrium_vector = (
+            np.asarray(stiffness, dtype=float) @ state
+            + np.asarray(constraints.matrix, dtype=float).T @ multiplier_vec
+            - load_vector
+        )
+        compatibility_vector = (
+            np.asarray(constraints.matrix, dtype=float) @ state
+            - np.asarray(constraints.rhs, dtype=float)
+        )
+
+    equilibrium_residual_n = float(
+        np.linalg.norm(
+            np.nan_to_num(
+                equilibrium_vector,
+                nan=np.inf,
+                posinf=np.inf,
+                neginf=np.inf,
+            )
+        )
+    )
+    compatibility_residual = float(
+        np.linalg.norm(
+            np.nan_to_num(
+                compatibility_vector,
+                nan=np.inf,
+                posinf=np.inf,
+                neginf=np.inf,
+            )
+        )
+    )
+    condition_number = float(constraints.audit.scaled_condition_number)
+    full_row_rank = bool(constraints.audit.full_row_rank)
+    equilibrium_passed = bool(equilibrium_residual_n <= _EQUILIBRIUM_TOL_N)
+    compatibility_passed = bool(compatibility_residual <= _COMPATIBILITY_TOL)
+    conditioning_passed = bool(
+        full_row_rank
+        and np.isfinite(condition_number)
+        and condition_number <= _CONDITION_LIMIT
+    )
+
+    return NumericalConsistencyResult(
+        equilibrium_residual_n=equilibrium_residual_n,
+        compatibility_residual=compatibility_residual,
+        scaled_constraint_condition_number=condition_number,
+        raw_constraint_rows=int(constraints.audit.raw_row_count),
+        active_constraint_rows=int(constraints.audit.active_row_count),
+        removed_constraint_rows=int(constraints.audit.removed_row_count),
+        full_row_rank=full_row_rank,
+        equilibrium_passed=equilibrium_passed,
+        compatibility_passed=compatibility_passed,
+        conditioning_passed=conditioning_passed,
+        passed=bool(full_row_rank and equilibrium_passed and compatibility_passed and conditioning_passed),
+    )
+
+
+def build_global_observable_readiness(
+    *,
+    report: ReportMetrics,
+    reactions: ReactionRecoveryResult,
+) -> GlobalObservableReadinessResult:
+    """Check whether the run produced finite global observables for downstream gating."""
+
+    report_arrays = (
+        np.array(
+            [
+                report.tip_deflection_main_m,
+                report.tip_deflection_rear_m,
+                report.rear_main_tip_ratio,
+                report.max_vertical_displacement_m,
+                report.wire_reaction_total_n,
+                report.link_force_max_n,
+            ],
+            dtype=float,
+        ),
+        np.asarray(report.root_reaction_main_n, dtype=float),
+        np.asarray(report.root_reaction_rear_n, dtype=float),
+    )
+    reactions_arrays = (
+        np.asarray(reactions.root_main_reaction_n, dtype=float),
+        np.asarray(reactions.root_rear_reaction_n, dtype=float),
+        np.asarray(reactions.wire_reactions_n, dtype=float),
+        np.asarray(reactions.link_resultants_n, dtype=float),
+        np.asarray(reactions.link_reaction_on_main_n, dtype=float),
+        np.asarray(reactions.link_reaction_on_rear_n, dtype=float),
+    )
+    report_finite = bool(all(np.all(np.isfinite(values)) for values in report_arrays))
+    reactions_finite = bool(all(np.all(np.isfinite(values)) for values in reactions_arrays))
+    return GlobalObservableReadinessResult(
+        report_finite=report_finite,
+        reactions_finite=reactions_finite,
+        passed=bool(report_finite and reactions_finite),
+    )
+
+
 def build_optimizer_facing_metrics(
     *,
     model: DualBeamMainlineModel,
     smooth: SmoothAggregationResult,
+    stiffness: np.ndarray,
+    constraints: ConstraintAssemblyResult,
+    multipliers: np.ndarray,
+    disp_main_m: np.ndarray,
+    disp_rear_m: np.ndarray,
+    load_split: LoadSplitResult,
+    reactions: ReactionRecoveryResult,
+    report: ReportMetrics,
 ) -> OptimizerFacingMetrics:
     """Build future-optimizer metrics while keeping raw report channels separate."""
 
@@ -195,6 +350,18 @@ def build_optimizer_facing_metrics(
         ),
         geometry_validity=build_geometry_validity_margins(model),
         equivalent_gates=build_equivalent_gate_result(model),
+        numerical_consistency=build_numerical_consistency_result(
+            stiffness=stiffness,
+            constraints=constraints,
+            multipliers=multipliers,
+            disp_main_m=disp_main_m,
+            disp_rear_m=disp_rear_m,
+            load_split=load_split,
+        ),
+        global_observables=build_global_observable_readiness(
+            report=report,
+            reactions=reactions,
+        ),
     )
 
 
@@ -207,23 +374,34 @@ def build_feasibility_summary(
 
     hard_failures: list[str] = []
     candidate_constraint_failures: list[str] = []
+    legacy_reference_failures: list[str] = []
 
     if not analysis_succeeded:
         hard_failures.append("dual_beam_analysis")
     if not optimizer_metrics.geometry_validity.valid:
         hard_failures.append("geometry_validity")
+    if not optimizer_metrics.numerical_consistency.full_row_rank:
+        hard_failures.append("constraint_rank")
+    if not optimizer_metrics.numerical_consistency.equilibrium_passed:
+        hard_failures.append("equilibrium_residual")
+    if not optimizer_metrics.numerical_consistency.compatibility_passed:
+        hard_failures.append("constraint_compatibility")
+    if not optimizer_metrics.numerical_consistency.conditioning_passed:
+        hard_failures.append("constraint_conditioning")
+    if not optimizer_metrics.global_observables.passed:
+        hard_failures.append("global_observables")
 
     eq = optimizer_metrics.equivalent_gates
     if not eq.analysis_success:
-        hard_failures.append("equivalent_analysis")
+        legacy_reference_failures.append("equivalent_analysis")
     if not eq.failure_passed:
-        hard_failures.append("equivalent_failure")
+        legacy_reference_failures.append("equivalent_failure")
     if not eq.buckling_passed:
-        hard_failures.append("equivalent_buckling")
+        legacy_reference_failures.append("equivalent_buckling")
     if not eq.tip_passed:
-        hard_failures.append("equivalent_tip_deflection")
+        legacy_reference_failures.append("equivalent_tip_deflection")
     if not eq.twist_passed:
-        hard_failures.append("equivalent_twist")
+        legacy_reference_failures.append("equivalent_twist")
 
     dual_displacement_passed = (
         optimizer_metrics.dual_displacement_limit_m is None
@@ -254,5 +432,10 @@ def build_feasibility_summary(
             "dual_stress_metrics",
             "dual_buckling_metrics",
             "smooth_link_force",
+            "legacy_equivalent_reference",
         ),
+        numerical_consistency_passed=bool(optimizer_metrics.numerical_consistency.passed),
+        global_observables_passed=bool(optimizer_metrics.global_observables.passed),
+        legacy_reference_passed=not legacy_reference_failures,
+        legacy_reference_failures=tuple(legacy_reference_failures),
     )

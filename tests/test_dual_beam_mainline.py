@@ -28,6 +28,8 @@ from hpa_mdo.structure.dual_beam_mainline.optimizer_view import (
     build_optimizer_facing_metrics,
 )
 from hpa_mdo.structure.dual_beam_mainline.recovery import recover_structural_response
+from hpa_mdo.structure.dual_beam_mainline.recovery import build_report_metrics, recover_reactions
+from hpa_mdo.structure.dual_beam_mainline.solver import solve_dual_beam_state
 from hpa_mdo.structure.dual_beam_mainline.smooth import build_default_smooth_scales
 
 
@@ -353,6 +355,30 @@ def test_default_smooth_scale_is_run_constant_and_limit_anchored() -> None:
 
 def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None:
     model = _simple_model()
+    production = get_analysis_mode_definition(AnalysisModeName.DUAL_BEAM_PRODUCTION)
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=production.root_bc,
+        wire_bc=production.wire_bc,
+        link_mode=production.default_link_mode,
+    )
+    load_split = build_dual_beam_load_split(model=model, mode_definition=production)
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+    disp_main_m, disp_rear_m, multipliers, stiffness = solve_dual_beam_state(
+        model=model,
+        main_loads_n=load_split.main_loads_n,
+        rear_loads_n=load_split.rear_loads_n,
+        constraints=constraints,
+    )
+    reactions = recover_reactions(
+        constraints=constraints,
+        multipliers=multipliers,
+        nn=model.y_nodes_m.size,
+    )
+    report = build_report_metrics(
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        reactions=reactions,
+    )
     optimizer_metrics = build_optimizer_facing_metrics(
         model=model,
         smooth=SmoothAggregationResult(
@@ -363,6 +389,14 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
             psi_u_rear_outboard_m=2.6,
             psi_link_n=120.0,
         ),
+        stiffness=stiffness,
+        constraints=constraints,
+        multipliers=multipliers,
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        load_split=load_split,
+        reactions=reactions,
+        report=report,
     )
     feasibility = build_feasibility_summary(
         optimizer_metrics=optimizer_metrics,
@@ -374,6 +408,35 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
     assert feasibility.overall_optimizer_candidate_feasible is False
     assert feasibility.hard_failures == ()
     assert feasibility.candidate_constraint_failures == ("dual_displacement_candidate",)
+    assert feasibility.numerical_consistency_passed is True
+    assert feasibility.global_observables_passed is True
+    assert feasibility.legacy_reference_passed is True
+
+
+def test_equivalent_gates_are_legacy_reference_only_for_dual_beam_feasibility() -> None:
+    model = _simple_model()
+    model.equivalent_analysis_success = False
+    model.equivalent_failure_index = 0.25
+    model.equivalent_buckling_index = 0.35
+    model.equivalent_tip_deflection_m = 9.0
+    model.equivalent_twist_max_deg = 9.0
+
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+    )
+
+    assert result.feasibility.overall_hard_feasible is True
+    assert result.feasibility.overall_optimizer_candidate_feasible is True
+    assert result.feasibility.hard_failures == ()
+    assert result.feasibility.legacy_reference_passed is False
+    assert result.feasibility.legacy_reference_failures == (
+        "equivalent_analysis",
+        "equivalent_failure",
+        "equivalent_buckling",
+        "equivalent_tip_deflection",
+        "equivalent_twist",
+    )
 
 
 def test_geometry_validity_margins_flag_invalid_ratio_or_taper() -> None:

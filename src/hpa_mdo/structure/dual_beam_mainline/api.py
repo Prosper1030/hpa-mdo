@@ -83,7 +83,7 @@ def run_dual_beam_mainline_kernel(
 
     load_split = build_dual_beam_load_split(model=model, mode_definition=mode_definition)
     constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
-    disp_main_m, disp_rear_m, multipliers, _ = solve_dual_beam_state(
+    disp_main_m, disp_rear_m, multipliers, stiffness = solve_dual_beam_state(
         model=model,
         main_loads_n=load_split.main_loads_n,
         rear_loads_n=load_split.rear_loads_n,
@@ -114,6 +114,14 @@ def run_dual_beam_mainline_kernel(
     optimizer = build_optimizer_facing_metrics(
         model=model,
         smooth=smooth,
+        stiffness=stiffness,
+        constraints=constraints,
+        multipliers=multipliers,
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        load_split=load_split,
+        reactions=reactions,
+        report=report,
     )
     feasibility = build_feasibility_summary(
         optimizer_metrics=optimizer,
