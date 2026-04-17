@@ -74,3 +74,14 @@
     - 代表 solver 直接炸這一關已經跨過
     - 但 static tip deflection 仍是 `4.7992 m`，相對 reference `2.39372 m` 差約 `100.49%`
     - 所以下一階段 blocker 已從 mesh/solver robustness 轉成 shell-truth / load / section contract mismatch
+  - 接著又補上 `fix: 對齊 hifi spar load replay 到 main/rear 幾何座標`：
+    - `spar_data.csv` 若含 `Main_X/Z`、`Rear_X/Z`，現在不再把 `Main_FZ_N + Rear_FZ_N` 壓成單一節點
+    - 而是依 main / rear 各自位置分開映射到 mesh
+    - fresh representative rerun 已落在：
+      - `output/blackcat_004/hifi_spatial_load_rerun_20260417/structural_check.json`
+    - `load_model.description` 已變成 `spatially resolved main/rear nodal Fz`
+    - `static comparability` 仍是 `COMPARABLE`
+    - `overall_comparability` 仍是 `LIMITED`
+    - 但 static tip deflection 已從 `4.7992 m` 收斂到 `3.16127 m`
+    - 相對 reference `2.39372 m` 的差距也從約 `100.49%` 降到 `32.07%`
+    - 這代表最粗的 load-replay 扁平化問題已先被修掉；下一階段 blocker 更像是 shell / section / support completeness，而不是 main/rear 載重被壓成單點

@@ -60,10 +60,10 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - **材料模型仍是簡化版**
   - `structural_check.py` 目前從 `data/materials.yaml` 取的是 `E / nu / rho`
   - 也就是說，它現在不是 layup-aware section，也不是完整複材疊層真值
-- **載入模型仍是簡化版**
-  - 優先從 `ansys/spar_data.csv` 取展向 `Main_FZ_N + Rear_FZ_N`
-  - 再映成 mesh 上的 distributed nodal `Fz`
-  - 目前不是完整 torque / twist / aeroelastic load ownership truth
+- **載入模型已部分升級，但仍不是完整真值**
+  - 優先從 `ansys/spar_data.csv` 取展向 `Main_FZ_N / Rear_FZ_N`
+  - 若 CSV 有 `Main_X/Z`、`Rear_X/Z`，現在會分 main / rear 各自映射到 mesh
+  - 但目前還不是完整 torque / twist / aeroelastic load ownership truth
 - **支撐模型仍是 spot-check 型**
   - 目前以 `ROOT clamp + wire U3 supports` 為主
   - 這是有效的結構級對照，但仍不是完整製造 / 接頭 / 柔性邊界真值
@@ -179,7 +179,14 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
     - `static` 進到 `COMPARABLE`
     - `buckle` 可完成並回傳 `lambda_1`
     - `overall_comparability` 升到 `LIMITED`
-  - 但它目前仍不是 benchmark-ready，因為 static 對 reference 的 tip deflection 仍差約 `100.49%`（`4.7992 m` vs `2.39372 m`）
+  - 接著又補上 `spar_data.csv` 的 spatial main/rear load replay：
+    - 有 `Main_X/Z`、`Rear_X/Z` 時，不再把 `Main_FZ_N + Rear_FZ_N` 壓成單一節點 replay
+    - 而是依 main / rear 各自的展向位置與幾何座標分開映射到 mesh
+    - fresh representative rerun：`output/blackcat_004/hifi_spatial_load_rerun_20260417/structural_check.json`
+    - `static` 仍是 `COMPARABLE`
+    - `overall_comparability` 仍是 `LIMITED`
+    - 但 static tip deflection 已從 `4.7992 m` 明顯收斂到 `3.16127 m`
+    - 相對 reference `2.39372 m` 的差距也從約 `100.49%` 降到 `32.07%`
 
 另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
 
@@ -190,9 +197,9 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 所以目前最大問題比較像：
 
 - STEP / Gmsh surface 仍殘留的 invalid facets / equivalent triangles / shell duplication
-- shell mesh normals / Jacobian 仍未收斂
+- shell mesh normals / Jacobian 仍未完全收斂
 - 目前代表性 healed mesh 本身也明確不是 solid-volume mesh
-- 即使加上 shell-orientation + sliver filter，static 雖可完成，但 load / section / shell-truth contract 仍與 reference 存在大幅差距
+- 即使加上 shell-orientation + sliver filter，再補上 spatial main/rear load replay 後，static 雖已顯著收斂，但 shell / section / support contract 與 reference 仍有約 `32%` 差距
 
 而不是：
 
@@ -205,7 +212,8 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 - **能力層**：Mac structural spot-check 的 compare/diagnostic schema 已存在
 - **可診斷性層**：report / JSON 已能同時講出 CalculiX failure 與 Gmsh upstream root cause
-- **benchmark basket 層**：fresh representative run 已經補齊，但它證明現在還不能升格成正式 candidate，因為 blocker 仍是 mesh-quality
+- **contract 收斂層**：`spar_data.csv` 現在已能做 spatial main/rear load replay，代表最粗的雙梁載重扁平化問題已先被修掉
+- **benchmark basket 層**：fresh representative run 已經補齊，但它仍不能升格成正式 candidate，因為 blocker 已轉成 shell / section / support / load completeness，而不是 mesh fail 本身
 
 ## 5. benchmark policy：先保持開放，不先釘死
 
