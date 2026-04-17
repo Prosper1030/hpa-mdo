@@ -85,3 +85,15 @@
     - 但 static tip deflection 已從 `4.7992 m` 收斂到 `3.16127 m`
     - 相對 reference `2.39372 m` 的差距也從約 `100.49%` 降到 `32.07%`
     - 這代表最粗的 load-replay 扁平化問題已先被修掉；下一階段 blocker 更像是 shell / section / support completeness，而不是 main/rear 載重被壓成單點
+  - 接著又補上 `fix: 對齊 hifi summary 與 spar load evidence root`：
+    - 若 `hifi_structural_check` 指定某份 `summary / crossval_report`，現在會優先選同一個 evidence root 旁邊的 `spar_data.csv`
+    - 不再用 archived summary 去比 current output root 的 load table
+    - fresh representative rerun 已落在：
+      - `output/blackcat_004/hifi_summary_aligned_rerun_20260418/structural_check.json`
+    - `load_model.source_path` 已對齊到：
+      - `output/_archive_pre_2026_04_15/blackcat_004_dual_beam_production_check/ansys/spar_data.csv`
+    - `static comparability` 仍是 `COMPARABLE`
+    - `overall_comparability` 仍是 `LIMITED`
+    - 但 static tip deflection 又從 `3.16127 m` 進一步收斂到 `3.02214 m`
+    - 相對 reference `2.39372 m` 的差距也再從約 `32.07%` 降到 `26.25%`
+    - 這代表跨 evidence-root 的對照誤差已先被清掉；剩下的主 blocker 更集中在 shell / section / support completeness

@@ -187,6 +187,14 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
     - `overall_comparability` 仍是 `LIMITED`
     - 但 static tip deflection 已從 `4.7992 m` 明顯收斂到 `3.16127 m`
     - 相對 reference `2.39372 m` 的差距也從約 `100.49%` 降到 `32.07%`
+  - 接著又補上 summary-root 對齊：
+    - 當 `hifi_structural_check` 明確指定某份 `summary / crossval_report` 時，現在會優先吃同一個 evidence root 旁邊的 `spar_data.csv`
+    - 不再用 archived summary 去比 current output root 的 load table
+    - fresh representative rerun：`output/blackcat_004/hifi_summary_aligned_rerun_20260418/structural_check.json`
+    - `load_model.source_path` 已對齊到
+      `output/_archive_pre_2026_04_15/blackcat_004_dual_beam_production_check/ansys/spar_data.csv`
+    - static tip deflection 進一步收斂到 `3.02214 m`
+    - 相對 reference `2.39372 m` 的差距也再從 `32.07%` 降到 `26.25%`
 
 另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
 
@@ -199,7 +207,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - STEP / Gmsh surface 仍殘留的 invalid facets / equivalent triangles / shell duplication
 - shell mesh normals / Jacobian 仍未完全收斂
 - 目前代表性 healed mesh 本身也明確不是 solid-volume mesh
-- 即使加上 shell-orientation + sliver filter，再補上 spatial main/rear load replay 後，static 雖已顯著收斂，但 shell / section / support contract 與 reference 仍有約 `32%` 差距
+- 即使加上 shell-orientation + sliver filter，再補上 spatial main/rear load replay 與 summary-root 對齊後，static 雖已顯著收斂，但 shell / section / support contract 與 reference 仍有約 `26%` 差距
 
 而不是：
 
@@ -212,7 +220,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 - **能力層**：Mac structural spot-check 的 compare/diagnostic schema 已存在
 - **可診斷性層**：report / JSON 已能同時講出 CalculiX failure 與 Gmsh upstream root cause
-- **contract 收斂層**：`spar_data.csv` 現在已能做 spatial main/rear load replay，代表最粗的雙梁載重扁平化問題已先被修掉
+- **contract 收斂層**：`spar_data.csv` 現在已能做 spatial main/rear load replay，而且 summary / load evidence root 已可對齊，代表最粗的雙梁載重扁平化與跨 root 對照問題都先被修掉
 - **benchmark basket 層**：fresh representative run 已經補齊，但它仍不能升格成正式 candidate，因為 blocker 已轉成 shell / section / support / load completeness，而不是 mesh fail 本身
 
 ## 5. benchmark policy：先保持開放，不先釘死
