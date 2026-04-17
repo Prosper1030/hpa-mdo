@@ -30,13 +30,20 @@ def _parse_args() -> argparse.Namespace:
         "--summary",
         type=Path,
         default=None,
-        help="Optimization summary text. Defaults to <output_dir>/optimization_summary.txt.",
+        help=(
+            "Reference summary/design report. Defaults to the current-standard "
+            "dual-beam production crossval report when available, otherwise "
+            "falls back to optimization_summary.txt."
+        ),
     )
     parser.add_argument(
         "--step",
         type=Path,
         default=None,
-        help="STEP geometry input. Defaults to wing_cruise.step / cruise.step in output_dir.",
+        help=(
+            "STEP geometry input. Defaults to jig-oriented STEP artifacts such as "
+            "spar_jig_shape.step before falling back to legacy spar/cruise STEP files."
+        ),
     )
     parser.add_argument(
         "--mesh",

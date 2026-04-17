@@ -81,7 +81,11 @@ class StructuralLoadModel:
 
 
 def parse_optimization_summary(summary_path: str | Path) -> dict[str, float | None]:
-    """Extract the metrics needed by the validation stack from a text summary."""
+    """Extract the metrics needed by the validation stack from a text summary.
+
+    The parser accepts both the legacy ``optimization_summary.txt`` format and
+    the current dual-beam production ``crossval_report.txt`` design report.
+    """
 
     text = Path(summary_path).read_text(encoding="utf-8", errors="ignore")
     metrics: dict[str, float | None] = {
@@ -108,6 +112,18 @@ def parse_optimization_summary(summary_path: str | Path) -> dict[str, float | No
     )
     if buckling_match:
         metrics["buckling_index"] = float(buckling_match.group(1).replace("D", "E"))
+
+    if metrics["tip_deflection_m"] is None:
+        for pattern in (
+            rf"Main tip deflection \(uz, y=tip\)\s+({NUMBER_RE})\s+mm",
+            rf"Tip deflection \(uz, y=[^)]+\)\s+({NUMBER_RE})\s+mm",
+        ):
+            report_tip_match = re.search(pattern, text, flags=re.IGNORECASE)
+            if report_tip_match:
+                metrics["tip_deflection_m"] = (
+                    1.0e-3 * float(report_tip_match.group(1).replace("D", "E"))
+                )
+                break
 
     return metrics
 
@@ -155,8 +171,7 @@ def run_structural_check(
 
     resolved_summary = _resolve_optional_path(summary_path)
     if resolved_summary is None:
-        candidate = output_dir / "optimization_summary.txt"
-        resolved_summary = candidate if candidate.exists() else None
+        resolved_summary = _discover_default_summary(output_dir)
     summary_metrics = (
         parse_optimization_summary(resolved_summary)
         if resolved_summary is not None and resolved_summary.exists()
@@ -511,16 +526,49 @@ def _resolve_optional_path(path_like: str | Path | None) -> Path | None:
     return _resolve_repo_path(path_like)
 
 
+def _current_standard_output_roots(output_dir: Path) -> tuple[Path, ...]:
+    sibling_production = output_dir.with_name(f"{output_dir.name}_dual_beam_production_check")
+    roots: list[Path] = []
+    if sibling_production.exists():
+        roots.append(sibling_production.resolve())
+    roots.append(output_dir.resolve())
+    return tuple(roots)
+
+
+def _report_export_mode(report_path: Path) -> str | None:
+    if not report_path.exists():
+        return None
+    text = report_path.read_text(encoding="utf-8", errors="ignore")
+    match = re.search(r"Export mode:\s*([A-Za-z0-9_]+)", text, flags=re.IGNORECASE)
+    return None if match is None else match.group(1).strip().lower()
+
+
+def _discover_default_summary(output_dir: Path) -> Path | None:
+    for root in _current_standard_output_roots(output_dir):
+        candidate = root / "ansys" / "crossval_report.txt"
+        if _report_export_mode(candidate) == "dual_beam_production":
+            return candidate.resolve()
+
+    for root in _current_standard_output_roots(output_dir):
+        for name in ("optimization_summary.txt", "fsi_one_way/optimization_summary.txt"):
+            candidate = root / name
+            if candidate.exists():
+                return candidate.resolve()
+    return None
+
+
 def _discover_default_step(output_dir: Path) -> Path | None:
     for name in (
-        "spar_model.step",
-        "spar_geometry.step",
-        "spar_flight_shape.step",
         "spar_jig_shape.step",
-        "wing_cruise.step",
-        "cruise.step",
+        "jig_shape.step",
+        "loaded_shape.step",
+        "spar_flight_shape.step",
         "wing_jig.step",
         "jig.step",
+        "spar_model.step",
+        "spar_geometry.step",
+        "wing_cruise.step",
+        "cruise.step",
     ):
         candidate = output_dir / name
         if candidate.exists():
@@ -672,22 +720,7 @@ def _build_load_model(
             total_fz_n=load_n,
         )
 
-    source_hint = "" if step_path is None else step_path.stem.lower()
-    source_candidates: list[Path] = []
-    if "spar" in source_hint:
-        source_candidates.extend(
-            [
-                output_dir / "ansys" / "spar_data.csv",
-                output_dir / "fsi_one_way" / "ansys" / "spar_data.csv",
-            ]
-        )
-    else:
-        source_candidates.extend(
-            [
-                output_dir / "fsi_one_way" / "ansys" / "spar_data.csv",
-                output_dir / "ansys" / "spar_data.csv",
-            ]
-        )
+    source_candidates = _default_spar_csv_candidates(output_dir=output_dir, step_path=step_path)
 
     for csv_path in source_candidates:
         load_model = _load_model_from_spar_csv(
@@ -714,6 +747,29 @@ def _build_load_model(
         entries=((tip_node, 3, load_n),),
         total_fz_n=load_n,
     )
+
+
+def _default_spar_csv_candidates(*, output_dir: Path, step_path: Path | None) -> list[Path]:
+    source_hint = "" if step_path is None else step_path.stem.lower()
+    candidates: list[Path] = []
+    root_candidates = _current_standard_output_roots(output_dir)
+    root_first = "jig" in source_hint or "spar" in source_hint
+
+    ordered_roots = root_candidates if root_first else tuple(reversed(root_candidates))
+    for root in ordered_roots:
+        candidates.append(root / "ansys" / "spar_data.csv")
+    for root in ordered_roots:
+        candidates.append(root / "fsi_one_way" / "ansys" / "spar_data.csv")
+
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append(resolved)
+    return deduped
 
 
 def _load_model_from_spar_csv(

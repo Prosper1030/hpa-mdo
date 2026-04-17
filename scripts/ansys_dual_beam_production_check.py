@@ -412,6 +412,20 @@ def build_robustness_report(*, snapshots: list[ModeSnapshot]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def default_design_report_path() -> Path:
+    repo_root = Path(__file__).resolve().parent.parent
+    production = (
+        repo_root
+        / "output"
+        / "blackcat_004_dual_beam_production_check"
+        / "ansys"
+        / "crossval_report.txt"
+    )
+    if production.exists():
+        return production
+    return repo_root / "output" / "blackcat_004" / "ansys" / "crossval_report.txt"
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Export and compare ANSYS checks for the dual-beam production mainline."
@@ -429,8 +443,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     export_parser.add_argument(
         "--design-report",
-        default=str(Path(__file__).resolve().parent.parent / "output" / "blackcat_004" / "ansys" / "crossval_report.txt"),
-        help="Existing crossval_report.txt used only to reconstruct the baseline segment design.",
+        default=str(default_design_report_path()),
+        help=(
+            "Existing crossval_report.txt used only to reconstruct the baseline "
+            "segment design. Defaults to the current-standard dual-beam "
+            "production report when available, otherwise falls back to the "
+            "legacy equivalent-beam report."
+        ),
     )
     export_parser.add_argument(
         "--output-dir",

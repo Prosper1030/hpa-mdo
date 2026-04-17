@@ -10,6 +10,7 @@ from scripts.ansys_dual_beam_production_check import (  # noqa: E402
     ModeSnapshot,
     build_robustness_report,
     build_specimen_result_from_crossval_report,
+    default_design_report_path,
 )
 
 
@@ -120,3 +121,18 @@ def test_build_specimen_result_from_production_crossval_report_supports_new_form
     assert result.tip_deflection_m == 2.39372
     assert result.max_stress_main_Pa == 0.0
     assert result.max_stress_rear_Pa == 0.0
+
+
+def test_default_design_report_path_prefers_production_report(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "scripts.ansys_dual_beam_production_check.Path.exists",
+        lambda self: str(self).endswith(
+            "output/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt"
+        ),
+    )
+
+    resolved = default_design_report_path()
+
+    assert str(resolved).endswith(
+        "output/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt"
+    )

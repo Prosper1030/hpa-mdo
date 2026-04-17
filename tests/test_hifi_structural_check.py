@@ -62,6 +62,90 @@ def test_parse_optimization_summary_extracts_tip_and_buckling(tmp_path: Path) ->
     assert metrics["buckling_index"] == -0.80128
 
 
+def test_parse_optimization_summary_extracts_main_tip_from_production_report(
+    tmp_path: Path,
+) -> None:
+    summary = tmp_path / "crossval_report.txt"
+    summary.write_text(
+        "\n".join(
+            [
+                "HPA-MDO Dual-Beam Production ANSYS Cross-Check Report",
+                "  Export mode: dual_beam_production",
+                "  Main tip deflection (uz, y=tip)    2393.720 mm",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    metrics = structural_check.parse_optimization_summary(summary)
+
+    assert metrics["tip_deflection_m"] == 2.39372
+    assert metrics["buckling_index"] is None
+
+
+def test_parse_optimization_summary_extracts_tip_from_equivalent_crossval_report(
+    tmp_path: Path,
+) -> None:
+    summary = tmp_path / "crossval_report.txt"
+    summary.write_text(
+        "\n".join(
+            [
+                "HPA-MDO ANSYS Cross-Validation Report",
+                "  Export mode: equivalent_beam",
+                "  Tip deflection (uz, y=16.5m)      2500.000 mm   2375.000 to 2625.000 mm",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    metrics = structural_check.parse_optimization_summary(summary)
+
+    assert metrics["tip_deflection_m"] == 2.5
+    assert metrics["buckling_index"] is None
+
+
+def test_discover_default_summary_prefers_dual_beam_production_report(tmp_path: Path) -> None:
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    legacy_summary = output_dir / "optimization_summary.txt"
+    legacy_summary.write_text("Tip deflection: 2500.0 mm (2.5 m)\n", encoding="utf-8")
+
+    production_report = (
+        tmp_path
+        / "out_dual_beam_production_check"
+        / "ansys"
+        / "crossval_report.txt"
+    )
+    production_report.parent.mkdir(parents=True)
+    production_report.write_text(
+        "\n".join(
+            [
+                "HPA-MDO Dual-Beam Production ANSYS Cross-Check Report",
+                "  Export mode: dual_beam_production",
+                "  Main tip deflection (uz, y=tip)    2393.720 mm",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    resolved = structural_check._discover_default_summary(output_dir)
+
+    assert resolved == production_report.resolve()
+
+
+def test_discover_default_step_prefers_jig_shape_artifact(tmp_path: Path) -> None:
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    spar_model = output_dir / "spar_model.step"
+    spar_jig = output_dir / "spar_jig_shape.step"
+    spar_model.write_text("legacy", encoding="utf-8")
+    spar_jig.write_text("jig", encoding="utf-8")
+
+    resolved = structural_check._discover_default_step(output_dir)
+
+    assert resolved == spar_jig.resolve()
+
+
 def test_run_structural_check_uses_existing_mesh_and_writes_report(
     tmp_path: Path,
     monkeypatch,
@@ -261,6 +345,57 @@ def test_build_load_model_prefers_spar_csv_and_maps_mm_mesh(tmp_path: Path, monk
     assert "distributed nodal Fz from" in load_model.description
     assert load_model.total_fz_n == 60.0
     assert load_model.entries == ((2, 3, 30.0), (3, 3, 30.0))
+
+
+def test_build_load_model_prefers_dual_beam_production_csv(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    output_dir = tmp_path / "out"
+    legacy_dir = output_dir / "ansys"
+    production_dir = tmp_path / "out_dual_beam_production_check" / "ansys"
+    legacy_dir.mkdir(parents=True)
+    production_dir.mkdir(parents=True)
+
+    mesh = output_dir / "spar_model.inp"
+    mesh.write_text(MESH_WITH_WIRE_AND_MM_UNITS, encoding="utf-8")
+    (legacy_dir / "spar_data.csv").write_text(
+        "\n".join(
+            [
+                "Y_Position_m,Main_FZ_N,Rear_FZ_N",
+                "0.0,0.0,0.0",
+                "7.5,5.0,5.0",
+                "16.5,5.0,5.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    production_csv = production_dir / "spar_data.csv"
+    production_csv.write_text(
+        "\n".join(
+            [
+                "Y_Position_m,Main_FZ_N,Rear_FZ_N",
+                "0.0,0.0,0.0",
+                "7.5,10.0,20.0",
+                "16.5,-5.0,35.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg.io.output_dir = str(output_dir)
+    monkeypatch.setattr(structural_check, "load_config", lambda _path: cfg)
+
+    scale = structural_check._mesh_length_scale_m_per_unit(mesh, cfg)
+    load_model = structural_check._build_load_model(
+        cfg=cfg,
+        output_dir=output_dir,
+        mesh_path=mesh,
+        step_path=output_dir / "spar_jig_shape.step",
+        explicit_tip_load_n=None,
+        mesh_length_scale_m_per_unit=scale,
+    )
+
+    assert load_model.source_path == production_csv.resolve()
+    assert load_model.total_fz_n == 60.0
 
 
 def test_support_boundary_uses_wire_nset_when_present(tmp_path: Path) -> None:
