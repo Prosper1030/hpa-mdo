@@ -31,6 +31,17 @@ MESH_TEXT = """*NODE
 10, 1, 2, 3, 4
 """
 
+MIXED_SURFACE_LINE_MESH = """*NODE
+1, 0.0, 0.0, 0.0
+2, 1.0, 0.0, 0.0
+3, 0.0, 1.0, 0.0
+4, 0.0, 2.0, 0.0
+*ELEMENT, TYPE=CPS3
+10, 1, 2, 3
+*ELEMENT, TYPE=T3D2
+20, 3, 4
+"""
+
 
 def _cfg(tmp_path: Path):
     return load_config(CONFIG_PATH, local_paths_path=tmp_path / "missing_local_paths.yaml")
@@ -92,6 +103,28 @@ def test_prepare_buckle_inp_appends_static_and_buckle_steps(tmp_path: Path) -> N
     assert "*CLOAD\n2, 3, -50" in text
     assert "*END STEP\n*STEP, NAME=buckle\n*BUCKLE\n3" in text
     assert "*NODE FILE, OUTPUT=3D\nU\n*END STEP" in text
+
+
+def test_prepare_static_inp_filters_line_elements_and_adds_surface_thickness(tmp_path: Path) -> None:
+    mesh = tmp_path / "mixed_mesh.inp"
+    out = tmp_path / "static_surface.inp"
+    mesh.write_text(MIXED_SURFACE_LINE_MESH, encoding="utf-8")
+
+    result = prepare_static_inp(
+        mesh,
+        out,
+        {"E": 230e9, "nu": 0.27, "rho": 1600.0},
+        (1, (1, 2, 3)),
+        [(3, 3, -10.0)],
+        section_thickness=0.8,
+    )
+
+    text = result.read_text(encoding="utf-8")
+    assert "*ELEMENT, TYPE=S3" in text
+    assert "*ELEMENT, TYPE=CPS3" not in text
+    assert "*ELEMENT, TYPE=T3D2" not in text
+    assert "*ELSET, ELSET=EALL\n10" in text
+    assert "*SHELL SECTION, ELSET=EALL, MATERIAL=HPA_MATERIAL\n0.8" in text
 
 
 def test_root_boundary_and_tip_node_from_mesh(tmp_path: Path) -> None:

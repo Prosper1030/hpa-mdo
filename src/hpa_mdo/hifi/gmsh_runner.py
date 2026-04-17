@@ -130,13 +130,27 @@ def mesh_step_to_inp(
         print(f"INFO: Gmsh failed to start: {exc}")
         return None
 
-    if result.returncode != 0 or not out.exists():
+    if not out.exists():
         stderr = result.stderr.strip() or result.stdout.strip()
         if stderr:
             print(f"INFO: Gmsh mesh failed:\n{stderr}")
         else:
             print(f"INFO: Gmsh mesh failed with return code {result.returncode}.")
         return None
+
+    if result.returncode != 0:
+        element_count = inp_element_count(out)
+        if element_count <= 0:
+            stderr = result.stderr.strip() or result.stdout.strip()
+            if stderr:
+                print(f"INFO: Gmsh mesh failed:\n{stderr}")
+            else:
+                print(f"INFO: Gmsh mesh failed with return code {result.returncode}.")
+            return None
+        print(
+            "WARN: Gmsh returned a non-zero exit status but wrote a mesh with "
+            f"{element_count} elements; continuing with the partial mesh."
+        )
 
     if named_points:
         default_tol = float(cfg.hi_fidelity.gmsh.point_tol_m) / length_scale_m_per_unit
@@ -235,6 +249,27 @@ def _parse_inp_nodes(text: str) -> np.ndarray:
     if not rows:
         return np.empty((0, 4), dtype=float)
     return np.asarray(rows, dtype=float)
+
+
+def inp_element_count(inp_path: str | Path) -> int:
+    """Return the number of element rows present in a CalculiX ``.inp`` file."""
+
+    count = 0
+    in_element_block = False
+    for raw in Path(inp_path).read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        upper = line.upper()
+        if upper.startswith("*ELEMENT"):
+            in_element_block = True
+            continue
+        if line.startswith("*"):
+            in_element_block = False
+            continue
+        if in_element_block:
+            count += 1
+    return count
 
 
 def step_length_scale_m_per_unit(step_path: str | Path) -> float:

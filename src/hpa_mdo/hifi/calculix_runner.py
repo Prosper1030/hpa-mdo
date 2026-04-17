@@ -45,6 +45,7 @@ def prepare_static_inp(
     boundary: BoundaryEntry | Sequence[BoundaryEntry],
     load: Sequence[LoadEntry],
     *,
+    section_thickness: float | None = None,
     step_name: str = "cruise",
 ) -> Path:
     """Append a minimal CalculiX linear static step to a mesh ``.inp``."""
@@ -54,13 +55,13 @@ def prepare_static_inp(
     out.parent.mkdir(parents=True, exist_ok=True)
 
     mesh_text = mesh.read_text(encoding="utf-8")
-    element_ids = parse_inp_element_ids(mesh)
+    filtered_mesh_text, element_ids, element_dim = _extract_analysis_mesh(mesh_text)
     boundary_entries = _normalise_boundary(boundary)
     material_name = "HPA_MATERIAL"
     elset_name = "EALL"
 
     parts = [
-        mesh_text.rstrip(),
+        filtered_mesh_text.rstrip(),
         "",
         _format_elset(elset_name, element_ids),
         f"*MATERIAL, NAME={material_name}",
@@ -68,8 +69,12 @@ def prepare_static_inp(
         f"{material['E']:.9g}, {material['nu']:.9g}",
         "*DENSITY",
         f"{material['rho']:.9g}",
-        f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={material_name}",
-        "",
+        *_section_card(
+            elset_name,
+            material_name,
+            element_dim,
+            section_thickness=section_thickness,
+        ),
         "*BOUNDARY",
     ]
     for node_id, dofs in boundary_entries:
@@ -106,6 +111,7 @@ def prepare_buckle_inp(
     boundary: BoundaryEntry | Sequence[BoundaryEntry],
     reference_load: Sequence[LoadEntry],
     *,
+    section_thickness: float | None = None,
     n_modes: int = 5,
 ) -> Path:
     """Append a CalculiX reference static step followed by a BUCKLE step."""
@@ -118,13 +124,13 @@ def prepare_buckle_inp(
     out.parent.mkdir(parents=True, exist_ok=True)
 
     mesh_text = mesh.read_text(encoding="utf-8")
-    element_ids = parse_inp_element_ids(mesh)
+    filtered_mesh_text, element_ids, element_dim = _extract_analysis_mesh(mesh_text)
     boundary_entries = _normalise_boundary(boundary)
     material_name = "HPA_MATERIAL"
     elset_name = "EALL"
 
     parts = [
-        mesh_text.rstrip(),
+        filtered_mesh_text.rstrip(),
         "",
         _format_elset(elset_name, element_ids),
         f"*MATERIAL, NAME={material_name}",
@@ -132,8 +138,12 @@ def prepare_buckle_inp(
         f"{material['E']:.9g}, {material['nu']:.9g}",
         "*DENSITY",
         f"{material['rho']:.9g}",
-        f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={material_name}",
-        "",
+        *_section_card(
+            elset_name,
+            material_name,
+            element_dim,
+            section_thickness=section_thickness,
+        ),
         "*BOUNDARY",
     ]
     for node_id, dofs in boundary_entries:
@@ -259,6 +269,140 @@ def parse_inp_element_ids(mesh_inp_path: str | Path) -> list[int]:
     if not ids:
         raise ValueError(f"No *ELEMENT entries found in {mesh_inp_path}")
     return ids
+
+
+def _extract_analysis_mesh(mesh_text: str) -> tuple[str, list[int], int]:
+    """Keep only the highest-dimensional supported element blocks.
+
+    Gmsh often writes mixed meshes (for example surface triangles plus edge
+    lines).  For standalone validation we analyse the highest-dimensional
+    structural manifold present in the mesh and drop lower-dimensional helper
+    blocks so CalculiX receives one consistent section definition.
+    """
+
+    lines = mesh_text.splitlines()
+    element_dims: list[int] = []
+    current_type: str | None = None
+    in_element_block = False
+
+    for raw in lines:
+        line = raw.strip()
+        upper = line.upper()
+        if upper.startswith("*ELEMENT"):
+            current_type = _element_type_from_card(line)
+            dim = _element_dimension(current_type)
+            if dim > 0:
+                element_dims.append(dim)
+            in_element_block = True
+            continue
+        if line.startswith("*"):
+            in_element_block = False
+            current_type = None
+            continue
+        if in_element_block:
+            continue
+
+    if not element_dims:
+        raise ValueError("No supported element blocks found in mesh.")
+
+    target_dim = max(element_dims)
+    kept_lines: list[str] = []
+    element_ids: list[int] = []
+    current_keep = False
+    in_element_block = False
+
+    for raw in lines:
+        line = raw.strip()
+        upper = line.upper()
+        if upper.startswith("*ELEMENT"):
+            current_type = _element_type_from_card(line)
+            current_keep = _element_dimension(current_type) == target_dim
+            in_element_block = True
+            if current_keep:
+                kept_lines.append(_normalised_element_card(raw, target_dim))
+            continue
+        if line.startswith("*"):
+            current_keep = False
+            in_element_block = False
+            kept_lines.append(raw)
+            continue
+        if current_keep:
+            kept_lines.append(raw)
+            first = line.split(",", 1)[0].strip()
+            if first:
+                element_ids.append(int(first))
+        elif not in_element_block:
+            kept_lines.append(raw)
+
+    if not element_ids:
+        raise ValueError("Filtered mesh does not contain any analysable elements.")
+    return "\n".join(kept_lines), element_ids, target_dim
+
+
+def _element_type_from_card(card_line: str) -> str:
+    for token in card_line.split(","):
+        token = token.strip()
+        if token.upper().startswith("TYPE="):
+            return token.split("=", 1)[1].strip().upper()
+    return ""
+
+
+def _element_dimension(element_type: str) -> int:
+    upper = element_type.upper()
+    if upper.startswith("C3D"):
+        return 3
+    if upper.startswith(("CPS", "CPE", "S", "M3D")):
+        return 2
+    if upper.startswith(("T3D", "B31", "B32")):
+        return 1
+    return 0
+
+
+def _section_card(
+    elset_name: str,
+    material_name: str,
+    element_dim: int,
+    *,
+    section_thickness: float | None,
+) -> list[str]:
+    if element_dim == 3:
+        return [
+            f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={material_name}",
+            "",
+        ]
+    if element_dim == 2:
+        if section_thickness is None or float(section_thickness) <= 0.0:
+            raise ValueError("section_thickness must be provided for 2D element meshes.")
+        return [
+            f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={material_name}",
+            f"{float(section_thickness):.9g}",
+        ]
+    raise ValueError(f"Unsupported analysis element dimension: {element_dim}")
+
+
+def _normalised_element_card(card_line: str, target_dim: int) -> str:
+    if target_dim != 2:
+        return card_line
+
+    element_type = _element_type_from_card(card_line)
+    shell_type = {
+        "CPS3": "S3",
+        "CPS4": "S4",
+        "CPE3": "S3",
+        "CPE4": "S4",
+    }.get(element_type.upper(), element_type.upper())
+    if shell_type == element_type.upper():
+        return card_line
+
+    tokens = []
+    for token in card_line.split(","):
+        stripped = token.strip()
+        if stripped.upper().startswith("TYPE="):
+            prefix = token[: token.upper().find("TYPE=")]
+            tokens.append(f"{prefix}TYPE={shell_type}")
+        else:
+            tokens.append(token)
+    return ",".join(tokens)
 
 
 def root_boundary_from_mesh(

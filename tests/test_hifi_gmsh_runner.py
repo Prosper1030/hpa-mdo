@@ -9,6 +9,7 @@ from hpa_mdo.hifi.gmsh_runner import (
     NamedPoint,
     annotate_inp_with_named_points,
     find_gmsh,
+    inp_element_count,
     mesh_step_to_inp,
     parse_nset_from_inp,
     step_length_scale_m_per_unit,
@@ -154,6 +155,24 @@ def test_mesh_step_scales_clmax_and_named_points_for_mm_step(tmp_path: Path, mon
     )
     nsets = parse_nset_from_inp(out_path)
     assert nsets.get("TIP") == [4]
+
+
+def test_mesh_step_accepts_partial_mesh_when_gmsh_writes_elements(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.gmsh.enabled = True
+    step_path = tmp_path / "part.step"
+    out_path = tmp_path / "mesh.inp"
+    step_path.write_text("STEP", encoding="utf-8")
+    monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
+
+    def fake_run(cmd, **kwargs):
+        out_path.write_text(_SAMPLE_INP, encoding="utf-8")
+        return type("Result", (), {"returncode": 1, "stdout": "warn", "stderr": "warn"})()
+
+    monkeypatch.setattr(gmsh_runner.subprocess, "run", fake_run)
+
+    assert mesh_step_to_inp(step_path, out_path, cfg) == out_path
+    assert inp_element_count(out_path) == 1
 
 
 # --- NamedPoint / NSET annotation ---------------------------------------

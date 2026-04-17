@@ -217,6 +217,7 @@ def run_structural_check(
         )
 
     mesh_length_scale_m = _mesh_length_scale_m_per_unit(resolved_mesh, cfg)
+    section_thickness_units = _representative_section_thickness_m(cfg) / mesh_length_scale_m
     material_payload = _material_payload(
         material_key,
         length_scale_m_per_unit=mesh_length_scale_m,
@@ -240,6 +241,7 @@ def run_structural_check(
         boundary_entries=boundary_entries,
         load_model=load_model,
         mesh_length_scale_m_per_unit=mesh_length_scale_m,
+        section_thickness_units=section_thickness_units,
     )
     buckle = _run_buckle_check(
         mesh_path=resolved_mesh,
@@ -249,6 +251,7 @@ def run_structural_check(
         expected_buckling_index=summary_metrics["buckling_index"],
         boundary_entries=boundary_entries,
         load_model=load_model,
+        section_thickness_units=section_thickness_units,
     )
 
     paraview_script_path = None
@@ -303,6 +306,7 @@ def _run_static_check(
     boundary_entries: list[BoundaryEntry],
     load_model: StructuralLoadModel,
     mesh_length_scale_m_per_unit: float,
+    section_thickness_units: float,
 ) -> StructuralCheckSection:
     try:
         tip_node = tip_node_from_mesh(mesh_path)
@@ -319,6 +323,7 @@ def _run_static_check(
         material_payload,
         _boundary_arg(boundary_entries),
         list(load_model.entries),
+        section_thickness=section_thickness_units,
     )
     result = run_static(static_inp, cfg)
     if result.get("error"):
@@ -374,6 +379,7 @@ def _run_buckle_check(
     expected_buckling_index: float | None,
     boundary_entries: list[BoundaryEntry],
     load_model: StructuralLoadModel,
+    section_thickness_units: float,
 ) -> StructuralCheckSection:
     try:
         tip_node_from_mesh(mesh_path)
@@ -390,6 +396,7 @@ def _run_buckle_check(
         material_payload,
         _boundary_arg(boundary_entries),
         list(load_model.entries),
+        section_thickness=section_thickness_units,
     )
     result = run_static(buckle_inp, cfg)
     if result.get("error"):
@@ -884,3 +891,10 @@ def _display_path(path: Path) -> str:
         return str(path.relative_to(REPO_ROOT))
     except ValueError:
         return str(path)
+
+
+def _representative_section_thickness_m(cfg: HPAConfig) -> float:
+    thicknesses = [float(cfg.main_spar.min_wall_thickness)]
+    if cfg.rear_spar.enabled:
+        thicknesses.append(float(cfg.rear_spar.min_wall_thickness))
+    return float(np.mean(thicknesses))
