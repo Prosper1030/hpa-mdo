@@ -1,8 +1,8 @@
 # HPA-MDO：人力飛機多學科設計最佳化框架
 
-一套用於人力飛機機翼翼梁結構最佳化的 Python 框架，整合了氣動力載荷解析、有限元素分析與 CAE 匯出功能。專為 **Black Cat 004**（翼展 33 m 的人力飛機）而建。
+一套用於人力飛機巡航外形、逆向求形與結構落地的 Python 框架，整合了氣動力載荷解析、inverse design、有限元素分析與 CAE 匯出功能。專為 **Black Cat 004**（翼展 33 m 的人力飛機）而建。
 
-目前這個 repo 的正式主線不是舊的單梁 parity 路線，而是 **dual-beam production / inverse-design / decision producer** 這條可持續擴充的工程主線。第一次進 repo 時，請把它當成「可執行的設計引擎 + 正式輸出 contract」，不要把 `equivalent_beam` 或零散研究型 script 當成目前 sign-off 入口。
+目前這個 repo 的正式主線不是舊的單梁 parity 路線，也不只是 decision producer 包裝層，而是 **`VSP / target cruise shape -> inverse design -> jig shape -> realizable loaded shape -> CFRP / discrete layup`** 這條可持續擴充的工程主線。第一次進 repo 時，請把它當成「可執行的設計引擎 + 正式輸出 contract」，不要把 `equivalent_beam` 或零散研究型 script 當成目前 sign-off 入口。
 
 ---
 
@@ -14,6 +14,7 @@
 | 第一次進 repo，想知道怎麼開始 | [README.md](README.md) | 這份就是 landing page，先用它判斷正式入口與第一個指令 |
 | 想快速找到所有重要文件 | [docs/README.md](docs/README.md) | 文件索引，會告訴你哪些是正式 contract、哪些是研究/歷史文件 |
 | 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
+| 想看更細的近期進度與分軌方向 | [docs/EXECUTION_ROADMAP.md](docs/EXECUTION_ROADMAP.md) | 細化版執行路線圖；會告訴你不同卡點應該先推哪條線 |
 | 想理解長期願景與五階段藍圖 | [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md) | 長期 blueprint，不是日常入口 |
 
 ## 三條閱讀路徑
