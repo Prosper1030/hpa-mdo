@@ -42,11 +42,17 @@ class NamedPoint:
         Maximum acceptable distance [m] between ``xyz`` and the nearest
         node.  When ``None`` the caller-supplied ``GmshConfig.point_tol_m``
         is applied.
+    match_mode:
+        Matching strategy for turning ``xyz`` into a node set.  Supported
+        values are ``nearest_xyz`` (default), ``nearest_spanwise_y`` for the
+        closest node in spanwise ``y``, and ``spanwise_plane_y`` for the full
+        node cluster nearest the requested span station.
     """
 
     name: str
     xyz: tuple[float, float, float]
     tol_m: float | None = None
+    match_mode: str = "nearest_xyz"
 
 
 def find_gmsh(cfg: HPAConfig) -> str | None:
@@ -195,17 +201,22 @@ def annotate_inp_with_named_points(
     for point in named_points:
         tol = float(point.tol_m) if point.tol_m is not None else float(default_tol_m)
         target = np.asarray(point.xyz, dtype=float)
-        d = np.linalg.norm(coords - target[None, :], axis=1)
-        idx = int(np.argmin(d))
-        if d[idx] > tol:
+        node_ids, nearest_distance = _match_named_point_node_ids(
+            ids,
+            coords,
+            target,
+            tol,
+            match_mode=point.match_mode,
+        )
+        if not node_ids:
             print(
                 f"INFO: NamedPoint '{point.name}' unmatched: "
-                f"nearest node {ids[idx]} is {d[idx]:.4g} m away "
+                f"nearest node {ids[int(np.argmin(np.linalg.norm(coords - target[None, :], axis=1)))]} is {nearest_distance:.4g} m away "
                 f"(> tol {tol:.4g} m); skipping."
             )
             continue
         nset_name = str(point.name).upper()
-        nset_blocks.append(f"*NSET, NSET={nset_name}\n{ids[idx]}")
+        nset_blocks.append(_format_nset_block(nset_name, node_ids))
         written.append(nset_name)
 
     if not nset_blocks:
@@ -249,6 +260,71 @@ def _parse_inp_nodes(text: str) -> np.ndarray:
     if not rows:
         return np.empty((0, 4), dtype=float)
     return np.asarray(rows, dtype=float)
+
+
+def _match_named_point_node_ids(
+    node_ids: np.ndarray,
+    coords: np.ndarray,
+    target: np.ndarray,
+    tolerance: float,
+    *,
+    match_mode: str,
+) -> tuple[list[int], float]:
+    xyz_distances = np.linalg.norm(coords - target[None, :], axis=1)
+    nearest_xyz_distance = float(np.min(xyz_distances))
+    mode = str(match_mode).lower()
+
+    if mode == "nearest_xyz":
+        idx = int(np.argmin(xyz_distances))
+        if nearest_xyz_distance > tolerance:
+            return [], nearest_xyz_distance
+        return [int(node_ids[idx])], nearest_xyz_distance
+
+    y_offsets = np.abs(coords[:, 1] - float(target[1]))
+    nearest_y_distance = float(np.min(y_offsets))
+    if nearest_y_distance > tolerance:
+        return [], nearest_y_distance
+
+    if mode == "nearest_spanwise_y":
+        idx = int(np.argmin(y_offsets))
+        return [int(node_ids[idx])], nearest_y_distance
+
+    if mode == "spanwise_plane_y":
+        plane_offsets = np.abs(y_offsets - nearest_y_distance)
+        cluster_tolerance = _infer_spanwise_plane_tolerance(plane_offsets, tolerance=tolerance)
+        matched = node_ids[plane_offsets <= cluster_tolerance].astype(int).tolist()
+        return matched, nearest_y_distance
+
+    raise ValueError(f"Unsupported NamedPoint match_mode: {match_mode}")
+
+
+def _infer_spanwise_plane_tolerance(plane_offsets: np.ndarray, *, tolerance: float) -> float:
+    floor = max(1.0e-12, float(tolerance) * 1.0e-6)
+    unique_offsets = np.sort(np.unique(np.round(np.abs(plane_offsets.astype(float)), decimals=12)))
+    positive_offsets = unique_offsets[unique_offsets > floor]
+    if positive_offsets.size < 2:
+        return floor
+
+    for idx in range(len(positive_offsets) - 1):
+        current = float(positive_offsets[idx])
+        nxt = float(positive_offsets[idx + 1])
+        scale = max(current, floor)
+        if (nxt / scale) >= 50.0 and ((nxt - current) / scale) >= 10.0:
+            return current
+    return floor
+
+
+def _format_nset_block(name: str, node_ids: Sequence[int]) -> str:
+    lines = [f"*NSET, NSET={name}"]
+    chunk: list[str] = []
+    for node_id in node_ids:
+        chunk.append(str(int(node_id)))
+        if len(chunk) == 16:
+            lines.append(", ".join(chunk))
+            chunk = []
+    if chunk:
+        lines.append(", ".join(chunk))
+    return "\n".join(lines)
 
 
 def inp_element_count(inp_path: str | Path) -> int:
@@ -313,7 +389,7 @@ def _scaled_named_points(
     for point in named_points:
         xyz_units = tuple(float(value) / scale for value in point.xyz)
         tol_units = None if point.tol_m is None else float(point.tol_m) / scale
-        scaled.append(NamedPoint(point.name, xyz_units, tol_units))
+        scaled.append(NamedPoint(point.name, xyz_units, tol_units, point.match_mode))
     return scaled
 
 

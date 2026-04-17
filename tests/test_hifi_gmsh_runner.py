@@ -190,6 +190,19 @@ test
 1, 1, 2, 3, 4
 """
 
+_OFFSET_SPANWISE_INP = """\
+*HEADING
+offset-spanwise
+*NODE
+1, 250.0, 0.000001, 30.0
+2, 260.0, 0.0000015, 32.0
+3, 300.0, 1500.0, 40.0
+4, 120.0, 7500.0, 450.0
+5, 90.0, 16500.0, 900.0
+*ELEMENT, TYPE=C3D4, ELSET=EALL
+1, 1, 2, 4, 5
+"""
+
 
 def test_annotate_inp_writes_nset_blocks(tmp_path: Path) -> None:
     inp = tmp_path / "mesh.inp"
@@ -233,6 +246,27 @@ def test_annotate_inp_skips_out_of_tolerance(tmp_path: Path, capsys) -> None:
     captured = capsys.readouterr()
     assert "NamedPoint 'MISSING' unmatched" in captured.out
     assert "*NSET, NSET=MISSING" not in inp.read_text(encoding="utf-8")
+
+
+def test_annotate_inp_supports_spanwise_matching_modes(tmp_path: Path) -> None:
+    inp = tmp_path / "offset_mesh.inp"
+    inp.write_text(_OFFSET_SPANWISE_INP, encoding="utf-8")
+
+    written = annotate_inp_with_named_points(
+        inp,
+        [
+            NamedPoint("ROOT", (0.0, 0.0, 0.0), match_mode="spanwise_plane_y"),
+            NamedPoint("WIRE_1", (0.0, 7500.0, 0.0), match_mode="nearest_spanwise_y"),
+            NamedPoint("TIP", (0.0, 16500.0, 0.0), match_mode="nearest_spanwise_y"),
+        ],
+        default_tol_m=1.0,
+    )
+
+    assert written == ["ROOT", "WIRE_1", "TIP"]
+    nsets = parse_nset_from_inp(inp)
+    assert nsets["ROOT"] == [1, 2]
+    assert nsets["WIRE_1"] == [4]
+    assert nsets["TIP"] == [5]
 
 
 def test_mesh_step_annotates_named_points(tmp_path: Path, monkeypatch) -> None:

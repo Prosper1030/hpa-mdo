@@ -142,12 +142,18 @@ def named_points_from_config(cfg: HPAConfig) -> list[NamedPoint]:
 
     half_span = 0.5 * float(cfg.wing.span)
     points: list[NamedPoint] = [
-        NamedPoint("ROOT", (0.0, 0.0, 0.0)),
-        NamedPoint("TIP", (0.0, half_span, 0.0)),
+        NamedPoint("ROOT", (0.0, 0.0, 0.0), match_mode="spanwise_plane_y"),
+        NamedPoint("TIP", (0.0, half_span, 0.0), match_mode="nearest_spanwise_y"),
     ]
     if cfg.lift_wires.enabled:
         for idx, attachment in enumerate(cfg.lift_wires.attachments, start=1):
-            points.append(NamedPoint(f"WIRE_{idx}", (0.0, float(attachment.y), 0.0)))
+            points.append(
+                NamedPoint(
+                    f"WIRE_{idx}",
+                    (0.0, float(attachment.y), 0.0),
+                    match_mode="nearest_spanwise_y",
+                )
+            )
     return points
 
 
