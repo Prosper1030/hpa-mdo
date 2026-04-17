@@ -63,6 +63,15 @@ def recover_reactions(
 ) -> ReactionRecoveryResult:
     """Recover root, wire, and link resultants from the multiplier solution."""
 
+    def _pad_rows(rows: list[np.ndarray]) -> np.ndarray:
+        if not rows:
+            return np.zeros((0, 0), dtype=float)
+        width = max(int(row.size) for row in rows)
+        out = np.zeros((len(rows), width), dtype=float)
+        for idx, row in enumerate(rows):
+            out[idx, : row.size] = np.asarray(row, dtype=float)
+        return out
+
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
         total_constraint_reaction_vector_n = -(constraints.matrix.T @ multipliers)
 
@@ -100,7 +109,6 @@ def recover_reactions(
         rear_base = (nn + node_index) * 6
         link_reaction_on_rear.append(reaction_i[rear_base : rear_base + 6])
 
-    n_link_rows = constraints.link_row_slices[0].stop - constraints.link_row_slices[0].start if constraints.link_row_slices else 0
     return ReactionRecoveryResult(
         multipliers=np.asarray(multipliers, dtype=float),
         total_constraint_reaction_vector_n=np.asarray(total_constraint_reaction_vector_n, dtype=float),
@@ -108,9 +116,7 @@ def recover_reactions(
         root_rear_reaction_n=np.asarray(root_rear_reaction_n, dtype=float),
         wire_reactions_n=wire_reactions_n,
         wire_node_indices=constraints.wire_node_indices,
-        link_resultants_n=(
-            np.vstack(link_resultants) if link_resultants else np.zeros((0, n_link_rows), dtype=float)
-        ),
+        link_resultants_n=_pad_rows(link_resultants),
         link_reaction_on_main_n=(
             np.vstack(link_reaction_on_main) if link_reaction_on_main else np.zeros((0, 6), dtype=float)
         ),

@@ -282,6 +282,34 @@ def test_constraint_assembly_exposes_explicit_boundary_groups() -> None:
     assert constraints.link_row_slices[0].stop - constraints.link_row_slices[0].start == 6
 
 
+def test_constraint_assembly_prunes_redundant_root_link_rows_and_scales_active_rows() -> None:
+    model = _simple_model(joint_node_indices=(0, 1))
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=RootBCMode.ROOT_FIXED_BOTH,
+        wire_bc=None,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+    )
+
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+
+    assert constraints.audit.raw_row_count == 24
+    assert constraints.audit.removed_row_count == 6
+    assert constraints.audit.active_row_count == 18
+    assert constraints.audit.full_row_rank is True
+    assert constraints.link_row_slices[0].stop - constraints.link_row_slices[0].start == 0
+    assert constraints.link_row_slices[1].stop - constraints.link_row_slices[1].start == 6
+    np.testing.assert_allclose(
+        np.linalg.norm(constraints.scaled_matrix, axis=1),
+        1.0,
+        atol=1.0e-12,
+    )
+    np.testing.assert_allclose(
+        constraints.scaled_rhs,
+        constraints.rhs * constraints.row_scale_factors,
+        atol=1.0e-12,
+    )
+
+
 def test_phase2_optimizer_metrics_keep_raw_report_channels_separate() -> None:
     model = _simple_model(
         lift_per_span_npm=np.array([0.0, 18.0, 36.0]),

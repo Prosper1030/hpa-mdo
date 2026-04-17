@@ -182,11 +182,29 @@ class LoadSplitResult:
 
 
 @dataclass
+class ConstraintAuditResult:
+    """Rank/scaling audit for the assembled constraint matrix."""
+
+    raw_row_count: int
+    active_row_count: int
+    removed_row_count: int
+    raw_rank: int
+    active_rank: int
+    scaled_condition_number: float
+    full_row_rank: bool
+    kept_row_indices: tuple[int, ...]
+    removed_row_indices: tuple[int, ...]
+
+
+@dataclass
 class ConstraintAssemblyResult:
     """Exact-constraint assembly and bookkeeping for reaction recovery."""
 
     matrix: np.ndarray
     rhs: np.ndarray
+    scaled_matrix: np.ndarray
+    scaled_rhs: np.ndarray
+    row_scale_factors: np.ndarray
     root_main_slice: slice
     root_rear_slice: slice
     wire_slice: slice
@@ -194,6 +212,7 @@ class ConstraintAssemblyResult:
     link_node_indices: tuple[int, ...]
     wire_node_indices: tuple[int, ...]
     constraint_mode: DualBeamConstraintMode
+    audit: ConstraintAuditResult
 
 
 @dataclass

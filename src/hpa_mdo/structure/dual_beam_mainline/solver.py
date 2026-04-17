@@ -129,15 +129,17 @@ def solve_dual_beam_state(
     load_vector[: nn * 6] = np.asarray(main_loads_n, dtype=float).reshape(nn * 6)
     load_vector[nn * 6 :] = np.asarray(rear_loads_n, dtype=float).reshape(nn * 6)
 
-    n_constraints = constraints.matrix.shape[0]
+    constraint_matrix = np.asarray(constraints.scaled_matrix, dtype=float)
+    constraint_rhs = np.asarray(constraints.scaled_rhs, dtype=float)
+    n_constraints = constraint_matrix.shape[0]
     saddle_matrix = np.zeros((ndof + n_constraints, ndof + n_constraints), dtype=float)
     saddle_matrix[:ndof, :ndof] = stiffness
-    saddle_matrix[:ndof, ndof:] = constraints.matrix.T
-    saddle_matrix[ndof:, :ndof] = constraints.matrix
+    saddle_matrix[:ndof, ndof:] = constraint_matrix.T
+    saddle_matrix[ndof:, :ndof] = constraint_matrix
 
     rhs = np.zeros(ndof + n_constraints, dtype=float)
     rhs[:ndof] = load_vector
-    rhs[ndof:] = constraints.rhs
+    rhs[ndof:] = constraint_rhs
 
     try:
         solution = np.linalg.solve(saddle_matrix, rhs)
@@ -145,7 +147,8 @@ def solve_dual_beam_state(
         raise RuntimeError("Dual-beam mainline saddle-point system is singular.") from exc
 
     state = solution[:ndof]
-    multipliers = solution[ndof:]
+    multipliers_scaled = solution[ndof:]
+    multipliers = np.asarray(constraints.row_scale_factors, dtype=float) * multipliers_scaled
     if not np.all(np.isfinite(state)) or not np.all(np.isfinite(multipliers)):
         raise RuntimeError("Dual-beam mainline solve produced non-finite state values.")
 

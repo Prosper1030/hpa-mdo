@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy.linalg import qr
 
 from hpa_mdo.structure.dual_beam_mainline.types import (
+    ConstraintAuditResult,
     ConstraintAssemblyResult,
     DualBeamConstraintMode,
     DualBeamMainlineModel,
@@ -12,6 +14,9 @@ from hpa_mdo.structure.dual_beam_mainline.types import (
     RootBCMode,
     WireBCMode,
 )
+
+_CONSTRAINT_NORM_TOL = 1.0e-12
+_CONSTRAINT_RANK_TOL = 1.0e-10
 
 
 def _main_dof(node_index: int, local_dof: int) -> int:
@@ -107,6 +112,78 @@ def _append_offset_rigid_rows(
         rows.append(row)
 
 
+def _constraint_row_basis(
+    *,
+    matrix: np.ndarray,
+    rhs: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, ConstraintAuditResult]:
+    """Return a safely scaled, full-row-rank constraint basis."""
+
+    raw_matrix = np.asarray(matrix, dtype=float)
+    raw_rhs = np.asarray(rhs, dtype=float).reshape(-1)
+    if raw_matrix.ndim != 2:
+        raise ValueError("constraint matrix must be 2D.")
+    if raw_matrix.shape[0] != raw_rhs.size:
+        raise ValueError("constraint matrix row count must match rhs size.")
+
+    raw_row_count = int(raw_matrix.shape[0])
+    if raw_row_count == 0:
+        raise ValueError("Dual-beam mainline analysis requires at least one constraint row.")
+
+    row_norms = np.linalg.norm(raw_matrix, axis=1)
+    candidate_indices = np.flatnonzero(row_norms > _CONSTRAINT_NORM_TOL)
+    if candidate_indices.size == 0:
+        raise ValueError("constraint matrix contains only zero-norm rows.")
+
+    scaled_candidates = raw_matrix[candidate_indices] / row_norms[candidate_indices, None]
+    _, r_factor, pivot = qr(scaled_candidates.T, pivoting=True, mode="economic")
+    diag = np.abs(np.diag(r_factor))
+    rank = int(np.sum(diag > _CONSTRAINT_RANK_TOL)) if diag.size else 0
+    independent_local = np.sort(np.asarray(pivot[:rank], dtype=int))
+    keep_indices = candidate_indices[independent_local]
+    removed_indices = np.setdiff1d(
+        np.arange(raw_row_count, dtype=int),
+        keep_indices,
+        assume_unique=False,
+    )
+
+    active_matrix = raw_matrix[keep_indices]
+    active_rhs = raw_rhs[keep_indices]
+    active_row_norms = np.linalg.norm(active_matrix, axis=1)
+    row_scale_factors = np.where(
+        active_row_norms > _CONSTRAINT_NORM_TOL,
+        1.0 / active_row_norms,
+        1.0,
+    )
+    scaled_matrix = active_matrix * row_scale_factors[:, None]
+    scaled_rhs = active_rhs * row_scale_factors
+
+    if scaled_matrix.size:
+        singular_values = np.linalg.svd(scaled_matrix, compute_uv=False)
+        cond = (
+            float(singular_values[0] / singular_values[-1])
+            if singular_values[-1] > _CONSTRAINT_RANK_TOL
+            else float("inf")
+        )
+        active_rank = int(np.sum(singular_values > _CONSTRAINT_RANK_TOL))
+    else:
+        cond = 1.0
+        active_rank = 0
+
+    audit = ConstraintAuditResult(
+        raw_row_count=raw_row_count,
+        active_row_count=int(active_matrix.shape[0]),
+        removed_row_count=int(removed_indices.size),
+        raw_rank=rank,
+        active_rank=active_rank,
+        scaled_condition_number=cond,
+        full_row_rank=bool(active_rank == active_matrix.shape[0]),
+        kept_row_indices=tuple(int(value) for value in keep_indices),
+        removed_row_indices=tuple(int(value) for value in removed_indices),
+    )
+    return active_matrix, scaled_matrix, row_scale_factors, audit
+
+
 def build_constraint_assembly(
     *,
     model: DualBeamMainlineModel,
@@ -173,19 +250,41 @@ def build_constraint_assembly(
         stop = len(rows)
         link_row_slices.append(slice(start, stop))
 
-    if not rows:
-        raise ValueError("Dual-beam mainline analysis requires at least one constraint row.")
+    raw_matrix = np.vstack(rows)
+    raw_rhs = np.zeros(raw_matrix.shape[0], dtype=float)
+    matrix, scaled_matrix, row_scale_factors, audit = _constraint_row_basis(
+        matrix=raw_matrix,
+        rhs=raw_rhs,
+    )
+    rhs = raw_rhs[np.asarray(audit.kept_row_indices, dtype=int)]
 
-    matrix = np.vstack(rows)
-    rhs = np.zeros(matrix.shape[0], dtype=float)
+    kept_set = set(audit.kept_row_indices)
+
+    def _group_slice(start: int, stop: int, cursor: int) -> tuple[slice, int]:
+        count = sum(1 for idx in range(start, stop) if idx in kept_set)
+        return slice(cursor, cursor + count), cursor + count
+
+    cursor = 0
+    root_main_slice, cursor = _group_slice(root_main_start, root_main_stop, cursor)
+    root_rear_slice, cursor = _group_slice(root_rear_start, root_rear_stop, cursor)
+    wire_slice, cursor = _group_slice(wire_start, wire_stop, cursor)
+    active_link_row_slices: list[slice] = []
+    for row_slice in link_row_slices:
+        active_slice, cursor = _group_slice(row_slice.start, row_slice.stop, cursor)
+        active_link_row_slices.append(active_slice)
+
     return ConstraintAssemblyResult(
         matrix=matrix,
         rhs=rhs,
-        root_main_slice=slice(root_main_start, root_main_stop),
-        root_rear_slice=slice(root_rear_start, root_rear_stop),
-        wire_slice=slice(wire_start, wire_stop),
-        link_row_slices=tuple(link_row_slices),
+        scaled_matrix=scaled_matrix,
+        scaled_rhs=rhs * row_scale_factors,
+        row_scale_factors=row_scale_factors,
+        root_main_slice=root_main_slice,
+        root_rear_slice=root_rear_slice,
+        wire_slice=wire_slice,
+        link_row_slices=tuple(active_link_row_slices),
         link_node_indices=link_node_indices,
         wire_node_indices=model.wire_node_indices,
         constraint_mode=constraint_mode,
+        audit=audit,
     )
