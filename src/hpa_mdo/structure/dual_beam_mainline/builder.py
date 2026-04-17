@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -244,6 +245,25 @@ def build_dual_beam_mainline_model(
         if cfg.lift_wires.enabled and cfg.lift_wires.attachments
         else np.zeros((0, 3), dtype=float)
     )
+    if cfg.lift_wires.enabled and cfg.lift_wires.attachments:
+        wire_material = materials_db.get(cfg.lift_wires.cable_material)
+        wire_area_m2 = np.full(
+            len(wire_node_indices),
+            math.pi * (0.5 * float(cfg.lift_wires.cable_diameter)) ** 2,
+            dtype=float,
+        )
+        wire_young_pa = np.full(len(wire_node_indices), float(wire_material.E), dtype=float)
+        wire_reference_lengths_m = np.linalg.norm(
+            np.asarray(nodes_main_m[list(wire_node_indices)], dtype=float) - wire_anchor_points_m,
+            axis=1,
+        )
+        # MVP truss support starts from the assembled geometry with zero pretension.
+        wire_unstretched_lengths_m = wire_reference_lengths_m.copy()
+    else:
+        wire_area_m2 = np.zeros(0, dtype=float)
+        wire_young_pa = np.zeros(0, dtype=float)
+        wire_reference_lengths_m = np.zeros(0, dtype=float)
+        wire_unstretched_lengths_m = np.zeros(0, dtype=float)
 
     dense_link_node_indices = tuple(range(1, nn - 1))
     joint_mass_half_kg = (
@@ -328,6 +348,10 @@ def build_dual_beam_mainline_model(
         wire_node_indices=wire_node_indices,
         wire_attachment_angles_deg=wire_attachment_angles_deg,
         wire_anchor_points_m=wire_anchor_points_m,
+        wire_area_m2=wire_area_m2,
+        wire_young_pa=wire_young_pa,
+        wire_reference_lengths_m=wire_reference_lengths_m,
+        wire_unstretched_lengths_m=wire_unstretched_lengths_m,
         joint_mass_half_kg=float(joint_mass_half_kg),
         fitting_mass_half_kg=0.0,
         equivalent_analysis_success=bool(opt_result.success),

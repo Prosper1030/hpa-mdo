@@ -80,6 +80,21 @@ def _simple_model(
         if wire_node_indices
         else np.zeros((0, 3), dtype=float)
     )
+    wire_area_m2 = (
+        np.full(len(wire_node_indices), np.pi * (0.5 * 2.0e-3) ** 2, dtype=float)
+        if wire_node_indices
+        else np.zeros(0, dtype=float)
+    )
+    wire_young_pa = (
+        np.full(len(wire_node_indices), 70.0e9, dtype=float)
+        if wire_node_indices
+        else np.zeros(0, dtype=float)
+    )
+    wire_reference_lengths_m = (
+        np.linalg.norm(nodes_main_m[list(wire_node_indices)] - resolved_wire_anchor_points_m, axis=1)
+        if wire_node_indices
+        else np.zeros(0, dtype=float)
+    )
 
     return DualBeamMainlineModel(
         y_nodes_m=y_nodes_m,
@@ -137,6 +152,10 @@ def _simple_model(
         wire_node_indices=wire_node_indices,
         wire_attachment_angles_deg=resolved_wire_angles_deg,
         wire_anchor_points_m=resolved_wire_anchor_points_m,
+        wire_area_m2=wire_area_m2,
+        wire_young_pa=wire_young_pa,
+        wire_reference_lengths_m=wire_reference_lengths_m,
+        wire_unstretched_lengths_m=wire_reference_lengths_m.copy(),
         joint_mass_half_kg=0.2,
         fitting_mass_half_kg=0.0,
         equivalent_analysis_success=True,
@@ -175,8 +194,10 @@ def test_mode_matrix_freezes_reviewer_required_load_and_bc_ownership() -> None:
     assert production.ownership.rear_spar_self_weight == "rear_beam_fz"
     assert production.ownership.rear_gravity_torque == "disabled_explicit_dual_beam"
     assert production.ownership.aerodynamic_torque == "main_beam_my_about_main_spar"
+    assert production.wire_bc == WireBCMode.WIRE_MAIN_TRUSS
     assert production.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
     assert robustness.ownership.aerodynamic_torque == "main_beam_my_about_main_spar"
+    assert robustness.wire_bc == WireBCMode.WIRE_MAIN_TRUSS
     assert robustness.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
     assert robustness.ownership.hardware_mass_structural_loads == "report_only"
     assert LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY in robustness.allowed_link_modes
@@ -299,15 +320,17 @@ def test_wire_recovery_estimates_tension_and_inboard_precompression_from_downwar
     assert result.recovery.wire_tension_only_passed is True
     assert result.recovery.max_wire_tension_n > 0.0
     assert result.recovery.max_wire_precompression_n > 0.0
+    cable_axis = model.nodes_main_m[1] - model.wire_anchor_points_m[0]
+    cable_axis = cable_axis / np.linalg.norm(cable_axis)
     np.testing.assert_allclose(
         result.recovery.wire_tension_estimates_n[0],
-        -result.reactions.wire_reactions_n[0] / np.sin(np.deg2rad(45.0)),
+        np.linalg.norm(result.reactions.wire_reaction_vectors_n[0]),
         rtol=1.0e-10,
         atol=1.0e-10,
     )
     np.testing.assert_allclose(
         result.recovery.wire_precompression_n,
-        np.array([-result.reactions.wire_reactions_n[0], 0.0]),
+        np.array([result.recovery.wire_tension_estimates_n[0] * abs(cable_axis[1]), 0.0]),
         rtol=1.0e-10,
         atol=1.0e-10,
     )
@@ -382,6 +405,18 @@ def test_constraint_assembly_exposes_explicit_boundary_groups() -> None:
     assert constraints.wire_slice.stop - constraints.wire_slice.start == 1
     assert len(constraints.link_row_slices) == 1
     assert constraints.link_row_slices[0].stop - constraints.link_row_slices[0].start == 6
+
+
+def test_constraint_assembly_skips_wire_rows_for_explicit_truss_mode() -> None:
+    model = _simple_model(wire_node_indices=(2,))
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=RootBCMode.ROOT_FIXED_BOTH,
+        wire_bc=WireBCMode.WIRE_MAIN_TRUSS,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+    )
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+
+    assert constraints.wire_slice.stop - constraints.wire_slice.start == 0
 
 
 def test_constraint_assembly_prunes_redundant_root_link_rows_and_scales_active_rows() -> None:
@@ -465,7 +500,7 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
     )
     load_split = build_dual_beam_load_split(model=model, mode_definition=production)
     constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
-    disp_main_m, disp_rear_m, multipliers, stiffness = solve_dual_beam_state(
+    disp_main_m, disp_rear_m, multipliers, stiffness, explicit_wire_support = solve_dual_beam_state(
         model=model,
         main_loads_n=load_split.main_loads_n,
         rear_loads_n=load_split.rear_loads_n,
@@ -475,6 +510,7 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
         constraints=constraints,
         multipliers=multipliers,
         nn=model.y_nodes_m.size,
+        explicit_wire_support=explicit_wire_support,
     )
     report = build_report_metrics(
         disp_main_m=disp_main_m,
@@ -537,7 +573,7 @@ def test_numerical_consistency_detects_force_closure_violation_from_tampered_rea
     )
     load_split = build_dual_beam_load_split(model=model, mode_definition=production)
     constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
-    disp_main_m, disp_rear_m, multipliers, stiffness = solve_dual_beam_state(
+    disp_main_m, disp_rear_m, multipliers, stiffness, explicit_wire_support = solve_dual_beam_state(
         model=model,
         main_loads_n=load_split.main_loads_n,
         rear_loads_n=load_split.rear_loads_n,
@@ -547,6 +583,7 @@ def test_numerical_consistency_detects_force_closure_violation_from_tampered_rea
         constraints=constraints,
         multipliers=multipliers,
         nn=model.y_nodes_m.size,
+        explicit_wire_support=explicit_wire_support,
     )
 
     baseline = build_numerical_consistency_result(
@@ -616,6 +653,7 @@ def test_wire_tension_only_violation_is_a_hard_gate_when_support_reaction_turns_
         model=model,
         mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
         link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+        wire_bc=WireBCMode.WIRE_MAIN_VERTICAL,
     )
 
     assert result.reactions.wire_reactions_n[0] > 0.0
@@ -623,6 +661,27 @@ def test_wire_tension_only_violation_is_a_hard_gate_when_support_reaction_turns_
     assert result.feasibility.wire_support_validity_passed is False
     assert "wire_tension_only" in result.feasibility.hard_failures
     assert result.feasibility.overall_hard_feasible is False
+
+
+def test_explicit_wire_truss_slacks_under_downward_load_without_hard_failure() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, -10.0, -20.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+    )
+
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+    )
+
+    np.testing.assert_allclose(result.reactions.wire_resultants_n, 0.0, atol=1.0e-12)
+    np.testing.assert_allclose(result.reactions.wire_reaction_vectors_n, 0.0, atol=1.0e-12)
+    assert result.recovery.wire_tension_only_passed is True
+    assert result.feasibility.wire_support_validity_passed is True
+    assert "wire_tension_only" not in result.feasibility.hard_failures
 
 
 def test_wire_axial_mode_flags_compression_resultant_as_invalid() -> None:

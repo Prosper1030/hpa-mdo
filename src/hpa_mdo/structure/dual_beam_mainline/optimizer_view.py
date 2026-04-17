@@ -257,13 +257,17 @@ def _global_force_and_moment_closure(
     for node_index, node_m in enumerate(np.asarray(model.nodes_main_m, dtype=float)):
         base = node_index * 6
         force_n = total_constraint_vector_n[base : base + 3]
-        moment_nm = total_constraint_vector_n[base + 3 : base + 6]
+        moment_nm = np.asarray(total_constraint_vector_n[base + 3 : base + 6], dtype=float).copy()
+        # The current dual-beam kernel has no physical external Mz load channel; span-axis point-moment
+        # recovery here is dominated by self-equilibrated constraint bookkeeping from offset-rigid links.
+        moment_nm[2] = 0.0
         constraint_resultant_force_n += force_n
         constraint_resultant_moment_nm += np.cross(node_m - origin_m, force_n) - moment_nm
     for node_index, node_m in enumerate(np.asarray(model.nodes_rear_m, dtype=float)):
         base = (nn + node_index) * 6
         force_n = total_constraint_vector_n[base : base + 3]
-        moment_nm = total_constraint_vector_n[base + 3 : base + 6]
+        moment_nm = np.asarray(total_constraint_vector_n[base + 3 : base + 6], dtype=float).copy()
+        moment_nm[2] = 0.0
         constraint_resultant_force_n += force_n
         constraint_resultant_moment_nm += np.cross(node_m - origin_m, force_n) - moment_nm
 

@@ -9,6 +9,7 @@ from hpa_mdo.structure.fem.elements import _cs_norm, _rotation_matrix
 from hpa_mdo.structure.dual_beam_mainline.types import (
     ConstraintAssemblyResult,
     DualBeamMainlineModel,
+    ExplicitWireSupportResult,
     ReactionRecoveryResult,
     RecoveryResult,
     ReportMetrics,
@@ -110,7 +111,7 @@ def _wire_load_path_metrics(
         axis_unit = axis_vector / axis_norm
         spanwise_component = max(abs(float(axis_unit[1])), 1.0e-12)
 
-        if reactions.wire_constraint_mode == WireBCMode.WIRE_MAIN_AXIAL:
+        if reactions.wire_constraint_mode in (WireBCMode.WIRE_MAIN_AXIAL, WireBCMode.WIRE_MAIN_TRUSS):
             tension_n = max(float(wire_resultant_n), 0.0)
             upward_reaction_n = max(float(-wire_resultant_n), 0.0)
         else:
@@ -133,6 +134,7 @@ def recover_reactions(
     constraints: ConstraintAssemblyResult,
     multipliers: np.ndarray,
     nn: int,
+    explicit_wire_support: ExplicitWireSupportResult | None = None,
 ) -> ReactionRecoveryResult:
     """Recover root, wire, and link resultants from the multiplier solution."""
 
@@ -165,15 +167,24 @@ def recover_reactions(
     root_rear_start = nn * 6
     root_rear_reaction_n = root_rear_vector[root_rear_start : root_rear_start + 6].copy()
 
-    wire_reactions_n = np.array(
-        [wire_vector[node_index * 6 + 2] for node_index in constraints.wire_node_indices],
-        dtype=float,
-    )
-    wire_reaction_vectors_n = np.array(
-        [wire_vector[node_index * 6 : node_index * 6 + 3] for node_index in constraints.wire_node_indices],
-        dtype=float,
-    )
-    wire_resultants_n = np.asarray(multipliers[constraints.wire_slice], dtype=float)
+    if explicit_wire_support is not None:
+        total_constraint_reaction_vector_n = (
+            np.asarray(total_constraint_reaction_vector_n, dtype=float)
+            + np.asarray(explicit_wire_support.support_reaction_vector_n, dtype=float)
+        )
+        wire_reaction_vectors_n = np.asarray(explicit_wire_support.wire_reaction_vectors_n, dtype=float)
+        wire_reactions_n = np.asarray(wire_reaction_vectors_n[:, 2], dtype=float)
+        wire_resultants_n = np.asarray(explicit_wire_support.wire_resultants_n, dtype=float)
+    else:
+        wire_reactions_n = np.array(
+            [wire_vector[node_index * 6 + 2] for node_index in constraints.wire_node_indices],
+            dtype=float,
+        )
+        wire_reaction_vectors_n = np.array(
+            [wire_vector[node_index * 6 : node_index * 6 + 3] for node_index in constraints.wire_node_indices],
+            dtype=float,
+        )
+        wire_resultants_n = np.asarray(multipliers[constraints.wire_slice], dtype=float)
 
     link_resultants = []
     link_reaction_on_main = []

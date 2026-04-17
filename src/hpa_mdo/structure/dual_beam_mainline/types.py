@@ -29,6 +29,7 @@ class WireBCMode(str, Enum):
 
     WIRE_MAIN_VERTICAL = "wire_main_vertical"
     WIRE_MAIN_AXIAL = "wire_main_axial"
+    WIRE_MAIN_TRUSS = "wire_main_truss"
 
 
 class LinkMode(str, Enum):
@@ -154,6 +155,10 @@ class DualBeamMainlineModel:
     wire_node_indices: tuple[int, ...]
     wire_attachment_angles_deg: tuple[float, ...]
     wire_anchor_points_m: np.ndarray
+    wire_area_m2: np.ndarray
+    wire_young_pa: np.ndarray
+    wire_reference_lengths_m: np.ndarray
+    wire_unstretched_lengths_m: np.ndarray
     joint_mass_half_kg: float
     fitting_mass_half_kg: float
     equivalent_analysis_success: bool
@@ -236,6 +241,16 @@ class ReactionRecoveryResult:
     link_reaction_on_main_n: np.ndarray
     link_reaction_on_rear_n: np.ndarray
     link_node_indices: tuple[int, ...]
+
+
+@dataclass
+class ExplicitWireSupportResult:
+    """Recovered explicit wire-support state for truss-based wire modes."""
+
+    active_mask: np.ndarray
+    support_reaction_vector_n: np.ndarray
+    wire_reaction_vectors_n: np.ndarray
+    wire_resultants_n: np.ndarray
 
 
 @dataclass
@@ -489,7 +504,7 @@ _MODE_DEFINITIONS = {
             hardware_mass_structural_loads="report_only",
         ),
         root_bc=RootBCMode.ROOT_FIXED_BOTH,
-        wire_bc=WireBCMode.WIRE_MAIN_VERTICAL,
+        wire_bc=WireBCMode.WIRE_MAIN_TRUSS,
         default_link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
         allowed_link_modes=(
             LinkMode.JOINT_ONLY_OFFSET_RIGID,
@@ -510,7 +525,7 @@ _MODE_DEFINITIONS = {
             hardware_mass_structural_loads="report_only",
         ),
         root_bc=RootBCMode.ROOT_FIXED_BOTH,
-        wire_bc=WireBCMode.WIRE_MAIN_VERTICAL,
+        wire_bc=WireBCMode.WIRE_MAIN_TRUSS,
         default_link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
         allowed_link_modes=(
             LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY,

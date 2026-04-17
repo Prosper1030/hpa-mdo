@@ -242,6 +242,8 @@ def build_constraint_assembly(
             row = np.zeros(ndof, dtype=float)
             row[_main_dof(node_index, 2)] = 1.0
             rows.append(row)
+    elif constraint_mode.wire_bc == WireBCMode.WIRE_MAIN_TRUSS:
+        pass
     elif constraint_mode.wire_bc == WireBCMode.WIRE_MAIN_AXIAL:
         if model.wire_anchor_points_m.shape != (len(model.wire_node_indices), 3):
             raise ValueError(
