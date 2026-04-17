@@ -31,7 +31,7 @@
 | `blackcat_004_dual_beam_refinement` | `historical_evidence` | 保留了 warm/refined eq/dual 對照，也有 refined ANSYS spot-check summary | refined eq mass `9.871 kg`、refined dual mass `9.872 kg`；ANSYS refined spot-check 仍是 `MODEL-FORM RISK` | 用來觀察「往更硬設計移動後」相對趨勢是否一致 |
 | `blackcat_004_dual_spar_spotcheck` | `historical_evidence` | 最完整的 legacy dual-spar baseline 對照案例 | tip deflection error `14.14%`、max \|UZ\| error `35.64%`、support reaction error `0.00%`、mass error `0.19%`；整體 `MODEL-FORM RISK` | 保留作 model-form risk baseline，不再當唯一 benchmark 真值 |
 | `blackcat_004_dual_spar_spotcheck_neighbors` | `historical_evidence` | baseline / harder / softer 三點一起看，能評估 ranking flip 風險 | baseline `9.454 kg / 2500 mm`、harder `9.744 kg / 2274 mm`、softer `9.164 kg / 2756 mm`；各點 ANSYS compare 仍是 `MODEL-FORM RISK` | 當 sensitivity package，用來看接近設計是否可能因 hi-fi 對照而翻盤 |
-| `output/blackcat_004/hifi_heal_structcheck` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，而且現在 STEP meshing 會先經過 OCC healing wrapper（`HealShapes + Coherence`），再配 bounded coarse fallback；`ROOT/TIP/WIRE` 仍可直接寫成 mesh NSET | fresh representative JSON 仍是 `WARN` / `NOT_COMPARABLE`，但 `mesh_diagnostics` 已從 `overlapping_boundary_mesh x1 / no_elements_in_volume x1 / duplicate_boundary_facets x2 / invalid_surface_elements x38 / duplicate_shell_facets x599` 改善成 `invalid_surface_elements x12 / equivalent_triangles x340 / duplicate_shell_facets x259`；CalculiX diagnostics 也從 `opposite_normals x3370 / nonpositive_jacobian x34` 降到 `x732 / x10` | 保留成最新本機診斷證據；現在已證明 OCC healing 有價值，下一步應聚焦剩下的 invalid facets / equivalent triangles / shell duplication，而不是回頭重查 boundary contract |
+| `output/blackcat_004/hifi_heal_structcheck` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，而且現在 STEP meshing 會先經過 OCC healing wrapper（`HealShapes + Coherence`），再配 bounded coarse fallback；`ROOT/TIP/WIRE` 仍可直接寫成 mesh NSET | fresh representative JSON 仍是 `WARN` / `NOT_COMPARABLE`，但 `mesh_diagnostics` 已從 `overlapping_boundary_mesh x1 / no_elements_in_volume x1 / duplicate_boundary_facets x2 / invalid_surface_elements x38 / duplicate_shell_facets x599` 改善成 `invalid_surface_elements x12 / equivalent_triangles x340 / duplicate_shell_facets x259`；CalculiX diagnostics 也從 `opposite_normals x3370 / nonpositive_jacobian x34` 降到 `x732 / x10`；目前 healed mesh 的維度診斷是 `analysis_reality = shell_plus_beam`、`beam 2439 / shell 12918 / solid 0` | 保留成最新本機診斷證據；現在已證明 OCC healing 有價值，但這條線目前仍是 shell-surface-like spot-check，下一步應聚焦剩下的 invalid facets / equivalent triangles / shell duplication，而不是回頭重查 boundary contract |
 
 ## Evidence Notes
 
@@ -107,6 +107,10 @@
     - `no_elements_in_volume`
     - `duplicate_boundary_facets`
   - 但 static 與 buckle 仍停在 `mesh_quality`，診斷仍含 `opposite_normals x732` 與 `nonpositive_jacobian x10`。
+  - 最新 mesh 維度診斷也已明確指出：
+    - `analysis_reality = shell_plus_beam`
+    - `element_family_counts = beam 2439 / shell 12918 / solid 0`
+    - `has_volume_elements = false`
   - 這代表目前最該修的是剩下的 invalid facets / equivalent triangles / shell duplication，而不是再回頭重查 named-point / boundary contract。
 
 ## Practical Recommendation

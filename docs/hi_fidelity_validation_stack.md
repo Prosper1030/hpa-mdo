@@ -113,6 +113,9 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - `spar_jig_shape.mesh_diagnostics.json`
 - `comparability`
 - `issue_category`
+- `analysis_reality`
+- `element_family_counts`
+- `has_volume_elements`
 - solver / diagnostics 摘要
 - Gmsh upstream mesh root-cause hints（例如 `overlapping_boundary_mesh`、`no_elements_in_volume`、`duplicate_shell_facets`）
 
@@ -163,6 +166,11 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
     降到
     `opposite_normals x732 / nonpositive_jacobian x10`
   - `ROOT/TIP/WIRE_1` 在 healed coarse mesh 上仍可維持
+  - 直接對目前 healed mesh 做維度診斷時，分類結果是：
+    - `analysis_reality = shell_plus_beam`
+    - `element_family_counts = beam 2439 / shell 12918 / solid 0`
+    - `has_volume_elements = false`
+  - 也就是說，這條 Mac hi-fi 目前更接近 shell-surface truth with beam members，不是乾淨的 solid-volume benchmark
 
 另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
 
@@ -174,6 +182,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 - STEP / Gmsh surface 仍殘留的 invalid facets / equivalent triangles / shell duplication
 - shell mesh normals / Jacobian 仍未收斂
+- 目前代表性 healed mesh 本身也明確不是 solid-volume mesh
 
 而不是：
 

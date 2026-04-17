@@ -53,3 +53,14 @@
       - `opposite_normals x732`
       - `nonpositive_jacobian x10`
     - 這代表 OCC healing 對現在的主 blocker 是有效的，但還不足以讓 Mac hi-fi 升格成 benchmark-ready
+  - 最新又補上 `feat: 補上 hifi mesh 維度診斷輸出`：
+    - `mesh_diagnostics` / `structural_check.json` / Markdown report 現在都會直接寫出
+      - `analysis_reality`
+      - `element_family_counts`
+      - `element_type_counts`
+      - `has_volume_elements`
+    - 直接對 healed representative mesh 做 live 診斷後，現在可明確說：
+      - `analysis_reality = shell_plus_beam`
+      - `beam 2439 / shell 12918 / solid 0`
+      - `has_volume_elements = false`
+    - 這讓 benchmark basket 的說法更精準：目前這條 Mac hi-fi 是 shell-surface-like structural spot-check，不該被誤認成 solid-volume benchmark
