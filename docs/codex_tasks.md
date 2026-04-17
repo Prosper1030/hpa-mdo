@@ -2,6 +2,7 @@
 
 > 產出日期：2026-04-07｜最後更新：2026-04-17（**repo 現況校正：已完成項目同步到 backlog**）
 > 基於完整原始碼靜態分析
+> 文件定位：這份偏向 review / 操作型 task log / 歷史 backlog，不是新使用者的主要 roadmap。若你現在要判斷正式入口與近期優先順序，請先看 [README.md](../README.md)、[docs/README.md](README.md)、[NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md)。
 
 ## 整體評價
 
@@ -260,7 +261,9 @@
 
 ---
 
-## 下一階段待辦（依優先序）
+## 下一階段待辦（歷史 task log，依優先序）
+
+這一段保留原始任務脈絡與 commit 對照，方便回溯；目前要排「現在先做什麼」時，請以 [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) 為準。
 
 | # | 任務 | 對應 prompt 檔 | 預計工時 |
 |---|------|----------------|---------|

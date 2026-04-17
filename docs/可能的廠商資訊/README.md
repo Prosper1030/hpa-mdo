@@ -2,7 +2,8 @@
 
 這個資料夾收錄的是台灣碳纖維管供應端的前期研究資料，現階段最適合支援：
 
-- `docs/GRAND_BLUEPRINT.md` 中的 `real vendor catalog / hardware catalog`
+- [NOW_NEXT_BLUEPRINT.md](../NOW_NEXT_BLUEPRINT.md) 裡的 `real vendor / hardware catalog 資料化`
+- [GRAND_BLUEPRINT.md](../GRAND_BLUEPRINT.md) 裡對應的長期資料化方向
 - 後續把假想 vendor catalog 逐步替換成真實 RFQ 候選
 - 採購前的 supplier short-list 與欄位設計
 
