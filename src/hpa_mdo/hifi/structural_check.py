@@ -45,6 +45,9 @@ from hpa_mdo.hifi.paraview_state import make_pvpython_script
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NUMBER_RE = r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[EeDd][-+]?\d+)?"
+_WIRE_SUPPORT_CLUSTER_LIMIT = 2
+_WIRE_SUPPORT_CLUSTER_DISTANCE_RATIO = 1.15
+_WIRE_SUPPORT_CLUSTER_ABS_MARGIN_M = 2.5e-3
 
 
 @dataclass(frozen=True)
@@ -992,14 +995,14 @@ def _support_boundary_from_mesh(
         for idx, attachment in enumerate(cfg.lift_wires.attachments, start=1):
             target = wire_targets[idx - 1] if idx - 1 < len(wire_targets) else None
             if target is not None:
-                node_id = _nearest_node_for_spanwise_y(
-                    mesh_path,
-                    float(target[1]),
-                    cfg,
+                support_nodes = _wire_support_nodes_for_target(
+                    mesh_path=mesh_path,
+                    y_target_m=float(target[1]),
+                    cfg=cfg,
                     x_target_m=float(target[0]),
                     z_target_m=float(target[2]),
                 )
-                boundary_entries.append((node_id, (3,)))
+                boundary_entries.extend((node_id, (3,)) for node_id in support_nodes)
                 continue
 
             nset_name = f"WIRE_{idx}"
@@ -1409,6 +1412,65 @@ def _nearest_node_for_spanwise_y(
     x_target_m: float | None = None,
     z_target_m: float | None = None,
 ) -> int:
+    candidate_nodes = _candidate_nodes_for_spanwise_target(
+        mesh_path,
+        y_target_m,
+        cfg,
+        mesh_nodes=mesh_nodes,
+        mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+        x_target_m=x_target_m,
+        z_target_m=z_target_m,
+    )
+    return int(candidate_nodes[0][0])
+
+
+def _wire_support_nodes_for_target(
+    mesh_path: Path,
+    *,
+    y_target_m: float,
+    cfg: HPAConfig,
+    x_target_m: float,
+    z_target_m: float,
+    mesh_nodes: np.ndarray | None = None,
+    mesh_length_scale_m_per_unit: float | None = None,
+) -> list[int]:
+    candidate_nodes = _candidate_nodes_for_spanwise_target(
+        mesh_path,
+        y_target_m,
+        cfg,
+        mesh_nodes=mesh_nodes,
+        mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+        x_target_m=x_target_m,
+        z_target_m=z_target_m,
+    )
+    if not candidate_nodes:
+        return []
+
+    best_distance_m = float(candidate_nodes[0][1])
+    cluster_limit_m = max(
+        best_distance_m * _WIRE_SUPPORT_CLUSTER_DISTANCE_RATIO,
+        best_distance_m + _WIRE_SUPPORT_CLUSTER_ABS_MARGIN_M,
+    )
+    support_nodes = [
+        int(node_id)
+        for node_id, distance_m in candidate_nodes
+        if float(distance_m) <= cluster_limit_m
+    ][: _WIRE_SUPPORT_CLUSTER_LIMIT]
+    if not support_nodes:
+        support_nodes = [int(candidate_nodes[0][0])]
+    return support_nodes
+
+
+def _candidate_nodes_for_spanwise_target(
+    mesh_path: Path,
+    y_target_m: float,
+    cfg: HPAConfig,
+    *,
+    mesh_nodes: np.ndarray | None = None,
+    mesh_length_scale_m_per_unit: float | None = None,
+    x_target_m: float | None = None,
+    z_target_m: float | None = None,
+) -> list[tuple[int, float]]:
     nodes = parse_inp_nodes(mesh_path) if mesh_nodes is None else mesh_nodes
     if mesh_length_scale_m_per_unit is None:
         mesh_length_scale_m_per_unit = _mesh_length_scale_m_per_unit(mesh_path, cfg, mesh_nodes=nodes)
@@ -1435,8 +1497,16 @@ def _nearest_node_for_spanwise_y(
     distance = delta_y[candidate_indices] + 1.0e-6 * (
         np.abs(x_coords[candidate_indices] - x_ref) + np.abs(z_coords[candidate_indices] - z_ref)
     )
-    best_idx = int(candidate_indices[int(np.argmin(distance))])
-    return int(nodes[best_idx, 0])
+    sort_order = np.argsort(distance, kind="stable")
+    candidate_list: list[tuple[int, float]] = []
+    for local_idx in sort_order:
+        global_idx = int(candidate_indices[int(local_idx)])
+        dx = float(x_coords[global_idx] - x_ref)
+        dy = float(y_coords[global_idx] - y_target_units)
+        dz = float(z_coords[global_idx] - z_ref)
+        distance_m = float(np.sqrt(dx * dx + dy * dy + dz * dz) * mesh_length_scale_m_per_unit)
+        candidate_list.append((int(nodes[global_idx, 0]), distance_m))
+    return candidate_list
 
 
 def _mesh_length_scale_m_per_unit(
