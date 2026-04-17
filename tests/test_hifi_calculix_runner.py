@@ -16,6 +16,7 @@ from hpa_mdo.hifi.calculix_runner import (
     tip_node_from_mesh,
 )
 from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues, parse_displacement
+from hpa_mdo.hifi.frd_parser import parse_nodal_coordinates
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -217,6 +218,35 @@ def test_parse_displacement_reads_last_disp_block(tmp_path: Path) -> None:
     )
 
 
+def test_parse_nodal_coordinates_reads_first_coordinate_block(tmp_path: Path) -> None:
+    frd = tmp_path / "case.frd"
+    frd.write_text(
+        """
+    2C                         2                                     1
+ -1         101  1.00000E+00  2.00000E+00  3.00000E+00
+ -1         102  4.00000E+00  5.00000E+00  6.00000E+00
+ -3
+ -4  DISP        4    1
+ -1         101  7.00000E-03  8.00000E-03  9.00000E-03
+ -3
+""",
+        encoding="utf-8",
+    )
+
+    coords = parse_nodal_coordinates(frd)
+
+    assert coords.shape == (2, 4)
+    np.testing.assert_allclose(
+        coords,
+        np.asarray(
+            [
+                [101.0, 1.0, 2.0, 3.0],
+                [102.0, 4.0, 5.0, 6.0],
+            ]
+        ),
+    )
+
+
 def test_parse_buckle_eigenvalues_reads_dat_table(tmp_path: Path) -> None:
     dat = tmp_path / "case.dat"
     dat.write_text(
@@ -232,3 +262,25 @@ def test_parse_buckle_eigenvalues_reads_dat_table(tmp_path: Path) -> None:
     )
 
     assert parse_buckle_eigenvalues(dat) == [1.2345, 2.5, 3.75]
+
+
+def test_parse_buckle_eigenvalues_reads_buckling_factor_table(tmp_path: Path) -> None:
+    dat = tmp_path / "buckle.dat"
+    dat.write_text(
+        """
+                        S T E P       2
+
+
+     B U C K L I N G   F A C T O R   O U T P U T
+
+ MODE NO       BUCKLING
+                FACTOR
+
+      1   0.9805800E+00
+      2   0.9838427E+00
+      3   0.9866255E+00
+""",
+        encoding="utf-8",
+    )
+
+    assert parse_buckle_eigenvalues(dat) == [0.98058, 0.9838427, 0.9866255]

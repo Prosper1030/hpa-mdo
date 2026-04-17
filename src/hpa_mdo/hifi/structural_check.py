@@ -28,7 +28,11 @@ from hpa_mdo.hifi.calculix_runner import (
     run_static,
     tip_node_from_mesh,
 )
-from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues, parse_displacement
+from hpa_mdo.hifi.frd_parser import (
+    parse_buckle_eigenvalues,
+    parse_displacement,
+    parse_nodal_coordinates,
+)
 from hpa_mdo.hifi.gmsh_runner import NamedPoint, mesh_step_to_inp
 from hpa_mdo.hifi.paraview_state import make_pvpython_script
 
@@ -343,6 +347,36 @@ def _run_static_check(
         )
 
     matches = disp[disp[:, 0].astype(int) == int(tip_node)]
+    frd_match_note = ""
+    if matches.size == 0:
+        matched_row, matched_distance_m = _match_tip_displacement_by_coordinates(
+            mesh_path=mesh_path,
+            frd_path=frd_path,
+            tip_node=int(tip_node),
+            displacement_rows=disp,
+            mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+        )
+        if matched_row is None:
+            available_min = int(np.min(disp[:, 0])) if disp.size else None
+            available_max = int(np.max(disp[:, 0])) if disp.size else None
+            id_range = (
+                f"{available_min}..{available_max}"
+                if available_min is not None and available_max is not None
+                else "unknown"
+            )
+            return StructuralCheckSection(
+                status="WARN",
+                message=(
+                    f"Tip node {tip_node} not found in FRD displacement output "
+                    f"(available node ids {id_range})."
+                ),
+                artifact_path=frd_path,
+            )
+        matches = matched_row[np.newaxis, :]
+        frd_match_note = (
+            f" FRD tip matched by coordinates ({matched_distance_m:.4f} m offset)."
+        )
+
     if matches.size == 0:
         return StructuralCheckSection(
             status="WARN",
@@ -356,9 +390,12 @@ def _run_static_check(
     if expected_tip_deflection_m is None:
         status = "SKIP"
     message = (
-        f"Static tip-deflection check completed using {load_model.description}"
+        f"Static tip-deflection check completed using {load_model.description}{frd_match_note}"
         if expected_tip_deflection_m is not None
-        else f"Static run completed with {load_model.description}, but no reference tip deflection was available."
+        else (
+            f"Static run completed with {load_model.description}{frd_match_note}, "
+            "but no reference tip deflection was available."
+        )
     )
     return StructuralCheckSection(
         status=status,
@@ -898,3 +935,31 @@ def _representative_section_thickness_m(cfg: HPAConfig) -> float:
     if cfg.rear_spar.enabled:
         thicknesses.append(float(cfg.rear_spar.min_wall_thickness))
     return float(np.mean(thicknesses))
+
+
+def _match_tip_displacement_by_coordinates(
+    *,
+    mesh_path: Path,
+    frd_path: Path,
+    tip_node: int,
+    displacement_rows: np.ndarray,
+    mesh_length_scale_m_per_unit: float,
+) -> tuple[np.ndarray | None, float | None]:
+    mesh_nodes = parse_inp_nodes(mesh_path)
+    tip_rows = mesh_nodes[mesh_nodes[:, 0].astype(int) == int(tip_node)]
+    if tip_rows.size == 0:
+        return None, None
+
+    frd_nodes = parse_nodal_coordinates(frd_path)
+    if frd_nodes.size == 0:
+        return None, None
+
+    target_xyz = tip_rows[-1, 1:4]
+    distances = np.linalg.norm(frd_nodes[:, 1:4] - target_xyz, axis=1)
+    nearest_idx = int(np.argmin(distances))
+    nearest_node = int(frd_nodes[nearest_idx, 0])
+    matches = displacement_rows[displacement_rows[:, 0].astype(int) == nearest_node]
+    if matches.size == 0:
+        return None, None
+
+    return matches[-1], float(distances[nearest_idx]) * mesh_length_scale_m_per_unit

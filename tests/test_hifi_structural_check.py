@@ -133,6 +133,76 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
     assert "Buckling check completed using" in report_text
 
 
+def test_run_structural_check_matches_tip_by_frd_coordinates_when_ids_change(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cfg = _cfg(tmp_path)
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    hifi_dir = output_dir / "hifi"
+    hifi_dir.mkdir()
+    summary = output_dir / "optimization_summary.txt"
+    summary.write_text(
+        "\n".join(
+            [
+                "HPA-MDO Spar Optimization Summary",
+                "  Tip deflection  : 2500.00 mm  (2.50000 m)",
+                "  Buckling index  : -0.80000",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    mesh = hifi_dir / "wing_cruise.inp"
+    mesh.write_text(MESH_WITH_NSETS, encoding="utf-8")
+
+    cfg.io.output_dir = str(output_dir)
+    monkeypatch.setattr(structural_check, "load_config", lambda _path: cfg)
+
+    def fake_run_static(inp_path, _cfg):
+        inp_path = Path(inp_path)
+        frd = inp_path.with_suffix(".frd")
+        dat = inp_path.with_suffix(".dat")
+        frd.write_text("stub", encoding="utf-8")
+        dat.write_text("stub", encoding="utf-8")
+        return {
+            "frd": frd,
+            "dat": dat,
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        }
+
+    monkeypatch.setattr(structural_check, "run_static", fake_run_static)
+    monkeypatch.setattr(
+        structural_check,
+        "parse_displacement",
+        lambda _path: np.asarray([[404.0, 0.0, 0.0, -2.5]]),
+    )
+    monkeypatch.setattr(
+        structural_check,
+        "parse_nodal_coordinates",
+        lambda _path: np.asarray(
+            [
+                [401.0, 0.0, 0.0, 0.0],
+                [404.0, 0.1, 1.0, 0.0],
+            ]
+        ),
+    )
+    monkeypatch.setattr(structural_check, "parse_buckle_eigenvalues", lambda _path: [5.5, 7.2])
+
+    result = structural_check.run_structural_check(
+        config_path=CONFIG_PATH,
+        summary_path=summary,
+        mesh_path=mesh,
+        hifi_dir=hifi_dir,
+    )
+
+    assert result.static.status == "PASS"
+    assert result.static.actual == 2.5
+    assert "FRD tip matched by coordinates" in result.static.message
+
+
 def test_run_structural_check_skips_when_no_mesh_or_step(tmp_path: Path, monkeypatch) -> None:
     cfg = _cfg(tmp_path)
     output_dir = tmp_path / "out"

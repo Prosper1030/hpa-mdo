@@ -46,33 +46,66 @@ def parse_displacement(frd_path: str | Path, *, node_set: str = "ALL") -> np.nda
     return np.asarray(rows, dtype=float)
 
 
+def parse_nodal_coordinates(frd_path: str | Path) -> np.ndarray:
+    """Parse the FRD nodal coordinate block into ``[nid, x, y, z]`` rows."""
+
+    rows: list[list[float]] = []
+    in_coordinates = False
+
+    for raw in Path(frd_path).read_text(encoding="utf-8", errors="ignore").splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        upper = stripped.upper()
+        if upper.startswith("2C"):
+            in_coordinates = True
+            rows = []
+            continue
+        if in_coordinates and stripped.startswith("-3"):
+            break
+        if not in_coordinates:
+            continue
+        if stripped.startswith("-1"):
+            values = _numeric_tokens(stripped)
+            if len(values) >= 5:
+                rows.append([values[1], values[2], values[3], values[4]])
+
+    if not rows:
+        return np.empty((0, 4), dtype=float)
+    return np.asarray(rows, dtype=float)
+
+
 def parse_buckle_eigenvalues(dat_path: str | Path) -> list[float]:
     """Parse CalculiX BUCKLE eigenvalues from a ``.dat`` text file."""
 
     eigenvalues: list[float] = []
-    in_eigen_table = False
+    in_mode_table = False
 
     for raw in Path(dat_path).read_text(encoding="utf-8", errors="ignore").splitlines():
         stripped = raw.strip()
         if not stripped:
+            if in_mode_table and eigenvalues:
+                in_mode_table = False
             continue
 
         upper = stripped.upper()
-        if "EIGENVALUE" in upper:
-            in_eigen_table = True
-            direct = _direct_eigenvalue(stripped)
-            if direct is not None:
-                eigenvalues.append(direct)
+        direct = _direct_eigenvalue(stripped)
+        if direct is not None:
+            eigenvalues.append(direct)
             continue
 
-        if not in_eigen_table:
+        if _starts_mode_output_table(upper):
+            in_mode_table = True
+            continue
+
+        if not in_mode_table:
             continue
 
         values = _numeric_tokens(stripped)
         if len(values) >= 2 and _looks_like_mode_number(values[0]):
             eigenvalues.append(values[1])
-        elif not values and eigenvalues:
-            in_eigen_table = False
+        elif eigenvalues:
+            in_mode_table = False
 
     return eigenvalues
 
@@ -101,3 +134,11 @@ def _direct_eigenvalue(line: str) -> float | None:
 
 def _looks_like_mode_number(value: float) -> bool:
     return value >= 0.0 and abs(value - round(value)) < 1.0e-9
+
+
+def _starts_mode_output_table(upper_line: str) -> bool:
+    compact = upper_line.replace(" ", "")
+    return (
+        "MODE NO" in upper_line
+        and ("EIGENVALUE" in compact or "BUCKLING" in compact)
+    )
