@@ -6,15 +6,22 @@ entry point so validation can be launched without hand-running four scripts.
 """
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 from pathlib import Path
 import re
 from typing import Any
 
-from hpa_mdo.core import MaterialDB, load_config
+import numpy as np
+
+from hpa_mdo.aero import LoadMapper, VSPAeroParser
+from hpa_mdo.core import Aircraft, MaterialDB, load_config
 from hpa_mdo.core.config import HPAConfig
 from hpa_mdo.core.constants import G_STANDARD
 from hpa_mdo.hifi.calculix_runner import (
+    BoundaryEntry,
+    LoadEntry,
+    parse_inp_nodes,
     prepare_buckle_inp,
     prepare_static_inp,
     root_boundary_from_mesh,
@@ -53,8 +60,20 @@ class StructuralCheckResult:
     step_path: Path | None
     mesh_path: Path | None
     paraview_script_path: Path | None
+    load_description: str
+    support_description: str
     static: StructuralCheckSection
     buckle: StructuralCheckSection
+
+
+@dataclass(frozen=True)
+class StructuralLoadModel:
+    """Loads applied to the high-fidelity validation mesh."""
+
+    description: str
+    entries: tuple[LoadEntry, ...]
+    total_fz_n: float
+    source_path: Path | None = None
 
 
 def parse_optimization_summary(summary_path: str | Path) -> dict[str, float | None]:
@@ -178,6 +197,8 @@ def run_structural_check(
             step_path=resolved_step,
             mesh_path=resolved_mesh,
             paraview_script_path=None,
+            load_model=None,
+            support_description="No mesh available; no structural supports were derived.",
             static=static,
             buckle=buckle,
             reference_metrics=summary_metrics,
@@ -189,15 +210,25 @@ def run_structural_check(
             step_path=resolved_step,
             mesh_path=resolved_mesh,
             paraview_script_path=None,
+            load_description="No mesh available; no loads were applied.",
+            support_description="No mesh available; no structural supports were derived.",
             static=static,
             buckle=buckle,
         )
 
-    material_payload = _material_payload(material_key)
-    load_n = (
-        float(tip_load_n)
-        if tip_load_n is not None
-        else -0.5 * float(cfg.weight.max_takeoff_kg) * G_STANDARD
+    mesh_length_scale_m = _mesh_length_scale_m_per_unit(resolved_mesh, cfg)
+    material_payload = _material_payload(
+        material_key,
+        length_scale_m_per_unit=mesh_length_scale_m,
+    )
+    boundary_entries = _support_boundary_from_mesh(resolved_mesh, cfg)
+    load_model = _build_load_model(
+        cfg=cfg,
+        output_dir=output_dir,
+        mesh_path=resolved_mesh,
+        step_path=resolved_step,
+        explicit_tip_load_n=tip_load_n,
+        mesh_length_scale_m_per_unit=mesh_length_scale_m,
     )
 
     static = _run_static_check(
@@ -206,7 +237,9 @@ def run_structural_check(
         cfg=cfg,
         material_payload=material_payload,
         expected_tip_deflection_m=summary_metrics["tip_deflection_m"],
-        tip_load_n=load_n,
+        boundary_entries=boundary_entries,
+        load_model=load_model,
+        mesh_length_scale_m_per_unit=mesh_length_scale_m,
     )
     buckle = _run_buckle_check(
         mesh_path=resolved_mesh,
@@ -214,7 +247,8 @@ def run_structural_check(
         cfg=cfg,
         material_payload=material_payload,
         expected_buckling_index=summary_metrics["buckling_index"],
-        tip_load_n=load_n,
+        boundary_entries=boundary_entries,
+        load_model=load_model,
     )
 
     paraview_script_path = None
@@ -238,6 +272,8 @@ def run_structural_check(
         step_path=resolved_step,
         mesh_path=resolved_mesh,
         paraview_script_path=paraview_script_path,
+        load_model=load_model,
+        support_description=_support_description(boundary_entries, cfg),
         static=static,
         buckle=buckle,
         reference_metrics=summary_metrics,
@@ -250,6 +286,8 @@ def run_structural_check(
         step_path=resolved_step,
         mesh_path=resolved_mesh,
         paraview_script_path=paraview_script_path,
+        load_description=load_model.description,
+        support_description=_support_description(boundary_entries, cfg),
         static=static,
         buckle=buckle,
     )
@@ -262,15 +300,16 @@ def _run_static_check(
     cfg: HPAConfig,
     material_payload: dict[str, float],
     expected_tip_deflection_m: float | None,
-    tip_load_n: float,
+    boundary_entries: list[BoundaryEntry],
+    load_model: StructuralLoadModel,
+    mesh_length_scale_m_per_unit: float,
 ) -> StructuralCheckSection:
     try:
-        root_boundary = root_boundary_from_mesh(mesh_path)
         tip_node = tip_node_from_mesh(mesh_path)
     except Exception as exc:  # noqa: BLE001
         return StructuralCheckSection(
             status="WARN",
-            message=f"Could not derive ROOT/TIP from mesh: {exc}",
+            message=f"Could not derive TIP from mesh: {exc}",
         )
 
     static_inp = hifi_dir / f"{mesh_path.stem}_static.inp"
@@ -278,8 +317,8 @@ def _run_static_check(
         mesh_path,
         static_inp,
         material_payload,
-        _boundary_arg(root_boundary),
-        [(tip_node, 3, tip_load_n)],
+        _boundary_arg(boundary_entries),
+        list(load_model.entries),
     )
     result = run_static(static_inp, cfg)
     if result.get("error"):
@@ -306,15 +345,15 @@ def _run_static_check(
             artifact_path=frd_path,
         )
 
-    tip_deflection_m = abs(float(matches[-1, 3]))
+    tip_deflection_m = abs(float(matches[-1, 3])) * mesh_length_scale_m_per_unit
     diff_pct = _pct_diff(tip_deflection_m, expected_tip_deflection_m)
     status = "PASS" if diff_pct is not None and abs(diff_pct) <= 5.0 else "WARN"
     if expected_tip_deflection_m is None:
         status = "SKIP"
     message = (
-        "Static tip-deflection check completed."
+        f"Static tip-deflection check completed using {load_model.description}"
         if expected_tip_deflection_m is not None
-        else "Static run completed, but no reference tip deflection was available."
+        else f"Static run completed with {load_model.description}, but no reference tip deflection was available."
     )
     return StructuralCheckSection(
         status=status,
@@ -333,15 +372,15 @@ def _run_buckle_check(
     cfg: HPAConfig,
     material_payload: dict[str, float],
     expected_buckling_index: float | None,
-    tip_load_n: float,
+    boundary_entries: list[BoundaryEntry],
+    load_model: StructuralLoadModel,
 ) -> StructuralCheckSection:
     try:
-        root_boundary = root_boundary_from_mesh(mesh_path)
-        tip_node = tip_node_from_mesh(mesh_path)
+        tip_node_from_mesh(mesh_path)
     except Exception as exc:  # noqa: BLE001
         return StructuralCheckSection(
             status="WARN",
-            message=f"Could not derive ROOT/TIP from mesh: {exc}",
+            message=f"Could not derive TIP from mesh: {exc}",
         )
 
     buckle_inp = hifi_dir / f"{mesh_path.stem}_buckle.inp"
@@ -349,8 +388,8 @@ def _run_buckle_check(
         mesh_path,
         buckle_inp,
         material_payload,
-        _boundary_arg(root_boundary),
-        [(tip_node, 3, tip_load_n)],
+        _boundary_arg(boundary_entries),
+        list(load_model.entries),
     )
     result = run_static(buckle_inp, cfg)
     if result.get("error"):
@@ -381,9 +420,9 @@ def _run_buckle_check(
     if expected_buckling_index is None:
         status = "SKIP"
     message = (
-        "Buckling check completed."
+        f"Buckling check completed using {load_model.description}"
         if expected_buckling_index is not None
-        else "BUCKLE run completed, but no reference buckling index was available."
+        else f"BUCKLE run completed with {load_model.description}, but no reference buckling index was available."
     )
     return StructuralCheckSection(
         status=status,
@@ -396,13 +435,20 @@ def _run_buckle_check(
     )
 
 
-def _material_payload(material_key: str) -> dict[str, float]:
+def _material_payload(
+    material_key: str,
+    *,
+    length_scale_m_per_unit: float = 1.0,
+) -> dict[str, float]:
     materials_db = MaterialDB(REPO_ROOT / "data" / "materials.yaml")
     material = materials_db.get(material_key)
+    length_scale = float(length_scale_m_per_unit)
     return {
-        "E": float(material.E),
+        # CalculiX is unitless, so when the mesh coordinates are not in metres
+        # we scale material properties into ``N / unit^2`` and ``kg / unit^3``.
+        "E": float(material.E) * length_scale**2,
         "nu": float(material.poisson_ratio),
-        "rho": float(material.density),
+        "rho": float(material.density) * length_scale**3,
     }
 
 
@@ -422,7 +468,16 @@ def _resolve_optional_path(path_like: str | Path | None) -> Path | None:
 
 
 def _discover_default_step(output_dir: Path) -> Path | None:
-    for name in ("wing_cruise.step", "cruise.step", "wing_jig.step", "jig.step"):
+    for name in (
+        "spar_model.step",
+        "spar_geometry.step",
+        "spar_flight_shape.step",
+        "spar_jig_shape.step",
+        "wing_cruise.step",
+        "cruise.step",
+        "wing_jig.step",
+        "jig.step",
+    ):
         candidate = output_dir / name
         if candidate.exists():
             return candidate.resolve()
@@ -452,6 +507,8 @@ def _write_combined_report(
     step_path: Path | None,
     mesh_path: Path | None,
     paraview_script_path: Path | None,
+    load_model: StructuralLoadModel | None,
+    support_description: str,
     static: StructuralCheckSection,
     buckle: StructuralCheckSection,
     reference_metrics: dict[str, float | None],
@@ -465,6 +522,9 @@ def _write_combined_report(
         f"- STEP input: {step_path or '—'}",
         f"- Mesh input: {mesh_path or '—'}",
         f"- ParaView script: {paraview_script_path or '—'}",
+        f"- Loads: {load_model.description if load_model is not None else '—'}",
+        f"- Applied total Fz [N]: {_fmt(load_model.total_fz_n if load_model is not None else None)}",
+        f"- Supports: {support_description}",
         "",
         "## Reference Metrics",
         "",
@@ -506,3 +566,321 @@ def _boundary_arg(boundary_entries: list[tuple[int, tuple[int, ...]]]) -> Any:
     if len(boundary_entries) == 1:
         return boundary_entries[0]
     return boundary_entries
+
+
+def _support_boundary_from_mesh(mesh_path: Path, cfg: HPAConfig) -> list[BoundaryEntry]:
+    boundary_entries = list(root_boundary_from_mesh(mesh_path))
+    try:
+        from hpa_mdo.hifi.gmsh_runner import parse_nset_from_inp
+
+        nsets = parse_nset_from_inp(mesh_path)
+    except Exception:
+        nsets = {}
+
+    if cfg.lift_wires.enabled:
+        for idx, attachment in enumerate(cfg.lift_wires.attachments, start=1):
+            nset_name = f"WIRE_{idx}"
+            if nset_name in nsets and nsets[nset_name]:
+                boundary_entries.extend((int(node_id), (3,)) for node_id in nsets[nset_name])
+                continue
+            node_id = _nearest_node_for_spanwise_y(
+                mesh_path,
+                float(attachment.y),
+                cfg,
+            )
+            boundary_entries.append((node_id, (3,)))
+    return _merge_boundary_entries(boundary_entries)
+
+
+def _merge_boundary_entries(entries: list[BoundaryEntry]) -> list[BoundaryEntry]:
+    merged: dict[int, set[int]] = {}
+    for node_id, dofs in entries:
+        merged.setdefault(int(node_id), set()).update(int(dof) for dof in dofs)
+    return [
+        (node_id, tuple(sorted(dofs)))
+        for node_id, dofs in sorted(merged.items())
+    ]
+
+
+def _support_description(boundary_entries: list[BoundaryEntry], cfg: HPAConfig) -> str:
+    root_count = sum(1 for _node_id, dofs in boundary_entries if tuple(sorted(dofs)) == (1, 2, 3))
+    wire_count = sum(1 for _node_id, dofs in boundary_entries if tuple(sorted(dofs)) == (3,))
+    if cfg.lift_wires.enabled:
+        return f"ROOT clamp nodes={root_count}; wire U3 supports={wire_count}"
+    return f"ROOT clamp nodes={root_count}; no wire supports"
+
+
+def _build_load_model(
+    *,
+    cfg: HPAConfig,
+    output_dir: Path,
+    mesh_path: Path,
+    step_path: Path | None,
+    explicit_tip_load_n: float | None,
+    mesh_length_scale_m_per_unit: float,
+) -> StructuralLoadModel:
+    if explicit_tip_load_n is not None:
+        tip_node = tip_node_from_mesh(mesh_path)
+        load_n = float(explicit_tip_load_n)
+        return StructuralLoadModel(
+            description=f"explicit tip load ({load_n:.6g} N at node {tip_node})",
+            entries=((tip_node, 3, load_n),),
+            total_fz_n=load_n,
+        )
+
+    source_hint = "" if step_path is None else step_path.stem.lower()
+    source_candidates: list[Path] = []
+    if "spar" in source_hint:
+        source_candidates.extend(
+            [
+                output_dir / "ansys" / "spar_data.csv",
+                output_dir / "fsi_one_way" / "ansys" / "spar_data.csv",
+            ]
+        )
+    else:
+        source_candidates.extend(
+            [
+                output_dir / "fsi_one_way" / "ansys" / "spar_data.csv",
+                output_dir / "ansys" / "spar_data.csv",
+            ]
+        )
+
+    for csv_path in source_candidates:
+        load_model = _load_model_from_spar_csv(
+            csv_path=csv_path,
+            mesh_path=mesh_path,
+            cfg=cfg,
+            mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+        )
+        if load_model is not None:
+            return load_model
+
+    load_model = _load_model_from_vsp(
+        cfg=cfg,
+        mesh_path=mesh_path,
+        mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+    )
+    if load_model is not None:
+        return load_model
+
+    tip_node = tip_node_from_mesh(mesh_path)
+    load_n = -0.5 * float(cfg.weight.max_takeoff_kg) * G_STANDARD
+    return StructuralLoadModel(
+        description=f"default tip load fallback ({load_n:.6g} N at node {tip_node})",
+        entries=((tip_node, 3, load_n),),
+        total_fz_n=load_n,
+    )
+
+
+def _load_model_from_spar_csv(
+    *,
+    csv_path: Path,
+    mesh_path: Path,
+    cfg: HPAConfig,
+    mesh_length_scale_m_per_unit: float,
+) -> StructuralLoadModel | None:
+    if not csv_path.exists():
+        return None
+
+    y_stations_m: list[float] = []
+    fz_nodal: list[float] = []
+    with csv_path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        required = {"Y_Position_m", "Main_FZ_N", "Rear_FZ_N"}
+        if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+            return None
+        for row in reader:
+            try:
+                y_m = float(row["Y_Position_m"])
+                main_fz = float(row["Main_FZ_N"])
+                rear_fz = float(row["Rear_FZ_N"])
+            except (TypeError, ValueError):
+                continue
+            y_stations_m.append(y_m)
+            fz_nodal.append(main_fz + rear_fz)
+
+    if not y_stations_m:
+        return None
+
+    entries = _map_spanwise_forces_to_mesh(
+        mesh_path=mesh_path,
+        cfg=cfg,
+        y_stations_m=np.asarray(y_stations_m, dtype=float),
+        force_z_n=np.asarray(fz_nodal, dtype=float),
+        mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+    )
+    if not entries:
+        return None
+
+    total_fz_n = float(np.sum(fz_nodal))
+    return StructuralLoadModel(
+        description=(
+            f"distributed nodal Fz from {_display_path(csv_path)} "
+            f"({len(entries)} mesh nodes, total {total_fz_n:.3f} N)"
+        ),
+        entries=tuple(entries),
+        total_fz_n=total_fz_n,
+        source_path=csv_path,
+    )
+
+
+def _load_model_from_vsp(
+    *,
+    cfg: HPAConfig,
+    mesh_path: Path,
+    mesh_length_scale_m_per_unit: float,
+) -> StructuralLoadModel | None:
+    if cfg.io.vsp_lod is None or cfg.io.vsp_polar is None:
+        return None
+    if not Path(cfg.io.vsp_lod).exists() or not Path(cfg.io.vsp_polar).exists():
+        return None
+
+    aircraft = Aircraft.from_config(cfg)
+    parser = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar)
+    cases = parser.parse()
+    if not cases:
+        return None
+
+    mapper = LoadMapper()
+    target_weight = aircraft.weight_N
+    best_loads: dict[str, Any] | None = None
+    best_residual = float("inf")
+
+    for case in cases:
+        mapped = mapper.map_loads(
+            case,
+            aircraft.wing.y,
+            actual_velocity=cfg.flight.velocity,
+            actual_density=cfg.flight.air_density,
+        )
+        residual = abs(2.0 * float(mapped["total_lift"]) - target_weight)
+        if residual < best_residual:
+            best_residual = residual
+            best_loads = mapped
+
+    if best_loads is None:
+        return None
+
+    design_case = cfg.structural_load_cases()[0]
+    scaled = LoadMapper.apply_load_factor(best_loads, design_case.aero_scale)
+    node_spacings = _node_spacings(np.asarray(scaled["y"], dtype=float))
+    fz_nodal = np.asarray(scaled["lift_per_span"], dtype=float) * node_spacings
+    entries = _map_spanwise_forces_to_mesh(
+        mesh_path=mesh_path,
+        cfg=cfg,
+        y_stations_m=np.asarray(scaled["y"], dtype=float),
+        force_z_n=fz_nodal,
+        mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+    )
+    if not entries:
+        return None
+
+    total_fz_n = float(np.sum(fz_nodal))
+    return StructuralLoadModel(
+        description=(
+            f"distributed lift from VSPAero ({len(entries)} mesh nodes, "
+            f"total {total_fz_n:.3f} N)"
+        ),
+        entries=tuple(entries),
+        total_fz_n=total_fz_n,
+        source_path=Path(cfg.io.vsp_lod),
+    )
+
+
+def _map_spanwise_forces_to_mesh(
+    *,
+    mesh_path: Path,
+    cfg: HPAConfig,
+    y_stations_m: np.ndarray,
+    force_z_n: np.ndarray,
+    mesh_length_scale_m_per_unit: float,
+) -> list[LoadEntry]:
+    nodes = parse_inp_nodes(mesh_path)
+    if nodes.size == 0:
+        return []
+
+    force_by_node: dict[int, float] = {}
+    for y_m, force_n in zip(y_stations_m, force_z_n, strict=True):
+        if abs(float(force_n)) <= 1.0e-12:
+            continue
+        node_id = _nearest_node_for_spanwise_y(
+            mesh_path,
+            float(y_m),
+            cfg,
+            mesh_nodes=nodes,
+            mesh_length_scale_m_per_unit=mesh_length_scale_m_per_unit,
+        )
+        force_by_node[node_id] = force_by_node.get(node_id, 0.0) + float(force_n)
+
+    return [
+        (node_id, 3, magnitude)
+        for node_id, magnitude in sorted(force_by_node.items())
+        if abs(magnitude) > 1.0e-9
+    ]
+
+
+def _nearest_node_for_spanwise_y(
+    mesh_path: Path,
+    y_target_m: float,
+    cfg: HPAConfig,
+    *,
+    mesh_nodes: np.ndarray | None = None,
+    mesh_length_scale_m_per_unit: float | None = None,
+) -> int:
+    nodes = parse_inp_nodes(mesh_path) if mesh_nodes is None else mesh_nodes
+    if mesh_length_scale_m_per_unit is None:
+        mesh_length_scale_m_per_unit = _mesh_length_scale_m_per_unit(mesh_path, cfg, mesh_nodes=nodes)
+
+    y_coords = np.asarray(nodes[:, 2], dtype=float)
+    x_coords = np.asarray(nodes[:, 1], dtype=float)
+    z_coords = np.asarray(nodes[:, 3], dtype=float)
+    y_target_units = float(y_target_m) / float(mesh_length_scale_m_per_unit)
+    delta_y = np.abs(y_coords - y_target_units)
+    min_delta = float(np.min(delta_y))
+    band = max(min_delta + 1.0e-12, 0.25 * np.median(np.diff(np.unique(np.sort(y_coords)))) if len(np.unique(y_coords)) > 1 else min_delta + 1.0)
+    candidate_mask = delta_y <= band
+    candidate_indices = np.where(candidate_mask)[0]
+    if candidate_indices.size == 0:
+        candidate_indices = np.asarray([int(np.argmin(delta_y))], dtype=int)
+    x_ref = float(np.median(x_coords[candidate_indices]))
+    z_ref = float(np.median(z_coords[candidate_indices]))
+    distance = delta_y[candidate_indices] + 1.0e-6 * (
+        np.abs(x_coords[candidate_indices] - x_ref) + np.abs(z_coords[candidate_indices] - z_ref)
+    )
+    best_idx = int(candidate_indices[int(np.argmin(distance))])
+    return int(nodes[best_idx, 0])
+
+
+def _mesh_length_scale_m_per_unit(
+    mesh_path: Path,
+    cfg: HPAConfig,
+    *,
+    mesh_nodes: np.ndarray | None = None,
+) -> float:
+    nodes = parse_inp_nodes(mesh_path) if mesh_nodes is None else mesh_nodes
+    if nodes.size == 0:
+        return 1.0
+    y_coords = np.asarray(nodes[:, 2], dtype=float)
+    mesh_half_span_units = float(np.max(np.abs(y_coords)))
+    if mesh_half_span_units <= 0.0:
+        return 1.0
+    return float(cfg.half_span) / mesh_half_span_units
+
+
+def _node_spacings(y_nodes: np.ndarray) -> np.ndarray:
+    dy = np.diff(y_nodes)
+    if dy.size == 0:
+        return np.ones_like(y_nodes)
+    out = np.zeros(len(y_nodes), dtype=float)
+    out[0] = dy[0] / 2.0
+    out[-1] = dy[-1] / 2.0
+    for idx in range(1, len(y_nodes) - 1):
+        out[idx] = 0.5 * (dy[idx - 1] + dy[idx])
+    return out
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)

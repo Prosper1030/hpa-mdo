@@ -127,6 +127,23 @@ def test_root_boundary_prefers_nset(tmp_path: Path) -> None:
     assert tip_node_from_mesh(mesh) == 3
 
 
+MESH_FULL_SPAN_NO_NSET = """*NODE
+1, 0.0, -16.5, 0.0
+2, 0.0, 0.0, 0.0
+3, 0.0, 16.5, 0.0
+4, 0.0, 0.0, 0.1
+*ELEMENT, TYPE=C3D4
+10, 1, 2, 3, 4
+"""
+
+
+def test_root_boundary_fallback_uses_symmetry_plane_for_full_span_mesh(tmp_path: Path) -> None:
+    mesh = tmp_path / "mesh_full_span.inp"
+    mesh.write_text(MESH_FULL_SPAN_NO_NSET, encoding="utf-8")
+
+    assert root_boundary_from_mesh(mesh) == [(2, (1, 2, 3)), (4, (1, 2, 3))]
+
+
 def test_run_static_skips_gracefully_when_ccx_missing(tmp_path: Path, monkeypatch) -> None:
     cfg = _cfg(tmp_path)
     cfg.hi_fidelity.calculix.enabled = True

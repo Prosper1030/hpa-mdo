@@ -267,12 +267,14 @@ def root_boundary_from_mesh(
     tolerance: float = 1.0e-9,
     prefer_nset: str = "ROOT",
 ) -> list[BoundaryEntry]:
-    """Clamp all nodes at the minimum spanwise ``y`` station.
+    """Clamp all nodes at the structural root plane.
 
     Prefers the ``NSET=<prefer_nset>`` block written by
     :func:`hpa_mdo.hifi.gmsh_runner.annotate_inp_with_named_points`; falls
-    back to the y-min heuristic when the NSET is absent.  A WARN line is
-    printed when the heuristic path is taken.
+    back to the ``|y|``-minimum heuristic when the NSET is absent.  This
+    keeps the fallback correct for both half-wing meshes (``y >= 0``) and
+    full-span meshes centred on the symmetry plane.  A WARN line is printed
+    when the heuristic path is taken.
     """
 
     try:
@@ -287,11 +289,11 @@ def root_boundary_from_mesh(
 
     print(
         f"WARN: NSET={prefer} not found in {mesh_inp_path}; "
-        "falling back to y-min heuristic for root boundary."
+        "falling back to |y|-min heuristic for root boundary."
     )
     nodes = parse_inp_nodes(mesh_inp_path)
-    y_min = float(np.min(nodes[:, 2]))
-    root_nodes = nodes[np.abs(nodes[:, 2] - y_min) <= tolerance, 0].astype(int)
+    y_abs_min = float(np.min(np.abs(nodes[:, 2])))
+    root_nodes = nodes[np.abs(np.abs(nodes[:, 2]) - y_abs_min) <= tolerance, 0].astype(int)
     return [(int(node_id), (1, 2, 3)) for node_id in root_nodes]
 
 
