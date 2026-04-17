@@ -104,7 +104,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - ANSYS/APDL 路線仍然值得保留作 evidence
 - 但它目前還不足以支持「repo 現在已經和 APDL 很 close，所以可直接鎖死 benchmark」
 
-### B. Mac structural check 已有正式 compare/diagnostic schema，但 basket 仍缺 fresh representative run
+### B. Mac structural check 已有正式 compare/diagnostic schema，且 fresh representative run 仍指向 mesh-quality blocker
 
 `Track C` 完成後，`structural_check` code path 已可輸出：
 
@@ -114,13 +114,20 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - `issue_category`
 - solver / diagnostics 摘要
 
-但目前 benchmark basket 裡，仍只有一份較舊的代表性 artifact：
+目前已補上一份 fresh representative run，reference 對齊到：
 
-`output/blackcat_004/hifi/structural_check.md`
+- `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
+
+代表性 artifact：
+
+- `output/blackcat_004/hifi_dual_beam_production_syncfile_reference/structural_check.md`
+- `output/blackcat_004/hifi_dual_beam_production_syncfile_reference/structural_check.json`
 
 該案例目前是：
 
 - `Overall status: WARN`
+- `Overall comparability: NOT_COMPARABLE`
+- static / buckle 都分類成 `mesh_quality`
 - CalculiX static 發生大量 `opposite normals are defined`
 - 並且出現 `nonpositive jacobian`
 
@@ -132,10 +139,10 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 - repo 完全沒有高保真 code path
 
-換句話說：
+換句話說，目前結論是：
 
 - **能力層**：Mac structural spot-check 的 compare/diagnostic schema 已存在
-- **benchmark basket 層**：還缺一份 fresh representative run，才適合正式拿來做 basket candidate
+- **benchmark basket 層**：fresh representative run 已經補齊，但它證明現在還不能升格成正式 candidate，因為 blocker 仍是 mesh-quality
 
 ## 5. benchmark policy：先保持開放，不先釘死
 

@@ -21,7 +21,7 @@
 1. 先用 `dual_beam_production_check` 當目前最接近主線的 ANSYS inspection reference。
 2. 用 `dual_beam_refinement` 當「局部幾何變硬後是否仍維持相似判斷」的補充 evidence。
 3. 用 `dual_spar_spotcheck` 與其 neighbors 當 legacy model-form risk package，不當唯一 benchmark gate。
-4. 等 Mac high-fidelity 有 fresh representative run 後，再把它升格成真正的本機 structural spot-check candidate。
+4. Mac high-fidelity 已有 fresh representative run，但在 mesh-quality 收斂前，仍先維持 `not_yet_ready`。
 
 ## Candidate Table
 
@@ -31,7 +31,7 @@
 | `blackcat_004_dual_beam_refinement` | `historical_evidence` | 保留了 warm/refined eq/dual 對照，也有 refined ANSYS spot-check summary | refined eq mass `9.871 kg`、refined dual mass `9.872 kg`；ANSYS refined spot-check 仍是 `MODEL-FORM RISK` | 用來觀察「往更硬設計移動後」相對趨勢是否一致 |
 | `blackcat_004_dual_spar_spotcheck` | `historical_evidence` | 最完整的 legacy dual-spar baseline 對照案例 | tip deflection error `14.14%`、max \|UZ\| error `35.64%`、support reaction error `0.00%`、mass error `0.19%`；整體 `MODEL-FORM RISK` | 保留作 model-form risk baseline，不再當唯一 benchmark 真值 |
 | `blackcat_004_dual_spar_spotcheck_neighbors` | `historical_evidence` | baseline / harder / softer 三點一起看，能評估 ranking flip 風險 | baseline `9.454 kg / 2500 mm`、harder `9.744 kg / 2274 mm`、softer `9.164 kg / 2756 mm`；各點 ANSYS compare 仍是 `MODEL-FORM RISK` | 當 sensitivity package，用來看接近設計是否可能因 hi-fi 對照而翻盤 |
-| `output/blackcat_004/hifi/structural_check` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，且新 code 已支援 comparability / issue-category / JSON summary | 現有 artifact 是舊 run：`Overall status: WARN`，主要是 `opposite normals` / `nonpositive jacobian` 類 mesh-quality 問題；basket 中尚無 fresh representative JSON | 先當本機診斷能力證據，不先升格成正式 benchmark case |
+| `output/blackcat_004/hifi_dual_beam_production_syncfile_reference` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，且 fresh run 已對齊 `dual_beam_production` reference family | fresh representative JSON 仍是 `WARN` / `NOT_COMPARABLE`；static+buckle 都是 `mesh_quality`，診斷為 `opposite_normals x4762`、`nonpositive_jacobian x32` | 保留成最新本機診斷證據；在 mesh-quality 收斂前，不升格成正式 benchmark candidate |
 
 ## Evidence Notes
 
@@ -84,21 +84,25 @@
   - 仍然是 legacy dual-spar family。
   - 更適合當 sensitivity evidence，而不是新主線的唯一 benchmark。
 
-### 5. `output/blackcat_004/hifi/structural_check`
+### 5. `output/blackcat_004/hifi_dual_beam_production_syncfile_reference`
 
 - Paths:
-  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi/structural_check.md`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_dual_beam_production_syncfile_reference/structural_check.md`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_dual_beam_production_syncfile_reference/structural_check.json`
   - `src/hpa_mdo/hifi/structural_check.py`
 - Why it matters:
   - 本機 Mac route 是未來最值得持續投資的 validation path。
   - 最新 code 已支援 `structural_check.json`、`comparability`、`issue_category` 與更明確的 solver diagnostics。
+  - 這次 fresh representative run 已把 reference 對齊到：
+    `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
 - Current caution:
-  - basket 內目前沒有 fresh representative JSON run。
-  - 現有舊 artifact 仍顯示 mesh-quality 問題，所以暫時只算 `not_yet_ready`。
+  - fresh run 仍是 `WARN` / `NOT_COMPARABLE`。
+  - static 與 buckle 都停在 `mesh_quality`，診斷為 `opposite_normals x4762` 與 `nonpositive_jacobian x32`。
+  - 這代表目前最該修的是 mesh / named-point / boundary contract，不是先擴張 benchmark 敘事。
 
 ## Practical Recommendation
 
 - 如果今天要選一個最先拿來和 Mac structural spot-check 對齊的外部 reference，先選 `blackcat_004_dual_beam_production_check`。
 - 如果要看 design ordering / sensitivity，再加上 `dual_spar_spotcheck_neighbors`。
 - 如果要做 repo 歷史脈絡或風險對照，再保留 `dual_spar_spotcheck` baseline。
-- Mac `structural_check` 等有一份 fresh representative run 之後，再決定是否升格成 basket 的正式 `current_candidate`。
+- Mac `structural_check` 現在已經有 fresh representative run，但它先證明的是「目前 blocker 仍是 mesh-quality」，不是「已可直接升格成 benchmark candidate」。
