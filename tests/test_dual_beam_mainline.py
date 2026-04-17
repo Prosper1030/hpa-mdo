@@ -138,30 +138,46 @@ def test_mode_matrix_freezes_reviewer_required_load_and_bc_ownership() -> None:
     assert parity.ownership.main_spar_self_weight == "disabled"
     assert parity.ownership.rear_spar_self_weight == "disabled"
     assert parity.ownership.rear_gravity_torque == "disabled"
+    assert parity.ownership.aerodynamic_torque == "main_rear_vertical_couple_about_main_spar"
     assert production.ownership.main_spar_self_weight == "main_beam_fz"
     assert production.ownership.rear_spar_self_weight == "rear_beam_fz"
     assert production.ownership.rear_gravity_torque == "disabled_explicit_dual_beam"
+    assert production.ownership.aerodynamic_torque == "main_beam_my_about_main_spar"
     assert production.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
+    assert robustness.ownership.aerodynamic_torque == "main_beam_my_about_main_spar"
     assert robustness.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
     assert robustness.ownership.hardware_mass_structural_loads == "report_only"
     assert LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY in robustness.allowed_link_modes
 
 
-def test_torque_conversion_and_dual_beam_split_use_one_signed_main_spar_rule() -> None:
+def test_torque_conversion_and_dual_beam_torque_path_uses_mode_owned_representation() -> None:
     model = _simple_model(
         lift_per_span_npm=np.array([0.0, 10.0, 0.0]),
         torque_per_span_nmpm=np.array([0.0, 4.0, 0.0]),
         main_mass_per_length_kgpm=np.zeros(2),
         rear_mass_per_length_kgpm=np.zeros(2),
     )
+    parity = get_analysis_mode_definition(AnalysisModeName.DUAL_SPAR_ANSYS_PARITY)
     production = get_analysis_mode_definition(AnalysisModeName.DUAL_BEAM_PRODUCTION)
+    parity_load_split = build_dual_beam_load_split(model=model, mode_definition=parity)
     load_split = build_dual_beam_load_split(model=model, mode_definition=production)
 
+    np.testing.assert_allclose(parity_load_split.torque_main_fz_n, np.array([0.0, 4.0, 0.0]))
+    np.testing.assert_allclose(parity_load_split.torque_rear_fz_n, np.array([0.0, -4.0, 0.0]))
+    np.testing.assert_allclose(parity_load_split.torque_main_my_n, 0.0)
+    np.testing.assert_allclose(parity_load_split.main_loads_n[:, 2], np.array([0.0, 14.0, 0.0]))
+    np.testing.assert_allclose(parity_load_split.rear_loads_n[:, 2], np.array([0.0, -4.0, 0.0]))
+    np.testing.assert_allclose(parity_load_split.main_loads_n[:, 4], 0.0)
+
     np.testing.assert_allclose(load_split.lift_main_fz_n, np.array([0.0, 10.0, 0.0]))
-    np.testing.assert_allclose(load_split.torque_main_fz_n, np.array([0.0, 4.0, 0.0]))
-    np.testing.assert_allclose(load_split.torque_rear_fz_n, np.array([0.0, -4.0, 0.0]))
-    np.testing.assert_allclose(load_split.main_loads_n[:, 2], np.array([0.0, 14.0, 0.0]))
-    np.testing.assert_allclose(load_split.rear_loads_n[:, 2], np.array([0.0, -4.0, 0.0]))
+    np.testing.assert_allclose(load_split.torque_main_fz_n, 0.0)
+    np.testing.assert_allclose(load_split.torque_rear_fz_n, 0.0)
+    np.testing.assert_allclose(load_split.torque_main_my_n, np.array([0.0, 4.0, 0.0]))
+    np.testing.assert_allclose(load_split.torque_rear_my_n, 0.0)
+    np.testing.assert_allclose(load_split.main_loads_n[:, 2], np.array([0.0, 10.0, 0.0]))
+    np.testing.assert_allclose(load_split.rear_loads_n[:, 2], np.array([0.0, 0.0, 0.0]))
+    np.testing.assert_allclose(load_split.main_loads_n[:, 4], np.array([0.0, 4.0, 0.0]))
+    np.testing.assert_allclose(load_split.rear_loads_n[:, 4], 0.0)
 
     converted = convert_torque_to_main_spar_reference(
         lift_per_span_npm=np.array([10.0]),

@@ -100,6 +100,8 @@ def build_dual_beam_load_split(
     lift_rear_fz_n = np.zeros(nn, dtype=float)
     torque_main_fz_n = np.zeros(nn, dtype=float)
     torque_rear_fz_n = np.zeros(nn, dtype=float)
+    torque_main_my_n = np.zeros(nn, dtype=float)
+    torque_rear_my_n = np.zeros(nn, dtype=float)
     main_self_weight_fz_n = np.zeros(nn, dtype=float)
     rear_self_weight_fz_n = np.zeros(nn, dtype=float)
     rear_gravity_torque_my_n = np.zeros(nn, dtype=float)
@@ -114,22 +116,29 @@ def build_dual_beam_load_split(
         torque_input=model.torque_input,
     )
 
-    for i, (moment_per_span, spacing, separation) in enumerate(
-        zip(
-            torque_about_main_per_span_nmpm,
-            model.node_spacings_m,
-            model.spar_separation_nodes_m,
-            strict=True,
+    if mode_definition.ownership.aerodynamic_torque == "main_rear_vertical_couple_about_main_spar":
+        for i, (moment_per_span, spacing, separation) in enumerate(
+            zip(
+                torque_about_main_per_span_nmpm,
+                model.node_spacings_m,
+                model.spar_separation_nodes_m,
+                strict=True,
+            )
+        ):
+            if abs(moment_per_span) <= 1.0e-14:
+                continue
+            if abs(separation) <= 1.0e-12:
+                raise ValueError("Main/rear spar separation must stay non-zero for torque splitting.")
+            moment_n_m = moment_per_span * spacing
+            couple_force_n = moment_n_m / separation
+            torque_main_fz_n[i] += couple_force_n
+            torque_rear_fz_n[i] -= couple_force_n
+    elif mode_definition.ownership.aerodynamic_torque == "main_beam_my_about_main_spar":
+        torque_main_my_n = torque_about_main_per_span_nmpm * model.node_spacings_m
+    else:
+        raise ValueError(
+            f"Unsupported aerodynamic torque ownership: {mode_definition.ownership.aerodynamic_torque}."
         )
-    ):
-        if abs(moment_per_span) <= 1.0e-14:
-            continue
-        if abs(separation) <= 1.0e-12:
-            raise ValueError("Main/rear spar separation must stay non-zero for torque splitting.")
-        moment_n_m = moment_per_span * spacing
-        couple_force_n = moment_n_m / separation
-        torque_main_fz_n[i] += couple_force_n
-        torque_rear_fz_n[i] -= couple_force_n
 
     if mode_definition.ownership.main_spar_self_weight != "disabled":
         main_self_weight_fz_n = _beam_line_self_weight_nodal(
@@ -148,6 +157,8 @@ def build_dual_beam_load_split(
 
     main_loads[:, 2] = lift_main_fz_n + torque_main_fz_n + main_self_weight_fz_n
     rear_loads[:, 2] = lift_rear_fz_n + torque_rear_fz_n + rear_self_weight_fz_n
+    main_loads[:, 4] = torque_main_my_n
+    rear_loads[:, 4] = torque_rear_my_n + rear_gravity_torque_my_n
     total_applied_fz_n = float(np.sum(main_loads[:, 2]) + np.sum(rear_loads[:, 2]))
 
     return LoadSplitResult(
@@ -158,6 +169,8 @@ def build_dual_beam_load_split(
         lift_rear_fz_n=lift_rear_fz_n,
         torque_main_fz_n=torque_main_fz_n,
         torque_rear_fz_n=torque_rear_fz_n,
+        torque_main_my_n=torque_main_my_n,
+        torque_rear_my_n=torque_rear_my_n,
         main_self_weight_fz_n=main_self_weight_fz_n,
         rear_self_weight_fz_n=rear_self_weight_fz_n,
         rear_gravity_torque_my_n=rear_gravity_torque_my_n,

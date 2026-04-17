@@ -174,6 +174,8 @@ class LoadSplitResult:
     lift_rear_fz_n: np.ndarray
     torque_main_fz_n: np.ndarray
     torque_rear_fz_n: np.ndarray
+    torque_main_my_n: np.ndarray
+    torque_rear_my_n: np.ndarray
     main_self_weight_fz_n: np.ndarray
     rear_self_weight_fz_n: np.ndarray
     rear_gravity_torque_my_n: np.ndarray
@@ -451,7 +453,7 @@ _MODE_DEFINITIONS = {
         description="Physics-first production analysis mode with explicit spar-line self-weight.",
         ownership=AnalysisOwnership(
             lift="main_beam_fz",
-            aerodynamic_torque="main_rear_vertical_couple_about_main_spar",
+            aerodynamic_torque="main_beam_my_about_main_spar",
             main_spar_self_weight="main_beam_fz",
             rear_spar_self_weight="rear_beam_fz",
             rear_gravity_torque="disabled_explicit_dual_beam",
@@ -472,7 +474,7 @@ _MODE_DEFINITIONS = {
         description="Production load ownership rerun across non-default link modes for topology sensitivity.",
         ownership=AnalysisOwnership(
             lift="main_beam_fz",
-            aerodynamic_torque="main_rear_vertical_couple_about_main_spar",
+            aerodynamic_torque="main_beam_my_about_main_spar",
             main_spar_self_weight="main_beam_fz",
             rear_spar_self_weight="rear_beam_fz",
             rear_gravity_torque="disabled_explicit_dual_beam",
