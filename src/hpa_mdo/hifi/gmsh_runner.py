@@ -16,6 +16,7 @@ block — this is what Gmsh itself would emit for a Physical Point with
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 import shutil
@@ -53,6 +54,64 @@ class NamedPoint:
     xyz: tuple[float, float, float]
     tol_m: float | None = None
     match_mode: str = "nearest_xyz"
+
+
+@dataclass(frozen=True)
+class MeshDiagnostics:
+    """Machine-readable diagnostics for one meshed ``.inp`` artifact."""
+
+    mesh_path: Path
+    diagnostics_path: Path | None
+    element_count: int
+    gmsh_returncode: int | None = None
+    duplicate_shell_facets: int = 0
+    overlapping_boundary_mesh_count: int = 0
+    no_elements_in_volume_count: int = 0
+    equivalent_triangles_count: int = 0
+    invalid_surface_elements_count: int = 0
+    duplicate_boundary_facets_count: int = 0
+
+    @property
+    def issue_hints(self) -> tuple[str, ...]:
+        hints: list[str] = []
+        if self.overlapping_boundary_mesh_count > 0:
+            hints.append(
+                f"overlapping_boundary_mesh x{int(self.overlapping_boundary_mesh_count)}"
+            )
+        if self.no_elements_in_volume_count > 0:
+            hints.append(f"no_elements_in_volume x{int(self.no_elements_in_volume_count)}")
+        if self.duplicate_boundary_facets_count > 0:
+            hints.append(
+                f"duplicate_boundary_facets x{int(self.duplicate_boundary_facets_count)}"
+            )
+        if self.invalid_surface_elements_count > 0:
+            hints.append(
+                f"invalid_surface_elements x{int(self.invalid_surface_elements_count)}"
+            )
+        if self.equivalent_triangles_count > 0:
+            hints.append(
+                f"equivalent_triangles x{int(self.equivalent_triangles_count)}"
+            )
+        if self.duplicate_shell_facets > 0:
+            hints.append(f"duplicate_shell_facets x{int(self.duplicate_shell_facets)}")
+        return tuple(hints)
+
+    def to_dict(self) -> dict[str, int | str | None | list[str]]:
+        return {
+            "mesh_path": str(self.mesh_path),
+            "diagnostics_path": None
+            if self.diagnostics_path is None
+            else str(self.diagnostics_path),
+            "element_count": int(self.element_count),
+            "gmsh_returncode": self.gmsh_returncode,
+            "duplicate_shell_facets": int(self.duplicate_shell_facets),
+            "overlapping_boundary_mesh_count": int(self.overlapping_boundary_mesh_count),
+            "no_elements_in_volume_count": int(self.no_elements_in_volume_count),
+            "equivalent_triangles_count": int(self.equivalent_triangles_count),
+            "invalid_surface_elements_count": int(self.invalid_surface_elements_count),
+            "duplicate_boundary_facets_count": int(self.duplicate_boundary_facets_count),
+            "issue_hints": list(self.issue_hints),
+        }
 
 
 def find_gmsh(cfg: HPAConfig) -> str | None:
@@ -168,7 +227,87 @@ def mesh_step_to_inp(
             )
         except Exception as exc:  # noqa: BLE001
             print(f"INFO: NSET annotation skipped ({exc}).")
+    try:
+        diagnostics = collect_mesh_diagnostics(
+            out,
+            gmsh_returncode=result.returncode,
+            gmsh_stdout=result.stdout,
+            gmsh_stderr=result.stderr,
+        )
+        write_mesh_diagnostics(diagnostics)
+    except Exception as exc:  # noqa: BLE001
+        print(f"INFO: Mesh diagnostics skipped ({exc}).")
     return out
+
+
+def mesh_diagnostics_sidecar_path(inp_path: str | Path) -> Path:
+    """Return the canonical diagnostics sidecar path for a mesh ``.inp``."""
+
+    return Path(inp_path).with_suffix(".mesh_diagnostics.json")
+
+
+def collect_mesh_diagnostics(
+    inp_path: str | Path,
+    *,
+    gmsh_returncode: int | None = None,
+    gmsh_stdout: str = "",
+    gmsh_stderr: str = "",
+) -> MeshDiagnostics:
+    """Collect mesh quality hints from the mesh file and optional Gmsh logs."""
+
+    inp = Path(inp_path).resolve()
+    if not inp.exists():
+        raise FileNotFoundError(inp)
+
+    log_hints = _parse_gmsh_log_diagnostics(
+        "\n".join(part for part in (gmsh_stdout, gmsh_stderr) if part)
+    )
+    duplicate_shell_facets = _count_duplicate_shell_facets(inp)
+    return MeshDiagnostics(
+        mesh_path=inp,
+        diagnostics_path=None,
+        element_count=inp_element_count(inp),
+        gmsh_returncode=None if gmsh_returncode is None else int(gmsh_returncode),
+        duplicate_shell_facets=duplicate_shell_facets,
+        overlapping_boundary_mesh_count=int(log_hints["overlapping_boundary_mesh_count"]),
+        no_elements_in_volume_count=int(log_hints["no_elements_in_volume_count"]),
+        equivalent_triangles_count=int(log_hints["equivalent_triangles_count"]),
+        invalid_surface_elements_count=int(log_hints["invalid_surface_elements_count"]),
+        duplicate_boundary_facets_count=int(log_hints["duplicate_boundary_facets_count"]),
+    )
+
+
+def write_mesh_diagnostics(diagnostics: MeshDiagnostics) -> Path:
+    """Persist mesh diagnostics next to the mesh as JSON."""
+
+    out = diagnostics.diagnostics_path or mesh_diagnostics_sidecar_path(diagnostics.mesh_path)
+    payload = diagnostics.to_dict()
+    payload["diagnostics_path"] = str(out)
+    out.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return out
+
+
+def load_mesh_diagnostics(inp_path: str | Path) -> MeshDiagnostics | None:
+    """Load persisted mesh diagnostics when a sidecar exists."""
+
+    diagnostics_path = mesh_diagnostics_sidecar_path(inp_path)
+    if not diagnostics_path.exists():
+        return None
+
+    payload = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+    mesh_path = Path(payload["mesh_path"]).resolve()
+    return MeshDiagnostics(
+        mesh_path=mesh_path,
+        diagnostics_path=diagnostics_path.resolve(),
+        element_count=int(payload.get("element_count", 0)),
+        gmsh_returncode=payload.get("gmsh_returncode"),
+        duplicate_shell_facets=int(payload.get("duplicate_shell_facets", 0)),
+        overlapping_boundary_mesh_count=int(payload.get("overlapping_boundary_mesh_count", 0)),
+        no_elements_in_volume_count=int(payload.get("no_elements_in_volume_count", 0)),
+        equivalent_triangles_count=int(payload.get("equivalent_triangles_count", 0)),
+        invalid_surface_elements_count=int(payload.get("invalid_surface_elements_count", 0)),
+        duplicate_boundary_facets_count=int(payload.get("duplicate_boundary_facets_count", 0)),
+    )
 
 
 def annotate_inp_with_named_points(
@@ -427,3 +566,119 @@ def parse_nset_from_inp(inp_path: str | Path) -> dict[str, list[int]]:
                     except ValueError:
                         pass
     return nsets
+
+
+def _parse_gmsh_log_diagnostics(log_text: str) -> dict[str, int]:
+    text = str(log_text or "")
+    diagnostics = {
+        "overlapping_boundary_mesh_count": 0,
+        "no_elements_in_volume_count": 0,
+        "equivalent_triangles_count": 0,
+        "invalid_surface_elements_count": 0,
+        "duplicate_boundary_facets_count": 0,
+    }
+    if not text:
+        return diagnostics
+
+    diagnostics["overlapping_boundary_mesh_count"] = len(
+        re.findall(
+            r"invalid boundary mesh \(overlapping facets\)",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+    diagnostics["no_elements_in_volume_count"] = len(
+        re.findall(r"no elements in volume", text, flags=re.IGNORECASE)
+    )
+    diagnostics["equivalent_triangles_count"] = _sum_regex_group_ints(
+        text,
+        r"(\d+)\s+triangles are equivalent",
+    )
+    diagnostics["invalid_surface_elements_count"] = _sum_regex_group_ints(
+        text,
+        r"(\d+)\s+elements remain invalid in surface",
+    )
+
+    duplicate_hits = re.findall(
+        r"found\s+([A-Za-z0-9]+)\s+duplicated facets?",
+        text,
+        flags=re.IGNORECASE,
+    )
+    diagnostics["duplicate_boundary_facets_count"] = sum(
+        _parse_small_count_token(token) for token in duplicate_hits
+    )
+    return diagnostics
+
+
+def _sum_regex_group_ints(text: str, pattern: str) -> int:
+    return sum(int(token) for token in re.findall(pattern, text, flags=re.IGNORECASE))
+
+
+def _parse_small_count_token(token: str) -> int:
+    token = str(token).strip()
+    if token.isdigit():
+        return int(token)
+    word_map = {
+        "zero": 0,
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+    }
+    return word_map.get(token.lower(), 1)
+
+
+def _count_duplicate_shell_facets(inp_path: str | Path) -> int:
+    text = Path(inp_path).read_text(encoding="utf-8", errors="ignore")
+    facet_counts: dict[tuple[int, ...], int] = {}
+    current_type = ""
+    in_element_block = False
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        upper = line.upper()
+        if upper.startswith("*ELEMENT"):
+            current_type = _element_type_from_card(line)
+            in_element_block = True
+            continue
+        if line.startswith("*"):
+            current_type = ""
+            in_element_block = False
+            continue
+        if not in_element_block or _element_dimension(current_type) != 2:
+            continue
+
+        parts = [part.strip() for part in line.split(",") if part.strip()]
+        if len(parts) <= 1:
+            continue
+        key = tuple(sorted(int(token) for token in parts[1:]))
+        facet_counts[key] = facet_counts.get(key, 0) + 1
+
+    return sum(count - 1 for count in facet_counts.values() if count > 1)
+
+
+def _element_type_from_card(card_line: str) -> str:
+    for token in card_line.split(","):
+        token = token.strip()
+        if token.upper().startswith("TYPE="):
+            return token.split("=", 1)[1].strip().upper()
+    return ""
+
+
+def _element_dimension(element_type: str) -> int:
+    upper = str(element_type).upper()
+    if upper.startswith("C3D"):
+        return 3
+    if upper.startswith(("CPS", "CPE", "S", "M3D")):
+        return 2
+    if upper.startswith(("T3D", "B31", "B32")):
+        return 1
+    return 0

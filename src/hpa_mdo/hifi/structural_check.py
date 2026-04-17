@@ -34,7 +34,13 @@ from hpa_mdo.hifi.frd_parser import (
     parse_displacement,
     parse_nodal_coordinates,
 )
-from hpa_mdo.hifi.gmsh_runner import NamedPoint, mesh_step_to_inp
+from hpa_mdo.hifi.gmsh_runner import (
+    MeshDiagnostics,
+    NamedPoint,
+    collect_mesh_diagnostics,
+    load_mesh_diagnostics,
+    mesh_step_to_inp,
+)
 from hpa_mdo.hifi.paraview_state import make_pvpython_script
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -69,6 +75,7 @@ class StructuralCheckResult:
     summary_path: Path | None
     step_path: Path | None
     mesh_path: Path | None
+    mesh_diagnostics_path: Path | None
     paraview_script_path: Path | None
     load_description: str
     support_description: str
@@ -195,6 +202,7 @@ def run_structural_check(
 
     resolved_mesh = _resolve_optional_path(mesh_path)
     resolved_step = _resolve_optional_path(step_path)
+    mesh_diagnostics = None
 
     if resolved_mesh is None:
         if resolved_step is None:
@@ -211,6 +219,7 @@ def run_structural_check(
                 resolved_mesh = None
             else:
                 resolved_mesh = Path(meshed).resolve()
+                mesh_diagnostics = load_mesh_diagnostics(resolved_mesh)
 
     if resolved_mesh is None or not resolved_mesh.exists():
         report_path = hifi_root / "structural_check.md"
@@ -235,6 +244,7 @@ def run_structural_check(
             summary_path=resolved_summary,
             step_path=resolved_step,
             mesh_path=resolved_mesh,
+            mesh_diagnostics=mesh_diagnostics,
             paraview_script_path=None,
             load_model=None,
             support_description="No mesh available; no structural supports were derived.",
@@ -247,6 +257,7 @@ def run_structural_check(
             summary_path=resolved_summary,
             step_path=resolved_step,
             mesh_path=resolved_mesh,
+            mesh_diagnostics=mesh_diagnostics,
             paraview_script_path=None,
             load_model=None,
             support_description="No mesh available; no structural supports were derived.",
@@ -261,12 +272,16 @@ def run_structural_check(
             summary_path=resolved_summary,
             step_path=resolved_step,
             mesh_path=resolved_mesh,
+            mesh_diagnostics_path=None if mesh_diagnostics is None else mesh_diagnostics.diagnostics_path,
             paraview_script_path=None,
             load_description="No mesh available; no loads were applied.",
             support_description="No mesh available; no structural supports were derived.",
             static=static,
             buckle=buckle,
         )
+
+    if mesh_diagnostics is None:
+        mesh_diagnostics = _resolve_mesh_diagnostics(resolved_mesh)
 
     mesh_length_scale_m = _mesh_length_scale_m_per_unit(resolved_mesh, cfg)
     section_thickness_units = _representative_section_thickness_m(cfg) / mesh_length_scale_m
@@ -327,6 +342,7 @@ def run_structural_check(
         summary_path=resolved_summary,
         step_path=resolved_step,
         mesh_path=resolved_mesh,
+        mesh_diagnostics=mesh_diagnostics,
         paraview_script_path=paraview_script_path,
         load_model=load_model,
         support_description=_support_description(boundary_entries, cfg),
@@ -339,6 +355,7 @@ def run_structural_check(
         summary_path=resolved_summary,
         step_path=resolved_step,
         mesh_path=resolved_mesh,
+        mesh_diagnostics=mesh_diagnostics,
         paraview_script_path=paraview_script_path,
         load_model=load_model,
         support_description=_support_description(boundary_entries, cfg),
@@ -354,6 +371,7 @@ def run_structural_check(
         summary_path=resolved_summary,
         step_path=resolved_step,
         mesh_path=resolved_mesh,
+        mesh_diagnostics_path=None if mesh_diagnostics is None else mesh_diagnostics.diagnostics_path,
         paraview_script_path=paraview_script_path,
         load_description=load_model.description,
         support_description=_support_description(boundary_entries, cfg),
@@ -766,12 +784,23 @@ def _diagnose_solver_result(result: dict[str, Any]) -> tuple[str, tuple[str, ...
     return "solver_execution", ()
 
 
+def _resolve_mesh_diagnostics(mesh_path: Path) -> MeshDiagnostics | None:
+    diagnostics = load_mesh_diagnostics(mesh_path)
+    if diagnostics is not None:
+        return diagnostics
+    try:
+        return collect_mesh_diagnostics(mesh_path)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _write_combined_report(
     report_path: Path,
     *,
     summary_path: Path | None,
     step_path: Path | None,
     mesh_path: Path | None,
+    mesh_diagnostics: MeshDiagnostics | None,
     paraview_script_path: Path | None,
     load_model: StructuralLoadModel | None,
     support_description: str,
@@ -801,6 +830,18 @@ def _write_combined_report(
         "",
         f"- Tip deflection [m]: {_fmt(reference_metrics.get('tip_deflection_m'))}",
         f"- Buckling index: {_fmt(reference_metrics.get('buckling_index'))}",
+        "",
+        "## Mesh Diagnostics",
+        "",
+        f"- Diagnostics sidecar: {mesh_diagnostics.diagnostics_path if mesh_diagnostics is not None else '—'}",
+        f"- Mesh element count: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.element_count))}",
+        f"- Gmsh return code: {_fmt(None if mesh_diagnostics is None or mesh_diagnostics.gmsh_returncode is None else float(mesh_diagnostics.gmsh_returncode))}",
+        f"- Issue hints: {', '.join(mesh_diagnostics.issue_hints) if mesh_diagnostics is not None and mesh_diagnostics.issue_hints else '—'}",
+        f"- Duplicate shell facets: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.duplicate_shell_facets))}",
+        f"- Overlapping-boundary warnings: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.overlapping_boundary_mesh_count))}",
+        f"- No-elements-in-volume warnings: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.no_elements_in_volume_count))}",
+        f"- Equivalent-triangle warnings: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.equivalent_triangles_count))}",
+        f"- Invalid-surface warnings: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.invalid_surface_elements_count))}",
         "",
         "## Static Deflection",
         "",
@@ -839,6 +880,7 @@ def _write_combined_summary_json(
     summary_path: Path | None,
     step_path: Path | None,
     mesh_path: Path | None,
+    mesh_diagnostics: MeshDiagnostics | None,
     paraview_script_path: Path | None,
     load_model: StructuralLoadModel | None,
     support_description: str,
@@ -852,6 +894,7 @@ def _write_combined_summary_json(
         "summary_path": None if summary_path is None else str(summary_path),
         "step_path": None if step_path is None else str(step_path),
         "mesh_path": None if mesh_path is None else str(mesh_path),
+        "mesh_diagnostics": None if mesh_diagnostics is None else mesh_diagnostics.to_dict(),
         "paraview_script_path": None if paraview_script_path is None else str(paraview_script_path),
         "support_description": support_description,
         "load_model": {

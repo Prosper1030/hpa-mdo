@@ -6,10 +6,13 @@ import shutil
 from hpa_mdo.core import load_config
 from hpa_mdo.hifi import gmsh_runner
 from hpa_mdo.hifi.gmsh_runner import (
+    collect_mesh_diagnostics,
     NamedPoint,
     annotate_inp_with_named_points,
     find_gmsh,
     inp_element_count,
+    load_mesh_diagnostics,
+    mesh_diagnostics_sidecar_path,
     mesh_step_to_inp,
     parse_nset_from_inp,
     step_length_scale_m_per_unit,
@@ -203,6 +206,26 @@ offset-spanwise
 1, 1, 2, 4, 5
 """
 
+_SURFACE_MESH_WITH_DUPLICATE_FACETS = """\
+*NODE
+1, 0.0, 0.0, 0.0
+2, 1.0, 0.0, 0.0
+3, 0.0, 1.0, 0.0
+4, 0.0, 0.0, 1.0
+*ELEMENT, TYPE=CPS3, ELSET=SURF
+10, 1, 2, 3
+11, 3, 2, 1
+12, 1, 3, 4
+"""
+
+_GMSH_PROBE_LOG = """\
+Info    : 98 triangles are equivalent
+Warning : 4 elements remain invalid in surface 24
+Warning : Invalid boundary mesh (overlapping facets) on surface 99 surface 99
+Warning : No elements in volume 1 2
+Info    : Found two duplicated facets.
+"""
+
 
 def test_annotate_inp_writes_nset_blocks(tmp_path: Path) -> None:
     inp = tmp_path / "mesh.inp"
@@ -300,3 +323,64 @@ def test_mesh_step_annotates_named_points(tmp_path: Path, monkeypatch) -> None:
     nsets = parse_nset_from_inp(out_path)
     assert nsets.get("ROOT") == [1]
     assert nsets.get("TIP") == [4]
+
+
+def test_collect_mesh_diagnostics_parses_gmsh_log_and_duplicate_facets(tmp_path: Path) -> None:
+    inp = tmp_path / "surface.inp"
+    inp.write_text(_SURFACE_MESH_WITH_DUPLICATE_FACETS, encoding="utf-8")
+
+    diagnostics = collect_mesh_diagnostics(
+        inp,
+        gmsh_returncode=1,
+        gmsh_stdout=_GMSH_PROBE_LOG,
+    )
+
+    assert diagnostics.element_count == 3
+    assert diagnostics.gmsh_returncode == 1
+    assert diagnostics.duplicate_shell_facets == 1
+    assert diagnostics.overlapping_boundary_mesh_count == 1
+    assert diagnostics.no_elements_in_volume_count == 1
+    assert diagnostics.equivalent_triangles_count == 98
+    assert diagnostics.invalid_surface_elements_count == 4
+    assert diagnostics.duplicate_boundary_facets_count == 2
+    assert diagnostics.issue_hints == (
+        "overlapping_boundary_mesh x1",
+        "no_elements_in_volume x1",
+        "duplicate_boundary_facets x2",
+        "invalid_surface_elements x4",
+        "equivalent_triangles x98",
+        "duplicate_shell_facets x1",
+    )
+
+
+def test_mesh_step_writes_mesh_diagnostics_sidecar(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.gmsh.enabled = True
+    step_path = tmp_path / "part.step"
+    out_path = tmp_path / "mesh.inp"
+    step_path.write_text("STEP", encoding="utf-8")
+    monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
+
+    def fake_run(cmd, **kwargs):
+        out_path.write_text(_SURFACE_MESH_WITH_DUPLICATE_FACETS, encoding="utf-8")
+        return type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": _GMSH_PROBE_LOG,
+                "stderr": "",
+            },
+        )()
+
+    monkeypatch.setattr(gmsh_runner.subprocess, "run", fake_run)
+
+    assert mesh_step_to_inp(step_path, out_path, cfg) == out_path
+    sidecar = mesh_diagnostics_sidecar_path(out_path)
+    assert sidecar.exists()
+
+    diagnostics = load_mesh_diagnostics(out_path)
+    assert diagnostics is not None
+    assert diagnostics.diagnostics_path == sidecar.resolve()
+    assert diagnostics.duplicate_shell_facets == 1
+    assert diagnostics.overlapping_boundary_mesh_count == 1

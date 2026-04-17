@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from hpa_mdo.core import load_config
+from hpa_mdo.hifi.gmsh_runner import collect_mesh_diagnostics, write_mesh_diagnostics
 from hpa_mdo.hifi import structural_check
 
 
@@ -171,6 +172,9 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
     mesh = hifi_dir / "wing_cruise.inp"
     hifi_dir.mkdir()
     mesh.write_text(MESH_WITH_NSETS, encoding="utf-8")
+    write_mesh_diagnostics(
+        collect_mesh_diagnostics(mesh)
+    )
     (ansys_dir / "spar_data.csv").write_text(
         "\n".join(
             [
@@ -236,6 +240,11 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
     assert summary_payload["overall_comparability"] == "COMPARABLE"
     assert summary_payload["load_model"]["source_kind"] == "spar_csv"
     assert summary_payload["static"]["comparability"] == "COMPARABLE"
+    assert summary_payload["mesh_diagnostics"]["mesh_path"] == str(mesh.resolve())
+    assert summary_payload["mesh_diagnostics"]["diagnostics_path"].endswith(
+        "wing_cruise.mesh_diagnostics.json"
+    )
+    assert "## Mesh Diagnostics" in report_text
 
 
 def test_run_structural_check_matches_tip_by_frd_coordinates_when_ids_change(
@@ -351,6 +360,17 @@ def test_run_structural_check_classifies_mesh_quality_solver_failures(
     mesh = hifi_dir / "wing_cruise.inp"
     hifi_dir.mkdir()
     mesh.write_text(MESH_WITH_NSETS, encoding="utf-8")
+    write_mesh_diagnostics(
+        collect_mesh_diagnostics(
+            mesh,
+            gmsh_returncode=1,
+            gmsh_stdout=(
+                "Warning : Invalid boundary mesh (overlapping facets) on surface 99 surface 99\n"
+                "Warning : No elements in volume 1 2\n"
+                "Info    : Found two duplicated facets.\n"
+            ),
+        )
+    )
 
     cfg.io.output_dir = str(output_dir)
     monkeypatch.setattr(structural_check, "load_config", lambda _path: cfg)
@@ -393,8 +413,14 @@ def test_run_structural_check_classifies_mesh_quality_solver_failures(
     assert result.static.log_path == (hifi_dir / "wing_cruise_static.log").resolve()
     assert "Overall comparability: NOT_COMPARABLE" in report_text
     assert "Issue category: mesh_quality" in report_text
+    assert "overlapping_boundary_mesh x1" in report_text
     assert summary_payload["overall_comparability"] == "NOT_COMPARABLE"
     assert summary_payload["static"]["issue_category"] == "mesh_quality"
+    assert summary_payload["mesh_diagnostics"]["issue_hints"][:3] == [
+        "overlapping_boundary_mesh x1",
+        "no_elements_in_volume x1",
+        "duplicate_boundary_facets x2",
+    ]
 
 
 def test_build_load_model_prefers_spar_csv_and_maps_mm_mesh(tmp_path: Path, monkeypatch) -> None:
