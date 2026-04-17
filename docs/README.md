@@ -14,6 +14,7 @@
 |---|---|---|
 | [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 目前正式主線的單一真相文件 | 所有人，尤其是新進協作者與 AI agent |
 | [README.md](../README.md) | Repo landing page，先講正式入口、閱讀路徑、第一個指令 | 第一次進 repo 的人 |
+| [drawing_ready_package.md](drawing_ready_package.md) | 畫圖 / drawing handoff 的最短入口 | 需要直接拿幾何與設計依據去畫圖的人 |
 | [dual_beam_workflow_architecture_overview.md](dual_beam_workflow_architecture_overview.md) | 正式 dual-beam workflow 與資料流概觀 | 協作開發者 |
 | [dual_beam_consumer_integration_guide.md](dual_beam_consumer_integration_guide.md) | consumer 如何接正式 decision output | 外部整合 / AI agent |
 | [dual_beam_autoresearch_quickstart.md](dual_beam_autoresearch_quickstart.md) | built-in autoresearch 的最小可用入口 | AI / automation |
@@ -25,6 +26,7 @@
 | 文件 | 性質 | 說明 |
 |---|---|---|
 | [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 最高優先的現況真值 | 定義現在 repo 真正主線、入口、legacy 邊界、能力上限 |
+| [drawing_ready_package.md](drawing_ready_package.md) | 正式 drawing handoff 入口 | 定義哪個 artifact 拿去畫圖、哪些只能當參考 |
 | [dual_beam_workflow_architecture_overview.md](dual_beam_workflow_architecture_overview.md) | 正式 workflow 真值 | 說明 dual-beam production / inverse-design / decision layer 怎麼串起來 |
 | [dual_beam_decision_interface_v1_spec.md](dual_beam_decision_interface_v1_spec.md) | 正式 consumer contract | 定義 decision interface JSON |
 | [dual_beam_consumer_integration_guide.md](dual_beam_consumer_integration_guide.md) | 正式 integration guide | 告訴 consumer 怎麼接 producer output |

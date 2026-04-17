@@ -78,6 +78,17 @@
 - 角色：提供外部 consumer / automation 用的 machine-readable contract
 - 重要定位：它是 integration boundary，不是主 physics 問題本身
 
+### E. Drawing-ready baseline package
+
+- 入口：`scripts/export_drawing_ready_package.py`
+- 角色：把 `output/blackcat_004/` 裡目前真正要拿去畫圖與 handoff 的 artifact 收成單一 package
+- 預設輸出：
+  - `output/blackcat_004/drawing_ready_package/geometry/spar_jig_shape.step`
+  - `output/blackcat_004/drawing_ready_package/design/discrete_layup_final_design.json`
+  - `output/blackcat_004/drawing_ready_package/design/optimization_summary.txt`
+  - `output/blackcat_004/drawing_ready_package/data/spar_data.csv`
+- 重要定位：它是 **drawing handoff boundary**，不是 external validation boundary
+
 ## 5. 目前哪些能力已經是主線的一部分
 
 - dual-beam production mainline
@@ -88,6 +99,7 @@
 - cruise VSP builder
 - dihedral / target-shape scaling 類低維 outer knobs
 - CLT / PlyMaterial / discrete layup / Tsai-Wu / ply-drop / layup manufacturability
+- drawing-ready baseline package（正式畫圖 / handoff artifact 收斂）
 
 ## 6. 目前哪些東西不該再當成主線敘事
 

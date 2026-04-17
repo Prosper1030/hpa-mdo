@@ -12,6 +12,7 @@
 |---|---|---|
 | 想先知道「現在真正主線到底是什麼」 | [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md) | 這份是目前正式主線的單一真相文件 |
 | 第一次進 repo，想知道怎麼開始 | [README.md](README.md) | 這份就是 landing page，先用它判斷正式入口與第一個指令 |
+| 想直接拿可畫圖的正式輸出 package | [docs/drawing_ready_package.md](docs/drawing_ready_package.md) | 這份會直接告訴你哪個 STEP 拿去畫、哪些只是參考 |
 | 想快速找到所有重要文件 | [docs/README.md](docs/README.md) | 文件索引，會告訴你哪些是正式 contract、哪些是研究/歷史文件 |
 | 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
 | 想看更細的近期進度與分軌方向 | [docs/EXECUTION_ROADMAP.md](docs/EXECUTION_ROADMAP.md) | 細化版執行路線圖；會告訴你不同卡點應該先推哪條線 |
@@ -210,6 +211,29 @@ python scripts/run_optimization.py --config configs/blackcat_004.yaml
 5. 將結果匯出為 ANSYS 格式並儲存圖表
 
 stdout 的最後一行永遠為 `val_weight: <float>`（最佳化後全翼展翼梁系統質量，單位 kg），作為上游 AI 代理迴圈的目標函數值。
+
+### 如果你現在要拿去畫設計圖
+
+請直接看 drawing-ready baseline package，不要自己從 `output/blackcat_004/` 裡猜哪個檔才是正式版本。
+
+- package 說明：[`docs/drawing_ready_package.md`](docs/drawing_ready_package.md)
+- 預設輸出位置：`output/blackcat_004/drawing_ready_package/`
+- 主幾何：`output/blackcat_004/drawing_ready_package/geometry/spar_jig_shape.step`
+- 設計依據：`output/blackcat_004/drawing_ready_package/design/discrete_layup_final_design.json`
+- 人類可讀摘要：`output/blackcat_004/drawing_ready_package/design/optimization_summary.txt`
+- 參考幾何：`output/blackcat_004/drawing_ready_package/references/*`
+
+如果 package 還沒存在，可以直接重建：
+
+```bash
+uv run python scripts/export_drawing_ready_package.py --output-dir output/blackcat_004
+```
+
+重要邊界：
+
+- `geometry/spar_jig_shape.step` 才是目前拿去畫 spar 圖的主幾何。
+- `references/*` 只是 loaded shape / cruise state 參考，不是製造 jig 真值。
+- `crossval_report.txt` 只能當 internal inspection reference / export contract，不是 drawing truth，也不是 validation truth。
 
 ### 用你自己的 VSP 試跑（Generic VSP intake）
 
