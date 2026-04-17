@@ -220,6 +220,11 @@ def build_dual_beam_mainline_model(
 
     wire_locations_m = [att.y for att in cfg.lift_wires.attachments] if cfg.lift_wires.enabled else []
     wire_node_indices = _nearest_node_indices(y_nodes_m, wire_locations_m)
+    wire_attachment_angles_deg = (
+        tuple(float(value) for value in cfg.lift_wires.attachment_wire_angles_deg())
+        if cfg.lift_wires.enabled
+        else ()
+    )
 
     dense_link_node_indices = tuple(range(1, nn - 1))
     joint_mass_half_kg = (
@@ -302,6 +307,7 @@ def build_dual_beam_mainline_model(
         joint_node_indices=joint_node_indices,
         dense_link_node_indices=dense_link_node_indices,
         wire_node_indices=wire_node_indices,
+        wire_attachment_angles_deg=wire_attachment_angles_deg,
         joint_mass_half_kg=float(joint_mass_half_kg),
         fitting_mass_half_kg=0.0,
         equivalent_analysis_success=bool(opt_result.success),

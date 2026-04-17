@@ -30,6 +30,7 @@ from hpa_mdo.structure.dual_beam_mainline.types import (
     SmoothScaleConfig,
     TorqueInputDefinition,
     TorqueReferenceMode,
+    WireSupportValidityResult,
     WireBCMode,
     get_analysis_mode_definition,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "SmoothScaleConfig",
     "TorqueInputDefinition",
     "TorqueReferenceMode",
+    "WireSupportValidityResult",
     "WireBCMode",
     "build_dual_beam_mainline_model",
     "get_analysis_mode_definition",

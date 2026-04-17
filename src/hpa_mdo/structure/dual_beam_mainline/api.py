@@ -98,6 +98,7 @@ def run_dual_beam_mainline_kernel(
         model=model,
         disp_main_m=disp_main_m,
         disp_rear_m=disp_rear_m,
+        reactions=reactions,
     )
     smooth = build_smooth_aggregation(
         model=model,
@@ -122,6 +123,7 @@ def run_dual_beam_mainline_kernel(
         load_split=load_split,
         reactions=reactions,
         report=report,
+        recovery=recovery,
     )
     feasibility = build_feasibility_summary(
         optimizer_metrics=optimizer,

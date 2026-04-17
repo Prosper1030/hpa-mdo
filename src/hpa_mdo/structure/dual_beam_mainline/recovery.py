@@ -29,8 +29,10 @@ def _beam_von_mises(
     nodes_m: np.ndarray,
     disp_m: np.ndarray,
     radius_elem_m: np.ndarray,
+    area_m2: np.ndarray,
     young_pa: float,
     shear_pa: float,
+    wire_precompression_n: np.ndarray | None = None,
 ) -> np.ndarray:
     """Simple beam-fiber von Mises estimate per element."""
 
@@ -38,6 +40,12 @@ def _beam_von_mises(
     vm = np.zeros(ne, dtype=float)
     young_elem_pa = _elementwise_property_array(young_pa, ne, "young_pa")
     shear_elem_pa = _elementwise_property_array(shear_pa, ne, "shear_pa")
+    area_elem_m2 = _elementwise_property_array(area_m2, ne, "area_m2")
+    wire_precompression_elem_n = (
+        np.zeros(ne, dtype=float)
+        if wire_precompression_n is None
+        else _elementwise_property_array(wire_precompression_n, ne, "wire_precompression_n")
+    )
     for element_index in range(ne):
         length_m = _cs_norm(nodes_m[element_index + 1] - nodes_m[element_index])
         if np.real(length_m) < 1.0e-12:
@@ -50,9 +58,56 @@ def _beam_von_mises(
         )
         torsion = dtheta_local[0] / length_m
         sigma_bending = young_elem_pa[element_index] * radius_elem_m[element_index] * curvature
+        sigma_axial = wire_precompression_elem_n[element_index] / max(area_elem_m2[element_index], 1.0e-30)
         tau_torsion = shear_elem_pa[element_index] * radius_elem_m[element_index] * torsion
-        vm[element_index] = float(np.sqrt(sigma_bending**2 + 3.0 * tau_torsion**2))
+        sigma_longitudinal = sigma_bending + sigma_axial
+        vm[element_index] = float(np.sqrt(sigma_longitudinal**2 + 3.0 * tau_torsion**2))
     return vm
+
+
+def _wire_load_path_metrics(
+    *,
+    model: DualBeamMainlineModel,
+    reactions: ReactionRecoveryResult,
+) -> tuple[np.ndarray, np.ndarray, float, bool]:
+    """Estimate wire tensions and induced inboard spar precompression from solved reactions."""
+
+    ne = model.element_lengths_m.size
+    n_wires = len(model.wire_node_indices)
+    if n_wires == 0:
+        return (
+            np.zeros(0, dtype=float),
+            np.zeros(ne, dtype=float),
+            0.0,
+            True,
+        )
+    if len(model.wire_attachment_angles_deg) != n_wires:
+        raise ValueError(
+            "wire_attachment_angles_deg must align with wire_node_indices for wire load recovery."
+        )
+
+    tensions_n = np.zeros(n_wires, dtype=float)
+    precompression_n = np.zeros(ne, dtype=float)
+    max_upward_reaction_n = 0.0
+    for idx, (node_index, angle_deg, vertical_reaction_n) in enumerate(
+        zip(
+            model.wire_node_indices,
+            model.wire_attachment_angles_deg,
+            np.asarray(reactions.wire_reactions_n, dtype=float),
+            strict=True,
+        )
+    ):
+        theta = np.deg2rad(float(angle_deg))
+        sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
+        tan_theta = max(abs(float(np.tan(theta))), 1.0e-12)
+        downward_reaction_n = max(float(-vertical_reaction_n), 0.0)
+        upward_reaction_n = max(float(vertical_reaction_n), 0.0)
+        max_upward_reaction_n = max(max_upward_reaction_n, upward_reaction_n)
+        tensions_n[idx] = downward_reaction_n / sin_theta
+        if int(node_index) > 0:
+            precompression_n[: min(int(node_index), ne)] += downward_reaction_n / tan_theta
+
+    return tensions_n, precompression_n, float(max_upward_reaction_n), bool(max_upward_reaction_n <= 1.0e-9)
 
 
 def recover_reactions(
@@ -132,22 +187,49 @@ def recover_structural_response(
     model: DualBeamMainlineModel,
     disp_main_m: np.ndarray,
     disp_rear_m: np.ndarray,
+    reactions: ReactionRecoveryResult | None = None,
 ) -> RecoveryResult:
     """Recover provisional stress metrics and report mass breakdowns."""
+
+    wire_tension_estimates_n, wire_precompression_n, max_wire_upward_reaction_n, wire_tension_only_passed = (
+        _wire_load_path_metrics(
+            model=model,
+            reactions=(
+                reactions
+                if reactions is not None
+                else ReactionRecoveryResult(
+                    multipliers=np.zeros(0, dtype=float),
+                    total_constraint_reaction_vector_n=np.zeros(2 * model.y_nodes_m.size * 6, dtype=float),
+                    root_main_reaction_n=np.zeros(6, dtype=float),
+                    root_rear_reaction_n=np.zeros(6, dtype=float),
+                    wire_reactions_n=np.zeros(len(model.wire_node_indices), dtype=float),
+                    wire_node_indices=model.wire_node_indices,
+                    link_resultants_n=np.zeros((0, 0), dtype=float),
+                    link_reaction_on_main_n=np.zeros((0, 6), dtype=float),
+                    link_reaction_on_rear_n=np.zeros((0, 6), dtype=float),
+                    link_node_indices=model.joint_node_indices,
+                )
+            ),
+        )
+    )
 
     vm_main_pa = _beam_von_mises(
         nodes_m=model.nodes_main_m,
         disp_m=disp_main_m,
         radius_elem_m=model.main_radius_elem_m,
+        area_m2=model.main_area_m2,
         young_pa=model.main_young_pa,
         shear_pa=model.main_shear_pa,
+        wire_precompression_n=wire_precompression_n,
     )
     vm_rear_pa = _beam_von_mises(
         nodes_m=model.nodes_rear_m,
         disp_m=disp_rear_m,
         radius_elem_m=model.rear_radius_elem_m,
+        area_m2=model.rear_area_m2,
         young_pa=model.rear_young_pa,
         shear_pa=model.rear_shear_pa,
+        wire_precompression_n=wire_precompression_n,
     )
     max_vm_main_pa = float(np.max(vm_main_pa)) if vm_main_pa.size else 0.0
     max_vm_rear_pa = float(np.max(vm_rear_pa)) if vm_rear_pa.size else 0.0
@@ -182,6 +264,12 @@ def recover_structural_response(
         max_vm_main_pa=max_vm_main_pa,
         max_vm_rear_pa=max_vm_rear_pa,
         failure_index=float(failure_index),
+        wire_tension_estimates_n=np.asarray(wire_tension_estimates_n, dtype=float),
+        wire_precompression_n=np.asarray(wire_precompression_n, dtype=float),
+        max_wire_tension_n=float(np.max(wire_tension_estimates_n)) if wire_tension_estimates_n.size else 0.0,
+        max_wire_precompression_n=float(np.max(wire_precompression_n)) if wire_precompression_n.size else 0.0,
+        max_wire_upward_reaction_n=float(max_wire_upward_reaction_n),
+        wire_tension_only_passed=bool(wire_tension_only_passed),
         spar_tube_mass_half_kg=spar_tube_mass_half_kg,
         spar_tube_mass_full_kg=2.0 * spar_tube_mass_half_kg,
         joint_mass_half_kg=joint_mass_half_kg,

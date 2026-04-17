@@ -15,8 +15,10 @@ from hpa_mdo.structure.dual_beam_mainline.types import (
     NumericalConsistencyResult,
     OptimizerFacingMetrics,
     ReactionRecoveryResult,
+    RecoveryResult,
     ReportMetrics,
     SmoothAggregationResult,
+    WireSupportValidityResult,
 )
 
 _EQ_FAILURE_TOL = 0.01
@@ -319,6 +321,23 @@ def build_global_observable_readiness(
     )
 
 
+def build_wire_support_validity(
+    *,
+    recovery: RecoveryResult,
+) -> WireSupportValidityResult:
+    """Check whether the simplified wire-support surrogate stayed tension-only."""
+
+    wire_count = int(np.asarray(recovery.wire_tension_estimates_n, dtype=float).size)
+    return WireSupportValidityResult(
+        wire_count=wire_count,
+        max_tension_n=float(recovery.max_wire_tension_n),
+        max_precompression_n=float(recovery.max_wire_precompression_n),
+        max_upward_reaction_n=float(recovery.max_wire_upward_reaction_n),
+        tension_only_passed=bool(recovery.wire_tension_only_passed),
+        passed=bool(recovery.wire_tension_only_passed),
+    )
+
+
 def build_optimizer_facing_metrics(
     *,
     model: DualBeamMainlineModel,
@@ -331,6 +350,7 @@ def build_optimizer_facing_metrics(
     load_split: LoadSplitResult,
     reactions: ReactionRecoveryResult,
     report: ReportMetrics,
+    recovery: RecoveryResult,
 ) -> OptimizerFacingMetrics:
     """Build future-optimizer metrics while keeping raw report channels separate."""
 
@@ -362,6 +382,9 @@ def build_optimizer_facing_metrics(
             report=report,
             reactions=reactions,
         ),
+        wire_support_validity=build_wire_support_validity(
+            recovery=recovery,
+        ),
     )
 
 
@@ -390,6 +413,8 @@ def build_feasibility_summary(
         hard_failures.append("constraint_conditioning")
     if not optimizer_metrics.global_observables.passed:
         hard_failures.append("global_observables")
+    if not optimizer_metrics.wire_support_validity.passed:
+        hard_failures.append("wire_tension_only")
 
     eq = optimizer_metrics.equivalent_gates
     if not eq.analysis_success:
@@ -436,6 +461,7 @@ def build_feasibility_summary(
         ),
         numerical_consistency_passed=bool(optimizer_metrics.numerical_consistency.passed),
         global_observables_passed=bool(optimizer_metrics.global_observables.passed),
+        wire_support_validity_passed=bool(optimizer_metrics.wire_support_validity.passed),
         legacy_reference_passed=not legacy_reference_failures,
         legacy_reference_failures=tuple(legacy_reference_failures),
     )

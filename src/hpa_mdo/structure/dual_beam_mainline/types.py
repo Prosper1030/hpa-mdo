@@ -152,6 +152,7 @@ class DualBeamMainlineModel:
     joint_node_indices: tuple[int, ...]
     dense_link_node_indices: tuple[int, ...]
     wire_node_indices: tuple[int, ...]
+    wire_attachment_angles_deg: tuple[float, ...]
     joint_mass_half_kg: float
     fitting_mass_half_kg: float
     equivalent_analysis_success: bool
@@ -242,6 +243,12 @@ class RecoveryResult:
     max_vm_main_pa: float
     max_vm_rear_pa: float
     failure_index: float
+    wire_tension_estimates_n: np.ndarray
+    wire_precompression_n: np.ndarray
+    max_wire_tension_n: float
+    max_wire_precompression_n: float
+    max_wire_upward_reaction_n: float
+    wire_tension_only_passed: bool
     spar_tube_mass_half_kg: float
     spar_tube_mass_full_kg: float
     joint_mass_half_kg: float
@@ -343,6 +350,18 @@ class GlobalObservableReadinessResult:
 
 
 @dataclass
+class WireSupportValidityResult:
+    """Validity summary for the simplified lift-wire support model."""
+
+    wire_count: int
+    max_tension_n: float
+    max_precompression_n: float
+    max_upward_reaction_n: float
+    tension_only_passed: bool
+    passed: bool
+
+
+@dataclass
 class OptimizerFacingMetrics:
     """Smooth quantities and validated gates exposed to future optimizers."""
 
@@ -355,6 +374,7 @@ class OptimizerFacingMetrics:
     equivalent_gates: EquivalentGateResult
     numerical_consistency: NumericalConsistencyResult
     global_observables: GlobalObservableReadinessResult
+    wire_support_validity: WireSupportValidityResult
 
 
 @dataclass
@@ -375,6 +395,7 @@ class FeasibilitySummary:
     report_only_channels: tuple[str, ...]
     numerical_consistency_passed: bool = True
     global_observables_passed: bool = True
+    wire_support_validity_passed: bool = True
     legacy_reference_passed: bool = True
     legacy_reference_failures: tuple[str, ...] = ()
 

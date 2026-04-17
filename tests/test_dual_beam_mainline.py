@@ -41,6 +41,7 @@ def _simple_model(
     rear_mass_per_length_kgpm: np.ndarray | None = None,
     joint_node_indices: tuple[int, ...] = (1,),
     wire_node_indices: tuple[int, ...] = (),
+    wire_attachment_angles_deg: tuple[float, ...] | None = None,
     torque_input: TorqueInputDefinition | None = None,
 ) -> DualBeamMainlineModel:
     y_nodes_m = np.array([0.0, 1.0, 2.0], dtype=float)
@@ -105,6 +106,11 @@ def _simple_model(
         joint_node_indices=joint_node_indices,
         dense_link_node_indices=tuple(range(1, nn - 1)),
         wire_node_indices=wire_node_indices,
+        wire_attachment_angles_deg=(
+            tuple(float(value) for value in wire_attachment_angles_deg)
+            if wire_attachment_angles_deg is not None
+            else tuple(45.0 for _ in wire_node_indices)
+        ),
         joint_mass_half_kg=0.2,
         fitting_mass_half_kg=0.0,
         equivalent_analysis_success=True,
@@ -251,6 +257,36 @@ def test_exact_reaction_recovery_balances_root_and_wire_constraints() -> None:
     assert result.reactions.link_resultants_n.shape == (1, 6)
 
 
+def test_wire_recovery_estimates_tension_and_inboard_precompression_from_downward_reaction() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, 12.0, 30.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+    )
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+    )
+
+    assert result.recovery.wire_tension_only_passed is True
+    assert result.recovery.max_wire_tension_n > 0.0
+    assert result.recovery.max_wire_precompression_n > 0.0
+    np.testing.assert_allclose(
+        result.recovery.wire_tension_estimates_n[0],
+        -result.reactions.wire_reactions_n[0] / np.sin(np.deg2rad(45.0)),
+        rtol=1.0e-10,
+        atol=1.0e-10,
+    )
+    np.testing.assert_allclose(
+        result.recovery.wire_precompression_n,
+        np.array([-result.reactions.wire_reactions_n[0], 0.0]),
+        rtol=1.0e-10,
+        atol=1.0e-10,
+    )
+
+
 def test_link_mode_constraints_are_enforced_with_mode_specific_kinematics() -> None:
     model = _simple_model(
         lift_per_span_npm=np.array([0.0, 0.0, 40.0]),
@@ -395,6 +431,12 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
         disp_rear_m=disp_rear_m,
         reactions=reactions,
     )
+    recovery = recover_structural_response(
+        model=model,
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        reactions=reactions,
+    )
     optimizer_metrics = build_optimizer_facing_metrics(
         model=model,
         smooth=SmoothAggregationResult(
@@ -413,6 +455,7 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
         load_split=load_split,
         reactions=reactions,
         report=report,
+        recovery=recovery,
     )
     feasibility = build_feasibility_summary(
         optimizer_metrics=optimizer_metrics,
@@ -426,6 +469,7 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
     assert feasibility.candidate_constraint_failures == ("dual_displacement_candidate",)
     assert feasibility.numerical_consistency_passed is True
     assert feasibility.global_observables_passed is True
+    assert feasibility.wire_support_validity_passed is True
     assert feasibility.legacy_reference_passed is True
 
 
@@ -453,6 +497,27 @@ def test_equivalent_gates_are_legacy_reference_only_for_dual_beam_feasibility() 
         "equivalent_tip_deflection",
         "equivalent_twist",
     )
+
+
+def test_wire_tension_only_violation_is_a_hard_gate_when_support_reaction_turns_upward() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, -10.0, -20.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+    )
+
+    result = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_PRODUCTION,
+        link_mode=LinkMode.JOINT_ONLY_OFFSET_RIGID,
+    )
+
+    assert result.reactions.wire_reactions_n[0] > 0.0
+    assert result.recovery.wire_tension_only_passed is False
+    assert result.feasibility.wire_support_validity_passed is False
+    assert "wire_tension_only" in result.feasibility.hard_failures
+    assert result.feasibility.overall_hard_feasible is False
 
 
 def test_geometry_validity_margins_flag_invalid_ratio_or_taper() -> None:
