@@ -46,6 +46,7 @@ from hpa_mdo.aero import VSPAeroParser, LoadMapper
 from hpa_mdo.structure import SparOptimizer
 from hpa_mdo.structure.ansys_export import ANSYSExporter
 from hpa_mdo.utils import compute_deformed_nodes, export_step_from_csv
+from hpa_mdo.utils.drawing_ready_package import export_drawing_ready_package
 from hpa_mdo.utils.visualization import (
     plot_beam_analysis,
     plot_spar_geometry,
@@ -611,6 +612,16 @@ def main(argv: list[str] | None = None) -> float:
         )
     except Exception as exc:  # noqa: BLE001
         print(f"       WARN: mass budget skipped: {exc}")
+
+    # ====================================================================
+    # Step 11 — Export drawing-ready baseline package
+    # ====================================================================
+    print("[11/11] Exporting drawing-ready baseline package...")
+    try:
+        drawing_package_dir = export_drawing_ready_package(output_dir)
+        print(f"       Saved: {drawing_package_dir}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"       WARN: drawing-ready package skipped: {exc}")
 
     total_mass = val_weight_mass
     tip_defl_limit = cfg.wing.max_tip_deflection_m
