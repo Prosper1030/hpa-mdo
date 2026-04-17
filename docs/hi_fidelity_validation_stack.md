@@ -122,6 +122,8 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 - `output/blackcat_004/hifi_dual_beam_production_syncfile_reference_nsetfix/structural_check.md`
 - `output/blackcat_004/hifi_dual_beam_production_syncfile_reference_nsetfix/structural_check.json`
+- `output/blackcat_004/hifi_dual_beam_production_dedupcheck/structural_check.md`
+- `output/blackcat_004/hifi_dual_beam_production_dedupcheck/structural_check.json`
 
 該案例目前是：
 
@@ -129,18 +131,27 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - `Overall comparability: NOT_COMPARABLE`
 - `ROOT/TIP/WIRE` 已可直接從 mesh 產生 NSET
 - `ROOT clamp nodes=28; wire U3 supports=1`
-- static / buckle 都分類成 `mesh_quality`
+- duplicate shell facets 去重後，`opposite_normals` 已從 `4762` 降到 `3370`
+- static / buckle 仍分類成 `mesh_quality`
 - CalculiX static 發生大量 `opposite normals are defined`
 - 並且出現 `nonpositive jacobian`
 
+另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
+
+- `-3` volume meshing 會在 3D 階段報 `Invalid boundary mesh (overlapping facets)`
+- 並伴隨 `No elements in volume`
+- 改成 `-2` surface-first meshing 雖能避開 volume 階段報錯，但仍無法單獨解掉 CalculiX 的 `mesh_quality`
+
 所以目前最大問題比較像：
 
-- mesh normals / element quality / deck 組裝問題
+- STEP / Gmsh surface 本身的 overlapping / invalid facets
+- shell mesh normals / Jacobian 仍未收斂
 
 而不是：
 
 - root-plane boundary 只抓到單點
 - named-point / NSET mapping 本身先失敗
+- analysis deck 裡還保留大量完全重複的 shell facets
 - repo 完全沒有高保真 code path
 
 換句話說，目前結論是：
@@ -216,7 +227,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 1. 選一個新鮮且可比的 dual-beam / inverse-design benchmark case
 2. 先把 `Gmsh -> CalculiX -> report` 跑穩
-3. 先把 mesh normals / Jacobian 類硬錯誤壓下來
+3. 先把 STEP / Gmsh surface 的 overlapping facets 與 mesh normals / Jacobian 類硬錯誤壓下來
 4. 再對齊 tip deflection / `Max |UZ|` / support reaction / mass
 5. 先把它定位成 **non-gating local structural spot-check**
 6. 之後才考慮更完整的 load contract 或複材真值升級

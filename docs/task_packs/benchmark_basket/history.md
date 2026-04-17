@@ -13,9 +13,11 @@
   - `dual_beam_refinement` 對「局部設計朝更硬版本移動後，dual-beam / eq / ANSYS 的相對關係」很有參考價值，但仍不夠升格成唯一 sign-off case。
   - Mac `structural_check` 經過 `feat: 強化 Mac hifi structural spot-check 診斷輸出` 後，已具備更好的 comparability / issue-category 診斷能力。
   - fresh representative run 已完成：
-    - `output/blackcat_004/hifi_dual_beam_production_syncfile_reference_nsetfix/structural_check.json`
+    - `output/blackcat_004/hifi_dual_beam_production_dedupcheck/structural_check.json`
     - reference 已對齊 `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
     - 結果仍是 `WARN` / `NOT_COMPARABLE`
     - `ROOT/TIP/WIRE` 已可直接長成 mesh NSET，`ROOT clamp nodes=28`、`wire U3 supports=1`
-    - 主要 blocker 仍是 `mesh_quality`，診斷為 `opposite_normals x4762` 與 `nonpositive_jacobian x32`
-    - 這讓下一步工作更明確：先打 mesh robustness，不再優先懷疑 boundary / named-point contract
+    - analysis deck 已去除完全重複、只差方向的 shell facets，`opposite_normals` 已從 `4762` 降到 `3370`
+    - 主要 blocker 仍是 `mesh_quality`，診斷仍含 `nonpositive_jacobian x34`
+    - Gmsh `-3` probe 也已明確暴露 root cause：`Invalid boundary mesh (overlapping facets)` / `No elements in volume`
+    - 這讓下一步工作更明確：先打 STEP/Gmsh surface 的 mesh robustness，不再優先懷疑 boundary / named-point contract 或 duplicate shell facets
