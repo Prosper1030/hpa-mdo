@@ -835,6 +835,10 @@ def _write_combined_report(
         "",
         f"- Diagnostics sidecar: {mesh_diagnostics.diagnostics_path if mesh_diagnostics is not None else '—'}",
         f"- Mesh element count: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.element_count))}",
+        f"- Analysis reality: {mesh_diagnostics.analysis_reality if mesh_diagnostics is not None else '—'}",
+        f"- Volume elements present: {'yes' if mesh_diagnostics is not None and mesh_diagnostics.has_volume_elements else 'no' if mesh_diagnostics is not None else '—'}",
+        f"- Element family counts: {_fmt_element_family_counts(None if mesh_diagnostics is None else mesh_diagnostics.element_family_counts)}",
+        f"- Element type counts: {_fmt_element_type_counts(None if mesh_diagnostics is None else mesh_diagnostics.element_type_counts)}",
         f"- Gmsh return code: {_fmt(None if mesh_diagnostics is None or mesh_diagnostics.gmsh_returncode is None else float(mesh_diagnostics.gmsh_returncode))}",
         f"- Issue hints: {', '.join(mesh_diagnostics.issue_hints) if mesh_diagnostics is not None and mesh_diagnostics.issue_hints else '—'}",
         f"- Duplicate shell facets: {_fmt(None if mesh_diagnostics is None else float(mesh_diagnostics.duplicate_shell_facets))}",
@@ -919,6 +923,20 @@ def _fmt(value: float | None) -> str:
     if value is None:
         return "—"
     return f"{value:.6g}"
+
+
+def _fmt_element_family_counts(counts: dict[str, int] | None) -> str:
+    if not counts:
+        return "—"
+    ordered_keys = ("beam", "shell", "solid", "other")
+    parts = [f"{key}={int(counts.get(key, 0))}" for key in ordered_keys if key in counts]
+    return ", ".join(parts) if parts else "—"
+
+
+def _fmt_element_type_counts(counts: dict[str, int] | None) -> str:
+    if not counts:
+        return "—"
+    return ", ".join(f"{key}={int(value)}" for key, value in sorted(counts.items()))
 
 
 def _section_payload(section: StructuralCheckSection) -> dict[str, Any]:

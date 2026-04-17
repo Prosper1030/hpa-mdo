@@ -397,6 +397,15 @@ def test_collect_mesh_diagnostics_parses_gmsh_log_and_duplicate_facets(tmp_path:
     assert diagnostics.equivalent_triangles_count == 98
     assert diagnostics.invalid_surface_elements_count == 4
     assert diagnostics.duplicate_boundary_facets_count == 2
+    assert diagnostics.element_type_counts == {"CPS3": 3}
+    assert diagnostics.element_family_counts == {
+        "beam": 0,
+        "shell": 3,
+        "solid": 0,
+        "other": 0,
+    }
+    assert diagnostics.analysis_reality == "shell_surface_only"
+    assert diagnostics.has_volume_elements is False
     assert diagnostics.issue_hints == (
         "overlapping_boundary_mesh x1",
         "no_elements_in_volume x1",
@@ -441,6 +450,9 @@ def test_mesh_step_writes_mesh_diagnostics_sidecar(tmp_path: Path, monkeypatch) 
     assert diagnostics.attempt_count == 2
     assert diagnostics.mesh_size_m == cfg.hi_fidelity.gmsh.mesh_size_m
     assert diagnostics.healing_applied is True
+    assert diagnostics.element_type_counts == {"CPS3": 3}
+    assert diagnostics.analysis_reality == "shell_surface_only"
+    assert diagnostics.has_volume_elements is False
 
 
 def test_mesh_step_retries_once_with_coarser_mesh_on_surface_blockers(

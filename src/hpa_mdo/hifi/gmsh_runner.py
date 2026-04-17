@@ -15,7 +15,7 @@ block — this is what Gmsh itself would emit for a Physical Point with
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
 import re
@@ -79,6 +79,10 @@ class MeshDiagnostics:
     attempt_index: int | None = None
     attempt_count: int | None = None
     healing_applied: bool = False
+    element_type_counts: dict[str, int] = field(default_factory=dict)
+    element_family_counts: dict[str, int] = field(default_factory=dict)
+    analysis_reality: str = "unknown"
+    has_volume_elements: bool = False
 
     @property
     def issue_hints(self) -> tuple[str, ...]:
@@ -105,7 +109,7 @@ class MeshDiagnostics:
             hints.append(f"duplicate_shell_facets x{int(self.duplicate_shell_facets)}")
         return tuple(hints)
 
-    def to_dict(self) -> dict[str, int | str | None | list[str]]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "mesh_path": str(self.mesh_path),
             "diagnostics_path": None
@@ -123,6 +127,10 @@ class MeshDiagnostics:
             "attempt_index": self.attempt_index,
             "attempt_count": self.attempt_count,
             "healing_applied": self.healing_applied,
+            "element_type_counts": dict(sorted(self.element_type_counts.items())),
+            "element_family_counts": dict(sorted(self.element_family_counts.items())),
+            "analysis_reality": self.analysis_reality,
+            "has_volume_elements": self.has_volume_elements,
             "issue_hints": list(self.issue_hints),
         }
 
@@ -489,6 +497,8 @@ def collect_mesh_diagnostics(
         "\n".join(part for part in (gmsh_stdout, gmsh_stderr) if part)
     )
     duplicate_shell_facets = _count_duplicate_shell_facets(inp)
+    element_type_counts = _count_element_types(inp)
+    element_family_counts = _count_element_families(element_type_counts)
     return MeshDiagnostics(
         mesh_path=inp,
         diagnostics_path=None,
@@ -500,6 +510,10 @@ def collect_mesh_diagnostics(
         equivalent_triangles_count=int(log_hints["equivalent_triangles_count"]),
         invalid_surface_elements_count=int(log_hints["invalid_surface_elements_count"]),
         duplicate_boundary_facets_count=int(log_hints["duplicate_boundary_facets_count"]),
+        element_type_counts=element_type_counts,
+        element_family_counts=element_family_counts,
+        analysis_reality=_analysis_reality(element_family_counts),
+        has_volume_elements=element_family_counts.get("solid", 0) > 0,
     )
 
 
@@ -537,6 +551,16 @@ def load_mesh_diagnostics(inp_path: str | Path) -> MeshDiagnostics | None:
         attempt_index=payload.get("attempt_index"),
         attempt_count=payload.get("attempt_count"),
         healing_applied=bool(payload.get("healing_applied", False)),
+        element_type_counts={
+            str(key): int(value)
+            for key, value in dict(payload.get("element_type_counts", {})).items()
+        },
+        element_family_counts={
+            str(key): int(value)
+            for key, value in dict(payload.get("element_family_counts", {})).items()
+        },
+        analysis_reality=str(payload.get("analysis_reality", "unknown")),
+        has_volume_elements=bool(payload.get("has_volume_elements", False)),
     )
 
 
@@ -893,6 +917,69 @@ def _count_duplicate_shell_facets(inp_path: str | Path) -> int:
         facet_counts[key] = facet_counts.get(key, 0) + 1
 
     return sum(count - 1 for count in facet_counts.values() if count > 1)
+
+
+def _count_element_types(inp_path: str | Path) -> dict[str, int]:
+    text = Path(inp_path).read_text(encoding="utf-8", errors="ignore")
+    counts: dict[str, int] = {}
+    current_type = ""
+    in_element_block = False
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        upper = line.upper()
+        if upper.startswith("*ELEMENT"):
+            current_type = _element_type_from_card(line)
+            in_element_block = True
+            continue
+        if line.startswith("*"):
+            current_type = ""
+            in_element_block = False
+            continue
+        if not in_element_block:
+            continue
+        counts[current_type] = counts.get(current_type, 0) + 1
+
+    return counts
+
+
+def _count_element_families(element_type_counts: dict[str, int]) -> dict[str, int]:
+    counts = {"beam": 0, "shell": 0, "solid": 0, "other": 0}
+    for element_type, count in element_type_counts.items():
+        dimension = _element_dimension(element_type)
+        if dimension == 3:
+            counts["solid"] += int(count)
+        elif dimension == 2:
+            counts["shell"] += int(count)
+        elif dimension == 1:
+            counts["beam"] += int(count)
+        else:
+            counts["other"] += int(count)
+    return counts
+
+
+def _analysis_reality(element_family_counts: dict[str, int]) -> str:
+    beam = int(element_family_counts.get("beam", 0))
+    shell = int(element_family_counts.get("shell", 0))
+    solid = int(element_family_counts.get("solid", 0))
+
+    if solid > 0 and shell == 0 and beam == 0:
+        return "solid_volume_only"
+    if solid > 0 and shell == 0 and beam > 0:
+        return "solid_plus_beam"
+    if solid > 0 and shell > 0:
+        return "mixed_solid_and_shell"
+    if solid == 0 and shell > 0 and beam == 0:
+        return "shell_surface_only"
+    if solid == 0 and shell > 0 and beam > 0:
+        return "shell_plus_beam"
+    if solid == 0 and shell == 0 and beam > 0:
+        return "beam_only"
+    if solid == 0 and shell == 0 and beam == 0:
+        return "no_elements"
+    return "unknown"
 
 
 def _element_type_from_card(card_line: str) -> str:

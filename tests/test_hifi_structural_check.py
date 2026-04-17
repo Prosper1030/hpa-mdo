@@ -412,10 +412,21 @@ def test_run_structural_check_classifies_mesh_quality_solver_failures(
     assert result.static.diagnostics == ("opposite_normals x1", "nonpositive_jacobian x1")
     assert result.static.log_path == (hifi_dir / "wing_cruise_static.log").resolve()
     assert "Overall comparability: NOT_COMPARABLE" in report_text
+    assert "Analysis reality: solid_volume_only" in report_text
+    assert "Volume elements present: yes" in report_text
+    assert "Element family counts: beam=0, shell=0, solid=1, other=0" in report_text
     assert "Issue category: mesh_quality" in report_text
     assert "overlapping_boundary_mesh x1" in report_text
     assert summary_payload["overall_comparability"] == "NOT_COMPARABLE"
     assert summary_payload["static"]["issue_category"] == "mesh_quality"
+    assert summary_payload["mesh_diagnostics"]["analysis_reality"] == "solid_volume_only"
+    assert summary_payload["mesh_diagnostics"]["has_volume_elements"] is True
+    assert summary_payload["mesh_diagnostics"]["element_family_counts"] == {
+        "beam": 0,
+        "other": 0,
+        "shell": 0,
+        "solid": 1,
+    }
     assert summary_payload["mesh_diagnostics"]["issue_hints"][:3] == [
         "overlapping_boundary_mesh x1",
         "no_elements_in_volume x1",
