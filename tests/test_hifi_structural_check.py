@@ -40,6 +40,21 @@ MESH_WITH_WIRE_AND_MM_UNITS = """*NODE
 10, 1, 2, 3, 1
 """
 
+MESH_WITH_WIRE_TARGET_CHOICES = """*NODE
+1, 0.0, 0.0, 0.0
+2, 0.0, 7500.0, 0.0
+3, 1000.0, 7500.0, 0.0
+4, 0.0, 16500.0, 0.0
+*NSET, NSET=ROOT
+1
+*NSET, NSET=WIRE_1
+2
+*NSET, NSET=TIP
+4
+*ELEMENT, TYPE=C3D4
+10, 1, 2, 3, 4
+"""
+
 MESH_WITH_SPLIT_SPARS_MM_UNITS = """*NODE
 1, 0.0, 0.0, 0.0
 2, 1000.0, 7500.0, 0.0
@@ -655,3 +670,29 @@ def test_support_boundary_uses_wire_nset_when_present(tmp_path: Path) -> None:
     boundaries = structural_check._support_boundary_from_mesh(mesh, cfg)
 
     assert boundaries == [(1, (1, 2, 3)), (2, (3,))]
+
+
+def test_support_boundary_prefers_main_spar_target_from_spar_csv(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    mesh = tmp_path / "spar_model.inp"
+    mesh.write_text(MESH_WITH_WIRE_TARGET_CHOICES, encoding="utf-8")
+    csv_path = tmp_path / "spar_data.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "Y_Position_m,Main_X_m,Main_Z_m,Main_FZ_N,Rear_X_m,Rear_Z_m,Rear_FZ_N",
+                "0.0,0.0,0.0,0.0,0.0,0.0,0.0",
+                "7.5,1.0,0.0,10.0,2.0,0.0,20.0",
+                "16.5,1.0,0.0,-5.0,2.0,0.0,35.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    boundaries = structural_check._support_boundary_from_mesh(
+        mesh,
+        cfg,
+        wire_csv_path=csv_path,
+    )
+
+    assert boundaries == [(1, (1, 2, 3)), (3, (3,))]

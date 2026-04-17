@@ -289,7 +289,6 @@ def run_structural_check(
         material_key,
         length_scale_m_per_unit=mesh_length_scale_m,
     )
-    boundary_entries = _support_boundary_from_mesh(resolved_mesh, cfg)
     load_model = _build_load_model(
         cfg=cfg,
         output_dir=output_dir,
@@ -298,6 +297,11 @@ def run_structural_check(
         step_path=resolved_step,
         explicit_tip_load_n=tip_load_n,
         mesh_length_scale_m_per_unit=mesh_length_scale_m,
+    )
+    boundary_entries = _support_boundary_from_mesh(
+        resolved_mesh,
+        cfg,
+        wire_csv_path=load_model.source_path if load_model.source_kind == "spar_csv" else None,
     )
 
     static = _run_static_check(
@@ -965,7 +969,12 @@ def _boundary_arg(boundary_entries: list[tuple[int, tuple[int, ...]]]) -> Any:
     return boundary_entries
 
 
-def _support_boundary_from_mesh(mesh_path: Path, cfg: HPAConfig) -> list[BoundaryEntry]:
+def _support_boundary_from_mesh(
+    mesh_path: Path,
+    cfg: HPAConfig,
+    *,
+    wire_csv_path: Path | None = None,
+) -> list[BoundaryEntry]:
     boundary_entries = list(root_boundary_from_mesh(mesh_path))
     try:
         from hpa_mdo.hifi.gmsh_runner import parse_nset_from_inp
@@ -974,17 +983,31 @@ def _support_boundary_from_mesh(mesh_path: Path, cfg: HPAConfig) -> list[Boundar
     except Exception:
         nsets = {}
 
+    wire_targets = (
+        _wire_support_targets_from_spar_csv(wire_csv_path, cfg)
+        if wire_csv_path is not None
+        else []
+    )
     if cfg.lift_wires.enabled:
         for idx, attachment in enumerate(cfg.lift_wires.attachments, start=1):
+            target = wire_targets[idx - 1] if idx - 1 < len(wire_targets) else None
+            if target is not None:
+                node_id = _nearest_node_for_spanwise_y(
+                    mesh_path,
+                    float(target[1]),
+                    cfg,
+                    x_target_m=float(target[0]),
+                    z_target_m=float(target[2]),
+                )
+                boundary_entries.append((node_id, (3,)))
+                continue
+
             nset_name = f"WIRE_{idx}"
             if nset_name in nsets and nsets[nset_name]:
                 boundary_entries.extend((int(node_id), (3,)) for node_id in nsets[nset_name])
                 continue
-            node_id = _nearest_node_for_spanwise_y(
-                mesh_path,
-                float(attachment.y),
-                cfg,
-            )
+
+            node_id = _nearest_node_for_spanwise_y(mesh_path, float(attachment.y), cfg)
             boundary_entries.append((node_id, (3,)))
     return _merge_boundary_entries(boundary_entries)
 
@@ -1005,6 +1028,43 @@ def _support_description(boundary_entries: list[BoundaryEntry], cfg: HPAConfig) 
     if cfg.lift_wires.enabled:
         return f"ROOT clamp nodes={root_count}; wire U3 supports={wire_count}"
     return f"ROOT clamp nodes={root_count}; no wire supports"
+
+
+def _wire_support_targets_from_spar_csv(
+    csv_path: Path | None,
+    cfg: HPAConfig,
+) -> list[tuple[float, float, float]]:
+    if csv_path is None or not csv_path.exists() or not cfg.lift_wires.enabled:
+        return []
+
+    with csv_path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        required = {"Y_Position_m", "Main_X_m", "Main_Z_m"}
+        if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+            return []
+        rows: list[tuple[float, float, float]] = []
+        for row in reader:
+            try:
+                rows.append(
+                    (
+                        float(row["Y_Position_m"]),
+                        float(row["Main_X_m"]),
+                        float(row["Main_Z_m"]),
+                    )
+                )
+            except (TypeError, ValueError):
+                continue
+
+    if not rows:
+        return []
+
+    targets: list[tuple[float, float, float]] = []
+    y_values = np.asarray([item[0] for item in rows], dtype=float)
+    for attachment in cfg.lift_wires.attachments:
+        idx = int(np.argmin(np.abs(y_values - float(attachment.y))))
+        y_m, x_m, z_m = rows[idx]
+        targets.append((x_m, y_m, z_m))
+    return targets
 
 
 def _build_load_model(
