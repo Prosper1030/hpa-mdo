@@ -6,7 +6,7 @@
 ## 最短版回答
 
 可以。
-你現在最簡單的做法，就是直接貼對應模板，然後把 `track_c_mac_hifi_spotcheck` 換成你要的任務 ID。
+你現在最簡單的做法，就是直接貼對應模板，然後把 `track_e_surrogate_warm_start` 換成你要的任務 ID。
 
 ## 通用交辦模板
 
@@ -19,7 +19,7 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_c_mac_hifi_spotcheck.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_e_surrogate_warm_start.md
 
 如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
 上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
@@ -31,7 +31,7 @@
 - 先做最小必要驗證，再回報結果、風險、未完成處
 ```
 
-## 如果你現在就是要派 `Track C`
+## 如果你現在就是要派 `Track E`
 
 你可以直接貼下面這段，不需要再自己重寫：
 
@@ -44,27 +44,26 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_c_mac_hifi_spotcheck.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_e_surrogate_warm_start.md
 
-你的目標是把 Mac 上的 structural spot-check 往「更穩定、更可比較」推進，但不要把任何單一歷史 APDL case 寫死成唯一 benchmark。
+你的目標是把 surrogate warm start 以 optional acceleration 的方式接進主線，不要改變 physics truth，也不要讓新依賴變成必裝。
 
 如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
 上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
 
 限制：
-- 只能修改 `src/hpa_mdo/hifi/**`, `scripts/hifi_*`, `tests/test_hifi_*`
-- 不要改 `scripts/direct_dual_beam_inverse_design.py`
+- 只能修改 `src/hpa_mdo/utils/surrogate.py`, `src/hpa_mdo/utils/data_collector.py`, `src/hpa_mdo/structure/optimizer.py`, `scripts/collect_surrogate_data.py`, `tests/test_surrogate.py`, `pyproject.toml`
 - 不要改 `README.md`, `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml`
 - 每完成一個獨立任務就單獨 commit
 - 先做最小必要驗證，再回報結果、風險、未完成處
 ```
 
-## 什麼時候只寫「做 Track C」就夠
+## 什麼時候只寫「做 Track E」就夠
 
 只有在對方 agent 已經知道這個 repo，或你確定它會先讀 `CURRENT_MAINLINE.md` / `project_state.yaml` 的情況下，才建議只寫：
 
 ```text
-請照 current_parallel_work task pack 做 Track C。
+請照 current_parallel_work task pack 做 Track E。
 ```
 
 如果是新 agent，或你不確定它會不會自己找文件，請不要只寫這一句，否則很容易理解不完整。

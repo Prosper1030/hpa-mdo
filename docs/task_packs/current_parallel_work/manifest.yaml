@@ -1,5 +1,5 @@
 pack_name: "current_parallel_work"
-updated_at: "2026-04-17"
+updated_at: "2026-04-18"
 canonical_read_order:
   - "CURRENT_MAINLINE.md"
   - "project_state.yaml"
@@ -7,35 +7,40 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_b_inverse_design_gate"
-    prompt: "prompts/track_b_inverse_design_gate.md"
+  - id: "track_a_frontdoor_workflow"
+    prompt: "prompts/track_a_frontdoor_workflow.md"
     write_scope:
-      - "scripts/direct_dual_beam_inverse_design.py"
-      - "src/hpa_mdo/structure/inverse_design.py"
+      - "docs/README.md"
+      - "docs/dual_beam_workflow_architecture_overview.md"
+      - "docs/task_packs/current_parallel_work/**"
+    expected_artifacts:
+      - "front-door workflow update"
+      - "artifact navigation / handoff-ready docs"
+      - "minimal verification"
+  - id: "track_e_surrogate_warm_start"
+    prompt: "prompts/track_e_surrogate_warm_start.md"
+    write_scope:
+      - "src/hpa_mdo/utils/surrogate.py"
+      - "src/hpa_mdo/utils/data_collector.py"
+      - "src/hpa_mdo/structure/optimizer.py"
+      - "scripts/collect_surrogate_data.py"
+      - "tests/test_surrogate.py"
+      - "pyproject.toml"
+    expected_artifacts:
+      - "optional surrogate backend"
+      - "warm-start wiring"
+      - "training-data / collection hook"
+      - "tests"
+  - id: "track_f_requested_realizable_outer_loop"
+    prompt: "prompts/track_f_requested_realizable_outer_loop.md"
+    write_scope:
+      - "scripts/direct_dual_beam_inverse_design_feasibility_sweep.py"
+      - "scripts/dihedral_sweep_campaign.py"
       - "tests/test_inverse_design.py"
+      - "docs/task_packs/current_parallel_work/**"
     expected_artifacts:
-      - "inverse-design validity summary JSON"
-      - "updated refresh / summary JSON linkage"
-      - "tests"
-  - id: "track_c_mac_hifi_spotcheck"
-    prompt: "prompts/track_c_mac_hifi_spotcheck.md"
-    write_scope:
-      - "src/hpa_mdo/hifi/**"
-      - "scripts/hifi_*"
-      - "tests/test_hifi_*"
-    expected_artifacts:
-      - "benchmark-ready spot-check workflow"
-      - "improved report or failure classification"
-      - "tests"
-  - id: "track_d_discrete_layup_summary"
-    prompt: "prompts/track_d_discrete_layup_summary.md"
-    write_scope:
-      - "examples/blackcat_004_optimize.py"
-      - "src/hpa_mdo/utils/discrete_layup.py"
-      - "tests/test_discrete_layup*.py"
-    expected_artifacts:
-      - "discrete layup summary"
-      - "final-design-friendly output"
+      - "low-dimensional outer-loop summary"
+      - "requested-vs-realizable mismatch evidence"
       - "tests"
 
 do_not_touch:

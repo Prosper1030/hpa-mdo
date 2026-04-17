@@ -1,20 +1,23 @@
 # HPA-MDO 執行路線圖 (Execution Roadmap)
 
 > **文件性質**：細化版近期規劃。這份文件不是長期願景，也不是單次待辦清單；它用來回答「接下來有哪些軌道可以推」「哪些先後順序取決於當前卡點」。
-> **更新基準**：2026-04-17 repo 現況 + 已確認主線
+> **更新基準**：2026-04-18 repo 現況 + 已確認主線
 > **搭配文件**：正式主線請看 [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md)，精簡版摘要請看 [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md)，長期方向請看 [GRAND_BLUEPRINT.md](GRAND_BLUEPRINT.md)。
 
 ## 1. 先講結論
 
-接下來的工作不應該再排成「只有一個 Priority 0」的線性清單，而比較像五條互相支援的軌道：
+接下來的工作不應該再排成「只有一個 Priority 0」的線性清單，而比較像兩層：
 
-1. 先把現在的主線收斂成更清楚的單一路徑。
-2. 同時補上 inverse-design 自己的有效性 gate，避免自我驗證。
-3. 再把 Mac 上的高保真路線收斂成可信 structural spot-check。
-4. 把 discrete CFRP / layup 從「存在的能力」收成「正式主線輸出」。
-5. 在以上幾條開始穩定後，再把 surrogate / catalog / outer-loop shape design 接回來。
+1. 已完成 baseline 的支援軌道：Track B / C / D。
+2. 下一輪主要推進軌道：Track A / E / F。
 
-換句話說，這份 roadmap 的核心不是「今天唯一要做哪一個任務」，而是「不同卡點對應哪一條路徑最值得推」。
+換句話說，這份 roadmap 的核心不再是「先把 B / C / D 做出來」，而是「在 B / C / D 已有 baseline 的前提下，接下來最值得怎麼推主線」。
+
+## 1.5 目前已可視為完成的 baseline
+
+- Track B：inverse-design validity summary / gate artifact 已成立，可轉為維護型軌道。
+- Track C：Mac hi-fi 已收斂成 `local structural spot-check`，不再是要被推成 validation truth 的 blocker。
+- Track D：discrete layup final-design JSON 與 summary text 已經都能表達 discrete final verdict。
 
 ## 2. 規劃原則
 
@@ -96,6 +99,10 @@
 
 ## Track A：主線收斂與入口整理
 
+### 狀態
+
+**NEXT / 主軸**
+
 ### 目標
 
 把現在分散的入口、artifact 命名與對外敘事，收成更一致的主線操作方式。
@@ -123,6 +130,10 @@
 
 ## Track B：inverse-design 有效性與 gate
 
+### 狀態
+
+**baseline completed; maintain only**
+
 ### 目標
 
 降低 frozen-load backout、exact nodal matching 與自我驗證的風險。
@@ -134,22 +145,25 @@
 
 ### 近期交付物
 
-- fresh reanalysis mandatory
-- requested / realizable mismatch 指標
-- descriptor-based matching 與 exact nodal audit 分工
-- wire active/slack、tension、twist、clearance、manufacturing gate
+- 若 fresh reanalysis 顯示仍有洞，再補更清楚的 mismatch / validity evidence
+- 若外圈開始吃這些 artifact，再補更穩的 consumer-facing summary
 
 ### 完成判準
 
-- 同一個 inverse-design run 有清楚的 backout validity summary
-- exact nodal 不再是唯一判準
-- 明確知道哪些 run 是「可參考」而不是「可 sign-off」
+- baseline 已具備：
+  - 同一個 inverse-design run 有清楚的 backout validity summary
+  - exact nodal 不再是唯一判準
+  - 明確知道哪些 run 是「可參考」而不是「可 sign-off」
 
 ### 不該先做的事
 
 - 直接把這條線推成 full corotational / fully nonlinear rewrite
 
 ## Track C：Mac 高保真 structural spot-check
+
+### 狀態
+
+**baseline completed; on-demand only**
 
 ### 目標
 
@@ -162,19 +176,16 @@
 
 ### 近期交付物
 
-- 選一個新鮮且可比的 benchmark case
-- 跑通 `Gmsh -> CalculiX -> report`
-- 對齊四個最基本量：
-  - tip deflection
-  - max |UZ|
-  - support reaction
-  - mass
+- benchmark basket refresh
+- apples-to-apples external benchmark definition
+- finalist / suspicious design diagnosis when needed
 
 ### 完成判準
 
-- 至少一個代表性 case 能穩定在 Mac 上跑完
-- 報告裡能說清楚是 mesh / BC / load mapping 問題，還是 solver 本體問題
-- 能把它定位成「可信 spot-check」，而不是「最終真值」
+- baseline 已具備：
+  - 至少一個代表性 case 能穩定在 Mac 上跑完
+  - 報告裡能說清楚是 mesh / BC / load mapping 問題，還是 solver 本體問題
+  - 能把它定位成「可信 spot-check」，而不是「最終真值」
 
 ### 先不要宣稱的事
 
@@ -183,6 +194,10 @@
 - 不宣稱它已是最終 aeroelastic truth
 
 ## Track D：discrete CFRP / layup 主線化
+
+### 狀態
+
+**baseline completed; consume via Track A / F**
 
 ### 目標
 
@@ -195,14 +210,14 @@
 
 ### 近期交付物
 
-- 正式的 discrete layup summary
-- 與 inverse-design / jig / loaded shape 串起來的結果摘要
-- 明確的 continuous warm-start vs discrete final role definition
+- 讓 Track A front door 能清楚暴露 discrete final-design artifact
+- 讓 Track F outer loop 能直接消費 discrete final-design verdict
 
 ### 完成判準
 
-- 同一個案例可以從 target / jig / loaded 一路追到 discrete layup summary
-- 文件與實際輸出都不再把連續 thickness optimum 寫成 final answer
+- baseline 已具備：
+  - 同一個案例可以從 target / jig / loaded 一路追到 discrete layup summary
+  - 文件與實際輸出都不再把連續 thickness optimum 寫成 final answer
 
 ## Track E：surrogate / data / catalog
 
@@ -213,11 +228,11 @@
 ### 為什麼值得做
 
 - 這會影響 sweep 成本與最終 ranking 的採購可用性
-- 但它不應該先於 Track A / B / D
+- 而且它現在已不需要再等 B / D baseline，因為這兩條線的 machine-readable artifact 已經存在
 
 ### 近期交付物
 
-- surrogate warm start
+- optional surrogate warm start
 - 真實 vendor / hardware catalog 資料化
 - focused crossover sweep 的觸發規則
 
@@ -280,19 +295,19 @@
 
 先做：
 
-- Track B：inverse-design gate
-- Track C：Mac high-fidelity spot-check
+- 先讀 Track B / C 的既有 artifact
+- 只有在 fresh evidence 顯示還有缺口時，才補 Track B / C
 
 ### 情境 B：現在最卡的是「使用者和 agent 都還是不知道怎麼用」
 
 先做：
 
 - Track A：主線收斂
-- Track D：discrete layup 主線化
+- 並把 Track D 的 final-design artifact 明確掛到 front door
 
 ### 情境 C：現在最卡的是「探索很慢，想加速」
 
-前提是 A / B 已經基本穩，再做：
+前提是 A 已先講清 canonical artifact，再做：
 
 - Track E：surrogate / data / catalog
 

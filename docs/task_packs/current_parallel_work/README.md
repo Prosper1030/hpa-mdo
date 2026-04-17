@@ -17,9 +17,11 @@
 
 這包只涵蓋目前最適合平行處理、且 write set 可以拆開的工作：
 
-- Track B：inverse-design validity / gate
-- Track C：Mac structural spot-check
-- Track D：discrete layup 主線化
+- Track A：front door / canonical workflow 收斂
+- Track E：surrogate warm start / data / catalog
+- Track F：requested-to-realizable 外圈 shape 調整
+
+上一輪的 Track B / C / D 已經有 baseline 成果，現在主要放進 `history.md` 當已完成波次，不再當 current pack 的主任務。
 
 ## How To Use This Pack
 

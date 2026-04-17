@@ -2,9 +2,9 @@
 
 | Task ID | 主題 | 推薦 owner 檔案 | 主要輸出 | 不要碰 |
 |---|---|---|---|---|
-| `track_b_inverse_design_gate` | inverse-design validity / gate 輸出 | `scripts/direct_dual_beam_inverse_design.py`, `src/hpa_mdo/structure/inverse_design.py`, `tests/test_inverse_design.py` | validity summary artifact、summary JSON 對齊、對應測試 | `README.md`, `CURRENT_MAINLINE.md`, `configs/blackcat_004.yaml` |
-| `track_c_mac_hifi_spotcheck` | Mac structural spot-check 收斂 | `src/hpa_mdo/hifi/**`, `scripts/hifi_*`, `tests/test_hifi_*` | benchmark-ready structural check、報告輸出、必要測試 | `scripts/direct_dual_beam_inverse_design.py` |
-| `track_d_discrete_layup_summary` | discrete layup 主線化 | `examples/blackcat_004_optimize.py`, `src/hpa_mdo/utils/discrete_layup.py`, `tests/test_discrete_layup*.py` | 更正式的 layup summary / final output | `src/hpa_mdo/hifi/**`, `scripts/direct_dual_beam_inverse_design.py` |
+| `track_a_frontdoor_workflow` | 主線 front door / canonical workflow 收斂 | `docs/README.md`, `docs/dual_beam_workflow_architecture_overview.md`, `docs/task_packs/current_parallel_work/**` | 更清楚的 front-door workflow、artifact 導航、handoff-ready docs | `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml` |
+| `track_e_surrogate_warm_start` | surrogate warm start / data / catalog | `src/hpa_mdo/utils/surrogate.py`, `src/hpa_mdo/utils/data_collector.py`, `src/hpa_mdo/structure/optimizer.py`, `scripts/collect_surrogate_data.py`, `tests/test_surrogate.py`, `pyproject.toml` | optional surrogate backend、warm-start wiring、資料收集腳本、測試 | `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, 未經明確需求不要改 solver 核心 physics 假設 |
+| `track_f_requested_realizable_outer_loop` | requested-to-realizable 低維外圈 | `scripts/direct_dual_beam_inverse_design_feasibility_sweep.py`, `scripts/dihedral_sweep_campaign.py`, `docs/task_packs/current_parallel_work/**`, `tests/test_inverse_design.py` | 低維 outer-loop score / summary、requested-vs-realizable mismatch evidence、對應測試 | `src/hpa_mdo/hifi/**`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml` |
 
 ## Shared Rules
 

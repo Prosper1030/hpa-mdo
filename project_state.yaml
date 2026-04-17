@@ -1,4 +1,4 @@
-updated_at: "2026-04-17"
+updated_at: "2026-04-18"
 repo: "hpa-mdo"
 status: "active"
 
@@ -41,28 +41,38 @@ official_entrypoints:
 active_tracks:
   track_a:
     name: "mainline_consolidation"
-    status: "active"
-    goal: "Make generic VSP intake -> inverse design -> discrete layup feel like one canonical workflow."
+    status: "next"
+    goal: "Make generic VSP intake -> inverse design -> discrete layup feel like one canonical workflow for humans and agents."
   track_b:
     name: "inverse_design_validity_gates"
-    status: "active"
-    goal: "Make frozen-load inverse design easier to trust via explicit validity / mismatch / gate outputs."
+    status: "baseline_complete"
+    goal: "Validity / mismatch / gate outputs have landed; future work is narrower follow-up, not the current main push."
   track_c:
     name: "mac_structural_spotcheck"
-    status: "active"
-    goal: "Stabilize Gmsh -> CalculiX -> report as a local non-gating structural spot-check."
+    status: "baseline_complete"
+    goal: "Mac hi-fi is now a local non-gating structural spot-check; further work should be benchmark- or diagnosis-driven."
   track_d:
     name: "discrete_layup_mainlineization"
-    status: "active"
-    goal: "Make discrete layup a first-class final design output."
+    status: "baseline_complete"
+    goal: "Discrete layup is now a first-class final design output with machine-readable and summary-text surfacing."
   track_e:
     name: "surrogate_data_catalog"
-    status: "conditional"
-    goal: "Reconnect search efficiency and vendor realism after canonical I/O stabilizes."
+    status: "next"
+    goal: "Reconnect search efficiency and vendor realism now that B/D baseline artifacts are in place."
   track_f:
     name: "requested_to_realizable_outer_loop"
-    status: "conditional"
-    goal: "Move from manual sweeps to low-dimensional outer-loop shape updates."
+    status: "queued"
+    goal: "Move from manual sweeps to low-dimensional outer-loop shape updates after A/E contracts stabilize."
+
+recently_completed:
+  - "Track B baseline: inverse-design validity summary JSON and summary linkage are in place."
+  - "Track C baseline: Mac structural spot-check is stabilized as a local non-gating workflow with explicit comparability/diagnostic output."
+  - "Track D baseline: discrete_layup_final_design.json and optimization_summary.txt now both surface the final discrete design verdict."
+
+next_wave_priorities:
+  - "Track A: consolidate the front-door workflow and artifact navigation so humans and agents can run the canonical path without re-discovery."
+  - "Track E: add optional surrogate warm start on top of the existing training-data collection path, without changing the physics truth."
+  - "Track F: formalize the low-dimensional requested-to-realizable outer loop once A/E artifacts are stable enough to score."
 
 benchmark_policy:
   status: "open_basket"
