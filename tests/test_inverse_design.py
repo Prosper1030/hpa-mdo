@@ -28,6 +28,7 @@ from scripts.direct_dual_beam_inverse_design import (
     CandidateArchive,
     InverseCandidate,
     LightweightLoadRefreshModel,
+    _build_validity_summary_payload,
     _build_arg_parser,
     _clearance_risk_metrics,
     _lift_wire_rigging_records,
@@ -879,6 +880,98 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(record.delta_L_m, expected_L_flight_m - 7.8, places=9)
         self.assertAlmostEqual(record.allowable_tension_n, 3200.0, places=9)
         self.assertAlmostEqual(record.tension_margin_n, 3200.0 - 280.0, places=9)
+
+    def test_build_validity_summary_payload_marks_legacy_only_issues_as_warn(self) -> None:
+        target = StructuralNodeShape(
+            main_nodes_m=np.array(
+                [
+                    [0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.10],
+                    [0.0, 2.0, 0.25],
+                ],
+                dtype=float,
+            ),
+            rear_nodes_m=np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [1.0, 1.0, 0.08],
+                    [1.0, 2.0, 0.22],
+                ],
+                dtype=float,
+            ),
+        )
+        disp_main = np.array(
+            [
+                [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.10, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.20, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+        disp_rear = np.array(
+            [
+                [0.0, 0.0, 0.00, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.08, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.16, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+        inverse = build_frozen_load_inverse_design(
+            target_loaded_shape=target,
+            disp_main_m=disp_main,
+            disp_rear_m=disp_rear,
+            y_nodes_m=np.array([0.0, 1.0, 2.0], dtype=float),
+            analysis_succeeded=True,
+            geometry_validity_passed=True,
+            equivalent_failure_passed=False,
+            equivalent_buckling_passed=False,
+            equivalent_tip_passed=False,
+            equivalent_twist_passed=False,
+            clearance_floor_z_m=0.0,
+            target_shape_error_tol_m=1.0e-9,
+            max_abs_vertical_prebend_m=0.25,
+            max_abs_vertical_curvature_per_m=0.01,
+        )
+        candidate = self._make_inverse_candidate(
+            mass_kg=21.7,
+            source="selected",
+            feasible=True,
+            violation=0.0,
+        )
+        candidate = InverseCandidate(
+            **{
+                **candidate.__dict__,
+                "inverse_result": inverse,
+                "hard_margins": {
+                    "loaded_shape_main_z_margin_m": 0.02,
+                    "loaded_shape_twist_margin_deg": 0.10,
+                    "ground_clearance_margin_m": 0.0,
+                    "jig_prebend_margin_m": 0.05,
+                    "jig_curvature_margin_per_m": -0.002,
+                },
+                "active_wall_risk_score": 0.35,
+            }
+        )
+
+        payload = _build_validity_summary_payload(
+            candidate=candidate,
+            active_wall_diagnostics=None,
+        )
+
+        self.assertEqual(payload["overall_status"], "warn")
+        self.assertEqual(payload["validity_status"]["mainline_gate_status"], "pass")
+        self.assertEqual(payload["validity_status"]["legacy_reference_status"], "warn")
+        self.assertTrue(payload["mainline_feasibility"]["overall_feasible"])
+        self.assertEqual(
+            payload["legacy_reference"]["failures"],
+            [
+                "equivalent_failure",
+                "equivalent_buckling",
+                "equivalent_tip_deflection",
+                "equivalent_twist",
+            ],
+        )
+        self.assertIn("jig_curvature_margin_per_m", payload["blockers"]["negative_hard_margins"])
 
     def test_candidate_archive_local_refine_starts_prioritizes_feasible_then_near_feasible(self) -> None:
         archive = CandidateArchive()

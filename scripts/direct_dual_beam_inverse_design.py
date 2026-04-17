@@ -290,6 +290,7 @@ class ArtifactBundle:
     step_error: str | None = None
     loaded_step_error: str | None = None
     diagnostics_json: str | None = None
+    validity_summary_json: str | None = None
     wire_rigging_json: str | None = None
 
 
@@ -1601,6 +1602,7 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
     jig_shape = None
     predicted_loaded_shape = None
     clearance_hotspots = None
+    validity_status = None
     if inverse is not None:
         clearance_hotspots = [
             asdict(hotspot)
@@ -1634,6 +1636,7 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
                 else asdict(inverse.monotonic_deflection)
             ),
         }
+        validity_status = _candidate_validity_status(candidate)
         target_shape = shape_to_dict(inverse.target_loaded_shape)
         jig_shape = shape_to_dict(inverse.jig_shape)
         predicted_loaded_shape = shape_to_dict(inverse.predicted_loaded_shape)
@@ -1684,6 +1687,7 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "target_mass_passed": candidate.target_mass_passed,
         "overall_target_feasible": candidate.overall_target_feasible,
         "failures": list(candidate.failures),
+        "validity_status": validity_status,
         "hard_violation_score": candidate.hard_violation_score,
         "target_violation_score": candidate.target_violation_score,
         "hard_margins": {key: float(value) for key, value in candidate.hard_margins.items()},
@@ -2041,6 +2045,7 @@ def build_report_text(
         lines.append(f"  deflection CSV               : {outcome.artifacts.deflection_csv or 'not written'}")
         lines.append(f"  jig STEP                     : {outcome.artifacts.jig_step_path or 'not written'}")
         lines.append(f"  loaded STEP                  : {outcome.artifacts.loaded_step_path or 'not written'}")
+        lines.append(f"  validity summary JSON        : {outcome.artifacts.validity_summary_json or 'not written'}")
         lines.append(f"  STEP engine                  : {outcome.artifacts.step_engine or 'not run'}")
         if outcome.artifacts.step_error:
             lines.append(f"  Jig STEP export note         : {outcome.artifacts.step_error}")
@@ -2505,6 +2510,7 @@ def build_refresh_report_text(
         lines.append(f"  jig STEP                     : {outcome.artifacts.jig_step_path or 'not written'}")
         lines.append(f"  loaded STEP                  : {outcome.artifacts.loaded_step_path or 'not written'}")
         lines.append(f"  diagnostics JSON             : {outcome.artifacts.diagnostics_json or 'not written'}")
+        lines.append(f"  validity summary JSON        : {outcome.artifacts.validity_summary_json or 'not written'}")
         lines.append(f"  wire rigging JSON            : {outcome.artifacts.wire_rigging_json or 'not written'}")
         lines.append(f"  STEP engine                  : {outcome.artifacts.step_engine or 'not run'}")
         if outcome.artifacts.step_error:
@@ -2633,6 +2639,107 @@ def _build_selected_diagnostics_payload(
     }
 
 
+def _candidate_validity_status(candidate: InverseCandidate) -> dict[str, object] | None:
+    inverse = candidate.inverse_result
+    if inverse is None:
+        return None
+
+    monotonic_status = "not_checked"
+    if inverse.monotonic_deflection is not None:
+        monotonic_status = "pass" if inverse.monotonic_deflection.passed else "warn"
+
+    mainline_status = "pass" if inverse.feasibility.overall_feasible else "fail"
+    legacy_reference_status = "pass" if inverse.feasibility.legacy_reference_passed else "warn"
+    overall_status = mainline_status
+    if overall_status == "pass" and (
+        legacy_reference_status != "pass" or monotonic_status == "warn"
+    ):
+        overall_status = "warn"
+
+    return {
+        "overall_status": overall_status,
+        "mainline_gate_status": mainline_status,
+        "legacy_reference_status": legacy_reference_status,
+        "monotonic_deflection_status": monotonic_status,
+    }
+
+
+def _build_validity_summary_payload(
+    *,
+    candidate: InverseCandidate,
+    active_wall_diagnostics: ActiveWallDiagnostics | None,
+) -> dict[str, object]:
+    inverse = candidate.inverse_result
+    if inverse is None:
+        return {
+            "overall_status": "fail",
+            "message": "selected candidate has no inverse-design payload",
+            "selected_source": candidate.source,
+        }
+
+    inverse_margins = build_inverse_design_margins(inverse)
+    negative_hard_margins = {
+        key: float(value)
+        for key, value in sorted(candidate.hard_margins.items())
+        if float(value) < 0.0
+    }
+    validity_status = _candidate_validity_status(candidate)
+    active_wall = None if active_wall_diagnostics is None else asdict(active_wall_diagnostics)
+    return {
+        "generated_at": datetime.now().astimezone().isoformat(),
+        "selected_source": candidate.source,
+        "selected_message": candidate.message,
+        "overall_status": None if validity_status is None else validity_status["overall_status"],
+        "validity_status": validity_status,
+        "mainline_feasibility": {
+            "overall_feasible": bool(inverse.feasibility.overall_feasible),
+            "safety_passed": bool(inverse.feasibility.safety_passed),
+            "manufacturing_passed": bool(inverse.feasibility.manufacturing_passed),
+            "failures": list(inverse.feasibility.failures),
+        },
+        "legacy_reference": {
+            "passed": bool(inverse.feasibility.legacy_reference_passed),
+            "failures": list(inverse.feasibility.legacy_reference_failures),
+        },
+        "metrics": {
+            "loaded_shape_match": asdict(inverse.loaded_shape_match),
+            "target_shape_error": asdict(inverse.target_shape_error),
+            "ground_clearance": asdict(inverse.ground_clearance),
+            "manufacturing": asdict(inverse.manufacturing),
+            "monotonic_deflection": (
+                None
+                if inverse.monotonic_deflection is None
+                else asdict(inverse.monotonic_deflection)
+            ),
+            "candidate": {
+                "total_structural_mass_kg": float(candidate.total_structural_mass_kg),
+                "tube_mass_kg": float(candidate.tube_mass_kg),
+                "objective_value_kg": float(candidate.objective_value_kg),
+                "clearance_risk_score": float(candidate.clearance_risk_score),
+                "active_wall_risk_score": float(candidate.active_wall_risk_score),
+                "technically_clearance_fragile": bool(candidate.technically_clearance_fragile),
+            },
+        },
+        "margins": {
+            "inverse_design": {key: float(value) for key, value in inverse_margins.items()},
+            "hard_constraints": {
+                key: float(value) for key, value in sorted(candidate.hard_margins.items())
+            },
+        },
+        "blockers": {
+            "primary_failures": list(inverse.feasibility.failures),
+            "negative_hard_margins": negative_hard_margins,
+            "technically_clearance_fragile": bool(candidate.technically_clearance_fragile),
+            "active_wall_principal_bottleneck": (
+                None if active_wall is None else active_wall.get("principal_bottleneck")
+            ),
+            "active_wall_primary_driver": (
+                None if active_wall is None else active_wall.get("primary_driver")
+            ),
+        },
+    }
+
+
 def _write_deflection_csv(
     path: Path,
     *,
@@ -2725,9 +2832,16 @@ def export_inverse_design_artifacts(
         return ArtifactBundle(
             target_shape_csv=None,
             jig_shape_csv=None,
+            loaded_shape_csv=None,
+            deflection_csv=None,
             jig_step_path=None,
+            loaded_step_path=None,
             step_engine=None,
             step_error="selected candidate has no inverse-design shape payload",
+            loaded_step_error=None,
+            diagnostics_json=None,
+            validity_summary_json=None,
+            wire_rigging_json=None,
         )
 
     opt_result = build_opt_result_from_candidate(candidate, cfg)
@@ -2797,6 +2911,18 @@ def export_inverse_design_artifacts(
         + "\n",
         encoding="utf-8",
     )
+    validity_summary_json_path = output_dir / "validity_summary.json"
+    validity_summary_json_path.write_text(
+        json.dumps(
+            _build_validity_summary_payload(
+                candidate=candidate,
+                active_wall_diagnostics=active_wall_diagnostics,
+            ),
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     model_for_deflection = candidate.mainline_model
     if model_for_deflection is None:
@@ -2836,6 +2962,7 @@ def export_inverse_design_artifacts(
         step_error=step_error,
         loaded_step_error=loaded_step_error,
         diagnostics_json=str(diagnostics_json_path.resolve()),
+        validity_summary_json=str(validity_summary_json_path.resolve()),
         wire_rigging_json=str(wire_json_path.resolve()),
     )
 
@@ -3813,6 +3940,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Jig STEP            : {refinement.artifacts.jig_step_path or 'not written'}")
         print(f"  Loaded STEP         : {refinement.artifacts.loaded_step_path or 'not written'}")
         print(f"  Diagnostics JSON    : {refinement.artifacts.diagnostics_json or 'not written'}")
+        print(f"  Validity summary    : {refinement.artifacts.validity_summary_json or 'not written'}")
         print(f"  Wire rigging JSON   : {refinement.artifacts.wire_rigging_json or 'not written'}")
     return 0
 
