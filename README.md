@@ -15,6 +15,7 @@
 | 想快速找到所有重要文件 | [docs/README.md](docs/README.md) | 文件索引，會告訴你哪些是正式 contract、哪些是研究/歷史文件 |
 | 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
 | 想看更細的近期進度與分軌方向 | [docs/EXECUTION_ROADMAP.md](docs/EXECUTION_ROADMAP.md) | 細化版執行路線圖；會告訴你不同卡點應該先推哪條線 |
+| 想把任務平行派給其他 AI | [project_state.yaml](project_state.yaml) + [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md) | 一份給機器讀的真相檔，加上一包可直接派工的 task pack |
 | 想理解長期願景與五階段藍圖 | [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md) | 長期 blueprint，不是日常入口 |
 
 ## 三條閱讀路徑

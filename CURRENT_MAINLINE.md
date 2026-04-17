@@ -132,8 +132,10 @@
 如果你是 AI agent，進 repo 後請先遵守以下順序：
 
 1. 先讀這份 `CURRENT_MAINLINE.md`
-2. 再讀 [README.md](README.md)
-3. 再讀 [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
-4. 只有在需要長期脈絡時，才讀 [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
+2. 再讀 [project_state.yaml](project_state.yaml)
+3. 再讀 [README.md](README.md)
+4. 再讀 [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
+5. 如果是多人或多 agent 並行，優先看 [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md)
+6. 只有在需要長期脈絡時，才讀 [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
 
 若上述文件與舊報告/舊 prompt 衝突，以這份文件為準。

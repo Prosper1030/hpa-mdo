@@ -1,0 +1,49 @@
+pack_name: "current_parallel_work"
+updated_at: "2026-04-17"
+canonical_read_order:
+  - "CURRENT_MAINLINE.md"
+  - "project_state.yaml"
+  - "docs/README.md"
+  - "docs/NOW_NEXT_BLUEPRINT.md"
+
+tasks:
+  - id: "track_b_inverse_design_gate"
+    prompt: "prompts/track_b_inverse_design_gate.md"
+    write_scope:
+      - "scripts/direct_dual_beam_inverse_design.py"
+      - "src/hpa_mdo/structure/inverse_design.py"
+      - "tests/test_inverse_design.py"
+    expected_artifacts:
+      - "inverse-design validity summary JSON"
+      - "updated refresh / summary JSON linkage"
+      - "tests"
+  - id: "track_c_mac_hifi_spotcheck"
+    prompt: "prompts/track_c_mac_hifi_spotcheck.md"
+    write_scope:
+      - "src/hpa_mdo/hifi/**"
+      - "scripts/hifi_*"
+      - "tests/test_hifi_*"
+    expected_artifacts:
+      - "benchmark-ready spot-check workflow"
+      - "improved report or failure classification"
+      - "tests"
+  - id: "track_d_discrete_layup_summary"
+    prompt: "prompts/track_d_discrete_layup_summary.md"
+    write_scope:
+      - "examples/blackcat_004_optimize.py"
+      - "src/hpa_mdo/utils/discrete_layup.py"
+      - "tests/test_discrete_layup*.py"
+    expected_artifacts:
+      - "discrete layup summary"
+      - "final-design-friendly output"
+      - "tests"
+
+do_not_touch:
+  - "README.md"
+  - "CURRENT_MAINLINE.md"
+  - "docs/GRAND_BLUEPRINT.md"
+  - "configs/blackcat_004.yaml"
+
+commit_policy:
+  style: "One independent task per commit."
+  note: "Do not mix multiple tracks into one commit."

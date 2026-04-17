@@ -1,0 +1,103 @@
+updated_at: "2026-04-17"
+repo: "hpa-mdo"
+status: "active"
+
+official_mainline:
+  summary: "VSP / target cruise shape -> inverse design -> jig shape -> realizable loaded shape -> CFRP / discrete layup -> manufacturing-feasible design"
+  canonical_shapes:
+    - "requested_cruise_shape"
+    - "realizable_cruise_shape"
+    - "jig_shape"
+  truths:
+    structural_truth: "dual-beam production / inverse-design artifacts"
+    integration_boundary: "python -m hpa_mdo.producer decision interface JSON"
+    final_design_layer: "discrete CFRP / layup"
+  not_mainline:
+    - "equivalent_beam as structural truth"
+    - "producer / decision interface as physics mainline"
+    - "continuous thickness optimum as final answer"
+
+canonical_read_order:
+  - "CURRENT_MAINLINE.md"
+  - "README.md"
+  - "docs/README.md"
+  - "docs/NOW_NEXT_BLUEPRINT.md"
+  - "docs/EXECUTION_ROADMAP.md"
+
+official_entrypoints:
+  generic_vsp_intake:
+    path: "scripts/analyze_vsp.py"
+    role: "Read .vsp3, introspect geometry, generate resolved config."
+  inverse_design:
+    path: "scripts/direct_dual_beam_inverse_design.py"
+    role: "Run inverse design and export jig / loaded artifacts."
+  discrete_layup:
+    path: "examples/blackcat_004_optimize.py --discrete-layup"
+    role: "Realize discrete CFRP / layup and run Tsai-Wu / manufacturability checks."
+  producer:
+    path: "python -m hpa_mdo.producer"
+    role: "Stable machine-readable integration boundary."
+
+active_tracks:
+  track_a:
+    name: "mainline_consolidation"
+    status: "active"
+    goal: "Make generic VSP intake -> inverse design -> discrete layup feel like one canonical workflow."
+  track_b:
+    name: "inverse_design_validity_gates"
+    status: "active"
+    goal: "Make frozen-load inverse design easier to trust via explicit validity / mismatch / gate outputs."
+  track_c:
+    name: "mac_structural_spotcheck"
+    status: "active"
+    goal: "Stabilize Gmsh -> CalculiX -> report as a local non-gating structural spot-check."
+  track_d:
+    name: "discrete_layup_mainlineization"
+    status: "active"
+    goal: "Make discrete layup a first-class final design output."
+  track_e:
+    name: "surrogate_data_catalog"
+    status: "conditional"
+    goal: "Reconnect search efficiency and vendor realism after canonical I/O stabilizes."
+  track_f:
+    name: "requested_to_realizable_outer_loop"
+    status: "conditional"
+    goal: "Move from manual sweeps to low-dimensional outer-loop shape updates."
+
+benchmark_policy:
+  status: "open_basket"
+  rule: "Do not lock a single historical APDL / ANSYS case as the only benchmark truth."
+  current_use:
+    - "Historical ANSYS/APDL cases are evidence, not a fixed gate."
+    - "Prefer a fresh, comparable dual-beam / jig-oriented case for current validation work."
+
+high_fidelity_status:
+  current_role: "local structural spot-check"
+  trusted_for:
+    - "tip deflection sanity"
+    - "max |UZ| sanity"
+    - "support reaction sanity"
+    - "mass / deck / load-mapping sanity"
+  not_trusted_for:
+    - "final discrete layup truth"
+    - "full aeroelastic sign-off"
+    - "final composite hotspot truth"
+
+multi_agent_rules:
+  default_prompting:
+    - "Always read canonical_read_order before touching code."
+    - "Use project_state.yaml + one task-pack prompt as the minimum context bundle."
+    - "If CURRENT_MAINLINE.md and an old report conflict, CURRENT_MAINLINE.md wins."
+  ownership:
+    safe_parallel_areas:
+      - "docs/task_packs/**"
+      - "docs/hi_fidelity_validation_stack.md and src/hpa_mdo/hifi/**"
+      - "examples/blackcat_004_optimize.py and discrete-layup-related modules"
+    avoid_parallel_edits:
+      - "README.md"
+      - "CURRENT_MAINLINE.md"
+      - "docs/GRAND_BLUEPRINT.md"
+      - "configs/blackcat_004.yaml"
+      - "scripts/direct_dual_beam_inverse_design.py unless one owner is assigned"
+
+task_pack_root: "docs/task_packs/current_parallel_work"
