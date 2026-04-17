@@ -1,6 +1,7 @@
 # 高保真驗證層現況與路線圖（Apple Silicon Mac mini）
 
 > **狀態**：**部分實作，現階段定位為 local structural spot-check**。repo 內已經有 `Gmsh -> CalculiX -> report` 與 `ParaView` / `ASWING` glue code，但它目前還不是最終真值，也不應該拿來直接背書 discrete layup 或完整 aeroelastic sign-off。
+> **重要澄清**：`crossval_report.txt` 在這條線上最多只能當 **internal inspection reference / export contract**，不是獨立高保真真值；不能把「更接近 internal crossval」直接寫成「完成 validation」。
 > **這份文件要回答的問題**：現在高保真層實際做到哪裡、能拿來做什麼、不能拿來做什麼、下一步怎麼驗。
 
 ## 1. 角色定位
@@ -85,9 +86,29 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 ## 4. 目前已知的驗證證據
 
-### A. 歷史 ANSYS/APDL 對照仍有價值，但不能被寫死成唯一真值
+### A. 歷史 ANSYS/APDL 與 internal crossval 都有價值，但角色不同，不能混成真值
 
-目前 repo 與 `SyncFile` 裡可讀到的案例，證據比較像「能做工程判斷」，而不是「已經全面 close enough」：
+這裡要明確分三種東西：
+
+- **solver verification / usage semantics**
+  - 例如 keyword 有沒有用對、`RF` 到底代表什麼、shell normals / node ordering 是否符合 solver 假設。
+- **inspection reference / export contract**
+  - 例如 repo 內的 `crossval_report.txt`，它描述的是 internal mainline 預期要輸出的指標與封裝格式。
+- **validation truth**
+  - 真正 apples-to-apples 的外部 benchmark，例如同幾何、同 BC、同 load ownership 的 APDL/ANSYS case，或實驗量測。
+
+`crossval_report.txt` 可以幫你檢查：
+
+- export / compare contract 有沒有歪掉
+- load replay / support mapping / report parsing 有沒有明顯翻車
+
+但它**不能單獨證明**：
+
+- Mac CalculiX 已經接近外部高保真真值
+- dual-beam production 的物理模型已被 validation 背書
+- 目前 shell-plus-beam spot-check 已可升格成最終 sign-off
+
+所以目前 repo 與 `SyncFile` 裡可讀到的證據，比較適合寫成「inspection / engineering judgment evidence」，而不是「已完成 validation」：
 
 - `dual_spar` baseline spot-check：
   - tip deflection 差 `14.14%`
@@ -119,7 +140,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - solver / diagnostics 摘要
 - Gmsh upstream mesh root-cause hints（例如 `overlapping_boundary_mesh`、`no_elements_in_volume`、`duplicate_shell_facets`）
 
-目前已補上一份 fresh representative run，reference 對齊到：
+目前已補上一份 fresh representative run，inspection reference 對齊到：
 
 - `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
 
@@ -276,6 +297,62 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - 可以隨主線演進更新驗證目標
 - 更符合目前主線已從 parity 轉向 inverse-design / jig artifacts 的事實
 
+## 5.5 沒有商業軟體、沒有一堆 AI agent 時，以前的人到底怎麼做
+
+以前的工程師和研究者，通常不是靠「一次找到完美真值」來工作，而是靠一個分層的驗證習慣：
+
+### A. 先做 solver verification，不先談完整 validation
+
+先確認的是：
+
+- keyword / element / output semantics 有沒有用對
+- 官方 manual 的假設有沒有踩錯
+- 官方 verification examples 能不能跑通
+
+這一步在 open-source solver 裡很正常。像 CalculiX 自己就附了一整套 verification examples，Code_Aster 也有專門的 validation / `TEST_RESU` 機制。這些不是在證明你的飛機就是真的，而是在證明「你至少沒有把 solver 用錯」。
+
+### B. 再做 canonical benchmark，不必一開始就找商業軟體
+
+很多人會先拿：
+
+- 解析解可得的梁、板、殼問題
+- 教科書 / 官方 benchmark
+- mesh convergence 會收斂的簡化問題
+
+來確認：
+
+- 量級對不對
+- 收斂趨勢對不對
+- 主要 response 對 BC / mesh / load 定義是否合理
+
+這一步的目標是建立「這套工具鏈有沒有基本可信度」，不是直接證明最終複雜模型全對。
+
+### C. 再做 cross-code comparison 或實驗對照
+
+如果有另一套 solver，就做 apples-to-apples compare。
+如果沒有商業軟體，很多研究工作也會：
+
+- 和別人的公開 benchmark 比
+- 和文獻中的 reference case 比
+- 和自己做得出的簡單試件 / 子結構量測比
+
+真正重要的是 case 要定義清楚，同幾何、同 BC、同 load ownership，而不是 solver 名字一定要是商業品牌。
+
+### D. 最後用 fitness-for-purpose 來收斂，而不是追求神聖真值
+
+很多時候工程上真正需要的是：
+
+- 這個模型能不能正確判斷趨勢
+- 能不能抓到明顯錯誤
+- 能不能當 screening / spot-check / ranking risk tool
+
+而不是一開始就宣稱它是 final truth。
+
+所以對這個 repo 來說，現在更健康的說法應該是：
+
+- Mac CalculiX 這條線目前已經開始具備 **solver verification + local spot-check** 的價值
+- 但還沒有完成 **external validation truth**
+
 ## 6. 推薦的驗證階梯
 
 ### Stage 1：先把本機 structural check 跑穩
@@ -283,6 +360,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 目標：
 
 - 同一個代表性案例可以穩定完成 `mesh -> static -> buckle -> report`
+- 清楚知道目前比對的是 inspection reference 還是 external truth
 
 先看四個基本量：
 
@@ -298,6 +376,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - 能清楚區分 mesh 問題、BC 問題、load mapping 問題
 - 代表性 case 的結果不再充滿 Jacobian / normals 類硬錯誤
 - 報告能穩定告訴你「這個 case 是可比」還是「這個 case 目前不可信」
+- 不把 internal crossval 的靠近程度誤寫成 validation 完成度
 
 ### Stage 3：再擴大 load / geometry contract
 
@@ -319,18 +398,19 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 
 如果現在要投資高保真這條線，最值得的順序是：
 
-1. 選一個新鮮且可比的 dual-beam / inverse-design benchmark case
-2. 先把 `Gmsh -> CalculiX -> report` 跑穩
-3. 先把 STEP / Gmsh surface 的 overlapping facets 與 mesh normals / Jacobian 類硬錯誤壓下來
-4. 再對齊 tip deflection / `Max |UZ|` / support reaction / mass
-5. 先把它定位成 **non-gating local structural spot-check**
+1. 先把 `Gmsh -> CalculiX -> report` 跑穩
+2. 用 manual + verification examples + canonical beam/shell benchmark 確認 solver usage 沒有歪
+3. 再選一個新鮮且可比的 dual-beam / inverse-design external benchmark case
+4. 然後才對齊 tip deflection / `Max |UZ|` / support reaction / mass
+5. 在 external benchmark 沒釘清前，先把它定位成 **non-gating local structural spot-check**
 6. 之後才考慮更完整的 load contract 或複材真值升級
 
 不建議的順序是：
 
 - 還沒跑穩 structural check 就先追求 full aeroelastic hi-fi
 - 還沒解決 mesh / Jacobian 問題就先把結果拿來背書 layup
-- 還沒選好 benchmark case 就先把文件寫成已完成驗證
+- 還沒選好 external benchmark case 就先把文件寫成已完成驗證
+- 拿 internal crossval report 當 validation truth 持續校正
 
 ## 8. 工具鏈與資料流
 
@@ -371,6 +451,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 | 主題 | 來源 | 用途 |
 |------|------|------|
 | CalculiX User's Manual v2.22+ | [官方 PDF](http://www.dhondt.de/) | `.inp` 語法、`*STATIC` / `*BUCKLE` / `*BOUNDARY` / `*CLOAD` |
+| CalculiX verification examples | [官方文件](https://web.mit.edu/calculix_v2.7/CalculiX/ccx_2.7/doc/ccx/node331.html) | 確認安裝、keyword 使用方式與 element/solver feature 是否如預期 |
 | Gmsh Reference Manual | [gmsh.info/doc](https://gmsh.info/doc/texinfo/gmsh.html) | STEP meshing、Physical Groups、INP 匯出 |
 | ParaView Python Scripting Guide | [docs.paraview.org](https://docs.paraview.org/en/latest/ReferenceManual/pythonAndBatchPvpythonAndPvbatch.html) | `pvpython` 視覺化腳本 |
 
@@ -379,6 +460,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 | 主題 | 來源 | 用途 |
 |------|------|------|
 | CalculiX regression / tutorial cases | [dhondt.de](http://www.dhondt.de/) | golden compare 與 deck 格式 sanity check |
+| Code_Aster `TEST_RESU` / validation process | [官方文件](https://code-aster.org/doc/default/en/man_u/u4/u4.92.01.pdf) | 參考 open-source FEA 社群如何把 verification、non-regression 與 validation 分層 |
 | NASA SP-8007 | NASA TRS | 薄殼挫曲背景與 `*BUCKLE` 對照 |
 | Daedalus / HPA flight-test data | AIAA / MIT papers | 柔性翼全球變形 benchmark 背景 |
 

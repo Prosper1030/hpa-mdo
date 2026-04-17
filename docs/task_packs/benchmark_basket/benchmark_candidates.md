@@ -2,6 +2,7 @@
 
 > 這份文件整理目前 repo 與 `SyncFile` 中最值得保留的高保真 / ANSYS / APDL 對照案例。
 > 目的不是選出唯一真值，而是定義一個**可更新的 benchmark basket**，讓後續 Mac structural spot-check 與 dual-beam 主線驗證有一致的起點。
+> **重要澄清**：`crossval_report.txt` 是 internal inspection reference / export contract，不是獨立 validation truth。任何拿它做 compare 的工作，都應先寫成 inspection / workflow debug，而不是 external validation。
 
 ## Basket Policy
 
@@ -18,7 +19,7 @@
 
 ## Recommended Order
 
-1. 先用 `dual_beam_production_check` 當目前最接近主線的 ANSYS inspection reference。
+1. 先用 `dual_beam_production_check` 當目前最接近主線的 ANSYS inspection reference，不把它升格成真值。
 2. 用 `dual_beam_refinement` 當「局部幾何變硬後是否仍維持相似判斷」的補充 evidence。
 3. 用 `dual_spar_spotcheck` 與其 neighbors 當 legacy model-form risk package，不當唯一 benchmark gate。
 4. Mac high-fidelity 已有 fresh representative run，而且 `ROOT/TIP/WIRE` 的 NSET / boundary mapping 已對齊；但在 mesh-quality 收斂前，仍先維持 `not_yet_ready`。
@@ -27,7 +28,7 @@
 
 | Case | Bucket | Why keep it | Key metrics now | Recommended use |
 |---|---|---|---|---|
-| `blackcat_004_dual_beam_production_check` | `current_candidate` | 最接近目前 dual-beam production 主線；已有固定 ANSYS compare 路徑 | main tip deflection error `19.21%`、total support reaction error `11.34%`、mass error `0.19%`；目前定位 `INFO ONLY` | 當前最適合的 ANSYS inspection reference，但不要當 hard gate |
+| `blackcat_004_dual_beam_production_check` | `current_candidate` | 最接近目前 dual-beam production 主線；已有固定 compare 路徑，但本質上仍是 internal inspection reference | main tip deflection error `19.21%`、total support reaction error `11.34%`、mass error `0.19%`；目前定位 `INFO ONLY` | 當前最適合的 inspection reference，但不要當 hard gate，更不要當 external truth |
 | `blackcat_004_dual_beam_refinement` | `historical_evidence` | 保留了 warm/refined eq/dual 對照，也有 refined ANSYS spot-check summary | refined eq mass `9.871 kg`、refined dual mass `9.872 kg`；ANSYS refined spot-check 仍是 `MODEL-FORM RISK` | 用來觀察「往更硬設計移動後」相對趨勢是否一致 |
 | `blackcat_004_dual_spar_spotcheck` | `historical_evidence` | 最完整的 legacy dual-spar baseline 對照案例 | tip deflection error `14.14%`、max \|UZ\| error `35.64%`、support reaction error `0.00%`、mass error `0.19%`；整體 `MODEL-FORM RISK` | 保留作 model-form risk baseline，不再當唯一 benchmark 真值 |
 | `blackcat_004_dual_spar_spotcheck_neighbors` | `historical_evidence` | baseline / harder / softer 三點一起看，能評估 ranking flip 風險 | baseline `9.454 kg / 2500 mm`、harder `9.744 kg / 2274 mm`、softer `9.164 kg / 2756 mm`；各點 ANSYS compare 仍是 `MODEL-FORM RISK` | 當 sensitivity package，用來看接近設計是否可能因 hi-fi 對照而翻盤 |
@@ -42,10 +43,12 @@
   - `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
 - Why it matters:
   - 它是目前最接近 dual-beam production 主線的 ANSYS compare。
-  - 雖然對照的是 ANSYS surrogate，而不是完整 final truth，但已經比 legacy equivalent-beam baseline 更接近現在 workflow。
+  - 但 `crossval_report.txt` 本質上仍是 internal expected-results / export contract，不是獨立高保真真值。
+  - 它能幫忙檢查 workflow、load replay、support mapping、report parsing 有沒有歪掉，但不能單獨當 validation truth。
 - Current caution:
   - 報告自己明確寫 `INFO ONLY`。
   - support reaction 與 main tip deflection 差距仍大，不能被過度宣稱為 already-close。
+  - 後續若要做真正 validation，應補一個同幾何 / 同 BC / 同 load ownership 的 external benchmark case。
 
 ### 2. `blackcat_004_dual_beam_refinement`
 
@@ -102,7 +105,7 @@
   - 若 `load_model.source_kind = spar_csv`，wire support 也會優先對齊到同一份 CSV 的 `Main_X_m / Main_Z_m` 幾何位置，而不是盲目沿用 mesh 內建 `WIRE_n` NSET。
   - 若 target 附近有幾乎等距的 shell nodes，wire support 現在會收成最多 2 個近鄰 nodes 的 local support cluster，而不是單點約束。
   - static deck 現在也會額外輸出 `HPA_SUPPORT_ALL / ROOT / WIRE` 的 RF totals 到 `.dat`，讓 `structural_check` 能直接做 support reaction compare。
-  - 這次 fresh representative healed run 已把 reference 對齊到：
+  - 這次 fresh representative healed run 已把 inspection reference 對齊到：
     `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
 - Current caution:
   - fresh run 仍是 `WARN`，而且 `overall_comparability` 只有 `LIMITED`。
@@ -123,11 +126,13 @@
     - `element_family_counts = beam 2439 / shell 12918 / solid 0`
     - `has_volume_elements = false`
   - total support reaction 相對 reference `817.782 N` 的差距只剩約 `0.00284%`，代表 load-balance / total-support closure 已很乾淨。
-  - 但 static tip deflection 相對 reference 仍差約 `6.72%`，所以目前最該修的是 shell-truth / section / support completeness 的剩餘差距，而不是再回頭重查 named-point / boundary contract。
+  - 但 static tip deflection 相對 inspection reference 仍差約 `6.72%`，所以目前最該修的是 shell-truth / section / support completeness 的剩餘差距，而不是再回頭重查 named-point / boundary contract。
+  - 這些數字目前能證明的是「Mac route 已可當 local spot-check」，還不能證明「Mac route 已被 external truth 驗證」。
 
 ## Practical Recommendation
 
-- 如果今天要選一個最先拿來和 Mac structural spot-check 對齊的外部 reference，先選 `blackcat_004_dual_beam_production_check`。
+- 如果今天只想先做 workflow inspection，先選 `blackcat_004_dual_beam_production_check`。
+- 如果今天要做真正 validation，不要把 `blackcat_004_dual_beam_production_check` 直接當 external truth；先補一個 apples-to-apples external benchmark case。
 - 如果要看 design ordering / sensitivity，再加上 `dual_spar_spotcheck_neighbors`。
 - 如果要做 repo 歷史脈絡或風險對照，再保留 `dual_spar_spotcheck` baseline。
 - Mac `structural_check` 現在已經有 fresh representative run，而且 boundary/NSET contract、shell normal consistency、sliver filtering 都已補上；它目前證明的是「solver 直接 fail 這關已經跨過」，但還沒有證明「數值結果已經足夠接近 reference」。

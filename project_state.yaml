@@ -70,6 +70,7 @@ benchmark_policy:
   current_use:
     - "Historical ANSYS/APDL cases are evidence, not a fixed gate."
     - "Prefer a fresh, comparable dual-beam / jig-oriented case for current validation work."
+    - "Treat internal crossval_report.txt as inspection/export-contract evidence, not independent truth."
 
 high_fidelity_status:
   current_role: "local structural spot-check"
@@ -82,6 +83,7 @@ high_fidelity_status:
     - "final discrete layup truth"
     - "full aeroelastic sign-off"
     - "final composite hotspot truth"
+    - "external validation truth unless an apples-to-apples benchmark exists"
 
 multi_agent_rules:
   default_prompting:
