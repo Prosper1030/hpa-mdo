@@ -362,7 +362,7 @@ def test_mesh_step_writes_mesh_diagnostics_sidecar(tmp_path: Path, monkeypatch) 
     monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
 
     def fake_run(cmd, **kwargs):
-        out_path.write_text(_SURFACE_MESH_WITH_DUPLICATE_FACETS, encoding="utf-8")
+        Path(cmd[-1]).write_text(_SURFACE_MESH_WITH_DUPLICATE_FACETS, encoding="utf-8")
         return type(
             "Result",
             (),
@@ -384,3 +384,52 @@ def test_mesh_step_writes_mesh_diagnostics_sidecar(tmp_path: Path, monkeypatch) 
     assert diagnostics.diagnostics_path == sidecar.resolve()
     assert diagnostics.duplicate_shell_facets == 1
     assert diagnostics.overlapping_boundary_mesh_count == 1
+    assert diagnostics.attempt_count == 2
+    assert diagnostics.mesh_size_m == cfg.hi_fidelity.gmsh.mesh_size_m
+
+
+def test_mesh_step_retries_once_with_coarser_mesh_on_surface_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.gmsh.enabled = True
+    cfg.hi_fidelity.gmsh.mesh_size_m = 0.05
+    step_path = tmp_path / "part.step"
+    out_path = tmp_path / "mesh.inp"
+    step_path.write_text("STEP", encoding="utf-8")
+    monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
+
+    clmax_values: list[str] = []
+
+    def fake_run(cmd, **kwargs):
+        clmax_values.append(cmd[8])
+        candidate_out = Path(cmd[-1])
+        if len(clmax_values) == 1:
+            candidate_out.write_text(_SURFACE_MESH_WITH_DUPLICATE_FACETS, encoding="utf-8")
+            return type(
+                "Result",
+                (),
+                {
+                    "returncode": 1,
+                    "stdout": _GMSH_PROBE_LOG,
+                    "stderr": "",
+                },
+            )()
+
+        candidate_out.write_text(_SAMPLE_INP, encoding="utf-8")
+        return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(gmsh_runner.subprocess, "run", fake_run)
+
+    assert mesh_step_to_inp(step_path, out_path, cfg) == out_path
+    assert clmax_values == ["0.05", "0.1"]
+    assert out_path.exists()
+    assert not (tmp_path / "mesh.attempt2.inp").exists()
+
+    diagnostics = load_mesh_diagnostics(out_path)
+    assert diagnostics is not None
+    assert diagnostics.gmsh_returncode == 0
+    assert diagnostics.mesh_size_m == 0.1
+    assert diagnostics.attempt_index == 2
+    assert diagnostics.attempt_count == 2

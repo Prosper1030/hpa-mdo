@@ -15,7 +15,7 @@ block — this is what Gmsh itself would emit for a Physical Point with
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 import re
@@ -26,6 +26,11 @@ from typing import Sequence
 import numpy as np
 
 from hpa_mdo.core.config import HPAConfig
+
+
+# Keep retries intentionally bounded: on a 16 GB Mac mini we only allow one
+# coarsening step instead of indefinite re-meshing.
+_GMSH_COARSE_RETRY_FACTORS = (1.0, 2.0)
 
 
 @dataclass(frozen=True)
@@ -70,6 +75,9 @@ class MeshDiagnostics:
     equivalent_triangles_count: int = 0
     invalid_surface_elements_count: int = 0
     duplicate_boundary_facets_count: int = 0
+    mesh_size_m: float | None = None
+    attempt_index: int | None = None
+    attempt_count: int | None = None
 
     @property
     def issue_hints(self) -> tuple[str, ...]:
@@ -110,6 +118,9 @@ class MeshDiagnostics:
             "equivalent_triangles_count": int(self.equivalent_triangles_count),
             "invalid_surface_elements_count": int(self.invalid_surface_elements_count),
             "duplicate_boundary_facets_count": int(self.duplicate_boundary_facets_count),
+            "mesh_size_m": self.mesh_size_m,
+            "attempt_index": self.attempt_index,
+            "attempt_count": self.attempt_count,
             "issue_hints": list(self.issue_hints),
         }
 
@@ -165,8 +176,153 @@ def mesh_step_to_inp(
     out = Path(out_inp_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     length_scale_m_per_unit = step_length_scale_m_per_unit(step)
-    clmax_units = float(cfg.hi_fidelity.gmsh.mesh_size_m) / length_scale_m_per_unit
+    attempt_mesh_sizes_m = _mesh_attempt_sizes_m(float(cfg.hi_fidelity.gmsh.mesh_size_m))
+    attempt_count = len(attempt_mesh_sizes_m)
+    attempt_records: list[tuple[Path, MeshDiagnostics]] = []
 
+    for attempt_index, mesh_size_m in enumerate(attempt_mesh_sizes_m, start=1):
+        candidate_out = _attempt_out_path(out, attempt_index, attempt_count=attempt_count)
+        result = _run_gmsh_meshing_attempt(
+            gmsh=gmsh,
+            step=step,
+            out=candidate_out,
+            order=order,
+            clmax_units=float(mesh_size_m) / length_scale_m_per_unit,
+        )
+        if result is None:
+            return None
+
+        if not candidate_out.exists():
+            if attempt_index < attempt_count:
+                print(
+                    "WARN: Gmsh did not write a mesh on attempt "
+                    f"{attempt_index}/{attempt_count}; retrying once with a coarser "
+                    f"mesh_size_m={attempt_mesh_sizes_m[attempt_index]:.6g}."
+                )
+                continue
+            _report_gmsh_failure(
+                result_returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
+            return None
+
+        element_count = inp_element_count(candidate_out)
+        if result.returncode != 0 and element_count <= 0:
+            if attempt_index < attempt_count:
+                print(
+                    "WARN: Gmsh wrote no analysable elements on attempt "
+                    f"{attempt_index}/{attempt_count}; retrying once with a coarser "
+                    f"mesh_size_m={attempt_mesh_sizes_m[attempt_index]:.6g}."
+                )
+                continue
+            _report_gmsh_failure(
+                result_returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
+            return None
+
+        if result.returncode != 0:
+            print(
+                "WARN: Gmsh returned a non-zero exit status but wrote a mesh with "
+                f"{element_count} elements; continuing with the partial mesh."
+            )
+
+        if named_points:
+            default_tol = float(cfg.hi_fidelity.gmsh.point_tol_m) / length_scale_m_per_unit
+            try:
+                annotate_inp_with_named_points(
+                    candidate_out,
+                    _scaled_named_points(named_points, length_scale_m_per_unit),
+                    default_tol_m=default_tol,
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"INFO: NSET annotation skipped ({exc}).")
+
+        diagnostics = replace(
+            collect_mesh_diagnostics(
+                candidate_out,
+                gmsh_returncode=result.returncode,
+                gmsh_stdout=result.stdout,
+                gmsh_stderr=result.stderr,
+            ),
+            mesh_size_m=float(mesh_size_m),
+            attempt_index=attempt_index,
+            attempt_count=attempt_count,
+        )
+        attempt_records.append((candidate_out, diagnostics))
+
+        if attempt_index < attempt_count and _should_retry_with_coarser_mesh(diagnostics):
+            next_mesh_size_m = attempt_mesh_sizes_m[attempt_index]
+            print(
+                "WARN: Gmsh mesh diagnostics indicate upstream surface issues "
+                f"({', '.join(diagnostics.issue_hints) or 'unclassified'}); "
+                "retrying once with a coarser mesh_size_m="
+                f"{next_mesh_size_m:.6g}."
+            )
+            continue
+        break
+
+    if not attempt_records:
+        return None
+
+    selected_out, selected_diagnostics = min(
+        attempt_records,
+        key=lambda item: _mesh_diagnostics_rank(item[1]),
+    )
+    attempted_count = max(
+        (diagnostics.attempt_index or 0)
+        for _candidate_out, diagnostics in attempt_records
+    )
+    final_diagnostics = replace(
+        selected_diagnostics,
+        mesh_path=out.resolve(),
+        diagnostics_path=mesh_diagnostics_sidecar_path(out).resolve(),
+        attempt_count=attempted_count,
+    )
+    _promote_selected_attempt(
+        out=out,
+        selected_out=selected_out,
+        selected_diagnostics=final_diagnostics,
+        attempt_records=attempt_records,
+    )
+    return out
+
+
+def mesh_diagnostics_sidecar_path(inp_path: str | Path) -> Path:
+    """Return the canonical diagnostics sidecar path for a mesh ``.inp``."""
+
+    return Path(inp_path).with_suffix(".mesh_diagnostics.json")
+
+
+def _mesh_attempt_sizes_m(base_mesh_size_m: float) -> tuple[float, ...]:
+    sizes: list[float] = []
+    seen: set[float] = set()
+    for factor in _GMSH_COARSE_RETRY_FACTORS:
+        candidate = float(base_mesh_size_m) * float(factor)
+        rounded = round(candidate, 12)
+        if rounded in seen:
+            continue
+        seen.add(rounded)
+        sizes.append(candidate)
+    return tuple(sizes)
+
+
+def _attempt_out_path(out_path: Path, attempt_index: int, *, attempt_count: int) -> Path:
+    if attempt_count <= 1 or attempt_index == 1:
+        return out_path
+    return out_path.with_name(f"{out_path.stem}.attempt{attempt_index}{out_path.suffix}")
+
+
+def _run_gmsh_meshing_attempt(
+    *,
+    gmsh: str,
+    step: Path,
+    out: Path,
+    order: int,
+    clmax_units: float,
+) -> subprocess.CompletedProcess[str] | None:
     cmd = [
         gmsh,
         str(step),
@@ -181,7 +337,7 @@ def mesh_step_to_inp(
         str(out),
     ]
     try:
-        result = subprocess.run(
+        return subprocess.run(
             cmd,
             check=False,
             capture_output=True,
@@ -195,55 +351,74 @@ def mesh_step_to_inp(
         print(f"INFO: Gmsh failed to start: {exc}")
         return None
 
-    if not out.exists():
-        stderr = result.stderr.strip() or result.stdout.strip()
-        if stderr:
-            print(f"INFO: Gmsh mesh failed:\n{stderr}")
-        else:
-            print(f"INFO: Gmsh mesh failed with return code {result.returncode}.")
-        return None
 
-    if result.returncode != 0:
-        element_count = inp_element_count(out)
-        if element_count <= 0:
-            stderr = result.stderr.strip() or result.stdout.strip()
-            if stderr:
-                print(f"INFO: Gmsh mesh failed:\n{stderr}")
-            else:
-                print(f"INFO: Gmsh mesh failed with return code {result.returncode}.")
-            return None
-        print(
-            "WARN: Gmsh returned a non-zero exit status but wrote a mesh with "
-            f"{element_count} elements; continuing with the partial mesh."
+def _report_gmsh_failure(
+    *,
+    result_returncode: int | None,
+    stdout: str,
+    stderr: str,
+) -> None:
+    message = str(stderr).strip() or str(stdout).strip()
+    if message:
+        print(f"INFO: Gmsh mesh failed:\n{message}")
+        return
+    if result_returncode is None:
+        print("INFO: Gmsh mesh failed without writing an output mesh.")
+        return
+    print(f"INFO: Gmsh mesh failed with return code {result_returncode}.")
+
+
+def _should_retry_with_coarser_mesh(diagnostics: MeshDiagnostics) -> bool:
+    return any(
+        count > 0
+        for count in (
+            diagnostics.overlapping_boundary_mesh_count,
+            diagnostics.no_elements_in_volume_count,
+            diagnostics.invalid_surface_elements_count,
+            diagnostics.duplicate_boundary_facets_count,
         )
-
-    if named_points:
-        default_tol = float(cfg.hi_fidelity.gmsh.point_tol_m) / length_scale_m_per_unit
-        try:
-            annotate_inp_with_named_points(
-                out,
-                _scaled_named_points(named_points, length_scale_m_per_unit),
-                default_tol_m=default_tol,
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(f"INFO: NSET annotation skipped ({exc}).")
-    try:
-        diagnostics = collect_mesh_diagnostics(
-            out,
-            gmsh_returncode=result.returncode,
-            gmsh_stdout=result.stdout,
-            gmsh_stderr=result.stderr,
-        )
-        write_mesh_diagnostics(diagnostics)
-    except Exception as exc:  # noqa: BLE001
-        print(f"INFO: Mesh diagnostics skipped ({exc}).")
-    return out
+    )
 
 
-def mesh_diagnostics_sidecar_path(inp_path: str | Path) -> Path:
-    """Return the canonical diagnostics sidecar path for a mesh ``.inp``."""
+def _mesh_diagnostics_rank(diagnostics: MeshDiagnostics) -> tuple[int, ...]:
+    return (
+        int(diagnostics.overlapping_boundary_mesh_count > 0),
+        int(diagnostics.no_elements_in_volume_count > 0),
+        int(diagnostics.invalid_surface_elements_count > 0),
+        int(diagnostics.duplicate_boundary_facets_count > 0),
+        int(diagnostics.gmsh_returncode not in {None, 0}),
+        int(diagnostics.overlapping_boundary_mesh_count),
+        int(diagnostics.no_elements_in_volume_count),
+        int(diagnostics.invalid_surface_elements_count),
+        int(diagnostics.duplicate_boundary_facets_count),
+        int(diagnostics.duplicate_shell_facets),
+        int(diagnostics.equivalent_triangles_count),
+        int(diagnostics.attempt_index or 0),
+    )
 
-    return Path(inp_path).with_suffix(".mesh_diagnostics.json")
+
+def _promote_selected_attempt(
+    *,
+    out: Path,
+    selected_out: Path,
+    selected_diagnostics: MeshDiagnostics,
+    attempt_records: Sequence[tuple[Path, MeshDiagnostics]],
+) -> None:
+    selected_sidecar = mesh_diagnostics_sidecar_path(selected_out)
+    if selected_out != out:
+        selected_out.replace(out)
+    write_mesh_diagnostics(selected_diagnostics)
+    if selected_out != out and selected_sidecar.exists():
+        selected_sidecar.unlink()
+
+    for candidate_out, _diagnostics in attempt_records:
+        if candidate_out == selected_out or candidate_out == out:
+            continue
+        if candidate_out.exists():
+            candidate_out.unlink()
+        candidate_sidecar = mesh_diagnostics_sidecar_path(candidate_out)
+        if candidate_sidecar.exists():
+            candidate_sidecar.unlink()
 
 
 def collect_mesh_diagnostics(
@@ -307,6 +482,9 @@ def load_mesh_diagnostics(inp_path: str | Path) -> MeshDiagnostics | None:
         equivalent_triangles_count=int(payload.get("equivalent_triangles_count", 0)),
         invalid_surface_elements_count=int(payload.get("invalid_surface_elements_count", 0)),
         duplicate_boundary_facets_count=int(payload.get("duplicate_boundary_facets_count", 0)),
+        mesh_size_m=payload.get("mesh_size_m"),
+        attempt_index=payload.get("attempt_index"),
+        attempt_count=payload.get("attempt_count"),
     )
 
 
