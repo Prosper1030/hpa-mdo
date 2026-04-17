@@ -89,6 +89,37 @@ def _nearest_node_indices(y_nodes_m: np.ndarray, locations_m: list[float]) -> tu
     return tuple(int(np.argmin(np.abs(y_nodes_m - yy))) for yy in locations_m)
 
 
+def _wire_unstretched_lengths_from_pretension(
+    *,
+    reference_lengths_m: np.ndarray,
+    area_m2: np.ndarray,
+    young_pa: np.ndarray,
+    pretension_n: np.ndarray,
+) -> np.ndarray:
+    """Convert installed pretension into unstretched lengths for the truss MVP."""
+
+    reference_lengths_m = np.asarray(reference_lengths_m, dtype=float)
+    area_m2 = np.asarray(area_m2, dtype=float)
+    young_pa = np.asarray(young_pa, dtype=float)
+    pretension_n = np.asarray(pretension_n, dtype=float)
+    if not (
+        reference_lengths_m.shape
+        == area_m2.shape
+        == young_pa.shape
+        == pretension_n.shape
+    ):
+        raise ValueError("Wire pretension inputs must share the same shape.")
+    if np.any(reference_lengths_m <= 0.0):
+        raise ValueError("Wire reference lengths must stay positive.")
+    if np.any(area_m2 <= 0.0) or np.any(young_pa <= 0.0):
+        raise ValueError("Wire EA inputs must stay positive.")
+    if np.any(pretension_n < 0.0):
+        raise ValueError("Wire pretension must be non-negative.")
+
+    ea_n = area_m2 * young_pa
+    return reference_lengths_m / (1.0 + pretension_n / ea_n)
+
+
 def build_dual_beam_mainline_model(
     *,
     cfg: HPAConfig,
@@ -257,8 +288,12 @@ def build_dual_beam_mainline_model(
             np.asarray(nodes_main_m[list(wire_node_indices)], dtype=float) - wire_anchor_points_m,
             axis=1,
         )
-        # MVP truss support starts from the assembled geometry with zero pretension.
-        wire_unstretched_lengths_m = wire_reference_lengths_m.copy()
+        wire_unstretched_lengths_m = _wire_unstretched_lengths_from_pretension(
+            reference_lengths_m=wire_reference_lengths_m,
+            area_m2=wire_area_m2,
+            young_pa=wire_young_pa,
+            pretension_n=np.asarray(cfg.lift_wires.attachment_pretensions_n(), dtype=float),
+        )
     else:
         wire_area_m2 = np.zeros(0, dtype=float)
         wire_young_pa = np.zeros(0, dtype=float)

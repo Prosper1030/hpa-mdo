@@ -260,6 +260,13 @@ class LiftWireConfig(BaseModel):
     cable_material: str = "steel_4130"
     cable_diameter: float = 2.0e-3
     max_tension_fraction: float = 0.5
+    pretension_n: float | List[float] = Field(
+        default=0.0,
+        description=(
+            "Optional installed pretension per wire [N]. "
+            "A scalar applies to every attachment; a list must align with attachments."
+        ),
+    )
     wire_angle_deg: float = Field(
         default=45.0,
         description=(
@@ -271,6 +278,11 @@ class LiftWireConfig(BaseModel):
         lt=90.0,
     )
     attachments: List[LiftWireAttachment] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_pretension_values(self) -> LiftWireConfig:
+        self.attachment_pretensions_n()
+        return self
 
     def attachment_wire_angles_deg(self) -> List[float]:
         """Return one effective wire angle per configured attachment.
@@ -295,6 +307,28 @@ class LiftWireConfig(BaseModel):
             else:
                 angles.append(fallback)
         return angles
+
+    def attachment_pretensions_n(self) -> List[float]:
+        """Return one installed pretension value per configured attachment."""
+
+        if not self.attachments:
+            return []
+
+        raw = self.pretension_n
+        if isinstance(raw, (int, float)):
+            value = float(raw)
+            if value < 0.0:
+                raise ValueError("lift_wires.pretension_n must be non-negative.")
+            return [value for _ in self.attachments]
+
+        values = [float(value) for value in raw]
+        if len(values) != len(self.attachments):
+            raise ValueError(
+                "lift_wires.pretension_n list must align with lift_wires.attachments."
+            )
+        if any(value < 0.0 for value in values):
+            raise ValueError("lift_wires.pretension_n must be non-negative.")
+        return values
 
 
 class AeroGatesConfig(BaseModel):

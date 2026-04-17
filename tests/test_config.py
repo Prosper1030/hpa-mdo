@@ -77,6 +77,15 @@ def test_blackcat_lift_wire_angle_loaded_from_config():
     assert cfg.lift_wires.wire_angle_deg == pytest.approx(11.3)
 
 
+def test_blackcat_lift_wire_pretension_defaults_to_zero():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.lift_wires.attachment_pretensions_n() == [0.0]
+
+
 def test_multi_wire_layout_derives_per_attachment_angles(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"
@@ -95,6 +104,44 @@ def test_multi_wire_layout_derives_per_attachment_angles(tmp_path):
     assert len(angles) == 2
     assert angles[0] == pytest.approx(np.degrees(np.arctan2(1.5, 4.5)))
     assert angles[1] == pytest.approx(np.degrees(np.arctan2(1.5, 10.5)))
+
+
+def test_multi_wire_layout_expands_scalar_or_list_pretension_values(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["lift_wires"]["attachments"] = [
+        {"y": 4.5, "fuselage_z": -1.5, "label": "wire-1"},
+        {"y": 10.5, "fuselage_z": -1.5, "label": "wire-2"},
+    ]
+    data["lift_wires"]["pretension_n"] = 120.0
+
+    cfg_path = tmp_path / "multi_wire_scalar_pretension.yaml"
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    cfg = load_config(cfg_path)
+    assert cfg.lift_wires.attachment_pretensions_n() == [120.0, 120.0]
+
+    data["lift_wires"]["pretension_n"] = [100.0, 180.0]
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    cfg = load_config(cfg_path)
+    assert cfg.lift_wires.attachment_pretensions_n() == [100.0, 180.0]
+
+
+def test_multi_wire_layout_rejects_mismatched_pretension_list(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["lift_wires"]["attachments"] = [
+        {"y": 4.5, "fuselage_z": -1.5, "label": "wire-1"},
+        {"y": 10.5, "fuselage_z": -1.5, "label": "wire-2"},
+    ]
+    data["lift_wires"]["pretension_n"] = [100.0]
+
+    cfg_path = tmp_path / "multi_wire_bad_pretension.yaml"
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="pretension_n list must align"):
+        load_config(cfg_path)
 
 
 def test_blackcat_loaded_shape_tolerances_loaded_from_solver_config():
