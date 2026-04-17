@@ -107,3 +107,14 @@
     - 但 static tip deflection 又從 `3.02214 m` 進一步收斂到 `2.96129 m`
     - 相對 reference `2.39372 m` 的差距也再從約 `26.25%` 降到 `23.71%`
     - 這代表 generic wire NSET 的次級誤差也開始被壓掉；剩下的主 blocker 更集中在 shell / section / support completeness 本體
+  - 接著又補上 `fix: 補上 hifi wire support 小範圍 cluster 對齊`：
+    - 若 `spar_csv` main-spar target 附近有幾乎等距的 shell nodes，wire support 現在會收成最多 2 個近鄰 nodes 的 local support cluster
+    - 不再把 support patch 壓成單一 node
+    - fresh representative rerun 已落在：
+      - `output/blackcat_004/hifi_wire_support_cluster_rerun_20260418/structural_check.json`
+    - `static comparability` 仍是 `COMPARABLE`
+    - `overall_comparability` 仍是 `LIMITED`
+    - `support_description` 已變成 `ROOT clamp nodes=35; wire U3 supports=2`
+    - 但 static tip deflection 又從 `2.96129 m` 進一步收斂到 `2.55449 m`
+    - 相對 reference `2.39372 m` 的差距也再從約 `23.71%` 降到 `6.72%`
+    - 這代表單點 wire support 的次級柔化已先被壓掉；剩下的主 blocker 更集中在 shell / section / support completeness 的細節，而不是 generic support patch 大小
