@@ -630,6 +630,7 @@ def test_build_load_model_replays_main_and_rear_forces_to_separate_mesh_nodes(
         cfg=cfg,
         output_dir=output_dir,
         mesh_path=mesh,
+        summary_path=None,
         step_path=output_dir / "spar_jig_shape.step",
         explicit_tip_load_n=None,
         mesh_length_scale_m_per_unit=scale,
