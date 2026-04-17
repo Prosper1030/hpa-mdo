@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from typing import Sequence
@@ -98,6 +99,8 @@ def mesh_step_to_inp(
     step = Path(step_path)
     out = Path(out_inp_path)
     out.parent.mkdir(parents=True, exist_ok=True)
+    length_scale_m_per_unit = step_length_scale_m_per_unit(step)
+    clmax_units = float(cfg.hi_fidelity.gmsh.mesh_size_m) / length_scale_m_per_unit
 
     cmd = [
         gmsh,
@@ -108,7 +111,7 @@ def mesh_step_to_inp(
         "-order",
         str(order),
         "-clmax",
-        str(cfg.hi_fidelity.gmsh.mesh_size_m),
+        str(clmax_units),
         "-o",
         str(out),
     ]
@@ -136,9 +139,13 @@ def mesh_step_to_inp(
         return None
 
     if named_points:
-        default_tol = float(cfg.hi_fidelity.gmsh.point_tol_m)
+        default_tol = float(cfg.hi_fidelity.gmsh.point_tol_m) / length_scale_m_per_unit
         try:
-            annotate_inp_with_named_points(out, named_points, default_tol_m=default_tol)
+            annotate_inp_with_named_points(
+                out,
+                _scaled_named_points(named_points, length_scale_m_per_unit),
+                default_tol_m=default_tol,
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"INFO: NSET annotation skipped ({exc}).")
     return out
@@ -228,6 +235,51 @@ def _parse_inp_nodes(text: str) -> np.ndarray:
     if not rows:
         return np.empty((0, 4), dtype=float)
     return np.asarray(rows, dtype=float)
+
+
+def step_length_scale_m_per_unit(step_path: str | Path) -> float:
+    """Return the STEP model length scale in metres per geometric unit.
+
+    Gmsh preserves the CAD model's native coordinate units.  For Open CASCADE
+    STEP exported in millimetres we therefore need to scale ``-clmax`` and
+    point tolerances from metres into STEP units before meshing.
+    """
+
+    text = Path(step_path).read_text(encoding="utf-8", errors="ignore")
+    pattern = re.compile(
+        r"LENGTH_UNIT\(\)\s+NAMED_UNIT\(\*\)\s+SI_UNIT\(\s*(?:\.(?P<prefix>[A-Z]+)\.\s*,)?\s*\.METRE\.\s*\)",
+        flags=re.IGNORECASE,
+    )
+    match = pattern.search(text)
+    if not match:
+        return 1.0
+
+    prefix = (match.group("prefix") or "").upper()
+    return {
+        "": 1.0,
+        "MILLI": 1.0e-3,
+        "CENTI": 1.0e-2,
+        "DECI": 1.0e-1,
+        "MICRO": 1.0e-6,
+        "NANO": 1.0e-9,
+        "KILO": 1.0e3,
+    }.get(prefix, 1.0)
+
+
+def _scaled_named_points(
+    named_points: Sequence[NamedPoint],
+    length_scale_m_per_unit: float,
+) -> list[NamedPoint]:
+    scale = float(length_scale_m_per_unit)
+    if scale <= 0.0:
+        raise ValueError("length_scale_m_per_unit must be > 0")
+
+    scaled: list[NamedPoint] = []
+    for point in named_points:
+        xyz_units = tuple(float(value) / scale for value in point.xyz)
+        tol_units = None if point.tol_m is None else float(point.tol_m) / scale
+        scaled.append(NamedPoint(point.name, xyz_units, tol_units))
+    return scaled
 
 
 def parse_nset_from_inp(inp_path: str | Path) -> dict[str, list[int]]:

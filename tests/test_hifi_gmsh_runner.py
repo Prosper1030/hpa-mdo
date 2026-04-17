@@ -11,6 +11,7 @@ from hpa_mdo.hifi.gmsh_runner import (
     find_gmsh,
     mesh_step_to_inp,
     parse_nset_from_inp,
+    step_length_scale_m_per_unit,
 )
 
 
@@ -82,6 +83,77 @@ def test_mesh_step_invokes_gmsh_cli(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(gmsh_runner.subprocess, "run", fake_run)
 
     assert mesh_step_to_inp(step_path, out_path, cfg) == out_path
+
+
+STEP_MM = """ISO-10303-21;
+HEADER;
+ENDSEC;
+DATA;
+#24 = ( LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.) );
+ENDSEC;
+END-ISO-10303-21;
+"""
+
+_SAMPLE_INP_MM = """\
+*HEADING
+test
+*NODE
+1, 0.0, 0.0, 0.0
+2, 0.0, 1500.0, 0.0
+3, 0.0, 4500.0, 0.0
+4, 0.0, 16500.0, 0.0
+*ELEMENT, TYPE=C3D4, ELSET=EALL
+1, 1, 2, 3, 4
+"""
+
+
+def test_step_length_scale_reads_millimetre_units(tmp_path: Path) -> None:
+    step = tmp_path / "part.step"
+    step.write_text(STEP_MM, encoding="utf-8")
+
+    assert step_length_scale_m_per_unit(step) == 1.0e-3
+
+
+def test_mesh_step_scales_clmax_and_named_points_for_mm_step(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.gmsh.enabled = True
+    cfg.hi_fidelity.gmsh.mesh_size_m = 0.05
+    cfg.hi_fidelity.gmsh.point_tol_m = 1.0e-3
+    step_path = tmp_path / "part.step"
+    out_path = tmp_path / "mesh.inp"
+    step_path.write_text(STEP_MM, encoding="utf-8")
+    monkeypatch.setattr(gmsh_runner, "find_gmsh", lambda _cfg: "/opt/bin/gmsh")
+
+    def fake_run(cmd, **kwargs):
+        out_path.write_text(_SAMPLE_INP_MM, encoding="utf-8")
+        assert cmd == [
+            "/opt/bin/gmsh",
+            str(step_path),
+            "-3",
+            "-format",
+            "inp",
+            "-order",
+            "1",
+            "-clmax",
+            "50.0",
+            "-o",
+            str(out_path),
+        ]
+        return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(gmsh_runner.subprocess, "run", fake_run)
+
+    assert (
+        mesh_step_to_inp(
+            step_path,
+            out_path,
+            cfg,
+            named_points=[NamedPoint("TIP", (0.0, 16.5, 0.0))],
+        )
+        == out_path
+    )
+    nsets = parse_nset_from_inp(out_path)
+    assert nsets.get("TIP") == [4]
 
 
 # --- NamedPoint / NSET annotation ---------------------------------------
