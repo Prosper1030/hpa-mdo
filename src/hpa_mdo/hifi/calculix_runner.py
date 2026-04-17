@@ -206,9 +206,12 @@ def run_static(
 
     frd = inp.with_suffix(".frd")
     dat = inp.with_suffix(".dat")
+    log = inp.with_suffix(".log")
+    _write_solver_log(log, result.stdout, result.stderr)
     payload: dict[str, Any] = {
         "frd": frd,
         "dat": dat,
+        "log": log,
         "returncode": int(result.returncode),
         "stdout": result.stdout,
         "stderr": result.stderr,
@@ -218,6 +221,22 @@ def run_static(
     elif not frd.exists():
         payload["error"] = f"ccx did not produce expected FRD output: {frd}"
     return payload
+
+
+def _write_solver_log(log_path: Path, stdout: str, stderr: str) -> None:
+    """Persist combined solver stdout/stderr next to the input deck."""
+
+    text = "\n".join(
+        [
+            "===== ccx stdout =====",
+            (stdout or "").rstrip(),
+            "",
+            "===== ccx stderr =====",
+            (stderr or "").rstrip(),
+            "",
+        ]
+    )
+    log_path.write_text(text, encoding="utf-8")
 
 
 def parse_inp_nodes(mesh_inp_path: str | Path) -> np.ndarray:

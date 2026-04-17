@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -153,6 +154,8 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
     cfg = _cfg(tmp_path)
     output_dir = tmp_path / "out"
     output_dir.mkdir()
+    ansys_dir = output_dir / "ansys"
+    ansys_dir.mkdir()
     hifi_dir = output_dir / "hifi"
     summary = output_dir / "optimization_summary.txt"
     summary.write_text(
@@ -168,6 +171,17 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
     mesh = hifi_dir / "wing_cruise.inp"
     hifi_dir.mkdir()
     mesh.write_text(MESH_WITH_NSETS, encoding="utf-8")
+    (ansys_dir / "spar_data.csv").write_text(
+        "\n".join(
+            [
+                "Y_Position_m,Main_FZ_N,Rear_FZ_N",
+                "0.0,0.0,0.0",
+                "4.5,-10.0,-20.0",
+                "16.5,-15.0,-25.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     cfg.io.output_dir = str(output_dir)
     monkeypatch.setattr(structural_check, "load_config", lambda _path: cfg)
@@ -207,14 +221,21 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
     )
 
     report_text = result.report_path.read_text(encoding="utf-8")
+    summary_payload = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
     assert result.overall_status == "PASS"
     assert result.static.status == "PASS"
     assert result.buckle.status == "PASS"
     assert result.paraview_script_path is not None
     assert result.paraview_script_path.exists()
+    assert result.summary_json_path.exists()
     assert "Overall status: PASS" in report_text
+    assert "Overall comparability: COMPARABLE" in report_text
     assert "Static tip-deflection check completed using" in report_text
     assert "Buckling check completed using" in report_text
+    assert summary_payload["overall_status"] == "PASS"
+    assert summary_payload["overall_comparability"] == "COMPARABLE"
+    assert summary_payload["load_model"]["source_kind"] == "spar_csv"
+    assert summary_payload["static"]["comparability"] == "COMPARABLE"
 
 
 def test_run_structural_check_matches_tip_by_frd_coordinates_when_ids_change(
@@ -306,6 +327,74 @@ def test_run_structural_check_skips_when_no_mesh_or_step(tmp_path: Path, monkeyp
     assert result.overall_status == "SKIP"
     assert result.static.status == "SKIP"
     assert "No mesh available" in result.static.message
+
+
+def test_run_structural_check_classifies_mesh_quality_solver_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cfg = _cfg(tmp_path)
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    hifi_dir = output_dir / "hifi"
+    summary = output_dir / "optimization_summary.txt"
+    summary.write_text(
+        "\n".join(
+            [
+                "HPA-MDO Spar Optimization Summary",
+                "  Tip deflection  : 2500.00 mm  (2.50000 m)",
+                "  Buckling index  : -0.80000",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    mesh = hifi_dir / "wing_cruise.inp"
+    hifi_dir.mkdir()
+    mesh.write_text(MESH_WITH_NSETS, encoding="utf-8")
+
+    cfg.io.output_dir = str(output_dir)
+    monkeypatch.setattr(structural_check, "load_config", lambda _path: cfg)
+
+    def fake_run_static(inp_path, _cfg):
+        inp_path = Path(inp_path)
+        log = inp_path.with_suffix(".log")
+        log.write_text(
+            "*INFO in gen3dnor: in node 1324 opposite normals are defined\n"
+            "*ERROR in e_c3d: nonpositive jacobian\n",
+            encoding="utf-8",
+        )
+        return {
+            "frd": inp_path.with_suffix(".frd"),
+            "dat": inp_path.with_suffix(".dat"),
+            "log": log,
+            "returncode": 1,
+            "stdout": log.read_text(encoding="utf-8"),
+            "stderr": "",
+            "error": "ccx failed",
+        }
+
+    monkeypatch.setattr(structural_check, "run_static", fake_run_static)
+
+    result = structural_check.run_structural_check(
+        config_path=CONFIG_PATH,
+        summary_path=summary,
+        mesh_path=mesh,
+        hifi_dir=hifi_dir,
+        generate_paraview=False,
+    )
+
+    report_text = result.report_path.read_text(encoding="utf-8")
+    summary_payload = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+
+    assert result.overall_status == "WARN"
+    assert result.static.issue_category == "mesh_quality"
+    assert result.static.comparability == "NOT_COMPARABLE"
+    assert result.static.diagnostics == ("opposite_normals x1", "nonpositive_jacobian x1")
+    assert result.static.log_path == (hifi_dir / "wing_cruise_static.log").resolve()
+    assert "Overall comparability: NOT_COMPARABLE" in report_text
+    assert "Issue category: mesh_quality" in report_text
+    assert summary_payload["overall_comparability"] == "NOT_COMPARABLE"
+    assert summary_payload["static"]["issue_category"] == "mesh_quality"
 
 
 def test_build_load_model_prefers_spar_csv_and_maps_mm_mesh(tmp_path: Path, monkeypatch) -> None:

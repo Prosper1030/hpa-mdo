@@ -92,6 +92,7 @@ def main() -> int:
 
     print(f"[hpa-mdo] Structural check: {result.overall_status}")
     print(f"  report   : {result.report_path}")
+    print(f"  summary  : {result.summary_json_path}")
     if result.mesh_path is not None:
         print(f"  mesh     : {result.mesh_path}")
     if result.paraview_script_path is not None:

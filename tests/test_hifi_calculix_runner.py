@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
+import subprocess
 
 import numpy as np
 
@@ -187,6 +188,41 @@ def test_run_static_skips_gracefully_when_ccx_missing(tmp_path: Path, monkeypatc
 
     assert result["returncode"] is None
     assert "ccx not found" in result["error"]
+
+
+def test_run_static_persists_combined_solver_log(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.hi_fidelity.calculix.enabled = True
+    inp = tmp_path / "case.inp"
+    inp.write_text("*HEADING\nstub\n", encoding="utf-8")
+
+    def fake_subprocess_run(cmd, cwd, capture_output, text, timeout, check):
+        assert cmd == ["/usr/local/bin/ccx", "case"]
+        assert cwd == tmp_path
+        assert capture_output is True
+        assert text is True
+        assert timeout == 1200
+        assert check is False
+        inp.with_suffix(".frd").write_text("frd", encoding="utf-8")
+        inp.with_suffix(".dat").write_text("dat", encoding="utf-8")
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout="solver stdout\n",
+            stderr="solver stderr\n",
+        )
+
+    monkeypatch.setattr(calculix_runner, "find_ccx", lambda _cfg: "/usr/local/bin/ccx")
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    result = run_static(inp, cfg)
+
+    log_text = inp.with_suffix(".log").read_text(encoding="utf-8")
+    assert result["log"] == inp.with_suffix(".log")
+    assert "===== ccx stdout =====" in log_text
+    assert "solver stdout" in log_text
+    assert "===== ccx stderr =====" in log_text
+    assert "solver stderr" in log_text
 
 
 def test_parse_displacement_reads_last_disp_block(tmp_path: Path) -> None:

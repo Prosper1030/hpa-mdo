@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 from typing import Any
@@ -52,6 +53,10 @@ class StructuralCheckSection:
     threshold: float | None = None
     margin: float | None = None
     artifact_path: Path | None = None
+    issue_category: str | None = None
+    comparability: str | None = None
+    log_path: Path | None = None
+    diagnostics: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -59,6 +64,7 @@ class StructuralCheckResult:
     """Combined result for the structural validation run."""
 
     report_path: Path
+    summary_json_path: Path
     overall_status: str
     summary_path: Path | None
     step_path: Path | None
@@ -78,6 +84,9 @@ class StructuralLoadModel:
     entries: tuple[LoadEntry, ...]
     total_fz_n: float
     source_path: Path | None = None
+    source_kind: str = "unknown"
+    comparison_basis: str = "limited"
+    comparison_note: str | None = None
 
 
 def parse_optimization_summary(summary_path: str | Path) -> dict[str, float | None]:
@@ -199,16 +208,21 @@ def run_structural_check(
 
     if resolved_mesh is None or not resolved_mesh.exists():
         report_path = hifi_root / "structural_check.md"
+        summary_json_path = hifi_root / "structural_check.json"
         static = StructuralCheckSection(
             status="SKIP",
             message=(
                 "No mesh available. Provide --mesh or create a STEP export first "
                 "with scripts/vsp_to_cfd.py + scripts/hifi_mesh_step.py."
             ),
+            issue_category="mesh_unavailable",
+            comparability="NOT_COMPARABLE",
         )
         buckle = StructuralCheckSection(
             status="SKIP",
             message="Buckling check skipped because no CalculiX mesh was available.",
+            issue_category="mesh_unavailable",
+            comparability="NOT_COMPARABLE",
         )
         _write_combined_report(
             report_path,
@@ -222,8 +236,21 @@ def run_structural_check(
             buckle=buckle,
             reference_metrics=summary_metrics,
         )
+        _write_combined_summary_json(
+            summary_json_path,
+            summary_path=resolved_summary,
+            step_path=resolved_step,
+            mesh_path=resolved_mesh,
+            paraview_script_path=None,
+            load_model=None,
+            support_description="No mesh available; no structural supports were derived.",
+            static=static,
+            buckle=buckle,
+            reference_metrics=summary_metrics,
+        )
         return StructuralCheckResult(
             report_path=report_path,
+            summary_json_path=summary_json_path,
             overall_status="SKIP",
             summary_path=resolved_summary,
             step_path=resolved_step,
@@ -288,8 +315,21 @@ def run_structural_check(
             )
 
     report_path = hifi_root / "structural_check.md"
+    summary_json_path = hifi_root / "structural_check.json"
     _write_combined_report(
         report_path,
+        summary_path=resolved_summary,
+        step_path=resolved_step,
+        mesh_path=resolved_mesh,
+        paraview_script_path=paraview_script_path,
+        load_model=load_model,
+        support_description=_support_description(boundary_entries, cfg),
+        static=static,
+        buckle=buckle,
+        reference_metrics=summary_metrics,
+    )
+    _write_combined_summary_json(
+        summary_json_path,
         summary_path=resolved_summary,
         step_path=resolved_step,
         mesh_path=resolved_mesh,
@@ -303,6 +343,7 @@ def run_structural_check(
     overall_status = _combine_status(static.status, buckle.status)
     return StructuralCheckResult(
         report_path=report_path,
+        summary_json_path=summary_json_path,
         overall_status=overall_status,
         summary_path=resolved_summary,
         step_path=resolved_step,
@@ -333,6 +374,8 @@ def _run_static_check(
         return StructuralCheckSection(
             status="WARN",
             message=f"Could not derive TIP from mesh: {exc}",
+            issue_category="mesh_boundary_contract",
+            comparability="NOT_COMPARABLE",
         )
 
     static_inp = hifi_dir / f"{mesh_path.stem}_static.inp"
@@ -346,10 +389,15 @@ def _run_static_check(
     )
     result = run_static(static_inp, cfg)
     if result.get("error"):
+        issue_category, diagnostics = _diagnose_solver_result(result)
         return StructuralCheckSection(
             status="WARN",
-            message=f"CalculiX static failed or was skipped: {result['error']}",
-            artifact_path=static_inp,
+            message=f"CalculiX static failed or was skipped: {issue_category}.",
+            artifact_path=Path(result.get("log", static_inp)).resolve(),
+            issue_category=issue_category,
+            comparability="NOT_COMPARABLE",
+            log_path=Path(result["log"]).resolve() if result.get("log") else None,
+            diagnostics=diagnostics,
         )
 
     frd_path = Path(result["frd"]).resolve()
@@ -359,6 +407,8 @@ def _run_static_check(
             status="WARN",
             message=f"No displacement rows found in {frd_path}",
             artifact_path=frd_path,
+            issue_category="solver_output",
+            comparability="NOT_COMPARABLE",
         )
 
     matches = disp[disp[:, 0].astype(int) == int(tip_node)]
@@ -386,6 +436,8 @@ def _run_static_check(
                     f"(available node ids {id_range})."
                 ),
                 artifact_path=frd_path,
+                issue_category="postprocess_mapping",
+                comparability="NOT_COMPARABLE",
             )
         matches = matched_row[np.newaxis, :]
         frd_match_note = (
@@ -397,6 +449,8 @@ def _run_static_check(
             status="WARN",
             message=f"Tip node {tip_node} not found in FRD displacement output.",
             artifact_path=frd_path,
+            issue_category="postprocess_mapping",
+            comparability="NOT_COMPARABLE",
         )
 
     tip_deflection_m = abs(float(matches[-1, 3])) * mesh_length_scale_m_per_unit
@@ -404,6 +458,11 @@ def _run_static_check(
     status = "PASS" if diff_pct is not None and abs(diff_pct) <= 5.0 else "WARN"
     if expected_tip_deflection_m is None:
         status = "SKIP"
+    comparability = _assess_section_comparability(
+        has_reference=expected_tip_deflection_m is not None,
+        load_model=load_model,
+        solver_ok=True,
+    )
     message = (
         f"Static tip-deflection check completed using {load_model.description}{frd_match_note}"
         if expected_tip_deflection_m is not None
@@ -419,6 +478,9 @@ def _run_static_check(
         expected=expected_tip_deflection_m,
         diff_pct=diff_pct,
         artifact_path=frd_path,
+        issue_category=None if status in {"PASS", "SKIP"} else "result_mismatch",
+        comparability=comparability,
+        log_path=Path(result["log"]).resolve() if result.get("log") else None,
     )
 
 
@@ -439,6 +501,8 @@ def _run_buckle_check(
         return StructuralCheckSection(
             status="WARN",
             message=f"Could not derive TIP from mesh: {exc}",
+            issue_category="mesh_boundary_contract",
+            comparability="NOT_COMPARABLE",
         )
 
     buckle_inp = hifi_dir / f"{mesh_path.stem}_buckle.inp"
@@ -452,10 +516,15 @@ def _run_buckle_check(
     )
     result = run_static(buckle_inp, cfg)
     if result.get("error"):
+        issue_category, diagnostics = _diagnose_solver_result(result)
         return StructuralCheckSection(
             status="WARN",
-            message=f"CalculiX BUCKLE failed or was skipped: {result['error']}",
-            artifact_path=buckle_inp,
+            message=f"CalculiX BUCKLE failed or was skipped: {issue_category}.",
+            artifact_path=Path(result.get("log", buckle_inp)).resolve(),
+            issue_category=issue_category,
+            comparability="NOT_COMPARABLE",
+            log_path=Path(result["log"]).resolve() if result.get("log") else None,
+            diagnostics=diagnostics,
         )
 
     dat_path = Path(result["dat"]).resolve()
@@ -466,6 +535,9 @@ def _run_buckle_check(
             status="WARN",
             message=f"No BUCKLE eigenvalues found in {dat_path}",
             artifact_path=frd_path,
+            issue_category="solver_output",
+            comparability="NOT_COMPARABLE",
+            log_path=Path(result["log"]).resolve() if result.get("log") else None,
         )
 
     lambda_1 = float(eigenvalues[0])
@@ -478,6 +550,11 @@ def _run_buckle_check(
     status = "PASS" if margin is not None and margin >= 0.0 else "WARN"
     if expected_buckling_index is None:
         status = "SKIP"
+    comparability = _assess_section_comparability(
+        has_reference=expected_buckling_index is not None,
+        load_model=load_model,
+        solver_ok=True,
+    )
     message = (
         f"Buckling check completed using {load_model.description}"
         if expected_buckling_index is not None
@@ -491,6 +568,9 @@ def _run_buckle_check(
         threshold=threshold,
         margin=margin,
         artifact_path=frd_path,
+        issue_category=None if status in {"PASS", "SKIP"} else "result_mismatch",
+        comparability=comparability,
+        log_path=Path(result["log"]).resolve() if result.get("log") else None,
     )
 
 
@@ -592,6 +672,94 @@ def _combine_status(*statuses: str) -> str:
     return "SKIP"
 
 
+def _combine_comparability(*levels: str | None) -> str:
+    filtered = [level for level in levels if level]
+    if not filtered:
+        return "NOT_COMPARABLE"
+    if "NOT_COMPARABLE" in filtered:
+        return "NOT_COMPARABLE"
+    if "LIMITED" in filtered:
+        return "LIMITED"
+    return "COMPARABLE"
+
+
+def _assess_section_comparability(
+    *,
+    has_reference: bool,
+    load_model: StructuralLoadModel,
+    solver_ok: bool,
+) -> str:
+    if not solver_ok:
+        return "NOT_COMPARABLE"
+    if not has_reference:
+        return "LIMITED"
+    if load_model.comparison_basis == "direct":
+        return "COMPARABLE"
+    return "LIMITED"
+
+
+_DIAGNOSTIC_PATTERNS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "mesh_quality",
+        (
+            ("opposite_normals", "opposite normals are defined"),
+            ("nonpositive_jacobian", "nonpositive jacobian"),
+            ("negative_jacobian", "negative jacobian"),
+            ("collapsed_element", "collapsed element"),
+        ),
+    ),
+    (
+        "boundary_conditions",
+        (
+            ("singular_matrix", "system of equations is singular"),
+            ("zero_pivot", "zero pivot"),
+            ("missing_dof", "no degrees of freedom"),
+            ("unconnected_node", "not connected to any active degree of freedom"),
+        ),
+    ),
+    (
+        "load_mapping",
+        (
+            ("unknown_nset", "nset"),
+            ("unknown_elset", "elset"),
+            ("cload_issue", "*cload"),
+            ("dload_issue", "*dload"),
+            ("load_definition", "distributed load"),
+        ),
+    ),
+    (
+        "solver_execution",
+        (
+            ("timed_out", "timed out"),
+            ("launch_failed", "failed to start"),
+            ("missing_frd", "did not produce expected frd output"),
+            ("ccx_failed", "ccx failed"),
+        ),
+    ),
+)
+
+
+def _diagnose_solver_result(result: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
+    snippets = [
+        str(result.get("error") or ""),
+        str(result.get("stderr") or ""),
+        str(result.get("stdout") or ""),
+    ]
+    text = "\n".join(part for part in snippets if part).lower()
+    if not text:
+        return "solver_execution", ()
+
+    for category, patterns in _DIAGNOSTIC_PATTERNS:
+        hits: list[str] = []
+        for label, needle in patterns:
+            count = text.count(needle.lower())
+            if count > 0:
+                hits.append(f"{label} x{count}")
+        if hits:
+            return category, tuple(hits)
+    return "solver_execution", ()
+
+
 def _write_combined_report(
     report_path: Path,
     *,
@@ -606,15 +774,20 @@ def _write_combined_report(
     reference_metrics: dict[str, float | None],
 ) -> None:
     overall_status = _combine_status(static.status, buckle.status)
+    overall_comparability = _combine_comparability(static.comparability, buckle.comparability)
     lines = [
         "# High-Fidelity Structural Check",
         "",
         f"- Overall status: {overall_status}",
+        f"- Overall comparability: {overall_comparability}",
         f"- Summary input: {summary_path or '—'}",
         f"- STEP input: {step_path or '—'}",
         f"- Mesh input: {mesh_path or '—'}",
         f"- ParaView script: {paraview_script_path or '—'}",
         f"- Loads: {load_model.description if load_model is not None else '—'}",
+        f"- Load source kind: {load_model.source_kind if load_model is not None else '—'}",
+        f"- Load comparison basis: {load_model.comparison_basis.upper() if load_model is not None else '—'}",
+        f"- Load note: {load_model.comparison_note if load_model is not None and load_model.comparison_note is not None else '—'}",
         f"- Applied total Fz [N]: {_fmt(load_model.total_fz_n if load_model is not None else None)}",
         f"- Supports: {support_description}",
         "",
@@ -626,30 +799,94 @@ def _write_combined_report(
         "## Static Deflection",
         "",
         f"- Status: {static.status}",
+        f"- Comparability: {static.comparability or '—'}",
+        f"- Issue category: {static.issue_category or '—'}",
+        f"- Diagnostics: {', '.join(static.diagnostics) if static.diagnostics else '—'}",
         f"- Message: {static.message}",
         f"- Hifi |uz_tip| [m]: {_fmt(static.actual)}",
         f"- MDO tip deflection [m]: {_fmt(static.expected)}",
         f"- Diff [%]: {_fmt(static.diff_pct)}",
         f"- Artifact: {static.artifact_path or '—'}",
+        f"- Solver log: {static.log_path or '—'}",
         "",
         "## Buckling",
         "",
         f"- Status: {buckle.status}",
+        f"- Comparability: {buckle.comparability or '—'}",
+        f"- Issue category: {buckle.issue_category or '—'}",
+        f"- Diagnostics: {', '.join(buckle.diagnostics) if buckle.diagnostics else '—'}",
         f"- Message: {buckle.message}",
         f"- lambda_1: {_fmt(buckle.actual)}",
         f"- MDO buckling index: {_fmt(buckle.expected)}",
         f"- lambda_threshold: {_fmt(buckle.threshold)}",
         f"- margin_lambda: {_fmt(buckle.margin)}",
         f"- Artifact: {buckle.artifact_path or '—'}",
+        f"- Solver log: {buckle.log_path or '—'}",
         "",
     ]
     report_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_combined_summary_json(
+    summary_json_path: Path,
+    *,
+    summary_path: Path | None,
+    step_path: Path | None,
+    mesh_path: Path | None,
+    paraview_script_path: Path | None,
+    load_model: StructuralLoadModel | None,
+    support_description: str,
+    static: StructuralCheckSection,
+    buckle: StructuralCheckSection,
+    reference_metrics: dict[str, float | None],
+) -> None:
+    payload = {
+        "overall_status": _combine_status(static.status, buckle.status),
+        "overall_comparability": _combine_comparability(static.comparability, buckle.comparability),
+        "summary_path": None if summary_path is None else str(summary_path),
+        "step_path": None if step_path is None else str(step_path),
+        "mesh_path": None if mesh_path is None else str(mesh_path),
+        "paraview_script_path": None if paraview_script_path is None else str(paraview_script_path),
+        "support_description": support_description,
+        "load_model": {
+            "description": None if load_model is None else load_model.description,
+            "total_fz_n": None if load_model is None else load_model.total_fz_n,
+            "source_path": None if load_model is None or load_model.source_path is None else str(load_model.source_path),
+            "source_kind": None if load_model is None else load_model.source_kind,
+            "comparison_basis": None if load_model is None else load_model.comparison_basis,
+            "comparison_note": None if load_model is None else load_model.comparison_note,
+        },
+        "reference_metrics": {
+            "tip_deflection_m": reference_metrics.get("tip_deflection_m"),
+            "buckling_index": reference_metrics.get("buckling_index"),
+        },
+        "static": _section_payload(static),
+        "buckle": _section_payload(buckle),
+    }
+    summary_json_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def _fmt(value: float | None) -> str:
     if value is None:
         return "—"
     return f"{value:.6g}"
+
+
+def _section_payload(section: StructuralCheckSection) -> dict[str, Any]:
+    return {
+        "status": section.status,
+        "comparability": section.comparability,
+        "issue_category": section.issue_category,
+        "message": section.message,
+        "actual": section.actual,
+        "expected": section.expected,
+        "diff_pct": section.diff_pct,
+        "threshold": section.threshold,
+        "margin": section.margin,
+        "artifact_path": None if section.artifact_path is None else str(section.artifact_path),
+        "log_path": None if section.log_path is None else str(section.log_path),
+        "diagnostics": list(section.diagnostics),
+    }
 
 
 def _boundary_arg(boundary_entries: list[tuple[int, tuple[int, ...]]]) -> Any:
@@ -718,6 +955,9 @@ def _build_load_model(
             description=f"explicit tip load ({load_n:.6g} N at node {tip_node})",
             entries=((tip_node, 3, load_n),),
             total_fz_n=load_n,
+            source_kind="explicit_tip_load",
+            comparison_basis="limited",
+            comparison_note="Explicit tip loads are useful for controlled spot-checks, but not a direct like-for-like MDO load replay.",
         )
 
     source_candidates = _default_spar_csv_candidates(output_dir=output_dir, step_path=step_path)
@@ -746,6 +986,9 @@ def _build_load_model(
         description=f"default tip load fallback ({load_n:.6g} N at node {tip_node})",
         entries=((tip_node, 3, load_n),),
         total_fz_n=load_n,
+        source_kind="default_tip_load",
+        comparison_basis="limited",
+        comparison_note="No spar CSV or VSPAero load trace was found, so the structural check fell back to a coarse tip-load surrogate.",
     )
 
 
@@ -821,6 +1064,9 @@ def _load_model_from_spar_csv(
         entries=tuple(entries),
         total_fz_n=total_fz_n,
         source_path=csv_path,
+        source_kind="spar_csv",
+        comparison_basis="direct",
+        comparison_note="Distributed spar loads came from a generated spanwise load table, which is the most comparable local replay currently available.",
     )
 
 
@@ -884,6 +1130,9 @@ def _load_model_from_vsp(
         entries=tuple(entries),
         total_fz_n=total_fz_n,
         source_path=Path(cfg.io.vsp_lod),
+        source_kind="vsp_aero",
+        comparison_basis="limited",
+        comparison_note="VSPAero-derived loads are useful when spar CSV is absent, but they are a looser comparison contract than the generated structural load export.",
     )
 
 
