@@ -3,6 +3,7 @@
 這份文件是 `docs/` 的導航層，不取代根目錄的 [README.md](../README.md)。
 
 - 人類使用者先看 [README.md](../README.md)。
+- 想先知道目前正式主線是什麼，先看 [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md)。
 - 想找正式 contract / 正式真值，先看下面的 `Current Mainline`。
 - 想知道近期優先順序，先看 [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md)。
 - 想看長期方向，才看 [GRAND_BLUEPRINT.md](GRAND_BLUEPRINT.md)。
@@ -11,6 +12,7 @@
 
 | 文件 | 角色 | 適合誰 |
 |---|---|---|
+| [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 目前正式主線的單一真相文件 | 所有人，尤其是新進協作者與 AI agent |
 | [README.md](../README.md) | Repo landing page，先講正式入口、閱讀路徑、第一個指令 | 第一次進 repo 的人 |
 | [dual_beam_workflow_architecture_overview.md](dual_beam_workflow_architecture_overview.md) | 正式 dual-beam workflow 與資料流概觀 | 協作開發者 |
 | [dual_beam_consumer_integration_guide.md](dual_beam_consumer_integration_guide.md) | consumer 如何接正式 decision output | 外部整合 / AI agent |
@@ -22,6 +24,7 @@
 
 | 文件 | 性質 | 說明 |
 |---|---|---|
+| [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 最高優先的現況真值 | 定義現在 repo 真正主線、入口、legacy 邊界、能力上限 |
 | [dual_beam_workflow_architecture_overview.md](dual_beam_workflow_architecture_overview.md) | 正式 workflow 真值 | 說明 dual-beam production / inverse-design / decision layer 怎麼串起來 |
 | [dual_beam_decision_interface_v1_spec.md](dual_beam_decision_interface_v1_spec.md) | 正式 consumer contract | 定義 decision interface JSON |
 | [dual_beam_consumer_integration_guide.md](dual_beam_consumer_integration_guide.md) | 正式 integration guide | 告訴 consumer 怎麼接 producer output |

@@ -10,6 +10,7 @@
 
 | 你現在要做什麼 | 先看哪裡 | 為什麼 |
 |---|---|---|
+| 想先知道「現在真正主線到底是什麼」 | [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md) | 這份是目前正式主線的單一真相文件 |
 | 第一次進 repo，想知道怎麼開始 | [README.md](README.md) | 這份就是 landing page，先用它判斷正式入口與第一個指令 |
 | 想快速找到所有重要文件 | [docs/README.md](docs/README.md) | 文件索引，會告訴你哪些是正式 contract、哪些是研究/歷史文件 |
 | 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
@@ -22,6 +23,7 @@
 1. 先看下面的「安裝方式」與「快速開始」。
 2. 跑一次 `python examples/blackcat_004_optimize.py` 或 `python scripts/run_optimization.py --config configs/blackcat_004.yaml`。
 3. 如果要理解正式工程主線，再讀：
+   - [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md)
    - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
    - [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
 
@@ -29,6 +31,7 @@
 
 - 先以本頁的「目前正式判準」為準，確認不要沿用 legacy parity path。
 - 接著讀：
+  - [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md)
   - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
   - [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
   - [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
