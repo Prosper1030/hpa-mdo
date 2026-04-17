@@ -336,7 +336,7 @@ def test_wire_recovery_estimates_tension_and_inboard_precompression_from_downwar
     assert result.recovery.wire_tension_only_passed is True
     assert result.recovery.max_wire_tension_n > 0.0
     assert result.recovery.max_wire_precompression_n > 0.0
-    cable_axis = model.nodes_main_m[1] - model.wire_anchor_points_m[0]
+    cable_axis = -result.reactions.wire_reaction_vectors_n[0]
     cable_axis = cable_axis / np.linalg.norm(cable_axis)
     np.testing.assert_allclose(
         result.recovery.wire_tension_estimates_n[0],
@@ -538,6 +538,7 @@ def test_feasibility_summary_keeps_dual_displacement_as_candidate_only() -> None
         disp_main_m=disp_main_m,
         disp_rear_m=disp_rear_m,
         reactions=reactions,
+        explicit_wire_support=explicit_wire_support,
     )
     optimizer_metrics = build_optimizer_facing_metrics(
         model=model,
@@ -797,6 +798,91 @@ def test_explicit_wire_truss_reaction_aligns_with_current_cable_axis_under_x_loa
     current_axis = current_axis / np.linalg.norm(current_axis)
     reaction_axis = reactions.wire_reaction_vectors_n[0] / np.linalg.norm(reactions.wire_reaction_vectors_n[0])
     np.testing.assert_allclose(reaction_axis, -current_axis, atol=1.0e-8)
+
+
+def test_explicit_wire_truss_recovery_uses_deformed_axis_for_precompression() -> None:
+    model = _simple_model(
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+    )
+    production = get_analysis_mode_definition(AnalysisModeName.DUAL_BEAM_PRODUCTION)
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=production.root_bc,
+        wire_bc=production.wire_bc,
+        link_mode=production.default_link_mode,
+    )
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+    main_loads_n = np.zeros((model.y_nodes_m.size, 6), dtype=float)
+    rear_loads_n = np.zeros_like(main_loads_n)
+    main_loads_n[1, 0] = 150.0
+
+    disp_main_m, disp_rear_m, multipliers, _, explicit_wire_support = solve_dual_beam_state(
+        model=model,
+        main_loads_n=main_loads_n,
+        rear_loads_n=rear_loads_n,
+        constraints=constraints,
+    )
+    reactions = recover_reactions(
+        constraints=constraints,
+        multipliers=multipliers,
+        nn=model.y_nodes_m.size,
+        explicit_wire_support=explicit_wire_support,
+    )
+    recovery = recover_structural_response(
+        model=model,
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        reactions=reactions,
+        explicit_wire_support=explicit_wire_support,
+    )
+
+    current_axis = model.nodes_main_m[1] + disp_main_m[1, :3] - model.wire_anchor_points_m[0]
+    current_axis = current_axis / np.linalg.norm(current_axis)
+    expected_precompression_n = recovery.wire_tension_estimates_n[0] * abs(current_axis[1])
+    assert recovery.wire_precompression_n[0] == pytest.approx(expected_precompression_n, rel=1.0e-10)
+
+
+def test_explicit_wire_truss_flags_upward_reaction_for_anchor_above_attachment() -> None:
+    model = _simple_model(
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+        wire_attachment_angles_deg=(45.0,),
+        wire_anchor_points_m=np.array([[0.0, 0.0, 1.0]], dtype=float),
+    )
+    production = get_analysis_mode_definition(AnalysisModeName.DUAL_BEAM_PRODUCTION)
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=production.root_bc,
+        wire_bc=production.wire_bc,
+        link_mode=production.default_link_mode,
+    )
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+    main_loads_n = np.zeros((model.y_nodes_m.size, 6), dtype=float)
+    rear_loads_n = np.zeros_like(main_loads_n)
+    main_loads_n[1, 2] = -150.0
+
+    disp_main_m, disp_rear_m, multipliers, _, explicit_wire_support = solve_dual_beam_state(
+        model=model,
+        main_loads_n=main_loads_n,
+        rear_loads_n=rear_loads_n,
+        constraints=constraints,
+    )
+    reactions = recover_reactions(
+        constraints=constraints,
+        multipliers=multipliers,
+        nn=model.y_nodes_m.size,
+        explicit_wire_support=explicit_wire_support,
+    )
+    recovery = recover_structural_response(
+        model=model,
+        disp_main_m=disp_main_m,
+        disp_rear_m=disp_rear_m,
+        reactions=reactions,
+        explicit_wire_support=explicit_wire_support,
+    )
+
+    assert recovery.max_wire_upward_reaction_n > 0.0
+    assert recovery.wire_tension_only_passed is False
 
 
 def test_wire_axial_mode_flags_compression_resultant_as_invalid() -> None:

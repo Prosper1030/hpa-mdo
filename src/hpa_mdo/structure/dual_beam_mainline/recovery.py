@@ -71,6 +71,7 @@ def _wire_load_path_metrics(
     *,
     model: DualBeamMainlineModel,
     reactions: ReactionRecoveryResult,
+    explicit_wire_support: ExplicitWireSupportResult | None = None,
 ) -> tuple[np.ndarray, np.ndarray, float, bool]:
     """Estimate wire tensions and induced inboard spar precompression from solved reactions."""
 
@@ -93,6 +94,12 @@ def _wire_load_path_metrics(
     tensions_n = np.zeros(n_wires, dtype=float)
     precompression_n = np.zeros(ne, dtype=float)
     max_upward_reaction_n = 0.0
+    truss_axis_vectors = (
+        np.asarray(explicit_wire_support.current_axis_unit_vectors, dtype=float)
+        if explicit_wire_support is not None
+        else None
+    )
+
     for idx, (node_index, angle_deg, anchor_point_m, reaction_vector_n, wire_resultant_n) in enumerate(
         zip(
             model.wire_node_indices,
@@ -103,17 +110,28 @@ def _wire_load_path_metrics(
             strict=True,
         )
     ):
-        attachment_point_m = np.asarray(model.nodes_main_m[node_index], dtype=float)
-        axis_vector = attachment_point_m - np.asarray(anchor_point_m, dtype=float)
-        axis_norm = np.linalg.norm(axis_vector)
-        if axis_norm <= 1.0e-30:
-            raise ValueError("Wire anchor point must not coincide with the attachment point.")
-        axis_unit = axis_vector / axis_norm
+        if (
+            reactions.wire_constraint_mode == WireBCMode.WIRE_MAIN_TRUSS
+            and truss_axis_vectors is not None
+            and truss_axis_vectors.shape == (n_wires, 3)
+        ):
+            axis_unit = np.asarray(truss_axis_vectors[idx], dtype=float)
+            axis_norm = np.linalg.norm(axis_unit)
+            if axis_norm <= 1.0e-30:
+                raise ValueError("Explicit truss recovery requires a finite current wire axis.")
+            axis_unit = axis_unit / axis_norm
+        else:
+            attachment_point_m = np.asarray(model.nodes_main_m[node_index], dtype=float)
+            axis_vector = attachment_point_m - np.asarray(anchor_point_m, dtype=float)
+            axis_norm = np.linalg.norm(axis_vector)
+            if axis_norm <= 1.0e-30:
+                raise ValueError("Wire anchor point must not coincide with the attachment point.")
+            axis_unit = axis_vector / axis_norm
         spanwise_component = max(abs(float(axis_unit[1])), 1.0e-12)
 
         if reactions.wire_constraint_mode in (WireBCMode.WIRE_MAIN_AXIAL, WireBCMode.WIRE_MAIN_TRUSS):
             tension_n = max(float(wire_resultant_n), 0.0)
-            upward_reaction_n = max(float(-wire_resultant_n), 0.0)
+            upward_reaction_n = max(float(np.asarray(reaction_vector_n, dtype=float)[2]), 0.0)
         else:
             theta = np.deg2rad(float(angle_deg))
             sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
@@ -225,6 +243,7 @@ def recover_structural_response(
     disp_main_m: np.ndarray,
     disp_rear_m: np.ndarray,
     reactions: ReactionRecoveryResult | None = None,
+    explicit_wire_support: ExplicitWireSupportResult | None = None,
 ) -> RecoveryResult:
     """Recover provisional stress metrics and report mass breakdowns."""
 
@@ -250,6 +269,7 @@ def recover_structural_response(
                     link_node_indices=model.joint_node_indices,
                 )
             ),
+            explicit_wire_support=explicit_wire_support,
         )
     )
     wire_allowable_tension_n = np.asarray(model.wire_allowable_tension_n, dtype=float)

@@ -100,6 +100,7 @@ def run_dual_beam_mainline_kernel(
         disp_main_m=disp_main_m,
         disp_rear_m=disp_rear_m,
         reactions=reactions,
+        explicit_wire_support=explicit_wire_support,
     )
     smooth = build_smooth_aggregation(
         model=model,

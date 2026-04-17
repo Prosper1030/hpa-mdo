@@ -253,6 +253,9 @@ class ExplicitWireSupportResult:
     support_reaction_vector_n: np.ndarray
     wire_reaction_vectors_n: np.ndarray
     wire_resultants_n: np.ndarray
+    current_attachment_points_m: np.ndarray
+    current_axis_unit_vectors: np.ndarray
+    current_lengths_m: np.ndarray
 
 
 @dataclass

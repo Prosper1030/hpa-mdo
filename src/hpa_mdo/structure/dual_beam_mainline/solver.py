@@ -139,6 +139,9 @@ def _evaluate_explicit_wire_truss_support(
     n_wires = len(model.wire_node_indices)
     wire_reaction_vectors_n = np.zeros((n_wires, 3), dtype=float)
     wire_resultants_n = np.zeros(n_wires, dtype=float)
+    current_attachment_points_m = np.zeros((n_wires, 3), dtype=float)
+    current_axis_unit_vectors = np.zeros((n_wires, 3), dtype=float)
+    current_lengths_m = np.zeros(n_wires, dtype=float)
     active_mask = np.zeros(n_wires, dtype=bool)
     if n_wires == 0:
         return (
@@ -148,6 +151,9 @@ def _evaluate_explicit_wire_truss_support(
                 support_reaction_vector_n=support_reaction_vector_n,
                 wire_reaction_vectors_n=wire_reaction_vectors_n,
                 wire_resultants_n=wire_resultants_n,
+                current_attachment_points_m=current_attachment_points_m,
+                current_axis_unit_vectors=current_axis_unit_vectors,
+                current_lengths_m=current_lengths_m,
             ),
             tangent_stiffness,
         )
@@ -177,6 +183,9 @@ def _evaluate_explicit_wire_truss_support(
         if axis_norm <= 1.0e-12:
             raise ValueError("Wire anchor point must not coincide with the attachment point.")
         axis_unit = axis / axis_norm
+        current_attachment_points_m[wire_index] = attachment_point_m
+        current_axis_unit_vectors[wire_index] = axis_unit
+        current_lengths_m[wire_index] = axis_norm
         material_stiffness_npm = float(young_pa) * float(area_m2) / float(unstretched_m)
         extension_m = float(axis_norm - float(unstretched_m))
         axial_force_n = material_stiffness_npm * extension_m
@@ -208,6 +217,9 @@ def _evaluate_explicit_wire_truss_support(
             support_reaction_vector_n=support_reaction_vector_n,
             wire_reaction_vectors_n=wire_reaction_vectors_n,
             wire_resultants_n=wire_resultants_n,
+            current_attachment_points_m=current_attachment_points_m,
+            current_axis_unit_vectors=current_axis_unit_vectors,
+            current_lengths_m=current_lengths_m,
         ),
         tangent_stiffness,
     )
