@@ -536,6 +536,68 @@ def test_build_load_model_prefers_dual_beam_production_csv(tmp_path: Path, monke
     assert load_model.total_fz_n == 60.0
 
 
+def test_build_load_model_prefers_summary_adjacent_csv(tmp_path: Path, monkeypatch) -> None:
+    cfg = _cfg(tmp_path)
+    output_dir = tmp_path / "out"
+    output_ansys = output_dir / "ansys"
+    summary_ansys = tmp_path / "archive_case" / "ansys"
+    output_ansys.mkdir(parents=True)
+    summary_ansys.mkdir(parents=True)
+
+    mesh = output_dir / "spar_model.inp"
+    mesh.write_text(MESH_WITH_WIRE_AND_MM_UNITS, encoding="utf-8")
+    (output_ansys / "spar_data.csv").write_text(
+        "\n".join(
+            [
+                "Y_Position_m,Main_FZ_N,Rear_FZ_N",
+                "0.0,0.0,0.0",
+                "7.5,10.0,20.0",
+                "16.5,-5.0,35.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    summary = summary_ansys / "crossval_report.txt"
+    summary.write_text(
+        "\n".join(
+            [
+                "HPA-MDO Dual-Beam Production ANSYS Cross-Check Report",
+                "Export mode: dual_beam_production",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    summary_csv = summary_ansys / "spar_data.csv"
+    summary_csv.write_text(
+        "\n".join(
+            [
+                "Y_Position_m,Main_FZ_N,Rear_FZ_N",
+                "0.0,0.0,0.0",
+                "7.5,5.0,5.0",
+                "16.5,5.0,5.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg.io.output_dir = str(output_dir)
+    monkeypatch.setattr(structural_check, "load_config", lambda _path: cfg)
+
+    scale = structural_check._mesh_length_scale_m_per_unit(mesh, cfg)
+    load_model = structural_check._build_load_model(
+        cfg=cfg,
+        output_dir=output_dir,
+        mesh_path=mesh,
+        summary_path=summary,
+        step_path=output_dir / "spar_jig_shape.step",
+        explicit_tip_load_n=None,
+        mesh_length_scale_m_per_unit=scale,
+    )
+
+    assert load_model.source_path == summary_csv.resolve()
+    assert load_model.total_fz_n == 20.0
+
+
 def test_build_load_model_replays_main_and_rear_forces_to_separate_mesh_nodes(
     tmp_path: Path,
     monkeypatch,
