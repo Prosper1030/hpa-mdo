@@ -96,9 +96,9 @@
                                           +-----------------+
                                                     |
                                                     v
-                               [Hi-Fi 驗證層：藍圖]
+                        [Hi-Fi 驗證層：local structural spot-check]
                                Gmsh → CalculiX → ParaView
-                               SU2（規劃中）
+                               ASWING（依本機 binary） / SU2（長期）
 ```
 
 ### OpenMDAO Component DAG
@@ -529,21 +529,26 @@ python scripts/vsp_to_cfd.py \
 
 ---
 
-## 高保真驗證層（Apple Silicon Mac mini 路線圖）
+## 高保真驗證層（Apple Silicon Mac mini）
 
-為了把最後一哩驗證留在同一台機器上，不再每次切到 Windows 跑 ANSYS，
-規劃下列開源工具鏈。**目前僅預留 `cfg.hi_fidelity.*` 介面與文件藍圖，程式碼尚未實作**（詳見 [`docs/hi_fidelity_validation_stack.md`](docs/hi_fidelity_validation_stack.md)）。
+為了把最後一哩驗證盡量留在同一台機器上，不再每次切到 Windows 跑 ANSYS，
+repo 內已經有一條本機 structural high-fidelity 路線：
+
+`summary -> STEP -> Gmsh -> CalculiX -> report / ParaView`
+
+它目前的定位是 **local structural spot-check**，不是最終真值，也不該直接拿來背書 discrete layup 或完整 aeroelastic sign-off（詳見 [`docs/hi_fidelity_validation_stack.md`](docs/hi_fidelity_validation_stack.md)）。
 
 | 層 | 工具 | 角色 | 狀態 |
 |----|------|------|------|
-| 結構 | **Gmsh** | STEP→網格（`.inp`） | 預留介面 |
-| 結構 | **CalculiX (ccx)** | 非線性靜力 / 挫曲 solver | 預留介面 |
-| 後處理 | **ParaView** | 結構 (`.frd`) + CFD (`.vtu`) 統一檢視 | 預留介面 |
-| 氣動 | **SU2** | RANS / Euler CFD | **藍圖** — 暫不實作 |
+| 結構 | **Gmsh** | STEP→網格（`.inp`） | 已有 runner / script，仍在收斂 mesh contract |
+| 結構 | **CalculiX (ccx)** | static / buckle solver | 已有 runner / report，現階段主要做 structural spot-check |
+| 後處理 | **ParaView** | 結構 (`.frd`) 視覺化 | 已有 `pvpython` script generator |
+| 非線性氣動彈 | **ASWING** | trim / nonlinear aeroelastic | glue 已有，是否可跑取決於本機 binary |
+| 氣動 CFD | **SU2** | RANS / Euler CFD | 長期藍圖，不是近期 blocker |
 
 呼叫時機：**主最佳化迴圈不觸發高保真層**，只在使用者手動驗證時透過
 獨立 script 啟動，且所有 binary 路徑從 `configs/local_paths.yaml` 覆
-蓋，維持跨機器可攜。
+蓋，維持跨機器可攜。近期比較合理的做法，是先把它收斂成可信的本機 structural spot-check，再逐步擴大驗證範圍。
 
 ---
 

@@ -1,230 +1,253 @@
-# 高保真分析層藍圖（Apple Silicon Mac mini）
+# 高保真驗證層現況與路線圖（Apple Silicon Mac mini）
 
-> 狀態：**藍圖 / 預留介面**。目前程式碼尚未實作對應連結；本文件定義
-> 目標架構、資料流與介面契約，讓後續實作不需要再討論整體方向。
+> **狀態**：**部分實作，現階段定位為 local structural spot-check**。repo 內已經有 `Gmsh -> CalculiX -> report` 與 `ParaView` / `ASWING` glue code，但它目前還不是最終真值，也不應該拿來直接背書 discrete layup 或完整 aeroelastic sign-off。
+> **這份文件要回答的問題**：現在高保真層實際做到哪裡、能拿來做什麼、不能拿來做什麼、下一步怎麼驗。
 
-## 動機
+## 1. 角色定位
 
-MDO 迴圈內部使用 OpenMDAO 6-DOF Timoshenko 梁 + VSPAero VLM，屬於
-**中保真度**，用來在設計空間內快速收斂。真正決定是否投入製造的**最後一哩驗證**，目前仰賴 ANSYS Workbench / Fluent，必須切到 Windows
-工作站操作，節奏被迫中斷。
+MDO 內圈仍然使用中保真度的結構與氣動模型做快速設計收斂。高保真層的近期角色不是取代它，而是：
 
-本層的目的：**把最終驗證留在同一台 Apple Silicon Mac mini 上**，以
-開源工具鏈取代 ANSYS 的最終驗證角色，讓「MDO 收斂 → 高保真檢查 →
-回饋」的迴圈在一台機器上完成。
+- 在同一台 Apple Silicon Mac 上做本機 structural spot-check
+- 幫忙抓幾何、支撐、載入映射是否明顯翻車
+- 幫忙判斷 finalist / suspicious design 是否有 model-form risk
 
-## 工具選型
+目前不應把它當成：
 
-### A. 結構分析層（實作優先）
+- 每次設計都必跑的主流程
+- 已取代 Windows / ANSYS 的完整最終真值
+- 已驗證 discrete CFRP / layup 的複材真值
+- 已完成的非線性 aeroelastic sign-off 鏈
 
-| 工具 | 角色 | 二進位來源（Apple Silicon） |
-|------|------|------------------------------|
-| **Gmsh** | 幾何→網格自動生成器。吃 `CruiseVSPBuilder` 輸出的 STEP，輸出 `.inp` / `.msh` | `brew install gmsh`（arm64 原生） |
-| **CalculiX (ccx + cgx)** | 非線性靜力 / 挫曲 solver，輸入 `.inp` 輸出 `.frd` | `brew install calculix-ccx`；MacPorts 亦可 |
-| **ParaView** | 統一後處理。讀 `.frd`（CalculiX）、`.vtu`（SU2）、甚至 `.lod` 轉出的 vtk | [paraview.org](https://www.paraview.org/download) 官方 arm64 dmg |
+## 2. repo 目前做到哪裡
 
-### B. 氣動分析層（藍圖，暫不實作）
+### A. 已存在的 code path
 
-| 工具 | 角色 | 備註 |
-|------|------|------|
-| **SU2** | RANS / Euler CFD，讀 STL 或 CGNS 網格 | 僅保留設定檔模板與資料流藍圖；實際 compile 與驗證延後 |
+| 層 | repo 內模組 / script | 目前狀態 | 角色 |
+|---|---|---|---|
+| STEP -> mesh | `src/hpa_mdo/hifi/gmsh_runner.py`, `scripts/hifi_mesh_step.py` | 已實作 | 將 STEP 轉成 CalculiX 可用的 `.inp`，並補上 `ROOT` / `TIP` / `WIRE_n` 類命名節點集 |
+| CalculiX static / buckle | `src/hpa_mdo/hifi/calculix_runner.py`, `scripts/hifi_structural_check.py`, `scripts/hifi_buckle_check.py` | 已實作 | 生成 standalone deck，跑 static 與 `*BUCKLE`，輸出 `.frd` / `.dat` / report |
+| 結構驗證總控 | `src/hpa_mdo/hifi/structural_check.py`, `scripts/hifi_structural_check.py` | 已實作 | 串起 summary -> STEP -> mesh -> static -> buckle -> Markdown 報告 |
+| ParaView | `src/hpa_mdo/hifi/paraview_state.py`, `scripts/hifi_open_paraview.py` | 已實作 | 產生 `pvpython` 視覺化腳本 |
+| ASWING runner | `src/hpa_mdo/hifi/aswing_runner.py`, `scripts/hifi_validate_aswing.py` | 已實作 glue | 可驅動 ASWING batch mode，但是否能跑取決於本機有沒有 `aswing` binary |
+| CFD / SU2 | 無正式 runner | 藍圖 | 目前只保留方向，不當成近期 blocker |
 
-## 介面契約
+### B. 目前最接近可用的部分
+
+最接近可用的是：
+
+`summary -> jig STEP -> Gmsh -> CalculiX static/buckle -> Markdown report`
+
+正式入口：
+
+```bash
+python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
+```
+
+這條線已經不只是藍圖，而是實際可執行的 structural check driver。
+
+## 3. 目前的信任邊界
+
+現在這條 Mac 高保真路線，最適合被理解成：
+
+`幾何 / 支撐 / 載入映射 sanity check + 結構級 spot-check`
+
+而不是：
+
+`完整 layup-aware composite truth model`
+
+### 目前簡化在哪裡
+
+- **材料模型仍是簡化版**
+  - `structural_check.py` 目前從 `data/materials.yaml` 取的是 `E / nu / rho`
+  - 也就是說，它現在不是 layup-aware section，也不是完整複材疊層真值
+- **載入模型仍是簡化版**
+  - 優先從 `ansys/spar_data.csv` 取展向 `Main_FZ_N + Rear_FZ_N`
+  - 再映成 mesh 上的 distributed nodal `Fz`
+  - 目前不是完整 torque / twist / aeroelastic load ownership truth
+- **支撐模型仍是 spot-check 型**
+  - 目前以 `ROOT clamp + wire U3 supports` 為主
+  - 這是有效的結構級對照，但仍不是完整製造 / 接頭 / 柔性邊界真值
+
+### 所以現在能拿來判斷什麼
+
+- tip deflection 有沒有完全錯位
+- `Max |UZ|` 是否明顯翻盤
+- support reaction / total reaction 是否對得上
+- mass / deck 組裝 / mesh 邏輯是否基本一致
+- mesh、BC、load mapping 問題是不是在一開始就爆掉
+
+### 目前不能過度宣稱什麼
+
+- 不能拿它直接背書 discrete layup 結果
+- 不能拿它直接背書複材 torsion-coupled behavior
+- 不能拿它直接當完整 aeroelastic sign-off
+- 不能因為它出現數字就宣稱已取代 ANSYS/APDL
+
+## 4. 目前已知的驗證證據
+
+### A. 歷史 ANSYS/APDL 對照仍有價值，但不能被寫死成唯一真值
+
+目前 repo 與 `SyncFile` 裡可讀到的案例，證據比較像「能做工程判斷」，而不是「已經全面 close enough」：
+
+- `dual_spar` baseline spot-check：
+  - tip deflection 差 `14.14%`
+  - `Max |UZ|` 差 `35.64%`
+  - support reaction / mass 很接近
+  - 結論是 `MODEL-FORM RISK`
+- `dual_beam_production` 對同組 ANSYS surrogate：
+  - main tip deflection 差 `19.21%`
+  - total support reaction 差 `11.34%`
+  - 報告定位是 `INFO ONLY`
+
+這代表：
+
+- ANSYS/APDL 路線仍然值得保留作 evidence
+- 但它目前還不足以支持「repo 現在已經和 APDL 很 close，所以可直接鎖死 benchmark」
+
+### B. Mac structural check 目前已能出報告，但最新代表性案例仍是 WARN
+
+`output/blackcat_004/hifi/structural_check.md` 已經證明本機 structural check 可以跑到產生報告，但該案例目前是：
+
+- `Overall status: WARN`
+- CalculiX static 發生大量 `opposite normals are defined`
+- 並且出現 `nonpositive jacobian`
+
+這表示目前最大問題比較像：
+
+- mesh normals / element quality / deck 組裝問題
+
+而不是：
+
+- repo 完全沒有高保真 code path
+
+## 5. benchmark policy：先保持開放，不先釘死
+
+近期的 benchmark policy 應該是：
+
+- **不把某一份舊 APDL case 直接升格成唯一 sign-off benchmark**
+- 歷史案例保留為 evidence
+- 當前優先找一份**新鮮、可比、定義清楚**的 dual-beam / jig-oriented case 做本機 structural check 對照
+
+比較好的做法是維持一個 `benchmark basket`：
+
+- 歷史 dual-spar / dual-beam ANSYS/APDL case
+- 最新的可比 dual-beam production / inverse-design case
+- 未來如果 Mac high-fidelity 成熟，再把本機 structural check case 加進來
+
+這樣做的好處是：
+
+- 不會被一份已經過一段時間的舊 case 綁死
+- 可以隨主線演進更新驗證目標
+- 更符合目前主線已從 parity 轉向 inverse-design / jig artifacts 的事實
+
+## 6. 推薦的驗證階梯
+
+### Stage 1：先把本機 structural check 跑穩
+
+目標：
+
+- 同一個代表性案例可以穩定完成 `mesh -> static -> buckle -> report`
+
+先看四個基本量：
+
+- tip deflection
+- `Max |UZ|`
+- support reaction
+- mass
+
+### Stage 2：先把它變成可信 spot-check
+
+當 Stage 1 穩定後，再要求：
+
+- 能清楚區分 mesh 問題、BC 問題、load mapping 問題
+- 代表性 case 的結果不再充滿 Jacobian / normals 類硬錯誤
+- 報告能穩定告訴你「這個 case 是可比」還是「這個 case 目前不可信」
+
+### Stage 3：再擴大 load / geometry contract
+
+下一步才值得補：
+
+- 更完整的 torque / twist / aeroelastic load contract
+- 更明確的 jig vs loaded geometry 選擇規則
+- 更一致的 benchmark case ownership
+
+### Stage 4：最後才談 layup-aware truth
+
+真正要往最終真值推時，才值得再往下做：
+
+- layup-aware section / composite property recovery
+- 更完整的 CFRP / shell / hotspot 驗證分層
+- 更接近最終真值的局部驗證模型
+
+## 7. 推薦的工作順序
+
+如果現在要投資高保真這條線，最值得的順序是：
+
+1. 選一個新鮮且可比的 dual-beam / inverse-design benchmark case
+2. 先把 `Gmsh -> CalculiX -> report` 跑穩
+3. 先對齊 tip deflection / `Max |UZ|` / support reaction / mass
+4. 先把它定位成 **non-gating local structural spot-check**
+5. 之後才考慮更完整的 load contract 或複材真值升級
+
+不建議的順序是：
+
+- 還沒跑穩 structural check 就先追求 full aeroelastic hi-fi
+- 還沒解決 mesh / Jacobian 問題就先把結果拿來背書 layup
+- 還沒選好 benchmark case 就先把文件寫成已完成驗證
+
+## 8. 工具鏈與資料流
+
+### 工具鏈
+
+| 層 | 工具 | 角色 | 近期定位 |
+|---|---|---|---|
+| 幾何 / 網格 | **Gmsh** | STEP -> `.inp` | 近期主力 |
+| 結構 solver | **CalculiX (ccx)** | static / buckle | 近期主力 |
+| 後處理 | **ParaView** | `.frd` 視覺化 | 輔助 |
+| 非線性氣動彈 | **ASWING** | trim / nonlinear aeroelastic | glue 已有，是否可用取決於 binary |
+| CFD | **SU2** | RANS / Euler CFD | 長期藍圖，不是近期 blocker |
 
 ### 資料流
 
+```text
+summary / selected design
+-> jig-oriented STEP
+-> Gmsh mesh (.inp)
+-> CalculiX static / buckle
+-> Markdown report + FRD + ParaView script
 ```
-                ┌───────────────────┐
-                │ 參考 .vsp3 (jig)   │  ← 幾何真值
-                └─────────┬─────────┘
-                          ▼
-             ┌───────────────────────────┐
-             │ VSPBuilder.build_vsp3()   │
-             └─────────┬─────────────────┘
-                       ▼
-        ┌──────────────────────────────────┐
-        │ OpenMDAO FEM → disp (nn, 6)      │   ← 中保真
-        └─────────┬────────────────────────┘
-                  ▼
-   ┌─────────────────────────────────────────┐
-   │ CruiseVSPBuilder(uz, θy) → cruise.vsp3  │
-   └─────────┬────────────────────┬──────────┘
-             ▼                    ▼
-┌──────────────────────┐  ┌──────────────────────┐
-│ vsp_to_cfd.py        │  │ vsp_to_cfd.py        │
-│  → jig.step          │  │  → cruise.step/stl   │
-└─────────┬────────────┘  └─────────┬────────────┘
-          ▼                         ▼
-    ┌──────────────┐          ┌──────────────┐
-    │ Gmsh         │          │ Gmsh (藍圖)   │ ← SU2 CFD
-    │  → .inp      │          │  → .cgns     │
-    └──────┬───────┘          └──────┬───────┘
-           ▼                         ▼
-    ┌──────────────┐          ┌──────────────┐
-    │ CalculiX     │          │ SU2  (藍圖)   │
-    │  → .frd      │          │  → .vtu      │
-    └──────┬───────┘          └──────┬───────┘
-           └───────────┬─────────────┘
-                       ▼
-                ┌──────────────┐
-                │ ParaView     │
-                └──────────────┘
-```
-
-### 路徑宣告
-
-所有高保真工具的二進位與輸出路徑透過 `configs/blackcat_004.yaml` 的
-`hi_fidelity` 區段宣告，機器差異放在 `configs/local_paths.yaml`
-（與 `io.sync_root` 同一套機制）。預設每個工具 `enabled: false`，呼叫時若未啟用就直接跳過並印出 INFO。
-
-```yaml
-hi_fidelity:
-  gmsh:
-    enabled: false
-    binary: null            # e.g. /opt/homebrew/bin/gmsh
-    mesh_size_m: 0.05
-  calculix:
-    enabled: false
-    ccx_binary: null        # e.g. /opt/homebrew/bin/ccx
-    cgx_binary: null
-  paraview:
-    enabled: false
-    binary: null            # e.g. /Applications/ParaView.app/Contents/MacOS/paraview
-  su2:
-    enabled: false          # 藍圖階段；真的要跑 CFD 再打開
-    binary: null
-    cfg_template: null      # 指向 SU2 .cfg 模板
-```
-
-### 模組介面（未實作，僅定義形狀）
-
-- `hpa_mdo.hifi.gmsh_runner.mesh_from_step(step_path, cfg) -> Path`
-  - 吃 STEP 檔，跑 Gmsh CLI 生 `.inp`（CalculiX 專用格式），回傳路徑。失敗不丟 exception，回 `None` + 記 INFO。
-- `hpa_mdo.hifi.calculix_runner.run_buckling(inp_path, cfg) -> dict`
-  - 吃 `.inp` 執行 BUCKLE step，解析 `.frd` 取第一特徵值，回傳 `{"lambda_1": float, "frd_path": Path}`。
-- `hpa_mdo.hifi.paraview_state.make_pvsm(frd_paths, vtu_paths) -> Path`
-  - 產生 ParaView state 檔讓使用者一鍵開啟全部結果。
-- `hpa_mdo.hifi.su2_runner.run_rans(stl_path, cfg) -> dict`（**藍圖**）
-  - 吃 STL + 模板，寫 SU2 `.cfg`，跑 CFD，回傳 Cl/Cd/Cm 與 `.vtu` 路徑。**未實作**。
 
 ### 呼叫時機
 
-主最佳化迴圈 **不** 呼叫這些工具；它們只在**驗證**階段由使用者或獨立 script 觸發：
+高保真層**不**進最佳化內圈，只在驗證時由使用者或獨立 script 觸發：
 
 ```bash
-# 1. 先跑 MDO 得到 jig + cruise VSP
-python examples/blackcat_004_optimize.py
-
-# 2. 轉成 STEP
-python scripts/vsp_to_cfd.py --vsp output/blackcat_004/cruise.vsp3 \
-    --out output/blackcat_004/cruise --formats step stl
-
-# 3. 結構驗證（規劃中）
 python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
-
-# 4. 開 ParaView 看結果（規劃中）
 ```
 
-## 實作順序
+如果本機沒有對應 binary，runner 應回報 `INFO` / `WARN`，而不是把主流程炸掉。
 
-1. **M-HF1**：Gmsh runner（STEP → .inp），最小可跑通。
-2. **M-HF2**：CalculiX runner（線性靜力，對比 OpenMDAO FEM 的翼尖位移）。
-3. **M-HF3**：CalculiX BUCKLE step（驗證 OpenMDAO 殼式挫曲安全因子）。
-4. **M-HF4**：ParaView state generator。
-5. **M-HF5**（藍圖，不排時程）：SU2 RANS pipeline，對比 VSPAero。
+## 9. 參考資料清單
 
-每個里程碑都必須：
-- 保持 `val_weight: 99999` 的失敗協定（工具找不到 / 回報錯誤都不得讓主流程崩潰）。
-- 所有路徑與數值閾值從 `cfg.hi_fidelity.*` 讀，不得硬編碼。
-- 新增 `tests/test_hifi_*.py` 的 stub，在未安裝工具時 `pytest.skip`。
-
-## 通用 VSP 輸入（Generic VSP intake）
-
-目的：任何符合「**主翼 + 水平尾 + 垂直尾**」慣例的 `.vsp3` 都能被分析，
-使用者不用改 YAML 幾何欄位。
-
-### 使用方式
-
-```bash
-# 最簡用法 — 指定 .vsp3，其他從 configs/blackcat_004.yaml 繼承工程參數
-python scripts/analyze_vsp.py --vsp path/to/any.vsp3
-
-# 只想檢查解析結果不跑最佳化
-python scripts/analyze_vsp.py --vsp path/to/any.vsp3 --no-run
-
-# 換成自己的工程參數模板
-python scripts/analyze_vsp.py --vsp path/to/any.vsp3 \
-    --template configs/my_hpa.yaml
-```
-
-輸出會落在 `output/<vsp_stem>/`：
-- `resolved_config.yaml`：合併後的完整設定檔（幾何來自 VSP，其他來自模板）。
-- 其餘與 `blackcat_004_optimize.py` 相同（`beam_analysis.png`、
-  `spar_geometry.png`、`wing_jig.vsp3`、`wing_cruise.vsp3` 等）。
-
-### 慣例與辨識規則
-
-`src/hpa_mdo/aero/vsp_introspect.py` 依序嘗試：
-
-1. **名稱比對**（normalize 後）：`main / mainwing / wing` → 主翼；
-   `elevator / htail / hstab / tailplane` → 水平尾；
-   `fin / vtail / vstab / rudder / verticalfin` → 垂直尾。
-2. **對稱性與尺寸啟發式**：最大 XZ 對稱 WING geom = 主翼；第二大 = 水平尾；
-   非對稱且 x 旋轉 ≈ 90° 的 WING geom = 垂直尾。
-
-若啟發式失敗（例如全部用同一個名字），請先 rename 每個 geom 再試。
-
-### 目前限制（Phase 1）
-
-- 只抽幾何（span / root / tip chord / 位置 / 旋轉）。翼型檔（AFILE）、
-  控制面偵測、dihedral schedule 的變化仍需手動維護在模板中。
-- VSPAero 的 `.lod` / `.polar` 必須與 `.vsp3` 在同一個資料夾，檔名遵循
-  OpenVSP 預設 `<stem>_VSPGeom.lod` / `_VSPGeom.polar`。
-- 翼段（segment lengths）由模板繼承，並不隨 span 自動縮放 — 若新機的
-  span 與模板差太多，需要手動調整 `main_spar.segments`。
-
-詳細 Phase 2 計畫見 `docs/codex_prompts/M_VSP2_generic_intake_phase2.md`。
-
-## 高保真驗證層參考資料清單
-
-實作 M-HF1 ~ M-HF5 需要搜集的官方文件與教學，依優先度排序：
-
-### P0 — 一定要讀（實作前）
+### P0 — 實作與 debug 前一定要讀
 
 | 主題 | 來源 | 用途 |
 |------|------|------|
-| CalculiX User's Manual v2.22 | [官方 PDF](http://www.dhondt.de/ccx_2.22.pdf) | `.inp` 語法，特別是 `*STATIC` / `*BUCKLE` / `*CLOAD` / `*BOUNDARY` / `*NODE FILE` 關鍵字。 |
-| Gmsh Reference Manual | [gmsh.info/doc](https://gmsh.info/doc/texinfo/gmsh.html) | Geo / Python API 的 `MeshSizeMax`、Physical Group、`-format inp` 匯出。 |
-| OpenVSP API Reference | [openvsp.org/api_docs/latest](http://www.openvsp.org/api_docs/latest/) | `SetDriverGroup`、`InsertXSec`、`ExportFile` 的精確 enum 值。 |
+| CalculiX User's Manual v2.22+ | [官方 PDF](http://www.dhondt.de/) | `.inp` 語法、`*STATIC` / `*BUCKLE` / `*BOUNDARY` / `*CLOAD` |
+| Gmsh Reference Manual | [gmsh.info/doc](https://gmsh.info/doc/texinfo/gmsh.html) | STEP meshing、Physical Groups、INP 匯出 |
+| ParaView Python Scripting Guide | [docs.paraview.org](https://docs.paraview.org/en/latest/ReferenceManual/pythonAndBatchPvpythonAndPvbatch.html) | `pvpython` 視覺化腳本 |
 
-### P1 — 驗證階段需要（跑 golden test 時對照）
-
-| 主題 | 來源 | 用途 |
-|------|------|------|
-| Dhondt CalculiX 教學範例集 | [dhondt.de/ccx_2.22.test.tar.bz2](http://www.dhondt.de/) | 官方 regression test 的 `.inp`，可以拿來做 golden compare。 |
-| NASA SP-8007 Buckling of Thin-Walled Circular Cylinders | NASA TRS | 我們薄殼挫曲公式的來源，跟 CalculiX `*BUCKLE` 特徵值比對時必讀。 |
-| ParaView Python Scripting Guide | [docs.paraview.org](https://docs.paraview.org/en/latest/ReferenceManual/pythonAndBatchPvpythonAndPvbatch.html) | M-HF4 state generator 要用 `pvsm` 或 `.py` batch script。 |
-| MIT Daedalus flight test data | Bussolari & Nadel 1989 AIAA | 翼尖撓度、扭轉、重量 benchmark 對照。 |
-
-### P2 — CFD 藍圖階段再讀（SU2 延後實作）
+### P1 — benchmark 對照與升級時再讀
 
 | 主題 | 來源 | 用途 |
 |------|------|------|
-| SU2 Tutorials — Inviscid Wing | [su2code.github.io/tutorials](https://su2code.github.io/tutorials/Inviscid_ONERAM6/) | 低雷諾數 HPA 翼面 RANS 起手式。 |
-| SU2 Config File Reference | [su2code.github.io/docs_v7](https://su2code.github.io/docs_v7/Physical-Definition/) | 設定檔關鍵字、邊界條件、solver 類型。 |
-| Drela low-Re airfoil papers | MIT OCW / AIAA | 低雷諾數機翼的 transition model 取捨。 |
+| CalculiX regression / tutorial cases | [dhondt.de](http://www.dhondt.de/) | golden compare 與 deck 格式 sanity check |
+| NASA SP-8007 | NASA TRS | 薄殼挫曲背景與 `*BUCKLE` 對照 |
+| Daedalus / HPA flight-test data | AIAA / MIT papers | 柔性翼全球變形 benchmark 背景 |
 
-### 使用者搜集建議
+## 10. 非目標
 
-請用下面的順序準備：
-
-1. **下載 CalculiX 2.22 manual PDF** 放到 `docs/reference/` 下（已加入 `.gitignore` 白名單）。
-2. **clone CalculiX test cases**（約 500 MB，不 commit，放在 `/Volumes/Samsung SSD/reference/calculix_tests/`）。
-3. **存一份 Daedalus 翼尖撓度/重量表**（手動 copy from paper → `docs/reference/daedalus_benchmarks.md`）。
-4. ParaView 與 SU2 的文件是 online 查詢即可，不用在本機備存。
-
-## 非目標
-
-- **不取代** MDO 迴圈內的中保真 solver。Gmsh + CalculiX 是驗證，不是最佳化內層。
-- **不包裝 GUI**。ParaView state 是選配，使用者仍可直接開原始 `.frd` / `.vtu`。
-- **不處理 Windows 平台**。本層鎖定 Apple Silicon；Windows 工作站繼續用 ANSYS 匯出路徑。
+- 不取代 MDO 內圈的中保真 solver
+- 不把本機 structural check 說成複材最終真值
+- 不讓高保真層成熟與否決定主線是否停擺
+- 不因為有 runner 就宣稱所有高保真驗證已完成

@@ -56,7 +56,7 @@
 | [dual_beam_mainline_theory_spec.md](dual_beam_mainline_theory_spec.md) | dual-beam mainline 理論背景 |
 | [dual_beam_v2_mainline_spec.md](dual_beam_v2_mainline_spec.md) | mainline 架構與規格細節 |
 | [controls_interface_v1.md](controls_interface_v1.md) | controls interface 定義 |
-| [hi_fidelity_validation_stack.md](hi_fidelity_validation_stack.md) | 高保真驗證層路線與依賴資料 |
+| [hi_fidelity_validation_stack.md](hi_fidelity_validation_stack.md) | 高保真驗證層的現況、限制、benchmark policy 與驗證階梯 |
 
 ## Reports / Research / Archive
 
