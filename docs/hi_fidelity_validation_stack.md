@@ -214,6 +214,14 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
     - static tip deflection 再從 `2.96129 m` 收斂到 `2.55449 m`
     - 相對 reference `2.39372 m` 的差距也再從 `23.71%` 降到 `6.72%`
     - 這代表 current Mac hi-fi 的主要 mismatch 已不再是 generic wire support mapping，而更像 shell / section / support completeness 的剩餘 model-form 差距
+  - 接著又補上 support reaction compare：
+    - static deck 現在會額外輸出 `HPA_SUPPORT_ALL / ROOT / WIRE` 的 RF totals 到 `.dat`
+    - `structural_check.json` / Markdown report 也會直接帶出 `support_reactions`
+    - fresh representative rerun：`output/blackcat_004/hifi_support_reaction_rerun_20260418/structural_check.json`
+    - `support_reactions.comparability = COMPARABLE`
+    - total support reaction `|Fz|` 已對齊到 `817.805 N`
+    - 相對 reference `817.782 N` 的差距只剩約 `0.00284%`
+    - 這代表 current Mac hi-fi 的 load-balance / total-support closure 已經很乾淨；剩下更像 tip deflection / shell-section model-form 差距，而不是整體受力平衡還沒對齊
 
 另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
 
@@ -226,7 +234,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - STEP / Gmsh surface 仍殘留的 invalid facets / equivalent triangles / shell duplication
 - shell mesh normals / Jacobian 仍未完全收斂
 - 目前代表性 healed mesh 本身也明確不是 solid-volume mesh
-- 即使加上 shell-orientation + sliver filter，再補上 spatial main/rear load replay 與 summary-root 對齊後，static 雖已顯著收斂，但 shell / section / support contract 與 reference 仍有約 `26%` 差距
+- 即使加上 shell-orientation + sliver filter，再補上 spatial main/rear load replay、summary-root 對齊、wire-support local cluster 與 support reaction compare 後，static tip deflection 雖已明顯收斂到約 `6.72%`，但 shell / section / support completeness 與 reference 仍未完全一致
 
 而不是：
 
@@ -242,6 +250,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - **contract 收斂層**：`spar_data.csv` 現在已能做 spatial main/rear load replay，而且 summary / load evidence root 已可對齊，代表最粗的雙梁載重扁平化與跨 root 對照問題都先被修掉
 - **support 對齊層**：wire support 現在也能優先對齊到同一份 `spar_data.csv` 的 main spar 幾何位置，代表 generic `WIRE_n` NSET 帶來的次級誤差也開始被壓掉
 - **local patch 支撐層**：wire support 現在可在 main-spar target 附近收成小範圍 cluster，代表單點約束造成的次級柔化也開始被壓掉
+- **reaction 收斂層**：support reaction compare 現在也已正式進到報告與 JSON，代表 total support closure 已可直接驗證，不再只能靠 tip deflection 側寫
 - **benchmark basket 層**：fresh representative run 已經補齊，但它仍不能升格成正式 candidate，因為 blocker 已轉成 shell / section / support / load completeness，而不是 mesh fail 本身
 
 ## 5. benchmark policy：先保持開放，不先釘死

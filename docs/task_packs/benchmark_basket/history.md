@@ -118,3 +118,12 @@
     - 但 static tip deflection 又從 `2.96129 m` 進一步收斂到 `2.55449 m`
     - 相對 reference `2.39372 m` 的差距也再從約 `23.71%` 降到 `6.72%`
     - 這代表單點 wire support 的次級柔化已先被壓掉；剩下的主 blocker 更集中在 shell / section / support completeness 的細節，而不是 generic support patch 大小
+  - 接著又補上 `feat: 補上 hifi support reaction compare 輸出`：
+    - static deck 現在會額外輸出 `HPA_SUPPORT_ALL / ROOT / WIRE` 的 RF totals 到 `.dat`
+    - `structural_check.json` / Markdown report 也會帶出 `support_reactions`
+    - fresh representative rerun 已落在：
+      - `output/blackcat_004/hifi_support_reaction_rerun_20260418/structural_check.json`
+    - `support_reactions.comparability` 已進到 `COMPARABLE`
+    - total support reaction `|Fz|` 已對齊到 `817.805 N`
+    - 相對 reference `817.782 N` 的差距只剩約 `0.00284%`
+    - 這代表 current Mac hi-fi 的 load-balance / total-support closure 已很乾淨；剩下主要更像 tip deflection / shell-section model-form 差距，而不是整體支承力還沒對齊
