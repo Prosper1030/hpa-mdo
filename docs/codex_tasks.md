@@ -281,10 +281,11 @@
 | # | 任務 | 為什麼值得做 | 狀態 |
 |---|------|--------------|------|
 | A | **Generic VSP controls 接進 AVL / ASWING exporter** | 已完成：`avl_exporter.py` 不再只 hard-code elevator / rudder，`vsp_to_avl.py` 會附著 introspected controls，ASWING seed 也保留多個 generic controls | ✅ 完成（`4d0bedc`、`6217ee5`） |
-| B | **ASWING binary cross-validation** | `.asw` exporter、runner、validation script 都在；真正缺的是有 binary 的實跑對比與報告 | **NEXT** |
-| C | **P4#18 surrogate warm start** | 目前唯一明確還沒開工的大功能項；可直接吃既有 data collector / campaign 資料 | 待做 |
-| D | **real vendor / hardware catalog 資料化** | 現在 discrete OD / rigging ranking 仍帶 proxy 味道，離採購 reality 還差最後一段 | 後續 |
-| E | **focused crossover sweep（1.5→2.2）** | 只有在 vendor catalog 或新幾何讓 ranking 接近交叉時才值得補跑 | 視需要 |
+| B | **P4#18 surrogate warm start** | 目前唯一明確還沒開工、而且不依賴外部商業 solver 的主線功能項 | **NEXT** |
+| C | **open-source aeroelastic spike（SHARPy Docker first）** | ASWING 取得成本高；先驗證是否能用開源工具補上 trim / gust / modal benchmark 角色 | 研究中 |
+| D | **最小自研 static aeroelastic trim validator** | 若 SHARPy / Julia 路線整合成本過高，就只補「靜態非線性配平 + 撓度/扭轉 cross-check」，不承諾重寫整套 ASWING | 規劃中 |
+| E | **real vendor / hardware catalog 資料化** | 現在 discrete OD / rigging ranking 仍帶 proxy 味道，離採購 reality 還差最後一段 | 後續 |
+| F | **focused crossover sweep（1.5→2.2）** | 只有在 vendor catalog 或新幾何讓 ranking 接近交叉時才值得補跑 | 視需要 |
 
 ---
 

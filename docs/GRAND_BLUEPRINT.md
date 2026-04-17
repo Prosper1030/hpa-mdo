@@ -763,13 +763,14 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 
 | 優先序 | 任務 | Milestone | 負責 | 狀態 |
 |--------|------|-----------|------|------|
-| **0** | **M10 實機驗證：ASWING binary install + seed/run/report cross-validation（exporter / runner 已有）** | M10 | 使用者（ASWING compile）+ Codex | ⏭️ **NEXT** |
-| **1** | P4#18 surrogate warm start（GP / XGBoost optional dependency） | Phase III bridge | Codex | ⬜ 真正未開工 |
+| **0** | **P4#18 surrogate warm start（GP / XGBoost optional dependency）** | Phase III bridge | Codex | ⏭️ **NEXT** |
+| **1** | **M10a/b 路線釐清：ASWING 非阻塞化 + open-source aeroelastic spike（SHARPy Docker first）** | M10 | Codex | ⏭️ 研究 / 原型 |
 | **2** | real vendor catalog / hardware catalog 資料化，讓 discrete OD / rigging ranking 更接近採購現實 | M9+ | 規劃中 | ⏭️ 後續資料化 |
 | **3** | focused crossover sweep（1.5→2.2）只在 vendor catalog 或新幾何改變 ranking 時再跑 | M9 | 規劃中 | ⏭️ 有需要再做 |
+| **4** | 可取得授權時再做 ASWING seed/run/report benchmark，不再卡主線 | M10a | 使用者 + Codex | ⏸️ Optional |
 
 > **P0/P1 參考資料交付期限**：見 `docs/hi_fidelity_validation_stack.md` 「高保真驗證層參考資料清單」。
-> 近期最急：CalculiX 2.22 manual、Gmsh reference、OpenVSP API、AVL 3.40 manual、ASWING manual。
+> 近期最急：CalculiX 2.22 manual、Gmsh reference、OpenVSP API、AVL 3.40 manual；ASWING manual 改列 optional benchmark reference。
 > 總工程師會另外請 AI 深度研究這五份文件並整理 technical brief。
 
 ### 已完成（本輪）
@@ -802,8 +803,9 @@ M-VSP Phase 2（已完成）
    → controls / airfoil / section schedule 已餵進 AVL / ASWING exporter
    → VSP 與 YAML / exporter 的幾何分叉先收掉一輪
 
-並行補完：M10 binary-ready validation
-   → 有 ASWING binary 後做 trim / deflection / CL cross-check report
+並行補完：M10 external aeroelastic validation
+   → 先做 SHARPy Docker / open-source spike，確認是否能取代 benchmark 角色
+   → 若未來取得 ASWING binary，再補 trim / deflection / CL cross-check report
 
 中期：P4#18 surrogate warm start
    → 把 Phase I data collector 接到 optional surrogate backend
@@ -863,7 +865,8 @@ M-VSP Phase 2（已完成）
 5. **23 kg 是診斷結果不是設計答案** — 原因是 target dihedral 太小
 6. **wire allowable 1052N 是錯的** — 已修正為 dyneema_sk75 ≈ 6872N
 7. **氣動性能門檻已建立** — min lift ≥ 100kg、L/D ≥ 25、trim AoA 已納入 sweep gate
-8. **ASWING 是終極驗證工具** — Drela 的非線性氣動彈性求解器，支援柔性翼+鋼索+flutter
+8. **外部非線性氣動彈驗證是重要加分，不再是阻塞依賴**
+   — ASWING 仍然是很強的 benchmark，但授權與取得成本高；若無法取得，先用 open-source 或最小自研靜態 trim 驗證補位
 9. **目前不放大垂尾** — HPA benchmark 支援先維持 `Sfin=1.68m²`；若要偏 TBT 類型，優先測約 3.0m²，不直接跳 4-5m²
 
 ---
