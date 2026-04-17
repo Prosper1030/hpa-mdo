@@ -134,6 +134,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - `output/blackcat_004/hifi_dual_beam_production_stepdiag/spar_jig_shape.mesh_diagnostics.json`
 - `output/blackcat_004/hifi_heal_probe/spar_jig_shape.mesh_diagnostics.json`
 - `output/blackcat_004/hifi_heal_structcheck/structural_check.json`
+- `output/blackcat_004/hifi_heal_rerun_filtered_20260417/structural_check.json`
 
 該案例目前是：
 
@@ -171,6 +172,14 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
     - `element_family_counts = beam 2439 / shell 12918 / solid 0`
     - `has_volume_elements = false`
   - 也就是說，這條 Mac hi-fi 目前更接近 shell-surface truth with beam members，不是乾淨的 solid-volume benchmark
+  - 在此之後，analysis deck 又補上兩層保守處理：
+    - shell normals consistency pass
+    - 極低品質 sliver shell 過濾（目前門檻 `quality < 1.5e-3`，fresh representative case 會濾掉 20 個最差 shell）
+  - 最新 fresh rerun 已經不再停在 `mesh_quality fail`：
+    - `static` 進到 `COMPARABLE`
+    - `buckle` 可完成並回傳 `lambda_1`
+    - `overall_comparability` 升到 `LIMITED`
+  - 但它目前仍不是 benchmark-ready，因為 static 對 reference 的 tip deflection 仍差約 `100.49%`（`4.7992 m` vs `2.39372 m`）
 
 另外，直接對同一份 `spar_jig_shape.step` 做 Gmsh probe 時，可以明確看到：
 
@@ -183,6 +192,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - STEP / Gmsh surface 仍殘留的 invalid facets / equivalent triangles / shell duplication
 - shell mesh normals / Jacobian 仍未收斂
 - 目前代表性 healed mesh 本身也明確不是 solid-volume mesh
+- 即使加上 shell-orientation + sliver filter，static 雖可完成，但 load / section / shell-truth contract 仍與 reference 存在大幅差距
 
 而不是：
 

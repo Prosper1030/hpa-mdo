@@ -31,7 +31,7 @@
 | `blackcat_004_dual_beam_refinement` | `historical_evidence` | 保留了 warm/refined eq/dual 對照，也有 refined ANSYS spot-check summary | refined eq mass `9.871 kg`、refined dual mass `9.872 kg`；ANSYS refined spot-check 仍是 `MODEL-FORM RISK` | 用來觀察「往更硬設計移動後」相對趨勢是否一致 |
 | `blackcat_004_dual_spar_spotcheck` | `historical_evidence` | 最完整的 legacy dual-spar baseline 對照案例 | tip deflection error `14.14%`、max \|UZ\| error `35.64%`、support reaction error `0.00%`、mass error `0.19%`；整體 `MODEL-FORM RISK` | 保留作 model-form risk baseline，不再當唯一 benchmark 真值 |
 | `blackcat_004_dual_spar_spotcheck_neighbors` | `historical_evidence` | baseline / harder / softer 三點一起看，能評估 ranking flip 風險 | baseline `9.454 kg / 2500 mm`、harder `9.744 kg / 2274 mm`、softer `9.164 kg / 2756 mm`；各點 ANSYS compare 仍是 `MODEL-FORM RISK` | 當 sensitivity package，用來看接近設計是否可能因 hi-fi 對照而翻盤 |
-| `output/blackcat_004/hifi_heal_structcheck` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，而且現在 STEP meshing 會先經過 OCC healing wrapper（`HealShapes + Coherence`），再配 bounded coarse fallback；`ROOT/TIP/WIRE` 仍可直接寫成 mesh NSET | fresh representative JSON 仍是 `WARN` / `NOT_COMPARABLE`，但 `mesh_diagnostics` 已從 `overlapping_boundary_mesh x1 / no_elements_in_volume x1 / duplicate_boundary_facets x2 / invalid_surface_elements x38 / duplicate_shell_facets x599` 改善成 `invalid_surface_elements x12 / equivalent_triangles x340 / duplicate_shell_facets x259`；CalculiX diagnostics 也從 `opposite_normals x3370 / nonpositive_jacobian x34` 降到 `x732 / x10`；目前 healed mesh 的維度診斷是 `analysis_reality = shell_plus_beam`、`beam 2439 / shell 12918 / solid 0` | 保留成最新本機診斷證據；現在已證明 OCC healing 有價值，但這條線目前仍是 shell-surface-like spot-check，下一步應聚焦剩下的 invalid facets / equivalent triangles / shell duplication，而不是回頭重查 boundary contract |
+| `output/blackcat_004/hifi_heal_rerun_filtered_20260417` | `not_yet_ready` | 本機 Mac structural stack 已有正式入口，而且現在 STEP meshing 會先經過 OCC healing wrapper（`HealShapes + Coherence`），再配 bounded coarse fallback；analysis deck 也加入 shell normals consistency 與極低品質 sliver shell 過濾 | fresh representative JSON 現在已不再是純 `mesh_quality fail`：`static` 進到 `COMPARABLE`、`buckle` 可完成，`overall_comparability = LIMITED`；但 static tip deflection 仍差約 `100.49%`（`4.7992 m` vs `2.39372 m`），所以還不能升格成 benchmark candidate | 保留成最新本機診斷證據；現在最主要的 blocker 已從「solver 直接炸」轉成「shell-truth / load / section contract 與 reference 還不對齊」 |
 
 ## Evidence Notes
 
@@ -84,38 +84,42 @@
   - 仍然是 legacy dual-spar family。
   - 更適合當 sensitivity evidence，而不是新主線的唯一 benchmark。
 
-### 5. `output/blackcat_004/hifi_heal_structcheck`
+### 5. `output/blackcat_004/hifi_heal_rerun_filtered_20260417`
 
 - Paths:
-  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_heal_structcheck/structural_check.md`
-  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_heal_structcheck/structural_check.json`
-  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_heal_probe/spar_jig_shape.mesh_diagnostics.json`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_heal_rerun_filtered_20260417/structural_check.md`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_heal_rerun_filtered_20260417/structural_check.json`
+  - `/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/hifi_heal_rerun_filtered_20260417/spar_jig_shape.mesh_diagnostics.json`
   - `src/hpa_mdo/hifi/structural_check.py`
 - Why it matters:
   - 本機 Mac route 是未來最值得持續投資的 validation path。
   - 最新 code 已支援 `structural_check.json`、`mesh_diagnostics` sidecar、`comparability`、`issue_category` 與更明確的 solver diagnostics。
   - STEP meshing 現在會先經過 OCC healing wrapper（`HealShapes + Coherence`），而且仍維持最多一次 coarse retry，不會無上限重試。
   - `ROOT/TIP/WIRE` 現在已直接由 spanwise matching 寫成 NSET，不再依賴舊的 `(x,y,z)` 最近點假設。
-  - analysis deck 現在也會去除完全重複、只差方向的 shell facets。
+  - analysis deck 現在也會去除完全重複、只差方向的 shell facets，並補上 shell normals consistency 與極低品質 sliver shell 過濾。
   - 這次 fresh representative healed run 已把 reference 對齊到：
     `/Volumes/Samsung SSD/SyncFile/blackcat_004_dual_beam_production_check/ansys/crossval_report.txt`
 - Current caution:
-  - fresh run 仍是 `WARN` / `NOT_COMPARABLE`。
+  - fresh run 仍是 `WARN`，而且 `overall_comparability` 只有 `LIMITED`。
   - `ROOT clamp nodes=35`、`wire U3 supports=1` 已合理化，代表 boundary contract 這一層仍維持乾淨。
   - OCC healing 後，mesh sidecar 已不再出現：
     - `overlapping_boundary_mesh`
     - `no_elements_in_volume`
     - `duplicate_boundary_facets`
-  - 但 static 與 buckle 仍停在 `mesh_quality`，診斷仍含 `opposite_normals x732` 與 `nonpositive_jacobian x10`。
+  - 經過 shell normals consistency + sliver filter 後：
+    - `static` 已可完成並回傳 `|uz_tip| = 4.7992 m`
+    - `buckle` 已可完成並回傳 `lambda_1 = 123429.7`
+    - `static comparability = COMPARABLE`
+    - `buckle comparability = LIMITED`
   - 最新 mesh 維度診斷也已明確指出：
     - `analysis_reality = shell_plus_beam`
     - `element_family_counts = beam 2439 / shell 12918 / solid 0`
     - `has_volume_elements = false`
-  - 這代表目前最該修的是剩下的 invalid facets / equivalent triangles / shell duplication，而不是再回頭重查 named-point / boundary contract。
+  - 但 static tip deflection 相對 reference 仍差約 `100.49%`，所以目前最該修的是 shell-truth / load / section contract，而不是再回頭重查 named-point / boundary contract。
 
 ## Practical Recommendation
 
 - 如果今天要選一個最先拿來和 Mac structural spot-check 對齊的外部 reference，先選 `blackcat_004_dual_beam_production_check`。
 - 如果要看 design ordering / sensitivity，再加上 `dual_spar_spotcheck_neighbors`。
 - 如果要做 repo 歷史脈絡或風險對照，再保留 `dual_spar_spotcheck` baseline。
-- Mac `structural_check` 現在已經有 fresh representative run，而且 boundary/NSET contract 與 duplicate shell facet 去重都已對齊；它目前證明的是「主要 blocker 已收斂成 STEP/Gmsh surface 的 mesh-quality」，不是「已可直接升格成 benchmark candidate」。
+- Mac `structural_check` 現在已經有 fresh representative run，而且 boundary/NSET contract、shell normal consistency、sliver filtering 都已補上；它目前證明的是「solver 直接 fail 這關已經跨過」，但還沒有證明「數值結果已經足夠接近 reference」。

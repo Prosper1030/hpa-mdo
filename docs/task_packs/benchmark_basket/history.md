@@ -62,5 +62,15 @@
     - 直接對 healed representative mesh 做 live 診斷後，現在可明確說：
       - `analysis_reality = shell_plus_beam`
       - `beam 2439 / shell 12918 / solid 0`
-      - `has_volume_elements = false`
+    - `has_volume_elements = false`
     - 這讓 benchmark basket 的說法更精準：目前這條 Mac hi-fi 是 shell-surface-like structural spot-check，不該被誤認成 solid-volume benchmark
+  - 接著又補上 `fix: 補上 hifi shell 法向與 sliver 過濾`：
+    - analysis deck 現在會先做 shell normals consistency
+    - 再保守濾掉極低品質 sliver shell（fresh representative case 濾掉 20 個）
+    - 最新 fresh rerun 已經從純 `mesh_quality fail` 推進到：
+      - `static comparability = COMPARABLE`
+      - `buckle comparability = LIMITED`
+      - `overall_comparability = LIMITED`
+    - 代表 solver 直接炸這一關已經跨過
+    - 但 static tip deflection 仍是 `4.7992 m`，相對 reference `2.39372 m` 差約 `100.49%`
+    - 所以下一階段 blocker 已從 mesh/solver robustness 轉成 shell-truth / load / section contract mismatch
