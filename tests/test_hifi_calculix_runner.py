@@ -57,6 +57,30 @@ MIXED_SURFACE_WITH_DUPLICATE_FACETS = """*NODE
 20, 3, 4
 """
 
+MIXED_SURFACE_WITH_INCONSISTENT_NORMALS = """*NODE
+1, 0.0, 0.0, 0.0
+2, 1.0, 0.0, 0.0
+3, 0.0, 1.0, 0.0
+4, 1.0, 1.0, 0.0
+*ELEMENT, TYPE=CPS3
+10, 1, 2, 3
+11, 2, 3, 4
+*ELEMENT, TYPE=T3D2
+20, 3, 4
+"""
+
+MIXED_SURFACE_WITH_SLIVER_TRIANGLE = """*NODE
+1, 0.0, 0.0, 0.0
+2, 100.0, 0.0, 0.0
+3, 50.0, 0.001, 0.0
+4, 0.0, 10.0, 0.0
+5, 10.0, 0.0, 0.0
+6, 10.0, 10.0, 0.0
+*ELEMENT, TYPE=CPS3
+10, 1, 2, 3
+11, 4, 5, 6
+"""
+
 
 def _cfg(tmp_path: Path):
     return load_config(CONFIG_PATH, local_paths_path=tmp_path / "missing_local_paths.yaml")
@@ -160,7 +184,49 @@ def test_prepare_static_inp_deduplicates_duplicate_surface_facets(tmp_path: Path
     assert "*ELSET, ELSET=EALL\n10, 12" in text
     assert "11, 3, 2, 1" not in text
     assert text.count("10, 1, 2, 3") == 1
-    assert text.count("12, 2, 3, 4") == 1
+    assert text.count("12, 2, 4, 3") == 1
+
+
+def test_prepare_static_inp_reorients_inconsistent_shell_normals(tmp_path: Path) -> None:
+    mesh = tmp_path / "inconsistent_surface_mesh.inp"
+    out = tmp_path / "static_surface_reoriented.inp"
+    mesh.write_text(MIXED_SURFACE_WITH_INCONSISTENT_NORMALS, encoding="utf-8")
+
+    result = prepare_static_inp(
+        mesh,
+        out,
+        {"E": 230e9, "nu": 0.27, "rho": 1600.0},
+        (1, (1, 2, 3)),
+        [(3, 3, -10.0)],
+        section_thickness=0.8,
+    )
+
+    text = result.read_text(encoding="utf-8")
+    assert "*ELEMENT, TYPE=S3" in text
+    assert "10, 1, 2, 3" in text
+    assert "11, 2, 4, 3" in text
+    assert "11, 2, 3, 4" not in text
+
+
+def test_prepare_static_inp_filters_extreme_sliver_shells(tmp_path: Path) -> None:
+    mesh = tmp_path / "sliver_surface_mesh.inp"
+    out = tmp_path / "static_surface_sliver_filtered.inp"
+    mesh.write_text(MIXED_SURFACE_WITH_SLIVER_TRIANGLE, encoding="utf-8")
+
+    result = prepare_static_inp(
+        mesh,
+        out,
+        {"E": 230e9, "nu": 0.27, "rho": 1600.0},
+        (4, (1, 2, 3)),
+        [(6, 3, -10.0)],
+        section_thickness=0.8,
+    )
+
+    text = result.read_text(encoding="utf-8")
+    assert "** HPA_MDO_FILTERED_LOW_QUALITY_SHELLS count=1" in text
+    assert "*ELSET, ELSET=EALL\n11" in text
+    assert "10, 1, 2, 3" not in text
+    assert "11, 4, 5, 6" in text
 
 
 def test_root_boundary_and_tip_node_from_mesh(tmp_path: Path) -> None:

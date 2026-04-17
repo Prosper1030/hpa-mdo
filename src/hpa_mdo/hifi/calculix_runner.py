@@ -15,6 +15,13 @@ BoundaryEntry = tuple[int, Sequence[int]]
 LoadEntry = tuple[int, int, float]
 
 
+# Conservative shell-quality gate for the Mac hi-fi spot-check path.  The goal
+# is not to prettify the CAD mesh, but to skip the handful of extreme sliver
+# triangles that otherwise trigger immediate nonpositive-Jacobian failures in
+# CalculiX before any useful comparison can happen.
+_MIN_SHELL_TRI_QUALITY = 1.5e-3
+
+
 def find_ccx(cfg: HPAConfig) -> str | None:
     """Return an absolute CalculiX ``ccx`` path, or ``None`` when unavailable."""
 
@@ -325,6 +332,9 @@ def _extract_analysis_mesh(mesh_text: str) -> tuple[str, list[int], int]:
         raise ValueError("No supported element blocks found in mesh.")
 
     target_dim = max(element_dims)
+    if target_dim == 2:
+        return _extract_surface_analysis_mesh(mesh_text)
+
     kept_lines: list[str] = []
     element_ids: list[int] = []
     seen_connectivity: set[tuple[int, ...]] = set()
@@ -363,6 +373,87 @@ def _extract_analysis_mesh(mesh_text: str) -> tuple[str, list[int], int]:
     if not element_ids:
         raise ValueError("Filtered mesh does not contain any analysable elements.")
     return "\n".join(kept_lines), element_ids, target_dim
+
+
+def _extract_surface_analysis_mesh(mesh_text: str) -> tuple[str, list[int], int]:
+    """Keep shell elements only and orient their normals consistently."""
+
+    placeholder = "__HPA_MDO_SURFACE_ELEMENTS__"
+    lines = mesh_text.splitlines()
+    kept_lines: list[str] = []
+    shell_elements: list[dict[str, object]] = []
+    seen_connectivity: set[tuple[int, ...]] = set()
+    current_type = ""
+    current_card = ""
+    in_element_block = False
+    inserted_placeholder = False
+
+    for raw in lines:
+        line = raw.strip()
+        upper = line.upper()
+        if upper.startswith("*ELEMENT"):
+            current_type = _element_type_from_card(line)
+            in_element_block = True
+            if not inserted_placeholder:
+                kept_lines.append(placeholder)
+                inserted_placeholder = True
+            if _element_dimension(current_type) == 2:
+                current_card = _normalised_element_card(raw, 2)
+            else:
+                current_card = ""
+            continue
+        if line.startswith("*"):
+            in_element_block = False
+            current_type = ""
+            current_card = ""
+            kept_lines.append(raw)
+            continue
+        if in_element_block and _element_dimension(current_type) == 2:
+            parts = [part.strip() for part in line.split(",") if part.strip()]
+            if len(parts) <= 1:
+                continue
+            connectivity = _dedupe_connectivity_key(current_type, parts[1:], 2)
+            if connectivity in seen_connectivity:
+                continue
+            seen_connectivity.add(connectivity)
+            shell_elements.append(
+                {
+                    "id": int(parts[0]),
+                    "card": current_card,
+                    "connectivity": [int(token) for token in parts[1:]],
+                }
+            )
+        elif not in_element_block:
+            kept_lines.append(raw)
+
+    if not shell_elements:
+        raise ValueError("Filtered mesh does not contain any analysable shell elements.")
+
+    oriented_elements = _orient_shell_elements_consistently(shell_elements)
+    node_coords = _parse_node_coordinates(mesh_text)
+    filtered_elements, dropped_element_ids = _drop_low_quality_shell_elements(
+        oriented_elements,
+        node_coords=node_coords,
+        quality_floor=_MIN_SHELL_TRI_QUALITY,
+    )
+    if not filtered_elements:
+        raise ValueError("Shell-quality filter removed all analysable shell elements.")
+    element_lines = _render_surface_element_blocks(
+        filtered_elements,
+        dropped_element_ids=dropped_element_ids,
+        quality_floor=_MIN_SHELL_TRI_QUALITY,
+    )
+    if not inserted_placeholder:
+        kept_lines.append(placeholder)
+    rendered_lines: list[str] = []
+    for raw in kept_lines:
+        if raw == placeholder:
+            rendered_lines.extend(element_lines)
+        else:
+            rendered_lines.append(raw)
+
+    element_ids = [int(item["id"]) for item in filtered_elements]
+    return "\n".join(rendered_lines), element_ids, 2
 
 
 def _element_type_from_card(card_line: str) -> str:
@@ -429,6 +520,153 @@ def _normalised_element_card(card_line: str, target_dim: int) -> str:
         else:
             tokens.append(token)
     return ",".join(tokens)
+
+
+def _orient_shell_elements_consistently(
+    elements: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    if len(elements) < 2:
+        return elements
+
+    adjacency: dict[tuple[int, int], list[int]] = {}
+    for idx, item in enumerate(elements):
+        connectivity = [int(node_id) for node_id in item["connectivity"]]
+        for edge in _cyclic_edges(connectivity):
+            adjacency.setdefault(tuple(sorted(edge)), []).append(idx)
+
+    visited: set[int] = set()
+    queue: list[int] = []
+    for seed in range(len(elements)):
+        if seed in visited:
+            continue
+        visited.add(seed)
+        queue.append(seed)
+        while queue:
+            current_idx = queue.pop(0)
+            current_conn = [int(node_id) for node_id in elements[current_idx]["connectivity"]]
+            for edge in _cyclic_edges(current_conn):
+                for neighbor_idx in adjacency.get(tuple(sorted(edge)), []):
+                    if neighbor_idx == current_idx or neighbor_idx in visited:
+                        continue
+                    neighbor_conn = [
+                        int(node_id) for node_id in elements[neighbor_idx]["connectivity"]
+                    ]
+                    if _has_directed_edge(neighbor_conn, edge):
+                        elements[neighbor_idx]["connectivity"] = _flip_shell_connectivity(
+                            neighbor_conn
+                        )
+                    visited.add(neighbor_idx)
+                    queue.append(neighbor_idx)
+    return elements
+
+
+def _render_surface_element_blocks(
+    elements: list[dict[str, object]],
+    *,
+    dropped_element_ids: Sequence[int],
+    quality_floor: float,
+) -> list[str]:
+    lines: list[str] = []
+    if dropped_element_ids:
+        lines.append(
+            "** HPA_MDO_FILTERED_LOW_QUALITY_SHELLS "
+            f"count={len(dropped_element_ids)} quality_floor={quality_floor:.6g}"
+        )
+        preview = ", ".join(str(int(element_id)) for element_id in dropped_element_ids[:12])
+        if preview:
+            suffix = " ..." if len(dropped_element_ids) > 12 else ""
+            lines.append(f"** HPA_MDO_FILTERED_ELEMENT_IDS {preview}{suffix}")
+
+    current_card = None
+    for item in elements:
+        card = str(item["card"])
+        if card != current_card:
+            lines.append(card)
+            current_card = card
+        connectivity = ", ".join(str(int(node_id)) for node_id in item["connectivity"])
+        lines.append(f"{int(item['id'])}, {connectivity}")
+    return lines
+
+
+def _cyclic_edges(connectivity: Sequence[int]) -> list[tuple[int, int]]:
+    nodes = [int(node_id) for node_id in connectivity]
+    if len(nodes) < 2:
+        return []
+    return [
+        (nodes[idx], nodes[(idx + 1) % len(nodes)])
+        for idx in range(len(nodes))
+    ]
+
+
+def _has_directed_edge(connectivity: Sequence[int], edge: tuple[int, int]) -> bool:
+    return any(candidate == edge for candidate in _cyclic_edges(connectivity))
+
+
+def _flip_shell_connectivity(connectivity: Sequence[int]) -> list[int]:
+    nodes = [int(node_id) for node_id in connectivity]
+    if len(nodes) <= 2:
+        return nodes
+    return [nodes[0], *reversed(nodes[1:])]
+
+
+def _parse_node_coordinates(mesh_text: str) -> dict[int, np.ndarray]:
+    node_coords: dict[int, np.ndarray] = {}
+    in_node_block = False
+    for raw in mesh_text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        upper = line.upper()
+        if upper.startswith("*NODE"):
+            in_node_block = True
+            continue
+        if line.startswith("*"):
+            in_node_block = False
+            continue
+        if in_node_block:
+            parts = [part.strip() for part in line.split(",")]
+            if len(parts) >= 4:
+                node_coords[int(parts[0])] = np.asarray(
+                    [float(parts[1]), float(parts[2]), float(parts[3])],
+                    dtype=float,
+                )
+    return node_coords
+
+
+def _drop_low_quality_shell_elements(
+    elements: Sequence[dict[str, object]],
+    *,
+    node_coords: dict[int, np.ndarray],
+    quality_floor: float,
+) -> tuple[list[dict[str, object]], list[int]]:
+    kept: list[dict[str, object]] = []
+    dropped_ids: list[int] = []
+    for item in elements:
+        connectivity = [int(node_id) for node_id in item["connectivity"]]
+        if len(connectivity) == 3:
+            quality = _triangle_quality(connectivity, node_coords=node_coords)
+            if quality < float(quality_floor):
+                dropped_ids.append(int(item["id"]))
+                continue
+        kept.append(item)
+    return kept, dropped_ids
+
+
+def _triangle_quality(
+    connectivity: Sequence[int],
+    *,
+    node_coords: dict[int, np.ndarray],
+) -> float:
+    points = [node_coords[int(node_id)] for node_id in connectivity]
+    edge_lengths = [
+        float(np.linalg.norm(points[(idx + 1) % 3] - points[idx]))
+        for idx in range(3)
+    ]
+    area = 0.5 * float(np.linalg.norm(np.cross(points[1] - points[0], points[2] - points[0])))
+    denominator = sum(length * length for length in edge_lengths)
+    if denominator <= 0.0 or area <= 0.0:
+        return 0.0
+    return float(4.0 * np.sqrt(3.0) * area / denominator)
 
 
 def _dedupe_connectivity_key(
