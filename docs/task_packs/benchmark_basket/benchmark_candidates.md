@@ -116,7 +116,7 @@
     - `analysis_reality = shell_plus_beam`
     - `element_family_counts = beam 2439 / shell 12918 / solid 0`
     - `has_volume_elements = false`
-  - 但 static tip deflection 相對 reference 仍差約 `100.49%`，所以目前最該修的是 shell-truth / load / section contract，而不是再回頭重查 named-point / boundary contract。
+  - 但 static tip deflection 相對 reference 仍差約 `32.07%`，所以目前最該修的是 shell-truth / section / support contract 的剩餘差距，而不是再回頭重查 named-point / boundary contract。
 
 ## Practical Recommendation
 
