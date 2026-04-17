@@ -10,7 +10,7 @@ README 與 onboarding 文件需要參考輸出，但目前 `output/blackcat_004/
 
 ### 1. 建立 `docs/examples/` 目錄並放入快照
 
-從目前 `output/blackcat_004/` 複製以下檔案到 `docs/examples/blackcat_004/`：
+從目前 `output/blackcat_004/` 複製以下檔案到 `docs/examples/`：
 
 - `optimization_summary.txt` （會被 git track）
 - `beam_analysis.png`
@@ -22,10 +22,10 @@ README 與 onboarding 文件需要參考輸出，但目前 `output/blackcat_004/
 2. 圖片不要太大（每張 < 500 KB；如需縮減用 `pillow` resize）
 3. txt 報告含 `Buckling index : -0.8555 (SAFE)` 那行（前次補強的結果）
 
-### 2. 在 `docs/examples/blackcat_004/README.md` 寫一段描述（繁體中文）
+### 2. 在 `docs/examples/README.md` 寫一段描述（繁體中文）
 
 ```markdown
-# Black Cat 004 範例輸出
+# 範例輸出快照
 
 本目錄保存 `examples/blackcat_004_optimize.py` 在 commit `<sha>` 跑完後的
 標準輸出快照，作為新貢獻者的對照基準。
@@ -51,7 +51,7 @@ hpa-optimize --config configs/blackcat_004.yaml --output-dir output/blackcat_004
 
 在「快速開始」段落後加一行：
 ```markdown
-> 範例輸出快照位於 [`docs/examples/blackcat_004/`](docs/examples/blackcat_004/)
+> 範例輸出快照位於 [`docs/examples/`](../examples/)
 ```
 
 ### 4. `docs/codex_tasks.md` P5#22 標記 ✅
@@ -70,4 +70,4 @@ hpa-optimize --config configs/blackcat_004.yaml --output-dir output/blackcat_004
 
 ## Git
 
-單一 commit：`docs: 新增 docs/examples/blackcat_004 範例輸出快照（P5#22）`
+單一 commit：`docs: 新增 docs/examples 範例輸出快照（P5#22）`
