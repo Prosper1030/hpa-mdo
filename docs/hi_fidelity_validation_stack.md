@@ -104,21 +104,38 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - ANSYS/APDL 路線仍然值得保留作 evidence
 - 但它目前還不足以支持「repo 現在已經和 APDL 很 close，所以可直接鎖死 benchmark」
 
-### B. Mac structural check 目前已能出報告，但最新代表性案例仍是 WARN
+### B. Mac structural check 已有正式 compare/diagnostic schema，但 basket 仍缺 fresh representative run
 
-`output/blackcat_004/hifi/structural_check.md` 已經證明本機 structural check 可以跑到產生報告，但該案例目前是：
+`Track C` 完成後，`structural_check` code path 已可輸出：
+
+- Markdown report
+- `structural_check.json`
+- `comparability`
+- `issue_category`
+- solver / diagnostics 摘要
+
+但目前 benchmark basket 裡，仍只有一份較舊的代表性 artifact：
+
+`output/blackcat_004/hifi/structural_check.md`
+
+該案例目前是：
 
 - `Overall status: WARN`
 - CalculiX static 發生大量 `opposite normals are defined`
 - 並且出現 `nonpositive jacobian`
 
-這表示目前最大問題比較像：
+所以目前最大問題比較像：
 
 - mesh normals / element quality / deck 組裝問題
 
 而不是：
 
 - repo 完全沒有高保真 code path
+
+換句話說：
+
+- **能力層**：Mac structural spot-check 的 compare/diagnostic schema 已存在
+- **benchmark basket 層**：還缺一份 fresh representative run，才適合正式拿來做 basket candidate
 
 ## 5. benchmark policy：先保持開放，不先釘死
 
@@ -135,6 +152,7 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - 未來如果 Mac high-fidelity 成熟，再把本機 structural check case 加進來
 
 如果要把這件事交給另一個 AI agent 先整理，請從 [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) 開始。
+目前已整理出的候選清單請看 [task_packs/benchmark_basket/benchmark_candidates.md](task_packs/benchmark_basket/benchmark_candidates.md)。
 
 這樣做的好處是：
 

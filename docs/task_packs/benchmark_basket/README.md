@@ -22,6 +22,11 @@
 - benchmark metadata / candidate basket 建議
 - 哪些案例適合做 Mac structural spot-check 對照
 
+目前最重要的輸出文件：
+
+- [benchmark_candidates.md](benchmark_candidates.md)
+- [history.md](history.md)
+
 ## How To Use This Pack
 
 - 你給 agent 的最小指令應該是：
