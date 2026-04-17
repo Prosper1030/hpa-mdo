@@ -810,6 +810,76 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(record.delta_L_m, record.L_flight_m - record.L_cut_m, places=12)
         self.assertGreater(record.tension_margin_n, 0.0)
 
+    def test_lift_wire_rigging_records_prefer_explicit_wire_geometry_and_resultant(self) -> None:
+        cfg = SimpleNamespace(
+            lift_wires=SimpleNamespace(
+                enabled=True,
+                cable_material="steel_4130",
+                cable_diameter=0.002,
+                max_tension_fraction=0.4,
+                wire_angle_deg=30.0,
+                attachments=(SimpleNamespace(label="wire-1", fuselage_z=-1.50),),
+            )
+        )
+        candidate = self._make_inverse_candidate(
+            mass_kg=25.0,
+            source="wire_case",
+            feasible=True,
+            violation=0.0,
+        )
+        candidate = InverseCandidate(
+            **{
+                **candidate.__dict__,
+                "mainline_model": SimpleNamespace(
+                    wire_node_indices=(1,),
+                    nodes_main_m=np.array(
+                        [
+                            [0.0, 0.0, 0.0],
+                            [0.5, 7.5, 1.0],
+                        ],
+                        dtype=float,
+                    ),
+                    y_nodes_m=np.array([0.0, 7.5], dtype=float),
+                    wire_anchor_points_m=np.array([[0.25, 0.0, -1.25]], dtype=float),
+                    wire_unstretched_lengths_m=np.array([7.8], dtype=float),
+                    wire_area_m2=np.array([np.pi * (0.5 * 0.002) ** 2], dtype=float),
+                    wire_young_pa=np.array([205.0e9], dtype=float),
+                    wire_allowable_tension_n=np.array([3200.0], dtype=float),
+                ),
+                "production_result": SimpleNamespace(
+                    disp_main_m=np.array(
+                        [
+                            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.1, 0.0, 0.2, 0.0, 0.0, 0.0],
+                        ],
+                        dtype=float,
+                    ),
+                    reactions=SimpleNamespace(
+                        wire_reactions_n=np.array([100.0], dtype=float),
+                        wire_resultants_n=np.array([280.0], dtype=float),
+                    ),
+                ),
+            }
+        )
+
+        records = _lift_wire_rigging_records(
+            candidate=candidate,
+            cfg=cfg,
+            materials_db=MaterialDB(),
+        )
+
+        self.assertEqual(len(records), 1)
+        record = records[0]
+        expected_loaded_attach = np.array([0.6, 7.5, 1.2], dtype=float)
+        expected_anchor = np.array([0.25, 0.0, -1.25], dtype=float)
+        expected_L_flight_m = float(np.linalg.norm(expected_loaded_attach - expected_anchor))
+        self.assertAlmostEqual(record.tension_force_n, 280.0, places=9)
+        self.assertAlmostEqual(record.L_cut_m, 7.8, places=9)
+        self.assertAlmostEqual(record.L_flight_m, expected_L_flight_m, places=9)
+        self.assertAlmostEqual(record.delta_L_m, expected_L_flight_m - 7.8, places=9)
+        self.assertAlmostEqual(record.allowable_tension_n, 3200.0, places=9)
+        self.assertAlmostEqual(record.tension_margin_n, 3200.0 - 280.0, places=9)
+
     def test_candidate_archive_local_refine_starts_prioritizes_feasible_then_near_feasible(self) -> None:
         archive = CandidateArchive()
         baseline = self._make_inverse_candidate(

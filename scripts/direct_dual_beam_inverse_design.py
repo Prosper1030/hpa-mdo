@@ -1806,32 +1806,79 @@ def _lift_wire_rigging_records(
         wire_angles_deg = cfg.lift_wires.attachment_wire_angles_deg()
     else:
         wire_angles_deg = [float(cfg.lift_wires.wire_angle_deg)] * len(cfg.lift_wires.attachments)
+    has_wire_resultants = hasattr(result.reactions, "wire_resultants_n")
+    wire_resultants_n = np.asarray(
+        getattr(result.reactions, "wire_resultants_n", np.zeros(0, dtype=float)),
+        dtype=float,
+    )
+    wire_reactions_n = np.asarray(
+        getattr(result.reactions, "wire_reactions_n", np.zeros(len(wire_node_indices), dtype=float)),
+        dtype=float,
+    )
+    wire_anchor_points_m = np.asarray(
+        getattr(model, "wire_anchor_points_m", np.zeros((0, 3), dtype=float)),
+        dtype=float,
+    )
+    wire_unstretched_lengths_m = np.asarray(
+        getattr(model, "wire_unstretched_lengths_m", np.zeros(0, dtype=float)),
+        dtype=float,
+    )
+    wire_area_m2 = np.asarray(
+        getattr(model, "wire_area_m2", np.full(len(wire_node_indices), cable_area_m2, dtype=float)),
+        dtype=float,
+    )
+    wire_young_pa = np.asarray(
+        getattr(model, "wire_young_pa", np.full(len(wire_node_indices), float(wire_material.E), dtype=float)),
+        dtype=float,
+    )
+    wire_allowable_tension_n = np.asarray(
+        getattr(model, "wire_allowable_tension_n", np.full(len(wire_node_indices), allowable_tension_n, dtype=float)),
+        dtype=float,
+    )
 
     records: list[LiftWireRiggingRecord] = []
-    for att, angle_deg, node_index, vertical_reaction_n in zip(
-        cfg.lift_wires.attachments,
-        wire_angles_deg,
-        wire_node_indices,
-        np.asarray(result.reactions.wire_reactions_n, dtype=float),
-        strict=True,
+    for idx, (att, angle_deg, node_index) in enumerate(
+        zip(
+            cfg.lift_wires.attachments,
+            wire_angles_deg,
+            wire_node_indices,
+            strict=True,
+        )
     ):
-        theta = np.deg2rad(float(angle_deg))
-        sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
         loaded_attach = np.asarray(model.nodes_main_m[node_index], dtype=float) + np.asarray(
             result.disp_main_m[node_index, :3],
             dtype=float,
         )
-        anchor = np.array(
-            [
-                float(model.nodes_main_m[node_index, 0]),
-                0.0,
-                float(att.fuselage_z),
-            ],
-            dtype=float,
-        )
+        if wire_anchor_points_m.shape == (len(wire_node_indices), 3):
+            anchor = np.asarray(wire_anchor_points_m[idx], dtype=float)
+        else:
+            anchor = np.array(
+                [
+                    float(model.nodes_main_m[node_index, 0]),
+                    0.0,
+                    float(att.fuselage_z),
+                ],
+                dtype=float,
+            )
         L_flight_m = float(np.linalg.norm(loaded_attach - anchor))
-        tension_force_n = float(abs(vertical_reaction_n) / sin_theta)
-        delta_L_m = float(tension_force_n * L_flight_m / max(cable_area_m2 * float(wire_material.E), 1.0e-12))
+        if has_wire_resultants and wire_resultants_n.shape == (len(wire_node_indices),):
+            tension_force_n = max(float(wire_resultants_n[idx]), 0.0)
+        else:
+            theta = np.deg2rad(float(angle_deg))
+            sin_theta = max(abs(float(np.sin(theta))), 1.0e-12)
+            tension_force_n = float(abs(wire_reactions_n[idx]) / sin_theta)
+
+        if wire_unstretched_lengths_m.shape == (len(wire_node_indices),):
+            L_cut_m = float(wire_unstretched_lengths_m[idx])
+        else:
+            axial_rigidity_n = max(float(wire_area_m2[idx]) * float(wire_young_pa[idx]), 1.0e-12)
+            L_cut_m = float(L_flight_m / (1.0 + tension_force_n / axial_rigidity_n))
+        delta_L_m = float(L_flight_m - L_cut_m)
+        allowable_n = (
+            float(wire_allowable_tension_n[idx])
+            if wire_allowable_tension_n.shape == (len(wire_node_indices),)
+            else float(allowable_tension_n)
+        )
         records.append(
             LiftWireRiggingRecord(
                 identifier=str(att.label or f"wire-{len(records) + 1}"),
@@ -1842,11 +1889,11 @@ def _lift_wire_rigging_records(
                 anchor_point_m=tuple(float(value) for value in anchor),
                 L_flight_m=L_flight_m,
                 delta_L_m=delta_L_m,
-                L_cut_m=float(L_flight_m - delta_L_m),
+                L_cut_m=L_cut_m,
                 tension_force_n=tension_force_n,
-                vertical_reaction_n=float(vertical_reaction_n),
-                allowable_tension_n=float(allowable_tension_n),
-                tension_margin_n=float(allowable_tension_n - tension_force_n),
+                vertical_reaction_n=float(wire_reactions_n[idx]),
+                allowable_tension_n=allowable_n,
+                tension_margin_n=float(allowable_n - tension_force_n),
                 attach_label=str(att.label or ""),
             )
         )
