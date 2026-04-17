@@ -134,6 +134,8 @@ python scripts/hifi_structural_check.py --config configs/blackcat_004.yaml
 - 最新的可比 dual-beam production / inverse-design case
 - 未來如果 Mac high-fidelity 成熟，再把本機 structural check case 加進來
 
+如果要把這件事交給另一個 AI agent 先整理，請從 [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) 開始。
+
 這樣做的好處是：
 
 - 不會被一份已經過一段時間的舊 case 綁死

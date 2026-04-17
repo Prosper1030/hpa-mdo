@@ -31,6 +31,7 @@
 | [dual_beam_autoresearch_quickstart.md](dual_beam_autoresearch_quickstart.md) | 正式 machine-readable 入口說明 | 對應 `hpa_mdo.autoresearch` |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
+| [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |
 
 目前不應該拿來當主線 sign-off 的內容：
 

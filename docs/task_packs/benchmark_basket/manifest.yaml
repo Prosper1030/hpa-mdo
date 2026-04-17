@@ -1,0 +1,29 @@
+pack_name: "benchmark_basket"
+updated_at: "2026-04-17"
+canonical_read_order:
+  - "CURRENT_MAINLINE.md"
+  - "project_state.yaml"
+  - "docs/README.md"
+  - "docs/hi_fidelity_validation_stack.md"
+
+tasks:
+  - id: "benchmark_basket_refresh"
+    prompt: "prompts/benchmark_basket_refresh.md"
+    write_scope:
+      - "docs/task_packs/benchmark_basket/**"
+      - "docs/hi_fidelity_validation_stack.md"
+    expected_artifacts:
+      - "benchmark candidate basket"
+      - "case metadata or comparison table"
+      - "recommended comparison order"
+
+do_not_touch:
+  - "README.md"
+  - "CURRENT_MAINLINE.md"
+  - "docs/GRAND_BLUEPRINT.md"
+  - "scripts/direct_dual_beam_inverse_design.py"
+  - "src/hpa_mdo/hifi/**"
+
+commit_policy:
+  style: "One independent task per commit."
+  note: "Do not mix benchmark curation with solver edits."
