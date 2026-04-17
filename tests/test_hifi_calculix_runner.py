@@ -172,11 +172,28 @@ MESH_FULL_SPAN_NO_NSET = """*NODE
 """
 
 
+MESH_ROOT_CLUSTER_NO_NSET = """*NODE
+1, 0.0, 100.0, 0.0
+2, 0.0, 100.000002, 0.0
+3, 0.0, 99.999998, 0.0
+4, 0.0, 200.0, 0.0
+*ELEMENT, TYPE=C3D4
+10, 1, 2, 3, 4
+"""
+
+
 def test_root_boundary_fallback_uses_symmetry_plane_for_full_span_mesh(tmp_path: Path) -> None:
     mesh = tmp_path / "mesh_full_span.inp"
     mesh.write_text(MESH_FULL_SPAN_NO_NSET, encoding="utf-8")
 
     assert root_boundary_from_mesh(mesh) == [(2, (1, 2, 3)), (4, (1, 2, 3))]
+
+
+def test_root_boundary_fallback_expands_to_root_plane_cluster(tmp_path: Path) -> None:
+    mesh = tmp_path / "mesh_root_cluster.inp"
+    mesh.write_text(MESH_ROOT_CLUSTER_NO_NSET, encoding="utf-8")
+
+    assert root_boundary_from_mesh(mesh) == [(1, (1, 2, 3)), (2, (1, 2, 3)), (3, (1, 2, 3))]
 
 
 def test_run_static_skips_gracefully_when_ccx_missing(tmp_path: Path, monkeypatch) -> None:

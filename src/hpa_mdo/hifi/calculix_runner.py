@@ -456,7 +456,9 @@ def root_boundary_from_mesh(
     )
     nodes = parse_inp_nodes(mesh_inp_path)
     y_abs_min = float(np.min(np.abs(nodes[:, 2])))
-    root_nodes = nodes[np.abs(np.abs(nodes[:, 2]) - y_abs_min) <= tolerance, 0].astype(int)
+    y_offsets = np.abs(np.abs(nodes[:, 2]) - y_abs_min)
+    plane_tolerance = _infer_root_plane_tolerance(y_offsets, minimum=tolerance)
+    root_nodes = nodes[y_offsets <= plane_tolerance, 0].astype(int)
     return [(int(node_id), (1, 2, 3)) for node_id in root_nodes]
 
 
@@ -488,6 +490,32 @@ def tip_node_from_mesh(
     nodes = parse_inp_nodes(mesh_inp_path)
     idx = int(np.argmax(nodes[:, 2]))
     return int(nodes[idx, 0])
+
+
+def _infer_root_plane_tolerance(y_offsets: np.ndarray, *, minimum: float) -> float:
+    """Infer a fallback root-plane tolerance from clustered spanwise offsets.
+
+    Gmsh / STEP exports sometimes leave the root-plane nodes with tiny ``y``
+    jitter instead of one exact coordinate.  When the preferred ``NSET=ROOT``
+    is missing we still want to clamp that whole cluster, but not the next real
+    span station.  The heuristic therefore looks for a large jump in the sorted
+    positive offsets away from the minimum-``|y|`` plane and expands the
+    tolerance only up to the last pre-jump offset.
+    """
+
+    floor = max(float(minimum), 1.0e-12)
+    unique_offsets = np.sort(np.unique(np.round(np.abs(y_offsets.astype(float)), decimals=12)))
+    positive_offsets = unique_offsets[unique_offsets > floor]
+    if positive_offsets.size < 2:
+        return float(minimum)
+
+    for idx in range(len(positive_offsets) - 1):
+        current = float(positive_offsets[idx])
+        nxt = float(positive_offsets[idx + 1])
+        scale = max(current, floor)
+        if (nxt / scale) >= 50.0 and ((nxt - current) / scale) >= 10.0:
+            return max(float(minimum), current)
+    return float(minimum)
 
 
 def _normalise_boundary(boundary: BoundaryEntry | Sequence[BoundaryEntry]) -> list[BoundaryEntry]:
