@@ -19,6 +19,7 @@ from hpa_mdo.utils.discrete_layup import (
     format_layup_report,
     manufacturing_gate_summary,
     summarize_layup_results,
+    summarize_discrete_layup_design,
     summarize_segment_tsai_wu,
     summarize_segment_tsai_wu_envelope,
     thickness_step_margin_min,
@@ -175,6 +176,93 @@ def test_summarize_layup_results_reports_manufacturing_gate_margins(cfg, ply_mat
     assert gate["passed"] is True
     assert gate["ply_count_step_margin_min"] >= 0.0
     assert machine_summary["manufacturing_gates"]["passed"] is True
+
+
+def test_summarize_discrete_layup_design_marks_discrete_output_as_final(cfg, ply_mat) -> None:
+    stacks = enumerate_valid_stacks(cfg.main_spar)
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.5, 3.0],
+        continuous_thicknesses_m=[1.10e-3, 0.90e-3],
+        outer_radii_m=[0.03, 0.028],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+        strain_envelopes=[
+            {
+                "epsilon_x_absmax": 1.0e-4,
+                "kappa_absmax": 1.0e-3,
+                "torsion_rate_absmax": 2.0e-3,
+            },
+            {
+                "epsilon_x_absmax": 1.2e-4,
+                "kappa_absmax": 1.2e-3,
+                "torsion_rate_absmax": 2.2e-3,
+            },
+        ],
+    )
+    machine_summary = summarize_layup_results(
+        results,
+        ply_drop_limit=1,
+        min_run_length_m=1.5,
+    )
+
+    payload = summarize_discrete_layup_design(
+        {
+            "main_spar": {
+                "ply_material": ply_mat.name,
+                "results": results,
+                "summary": machine_summary,
+            }
+        }
+    )
+
+    assert payload["design_layer"] == "discrete_final"
+    assert payload["continuous_input_role"] == "warm_start_reference"
+    assert payload["discrete_output_role"] == "final_design_candidate"
+    assert payload["overall_status"] == "pass"
+    assert payload["manufacturing_gates_passed"] is True
+    assert payload["spars"]["main_spar"]["status"] == "pass"
+    assert payload["spars"]["main_spar"]["design_role"] == "discrete_final_output"
+    assert payload["critical_strength_ratio"]["spar"] == "main_spar"
+
+
+def test_summarize_discrete_layup_design_warns_when_catalog_is_capped(cfg, ply_mat) -> None:
+    stacks = enumerate_valid_stacks(cfg.main_spar)
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.5],
+        continuous_thicknesses_m=[10.0e-3],
+        outer_radii_m=[0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+        strain_envelopes=[
+            {
+                "epsilon_x_absmax": 1.0e-4,
+                "kappa_absmax": 1.0e-3,
+                "torsion_rate_absmax": 2.0e-3,
+            }
+        ],
+    )
+    machine_summary = summarize_layup_results(
+        results,
+        ply_drop_limit=1,
+        min_run_length_m=0.0,
+    )
+
+    payload = summarize_discrete_layup_design(
+        {
+            "main_spar": {
+                "ply_material": ply_mat.name,
+                "results": results,
+                "summary": machine_summary,
+            }
+        }
+    )
+
+    assert results[0].catalog_capped is True
+    assert payload["overall_status"] == "warn"
+    assert payload["spars"]["main_spar"]["status"] == "warn"
+    assert payload["spars"]["main_spar"]["catalog_capped_segments"] == [1]
 
 
 def test_summarize_segment_tsai_wu_reports_critical_ply(ply_mat) -> None:

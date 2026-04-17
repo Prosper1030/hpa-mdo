@@ -542,6 +542,146 @@ def summarize_layup_results(
     return summary
 
 
+def summarize_discrete_layup_design(
+    sections: dict[str, dict[str, object]],
+) -> dict[str, object]:
+    """Aggregate one or more spar layup sections into a final-design summary."""
+    if not sections:
+        raise ValueError("sections must not be empty.")
+
+    total_continuous_mass = 0.0
+    total_discrete_mass = 0.0
+    manufacturing_passed = True
+    overall_status = "pass"
+
+    critical_strength_ratio = {
+        "value": float("inf"),
+        "spar": None,
+        "segment_index": None,
+    }
+    critical_failure_index = {
+        "value": float("-inf"),
+        "spar": None,
+        "segment_index": None,
+    }
+    spar_summaries: dict[str, dict[str, object]] = {}
+
+    for spar_name, section in sections.items():
+        results = section.get("results")
+        if not isinstance(results, Sequence) or not results:
+            raise ValueError(f"{spar_name} is missing non-empty discrete layup results.")
+        summary = section.get("summary")
+        if not isinstance(summary, dict):
+            raise ValueError(f"{spar_name} is missing a machine-readable layup summary.")
+
+        continuous_mass = float(summary.get("continuous_mass_full_wing_kg", 0.0) or 0.0)
+        discrete_mass = float(summary.get("discrete_mass_full_wing_kg", 0.0) or 0.0)
+        total_continuous_mass += continuous_mass
+        total_discrete_mass += discrete_mass
+
+        manufacturing = summary.get("manufacturing_gates", {})
+        spar_manufacturing_passed = bool(
+            isinstance(manufacturing, dict) and manufacturing.get("passed", True)
+        )
+        manufacturing_passed = manufacturing_passed and spar_manufacturing_passed
+
+        min_strength_ratio = float("inf")
+        max_failure_index = float("-inf")
+        critical_strength_segment = None
+        critical_failure_segment = None
+        catalog_capped_segments: list[int] = []
+
+        for result in results:
+            if not isinstance(result, SegmentLayupResult):
+                raise ValueError(f"{spar_name} contains a non-SegmentLayupResult entry.")
+            if result.catalog_capped:
+                catalog_capped_segments.append(int(result.segment_index))
+
+            tw = result.tsai_wu_summary
+            if tw is None:
+                continue
+
+            strength_ratio = float(tw.min_strength_ratio)
+            if strength_ratio == strength_ratio and strength_ratio < min_strength_ratio:
+                min_strength_ratio = strength_ratio
+                critical_strength_segment = int(result.segment_index)
+
+            failure_index = float(tw.max_failure_index)
+            if failure_index == failure_index and failure_index > max_failure_index:
+                max_failure_index = failure_index
+                critical_failure_segment = int(result.segment_index)
+
+        if min_strength_ratio < 1.0 - 1.0e-9 or not spar_manufacturing_passed:
+            spar_status = "fail"
+        elif catalog_capped_segments:
+            spar_status = "warn"
+        else:
+            spar_status = "pass"
+
+        if spar_status == "fail":
+            overall_status = "fail"
+        elif spar_status == "warn" and overall_status != "fail":
+            overall_status = "warn"
+
+        if min_strength_ratio == min_strength_ratio and min_strength_ratio < float(
+            critical_strength_ratio["value"]
+        ):
+            critical_strength_ratio = {
+                "value": min_strength_ratio,
+                "spar": spar_name,
+                "segment_index": critical_strength_segment,
+            }
+
+        if max_failure_index == max_failure_index and max_failure_index > float(
+            critical_failure_index["value"]
+        ):
+            critical_failure_index = {
+                "value": max_failure_index,
+                "spar": spar_name,
+                "segment_index": critical_failure_segment,
+            }
+
+        spar_summaries[spar_name] = {
+            "design_role": "discrete_final_output",
+            "continuous_input_role": "warm_start_reference",
+            "ply_material": section.get("ply_material"),
+            "status": spar_status,
+            "catalog_capped_segments": catalog_capped_segments,
+            "min_strength_ratio": (
+                None if min_strength_ratio == float("inf") else float(min_strength_ratio)
+            ),
+            "max_failure_index": (
+                None if max_failure_index == float("-inf") else float(max_failure_index)
+            ),
+            "critical_strength_segment_index": critical_strength_segment,
+            "critical_failure_segment_index": critical_failure_segment,
+            **summary,
+        }
+
+    if not manufacturing_passed and overall_status != "fail":
+        overall_status = "fail"
+
+    total_mass_penalty = total_discrete_mass - total_continuous_mass
+    if critical_strength_ratio["value"] == float("inf"):
+        critical_strength_ratio["value"] = None
+    if critical_failure_index["value"] == float("-inf"):
+        critical_failure_index["value"] = None
+
+    return {
+        "design_layer": "discrete_final",
+        "continuous_input_role": "warm_start_reference",
+        "discrete_output_role": "final_design_candidate",
+        "overall_status": overall_status,
+        "manufacturing_gates_passed": manufacturing_passed,
+        "continuous_full_wing_mass_kg": total_continuous_mass,
+        "discrete_full_wing_mass_kg": total_discrete_mass,
+        "mass_penalty_full_wing_kg": total_mass_penalty,
+        "critical_strength_ratio": critical_strength_ratio,
+        "critical_failure_index": critical_failure_index,
+        "spars": spar_summaries,
+    }
+
+
 def manufacturing_gate_summary(
     segments_stacks: Sequence[SegmentLayupResult],
     *,

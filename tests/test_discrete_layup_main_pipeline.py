@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import sys
 from pathlib import Path
@@ -17,16 +18,22 @@ from blackcat_004_optimize import main as run_optimize  # noqa: E402
 
 @pytest.mark.slow
 def test_discrete_layup_main_pipeline_runs(tmp_path):
-    """``--discrete-layup`` runs end-to-end and writes the layup schedule."""
+    """``--discrete-layup`` runs end-to-end and writes final-design artifacts."""
     val_weight = run_optimize(["--discrete-layup"])
     assert isinstance(val_weight, float)
     assert math.isfinite(val_weight)
 
     summary_path = ROOT / "output" / "blackcat_004" / "optimization_summary.txt"
+    final_design_path = ROOT / "output" / "blackcat_004" / "discrete_layup_final_design.json"
     assert summary_path.exists(), f"missing summary: {summary_path}"
+    assert final_design_path.exists(), f"missing final design summary: {final_design_path}"
     text = summary_path.read_text(encoding="utf-8")
+    payload = json.loads(final_design_path.read_text(encoding="utf-8"))
     assert "DISCRETE LAYUP SCHEDULE" in text
     assert "Main spar:" in text
+    assert payload["design_layer"] == "discrete_final"
+    assert payload["continuous_input_role"] == "warm_start_reference"
+    assert payload["spars"]["main_spar"]["design_role"] == "discrete_final_output"
 
 
 @pytest.mark.slow

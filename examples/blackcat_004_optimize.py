@@ -27,6 +27,8 @@ Usage
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+import json
 import sys
 import shutil
 from pathlib import Path
@@ -97,6 +99,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> float:
     """Run the full pipeline and return total_mass_full_kg."""
     args = _parse_args(argv)
+    discrete_final_design_payload: dict[str, object] | None = None
 
     # ====================================================================
     # Step 1 — Load configuration
@@ -274,6 +277,7 @@ def main(argv: list[str] | None = None) -> float:
             build_segment_layup_results,
             enumerate_valid_stacks,
             summarize_layup_results,
+            summarize_discrete_layup_design,
         )
 
         print("\n" + "=" * 60)
@@ -287,20 +291,20 @@ def main(argv: list[str] | None = None) -> float:
                     f"  {label}: discrete layup skipped "
                     "(spar.ply_material not set in config)."
                 )
-                return None, None
+                return None, None, None
             try:
                 ply_mat = mat_db.get_ply(ply_key)
             except Exception as exc:
                 print(f"  {label}: discrete layup skipped (ply '{ply_key}' not found: {exc}).")
-                return None, None
+                return None, None, None
             try:
                 stacks = enumerate_valid_stacks(spar_cfg)
             except Exception as exc:
                 print(f"  {label}: enumerate_valid_stacks failed ({exc}).")
-                return None, None
+                return None, None, None
             if not stacks:
                 print(f"  {label}: no valid stacks enumerated from config limits; skipping.")
-                return None, None
+                return None, None, None
 
             seg_lengths = cfg.spar_segment_lengths(spar_cfg)
             n_seg = len(seg_lengths)
@@ -336,25 +340,25 @@ def main(argv: list[str] | None = None) -> float:
                 )
             except Exception as exc:
                 print(f"  {label}: build_segment_layup_results failed ({exc}).")
-                return None, None
+                return None, None, None
 
             summary = summarize_layup_results(
                 layup,
                 ply_drop_limit=int(getattr(spar_cfg, "max_ply_drop_per_segment", 1)),
                 min_run_length_m=float(getattr(spar_cfg, "min_layup_run_length_m", 0.0)),
             )
-            return layup, summary
+            return layup, summary, ply_key
 
-        layup_main, layup_main_summary = _build_spar_layup(
+        layup_main, layup_main_summary, layup_main_ply_key = _build_spar_layup(
             cfg.main_spar, result.main_t_seg_mm, result.main_r_seg_mm, "main_spar"
         )
-        layup_rear, layup_rear_summary = (None, None)
+        layup_rear, layup_rear_summary, layup_rear_ply_key = (None, None, None)
         if (
             getattr(cfg.rear_spar, "enabled", False)
             and result.rear_t_seg_mm is not None
             and result.rear_r_seg_mm is not None
         ):
-            layup_rear, layup_rear_summary = _build_spar_layup(
+            layup_rear, layup_rear_summary, layup_rear_ply_key = _build_spar_layup(
                 cfg.rear_spar, result.rear_t_seg_mm, result.rear_r_seg_mm, "rear_spar"
             )
 
@@ -364,6 +368,22 @@ def main(argv: list[str] | None = None) -> float:
         if layup_rear is not None:
             result.layup_rear = layup_rear
             result.layup_rear_summary = layup_rear_summary
+
+        if layup_main is not None:
+            sections = {
+                "main_spar": {
+                    "ply_material": layup_main_ply_key,
+                    "results": layup_main,
+                    "summary": layup_main_summary,
+                }
+            }
+            if layup_rear is not None:
+                sections["rear_spar"] = {
+                    "ply_material": layup_rear_ply_key,
+                    "results": layup_rear,
+                    "summary": layup_rear_summary,
+                }
+            discrete_final_design_payload = summarize_discrete_layup_design(sections)
 
         # Re-analyze using the discrete-equivalent wall thicknesses so the
         # summary reports Tsai-Wu / failure / deflection under the stack we
@@ -408,12 +428,30 @@ def main(argv: list[str] | None = None) -> float:
                 if prev_layup_rear is not None:
                     result.layup_rear = prev_layup_rear
                     result.layup_rear_summary = prev_layup_rear_summary
+                if discrete_final_design_payload is not None:
+                    discrete_final_design_payload["structural_recheck"] = {
+                        "source": "examples/blackcat_004_optimize.py --discrete-layup",
+                        "success": bool(result.success),
+                        "message": str(result.message),
+                        "total_mass_full_kg": float(result.total_mass_full_kg),
+                        "failure_index": float(result.failure_index),
+                        "buckling_index": float(result.buckling_index),
+                        "twist_max_deg": float(result.twist_max_deg),
+                        "tip_deflection_m": float(result.tip_deflection_m),
+                    }
                 print(f"  Verified mass   : {result.total_mass_full_kg:.3f} kg")
                 print(f"  Verified failure: {result.failure_index:.5f}")
                 print(f"  Verified twist  : {result.twist_max_deg:.3f} deg")
                 print(f"  Verified defl.  : {result.tip_deflection_m:.5f} m")
                 val_weight_mass = result.total_mass_full_kg
             except Exception as exc:
+                if discrete_final_design_payload is not None:
+                    discrete_final_design_payload["structural_recheck"] = {
+                        "source": "examples/blackcat_004_optimize.py --discrete-layup",
+                        "success": False,
+                        "skipped": True,
+                        "message": str(exc),
+                    }
                 print(f"  Re-analyze skipped ({exc}); keeping continuous result.")
 
     # ====================================================================
@@ -447,6 +485,19 @@ def main(argv: list[str] | None = None) -> float:
     summary_path = output_dir / "optimization_summary.txt"
     write_optimization_summary(result, summary_path)
     print(f"       Saved: {summary_path}")
+    if discrete_final_design_payload is not None:
+        final_design_path = output_dir / "discrete_layup_final_design.json"
+        final_design_payload = {
+            "generated_at": datetime.now().astimezone().isoformat(),
+            "artifact": "discrete_layup_final_design",
+            "config": str(config_path),
+            **discrete_final_design_payload,
+        }
+        final_design_path.write_text(
+            json.dumps(final_design_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"       Saved: {final_design_path}")
 
     # ====================================================================
     # Step 9 — Export STEP geometry for CAD inspection (jig + flight shape)
