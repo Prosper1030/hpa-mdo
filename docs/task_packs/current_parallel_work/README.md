@@ -17,22 +17,15 @@
 
 ## What This Pack Covers
 
-這包現在聚焦在 **Phase 2.5：rib integration foundation**。
+這包現在聚焦在 **Phase 2.6：rib campaign smoke / sanity review**。
 
-上一波 rerun-aero 任務已經完成，現在不再把更多 rerun-aero wiring 當 current pack 主任務。
+上一波 rib integration 任務已經完成，現在不再把更多 rib contract 擴張當 current pack 主任務。
 
 目前的主任務是：
 
-- Track L：rib properties foundation
+- Track P：rib campaign smoke / ranking sanity review
 
-等我驗證 Track L 後，下一波可以開兩條互不撞車的任務：
-
-- Track M：rib bay surrogate contract
-- Track N：passive rib robustness mode
-
-最後才是：
-
-- Track O：zone-wise rib design contract
+這一包的目的不是再發明 rib，而是確認目前這套 rib-on candidate contract 在真實 rerun-aero case 上是不是工程合理。
 
 ## How To Use This Pack
 
@@ -51,4 +44,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道哪些 rib 任務可以平行、哪些一定要等上一波驗證後才能開。
+- 使用者能清楚知道目前這一波不是再加模型，而是先做真實 smoke 驗證與 ranking sanity review。

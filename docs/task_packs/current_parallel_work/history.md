@@ -54,3 +54,13 @@
 - Planning shift:
   - rerun-aero candidate contract is now treated as done-enough baseline upstream
   - next main push is rib integration, but staged as foundation -> passive robustness -> zone-wise design freedom
+- Rib integration wave completed:
+  - `track_l_rib_properties_foundation` completed via `e877f67`
+  - `track_m_rib_bay_surrogate_contract` completed via `edfe3d8`
+  - `track_n_passive_rib_robustness_mode` completed via `a7d67a8`
+  - `track_o_zonewise_rib_design_contract` completed via `32e6418`
+- Current wave reset again:
+  - `track_p_rib_campaign_smoke_review`
+- Planning shift:
+  - rib integration is now treated as baseline complete at the contract level
+  - next main push is a real smoke campaign to test whether rib-on ranking is engineering-sane

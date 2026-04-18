@@ -159,9 +159,20 @@ rib 應該放在：
 
 - `Track O`：zone-wise rib design contract
 
+### Wave 9：等我驗證 Wave 8 後可開
+
+- `Track P`：rib campaign smoke / ranking sanity review
+
+這一包不是再擴更多 rib 自由度，而是要用真實 rerun-aero campaign 回答：
+
+- rib-on winner 有沒有改變
+- 改變是不是合理
+- 是 `sane`、`suspicious`，還是根本被工具鏈卡住
+
 ## 7. 工程判斷摘要
 
 - rib 是高價值項目，但現在正確的切入點是 foundation，不是 full optimization
 - repo 距離 rib-ready 不是很遠，但也不是今天直接打開就安全
 - 第一版 rib integration 應該先把資料與物理 contract 做對
 - 真正的 rib optimization 應該在 rerun-aero outer-loop baseline 之後進場
+- rib optimization 接進主線之後，下一步不是盲目擴大設計空間，而是先做 campaign smoke 驗證 ranking 合理性

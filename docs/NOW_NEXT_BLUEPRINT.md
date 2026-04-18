@@ -33,49 +33,49 @@
 - Track D：discrete layup 已不只存在於 sidecar；final-design JSON 與 `optimization_summary.txt` 都能直接表達 discrete final verdict。
 - Track E / G：recipe library、spanwise discrete search、zone rules 已達到 baseline done enough，不需要繼續當 current 主戰場。
 - Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`。
+- Track I / J / K：rib properties foundation、rib bay surrogate、passive rib robustness、zone-wise rib design contract 已全部落地，rib 現在已進入 candidate / winner selection contract，而不只是 report-only。
 
-這代表下一輪不需要再把 B / C / D / E / G / H 當成唯一主戰場，而是可以把重心轉向 rib integration 這個結構主線缺口。
+這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先做一個真實 campaign smoke，確認 rib candidate contract 會不會選出合理設計。
 
 ## 3. 下一輪活躍工作軌道
 
-### Track I：rib properties foundation
+### Track L：rib campaign smoke / ranking sanity
 
 這是 **下一輪最值得先做的主軸**。
 
-先把 rib 從單一 scalar `warping_knockdown`，升成正式資料與推導層。
+現在最重要的，不是再加更多 rib 自由度，而是回答：
 
-- 什麼情況下優先：如果現在的判斷是「rib 很重要，但還不想太早把它當優化變數炸開設計空間」。
+`rib_zonewise=limited_zonewise`
+
+在真實 rerun-aero campaign 裡，會不會選出工程上合理的 winner。
+
+- 什麼情況下優先：如果現在最大的風險不是「rib 還沒進主線」，而是「rib 雖然進主線了，但還不知道 ranking 有沒有在騙人」。
 - 近期目標：
-  - `data/rib_properties.yaml`
-  - rib family / spacing contract
-  - derived `warping_knockdown`
-  - 保留 backward compatibility
+  - 跑小型真實 smoke campaign
+  - 比較 `rib_zonewise=off` vs `limited_zonewise`
+  - 檢查 winner、mass、clearance、loaded-shape mismatch、rib penalty、unique families、family switches 是否合理
+  - 明確判斷是 `sane`、`suspicious` 還是 `blocked`
 
-### Track J：rib bay surrogate / passive robustness
+### Track M：rib penalty / surrogate tuning
 
-這是 **Track I 驗證後的下一波**。
+這是 **Track L 跑完之後的下一波**。
 
-先把 rib 對 bay、扭轉耦合、shape retention 的影響變成 reportable robustness layer，而不是直接丟進最佳化。
-
-- 什麼情況下優先：如果現在最怕的是「rib 還沒建模，主線優化可能找到假最優」。
+- 什麼情況下優先：如果 smoke campaign 顯示 rib-on 確實影響 winner，但 ranking 邏輯仍有可疑之處。
 - 近期目標：
-  - candidate summary 能輸出 rib bay / `Δ/c` / shape-retention risk 類指標
-  - passive rib robustness compare path
-  - 不把這一波混成 hi-fi 任務
+  - 調整 `rib_family_switch_penalty_kg`
+  - 調整 `family_mix_max_unique`
+  - 必要時微調 surrogate / summary 權重
+  - 讓 rib-on winner 不是只在數學上漂亮，而是工程上可接受
 
-### Track K：zone-wise rib optimization
+### Track N：rib finalist spot-check / handoff
 
-這是 **Track J 穩住後的第三波**。
+這是 **Track L / M 穩住後的第三波**。
 
-不是每根 rib 一個變數，而是有限度的 zone-wise pitch / family。
-
-- 什麼情況下優先：如果 rib contract 已經穩，想讓 winner selection 真正吃到 rib 子結構差異。
+- 什麼情況下優先：如果 smoke 結果合理，準備把 rib-on 設計推向更正式的 finalist 診斷與交接。
 - 近期目標：
-  - mandatory ribs 固定
-  - 半翼 `4 到 6` 個 zone
-  - local `Δ/c` spacing options
-  - `material + thickness` 綁成 family
-  - mix mode 有切換懲罰或材料數量上限
+  - 對 rib-on finalist 做 local spot-check
+  - 補一份可交接的 ranking / evidence 摘要
+  - 再決定 rib-on 要不要升成更正式的主線預設
 
 ## 4. 轉入維護型的軌道
 
@@ -104,6 +104,11 @@
 
 - 目前狀態：baseline 已成立。
 - 接下來重點不再是建立 rerun-aero contract 本身，而是把它當 rib integration 與後續 finalist release gate 的穩定上游。
+
+### Track I / J / K：rib integration baseline
+
+- 目前狀態：baseline 已成立。
+- 接下來重點不再是再多發明 rib 自由度，而是先驗證現在這套 rib candidate contract 在真實 campaign 裡是不是合理。
 
 ## 5. 條件式後續軌道
 
