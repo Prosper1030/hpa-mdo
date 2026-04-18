@@ -10,6 +10,7 @@
 
 1. 已完成 baseline 的支援軌道：Track B / C / D。
 2. 下一輪主要推進軌道：Track A / E / F。
+3. 在 Track E foundation 穩住後，再推 Track G。
 
 換句話說，這份 roadmap 的核心不再是「先把 B / C / D 做出來」，而是「在 B / C / D 已有 baseline 的前提下，接下來最值得怎麼推主線」。
 
@@ -219,27 +220,29 @@
   - 同一個案例可以從 target / jig / loaded 一路追到 discrete layup summary
   - 文件與實際輸出都不再把連續 thickness optimum 寫成 final answer
 
-## Track E：surrogate / data / catalog
+## Track E：laminate recipe library / selector foundation
 
 ### 目標
 
-在 canonical I/O 穩住之後，把探索效率與真實 catalog realism 接回來。
+把 discrete layup 從固定 family round-up，推成更像真正 final design layer 的 recipe-library 架構。
 
 ### 為什麼值得做
 
-- 這會影響 sweep 成本與最終 ranking 的採購可用性
-- 而且它現在已不需要再等 B / D baseline，因為這兩條線的 machine-readable artifact 已經存在
+- 這條線直接回應目前的架構性盲點：設計空間太窄，selector 太保守
+- 如果這層不先修，後面再加更重的搜尋器，仍然是在錯的空間裡找比較好的錯答案
+- 它已經不需要再等 B / D baseline，因為 discrete final-design artifact 與 machine-readable summary 都已存在
 
 ### 近期交付物
 
-- optional surrogate warm start
-- 真實 vendor / hardware catalog 資料化
-- focused crossover sweep 的觸發規則
+- 功能型 recipe library
+- property-based selector contract
+- 對 discrete layup final verdict 更有代表性的 machine-readable summary
 
 ### 完成判準
 
-- surrogate 是接在穩定的主線 artifacts 上，而不是接在還沒對齊的舊輸出
-- vendor catalog 能支撐更像真實採購決策的 ranking
+- discrete layup 不再只是 fixed balanced family round-up
+- selector 不再只做「第一個夠厚的 recipe」選擇
+- outer loop 可以消費更接近 final design truth 的 discrete 結果
 
 ## Track F：requested-to-realizable 外圈 shape 調整
 
@@ -255,6 +258,11 @@
 -> `jig clearance / mass / manufacturing gate`
 -> `discrete CFRP / layup verdict`
 -> `realizable loaded-shape mismatch score`
+
+額外原則：
+
+- quick analysis / candidate search 可以接受約 `10 到 30 分鐘` 的 runtime 預算
+- 這份預算優先拿來換更好的候選品質與更乾淨的 discrete score，不要再把 search space 壓得太小
 
 ### 適合先放進 outer loop 的變數
 
@@ -276,7 +284,34 @@
 - discrete layup recheck 結果能被 outer-loop summary 消費，而不是停在 sidecar
 - 可以明確回答「這個低維 shape 候選值不值得往 drawing / design handoff 繼續推」
 
-## Track G：mission-driven automatic design
+## Track G：spanwise discrete search / zone-dependent rules
+
+### 狀態
+
+**queued after Track E validation**
+
+### 目標
+
+把 spanwise 離散疊層配置正式變成搜尋問題，而不是逐段獨立向上 snap。
+
+### 為什麼值得做
+
+- 如果 recipe library foundation 已經成形，下一個最有價值的升級不是更重的 hi-fi，而是讓整條 span 的離散配置一起被選
+- 這會直接改善重量、stiffness taper 與局部過保守問題
+
+### 近期交付物
+
+- DP / shortest-path 類 spanwise discrete search
+- zone-dependent thickness floor / ply-drop rule
+- 對 outboard thinning 更誠實的限制與補強規則
+
+### 完成判準
+
+- discrete layup 已不再只是逐段 first-fit round-up
+- clean outboard span 不再永遠被同一個 global floor 鎖死
+- 新規則有對應測試，不是只在文件裡寫概念
+
+## Track H：mission-driven automatic design
 
 ### 目標
 
@@ -320,7 +355,8 @@
 
 前提是 A 已先講清 canonical artifact，再做：
 
-- Track E：surrogate / data / catalog
+- 先做 Track E：recipe library / selector foundation
+- 再看是否真的需要把 surrogate / warm start 拉回來
 
 ### 情境 D：現在最卡的是「我想開始調 cruise shape 本身」
 

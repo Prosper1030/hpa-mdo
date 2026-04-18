@@ -56,13 +56,17 @@ active_tracks:
     status: "baseline_complete"
     goal: "Discrete layup is now a first-class final design output with machine-readable and summary-text surfacing."
   track_e:
-    name: "surrogate_data_catalog"
+    name: "laminate_recipe_library_selector"
     status: "next"
-    goal: "Reconnect search efficiency and vendor realism now that B/D baseline artifacts are in place."
+    goal: "Turn discrete layup from fixed-family round-up into a recipe-library + property-based selector layer that better matches final design intent."
   track_f:
     name: "requested_to_realizable_outer_loop"
+    status: "next"
+    goal: "Move from manual sweeps to a low-dimensional requested-to-realizable loop that consumes discrete final-design verdicts and larger quick-analysis search budgets."
+  track_g:
+    name: "spanwise_discrete_search_zone_rules"
     status: "queued"
-    goal: "Move from manual sweeps to a low-dimensional requested-to-realizable loop: aero-shape knob -> inverse design -> jig clearance/mass/manufacturing gate -> discrete layup -> realizable loaded-shape score."
+    goal: "After the recipe-library foundation is stable, add DP-style spanwise discrete search plus zone-dependent thinning / ply-drop rules."
 
 recently_completed:
   - "Track B baseline: inverse-design validity summary JSON and summary linkage are in place."
@@ -71,8 +75,9 @@ recently_completed:
 
 next_wave_priorities:
   - "Track A: consolidate the front-door workflow and artifact navigation so humans and agents can run the canonical path without re-discovery."
-  - "Track E: add optional surrogate warm start on top of the existing training-data collection path, without changing the physics truth."
+  - "Track E: formalize the recipe-library + property-based selector foundation so discrete layup becomes a truer final-design layer instead of fixed-family round-up."
   - "Track F: formalize the low-dimensional requested-to-realizable outer loop so the repo can score low-dimensional aero-shape candidates against jig clearance, mass, discrete layup verdict, and realizable loaded-shape mismatch."
+  - "Track G: after Track E stabilizes, add spanwise discrete search and zone-dependent rules rather than jumping straight to heavier global search."
 
 benchmark_policy:
   status: "open_basket"
@@ -107,12 +112,13 @@ multi_agent_rules:
     safe_parallel_areas:
       - "docs/task_packs/**"
       - "docs/hi_fidelity_validation_stack.md and src/hpa_mdo/hifi/**"
-      - "examples/blackcat_004_optimize.py and discrete-layup-related modules"
+      - "examples/blackcat_004_optimize.py and discrete-layup-related modules when one owner is assigned per layer"
     avoid_parallel_edits:
       - "README.md"
       - "CURRENT_MAINLINE.md"
       - "docs/GRAND_BLUEPRINT.md"
       - "configs/blackcat_004.yaml"
       - "scripts/direct_dual_beam_inverse_design.py unless one owner is assigned"
+      - "src/hpa_mdo/utils/discrete_layup.py unless later-wave ownership is explicit"
 
 task_pack_root: "docs/task_packs/current_parallel_work"

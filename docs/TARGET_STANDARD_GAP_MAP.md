@@ -128,12 +128,14 @@
 若現在要往這個標準實作，正確順序不是先硬衝 full hi-fi，而是：
 
 1. 先把 **Stage A ~ F** 收成一條真正可用的 selection workflow
-2. 再把 **Stage G** 從 local spot-check 升成真正的 frozen release gate
-3. 最後才把 **Stage H** 做成真正的 aeroelastic loop closure sign-off
+2. 先修正 **Stage E** 的設計空間：recipe library -> selector -> spanwise search -> zone rules
+3. 再把 **Stage G** 從 local spot-check 升成真正的 frozen release gate
+4. 最後才把 **Stage H** 做成真正的 aeroelastic loop closure sign-off
 
 原因不是妥協，而是因為：
 
 - Stage A ~ F 定義的是「怎麼選對設計」
+- 其中 Stage E / F 若還停在 fixed-family round-up，後面所有更重的搜尋與驗證都會建立在偏掉的 final-design layer 上
 - Stage G ~ H 定義的是「怎麼正式背書這個設計」
 
 先把設計選擇邏輯做對，之後高保真才知道要驗的是哪一個 final candidate。
@@ -161,7 +163,21 @@
   - `tests/test_inverse_design.py`
 - 預估：`1 到 2 天`
 
-### Command Pack 2：Low-dimensional aero-shape campaign integration
+### Command Pack 2：Recipe library foundation
+
+- 目標：把 discrete layup 的材料空間從固定 family，升成少量但功能明確的 recipe library
+- 要補的東西：
+  - bending-dominant recipes
+  - balanced torsion recipes
+  - joint / hoop-rich local recipes
+  - property-row / lookup contract
+- 建議 write scope：
+  - `src/hpa_mdo/structure/material_proxy_catalog.py`
+  - `docs/dual_beam_preliminary_material_packages.md`
+  - `tests/test_material_proxy_catalog.py`
+- 預估：`1 到 2 天`
+
+### Command Pack 3：Low-dimensional aero-shape campaign integration
 
 - 目標：把 dihedral / target-shape scaling 類 knob 真的收成一條可重跑 campaign
 - 要補的東西：
@@ -174,7 +190,7 @@
   - `docs/task_packs/current_parallel_work/**`
 - 預估：`2 到 3 天`
 
-### Command Pack 3：Discrete layup verdict integration
+### Command Pack 4：Discrete layup verdict integration
 
 - 目標：讓 outer loop 不是只看 continuous / equivalent 結果，而是把 discrete CFRP verdict 真的接回 selection
 - 要補的東西：
@@ -188,7 +204,36 @@
   - `tests/test_discrete_layup.py`
 - 預估：`1 到 2 天`
 
-### Command Pack 4：Winner handoff and drawing contract
+### Command Pack 5：Spanwise discrete search
+
+- 目標：把整條 span 的離散疊層選擇變成正式搜尋問題，而不是逐段 first-fit round-up
+- 要補的東西：
+  - DP / shortest-path 類 selector
+  - transition rule handling
+  - spanwise mass / stiffness-aware objective
+- 建議 write scope：
+  - `src/hpa_mdo/utils/discrete_layup.py`
+  - `src/hpa_mdo/utils/discrete_spanwise_search.py`
+  - `tests/test_discrete_layup.py`
+  - `tests/test_discrete_spanwise_search.py`
+- 預估：`2 到 4 天`
+- 注意：這一包應在 Command Pack 2 完成並驗證後再進行
+
+### Command Pack 6：Zone-dependent thinning / ply-drop rules
+
+- 目標：把全翼一刀切的 floor / drop 規則改成 zone-aware，而不是一開始就全放鬆
+- 要補的東西：
+  - root / joint / outboard zone rules
+  - local reinforcement / termination assumptions
+  - 對 outboard thinning 更誠實的 gates
+- 建議 write scope：
+  - `src/hpa_mdo/utils/discrete_layup.py`
+  - `docs/dual_beam_preliminary_material_packages.md`
+  - `tests/test_discrete_layup.py`
+- 預估：`1 到 2 天`
+- 注意：這一包應在 Command Pack 5 完成並驗證後再進行
+
+### Command Pack 7：Winner handoff and drawing contract
 
 - 目標：選出 best design 後，自動導向 drawing-ready handoff
 - 要補的東西：
@@ -201,7 +246,7 @@
   - `tests/test_drawing_ready_package.py`
 - 預估：`1 天`
 
-### Command Pack 5：Hi-fi release gate contract
+### Command Pack 8：Hi-fi release gate contract
 
 - 目標：把 hi-fi 從 spot-check 慢慢推向真正 release gate 的前置條件
 - 要補的東西：
@@ -216,7 +261,7 @@
 - 預估：`2 到 4 天`
 - 注意：這一包 **不是** 宣稱 hi-fi 已完成，而是把它從散的工具收成 release-gate contract
 
-### Command Pack 6：Aeroelastic loop-closure architecture
+### Command Pack 9：Aeroelastic loop-closure architecture
 
 - 目標：定義從 finalist 到最終 self-consistent sign-off 所需的 interface
 - 要補的東西：
@@ -238,14 +283,18 @@
 - Thread 2：Command Pack 2
 - Thread 3：Command Pack 3
 - Thread 4：Command Pack 4
-- Thread 5：Command Pack 5
-- Thread 6：Command Pack 6
+- Thread 5：Command Pack 7
+- Thread 6：Command Pack 8
+- Thread 7：Command Pack 9
 
 依賴關係：
 
 - Pack 1 是最先要穩的，因為它定義 score schema
 - Pack 2 / 3 / 4 可以平行，但都應對齊 Pack 1 contract
-- Pack 5 / 6 可以平行做，但它們不應回頭改掉主線標準
+- Pack 5 必須等 Pack 2 穩住後再進
+- Pack 6 必須等 Pack 5 穩住後再進
+- Pack 7 可以和 Pack 3 / 4 平行，但不要回頭改 Pack 2 的材料 contract
+- Pack 8 / 9 可以平行做，但它們不應回頭改掉主線標準
 
 ## 9. 系統工程時間預估
 

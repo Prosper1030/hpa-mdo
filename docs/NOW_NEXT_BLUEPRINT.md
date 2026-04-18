@@ -24,6 +24,7 @@
 - 不讓高保真驗證阻塞現在的快速設計主線；高保真先收斂成可信 spot-check。
 - 不把 continuous thickness optimum 當 final answer；離散 CFRP / layup 是正式主線。
 - 不在這個階段直接跳進高維 free-form cruise-shape optimization；先用低維 knob 跑通 requested vs realizable 的閉環。
+- 如果能換到更好的候選品質，quick analysis / search 可以接受約 `10 到 30 分鐘` 的解題預算，不必為了極短 runtime 把設計空間壓得過小。
 
 ## 2.5 這一輪已經可標完成的 baseline
 
@@ -44,18 +45,21 @@
 - 什麼情況下優先：如果現在最大問題是「會用的人不確定該跑哪條入口」。
 - 近期目標：入口、文件、artifact 命名、輸出摘要一致化，讓人與 agent 都能快速走到 canonical path。
 
-### Track E：surrogate / data / catalog
+### Track E：laminate recipe library / selector foundation
 
-這是 **下一輪第二優先**，但前提是 Track A 至少把 canonical artifact 講清楚。
+這是 **下一輪第二優先**，而且比 surrogate 更前面。
 
-把 Phase I 的資料收集能力接回主線，先做 optional surrogate warm start，再談更完整的 catalog realism。
+把 discrete layup 從「固定 balanced family round-up」推成「功能型 recipe library + property-based selector」。
 
-- 什麼情況下優先：如果目前瓶頸是探索效率、warm start 或大量 sweep 成本。
-- 近期目標：surrogate warm start、真實 vendor / hardware catalog、focused crossover sweep。
+- 什麼情況下優先：如果目前最大的風險不是 solver 跑不動，而是設計空間本身太窄、選到的 discrete 結果偏保守偏重。
+- 近期目標：
+  - recipe family 正式化
+  - property-based selector contract
+  - 讓 outer loop 不再只依賴 continuous thickness 想像 final design
 
 ### Track F：requested-to-realizable outer loop
 
-這是 **下一輪第三優先**，建立在 A / E 已把 canonical path 與 acceleration path 穩住之後。
+這是 **下一輪第三優先**，建立在 A / E 已把 canonical path 與 discrete design layer 穩住之後。
 
 - 什麼情況下優先：如果你已經接受 requested 和 realizable 不會完全重合，想開始把 shape 調整變成正式外圈。
 - 近期目標：先用 `target_shape_z_scale`、`dihedral_exponent`、dihedral multiplier 這類低維 knob，把下面這條「近期可交付版閉環」跑通：
@@ -66,6 +70,16 @@
   - requested / realizable / jig 三種 shape 的差距有清楚 score
   - discrete layup verdict 能回寫到 outer-loop summary
   - 使用者能用低維 knob 判斷「這個 cruise shape 值不值得繼續做」
+
+### Track G：spanwise discrete search / zone rules
+
+這是 **E 穩住後的下一波**，不是現在第一個就該衝的東西。
+
+- 什麼情況下優先：如果 recipe library 與 selector 已經成形，下一步想真正把 spanwise 離散分佈變成設計變數。
+- 近期目標：
+  - 用 DP / shortest-path 類方法做 spanwise discrete search
+  - 把 thickness floor 與 ply-drop rule 改成 zone-dependent
+  - 避免 clean outboard span 被同一個 global floor 永遠鎖死
 
 ## 4. 轉入維護型的軌道
 
@@ -93,6 +107,7 @@
 ## 5. 條件式後續軌道
 
 - `requested cruise shape -> realizable cruise shape` 的 outer-loop shape 調整：先限於 dihedral / target-shape scaling / descriptor 級變數。
+- surrogate / warm start：保留，但不再是這一輪主線設計架構修正的第一優先。
 - open-source aeroelastic spike：保留，但不應再變成主線 blocker。
 - mission-driven automatic design：未來才進到 `pilot power + weight -> best cruise shape -> jig -> discrete layup`。
 - XFOIL / airfoil redesign：應該放在 planform / jig-realizability 框架穩住之後，而不是現在先衝。
