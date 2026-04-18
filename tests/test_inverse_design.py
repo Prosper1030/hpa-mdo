@@ -47,6 +47,8 @@ from scripts.direct_dual_beam_inverse_design import (
     CANDIDATE_RERUN_AERO_SOURCE_MODE,
     DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
     DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+    GroundClearanceRecoveryAttempt,
+    GroundClearanceRecoverySummary,
     LEGACY_AERO_SOURCE_MODE,
     CandidateAeroContract,
     CandidateArchive,
@@ -59,8 +61,10 @@ from scripts.direct_dual_beam_inverse_design import (
     _resolve_outer_loop_candidate_aero,
     _build_validity_summary_payload,
     _build_arg_parser as _build_direct_inverse_arg_parser,
+    _build_ground_clearance_recovery_specs,
     _clearance_risk_metrics,
     _collect_mandatory_rib_stations,
+    _ground_clearance_recovery_selection_key,
     _resolve_zonewise_rib_designs,
     _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
@@ -157,6 +161,7 @@ class InverseDesignTests(unittest.TestCase):
                 "0.6",
                 "--dihedral-exponent",
                 "2.0",
+                "--no-ground-clearance-recovery",
             ]
         )
 
@@ -165,6 +170,7 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(args.loaded_shape_main_z_tol_mm, 40.0)
         self.assertAlmostEqual(args.loaded_shape_twist_tol_deg, 0.6)
         self.assertAlmostEqual(args.dihedral_exponent, 2.0)
+        self.assertFalse(args.ground_clearance_recovery)
 
     def test_build_frozen_load_inverse_design_backsolves_jig_shape_and_margins(self) -> None:
         target = StructuralNodeShape(
@@ -1497,6 +1503,112 @@ class CandidateAeroContractTests(unittest.TestCase):
         self.assertTrue(str(output_arg).endswith("candidate_aero"))
         self.assertEqual(build_and_run_mock.call_args.kwargs["aoa_list"], [0.0, 10.0])
 
+    def test_ground_clearance_recovery_specs_are_unique_and_tip_biased(self) -> None:
+        specs = _build_ground_clearance_recovery_specs(
+            target_shape_z_scale=1.0,
+            dihedral_exponent=1.0,
+        )
+
+        self.assertEqual(specs[0][0], "tip_bias_only")
+        self.assertGreater(specs[0][2], 1.0)
+        self.assertTrue(all(scale >= 1.0 for _, scale, _ in specs))
+        self.assertEqual(len(specs), len({(scale, exponent) for _, scale, exponent in specs}))
+
+    def test_ground_clearance_recovery_selection_prefers_cases_that_clear_ground_blocker(self) -> None:
+        blocked_candidate = replace(
+            self._make_candidate(mass_kg=20.5, source="blocked"),
+            overall_feasible=False,
+            overall_target_feasible=False,
+            target_mass_passed=True,
+            jig_ground_clearance_min_m=-0.010,
+            jig_ground_clearance_margin_m=-0.010,
+            failures=("ground_clearance",),
+            hard_margins={"ground_clearance_margin_m": -0.010},
+            hard_violation_score=0.20,
+            target_violation_score=0.20,
+        )
+        recovered_candidate = replace(
+            self._make_candidate(mass_kg=20.8, source="recovered"),
+            overall_feasible=False,
+            overall_target_feasible=False,
+            target_mass_passed=True,
+            jig_ground_clearance_min_m=0.018,
+            jig_ground_clearance_margin_m=0.018,
+            failures=("loaded_shape_main_z",),
+            hard_margins={"loaded_shape_main_z_margin_m": -0.002},
+            hard_violation_score=0.10,
+            target_violation_score=0.10,
+            target_shape_error_max_m=0.002,
+        )
+
+        def _make_refinement(candidate: InverseCandidate) -> RefreshRefinementOutcome:
+            outcome = InverseOutcome(
+                success=False,
+                feasible=False,
+                target_mass_kg=22.0,
+                message=candidate.message,
+                total_wall_time_s=0.1,
+                baseline_eval_wall_time_s=0.01,
+                nfev=1,
+                nit=0,
+                equivalent_analysis_calls=1,
+                production_analysis_calls=1,
+                unique_evaluations=1,
+                cache_hits=0,
+                feasible_count=0,
+                target_feasible_count=0,
+                baseline=candidate,
+                best_overall_feasible=None,
+                best_target_feasible=None,
+                coarse_selected=candidate,
+                coarse_candidate_count=1,
+                coarse_feasible_count=0,
+                coarse_target_feasible_count=0,
+                selected=candidate,
+                local_refine=None,
+                active_wall_diagnostics=None,
+                manufacturing_limit_source="explicit",
+                max_jig_vertical_prebend_limit_m=0.1,
+                max_jig_vertical_curvature_limit_per_m=0.01,
+                artifacts=None,
+            )
+            iteration = RefreshIterationResult(
+                iteration_index=0,
+                load_source="test",
+                outcome=outcome,
+                load_metrics=RefreshLoadMetrics(
+                    total_lift_half_n=100.0,
+                    total_drag_half_n=2.0,
+                    total_abs_torque_half_nm=1.0,
+                    max_lift_per_span_npm=50.0,
+                    max_abs_torque_per_span_nmpm=0.5,
+                    twist_abs_max_deg=0.0,
+                    aoa_eff_min_deg=8.0,
+                    aoa_eff_max_deg=8.0,
+                    aoa_clip_fraction=0.0,
+                ),
+                mapped_loads={},
+            )
+            return RefreshRefinementOutcome(
+                refresh_steps_requested=1,
+                refresh_steps_completed=0,
+                dynamic_design_space_enabled=False,
+                dynamic_design_space_rebuilds=0,
+                converged=False,
+                convergence_reason=None,
+                manufacturing_limit_source="explicit",
+                max_jig_vertical_prebend_limit_m=0.1,
+                max_jig_vertical_curvature_limit_per_m=0.01,
+                iterations=(iteration,),
+                artifacts=None,
+                aero_contract=None,
+            )
+
+        self.assertLess(
+            _ground_clearance_recovery_selection_key(_make_refinement(recovered_candidate)),
+            _ground_clearance_recovery_selection_key(_make_refinement(blocked_candidate)),
+        )
+
     def test_build_refresh_summary_json_surfaces_candidate_aero_contract(self) -> None:
         candidate = self._make_candidate()
         inverse_outcome = InverseOutcome(
@@ -1598,6 +1710,40 @@ class CandidateAeroContractTests(unittest.TestCase):
             iterations=(iteration,),
             artifacts=None,
             aero_contract=contract,
+            ground_clearance_recovery=GroundClearanceRecoverySummary(
+                enabled=True,
+                triggered=True,
+                trigger_reason="ground_clearance_failure",
+                selected_attempt_label="clearance_recovery_stage1",
+                baseline_requested_knobs={
+                    "target_shape_z_scale": 1.0,
+                    "dihedral_multiplier": 1.0,
+                    "dihedral_exponent": 1.0,
+                },
+                selected_requested_knobs={
+                    "target_shape_z_scale": 1.25,
+                    "dihedral_multiplier": 1.25,
+                    "dihedral_exponent": 1.6,
+                },
+                attempts=(
+                    GroundClearanceRecoveryAttempt(
+                        label="baseline_requested",
+                        requested_target_shape_z_scale=1.0,
+                        requested_dihedral_exponent=1.0,
+                        case_output_dir="/tmp/baseline_requested",
+                        run_completed=True,
+                        selected_source="baseline",
+                        feasible=False,
+                        ground_clearance_failure=True,
+                        analysis_succeeded=True,
+                        jig_ground_clearance_min_m=-0.005,
+                        target_shape_error_max_m=0.004,
+                        selected_total_mass_kg=21.0,
+                        primary_driver="ground clearance",
+                        message="baseline blocked",
+                    ),
+                ),
+            ),
         )
         map_config = SimpleNamespace(
             main_plateau_scale_upper=1.14,
@@ -1617,6 +1763,11 @@ class CandidateAeroContractTests(unittest.TestCase):
         )
 
         self.assertEqual(summary["aero_contract"]["source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertTrue(summary["ground_clearance_recovery"]["triggered"])
+        self.assertEqual(
+            summary["ground_clearance_recovery"]["selected_attempt_label"],
+            "clearance_recovery_stage1",
+        )
         self.assertIn("candidate-level geometry rebuild", summary["refinement_definition"]["refresh_method"])
         self.assertTrue(
             any(
@@ -1798,6 +1949,7 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertEqual(budget["coarse_grid_points_per_case"], 576)
         self.assertEqual(budget["coarse_candidate_contracts_per_case"], 1728)
         self.assertEqual(budget["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertTrue(budget["ground_clearance_recovery"])
         self.assertEqual(budget["rib_zonewise_mode"], "limited_zonewise")
         self.assertEqual(budget["rib_design_profiles_per_point"], 3)
 
@@ -1858,7 +2010,17 @@ class OuterLoopContractTests(unittest.TestCase):
                             "refresh_load_source": "candidate_owned_twist_refresh_from_rerun_sweep",
                             "load_ownership": "candidate-owned rerun loads",
                             "artifact_ownership": "candidate-owned artifacts",
+                            "requested_knobs": {
+                                "target_shape_z_scale": 1.25,
+                                "dihedral_exponent": 1.6,
+                            },
                             "selected_cruise_aoa_deg": 8.0,
+                        },
+                        "ground_clearance_recovery": {
+                            "triggered": True,
+                            "selected_attempt_label": "clearance_recovery_stage1",
+                            "trigger_reason": "ground_clearance_failure",
+                            "attempts": [{}, {}],
                         },
                         "artifacts": {
                             "aero_contract_json": "/tmp/target_20.0kg_aero_contract.json",
@@ -1883,9 +2045,15 @@ class OuterLoopContractTests(unittest.TestCase):
             cmd[cmd.index("--aero-source-mode") + 1],
             CANDIDATE_RERUN_AERO_SOURCE_MODE,
         )
+        self.assertIn("--ground-clearance-recovery", cmd)
         self.assertIn("--rib-zonewise-mode", cmd)
         self.assertEqual(cmd[cmd.index("--rib-zonewise-mode") + 1], "limited_zonewise")
         self.assertEqual(result.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertAlmostEqual(result.requested_target_shape_z_scale, 1.25)
+        self.assertAlmostEqual(result.requested_dihedral_exponent, 1.6)
+        self.assertTrue(result.ground_clearance_recovery_triggered)
+        self.assertEqual(result.ground_clearance_recovery_selected_attempt, "clearance_recovery_stage1")
+        self.assertEqual(result.ground_clearance_recovery_attempt_count, 2)
         self.assertEqual(
             result.refresh_load_source,
             "candidate_owned_twist_refresh_from_rerun_sweep",

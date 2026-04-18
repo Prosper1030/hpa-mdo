@@ -531,6 +531,7 @@ class RefreshRefinementOutcome:
     iterations: tuple[RefreshIterationResult, ...]
     artifacts: ArtifactBundle | None = None
     aero_contract: "CandidateAeroContract | None" = None
+    ground_clearance_recovery: "GroundClearanceRecoverySummary | None" = None
 
     @property
     def final_iteration(self) -> RefreshIterationResult:
@@ -551,6 +552,35 @@ class CandidateAeroContract:
     selected_cruise_aoa_deg: float
     geometry_artifacts: dict[str, str | None]
     notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class GroundClearanceRecoveryAttempt:
+    label: str
+    requested_target_shape_z_scale: float
+    requested_dihedral_exponent: float
+    case_output_dir: str
+    run_completed: bool
+    selected_source: str | None
+    feasible: bool
+    ground_clearance_failure: bool
+    analysis_succeeded: bool
+    jig_ground_clearance_min_m: float | None
+    target_shape_error_max_m: float | None
+    selected_total_mass_kg: float | None
+    primary_driver: str | None
+    message: str
+
+
+@dataclass(frozen=True)
+class GroundClearanceRecoverySummary:
+    enabled: bool
+    triggered: bool
+    trigger_reason: str | None
+    selected_attempt_label: str
+    baseline_requested_knobs: dict[str, float]
+    selected_requested_knobs: dict[str, float]
+    attempts: tuple[GroundClearanceRecoveryAttempt, ...]
 
 
 def _parse_grid(text: str) -> tuple[float, ...]:
@@ -1428,6 +1458,168 @@ def _resolve_outer_loop_candidate_aero(
         ),
     )
     return list(cases), cruise_case, mapped_loads, contract
+
+
+def _requested_outer_loop_knobs(*, target_shape_z_scale: float, dihedral_exponent: float) -> dict[str, float]:
+    return {
+        "target_shape_z_scale": float(target_shape_z_scale),
+        "dihedral_multiplier": float(target_shape_z_scale),
+        "dihedral_exponent": float(dihedral_exponent),
+    }
+
+
+def _ground_clearance_failure(candidate: InverseCandidate) -> bool:
+    if "ground_clearance" in candidate.failures:
+        return True
+    if not np.isfinite(candidate.jig_ground_clearance_min_m):
+        return True
+    return float(candidate.jig_ground_clearance_margin_m) < -1.0e-12
+
+
+def _ground_clearance_recovery_trigger_reason(
+    outcome: RefreshRefinementOutcome,
+) -> str | None:
+    final_iteration = outcome.final_iteration
+    if final_iteration.outcome.feasible:
+        return None
+    selected = final_iteration.outcome.selected
+    if not np.isfinite(selected.jig_ground_clearance_min_m):
+        return "nonfinite_ground_clearance_signal"
+    if "ground_clearance" in selected.failures:
+        return "ground_clearance_failure"
+    if float(selected.jig_ground_clearance_margin_m) < -1.0e-12:
+        return "negative_ground_clearance_margin"
+    diagnostics = final_iteration.outcome.active_wall_diagnostics
+    if diagnostics is not None and diagnostics.primary_driver == "ground clearance":
+        return "ground_clearance_primary_driver"
+    return None
+
+
+def _build_ground_clearance_recovery_specs(
+    *,
+    target_shape_z_scale: float,
+    dihedral_exponent: float,
+) -> tuple[tuple[str, float, float], ...]:
+    base_scale = max(float(target_shape_z_scale), 1.0)
+    base_exponent = max(float(dihedral_exponent), 0.0)
+    candidates = (
+        ("tip_bias_only", base_scale, max(base_exponent, 1.75)),
+        (
+            "clearance_recovery_stage1",
+            max(base_scale * 1.15, 1.25),
+            max(base_exponent, 1.60),
+        ),
+        (
+            "clearance_recovery_stage2",
+            max(base_scale * 1.40, 1.70),
+            max(base_exponent, 2.20),
+        ),
+    )
+    deduped: list[tuple[str, float, float]] = []
+    seen: set[tuple[float, float]] = set()
+    for label, scale, exponent in candidates:
+        clipped_scale = min(float(scale), 3.0)
+        clipped_exponent = min(float(exponent), 4.0)
+        key = (round(clipped_scale, 9), round(clipped_exponent, 9))
+        if key == (round(base_scale, 9), round(base_exponent, 9)):
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append((label, clipped_scale, clipped_exponent))
+    return tuple(deduped)
+
+
+def _ground_clearance_recovery_selection_key(
+    outcome: RefreshRefinementOutcome,
+) -> tuple[float, ...]:
+    final_iteration = outcome.final_iteration
+    selected = final_iteration.outcome.selected
+    clearance_m = float(selected.jig_ground_clearance_min_m)
+    finite_clearance = np.isfinite(clearance_m)
+    violation_score = (
+        float(selected.target_violation_score)
+        if final_iteration.outcome.target_mass_kg is not None
+        else float(selected.hard_violation_score)
+    )
+    return (
+        0.0 if final_iteration.outcome.feasible else 1.0,
+        0.0 if not _ground_clearance_failure(selected) else 1.0,
+        0.0 if selected.analysis_succeeded else 1.0,
+        0.0 if selected.geometry_validity_succeeded else 1.0,
+        0.0 if finite_clearance else 1.0,
+        -clearance_m if finite_clearance else float("inf"),
+        violation_score,
+        float(selected.target_shape_error_max_m),
+        float(selected.objective_value_kg),
+        float(selected.total_structural_mass_kg),
+    )
+
+
+def _build_ground_clearance_recovery_attempt(
+    *,
+    label: str,
+    requested_target_shape_z_scale: float,
+    requested_dihedral_exponent: float,
+    case_output_dir: Path,
+    refinement: RefreshRefinementOutcome | None = None,
+    error: Exception | None = None,
+) -> GroundClearanceRecoveryAttempt:
+    if refinement is None:
+        if error is None:
+            raise ValueError("Need either a refinement result or an error.")
+        return GroundClearanceRecoveryAttempt(
+            label=str(label),
+            requested_target_shape_z_scale=float(requested_target_shape_z_scale),
+            requested_dihedral_exponent=float(requested_dihedral_exponent),
+            case_output_dir=str(case_output_dir.resolve()),
+            run_completed=False,
+            selected_source=None,
+            feasible=False,
+            ground_clearance_failure=False,
+            analysis_succeeded=False,
+            jig_ground_clearance_min_m=None,
+            target_shape_error_max_m=None,
+            selected_total_mass_kg=None,
+            primary_driver=None,
+            message=f"{type(error).__name__}: {error}",
+        )
+
+    final_iteration = refinement.final_iteration
+    selected = final_iteration.outcome.selected
+    diagnostics = final_iteration.outcome.active_wall_diagnostics
+    return GroundClearanceRecoveryAttempt(
+        label=str(label),
+        requested_target_shape_z_scale=float(requested_target_shape_z_scale),
+        requested_dihedral_exponent=float(requested_dihedral_exponent),
+        case_output_dir=str(case_output_dir.resolve()),
+        run_completed=True,
+        selected_source=str(selected.source),
+        feasible=bool(final_iteration.outcome.feasible),
+        ground_clearance_failure=bool(_ground_clearance_failure(selected)),
+        analysis_succeeded=bool(selected.analysis_succeeded),
+        jig_ground_clearance_min_m=(
+            float(selected.jig_ground_clearance_min_m)
+            if np.isfinite(selected.jig_ground_clearance_min_m)
+            else None
+        ),
+        target_shape_error_max_m=(
+            float(selected.target_shape_error_max_m)
+            if np.isfinite(selected.target_shape_error_max_m)
+            else None
+        ),
+        selected_total_mass_kg=(
+            float(selected.total_structural_mass_kg)
+            if np.isfinite(selected.total_structural_mass_kg)
+            else None
+        ),
+        primary_driver=(
+            None
+            if diagnostics is None
+            else str(diagnostics.primary_driver)
+        ),
+        message=str(selected.message),
+    )
 
 
 def _refresh_method_text(contract: CandidateAeroContract | None) -> str:
@@ -3052,7 +3244,55 @@ def build_refresh_report_text(
             "  best target-feasible mass   : "
             f"{final_iteration.outcome.best_target_feasible.total_structural_mass_kg:.3f} kg"
         )
+    if outcome.ground_clearance_recovery is not None:
+        recovery = outcome.ground_clearance_recovery
+        lines.append(f"  recovery enabled            : {recovery.enabled}")
+        lines.append(f"  recovery triggered          : {recovery.triggered}")
+        if recovery.trigger_reason is not None:
+            lines.append(f"  recovery trigger reason     : {recovery.trigger_reason}")
+        lines.append(
+            "  recovery baseline knobs     : "
+            f"target_shape_z_scale={recovery.baseline_requested_knobs.get('target_shape_z_scale', float('nan')):.6f}, "
+            f"dihedral_exponent={recovery.baseline_requested_knobs.get('dihedral_exponent', float('nan')):.6f}"
+        )
+        lines.append(f"  recovery selected attempt   : {recovery.selected_attempt_label}")
+        lines.append(
+            "  recovery selected knobs     : "
+            f"target_shape_z_scale={recovery.selected_requested_knobs.get('target_shape_z_scale', float('nan')):.6f}, "
+            f"dihedral_exponent={recovery.selected_requested_knobs.get('dihedral_exponent', float('nan')):.6f}"
+        )
     lines.append("")
+
+    if outcome.ground_clearance_recovery is not None:
+        lines.append("Ground-clearance recovery ladder:")
+        for idx, attempt in enumerate(outcome.ground_clearance_recovery.attempts, start=1):
+            lines.append(f"  attempt {idx:02d}                  : {attempt.label}")
+            lines.append(
+                "    requested knobs           : "
+                f"target_shape_z_scale={attempt.requested_target_shape_z_scale:.6f}, "
+                f"dihedral_exponent={attempt.requested_dihedral_exponent:.6f}"
+            )
+            lines.append(f"    case output dir           : {attempt.case_output_dir}")
+            lines.append(f"    run completed            : {attempt.run_completed}")
+            lines.append(f"    feasible                 : {attempt.feasible}")
+            lines.append(f"    ground clearance blocker : {attempt.ground_clearance_failure}")
+            lines.append(f"    analysis succeeded       : {attempt.analysis_succeeded}")
+            if attempt.selected_total_mass_kg is not None:
+                lines.append(f"    selected total mass      : {attempt.selected_total_mass_kg:.3f} kg")
+            if attempt.target_shape_error_max_m is not None:
+                lines.append(
+                    "    target mismatch max      : "
+                    f"{_mm(attempt.target_shape_error_max_m):.6f} mm"
+                )
+            if attempt.jig_ground_clearance_min_m is not None:
+                lines.append(
+                    "    jig ground clearance min : "
+                    f"{_mm(attempt.jig_ground_clearance_min_m):.3f} mm"
+                )
+            if attempt.primary_driver is not None:
+                lines.append(f"    primary driver           : {attempt.primary_driver}")
+            lines.append(f"    message                  : {attempt.message}")
+        lines.append("")
 
     for iteration in outcome.iterations:
         selected = iteration.outcome.selected
@@ -3330,6 +3570,11 @@ def build_refresh_summary_json(
             "delta_t_rear_outboard_max_m": map_config.delta_t_rear_outboard_max_m,
         },
         "aero_contract": None if outcome.aero_contract is None else asdict(outcome.aero_contract),
+        "ground_clearance_recovery": (
+            None
+            if outcome.ground_clearance_recovery is None
+            else asdict(outcome.ground_clearance_recovery)
+        ),
         "manufacturing_limits": {
             "source": outcome.manufacturing_limit_source,
             "max_jig_vertical_prebend_m": outcome.max_jig_vertical_prebend_limit_m,
@@ -4224,7 +4469,123 @@ def run_inverse_design_load_refresh_refinement(
         iterations=tuple(iterations),
         artifacts=None,
         aero_contract=aero_contract,
+        ground_clearance_recovery=None,
     )
+
+
+def _run_refresh_refinement_case(
+    *,
+    cfg,
+    aircraft,
+    materials_db: MaterialDB,
+    baseline_result,
+    map_config: ReducedMapConfig,
+    clearance_floor_z_m: float,
+    target_shape_error_tol_m: float,
+    max_jig_vertical_prebend_m: float | None,
+    max_jig_vertical_curvature_per_m: float | None,
+    loaded_shape_mode: str,
+    loaded_shape_control_station_fractions: tuple[float, ...],
+    loaded_shape_main_z_tol_m: float,
+    loaded_shape_twist_tol_deg: float,
+    loaded_shape_penalty_weight_kg: float,
+    target_shape_z_scale: float,
+    dihedral_exponent: float,
+    clearance_risk_threshold_m: float,
+    clearance_risk_top_k: int,
+    clearance_penalty_weight_kg: float,
+    active_wall_penalty_weight_kg: float,
+    manufacturing_limit_source: str,
+    main_plateau_grid: Iterable[float],
+    main_taper_fill_grid: Iterable[float],
+    rear_radius_grid: Iterable[float],
+    rear_outboard_grid: Iterable[float],
+    wall_thickness_grid: Iterable[float],
+    cobyla_maxiter: int,
+    cobyla_rhobeg: float,
+    skip_local_refine: bool,
+    target_mass_kg: float | None,
+    local_refine_feasible_seeds: int,
+    local_refine_near_feasible_seeds: int,
+    local_refine_max_starts: int,
+    local_refine_early_stop_patience: int,
+    local_refine_early_stop_abs_improvement_kg: float,
+    refresh_steps: int,
+    dynamic_design_space: bool,
+    refresh_until_converged: bool,
+    refresh_max_steps: int,
+    refresh_convergence_mass_tol_kg: float,
+    refresh_convergence_lift_rms_tol_npm: float,
+    refresh_convergence_torque_rms_tol_nmpm: float,
+    refresh_washout_scale: float,
+    rib_zonewise_mode: str,
+    rib_family_switch_penalty_kg: float,
+    rib_family_mix_max_unique: int,
+    aero_cases: list[SpanwiseLoad],
+    cruise_case: SpanwiseLoad,
+    mapped_loads: dict,
+    aero_contract: CandidateAeroContract,
+) -> tuple[float, RefreshRefinementOutcome]:
+    optimizer = SparOptimizer(cfg, aircraft, mapped_loads, materials_db)
+    refresh_model = LightweightLoadRefreshModel(
+        aero_cases=aero_cases,
+        baseline_case=cruise_case,
+        cfg=cfg,
+        aircraft=aircraft,
+        washout_scale=float(refresh_washout_scale),
+    )
+    refinement = run_inverse_design_load_refresh_refinement(
+        cfg=cfg,
+        aircraft=aircraft,
+        materials_db=materials_db,
+        optimizer=optimizer,
+        baseline_result=baseline_result,
+        map_config=map_config,
+        clearance_floor_z_m=clearance_floor_z_m,
+        target_shape_error_tol_m=target_shape_error_tol_m,
+        max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
+        max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+        loaded_shape_mode=loaded_shape_mode,
+        loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+        loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+        loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+        loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
+        target_shape_z_scale=target_shape_z_scale,
+        dihedral_exponent=dihedral_exponent,
+        clearance_risk_threshold_m=clearance_risk_threshold_m,
+        clearance_risk_top_k=clearance_risk_top_k,
+        clearance_penalty_weight_kg=clearance_penalty_weight_kg,
+        active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
+        manufacturing_limit_source=manufacturing_limit_source,
+        main_plateau_grid=main_plateau_grid,
+        main_taper_fill_grid=main_taper_fill_grid,
+        rear_radius_grid=rear_radius_grid,
+        rear_outboard_grid=rear_outboard_grid,
+        wall_thickness_grid=wall_thickness_grid,
+        cobyla_maxiter=cobyla_maxiter,
+        cobyla_rhobeg=cobyla_rhobeg,
+        skip_local_refine=skip_local_refine,
+        target_mass_kg=target_mass_kg,
+        local_refine_feasible_seeds=local_refine_feasible_seeds,
+        local_refine_near_feasible_seeds=local_refine_near_feasible_seeds,
+        local_refine_max_starts=local_refine_max_starts,
+        local_refine_early_stop_patience=local_refine_early_stop_patience,
+        local_refine_early_stop_abs_improvement_kg=local_refine_early_stop_abs_improvement_kg,
+        initial_mapped_loads=mapped_loads,
+        refresh_model=refresh_model,
+        aero_contract=aero_contract,
+        refresh_steps=refresh_steps,
+        dynamic_design_space=dynamic_design_space,
+        refresh_until_converged=refresh_until_converged,
+        refresh_max_steps=refresh_max_steps,
+        refresh_convergence_mass_tol_kg=refresh_convergence_mass_tol_kg,
+        refresh_convergence_lift_rms_tol_npm=refresh_convergence_lift_rms_tol_npm,
+        refresh_convergence_torque_rms_tol_nmpm=refresh_convergence_torque_rms_tol_nmpm,
+        rib_zonewise_mode=rib_zonewise_mode,
+        rib_family_switch_penalty_kg=rib_family_switch_penalty_kg,
+        rib_family_mix_max_unique=rib_family_mix_max_unique,
+    )
+    return float(cruise_case.aoa_deg), refinement
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -4333,6 +4694,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Progressive dihedral scaling exponent for target-shape Z scaling "
             "(0=uniform, 1=linear root-to-tip ramp)."
+        ),
+    )
+    parser.add_argument(
+        "--ground-clearance-recovery",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Try a small outer-loop uplift / tip-bias recovery ladder when the selected "
+            "candidate is still blocked by jig ground clearance."
         ),
     )
     parser.add_argument(
@@ -4533,6 +4903,12 @@ def main(argv: list[str] | None = None) -> int:
     rib_family_switch_penalty_kg = float(args.rib_family_switch_penalty_kg)
     rib_family_mix_max_unique = int(args.rib_family_mix_max_unique)
     aero_source_mode = str(args.aero_source_mode)
+    main_plateau_grid = _parse_grid(args.main_plateau_grid)
+    main_taper_fill_grid = _parse_grid(args.main_taper_fill_grid)
+    rear_radius_grid = _parse_grid(args.rear_radius_grid)
+    rear_outboard_grid = _parse_grid(args.rear_outboard_grid)
+    wall_thickness_grid = _parse_grid(args.wall_thickness_grid)
+    target_mass_kg = None if args.target_mass_kg is None else float(args.target_mass_kg)
     candidate_aero_output_dir = (
         None
         if args.candidate_aero_output_dir is None
@@ -4545,10 +4921,12 @@ def main(argv: list[str] | None = None) -> int:
     elif cfg.io.vsp_lod is not None and Path(cfg.io.vsp_lod).expanduser().is_file():
         legacy_aero_cases = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar).parse()
 
+    recovery_case_root = output_dir / "ground_clearance_recovery_cases"
+    baseline_case_output_dir = recovery_case_root / "baseline_requested"
     aero_cases, cruise_case, mapped_loads, aero_contract = _resolve_outer_loop_candidate_aero(
         cfg=cfg,
         aircraft=aircraft,
-        output_dir=output_dir,
+        output_dir=baseline_case_output_dir,
         target_shape_z_scale=target_shape_z_scale,
         dihedral_exponent=dihedral_exponent,
         aero_source_mode=aero_source_mode,
@@ -4559,13 +4937,6 @@ def main(argv: list[str] | None = None) -> int:
     design_case = cfg.structural_load_cases()[0]
     export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
     optimizer = SparOptimizer(cfg, aircraft, mapped_loads, materials_db)
-    refresh_model = LightweightLoadRefreshModel(
-        aero_cases=aero_cases,
-        baseline_case=cruise_case,
-        cfg=cfg,
-        aircraft=aircraft,
-        washout_scale=float(args.refresh_washout_scale),
-    )
 
     baseline_design = BaselineDesign(
         main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
@@ -4630,11 +5001,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         manufacturing_limit_source = f"baseline_seed x {float(args.manufacturing_limit_scale):.3f}"
 
-    refinement = run_inverse_design_load_refresh_refinement(
+    cruise_aoa_deg, refinement = _run_refresh_refinement_case(
         cfg=cfg,
         aircraft=aircraft,
         materials_db=materials_db,
-        optimizer=optimizer,
         baseline_result=baseline_result,
         map_config=map_config,
         clearance_floor_z_m=float(args.clearance_floor_z_m),
@@ -4653,23 +5023,20 @@ def main(argv: list[str] | None = None) -> int:
         clearance_penalty_weight_kg=clearance_penalty_weight_kg,
         active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
         manufacturing_limit_source=manufacturing_limit_source,
-        main_plateau_grid=_parse_grid(args.main_plateau_grid),
-        main_taper_fill_grid=_parse_grid(args.main_taper_fill_grid),
-        rear_radius_grid=_parse_grid(args.rear_radius_grid),
-        rear_outboard_grid=_parse_grid(args.rear_outboard_grid),
-        wall_thickness_grid=_parse_grid(args.wall_thickness_grid),
+        main_plateau_grid=main_plateau_grid,
+        main_taper_fill_grid=main_taper_fill_grid,
+        rear_radius_grid=rear_radius_grid,
+        rear_outboard_grid=rear_outboard_grid,
+        wall_thickness_grid=wall_thickness_grid,
         cobyla_maxiter=int(args.cobyla_maxiter),
         cobyla_rhobeg=float(args.cobyla_rhobeg),
         skip_local_refine=bool(args.skip_local_refine),
-        target_mass_kg=None if args.target_mass_kg is None else float(args.target_mass_kg),
+        target_mass_kg=target_mass_kg,
         local_refine_feasible_seeds=int(args.local_refine_feasible_seeds),
         local_refine_near_feasible_seeds=int(args.local_refine_near_feasible_seeds),
         local_refine_max_starts=int(args.local_refine_max_starts),
         local_refine_early_stop_patience=int(args.local_refine_early_stop_patience),
         local_refine_early_stop_abs_improvement_kg=float(args.local_refine_early_stop_abs_improvement_kg),
-        initial_mapped_loads=mapped_loads,
-        refresh_model=refresh_model,
-        aero_contract=aero_contract,
         refresh_steps=int(args.refresh_steps),
         dynamic_design_space=bool(args.dynamic_design_space),
         refresh_until_converged=bool(args.refresh_until_converged),
@@ -4677,10 +5044,129 @@ def main(argv: list[str] | None = None) -> int:
         refresh_convergence_mass_tol_kg=float(args.refresh_convergence_mass_tol_kg),
         refresh_convergence_lift_rms_tol_npm=float(args.refresh_convergence_lift_rms_tol_npm),
         refresh_convergence_torque_rms_tol_nmpm=float(args.refresh_convergence_torque_rms_tol_nmpm),
+        refresh_washout_scale=float(args.refresh_washout_scale),
         rib_zonewise_mode=rib_zonewise_mode,
         rib_family_switch_penalty_kg=rib_family_switch_penalty_kg,
         rib_family_mix_max_unique=rib_family_mix_max_unique,
+        aero_cases=aero_cases,
+        cruise_case=cruise_case,
+        mapped_loads=mapped_loads,
+        aero_contract=aero_contract,
     )
+    selected_label = "baseline_requested"
+    selected_contract = aero_contract
+    recovery_attempts = [
+        _build_ground_clearance_recovery_attempt(
+            label="baseline_requested",
+            requested_target_shape_z_scale=target_shape_z_scale,
+            requested_dihedral_exponent=dihedral_exponent,
+            case_output_dir=baseline_case_output_dir,
+            refinement=refinement,
+        )
+    ]
+    trigger_reason = (
+        _ground_clearance_recovery_trigger_reason(refinement)
+        if bool(args.ground_clearance_recovery)
+        else None
+    )
+    if trigger_reason is not None:
+        for label, recovery_scale, recovery_exponent in _build_ground_clearance_recovery_specs(
+            target_shape_z_scale=target_shape_z_scale,
+            dihedral_exponent=dihedral_exponent,
+        ):
+            case_output_dir = recovery_case_root / label
+            try:
+                (
+                    recovery_aero_cases,
+                    recovery_cruise_case,
+                    recovery_mapped_loads,
+                    recovery_contract,
+                ) = _resolve_outer_loop_candidate_aero(
+                    cfg=cfg,
+                    aircraft=aircraft,
+                    output_dir=case_output_dir,
+                    target_shape_z_scale=float(recovery_scale),
+                    dihedral_exponent=float(recovery_exponent),
+                    aero_source_mode=aero_source_mode,
+                    legacy_aero_cases=legacy_aero_cases,
+                    candidate_aero_output_dir=None,
+                )
+                recovery_cruise_aoa_deg, recovery_refinement = _run_refresh_refinement_case(
+                    cfg=cfg,
+                    aircraft=aircraft,
+                    materials_db=materials_db,
+                    baseline_result=baseline_result,
+                    map_config=map_config,
+                    clearance_floor_z_m=float(args.clearance_floor_z_m),
+                    target_shape_error_tol_m=float(args.target_shape_error_tol_m),
+                    max_jig_vertical_prebend_m=max_jig_vertical_prebend_m,
+                    max_jig_vertical_curvature_per_m=max_jig_vertical_curvature_per_m,
+                    loaded_shape_mode=str(args.loaded_shape_mode),
+                    loaded_shape_control_station_fractions=loaded_shape_control_station_fractions,
+                    loaded_shape_main_z_tol_m=loaded_shape_main_z_tol_m,
+                    loaded_shape_twist_tol_deg=loaded_shape_twist_tol_deg,
+                    loaded_shape_penalty_weight_kg=loaded_shape_penalty_weight_kg,
+                    target_shape_z_scale=float(recovery_scale),
+                    dihedral_exponent=float(recovery_exponent),
+                    clearance_risk_threshold_m=clearance_risk_threshold_m,
+                    clearance_risk_top_k=clearance_risk_top_k,
+                    clearance_penalty_weight_kg=clearance_penalty_weight_kg,
+                    active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
+                    manufacturing_limit_source=manufacturing_limit_source,
+                    main_plateau_grid=main_plateau_grid,
+                    main_taper_fill_grid=main_taper_fill_grid,
+                    rear_radius_grid=rear_radius_grid,
+                    rear_outboard_grid=rear_outboard_grid,
+                    wall_thickness_grid=wall_thickness_grid,
+                    cobyla_maxiter=int(args.cobyla_maxiter),
+                    cobyla_rhobeg=float(args.cobyla_rhobeg),
+                    skip_local_refine=bool(args.skip_local_refine),
+                    target_mass_kg=target_mass_kg,
+                    local_refine_feasible_seeds=int(args.local_refine_feasible_seeds),
+                    local_refine_near_feasible_seeds=int(args.local_refine_near_feasible_seeds),
+                    local_refine_max_starts=int(args.local_refine_max_starts),
+                    local_refine_early_stop_patience=int(args.local_refine_early_stop_patience),
+                    local_refine_early_stop_abs_improvement_kg=float(args.local_refine_early_stop_abs_improvement_kg),
+                    refresh_steps=int(args.refresh_steps),
+                    dynamic_design_space=bool(args.dynamic_design_space),
+                    refresh_until_converged=bool(args.refresh_until_converged),
+                    refresh_max_steps=int(args.refresh_max_steps),
+                    refresh_convergence_mass_tol_kg=float(args.refresh_convergence_mass_tol_kg),
+                    refresh_convergence_lift_rms_tol_npm=float(args.refresh_convergence_lift_rms_tol_npm),
+                    refresh_convergence_torque_rms_tol_nmpm=float(args.refresh_convergence_torque_rms_tol_nmpm),
+                    refresh_washout_scale=float(args.refresh_washout_scale),
+                    rib_zonewise_mode=rib_zonewise_mode,
+                    rib_family_switch_penalty_kg=rib_family_switch_penalty_kg,
+                    rib_family_mix_max_unique=rib_family_mix_max_unique,
+                    aero_cases=recovery_aero_cases,
+                    cruise_case=recovery_cruise_case,
+                    mapped_loads=recovery_mapped_loads,
+                    aero_contract=recovery_contract,
+                )
+                recovery_attempts.append(
+                    _build_ground_clearance_recovery_attempt(
+                        label=label,
+                        requested_target_shape_z_scale=float(recovery_scale),
+                        requested_dihedral_exponent=float(recovery_exponent),
+                        case_output_dir=case_output_dir,
+                        refinement=recovery_refinement,
+                    )
+                )
+                if _ground_clearance_recovery_selection_key(recovery_refinement) < _ground_clearance_recovery_selection_key(refinement):
+                    refinement = recovery_refinement
+                    selected_contract = recovery_contract
+                    cruise_aoa_deg = float(recovery_cruise_aoa_deg)
+                    selected_label = label
+            except Exception as exc:
+                recovery_attempts.append(
+                    _build_ground_clearance_recovery_attempt(
+                        label=label,
+                        requested_target_shape_z_scale=float(recovery_scale),
+                        requested_dihedral_exponent=float(recovery_exponent),
+                        case_output_dir=case_output_dir,
+                        error=exc,
+                    )
+                )
 
     final_iteration = refinement.final_iteration
     final_export_loads = LoadMapper.apply_load_factor(
@@ -4700,7 +5186,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     aero_contract_json_path = output_dir / "candidate_aero_contract.json"
     aero_contract_json_path.write_text(
-        json.dumps(asdict(aero_contract), indent=2) + "\n",
+        json.dumps(asdict(selected_contract), indent=2) + "\n",
         encoding="utf-8",
     )
     artifacts = ArtifactBundle(
@@ -4708,6 +5194,18 @@ def main(argv: list[str] | None = None) -> int:
             **asdict(artifacts),
             "aero_contract_json": str(aero_contract_json_path.resolve()),
         }
+    )
+    recovery_summary = GroundClearanceRecoverySummary(
+        enabled=bool(args.ground_clearance_recovery),
+        triggered=bool(trigger_reason is not None),
+        trigger_reason=trigger_reason,
+        selected_attempt_label=str(selected_label),
+        baseline_requested_knobs=_requested_outer_loop_knobs(
+            target_shape_z_scale=target_shape_z_scale,
+            dihedral_exponent=dihedral_exponent,
+        ),
+        selected_requested_knobs=dict(selected_contract.requested_knobs),
+        attempts=tuple(recovery_attempts),
     )
     refinement = RefreshRefinementOutcome(
         refresh_steps_requested=refinement.refresh_steps_requested,
@@ -4721,7 +5219,8 @@ def main(argv: list[str] | None = None) -> int:
         max_jig_vertical_curvature_limit_per_m=refinement.max_jig_vertical_curvature_limit_per_m,
         iterations=refinement.iterations,
         artifacts=artifacts,
-        aero_contract=refinement.aero_contract,
+        aero_contract=selected_contract,
+        ground_clearance_recovery=recovery_summary,
     )
 
     report_path = output_dir / "direct_dual_beam_inverse_design_refresh_report.txt"
@@ -4760,7 +5259,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Design report       : {design_report}")
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
-    print(f"  Aero source mode    : {aero_contract.source_mode}")
+    print(f"  Aero source mode    : {selected_contract.source_mode}")
     print(f"  Refresh steps       : {refinement.refresh_steps_completed}/{refinement.refresh_steps_requested}")
     print(f"  Dynamic map rebuild : {refinement.dynamic_design_space_rebuilds}")
     print(f"  Converged           : {refinement.converged}")
@@ -4778,8 +5277,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Loaded-shape twist  : {final_selected.loaded_shape_twist_error_max_deg:.6f} deg")
     print(f"  Nodewise mismatch   : {_mm(final_selected.target_shape_error_max_m):.6f} mm")
     print(f"  Jig clearance min   : {_mm(final_selected.jig_ground_clearance_min_m):.3f} mm")
-    print(f"  Target Z scale      : {target_shape_z_scale:.6f}")
-    print(f"  Dihedral exponent   : {dihedral_exponent:.6f}")
+    print(
+        "  Selected outer loop : "
+        f"{selected_label} "
+        f"(z_scale={selected_contract.requested_knobs.get('target_shape_z_scale', float('nan')):.6f}, "
+        f"exp={selected_contract.requested_knobs.get('dihedral_exponent', float('nan')):.6f})"
+    )
+    print(f"  Recovery triggered  : {recovery_summary.triggered}")
+    if recovery_summary.trigger_reason is not None:
+        print(f"  Recovery reason     : {recovery_summary.trigger_reason}")
     print(f"  Clearance risk      : {final_selected.clearance_risk_score:.6f}")
     print(f"  Active-wall risk    : {final_selected.active_wall_risk_score:.6f}")
     if refinement.final_iteration.forward_check is not None:

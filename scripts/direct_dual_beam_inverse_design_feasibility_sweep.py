@@ -64,6 +64,12 @@ class SweepCaseResult:
     rib_unique_family_count: int | None = None
     rib_family_switch_count: int | None = None
     rib_zone_count: int | None = None
+    requested_target_shape_z_scale: float | None = None
+    requested_dihedral_exponent: float | None = None
+    ground_clearance_recovery_triggered: bool | None = None
+    ground_clearance_recovery_selected_attempt: str | None = None
+    ground_clearance_recovery_attempt_count: int | None = None
+    ground_clearance_recovery_trigger_reason: str | None = None
 
 
 def _parse_targets(text: str) -> tuple[float, ...]:
@@ -102,6 +108,7 @@ def _build_search_budget_summary(args) -> dict[str, object]:
         "cobyla_rhobeg": float(args.cobyla_rhobeg),
         "skip_local_refine": bool(args.skip_local_refine),
         "skip_step_export": bool(args.skip_step_export),
+        "ground_clearance_recovery": bool(args.ground_clearance_recovery),
         "local_refine_feasible_seeds": int(args.local_refine_feasible_seeds),
         "local_refine_near_feasible_seeds": int(args.local_refine_near_feasible_seeds),
         "local_refine_max_starts": int(args.local_refine_max_starts),
@@ -171,6 +178,43 @@ def _extract_aero_contract_snapshot(summary: dict[str, object]) -> dict[str, obj
             None
             if not isinstance(artifacts, dict) or artifacts.get("aero_contract_json") is None
             else str(artifacts["aero_contract_json"])
+        ),
+    }
+
+
+def _extract_ground_clearance_recovery_snapshot(summary: dict[str, object]) -> dict[str, object]:
+    contract = summary.get("aero_contract")
+    recovery = summary.get("ground_clearance_recovery")
+    requested_knobs = contract.get("requested_knobs") if isinstance(contract, dict) else None
+    attempts = recovery.get("attempts") if isinstance(recovery, dict) else None
+    return {
+        "requested_target_shape_z_scale": (
+            None
+            if not isinstance(requested_knobs, dict) or requested_knobs.get("target_shape_z_scale") is None
+            else float(requested_knobs["target_shape_z_scale"])
+        ),
+        "requested_dihedral_exponent": (
+            None
+            if not isinstance(requested_knobs, dict) or requested_knobs.get("dihedral_exponent") is None
+            else float(requested_knobs["dihedral_exponent"])
+        ),
+        "ground_clearance_recovery_triggered": (
+            None
+            if not isinstance(recovery, dict) or recovery.get("triggered") is None
+            else bool(recovery["triggered"])
+        ),
+        "ground_clearance_recovery_selected_attempt": (
+            None
+            if not isinstance(recovery, dict) or recovery.get("selected_attempt_label") is None
+            else str(recovery["selected_attempt_label"])
+        ),
+        "ground_clearance_recovery_attempt_count": (
+            None if not isinstance(attempts, list) else int(len(attempts))
+        ),
+        "ground_clearance_recovery_trigger_reason": (
+            None
+            if not isinstance(recovery, dict) or recovery.get("trigger_reason") is None
+            else str(recovery["trigger_reason"])
         ),
     }
 
@@ -307,6 +351,8 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
         "selection_status": "winner" if feasible_cases else "nearest_candidate",
         "requested_knobs": {
             "target_mass_kg": float(winner.target_mass_kg),
+            "target_shape_z_scale": winner.requested_target_shape_z_scale,
+            "dihedral_exponent": winner.requested_dihedral_exponent,
         },
         "candidate_score": float(winner.candidate_score),
         "selected_total_mass_kg": float(winner.selected_total_mass_kg),
@@ -325,6 +371,10 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
         "artifact_ownership": winner.artifact_ownership,
         "selected_cruise_aoa_deg": winner.selected_cruise_aoa_deg,
         "aero_contract_json_path": winner.aero_contract_json_path,
+        "ground_clearance_recovery_triggered": winner.ground_clearance_recovery_triggered,
+        "ground_clearance_recovery_selected_attempt": winner.ground_clearance_recovery_selected_attempt,
+        "ground_clearance_recovery_attempt_count": winner.ground_clearance_recovery_attempt_count,
+        "ground_clearance_recovery_trigger_reason": winner.ground_clearance_recovery_trigger_reason,
         "rib_design": (
             None
             if winner.rib_design_key is None
@@ -384,6 +434,11 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         str(args.local_refine_early_stop_abs_improvement_kg),
         "--aero-source-mode",
         str(args.aero_source_mode),
+        (
+            "--ground-clearance-recovery"
+            if bool(args.ground_clearance_recovery)
+            else "--no-ground-clearance-recovery"
+        ),
         "--rib-zonewise-mode",
         str(args.rib_zonewise_mode),
         "--rib-family-switch-penalty-kg",
@@ -425,6 +480,7 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
     )
     aero_snapshot = _extract_aero_contract_snapshot(summary)
     rib_snapshot = _extract_rib_design_snapshot(selected)
+    recovery_snapshot = _extract_ground_clearance_recovery_snapshot(summary)
 
     return SweepCaseResult(
         target_mass_kg=float(target_mass_kg),
@@ -458,6 +514,7 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         report_path=str(report_path.resolve()),
         **aero_snapshot,
         **rib_snapshot,
+        **recovery_snapshot,
     )
 
 
@@ -509,6 +566,7 @@ def _build_report_text(
         ),
         f"  refresh steps               : {search_budget['refresh_steps']}",
         f"  COBYLA maxiter / rhobeg     : {search_budget['cobyla_maxiter']} / {search_budget['cobyla_rhobeg']:.3f}",
+        f"  clearance recovery          : {search_budget['ground_clearance_recovery']}",
         (
             "  local refine                : "
             + (
@@ -538,7 +596,9 @@ def _build_report_text(
         lines.append(f"  status                       : {winner_summary['selection_status']}")
         lines.append(
             "  requested knobs              : "
-            f"target_mass_kg={winner_summary['requested_knobs']['target_mass_kg']:.3f}"
+            f"target_mass_kg={winner_summary['requested_knobs']['target_mass_kg']:.3f}, "
+            f"target_shape_z_scale={winner_summary['requested_knobs']['target_shape_z_scale']}, "
+            f"dihedral_exponent={winner_summary['requested_knobs']['dihedral_exponent']}"
         )
         lines.append(f"  candidate score              : {winner_summary['candidate_score']:.3f}")
         lines.append(
@@ -569,6 +629,18 @@ def _build_report_text(
         if winner_summary["aero_contract_json_path"] is not None:
             lines.append(
                 f"  aero contract JSON          : {winner_summary['aero_contract_json_path']}"
+            )
+        if winner_summary["ground_clearance_recovery_triggered"] is not None:
+            lines.append(
+                "  clearance recovery         : "
+                f"triggered={winner_summary['ground_clearance_recovery_triggered']}, "
+                f"selected={winner_summary['ground_clearance_recovery_selected_attempt']}, "
+                f"attempts={winner_summary['ground_clearance_recovery_attempt_count']}"
+            )
+        if winner_summary["ground_clearance_recovery_trigger_reason"] is not None:
+            lines.append(
+                "  recovery trigger reason    : "
+                f"{winner_summary['ground_clearance_recovery_trigger_reason']}"
             )
         if winner_summary["rib_design"] is not None:
             rib_design = winner_summary["rib_design"]
@@ -636,6 +708,24 @@ def _build_report_text(
             lines.append(f"  artifact ownership           : {case.artifact_ownership}")
         if case.selected_cruise_aoa_deg is not None:
             lines.append(f"  selected cruise AoA          : {case.selected_cruise_aoa_deg:.3f} deg")
+        if case.requested_target_shape_z_scale is not None:
+            lines.append(
+                "  selected outer-loop knobs   : "
+                f"target_shape_z_scale={case.requested_target_shape_z_scale}, "
+                f"dihedral_exponent={case.requested_dihedral_exponent}"
+            )
+        if case.ground_clearance_recovery_triggered is not None:
+            lines.append(
+                "  clearance recovery          : "
+                f"triggered={case.ground_clearance_recovery_triggered}, "
+                f"selected={case.ground_clearance_recovery_selected_attempt}, "
+                f"attempts={case.ground_clearance_recovery_attempt_count}"
+            )
+        if case.ground_clearance_recovery_trigger_reason is not None:
+            lines.append(
+                "  recovery trigger reason     : "
+                f"{case.ground_clearance_recovery_trigger_reason}"
+            )
         lines.append(f"  main blocker                 : {case.main_blocker}")
         lines.append(f"  reject reason                : {case.reject_reason}")
         lines.append(f"  nearest boundary             : {case.nearest_boundary}")
@@ -701,6 +791,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cobyla-rhobeg", type=float, default=0.18)
     parser.add_argument("--skip-local-refine", action="store_true")
     parser.add_argument("--skip-step-export", action="store_true")
+    parser.add_argument(
+        "--ground-clearance-recovery",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
     parser.add_argument("--local-refine-feasible-seeds", type=int, default=1)
     parser.add_argument("--local-refine-near-feasible-seeds", type=int, default=2)
     parser.add_argument("--local-refine-max-starts", type=int, default=4)
