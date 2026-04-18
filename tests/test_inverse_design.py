@@ -24,12 +24,24 @@ from hpa_mdo.structure.inverse_design import (
 )
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.core import MaterialDB
+from scripts.dihedral_sweep_campaign import (
+    SweepResult as DihedralSweepResult,
+    _annotate_campaign_selection,
+    _build_arg_parser as _build_dihedral_campaign_arg_parser,
+    _build_campaign_search_budget,
+)
+from scripts.direct_dual_beam_inverse_design_feasibility_sweep import (
+    SweepCaseResult as FeasibilitySweepCaseResult,
+    _annotate_case_selection as _annotate_feasibility_case_selection,
+    _build_arg_parser as _build_feasibility_sweep_arg_parser,
+    _build_search_budget_summary as _build_feasibility_search_budget_summary,
+)
 from scripts.direct_dual_beam_inverse_design import (
     CandidateArchive,
     InverseCandidate,
     LightweightLoadRefreshModel,
     _build_validity_summary_payload,
-    _build_arg_parser,
+    _build_arg_parser as _build_direct_inverse_arg_parser,
     _clearance_risk_metrics,
     _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
@@ -108,7 +120,7 @@ class InverseDesignTests(unittest.TestCase):
         )
 
     def test_loaded_shape_tolerance_cli_overrides_accept_new_and_legacy_flags(self) -> None:
-        args = _build_arg_parser().parse_args(
+        args = _build_direct_inverse_arg_parser().parse_args(
             [
                 "--loaded-shape-z-tol",
                 "0.031",
@@ -1051,6 +1063,213 @@ class InverseDesignTests(unittest.TestCase):
             max_starts=3,
         )
         self.assertEqual([candidate.source for candidate in starts], ["under_cap_feasible", "over_cap_feasible"])
+
+
+class OuterLoopContractTests(unittest.TestCase):
+    @staticmethod
+    def _make_feasibility_case(
+        *,
+        target_mass_kg: float,
+        feasible: bool,
+        candidate_score: float,
+        selected_total_mass_kg: float = 24.0,
+        objective_value_kg: float = 24.0,
+        mismatch_m: float = 0.006,
+        clearance_m: float = 0.040,
+        main_blocker: str = "none",
+    ) -> FeasibilitySweepCaseResult:
+        return FeasibilitySweepCaseResult(
+            target_mass_kg=target_mass_kg,
+            feasible=feasible,
+            best_feasible_mass_kg=selected_total_mass_kg if feasible else None,
+            best_near_feasible_mass_kg=None if feasible else selected_total_mass_kg,
+            selected_total_mass_kg=selected_total_mass_kg,
+            objective_value_kg=objective_value_kg,
+            mass_margin_kg=0.5 if feasible else -1.0,
+            target_violation_score=0.0 if feasible else 0.2,
+            candidate_score=candidate_score,
+            target_shape_error_max_m=mismatch_m,
+            ground_clearance_min_m=clearance_m,
+            max_jig_prebend_m=0.10,
+            max_jig_curvature_per_m=0.01,
+            failure_index=-0.2,
+            buckling_index=-0.1,
+            forward_mismatch_max_m=None,
+            main_blocker="none" if feasible else main_blocker,
+            reject_reason="none" if feasible else main_blocker,
+            nearest_boundary="none" if feasible else main_blocker,
+            summary_json_path=f"/tmp/target_{target_mass_kg:.1f}.json",
+            report_path=f"/tmp/target_{target_mass_kg:.1f}.txt",
+        )
+
+    @staticmethod
+    def _make_dihedral_result(
+        *,
+        dihedral_multiplier: float,
+        aero_status: str = "stable",
+        aero_performance_feasible: bool = True,
+        aero_performance_reason: str = "ok",
+        beta_pass: bool = True,
+        spiral_ok: bool = True,
+        structure_status: str = "feasible",
+        total_mass_kg: float | None = 23.0,
+        objective_value_kg: float | None = 23.0,
+        mismatch_mm: float | None = 6.0,
+        clearance_mm: float | None = 35.0,
+        structural_reject_reason: str | None = None,
+        error_message: str | None = None,
+    ) -> DihedralSweepResult:
+        return DihedralSweepResult(
+            dihedral_multiplier=dihedral_multiplier,
+            dihedral_exponent=1.0,
+            avl_case_path="/tmp/case.avl",
+            mode_file_path=None,
+            dutch_roll_found=True,
+            dutch_roll_selection="oscillatory_lateral_mode",
+            dutch_roll_real=-0.02,
+            dutch_roll_imag=0.10,
+            aero_status=aero_status,
+            aero_performance_feasible=aero_performance_feasible,
+            aero_performance_reason=aero_performance_reason,
+            cl_trim=None,
+            cd_induced=None,
+            cd_total_est=None,
+            ld_ratio=28.0,
+            aoa_trim_deg=None,
+            span_efficiency=None,
+            lift_total_n=None,
+            aero_power_w=None,
+            beta_sweep_max_beta_deg=12.0,
+            beta_sweep_cn_beta_per_rad=0.20,
+            beta_sweep_cl_beta_per_rad=0.05,
+            beta_sweep_directional_stable=beta_pass,
+            beta_sweep_sideslip_feasible=beta_pass,
+            rudder_cl_derivative=None,
+            rudder_cn_derivative=None,
+            rudder_roll_to_yaw_ratio=None,
+            rudder_coupling_reason=None,
+            spiral_mode_real=-0.01 if spiral_ok else 0.05,
+            spiral_time_to_double_s=None if spiral_ok else 4.0,
+            spiral_time_to_half_s=80.0 if spiral_ok else None,
+            spiral_check_ok=spiral_ok,
+            spiral_reason="stable" if spiral_ok else "time_to_double_below_limit",
+            structure_status=structure_status,
+            total_mass_kg=total_mass_kg,
+            min_jig_clearance_mm=clearance_mm,
+            wire_tension_n=None,
+            wire_margin_n=None,
+            failure_index=-0.2 if total_mass_kg is not None else None,
+            buckling_index=-0.1 if total_mass_kg is not None else None,
+            objective_value_kg=objective_value_kg,
+            realizable_mismatch_max_mm=mismatch_mm,
+            structural_reject_reason=structural_reject_reason,
+            selected_output_dir=None,
+            summary_json_path=f"/tmp/mult_{dihedral_multiplier:.3f}.json",
+            wire_rigging_json_path=None,
+            error_message=error_message,
+        )
+
+    def test_feasibility_sweep_budget_summary_uses_richer_default_grids(self) -> None:
+        args = _build_feasibility_sweep_arg_parser().parse_args([])
+
+        budget = _build_feasibility_search_budget_summary(args)
+
+        self.assertEqual(budget["coarse_axes"]["main_plateau_grid_points"], 4)
+        self.assertEqual(budget["coarse_axes"]["rear_outboard_grid_points"], 3)
+        self.assertEqual(budget["coarse_grid_points_per_case"], 576)
+
+    def test_feasibility_sweep_selection_prefers_lowest_feasible_contract_score(self) -> None:
+        rejected = self._make_feasibility_case(
+            target_mass_kg=18.0,
+            feasible=False,
+            candidate_score=1024.0,
+            main_blocker="ground clearance",
+        )
+        winner_case = self._make_feasibility_case(
+            target_mass_kg=20.0,
+            feasible=True,
+            candidate_score=24.0,
+            selected_total_mass_kg=24.0,
+        )
+        runner_up = self._make_feasibility_case(
+            target_mass_kg=22.0,
+            feasible=True,
+            candidate_score=25.5,
+            selected_total_mass_kg=25.5,
+        )
+
+        annotated, winner = _annotate_feasibility_case_selection([rejected, winner_case, runner_up])
+
+        by_target = {case.target_mass_kg: case for case in annotated}
+        self.assertIsNotNone(winner)
+        assert winner is not None
+        self.assertEqual(winner["selection_status"], "winner")
+        self.assertAlmostEqual(winner["requested_knobs"]["target_mass_kg"], 20.0)
+        self.assertEqual(by_target[20.0].selection_status, "winner")
+        self.assertEqual(by_target[22.0].selection_status, "feasible_runner_up")
+        self.assertEqual(by_target[18.0].selection_status, "rejected")
+        assert by_target[20.0].winner_evidence is not None
+        self.assertIn("lowest feasible contract score", by_target[20.0].winner_evidence)
+
+    def test_dihedral_campaign_budget_summary_accepts_local_refine_controls(self) -> None:
+        args = _build_dihedral_campaign_arg_parser().parse_args(
+            [
+                "--cobyla-maxiter",
+                "240",
+                "--local-refine-max-starts",
+                "6",
+                "--local-refine-feasible-seeds",
+                "2",
+            ]
+        )
+
+        budget = _build_campaign_search_budget(args)
+
+        self.assertEqual(budget["cobyla_maxiter"], 240)
+        self.assertEqual(budget["local_refine_max_starts"], 6)
+        self.assertEqual(budget["local_refine_feasible_seeds"], 2)
+        self.assertEqual(budget["coarse_grid_points_per_case"], 576)
+
+    def test_dihedral_campaign_selection_marks_winner_and_reject_reasons(self) -> None:
+        winner_row = self._make_dihedral_result(
+            dihedral_multiplier=1.20,
+            total_mass_kg=22.5,
+            objective_value_kg=22.6,
+            mismatch_mm=5.0,
+            clearance_mm=42.0,
+        )
+        structural_reject = self._make_dihedral_result(
+            dihedral_multiplier=1.40,
+            structure_status="infeasible",
+            total_mass_kg=21.5,
+            objective_value_kg=21.7,
+            mismatch_mm=7.5,
+            clearance_mm=8.0,
+            structural_reject_reason="ground_clearance",
+        )
+        aero_reject = self._make_dihedral_result(
+            dihedral_multiplier=1.60,
+            aero_performance_feasible=False,
+            aero_performance_reason="ld_ratio_below_min",
+            structure_status="skipped",
+            total_mass_kg=None,
+            objective_value_kg=None,
+            mismatch_mm=None,
+            clearance_mm=None,
+        )
+
+        annotated, winner = _annotate_campaign_selection([winner_row, structural_reject, aero_reject])
+
+        by_multiplier = {case.dihedral_multiplier: case for case in annotated}
+        self.assertIsNotNone(winner)
+        assert winner is not None
+        self.assertEqual(winner["selection_status"], "winner")
+        self.assertAlmostEqual(winner["requested_knobs"]["dihedral_multiplier"], 1.20)
+        self.assertEqual(by_multiplier[1.20].selection_status, "winner")
+        self.assertEqual(by_multiplier[1.40].reject_reason, "structural:ground_clearance")
+        self.assertEqual(by_multiplier[1.60].reject_reason, "aero_performance:ld_ratio_below_min")
+        assert by_multiplier[1.20].winner_evidence is not None
+        self.assertIn("lowest fully-passing campaign score", by_multiplier[1.20].winner_evidence)
 
 
 if __name__ == "__main__":

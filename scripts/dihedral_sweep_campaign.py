@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import json
 import math
 from pathlib import Path
@@ -39,6 +39,14 @@ SPIRAL_LATERAL_RATIO_MIN = 0.35
 LATERAL_STATE_NAMES = ("v", "p", "r", "phi", "psi", "y")
 LONGITUDINAL_STATE_NAMES = ("u", "w", "q", "the", "x", "z")
 FLOAT_TOKEN = r"[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[Ee][-+]?\d+)?"
+CAMPAIGN_GATE_PENALTIES_KG = {
+    "aero_stability": 8000.0,
+    "aero_performance": 6000.0,
+    "beta_sideslip": 4000.0,
+    "spiral": 2000.0,
+    "inverse_design_subprocess": 1000.0,
+    "structural": 500.0,
+}
 
 
 @dataclass(frozen=True)
@@ -178,6 +186,7 @@ class BetaSweepEvaluation:
 @dataclass(frozen=True)
 class SweepResult:
     dihedral_multiplier: float
+    dihedral_exponent: float
     avl_case_path: str
     mode_file_path: str | None
     dutch_roll_found: bool
@@ -216,10 +225,17 @@ class SweepResult:
     wire_margin_n: float | None
     failure_index: float | None
     buckling_index: float | None
+    objective_value_kg: float | None
+    realizable_mismatch_max_mm: float | None
+    structural_reject_reason: str | None
     selected_output_dir: str | None
     summary_json_path: str | None
     wire_rigging_json_path: str | None
     error_message: str | None
+    candidate_score: float | None = None
+    reject_reason: str = "unranked"
+    selection_status: str = "unranked"
+    winner_evidence: str | None = None
 
 
 @dataclass(frozen=True)
@@ -235,6 +251,39 @@ def _parse_multiplier_list(text: str) -> tuple[float, ...]:
     if not values:
         raise ValueError("Need at least one dihedral multiplier.")
     return values
+
+
+def _grid_point_count(text: str) -> int:
+    return len(tuple(part.strip() for part in text.split(",") if part.strip()))
+
+
+def _build_campaign_search_budget(args) -> dict[str, object]:
+    coarse_axes = {
+        "main_plateau_grid_points": _grid_point_count(args.main_plateau_grid),
+        "main_taper_fill_grid_points": _grid_point_count(args.main_taper_fill_grid),
+        "rear_radius_grid_points": _grid_point_count(args.rear_radius_grid),
+        "rear_outboard_grid_points": _grid_point_count(args.rear_outboard_grid),
+        "wall_thickness_grid_points": _grid_point_count(args.wall_thickness_grid),
+    }
+    coarse_grid_points = 1
+    for count in coarse_axes.values():
+        coarse_grid_points *= max(1, int(count))
+    return {
+        "coarse_axes": coarse_axes,
+        "coarse_grid_points_per_case": int(coarse_grid_points),
+        "refresh_steps": int(args.refresh_steps),
+        "cobyla_maxiter": int(args.cobyla_maxiter),
+        "cobyla_rhobeg": float(args.cobyla_rhobeg),
+        "skip_local_refine": bool(args.skip_local_refine),
+        "skip_step_export": bool(args.skip_step_export),
+        "local_refine_feasible_seeds": int(args.local_refine_feasible_seeds),
+        "local_refine_near_feasible_seeds": int(args.local_refine_near_feasible_seeds),
+        "local_refine_max_starts": int(args.local_refine_max_starts),
+        "local_refine_early_stop_patience": int(args.local_refine_early_stop_patience),
+        "local_refine_early_stop_abs_improvement_kg": float(
+            args.local_refine_early_stop_abs_improvement_kg
+        ),
+    }
 
 
 def _slug(multiplier: float) -> str:
@@ -1193,6 +1242,14 @@ def run_inverse_design_case(
     rear_outboard_grid: str,
     wall_thickness_grid: str,
     refresh_steps: int,
+    cobyla_maxiter: int,
+    cobyla_rhobeg: float,
+    skip_local_refine: bool,
+    local_refine_feasible_seeds: int,
+    local_refine_near_feasible_seeds: int,
+    local_refine_max_starts: int,
+    local_refine_early_stop_patience: int,
+    local_refine_early_stop_abs_improvement_kg: float,
     skip_step_export: bool,
     strict: bool = False,
 ) -> tuple[str | None, str | None, str | None]:
@@ -1224,7 +1281,23 @@ def run_inverse_design_case(
         wall_thickness_grid,
         "--refresh-steps",
         str(int(refresh_steps)),
+        "--cobyla-maxiter",
+        str(int(cobyla_maxiter)),
+        "--cobyla-rhobeg",
+        f"{float(cobyla_rhobeg):.9f}",
+        "--local-refine-feasible-seeds",
+        str(int(local_refine_feasible_seeds)),
+        "--local-refine-near-feasible-seeds",
+        str(int(local_refine_near_feasible_seeds)),
+        "--local-refine-max-starts",
+        str(int(local_refine_max_starts)),
+        "--local-refine-early-stop-patience",
+        str(int(local_refine_early_stop_patience)),
+        "--local-refine-early-stop-abs-improvement-kg",
+        f"{float(local_refine_early_stop_abs_improvement_kg):.9f}",
     ]
+    if skip_local_refine:
+        cmd.append("--skip-local-refine")
     if skip_step_export:
         cmd.append("--skip-step-export")
     proc = subprocess.run(
@@ -1274,9 +1347,20 @@ def _read_inverse_summary(summary_path: Path) -> dict[str, object]:
     return json.loads(summary_path.read_text(encoding="utf-8"))
 
 
+def _structural_reject_reason(selected: dict[str, object]) -> str:
+    failures = selected.get("failures") or []
+    if isinstance(failures, list) and failures:
+        return str(failures[0])
+    hard_margins = selected.get("hard_margins") or {}
+    if isinstance(hard_margins, dict) and hard_margins:
+        return str(min(hard_margins.items(), key=lambda item: float(item[1]))[0])
+    return "inverse_design_infeasible"
+
+
 def _build_result_row(
     *,
     multiplier: float,
+    dihedral_exponent: float,
     avl_eval: AvlEvaluation,
     aero_perf_eval: AeroPerformanceEvaluation,
     beta_eval: BetaSweepEvaluation | None,
@@ -1290,6 +1374,7 @@ def _build_result_row(
         structure_status = "structural_failed" if error_message else "skipped"
         return SweepResult(
             dihedral_multiplier=float(multiplier),
+            dihedral_exponent=float(dihedral_exponent),
             avl_case_path=avl_eval.avl_case_path,
             mode_file_path=avl_eval.mode_file_path,
             dutch_roll_found=avl_eval.dutch_roll_found,
@@ -1328,6 +1413,9 @@ def _build_result_row(
             wire_margin_n=None,
             failure_index=None,
             buckling_index=None,
+            objective_value_kg=None,
+            realizable_mismatch_max_mm=None,
+            structural_reject_reason=None,
             selected_output_dir=selected_output_dir,
             summary_json_path=summary_json_path,
             wire_rigging_json_path=None,
@@ -1340,6 +1428,7 @@ def _build_result_row(
     wire_tension_n, wire_margin_n, wire_json_path = _extract_wire_metrics(summary_payload)
     return SweepResult(
         dihedral_multiplier=float(multiplier),
+        dihedral_exponent=float(dihedral_exponent),
         avl_case_path=avl_eval.avl_case_path,
         mode_file_path=avl_eval.mode_file_path,
         dutch_roll_found=avl_eval.dutch_roll_found,
@@ -1378,6 +1467,11 @@ def _build_result_row(
         wire_margin_n=wire_margin_n,
         failure_index=float(selected["equivalent_failure_index"]),
         buckling_index=float(selected["equivalent_buckling_index"]),
+        objective_value_kg=float(selected["objective_value_kg"]),
+        realizable_mismatch_max_mm=float(selected["target_shape_error_max_m"]) * 1000.0,
+        structural_reject_reason=(
+            None if bool(selected["overall_feasible"]) else _structural_reject_reason(selected)
+        ),
         selected_output_dir=selected_output_dir,
         summary_json_path=summary_json_path,
         wire_rigging_json_path=wire_json_path,
@@ -1385,9 +1479,124 @@ def _build_result_row(
     )
 
 
+def _campaign_reject_reason(row: SweepResult) -> str:
+    if row.aero_status not in {"stable", "stable_fallback"}:
+        return f"aero_stability:{row.aero_status}"
+    if not row.aero_performance_feasible:
+        return f"aero_performance:{row.aero_performance_reason}"
+    if row.beta_sweep_directional_stable is False or row.beta_sweep_sideslip_feasible is False:
+        return "beta_sideslip:trim_or_directional_gate_failed"
+    if row.spiral_check_ok is False:
+        return f"spiral:{row.spiral_reason or 'failed'}"
+    if row.error_message is not None or row.structure_status == "structural_failed":
+        return "inverse_design_subprocess:failed"
+    if row.structure_status == "infeasible":
+        detail = row.structural_reject_reason or "inverse_design_infeasible"
+        return f"structural:{detail}"
+    return "none"
+
+
+def _campaign_gate_penalty_kg(reject_reason: str) -> float:
+    if reject_reason == "none":
+        return 0.0
+    for prefix, penalty in CAMPAIGN_GATE_PENALTIES_KG.items():
+        if reject_reason.startswith(prefix):
+            return float(penalty)
+    return float(CAMPAIGN_GATE_PENALTIES_KG["structural"])
+
+
+def _build_campaign_winner_evidence(row: SweepResult, *, passing_pool_exists: bool) -> str:
+    mismatch_text = (
+        "n/a" if row.realizable_mismatch_max_mm is None else f"{row.realizable_mismatch_max_mm:.3f} mm"
+    )
+    clearance_text = (
+        "n/a" if row.min_jig_clearance_mm is None else f"{row.min_jig_clearance_mm:.3f} mm"
+    )
+    mass_text = "n/a" if row.total_mass_kg is None else f"{row.total_mass_kg:.3f} kg"
+    prefix = (
+        "lowest fully-passing campaign score"
+        if passing_pool_exists
+        else "no fully-passing candidate; lowest penalized campaign score"
+    )
+    return (
+        f"{prefix}; score={row.candidate_score:.3f}, "
+        f"mass={mass_text}, mismatch={mismatch_text}, clearance={clearance_text}"
+    )
+
+
+def _annotate_campaign_selection(rows: list[SweepResult]) -> tuple[list[SweepResult], dict[str, object] | None]:
+    if not rows:
+        return [], None
+
+    scored_rows = [
+        replace(
+            row,
+            reject_reason=_campaign_reject_reason(row),
+            candidate_score=float((row.objective_value_kg or 0.0) + _campaign_gate_penalty_kg(_campaign_reject_reason(row))),
+        )
+        for row in rows
+    ]
+    passing_rows = [row for row in scored_rows if row.reject_reason == "none"]
+    winner_pool = passing_rows if passing_rows else scored_rows
+    winner = min(
+        winner_pool,
+        key=lambda row: (
+            float(row.candidate_score if row.candidate_score is not None else float("inf")),
+            float(row.objective_value_kg if row.objective_value_kg is not None else float("inf")),
+            float(row.total_mass_kg if row.total_mass_kg is not None else float("inf")),
+            float(row.realizable_mismatch_max_mm if row.realizable_mismatch_max_mm is not None else float("inf")),
+        ),
+    )
+
+    annotated: list[SweepResult] = []
+    for row in scored_rows:
+        if row == winner:
+            selection_status = "winner" if passing_rows else "nearest_candidate"
+            winner_evidence = _build_campaign_winner_evidence(
+                row,
+                passing_pool_exists=bool(passing_rows),
+            )
+        elif row.reject_reason == "none":
+            selection_status = "passing_runner_up"
+            winner_evidence = None
+        else:
+            selection_status = "rejected"
+            winner_evidence = None
+        annotated.append(
+            replace(
+                row,
+                selection_status=selection_status,
+                winner_evidence=winner_evidence,
+            )
+        )
+
+    winner_summary = {
+        "selection_status": "winner" if passing_rows else "nearest_candidate",
+        "requested_knobs": {
+            "dihedral_multiplier": float(winner.dihedral_multiplier),
+            "dihedral_exponent": float(winner.dihedral_exponent),
+        },
+        "candidate_score": float(winner.candidate_score),
+        "reject_reason": winner.reject_reason,
+        "total_mass_kg": None if winner.total_mass_kg is None else float(winner.total_mass_kg),
+        "realizable_mismatch_max_mm": (
+            None if winner.realizable_mismatch_max_mm is None else float(winner.realizable_mismatch_max_mm)
+        ),
+        "jig_ground_clearance_min_mm": (
+            None if winner.min_jig_clearance_mm is None else float(winner.min_jig_clearance_mm)
+        ),
+        "summary_json_path": winner.summary_json_path,
+        "winner_evidence": next(
+            item.winner_evidence for item in annotated if item.dihedral_multiplier == winner.dihedral_multiplier
+        ),
+    }
+    return annotated, winner_summary
+
+
 def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
     fieldnames = [
         "dihedral_multiplier",
+        "dihedral_exponent",
         "avl_case_path",
         "mode_file_path",
         "dutch_roll_found",
@@ -1426,16 +1635,140 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "wire_margin_n",
         "failure_index",
         "buckling_index",
+        "objective_value_kg",
+        "realizable_mismatch_max_mm",
+        "structural_reject_reason",
         "selected_output_dir",
         "summary_json_path",
         "wire_rigging_json_path",
         "error_message",
+        "candidate_score",
+        "reject_reason",
+        "selection_status",
+        "winner_evidence",
     ]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
             writer.writerow(asdict(row))
+
+
+def _build_campaign_report_text(
+    *,
+    output_dir: Path,
+    rows: list[SweepResult],
+    search_budget: dict[str, object],
+    winner_summary: dict[str, object] | None,
+) -> str:
+    lines = [
+        "=" * 108,
+        "Outer-Loop Dihedral Sweep Campaign",
+        "=" * 108,
+        f"Output dir                    : {output_dir}",
+        "",
+        "Score contract:",
+        "  score name                  : outer_loop_candidate_score",
+        "  direction                   : lower_is_better",
+        "  formula                     : objective_value_kg + gate penalty",
+        (
+            "  gate penalties              : "
+            f"aero_stability={CAMPAIGN_GATE_PENALTIES_KG['aero_stability']:.0f}, "
+            f"aero_performance={CAMPAIGN_GATE_PENALTIES_KG['aero_performance']:.0f}, "
+            f"beta_sideslip={CAMPAIGN_GATE_PENALTIES_KG['beta_sideslip']:.0f}, "
+            f"spiral={CAMPAIGN_GATE_PENALTIES_KG['spiral']:.0f}, "
+            f"inverse_subprocess={CAMPAIGN_GATE_PENALTIES_KG['inverse_design_subprocess']:.0f}, "
+            f"structural={CAMPAIGN_GATE_PENALTIES_KG['structural']:.0f} kg"
+        ),
+        "",
+        "Search budget:",
+        (
+            "  coarse grid points / case   : "
+            f"{int(search_budget['coarse_grid_points_per_case'])}"
+        ),
+        (
+            "  coarse axes                 : "
+            f"plateau={search_budget['coarse_axes']['main_plateau_grid_points']}, "
+            f"taper={search_budget['coarse_axes']['main_taper_fill_grid_points']}, "
+            f"rear_radius={search_budget['coarse_axes']['rear_radius_grid_points']}, "
+            f"rear_outboard={search_budget['coarse_axes']['rear_outboard_grid_points']}, "
+            f"wall={search_budget['coarse_axes']['wall_thickness_grid_points']}"
+        ),
+        f"  refresh steps               : {search_budget['refresh_steps']}",
+        f"  COBYLA maxiter / rhobeg     : {search_budget['cobyla_maxiter']} / {search_budget['cobyla_rhobeg']:.3f}",
+        (
+            "  local refine                : "
+            + (
+                "skipped"
+                if search_budget["skip_local_refine"]
+                else (
+                    f"feasible={search_budget['local_refine_feasible_seeds']}, "
+                    f"near={search_budget['local_refine_near_feasible_seeds']}, "
+                    f"max_starts={search_budget['local_refine_max_starts']}, "
+                    f"patience={search_budget['local_refine_early_stop_patience']}, "
+                    f"abs_improve={search_budget['local_refine_early_stop_abs_improvement_kg']:.3f} kg"
+                )
+            )
+        ),
+        "",
+    ]
+    if winner_summary is not None:
+        lines.extend(
+            [
+                "Winner summary:",
+                f"  status                       : {winner_summary['selection_status']}",
+                (
+                    "  requested knobs              : "
+                    f"dihedral_multiplier={winner_summary['requested_knobs']['dihedral_multiplier']:.3f}, "
+                    f"dihedral_exponent={winner_summary['requested_knobs']['dihedral_exponent']:.3f}"
+                ),
+                f"  candidate score              : {winner_summary['candidate_score']:.3f}",
+                (
+                    "  total mass                   : "
+                    + (
+                        "n/a"
+                        if winner_summary["total_mass_kg"] is None
+                        else f"{float(winner_summary['total_mass_kg']):.3f} kg"
+                    )
+                ),
+                (
+                    "  realizable mismatch max      : "
+                    + (
+                        "n/a"
+                        if winner_summary["realizable_mismatch_max_mm"] is None
+                        else f"{float(winner_summary['realizable_mismatch_max_mm']):.3f} mm"
+                    )
+                ),
+                (
+                    "  jig ground clearance min     : "
+                    + (
+                        "n/a"
+                        if winner_summary["jig_ground_clearance_min_mm"] is None
+                        else f"{float(winner_summary['jig_ground_clearance_min_mm']):.3f} mm"
+                    )
+                ),
+                f"  reject reason                : {winner_summary['reject_reason']}",
+                f"  winner evidence              : {winner_summary['winner_evidence']}",
+                "",
+            ]
+        )
+    lines.append(
+        "multiplier | score | selection | reject reason | mass kg | mismatch mm | clearance mm | aero | struct"
+    )
+    for row in rows:
+        lines.append(
+            f"{row.dihedral_multiplier:10.3f} | "
+            f"{(f'{row.candidate_score:.3f}' if row.candidate_score is not None else 'n/a'):5s} | "
+            f"{row.selection_status:14s} | "
+            f"{row.reject_reason:28s} | "
+            f"{(f'{row.total_mass_kg:.3f}' if row.total_mass_kg is not None else 'n/a'):7s} | "
+            f"{(f'{row.realizable_mismatch_max_mm:.3f}' if row.realizable_mismatch_max_mm is not None else 'n/a'):11s} | "
+            f"{(f'{row.min_jig_clearance_mm:.3f}' if row.min_jig_clearance_mm is not None else 'n/a'):12s} | "
+            f"{row.aero_status:5s} | "
+            f"{row.structure_status}"
+        )
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -1463,12 +1796,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--inverse-script", default=str(DEFAULT_INVERSE_SCRIPT))
     parser.add_argument("--avl-bin", default="avl")
     parser.add_argument("--multipliers", default="1.0,1.5,2.0,2.5")
-    parser.add_argument("--main-plateau-grid", default="0.0,1.0")
-    parser.add_argument("--main-taper-fill-grid", default="0.0,1.0")
-    parser.add_argument("--rear-radius-grid", default="0.0,1.0")
-    parser.add_argument("--rear-outboard-grid", default="0.0,1.0")
-    parser.add_argument("--wall-thickness-grid", default="0.0,1.0")
+    parser.add_argument("--main-plateau-grid", default="0.0,0.33,0.67,1.0")
+    parser.add_argument("--main-taper-fill-grid", default="0.0,0.33,0.67,1.0")
+    parser.add_argument("--rear-radius-grid", default="0.0,0.33,0.67,1.0")
+    parser.add_argument("--rear-outboard-grid", default="0.0,0.5,1.0")
+    parser.add_argument("--wall-thickness-grid", default="0.0,0.35,0.70")
     parser.add_argument("--refresh-steps", type=int, default=2, choices=(0, 1, 2))
+    parser.add_argument("--cobyla-maxiter", type=int, default=160)
+    parser.add_argument("--cobyla-rhobeg", type=float, default=0.18)
+    parser.add_argument("--skip-local-refine", action="store_true")
+    parser.add_argument("--local-refine-feasible-seeds", type=int, default=1)
+    parser.add_argument("--local-refine-near-feasible-seeds", type=int, default=2)
+    parser.add_argument("--local-refine-max-starts", type=int, default=4)
+    parser.add_argument("--local-refine-early-stop-patience", type=int, default=2)
+    parser.add_argument("--local-refine-early-stop-abs-improvement-kg", type=float, default=0.05)
     parser.add_argument("--skip-step-export", action="store_true")
     parser.add_argument(
         "--strict",
@@ -1529,6 +1870,7 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = Path(args.output_dir).expanduser().resolve()
     inverse_script = Path(args.inverse_script).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    search_budget = _build_campaign_search_budget(args)
 
     cfg = load_config(config_path)
     aircraft = Aircraft.from_config(cfg)
@@ -1653,21 +1995,22 @@ def main(argv: list[str] | None = None) -> int:
                     "structural_weight_n": float(aircraft.weight_N),
                     "aero_gate_settings": {
                         "cl_required": float(cl_required),
-                    "min_lift_kg": float(min_lift_kg),
-                    "min_lift_n": float(min_lift_n),
-                    "min_ld_ratio": float(min_ld_ratio),
-                    "cd_profile_estimate": float(cd_profile_estimate),
-                    "max_trim_aoa_deg": float(max_trim_aoa_deg),
-                    "soft_trim_aoa_deg": float(soft_trim_aoa_deg),
-                    "stall_alpha_deg": float(stall_alpha_deg),
-                    "min_stall_margin_deg": float(min_stall_margin_deg),
-                    "skip_aero_gates": bool(args.skip_aero_gates),
-                    "skip_beta_sweep": bool(args.skip_beta_sweep),
-                    "max_sideslip_deg": float(max_sideslip_deg),
-                    "min_spiral_time_to_double_s": float(min_spiral_time_to_double_s),
-                    "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
+                        "min_lift_kg": float(min_lift_kg),
+                        "min_lift_n": float(min_lift_n),
+                        "min_ld_ratio": float(min_ld_ratio),
+                        "cd_profile_estimate": float(cd_profile_estimate),
+                        "max_trim_aoa_deg": float(max_trim_aoa_deg),
+                        "soft_trim_aoa_deg": float(soft_trim_aoa_deg),
+                        "stall_alpha_deg": float(stall_alpha_deg),
+                        "min_stall_margin_deg": float(min_stall_margin_deg),
+                        "skip_aero_gates": bool(args.skip_aero_gates),
+                        "skip_beta_sweep": bool(args.skip_beta_sweep),
+                        "max_sideslip_deg": float(max_sideslip_deg),
+                        "min_spiral_time_to_double_s": float(min_spiral_time_to_double_s),
+                        "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
+                    },
+                    "inverse_design_search_budget": search_budget,
                 },
-            },
             indent=2,
         )
             + "\n",
@@ -1766,6 +2109,16 @@ def main(argv: list[str] | None = None) -> int:
                 rear_outboard_grid=str(args.rear_outboard_grid),
                 wall_thickness_grid=str(args.wall_thickness_grid),
                 refresh_steps=int(args.refresh_steps),
+                cobyla_maxiter=int(args.cobyla_maxiter),
+                cobyla_rhobeg=float(args.cobyla_rhobeg),
+                skip_local_refine=bool(args.skip_local_refine),
+                local_refine_feasible_seeds=int(args.local_refine_feasible_seeds),
+                local_refine_near_feasible_seeds=int(args.local_refine_near_feasible_seeds),
+                local_refine_max_starts=int(args.local_refine_max_starts),
+                local_refine_early_stop_patience=int(args.local_refine_early_stop_patience),
+                local_refine_early_stop_abs_improvement_kg=float(
+                    args.local_refine_early_stop_abs_improvement_kg
+                ),
                 skip_step_export=bool(args.skip_step_export),
                 strict=bool(args.strict),
             )
@@ -1777,6 +2130,7 @@ def main(argv: list[str] | None = None) -> int:
         rows.append(
             _build_result_row(
                 multiplier=float(multiplier),
+                dihedral_exponent=float(dihedral_exponent),
                 avl_eval=avl_eval,
                 aero_perf_eval=aero_perf_eval,
                 beta_eval=beta_eval,
@@ -1790,7 +2144,18 @@ def main(argv: list[str] | None = None) -> int:
 
     csv_path = output_dir / "dihedral_sweep_summary.csv"
     json_path = output_dir / "dihedral_sweep_summary.json"
+    report_path = output_dir / "dihedral_sweep_report.txt"
+    rows, winner_summary = _annotate_campaign_selection(rows)
     _write_summary_csv(csv_path, rows)
+    report_path.write_text(
+        _build_campaign_report_text(
+            output_dir=output_dir,
+            rows=rows,
+            search_budget=search_budget,
+            winner_summary=winner_summary,
+        ),
+        encoding="utf-8",
+    )
     json_path.write_text(
         json.dumps(
             {
@@ -1802,6 +2167,13 @@ def main(argv: list[str] | None = None) -> int:
                 "dihedral_scaling_half_span_m": float(wing_half_span),
                 "dihedral_scaling_exponent": float(dihedral_exponent),
                 "multipliers": [float(value) for value in multipliers],
+                "score_contract": {
+                    "score_name": "outer_loop_candidate_score",
+                    "direction": "lower_is_better",
+                    "formula": "objective_value_kg + gate penalty",
+                    "gate_penalties_kg": CAMPAIGN_GATE_PENALTIES_KG,
+                },
+                "search_budget": search_budget,
                 "aero_gate_settings": {
                     "cl_required": float(cl_required),
                     "min_lift_kg": float(min_lift_kg),
@@ -1818,6 +2190,7 @@ def main(argv: list[str] | None = None) -> int:
                     "min_spiral_time_to_double_s": float(min_spiral_time_to_double_s),
                     "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
                 },
+                "winner": winner_summary,
                 "cases": [asdict(row) for row in rows],
             },
             indent=2,
@@ -1830,8 +2203,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Base AVL           : {base_avl_path}")
     print(f"  Base source        : {base_avl_source}")
     print(f"  Multipliers        : {', '.join(f'{value:.3f}' for value in multipliers)}")
+    print(f"  Report             : {report_path}")
     print(f"  Summary CSV        : {csv_path}")
     print(f"  Summary JSON       : {json_path}")
+    if winner_summary is not None:
+        print(
+            "  Winner             : "
+            f"x{winner_summary['requested_knobs']['dihedral_multiplier']:.3f} "
+            f"(score={winner_summary['candidate_score']:.3f}, "
+            f"status={winner_summary['selection_status']})"
+        )
     for row in rows:
         mass_text = "n/a" if row.total_mass_kg is None else f"{row.total_mass_kg:.3f} kg"
         clear_text = "n/a" if row.min_jig_clearance_mm is None else f"{row.min_jig_clearance_mm:.3f} mm"
@@ -1895,7 +2276,9 @@ def main(argv: list[str] | None = None) -> int:
             f"beta={beta_text}, "
             f"rudder={rudder_text}, spiral={spiral_text}, "
             f"struct={row.structure_status}, mass={mass_text}, "
-            f"clearance={clear_text}, wire={wire_text}"
+            f"clearance={clear_text}, wire={wire_text}, "
+            f"score={row.candidate_score if row.candidate_score is not None else float('nan'):.3f}, "
+            f"selection={row.selection_status}, reject={row.reject_reason}"
         )
     if failed_cases:
         print("WARNING: inverse-design failed for one or more multipliers (marked structural_failed).")

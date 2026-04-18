@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 import json
 from pathlib import Path
@@ -14,6 +14,8 @@ import sys
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 INVERSE_SCRIPT = SCRIPT_DIR / "direct_dual_beam_inverse_design.py"
+FEASIBILITY_GATE_PENALTY_KG = 1000.0
+TARGET_VIOLATION_WEIGHT_KG = 1000.0
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,11 @@ class SweepCaseResult:
     feasible: bool
     best_feasible_mass_kg: float | None
     best_near_feasible_mass_kg: float | None
+    selected_total_mass_kg: float
+    objective_value_kg: float
+    mass_margin_kg: float | None
+    target_violation_score: float
+    candidate_score: float
     target_shape_error_max_m: float | None
     ground_clearance_min_m: float | None
     max_jig_prebend_m: float | None
@@ -30,9 +37,12 @@ class SweepCaseResult:
     buckling_index: float | None
     forward_mismatch_max_m: float | None
     main_blocker: str
+    reject_reason: str
     nearest_boundary: str
     summary_json_path: str
     report_path: str
+    selection_status: str = "unranked"
+    winner_evidence: str | None = None
 
 
 def _parse_targets(text: str) -> tuple[float, ...]:
@@ -40,6 +50,39 @@ def _parse_targets(text: str) -> tuple[float, ...]:
     if not values:
         raise ValueError("Need at least one target mass.")
     return values
+
+
+def _grid_point_count(text: str) -> int:
+    return len(tuple(part.strip() for part in text.split(",") if part.strip()))
+
+
+def _build_search_budget_summary(args) -> dict[str, object]:
+    coarse_axes = {
+        "main_plateau_grid_points": _grid_point_count(args.main_plateau_grid),
+        "main_taper_fill_grid_points": _grid_point_count(args.main_taper_fill_grid),
+        "rear_radius_grid_points": _grid_point_count(args.rear_radius_grid),
+        "rear_outboard_grid_points": _grid_point_count(args.rear_outboard_grid),
+        "wall_thickness_grid_points": _grid_point_count(args.wall_thickness_grid),
+    }
+    coarse_grid_points = 1
+    for count in coarse_axes.values():
+        coarse_grid_points *= max(1, int(count))
+    return {
+        "coarse_axes": coarse_axes,
+        "coarse_grid_points_per_case": int(coarse_grid_points),
+        "refresh_steps": int(args.refresh_steps),
+        "cobyla_maxiter": int(args.cobyla_maxiter),
+        "cobyla_rhobeg": float(args.cobyla_rhobeg),
+        "skip_local_refine": bool(args.skip_local_refine),
+        "skip_step_export": bool(args.skip_step_export),
+        "local_refine_feasible_seeds": int(args.local_refine_feasible_seeds),
+        "local_refine_near_feasible_seeds": int(args.local_refine_near_feasible_seeds),
+        "local_refine_max_starts": int(args.local_refine_max_starts),
+        "local_refine_early_stop_patience": int(args.local_refine_early_stop_patience),
+        "local_refine_early_stop_abs_improvement_kg": float(
+            args.local_refine_early_stop_abs_improvement_kg
+        ),
+    }
 
 
 def _blocker_category(margin_name: str) -> str:
@@ -69,6 +112,82 @@ def _infer_blocker(*, selected: dict, feasible: bool) -> tuple[str, str]:
     if not bool(selected.get("target_mass_passed", True)):
         return "mass target; nearest wall is " + nearest_boundary, nearest_boundary
     return nearest_boundary, nearest_boundary
+
+
+def _build_winner_evidence(case: SweepCaseResult, *, feasible_pool_exists: bool) -> str:
+    mismatch_mm = (
+        "n/a"
+        if case.target_shape_error_max_m is None
+        else f"{case.target_shape_error_max_m * 1000.0:.3f} mm"
+    )
+    clearance_mm = f"{case.ground_clearance_min_m * 1000.0:.3f} mm"
+    prefix = (
+        "lowest feasible contract score"
+        if feasible_pool_exists
+        else "no fully feasible case; lowest penalized contract score"
+    )
+    return (
+        f"{prefix}; score={case.candidate_score:.3f}, "
+        f"mass={case.selected_total_mass_kg:.3f} kg, "
+        f"mismatch={mismatch_mm}, clearance={clearance_mm}"
+    )
+
+
+def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCaseResult], dict[str, object] | None]:
+    if not cases:
+        return [], None
+
+    feasible_cases = [case for case in cases if case.feasible]
+    winner_pool = feasible_cases if feasible_cases else cases
+    winner = min(
+        winner_pool,
+        key=lambda case: (
+            float(case.candidate_score),
+            float(case.selected_total_mass_kg),
+            float(case.target_shape_error_max_m if case.target_shape_error_max_m is not None else float("inf")),
+            -float(case.ground_clearance_min_m),
+        ),
+    )
+
+    annotated: list[SweepCaseResult] = []
+    for case in cases:
+        if case == winner:
+            selection_status = "winner" if feasible_cases else "nearest_candidate"
+            winner_evidence = _build_winner_evidence(case, feasible_pool_exists=bool(feasible_cases))
+        elif case.feasible:
+            selection_status = "feasible_runner_up"
+            winner_evidence = None
+        else:
+            selection_status = "rejected"
+            winner_evidence = None
+        annotated.append(
+            replace(
+                case,
+                selection_status=selection_status,
+                winner_evidence=winner_evidence,
+            )
+        )
+
+    winner_summary = {
+        "selection_status": "winner" if feasible_cases else "nearest_candidate",
+        "requested_knobs": {
+            "target_mass_kg": float(winner.target_mass_kg),
+        },
+        "candidate_score": float(winner.candidate_score),
+        "selected_total_mass_kg": float(winner.selected_total_mass_kg),
+        "realizable_mismatch_max_m": (
+            None
+            if winner.target_shape_error_max_m is None
+            else float(winner.target_shape_error_max_m)
+        ),
+        "jig_ground_clearance_min_m": float(winner.ground_clearance_min_m),
+        "reject_reason": winner.reject_reason,
+        "summary_json_path": winner.summary_json_path,
+        "winner_evidence": next(
+            item.winner_evidence for item in annotated if item.target_mass_kg == winner.target_mass_kg
+        ),
+    }
+    return annotated, winner_summary
 
 
 def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseResult:
@@ -128,6 +247,19 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
     feasible = bool(final["run_metrics"]["feasible"])
     blocker, nearest = _infer_blocker(selected=selected, feasible=feasible)
     forward = final["forward_check"] or {}
+    selected_total_mass_kg = float(selected["total_structural_mass_kg"])
+    objective_value_kg = float(selected["objective_value_kg"])
+    target_violation_score = float(selected.get("target_violation_score", 0.0))
+    candidate_score = float(
+        objective_value_kg
+        + TARGET_VIOLATION_WEIGHT_KG * target_violation_score
+        + (0.0 if feasible else FEASIBILITY_GATE_PENALTY_KG)
+    )
+    mass_margin_kg = (
+        None
+        if selected.get("mass_margin_kg") is None
+        else float(selected["mass_margin_kg"])
+    )
 
     return SweepCaseResult(
         target_mass_kg=float(target_mass_kg),
@@ -138,8 +270,13 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         best_near_feasible_mass_kg=(
             None
             if feasible
-            else float(selected["total_structural_mass_kg"])
+            else selected_total_mass_kg
         ),
+        selected_total_mass_kg=selected_total_mass_kg,
+        objective_value_kg=objective_value_kg,
+        mass_margin_kg=mass_margin_kg,
+        target_violation_score=target_violation_score,
+        candidate_score=candidate_score,
         target_shape_error_max_m=float(selected["target_shape_error_max_m"]),
         ground_clearance_min_m=float(selected["jig_ground_clearance_min_m"]),
         max_jig_prebend_m=float(selected["max_jig_vertical_prebend_m"]),
@@ -150,13 +287,20 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
             None if not forward else float(forward["target_shape_error_max_m"])
         ),
         main_blocker=blocker,
+        reject_reason="none" if feasible else blocker,
         nearest_boundary=nearest,
         summary_json_path=str(summary_path.resolve()),
         report_path=str(report_path.resolve()),
     )
 
 
-def _build_report_text(*, output_dir: Path, cases: list[SweepCaseResult]) -> str:
+def _build_report_text(
+    *,
+    output_dir: Path,
+    cases: list[SweepCaseResult],
+    search_budget: dict[str, object],
+    winner_summary: dict[str, object] | None,
+) -> str:
     generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     lines = [
         "=" * 108,
@@ -165,32 +309,91 @@ def _build_report_text(*, output_dir: Path, cases: list[SweepCaseResult]) -> str
         f"Generated                     : {generated}",
         f"Output dir                    : {output_dir}",
         "",
+        "Score contract:",
+        "  score name                  : target_mass_candidate_score",
+        "  direction                   : lower_is_better",
+        "  formula                     : objective_value_kg + 1000*target_violation_score + gate penalty",
+        f"  rejected gate penalty       : {FEASIBILITY_GATE_PENALTY_KG:.1f} kg",
+        f"  target-violation weight     : {TARGET_VIOLATION_WEIGHT_KG:.1f} kg",
+        "",
+        "Search budget:",
+        (
+            "  coarse grid points / case   : "
+            f"{int(search_budget['coarse_grid_points_per_case'])}"
+        ),
+        (
+            "  coarse axes                 : "
+            f"plateau={search_budget['coarse_axes']['main_plateau_grid_points']}, "
+            f"taper={search_budget['coarse_axes']['main_taper_fill_grid_points']}, "
+            f"rear_radius={search_budget['coarse_axes']['rear_radius_grid_points']}, "
+            f"rear_outboard={search_budget['coarse_axes']['rear_outboard_grid_points']}, "
+            f"wall={search_budget['coarse_axes']['wall_thickness_grid_points']}"
+        ),
+        f"  refresh steps               : {search_budget['refresh_steps']}",
+        f"  COBYLA maxiter / rhobeg     : {search_budget['cobyla_maxiter']} / {search_budget['cobyla_rhobeg']:.3f}",
+        (
+            "  local refine                : "
+            + (
+                "skipped"
+                if search_budget["skip_local_refine"]
+                else (
+                    f"feasible={search_budget['local_refine_feasible_seeds']}, "
+                    f"near={search_budget['local_refine_near_feasible_seeds']}, "
+                    f"max_starts={search_budget['local_refine_max_starts']}, "
+                    f"patience={search_budget['local_refine_early_stop_patience']}, "
+                    f"abs_improve={search_budget['local_refine_early_stop_abs_improvement_kg']:.3f} kg"
+                )
+            )
+        ),
+        "",
         "Target Mass Sweep:",
     ]
     for case in cases:
         lines.append(f"  {case.target_mass_kg:5.1f} kg")
     lines.append("")
+    if winner_summary is not None:
+        lines.append("Selection summary:")
+        lines.append(f"  status                       : {winner_summary['selection_status']}")
+        lines.append(
+            "  requested knobs              : "
+            f"target_mass_kg={winner_summary['requested_knobs']['target_mass_kg']:.3f}"
+        )
+        lines.append(f"  candidate score              : {winner_summary['candidate_score']:.3f}")
+        lines.append(
+            f"  selected total mass          : {winner_summary['selected_total_mass_kg']:.3f} kg"
+        )
+        mismatch_m = winner_summary["realizable_mismatch_max_m"]
+        lines.append(
+            "  realizable mismatch max      : "
+            + ("n/a" if mismatch_m is None else f"{float(mismatch_m) * 1000.0:.3f} mm")
+        )
+        lines.append(
+            "  jig ground clearance min     : "
+            f"{float(winner_summary['jig_ground_clearance_min_m']) * 1000.0:.3f} mm"
+        )
+        lines.append(f"  reject reason                : {winner_summary['reject_reason']}")
+        lines.append(f"  winner evidence              : {winner_summary['winner_evidence']}")
+        lines.append("")
     lines.append(
-        "target kg | feasible | best feasible kg | best near-feasible kg | clearance mm | prebend mm | curvature 1/m | failure | buckling | forward mismatch mm | blocker"
+        "target kg | feasible | score | selected mass kg | mismatch mm | clearance mm | reject reason | selection"
     )
     for case in cases:
         lines.append(
             f"{case.target_mass_kg:9.1f} | "
             f"{str(case.feasible):8s} | "
-            f"{(f'{case.best_feasible_mass_kg:.3f}' if case.best_feasible_mass_kg is not None else 'n/a'):16s} | "
-            f"{(f'{case.best_near_feasible_mass_kg:.3f}' if case.best_near_feasible_mass_kg is not None else 'n/a'):20s} | "
+            f"{case.candidate_score:5.1f} | "
+            f"{case.selected_total_mass_kg:16.3f} | "
+            f"{case.target_shape_error_max_m * 1000.0:11.3f} | "
             f"{case.ground_clearance_min_m * 1000.0:11.3f} | "
-            f"{case.max_jig_prebend_m * 1000.0:10.3f} | "
-            f"{case.max_jig_curvature_per_m:13.6f} | "
-            f"{case.failure_index:7.4f} | "
-            f"{case.buckling_index:8.4f} | "
-            f"{((case.forward_mismatch_max_m or 0.0) * 1000.0):19.6f} | "
-            f"{case.main_blocker}"
+            f"{case.reject_reason:13s} | "
+            f"{case.selection_status}"
         )
     lines.append("")
     for case in cases:
         lines.append(f"Target {case.target_mass_kg:.1f} kg:")
         lines.append(f"  feasible                     : {case.feasible}")
+        lines.append(f"  candidate score              : {case.candidate_score:.3f}")
+        lines.append(f"  selection status             : {case.selection_status}")
         lines.append(
             "  best feasible mass           : "
             + (f"{case.best_feasible_mass_kg:.3f} kg" if case.best_feasible_mass_kg is not None else "none found")
@@ -199,8 +402,18 @@ def _build_report_text(*, output_dir: Path, cases: list[SweepCaseResult]) -> str
             "  best near-feasible mass      : "
             + (f"{case.best_near_feasible_mass_kg:.3f} kg" if case.best_near_feasible_mass_kg is not None else "n/a")
         )
+        lines.append(f"  selected total mass          : {case.selected_total_mass_kg:.3f} kg")
+        lines.append(f"  objective value              : {case.objective_value_kg:.3f} kg")
+        lines.append(f"  target violation score       : {case.target_violation_score:.6f}")
+        lines.append(
+            "  mass margin                  : "
+            + ("n/a" if case.mass_margin_kg is None else f"{case.mass_margin_kg:+.3f} kg")
+        )
         lines.append(f"  main blocker                 : {case.main_blocker}")
+        lines.append(f"  reject reason                : {case.reject_reason}")
         lines.append(f"  nearest boundary             : {case.nearest_boundary}")
+        if case.winner_evidence is not None:
+            lines.append(f"  winner evidence              : {case.winner_evidence}")
         lines.append(f"  summary JSON                 : {case.summary_json_path}")
         lines.append(f"  detailed report              : {case.report_path}")
         lines.append("")
@@ -231,11 +444,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--target-masses-kg", default="22,20,18,16,15")
     parser.add_argument("--refresh-steps", type=int, default=2)
-    parser.add_argument("--main-plateau-grid", default="0.0,1.0")
-    parser.add_argument("--main-taper-fill-grid", default="0.0,1.0")
-    parser.add_argument("--rear-radius-grid", default="0.0,1.0")
-    parser.add_argument("--rear-outboard-grid", default="0.0,1.0")
-    parser.add_argument("--wall-thickness-grid", default="0.0,1.0")
+    parser.add_argument("--main-plateau-grid", default="0.0,0.33,0.67,1.0")
+    parser.add_argument("--main-taper-fill-grid", default="0.0,0.33,0.67,1.0")
+    parser.add_argument("--rear-radius-grid", default="0.0,0.33,0.67,1.0")
+    parser.add_argument("--rear-outboard-grid", default="0.0,0.5,1.0")
+    parser.add_argument("--wall-thickness-grid", default="0.0,0.35,0.70")
     parser.add_argument("--cobyla-maxiter", type=int, default=160)
     parser.add_argument("--cobyla-rhobeg", type=float, default=0.18)
     parser.add_argument("--skip-local-refine", action="store_true")
@@ -259,14 +472,34 @@ def main(argv: list[str] | None = None) -> int:
         case_dir = output_dir / f"target_{target_mass_kg:0.1f}kg"
         cases.append(_run_one_case(args, target_mass_kg=target_mass_kg, case_dir=case_dir))
 
+    search_budget = _build_search_budget_summary(args)
+    cases, winner_summary = _annotate_case_selection(cases)
+
     report_path = output_dir / "direct_dual_beam_inverse_design_feasibility_sweep_report.txt"
     json_path = output_dir / "direct_dual_beam_inverse_design_feasibility_sweep_summary.json"
-    report_path.write_text(_build_report_text(output_dir=output_dir, cases=cases), encoding="utf-8")
+    report_path.write_text(
+        _build_report_text(
+            output_dir=output_dir,
+            cases=cases,
+            search_budget=search_budget,
+            winner_summary=winner_summary,
+        ),
+        encoding="utf-8",
+    )
     json_path.write_text(
         json.dumps(
             {
                 "generated_at": datetime.now().astimezone().isoformat(),
                 "output_dir": str(output_dir),
+                "score_contract": {
+                    "score_name": "target_mass_candidate_score",
+                    "direction": "lower_is_better",
+                    "formula": "objective_value_kg + 1000*target_violation_score + gate penalty",
+                    "rejected_gate_penalty_kg": FEASIBILITY_GATE_PENALTY_KG,
+                    "target_violation_weight_kg": TARGET_VIOLATION_WEIGHT_KG,
+                },
+                "search_budget": search_budget,
+                "winner": winner_summary,
                 "cases": [asdict(case) for case in cases],
             },
             indent=2,
@@ -279,10 +512,19 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Output dir          : {output_dir}")
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
+    if winner_summary is not None:
+        print(
+            "  Winner              : "
+            f"{winner_summary['selection_status']} at target "
+            f"{winner_summary['requested_knobs']['target_mass_kg']:.1f} kg "
+            f"(score={winner_summary['candidate_score']:.3f})"
+        )
     for case in cases:
         print(
             f"  {case.target_mass_kg:5.1f} kg           : feasible={case.feasible}  "
-            f"best_feasible={case.best_feasible_mass_kg if case.best_feasible_mass_kg is not None else 'n/a'}"
+            f"score={case.candidate_score:.3f}  "
+            f"status={case.selection_status}  "
+            f"reject={case.reject_reason}"
         )
     return 0
 
