@@ -55,6 +55,129 @@ from hpa_mdo.utils.visualization import (
 )
 
 
+def _structural_gate_failures(result) -> list[str]:
+    """Return discrete recheck gate failures for a structural analysis result."""
+    failures: list[str] = []
+
+    if not bool(getattr(result, "success", False)):
+        failures.append("analysis")
+
+    if float(getattr(result, "failure_index", 0.0)) > 0.0:
+        failures.append("failure")
+
+    if float(getattr(result, "buckling_index", 0.0)) > 0.0:
+        failures.append("buckling")
+
+    twist_limit = getattr(result, "max_twist_limit_deg", None)
+    if twist_limit is not None and float(result.twist_max_deg) > float(twist_limit) * 1.02:
+        failures.append("twist")
+
+    deflection_limit = getattr(result, "max_tip_deflection_m", None)
+    if (
+        deflection_limit is not None
+        and float(result.tip_deflection_m) > float(deflection_limit) * 1.02
+    ):
+        failures.append("tip_deflection")
+
+    return failures
+
+
+def build_discrete_structural_recheck_payload(
+    result,
+    *,
+    source: str,
+) -> dict[str, object]:
+    """Build a machine-readable structural recheck verdict for discrete layup output."""
+    failed_checks = _structural_gate_failures(result)
+    analysis_success = bool(getattr(result, "success", False))
+    constraints_passed = not [name for name in failed_checks if name != "analysis"]
+    status = "pass" if analysis_success and constraints_passed else "fail"
+
+    return {
+        "source": source,
+        "status": status,
+        "success": status == "pass",
+        "analysis_success": analysis_success,
+        "constraints_passed": constraints_passed,
+        "failed_checks": failed_checks,
+        "message": str(getattr(result, "message", "")),
+        "total_mass_full_kg": float(result.total_mass_full_kg),
+        "failure_index": float(result.failure_index),
+        "buckling_index": float(result.buckling_index),
+        "twist_max_deg": float(result.twist_max_deg),
+        "tip_deflection_m": float(result.tip_deflection_m),
+        "max_twist_limit_deg": (
+            None
+            if getattr(result, "max_twist_limit_deg", None) is None
+            else float(result.max_twist_limit_deg)
+        ),
+        "max_tip_deflection_m": (
+            None
+            if getattr(result, "max_tip_deflection_m", None) is None
+            else float(result.max_tip_deflection_m)
+        ),
+    }
+
+
+def build_discrete_selection_signal(summary: dict[str, object]) -> dict[str, object]:
+    """Build a compact selection/handoff verdict from discrete final-design output."""
+    overall_status = str(summary.get("overall_status", "unknown")).lower()
+    structural_recheck = summary.get("structural_recheck")
+    if isinstance(structural_recheck, dict):
+        structural_status = str(structural_recheck.get("status", "unknown")).lower()
+    else:
+        structural_status = "missing"
+
+    blocking_reasons: list[str] = []
+    warning_reasons: list[str] = []
+
+    if overall_status == "fail":
+        blocking_reasons.append("discrete_status_fail")
+    elif overall_status == "warn":
+        warning_reasons.append("discrete_status_warn")
+    elif overall_status not in {"pass", "unknown"}:
+        warning_reasons.append(f"discrete_status_{overall_status}")
+
+    if structural_status == "fail":
+        failed_checks = structural_recheck.get("failed_checks", [])
+        if isinstance(failed_checks, list) and failed_checks:
+            blocking_reasons.extend(f"structural_{str(name)}" for name in failed_checks)
+        else:
+            blocking_reasons.append("structural_recheck_fail")
+    elif structural_status == "skipped":
+        blocking_reasons.append("structural_recheck_skipped")
+    elif structural_status == "missing":
+        blocking_reasons.append("structural_recheck_missing")
+    elif structural_status == "warn":
+        warning_reasons.append("structural_recheck_warn")
+    elif structural_status not in {"pass", "unknown"}:
+        warning_reasons.append(f"structural_recheck_{structural_status}")
+
+    if blocking_reasons:
+        status = "fail"
+    elif warning_reasons:
+        status = "warn"
+    else:
+        status = "pass"
+
+    if status == "pass":
+        outer_loop_action = "keep"
+    elif status == "warn":
+        outer_loop_action = "review"
+    else:
+        outer_loop_action = "reject"
+
+    return {
+        "status": status,
+        "overall_discrete_status": overall_status,
+        "structural_recheck_status": structural_status,
+        "outer_loop_action": outer_loop_action,
+        "handoff_ready": status == "pass",
+        "blocking_reasons": blocking_reasons,
+        "warning_reasons": warning_reasons,
+    }
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Black Cat 004 spar optimization")
     parser.add_argument(
@@ -430,16 +553,12 @@ def main(argv: list[str] | None = None) -> float:
                     result.layup_rear = prev_layup_rear
                     result.layup_rear_summary = prev_layup_rear_summary
                 if discrete_final_design_payload is not None:
-                    discrete_final_design_payload["structural_recheck"] = {
-                        "source": "examples/blackcat_004_optimize.py --discrete-layup",
-                        "success": bool(result.success),
-                        "message": str(result.message),
-                        "total_mass_full_kg": float(result.total_mass_full_kg),
-                        "failure_index": float(result.failure_index),
-                        "buckling_index": float(result.buckling_index),
-                        "twist_max_deg": float(result.twist_max_deg),
-                        "tip_deflection_m": float(result.tip_deflection_m),
-                    }
+                    discrete_final_design_payload["structural_recheck"] = (
+                        build_discrete_structural_recheck_payload(
+                            result,
+                            source="examples/blackcat_004_optimize.py --discrete-layup",
+                        )
+                    )
                 print(f"  Verified mass   : {result.total_mass_full_kg:.3f} kg")
                 print(f"  Verified failure: {result.failure_index:.5f}")
                 print(f"  Verified twist  : {result.twist_max_deg:.3f} deg")
@@ -449,8 +568,12 @@ def main(argv: list[str] | None = None) -> float:
                 if discrete_final_design_payload is not None:
                     discrete_final_design_payload["structural_recheck"] = {
                         "source": "examples/blackcat_004_optimize.py --discrete-layup",
+                        "status": "skipped",
                         "success": False,
+                        "analysis_success": False,
+                        "constraints_passed": False,
                         "skipped": True,
+                        "failed_checks": ["analysis_error"],
                         "message": str(exc),
                     }
                 print(f"  Re-analyze skipped ({exc}); keeping continuous result.")
@@ -485,6 +608,9 @@ def main(argv: list[str] | None = None) -> float:
     print("[8/10] Writing optimization summary...")
     summary_path = output_dir / "optimization_summary.txt"
     if discrete_final_design_payload is not None:
+        discrete_final_design_payload["selection_signal"] = build_discrete_selection_signal(
+            discrete_final_design_payload
+        )
         final_design_path = output_dir / "discrete_layup_final_design.json"
         final_design_payload = {
             "generated_at": datetime.now().astimezone().isoformat(),
@@ -499,6 +625,13 @@ def main(argv: list[str] | None = None) -> float:
             encoding="utf-8",
         )
         print(f"       Saved: {final_design_path}")
+        selection_signal = final_design_payload["selection_signal"]
+        print(
+            "       Discrete selection: "
+            f"{str(selection_signal.get('status', 'unknown')).upper()} "
+            f"(outer-loop={selection_signal.get('outer_loop_action', 'unknown')}, "
+            f"handoff={'yes' if bool(selection_signal.get('handoff_ready', False)) else 'no'})"
+        )
     write_optimization_summary(result, summary_path)
     print(f"       Saved: {summary_path}")
 

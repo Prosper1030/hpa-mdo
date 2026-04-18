@@ -110,18 +110,51 @@ def _append_discrete_final_design_block(
 
     structural_recheck = summary.get("structural_recheck")
     if isinstance(structural_recheck, dict) and structural_recheck:
-        if bool(structural_recheck.get("success", False)):
+        recheck_status = str(
+            structural_recheck.get(
+                "status",
+                "pass" if bool(structural_recheck.get("success", False)) else "fail",
+            )
+        ).upper()
+        if recheck_status == "SKIPPED":
+            reason = structural_recheck.get("message", "not available")
+            lines.append(f"  Structural recheck: SKIPPED ({reason})")
+        else:
             lines.append(
                 "  Structural recheck: "
-                f"PASS, mass={float(structural_recheck.get('total_mass_full_kg', 0.0)):.3f} kg, "
+                f"{recheck_status}, mass={float(structural_recheck.get('total_mass_full_kg', 0.0)):.3f} kg, "
                 f"FI={float(structural_recheck.get('failure_index', 0.0)):.5f}, "
                 f"buckling={float(structural_recheck.get('buckling_index', 0.0)):.5f}, "
                 f"twist={float(structural_recheck.get('twist_max_deg', 0.0)):.3f} deg, "
                 f"defl={float(structural_recheck.get('tip_deflection_m', 0.0)):.5f} m"
             )
-        else:
-            reason = structural_recheck.get("message", "not available")
-            lines.append(f"  Structural recheck: SKIPPED ({reason})")
+            failed_checks = structural_recheck.get("failed_checks")
+            if isinstance(failed_checks, list) and failed_checks:
+                lines.append(
+                    "  Structural gates: "
+                    + ", ".join(str(check) for check in failed_checks)
+                )
+
+    selection_signal = summary.get("selection_signal")
+    if isinstance(selection_signal, dict) and selection_signal:
+        status = str(selection_signal.get("status", "unknown")).upper()
+        outer_loop_action = str(selection_signal.get("outer_loop_action", "unknown"))
+        handoff_ready = "YES" if bool(selection_signal.get("handoff_ready", False)) else "NO"
+        lines.append(
+            f"  Selection signal: {status} (outer-loop={outer_loop_action}, handoff={handoff_ready})"
+        )
+        blocking_reasons = selection_signal.get("blocking_reasons")
+        if isinstance(blocking_reasons, list) and blocking_reasons:
+            lines.append(
+                "  Blocking reasons: "
+                + ", ".join(str(reason) for reason in blocking_reasons)
+            )
+        warning_reasons = selection_signal.get("warning_reasons")
+        if isinstance(warning_reasons, list) and warning_reasons:
+            lines.append(
+                "  Warning reasons : "
+                + ", ".join(str(reason) for reason in warning_reasons)
+            )
 
     if artifact_path:
         lines.append(f"  JSON artifact  : {artifact_path}")

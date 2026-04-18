@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "examples"))
+
+from blackcat_004_optimize import (  # noqa: E402
+    build_discrete_selection_signal,
+    build_discrete_structural_recheck_payload,
+)
 from hpa_mdo.structure import optimizer as optimizer_mod
 from hpa_mdo.structure.optimizer import OptimizationResult, SparOptimizer
 from hpa_mdo.utils.visualization import (
@@ -223,7 +232,7 @@ def test_summary_text_contains_manufacturing_gates(tmp_path):
 
 def test_summary_text_contains_discrete_final_design_status(tmp_path):
     result = _dummy_result()
-    result.discrete_final_design_summary = {
+    discrete_summary = {
         "design_layer": "discrete_final",
         "overall_status": "warn",
         "manufacturing_gates_passed": True,
@@ -242,7 +251,10 @@ def test_summary_text_contains_discrete_final_design_status(tmp_path):
             "rear_spar": {"status": "warn"},
         },
         "structural_recheck": {
+            "status": "pass",
             "success": True,
+            "analysis_success": True,
+            "constraints_passed": True,
             "total_mass_full_kg": 2.75,
             "failure_index": -0.15,
             "buckling_index": -0.05,
@@ -250,6 +262,8 @@ def test_summary_text_contains_discrete_final_design_status(tmp_path):
             "tip_deflection_m": 0.18,
         },
     }
+    discrete_summary["selection_signal"] = build_discrete_selection_signal(discrete_summary)
+    result.discrete_final_design_summary = discrete_summary
     result.discrete_final_design_json_path = str(tmp_path / "discrete_layup_final_design.json")
 
     summary_file = write_optimization_summary(
@@ -264,7 +278,45 @@ def test_summary_text_contains_discrete_final_design_status(tmp_path):
     assert "Critical FI    : 0.850 @ rear_spar seg 1" in summary_file
     assert "Spar statuses  : main_spar=PASS, rear_spar=WARN" in summary_file
     assert "Structural recheck: PASS, mass=2.750 kg" in summary_file
+    assert "Selection signal: WARN (outer-loop=review, handoff=NO)" in summary_file
+    assert "Warning reasons : discrete_status_warn" in summary_file
     assert "JSON artifact  :" in summary_file
+
+
+def test_discrete_structural_recheck_payload_marks_constraint_failures():
+    result = _dummy_result()
+    result.failure_index = 0.08
+    result.buckling_index = 0.02
+    result.twist_max_deg = 3.2
+    result.max_twist_limit_deg = 2.0
+
+    payload = build_discrete_structural_recheck_payload(
+        result,
+        source="unit-test",
+    )
+
+    assert payload["status"] == "fail"
+    assert payload["success"] is False
+    assert payload["analysis_success"] is True
+    assert payload["constraints_passed"] is False
+    assert payload["failed_checks"] == ["failure", "buckling", "twist"]
+
+
+def test_selection_signal_rejects_failed_structural_recheck():
+    payload = {
+        "overall_status": "pass",
+        "structural_recheck": {
+            "status": "fail",
+            "failed_checks": ["buckling"],
+        },
+    }
+
+    signal = build_discrete_selection_signal(payload)
+
+    assert signal["status"] == "fail"
+    assert signal["outer_loop_action"] == "reject"
+    assert signal["handoff_ready"] is False
+    assert signal["blocking_reasons"] == ["structural_buckling"]
 
 
 def test_analyze_accepts_snapped_segment_radii(monkeypatch):
