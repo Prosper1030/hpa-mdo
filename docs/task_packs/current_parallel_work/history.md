@@ -31,3 +31,15 @@
   - front-door / canonical workflow clarity becomes the new main push
   - surrogate warm start becomes the next acceleration task once canonical artifacts are clear
   - requested-to-realizable outer loop stays queued behind A / E stabilization
+- Recipe-architecture wave completed:
+  - `track_e_recipe_library_foundation` completed via `987d21e`
+  - `track_g_discrete_final_design_wiring` completed via `bf27927`
+  - `track_f_outer_loop_campaign_contract` completed via `4c519d9`
+  - `track_h_spanwise_dp_search` completed via `32cb131`
+  - `track_i_zone_dependent_rules` completed via `b899f8a`
+- Current wave reset again:
+  - `track_j_rerun_aero_outer_loop_core`
+  - `track_k_rerun_aero_campaign_consumer` queued behind `track_j` verification
+- Planning shift:
+  - recipe-library / discrete search / zone-rule baseline is now treated as done enough for the current phase
+  - next main push is no longer more discrete-layup tuning, but upgrading the outer loop from load-refresh semantics to rebuilt-geometry + rerun-aero semantics

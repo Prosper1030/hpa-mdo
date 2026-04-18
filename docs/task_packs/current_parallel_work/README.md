@@ -16,21 +16,22 @@
 
 ## What This Pack Covers
 
-這包現在聚焦在 **GPT Pro 架構審查之後的主線升級波次**。
+這包現在聚焦在 **Phase 2 / Wave 4：rerun-aero outer loop**。
 
-目前的主任務不是 surrogate，也不是 hi-fi，而是：
+上一波 recipe-architecture 任務已經完成，現在不再把更多 discrete-layup tuning 當 current pack 主任務。
 
-- Track E：recipe library foundation
-- Track F：outer-loop campaign contract
-- Track G：discrete final-design wiring
-- Track H：spanwise DP discrete search
-- Track I：zone-dependent rules
+目前的主任務是：
+
+- Track J：rerun-aero outer-loop core contract
+
+下一個排隊任務是：
+
+- Track K：campaign consumer / winner selection 對接新的 rerun-aero artifacts
 
 其中：
 
-- Track E / F / G 是 **現在可並行啟動的 Wave 1**
-- Track H 是 **等我驗證 Wave 1 後才開的 Wave 2**
-- Track I 是 **等我驗證 Wave 2 後才開的 Wave 3**
+- Track J 是 **現在唯一建議啟動的 current wave**
+- Track K 是 **等我驗證 Track J 後才開的 next wave**
 
 ## How To Use This Pack
 
@@ -49,4 +50,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道哪些任務可以一起丟，哪些一定要等驗證後再丟。
+- 使用者能清楚知道這一波為什麼刻意只開單一核心 owner，而不是再讓多個 agent 同時碰 `direct_dual_beam_inverse_design.py`。
