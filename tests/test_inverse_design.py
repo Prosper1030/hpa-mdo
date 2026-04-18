@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import replace
 import json
 from pathlib import Path
 import sys
@@ -26,6 +27,7 @@ from hpa_mdo.structure.inverse_design import (
 )
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.core import MaterialDB
+from hpa_mdo.structure.rib_surrogate import build_rib_bay_surrogate_summary
 from scripts.dihedral_sweep_campaign import (
     SweepResult as DihedralSweepResult,
     _annotate_campaign_selection,
@@ -59,6 +61,7 @@ from scripts.direct_dual_beam_inverse_design import (
     _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
     _write_deflection_csv,
+    candidate_to_summary_dict,
     build_refresh_summary_json,
 )
 
@@ -71,6 +74,7 @@ class InverseDesignTests(unittest.TestCase):
         source: str,
         feasible: bool,
         violation: float,
+        rib_bay_surrogate=None,
     ) -> InverseCandidate:
         zeros = np.zeros(2, dtype=float)
         z = np.array([mass_kg, violation, float(feasible), 0.0, 0.0], dtype=float) * 1.0e-3
@@ -127,6 +131,7 @@ class InverseDesignTests(unittest.TestCase):
             hard_margins={"dummy": 1.0},
             hard_violation_score=violation,
             target_violation_score=violation,
+            rib_bay_surrogate=rib_bay_surrogate,
             inverse_result=None,
             equivalent_result=None,
             mainline_model=None,
@@ -284,6 +289,117 @@ class InverseDesignTests(unittest.TestCase):
         self.assertIn("ground_clearance", result.feasibility.failures)
         self.assertIn("jig_prebend", result.feasibility.failures)
         self.assertIn("jig_curvature", result.feasibility.failures)
+
+    def test_rib_bay_surrogate_summary_derives_bay_length_delta_over_chord_and_risk(self) -> None:
+        cfg = SimpleNamespace(
+            rib=SimpleNamespace(
+                enabled=True,
+                family="balsa_sheet_3mm",
+                spacing_m=0.4,
+                catalog_path=None,
+            ),
+            safety=SimpleNamespace(dual_spar_warping_knockdown=0.5),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(
+                y=np.array([0.0, 0.5, 1.0], dtype=float),
+                chord=np.array([1.0, 1.0, 1.0], dtype=float),
+            )
+        )
+        loaded_shape = StructuralNodeShape(
+            main_nodes_m=np.array(
+                [
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.5, 0.05],
+                    [0.0, 1.0, 0.10],
+                ],
+                dtype=float,
+            ),
+            rear_nodes_m=np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [1.0, 0.5, 0.025],
+                    [1.0, 1.0, 0.05],
+                ],
+                dtype=float,
+            ),
+        )
+
+        summary = build_rib_bay_surrogate_summary(
+            cfg=cfg,
+            aircraft=aircraft,
+            loaded_shape=loaded_shape,
+        )
+
+        self.assertTrue(summary.enabled)
+        self.assertEqual(summary.family_key, "balsa_sheet_3mm")
+        self.assertEqual(summary.bay_count, 3)
+        self.assertAlmostEqual(summary.spacing_m, 0.4)
+        self.assertAlmostEqual(summary.max_bay_length_m, 0.4)
+        self.assertAlmostEqual(summary.max_local_delta_over_chord, 0.04)
+        self.assertGreater(summary.max_shape_retention_risk, 0.0)
+        self.assertEqual(summary.dominant_bay_index, 1)
+        self.assertAlmostEqual(summary.bays[0].bay_length_m, 0.4)
+        self.assertAlmostEqual(summary.bays[0].local_delta_over_chord, 0.04)
+        self.assertAlmostEqual(summary.bays[0].shape_retention_risk, 0.032)
+
+    def test_candidate_summary_dict_surfaces_rib_bay_surrogate_contract(self) -> None:
+        cfg = SimpleNamespace(
+            rib=SimpleNamespace(
+                enabled=True,
+                family="balsa_sheet_3mm",
+                spacing_m=0.4,
+                catalog_path=None,
+            ),
+            safety=SimpleNamespace(dual_spar_warping_knockdown=0.5),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(
+                y=np.array([0.0, 0.5, 1.0], dtype=float),
+                chord=np.array([1.0, 1.0, 1.0], dtype=float),
+            )
+        )
+        loaded_shape = StructuralNodeShape(
+            main_nodes_m=np.array(
+                [
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.5, 0.05],
+                    [0.0, 1.0, 0.10],
+                ],
+                dtype=float,
+            ),
+            rear_nodes_m=np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [1.0, 0.5, 0.025],
+                    [1.0, 1.0, 0.05],
+                ],
+                dtype=float,
+            ),
+        )
+        candidate = replace(
+            self._make_inverse_candidate(
+                mass_kg=10.0,
+                source="selected",
+                feasible=True,
+                violation=0.0,
+            ),
+            rib_bay_surrogate=build_rib_bay_surrogate_summary(
+                cfg=cfg,
+                aircraft=aircraft,
+                loaded_shape=loaded_shape,
+            ),
+        )
+
+        summary = candidate_to_summary_dict(candidate)
+
+        rib_surrogate = summary["rib_bay_surrogate"]
+        self.assertIsInstance(rib_surrogate, dict)
+        self.assertEqual(rib_surrogate["bay_count"], 3)
+        self.assertAlmostEqual(rib_surrogate["max_local_delta_over_chord"], 0.04)
+        self.assertEqual(rib_surrogate["dominant_bay_index"], 1)
+        self.assertEqual(len(rib_surrogate["bays"]), 3)
+        self.assertAlmostEqual(rib_surrogate["bays"][0]["shape_retention_risk"], 0.032)
 
     def test_build_frozen_load_inverse_design_keeps_equivalent_gates_as_legacy_reference_only(self) -> None:
         target = StructuralNodeShape(

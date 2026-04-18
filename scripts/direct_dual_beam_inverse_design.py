@@ -34,6 +34,10 @@ from hpa_mdo.structure import (
     write_shape_csv_from_template,
 )
 from hpa_mdo.structure.inverse_design import predict_loaded_shape
+from hpa_mdo.structure.rib_surrogate import (
+    RibBaySurrogateSummary,
+    build_rib_bay_surrogate_summary,
+)
 from hpa_mdo.structure.ansys_export import ANSYSExporter
 from hpa_mdo.structure.dual_beam_mainline import (
     build_dual_beam_mainline_model,
@@ -129,6 +133,7 @@ class InverseCandidate:
     hard_margins: dict[str, float]
     hard_violation_score: float
     target_violation_score: float
+    rib_bay_surrogate: RibBaySurrogateSummary | None = field(default=None, repr=False)
     inverse_result: object | None = field(default=None, repr=False)
     equivalent_result: OptimizationResult | None = field(default=None, repr=False)
     mainline_model: object | None = field(default=None, repr=False)
@@ -1461,6 +1466,12 @@ class InverseDesignEvaluator:
                 + clearance_penalty_kg
                 + active_wall_penalty_kg
             )
+            rib_bay_surrogate = build_rib_bay_surrogate_summary(
+                cfg=self.cfg,
+                aircraft=self.aircraft,
+                loaded_shape=inverse.predicted_loaded_shape,
+                source_shape="predicted_loaded_shape",
+            )
 
             finite_scalars = [
                 float(production.recovery.spar_tube_mass_full_kg),
@@ -1545,6 +1556,7 @@ class InverseDesignEvaluator:
                 hard_margins=hard_margins,
                 hard_violation_score=float(hard_violation_score),
                 target_violation_score=float(target_violation_score),
+                rib_bay_surrogate=rib_bay_surrogate,
                 inverse_result=inverse,
                 equivalent_result=eq_result,
                 mainline_model=model,
@@ -1610,6 +1622,7 @@ class InverseDesignEvaluator:
                 hard_margins=hard_margins,
                 hard_violation_score=float("inf"),
                 target_violation_score=float("inf"),
+                rib_bay_surrogate=None,
                 inverse_result=None,
                 equivalent_result=None,
                 mainline_model=None,
@@ -1936,6 +1949,9 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "hard_violation_score": candidate.hard_violation_score,
         "target_violation_score": candidate.target_violation_score,
         "hard_margins": {key: float(value) for key, value in candidate.hard_margins.items()},
+        "rib_bay_surrogate": (
+            None if candidate.rib_bay_surrogate is None else asdict(candidate.rib_bay_surrogate)
+        ),
         "clearance_hotspots": clearance_hotspots,
         "design_mm": {
             "main_t": [float(value * 1000.0) for value in candidate.main_t_seg_m],
