@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -18,6 +19,15 @@ class DrawingArtifactSpec:
     required: bool
     drawing_use: str
     note: str
+
+
+@dataclass(frozen=True)
+class DerivedDrawingArtifact:
+    """One package-native artifact derived from copied design data."""
+
+    package_relpath: str
+    role: str
+    drawing_use: str
 
 
 _ARTIFACT_SPECS: tuple[DrawingArtifactSpec, ...] = (
@@ -84,6 +94,24 @@ _ARTIFACT_SPECS: tuple[DrawingArtifactSpec, ...] = (
         required=False,
         drawing_use="Reference only. Use this when the drawing package also needs aircraft-level mass/CG context.",
         note="Optional support artifact; not required for spar drawing geometry itself.",
+    ),
+)
+
+_DERIVED_ARTIFACTS: tuple[DerivedDrawingArtifact, ...] = (
+    DerivedDrawingArtifact(
+        package_relpath="DRAWING_HANDOFF.md",
+        role="drawing_handoff_note",
+        drawing_use="Open this first when handing the package to someone who needs the shortest drawing entrypoint.",
+    ),
+    DerivedDrawingArtifact(
+        package_relpath="DRAWING_CHECKLIST.md",
+        role="drawing_checklist",
+        drawing_use="Use this as the drawing checklist and segment-level layup/dimension summary.",
+    ),
+    DerivedDrawingArtifact(
+        package_relpath="data/drawing_station_table.csv",
+        role="drawing_station_table",
+        drawing_use="Use this as the drafting-friendly station table with diameters and special stations.",
     ),
 )
 
@@ -163,6 +191,185 @@ def _write_drawing_handoff(package_dir: Path) -> None:
     (package_dir / "DRAWING_HANDOFF.md").write_text("\n".join(lines), encoding="utf-8")
 
 
+def _as_float(row: dict[str, str], key: str) -> float:
+    return float(row[key])
+
+
+def _as_int(row: dict[str, str], key: str) -> int:
+    return int(float(row[key]))
+
+
+def _load_station_rows(output_root: Path) -> list[dict[str, str]]:
+    csv_path = output_root / "ansys" / "spar_data.csv"
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _load_final_design(output_root: Path) -> dict[str, object]:
+    json_path = output_root / "discrete_layup_final_design.json"
+    return json.loads(json_path.read_text(encoding="utf-8"))
+
+
+def _write_station_table(package_dir: Path, rows: list[dict[str, str]]) -> None:
+    fieldnames = [
+        "Node",
+        "Y_Position_m",
+        "Main_X_m",
+        "Main_Z_m",
+        "Main_Outer_Diameter_mm",
+        "Main_Wall_Thickness_mm",
+        "Rear_X_m",
+        "Rear_Z_m",
+        "Rear_Outer_Diameter_mm",
+        "Rear_Wall_Thickness_mm",
+        "Is_Joint",
+        "Is_Wire_Attach",
+    ]
+    out_path = package_dir / "data" / "drawing_station_table.csv"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    "Node": _as_int(row, "Node"),
+                    "Y_Position_m": f"{_as_float(row, 'Y_Position_m'):.6f}",
+                    "Main_X_m": f"{_as_float(row, 'Main_X_m'):.6f}",
+                    "Main_Z_m": f"{_as_float(row, 'Main_Z_m'):.6f}",
+                    "Main_Outer_Diameter_mm": f"{_as_float(row, 'Main_Outer_Radius_m') * 2000.0:.3f}",
+                    "Main_Wall_Thickness_mm": f"{_as_float(row, 'Main_Wall_Thickness_m') * 1000.0:.3f}",
+                    "Rear_X_m": f"{_as_float(row, 'Rear_X_m'):.6f}",
+                    "Rear_Z_m": f"{_as_float(row, 'Rear_Z_m'):.6f}",
+                    "Rear_Outer_Diameter_mm": f"{_as_float(row, 'Rear_Outer_Radius_m') * 2000.0:.3f}",
+                    "Rear_Wall_Thickness_mm": f"{_as_float(row, 'Rear_Wall_Thickness_m') * 1000.0:.3f}",
+                    "Is_Joint": _as_int(row, "Is_Joint"),
+                    "Is_Wire_Attach": _as_int(row, "Is_Wire_Attach"),
+                }
+            )
+
+
+def _format_segment_schedule(name: str, spar: dict[str, object]) -> list[str]:
+    segments = spar.get("segments", [])
+    lines = [f"## {name}", "", "| Seg | Span (m) | OD (mm) | Wall (mm) | Layup |", "|---|---|---:|---:|---|"]
+    for segment in segments:
+        y_start = float(segment["y_start_m"])
+        y_end = float(segment["y_end_m"])
+        outer_radius_m = float(segment["outer_radius_m"])
+        wall_thickness_m = float(segment["equivalent_properties"]["wall_thickness"])
+        layup = str(segment["stack_notation"])
+        lines.append(
+            "| "
+            f"{int(segment['segment_index'])} | "
+            f"{y_start:.2f} - {y_end:.2f} | "
+            f"{outer_radius_m * 2000.0:.1f} | "
+            f"{wall_thickness_m * 1000.0:.3f} | "
+            f"{layup} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _write_drawing_checklist(
+    package_dir: Path,
+    station_rows: list[dict[str, str]],
+    final_design: dict[str, object],
+) -> None:
+    joint_rows = [row for row in station_rows if _as_int(row, "Is_Joint") == 1]
+    wire_rows = [row for row in station_rows if _as_int(row, "Is_Wire_Attach") == 1]
+    root_row = station_rows[0]
+    tip_row = station_rows[-1]
+    spars = final_design.get("spars", {})
+
+    lines = [
+        "# Drawing Checklist",
+        "",
+        "Use this checklist when turning the package into drafting work.",
+        "",
+        "## Open These First",
+        "- `geometry/spar_jig_shape.step`",
+        "- `design/discrete_layup_final_design.json`",
+        "- `design/optimization_summary.txt`",
+        "- `data/drawing_station_table.csv`",
+        "",
+        "## Quick Geometry Snapshot",
+        (
+            "- Main spar OD: "
+            f"{_as_float(root_row, 'Main_Outer_Radius_m') * 2000.0:.1f} mm at root, "
+            f"{_as_float(tip_row, 'Main_Outer_Radius_m') * 2000.0:.1f} mm at tip"
+        ),
+        (
+            "- Rear spar OD: "
+            f"{_as_float(root_row, 'Rear_Outer_Radius_m') * 2000.0:.1f} mm at root, "
+            f"{_as_float(tip_row, 'Rear_Outer_Radius_m') * 2000.0:.1f} mm at tip"
+        ),
+        (
+            "- Main spar wall: "
+            f"{_as_float(root_row, 'Main_Wall_Thickness_m') * 1000.0:.3f} mm at root, "
+            f"{_as_float(tip_row, 'Main_Wall_Thickness_m') * 1000.0:.3f} mm at tip"
+        ),
+        "",
+        "## Special Stations",
+    ]
+    if joint_rows:
+        joint_positions = ", ".join(f"{_as_float(row, 'Y_Position_m'):.3f} m" for row in joint_rows)
+        lines.append(f"- Joint stations: {joint_positions}")
+    else:
+        lines.append("- Joint stations: none flagged in `spar_data.csv`")
+    if wire_rows:
+        wire_positions = ", ".join(f"{_as_float(row, 'Y_Position_m'):.3f} m" for row in wire_rows)
+        lines.append(f"- Wire attach stations: {wire_positions}")
+    else:
+        lines.append("- Wire attach stations: none flagged in `spar_data.csv`")
+
+    lines.extend(
+        [
+            "",
+            "## Final Design Gates",
+            f"- Overall status: {final_design.get('overall_status', 'unknown')}",
+            (
+                "- Manufacturing gates passed: "
+                f"{final_design.get('manufacturing_gates_passed', 'unknown')}"
+            ),
+        ]
+    )
+
+    critical_sr = final_design.get("critical_strength_ratio", {})
+    critical_fi = final_design.get("critical_failure_index", {})
+    if critical_sr:
+        lines.append(
+            "- Critical strength ratio: "
+            f"{float(critical_sr.get('value', 0.0)):.3f} "
+            f"({critical_sr.get('spar', 'unknown')} seg {critical_sr.get('segment_index', '?')})"
+        )
+    if critical_fi:
+        lines.append(
+            "- Critical failure index: "
+            f"{float(critical_fi.get('value', 0.0)):.3f} "
+            f"({critical_fi.get('spar', 'unknown')} seg {critical_fi.get('segment_index', '?')})"
+        )
+
+    lines.extend(["", "## Segment Schedules", ""])
+    main_spar = spars.get("main_spar")
+    if isinstance(main_spar, dict):
+        lines.extend(_format_segment_schedule("Main Spar", main_spar))
+    rear_spar = spars.get("rear_spar")
+    if isinstance(rear_spar, dict):
+        lines.extend(_format_segment_schedule("Rear Spar", rear_spar))
+
+    lines.extend(
+        [
+            "## Boundaries",
+            "",
+            "- Use `geometry/spar_jig_shape.step` as the spar drawing truth.",
+            "- Use `references/*` only to understand loaded-shape / cruise-state context.",
+            "- Do not use `crossval_report.txt` as drawing truth or validation truth.",
+            "",
+        ]
+    )
+    (package_dir / "DRAWING_CHECKLIST.md").write_text("\n".join(lines), encoding="utf-8")
+
+
 def export_drawing_ready_package(
     output_dir: str | Path,
     *,
@@ -178,6 +385,8 @@ def export_drawing_ready_package(
     if missing_required:
         missing_list = ", ".join(str(r["source_path"]) for r in missing_required)
         raise FileNotFoundError(f"Missing required drawing-ready artifacts: {missing_list}")
+    station_rows = _load_station_rows(output_root)
+    final_design = _load_final_design(output_root)
 
     package_dir = output_root / package_dir_name
     if package_dir.exists():
@@ -202,8 +411,18 @@ def export_drawing_ready_package(
             "human_summary": "design/optimization_summary.txt",
             "tabular_geometry": "data/spar_data.csv",
             "handoff_note": "DRAWING_HANDOFF.md",
+            "checklist": "DRAWING_CHECKLIST.md",
+            "drafting_station_table": "data/drawing_station_table.csv",
         },
         "artifacts": records,
+        "derived_artifacts": [
+            {
+                "package_relpath": artifact.package_relpath,
+                "role": artifact.role,
+                "drawing_use": artifact.drawing_use,
+            }
+            for artifact in _DERIVED_ARTIFACTS
+        ],
     }
     (package_dir / "drawing_ready_manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n",
@@ -211,4 +430,6 @@ def export_drawing_ready_package(
     )
     _write_package_readme(package_dir, records)
     _write_drawing_handoff(package_dir)
+    _write_station_table(package_dir, station_rows)
+    _write_drawing_checklist(package_dir, station_rows, final_design)
     return package_dir

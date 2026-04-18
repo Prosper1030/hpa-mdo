@@ -221,6 +221,8 @@ stdout 的最後一行永遠為 `val_weight: <float>`（最佳化後全翼展翼
 - 主幾何：`output/blackcat_004/drawing_ready_package/geometry/spar_jig_shape.step`
 - 設計依據：`output/blackcat_004/drawing_ready_package/design/discrete_layup_final_design.json`
 - 人類可讀摘要：`output/blackcat_004/drawing_ready_package/design/optimization_summary.txt`
+- drawing checklist：`output/blackcat_004/drawing_ready_package/DRAWING_CHECKLIST.md`
+- drafting station table：`output/blackcat_004/drawing_ready_package/data/drawing_station_table.csv`
 - 參考幾何：`output/blackcat_004/drawing_ready_package/references/*`
 
 如果 package 還沒存在，可以直接重建：

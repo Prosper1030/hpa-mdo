@@ -626,6 +626,8 @@ def main(argv: list[str] | None = None) -> float:
             f"{drawing_package_dir / 'design' / 'discrete_layup_final_design.json'}"
         )
         print(f"       Handoff    : {drawing_package_dir / 'DRAWING_HANDOFF.md'}")
+        print(f"       Checklist  : {drawing_package_dir / 'DRAWING_CHECKLIST.md'}")
+        print(f"       Stations   : {drawing_package_dir / 'data' / 'drawing_station_table.csv'}")
     except Exception as exc:  # noqa: BLE001
         print(f"       WARN: drawing-ready package skipped: {exc}")
 

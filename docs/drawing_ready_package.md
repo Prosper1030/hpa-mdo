@@ -14,6 +14,8 @@
 - 設計依據：`design/discrete_layup_final_design.json`
 - 人類摘要：`design/optimization_summary.txt`
 - 表格幾何：`data/spar_data.csv`
+- drawing checklist：`DRAWING_CHECKLIST.md`
+- drafting station table：`data/drawing_station_table.csv`
 
 ## 2. 你應該先看什麼
 
@@ -22,6 +24,8 @@
 | 畫 spar 主圖 | `geometry/spar_jig_shape.step` | 這是目前 primary spar drawing truth |
 | 確認 discrete layup / final design verdict | `design/discrete_layup_final_design.json` | 這是 machine-readable final design basis |
 | 先快速理解整體狀態 | `design/optimization_summary.txt` | 這是人類最容易讀的總結 |
+| 照 checklist 出圖 | `DRAWING_CHECKLIST.md` | 這裡把主尺寸、特殊站位、segment layup 摘成出圖清單 |
+| 直接拉 drafting 尺寸表 | `data/drawing_station_table.csv` | 這裡是已整理好的 station / OD / wall thickness 表 |
 | 拉尺寸 / 讀展向表格 | `data/spar_data.csv` | 這裡有 spanwise station 與 export-contract tabular values |
 | 看 loaded shape 或 cruise 參考 | `references/*` | 這些只是參考，不是主 drawing truth |
 
