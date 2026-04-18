@@ -10,15 +10,17 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_p_rib_campaign_smoke_review"
-    prompt: "prompts/track_p_rib_campaign_smoke_review.md"
-    launch_wave: 9
+  - id: "track_q_vspaero_lod_parser_fix"
+    prompt: "prompts/track_q_vspaero_lod_parser_fix.md"
+    launch_wave: 10
     write_scope:
-      - "docs/task_packs/current_parallel_work/reports/"
+      - "src/hpa_mdo/aero/vsp_aero.py"
+      - "tests/test_vspaero_parser.py"
+      - "tests/test_vspaero_cache.py"
     expected_artifacts:
-      - "rib campaign smoke report"
-      - "off vs limited zone-wise comparison"
-      - "sane / suspicious / blocked judgment"
+      - "OpenVSP 3.45.3-compatible .lod parser"
+      - "header-name-based column mapping"
+      - "regression tests for modern .lod schema"
 
 do_not_touch:
   - "README.md"

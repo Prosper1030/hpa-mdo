@@ -2,12 +2,12 @@
 
 > 這份文件是給使用者直接複製貼上用的。
 > 如果你現在要把任務丟給另一個 AI agent，通常只要貼下面其中一段，再指定要做哪個 track。
-> 這一波最推薦直接用 [AGENT_LAUNCH_PLAN.md](AGENT_LAUNCH_PLAN.md) 的現成區塊，因為這一波重點是跑真 case，不是再擴模型。
+> 這一波最推薦直接用 [AGENT_LAUNCH_PLAN.md](AGENT_LAUNCH_PLAN.md) 的現成區塊，因為這一波重點是先修 blocker，不是再擴模型。
 
 ## 最短版回答
 
 可以。
-你現在最簡單的做法，就是直接貼對應模板，然後把任務檔換成 `track_p_rib_campaign_smoke_review`。
+你現在最簡單的做法，就是直接貼對應模板，然後把任務檔換成 `track_q_vspaero_lod_parser_fix`。
 
 ## 通用交辦模板
 
@@ -21,7 +21,7 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_p_rib_campaign_smoke_review.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_q_vspaero_lod_parser_fix.md
 
 如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
 上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
@@ -33,7 +33,7 @@
 - 先做最小必要驗證，再回報結果、風險、未完成處
 ```
 
-## 如果你現在就是要派 `Track P`
+## 如果你現在就是要派 `Track Q`
 
 你可以直接貼下面這段，不需要再自己重寫：
 
@@ -47,26 +47,26 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_p_rib_campaign_smoke_review.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_q_vspaero_lod_parser_fix.md
 
-你的目標是跑一個小型真實 smoke campaign，比較 `rib_zonewise=off` 與 `limited_zonewise`，並判斷 winner ranking 是 `sane`、`suspicious` 還是 `blocked`；不要在同一包裡順手改 code。
+你的目標是修掉 OpenVSP 3.45.3 `.lod` schema 漂移造成的 parser fail，讓 `candidate_rerun_vspaero` 可以真正產出可用的 `SpanwiseLoad`；不要在同一包裡順手改 inverse-design / rib 邏輯。
 
 如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
 上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
 
 限制：
-- 只能新增或修改 `docs/task_packs/current_parallel_work/reports/` 下的報告檔
+- 只能修改 `src/hpa_mdo/aero/vsp_aero.py`, `tests/test_vspaero_parser.py`, `tests/test_vspaero_cache.py`
 - 不要改 `README.md`, `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml`
 - 每完成一個獨立任務就單獨 commit
 - 先做最小必要驗證，再回報結果、風險、未完成處
 ```
 
-## 什麼時候只寫「做 Track P」就夠
+## 什麼時候只寫「做 Track Q」就夠
 
 只有在對方 agent 已經知道這個 repo，或你確定它會先讀 `CURRENT_MAINLINE.md` / `project_state.yaml` 的情況下，才建議只寫：
 
 ```text
-請照 current_parallel_work task pack 做 Track P。
+請照 current_parallel_work task pack 做 Track Q。
 ```
 
 如果是新 agent，或你不確定它會不會自己找文件，請不要只寫這一句，否則很容易理解不完整。
@@ -75,5 +75,5 @@
 
 - 新 agent：直接貼完整模板
 - 已經在這個 repo 工作過的 agent：可以貼短版，再補 task id
-- 一次派多個 agent：這一波先不要；先把 Track P 跑完、看結果再決定後續要 tune 還是 finalist spot-check
+- 一次派多個 agent：這一波先不要；先把 Track Q 修完、驗過，再重跑 Track P
 - 如果本地資訊不夠，就允許 agent 主動查官方 / 第一手資料，不要把它綁死在 repo 舊文件

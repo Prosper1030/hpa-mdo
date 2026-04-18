@@ -64,3 +64,11 @@
 - Planning shift:
   - rib integration is now treated as baseline complete at the contract level
   - next main push is a real smoke campaign to test whether rib-on ranking is engineering-sane
+- Track P blocker discovered:
+  - `candidate_rerun_vspaero` did run VSPAero, but `VSPAeroParser` could not parse OpenVSP 3.45.3 60+ column `.lod` output
+  - smoke verdict recorded as `BLOCKED` in `reports/rib_campaign_smoke_report.md`
+- Current wave reset again:
+  - `track_q_vspaero_lod_parser_fix`
+- Planning shift:
+  - immediate next step is not rib tuning or finalist review
+  - immediate next step is to patch parser compatibility, then replay Track P

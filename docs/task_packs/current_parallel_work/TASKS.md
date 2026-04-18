@@ -2,7 +2,7 @@
 
 | Task ID | Wave | 主題 | 推薦 owner 檔案 | 主要輸出 | 不要碰 |
 |---|---|---|---|---|---|
-| `track_p_rib_campaign_smoke_review` | `Wave 9 current` | rib campaign smoke / sanity review | `docs/task_packs/current_parallel_work/reports/` | smoke campaign 報告、off vs limited 比較表、`sane/suspicious/blocked` 判斷、下一步建議 | 不要改 `scripts/**`, `src/**`, `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml` |
+| `track_q_vspaero_lod_parser_fix` | `Wave 10 current` | VSPAero `.lod` parser compatibility fix | `src/hpa_mdo/aero/vsp_aero.py`, `tests/test_vspaero_parser.py`, `tests/test_vspaero_cache.py` | OpenVSP 3.45.3-compatible `.lod` parser、header-name-based column mapping、regression tests | 不要改 `scripts/**`, `src/hpa_mdo/structure/**`, `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml` |
 
 ## Shared Rules
 

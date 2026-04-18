@@ -34,22 +34,30 @@
 - Track E / G：recipe library、spanwise discrete search、zone rules 已達到 baseline done enough，不需要繼續當 current 主戰場。
 - Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`。
 - Track I / J / K：rib properties foundation、rib bay surrogate、passive rib robustness、zone-wise rib design contract 已全部落地，rib 現在已進入 candidate / winner selection contract，而不只是 report-only。
+- Track L：真實 smoke campaign 已經開始，但目前被 `VSPAeroParser` 的 `.lod` schema 相容性 bug 阻斷，還不能拿來判斷 rib ranking。
 
-這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先做一個真實 campaign smoke，確認 rib candidate contract 會不會選出合理設計。
+這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先修 rerun-aero 上游 parser blocker，之後再重跑真實 campaign smoke。
 
 ## 3. 下一輪活躍工作軌道
 
-### Track L：rib campaign smoke / ranking sanity
+### Track Q：VSPAero `.lod` parser compatibility fix
 
 這是 **下一輪最值得先做的主軸**。
 
-現在最重要的，不是再加更多 rib 自由度，而是回答：
+現在最重要的，不是再加更多 rib 自由度，而是先把 `candidate_rerun_vspaero` 真正跑通。
 
-`rib_zonewise=limited_zonewise`
+- 什麼情況下優先：如果現在 blocker 已經明確，而且任何 rib-on / rib-off 的 smoke 都會在同一個 parser 行掛掉。
+- 近期目標：
+  - 修正 `VSPAeroParser` 對 OpenVSP 3.45.3 `.lod` header / column schema 的相容性
+  - 不再依賴固定 16-column 索引
+  - 以 header 名稱動態對欄位
+  - 補 regression test，覆蓋 60+ column 新格式
 
-在真實 rerun-aero campaign 裡，會不會選出工程上合理的 winner。
+### Track L：rib campaign smoke / ranking sanity replay
 
-- 什麼情況下優先：如果現在最大的風險不是「rib 還沒進主線」，而是「rib 雖然進主線了，但還不知道 ranking 有沒有在騙人」。
+這是 **Track Q 驗證後的下一波**。
+
+- 什麼情況下優先：如果 parser fix 已經通過，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
   - 跑小型真實 smoke campaign
   - 比較 `rib_zonewise=off` vs `limited_zonewise`
@@ -109,6 +117,11 @@
 
 - 目前狀態：baseline 已成立。
 - 接下來重點不再是再多發明 rib 自由度，而是先驗證現在這套 rib candidate contract 在真實 campaign 裡是不是合理。
+
+### Track L：rib campaign smoke
+
+- 目前狀態：因 rerun-aero parser blocker 暫時卡住。
+- 接下來重點不是硬跑更多 smoke，而是先把上游 `VSPAeroParser` 修到能穩定吃 OpenVSP 3.45.3 的 `.lod`。
 
 ## 5. 條件式後續軌道
 

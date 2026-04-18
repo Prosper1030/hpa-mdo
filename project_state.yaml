@@ -85,8 +85,12 @@ active_tracks:
     goal: "Limited zone-wise rib pitch/family freedom now exists in the candidate / winner contract."
   track_l:
     name: "rib_campaign_smoke_validation"
+    status: "blocked"
+    goal: "Replay the real rerun-aero smoke campaign after the VSPAero .lod parser compatibility blocker is fixed."
+  track_q:
+    name: "vspaero_lod_parser_compatibility"
     status: "next"
-    goal: "Run a small real rerun-aero smoke campaign to confirm that rib-on vs rib-off winner ranking is engineering-sane."
+    goal: "Fix VSPAeroParser so candidate_rerun_vspaero can parse OpenVSP 3.45.3 60+ column .lod files by header name, not legacy fixed indexes."
   track_m:
     name: "rib_ranking_sanity_tuning"
     status: "queued"
@@ -103,9 +107,11 @@ recently_completed:
   - "Track E / G baseline: recipe library, spanwise DP search, and zone-dependent rules are now landed as a structural final-design baseline."
   - "Track H baseline: rerun-aero outer-loop core and campaign consumer now distinguish candidate-owned rerun artifacts from legacy refresh."
   - "Track I / J / K baseline: rib properties, rib bay surrogate, passive robustness compare mode, and zone-wise rib design are now integrated into the candidate contract."
+  - "Track L first smoke attempt: blocked by VSPAeroParser .lod schema drift against OpenVSP 3.45.3 candidate rerun output."
 
 next_wave_priorities:
-  - "Track L: run a small real rerun-aero smoke comparing rib_zonewise=off vs limited_zonewise."
+  - "Track Q: patch VSPAeroParser for OpenVSP 3.45.3 60+ column .lod compatibility and add regression tests."
+  - "Track L: replay the real rerun-aero smoke comparing rib_zonewise=off vs limited_zonewise after parser verification."
   - "Track M: only if the smoke looks suspicious, tune rib penalties / family cap / surrogate behavior."
   - "Track N: if the smoke looks sane, do finalist spot-check and handoff packaging for rib-on winners."
 
