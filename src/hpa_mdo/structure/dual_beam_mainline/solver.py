@@ -254,6 +254,28 @@ def _solve_saddle_point(
     return solution[:ndof], solution[ndof:]
 
 
+def _wire_newton_residual_floor(*, load_vector: np.ndarray, constraint_rhs: np.ndarray) -> float:
+    """Return the finite-precision residual floor for the explicit wire Newton solve."""
+
+    problem_scale = max(
+        1.0,
+        float(np.linalg.norm(np.asarray(load_vector, dtype=float))),
+        float(np.linalg.norm(np.asarray(constraint_rhs, dtype=float))),
+    )
+    return float(max(_WIRE_NEWTON_RESIDUAL_TOL, np.sqrt(np.finfo(float).eps) * problem_scale))
+
+
+def _wire_newton_step_floor(*, state: np.ndarray, multipliers_scaled: np.ndarray) -> float:
+    """Return the finite-precision applied-step floor for the explicit wire Newton solve."""
+
+    iterate_scale = max(
+        1.0,
+        float(np.linalg.norm(np.asarray(state, dtype=float))),
+        float(np.linalg.norm(np.asarray(multipliers_scaled, dtype=float))),
+    )
+    return float(max(_WIRE_NEWTON_STEP_TOL, np.sqrt(np.finfo(float).eps) * iterate_scale))
+
+
 def solve_dual_beam_state(
     *,
     model: DualBeamMainlineModel,
@@ -279,6 +301,10 @@ def solve_dual_beam_state(
         constraint_matrix = np.asarray(constraints.scaled_matrix, dtype=float)
         constraint_rhs = np.asarray(constraints.scaled_rhs, dtype=float)
         stiffness = beam_stiffness
+        residual_floor = _wire_newton_residual_floor(
+            load_vector=load_vector,
+            constraint_rhs=constraint_rhs,
+        )
 
         def _residual_for(
             trial_state: np.ndarray,
@@ -355,6 +381,8 @@ def solve_dual_beam_state(
             delta_multipliers = delta[ndof:]
             step = 1.0
             accepted = False
+            accepted_step = 0.0
+            accepted_trial_norm = float("inf")
             for _ in range(_WIRE_LINE_SEARCH_MAX_ITERS):
                 trial_state = state + step * delta_state
                 trial_multipliers = multipliers_scaled + step * delta_multipliers
@@ -369,11 +397,24 @@ def solve_dual_beam_state(
                     state = trial_state
                     multipliers_scaled = trial_multipliers
                     accepted = True
+                    accepted_step = step
+                    accepted_trial_norm = trial_norm
                     break
                 step *= 0.5
             if not accepted:
                 raise RuntimeError("Explicit wire truss line search failed to find a finite update.")
-            if float(max(np.linalg.norm(delta_state), np.linalg.norm(delta_multipliers))) <= _WIRE_NEWTON_STEP_TOL:
+            applied_update_norm = float(
+                accepted_step * max(np.linalg.norm(delta_state), np.linalg.norm(delta_multipliers))
+            )
+            if applied_update_norm <= _WIRE_NEWTON_STEP_TOL:
+                break
+            if (
+                accepted_trial_norm <= residual_floor
+                and applied_update_norm <= _wire_newton_step_floor(
+                    state=state,
+                    multipliers_scaled=multipliers_scaled,
+                )
+            ):
                 break
         else:
             raise RuntimeError("Explicit wire truss Newton solve did not converge.")
