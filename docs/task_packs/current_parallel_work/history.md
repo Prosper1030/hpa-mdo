@@ -72,3 +72,14 @@
 - Planning shift:
   - immediate next step is not rib tuning or finalist review
   - immediate next step is to patch parser compatibility, then replay Track P
+- Track Q completed:
+  - `track_q_vspaero_lod_parser_fix` completed via `fe3818d`
+  - candidate rerun loading was further stabilized via `949b80f`, limiting rerun `.lod` consumption to the main-wing component so spanwise loads stay monotonic
+- Track P replay updated:
+  - rerun-aero smoke is no longer `BLOCKED`
+  - first single-seed replay reached `SUSPICIOUS`, because both `off` and `limited_zonewise` collapsed to sentinel infeasible outcomes instead of producing a useful ranking signal
+- Current wave reset again:
+  - `track_r_multiseed_rib_smoke_signal_hunt`
+- Planning shift:
+  - immediate next step is no longer more parser work
+  - immediate next step is to run a small multi-seed rerun-aero smoke until at least one non-sentinel `off` vs `limited_zonewise` comparison exists

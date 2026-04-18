@@ -1,24 +1,24 @@
-# VSPAero Parser Fix Agent Launch Plan
+# Rib Smoke Signal-Hunt Agent Launch Plan
 
 > 這份文件是給使用者直接複製貼上用的。  
-> 目的不是解釋整個 repo，而是讓你可以安全地啟動 **Phase 2.6 blocker resolution**，先修掉 `candidate_rerun_vspaero` 的 parser 相容性問題。
+> 目的不是解釋整個 repo，而是讓你可以安全地啟動 **Phase 2.7 signal hunt**，把 `candidate_rerun_vspaero` 已解卡的路徑轉成真正有訊號的 rib smoke 比較。
 
 ## 1. 先講結論
 
 現在建議的派工方式是：
 
-- **Wave 10：先開 1 個 parser-fix agent**
-- **等我驗證這包之後**，再重跑 Track P smoke report
+- **Wave 11：先開 1 個 multi-seed smoke agent**
+- **等我驗證這包之後**，再決定是進 tuning 還是 finalist spot-check
 
 原因：
 
-- 目前 rib 模型擴張本身已經 done enough
-- 真實 smoke 已經把 blocker 根因定位到 `VSPAeroParser`
-- 這一包應該只修 parser 與測試，不要和 smoke report 或 rib tuning 混在一起
+- parser/runtime blocker 已經被解掉
+- 現在真正缺的是一組不是 sentinel fallback 的 `off` vs `limited_zonewise` 比較
+- 這一包應該只跑 smoke / 更新報告，不要和 code patch 或 rib tuning 混在一起
 
-## 2. 現在就可以丟的 Wave 10
+## 2. 現在就可以丟的 Wave 11
 
-### Agent Q：VSPAero `.lod` parser compatibility fix
+### Agent R：multi-seed rib smoke signal hunt
 
 ```text
 請先閱讀以下文件，先建立上下文，不要自行改主線定義：
@@ -31,7 +31,7 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_q_vspaero_lod_parser_fix.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_r_multiseed_rib_smoke_signal_hunt.md
 
 限制：
 - 只能修改 prompt 指定的 write scope
@@ -44,10 +44,10 @@
 
 如果你現在要開始丟 agent，我建議這樣：
 
-1. 先開 **Agent Q**
-2. 等我 review / verify Wave 10 parser fix
+1. 先開 **Agent R**
+2. 等我 review / verify Wave 11 smoke report
 3. 再決定下一步是：
-   - 重跑 Track P smoke
-   - 如果 smoke 通過，再進 tuning / finalist spot-check
+   - 如果 smoke 還是 `SUSPICIOUS`，進 `Track M`
+   - 如果 smoke 已經 `SANE`，進 `Track N`
 
-這樣可以先把已知 blocker 拿掉，不會浪費下一個 agent 再去撞同一個 parser 錯誤。
+這樣可以先把真正的 rib ranking 訊號跑出來，不會太早在錯的層上調 penalty 或做 finalist 判斷。

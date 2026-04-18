@@ -85,20 +85,24 @@ active_tracks:
     goal: "Limited zone-wise rib pitch/family freedom now exists in the candidate / winner contract."
   track_l:
     name: "rib_campaign_smoke_validation"
-    status: "blocked"
-    goal: "Replay the real rerun-aero smoke campaign after the VSPAero .lod parser compatibility blocker is fixed."
+    status: "suspicious"
+    goal: "The first rerun-aero smoke replay now completes, but it still only yields sentinel infeasible outcomes and not a useful rib ranking signal."
   track_q:
     name: "vspaero_lod_parser_compatibility"
+    status: "baseline_complete"
+    goal: "VSPAeroParser and candidate rerun loading now handle the current OpenVSP 3.45.3 .lod/runtime path well enough for real smoke replay."
+  track_r:
+    name: "rib_multiseed_smoke_signal_hunt"
     status: "next"
-    goal: "Fix VSPAeroParser so candidate_rerun_vspaero can parse OpenVSP 3.45.3 60+ column .lod files by header name, not legacy fixed indexes."
+    goal: "Run a small multi-seed rerun-aero smoke so rib_zonewise=off vs limited_zonewise produces at least one non-sentinel comparable selected case."
   track_m:
     name: "rib_ranking_sanity_tuning"
     status: "queued"
-    goal: "Tune rib penalties or surrogate behavior only if the smoke campaign shows suspicious ranking behavior."
+    goal: "Tune rib penalties or surrogate behavior only if the multi-seed smoke shows suspicious ranking behavior with real signal."
   track_n:
     name: "rib_finalist_spotcheck_handoff"
     status: "queued"
-    goal: "After smoke validation passes, run finalist spot-checks and prepare a more formal rib-on handoff summary."
+    goal: "After multi-seed smoke validation passes, run finalist spot-checks and prepare a more formal rib-on handoff summary."
 
 recently_completed:
   - "Track B baseline: inverse-design validity summary JSON and summary linkage are in place."
@@ -107,13 +111,13 @@ recently_completed:
   - "Track E / G baseline: recipe library, spanwise DP search, and zone-dependent rules are now landed as a structural final-design baseline."
   - "Track H baseline: rerun-aero outer-loop core and campaign consumer now distinguish candidate-owned rerun artifacts from legacy refresh."
   - "Track I / J / K baseline: rib properties, rib bay surrogate, passive robustness compare mode, and zone-wise rib design are now integrated into the candidate contract."
-  - "Track L first smoke attempt: blocked by VSPAeroParser .lod schema drift against OpenVSP 3.45.3 candidate rerun output."
+  - "Track Q baseline: VSPAeroParser now handles OpenVSP 3.45.3 .lod schema drift, and candidate rerun loading is limited to the main-wing component for monotonic spanwise loads."
+  - "Track L replay: rerun-aero smoke now completes, but the first single-seed replay is still suspicious because both rib modes collapse to sentinel infeasible outcomes."
 
 next_wave_priorities:
-  - "Track Q: patch VSPAeroParser for OpenVSP 3.45.3 60+ column .lod compatibility and add regression tests."
-  - "Track L: replay the real rerun-aero smoke comparing rib_zonewise=off vs limited_zonewise after parser verification."
-  - "Track M: only if the smoke looks suspicious, tune rib penalties / family cap / surrogate behavior."
-  - "Track N: if the smoke looks sane, do finalist spot-check and handoff packaging for rib-on winners."
+  - "Track R: run a multi-seed rerun-aero smoke comparing rib_zonewise=off vs limited_zonewise until at least one non-sentinel comparable case is found."
+  - "Track M: only if the multi-seed smoke shows suspicious ranking with real signal, tune rib penalties / family cap / surrogate behavior."
+  - "Track N: if the multi-seed smoke looks sane, do finalist spot-check and handoff packaging for rib-on winners."
 
 benchmark_policy:
   status: "open_basket"

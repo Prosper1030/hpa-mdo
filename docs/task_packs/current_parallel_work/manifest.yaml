@@ -10,17 +10,15 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_q_vspaero_lod_parser_fix"
-    prompt: "prompts/track_q_vspaero_lod_parser_fix.md"
-    launch_wave: 10
+  - id: "track_r_multiseed_rib_smoke_signal_hunt"
+    prompt: "prompts/track_r_multiseed_rib_smoke_signal_hunt.md"
+    launch_wave: 11
     write_scope:
-      - "src/hpa_mdo/aero/vsp_aero.py"
-      - "tests/test_vspaero_parser.py"
-      - "tests/test_vspaero_cache.py"
+      - "docs/task_packs/current_parallel_work/reports/rib_campaign_smoke_report.md"
     expected_artifacts:
-      - "OpenVSP 3.45.3-compatible .lod parser"
-      - "header-name-based column mapping"
-      - "regression tests for modern .lod schema"
+      - "multi-seed rerun-aero smoke report"
+      - "at least one non-sentinel off vs limited_zonewise comparison, if found"
+      - "final verdict: SANE / SUSPICIOUS / BLOCKED"
 
 do_not_touch:
   - "README.md"

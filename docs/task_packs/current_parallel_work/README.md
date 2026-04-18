@@ -17,15 +17,15 @@
 
 ## What This Pack Covers
 
-這包現在聚焦在 **Phase 2.6 blocker resolution：VSPAero parser compatibility fix**。
+這包現在聚焦在 **Phase 2.7 signal hunt：multi-seed rib smoke replay**。
 
-上一波 rib integration 任務已經完成，第一輪 rib smoke 也已經把 blocker 根因找出來；現在不再把更多 rib contract 擴張當 current pack 主任務。
+上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；但第一輪單點 smoke 仍只得到 `SUSPICIOUS`，還沒有產生可比較的 rib ranking 訊號。
 
 目前的主任務是：
 
-- Track Q：VSPAero `.lod` parser compatibility fix
+- Track R：multi-seed rib smoke signal hunt
 
-這一包的目的不是再發明 rib，而是先把 `candidate_rerun_vspaero` 跑通，之後才能重跑 Track P，真的檢查 rib-on candidate contract 是不是工程合理。
+這一包的目的不是再修 parser，也不是再擴 rib 模型，而是用 `2 到 4` 個小型但有訊號的 rerun-aero seeds，找出至少一組真正可比較的 `off` vs `limited_zonewise` selected-case。
 
 ## How To Use This Pack
 
@@ -44,4 +44,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道目前這一波不是再加模型，而是先修上游 parser blocker，再重跑真實 smoke 驗證。
+- 使用者能清楚知道目前這一波不是再加模型或再修 parser，而是先把真正有訊號的 rib smoke ranking 跑出來。

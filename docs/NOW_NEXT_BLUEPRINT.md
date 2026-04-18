@@ -34,41 +34,29 @@
 - Track E / G：recipe library、spanwise discrete search、zone rules 已達到 baseline done enough，不需要繼續當 current 主戰場。
 - Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`。
 - Track I / J / K：rib properties foundation、rib bay surrogate、passive rib robustness、zone-wise rib design contract 已全部落地，rib 現在已進入 candidate / winner selection contract，而不只是 report-only。
-- Track L：真實 smoke campaign 已經開始，但目前被 `VSPAeroParser` 的 `.lod` schema 相容性 bug 阻斷，還不能拿來判斷 rib ranking。
+- Track L：真實 smoke campaign 已經不再被 parser 卡住，但第一輪單點 replay 仍只得到 `SUSPICIOUS`，還沒有拿到可比較的 rib ranking 訊號。
+- Track Q：VSPAero `.lod` parser compatibility 與 candidate rerun 主翼 component filter 已修好，rerun-aero 路線已經能真正跑到 summary artifact。
 
 這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先修 rerun-aero 上游 parser blocker，之後再重跑真實 campaign smoke。
 
 ## 3. 下一輪活躍工作軌道
 
-### Track Q：VSPAero `.lod` parser compatibility fix
-
-這是 **下一輪最值得先做的主軸**。
-
-現在最重要的，不是再加更多 rib 自由度，而是先把 `candidate_rerun_vspaero` 真正跑通。
-
-- 什麼情況下優先：如果現在 blocker 已經明確，而且任何 rib-on / rib-off 的 smoke 都會在同一個 parser 行掛掉。
-- 近期目標：
-  - 修正 `VSPAeroParser` 對 OpenVSP 3.45.3 `.lod` header / column schema 的相容性
-  - 不再依賴固定 16-column 索引
-  - 以 header 名稱動態對欄位
-  - 補 regression test，覆蓋 60+ column 新格式
-
-### Track L：rib campaign smoke / ranking sanity replay
+### Track R：rib campaign multi-seed signal hunt
 
 這是 **Track Q 驗證後的下一波**。
 
-- 什麼情況下優先：如果 parser fix 已經通過，現在需要真正回答 rib ranking 是不是工程合理。
+- 什麼情況下優先：如果 rerun-aero 已經能跑通，但第一輪最小 smoke 仍只給出 `1e12 / inf / -inf` 這種 sentinel 結果。
 - 近期目標：
-  - 跑小型真實 smoke campaign
-  - 比較 `rib_zonewise=off` vs `limited_zonewise`
-  - 檢查 winner、mass、clearance、loaded-shape mismatch、rib penalty、unique families、family switches 是否合理
-  - 明確判斷是 `sane`、`suspicious` 還是 `blocked`
+  - 用 `candidate_rerun_vspaero` 跑 `2 到 4` 個較有訊號的代表性 seeds
+  - 每個 seed 都比較 `rib_zonewise=off` vs `limited_zonewise`
+  - 至少找出一組不是 sentinel fallback 的可比 selected-case
+  - 明確判斷這套 rib contract 是 `SANE`、`SUSPICIOUS`，還是又回到新的 `BLOCKED`
 
 ### Track M：rib penalty / surrogate tuning
 
-這是 **Track L 跑完之後的下一波**。
+這是 **Track R 跑完之後的下一波**。
 
-- 什麼情況下優先：如果 smoke campaign 顯示 rib-on 確實影響 winner，但 ranking 邏輯仍有可疑之處。
+- 什麼情況下優先：如果多 seed smoke 顯示 rib-on 確實開始影響 winner，但 ranking 邏輯仍有可疑之處。
 - 近期目標：
   - 調整 `rib_family_switch_penalty_kg`
   - 調整 `family_mix_max_unique`
@@ -77,7 +65,7 @@
 
 ### Track N：rib finalist spot-check / handoff
 
-這是 **Track L / M 穩住後的第三波**。
+這是 **Track R / M 穩住後的第三波**。
 
 - 什麼情況下優先：如果 smoke 結果合理，準備把 rib-on 設計推向更正式的 finalist 診斷與交接。
 - 近期目標：
@@ -118,10 +106,15 @@
 - 目前狀態：baseline 已成立。
 - 接下來重點不再是再多發明 rib 自由度，而是先驗證現在這套 rib candidate contract 在真實 campaign 裡是不是合理。
 
+### Track Q：rerun-aero parser/runtime unblock
+
+- 目前狀態：baseline 已成立。
+- 接下來重點不再是繼續修 parser，而是把新的 parser/runtime 路徑拿來支撐更有訊號的 Track R replay。
+
 ### Track L：rib campaign smoke
 
-- 目前狀態：因 rerun-aero parser blocker 暫時卡住。
-- 接下來重點不是硬跑更多 smoke，而是先把上游 `VSPAeroParser` 修到能穩定吃 OpenVSP 3.45.3 的 `.lod`。
+- 目前狀態：已從 `BLOCKED` 升到 `SUSPICIOUS`。
+- 接下來重點不是停在單點 smoke，而是擴成多 seed 的 Track R，避免太早對 rib ranking 做錯判。
 
 ## 5. 條件式後續軌道
 
