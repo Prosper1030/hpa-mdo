@@ -1,0 +1,63 @@
+metadata:
+  description: "Preliminary rib family catalog and warping-knockdown derivation contract."
+  catalog_version: 1
+  default_family: "balsa_sheet_3mm"
+  default_spacing_m: 0.30
+  derivation:
+    formula: "weighted_material_thickness_proxy_v1"
+    reference_family: "balsa_sheet_3mm"
+    reference_spacing_m: 0.30
+    bending_weight: 0.65
+    shear_weight: 0.35
+    spacing_exponent: 1.0
+    minimum_knockdown: 0.08
+    maximum_knockdown: 0.95
+
+families:
+  balsa_sheet_3mm:
+    label: "Balsa sheet 3 mm"
+    material: "balsa"
+    thickness_m: 0.003
+    description: "Simple sheet-balsa rib bay used as the baseline rib family."
+    intended_use: "Legacy-compatible baseline for current dual-spar screening and jig studies."
+    notes: "Anchored so nominal spacing reproduces the current conservative-middle assumption of about 0.5 warping knockdown."
+    stiffness_proxy:
+      construction_factor: 1.0
+      rotational_fixity_factor: 1.0
+      shear_transfer_factor: 1.0
+    spacing_guidance:
+      min_m: 0.25
+      nominal_m: 0.30
+      max_m: 0.38
+
+  foam_core_glass_cap_5mm:
+    label: "Foam core with light glass caps 5 mm"
+    material: "rohacell_51"
+    thickness_m: 0.005
+    description: "Light sandwich-style rib with foam web and modest cap or face reinforcement."
+    intended_use: "Mass-sensitive bays where the rib mainly preserves airfoil shape and transfers moderate torsion."
+    notes: "The material key points at the dominant foam core; construction_factor captures the added cap or face-sheet contribution."
+    stiffness_proxy:
+      construction_factor: 1.75
+      rotational_fixity_factor: 0.70
+      shear_transfer_factor: 0.80
+    spacing_guidance:
+      min_m: 0.18
+      nominal_m: 0.24
+      max_m: 0.30
+
+  capped_balsa_box_4mm:
+    label: "Capped balsa box rib 4 mm"
+    material: "balsa"
+    thickness_m: 0.004
+    description: "Stiffer built-up balsa rib with caps or gussets for better rotational fixity."
+    intended_use: "Higher torsion-retention bays or local reinforcement near joints and wire-attachment regions."
+    notes: "Still a screening-level proxy and not a replacement for the future finite-rib mainline mode."
+    stiffness_proxy:
+      construction_factor: 1.25
+      rotational_fixity_factor: 1.30
+      shear_transfer_factor: 1.15
+    spacing_guidance:
+      min_m: 0.22
+      nominal_m: 0.28
+      max_m: 0.34

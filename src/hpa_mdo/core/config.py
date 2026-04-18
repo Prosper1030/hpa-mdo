@@ -85,7 +85,8 @@ class SafetyConfig(BaseModel):
         default=1.0,
         description=(
             "Reduction factor on the rigid-rib dual-spar torsional coupling term "
-            "(1.0 = fully rigid ribs)"
+            "(1.0 = fully rigid ribs). Can also be derived from rib.* when the "
+            "legacy scalar is omitted."
         ),
         ge=0.0,
         le=1.0,
@@ -490,6 +491,36 @@ class StructureConfig(BaseModel):
     )
 
 
+class RibConfig(BaseModel):
+    enabled: bool = True
+    family: Optional[str] = Field(
+        None,
+        description="Optional rib family key from data/rib_properties.yaml.",
+    )
+    spacing_m: Optional[float] = Field(
+        None,
+        gt=0.0,
+        description="Nominal rib spacing used for derived warping knockdown [m].",
+    )
+    derive_warping_knockdown: bool = Field(
+        True,
+        description=(
+            "If true and safety.dual_spar_warping_knockdown is omitted, derive the "
+            "legacy scalar from the rib catalog."
+        ),
+    )
+    warping_knockdown_override: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Optional rib-level override for the derived warping knockdown.",
+    )
+    catalog_path: Optional[Path] = Field(
+        None,
+        description="Optional custom rib catalog path. Relative paths resolve from the config root.",
+    )
+
+
 class IOConfig(BaseModel):
     sync_root: Optional[Path] = None
     vsp_model: Optional[Path] = None
@@ -762,6 +793,7 @@ class HPAConfig(BaseModel):
     aero_gates: AeroGatesConfig = AeroGatesConfig()
     solver: SolverConfig = SolverConfig()
     structure: StructureConfig = StructureConfig()
+    rib: RibConfig = RibConfig()
     io: IOConfig = IOConfig()
     aswing: ASWINGExportConfig = ASWINGExportConfig()
     hi_fidelity: HiFidelityConfig = HiFidelityConfig()
@@ -910,6 +942,34 @@ def _resolve_io_paths(cfg: HPAConfig, project_root: Path) -> HPAConfig:
     return cfg
 
 
+def _resolve_rib_path(cfg: HPAConfig, project_root: Path) -> HPAConfig:
+    resolved_catalog = _resolve_path(cfg.rib.catalog_path, project_root)
+    if resolved_catalog is not None:
+        cfg.rib.catalog_path = resolved_catalog
+    return cfg
+
+
+def _apply_derived_rib_knockdown(
+    cfg: HPAConfig,
+    data: Dict[str, Any],
+) -> HPAConfig:
+    safety_payload = data.get("safety")
+    if isinstance(safety_payload, dict) and "dual_spar_warping_knockdown" in safety_payload:
+        return cfg
+    if not cfg.rib.enabled or not cfg.rib.derive_warping_knockdown:
+        return cfg
+
+    from hpa_mdo.structure.rib_properties import resolve_rib_warping_knockdown
+
+    cfg.safety.dual_spar_warping_knockdown = resolve_rib_warping_knockdown(
+        family_key=cfg.rib.family,
+        spacing_m=cfg.rib.spacing_m,
+        catalog_path=cfg.rib.catalog_path,
+        warping_knockdown_override=cfg.rib.warping_knockdown_override,
+    )
+    return cfg
+
+
 def load_config(
     path,
     local_paths_path: Optional[Path | str] = None,
@@ -923,4 +983,6 @@ def load_config(
         data = _deep_merge(data, _read_yaml(overlay_path))
 
     cfg = HPAConfig(**data)
-    return _resolve_io_paths(cfg, project_root)
+    cfg = _resolve_io_paths(cfg, project_root)
+    cfg = _resolve_rib_path(cfg, project_root)
+    return _apply_derived_rib_knockdown(cfg, data)

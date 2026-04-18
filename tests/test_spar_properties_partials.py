@@ -10,6 +10,7 @@ import numpy as np
 import openmdao.api as om
 import pytest
 
+from hpa_mdo.structure.rib_properties import derive_warping_knockdown
 from hpa_mdo.structure.oas_structural import DualSparPropertiesComp
 
 NE = 4
@@ -101,6 +102,21 @@ def test_warping_knockdown_reduces_dual_spar_gj() -> None:
     gj_rigid = prob_rigid.get_val("GJ")
     gj_flexible = prob_flexible.get_val("GJ")
     np.testing.assert_array_less(gj_flexible, gj_rigid)
+
+
+def test_catalog_derived_warping_knockdown_changes_dual_spar_gj() -> None:
+    stiff_knockdown = derive_warping_knockdown("capped_balsa_box_4mm", 0.28)
+    soft_knockdown = derive_warping_knockdown("foam_core_glass_cap_5mm", 0.30)
+
+    prob_stiff = _build_prob(rear=True, warping_knockdown=stiff_knockdown)
+    _set_interior_inputs(prob_stiff, rear=True)
+    prob_stiff.run_model()
+
+    prob_soft = _build_prob(rear=True, warping_knockdown=soft_knockdown)
+    _set_interior_inputs(prob_soft, rear=True)
+    prob_soft.run_model()
+
+    np.testing.assert_array_less(prob_soft.get_val("GJ"), prob_stiff.get_val("GJ"))
 
 
 def test_rear_mass_per_length_matches_rear_tube_area_times_density() -> None:
