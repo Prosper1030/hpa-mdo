@@ -22,6 +22,7 @@ from hpa_mdo.structure.laminate import (
     evaluate_laminate_tsai_wu,
     tube_equivalent_from_layup,
 )
+from hpa_mdo.utils.discrete_spanwise_search import search_spanwise_discrete_stacks
 
 
 LOGGER = logging.getLogger(__name__)
@@ -143,20 +144,66 @@ def discretize_layup_per_segment(
     stacks: Sequence[PlyStack],
     ply_mat: PlyMaterial,
     ply_drop_limit: int = 1,
+    *,
+    segment_lengths_m: Sequence[float] | None = None,
+    selection_mode: str = "dp",
 ) -> list[PlyStack]:
-    """Snap each segment thickness to a discrete stack with ply-step control."""
+    """Discretize a continuous spanwise layup profile into laminate stacks.
+
+    ``selection_mode="dp"`` runs the Track H spanwise dynamic-programming
+    search by default.  ``selection_mode="local"`` preserves the older
+    per-segment round-up heuristic for regression comparison.
+    """
     if len(continuous_thicknesses) != len(R_outer_per_seg):
         raise ValueError("continuous_thicknesses and R_outer_per_seg must have the same length.")
+    if segment_lengths_m is not None and len(segment_lengths_m) != len(continuous_thicknesses):
+        raise ValueError("segment_lengths_m must match continuous_thicknesses in length.")
     if ply_drop_limit < 0:
         raise ValueError("ply_drop_limit must be non-negative.")
 
     ordered = sorted(
         stacks, key=lambda stack: (stack.wall_thickness(ply_mat.t_ply), _stack_sort_key(stack))
     )
-    selected: list[PlyStack] = []
+    mode = _normalize_selection_mode(selection_mode)
+    if mode == "local":
+        return _discretize_layup_local_round_up(
+            continuous_thicknesses=continuous_thicknesses,
+            stacks=ordered,
+            ply_mat=ply_mat,
+            ply_drop_limit=ply_drop_limit,
+        )
 
+    search_result = search_spanwise_discrete_stacks(
+        continuous_thicknesses_m=continuous_thicknesses,
+        outer_radii_m=R_outer_per_seg,
+        segment_lengths_m=segment_lengths_m,
+        stacks=ordered,
+        ply_mat=ply_mat,
+        ply_drop_limit=ply_drop_limit,
+    )
+    return list(search_result.selected_stacks)
+
+
+def _normalize_selection_mode(selection_mode: str) -> str:
+    normalized = str(selection_mode).strip().lower().replace("-", "_")
+    if normalized in {"dp", "spanwise_dp", "spanwise_search", "shortest_path"}:
+        return "dp"
+    if normalized in {"local", "local_round_up", "round_up", "legacy"}:
+        return "local"
+    raise ValueError(f"Unsupported selection_mode: {selection_mode}")
+
+
+def _discretize_layup_local_round_up(
+    *,
+    continuous_thicknesses: Sequence[float],
+    stacks: Sequence[PlyStack],
+    ply_mat: PlyMaterial,
+    ply_drop_limit: int,
+) -> list[PlyStack]:
+    """Legacy per-segment round-up heuristic kept for regression comparison."""
+    selected: list[PlyStack] = []
     for idx, target in enumerate(continuous_thicknesses):
-        stack = snap_to_nearest_stack(float(target), ordered, ply_mat)
+        stack = snap_to_nearest_stack(float(target), stacks, ply_mat)
         if idx > 0:
             previous_half_count = _half_layup_ply_count(selected[-1])
             min_half_count = max(previous_half_count - int(ply_drop_limit), 0)
@@ -165,14 +212,14 @@ def discretize_layup_per_segment(
             if half_count < min_half_count:
                 eligible = [
                     candidate
-                    for candidate in ordered
+                    for candidate in stacks
                     if _half_layup_ply_count(candidate) >= min_half_count
                     and candidate.wall_thickness(ply_mat.t_ply) >= float(target) - _FLOAT_TOL
                 ]
                 if eligible:
                     stack = eligible[0]
                 else:
-                    stack = ordered[-1]
+                    stack = stacks[-1]
                     LOGGER.warning(
                         "Segment %d requires at least %d plies to satisfy ply-drop control; "
                         "using the thickest available stack.",
@@ -182,7 +229,7 @@ def discretize_layup_per_segment(
             elif half_count > max_half_count:
                 eligible = [
                     candidate
-                    for candidate in ordered
+                    for candidate in stacks
                     if _half_layup_ply_count(candidate) <= max_half_count
                 ]
                 if eligible:
@@ -194,7 +241,7 @@ def discretize_layup_per_segment(
                         stack.total_plies(),
                     )
                 else:
-                    stack = ordered[0]
+                    stack = stacks[0]
         selected.append(stack)
 
     return selected
@@ -324,6 +371,7 @@ def build_segment_layup_results(
     midplane_strains: Sequence[Sequence[float]] | None = None,
     curvatures: Sequence[Sequence[float]] | None = None,
     strain_envelopes: Sequence[dict[str, float]] | None = None,
+    selection_mode: str = "dp",
 ) -> list[SegmentLayupResult]:
     """Build per-segment layup selections with geometry and mass annotations."""
     if not (len(segment_lengths_m) == len(continuous_thicknesses_m) == len(outer_radii_m)):
@@ -345,6 +393,8 @@ def build_segment_layup_results(
         stacks=stacks,
         ply_mat=ply_mat,
         ply_drop_limit=ply_drop_limit,
+        segment_lengths_m=segment_lengths_m,
+        selection_mode=selection_mode,
     )
     results: list[SegmentLayupResult] = []
     y_start = 0.0

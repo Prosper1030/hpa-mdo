@@ -70,6 +70,7 @@ def test_discretize_layup_applies_ply_drop_limit(ply_mat) -> None:
         stacks=stacks,
         ply_mat=ply_mat,
         ply_drop_limit=2,
+        selection_mode="local",
     )
 
     assert [stack.total_plies() for stack in selected] == [12, 10]
@@ -88,9 +89,60 @@ def test_discretize_layup_limits_large_ply_count_increases(ply_mat) -> None:
         stacks=stacks,
         ply_mat=ply_mat,
         ply_drop_limit=1,
+        selection_mode="local",
     )
 
     assert [stack.total_plies() for stack in selected] == [6, 8]
+
+
+def test_discretize_layup_defaults_to_spanwise_dp_search(ply_mat) -> None:
+    stacks = [
+        PlyStack(n_0=1, n_45=1, n_90=0),  # 6 plies
+        PlyStack(n_0=2, n_45=1, n_90=0),  # 8 plies
+        PlyStack(n_0=3, n_45=1, n_90=0),  # 10 plies
+        PlyStack(n_0=4, n_45=1, n_90=0),  # 12 plies
+    ]
+
+    local_selected = discretize_layup_per_segment(
+        continuous_thicknesses=[0.99e-3, 1.49e-3],
+        R_outer_per_seg=[0.03, 0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+        selection_mode="local",
+    )
+    dp_selected = discretize_layup_per_segment(
+        continuous_thicknesses=[0.99e-3, 1.49e-3],
+        R_outer_per_seg=[0.03, 0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+    )
+
+    assert [stack.total_plies() for stack in local_selected] == [8, 10]
+    assert [stack.total_plies() for stack in dp_selected] == [10, 12]
+
+
+def test_build_segment_layup_results_spanwise_dp_passes_manufacturing_gate(ply_mat) -> None:
+    stacks = [
+        PlyStack(n_0=1, n_45=1, n_90=0),  # 6 plies
+        PlyStack(n_0=2, n_45=1, n_90=0),  # 8 plies
+        PlyStack(n_0=3, n_45=1, n_90=0),  # 10 plies
+        PlyStack(n_0=4, n_45=1, n_90=0),  # 12 plies
+    ]
+
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.0, 1.0, 1.0],
+        continuous_thicknesses_m=[0.99e-3, 1.49e-3, 0.99e-3],
+        outer_radii_m=[0.03, 0.03, 0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+    )
+
+    gate = manufacturing_gate_summary(results, ply_drop_limit=1, min_run_length_m=0.0)
+    assert [result.stack.total_plies() for result in results] == [10, 12, 10]
+    assert gate["passed"] is True
 
 
 def test_effective_layup_thickness_step_limit_tightens_to_one_half_layup_step(
