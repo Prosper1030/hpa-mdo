@@ -16,6 +16,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 INVERSE_SCRIPT = SCRIPT_DIR / "direct_dual_beam_inverse_design.py"
 FEASIBILITY_GATE_PENALTY_KG = 1000.0
 TARGET_VIOLATION_WEIGHT_KG = 1000.0
+LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
+CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,13 @@ class SweepCaseResult:
     report_path: str
     selection_status: str = "unranked"
     winner_evidence: str | None = None
+    aero_source_mode: str | None = None
+    baseline_load_source: str | None = None
+    refresh_load_source: str | None = None
+    load_ownership: str | None = None
+    artifact_ownership: str | None = None
+    selected_cruise_aoa_deg: float | None = None
+    aero_contract_json_path: str | None = None
 
 
 def _parse_targets(text: str) -> tuple[float, ...]:
@@ -81,6 +90,65 @@ def _build_search_budget_summary(args) -> dict[str, object]:
         "local_refine_early_stop_patience": int(args.local_refine_early_stop_patience),
         "local_refine_early_stop_abs_improvement_kg": float(
             args.local_refine_early_stop_abs_improvement_kg
+        ),
+        "aero_source_mode": str(args.aero_source_mode),
+    }
+
+
+def _aero_source_label(source_mode: str | None) -> str:
+    if source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
+        return "candidate rerun-aero"
+    if source_mode == LEGACY_AERO_SOURCE_MODE:
+        return "legacy refresh"
+    if source_mode is None:
+        return "unknown"
+    return str(source_mode)
+
+
+def _extract_aero_contract_snapshot(summary: dict[str, object]) -> dict[str, object]:
+    contract = summary.get("aero_contract")
+    artifacts = summary.get("artifacts")
+    if not isinstance(contract, dict):
+        return {
+            "aero_source_mode": None,
+            "baseline_load_source": None,
+            "refresh_load_source": None,
+            "load_ownership": None,
+            "artifact_ownership": None,
+            "selected_cruise_aoa_deg": None,
+            "aero_contract_json_path": None,
+        }
+    return {
+        "aero_source_mode": (
+            None if contract.get("source_mode") is None else str(contract["source_mode"])
+        ),
+        "baseline_load_source": (
+            None
+            if contract.get("baseline_load_source") is None
+            else str(contract["baseline_load_source"])
+        ),
+        "refresh_load_source": (
+            None
+            if contract.get("refresh_load_source") is None
+            else str(contract["refresh_load_source"])
+        ),
+        "load_ownership": (
+            None if contract.get("load_ownership") is None else str(contract["load_ownership"])
+        ),
+        "artifact_ownership": (
+            None
+            if contract.get("artifact_ownership") is None
+            else str(contract["artifact_ownership"])
+        ),
+        "selected_cruise_aoa_deg": (
+            None
+            if contract.get("selected_cruise_aoa_deg") is None
+            else float(contract["selected_cruise_aoa_deg"])
+        ),
+        "aero_contract_json_path": (
+            None
+            if not isinstance(artifacts, dict) or artifacts.get("aero_contract_json") is None
+            else str(artifacts["aero_contract_json"])
         ),
     }
 
@@ -129,7 +197,8 @@ def _build_winner_evidence(case: SweepCaseResult, *, feasible_pool_exists: bool)
     return (
         f"{prefix}; score={case.candidate_score:.3f}, "
         f"mass={case.selected_total_mass_kg:.3f} kg, "
-        f"mismatch={mismatch_mm}, clearance={clearance_mm}"
+        f"mismatch={mismatch_mm}, clearance={clearance_mm}, "
+        f"aero source={_aero_source_label(case.aero_source_mode)}"
     )
 
 
@@ -183,6 +252,13 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
         "jig_ground_clearance_min_m": float(winner.ground_clearance_min_m),
         "reject_reason": winner.reject_reason,
         "summary_json_path": winner.summary_json_path,
+        "aero_source_mode": winner.aero_source_mode,
+        "baseline_load_source": winner.baseline_load_source,
+        "refresh_load_source": winner.refresh_load_source,
+        "load_ownership": winner.load_ownership,
+        "artifact_ownership": winner.artifact_ownership,
+        "selected_cruise_aoa_deg": winner.selected_cruise_aoa_deg,
+        "aero_contract_json_path": winner.aero_contract_json_path,
         "winner_evidence": next(
             item.winner_evidence for item in annotated if item.target_mass_kg == winner.target_mass_kg
         ),
@@ -227,6 +303,8 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         str(args.local_refine_early_stop_patience),
         "--local-refine-early-stop-abs-improvement-kg",
         str(args.local_refine_early_stop_abs_improvement_kg),
+        "--aero-source-mode",
+        str(args.aero_source_mode),
         "--target-mass-kg",
         str(target_mass_kg),
     ]
@@ -260,6 +338,7 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         if selected.get("mass_margin_kg") is None
         else float(selected["mass_margin_kg"])
     )
+    aero_snapshot = _extract_aero_contract_snapshot(summary)
 
     return SweepCaseResult(
         target_mass_kg=float(target_mass_kg),
@@ -291,6 +370,7 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         nearest_boundary=nearest,
         summary_json_path=str(summary_path.resolve()),
         report_path=str(report_path.resolve()),
+        **aero_snapshot,
     )
 
 
@@ -345,6 +425,10 @@ def _build_report_text(
                 )
             )
         ),
+        (
+            "  aero source mode            : "
+            f"{search_budget['aero_source_mode']} ({_aero_source_label(search_budget['aero_source_mode'])})"
+        ),
         "",
         "Target Mass Sweep:",
     ]
@@ -371,17 +455,34 @@ def _build_report_text(
             "  jig ground clearance min     : "
             f"{float(winner_summary['jig_ground_clearance_min_m']) * 1000.0:.3f} mm"
         )
+        lines.append(
+            "  aero source mode            : "
+            + (
+                "unknown"
+                if winner_summary["aero_source_mode"] is None
+                else f"{winner_summary['aero_source_mode']} ({_aero_source_label(winner_summary['aero_source_mode'])})"
+            )
+        )
+        if winner_summary["refresh_load_source"] is not None:
+            lines.append(f"  refresh load source         : {winner_summary['refresh_load_source']}")
+        if winner_summary["load_ownership"] is not None:
+            lines.append(f"  load ownership              : {winner_summary['load_ownership']}")
         lines.append(f"  reject reason                : {winner_summary['reject_reason']}")
+        if winner_summary["aero_contract_json_path"] is not None:
+            lines.append(
+                f"  aero contract JSON          : {winner_summary['aero_contract_json_path']}"
+            )
         lines.append(f"  winner evidence              : {winner_summary['winner_evidence']}")
         lines.append("")
     lines.append(
-        "target kg | feasible | score | selected mass kg | mismatch mm | clearance mm | reject reason | selection"
+        "target kg | feasible | score | aero source | selected mass kg | mismatch mm | clearance mm | reject reason | selection"
     )
     for case in cases:
         lines.append(
             f"{case.target_mass_kg:9.1f} | "
             f"{str(case.feasible):8s} | "
             f"{case.candidate_score:5.1f} | "
+            f"{_aero_source_label(case.aero_source_mode):17s} | "
             f"{case.selected_total_mass_kg:16.3f} | "
             f"{case.target_shape_error_max_m * 1000.0:11.3f} | "
             f"{case.ground_clearance_min_m * 1000.0:11.3f} | "
@@ -409,11 +510,31 @@ def _build_report_text(
             "  mass margin                  : "
             + ("n/a" if case.mass_margin_kg is None else f"{case.mass_margin_kg:+.3f} kg")
         )
+        lines.append(
+            "  aero source mode            : "
+            + (
+                "unknown"
+                if case.aero_source_mode is None
+                else f"{case.aero_source_mode} ({_aero_source_label(case.aero_source_mode)})"
+            )
+        )
+        if case.baseline_load_source is not None:
+            lines.append(f"  baseline load source         : {case.baseline_load_source}")
+        if case.refresh_load_source is not None:
+            lines.append(f"  refresh load source          : {case.refresh_load_source}")
+        if case.load_ownership is not None:
+            lines.append(f"  load ownership               : {case.load_ownership}")
+        if case.artifact_ownership is not None:
+            lines.append(f"  artifact ownership           : {case.artifact_ownership}")
+        if case.selected_cruise_aoa_deg is not None:
+            lines.append(f"  selected cruise AoA          : {case.selected_cruise_aoa_deg:.3f} deg")
         lines.append(f"  main blocker                 : {case.main_blocker}")
         lines.append(f"  reject reason                : {case.reject_reason}")
         lines.append(f"  nearest boundary             : {case.nearest_boundary}")
         if case.winner_evidence is not None:
             lines.append(f"  winner evidence              : {case.winner_evidence}")
+        if case.aero_contract_json_path is not None:
+            lines.append(f"  aero contract JSON           : {case.aero_contract_json_path}")
         lines.append(f"  summary JSON                 : {case.summary_json_path}")
         lines.append(f"  detailed report              : {case.report_path}")
         lines.append("")
@@ -443,6 +564,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=str(SCRIPT_DIR.parent / "output" / "direct_dual_beam_inverse_design_feasibility_sweep"),
     )
     parser.add_argument("--target-masses-kg", default="22,20,18,16,15")
+    parser.add_argument(
+        "--aero-source-mode",
+        default=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+        choices=(LEGACY_AERO_SOURCE_MODE, CANDIDATE_RERUN_AERO_SOURCE_MODE),
+        help=(
+            "Choose whether each target-mass case reuses the legacy shared refresh loads "
+            "or consumes candidate-owned rerun-aero artifacts from the inverse-design core."
+        ),
+    )
     parser.add_argument("--refresh-steps", type=int, default=2)
     parser.add_argument("--main-plateau-grid", default="0.0,0.33,0.67,1.0")
     parser.add_argument("--main-taper-fill-grid", default="0.0,0.33,0.67,1.0")
@@ -510,6 +640,10 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Refreshed inverse-design feasibility sweep complete.")
     print(f"  Output dir          : {output_dir}")
+    print(
+        "  Aero source mode    : "
+        f"{args.aero_source_mode} ({_aero_source_label(args.aero_source_mode)})"
+    )
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
     if winner_summary is not None:
@@ -522,6 +656,7 @@ def main(argv: list[str] | None = None) -> int:
     for case in cases:
         print(
             f"  {case.target_mass_kg:5.1f} kg           : feasible={case.feasible}  "
+            f"aero={_aero_source_label(case.aero_source_mode)}  "
             f"score={case.candidate_score:.3f}  "
             f"status={case.selection_status}  "
             f"reject={case.reject_reason}"

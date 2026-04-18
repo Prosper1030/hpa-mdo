@@ -34,6 +34,8 @@ DEFAULT_DESIGN_REPORT = (
     / "ansys"
     / "crossval_report.txt"
 )
+LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
+CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
 OSCILLATORY_IMAG_TOL = 1.0e-9
 SPIRAL_LATERAL_RATIO_MIN = 0.35
 LATERAL_STATE_NAMES = ("v", "p", "r", "phi", "psi", "y")
@@ -236,6 +238,13 @@ class SweepResult:
     reject_reason: str = "unranked"
     selection_status: str = "unranked"
     winner_evidence: str | None = None
+    aero_source_mode: str | None = None
+    baseline_load_source: str | None = None
+    refresh_load_source: str | None = None
+    load_ownership: str | None = None
+    artifact_ownership: str | None = None
+    selected_cruise_aoa_deg: float | None = None
+    aero_contract_json_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -283,7 +292,18 @@ def _build_campaign_search_budget(args) -> dict[str, object]:
         "local_refine_early_stop_abs_improvement_kg": float(
             args.local_refine_early_stop_abs_improvement_kg
         ),
+        "aero_source_mode": str(args.aero_source_mode),
     }
+
+
+def _aero_source_label(source_mode: str | None) -> str:
+    if source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
+        return "candidate rerun-aero"
+    if source_mode == LEGACY_AERO_SOURCE_MODE:
+        return "legacy refresh"
+    if source_mode is None:
+        return "unknown"
+    return str(source_mode)
 
 
 def _slug(multiplier: float) -> str:
@@ -1250,6 +1270,7 @@ def run_inverse_design_case(
     local_refine_max_starts: int,
     local_refine_early_stop_patience: int,
     local_refine_early_stop_abs_improvement_kg: float,
+    aero_source_mode: str,
     skip_step_export: bool,
     strict: bool = False,
 ) -> tuple[str | None, str | None, str | None]:
@@ -1295,6 +1316,8 @@ def run_inverse_design_case(
         str(int(local_refine_early_stop_patience)),
         "--local-refine-early-stop-abs-improvement-kg",
         f"{float(local_refine_early_stop_abs_improvement_kg):.9f}",
+        "--aero-source-mode",
+        str(aero_source_mode),
     ]
     if skip_local_refine:
         cmd.append("--skip-local-refine")
@@ -1345,6 +1368,54 @@ def _extract_wire_metrics(summary_payload: dict[str, object]) -> tuple[float | N
 
 def _read_inverse_summary(summary_path: Path) -> dict[str, object]:
     return json.loads(summary_path.read_text(encoding="utf-8"))
+
+
+def _extract_aero_contract_snapshot(summary_payload: dict[str, object]) -> dict[str, object]:
+    contract = summary_payload.get("aero_contract")
+    artifacts = summary_payload.get("artifacts")
+    if not isinstance(contract, dict):
+        return {
+            "aero_source_mode": None,
+            "baseline_load_source": None,
+            "refresh_load_source": None,
+            "load_ownership": None,
+            "artifact_ownership": None,
+            "selected_cruise_aoa_deg": None,
+            "aero_contract_json_path": None,
+        }
+    return {
+        "aero_source_mode": (
+            None if contract.get("source_mode") is None else str(contract["source_mode"])
+        ),
+        "baseline_load_source": (
+            None
+            if contract.get("baseline_load_source") is None
+            else str(contract["baseline_load_source"])
+        ),
+        "refresh_load_source": (
+            None
+            if contract.get("refresh_load_source") is None
+            else str(contract["refresh_load_source"])
+        ),
+        "load_ownership": (
+            None if contract.get("load_ownership") is None else str(contract["load_ownership"])
+        ),
+        "artifact_ownership": (
+            None
+            if contract.get("artifact_ownership") is None
+            else str(contract["artifact_ownership"])
+        ),
+        "selected_cruise_aoa_deg": (
+            None
+            if contract.get("selected_cruise_aoa_deg") is None
+            else float(contract["selected_cruise_aoa_deg"])
+        ),
+        "aero_contract_json_path": (
+            None
+            if not isinstance(artifacts, dict) or artifacts.get("aero_contract_json") is None
+            else str(artifacts["aero_contract_json"])
+        ),
+    }
 
 
 def _structural_reject_reason(selected: dict[str, object]) -> str:
@@ -1426,6 +1497,7 @@ def _build_result_row(
     final = iterations[-1]
     selected = final["selected"]
     wire_tension_n, wire_margin_n, wire_json_path = _extract_wire_metrics(summary_payload)
+    aero_snapshot = _extract_aero_contract_snapshot(summary_payload)
     return SweepResult(
         dihedral_multiplier=float(multiplier),
         dihedral_exponent=float(dihedral_exponent),
@@ -1476,6 +1548,7 @@ def _build_result_row(
         summary_json_path=summary_json_path,
         wire_rigging_json_path=wire_json_path,
         error_message=error_message,
+        **aero_snapshot,
     )
 
 
@@ -1520,7 +1593,8 @@ def _build_campaign_winner_evidence(row: SweepResult, *, passing_pool_exists: bo
     )
     return (
         f"{prefix}; score={row.candidate_score:.3f}, "
-        f"mass={mass_text}, mismatch={mismatch_text}, clearance={clearance_text}"
+        f"mass={mass_text}, mismatch={mismatch_text}, clearance={clearance_text}, "
+        f"aero source={_aero_source_label(row.aero_source_mode)}"
     )
 
 
@@ -1586,6 +1660,13 @@ def _annotate_campaign_selection(rows: list[SweepResult]) -> tuple[list[SweepRes
             None if winner.min_jig_clearance_mm is None else float(winner.min_jig_clearance_mm)
         ),
         "summary_json_path": winner.summary_json_path,
+        "aero_source_mode": winner.aero_source_mode,
+        "baseline_load_source": winner.baseline_load_source,
+        "refresh_load_source": winner.refresh_load_source,
+        "load_ownership": winner.load_ownership,
+        "artifact_ownership": winner.artifact_ownership,
+        "selected_cruise_aoa_deg": winner.selected_cruise_aoa_deg,
+        "aero_contract_json_path": winner.aero_contract_json_path,
         "winner_evidence": next(
             item.winner_evidence for item in annotated if item.dihedral_multiplier == winner.dihedral_multiplier
         ),
@@ -1642,6 +1723,13 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "summary_json_path",
         "wire_rigging_json_path",
         "error_message",
+        "aero_source_mode",
+        "baseline_load_source",
+        "refresh_load_source",
+        "load_ownership",
+        "artifact_ownership",
+        "selected_cruise_aoa_deg",
+        "aero_contract_json_path",
         "candidate_score",
         "reject_reason",
         "selection_status",
@@ -1710,6 +1798,10 @@ def _build_campaign_report_text(
                 )
             )
         ),
+        (
+            "  aero source mode            : "
+            f"{search_budget['aero_source_mode']} ({_aero_source_label(search_budget['aero_source_mode'])})"
+        ),
         "",
     ]
     if winner_summary is not None:
@@ -1747,19 +1839,53 @@ def _build_campaign_report_text(
                         else f"{float(winner_summary['jig_ground_clearance_min_mm']):.3f} mm"
                     )
                 ),
+                (
+                    "  aero source mode            : "
+                    + (
+                        "unknown"
+                        if winner_summary["aero_source_mode"] is None
+                        else f"{winner_summary['aero_source_mode']} "
+                        f"({_aero_source_label(winner_summary['aero_source_mode'])})"
+                    )
+                ),
+                (
+                    "  refresh load source         : "
+                    + (
+                        "n/a"
+                        if winner_summary["refresh_load_source"] is None
+                        else str(winner_summary["refresh_load_source"])
+                    )
+                ),
+                (
+                    "  load ownership              : "
+                    + (
+                        "n/a"
+                        if winner_summary["load_ownership"] is None
+                        else str(winner_summary["load_ownership"])
+                    )
+                ),
                 f"  reject reason                : {winner_summary['reject_reason']}",
+                (
+                    "  aero contract JSON          : "
+                    + (
+                        "n/a"
+                        if winner_summary["aero_contract_json_path"] is None
+                        else str(winner_summary["aero_contract_json_path"])
+                    )
+                ),
                 f"  winner evidence              : {winner_summary['winner_evidence']}",
                 "",
             ]
         )
     lines.append(
-        "multiplier | score | selection | reject reason | mass kg | mismatch mm | clearance mm | aero | struct"
+        "multiplier | score | selection | aero source | reject reason | mass kg | mismatch mm | clearance mm | aero | struct"
     )
     for row in rows:
         lines.append(
             f"{row.dihedral_multiplier:10.3f} | "
             f"{(f'{row.candidate_score:.3f}' if row.candidate_score is not None else 'n/a'):5s} | "
             f"{row.selection_status:14s} | "
+            f"{_aero_source_label(row.aero_source_mode):17s} | "
             f"{row.reject_reason:28s} | "
             f"{(f'{row.total_mass_kg:.3f}' if row.total_mass_kg is not None else 'n/a'):7s} | "
             f"{(f'{row.realizable_mismatch_max_mm:.3f}' if row.realizable_mismatch_max_mm is not None else 'n/a'):11s} | "
@@ -1794,6 +1920,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--design-report", default=str(DEFAULT_DESIGN_REPORT))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--inverse-script", default=str(DEFAULT_INVERSE_SCRIPT))
+    parser.add_argument(
+        "--aero-source-mode",
+        default=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+        choices=(LEGACY_AERO_SOURCE_MODE, CANDIDATE_RERUN_AERO_SOURCE_MODE),
+        help=(
+            "Choose whether each structural follow-on run keeps using the legacy shared refresh loads "
+            "or consumes candidate-owned rerun-aero artifacts from the inverse-design core."
+        ),
+    )
     parser.add_argument("--avl-bin", default="avl")
     parser.add_argument("--multipliers", default="1.0,1.5,2.0,2.5")
     parser.add_argument("--main-plateau-grid", default="0.0,0.33,0.67,1.0")
@@ -2010,6 +2145,7 @@ def main(argv: list[str] | None = None) -> int:
                         "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
                     },
                     "inverse_design_search_budget": search_budget,
+                    "inverse_design_aero_source_mode_requested": str(args.aero_source_mode),
                 },
             indent=2,
         )
@@ -2119,6 +2255,7 @@ def main(argv: list[str] | None = None) -> int:
                 local_refine_early_stop_abs_improvement_kg=float(
                     args.local_refine_early_stop_abs_improvement_kg
                 ),
+                aero_source_mode=str(args.aero_source_mode),
                 skip_step_export=bool(args.skip_step_export),
                 strict=bool(args.strict),
             )
@@ -2202,6 +2339,10 @@ def main(argv: list[str] | None = None) -> int:
     print("Dihedral sweep campaign complete.")
     print(f"  Base AVL           : {base_avl_path}")
     print(f"  Base source        : {base_avl_source}")
+    print(
+        "  Aero source mode   : "
+        f"{args.aero_source_mode} ({_aero_source_label(args.aero_source_mode)})"
+    )
     print(f"  Multipliers        : {', '.join(f'{value:.3f}' for value in multipliers)}")
     print(f"  Report             : {report_path}")
     print(f"  Summary CSV        : {csv_path}")
@@ -2275,6 +2416,7 @@ def main(argv: list[str] | None = None) -> int:
             f"perf={row.aero_performance_reason}, L/D={ld_text}, "
             f"beta={beta_text}, "
             f"rudder={rudder_text}, spiral={spiral_text}, "
+            f"aero_source={_aero_source_label(row.aero_source_mode)}, "
             f"struct={row.structure_status}, mass={mass_text}, "
             f"clearance={clear_text}, wire={wire_text}, "
             f"score={row.candidate_score if row.candidate_score is not None else float('nan'):.3f}, "

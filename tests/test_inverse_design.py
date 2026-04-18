@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -30,12 +31,15 @@ from scripts.dihedral_sweep_campaign import (
     _annotate_campaign_selection,
     _build_arg_parser as _build_dihedral_campaign_arg_parser,
     _build_campaign_search_budget,
+    _build_result_row as _build_dihedral_result_row,
+    run_inverse_design_case as _run_dihedral_inverse_design_case,
 )
 from scripts.direct_dual_beam_inverse_design_feasibility_sweep import (
     SweepCaseResult as FeasibilitySweepCaseResult,
     _annotate_case_selection as _annotate_feasibility_case_selection,
     _build_arg_parser as _build_feasibility_sweep_arg_parser,
     _build_search_budget_summary as _build_feasibility_search_budget_summary,
+    _run_one_case as _run_feasibility_case,
 )
 from scripts.direct_dual_beam_inverse_design import (
     CANDIDATE_RERUN_AERO_SOURCE_MODE,
@@ -1406,6 +1410,7 @@ class OuterLoopContractTests(unittest.TestCase):
         mismatch_m: float = 0.006,
         clearance_m: float = 0.040,
         main_blocker: str = "none",
+        aero_source_mode: str | None = CANDIDATE_RERUN_AERO_SOURCE_MODE,
     ) -> FeasibilitySweepCaseResult:
         return FeasibilitySweepCaseResult(
             target_mass_kg=target_mass_kg,
@@ -1429,6 +1434,29 @@ class OuterLoopContractTests(unittest.TestCase):
             nearest_boundary="none" if feasible else main_blocker,
             summary_json_path=f"/tmp/target_{target_mass_kg:.1f}.json",
             report_path=f"/tmp/target_{target_mass_kg:.1f}.txt",
+            aero_source_mode=aero_source_mode,
+            baseline_load_source=(
+                "candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "legacy_shared_vspaero_reference"
+            ),
+            refresh_load_source=(
+                "candidate_owned_twist_refresh_from_rerun_sweep"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "legacy_twist_refresh_from_shared_sweep"
+            ),
+            load_ownership=(
+                "candidate-owned rerun loads"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "shared legacy refresh loads"
+            ),
+            artifact_ownership=(
+                "candidate-owned artifacts"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "shared legacy artifacts"
+            ),
+            selected_cruise_aoa_deg=8.0,
+            aero_contract_json_path=f"/tmp/target_{target_mass_kg:.1f}_aero_contract.json",
         )
 
     @staticmethod
@@ -1447,6 +1475,7 @@ class OuterLoopContractTests(unittest.TestCase):
         clearance_mm: float | None = 35.0,
         structural_reject_reason: str | None = None,
         error_message: str | None = None,
+        aero_source_mode: str | None = CANDIDATE_RERUN_AERO_SOURCE_MODE,
     ) -> DihedralSweepResult:
         return DihedralSweepResult(
             dihedral_multiplier=dihedral_multiplier,
@@ -1496,6 +1525,29 @@ class OuterLoopContractTests(unittest.TestCase):
             summary_json_path=f"/tmp/mult_{dihedral_multiplier:.3f}.json",
             wire_rigging_json_path=None,
             error_message=error_message,
+            aero_source_mode=aero_source_mode,
+            baseline_load_source=(
+                "candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "legacy_shared_vspaero_reference"
+            ),
+            refresh_load_source=(
+                "candidate_owned_twist_refresh_from_rerun_sweep"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "legacy_twist_refresh_from_shared_sweep"
+            ),
+            load_ownership=(
+                "candidate-owned rerun loads"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "shared legacy refresh loads"
+            ),
+            artifact_ownership=(
+                "candidate-owned artifacts"
+                if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
+                else "shared legacy artifacts"
+            ),
+            selected_cruise_aoa_deg=8.0,
+            aero_contract_json_path=f"/tmp/mult_{dihedral_multiplier:.3f}_aero_contract.json",
         )
 
     def test_feasibility_sweep_budget_summary_uses_richer_default_grids(self) -> None:
@@ -1503,9 +1555,94 @@ class OuterLoopContractTests(unittest.TestCase):
 
         budget = _build_feasibility_search_budget_summary(args)
 
+        self.assertEqual(args.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
         self.assertEqual(budget["coarse_axes"]["main_plateau_grid_points"], 4)
         self.assertEqual(budget["coarse_axes"]["rear_outboard_grid_points"], 3)
         self.assertEqual(budget["coarse_grid_points_per_case"], 576)
+        self.assertEqual(budget["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+
+    def test_feasibility_sweep_run_one_case_passes_rerun_aero_mode_and_reads_contract(self) -> None:
+        args = _build_feasibility_sweep_arg_parser().parse_args(
+            [
+                "--config",
+                "/tmp/config.yaml",
+                "--design-report",
+                "/tmp/report.txt",
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp) / "target_20.0kg"
+            case_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = case_dir / "direct_dual_beam_inverse_design_refresh_summary.json"
+            report_path = case_dir / "direct_dual_beam_inverse_design_refresh_report.txt"
+            summary_path.write_text(
+                json.dumps(
+                    {
+                        "iterations": [
+                            {
+                                "selected": {
+                                    "hard_margins": {"ground_clearance_margin_m": 0.01},
+                                    "target_mass_passed": True,
+                                    "overall_feasible": True,
+                                    "mass_margin_kg": 0.5,
+                                    "total_structural_mass_kg": 22.0,
+                                    "objective_value_kg": 22.0,
+                                    "target_violation_score": 0.0,
+                                    "target_shape_error_max_m": 0.004,
+                                    "jig_ground_clearance_min_m": 0.035,
+                                    "max_jig_vertical_prebend_m": 0.08,
+                                    "max_jig_vertical_curvature_per_m": 0.01,
+                                    "equivalent_failure_index": -0.2,
+                                    "equivalent_buckling_index": -0.1,
+                                },
+                                "search_diagnostics": {
+                                    "best_target_feasible": {"total_structural_mass_kg": 22.0},
+                                    "best_overall_feasible": {"total_structural_mass_kg": 22.0},
+                                },
+                                "forward_check": None,
+                                "run_metrics": {"feasible": True},
+                            }
+                        ],
+                        "aero_contract": {
+                            "source_mode": CANDIDATE_RERUN_AERO_SOURCE_MODE,
+                            "baseline_load_source": "candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun",
+                            "refresh_load_source": "candidate_owned_twist_refresh_from_rerun_sweep",
+                            "load_ownership": "candidate-owned rerun loads",
+                            "artifact_ownership": "candidate-owned artifacts",
+                            "selected_cruise_aoa_deg": 8.0,
+                        },
+                        "artifacts": {
+                            "aero_contract_json": "/tmp/target_20.0kg_aero_contract.json",
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            report_path.write_text("ok\n", encoding="utf-8")
+
+            with mock.patch(
+                "scripts.direct_dual_beam_inverse_design_feasibility_sweep.subprocess.run",
+                autospec=True,
+                return_value=SimpleNamespace(returncode=0),
+            ) as run_mock:
+                result = _run_feasibility_case(args, target_mass_kg=20.0, case_dir=case_dir)
+
+        cmd = run_mock.call_args.args[0]
+        self.assertIn("--aero-source-mode", cmd)
+        self.assertEqual(
+            cmd[cmd.index("--aero-source-mode") + 1],
+            CANDIDATE_RERUN_AERO_SOURCE_MODE,
+        )
+        self.assertEqual(result.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(
+            result.refresh_load_source,
+            "candidate_owned_twist_refresh_from_rerun_sweep",
+        )
+        self.assertEqual(
+            result.aero_contract_json_path,
+            "/tmp/target_20.0kg_aero_contract.json",
+        )
 
     def test_feasibility_sweep_selection_prefers_lowest_feasible_contract_score(self) -> None:
         rejected = self._make_feasibility_case(
@@ -1534,11 +1671,13 @@ class OuterLoopContractTests(unittest.TestCase):
         assert winner is not None
         self.assertEqual(winner["selection_status"], "winner")
         self.assertAlmostEqual(winner["requested_knobs"]["target_mass_kg"], 20.0)
+        self.assertEqual(winner["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
         self.assertEqual(by_target[20.0].selection_status, "winner")
         self.assertEqual(by_target[22.0].selection_status, "feasible_runner_up")
         self.assertEqual(by_target[18.0].selection_status, "rejected")
         assert by_target[20.0].winner_evidence is not None
         self.assertIn("lowest feasible contract score", by_target[20.0].winner_evidence)
+        self.assertIn("candidate rerun-aero", by_target[20.0].winner_evidence)
 
     def test_dihedral_campaign_budget_summary_accepts_local_refine_controls(self) -> None:
         args = _build_dihedral_campaign_arg_parser().parse_args(
@@ -1554,10 +1693,133 @@ class OuterLoopContractTests(unittest.TestCase):
 
         budget = _build_campaign_search_budget(args)
 
+        self.assertEqual(args.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
         self.assertEqual(budget["cobyla_maxiter"], 240)
         self.assertEqual(budget["local_refine_max_starts"], 6)
         self.assertEqual(budget["local_refine_feasible_seeds"], 2)
         self.assertEqual(budget["coarse_grid_points_per_case"], 576)
+        self.assertEqual(budget["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+
+    def test_dihedral_run_inverse_design_case_passes_rerun_aero_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "inverse"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = output_dir / "direct_dual_beam_inverse_design_refresh_summary.json"
+            summary_path.write_text("{}\n", encoding="utf-8")
+            with mock.patch(
+                "scripts.dihedral_sweep_campaign.subprocess.run",
+                autospec=True,
+                return_value=SimpleNamespace(returncode=0, stdout="", stderr=""),
+            ) as run_mock:
+                returned_summary_path, _, error_message = _run_dihedral_inverse_design_case(
+                    inverse_script=Path("/tmp/direct_dual_beam_inverse_design.py"),
+                    config_path=Path("/tmp/config.yaml"),
+                    design_report=Path("/tmp/report.txt"),
+                    output_dir=output_dir,
+                    target_shape_z_scale=1.2,
+                    dihedral_exponent=1.0,
+                    python_executable=Path(sys.executable),
+                    main_plateau_grid="0.0,1.0",
+                    main_taper_fill_grid="0.0,1.0",
+                    rear_radius_grid="0.0,1.0",
+                    rear_outboard_grid="0.0,1.0",
+                    wall_thickness_grid="0.0,1.0",
+                    refresh_steps=1,
+                    cobyla_maxiter=20,
+                    cobyla_rhobeg=0.1,
+                    skip_local_refine=True,
+                    local_refine_feasible_seeds=1,
+                    local_refine_near_feasible_seeds=1,
+                    local_refine_max_starts=1,
+                    local_refine_early_stop_patience=1,
+                    local_refine_early_stop_abs_improvement_kg=0.05,
+                    aero_source_mode=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+                    skip_step_export=True,
+                )
+
+        cmd = run_mock.call_args.args[0]
+        self.assertIn("--aero-source-mode", cmd)
+        self.assertEqual(
+            cmd[cmd.index("--aero-source-mode") + 1],
+            CANDIDATE_RERUN_AERO_SOURCE_MODE,
+        )
+        self.assertEqual(returned_summary_path, str(summary_path.resolve()))
+        self.assertIsNone(error_message)
+
+    def test_dihedral_build_result_row_extracts_candidate_aero_contract(self) -> None:
+        row = _build_dihedral_result_row(
+            multiplier=1.2,
+            dihedral_exponent=1.0,
+            avl_eval=SimpleNamespace(
+                avl_case_path="/tmp/case.avl",
+                mode_file_path=None,
+                dutch_roll_found=True,
+                dutch_roll_selection="oscillatory_lateral_mode",
+                dutch_roll_real=-0.02,
+                dutch_roll_imag=0.10,
+                aero_status="stable",
+                spiral_eval=SimpleNamespace(
+                    real=-0.01,
+                    time_to_double_s=None,
+                    time_to_half_s=80.0,
+                    feasible=True,
+                    reason="stable",
+                ),
+            ),
+            aero_perf_eval=SimpleNamespace(
+                aero_performance_feasible=True,
+                aero_performance_reason="ok",
+                cl_trim=None,
+                cd_induced=None,
+                cd_total_est=None,
+                ld_ratio=28.0,
+                aoa_trim_deg=None,
+                span_efficiency=None,
+                lift_total_n=None,
+                aero_power_w=None,
+            ),
+            beta_eval=None,
+            control_eval=None,
+            summary_payload={
+                "iterations": [
+                    {
+                        "selected": {
+                            "overall_feasible": True,
+                            "total_structural_mass_kg": 22.4,
+                            "jig_ground_clearance_min_m": 0.036,
+                            "equivalent_failure_index": -0.2,
+                            "equivalent_buckling_index": -0.1,
+                            "objective_value_kg": 22.6,
+                            "target_shape_error_max_m": 0.004,
+                        }
+                    }
+                ],
+                "aero_contract": {
+                    "source_mode": CANDIDATE_RERUN_AERO_SOURCE_MODE,
+                    "baseline_load_source": "candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun",
+                    "refresh_load_source": "candidate_owned_twist_refresh_from_rerun_sweep",
+                    "load_ownership": "candidate-owned rerun loads",
+                    "artifact_ownership": "candidate-owned artifacts",
+                    "selected_cruise_aoa_deg": 8.0,
+                },
+                "artifacts": {
+                    "aero_contract_json": "/tmp/mult_1.200_aero_contract.json",
+                },
+            },
+            selected_output_dir="/tmp/inverse",
+            summary_json_path="/tmp/inverse_summary.json",
+            error_message=None,
+        )
+
+        self.assertEqual(row.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(
+            row.refresh_load_source,
+            "candidate_owned_twist_refresh_from_rerun_sweep",
+        )
+        self.assertEqual(
+            row.aero_contract_json_path,
+            "/tmp/mult_1.200_aero_contract.json",
+        )
 
     def test_dihedral_campaign_selection_marks_winner_and_reject_reasons(self) -> None:
         winner_row = self._make_dihedral_result(
@@ -1594,11 +1856,13 @@ class OuterLoopContractTests(unittest.TestCase):
         assert winner is not None
         self.assertEqual(winner["selection_status"], "winner")
         self.assertAlmostEqual(winner["requested_knobs"]["dihedral_multiplier"], 1.20)
+        self.assertEqual(winner["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
         self.assertEqual(by_multiplier[1.20].selection_status, "winner")
         self.assertEqual(by_multiplier[1.40].reject_reason, "structural:ground_clearance")
         self.assertEqual(by_multiplier[1.60].reject_reason, "aero_performance:ld_ratio_below_min")
         assert by_multiplier[1.20].winner_evidence is not None
         self.assertIn("lowest fully-passing campaign score", by_multiplier[1.20].winner_evidence)
+        self.assertIn("candidate rerun-aero", by_multiplier[1.20].winner_evidence)
 
 
 if __name__ == "__main__":
