@@ -31,19 +31,22 @@ class BenchmarkMetrics:
     mass_half_wing_kg: float
     total_reaction_fz_n: float
     tip_deflection_m: float
-    tip_twist_deg: float
+    tip_twist_deg: float | None
+    wall_thickness_m: float | None = None
 
 
 @dataclass(frozen=True)
 class MetricResult:
     label: str
-    lhs_value: float
-    rhs_value: float
-    diff_abs: float
-    diff_pct: float
+    lhs_value: float | None
+    rhs_value: float | None
+    diff_abs: float | None
+    diff_pct: float | None
     passed: bool
     unit: str
     pass_rule: str
+    status_text: str
+    note: str | None = None
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -73,11 +76,29 @@ def _build_parser() -> argparse.ArgumentParser:
         default="0.31450,16.50000,0.890333",
         help="Rear tip probe in meters as x,y,z.",
     )
-    parser.add_argument("--mass-threshold-pct", type=float, default=5.0)
+    parser.add_argument("--mass-threshold-pct", type=float, default=0.1)
     parser.add_argument("--reaction-threshold-pct", type=float, default=1.0)
     parser.add_argument("--deflection-threshold-pct", type=float, default=5.0)
     parser.add_argument("--twist-threshold-pct", type=float, default=10.0)
     parser.add_argument("--twist-threshold-deg", type=float, default=0.20)
+    parser.add_argument(
+        "--twist-sanity-limit-deg",
+        type=float,
+        default=15.0,
+        help="Reject CalculiX twist readback beyond this absolute magnitude as invalid.",
+    )
+    parser.add_argument(
+        "--rear-probe-uz-ratio-limit",
+        type=float,
+        default=5.0,
+        help="Reject twist readback when rear tip |Uz| exceeds this multiple of main tip |Uz|.",
+    )
+    parser.add_argument(
+        "--rear-probe-abs-uz-limit-m",
+        type=float,
+        default=5.0,
+        help="Reject twist readback when rear tip |Uz| exceeds this absolute value.",
+    )
     return parser
 
 
@@ -138,11 +159,30 @@ def load_ai_metrics(json_path: str | Path) -> BenchmarkMetrics:
     if tip_twist_deg is None:
         raise ValueError("Could not find AI tip twist in the JSON payload.")
 
+    wall_thickness_values: list[float] = []
+    spars = payload.get("spars", {})
+    if isinstance(spars, dict):
+        for spar_payload in spars.values():
+            if not isinstance(spar_payload, dict):
+                continue
+            for segment in spar_payload.get("segments", []):
+                if not isinstance(segment, dict):
+                    continue
+                equiv = segment.get("equivalent_properties", {})
+                if isinstance(equiv, dict) and equiv.get("wall_thickness") is not None:
+                    wall_thickness_values.append(float(equiv["wall_thickness"]))
+    wall_thickness_m = None
+    if wall_thickness_values:
+        unique_values = {round(value, 9) for value in wall_thickness_values}
+        if len(unique_values) == 1:
+            wall_thickness_m = wall_thickness_values[0]
+
     return BenchmarkMetrics(
         mass_half_wing_kg=0.5 * float(full_mass),
         total_reaction_fz_n=float("nan"),
         tip_deflection_m=float(tip_deflection_m),
         tip_twist_deg=float(tip_twist_deg),
+        wall_thickness_m=wall_thickness_m,
     )
 
 
@@ -292,7 +332,14 @@ def _tri_area(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray) -> float:
     return 0.5 * float(np.linalg.norm(np.cross(p2 - p1, p3 - p1)))
 
 
-def _parse_shell_mass(inp_path: str | Path) -> float:
+def _infer_inp_length_scale_to_m(nodes: dict[int, np.ndarray]) -> float:
+    if not nodes:
+        raise ValueError("Could not infer INP length scale without nodes.")
+    max_abs = max(float(np.max(np.abs(coords))) for coords in nodes.values())
+    return 0.001 if max_abs > 100.0 else 1.0
+
+
+def _parse_shell_mass_and_section(inp_path: str | Path) -> tuple[float, float | None]:
     nodes: dict[int, np.ndarray] = {}
     shell_elements: list[tuple[str, list[int]]] = []
     density = None
@@ -355,7 +402,9 @@ def _parse_shell_mass(inp_path: str | Path) -> float:
             p1, p2, p3, p4 = (nodes[node_id] for node_id in conn[:4])
             area_total += _tri_area(p1, p2, p3) + _tri_area(p1, p3, p4)
 
-    return float(area_total * thickness * density)
+    scale_to_m = _infer_inp_length_scale_to_m(nodes)
+    shell_thickness_m = float(thickness) * scale_to_m
+    return float(area_total * thickness * density), shell_thickness_m
 
 
 def load_ccx_metrics(
@@ -366,8 +415,11 @@ def load_ccx_metrics(
     reaction_reference_n: float,
     main_tip_probe_m: tuple[float, float, float],
     rear_tip_probe_m: tuple[float, float, float],
+    twist_sanity_limit_deg: float,
+    rear_probe_uz_ratio_limit: float,
+    rear_probe_abs_uz_limit_m: float,
 ) -> BenchmarkMetrics:
-    mass_half_wing_kg = _parse_shell_mass(inp_path)
+    mass_half_wing_kg, wall_thickness_m = _parse_shell_mass_and_section(inp_path)
     total_reaction_fz_n = _parse_total_force_from_dat(dat_path)
 
     coords_raw = parse_nodal_coordinates(frd_path)
@@ -404,6 +456,12 @@ def load_ccx_metrics(
     if abs(dx) <= 1.0e-9:
         raise ValueError("Rear and main tip probes collapsed to the same x coordinate.")
     tip_twist_deg = math.degrees(math.atan2(float(rear_disp[2] - main_disp[2]), dx))
+    main_abs_uz = abs(float(main_disp[2]))
+    rear_abs_uz = abs(float(rear_disp[2]))
+    if rear_abs_uz > max(rear_probe_abs_uz_limit_m, main_abs_uz * rear_probe_uz_ratio_limit):
+        tip_twist_deg = None
+    elif abs(tip_twist_deg) > twist_sanity_limit_deg:
+        tip_twist_deg = None
 
     _ = (main_node, rear_node, reaction_reference_n)
     return BenchmarkMetrics(
@@ -411,6 +469,7 @@ def load_ccx_metrics(
         total_reaction_fz_n=total_reaction_fz_n,
         tip_deflection_m=tip_deflection_m,
         tip_twist_deg=tip_twist_deg,
+        wall_thickness_m=wall_thickness_m,
     )
 
 
@@ -438,6 +497,7 @@ def _compare_metric(
         passed=diff_pct <= threshold_pct,
         unit=unit,
         pass_rule=f"<= {threshold_pct:.2f}%",
+        status_text="PASS" if diff_pct <= threshold_pct else "FAIL",
     )
 
 
@@ -448,6 +508,19 @@ def _compare_twist(
     threshold_pct: float,
     threshold_deg: float,
 ) -> MetricResult:
+    if ccx_twist_deg is None:
+        return MetricResult(
+            label="Tip twist",
+            lhs_value=ai_twist_deg,
+            rhs_value=None,
+            diff_abs=None,
+            diff_pct=None,
+            passed=False,
+            unit="deg",
+            pass_rule=f"<= {threshold_pct:.2f}% or <= {threshold_deg:.3f} deg",
+            status_text="INVALID",
+            note="CalculiX rear tip probe response is unstable for this deck; twist readback rejected.",
+        )
     diff_abs = abs(ccx_twist_deg - ai_twist_deg)
     diff_pct = _pct_diff(ccx_twist_deg, ai_twist_deg)
     passed = diff_abs <= threshold_deg or diff_pct <= threshold_pct
@@ -460,24 +533,33 @@ def _compare_twist(
         passed=passed,
         unit="deg",
         pass_rule=f"<= {threshold_pct:.2f}% or <= {threshold_deg:.3f} deg",
+        status_text="PASS" if passed else "FAIL",
     )
 
 
 def _render_report(results: list[MetricResult]) -> str:
+    has_note = any(result.note for result in results)
     lines = [
-        "| Metric | AI / Reference | CalculiX | Diff abs | Diff % | Rule | Status |",
-        "|---|---:|---:|---:|---:|---|---|",
+        "| Metric | AI / Reference | CalculiX | Diff abs | Diff % | Rule | Status |"
+        + (" Note |" if has_note else ""),
+        "|---|---:|---:|---:|---:|---|---|"
+        + ("---|" if has_note else ""),
     ]
     for result in results:
+        lhs_value = "—" if result.lhs_value is None else f"{result.lhs_value:.6f} {result.unit}"
+        rhs_value = "—" if result.rhs_value is None else f"{result.rhs_value:.6f} {result.unit}"
+        diff_abs = "—" if result.diff_abs is None else f"{result.diff_abs:.6f} {result.unit}"
+        diff_pct = "—" if result.diff_pct is None else f"{result.diff_pct:.3f}%"
         lines.append(
             "| "
             f"{result.label} | "
-            f"{result.lhs_value:.6f} {result.unit} | "
-            f"{result.rhs_value:.6f} {result.unit} | "
-            f"{result.diff_abs:.6f} {result.unit} | "
-            f"{result.diff_pct:.3f}% | "
+            f"{lhs_value} | "
+            f"{rhs_value} | "
+            f"{diff_abs} | "
+            f"{diff_pct} | "
             f"{result.pass_rule} | "
-            f"{'PASS' if result.passed else 'FAIL'} |"
+            f"{result.status_text} |"
+            + (f" {result.note or '—'} |" if has_note else "")
         )
     overall = "PASS" if all(result.passed for result in results) else "FAIL"
     lines.append("")
@@ -499,6 +581,9 @@ def main(argv: list[str] | None = None) -> int:
         reaction_reference_n=reaction_reference_n,
         main_tip_probe_m=main_tip_probe_m,
         rear_tip_probe_m=rear_tip_probe_m,
+        twist_sanity_limit_deg=args.twist_sanity_limit_deg,
+        rear_probe_uz_ratio_limit=args.rear_probe_uz_ratio_limit,
+        rear_probe_abs_uz_limit_m=args.rear_probe_abs_uz_limit_m,
     )
 
     ai_with_reaction = BenchmarkMetrics(
@@ -508,14 +593,37 @@ def main(argv: list[str] | None = None) -> int:
         tip_twist_deg=ai_metrics.tip_twist_deg,
     )
 
-    results = [
-        _compare_metric(
+    mass_result = _compare_metric(
             label="Mass (half-wing)",
             lhs_value=ai_with_reaction.mass_half_wing_kg,
             rhs_value=ccx_metrics.mass_half_wing_kg,
             threshold_pct=args.mass_threshold_pct,
             unit="kg",
-        ),
+        )
+    if (
+        ai_metrics.wall_thickness_m is not None
+        and ccx_metrics.wall_thickness_m is not None
+        and abs(ai_metrics.wall_thickness_m - ccx_metrics.wall_thickness_m) > 1.0e-9
+    ):
+        mass_result = MetricResult(
+            label=mass_result.label,
+            lhs_value=mass_result.lhs_value,
+            rhs_value=mass_result.rhs_value,
+            diff_abs=mass_result.diff_abs,
+            diff_pct=mass_result.diff_pct,
+            passed=mass_result.passed,
+            unit=mass_result.unit,
+            pass_rule=mass_result.pass_rule,
+            status_text=mass_result.status_text,
+            note=(
+                "Contract mismatch: AI wall thickness "
+                f"{ai_metrics.wall_thickness_m*1000.0:.3f} mm vs CCX shell section "
+                f"{ccx_metrics.wall_thickness_m*1000.0:.3f} mm."
+            ),
+        )
+
+    results = [
+        mass_result,
         _compare_metric(
             label="Total reaction Fz",
             lhs_value=ai_with_reaction.total_reaction_fz_n,
