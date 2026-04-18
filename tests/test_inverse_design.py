@@ -1472,7 +1472,7 @@ class CandidateAeroContractTests(unittest.TestCase):
                 "scripts.direct_dual_beam_inverse_design.VSPAeroParser.parse",
                 autospec=True,
                 return_value=rerun_cases,
-            ):
+            ) as parse_mock:
                 aero_cases, cruise_case, mapped_loads, contract = _resolve_outer_loop_candidate_aero(
                     cfg=cfg,
                     aircraft=aircraft,
@@ -1491,6 +1491,8 @@ class CandidateAeroContractTests(unittest.TestCase):
         self.assertIn("candidate-owned geometry and aero artifacts", contract.artifact_ownership.lower())
         self.assertEqual(contract.aoa_sweep_deg, (0.0, 10.0))
         self.assertTrue(str(contract.geometry_artifacts["lod_path"]).endswith("candidate.lod"))
+        parser_self = parse_mock.call_args.args[0]
+        self.assertEqual(parser_self.component_ids, (1,))
         _, output_arg = build_and_run_mock.call_args.args[:2]
         self.assertTrue(str(output_arg).endswith("candidate_aero"))
         self.assertEqual(build_and_run_mock.call_args.kwargs["aoa_list"], [0.0, 10.0])

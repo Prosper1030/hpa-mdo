@@ -82,6 +82,7 @@ CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME = {
 }
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
+CANDIDATE_RERUN_MAIN_WING_COMPONENT_IDS = (1,)
 DEFAULT_CANDIDATE_AOA_SWEEP_DEG = (-2.0, 0.0, 2.0, 4.0, 6.0, 8.0)
 RIB_ZONEWISE_OFF_MODE = "off"
 RIB_ZONEWISE_LIMITED_MODE = "limited_zonewise"
@@ -1387,6 +1388,7 @@ def _resolve_outer_loop_candidate_aero(
     cases = VSPAeroParser(
         build_result["lod_path"],
         build_result.get("polar_path"),
+        component_ids=list(CANDIDATE_RERUN_MAIN_WING_COMPONENT_IDS),
     ).parse()
     if not cases:
         raise RuntimeError("Candidate rerun-aero produced no parseable VSPAero cases.")
