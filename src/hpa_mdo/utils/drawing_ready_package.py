@@ -109,9 +109,19 @@ _DERIVED_ARTIFACTS: tuple[DerivedDrawingArtifact, ...] = (
         drawing_use="Use this as the drawing checklist and segment-level layup/dimension summary.",
     ),
     DerivedDrawingArtifact(
+        package_relpath="DRAWING_RELEASE.json",
+        role="drawing_release_payload",
+        drawing_use="Use this as the machine-readable drawing release summary for handoff and automation.",
+    ),
+    DerivedDrawingArtifact(
         package_relpath="data/drawing_station_table.csv",
         role="drawing_station_table",
         drawing_use="Use this as the drafting-friendly station table with diameters and special stations.",
+    ),
+    DerivedDrawingArtifact(
+        package_relpath="data/drawing_segment_schedule.csv",
+        role="drawing_segment_schedule",
+        drawing_use="Use this as the per-segment schedule with span, diameter, wall thickness, and layup.",
     ),
 )
 
@@ -249,6 +259,49 @@ def _write_station_table(package_dir: Path, rows: list[dict[str, str]]) -> None:
             )
 
 
+def _write_segment_schedule_csv(package_dir: Path, final_design: dict[str, object]) -> None:
+    fieldnames = [
+        "spar",
+        "segment_index",
+        "y_start_m",
+        "y_end_m",
+        "span_m",
+        "outer_diameter_mm",
+        "wall_thickness_mm",
+        "layup",
+        "spar_status",
+        "catalog_capped",
+    ]
+    out_path = package_dir / "data" / "drawing_segment_schedule.csv"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for spar_name, spar in final_design.get("spars", {}).items():
+            if not isinstance(spar, dict):
+                continue
+            spar_status = str(spar.get("status", "unknown"))
+            for segment in spar.get("segments", []):
+                y_start = float(segment["y_start_m"])
+                y_end = float(segment["y_end_m"])
+                outer_radius_m = float(segment["outer_radius_m"])
+                wall_thickness_m = float(segment["equivalent_properties"]["wall_thickness"])
+                writer.writerow(
+                    {
+                        "spar": spar_name,
+                        "segment_index": int(segment["segment_index"]),
+                        "y_start_m": f"{y_start:.3f}",
+                        "y_end_m": f"{y_end:.3f}",
+                        "span_m": f"{(y_end - y_start):.3f}",
+                        "outer_diameter_mm": f"{outer_radius_m * 2000.0:.3f}",
+                        "wall_thickness_mm": f"{wall_thickness_m * 1000.0:.3f}",
+                        "layup": str(segment["stack_notation"]),
+                        "spar_status": spar_status,
+                        "catalog_capped": bool(segment.get("catalog_capped", False)),
+                    }
+                )
+
+
 def _format_segment_schedule(name: str, spar: dict[str, object]) -> list[str]:
     segments = spar.get("segments", [])
     lines = [f"## {name}", "", "| Seg | Span (m) | OD (mm) | Wall (mm) | Layup |", "|---|---|---:|---:|---|"]
@@ -370,6 +423,64 @@ def _write_drawing_checklist(
     (package_dir / "DRAWING_CHECKLIST.md").write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_drawing_release_json(
+    package_dir: Path,
+    station_rows: list[dict[str, str]],
+    final_design: dict[str, object],
+) -> None:
+    joint_stations = [
+        round(_as_float(row, "Y_Position_m"), 6)
+        for row in station_rows
+        if _as_int(row, "Is_Joint") == 1
+    ]
+    wire_attach_stations = [
+        round(_as_float(row, "Y_Position_m"), 6)
+        for row in station_rows
+        if _as_int(row, "Is_Wire_Attach") == 1
+    ]
+    root_row = station_rows[0]
+    tip_row = station_rows[-1]
+    payload = {
+        "artifact": "drawing_release",
+        "status": "ready_for_drafting_baseline",
+        "primary_geometry": "geometry/spar_jig_shape.step",
+        "design_basis": "design/discrete_layup_final_design.json",
+        "human_summary": "design/optimization_summary.txt",
+        "checklist": "DRAWING_CHECKLIST.md",
+        "station_table": "data/drawing_station_table.csv",
+        "segment_schedule": "data/drawing_segment_schedule.csv",
+        "boundaries": {
+            "reference_only": ["references/spar_flight_shape.step", "references/wing_cruise.vsp3"],
+            "not_truth": ["crossval_report.txt"],
+        },
+        "quick_geometry_snapshot": {
+            "main_root_od_mm": round(_as_float(root_row, "Main_Outer_Radius_m") * 2000.0, 3),
+            "main_tip_od_mm": round(_as_float(tip_row, "Main_Outer_Radius_m") * 2000.0, 3),
+            "rear_root_od_mm": round(_as_float(root_row, "Rear_Outer_Radius_m") * 2000.0, 3),
+            "rear_tip_od_mm": round(_as_float(tip_row, "Rear_Outer_Radius_m") * 2000.0, 3),
+            "main_root_wall_mm": round(_as_float(root_row, "Main_Wall_Thickness_m") * 1000.0, 3),
+            "main_tip_wall_mm": round(_as_float(tip_row, "Main_Wall_Thickness_m") * 1000.0, 3),
+        },
+        "special_stations_m": {
+            "joint_stations": joint_stations,
+            "wire_attach_stations": wire_attach_stations,
+        },
+        "final_design_gates": {
+            "overall_status": final_design.get("overall_status", "unknown"),
+            "manufacturing_gates_passed": final_design.get(
+                "manufacturing_gates_passed",
+                "unknown",
+            ),
+            "critical_strength_ratio": final_design.get("critical_strength_ratio", {}),
+            "critical_failure_index": final_design.get("critical_failure_index", {}),
+        },
+    }
+    (package_dir / "DRAWING_RELEASE.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def export_drawing_ready_package(
     output_dir: str | Path,
     *,
@@ -412,7 +523,9 @@ def export_drawing_ready_package(
             "tabular_geometry": "data/spar_data.csv",
             "handoff_note": "DRAWING_HANDOFF.md",
             "checklist": "DRAWING_CHECKLIST.md",
+            "drawing_release": "DRAWING_RELEASE.json",
             "drafting_station_table": "data/drawing_station_table.csv",
+            "segment_schedule": "data/drawing_segment_schedule.csv",
         },
         "artifacts": records,
         "derived_artifacts": [
@@ -431,5 +544,7 @@ def export_drawing_ready_package(
     _write_package_readme(package_dir, records)
     _write_drawing_handoff(package_dir)
     _write_station_table(package_dir, station_rows)
+    _write_segment_schedule_csv(package_dir, final_design)
     _write_drawing_checklist(package_dir, station_rows, final_design)
+    _write_drawing_release_json(package_dir, station_rows, final_design)
     return package_dir

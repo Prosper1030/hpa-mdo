@@ -15,7 +15,9 @@
 - 人類摘要：`design/optimization_summary.txt`
 - 表格幾何：`data/spar_data.csv`
 - drawing checklist：`DRAWING_CHECKLIST.md`
+- drawing release：`DRAWING_RELEASE.json`
 - drafting station table：`data/drawing_station_table.csv`
+- segment schedule：`data/drawing_segment_schedule.csv`
 
 ## 2. 你應該先看什麼
 
@@ -25,7 +27,9 @@
 | 確認 discrete layup / final design verdict | `design/discrete_layup_final_design.json` | 這是 machine-readable final design basis |
 | 先快速理解整體狀態 | `design/optimization_summary.txt` | 這是人類最容易讀的總結 |
 | 照 checklist 出圖 | `DRAWING_CHECKLIST.md` | 這裡把主尺寸、特殊站位、segment layup 摘成出圖清單 |
+| 做正式交接 / 給其他 agent | `DRAWING_RELEASE.json` | 這裡把 drawing truth、gate、特殊站位、主要交付檔整理成 machine-readable release |
 | 直接拉 drafting 尺寸表 | `data/drawing_station_table.csv` | 這裡是已整理好的 station / OD / wall thickness 表 |
+| 直接看每段規格 | `data/drawing_segment_schedule.csv` | 這裡是每段 span、OD、壁厚、layup 的表 |
 | 拉尺寸 / 讀展向表格 | `data/spar_data.csv` | 這裡有 spanwise station 與 export-contract tabular values |
 | 看 loaded shape 或 cruise 參考 | `references/*` | 這些只是參考，不是主 drawing truth |
 
