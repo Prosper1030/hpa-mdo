@@ -3,6 +3,7 @@
 > **文件性質**：系統工程標準文件。  
 > **用途**：把使用者確認的偽代碼流程升格成 repo 的目標流程標準，並明確標出目前缺口與可派工的執行命令。  
 > **重要原則**：這份文件描述的是 **應該達成的流程標準**，不是宣稱 repo 現在已經全部完成。
+> **如果你要看長程收斂計畫**：請搭配 [docs/TARGET_STANDARD_PROGRAM_PLAN.md](/Volumes/Samsung SSD/hpa-mdo/docs/TARGET_STANDARD_PROGRAM_PLAN.md)。
 
 ## 1. 標準結論
 
