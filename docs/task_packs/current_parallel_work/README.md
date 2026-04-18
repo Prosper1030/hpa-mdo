@@ -16,13 +16,21 @@
 
 ## What This Pack Covers
 
-這包只涵蓋目前最適合平行處理、且 write set 可以拆開的工作：
+這包現在聚焦在 **GPT Pro 架構審查之後的主線升級波次**。
 
-- Track A：front door / canonical workflow 收斂
-- Track E：surrogate warm start / data / catalog
-- Track F：requested-to-realizable 外圈 shape 調整
+目前的主任務不是 surrogate，也不是 hi-fi，而是：
 
-上一輪的 Track B / C / D 已經有 baseline 成果，現在主要放進 `history.md` 當已完成波次，不再當 current pack 的主任務。
+- Track E：recipe library foundation
+- Track F：outer-loop campaign contract
+- Track G：discrete final-design wiring
+- Track H：spanwise DP discrete search
+- Track I：zone-dependent rules
+
+其中：
+
+- Track E / F / G 是 **現在可並行啟動的 Wave 1**
+- Track H 是 **等我驗證 Wave 1 後才開的 Wave 2**
+- Track I 是 **等我驗證 Wave 2 後才開的 Wave 3**
 
 ## How To Use This Pack
 
@@ -30,7 +38,7 @@
   - 先讀上面的 `Read Order`
   - 再讀一份指定 prompt
   - 然後只在 prompt 允許的檔案範圍內工作
-- 如果你想直接把任務貼給另一個 agent，請優先用 [HANDOFF_QUICKSTART.md](HANDOFF_QUICKSTART.md) 裡的現成模板。
+- 如果你想直接把任務貼給另一個 agent，請優先用 [AGENT_LAUNCH_PLAN.md](AGENT_LAUNCH_PLAN.md) 或 [HANDOFF_QUICKSTART.md](HANDOFF_QUICKSTART.md) 裡的現成模板。
 - 如果 agent 要改 `README.md`、`CURRENT_MAINLINE.md`、`docs/GRAND_BLUEPRINT.md` 或 `configs/blackcat_004.yaml`，應先停下來，不要自行擴張範圍。
 - 如果 agent 發現 prompt 與 `CURRENT_MAINLINE.md` 衝突，以 `CURRENT_MAINLINE.md` 為準。
 - 如果本地 repo 資訊不夠，或工具 / solver / library 的事實可能已經變動，agent 可以自行上網查，不要卡在舊文件裡。
@@ -41,3 +49,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
+- 使用者能清楚知道哪些任務可以一起丟，哪些一定要等驗證後再丟。

@@ -2,11 +2,12 @@
 
 > 這份文件是給使用者直接複製貼上用的。
 > 如果你現在要把任務丟給另一個 AI agent，通常只要貼下面其中一段，再指定要做哪個 track。
+> 這一波最推薦直接用 [AGENT_LAUNCH_PLAN.md](AGENT_LAUNCH_PLAN.md) 的現成區塊，因為那份已經幫你分好 Wave 1 / 2 / 3。
 
 ## 最短版回答
 
 可以。
-你現在最簡單的做法，就是直接貼對應模板，然後把 `track_e_surrogate_warm_start` 換成你要的任務 ID。
+你現在最簡單的做法，就是直接貼對應模板，然後把任務檔換成這一波的 prompt。
 
 ## 通用交辦模板
 
@@ -20,7 +21,7 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_e_surrogate_warm_start.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_e_recipe_library_foundation.md
 
 如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
 上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
@@ -46,9 +47,9 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_e_surrogate_warm_start.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_e_recipe_library_foundation.md
 
-你的目標是把 surrogate warm start 以 optional acceleration 的方式接進主線，不要改變 physics truth，也不要讓新依賴變成必裝。
+你的目標是把 discrete layup 的材料空間升成 recipe library foundation，不要跳去改 selector 主體，也不要搶先做 spanwise DP search。
 
 如果本地 repo context 不足，或工具 / solver / library 的行為可能已經變動，可以自行上網查，不要卡在舊文件裡。
 上網查時優先看官方文件、solver manual、論文或其他第一手資料，並在回報中簡短說明查了什麼、如何影響你的判斷。
@@ -74,5 +75,5 @@
 
 - 新 agent：直接貼完整模板
 - 已經在這個 repo 工作過的 agent：可以貼短版，再補 task id
-- 一次派多個 agent：每個 agent 只給一個 track，不要一個 prompt 裡混兩件事
+- 一次派多個 agent：優先直接照 [AGENT_LAUNCH_PLAN.md](AGENT_LAUNCH_PLAN.md) 的 Wave 規劃派，不要自己臨時混 write scope
 - 如果本地資訊不夠，就允許 agent 主動查官方 / 第一手資料，不要把它綁死在 repo 舊文件

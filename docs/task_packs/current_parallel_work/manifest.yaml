@@ -4,44 +4,71 @@ canonical_read_order:
   - "CURRENT_MAINLINE.md"
   - "project_state.yaml"
   - "docs/TARGET_STANDARD_GAP_MAP.md"
+  - "docs/dual_beam_recipe_library_architecture.md"
   - "docs/README.md"
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_a_frontdoor_workflow"
-    prompt: "prompts/track_a_frontdoor_workflow.md"
+  - id: "track_e_recipe_library_foundation"
+    prompt: "prompts/track_e_recipe_library_foundation.md"
+    launch_wave: 1
     write_scope:
-      - "docs/README.md"
-      - "docs/dual_beam_workflow_architecture_overview.md"
-      - "docs/task_packs/current_parallel_work/**"
+      - "src/hpa_mdo/structure/material_proxy_catalog.py"
+      - "docs/dual_beam_preliminary_material_packages.md"
+      - "tests/test_material_proxy_catalog.py"
     expected_artifacts:
-      - "front-door workflow update"
-      - "artifact navigation / handoff-ready docs"
-      - "minimal verification"
-  - id: "track_e_surrogate_warm_start"
-    prompt: "prompts/track_e_surrogate_warm_start.md"
-    write_scope:
-      - "src/hpa_mdo/utils/surrogate.py"
-      - "src/hpa_mdo/utils/data_collector.py"
-      - "src/hpa_mdo/structure/optimizer.py"
-      - "scripts/collect_surrogate_data.py"
-      - "tests/test_surrogate.py"
-      - "pyproject.toml"
-    expected_artifacts:
-      - "optional surrogate backend"
-      - "warm-start wiring"
-      - "training-data / collection hook"
+      - "functional recipe family foundation"
+      - "property-row / lookup contract"
       - "tests"
-  - id: "track_f_requested_realizable_outer_loop"
-    prompt: "prompts/track_f_requested_realizable_outer_loop.md"
+  - id: "track_f_outer_loop_campaign_contract"
+    prompt: "prompts/track_f_outer_loop_campaign_contract.md"
+    launch_wave: 1
     write_scope:
       - "scripts/direct_dual_beam_inverse_design_feasibility_sweep.py"
       - "scripts/dihedral_sweep_campaign.py"
       - "tests/test_inverse_design.py"
-      - "docs/task_packs/current_parallel_work/**"
     expected_artifacts:
-      - "low-dimensional aero-shape knob -> inverse design -> jig / layup / realizable score summary"
-      - "requested-vs-realizable mismatch evidence"
+      - "candidate score / reject-reason contract"
+      - "larger quick-analysis search budget handling"
+      - "tests"
+  - id: "track_g_discrete_final_design_wiring"
+    prompt: "prompts/track_g_discrete_final_design_wiring.md"
+    launch_wave: 1
+    write_scope:
+      - "examples/blackcat_004_optimize.py"
+      - "src/hpa_mdo/utils/visualization.py"
+      - "tests/test_optimizer_buckling.py"
+      - "tests/test_discrete_layup.py"
+    expected_artifacts:
+      - "discrete final-design verdict surfacing"
+      - "structural recheck / summary wiring"
+      - "tests"
+  - id: "track_h_spanwise_dp_search"
+    prompt: "prompts/track_h_spanwise_dp_search.md"
+    launch_wave: 2
+    requires_verification_after:
+      - "track_e_recipe_library_foundation"
+    write_scope:
+      - "src/hpa_mdo/utils/discrete_spanwise_search.py"
+      - "src/hpa_mdo/utils/discrete_layup.py"
+      - "tests/test_discrete_spanwise_search.py"
+      - "tests/test_discrete_layup.py"
+    expected_artifacts:
+      - "DP / shortest-path spanwise selector"
+      - "transition-rule handling"
+      - "tests"
+  - id: "track_i_zone_dependent_rules"
+    prompt: "prompts/track_i_zone_dependent_rules.md"
+    launch_wave: 3
+    requires_verification_after:
+      - "track_h_spanwise_dp_search"
+    write_scope:
+      - "src/hpa_mdo/utils/discrete_layup.py"
+      - "docs/dual_beam_preliminary_material_packages.md"
+      - "tests/test_discrete_layup.py"
+    expected_artifacts:
+      - "zone-dependent floor / ply-drop rules"
+      - "gate / reinforcement assumptions"
       - "tests"
 
 do_not_touch:
