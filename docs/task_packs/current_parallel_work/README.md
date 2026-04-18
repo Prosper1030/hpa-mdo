@@ -17,15 +17,15 @@
 
 ## What This Pack Covers
 
-這包現在聚焦在 **Phase 2.8 solver unblock：explicit wire-truss convergence**。
+這包現在聚焦在 **Phase 2.9 outer-loop recovery：ground clearance**。
 
-上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；Track R 的多 seed smoke 則把 immediate blocker 再往下縮到 explicit wire-truss Newton / line search 收斂。
+上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；Track S 又把 explicit wire-truss 假性不收斂解掉，所以目前最直接的 blocker 已經不是 solver crash，而是 **outer-wing jig ground clearance**。
 
 目前的主任務是：
 
-- Track S：explicit wire-truss convergence unblock
+- Track T：ground-clearance recovery outer-loop
 
-這一包的目的不是再跑更多 smoke，也不是直接調 rib penalty，而是先把 inner refresh summary 裡反覆出現的 `Explicit wire truss Newton solve did not converge` 解掉。
+這一包的目的不是再修 parser，也不是再修 solver，而是先把 replay 裡明確暴露出的 `ground_clearance` 問題往前推，讓 rerun-aero replay 至少能產生更有工程意義的非 sentinel 設計訊號。
 
 ## How To Use This Pack
 
@@ -44,4 +44,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道目前這一波不是再加模型、也不是再修 parser，而是先把 explicit wire-truss 收斂問題解掉，之後再重跑更有訊號的 rib smoke。
+- 使用者能清楚知道目前這一波不是再修 parser / solver，而是先把 outer-wing jig clearance 這個真正的設計 blocker 往前推，之後再重跑更有訊號的 rib smoke。

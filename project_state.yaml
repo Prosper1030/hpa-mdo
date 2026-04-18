@@ -1,4 +1,4 @@
-updated_at: "2026-04-18"
+updated_at: "2026-04-19"
 repo: "hpa-mdo"
 status: "active"
 
@@ -97,12 +97,16 @@ active_tracks:
     goal: "The first multi-seed rerun-aero smoke ran end-to-end, but every seed still collapsed to sentinel infeasible outcomes."
   track_s:
     name: "explicit_wire_truss_convergence_unblock"
+    status: "baseline_complete"
+    goal: "The explicit wire-truss Newton / line-search false non-convergence path is no longer the immediate blocker in the validated replay path."
+  track_t:
+    name: "ground_clearance_recovery_outer_loop"
     status: "next"
-    goal: "Diagnose and fix the explicit wire-truss Newton / line-search convergence failure that is now the immediate blocker inside rerun-aero refresh summaries."
+    goal: "Push the now-explicit outer-wing jig ground-clearance blocker forward so rerun-aero replay can produce a more meaningful non-sentinel design signal."
   track_m:
     name: "rib_ranking_sanity_tuning"
     status: "queued"
-    goal: "Tune rib penalties or surrogate behavior only if replay after Track S shows suspicious ranking behavior with real signal."
+    goal: "Tune rib penalties or surrogate behavior only if replay after Track T shows suspicious ranking behavior with real signal."
   track_n:
     name: "rib_finalist_spotcheck_handoff"
     status: "queued"
@@ -117,13 +121,14 @@ recently_completed:
   - "Track I / J / K baseline: rib properties, rib bay surrogate, passive robustness compare mode, and zone-wise rib design are now integrated into the candidate contract."
   - "Track Q baseline: VSPAeroParser now handles OpenVSP 3.45.3 .lod schema drift, and candidate rerun loading is limited to the main-wing component for monotonic spanwise loads."
   - "Track L replay: rerun-aero smoke now completes, but the first single-seed replay is still suspicious because both rib modes collapse to sentinel infeasible outcomes."
-  - "Track R replay: three-seed / six-run rerun-aero smoke still produced only sentinel infeasible outcomes, and the deeper inner blocker now points to explicit wire-truss Newton convergence."
+  - "Track R replay: three-seed / six-run rerun-aero smoke still produced only sentinel infeasible outcomes."
+  - "Track S replay: explicit wire-truss Newton / line-search false non-convergence has been unblocked on the validated snapshot, and the immediate replay blocker has shifted to ground clearance."
 
 next_wave_priorities:
-  - "Track S: diagnose and fix explicit wire-truss Newton convergence so rerun-aero refresh summaries stop collapsing to sentinel infeasible outcomes."
-  - "Track R replay: rerun the multi-seed rib smoke after Track S and look for at least one non-sentinel comparable case."
-  - "Track M: only if replay after Track S shows suspicious ranking with real signal, tune rib penalties / family cap / surrogate behavior."
-  - "Track N: if replay after Track S looks sane, do finalist spot-check and handoff packaging for rib-on winners."
+  - "Track T: add an outer-loop ground-clearance recovery path so replay stops dying at the same outer-wing jig-clearance failure."
+  - "Track R replay: rerun the multi-seed rib smoke after Track T and look for at least one non-sentinel comparable case."
+  - "Track M: only if replay after Track T shows suspicious ranking with real signal, tune rib penalties / family cap / surrogate behavior."
+  - "Track N: if replay after Track T looks sane, do finalist spot-check and handoff packaging for rib-on winners."
 
 benchmark_policy:
   status: "open_basket"

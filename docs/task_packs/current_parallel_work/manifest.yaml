@@ -1,5 +1,5 @@
 pack_name: "current_parallel_work"
-updated_at: "2026-04-18"
+updated_at: "2026-04-19"
 canonical_read_order:
   - "CURRENT_MAINLINE.md"
   - "project_state.yaml"
@@ -10,17 +10,17 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_s_explicit_wire_truss_convergence_unblock"
-    prompt: "prompts/track_s_explicit_wire_truss_convergence_unblock.md"
-    launch_wave: 12
+  - id: "track_t_ground_clearance_recovery_outer_loop"
+    prompt: "prompts/track_t_ground_clearance_recovery_outer_loop.md"
+    launch_wave: 13
     write_scope:
-      - "src/hpa_mdo/structure/dual_beam_mainline/solver.py"
-      - "tests/test_dual_beam_mainline.py"
+      - "scripts/direct_dual_beam_inverse_design.py"
+      - "scripts/direct_dual_beam_inverse_design_feasibility_sweep.py"
       - "tests/test_inverse_design.py"
     expected_artifacts:
-      - "explicit wire-truss convergence fix or bounded failure-mode downgrade"
-      - "solver-level regression tests"
-      - "minimal inverse-design regression proving rerun replay no longer dies at the same wire-truss convergence point"
+      - "ground-clearance recovery path that targets outer-wing jig clearance instead of patching solver/runtime"
+      - "candidate or search-space adjustment that can improve or correctly surface jig clearance failure"
+      - "minimal rerun-aero replay proving the blocker has moved forward or that clearance margin is meaningfully improved"
 
 do_not_touch:
   - "README.md"

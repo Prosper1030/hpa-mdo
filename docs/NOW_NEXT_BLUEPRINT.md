@@ -1,7 +1,7 @@
 # HPA-MDO 近期藍圖 (Now / Next Blueprint)
 
 > **文件性質**：近期執行藍圖。這份文件只回答「repo 現在有效的是什麼」「近期有哪些工作軌道」「哪些事情暫時不要寫死」。
-> **更新基準**：2026-04-18 repo 現況
+> **更新基準**：2026-04-19 repo 現況
 > **搭配文件**：正式主線請看 [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md)，細化版進度規劃請看 [EXECUTION_ROADMAP.md](EXECUTION_ROADMAP.md)，目標標準的長程收斂請看 [TARGET_STANDARD_PROGRAM_PLAN.md](TARGET_STANDARD_PROGRAM_PLAN.md)，長期願景請看 [GRAND_BLUEPRINT.md](GRAND_BLUEPRINT.md)。
 
 ## 1. 目前正式主線
@@ -34,28 +34,28 @@
 - Track E / G：recipe library、spanwise discrete search、zone rules 已達到 baseline done enough，不需要繼續當 current 主戰場。
 - Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`。
 - Track I / J / K：rib properties foundation、rib bay surrogate、passive rib robustness、zone-wise rib design contract 已全部落地，rib 現在已進入 candidate / winner selection contract，而不只是 report-only。
-- Track L：真實 smoke campaign 已經不再被 parser 卡住，但 Track R 的多 seed replay 顯示 immediate blocker 更像是 explicit wire-truss Newton 收斂，而不是 rib ranking 本身。
+- Track L：真實 smoke campaign 已經不再被 parser 卡住，solver 也不再死在 explicit wire-truss 假性不收斂；目前更直接的 blocker 已明確轉成 outer-wing ground clearance。
 - Track Q：VSPAero `.lod` parser compatibility 與 candidate rerun 主翼 component filter 已修好，rerun-aero 路線已經能真正跑到 summary artifact。
 
-這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先修 rerun-aero 上游 parser blocker，之後再重跑真實 campaign smoke。
+這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先把 rerun-aero replay 裡真正的設計 blocker，也就是 ground-clearance recovery，往前推。
 
 ## 3. 下一輪活躍工作軌道
 
-### Track S：explicit wire-truss convergence unblock
+### Track T：ground-clearance recovery outer-loop
 
 這是 **現在最值得先做的主軸**。
 
-- 什麼情況下優先：如果 Track R 多 seed replay 都真正跑到 rerun-aero，但 inner refresh summary 一致卡在 `Explicit wire truss Newton solve did not converge`。
+- 什麼情況下優先：如果 parser/runtime 與 solver 都已經能跑通真 replay，selected candidate 也不再是 sentinel crash，但 failure 已經明確轉成 `ground_clearance`。
 - 近期目標：
-  - 診斷 explicit wire-truss Newton / line search 為什麼在 candidate rerun 路徑下系統性失敗
-  - 優先修 solver 本身，而不是先調 rib penalty 或再擴 smoke
-  - 補 solver-level regression test，避免之後又回到同樣的收斂失敗
+  - 針對 outer-wing jig clearance 問題加入 recovery path
+  - 先用低維 outer-loop knob / seed / search bias 把 clearance 拉回來
+  - 讓 rerun-aero replay 至少能產生更有工程意義的 non-sentinel signal
 
 ### Track R：rib campaign multi-seed signal hunt
 
-這是 **Track Q 驗證後的下一波**。
+這是 **Track T 驗證後的下一波**。
 
-- 什麼情況下優先：如果 rerun-aero 已經能跑通，而且 explicit wire-truss 收斂問題已被緩解，現在需要真正回答 rib ranking 是不是工程合理。
+- 什麼情況下優先：如果 rerun-aero 已經能跑通，而且 outer-wing jig clearance 已被往前推，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
   - 用 `candidate_rerun_vspaero` 跑 `2 到 4` 個較有訊號的代表性 seeds
   - 每個 seed 都比較 `rib_zonewise=off` vs `limited_zonewise`
@@ -64,7 +64,7 @@
 
 ### Track M：rib penalty / surrogate tuning
 
-這是 **Track S / R 跑完之後的下一波**。
+這是 **Track T / R 跑完之後的下一波**。
 
 - 什麼情況下優先：如果多 seed smoke 顯示 rib-on 確實開始影響 winner，但 ranking 邏輯仍有可疑之處。
 - 近期目標：
@@ -75,7 +75,7 @@
 
 ### Track N：rib finalist spot-check / handoff
 
-這是 **Track R / M 穩住後的第三波**。
+這是 **Track T / R / M 穩住後的第三波**。
 
 - 什麼情況下優先：如果 smoke 結果合理，準備把 rib-on 設計推向更正式的 finalist 診斷與交接。
 - 近期目標：
@@ -124,12 +124,17 @@
 ### Track L：rib campaign smoke
 
 - 目前狀態：已從 `BLOCKED` 升到 `SUSPICIOUS`。
-- 接下來重點不再是直接加更多 smoke，而是先處理 multi-seed replay 暴露出的 explicit wire-truss convergence 問題。
+- 接下來重點不再是直接加更多 smoke，而是先處理 replay 現在暴露出的 ground-clearance blocker。
 
 ### Track R：multi-seed rib smoke
 
 - 目前狀態：已完成第一輪最小多 seed replay。
-- 接下來重點不是直接進 tuning，而是等待 Track S 把 explicit wire-truss 收斂問題先處理掉，再重跑更有訊號的 replay。
+- 接下來重點不是直接進 tuning，而是等待 Track T 把 ground-clearance 問題先往前推，再重跑更有訊號的 replay。
+
+### Track S：explicit wire-truss convergence unblock
+
+- 目前狀態：baseline 已成立。
+- 接下來重點不再是繼續修 solver，而是把已解卡的 replay 路徑拿來支撐 clearance recovery。
 
 ## 5. 條件式後續軌道
 

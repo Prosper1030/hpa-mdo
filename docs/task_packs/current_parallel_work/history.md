@@ -91,3 +91,11 @@
 - Planning shift:
   - outer sweep labels still say `geometry / discrete boundary`, but the deeper immediate blocker now points to `Explicit wire truss Newton solve did not converge`
   - immediate next step is to fix explicit wire-truss convergence before rerunning more rib-smoke signal hunts
+- Track S completed:
+  - `track_s_explicit_wire_truss_convergence_unblock` completed via `bcbe95f`
+  - validated replay no longer dies at explicit wire-truss Newton convergence, reaches `analysis complete`, and the selected candidate is no longer a solver-crash sentinel fallback
+- Current wave reset again:
+  - `track_t_ground_clearance_recovery_outer_loop`
+- Planning shift:
+  - the immediate blocker is no longer parser compatibility or solver false non-convergence
+  - the next main push is to recover outer-wing jig ground clearance so rerun-aero replay can produce a more meaningful design/ranking signal
