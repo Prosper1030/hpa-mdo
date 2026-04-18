@@ -196,6 +196,51 @@ def test_discover_default_step_prefers_jig_shape_artifact(tmp_path: Path) -> Non
     assert resolved == spar_jig.resolve()
 
 
+def test_representative_section_thickness_prefers_discrete_layup_json(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    (output_dir / "discrete_layup_final_design.json").write_text(
+        json.dumps(
+            {
+                "spars": {
+                    "main_spar": {
+                        "segments": [
+                            {"equivalent_properties": {"wall_thickness": 0.001}},
+                            {"equivalent_properties": {"wall_thickness": 0.001}},
+                        ]
+                    },
+                    "rear_spar": {
+                        "segments": [
+                            {"equivalent_properties": {"wall_thickness": 0.001}},
+                        ]
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    thickness_m = structural_check._representative_section_thickness_m(
+        cfg,
+        output_dir=output_dir,
+    )
+
+    assert thickness_m == 0.001
+
+
+def test_representative_section_thickness_falls_back_to_config_minimums(
+    tmp_path: Path,
+) -> None:
+    cfg = _cfg(tmp_path)
+
+    thickness_m = structural_check._representative_section_thickness_m(cfg, output_dir=None)
+
+    assert thickness_m == np.mean(
+        [cfg.main_spar.min_wall_thickness, cfg.rear_spar.min_wall_thickness]
+    )
+
+
 def test_run_structural_check_uses_existing_mesh_and_writes_report(
     tmp_path: Path,
     monkeypatch,

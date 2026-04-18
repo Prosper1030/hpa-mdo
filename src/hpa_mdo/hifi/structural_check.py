@@ -312,7 +312,10 @@ def run_structural_check(
         mesh_diagnostics = _resolve_mesh_diagnostics(resolved_mesh)
 
     mesh_length_scale_m = _mesh_length_scale_m_per_unit(resolved_mesh, cfg)
-    section_thickness_units = _representative_section_thickness_m(cfg) / mesh_length_scale_m
+    section_thickness_units = _representative_section_thickness_m(
+        cfg,
+        output_dir=output_dir,
+    ) / mesh_length_scale_m
     material_payload = _material_payload(
         material_key,
         length_scale_m_per_unit=mesh_length_scale_m,
@@ -1733,7 +1736,48 @@ def _display_path(path: Path) -> str:
         return str(path)
 
 
-def _representative_section_thickness_m(cfg: HPAConfig) -> float:
+def _discover_default_discrete_layup_json(output_dir: Path) -> Path | None:
+    candidates = [
+        output_dir / "discrete_layup_final_design.json",
+        output_dir / "drawing_ready_package" / "design" / "discrete_layup_final_design.json",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return None
+
+
+def _representative_section_thickness_m(
+    cfg: HPAConfig,
+    *,
+    output_dir: Path | None = None,
+) -> float:
+    if output_dir is not None:
+        discrete_json = _discover_default_discrete_layup_json(output_dir)
+        if discrete_json is not None:
+            try:
+                payload = json.loads(discrete_json.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                payload = None
+            wall_thicknesses: list[float] = []
+            if isinstance(payload, dict):
+                spars = payload.get("spars", {})
+                if isinstance(spars, dict):
+                    for spar_payload in spars.values():
+                        if not isinstance(spar_payload, dict):
+                            continue
+                        for segment in spar_payload.get("segments", []):
+                            if not isinstance(segment, dict):
+                                continue
+                            equiv = segment.get("equivalent_properties", {})
+                            if (
+                                isinstance(equiv, dict)
+                                and equiv.get("wall_thickness") is not None
+                            ):
+                                wall_thicknesses.append(float(equiv["wall_thickness"]))
+            if wall_thicknesses:
+                return float(np.mean(wall_thicknesses))
+
     thicknesses = [float(cfg.main_spar.min_wall_thickness)]
     if cfg.rear_spar.enabled:
         thicknesses.append(float(cfg.rear_spar.min_wall_thickness))
