@@ -11,14 +11,27 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.validate_benchmark_contract import main  # noqa: E402
 
 
-def _write_ai_json(path: Path, *, full_mass_kg: float, deflection_m: float, twist_deg: float) -> None:
+def _write_ai_json(
+    path: Path,
+    *,
+    full_mass_kg: float,
+    deflection_m: float,
+    twist_deg: float,
+    recheck_total_mass_kg: float | None = None,
+) -> None:
+    recheck_lines = [
+        f'    "tip_deflection_m": {deflection_m},',
+        f'    "twist_max_deg": {twist_deg}',
+    ]
+    if recheck_total_mass_kg is not None:
+        recheck_lines.insert(0, f'    "total_mass_full_kg": {recheck_total_mass_kg},')
     path.write_text(
         (
             "{\n"
             f'  "discrete_full_wing_mass_kg": {full_mass_kg},\n'
             '  "structural_recheck": {\n'
-            f'    "tip_deflection_m": {deflection_m},\n'
-            f'    "twist_max_deg": {twist_deg}\n'
+            + "\n".join(recheck_lines)
+            + "\n"
             "  }\n"
             "}\n"
         ),
@@ -26,7 +39,7 @@ def _write_ai_json(path: Path, *, full_mass_kg: float, deflection_m: float, twis
     )
 
 
-def _write_inp(path: Path) -> None:
+def _write_inp(path: Path, *, density_kg_per_mm3: float = 1.0e-6, thickness_mm: float = 10.0) -> None:
     path.write_text(
         "\n".join(
             [
@@ -38,9 +51,9 @@ def _write_inp(path: Path) -> None:
                 "1, 1, 2, 3",
                 "*MATERIAL, NAME=MAT",
                 "*DENSITY",
-                "1.0e-6",
+                f"{density_kg_per_mm3}",
                 "*SHELL SECTION, ELSET=EALL, MATERIAL=MAT",
-                "10.0",
+                f"{thickness_mm}",
                 "",
             ]
         ),
@@ -170,3 +183,83 @@ def test_validate_benchmark_contract_fail(tmp_path: Path, capsys: pytest.Capture
     assert exit_code == 1
     assert "FAIL" in captured.out
     assert "**OVERALL: FAIL**" in captured.out
+
+
+def test_validate_benchmark_contract_requires_explicit_mass_mode_when_ambiguous(
+    tmp_path: Path,
+) -> None:
+    ai_json = tmp_path / "ai.json"
+    _write_ai_json(
+        ai_json,
+        full_mass_kg=10.0,
+        deflection_m=0.02,
+        twist_deg=1.0,
+        recheck_total_mass_kg=14.0,
+    )
+
+    with pytest.raises(ValueError, match="multiple mass definitions"):
+        main(
+            [
+                "--ai-json",
+                str(ai_json),
+                "--ccx-inp",
+                str(tmp_path / "missing.inp"),
+                "--ccx-dat",
+                str(tmp_path / "missing.dat"),
+                "--ccx-frd",
+                str(tmp_path / "missing.frd"),
+                "--reaction-reference-n",
+                "100.0",
+                "--main-tip-probe",
+                "0.0,1.0,0.0",
+                "--rear-tip-probe",
+                "1.0,1.0,0.0",
+            ]
+        )
+
+
+def test_validate_benchmark_contract_total_structural_mass_mode_passes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ai_json = tmp_path / "ai.json"
+    inp_path = tmp_path / "case.inp"
+    dat_path = tmp_path / "case.dat"
+    frd_path = tmp_path / "case.frd"
+
+    _write_ai_json(
+        ai_json,
+        full_mass_kg=10.0,
+        deflection_m=0.02,
+        twist_deg=1.0,
+        recheck_total_mass_kg=14.0,
+    )
+    _write_inp(inp_path, density_kg_per_mm3=1.4e-6)
+    _write_dat(dat_path, total_fz_n=-100.0)
+    _write_frd(frd_path, main_uz_mm=20.5, rear_uz_mm=37.955)
+
+    exit_code = main(
+        [
+            "--ai-json",
+            str(ai_json),
+            "--ccx-inp",
+            str(inp_path),
+            "--ccx-dat",
+            str(dat_path),
+            "--ccx-frd",
+            str(frd_path),
+            "--reaction-reference-n",
+            "100.0",
+            "--main-tip-probe",
+            "0.0,1.0,0.0",
+            "--rear-tip-probe",
+            "1.0,1.0,0.0",
+            "--ai-mass-mode",
+            "total_structural",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Mass (half-wing, total_structural)" in captured.out
+    assert "**OVERALL: PASS**" in captured.out

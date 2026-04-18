@@ -33,6 +33,7 @@ class BenchmarkMetrics:
     tip_deflection_m: float
     tip_twist_deg: float | None
     wall_thickness_m: float | None = None
+    mass_definition: str = "unspecified"
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Rear tip probe in meters as x,y,z.",
     )
     parser.add_argument("--mass-threshold-pct", type=float, default=0.1)
+    parser.add_argument(
+        "--ai-mass-mode",
+        choices=("auto", "tube", "total_structural", "continuous"),
+        default="auto",
+        help=(
+            "Which AI mass definition to compare against the CalculiX deck. "
+            "'tube' uses discrete/spar tube mass only, 'total_structural' uses "
+            "the structural recheck total mass, and 'auto' refuses ambiguous payloads."
+        ),
+    )
     parser.add_argument("--reaction-threshold-pct", type=float, default=1.0)
     parser.add_argument("--deflection-threshold-pct", type=float, default=5.0)
     parser.add_argument("--twist-threshold-pct", type=float, default=10.0)
@@ -119,22 +130,73 @@ def _require_metric(value: Any, label: str) -> float:
     return float(value)
 
 
-def load_ai_metrics(json_path: str | Path) -> BenchmarkMetrics:
-    payload = json.loads(Path(json_path).read_text(encoding="utf-8"))
-    recheck = payload.get("structural_recheck", {}) if isinstance(payload, dict) else {}
-
-    full_mass = None
+def _resolve_ai_mass_definition(
+    payload: dict[str, Any],
+    recheck: dict[str, Any],
+    *,
+    mass_mode: str,
+) -> tuple[float, str]:
+    tube_mass_full = None
     for candidate in (
         payload.get("discrete_full_wing_mass_kg"),
-        payload.get("continuous_full_wing_mass_kg"),
-        recheck.get("total_mass_full_kg"),
         payload.get("spar_mass_full_kg"),
     ):
         if candidate is not None:
-            full_mass = float(candidate)
+            tube_mass_full = float(candidate)
             break
-    if full_mass is None:
-        raise ValueError("Could not find AI full-wing mass in the JSON payload.")
+    continuous_mass_full = payload.get("continuous_full_wing_mass_kg")
+    if continuous_mass_full is not None:
+        continuous_mass_full = float(continuous_mass_full)
+    total_structural_mass_full = recheck.get("total_mass_full_kg")
+    if total_structural_mass_full is not None:
+        total_structural_mass_full = float(total_structural_mass_full)
+
+    if mass_mode == "tube":
+        if tube_mass_full is None:
+            raise ValueError("AI JSON is missing discrete/spar tube mass for --ai-mass-mode tube.")
+        return tube_mass_full, "tube"
+    if mass_mode == "total_structural":
+        if total_structural_mass_full is None:
+            raise ValueError(
+                "AI JSON is missing structural_recheck.total_mass_full_kg for "
+                "--ai-mass-mode total_structural."
+            )
+        return total_structural_mass_full, "total_structural"
+    if mass_mode == "continuous":
+        if continuous_mass_full is None:
+            raise ValueError(
+                "AI JSON is missing continuous_full_wing_mass_kg for --ai-mass-mode continuous."
+            )
+        return continuous_mass_full, "continuous"
+
+    available: list[tuple[str, float]] = []
+    if tube_mass_full is not None:
+        available.append(("tube", tube_mass_full))
+    if total_structural_mass_full is not None:
+        available.append(("total_structural", total_structural_mass_full))
+    if continuous_mass_full is not None:
+        available.append(("continuous", continuous_mass_full))
+    if not available:
+        raise ValueError("Could not find any AI full-wing mass in the JSON payload.")
+    if len(available) == 1:
+        return available[0][1], available[0][0]
+
+    labels = ", ".join(f"{name}={value:.6f} kg" for name, value in available)
+    raise ValueError(
+        "AI JSON contains multiple mass definitions. Re-run with "
+        f"--ai-mass-mode to choose one explicitly: {labels}"
+    )
+
+
+def load_ai_metrics(json_path: str | Path, *, mass_mode: str) -> BenchmarkMetrics:
+    payload = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    recheck = payload.get("structural_recheck", {}) if isinstance(payload, dict) else {}
+
+    full_mass, mass_definition = _resolve_ai_mass_definition(
+        payload,
+        recheck if isinstance(recheck, dict) else {},
+        mass_mode=mass_mode,
+    )
 
     tip_deflection_m = None
     for candidate in (
@@ -183,6 +245,7 @@ def load_ai_metrics(json_path: str | Path) -> BenchmarkMetrics:
         tip_deflection_m=float(tip_deflection_m),
         tip_twist_deg=float(tip_twist_deg),
         wall_thickness_m=wall_thickness_m,
+        mass_definition=mass_definition,
     )
 
 
@@ -572,7 +635,7 @@ def main(argv: list[str] | None = None) -> int:
     main_tip_probe_m = _parse_probe(args.main_tip_probe)
     rear_tip_probe_m = _parse_probe(args.rear_tip_probe)
 
-    ai_metrics = load_ai_metrics(args.ai_json)
+    ai_metrics = load_ai_metrics(args.ai_json, mass_mode=args.ai_mass_mode)
     reaction_reference_n = _load_reaction_reference(args.load_csv, args.reaction_reference_n)
     ccx_metrics = load_ccx_metrics(
         inp_path=args.ccx_inp,
@@ -594,7 +657,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     mass_result = _compare_metric(
-            label="Mass (half-wing)",
+            label=f"Mass (half-wing, {ai_metrics.mass_definition})",
             lhs_value=ai_with_reaction.mass_half_wing_kg,
             rhs_value=ccx_metrics.mass_half_wing_kg,
             threshold_pct=args.mass_threshold_pct,
