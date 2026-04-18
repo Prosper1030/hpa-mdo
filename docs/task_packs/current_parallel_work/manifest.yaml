@@ -5,35 +5,64 @@ canonical_read_order:
   - "project_state.yaml"
   - "docs/TARGET_STANDARD_GAP_MAP.md"
   - "docs/TARGET_STANDARD_PROGRAM_PLAN.md"
+  - "docs/RIB_INTEGRATION_PLAN.md"
   - "docs/README.md"
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_j_rerun_aero_outer_loop_core"
-    prompt: "prompts/track_j_rerun_aero_outer_loop_core.md"
-    launch_wave: 4
+  - id: "track_l_rib_properties_foundation"
+    prompt: "prompts/track_l_rib_properties_foundation.md"
+    launch_wave: 6
+    write_scope:
+      - "data/rib_properties.yaml"
+      - "src/hpa_mdo/core/config.py"
+      - "src/hpa_mdo/structure/rib_properties.py"
+      - "tests/test_rib_properties.py"
+      - "tests/test_spar_properties_partials.py"
+    expected_artifacts:
+      - "machine-readable rib properties catalog"
+      - "derived warping-knockdown contract"
+      - "tests"
+  - id: "track_m_rib_bay_surrogate_contract"
+    prompt: "prompts/track_m_rib_bay_surrogate_contract.md"
+    launch_wave: 7
+    requires_verification_after:
+      - "track_l_rib_properties_foundation"
+    write_scope:
+      - "src/hpa_mdo/structure/rib_surrogate.py"
+      - "scripts/direct_dual_beam_inverse_design.py"
+      - "tests/test_inverse_design.py"
+    expected_artifacts:
+      - "rib bay surrogate metrics"
+      - "candidate summary updates"
+      - "tests"
+  - id: "track_n_passive_rib_robustness_mode"
+    prompt: "prompts/track_n_passive_rib_robustness_mode.md"
+    launch_wave: 7
+    requires_verification_after:
+      - "track_l_rib_properties_foundation"
+    write_scope:
+      - "src/hpa_mdo/structure/dual_beam_mainline/types.py"
+      - "src/hpa_mdo/structure/dual_beam_mainline/constraints.py"
+      - "src/hpa_mdo/structure/dual_beam_mainline/rib_link.py"
+      - "tests/test_dual_beam_mainline.py"
+    expected_artifacts:
+      - "passive rib robustness mode"
+      - "parity vs finite-rib compare path"
+      - "tests"
+  - id: "track_o_zonewise_rib_design_contract"
+    prompt: "prompts/track_o_zonewise_rib_design_contract.md"
+    launch_wave: 8
+    requires_verification_after:
+      - "track_m_rib_bay_surrogate_contract"
+      - "track_n_passive_rib_robustness_mode"
     write_scope:
       - "scripts/direct_dual_beam_inverse_design.py"
-      - "src/hpa_mdo/aero/vsp_builder.py"
-      - "src/hpa_mdo/aero/vsp_aero.py"
-      - "src/hpa_mdo/aero/load_mapper.py"
-      - "tests/test_inverse_design.py"
-    expected_artifacts:
-      - "candidate-level geometry rebuild contract"
-      - "rerun-aero artifact / load-ownership evidence"
-      - "tests"
-  - id: "track_k_rerun_aero_campaign_consumer"
-    prompt: "prompts/track_k_rerun_aero_campaign_consumer.md"
-    launch_wave: 5
-    requires_verification_after:
-      - "track_j_rerun_aero_outer_loop_core"
-    write_scope:
       - "scripts/direct_dual_beam_inverse_design_feasibility_sweep.py"
-      - "scripts/dihedral_sweep_campaign.py"
       - "tests/test_inverse_design.py"
     expected_artifacts:
-      - "campaign consumer for rerun-aero artifacts"
-      - "winner / reject-reason updates"
+      - "zone-wise rib pitch/family contract"
+      - "winner selection consume rib design"
       - "tests"
 
 do_not_touch:

@@ -160,6 +160,48 @@
 
 這一段是下一個主戰場，不應再往後拖太久。
 
+## Phase 2.5：Rib Integration Foundation
+
+### 目標
+
+把 rib 從「簡化 proxy / 研究想法」升成結構主線可消費的正式 contract。
+
+### 為什麼放在這裡
+
+rib 不是 hi-fi 才要想的事，它是結構主線的一部分。
+但它也不該早於 rerun-aero candidate contract 太多，否則會把 still-moving 的 load ownership 與新的 rib 設計空間混在一起。
+
+所以正確位置是：
+
+- 晚於 `Phase 2 rerun-aero baseline`
+- 早於 `Phase 4 finalist hi-fi release gate`
+
+### 核心內容
+
+- `data/rib_properties.yaml`
+- rib family / spacing / derived `warping_knockdown`
+- rib bay surrogate（例如 `Δ/c`、shape-retention risk 類指標）
+- passive rib robustness mode
+- 之後才是 zone-wise rib pitch / family optimization
+
+### 第一版不該做什麼
+
+- 不做 per-rib 設計變數
+- 不做 rib cutout / topology optimization
+- 不把 rib 第一版工作丟去 hi-fi
+
+### 完成判準
+
+- repo 不再只靠手填 `dual_spar_warping_knockdown`
+- rib 影響能以 report / robustness / surrogate 形式進入主線
+- zone-wise rib optimization 的入口已被定義，但不需要在第一天就全做完
+
+### 目標時間
+
+**約 3 到 7 天**
+
+在目前多 agent 節奏下，這一段不該再抓成週級別大工程。
+
 ## Phase 3：把主線收成真正乾淨的 workflow contract
 
 ### 目標

@@ -43,3 +43,14 @@
 - Planning shift:
   - recipe-library / discrete search / zone-rule baseline is now treated as done enough for the current phase
   - next main push is no longer more discrete-layup tuning, but upgrading the outer loop from load-refresh semantics to rebuilt-geometry + rerun-aero semantics
+- Rerun-aero wave completed:
+  - `track_j_rerun_aero_outer_loop_core` completed via `d18a66b`
+  - `track_k_rerun_aero_campaign_consumer` completed via `10519b8`
+- Current wave reset again:
+  - `track_l_rib_properties_foundation`
+  - `track_m_rib_bay_surrogate_contract` queued behind `track_l` verification
+  - `track_n_passive_rib_robustness_mode` queued behind `track_l` verification
+  - `track_o_zonewise_rib_design_contract` queued behind `track_m` / `track_n` verification
+- Planning shift:
+  - rerun-aero candidate contract is now treated as done-enough baseline upstream
+  - next main push is rib integration, but staged as foundation -> passive robustness -> zone-wise design freedom

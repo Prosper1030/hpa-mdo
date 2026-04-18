@@ -41,7 +41,7 @@ official_entrypoints:
 active_tracks:
   track_a:
     name: "mainline_consolidation"
-    status: "next"
+    status: "queued"
     goal: "Make generic VSP intake -> inverse design -> discrete layup feel like one canonical workflow for humans and agents."
   track_b:
     name: "inverse_design_validity_gates"
@@ -57,27 +57,44 @@ active_tracks:
     goal: "Discrete layup is now a first-class final design output with machine-readable and summary-text surfacing."
   track_e:
     name: "laminate_recipe_library_selector"
-    status: "next"
-    goal: "Turn discrete layup from fixed-family round-up into a recipe-library + property-based selector layer that better matches final design intent."
+    status: "baseline_complete"
+    goal: "Recipe-library and selector foundation are now in place; future work is narrower refinement, not the current main push."
   track_f:
     name: "requested_to_realizable_outer_loop"
-    status: "next"
-    goal: "Move from manual sweeps to a low-dimensional requested-to-realizable loop that consumes discrete final-design verdicts and larger quick-analysis search budgets."
+    status: "queued"
+    goal: "The low-dimensional requested-to-realizable loop remains important, but it is no longer the immediate current wave."
   track_g:
     name: "spanwise_discrete_search_zone_rules"
+    status: "baseline_complete"
+    goal: "Spanwise DP search and zone rules now exist as a usable baseline; follow-up is refinement, not the current main push."
+  track_h:
+    name: "rerun_aero_outer_loop_contract"
+    status: "baseline_complete"
+    goal: "Candidate-owned rerun-aero artifacts and campaign consumer wiring are now in place as a baseline upstream contract."
+  track_i:
+    name: "rib_properties_foundation"
+    status: "next"
+    goal: "Turn rib assumptions into a structured catalog plus derived warping-knockdown contract before rib becomes an optimizer variable."
+  track_j:
+    name: "rib_bay_surrogate_and_passive_robustness"
     status: "queued"
-    goal: "After the recipe-library foundation is stable, add DP-style spanwise discrete search plus zone-dependent thinning / ply-drop rules."
+    goal: "Expose rib bay / shape-retention risk and passive rib robustness modes before active rib optimization."
+  track_k:
+    name: "zonewise_rib_design_contract"
+    status: "queued"
+    goal: "Add limited zone-wise rib pitch/family freedom only after rib foundation and passive robustness are verified."
 
 recently_completed:
   - "Track B baseline: inverse-design validity summary JSON and summary linkage are in place."
   - "Track C baseline: Mac structural spot-check is stabilized as a local non-gating workflow with explicit comparability/diagnostic output."
   - "Track D baseline: discrete_layup_final_design.json and optimization_summary.txt now both surface the final discrete design verdict."
+  - "Track E / G baseline: recipe library, spanwise DP search, and zone-dependent rules are now landed as a structural final-design baseline."
+  - "Track H baseline: rerun-aero outer-loop core and campaign consumer now distinguish candidate-owned rerun artifacts from legacy refresh."
 
 next_wave_priorities:
-  - "Track A: consolidate the front-door workflow and artifact navigation so humans and agents can run the canonical path without re-discovery."
-  - "Track E: formalize the recipe-library + property-based selector foundation so discrete layup becomes a truer final-design layer instead of fixed-family round-up."
-  - "Track F: formalize the low-dimensional requested-to-realizable outer loop so the repo can score low-dimensional aero-shape candidates against jig clearance, mass, discrete layup verdict, and realizable loaded-shape mismatch."
-  - "Track G: after Track E stabilizes, add spanwise discrete search and zone-dependent rules rather than jumping straight to heavier global search."
+  - "Track I: build rib_properties foundation and derived warping-knockdown contract."
+  - "Track J: add rib bay surrogate metrics and passive rib robustness compare paths."
+  - "Track K: only after Track I / J verify, add limited zone-wise rib pitch/family design freedom."
 
 benchmark_policy:
   status: "open_basket"

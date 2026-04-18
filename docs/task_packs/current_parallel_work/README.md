@@ -10,28 +10,29 @@
 1. [CURRENT_MAINLINE.md](../../../CURRENT_MAINLINE.md)
 2. [project_state.yaml](../../../project_state.yaml)
 3. [docs/TARGET_STANDARD_GAP_MAP.md](../../TARGET_STANDARD_GAP_MAP.md)
-4. [docs/README.md](../../README.md)
-5. [docs/NOW_NEXT_BLUEPRINT.md](../../NOW_NEXT_BLUEPRINT.md)
-6. 只讀自己被分派的 prompt 檔
+4. [docs/RIB_INTEGRATION_PLAN.md](../../RIB_INTEGRATION_PLAN.md)
+5. [docs/README.md](../../README.md)
+6. [docs/NOW_NEXT_BLUEPRINT.md](../../NOW_NEXT_BLUEPRINT.md)
+7. 只讀自己被分派的 prompt 檔
 
 ## What This Pack Covers
 
-這包現在聚焦在 **Phase 2 / Wave 4：rerun-aero outer loop**。
+這包現在聚焦在 **Phase 2.5：rib integration foundation**。
 
-上一波 recipe-architecture 任務已經完成，現在不再把更多 discrete-layup tuning 當 current pack 主任務。
+上一波 rerun-aero 任務已經完成，現在不再把更多 rerun-aero wiring 當 current pack 主任務。
 
 目前的主任務是：
 
-- Track J：rerun-aero outer-loop core contract
+- Track L：rib properties foundation
 
-下一個排隊任務是：
+等我驗證 Track L 後，下一波可以開兩條互不撞車的任務：
 
-- Track K：campaign consumer / winner selection 對接新的 rerun-aero artifacts
+- Track M：rib bay surrogate contract
+- Track N：passive rib robustness mode
 
-其中：
+最後才是：
 
-- Track J 是 **現在唯一建議啟動的 current wave**
-- Track K 是 **等我驗證 Track J 後才開的 next wave**
+- Track O：zone-wise rib design contract
 
 ## How To Use This Pack
 
@@ -50,4 +51,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道這一波為什麼刻意只開單一核心 owner，而不是再讓多個 agent 同時碰 `direct_dual_beam_inverse_design.py`。
+- 使用者能清楚知道哪些 rib 任務可以平行、哪些一定要等上一波驗證後才能開。

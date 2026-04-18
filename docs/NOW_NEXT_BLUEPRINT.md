@@ -31,55 +31,51 @@
 - Track B：inverse-design validity summary / gate artifact 已落地。它現在不是「還沒開始」，而是已經有 baseline，可轉成維護型軌道。
 - Track C：Mac hi-fi 已收斂到 `local structural spot-check` 的角色，不再是要被推成 validation truth 的主線 blocker。
 - Track D：discrete layup 已不只存在於 sidecar；final-design JSON 與 `optimization_summary.txt` 都能直接表達 discrete final verdict。
+- Track E / G：recipe library、spanwise discrete search、zone rules 已達到 baseline done enough，不需要繼續當 current 主戰場。
+- Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`。
 
-這代表下一輪不需要再把 B / C / D 當成唯一主戰場，而是可以把重心轉回主線 front door、search acceleration 與 outer loop。
+這代表下一輪不需要再把 B / C / D / E / G / H 當成唯一主戰場，而是可以把重心轉向 rib integration 這個結構主線缺口。
 
 ## 3. 下一輪活躍工作軌道
 
-### Track A：主線 front door / canonical workflow 收斂
+### Track I：rib properties foundation
 
 這是 **下一輪最值得先做的主軸**。
 
-把 `generic VSP intake -> inverse design -> jig shape -> CFRP / discrete layup` 收成更清楚的正式操作主線。
+先把 rib 從單一 scalar `warping_knockdown`，升成正式資料與推導層。
 
-- 什麼情況下優先：如果現在最大問題是「會用的人不確定該跑哪條入口」。
-- 近期目標：入口、文件、artifact 命名、輸出摘要一致化，讓人與 agent 都能快速走到 canonical path。
-
-### Track E：laminate recipe library / selector foundation
-
-這是 **下一輪第二優先**，而且比 surrogate 更前面。
-
-把 discrete layup 從「固定 balanced family round-up」推成「功能型 recipe library + property-based selector」。
-
-- 什麼情況下優先：如果目前最大的風險不是 solver 跑不動，而是設計空間本身太窄、選到的 discrete 結果偏保守偏重。
+- 什麼情況下優先：如果現在的判斷是「rib 很重要，但還不想太早把它當優化變數炸開設計空間」。
 - 近期目標：
-  - recipe family 正式化
-  - property-based selector contract
-  - 讓 outer loop 不再只依賴 continuous thickness 想像 final design
+  - `data/rib_properties.yaml`
+  - rib family / spacing contract
+  - derived `warping_knockdown`
+  - 保留 backward compatibility
 
-### Track F：requested-to-realizable outer loop
+### Track J：rib bay surrogate / passive robustness
 
-這是 **下一輪第三優先**，建立在 A / E 已把 canonical path 與 discrete design layer 穩住之後。
+這是 **Track I 驗證後的下一波**。
 
-- 什麼情況下優先：如果你已經接受 requested 和 realizable 不會完全重合，想開始把 shape 調整變成正式外圈。
-- 近期目標：先用 `target_shape_z_scale`、`dihedral_exponent`、dihedral multiplier 這類低維 knob，把下面這條「近期可交付版閉環」跑通：
+先把 rib 對 bay、扭轉耦合、shape retention 的影響變成 reportable robustness layer，而不是直接丟進最佳化。
 
-`low-dimensional aero-shape exploration -> target loaded shape -> inverse design -> jig clearance / mass / manufacturing gate -> discrete CFRP layup -> realizable loaded-shape score`
-
-- 近期交付重點不是 full hi-fi sign-off，而是：
-  - requested / realizable / jig 三種 shape 的差距有清楚 score
-  - discrete layup verdict 能回寫到 outer-loop summary
-  - 使用者能用低維 knob 判斷「這個 cruise shape 值不值得繼續做」
-
-### Track G：spanwise discrete search / zone rules
-
-這是 **E 穩住後的下一波**，不是現在第一個就該衝的東西。
-
-- 什麼情況下優先：如果 recipe library 與 selector 已經成形，下一步想真正把 spanwise 離散分佈變成設計變數。
+- 什麼情況下優先：如果現在最怕的是「rib 還沒建模，主線優化可能找到假最優」。
 - 近期目標：
-  - 用 DP / shortest-path 類方法做 spanwise discrete search
-  - 把 thickness floor 與 ply-drop rule 改成 zone-dependent
-  - 避免 clean outboard span 被同一個 global floor 永遠鎖死
+  - candidate summary 能輸出 rib bay / `Δ/c` / shape-retention risk 類指標
+  - passive rib robustness compare path
+  - 不把這一波混成 hi-fi 任務
+
+### Track K：zone-wise rib optimization
+
+這是 **Track J 穩住後的第三波**。
+
+不是每根 rib 一個變數，而是有限度的 zone-wise pitch / family。
+
+- 什麼情況下優先：如果 rib contract 已經穩，想讓 winner selection 真正吃到 rib 子結構差異。
+- 近期目標：
+  - mandatory ribs 固定
+  - 半翼 `4 到 6` 個 zone
+  - local `Δ/c` spacing options
+  - `material + thickness` 綁成 family
+  - mix mode 有切換懲罰或材料數量上限
 
 ## 4. 轉入維護型的軌道
 
@@ -103,6 +99,11 @@
 
 - 目前狀態：baseline 已成立。
 - 接下來重點不再是「證明 discrete layup 存在」，而是讓 Track A / F 能自然消費它的 final-design artifact。
+
+### Track H：rerun-aero outer loop
+
+- 目前狀態：baseline 已成立。
+- 接下來重點不再是建立 rerun-aero contract 本身，而是把它當 rib integration 與後續 finalist release gate 的穩定上游。
 
 ## 5. 條件式後續軌道
 
