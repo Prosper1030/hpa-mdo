@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from itertools import product
 import json
+import math
 from pathlib import Path
 import sys
 from time import perf_counter
@@ -37,6 +39,10 @@ from hpa_mdo.structure.inverse_design import predict_loaded_shape
 from hpa_mdo.structure.rib_surrogate import (
     RibBaySurrogateSummary,
     build_rib_bay_surrogate_summary,
+)
+from hpa_mdo.structure.rib_properties import (
+    build_default_rib_catalog,
+    derive_warping_knockdown,
 )
 from hpa_mdo.structure.ansys_export import ANSYSExporter
 from hpa_mdo.structure.dual_beam_mainline import (
@@ -77,6 +83,66 @@ CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME = {
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
 DEFAULT_CANDIDATE_AOA_SWEEP_DEG = (-2.0, 0.0, 2.0, 4.0, 6.0, 8.0)
+RIB_ZONEWISE_OFF_MODE = "off"
+RIB_ZONEWISE_LIMITED_MODE = "limited_zonewise"
+DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE = 2
+DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG = 0.15
+RIB_MIX_FAMILY_EXCESS_PENALTY_KG = 100.0
+DEFAULT_ZONEWISE_RIB_PROFILE_KEYS = (
+    "baseline_uniform",
+    "inboard_reinforced_mix",
+    "outboard_relaxed_mix",
+)
+
+
+@dataclass(frozen=True)
+class MandatoryRibStation:
+    y_m: float
+    labels: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ZoneWiseRibZone:
+    zone_index: int
+    zone_key: str
+    y_start_m: float
+    y_end_m: float
+    y_center_m: float
+    span_m: float
+    start_labels: tuple[str, ...]
+    end_labels: tuple[str, ...]
+    family_key: str
+    family_label: str
+    target_pitch_m: float
+    realized_pitch_m: float
+    optional_rib_count: int
+    bay_count: int
+    derived_warping_knockdown: float
+
+
+@dataclass(frozen=True)
+class ZoneWiseRibDesignSummary:
+    enabled: bool
+    design_key: str
+    design_label: str
+    design_mode: str
+    mix_mode: str
+    max_unique_families: int
+    within_unique_family_limit: bool
+    unique_family_count: int
+    unique_family_keys: tuple[str, ...]
+    family_switch_count: int
+    family_switch_penalty_kg: float
+    family_mix_cap_penalty_kg: float
+    objective_penalty_kg: float
+    mandatory_station_count: int
+    mandatory_stations_m: tuple[float, ...]
+    effective_warping_knockdown: float
+    representative_family_key: str | None
+    representative_spacing_m: float | None
+    zone_count: int
+    zones: tuple[ZoneWiseRibZone, ...]
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -134,6 +200,7 @@ class InverseCandidate:
     hard_violation_score: float
     target_violation_score: float
     rib_bay_surrogate: RibBaySurrogateSummary | None = field(default=None, repr=False)
+    rib_design: ZoneWiseRibDesignSummary | None = field(default=None, repr=False)
     inverse_result: object | None = field(default=None, repr=False)
     equivalent_result: OptimizationResult | None = field(default=None, repr=False)
     mainline_model: object | None = field(default=None, repr=False)
@@ -216,7 +283,10 @@ class CandidateArchive:
         def _add(candidate: InverseCandidate | None) -> None:
             if candidate is None:
                 return
-            key = tuple(np.round(np.asarray(candidate.z, dtype=float).reshape(-1), 10))
+            key = (
+                tuple(np.round(np.asarray(candidate.z, dtype=float).reshape(-1), 10)),
+                None if candidate.rib_design is None else candidate.rib_design.design_key,
+            )
             if key in seen:
                 return
             seen.add(key)
@@ -524,6 +594,287 @@ def _resolve_optional_path(value: str | Path | None) -> str | None:
     if not text:
         return None
     return str(Path(text).expanduser().resolve())
+
+
+def _half_span_m(aircraft) -> float:
+    wing = getattr(aircraft, "wing", None)
+    y_values = None if wing is None else getattr(wing, "y", None)
+    if y_values is not None:
+        y_arr = np.asarray(y_values, dtype=float).reshape(-1)
+        if y_arr.size:
+            return float(np.max(y_arr))
+    raise ValueError("Aircraft wing geometry must expose spanwise y stations for rib integration.")
+
+
+def _collect_mandatory_rib_stations(cfg, aircraft) -> tuple[MandatoryRibStation, ...]:
+    half_span_m = _half_span_m(aircraft)
+    labels_by_station: dict[float, list[str]] = {}
+
+    def _add_station(y_m: float, label: str) -> None:
+        y_value = round(float(y_m), 9)
+        labels = labels_by_station.setdefault(y_value, [])
+        if label not in labels:
+            labels.append(label)
+
+    _add_station(0.0, "root")
+    _add_station(half_span_m, "tip_boundary")
+
+    cumulative = 0.0
+    for idx, segment_length_m in enumerate(getattr(cfg.main_spar, "segments", ()) or (), start=1):
+        cumulative += float(segment_length_m)
+        if 1.0e-9 < cumulative < half_span_m - 1.0e-9:
+            _add_station(cumulative, f"joint_{idx}")
+
+    lift_wires = getattr(cfg, "lift_wires", None)
+    if lift_wires is not None and bool(getattr(lift_wires, "enabled", False)):
+        for idx, attachment in enumerate(getattr(lift_wires, "attachments", ()) or (), start=1):
+            label = getattr(attachment, "label", None) or f"wire_attach_{idx}"
+            _add_station(float(getattr(attachment, "y")), str(label))
+
+    stations = [
+        MandatoryRibStation(y_m=float(y_m), labels=tuple(labels))
+        for y_m, labels in sorted(labels_by_station.items(), key=lambda item: float(item[0]))
+    ]
+    if len(stations) < 2:
+        raise ValueError("Zone-wise rib contract needs at least two mandatory rib stations.")
+    return tuple(stations)
+
+
+def _clamp_rib_pitch_m(family, pitch_m: float) -> float:
+    return float(
+        min(
+            float(family.spacing_guidance.max_m),
+            max(float(family.spacing_guidance.min_m), float(pitch_m)),
+        )
+    )
+
+
+def _realized_zone_pitch_m(span_m: float, target_pitch_m: float) -> tuple[int, int, float]:
+    bay_count = max(1, int(math.ceil(float(span_m) / max(float(target_pitch_m), 1.0e-9) - 1.0e-9)))
+    optional_rib_count = max(0, bay_count - 1)
+    realized_pitch_m = float(span_m) / float(bay_count)
+    return optional_rib_count, bay_count, realized_pitch_m
+
+
+def _resolve_zonewise_rib_designs(
+    *,
+    cfg,
+    aircraft,
+    materials_db: MaterialDB,
+    zonewise_mode: str,
+    family_switch_penalty_kg: float,
+    family_mix_max_unique: int,
+) -> tuple[ZoneWiseRibDesignSummary, ...]:
+    rib_cfg = getattr(cfg, "rib", None)
+    if rib_cfg is None or not bool(getattr(rib_cfg, "enabled", True)):
+        effective_knockdown = float(
+            getattr(getattr(cfg, "safety", None), "dual_spar_warping_knockdown", 1.0)
+        )
+        return (
+            ZoneWiseRibDesignSummary(
+                enabled=False,
+                design_key="rib_disabled",
+                design_label="Rib contract disabled",
+                design_mode="disabled",
+                mix_mode="disabled",
+                max_unique_families=0,
+                within_unique_family_limit=True,
+                unique_family_count=0,
+                unique_family_keys=(),
+                family_switch_count=0,
+                family_switch_penalty_kg=0.0,
+                family_mix_cap_penalty_kg=0.0,
+                objective_penalty_kg=0.0,
+                mandatory_station_count=0,
+                mandatory_stations_m=(),
+                effective_warping_knockdown=effective_knockdown,
+                representative_family_key=None,
+                representative_spacing_m=None,
+                zone_count=0,
+                zones=(),
+                notes=("cfg.rib.enabled=false; zone-wise rib search is disabled.",),
+            ),
+        )
+
+    catalog = build_default_rib_catalog(getattr(rib_cfg, "catalog_path", None))
+    baseline_family_key = str(getattr(rib_cfg, "family", None) or catalog.default_family)
+    baseline_family = catalog.family(baseline_family_key)
+    baseline_pitch_m = float(
+        getattr(rib_cfg, "spacing_m", None) or baseline_family.spacing_guidance.nominal_m
+    )
+    reinforced_family = catalog.families.get("capped_balsa_box_4mm", baseline_family)
+    light_family = catalog.families.get("foam_core_glass_cap_5mm", baseline_family)
+    stations = _collect_mandatory_rib_stations(cfg, aircraft)
+    half_span_m = _half_span_m(aircraft)
+    wire_attach_y_m = [
+        float(getattr(attachment, "y"))
+        for attachment in (getattr(getattr(cfg, "lift_wires", None), "attachments", ()) or ())
+    ]
+    inboard_reinforced_limit_m = max(wire_attach_y_m) if wire_attach_y_m else 0.45 * half_span_m
+    outboard_light_limit_m = 0.68 * half_span_m
+
+    if zonewise_mode == RIB_ZONEWISE_OFF_MODE:
+        profile_keys = ("legacy_uniform",)
+    else:
+        profile_keys = DEFAULT_ZONEWISE_RIB_PROFILE_KEYS
+
+    def _zone_family_and_pitch(
+        *,
+        profile_key: str,
+        y_center_m: float,
+        zone_index: int,
+    ) -> tuple[object, float, str]:
+        if profile_key in {"legacy_uniform", "baseline_uniform"}:
+            return baseline_family, baseline_pitch_m, "single_family_uniform"
+        if profile_key == "inboard_reinforced_mix":
+            if y_center_m <= inboard_reinforced_limit_m + 1.0e-9:
+                return (
+                    reinforced_family,
+                    0.90 * float(reinforced_family.spacing_guidance.nominal_m),
+                    "limited_zonewise_mix",
+                )
+            return baseline_family, baseline_pitch_m, "limited_zonewise_mix"
+        if profile_key == "outboard_relaxed_mix":
+            if y_center_m >= outboard_light_limit_m - 1.0e-9:
+                return (
+                    light_family,
+                    min(
+                        float(light_family.spacing_guidance.max_m),
+                        1.05 * float(light_family.spacing_guidance.nominal_m),
+                    ),
+                    "limited_zonewise_mix",
+                )
+            return baseline_family, baseline_pitch_m, "limited_zonewise_mix"
+        raise ValueError(f"Unknown zone-wise rib design profile '{profile_key}' at zone {zone_index}.")
+
+    profile_labels = {
+        "legacy_uniform": "Legacy single-contract baseline",
+        "baseline_uniform": "Uniform baseline rib family",
+        "inboard_reinforced_mix": "Inboard reinforced two-family mix",
+        "outboard_relaxed_mix": "Outboard relaxed two-family mix",
+    }
+
+    summaries: list[ZoneWiseRibDesignSummary] = []
+    seen_signatures: set[tuple[tuple[str, float], ...]] = set()
+    for profile_key in profile_keys:
+        zones: list[ZoneWiseRibZone] = []
+        span_by_family: dict[str, float] = {}
+        pitch_span_sum = 0.0
+        knockdown_span_sum = 0.0
+        mix_mode = "single_family_uniform"
+
+        for zone_index, (start_station, end_station) in enumerate(
+            zip(stations[:-1], stations[1:], strict=True),
+            start=1,
+        ):
+            y_start_m = float(start_station.y_m)
+            y_end_m = float(end_station.y_m)
+            span_m = max(y_end_m - y_start_m, 1.0e-9)
+            y_center_m = 0.5 * (y_start_m + y_end_m)
+            family, target_pitch_m, mix_mode = _zone_family_and_pitch(
+                profile_key=profile_key,
+                y_center_m=y_center_m,
+                zone_index=zone_index,
+            )
+            target_pitch_m = _clamp_rib_pitch_m(family, target_pitch_m)
+            optional_rib_count, bay_count, realized_pitch_m = _realized_zone_pitch_m(
+                span_m=span_m,
+                target_pitch_m=target_pitch_m,
+            )
+            knockdown = derive_warping_knockdown(
+                family.key,
+                realized_pitch_m,
+                catalog=catalog,
+                material_db=materials_db,
+            )
+            span_by_family[family.key] = span_by_family.get(family.key, 0.0) + span_m
+            pitch_span_sum += realized_pitch_m * span_m
+            knockdown_span_sum += knockdown * span_m
+            zones.append(
+                ZoneWiseRibZone(
+                    zone_index=int(zone_index),
+                    zone_key=f"zone_{zone_index:02d}",
+                    y_start_m=y_start_m,
+                    y_end_m=y_end_m,
+                    y_center_m=y_center_m,
+                    span_m=span_m,
+                    start_labels=tuple(start_station.labels),
+                    end_labels=tuple(end_station.labels),
+                    family_key=family.key,
+                    family_label=family.label,
+                    target_pitch_m=target_pitch_m,
+                    realized_pitch_m=realized_pitch_m,
+                    optional_rib_count=int(optional_rib_count),
+                    bay_count=int(bay_count),
+                    derived_warping_knockdown=float(knockdown),
+                )
+            )
+
+        signature = tuple(
+            (zone.family_key, round(zone.realized_pitch_m, 6))
+            for zone in zones
+        )
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+
+        unique_family_keys = tuple(sorted({zone.family_key for zone in zones}))
+        family_switch_count = sum(
+            1
+            for previous, current in zip(zones[:-1], zones[1:], strict=True)
+            if previous.family_key != current.family_key
+        )
+        within_limit = len(unique_family_keys) <= int(family_mix_max_unique)
+        family_mix_cap_penalty_kg = 0.0
+        if not within_limit:
+            excess = len(unique_family_keys) - int(family_mix_max_unique)
+            family_mix_cap_penalty_kg = float(RIB_MIX_FAMILY_EXCESS_PENALTY_KG * excess * excess)
+        family_switch_penalty = (
+            float(family_switch_penalty_kg) * float(family_switch_count)
+            if len(unique_family_keys) > 1
+            else 0.0
+        )
+        representative_family_key = max(
+            span_by_family.items(),
+            key=lambda item: (item[1], item[0]),
+        )[0]
+        summaries.append(
+            ZoneWiseRibDesignSummary(
+                enabled=True,
+                design_key=profile_key,
+                design_label=profile_labels.get(profile_key, profile_key.replace("_", " ")),
+                design_mode=(
+                    "legacy_single_contract"
+                    if profile_key == "legacy_uniform"
+                    else RIB_ZONEWISE_LIMITED_MODE
+                ),
+                mix_mode=mix_mode,
+                max_unique_families=int(family_mix_max_unique),
+                within_unique_family_limit=bool(within_limit),
+                unique_family_count=len(unique_family_keys),
+                unique_family_keys=unique_family_keys,
+                family_switch_count=int(family_switch_count),
+                family_switch_penalty_kg=float(family_switch_penalty),
+                family_mix_cap_penalty_kg=float(family_mix_cap_penalty_kg),
+                objective_penalty_kg=float(family_switch_penalty + family_mix_cap_penalty_kg),
+                mandatory_station_count=len(stations),
+                mandatory_stations_m=tuple(float(station.y_m) for station in stations),
+                effective_warping_knockdown=float(knockdown_span_sum / max(half_span_m, 1.0e-9)),
+                representative_family_key=representative_family_key,
+                representative_spacing_m=float(pitch_span_sum / max(half_span_m, 1.0e-9)),
+                zone_count=len(zones),
+                zones=tuple(zones),
+                notes=(
+                    "Mandatory ribs are fixed at root, detected spar joints, lift-wire attachments, and the tip boundary.",
+                    "Explicit control/geometry breakpoints are not yet surfaced in the config contract, so this pass uses the currently detectable mandatory stations only.",
+                    "rib_bay_surrogate remains a representative single-spacing summary for backward-compatible reporting.",
+                ),
+            )
+        )
+
+    if not summaries:
+        raise RuntimeError("Failed to build any zone-wise rib design profiles.")
+    return tuple(summaries)
 
 
 def _baseline_design_from_result(baseline_result) -> BaselineDesign:
@@ -1328,11 +1679,14 @@ class InverseDesignEvaluator:
         clearance_penalty_weight_kg: float,
         active_wall_penalty_weight_kg: float,
         target_mass_kg: float | None = None,
+        rib_zonewise_mode: str = RIB_ZONEWISE_LIMITED_MODE,
+        rib_family_switch_penalty_kg: float = DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+        rib_family_mix_max_unique: int = DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
     ):
         self.cfg = cfg
         self.aircraft = aircraft
         self.materials_db = materials_db
-        self.optimizer = optimizer
+        self.base_aero_loads = getattr(optimizer, "aero_loads")
         self.export_loads = export_loads
         self.baseline = baseline
         self.map_config = map_config
@@ -1354,19 +1708,68 @@ class InverseDesignEvaluator:
         self.clearance_penalty_weight_kg = float(clearance_penalty_weight_kg)
         self.active_wall_penalty_weight_kg = float(active_wall_penalty_weight_kg)
         self.target_mass_kg = None if target_mass_kg is None else float(target_mass_kg)
+        self.rib_zonewise_mode = str(rib_zonewise_mode)
+        self.rib_family_switch_penalty_kg = float(rib_family_switch_penalty_kg)
+        self.rib_family_mix_max_unique = int(rib_family_mix_max_unique)
+        self.rib_design_profiles = _resolve_zonewise_rib_designs(
+            cfg=self.cfg,
+            aircraft=self.aircraft,
+            materials_db=self.materials_db,
+            zonewise_mode=self.rib_zonewise_mode,
+            family_switch_penalty_kg=self.rib_family_switch_penalty_kg,
+            family_mix_max_unique=self.rib_family_mix_max_unique,
+        )
+        self.default_rib_design_key = self.rib_design_profiles[0].design_key
+        self._rib_design_by_key = {design.design_key: design for design in self.rib_design_profiles}
+        self._cfg_by_rib_design_key: dict[str, object] = {}
+        self._optimizer_by_rib_design_key: dict[str, SparOptimizer] = {}
         self.archive = CandidateArchive(target_mass_kg=self.target_mass_kg)
-        self._cache: dict[tuple[float, ...], InverseCandidate] = {}
+        self._cache: dict[tuple[object, ...], InverseCandidate] = {}
         self.unique_evaluations = 0
         self.cache_hits = 0
         self.equivalent_analysis_calls = 0
         self.production_analysis_calls = 0
 
-    def _key(self, z: np.ndarray) -> tuple[float, ...]:
-        return tuple(np.round(np.asarray(z, dtype=float).reshape(5), 10))
+    def _key(self, z: np.ndarray, *, rib_design_key: str) -> tuple[object, ...]:
+        return (str(rib_design_key), *tuple(np.round(np.asarray(z, dtype=float).reshape(5), 10)))
 
-    def evaluate(self, z: np.ndarray, *, source: str) -> InverseCandidate:
+    def _candidate_cfg(self, rib_design_key: str):
+        cached = self._cfg_by_rib_design_key.get(rib_design_key)
+        if cached is not None:
+            return cached
+
+        rib_design = self._rib_design_by_key[rib_design_key]
+        cfg = deepcopy(self.cfg)
+        if rib_design.enabled:
+            cfg.safety.dual_spar_warping_knockdown = float(rib_design.effective_warping_knockdown)
+            if getattr(cfg, "rib", None) is not None:
+                cfg.rib.enabled = True
+                cfg.rib.family = rib_design.representative_family_key
+                cfg.rib.spacing_m = rib_design.representative_spacing_m
+        self._cfg_by_rib_design_key[rib_design_key] = cfg
+        return cfg
+
+    def _optimizer_for_rib_design(self, rib_design_key: str) -> SparOptimizer:
+        cached = self._optimizer_by_rib_design_key.get(rib_design_key)
+        if cached is not None:
+            return cached
+
+        cfg = self._candidate_cfg(rib_design_key)
+        optimizer = SparOptimizer(
+            cfg=cfg,
+            aircraft=self.aircraft,
+            aero_loads=self.base_aero_loads,
+            materials_db=self.materials_db,
+        )
+        self._optimizer_by_rib_design_key[rib_design_key] = optimizer
+        return optimizer
+
+    def evaluate(self, z: np.ndarray, *, source: str, rib_design_key: str | None = None) -> InverseCandidate:
         z_arr = np.asarray(z, dtype=float).reshape(5)
-        key = self._key(z_arr)
+        resolved_rib_design_key = (
+            self.default_rib_design_key if rib_design_key is None else str(rib_design_key)
+        )
+        key = self._key(z_arr, rib_design_key=resolved_rib_design_key)
         cached = self._cache.get(key)
         if cached is not None:
             self.cache_hits += 1
@@ -1374,6 +1777,9 @@ class InverseDesignEvaluator:
 
         z_bounded = np.clip(z_arr, 0.0, 1.0)
         bounds_violated = bool(np.max(np.abs(z_bounded - z_arr)) > 1.0e-12)
+        rib_design = self._rib_design_by_key[resolved_rib_design_key]
+        candidate_cfg = self._candidate_cfg(resolved_rib_design_key)
+        candidate_optimizer = self._optimizer_for_rib_design(resolved_rib_design_key)
         vars_physical = decode_reduced_variables(z=z_bounded, map_config=self.map_config)
         main_t, main_r, rear_t, rear_r = design_from_reduced_variables(
             baseline=self.baseline,
@@ -1386,7 +1792,7 @@ class InverseDesignEvaluator:
             if bounds_violated:
                 raise ValueError("Reduced variables must stay within [0, 1].")
 
-            eq_result = self.optimizer.analyze(
+            eq_result = candidate_optimizer.analyze(
                 main_t_seg=main_t,
                 main_r_seg=main_r,
                 rear_t_seg=rear_t,
@@ -1395,7 +1801,7 @@ class InverseDesignEvaluator:
             self.equivalent_analysis_calls += 1
 
             model = build_dual_beam_mainline_model(
-                cfg=self.cfg,
+                cfg=candidate_cfg,
                 aircraft=self.aircraft,
                 opt_result=eq_result,
                 export_loads=self.export_loads,
@@ -1421,8 +1827,8 @@ class InverseDesignEvaluator:
                 target_loaded_shape_z_scale=self.target_shape_z_scale,
                 target_loaded_shape_dihedral_exponent=self.dihedral_exponent,
                 wire_y_positions=(
-                    tuple(float(att.y) for att in self.cfg.lift_wires.attachments)
-                    if self.cfg.lift_wires.enabled
+                    tuple(float(att.y) for att in candidate_cfg.lift_wires.attachments)
+                    if candidate_cfg.lift_wires.enabled
                     else ()
                 ),
             )
@@ -1460,14 +1866,16 @@ class InverseDesignEvaluator:
             active_wall_penalty_kg = float(
                 self.active_wall_penalty_weight_kg * active_wall_risk_score
             )
+            rib_design_penalty_kg = float(rib_design.objective_penalty_kg)
             objective_value_kg = float(
                 production.recovery.total_structural_mass_full_kg
                 + loaded_shape_penalty_kg
                 + clearance_penalty_kg
                 + active_wall_penalty_kg
+                + rib_design_penalty_kg
             )
             rib_bay_surrogate = build_rib_bay_surrogate_summary(
-                cfg=self.cfg,
+                cfg=candidate_cfg,
                 aircraft=self.aircraft,
                 loaded_shape=inverse.predicted_loaded_shape,
                 source_shape="predicted_loaded_shape",
@@ -1491,6 +1899,7 @@ class InverseDesignEvaluator:
                 float(clearance_penalty_kg),
                 float(active_wall_risk_score),
                 float(active_wall_penalty_kg),
+                float(rib_design_penalty_kg),
                 float(objective_value_kg),
                 float(inverse.target_shape_error.max_abs_error_m),
                 float(inverse.target_shape_error.rms_error_m),
@@ -1557,6 +1966,7 @@ class InverseDesignEvaluator:
                 hard_violation_score=float(hard_violation_score),
                 target_violation_score=float(target_violation_score),
                 rib_bay_surrogate=rib_bay_surrogate,
+                rib_design=rib_design,
                 inverse_result=inverse,
                 equivalent_result=eq_result,
                 mainline_model=model,
@@ -1623,6 +2033,7 @@ class InverseDesignEvaluator:
                 hard_violation_score=float("inf"),
                 target_violation_score=float("inf"),
                 rib_bay_surrogate=None,
+                rib_design=rib_design,
                 inverse_result=None,
                 equivalent_result=None,
                 mainline_model=None,
@@ -1952,6 +2363,9 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "rib_bay_surrogate": (
             None if candidate.rib_bay_surrogate is None else asdict(candidate.rib_bay_surrogate)
         ),
+        "rib_design": (
+            None if candidate.rib_design is None else asdict(candidate.rib_design)
+        ),
         "clearance_hotspots": clearance_hotspots,
         "design_mm": {
             "main_t": [float(value * 1000.0) for value in candidate.main_t_seg_m],
@@ -1979,6 +2393,11 @@ def _build_lighten_probe_diagnostics(
 ) -> tuple[dict[str, object], ...]:
     probes: list[dict[str, object]] = []
     z_base = np.asarray(selected.z, dtype=float).reshape(-1)
+    rib_design_key = (
+        evaluator.default_rib_design_key
+        if selected.rib_design is None
+        else selected.rib_design.design_key
+    )
     for idx, name in enumerate(SCALE_NAMES):
         candidates: list[InverseCandidate] = []
         for direction, delta in (("minus", -float(step_size)), ("plus", float(step_size))):
@@ -1986,7 +2405,13 @@ def _build_lighten_probe_diagnostics(
             z_try[idx] = np.clip(z_try[idx] + delta, 0.0, 1.0)
             if np.max(np.abs(z_try - z_base)) < 1.0e-12:
                 continue
-            candidates.append(evaluator.evaluate(z_try, source=f"probe:{name}:{direction}"))
+            candidates.append(
+                evaluator.evaluate(
+                    z_try,
+                    source=f"probe:{name}:{direction}",
+                    rib_design_key=rib_design_key,
+                )
+            )
         if not candidates:
             continue
         lighter = min(candidates, key=lambda cand: float(cand.total_structural_mass_kg))
@@ -2534,6 +2959,15 @@ def build_refresh_report_text(
             lines.append(f"Candidate polar               : {geometry_artifacts['polar_path']}")
         for note in contract.notes:
             lines.append(f"Candidate aero note           : {note}")
+    if final_iteration.outcome.selected.rib_design is not None:
+        rib_design = final_iteration.outcome.selected.rib_design
+        lines.append(f"Rib design mode               : {rib_design.design_mode}")
+        lines.append(f"Rib design profile            : {rib_design.design_key}")
+        lines.append(f"Rib mix mode                  : {rib_design.mix_mode}")
+        lines.append(
+            "Rib effective knockdown       : "
+            f"{rib_design.effective_warping_knockdown:.6f}"
+        )
     lines.append("")
     lines.append("Definition:")
     lines.append("  target_loaded_shape         : current VSP / structural cruise geometry at the beam nodes")
@@ -2662,6 +3096,22 @@ def build_refresh_report_text(
         lines.append(f"  active-wall risk score      : {selected.active_wall_risk_score:11.6f}")
         lines.append(f"  active-wall tight count     : {selected.active_wall_tight_count:11d}")
         lines.append(f"  active-wall penalty         : {selected.active_wall_penalty_kg:11.6f} kg")
+        if selected.rib_design is not None:
+            lines.append(f"  rib design key              : {selected.rib_design.design_key}")
+            lines.append(f"  rib mix mode                : {selected.rib_design.mix_mode}")
+            lines.append(
+                f"  rib effective knockdown     : {selected.rib_design.effective_warping_knockdown:11.6f}"
+            )
+            lines.append(
+                f"  rib unique families         : {selected.rib_design.unique_family_count:11d}"
+                f" / {selected.rib_design.max_unique_families}"
+            )
+            lines.append(
+                f"  rib family switches         : {selected.rib_design.family_switch_count:11d}"
+            )
+            lines.append(
+                f"  rib design penalty          : {selected.rib_design.objective_penalty_kg:11.6f} kg"
+            )
         lines.append(f"  clearance fragile           : {selected.technically_clearance_fragile}")
         lines.append(f"  max jig prebend             : {_mm(selected.max_jig_vertical_prebend_m):11.3f} mm")
         lines.append(f"  max jig curvature           : {selected.max_jig_vertical_curvature_per_m:11.6f} 1/m")
@@ -3293,6 +3743,9 @@ def run_inverse_design(
     local_refine_max_starts: int,
     local_refine_early_stop_patience: int,
     local_refine_early_stop_abs_improvement_kg: float,
+    rib_zonewise_mode: str = RIB_ZONEWISE_LIMITED_MODE,
+    rib_family_switch_penalty_kg: float = DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+    rib_family_mix_max_unique: int = DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
 ) -> InverseOutcome:
     if baseline_design is None:
         baseline_design = _baseline_design_from_result(baseline_result)
@@ -3320,10 +3773,17 @@ def run_inverse_design(
         clearance_penalty_weight_kg=clearance_penalty_weight_kg,
         active_wall_penalty_weight_kg=active_wall_penalty_weight_kg,
         target_mass_kg=target_mass_kg,
+        rib_zonewise_mode=rib_zonewise_mode,
+        rib_family_switch_penalty_kg=rib_family_switch_penalty_kg,
+        rib_family_mix_max_unique=rib_family_mix_max_unique,
     )
 
     total_start = perf_counter()
-    baseline = evaluator.evaluate(np.zeros(5, dtype=float), source="baseline")
+    baseline = evaluator.evaluate(
+        np.zeros(5, dtype=float),
+        source="baseline",
+        rib_design_key=evaluator.default_rib_design_key,
+    )
 
     coarse_grid = list(
         product(
@@ -3335,7 +3795,12 @@ def run_inverse_design(
         )
     )
     for point in coarse_grid:
-        evaluator.evaluate(np.asarray(point, dtype=float), source="coarse_grid")
+        for rib_design in evaluator.rib_design_profiles:
+            evaluator.evaluate(
+                np.asarray(point, dtype=float),
+                source="coarse_grid",
+                rib_design_key=rib_design.design_key,
+            )
 
     coarse_selected = evaluator.archive.selected or baseline
     coarse_candidate_count = len(evaluator.archive.candidates)
@@ -3366,10 +3831,15 @@ def run_inverse_design(
             objective_calls = {"n": 0}
             objective_source = f"local_objective_seed{seed_index}"
             final_source = f"local_final_seed{seed_index}"
+            rib_design_key = (
+                evaluator.default_rib_design_key
+                if start_candidate.rib_design is None
+                else start_candidate.rib_design.design_key
+            )
 
             def _objective(z: np.ndarray, *, source_name: str = objective_source) -> float:
                 objective_calls["n"] += 1
-                cand = evaluator.evaluate(z, source=source_name)
+                cand = evaluator.evaluate(z, source=source_name, rib_design_key=rib_design_key)
                 return float(cand.objective_value_kg)
 
             opt = minimize(
@@ -3384,7 +3854,11 @@ def run_inverse_design(
                     "catol": 1.0e-6,
                 },
             )
-            end_candidate = evaluator.evaluate(np.asarray(opt.x, dtype=float), source=final_source)
+            end_candidate = evaluator.evaluate(
+                np.asarray(opt.x, dtype=float),
+                source=final_source,
+                rib_design_key=rib_design_key,
+            )
             nfev = int(getattr(opt, "nfev", objective_calls["n"]))
             nit = int(getattr(opt, "nit", 0) or 0)
             total_nfev += nfev
@@ -3552,6 +4026,9 @@ def run_inverse_design_load_refresh_refinement(
     refresh_convergence_mass_tol_kg: float = 0.05,
     refresh_convergence_lift_rms_tol_npm: float = 1.0,
     refresh_convergence_torque_rms_tol_nmpm: float = 0.5,
+    rib_zonewise_mode: str = RIB_ZONEWISE_LIMITED_MODE,
+    rib_family_switch_penalty_kg: float = DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+    rib_family_mix_max_unique: int = DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
 ) -> RefreshRefinementOutcome:
     design_case = cfg.structural_load_cases()[0]
     refresh_steps = int(refresh_steps)
@@ -3608,6 +4085,9 @@ def run_inverse_design_load_refresh_refinement(
         local_refine_max_starts=local_refine_max_starts,
         local_refine_early_stop_patience=local_refine_early_stop_patience,
         local_refine_early_stop_abs_improvement_kg=local_refine_early_stop_abs_improvement_kg,
+        rib_zonewise_mode=rib_zonewise_mode,
+        rib_family_switch_penalty_kg=rib_family_switch_penalty_kg,
+        rib_family_mix_max_unique=rib_family_mix_max_unique,
     )
     iterations.append(
         _build_refresh_iteration_result(
@@ -3699,6 +4179,9 @@ def run_inverse_design_load_refresh_refinement(
             local_refine_max_starts=local_refine_max_starts,
             local_refine_early_stop_patience=local_refine_early_stop_patience,
             local_refine_early_stop_abs_improvement_kg=local_refine_early_stop_abs_improvement_kg,
+            rib_zonewise_mode=rib_zonewise_mode,
+            rib_family_switch_penalty_kg=rib_family_switch_penalty_kg,
+            rib_family_mix_max_unique=rib_family_mix_max_unique,
         )
         iteration_result = _build_refresh_iteration_result(
             iteration_index=step,
@@ -3892,6 +4375,27 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Small objective penalty weight on active geometry/discrete wall risk.",
     )
     parser.add_argument(
+        "--rib-zonewise-mode",
+        default=RIB_ZONEWISE_LIMITED_MODE,
+        choices=(RIB_ZONEWISE_OFF_MODE, RIB_ZONEWISE_LIMITED_MODE),
+        help=(
+            "Whether rib design stays on the legacy single-contract baseline or uses a small "
+            "zone-wise profile library inside the structural candidate contract."
+        ),
+    )
+    parser.add_argument(
+        "--rib-family-switch-penalty-kg",
+        type=float,
+        default=DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+        help="Small penalty added for each adjacent zone-to-zone rib-family switch in mix mode.",
+    )
+    parser.add_argument(
+        "--rib-family-mix-max-unique",
+        type=int,
+        default=DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
+        help="Maximum number of unique rib families allowed in one limited zone-wise candidate.",
+    )
+    parser.add_argument(
         "--target-mass-kg",
         type=float,
         default=None,
@@ -4023,6 +4527,9 @@ def main(argv: list[str] | None = None) -> int:
     clearance_risk_top_k = int(args.clearance_risk_top_k)
     clearance_penalty_weight_kg = float(args.clearance_penalty_kg)
     active_wall_penalty_weight_kg = float(args.active_wall_penalty_kg)
+    rib_zonewise_mode = str(args.rib_zonewise_mode)
+    rib_family_switch_penalty_kg = float(args.rib_family_switch_penalty_kg)
+    rib_family_mix_max_unique = int(args.rib_family_mix_max_unique)
     aero_source_mode = str(args.aero_source_mode)
     candidate_aero_output_dir = (
         None
@@ -4168,6 +4675,9 @@ def main(argv: list[str] | None = None) -> int:
         refresh_convergence_mass_tol_kg=float(args.refresh_convergence_mass_tol_kg),
         refresh_convergence_lift_rms_tol_npm=float(args.refresh_convergence_lift_rms_tol_npm),
         refresh_convergence_torque_rms_tol_nmpm=float(args.refresh_convergence_torque_rms_tol_nmpm),
+        rib_zonewise_mode=rib_zonewise_mode,
+        rib_family_switch_penalty_kg=rib_family_switch_penalty_kg,
+        rib_family_mix_max_unique=rib_family_mix_max_unique,
     )
 
     final_iteration = refinement.final_iteration

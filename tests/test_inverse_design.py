@@ -45,6 +45,8 @@ from scripts.direct_dual_beam_inverse_design_feasibility_sweep import (
 )
 from scripts.direct_dual_beam_inverse_design import (
     CANDIDATE_RERUN_AERO_SOURCE_MODE,
+    DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
+    DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
     LEGACY_AERO_SOURCE_MODE,
     CandidateAeroContract,
     CandidateArchive,
@@ -58,6 +60,8 @@ from scripts.direct_dual_beam_inverse_design import (
     _build_validity_summary_payload,
     _build_arg_parser as _build_direct_inverse_arg_parser,
     _clearance_risk_metrics,
+    _collect_mandatory_rib_stations,
+    _resolve_zonewise_rib_designs,
     _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
     _write_deflection_csv,
@@ -75,6 +79,7 @@ class InverseDesignTests(unittest.TestCase):
         feasible: bool,
         violation: float,
         rib_bay_surrogate=None,
+        rib_design=None,
     ) -> InverseCandidate:
         zeros = np.zeros(2, dtype=float)
         z = np.array([mass_kg, violation, float(feasible), 0.0, 0.0], dtype=float) * 1.0e-3
@@ -132,6 +137,7 @@ class InverseDesignTests(unittest.TestCase):
             hard_violation_score=violation,
             target_violation_score=violation,
             rib_bay_surrogate=rib_bay_surrogate,
+            rib_design=rib_design,
             inverse_result=None,
             equivalent_result=None,
             mainline_model=None,
@@ -400,6 +406,111 @@ class InverseDesignTests(unittest.TestCase):
         self.assertEqual(rib_surrogate["dominant_bay_index"], 1)
         self.assertEqual(len(rib_surrogate["bays"]), 3)
         self.assertAlmostEqual(rib_surrogate["bays"][0]["shape_retention_risk"], 0.032)
+
+    def test_zonewise_rib_design_contract_keeps_mandatory_stations_and_limits_mix(self) -> None:
+        cfg = SimpleNamespace(
+            rib=SimpleNamespace(
+                enabled=True,
+                family="balsa_sheet_3mm",
+                spacing_m=0.30,
+                catalog_path=None,
+            ),
+            main_spar=SimpleNamespace(segments=[1.5, 3.0, 3.0]),
+            lift_wires=SimpleNamespace(
+                enabled=True,
+                attachments=[SimpleNamespace(y=4.5, label="wire-1")],
+            ),
+            safety=SimpleNamespace(dual_spar_warping_knockdown=0.5),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(
+                y=np.array([0.0, 3.75, 7.5], dtype=float),
+                chord=np.array([1.0, 0.9, 0.8], dtype=float),
+            )
+        )
+
+        mandatory = _collect_mandatory_rib_stations(cfg, aircraft)
+        designs = _resolve_zonewise_rib_designs(
+            cfg=cfg,
+            aircraft=aircraft,
+            materials_db=MaterialDB(),
+            zonewise_mode="limited_zonewise",
+            family_switch_penalty_kg=0.20,
+            family_mix_max_unique=2,
+        )
+
+        self.assertEqual([round(station.y_m, 3) for station in mandatory], [0.0, 1.5, 4.5, 7.5])
+        by_key = {design.design_key: design for design in designs}
+        baseline = by_key["baseline_uniform"]
+        reinforced = by_key["inboard_reinforced_mix"]
+
+        self.assertEqual(baseline.zone_count, 3)
+        self.assertEqual(baseline.family_switch_count, 0)
+        self.assertAlmostEqual(baseline.objective_penalty_kg, 0.0)
+        self.assertEqual(baseline.unique_family_count, 1)
+        self.assertTrue(reinforced.within_unique_family_limit)
+        self.assertEqual(reinforced.max_unique_families, 2)
+        self.assertGreaterEqual(reinforced.family_switch_count, 1)
+        self.assertAlmostEqual(reinforced.family_switch_penalty_kg, 0.20)
+        self.assertEqual(reinforced.unique_family_count, 2)
+        self.assertEqual(reinforced.mandatory_stations_m, (0.0, 1.5, 4.5, 7.5))
+        self.assertLessEqual(reinforced.zones[0].realized_pitch_m, reinforced.zones[0].target_pitch_m + 1.0e-12)
+        self.assertGreater(reinforced.effective_warping_knockdown, 0.0)
+
+    def test_candidate_summary_dict_surfaces_zonewise_rib_design_contract(self) -> None:
+        cfg = SimpleNamespace(
+            rib=SimpleNamespace(
+                enabled=True,
+                family="balsa_sheet_3mm",
+                spacing_m=0.30,
+                catalog_path=None,
+            ),
+            main_spar=SimpleNamespace(segments=[1.5, 3.0, 3.0]),
+            lift_wires=SimpleNamespace(
+                enabled=True,
+                attachments=[SimpleNamespace(y=4.5, label="wire-1")],
+            ),
+            safety=SimpleNamespace(dual_spar_warping_knockdown=0.5),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(
+                y=np.array([0.0, 3.75, 7.5], dtype=float),
+                chord=np.array([1.0, 0.9, 0.8], dtype=float),
+            )
+        )
+        design = {
+            item.design_key: item
+            for item in _resolve_zonewise_rib_designs(
+                cfg=cfg,
+                aircraft=aircraft,
+                materials_db=MaterialDB(),
+                zonewise_mode="limited_zonewise",
+                family_switch_penalty_kg=DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+                family_mix_max_unique=DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
+            )
+        }["inboard_reinforced_mix"]
+        candidate = self._make_inverse_candidate(
+            mass_kg=10.0,
+            source="selected",
+            feasible=True,
+            violation=0.0,
+            rib_design=design,
+        )
+
+        summary = candidate_to_summary_dict(candidate)
+
+        rib_design = summary["rib_design"]
+        self.assertIsInstance(rib_design, dict)
+        self.assertEqual(rib_design["design_key"], "inboard_reinforced_mix")
+        self.assertEqual(rib_design["zone_count"], 3)
+        self.assertEqual(rib_design["unique_family_count"], 2)
+        self.assertGreaterEqual(rib_design["family_switch_count"], 1)
+        self.assertAlmostEqual(
+            rib_design["objective_penalty_kg"],
+            DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+        )
+        self.assertEqual(rib_design["zones"][0]["zone_key"], "zone_01")
+        self.assertEqual(rib_design["zones"][0]["start_labels"], ("root",))
 
     def test_build_frozen_load_inverse_design_keeps_equivalent_gates_as_legacy_reference_only(self) -> None:
         target = StructuralNodeShape(
@@ -1573,6 +1684,13 @@ class OuterLoopContractTests(unittest.TestCase):
             ),
             selected_cruise_aoa_deg=8.0,
             aero_contract_json_path=f"/tmp/target_{target_mass_kg:.1f}_aero_contract.json",
+            rib_design_key="baseline_uniform",
+            rib_design_mode="limited_zonewise",
+            rib_effective_warping_knockdown=0.5,
+            rib_design_penalty_kg=0.0,
+            rib_unique_family_count=1,
+            rib_family_switch_count=0,
+            rib_zone_count=6,
         )
 
     @staticmethod
@@ -1672,10 +1790,14 @@ class OuterLoopContractTests(unittest.TestCase):
         budget = _build_feasibility_search_budget_summary(args)
 
         self.assertEqual(args.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(args.rib_zonewise_mode, "limited_zonewise")
         self.assertEqual(budget["coarse_axes"]["main_plateau_grid_points"], 4)
         self.assertEqual(budget["coarse_axes"]["rear_outboard_grid_points"], 3)
         self.assertEqual(budget["coarse_grid_points_per_case"], 576)
+        self.assertEqual(budget["coarse_candidate_contracts_per_case"], 1728)
         self.assertEqual(budget["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(budget["rib_zonewise_mode"], "limited_zonewise")
+        self.assertEqual(budget["rib_design_profiles_per_point"], 3)
 
     def test_feasibility_sweep_run_one_case_passes_rerun_aero_mode_and_reads_contract(self) -> None:
         args = _build_feasibility_sweep_arg_parser().parse_args(
@@ -1710,6 +1832,15 @@ class OuterLoopContractTests(unittest.TestCase):
                                     "max_jig_vertical_curvature_per_m": 0.01,
                                     "equivalent_failure_index": -0.2,
                                     "equivalent_buckling_index": -0.1,
+                                    "rib_design": {
+                                        "design_key": "inboard_reinforced_mix",
+                                        "design_mode": "limited_zonewise",
+                                        "effective_warping_knockdown": 0.62,
+                                        "objective_penalty_kg": 0.15,
+                                        "unique_family_count": 2,
+                                        "family_switch_count": 1,
+                                        "zone_count": 6,
+                                    },
                                 },
                                 "search_diagnostics": {
                                     "best_target_feasible": {"total_structural_mass_kg": 22.0},
@@ -1750,6 +1881,8 @@ class OuterLoopContractTests(unittest.TestCase):
             cmd[cmd.index("--aero-source-mode") + 1],
             CANDIDATE_RERUN_AERO_SOURCE_MODE,
         )
+        self.assertIn("--rib-zonewise-mode", cmd)
+        self.assertEqual(cmd[cmd.index("--rib-zonewise-mode") + 1], "limited_zonewise")
         self.assertEqual(result.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
         self.assertEqual(
             result.refresh_load_source,
@@ -1759,6 +1892,9 @@ class OuterLoopContractTests(unittest.TestCase):
             result.aero_contract_json_path,
             "/tmp/target_20.0kg_aero_contract.json",
         )
+        self.assertEqual(result.rib_design_key, "inboard_reinforced_mix")
+        self.assertAlmostEqual(result.rib_effective_warping_knockdown, 0.62)
+        self.assertAlmostEqual(result.rib_design_penalty_kg, 0.15)
 
     def test_feasibility_sweep_selection_prefers_lowest_feasible_contract_score(self) -> None:
         rejected = self._make_feasibility_case(
@@ -1788,12 +1924,14 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertEqual(winner["selection_status"], "winner")
         self.assertAlmostEqual(winner["requested_knobs"]["target_mass_kg"], 20.0)
         self.assertEqual(winner["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(winner["rib_design"]["design_key"], "baseline_uniform")
         self.assertEqual(by_target[20.0].selection_status, "winner")
         self.assertEqual(by_target[22.0].selection_status, "feasible_runner_up")
         self.assertEqual(by_target[18.0].selection_status, "rejected")
         assert by_target[20.0].winner_evidence is not None
         self.assertIn("lowest feasible contract score", by_target[20.0].winner_evidence)
         self.assertIn("candidate rerun-aero", by_target[20.0].winner_evidence)
+        self.assertIn("rib design=baseline_uniform", by_target[20.0].winner_evidence)
 
     def test_dihedral_campaign_budget_summary_accepts_local_refine_controls(self) -> None:
         args = _build_dihedral_campaign_arg_parser().parse_args(

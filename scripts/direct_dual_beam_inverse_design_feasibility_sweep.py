@@ -18,6 +18,11 @@ FEASIBILITY_GATE_PENALTY_KG = 1000.0
 TARGET_VIOLATION_WEIGHT_KG = 1000.0
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
+RIB_ZONEWISE_OFF_MODE = "off"
+RIB_ZONEWISE_LIMITED_MODE = "limited_zonewise"
+DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG = 0.15
+DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE = 2
+DEFAULT_RIB_PROFILE_COUNT = 3
 
 
 @dataclass(frozen=True)
@@ -52,6 +57,13 @@ class SweepCaseResult:
     artifact_ownership: str | None = None
     selected_cruise_aoa_deg: float | None = None
     aero_contract_json_path: str | None = None
+    rib_design_key: str | None = None
+    rib_design_mode: str | None = None
+    rib_effective_warping_knockdown: float | None = None
+    rib_design_penalty_kg: float | None = None
+    rib_unique_family_count: int | None = None
+    rib_family_switch_count: int | None = None
+    rib_zone_count: int | None = None
 
 
 def _parse_targets(text: str) -> tuple[float, ...]:
@@ -76,9 +88,15 @@ def _build_search_budget_summary(args) -> dict[str, object]:
     coarse_grid_points = 1
     for count in coarse_axes.values():
         coarse_grid_points *= max(1, int(count))
+    rib_profile_count = (
+        1
+        if str(args.rib_zonewise_mode) == RIB_ZONEWISE_OFF_MODE
+        else DEFAULT_RIB_PROFILE_COUNT
+    )
     return {
         "coarse_axes": coarse_axes,
         "coarse_grid_points_per_case": int(coarse_grid_points),
+        "coarse_candidate_contracts_per_case": int(coarse_grid_points * rib_profile_count),
         "refresh_steps": int(args.refresh_steps),
         "cobyla_maxiter": int(args.cobyla_maxiter),
         "cobyla_rhobeg": float(args.cobyla_rhobeg),
@@ -92,6 +110,10 @@ def _build_search_budget_summary(args) -> dict[str, object]:
             args.local_refine_early_stop_abs_improvement_kg
         ),
         "aero_source_mode": str(args.aero_source_mode),
+        "rib_zonewise_mode": str(args.rib_zonewise_mode),
+        "rib_design_profiles_per_point": int(rib_profile_count),
+        "rib_family_switch_penalty_kg": float(args.rib_family_switch_penalty_kg),
+        "rib_family_mix_max_unique": int(args.rib_family_mix_max_unique),
     }
 
 
@@ -153,6 +175,49 @@ def _extract_aero_contract_snapshot(summary: dict[str, object]) -> dict[str, obj
     }
 
 
+def _extract_rib_design_snapshot(selected: dict[str, object]) -> dict[str, object]:
+    rib_design = selected.get("rib_design")
+    if not isinstance(rib_design, dict):
+        return {
+            "rib_design_key": None,
+            "rib_design_mode": None,
+            "rib_effective_warping_knockdown": None,
+            "rib_design_penalty_kg": None,
+            "rib_unique_family_count": None,
+            "rib_family_switch_count": None,
+            "rib_zone_count": None,
+        }
+    return {
+        "rib_design_key": None if rib_design.get("design_key") is None else str(rib_design["design_key"]),
+        "rib_design_mode": (
+            None if rib_design.get("design_mode") is None else str(rib_design["design_mode"])
+        ),
+        "rib_effective_warping_knockdown": (
+            None
+            if rib_design.get("effective_warping_knockdown") is None
+            else float(rib_design["effective_warping_knockdown"])
+        ),
+        "rib_design_penalty_kg": (
+            None
+            if rib_design.get("objective_penalty_kg") is None
+            else float(rib_design["objective_penalty_kg"])
+        ),
+        "rib_unique_family_count": (
+            None
+            if rib_design.get("unique_family_count") is None
+            else int(rib_design["unique_family_count"])
+        ),
+        "rib_family_switch_count": (
+            None
+            if rib_design.get("family_switch_count") is None
+            else int(rib_design["family_switch_count"])
+        ),
+        "rib_zone_count": (
+            None if rib_design.get("zone_count") is None else int(rib_design["zone_count"])
+        ),
+    }
+
+
 def _blocker_category(margin_name: str) -> str:
     if margin_name == "ground_clearance_margin_m":
         return "ground clearance"
@@ -198,7 +263,8 @@ def _build_winner_evidence(case: SweepCaseResult, *, feasible_pool_exists: bool)
         f"{prefix}; score={case.candidate_score:.3f}, "
         f"mass={case.selected_total_mass_kg:.3f} kg, "
         f"mismatch={mismatch_mm}, clearance={clearance_mm}, "
-        f"aero source={_aero_source_label(case.aero_source_mode)}"
+        f"aero source={_aero_source_label(case.aero_source_mode)}, "
+        f"rib design={case.rib_design_key or 'n/a'}"
     )
 
 
@@ -259,6 +325,19 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
         "artifact_ownership": winner.artifact_ownership,
         "selected_cruise_aoa_deg": winner.selected_cruise_aoa_deg,
         "aero_contract_json_path": winner.aero_contract_json_path,
+        "rib_design": (
+            None
+            if winner.rib_design_key is None
+            else {
+                "design_key": winner.rib_design_key,
+                "design_mode": winner.rib_design_mode,
+                "effective_warping_knockdown": winner.rib_effective_warping_knockdown,
+                "objective_penalty_kg": winner.rib_design_penalty_kg,
+                "unique_family_count": winner.rib_unique_family_count,
+                "family_switch_count": winner.rib_family_switch_count,
+                "zone_count": winner.rib_zone_count,
+            }
+        ),
         "winner_evidence": next(
             item.winner_evidence for item in annotated if item.target_mass_kg == winner.target_mass_kg
         ),
@@ -305,6 +384,12 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         str(args.local_refine_early_stop_abs_improvement_kg),
         "--aero-source-mode",
         str(args.aero_source_mode),
+        "--rib-zonewise-mode",
+        str(args.rib_zonewise_mode),
+        "--rib-family-switch-penalty-kg",
+        str(args.rib_family_switch_penalty_kg),
+        "--rib-family-mix-max-unique",
+        str(args.rib_family_mix_max_unique),
         "--target-mass-kg",
         str(target_mass_kg),
     ]
@@ -339,6 +424,7 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         else float(selected["mass_margin_kg"])
     )
     aero_snapshot = _extract_aero_contract_snapshot(summary)
+    rib_snapshot = _extract_rib_design_snapshot(selected)
 
     return SweepCaseResult(
         target_mass_kg=float(target_mass_kg),
@@ -371,6 +457,7 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         summary_json_path=str(summary_path.resolve()),
         report_path=str(report_path.resolve()),
         **aero_snapshot,
+        **rib_snapshot,
     )
 
 
@@ -402,12 +489,23 @@ def _build_report_text(
             f"{int(search_budget['coarse_grid_points_per_case'])}"
         ),
         (
+            "  rib-aware contracts / case  : "
+            f"{int(search_budget['coarse_candidate_contracts_per_case'])}"
+        ),
+        (
             "  coarse axes                 : "
             f"plateau={search_budget['coarse_axes']['main_plateau_grid_points']}, "
             f"taper={search_budget['coarse_axes']['main_taper_fill_grid_points']}, "
             f"rear_radius={search_budget['coarse_axes']['rear_radius_grid_points']}, "
             f"rear_outboard={search_budget['coarse_axes']['rear_outboard_grid_points']}, "
             f"wall={search_budget['coarse_axes']['wall_thickness_grid_points']}"
+        ),
+        (
+            "  rib contract mode           : "
+            f"{search_budget['rib_zonewise_mode']} "
+            f"(profiles={search_budget['rib_design_profiles_per_point']}, "
+            f"mix_max={search_budget['rib_family_mix_max_unique']}, "
+            f"switch_penalty={search_budget['rib_family_switch_penalty_kg']:.3f} kg)"
         ),
         f"  refresh steps               : {search_budget['refresh_steps']}",
         f"  COBYLA maxiter / rhobeg     : {search_budget['cobyla_maxiter']} / {search_budget['cobyla_rhobeg']:.3f}",
@@ -472,6 +570,16 @@ def _build_report_text(
             lines.append(
                 f"  aero contract JSON          : {winner_summary['aero_contract_json_path']}"
             )
+        if winner_summary["rib_design"] is not None:
+            rib_design = winner_summary["rib_design"]
+            lines.append(f"  rib design                  : {rib_design['design_key']}")
+            lines.append(f"  rib mode                    : {rib_design['design_mode']}")
+            lines.append(
+                f"  rib effective knockdown     : {float(rib_design['effective_warping_knockdown']):.6f}"
+            )
+            lines.append(
+                f"  rib design penalty          : {float(rib_design['objective_penalty_kg']):.3f} kg"
+            )
         lines.append(f"  winner evidence              : {winner_summary['winner_evidence']}")
         lines.append("")
     lines.append(
@@ -533,6 +641,16 @@ def _build_report_text(
         lines.append(f"  nearest boundary             : {case.nearest_boundary}")
         if case.winner_evidence is not None:
             lines.append(f"  winner evidence              : {case.winner_evidence}")
+        if case.rib_design_key is not None:
+            lines.append(f"  rib design                   : {case.rib_design_key}")
+            lines.append(
+                "  rib contract                 : "
+                f"mode={case.rib_design_mode}, "
+                f"knockdown={float(case.rib_effective_warping_knockdown):.6f}, "
+                f"penalty={float(case.rib_design_penalty_kg):.3f} kg, "
+                f"families={int(case.rib_unique_family_count)}, "
+                f"switches={int(case.rib_family_switch_count)}"
+            )
         if case.aero_contract_json_path is not None:
             lines.append(f"  aero contract JSON           : {case.aero_contract_json_path}")
         lines.append(f"  summary JSON                 : {case.summary_json_path}")
@@ -588,6 +706,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--local-refine-max-starts", type=int, default=4)
     parser.add_argument("--local-refine-early-stop-patience", type=int, default=2)
     parser.add_argument("--local-refine-early-stop-abs-improvement-kg", type=float, default=0.05)
+    parser.add_argument(
+        "--rib-zonewise-mode",
+        default=RIB_ZONEWISE_LIMITED_MODE,
+        choices=(RIB_ZONEWISE_OFF_MODE, RIB_ZONEWISE_LIMITED_MODE),
+    )
+    parser.add_argument(
+        "--rib-family-switch-penalty-kg",
+        type=float,
+        default=DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
+    )
+    parser.add_argument(
+        "--rib-family-mix-max-unique",
+        type=int,
+        default=DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
+    )
     return parser
 
 
@@ -643,6 +776,10 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "  Aero source mode    : "
         f"{args.aero_source_mode} ({_aero_source_label(args.aero_source_mode)})"
+    )
+    print(
+        "  Rib contract mode   : "
+        f"{args.rib_zonewise_mode} (profiles={search_budget['rib_design_profiles_per_point']})"
     )
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
