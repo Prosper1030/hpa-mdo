@@ -520,13 +520,15 @@ _MODE_DEFINITIONS = {
         allowed_link_modes=(
             LinkMode.JOINT_ONLY_OFFSET_RIGID,
             LinkMode.DENSE_OFFSET_RIGID,
-            LinkMode.DENSE_FINITE_RIB,
         ),
         analysis_family="dual_beam",
     ),
     AnalysisModeName.DUAL_BEAM_ROBUSTNESS: AnalysisModeDefinition(
         mode=AnalysisModeName.DUAL_BEAM_ROBUSTNESS,
-        description="Production load ownership rerun across non-default link modes for topology sensitivity.",
+        description=(
+            "Production load ownership rerun across parity, rigid, and finite-rib-surrogate "
+            "link modes for passive topology sensitivity."
+        ),
         ownership=AnalysisOwnership(
             lift="main_beam_fz",
             aerodynamic_torque="main_beam_my_about_main_spar",

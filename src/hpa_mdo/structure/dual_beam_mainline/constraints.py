@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 from scipy.linalg import qr
 
+from hpa_mdo.structure.dual_beam_mainline.rib_link import build_link_rows, select_link_nodes
 from hpa_mdo.structure.dual_beam_mainline.types import (
     ConstraintAuditResult,
     ConstraintAssemblyResult,
     DualBeamConstraintMode,
     DualBeamMainlineModel,
-    LinkMode,
     RootBCMode,
     WireBCMode,
 )
@@ -39,21 +39,6 @@ def _skew_matrix(offset_m: np.ndarray) -> np.ndarray:
     )
 
 
-def _select_link_nodes(model: DualBeamMainlineModel, link_mode: LinkMode) -> tuple[int, ...]:
-    if link_mode in (
-        LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY,
-        LinkMode.JOINT_ONLY_OFFSET_RIGID,
-    ):
-        return model.joint_node_indices
-    if link_mode == LinkMode.DENSE_OFFSET_RIGID:
-        return model.dense_link_node_indices
-    if link_mode == LinkMode.DENSE_FINITE_RIB:
-        raise NotImplementedError(
-            "dense_finite_rib is reserved for robustness/future mode and is not yet implemented."
-        )
-    raise ValueError(f"Unsupported link mode: {link_mode}.")
-
-
 def _append_fixed_node_rows(
     rows: list[np.ndarray],
     ndof: int,
@@ -68,20 +53,6 @@ def _append_fixed_node_rows(
             row[_rear_dof(nn, node_index, dof)] = 1.0
         else:
             row[_main_dof(node_index, dof)] = 1.0
-        rows.append(row)
-
-
-def _append_equal_dof_rows(
-    rows: list[np.ndarray],
-    ndof: int,
-    *,
-    nn: int,
-    node_index: int,
-) -> None:
-    for dof in range(6):
-        row = np.zeros(ndof, dtype=float)
-        row[_rear_dof(nn, node_index, dof)] = 1.0
-        row[_main_dof(node_index, dof)] = -1.0
         rows.append(row)
 
 
@@ -266,24 +237,18 @@ def build_constraint_assembly(
     wire_stop = len(rows)
 
     link_row_slices: list[slice] = []
-    link_node_indices = _select_link_nodes(model, constraint_mode.link_mode)
+    link_node_indices = select_link_nodes(model, constraint_mode.link_mode)
     for node_index in link_node_indices:
         start = len(rows)
-        if constraint_mode.link_mode == LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY:
-            _append_equal_dof_rows(rows, ndof, nn=nn, node_index=node_index)
-        elif constraint_mode.link_mode in (
-            LinkMode.JOINT_ONLY_OFFSET_RIGID,
-            LinkMode.DENSE_OFFSET_RIGID,
-        ):
-            _append_offset_rigid_rows(
-                rows,
-                ndof,
+        rows.extend(
+            build_link_rows(
+                ndof=ndof,
                 nn=nn,
                 node_index=node_index,
+                link_mode=constraint_mode.link_mode,
                 offset_vector_m=model.spar_offset_vectors_m[node_index],
             )
-        else:
-            raise ValueError(f"Unsupported link mode: {constraint_mode.link_mode}.")
+        )
         stop = len(rows)
         link_row_slices.append(slice(start, stop))
 

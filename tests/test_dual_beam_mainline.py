@@ -212,11 +212,13 @@ def test_mode_matrix_freezes_reviewer_required_load_and_bc_ownership() -> None:
     assert production.ownership.aerodynamic_torque == "main_beam_my_about_main_spar"
     assert production.wire_bc == WireBCMode.WIRE_MAIN_TRUSS
     assert production.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
+    assert LinkMode.DENSE_FINITE_RIB not in production.allowed_link_modes
     assert robustness.ownership.aerodynamic_torque == "main_beam_my_about_main_spar"
     assert robustness.wire_bc == WireBCMode.WIRE_MAIN_TRUSS
     assert robustness.default_link_mode == LinkMode.JOINT_ONLY_OFFSET_RIGID
     assert robustness.ownership.hardware_mass_structural_loads == "report_only"
     assert LinkMode.JOINT_ONLY_EQUAL_DOF_PARITY in robustness.allowed_link_modes
+    assert LinkMode.DENSE_FINITE_RIB in robustness.allowed_link_modes
 
 
 def test_torque_conversion_and_dual_beam_torque_path_uses_mode_owned_representation() -> None:
@@ -407,6 +409,45 @@ def test_link_mode_constraints_are_enforced_with_mode_specific_kinematics() -> N
     np.testing.assert_allclose(rotation_residual, 0.0, atol=1.0e-10)
 
 
+def test_dense_finite_rib_surrogate_keeps_translation_closure_but_allows_rotation_slip() -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, 0.0, 40.0]),
+        joint_node_indices=(1,),
+    )
+    rigid = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_ROBUSTNESS,
+        link_mode=LinkMode.DENSE_OFFSET_RIGID,
+    )
+    finite = run_dual_beam_mainline_kernel(
+        model=model,
+        mode=AnalysisModeName.DUAL_BEAM_ROBUSTNESS,
+        link_mode=LinkMode.DENSE_FINITE_RIB,
+    )
+
+    offset_vector_m = model.spar_offset_vectors_m[1]
+    avg_theta = 0.5 * (finite.disp_main_m[1, 3:] + finite.disp_rear_m[1, 3:])
+    translation_residual = (
+        finite.disp_rear_m[1, :3]
+        - finite.disp_main_m[1, :3]
+        + _skew(offset_vector_m) @ avg_theta
+    )
+    rotation_slip = finite.disp_rear_m[1, 3:] - finite.disp_main_m[1, 3:]
+
+    np.testing.assert_allclose(translation_residual, 0.0, atol=1.0e-10)
+    assert np.linalg.norm(rotation_slip) > 1.0e-6
+    np.testing.assert_allclose(
+        rigid.disp_rear_m[1, 3:] - rigid.disp_main_m[1, 3:],
+        0.0,
+        atol=1.0e-10,
+    )
+    assert not np.isclose(
+        finite.report.tip_deflection_rear_m,
+        rigid.report.tip_deflection_rear_m,
+        atol=1.0e-6,
+    )
+
+
 def test_constraint_assembly_exposes_explicit_boundary_groups() -> None:
     model = _simple_model(wire_node_indices=(2,))
     constraint_mode = DualBeamConstraintMode(
@@ -421,6 +462,20 @@ def test_constraint_assembly_exposes_explicit_boundary_groups() -> None:
     assert constraints.wire_slice.stop - constraints.wire_slice.start == 1
     assert len(constraints.link_row_slices) == 1
     assert constraints.link_row_slices[0].stop - constraints.link_row_slices[0].start == 6
+
+
+def test_constraint_assembly_exposes_dense_finite_rib_surrogate_rows() -> None:
+    model = _simple_model()
+    constraint_mode = DualBeamConstraintMode(
+        root_bc=RootBCMode.ROOT_FIXED_BOTH,
+        wire_bc=None,
+        link_mode=LinkMode.DENSE_FINITE_RIB,
+    )
+    constraints = build_constraint_assembly(model=model, constraint_mode=constraint_mode)
+
+    assert constraints.link_node_indices == (1,)
+    assert len(constraints.link_row_slices) == 1
+    assert constraints.link_row_slices[0].stop - constraints.link_row_slices[0].start == 3
 
 
 def test_constraint_assembly_skips_wire_rows_for_explicit_truss_mode() -> None:
