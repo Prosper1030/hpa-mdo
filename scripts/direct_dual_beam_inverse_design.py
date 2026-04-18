@@ -21,7 +21,7 @@ from scipy.optimize import minimize
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hpa_mdo.aero import LoadMapper, VSPAeroParser
+from hpa_mdo.aero import LoadMapper, VSPBuilder, VSPAeroParser
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.core import Aircraft, MaterialDB, load_config
 from hpa_mdo.structure import (
@@ -70,6 +70,9 @@ CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME = {
     "main_radius_taper_margin_min_m": 0.50e-3,
     "rear_radius_taper_margin_min_m": 0.50e-3,
 }
+LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
+CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
+DEFAULT_CANDIDATE_AOA_SWEEP_DEG = (-2.0, 0.0, 2.0, 4.0, 6.0, 8.0)
 
 
 @dataclass(frozen=True)
@@ -292,6 +295,7 @@ class ArtifactBundle:
     diagnostics_json: str | None = None
     validity_summary_json: str | None = None
     wire_rigging_json: str | None = None
+    aero_contract_json: str | None = None
 
 
 @dataclass(frozen=True)
@@ -450,12 +454,27 @@ class RefreshRefinementOutcome:
     max_jig_vertical_curvature_limit_per_m: float | None
     iterations: tuple[RefreshIterationResult, ...]
     artifacts: ArtifactBundle | None = None
+    aero_contract: "CandidateAeroContract | None" = None
 
     @property
     def final_iteration(self) -> RefreshIterationResult:
         if not self.iterations:
             raise RuntimeError("Refresh refinement outcome has no iterations.")
         return self.iterations[-1]
+
+
+@dataclass(frozen=True)
+class CandidateAeroContract:
+    source_mode: str
+    baseline_load_source: str
+    refresh_load_source: str
+    load_ownership: str
+    artifact_ownership: str
+    requested_knobs: dict[str, float]
+    aoa_sweep_deg: tuple[float, ...]
+    selected_cruise_aoa_deg: float
+    geometry_artifacts: dict[str, str | None]
+    notes: tuple[str, ...] = ()
 
 
 def _parse_grid(text: str) -> tuple[float, ...]:
@@ -491,6 +510,15 @@ def _status(flag: bool) -> str:
 def _fmt_array_mm(values_m: np.ndarray) -> str:
     values_mm = np.asarray(values_m, dtype=float) * 1000.0
     return "[" + ", ".join(f"{value:.3f}" for value in values_mm) + "]"
+
+
+def _resolve_optional_path(value: str | Path | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return str(Path(text).expanduser().resolve())
 
 
 def _baseline_design_from_result(baseline_result) -> BaselineDesign:
@@ -894,6 +922,223 @@ def _load_metrics_from_mapped_loads(
         aoa_eff_max_deg=float(aoa_eff_max_deg),
         aoa_clip_fraction=float(aoa_clip_fraction),
     )
+
+
+def _candidate_aoa_sweep_deg(
+    aero_cases: Iterable[SpanwiseLoad] | None,
+) -> tuple[float, ...]:
+    if aero_cases is None:
+        return DEFAULT_CANDIDATE_AOA_SWEEP_DEG
+
+    values: list[float] = []
+    seen: set[float] = set()
+    for case in aero_cases:
+        value = round(float(case.aoa_deg), 9)
+        if value in seen:
+            continue
+        seen.add(value)
+        values.append(float(case.aoa_deg))
+    if values:
+        return tuple(values)
+    return DEFAULT_CANDIDATE_AOA_SWEEP_DEG
+
+
+def _resolve_outer_loop_candidate_aero(
+    *,
+    cfg,
+    aircraft,
+    output_dir: Path,
+    target_shape_z_scale: float,
+    dihedral_exponent: float,
+    aero_source_mode: str,
+    legacy_aero_cases: list[SpanwiseLoad] | None = None,
+    candidate_aero_output_dir: Path | None = None,
+) -> tuple[list[SpanwiseLoad], SpanwiseLoad, dict, CandidateAeroContract]:
+    mode = str(aero_source_mode)
+    if mode not in {LEGACY_AERO_SOURCE_MODE, CANDIDATE_RERUN_AERO_SOURCE_MODE}:
+        raise ValueError(f"Unsupported aero source mode: {mode}")
+
+    if mode == LEGACY_AERO_SOURCE_MODE:
+        cases = legacy_aero_cases
+        if cases is None:
+            cases = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar).parse()
+        if not cases:
+            raise RuntimeError("No aerodynamic cases found in legacy cfg.io VSPAero data.")
+        cruise_case, mapped_loads = _select_cruise_case_and_mapped_loads(
+            cfg,
+            aircraft,
+            list(cases),
+        )
+        contract = CandidateAeroContract(
+            source_mode=LEGACY_AERO_SOURCE_MODE,
+            baseline_load_source="legacy_cfg_vspaero_sweep",
+            refresh_load_source="legacy_twist_refresh_from_cfg_sweep",
+            load_ownership=(
+                "Loads come from the shared cfg.io.vsp_lod / cfg.io.vsp_polar artifacts; "
+                "this candidate does not own a rebuilt-geometry aero solve."
+            ),
+            artifact_ownership=(
+                "No candidate-owned OpenVSP / VSPAero artifacts are produced in legacy_refresh mode."
+            ),
+            requested_knobs={
+                "target_shape_z_scale": float(target_shape_z_scale),
+                "dihedral_multiplier": float(target_shape_z_scale),
+                "dihedral_exponent": float(dihedral_exponent),
+            },
+            aoa_sweep_deg=_candidate_aoa_sweep_deg(cases),
+            selected_cruise_aoa_deg=float(cruise_case.aoa_deg),
+            geometry_artifacts={
+                "candidate_output_dir": None,
+                "vsp3_path": _resolve_optional_path(cfg.io.vsp_model),
+                "vspscript_path": None,
+                "lod_path": _resolve_optional_path(cfg.io.vsp_lod),
+                "polar_path": _resolve_optional_path(cfg.io.vsp_polar),
+            },
+            notes=(
+                "target_shape_z_scale still modifies the inverse-design target shape, "
+                "but aerodynamic ownership remains on the legacy shared sweep.",
+            ),
+        )
+        return list(cases), cruise_case, mapped_loads, contract
+
+    aoa_sweep = list(_candidate_aoa_sweep_deg(legacy_aero_cases))
+    rerun_output_dir = (
+        candidate_aero_output_dir
+        if candidate_aero_output_dir is not None
+        else output_dir / "candidate_aero"
+    ).resolve()
+    builder = VSPBuilder(
+        cfg,
+        dihedral_multiplier=float(target_shape_z_scale),
+        dihedral_exponent=float(dihedral_exponent),
+    )
+    build_result = builder.build_and_run(str(rerun_output_dir), aoa_list=aoa_sweep)
+    if not bool(build_result.get("success")):
+        error = build_result.get("error") or "unknown VSPBuilder failure"
+        raise RuntimeError(f"Candidate rerun-aero failed: {error}")
+    if build_result.get("lod_path") is None:
+        vspscript_path = build_result.get("vspscript_path")
+        manual_hint = (
+            f" Only a VSPScript fallback was generated at {vspscript_path}."
+            if vspscript_path
+            else ""
+        )
+        raise RuntimeError(
+            "Candidate rerun-aero did not produce a VSPAero .lod artifact."
+            + manual_hint
+        )
+
+    cases = VSPAeroParser(
+        build_result["lod_path"],
+        build_result.get("polar_path"),
+    ).parse()
+    if not cases:
+        raise RuntimeError("Candidate rerun-aero produced no parseable VSPAero cases.")
+    cruise_case, mapped_loads = _select_cruise_case_and_mapped_loads(
+        cfg,
+        aircraft,
+        list(cases),
+    )
+    contract = CandidateAeroContract(
+        source_mode=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+        baseline_load_source="candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun",
+        refresh_load_source="candidate_owned_twist_refresh_from_rerun_sweep",
+        load_ownership=(
+            "Loads come from a candidate-owned OpenVSP geometry rebuild and VSPAero rerun "
+            "tied to the current low-dimensional outer-loop geometry knobs."
+        ),
+        artifact_ownership=(
+            f"Candidate-owned geometry and aero artifacts live under {rerun_output_dir}."
+        ),
+        requested_knobs={
+            "target_shape_z_scale": float(target_shape_z_scale),
+            "dihedral_multiplier": float(target_shape_z_scale),
+            "dihedral_exponent": float(dihedral_exponent),
+        },
+        aoa_sweep_deg=tuple(float(value) for value in aoa_sweep),
+        selected_cruise_aoa_deg=float(cruise_case.aoa_deg),
+        geometry_artifacts={
+            "candidate_output_dir": str(rerun_output_dir),
+            "vsp3_path": _resolve_optional_path(build_result.get("vsp3_path")),
+            "vspscript_path": _resolve_optional_path(build_result.get("vspscript_path")),
+            "lod_path": _resolve_optional_path(build_result.get("lod_path")),
+            "polar_path": _resolve_optional_path(build_result.get("polar_path")),
+        },
+        notes=(
+            "target_shape_z_scale is mapped onto VSPBuilder.dihedral_multiplier so the "
+            "geometry-rerun contract uses the same low-dimensional shape knob as inverse design.",
+        ),
+    )
+    return list(cases), cruise_case, mapped_loads, contract
+
+
+def _refresh_method_text(contract: CandidateAeroContract | None) -> str:
+    if contract is not None and contract.source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
+        return (
+            "candidate-level geometry rebuild + VSPAero rerun for the baseline load owner; "
+            "later refresh steps interpolate within the candidate-owned AoA sweep"
+        )
+    return "reuse existing VSPAero AoA sweep and reduce local effective AoA by structural twist"
+
+
+def _refresh_physics_assumptions(
+    *,
+    contract: CandidateAeroContract | None,
+    low_dim_loaded_shape_matching: bool,
+) -> list[str]:
+    assumptions = [
+        "Each stage is still a one-way structural solve on the existing beam-line target shape.",
+        "The beam-line target shape remains fixed across refresh iterations.",
+    ]
+    if contract is not None and contract.source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
+        assumptions.append(
+            "The initial baseline loads come from a candidate-owned OpenVSP geometry rebuild and VSPAero rerun."
+        )
+        assumptions.append(
+            "Later refresh steps reuse that candidate-owned AoA sweep; OpenVSP is not rerun after each structural update."
+        )
+    else:
+        assumptions.append(
+            "Refreshed loads are interpolated from existing VSPAero AoA cases; OpenVSP is not rerun."
+        )
+    assumptions.append(
+        "Structural twist is treated as local washout with a simple scalar scale factor."
+    )
+    assumptions.append(
+        "The forward refresh check estimates frozen-load bias by applying refreshed displacement to the previous jig."
+    )
+    if low_dim_loaded_shape_matching:
+        assumptions.append(
+            "Loaded-shape matching is constrained only on main-beam Z and twist at a few control stations."
+        )
+    return assumptions
+
+
+def _refresh_difference_from_full_coupling(
+    *,
+    contract: CandidateAeroContract | None,
+    converged: bool,
+    dynamic_design_space_enabled: bool,
+) -> list[str]:
+    lines = [
+        (
+            "lightweight outer loop converges on load/mass deltas, not full aeroelastic residuals"
+            if converged
+            else "capped outer refresh count instead of iterating to convergence"
+        )
+    ]
+    if contract is not None and contract.source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
+        lines.append(
+            "baseline candidate loads are rebuilt once, but there is still no per-refresh geometry rebuild or aero rerun"
+        )
+    else:
+        lines.append("no geometry rebuild / CFD rerun between stages")
+    lines.append(
+        "no trim solve; dynamic design space only rebuilds the reduced V2 map"
+        if dynamic_design_space_enabled
+        else "no trim solve or dynamic design-space update"
+    )
+    return lines
 
 
 class LightweightLoadRefreshModel:
@@ -2243,6 +2488,36 @@ def build_refresh_report_text(
     lines.append(f"Baseline cruise AoA           : {cruise_aoa_deg:.3f} deg")
     if final_iteration.outcome.target_mass_kg is not None:
         lines.append(f"Target mass cap               : {final_iteration.outcome.target_mass_kg:.3f} kg")
+    if outcome.aero_contract is not None:
+        contract = outcome.aero_contract
+        lines.append(f"Aero source mode              : {contract.source_mode}")
+        lines.append(
+            "Aero load ownership           : "
+            f"{contract.load_ownership}"
+        )
+        lines.append(
+            "Aero artifact ownership       : "
+            f"{contract.artifact_ownership}"
+        )
+        lines.append(
+            "Candidate knobs               : "
+            f"target_shape_z_scale={contract.requested_knobs.get('target_shape_z_scale', float('nan')):.6f}, "
+            f"dihedral_multiplier={contract.requested_knobs.get('dihedral_multiplier', float('nan')):.6f}, "
+            f"dihedral_exponent={contract.requested_knobs.get('dihedral_exponent', float('nan')):.6f}"
+        )
+        lines.append(
+            "Candidate AoA sweep           : "
+            + ", ".join(f"{value:.3f}" for value in contract.aoa_sweep_deg)
+        )
+        geometry_artifacts = contract.geometry_artifacts
+        if geometry_artifacts.get("vsp3_path"):
+            lines.append(f"Candidate VSP3                : {geometry_artifacts['vsp3_path']}")
+        if geometry_artifacts.get("lod_path"):
+            lines.append(f"Candidate LOD                 : {geometry_artifacts['lod_path']}")
+        if geometry_artifacts.get("polar_path"):
+            lines.append(f"Candidate polar               : {geometry_artifacts['polar_path']}")
+        for note in contract.notes:
+            lines.append(f"Candidate aero note           : {note}")
     lines.append("")
     lines.append("Definition:")
     lines.append("  target_loaded_shape         : current VSP / structural cruise geometry at the beam nodes")
@@ -2250,7 +2525,7 @@ def build_refresh_report_text(
         lines.append("  jig_shape                   : nodes_target - projected displacement field that only enforces main-beam Z and twist descriptors")
     else:
         lines.append("  jig_shape                   : nodes_target - structural displacement")
-    lines.append("  refresh method              : reuse existing VSPAero AoA sweep, reduce local effective AoA by structural twist")
+    lines.append(f"  refresh method              : {_refresh_method_text(outcome.aero_contract)}")
     lines.append("  outer updates               : 1-2 one-way refresh steps only; no inner converged aero-structural loop")
     lines.append(
         f"  dynamic design space        : {'enabled' if outcome.dynamic_design_space_enabled else 'disabled'}"
@@ -2260,23 +2535,24 @@ def build_refresh_report_text(
     )
     lines.append("")
     lines.append("Physics assumptions:")
-    lines.append("  1. Each stage is still a one-way structural solve on the existing beam-line target shape.")
-    lines.append("  2. Refreshed loads are interpolated from existing VSPAero AoA cases; OpenVSP is not rerun.")
-    lines.append("  3. Structural twist is treated as local washout with a simple scalar scale factor.")
-    lines.append("  4. The forward refresh check estimates frozen-load bias by applying refreshed displacement to the previous jig.")
-    if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor":
-        lines.append("  5. Loaded-shape matching is constrained only on main-beam Z and twist at a few control stations.")
+    for idx, assumption in enumerate(
+        _refresh_physics_assumptions(
+            contract=outcome.aero_contract,
+            low_dim_loaded_shape_matching=(
+                loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor"
+            ),
+        ),
+        start=1,
+    ):
+        lines.append(f"  {idx}. {assumption}")
     lines.append("")
     lines.append("Difference from full coupling:")
-    if outcome.converged:
-        lines.append("  - lightweight outer loop converges on load/mass deltas, not full aeroelastic residuals")
-    else:
-        lines.append("  - capped outer refresh count instead of iterating to convergence")
-    lines.append("  - no geometry rebuild / CFD rerun between stages")
-    if outcome.dynamic_design_space_enabled:
-        lines.append("  - no trim solve; dynamic design space only rebuilds the reduced V2 map")
-    else:
-        lines.append("  - no trim solve or dynamic design-space update")
+    for item in _refresh_difference_from_full_coupling(
+        contract=outcome.aero_contract,
+        converged=outcome.converged,
+        dynamic_design_space_enabled=outcome.dynamic_design_space_enabled,
+    ):
+        lines.append(f"  - {item}")
     lines.append("")
     lines.append("Initial reduced map:")
     lines.append(f"  main_plateau_scale upper    : {map_config.main_plateau_scale_upper:.4f}")
@@ -2512,6 +2788,7 @@ def build_refresh_report_text(
         lines.append(f"  diagnostics JSON             : {outcome.artifacts.diagnostics_json or 'not written'}")
         lines.append(f"  validity summary JSON        : {outcome.artifacts.validity_summary_json or 'not written'}")
         lines.append(f"  wire rigging JSON            : {outcome.artifacts.wire_rigging_json or 'not written'}")
+        lines.append(f"  aero contract JSON           : {outcome.artifacts.aero_contract_json or 'not written'}")
         lines.append(f"  STEP engine                  : {outcome.artifacts.step_engine or 'not run'}")
         if outcome.artifacts.step_error:
             lines.append(f"  Jig STEP export note         : {outcome.artifacts.step_error}")
@@ -2545,7 +2822,7 @@ def build_refresh_summary_json(
                 if loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor"
                 else "nodes_jig = nodes_target - delta_u"
             ),
-            "refresh_method": "reuse existing VSPAero AoA sweep and reduce local effective AoA by structural twist-derived washout",
+            "refresh_method": _refresh_method_text(outcome.aero_contract),
             "target_mass_kg": outcome.final_iteration.outcome.target_mass_kg,
             "refresh_steps_requested": outcome.refresh_steps_requested,
             "refresh_steps_completed": outcome.refresh_steps_completed,
@@ -2565,25 +2842,17 @@ def build_refresh_summary_json(
                     "descriptors": ["main_beam_z", "spanwise_twist"],
                 }
             ),
-            "physics_assumptions": [
-                "each outer stage is still one-way with frozen loads inside that stage",
-                "beam-line target shape is fixed across refreshes",
-                "no OpenVSP rerun; loads come from interpolation across existing AoA cases",
-                "forward refresh check estimates old-jig mismatch under refreshed displacement",
-            ],
-            "difference_from_full_coupling": [
-                (
-                    "outer loop converges only on lightweight load/mass deltas, not full aeroelastic residuals"
-                    if outcome.converged
-                    else "no convergence loop to aero-structural tolerance"
+            "physics_assumptions": _refresh_physics_assumptions(
+                contract=outcome.aero_contract,
+                low_dim_loaded_shape_matching=(
+                    loaded_shape_match is not None and loaded_shape_match.mode == "low_dim_descriptor"
                 ),
-                "no geometry rebuild or new aerodynamic solve between stages",
-                (
-                    "no trim update; dynamic design space only rebuilds the reduced V2 map"
-                    if outcome.dynamic_design_space_enabled
-                    else "no trim update or dynamic design-space rewrite"
-                ),
-            ],
+            ),
+            "difference_from_full_coupling": _refresh_difference_from_full_coupling(
+                contract=outcome.aero_contract,
+                converged=outcome.converged,
+                dynamic_design_space_enabled=outcome.dynamic_design_space_enabled,
+            ),
         },
         "map_config": {
             "main_plateau_scale_upper": map_config.main_plateau_scale_upper,
@@ -2592,6 +2861,7 @@ def build_refresh_summary_json(
             "delta_t_global_max_m": map_config.delta_t_global_max_m,
             "delta_t_rear_outboard_max_m": map_config.delta_t_rear_outboard_max_m,
         },
+        "aero_contract": None if outcome.aero_contract is None else asdict(outcome.aero_contract),
         "manufacturing_limits": {
             "source": outcome.manufacturing_limit_source,
             "max_jig_vertical_prebend_m": outcome.max_jig_vertical_prebend_limit_m,
@@ -3258,6 +3528,7 @@ def run_inverse_design_load_refresh_refinement(
     local_refine_early_stop_abs_improvement_kg: float,
     initial_mapped_loads: dict,
     refresh_model: LightweightLoadRefreshModel,
+    aero_contract: CandidateAeroContract,
     refresh_steps: int,
     dynamic_design_space: bool = False,
     refresh_until_converged: bool = False,
@@ -3325,7 +3596,11 @@ def run_inverse_design_load_refresh_refinement(
     iterations.append(
         _build_refresh_iteration_result(
             iteration_index=0,
-            load_source=f"target_shape_frozen_aoa_{float(refresh_model._baseline_case.aoa_deg):.3f}deg",
+            load_source=(
+                f"{aero_contract.source_mode}:"
+                f"{aero_contract.baseline_load_source}:"
+                f"aoa_{float(refresh_model._baseline_case.aoa_deg):.3f}deg"
+            ),
             outcome=frozen_outcome,
             mapped_loads=initial_mapped_loads,
             load_metrics=refresh_model.baseline_metrics(initial_mapped_loads),
@@ -3411,7 +3686,11 @@ def run_inverse_design_load_refresh_refinement(
         )
         iteration_result = _build_refresh_iteration_result(
             iteration_index=step,
-            load_source=f"refresh_{step}_from_iteration_{previous_iteration.iteration_index}",
+            load_source=(
+                f"{aero_contract.source_mode}:"
+                f"{aero_contract.refresh_load_source}:"
+                f"step_{step}_from_iteration_{previous_iteration.iteration_index}"
+            ),
             outcome=refreshed_outcome,
             mapped_loads=refreshed_mapped_loads,
             load_metrics=refreshed_metrics,
@@ -3443,6 +3722,7 @@ def run_inverse_design_load_refresh_refinement(
         max_jig_vertical_curvature_limit_per_m=max_jig_vertical_curvature_per_m,
         iterations=tuple(iterations),
         artifacts=None,
+        aero_contract=aero_contract,
     )
 
 
@@ -3552,6 +3832,23 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Progressive dihedral scaling exponent for target-shape Z scaling "
             "(0=uniform, 1=linear root-to-tip ramp)."
+        ),
+    )
+    parser.add_argument(
+        "--aero-source-mode",
+        default=LEGACY_AERO_SOURCE_MODE,
+        choices=(LEGACY_AERO_SOURCE_MODE, CANDIDATE_RERUN_AERO_SOURCE_MODE),
+        help=(
+            "Choose whether outer-loop aero loads come from the shared legacy VSPAero sweep "
+            "or a candidate-owned OpenVSP geometry rebuild plus VSPAero rerun."
+        ),
+    )
+    parser.add_argument(
+        "--candidate-aero-output-dir",
+        default=None,
+        help=(
+            "Optional directory for candidate-owned geometry / VSPAero rerun artifacts when "
+            "--aero-source-mode=candidate_rerun_vspaero. Defaults to <output-dir>/candidate_aero."
         ),
     )
     parser.add_argument(
@@ -3690,24 +3987,6 @@ def main(argv: list[str] | None = None) -> int:
     aircraft = Aircraft.from_config(cfg)
     materials_db = MaterialDB()
     baseline_result = build_specimen_result_from_crossval_report(design_report)
-
-    aero_cases = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar).parse()
-    cruise_case, mapped_loads = _select_cruise_case_and_mapped_loads(
-        cfg,
-        aircraft,
-        aero_cases,
-    )
-    cruise_aoa_deg = float(cruise_case.aoa_deg)
-    design_case = cfg.structural_load_cases()[0]
-    export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
-    optimizer = SparOptimizer(cfg, aircraft, mapped_loads, materials_db)
-    refresh_model = LightweightLoadRefreshModel(
-        aero_cases=aero_cases,
-        baseline_case=cruise_case,
-        cfg=cfg,
-        aircraft=aircraft,
-        washout_scale=float(args.refresh_washout_scale),
-    )
     loaded_shape_control_station_fractions = _parse_control_fractions(args.loaded_shape_control_stations)
     loaded_shape_main_z_tol_m = float(cfg.solver.loaded_shape_z_tol_m)
     if args.loaded_shape_main_z_tol_mm is not None:
@@ -3728,6 +4007,40 @@ def main(argv: list[str] | None = None) -> int:
     clearance_risk_top_k = int(args.clearance_risk_top_k)
     clearance_penalty_weight_kg = float(args.clearance_penalty_kg)
     active_wall_penalty_weight_kg = float(args.active_wall_penalty_kg)
+    aero_source_mode = str(args.aero_source_mode)
+    candidate_aero_output_dir = (
+        None
+        if args.candidate_aero_output_dir is None
+        else Path(args.candidate_aero_output_dir).expanduser().resolve()
+    )
+
+    legacy_aero_cases: list[SpanwiseLoad] | None = None
+    if aero_source_mode == LEGACY_AERO_SOURCE_MODE and cfg.io.vsp_lod is not None:
+        legacy_aero_cases = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar).parse()
+    elif cfg.io.vsp_lod is not None and Path(cfg.io.vsp_lod).expanduser().is_file():
+        legacy_aero_cases = VSPAeroParser(cfg.io.vsp_lod, cfg.io.vsp_polar).parse()
+
+    aero_cases, cruise_case, mapped_loads, aero_contract = _resolve_outer_loop_candidate_aero(
+        cfg=cfg,
+        aircraft=aircraft,
+        output_dir=output_dir,
+        target_shape_z_scale=target_shape_z_scale,
+        dihedral_exponent=dihedral_exponent,
+        aero_source_mode=aero_source_mode,
+        legacy_aero_cases=legacy_aero_cases,
+        candidate_aero_output_dir=candidate_aero_output_dir,
+    )
+    cruise_aoa_deg = float(cruise_case.aoa_deg)
+    design_case = cfg.structural_load_cases()[0]
+    export_loads = LoadMapper.apply_load_factor(mapped_loads, design_case.aero_scale)
+    optimizer = SparOptimizer(cfg, aircraft, mapped_loads, materials_db)
+    refresh_model = LightweightLoadRefreshModel(
+        aero_cases=aero_cases,
+        baseline_case=cruise_case,
+        cfg=cfg,
+        aircraft=aircraft,
+        washout_scale=float(args.refresh_washout_scale),
+    )
 
     baseline_design = BaselineDesign(
         main_t_seg_m=np.asarray(baseline_result.main_t_seg_mm, dtype=float) * 1.0e-3,
@@ -3831,6 +4144,7 @@ def main(argv: list[str] | None = None) -> int:
         local_refine_early_stop_abs_improvement_kg=float(args.local_refine_early_stop_abs_improvement_kg),
         initial_mapped_loads=mapped_loads,
         refresh_model=refresh_model,
+        aero_contract=aero_contract,
         refresh_steps=int(args.refresh_steps),
         dynamic_design_space=bool(args.dynamic_design_space),
         refresh_until_converged=bool(args.refresh_until_converged),
@@ -3856,6 +4170,17 @@ def main(argv: list[str] | None = None) -> int:
         step_engine=args.step_engine,
         skip_step_export=bool(args.skip_step_export),
     )
+    aero_contract_json_path = output_dir / "candidate_aero_contract.json"
+    aero_contract_json_path.write_text(
+        json.dumps(asdict(aero_contract), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    artifacts = ArtifactBundle(
+        **{
+            **asdict(artifacts),
+            "aero_contract_json": str(aero_contract_json_path.resolve()),
+        }
+    )
     refinement = RefreshRefinementOutcome(
         refresh_steps_requested=refinement.refresh_steps_requested,
         refresh_steps_completed=refinement.refresh_steps_completed,
@@ -3868,6 +4193,7 @@ def main(argv: list[str] | None = None) -> int:
         max_jig_vertical_curvature_limit_per_m=refinement.max_jig_vertical_curvature_limit_per_m,
         iterations=refinement.iterations,
         artifacts=artifacts,
+        aero_contract=refinement.aero_contract,
     )
 
     report_path = output_dir / "direct_dual_beam_inverse_design_refresh_report.txt"
@@ -3906,6 +4232,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Design report       : {design_report}")
     print(f"  Report              : {report_path}")
     print(f"  Summary JSON        : {json_path}")
+    print(f"  Aero source mode    : {aero_contract.source_mode}")
     print(f"  Refresh steps       : {refinement.refresh_steps_completed}/{refinement.refresh_steps_requested}")
     print(f"  Dynamic map rebuild : {refinement.dynamic_design_space_rebuilds}")
     print(f"  Converged           : {refinement.converged}")
@@ -3942,6 +4269,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Diagnostics JSON    : {refinement.artifacts.diagnostics_json or 'not written'}")
         print(f"  Validity summary    : {refinement.artifacts.validity_summary_json or 'not written'}")
         print(f"  Wire rigging JSON   : {refinement.artifacts.wire_rigging_json or 'not written'}")
+        print(f"  Aero contract JSON  : {refinement.artifacts.aero_contract_json or 'not written'}")
     return 0
 
 

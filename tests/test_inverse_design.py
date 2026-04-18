@@ -6,6 +6,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -37,15 +38,24 @@ from scripts.direct_dual_beam_inverse_design_feasibility_sweep import (
     _build_search_budget_summary as _build_feasibility_search_budget_summary,
 )
 from scripts.direct_dual_beam_inverse_design import (
+    CANDIDATE_RERUN_AERO_SOURCE_MODE,
+    LEGACY_AERO_SOURCE_MODE,
+    CandidateAeroContract,
     CandidateArchive,
     InverseCandidate,
+    InverseOutcome,
     LightweightLoadRefreshModel,
+    RefreshIterationResult,
+    RefreshLoadMetrics,
+    RefreshRefinementOutcome,
+    _resolve_outer_loop_candidate_aero,
     _build_validity_summary_payload,
     _build_arg_parser as _build_direct_inverse_arg_parser,
     _clearance_risk_metrics,
     _lift_wire_rigging_records,
     _mapped_load_delta_metrics,
     _write_deflection_csv,
+    build_refresh_summary_json,
 )
 
 
@@ -1063,6 +1073,325 @@ class InverseDesignTests(unittest.TestCase):
             max_starts=3,
         )
         self.assertEqual([candidate.source for candidate in starts], ["under_cap_feasible", "over_cap_feasible"])
+
+
+class CandidateAeroContractTests(unittest.TestCase):
+    @staticmethod
+    def _make_candidate(
+        *,
+        mass_kg: float = 21.0,
+        source: str = "selected",
+    ) -> InverseCandidate:
+        zeros = np.zeros(2, dtype=float)
+        return InverseCandidate(
+            z=np.zeros(5, dtype=float),
+            source=source,
+            message="ok",
+            eval_wall_time_s=0.0,
+            main_plateau_scale=1.0,
+            main_taper_fill=1.0,
+            rear_radius_scale=1.0,
+            rear_outboard_fraction=1.0,
+            wall_thickness_fraction=1.0,
+            main_t_seg_m=zeros.copy(),
+            main_r_seg_m=zeros.copy(),
+            rear_t_seg_m=zeros.copy(),
+            rear_r_seg_m=zeros.copy(),
+            tube_mass_kg=mass_kg,
+            total_structural_mass_kg=mass_kg,
+            equivalent_failure_index=-0.5,
+            equivalent_buckling_index=-0.5,
+            equivalent_tip_deflection_m=0.0,
+            equivalent_twist_max_deg=0.0,
+            analysis_succeeded=True,
+            geometry_validity_succeeded=True,
+            loaded_shape_main_z_error_max_m=0.0,
+            loaded_shape_main_z_error_rms_m=0.0,
+            loaded_shape_twist_error_max_deg=0.0,
+            loaded_shape_twist_error_rms_deg=0.0,
+            loaded_shape_normalized_error=0.0,
+            loaded_shape_penalty_kg=0.0,
+            clearance_risk_score=0.0,
+            clearance_hotspot_count=0,
+            clearance_hotspot_mean_m=0.01,
+            clearance_penalty_kg=0.0,
+            active_wall_risk_score=0.0,
+            active_wall_tight_count=0,
+            active_wall_penalty_kg=0.0,
+            technically_clearance_fragile=False,
+            objective_value_kg=mass_kg,
+            target_shape_error_max_m=0.0,
+            target_shape_error_rms_m=0.0,
+            jig_ground_clearance_min_m=0.01,
+            jig_ground_clearance_margin_m=0.01,
+            max_jig_vertical_prebend_m=0.1,
+            max_jig_vertical_curvature_per_m=0.01,
+            safety_passed=True,
+            manufacturing_passed=True,
+            overall_feasible=True,
+            mass_margin_kg=1.0,
+            target_mass_passed=True,
+            overall_target_feasible=True,
+            failures=tuple(),
+            hard_margins={"dummy": 1.0},
+            hard_violation_score=0.0,
+            target_violation_score=0.0,
+            inverse_result=None,
+            equivalent_result=None,
+            mainline_model=None,
+            production_result=None,
+        )
+
+    @staticmethod
+    def _make_spanwise_case(
+        *,
+        aoa_deg: float,
+        cl_value: float,
+        q: float = 50.0,
+    ) -> SpanwiseLoad:
+        y = np.array([0.0, 1.0, 2.0], dtype=float)
+        chord = np.array([1.0, 1.0, 1.0], dtype=float)
+        cl = np.full_like(y, cl_value, dtype=float)
+        cd = np.full_like(y, 0.02, dtype=float)
+        cm = np.full_like(y, 0.05, dtype=float)
+        return SpanwiseLoad(
+            y=y,
+            chord=chord,
+            cl=cl,
+            cd=cd,
+            cm=cm,
+            lift_per_span=q * chord * cl,
+            drag_per_span=q * chord * cd,
+            aoa_deg=aoa_deg,
+            velocity=10.0,
+            dynamic_pressure=q,
+        )
+
+    def test_resolve_outer_loop_candidate_aero_legacy_marks_shared_artifacts(self) -> None:
+        legacy_cases = [
+            self._make_spanwise_case(aoa_deg=0.0, cl_value=0.3),
+            self._make_spanwise_case(aoa_deg=8.0, cl_value=1.0),
+        ]
+        cfg = SimpleNamespace(
+            flight=SimpleNamespace(velocity=10.0, air_density=1.0),
+            io=SimpleNamespace(
+                vsp_model="/tmp/reference.vsp3",
+                vsp_lod="/tmp/legacy.lod",
+                vsp_polar="/tmp/legacy.polar",
+            ),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(y=np.array([0.0, 1.0, 2.0], dtype=float)),
+            weight_N=200.0,
+        )
+
+        aero_cases, cruise_case, mapped_loads, contract = _resolve_outer_loop_candidate_aero(
+            cfg=cfg,
+            aircraft=aircraft,
+            output_dir=Path("/tmp/direct_inverse"),
+            target_shape_z_scale=1.2,
+            dihedral_exponent=1.5,
+            aero_source_mode=LEGACY_AERO_SOURCE_MODE,
+            legacy_aero_cases=legacy_cases,
+        )
+
+        self.assertEqual(len(aero_cases), 2)
+        self.assertAlmostEqual(cruise_case.aoa_deg, 8.0)
+        self.assertAlmostEqual(mapped_loads["total_lift"], 100.0)
+        self.assertEqual(contract.source_mode, LEGACY_AERO_SOURCE_MODE)
+        self.assertIn("shared cfg.io.vsp_lod / cfg.io.vsp_polar", contract.load_ownership)
+        self.assertIn("No candidate-owned OpenVSP / VSPAero artifacts", contract.artifact_ownership)
+        self.assertAlmostEqual(contract.requested_knobs["dihedral_multiplier"], 1.2)
+        self.assertTrue(str(contract.geometry_artifacts["lod_path"]).endswith("legacy.lod"))
+
+    def test_resolve_outer_loop_candidate_aero_rerun_marks_candidate_owned_artifacts(self) -> None:
+        legacy_cases = [
+            self._make_spanwise_case(aoa_deg=0.0, cl_value=0.2),
+            self._make_spanwise_case(aoa_deg=10.0, cl_value=0.9),
+        ]
+        rerun_cases = [
+            self._make_spanwise_case(aoa_deg=0.0, cl_value=0.1),
+            self._make_spanwise_case(aoa_deg=10.0, cl_value=1.1),
+        ]
+        cfg = SimpleNamespace(
+            flight=SimpleNamespace(velocity=10.0, air_density=1.0),
+            io=SimpleNamespace(
+                vsp_model="/tmp/reference.vsp3",
+                vsp_lod="/tmp/legacy.lod",
+                vsp_polar="/tmp/legacy.polar",
+            ),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(y=np.array([0.0, 1.0, 2.0], dtype=float)),
+            weight_N=220.0,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "inverse"
+            with mock.patch(
+                "scripts.direct_dual_beam_inverse_design.VSPBuilder.build_and_run",
+                autospec=True,
+                return_value={
+                    "success": True,
+                    "vsp3_path": str((output_dir / "candidate_aero" / "candidate.vsp3").resolve()),
+                    "lod_path": str((output_dir / "candidate_aero" / "candidate.lod").resolve()),
+                    "polar_path": str((output_dir / "candidate_aero" / "candidate.polar").resolve()),
+                    "error": None,
+                },
+            ) as build_and_run_mock, mock.patch(
+                "scripts.direct_dual_beam_inverse_design.VSPAeroParser.parse",
+                autospec=True,
+                return_value=rerun_cases,
+            ):
+                aero_cases, cruise_case, mapped_loads, contract = _resolve_outer_loop_candidate_aero(
+                    cfg=cfg,
+                    aircraft=aircraft,
+                    output_dir=output_dir,
+                    target_shape_z_scale=1.3,
+                    dihedral_exponent=2.0,
+                    aero_source_mode=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+                    legacy_aero_cases=legacy_cases,
+                )
+
+        self.assertEqual(len(aero_cases), 2)
+        self.assertAlmostEqual(cruise_case.aoa_deg, 10.0)
+        self.assertAlmostEqual(mapped_loads["total_lift"], 110.0)
+        self.assertEqual(contract.source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertIn("candidate-owned OpenVSP geometry rebuild", contract.load_ownership)
+        self.assertIn("candidate-owned geometry and aero artifacts", contract.artifact_ownership.lower())
+        self.assertEqual(contract.aoa_sweep_deg, (0.0, 10.0))
+        self.assertTrue(str(contract.geometry_artifacts["lod_path"]).endswith("candidate.lod"))
+        _, output_arg = build_and_run_mock.call_args.args[:2]
+        self.assertTrue(str(output_arg).endswith("candidate_aero"))
+        self.assertEqual(build_and_run_mock.call_args.kwargs["aoa_list"], [0.0, 10.0])
+
+    def test_build_refresh_summary_json_surfaces_candidate_aero_contract(self) -> None:
+        candidate = self._make_candidate()
+        inverse_outcome = InverseOutcome(
+            success=True,
+            feasible=True,
+            target_mass_kg=None,
+            message="ok",
+            total_wall_time_s=0.1,
+            baseline_eval_wall_time_s=0.01,
+            nfev=1,
+            nit=0,
+            equivalent_analysis_calls=1,
+            production_analysis_calls=1,
+            unique_evaluations=1,
+            cache_hits=0,
+            feasible_count=1,
+            target_feasible_count=1,
+            baseline=candidate,
+            best_overall_feasible=candidate,
+            best_target_feasible=None,
+            coarse_selected=candidate,
+            coarse_candidate_count=1,
+            coarse_feasible_count=1,
+            coarse_target_feasible_count=1,
+            selected=candidate,
+            local_refine=None,
+            active_wall_diagnostics=None,
+            manufacturing_limit_source="explicit",
+            max_jig_vertical_prebend_limit_m=0.1,
+            max_jig_vertical_curvature_limit_per_m=0.01,
+            artifacts=None,
+        )
+        contract = CandidateAeroContract(
+            source_mode=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+            baseline_load_source="candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun",
+            refresh_load_source="candidate_owned_twist_refresh_from_rerun_sweep",
+            load_ownership="candidate-owned rerun loads",
+            artifact_ownership="candidate-owned artifacts",
+            requested_knobs={
+                "target_shape_z_scale": 1.25,
+                "dihedral_multiplier": 1.25,
+                "dihedral_exponent": 2.0,
+            },
+            aoa_sweep_deg=(0.0, 10.0),
+            selected_cruise_aoa_deg=10.0,
+            geometry_artifacts={
+                "candidate_output_dir": "/tmp/candidate_aero",
+                "vsp3_path": "/tmp/candidate_aero/candidate.vsp3",
+                "vspscript_path": None,
+                "lod_path": "/tmp/candidate_aero/candidate.lod",
+                "polar_path": "/tmp/candidate_aero/candidate.polar",
+            },
+            notes=("contract note",),
+        )
+        iteration = RefreshIterationResult(
+            iteration_index=0,
+            load_source=(
+                "candidate_rerun_vspaero:"
+                "candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun:"
+                "aoa_10.000deg"
+            ),
+            outcome=inverse_outcome,
+            load_metrics=RefreshLoadMetrics(
+                total_lift_half_n=110.0,
+                total_drag_half_n=2.0,
+                total_abs_torque_half_nm=1.0,
+                max_lift_per_span_npm=55.0,
+                max_abs_torque_per_span_nmpm=0.5,
+                twist_abs_max_deg=0.0,
+                aoa_eff_min_deg=10.0,
+                aoa_eff_max_deg=10.0,
+                aoa_clip_fraction=0.0,
+            ),
+            mapped_loads={
+                "y": np.array([0.0, 1.0, 2.0], dtype=float),
+                "lift_per_span": np.array([55.0, 55.0, 55.0], dtype=float),
+                "drag_per_span": np.array([1.0, 1.0, 1.0], dtype=float),
+                "torque_per_span": np.array([0.5, 0.5, 0.5], dtype=float),
+            },
+            map_config_summary={
+                "main_plateau_scale_upper": 1.14,
+                "main_taper_fill_upper": 0.80,
+                "rear_radius_scale_upper": 1.12,
+                "delta_t_global_max_m": 0.001,
+                "delta_t_rear_outboard_max_m": 0.0005,
+            },
+            dynamic_design_space_applied=False,
+        )
+        refinement = RefreshRefinementOutcome(
+            refresh_steps_requested=1,
+            refresh_steps_completed=0,
+            dynamic_design_space_enabled=False,
+            dynamic_design_space_rebuilds=0,
+            converged=False,
+            convergence_reason=None,
+            manufacturing_limit_source="explicit",
+            max_jig_vertical_prebend_limit_m=0.1,
+            max_jig_vertical_curvature_limit_per_m=0.01,
+            iterations=(iteration,),
+            artifacts=None,
+            aero_contract=contract,
+        )
+        map_config = SimpleNamespace(
+            main_plateau_scale_upper=1.14,
+            main_taper_fill_upper=0.80,
+            rear_radius_scale_upper=1.12,
+            delta_t_global_max_m=0.001,
+            delta_t_rear_outboard_max_m=0.0005,
+        )
+
+        summary = build_refresh_summary_json(
+            config_path=Path("/tmp/config.yaml"),
+            design_report=Path("/tmp/report.txt"),
+            cruise_aoa_deg=10.0,
+            map_config=map_config,
+            outcome=refinement,
+            refresh_washout_scale=1.0,
+        )
+
+        self.assertEqual(summary["aero_contract"]["source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertIn("candidate-level geometry rebuild", summary["refinement_definition"]["refresh_method"])
+        self.assertTrue(
+            any(
+                "no per-refresh geometry rebuild or aero rerun" in item
+                for item in summary["refinement_definition"]["difference_from_full_coupling"]
+            )
+        )
+        self.assertTrue(summary["iterations"][0]["load_source"].startswith("candidate_rerun_vspaero:"))
 
 
 class OuterLoopContractTests(unittest.TestCase):
