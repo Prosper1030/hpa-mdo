@@ -62,7 +62,7 @@ active_tracks:
   track_f:
     name: "requested_to_realizable_outer_loop"
     status: "queued"
-    goal: "Move from manual sweeps to low-dimensional outer-loop shape updates after A/E contracts stabilize."
+    goal: "Move from manual sweeps to a low-dimensional requested-to-realizable loop: aero-shape knob -> inverse design -> jig clearance/mass/manufacturing gate -> discrete layup -> realizable loaded-shape score."
 
 recently_completed:
   - "Track B baseline: inverse-design validity summary JSON and summary linkage are in place."
@@ -72,7 +72,7 @@ recently_completed:
 next_wave_priorities:
   - "Track A: consolidate the front-door workflow and artifact navigation so humans and agents can run the canonical path without re-discovery."
   - "Track E: add optional surrogate warm start on top of the existing training-data collection path, without changing the physics truth."
-  - "Track F: formalize the low-dimensional requested-to-realizable outer loop once A/E artifacts are stable enough to score."
+  - "Track F: formalize the low-dimensional requested-to-realizable outer loop so the repo can score low-dimensional aero-shape candidates against jig clearance, mass, discrete layup verdict, and realizable loaded-shape mismatch."
 
 benchmark_policy:
   status: "open_basket"

@@ -58,7 +58,14 @@
 這是 **下一輪第三優先**，建立在 A / E 已把 canonical path 與 acceleration path 穩住之後。
 
 - 什麼情況下優先：如果你已經接受 requested 和 realizable 不會完全重合，想開始把 shape 調整變成正式外圈。
-- 近期目標：先用 `target_shape_z_scale`、`dihedral_exponent`、dihedral multiplier 這類低維 knob 跑 requested-vs-realizable 閉環。
+- 近期目標：先用 `target_shape_z_scale`、`dihedral_exponent`、dihedral multiplier 這類低維 knob，把下面這條「近期可交付版閉環」跑通：
+
+`low-dimensional aero-shape exploration -> target loaded shape -> inverse design -> jig clearance / mass / manufacturing gate -> discrete CFRP layup -> realizable loaded-shape score`
+
+- 近期交付重點不是 full hi-fi sign-off，而是：
+  - requested / realizable / jig 三種 shape 的差距有清楚 score
+  - discrete layup verdict 能回寫到 outer-loop summary
+  - 使用者能用低維 knob 判斷「這個 cruise shape 值不值得繼續做」
 
 ## 4. 轉入維護型的軌道
 

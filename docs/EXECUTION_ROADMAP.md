@@ -247,6 +247,15 @@
 
 把 cruise-shape 調整從手動 sweep 慢慢變成低維 outer-loop。
 
+近期要對齊的目標型態不是 full aeroelastic sign-off，而是先把這條「repo 近期可交付版閉環」收斂出來：
+
+`low-dimensional aero-shape knob`
+-> `target loaded shape`
+-> `inverse design`
+-> `jig clearance / mass / manufacturing gate`
+-> `discrete CFRP / layup verdict`
+-> `realizable loaded-shape mismatch score`
+
 ### 適合先放進 outer loop 的變數
 
 - `target_shape_z_scale`
@@ -264,6 +273,8 @@
 
 - 外圈評分看的是 realizable loaded shape，不是 requested target 本身
 - mismatch 有明確 penalty / gate，而不是完全硬等式
+- discrete layup recheck 結果能被 outer-loop summary 消費，而不是停在 sidecar
+- 可以明確回答「這個低維 shape 候選值不值得往 drawing / design handoff 繼續推」
 
 ## Track G：mission-driven automatic design
 

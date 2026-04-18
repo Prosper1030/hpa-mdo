@@ -18,6 +18,9 @@
 - 先限於低維 knob
 - 明確看 requested vs realizable mismatch
 - 讓 summary artifact 能支持後續 ranking / iteration
+- 讓這條近期版 workflow 更接近：
+
+`low-dimensional aero-shape knob -> inverse design -> jig clearance / mass / manufacturing gate -> discrete layup verdict -> realizable loaded-shape score`
 
 ## 推薦 write scope
 
@@ -31,6 +34,7 @@
 - 至少一條 low-dimensional outer-loop 路徑有更清楚的 score / summary
 - requested 與 realizable 的差距有 machine-readable evidence
 - 不把 exact nodal matching 當唯一判準
+- discrete layup 或 structural recheck 的最終 verdict 能被 outer-loop summary 消費
 
 ## 不要做
 

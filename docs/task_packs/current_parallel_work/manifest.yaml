@@ -39,7 +39,7 @@ tasks:
       - "tests/test_inverse_design.py"
       - "docs/task_packs/current_parallel_work/**"
     expected_artifacts:
-      - "low-dimensional outer-loop summary"
+      - "low-dimensional aero-shape knob -> inverse design -> jig / layup / realizable score summary"
       - "requested-vs-realizable mismatch evidence"
       - "tests"
 

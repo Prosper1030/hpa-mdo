@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | `track_a_frontdoor_workflow` | 主線 front door / canonical workflow 收斂 | `docs/README.md`, `docs/dual_beam_workflow_architecture_overview.md`, `docs/task_packs/current_parallel_work/**` | 更清楚的 front-door workflow、artifact 導航、handoff-ready docs | `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml` |
 | `track_e_surrogate_warm_start` | surrogate warm start / data / catalog | `src/hpa_mdo/utils/surrogate.py`, `src/hpa_mdo/utils/data_collector.py`, `src/hpa_mdo/structure/optimizer.py`, `scripts/collect_surrogate_data.py`, `tests/test_surrogate.py`, `pyproject.toml` | optional surrogate backend、warm-start wiring、資料收集腳本、測試 | `CURRENT_MAINLINE.md`, `docs/GRAND_BLUEPRINT.md`, 未經明確需求不要改 solver 核心 physics 假設 |
-| `track_f_requested_realizable_outer_loop` | requested-to-realizable 低維外圈 | `scripts/direct_dual_beam_inverse_design_feasibility_sweep.py`, `scripts/dihedral_sweep_campaign.py`, `docs/task_packs/current_parallel_work/**`, `tests/test_inverse_design.py` | 低維 outer-loop score / summary、requested-vs-realizable mismatch evidence、對應測試 | `src/hpa_mdo/hifi/**`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml` |
+| `track_f_requested_realizable_outer_loop` | requested-to-realizable 低維外圈 | `scripts/direct_dual_beam_inverse_design_feasibility_sweep.py`, `scripts/dihedral_sweep_campaign.py`, `docs/task_packs/current_parallel_work/**`, `tests/test_inverse_design.py` | 低維 aero-shape knob -> inverse design -> jig clearance / mass / discrete layup -> realizable mismatch score summary、requested-vs-realizable evidence、對應測試 | `src/hpa_mdo/hifi/**`, `docs/GRAND_BLUEPRINT.md`, `configs/blackcat_004.yaml` |
 
 ## Shared Rules
 
