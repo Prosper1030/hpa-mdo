@@ -34,18 +34,28 @@
 - Track E / G：recipe library、spanwise discrete search、zone rules 已達到 baseline done enough，不需要繼續當 current 主戰場。
 - Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`。
 - Track I / J / K：rib properties foundation、rib bay surrogate、passive rib robustness、zone-wise rib design contract 已全部落地，rib 現在已進入 candidate / winner selection contract，而不只是 report-only。
-- Track L：真實 smoke campaign 已經不再被 parser 卡住，但第一輪單點 replay 仍只得到 `SUSPICIOUS`，還沒有拿到可比較的 rib ranking 訊號。
+- Track L：真實 smoke campaign 已經不再被 parser 卡住，但 Track R 的多 seed replay 顯示 immediate blocker 更像是 explicit wire-truss Newton 收斂，而不是 rib ranking 本身。
 - Track Q：VSPAero `.lod` parser compatibility 與 candidate rerun 主翼 component filter 已修好，rerun-aero 路線已經能真正跑到 summary artifact。
 
 這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先修 rerun-aero 上游 parser blocker，之後再重跑真實 campaign smoke。
 
 ## 3. 下一輪活躍工作軌道
 
+### Track S：explicit wire-truss convergence unblock
+
+這是 **現在最值得先做的主軸**。
+
+- 什麼情況下優先：如果 Track R 多 seed replay 都真正跑到 rerun-aero，但 inner refresh summary 一致卡在 `Explicit wire truss Newton solve did not converge`。
+- 近期目標：
+  - 診斷 explicit wire-truss Newton / line search 為什麼在 candidate rerun 路徑下系統性失敗
+  - 優先修 solver 本身，而不是先調 rib penalty 或再擴 smoke
+  - 補 solver-level regression test，避免之後又回到同樣的收斂失敗
+
 ### Track R：rib campaign multi-seed signal hunt
 
 這是 **Track Q 驗證後的下一波**。
 
-- 什麼情況下優先：如果 rerun-aero 已經能跑通，但第一輪最小 smoke 仍只給出 `1e12 / inf / -inf` 這種 sentinel 結果。
+- 什麼情況下優先：如果 rerun-aero 已經能跑通，而且 explicit wire-truss 收斂問題已被緩解，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
   - 用 `candidate_rerun_vspaero` 跑 `2 到 4` 個較有訊號的代表性 seeds
   - 每個 seed 都比較 `rib_zonewise=off` vs `limited_zonewise`
@@ -54,7 +64,7 @@
 
 ### Track M：rib penalty / surrogate tuning
 
-這是 **Track R 跑完之後的下一波**。
+這是 **Track S / R 跑完之後的下一波**。
 
 - 什麼情況下優先：如果多 seed smoke 顯示 rib-on 確實開始影響 winner，但 ranking 邏輯仍有可疑之處。
 - 近期目標：
@@ -114,7 +124,12 @@
 ### Track L：rib campaign smoke
 
 - 目前狀態：已從 `BLOCKED` 升到 `SUSPICIOUS`。
-- 接下來重點不是停在單點 smoke，而是擴成多 seed 的 Track R，避免太早對 rib ranking 做錯判。
+- 接下來重點不再是直接加更多 smoke，而是先處理 multi-seed replay 暴露出的 explicit wire-truss convergence 問題。
+
+### Track R：multi-seed rib smoke
+
+- 目前狀態：已完成第一輪最小多 seed replay。
+- 接下來重點不是直接進 tuning，而是等待 Track S 把 explicit wire-truss 收斂問題先處理掉，再重跑更有訊號的 replay。
 
 ## 5. 條件式後續軌道
 

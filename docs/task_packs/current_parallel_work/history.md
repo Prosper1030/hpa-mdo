@@ -83,3 +83,11 @@
 - Planning shift:
   - immediate next step is no longer more parser work
   - immediate next step is to run a small multi-seed rerun-aero smoke until at least one non-sentinel `off` vs `limited_zonewise` comparison exists
+- Track R completed:
+  - `track_r_multiseed_rib_smoke_signal_hunt` completed via `f37d2c7`
+  - three seeds / six rerun-aero replays all completed, but every selected-case still collapsed to sentinel infeasible fallback
+- Current wave reset again:
+  - `track_s_explicit_wire_truss_convergence_unblock`
+- Planning shift:
+  - outer sweep labels still say `geometry / discrete boundary`, but the deeper immediate blocker now points to `Explicit wire truss Newton solve did not converge`
+  - immediate next step is to fix explicit wire-truss convergence before rerunning more rib-smoke signal hunts

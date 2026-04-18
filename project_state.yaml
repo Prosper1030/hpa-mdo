@@ -93,12 +93,16 @@ active_tracks:
     goal: "VSPAeroParser and candidate rerun loading now handle the current OpenVSP 3.45.3 .lod/runtime path well enough for real smoke replay."
   track_r:
     name: "rib_multiseed_smoke_signal_hunt"
+    status: "suspicious"
+    goal: "The first multi-seed rerun-aero smoke ran end-to-end, but every seed still collapsed to sentinel infeasible outcomes."
+  track_s:
+    name: "explicit_wire_truss_convergence_unblock"
     status: "next"
-    goal: "Run a small multi-seed rerun-aero smoke so rib_zonewise=off vs limited_zonewise produces at least one non-sentinel comparable selected case."
+    goal: "Diagnose and fix the explicit wire-truss Newton / line-search convergence failure that is now the immediate blocker inside rerun-aero refresh summaries."
   track_m:
     name: "rib_ranking_sanity_tuning"
     status: "queued"
-    goal: "Tune rib penalties or surrogate behavior only if the multi-seed smoke shows suspicious ranking behavior with real signal."
+    goal: "Tune rib penalties or surrogate behavior only if replay after Track S shows suspicious ranking behavior with real signal."
   track_n:
     name: "rib_finalist_spotcheck_handoff"
     status: "queued"
@@ -113,11 +117,13 @@ recently_completed:
   - "Track I / J / K baseline: rib properties, rib bay surrogate, passive robustness compare mode, and zone-wise rib design are now integrated into the candidate contract."
   - "Track Q baseline: VSPAeroParser now handles OpenVSP 3.45.3 .lod schema drift, and candidate rerun loading is limited to the main-wing component for monotonic spanwise loads."
   - "Track L replay: rerun-aero smoke now completes, but the first single-seed replay is still suspicious because both rib modes collapse to sentinel infeasible outcomes."
+  - "Track R replay: three-seed / six-run rerun-aero smoke still produced only sentinel infeasible outcomes, and the deeper inner blocker now points to explicit wire-truss Newton convergence."
 
 next_wave_priorities:
-  - "Track R: run a multi-seed rerun-aero smoke comparing rib_zonewise=off vs limited_zonewise until at least one non-sentinel comparable case is found."
-  - "Track M: only if the multi-seed smoke shows suspicious ranking with real signal, tune rib penalties / family cap / surrogate behavior."
-  - "Track N: if the multi-seed smoke looks sane, do finalist spot-check and handoff packaging for rib-on winners."
+  - "Track S: diagnose and fix explicit wire-truss Newton convergence so rerun-aero refresh summaries stop collapsing to sentinel infeasible outcomes."
+  - "Track R replay: rerun the multi-seed rib smoke after Track S and look for at least one non-sentinel comparable case."
+  - "Track M: only if replay after Track S shows suspicious ranking with real signal, tune rib penalties / family cap / surrogate behavior."
+  - "Track N: if replay after Track S looks sane, do finalist spot-check and handoff packaging for rib-on winners."
 
 benchmark_policy:
   status: "open_basket"

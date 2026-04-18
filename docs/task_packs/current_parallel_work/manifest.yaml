@@ -10,15 +10,17 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_r_multiseed_rib_smoke_signal_hunt"
-    prompt: "prompts/track_r_multiseed_rib_smoke_signal_hunt.md"
-    launch_wave: 11
+  - id: "track_s_explicit_wire_truss_convergence_unblock"
+    prompt: "prompts/track_s_explicit_wire_truss_convergence_unblock.md"
+    launch_wave: 12
     write_scope:
-      - "docs/task_packs/current_parallel_work/reports/rib_campaign_smoke_report.md"
+      - "src/hpa_mdo/structure/dual_beam_mainline/solver.py"
+      - "tests/test_dual_beam_mainline.py"
+      - "tests/test_inverse_design.py"
     expected_artifacts:
-      - "multi-seed rerun-aero smoke report"
-      - "at least one non-sentinel off vs limited_zonewise comparison, if found"
-      - "final verdict: SANE / SUSPICIOUS / BLOCKED"
+      - "explicit wire-truss convergence fix or bounded failure-mode downgrade"
+      - "solver-level regression tests"
+      - "minimal inverse-design regression proving rerun replay no longer dies at the same wire-truss convergence point"
 
 do_not_touch:
   - "README.md"

@@ -1,24 +1,24 @@
-# Rib Smoke Signal-Hunt Agent Launch Plan
+# Explicit Wire-Truss Convergence Agent Launch Plan
 
 > 這份文件是給使用者直接複製貼上用的。  
-> 目的不是解釋整個 repo，而是讓你可以安全地啟動 **Phase 2.7 signal hunt**，把 `candidate_rerun_vspaero` 已解卡的路徑轉成真正有訊號的 rib smoke 比較。
+> 目的不是解釋整個 repo，而是讓你可以安全地啟動 **Phase 2.8 solver unblock**，先把 explicit wire-truss Newton / line-search 收斂問題解掉。
 
 ## 1. 先講結論
 
 現在建議的派工方式是：
 
-- **Wave 11：先開 1 個 multi-seed smoke agent**
+- **Wave 12：先開 1 個 wire-truss convergence agent**
 - **等我驗證這包之後**，再決定是進 tuning 還是 finalist spot-check
 
 原因：
 
 - parser/runtime blocker 已經被解掉
-- 現在真正缺的是一組不是 sentinel fallback 的 `off` vs `limited_zonewise` 比較
-- 這一包應該只跑 smoke / 更新報告，不要和 code patch 或 rib tuning 混在一起
+- Track R 多 seed smoke 已經把 immediate blocker 壓縮到 explicit wire-truss 收斂
+- 這一包應該只修 solver / 測試，不要和 rib tuning 或 finalist review 混在一起
 
-## 2. 現在就可以丟的 Wave 11
+## 2. 現在就可以丟的 Wave 12
 
-### Agent R：multi-seed rib smoke signal hunt
+### Agent S：explicit wire-truss convergence unblock
 
 ```text
 請先閱讀以下文件，先建立上下文，不要自行改主線定義：
@@ -31,7 +31,7 @@
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
 
 接著只執行這份任務：
-/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_r_multiseed_rib_smoke_signal_hunt.md
+/Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/prompts/track_s_explicit_wire_truss_convergence_unblock.md
 
 限制：
 - 只能修改 prompt 指定的 write scope
@@ -44,10 +44,10 @@
 
 如果你現在要開始丟 agent，我建議這樣：
 
-1. 先開 **Agent R**
-2. 等我 review / verify Wave 11 smoke report
+1. 先開 **Agent S**
+2. 等我 review / verify Wave 12 solver patch
 3. 再決定下一步是：
-   - 如果 smoke 還是 `SUSPICIOUS`，進 `Track M`
-   - 如果 smoke 已經 `SANE`，進 `Track N`
+   - 先重跑 `Track R`
+   - 再依結果決定進 `Track M` 或 `Track N`
 
-這樣可以先把真正的 rib ranking 訊號跑出來，不會太早在錯的層上調 penalty 或做 finalist 判斷。
+這樣可以先把真正的 inner solver blocker 拿掉，不會太早在錯的層上調 penalty 或做 finalist 判斷。

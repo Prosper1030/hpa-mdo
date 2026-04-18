@@ -17,15 +17,15 @@
 
 ## What This Pack Covers
 
-這包現在聚焦在 **Phase 2.7 signal hunt：multi-seed rib smoke replay**。
+這包現在聚焦在 **Phase 2.8 solver unblock：explicit wire-truss convergence**。
 
-上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；但第一輪單點 smoke 仍只得到 `SUSPICIOUS`，還沒有產生可比較的 rib ranking 訊號。
+上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；Track R 的多 seed smoke 則把 immediate blocker 再往下縮到 explicit wire-truss Newton / line search 收斂。
 
 目前的主任務是：
 
-- Track R：multi-seed rib smoke signal hunt
+- Track S：explicit wire-truss convergence unblock
 
-這一包的目的不是再修 parser，也不是再擴 rib 模型，而是用 `2 到 4` 個小型但有訊號的 rerun-aero seeds，找出至少一組真正可比較的 `off` vs `limited_zonewise` selected-case。
+這一包的目的不是再跑更多 smoke，也不是直接調 rib penalty，而是先把 inner refresh summary 裡反覆出現的 `Explicit wire truss Newton solve did not converge` 解掉。
 
 ## How To Use This Pack
 
@@ -44,4 +44,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道目前這一波不是再加模型或再修 parser，而是先把真正有訊號的 rib smoke ranking 跑出來。
+- 使用者能清楚知道目前這一波不是再加模型、也不是再修 parser，而是先把 explicit wire-truss 收斂問題解掉，之後再重跑更有訊號的 rib smoke。
