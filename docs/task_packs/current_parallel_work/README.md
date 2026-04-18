@@ -9,9 +9,10 @@
 
 1. [CURRENT_MAINLINE.md](../../../CURRENT_MAINLINE.md)
 2. [project_state.yaml](../../../project_state.yaml)
-3. [docs/README.md](../../README.md)
-4. [docs/NOW_NEXT_BLUEPRINT.md](../../NOW_NEXT_BLUEPRINT.md)
-5. 只讀自己被分派的 prompt 檔
+3. [docs/TARGET_STANDARD_GAP_MAP.md](../../TARGET_STANDARD_GAP_MAP.md)
+4. [docs/README.md](../../README.md)
+5. [docs/NOW_NEXT_BLUEPRINT.md](../../NOW_NEXT_BLUEPRINT.md)
+6. 只讀自己被分派的 prompt 檔
 
 ## What This Pack Covers
 

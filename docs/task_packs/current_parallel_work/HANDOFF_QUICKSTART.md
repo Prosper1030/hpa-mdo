@@ -14,6 +14,7 @@
 請先閱讀以下文件，先建立上下文，不要自行改主線定義：
 /Volumes/Samsung SSD/hpa-mdo/CURRENT_MAINLINE.md
 /Volumes/Samsung SSD/hpa-mdo/project_state.yaml
+/Volumes/Samsung SSD/hpa-mdo/docs/TARGET_STANDARD_GAP_MAP.md
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/README.md
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/TASKS.md
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml
@@ -39,6 +40,7 @@
 請先閱讀以下文件，先建立上下文，不要自行改主線定義：
 /Volumes/Samsung SSD/hpa-mdo/CURRENT_MAINLINE.md
 /Volumes/Samsung SSD/hpa-mdo/project_state.yaml
+/Volumes/Samsung SSD/hpa-mdo/docs/TARGET_STANDARD_GAP_MAP.md
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/README.md
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/TASKS.md
 /Volumes/Samsung SSD/hpa-mdo/docs/task_packs/current_parallel_work/manifest.yaml

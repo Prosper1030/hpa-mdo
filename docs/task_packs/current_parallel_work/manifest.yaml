@@ -3,6 +3,7 @@ updated_at: "2026-04-18"
 canonical_read_order:
   - "CURRENT_MAINLINE.md"
   - "project_state.yaml"
+  - "docs/TARGET_STANDARD_GAP_MAP.md"
   - "docs/README.md"
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
