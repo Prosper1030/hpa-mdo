@@ -83,6 +83,18 @@ class MaterialScalePackage:
     def final_allowable_scale(self) -> float:
         return float(self.allowable_scale) * float(self.buckling_rules.conservative_allowable_knockdown)
 
+    @property
+    def is_candidate_ready(self) -> bool:
+        return self.promotion_state == "candidate_ready"
+
+    @property
+    def recipe_profile(self) -> "PackageRecipeProfile":
+        return classify_package_recipe_profile(self)
+
+    @property
+    def recipe_family(self) -> "RecipeFamily":
+        return self.recipe_profile.family
+
 
 @dataclass(frozen=True)
 class EffectiveMaterialProperties:
@@ -93,9 +105,35 @@ class EffectiveMaterialProperties:
 
 
 @dataclass(frozen=True)
+class RecipeFamily:
+    key: str
+    label: str
+    structural_action: str
+    description: str
+
+
+@dataclass(frozen=True)
+class PackageRecipeProfile:
+    family: RecipeFamily
+    role_key: str
+    role_label: str
+    usage_notes: str
+
+    @property
+    def is_formal_candidate(self) -> bool:
+        return self.role_key == "formal_candidate"
+
+    @property
+    def is_local_only(self) -> bool:
+        return self.role_key == "local_reinforcement_only"
+
+
+@dataclass(frozen=True)
 class ResolvedPackagePropertyRow:
     axis: str
     package: MaterialScalePackage
+    lookup_key: str
+    recipe_profile: PackageRecipeProfile
     base_material_key: str
     base_material_name: str
     effective_properties: EffectiveMaterialProperties
@@ -134,6 +172,178 @@ class MaterialProxyCatalog:
             if package.key == package_key:
                 return package
         raise KeyError(f"Package '{package_key}' not found on axis '{axis_name}'.")
+
+    def packages_for_recipe_family(
+        self,
+        family_key: str,
+        *,
+        role_key: str | None = None,
+        promotion_state: str | None = None,
+    ) -> tuple[MaterialScalePackage, ...]:
+        matches: list[MaterialScalePackage] = []
+        for axis_name in ("main_spar_family", "rear_spar_family", "rear_outboard_reinforcement_pkg"):
+            for package in self.packages_for_axis(axis_name):
+                profile = package.recipe_profile
+                if profile.family.key != family_key:
+                    continue
+                if role_key is not None and profile.role_key != role_key:
+                    continue
+                if promotion_state is not None and package.promotion_state != promotion_state:
+                    continue
+                matches.append(package)
+        return tuple(matches)
+
+
+_RECIPE_FAMILIES: Mapping[str, RecipeFamily] = {
+    "reference_baseline": RecipeFamily(
+        key="reference_baseline",
+        label="Reference baseline",
+        structural_action="baseline_reference",
+        description="Reference package kept for continuity, diffing, and nearby seed comparisons.",
+    ),
+    "bending_dominant": RecipeFamily(
+        key="bending_dominant",
+        label="Bending-dominant",
+        structural_action="axial_bending_efficiency",
+        description="Axial-leaning family that primarily buys bending efficiency and mass reduction.",
+    ),
+    "balanced_torsion": RecipeFamily(
+        key="balanced_torsion",
+        label="Balanced torsion",
+        structural_action="torsion_shear_balance",
+        description="Balanced family that keeps stronger +/-45 or hoop participation for torsion and reserve.",
+    ),
+    "joint_hoop_rich_local": RecipeFamily(
+        key="joint_hoop_rich_local",
+        label="Joint / hoop-rich local",
+        structural_action="local_joint_and_hoop_reserve",
+        description="Local reinforcement family that adds hoop support or sleeve-style reserve near joints/hotspots.",
+    ),
+}
+
+_PACKAGE_RECIPE_PROFILES: Mapping[tuple[str, str], PackageRecipeProfile] = {
+    ("main_spar_family", "main_ref"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["reference_baseline"],
+        role_key="reference_only",
+        role_label="Reference only",
+        usage_notes="Keep as the existing baseline package for diffing and nearby-seed screening.",
+    ),
+    ("main_spar_family", "main_light_ud"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["bending_dominant"],
+        role_key="formal_candidate",
+        role_label="Formal candidate",
+        usage_notes="Primary global candidate when the selector wants a lighter, axial-biased main spar family.",
+    ),
+    ("main_spar_family", "main_balanced_hm"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["balanced_torsion"],
+        role_key="formal_candidate",
+        role_label="Formal candidate",
+        usage_notes="Primary global reserve-side candidate when torsion and local stability matter alongside bending.",
+    ),
+    ("rear_spar_family", "rear_ref"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["reference_baseline"],
+        role_key="reference_only",
+        role_label="Reference only",
+        usage_notes="Keep as the current rear-spar screening anchor, not a formal promotion target.",
+    ),
+    ("rear_spar_family", "rear_balanced_shear"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["balanced_torsion"],
+        role_key="screening_only",
+        role_label="Screening only",
+        usage_notes="Represents a balanced torsion-oriented rear family but remains outside formal promotion in this wave.",
+    ),
+    ("rear_spar_family", "rear_toughened_balance"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["balanced_torsion"],
+        role_key="screening_only",
+        role_label="Screening only",
+        usage_notes="Toughened rear reserve family kept only for limited screening until rear-spar promotion is reopened.",
+    ),
+    ("rear_outboard_reinforcement_pkg", "ob_none"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["reference_baseline"],
+        role_key="reference_only",
+        role_label="Reference only",
+        usage_notes="No added local overlay; preserves the active rear-spar baseline at the outboard segment.",
+    ),
+    ("rear_outboard_reinforcement_pkg", "ob_light_wrap"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["joint_hoop_rich_local"],
+        role_key="local_reinforcement_only",
+        role_label="Local reinforcement only",
+        usage_notes="Local sleeve/wrap option for rear outboard reserve; do not treat as a global family candidate.",
+    ),
+    ("rear_outboard_reinforcement_pkg", "ob_balanced_sleeve"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["joint_hoop_rich_local"],
+        role_key="local_reinforcement_only",
+        role_label="Local reinforcement only",
+        usage_notes="Best first-pass joint / hoop-rich local reinforcement option in the current candidate-ready catalog.",
+    ),
+    ("rear_outboard_reinforcement_pkg", "ob_torsion_patch"): PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["balanced_torsion"],
+        role_key="local_reinforcement_only",
+        role_label="Local reinforcement only",
+        usage_notes="Local torsion hotspot patch; keep it in rear outboard non-joint zones rather than global selection.",
+    ),
+}
+
+
+def _default_recipe_role(package: MaterialScalePackage) -> tuple[str, str]:
+    if package.is_candidate_ready:
+        return ("formal_candidate", "Formal candidate")
+    return ("screening_only", "Screening only")
+
+
+def classify_package_recipe_profile(package: MaterialScalePackage) -> PackageRecipeProfile:
+    explicit = _PACKAGE_RECIPE_PROFILES.get((package.scope, package.key))
+    if explicit is not None:
+        return explicit
+
+    role_key, role_label = _default_recipe_role(package)
+    layup = package.layup_fractions
+    if package.scope == "rear_outboard_reinforcement_pkg":
+        if layup.shear_pm45 >= 0.70:
+            return PackageRecipeProfile(
+                family=_RECIPE_FAMILIES["balanced_torsion"],
+                role_key="local_reinforcement_only",
+                role_label="Local reinforcement only",
+                usage_notes="Fallback classification for local rear-outboard torsion-oriented reinforcement.",
+            )
+        if layup.hoop_90 >= 0.20:
+            return PackageRecipeProfile(
+                family=_RECIPE_FAMILIES["joint_hoop_rich_local"],
+                role_key="local_reinforcement_only",
+                role_label="Local reinforcement only",
+                usage_notes="Fallback classification for local rear-outboard sleeve or hoop-rich reinforcement.",
+            )
+        return PackageRecipeProfile(
+            family=_RECIPE_FAMILIES["reference_baseline"],
+            role_key="reference_only",
+            role_label="Reference only",
+            usage_notes="Fallback classification for the no-overlay local baseline.",
+        )
+
+    if layup.axial_0 >= 0.65:
+        return PackageRecipeProfile(
+            family=_RECIPE_FAMILIES["bending_dominant"],
+            role_key=role_key,
+            role_label=role_label,
+            usage_notes="Fallback classification for an axial-biased global family.",
+        )
+    if layup.shear_pm45 >= 0.45 or layup.hoop_90 >= 0.15:
+        return PackageRecipeProfile(
+            family=_RECIPE_FAMILIES["balanced_torsion"],
+            role_key=role_key,
+            role_label=role_label,
+            usage_notes="Fallback classification for a balanced torsion-oriented family.",
+        )
+    return PackageRecipeProfile(
+        family=_RECIPE_FAMILIES["reference_baseline"],
+        role_key="reference_only",
+        role_label="Reference only",
+        usage_notes="Fallback classification for a baseline/reference family.",
+    )
+
+
+def _package_lookup_key(axis_name: str, package_key: str) -> str:
+    return f"{axis_name}:{package_key}"
 
 
 def _base_strength(material: Material) -> float:
@@ -196,6 +406,8 @@ def resolve_catalog_property_rows(
             ResolvedPackagePropertyRow(
                 axis=axis_name,
                 package=package,
+                lookup_key=_package_lookup_key(axis_name, package.key),
+                recipe_profile=package.recipe_profile,
                 base_material_key=material_key,
                 base_material_name=base_material.name,
                 effective_properties=effective_properties(
@@ -207,6 +419,56 @@ def resolve_catalog_property_rows(
             for package in catalog.packages_for_axis(axis_name)
         )
     return resolved
+
+
+def resolve_catalog_lookup_rows(
+    *,
+    catalog: MaterialProxyCatalog,
+    materials_db: MaterialDB,
+    axis_base_material_keys: Mapping[str, str] | None = None,
+    safety_factor: float,
+    axis_name: str | None = None,
+    family_key: str | None = None,
+    role_key: str | None = None,
+    promotion_state: str | None = None,
+) -> tuple[ResolvedPackagePropertyRow, ...]:
+    resolved = resolve_catalog_property_rows(
+        catalog=catalog,
+        materials_db=materials_db,
+        axis_base_material_keys=axis_base_material_keys,
+        safety_factor=safety_factor,
+    )
+    rows: list[ResolvedPackagePropertyRow] = []
+    for current_axis, axis_rows in resolved.items():
+        if axis_name is not None and current_axis != axis_name:
+            continue
+        for row in axis_rows:
+            if family_key is not None and row.recipe_profile.family.key != family_key:
+                continue
+            if role_key is not None and row.recipe_profile.role_key != role_key:
+                continue
+            if promotion_state is not None and row.package.promotion_state != promotion_state:
+                continue
+            rows.append(row)
+    return tuple(rows)
+
+
+def build_catalog_lookup_index(
+    *,
+    catalog: MaterialProxyCatalog,
+    materials_db: MaterialDB,
+    axis_base_material_keys: Mapping[str, str] | None = None,
+    safety_factor: float,
+) -> dict[str, ResolvedPackagePropertyRow]:
+    return {
+        row.lookup_key: row
+        for row in resolve_catalog_lookup_rows(
+            catalog=catalog,
+            materials_db=materials_db,
+            axis_base_material_keys=axis_base_material_keys,
+            safety_factor=safety_factor,
+        )
+    }
 
 
 def build_default_material_proxy_catalog(path: Path | None = None) -> MaterialProxyCatalog:
@@ -305,15 +567,20 @@ def build_default_material_proxy_catalog(path: Path | None = None) -> MaterialPr
 
 __all__ = [
     "AxisMetadata",
+    "build_catalog_lookup_index",
     "EffectiveMaterialProperties",
     "LayupFractions",
     "MaterialProxyCatalog",
     "MaterialScalePackage",
     "PackageBucklingRules",
     "PackagePropertySources",
+    "PackageRecipeProfile",
+    "RecipeFamily",
     "ResolvedPackagePropertyRow",
     "build_default_material_proxy_catalog",
+    "classify_package_recipe_profile",
     "effective_properties",
     "register_package_material",
+    "resolve_catalog_lookup_rows",
     "resolve_catalog_property_rows",
 ]

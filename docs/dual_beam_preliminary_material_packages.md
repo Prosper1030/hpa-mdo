@@ -137,3 +137,52 @@
 - full geometry x material 笛卡兒爆炸搜尋
 - full laminate optimization
 - rear_spar_family 正式升格
+
+## 正式 recipe family foundation
+
+這份 catalog 現在不只是在列 package，也明確把 package 對齊到功能型 recipe family。
+
+正式 family key 如下：
+
+| family key | 定義 | 目前代表 package | 目前定位 |
+| --- | --- | --- | --- |
+| `bending_dominant` | 以 0°/軸向效率為主，優先買 bending efficiency / mass | `main_light_ud` | 正式 global candidate |
+| `balanced_torsion` | 保留較強 +/-45 與 hoop 參與，優先買 torsion / reserve | `main_balanced_hm`, `rear_balanced_shear`, `rear_toughened_balance`, `ob_torsion_patch` | `main_balanced_hm` 是正式 global candidate；rear family 仍是 screening-only；`ob_torsion_patch` 是 local-only |
+| `joint_hoop_rich_local` | 以 sleeve / hoop-rich local reserve 為主，服務 joint / local hotspot | `ob_light_wrap`, `ob_balanced_sleeve` | 正式 local/joint 用途，不是 global family candidate |
+| `reference_baseline` | 基準/對照 package | `main_ref`, `rear_ref`, `ob_none` | reference only |
+
+這個分類的目的不是現在就做 full selector，而是先讓 catalog 層能清楚回答：
+
+- 這個 package 是哪一類 recipe？
+- 它是正式 candidate、screening-only，還是 local/joint only？
+- 後續 selector / outer loop 在 lookup 時，應該把它放在哪個角色上理解？
+
+## Property-row / lookup contract
+
+catalog API 現在有兩層向後相容 contract：
+
+1. `resolve_catalog_property_rows(...)`
+   維持原本 axis -> rows 的回傳形式，但每個 row 現在都會帶：
+   - `lookup_key`：穩定鍵，格式為 `axis:package_key`
+   - `recipe_profile.family.key`
+   - `recipe_profile.role_key`
+
+2. `resolve_catalog_lookup_rows(...)` / `build_catalog_lookup_index(...)`
+   提供扁平化 lookup 介面，方便後續 selector / report / outer-loop 直接用 stable key 或 recipe family 篩選。
+
+目前 `role_key` 的工程意義：
+
+- `formal_candidate`
+  代表可以當成正式全域候選，接到後續 selector / outer-loop candidate comparison。
+- `screening_only`
+  代表可留在小範圍 screening 或研究比較，但不是本波正式 promotion 對象。
+- `local_reinforcement_only`
+  代表只能當 local / joint / hotspot reinforcement，不能被誤當成 global family。
+- `reference_only`
+  代表是 baseline / no-overlay / continuity 用的對照鍵。
+
+這個 contract 的重點是：
+
+- 不需要先動 `discrete_layup.py`，就能先把 recipe library 的語意固定下來。
+- 後續如果要做 property-based selector，可以直接用 `family.key` + `role_key` 決定哪些 package 進候選池。
+- local sleeve / patch 不會再和 global family 混成同一種抽象材料軸。

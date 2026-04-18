@@ -10,7 +10,9 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hpa_mdo.core.materials import MaterialDB  # noqa: E402
 from hpa_mdo.structure.material_proxy_catalog import (  # noqa: E402
+    build_catalog_lookup_index,
     build_default_material_proxy_catalog,
+    resolve_catalog_lookup_rows,
     resolve_catalog_property_rows,
 )
 
@@ -53,6 +55,31 @@ def test_catalog_exposes_buckling_aware_rules_on_promoted_packages() -> None:
     assert torsion_patch.buckling_rules.forbid_outer_pure_axial is True
 
 
+def test_catalog_groups_packages_into_functional_recipe_families() -> None:
+    catalog, _ = _resolved_catalog()
+
+    assert [pkg.key for pkg in catalog.packages_for_recipe_family("bending_dominant")] == [
+        "main_light_ud",
+    ]
+    assert [pkg.key for pkg in catalog.packages_for_recipe_family("balanced_torsion")] == [
+        "main_balanced_hm",
+        "rear_balanced_shear",
+        "rear_toughened_balance",
+        "ob_torsion_patch",
+    ]
+    assert [pkg.key for pkg in catalog.packages_for_recipe_family("joint_hoop_rich_local")] == [
+        "ob_light_wrap",
+        "ob_balanced_sleeve",
+    ]
+    assert [
+        pkg.key
+        for pkg in catalog.packages_for_recipe_family(
+            "balanced_torsion",
+            promotion_state="candidate_ready",
+        )
+    ] == ["main_balanced_hm", "ob_torsion_patch"]
+
+
 def test_resolved_property_rows_match_phase31_preliminary_values() -> None:
     _, resolved = _resolved_catalog()
 
@@ -74,3 +101,43 @@ def test_resolved_property_rows_match_phase31_preliminary_values() -> None:
     assert balanced_sleeve.effective_properties.G_eff_pa == pytest.approx(18.6e9)
     assert balanced_sleeve.effective_properties.density_eff_kgpm3 == pytest.approx(1728.0)
     assert balanced_sleeve.effective_properties.allowable_eff_pa == pytest.approx(1017.6e6)
+
+
+def test_lookup_contract_flattens_recipe_profile_and_stable_lookup_keys() -> None:
+    catalog, _ = _resolved_catalog()
+    materials_db = MaterialDB(REPO_ROOT / "data" / "materials.yaml")
+
+    lookup_index = build_catalog_lookup_index(
+        catalog=catalog,
+        materials_db=materials_db,
+        safety_factor=1.5,
+    )
+    lookup_rows = resolve_catalog_lookup_rows(
+        catalog=catalog,
+        materials_db=materials_db,
+        safety_factor=1.5,
+        family_key="joint_hoop_rich_local",
+    )
+
+    main_light_ud = lookup_index["main_spar_family:main_light_ud"]
+    balanced_sleeve = lookup_index["rear_outboard_reinforcement_pkg:ob_balanced_sleeve"]
+    torsion_patch = lookup_index["rear_outboard_reinforcement_pkg:ob_torsion_patch"]
+
+    assert main_light_ud.recipe_profile.family.key == "bending_dominant"
+    assert main_light_ud.recipe_profile.role_key == "formal_candidate"
+    assert main_light_ud.recipe_profile.is_formal_candidate is True
+    assert main_light_ud.package.is_candidate_ready is True
+
+    assert balanced_sleeve.recipe_profile.family.key == "joint_hoop_rich_local"
+    assert balanced_sleeve.recipe_profile.role_key == "local_reinforcement_only"
+    assert balanced_sleeve.recipe_profile.is_local_only is True
+    assert balanced_sleeve.base_material_key == "carbon_fiber_hm"
+
+    assert torsion_patch.recipe_profile.family.key == "balanced_torsion"
+    assert torsion_patch.recipe_profile.role_key == "local_reinforcement_only"
+    assert torsion_patch.lookup_key == "rear_outboard_reinforcement_pkg:ob_torsion_patch"
+
+    assert [row.lookup_key for row in lookup_rows] == [
+        "rear_outboard_reinforcement_pkg:ob_light_wrap",
+        "rear_outboard_reinforcement_pkg:ob_balanced_sleeve",
+    ]
