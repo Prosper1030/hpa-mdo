@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import logging
+import math
 from typing import Sequence
 
 from hpa_mdo.core.config import SparConfig
@@ -27,6 +28,22 @@ from hpa_mdo.utils.discrete_spanwise_search import search_spanwise_discrete_stac
 
 LOGGER = logging.getLogger(__name__)
 _FLOAT_TOL = 1.0e-12
+_LEGACY_GLOBAL_FLOOR_M = 0.8e-3
+_ZONE_RULE_MIN_SEGMENTS = 5
+
+
+@dataclass(frozen=True)
+class SegmentZoneRule:
+    """Applied zone-dependent layup rule for one spanwise segment."""
+
+    zone_key: str
+    zone_label: str
+    span_fraction_start: float
+    span_fraction_end: float
+    min_wall_thickness_m: float
+    max_half_layup_ply_step: int
+    reinforcement_requirement: str
+    termination_requirement: str
 
 
 @dataclass(frozen=True)
@@ -62,12 +79,14 @@ class SegmentLayupResult:
     y_start_m: float
     y_end_m: float
     target_thickness_m: float
+    reference_target_thickness_m: float
     outer_radius_m: float
     stack: PlyStack
     equivalent_properties: TubeEquivalentProperties
     continuous_mass_full_wing_kg: float
     discrete_mass_full_wing_kg: float
     catalog_capped: bool
+    zone_rule: SegmentZoneRule | None = None
     strain_envelope: SegmentStrainEnvelope | None = None
     tsai_wu_summary: SegmentTsaiWuSummary | None = None
 
@@ -164,24 +183,48 @@ def discretize_layup_per_segment(
     ordered = sorted(
         stacks, key=lambda stack: (stack.wall_thickness(ply_mat.t_ply), _stack_sort_key(stack))
     )
+    zone_rules = _resolve_zone_rules(segment_lengths_m)
+    effective_targets = _resolve_zone_effective_targets(
+        continuous_thicknesses=continuous_thicknesses,
+        zone_rules=zone_rules,
+    )
+    search_ply_drop_limit = _resolve_search_ply_drop_limit(
+        base_ply_drop_limit=ply_drop_limit,
+        zone_rules=zone_rules,
+    )
     mode = _normalize_selection_mode(selection_mode)
     if mode == "local":
-        return _discretize_layup_local_round_up(
-            continuous_thicknesses=continuous_thicknesses,
+        selected = _discretize_layup_local_round_up(
+            continuous_thicknesses=effective_targets,
             stacks=ordered,
             ply_mat=ply_mat,
-            ply_drop_limit=ply_drop_limit,
+            ply_drop_limit=search_ply_drop_limit,
+        )
+        return _apply_zone_dependent_selection_rules(
+            selected_stacks=selected,
+            effective_targets=effective_targets,
+            zone_rules=zone_rules,
+            stacks=ordered,
+            ply_mat=ply_mat,
+            default_ply_drop_limit=ply_drop_limit,
         )
 
     search_result = search_spanwise_discrete_stacks(
-        continuous_thicknesses_m=continuous_thicknesses,
+        continuous_thicknesses_m=effective_targets,
         outer_radii_m=R_outer_per_seg,
         segment_lengths_m=segment_lengths_m,
         stacks=ordered,
         ply_mat=ply_mat,
-        ply_drop_limit=ply_drop_limit,
+        ply_drop_limit=search_ply_drop_limit,
     )
-    return list(search_result.selected_stacks)
+    return _apply_zone_dependent_selection_rules(
+        selected_stacks=search_result.selected_stacks,
+        effective_targets=effective_targets,
+        zone_rules=zone_rules,
+        stacks=ordered,
+        ply_mat=ply_mat,
+        default_ply_drop_limit=ply_drop_limit,
+    )
 
 
 def _normalize_selection_mode(selection_mode: str) -> str:
@@ -245,6 +288,224 @@ def _discretize_layup_local_round_up(
         selected.append(stack)
 
     return selected
+
+
+def _resolve_zone_rules(
+    segment_lengths_m: Sequence[float] | None,
+) -> tuple[SegmentZoneRule, ...] | None:
+    if segment_lengths_m is None or len(segment_lengths_m) < _ZONE_RULE_MIN_SEGMENTS:
+        return None
+
+    total_span_m = sum(float(length) for length in segment_lengths_m)
+    if total_span_m <= _FLOAT_TOL:
+        return None
+
+    rules: list[SegmentZoneRule] = []
+    y_start = 0.0
+    for length_m in segment_lengths_m:
+        length = float(length_m)
+        y_end = y_start + length
+        center_fraction = ((y_start + y_end) * 0.5) / total_span_m
+        start_fraction = y_start / total_span_m
+        end_fraction = y_end / total_span_m
+        if center_fraction <= 0.20:
+            rules.append(
+                SegmentZoneRule(
+                    zone_key="root_zone",
+                    zone_label="Root zone",
+                    span_fraction_start=start_fraction,
+                    span_fraction_end=end_fraction,
+                    min_wall_thickness_m=1.00e-3,
+                    max_half_layup_ply_step=1,
+                    reinforcement_requirement=(
+                        "Keep bearing/handling reserve around the root fixture region."
+                    ),
+                    termination_requirement="Do not use aggressive ply terminations in the root zone.",
+                )
+            )
+        elif center_fraction <= 0.60:
+            rules.append(
+                SegmentZoneRule(
+                    zone_key="joint_zone",
+                    zone_label="Joint zone",
+                    span_fraction_start=start_fraction,
+                    span_fraction_end=end_fraction,
+                    min_wall_thickness_m=1.00e-3,
+                    max_half_layup_ply_step=1,
+                    reinforcement_requirement=(
+                        "Assume local sleeve/doubler continuity through splice or joint hardware."
+                    ),
+                    termination_requirement="Keep ply-drop transitions conservative across the joint band.",
+                )
+            )
+        else:
+            rules.append(
+                SegmentZoneRule(
+                    zone_key="clean_outboard_span",
+                    zone_label="Clean outboard span",
+                    span_fraction_start=start_fraction,
+                    span_fraction_end=end_fraction,
+                    min_wall_thickness_m=0.75e-3,
+                    max_half_layup_ply_step=2,
+                    reinforcement_requirement=(
+                        "Allow thinner outboard sections only with local sleeve-wrap/doubler support."
+                    ),
+                    termination_requirement=(
+                        "Aggressive thinning requires a supported termination rule, not a bare cut-off."
+                    ),
+                )
+            )
+        y_start = y_end
+    return tuple(rules)
+
+
+def _resolve_zone_effective_targets(
+    *,
+    continuous_thicknesses: Sequence[float],
+    zone_rules: Sequence[SegmentZoneRule] | None,
+) -> list[float]:
+    if zone_rules is None:
+        return [float(value) for value in continuous_thicknesses]
+
+    effective_targets: list[float] = []
+    for target_thickness_m, rule in zip(continuous_thicknesses, zone_rules, strict=True):
+        target = float(target_thickness_m)
+        zone_floor = float(rule.min_wall_thickness_m)
+        if target + _FLOAT_TOL < zone_floor:
+            effective_targets.append(zone_floor)
+            continue
+        if zone_floor + _FLOAT_TOL < target <= _LEGACY_GLOBAL_FLOOR_M + _FLOAT_TOL:
+            effective_targets.append(zone_floor)
+            continue
+        effective_targets.append(target)
+    return effective_targets
+
+
+def _resolve_search_ply_drop_limit(
+    *,
+    base_ply_drop_limit: int,
+    zone_rules: Sequence[SegmentZoneRule] | None,
+) -> int:
+    if zone_rules is None:
+        return int(base_ply_drop_limit)
+    return max(
+        int(base_ply_drop_limit),
+        max(int(rule.max_half_layup_ply_step) for rule in zone_rules),
+    )
+
+
+def _apply_zone_dependent_selection_rules(
+    *,
+    selected_stacks: Sequence[PlyStack],
+    effective_targets: Sequence[float],
+    zone_rules: Sequence[SegmentZoneRule] | None,
+    stacks: Sequence[PlyStack],
+    ply_mat: PlyMaterial,
+    default_ply_drop_limit: int,
+) -> list[PlyStack]:
+    if zone_rules is None:
+        return list(selected_stacks)
+
+    adjusted: list[PlyStack] = []
+    previous_rule: SegmentZoneRule | None = None
+    for idx, (selected_stack, target_thickness_m, rule) in enumerate(
+        zip(selected_stacks, effective_targets, zone_rules, strict=True)
+    ):
+        min_half_count = _zone_min_half_layup_count(rule, ply_mat)
+        max_half_count: int | None = None
+        if idx > 0:
+            transition_limit = _transition_half_ply_limit(
+                previous_rule=previous_rule,
+                current_rule=rule,
+                default_limit=default_ply_drop_limit,
+            )
+            previous_half_count = _half_layup_ply_count(adjusted[-1])
+            min_half_count = max(min_half_count, previous_half_count - transition_limit)
+            max_half_count = previous_half_count + transition_limit
+        candidate = _select_stack_with_half_count_bounds(
+            target_thickness_m=float(target_thickness_m),
+            stacks=stacks,
+            ply_mat=ply_mat,
+            min_half_count=min_half_count,
+            max_half_count=max_half_count,
+            fallback=selected_stack,
+        )
+        adjusted.append(candidate)
+        previous_rule = rule
+    return adjusted
+
+
+def _zone_min_half_layup_count(rule: SegmentZoneRule, ply_mat: PlyMaterial) -> int:
+    return _zone_min_half_layup_count_from_ply_thickness(
+        rule=rule,
+        ply_thickness_m=float(ply_mat.t_ply),
+    )
+
+
+def _zone_min_half_layup_count_from_ply_thickness(
+    *,
+    rule: SegmentZoneRule,
+    ply_thickness_m: float,
+) -> int:
+    thickness_per_half_layup = 2.0 * float(ply_thickness_m)
+    return max(1, int(math.ceil(float(rule.min_wall_thickness_m) / thickness_per_half_layup)))
+
+
+def _segment_ply_thickness_m(result: SegmentLayupResult) -> float:
+    total_plies = max(int(result.stack.total_plies()), 1)
+    return float(result.equivalent_properties.wall_thickness) / float(total_plies)
+
+
+def _transition_half_ply_limit(
+    *,
+    previous_rule: SegmentZoneRule | None,
+    current_rule: SegmentZoneRule | None,
+    default_limit: int,
+) -> int:
+    if previous_rule is None and current_rule is None:
+        return int(default_limit)
+    previous_limit = (
+        int(default_limit)
+        if previous_rule is None
+        else int(previous_rule.max_half_layup_ply_step)
+    )
+    current_limit = (
+        int(default_limit)
+        if current_rule is None
+        else int(current_rule.max_half_layup_ply_step)
+    )
+    return min(previous_limit, current_limit)
+
+
+def _select_stack_with_half_count_bounds(
+    *,
+    target_thickness_m: float,
+    stacks: Sequence[PlyStack],
+    ply_mat: PlyMaterial,
+    min_half_count: int,
+    max_half_count: int | None,
+    fallback: PlyStack,
+) -> PlyStack:
+    eligible = [
+        stack
+        for stack in stacks
+        if _half_layup_ply_count(stack) >= int(min_half_count)
+        and (max_half_count is None or _half_layup_ply_count(stack) <= int(max_half_count))
+    ]
+    if not eligible:
+        LOGGER.warning(
+            "No layup stack satisfies the zone-dependent half-layup bounds [%d, %s]; "
+            "falling back to the nearest available stack.",
+            int(min_half_count),
+            "*" if max_half_count is None else str(int(max_half_count)),
+        )
+        return fallback
+
+    for stack in eligible:
+        if stack.wall_thickness(ply_mat.t_ply) >= float(target_thickness_m) - _FLOAT_TOL:
+            return stack
+
+    return eligible[-1]
 
 
 def summarize_segment_tsai_wu(
@@ -387,6 +648,11 @@ def build_segment_layup_results(
     if strain_envelopes is not None and len(strain_envelopes) != len(segment_lengths_m):
         raise ValueError("strain_envelopes must match the segment count when provided.")
 
+    zone_rules = _resolve_zone_rules(segment_lengths_m)
+    effective_targets = _resolve_zone_effective_targets(
+        continuous_thicknesses=continuous_thicknesses_m,
+        zone_rules=zone_rules,
+    )
     selected = discretize_layup_per_segment(
         continuous_thicknesses=continuous_thicknesses_m,
         R_outer_per_seg=outer_radii_m,
@@ -398,8 +664,21 @@ def build_segment_layup_results(
     )
     results: list[SegmentLayupResult] = []
     y_start = 0.0
-    for idx, (length_m, target_t_m, outer_r_m, stack) in enumerate(
-        zip(segment_lengths_m, continuous_thicknesses_m, outer_radii_m, selected, strict=True),
+    result_zone_rules: Sequence[SegmentZoneRule | None]
+    if zone_rules is None:
+        result_zone_rules = tuple(None for _ in segment_lengths_m)
+    else:
+        result_zone_rules = zone_rules
+    for idx, (length_m, reference_t_m, effective_t_m, outer_r_m, stack, zone_rule) in enumerate(
+        zip(
+            segment_lengths_m,
+            continuous_thicknesses_m,
+            effective_targets,
+            outer_radii_m,
+            selected,
+            result_zone_rules,
+            strict=True,
+        ),
         start=1,
     ):
         y_end = y_start + float(length_m)
@@ -407,7 +686,7 @@ def build_segment_layup_results(
         continuous_mass = _segment_full_wing_mass(
             segment_length_m=float(length_m),
             outer_radius_m=float(outer_r_m),
-            wall_thickness_m=float(target_t_m),
+            wall_thickness_m=float(reference_t_m),
             density_kgpm3=ply_mat.density,
         )
         discrete_mass = _segment_full_wing_mass(
@@ -451,13 +730,15 @@ def build_segment_layup_results(
                 segment_index=idx,
                 y_start_m=y_start,
                 y_end_m=y_end,
-                target_thickness_m=float(target_t_m),
+                target_thickness_m=float(effective_t_m),
+                reference_target_thickness_m=float(reference_t_m),
                 outer_radius_m=float(outer_r_m),
                 stack=stack,
                 equivalent_properties=equiv,
                 continuous_mass_full_wing_kg=continuous_mass,
                 discrete_mass_full_wing_kg=discrete_mass,
-                catalog_capped=equiv.wall_thickness + _FLOAT_TOL < float(target_t_m),
+                catalog_capped=equiv.wall_thickness + _FLOAT_TOL < float(effective_t_m),
+                zone_rule=zone_rule,
                 strain_envelope=strain_envelope,
                 tsai_wu_summary=tsai_wu_summary,
             )
@@ -493,10 +774,27 @@ def format_layup_report(
             f"E_eff={result.equivalent_properties.E_axial / 1.0e9:.1f} GPa, "
             f"G_eff={result.equivalent_properties.G_shear / 1.0e9:.1f} GPa"
         )
-        lines.append(
+        target_line = (
             f"  target={result.target_thickness_m * 1000.0:.3f} mm, "
             f"mass_penalty={result.mass_penalty_full_wing_kg:+.3f} kg/full wing"
         )
+        if abs(result.reference_target_thickness_m - result.target_thickness_m) > _FLOAT_TOL:
+            target_line += (
+                f", reference_input={result.reference_target_thickness_m * 1000.0:.3f} mm"
+            )
+        lines.append(target_line)
+        if result.zone_rule is not None:
+            lines.append(
+                "  zone="
+                f"{result.zone_rule.zone_key}, "
+                f"floor={result.zone_rule.min_wall_thickness_m * 1000.0:.3f} mm, "
+                f"max_half_step={result.zone_rule.max_half_layup_ply_step}"
+            )
+            lines.append(
+                "  zone assumptions: "
+                f"{result.zone_rule.reinforcement_requirement} "
+                f"{result.zone_rule.termination_requirement}"
+            )
         if result.tsai_wu_summary is not None:
             summary = result.tsai_wu_summary
             if result.strain_envelope is not None:
@@ -527,9 +825,12 @@ def format_layup_report(
                 "Manufacturing gates:",
                 f"  status={status}",
                 (
-                    "  half-layup ply step margin="
-                    f"{gate['ply_count_step_margin_min']:+.3f} "
-                    f"(limit={gate['max_half_layup_ply_step']})"
+                    "  zone-aware half-layup ply step margin="
+                    f"{gate['zone_ply_count_step_margin_min']:+.3f}"
+                ),
+                (
+                    "  zone floor margin="
+                    f"{gate['zone_min_half_layup_floor_margin_min']:+.3f}"
                 ),
                 (
                     "  run length margin="
@@ -565,6 +866,7 @@ def summarize_layup_results(
                 "y_start_m": result.y_start_m,
                 "y_end_m": result.y_end_m,
                 "target_thickness_m": result.target_thickness_m,
+                "reference_target_thickness_m": result.reference_target_thickness_m,
                 "outer_radius_m": result.outer_radius_m,
                 "stack": asdict(result.stack),
                 "stack_notation": result.stack_notation,
@@ -573,6 +875,7 @@ def summarize_layup_results(
                 "discrete_mass_full_wing_kg": result.discrete_mass_full_wing_kg,
                 "mass_penalty_full_wing_kg": result.mass_penalty_full_wing_kg,
                 "catalog_capped": result.catalog_capped,
+                "zone_rule": (None if result.zone_rule is None else asdict(result.zone_rule)),
                 "strain_envelope": (
                     None if result.strain_envelope is None else asdict(result.strain_envelope)
                 ),
@@ -744,13 +1047,52 @@ def manufacturing_gate_summary(
         float(result.y_end_m) - float(result.y_start_m)
         for result in segments_stacks
     ]
-    step_margin = ply_count_step_margin_min(counts, int(ply_drop_limit))
+    legacy_step_margin = ply_count_step_margin_min(counts, int(ply_drop_limit))
+    zone_rules = [result.zone_rule for result in segments_stacks]
+    zone_transition_limits = [
+        _transition_half_ply_limit(
+            previous_rule=zone_rules[idx - 1],
+            current_rule=zone_rules[idx],
+            default_limit=ply_drop_limit,
+        )
+        for idx in range(1, len(zone_rules))
+    ]
+    if zone_transition_limits:
+        zone_step_margins = [
+            float(limit - abs(counts[idx] - counts[idx - 1]))
+            for idx, limit in enumerate(zone_transition_limits, start=1)
+        ]
+        zone_step_margin = min(zone_step_margins)
+    else:
+        zone_step_margin = float("inf")
+    zone_floor_counts = [
+        (
+            0
+            if rule is None
+            else _zone_min_half_layup_count_from_ply_thickness(
+                rule=rule,
+                ply_thickness_m=_segment_ply_thickness_m(result),
+            )
+        )
+        for result, rule in zip(segments_stacks, zone_rules, strict=True)
+    ]
+    zone_floor_margins = [
+        float(count - min_count)
+        for count, min_count in zip(counts, zone_floor_counts, strict=True)
+    ]
+    zone_floor_margin = min(zone_floor_margins) if zone_floor_margins else float("inf")
     run_margin = ply_run_length_margin_min(counts, lengths, float(min_run_length_m))
-    passed = step_margin >= -1.0e-9 and run_margin >= -1.0e-9
+    passed = zone_step_margin >= -1.0e-9 and zone_floor_margin >= -1.0e-9 and run_margin >= -1.0e-9
     return {
         "passed": bool(passed),
         "max_half_layup_ply_step": int(ply_drop_limit),
-        "ply_count_step_margin_min": float(step_margin),
+        "ply_count_step_margin_min": float(zone_step_margin),
+        "legacy_ply_count_step_margin_min": float(legacy_step_margin),
+        "zone_ply_count_step_margin_min": float(zone_step_margin),
+        "zone_transition_limits_half_layup_plies": zone_transition_limits,
+        "zone_min_half_layup_ply_counts": zone_floor_counts,
+        "zone_min_half_layup_floor_margin_min": float(zone_floor_margin),
+        "zone_rules": [None if rule is None else asdict(rule) for rule in zone_rules],
         "min_run_length_m": float(min_run_length_m),
         "run_length_margin_min_m": float(run_margin),
         "half_layup_ply_counts": counts,

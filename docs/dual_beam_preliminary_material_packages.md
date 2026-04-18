@@ -98,6 +98,25 @@
    `main_spar_family` / `rear_spar_family` 仍可走 `full_global` equivalent + production。
    `rear_outboard_reinforcement_pkg` 明確標記為 `production_local_only`，避免把 local sleeve 的好處過早灌進 equivalent gate。
 
+## Track I：Zone-dependent floor / ply-drop rules
+
+Track I 現在正式把 discrete layup 的 manufacturing rule 從全翼一刀切，改成 zone-aware 的三段式假設：
+
+| zone | spanwise intent | floor | max half-layup ply step | 對應假設 |
+| --- | --- | ---: | ---: | --- |
+| `root_zone` | root fixture / bearing / handling-sensitive band | `1.00 mm` | `1` | 不允許 aggressive ply termination，保留 root hardware / handling reserve |
+| `joint_zone` | splice / joint conservative band | `1.00 mm` | `1` | 假設有 local sleeve / doubler continuity，drop transition 仍保守 |
+| `clean_outboard_span` | 非 joint 的乾淨外翼段 | `0.75 mm` | `2` | 只有在有 sleeve-wrap / local doubler termination 支撐時，才允許更 aggressive thinning |
+
+目前這一層的工程意義是：
+
+- 不再把 `0.8 mm + drop=1` 當成全翼唯一規則。
+- root / joint 仍然保守，不把結構與裝配敏感區一起放鬆。
+- clean outboard span 可以脫離 `8-ply / 1.0 mm` lock，但放鬆不是無條件的，而是綁定 termination / local reinforcement 假設。
+
+這一版仍是 heuristic zone policy，不是假裝已經完成 coupon / joint / local buckling validation。
+它的角色是先讓 discrete layup search 更接近工程現實，並把假設顯式寫進 schedule summary / report。
+
 ## 哪些值仍是 provisional
 
 目前最明確仍屬 provisional 的，不是 package 名稱本身，而是下列數值映射：

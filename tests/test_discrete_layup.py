@@ -145,6 +145,57 @@ def test_build_segment_layup_results_spanwise_dp_passes_manufacturing_gate(ply_m
     assert gate["passed"] is True
 
 
+def test_build_segment_layup_results_applies_zone_dependent_floor_relaxation(ply_mat) -> None:
+    stacks = [
+        PlyStack(n_0=1, n_45=1, n_90=0),  # 6 plies
+        PlyStack(n_0=2, n_45=1, n_90=0),  # 8 plies
+        PlyStack(n_0=3, n_45=1, n_90=0),  # 10 plies
+    ]
+
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        continuous_thicknesses_m=[0.90e-3, 0.90e-3, 0.80e-3, 0.80e-3, 0.80e-3, 0.80e-3],
+        outer_radii_m=[0.03, 0.03, 0.03, 0.03, 0.03, 0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+    )
+
+    assert [result.stack.total_plies() for result in results] == [8, 8, 8, 8, 6, 6]
+    assert results[0].zone_rule is not None
+    assert results[0].zone_rule.zone_key == "root_zone"
+    assert results[4].zone_rule is not None
+    assert results[4].zone_rule.zone_key == "clean_outboard_span"
+    assert results[4].target_thickness_m == pytest.approx(0.75e-3)
+    assert results[4].reference_target_thickness_m == pytest.approx(0.80e-3)
+
+
+def test_manufacturing_gate_summary_accepts_outboard_drop_two_with_zone_rules(ply_mat) -> None:
+    stacks = [
+        PlyStack(n_0=1, n_45=1, n_90=0),  # 6 plies
+        PlyStack(n_0=2, n_45=1, n_90=0),  # 8 plies
+        PlyStack(n_0=3, n_45=1, n_90=0),  # 10 plies
+    ]
+
+    results = build_segment_layup_results(
+        segment_lengths_m=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        continuous_thicknesses_m=[1.00e-3, 1.00e-3, 1.00e-3, 1.00e-3, 1.25e-3, 0.80e-3],
+        outer_radii_m=[0.03, 0.03, 0.03, 0.03, 0.03, 0.03],
+        stacks=stacks,
+        ply_mat=ply_mat,
+        ply_drop_limit=1,
+    )
+
+    gate = manufacturing_gate_summary(results, ply_drop_limit=1, min_run_length_m=0.0)
+
+    assert [result.stack.total_plies() for result in results] == [8, 8, 8, 8, 10, 6]
+    assert gate["passed"] is True
+    assert gate["legacy_ply_count_step_margin_min"] == pytest.approx(-1.0)
+    assert gate["zone_ply_count_step_margin_min"] == pytest.approx(0.0)
+    assert gate["zone_transition_limits_half_layup_plies"] == [1, 1, 1, 1, 2]
+    assert gate["zone_min_half_layup_ply_counts"] == [4, 4, 4, 4, 3, 3]
+
+
 def test_effective_layup_thickness_step_limit_tightens_to_one_half_layup_step(
     cfg,
     ply_mat,
