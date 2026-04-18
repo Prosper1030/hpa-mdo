@@ -141,37 +141,115 @@ class VSPAeroParser(AeroParser):
         header = blocks[0] if blocks else ""
         return header, blocks
 
+    # Reference-scalar lines look like `Sref_ 35.175 Lunit^2`. The key must
+    # start with a letter so that numeric data rows (e.g. `5  1  1  0.68 ...`)
+    # are not mistaken for reference scalars.
+    _REF_SCALAR_RE = re.compile(r"([A-Za-z][\w]*_?)\s+([-\d.]+)")
+
+    # Legacy 16-column layout defaults, used only when a named header row is
+    # not present in a given block:
+    # Wing, S, Xavg, Yavg, Zavg, Chord, V/Vref, Cl, Cd, Cs, Cx, Cy, Cz, Cmx, Cmy, Cmz
+    _LEGACY_COLUMN_DEFAULTS: dict[str, int] = {
+        "component": 0,
+        "yavg": 3,
+        "chord": 5,
+        "cl": 7,
+        "cd": 8,
+        "cmy": 14,
+    }
+
+    # Candidate names (in priority order) used to locate each logical column
+    # from a named header row. Supports both the legacy `Wing S Xavg ...` and
+    # the OpenVSP 3.45.3 `Iter VortexSheet TrailVort Xavg Yavg Zavg dSpan
+    # SoverB Chord dArea V/Vref Cl Cd Cs ...` format.
+    _COLUMN_NAME_CANDIDATES: dict[str, tuple[str, ...]] = {
+        "component": ("wing", "vortexsheet"),
+        "yavg": ("yavg",),
+        "chord": ("chord",),
+        "cl": ("cl",),
+        "cd": ("cd",),
+        "cmy": ("cmy",),
+    }
+
     @staticmethod
     def _parse_header(block: str) -> dict:
         """Extract reference values (Sref, Cref, Bref, Mach, AoA, Rho, Vinf)."""
         ref: dict = {}
         for line in block.splitlines():
-            line = line.strip()
             # Match lines like: Sref_     35.1750000 Lunit^2
-            m = re.match(r"(\w+_?)\s+([-\d.]+)", line)
+            m = VSPAeroParser._REF_SCALAR_RE.match(line.strip())
             if m:
                 key = m.group(1).rstrip("_").lower()
-                ref[key] = float(m.group(2))
+                try:
+                    ref[key] = float(m.group(2))
+                except ValueError:
+                    continue
         return ref
+
+    @staticmethod
+    def _looks_like_column_header(tokens: list[str]) -> bool:
+        """Return True if ``tokens`` looks like the `.lod` data column-name row.
+
+        Both the legacy and OpenVSP 3.45.3 formats start the strip-force data
+        table with a non-numeric header row that contains ``Chord``. The first
+        token is always non-numeric (``Wing`` in legacy, ``Iter`` in 3.45.3).
+        """
+        if not tokens:
+            return False
+        try:
+            float(tokens[0])
+        except ValueError:
+            pass
+        else:
+            return False
+        lowered = {t.lower() for t in tokens}
+        return "chord" in lowered and "cl" in lowered
+
+    @classmethod
+    def _resolve_column_indices(
+        cls, column_index: dict[str, int]
+    ) -> dict[str, int]:
+        """Map logical columns (yavg/chord/cl/...) to integer indices."""
+        resolved: dict[str, int] = {}
+        for logical, candidates in cls._COLUMN_NAME_CANDIDATES.items():
+            for candidate in candidates:
+                if candidate in column_index:
+                    resolved[logical] = column_index[candidate]
+                    break
+            else:
+                resolved[logical] = cls._LEGACY_COLUMN_DEFAULTS[logical]
+        return resolved
 
     def _parse_one_case(self, block: str, ref_defaults: dict) -> Optional[SpanwiseLoad]:
         """Parse a single AoA case block from the .lod file."""
         lines = block.splitlines()
 
         # Re-parse per-case reference header (AoA may differ between blocks)
+        # and look for the named column-name header that begins the data table.
         ref = dict(ref_defaults)
         data_start = 0
+        column_index: dict[str, int] = {}
         for i, line in enumerate(lines):
-            m = re.match(r"\s*(\w+_?)\s+([-\d.]+)", line)
-            if m and not line.strip().startswith("Wing"):
-                key = m.group(1).rstrip("_").lower()
-                ref[key] = float(m.group(2))
-            if "Wing" in line and "Cl" in line:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            tokens = stripped.split()
+            if self._looks_like_column_header(tokens):
+                column_index = {tok.lower(): idx for idx, tok in enumerate(tokens)}
                 data_start = i + 1
                 break
+            m = self._REF_SCALAR_RE.match(stripped)
+            if m:
+                key = m.group(1).rstrip("_").lower()
+                try:
+                    ref[key] = float(m.group(2))
+                except ValueError:
+                    continue
 
         if data_start == 0:
-            # Try to find data rows by looking for numeric-only lines
+            # Fallback: find the first numeric-only data row. We also leave
+            # ``column_index`` empty so that the legacy 16-column defaults
+            # apply below.
             for i, line in enumerate(lines):
                 parts = line.split()
                 if len(parts) >= 10:
@@ -185,11 +263,14 @@ class VSPAeroParser(AeroParser):
         if data_start == 0:
             return None
 
+        cols = self._resolve_column_indices(column_index)
+        min_cols = max(cols.values()) + 1
+
         # Parse strip-force data rows
         rows = []
         for line in lines[data_start:]:
             parts = line.split()
-            if len(parts) < 10:
+            if len(parts) < min_cols:
                 continue
             try:
                 row = [float(x) for x in parts]
@@ -201,7 +282,8 @@ class VSPAeroParser(AeroParser):
             return None
 
         data_df = pd.DataFrame(rows)
-        component_values = data_df.iloc[:, 0].to_numpy(dtype=float)
+        comp_col = cols["component"]
+        component_values = data_df.iloc[:, comp_col].to_numpy(dtype=float)
         component_ids_detected = tuple(sorted({int(round(value)) for value in component_values}))
         if self.component_ids is None and len(component_ids_detected) > 1 and not self._warned_multi_component:
             LOGGER.warning(
@@ -213,20 +295,16 @@ class VSPAeroParser(AeroParser):
             self._warned_multi_component = True
         if self.component_ids is not None:
             filter_ids = {float(component_id) for component_id in self.component_ids}
-            data_df = data_df[data_df.iloc[:, 0].isin(filter_ids)]
+            data_df = data_df[data_df.iloc[:, comp_col].isin(filter_ids)]
             if data_df.empty:
                 return None
 
         data = data_df.to_numpy(dtype=float)
-        # VSPAero .lod columns (typical):
-        # Wing, S, Xavg, Yavg, Zavg, Chord, V/Vref, Cl, Cd, Cs, Cx, Cy, Cz, Cmx, Cmy, Cmz
-        # Index:  0    1     2     3     4      5       6   7   8   9  10  11  12   13   14   15
-
-        y_all = data[:, 3]     # Yavg
-        chord = data[:, 5]     # Chord
-        cl = data[:, 7]        # Cl
-        cd = data[:, 8]        # Cd
-        cm = data[:, 14]       # Cmy (pitching moment)
+        y_all = data[:, cols["yavg"]]
+        chord = data[:, cols["chord"]]
+        cl = data[:, cols["cl"]]
+        cd = data[:, cols["cd"]]
+        cm = data[:, cols["cmy"]]
 
         # Take only one side (positive y = right half-span)
         mask = y_all >= 0
