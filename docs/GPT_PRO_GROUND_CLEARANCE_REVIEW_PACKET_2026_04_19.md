@@ -22,7 +22,7 @@
 
 1. 目前這個專案**最值得請專家介入判斷**的問題，到底是不是 `ground-clearance recovery`？如果不是，真正的核心問題是什麼？
 2. 以我們現在的狀態來看，**outer-wing jig ground clearance** 應該優先從哪一類手段去救？
-3. 在目前的 `rerun-aero` 合約還不是 full trim / full aeroelastic closure 的情況下，**它是否已經足夠拿來做 candidate ranking**？如果還不夠，最低限度還缺什麼？
+3. 在目前的 `rerun-aero` 合約還不是 full trim / full aeroelastic closure，而且這次 replay **還沒有啟動 clearance-driven 外形 recovery loop** 的情況下，**它是否已經足夠拿來做 candidate ranking**？如果還不夠，最低限度還缺什麼？
 4. 現在這套 **rib surrogate / zone-wise rib design**，可以先拿來做什麼程度的工程決策？哪些結論可以說，哪些不能說？
 5. 如果你是這個專案的嚴格系統顧問，你會建議我們接下來先做哪 **2 到 3 個工程動作**？請排序，而且每一項都要說明為什麼。
 6. 請你提出 **2 到 3 條可執行解法路線**，每條都要包含：
@@ -168,6 +168,42 @@ rib 現在不再只是報表裡的文字，而是已經進入：
 - 現在不是 solver 還在亂死
 - 而是流程終於能把真正的設計問題暴露出來
 
+### 3. 這次 replay 還沒有啟動 clearance-driven 外形 recovery loop
+
+這一點非常重要。
+
+目前這次已驗證的 replay，雖然已經會做：
+
+- candidate-owned geometry rebuild
+- rerun-aero
+- inverse design
+- structural refresh
+
+但它**還沒有**做到下面這件事：
+
+- 如果 ground clearance fail，就回頭調整 VSP / target shape（例如 uplift / dihedral / target-shape scaling），再重新進下一輪 candidate search
+
+也就是說，這次 replay 比較像是在回答：
+
+- 「如果我拿現在這個未調整的 candidate 直接往下跑，它最後會卡在哪裡？」
+
+而不是在回答：
+
+- 「如果我允許系統因為 clearance fail 而主動調整外形，它最後能不能救回來？」
+
+這個差別很重要，因為它代表：
+
+- 目前看到的 clearance fail，是一個**真實而有價值的 blocker 訊號**
+- 但它**還不是**對「整個設計空間是否無法滿足 clearance」的最終否定
+
+換句話說，這輪 replay 更像是：
+
+- 找出目前設計主線裡最直接的 failure mode
+
+而不是：
+
+- 已經完成含 recovery loop 的最終設計搜索
+
 ---
 
 ## 現在真正卡住的是什麼
@@ -188,6 +224,12 @@ rib 現在不再只是報表裡的文字，而是已經進入：
 - 質量本身不是現在最主要的 immediate blocker
 - solver 也不是
 - 現在最主要的 blocker 是 **jig shape 會碰地**
+
+但請注意：
+
+- 這個結論成立於「目前 replay 沒有啟動 clearance-driven 外形 recovery loop」的前提下
+- 所以它證明的是「目前這個未調整 candidate 會 fail」
+- 還不是「任何合理外形調整都救不回來」
 
 ### 這個 clearance 問題不是小問題，而是大幅穿地
 
@@ -240,6 +282,7 @@ rib 現在不再只是報表裡的文字，而是已經進入：
 
 - 這是不是正確主方向？
 - 還是說真正更該優先的是別的 recovery 策略？
+- 另外一個核心問題是：**這種 recovery loop 是否應該被視為主線必備，而不是可有可無的後處理？**
 
 ### 困惑 2：目前 rerun-aero contract 是否夠格做 ranking？
 
@@ -252,7 +295,8 @@ rib 現在不再只是報表裡的文字，而是已經進入：
 所以我們不確定：
 
 - 這樣的 rerun-aero contract 是否已經夠支撐 candidate ranking？
-- 還是說現在做 ranking 仍然太早？
+- 如果沒有先打開 clearance-driven 外形 recovery，現在做 ranking 是否其實太早？
+- 還是說目前這種「先固定 candidate、先看 fail mode」的 ranking 仍然有工程價值？
 
 ### 困惑 3：rib-on ranking 現在能信到什麼程度？
 
@@ -277,6 +321,7 @@ rib 已經進入 candidate contract，這是好事。
 - 不要建議直接打開 per-rib combinatorial optimization
 - 不要建議先做 full free-form 超高維外形優化
 - 不要建議直接關掉 clearance gate 或放鬆地板定義
+- 不要把這次未啟動 recovery loop 的 clearance fail，直接解讀成「這個專案的設計空間無解」
 
 我們現在要的是：
 
