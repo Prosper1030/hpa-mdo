@@ -1,303 +1,266 @@
-# Track R — Multi-Seed Rib Smoke Signal Hunt Report
+# Track R — Repaired-Shortlist Rib Smoke Replay Report
 
-> 文件性質：真實 rerun-aero smoke / signal hunt
-> 任務來源：`docs/task_packs/current_parallel_work/prompts/track_r_multiseed_rib_smoke_signal_hunt.md`
+> 文件性質：post-fix repaired-shortlist rerun-aero smoke report
+> 任務來源：`docs/task_packs/current_parallel_work/prompts/track_r_repaired_shortlist_rib_smoke.md`
 > 更新日期：2026-04-19
-> Verdict：**SUSPICIOUS**
+> Verdict：**SANE**
 
 ## 1. TL;DR
 
-- 這次實際跑了 `3` 個 seed、共 `6` 組 `candidate_rerun_vspaero` replay：
-  - `seed22_frontier_feasible`
-  - `seed20_clearance_nearfeasible`
-  - `seed18_clearance_nearfeasible`
-- seed 選擇不是亂猜，而是直接取自舊的 `output/_archive_pre_2026_04_15/direct_dual_beam_inverse_design_feasibility_sweep_15_22/`：
-  - `22 kg` 舊 sweep 裡是可行 frontier
-  - `20 kg`、`18 kg` 舊 sweep 裡是最接近 clearance gate 的 near-feasible 點
-- 六組 replay 都有真正走到：
-  - candidate-owned `.vsp3`
-  - VSPAero rerun
-  - `.lod` parse
-  - feasibility sweep summary JSON
-- 但六組 selected-case 全部仍然落到同一種 sentinel fallback：
-  - `selection_status = nearest_candidate`
-  - `objective_value_kg = 1e12`
-  - `total_structural_mass_kg = 1e12`
-  - `jig_ground_clearance_min_m = -inf`
-  - `target_shape_error_max_m = inf`
-  - `loaded_shape_main_z_error_max_m = inf`
-- `off` 和 `limited_zonewise` 在這一輪只有 `rib_design.design_key` 不同：
-  - `off -> legacy_uniform`
-  - `limited_zonewise -> baseline_uniform`
-- 內層 refresh summary 的 selected 訊息，六組都一致是：
-  - `RuntimeError: Explicit wire truss Newton solve did not converge.`
-- feasibility sweep 對外摘要則把這類失敗折疊成：
-  - `reject_reason = geometry / discrete boundary`
+- 這次不再用舊的 suspicious mass seeds，而是直接採用 post-fix repaired AVL-first shortlist 的前兩個 priority seeds：
+  - `x3.75`
+  - `x3.5`
+- 我實際跑了 `4` 組 confirm-level replay：
+  - `x3.75 / rib_zonewise=off`
+  - `x3.75 / rib_zonewise=limited_zonewise`
+  - `x3.5 / rib_zonewise=off`
+  - `x3.5 / rib_zonewise=limited_zonewise`
+- 四組都是真實 `candidate_rerun_vspaero` 路線，且 selected-case 全部不是 sentinel fallback：
+  - `feasible = true`
+  - `selected message = analysis complete`
+  - `ground_clearance_recovery_triggered = false`
+  - `selected_attempt_label = baseline_requested`
+- 所以這包最核心的問題，現在答案已經變成：
+  - **是，repaired shortlist 上已經可以找到不是 sentinel fallback 的可比 selected-case。**
+- 但同時也要講清楚：
+  - 在這次最小必要 smoke budget 下，`off` 和 `limited_zonewise` 的 selected-case 指標完全重合到機器精度
+  - 唯一有變的是 `rib_design.design_key`
+    - `off -> legacy_uniform`
+    - `limited_zonewise -> baseline_uniform`
+- 這代表：
+  - rerun-aero smoke 已經不再是 `BLOCKED` 或 sentinel-driven `SUSPICIOUS`
+  - 但目前 repaired shortlist 上也**還沒有出現真正的 rib ranking delta**
+- 這次建議的下一步不是開 `Track M` 或 `Track N`，而是：
+  - **先停在目前結果**
 
-結論是：
+## 2. 這次實際採用的 repaired shortlist seeds
 
-- 這一輪不是 `BLOCKED`
-- 但也沒有找到任何一組**不是 sentinel fallback** 的可比 `off` vs `limited_zonewise` selected-case
-- 所以目前仍然只能判成 **`SUSPICIOUS`**
+seed 來源直接依照 `docs/task_packs/current_parallel_work/reports/avl_postfix_shortlist_refresh_report.md` 的 post-fix canonical shortlist：
 
-## 2. Seed 選擇與理由
+| Seed | shortlist role | 為什麼先跑它 |
+| --- | --- | --- |
+| `x3.75` | `Priority 1` | repaired AVL-first refresh 的第一個 seed，也是最穩的第一個 rib smoke seed |
+| `x3.5` | `Priority 2` | 同一 repaired shortlist 中 trim AoA 最低、L/D 最好，適合作為第二個 low-AoA baseline compare |
 
-| Seed | 來源 | 為什麼選它 | 舊 sweep 狀態 |
-| --- | --- | --- | --- |
-| `seed22_frontier_feasible` | `target_22.0kg` 舊 summary 的 selected candidate | 舊 sweep 裡唯一真的 `overall_feasible=true` 的 frontier，最值得先拿來測 candidate rerun 下還有沒有訊號 | `21.740 kg`, clearance `~0 mm`, target error `~0`, `overall_feasible=true` |
-| `seed20_clearance_nearfeasible` | `target_20.0kg` 舊 summary 的 selected candidate | 不是明顯死點，而是舊 sweep 裡最接近 clearance gate 的 near-feasible 點之一 | `20.620 kg`, clearance `-96.987 mm`, target error `~0`, `overall_feasible=false` |
-| `seed18_clearance_nearfeasible` | `target_18.0kg` 舊 summary 的 selected candidate | 和 `20 kg` 相近，但幾何趨勢略不同，可避免只重播單一邊界點 | `20.720 kg`, clearance `-90.441 mm`, target error `~0`, `overall_feasible=false` |
+這次**沒有**直接擴到 `x3.875` / `x4.0` / `x4.25`，理由是：
 
-補充：
-
-- 舊 summary 存的是實際 reduced-variable 值，不是目前 CLI 要的 `[0, 1]` grid fraction。
-- 這次 replay 先把舊 summary 的 `main_plateau_scale` / `main_taper_fill` / `rear_radius_scale` 轉回目前 CLI fraction 空間，再用一點式 grid 重播。
-- 為了遵守這包只改 report write scope 的限制，所有實際 solver 輸出都寫到 `/tmp/hpa_mdo_track_r_multiseed_20260419/`，沒有寫回 repo 內 `output/`。
+- 使用者要求先做最小必要驗證
+- 前兩個 priority seeds 已經足夠回答 prompt 的核心問題：
+  - 有沒有 non-sentinel comparable selected-case
+  - 目前 `off` vs `limited_zonewise` 有沒有實質 ranking signal
 
 ## 3. 實際執行命令
 
-以下是這次實際跑的六條命令，皆在 repo root `/Volumes/Samsung SSD/hpa-mdo` 下執行：
+以下命令皆在 repo root `/Volumes/Samsung SSD/hpa-mdo` 下執行：
 
 ```bash
-uv run --no-project python scripts/direct_dual_beam_inverse_design_feasibility_sweep.py \
+./.venv/bin/python scripts/direct_dual_beam_inverse_design.py \
   --config configs/blackcat_004.yaml \
-  --output-dir /tmp/hpa_mdo_track_r_multiseed_20260419/seed22_frontier_feasible/off \
-  --target-masses-kg 22 \
+  --output-dir /tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_75_off \
+  --design-report output/blackcat_004/ansys/crossval_report.txt \
   --aero-source-mode candidate_rerun_vspaero \
+  --target-shape-z-scale 3.75 \
+  --dihedral-exponent 1.0 \
   --rib-zonewise-mode off \
   --main-plateau-grid 1.0 \
   --main-taper-fill-grid 0.999999500019976 \
   --rear-radius-grid 0.9999997444012075 \
   --rear-outboard-grid 1.0 \
   --wall-thickness-grid 0.04630959736295326 \
-  --skip-local-refine \
   --skip-step-export \
-  --cobyla-maxiter 160 \
-  --design-report output/blackcat_004/ansys/crossval_report.txt
+  --skip-local-refine \
+  --cobyla-maxiter 160
 
-uv run --no-project python scripts/direct_dual_beam_inverse_design_feasibility_sweep.py \
+./.venv/bin/python scripts/direct_dual_beam_inverse_design.py \
   --config configs/blackcat_004.yaml \
-  --output-dir /tmp/hpa_mdo_track_r_multiseed_20260419/seed22_frontier_feasible/limited_zonewise \
-  --target-masses-kg 22 \
+  --output-dir /tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_75_limited \
+  --design-report output/blackcat_004/ansys/crossval_report.txt \
   --aero-source-mode candidate_rerun_vspaero \
+  --target-shape-z-scale 3.75 \
+  --dihedral-exponent 1.0 \
   --rib-zonewise-mode limited_zonewise \
   --main-plateau-grid 1.0 \
   --main-taper-fill-grid 0.999999500019976 \
   --rear-radius-grid 0.9999997444012075 \
   --rear-outboard-grid 1.0 \
   --wall-thickness-grid 0.04630959736295326 \
-  --skip-local-refine \
   --skip-step-export \
-  --cobyla-maxiter 160 \
-  --design-report output/blackcat_004/ansys/crossval_report.txt
+  --skip-local-refine \
+  --cobyla-maxiter 160
 
-uv run --no-project python scripts/direct_dual_beam_inverse_design_feasibility_sweep.py \
+./.venv/bin/python scripts/direct_dual_beam_inverse_design.py \
   --config configs/blackcat_004.yaml \
-  --output-dir /tmp/hpa_mdo_track_r_multiseed_20260419/seed20_clearance_nearfeasible/off \
-  --target-masses-kg 20 \
+  --output-dir /tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_5_off \
+  --design-report output/blackcat_004/ansys/crossval_report.txt \
   --aero-source-mode candidate_rerun_vspaero \
+  --target-shape-z-scale 3.5 \
+  --dihedral-exponent 1.0 \
   --rib-zonewise-mode off \
-  --main-plateau-grid 0.9966539474376832 \
-  --main-taper-fill-grid 0.8713400435486665 \
-  --rear-radius-grid 0.8745974048236186 \
-  --rear-outboard-grid 0.8534001272911103 \
-  --wall-thickness-grid 0.040641153863537643 \
-  --skip-local-refine \
+  --main-plateau-grid 1.0 \
+  --main-taper-fill-grid 0.999999500019976 \
+  --rear-radius-grid 0.9999997444012075 \
+  --rear-outboard-grid 1.0 \
+  --wall-thickness-grid 0.04630959736295326 \
   --skip-step-export \
-  --cobyla-maxiter 160 \
-  --design-report output/blackcat_004/ansys/crossval_report.txt
+  --skip-local-refine \
+  --cobyla-maxiter 160
 
-uv run --no-project python scripts/direct_dual_beam_inverse_design_feasibility_sweep.py \
+./.venv/bin/python scripts/direct_dual_beam_inverse_design.py \
   --config configs/blackcat_004.yaml \
-  --output-dir /tmp/hpa_mdo_track_r_multiseed_20260419/seed20_clearance_nearfeasible/limited_zonewise \
-  --target-masses-kg 20 \
+  --output-dir /tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_5_limited \
+  --design-report output/blackcat_004/ansys/crossval_report.txt \
   --aero-source-mode candidate_rerun_vspaero \
+  --target-shape-z-scale 3.5 \
+  --dihedral-exponent 1.0 \
   --rib-zonewise-mode limited_zonewise \
-  --main-plateau-grid 0.9966539474376832 \
-  --main-taper-fill-grid 0.8713400435486665 \
-  --rear-radius-grid 0.8745974048236186 \
-  --rear-outboard-grid 0.8534001272911103 \
-  --wall-thickness-grid 0.040641153863537643 \
-  --skip-local-refine \
+  --main-plateau-grid 1.0 \
+  --main-taper-fill-grid 0.999999500019976 \
+  --rear-radius-grid 0.9999997444012075 \
+  --rear-outboard-grid 1.0 \
+  --wall-thickness-grid 0.04630959736295326 \
   --skip-step-export \
-  --cobyla-maxiter 160 \
-  --design-report output/blackcat_004/ansys/crossval_report.txt
-
-uv run --no-project python scripts/direct_dual_beam_inverse_design_feasibility_sweep.py \
-  --config configs/blackcat_004.yaml \
-  --output-dir /tmp/hpa_mdo_track_r_multiseed_20260419/seed18_clearance_nearfeasible/off \
-  --target-masses-kg 18 \
-  --aero-source-mode candidate_rerun_vspaero \
-  --rib-zonewise-mode off \
-  --main-plateau-grid 0.978796339113313 \
-  --main-taper-fill-grid 0.8013885983756893 \
-  --rear-radius-grid 0.9434354419543309 \
-  --rear-outboard-grid 0.8797958316475152 \
-  --wall-thickness-grid 0.04111455456726137 \
   --skip-local-refine \
-  --skip-step-export \
-  --cobyla-maxiter 160 \
-  --design-report output/blackcat_004/ansys/crossval_report.txt
-
-uv run --no-project python scripts/direct_dual_beam_inverse_design_feasibility_sweep.py \
-  --config configs/blackcat_004.yaml \
-  --output-dir /tmp/hpa_mdo_track_r_multiseed_20260419/seed18_clearance_nearfeasible/limited_zonewise \
-  --target-masses-kg 18 \
-  --aero-source-mode candidate_rerun_vspaero \
-  --rib-zonewise-mode limited_zonewise \
-  --main-plateau-grid 0.978796339113313 \
-  --main-taper-fill-grid 0.8013885983756893 \
-  --rear-radius-grid 0.9434354419543309 \
-  --rear-outboard-grid 0.8797958316475152 \
-  --wall-thickness-grid 0.04111455456726137 \
-  --skip-local-refine \
-  --skip-step-export \
-  --cobyla-maxiter 160 \
-  --design-report output/blackcat_004/ansys/crossval_report.txt
+  --cobyla-maxiter 160
 ```
+
+Scratch outputs 都寫到：
+
+- `/tmp/hpa_mdo_track_r_repaired_shortlist_20260419/`
+
+沒有把 solver artifacts 寫回 repo 內 `output/`。
 
 ## 4. 是否真的跑到 `candidate_rerun_vspaero`
 
-有，而且這六組都是**完整跑到** candidate-owned rerun 路徑。
+有，而且這四組都是完整的 candidate-owned rerun confirm。
 
-| Seed | `off` 完成 | `limited_zonewise` 完成 | `aero_source_mode` | `baseline_load_source` | `refresh_load_source` | `selected_cruise_aoa_deg` |
-| --- | --- | --- | --- | --- | --- | --- |
-| `seed22_frontier_feasible` | ✅ | ✅ | `candidate_rerun_vspaero` | `candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun` | `candidate_owned_twist_refresh_from_rerun_sweep` | `4.0` |
-| `seed20_clearance_nearfeasible` | ✅ | ✅ | `candidate_rerun_vspaero` | `candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun` | `candidate_owned_twist_refresh_from_rerun_sweep` | `4.0` |
-| `seed18_clearance_nearfeasible` | ✅ | ✅ | `candidate_rerun_vspaero` | `candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun` | `candidate_owned_twist_refresh_from_rerun_sweep` | `4.0` |
+| Seed | `off` 完成 | `limited_zonewise` 完成 | `aero_source_mode` | `baseline_load_source` | `refresh_load_source` | `selected_cruise_aoa_deg` | recovery |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `x3.75` | `yes` | `yes` | `candidate_rerun_vspaero` | `candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun` | `candidate_owned_twist_refresh_from_rerun_sweep` | `1.0` | `not triggered` |
+| `x3.5` | `yes` | `yes` | `candidate_rerun_vspaero` | `candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun` | `candidate_owned_twist_refresh_from_rerun_sweep` | `1.0` | `not triggered` |
 
-對應 summary 都在：
+對應 refresh summary / report 都在：
 
-- `/private/tmp/hpa_mdo_track_r_multiseed_20260419/seed22_frontier_feasible/`
-- `/private/tmp/hpa_mdo_track_r_multiseed_20260419/seed20_clearance_nearfeasible/`
-- `/private/tmp/hpa_mdo_track_r_multiseed_20260419/seed18_clearance_nearfeasible/`
+- `/tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_75_off/`
+- `/tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_75_limited/`
+- `/tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_5_off/`
+- `/tmp/hpa_mdo_track_r_repaired_shortlist_20260419/x3_5_limited/`
 
 ## 5. `off` vs `limited_zonewise` 比較表
 
-### 5.1 `seed22_frontier_feasible`
+### 5.1 Selected-case compare
 
-| 欄位 | `rib_zonewise=off` | `rib_zonewise=limited_zonewise` |
-| --- | --- | --- |
-| `objective_value_kg` | `1000000000000.0` | `1000000000000.0` |
-| `total_structural_mass_kg` | `1000000000000.0` | `1000000000000.0` |
-| `jig_ground_clearance_min_m` | `-inf` | `-inf` |
-| `target_shape_error_max_m` | `inf` | `inf` |
-| `loaded_shape_main_z_error_max_m` | `inf` | `inf` |
-| `rib_design.design_key` | `legacy_uniform` | `baseline_uniform` |
-| `rib_design.effective_warping_knockdown` | `0.5` | `0.5` |
-| `rib_design.unique_family_count` | `1` | `1` |
-| `rib_design.family_switch_count` | `0` | `0` |
-| `rib_design.objective_penalty_kg` | `0.0` | `0.0` |
-| sweep `selection_status` | `nearest_candidate` | `nearest_candidate` |
-| sweep `reject_reason` | `geometry / discrete boundary` | `geometry / discrete boundary` |
-| inner selected message | `Explicit wire truss Newton solve did not converge` | `Explicit wire truss Newton solve did not converge` |
+| seed | mode | `objective_value_kg` | `total_structural_mass_kg` | `jig_ground_clearance_min_m` | `target_shape_error_max_m` | `loaded_shape_main_z_error_max_m` | `rib_design.design_key` | `rib_design.effective_warping_knockdown` | `rib_design.unique_family_count` | `rib_design.family_switch_count` | `rib_design.objective_penalty_kg` |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| `x3.5` | `off` | `21.790001142849658` | `21.740001142849657` | `0.048622143329446046` | `1.1102230246251565e-16` | `0.0` | `legacy_uniform` | `0.5` | `1` | `0` | `0.0` |
+| `x3.5` | `limited_zonewise` | `21.790001142849658` | `21.740001142849657` | `0.048622143329446046` | `1.1102230246251565e-16` | `0.0` | `baseline_uniform` | `0.5` | `1` | `0` | `0.0` |
+| `x3.75` | `off` | `21.790001142849707` | `21.740001142849657` | `0.054090220710290765` | `1.7763568394002505e-15` | `4.440892098500626e-16` | `legacy_uniform` | `0.5` | `1` | `0` | `0.0` |
+| `x3.75` | `limited_zonewise` | `21.790001142849707` | `21.740001142849657` | `0.054090220710290765` | `1.7763568394002505e-15` | `4.440892098500626e-16` | `baseline_uniform` | `0.5` | `1` | `0` | `0.0` |
 
-### 5.2 `seed20_clearance_nearfeasible`
+### 5.2 Seed-wise delta summary
 
-| 欄位 | `rib_zonewise=off` | `rib_zonewise=limited_zonewise` |
-| --- | --- | --- |
-| `objective_value_kg` | `1000000000000.0` | `1000000000000.0` |
-| `total_structural_mass_kg` | `1000000000000.0` | `1000000000000.0` |
-| `jig_ground_clearance_min_m` | `-inf` | `-inf` |
-| `target_shape_error_max_m` | `inf` | `inf` |
-| `loaded_shape_main_z_error_max_m` | `inf` | `inf` |
-| `rib_design.design_key` | `legacy_uniform` | `baseline_uniform` |
-| `rib_design.effective_warping_knockdown` | `0.5` | `0.5` |
-| `rib_design.unique_family_count` | `1` | `1` |
-| `rib_design.family_switch_count` | `0` | `0` |
-| `rib_design.objective_penalty_kg` | `0.0` | `0.0` |
-| sweep `selection_status` | `nearest_candidate` | `nearest_candidate` |
-| sweep `reject_reason` | `geometry / discrete boundary` | `geometry / discrete boundary` |
-| inner selected message | `Explicit wire truss Newton solve did not converge` | `Explicit wire truss Newton solve did not converge` |
+| seed | `objective_value_kg` delta (`limited - off`) | `mass` delta | `clearance` delta | `target error` delta | `loaded-shape Z error` delta | meaningful rib delta? |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `x3.5` | `0.0` | `0.0` | `0.0` | `0.0` | `0.0` | `no` |
+| `x3.75` | `0.0` | `0.0` | `0.0` | `0.0` | `0.0` | `no` |
 
-### 5.3 `seed18_clearance_nearfeasible`
+### 5.3 這張表實際代表什麼
 
-| 欄位 | `rib_zonewise=off` | `rib_zonewise=limited_zonewise` |
-| --- | --- | --- |
-| `objective_value_kg` | `1000000000000.0` | `1000000000000.0` |
-| `total_structural_mass_kg` | `1000000000000.0` | `1000000000000.0` |
-| `jig_ground_clearance_min_m` | `-inf` | `-inf` |
-| `target_shape_error_max_m` | `inf` | `inf` |
-| `loaded_shape_main_z_error_max_m` | `inf` | `inf` |
-| `rib_design.design_key` | `legacy_uniform` | `baseline_uniform` |
-| `rib_design.effective_warping_knockdown` | `0.5` | `0.5` |
-| `rib_design.unique_family_count` | `1` | `1` |
-| `rib_design.family_switch_count` | `0` | `0` |
-| `rib_design.objective_penalty_kg` | `0.0` | `0.0` |
-| sweep `selection_status` | `nearest_candidate` | `nearest_candidate` |
-| sweep `reject_reason` | `geometry / discrete boundary` | `geometry / discrete boundary` |
-| inner selected message | `Explicit wire truss Newton solve did not converge` | `Explicit wire truss Newton solve did not converge` |
+- 這次已經不是舊報告那種：
+  - sentinel fallback
+  - `1e12 / inf / -inf`
+  - rerun-aero 或 inner solve 崩掉後只能硬讀 fail-side影子
+- 現在拿到的是：
+  - 真正可比的 selected-case
+  - 而且四組都 `feasible=true`
+- 但目前這兩個 repaired shortlist seeds 上，`limited_zonewise` 仍然沒有表現出任何比 `off` 更強或更弱的 selected-case差異
+- 在 selected-case 層級，`limited_zonewise` 現在看起來更像：
+  - **一個會把 label 換成 `baseline_uniform` 的同值 baseline**
+  - 還不是會改變 ranking 的 rib-on mode
 
 ## 6. 工程判讀
 
-這次 multi-seed 結果支持的結論是：
+這次 Track R 最重要的結論有三個：
 
-1. `candidate_rerun_vspaero` 路線本身不是 blocked。
-   六組 replay 都有完整走到 candidate-owned geometry rebuild、VSPAero rerun、summary JSON。
+1. repaired-shortlist rerun smoke 已經不再被 sentinel fallback 卡住。
+   這是這包最重要的修正結果。現在可以明確回答：**有 non-sentinel 的 comparable selected-case。**
 
-2. 目前這個最小 smoke budget 下，**沒有找到任何一組非 sentinel 的可比 selected-case**。
-   換句話說，這次 Track R 的核心問題目前答案是：**還沒有找到。**
+2. 目前沒有看到真正的 rib ranking signal。
+   這不是因為 solver fail，而是因為 `limited_zonewise` 在這兩個 priority seeds 上選出來的 effective contract 與 `off` 完全等價：
+   - 同一個 `effective_warping_knockdown = 0.5`
+   - 同一個 `unique_family_count = 1`
+   - 同一個 `family_switch_count = 0`
+   - 同一個 `objective_penalty_kg = 0.0`
 
-3. 這一輪看不到 `off` vs `limited_zonewise` 的真正 ranking signal。
-   目前看到的只是同一種 sentinel failure 被兩邊重播。
+3. 因此這包現在不支持往 `Track M` 或 `Track N` 繼續推。
+   - 不適合進 `Track M`
+     - 因為 `Track M` 應該建立在「有真實 signal 但 ranking suspicious」之上
+     - 這次不是 suspicious ranking，而是沒有 delta
+   - 也不適合進 `Track N`
+     - 因為目前沒有任何 rib-on finalist uplift 值得做 finalist spot-check
 
-4. 真正更貼近 immediate blocker 的訊息，不像 Track P 那樣只剩模糊的 `geometry / discrete boundary`。
-   這次深入看 inner refresh summary，六組都顯示：
-   - `RuntimeError: Explicit wire truss Newton solve did not converge.`
+白話講：
 
-所以這份結果**不能**支持下面這些解讀：
-
-- rib penalty 已經該調
-- rib ranking 已經 sane
-- 可以直接進 finalist local spot-check
-
-它只能支持比較保守的判斷：
-
-**Track R 這一輪已經把「單點 smoke 不夠」往前推到「三個代表 seed 還是不夠」，但仍然沒有拿到可比較的 rib-on vs rib-off selected-case 訊號。**
+- 這包現在的正確答案不是「rib 已經有用了」
+- 而是：
+  - **rerun-aero smoke 已經 sane**
+  - **但目前 repaired shortlist 上，`limited_zonewise` 還沒有提供會改變 selected-case 的訊號**
 
 ## 7. Verdict
 
-**SUSPICIOUS**
+**SANE**
+
+理由：
+
+- 不是 `BLOCKED`
+  - 四組 command 都完整跑完
+  - `candidate_rerun_vspaero` contract 正常
+  - 沒有 ground-clearance recovery 介入，也沒有 sentinel fallback
+- 也不再是前一輪那種 `SUSPICIOUS`
+  - 這次 selected-case 是真實、可比、可重播的
+- 但 `SANE` 不代表 rib 已經有 ranking uplift
+  - 它只代表：這次 smoke 的答案是乾淨的，而且答案本身就是「目前沒有 delta」
+
+## 8. 建議下一步
+
+**先停在目前結果**
 
 原因：
 
-- 不是 `BLOCKED`
-  - 因為六組 `candidate_rerun_vspaero` replay 都成功跑完並落盤
-- 也不是 `SANE`
-  - 因為沒有任何一組 selected-case 逃出 sentinel fallback
-  - `off` / `limited_zonewise` 的 selected summary 幾乎完全一樣，只差 rib design label
+- 這次沒有 evidence 支持 `Track M`
+- 這次也沒有 rib-on finalist 可以支撐 `Track N`
+- 如果之後真的要繼續擴，只建議用非常小的 follow-on budget：
+  - 先補 `x3.875`
+  - 若還是完全同值，再視需要補 `x4.0`
 
-## 8. 下一步建議
+但在目前這包的任務邊界內，沒有必要為了「一定要看到差異」而硬把 smoke 擴成新一輪 coarse search。
 
-這次三選一，我會選：
+## 9. 最小必要驗證、風險、未完成處
 
-**維持現狀再補更多 smoke**
+### 最小必要驗證
 
-不建議現在直接：
+- 已真實跑 `2` 個 repaired-shortlist priority seeds
+- 已完成每個 seed 的：
+  - `rib_zonewise=off`
+  - `rib_zonewise=limited_zonewise`
+- 已確認四組都是：
+  - `candidate_rerun_vspaero`
+  - non-sentinel selected-case
+  - `feasible=true`
+  - `analysis complete`
 
-- 進 `Track M` 做 tuning
-- 進 `Track N` 做 finalist spot-check
+### 主要風險
 
-比較合理的下一步是：
+- 這次只覆蓋前兩個 priority seeds，還沒有覆蓋 `x3.875` / `x4.0` / `x4.25`
+- 所以目前最強的結論是：
+  - repaired shortlist 的中心 seeds 已經 sane
+  - 但還不能宣稱整個 shortlist 每個點都一定完全同值
 
-1. 繼續保留 `candidate_rerun_vspaero`
-2. 仍然維持小型 smoke，而不是直接暴力擴大成大 campaign
-3. 但下一輪應該至少加一個比這次稍強的搜尋動作，例如：
-   - 對 `22 kg` frontier seed 開有限度 local refine
-   - 或從這次 candidate-rerun archive 再往外挑 1 到 2 個 seed，而不是只沿用 legacy refresh 時代的 selected point
-4. 等真的有至少一組非 sentinel selected-case，再決定：
-   - 是不是該進 `Track M`
-   - 還是其實已經能進 `Track N`
+### 未完成處
 
-## 9. 風險與未完成處
-
-- 這次只做了 prompt 要求的最小多-seed smoke，沒有再往上開 local refine。
-  所以結論是「在這個最小 budget 下仍無訊號」，不是「所有合理 budget 都無訊號」。
-
-- 目前外層 feasibility sweep 的 `reject_reason` 仍偏粗。
-  它把這輪失敗折成 `geometry / discrete boundary`，但內層 selected message 其實比較像 `explicit wire truss` 的收斂問題。
-
-- 因為還沒有拿到任何非 sentinel selected-case，所以：
-  - 還不能評估 rib ranking 是不是合理
-  - 還不能判斷 tuning 方向
-  - 還不能做 finalist handoff 級別的 spot-check
+- 這包沒有把 smoke 擴到第 `3` 或第 `4` 個 seed
+- 這包也沒有做任何 code tuning
+- 這包沒有改 `scripts/`、`src/`、`tests/`
+- 這包只完成一件事：
+  - 用 repaired AVL-first canonical shortlist 的前兩個 priority seeds
+  - 真實重跑 `candidate_rerun_vspaero`
+  - 回答目前 `off` vs `limited_zonewise` 是否已經有 non-sentinel compare，以及目前有沒有 ranking delta
