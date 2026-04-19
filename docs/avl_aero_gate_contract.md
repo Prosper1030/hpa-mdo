@@ -81,6 +81,84 @@
 - 這個 candidate 的整體 trim alpha 很高，值得優先懷疑 gate / reference / geometry contract
 - 不能直接說每個翼段都真的在 `12+ deg`
 
+## 4.1 `Ainc` 到底是什麼
+
+`Ainc` 是 AVL `SECTION` 資料行裡的 section incidence angle。
+
+在 AVL 手冊裡，它的意思是：
+
+- 一個 section 相對 surface reference 的 incidence / setting angle
+- 以該 section 的 spanwise axis 為基準，影響 airfoil camber line 的 flow tangency boundary condition
+
+最重要的點是：
+
+**AVL 的 `Ainc` 不是把那個 section 的幾何真的整塊旋轉過去。**
+
+AVL 手冊原文就有講：
+
+- `Ainc` 用來修改 airfoil camber line 的 boundary condition
+- 不直接旋轉 section geometry
+
+所以如果你在 `.ft` 檔裡看到：
+
+- `Alpha = -5 deg`
+- 但主翼 section `Ainc = +3 deg`
+
+正確解讀不是：
+
+- 飛機真的必須整架以 `-5 deg` 幾何姿態巡航
+
+而是比較接近：
+
+- 這個 case 的 body/reference alpha 是 `-5 deg`
+- 但主翼 section 本身還帶有 `+3 deg` 的 incidence 定義
+- 再加上 cambered airfoil 的零升力角偏移，整機相對 body axis 的 `CL-alpha` 曲線就會整體左移
+
+## 4.2 `blackcat_004` 的 `Ainc = +3 deg` 依據是什麼
+
+目前 `blackcat_004` baseline 的主翼 `Ainc = +3 deg`，不是 AVL exporter 自己憑空加的。
+
+它的來源是 canonical reference `.vsp3`：
+
+- [blackcat 004 wing only.vsp3](</Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3>)
+
+這份 `.vsp3` 的 `Main Wing` `XForm` 內目前有：
+
+- `Y_Rel_Rotation = 3.0`
+- `Y_Rotation = 3.0`
+
+repo 現在的 VSP-first export contract 是：
+
+1. `summarize_vsp_surfaces()` 從 `.vsp3` 讀出 `y_rotation_deg`
+2. [vsp_geometry_parser.py](/Volumes/Samsung%20SSD/hpa-mdo/src/hpa_mdo/aero/vsp_geometry_parser.py) 目前把這個值視為 whole-surface incidence
+3. `export_avl()` 再把它寫進各 section 的 `Ainc`
+
+所以如果 canonical `.vsp3` 不變，重生出來的 baseline AVL 也會維持：
+
+- `Main Wing` 各 section `Ainc = 3.0 deg`
+
+## 4.3 之後看到 `Ainc` 時應該怎麼判斷
+
+先分三層，不要混在一起看：
+
+1. `body/reference Alpha`
+   - 這是 AVL trim / fixed-alpha case 的整機 reference alpha
+2. `section Ainc`
+   - 這是 AVL section incidence 定義，不是實體幾何必然真的旋轉同樣角度
+3. `local effective alpha`
+   - 真正 section 感受到的有效攻角，還會受 downwash / induced angle / camber / 3D loading 影響
+
+所以如果你之後看到 `CL(alpha=0)` 比直覺高很多，先檢查：
+
+- baseline 是否帶了非零 `Ainc`
+- airfoil 是否是高 camber low-Re section
+- 你現在比較的是 `body alpha`，還是 2D section polar 的 `alpha`
+
+不要直接把 AVL 的 `body alpha = 0` 當成：
+
+- 2D airfoil polar 的 `alpha = 0`
+- 或「主翼 chord line 正對來流」
+
 ## 5. 現在哪些是 hard gate，哪些只是輔助資訊
 
 目前這個模組直接做的 hard gate 只有三條：
