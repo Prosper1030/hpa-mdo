@@ -457,8 +457,14 @@ def _surface_name_from_lines(lines: list[str], start_index: int) -> str | None:
 def _surface_matches(surface_name: str | None, target_surface_names: Iterable[str]) -> bool:
     if surface_name is None:
         return False
-    normalized = surface_name.strip().casefold()
-    targets = {name.strip().casefold() for name in target_surface_names}
+    aliases = {
+        "mainwing": "wing",
+    }
+    normalized = aliases.get("".join(surface_name.strip().split()).casefold(), surface_name.strip().casefold())
+    targets = {
+        aliases.get("".join(name.strip().split()).casefold(), name.strip().casefold())
+        for name in target_surface_names
+    }
     return normalized in targets
 
 

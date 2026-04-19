@@ -93,6 +93,30 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertEqual(len(samples), 1)
         self.assertAlmostEqual(samples[0].local_factor, 2.0)
 
+    def test_scale_avl_dihedral_text_accepts_main_wing_surface_alias(self) -> None:
+        base_text = "\n".join(
+            [
+                "SURFACE",
+                "Main Wing",
+                "SECTION",
+                "0.0  0.0  0.100000000  1.2  0.0",
+                "SECTION",
+                "0.0  10.0  0.200000000  1.0  0.0",
+                "",
+            ]
+        )
+
+        scaled_text, count, samples = scale_avl_dihedral_text(
+            base_text,
+            multiplier=2.0,
+            half_span=10.0,
+            dihedral_exponent=1.0,
+        )
+
+        self.assertEqual(count, 2)
+        self.assertIn("0.400000000", scaled_text)
+        self.assertEqual(len(samples), 2)
+
     def test_parse_mode_stdout_and_select_dutch_roll(self) -> None:
         stdout_text = """
  Run case  1:   example
