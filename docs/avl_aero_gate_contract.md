@@ -25,6 +25,8 @@
 目前的 code owner 是：
 
 - [src/hpa_mdo/aero/avl_aero_gates.py](/Volumes/Samsung%20SSD/hpa-mdo/src/hpa_mdo/aero/avl_aero_gates.py)
+- [src/hpa_mdo/aero/avl_exporter.py](/Volumes/Samsung%20SSD/hpa-mdo/src/hpa_mdo/aero/avl_exporter.py)
+  - `stage_avl_airfoil_files()`
 
 兩支外圈腳本都接這個模組：
 
@@ -32,6 +34,12 @@
 - [scripts/multi_wire_sweep_campaign.py](/Volumes/Samsung%20SSD/hpa-mdo/scripts/multi_wire_sweep_campaign.py)
 
 之後如果要改 `CL required`、lift gate、trim AoA gate、metadata 欄位，優先看這個模組，不要再直接在 script 裡找零散公式。
+
+如果要改「generated `case.avl` 執行時到底會不會真的吃到 airfoil coordinates」，優先看：
+
+- `stage_avl_airfoil_files()`
+
+不要只看 parser / builder，因為這次踩到的不是名字讀錯，而是 runtime working directory 沒有 `.dat`。
 
 ## 3. `CL required` 現在怎麼算
 
@@ -176,9 +184,56 @@
 
 不要第一時間就假設是 `vsp_introspect` 把 root / tip 讀壞。
 
-## 10. 這次之後要特別注意的幾個點
+## 10. `.vsp3` 能不能直接拿來給 AVL 用？
 
-### 10.1 `summarize_vsp_surfaces()` 的回傳是 dict，不是物件樹
+可以分成兩層看：
+
+### 10.1 可以直接從 `.vsp3` 得到什麼
+
+reference `.vsp3` 可以直接告訴你：
+
+- 這個 station 用的是哪個 airfoil name
+- section schedule / station ordering 是什麼
+- 我們現在應該把 root / tip / 中間站位認成哪一顆翼型
+
+這就是為什麼：
+
+- `summarize_vsp_surfaces()`
+- `VSPBuilder._extract_reference_wing_schedule()`
+
+對齊之後，可以把 airfoil identity 釘清楚。
+
+### 10.2 但 `.vsp3` 不能直接取代 AVL runtime 的 `AFILE` contract
+
+AVL 真正跑 `AFILE` 時，需要的是：
+
+- 可被當前 working directory 讀到的 `.dat` 座標檔
+- 或者你另外生成 inline `AIRFOIL` coordinates
+
+單靠 `.vsp3` 本身，AVL 並不會自動去「從 `.vsp3` 讀 section coordinates 再拿來算」。
+
+所以目前 repo 的推薦 contract 是：
+
+1. `.vsp3` 負責 airfoil identity / geometry truth
+2. `data/airfoils/*.dat` 負責 canonical coordinate source
+3. `stage_avl_airfoil_files()` 負責把實際用到的 `.dat` 帶進每個 AVL case working directory
+
+### 10.3 未來能不能做成「只靠 `.vsp3`」？
+
+理論上可以，但那會是另一條明確的新功能：
+
+- 不是單純 parser 讀 name
+- 而是要把 VSP section airfoil geometry 額外 export / synthesize 成 AVL 可用的 `AFILE` 或 inline `AIRFOIL`
+
+目前這個 repo **還沒有把 `.vsp3` 直接當成 AVL runtime airfoil source**。
+所以現在最穩定、最省心的做法還是：
+
+- 維護 canonical `data/airfoils/*.dat`
+- 讓 campaign 在 runtime 自動 stage 進去
+
+## 11. 這次之後要特別注意的幾個點
+
+### 11.1 `summarize_vsp_surfaces()` 的回傳是 dict，不是物件樹
 
 這個 helper 回來的是 dict，主翼通常在：
 
@@ -190,7 +245,7 @@
 
 如果 ad-hoc smoke 直接用錯資料型別，很容易誤以為 parser 壞掉。
 
-### 10.2 ad-hoc smoke 時要確認 `cfg.io.vsp_model` / `io.airfoil_dir` 已經 resolve
+### 11.2 ad-hoc smoke 時要確認 `cfg.io.vsp_model` / `io.airfoil_dir` 已經 resolve
 
 如果臨時在 REPL / one-off script 裡直接 load config，但沒有讓：
 
@@ -199,17 +254,33 @@
 
 指到真實可讀的絕對路徑，builder 可能退回 config fallback，這時你看到的 airfoil schedule 不一定是 reference `.vsp3` truth。
 
-### 10.3 future check 要同時看三層
+### 11.3 future check 要同時看四層
 
 只看一層不夠，最少一起看：
 
 1. reference `.vsp3` introspection
 2. current baseline / generated `case.avl`
-3. `aero_gate_settings`
+3. case working directory 內實際存在的 `.dat`
+4. `aero_gate_settings`
 
-因為這次真正出問題的，就是這三層之間的 contract drift。
+因為這次真正出問題的，不只是前三層的 identity / geometry drift，還多了一個 runtime `.dat` staging contract。
 
-### 10.4 lift gate 要容忍 AVL 輸出四捨五入
+### 11.4 每次驗證時都要順手 grep AVL stdout
+
+這次最有用的直接證據其實不是 summary，而是 AVL 自己吐的 log：
+
+- `Airfoil file not found`
+- `Using default zero-camber airfoil`
+
+所以如果要最快排除 runtime airfoil 問題，直接做：
+
+```bash
+rg -n "Airfoil file not found|Using default zero-camber airfoil" /path/to/case_dir -S
+```
+
+如果有命中，就先不要解釋 AoA / CL / drag，因為 solver 根本還沒吃到你以為的 airfoil。
+
+### 11.5 lift gate 要容忍 AVL 輸出四捨五入
 
 AVL `case_trim.ft` 裡的 `CLtot` 會被列印成有限小數位。
 如果 trim target 剛好就是 `100 kg` 對應的精準 `CL required`，拿印出來的 `CLtot` 回算 `lift_total_n` 時，可能會出現像：
@@ -220,7 +291,7 @@ AVL `case_trim.ft` 裡的 `CLtot` 會被列印成有限小數位。
 
 現在 gate 已經對這種 near-equality 補了容差；下次如果再看到「差不到千分之一牛頓卻 fail lift gate」，先懷疑數值比較，不要先懷疑整個 aero model。
 
-## 11. 最快確認流程
+## 12. 最快確認流程
 
 如果之後你只想最快確認「VSP parser / baseline AVL / gate contract 現在是不是一致」，最省時間的順序是：
 
@@ -269,7 +340,25 @@ PY
 - `cl_required ≈ 1.07771045`
 - `reference_area_source = generated_avl_sref`
 
-3. 最後再看單點 rerun summary
+3. 再確認 runtime `.dat` 真的有進 case working directory
+
+最少看：
+
+- `mult_*/case.avl`
+- `mult_*/*.dat`
+- `mult_*/candidate_avl_spanwise/*.dat`
+- `mult_*/avl_*_stdout.log`
+- `mult_*/candidate_avl_spanwise/avl_*_stdout.log`
+
+最快檢查是：
+
+```bash
+rg -n "Airfoil file not found|Using default zero-camber airfoil" /path/to/mult_4p000 -S
+```
+
+沒有命中，才代表 runtime airfoil contract 沒破。
+
+4. 最後再看單點 rerun summary
 
 最少看：
 

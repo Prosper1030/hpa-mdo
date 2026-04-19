@@ -7,23 +7,33 @@
 ## 0. Post-Fix Update
 
 - **這份報告下面的大部分內容，記錄的是 pre-fix 狀態下的 regression forensic。**
-- 後續已另外修掉三件事：
+- 後續已另外修掉四件事：
   - `blackcat_004` 主翼 airfoil mapping / baseline AVL 與 reference `.vsp3` 對齊
   - `CL required` 改成使用 generated candidate `case.avl` 的 `Sref`
   - `lift_total_n` 與 `min_lift_n` 的近等值比較補上數值容差，避免 AVL 輸出四捨五入造成假 `insufficient_lift`
-- 修正後我用同一條 repaired AVL-first 路徑，對 `x4.0 / exp=1.0` 做最小必要 rerun：
-  - output: `/private/tmp/track_z_avl_exp1_x4_postfix_tol_20260419`
+  - generated `case.avl` 和 `candidate_avl_spanwise/` 子目錄現在都會 stage `AFILE` 需要的 `.dat`
+- 這裡要特別更正一件事：
+  - 我前一版 post-fix rerun 一度記錄了 `Alpha = 10.16612 deg`
+  - 但後來追到那其實還不是最終正解，因為當時 AVL runtime 沒有成功讀到 `fx76mp140.dat / clarkysm.dat`
+  - `avl_trim_stdout.log` 內實際有出現 `Airfoil file not found` / `Using default zero-camber airfoil`
+  - 所以那個 `10.16612 deg` 應該視為 **runtime airfoil staging bug 下的中間結果**，不是可信的 FX / Clark Y case 結果
+- 把 runtime `.dat` staging 也補齊後，我用同一條 repaired AVL-first 路徑，對 `x4.0 / exp=1.0` 再做最小必要 rerun：
+  - output: `/private/tmp/track_z_avl_exp1_x4_airfoilfix2_20260419`
   - `CL required = 1.077710452`
-  - `Alpha = 10.16612 deg`
-  - `L/D = 44.03`
+  - `Alpha = -1.85374 deg`
+  - `L/D = 48.80`
   - beta / directional / spiral checks: `ok`
   - structural follow-on: `feasible`
   - mass: `21.740 kg`
-  - clearance: `58.036 mm`
+  - clearance: `57.034 mm`
   - final reject reason: `none`
+  - `rg "Airfoil file not found|Using default zero-camber airfoil"` over the whole `mult_4p000/` tree returns no hits
 - 也就是說：
   - **這份報告原本追到的 `trim_aoa_exceeds_limit` regression，如今已在 post-fix rerun 中解除。**
-  - 現在保留這份報告的價值，主要是讓後續知道 pre-fix failure chain 當時到底是怎麼形成的。
+  - 而且現在更準確的說法是：
+    - pre-fix failure chain 裡，除了 `CL required` / gate area contract mismatch 之外
+    - 還混有一個 **AVL runtime airfoil `.dat` 沒有被 stage 進 case working directory** 的 execution bug
+  - 現在保留這份報告的價值，主要是讓後續知道 pre-fix failure chain 當時到底是怎麼形成的，以及為什麼中間曾經出現過一個看似「修好了但 AoA 還是 10 度」的假恢復。
 
 ## 1. 結論先講
 
@@ -67,6 +77,9 @@
 - `output/track_u_candidate_avl_smoke_20260419/mult_4p000/case.avl`
 - `/private/tmp/track_z_avl_exp1_x4_postfix_20260419/mult_4p000/case.avl`
 - `/private/tmp/track_z_avl_exp1_x4_postfix_tol_20260419/mult_4p000/case.avl`
+- `/private/tmp/track_z_avl_exp1_x4_airfoilfix2_20260419/mult_4p000/case.avl`
+- `/private/tmp/track_z_avl_exp1_x4_airfoilfix2_20260419/mult_4p000/avl_trim_stdout.log`
+- `/private/tmp/track_z_avl_exp1_x4_airfoilfix2_20260419/mult_4p000/candidate_avl_spanwise/`
 - `docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md`
 
 ### 2.3 code-level formula check
@@ -89,6 +102,25 @@
   - `VSPBuilder._extract_reference_wing_schedule()` 一度先用 `_airfoil_for_eta()` 的簡化 fallback seed schedule，再去補 reference VSP airfoils
 - 所以這次更準確的說法不是「VSP parser 讀壞」，而是：
   - **reference `.vsp3` truth、config defaults、baseline AVL、reference-schedule builder 之間一度不一致。**
+
+### 2.5 這次另外補抓到的 AVL runtime airfoil bug 是什麼
+
+- 這次後來又補抓到另一個獨立問題：
+  - campaign 會在每個 `mult_*` case 目錄內寫出 `case.avl`
+  - `case.avl` 內的主翼 airfoil 還是用 `AFILE fx76mp140.dat` / `AFILE clarkysm.dat`
+  - 但如果沒有把這兩個 `.dat` 一起放到 AVL 實際執行的 working directory，AVL 會直接 fallback 成 `default zero-camber airfoil`
+- 這個 bug 的表現不是 parser 把翼型名字讀錯，而是：
+  - **airfoil identity 是對的**
+  - **但 solver runtime 根本沒有真的載入對應的 airfoil coordinates**
+- 對 `blackcat_004` 而言，canonical `.dat` 本來就已經存在：
+  - `data/airfoils/fx76mp140.dat`
+  - `data/airfoils/clarkysm.dat`
+- 所以這次正確修法不是「再去下載 airfoil」，而是：
+  - **把 generated `case.avl` 和 `candidate_avl_spanwise/` 子流程都補上 `.dat` staging contract**
+- 這也說明了為什麼：
+  - reference `.vsp3` introspection 已經是對的
+  - config / baseline AVL airfoil mapping 也修正了
+  - 但中間還是可能跑出像 `Alpha = 10.16612 deg` 這種近似 zero-camber 的結果
 
 ## 3. 舊 pass case 與 current AVL baseline 的幾何差異
 
