@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from hpa_mdo.aero.avl_exporter import export_avl
 from hpa_mdo.aero.vsp_geometry_parser import (
     VSPGeometryParser,
-    attach_controls_from_summary,
+    attach_surface_metadata_from_summary,
     geometry_model_from_config,
 )
 from hpa_mdo.aero.vsp_introspect import summarize_vsp_surfaces
@@ -59,6 +59,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Directory to search for .dat airfoil coordinate files "
         "(emits AVL AFILE directive for non-NACA airfoils).",
     )
+    parser.add_argument(
+        "--no-inline-airfoils-from-vsp",
+        action="store_true",
+        help=(
+            "Disable direct OpenVSP airfoil-coordinate extraction and keep the "
+            "older AFILE/NACA export path."
+        ),
+    )
     return parser
 
 
@@ -86,11 +94,25 @@ def main(argv: list[str] | None = None) -> int:
             summary = summarize_vsp_surfaces(
                 source_vsp,
                 airfoil_dir=(cfg.io.airfoil_dir if cfg is not None else None),
+                include_airfoil_coordinates=not bool(args.no_inline_airfoils_from_vsp),
             )
         except Exception as exc:
             print(f"WARN: control-surface introspection skipped ({exc})")
         else:
-            geometry = attach_controls_from_summary(geometry, summary)
+            summary_source = Path(summary.get("source_path", source_vsp)).expanduser().resolve()
+            if summary_source != source_vsp:
+                raise RuntimeError(
+                    "VSP summary source drifted away from the requested .vsp3: "
+                    f"{summary_source} != {source_vsp}"
+                )
+            if geometry.source_path is not None:
+                geometry_source = Path(geometry.source_path).expanduser().resolve()
+                if geometry_source != source_vsp:
+                    raise RuntimeError(
+                        "Parsed geometry source drifted away from the requested .vsp3: "
+                        f"{geometry_source} != {source_vsp}"
+                    )
+            geometry = attach_surface_metadata_from_summary(geometry, summary)
         source_label = str(source_vsp)
     elif cfg is not None:
         geometry = geometry_model_from_config(cfg)

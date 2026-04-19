@@ -22,9 +22,27 @@ from hpa_mdo.core.config import HPAConfig  # noqa: E402
 
 
 class _FakeXSec:
-    def __init__(self, shape: int, **parms: float):
+    def __init__(self, shape: int, *, upper=None, lower=None, **parms: float):
         self.shape = shape
         self.parms = parms
+        self.upper = upper or []
+        self.lower = lower or []
+
+
+class _FakePoint:
+    def __init__(self, x: float, y: float, z: float = 0.0):
+        self._x = float(x)
+        self._y = float(y)
+        self._z = float(z)
+
+    def x(self) -> float:
+        return self._x
+
+    def y(self) -> float:
+        return self._y
+
+    def z(self) -> float:
+        return self._z
 
 
 class _FakeVSP:
@@ -56,6 +74,12 @@ class _FakeVSP:
     def GetParmVal(self, parm_id: tuple[_FakeXSec, str]) -> float:
         xs, name = parm_id
         return float(xs.parms[name])
+
+    def GetAirfoilUpperPnts(self, xs: _FakeXSec):
+        return xs.upper
+
+    def GetAirfoilLowerPnts(self, xs: _FakeXSec):
+        return xs.lower
 
 
 def _write_airfoil_dat(path: Path, thickness_tc: float) -> None:
@@ -120,13 +144,27 @@ def _build_config(*, dihedral_schedule: list[list[float]] | None = None) -> HPAC
 
 
 def test_extract_airfoil_refs_recovers_naca_and_matched_afile(tmp_path: Path) -> None:
+    upper = [_FakePoint(1.0, 0.0), _FakePoint(0.5, 0.08), _FakePoint(0.0, 0.0)]
+    lower = [_FakePoint(0.0, 0.0), _FakePoint(0.5, -0.05), _FakePoint(1.0, 0.0)]
     _write_airfoil_dat(tmp_path / "fx76mp140.dat", thickness_tc=0.14)
     _write_airfoil_dat(tmp_path / "naca0009.dat", thickness_tc=0.09)
 
     vsp = _FakeVSP(
         [
-            _FakeXSec(_FakeVSP.XS_FOUR_SERIES, Camber=0.02, CamberLoc=0.4, ThickChord=0.12),
-            _FakeXSec(_FakeVSP.XS_FILE_AIRFOIL, ThickChord=0.14),
+            _FakeXSec(
+                _FakeVSP.XS_FOUR_SERIES,
+                Camber=0.02,
+                CamberLoc=0.4,
+                ThickChord=0.12,
+                upper=upper,
+                lower=lower,
+            ),
+            _FakeXSec(
+                _FakeVSP.XS_FILE_AIRFOIL,
+                ThickChord=0.14,
+                upper=upper,
+                lower=lower,
+            ),
         ]
     )
     schedule = [{"y": 0.0}, {"y": 5.0}]
@@ -146,6 +184,39 @@ def test_extract_airfoil_refs_recovers_naca_and_matched_afile(tmp_path: Path) ->
             "name": "fx76mp140",
             "thickness_tc": pytest.approx(0.14),
         },
+    ]
+
+
+def test_extract_airfoil_refs_can_embed_inline_coordinates(tmp_path: Path) -> None:
+    _write_airfoil_dat(tmp_path / "fx76mp140.dat", thickness_tc=0.14)
+    upper = [_FakePoint(1.0, 0.0), _FakePoint(0.4, 0.09), _FakePoint(0.0, 0.0)]
+    lower = [_FakePoint(0.0, 0.0), _FakePoint(0.4, -0.04), _FakePoint(1.0, 0.0)]
+    vsp = _FakeVSP(
+        [
+            _FakeXSec(
+                _FakeVSP.XS_FILE_AIRFOIL,
+                ThickChord=0.14,
+                upper=upper,
+                lower=lower,
+            ),
+        ]
+    )
+
+    refs = _extract_airfoil_refs(
+        vsp,
+        "wing",
+        [{"y": 0.0}],
+        airfoil_dir=tmp_path,
+        include_coordinates=True,
+    )
+
+    assert refs[0]["name"] == "fx76mp140"
+    assert refs[0]["coordinates"] == [
+        [1.0, 0.0],
+        [0.4, 0.09],
+        [0.0, 0.0],
+        [0.4, -0.04],
+        [1.0, 0.0],
     ]
 
 

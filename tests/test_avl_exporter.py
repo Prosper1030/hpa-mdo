@@ -81,6 +81,59 @@ def test_export_avl_uses_vertical_rudder_hinge_axis(tmp_path):
     assert "rudder  1.0  0.000000  0.0 0.0 0.0  1.0" not in text
 
 
+def test_export_avl_prefers_inline_airfoil_points_over_afile(tmp_path):
+    geometry = VSPGeometryModel(
+        surfaces=[
+            VSPSurface(
+                name="Wing",
+                surface_type="wing",
+                origin=(0.0, 0.0, 0.0),
+                rotation=(0.0, 0.0, 0.0),
+                symmetry="xz",
+                sections=[
+                    VSPSection(
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.2,
+                        0.0,
+                        "fx76mp140",
+                        airfoil_points=(
+                            (1.0, 0.0),
+                            (0.5, 0.08),
+                            (0.0, 0.0),
+                            (0.5, -0.04),
+                            (1.0, 0.0),
+                        ),
+                    ),
+                    VSPSection(
+                        0.0,
+                        1.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        "fx76mp140",
+                        airfoil_points=(
+                            (1.0, 0.0),
+                            (0.5, 0.08),
+                            (0.0, 0.0),
+                            (0.5, -0.04),
+                            (1.0, 0.0),
+                        ),
+                    ),
+                ],
+            ),
+        ]
+    )
+
+    avl_path = export_avl(geometry, tmp_path / "inline_airfoil.avl")
+
+    text = avl_path.read_text(encoding="utf-8")
+    assert "AIRFOIL" in text
+    assert "AFILE" not in text
+    assert "1.000000000  0.000000000" in text
+
+
 def test_stage_avl_airfoil_files_copies_and_rewrites_afile_entries(tmp_path):
     airfoil_dir = tmp_path / "airfoils"
     airfoil_dir.mkdir()

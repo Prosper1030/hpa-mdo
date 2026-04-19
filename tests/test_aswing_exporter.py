@@ -139,3 +139,55 @@ def test_export_aswing_preserves_multiple_generic_wing_controls(tmp_path: Path) 
     assert "Beam 1 Wing" in text
     assert "# t dCLdF1 dCMdF1" in text
     assert "# t dCLdF4 dCMdF4" in text
+
+
+def test_parse_avl_accepts_inline_airfoil_sections(tmp_path: Path) -> None:
+    avl_path = tmp_path / "inline.avl"
+    avl_path.write_text(
+        textwrap.dedent(
+            """\
+            Inline Airfoil Demo
+            #Mach
+            0.000000
+            #IYsym  iZsym  Zsym
+            0  0  0.000000
+            #Sref  Cref  Bref
+            10.000000000  1.000000000  8.000000000
+            #Xref  Yref  Zref
+            0.250000000  0.000000000  0.000000000
+            #CDp
+            0.000000
+            #
+            SURFACE
+            Wing
+            12  1.0  30  -2.0
+            #
+            SECTION
+            0.000000000  0.000000000  0.000000000  1.200000000  0.000000000
+            AIRFOIL
+            1.0 0.0
+            0.5 0.08
+            0.0 0.0
+            0.5 -0.04
+            1.0 0.0
+            #
+            SECTION
+            0.000000000  4.000000000  0.200000000  0.600000000  0.000000000
+            AIRFOIL
+            1.0 0.0
+            0.5 0.06
+            0.0 0.0
+            0.5 -0.03
+            1.0 0.0
+            #
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    model = parse_avl(avl_path)
+
+    assert model.title == "Inline Airfoil Demo"
+    assert len(model.surfaces) == 1
+    assert len(model.surfaces[0].sections) == 2
+    assert model.surfaces[0].sections[0].airfoil == "INLINE_AIRFOIL"

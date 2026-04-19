@@ -114,13 +114,16 @@ def export_avl(
                     ),
                 ]
             )
-            dat_path = _resolve_airfoil_dat(section.airfoil, airfoil_dir)
-            if dat_path is not None:
-                lines.extend(["AFILE", str(dat_path)])
+            if section.airfoil_points:
+                lines.extend(_render_inline_airfoil(section.airfoil_points))
             else:
-                naca_digits = _naca_digits(section.airfoil)
-                if naca_digits is not None:
-                    lines.extend(["NACA", naca_digits])
+                dat_path = _resolve_airfoil_dat(section.airfoil, airfoil_dir)
+                if dat_path is not None:
+                    lines.extend(["AFILE", str(dat_path)])
+                else:
+                    naca_digits = _naca_digits(section.airfoil)
+                    if naca_digits is not None:
+                        lines.extend(["NACA", naca_digits])
             for control in export_section.controls:
                 comment = _control_comment(control)
                 if comment is not None:
@@ -286,6 +289,15 @@ def _merge_positions(values: list[float], tol: float = 1.0e-9) -> list[float]:
         if not merged or abs(value - merged[-1]) > tol:
             merged.append(value)
     return merged
+
+
+def _render_inline_airfoil(
+    points: tuple[tuple[float, float], ...],
+) -> list[str]:
+    lines = ["AIRFOIL"]
+    for x_c, y_c in points:
+        lines.append(f"{float(x_c):.9f}  {float(y_c):.9f}")
+    return lines
 
 
 def _split_avl_data_line(line: str) -> tuple[str, str]:

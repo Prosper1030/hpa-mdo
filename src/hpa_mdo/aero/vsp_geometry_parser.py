@@ -44,6 +44,8 @@ class VSPSection:
     chord: float
     twist: float
     airfoil: str
+    airfoil_points: tuple[tuple[float, float], ...] | None = None
+    airfoil_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ class VSPSurface:
 @dataclass(frozen=True)
 class VSPGeometryModel:
     surfaces: list[VSPSurface]
+    source_path: str | None = None
 
     def get_wing(self) -> VSPSurface | None:
         for surface in self.surfaces:
@@ -257,16 +260,17 @@ def _surface_from_config(
     )
 
 
-def attach_controls_from_summary(
+def attach_surface_metadata_from_summary(
     geometry: VSPGeometryModel,
     summary: dict | None,
 ) -> VSPGeometryModel:
-    """Return a copy of ``geometry`` with control metadata merged from VSP summary.
+    """Return a copy of ``geometry`` with VSP summary metadata stitched back in.
 
     The XML-based ``VSPGeometryParser`` can recover section geometry but not
-    OpenVSP ``SS_CONTROL`` SubSurface metadata.  ``summarize_vsp_surfaces``
-    exposes those controls as plain dicts; this helper stitches them back onto
-    the neutral ``VSPGeometryModel`` so downstream exporters stay VSP-first.
+    OpenVSP ``SS_CONTROL`` SubSurface metadata or section airfoil coordinate
+    point clouds.  ``summarize_vsp_surfaces`` exposes those as plain dicts; this
+    helper stitches them back onto the neutral ``VSPGeometryModel`` so
+    downstream exporters stay VSP-first.
     """
     if not summary:
         return geometry
@@ -282,7 +286,33 @@ def attach_controls_from_summary(
         summary_key = summary_key_by_surface_type.get(surface.surface_type)
         summary_surface = summary.get(summary_key) if summary_key is not None else None
         controls_payload = (summary_surface or {}).get("controls") or []
+        airfoil_payload = (summary_surface or {}).get("airfoils") or []
         controls = _controls_from_payload(controls_payload)
+        sections: list[VSPSection] = []
+        for idx, section in enumerate(surface.sections):
+            ref = airfoil_payload[idx] if idx < len(airfoil_payload) else {}
+            points_payload = ref.get("coordinates") or ()
+            airfoil_points = tuple(
+                (float(pair[0]), float(pair[1]))
+                for pair in points_payload
+                if isinstance(pair, (list, tuple)) and len(pair) >= 2
+            )
+            sections.append(
+                VSPSection(
+                    x_le=float(section.x_le),
+                    y_le=float(section.y_le),
+                    z_le=float(section.z_le),
+                    chord=float(section.chord),
+                    twist=float(section.twist),
+                    airfoil=str(ref.get("name") or section.airfoil),
+                    airfoil_points=airfoil_points or section.airfoil_points,
+                    airfoil_source=(
+                        None
+                        if ref.get("source") is None
+                        else str(ref.get("source"))
+                    ),
+                )
+            )
         surfaces.append(
             VSPSurface(
                 name=surface.name,
@@ -290,11 +320,22 @@ def attach_controls_from_summary(
                 origin=surface.origin,
                 rotation=surface.rotation,
                 symmetry=surface.symmetry,
-                sections=surface.sections,
+                sections=sections or surface.sections,
                 controls=controls or surface.controls,
             )
         )
-    return VSPGeometryModel(surfaces=surfaces)
+    return VSPGeometryModel(
+        surfaces=surfaces,
+        source_path=summary.get("source_path") or geometry.source_path,
+    )
+
+
+def attach_controls_from_summary(
+    geometry: VSPGeometryModel,
+    summary: dict | None,
+) -> VSPGeometryModel:
+    """Backward-compatible alias for metadata stitching from VSP summary."""
+    return attach_surface_metadata_from_summary(geometry, summary)
 
 
 def _controls_from_payload(payload: Iterable[dict]) -> list[VSPControl]:
@@ -368,7 +409,10 @@ class VSPGeometryParser:
 
         if not surfaces:
             raise ValueError(f"No wing-like surfaces found in VSP3: {self.vsp3_path}")
-        return VSPGeometryModel(surfaces=surfaces)
+        return VSPGeometryModel(
+            surfaces=surfaces,
+            source_path=str(self.vsp3_path),
+        )
 
     def _iter_geom_nodes(self, root: ET.Element) -> Iterable[ET.Element]:
         for node in root.iter():

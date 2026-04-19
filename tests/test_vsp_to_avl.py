@@ -129,7 +129,7 @@ def test_vsp_to_avl_prefers_config_vsp_model_over_yaml_fallback(
     monkeypatch.setattr(
         vsp_to_avl,
         "summarize_vsp_surfaces",
-        lambda _path, airfoil_dir=None: {
+        lambda _path, airfoil_dir=None, include_airfoil_coordinates=False: {
             "source_path": str(vsp3_path),
             "main_wing": None,
             "horizontal_tail": None,
@@ -181,7 +181,7 @@ def test_vsp_to_avl_attaches_introspected_controls_when_vsp_is_present(
     monkeypatch.setattr(
         vsp_to_avl,
         "summarize_vsp_surfaces",
-        lambda _path, airfoil_dir=None: {
+        lambda _path, airfoil_dir=None, include_airfoil_coordinates=False: {
             "source_path": str(vsp3_path),
             "main_wing": {
                 "controls": [
@@ -209,3 +209,83 @@ def test_vsp_to_avl_attaches_introspected_controls_when_vsp_is_present(
     assert "aileron" in text
     assert "9.900000000" in text
     assert "aileron  1.0  0.750000  0.0 0.0 0.0  -1.0" in text
+
+
+def test_vsp_to_avl_prefers_inline_airfoils_from_same_vsp_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    vsp3_path = tmp_path / "reference.vsp3"
+    vsp3_path.write_text(_mock_vsp3_xml(), encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    output_path = tmp_path / "from_vsp_inline.avl"
+    _write_minimal_config(config_path, extra_io=[f"  vsp_model: {vsp3_path}"])
+
+    geometry = VSPGeometryModel(
+        surfaces=[
+            VSPSurface(
+                name="Main Wing",
+                surface_type="wing",
+                origin=(0.0, 0.0, 0.0),
+                rotation=(0.0, 0.0, 0.0),
+                symmetry="xz",
+                sections=[
+                    VSPSection(0.0, 0.0, 0.0, 1.39, 0.0, "fx76mp140"),
+                    VSPSection(0.0, 16.5, 1.73, 0.47, 0.0, "clarkysm"),
+                ],
+            ),
+        ],
+        source_path=str(vsp3_path),
+    )
+
+    monkeypatch.setattr(
+        vsp_to_avl,
+        "VSPGeometryParser",
+        lambda _path: SimpleNamespace(parse=lambda: geometry),
+    )
+    monkeypatch.setattr(
+        vsp_to_avl,
+        "summarize_vsp_surfaces",
+        lambda _path, airfoil_dir=None, include_airfoil_coordinates=False: {
+            "source_path": str(vsp3_path),
+            "main_wing": {
+                "airfoils": [
+                    {
+                        "station_y": 0.0,
+                        "source": "afile",
+                        "name": "fx76mp140",
+                        "coordinates": [
+                            [1.0, 0.0],
+                            [0.5, 0.08],
+                            [0.0, 0.0],
+                            [0.5, -0.04],
+                            [1.0, 0.0],
+                        ],
+                    },
+                    {
+                        "station_y": 16.5,
+                        "source": "afile",
+                        "name": "clarkysm",
+                        "coordinates": [
+                            [1.0, 0.0],
+                            [0.5, 0.06],
+                            [0.0, 0.0],
+                            [0.5, -0.03],
+                            [1.0, 0.0],
+                        ],
+                    },
+                ],
+                "controls": [],
+            },
+            "horizontal_tail": None,
+            "vertical_fin": None,
+        },
+    )
+
+    rc = vsp_to_avl.main(["--config", str(config_path), "--output", str(output_path)])
+
+    assert rc == 0
+    text = output_path.read_text(encoding="utf-8")
+    assert "AIRFOIL" in text
+    assert "AFILE" not in text
+    assert "1.000000000  0.000000000" in text

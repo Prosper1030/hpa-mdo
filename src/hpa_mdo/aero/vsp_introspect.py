@@ -191,11 +191,83 @@ def _estimate_max_tc(pts: Sequence[Tuple[float, float]]) -> Optional[float]:
     return best_tc if best_tc > 0 else None
 
 
+def _get_vec3_component(point: Any, axis: str) -> float:
+    value = getattr(point, axis, None)
+    if callable(value):
+        return float(value())
+    if value is not None:
+        return float(value)
+    raise AttributeError(f"Point {point!r} does not expose {axis}")
+
+
+def _pick_airfoil_ordinate_axis(
+    upper_pnts: Sequence[Any],
+    lower_pnts: Sequence[Any],
+) -> str:
+    spans: dict[str, float] = {}
+    all_points = list(upper_pnts) + list(lower_pnts)
+    for axis in ("y", "z"):
+        try:
+            values = [_get_vec3_component(point, axis) for point in all_points]
+        except Exception:
+            spans[axis] = float("-inf")
+            continue
+        spans[axis] = max(values) - min(values) if values else float("-inf")
+    return "y" if spans.get("y", float("-inf")) >= spans.get("z", float("-inf")) else "z"
+
+
+def _normalize_airfoil_surface_points(
+    points: Sequence[Any],
+    *,
+    ordinate_axis: str,
+    descending_x: bool,
+) -> List[Tuple[float, float]]:
+    pairs = [
+        (_get_vec3_component(point, "x"), _get_vec3_component(point, ordinate_axis))
+        for point in points
+    ]
+    pairs.sort(key=lambda pair: pair[0], reverse=descending_x)
+    return pairs
+
+
+def _extract_airfoil_coordinates(vsp: Any, xs: Any) -> Optional[List[List[float]]]:
+    try:
+        upper = list(vsp.GetAirfoilUpperPnts(xs))
+        lower = list(vsp.GetAirfoilLowerPnts(xs))
+    except Exception:
+        return None
+    if not upper or not lower:
+        return None
+
+    ordinate_axis = _pick_airfoil_ordinate_axis(upper, lower)
+    upper_pairs = _normalize_airfoil_surface_points(
+        upper,
+        ordinate_axis=ordinate_axis,
+        descending_x=True,
+    )
+    lower_pairs = _normalize_airfoil_surface_points(
+        lower,
+        ordinate_axis=ordinate_axis,
+        descending_x=False,
+    )
+    if not upper_pairs or not lower_pairs:
+        return None
+    if (
+        abs(upper_pairs[-1][0] - lower_pairs[0][0]) <= 1.0e-9
+        and abs(upper_pairs[-1][1] - lower_pairs[0][1]) <= 1.0e-9
+    ):
+        combined = upper_pairs + lower_pairs[1:]
+    else:
+        combined = upper_pairs + lower_pairs
+    return [[float(x), float(y)] for x, y in combined]
+
+
 def _extract_airfoil_refs(
     vsp: Any,
     wing_id: str,
     schedule: Sequence[Dict[str, float]],
     airfoil_dir: Optional[Path] = None,
+    include_coordinates: bool = False,
 ) -> List[Dict[str, Any]]:
     """Return per-station airfoil metadata for a wing.
 
@@ -230,6 +302,8 @@ def _extract_airfoil_refs(
         except Exception:
             continue
 
+        coordinates = _extract_airfoil_coordinates(vsp, xs) if include_coordinates else None
+
         station_y = float(schedule[i]["y"]) if i < len(schedule) else float("nan")
 
         if shape == getattr(vsp, "XS_FILE_AIRFOIL", -1):
@@ -237,34 +311,43 @@ def _extract_airfoil_refs(
             name = None
             if airfoil_dir is not None:
                 name = _match_afile_by_tc(tc, Path(airfoil_dir))
-            refs.append({
+            payload = {
                 "station_y": station_y,
                 "source": "afile",
                 "name": name,
                 "thickness_tc": tc,
-            })
+            }
+            if coordinates is not None:
+                payload["coordinates"] = coordinates
+            refs.append(payload)
             continue
 
         if shape == getattr(vsp, "XS_FOUR_SERIES", -1):
             camber = _get_xsec_parm(vsp, xs, "Camber") or 0.0
             camber_loc = _get_xsec_parm(vsp, xs, "CamberLoc") or 0.0
             tc = _get_xsec_parm(vsp, xs, "ThickChord") or 0.0
-            refs.append({
+            payload = {
                 "station_y": station_y,
                 "source": "naca",
                 "name": _naca_four_series_name(camber, camber_loc, tc),
                 "thickness_tc": tc,
-            })
+            }
+            if coordinates is not None:
+                payload["coordinates"] = coordinates
+            refs.append(payload)
             continue
 
         # Fallback: return the VSP shape constant as an opaque tag.
         tc = _get_xsec_parm(vsp, xs, "ThickChord")
-        refs.append({
+        payload = {
             "station_y": station_y,
             "source": f"vsp_shape_{shape}",
             "name": None,
             "thickness_tc": tc if tc is not None else 0.0,
-        })
+        }
+        if coordinates is not None:
+            payload["coordinates"] = coordinates
+        refs.append(payload)
 
     return refs
 
@@ -471,6 +554,7 @@ def summarize_vsp_surfaces(
     vsp_path: str | Path,
     *,
     airfoil_dir: Optional[str | Path] = None,
+    include_airfoil_coordinates: bool = False,
 ) -> Dict[str, Any]:
     """Read a .vsp3 and return a dict describing its main wing + empennage.
 
@@ -517,7 +601,13 @@ def summarize_vsp_surfaces(
         name = vsp.GetGeomName(gid)
         sched = _extract_wing_schedule(vsp, gid)
         extent = _wing_extent(sched)
-        airfoils = _extract_airfoil_refs(vsp, gid, sched, airfoil_dir=airfoil_dir_p)
+        airfoils = _extract_airfoil_refs(
+            vsp,
+            gid,
+            sched,
+            airfoil_dir=airfoil_dir_p,
+            include_coordinates=bool(include_airfoil_coordinates),
+        )
         controls = _extract_controls(vsp, gid)
         dihedral_schedule = _extract_dihedral_schedule(sched)
         geoms.append({

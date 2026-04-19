@@ -218,6 +218,11 @@ def _parse_section(lines: Sequence[str], idx: int) -> tuple[AVLSection, int]:
         if token == "NACA":
             section.airfoil = f"NACA {lines[idx + 1].strip()}"
             idx += 2
+        elif token.startswith("AIRFOIL"):
+            section.airfoil = "INLINE_AIRFOIL"
+            idx += 1
+            while idx < len(lines) and _looks_like_airfoil_coordinate(lines[idx]):
+                idx += 1
         elif token == "AFILE":
             section.airfoil = lines[idx + 1].strip()
             idx += 2
@@ -292,6 +297,18 @@ def _render_aswing(
         )
 
     return "\n".join(lines) + "\n"
+
+
+def _looks_like_airfoil_coordinate(line: str) -> bool:
+    bits = line.split()
+    if len(bits) < 2:
+        return False
+    try:
+        float(bits[0])
+        float(bits[1])
+    except ValueError:
+        return False
+    return True
 
 
 def _weight_block(cfg: HPAConfig) -> list[str]:
