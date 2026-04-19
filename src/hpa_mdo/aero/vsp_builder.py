@@ -38,6 +38,13 @@ _FAILURE_WEIGHT = 99999
 
 # Default timeout for VSPAero subprocess (seconds).
 _VSPAERO_TIMEOUT = 600
+_VSPAERO_ANALYSIS_METHOD_CODES = {
+    "vlm": 0,
+    "panel": 1,
+}
+_VSPAERO_ANALYSIS_METHOD_NAMES = {
+    code: name for name, code in _VSPAERO_ANALYSIS_METHOD_CODES.items()
+}
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +73,46 @@ def _failure_dict(msg: str) -> Dict[str, Any]:
         "lod_path": None,
         "polar_path": None,
     }
+
+
+def _resolve_vspaero_binary() -> str | None:
+    """Return the available ``vspaero`` binary path, including packaged installs."""
+    direct = shutil.which("vspaero")
+    if direct is not None:
+        return direct
+
+    try:
+        import openvsp  # type: ignore
+    except ImportError:
+        return None
+
+    package_dir = Path(openvsp.__file__).resolve().parent
+    for candidate_name in ("vspaero", "vspaero_opt"):
+        candidate = package_dir / candidate_name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def _normalize_vspaero_analysis_method(value: str | int) -> tuple[str, int]:
+    """Normalize user-facing VSPAero analysis method labels/codes."""
+    if isinstance(value, int):
+        if value not in _VSPAERO_ANALYSIS_METHOD_NAMES:
+            raise ValueError(
+                "vspaero_analysis_method must be one of "
+                f"{tuple(_VSPAERO_ANALYSIS_METHOD_NAMES)}."
+            )
+        return _VSPAERO_ANALYSIS_METHOD_NAMES[value], int(value)
+
+    text = str(value).strip().lower()
+    if text.isdigit():
+        return _normalize_vspaero_analysis_method(int(text))
+    if text not in _VSPAERO_ANALYSIS_METHOD_CODES:
+        raise ValueError(
+            "vspaero_analysis_method must be one of "
+            f"{tuple(_VSPAERO_ANALYSIS_METHOD_CODES)}."
+        )
+    return text, _VSPAERO_ANALYSIS_METHOD_CODES[text]
 
 
 def _progressive_dihedral_deg(
@@ -117,6 +164,7 @@ class VSPBuilder:
         *,
         dihedral_multiplier: float = 1.0,
         dihedral_exponent: float | None = None,
+        vspaero_analysis_method: str | int = "vlm",
     ):
         self.cfg = cfg
         self.vspaero_timeout = vspaero_timeout
@@ -130,6 +178,45 @@ class VSPBuilder:
         )
         if self.dihedral_exponent < 0.0:
             raise ValueError("dihedral_exponent must be >= 0.0")
+        (
+            self.vspaero_analysis_method,
+            self.vspaero_analysis_method_code,
+        ) = _normalize_vspaero_analysis_method(vspaero_analysis_method)
+
+    def _vspaero_geom_set_values(self, vsp: Any) -> tuple[int, int]:
+        """Return the thick/thin geometry-set selection for the requested solver mode."""
+        if self.vspaero_analysis_method == "panel":
+            return int(vsp.SET_ALL), int(vsp.SET_NONE)
+        return int(vsp.SET_NONE), int(vsp.SET_ALL)
+
+    def _apply_vspaero_settings_container_api(self, vsp: Any) -> None:
+        """Persist the requested VSPAero thick/thin geometry mode on the model settings."""
+        try:
+            settings_id = vsp.FindContainer("VSPAEROSettings", 0)
+            if not settings_id:
+                return
+            geom_set, thin_geom_set = self._vspaero_geom_set_values(vsp)
+            geom_parm = vsp.FindParm(settings_id, "GeomSet", "VSPAERO")
+            thin_parm = vsp.FindParm(settings_id, "ThinGeomSet", "VSPAERO")
+            if geom_parm:
+                vsp.SetParmVal(geom_parm, geom_set)
+            if thin_parm:
+                vsp.SetParmVal(thin_parm, thin_geom_set)
+            vsp.Update()
+        except Exception:
+            logger.warning(
+                "Could not persist VSPAero %s mode onto VSPAEROSettings",
+                self.vspaero_analysis_method,
+            )
+
+    def _apply_vspaero_geometry_mode_to_analysis(self, vsp: Any, analysis_name: str) -> None:
+        """Apply the requested VLM/panel geometry mode to an Analysis Manager entry."""
+        geom_set, thin_geom_set = self._vspaero_geom_set_values(vsp)
+        names = set(vsp.GetAnalysisInputNames(analysis_name))
+        if "GeomSet" in names:
+            vsp.SetIntAnalysisInput(analysis_name, "GeomSet", [geom_set])
+        if "ThinGeomSet" in names:
+            vsp.SetIntAnalysisInput(analysis_name, "ThinGeomSet", [thin_geom_set])
 
     # ------------------------------------------------------------------
     # Public API
@@ -243,6 +330,8 @@ class VSPBuilder:
                 "vspscript_path": str(built_path),
                 "lod_path": None,
                 "polar_path": None,
+                "analysis_method": self.vspaero_analysis_method,
+                "solver_backend": "manual_vspscript",
                 "note": "Manual execution of .vspscript required (openvsp not installed).",
             }
 
@@ -342,6 +431,7 @@ class VSPBuilder:
             self._add_lifting_surface_api(vsp, self.cfg.vertical_fin)
 
             vsp.Update()
+            self._apply_vspaero_settings_container_api(vsp)
 
             # ── Save ─────────────────────────────────────────────────
             vsp.WriteVSPFile(str(output))
@@ -470,12 +560,15 @@ class VSPBuilder:
             vsp.Update()
 
             # ── DegenGeom (required before VSPAero) ──────────────────
-            vsp.SetAnalysisInputDefaults("VSPAEROComputeGeometry")
-            vsp.ExecAnalysis("VSPAEROComputeGeometry")
+            compute_geometry_name = "VSPAEROComputeGeometry"
+            vsp.SetAnalysisInputDefaults(compute_geometry_name)
+            self._apply_vspaero_geometry_mode_to_analysis(vsp, compute_geometry_name)
+            vsp.ExecAnalysis(compute_geometry_name)
 
             # ── Configure solver ─────────────────────────────────────
             analysis_name = "VSPAEROSweep"
             vsp.SetAnalysisInputDefaults(analysis_name)
+            self._apply_vspaero_geometry_mode_to_analysis(vsp, analysis_name)
 
             # Flight conditions.
             flt = self.cfg.flight
@@ -494,9 +587,6 @@ class VSPBuilder:
             vsp.SetDoubleAnalysisInput(analysis_name, "AlphaEnd", [max(aoa_list)])
             n_aoa = len(aoa_list)
             vsp.SetIntAnalysisInput(analysis_name, "AlphaNpts", [n_aoa])
-
-            # VLM solver type (0 = VLM, 1 = Panel).
-            vsp.SetIntAnalysisInput(analysis_name, "AnalysisMethod", [0])
 
             # ── Execute ──────────────────────────────────────────────
             results_id = vsp.ExecAnalysis(analysis_name)
@@ -525,6 +615,8 @@ class VSPBuilder:
                 "lod_path": str(lod_path) if lod_path else None,
                 "polar_path": str(polar_path) if polar_path else None,
                 "results_id": results_id,
+                "analysis_method": self.vspaero_analysis_method,
+                "solver_backend": "openvsp_api",
                 "error": None,
             }
 
@@ -538,9 +630,11 @@ class VSPBuilder:
         out_dir: Path,
     ) -> Dict[str, Any]:
         """Run VSPAero via the command-line ``vspaero`` binary."""
-        vspaero_bin = shutil.which("vspaero")
+        vspaero_bin = _resolve_vspaero_binary()
         if vspaero_bin is None:
-            return _failure_dict("vspaero binary not found on PATH and openvsp module unavailable")
+            return _failure_dict(
+                "vspaero binary not found (PATH or packaged openvsp install) and openvsp module unavailable"
+            )
 
         # VSPAero CLI requires a DegenGeom CSV.  Generate it with the
         # lightweight vspscript approach if the API is unavailable.
@@ -598,6 +692,8 @@ class VSPBuilder:
                 "success": True,
                 "lod_path": str(lod_path) if lod_path else None,
                 "polar_path": str(polar_path) if polar_path else None,
+                "analysis_method": self.vspaero_analysis_method,
+                "solver_backend": "vspaero_cli",
                 "error": None,
             }
 

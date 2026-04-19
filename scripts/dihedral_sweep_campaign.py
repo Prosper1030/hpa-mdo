@@ -46,6 +46,8 @@ DEFAULT_DESIGN_REPORT = (
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
 CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE = "candidate_avl_spanwise"
+DEFAULT_VSPAERO_ANALYSIS_METHOD = "vlm"
+VSPAERO_ANALYSIS_METHOD_CHOICES = ("vlm", "panel")
 OSCILLATORY_IMAG_TOL = 1.0e-9
 SPIRAL_LATERAL_RATIO_MIN = 0.35
 LATERAL_STATE_NAMES = ("v", "p", "r", "phi", "psi", "y")
@@ -298,6 +300,7 @@ def _build_campaign_search_budget(args) -> dict[str, object]:
             args.local_refine_early_stop_abs_improvement_kg
         ),
         "aero_source_mode": str(args.aero_source_mode),
+        "vspaero_analysis_method": str(args.vspaero_analysis_method),
         "rib_zonewise_mode": str(args.rib_zonewise_mode),
     }
 
@@ -1296,6 +1299,7 @@ def run_inverse_design_case(
     local_refine_early_stop_patience: int,
     local_refine_early_stop_abs_improvement_kg: float,
     aero_source_mode: str,
+    vspaero_analysis_method: str,
     candidate_avl_spanwise_loads_json: Path | None,
     rib_zonewise_mode: str,
     skip_step_export: bool,
@@ -1345,6 +1349,8 @@ def run_inverse_design_case(
         f"{float(local_refine_early_stop_abs_improvement_kg):.9f}",
         "--aero-source-mode",
         str(aero_source_mode),
+        "--vspaero-analysis-method",
+        str(vspaero_analysis_method),
         "--rib-zonewise-mode",
         str(rib_zonewise_mode),
     ]
@@ -1973,6 +1979,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--vspaero-analysis-method",
+        default=DEFAULT_VSPAERO_ANALYSIS_METHOD,
+        choices=VSPAERO_ANALYSIS_METHOD_CHOICES,
+        help=(
+            "Pass through the VSPAero solver method used when the inverse-design "
+            "follow-on runs candidate_rerun_vspaero (vlm or panel)."
+        ),
+    )
+    parser.add_argument(
         "--rib-zonewise-mode",
         default="limited_zonewise",
         choices=("off", "limited_zonewise"),
@@ -2404,6 +2419,7 @@ def main(argv: list[str] | None = None) -> int:
                         args.local_refine_early_stop_abs_improvement_kg
                     ),
                     aero_source_mode=str(args.aero_source_mode),
+                    vspaero_analysis_method=str(args.vspaero_analysis_method),
                     candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
                     rib_zonewise_mode=str(args.rib_zonewise_mode),
                     skip_step_export=bool(args.skip_step_export),

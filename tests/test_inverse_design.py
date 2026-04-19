@@ -1473,6 +1473,8 @@ class CandidateAeroContractTests(unittest.TestCase):
                     "vsp3_path": str((output_dir / "candidate_aero" / "candidate.vsp3").resolve()),
                     "lod_path": str((output_dir / "candidate_aero" / "candidate.lod").resolve()),
                     "polar_path": str((output_dir / "candidate_aero" / "candidate.polar").resolve()),
+                    "analysis_method": "panel",
+                    "solver_backend": "openvsp_api",
                     "error": None,
                 },
             ) as build_and_run_mock, mock.patch(
@@ -1487,6 +1489,7 @@ class CandidateAeroContractTests(unittest.TestCase):
                     target_shape_z_scale=1.3,
                     dihedral_exponent=2.0,
                     aero_source_mode=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+                    vspaero_analysis_method="panel",
                     legacy_aero_cases=legacy_cases,
                 )
 
@@ -1498,10 +1501,13 @@ class CandidateAeroContractTests(unittest.TestCase):
         self.assertIn("candidate-owned geometry and aero artifacts", contract.artifact_ownership.lower())
         self.assertEqual(contract.aoa_sweep_deg, (0.0, 10.0))
         self.assertTrue(str(contract.geometry_artifacts["lod_path"]).endswith("candidate.lod"))
+        self.assertEqual(contract.geometry_artifacts["vspaero_analysis_method"], "panel")
+        self.assertEqual(contract.geometry_artifacts["vspaero_solver_backend"], "openvsp_api")
         parser_self = parse_mock.call_args.args[0]
         self.assertEqual(parser_self.component_ids, (1,))
-        _, output_arg = build_and_run_mock.call_args.args[:2]
+        builder_self, output_arg = build_and_run_mock.call_args.args[:2]
         self.assertTrue(str(output_arg).endswith("candidate_aero"))
+        self.assertEqual(builder_self.vspaero_analysis_method, "panel")
         self.assertEqual(build_and_run_mock.call_args.kwargs["aoa_list"], [0.0, 10.0])
 
     def test_resolve_outer_loop_candidate_aero_candidate_avl_spanwise_marks_candidate_owned_artifacts(self) -> None:
@@ -2266,12 +2272,14 @@ class OuterLoopContractTests(unittest.TestCase):
         budget = _build_feasibility_search_budget_summary(args)
 
         self.assertEqual(args.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(args.vspaero_analysis_method, "vlm")
         self.assertEqual(args.rib_zonewise_mode, "limited_zonewise")
         self.assertEqual(budget["coarse_axes"]["main_plateau_grid_points"], 4)
         self.assertEqual(budget["coarse_axes"]["rear_outboard_grid_points"], 3)
         self.assertEqual(budget["coarse_grid_points_per_case"], 576)
         self.assertEqual(budget["coarse_candidate_contracts_per_case"], 1728)
         self.assertEqual(budget["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(budget["vspaero_analysis_method"], "vlm")
         self.assertTrue(budget["ground_clearance_recovery"])
         self.assertEqual(budget["rib_zonewise_mode"], "limited_zonewise")
         self.assertEqual(budget["rib_design_profiles_per_point"], 3)
@@ -2283,6 +2291,8 @@ class OuterLoopContractTests(unittest.TestCase):
                 "/tmp/config.yaml",
                 "--design-report",
                 "/tmp/report.txt",
+                "--vspaero-analysis-method",
+                "panel",
             ]
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -2368,6 +2378,8 @@ class OuterLoopContractTests(unittest.TestCase):
             cmd[cmd.index("--aero-source-mode") + 1],
             CANDIDATE_RERUN_AERO_SOURCE_MODE,
         )
+        self.assertIn("--vspaero-analysis-method", cmd)
+        self.assertEqual(cmd[cmd.index("--vspaero-analysis-method") + 1], "panel")
         self.assertIn("--ground-clearance-recovery", cmd)
         self.assertIn("--rib-zonewise-mode", cmd)
         self.assertEqual(cmd[cmd.index("--rib-zonewise-mode") + 1], "limited_zonewise")
@@ -2443,12 +2455,14 @@ class OuterLoopContractTests(unittest.TestCase):
         budget = _build_campaign_search_budget(args)
 
         self.assertEqual(args.aero_source_mode, CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
+        self.assertEqual(args.vspaero_analysis_method, "vlm")
         self.assertAlmostEqual(args.dihedral_exponent, 2.2)
         self.assertEqual(budget["cobyla_maxiter"], 240)
         self.assertEqual(budget["local_refine_max_starts"], 6)
         self.assertEqual(budget["local_refine_feasible_seeds"], 2)
         self.assertEqual(budget["coarse_grid_points_per_case"], 576)
         self.assertEqual(budget["aero_source_mode"], CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
+        self.assertEqual(budget["vspaero_analysis_method"], "vlm")
         self.assertEqual(budget["rib_zonewise_mode"], "limited_zonewise")
 
     def test_dihedral_run_inverse_design_case_passes_candidate_avl_spanwise_mode(self) -> None:
@@ -2485,6 +2499,7 @@ class OuterLoopContractTests(unittest.TestCase):
                     local_refine_early_stop_patience=1,
                     local_refine_early_stop_abs_improvement_kg=0.05,
                     aero_source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                    vspaero_analysis_method="panel",
                     candidate_avl_spanwise_loads_json=Path("/tmp/candidate_avl_spanwise.json"),
                     rib_zonewise_mode="off",
                     skip_step_export=True,
@@ -2496,6 +2511,8 @@ class OuterLoopContractTests(unittest.TestCase):
             cmd[cmd.index("--aero-source-mode") + 1],
             CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
         )
+        self.assertIn("--vspaero-analysis-method", cmd)
+        self.assertEqual(cmd[cmd.index("--vspaero-analysis-method") + 1], "panel")
         self.assertIn("--candidate-avl-spanwise-loads-json", cmd)
         self.assertEqual(
             cmd[cmd.index("--candidate-avl-spanwise-loads-json") + 1],

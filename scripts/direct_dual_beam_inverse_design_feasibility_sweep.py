@@ -18,6 +18,8 @@ FEASIBILITY_GATE_PENALTY_KG = 1000.0
 TARGET_VIOLATION_WEIGHT_KG = 1000.0
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
+DEFAULT_VSPAERO_ANALYSIS_METHOD = "vlm"
+VSPAERO_ANALYSIS_METHOD_CHOICES = ("vlm", "panel")
 RIB_ZONEWISE_OFF_MODE = "off"
 RIB_ZONEWISE_LIMITED_MODE = "limited_zonewise"
 DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG = 0.15
@@ -117,6 +119,7 @@ def _build_search_budget_summary(args) -> dict[str, object]:
             args.local_refine_early_stop_abs_improvement_kg
         ),
         "aero_source_mode": str(args.aero_source_mode),
+        "vspaero_analysis_method": str(args.vspaero_analysis_method),
         "rib_zonewise_mode": str(args.rib_zonewise_mode),
         "rib_design_profiles_per_point": int(rib_profile_count),
         "rib_family_switch_penalty_kg": float(args.rib_family_switch_penalty_kg),
@@ -434,6 +437,8 @@ def _run_one_case(args, *, target_mass_kg: float, case_dir: Path) -> SweepCaseRe
         str(args.local_refine_early_stop_abs_improvement_kg),
         "--aero-source-mode",
         str(args.aero_source_mode),
+        "--vspaero-analysis-method",
+        str(args.vspaero_analysis_method),
         (
             "--ground-clearance-recovery"
             if bool(args.ground_clearance_recovery)
@@ -779,6 +784,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Choose whether each target-mass case reuses the legacy shared refresh loads "
             "or consumes candidate-owned rerun-aero artifacts from the inverse-design core."
+        ),
+    )
+    parser.add_argument(
+        "--vspaero-analysis-method",
+        default=DEFAULT_VSPAERO_ANALYSIS_METHOD,
+        choices=VSPAERO_ANALYSIS_METHOD_CHOICES,
+        help=(
+            "Pass through the VSPAero solver method used when inverse design "
+            "runs candidate_rerun_vspaero (vlm or panel)."
         ),
     )
     parser.add_argument("--refresh-steps", type=int, default=2)

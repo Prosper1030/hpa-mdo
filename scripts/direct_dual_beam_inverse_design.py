@@ -100,6 +100,8 @@ DEFAULT_ZONEWISE_RIB_PROFILE_KEYS = (
     "inboard_reinforced_mix",
     "outboard_relaxed_mix",
 )
+DEFAULT_VSPAERO_ANALYSIS_METHOD = "vlm"
+VSPAERO_ANALYSIS_METHOD_CHOICES = ("vlm", "panel")
 
 
 @dataclass(frozen=True)
@@ -1447,6 +1449,7 @@ def _resolve_outer_loop_candidate_aero(
     target_shape_z_scale: float,
     dihedral_exponent: float,
     aero_source_mode: str,
+    vspaero_analysis_method: str = DEFAULT_VSPAERO_ANALYSIS_METHOD,
     legacy_aero_cases: list[SpanwiseLoad] | None = None,
     candidate_aero_output_dir: Path | None = None,
     candidate_avl_spanwise_loads_json: Path | None = None,
@@ -1647,6 +1650,7 @@ def _resolve_outer_loop_candidate_aero(
         cfg,
         dihedral_multiplier=float(target_shape_z_scale),
         dihedral_exponent=float(dihedral_exponent),
+        vspaero_analysis_method=str(vspaero_analysis_method),
     )
     build_result = builder.build_and_run(str(rerun_output_dir), aoa_list=aoa_sweep)
     if not bool(build_result.get("success")):
@@ -1700,10 +1704,17 @@ def _resolve_outer_loop_candidate_aero(
             "vspscript_path": _resolve_optional_path(build_result.get("vspscript_path")),
             "lod_path": _resolve_optional_path(build_result.get("lod_path")),
             "polar_path": _resolve_optional_path(build_result.get("polar_path")),
+            "vspaero_analysis_method": str(build_result.get("analysis_method") or vspaero_analysis_method),
+            "vspaero_solver_backend": str(build_result.get("solver_backend") or "unknown"),
         },
         notes=(
             "target_shape_z_scale is mapped onto VSPBuilder.dihedral_multiplier so the "
             "geometry-rerun contract uses the same low-dimensional shape knob as inverse design.",
+            (
+                "Candidate rerun-aero uses VSPAero "
+                f"{str(build_result.get('analysis_method') or vspaero_analysis_method).upper()} "
+                f"through {str(build_result.get('solver_backend') or 'unknown')}."
+            ),
         ),
     )
     return list(cases), cruise_case, mapped_loads, contract
@@ -4992,6 +5003,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--vspaero-analysis-method",
+        default=DEFAULT_VSPAERO_ANALYSIS_METHOD,
+        choices=VSPAERO_ANALYSIS_METHOD_CHOICES,
+        help=(
+            "Choose the VSPAero solver method for candidate_rerun_vspaero "
+            "(vlm or panel)."
+        ),
+    )
+    parser.add_argument(
         "--candidate-avl-spanwise-loads-json",
         default=None,
         help=(
@@ -5180,6 +5200,7 @@ def main(argv: list[str] | None = None) -> int:
     rib_family_switch_penalty_kg = float(args.rib_family_switch_penalty_kg)
     rib_family_mix_max_unique = int(args.rib_family_mix_max_unique)
     aero_source_mode = str(args.aero_source_mode)
+    vspaero_analysis_method = str(args.vspaero_analysis_method)
     main_plateau_grid = _parse_grid(args.main_plateau_grid)
     main_taper_fill_grid = _parse_grid(args.main_taper_fill_grid)
     rear_radius_grid = _parse_grid(args.rear_radius_grid)
@@ -5217,6 +5238,7 @@ def main(argv: list[str] | None = None) -> int:
         target_shape_z_scale=target_shape_z_scale,
         dihedral_exponent=dihedral_exponent,
         aero_source_mode=aero_source_mode,
+        vspaero_analysis_method=vspaero_analysis_method,
         legacy_aero_cases=legacy_aero_cases,
         candidate_aero_output_dir=candidate_aero_output_dir,
         candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
@@ -5376,6 +5398,7 @@ def main(argv: list[str] | None = None) -> int:
                     target_shape_z_scale=float(recovery_scale),
                     dihedral_exponent=float(recovery_exponent),
                     aero_source_mode=aero_source_mode,
+                    vspaero_analysis_method=vspaero_analysis_method,
                     legacy_aero_cases=legacy_aero_cases,
                     candidate_aero_output_dir=None,
                     candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,

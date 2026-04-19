@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -298,3 +299,47 @@ def test_extract_reference_schedule_uses_introspected_airfoils(tmp_path, monkeyp
 
     assert [item["y"] for item in schedule] == pytest.approx([0.0, 4.5, 16.5])
     assert [item["airfoil"] for item in schedule] == ["fx76mp140", "fx76mp140", "clarkysm"]
+
+
+def test_vsp_builder_rejects_unknown_vspaero_analysis_method(tmp_path) -> None:
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+
+    with pytest.raises(ValueError, match="vspaero_analysis_method"):
+        VSPBuilder(cfg, vspaero_analysis_method="bad_method")
+
+
+def test_vsp_builder_panel_mode_uses_thick_geometry_sets(tmp_path) -> None:
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    builder = VSPBuilder(cfg, vspaero_analysis_method="panel")
+    fake_vsp = type("FakeVSP", (), {"SET_ALL": 0, "SET_NONE": -1})()
+
+    geom_set, thin_geom_set = builder._vspaero_geom_set_values(fake_vsp)
+
+    assert (geom_set, thin_geom_set) == (0, -1)
+
+
+def test_run_vspaero_cli_preserves_selected_analysis_method_metadata(tmp_path, monkeypatch) -> None:
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    builder = VSPBuilder(cfg, vspaero_analysis_method="panel")
+    vsp3_path = tmp_path / "blackcat_004.vsp3"
+    vsp3_path.write_text("dummy\n", encoding="utf-8")
+
+    monkeypatch.setattr(vsp_builder, "_resolve_vspaero_binary", lambda: "/tmp/vspaero")
+
+    def _fake_run(cmd, capture_output, text, timeout, cwd):
+        assert cmd[0] == "/tmp/vspaero"
+        out_dir = Path(cwd)
+        (out_dir / "blackcat_004.lod").write_text("lod\n", encoding="utf-8")
+        (out_dir / "blackcat_004.polar").write_text("polar\n", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(vsp_builder.subprocess, "run", _fake_run)
+
+    result = builder._run_vspaero_cli(vsp3_path, [-2.0, 0.0, 2.0], tmp_path)
+
+    assert result["success"] is True
+    assert result["analysis_method"] == "panel"
+    assert result["solver_backend"] == "vspaero_cli"
