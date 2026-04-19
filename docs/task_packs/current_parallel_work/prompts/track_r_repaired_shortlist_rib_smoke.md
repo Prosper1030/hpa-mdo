@@ -1,6 +1,6 @@
 # Track R — Repaired-Shortlist Rib Smoke Replay
 
-> 目標：在 Track Z 重新確認的 canonical repaired AVL-first shortlist 上，重新回答 rib ranking 到底有沒有真實訊號。
+> 目標：在 post-fix refreshed canonical repaired AVL-first shortlist 上，重新回答 rib ranking 到底有沒有真實訊號。
 
 ## 先讀
 
@@ -9,7 +9,7 @@
 3. `docs/TARGET_STANDARD_GAP_MAP.md`
 4. `docs/TARGET_STANDARD_PROGRAM_PLAN.md`
 5. `docs/RIB_INTEGRATION_PLAN.md`
-6. `docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md`
+6. `docs/task_packs/current_parallel_work/reports/avl_postfix_shortlist_refresh_report.md`
 7. `docs/task_packs/current_parallel_work/reports/rib_campaign_smoke_report.md`
 8. `scripts/direct_dual_beam_inverse_design.py`
 9. `scripts/direct_dual_beam_inverse_design_feasibility_sweep.py`
@@ -17,7 +17,7 @@
 ## 任務目標
 
 不要再用舊的 suspicious baseline seeds。
-請用 **Track Z 新確認的 canonical repaired shortlist seeds**，重新做一輪小型 rib smoke。
+請用 **post-fix refreshed canonical repaired shortlist seeds**，重新做一輪小型 rib smoke。
 
 你要回答的核心問題是：
 
@@ -31,7 +31,7 @@
 
 ## 最低要求
 
-- 優先用 Track Z 明確推薦的 `2 到 4` 個 shortlist seeds
+- 優先用 post-fix shortlist 明確推薦的 `2 到 4` 個 seeds
 - 每個 seed 都要比：
   - `rib_zonewise=off`
   - `rib_zonewise=limited_zonewise`
@@ -47,7 +47,7 @@
 報告至少包含：
 
 1. 你實際跑了哪些命令
-2. 這次實際採用了哪幾個 Track Z shortlist seeds
+2. 這次實際採用了哪幾個 post-fix shortlist seeds
 3. 每個 seed 的：
    - `rib_zonewise=off` 結果
    - `rib_zonewise=limited_zonewise` 結果

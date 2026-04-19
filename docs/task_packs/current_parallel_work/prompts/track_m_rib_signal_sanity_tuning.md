@@ -9,7 +9,7 @@
 3. `docs/TARGET_STANDARD_GAP_MAP.md`
 4. `docs/TARGET_STANDARD_PROGRAM_PLAN.md`
 5. `docs/RIB_INTEGRATION_PLAN.md`
-6. `docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md`
+6. `docs/task_packs/current_parallel_work/reports/avl_postfix_shortlist_refresh_report.md`
 7. `docs/task_packs/current_parallel_work/reports/rib_campaign_smoke_report.md`
 8. `scripts/direct_dual_beam_inverse_design.py`
 9. `scripts/direct_dual_beam_inverse_design_feasibility_sweep.py`
@@ -18,7 +18,7 @@
 
 這一包只有在：
 
-- Track Z 已完成
+- post-fix shortlist refresh 已完成
 - Track R 已完成
 - Track R 結論是 **有真實 rib 訊號，但 ranking 仍 suspicious**
 

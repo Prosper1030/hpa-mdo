@@ -128,8 +128,12 @@ active_tracks:
     goal: "The first repaired AVL shortlist pass used `dihedral_exponent=2.2` as if it were baseline; keep it as diagnostic evidence, not canonical shortlist truth."
   track_z:
     name: "avl_baseline_exponent_rebaseline"
-    status: "next"
-    goal: "Restore `dihedral_exponent=1.0` as the canonical AVL-first screening baseline, demote `2.2` to recovery-only, and rebuild the repaired shortlist on that basis."
+    status: "baseline_complete"
+    goal: "Restore `dihedral_exponent=1.0` as the canonical AVL-first screening baseline, demote `2.2` to recovery-only, and provide a post-fix repaired AVL shortlist with clean full-gate pass-side candidates."
+  track_r:
+    name: "repaired_shortlist_rib_smoke"
+    status: "current"
+    goal: "Use the post-fix repaired AVL-first shortlist to run `rib_zonewise=off` vs `limited_zonewise` smoke and determine whether rib ranking now produces a real comparable signal."
   track_m:
     name: "rib_ranking_sanity_tuning"
     status: "queued"
@@ -155,10 +159,10 @@ recently_completed:
   - "Track V baseline: candidate_avl_spanwise no longer drifts in gate / recovery semantics and no longer relies on skip-aero-gates to appear sane."
   - "Track W baseline: side-by-side compare proved the remaining blocker was numeric structural selected-state alignment, not parser, recovery, or plumbing."
   - "Track Y baseline: candidate_avl_spanwise structural selected state is now legacy-aligned (`AoA 0.000 deg`, `lift 450.668 N`, `torque 260.296 N*m`) instead of the old trim-required `AoA 12.536 deg` state."
+  - "Track Z baseline: post-fix repaired AVL-first bounded search now yields 5/5 clean full-gate pass-side candidates at `exp = 1.0`, and the canonical shortlist is refreshed around `x3.75`, `x3.5`, `x3.875`, with `x4.0` as backup and `x4.25` confirm-only."
 
 next_wave_priorities:
-  - "Track Z: rebaseline repaired AVL-first screening around `dihedral_exponent=1.0` and rebuild the shortlist without treating `2.2` as default."
-  - "Track R replay: after Track Z, rerun rib smoke on repaired shortlist seeds and look for at least one non-sentinel comparable case."
+  - "Track R replay: rerun rib smoke on the post-fix repaired shortlist seeds and look for at least one non-sentinel comparable case."
   - "Track M: only if repaired-shortlist replay shows suspicious rib ranking with real signal, tune rib penalties / family cap / surrogate behavior."
   - "Track N: if repaired-shortlist replay looks sane, do finalist spot-check and handoff packaging for rib-on winners."
 

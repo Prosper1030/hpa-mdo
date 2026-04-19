@@ -36,8 +36,8 @@ Track U 已經證明：
 - Track W：已完成，確認真正 blocker 是 structural selected-state alignment
 - Track Y：已完成，把 `candidate_avl_spanwise` 的 structural selected state 對齊回 legacy owner
 - Track X：已完成一次，但因為把 `exp = 2.2` 當 baseline，目前只保留為歷史診斷
-- Track Z：現在把 repaired AVL-first baseline 拉回 `exp = 1.0`，再重建 canonical shortlist
-- Track R：等 Track Z 之後，再用 repaired shortlist 回去做 rib smoke
+- Track Z：已完成，post-fix repaired AVL-first 已把 baseline 拉回 `exp = 1.0`，並重建 canonical shortlist
+- Track R：現在用 post-fix repaired shortlist 回去做 rib smoke
 - Track M / N：只有在 Track R 產生真實 rib 訊號後才開
 
 這一包的目的不是再修 parser，也不是再修 solver，而是把外圈重新收斂成：
@@ -65,4 +65,5 @@ Track U 已經證明：
   - 先把 `candidate_avl_spanwise` 修回「只補升力分佈 ownership」
   - 再把 structural selected state 對齊回舊流程
   - 再把 baseline exponent 拉回舊主線的 `1.0`
-  - 然後才用 repaired AVL-first path 重建 canonical shortlist，回到 Track R / M / N。
+  - 再用 post-fix repaired AVL-first path 重建 canonical shortlist
+  - 然後才回到 Track R / M / N。

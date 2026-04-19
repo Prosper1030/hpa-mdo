@@ -10,23 +10,24 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_z_avl_baseline_exponent_rebaseline"
-    prompt: "prompts/track_z_avl_baseline_exponent_rebaseline.md"
-    launch_wave: 18
-    write_scope:
-      - "docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md"
-    expected_artifacts:
-      - "apples-to-apples compare of `dihedral_exponent=1.0` vs `2.2` under the repaired AVL-first path"
-      - "clear statement that `2.2` is recovery-only unless evidence proves otherwise"
-      - "canonical repaired shortlist built from the restored `exp=1.0` baseline"
   - id: "track_r_repaired_shortlist_rib_smoke"
     prompt: "prompts/track_r_repaired_shortlist_rib_smoke.md"
     launch_wave: 19
     write_scope:
       - "docs/task_packs/current_parallel_work/reports/rib_campaign_smoke_report.md"
     expected_artifacts:
-      - "repaired-shortlist off-vs-limited rib smoke compare with at least one non-sentinel comparable case or a clear new blocker"
-      - "explicit verdict of SANE, SUSPICIOUS, or BLOCKED tied to repaired shortlist seeds"
+      - "post-fix repaired-shortlist off-vs-limited rib smoke compare with at least one non-sentinel comparable case or a clear new blocker"
+      - "explicit verdict of SANE, SUSPICIOUS, or BLOCKED tied to post-fix repaired shortlist seeds"
+  - id: "track_z_avl_baseline_exponent_rebaseline"
+    prompt: "prompts/track_z_avl_baseline_exponent_rebaseline.md"
+    launch_wave: 18
+    write_scope:
+      - "docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md"
+      - "docs/task_packs/current_parallel_work/reports/avl_postfix_shortlist_refresh_report.md"
+    expected_artifacts:
+      - "apples-to-apples compare of `dihedral_exponent=1.0` vs `2.2` under the repaired AVL-first path"
+      - "clear statement that `2.2` is recovery-only unless evidence proves otherwise"
+      - "canonical repaired shortlist built from the restored `exp=1.0` baseline and refreshed after the AVL fixes"
   - id: "track_m_rib_signal_sanity_tuning"
     prompt: "prompts/track_m_rib_signal_sanity_tuning.md"
     launch_wave: 20

@@ -92,22 +92,23 @@
 
 ### Track Z：AVL baseline exponent rebaseline
 
-這是 **現在的 current wave**。
+這包 **已完成 baseline**。
 
-- 什麼情況下優先：你已確認舊 multiplier 本來就已經是 tip-weighted，真正要修的是 baseline 被錯放成 `exp = 2.2`。
-- 近期目標：
-  - 用 repaired AVL-first path 做 `exp = 1.0` vs `exp = 2.2` 的 apples-to-apples compare
-  - 把 `exp = 1.0` 寫回 canonical screening baseline
-  - 明確把 `exp = 2.2` 降回 recovery / sensitivity 選項
-  - 基於 `exp = 1.0` 重建真正可用的 repaired shortlist
+- 已確認：
+  - `exp = 1.0` 才是 canonical repaired AVL-first screening baseline
+  - `exp = 2.2` 只應保留在 recovery / sensitivity
+  - post-fix repaired AVL-first bounded search 已經重新產生 clean full-gate pass-side shortlist
+- 現在的角色：
+  - 作為 `Track R` 的 canonical repaired-shortlist seed source
+  - 不再是目前 current wave
 
 ### Track R：repaired-shortlist rib smoke replay
 
-這是 **Track Z 做完後的下一波**。
+這是 **現在的 current wave**。
 
-- 什麼情況下優先：如果 repaired AVL-first 搜尋已經在 **`exp = 1.0` baseline** 下產生更乾淨的 recovered shortlist，現在需要真正回答 rib ranking 是不是工程合理。
+- 什麼情況下優先：post-fix repaired AVL-first 搜尋已經在 **`exp = 1.0` baseline** 下產生 clean pass-side shortlist，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
-  - 用 repaired shortlist seeds，而不是舊的 drift/suspicious seeds，也不是 `exp = 2.2` 的誤基準 shortlist
+  - 用 post-fix repaired shortlist seeds，而不是舊的 drift/suspicious seeds，也不是 pre-fix `Track Z` 的 stale shortlist
   - 每個 seed 都比較 `rib_zonewise=off` vs `limited_zonewise`
   - 先用 AVL-first path 建立 shortlist，再用 `candidate_rerun_vspaero` 做 confirm
   - 至少找出一組不是 sentinel fallback 的可比 selected-case
@@ -185,7 +186,7 @@
 ### Track U：AVL spanwise plumbing baseline
 
 - 目前狀態：plumbing 已接通，但第一版實作 drift 過；這個問題已經由 Track V / W / Y 收斂。
-- 接下來重點不再是重做 plumbing，而是先把 repaired AVL-first 的 **baseline exponent** 收回到舊主線，再重建 shortlist，然後重新回答 rib ranking。
+- 接下來重點不再是重做 plumbing，而是用 **post-fix repaired AVL-first shortlist** 正式回答 rib ranking。
 
 ### Track S：explicit wire-truss convergence unblock
 
