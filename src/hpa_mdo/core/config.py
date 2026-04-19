@@ -813,7 +813,7 @@ class HPAConfig(BaseModel):
     solver: SolverConfig = SolverConfig()
     structure: StructureConfig = StructureConfig()
     rib: RibConfig = RibConfig()
-    mission: MissionConfig = MissionConfig()
+    mission: MissionConfig = Field(default_factory=MissionConfig)
     io: IOConfig = IOConfig()
     aswing: ASWINGExportConfig = ASWINGExportConfig()
     hi_fidelity: HiFidelityConfig = HiFidelityConfig()
