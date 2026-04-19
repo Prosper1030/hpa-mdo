@@ -103,6 +103,21 @@ def test_blackcat_mission_defaults_loaded_from_config():
     assert cfg.mission.anchor_duration_min == pytest.approx(30.0)
 
 
+def test_load_config_uses_mission_default_factory_when_section_is_absent(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data.pop("mission", None)
+
+    cfg_path = tmp_path / "blackcat_without_mission.yaml"
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    cfg = load_config(cfg_path)
+
+    assert cfg.mission.objective_mode == "max_range"
+    assert cfg.mission.speed_sweep_points == 9
+
+
 def test_mission_override_overlay_can_change_key_fields(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"
@@ -120,6 +135,21 @@ def test_mission_override_overlay_can_change_key_fields(tmp_path):
     assert cfg.mission.objective_mode == "min_power"
     assert cfg.mission.target_range_km == pytest.approx(21.0)
     assert cfg.mission.speed_sweep_points == 5
+
+
+def test_load_config_rejects_inverted_mission_speed_sweep_bounds(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    overlay_path = tmp_path / "local_paths.yaml"
+    overlay_path.write_text(
+        "mission:\n"
+        "  speed_sweep_min_mps: 10.0\n"
+        "  speed_sweep_max_mps: 6.0\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError, match=r"mission\.speed_sweep_max_mps must exceed mission\.speed_sweep_min_mps"):
+        load_config(config_path, local_paths_path=overlay_path)
 
 
 def test_blackcat_lift_wire_angle_loaded_from_config():
