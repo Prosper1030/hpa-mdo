@@ -587,7 +587,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         )
         self.assertEqual(
             next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
-            "passing_runner_up",
+            "feasible_runner_up",
         )
         self.assertEqual(
             next(row for row in annotated if row.dihedral_multiplier == 3.0).reject_reason,
@@ -715,7 +715,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
 
         self.assertEqual(winner_summary["selection_status"], "winner")
         self.assertEqual(winner_row_annotated.selection_status, "winner")
-        self.assertEqual(loser_row_annotated.selection_status, "passing_runner_up")
+        self.assertEqual(loser_row_annotated.selection_status, "feasible_runner_up")
         self.assertEqual(winner_summary["winner_evidence"], winner_row_annotated.winner_evidence)
         self.assertIn("score=10.000", str(winner_summary["winner_evidence"]))
         self.assertNotIn("score=20.000", str(winner_summary["winner_evidence"]))
@@ -775,7 +775,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertIsNone(winner_summary["mission_objective_mode"])
         self.assertEqual(
             next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
-            "passing_runner_up",
+            "feasible_runner_up",
         )
         self.assertEqual(
             next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
@@ -846,7 +846,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         )
         self.assertEqual(
             next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
-            "passing_runner_up",
+            "feasible_runner_up",
         )
 
     @mock.patch("scripts.dihedral_sweep_campaign.subprocess.run")

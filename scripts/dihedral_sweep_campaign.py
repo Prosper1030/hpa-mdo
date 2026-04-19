@@ -2249,7 +2249,7 @@ def _annotate_campaign_selection(
             selection_status = "winner" if passing_rows else "nearest_candidate"
             winner_evidence = winner_evidence_text
         elif row.reject_reason == "none":
-            selection_status = "passing_runner_up"
+            selection_status = "feasible_runner_up"
             winner_evidence = None
         else:
             selection_status = "rejected"
