@@ -86,6 +86,72 @@ def test_evaluate_mission_objective_min_power_reports_min_power_metrics():
     assert result.target_range_passed is (max(expected_ranges) >= 15000.0)
 
 
+def test_evaluate_mission_objective_target_miss_is_infeasible():
+    inputs = MissionEvaluationInputs(
+        objective_mode="max_range",
+        target_range_km=1000000.0,
+        speed_mps=(10.0, 11.0, 12.0),
+        power_required_w=(240.0, 230.0, 220.0),
+        rider_curve=FakeAnchorCurve(
+            anchor_power_w=300.0,
+            anchor_duration_min=30.0,
+        ),
+    )
+
+    result = evaluate_mission_objective(inputs)
+
+    assert result.target_range_passed is False
+    assert result.mission_feasible is False
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"anchor_power_w": 0.0, "anchor_duration_min": 30.0},
+        {"anchor_power_w": 300.0, "anchor_duration_min": float("nan")},
+        {"anchor_power_w": 300.0, "anchor_duration_min": -1.0},
+        {"anchor_power_w": 300.0, "anchor_duration_min": 30.0, "exponent": 0.0},
+        {"anchor_power_w": 300.0, "anchor_duration_min": 30.0, "min_power_w": 0.0},
+        {"anchor_power_w": 300.0, "anchor_duration_min": 30.0, "max_power_w": 180.0},
+        {
+            "anchor_power_w": 500.0,
+            "anchor_duration_min": 30.0,
+            "max_power_w": 450.0,
+        },
+    ],
+)
+def test_fake_anchor_curve_rejects_invalid_configuration(kwargs):
+    with pytest.raises(ValueError):
+        FakeAnchorCurve(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "speed_mps,power_required_w",
+    [
+        ((10.0, float("nan")), (240.0, 230.0)),
+        ((10.0, 11.0), (240.0, 0.0)),
+        ((10.0, -1.0), (240.0, 230.0)),
+        ((10.0, 11.0), (240.0, float("inf"))),
+    ],
+)
+def test_evaluate_mission_objective_rejects_non_finite_or_non_positive_samples(
+    speed_mps, power_required_w
+):
+    inputs = MissionEvaluationInputs(
+        objective_mode="max_range",
+        target_range_km=10.0,
+        speed_mps=speed_mps,
+        power_required_w=power_required_w,
+        rider_curve=FakeAnchorCurve(
+            anchor_power_w=300.0,
+            anchor_duration_min=30.0,
+        ),
+    )
+
+    with pytest.raises(ValueError):
+        evaluate_mission_objective(inputs)
+
+
 def test_evaluate_mission_objective_rejects_unsupported_mode():
     inputs = MissionEvaluationInputs(
         objective_mode="other",

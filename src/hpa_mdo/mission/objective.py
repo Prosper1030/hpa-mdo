@@ -1,5 +1,6 @@
 """Mission objective evaluation utilities."""
 
+import math
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -11,6 +12,17 @@ class FakeAnchorCurve:
     exponent: float = 0.15
     min_power_w: float = 180.0
     max_power_w: float = 450.0
+
+    def __post_init__(self) -> None:
+        _require_finite_positive(self.anchor_power_w, "anchor_power_w")
+        _require_finite_positive(self.anchor_duration_min, "anchor_duration_min")
+        _require_finite_positive(self.exponent, "exponent")
+        _require_finite_positive(self.min_power_w, "min_power_w")
+        _require_finite_positive(self.max_power_w, "max_power_w")
+        if self.max_power_w <= self.min_power_w:
+            raise ValueError("max_power_w must be greater than min_power_w")
+        if not (self.min_power_w <= self.anchor_power_w <= self.max_power_w):
+            raise ValueError("anchor_power_w must lie within min_power_w and max_power_w")
 
     def power_at_duration_min(self, duration_min: float) -> float:
         if duration_min <= 0:
@@ -88,7 +100,7 @@ def evaluate_mission_objective(
 
     return MissionEvaluationResult(
         mission_objective_mode=inputs.objective_mode,
-        mission_feasible=True,
+        mission_feasible=best_range_m >= target_range_m,
         target_range_km=inputs.target_range_km,
         target_range_passed=best_range_m >= target_range_m,
         target_range_margin_m=best_range_m - target_range_m,
@@ -113,3 +125,12 @@ def _validate_inputs(inputs: MissionEvaluationInputs) -> None:
         raise ValueError("speed_mps and power_required_w must have the same length")
     if len(inputs.speed_mps) < 2:
         raise ValueError("at least two sampled speeds are required")
+    for speed_mps in inputs.speed_mps:
+        _require_finite_positive(speed_mps, "speed_mps")
+    for power_required_w in inputs.power_required_w:
+        _require_finite_positive(power_required_w, "power_required_w")
+
+
+def _require_finite_positive(value: float, field_name: str) -> None:
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{field_name} must be finite and > 0")
