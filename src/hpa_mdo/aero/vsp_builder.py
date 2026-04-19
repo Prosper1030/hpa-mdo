@@ -27,6 +27,7 @@ import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from hpa_mdo.aero.vsp_introspect import _extract_airfoil_refs
 from hpa_mdo.core.config import HPAConfig, LiftingSurfaceConfig
 from hpa_mdo.core.logging import get_logger
 
@@ -89,7 +90,7 @@ def _progressive_dihedral_deg(
 
 
 def _airfoil_for_eta(cfg: HPAConfig, eta: float) -> str:
-    """Return the configured root/tip airfoil choice at normalized span *eta*."""
+    """Return the config fallback airfoil choice at normalized span *eta*."""
     return cfg.wing.airfoil_root if eta < 0.5 else cfg.wing.airfoil_tip
 
 
@@ -1050,6 +1051,12 @@ class VSPBuilder:
                 schedule[-1]["y"],
                 half_span,
             )
+        airfoil_dir = Path(self.cfg.io.airfoil_dir) if self.cfg.io.airfoil_dir is not None else None
+        refs = _extract_airfoil_refs(vsp, wing_id, schedule, airfoil_dir=airfoil_dir)
+        for entry, ref in zip(schedule, refs, strict=False):
+            name = ref.get("name")
+            if name:
+                entry["airfoil"] = str(name)
         return schedule
 
     def _densify_reference_schedule(self, schedule: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -1080,7 +1087,6 @@ class VSPBuilder:
         if y_target <= float(schedule[0]["y"]) + 1.0e-9:
             entry = dict(schedule[0])
             entry["y"] = 0.0
-            entry["airfoil"] = self.cfg.wing.airfoil_root
             entry["source"] = "reference_vsp"
             return entry
 
@@ -1090,15 +1096,18 @@ class VSPBuilder:
             y_left = float(left["y"])
             y_right = float(right["y"])
             if y_target <= y_right + 1.0e-9:
+                if abs(y_target - y_right) <= 1.0e-9:
+                    entry = dict(right)
+                    entry["source"] = "reference_vsp"
+                    return entry
                 denom = max(y_right - y_left, 1.0e-12)
                 frac = min(max((y_target - y_left) / denom, 0.0), 1.0)
-                eta = 0.0 if half_span <= 0.0 else min(max(y_target / half_span, 0.0), 1.0)
                 return self._reference_schedule_entry(
                     y=y_target,
                     chord=float(left["chord"]) + frac * (float(right["chord"]) - float(left["chord"])),
                     dihedral_deg=float(right["dihedral_deg"]),
                     segment_dihedral_deg=float(right.get("segment_dihedral_deg", right["dihedral_deg"])),
-                    airfoil=_airfoil_for_eta(self.cfg, eta),
+                    airfoil=str(left.get("airfoil") or right.get("airfoil") or self.cfg.wing.airfoil_root),
                 )
 
         entry = dict(schedule[-1])

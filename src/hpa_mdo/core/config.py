@@ -126,10 +126,10 @@ class WingConfig(BaseModel):
         ge=0.0,
     )
     spar_location_xc: float = 0.25
-    airfoil_root: str = "clarkysm"
-    airfoil_tip: str = "fx76mp140"
-    airfoil_root_tc: float = Field(0.117, description="Root airfoil max t/c")
-    airfoil_tip_tc: float = Field(0.140, description="Tip airfoil max t/c")
+    airfoil_root: str = "fx76mp140"
+    airfoil_tip: str = "clarkysm"
+    airfoil_root_tc: float = Field(0.140, description="Root airfoil max t/c")
+    airfoil_tip_tc: float = Field(0.117, description="Tip airfoil max t/c")
     max_tip_twist_deg: float = Field(2.0, description="Torsion constraint [deg]")
     max_tip_deflection_m: Optional[float] = Field(
         None, description="Max allowable tip deflection [m]"
@@ -352,7 +352,7 @@ class AeroGatesConfig(BaseModel):
     stall_alpha_deg: float = Field(
         13.5,
         description="Conservative stall angle for the wing root airfoil at "
-        "cruise Re [deg]. Default is tuned for Clark Y SM / FX 76 MP 140 "
+        "cruise Re [deg]. Default is tuned for FX 76 MP 140 / Clark Y SM "
         "family at Re ~ 5e5; override per-airfoil if you change sections.",
     )
     min_stall_margin_deg: float = Field(

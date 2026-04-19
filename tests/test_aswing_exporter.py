@@ -31,7 +31,8 @@ def test_parse_avl_reads_full_aircraft_geometry() -> None:
         [0.0, 4.5, 7.5, 10.5, 13.5, 16.5]
     )
     assert wing.sections[-1].z == pytest.approx(0.812804556)
-    assert wing.sections[-1].airfoil == "fx76mp140.dat"
+    assert wing.sections[0].airfoil == "fx76mp140.dat"
+    assert wing.sections[-1].airfoil == "clarkysm.dat"
 
     elevator = model.surfaces[1]
     assert elevator.sections[0].controls == ("elevator",)

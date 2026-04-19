@@ -175,7 +175,7 @@ def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_pat
             "chord": 1.30,
             "dihedral_deg": 1.0,
             "segment_dihedral_deg": 1.0,
-            "airfoil": "clarkysm",
+            "airfoil": "fx76mp140",
             "source": "reference_vsp",
         },
         {
@@ -183,7 +183,7 @@ def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_pat
             "chord": 1.30,
             "dihedral_deg": 1.0,
             "segment_dihedral_deg": 1.0,
-            "airfoil": "clarkysm",
+            "airfoil": "fx76mp140",
             "source": "reference_vsp",
         },
         {
@@ -191,7 +191,7 @@ def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_pat
             "chord": 1.175,
             "dihedral_deg": 2.0,
             "segment_dihedral_deg": 2.0,
-            "airfoil": "clarkysm",
+            "airfoil": "fx76mp140",
             "source": "reference_vsp",
         },
         {
@@ -199,7 +199,7 @@ def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_pat
             "chord": 1.04,
             "dihedral_deg": 3.0,
             "segment_dihedral_deg": 3.0,
-            "airfoil": "clarkysm",
+            "airfoil": "fx76mp140",
             "source": "reference_vsp",
         },
         {
@@ -223,7 +223,7 @@ def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_pat
             "chord": 0.435,
             "dihedral_deg": 5.0,
             "segment_dihedral_deg": 5.0,
-            "airfoil": "fx76mp140",
+            "airfoil": "clarkysm",
             "source": "reference_vsp",
         },
     ]
@@ -253,3 +253,48 @@ def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_pat
     assert refit_z == pytest.approx(expected_z)
     assert scaled[1]["segment_dihedral_deg"] > schedule[1]["segment_dihedral_deg"]
     assert scaled[-1]["segment_dihedral_deg"] > schedule[-1]["segment_dihedral_deg"]
+
+
+def test_extract_reference_schedule_uses_introspected_airfoils(tmp_path, monkeypatch) -> None:
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    builder = VSPBuilder(cfg)
+
+    monkeypatch.setattr(
+        vsp_builder,
+        "_extract_airfoil_refs",
+        lambda _vsp, _wing_id, _schedule, airfoil_dir=None: [
+            {"station_y": 0.0, "name": "fx76mp140"},
+            {"station_y": 4.5, "name": "fx76mp140"},
+            {"station_y": 16.5, "name": "clarkysm"},
+        ],
+    )
+
+    class _FakeVSP:
+        def GetXSecSurf(self, wing_id, surf_idx):
+            assert wing_id == "wing"
+            assert surf_idx == 0
+            return "surf"
+
+        def GetNumXSec(self, surf):
+            assert surf == "surf"
+            return 3
+
+        def GetXSec(self, surf, idx):
+            assert surf == "surf"
+            return idx
+
+        def GetXSecParm(self, xs, name):
+            values = {
+                1: {"Root_Chord": 1.3, "Tip_Chord": 1.175, "Span": 4.5, "Dihedral": 1.0},
+                2: {"Root_Chord": 1.175, "Tip_Chord": 0.435, "Span": 12.0, "Dihedral": 5.0},
+            }
+            return values[xs][name]
+
+        def GetParmVal(self, value):
+            return value
+
+    schedule = builder._extract_reference_wing_schedule(_FakeVSP(), "wing")
+
+    assert [item["y"] for item in schedule] == pytest.approx([0.0, 4.5, 16.5])
+    assert [item["airfoil"] for item in schedule] == ["fx76mp140", "fx76mp140", "clarkysm"]

@@ -64,8 +64,8 @@ def test_blackcat_airfoil_tc_loaded_from_config():
 
     cfg = load_config(config_path)
 
-    assert cfg.wing.airfoil_root_tc == pytest.approx(0.117)
-    assert cfg.wing.airfoil_tip_tc == pytest.approx(0.140)
+    assert cfg.wing.airfoil_root_tc == pytest.approx(0.140)
+    assert cfg.wing.airfoil_tip_tc == pytest.approx(0.117)
 
 
 def test_blackcat_lift_wire_angle_loaded_from_config():
