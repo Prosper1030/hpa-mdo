@@ -2217,6 +2217,156 @@ class CandidateAeroContractTests(unittest.TestCase):
         )
 
 
+    def test_build_refresh_summary_json_surfaces_mission_block_for_feasibility(self) -> None:
+        candidate = self._make_candidate()
+        inverse_outcome = InverseOutcome(
+            success=True,
+            feasible=True,
+            target_mass_kg=None,
+            message="ok",
+            total_wall_time_s=0.1,
+            baseline_eval_wall_time_s=0.01,
+            nfev=1,
+            nit=0,
+            equivalent_analysis_calls=1,
+            production_analysis_calls=1,
+            unique_evaluations=1,
+            cache_hits=0,
+            feasible_count=1,
+            target_feasible_count=1,
+            baseline=candidate,
+            best_overall_feasible=candidate,
+            best_target_feasible=None,
+            coarse_selected=candidate,
+            coarse_candidate_count=1,
+            coarse_feasible_count=1,
+            coarse_target_feasible_count=1,
+            selected=candidate,
+            local_refine=None,
+            active_wall_diagnostics=None,
+            manufacturing_limit_source="explicit",
+            max_jig_vertical_prebend_limit_m=0.1,
+            max_jig_vertical_curvature_limit_per_m=0.01,
+            artifacts=None,
+        )
+        iteration = RefreshIterationResult(
+            iteration_index=0,
+            load_source="candidate_rerun_vspaero:candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun:aoa_8.000deg",
+            outcome=inverse_outcome,
+            load_metrics=RefreshLoadMetrics(
+                total_lift_half_n=110.0,
+                total_drag_half_n=2.0,
+                total_abs_torque_half_nm=1.0,
+                max_lift_per_span_npm=55.0,
+                max_abs_torque_per_span_nmpm=0.5,
+                twist_abs_max_deg=0.0,
+                aoa_eff_min_deg=8.0,
+                aoa_eff_max_deg=8.0,
+                aoa_clip_fraction=0.0,
+            ),
+            mapped_loads={
+                "y": np.array([0.0, 1.0, 2.0], dtype=float),
+                "lift_per_span": np.array([55.0, 55.0, 55.0], dtype=float),
+                "drag_per_span": np.array([1.0, 1.0, 1.0], dtype=float),
+                "torque_per_span": np.array([0.5, 0.5, 0.5], dtype=float),
+            },
+            map_config_summary={
+                "main_plateau_scale_upper": 1.14,
+                "main_taper_fill_upper": 0.80,
+                "rear_radius_scale_upper": 1.12,
+                "delta_t_global_max_m": 0.001,
+                "delta_t_rear_outboard_max_m": 0.0005,
+            },
+            dynamic_design_space_applied=False,
+        )
+        refinement = RefreshRefinementOutcome(
+            refresh_steps_requested=1,
+            refresh_steps_completed=0,
+            dynamic_design_space_enabled=False,
+            dynamic_design_space_rebuilds=0,
+            converged=False,
+            convergence_reason=None,
+            manufacturing_limit_source="explicit",
+            max_jig_vertical_prebend_limit_m=0.1,
+            max_jig_vertical_curvature_limit_per_m=0.01,
+            iterations=(iteration,),
+            artifacts=None,
+            aero_contract=CandidateAeroContract(
+                source_mode=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+                baseline_load_source="candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun",
+                refresh_load_source="candidate_owned_twist_refresh_from_rerun_sweep",
+                load_ownership="candidate-owned rerun loads",
+                artifact_ownership="candidate-owned artifacts",
+                requested_knobs={
+                    "target_shape_z_scale": 1.25,
+                    "dihedral_multiplier": 1.25,
+                    "dihedral_exponent": 1.6,
+                },
+                aoa_sweep_deg=(0.0, 8.0, 10.0),
+                selected_cruise_aoa_deg=8.0,
+                geometry_artifacts={
+                    "candidate_output_dir": "/tmp/candidate_aero",
+                    "vsp3_path": "/tmp/candidate_aero/candidate.vsp3",
+                    "vspscript_path": None,
+                    "lod_path": "/tmp/candidate_aero/candidate.lod",
+                    "polar_path": "/tmp/candidate_aero/candidate.polar",
+                },
+                notes=(),
+            ),
+            ground_clearance_recovery=None,
+        )
+
+        summary = build_refresh_summary_json(
+            config_path=REPO_ROOT / "configs" / "blackcat_004.yaml",
+            design_report=Path("/tmp/report.txt"),
+            cruise_aoa_deg=8.0,
+            map_config=SimpleNamespace(
+                main_plateau_scale_upper=1.14,
+                main_taper_fill_upper=0.80,
+                rear_radius_scale_upper=1.12,
+                delta_t_global_max_m=0.001,
+                delta_t_rear_outboard_max_m=0.0005,
+            ),
+            outcome=refinement,
+            refresh_washout_scale=1.0,
+        )
+
+        self.assertIn("mission", summary)
+        self.assertIsNotNone(summary["mission"]["mission_objective_mode"])
+        self.assertIsNotNone(summary["mission"]["mission_score"])
+        self.assertEqual(summary["mission"]["pilot_power_model"], "fake_anchor_curve")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp) / "target_20.0kg"
+            case_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = case_dir / "direct_dual_beam_inverse_design_refresh_summary.json"
+            report_path = case_dir / "direct_dual_beam_inverse_design_refresh_report.txt"
+            summary_path.write_text(json.dumps(summary) + "\n", encoding="utf-8")
+            report_path.write_text("ok\n", encoding="utf-8")
+
+            args = _build_feasibility_sweep_arg_parser().parse_args(
+                [
+                    "--config",
+                    str(REPO_ROOT / "configs" / "blackcat_004.yaml"),
+                    "--design-report",
+                    str(Path("/tmp/report.txt")),
+                ]
+            )
+            with mock.patch(
+                "scripts.direct_dual_beam_inverse_design_feasibility_sweep.subprocess.run",
+                autospec=True,
+                return_value=SimpleNamespace(returncode=0),
+            ):
+                result = _run_feasibility_case(args, target_mass_kg=20.0, case_dir=case_dir)
+
+        self.assertEqual(result.mission_objective_mode, "max_range")
+        self.assertTrue(result.mission_feasible)
+        self.assertIsNotNone(result.target_range_km)
+        self.assertIsNotNone(result.best_range_m)
+        self.assertIsNotNone(result.mission_score)
+        self.assertEqual(result.pilot_power_model, "fake_anchor_curve")
+
+
 class OuterLoopContractTests(unittest.TestCase):
     @staticmethod
     def _make_feasibility_case(

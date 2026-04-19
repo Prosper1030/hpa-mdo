@@ -32,6 +32,7 @@ from hpa_mdo.aero import (
 )
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.core import Aircraft, MaterialDB, load_config
+from hpa_mdo.mission import FakeAnchorCurve, MissionEvaluationInputs, evaluate_mission_objective
 from hpa_mdo.structure import (
     AnalysisModeName,
     INVERSE_MARGIN_NAMES,
@@ -3498,6 +3499,110 @@ def _build_refresh_iteration_summary(iteration: RefreshIterationResult) -> dict[
     }
 
 
+def _empty_mission_snapshot() -> dict[str, object]:
+    return {
+        "mission_objective_mode": None,
+        "mission_feasible": None,
+        "target_range_km": None,
+        "target_range_passed": None,
+        "target_range_margin_m": None,
+        "best_range_m": None,
+        "best_range_speed_mps": None,
+        "best_endurance_s": None,
+        "min_power_w": None,
+        "min_power_speed_mps": None,
+        "mission_score": None,
+        "mission_score_reason": None,
+        "pilot_power_model": None,
+        "pilot_power_anchor": None,
+        "speed_sweep_window_mps": None,
+    }
+
+
+def _build_refresh_mission_snapshot(
+    *,
+    config_path: Path,
+    load_metrics: RefreshLoadMetrics | None,
+) -> dict[str, object]:
+    try:
+        if load_metrics is None:
+            return _empty_mission_snapshot()
+        cfg = load_config(config_path)
+        mission_cfg = cfg.mission
+        flight = cfg.flight
+        if mission_cfg.rider_model != "fake_anchor_curve":
+            return _empty_mission_snapshot()
+        if int(mission_cfg.speed_sweep_points) < 2:
+            return _empty_mission_snapshot()
+        if (
+            not math.isfinite(float(mission_cfg.speed_sweep_min_mps))
+            or not math.isfinite(float(mission_cfg.speed_sweep_max_mps))
+            or not math.isfinite(float(mission_cfg.target_range_km))
+            or not math.isfinite(float(mission_cfg.anchor_power_w))
+            or not math.isfinite(float(mission_cfg.anchor_duration_min))
+            or not math.isfinite(float(flight.velocity))
+            or float(mission_cfg.speed_sweep_min_mps) <= 0.0
+            or float(mission_cfg.speed_sweep_max_mps) <= float(mission_cfg.speed_sweep_min_mps)
+            or float(mission_cfg.target_range_km) <= 0.0
+            or float(mission_cfg.anchor_power_w) <= 0.0
+            or float(mission_cfg.anchor_duration_min) <= 0.0
+            or float(flight.velocity) <= 0.0
+        ):
+            return _empty_mission_snapshot()
+
+        speeds_mps = tuple(
+            float(value)
+            for value in np.linspace(
+                float(mission_cfg.speed_sweep_min_mps),
+                float(mission_cfg.speed_sweep_max_mps),
+                int(mission_cfg.speed_sweep_points),
+            )
+        )
+        if len(speeds_mps) < 2 or any((not math.isfinite(speed) or speed <= 0.0) for speed in speeds_mps):
+            return _empty_mission_snapshot()
+
+        reference_power_w = 2.0 * float(load_metrics.total_drag_half_n) * float(flight.velocity)
+        if not math.isfinite(reference_power_w) or reference_power_w <= 0.0:
+            return _empty_mission_snapshot()
+
+        reference_speed_mps = float(flight.velocity)
+        power_required_w = tuple(
+            reference_power_w * (speed_mps / reference_speed_mps) ** 3 for speed_mps in speeds_mps
+        )
+        mission_result = evaluate_mission_objective(
+            MissionEvaluationInputs(
+                objective_mode=str(mission_cfg.objective_mode),
+                target_range_km=float(mission_cfg.target_range_km),
+                speed_mps=speeds_mps,
+                power_required_w=power_required_w,
+                rider_curve=FakeAnchorCurve(
+                    anchor_power_w=float(mission_cfg.anchor_power_w),
+                    anchor_duration_min=float(mission_cfg.anchor_duration_min),
+                ),
+            )
+        )
+    except Exception:
+        return _empty_mission_snapshot()
+
+    return {
+        "mission_objective_mode": mission_result.mission_objective_mode,
+        "mission_feasible": mission_result.mission_feasible,
+        "target_range_km": mission_result.target_range_km,
+        "target_range_passed": mission_result.target_range_passed,
+        "target_range_margin_m": mission_result.target_range_margin_m,
+        "best_range_m": mission_result.best_range_m,
+        "best_range_speed_mps": mission_result.best_range_speed_mps,
+        "best_endurance_s": mission_result.best_endurance_s,
+        "min_power_w": mission_result.min_power_w,
+        "min_power_speed_mps": mission_result.min_power_speed_mps,
+        "mission_score": mission_result.mission_score,
+        "mission_score_reason": mission_result.mission_score_reason,
+        "pilot_power_model": mission_result.pilot_power_model,
+        "pilot_power_anchor": mission_result.pilot_power_anchor,
+        "speed_sweep_window_mps": mission_result.speed_sweep_window_mps,
+    }
+
+
 def build_refresh_report_text(
     *,
     config_path: Path,
@@ -3979,6 +4084,10 @@ def build_refresh_summary_json(
             "max_jig_vertical_prebend_m": outcome.max_jig_vertical_prebend_limit_m,
             "max_jig_vertical_curvature_per_m": outcome.max_jig_vertical_curvature_limit_per_m,
         },
+        "mission": _build_refresh_mission_snapshot(
+            config_path=config_path,
+            load_metrics=outcome.final_iteration.load_metrics,
+        ),
         "iterations": [_build_refresh_iteration_summary(iteration) for iteration in outcome.iterations],
         "artifacts": None if outcome.artifacts is None else asdict(outcome.artifacts),
     }
