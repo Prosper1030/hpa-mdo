@@ -41,7 +41,9 @@ from scripts.direct_dual_beam_inverse_design_feasibility_sweep import (
     _annotate_case_selection as _annotate_feasibility_case_selection,
     _build_arg_parser as _build_feasibility_sweep_arg_parser,
     _build_search_budget_summary as _build_feasibility_search_budget_summary,
+    _build_report_text as _build_feasibility_report_text,
     _extract_mission_snapshot,
+    _score_contract_formula_label as _feasibility_score_contract_formula_label,
     _run_one_case as _run_feasibility_case,
 )
 from scripts.direct_dual_beam_inverse_design import (
@@ -2727,6 +2729,23 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertEqual(winner["requested_knobs"]["target_mass_kg"], 21.0)
         self.assertEqual(winner["mission_objective_mode"], "max_range")
         self.assertAlmostEqual(winner["candidate_score"], -41998.0)
+        self.assertEqual(
+            _feasibility_score_contract_formula_label(winner["mission_objective_mode"]),
+            "mission_score if available else objective_value_kg + 1000*target_violation_score + gate penalty",
+        )
+        search_budget = _build_feasibility_search_budget_summary(
+            _build_feasibility_sweep_arg_parser().parse_args([])
+        )
+        report_text = _build_feasibility_report_text(
+            output_dir=Path("/tmp/out"),
+            cases=annotated,
+            search_budget=search_budget,
+            winner_summary=winner,
+        )
+        self.assertIn(
+            "mission_score if available else objective_value_kg + 1000*target_violation_score + gate penalty",
+            report_text,
+        )
         by_target = {case.target_mass_kg: case for case in annotated}
         self.assertEqual(by_target[22.0].selection_status, "rejected")
         self.assertIsNone(by_target[22.0].mission_objective_mode)

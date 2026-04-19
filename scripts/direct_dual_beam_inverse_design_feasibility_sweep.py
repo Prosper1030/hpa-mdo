@@ -372,7 +372,7 @@ def _effective_candidate_score(
 def _score_contract_formula_label(mission_objective_mode: str | None) -> str:
     if mission_objective_mode is None:
         return "objective_value_kg + 1000*target_violation_score + gate penalty"
-    return "mission_score + 1000*target_violation_score + gate penalty"
+    return "mission_score if available else objective_value_kg + 1000*target_violation_score + gate penalty"
 
 
 def _winner_mission_snapshot(
