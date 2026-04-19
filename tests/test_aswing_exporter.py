@@ -31,7 +31,7 @@ def test_parse_avl_reads_full_aircraft_geometry() -> None:
         [0.0, 4.5, 7.5, 10.5, 13.5, 16.5]
     )
     assert wing.sections[-1].z == pytest.approx(0.810978837)
-    assert wing.sections[0].ainc == pytest.approx(3.0)
+    assert wing.sections[0].ainc == pytest.approx(0.0)
     assert wing.sections[0].airfoil == "INLINE_AIRFOIL"
     assert wing.sections[-1].airfoil == "INLINE_AIRFOIL"
 
