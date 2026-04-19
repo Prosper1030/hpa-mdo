@@ -23,7 +23,12 @@ from scipy.optimize import minimize
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hpa_mdo.aero import LoadMapper, VSPBuilder, VSPAeroParser
+from hpa_mdo.aero import (
+    LoadMapper,
+    VSPBuilder,
+    VSPAeroParser,
+    load_candidate_avl_spanwise_artifact,
+)
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.core import Aircraft, MaterialDB, load_config
 from hpa_mdo.structure import (
@@ -82,6 +87,7 @@ CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME = {
 }
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
+CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE = "candidate_avl_spanwise"
 CANDIDATE_RERUN_MAIN_WING_COMPONENT_IDS = (1,)
 DEFAULT_CANDIDATE_AOA_SWEEP_DEG = (-2.0, 0.0, 2.0, 4.0, 6.0, 8.0)
 RIB_ZONEWISE_OFF_MODE = "off"
@@ -1340,9 +1346,14 @@ def _resolve_outer_loop_candidate_aero(
     aero_source_mode: str,
     legacy_aero_cases: list[SpanwiseLoad] | None = None,
     candidate_aero_output_dir: Path | None = None,
+    candidate_avl_spanwise_loads_json: Path | None = None,
 ) -> tuple[list[SpanwiseLoad], SpanwiseLoad, dict, CandidateAeroContract]:
     mode = str(aero_source_mode)
-    if mode not in {LEGACY_AERO_SOURCE_MODE, CANDIDATE_RERUN_AERO_SOURCE_MODE}:
+    if mode not in {
+        LEGACY_AERO_SOURCE_MODE,
+        CANDIDATE_RERUN_AERO_SOURCE_MODE,
+        CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+    }:
         raise ValueError(f"Unsupported aero source mode: {mode}")
 
     if mode == LEGACY_AERO_SOURCE_MODE:
@@ -1385,6 +1396,80 @@ def _resolve_outer_loop_candidate_aero(
                 "target_shape_z_scale still modifies the inverse-design target shape, "
                 "but aerodynamic ownership remains on the legacy shared sweep.",
             ),
+        )
+        return list(cases), cruise_case, mapped_loads, contract
+
+    if mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+        if candidate_avl_spanwise_loads_json is None:
+            raise ValueError(
+                "candidate_avl_spanwise mode requires --candidate-avl-spanwise-loads-json."
+            )
+        artifact_payload, cases = load_candidate_avl_spanwise_artifact(
+            candidate_avl_spanwise_loads_json
+        )
+        if not cases:
+            raise RuntimeError("Candidate AVL spanwise artifact produced no load cases.")
+        selected_cruise_aoa_deg = float(
+            artifact_payload.get("selected_cruise_aoa_deg", cases[0].aoa_deg)
+        )
+        cruise_case = min(
+            cases,
+            key=lambda case: abs(float(case.aoa_deg) - selected_cruise_aoa_deg),
+        )
+        mapper = LoadMapper()
+        mapped_loads = mapper.map_loads(
+            cruise_case,
+            aircraft.wing.y,
+            actual_velocity=cfg.flight.velocity,
+            actual_density=cfg.flight.air_density,
+        )
+        geometry_artifacts_raw = artifact_payload.get("geometry_artifacts")
+        if isinstance(geometry_artifacts_raw, dict):
+            geometry_artifacts = {
+                str(key): (None if value is None else str(value))
+                for key, value in geometry_artifacts_raw.items()
+            }
+        else:
+            geometry_artifacts = {}
+        geometry_artifacts["candidate_avl_spanwise_loads_json"] = str(
+            Path(candidate_avl_spanwise_loads_json).expanduser().resolve()
+        )
+        requested_knobs_raw = artifact_payload.get("requested_knobs")
+        if isinstance(requested_knobs_raw, dict):
+            requested_knobs = {
+                str(key): float(value) for key, value in requested_knobs_raw.items()
+            }
+        else:
+            requested_knobs = _requested_outer_loop_knobs(
+                target_shape_z_scale=target_shape_z_scale,
+                dihedral_exponent=dihedral_exponent,
+            )
+        notes = tuple(str(note) for note in (artifact_payload.get("notes") or ()))
+        boundary_padding = artifact_payload.get("boundary_padding")
+        if boundary_padding:
+            notes = notes + (
+                f"Boundary coverage: {str(boundary_padding)}.",
+            )
+        contract = CandidateAeroContract(
+            source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+            baseline_load_source="candidate_owned_avl_geometry_plus_spanwise_strip_force_sweep",
+            refresh_load_source="candidate_owned_twist_refresh_from_avl_spanwise_sweep",
+            load_ownership=(
+                "Loads come from a candidate-owned AVL geometry plus strip-force AoA sweep "
+                "tied to the current low-dimensional outer-loop geometry knobs."
+            ),
+            artifact_ownership=(
+                "Candidate-owned AVL geometry, trim, strip-force, and spanwise-load artifacts "
+                f"live under {geometry_artifacts.get('candidate_output_dir') or Path(candidate_avl_spanwise_loads_json).expanduser().resolve().parent}."
+            ),
+            requested_knobs=requested_knobs,
+            aoa_sweep_deg=tuple(
+                float(value)
+                for value in (artifact_payload.get("aoa_sweep_deg") or _candidate_aoa_sweep_deg(cases))
+            ),
+            selected_cruise_aoa_deg=float(selected_cruise_aoa_deg),
+            geometry_artifacts=geometry_artifacts,
+            notes=notes,
         )
         return list(cases), cruise_case, mapped_loads, contract
 
@@ -1628,6 +1713,11 @@ def _refresh_method_text(contract: CandidateAeroContract | None) -> str:
             "candidate-level geometry rebuild + VSPAero rerun for the baseline load owner; "
             "later refresh steps interpolate within the candidate-owned AoA sweep"
         )
+    if contract is not None and contract.source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+        return (
+            "candidate-level AVL geometry + strip-force AoA sweep for the baseline load owner; "
+            "later refresh steps interpolate within the candidate-owned AVL AoA sweep"
+        )
     return "reuse existing VSPAero AoA sweep and reduce local effective AoA by structural twist"
 
 
@@ -1646,6 +1736,13 @@ def _refresh_physics_assumptions(
         )
         assumptions.append(
             "Later refresh steps reuse that candidate-owned AoA sweep; OpenVSP is not rerun after each structural update."
+        )
+    elif contract is not None and contract.source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+        assumptions.append(
+            "The initial baseline loads come from a candidate-owned AVL geometry and strip-force AoA sweep."
+        )
+        assumptions.append(
+            "Later refresh steps reuse that candidate-owned AVL AoA sweep; AVL is not rerun after each structural update."
         )
     else:
         assumptions.append(
@@ -1680,6 +1777,10 @@ def _refresh_difference_from_full_coupling(
     if contract is not None and contract.source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
         lines.append(
             "baseline candidate loads are rebuilt once, but there is still no per-refresh geometry rebuild or aero rerun"
+        )
+    elif contract is not None and contract.source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+        lines.append(
+            "baseline candidate loads are rebuilt once from AVL strip forces, but there is still no per-refresh AVL rerun"
         )
     else:
         lines.append("no geometry rebuild / CFD rerun between stages")
@@ -4708,10 +4809,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--aero-source-mode",
         default=LEGACY_AERO_SOURCE_MODE,
-        choices=(LEGACY_AERO_SOURCE_MODE, CANDIDATE_RERUN_AERO_SOURCE_MODE),
+        choices=(
+            LEGACY_AERO_SOURCE_MODE,
+            CANDIDATE_RERUN_AERO_SOURCE_MODE,
+            CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+        ),
         help=(
             "Choose whether outer-loop aero loads come from the shared legacy VSPAero sweep "
-            "or a candidate-owned OpenVSP geometry rebuild plus VSPAero rerun."
+            "or a candidate-owned rerun contract (OpenVSP/VSPAero or AVL spanwise strip loads)."
         ),
     )
     parser.add_argument(
@@ -4720,6 +4825,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Optional directory for candidate-owned geometry / VSPAero rerun artifacts when "
             "--aero-source-mode=candidate_rerun_vspaero. Defaults to <output-dir>/candidate_aero."
+        ),
+    )
+    parser.add_argument(
+        "--candidate-avl-spanwise-loads-json",
+        default=None,
+        help=(
+            "Path to a candidate-owned AVL spanwise-load artifact JSON when "
+            "--aero-source-mode=candidate_avl_spanwise."
         ),
     )
     parser.add_argument(
@@ -4914,6 +5027,21 @@ def main(argv: list[str] | None = None) -> int:
         if args.candidate_aero_output_dir is None
         else Path(args.candidate_aero_output_dir).expanduser().resolve()
     )
+    candidate_avl_spanwise_loads_json = (
+        None
+        if args.candidate_avl_spanwise_loads_json is None
+        else Path(args.candidate_avl_spanwise_loads_json).expanduser().resolve()
+    )
+    if aero_source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+        if candidate_avl_spanwise_loads_json is None:
+            raise ValueError(
+                "--aero-source-mode=candidate_avl_spanwise requires --candidate-avl-spanwise-loads-json."
+            )
+        if bool(args.ground_clearance_recovery):
+            raise ValueError(
+                "candidate_avl_spanwise currently requires --no-ground-clearance-recovery because "
+                "recovery candidates need their own AVL-owned load artifacts."
+            )
 
     legacy_aero_cases: list[SpanwiseLoad] | None = None
     if aero_source_mode == LEGACY_AERO_SOURCE_MODE and cfg.io.vsp_lod is not None:
@@ -4932,6 +5060,7 @@ def main(argv: list[str] | None = None) -> int:
         aero_source_mode=aero_source_mode,
         legacy_aero_cases=legacy_aero_cases,
         candidate_aero_output_dir=candidate_aero_output_dir,
+        candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
     )
     cruise_aoa_deg = float(cruise_case.aoa_deg)
     design_case = cfg.structural_load_cases()[0]

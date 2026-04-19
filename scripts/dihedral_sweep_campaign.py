@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hpa_mdo.core import Aircraft, load_config
+from hpa_mdo.aero import VSPAeroParser, write_candidate_avl_spanwise_artifact
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +37,7 @@ DEFAULT_DESIGN_REPORT = (
 )
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
+CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE = "candidate_avl_spanwise"
 OSCILLATORY_IMAG_TOL = 1.0e-9
 SPIRAL_LATERAL_RATIO_MIN = 0.35
 LATERAL_STATE_NAMES = ("v", "p", "r", "phi", "psi", "y")
@@ -136,6 +138,15 @@ class AvlTrimEvaluation:
     cd_induced: float | None
     aoa_trim_deg: float | None
     span_efficiency: float | None
+
+
+@dataclass(frozen=True)
+class AvlSpanwiseLoadCase:
+    aoa_deg: float
+    fs_file_path: str | None
+    stdout_log_path: str | None
+    run_completed: bool
+    run_status: str
 
 
 @dataclass(frozen=True)
@@ -293,10 +304,13 @@ def _build_campaign_search_budget(args) -> dict[str, object]:
             args.local_refine_early_stop_abs_improvement_kg
         ),
         "aero_source_mode": str(args.aero_source_mode),
+        "rib_zonewise_mode": str(args.rib_zonewise_mode),
     }
 
 
 def _aero_source_label(source_mode: str | None) -> str:
+    if source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+        return "candidate AVL spanwise"
     if source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
         return "candidate rerun-aero"
     if source_mode == LEGACY_AERO_SOURCE_MODE:
@@ -966,6 +980,82 @@ def run_avl_trim_case(
     )
 
 
+def run_avl_spanwise_load_case(
+    *,
+    avl_bin: Path,
+    case_avl_path: Path,
+    case_dir: Path,
+    alpha_deg: float,
+    velocity_mps: float,
+    density_kgpm3: float,
+    output_stem: str,
+) -> AvlSpanwiseLoadCase:
+    case_dir.mkdir(parents=True, exist_ok=True)
+    staged_avl_path = case_dir / case_avl_path.name
+    if staged_avl_path.resolve() != case_avl_path.resolve():
+        staged_avl_path.write_bytes(case_avl_path.read_bytes())
+    fs_file = case_dir / f"{output_stem}.fs"
+    stdout_log = case_dir / f"avl_{output_stem}_stdout.log"
+    if fs_file.exists():
+        fs_file.unlink()
+    command_text = "\n".join(
+        [
+            "plop",
+            "g",
+            "",
+            f"load {staged_avl_path.name}",
+            "oper",
+            "m",
+            f"v {float(velocity_mps):.9f}",
+            f"d {float(density_kgpm3):.9f}",
+            "",
+            "a",
+            "a",
+            f"{float(alpha_deg):.9f}",
+            "x",
+            "fs",
+            fs_file.name,
+            "",
+            "",
+            "quit",
+            "",
+        ]
+    )
+    proc = subprocess.run(
+        [str(avl_bin)],
+        input=command_text,
+        text=True,
+        capture_output=True,
+        cwd=case_dir,
+        check=False,
+    )
+    stdout_text = proc.stdout + (("\n" + proc.stderr) if proc.stderr else "")
+    stdout_log.write_text(stdout_text, encoding="utf-8")
+    if proc.returncode != 0:
+        return AvlSpanwiseLoadCase(
+            aoa_deg=float(alpha_deg),
+            fs_file_path=str(fs_file.resolve()) if fs_file.exists() else None,
+            stdout_log_path=str(stdout_log.resolve()),
+            run_completed=False,
+            run_status="avl_runtime_error",
+        )
+    if not fs_file.exists():
+        return AvlSpanwiseLoadCase(
+            aoa_deg=float(alpha_deg),
+            fs_file_path=None,
+            stdout_log_path=str(stdout_log.resolve()),
+            run_completed=False,
+            run_status="strip_force_output_missing",
+        )
+    return AvlSpanwiseLoadCase(
+        aoa_deg=float(alpha_deg),
+        fs_file_path=str(fs_file.resolve()),
+        stdout_log_path=str(stdout_log.resolve()),
+        run_completed=True,
+        run_status="ok",
+    )
+
+
 def _resolve_beta_sweep_values(
     configured_values_deg: Iterable[float],
     *,
@@ -1247,6 +1337,36 @@ def estimate_reference_area(cfg) -> float:
     return 0.5 * span * (root_chord + tip_chord)
 
 
+def _resolve_candidate_avl_aoa_seed(cfg) -> tuple[float, ...]:
+    lod_path = getattr(getattr(cfg, "io", None), "vsp_lod", None)
+    if lod_path is None:
+        return ()
+    lod_file = Path(lod_path).expanduser()
+    if not lod_file.is_file():
+        return ()
+    try:
+        cases = VSPAeroParser(lod_file, getattr(cfg.io, "vsp_polar", None)).parse()
+    except Exception:
+        return ()
+    values = sorted({round(float(case.aoa_deg), 9) for case in cases})
+    return tuple(float(value) for value in values)
+
+
+def _build_candidate_avl_aoa_sweep(
+    *,
+    trim_aoa_deg: float,
+    seed_values_deg: Iterable[float],
+) -> tuple[float, ...]:
+    values = {round(float(trim_aoa_deg), 9)}
+    seed_values = tuple(float(value) for value in seed_values_deg)
+    if seed_values:
+        values.update(round(value, 9) for value in seed_values)
+    else:
+        for offset_deg in (-4.0, -2.0, 0.0, 2.0, 4.0):
+            values.add(round(float(trim_aoa_deg) + offset_deg, 9))
+    return tuple(sorted(float(value) for value in values))
+
+
 def run_inverse_design_case(
     *,
     inverse_script: Path,
@@ -1271,6 +1391,8 @@ def run_inverse_design_case(
     local_refine_early_stop_patience: int,
     local_refine_early_stop_abs_improvement_kg: float,
     aero_source_mode: str,
+    candidate_avl_spanwise_loads_json: Path | None,
+    rib_zonewise_mode: str,
     skip_step_export: bool,
     strict: bool = False,
 ) -> tuple[str | None, str | None, str | None]:
@@ -1318,7 +1440,20 @@ def run_inverse_design_case(
         f"{float(local_refine_early_stop_abs_improvement_kg):.9f}",
         "--aero-source-mode",
         str(aero_source_mode),
+        "--rib-zonewise-mode",
+        str(rib_zonewise_mode),
     ]
+    if (
+        str(aero_source_mode) == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE
+        and candidate_avl_spanwise_loads_json is not None
+    ):
+        cmd.extend(
+            [
+                "--candidate-avl-spanwise-loads-json",
+                str(candidate_avl_spanwise_loads_json),
+                "--no-ground-clearance-recovery",
+            ]
+        )
     if skip_local_refine:
         cmd.append("--skip-local-refine")
     if skip_step_export:
@@ -1922,15 +2057,34 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--inverse-script", default=str(DEFAULT_INVERSE_SCRIPT))
     parser.add_argument(
         "--aero-source-mode",
-        default=CANDIDATE_RERUN_AERO_SOURCE_MODE,
-        choices=(LEGACY_AERO_SOURCE_MODE, CANDIDATE_RERUN_AERO_SOURCE_MODE),
+        default=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+        choices=(
+            LEGACY_AERO_SOURCE_MODE,
+            CANDIDATE_RERUN_AERO_SOURCE_MODE,
+            CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+        ),
         help=(
             "Choose whether each structural follow-on run keeps using the legacy shared refresh loads "
-            "or consumes candidate-owned rerun-aero artifacts from the inverse-design core."
+            "or consumes candidate-owned rerun-aero / AVL spanwise-load artifacts from the inverse-design core."
         ),
+    )
+    parser.add_argument(
+        "--rib-zonewise-mode",
+        default="limited_zonewise",
+        choices=("off", "limited_zonewise"),
+        help="Pass through the rib contract mode used by the inverse-design structural follow-on.",
     )
     parser.add_argument("--avl-bin", default="avl")
     parser.add_argument("--multipliers", default="1.0,1.5,2.0,2.5")
+    parser.add_argument(
+        "--dihedral-exponent",
+        type=float,
+        default=None,
+        help=(
+            "Override the progressive dihedral scaling exponent used when generating "
+            "candidate AVL geometry. Defaults to cfg.wing.dihedral_scaling_exponent."
+        ),
+    )
     parser.add_argument("--main-plateau-grid", default="0.0,0.33,0.67,1.0")
     parser.add_argument("--main-taper-fill-grid", default="0.0,0.33,0.67,1.0")
     parser.add_argument("--rear-radius-grid", default="0.0,0.33,0.67,1.0")
@@ -2040,9 +2194,18 @@ def main(argv: list[str] | None = None) -> int:
         z_cg=default_mode_params.z_cg if args.avl_zcg is None else float(args.avl_zcg),
     )
     wing_half_span = 0.5 * float(cfg.wing.span)
-    dihedral_exponent = float(cfg.wing.dihedral_scaling_exponent)
+    dihedral_exponent = (
+        float(cfg.wing.dihedral_scaling_exponent)
+        if args.dihedral_exponent is None
+        else float(args.dihedral_exponent)
+    )
     if dihedral_exponent < 0.0:
-        raise ValueError("wing.dihedral_scaling_exponent must be >= 0.0.")
+        source = (
+            "wing.dihedral_scaling_exponent"
+            if args.dihedral_exponent is None
+            else "--dihedral-exponent"
+        )
+        raise ValueError(f"{source} must be >= 0.0.")
     min_lift_kg = (
         float(cfg.aero_gates.min_lift_kg)
         if args.min_lift_kg is None
@@ -2095,6 +2258,7 @@ def main(argv: list[str] | None = None) -> int:
 
     rows: list[SweepResult] = []
     failed_cases: list[tuple[float, str]] = []
+    candidate_avl_aoa_seed = _resolve_candidate_avl_aoa_seed(cfg)
     for multiplier in multipliers:
         case_dir = output_dir / f"mult_{_slug(multiplier)}"
         case_dir.mkdir(parents=True, exist_ok=True)
@@ -2170,6 +2334,7 @@ def main(argv: list[str] | None = None) -> int:
             allow_missing_mode=bool(args.allow_missing_dutch_roll),
             min_spiral_time_to_double_s=float(min_spiral_time_to_double_s),
         )
+        trim_eval: AvlTrimEvaluation | None = None
         if not avl_eval.aero_feasible:
             aero_perf_eval = _empty_aero_performance(
                 feasible=False,
@@ -2228,37 +2393,117 @@ def main(argv: list[str] | None = None) -> int:
         selected_output_dir: str | None = None
         summary_json_path: str | None = None
         inverse_error_message: str | None = None
+        candidate_avl_spanwise_loads_json: Path | None = None
         if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible and beta_gate_passed:
+            if str(args.aero_source_mode) == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+                candidate_trim_eval = trim_eval
+                if candidate_trim_eval is None:
+                    candidate_trim_eval = run_avl_trim_case(
+                        avl_bin=avl_bin,
+                        case_avl_path=case_avl_path,
+                        case_dir=case_dir,
+                        cl_required=cl_required,
+                        output_stem="trim_for_candidate_avl",
+                    )
+                if (
+                    candidate_trim_eval is None
+                    or not candidate_trim_eval.trim_converged
+                    or candidate_trim_eval.aoa_trim_deg is None
+                ):
+                    inverse_error_message = (
+                        "candidate_avl_spanwise requires a converged AVL trim AoA before building spanwise loads."
+                    )
+                else:
+                    candidate_avl_dir = case_dir / "candidate_avl_spanwise"
+                    candidate_avl_dir.mkdir(parents=True, exist_ok=True)
+                    aoa_sweep_deg = _build_candidate_avl_aoa_sweep(
+                        trim_aoa_deg=float(candidate_trim_eval.aoa_trim_deg),
+                        seed_values_deg=candidate_avl_aoa_seed,
+                    )
+                    load_case_specs: list[dict[str, object]] = []
+                    skipped_aoa_notes: list[str] = []
+                    for aoa_deg in aoa_sweep_deg:
+                        spanwise_case = run_avl_spanwise_load_case(
+                            avl_bin=avl_bin,
+                            case_avl_path=case_avl_path,
+                            case_dir=candidate_avl_dir,
+                            alpha_deg=float(aoa_deg),
+                            velocity_mps=float(cfg.flight.velocity),
+                            density_kgpm3=float(cfg.flight.air_density),
+                            output_stem=f"aoa_{_slug(float(aoa_deg))}",
+                        )
+                        if not spanwise_case.run_completed or spanwise_case.fs_file_path is None:
+                            skipped_aoa_notes.append(
+                                f"Skipped AoA {float(aoa_deg):.3f} deg because AVL did not emit strip forces ({spanwise_case.run_status})."
+                            )
+                            continue
+                        load_case_specs.append(
+                            {
+                                "aoa_deg": float(aoa_deg),
+                                "fs_path": spanwise_case.fs_file_path,
+                                "stdout_log_path": spanwise_case.stdout_log_path,
+                            }
+                        )
+                    if len(load_case_specs) < 2:
+                        inverse_error_message = (
+                            "candidate AVL spanwise load extraction produced fewer than 2 usable AoA cases."
+                        )
+                    elif inverse_error_message is None:
+                        candidate_avl_spanwise_loads_json = write_candidate_avl_spanwise_artifact(
+                            candidate_avl_dir / "candidate_avl_spanwise_loads.json",
+                            avl_path=case_avl_path,
+                            candidate_output_dir=candidate_avl_dir,
+                            requested_knobs={
+                                "target_shape_z_scale": float(multiplier),
+                                "dihedral_multiplier": float(multiplier),
+                                "dihedral_exponent": float(dihedral_exponent),
+                            },
+                            selected_cruise_aoa_deg=float(candidate_trim_eval.aoa_trim_deg),
+                            velocity_mps=float(cfg.flight.velocity),
+                            density_kgpm3=float(cfg.flight.air_density),
+                            load_case_specs=load_case_specs,
+                            trim_force_path=candidate_trim_eval.trim_file_path,
+                            trim_stdout_log_path=candidate_trim_eval.stdout_log_path,
+                            source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                            notes=(
+                                "Spanwise loads come from AVL strip-force output on the candidate-owned deformed geometry.",
+                                "Root/tip boundary stations are padded from the nearest strip coefficients with AVL geometry chords.",
+                                *tuple(skipped_aoa_notes),
+                            ),
+                        )
             inverse_output_dir = case_dir / "inverse_design"
             selected_output_dir = str(inverse_output_dir.resolve())
-            summary_json_path, _, inverse_error_message = run_inverse_design_case(
-                inverse_script=inverse_script,
-                config_path=config_path,
-                design_report=design_report,
-                output_dir=inverse_output_dir,
-                target_shape_z_scale=float(multiplier),
-                dihedral_exponent=float(dihedral_exponent),
-                python_executable=Path(sys.executable),
-                main_plateau_grid=str(args.main_plateau_grid),
-                main_taper_fill_grid=str(args.main_taper_fill_grid),
-                rear_radius_grid=str(args.rear_radius_grid),
-                rear_outboard_grid=str(args.rear_outboard_grid),
-                wall_thickness_grid=str(args.wall_thickness_grid),
-                refresh_steps=int(args.refresh_steps),
-                cobyla_maxiter=int(args.cobyla_maxiter),
-                cobyla_rhobeg=float(args.cobyla_rhobeg),
-                skip_local_refine=bool(args.skip_local_refine),
-                local_refine_feasible_seeds=int(args.local_refine_feasible_seeds),
-                local_refine_near_feasible_seeds=int(args.local_refine_near_feasible_seeds),
-                local_refine_max_starts=int(args.local_refine_max_starts),
-                local_refine_early_stop_patience=int(args.local_refine_early_stop_patience),
-                local_refine_early_stop_abs_improvement_kg=float(
-                    args.local_refine_early_stop_abs_improvement_kg
-                ),
-                aero_source_mode=str(args.aero_source_mode),
-                skip_step_export=bool(args.skip_step_export),
-                strict=bool(args.strict),
-            )
+            if inverse_error_message is None:
+                summary_json_path, _, inverse_error_message = run_inverse_design_case(
+                    inverse_script=inverse_script,
+                    config_path=config_path,
+                    design_report=design_report,
+                    output_dir=inverse_output_dir,
+                    target_shape_z_scale=float(multiplier),
+                    dihedral_exponent=float(dihedral_exponent),
+                    python_executable=Path(sys.executable),
+                    main_plateau_grid=str(args.main_plateau_grid),
+                    main_taper_fill_grid=str(args.main_taper_fill_grid),
+                    rear_radius_grid=str(args.rear_radius_grid),
+                    rear_outboard_grid=str(args.rear_outboard_grid),
+                    wall_thickness_grid=str(args.wall_thickness_grid),
+                    refresh_steps=int(args.refresh_steps),
+                    cobyla_maxiter=int(args.cobyla_maxiter),
+                    cobyla_rhobeg=float(args.cobyla_rhobeg),
+                    skip_local_refine=bool(args.skip_local_refine),
+                    local_refine_feasible_seeds=int(args.local_refine_feasible_seeds),
+                    local_refine_near_feasible_seeds=int(args.local_refine_near_feasible_seeds),
+                    local_refine_max_starts=int(args.local_refine_max_starts),
+                    local_refine_early_stop_patience=int(args.local_refine_early_stop_patience),
+                    local_refine_early_stop_abs_improvement_kg=float(
+                        args.local_refine_early_stop_abs_improvement_kg
+                    ),
+                    aero_source_mode=str(args.aero_source_mode),
+                    candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
+                    rib_zonewise_mode=str(args.rib_zonewise_mode),
+                    skip_step_export=bool(args.skip_step_export),
+                    strict=bool(args.strict),
+                )
             if inverse_error_message:
                 failed_cases.append((float(multiplier), inverse_error_message))
             elif summary_json_path is not None:

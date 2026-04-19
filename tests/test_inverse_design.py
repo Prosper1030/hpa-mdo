@@ -44,6 +44,7 @@ from scripts.direct_dual_beam_inverse_design_feasibility_sweep import (
     _run_one_case as _run_feasibility_case,
 )
 from scripts.direct_dual_beam_inverse_design import (
+    CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
     CANDIDATE_RERUN_AERO_SOURCE_MODE,
     DEFAULT_RIB_FAMILY_MIX_MAX_UNIQUE,
     DEFAULT_RIB_FAMILY_SWITCH_PENALTY_KG,
@@ -1503,6 +1504,84 @@ class CandidateAeroContractTests(unittest.TestCase):
         self.assertTrue(str(output_arg).endswith("candidate_aero"))
         self.assertEqual(build_and_run_mock.call_args.kwargs["aoa_list"], [0.0, 10.0])
 
+    def test_resolve_outer_loop_candidate_aero_candidate_avl_spanwise_marks_candidate_owned_artifacts(self) -> None:
+        cfg = SimpleNamespace(
+            flight=SimpleNamespace(velocity=10.0, air_density=1.0),
+            io=SimpleNamespace(
+                vsp_model="/tmp/reference.vsp3",
+                vsp_lod="/tmp/legacy.lod",
+                vsp_polar="/tmp/legacy.polar",
+            ),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(y=np.array([0.0, 1.0, 2.0], dtype=float)),
+            weight_N=220.0,
+        )
+        case = self._make_spanwise_case(aoa_deg=12.2, cl_value=1.1)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_path = Path(tmpdir) / "candidate_avl_spanwise.json"
+            artifact_path.write_text(
+                json.dumps(
+                    {
+                        "requested_knobs": {
+                            "target_shape_z_scale": 4.0,
+                            "dihedral_multiplier": 4.0,
+                            "dihedral_exponent": 2.2,
+                        },
+                        "selected_cruise_aoa_deg": 12.2,
+                        "aoa_sweep_deg": [10.0, 12.2],
+                        "boundary_padding": "nearest_strip_coefficients_with_avl_root_tip_chord",
+                        "geometry_artifacts": {
+                            "candidate_output_dir": str((Path(tmpdir) / "candidate_avl_spanwise").resolve()),
+                            "avl_path": str((Path(tmpdir) / "case.avl").resolve()),
+                            "trim_force_path": str((Path(tmpdir) / "trim.ft").resolve()),
+                        },
+                        "notes": ["candidate-owned AVL strip-force sweep"],
+                        "cases": [
+                            {
+                                "aoa_deg": 12.2,
+                                "fs_path": str((Path(tmpdir) / "aoa_12p2.fs").resolve()),
+                                "stdout_log_path": str((Path(tmpdir) / "aoa_12p2.log").resolve()),
+                                "y": case.y.tolist(),
+                                "chord": case.chord.tolist(),
+                                "cl": case.cl.tolist(),
+                                "cd": case.cd.tolist(),
+                                "cm": case.cm.tolist(),
+                                "lift_per_span": case.lift_per_span.tolist(),
+                                "drag_per_span": case.drag_per_span.tolist(),
+                                "velocity_mps": float(case.velocity),
+                                "dynamic_pressure_pa": float(case.dynamic_pressure),
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            aero_cases, cruise_case, mapped_loads, contract = _resolve_outer_loop_candidate_aero(
+                cfg=cfg,
+                aircraft=aircraft,
+                output_dir=Path(tmpdir) / "inverse",
+                target_shape_z_scale=4.0,
+                dihedral_exponent=2.2,
+                aero_source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                candidate_avl_spanwise_loads_json=artifact_path,
+            )
+
+        self.assertEqual(len(aero_cases), 1)
+        self.assertAlmostEqual(cruise_case.aoa_deg, 12.2)
+        self.assertAlmostEqual(mapped_loads["total_lift"], 110.0)
+        self.assertEqual(contract.source_mode, CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
+        self.assertIn("candidate-owned AVL geometry plus strip-force AoA sweep", contract.load_ownership)
+        self.assertIn("AVL geometry, trim, strip-force, and spanwise-load artifacts", contract.artifact_ownership)
+        self.assertEqual(contract.aoa_sweep_deg, (10.0, 12.2))
+        self.assertTrue(
+            str(contract.geometry_artifacts["candidate_avl_spanwise_loads_json"]).endswith(
+                "candidate_avl_spanwise.json"
+            )
+        )
+
     def test_ground_clearance_recovery_specs_are_unique_and_tip_biased(self) -> None:
         specs = _build_ground_clearance_recovery_specs(
             target_shape_z_scale=1.0,
@@ -1777,6 +1856,127 @@ class CandidateAeroContractTests(unittest.TestCase):
         )
         self.assertTrue(summary["iterations"][0]["load_source"].startswith("candidate_rerun_vspaero:"))
 
+    def test_build_refresh_summary_json_surfaces_candidate_avl_spanwise_contract(self) -> None:
+        candidate = self._make_candidate()
+        inverse_outcome = InverseOutcome(
+            success=True,
+            feasible=True,
+            target_mass_kg=None,
+            message="ok",
+            total_wall_time_s=0.1,
+            baseline_eval_wall_time_s=0.01,
+            nfev=1,
+            nit=0,
+            equivalent_analysis_calls=1,
+            production_analysis_calls=1,
+            unique_evaluations=1,
+            cache_hits=0,
+            feasible_count=1,
+            target_feasible_count=1,
+            baseline=candidate,
+            best_overall_feasible=candidate,
+            best_target_feasible=None,
+            coarse_selected=candidate,
+            coarse_candidate_count=1,
+            coarse_feasible_count=1,
+            coarse_target_feasible_count=1,
+            selected=candidate,
+            local_refine=None,
+            active_wall_diagnostics=None,
+            manufacturing_limit_source="explicit",
+            max_jig_vertical_prebend_limit_m=0.1,
+            max_jig_vertical_curvature_limit_per_m=0.01,
+            artifacts=None,
+        )
+        contract = CandidateAeroContract(
+            source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+            baseline_load_source="candidate_owned_avl_geometry_plus_spanwise_strip_force_sweep",
+            refresh_load_source="candidate_owned_twist_refresh_from_avl_spanwise_sweep",
+            load_ownership="candidate-owned AVL strip-force sweep",
+            artifact_ownership="candidate-owned AVL artifacts",
+            requested_knobs={
+                "target_shape_z_scale": 4.0,
+                "dihedral_multiplier": 4.0,
+                "dihedral_exponent": 2.2,
+            },
+            aoa_sweep_deg=(10.0, 12.2, 14.0),
+            selected_cruise_aoa_deg=12.2,
+            geometry_artifacts={
+                "candidate_output_dir": "/tmp/candidate_avl_spanwise",
+                "avl_path": "/tmp/candidate_avl_spanwise/case.avl",
+                "candidate_avl_spanwise_loads_json": "/tmp/candidate_avl_spanwise/candidate_avl_spanwise_loads.json",
+            },
+            notes=("Boundary coverage: nearest_strip_coefficients_with_avl_root_tip_chord.",),
+        )
+        iteration = RefreshIterationResult(
+            iteration_index=0,
+            load_source=(
+                "candidate_avl_spanwise:"
+                "candidate_owned_avl_geometry_plus_spanwise_strip_force_sweep:"
+                "aoa_12.200deg"
+            ),
+            outcome=inverse_outcome,
+            load_metrics=RefreshLoadMetrics(
+                total_lift_half_n=110.0,
+                total_drag_half_n=2.0,
+                total_abs_torque_half_nm=1.0,
+                max_lift_per_span_npm=55.0,
+                max_abs_torque_per_span_nmpm=0.5,
+                twist_abs_max_deg=0.0,
+                aoa_eff_min_deg=12.2,
+                aoa_eff_max_deg=12.2,
+                aoa_clip_fraction=0.0,
+            ),
+            mapped_loads={
+                "y": np.array([0.0, 1.0, 2.0], dtype=float),
+                "lift_per_span": np.array([55.0, 55.0, 55.0], dtype=float),
+                "drag_per_span": np.array([1.0, 1.0, 1.0], dtype=float),
+                "torque_per_span": np.array([0.5, 0.5, 0.5], dtype=float),
+            },
+            map_config_summary={},
+            dynamic_design_space_applied=False,
+        )
+        refinement = RefreshRefinementOutcome(
+            refresh_steps_requested=1,
+            refresh_steps_completed=0,
+            dynamic_design_space_enabled=False,
+            dynamic_design_space_rebuilds=0,
+            converged=False,
+            convergence_reason=None,
+            manufacturing_limit_source="explicit",
+            max_jig_vertical_prebend_limit_m=0.1,
+            max_jig_vertical_curvature_limit_per_m=0.01,
+            iterations=(iteration,),
+            artifacts=None,
+            aero_contract=contract,
+            ground_clearance_recovery=None,
+        )
+
+        summary = build_refresh_summary_json(
+            config_path=Path("/tmp/config.yaml"),
+            design_report=Path("/tmp/report.txt"),
+            cruise_aoa_deg=12.2,
+            map_config=SimpleNamespace(
+                main_plateau_scale_upper=1.14,
+                main_taper_fill_upper=0.80,
+                rear_radius_scale_upper=1.12,
+                delta_t_global_max_m=0.001,
+                delta_t_rear_outboard_max_m=0.0005,
+            ),
+            outcome=refinement,
+            refresh_washout_scale=1.0,
+        )
+
+        self.assertEqual(summary["aero_contract"]["source_mode"], CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
+        self.assertTrue(summary["iterations"][0]["load_source"].startswith("candidate_avl_spanwise:"))
+        self.assertIn("AVL geometry + strip-force AoA sweep", summary["refinement_definition"]["refresh_method"])
+        self.assertTrue(
+            any(
+                "no per-refresh AVL rerun" in item
+                for item in summary["refinement_definition"]["difference_from_full_coupling"]
+            )
+        )
+
 
 class OuterLoopContractTests(unittest.TestCase):
     @staticmethod
@@ -1862,7 +2062,7 @@ class OuterLoopContractTests(unittest.TestCase):
         clearance_mm: float | None = 35.0,
         structural_reject_reason: str | None = None,
         error_message: str | None = None,
-        aero_source_mode: str | None = CANDIDATE_RERUN_AERO_SOURCE_MODE,
+        aero_source_mode: str | None = CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
     ) -> DihedralSweepResult:
         return DihedralSweepResult(
             dihedral_multiplier=dihedral_multiplier,
@@ -1914,24 +2114,40 @@ class OuterLoopContractTests(unittest.TestCase):
             error_message=error_message,
             aero_source_mode=aero_source_mode,
             baseline_load_source=(
+                "candidate_owned_avl_geometry_plus_spanwise_strip_force_sweep"
+                if aero_source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE
+                else (
                 "candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun"
                 if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
                 else "legacy_shared_vspaero_reference"
+                )
             ),
             refresh_load_source=(
+                "candidate_owned_twist_refresh_from_avl_spanwise_sweep"
+                if aero_source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE
+                else (
                 "candidate_owned_twist_refresh_from_rerun_sweep"
                 if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
                 else "legacy_twist_refresh_from_shared_sweep"
+                )
             ),
             load_ownership=(
+                "candidate-owned AVL strip-force loads"
+                if aero_source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE
+                else (
                 "candidate-owned rerun loads"
                 if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
                 else "shared legacy refresh loads"
+                )
             ),
             artifact_ownership=(
+                "candidate-owned AVL artifacts"
+                if aero_source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE
+                else (
                 "candidate-owned artifacts"
                 if aero_source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE
                 else "shared legacy artifacts"
+                )
             ),
             selected_cruise_aoa_deg=8.0,
             aero_contract_json_path=f"/tmp/mult_{dihedral_multiplier:.3f}_aero_contract.json",
@@ -2112,19 +2328,23 @@ class OuterLoopContractTests(unittest.TestCase):
                 "6",
                 "--local-refine-feasible-seeds",
                 "2",
+                "--dihedral-exponent",
+                "2.2",
             ]
         )
 
         budget = _build_campaign_search_budget(args)
 
-        self.assertEqual(args.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(args.aero_source_mode, CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
+        self.assertAlmostEqual(args.dihedral_exponent, 2.2)
         self.assertEqual(budget["cobyla_maxiter"], 240)
         self.assertEqual(budget["local_refine_max_starts"], 6)
         self.assertEqual(budget["local_refine_feasible_seeds"], 2)
         self.assertEqual(budget["coarse_grid_points_per_case"], 576)
-        self.assertEqual(budget["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(budget["aero_source_mode"], CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
+        self.assertEqual(budget["rib_zonewise_mode"], "limited_zonewise")
 
-    def test_dihedral_run_inverse_design_case_passes_rerun_aero_mode(self) -> None:
+    def test_dihedral_run_inverse_design_case_passes_candidate_avl_spanwise_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp) / "inverse"
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -2157,7 +2377,9 @@ class OuterLoopContractTests(unittest.TestCase):
                     local_refine_max_starts=1,
                     local_refine_early_stop_patience=1,
                     local_refine_early_stop_abs_improvement_kg=0.05,
-                    aero_source_mode=CANDIDATE_RERUN_AERO_SOURCE_MODE,
+                    aero_source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                    candidate_avl_spanwise_loads_json=Path("/tmp/candidate_avl_spanwise.json"),
+                    rib_zonewise_mode="off",
                     skip_step_export=True,
                 )
 
@@ -2165,8 +2387,16 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertIn("--aero-source-mode", cmd)
         self.assertEqual(
             cmd[cmd.index("--aero-source-mode") + 1],
-            CANDIDATE_RERUN_AERO_SOURCE_MODE,
+            CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
         )
+        self.assertIn("--candidate-avl-spanwise-loads-json", cmd)
+        self.assertEqual(
+            cmd[cmd.index("--candidate-avl-spanwise-loads-json") + 1],
+            "/tmp/candidate_avl_spanwise.json",
+        )
+        self.assertIn("--no-ground-clearance-recovery", cmd)
+        self.assertIn("--rib-zonewise-mode", cmd)
+        self.assertEqual(cmd[cmd.index("--rib-zonewise-mode") + 1], "off")
         self.assertEqual(returned_summary_path, str(summary_path.resolve()))
         self.assertIsNone(error_message)
 
@@ -2219,11 +2449,11 @@ class OuterLoopContractTests(unittest.TestCase):
                     }
                 ],
                 "aero_contract": {
-                    "source_mode": CANDIDATE_RERUN_AERO_SOURCE_MODE,
-                    "baseline_load_source": "candidate_owned_vsp_geometry_rebuild_plus_vspaero_rerun",
-                    "refresh_load_source": "candidate_owned_twist_refresh_from_rerun_sweep",
-                    "load_ownership": "candidate-owned rerun loads",
-                    "artifact_ownership": "candidate-owned artifacts",
+                    "source_mode": CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                    "baseline_load_source": "candidate_owned_avl_geometry_plus_spanwise_strip_force_sweep",
+                    "refresh_load_source": "candidate_owned_twist_refresh_from_avl_spanwise_sweep",
+                    "load_ownership": "candidate-owned AVL strip-force loads",
+                    "artifact_ownership": "candidate-owned AVL artifacts",
                     "selected_cruise_aoa_deg": 8.0,
                 },
                 "artifacts": {
@@ -2235,10 +2465,10 @@ class OuterLoopContractTests(unittest.TestCase):
             error_message=None,
         )
 
-        self.assertEqual(row.aero_source_mode, CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(row.aero_source_mode, CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
         self.assertEqual(
             row.refresh_load_source,
-            "candidate_owned_twist_refresh_from_rerun_sweep",
+            "candidate_owned_twist_refresh_from_avl_spanwise_sweep",
         )
         self.assertEqual(
             row.aero_contract_json_path,
@@ -2280,13 +2510,13 @@ class OuterLoopContractTests(unittest.TestCase):
         assert winner is not None
         self.assertEqual(winner["selection_status"], "winner")
         self.assertAlmostEqual(winner["requested_knobs"]["dihedral_multiplier"], 1.20)
-        self.assertEqual(winner["aero_source_mode"], CANDIDATE_RERUN_AERO_SOURCE_MODE)
+        self.assertEqual(winner["aero_source_mode"], CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
         self.assertEqual(by_multiplier[1.20].selection_status, "winner")
         self.assertEqual(by_multiplier[1.40].reject_reason, "structural:ground_clearance")
         self.assertEqual(by_multiplier[1.60].reject_reason, "aero_performance:ld_ratio_below_min")
         assert by_multiplier[1.20].winner_evidence is not None
         self.assertIn("lowest fully-passing campaign score", by_multiplier[1.20].winner_evidence)
-        self.assertIn("candidate rerun-aero", by_multiplier[1.20].winner_evidence)
+        self.assertIn("candidate AVL spanwise", by_multiplier[1.20].winner_evidence)
 
 
 if __name__ == "__main__":
