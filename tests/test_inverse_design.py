@@ -51,6 +51,7 @@ from scripts.direct_dual_beam_inverse_design import (
     GroundClearanceRecoveryAttempt,
     GroundClearanceRecoverySummary,
     LEGACY_AERO_SOURCE_MODE,
+    ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
     CandidateAeroContract,
     CandidateArchive,
     InverseCandidate,
@@ -957,6 +958,52 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(metrics.aoa_eff_max_deg, 10.0, places=6)
         self.assertAlmostEqual(metrics.aoa_clip_fraction, 0.0, places=6)
 
+    def test_lightweight_load_refresh_allows_single_fixed_alpha_case_when_enabled(self) -> None:
+        y = np.array([0.0, 1.0, 2.0], dtype=float)
+        chord = np.array([1.0, 1.0, 1.0], dtype=float)
+        q = 50.0
+        fixed_case = SpanwiseLoad(
+            y=y,
+            chord=chord,
+            cl=np.array([0.8, 0.7, 0.6], dtype=float),
+            cd=np.array([0.02, 0.02, 0.02], dtype=float),
+            cm=np.array([0.01, 0.01, 0.01], dtype=float),
+            lift_per_span=q * chord * np.array([0.8, 0.7, 0.6], dtype=float),
+            drag_per_span=q * chord * 0.02,
+            aoa_deg=0.0,
+            velocity=10.0,
+            dynamic_pressure=q,
+        )
+        cfg = SimpleNamespace(flight=SimpleNamespace(velocity=10.0, air_density=1.0))
+        aircraft = SimpleNamespace(wing=SimpleNamespace(y=y))
+        model = LightweightLoadRefreshModel(
+            aero_cases=[fixed_case],
+            baseline_case=fixed_case,
+            cfg=cfg,
+            aircraft=aircraft,
+            washout_scale=1.0,
+            allow_single_case=True,
+        )
+        equivalent_result = SimpleNamespace(
+            nodes=np.column_stack((np.zeros_like(y), y, np.zeros_like(y))),
+            disp=np.array(
+                [
+                    [0.0, 0.0, 0.0, 0.0, np.radians(0.0), 0.0],
+                    [0.0, 0.0, 0.0, 0.0, np.radians(3.0), 0.0],
+                    [0.0, 0.0, 0.0, 0.0, np.radians(6.0), 0.0],
+                ],
+                dtype=float,
+            ),
+        )
+
+        refreshed, metrics = model.refresh_mapped_loads(equivalent_result=equivalent_result)
+
+        np.testing.assert_allclose(refreshed["cl"], fixed_case.cl)
+        np.testing.assert_allclose(refreshed["lift_per_span"], fixed_case.lift_per_span)
+        self.assertAlmostEqual(metrics.aoa_eff_min_deg, 0.0, places=6)
+        self.assertAlmostEqual(metrics.aoa_eff_max_deg, 0.0, places=6)
+        self.assertGreater(metrics.aoa_clip_fraction, 0.0)
+
     def test_mapped_load_delta_metrics_reports_rms_and_peak_changes(self) -> None:
         previous = {
             "y": np.array([0.0, 1.0, 2.0], dtype=float),
@@ -1693,6 +1740,82 @@ class CandidateAeroContractTests(unittest.TestCase):
         self.assertAlmostEqual(cruise_case.aoa_deg, 10.0)
         self.assertTrue(
             any("reuses the original outer-loop-selected AVL spanwise artifact during structural recovery" in note for note in contract.notes)
+        )
+
+    def test_resolve_outer_loop_candidate_aero_origin_fixed_alpha_corrector_uses_artifact_loads(self) -> None:
+        cfg = SimpleNamespace(
+            flight=SimpleNamespace(velocity=10.0, air_density=1.0),
+            io=SimpleNamespace(
+                vsp_model="/tmp/reference.vsp3",
+                vsp_lod="/tmp/legacy.lod",
+                vsp_polar="/tmp/legacy.polar",
+            ),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(y=np.array([0.0, 1.0, 2.0], dtype=float)),
+            weight_N=220.0,
+        )
+        case = self._make_spanwise_case(aoa_deg=0.0, cl_value=1.05)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_path = Path(tmpdir) / "candidate_fixed_alpha_loads.json"
+            artifact_path.write_text(
+                json.dumps(
+                    {
+                        "requested_knobs": {
+                            "target_shape_z_scale": 4.0,
+                            "dihedral_multiplier": 4.0,
+                            "dihedral_exponent": 2.2,
+                        },
+                        "fixed_design_alpha_deg": 0.0,
+                        "selected_cruise_aoa_deg": 0.0,
+                        "selected_cruise_aoa_source": "fixed_design_alpha",
+                        "geometry_artifacts": {
+                            "origin_vsp3_path": "/tmp/reference.vsp3",
+                            "baseline_lod_path": "/tmp/origin_panel.lod",
+                            "candidate_avl_path": "/tmp/case.avl",
+                        },
+                        "notes": ["origin fixed-alpha corrected loads"],
+                        "cases": [
+                            {
+                                "aoa_deg": 0.0,
+                                "y": case.y.tolist(),
+                                "chord": case.chord.tolist(),
+                                "cl": case.cl.tolist(),
+                                "cd": case.cd.tolist(),
+                                "cm": case.cm.tolist(),
+                                "lift_per_span": case.lift_per_span.tolist(),
+                                "drag_per_span": case.drag_per_span.tolist(),
+                                "velocity_mps": float(case.velocity),
+                                "dynamic_pressure_pa": float(case.dynamic_pressure),
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            aero_cases, cruise_case, mapped_loads, contract = _resolve_outer_loop_candidate_aero(
+                cfg=cfg,
+                aircraft=aircraft,
+                output_dir=Path(tmpdir) / "inverse",
+                target_shape_z_scale=4.0,
+                dihedral_exponent=2.2,
+                aero_source_mode=ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
+                candidate_fixed_alpha_loads_json=artifact_path,
+            )
+
+        self.assertEqual(len(aero_cases), 1)
+        self.assertAlmostEqual(cruise_case.aoa_deg, 0.0)
+        self.assertAlmostEqual(mapped_loads["total_lift"], 105.0)
+        self.assertEqual(contract.source_mode, ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE)
+        self.assertEqual(contract.baseline_load_source, "origin_vsp_panel_fixed_alpha_baseline")
+        self.assertEqual(contract.refresh_load_source, "mathematical_dihedral_corrector_from_origin_panel_baseline")
+        self.assertTrue(any("fixed design alpha" in note for note in contract.notes))
+        self.assertTrue(
+            str(contract.geometry_artifacts["candidate_fixed_alpha_loads_json"]).endswith(
+                "candidate_fixed_alpha_loads.json"
+            )
         )
 
     def test_ground_clearance_recovery_specs_are_unique_and_tip_biased(self) -> None:
@@ -2501,6 +2624,7 @@ class OuterLoopContractTests(unittest.TestCase):
                     aero_source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
                     vspaero_analysis_method="panel",
                     candidate_avl_spanwise_loads_json=Path("/tmp/candidate_avl_spanwise.json"),
+                    candidate_fixed_alpha_loads_json=None,
                     rib_zonewise_mode="off",
                     skip_step_export=True,
                 )
@@ -2521,6 +2645,61 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertNotIn("--no-ground-clearance-recovery", cmd)
         self.assertIn("--rib-zonewise-mode", cmd)
         self.assertEqual(cmd[cmd.index("--rib-zonewise-mode") + 1], "off")
+        self.assertEqual(returned_summary_path, str(summary_path.resolve()))
+        self.assertIsNone(error_message)
+
+    def test_dihedral_run_inverse_design_case_passes_fixed_alpha_corrector_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "inverse"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = output_dir / "direct_dual_beam_inverse_design_refresh_summary.json"
+            summary_path.write_text("{}\n", encoding="utf-8")
+            with mock.patch(
+                "scripts.dihedral_sweep_campaign.subprocess.run",
+                autospec=True,
+                return_value=SimpleNamespace(returncode=0, stdout="", stderr=""),
+            ) as run_mock:
+                returned_summary_path, _, error_message = _run_dihedral_inverse_design_case(
+                    inverse_script=Path("/tmp/direct_dual_beam_inverse_design.py"),
+                    config_path=Path("/tmp/config.yaml"),
+                    design_report=Path("/tmp/report.txt"),
+                    output_dir=output_dir,
+                    target_shape_z_scale=1.2,
+                    dihedral_exponent=1.0,
+                    python_executable=Path(sys.executable),
+                    main_plateau_grid="0.0,1.0",
+                    main_taper_fill_grid="0.0,1.0",
+                    rear_radius_grid="0.0,1.0",
+                    rear_outboard_grid="0.0,1.0",
+                    wall_thickness_grid="0.0,1.0",
+                    refresh_steps=1,
+                    cobyla_maxiter=20,
+                    cobyla_rhobeg=0.1,
+                    skip_local_refine=True,
+                    local_refine_feasible_seeds=1,
+                    local_refine_near_feasible_seeds=1,
+                    local_refine_max_starts=1,
+                    local_refine_early_stop_patience=1,
+                    local_refine_early_stop_abs_improvement_kg=0.05,
+                    aero_source_mode=ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
+                    vspaero_analysis_method="panel",
+                    candidate_avl_spanwise_loads_json=None,
+                    candidate_fixed_alpha_loads_json=Path("/tmp/candidate_fixed_alpha_loads.json"),
+                    rib_zonewise_mode="off",
+                    skip_step_export=True,
+                )
+
+        cmd = run_mock.call_args.args[0]
+        self.assertIn("--aero-source-mode", cmd)
+        self.assertEqual(
+            cmd[cmd.index("--aero-source-mode") + 1],
+            ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
+        )
+        self.assertIn("--candidate-fixed-alpha-loads-json", cmd)
+        self.assertEqual(
+            cmd[cmd.index("--candidate-fixed-alpha-loads-json") + 1],
+            "/tmp/candidate_fixed_alpha_loads.json",
+        )
         self.assertEqual(returned_summary_path, str(summary_path.resolve()))
         self.assertIsNone(error_message)
 

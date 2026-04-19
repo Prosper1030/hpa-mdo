@@ -22,8 +22,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from hpa_mdo.core import Aircraft, load_config
 from hpa_mdo.aero import (
     AeroPerformanceEvaluation,
+    VSPBuilder,
     VSPAeroParser,
     build_avl_aero_gate_settings,
+    build_fixed_alpha_dihedral_corrector_artifact,
     empty_aero_performance,
     evaluate_aero_performance,
     stage_avl_airfoil_files,
@@ -46,6 +48,7 @@ DEFAULT_DESIGN_REPORT = (
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
 CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE = "candidate_avl_spanwise"
+ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE = "origin_vsp_fixed_alpha_corrector"
 DEFAULT_VSPAERO_ANALYSIS_METHOD = "vlm"
 VSPAERO_ANALYSIS_METHOD_CHOICES = ("vlm", "panel")
 OSCILLATORY_IMAG_TOL = 1.0e-9
@@ -300,12 +303,19 @@ def _build_campaign_search_budget(args) -> dict[str, object]:
             args.local_refine_early_stop_abs_improvement_kg
         ),
         "aero_source_mode": str(args.aero_source_mode),
-        "vspaero_analysis_method": str(args.vspaero_analysis_method),
+        "vspaero_analysis_method": (
+            "panel"
+            if str(args.aero_source_mode) == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE
+            else str(args.vspaero_analysis_method)
+        ),
+        "fixed_design_alpha_deg": float(args.fixed_design_alpha_deg),
         "rib_zonewise_mode": str(args.rib_zonewise_mode),
     }
 
 
 def _aero_source_label(source_mode: str | None) -> str:
+    if source_mode == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+        return "origin VSP fixed-alpha corrector"
     if source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
         return "candidate AVL spanwise"
     if source_mode == CANDIDATE_RERUN_AERO_SOURCE_MODE:
@@ -319,6 +329,97 @@ def _aero_source_label(source_mode: str | None) -> str:
 
 def _slug(multiplier: float) -> str:
     return f"{multiplier:.3f}".replace("-", "m").replace(".", "p")
+
+
+def _select_vspaero_case_by_aoa(
+    aero_cases: Iterable,
+    *,
+    target_aoa_deg: float,
+):
+    cases = list(aero_cases)
+    if not cases:
+        raise RuntimeError("No VSPAero cases were available for fixed-alpha baseline selection.")
+    return min(
+        cases,
+        key=lambda case: abs(float(case.aoa_deg) - float(target_aoa_deg)),
+    )
+
+
+def _build_origin_fixed_alpha_panel_baseline(
+    *,
+    cfg,
+    output_dir: Path,
+    fixed_design_alpha_deg: float,
+    base_avl_path: Path,
+) -> tuple[object, dict[str, object]]:
+    baseline_dir = (output_dir / "origin_vsp_panel_fixed_alpha_baseline").resolve()
+    builder = VSPBuilder(
+        cfg,
+        dihedral_multiplier=1.0,
+        dihedral_exponent=float(cfg.wing.dihedral_scaling_exponent),
+        vspaero_analysis_method="panel",
+    )
+    build_result = builder.build_and_run(str(baseline_dir), aoa_list=[float(fixed_design_alpha_deg)])
+    if not bool(build_result.get("success")):
+        error = build_result.get("error") or "unknown VSPBuilder failure"
+        raise RuntimeError(f"Origin fixed-alpha panel baseline failed: {error}")
+    lod_path = build_result.get("lod_path")
+    if lod_path is None:
+        raise RuntimeError("Origin fixed-alpha panel baseline produced no VSPAero .lod artifact.")
+    cases = VSPAeroParser(
+        lod_path,
+        build_result.get("polar_path"),
+        component_ids=[1],
+    ).parse()
+    baseline_case = _select_vspaero_case_by_aoa(cases, target_aoa_deg=float(fixed_design_alpha_deg))
+    metadata = {
+        "baseline_output_dir": str(baseline_dir),
+        "origin_vsp3_path": str(Path(cfg.io.vsp_model).expanduser().resolve()),
+        "baseline_lod_path": str(Path(lod_path).expanduser().resolve()),
+        "baseline_polar_path": (
+            None
+            if build_result.get("polar_path") is None
+            else str(Path(str(build_result["polar_path"])).expanduser().resolve())
+        ),
+        "baseline_avl_path": str(base_avl_path.resolve()),
+        "analysis_method": "panel",
+        "solver_backend": str(build_result.get("solver_backend") or "unknown"),
+        "fixed_design_alpha_deg": float(fixed_design_alpha_deg),
+        "baseline_selected_case_aoa_deg": float(baseline_case.aoa_deg),
+        "baseline_selected_full_lift_n": float(2.0 * baseline_case.total_lift),
+    }
+    return baseline_case, metadata
+
+
+def _build_fixed_alpha_aero_performance(
+    *,
+    fixed_design_alpha_deg: float,
+    full_lift_n: float,
+    min_lift_n: float,
+    skip_aero_gates: bool,
+) -> AeroPerformanceEvaluation:
+    feasible = True
+    reason = "fixed_design_alpha_ok"
+    if skip_aero_gates:
+        reason = "skipped"
+    elif (
+        not math.isclose(float(full_lift_n), float(min_lift_n), rel_tol=1.0e-6, abs_tol=1.0e-6)
+        and float(full_lift_n) < float(min_lift_n)
+    ):
+        feasible = False
+        reason = "fixed_design_alpha_insufficient_lift"
+    return AeroPerformanceEvaluation(
+        cl_trim=None,
+        cd_induced=None,
+        cd_total_est=None,
+        ld_ratio=None,
+        aoa_trim_deg=float(fixed_design_alpha_deg),
+        span_efficiency=None,
+        lift_total_n=float(full_lift_n),
+        aero_power_w=None,
+        aero_performance_feasible=bool(feasible),
+        aero_performance_reason=str(reason),
+    )
 
 
 def _split_comment(line: str) -> tuple[str, str]:
@@ -1301,6 +1402,7 @@ def run_inverse_design_case(
     aero_source_mode: str,
     vspaero_analysis_method: str,
     candidate_avl_spanwise_loads_json: Path | None,
+    candidate_fixed_alpha_loads_json: Path | None,
     rib_zonewise_mode: str,
     skip_step_export: bool,
     strict: bool = False,
@@ -1362,6 +1464,16 @@ def run_inverse_design_case(
             [
                 "--candidate-avl-spanwise-loads-json",
                 str(candidate_avl_spanwise_loads_json),
+            ]
+        )
+    if (
+        str(aero_source_mode) == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE
+        and candidate_fixed_alpha_loads_json is not None
+    ):
+        cmd.extend(
+            [
+                "--candidate-fixed-alpha-loads-json",
+                str(candidate_fixed_alpha_loads_json),
             ]
         )
     if skip_local_refine:
@@ -1972,10 +2084,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             LEGACY_AERO_SOURCE_MODE,
             CANDIDATE_RERUN_AERO_SOURCE_MODE,
             CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+            ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
         ),
         help=(
             "Choose whether each structural follow-on run keeps using the legacy shared refresh loads "
-            "or consumes candidate-owned rerun-aero / AVL spanwise-load artifacts from the inverse-design core."
+            "or consumes candidate-owned rerun-aero / corrected-load artifacts from the inverse-design core."
         ),
     )
     parser.add_argument(
@@ -1985,6 +2098,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Pass through the VSPAero solver method used when the inverse-design "
             "follow-on runs candidate_rerun_vspaero (vlm or panel)."
+        ),
+    )
+    parser.add_argument(
+        "--fixed-design-alpha-deg",
+        type=float,
+        default=0.0,
+        help=(
+            "Fixed design alpha used by origin_vsp_fixed_alpha_corrector. "
+            "This mode keeps alpha fixed instead of solving L=W."
         ),
     )
     parser.add_argument(
@@ -2150,6 +2272,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.min_spiral_time_to_double_s is None
         else float(args.min_spiral_time_to_double_s)
     )
+    fixed_design_alpha_deg = float(args.fixed_design_alpha_deg)
     beta_sweep_values_deg = _resolve_beta_sweep_values(
         cfg.aero_gates.beta_sweep_values,
         max_sideslip_deg=float(max_sideslip_deg),
@@ -2168,6 +2291,17 @@ def main(argv: list[str] | None = None) -> int:
     failed_cases: list[tuple[float, str]] = []
     candidate_avl_aoa_seed = _resolve_candidate_avl_aoa_seed(cfg)
     campaign_aero_gate_settings: dict[str, object] | None = None
+    origin_fixed_alpha_baseline_case = None
+    origin_fixed_alpha_baseline_metadata: dict[str, object] | None = None
+    if str(args.aero_source_mode) == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+        origin_fixed_alpha_baseline_case, origin_fixed_alpha_baseline_metadata = (
+            _build_origin_fixed_alpha_panel_baseline(
+                cfg=cfg,
+                output_dir=output_dir,
+                fixed_design_alpha_deg=float(fixed_design_alpha_deg),
+                base_avl_path=base_avl_path,
+            )
+        )
     for multiplier in multipliers:
         case_dir = output_dir / f"mult_{_slug(multiplier)}"
         case_dir.mkdir(parents=True, exist_ok=True)
@@ -2225,6 +2359,8 @@ def main(argv: list[str] | None = None) -> int:
                     "aero_gate_settings": gate_metadata,
                     "inverse_design_search_budget": search_budget,
                     "inverse_design_aero_source_mode_requested": str(args.aero_source_mode),
+                    "fixed_design_alpha_deg": float(fixed_design_alpha_deg),
+                    "origin_fixed_alpha_baseline": origin_fixed_alpha_baseline_metadata,
                 },
             indent=2,
         )
@@ -2250,11 +2386,65 @@ def main(argv: list[str] | None = None) -> int:
             min_spiral_time_to_double_s=float(min_spiral_time_to_double_s),
         )
         trim_eval: AvlTrimEvaluation | None = None
+        candidate_avl_spanwise_loads_json: Path | None = None
+        candidate_fixed_alpha_loads_json: Path | None = None
+        candidate_aero_artifact_error: str | None = None
         if not avl_eval.aero_feasible:
             aero_perf_eval = _empty_aero_performance(
                 feasible=False,
                 reason="stability_failed",
             )
+        elif str(args.aero_source_mode) == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+            if origin_fixed_alpha_baseline_case is None or origin_fixed_alpha_baseline_metadata is None:
+                candidate_aero_artifact_error = "origin fixed-alpha panel baseline was unavailable."
+                aero_perf_eval = _empty_aero_performance(
+                    feasible=False,
+                    reason="fixed_alpha_baseline_unavailable",
+                )
+            else:
+                try:
+                    candidate_fixed_alpha_dir = case_dir / ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE
+                    candidate_fixed_alpha_dir.mkdir(parents=True, exist_ok=True)
+                    artifact = build_fixed_alpha_dihedral_corrector_artifact(
+                        baseline_case=origin_fixed_alpha_baseline_case,
+                        baseline_avl_path=base_avl_path,
+                        candidate_avl_path=case_avl_path,
+                        requested_knobs={
+                            "target_shape_z_scale": float(multiplier),
+                            "dihedral_multiplier": float(multiplier),
+                            "dihedral_exponent": float(dihedral_exponent),
+                        },
+                        fixed_design_alpha_deg=float(fixed_design_alpha_deg),
+                        origin_vsp3_path=origin_fixed_alpha_baseline_metadata.get("origin_vsp3_path"),
+                        baseline_output_dir=origin_fixed_alpha_baseline_metadata.get("baseline_output_dir"),
+                        baseline_lod_path=origin_fixed_alpha_baseline_metadata.get("baseline_lod_path"),
+                        baseline_polar_path=origin_fixed_alpha_baseline_metadata.get("baseline_polar_path"),
+                        source_mode=ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
+                        notes=(
+                            "Loads come from the origin .vsp3 main-wing panel baseline at fixed design alpha.",
+                            "Candidate screening does not rebuild OpenVSP geometry; only a dihedral vertical-load correction is applied.",
+                            "Drag and pitching-moment ownership remain on the origin fixed-alpha panel baseline.",
+                        ),
+                    )
+                    candidate_fixed_alpha_loads_json = (
+                        candidate_fixed_alpha_dir / "candidate_fixed_alpha_loads.json"
+                    )
+                    candidate_fixed_alpha_loads_json.write_text(
+                        json.dumps(artifact, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                    aero_perf_eval = _build_fixed_alpha_aero_performance(
+                        fixed_design_alpha_deg=float(fixed_design_alpha_deg),
+                        full_lift_n=float(artifact["total_full_lift_n"]),
+                        min_lift_n=float(gate_settings.min_lift_n),
+                        skip_aero_gates=bool(args.skip_aero_gates),
+                    )
+                except Exception as exc:
+                    candidate_aero_artifact_error = str(exc)
+                    aero_perf_eval = _empty_aero_performance(
+                        feasible=False,
+                        reason="fixed_alpha_corrector_build_failed",
+                    )
         elif args.skip_aero_gates:
             aero_perf_eval = _empty_aero_performance(
                 feasible=True,
@@ -2302,8 +2492,6 @@ def main(argv: list[str] | None = None) -> int:
         selected_output_dir: str | None = None
         summary_json_path: str | None = None
         inverse_error_message: str | None = None
-        candidate_avl_spanwise_loads_json: Path | None = None
-        candidate_avl_artifact_error: str | None = None
         if avl_eval.aero_feasible and str(args.aero_source_mode) == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
             candidate_trim_eval = trim_eval
             if candidate_trim_eval is None:
@@ -2319,7 +2507,7 @@ def main(argv: list[str] | None = None) -> int:
                 or not candidate_trim_eval.trim_converged
                 or candidate_trim_eval.aoa_trim_deg is None
             ):
-                candidate_avl_artifact_error = (
+                candidate_aero_artifact_error = (
                     "candidate_avl_spanwise requires a converged AVL trim AoA before building spanwise loads."
                 )
             else:
@@ -2355,7 +2543,7 @@ def main(argv: list[str] | None = None) -> int:
                         }
                     )
                 if len(load_case_specs) < 2:
-                    candidate_avl_artifact_error = (
+                    candidate_aero_artifact_error = (
                         "candidate AVL spanwise load extraction produced fewer than 2 usable AoA cases."
                     )
                 else:
@@ -2388,9 +2576,14 @@ def main(argv: list[str] | None = None) -> int:
         if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible and beta_gate_passed:
             if (
                 str(args.aero_source_mode) == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE
-                and candidate_avl_artifact_error is not None
+                and candidate_aero_artifact_error is not None
             ):
-                inverse_error_message = candidate_avl_artifact_error
+                inverse_error_message = candidate_aero_artifact_error
+            if (
+                str(args.aero_source_mode) == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE
+                and candidate_aero_artifact_error is not None
+            ):
+                inverse_error_message = candidate_aero_artifact_error
             inverse_output_dir = case_dir / "inverse_design"
             selected_output_dir = str(inverse_output_dir.resolve())
             if inverse_error_message is None:
@@ -2421,6 +2614,7 @@ def main(argv: list[str] | None = None) -> int:
                     aero_source_mode=str(args.aero_source_mode),
                     vspaero_analysis_method=str(args.vspaero_analysis_method),
                     candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
+                    candidate_fixed_alpha_loads_json=candidate_fixed_alpha_loads_json,
                     rib_zonewise_mode=str(args.rib_zonewise_mode),
                     skip_step_export=bool(args.skip_step_export),
                     strict=bool(args.strict),

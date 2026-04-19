@@ -28,6 +28,7 @@ from hpa_mdo.aero import (
     VSPBuilder,
     VSPAeroParser,
     load_candidate_avl_spanwise_artifact,
+    load_fixed_alpha_dihedral_corrector_artifact,
 )
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.core import Aircraft, MaterialDB, load_config
@@ -88,6 +89,7 @@ CLEARANCE_RISK_BUFFER_BY_MARGIN_NAME = {
 LEGACY_AERO_SOURCE_MODE = "legacy_refresh"
 CANDIDATE_RERUN_AERO_SOURCE_MODE = "candidate_rerun_vspaero"
 CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE = "candidate_avl_spanwise"
+ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE = "origin_vsp_fixed_alpha_corrector"
 CANDIDATE_RERUN_MAIN_WING_COMPONENT_IDS = (1,)
 DEFAULT_CANDIDATE_AOA_SWEEP_DEG = (-2.0, 0.0, 2.0, 4.0, 6.0, 8.0)
 RIB_ZONEWISE_OFF_MODE = "off"
@@ -1453,12 +1455,14 @@ def _resolve_outer_loop_candidate_aero(
     legacy_aero_cases: list[SpanwiseLoad] | None = None,
     candidate_aero_output_dir: Path | None = None,
     candidate_avl_spanwise_loads_json: Path | None = None,
+    candidate_fixed_alpha_loads_json: Path | None = None,
 ) -> tuple[list[SpanwiseLoad], SpanwiseLoad, dict, CandidateAeroContract]:
     mode = str(aero_source_mode)
     if mode not in {
         LEGACY_AERO_SOURCE_MODE,
         CANDIDATE_RERUN_AERO_SOURCE_MODE,
         CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+        ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
     }:
         raise ValueError(f"Unsupported aero source mode: {mode}")
 
@@ -1639,6 +1643,81 @@ def _resolve_outer_loop_candidate_aero(
             notes=notes,
         )
         return list(aligned_cases), cruise_case, mapped_loads, contract
+
+    if mode == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+        if candidate_fixed_alpha_loads_json is None:
+            raise ValueError(
+                "origin_vsp_fixed_alpha_corrector mode requires --candidate-fixed-alpha-loads-json."
+            )
+        artifact_payload, cases = load_fixed_alpha_dihedral_corrector_artifact(
+            candidate_fixed_alpha_loads_json
+        )
+        if not cases:
+            raise RuntimeError("Fixed-alpha dihedral-corrector artifact produced no load cases.")
+        fixed_design_alpha_deg = float(
+            artifact_payload.get("fixed_design_alpha_deg", cases[0].aoa_deg)
+        )
+        cruise_case, mapped_loads = _select_fixed_alpha_case_and_mapped_loads(
+            cfg,
+            aircraft,
+            list(cases),
+            target_aoa_deg=float(fixed_design_alpha_deg),
+        )
+        geometry_artifacts_raw = artifact_payload.get("geometry_artifacts")
+        if isinstance(geometry_artifacts_raw, dict):
+            geometry_artifacts = {
+                str(key): (None if value is None else str(value))
+                for key, value in geometry_artifacts_raw.items()
+            }
+        else:
+            geometry_artifacts = {}
+        geometry_artifacts["candidate_fixed_alpha_loads_json"] = str(
+            Path(candidate_fixed_alpha_loads_json).expanduser().resolve()
+        )
+        requested_knobs_raw = artifact_payload.get("requested_knobs")
+        if isinstance(requested_knobs_raw, dict):
+            requested_knobs = {
+                str(key): float(value) for key, value in requested_knobs_raw.items()
+            }
+        else:
+            requested_knobs = _requested_outer_loop_knobs(
+                target_shape_z_scale=target_shape_z_scale,
+                dihedral_exponent=dihedral_exponent,
+            )
+        notes = tuple(str(note) for note in (artifact_payload.get("notes") or ()))
+        notes = notes + (
+            (
+                "selected_cruise_aoa_deg is repurposed here as the fixed design alpha; "
+                "this mode does not solve for L=W by moving alpha."
+            ),
+            (
+                "Lift ownership comes from a single origin-VSP panel baseline at fixed design alpha, "
+                "then the candidate dihedral only applies a mathematical vertical-load correction."
+            ),
+            (
+                "Drag and pitching-moment ownership remain on the origin fixed-alpha panel baseline; "
+                "this mode is screening/jig-shape oriented rather than final aero truth."
+            ),
+        )
+        contract = CandidateAeroContract(
+            source_mode=ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
+            baseline_load_source="origin_vsp_panel_fixed_alpha_baseline",
+            refresh_load_source="mathematical_dihedral_corrector_from_origin_panel_baseline",
+            load_ownership=(
+                "Loads come from the origin .vsp3 main-wing panel baseline at a fixed design alpha; "
+                "candidate geometry ownership is reduced to a dihedral-only vertical-load correction."
+            ),
+            artifact_ownership=(
+                "This mode owns a candidate-side corrected load artifact JSON, but does not rebuild "
+                "candidate OpenVSP geometry during coarse screening."
+            ),
+            requested_knobs=requested_knobs,
+            aoa_sweep_deg=(float(fixed_design_alpha_deg),),
+            selected_cruise_aoa_deg=float(fixed_design_alpha_deg),
+            geometry_artifacts=geometry_artifacts,
+            notes=tuple(note for note in notes if note),
+        )
+        return list(cases), cruise_case, mapped_loads, contract
 
     aoa_sweep = list(_candidate_aoa_sweep_deg(legacy_aero_cases))
     rerun_output_dir = (
@@ -1893,6 +1972,11 @@ def _refresh_method_text(contract: CandidateAeroContract | None) -> str:
             "candidate-level AVL geometry + strip-force AoA sweep for the baseline load owner; "
             "later refresh steps interpolate within the candidate-owned AVL AoA sweep"
         )
+    if contract is not None and contract.source_mode == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+        return (
+            "origin-VSP fixed-alpha panel baseline + mathematical dihedral corrector for the baseline load owner; "
+            "later refresh steps still interpolate within the corrected fixed-alpha load state"
+        )
     return "reuse existing VSPAero AoA sweep and reduce local effective AoA by structural twist"
 
 
@@ -1918,6 +2002,13 @@ def _refresh_physics_assumptions(
         )
         assumptions.append(
             "Later refresh steps reuse that candidate-owned AVL AoA sweep; AVL is not rerun after each structural update."
+        )
+    elif contract is not None and contract.source_mode == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+        assumptions.append(
+            "The initial baseline loads come from a single origin .vsp3 panel solve at fixed design alpha."
+        )
+        assumptions.append(
+            "Later refresh steps reuse the corrected fixed-alpha load state; OpenVSP is not rerun per candidate or after each structural update."
         )
     else:
         assumptions.append(
@@ -1957,6 +2048,10 @@ def _refresh_difference_from_full_coupling(
         lines.append(
             "baseline candidate lift shape is rebuilt once from AVL strip forces while torque stays on the legacy-selected state, but there is still no per-refresh AVL rerun"
         )
+    elif contract is not None and contract.source_mode == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+        lines.append(
+            "baseline candidate loads are corrected once from the origin fixed-alpha panel baseline without solving candidate alpha or rebuilding candidate OpenVSP geometry"
+        )
     else:
         lines.append("no geometry rebuild / CFD rerun between stages")
     lines.append(
@@ -1978,6 +2073,7 @@ class LightweightLoadRefreshModel:
         cfg,
         aircraft,
         washout_scale: float = 1.0,
+        allow_single_case: bool = False,
     ):
         if not aero_cases:
             raise ValueError("Need at least one aerodynamic case for load refresh.")
@@ -1986,6 +2082,7 @@ class LightweightLoadRefreshModel:
         self.aircraft = aircraft
         self.mapper = LoadMapper()
         self.washout_scale = float(washout_scale)
+        self.allow_single_case = bool(allow_single_case)
 
         self._cases = tuple(sorted(aero_cases, key=lambda case: float(case.aoa_deg)))
         self._aoa_deg = np.asarray([float(case.aoa_deg) for case in self._cases], dtype=float)
@@ -2007,7 +2104,7 @@ class LightweightLoadRefreshModel:
         for case in self._cases:
             if np.asarray(case.y, dtype=float).shape != (ref_n,):
                 raise ValueError("All aerodynamic cases must share the same spanwise grid.")
-        if self._aoa_deg.size < 2:
+        if self._aoa_deg.size < 2 and not self.allow_single_case:
             raise ValueError("Lightweight load refresh needs at least two AoA cases.")
 
     def baseline_metrics(self, mapped_loads: dict) -> RefreshLoadMetrics:
@@ -2021,6 +2118,8 @@ class LightweightLoadRefreshModel:
         )
 
     def _interp_table(self, table: np.ndarray, aoa_profile_deg: np.ndarray) -> np.ndarray:
+        if self._aoa_deg.size == 1:
+            return np.asarray(table[0], dtype=float).copy()
         out = np.zeros_like(aoa_profile_deg, dtype=float)
         for idx in range(table.shape[1]):
             out[idx] = float(np.interp(aoa_profile_deg[idx], self._aoa_deg, table[:, idx]))
@@ -2118,6 +2217,30 @@ def _select_cruise_case_and_mapped_loads(
     if best_case is None or best_mapped is None:
         raise RuntimeError("Failed to determine cruise aerodynamic case from VSPAero data.")
     return best_case, best_mapped
+
+
+def _select_fixed_alpha_case_and_mapped_loads(
+    cfg,
+    aircraft,
+    aero_cases: list[SpanwiseLoad],
+    *,
+    target_aoa_deg: float,
+) -> tuple[SpanwiseLoad, dict]:
+    if not aero_cases:
+        raise RuntimeError("No aerodynamic cases found for fixed-alpha load selection.")
+
+    case = min(
+        aero_cases,
+        key=lambda item: abs(float(item.aoa_deg) - float(target_aoa_deg)),
+    )
+    mapper = LoadMapper()
+    mapped = mapper.map_loads(
+        case,
+        aircraft.wing.y,
+        actual_velocity=cfg.flight.velocity,
+        actual_density=cfg.flight.air_density,
+    )
+    return case, mapped
 
 
 class InverseDesignEvaluator:
@@ -4809,6 +4932,7 @@ def _run_refresh_refinement_case(
         cfg=cfg,
         aircraft=aircraft,
         washout_scale=float(refresh_washout_scale),
+        allow_single_case=(aero_contract.source_mode == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE),
     )
     refinement = run_inverse_design_load_refresh_refinement(
         cfg=cfg,
@@ -4988,10 +5112,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             LEGACY_AERO_SOURCE_MODE,
             CANDIDATE_RERUN_AERO_SOURCE_MODE,
             CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+            ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE,
         ),
         help=(
             "Choose whether outer-loop aero loads come from the shared legacy VSPAero sweep "
-            "or a candidate-owned rerun contract (OpenVSP/VSPAero or AVL spanwise strip loads)."
+            "or a candidate-owned rerun / corrected-load contract "
+            "(OpenVSP/VSPAero, AVL spanwise strip loads, or origin-VSP fixed-alpha dihedral correction)."
         ),
     )
     parser.add_argument(
@@ -5017,6 +5143,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Path to a candidate-owned AVL spanwise-load artifact JSON when "
             "--aero-source-mode=candidate_avl_spanwise."
+        ),
+    )
+    parser.add_argument(
+        "--candidate-fixed-alpha-loads-json",
+        default=None,
+        help=(
+            "Path to a candidate-owned fixed-design-alpha dihedral-corrector load artifact JSON when "
+            "--aero-source-mode=origin_vsp_fixed_alpha_corrector."
         ),
     )
     parser.add_argument(
@@ -5217,10 +5351,21 @@ def main(argv: list[str] | None = None) -> int:
         if args.candidate_avl_spanwise_loads_json is None
         else Path(args.candidate_avl_spanwise_loads_json).expanduser().resolve()
     )
+    candidate_fixed_alpha_loads_json = (
+        None
+        if args.candidate_fixed_alpha_loads_json is None
+        else Path(args.candidate_fixed_alpha_loads_json).expanduser().resolve()
+    )
     if aero_source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
         if candidate_avl_spanwise_loads_json is None:
             raise ValueError(
                 "--aero-source-mode=candidate_avl_spanwise requires --candidate-avl-spanwise-loads-json."
+            )
+    if aero_source_mode == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
+        if candidate_fixed_alpha_loads_json is None:
+            raise ValueError(
+                "--aero-source-mode=origin_vsp_fixed_alpha_corrector requires "
+                "--candidate-fixed-alpha-loads-json."
             )
 
     legacy_aero_cases: list[SpanwiseLoad] | None = None
@@ -5242,6 +5387,7 @@ def main(argv: list[str] | None = None) -> int:
         legacy_aero_cases=legacy_aero_cases,
         candidate_aero_output_dir=candidate_aero_output_dir,
         candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
+        candidate_fixed_alpha_loads_json=candidate_fixed_alpha_loads_json,
     )
     cruise_aoa_deg = float(cruise_case.aoa_deg)
     design_case = cfg.structural_load_cases()[0]
@@ -5402,6 +5548,7 @@ def main(argv: list[str] | None = None) -> int:
                     legacy_aero_cases=legacy_aero_cases,
                     candidate_aero_output_dir=None,
                     candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
+                    candidate_fixed_alpha_loads_json=candidate_fixed_alpha_loads_json,
                 )
                 recovery_cruise_aoa_deg, recovery_refinement = _run_refresh_refinement_case(
                     cfg=cfg,

@@ -16,6 +16,12 @@ from hpa_mdo.aero.avl_spanwise import (
     parse_avl_strip_forces,
     write_candidate_avl_spanwise_artifact,
 )
+from hpa_mdo.aero.dihedral_load_corrector import (
+    build_fixed_alpha_dihedral_corrected_case,
+    build_fixed_alpha_dihedral_corrector_artifact,
+    load_fixed_alpha_dihedral_corrector_artifact,
+    write_fixed_alpha_dihedral_corrector_artifact,
+)
 from hpa_mdo.aero.avl_stability_parser import (
     StabilityDerivatives,
     parse_control_mapping_from_avl,
@@ -39,11 +45,14 @@ __all__ = [
     "XFLR5Parser",
     "build_avl_aero_gate_settings",
     "build_candidate_avl_spanwise_artifact",
+    "build_fixed_alpha_dihedral_corrected_case",
+    "build_fixed_alpha_dihedral_corrector_artifact",
     "build_spanwise_load_from_avl_strip_forces",
     "empty_aero_performance",
     "export_aswing",
     "evaluate_aero_performance",
     "load_candidate_avl_spanwise_artifact",
+    "load_fixed_alpha_dihedral_corrector_artifact",
     "load_reference_area_from_avl",
     "parse_avl",
     "parse_avl_strip_forces",
@@ -53,4 +62,5 @@ __all__ = [
     "run_avl_derivatives",
     "stage_avl_airfoil_files",
     "write_candidate_avl_spanwise_artifact",
+    "write_fixed_alpha_dihedral_corrector_artifact",
 ]
