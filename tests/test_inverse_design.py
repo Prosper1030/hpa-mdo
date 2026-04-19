@@ -41,6 +41,7 @@ from scripts.direct_dual_beam_inverse_design_feasibility_sweep import (
     _annotate_case_selection as _annotate_feasibility_case_selection,
     _build_arg_parser as _build_feasibility_sweep_arg_parser,
     _build_search_budget_summary as _build_feasibility_search_budget_summary,
+    _extract_mission_snapshot,
     _run_one_case as _run_feasibility_case,
 )
 from scripts.direct_dual_beam_inverse_design import (
@@ -2283,6 +2284,30 @@ class OuterLoopContractTests(unittest.TestCase):
         )
 
     @staticmethod
+    def _attach_mission_fields(
+        case: FeasibilitySweepCaseResult,
+        *,
+        mission_objective_mode: str | None,
+        mission_feasible: bool | None,
+        mission_score: float | None,
+    ) -> FeasibilitySweepCaseResult:
+        object.__setattr__(case, "mission_objective_mode", mission_objective_mode)
+        object.__setattr__(case, "mission_feasible", mission_feasible)
+        object.__setattr__(case, "target_range_km", 42.0)
+        object.__setattr__(case, "target_range_passed", mission_feasible)
+        object.__setattr__(case, "target_range_margin_m", 1200.0)
+        object.__setattr__(case, "best_range_m", 43210.0)
+        object.__setattr__(case, "best_range_speed_mps", 16.0)
+        object.__setattr__(case, "best_endurance_s", 5400.0)
+        object.__setattr__(case, "min_power_w", 190.0)
+        object.__setattr__(case, "min_power_speed_mps", 14.5)
+        object.__setattr__(case, "mission_score", mission_score)
+        object.__setattr__(case, "mission_score_reason", "maximize_range")
+        object.__setattr__(case, "pilot_power_model", "fake_anchor_curve")
+        object.__setattr__(case, "pilot_power_anchor", "240.0W@30.0min")
+        return case
+
+    @staticmethod
     def _make_dihedral_result(
         *,
         dihedral_multiplier: float,
@@ -2560,6 +2585,69 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertIn("lowest feasible contract score", by_target[20.0].winner_evidence)
         self.assertIn("candidate rerun-aero", by_target[20.0].winner_evidence)
         self.assertIn("rib design=baseline_uniform", by_target[20.0].winner_evidence)
+
+    def test_feasibility_mission_snapshot_extracts_summary_mission_fields(self) -> None:
+        summary = {
+            "mission": {
+                "mission_objective_mode": "max_range",
+                "mission_feasible": True,
+                "target_range_km": 38.5,
+                "target_range_passed": True,
+                "target_range_margin_m": 1250.0,
+                "best_range_m": 40250.0,
+                "best_range_speed_mps": 17.5,
+                "best_endurance_s": 5200.0,
+                "min_power_w": 185.0,
+                "min_power_speed_mps": 14.0,
+                "mission_score": -40250.0,
+                "mission_score_reason": "maximize_range",
+                "pilot_power_model": "fake_anchor_curve",
+                "pilot_power_anchor": "240.0W@30.0min",
+            }
+        }
+
+        snapshot = _extract_mission_snapshot(summary)
+
+        self.assertEqual(snapshot["mission_objective_mode"], "max_range")
+        self.assertTrue(snapshot["mission_feasible"])
+        self.assertAlmostEqual(snapshot["target_range_km"], 38.5)
+        self.assertAlmostEqual(snapshot["best_range_m"], 40250.0)
+        self.assertEqual(snapshot["pilot_power_anchor"], "240.0W@30.0min")
+
+    def test_feasibility_sweep_selection_prefers_better_mission_score_for_max_range(self) -> None:
+        slower = self._attach_mission_fields(
+            self._make_feasibility_case(
+                target_mass_kg=20.0,
+                feasible=True,
+                candidate_score=24.0,
+                selected_total_mass_kg=24.0,
+            ),
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            mission_score=-39000.0,
+        )
+        better_range = self._attach_mission_fields(
+            self._make_feasibility_case(
+                target_mass_kg=22.0,
+                feasible=True,
+                candidate_score=25.0,
+                selected_total_mass_kg=25.0,
+            ),
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            mission_score=-42000.0,
+        )
+
+        annotated, winner = _annotate_feasibility_case_selection([slower, better_range])
+
+        self.assertIsNotNone(winner)
+        assert winner is not None
+        self.assertEqual(winner["requested_knobs"]["target_mass_kg"], 22.0)
+        self.assertEqual(winner["selection_status"], "winner")
+        self.assertEqual(
+            {case.target_mass_kg: case.selection_status for case in annotated}[22.0],
+            "winner",
+        )
 
     def test_dihedral_campaign_budget_summary_accepts_local_refine_controls(self) -> None:
         args = _build_dihedral_campaign_arg_parser().parse_args(
