@@ -81,21 +81,33 @@
 
 ### Track X：repaired AVL-first recovered shortlist rebuild
 
+這包 **已完成一次，但目前不應視為 canonical shortlist**。
+
+- 問題不是 plumbing，而是：
+  - 這一版把 `dihedral_exponent = 2.2` 當成 baseline
+  - 但 `2.2` 其實是 Track T recovery ladder 的 heuristic，不是舊主線的正式基準
+- 所以這包的定位應改成：
+  - historical / diagnostic evidence
+  - 不應直接拿來當後續 Track R 的 canonical seed source
+
+### Track Z：AVL baseline exponent rebaseline
+
 這是 **現在的 current wave**。
 
-- 什麼情況下優先：Track Y 已經證明 repaired AVL path 回到正確 contract，現在要重建真正可用的 repaired shortlist。
+- 什麼情況下優先：你已確認舊 multiplier 本來就已經是 tip-weighted，真正要修的是 baseline 被錯放成 `exp = 2.2`。
 - 近期目標：
-  - 用 repaired AVL-first path 重新挑出 `2 到 4` 個 recovered shortlist seeds
-  - 明確標示哪些 seed 應優先送去 rerun confirm
-  - 把後續 Track R 的 seed 選擇從舊的 suspicious rerun baseline 換成 repaired AVL shortlist
+  - 用 repaired AVL-first path 做 `exp = 1.0` vs `exp = 2.2` 的 apples-to-apples compare
+  - 把 `exp = 1.0` 寫回 canonical screening baseline
+  - 明確把 `exp = 2.2` 降回 recovery / sensitivity 選項
+  - 基於 `exp = 1.0` 重建真正可用的 repaired shortlist
 
 ### Track R：repaired-shortlist rib smoke replay
 
-這是 **Track X 做完後的下一波**。
+這是 **Track Z 做完後的下一波**。
 
-- 什麼情況下優先：如果 repaired AVL-first 搜尋已經能產生更乾淨的 pass-side recovered shortlist，現在需要真正回答 rib ranking 是不是工程合理。
+- 什麼情況下優先：如果 repaired AVL-first 搜尋已經在 **`exp = 1.0` baseline** 下產生更乾淨的 recovered shortlist，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
-  - 用 repaired shortlist seeds 而不是舊的 drift/suspicious seeds
+  - 用 repaired shortlist seeds，而不是舊的 drift/suspicious seeds，也不是 `exp = 2.2` 的誤基準 shortlist
   - 每個 seed 都比較 `rib_zonewise=off` vs `limited_zonewise`
   - 先用 AVL-first path 建立 shortlist，再用 `candidate_rerun_vspaero` 做 confirm
   - 至少找出一組不是 sentinel fallback 的可比 selected-case
@@ -168,12 +180,12 @@
 ### Track T：ground-clearance recovery outer-loop
 
 - 目前狀態：baseline 已成立，並已找到第一個 pass-side clearance region。
-- 接下來重點不再是繼續用 rerun-aero 做更大的 coarse scan，而是把這個 recovery 經驗轉回 repaired AVL-first outer-loop。
+- 接下來重點不再是把 recovery 參數直接升格成 screening baseline，而是把這個 recovery 經驗當成 `exp = 1.0` baseline 之外的 recovery-only option。
 
 ### Track U：AVL spanwise plumbing baseline
 
 - 目前狀態：plumbing 已接通，但第一版實作 drift 過；這個問題已經由 Track V / W / Y 收斂。
-- 接下來重點不再是重做 plumbing，而是用 repaired AVL-first path 重建 shortlist，然後重新回答 rib ranking。
+- 接下來重點不再是重做 plumbing，而是先把 repaired AVL-first 的 **baseline exponent** 收回到舊主線，再重建 shortlist，然後重新回答 rib ranking。
 
 ### Track S：explicit wire-truss convergence unblock
 

@@ -9,7 +9,7 @@
 3. `docs/TARGET_STANDARD_GAP_MAP.md`
 4. `docs/TARGET_STANDARD_PROGRAM_PLAN.md`
 5. `docs/RIB_INTEGRATION_PLAN.md`
-6. `docs/task_packs/current_parallel_work/reports/repaired_avl_shortlist_report.md`
+6. `docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md`
 7. `docs/task_packs/current_parallel_work/reports/rib_campaign_smoke_report.md`
 8. `docs/hi_fidelity_validation_stack.md`
 
@@ -17,7 +17,7 @@
 
 這一包只有在：
 
-- Track X 已完成
+- Track Z 已完成
 - Track R 已完成
 - 而且 Track R 的結論已經是 **SANE**
 

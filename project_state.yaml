@@ -124,8 +124,12 @@ active_tracks:
     goal: "candidate_avl_spanwise now reuses the legacy structural selected state and only swaps in candidate-owned spanwise lift shape, no longer drifting into the trim-required AVL state."
   track_x:
     name: "repaired_avl_recovered_shortlist_rebuild"
+    status: "historical_noncanonical"
+    goal: "The first repaired AVL shortlist pass used `dihedral_exponent=2.2` as if it were baseline; keep it as diagnostic evidence, not canonical shortlist truth."
+  track_z:
+    name: "avl_baseline_exponent_rebaseline"
     status: "next"
-    goal: "Use the repaired AVL-first path to rebuild a clean recovered shortlist before restarting rib smoke."
+    goal: "Restore `dihedral_exponent=1.0` as the canonical AVL-first screening baseline, demote `2.2` to recovery-only, and rebuild the repaired shortlist on that basis."
   track_m:
     name: "rib_ranking_sanity_tuning"
     status: "queued"
@@ -146,15 +150,15 @@ recently_completed:
   - "Track L replay: rerun-aero smoke now completes, but the first single-seed replay is still suspicious because both rib modes collapse to sentinel infeasible outcomes."
   - "Track R replay: three-seed / six-run rerun-aero smoke still produced only sentinel infeasible outcomes."
   - "Track S replay: explicit wire-truss Newton / line-search false non-convergence has been unblocked on the validated snapshot, and the immediate replay blocker has shifted to ground clearance."
-  - "Track T replay: bounded search found the first clearance-pass region at fixed seed (`3.75 < z_scale <= 3.875`, `dihedral_exponent=2.2`, `rib_zonewise=off`) while mass stayed about `21.74 kg`."
+  - "Track T replay: bounded search found the first clearance-pass region at fixed seed (`3.75 < z_scale <= 3.875`, `dihedral_exponent=2.2`, `rib_zonewise=off`) while mass stayed about `21.74 kg`; this is recovery evidence, not canonical screening baseline."
   - "Track U plumbing: AVL strip-force loads now reach the structural path, but the first implementation also changed load-state ownership and only looked structurally sane under `--skip-aero-gates`, with mass near `38.96 kg`."
   - "Track V baseline: candidate_avl_spanwise no longer drifts in gate / recovery semantics and no longer relies on skip-aero-gates to appear sane."
   - "Track W baseline: side-by-side compare proved the remaining blocker was numeric structural selected-state alignment, not parser, recovery, or plumbing."
   - "Track Y baseline: candidate_avl_spanwise structural selected state is now legacy-aligned (`AoA 0.000 deg`, `lift 450.668 N`, `torque 260.296 N*m`) instead of the old trim-required `AoA 12.536 deg` state."
 
 next_wave_priorities:
-  - "Track X: rebuild a repaired AVL-first recovered shortlist before returning to rib smoke."
-  - "Track R replay: after Track X, rerun rib smoke on repaired shortlist seeds and look for at least one non-sentinel comparable case."
+  - "Track Z: rebaseline repaired AVL-first screening around `dihedral_exponent=1.0` and rebuild the shortlist without treating `2.2` as default."
+  - "Track R replay: after Track Z, rerun rib smoke on repaired shortlist seeds and look for at least one non-sentinel comparable case."
   - "Track M: only if repaired-shortlist replay shows suspicious rib ranking with real signal, tune rib penalties / family cap / surrogate behavior."
   - "Track N: if repaired-shortlist replay looks sane, do finalist spot-check and handoff packaging for rib-on winners."
 

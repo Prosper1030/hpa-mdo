@@ -10,14 +10,15 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_x_repaired_avl_recovered_shortlist_rebuild"
-    prompt: "prompts/track_x_repaired_avl_recovered_shortlist_rebuild.md"
+  - id: "track_z_avl_baseline_exponent_rebaseline"
+    prompt: "prompts/track_z_avl_baseline_exponent_rebaseline.md"
     launch_wave: 18
     write_scope:
-      - "docs/task_packs/current_parallel_work/reports/repaired_avl_shortlist_report.md"
+      - "docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md"
     expected_artifacts:
-      - "2 to 4 repaired AVL-first shortlist seeds ready for downstream confirm / rib smoke"
-      - "clear handoff note telling the next agent which seed to use first and why"
+      - "apples-to-apples compare of `dihedral_exponent=1.0` vs `2.2` under the repaired AVL-first path"
+      - "clear statement that `2.2` is recovery-only unless evidence proves otherwise"
+      - "canonical repaired shortlist built from the restored `exp=1.0` baseline"
   - id: "track_r_repaired_shortlist_rib_smoke"
     prompt: "prompts/track_r_repaired_shortlist_rib_smoke.md"
     launch_wave: 19
