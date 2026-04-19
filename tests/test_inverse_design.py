@@ -2255,7 +2255,7 @@ class CandidateAeroContractTests(unittest.TestCase):
             outcome=inverse_outcome,
             load_metrics=RefreshLoadMetrics(
                 total_lift_half_n=110.0,
-                total_drag_half_n=2.0,
+                total_drag_half_n=20.0,
                 total_abs_torque_half_nm=1.0,
                 max_lift_per_span_npm=55.0,
                 max_abs_torque_per_span_nmpm=0.5,
@@ -2333,8 +2333,11 @@ class CandidateAeroContractTests(unittest.TestCase):
 
         self.assertIn("mission", summary)
         self.assertIsNotNone(summary["mission"]["mission_objective_mode"])
-        self.assertIsNotNone(summary["mission"]["mission_score"])
         self.assertEqual(summary["mission"]["pilot_power_model"], "fake_anchor_curve")
+        expected_reference_power_w = 2.0 * 20.0 * 6.5
+        expected_min_power_w = expected_reference_power_w * (6.0 / 6.5) ** 3
+        self.assertAlmostEqual(summary["mission"]["min_power_w"], expected_min_power_w)
+        self.assertLess(summary["mission"]["mission_score"], 0.0)
 
         with tempfile.TemporaryDirectory() as tmp:
             case_dir = Path(tmp) / "target_20.0kg"
@@ -2365,6 +2368,29 @@ class CandidateAeroContractTests(unittest.TestCase):
         self.assertIsNotNone(result.best_range_m)
         self.assertIsNotNone(result.mission_score)
         self.assertEqual(result.pilot_power_model, "fake_anchor_curve")
+
+        bad_iteration = replace(
+            iteration,
+            load_metrics=replace(iteration.load_metrics, total_drag_half_n=0.0),
+        )
+        bad_refinement = replace(refinement, iterations=(bad_iteration,))
+        bad_summary = build_refresh_summary_json(
+            config_path=REPO_ROOT / "configs" / "blackcat_004.yaml",
+            design_report=Path("/tmp/report.txt"),
+            cruise_aoa_deg=8.0,
+            map_config=SimpleNamespace(
+                main_plateau_scale_upper=1.14,
+                main_taper_fill_upper=0.80,
+                rear_radius_scale_upper=1.12,
+                delta_t_global_max_m=0.001,
+                delta_t_rear_outboard_max_m=0.0005,
+            ),
+            outcome=bad_refinement,
+            refresh_washout_scale=1.0,
+        )
+
+        self.assertIn("mission", bad_summary)
+        self.assertTrue(all(value is None for value in bad_summary["mission"].values()))
 
 
 class OuterLoopContractTests(unittest.TestCase):
