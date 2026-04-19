@@ -2090,8 +2090,11 @@ def _campaign_gate_penalty_kg(reject_reason: str) -> float:
 
 
 def _campaign_mission_objective_mode(rows: Iterable[SweepResult]) -> str | None:
-    modes = {row.mission_objective_mode for row in rows if row.mission_objective_mode is not None}
-    if len(modes) == 1:
+    rows = list(rows)
+    if not rows:
+        return None
+    modes = {row.mission_objective_mode for row in rows}
+    if len(modes) == 1 and None not in modes and all(row.mission_score is not None for row in rows):
         return next(iter(modes))
     return None
 
@@ -2139,6 +2142,18 @@ def _build_campaign_winner_evidence(row: SweepResult, *, passing_pool_exists: bo
         f"{prefix}; score={row.candidate_score:.3f}, "
         f"mass={mass_text}, mismatch={mismatch_text}, clearance={clearance_text}, "
         f"aero source={_aero_source_label(row.aero_source_mode)}{mission_text}"
+    )
+
+
+def _campaign_non_mission_gate_reject_reason(
+    row: SweepResult,
+    *,
+    max_tube_mass_kg: float | None = None,
+) -> str:
+    return _campaign_reject_reason(
+        row,
+        max_tube_mass_kg=max_tube_mass_kg,
+        mission_objective_mode=None,
     )
 
 
@@ -2200,7 +2215,22 @@ def _annotate_campaign_selection(
         for row in rows
     ]
     passing_rows = [row for row in scored_rows if row.reject_reason == "none"]
-    winner_pool = passing_rows if passing_rows else scored_rows
+    non_mission_gated_rows = [
+        row
+        for row in scored_rows
+        if _campaign_non_mission_gate_reject_reason(
+            row,
+            max_tube_mass_kg=max_tube_mass_kg,
+        )
+        == "none"
+    ]
+    winner_pool = (
+        passing_rows
+        if passing_rows
+        else non_mission_gated_rows
+        if non_mission_gated_rows
+        else scored_rows
+    )
     winner = min(
         winner_pool,
         key=lambda row: _campaign_selection_key(
@@ -2208,15 +2238,16 @@ def _annotate_campaign_selection(
             mission_objective_mode=effective_mission_objective_mode,
         ),
     )
+    winner_evidence_text = _build_campaign_winner_evidence(
+        winner,
+        passing_pool_exists=bool(passing_rows),
+    )
 
     annotated: list[SweepResult] = []
     for row in scored_rows:
-        if row == winner:
+        if row is winner:
             selection_status = "winner" if passing_rows else "nearest_candidate"
-            winner_evidence = _build_campaign_winner_evidence(
-                row,
-                passing_pool_exists=bool(passing_rows),
-            )
+            winner_evidence = winner_evidence_text
         elif row.reject_reason == "none":
             selection_status = "passing_runner_up"
             winner_evidence = None
@@ -2273,7 +2304,7 @@ def _annotate_campaign_selection(
         "artifact_ownership": winner.artifact_ownership,
         "selected_cruise_aoa_deg": winner.selected_cruise_aoa_deg,
         "aero_contract_json_path": winner.aero_contract_json_path,
-        "winner_evidence": winner_evidence,
+        "winner_evidence": winner_evidence_text,
     }
     return annotated, winner_summary
 

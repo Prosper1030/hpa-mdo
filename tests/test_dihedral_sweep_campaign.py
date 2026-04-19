@@ -720,6 +720,116 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertIn("score=10.000", str(winner_summary["winner_evidence"]))
         self.assertNotIn("score=20.000", str(winner_summary["winner_evidence"]))
 
+    def test_campaign_selection_preserves_winner_evidence_when_winner_is_not_last_row(self) -> None:
+        winner_row = self._make_campaign_row(
+            multiplier=1.0,
+            dihedral_exponent=1.0,
+            objective_value_kg=10.0,
+        )
+        runner_up_row = self._make_campaign_row(
+            multiplier=2.0,
+            dihedral_exponent=1.0,
+            objective_value_kg=20.0,
+        )
+        rejected_row = replace(
+            self._make_campaign_row(
+                multiplier=3.0,
+                dihedral_exponent=1.0,
+                objective_value_kg=30.0,
+            ),
+            aero_status="unstable",
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [winner_row, runner_up_row, rejected_row],
+        )
+
+        winner_row_annotated = next(row for row in annotated if row.dihedral_multiplier == 1.0)
+        last_row_annotated = next(row for row in annotated if row.dihedral_multiplier == 3.0)
+
+        self.assertEqual(winner_summary["selection_status"], "winner")
+        self.assertEqual(winner_summary["winner_evidence"], winner_row_annotated.winner_evidence)
+        self.assertNotEqual(winner_summary["winner_evidence"], last_row_annotated.winner_evidence)
+        self.assertIn("score=10.000", str(winner_summary["winner_evidence"]))
+
+    def test_campaign_selection_does_not_auto_enable_mission_ranking_for_mixed_mission_data(self) -> None:
+        mission_row = self._make_campaign_row(
+            multiplier=1.0,
+            objective_value_kg=50.0,
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            target_range_passed=True,
+            mission_score=-500.0,
+            min_power_w=180.0,
+            min_power_speed_mps=7.1,
+        )
+        legacy_row = self._make_campaign_row(
+            multiplier=2.0,
+            objective_value_kg=10.0,
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [mission_row, legacy_row],
+        )
+
+        self.assertIsNone(winner_summary["mission_objective_mode"])
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "passing_runner_up",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
+            "winner",
+        )
+        self.assertEqual(
+            winner_summary["requested_knobs"]["dihedral_multiplier"],
+            2.0,
+        )
+
+    def test_campaign_selection_falls_back_to_non_mission_gated_rows_before_broader_rejects(self) -> None:
+        mission_miss_row = self._make_campaign_row(
+            multiplier=1.0,
+            objective_value_kg=20.0,
+            mission_objective_mode="min_power",
+            mission_feasible=False,
+            target_range_passed=False,
+            mission_score=10.0,
+            min_power_w=175.0,
+            min_power_speed_mps=7.0,
+        )
+        structural_reject_row = self._make_campaign_row(
+            multiplier=2.0,
+            objective_value_kg=1.0,
+            mission_objective_mode="min_power",
+            mission_feasible=False,
+            target_range_passed=False,
+            mission_score=5.0,
+            min_power_w=172.0,
+            min_power_speed_mps=6.8,
+            tube_mass_kg=16.0,
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [mission_miss_row, structural_reject_row],
+            max_tube_mass_kg=15.0,
+            mission_objective_mode="min_power",
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "nearest_candidate")
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "nearest_candidate",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
+            "rejected",
+        )
+        self.assertEqual(
+            winner_summary["requested_knobs"]["dihedral_multiplier"],
+            1.0,
+        )
+        self.assertEqual(winner_summary["reject_reason"], "mission:mission_infeasible")
+
     def test_campaign_selection_falls_back_to_objective_value_when_mission_data_is_absent(self) -> None:
         better_objective_row = self._make_campaign_row(multiplier=1.0, objective_value_kg=10.0)
         worse_objective_row = self._make_campaign_row(multiplier=2.0, objective_value_kg=20.0)
