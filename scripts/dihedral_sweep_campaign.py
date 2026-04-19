@@ -244,6 +244,7 @@ class SweepResult:
     summary_json_path: str | None
     wire_rigging_json_path: str | None
     error_message: str | None
+    tube_mass_kg: float | None = None
     candidate_score: float | None = None
     reject_reason: str = "unranked"
     selection_status: str = "unranked"
@@ -309,6 +310,9 @@ def _build_campaign_search_budget(args) -> dict[str, object]:
             else str(args.vspaero_analysis_method)
         ),
         "fixed_design_alpha_deg": float(args.fixed_design_alpha_deg),
+        "max_tube_mass_kg": (
+            None if args.max_tube_mass_kg is None else float(args.max_tube_mass_kg)
+        ),
         "rib_zonewise_mode": str(args.rib_zonewise_mode),
     }
 
@@ -1641,6 +1645,7 @@ def _build_result_row(
             spiral_check_ok=avl_eval.spiral_eval.feasible,
             spiral_reason=avl_eval.spiral_eval.reason,
             structure_status=structure_status,
+            tube_mass_kg=None,
             total_mass_kg=None,
             min_jig_clearance_mm=None,
             wire_tension_n=None,
@@ -1696,6 +1701,9 @@ def _build_result_row(
         spiral_check_ok=avl_eval.spiral_eval.feasible,
         spiral_reason=avl_eval.spiral_eval.reason,
         structure_status="feasible" if bool(selected["overall_feasible"]) else "infeasible",
+        tube_mass_kg=(
+            None if selected.get("tube_mass_kg") is None else float(selected["tube_mass_kg"])
+        ),
         total_mass_kg=float(selected["total_structural_mass_kg"]),
         min_jig_clearance_mm=float(selected["jig_ground_clearance_min_m"]) * 1000.0,
         wire_tension_n=wire_tension_n,
@@ -1715,7 +1723,11 @@ def _build_result_row(
     )
 
 
-def _campaign_reject_reason(row: SweepResult) -> str:
+def _campaign_reject_reason(
+    row: SweepResult,
+    *,
+    max_tube_mass_kg: float | None = None,
+) -> str:
     if row.aero_status not in {"stable", "stable_fallback"}:
         return f"aero_stability:{row.aero_status}"
     if not row.aero_performance_feasible:
@@ -1726,6 +1738,12 @@ def _campaign_reject_reason(row: SweepResult) -> str:
         return f"spiral:{row.spiral_reason or 'failed'}"
     if row.error_message is not None or row.structure_status == "structural_failed":
         return "inverse_design_subprocess:failed"
+    if (
+        max_tube_mass_kg is not None
+        and row.tube_mass_kg is not None
+        and float(row.tube_mass_kg) > float(max_tube_mass_kg)
+    ):
+        return "structural:tube_mass_exceeds_limit"
     if row.structure_status == "infeasible":
         detail = row.structural_reject_reason or "inverse_design_infeasible"
         return f"structural:{detail}"
@@ -1761,15 +1779,28 @@ def _build_campaign_winner_evidence(row: SweepResult, *, passing_pool_exists: bo
     )
 
 
-def _annotate_campaign_selection(rows: list[SweepResult]) -> tuple[list[SweepResult], dict[str, object] | None]:
+def _annotate_campaign_selection(
+    rows: list[SweepResult],
+    *,
+    max_tube_mass_kg: float | None = None,
+) -> tuple[list[SweepResult], dict[str, object] | None]:
     if not rows:
         return [], None
+
+    def _row_reject_reason(row: SweepResult) -> str:
+        return _campaign_reject_reason(
+            row,
+            max_tube_mass_kg=max_tube_mass_kg,
+        )
 
     scored_rows = [
         replace(
             row,
-            reject_reason=_campaign_reject_reason(row),
-            candidate_score=float((row.objective_value_kg or 0.0) + _campaign_gate_penalty_kg(_campaign_reject_reason(row))),
+            reject_reason=_row_reject_reason(row),
+            candidate_score=float(
+                (row.objective_value_kg or 0.0)
+                + _campaign_gate_penalty_kg(_row_reject_reason(row))
+            ),
         )
         for row in rows
     ]
@@ -1815,6 +1846,7 @@ def _annotate_campaign_selection(rows: list[SweepResult]) -> tuple[list[SweepRes
         },
         "candidate_score": float(winner.candidate_score),
         "reject_reason": winner.reject_reason,
+        "tube_mass_kg": None if winner.tube_mass_kg is None else float(winner.tube_mass_kg),
         "total_mass_kg": None if winner.total_mass_kg is None else float(winner.total_mass_kg),
         "realizable_mismatch_max_mm": (
             None if winner.realizable_mismatch_max_mm is None else float(winner.realizable_mismatch_max_mm)
@@ -1873,6 +1905,7 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "spiral_check_ok",
         "spiral_reason",
         "structure_status",
+        "tube_mass_kg",
         "total_mass_kg",
         "min_jig_clearance_mm",
         "wire_tension_n",
@@ -1965,6 +1998,14 @@ def _build_campaign_report_text(
             "  aero source mode            : "
             f"{search_budget['aero_source_mode']} ({_aero_source_label(search_budget['aero_source_mode'])})"
         ),
+        (
+            "  spar tube mass limit        : "
+            + (
+                "disabled"
+                if search_budget["max_tube_mass_kg"] is None
+                else f"{float(search_budget['max_tube_mass_kg']):.3f} kg"
+            )
+        ),
         "",
     ]
     if winner_summary is not None:
@@ -1978,6 +2019,14 @@ def _build_campaign_report_text(
                     f"dihedral_exponent={winner_summary['requested_knobs']['dihedral_exponent']:.3f}"
                 ),
                 f"  candidate score              : {winner_summary['candidate_score']:.3f}",
+                (
+                    "  spar tube mass               : "
+                    + (
+                        "n/a"
+                        if winner_summary["tube_mass_kg"] is None
+                        else f"{float(winner_summary['tube_mass_kg']):.3f} kg"
+                    )
+                ),
                 (
                     "  total mass                   : "
                     + (
@@ -2041,7 +2090,7 @@ def _build_campaign_report_text(
             ]
         )
     lines.append(
-        "multiplier | score | selection | aero source | reject reason | mass kg | mismatch mm | clearance mm | aero | struct"
+        "multiplier | score | selection | aero source | reject reason | tube kg | mass kg | mismatch mm | clearance mm | aero | struct"
     )
     for row in rows:
         lines.append(
@@ -2050,6 +2099,7 @@ def _build_campaign_report_text(
             f"{row.selection_status:14s} | "
             f"{_aero_source_label(row.aero_source_mode):17s} | "
             f"{row.reject_reason:28s} | "
+            f"{(f'{row.tube_mass_kg:.3f}' if row.tube_mass_kg is not None else 'n/a'):7s} | "
             f"{(f'{row.total_mass_kg:.3f}' if row.total_mass_kg is not None else 'n/a'):7s} | "
             f"{(f'{row.realizable_mismatch_max_mm:.3f}' if row.realizable_mismatch_max_mm is not None else 'n/a'):11s} | "
             f"{(f'{row.min_jig_clearance_mm:.3f}' if row.min_jig_clearance_mm is not None else 'n/a'):12s} | "
@@ -2113,6 +2163,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Fixed design alpha used by origin_vsp_fixed_alpha_corrector. "
             "This mode keeps alpha fixed instead of solving L=W."
+        ),
+    )
+    parser.add_argument(
+        "--max-tube-mass-kg",
+        type=float,
+        default=None,
+        help=(
+            "Optional hard gate on spar tube mass [kg]. "
+            "If set, candidates above this limit are rejected at campaign ranking time."
         ),
     )
     parser.add_argument(
@@ -2648,7 +2707,12 @@ def main(argv: list[str] | None = None) -> int:
     csv_path = output_dir / "dihedral_sweep_summary.csv"
     json_path = output_dir / "dihedral_sweep_summary.json"
     report_path = output_dir / "dihedral_sweep_report.txt"
-    rows, winner_summary = _annotate_campaign_selection(rows)
+    rows, winner_summary = _annotate_campaign_selection(
+        rows,
+        max_tube_mass_kg=(
+            None if args.max_tube_mass_kg is None else float(args.max_tube_mass_kg)
+        ),
+    )
     _write_summary_csv(csv_path, rows)
     report_path.write_text(
         _build_campaign_report_text(

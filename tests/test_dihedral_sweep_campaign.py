@@ -18,7 +18,9 @@ from scripts.dihedral_sweep_campaign import (
     AeroPerformanceEvaluation,
     AvlEvaluation,
     BetaSweepPoint,
+    SweepResult,
     _build_arg_parser,
+    _annotate_campaign_selection,
     _build_result_row,
     _evaluate_beta_sweep_points,
     evaluate_aero_performance,
@@ -116,6 +118,67 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertEqual(count, 2)
         self.assertIn("0.400000000", scaled_text)
         self.assertEqual(len(samples), 2)
+
+    def test_campaign_selection_rejects_feasible_row_when_tube_mass_exceeds_limit(self) -> None:
+        row = SweepResult(
+            dihedral_multiplier=1.0,
+            dihedral_exponent=1.0,
+            avl_case_path="/tmp/case.avl",
+            mode_file_path=None,
+            dutch_roll_found=True,
+            dutch_roll_selection="oscillatory_lateral_mode",
+            dutch_roll_real=-0.1,
+            dutch_roll_imag=0.6,
+            aero_status="stable",
+            aero_performance_feasible=True,
+            aero_performance_reason="ok",
+            cl_trim=1.2,
+            cd_induced=0.02,
+            cd_total_est=0.03,
+            ld_ratio=40.0,
+            aoa_trim_deg=0.0,
+            span_efficiency=0.8,
+            lift_total_n=1200.0,
+            aero_power_w=150.0,
+            beta_sweep_max_beta_deg=12.0,
+            beta_sweep_cn_beta_per_rad=-0.01,
+            beta_sweep_cl_beta_per_rad=-0.02,
+            beta_sweep_directional_stable=True,
+            beta_sweep_sideslip_feasible=True,
+            rudder_cl_derivative=None,
+            rudder_cn_derivative=None,
+            rudder_roll_to_yaw_ratio=None,
+            rudder_coupling_reason=None,
+            spiral_mode_real=-0.1,
+            spiral_time_to_double_s=None,
+            spiral_time_to_half_s=1.0,
+            spiral_check_ok=True,
+            spiral_reason="ok",
+            structure_status="feasible",
+            tube_mass_kg=15.5,
+            total_mass_kg=22.0,
+            min_jig_clearance_mm=50.0,
+            wire_tension_n=None,
+            wire_margin_n=None,
+            failure_index=-0.2,
+            buckling_index=-0.1,
+            objective_value_kg=22.0,
+            realizable_mismatch_max_mm=10.0,
+            structural_reject_reason=None,
+            selected_output_dir=None,
+            summary_json_path=None,
+            wire_rigging_json_path=None,
+            error_message=None,
+            aero_source_mode="origin_vsp_fixed_alpha_corrector",
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [row],
+            max_tube_mass_kg=15.0,
+        )
+
+        self.assertEqual(annotated[0].reject_reason, "structural:tube_mass_exceeds_limit")
+        self.assertEqual(winner_summary["reject_reason"], "structural:tube_mass_exceeds_limit")
 
     def test_parse_mode_stdout_and_select_dutch_roll(self) -> None:
         stdout_text = """
