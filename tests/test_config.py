@@ -87,6 +87,41 @@ def test_blackcat_airfoil_tc_loaded_from_config():
     assert cfg.wing.airfoil_tip_tc == pytest.approx(0.117)
 
 
+def test_blackcat_mission_defaults_loaded_from_config():
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+
+    cfg = load_config(config_path)
+
+    assert cfg.mission.objective_mode == "max_range"
+    assert cfg.mission.target_range_km == pytest.approx(42.195)
+    assert cfg.mission.speed_sweep_min_mps == pytest.approx(6.0)
+    assert cfg.mission.speed_sweep_max_mps == pytest.approx(10.0)
+    assert cfg.mission.speed_sweep_points == 9
+    assert cfg.mission.rider_model == "fake_anchor_curve"
+    assert cfg.mission.anchor_power_w == pytest.approx(300.0)
+    assert cfg.mission.anchor_duration_min == pytest.approx(30.0)
+
+
+def test_mission_override_overlay_can_change_key_fields(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    overlay_path = tmp_path / "local_paths.yaml"
+    overlay_path.write_text(
+        "mission:\n"
+        "  objective_mode: min_power\n"
+        "  target_range_km: 21.0\n"
+        "  speed_sweep_points: 5\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(config_path, local_paths_path=overlay_path)
+
+    assert cfg.mission.objective_mode == "min_power"
+    assert cfg.mission.target_range_km == pytest.approx(21.0)
+    assert cfg.mission.speed_sweep_points == 5
+
+
 def test_blackcat_lift_wire_angle_loaded_from_config():
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"

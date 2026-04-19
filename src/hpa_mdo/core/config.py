@@ -521,6 +521,25 @@ class RibConfig(BaseModel):
     )
 
 
+class MissionConfig(BaseModel):
+    objective_mode: Literal["max_range", "min_power"] = "max_range"
+    target_range_km: float = Field(42.195, gt=0.0)
+    speed_sweep_min_mps: float = Field(6.0, gt=0.0)
+    speed_sweep_max_mps: float = Field(10.0, gt=0.0)
+    speed_sweep_points: int = Field(9, ge=2)
+    rider_model: Literal["fake_anchor_curve"] = "fake_anchor_curve"
+    anchor_power_w: float = Field(300.0, gt=0.0)
+    anchor_duration_min: float = Field(30.0, gt=0.0)
+
+    @model_validator(mode="after")
+    def validate_speed_sweep_bounds(self) -> MissionConfig:
+        if self.speed_sweep_max_mps <= self.speed_sweep_min_mps:
+            raise ValueError(
+                "mission.speed_sweep_max_mps must exceed mission.speed_sweep_min_mps"
+            )
+        return self
+
+
 class IOConfig(BaseModel):
     sync_root: Optional[Path] = None
     vsp_model: Optional[Path] = None
@@ -794,6 +813,7 @@ class HPAConfig(BaseModel):
     solver: SolverConfig = SolverConfig()
     structure: StructureConfig = StructureConfig()
     rib: RibConfig = RibConfig()
+    mission: MissionConfig = MissionConfig()
     io: IOConfig = IOConfig()
     aswing: ASWINGExportConfig = ASWINGExportConfig()
     hi_fidelity: HiFidelityConfig = HiFidelityConfig()

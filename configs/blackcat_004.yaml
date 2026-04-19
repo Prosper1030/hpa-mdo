@@ -45,6 +45,17 @@ aero_gates:
   min_spiral_time_to_double_s: 10.0
   beta_sweep_values: [0.0, 5.0, 10.0, 12.0]
 
+# ── Mission Objective ──────────────────────────────────────────────────────
+mission:
+  objective_mode: "max_range"
+  target_range_km: 42.195
+  speed_sweep_min_mps: 6.0
+  speed_sweep_max_mps: 10.0
+  speed_sweep_points: 9
+  rider_model: "fake_anchor_curve"
+  anchor_power_w: 300.0
+  anchor_duration_min: 30.0
+
 # ── Wing Planform ───────────────────────────────────────────────────────────
 # NOTE: root_chord / tip_chord are calibrated to the reference .vsp3
 # (see scripts/vsp_consistency_check.py).  The reference VSP has a
