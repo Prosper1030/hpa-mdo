@@ -175,7 +175,7 @@
 真正的問題是三件事同時漂掉：
 
 1. config 的 `airfoil_root / airfoil_tip` 一度和 reference `.vsp3` 不一致
-2. baseline [blackcat_004_full.avl](/Volumes/Samsung%20SSD/hpa-mdo/data/blackcat_004_full.avl) 的主翼 `AFILE` 一度也不一致
+2. baseline [blackcat_004_full.avl](/Volumes/Samsung%20SSD/hpa-mdo/data/blackcat_004_full.avl) 的主翼 airfoil source 一度也不一致
 3. [vsp_builder.py](/Volumes/Samsung%20SSD/hpa-mdo/src/hpa_mdo/aero/vsp_builder.py) 在建 reference schedule 時，一度先用 `_airfoil_for_eta()` 的簡化 fallback，再補 VSP airfoil
 
 所以之後看到 airfoil mapping 很奇怪時，優先判斷應該是：
@@ -203,20 +203,29 @@ reference `.vsp3` 可以直接告訴你：
 
 對齊之後，可以把 airfoil identity 釘清楚。
 
-### 10.2 但 `.vsp3` 不能直接取代 AVL runtime 的 `AFILE` contract
+### 10.2 `.vsp3` 現在可以直接驅動 baseline AVL，但 candidate runtime 還是要分清楚 contract
 
-AVL 真正跑 `AFILE` 時，需要的是：
+現在 repo 的 baseline [blackcat_004_full.avl](/Volumes/Samsung%20SSD/hpa-mdo/data/blackcat_004_full.avl) 已經可以由：
+
+- 同一份 reference `.vsp3`
+- `openvsp` introspection
+- inline `AIRFOIL` coordinates
+
+直接重生，所以 **baseline 這條路徑不再依賴外部 `.dat` 才能跑主翼**。
+
+但 AVL 其他 candidate / campaign runtime 如果仍然輸出 `AFILE`，它需要的還是：
 
 - 可被當前 working directory 讀到的 `.dat` 座標檔
-- 或者你另外生成 inline `AIRFOIL` coordinates
+- 或者像 baseline 這樣，另外生成 inline `AIRFOIL` coordinates
 
-單靠 `.vsp3` 本身，AVL 並不會自動去「從 `.vsp3` 讀 section coordinates 再拿來算」。
+單靠 `.vsp3` 檔案本身，AVL 仍然不會自動去「從 `.vsp3` 讀 section coordinates 再拿來算」；
+是 repo 現在這條 `vsp_to_avl.py -> export_avl()` 路徑把這件事補起來了。
 
 所以目前 repo 的推薦 contract 是：
 
-1. `.vsp3` 負責 airfoil identity / geometry truth
-2. `data/airfoils/*.dat` 負責 canonical coordinate source
-3. `stage_avl_airfoil_files()` 負責把實際用到的 `.dat` 帶進每個 AVL case working directory
+1. `.vsp3` 負責 origin geometry / airfoil identity / section schedule truth
+2. baseline export 優先用 inline `AIRFOIL`
+3. candidate campaign 若仍輸出 `AFILE`，就由 `data/airfoils/*.dat` + `stage_avl_airfoil_files()` 負責 runtime contract
 
 ### 10.3 未來能不能做成「只靠 `.vsp3`」？
 

@@ -18,11 +18,11 @@ MATERIALS_PATH = REPO_ROOT / "data" / "materials.yaml"
 def test_parse_avl_reads_full_aircraft_geometry() -> None:
     model = parse_avl(AVL_PATH)
 
-    assert model.title == "Black Cat 004 full aircraft"
+    assert model.title == "Black Cat 004"
     assert model.sref == pytest.approx(35.175)
-    assert model.cref == pytest.approx(1.13017474)
+    assert model.cref == pytest.approx(1.130189765)
     assert model.bref == pytest.approx(33.0)
-    assert [surface.name for surface in model.surfaces] == ["Wing", "Elevator", "Fin"]
+    assert [surface.name for surface in model.surfaces] == ["Main Wing", "Elevator", "Fin"]
 
     wing = model.surfaces[0]
     assert wing.symmetric is True
@@ -30,12 +30,14 @@ def test_parse_avl_reads_full_aircraft_geometry() -> None:
     assert [section.y for section in wing.sections] == pytest.approx(
         [0.0, 4.5, 7.5, 10.5, 13.5, 16.5]
     )
-    assert wing.sections[-1].z == pytest.approx(0.812804556)
-    assert wing.sections[0].airfoil == "fx76mp140.dat"
-    assert wing.sections[-1].airfoil == "clarkysm.dat"
+    assert wing.sections[-1].z == pytest.approx(0.810978837)
+    assert wing.sections[0].ainc == pytest.approx(3.0)
+    assert wing.sections[0].airfoil == "INLINE_AIRFOIL"
+    assert wing.sections[-1].airfoil == "INLINE_AIRFOIL"
 
     elevator = model.surfaces[1]
     assert elevator.sections[0].controls == ("elevator",)
+    assert elevator.sections[-1].y == pytest.approx(1.5)
     fin = model.surfaces[2]
     assert fin.symmetric is False
     assert [section.z for section in fin.sections] == pytest.approx([-0.7, 1.7])
@@ -54,25 +56,25 @@ def test_export_aswing_writes_seed_blocks(tmp_path: Path) -> None:
     )
 
     text = output_path.read_text(encoding="utf-8")
-    assert "Name\nBlack Cat 004 full aircraft - ASWING seed\nEnd" in text
+    assert "Name\nBlack Cat 004 - ASWING seed\nEnd" in text
     assert "Units\nL 1.0 m\nT 1.0 s\nF 1.0 N\nEnd" in text
-    assert "# Sref Cref Bref\n35.175 1.13017474 33" in text
+    assert "# Sref Cref Bref\n35.175 1.13018976 33" in text
     assert "! load_case default: aero_scale=2 nz=2 V=6.5 rho=1.225" in text
     assert "Weight\n# Nbeam t Xp Yp Zp Mg CDA Vol Hx Hy Hz" in text
     assert "Strut\n# Nbeam t Xp Yp Zp Xw Yw Zw dL EAw" in text
-    assert "1 7.5 0 7.5 0.183300624 0.0 0.0 -1.5 0.0" in text
-    assert "1 -7.5 0 -7.5 0.183300624 0.0 0.0 -1.5 0.0" in text
+    assert "1 7.5 0 7.5 0.183234319 0.0 0.0 -1.5 0.0" in text
+    assert "1 -7.5 0 -7.5 0.183234319 0.0 0.0 -1.5 0.0" in text
 
-    assert "Beam 1 Wing" in text
+    assert "Beam 1 Main Wing" in text
     assert "0 1.3 0 0 0 0.25" in text
-    assert "16.5 0.435 0 16.5 0.812804556 0.25" in text
+    assert "16.5 0.435 0 16.5 0.810978837 0.25" in text
     assert "# t EIcc EInn GJ" in text
     assert "# t EA mg" in text
 
     assert "Beam 2 Elevator" in text
     assert "# t dCLdF2 dCMdF2" in text
     assert "Beam 3 Fin" in text
-    assert "-0.7 0.7 7 0 -0.7 0.3" in text
+    assert "-0.7 0.7 5 0 -0.7 0.3" in text
     assert "# t dCLdF3 dCMdF3" in text
 
 
