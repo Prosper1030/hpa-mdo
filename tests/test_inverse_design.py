@@ -2626,6 +2626,7 @@ class OuterLoopContractTests(unittest.TestCase):
             mission_feasible=True,
             mission_score=-39000.0,
         )
+        object.__setattr__(slower, "target_violation_score", 0.010)
         better_range = self._attach_mission_fields(
             self._make_feasibility_case(
                 target_mass_kg=22.0,
@@ -2637,6 +2638,7 @@ class OuterLoopContractTests(unittest.TestCase):
             mission_feasible=True,
             mission_score=-42000.0,
         )
+        object.__setattr__(better_range, "target_violation_score", 0.002)
 
         annotated, winner = _annotate_feasibility_case_selection([slower, better_range])
 
@@ -2644,6 +2646,40 @@ class OuterLoopContractTests(unittest.TestCase):
         assert winner is not None
         self.assertEqual(winner["requested_knobs"]["target_mass_kg"], 22.0)
         self.assertEqual(winner["selection_status"], "winner")
+        self.assertAlmostEqual(winner["candidate_score"], -41998.0)
+        self.assertAlmostEqual(annotated[1].candidate_score, -41998.0)
+        self.assertEqual(
+            {case.target_mass_kg: case.selection_status for case in annotated}[22.0],
+            "winner",
+        )
+
+    def test_feasibility_sweep_mixed_mission_data_falls_back_to_legacy_scoring(self) -> None:
+        mission_case = self._attach_mission_fields(
+            self._make_feasibility_case(
+                target_mass_kg=20.0,
+                feasible=True,
+                candidate_score=240.0,
+                selected_total_mass_kg=24.0,
+            ),
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            mission_score=-50000.0,
+        )
+        object.__setattr__(mission_case, "target_violation_score", 0.020)
+        legacy_case = self._make_feasibility_case(
+            target_mass_kg=22.0,
+            feasible=True,
+            candidate_score=25.0,
+            selected_total_mass_kg=25.0,
+        )
+
+        annotated, winner = _annotate_feasibility_case_selection([mission_case, legacy_case])
+
+        self.assertIsNotNone(winner)
+        assert winner is not None
+        self.assertEqual(winner["requested_knobs"]["target_mass_kg"], 22.0)
+        self.assertEqual(winner["candidate_score"], 24.0)
+        self.assertIsNone(winner["mission_objective_mode"])
         self.assertEqual(
             {case.target_mass_kg: case.selection_status for case in annotated}[22.0],
             "winner",
