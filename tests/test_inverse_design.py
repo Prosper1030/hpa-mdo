@@ -2869,6 +2869,11 @@ class OuterLoopContractTests(unittest.TestCase):
         assert winner is not None
         self.assertEqual(winner["requested_knobs"]["target_mass_kg"], 22.0)
         self.assertEqual(winner["selection_status"], "winner")
+        self.assertEqual(winner["mission_objective_mode"], "min_power")
+        self.assertTrue(winner["mission_feasible"])
+        self.assertTrue(winner["target_range_passed"])
+        self.assertEqual(winner["min_power_w"], 178.0)
+        self.assertEqual(winner["min_power_speed_mps"], 14.5)
         self.assertEqual(
             {case.target_mass_kg: case.selection_status for case in annotated}[20.0],
             "rejected",
@@ -2876,6 +2881,10 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertEqual(
             {case.target_mass_kg: case.selection_status for case in annotated}[22.0],
             "winner",
+        )
+        self.assertEqual(
+            {case.target_mass_kg: case.min_power_w for case in annotated}[22.0],
+            178.0,
         )
 
     def test_feasibility_sweep_mixed_mission_data_falls_back_to_legacy_scoring(self) -> None:

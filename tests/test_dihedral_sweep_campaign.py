@@ -630,8 +630,23 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
             "rejected",
         )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).mission_objective_mode,
+            "min_power",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).min_power_w,
+            178.0,
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).min_power_speed_mps,
+            7.2,
+        )
+        self.assertEqual(winner_summary["mission_objective_mode"], "min_power")
         self.assertEqual(winner_summary["mission_feasible"], True)
         self.assertEqual(winner_summary["target_range_passed"], True)
+        self.assertEqual(winner_summary["min_power_w"], 178.0)
+        self.assertEqual(winner_summary["min_power_speed_mps"], 7.2)
 
     def test_campaign_selection_respects_reject_tier_before_mission_score_magnitude(self) -> None:
         severe_reject = self._make_campaign_row(
