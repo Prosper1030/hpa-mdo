@@ -20,7 +20,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hpa_mdo.core import Aircraft, load_config
-from hpa_mdo.aero import VSPAeroParser, write_candidate_avl_spanwise_artifact
+from hpa_mdo.aero import (
+    AeroPerformanceEvaluation,
+    VSPAeroParser,
+    build_avl_aero_gate_settings,
+    empty_aero_performance,
+    evaluate_aero_performance,
+    write_candidate_avl_spanwise_artifact,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -147,20 +154,6 @@ class AvlSpanwiseLoadCase:
     stdout_log_path: str | None
     run_completed: bool
     run_status: str
-
-
-@dataclass(frozen=True)
-class AeroPerformanceEvaluation:
-    cl_trim: float | None
-    cd_induced: float | None
-    cd_total_est: float | None
-    ld_ratio: float | None
-    aoa_trim_deg: float | None
-    span_efficiency: float | None
-    lift_total_n: float | None
-    aero_power_w: float | None
-    aero_performance_feasible: bool
-    aero_performance_reason: str
 
 
 @dataclass(frozen=True)
@@ -1243,98 +1236,7 @@ def run_avl_beta_sweep(
     )
 
 
-def _empty_aero_performance(
-    *,
-    feasible: bool,
-    reason: str,
-) -> AeroPerformanceEvaluation:
-    return AeroPerformanceEvaluation(
-        cl_trim=None,
-        cd_induced=None,
-        cd_total_est=None,
-        ld_ratio=None,
-        aoa_trim_deg=None,
-        span_efficiency=None,
-        lift_total_n=None,
-        aero_power_w=None,
-        aero_performance_feasible=bool(feasible),
-        aero_performance_reason=str(reason),
-    )
-
-
-def evaluate_aero_performance(
-    *,
-    trim_eval: AvlTrimEvaluation,
-    dynamic_pressure_pa: float,
-    reference_area_m2: float,
-    cruise_velocity_mps: float,
-    min_lift_n: float,
-    min_ld_ratio: float,
-    cd_profile_estimate: float,
-    max_trim_aoa_deg: float,
-) -> AeroPerformanceEvaluation:
-    if not trim_eval.trim_converged:
-        return _empty_aero_performance(feasible=False, reason=trim_eval.trim_status)
-
-    cl_trim = trim_eval.cl_trim
-    cd_induced = trim_eval.cd_induced
-    aoa_trim_deg = trim_eval.aoa_trim_deg
-    span_efficiency = trim_eval.span_efficiency
-    if cl_trim is None or cd_induced is None or aoa_trim_deg is None:
-        return _empty_aero_performance(feasible=False, reason="trim_output_incomplete")
-
-    cd_total_est = float(cd_induced) + float(cd_profile_estimate)
-    if cd_total_est <= 0.0:
-        return AeroPerformanceEvaluation(
-            cl_trim=float(cl_trim),
-            cd_induced=float(cd_induced),
-            cd_total_est=float(cd_total_est),
-            ld_ratio=None,
-            aoa_trim_deg=float(aoa_trim_deg),
-            span_efficiency=None if span_efficiency is None else float(span_efficiency),
-            lift_total_n=None,
-            aero_power_w=None,
-            aero_performance_feasible=False,
-            aero_performance_reason="nonpositive_drag_estimate",
-        )
-
-    ld_ratio = float(cl_trim) / float(cd_total_est)
-    lift_total_n = float(cl_trim) * float(dynamic_pressure_pa) * float(reference_area_m2)
-    aero_power_w = None
-    if ld_ratio > 0.0:
-        aero_power_w = float(lift_total_n) * float(cruise_velocity_mps) / float(ld_ratio)
-
-    feasible = True
-    reason = "ok"
-    if float(aoa_trim_deg) > float(max_trim_aoa_deg):
-        feasible = False
-        reason = "trim_aoa_exceeds_limit"
-    elif float(ld_ratio) < float(min_ld_ratio):
-        feasible = False
-        reason = "ld_below_minimum"
-    elif float(lift_total_n) < float(min_lift_n):
-        feasible = False
-        reason = "insufficient_lift"
-
-    return AeroPerformanceEvaluation(
-        cl_trim=float(cl_trim),
-        cd_induced=float(cd_induced),
-        cd_total_est=float(cd_total_est),
-        ld_ratio=float(ld_ratio),
-        aoa_trim_deg=float(aoa_trim_deg),
-        span_efficiency=None if span_efficiency is None else float(span_efficiency),
-        lift_total_n=float(lift_total_n),
-        aero_power_w=None if aero_power_w is None else float(aero_power_w),
-        aero_performance_feasible=bool(feasible),
-        aero_performance_reason=str(reason),
-    )
-
-
-def estimate_reference_area(cfg) -> float:
-    span = float(cfg.wing.span)
-    root_chord = float(cfg.wing.root_chord)
-    tip_chord = float(cfg.wing.tip_chord)
-    return 0.5 * span * (root_chord + tip_chord)
+_empty_aero_performance = empty_aero_performance
 
 
 def _resolve_candidate_avl_aoa_seed(cfg) -> tuple[float, ...]:
@@ -2234,17 +2136,6 @@ def main(argv: list[str] | None = None) -> int:
         cfg.aero_gates.beta_sweep_values,
         max_sideslip_deg=float(max_sideslip_deg),
     )
-    min_lift_n = float(min_lift_kg) * 9.81
-    reference_area_m2 = estimate_reference_area(cfg)
-    dynamic_pressure_pa = 0.5 * float(cfg.flight.air_density) * float(cfg.flight.velocity) ** 2
-    if reference_area_m2 <= 0.0:
-        raise ValueError("Computed wing reference area must be positive for aero-gate trim analysis.")
-    if dynamic_pressure_pa <= 0.0:
-        raise ValueError("Dynamic pressure must be positive for aero-gate trim analysis.")
-    cl_required = (
-        float(cfg.weight.max_takeoff_kg) * 9.81 / (float(dynamic_pressure_pa) * float(reference_area_m2))
-    )
-
     multipliers = _parse_multiplier_list(args.multipliers)
     base_text = base_avl_path.read_text(encoding="utf-8", errors="ignore")
     avl_bin = (
@@ -2258,6 +2149,7 @@ def main(argv: list[str] | None = None) -> int:
     rows: list[SweepResult] = []
     failed_cases: list[tuple[float, str]] = []
     candidate_avl_aoa_seed = _resolve_candidate_avl_aoa_seed(cfg)
+    campaign_aero_gate_settings: dict[str, object] | None = None
     for multiplier in multipliers:
         case_dir = output_dir / f"mult_{_slug(multiplier)}"
         case_dir.mkdir(parents=True, exist_ok=True)
@@ -2269,6 +2161,26 @@ def main(argv: list[str] | None = None) -> int:
         )
         case_avl_path = case_dir / "case.avl"
         case_avl_path.write_text(scaled_text, encoding="utf-8")
+        gate_settings = build_avl_aero_gate_settings(
+            cfg=cfg,
+            case_avl_path=case_avl_path,
+            min_lift_kg=min_lift_kg,
+            min_ld_ratio=min_ld_ratio,
+            cd_profile_estimate=cd_profile_estimate,
+            max_trim_aoa_deg=max_trim_aoa_deg,
+            soft_trim_aoa_deg=soft_trim_aoa_deg,
+            stall_alpha_deg=stall_alpha_deg,
+            min_stall_margin_deg=min_stall_margin_deg,
+        )
+        gate_metadata = gate_settings.to_metadata(
+            skip_aero_gates=bool(args.skip_aero_gates),
+            skip_beta_sweep=bool(args.skip_beta_sweep),
+            max_sideslip_deg=float(max_sideslip_deg),
+            min_spiral_time_to_double_s=float(min_spiral_time_to_double_s),
+            beta_sweep_values_deg=beta_sweep_values_deg,
+        )
+        if campaign_aero_gate_settings is None:
+            campaign_aero_gate_settings = dict(gate_metadata)
         sample_payload = [
             {
                 "y_section_m": float(sample.y_section_m),
@@ -2291,22 +2203,7 @@ def main(argv: list[str] | None = None) -> int:
                     "mode_parameters": asdict(mode_params),
                     "allow_missing_dutch_roll": bool(args.allow_missing_dutch_roll),
                     "structural_weight_n": float(aircraft.weight_N),
-                    "aero_gate_settings": {
-                        "cl_required": float(cl_required),
-                        "min_lift_kg": float(min_lift_kg),
-                        "min_lift_n": float(min_lift_n),
-                        "min_ld_ratio": float(min_ld_ratio),
-                        "cd_profile_estimate": float(cd_profile_estimate),
-                        "max_trim_aoa_deg": float(max_trim_aoa_deg),
-                        "soft_trim_aoa_deg": float(soft_trim_aoa_deg),
-                        "stall_alpha_deg": float(stall_alpha_deg),
-                        "min_stall_margin_deg": float(min_stall_margin_deg),
-                        "skip_aero_gates": bool(args.skip_aero_gates),
-                        "skip_beta_sweep": bool(args.skip_beta_sweep),
-                        "max_sideslip_deg": float(max_sideslip_deg),
-                        "min_spiral_time_to_double_s": float(min_spiral_time_to_double_s),
-                        "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
-                    },
+                    "aero_gate_settings": gate_metadata,
                     "inverse_design_search_budget": search_budget,
                     "inverse_design_aero_source_mode_requested": str(args.aero_source_mode),
                 },
@@ -2349,17 +2246,11 @@ def main(argv: list[str] | None = None) -> int:
                 avl_bin=avl_bin,
                 case_avl_path=case_avl_path,
                 case_dir=case_dir,
-                cl_required=cl_required,
+                cl_required=gate_settings.cl_required,
             )
             aero_perf_eval = evaluate_aero_performance(
                 trim_eval=trim_eval,
-                dynamic_pressure_pa=dynamic_pressure_pa,
-                reference_area_m2=reference_area_m2,
-                cruise_velocity_mps=float(cfg.flight.velocity),
-                min_lift_n=min_lift_n,
-                min_ld_ratio=min_ld_ratio,
-                cd_profile_estimate=cd_profile_estimate,
-                max_trim_aoa_deg=max_trim_aoa_deg,
+                gate_settings=gate_settings,
             )
 
         beta_eval: BetaSweepEvaluation | None = None
@@ -2368,7 +2259,7 @@ def main(argv: list[str] | None = None) -> int:
                 avl_bin=avl_bin,
                 case_avl_path=case_avl_path,
                 case_dir=case_dir,
-                cl_required=cl_required,
+                cl_required=gate_settings.cl_required,
                 beta_values_deg=beta_sweep_values_deg,
                 mode_params=mode_params,
             )
@@ -2379,7 +2270,7 @@ def main(argv: list[str] | None = None) -> int:
                 avl_bin=avl_bin,
                 case_avl_path=case_avl_path,
                 case_dir=case_dir,
-                cl_required=cl_required,
+                cl_required=gate_settings.cl_required,
             )
 
         beta_gate_passed = (
@@ -2401,7 +2292,7 @@ def main(argv: list[str] | None = None) -> int:
                     avl_bin=avl_bin,
                     case_avl_path=case_avl_path,
                     case_dir=case_dir,
-                    cl_required=cl_required,
+                    cl_required=gate_settings.cl_required,
                     output_stem="trim_for_candidate_avl",
                 )
             if (
@@ -2565,22 +2456,7 @@ def main(argv: list[str] | None = None) -> int:
                     "gate_penalties_kg": CAMPAIGN_GATE_PENALTIES_KG,
                 },
                 "search_budget": search_budget,
-                "aero_gate_settings": {
-                    "cl_required": float(cl_required),
-                    "min_lift_kg": float(min_lift_kg),
-                    "min_lift_n": float(min_lift_n),
-                    "min_ld_ratio": float(min_ld_ratio),
-                    "cd_profile_estimate": float(cd_profile_estimate),
-                    "max_trim_aoa_deg": float(max_trim_aoa_deg),
-                    "soft_trim_aoa_deg": float(soft_trim_aoa_deg),
-                    "stall_alpha_deg": float(stall_alpha_deg),
-                    "min_stall_margin_deg": float(min_stall_margin_deg),
-                    "skip_aero_gates": bool(args.skip_aero_gates),
-                    "skip_beta_sweep": bool(args.skip_beta_sweep),
-                    "max_sideslip_deg": float(max_sideslip_deg),
-                    "min_spiral_time_to_double_s": float(min_spiral_time_to_double_s),
-                    "beta_sweep_values_deg": [float(value) for value in beta_sweep_values_deg],
-                },
+                "aero_gate_settings": campaign_aero_gate_settings,
                 "winner": winner_summary,
                 "cases": [asdict(row) for row in rows],
             },

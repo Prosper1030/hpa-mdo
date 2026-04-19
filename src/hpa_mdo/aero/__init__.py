@@ -1,4 +1,12 @@
 from hpa_mdo.aero.aswing_exporter import ASWINGExportOptions, export_aswing, parse_avl
+from hpa_mdo.aero.avl_aero_gates import (
+    AeroPerformanceEvaluation,
+    AvlAeroGateSettings,
+    build_avl_aero_gate_settings,
+    empty_aero_performance,
+    evaluate_aero_performance,
+    load_reference_area_from_avl,
+)
 from hpa_mdo.aero.avl_runner import AvlRunResult, run_avl_derivatives
 from hpa_mdo.aero.avl_spanwise import (
     build_candidate_avl_spanwise_artifact,
@@ -20,16 +28,22 @@ from hpa_mdo.aero.xflr5 import XFLR5Parser
 
 __all__ = [
     "ASWINGExportOptions",
+    "AeroPerformanceEvaluation",
     "AvlRunResult",
+    "AvlAeroGateSettings",
     "LoadMapper",
     "StabilityDerivatives",
     "VSPAeroParser",
     "VSPBuilder",
     "XFLR5Parser",
+    "build_avl_aero_gate_settings",
     "build_candidate_avl_spanwise_artifact",
     "build_spanwise_load_from_avl_strip_forces",
+    "empty_aero_performance",
     "export_aswing",
+    "evaluate_aero_performance",
     "load_candidate_avl_spanwise_artifact",
+    "load_reference_area_from_avl",
     "parse_avl",
     "parse_avl_strip_forces",
     "parse_control_mapping_from_avl",

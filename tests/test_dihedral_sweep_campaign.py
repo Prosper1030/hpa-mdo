@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT))
 
+from hpa_mdo.aero import AvlAeroGateSettings
 from scripts.dihedral_sweep_campaign import (
     AeroPerformanceEvaluation,
     AvlEvaluation,
@@ -156,6 +157,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
 
         row = _build_result_row(
             multiplier=1.5,
+            dihedral_exponent=1.0,
             avl_eval=avl_eval,
             aero_perf_eval=AeroPerformanceEvaluation(
                 cl_trim=1.24,
@@ -201,6 +203,17 @@ class DihedralSweepCampaignTests(unittest.TestCase):
                 rear_outboard_grid="0.0,1.0",
                 wall_thickness_grid="0.0,1.0",
                 refresh_steps=1,
+                cobyla_maxiter=10,
+                cobyla_rhobeg=0.2,
+                skip_local_refine=True,
+                local_refine_feasible_seeds=1,
+                local_refine_near_feasible_seeds=1,
+                local_refine_max_starts=1,
+                local_refine_early_stop_patience=1,
+                local_refine_early_stop_abs_improvement_kg=0.05,
+                aero_source_mode="legacy_refresh",
+                candidate_avl_spanwise_loads_json=None,
+                rib_zonewise_mode="off",
                 skip_step_export=True,
                 strict=False,
             )
@@ -233,6 +246,17 @@ class DihedralSweepCampaignTests(unittest.TestCase):
                     rear_outboard_grid="0.0,1.0",
                     wall_thickness_grid="0.0,1.0",
                     refresh_steps=1,
+                    cobyla_maxiter=10,
+                    cobyla_rhobeg=0.2,
+                    skip_local_refine=True,
+                    local_refine_feasible_seeds=1,
+                    local_refine_near_feasible_seeds=1,
+                    local_refine_max_starts=1,
+                    local_refine_early_stop_patience=1,
+                    local_refine_early_stop_abs_improvement_kg=0.05,
+                    aero_source_mode="legacy_refresh",
+                    candidate_avl_spanwise_loads_json=None,
+                    rib_zonewise_mode="off",
                     skip_step_export=True,
                     strict=True,
                 )
@@ -336,13 +360,25 @@ class DihedralSweepCampaignTests(unittest.TestCase):
 
         perf = evaluate_aero_performance(
             trim_eval=trim_eval,
-            dynamic_pressure_pa=25.878125,
-            reference_area_m2=30.69,
-            cruise_velocity_mps=6.5,
-            min_lift_n=981.0,
-            min_ld_ratio=25.0,
-            cd_profile_estimate=0.010,
-            max_trim_aoa_deg=12.0,
+            gate_settings=AvlAeroGateSettings(
+                reference_area_source="unit_test",
+                reference_area_m2=30.69,
+                reference_area_case_path="/tmp/case.avl",
+                air_density_kgpm3=1.225,
+                cruise_velocity_mps=6.5,
+                dynamic_pressure_pa=25.878125,
+                trim_target_weight_kg=100.0,
+                trim_target_weight_n=981.0,
+                cl_required=1.2352,
+                min_lift_kg=100.0,
+                min_lift_n=981.0,
+                min_ld_ratio=25.0,
+                cd_profile_estimate=0.010,
+                max_trim_aoa_deg=12.0,
+                soft_trim_aoa_deg=10.0,
+                stall_alpha_deg=13.5,
+                min_stall_margin_deg=2.0,
+            ),
         )
 
         self.assertFalse(perf.aero_performance_feasible)

@@ -20,13 +20,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hpa_mdo.core import Aircraft, load_config
+from hpa_mdo.aero import build_avl_aero_gate_settings
 from scripts.dihedral_sweep_campaign import (
     _empty_aero_performance,
     _parse_multiplier_list,
     _read_inverse_summary,
     _slug,
     estimate_mode_parameters,
-    estimate_reference_area,
     evaluate_aero_performance,
     run_avl_stability_case,
     run_avl_trim_case,
@@ -461,12 +461,6 @@ def main(argv: list[str] | None = None) -> int:
         mode_params = estimate_mode_parameters(cfg)
         wing_half_span = 0.5 * float(cfg.wing.span)
         dihedral_exponent = float(cfg.wing.dihedral_scaling_exponent)
-        min_lift_n = float(cfg.aero_gates.min_lift_kg) * 9.81
-        reference_area_m2 = estimate_reference_area(cfg)
-        dynamic_pressure_pa = 0.5 * float(cfg.flight.air_density) * float(cfg.flight.velocity) ** 2
-        cl_required = (
-            float(cfg.weight.max_takeoff_kg) * 9.81 / (float(dynamic_pressure_pa) * float(reference_area_m2))
-        )
         effective_cd_profile_estimate = float(cfg.aero_gates.cd_profile_estimate)
         cd_increment = float(wire_drag_cd_per_wire) * float(layout.wire_count)
 
@@ -498,6 +492,11 @@ def main(argv: list[str] | None = None) -> int:
             )
             case_avl_path = case_dir / "case.avl"
             case_avl_path.write_text(scaled_text, encoding="utf-8")
+            gate_settings = build_avl_aero_gate_settings(
+                cfg=cfg,
+                case_avl_path=case_avl_path,
+                cd_profile_estimate=effective_cd_profile_estimate,
+            )
             (case_dir / "case_metadata.json").write_text(
                 json.dumps(
                     {
@@ -512,6 +511,13 @@ def main(argv: list[str] | None = None) -> int:
                         "dihedral_scaling_samples": [asdict(sample) for sample in scale_samples],
                         "mode_parameters": asdict(mode_params),
                         "structural_weight_n": float(aircraft.weight_N),
+                        "aero_gate_settings": gate_settings.to_metadata(
+                            skip_aero_gates=False,
+                            skip_beta_sweep=True,
+                            max_sideslip_deg=float(cfg.aero_gates.max_sideslip_deg),
+                            min_spiral_time_to_double_s=float(cfg.aero_gates.min_spiral_time_to_double_s),
+                            beta_sweep_values_deg=(),
+                        ),
                     },
                     indent=2,
                 )
@@ -535,17 +541,11 @@ def main(argv: list[str] | None = None) -> int:
                     avl_bin=avl_bin,
                     case_avl_path=case_avl_path,
                     case_dir=case_dir,
-                    cl_required=cl_required,
+                    cl_required=gate_settings.cl_required,
                 )
                 aero_perf_eval = evaluate_aero_performance(
                     trim_eval=trim_eval,
-                    dynamic_pressure_pa=dynamic_pressure_pa,
-                    reference_area_m2=reference_area_m2,
-                    cruise_velocity_mps=float(cfg.flight.velocity),
-                    min_lift_n=min_lift_n,
-                    min_ld_ratio=float(cfg.aero_gates.min_ld_ratio),
-                    cd_profile_estimate=effective_cd_profile_estimate,
-                    max_trim_aoa_deg=float(cfg.aero_gates.max_trim_aoa_deg),
+                    gate_settings=gate_settings,
                 )
 
             summary_payload: dict[str, object] | None = None
@@ -604,6 +604,10 @@ def main(argv: list[str] | None = None) -> int:
                 "wire_layouts": [asdict(layout) for layout in layouts],
                 "wire_drag_cd_per_wire": float(wire_drag_cd_per_wire),
                 "multipliers": [float(value) for value in multipliers],
+                "aero_gate_contract": {
+                    "reference_area_source": "generated_avl_sref",
+                    "cd_profile_estimate_policy": "layout_specific_base_plus_wire_drag_increment",
+                },
                 "cases": [asdict(row) for row in rows],
             },
             indent=2,

@@ -38,6 +38,7 @@ class DihedralSweepCampaignErrorHandlingTests(unittest.TestCase):
 
         row = _build_result_row(
             multiplier=1.5,
+            dihedral_exponent=1.0,
             avl_eval=avl_eval,
             aero_perf_eval=AeroPerformanceEvaluation(
                 cl_trim=1.24,
@@ -89,6 +90,17 @@ class DihedralSweepCampaignErrorHandlingTests(unittest.TestCase):
                 rear_outboard_grid="0.0,1.0",
                 wall_thickness_grid="0.0,1.0",
                 refresh_steps=1,
+                cobyla_maxiter=10,
+                cobyla_rhobeg=0.2,
+                skip_local_refine=True,
+                local_refine_feasible_seeds=1,
+                local_refine_near_feasible_seeds=1,
+                local_refine_max_starts=1,
+                local_refine_early_stop_patience=1,
+                local_refine_early_stop_abs_improvement_kg=0.05,
+                aero_source_mode="legacy_refresh",
+                candidate_avl_spanwise_loads_json=None,
+                rib_zonewise_mode="off",
                 skip_step_export=True,
                 strict=False,
             )
@@ -124,6 +136,17 @@ class DihedralSweepCampaignErrorHandlingTests(unittest.TestCase):
                     rear_outboard_grid="0.0,1.0",
                     wall_thickness_grid="0.0,1.0",
                     refresh_steps=1,
+                    cobyla_maxiter=10,
+                    cobyla_rhobeg=0.2,
+                    skip_local_refine=True,
+                    local_refine_feasible_seeds=1,
+                    local_refine_near_feasible_seeds=1,
+                    local_refine_max_starts=1,
+                    local_refine_early_stop_patience=1,
+                    local_refine_early_stop_abs_improvement_kg=0.05,
+                    aero_source_mode="legacy_refresh",
+                    candidate_avl_spanwise_loads_json=None,
+                    rib_zonewise_mode="off",
                     skip_step_export=True,
                     strict=True,
                 )
