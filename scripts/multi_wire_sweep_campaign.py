@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hpa_mdo.core import Aircraft, load_config
-from hpa_mdo.aero import build_avl_aero_gate_settings
+from hpa_mdo.aero import build_avl_aero_gate_settings, stage_avl_airfoil_files
 from scripts.dihedral_sweep_campaign import (
     _empty_aero_performance,
     _parse_multiplier_list,
@@ -492,6 +492,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             case_avl_path = case_dir / "case.avl"
             case_avl_path.write_text(scaled_text, encoding="utf-8")
+            stage_avl_airfoil_files(case_avl_path, airfoil_dir=cfg.io.airfoil_dir)
             gate_settings = build_avl_aero_gate_settings(
                 cfg=cfg,
                 case_avl_path=case_avl_path,

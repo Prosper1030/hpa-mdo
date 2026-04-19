@@ -27,6 +27,7 @@ from scripts.dihedral_sweep_campaign import (
     parse_avl_eigenvalue_file,
     parse_avl_mode_stdout,
     run_inverse_design_case,
+    run_avl_spanwise_load_case,
     scale_avl_dihedral_text,
     select_dutch_roll_mode,
     select_spiral_mode,
@@ -347,6 +348,58 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertIsNone(payload["cld02"])
         self.assertEqual(payload["cnb"], 0.0)
         self.assertEqual(payload["cnd02"], -0.0)
+
+    @mock.patch("scripts.dihedral_sweep_campaign.subprocess.run")
+    def test_run_avl_spanwise_load_case_stages_airfoils_in_case_dir(
+        self,
+        mocked_run: mock.Mock,
+    ) -> None:
+        def _fake_run(*_args, **kwargs):
+            cwd = Path(kwargs["cwd"])
+            (cwd / "aoa_0p000.fs").write_text("strip data\n", encoding="utf-8")
+            return subprocess.CompletedProcess(args=["avl"], returncode=0, stdout="", stderr="")
+
+        mocked_run.side_effect = _fake_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_dir = root / "source_case"
+            source_dir.mkdir()
+            avl_path = source_dir / "case.avl"
+            avl_path.write_text(
+                "\n".join(
+                    [
+                        "demo",
+                        "SURFACE",
+                        "Wing",
+                        "SECTION",
+                        "0 0 0 1 0",
+                        "AFILE",
+                        "fx76mp140.dat",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            airfoil_dir = root / "airfoils"
+            airfoil_dir.mkdir()
+            (airfoil_dir / "fx76mp140.dat").write_text("fx\n0 0\n1 0\n", encoding="utf-8")
+
+            result = run_avl_spanwise_load_case(
+                avl_bin=Path("/tmp/avl"),
+                case_avl_path=avl_path,
+                case_dir=root / "candidate_avl_spanwise",
+                alpha_deg=0.0,
+                velocity_mps=6.5,
+                density_kgpm3=1.225,
+                output_stem="aoa_0p000",
+                airfoil_dir=airfoil_dir,
+            )
+
+            staged_case = root / "candidate_avl_spanwise" / "case.avl"
+            self.assertTrue((root / "candidate_avl_spanwise" / "fx76mp140.dat").exists())
+            self.assertIn("AFILE\nfx76mp140.dat", staged_case.read_text(encoding="utf-8"))
+            self.assertTrue(result.run_completed)
 
     def test_evaluate_aero_performance_flags_low_ld(self) -> None:
         trim_eval = mock.Mock(

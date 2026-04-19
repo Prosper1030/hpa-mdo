@@ -26,6 +26,7 @@ from hpa_mdo.aero import (
     build_avl_aero_gate_settings,
     empty_aero_performance,
     evaluate_aero_performance,
+    stage_avl_airfoil_files,
     write_candidate_avl_spanwise_artifact,
 )
 
@@ -982,11 +983,13 @@ def run_avl_spanwise_load_case(
     velocity_mps: float,
     density_kgpm3: float,
     output_stem: str,
+    airfoil_dir: Path | str | None = None,
 ) -> AvlSpanwiseLoadCase:
     case_dir.mkdir(parents=True, exist_ok=True)
     staged_avl_path = case_dir / case_avl_path.name
     if staged_avl_path.resolve() != case_avl_path.resolve():
         staged_avl_path.write_bytes(case_avl_path.read_bytes())
+    stage_avl_airfoil_files(staged_avl_path, airfoil_dir=airfoil_dir)
     fs_file = case_dir / f"{output_stem}.fs"
     stdout_log = case_dir / f"avl_{output_stem}_stdout.log"
     if fs_file.exists():
@@ -2161,6 +2164,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         case_avl_path = case_dir / "case.avl"
         case_avl_path.write_text(scaled_text, encoding="utf-8")
+        stage_avl_airfoil_files(case_avl_path, airfoil_dir=cfg.io.airfoil_dir)
         gate_settings = build_avl_aero_gate_settings(
             cfg=cfg,
             case_avl_path=case_avl_path,
@@ -2321,6 +2325,7 @@ def main(argv: list[str] | None = None) -> int:
                         velocity_mps=float(cfg.flight.velocity),
                         density_kgpm3=float(cfg.flight.air_density),
                         output_stem=f"aoa_{_slug(float(aoa_deg))}",
+                        airfoil_dir=cfg.io.airfoil_dir,
                     )
                     if not spanwise_case.run_completed or spanwise_case.fs_file_path is None:
                         skipped_aoa_notes.append(

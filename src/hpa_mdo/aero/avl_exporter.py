@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 import re
+import shutil
 
 import numpy as np
 
@@ -135,6 +137,66 @@ def export_avl(
     return out
 
 
+def stage_avl_airfoil_files(
+    avl_path: Path | str,
+    *,
+    airfoil_dir: Path | str | None = None,
+) -> list[Path]:
+    """Copy referenced AFILE coordinates into the AVL case directory.
+
+    AVL resolves ``AFILE`` paths relative to the working directory.  Campaign
+    scripts that rewrite ``case.avl`` in per-case folders therefore need the
+    referenced ``.dat`` files staged next to the case file, otherwise AVL
+    silently falls back to its default zero-camber airfoil.
+
+    Returns the list of staged file paths inside ``avl_path.parent``.  Any
+    successfully resolved ``AFILE`` entry is rewritten to the staged filename.
+    Unresolved entries are left untouched so the caller can still inspect the
+    original reference.
+    """
+
+    case_path = Path(avl_path).expanduser().resolve()
+    case_dir = case_path.parent
+    lines = case_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    staged: list[Path] = []
+    rewritten = False
+    staged_sources_by_name: dict[str, Path] = {}
+
+    idx = 0
+    while idx < len(lines):
+        if lines[idx].strip().upper() != "AFILE":
+            idx += 1
+            continue
+        if idx + 1 >= len(lines):
+            break
+        target_line = lines[idx + 1]
+        raw_target, comment = _split_avl_data_line(target_line)
+        resolved = _resolve_airfoil_dat(raw_target, airfoil_dir)
+        if resolved is None:
+            idx += 2
+            continue
+        stage_name = _unique_staged_airfoil_name(
+            resolved=resolved,
+            staged_sources_by_name=staged_sources_by_name,
+        )
+        staged_path = case_dir / stage_name
+        if not staged_path.exists():
+            shutil.copy2(resolved, staged_path)
+        elif staged_path.resolve() != resolved.resolve() and staged_path.read_bytes() != resolved.read_bytes():
+            # Different source with the same staged name should not silently
+            # reuse stale contents.
+            shutil.copy2(resolved, staged_path)
+        staged_sources_by_name[stage_name] = resolved.resolve()
+        lines[idx + 1] = f"{stage_name}{comment}"
+        staged.append(staged_path)
+        rewritten = True
+        idx += 2
+
+    if rewritten:
+        case_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return staged
+
+
 def _sections_for_export(surface: VSPSurface) -> list[VSPSection]:
     sections = sorted(surface.sections, key=lambda section: float(section.y_le))
     if surface.symmetry != "xz":
@@ -224,6 +286,28 @@ def _merge_positions(values: list[float], tol: float = 1.0e-9) -> list[float]:
         if not merged or abs(value - merged[-1]) > tol:
             merged.append(value)
     return merged
+
+
+def _split_avl_data_line(line: str) -> tuple[str, str]:
+    content, bang, tail = line.partition("!")
+    token = content.strip()
+    comment = f"{bang}{tail}" if bang else ""
+    if bang and content.endswith(" "):
+        comment = f" {comment}"
+    return token, comment
+
+
+def _unique_staged_airfoil_name(
+    *,
+    resolved: Path,
+    staged_sources_by_name: dict[str, Path],
+) -> str:
+    basename = resolved.name
+    existing = staged_sources_by_name.get(basename)
+    if existing is None or existing.resolve() == resolved.resolve():
+        return basename
+    digest = hashlib.sha1(str(resolved.resolve()).encode("utf-8")).hexdigest()[:8]
+    return f"{resolved.stem}_{digest}{resolved.suffix}"
 
 
 def _interpolate_section_at_position(

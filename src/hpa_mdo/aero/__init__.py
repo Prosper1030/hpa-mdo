@@ -1,4 +1,5 @@
 from hpa_mdo.aero.aswing_exporter import ASWINGExportOptions, export_aswing, parse_avl
+from hpa_mdo.aero.avl_exporter import stage_avl_airfoil_files
 from hpa_mdo.aero.avl_aero_gates import (
     AeroPerformanceEvaluation,
     AvlAeroGateSettings,
@@ -50,5 +51,6 @@ __all__ = [
     "parse_st_file",
     "parse_st_text",
     "run_avl_derivatives",
+    "stage_avl_airfoil_files",
     "write_candidate_avl_spanwise_artifact",
 ]

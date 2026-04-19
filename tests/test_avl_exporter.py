@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hpa_mdo.aero.avl_exporter import export_avl
+from hpa_mdo.aero.avl_exporter import export_avl, stage_avl_airfoil_files
 from hpa_mdo.aero.aswing_exporter import parse_avl
 from hpa_mdo.aero.vsp_geometry_parser import VSPControl, VSPGeometryModel, VSPSection, VSPSurface
 
@@ -79,3 +79,76 @@ def test_export_avl_uses_vertical_rudder_hinge_axis(tmp_path):
     text = avl_path.read_text(encoding="utf-8")
     assert "rudder  1.0  0.000000  0.0 0.0 1.0  1.0" in text
     assert "rudder  1.0  0.000000  0.0 0.0 0.0  1.0" not in text
+
+
+def test_stage_avl_airfoil_files_copies_and_rewrites_afile_entries(tmp_path):
+    airfoil_dir = tmp_path / "airfoils"
+    airfoil_dir.mkdir()
+    (airfoil_dir / "fx76mp140.dat").write_text("fx\n0 0\n1 0\n", encoding="utf-8")
+    (airfoil_dir / "clarkysm.dat").write_text("clark\n0 0\n1 0\n", encoding="utf-8")
+    avl_path = tmp_path / "cases" / "case.avl"
+    avl_path.parent.mkdir()
+    avl_path.write_text(
+        "\n".join(
+            [
+                "demo",
+                "SURFACE",
+                "Wing",
+                "SECTION",
+                "0 0 0 1 0",
+                "AFILE",
+                "fx76mp140.dat",
+                "SECTION",
+                "0 1 0 1 0",
+                "AFILE",
+                "clarkysm.dat ! keep comment",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    staged = stage_avl_airfoil_files(avl_path, airfoil_dir=airfoil_dir)
+
+    assert [path.name for path in staged] == ["fx76mp140.dat", "clarkysm.dat"]
+    assert (avl_path.parent / "fx76mp140.dat").exists()
+    assert (avl_path.parent / "clarkysm.dat").exists()
+    text = avl_path.read_text(encoding="utf-8")
+    assert "AFILE\nfx76mp140.dat" in text
+    assert "AFILE\nclarkysm.dat ! keep comment" in text
+
+
+def test_stage_avl_airfoil_files_disambiguates_same_basename_from_different_sources(tmp_path):
+    af_a = tmp_path / "a"
+    af_b = tmp_path / "b"
+    af_a.mkdir()
+    af_b.mkdir()
+    (af_a / "shared.dat").write_text("a\n0 0\n1 0\n", encoding="utf-8")
+    (af_b / "shared.dat").write_text("b\n0 0\n1 0\n", encoding="utf-8")
+    avl_path = tmp_path / "case.avl"
+    avl_path.write_text(
+        "\n".join(
+            [
+                "demo",
+                "SURFACE",
+                "Wing",
+                "SECTION",
+                "0 0 0 1 0",
+                "AFILE",
+                str((af_a / "shared.dat").resolve()),
+                "SECTION",
+                "0 1 0 1 0",
+                "AFILE",
+                str((af_b / "shared.dat").resolve()),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    staged = stage_avl_airfoil_files(avl_path)
+
+    assert len(staged) == 2
+    assert staged[0].name == "shared.dat"
+    assert staged[1].name.startswith("shared_")
+    assert staged[1].suffix == ".dat"
