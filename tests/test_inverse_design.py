@@ -2467,17 +2467,19 @@ class OuterLoopContractTests(unittest.TestCase):
         *,
         mission_objective_mode: str | None,
         mission_feasible: bool | None,
+        target_range_passed: bool | None = None,
         mission_score: float | None,
+        min_power_w: float | None = 190.0,
     ) -> FeasibilitySweepCaseResult:
         object.__setattr__(case, "mission_objective_mode", mission_objective_mode)
         object.__setattr__(case, "mission_feasible", mission_feasible)
         object.__setattr__(case, "target_range_km", 42.0)
-        object.__setattr__(case, "target_range_passed", mission_feasible)
+        object.__setattr__(case, "target_range_passed", target_range_passed)
         object.__setattr__(case, "target_range_margin_m", 1200.0)
         object.__setattr__(case, "best_range_m", 43210.0)
         object.__setattr__(case, "best_range_speed_mps", 16.0)
         object.__setattr__(case, "best_endurance_s", 5400.0)
-        object.__setattr__(case, "min_power_w", 190.0)
+        object.__setattr__(case, "min_power_w", min_power_w)
         object.__setattr__(case, "min_power_speed_mps", 14.5)
         object.__setattr__(case, "mission_score", mission_score)
         object.__setattr__(case, "mission_score_reason", "maximize_range")
@@ -2826,6 +2828,51 @@ class OuterLoopContractTests(unittest.TestCase):
         self.assertEqual(winner["selection_status"], "winner")
         self.assertAlmostEqual(winner["candidate_score"], -41998.0)
         self.assertAlmostEqual(annotated[1].candidate_score, -41998.0)
+        self.assertEqual(
+            {case.target_mass_kg: case.selection_status for case in annotated}[22.0],
+            "winner",
+        )
+
+    def test_feasibility_sweep_prefers_mission_passing_min_power_case_over_lower_power_failure(self) -> None:
+        failing = self._attach_mission_fields(
+            self._make_feasibility_case(
+                target_mass_kg=20.0,
+                feasible=True,
+                candidate_score=24.0,
+                selected_total_mass_kg=24.0,
+            ),
+            mission_objective_mode="min_power",
+            mission_feasible=False,
+            target_range_passed=False,
+            mission_score=10.0,
+            min_power_w=175.0,
+        )
+        object.__setattr__(failing, "target_violation_score", 0.010)
+        passing = self._attach_mission_fields(
+            self._make_feasibility_case(
+                target_mass_kg=22.0,
+                feasible=True,
+                candidate_score=25.0,
+                selected_total_mass_kg=25.0,
+            ),
+            mission_objective_mode="min_power",
+            mission_feasible=True,
+            target_range_passed=True,
+            mission_score=11.0,
+            min_power_w=178.0,
+        )
+        object.__setattr__(passing, "target_violation_score", 0.010)
+
+        annotated, winner = _annotate_feasibility_case_selection([failing, passing])
+
+        self.assertIsNotNone(winner)
+        assert winner is not None
+        self.assertEqual(winner["requested_knobs"]["target_mass_kg"], 22.0)
+        self.assertEqual(winner["selection_status"], "winner")
+        self.assertEqual(
+            {case.target_mass_kg: case.selection_status for case in annotated}[20.0],
+            "rejected",
+        )
         self.assertEqual(
             {case.target_mass_kg: case.selection_status for case in annotated}[22.0],
             "winner",

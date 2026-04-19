@@ -1953,6 +1953,7 @@ def _campaign_reject_reason(
     row: SweepResult,
     *,
     max_tube_mass_kg: float | None = None,
+    mission_objective_mode: str | None = None,
 ) -> str:
     if row.aero_status not in {"stable", "stable_fallback"}:
         return f"aero_stability:{row.aero_status}"
@@ -1973,6 +1974,11 @@ def _campaign_reject_reason(
     if row.structure_status == "infeasible":
         detail = row.structural_reject_reason or "inverse_design_infeasible"
         return f"structural:{detail}"
+    if mission_objective_mode is not None:
+        if row.mission_feasible is False:
+            return "mission:mission_infeasible"
+        if row.target_range_passed is False:
+            return "mission:target_range_not_passed"
     return "none"
 
 
@@ -2176,6 +2182,7 @@ def _annotate_campaign_selection(
         return _campaign_reject_reason(
             row,
             max_tube_mass_kg=max_tube_mass_kg,
+            mission_objective_mode=effective_mission_objective_mode,
         )
 
     scored_rows = [

@@ -352,6 +352,20 @@ def _mission_objective_mode(cases: list[SweepCaseResult]) -> str | None:
     return mode
 
 
+def _mission_reject_reason(
+    case: SweepCaseResult,
+    *,
+    mission_objective_mode: str | None,
+) -> str:
+    if mission_objective_mode is None:
+        return "none"
+    if case.mission_feasible is False:
+        return "mission:mission_infeasible"
+    if case.target_range_passed is False:
+        return "mission:target_range_not_passed"
+    return "none"
+
+
 def _effective_candidate_score(
     case: SweepCaseResult,
     *,
@@ -479,12 +493,19 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
     if not cases:
         return [], None
 
-    feasible_cases = [case for case in cases if case.feasible]
-    winner_pool = feasible_cases if feasible_cases else cases
-    effective_mission_objective_mode = _mission_objective_mode(winner_pool)
+    raw_structurally_feasible_cases = [case for case in cases if case.feasible]
+    effective_mission_objective_mode = _mission_objective_mode(raw_structurally_feasible_cases)
     scored_cases = [
         replace(
             case,
+            reject_reason=(
+                case.reject_reason
+                if case.reject_reason != "none"
+                else _mission_reject_reason(
+                    case,
+                    mission_objective_mode=effective_mission_objective_mode,
+                )
+            ),
             candidate_score=_effective_candidate_score(
                 case,
                 mission_objective_mode=effective_mission_objective_mode,
@@ -492,8 +513,19 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
         )
         for case in cases
     ]
-    feasible_cases = [case for case in scored_cases if case.feasible]
-    winner_pool = feasible_cases if feasible_cases else scored_cases
+    structurally_feasible_cases = [case for case in scored_cases if case.feasible]
+    mission_passing_cases = [
+        case
+        for case in scored_cases
+        if case.feasible and case.reject_reason == "none"
+    ]
+    winner_pool = (
+        mission_passing_cases
+        if mission_passing_cases
+        else structurally_feasible_cases
+        if structurally_feasible_cases
+        else scored_cases
+    )
     winner = min(
         winner_pool,
         key=lambda case: (
@@ -508,14 +540,14 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
     winner_evidence_text: str | None = None
     for case in scored_cases:
         if case is winner:
-            selection_status = "winner" if feasible_cases else "nearest_candidate"
+            selection_status = "winner" if mission_passing_cases else "nearest_candidate"
             winner_evidence = _build_winner_evidence(
                 case,
-                feasible_pool_exists=bool(feasible_cases),
+                feasible_pool_exists=bool(mission_passing_cases),
                 mission_objective_mode=effective_mission_objective_mode,
             )
             winner_evidence_text = winner_evidence
-        elif case.feasible:
+        elif case.feasible and case.reject_reason == "none":
             selection_status = "feasible_runner_up"
             winner_evidence = None
         else:
@@ -530,7 +562,7 @@ def _annotate_case_selection(cases: list[SweepCaseResult]) -> tuple[list[SweepCa
         )
 
     winner_summary = {
-        "selection_status": "winner" if feasible_cases else "nearest_candidate",
+        "selection_status": "winner" if mission_passing_cases else "nearest_candidate",
         "requested_knobs": {
             "target_mass_kg": float(winner.target_mass_kg),
             "target_shape_z_scale": winner.requested_target_shape_z_scale,

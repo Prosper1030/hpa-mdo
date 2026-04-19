@@ -49,7 +49,11 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         tube_mass_kg: float | None = None,
         objective_value_kg: float = 22.0,
         mission_objective_mode: str | None = None,
+        mission_feasible: bool | None = None,
+        target_range_passed: bool | None = None,
         mission_score: float | None = None,
+        min_power_w: float | None = None,
+        min_power_speed_mps: float | None = None,
         beta_pass: bool = True,
     ) -> SweepResult:
         return SweepResult(
@@ -102,7 +106,11 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             wire_rigging_json_path=None,
             error_message=None,
             mission_objective_mode=mission_objective_mode,
+            mission_feasible=mission_feasible,
+            target_range_passed=target_range_passed,
             mission_score=mission_score,
+            min_power_w=min_power_w,
+            min_power_speed_mps=min_power_speed_mps,
             aero_source_mode="origin_vsp_fixed_alpha_corrector",
         )
 
@@ -585,6 +593,45 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             next(row for row in annotated if row.dihedral_multiplier == 3.0).reject_reason,
             "structural:tube_mass_exceeds_limit",
         )
+
+    def test_campaign_selection_prefers_mission_passing_min_power_case_over_lower_power_failure(self) -> None:
+        failing_row = self._make_campaign_row(
+            multiplier=1.0,
+            objective_value_kg=30.0,
+            mission_objective_mode="min_power",
+            mission_feasible=False,
+            target_range_passed=False,
+            mission_score=10.0,
+            min_power_w=175.0,
+            min_power_speed_mps=7.0,
+        )
+        passing_row = self._make_campaign_row(
+            multiplier=2.0,
+            objective_value_kg=31.0,
+            mission_objective_mode="min_power",
+            mission_feasible=True,
+            target_range_passed=True,
+            mission_score=11.0,
+            min_power_w=178.0,
+            min_power_speed_mps=7.2,
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [failing_row, passing_row],
+            mission_objective_mode="min_power",
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "winner")
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
+            "winner",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "rejected",
+        )
+        self.assertEqual(winner_summary["mission_feasible"], True)
+        self.assertEqual(winner_summary["target_range_passed"], True)
 
     def test_campaign_selection_respects_reject_tier_before_mission_score_magnitude(self) -> None:
         severe_reject = self._make_campaign_row(
