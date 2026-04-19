@@ -45,15 +45,16 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self,
         *,
         multiplier: float,
+        dihedral_exponent: float = 1.0,
         tube_mass_kg: float | None = None,
         objective_value_kg: float = 22.0,
         mission_objective_mode: str | None = None,
         mission_score: float | None = None,
         beta_pass: bool = True,
-        ) -> SweepResult:
+    ) -> SweepResult:
         return SweepResult(
             dihedral_multiplier=multiplier,
-            dihedral_exponent=1.0,
+            dihedral_exponent=dihedral_exponent,
             avl_case_path="/tmp/case.avl",
             mode_file_path=None,
             dutch_roll_found=True,
@@ -622,6 +623,40 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
             "nearest_candidate",
         )
+
+    def test_winner_summary_preserves_winner_evidence_for_same_multiplier_different_exponent(self) -> None:
+        loser_row = self._make_campaign_row(
+            multiplier=1.2,
+            dihedral_exponent=1.0,
+            objective_value_kg=20.0,
+        )
+        winner_row = self._make_campaign_row(
+            multiplier=1.2,
+            dihedral_exponent=2.0,
+            objective_value_kg=10.0,
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [loser_row, winner_row],
+        )
+
+        winner_row_annotated = next(
+            row
+            for row in annotated
+            if row.dihedral_multiplier == 1.2 and row.dihedral_exponent == 2.0
+        )
+        loser_row_annotated = next(
+            row
+            for row in annotated
+            if row.dihedral_multiplier == 1.2 and row.dihedral_exponent == 1.0
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "winner")
+        self.assertEqual(winner_row_annotated.selection_status, "winner")
+        self.assertEqual(loser_row_annotated.selection_status, "passing_runner_up")
+        self.assertEqual(winner_summary["winner_evidence"], winner_row_annotated.winner_evidence)
+        self.assertIn("score=10.000", str(winner_summary["winner_evidence"]))
+        self.assertNotIn("score=20.000", str(winner_summary["winner_evidence"]))
 
     def test_campaign_selection_falls_back_to_objective_value_when_mission_data_is_absent(self) -> None:
         better_objective_row = self._make_campaign_row(multiplier=1.0, objective_value_kg=10.0)

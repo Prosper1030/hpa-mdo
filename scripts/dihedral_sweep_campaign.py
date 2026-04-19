@@ -2266,9 +2266,7 @@ def _annotate_campaign_selection(
         "artifact_ownership": winner.artifact_ownership,
         "selected_cruise_aoa_deg": winner.selected_cruise_aoa_deg,
         "aero_contract_json_path": winner.aero_contract_json_path,
-        "winner_evidence": next(
-            item.winner_evidence for item in annotated if item.dihedral_multiplier == winner.dihedral_multiplier
-        ),
+        "winner_evidence": winner_evidence,
     }
     return annotated, winner_summary
 
