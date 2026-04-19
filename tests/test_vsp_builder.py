@@ -43,6 +43,7 @@ def test_api_build_preserves_progressive_wing_sections(tmp_path) -> None:
     openvsp = pytest.importorskip("openvsp")
     config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
     cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    cfg.io.vsp_model = None
 
     vsp3_path = VSPBuilder(cfg).build_vsp3(str(tmp_path / "blackcat_004.vsp3"))
 
@@ -54,7 +55,8 @@ def test_api_build_preserves_progressive_wing_sections(tmp_path) -> None:
         openvsp.GetGeomName(geom_id): geom_id
         for geom_id in openvsp.FindGeoms()
     }
-    wing_id = geoms["MainWing"]
+    wing_id = geoms.get("Main Wing", geoms.get("MainWing"))
+    assert wing_id is not None
     xsec_surf = openvsp.GetXSecSurf(wing_id, 0)
     assert openvsp.GetNumXSec(xsec_surf) == 7
 

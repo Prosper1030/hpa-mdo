@@ -918,6 +918,24 @@ def _resolve_path(path_value: Optional[Path], base_dir: Path) -> Optional[Path]:
     return (base_dir / path_value).resolve()
 
 
+def _resolve_external_io_path(
+    path_value: Path,
+    *,
+    project_root: Path,
+    sync_root: Optional[Path],
+) -> Path:
+    """Resolve external IO paths, preferring repo-local artifacts when present."""
+    if path_value.is_absolute():
+        return path_value
+
+    project_candidate = (project_root / path_value).resolve()
+    if project_candidate.exists():
+        return project_candidate
+    if sync_root is not None:
+        return (sync_root / path_value).resolve()
+    return project_candidate
+
+
 def _resolve_io_paths(cfg: HPAConfig, project_root: Path) -> HPAConfig:
     sync_root = _resolve_path(cfg.io.sync_root, project_root)
     cfg.io.sync_root = sync_root
@@ -926,12 +944,11 @@ def _resolve_io_paths(cfg: HPAConfig, project_root: Path) -> HPAConfig:
         raw_path = getattr(cfg.io, field_name)
         if raw_path is None:
             continue
-        if raw_path.is_absolute():
-            resolved = raw_path
-        elif sync_root is not None:
-            resolved = (sync_root / raw_path).resolve()
-        else:
-            resolved = (project_root / raw_path).resolve()
+        resolved = _resolve_external_io_path(
+            raw_path,
+            project_root=project_root,
+            sync_root=sync_root,
+        )
         setattr(cfg.io, field_name, resolved)
 
     for field_name in _INTERNAL_IO_FIELDS:

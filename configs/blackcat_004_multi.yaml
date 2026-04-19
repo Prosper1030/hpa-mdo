@@ -219,10 +219,11 @@ solver:
 
 # ── File Paths ──────────────────────────────────────────────────────────────
 io:
-  # External aero assets are resolved relative to io.sync_root.
-  # Keep machine-specific values in configs/local_paths.yaml (not committed).
+  # `vsp_model` now points to the repo-owned origin clone so geometry truth
+  # does not depend on an external SyncFile checkout. Other aero artifacts may
+  # still resolve via io.sync_root / configs/local_paths.yaml.
   sync_root: null
-  vsp_model: "Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3"
+  vsp_model: "data/blackcat_004_origin.vsp3"
   vsp_lod: "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
   vsp_polar: "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar"
   airfoil_dir: "Aerodynamics/airfoil"

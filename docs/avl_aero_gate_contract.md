@@ -120,7 +120,7 @@ AVL 手冊原文就有講：
 
 它的來源是 canonical reference `.vsp3`：
 
-- [blackcat 004 wing only.vsp3](</Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3>)
+- [blackcat_004_origin.vsp3](/Volumes/Samsung%20SSD/hpa-mdo/data/blackcat_004_origin.vsp3)
 
 這份 `.vsp3` 的 `Main Wing` `XForm` 內目前有：
 
@@ -390,7 +390,7 @@ from pathlib import Path
 from hpa_mdo.aero.vsp_introspect import summarize_vsp_surfaces
 
 summary = summarize_vsp_surfaces(
-    Path('/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3'),
+    Path('/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3'),
     airfoil_dir=Path('/Volumes/Samsung SSD/SyncFile/Aerodynamics/airfoil'),
 )
 for ref in summary["main_wing"]["airfoils"]:

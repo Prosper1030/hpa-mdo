@@ -25,6 +25,7 @@ def test_load_config_applies_local_sync_root_overlay(tmp_path):
     cfg = load_config(config_path, local_paths_path=overlay_path)
 
     assert cfg.io.sync_root == sync_root.resolve()
+    assert cfg.io.vsp_model == (repo_root / "data/blackcat_004_origin.vsp3").resolve()
     assert (
         cfg.io.vsp_lod
         == (
@@ -40,6 +41,24 @@ def test_load_config_applies_local_sync_root_overlay(tmp_path):
     assert cfg.io.airfoil_dir == (sync_root / "Aerodynamics/airfoil").resolve()
     assert cfg.io.output_dir == (repo_root / "output/blackcat_004").resolve()
     assert cfg.io.training_db == (repo_root / "database/training_data.csv").resolve()
+
+
+def test_load_config_prefers_repo_local_external_io_artifacts(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    overlay_path = tmp_path / "local_paths.yaml"
+    sync_root = tmp_path / "SyncFile"
+    overlay_path.write_text(
+        f'io:\n  sync_root: "{sync_root.as_posix()}"\n',
+        encoding="utf-8",
+    )
+
+    cfg = load_config(config_path, local_paths_path=overlay_path)
+
+    assert cfg.io.vsp_model == (repo_root / "data/blackcat_004_origin.vsp3").resolve()
+    assert cfg.io.vsp_lod == (
+        sync_root / "Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod"
+    ).resolve()
 
 
 def test_load_config_honors_environment_override(tmp_path, monkeypatch):
