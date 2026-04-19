@@ -56,7 +56,7 @@ def export_avl(
     yref_out = float(yref)
     zref_out = float(zref)
     if wing_sections and xref == 0.0:
-        xref_out = 0.25 * float(wing_sections[0].chord)
+        xref_out = 0.25 * float(cref_out)
 
     # Always use IYsym=0 so AVL can compute lateral/directional stability
     # derivatives (CYb, Cnb, Clb).  Symmetric surfaces (wing, h_stab) get
@@ -479,8 +479,16 @@ def _auto_bref(*, geometry: VSPGeometryModel, wing: VSPSurface | None) -> float:
 def _auto_cref(*, sref: float, bref: float, wing: VSPSurface | None) -> float:
     if wing is not None:
         sections = _sections_for_export(wing)
-        if sections:
-            return max(float(np.mean([section.chord for section in sections])), 1.0e-9)
+        if len(sections) == 1:
+            return max(float(sections[0].chord), 1.0e-9)
+        if len(sections) >= 2:
+            y = np.asarray([float(section.y_le) for section in sections], dtype=float)
+            chord = np.asarray([float(section.chord) for section in sections], dtype=float)
+            order = np.argsort(y)
+            y_s, c_s = y[order], chord[order]
+            half_area = float(np.trapezoid(c_s, y_s))
+            if half_area > 1.0e-12:
+                return max(float(np.trapezoid(c_s * c_s, y_s) / half_area), 1.0e-9)
     return max(float(sref) / max(float(bref), 1.0e-9), 1.0e-9)
 
 

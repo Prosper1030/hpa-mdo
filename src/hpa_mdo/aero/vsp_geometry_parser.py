@@ -95,6 +95,52 @@ class VSPGeometryModel:
         return None
 
 
+def canonicalize_geometry_from_summary(
+    geometry: VSPGeometryModel,
+    summary: dict | None,
+) -> VSPGeometryModel:
+    """Return canonical wing / tail / fin surfaces aligned to a VSP summary.
+
+    Real ``.vsp3`` files often contain container-like geoms that the XML parser
+    can misclassify as aircraft lifting surfaces.  When OpenVSP summary data is
+    available, prefer its named main-wing / tail / fin schedule as the source of
+    truth and fall back to the parsed surface only if the summary lacks enough
+    geometry detail.
+    """
+    if not summary:
+        return geometry
+
+    kind_specs = (
+        ("main_wing", "wing"),
+        ("horizontal_tail", "h_stab"),
+        ("vertical_fin", "v_fin"),
+    )
+
+    surfaces: list[VSPSurface] = []
+    for kind, surface_type in kind_specs:
+        payload = summary.get(kind)
+        if payload is None:
+            continue
+        built = _surface_from_summary_payload(payload, surface_type=surface_type)
+        if built is not None:
+            surfaces.append(built)
+            continue
+        matched = _match_surface_from_geometry(
+            geometry=geometry,
+            name=str(payload.get("name") or ""),
+            surface_type=surface_type,
+        )
+        if matched is not None:
+            surfaces.append(matched)
+
+    if not surfaces:
+        return geometry
+    return VSPGeometryModel(
+        surfaces=surfaces,
+        source_path=summary.get("source_path") or geometry.source_path,
+    )
+
+
 def geometry_model_from_config(cfg) -> VSPGeometryModel:
     """Build a geometry model from ``HPAConfig`` when no VSP file exists.
 
@@ -356,6 +402,109 @@ def _controls_from_payload(payload: Iterable[dict]) -> list[VSPControl]:
             )
         )
     return controls
+
+
+def _match_surface_from_geometry(
+    *,
+    geometry: VSPGeometryModel,
+    name: str,
+    surface_type: str,
+) -> VSPSurface | None:
+    target = _norm_key(name)
+    typed = [surface for surface in geometry.surfaces if surface.surface_type == surface_type]
+    if target:
+        for surface in typed:
+            if _norm_key(surface.name) == target:
+                return surface
+    return typed[0] if typed else None
+
+
+def _surface_from_summary_payload(
+    payload: dict,
+    *,
+    surface_type: str,
+) -> VSPSurface | None:
+    schedule = payload.get("schedule") or []
+    if not schedule:
+        return None
+
+    rotation = (
+        float(payload.get("x_rotation_deg") or 0.0),
+        float(payload.get("y_rotation_deg") or 0.0),
+        float(payload.get("z_rotation_deg") or 0.0),
+    )
+    origin = (
+        float(payload.get("x_location") or 0.0),
+        float(payload.get("y_location") or 0.0),
+        float(payload.get("z_location") or 0.0),
+    )
+    symmetry = "xz" if bool(payload.get("sym_xz")) else "none"
+    z_by_y = {
+        round(float(point[0]), 9): float(point[1])
+        for point in (payload.get("dihedral_schedule") or [])
+        if isinstance(point, (list, tuple)) and len(point) >= 2
+    }
+    airfoil_refs = payload.get("airfoils") or []
+    airfoils_by_y = {
+        round(float(item.get("station_y", 0.0)), 9): item
+        for item in airfoil_refs
+        if isinstance(item, dict)
+    }
+    surface_incidence_deg = float(payload.get("y_rotation_deg") or 0.0)
+
+    sections: list[VSPSection] = []
+    for item in schedule:
+        station_y = float(item.get("y", 0.0))
+        local = (
+            0.0,
+            station_y,
+            float(z_by_y.get(round(station_y, 9), 0.0)),
+        )
+        # OpenVSP's Y rotation acts like a whole-surface incidence for these
+        # lifting surfaces, so keep it in AVL's ainc/twist rather than moving
+        # the leading edge in x/z.
+        position_rotation = (rotation[0], 0.0, rotation[2])
+        rotated = VSPGeometryParser._rotate_point(local, position_rotation)
+        global_xyz = (
+            origin[0] + rotated[0],
+            origin[1] + rotated[1],
+            origin[2] + rotated[2],
+        )
+        airfoil_ref = airfoils_by_y.get(round(station_y, 9), {})
+        points_payload = airfoil_ref.get("coordinates") or ()
+        airfoil_points = tuple(
+            (float(pair[0]), float(pair[1]))
+            for pair in points_payload
+            if isinstance(pair, (list, tuple)) and len(pair) >= 2
+        )
+        sections.append(
+            VSPSection(
+                x_le=float(global_xyz[0]),
+                y_le=float(global_xyz[1]),
+                z_le=float(global_xyz[2]),
+                chord=float(item.get("chord", 0.0)),
+                twist=surface_incidence_deg,
+                airfoil=str(airfoil_ref.get("name") or "NACA 0012"),
+                airfoil_points=airfoil_points or None,
+                airfoil_source=(
+                    None
+                    if airfoil_ref.get("source") is None
+                    else str(airfoil_ref.get("source"))
+                ),
+            )
+        )
+
+    if not sections:
+        return None
+    return VSPSurface(
+        name=str(payload.get("name") or surface_type),
+        surface_type=surface_type,
+        origin=origin,
+        rotation=rotation,
+        symmetry=symmetry,
+        sections=sections,
+        controls=_controls_from_payload(payload.get("controls") or []),
+    )
 
 
 def _default_controls_from_name(control_surface_name: str | None) -> list[VSPControl]:

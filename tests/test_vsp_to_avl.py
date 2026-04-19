@@ -289,3 +289,116 @@ def test_vsp_to_avl_prefers_inline_airfoils_from_same_vsp_summary(
     assert "AIRFOIL" in text
     assert "AFILE" not in text
     assert "1.000000000  0.000000000" in text
+
+
+def test_vsp_to_avl_prefers_summary_schedule_over_broken_xml_geometry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    vsp3_path = tmp_path / "reference.vsp3"
+    vsp3_path.write_text(_mock_vsp3_xml(), encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    output_path = tmp_path / "from_vsp_summary_schedule.avl"
+    _write_minimal_config(config_path, extra_io=[f"  vsp_model: {vsp3_path}"])
+
+    broken_geometry = VSPGeometryModel(
+        surfaces=[
+            VSPSurface(
+                name="Vehicle",
+                surface_type="wing",
+                origin=(0.0, 0.0, 0.0),
+                rotation=(0.0, 0.0, 0.0),
+                symmetry="none",
+                sections=[VSPSection(0.0, 0.0, 0.0, 0.0, 0.0, "NACA 0012")],
+            )
+        ],
+        source_path=str(vsp3_path),
+    )
+
+    monkeypatch.setattr(
+        vsp_to_avl,
+        "VSPGeometryParser",
+        lambda _path: SimpleNamespace(parse=lambda: broken_geometry),
+    )
+    monkeypatch.setattr(
+        vsp_to_avl,
+        "summarize_vsp_surfaces",
+        lambda _path, airfoil_dir=None, include_airfoil_coordinates=False: {
+            "source_path": str(vsp3_path),
+                "main_wing": {
+                    "name": "Main Wing",
+                    "schedule": [
+                        {"y": 0.0, "chord": 1.30, "dihedral_deg": 1.0},
+                        {"y": 4.5, "chord": 1.30, "dihedral_deg": 1.0},
+                        {"y": 7.5, "chord": 1.175, "dihedral_deg": 2.0},
+                        {"y": 10.5, "chord": 1.040, "dihedral_deg": 3.0},
+                        {"y": 13.5, "chord": 0.830, "dihedral_deg": 4.0},
+                        {"y": 16.5, "chord": 0.435, "dihedral_deg": 5.0},
+                    ],
+                "sym_xz": True,
+                "x_location": 0.0,
+                "y_location": 0.0,
+                "z_location": 0.0,
+                "x_rotation_deg": 0.0,
+                "y_rotation_deg": 3.0,
+                "z_rotation_deg": 0.0,
+                "airfoils": [
+                    {
+                        "station_y": 0.0,
+                        "source": "afile",
+                        "name": "fx76mp140",
+                        "coordinates": [[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+                    },
+                        {
+                            "station_y": 4.5,
+                            "source": "afile",
+                            "name": "fx76mp140",
+                            "coordinates": [[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+                        },
+                        {
+                            "station_y": 7.5,
+                            "source": "afile",
+                            "name": "fx76mp140",
+                            "coordinates": [[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+                        },
+                        {
+                            "station_y": 10.5,
+                            "source": "afile",
+                            "name": "fx76mp140",
+                            "coordinates": [[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+                        },
+                        {
+                            "station_y": 13.5,
+                            "source": "afile",
+                            "name": "fx76mp140",
+                            "coordinates": [[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+                        },
+                        {
+                            "station_y": 16.5,
+                            "source": "afile",
+                            "name": "clarkysm",
+                            "coordinates": [[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]],
+                        },
+                    ],
+                    "controls": [],
+                    "dihedral_schedule": [
+                        [0.0, 0.0],
+                        [4.5, 0.07854],
+                        [7.5, 0.18330],
+                        [10.5, 0.34055],
+                        [13.5, 0.55035],
+                        [16.5, 0.81280],
+                    ],
+                },
+            "horizontal_tail": None,
+            "vertical_fin": None,
+        },
+    )
+
+    rc = vsp_to_avl.main(["--config", str(config_path), "--output", str(output_path)])
+
+    assert rc == 0
+    text = output_path.read_text(encoding="utf-8")
+    assert "#Sref  Cref  Bref\n35.175000000" in text
+    assert "0.000000000  16.500000000  0.812800000  0.435000000  3.000000000" in text
+    assert "SURFACE\nVehicle" not in text

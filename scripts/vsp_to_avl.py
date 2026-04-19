@@ -19,6 +19,7 @@ from hpa_mdo.aero.avl_exporter import export_avl
 from hpa_mdo.aero.vsp_geometry_parser import (
     VSPGeometryParser,
     attach_surface_metadata_from_summary,
+    canonicalize_geometry_from_summary,
     geometry_model_from_config,
 )
 from hpa_mdo.aero.vsp_introspect import summarize_vsp_surfaces
@@ -112,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
                         "Parsed geometry source drifted away from the requested .vsp3: "
                         f"{geometry_source} != {source_vsp}"
                     )
+            geometry = canonicalize_geometry_from_summary(geometry, summary)
             geometry = attach_surface_metadata_from_summary(geometry, summary)
         source_label = str(source_vsp)
     elif cfg is not None:

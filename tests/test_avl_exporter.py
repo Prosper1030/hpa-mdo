@@ -205,3 +205,31 @@ def test_stage_avl_airfoil_files_disambiguates_same_basename_from_different_sour
     assert staged[0].name == "shared.dat"
     assert staged[1].name.startswith("shared_")
     assert staged[1].suffix == ".dat"
+
+
+def test_export_avl_uses_mac_for_cref_and_quarter_mac_xref(tmp_path):
+    geometry = VSPGeometryModel(
+        surfaces=[
+            VSPSurface(
+                name="Wing",
+                surface_type="wing",
+                origin=(0.0, 0.0, 0.0),
+                rotation=(0.0, 0.0, 0.0),
+                symmetry="xz",
+                sections=[
+                    VSPSection(0.0, 0.0, 0.0, 1.300, 0.0, "fx76mp140"),
+                    VSPSection(0.0, 4.5, 0.07854, 1.300, 0.0, "fx76mp140"),
+                    VSPSection(0.0, 7.5, 0.18330, 1.175, 0.0, "fx76mp140"),
+                    VSPSection(0.0, 10.5, 0.34055, 1.040, 0.0, "fx76mp140"),
+                    VSPSection(0.0, 13.5, 0.55035, 0.830, 0.0, "fx76mp140"),
+                    VSPSection(0.0, 16.5, 0.81280, 0.435, 0.0, "clarkysm"),
+                ],
+            ),
+        ]
+    )
+
+    avl_path = export_avl(geometry, tmp_path / "mac_reference.avl")
+    text = avl_path.read_text(encoding="utf-8")
+
+    assert "#Sref  Cref  Bref\n35.175000000  1.130189765  33.000000000" in text
+    assert "#Xref  Yref  Zref\n0.282547441  0.000000000  0.000000000" in text
