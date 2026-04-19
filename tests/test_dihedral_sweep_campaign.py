@@ -44,6 +44,9 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         *,
         multiplier: float,
         tube_mass_kg: float | None = None,
+        objective_value_kg: float = 22.0,
+        mission_objective_mode: str | None = None,
+        mission_score: float | None = None,
         beta_pass: bool = True,
     ) -> SweepResult:
         return SweepResult(
@@ -88,13 +91,15 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             wire_margin_n=None,
             failure_index=-0.2,
             buckling_index=-0.1,
-            objective_value_kg=22.0,
+            objective_value_kg=objective_value_kg,
             realizable_mismatch_max_mm=10.0,
             structural_reject_reason=None,
             selected_output_dir=None,
             summary_json_path=None,
             wire_rigging_json_path=None,
             error_message=None,
+            mission_objective_mode=mission_objective_mode,
+            mission_score=mission_score,
             aero_source_mode="origin_vsp_fixed_alpha_corrector",
         )
 
@@ -335,6 +340,151 @@ class DihedralSweepCampaignTests(unittest.TestCase):
 
         self.assertEqual(row.structure_status, "structural_failed")
         self.assertEqual(row.error_message, "inverse-design subprocess failed")
+
+    def test_build_result_row_preserves_mission_fields_from_summary_payload(self) -> None:
+        avl_eval = AvlEvaluation(
+            avl_case_path="/tmp/case.avl",
+            mode_file_path=None,
+            stdout_log_path=None,
+            dutch_roll_found=True,
+            dutch_roll_selection="oscillatory_lateral_mode",
+            dutch_roll_real=-0.1,
+            dutch_roll_imag=0.6,
+            aero_status="stable",
+            aero_feasible=True,
+            eigenvalue_count=4,
+        )
+        summary_payload = {
+            "iterations": [
+                {
+                    "selected": {
+                        "overall_feasible": True,
+                        "total_structural_mass_kg": 18.4,
+                        "jig_ground_clearance_min_m": 0.051,
+                        "equivalent_failure_index": -0.2,
+                        "equivalent_buckling_index": -0.1,
+                        "objective_value_kg": 18.4,
+                        "target_shape_error_max_m": 0.008,
+                        "tube_mass_kg": 6.7,
+                    }
+                }
+            ],
+            "mission": {
+                "mission_objective_mode": "max_range",
+                "mission_feasible": True,
+                "target_range_km": 42.195,
+                "target_range_passed": True,
+                "target_range_margin_m": 1200.0,
+                "best_range_m": 43200.0,
+                "best_range_speed_mps": 11.5,
+                "best_endurance_s": 3760.0,
+                "min_power_w": 210.0,
+                "min_power_speed_mps": 7.2,
+                "mission_score": -43200.0,
+                "mission_score_reason": "maximize_range",
+                "pilot_power_model": "fake_anchor_curve",
+                "pilot_power_anchor": "300.0W@30.0min",
+            },
+        }
+
+        row = _build_result_row(
+            multiplier=1.5,
+            dihedral_exponent=1.0,
+            avl_eval=avl_eval,
+            aero_perf_eval=AeroPerformanceEvaluation(
+                cl_trim=1.24,
+                cd_induced=0.017,
+                cd_total_est=0.027,
+                ld_ratio=45.9,
+                aoa_trim_deg=11.0,
+                span_efficiency=0.64,
+                lift_total_n=981.0,
+                aero_power_w=138.9,
+                aero_performance_feasible=True,
+                aero_performance_reason="ok",
+            ),
+            beta_eval=None,
+            control_eval=None,
+            summary_payload=summary_payload,
+            selected_output_dir="/tmp/inverse",
+            summary_json_path="/tmp/inverse/summary.json",
+            error_message=None,
+        )
+
+        self.assertEqual(row.mission_objective_mode, "max_range")
+        self.assertTrue(row.mission_feasible)
+        self.assertEqual(row.target_range_km, 42.195)
+        self.assertTrue(row.target_range_passed)
+        self.assertEqual(row.target_range_margin_m, 1200.0)
+        self.assertEqual(row.best_range_m, 43200.0)
+        self.assertEqual(row.best_range_speed_mps, 11.5)
+        self.assertEqual(row.best_endurance_s, 3760.0)
+        self.assertEqual(row.min_power_w, 210.0)
+        self.assertEqual(row.min_power_speed_mps, 7.2)
+        self.assertEqual(row.mission_score, -43200.0)
+        self.assertEqual(row.mission_score_reason, "maximize_range")
+        self.assertEqual(row.pilot_power_model, "fake_anchor_curve")
+        self.assertEqual(row.pilot_power_anchor, "300.0W@30.0min")
+
+    def test_campaign_selection_uses_mission_score_before_objective_value_when_requested(self) -> None:
+        fast_row = self._make_campaign_row(
+            multiplier=1.0,
+            objective_value_kg=30.0,
+            mission_objective_mode="max_range",
+            mission_score=-200.0,
+        )
+        slower_objective_row = self._make_campaign_row(
+            multiplier=2.0,
+            objective_value_kg=10.0,
+            mission_objective_mode="max_range",
+            mission_score=-100.0,
+        )
+        failing_row = self._make_campaign_row(
+            multiplier=3.0,
+            tube_mass_kg=16.0,
+            objective_value_kg=1.0,
+            mission_objective_mode="max_range",
+            mission_score=-1000.0,
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [fast_row, slower_objective_row, failing_row],
+            max_tube_mass_kg=15.0,
+            mission_objective_mode="max_range",
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "winner")
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "winner",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
+            "passing_runner_up",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 3.0).reject_reason,
+            "structural:tube_mass_exceeds_limit",
+        )
+
+    def test_campaign_selection_falls_back_to_objective_value_when_mission_data_is_absent(self) -> None:
+        better_objective_row = self._make_campaign_row(multiplier=1.0, objective_value_kg=10.0)
+        worse_objective_row = self._make_campaign_row(multiplier=2.0, objective_value_kg=20.0)
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [worse_objective_row, better_objective_row],
+            mission_objective_mode="max_range",
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "winner")
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "winner",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
+            "passing_runner_up",
+        )
 
     @mock.patch("scripts.dihedral_sweep_campaign.subprocess.run")
     def test_run_inverse_design_case_reports_error_without_strict(self, mocked_run: mock.Mock) -> None:

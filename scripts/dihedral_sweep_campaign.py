@@ -244,6 +244,20 @@ class SweepResult:
     summary_json_path: str | None
     wire_rigging_json_path: str | None
     error_message: str | None
+    mission_objective_mode: str | None = None
+    mission_feasible: bool | None = None
+    target_range_km: float | None = None
+    target_range_passed: bool | None = None
+    target_range_margin_m: float | None = None
+    best_range_m: float | None = None
+    best_range_speed_mps: float | None = None
+    best_endurance_s: float | None = None
+    min_power_w: float | None = None
+    min_power_speed_mps: float | None = None
+    mission_score: float | None = None
+    mission_score_reason: str | None = None
+    pilot_power_model: str | None = None
+    pilot_power_anchor: str | None = None
     tube_mass_kg: float | None = None
     candidate_score: float | None = None
     reject_reason: str = "unranked"
@@ -1588,6 +1602,65 @@ def _extract_aero_contract_snapshot(summary_payload: dict[str, object]) -> dict[
     }
 
 
+def _mission_snapshot_from_summary(summary_payload: dict[str, object] | None) -> dict[str, object]:
+    mission = None if summary_payload is None else summary_payload.get("mission")
+    if not isinstance(mission, dict):
+        return {
+            "mission_objective_mode": None,
+            "mission_feasible": None,
+            "target_range_km": None,
+            "target_range_passed": None,
+            "target_range_margin_m": None,
+            "best_range_m": None,
+            "best_range_speed_mps": None,
+            "best_endurance_s": None,
+            "min_power_w": None,
+            "min_power_speed_mps": None,
+            "mission_score": None,
+            "mission_score_reason": None,
+            "pilot_power_model": None,
+            "pilot_power_anchor": None,
+        }
+    return {
+        "mission_objective_mode": (
+            None if mission.get("mission_objective_mode") is None else str(mission["mission_objective_mode"])
+        ),
+        "mission_feasible": (
+            None if mission.get("mission_feasible") is None else bool(mission["mission_feasible"])
+        ),
+        "target_range_km": (
+            None if mission.get("target_range_km") is None else float(mission["target_range_km"])
+        ),
+        "target_range_passed": (
+            None if mission.get("target_range_passed") is None else bool(mission["target_range_passed"])
+        ),
+        "target_range_margin_m": (
+            None if mission.get("target_range_margin_m") is None else float(mission["target_range_margin_m"])
+        ),
+        "best_range_m": None if mission.get("best_range_m") is None else float(mission["best_range_m"]),
+        "best_range_speed_mps": (
+            None if mission.get("best_range_speed_mps") is None else float(mission["best_range_speed_mps"])
+        ),
+        "best_endurance_s": (
+            None if mission.get("best_endurance_s") is None else float(mission["best_endurance_s"])
+        ),
+        "min_power_w": None if mission.get("min_power_w") is None else float(mission["min_power_w"]),
+        "min_power_speed_mps": (
+            None if mission.get("min_power_speed_mps") is None else float(mission["min_power_speed_mps"])
+        ),
+        "mission_score": None if mission.get("mission_score") is None else float(mission["mission_score"]),
+        "mission_score_reason": (
+            None if mission.get("mission_score_reason") is None else str(mission["mission_score_reason"])
+        ),
+        "pilot_power_model": (
+            None if mission.get("pilot_power_model") is None else str(mission["pilot_power_model"])
+        ),
+        "pilot_power_anchor": (
+            None if mission.get("pilot_power_anchor") is None else str(mission["pilot_power_anchor"])
+        ),
+    }
+
+
 def _structural_reject_reason(selected: dict[str, object]) -> str:
     failures = selected.get("failures") or []
     if isinstance(failures, list) and failures:
@@ -1662,6 +1735,7 @@ def _build_result_row(
             summary_json_path=summary_json_path,
             wire_rigging_json_path=None,
             error_message=error_message,
+            **_mission_snapshot_from_summary(None),
         )
 
     iterations = summary_payload["iterations"]
@@ -1669,6 +1743,7 @@ def _build_result_row(
     selected = final["selected"]
     wire_tension_n, wire_margin_n, wire_json_path = _extract_wire_metrics(summary_payload)
     aero_snapshot = _extract_aero_contract_snapshot(summary_payload)
+    mission_snapshot = _mission_snapshot_from_summary(summary_payload)
     return SweepResult(
         dihedral_multiplier=float(multiplier),
         dihedral_exponent=float(dihedral_exponent),
@@ -1722,6 +1797,7 @@ def _build_result_row(
         summary_json_path=summary_json_path,
         wire_rigging_json_path=wire_json_path,
         error_message=error_message,
+        **mission_snapshot,
         **aero_snapshot,
     )
 
@@ -1860,6 +1936,34 @@ def _campaign_gate_penalty_kg(reject_reason: str) -> float:
     return float(CAMPAIGN_GATE_PENALTIES_KG["structural"])
 
 
+def _campaign_mission_objective_mode(rows: Iterable[SweepResult]) -> str | None:
+    modes = {row.mission_objective_mode for row in rows if row.mission_objective_mode is not None}
+    if len(modes) == 1:
+        return next(iter(modes))
+    return None
+
+
+def _campaign_base_score(
+    row: SweepResult,
+    *,
+    mission_objective_mode: str | None,
+) -> float:
+    if mission_objective_mode is not None and row.mission_score is not None:
+        return float(row.mission_score)
+    if row.objective_value_kg is not None:
+        return float(row.objective_value_kg)
+    return float("inf")
+
+
+def _campaign_score_formula_label(mission_objective_mode: str | None) -> str:
+    if mission_objective_mode is None:
+        return "objective_value_kg + gate penalty"
+    return (
+        f"mission_score ({mission_objective_mode}) + gate penalty "
+        "(fallback to objective_value_kg when mission data is absent)"
+    )
+
+
 def _build_campaign_winner_evidence(row: SweepResult, *, passing_pool_exists: bool) -> str:
     mismatch_text = (
         "n/a" if row.realizable_mismatch_max_mm is None else f"{row.realizable_mismatch_max_mm:.3f} mm"
@@ -1873,10 +1977,15 @@ def _build_campaign_winner_evidence(row: SweepResult, *, passing_pool_exists: bo
         if passing_pool_exists
         else "no fully-passing candidate; lowest penalized campaign score"
     )
+    mission_text = (
+        ""
+        if row.mission_objective_mode is None or row.mission_score is None
+        else f", mission={row.mission_objective_mode}:{row.mission_score:.3f}"
+    )
     return (
         f"{prefix}; score={row.candidate_score:.3f}, "
         f"mass={mass_text}, mismatch={mismatch_text}, clearance={clearance_text}, "
-        f"aero source={_aero_source_label(row.aero_source_mode)}"
+        f"aero source={_aero_source_label(row.aero_source_mode)}{mission_text}"
     )
 
 
@@ -1884,9 +1993,16 @@ def _annotate_campaign_selection(
     rows: list[SweepResult],
     *,
     max_tube_mass_kg: float | None = None,
+    mission_objective_mode: str | None = None,
 ) -> tuple[list[SweepResult], dict[str, object] | None]:
     if not rows:
         return [], None
+
+    effective_mission_objective_mode = (
+        mission_objective_mode
+        if mission_objective_mode is not None
+        else _campaign_mission_objective_mode(rows)
+    )
 
     def _row_reject_reason(row: SweepResult) -> str:
         return _campaign_reject_reason(
@@ -1899,7 +2015,10 @@ def _annotate_campaign_selection(
             row,
             reject_reason=_row_reject_reason(row),
             candidate_score=float(
-                (row.objective_value_kg or 0.0)
+                _campaign_base_score(
+                    row,
+                    mission_objective_mode=effective_mission_objective_mode,
+                )
                 + _campaign_gate_penalty_kg(_row_reject_reason(row))
             ),
         )
@@ -1941,6 +2060,24 @@ def _annotate_campaign_selection(
 
     winner_summary = {
         "selection_status": "winner" if passing_rows else "nearest_candidate",
+        "mission_objective_mode": (
+            winner.mission_objective_mode
+            if winner.mission_objective_mode is not None
+            else effective_mission_objective_mode
+        ),
+        "mission_feasible": winner.mission_feasible,
+        "target_range_km": winner.target_range_km,
+        "target_range_passed": winner.target_range_passed,
+        "target_range_margin_m": winner.target_range_margin_m,
+        "best_range_m": winner.best_range_m,
+        "best_range_speed_mps": winner.best_range_speed_mps,
+        "best_endurance_s": winner.best_endurance_s,
+        "min_power_w": winner.min_power_w,
+        "min_power_speed_mps": winner.min_power_speed_mps,
+        "mission_score": winner.mission_score,
+        "mission_score_reason": winner.mission_score_reason,
+        "pilot_power_model": winner.pilot_power_model,
+        "pilot_power_anchor": winner.pilot_power_anchor,
         "requested_knobs": {
             "dihedral_multiplier": float(winner.dihedral_multiplier),
             "dihedral_exponent": float(winner.dihedral_exponent),
@@ -2020,6 +2157,20 @@ def _write_summary_csv(path: Path, rows: Iterable[SweepResult]) -> None:
         "summary_json_path",
         "wire_rigging_json_path",
         "error_message",
+        "mission_objective_mode",
+        "mission_feasible",
+        "target_range_km",
+        "target_range_passed",
+        "target_range_margin_m",
+        "best_range_m",
+        "best_range_speed_mps",
+        "best_endurance_s",
+        "min_power_w",
+        "min_power_speed_mps",
+        "mission_score",
+        "mission_score_reason",
+        "pilot_power_model",
+        "pilot_power_anchor",
         "aero_source_mode",
         "baseline_load_source",
         "refresh_load_source",
@@ -2047,6 +2198,7 @@ def _build_campaign_report_text(
     winner_summary: dict[str, object] | None,
     first_pass_boundary: dict[str, object] | None,
 ) -> str:
+    mission_objective_mode = _campaign_mission_objective_mode(rows)
     lines = [
         "=" * 108,
         "Outer-Loop Dihedral Sweep Campaign",
@@ -2056,7 +2208,11 @@ def _build_campaign_report_text(
         "Score contract:",
         "  score name                  : outer_loop_candidate_score",
         "  direction                   : lower_is_better",
-        "  formula                     : objective_value_kg + gate penalty",
+        f"  formula                     : {_campaign_score_formula_label(mission_objective_mode)}",
+        (
+            "  mission objective mode      : "
+            + ("n/a" if mission_objective_mode is None else str(mission_objective_mode))
+        ),
         (
             "  gate penalties              : "
             f"aero_stability={CAMPAIGN_GATE_PENALTIES_KG['aero_stability']:.0f}, "
@@ -2149,6 +2305,78 @@ def _build_campaign_report_text(
                 ),
                 f"  candidate score              : {winner_summary['candidate_score']:.3f}",
                 (
+                    "  mission objective mode       : "
+                    + (
+                        "n/a"
+                        if winner_summary["mission_objective_mode"] is None
+                        else str(winner_summary["mission_objective_mode"])
+                    )
+                ),
+                (
+                    "  mission feasible             : "
+                    + (
+                        "n/a"
+                        if winner_summary["mission_feasible"] is None
+                        else str(bool(winner_summary["mission_feasible"])).lower()
+                    )
+                ),
+                (
+                    "  target range / passed        : "
+                    + (
+                        "n/a"
+                        if winner_summary["target_range_km"] is None
+                        else f"{float(winner_summary['target_range_km']):.3f} km / {bool(winner_summary['target_range_passed'])}"
+                    )
+                ),
+                (
+                    "  target range margin          : "
+                    + (
+                        "n/a"
+                        if winner_summary["target_range_margin_m"] is None
+                        else f"{float(winner_summary['target_range_margin_m']):.3f} m"
+                    )
+                ),
+                (
+                    "  best range / speed           : "
+                    + (
+                        "n/a"
+                        if winner_summary["best_range_m"] is None
+                        else f"{float(winner_summary['best_range_m']):.3f} m @ {float(winner_summary['best_range_speed_mps']):.3f} m/s"
+                    )
+                ),
+                (
+                    "  best endurance               : "
+                    + (
+                        "n/a"
+                        if winner_summary["best_endurance_s"] is None
+                        else f"{float(winner_summary['best_endurance_s']):.3f} s"
+                    )
+                ),
+                (
+                    "  min power / speed            : "
+                    + (
+                        "n/a"
+                        if winner_summary["min_power_w"] is None
+                        else f"{float(winner_summary['min_power_w']):.3f} W @ {float(winner_summary['min_power_speed_mps']):.3f} m/s"
+                    )
+                ),
+                (
+                    "  mission score / reason       : "
+                    + (
+                        "n/a"
+                        if winner_summary["mission_score"] is None
+                        else f"{float(winner_summary['mission_score']):.3f} ({winner_summary['mission_score_reason']})"
+                    )
+                ),
+                (
+                    "  pilot power model / anchor   : "
+                    + (
+                        "n/a"
+                        if winner_summary["pilot_power_model"] is None
+                        else f"{winner_summary['pilot_power_model']} / {winner_summary['pilot_power_anchor']}"
+                    )
+                ),
+                (
                     "  spar tube mass               : "
                     + (
                         "n/a"
@@ -2219,9 +2447,14 @@ def _build_campaign_report_text(
             ]
         )
     lines.append(
-        "multiplier | score | selection | aero source | reject reason | tube kg | mass kg | mismatch mm | clearance mm | aero | struct"
+        "multiplier | score | selection | aero source | reject reason | tube kg | mass kg | mismatch mm | clearance mm | mission | aero | struct"
     )
     for row in rows:
+        mission_text = (
+            "n/a"
+            if row.mission_objective_mode is None or row.mission_score is None
+            else f"{row.mission_objective_mode}:{row.mission_score:.3f}"
+        )
         lines.append(
             f"{row.dihedral_multiplier:10.3f} | "
             f"{(f'{row.candidate_score:.3f}' if row.candidate_score is not None else 'n/a'):5s} | "
@@ -2232,6 +2465,7 @@ def _build_campaign_report_text(
             f"{(f'{row.total_mass_kg:.3f}' if row.total_mass_kg is not None else 'n/a'):7s} | "
             f"{(f'{row.realizable_mismatch_max_mm:.3f}' if row.realizable_mismatch_max_mm is not None else 'n/a'):11s} | "
             f"{(f'{row.min_jig_clearance_mm:.3f}' if row.min_jig_clearance_mm is not None else 'n/a'):12s} | "
+            f"{mission_text:24s} | "
             f"{row.aero_status:5s} | "
             f"{row.structure_status}"
         )
@@ -2874,9 +3108,11 @@ def main(argv: list[str] | None = None) -> int:
         refined_multipliers=first_pass_refined_multipliers,
     )
     rows = sorted(rows, key=lambda row: float(row.dihedral_multiplier))
+    mission_objective_mode = _campaign_mission_objective_mode(rows)
     rows, winner_summary = _annotate_campaign_selection(
         rows,
         max_tube_mass_kg=max_tube_mass_kg,
+        mission_objective_mode=mission_objective_mode,
     )
     _write_summary_csv(csv_path, rows)
     report_path.write_text(
@@ -2903,7 +3139,8 @@ def main(argv: list[str] | None = None) -> int:
                 "score_contract": {
                     "score_name": "outer_loop_candidate_score",
                     "direction": "lower_is_better",
-                    "formula": "objective_value_kg + gate penalty",
+                    "formula": _campaign_score_formula_label(mission_objective_mode),
+                    "mission_objective_mode": mission_objective_mode,
                     "gate_penalties_kg": CAMPAIGN_GATE_PENALTIES_KG,
                 },
                 "search_budget": search_budget,
@@ -2930,11 +3167,17 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Summary CSV        : {csv_path}")
     print(f"  Summary JSON       : {json_path}")
     if winner_summary is not None:
+        winner_mission_mode = (
+            "n/a"
+            if winner_summary["mission_objective_mode"] is None
+            else str(winner_summary["mission_objective_mode"])
+        )
         print(
             "  Winner             : "
             f"x{winner_summary['requested_knobs']['dihedral_multiplier']:.3f} "
             f"(score={winner_summary['candidate_score']:.3f}, "
-            f"status={winner_summary['selection_status']})"
+            f"status={winner_summary['selection_status']}, "
+            f"mission={winner_mission_mode})"
         )
     if bool(first_pass_boundary.get("boundary_found")):
         print(
@@ -3001,6 +3244,11 @@ def main(argv: list[str] | None = None) -> int:
                 f"trim={'ok' if row.beta_sweep_sideslip_feasible else 'fail'}"
             )
         )
+        mission_text = (
+            "n/a"
+            if row.mission_objective_mode is None or row.mission_score is None
+            else f"{row.mission_objective_mode}:{row.mission_score:.3f}"
+        )
         print(
             "  "
             f"x{row.dihedral_multiplier:.3f}: aero={row.aero_status}, "
@@ -3011,7 +3259,8 @@ def main(argv: list[str] | None = None) -> int:
             f"struct={row.structure_status}, mass={mass_text}, "
             f"clearance={clear_text}, wire={wire_text}, "
             f"score={row.candidate_score if row.candidate_score is not None else float('nan'):.3f}, "
-            f"selection={row.selection_status}, reject={row.reject_reason}"
+            f"selection={row.selection_status}, reject={row.reject_reason}, "
+            f"mission={mission_text}"
         )
     if failed_cases:
         print("WARNING: inverse-design failed for one or more multipliers (marked structural_failed).")
