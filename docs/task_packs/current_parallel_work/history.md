@@ -109,3 +109,14 @@
 - Planning shift:
   - rerun-aero has served its purpose as a heavy confirmation contract, but it is too slow to remain the default coarse search path
   - next main push is to restore AVL / lightweight search as the default outer-loop screening route and reserve `candidate_rerun_vspaero` for shortlist/finalist confirmation
+- Track U implementation drift discovered:
+  - `candidate_avl_spanwise` plumbing landed and can feed AVL strip-force loads into the structural path
+  - but the first implementation also changed load-state / AoA ownership, full-gate behavior, and clearance-recovery availability
+  - the smoke winner only looked feasible under `--skip-aero-gates`, with mass near `38.96 kg`, which does not match the intended “old AVL-first flow + spanwise load detail” target
+- Current wave reset again:
+  - `track_v_avl_spanwise_ownership_realign`
+  - `track_w_avl_loadstate_alignment_compare` queued behind `track_v` verification
+  - `track_x_repaired_avl_recovered_shortlist_rebuild` queued behind `track_w` verification
+- Planning shift:
+  - the immediate next step is not more rib smoke and not more rerun-aero confirmation
+  - the immediate next step is to realign `candidate_avl_spanwise` so it only adds spanwise lift ownership while preserving the old AVL-first gate / recovery rhythm

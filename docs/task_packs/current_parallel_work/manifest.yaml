@@ -10,24 +10,36 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_u_avl_first_outer_loop_rebaseline"
-    prompt: "prompts/track_u_avl_first_outer_loop_rebaseline.md"
-    launch_wave: 14
+  - id: "track_v_avl_spanwise_ownership_realign"
+    prompt: "prompts/track_v_avl_spanwise_ownership_realign.md"
+    launch_wave: 15
     write_scope:
-      - "docs/NOW_NEXT_BLUEPRINT.md"
-      - "project_state.yaml"
-      - "docs/TARGET_STANDARD_PROGRAM_PLAN.md"
-      - "docs/task_packs/current_parallel_work/README.md"
-      - "docs/task_packs/current_parallel_work/AGENT_LAUNCH_PLAN.md"
-      - "docs/task_packs/current_parallel_work/HANDOFF_QUICKSTART.md"
-      - "docs/task_packs/current_parallel_work/TASKS.md"
-      - "docs/task_packs/current_parallel_work/history.md"
-      - "docs/task_packs/current_parallel_work/manifest.yaml"
-      - "docs/task_packs/current_parallel_work/prompts/track_u_avl_first_outer_loop_rebaseline.md"
+      - "scripts/dihedral_sweep_campaign.py"
+      - "scripts/direct_dual_beam_inverse_design.py"
+      - "src/hpa_mdo/aero/avl_spanwise.py"
+      - "tests/test_avl_spanwise.py"
+      - "tests/test_inverse_design.py"
+      - "docs/task_packs/current_parallel_work/reports/avl_spanwise_realign_report.md"
     expected_artifacts:
-      - "docs and task-pack wording that make AVL/lightweight search the default coarse outer-loop path"
-      - "clear wording that candidate_rerun_vspaero is now a shortlist/finalist confirmation path"
-      - "handoff-ready prompt so future agents do not default every search run to VSP/VSPAero rerun"
+      - "repaired candidate_avl_spanwise path that preserves old AVL-first gate/recovery/load-state semantics while adding spanwise lift distribution"
+      - "tests proving the new path no longer drifts by silently redefining AoA/load-state ownership"
+      - "a real smoke or bounded replay report showing what changed and what still remains out of scope"
+  - id: "track_w_avl_loadstate_alignment_compare"
+    prompt: "prompts/track_w_avl_loadstate_alignment_compare.md"
+    launch_wave: 16
+    write_scope:
+      - "docs/task_packs/current_parallel_work/reports/avl_loadstate_alignment_report.md"
+    expected_artifacts:
+      - "side-by-side comparison of legacy_refresh, repaired candidate_avl_spanwise, and candidate_rerun_vspaero on the same seed(s)"
+      - "clear verdict on whether repaired candidate_avl_spanwise is now effectively old AVL-first flow plus spanwise lift ownership"
+  - id: "track_x_repaired_avl_recovered_shortlist_rebuild"
+    prompt: "prompts/track_x_repaired_avl_recovered_shortlist_rebuild.md"
+    launch_wave: 17
+    write_scope:
+      - "docs/task_packs/current_parallel_work/reports/repaired_avl_shortlist_report.md"
+    expected_artifacts:
+      - "2 to 4 repaired AVL-first shortlist seeds ready for downstream confirm / rib smoke"
+      - "clear handoff note telling the next agent which seed to use first and why"
 
 do_not_touch:
   - "README.md"

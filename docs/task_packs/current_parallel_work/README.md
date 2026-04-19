@@ -17,21 +17,29 @@
 
 ## What This Pack Covers
 
-這包現在聚焦在 **Phase 3.0 outer-loop rebaseline：AVL-first search**。
+這包現在聚焦在 **Phase 2 outer-loop contract realignment：把 AVL spanwise load 接回你原本要的 AVL-first 流程**。
 
-上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；Track S / T 又證明 solver false non-convergence 與 outer-wing clearance recovery 都已經被推到可分析的程度。
+Track U 已經證明：
 
-現在更直接的問題不是「能不能 rerun」，而是：
+- AVL `.fs strip force -> SpanwiseLoad` plumbing 是可以接通的
+- 但現在的 `candidate_avl_spanwise` 實作**不只加了升力分佈**
+- 它還順手改了 load-state / AoA ownership、gate 節奏、以及 recovery 可用性
 
-> 我們不應該再把 `candidate_rerun_vspaero` 當每個 coarse candidate 的預設搜尋路徑。
+所以現在更直接的問題不是「AVL 能不能吐展向載荷」，而是：
 
-目前的主任務是：
+> 我們需要把 `candidate_avl_spanwise` 收窄回使用者原本要的版本：
+> **保留舊 AVL-first outer-loop 節奏，只補 candidate-owned spanwise lift distribution 給結構。**
 
-- Track U：AVL-first outer-loop rebaseline
+目前的主任務順序是：
+
+- Track V：AVL spanwise ownership realignment
+- Track W：AVL / legacy / rerun load-state compare
+- Track X：repaired AVL recovered shortlist rebuild
+- Track R：等 Track X 之後，再回去做 rib smoke
 
 這一包的目的不是再修 parser，也不是再修 solver，而是把外圈重新收斂成：
 
-`AVL / lightweight screening -> shortlist -> candidate_rerun_vspaero confirm`
+`舊 AVL-first 快流程 + candidate-owned AVL spanwise lift distribution -> inverse design / jig / CFRP`
 
 ## How To Use This Pack
 
@@ -50,4 +58,7 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道目前這一波不是再修 parser / solver，也不是把每個倍率搜尋都丟進 rerun-aero，而是先把外圈搜尋拉回快路徑，再把重路徑保留給 shortlist confirm。
+- 使用者能清楚知道目前這一波不是單純「改回 AVL」，而是：
+  - 先把 `candidate_avl_spanwise` 修回「只補升力分佈 ownership」
+  - 再比較 repaired AVL path 是否真的和舊流程一致
+  - 然後才用 repaired AVL-first path 重建 shortlist，回到 Track R / M / N。

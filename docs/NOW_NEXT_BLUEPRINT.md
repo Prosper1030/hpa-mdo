@@ -43,21 +43,41 @@
 
 ## 3. 下一輪活躍工作軌道
 
-### Track U：AVL-first outer-loop rebaseline
+### Track V：AVL spanwise ownership realignment
 
 這是 **現在最值得先做的主軸**。
 
-- 什麼情況下優先：如果 parser/runtime 與 solver 都已經能跑通真 replay，而且 Track T 已經證明 pass-side clearance region 的確存在，但每個 coarse candidate 都走 rerun-aero 顯得太慢。
+- 什麼情況下優先：如果 Track U 已經證明 AVL strip-force plumbing 能接通，但你發現它不只加了升力分佈，還順手改掉 load-state / gate / recovery 節奏。
 - 近期目標：
-  - 把 `AVL / lightweight screening` 升回預設 outer-loop 搜尋路徑
-  - 讓倍率、上反角、clearance-pass region、stability / trim gate 搜尋先走快路
-  - 只把 shortlist / finalist 丟進 `candidate_rerun_vspaero`
+  - 把 `candidate_avl_spanwise` 修回「舊 AVL-first outer-loop + spanwise lift distribution ownership」
+  - 保留原本的 gate / recovery / load-state 邏輯
+  - 不再接受只能靠 `--skip-aero-gates` 才顯得合理的 smoke winner
+
+### Track W：AVL / legacy / rerun load-state compare
+
+這是 **Track V 驗完之後的下一包**。
+
+- 什麼情況下優先：如果 repaired `candidate_avl_spanwise` 已經不再明顯 drift，現在要證明它是不是和舊流程真的對齊。
+- 近期目標：
+  - 對同一組 seed 比較 `legacy_refresh`、repaired `candidate_avl_spanwise`、`candidate_rerun_vspaero`
+  - 明確比較 AoA、lift、torque、mass、clearance、gate reason
+  - 回答 repaired AVL path 到底是不是「舊流程 + spanwise lift ownership」
+
+### Track X：repaired AVL-first recovered shortlist rebuild
+
+這是 **Track W 驗完之後的下一包**。
+
+- 什麼情況下優先：如果 repaired AVL path 看起來 sane，現在要重建真正可用的 repaired shortlist。
+- 近期目標：
+  - 用 repaired AVL-first path 重新挑出 `2 到 4` 個 recovered shortlist seeds
+  - 明確標示哪些 seed 應優先送去 rerun confirm
+  - 把後續 Track R 的 seed 選擇從舊的 suspicious rerun baseline 換成 repaired AVL shortlist
 
 ### Track R：rib campaign multi-seed signal hunt
 
-這是 **Track U 重整完成後的下一波**。
+這是 **Track X 做完後的下一波**。
 
-- 什麼情況下優先：如果 AVL-first 搜尋已經能更快產生 pass-side recovered candidates，現在需要真正回答 rib ranking 是不是工程合理。
+- 什麼情況下優先：如果 repaired AVL-first 搜尋已經能產生更乾淨的 pass-side recovered shortlist，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
   - 先用 AVL-first 搜尋挑出 `2 到 4` 個較有訊號的代表性 seeds
   - 再用 `candidate_rerun_vspaero` 對 shortlist 做 confirm
@@ -132,12 +152,12 @@
 ### Track T：ground-clearance recovery outer-loop
 
 - 目前狀態：baseline 已成立，並已找到第一個 pass-side clearance region。
-- 接下來重點不再是繼續用 rerun-aero 做更大的 coarse scan，而是把這個 recovery 經驗轉回較快的 AVL-first outer-loop。
+- 接下來重點不再是繼續用 rerun-aero 做更大的 coarse scan，而是把這個 recovery 經驗轉回 repaired AVL-first outer-loop。
 
-### Track R：multi-seed rib smoke
+### Track U：AVL spanwise plumbing baseline
 
-- 目前狀態：已完成第一輪最小多 seed replay。
-- 接下來重點不是直接進 tuning，而是等待 Track U 把候選搜尋重新拉回 AVL-first，再用 shortlist 做更有訊號的 replay。
+- 目前狀態：plumbing 已接通，但第一版實作 drift 了。
+- 接下來重點不是直接往前推，而是由 Track V 把它修回「只補展向載荷 ownership」的版本。
 
 ### Track S：explicit wire-truss convergence unblock
 
