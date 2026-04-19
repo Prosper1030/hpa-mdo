@@ -1529,6 +1529,8 @@ class CandidateAeroContractTests(unittest.TestCase):
                             "dihedral_exponent": 2.2,
                         },
                         "selected_cruise_aoa_deg": 12.2,
+                        "selected_cruise_aoa_source": "outer_loop_avl_trim",
+                        "selected_load_state_owner": "outer_loop_avl_trim_and_gates",
                         "aoa_sweep_deg": [10.0, 12.2],
                         "boundary_padding": "nearest_strip_coefficients_with_avl_root_tip_chord",
                         "geometry_artifacts": {
@@ -1573,13 +1575,89 @@ class CandidateAeroContractTests(unittest.TestCase):
         self.assertAlmostEqual(cruise_case.aoa_deg, 12.2)
         self.assertAlmostEqual(mapped_loads["total_lift"], 110.0)
         self.assertEqual(contract.source_mode, CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
-        self.assertIn("candidate-owned AVL geometry plus strip-force AoA sweep", contract.load_ownership)
+        self.assertIn("Outer-loop AVL trim and aero gates still own the selected candidate state", contract.load_ownership)
         self.assertIn("AVL geometry, trim, strip-force, and spanwise-load artifacts", contract.artifact_ownership)
         self.assertEqual(contract.aoa_sweep_deg, (10.0, 12.2))
+        self.assertTrue(
+            any("not a new AoA owner" in note for note in contract.notes)
+        )
+        self.assertTrue(
+            any("load-state owner" in note for note in contract.notes)
+        )
         self.assertTrue(
             str(contract.geometry_artifacts["candidate_avl_spanwise_loads_json"]).endswith(
                 "candidate_avl_spanwise.json"
             )
+        )
+
+    def test_resolve_outer_loop_candidate_aero_candidate_avl_spanwise_reuses_outer_loop_artifact_during_recovery(self) -> None:
+        cfg = SimpleNamespace(
+            flight=SimpleNamespace(velocity=10.0, air_density=1.0),
+            io=SimpleNamespace(
+                vsp_model="/tmp/reference.vsp3",
+                vsp_lod="/tmp/legacy.lod",
+                vsp_polar="/tmp/legacy.polar",
+            ),
+        )
+        aircraft = SimpleNamespace(
+            wing=SimpleNamespace(y=np.array([0.0, 1.0, 2.0], dtype=float)),
+            weight_N=220.0,
+        )
+        case = self._make_spanwise_case(aoa_deg=12.2, cl_value=1.1)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_path = Path(tmpdir) / "candidate_avl_spanwise.json"
+            artifact_path.write_text(
+                json.dumps(
+                    {
+                        "requested_knobs": {
+                            "target_shape_z_scale": 4.0,
+                            "dihedral_multiplier": 4.0,
+                            "dihedral_exponent": 2.2,
+                        },
+                        "selected_cruise_aoa_deg": 12.2,
+                        "selected_cruise_aoa_source": "outer_loop_avl_trim",
+                        "selected_load_state_owner": "outer_loop_avl_trim_and_gates",
+                        "aoa_sweep_deg": [10.0, 12.2],
+                        "geometry_artifacts": {
+                            "candidate_output_dir": str((Path(tmpdir) / "candidate_avl_spanwise").resolve()),
+                            "avl_path": str((Path(tmpdir) / "case.avl").resolve()),
+                        },
+                        "notes": ["candidate-owned AVL strip-force sweep"],
+                        "cases": [
+                            {
+                                "aoa_deg": 12.2,
+                                "fs_path": str((Path(tmpdir) / "aoa_12p2.fs").resolve()),
+                                "stdout_log_path": str((Path(tmpdir) / "aoa_12p2.log").resolve()),
+                                "y": case.y.tolist(),
+                                "chord": case.chord.tolist(),
+                                "cl": case.cl.tolist(),
+                                "cd": case.cd.tolist(),
+                                "cm": case.cm.tolist(),
+                                "lift_per_span": case.lift_per_span.tolist(),
+                                "drag_per_span": case.drag_per_span.tolist(),
+                                "velocity_mps": float(case.velocity),
+                                "dynamic_pressure_pa": float(case.dynamic_pressure),
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            _, cruise_case, _, contract = _resolve_outer_loop_candidate_aero(
+                cfg=cfg,
+                aircraft=aircraft,
+                output_dir=Path(tmpdir) / "inverse",
+                target_shape_z_scale=4.25,
+                dihedral_exponent=2.45,
+                aero_source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                candidate_avl_spanwise_loads_json=artifact_path,
+            )
+
+        self.assertAlmostEqual(cruise_case.aoa_deg, 12.2)
+        self.assertTrue(
+            any("reuses the original outer-loop-selected AVL spanwise artifact during structural recovery" in note for note in contract.notes)
         )
 
     def test_ground_clearance_recovery_specs_are_unique_and_tip_biased(self) -> None:
@@ -2394,7 +2472,7 @@ class OuterLoopContractTests(unittest.TestCase):
             cmd[cmd.index("--candidate-avl-spanwise-loads-json") + 1],
             "/tmp/candidate_avl_spanwise.json",
         )
-        self.assertIn("--no-ground-clearance-recovery", cmd)
+        self.assertNotIn("--no-ground-clearance-recovery", cmd)
         self.assertIn("--rib-zonewise-mode", cmd)
         self.assertEqual(cmd[cmd.index("--rib-zonewise-mode") + 1], "off")
         self.assertEqual(returned_summary_path, str(summary_path.resolve()))

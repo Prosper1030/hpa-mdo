@@ -1412,6 +1412,12 @@ def _resolve_outer_loop_candidate_aero(
         selected_cruise_aoa_deg = float(
             artifact_payload.get("selected_cruise_aoa_deg", cases[0].aoa_deg)
         )
+        selected_cruise_aoa_source = str(
+            artifact_payload.get("selected_cruise_aoa_source") or "outer_loop_avl_trim"
+        )
+        selected_load_state_owner = str(
+            artifact_payload.get("selected_load_state_owner") or "outer_loop_avl_trim_and_gates"
+        )
         cruise_case = min(
             cases,
             key=lambda case: abs(float(case.aoa_deg) - selected_cruise_aoa_deg),
@@ -1445,6 +1451,28 @@ def _resolve_outer_loop_candidate_aero(
                 dihedral_exponent=dihedral_exponent,
             )
         notes = tuple(str(note) for note in (artifact_payload.get("notes") or ()))
+        notes = notes + (
+            "Selected cruise AoA is inherited from the outer-loop AVL trim result; "
+            "candidate_avl_spanwise is not a new AoA owner."
+            if selected_cruise_aoa_source == "outer_loop_avl_trim"
+            else f"Selected cruise AoA source: {selected_cruise_aoa_source}.",
+            "Outer-loop AVL trim / aero gates remain the candidate load-state owner; "
+            "candidate_avl_spanwise only supplies spanwise lift distribution for that chosen state."
+            if selected_load_state_owner == "outer_loop_avl_trim_and_gates"
+            else f"Selected load-state owner: {selected_load_state_owner}.",
+        )
+        current_requested_knobs = _requested_outer_loop_knobs(
+            target_shape_z_scale=target_shape_z_scale,
+            dihedral_exponent=dihedral_exponent,
+        )
+        if any(
+            abs(float(requested_knobs.get(key, np.nan)) - float(current_requested_knobs[key])) > 1.0e-9
+            for key in ("target_shape_z_scale", "dihedral_multiplier", "dihedral_exponent")
+        ):
+            notes = notes + (
+                "This run reuses the original outer-loop-selected AVL spanwise artifact during structural recovery; "
+                "it does not rebuild a new candidate-owned AoA/load-state baseline.",
+            )
         boundary_padding = artifact_payload.get("boundary_padding")
         if boundary_padding:
             notes = notes + (
@@ -1455,8 +1483,9 @@ def _resolve_outer_loop_candidate_aero(
             baseline_load_source="candidate_owned_avl_geometry_plus_spanwise_strip_force_sweep",
             refresh_load_source="candidate_owned_twist_refresh_from_avl_spanwise_sweep",
             load_ownership=(
-                "Loads come from a candidate-owned AVL geometry plus strip-force AoA sweep "
-                "tied to the current low-dimensional outer-loop geometry knobs."
+                "Outer-loop AVL trim and aero gates still own the selected candidate state; "
+                "candidate_avl_spanwise only replaces the structural load distribution with a "
+                "candidate-owned AVL strip-force AoA sweep for that already-selected state."
             ),
             artifact_ownership=(
                 "Candidate-owned AVL geometry, trim, strip-force, and spanwise-load artifacts "
@@ -5037,11 +5066,6 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(
                 "--aero-source-mode=candidate_avl_spanwise requires --candidate-avl-spanwise-loads-json."
             )
-        if bool(args.ground_clearance_recovery):
-            raise ValueError(
-                "candidate_avl_spanwise currently requires --no-ground-clearance-recovery because "
-                "recovery candidates need their own AVL-owned load artifacts."
-            )
 
     legacy_aero_cases: list[SpanwiseLoad] | None = None
     if aero_source_mode == LEGACY_AERO_SOURCE_MODE and cfg.io.vsp_lod is not None:
@@ -5219,6 +5243,7 @@ def main(argv: list[str] | None = None) -> int:
                     aero_source_mode=aero_source_mode,
                     legacy_aero_cases=legacy_aero_cases,
                     candidate_aero_output_dir=None,
+                    candidate_avl_spanwise_loads_json=candidate_avl_spanwise_loads_json,
                 )
                 recovery_cruise_aoa_deg, recovery_refinement = _run_refresh_refinement_case(
                     cfg=cfg,

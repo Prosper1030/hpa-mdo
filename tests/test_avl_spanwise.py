@@ -164,6 +164,8 @@ def test_candidate_avl_spanwise_artifact_roundtrip_maps_full_beam_span(tmp_path:
     payload, cases = load_candidate_avl_spanwise_artifact(artifact_path)
 
     assert payload["selected_cruise_aoa_deg"] == 12.0
+    assert payload["selected_cruise_aoa_source"] == "outer_loop_avl_trim"
+    assert payload["selected_load_state_owner"] == "outer_loop_avl_trim_and_gates"
     assert payload["boundary_padding"] == "nearest_strip_coefficients_with_avl_root_tip_chord"
     assert [round(case.aoa_deg, 3) for case in cases] == [10.0, 12.0]
 

@@ -1451,7 +1451,6 @@ def run_inverse_design_case(
             [
                 "--candidate-avl-spanwise-loads-json",
                 str(candidate_avl_spanwise_loads_json),
-                "--no-ground-clearance-recovery",
             ]
         )
     if skip_local_refine:
@@ -2459,6 +2458,8 @@ def main(argv: list[str] | None = None) -> int:
                                 "dihedral_exponent": float(dihedral_exponent),
                             },
                             selected_cruise_aoa_deg=float(candidate_trim_eval.aoa_trim_deg),
+                            selected_cruise_aoa_source="outer_loop_avl_trim",
+                            selected_load_state_owner="outer_loop_avl_trim_and_gates",
                             velocity_mps=float(cfg.flight.velocity),
                             density_kgpm3=float(cfg.flight.air_density),
                             load_case_specs=load_case_specs,
