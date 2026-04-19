@@ -29,6 +29,28 @@ def test_duration_at_power_w_decreases_when_required_power_increases():
     assert higher_power_duration < lower_power_duration
 
 
+@pytest.mark.parametrize("duration_min", [float("nan"), float("inf"), 0.0, -1.0])
+def test_power_at_duration_min_rejects_invalid_inputs(duration_min):
+    curve = FakeAnchorCurve(
+        anchor_power_w=300.0,
+        anchor_duration_min=30.0,
+    )
+
+    with pytest.raises(ValueError):
+        curve.power_at_duration_min(duration_min)
+
+
+@pytest.mark.parametrize("power_w", [float("nan"), float("inf"), 0.0, -1.0])
+def test_duration_at_power_w_rejects_invalid_inputs(power_w):
+    curve = FakeAnchorCurve(
+        anchor_power_w=300.0,
+        anchor_duration_min=30.0,
+    )
+
+    with pytest.raises(ValueError):
+        curve.duration_at_power_w(power_w)
+
+
 def test_evaluate_mission_objective_max_range_reports_best_range_and_margin():
     curve = FakeAnchorCurve(
         anchor_power_w=300.0,
@@ -102,6 +124,23 @@ def test_evaluate_mission_objective_target_miss_is_infeasible():
 
     assert result.target_range_passed is False
     assert result.mission_feasible is False
+
+
+@pytest.mark.parametrize("target_range_km", [0.0, -1.0, float("nan"), float("inf")])
+def test_evaluate_mission_objective_rejects_invalid_target_range(target_range_km):
+    inputs = MissionEvaluationInputs(
+        objective_mode="max_range",
+        target_range_km=target_range_km,
+        speed_mps=(10.0, 11.0),
+        power_required_w=(240.0, 230.0),
+        rider_curve=FakeAnchorCurve(
+            anchor_power_w=300.0,
+            anchor_duration_min=30.0,
+        ),
+    )
+
+    with pytest.raises(ValueError):
+        evaluate_mission_objective(inputs)
 
 
 @pytest.mark.parametrize(

@@ -25,15 +25,13 @@ class FakeAnchorCurve:
             raise ValueError("anchor_power_w must lie within min_power_w and max_power_w")
 
     def power_at_duration_min(self, duration_min: float) -> float:
-        if duration_min <= 0:
-            raise ValueError("duration_min must be positive")
+        _require_finite_positive(duration_min, "duration_min")
         ratio = self.anchor_duration_min / duration_min
         power_w = self.anchor_power_w * ratio ** self.exponent
         return self._clamp_power(power_w)
 
     def duration_at_power_w(self, power_w: float) -> float:
-        if power_w <= 0:
-            raise ValueError("power_w must be positive")
+        _require_finite_positive(power_w, "power_w")
         clamped_power_w = self._clamp_power(power_w)
         ratio = self.anchor_power_w / clamped_power_w
         return self.anchor_duration_min * ratio ** (1.0 / self.exponent)
@@ -121,6 +119,7 @@ def evaluate_mission_objective(
 
 
 def _validate_inputs(inputs: MissionEvaluationInputs) -> None:
+    _require_finite_positive(inputs.target_range_km, "target_range_km")
     if len(inputs.speed_mps) != len(inputs.power_required_w):
         raise ValueError("speed_mps and power_required_w must have the same length")
     if len(inputs.speed_mps) < 2:
