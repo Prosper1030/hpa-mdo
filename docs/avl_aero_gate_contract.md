@@ -154,3 +154,127 @@
 - 或 gate 門檻本身要重新定義
 
 而不是先懷疑 `CL required` 公式又偷偷在用另一把尺。
+
+## 9. `blackcat_004` 這次踩到的 VSP parser / builder 問題
+
+這次最容易誤會的地方是：
+
+- **不是** `vsp_introspect` 把 root / tip 直接讀反
+- 真實 reference `.vsp3` 本來就會讀出：
+  - `y = 0.0, 4.5, 7.5, 10.5, 13.5 m` -> `fx76mp140`
+  - `y = 16.5 m` -> `clarkysm`
+
+真正的問題是三件事同時漂掉：
+
+1. config 的 `airfoil_root / airfoil_tip` 一度和 reference `.vsp3` 不一致
+2. baseline [blackcat_004_full.avl](/Volumes/Samsung%20SSD/hpa-mdo/data/blackcat_004_full.avl) 的主翼 `AFILE` 一度也不一致
+3. [vsp_builder.py](/Volumes/Samsung%20SSD/hpa-mdo/src/hpa_mdo/aero/vsp_builder.py) 在建 reference schedule 時，一度先用 `_airfoil_for_eta()` 的簡化 fallback，再補 VSP airfoil
+
+所以之後看到 airfoil mapping 很奇怪時，優先判斷應該是：
+
+- 是不是 reference `.vsp3` truth 和 config / baseline AVL / builder schedule 沒對齊
+
+不要第一時間就假設是 `vsp_introspect` 把 root / tip 讀壞。
+
+## 10. 這次之後要特別注意的幾個點
+
+### 10.1 `summarize_vsp_surfaces()` 的回傳是 dict，不是物件樹
+
+這個 helper 回來的是 dict，主翼通常在：
+
+- `summary["main_wing"]`
+
+不是：
+
+- `summary.surfaces`
+
+如果 ad-hoc smoke 直接用錯資料型別，很容易誤以為 parser 壞掉。
+
+### 10.2 ad-hoc smoke 時要確認 `cfg.io.vsp_model` / `io.airfoil_dir` 已經 resolve
+
+如果臨時在 REPL / one-off script 裡直接 load config，但沒有讓：
+
+- `cfg.io.vsp_model`
+- `cfg.io.airfoil_dir`
+
+指到真實可讀的絕對路徑，builder 可能退回 config fallback，這時你看到的 airfoil schedule 不一定是 reference `.vsp3` truth。
+
+### 10.3 future check 要同時看三層
+
+只看一層不夠，最少一起看：
+
+1. reference `.vsp3` introspection
+2. current baseline / generated `case.avl`
+3. `aero_gate_settings`
+
+因為這次真正出問題的，就是這三層之間的 contract drift。
+
+### 10.4 lift gate 要容忍 AVL 輸出四捨五入
+
+AVL `case_trim.ft` 裡的 `CLtot` 會被列印成有限小數位。
+如果 trim target 剛好就是 `100 kg` 對應的精準 `CL required`，拿印出來的 `CLtot` 回算 `lift_total_n` 時，可能會出現像：
+
+- `980.9996 N` vs `981.0 N`
+
+這種接近 machine / print roundoff 的差距。
+
+現在 gate 已經對這種 near-equality 補了容差；下次如果再看到「差不到千分之一牛頓卻 fail lift gate」，先懷疑數值比較，不要先懷疑整個 aero model。
+
+## 11. 最快確認流程
+
+如果之後你只想最快確認「VSP parser / baseline AVL / gate contract 現在是不是一致」，最省時間的順序是：
+
+1. 先看 reference `.vsp3` 真相
+
+```bash
+./.venv/bin/python - <<'PY'
+from pathlib import Path
+from hpa_mdo.aero.vsp_introspect import summarize_vsp_surfaces
+
+summary = summarize_vsp_surfaces(
+    Path('/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3'),
+    airfoil_dir=Path('/Volumes/Samsung SSD/SyncFile/Aerodynamics/airfoil'),
+)
+for ref in summary["main_wing"]["airfoils"]:
+    print(ref["station_y"], ref["name"])
+PY
+```
+
+預期 `blackcat_004` 主翼是：
+
+- `0.0, 4.5, 7.5, 10.5, 13.5 -> fx76mp140`
+- `16.5 -> clarkysm`
+
+2. 再看 current AVL baseline header / gate area
+
+```bash
+./.venv/bin/python - <<'PY'
+from pathlib import Path
+from hpa_mdo.aero import parse_avl, build_avl_aero_gate_settings
+from hpa_mdo.core import load_config
+
+cfg = load_config(Path('configs/blackcat_004.yaml'))
+avl = Path('data/blackcat_004_full.avl').resolve()
+model = parse_avl(avl)
+gate = build_avl_aero_gate_settings(cfg=cfg, case_avl_path=avl)
+print('sref', model.sref)
+print('cl_required', gate.cl_required)
+print('reference_area_source', gate.reference_area_source)
+PY
+```
+
+目前 `blackcat_004` 預期是：
+
+- `sref = 35.175`
+- `cl_required ≈ 1.07771045`
+- `reference_area_source = generated_avl_sref`
+
+3. 最後再看單點 rerun summary
+
+最少看：
+
+- `case_trim.ft`
+- `dihedral_sweep_summary.json`
+- `case_metadata.json`
+
+如果這三步都對得起來，就不用再先懷疑 parser / builder / gate contract。

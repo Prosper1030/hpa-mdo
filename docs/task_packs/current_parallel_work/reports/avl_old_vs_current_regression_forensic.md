@@ -4,8 +4,30 @@
 > 任務日期：2026-04-19
 > 任務目標：回答「為什麼舊 AVL pass case (`x4.0`, `exp=1.0`) 以前可以過，但現在 repaired AVL-first path 的同名設定會卡 `trim_aoa_exceeds_limit`」
 
+## 0. Post-Fix Update
+
+- **這份報告下面的大部分內容，記錄的是 pre-fix 狀態下的 regression forensic。**
+- 後續已另外修掉三件事：
+  - `blackcat_004` 主翼 airfoil mapping / baseline AVL 與 reference `.vsp3` 對齊
+  - `CL required` 改成使用 generated candidate `case.avl` 的 `Sref`
+  - `lift_total_n` 與 `min_lift_n` 的近等值比較補上數值容差，避免 AVL 輸出四捨五入造成假 `insufficient_lift`
+- 修正後我用同一條 repaired AVL-first 路徑，對 `x4.0 / exp=1.0` 做最小必要 rerun：
+  - output: `/private/tmp/track_z_avl_exp1_x4_postfix_tol_20260419`
+  - `CL required = 1.077710452`
+  - `Alpha = 10.16612 deg`
+  - `L/D = 44.03`
+  - beta / directional / spiral checks: `ok`
+  - structural follow-on: `feasible`
+  - mass: `21.740 kg`
+  - clearance: `58.036 mm`
+  - final reject reason: `none`
+- 也就是說：
+  - **這份報告原本追到的 `trim_aoa_exceeds_limit` regression，如今已在 post-fix rerun 中解除。**
+  - 現在保留這份報告的價值，主要是讓後續知道 pre-fix failure chain 當時到底是怎麼形成的。
+
 ## 1. 結論先講
 
+- 註：本節結論是 **pre-fix** forensic 結論，不代表目前 head 狀態仍然如此。
 - **舊 `x4.0 / exp=1.0` pass case 並不是主要因為 current 幾何 baseline 變差才消失。**
 - 這次 regression 的主因是：
   - **current repaired path 的 `cl_required` 仍然用 `scripts/dihedral_sweep_campaign.py` 內的 trapezoid proxy area**
@@ -43,6 +65,8 @@
 - `/tmp/track_z_avl_exp1_fullgate_20260419/mult_4p000/avl_trim_stdout.log`
 - `/tmp/track_z_avl_exp1_fullgate_20260419/mult_4p000/case_metadata.json`
 - `output/track_u_candidate_avl_smoke_20260419/mult_4p000/case.avl`
+- `/private/tmp/track_z_avl_exp1_x4_postfix_20260419/mult_4p000/case.avl`
+- `/private/tmp/track_z_avl_exp1_x4_postfix_tol_20260419/mult_4p000/case.avl`
 - `docs/task_packs/current_parallel_work/reports/avl_baseline_exponent_rebaseline_report.md`
 
 ### 2.3 code-level formula check
@@ -50,6 +74,21 @@
 - `scripts/dihedral_sweep_campaign.py`
   - `estimate_reference_area(cfg)` uses `0.5 * span * (root_chord + tip_chord)`
   - campaign `cl_required` uses that proxy area, not the AVL case header `Sref`
+
+### 2.4 這次真正的 VSP parser / builder 問題是什麼
+
+- 這次 **不是** `vsp_introspect.summarize_vsp_surfaces()` 把 reference `.vsp3` 的 root / tip 讀反。
+- 針對真實 reference `.vsp3`
+  - `/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only.vsp3`
+  - introspection 讀到的主翼 airfoil 本來就是：
+    - `y = 0.0 ~ 13.5 m`：`fx76mp140`
+    - `y = 16.5 m`：`clarkysm`
+- 真正出問題的是三層 drift 疊在一起：
+  - config `airfoil_root / airfoil_tip` 一度寫反
+  - `data/blackcat_004_full.avl` 的主翼 `AFILE` 一度寫反
+  - `VSPBuilder._extract_reference_wing_schedule()` 一度先用 `_airfoil_for_eta()` 的簡化 fallback seed schedule，再去補 reference VSP airfoils
+- 所以這次更準確的說法不是「VSP parser 讀壞」，而是：
+  - **reference `.vsp3` truth、config defaults、baseline AVL、reference-schedule builder 之間一度不一致。**
 
 ## 3. 舊 pass case 與 current AVL baseline 的幾何差異
 
@@ -71,7 +110,7 @@
 | section count | `7` | `6` | old 有 `y=1.5 m` station；current 改成 VSP-derived 6-station schedule |
 | root chord | `1.39` | `1.30` | 變小 |
 | tip chord | `0.47` | `0.435` | 變小 |
-| airfoil family | all `NACA 2412` | inboard `clarkysm.dat`, outboard `fx76mp140.dat` | current 已不是全翼 `2412` |
+| airfoil family | all `NACA 2412` | inboard / root `fx76mp140.dat`, tip `clarkysm.dat` | current 已不是全翼 `2412`，而且 current reference `.vsp3` 是 root FX / tip Clark Y |
 
 ### 3.2.1 Wing section `Z` 差異
 
