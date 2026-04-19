@@ -18,6 +18,8 @@ For the first version, the mission objective line must support:
 - `max_range`
 - `min_power`
 
+The mission line should also allow a user-specified mission requirement target, even when the ranking objective is still `max_range`.
+
 The first version uses a fake rider power-duration model anchored at:
 
 - `300 W @ 30 min`
@@ -51,6 +53,7 @@ It should not attempt to be a full mission simulator. The intended outcome is:
 
 - each outer-loop candidate receives mission metrics
 - winner selection can switch between `max_range` and `min_power`
+- users can set a mission target distance and see whether a candidate reaches it
 - the same mission layer can later consume real rider data without redesigning the contract
 
 ## First-Version Scope
@@ -181,6 +184,7 @@ This interface should remain stable when real rider data replaces the fake model
 The first version should add a small mission config surface with:
 
 - `objective_mode`
+- `target_range_km`
 - `speed_sweep_min_mps`
 - `speed_sweep_max_mps`
 - `speed_sweep_points`
@@ -191,10 +195,24 @@ The first version should add a small mission config surface with:
 Recommended defaults:
 
 - `objective_mode = max_range`
+- `target_range_km = 42.195`
 - `speed_sweep_min_mps = 6.0`
 - `speed_sweep_max_mps = 10.0`
 - `speed_sweep_points = 9`
 - rider anchor = `300 W @ 30 min`
+
+### Meaning Of `target_range_km`
+
+`target_range_km` is not the same thing as `objective_mode`.
+
+- `objective_mode = max_range` means the system still ranks candidates by how far they can go
+- `target_range_km` means the system also evaluates whether a candidate reaches a specific mission requirement
+
+For this project, the initial target should be:
+
+- `target_range_km = 42.195`
+
+This target should act as a mission requirement / threshold, not as a replacement for the ranking objective.
 
 ## Required Outputs
 
@@ -202,6 +220,9 @@ Each candidate should emit mission fields alongside existing score / gate output
 
 - `mission_objective_mode`
 - `mission_feasible`
+- `target_range_km`
+- `target_range_passed`
+- `target_range_margin_m`
 - `best_range_m`
 - `best_range_speed_mps`
 - `best_endurance_s`
@@ -220,6 +241,12 @@ These fields should appear in:
 - campaign / feasibility report tables
 
 The key requirement is that mission scoring must be auditable, not hidden inside a derived scalar.
+
+For the first version, candidate summaries must make it obvious whether the design:
+
+- achieves the best computed range among the compared candidates
+- reaches the required `42.195 km` mission target
+- misses the target and by how much
 
 ## Scoring Contract
 
@@ -249,6 +276,14 @@ Recommended priority order for first version:
 3. existing realizability score as tie-break
 
 This should be documented explicitly so users know whether a winner was chosen for mission value or for structural conservatism.
+
+The target-range requirement should be treated as an explicit reported requirement check.
+
+Recommended first-version behavior:
+
+- ranking still follows `objective_mode`
+- `target_range_passed` is surfaced alongside ranking
+- downstream winner evidence should state whether the selected winner clears `42.195 km`
 
 ## Future Interfaces
 
