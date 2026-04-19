@@ -1,0 +1,16 @@
+PLOP
+G F
+
+LOAD data/airfoils/fx76mp140.dat
+PANE
+OPER
+VISC 410000
+ITER 250
+PACC
+
+
+ASEQ -4 14 0.5
+PWRT
+docs/research/xfoil_fx76mp140_re410000/fx76mp140_re410000.polar
+
+QUIT
