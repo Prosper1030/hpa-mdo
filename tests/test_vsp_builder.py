@@ -142,7 +142,9 @@ def test_api_build_prefers_reference_vsp_sections_for_cfd_fidelity(tmp_path) -> 
         openvsp.GetGeomName(geom_id): geom_id
         for geom_id in openvsp.FindGeoms()
     }
-    xsec_surf = openvsp.GetXSecSurf(geoms["MainWing"], 0)
+    wing_id = geoms.get("Main Wing", geoms.get("MainWing"))
+    assert wing_id is not None
+    xsec_surf = openvsp.GetXSecSurf(wing_id, 0)
     assert openvsp.GetNumXSec(xsec_surf) == 7
 
     spans = []
@@ -163,6 +165,78 @@ def test_api_build_prefers_reference_vsp_sections_for_cfd_fidelity(tmp_path) -> 
     assert tip_chords == pytest.approx([1.30, 1.30, 1.175, 1.04, 0.83, 0.435])
     assert dihedrals == pytest.approx([1.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     assert 2.0 * sum(areas) == pytest.approx(35.175)
+
+
+def test_api_build_from_reference_vsp_preserves_origin_attitude_and_empennage(tmp_path) -> None:
+    openvsp = pytest.importorskip("openvsp")
+    reference_path = tmp_path / "reference_origin.vsp3"
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+
+    openvsp.ClearVSPModel()
+
+    wing_id = openvsp.AddGeom("WING")
+    openvsp.SetGeomName(wing_id, "Main Wing")
+    openvsp.SetParmVal(openvsp.FindParm(wing_id, "Y_Rel_Rotation", "XForm"), 3.0)
+    wing_surf = openvsp.GetXSecSurf(wing_id, 0)
+    for _ in range(4):
+        openvsp.InsertXSec(wing_id, 1, openvsp.XS_FOUR_SERIES)
+    wing_segments = [
+        (1.30, 1.30, 4.5, 1.0),
+        (1.30, 1.175, 3.0, 2.0),
+        (1.175, 1.04, 3.0, 3.0),
+        (1.04, 0.83, 3.0, 4.0),
+        (0.83, 0.435, 3.0, 5.0),
+    ]
+    for xsec_idx, (root_chord, tip_chord, span, dihedral) in enumerate(wing_segments, start=1):
+        openvsp.SetDriverGroup(
+            wing_id,
+            xsec_idx,
+            openvsp.SPAN_WSECT_DRIVER,
+            openvsp.ROOTC_WSECT_DRIVER,
+            openvsp.TIPC_WSECT_DRIVER,
+        )
+        xs = openvsp.GetXSec(wing_surf, xsec_idx)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Root_Chord"), root_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Tip_Chord"), tip_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Span"), span)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Dihedral"), dihedral)
+
+    elevator_id = openvsp.AddGeom("WING")
+    openvsp.SetGeomName(elevator_id, "Elevator")
+    openvsp.SetParmVal(openvsp.FindParm(elevator_id, "X_Rel_Location", "XForm"), 4.0)
+    openvsp.SetParmVal(openvsp.FindParm(elevator_id, "Sym_Planar_Flag", "Sym"), openvsp.SYM_XZ)
+
+    fin_id = openvsp.AddGeom("WING")
+    openvsp.SetGeomName(fin_id, "Fin")
+    openvsp.SetParmVal(openvsp.FindParm(fin_id, "X_Rel_Location", "XForm"), 5.0)
+    openvsp.SetParmVal(openvsp.FindParm(fin_id, "Z_Rel_Location", "XForm"), -0.7)
+    openvsp.SetParmVal(openvsp.FindParm(fin_id, "X_Rel_Rotation", "XForm"), 90.0)
+
+    settings_id = openvsp.FindContainer("VSPAEROSettings", 0)
+    openvsp.SetParmVal(openvsp.FindParm(settings_id, "Sref", "VSPAERO"), 35.175)
+    openvsp.SetParmVal(openvsp.FindParm(settings_id, "bref", "VSPAERO"), 33.0)
+    openvsp.SetParmVal(openvsp.FindParm(settings_id, "cref", "VSPAERO"), 1.0425)
+    openvsp.Update()
+    openvsp.WriteVSPFile(str(reference_path))
+
+    cfg.io.vsp_model = reference_path
+    built_path = VSPBuilder(cfg).build_vsp3(str(tmp_path / "from_reference.vsp3"))
+
+    openvsp.ClearVSPModel()
+    openvsp.ReadVSPFile(str(built_path))
+    openvsp.Update()
+
+    geoms = {
+        openvsp.GetGeomName(geom_id): geom_id
+        for geom_id in openvsp.FindGeoms()
+    }
+    wing_id = geoms.get("Main Wing", geoms.get("MainWing"))
+    assert wing_id is not None
+    assert openvsp.GetParmVal(openvsp.FindParm(wing_id, "Y_Rel_Rotation", "XForm")) == pytest.approx(3.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(geoms["Elevator"], "X_Rel_Location", "XForm")) == pytest.approx(4.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(geoms["Fin"], "X_Rel_Location", "XForm")) == pytest.approx(5.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(geoms["Fin"], "Z_Rel_Location", "XForm")) == pytest.approx(-0.7)
 
 
 def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_path) -> None:

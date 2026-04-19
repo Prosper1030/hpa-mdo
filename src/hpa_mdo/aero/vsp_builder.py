@@ -218,6 +218,16 @@ class VSPBuilder:
         if "ThinGeomSet" in names:
             vsp.SetIntAnalysisInput(analysis_name, "ThinGeomSet", [thin_geom_set])
 
+    def _reference_vsp_path(self) -> Path | None:
+        """Return the authoritative reference ``.vsp3`` path when available."""
+        candidate = getattr(getattr(self.cfg, "io", None), "vsp_model", None)
+        if candidate is None:
+            return None
+        path = Path(candidate).expanduser()
+        if not path.is_file():
+            return None
+        return path.resolve()
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -359,6 +369,20 @@ class VSPBuilder:
         except ImportError:
             raise RuntimeError("openvsp is not available")
 
+        reference_vsp = self._reference_vsp_path()
+        if reference_vsp is not None:
+            try:
+                return self._build_with_reference_vsp_api(vsp, reference_vsp, output)
+            except Exception:
+                logger.exception(
+                    "Failed to rebuild from reference VSP %s; falling back to config geometry",
+                    reference_vsp,
+                )
+
+        return self._build_with_config_api(vsp, output)
+
+    def _build_with_config_api(self, vsp: Any, output: Path) -> Path:
+        """Build a VSP model from config-only geometry."""
         w = self.cfg.wing
         schedule = self._wing_section_schedule(vsp=vsp)
 
@@ -445,6 +469,87 @@ class VSPBuilder:
             return self._build_vspscript_fallback(script_fb, output)
 
         return output
+
+    def _build_with_reference_vsp_api(self, vsp: Any, reference_vsp: Path, output: Path) -> Path:
+        """Clone the authoritative reference ``.vsp3`` and only retarget the main wing."""
+        vsp.ClearVSPModel()
+        vsp.ReadVSPFile(str(reference_vsp))
+        vsp.Update()
+
+        wing_id = self._find_reference_wing_geom(vsp)
+        if wing_id is None:
+            raise RuntimeError(f"No main wing found in reference VSP: {reference_vsp}")
+
+        schedule = self._densify_reference_schedule(self._extract_reference_wing_schedule(vsp, wing_id))
+        if len(schedule) < 2:
+            raise RuntimeError(f"Reference VSP wing schedule is too short: {reference_vsp}")
+        schedule = self._apply_dihedral_multiplier_to_schedule(schedule)
+
+        self._retarget_reference_wing_api(vsp, wing_id, schedule)
+        self._apply_vspaero_settings_container_api(vsp)
+        vsp.Update()
+        vsp.WriteVSPFile(str(output))
+        logger.info(
+            "Wrote .vsp3 via API from reference origin: %s (wing from %s)",
+            output,
+            reference_vsp,
+        )
+        return output
+
+    def _retarget_reference_wing_api(
+        self,
+        vsp: Any,
+        wing_id: str,
+        schedule: List[Dict[str, Any]],
+    ) -> None:
+        """Apply the requested wing station schedule onto a loaded reference VSP wing."""
+        w = self.cfg.wing
+        xsec_surf = vsp.GetXSecSurf(wing_id, 0)
+        target_xsecs = len(schedule)
+        current_xsecs = int(vsp.GetNumXSec(xsec_surf))
+
+        while current_xsecs < target_xsecs:
+            vsp.InsertXSec(wing_id, 1, vsp.XS_FOUR_SERIES)
+            current_xsecs += 1
+        while current_xsecs > target_xsecs:
+            vsp.CutXSec(wing_id, current_xsecs - 1)
+            current_xsecs -= 1
+        vsp.Update()
+        xsec_surf = vsp.GetXSecSurf(wing_id, 0)
+
+        self._assign_airfoil_api(vsp, xsec_surf, 0, schedule[0]["airfoil"])
+        for seg_idx in range(len(schedule) - 1):
+            outboard_xsec_idx = seg_idx + 1
+            inboard = schedule[seg_idx]
+            outboard = schedule[seg_idx + 1]
+            seg_span = float(outboard["y"]) - float(inboard["y"])
+            xs = vsp.GetXSec(xsec_surf, outboard_xsec_idx)
+            vsp.SetDriverGroup(
+                wing_id,
+                outboard_xsec_idx,
+                vsp.SPAN_WSECT_DRIVER,
+                vsp.ROOTC_WSECT_DRIVER,
+                vsp.TIPC_WSECT_DRIVER,
+            )
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Root_Chord"), float(inboard["chord"]))
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Tip_Chord"), float(outboard["chord"]))
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Span"), seg_span)
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Sweep"), 0.0)
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Sweep_Location"), w.spar_location_xc)
+            local_dih = float(
+                outboard.get(
+                    "segment_dihedral_deg",
+                    0.5 * (float(inboard["dihedral_deg"]) + float(outboard["dihedral_deg"])),
+                )
+            )
+            vsp.SetParmVal(vsp.GetXSecParm(xs, "Dihedral"), local_dih)
+            vsp.Update()
+            self._assign_airfoil_api(vsp, xsec_surf, outboard_xsec_idx, outboard["airfoil"])
+
+        logger.info(
+            "Reference main wing retargeted: %d stations, preserving origin empennage/attitude",
+            len(schedule),
+        )
 
     def _add_lifting_surface_api(self, vsp: Any, surface: LiftingSurfaceConfig) -> None:
         """Add a simple OpenVSP wing-like lifting surface from config."""
