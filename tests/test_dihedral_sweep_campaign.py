@@ -7,6 +7,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
+from types import SimpleNamespace
 from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +50,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         mission_objective_mode: str | None = None,
         mission_score: float | None = None,
         beta_pass: bool = True,
-    ) -> SweepResult:
+        ) -> SweepResult:
         return SweepResult(
             dihedral_multiplier=multiplier,
             dihedral_exponent=1.0,
@@ -101,6 +103,21 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             mission_objective_mode=mission_objective_mode,
             mission_score=mission_score,
             aero_source_mode="origin_vsp_fixed_alpha_corrector",
+        )
+
+    def _make_campaign_cfg(self) -> SimpleNamespace:
+        return SimpleNamespace(
+            flight=SimpleNamespace(velocity=8.5, air_density=1.225),
+            mission=SimpleNamespace(
+                objective_mode="max_range",
+                target_range_km=42.195,
+                speed_sweep_min_mps=6.0,
+                speed_sweep_max_mps=10.0,
+                speed_sweep_points=5,
+                rider_model="fake_anchor_curve",
+                anchor_power_w=300.0,
+                anchor_duration_min=30.0,
+            ),
         )
 
     def test_scale_avl_dihedral_text_applies_progressive_scaling_only_to_wing_surface(self) -> None:
@@ -341,6 +358,107 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertEqual(row.structure_status, "structural_failed")
         self.assertEqual(row.error_message, "inverse-design subprocess failed")
 
+    def test_build_result_row_computes_mission_snapshot_when_refresh_summary_lacks_mission(self) -> None:
+        cfg = self._make_campaign_cfg()
+        avl_eval = AvlEvaluation(
+            avl_case_path="/tmp/case.avl",
+            mode_file_path=None,
+            stdout_log_path=None,
+            dutch_roll_found=True,
+            dutch_roll_selection="oscillatory_lateral_mode",
+            dutch_roll_real=-0.1,
+            dutch_roll_imag=0.6,
+            aero_status="stable",
+            aero_feasible=True,
+            eigenvalue_count=4,
+        )
+        summary_payload = {
+            "generated_at": "2026-04-20T12:00:00+08:00",
+            "config": "/tmp/config.yaml",
+            "design_report": "/tmp/design_report.txt",
+            "cruise_aoa_deg": 4.5,
+            "refinement_definition": {
+                "target_loaded_shape": "current VSP / structural cruise geometry on main and rear spar beam nodes",
+                "refresh_steps_completed": 3,
+                "converged": True,
+            },
+            "map_config": {
+                "main_plateau_scale_upper": 1.0,
+                "main_taper_fill_upper": 1.0,
+                "rear_radius_scale_upper": 1.0,
+                "delta_t_global_max_m": 0.01,
+                "delta_t_rear_outboard_max_m": 0.01,
+            },
+            "aero_contract": {
+                "source_mode": "legacy_refresh",
+                "baseline_load_source": "legacy_refresh",
+                "refresh_load_source": "legacy_refresh",
+                "load_ownership": "legacy_refresh",
+                "artifact_ownership": "legacy_refresh",
+                "selected_cruise_aoa_deg": 4.5,
+            },
+            "ground_clearance_recovery": None,
+            "manufacturing_limits": {
+                "source": "legacy",
+                "max_jig_vertical_prebend_m": None,
+                "max_jig_vertical_curvature_per_m": None,
+            },
+            "iterations": [
+                {
+                    "selected": {
+                        "overall_feasible": True,
+                        "total_structural_mass_kg": 18.4,
+                        "jig_ground_clearance_min_m": 0.051,
+                        "equivalent_failure_index": -0.2,
+                        "equivalent_buckling_index": -0.1,
+                        "objective_value_kg": 18.4,
+                        "target_shape_error_max_m": 0.008,
+                        "tube_mass_kg": 6.7,
+                    }
+                }
+            ],
+            "artifacts": {},
+        }
+
+        row = _build_result_row(
+            multiplier=1.5,
+            dihedral_exponent=1.0,
+            avl_eval=avl_eval,
+            aero_perf_eval=AeroPerformanceEvaluation(
+                cl_trim=1.24,
+                cd_induced=0.017,
+                cd_total_est=0.027,
+                ld_ratio=45.9,
+                aoa_trim_deg=11.0,
+                span_efficiency=0.64,
+                lift_total_n=981.0,
+                aero_power_w=138.9,
+                aero_performance_feasible=True,
+                aero_performance_reason="ok",
+            ),
+            beta_eval=None,
+            control_eval=None,
+            summary_payload=summary_payload,
+            selected_output_dir="/tmp/inverse",
+            summary_json_path="/tmp/inverse/summary.json",
+            error_message=None,
+            cfg=cfg,
+        )
+
+        self.assertEqual(row.mission_objective_mode, "max_range")
+        self.assertTrue(row.mission_feasible)
+        self.assertEqual(row.target_range_km, 42.195)
+        self.assertTrue(row.target_range_passed)
+        self.assertIsNotNone(row.target_range_margin_m)
+        self.assertIsNotNone(row.best_range_m)
+        self.assertIsNotNone(row.best_range_speed_mps)
+        self.assertIsNotNone(row.best_endurance_s)
+        self.assertIsNotNone(row.min_power_w)
+        self.assertIsNotNone(row.min_power_speed_mps)
+        self.assertIsNotNone(row.mission_score)
+        self.assertEqual(row.pilot_power_model, "fake_anchor_curve")
+        self.assertEqual(row.mission_score_reason, "maximize_range")
+
     def test_build_result_row_preserves_mission_fields_from_summary_payload(self) -> None:
         avl_eval = AvlEvaluation(
             avl_case_path="/tmp/case.avl",
@@ -465,6 +583,44 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertEqual(
             next(row for row in annotated if row.dihedral_multiplier == 3.0).reject_reason,
             "structural:tube_mass_exceeds_limit",
+        )
+
+    def test_campaign_selection_respects_reject_tier_before_mission_score_magnitude(self) -> None:
+        severe_reject = self._make_campaign_row(
+            multiplier=1.0,
+            objective_value_kg=5.0,
+            mission_objective_mode="max_range",
+            mission_score=-1000000.0,
+        )
+        severe_reject = replace(
+            severe_reject,
+            aero_status="unstable",
+        )
+        less_severe_reject = self._make_campaign_row(
+            multiplier=2.0,
+            objective_value_kg=500.0,
+            mission_objective_mode="max_range",
+            mission_score=-100.0,
+        )
+        less_severe_reject = replace(
+            less_severe_reject,
+            structure_status="infeasible",
+            structural_reject_reason="inverse_design_infeasible",
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [severe_reject, less_severe_reject],
+            mission_objective_mode="max_range",
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "nearest_candidate")
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "rejected",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
+            "nearest_candidate",
         )
 
     def test_campaign_selection_falls_back_to_objective_value_when_mission_data_is_absent(self) -> None:

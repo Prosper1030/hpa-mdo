@@ -31,6 +31,7 @@ from hpa_mdo.aero import (
     stage_avl_airfoil_files,
     write_candidate_avl_spanwise_artifact,
 )
+from hpa_mdo.mission import FakeAnchorCurve, MissionEvaluationInputs, evaluate_mission_objective
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -1602,25 +1603,26 @@ def _extract_aero_contract_snapshot(summary_payload: dict[str, object]) -> dict[
     }
 
 
-def _mission_snapshot_from_summary(summary_payload: dict[str, object] | None) -> dict[str, object]:
-    mission = None if summary_payload is None else summary_payload.get("mission")
-    if not isinstance(mission, dict):
-        return {
-            "mission_objective_mode": None,
-            "mission_feasible": None,
-            "target_range_km": None,
-            "target_range_passed": None,
-            "target_range_margin_m": None,
-            "best_range_m": None,
-            "best_range_speed_mps": None,
-            "best_endurance_s": None,
-            "min_power_w": None,
-            "min_power_speed_mps": None,
-            "mission_score": None,
-            "mission_score_reason": None,
-            "pilot_power_model": None,
-            "pilot_power_anchor": None,
-        }
+def _empty_mission_snapshot() -> dict[str, object]:
+    return {
+        "mission_objective_mode": None,
+        "mission_feasible": None,
+        "target_range_km": None,
+        "target_range_passed": None,
+        "target_range_margin_m": None,
+        "best_range_m": None,
+        "best_range_speed_mps": None,
+        "best_endurance_s": None,
+        "min_power_w": None,
+        "min_power_speed_mps": None,
+        "mission_score": None,
+        "mission_score_reason": None,
+        "pilot_power_model": None,
+        "pilot_power_anchor": None,
+    }
+
+
+def _mission_snapshot_from_payload(mission: dict[str, object]) -> dict[str, object]:
     return {
         "mission_objective_mode": (
             None if mission.get("mission_objective_mode") is None else str(mission["mission_objective_mode"])
@@ -1661,6 +1663,146 @@ def _mission_snapshot_from_summary(summary_payload: dict[str, object] | None) ->
     }
 
 
+def _build_campaign_mission_snapshot(
+    *,
+    cfg: object,
+    aero_perf_eval: AeroPerformanceEvaluation,
+) -> dict[str, object]:
+    flight_cfg = getattr(cfg, "flight", None)
+    mission_cfg = getattr(cfg, "mission", None)
+    if flight_cfg is None or mission_cfg is None:
+        return _empty_mission_snapshot()
+
+    ref_speed_mps = getattr(flight_cfg, "velocity", None)
+    ref_power_w = aero_perf_eval.aero_power_w
+    target_range_km = getattr(mission_cfg, "target_range_km", None)
+    objective_mode = getattr(mission_cfg, "objective_mode", None)
+    rider_model = getattr(mission_cfg, "rider_model", None)
+    if rider_model != "fake_anchor_curve":
+        return _empty_mission_snapshot()
+    if not (
+        isinstance(ref_speed_mps, (int, float))
+        and math.isfinite(float(ref_speed_mps))
+        and float(ref_speed_mps) > 0.0
+        and isinstance(ref_power_w, (int, float))
+        and math.isfinite(float(ref_power_w))
+        and float(ref_power_w) > 0.0
+        and isinstance(target_range_km, (int, float))
+        and math.isfinite(float(target_range_km))
+        and float(target_range_km) > 0.0
+        and objective_mode in {"max_range", "min_power"}
+    ):
+        return _empty_mission_snapshot()
+
+    min_speed = getattr(mission_cfg, "speed_sweep_min_mps", None)
+    max_speed = getattr(mission_cfg, "speed_sweep_max_mps", None)
+    points = getattr(mission_cfg, "speed_sweep_points", None)
+    anchor_power_w = getattr(mission_cfg, "anchor_power_w", None)
+    anchor_duration_min = getattr(mission_cfg, "anchor_duration_min", None)
+    if not (
+        isinstance(min_speed, (int, float))
+        and isinstance(max_speed, (int, float))
+        and isinstance(points, int)
+        and math.isfinite(float(min_speed))
+        and math.isfinite(float(max_speed))
+        and math.isfinite(float(points))
+        and float(min_speed) > 0.0
+        and float(max_speed) > float(min_speed)
+        and points >= 2
+        and isinstance(anchor_power_w, (int, float))
+        and math.isfinite(float(anchor_power_w))
+        and float(anchor_power_w) > 0.0
+        and isinstance(anchor_duration_min, (int, float))
+        and math.isfinite(float(anchor_duration_min))
+        and float(anchor_duration_min) > 0.0
+    ):
+        return _empty_mission_snapshot()
+
+    speeds_mps = tuple(
+        float(min_speed) + (float(max_speed) - float(min_speed)) * idx / (points - 1)
+        for idx in range(points)
+    )
+    reference_power_w = float(ref_power_w)
+    reference_speed_mps = float(ref_speed_mps)
+    power_required_w: list[float]
+    cd_total_est = aero_perf_eval.cd_total_est
+    cd_induced = aero_perf_eval.cd_induced
+    if (
+        isinstance(cd_total_est, (int, float))
+        and isinstance(cd_induced, (int, float))
+        and math.isfinite(float(cd_total_est))
+        and math.isfinite(float(cd_induced))
+        and float(cd_total_est) > 0.0
+        and float(cd_induced) >= 0.0
+    ):
+        cd_profile = max(float(cd_total_est) - float(cd_induced), 0.0)
+        total_split = float(cd_induced) + cd_profile
+        if total_split > 0.0:
+            induced_ref_power = reference_power_w * (float(cd_induced) / total_split)
+            profile_ref_power = reference_power_w * (cd_profile / total_split)
+            power_required_w = [
+                induced_ref_power * (reference_speed_mps / speed_mps)
+                + profile_ref_power * (speed_mps / reference_speed_mps) ** 3
+                for speed_mps in speeds_mps
+            ]
+        else:
+            power_required_w = [
+                reference_power_w * (speed_mps / reference_speed_mps) ** 3
+                for speed_mps in speeds_mps
+            ]
+    else:
+        power_required_w = [
+            reference_power_w * (speed_mps / reference_speed_mps) ** 3 for speed_mps in speeds_mps
+        ]
+
+    try:
+        mission_result = evaluate_mission_objective(
+            MissionEvaluationInputs(
+                objective_mode=str(objective_mode),
+                target_range_km=float(target_range_km),
+                speed_mps=speeds_mps,
+                power_required_w=tuple(float(value) for value in power_required_w),
+                rider_curve=FakeAnchorCurve(
+                    anchor_power_w=float(anchor_power_w),
+                    anchor_duration_min=float(anchor_duration_min),
+                ),
+            )
+        )
+    except Exception:
+        return _empty_mission_snapshot()
+
+    return {
+        "mission_objective_mode": mission_result.mission_objective_mode,
+        "mission_feasible": mission_result.mission_feasible,
+        "target_range_km": mission_result.target_range_km,
+        "target_range_passed": mission_result.target_range_passed,
+        "target_range_margin_m": mission_result.target_range_margin_m,
+        "best_range_m": mission_result.best_range_m,
+        "best_range_speed_mps": mission_result.best_range_speed_mps,
+        "best_endurance_s": mission_result.best_endurance_s,
+        "min_power_w": mission_result.min_power_w,
+        "min_power_speed_mps": mission_result.min_power_speed_mps,
+        "mission_score": mission_result.mission_score,
+        "mission_score_reason": mission_result.mission_score_reason,
+        "pilot_power_model": mission_result.pilot_power_model,
+        "pilot_power_anchor": mission_result.pilot_power_anchor,
+    }
+
+
+def _mission_snapshot_from_summary(
+    summary_payload: dict[str, object] | None,
+    *,
+    cfg: object | None = None,
+    aero_perf_eval: AeroPerformanceEvaluation | None = None,
+) -> dict[str, object]:
+    mission = None if summary_payload is None else summary_payload.get("mission")
+    if isinstance(mission, dict):
+        return _mission_snapshot_from_payload(mission)
+    if cfg is None or aero_perf_eval is None:
+        return _empty_mission_snapshot()
+    return _build_campaign_mission_snapshot(cfg=cfg, aero_perf_eval=aero_perf_eval)
+
+
 def _structural_reject_reason(selected: dict[str, object]) -> str:
     failures = selected.get("failures") or []
     if isinstance(failures, list) and failures:
@@ -1683,6 +1825,7 @@ def _build_result_row(
     selected_output_dir: str | None,
     summary_json_path: str | None,
     error_message: str | None,
+    cfg: object | None = None,
 ) -> SweepResult:
     if summary_payload is None:
         structure_status = "structural_failed" if error_message else "skipped"
@@ -1735,7 +1878,7 @@ def _build_result_row(
             summary_json_path=summary_json_path,
             wire_rigging_json_path=None,
             error_message=error_message,
-            **_mission_snapshot_from_summary(None),
+            **_mission_snapshot_from_summary(None, cfg=cfg, aero_perf_eval=aero_perf_eval),
         )
 
     iterations = summary_payload["iterations"]
@@ -1743,7 +1886,11 @@ def _build_result_row(
     selected = final["selected"]
     wire_tension_n, wire_margin_n, wire_json_path = _extract_wire_metrics(summary_payload)
     aero_snapshot = _extract_aero_contract_snapshot(summary_payload)
-    mission_snapshot = _mission_snapshot_from_summary(summary_payload)
+    mission_snapshot = _mission_snapshot_from_summary(
+        summary_payload,
+        cfg=cfg,
+        aero_perf_eval=aero_perf_eval,
+    )
     return SweepResult(
         dihedral_multiplier=float(multiplier),
         dihedral_exponent=float(dihedral_exponent),
@@ -1957,10 +2104,10 @@ def _campaign_base_score(
 
 def _campaign_score_formula_label(mission_objective_mode: str | None) -> str:
     if mission_objective_mode is None:
-        return "objective_value_kg + gate penalty"
+        return "rank by gate tier, then objective_value_kg; candidate_score = objective_value_kg + gate penalty"
     return (
-        f"mission_score ({mission_objective_mode}) + gate penalty "
-        "(fallback to objective_value_kg when mission data is absent)"
+        f"rank by gate tier, then mission_score ({mission_objective_mode}) "
+        "if available else objective_value_kg; candidate_score = base score + gate penalty"
     )
 
 
@@ -1986,6 +2133,27 @@ def _build_campaign_winner_evidence(row: SweepResult, *, passing_pool_exists: bo
         f"{prefix}; score={row.candidate_score:.3f}, "
         f"mass={mass_text}, mismatch={mismatch_text}, clearance={clearance_text}, "
         f"aero source={_aero_source_label(row.aero_source_mode)}{mission_text}"
+    )
+
+
+def _campaign_selection_key(
+    row: SweepResult,
+    *,
+    mission_objective_mode: str | None,
+) -> tuple[float, float, float, float, float]:
+    return (
+        _campaign_gate_penalty_kg(row.reject_reason),
+        _campaign_base_score(
+            row,
+            mission_objective_mode=mission_objective_mode,
+        ),
+        float(row.objective_value_kg if row.objective_value_kg is not None else float("inf")),
+        float(row.total_mass_kg if row.total_mass_kg is not None else float("inf")),
+        float(
+            row.realizable_mismatch_max_mm
+            if row.realizable_mismatch_max_mm is not None
+            else float("inf")
+        ),
     )
 
 
@@ -2028,11 +2196,9 @@ def _annotate_campaign_selection(
     winner_pool = passing_rows if passing_rows else scored_rows
     winner = min(
         winner_pool,
-        key=lambda row: (
-            float(row.candidate_score if row.candidate_score is not None else float("inf")),
-            float(row.objective_value_kg if row.objective_value_kg is not None else float("inf")),
-            float(row.total_mass_kg if row.total_mass_kg is not None else float("inf")),
-            float(row.realizable_mismatch_max_mm if row.realizable_mismatch_max_mm is not None else float("inf")),
+        key=lambda row: _campaign_selection_key(
+            row,
+            mission_objective_mode=effective_mission_objective_mode,
         ),
     )
 
@@ -3087,6 +3253,7 @@ def main(argv: list[str] | None = None) -> int:
             selected_output_dir=selected_output_dir,
             summary_json_path=summary_json_path,
             error_message=inverse_error_message,
+            cfg=cfg,
         )
 
     rows = [_run_multiplier_case(float(multiplier)) for multiplier in multipliers]
