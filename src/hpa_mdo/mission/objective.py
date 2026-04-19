@@ -84,6 +84,7 @@ def evaluate_mission_objective(
     best_index = max(range(len(ranges_m)), key=ranges_m.__getitem__)
     min_power_index = min(range(len(inputs.power_required_w)), key=inputs.power_required_w.__getitem__)
     best_range_m = ranges_m[best_index]
+    best_endurance_s = max(endurance_s)
     target_range_m = inputs.target_range_km * 1000.0
     min_power_w = inputs.power_required_w[min_power_index]
 
@@ -104,7 +105,7 @@ def evaluate_mission_objective(
         target_range_margin_m=best_range_m - target_range_m,
         best_range_m=best_range_m,
         best_range_speed_mps=inputs.speed_mps[best_index],
-        best_endurance_s=endurance_s[best_index],
+        best_endurance_s=best_endurance_s,
         min_power_w=min_power_w,
         min_power_speed_mps=inputs.speed_mps[min_power_index],
         mission_score=mission_score,

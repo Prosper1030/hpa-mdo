@@ -81,6 +81,36 @@ def test_evaluate_mission_objective_max_range_reports_best_range_and_margin():
     assert result.speed_sweep_window_mps == (10.0, 14.0)
 
 
+def test_evaluate_mission_objective_reports_true_best_endurance():
+    curve = FakeAnchorCurve(
+        anchor_power_w=300.0,
+        anchor_duration_min=30.0,
+        exponent=1.0,
+    )
+    inputs = MissionEvaluationInputs(
+        objective_mode="max_range",
+        target_range_km=20.0,
+        speed_mps=(8.0, 12.0, 16.0),
+        power_required_w=(200.0, 180.0, 190.0),
+        rider_curve=curve,
+    )
+
+    result = evaluate_mission_objective(inputs)
+    expected_durations_s = [
+        curve.duration_at_power_w(power) * 60.0
+        for power in inputs.power_required_w
+    ]
+    best_range_index = max(
+        range(len(inputs.speed_mps)),
+        key=lambda index: inputs.speed_mps[index] * expected_durations_s[index],
+    )
+
+    assert best_range_index != expected_durations_s.index(max(expected_durations_s))
+    assert result.best_range_speed_mps == pytest.approx(inputs.speed_mps[best_range_index])
+    assert result.best_endurance_s == pytest.approx(max(expected_durations_s))
+    assert result.best_endurance_s != pytest.approx(expected_durations_s[best_range_index])
+
+
 def test_evaluate_mission_objective_min_power_reports_min_power_metrics():
     curve = FakeAnchorCurve(
         anchor_power_w=300.0,
