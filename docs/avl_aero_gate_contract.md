@@ -454,3 +454,174 @@ rg -n "Airfoil file not found|Using default zero-camber airfoil" /path/to/mult_4
 - `case_metadata.json`
 
 如果這三步都對得起來，就不用再先懷疑 parser / builder / gate contract。
+
+## 13. 新增的 fixed-alpha hybrid screening mode
+
+現在 coarse screening 多了一條明確的新路徑：
+
+- `origin_vsp_fixed_alpha_corrector`
+
+它的定位不是取代 AVL，也不是取代 finalist 的 VSPAERO panel confirm。
+它的目的是：
+
+- 用 origin `.vsp3` 跑一次 **fixed design alpha** 的 VSPAERO panel baseline
+- 不為每個 dihedral candidate 重建 VSP 實體
+- 直接用數學修正器估新的半翼載荷分佈
+- 讓 jig shape / 結構主線可以先往下走
+
+## 13.1 這條 mode 的角色分工
+
+這條 mode 現在的分工是：
+
+1. origin geometry truth
+   - 一律用 [blackcat_004_origin.vsp3](/Volumes/Samsung%20SSD/hpa-mdo/data/blackcat_004_origin.vsp3)
+2. baseline load owner
+   - VSPAERO `panel`，固定 design alpha
+3. candidate aerodynamic load owner
+   - 不重建 candidate VSP
+   - 改用 dihedral corrector 直接修正 origin baseline 的 `lift_per_span`
+4. stability gate
+   - 仍然由 AVL 快速做 Dutch roll / beta / spiral 類檢查
+5. finalist confirm
+   - shortlist 之後再走 candidate-owned VSP / VSPAERO rerun
+
+所以這條 mode 的正確理解是：
+
+- `VSPAERO panel` 給 baseline truth
+- `dihedral corrector` 給 coarse structural loads
+- `AVL` 給快速穩定性
+
+不是：
+
+- 用 AVL 直接給最終 drag truth
+- 或讓每個 candidate 都先重建一份 VSP 幾何
+
+## 13.2 這條 mode 的數學 contract
+
+目前這個 corrector 在固定 design alpha 下，只做一階的上反角垂直載荷修正：
+
+`q_new(y) = q_origin(y) * [cos(gamma_new(y)) / cos(gamma_origin(y))]^2`
+
+其中：
+
+- `q_origin(y)` 來自 origin `.vsp3` 的 fixed-alpha panel baseline
+- `gamma_origin(y)` 來自 origin baseline AVL 的主翼 section / segment slope
+- `gamma_new(y)` 來自 candidate AVL 的主翼 section / segment slope
+
+目前這條 contract **只修正**：
+
+- `lift_per_span`
+- 對應的 `cl`
+
+目前這條 contract **不重新估**：
+
+- `drag_per_span`
+- `cd`
+- `cm`
+
+這三個量暫時保留在 origin fixed-alpha baseline 的 owner 上。
+
+所以它的工程定位很清楚：
+
+- 適合 jig shape / 結構載荷粗篩
+- 不適合當 final drag / L/D truth
+
+## 13.3 fixed alpha 的意思
+
+這條 mode 的核心前提是：
+
+- **design alpha 固定**
+- **不反解 `L=W`**
+
+也就是說，這裡的 pass / fail 條件不是：
+
+- 為了撐起 `W`，candidate 最後 trim 到幾度
+
+而是：
+
+- 在你指定的 fixed design alpha 下
+- 經過 dihedral corrector 後
+- `total_lift >= W` 就算過
+
+repo 目前預設的 CLI 入口是：
+
+- `--fixed-design-alpha-deg 0.0`
+
+但真正重點不是這個預設值，而是：
+
+- 這條 mode 的 alpha 是使用者明確指定的設計條件
+- 不是 outer loop 自己再去動它
+
+## 13.4 和 `candidate_avl_spanwise` 的差異
+
+`candidate_avl_spanwise`：
+
+- 仍然是 AVL trim / outer-loop gate owner
+- 需要 candidate-owned AVL AoA sweep
+- `selected_cruise_aoa_deg` 仍然代表 outer-loop 選到的 load state
+
+`origin_vsp_fixed_alpha_corrector`：
+
+- 不解 outer-loop trim alpha
+- `selected_cruise_aoa_deg` 只是沿用既有欄位名，實際上代表 **fixed design alpha**
+- 只持有一個 fixed-alpha corrected load state
+
+所以之後如果看到 summary / JSON 裡面：
+
+- `source_mode = origin_vsp_fixed_alpha_corrector`
+
+就要直接理解成：
+
+- 這不是 trim-selected cruise AoA
+- 這是 fixed design alpha contract
+
+## 14. 這條 mode 目前的限制
+
+這條 mode 故意保持保守：
+
+1. 它是 screening surrogate，不是 final aerodynamic truth
+2. 它只把 dihedral 對垂直升力的第一階影響帶進來
+3. 它不會自動把 profile drag / viscous drag / trim drag 補真
+4. 它不會為每個 candidate 解新的 VSPAERO alpha-CL
+
+另外，因為這條 mode 本來就只有單一 fixed-alpha case，
+direct inverse design 裡的 lightweight refresh 現在會進入：
+
+- `single-case frozen refresh`
+
+也就是：
+
+- refresh step 仍可跑
+- 但不再要求至少兩個 AoA case 做插值
+- structural twist 也不會再把 alpha 當成自由度去回推新的 aero state
+
+這是故意的，因為它比較符合這條 mode 的 fixed-alpha contract。
+
+## 15. 實務上什麼時候用哪條線
+
+如果你的目標是：
+
+- 快速看上反角改動後，jig shape / 結構還有沒有戲
+- 不想每個 candidate 都先重建 VSP
+
+優先考慮：
+
+- `origin_vsp_fixed_alpha_corrector`
+
+如果你的目標是：
+
+- 真的要看 candidate-owned geometry 在 VSPAERO 下的 aero case
+- 要做 shortlist / finalist confirm
+
+優先考慮：
+
+- `candidate_rerun_vspaero`
+
+如果你的目標是：
+
+- 只想快速看 candidate 的 AVL spanwise lift shape 怎麼變
+- 並且接受它還是跟 AVL trim / gate 綁在一起
+
+可以考慮：
+
+- `candidate_avl_spanwise`
