@@ -1517,7 +1517,12 @@ class CandidateAeroContractTests(unittest.TestCase):
             wing=SimpleNamespace(y=np.array([0.0, 1.0, 2.0], dtype=float)),
             weight_N=220.0,
         )
-        case = self._make_spanwise_case(aoa_deg=12.2, cl_value=1.1)
+        legacy_cases = [
+            self._make_spanwise_case(aoa_deg=10.0, cl_value=1.1),
+            self._make_spanwise_case(aoa_deg=14.0, cl_value=1.4),
+        ]
+        case_lo = self._make_spanwise_case(aoa_deg=12.2, cl_value=0.55)
+        case_hi = self._make_spanwise_case(aoa_deg=16.0, cl_value=1.2)
         with tempfile.TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "candidate_avl_spanwise.json"
             artifact_path.write_text(
@@ -1544,15 +1549,29 @@ class CandidateAeroContractTests(unittest.TestCase):
                                 "aoa_deg": 12.2,
                                 "fs_path": str((Path(tmpdir) / "aoa_12p2.fs").resolve()),
                                 "stdout_log_path": str((Path(tmpdir) / "aoa_12p2.log").resolve()),
-                                "y": case.y.tolist(),
-                                "chord": case.chord.tolist(),
-                                "cl": case.cl.tolist(),
-                                "cd": case.cd.tolist(),
-                                "cm": case.cm.tolist(),
-                                "lift_per_span": case.lift_per_span.tolist(),
-                                "drag_per_span": case.drag_per_span.tolist(),
-                                "velocity_mps": float(case.velocity),
-                                "dynamic_pressure_pa": float(case.dynamic_pressure),
+                                "y": case_lo.y.tolist(),
+                                "chord": case_lo.chord.tolist(),
+                                "cl": case_lo.cl.tolist(),
+                                "cd": case_lo.cd.tolist(),
+                                "cm": case_lo.cm.tolist(),
+                                "lift_per_span": case_lo.lift_per_span.tolist(),
+                                "drag_per_span": case_lo.drag_per_span.tolist(),
+                                "velocity_mps": float(case_lo.velocity),
+                                "dynamic_pressure_pa": float(case_lo.dynamic_pressure),
+                            },
+                            {
+                                "aoa_deg": 16.0,
+                                "fs_path": str((Path(tmpdir) / "aoa_16p0.fs").resolve()),
+                                "stdout_log_path": str((Path(tmpdir) / "aoa_16p0.log").resolve()),
+                                "y": case_hi.y.tolist(),
+                                "chord": case_hi.chord.tolist(),
+                                "cl": case_hi.cl.tolist(),
+                                "cd": case_hi.cd.tolist(),
+                                "cm": case_hi.cm.tolist(),
+                                "lift_per_span": case_hi.lift_per_span.tolist(),
+                                "drag_per_span": case_hi.drag_per_span.tolist(),
+                                "velocity_mps": float(case_hi.velocity),
+                                "dynamic_pressure_pa": float(case_hi.dynamic_pressure),
                             }
                         ],
                     }
@@ -1568,21 +1587,26 @@ class CandidateAeroContractTests(unittest.TestCase):
                 target_shape_z_scale=4.0,
                 dihedral_exponent=2.2,
                 aero_source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                legacy_aero_cases=legacy_cases,
                 candidate_avl_spanwise_loads_json=artifact_path,
             )
 
-        self.assertEqual(len(aero_cases), 1)
-        self.assertAlmostEqual(cruise_case.aoa_deg, 12.2)
+        self.assertEqual(len(aero_cases), 2)
+        self.assertAlmostEqual(cruise_case.aoa_deg, 10.0)
         self.assertAlmostEqual(mapped_loads["total_lift"], 110.0)
+        self.assertAlmostEqual(
+            float(np.trapezoid(np.abs(mapped_loads["torque_per_span"]), mapped_loads["y"])),
+            5.0,
+        )
         self.assertEqual(contract.source_mode, CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE)
-        self.assertIn("Outer-loop AVL trim and aero gates still own the selected candidate state", contract.load_ownership)
+        self.assertIn("legacy_refresh still owns the structural selected load-state", contract.load_ownership)
         self.assertIn("AVL geometry, trim, strip-force, and spanwise-load artifacts", contract.artifact_ownership)
-        self.assertEqual(contract.aoa_sweep_deg, (10.0, 12.2))
+        self.assertEqual(contract.aoa_sweep_deg, (10.0, 14.0))
         self.assertTrue(
-            any("not a new AoA owner" in note for note in contract.notes)
+            any("legacy_refresh owner" in note for note in contract.notes)
         )
         self.assertTrue(
-            any("load-state owner" in note for note in contract.notes)
+            any("shape AoA 16.000 deg" in note for note in contract.notes)
         )
         self.assertTrue(
             str(contract.geometry_artifacts["candidate_avl_spanwise_loads_json"]).endswith(
@@ -1603,6 +1627,10 @@ class CandidateAeroContractTests(unittest.TestCase):
             wing=SimpleNamespace(y=np.array([0.0, 1.0, 2.0], dtype=float)),
             weight_N=220.0,
         )
+        legacy_cases = [
+            self._make_spanwise_case(aoa_deg=10.0, cl_value=1.1),
+            self._make_spanwise_case(aoa_deg=14.0, cl_value=1.4),
+        ]
         case = self._make_spanwise_case(aoa_deg=12.2, cl_value=1.1)
         with tempfile.TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "candidate_avl_spanwise.json"
@@ -1652,10 +1680,11 @@ class CandidateAeroContractTests(unittest.TestCase):
                 target_shape_z_scale=4.25,
                 dihedral_exponent=2.45,
                 aero_source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                legacy_aero_cases=legacy_cases,
                 candidate_avl_spanwise_loads_json=artifact_path,
             )
 
-        self.assertAlmostEqual(cruise_case.aoa_deg, 12.2)
+        self.assertAlmostEqual(cruise_case.aoa_deg, 10.0)
         self.assertTrue(
             any("reuses the original outer-loop-selected AVL spanwise artifact during structural recovery" in note for note in contract.notes)
         )

@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 import sys
 from time import perf_counter
-from typing import Iterable
+from typing import Iterable, Sequence
 
 import numpy as np
 from scipy.optimize import minimize
@@ -1336,6 +1336,109 @@ def _candidate_aoa_sweep_deg(
     return DEFAULT_CANDIDATE_AOA_SWEEP_DEG
 
 
+def _spanwise_load_density_kgpm3(case: SpanwiseLoad) -> float:
+    velocity_mps = float(case.velocity)
+    if abs(velocity_mps) <= 1.0e-12:
+        raise ValueError("SpanwiseLoad velocity must be non-zero to recover density.")
+    return 2.0 * float(case.dynamic_pressure) / velocity_mps**2
+
+
+def _select_candidate_avl_lift_shape_case(
+    *,
+    legacy_case: SpanwiseLoad,
+    candidate_cases: Sequence[SpanwiseLoad],
+) -> SpanwiseLoad:
+    target_half_lift_n = float(legacy_case.total_lift)
+    return min(
+        candidate_cases,
+        key=lambda case: (
+            abs(float(case.total_lift) - target_half_lift_n),
+            abs(float(case.aoa_deg) - float(legacy_case.aoa_deg)),
+        ),
+    )
+
+
+def _build_legacy_aligned_candidate_avl_case(
+    *,
+    legacy_case: SpanwiseLoad,
+    candidate_shape_case: SpanwiseLoad,
+) -> tuple[SpanwiseLoad, dict[str, float | bool]]:
+    legacy_y = np.asarray(legacy_case.y, dtype=float)
+    legacy_chord = np.asarray(legacy_case.chord, dtype=float)
+    legacy_drag = np.asarray(legacy_case.drag_per_span, dtype=float)
+    legacy_cm = np.asarray(legacy_case.cm, dtype=float)
+    legacy_cd = np.asarray(legacy_case.cd, dtype=float)
+    legacy_lift = np.asarray(legacy_case.lift_per_span, dtype=float)
+    legacy_half_lift_n = float(np.trapezoid(legacy_lift, legacy_y))
+
+    mapper = LoadMapper()
+    mapped_shape = mapper.map_loads(
+        candidate_shape_case,
+        legacy_y,
+        actual_velocity=float(legacy_case.velocity),
+        actual_density=_spanwise_load_density_kgpm3(legacy_case),
+    )
+    shape_lift = np.asarray(mapped_shape["lift_per_span"], dtype=float)
+    shape_half_lift_n = float(np.trapezoid(shape_lift, legacy_y))
+
+    used_legacy_fallback = False
+    if abs(shape_half_lift_n) <= 1.0e-9:
+        scaled_lift = legacy_lift.copy()
+        used_legacy_fallback = True
+    else:
+        scaled_lift = shape_lift * (legacy_half_lift_n / shape_half_lift_n)
+
+    dynamic_pressure_pa = float(legacy_case.dynamic_pressure)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        scaled_cl = np.where(
+            legacy_chord > 0.0,
+            scaled_lift / (dynamic_pressure_pa * legacy_chord),
+            0.0,
+        )
+
+    aligned_case = SpanwiseLoad(
+        y=legacy_y.copy(),
+        chord=legacy_chord.copy(),
+        cl=np.asarray(scaled_cl, dtype=float),
+        cd=legacy_cd.copy(),
+        cm=legacy_cm.copy(),
+        lift_per_span=np.asarray(scaled_lift, dtype=float),
+        drag_per_span=legacy_drag.copy(),
+        aoa_deg=float(legacy_case.aoa_deg),
+        velocity=float(legacy_case.velocity),
+        dynamic_pressure=dynamic_pressure_pa,
+    )
+    alignment = {
+        "legacy_selected_aoa_deg": float(legacy_case.aoa_deg),
+        "candidate_shape_aoa_deg": float(candidate_shape_case.aoa_deg),
+        "legacy_half_lift_n": float(legacy_half_lift_n),
+        "candidate_shape_half_lift_n": float(shape_half_lift_n),
+        "used_legacy_lift_fallback": bool(used_legacy_fallback),
+    }
+    return aligned_case, alignment
+
+
+def _build_candidate_avl_structural_cases(
+    *,
+    legacy_cases: Sequence[SpanwiseLoad],
+    candidate_cases: Sequence[SpanwiseLoad],
+) -> tuple[list[SpanwiseLoad], dict[float, dict[str, float | bool]]]:
+    aligned_cases: list[SpanwiseLoad] = []
+    alignment_by_aoa: dict[float, dict[str, float | bool]] = {}
+    for legacy_case in legacy_cases:
+        candidate_shape_case = _select_candidate_avl_lift_shape_case(
+            legacy_case=legacy_case,
+            candidate_cases=candidate_cases,
+        )
+        aligned_case, alignment = _build_legacy_aligned_candidate_avl_case(
+            legacy_case=legacy_case,
+            candidate_shape_case=candidate_shape_case,
+        )
+        aligned_cases.append(aligned_case)
+        alignment_by_aoa[round(float(legacy_case.aoa_deg), 9)] = alignment
+    return aligned_cases, alignment_by_aoa
+
+
 def _resolve_outer_loop_candidate_aero(
     *,
     cfg,
@@ -1404,30 +1507,43 @@ def _resolve_outer_loop_candidate_aero(
             raise ValueError(
                 "candidate_avl_spanwise mode requires --candidate-avl-spanwise-loads-json."
             )
+        if not legacy_aero_cases:
+            raise RuntimeError(
+                "candidate_avl_spanwise mode needs legacy cfg.io VSPAero cases to preserve the old structural load-state owner."
+            )
         artifact_payload, cases = load_candidate_avl_spanwise_artifact(
             candidate_avl_spanwise_loads_json
         )
         if not cases:
             raise RuntimeError("Candidate AVL spanwise artifact produced no load cases.")
-        selected_cruise_aoa_deg = float(
-            artifact_payload.get("selected_cruise_aoa_deg", cases[0].aoa_deg)
+        aligned_cases, alignment_by_aoa = _build_candidate_avl_structural_cases(
+            legacy_cases=list(legacy_aero_cases),
+            candidate_cases=list(cases),
+        )
+        cruise_case, mapped_loads = _select_cruise_case_and_mapped_loads(
+            cfg,
+            aircraft,
+            list(aligned_cases),
+        )
+        selected_cruise_aoa_deg = float(cruise_case.aoa_deg)
+        outer_loop_trim_aoa_deg = float(
+            artifact_payload.get("selected_cruise_aoa_deg", selected_cruise_aoa_deg)
         )
         selected_cruise_aoa_source = str(
             artifact_payload.get("selected_cruise_aoa_source") or "outer_loop_avl_trim"
         )
-        selected_load_state_owner = str(
+        gate_load_state_owner = str(
             artifact_payload.get("selected_load_state_owner") or "outer_loop_avl_trim_and_gates"
         )
-        cruise_case = min(
-            cases,
-            key=lambda case: abs(float(case.aoa_deg) - selected_cruise_aoa_deg),
-        )
-        mapper = LoadMapper()
-        mapped_loads = mapper.map_loads(
-            cruise_case,
-            aircraft.wing.y,
-            actual_velocity=cfg.flight.velocity,
-            actual_density=cfg.flight.air_density,
+        selected_alignment = alignment_by_aoa.get(
+            round(float(selected_cruise_aoa_deg), 9),
+            {
+                "legacy_selected_aoa_deg": float(selected_cruise_aoa_deg),
+                "candidate_shape_aoa_deg": float(selected_cruise_aoa_deg),
+                "legacy_half_lift_n": float(cruise_case.total_lift),
+                "candidate_shape_half_lift_n": float(cruise_case.total_lift),
+                "used_legacy_lift_fallback": False,
+            },
         )
         geometry_artifacts_raw = artifact_payload.get("geometry_artifacts")
         if isinstance(geometry_artifacts_raw, dict):
@@ -1452,15 +1568,37 @@ def _resolve_outer_loop_candidate_aero(
             )
         notes = tuple(str(note) for note in (artifact_payload.get("notes") or ()))
         notes = notes + (
-            "Selected cruise AoA is inherited from the outer-loop AVL trim result; "
-            "candidate_avl_spanwise is not a new AoA owner."
+            "Structural selected state is re-aligned to the old legacy_refresh owner by reusing the shared cfg.io VSPAero sweep selection rule."
+            if legacy_aero_cases
+            else "Structural selected state could not be re-aligned because legacy cfg.io VSPAero data were unavailable.",
+            (
+                "Outer-loop AVL trim / aero gates remain the gate owner, "
+                f"but structural selected state now stays on legacy_refresh AoA {selected_cruise_aoa_deg:.3f} deg "
+                f"instead of the AVL trim-required AoA {outer_loop_trim_aoa_deg:.3f} deg."
+            )
             if selected_cruise_aoa_source == "outer_loop_avl_trim"
             else f"Selected cruise AoA source: {selected_cruise_aoa_source}.",
-            "Outer-loop AVL trim / aero gates remain the candidate load-state owner; "
-            "candidate_avl_spanwise only supplies spanwise lift distribution for that chosen state."
-            if selected_load_state_owner == "outer_loop_avl_trim_and_gates"
-            else f"Selected load-state owner: {selected_load_state_owner}.",
+            (
+                "candidate_avl_spanwise now replaces only the spanwise lift distribution shape; "
+                "drag / torque ownership stay on the legacy-selected structural state."
+            ),
+            (
+                "AVL lift shape for the selected structural state comes from the closest candidate-owned strip-force case "
+                f"by half-span lift (shape AoA {float(selected_alignment['candidate_shape_aoa_deg']):.3f} deg), "
+                "then it is rescaled back to the legacy-selected total lift."
+            ),
+            (
+                "Legacy lift distribution was kept because the chosen AVL lift-shape case collapsed to near-zero total lift."
+            )
+            if bool(selected_alignment["used_legacy_lift_fallback"])
+            else "",
+            (
+                "Outer-loop AVL trim / aero gates remain the candidate gate owner."
+                if gate_load_state_owner == "outer_loop_avl_trim_and_gates"
+                else f"Outer-loop gate owner metadata: {gate_load_state_owner}."
+            ),
         )
+        notes = tuple(note for note in notes if note)
         current_requested_knobs = _requested_outer_loop_knobs(
             target_shape_z_scale=target_shape_z_scale,
             dihedral_exponent=dihedral_exponent,
@@ -1480,27 +1618,24 @@ def _resolve_outer_loop_candidate_aero(
             )
         contract = CandidateAeroContract(
             source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
-            baseline_load_source="candidate_owned_avl_geometry_plus_spanwise_strip_force_sweep",
+            baseline_load_source="legacy_selected_state_plus_candidate_owned_avl_lift_shape_sweep",
             refresh_load_source="candidate_owned_twist_refresh_from_avl_spanwise_sweep",
             load_ownership=(
-                "Outer-loop AVL trim and aero gates still own the selected candidate state; "
-                "candidate_avl_spanwise only replaces the structural load distribution with a "
-                "candidate-owned AVL strip-force AoA sweep for that already-selected state."
+                "legacy_refresh still owns the structural selected load-state; "
+                "candidate_avl_spanwise only swaps in a candidate-owned AVL spanwise lift distribution shape "
+                "for that already-selected state."
             ),
             artifact_ownership=(
                 "Candidate-owned AVL geometry, trim, strip-force, and spanwise-load artifacts "
                 f"live under {geometry_artifacts.get('candidate_output_dir') or Path(candidate_avl_spanwise_loads_json).expanduser().resolve().parent}."
             ),
             requested_knobs=requested_knobs,
-            aoa_sweep_deg=tuple(
-                float(value)
-                for value in (artifact_payload.get("aoa_sweep_deg") or _candidate_aoa_sweep_deg(cases))
-            ),
+            aoa_sweep_deg=_candidate_aoa_sweep_deg(aligned_cases),
             selected_cruise_aoa_deg=float(selected_cruise_aoa_deg),
             geometry_artifacts=geometry_artifacts,
             notes=notes,
         )
-        return list(cases), cruise_case, mapped_loads, contract
+        return list(aligned_cases), cruise_case, mapped_loads, contract
 
     aoa_sweep = list(_candidate_aoa_sweep_deg(legacy_aero_cases))
     rerun_output_dir = (
@@ -1809,7 +1944,7 @@ def _refresh_difference_from_full_coupling(
         )
     elif contract is not None and contract.source_mode == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
         lines.append(
-            "baseline candidate loads are rebuilt once from AVL strip forces, but there is still no per-refresh AVL rerun"
+            "baseline candidate lift shape is rebuilt once from AVL strip forces while torque stays on the legacy-selected state, but there is still no per-refresh AVL rerun"
         )
     else:
         lines.append("no geometry rebuild / CFD rerun between stages")

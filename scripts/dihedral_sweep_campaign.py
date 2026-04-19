@@ -2393,85 +2393,93 @@ def main(argv: list[str] | None = None) -> int:
         summary_json_path: str | None = None
         inverse_error_message: str | None = None
         candidate_avl_spanwise_loads_json: Path | None = None
-        if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible and beta_gate_passed:
-            if str(args.aero_source_mode) == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
-                candidate_trim_eval = trim_eval
-                if candidate_trim_eval is None:
-                    candidate_trim_eval = run_avl_trim_case(
+        candidate_avl_artifact_error: str | None = None
+        if avl_eval.aero_feasible and str(args.aero_source_mode) == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE:
+            candidate_trim_eval = trim_eval
+            if candidate_trim_eval is None:
+                candidate_trim_eval = run_avl_trim_case(
+                    avl_bin=avl_bin,
+                    case_avl_path=case_avl_path,
+                    case_dir=case_dir,
+                    cl_required=cl_required,
+                    output_stem="trim_for_candidate_avl",
+                )
+            if (
+                candidate_trim_eval is None
+                or not candidate_trim_eval.trim_converged
+                or candidate_trim_eval.aoa_trim_deg is None
+            ):
+                candidate_avl_artifact_error = (
+                    "candidate_avl_spanwise requires a converged AVL trim AoA before building spanwise loads."
+                )
+            else:
+                candidate_avl_dir = case_dir / "candidate_avl_spanwise"
+                candidate_avl_dir.mkdir(parents=True, exist_ok=True)
+                aoa_sweep_deg = _build_candidate_avl_aoa_sweep(
+                    trim_aoa_deg=float(candidate_trim_eval.aoa_trim_deg),
+                    seed_values_deg=candidate_avl_aoa_seed,
+                )
+                load_case_specs: list[dict[str, object]] = []
+                skipped_aoa_notes: list[str] = []
+                for aoa_deg in aoa_sweep_deg:
+                    spanwise_case = run_avl_spanwise_load_case(
                         avl_bin=avl_bin,
                         case_avl_path=case_avl_path,
-                        case_dir=case_dir,
-                        cl_required=cl_required,
-                        output_stem="trim_for_candidate_avl",
+                        case_dir=candidate_avl_dir,
+                        alpha_deg=float(aoa_deg),
+                        velocity_mps=float(cfg.flight.velocity),
+                        density_kgpm3=float(cfg.flight.air_density),
+                        output_stem=f"aoa_{_slug(float(aoa_deg))}",
                     )
-                if (
-                    candidate_trim_eval is None
-                    or not candidate_trim_eval.trim_converged
-                    or candidate_trim_eval.aoa_trim_deg is None
-                ):
-                    inverse_error_message = (
-                        "candidate_avl_spanwise requires a converged AVL trim AoA before building spanwise loads."
+                    if not spanwise_case.run_completed or spanwise_case.fs_file_path is None:
+                        skipped_aoa_notes.append(
+                            f"Skipped AoA {float(aoa_deg):.3f} deg because AVL did not emit strip forces ({spanwise_case.run_status})."
+                        )
+                        continue
+                    load_case_specs.append(
+                        {
+                            "aoa_deg": float(aoa_deg),
+                            "fs_path": spanwise_case.fs_file_path,
+                            "stdout_log_path": spanwise_case.stdout_log_path,
+                        }
+                    )
+                if len(load_case_specs) < 2:
+                    candidate_avl_artifact_error = (
+                        "candidate AVL spanwise load extraction produced fewer than 2 usable AoA cases."
                     )
                 else:
-                    candidate_avl_dir = case_dir / "candidate_avl_spanwise"
-                    candidate_avl_dir.mkdir(parents=True, exist_ok=True)
-                    aoa_sweep_deg = _build_candidate_avl_aoa_sweep(
-                        trim_aoa_deg=float(candidate_trim_eval.aoa_trim_deg),
-                        seed_values_deg=candidate_avl_aoa_seed,
+                    candidate_avl_spanwise_loads_json = write_candidate_avl_spanwise_artifact(
+                        candidate_avl_dir / "candidate_avl_spanwise_loads.json",
+                        avl_path=case_avl_path,
+                        candidate_output_dir=candidate_avl_dir,
+                        requested_knobs={
+                            "target_shape_z_scale": float(multiplier),
+                            "dihedral_multiplier": float(multiplier),
+                            "dihedral_exponent": float(dihedral_exponent),
+                        },
+                        selected_cruise_aoa_deg=float(candidate_trim_eval.aoa_trim_deg),
+                        selected_cruise_aoa_source="outer_loop_avl_trim",
+                        selected_load_state_owner="outer_loop_avl_trim_and_gates",
+                        velocity_mps=float(cfg.flight.velocity),
+                        density_kgpm3=float(cfg.flight.air_density),
+                        load_case_specs=load_case_specs,
+                        trim_force_path=candidate_trim_eval.trim_file_path,
+                        trim_stdout_log_path=candidate_trim_eval.stdout_log_path,
+                        source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
+                        notes=(
+                            "Spanwise loads come from AVL strip-force output on the candidate-owned deformed geometry.",
+                            "Root/tip boundary stations are padded from the nearest strip coefficients with AVL geometry chords.",
+                            "Artifact generation is allowed even when aero gates later reject the candidate; this preserves a no-bootstrap compare path without changing gate semantics.",
+                            *tuple(skipped_aoa_notes),
+                        ),
                     )
-                    load_case_specs: list[dict[str, object]] = []
-                    skipped_aoa_notes: list[str] = []
-                    for aoa_deg in aoa_sweep_deg:
-                        spanwise_case = run_avl_spanwise_load_case(
-                            avl_bin=avl_bin,
-                            case_avl_path=case_avl_path,
-                            case_dir=candidate_avl_dir,
-                            alpha_deg=float(aoa_deg),
-                            velocity_mps=float(cfg.flight.velocity),
-                            density_kgpm3=float(cfg.flight.air_density),
-                            output_stem=f"aoa_{_slug(float(aoa_deg))}",
-                        )
-                        if not spanwise_case.run_completed or spanwise_case.fs_file_path is None:
-                            skipped_aoa_notes.append(
-                                f"Skipped AoA {float(aoa_deg):.3f} deg because AVL did not emit strip forces ({spanwise_case.run_status})."
-                            )
-                            continue
-                        load_case_specs.append(
-                            {
-                                "aoa_deg": float(aoa_deg),
-                                "fs_path": spanwise_case.fs_file_path,
-                                "stdout_log_path": spanwise_case.stdout_log_path,
-                            }
-                        )
-                    if len(load_case_specs) < 2:
-                        inverse_error_message = (
-                            "candidate AVL spanwise load extraction produced fewer than 2 usable AoA cases."
-                        )
-                    elif inverse_error_message is None:
-                        candidate_avl_spanwise_loads_json = write_candidate_avl_spanwise_artifact(
-                            candidate_avl_dir / "candidate_avl_spanwise_loads.json",
-                            avl_path=case_avl_path,
-                            candidate_output_dir=candidate_avl_dir,
-                            requested_knobs={
-                                "target_shape_z_scale": float(multiplier),
-                                "dihedral_multiplier": float(multiplier),
-                                "dihedral_exponent": float(dihedral_exponent),
-                            },
-                            selected_cruise_aoa_deg=float(candidate_trim_eval.aoa_trim_deg),
-                            selected_cruise_aoa_source="outer_loop_avl_trim",
-                            selected_load_state_owner="outer_loop_avl_trim_and_gates",
-                            velocity_mps=float(cfg.flight.velocity),
-                            density_kgpm3=float(cfg.flight.air_density),
-                            load_case_specs=load_case_specs,
-                            trim_force_path=candidate_trim_eval.trim_file_path,
-                            trim_stdout_log_path=candidate_trim_eval.stdout_log_path,
-                            source_mode=CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,
-                            notes=(
-                                "Spanwise loads come from AVL strip-force output on the candidate-owned deformed geometry.",
-                                "Root/tip boundary stations are padded from the nearest strip coefficients with AVL geometry chords.",
-                                *tuple(skipped_aoa_notes),
-                            ),
-                        )
+
+        if avl_eval.aero_feasible and aero_perf_eval.aero_performance_feasible and beta_gate_passed:
+            if (
+                str(args.aero_source_mode) == CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE
+                and candidate_avl_artifact_error is not None
+            ):
+                inverse_error_message = candidate_avl_artifact_error
             inverse_output_dir = case_dir / "inverse_design"
             selected_output_dir = str(inverse_output_dir.resolve())
             if inverse_error_message is None:
