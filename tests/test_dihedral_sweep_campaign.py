@@ -786,6 +786,100 @@ class DihedralSweepCampaignTests(unittest.TestCase):
             2.0,
         )
 
+    def test_campaign_selection_ignores_missing_mission_data_on_rejected_rows_when_auto_enabling(self) -> None:
+        slower_mission_row = self._make_campaign_row(
+            multiplier=1.0,
+            objective_value_kg=10.0,
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            target_range_passed=True,
+            mission_score=-200.0,
+            min_power_w=180.0,
+            min_power_speed_mps=7.1,
+        )
+        faster_mission_row = self._make_campaign_row(
+            multiplier=2.0,
+            objective_value_kg=5.0,
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            target_range_passed=True,
+            mission_score=-100.0,
+            min_power_w=181.0,
+            min_power_speed_mps=7.2,
+        )
+        rejected_legacy_row = replace(
+            self._make_campaign_row(
+                multiplier=3.0,
+                objective_value_kg=1.0,
+            ),
+            aero_status="unstable",
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [faster_mission_row, rejected_legacy_row, slower_mission_row],
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "winner")
+        self.assertEqual(winner_summary["mission_objective_mode"], "max_range")
+        self.assertEqual(
+            winner_summary["requested_knobs"]["dihedral_multiplier"],
+            1.0,
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "winner",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 2.0).selection_status,
+            "feasible_runner_up",
+        )
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 3.0).selection_status,
+            "rejected",
+        )
+        self.assertIn("mission=max_range:-200.000", str(winner_summary["winner_evidence"]))
+
+    def test_campaign_selection_blanks_winner_summary_mission_fields_when_mission_mode_is_inactive(self) -> None:
+        mission_row = self._make_campaign_row(
+            multiplier=1.0,
+            objective_value_kg=10.0,
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            target_range_passed=True,
+            mission_score=-500.0,
+            min_power_w=180.0,
+            min_power_speed_mps=7.1,
+        )
+        legacy_row = self._make_campaign_row(
+            multiplier=2.0,
+            objective_value_kg=20.0,
+        )
+
+        annotated, winner_summary = _annotate_campaign_selection(
+            [mission_row, legacy_row],
+        )
+
+        self.assertEqual(winner_summary["selection_status"], "winner")
+        self.assertEqual(
+            next(row for row in annotated if row.dihedral_multiplier == 1.0).selection_status,
+            "winner",
+        )
+        self.assertIsNone(winner_summary["mission_objective_mode"])
+        self.assertIsNone(winner_summary["mission_feasible"])
+        self.assertIsNone(winner_summary["target_range_km"])
+        self.assertIsNone(winner_summary["target_range_passed"])
+        self.assertIsNone(winner_summary["target_range_margin_m"])
+        self.assertIsNone(winner_summary["best_range_m"])
+        self.assertIsNone(winner_summary["best_range_speed_mps"])
+        self.assertIsNone(winner_summary["best_endurance_s"])
+        self.assertIsNone(winner_summary["min_power_w"])
+        self.assertIsNone(winner_summary["min_power_speed_mps"])
+        self.assertIsNone(winner_summary["mission_score"])
+        self.assertIsNone(winner_summary["mission_score_reason"])
+        self.assertIsNone(winner_summary["pilot_power_model"])
+        self.assertIsNone(winner_summary["pilot_power_anchor"])
+        self.assertNotIn("mission=", str(winner_summary["winner_evidence"]))
+
     def test_campaign_selection_falls_back_to_non_mission_gated_rows_before_broader_rejects(self) -> None:
         mission_miss_row = self._make_campaign_row(
             multiplier=1.0,
