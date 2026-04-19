@@ -125,32 +125,36 @@
 
 ### 核心內容
 
-- 每個外圈 candidate 都能重建幾何
-- 每個外圈 candidate 都能重跑 OpenVSP / VSPAero
-- 每個 candidate 都有自己的 load ownership
+- 預設外圈先用 `AVL / lightweight screening`
+- 先在快路徑上處理倍率、上反角、clearance recovery、trim / stability / L/D gate
+- shortlist / finalist 才重建幾何並重跑 OpenVSP / VSPAero
+- shortlist 才需要 candidate-owned load ownership
 - aero constraints / trim / stability gate 正式進入 candidate selection
-- 不再只靠既有 AoA sweep 插值刷新
 
 ### 這一段是不是必要
 
 **必要。**
 
-它不是 optional fancy upgrade，而是你偽代碼標準裡的重要一段。
+但必要的不是「每個 coarse candidate 都 full rerun OpenVSP / VSPAero」；
+必要的是「外圈 candidate 真的有自己的氣動 gate 與後續可確認的 load ownership」。
 
 ### 什麼可以 trade-off，什麼不能
 
 可以 trade-off 的是：
 
+- 不一定每個 coarse candidate 都重跑 OpenVSP / VSPAero
 - 不一定每個內圈結構小步都重跑 aero
-- 可以把 aero rerun 放在外圈 candidate 層，而不是每個 structural micro-iteration
+- 可以先用 AVL / lightweight screening 篩到 shortlist，再做重的 rerun-aero confirm
 
 不能 trade-off 的是：
 
 - 不應永久停留在「外形改了，但只拿舊 aero case 插值」當最終主線
+- 也不應把最重的 rerun-aero contract 直接套到每個 coarse search 點，讓快速搜尋失去實用性
 
 ### 完成判準
 
-- 外圈 candidate 有真實 rerun aero artifact
+- 外圈搜尋預設是 `AVL / lightweight screening`
+- shortlist candidate 才有真實 rerun-aero artifact
 - candidate ranking 不再只是 load refresh ranking
 - trim / stability 不再只是附註，而是 gate
 

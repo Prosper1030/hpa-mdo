@@ -99,3 +99,13 @@
 - Planning shift:
   - the immediate blocker is no longer parser compatibility or solver false non-convergence
   - the next main push is to recover outer-wing jig ground clearance so rerun-aero replay can produce a more meaningful design/ranking signal
+- Track T completed:
+  - `track_t_ground_clearance_recovery_outer_loop` completed via `2272aa2`
+  - the recovery ladder improved the replay from about `-1.34 m` clearance to about `-0.69 m`, proving the blocker is geometric rather than another runtime crash
+- Clearance pass-region search completed:
+  - bounded search later confirmed the first pass-side region at roughly `3.75 < target_shape_z_scale <= 3.875` with `dihedral_exponent=2.2` and `rib_zonewise=off`
+- Current wave reset again:
+  - `track_u_avl_first_outer_loop_rebaseline`
+- Planning shift:
+  - rerun-aero has served its purpose as a heavy confirmation contract, but it is too slow to remain the default coarse search path
+  - next main push is to restore AVL / lightweight search as the default outer-loop screening route and reserve `candidate_rerun_vspaero` for shortlist/finalist confirmation

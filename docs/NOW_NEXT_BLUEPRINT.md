@@ -32,39 +32,42 @@
 - Track C：Mac hi-fi 已收斂到 `local structural spot-check` 的角色，不再是要被推成 validation truth 的主線 blocker。
 - Track D：discrete layup 已不只存在於 sidecar；final-design JSON 與 `optimization_summary.txt` 都能直接表達 discrete final verdict。
 - Track E / G：recipe library、spanwise discrete search、zone rules 已達到 baseline done enough，不需要繼續當 current 主戰場。
-- Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`。
+- Track H：rerun-aero outer-loop core + consumer contract 已立起來，campaign 與 winner selection 已能區分 `candidate rerun-aero` 與 `legacy refresh`；它現在適合當 shortlist / finalist confirm，不適合再被當成每個 coarse candidate 的預設搜尋路徑。
 - Track I / J / K：rib properties foundation、rib bay surrogate、passive rib robustness、zone-wise rib design contract 已全部落地，rib 現在已進入 candidate / winner selection contract，而不只是 report-only。
 - Track L：真實 smoke campaign 已經不再被 parser 卡住，solver 也不再死在 explicit wire-truss 假性不收斂；目前更直接的 blocker 已明確轉成 outer-wing ground clearance。
 - Track Q：VSPAero `.lod` parser compatibility 與 candidate rerun 主翼 component filter 已修好，rerun-aero 路線已經能真正跑到 summary artifact。
 
-這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場，而是應該先把 rerun-aero replay 裡真正的設計 blocker，也就是 ground-clearance recovery，往前推。
+這代表下一輪不需要再把 B / C / D / E / G / H / I / J / K 當成唯一主戰場；而且在 Track T 已經找到 pass-side clearance region 之後，現在更該做的是把 outer-loop 重新基準化成：
+
+`AVL / lightweight search first -> shortlist 再 candidate_rerun_vspaero confirm`
 
 ## 3. 下一輪活躍工作軌道
 
-### Track T：ground-clearance recovery outer-loop
+### Track U：AVL-first outer-loop rebaseline
 
 這是 **現在最值得先做的主軸**。
 
-- 什麼情況下優先：如果 parser/runtime 與 solver 都已經能跑通真 replay，selected candidate 也不再是 sentinel crash，但 failure 已經明確轉成 `ground_clearance`。
+- 什麼情況下優先：如果 parser/runtime 與 solver 都已經能跑通真 replay，而且 Track T 已經證明 pass-side clearance region 的確存在，但每個 coarse candidate 都走 rerun-aero 顯得太慢。
 - 近期目標：
-  - 針對 outer-wing jig clearance 問題加入 recovery path
-  - 先用低維 outer-loop knob / seed / search bias 把 clearance 拉回來
-  - 讓 rerun-aero replay 至少能產生更有工程意義的 non-sentinel signal
+  - 把 `AVL / lightweight screening` 升回預設 outer-loop 搜尋路徑
+  - 讓倍率、上反角、clearance-pass region、stability / trim gate 搜尋先走快路
+  - 只把 shortlist / finalist 丟進 `candidate_rerun_vspaero`
 
 ### Track R：rib campaign multi-seed signal hunt
 
-這是 **Track T 驗證後的下一波**。
+這是 **Track U 重整完成後的下一波**。
 
-- 什麼情況下優先：如果 rerun-aero 已經能跑通，而且 outer-wing jig clearance 已被往前推，現在需要真正回答 rib ranking 是不是工程合理。
+- 什麼情況下優先：如果 AVL-first 搜尋已經能更快產生 pass-side recovered candidates，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
-  - 用 `candidate_rerun_vspaero` 跑 `2 到 4` 個較有訊號的代表性 seeds
+  - 先用 AVL-first 搜尋挑出 `2 到 4` 個較有訊號的代表性 seeds
+  - 再用 `candidate_rerun_vspaero` 對 shortlist 做 confirm
   - 每個 seed 都比較 `rib_zonewise=off` vs `limited_zonewise`
   - 至少找出一組不是 sentinel fallback 的可比 selected-case
   - 明確判斷這套 rib contract 是 `SANE`、`SUSPICIOUS`，還是又回到新的 `BLOCKED`
 
 ### Track M：rib penalty / surrogate tuning
 
-這是 **Track T / R 跑完之後的下一波**。
+這是 **Track U / R 跑完之後的下一波**。
 
 - 什麼情況下優先：如果多 seed smoke 顯示 rib-on 確實開始影響 winner，但 ranking 邏輯仍有可疑之處。
 - 近期目標：
@@ -75,7 +78,7 @@
 
 ### Track N：rib finalist spot-check / handoff
 
-這是 **Track T / R / M 穩住後的第三波**。
+這是 **Track U / R / M 穩住後的第三波**。
 
 - 什麼情況下優先：如果 smoke 結果合理，準備把 rib-on 設計推向更正式的 finalist 診斷與交接。
 - 近期目標：
@@ -109,7 +112,7 @@
 ### Track H：rerun-aero outer loop
 
 - 目前狀態：baseline 已成立。
-- 接下來重點不再是建立 rerun-aero contract 本身，而是把它當 rib integration 與後續 finalist release gate 的穩定上游。
+- 接下來重點不再是建立 rerun-aero contract 本身，而是把它降回 shortlist / finalist confirmation 的穩定上游，而不是每個 coarse outer-loop candidate 的預設路徑。
 
 ### Track I / J / K：rib integration baseline
 
@@ -126,10 +129,15 @@
 - 目前狀態：已從 `BLOCKED` 升到 `SUSPICIOUS`。
 - 接下來重點不再是直接加更多 smoke，而是先處理 replay 現在暴露出的 ground-clearance blocker。
 
+### Track T：ground-clearance recovery outer-loop
+
+- 目前狀態：baseline 已成立，並已找到第一個 pass-side clearance region。
+- 接下來重點不再是繼續用 rerun-aero 做更大的 coarse scan，而是把這個 recovery 經驗轉回較快的 AVL-first outer-loop。
+
 ### Track R：multi-seed rib smoke
 
 - 目前狀態：已完成第一輪最小多 seed replay。
-- 接下來重點不是直接進 tuning，而是等待 Track T 把 ground-clearance 問題先往前推，再重跑更有訊號的 replay。
+- 接下來重點不是直接進 tuning，而是等待 Track U 把候選搜尋重新拉回 AVL-first，再用 shortlist 做更有訊號的 replay。
 
 ### Track S：explicit wire-truss convergence unblock
 

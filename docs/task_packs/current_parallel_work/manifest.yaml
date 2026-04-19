@@ -10,17 +10,24 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_t_ground_clearance_recovery_outer_loop"
-    prompt: "prompts/track_t_ground_clearance_recovery_outer_loop.md"
-    launch_wave: 13
+  - id: "track_u_avl_first_outer_loop_rebaseline"
+    prompt: "prompts/track_u_avl_first_outer_loop_rebaseline.md"
+    launch_wave: 14
     write_scope:
-      - "scripts/direct_dual_beam_inverse_design.py"
-      - "scripts/direct_dual_beam_inverse_design_feasibility_sweep.py"
-      - "tests/test_inverse_design.py"
+      - "docs/NOW_NEXT_BLUEPRINT.md"
+      - "project_state.yaml"
+      - "docs/TARGET_STANDARD_PROGRAM_PLAN.md"
+      - "docs/task_packs/current_parallel_work/README.md"
+      - "docs/task_packs/current_parallel_work/AGENT_LAUNCH_PLAN.md"
+      - "docs/task_packs/current_parallel_work/HANDOFF_QUICKSTART.md"
+      - "docs/task_packs/current_parallel_work/TASKS.md"
+      - "docs/task_packs/current_parallel_work/history.md"
+      - "docs/task_packs/current_parallel_work/manifest.yaml"
+      - "docs/task_packs/current_parallel_work/prompts/track_u_avl_first_outer_loop_rebaseline.md"
     expected_artifacts:
-      - "ground-clearance recovery path that targets outer-wing jig clearance instead of patching solver/runtime"
-      - "candidate or search-space adjustment that can improve or correctly surface jig clearance failure"
-      - "minimal rerun-aero replay proving the blocker has moved forward or that clearance margin is meaningfully improved"
+      - "docs and task-pack wording that make AVL/lightweight search the default coarse outer-loop path"
+      - "clear wording that candidate_rerun_vspaero is now a shortlist/finalist confirmation path"
+      - "handoff-ready prompt so future agents do not default every search run to VSP/VSPAero rerun"
 
 do_not_touch:
   - "README.md"

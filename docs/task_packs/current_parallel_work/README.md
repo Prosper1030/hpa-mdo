@@ -17,15 +17,21 @@
 
 ## What This Pack Covers
 
-這包現在聚焦在 **Phase 2.9 outer-loop recovery：ground clearance**。
+這包現在聚焦在 **Phase 3.0 outer-loop rebaseline：AVL-first search**。
 
-上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；Track S 又把 explicit wire-truss 假性不收斂解掉，所以目前最直接的 blocker 已經不是 solver crash，而是 **outer-wing jig ground clearance**。
+上一波 parser/runtime unblock 已經完成，`candidate_rerun_vspaero` 也已經能跑到真實 summary；Track S / T 又證明 solver false non-convergence 與 outer-wing clearance recovery 都已經被推到可分析的程度。
+
+現在更直接的問題不是「能不能 rerun」，而是：
+
+> 我們不應該再把 `candidate_rerun_vspaero` 當每個 coarse candidate 的預設搜尋路徑。
 
 目前的主任務是：
 
-- Track T：ground-clearance recovery outer-loop
+- Track U：AVL-first outer-loop rebaseline
 
-這一包的目的不是再修 parser，也不是再修 solver，而是先把 replay 裡明確暴露出的 `ground_clearance` 問題往前推，讓 rerun-aero replay 至少能產生更有工程意義的非 sentinel 設計訊號。
+這一包的目的不是再修 parser，也不是再修 solver，而是把外圈重新收斂成：
+
+`AVL / lightweight screening -> shortlist -> candidate_rerun_vspaero confirm`
 
 ## How To Use This Pack
 
@@ -44,4 +50,4 @@
 - 每個 agent 可以在 5 分鐘內知道自己該做什麼、不該碰什麼。
 - 不需要重新閱讀大量歷史報告。
 - 不同 agent 的 write set 不互相打架。
-- 使用者能清楚知道目前這一波不是再修 parser / solver，而是先把 outer-wing jig clearance 這個真正的設計 blocker 往前推，之後再重跑更有訊號的 rib smoke。
+- 使用者能清楚知道目前這一波不是再修 parser / solver，也不是把每個倍率搜尋都丟進 rerun-aero，而是先把外圈搜尋拉回快路徑，再把重路徑保留給 shortlist confirm。

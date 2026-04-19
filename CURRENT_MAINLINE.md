@@ -42,9 +42,16 @@
 6. 把結構結果往 CFRP tube + discrete layup 收斂
 7. 輸出 `jig shape`、`loaded shape`、結構/疊層/診斷 artifacts
 
+但在外圈實作上，現在應明確分成兩層：
+
+1. `AVL / lightweight outer-loop screening`
+   - 先用較快的外形倍率 / 上反角 / 穩定性 / trim / clearance 搜尋，把候選縮到小範圍。
+2. `candidate-owned rerun-aero confirmation`
+   - 只對 shortlist / finalist 做 OpenVSP 幾何重建 + VSPAero rerun，確認 load ownership 與較重的 aero contract。
+
 如果要用一句較口語的版本：
 
-`VSP -> jig shape -> 調整上反角/倍率 -> cruise VSP -> jig shape -> CFRP -> 離散疊層`
+`VSP -> AVL 快速篩候選 -> jig shape -> 調整上反角/倍率 -> shortlist 才 rerun VSP/VSPAero -> CFRP -> 離散疊層`
 
 ## 4. 正式入口與各自角色
 
@@ -65,6 +72,23 @@
 - 目前已具備的 shape knob：
   - `--target-shape-z-scale`
   - `--dihedral-exponent`
+
+### B2. AVL / lightweight outer-loop campaign
+
+- 入口：`scripts/dihedral_sweep_campaign.py`
+- 角色：
+  - 用 AVL 做 trim / stability / beta-sweep / aero gate
+  - 再把通過的候選丟進 inverse design
+  - 適合拿來做大範圍倍率、上反角、clearance-pass region 搜尋
+- 重要定位：**這應該是目前 outer-loop search 的預設快速路徑**
+
+### B3. Candidate rerun-aero confirmation
+
+- 入口：`scripts/direct_dual_beam_inverse_design.py --aero-source-mode candidate_rerun_vspaero`
+- 角色：
+  - 針對 shortlist / finalist 做 candidate-owned OpenVSP 幾何重建 + VSPAero rerun
+  - 確認較重的 aero artifact ownership 與 replay contract
+- 重要定位：**這不是每個 coarse candidate 都要走的預設搜尋路徑**
 
 ### C. CFRP / 離散 layup realization
 
@@ -96,6 +120,7 @@
 - light load refresh / dynamic design space / higher-fidelity load coupling
 - wire / rigging / pretension / tension limit / explicit truss 幾何
 - generic VSP intake + VSP -> AVL pipeline
+- AVL outer-loop trim / stability / beta-sweep screening
 - cruise VSP builder
 - dihedral / target-shape scaling 類低維 outer knobs
 - CLT / PlyMaterial / discrete layup / Tsai-Wu / ply-drop / layup manufacturability
@@ -115,6 +140,7 @@
 - 從 `.vsp3` 讀幾何並建立可執行配置
 - 以 beam-line target loaded shape 做 inverse design，輸出 jig / loaded artifacts
 - 用低維 shape knob 掃上反角 / target Z scaling 對結構與可行性的影響
+- 用 AVL 先做較快的 stability / trim / aero gate 篩選，再把候選送進 inverse design
 - 將結構結果往 wire / rigging / clearance / manufacturing 可行性收斂
 - 將結果往 discrete CFRP / layup / Tsai-Wu 可製造設計收斂
 
@@ -122,6 +148,8 @@
 
 - `generic VSP intake -> inverse design -> discrete layup final design`
   目前概念上是同一條主線，但操作上仍分散在多個入口
+- `AVL 搜尋 -> shortlist -> candidate_rerun_vspaero confirm`
+  目前邏輯上已經清楚，但還沒有被寫死成單一正式 outer-loop contract
 - 真正 mission-driven 的 `pilot power + weight -> 最佳 cruise shape`
   還是未來演進方向，不是目前已完成的一鍵功能
 
