@@ -22,7 +22,11 @@ _BOUNDARY_PADDING_NOTE = "nearest_strip_coefficients_with_avl_root_tip_chord"
 
 def _normalize_surface_name(name: str) -> str:
     base = str(name).split("(", 1)[0]
-    return "".join(base.split()).casefold()
+    normalized = "".join(base.split()).casefold()
+    aliases = {
+        "mainwing": "wing",
+    }
+    return aliases.get(normalized, normalized)
 
 
 def _strip_payload(

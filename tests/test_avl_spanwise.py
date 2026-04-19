@@ -115,6 +115,19 @@ def test_parse_avl_strip_forces_selects_positive_main_wing_only(tmp_path: Path) 
     assert all(strip["y_le_m"] > 0.0 for strip in parsed["strips"])
 
 
+def test_parse_avl_strip_forces_accepts_main_wing_alias(tmp_path: Path) -> None:
+    fs_path = tmp_path / "candidate_main_wing.fs"
+    fs_path.write_text(
+        _fs_text(cl_values=(0.82, 0.90, 0.74)).replace("Surface # 1     Wing", "Surface # 1     Main Wing"),
+        encoding="utf-8",
+    )
+
+    parsed = parse_avl_strip_forces(fs_path, target_surface_names=("Wing",))
+
+    assert parsed["surface_names"] == ["Main Wing", "Wing (YDUP)"]
+    assert [strip["strip_index"] for strip in parsed["strips"]] == [1, 2, 3]
+
+
 def test_build_spanwise_load_from_avl_strip_forces_pads_root_and_tip(tmp_path: Path) -> None:
     avl_path = _write_demo_avl(tmp_path / "candidate.avl")
     fs_path = tmp_path / "candidate.fs"
