@@ -32,10 +32,12 @@ Track U 已經證明：
 
 目前的主任務順序是：
 
-- Track V：AVL spanwise ownership realignment
-- Track W：AVL / legacy / rerun load-state compare
-- Track X：repaired AVL recovered shortlist rebuild
-- Track R：等 Track X 之後，再回去做 rib smoke
+- Track V：已完成，修回 AVL spanwise ownership drift
+- Track W：已完成，確認真正 blocker 是 structural selected-state alignment
+- Track Y：已完成，把 `candidate_avl_spanwise` 的 structural selected state 對齊回 legacy owner
+- Track X：現在重建 repaired AVL recovered shortlist
+- Track R：等 Track X 之後，再用 repaired shortlist 回去做 rib smoke
+- Track M / N：只有在 Track R 產生真實 rib 訊號後才開
 
 這一包的目的不是再修 parser，也不是再修 solver，而是把外圈重新收斂成：
 
@@ -60,5 +62,5 @@ Track U 已經證明：
 - 不同 agent 的 write set 不互相打架。
 - 使用者能清楚知道目前這一波不是單純「改回 AVL」，而是：
   - 先把 `candidate_avl_spanwise` 修回「只補升力分佈 ownership」
-  - 再比較 repaired AVL path 是否真的和舊流程一致
+  - 再把 structural selected state 對齊回舊流程
   - 然後才用 repaired AVL-first path 重建 shortlist，回到 Track R / M / N。

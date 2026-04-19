@@ -10,36 +10,41 @@ canonical_read_order:
   - "docs/NOW_NEXT_BLUEPRINT.md"
 
 tasks:
-  - id: "track_v_avl_spanwise_ownership_realign"
-    prompt: "prompts/track_v_avl_spanwise_ownership_realign.md"
-    launch_wave: 15
-    write_scope:
-      - "scripts/dihedral_sweep_campaign.py"
-      - "scripts/direct_dual_beam_inverse_design.py"
-      - "src/hpa_mdo/aero/avl_spanwise.py"
-      - "tests/test_avl_spanwise.py"
-      - "tests/test_inverse_design.py"
-      - "docs/task_packs/current_parallel_work/reports/avl_spanwise_realign_report.md"
-    expected_artifacts:
-      - "repaired candidate_avl_spanwise path that preserves old AVL-first gate/recovery/load-state semantics while adding spanwise lift distribution"
-      - "tests proving the new path no longer drifts by silently redefining AoA/load-state ownership"
-      - "a real smoke or bounded replay report showing what changed and what still remains out of scope"
-  - id: "track_w_avl_loadstate_alignment_compare"
-    prompt: "prompts/track_w_avl_loadstate_alignment_compare.md"
-    launch_wave: 16
-    write_scope:
-      - "docs/task_packs/current_parallel_work/reports/avl_loadstate_alignment_report.md"
-    expected_artifacts:
-      - "side-by-side comparison of legacy_refresh, repaired candidate_avl_spanwise, and candidate_rerun_vspaero on the same seed(s)"
-      - "clear verdict on whether repaired candidate_avl_spanwise is now effectively old AVL-first flow plus spanwise lift ownership"
   - id: "track_x_repaired_avl_recovered_shortlist_rebuild"
     prompt: "prompts/track_x_repaired_avl_recovered_shortlist_rebuild.md"
-    launch_wave: 17
+    launch_wave: 18
     write_scope:
       - "docs/task_packs/current_parallel_work/reports/repaired_avl_shortlist_report.md"
     expected_artifacts:
       - "2 to 4 repaired AVL-first shortlist seeds ready for downstream confirm / rib smoke"
       - "clear handoff note telling the next agent which seed to use first and why"
+  - id: "track_r_repaired_shortlist_rib_smoke"
+    prompt: "prompts/track_r_repaired_shortlist_rib_smoke.md"
+    launch_wave: 19
+    write_scope:
+      - "docs/task_packs/current_parallel_work/reports/rib_campaign_smoke_report.md"
+    expected_artifacts:
+      - "repaired-shortlist off-vs-limited rib smoke compare with at least one non-sentinel comparable case or a clear new blocker"
+      - "explicit verdict of SANE, SUSPICIOUS, or BLOCKED tied to repaired shortlist seeds"
+  - id: "track_m_rib_signal_sanity_tuning"
+    prompt: "prompts/track_m_rib_signal_sanity_tuning.md"
+    launch_wave: 20
+    write_scope:
+      - "scripts/direct_dual_beam_inverse_design.py"
+      - "scripts/direct_dual_beam_inverse_design_feasibility_sweep.py"
+      - "tests/test_inverse_design.py"
+      - "docs/task_packs/current_parallel_work/reports/rib_signal_sanity_tuning_report.md"
+    expected_artifacts:
+      - "minimal rib-ranking tuning patch tied to repaired-shortlist smoke evidence"
+      - "before/after report explaining what changed and why"
+  - id: "track_n_rib_finalist_spotcheck_handoff"
+    prompt: "prompts/track_n_rib_finalist_spotcheck_handoff.md"
+    launch_wave: 21
+    write_scope:
+      - "docs/task_packs/current_parallel_work/reports/rib_finalist_spotcheck_handoff.md"
+    expected_artifacts:
+      - "rib finalist shortlist with spot-check/handoff recommendation"
+      - "clear recommendation on whether any rib-on candidate is ready for heavier confirm or handoff"
 
 do_not_touch:
   - "README.md"

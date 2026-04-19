@@ -45,51 +45,67 @@
 
 ### Track V：AVL spanwise ownership realignment
 
-這是 **現在最值得先做的主軸**。
+這包 **已完成 baseline**。
 
-- 什麼情況下優先：如果 Track U 已經證明 AVL strip-force plumbing 能接通，但你發現它不只加了升力分佈，還順手改掉 load-state / gate / recovery 節奏。
-- 近期目標：
-  - 把 `candidate_avl_spanwise` 修回「舊 AVL-first outer-loop + spanwise lift distribution ownership」
-  - 保留原本的 gate / recovery / load-state 邏輯
-  - 不再接受只能靠 `--skip-aero-gates` 才顯得合理的 smoke winner
+- 已確認：
+  - `candidate_avl_spanwise` 不再偷偷改掉 gate / recovery / load-state semantics
+  - ground-clearance recovery 已接回
+  - 不再靠 `--skip-aero-gates` 假裝 full-gate 正常
+- 現在的角色：
+  - 作為 repaired AVL path 的 contract 修正基礎
+  - 不再是目前 current wave
 
 ### Track W：AVL / legacy / rerun load-state compare
 
-這是 **Track V 驗完之後的下一包**。
+這包 **也已完成 baseline**。
 
-- 什麼情況下優先：如果 repaired `candidate_avl_spanwise` 已經不再明顯 drift，現在要證明它是不是和舊流程真的對齊。
-- 近期目標：
-  - 對同一組 seed 比較 `legacy_refresh`、repaired `candidate_avl_spanwise`、`candidate_rerun_vspaero`
-  - 明確比較 AoA、lift、torque、mass、clearance、gate reason
-  - 回答 repaired AVL path 到底是不是「舊流程 + spanwise lift ownership」
+- 已確認：
+  - repaired `candidate_avl_spanwise` 在語意上回到「舊流程 + spanwise lift ownership」
+  - 但它一開始在 numeric load-state 上仍然和舊流程不對齊
+- 這一包的價值：
+  - 成功阻止我們太早進 Track X
+  - 把真正 blocker 定位成 structural selected state alignment，而不是 parser / recovery / plumbing
+
+### Track Y：AVL structural load-state alignment
+
+這是 **Track W 之後補上的對齊修正，而且現在已完成 baseline**。
+
+- 已確認：
+  - `candidate_avl_spanwise` 不再吃 `AVL trim-required AoA 12.536 deg`
+  - structural selected state 已回到 legacy owner
+  - candidate-owned AVL 現在只接管 spanwise lift distribution shape
+  - repaired `candidate_avl_spanwise` 已可合理描述成「舊 AVL-first flow + candidate-owned spanwise lift distribution」
+- 這代表：
+  - 現在不再卡在「selected state 選錯」
+  - `Track X` 可以正式啟動
 
 ### Track X：repaired AVL-first recovered shortlist rebuild
 
-這是 **Track W 驗完之後的下一包**。
+這是 **現在的 current wave**。
 
-- 什麼情況下優先：如果 repaired AVL path 看起來 sane，現在要重建真正可用的 repaired shortlist。
+- 什麼情況下優先：Track Y 已經證明 repaired AVL path 回到正確 contract，現在要重建真正可用的 repaired shortlist。
 - 近期目標：
   - 用 repaired AVL-first path 重新挑出 `2 到 4` 個 recovered shortlist seeds
   - 明確標示哪些 seed 應優先送去 rerun confirm
   - 把後續 Track R 的 seed 選擇從舊的 suspicious rerun baseline 換成 repaired AVL shortlist
 
-### Track R：rib campaign multi-seed signal hunt
+### Track R：repaired-shortlist rib smoke replay
 
 這是 **Track X 做完後的下一波**。
 
 - 什麼情況下優先：如果 repaired AVL-first 搜尋已經能產生更乾淨的 pass-side recovered shortlist，現在需要真正回答 rib ranking 是不是工程合理。
 - 近期目標：
-  - 先用 AVL-first 搜尋挑出 `2 到 4` 個較有訊號的代表性 seeds
-  - 再用 `candidate_rerun_vspaero` 對 shortlist 做 confirm
+  - 用 repaired shortlist seeds 而不是舊的 drift/suspicious seeds
   - 每個 seed 都比較 `rib_zonewise=off` vs `limited_zonewise`
+  - 先用 AVL-first path 建立 shortlist，再用 `candidate_rerun_vspaero` 做 confirm
   - 至少找出一組不是 sentinel fallback 的可比 selected-case
-  - 明確判斷這套 rib contract 是 `SANE`、`SUSPICIOUS`，還是又回到新的 `BLOCKED`
+  - 明確判斷這套 rib contract 是 `SANE`、`SUSPICIOUS`，還是新的 `BLOCKED`
 
-### Track M：rib penalty / surrogate tuning
+### Track M：rib signal sanity tuning
 
-這是 **Track U / R 跑完之後的下一波**。
+這是 **Track R 跑完之後、而且已經有真實比較訊號時** 的下一波。
 
-- 什麼情況下優先：如果多 seed smoke 顯示 rib-on 確實開始影響 winner，但 ranking 邏輯仍有可疑之處。
+- 什麼情況下優先：如果 repaired-shortlist rib smoke 顯示 rib-on 確實開始影響 winner，但 ranking 邏輯仍有可疑之處。
 - 近期目標：
   - 調整 `rib_family_switch_penalty_kg`
   - 調整 `family_mix_max_unique`
@@ -98,9 +114,9 @@
 
 ### Track N：rib finalist spot-check / handoff
 
-這是 **Track U / R / M 穩住後的第三波**。
+這是 **Track R 結果已 sane，且 Track M 不再是 immediate need** 之後的下一波。
 
-- 什麼情況下優先：如果 smoke 結果合理，準備把 rib-on 設計推向更正式的 finalist 診斷與交接。
+- 什麼情況下優先：如果 repaired-shortlist smoke 已經表明某個 rib-on 候選工程上合理，現在準備把它推向更正式的 finalist 診斷與交接。
 - 近期目標：
   - 對 rib-on finalist 做 local spot-check
   - 補一份可交接的 ranking / evidence 摘要
@@ -156,8 +172,8 @@
 
 ### Track U：AVL spanwise plumbing baseline
 
-- 目前狀態：plumbing 已接通，但第一版實作 drift 了。
-- 接下來重點不是直接往前推，而是由 Track V 把它修回「只補展向載荷 ownership」的版本。
+- 目前狀態：plumbing 已接通，但第一版實作 drift 過；這個問題已經由 Track V / W / Y 收斂。
+- 接下來重點不再是重做 plumbing，而是用 repaired AVL-first path 重建 shortlist，然後重新回答 rib ranking。
 
 ### Track S：explicit wire-truss convergence unblock
 

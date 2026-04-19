@@ -1,15 +1,15 @@
 # Track X — Repaired AVL Recovered Shortlist Rebuild
 
-> 目標：在 Track V / W 都過之後，用 repaired AVL-first path 重新建立後續設計工作真正該用的 recovered shortlist。
+> 目標：在 Track V / W / Y 都已收斂之後，用 repaired AVL-first path 重新建立後續設計工作真正該用的 recovered shortlist。
 
 ## 前提
 
-這包 **一定要等 Track W 驗證通過後** 才能做。
+這包 **一定要等 Track Y 驗證通過後** 才能做。
 
 ## 為什麼現在要做這包
 
-Track U 之前的 shortlist / smoke 下游，建立在一條 drift 過的 `candidate_avl_spanwise` path 上。  
-如果 Track V / W 已經證明 repaired AVL path 比較像你原本要的版本，那下一步就不應該直接回去用舊 shortlist 繼續跑 rib smoke。
+Track U 之前的 shortlist / smoke 下游，建立在一條 drift 過、而且一度 selected state 也選錯的 `candidate_avl_spanwise` path 上。
+如果 Track V / W / Y 已經證明 repaired AVL path 回到你原本要的版本，那下一步就不應該直接回去用舊 shortlist 繼續跑 rib smoke。
 
 你要做的是：
 
