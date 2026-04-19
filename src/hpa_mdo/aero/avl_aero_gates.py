@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from pathlib import Path
 from typing import Protocol, Sequence
 
@@ -250,7 +251,12 @@ def evaluate_aero_performance(
     elif float(ld_ratio) < float(gate_settings.min_ld_ratio):
         feasible = False
         reason = "ld_below_minimum"
-    elif float(lift_total_n) < float(gate_settings.min_lift_n):
+    elif not math.isclose(
+        float(lift_total_n),
+        float(gate_settings.min_lift_n),
+        rel_tol=1.0e-6,
+        abs_tol=1.0e-6,
+    ) and float(lift_total_n) < float(gate_settings.min_lift_n):
         feasible = False
         reason = "insufficient_lift"
 

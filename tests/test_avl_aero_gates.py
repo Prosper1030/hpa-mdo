@@ -86,6 +86,42 @@ class AvlAeroGateTests(unittest.TestCase):
         assert perf.lift_total_n is not None
         self.assertTrue(math.isclose(perf.lift_total_n, 981.0, rel_tol=1.0e-9, abs_tol=1.0e-6))
 
+    def test_evaluate_aero_performance_tolerates_trim_roundoff_at_lift_gate(self) -> None:
+        gate = AvlAeroGateSettings(
+            reference_area_source="generated_avl_sref",
+            reference_area_m2=35.175,
+            reference_area_case_path="/tmp/case.avl",
+            air_density_kgpm3=1.225,
+            cruise_velocity_mps=6.5,
+            dynamic_pressure_pa=25.878125,
+            trim_target_weight_kg=100.0,
+            trim_target_weight_n=981.0,
+            cl_required=1.0777104523443473,
+            min_lift_kg=100.0,
+            min_lift_n=981.0,
+            min_ld_ratio=25.0,
+            cd_profile_estimate=0.010,
+            max_trim_aoa_deg=12.0,
+            soft_trim_aoa_deg=10.0,
+            stall_alpha_deg=13.5,
+            min_stall_margin_deg=2.0,
+        )
+        trim_eval = mock.Mock(
+            trim_converged=True,
+            trim_status="trim_converged",
+            cl_trim=1.07771,
+            cd_induced=0.0144779,
+            aoa_trim_deg=10.16612,
+            span_efficiency=0.8038,
+        )
+
+        perf = evaluate_aero_performance(trim_eval=trim_eval, gate_settings=gate)
+
+        self.assertTrue(perf.aero_performance_feasible)
+        self.assertEqual(perf.aero_performance_reason, "ok")
+        assert perf.lift_total_n is not None
+        self.assertLess(981.0 - perf.lift_total_n, 1.0e-3)
+
     def test_gate_metadata_records_reference_area_source_and_path(self) -> None:
         gate = AvlAeroGateSettings(
             reference_area_source="generated_avl_sref",
