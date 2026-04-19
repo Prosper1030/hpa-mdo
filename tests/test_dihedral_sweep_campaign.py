@@ -19,8 +19,10 @@ from scripts.dihedral_sweep_campaign import (
     AvlEvaluation,
     BetaSweepPoint,
     SweepResult,
+    _auto_refine_first_pass_boundary,
     _build_arg_parser,
     _annotate_campaign_selection,
+    _find_first_pass_boundary_interval,
     _build_result_row,
     _evaluate_beta_sweep_points,
     evaluate_aero_performance,
@@ -37,6 +39,65 @@ from scripts.dihedral_sweep_campaign import (
 
 
 class DihedralSweepCampaignTests(unittest.TestCase):
+    def _make_campaign_row(
+        self,
+        *,
+        multiplier: float,
+        tube_mass_kg: float | None = None,
+        beta_pass: bool = True,
+    ) -> SweepResult:
+        return SweepResult(
+            dihedral_multiplier=multiplier,
+            dihedral_exponent=1.0,
+            avl_case_path="/tmp/case.avl",
+            mode_file_path=None,
+            dutch_roll_found=True,
+            dutch_roll_selection="oscillatory_lateral_mode",
+            dutch_roll_real=-0.1,
+            dutch_roll_imag=0.6,
+            aero_status="stable",
+            aero_performance_feasible=True,
+            aero_performance_reason="ok",
+            cl_trim=1.2,
+            cd_induced=0.02,
+            cd_total_est=0.03,
+            ld_ratio=40.0,
+            aoa_trim_deg=0.0,
+            span_efficiency=0.8,
+            lift_total_n=1200.0,
+            aero_power_w=150.0,
+            beta_sweep_max_beta_deg=12.0,
+            beta_sweep_cn_beta_per_rad=-0.01,
+            beta_sweep_cl_beta_per_rad=-0.02,
+            beta_sweep_directional_stable=beta_pass,
+            beta_sweep_sideslip_feasible=beta_pass,
+            rudder_cl_derivative=None,
+            rudder_cn_derivative=None,
+            rudder_roll_to_yaw_ratio=None,
+            rudder_coupling_reason=None,
+            spiral_mode_real=-0.1,
+            spiral_time_to_double_s=None,
+            spiral_time_to_half_s=1.0,
+            spiral_check_ok=True,
+            spiral_reason="ok",
+            structure_status="feasible",
+            tube_mass_kg=tube_mass_kg,
+            total_mass_kg=22.0,
+            min_jig_clearance_mm=50.0,
+            wire_tension_n=None,
+            wire_margin_n=None,
+            failure_index=-0.2,
+            buckling_index=-0.1,
+            objective_value_kg=22.0,
+            realizable_mismatch_max_mm=10.0,
+            structural_reject_reason=None,
+            selected_output_dir=None,
+            summary_json_path=None,
+            wire_rigging_json_path=None,
+            error_message=None,
+            aero_source_mode="origin_vsp_fixed_alpha_corrector",
+        )
+
     def test_scale_avl_dihedral_text_applies_progressive_scaling_only_to_wing_surface(self) -> None:
         base_text = "\n".join(
             [
@@ -120,57 +181,7 @@ class DihedralSweepCampaignTests(unittest.TestCase):
         self.assertEqual(len(samples), 2)
 
     def test_campaign_selection_rejects_feasible_row_when_tube_mass_exceeds_limit(self) -> None:
-        row = SweepResult(
-            dihedral_multiplier=1.0,
-            dihedral_exponent=1.0,
-            avl_case_path="/tmp/case.avl",
-            mode_file_path=None,
-            dutch_roll_found=True,
-            dutch_roll_selection="oscillatory_lateral_mode",
-            dutch_roll_real=-0.1,
-            dutch_roll_imag=0.6,
-            aero_status="stable",
-            aero_performance_feasible=True,
-            aero_performance_reason="ok",
-            cl_trim=1.2,
-            cd_induced=0.02,
-            cd_total_est=0.03,
-            ld_ratio=40.0,
-            aoa_trim_deg=0.0,
-            span_efficiency=0.8,
-            lift_total_n=1200.0,
-            aero_power_w=150.0,
-            beta_sweep_max_beta_deg=12.0,
-            beta_sweep_cn_beta_per_rad=-0.01,
-            beta_sweep_cl_beta_per_rad=-0.02,
-            beta_sweep_directional_stable=True,
-            beta_sweep_sideslip_feasible=True,
-            rudder_cl_derivative=None,
-            rudder_cn_derivative=None,
-            rudder_roll_to_yaw_ratio=None,
-            rudder_coupling_reason=None,
-            spiral_mode_real=-0.1,
-            spiral_time_to_double_s=None,
-            spiral_time_to_half_s=1.0,
-            spiral_check_ok=True,
-            spiral_reason="ok",
-            structure_status="feasible",
-            tube_mass_kg=15.5,
-            total_mass_kg=22.0,
-            min_jig_clearance_mm=50.0,
-            wire_tension_n=None,
-            wire_margin_n=None,
-            failure_index=-0.2,
-            buckling_index=-0.1,
-            objective_value_kg=22.0,
-            realizable_mismatch_max_mm=10.0,
-            structural_reject_reason=None,
-            selected_output_dir=None,
-            summary_json_path=None,
-            wire_rigging_json_path=None,
-            error_message=None,
-            aero_source_mode="origin_vsp_fixed_alpha_corrector",
-        )
+        row = self._make_campaign_row(multiplier=1.0, tube_mass_kg=15.5)
 
         annotated, winner_summary = _annotate_campaign_selection(
             [row],
@@ -179,6 +190,61 @@ class DihedralSweepCampaignTests(unittest.TestCase):
 
         self.assertEqual(annotated[0].reject_reason, "structural:tube_mass_exceeds_limit")
         self.assertEqual(winner_summary["reject_reason"], "structural:tube_mass_exceeds_limit")
+
+    def test_find_first_pass_boundary_interval_returns_first_fail_to_pass_transition(self) -> None:
+        rows = [
+            self._make_campaign_row(multiplier=1.0, beta_pass=False),
+            self._make_campaign_row(multiplier=2.0, beta_pass=False),
+            self._make_campaign_row(multiplier=3.0, tube_mass_kg=14.0),
+            self._make_campaign_row(multiplier=4.0, tube_mass_kg=13.0),
+        ]
+
+        boundary = _find_first_pass_boundary_interval(rows)
+
+        self.assertEqual(boundary, (2.0, 3.0))
+
+    def test_find_first_pass_boundary_interval_respects_tube_mass_gate(self) -> None:
+        rows = [
+            self._make_campaign_row(multiplier=3.5, tube_mass_kg=75.0),
+            self._make_campaign_row(multiplier=3.6, tube_mass_kg=14.6),
+            self._make_campaign_row(multiplier=3.7, tube_mass_kg=13.9),
+        ]
+
+        boundary = _find_first_pass_boundary_interval(
+            rows,
+            max_tube_mass_kg=15.0,
+        )
+
+        self.assertEqual(boundary, (3.5, 3.6))
+
+    def test_auto_refine_first_pass_boundary_bisects_until_target_width(self) -> None:
+        rows = [
+            self._make_campaign_row(multiplier=3.5, tube_mass_kg=75.0),
+            self._make_campaign_row(multiplier=4.0, tube_mass_kg=11.5),
+        ]
+
+        def _run_case(multiplier: float) -> SweepResult:
+            return self._make_campaign_row(
+                multiplier=multiplier,
+                tube_mass_kg=75.0 if multiplier < 3.6 else 14.5,
+            )
+
+        refined_rows, refined_multipliers = _auto_refine_first_pass_boundary(
+            rows,
+            run_multiplier_case=_run_case,
+            max_tube_mass_kg=15.0,
+            target_width=0.1,
+            max_rounds=4,
+        )
+
+        self.assertEqual(refined_multipliers, [3.75, 3.625, 3.5625])
+        self.assertEqual(
+            _find_first_pass_boundary_interval(
+                refined_rows,
+                max_tube_mass_kg=15.0,
+            ),
+            (3.5625, 3.625),
+        )
 
     def test_parse_mode_stdout_and_select_dutch_roll(self) -> None:
         stdout_text = """

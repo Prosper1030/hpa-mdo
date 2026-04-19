@@ -20,6 +20,34 @@
 - inverse design / structural feasibility
 - final release / hi-fi sign-off
 
+這裡要特別分兩層看：
+
+1. 這份文件前半段主要在講 `avl_aero_gates.py` 這個 trim / lift / L/D 子模組
+2. `dihedral_sweep_campaign.py` 這個 campaign 主流程，另外還有接上穩定性與結構 gate
+
+所以如果你問「現在的穩定條件判斷有沒有寫進去」：
+
+**有，寫在 campaign 主流程裡。**
+
+目前 campaign-level reject logic 還會另外檢查：
+
+- `aero_status`
+  - Dutch roll / least-damped lateral mode 是否穩定
+- `beta_sweep_directional_stable`
+  - `Cn_beta` 的方向穩定性
+- `beta_sweep_sideslip_feasible`
+  - beta sweep 到目標角度時 trim 是否收斂
+- `spiral_check_ok`
+  - spiral mode 的 time-to-double / stable 判定
+- inverse-design subprocess / structural feasibility
+- `max_tube_mass_kg`
+  - spar tube mass 的 campaign-level hard gate
+
+唯一要注意的是：
+
+- `--skip-beta-sweep` 會暫時跳過 `beta_sideslip` 這條 gate
+- 這通常只適合 smoke / bounded search，不應該拿來當最終穩定 verdict
+
 ## 2. 現在的單一真相在哪裡
 
 目前的 code owner 是：
@@ -496,6 +524,31 @@ rg -n "Airfoil file not found|Using default zero-camber airfoil" /path/to/mult_4
 - 用 AVL 直接給最終 drag truth
 - 或讓每個 candidate 都先重建一份 VSP 幾何
 
+## 13.1.1 fixed-alpha mode 下穩定性怎麼處理
+
+即使 `origin_vsp_fixed_alpha_corrector` 不再為每個 candidate 反解 `L=W`，
+穩定性檢查也**沒有拿掉**。
+
+現在的 owner 分工是：
+
+1. origin VSP panel baseline
+   - 固定 design alpha
+   - 給 baseline `lift_per_span`
+2. dihedral corrector
+   - 估 candidate 的 corrected structural load state
+3. AVL
+   - 仍然生成 candidate `.avl`
+   - 仍然跑：
+     - Dutch roll / `aero_status`
+     - beta sweep (`Cn_beta`, `Cl_beta`, trim-at-beta)
+     - spiral mode
+
+所以 fixed-alpha mode 不是「只剩載荷，不看穩定性」；
+它是：
+
+- **氣動載荷 owner 換成 origin panel + 數學修正器**
+- **穩定性 owner 保留在 AVL**
+
 ## 13.2 這條 mode 的數學 contract
 
 目前這個 corrector 在固定 design alpha 下，只做一階的上反角垂直載荷修正：
@@ -551,6 +604,38 @@ repo 目前預設的 CLI 入口是：
 
 - 這條 mode 的 alpha 是使用者明確指定的設計條件
 - 不是 outer loop 自己再去動它
+
+## 13.3.1 自動 first-pass boundary refine
+
+現在 `dihedral_sweep_campaign.py` 也支援：
+
+- `--auto-first-pass-refine`
+
+它的用途是：
+
+- 先跑你給的 coarse multipliers
+- 找第一個 `fail -> pass` 的 multiplier 區間
+- 再自動在那段區間做 midpoint refine
+- 直到：
+  - 區間寬度小於 `--first-pass-refine-target-width`
+  - 或到達 `--first-pass-refine-max-rounds`
+
+這個功能判斷 `pass / fail` 用的是 **campaign 最終 gate**，
+不是只看單一升力條件。
+
+也就是說，它會一起尊重：
+
+- aero stability
+- aero performance
+- beta / directional
+- spiral
+- inverse-design subprocess
+- structural feasible / infeasible
+- `max_tube_mass_kg`
+
+所以這個 refine 找到的 boundary，語意上是：
+
+**「在目前整個 campaign gate contract 下，第一個 pass 區間」**
 
 ## 13.4 和 `candidate_avl_spanwise` 的差異
 

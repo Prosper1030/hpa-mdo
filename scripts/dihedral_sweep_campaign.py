@@ -13,7 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
-from typing import Iterable
+from typing import Callable, Iterable, Sequence
 
 # Allow running directly from repository root without installation.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -310,6 +310,9 @@ def _build_campaign_search_budget(args) -> dict[str, object]:
             else str(args.vspaero_analysis_method)
         ),
         "fixed_design_alpha_deg": float(args.fixed_design_alpha_deg),
+        "auto_first_pass_refine": bool(args.auto_first_pass_refine),
+        "first_pass_refine_target_width": float(args.first_pass_refine_target_width),
+        "first_pass_refine_max_rounds": int(args.first_pass_refine_max_rounds),
         "max_tube_mass_kg": (
             None if args.max_tube_mass_kg is None else float(args.max_tube_mass_kg)
         ),
@@ -1750,6 +1753,104 @@ def _campaign_reject_reason(
     return "none"
 
 
+def _campaign_row_passes(
+    row: SweepResult,
+    *,
+    max_tube_mass_kg: float | None = None,
+) -> bool:
+    return (
+        _campaign_reject_reason(
+            row,
+            max_tube_mass_kg=max_tube_mass_kg,
+        )
+        == "none"
+    )
+
+
+def _find_first_pass_boundary_interval(
+    rows: Sequence[SweepResult],
+    *,
+    max_tube_mass_kg: float | None = None,
+) -> tuple[float, float] | None:
+    ordered = sorted(rows, key=lambda row: float(row.dihedral_multiplier))
+    if len(ordered) < 2:
+        return None
+    previous = ordered[0]
+    previous_pass = _campaign_row_passes(
+        previous,
+        max_tube_mass_kg=max_tube_mass_kg,
+    )
+    for current in ordered[1:]:
+        current_pass = _campaign_row_passes(
+            current,
+            max_tube_mass_kg=max_tube_mass_kg,
+        )
+        if (not previous_pass) and current_pass:
+            return (float(previous.dihedral_multiplier), float(current.dihedral_multiplier))
+        previous = current
+        previous_pass = current_pass
+    return None
+
+
+def _summarize_first_pass_boundary(
+    rows: Sequence[SweepResult],
+    *,
+    max_tube_mass_kg: float | None = None,
+    refined_multipliers: Sequence[float] = (),
+) -> dict[str, object]:
+    boundary = _find_first_pass_boundary_interval(
+        rows,
+        max_tube_mass_kg=max_tube_mass_kg,
+    )
+    if boundary is None:
+        return {
+            "boundary_found": False,
+            "final_fail_multiplier": None,
+            "first_pass_multiplier": None,
+            "interval_width": None,
+            "refined_multipliers": [float(value) for value in refined_multipliers],
+        }
+    lower, upper = boundary
+    return {
+        "boundary_found": True,
+        "final_fail_multiplier": float(lower),
+        "first_pass_multiplier": float(upper),
+        "interval_width": float(upper - lower),
+        "refined_multipliers": [float(value) for value in refined_multipliers],
+    }
+
+
+def _auto_refine_first_pass_boundary(
+    rows: Sequence[SweepResult],
+    *,
+    run_multiplier_case: Callable[[float], SweepResult],
+    max_tube_mass_kg: float | None = None,
+    target_width: float = 0.1,
+    max_rounds: int = 4,
+) -> tuple[list[SweepResult], list[float]]:
+    working_rows = sorted(rows, key=lambda row: float(row.dihedral_multiplier))
+    refined_multipliers: list[float] = []
+    seen_multipliers = {float(row.dihedral_multiplier) for row in working_rows}
+    for _ in range(max(0, int(max_rounds))):
+        boundary = _find_first_pass_boundary_interval(
+            working_rows,
+            max_tube_mass_kg=max_tube_mass_kg,
+        )
+        if boundary is None:
+            break
+        lower, upper = boundary
+        if float(upper - lower) <= float(target_width):
+            break
+        midpoint = 0.5 * (float(lower) + float(upper))
+        if any(math.isclose(midpoint, existing, rel_tol=0.0, abs_tol=1e-9) for existing in seen_multipliers):
+            break
+        working_rows.append(run_multiplier_case(float(midpoint)))
+        working_rows.sort(key=lambda row: float(row.dihedral_multiplier))
+        refined_multipliers.append(float(midpoint))
+        seen_multipliers.add(float(midpoint))
+    return working_rows, refined_multipliers
+
+
 def _campaign_gate_penalty_kg(reject_reason: str) -> float:
     if reject_reason == "none":
         return 0.0
@@ -1944,6 +2045,7 @@ def _build_campaign_report_text(
     rows: list[SweepResult],
     search_budget: dict[str, object],
     winner_summary: dict[str, object] | None,
+    first_pass_boundary: dict[str, object] | None,
 ) -> str:
     lines = [
         "=" * 108,
@@ -2008,6 +2110,33 @@ def _build_campaign_report_text(
         ),
         "",
     ]
+    if first_pass_boundary is not None:
+        lines.append("First-pass boundary:")
+        if bool(first_pass_boundary.get("boundary_found")):
+            lines.extend(
+                [
+                    (
+                        "  final fail multiplier       : "
+                        f"{float(first_pass_boundary['final_fail_multiplier']):.6f}"
+                    ),
+                    (
+                        "  first pass multiplier       : "
+                        f"{float(first_pass_boundary['first_pass_multiplier']):.6f}"
+                    ),
+                    (
+                        "  interval width              : "
+                        f"{float(first_pass_boundary['interval_width']):.6f}"
+                    ),
+                ]
+            )
+        else:
+            lines.append("  boundary                    : not found")
+        refined = list(first_pass_boundary.get("refined_multipliers") or [])
+        lines.append(
+            "  refined multipliers         : "
+            + (", ".join(f"{float(value):.6f}" for value in refined) if refined else "none")
+        )
+        lines.append("")
     if winner_summary is not None:
         lines.extend(
             [
@@ -2173,6 +2302,26 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Optional hard gate on spar tube mass [kg]. "
             "If set, candidates above this limit are rejected at campaign ranking time."
         ),
+    )
+    parser.add_argument(
+        "--auto-first-pass-refine",
+        action="store_true",
+        help=(
+            "After the coarse sweep, automatically bisect the first fail-to-pass "
+            "multiplier interval until the target width is reached."
+        ),
+    )
+    parser.add_argument(
+        "--first-pass-refine-target-width",
+        type=float,
+        default=0.1,
+        help="Target multiplier interval width for automatic first-pass boundary refinement.",
+    )
+    parser.add_argument(
+        "--first-pass-refine-max-rounds",
+        type=int,
+        default=4,
+        help="Maximum number of automatic midpoint refinement rounds for the first-pass boundary.",
     )
     parser.add_argument(
         "--rib-zonewise-mode",
@@ -2358,6 +2507,8 @@ def main(argv: list[str] | None = None) -> int:
     campaign_aero_gate_settings: dict[str, object] | None = None
     origin_fixed_alpha_baseline_case = None
     origin_fixed_alpha_baseline_metadata: dict[str, object] | None = None
+    max_tube_mass_kg = None if args.max_tube_mass_kg is None else float(args.max_tube_mass_kg)
+    first_pass_refined_multipliers: list[float] = []
     if str(args.aero_source_mode) == ORIGIN_VSP_FIXED_ALPHA_CORRECTOR_AERO_SOURCE_MODE:
         origin_fixed_alpha_baseline_case, origin_fixed_alpha_baseline_metadata = (
             _build_origin_fixed_alpha_panel_baseline(
@@ -2367,7 +2518,9 @@ def main(argv: list[str] | None = None) -> int:
                 base_avl_path=base_avl_path,
             )
         )
-    for multiplier in multipliers:
+
+    def _run_multiplier_case(multiplier: float) -> SweepResult:
+        nonlocal campaign_aero_gate_settings
         case_dir = output_dir / f"mult_{_slug(multiplier)}"
         case_dir.mkdir(parents=True, exist_ok=True)
         scaled_text, scaled_sections, scale_samples = scale_avl_dihedral_text(
@@ -2427,8 +2580,8 @@ def main(argv: list[str] | None = None) -> int:
                     "fixed_design_alpha_deg": float(fixed_design_alpha_deg),
                     "origin_fixed_alpha_baseline": origin_fixed_alpha_baseline_metadata,
                 },
-            indent=2,
-        )
+                indent=2,
+            )
             + "\n",
             encoding="utf-8",
         )
@@ -2689,29 +2842,41 @@ def main(argv: list[str] | None = None) -> int:
             elif summary_json_path is not None:
                 summary_payload = _read_inverse_summary(Path(summary_json_path))
 
-        rows.append(
-            _build_result_row(
-                multiplier=float(multiplier),
-                dihedral_exponent=float(dihedral_exponent),
-                avl_eval=avl_eval,
-                aero_perf_eval=aero_perf_eval,
-                beta_eval=beta_eval,
-                control_eval=control_eval,
-                summary_payload=summary_payload,
-                selected_output_dir=selected_output_dir,
-                summary_json_path=summary_json_path,
-                error_message=inverse_error_message,
-            )
+        return _build_result_row(
+            multiplier=float(multiplier),
+            dihedral_exponent=float(dihedral_exponent),
+            avl_eval=avl_eval,
+            aero_perf_eval=aero_perf_eval,
+            beta_eval=beta_eval,
+            control_eval=control_eval,
+            summary_payload=summary_payload,
+            selected_output_dir=selected_output_dir,
+            summary_json_path=summary_json_path,
+            error_message=inverse_error_message,
+        )
+
+    rows = [_run_multiplier_case(float(multiplier)) for multiplier in multipliers]
+    if bool(args.auto_first_pass_refine):
+        rows, first_pass_refined_multipliers = _auto_refine_first_pass_boundary(
+            rows,
+            run_multiplier_case=_run_multiplier_case,
+            max_tube_mass_kg=max_tube_mass_kg,
+            target_width=float(args.first_pass_refine_target_width),
+            max_rounds=int(args.first_pass_refine_max_rounds),
         )
 
     csv_path = output_dir / "dihedral_sweep_summary.csv"
     json_path = output_dir / "dihedral_sweep_summary.json"
     report_path = output_dir / "dihedral_sweep_report.txt"
+    first_pass_boundary = _summarize_first_pass_boundary(
+        rows,
+        max_tube_mass_kg=max_tube_mass_kg,
+        refined_multipliers=first_pass_refined_multipliers,
+    )
+    rows = sorted(rows, key=lambda row: float(row.dihedral_multiplier))
     rows, winner_summary = _annotate_campaign_selection(
         rows,
-        max_tube_mass_kg=(
-            None if args.max_tube_mass_kg is None else float(args.max_tube_mass_kg)
-        ),
+        max_tube_mass_kg=max_tube_mass_kg,
     )
     _write_summary_csv(csv_path, rows)
     report_path.write_text(
@@ -2720,6 +2885,7 @@ def main(argv: list[str] | None = None) -> int:
             rows=rows,
             search_budget=search_budget,
             winner_summary=winner_summary,
+            first_pass_boundary=first_pass_boundary,
         ),
         encoding="utf-8",
     )
@@ -2742,6 +2908,7 @@ def main(argv: list[str] | None = None) -> int:
                 },
                 "search_budget": search_budget,
                 "aero_gate_settings": campaign_aero_gate_settings,
+                "first_pass_boundary": first_pass_boundary,
                 "winner": winner_summary,
                 "cases": [asdict(row) for row in rows],
             },
@@ -2769,6 +2936,15 @@ def main(argv: list[str] | None = None) -> int:
             f"(score={winner_summary['candidate_score']:.3f}, "
             f"status={winner_summary['selection_status']})"
         )
+    if bool(first_pass_boundary.get("boundary_found")):
+        print(
+            "  First-pass boundary: "
+            f"({float(first_pass_boundary['final_fail_multiplier']):.6f}, "
+            f"{float(first_pass_boundary['first_pass_multiplier']):.6f}] "
+            f"width={float(first_pass_boundary['interval_width']):.6f}"
+        )
+    elif first_pass_boundary is not None:
+        print("  First-pass boundary: not found")
     for row in rows:
         mass_text = "n/a" if row.total_mass_kg is None else f"{row.total_mass_kg:.3f} kg"
         clear_text = "n/a" if row.min_jig_clearance_mm is None else f"{row.min_jig_clearance_mm:.3f} mm"
