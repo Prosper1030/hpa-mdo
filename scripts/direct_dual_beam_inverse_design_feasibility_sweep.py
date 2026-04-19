@@ -359,7 +359,7 @@ def _effective_candidate_score(
 ) -> float:
     base_score = (
         float(case.mission_score)
-        if mission_objective_mode is not None
+        if mission_objective_mode is not None and case.mission_score is not None
         else float(case.objective_value_kg)
     )
     return (

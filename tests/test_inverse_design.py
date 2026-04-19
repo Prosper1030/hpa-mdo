@@ -2685,6 +2685,53 @@ class OuterLoopContractTests(unittest.TestCase):
             "winner",
         )
 
+    def test_feasibility_sweep_mission_pool_handles_legacy_rejected_row(self) -> None:
+        mission_winner = self._attach_mission_fields(
+            self._make_feasibility_case(
+                target_mass_kg=20.0,
+                feasible=True,
+                candidate_score=24.0,
+                selected_total_mass_kg=24.0,
+            ),
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            mission_score=-39000.0,
+        )
+        object.__setattr__(mission_winner, "target_violation_score", 0.010)
+        mission_runner_up = self._attach_mission_fields(
+            self._make_feasibility_case(
+                target_mass_kg=21.0,
+                feasible=True,
+                candidate_score=25.0,
+                selected_total_mass_kg=25.0,
+            ),
+            mission_objective_mode="max_range",
+            mission_feasible=True,
+            mission_score=-42000.0,
+        )
+        object.__setattr__(mission_runner_up, "target_violation_score", 0.002)
+        legacy_rejected = self._make_feasibility_case(
+            target_mass_kg=22.0,
+            feasible=False,
+            candidate_score=240.0,
+            selected_total_mass_kg=26.0,
+            main_blocker="ground clearance",
+        )
+
+        annotated, winner = _annotate_feasibility_case_selection(
+            [mission_winner, mission_runner_up, legacy_rejected]
+        )
+
+        self.assertIsNotNone(winner)
+        assert winner is not None
+        self.assertEqual(winner["requested_knobs"]["target_mass_kg"], 21.0)
+        self.assertEqual(winner["mission_objective_mode"], "max_range")
+        self.assertAlmostEqual(winner["candidate_score"], -41998.0)
+        by_target = {case.target_mass_kg: case for case in annotated}
+        self.assertEqual(by_target[22.0].selection_status, "rejected")
+        self.assertIsNone(by_target[22.0].mission_objective_mode)
+        self.assertGreater(by_target[22.0].candidate_score, 1000.0)
+
     def test_dihedral_campaign_budget_summary_accepts_local_refine_controls(self) -> None:
         args = _build_dihedral_campaign_arg_parser().parse_args(
             [
