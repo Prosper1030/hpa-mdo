@@ -27,6 +27,8 @@ import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
 from hpa_mdo.aero.vsp_introspect import _extract_airfoil_refs
 from hpa_mdo.core.config import HPAConfig, LiftingSurfaceConfig
 from hpa_mdo.core.logging import get_logger
@@ -227,6 +229,119 @@ class VSPBuilder:
         if not path.is_file():
             return None
         return path.resolve()
+
+    def _current_vspaero_reference_values(
+        self,
+        vsp: Any,
+    ) -> dict[str, float]:
+        """Return VSPAero reference values from the loaded model, with geometric fallback."""
+        refs: dict[str, float] = {}
+        settings_id = None
+        try:
+            settings_id = vsp.FindContainer("VSPAEROSettings", 0)
+        except Exception:
+            settings_id = None
+
+        if settings_id:
+            param_specs = {
+                "sref": "Sref",
+                "bref": "bref",
+                "cref": "cref",
+                "xcg": "Xcg",
+                "ycg": "Ycg",
+                "zcg": "Zcg",
+            }
+            for key, parm_name in param_specs.items():
+                try:
+                    parm_id = vsp.FindParm(settings_id, parm_name, "VSPAERO")
+                except Exception:
+                    parm_id = ""
+                if parm_id:
+                    try:
+                        refs[key] = float(vsp.GetParmVal(parm_id))
+                    except Exception:
+                        continue
+
+        wing_id = self._find_reference_wing_geom(vsp)
+        if wing_id is not None:
+            schedule = self._extract_reference_wing_schedule(vsp, wing_id)
+            if len(schedule) >= 2:
+                metrics = self._planform_metrics_from_schedule(schedule)
+                refs.setdefault("sref", metrics["sref"])
+                refs.setdefault("bref", metrics["bref"])
+                refs.setdefault("cref", metrics["cref"])
+
+        if "sref" not in refs or "bref" not in refs or "cref" not in refs:
+            w = self.cfg.wing
+            refs.setdefault("sref", 0.5 * (w.root_chord + w.tip_chord) * w.span)
+            refs.setdefault("bref", float(w.span))
+            refs.setdefault("cref", 0.5 * (w.root_chord + w.tip_chord))
+
+        refs.setdefault("xcg", 0.0)
+        refs.setdefault("ycg", 0.0)
+        refs.setdefault("zcg", 0.0)
+        return refs
+
+    @staticmethod
+    def _write_vspaero_reference_values(vsp: Any, refs: dict[str, float]) -> None:
+        """Write VSPAero reference values back onto the loaded model settings."""
+        settings_id = vsp.FindContainer("VSPAEROSettings", 0)
+        if not settings_id:
+            return
+
+        # Lock VSPAERO onto explicit manual reference values so origin-sourced
+        # Sref/bref/cref survive geometry retargeting and file round-trips.
+        for parm_name, value in (("RefFlag", 0.0), ("MACFlag", 0.0)):
+            try:
+                parm_id = vsp.FindParm(settings_id, parm_name, "VSPAERO")
+            except Exception:
+                parm_id = ""
+            if parm_id:
+                vsp.SetParmVal(parm_id, value)
+
+        parm_specs = {
+            "sref": "Sref",
+            "bref": "bref",
+            "cref": "cref",
+            "xcg": "Xcg",
+            "ycg": "Ycg",
+            "zcg": "Zcg",
+        }
+        for key, parm_name in parm_specs.items():
+            if key not in refs:
+                continue
+            try:
+                parm_id = vsp.FindParm(settings_id, parm_name, "VSPAERO")
+            except Exception:
+                parm_id = ""
+            if parm_id:
+                vsp.SetParmVal(parm_id, float(refs[key]))
+        vsp.Update()
+
+    @staticmethod
+    def _planform_metrics_from_schedule(schedule: List[Dict[str, Any]]) -> dict[str, float]:
+        """Compute planform reference values from a half-span chord schedule."""
+        y = np.asarray([float(item["y"]) for item in schedule], dtype=float)
+        chord = np.asarray([float(item["chord"]) for item in schedule], dtype=float)
+        order = np.argsort(y)
+        y = y[order]
+        chord = chord[order]
+        half_area = float(np.trapezoid(chord, y))
+        sref = 2.0 * half_area
+        bref = 2.0 * float(y[-1]) if len(y) else 0.0
+        cref = (
+            float(np.trapezoid(chord * chord, y)) / half_area
+            if half_area > 0.0
+            else 0.0
+        )
+        return {"sref": sref, "bref": bref, "cref": cref}
+
+    @staticmethod
+    def _reynolds_from_cref(*, velocity: float, cref: float, kinematic_viscosity: float) -> float:
+        """Return Reynolds number based on reference chord."""
+        if kinematic_viscosity <= 0.0:
+            raise ValueError("kinematic_viscosity must be > 0")
+        return float(velocity) * float(cref) / float(kinematic_viscosity)
 
     # ------------------------------------------------------------------
     # Public API
@@ -475,6 +590,7 @@ class VSPBuilder:
         vsp.ClearVSPModel()
         vsp.ReadVSPFile(str(reference_vsp))
         vsp.Update()
+        origin_refs = self._current_vspaero_reference_values(vsp)
 
         wing_id = self._find_reference_wing_geom(vsp)
         if wing_id is None:
@@ -487,6 +603,7 @@ class VSPBuilder:
 
         self._retarget_reference_wing_api(vsp, wing_id, schedule)
         self._apply_vspaero_settings_container_api(vsp)
+        self._write_vspaero_reference_values(vsp, origin_refs)
         vsp.Update()
         vsp.WriteVSPFile(str(output))
         logger.info(
@@ -660,9 +777,11 @@ class VSPBuilder:
             return _failure_dict("openvsp import failed in _run_vspaero_api")
 
         try:
+            refs = self._preferred_vspaero_reference_values(vsp3)
             vsp.ClearVSPModel()
             vsp.ReadVSPFile(str(vsp3))
             vsp.Update()
+            self._write_vspaero_reference_values(vsp, refs)
 
             # ── DegenGeom (required before VSPAero) ──────────────────
             compute_geometry_name = "VSPAEROComputeGeometry"
@@ -680,12 +799,19 @@ class VSPBuilder:
             vsp.SetDoubleAnalysisInput(analysis_name, "Vinf", [flt.velocity])
             vsp.SetDoubleAnalysisInput(analysis_name, "Rho", [flt.air_density])
 
-            # Reference area — wing planform.
-            w = self.cfg.wing
-            s_ref = 0.5 * (w.root_chord + w.tip_chord) * w.span
-            vsp.SetDoubleAnalysisInput(analysis_name, "Sref", [s_ref])
-            vsp.SetDoubleAnalysisInput(analysis_name, "bref", [w.span])
-            vsp.SetDoubleAnalysisInput(analysis_name, "cref", [0.5 * (w.root_chord + w.tip_chord)])
+            re_cref = self._reynolds_from_cref(
+                velocity=flt.velocity,
+                cref=refs["cref"],
+                kinematic_viscosity=flt.kinematic_viscosity,
+            )
+            vsp.SetDoubleAnalysisInput(analysis_name, "Sref", [refs["sref"]])
+            vsp.SetDoubleAnalysisInput(analysis_name, "bref", [refs["bref"]])
+            vsp.SetDoubleAnalysisInput(analysis_name, "cref", [refs["cref"]])
+            vsp.SetDoubleAnalysisInput(analysis_name, "Xcg", [refs["xcg"]])
+            vsp.SetDoubleAnalysisInput(analysis_name, "Ycg", [refs["ycg"]])
+            vsp.SetDoubleAnalysisInput(analysis_name, "Zcg", [refs["zcg"]])
+            if "ReCref" in set(vsp.GetAnalysisInputNames(analysis_name)):
+                vsp.SetDoubleAnalysisInput(analysis_name, "ReCref", [re_cref])
 
             # AoA sweep.
             vsp.SetDoubleAnalysisInput(analysis_name, "AlphaStart", [min(aoa_list)])
@@ -747,22 +873,26 @@ class VSPBuilder:
         stem = vsp3.stem
         setup_path = out_dir / f"{stem}.vspaero"
 
-        w = self.cfg.wing
         flt = self.cfg.flight
-        s_ref = 0.5 * (w.root_chord + w.tip_chord) * w.span
-        c_ref = 0.5 * (w.root_chord + w.tip_chord)
 
         try:
+            refs = self._preferred_vspaero_reference_values(vsp3)
+            re_cref = self._reynolds_from_cref(
+                velocity=flt.velocity,
+                cref=refs["cref"],
+                kinematic_viscosity=flt.kinematic_viscosity,
+            )
             setup_lines = [
-                f"Sref = {s_ref:.6f}",
-                f"bref = {w.span:.6f}",
-                f"cref = {c_ref:.6f}",
-                f"Xref = {0.25 * w.root_chord:.6f}",
-                "Yref = 0.000000",
-                "Zref = 0.000000",
+                f"Sref = {refs['sref']:.6f}",
+                f"bref = {refs['bref']:.6f}",
+                f"cref = {refs['cref']:.6f}",
+                f"Xref = {refs['xcg']:.6f}",
+                f"Yref = {refs['ycg']:.6f}",
+                f"Zref = {refs['zcg']:.6f}",
                 f"Mach = {flt.velocity / 343.0:.6f}",
                 f"AoA = {', '.join(f'{a:.2f}' for a in aoa_list)}",
                 "Beta = 0.000000",
+                f"ReCref = {re_cref:.6f}",
                 f"Vinf = {flt.velocity:.4f}",
                 f"Rho = {flt.air_density:.6f}",
                 "ClMax = -1.000000",
@@ -808,6 +938,38 @@ class VSPBuilder:
             return _failure_dict("vspaero binary disappeared from PATH")
         except Exception as exc:
             return _failure_dict(f"vspaero CLI failed: {exc}")
+
+    def _load_vspaero_reference_values_from_file(self, vsp3_path: Path) -> dict[str, float]:
+        """Read VSPAero reference values from a built ``.vsp3`` file."""
+        if not _has_openvsp():
+            w = self.cfg.wing
+            return {
+                "sref": 0.5 * (w.root_chord + w.tip_chord) * w.span,
+                "bref": float(w.span),
+                "cref": 0.5 * (w.root_chord + w.tip_chord),
+                "xcg": 0.0,
+                "ycg": 0.0,
+                "zcg": 0.0,
+            }
+
+        import openvsp as vsp
+
+        vsp.ClearVSPModel()
+        vsp.ReadVSPFile(str(vsp3_path))
+        vsp.Update()
+        try:
+            return self._current_vspaero_reference_values(vsp)
+        finally:
+            try:
+                vsp.ClearVSPModel()
+            except Exception:
+                pass
+
+    def _preferred_vspaero_reference_values(self, vsp3_path: Path) -> dict[str, float]:
+        """Prefer the configured origin ``.vsp3`` for solver reference values when available."""
+        reference_vsp = self._reference_vsp_path()
+        source = reference_vsp if reference_vsp is not None else Path(vsp3_path)
+        return self._load_vspaero_reference_values_from_file(source)
 
     # ------------------------------------------------------------------
     # .vspscript fallback

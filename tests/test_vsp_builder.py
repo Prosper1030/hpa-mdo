@@ -237,6 +237,12 @@ def test_api_build_from_reference_vsp_preserves_origin_attitude_and_empennage(tm
     assert openvsp.GetParmVal(openvsp.FindParm(geoms["Elevator"], "X_Rel_Location", "XForm")) == pytest.approx(4.0)
     assert openvsp.GetParmVal(openvsp.FindParm(geoms["Fin"], "X_Rel_Location", "XForm")) == pytest.approx(5.0)
     assert openvsp.GetParmVal(openvsp.FindParm(geoms["Fin"], "Z_Rel_Location", "XForm")) == pytest.approx(-0.7)
+    settings_id = openvsp.FindContainer("VSPAEROSettings", 0)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "RefFlag", "VSPAERO")) == pytest.approx(0.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "MACFlag", "VSPAERO")) == pytest.approx(0.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "Sref", "VSPAERO")) == pytest.approx(35.175)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "bref", "VSPAERO")) == pytest.approx(33.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "cref", "VSPAERO")) == pytest.approx(1.0425)
 
 
 def test_dihedral_multiplier_refits_segment_angles_from_scaled_station_z(tmp_path) -> None:
@@ -402,6 +408,18 @@ def test_run_vspaero_cli_preserves_selected_analysis_method_metadata(tmp_path, m
     vsp3_path.write_text("dummy\n", encoding="utf-8")
 
     monkeypatch.setattr(vsp_builder, "_resolve_vspaero_binary", lambda: "/tmp/vspaero")
+    monkeypatch.setattr(
+        builder,
+        "_load_vspaero_reference_values_from_file",
+        lambda _vsp3: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.0425,
+            "xcg": 0.0,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
 
     def _fake_run(cmd, capture_output, text, timeout, cwd):
         assert cmd[0] == "/tmp/vspaero"
@@ -417,3 +435,119 @@ def test_run_vspaero_cli_preserves_selected_analysis_method_metadata(tmp_path, m
     assert result["success"] is True
     assert result["analysis_method"] == "panel"
     assert result["solver_backend"] == "vspaero_cli"
+    setup_text = (tmp_path / "blackcat_004.vspaero").read_text(encoding="utf-8")
+    assert "Sref = 35.175000" in setup_text
+    assert "bref = 33.000000" in setup_text
+    assert "cref = 1.042500" in setup_text
+    assert "ReCref = 464126.712329" in setup_text
+
+
+def test_current_vspaero_reference_values_prefer_model_settings(tmp_path) -> None:
+    openvsp = pytest.importorskip("openvsp")
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    builder = VSPBuilder(cfg)
+
+    openvsp.ClearVSPModel()
+    wing_id = openvsp.AddGeom("WING")
+    openvsp.SetGeomName(wing_id, "Main Wing")
+    xsec_surf = openvsp.GetXSecSurf(wing_id, 0)
+    for _ in range(4):
+        openvsp.InsertXSec(wing_id, 1, openvsp.XS_FOUR_SERIES)
+    segments = [
+        (1.30, 1.30, 4.5, 1.0),
+        (1.30, 1.175, 3.0, 2.0),
+        (1.175, 1.04, 3.0, 3.0),
+        (1.04, 0.83, 3.0, 4.0),
+        (0.83, 0.435, 3.0, 5.0),
+    ]
+    for xsec_idx, (root_chord, tip_chord, span, dihedral) in enumerate(segments, start=1):
+        openvsp.SetDriverGroup(
+            wing_id,
+            xsec_idx,
+            openvsp.SPAN_WSECT_DRIVER,
+            openvsp.ROOTC_WSECT_DRIVER,
+            openvsp.TIPC_WSECT_DRIVER,
+        )
+        xs = openvsp.GetXSec(xsec_surf, xsec_idx)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Root_Chord"), root_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Tip_Chord"), tip_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Span"), span)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Dihedral"), dihedral)
+    settings_id = openvsp.FindContainer("VSPAEROSettings", 0)
+    openvsp.SetParmVal(openvsp.FindParm(settings_id, "Sref", "VSPAERO"), 35.175)
+    openvsp.SetParmVal(openvsp.FindParm(settings_id, "bref", "VSPAERO"), 33.0)
+    openvsp.SetParmVal(openvsp.FindParm(settings_id, "cref", "VSPAERO"), 1.0425)
+    openvsp.Update()
+
+    refs = builder._current_vspaero_reference_values(openvsp)
+
+    assert refs["sref"] == pytest.approx(35.175)
+    assert refs["bref"] == pytest.approx(33.0)
+    assert refs["cref"] == pytest.approx(1.0425)
+
+
+def test_write_vspaero_reference_values_forces_manual_origin_refs(tmp_path) -> None:
+    openvsp = pytest.importorskip("openvsp")
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+
+    openvsp.ClearVSPModel()
+    wing_id = openvsp.AddGeom("WING")
+    openvsp.SetGeomName(wing_id, "Main Wing")
+    xsec_surf = openvsp.GetXSecSurf(wing_id, 0)
+    for _ in range(4):
+        openvsp.InsertXSec(wing_id, 1, openvsp.XS_FOUR_SERIES)
+    for xsec_idx, (root_chord, tip_chord, span) in enumerate(
+        [
+            (1.30, 1.30, 4.5),
+            (1.30, 1.175, 3.0),
+            (1.175, 1.04, 3.0),
+            (1.04, 0.83, 3.0),
+            (0.83, 0.435, 3.0),
+        ],
+        start=1,
+    ):
+        openvsp.SetDriverGroup(
+            wing_id,
+            xsec_idx,
+            openvsp.SPAN_WSECT_DRIVER,
+            openvsp.ROOTC_WSECT_DRIVER,
+            openvsp.TIPC_WSECT_DRIVER,
+        )
+        xs = openvsp.GetXSec(xsec_surf, xsec_idx)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Root_Chord"), root_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Tip_Chord"), tip_chord)
+        openvsp.SetParmVal(openvsp.GetXSecParm(xs, "Span"), span)
+    openvsp.Update()
+
+    VSPBuilder(cfg)._write_vspaero_reference_values(
+        openvsp,
+        {"sref": 35.175, "bref": 33.0, "cref": 1.0425, "xcg": 0.0, "ycg": 0.0, "zcg": 0.0},
+    )
+
+    settings_id = openvsp.FindContainer("VSPAEROSettings", 0)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "RefFlag", "VSPAERO")) == pytest.approx(0.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "MACFlag", "VSPAERO")) == pytest.approx(0.0)
+    assert openvsp.GetParmVal(openvsp.FindParm(settings_id, "cref", "VSPAERO")) == pytest.approx(1.0425)
+
+
+def test_preferred_vspaero_reference_values_prefers_origin_vsp(tmp_path, monkeypatch) -> None:
+    config_path = REPO_ROOT / "configs" / "blackcat_004.yaml"
+    cfg = load_config(config_path, local_paths_path=tmp_path / "missing_local_paths.yaml")
+    origin_vsp = tmp_path / "origin.vsp3"
+    origin_vsp.write_text("origin\n", encoding="utf-8")
+    cfg.io.vsp_model = origin_vsp
+    builder = VSPBuilder(cfg)
+    seen: list[Path] = []
+
+    def _fake_load(path: Path) -> dict[str, float]:
+        seen.append(Path(path))
+        return {"sref": 35.175, "bref": 33.0, "cref": 1.0425, "xcg": 0.0, "ycg": 0.0, "zcg": 0.0}
+
+    monkeypatch.setattr(builder, "_load_vspaero_reference_values_from_file", _fake_load)
+
+    refs = builder._preferred_vspaero_reference_values(tmp_path / "candidate.vsp3")
+
+    assert refs["cref"] == pytest.approx(1.0425)
+    assert seen == [origin_vsp.resolve()]
