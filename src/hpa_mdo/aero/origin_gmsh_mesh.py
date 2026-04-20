@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 import importlib
 import json
 import math
@@ -360,6 +361,36 @@ def _surface_tags_from_occ_map(occ_map: list[list[tuple[int, int]]]) -> list[int
     return surface_tags
 
 
+def _remove_duplicate_surface_facets(gmsh, surface_tags: list[int]) -> int:
+    duplicate_elements: dict[tuple[int, tuple[int, ...]], list[tuple[int, int]]] = defaultdict(list)
+
+    for surface_tag in surface_tags:
+        element_types, element_tags_blocks, node_tags_blocks = gmsh.model.mesh.getElements(2, surface_tag)
+        for element_type, element_tags, node_tags in zip(element_types, element_tags_blocks, node_tags_blocks):
+            if element_type == GMSH_TRIANGLE:
+                node_count = 3
+            elif element_type == GMSH_QUAD:
+                node_count = 4
+            else:
+                continue
+            connectivity = np.asarray(node_tags, dtype=int).reshape(-1, node_count)
+            for element_tag, nodes in zip(element_tags, connectivity):
+                key = (int(element_type), tuple(sorted(int(node_tag) for node_tag in nodes)))
+                duplicate_elements[key].append((int(surface_tag), int(element_tag)))
+
+    removed_count = 0
+    for entries in duplicate_elements.values():
+        if len(entries) < 2:
+            continue
+        for surface_tag, element_tag in entries[1:]:
+            gmsh.model.mesh.removeElements(2, surface_tag, [element_tag])
+            removed_count += 1
+
+    if removed_count:
+        gmsh.model.mesh.reclassifyNodes()
+    return removed_count
+
+
 def _select_outer_fluid_volumes(
     gmsh,
     candidate_volume_tags: list[int],
@@ -437,6 +468,21 @@ def _collect_physical_group_elements_raw(gmsh, dim: int, physical_tag: int) -> l
     return collected
 
 
+def _filter_marker_elements_to_volume_nodes(
+    marker_elements: dict[str, list[tuple[int, list[int]]]],
+    *,
+    volume_node_tags: set[int],
+) -> dict[str, list[tuple[int, list[int]]]]:
+    return {
+        name: [
+            (su2_type, nodes)
+            for su2_type, nodes in elements
+            if set(nodes).issubset(volume_node_tags)
+        ]
+        for name, elements in marker_elements.items()
+    }
+
+
 def _write_su2_mesh(gmsh, output_path: Path, marker_names: dict[int, str], fluid_group_tag: int) -> dict[str, Any]:
     node_tags, coords, _ = gmsh.model.mesh.getNodes()
     if len(node_tags) == 0:
@@ -456,6 +502,8 @@ def _write_su2_mesh(gmsh, output_path: Path, marker_names: dict[int, str], fluid
         key = str(su2_type)
         volume_type_counts[key] = volume_type_counts.get(key, 0) + 1
 
+    volume_node_tags = {node_tag for _, nodes in raw_volume_elements for node_tag in nodes}
+
     raw_marker_elements: dict[str, list[tuple[int, list[int]]]] = {}
     for dim, physical_tag in gmsh.model.getPhysicalGroups():
         if dim != 2:
@@ -463,10 +511,17 @@ def _write_su2_mesh(gmsh, output_path: Path, marker_names: dict[int, str], fluid
         physical_name = gmsh.model.getPhysicalName(dim, physical_tag)
         raw_marker_elements[physical_name] = _collect_physical_group_elements_raw(gmsh, 2, physical_tag)
 
-    used_node_tags: set[int] = set()
-    for _, nodes in raw_volume_elements:
-        used_node_tags.update(nodes)
-    for elements in raw_marker_elements.values():
+    filtered_marker_elements = _filter_marker_elements_to_volume_nodes(
+        raw_marker_elements,
+        volume_node_tags=volume_node_tags,
+    )
+    marker_elements_dropped_outside_volume = {
+        name: int(len(raw_marker_elements.get(name, [])) - len(filtered_marker_elements.get(name, [])))
+        for name in raw_marker_elements
+    }
+
+    used_node_tags: set[int] = set(volume_node_tags)
+    for elements in filtered_marker_elements.values():
         for _, nodes in elements:
             used_node_tags.update(nodes)
 
@@ -481,7 +536,7 @@ def _write_su2_mesh(gmsh, output_path: Path, marker_names: dict[int, str], fluid
     ]
     marker_elements = {
         name: [(su2_type, [node_map[node_tag] for node_tag in nodes]) for su2_type, nodes in elements]
-        for name, elements in raw_marker_elements.items()
+        for name, elements in filtered_marker_elements.items()
     }
 
     lines = [
@@ -510,6 +565,7 @@ def _write_su2_mesh(gmsh, output_path: Path, marker_names: dict[int, str], fluid
         "VolumeElements": int(len(volume_elements)),
         "VolumeElementTypeCounts": volume_type_counts,
         "MarkerElements": {name: int(len(elements)) for name, elements in marker_elements.items()},
+        "MarkerElementsDroppedOutsideVolume": marker_elements_dropped_outside_volume,
     }
 
 
@@ -632,6 +688,10 @@ def generate_step_occ_external_flow_mesh(
             optimize_netgen=body_entity_mode != "embedded_surfaces",
         )
 
+        removed_duplicate_boundary_facets = 0
+        if body_entity_mode == "embedded_surfaces":
+            gmsh.model.mesh.generate(2)
+            removed_duplicate_boundary_facets = _remove_duplicate_surface_facets(gmsh, body_surface_tags)
         gmsh.model.mesh.generate(3)
         gmsh.write(str(msh_path))
         su2_stats = _write_su2_mesh(gmsh, output_path, marker_names, fluid_group_tag)
@@ -656,6 +716,7 @@ def generate_step_occ_external_flow_mesh(
         "FluidVolumeCount": int(len(fluid_volume_tags)),
         "BodySurfaceCount": int(len(body_surface_tags)),
         "EmbeddedSurfaceCount": embedded_surface_count,
+        "RemovedDuplicateBoundaryFacets": int(removed_duplicate_boundary_facets),
         "FarfieldSurfaceCount": int(len(farfield_surface_tags)),
         "FluidVolumeTags": fluid_volume_tags,
         "BodyBounds": {

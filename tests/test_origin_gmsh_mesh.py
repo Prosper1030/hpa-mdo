@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -273,3 +274,59 @@ def test_generate_origin_external_flow_mesh_falls_back_to_stl_when_step_missing(
     assert metadata["PresetName"] == "study_medium"
     assert metadata["MarkerElements"] == {"wing_surface": 1, "outer_box": 3}
     assert "FallbackReason" in metadata
+
+
+def test_remove_duplicate_surface_facets_drops_cross_surface_duplicates() -> None:
+    from hpa_mdo.aero.origin_gmsh_mesh import _remove_duplicate_surface_facets
+
+    removed: list[tuple[int, list[int]]] = []
+    reclassified: list[bool] = []
+
+    class _FakeMesh:
+        def getElements(self, dim: int, tag: int):
+            assert dim == 2
+            payload = {
+                10: ([2], [[1001]], [[1, 2, 3]]),
+                11: ([2], [[1002]], [[3, 1, 2]]),
+                12: ([2], [[1003]], [[4, 5, 6]]),
+            }
+            return payload[tag]
+
+        def removeElements(self, dim: int, tag: int, elementTags):
+            assert dim == 2
+            removed.append((tag, list(elementTags)))
+
+        def reclassifyNodes(self):
+            reclassified.append(True)
+
+    gmsh = SimpleNamespace(model=SimpleNamespace(mesh=_FakeMesh()))
+
+    duplicate_count = _remove_duplicate_surface_facets(gmsh, [10, 11, 12])
+
+    assert duplicate_count == 1
+    assert removed == [(11, [1002])]
+    assert reclassified == [True]
+
+
+def test_filter_marker_elements_to_volume_nodes_drops_surface_only_facets() -> None:
+    from hpa_mdo.aero.origin_gmsh_mesh import _filter_marker_elements_to_volume_nodes
+
+    marker_elements = {
+        "aircraft": [
+            (5, [0, 1, 2]),
+            (5, [2, 3, 99]),
+        ],
+        "farfield": [
+            (5, [0, 1, 3]),
+        ],
+    }
+
+    filtered = _filter_marker_elements_to_volume_nodes(
+        marker_elements,
+        volume_node_tags={0, 1, 2, 3},
+    )
+
+    assert filtered == {
+        "aircraft": [(5, [0, 1, 2])],
+        "farfield": [(5, [0, 1, 3])],
+    }
