@@ -36,6 +36,7 @@ from hpa_mdo.aero.avl_stability_parser import (
 )
 from hpa_mdo.aero.load_mapper import LoadMapper
 from hpa_mdo.aero.origin_aero import run_origin_aero_sweep, write_origin_aero_artifacts
+from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
 from hpa_mdo.aero.vsp_aero import VSPAeroParser
 from hpa_mdo.aero.vsp_builder import VSPBuilder
 from hpa_mdo.aero.xflr5 import XFLR5Parser
@@ -69,6 +70,7 @@ __all__ = [
     "parse_control_mapping_from_avl",
     "parse_st_file",
     "parse_st_text",
+    "prepare_origin_su2_alpha_sweep",
     "run_origin_aero_sweep",
     "run_avl_derivatives",
     "sweep_points_to_dataframe",

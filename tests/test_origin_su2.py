@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+from hpa_mdo.aero.aero_sweep import load_su2_alpha_sweep
+
+
+def _write_text(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text.strip() + "\n", encoding="utf-8")
+    return path
+
+
+def _fake_cfg(tmp_path: Path, origin_vsp_path: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        project_name="Black Cat 004",
+        flight=SimpleNamespace(
+            velocity=6.5,
+            air_density=1.225,
+            kinematic_viscosity=1.46e-5,
+        ),
+        wing=SimpleNamespace(
+            span=33.0,
+            root_chord=1.30,
+            tip_chord=0.435,
+        ),
+        io=SimpleNamespace(
+            vsp_model=origin_vsp_path,
+            output_dir=tmp_path / "output",
+        ),
+    )
+
+
+def test_prepare_origin_su2_alpha_sweep_writes_cases_and_configs(monkeypatch, tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+
+    def _fake_export(*, vsp3_path: str | Path, output_dir: str | Path) -> dict[str, str]:
+        out_dir = Path(output_dir)
+        return {
+            "stl": str(_write_text(out_dir / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(out_dir / "origin_surface.step", "ISO-10303-21;")),
+        }
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2._export_origin_cfd_geometry", _fake_export)
+
+    result = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[-2.0, 0.0],
+    )
+
+    assert result["case_count"] == 2
+    assert Path(result["geometry"]["stl"]).exists()
+    assert Path(result["geometry"]["step"]).exists()
+
+    alpha_case = tmp_path / "su2_alpha_sweep" / "alpha_m2p0"
+    runtime_cfg = (alpha_case / "su2_runtime.cfg").read_text(encoding="utf-8")
+    metadata = json.loads((alpha_case / "case_metadata.json").read_text(encoding="utf-8"))
+
+    assert "SOLVER= INC_NAVIER_STOKES" in runtime_cfg
+    assert "REF_AREA= 35.175000" in runtime_cfg
+    assert "REF_LENGTH= 1.130000" in runtime_cfg
+    assert "AOA= -2.000000" in runtime_cfg
+    assert "MARKER_HEATFLUX= ( aircraft, 0.0 )" in runtime_cfg
+    assert "MARKER_FAR= ( farfield )" in runtime_cfg
+    assert "MU_CONSTANT= 1.788500e-05" in runtime_cfg
+    assert metadata["alpha_deg"] == -2.0
+    assert (alpha_case / "PUT_MESH_HERE.md").exists()
+
+
+def test_prepare_origin_su2_alpha_sweep_can_feed_the_shared_reader(monkeypatch, tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", "NDIME= 3")
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    result = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[-2.0, 0.0],
+        mesh_path=mesh_path,
+    )
+
+    alpha_zero = Path(result["cases"][1]["case_dir"])
+    _write_text(
+        alpha_zero / "history.csv",
+        """
+        "ITER","CD","CL","CMy"
+        99,0.0360,1.0300,-0.0240
+        """,
+    )
+
+    points = load_su2_alpha_sweep(tmp_path / "su2_alpha_sweep")
+    assert len(points) == 1
+    assert points[0].alpha_deg == 0.0
+    assert points[0].cl == 1.03
+    assert points[0].drag_n is not None
+    assert (alpha_zero / "origin_mesh.su2").exists()
