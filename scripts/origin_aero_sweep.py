@@ -10,6 +10,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from hpa_mdo.aero.origin_gmsh_mesh import ORIGIN_SU2_MESH_PRESETS
 from hpa_mdo.aero.origin_aero import run_origin_aero_sweep
 from hpa_mdo.core.config import load_config
 
@@ -17,6 +18,7 @@ from hpa_mdo.core.config import load_config
 DEFAULT_CONFIG = "configs/blackcat_004.yaml"
 DEFAULT_AOA = [-2.0, 0.0, 2.0]
 DEFAULT_MESH_PRESET = "baseline"
+MESH_PRESET_CHOICES = tuple(ORIGIN_SU2_MESH_PRESETS)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--su2-mesh-preset",
         default=DEFAULT_MESH_PRESET,
-        choices=["baseline", "study_coarse", "study_medium", "study_fine"],
+        choices=MESH_PRESET_CHOICES,
         help="Preset mesh sizing contract used when auto-generating the SU2 mesh",
     )
     parser.add_argument("--auto-mesh-su2", action="store_true", help="Auto-generate an external-flow SU2 mesh from origin_surface.stl")

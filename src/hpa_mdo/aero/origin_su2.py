@@ -439,6 +439,8 @@ def prepare_origin_su2_alpha_sweep(
         raise ValueError("run_cases and dry_run_cases cannot both be true")
     if mesh_path is not None and auto_mesh:
         raise ValueError("mesh_path and auto_mesh cannot both be set")
+    if mesh_path is not None and mesh_preset != "baseline":
+        raise ValueError("mesh_preset is only applicable when auto_mesh=True")
 
     cfg = load_config(config_path)
     vsp_path = Path(cfg.io.vsp_model).expanduser().resolve()
@@ -455,6 +457,7 @@ def prepare_origin_su2_alpha_sweep(
     dynamic_viscosity_pas = density_kgpm3 * kinematic_viscosity
 
     generated_mesh = None
+    applied_mesh_preset = mesh_preset if auto_mesh else None
     mesh_source = None if mesh_path is None else Path(mesh_path).expanduser().resolve()
     if mesh_source is None and auto_mesh:
         generated_mesh_path = geometry_dir / mesh_filename
@@ -517,7 +520,7 @@ def prepare_origin_su2_alpha_sweep(
             "mesh_validation": mesh_validation,
             "wall_marker": wall_marker,
             "farfield_marker": farfield_marker,
-            "mesh_preset": mesh_preset,
+            "mesh_preset": applied_mesh_preset,
             "reference_values": refs,
             "geometry": geometry,
         }
@@ -535,7 +538,7 @@ def prepare_origin_su2_alpha_sweep(
                 "su2_runtime_cfg": str(su2_runtime_cfg),
                 "mesh_path": None if mesh_target is None else str(mesh_target),
                 "mesh_validation": mesh_validation,
-                "mesh_preset": mesh_preset,
+                "mesh_preset": applied_mesh_preset,
             }
         )
 
@@ -550,7 +553,7 @@ def prepare_origin_su2_alpha_sweep(
         "cases": cases,
         "mesh_path": None if mesh_source is None else str(mesh_source),
         "generated_mesh": generated_mesh,
-        "mesh_preset": mesh_preset,
+        "mesh_preset": applied_mesh_preset,
         "run_cases": bool(run_cases),
         "dry_run_cases": bool(dry_run_cases),
         "mpi_ranks": mpi_ranks,
