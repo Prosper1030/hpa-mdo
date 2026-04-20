@@ -143,12 +143,9 @@ def _build_su2_config_text(
         "SIDESLIP_ANGLE= 0.000000",
         f"REF_AREA= {float(refs['sref']):.6f}",
         f"REF_LENGTH= {float(refs['cref']):.6f}",
-        (
-            "REF_ORIGIN_MOMENT= "
-            f"( {float(refs.get('xcg', 0.0)):.6f},"
-            f" {float(refs.get('ycg', 0.0)):.6f},"
-            f" {float(refs.get('zcg', 0.0)):.6f} )"
-        ),
+        f"REF_ORIGIN_MOMENT_X= {float(refs.get('xcg', 0.0)):.6f}",
+        f"REF_ORIGIN_MOMENT_Y= {float(refs.get('ycg', 0.0)):.6f}",
+        f"REF_ORIGIN_MOMENT_Z= {float(refs.get('zcg', 0.0)):.6f}",
         f"MESH_FILENAME= {mesh_filename}",
         "MESH_FORMAT= SU2",
         f"MARKER_HEATFLUX= ( {wall_marker}, 0.0 )",

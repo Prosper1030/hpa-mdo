@@ -100,6 +100,10 @@ def test_prepare_origin_su2_alpha_sweep_writes_cases_and_configs(monkeypatch, tm
     assert "SOLVER= INC_NAVIER_STOKES" in runtime_cfg
     assert "REF_AREA= 35.175000" in runtime_cfg
     assert "REF_LENGTH= 1.130000" in runtime_cfg
+    assert "REF_ORIGIN_MOMENT_X= 0.250000" in runtime_cfg
+    assert "REF_ORIGIN_MOMENT_Y= 0.000000" in runtime_cfg
+    assert "REF_ORIGIN_MOMENT_Z= 0.000000" in runtime_cfg
+    assert "REF_ORIGIN_MOMENT=" not in runtime_cfg
     assert "AOA= -2.000000" in runtime_cfg
     assert "MARKER_HEATFLUX= ( aircraft, 0.0 )" in runtime_cfg
     assert "MARKER_FAR= ( farfield )" in runtime_cfg
