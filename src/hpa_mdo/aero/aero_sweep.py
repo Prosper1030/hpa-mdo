@@ -208,9 +208,9 @@ def _alpha_from_metadata(case_dir: Path) -> tuple[float | None, str | None]:
         case_dir / "metadata.json",
         case_dir / "case.json",
     ):
-        if not candidate.exists():
+        payload = _load_json_dict(candidate)
+        if not payload:
             continue
-        payload = json.loads(candidate.read_text(encoding="utf-8"))
         for key in ("alpha_deg", "aoa_deg", "aoa", "alpha"):
             value = _parse_float(payload.get(key))
             if value is not None:
@@ -284,7 +284,10 @@ def _resolve_case_paths(sweep_dir: Path) -> list[Path]:
 def _load_json_dict(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
     if isinstance(payload, dict):
         return payload
     return {}
@@ -316,6 +319,22 @@ def _load_run_summary_cases(sweep_dir: Path) -> dict[str, dict[str, Any]]:
         if case_name:
             cases_by_name[str(case_name)] = case
     return cases_by_name
+
+
+def _resolve_run_summary_case(
+    *,
+    sweep_dir: Path,
+    case_dir: Path,
+    run_summary_cases: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    direct_match = run_summary_cases.get(case_dir.name)
+    if direct_match is not None:
+        return direct_match
+
+    if case_dir == sweep_dir and len(run_summary_cases) == 1:
+        return next(iter(run_summary_cases.values()))
+
+    return {}
 
 
 def _build_su2_case_notes(
@@ -354,7 +373,11 @@ def load_su2_alpha_sweep(sweep_dir: str | Path) -> list[AeroSweepPoint]:
         cfg_values = _parse_su2_cfg(case_dir / "su2_runtime.cfg")
         alpha_deg, alpha_source = _resolve_case_alpha(case_dir, cfg_values)
         case_metadata = _load_case_metadata(case_dir)
-        run_summary_case = run_summary_cases.get(case_dir.name, {})
+        run_summary_case = _resolve_run_summary_case(
+            sweep_dir=root,
+            case_dir=case_dir,
+            run_summary_cases=run_summary_cases,
+        )
         density = _parse_float(cfg_values.get("INC_DENSITY_INIT")) or _parse_float(
             cfg_values.get("FREESTREAM_DENSITY")
         )
