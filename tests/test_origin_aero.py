@@ -66,6 +66,59 @@ def _sample_su2_points() -> list[AeroSweepPoint]:
     ]
 
 
+def _stub_origin_geometry_contract(origin_vsp_path: Path) -> dict[str, object]:
+    return {
+        "contract_version": 1,
+        "origin_vsp_path": str(origin_vsp_path.resolve()),
+        "tail_geometry_confirmed": True,
+        "control_surface_contract_confirmed": False,
+        "surfaces": {
+            "main_wing": {
+                "kind": "main_wing",
+                "name": "Main Wing",
+                "detected": True,
+                "span_m": 0.0,
+                "root_chord_m": 0.0,
+                "tip_chord_m": 0.0,
+                "location": {"x": None, "y": None, "z": None},
+                "rotation_deg": {"x": None, "y": None, "z": None},
+                "symmetry_xz": True,
+                "station_count": 0,
+                "control_count": 0,
+                "control_names": [],
+            },
+            "horizontal_tail": {
+                "kind": "horizontal_tail",
+                "name": "Elevator",
+                "detected": True,
+                "span_m": 0.0,
+                "root_chord_m": 0.0,
+                "tip_chord_m": 0.0,
+                "location": {"x": None, "y": None, "z": None},
+                "rotation_deg": {"x": None, "y": None, "z": None},
+                "symmetry_xz": True,
+                "station_count": 0,
+                "control_count": 0,
+                "control_names": [],
+            },
+            "vertical_fin": {
+                "kind": "vertical_fin",
+                "name": "Fin",
+                "detected": True,
+                "span_m": 0.0,
+                "root_chord_m": 0.0,
+                "tip_chord_m": 0.0,
+                "location": {"x": None, "y": None, "z": None},
+                "rotation_deg": {"x": None, "y": None, "z": None},
+                "symmetry_xz": False,
+                "station_count": 0,
+                "control_count": 0,
+                "control_names": [],
+            },
+        },
+    }
+
+
 def test_write_origin_aero_artifacts_writes_solver_outputs_and_bundle(tmp_path: Path) -> None:
     bundle = write_origin_aero_artifacts(
         output_dir=tmp_path,
@@ -164,16 +217,7 @@ def test_run_origin_aero_sweep_runs_builder_and_optionally_loads_su2(monkeypatch
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
     monkeypatch.setattr(
         "hpa_mdo.aero.origin_aero.build_origin_geometry_contract",
-        lambda *, config_path, cfg=None: {
-            "origin_vsp_path": str(origin_vsp_path.resolve()),
-            "tail_geometry_confirmed": True,
-            "control_surface_contract_confirmed": False,
-            "surfaces": {
-                "main_wing": {"name": "Main Wing", "controls": []},
-                "horizontal_tail": {"name": "Elevator", "controls": []},
-                "vertical_fin": {"name": "Fin", "controls": []},
-            },
-        },
+        lambda *, config_path, cfg=None: _stub_origin_geometry_contract(origin_vsp_path),
     )
 
     bundle = run_origin_aero_sweep(
@@ -263,16 +307,7 @@ def test_run_origin_aero_sweep_can_prepare_su2_cases_before_analysis(
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
     monkeypatch.setattr(
         "hpa_mdo.aero.origin_aero.build_origin_geometry_contract",
-        lambda *, config_path, cfg=None: {
-            "origin_vsp_path": str(origin_vsp_path.resolve()),
-            "tail_geometry_confirmed": True,
-            "control_surface_contract_confirmed": False,
-            "surfaces": {
-                "main_wing": {"name": "Main Wing", "controls": []},
-                "horizontal_tail": {"name": "Elevator", "controls": []},
-                "vertical_fin": {"name": "Fin", "controls": []},
-            },
-        },
+        lambda *, config_path, cfg=None: _stub_origin_geometry_contract(origin_vsp_path),
     )
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.prepare_origin_su2_alpha_sweep", _fake_prepare)
 
@@ -285,6 +320,7 @@ def test_run_origin_aero_sweep_can_prepare_su2_cases_before_analysis(
 
     payload = json.loads(Path(bundle["bundle_json"]).read_text(encoding="utf-8"))
     assert payload["metadata"]["origin_geometry_contract"]["tail_geometry_confirmed"] is True
+    assert Path(payload["metadata"]["origin_geometry_contract_json"]).exists()
     assert payload["metadata"]["su2_preparation"]["case_count"] == 2
     assert payload["su2"]["count"] == 1
 
@@ -360,6 +396,10 @@ def test_run_origin_aero_sweep_can_dry_run_prepared_su2_cases(
 
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.load_config", lambda _: cfg)
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_aero.build_origin_geometry_contract",
+        lambda *, config_path, cfg=None: _stub_origin_geometry_contract(origin_vsp_path),
+    )
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.prepare_origin_su2_alpha_sweep", _fake_prepare)
     monkeypatch.setattr(
         "hpa_mdo.aero.origin_aero.run_prepared_origin_su2_alpha_sweep",
@@ -435,6 +475,10 @@ def test_run_origin_aero_sweep_passes_auto_mesh_flag_into_prepare(
 
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.load_config", lambda _: cfg)
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_aero.build_origin_geometry_contract",
+        lambda *, config_path, cfg=None: _stub_origin_geometry_contract(origin_vsp_path),
+    )
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.prepare_origin_su2_alpha_sweep", _fake_prepare)
 
     bundle = run_origin_aero_sweep(
