@@ -193,6 +193,8 @@ def run_job(config: MeshJobConfig) -> Dict[str, Any]:
     }
     if su2 is not None:
         result["su2"] = su2
+        if su2.get("convergence_gate") is not None:
+            result["convergence"] = su2["convergence_gate"]
     write_json_report(config.out_dir / "report.json", result)
     write_markdown_report(config.out_dir / "report.md", result)
     return result

@@ -45,6 +45,7 @@ BackendCapabilityType = Literal[
 ]
 ProvenanceConfidenceType = Literal["low", "medium", "high"]
 GateStatusType = Literal["pass", "warn", "fail"]
+ComparabilityLevelType = Literal["preliminary_compare", "run_only", "not_comparable"]
 SU2ReferenceModeType = Literal[
     "auto",
     "baseline_envelope_derived",
@@ -406,6 +407,33 @@ class SU2ProvenanceGates(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
+class ConvergenceGateCheck(BaseModel):
+    status: GateStatusType = "warn"
+    observed: Dict[str, Any] = Field(default_factory=dict)
+    expected: Dict[str, Any] = Field(default_factory=dict)
+    warnings: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class ConvergenceGateSection(BaseModel):
+    status: GateStatusType = "warn"
+    confidence: ProvenanceConfidenceType = "low"
+    checks: Dict[str, ConvergenceGateCheck] = Field(default_factory=dict)
+    warnings: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class OverallConvergenceGate(ConvergenceGateSection):
+    comparability_level: ComparabilityLevelType = "run_only"
+
+
+class BaselineConvergenceGate(BaseModel):
+    contract: Literal["convergence_gate.v1"] = "convergence_gate.v1"
+    mesh_gate: ConvergenceGateSection = Field(default_factory=ConvergenceGateSection)
+    iterative_gate: ConvergenceGateSection = Field(default_factory=ConvergenceGateSection)
+    overall_convergence_gate: OverallConvergenceGate = Field(default_factory=OverallConvergenceGate)
+
+
 class SU2CaseHandoff(BaseModel):
     contract: Literal["su2_handoff.v1"] = "su2_handoff.v1"
     route_stage: Literal["baseline"] = "baseline"
@@ -423,6 +451,7 @@ class SU2CaseHandoff(BaseModel):
     solver_command: List[str] = Field(default_factory=list)
     force_surface_provenance: Optional[SU2ForceSurfaceProvenance] = None
     provenance_gates: SU2ProvenanceGates = Field(default_factory=SU2ProvenanceGates)
+    convergence_gate: Optional[BaselineConvergenceGate] = None
     provenance: Dict[str, Any] = Field(default_factory=dict)
     notes: List[str] = Field(default_factory=list)
 

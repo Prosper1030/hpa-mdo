@@ -8,7 +8,8 @@
 2. geometry-family-first dispatch
 3. package-native meshing backend
 4. package-native SU2 baseline handoff
-5. provenance-first reporting
+5. convergence + provenance gating
+6. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -20,6 +21,7 @@
   -> gmsh_thin_sheet_aircraft_assembly
   -> mesh_handoff.v1
   -> su2_handoff.v1
+  -> convergence_gate.v1
 ```
 
 ## Layer Breakdown
@@ -29,6 +31,7 @@
 `src/hpa_meshing/schema.py`
 
 - Defines `MeshJobConfig`, `GeometryProviderResult`, `MeshHandoff`, `SU2CaseHandoff`
+- Defines `BaselineConvergenceGate` and the machine-readable gate sections/checks
 - Keeps the artifact contracts explicit and versioned
 - Lets reports, tests, and downstream tools agree on the same payload shape
 
@@ -72,7 +75,7 @@ Current boundary:
 - Materializes `SU2_CFD` runtime config
 - Writes `su2_handoff.v1`
 - Parses `history.csv`
-- Carries reference and force-surface provenance gates
+- Carries reference / force-surface provenance gates plus the baseline convergence gate
 
 This is a baseline CFD route, not the repo's final high-quality validation framework.
 
@@ -82,6 +85,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 
 - Runs provider -> classify -> validate -> recipe -> mesh -> SU2 baseline
 - Writes `report.json` / `report.md`
+- Mirrors the baseline convergence gate into `report.json["convergence"]` for downstream orchestration
 - Keeps failure codes and route stage explicit
 
 ## Real vs Placeholder Boundary
@@ -108,6 +112,7 @@ MeshJobConfig
   -> MeshRecipe
   -> mesh_handoff.v1
   -> su2_handoff.v1
+  -> convergence_gate.v1
   -> report.json
 ```
 
@@ -118,4 +123,4 @@ The contracts are intentionally machine-readable first, then human-readable thro
 - New AI / new developers can tell what is formal without reading multiple worktrees
 - Baseline CFD can evolve without dragging in `origin-su2-high-quality`
 - ESP/OpenCSM can stay experimental without blocking the formal package
-- The next hardening step can focus on convergence gates instead of reopening architecture again
+- The next hardening step can focus on mesh study / alpha sweep policy instead of reopening the baseline gate shape again

@@ -44,6 +44,21 @@ def _lines_for_payload(payload: dict[str, Any]) -> list[str]:
             ]
         )
 
+    convergence = payload.get("convergence", {})
+    if isinstance(convergence, dict) and convergence:
+        overall = convergence.get("overall_convergence_gate", {})
+        lines.extend(
+            [
+                "",
+                "## Convergence",
+                "",
+                f"- mesh_gate: {convergence.get('mesh_gate', {}).get('status')}",
+                f"- iterative_gate: {convergence.get('iterative_gate', {}).get('status')}",
+                f"- overall: {overall.get('status')}",
+                f"- comparability_level: {overall.get('comparability_level')}",
+            ]
+        )
+
     return lines
 
 

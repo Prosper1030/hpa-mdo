@@ -294,10 +294,14 @@ def test_run_baseline_case_invokes_solver_and_updates_contract(tmp_path: Path, m
     assert result["reference_geometry"]["gate_status"] in {"pass", "warn"}
     assert result["force_surface_provenance"]["scope"] == "whole_aircraft_wall"
     assert result["provenance_gates"]["reference_quantities"]["status"] in {"pass", "warn"}
+    assert result["convergence_gate"]["mesh_gate"]["status"] == "pass"
+    assert result["convergence_gate"]["iterative_gate"]["status"] == "fail"
+    assert result["convergence_gate"]["overall_convergence_gate"]["comparability_level"] == "not_comparable"
 
     payload = json.loads(Path(result["case_output_paths"]["contract_path"]).read_text(encoding="utf-8"))
     assert payload["run_status"] == "completed"
     assert payload["history"]["cl"] == pytest.approx(0.13)
+    assert payload["convergence_gate"]["mesh_gate"]["status"] == "pass"
 
 
 def test_run_baseline_case_fails_clearly_when_solver_missing(tmp_path: Path, monkeypatch):
@@ -414,6 +418,55 @@ def test_run_job_surfaces_su2_baseline_report(tmp_path: Path, monkeypatch):
                 "reference_quantities": {"status": "pass", "confidence": "high", "warnings": [], "notes": []},
                 "force_surface": {"status": "pass", "confidence": "medium", "warnings": [], "notes": []},
             },
+            "convergence_gate": {
+                "contract": "convergence_gate.v1",
+                "mesh_gate": {
+                    "status": "pass",
+                    "confidence": "high",
+                    "checks": {
+                        "mesh_handoff_complete": {
+                            "status": "pass",
+                            "observed": {"route_stage": "baseline"},
+                            "expected": {"route_stage": "baseline"},
+                            "warnings": [],
+                            "notes": [],
+                        }
+                    },
+                    "warnings": [],
+                    "notes": [],
+                },
+                "iterative_gate": {
+                    "status": "pass",
+                    "confidence": "high",
+                    "checks": {
+                        "coefficient_stability": {
+                            "status": "pass",
+                            "observed": {"tail_window": 10},
+                            "expected": {"tail_window": 10},
+                            "warnings": [],
+                            "notes": [],
+                        }
+                    },
+                    "warnings": [],
+                    "notes": [],
+                },
+                "overall_convergence_gate": {
+                    "status": "pass",
+                    "confidence": "high",
+                    "comparability_level": "preliminary_compare",
+                    "checks": {
+                        "mesh_gate": {
+                            "status": "pass",
+                            "observed": {"status": "pass"},
+                            "expected": {"status": "pass"},
+                            "warnings": [],
+                            "notes": [],
+                        }
+                    },
+                    "warnings": [],
+                    "notes": [],
+                },
+            },
             "provenance": {"source_contract": "mesh_handoff.v1"},
             "notes": ["baseline test stub"],
         }
@@ -441,12 +494,14 @@ def test_run_job_surfaces_su2_baseline_report(tmp_path: Path, monkeypatch):
     assert result["su2"]["reference_geometry"]["area_provenance"]["source_category"] == "geometry_derived"
     assert result["su2"]["force_surface_provenance"]["scope"] == "whole_aircraft_wall"
     assert result["su2"]["provenance_gates"]["overall_status"] == "pass"
+    assert result["su2"]["convergence_gate"]["overall_convergence_gate"]["status"] == "pass"
 
     report = json.loads((config.out_dir / "report.json").read_text(encoding="utf-8"))
     assert report["su2"]["history_path"].endswith("history.csv")
     assert report["su2"]["final_coefficients"]["cm"] == pytest.approx(-0.008)
     assert report["su2"]["reference_geometry"]["length_provenance"]["method"] == "openvsp_reference_wing.cref"
     assert report["su2"]["force_surface_provenance"]["primary_group"]["physical_name"] == "aircraft"
+    assert report["su2"]["convergence_gate"]["mesh_gate"]["status"] == "pass"
 
 
 def test_package_native_su2_smoke(tmp_path: Path):

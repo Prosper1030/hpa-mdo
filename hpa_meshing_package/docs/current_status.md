@@ -13,6 +13,7 @@ aircraft_assembly (.vsp3)
   -> mesh_handoff.v1
   -> SU2 baseline
   -> su2_handoff.v1
+  -> convergence_gate.v1
 ```
 
 This is the only route that should currently be treated as a real productized workflow in `hpa_meshing_package`.
@@ -28,6 +29,7 @@ This is the only route that should currently be treated as a real productized wo
 | `mesh_handoff.v1` | fixed | downstream mesh contract |
 | baseline SU2 materialization | formal `v1` | case generation, solver invocation, history parse |
 | `su2_handoff.v1` | fixed | baseline CFD contract |
+| `convergence_gate.v1` | fixed | mesh / iterative / overall comparability verdict for the baseline route |
 | reference provenance gate | fixed | `geometry_derived`, `baseline_envelope_derived`, `user_declared` |
 | force-surface provenance gate | fixed | currently whole-aircraft wall only |
 
@@ -45,19 +47,20 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Explicit Non-Goals For This Round
 
 - claiming final high-quality CFD credibility
-- mesh study / convergence proof
+- mesh study / convergence proof beyond the baseline comparability gate
 - alpha sweep
 - component-level force mapping
 - making ESP/OpenCSM a hard runtime dependency
 
 ## Planned Next Gates
 
-1. Mesh / iterative convergence gate for the formal package-native line
-2. Alpha sweep only after convergence gate exists
+1. Mesh study using `overall_convergence_gate` as the compare / no-compare filter
+2. Alpha sweep only after the chosen baseline mesh/runtime can clear the convergence gate
 3. Component-level force mapping after the wall-marker story is stronger
 
 ## What A New Contributor Should Assume
 
 - Start from the package root, not from old worktree memory
 - Treat the provider-aware `aircraft_assembly` route as source of truth
+- Treat `status=success` and `overall_convergence_gate` as separate signals: success means it ran, the gate says whether it is comparable
 - Treat everything else as scaffolding until it is promoted with a real backend and smoke evidence

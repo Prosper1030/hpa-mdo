@@ -1,7 +1,10 @@
 from pathlib import Path
 
 from hpa_meshing.schema import (
+    BaselineConvergenceGate,
     Bounds3D,
+    ConvergenceGateCheck,
+    ConvergenceGateSection,
     GeometryProviderRequest,
     GeometryProviderResult,
     GeometryTopologyMetadata,
@@ -14,6 +17,7 @@ from hpa_meshing.schema import (
     SU2ForceSurfaceProvenance,
     SU2GateCheck,
     SU2HistorySummary,
+    OverallConvergenceGate,
     SU2ReferenceGeometry,
     SU2ReferenceOverride,
     SU2ReferenceQuantityProvenance,
@@ -268,6 +272,49 @@ def test_schema_supports_su2_handoff_contract_models(tmp_path: Path):
                 confidence="medium",
             ),
         ),
+        convergence_gate=BaselineConvergenceGate(
+            mesh_gate=ConvergenceGateSection(
+                status="pass",
+                confidence="high",
+                checks={
+                    "mesh_handoff_complete": ConvergenceGateCheck(
+                        status="pass",
+                        observed={"contract": "mesh_handoff.v1"},
+                        expected={"contract": "mesh_handoff.v1"},
+                    )
+                },
+            ),
+            iterative_gate=ConvergenceGateSection(
+                status="warn",
+                confidence="medium",
+                checks={
+                    "residual_trend": ConvergenceGateCheck(
+                        status="warn",
+                        observed={"median_log_drop": 0.2},
+                        expected={"minimum_median_log_drop": 0.5},
+                    )
+                },
+                warnings=["residual trend remains mixed"],
+            ),
+            overall_convergence_gate=OverallConvergenceGate(
+                status="warn",
+                confidence="medium",
+                comparability_level="run_only",
+                checks={
+                    "mesh_gate": ConvergenceGateCheck(
+                        status="pass",
+                        observed={"status": "pass"},
+                        expected={"status": "pass"},
+                    ),
+                    "iterative_gate": ConvergenceGateCheck(
+                        status="warn",
+                        observed={"status": "warn"},
+                        expected={"status": "pass"},
+                    ),
+                },
+                warnings=["iterative convergence still needs caution"],
+            ),
+        ),
         provenance={"source_contract": "mesh_handoff.v1"},
         notes=["package-native baseline case"],
     )
@@ -281,3 +328,4 @@ def test_schema_supports_su2_handoff_contract_models(tmp_path: Path):
     assert handoff.reference_geometry.area_provenance.source_category == "user_declared"
     assert handoff.force_surface_provenance.scope == "whole_aircraft_wall"
     assert handoff.provenance_gates.overall_status == "pass"
+    assert handoff.convergence_gate.overall_convergence_gate.comparability_level == "run_only"

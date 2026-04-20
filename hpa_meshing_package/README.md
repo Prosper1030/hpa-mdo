@@ -13,6 +13,7 @@
   -> mesh_handoff.v1
   -> su2_handoff.v1
   -> history / CL / CD / CM
+  -> convergence_gate.v1
 ```
 
 它不是最終高品質 CFD framework，也不是 `origin-su2-high-quality` 那條 case-specific workflow 的包裝版。
@@ -33,10 +34,11 @@
 - Gmsh backend 會真的產生外流場 volume mesh，並輸出 `mesh_handoff.v1`。
 - package-native SU2 baseline 會真的 materialize case、跑 `SU2_CFD`、parse history、輸出 `su2_handoff.v1`。
 - reference provenance gate 和 force-surface provenance gate 已經接進 baseline SU2 handoff。
+- mesh / iterative convergence gate 會直接寫進 `su2_handoff.v1` 與 `report.json`，明確標示這次 baseline run 是 `preliminary_compare`、`run_only` 還是 `not_comparable`。
 
 ### Not in v1
 
-- mesh study / iterative convergence gate
+- mesh study
 - alpha sweep
 - component-level force mapping
 - final high-quality credibility claim
@@ -85,6 +87,7 @@ PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli
 This produces:
 
 - `report.json`
+- `report.md`
 - `artifacts/providers/openvsp_surface_intersection/normalized.stp`
 - `artifacts/mesh/mesh_metadata.json`
 - `artifacts/mesh/marker_summary.json`
@@ -96,6 +99,7 @@ This produces:
 - [`GeometryProviderResult`](docs/contracts/GeometryProviderResult.md)
 - [`mesh_handoff.v1`](docs/contracts/mesh_handoff.v1.md)
 - [`su2_handoff.v1`](docs/contracts/su2_handoff.v1.md)
+- [`convergence_gate.v1`](docs/contracts/convergence_gate.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
 
 ## Capability Boundaries
@@ -107,17 +111,18 @@ This produces:
 | Gmsh backend for `thin_sheet_aircraft_assembly` | formal `v1` | real external-flow volume mesh |
 | `mesh_handoff.v1` | fixed contract | downstream mesh handoff |
 | `su2_handoff.v1` | fixed contract | baseline case materialization + history parse |
+| `convergence_gate.v1` | fixed contract | machine-readable mesh / iterative / overall comparability gate |
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
 | `esp_rebuilt` | experimental | registry + reporting only |
 | Other component families | experimental | schema/dispatch exists, backend placeholder |
-| Mesh convergence gate | roadmap | next planned production hardening step |
-| Alpha sweep | roadmap | after convergence gate |
+| Mesh study | roadmap | next planned production hardening step after the baseline gate exists |
+| Alpha sweep | roadmap | after a passing comparability gate is available for the chosen mesh/runtime |
 | Component-level force mapping | roadmap | not implemented yet |
 
 ## Recommended Next Gates
 
-1. `mesh / iterative convergence gate`
+1. `mesh study`
 2. `alpha sweep`
 3. component-level force mapping
 4. more providers only after the current product line is harder to validate

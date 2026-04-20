@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from ..convergence import evaluate_baseline_convergence_gate
 from ..gmsh_runtime import GmshRuntimeError, load_gmsh
 from ..schema import (
     MeshHandoff,
@@ -722,6 +723,7 @@ def _failure_result(
         "reference_geometry": None if case is None else case.reference_geometry.model_dump(mode="json"),
         "force_surface_provenance": None if case is None or case.force_surface_provenance is None else case.force_surface_provenance.model_dump(mode="json"),
         "provenance_gates": None if case is None else case.provenance_gates.model_dump(mode="json"),
+        "convergence_gate": None if case is None or case.convergence_gate is None else case.convergence_gate.model_dump(mode="json"),
         "provenance": {} if case is None else case.provenance,
         "notes": [] if case is None else [*case.notes, error],
     }
@@ -786,8 +788,16 @@ def run_baseline_case(
 
     case.case_output_paths.history = history_path
     case.history = SU2HistorySummary.model_validate(parsed_history)
+    case.convergence_gate = evaluate_baseline_convergence_gate(
+        mesh_handoff,
+        history_path=history_path,
+        provenance_gates=case.provenance_gates,
+        source_root=source_root,
+    )
     case.run_status = "completed"
     case.provenance["solver_binary"] = solver_path
+    case.provenance["convergence_gate_status"] = case.convergence_gate.overall_convergence_gate.status
+    case.provenance["comparability_level"] = case.convergence_gate.overall_convergence_gate.comparability_level
     _write_json(case.case_output_paths.contract_path, case.model_dump(mode="json"))
 
     return {
@@ -806,6 +816,7 @@ def run_baseline_case(
         "reference_geometry": case.reference_geometry.model_dump(mode="json"),
         "force_surface_provenance": None if case.force_surface_provenance is None else case.force_surface_provenance.model_dump(mode="json"),
         "provenance_gates": case.provenance_gates.model_dump(mode="json"),
+        "convergence_gate": None if case.convergence_gate is None else case.convergence_gate.model_dump(mode="json"),
         "provenance": case.provenance,
         "notes": case.notes,
     }

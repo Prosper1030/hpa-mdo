@@ -484,6 +484,55 @@ def test_run_job_reports_su2_reference_and_force_surface_gates(tmp_path: Path, m
                 "reference_quantities": {"status": "pass", "confidence": "high", "warnings": [], "notes": []},
                 "force_surface": {"status": "pass", "confidence": "medium", "warnings": [], "notes": []},
             },
+            "convergence_gate": {
+                "contract": "convergence_gate.v1",
+                "mesh_gate": {
+                    "status": "pass",
+                    "confidence": "high",
+                    "checks": {
+                        "mesh_handoff_complete": {
+                            "status": "pass",
+                            "observed": {"route_stage": "baseline"},
+                            "expected": {"route_stage": "baseline"},
+                            "warnings": [],
+                            "notes": [],
+                        }
+                    },
+                    "warnings": [],
+                    "notes": [],
+                },
+                "iterative_gate": {
+                    "status": "pass",
+                    "confidence": "high",
+                    "checks": {
+                        "coefficient_stability": {
+                            "status": "pass",
+                            "observed": {"tail_window": 10},
+                            "expected": {"tail_window": 10},
+                            "warnings": [],
+                            "notes": [],
+                        }
+                    },
+                    "warnings": [],
+                    "notes": [],
+                },
+                "overall_convergence_gate": {
+                    "status": "pass",
+                    "confidence": "high",
+                    "comparability_level": "preliminary_compare",
+                    "checks": {
+                        "mesh_gate": {
+                            "status": "pass",
+                            "observed": {"status": "pass"},
+                            "expected": {"status": "pass"},
+                            "warnings": [],
+                            "notes": [],
+                        }
+                    },
+                    "warnings": [],
+                    "notes": [],
+                },
+            },
             "provenance": {"source_contract": "mesh_handoff.v1"},
             "notes": ["baseline test stub"],
         },
@@ -513,3 +562,5 @@ def test_run_job_reports_su2_reference_and_force_surface_gates(tmp_path: Path, m
     assert report["su2"]["reference_geometry"]["area_provenance"]["method"] == "openvsp_reference_wing.sref"
     assert report["su2"]["force_surface_provenance"]["component_provenance"] == "geometry_labels_present_but_not_mapped"
     assert report["su2"]["provenance_gates"]["overall_status"] == "pass"
+    assert report["su2"]["convergence_gate"]["overall_convergence_gate"]["comparability_level"] == "preliminary_compare"
+    assert report["convergence"]["overall_convergence_gate"]["status"] == "pass"

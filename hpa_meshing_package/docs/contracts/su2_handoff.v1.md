@@ -31,6 +31,7 @@ It packages:
 - `solver_command`
 - `force_surface_provenance`
 - `provenance_gates`
+- `convergence_gate`
 - `provenance`
 
 ## Current Formal v1 Interpretation
@@ -38,6 +39,7 @@ It packages:
 - `source_contract` must be `mesh_handoff.v1`
 - `run_status` becomes `completed` only after `SU2_CFD` finishes and `history.csv` is parsed
 - `history` is the authoritative package-native baseline summary for final `CL`, `CD`, and `CM`
+- `convergence_gate` is the authoritative machine-readable verdict for baseline comparability
 - the canonical example artifact is `artifacts/su2/alpha_0_baseline/su2_handoff.json`
 
 ## Important Limitation
