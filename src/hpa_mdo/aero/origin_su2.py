@@ -466,6 +466,8 @@ def prepare_origin_su2_alpha_sweep(
             stl_path=geometry["stl"],
             output_path=generated_mesh_path,
             preset_name=mesh_preset,
+            body_marker=wall_marker,
+            farfield_marker=farfield_marker,
         )
         mesh_source = Path(generated_mesh["MeshFile"]).expanduser().resolve()
     if mesh_source is not None and not mesh_source.exists():

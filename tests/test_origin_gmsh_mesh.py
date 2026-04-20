@@ -179,3 +179,41 @@ def test_generate_origin_external_flow_mesh_falls_back_to_stl(monkeypatch, tmp_p
     assert metadata["PresetName"] == "study_medium"
     assert metadata["Nodes"] == 42
     assert "FallbackReason" in metadata
+
+
+def test_generate_origin_external_flow_mesh_falls_back_to_stl_when_step_missing(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_gmsh_mesh import generate_origin_external_flow_mesh
+
+    missing_step_path = tmp_path / "origin_surface.step"
+    stl_path = _write_text(tmp_path / "origin_surface.stl", _tetrahedron_stl())
+    output_path = tmp_path / "origin_mesh.su2"
+
+    def _fake_stl(*args, body_marker, farfield_marker, **kwargs) -> dict[str, object]:
+        return {
+            "MeshMode": "stl_external_box",
+            "PresetName": kwargs["preset_name"],
+            "MeshFile": str(output_path),
+            "MarkerElements": {body_marker: 1, farfield_marker: 3},
+        }
+
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_gmsh_mesh.generate_stl_external_flow_mesh",
+        _fake_stl,
+    )
+
+    metadata = generate_origin_external_flow_mesh(
+        step_path=missing_step_path,
+        stl_path=stl_path,
+        output_path=output_path,
+        preset_name="study_medium",
+        body_marker="wing_surface",
+        farfield_marker="outer_box",
+    )
+
+    assert metadata["MeshMode"] == "stl_external_box_fallback"
+    assert metadata["PresetName"] == "study_medium"
+    assert metadata["MarkerElements"] == {"wing_surface": 1, "outer_box": 3}
+    assert "FallbackReason" in metadata

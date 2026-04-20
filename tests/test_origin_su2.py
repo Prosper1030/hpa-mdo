@@ -319,16 +319,30 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_geometry_via_disp
 
     called: dict[str, object] = {}
 
-    def _fake_generate_mesh(*, step_path, stl_path, output_path, preset_name, **kwargs) -> dict[str, object]:
+    def _fake_generate_mesh(
+        *,
+        step_path,
+        stl_path,
+        output_path,
+        preset_name,
+        body_marker,
+        farfield_marker,
+        **kwargs,
+    ) -> dict[str, object]:
         called["step_path"] = str(step_path)
         called["stl_path"] = str(stl_path)
         called["preset_name"] = preset_name
-        _write_text(output_path, _sample_su2_mesh_text())
+        called["body_marker"] = body_marker
+        called["farfield_marker"] = farfield_marker
+        _write_text(
+            output_path,
+            _sample_su2_mesh_text(wall_marker=body_marker, farfield_marker=farfield_marker),
+        )
         return {
             "MeshMode": "stl_external_box_fallback",
             "MeshFile": str(output_path),
             "PresetName": preset_name,
-            "MarkerElements": {"aircraft": 1, "farfield": 3},
+            "MarkerElements": {body_marker: 1, farfield_marker: 3},
             "Nodes": 4,
             "VolumeElements": 1,
             "FallbackReason": "bad step",
@@ -345,18 +359,22 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_geometry_via_disp
         aoa_list=[0.0],
         auto_mesh=True,
         mesh_preset="study_medium",
+        wall_marker="wing_surface",
+        farfield_marker="outer_box",
     )
 
     assert called["step_path"].endswith("origin_surface.step")
     assert called["stl_path"].endswith("origin_surface.stl")
     assert called["preset_name"] == "study_medium"
+    assert called["body_marker"] == "wing_surface"
+    assert called["farfield_marker"] == "outer_box"
     assert result["mesh_preset"] == "study_medium"
     assert result["generated_mesh"]["MeshMode"] == "stl_external_box_fallback"
     assert result["generated_mesh"]["PresetName"] == "study_medium"
     assert result["generated_mesh"]["FallbackReason"] == "bad step"
     assert Path(result["mesh_path"]).exists()
     assert Path(result["cases"][0]["mesh_path"]).exists()
-    assert result["cases"][0]["mesh_validation"]["marker_names"] == ["aircraft", "farfield"]
+    assert result["cases"][0]["mesh_validation"]["marker_names"] == ["wing_surface", "outer_box"]
 
 
 def test_validate_su2_mesh_rejects_missing_required_marker(tmp_path: Path) -> None:

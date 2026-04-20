@@ -445,12 +445,12 @@ def generate_step_occ_external_flow_mesh(
     body_marker: str = "aircraft",
     farfield_marker: str = "farfield",
 ) -> dict[str, Any]:
-    gmsh = _gmsh()
-    resolved_options = resolve_origin_mesh_options(preset_name=preset_name, overrides=options)
-
     step_file = Path(step_path).expanduser().resolve()
     if not step_file.exists():
         raise FileNotFoundError(f"surface STEP not found: {step_file}")
+
+    gmsh = _gmsh()
+    resolved_options = resolve_origin_mesh_options(preset_name=preset_name, overrides=options)
 
     output_path = Path(output_path).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -682,6 +682,8 @@ def generate_origin_external_flow_mesh(
     preset_name: str = "baseline",
     mesh_overrides: dict[str, Any] | None = None,
     prefer_step_occ: bool = True,
+    body_marker: str = "aircraft",
+    farfield_marker: str = "farfield",
 ) -> dict[str, Any]:
     if prefer_step_occ and step_path is not None:
         try:
@@ -690,13 +692,17 @@ def generate_origin_external_flow_mesh(
                 output_path,
                 preset_name=preset_name,
                 options=mesh_overrides,
+                body_marker=body_marker,
+                farfield_marker=farfield_marker,
             )
-        except GmshExternalFlowMeshError as exc:
+        except (FileNotFoundError, GmshExternalFlowMeshError) as exc:
             fallback = generate_stl_external_flow_mesh(
                 stl_path,
                 output_path,
                 preset_name=preset_name,
                 options=mesh_overrides,
+                body_marker=body_marker,
+                farfield_marker=farfield_marker,
             )
             fallback["MeshMode"] = "stl_external_box_fallback"
             fallback["FallbackReason"] = str(exc)
@@ -708,4 +714,6 @@ def generate_origin_external_flow_mesh(
         output_path,
         preset_name=preset_name,
         options=mesh_overrides,
+        body_marker=body_marker,
+        farfield_marker=farfield_marker,
     )
