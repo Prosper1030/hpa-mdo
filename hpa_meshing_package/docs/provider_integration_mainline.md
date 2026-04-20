@@ -1,5 +1,9 @@
 # Provider Integration Mainline
 
+This is a historical development note for the first provider-aware promotion.
+
+Read `README.md` and `docs/current_status.md` first if you need current product truth.
+
 Date: 2026-04-20
 
 This note records the first provider-aware mainline for `hpa_meshing_package`.

@@ -1,0 +1,45 @@
+# su2_handoff.v1
+
+`su2_handoff.v1` is the fixed contract for the package-native baseline SU2 route.
+
+## Purpose
+
+It packages:
+
+- the input mesh handoff
+- runtime configuration
+- reference quantity provenance
+- force-surface provenance
+- case output paths
+- parsed final history coefficients
+
+## Required Fields
+
+- `contract`
+- `route_stage`
+- `source_contract`
+- `geometry_family`
+- `units`
+- `input_mesh_artifact`
+- `mesh_markers`
+- `reference_geometry`
+- `runtime`
+- `runtime_cfg_path`
+- `case_output_paths`
+- `history`
+- `run_status`
+- `solver_command`
+- `force_surface_provenance`
+- `provenance_gates`
+- `provenance`
+
+## Current Formal v1 Interpretation
+
+- `source_contract` must be `mesh_handoff.v1`
+- `run_status` becomes `completed` only after `SU2_CFD` finishes and `history.csv` is parsed
+- `history` is the authoritative package-native baseline summary for final `CL`, `CD`, and `CM`
+- the canonical example artifact is `artifacts/su2/alpha_0_baseline/su2_handoff.json`
+
+## Important Limitation
+
+This contract represents a baseline CFD route. It is not, by itself, a claim that the mesh has passed convergence or that the result should be treated as final high-quality truth.

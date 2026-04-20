@@ -1,91 +1,121 @@
 # Architecture
 
-## A. 核心想法
+## Core Principle
 
-把 meshing 問題拆成 6 層：
+這個 package 的正式架構是：
 
-1. **schema layer**
-   - 定義輸入 config 與 manifest
-2. **geometry layer**
-   - 匯入與驗證幾何
-3. **recipe layer**
-   - 不同元件的 meshing 邏輯
-4. **backend layer**
-   - 呼叫 Gmsh / SU2 format export
-5. **quality layer**
-   - 品質檢查與 marker 驗證
-6. **fallback/report layer**
-   - 失敗重試與輸出報告
+1. provider-aware geometry normalization
+2. geometry-family-first dispatch
+3. package-native meshing backend
+4. package-native SU2 baseline handoff
+5. provenance-first reporting
 
-## B. 不要做成「一個超大 script」
-
-禁止以下 anti-pattern：
-
-- `if component == ...` 到處散落
-- 所有 Gmsh 呼叫都寫在單一檔案
-- geometry 驗證與 meshing 摻在一起
-- fallback 靠 try/except 亂包
-- 針對單一檔名硬寫規則
-
-## C. 推薦 class / function 介面
-
-### 1. schema.py
-- `MeshJobConfig`
-- `QualityGateConfig`
-- `BoundaryLayerConfig`
-- `FarfieldConfig`
-- `FallbackConfig`
-
-### 2. geometry/loader.py
-- `load_occ_geometry(path) -> GeometryHandle`
-
-### 3. geometry/validator.py
-- `validate_component_geometry(handle, component, config) -> ValidationResult`
-
-### 4. mesh/recipes.py
-- `build_recipe(component, handle, config) -> MeshRecipe`
-
-### 5. adapters/gmsh_backend.py
-- `apply_recipe(recipe, handle, config) -> MeshArtifacts`
-
-### 6. mesh/quality.py
-- `check_quality(mesh_artifacts, quality_gate) -> QualityResult`
-
-### 7. fallback/policy.py
-- `run_with_fallback(job) -> RunResult`
-
-## D. 資料流
+目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
 ```text
-CLI/Manifest
-   ↓
-schema parse + defaults resolve
-   ↓
-geometry load
-   ↓
-geometry validation
-   ↓
-recipe build
-   ↓
-gmsh apply + generate
-   ↓
-quality check
-   ↓
-export .msh / .su2
-   ↓
-report + retry history
+.vsp3
+  -> openvsp_surface_intersection
+  -> normalized trimmed STEP
+  -> thin_sheet_aircraft_assembly
+  -> gmsh_thin_sheet_aircraft_assembly
+  -> mesh_handoff.v1
+  -> su2_handoff.v1
 ```
 
-## E. 元件擴充方式
+## Layer Breakdown
 
-未來新增 `boom`, `prop_fairing`, `pod`, `tail_boom_joint` 時：
+### 1. Schema / Contract Layer
 
-- 新增 config default
-- 新增 geometry validator 規則
-- 新增 recipe builder
-- 不應改核心 CLI 介面
+`src/hpa_meshing/schema.py`
 
-## F. 為什麼這樣切
+- Defines `MeshJobConfig`, `GeometryProviderResult`, `MeshHandoff`, `SU2CaseHandoff`
+- Keeps the artifact contracts explicit and versioned
+- Lets reports, tests, and downstream tools agree on the same payload shape
 
-因為你們現在已有 `fairing_solid` special case，可先把它包成一個 recipe；之後 main wing / tail wing / fairing_vented 再逐步長出來。  
-這樣不會一開始就為了「通用」把整個 repo 弄得抽象過頭。
+### 2. Provider Layer
+
+`src/hpa_meshing/providers/`
+
+- Converts source geometry into a normalized geometry artifact plus topology/provenance metadata
+- `openvsp_surface_intersection` is the current formal `v1` provider
+- `esp_rebuilt` stays experimental and may report `not_materialized`
+
+### 3. Geometry Classification Layer
+
+`src/hpa_meshing/geometry/` and `src/hpa_meshing/dispatch.py`
+
+- Resolves `geometry_family`
+- Checks whether a component/family combination is allowed
+- Maps family to route/backend capability
+
+The important rule is: dispatch should depend on `geometry_family`, not on a pile of case names.
+
+### 4. Meshing Backend Layer
+
+`src/hpa_meshing/adapters/gmsh_backend.py`
+
+- Owns real Gmsh execution
+- Owns farfield volume generation
+- Owns physical groups / marker recovery
+- Owns `mesh_handoff.v1`
+
+Current boundary:
+
+- `gmsh_thin_sheet_aircraft_assembly` is real
+- other registered routes are placeholder scaffolding for future promotion
+
+### 5. Baseline CFD Layer
+
+`src/hpa_meshing/adapters/su2_backend.py`
+
+- Consumes `mesh_handoff.v1`
+- Materializes `SU2_CFD` runtime config
+- Writes `su2_handoff.v1`
+- Parses `history.csv`
+- Carries reference and force-surface provenance gates
+
+This is a baseline CFD route, not the repo's final high-quality validation framework.
+
+### 6. Pipeline / Reporting Layer
+
+`src/hpa_meshing/pipeline.py` and `src/hpa_meshing/reports/`
+
+- Runs provider -> classify -> validate -> recipe -> mesh -> SU2 baseline
+- Writes `report.json` / `report.md`
+- Keeps failure codes and route stage explicit
+
+## Real vs Placeholder Boundary
+
+The package intentionally distinguishes between:
+
+- registry exists
+- contract exists
+- real backend exists
+
+That matters because a route can be valid in schema/dispatch but still be non-productized in the backend.
+
+Current truth:
+
+- `aircraft_assembly` with `openvsp_surface_intersection` is real
+- `main_wing`, `tail_wing`, `fairing_solid`, `fairing_vented` are not yet real meshing products in this package
+
+## Artifact Flow
+
+```text
+MeshJobConfig
+  -> GeometryProviderResult
+  -> GeometryClassification / GeometryValidationResult
+  -> MeshRecipe
+  -> mesh_handoff.v1
+  -> su2_handoff.v1
+  -> report.json
+```
+
+The contracts are intentionally machine-readable first, then human-readable through docs and reports.
+
+## Why This Boundary Matters
+
+- New AI / new developers can tell what is formal without reading multiple worktrees
+- Baseline CFD can evolve without dragging in `origin-su2-high-quality`
+- ESP/OpenCSM can stay experimental without blocking the formal package
+- The next hardening step can focus on convergence gates instead of reopening architecture again

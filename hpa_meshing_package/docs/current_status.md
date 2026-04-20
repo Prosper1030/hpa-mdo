@@ -1,0 +1,63 @@
+# Current Status
+
+## Official Product Line
+
+The formal package-native line today is:
+
+```text
+aircraft_assembly (.vsp3)
+  -> openvsp_surface_intersection
+  -> normalized trimmed STEP
+  -> thin_sheet_aircraft_assembly
+  -> gmsh_thin_sheet_aircraft_assembly
+  -> mesh_handoff.v1
+  -> SU2 baseline
+  -> su2_handoff.v1
+```
+
+This is the only route that should currently be treated as a real productized workflow in `hpa_meshing_package`.
+
+## Formal v1 Capabilities
+
+| Capability | Status | Notes |
+| --- | --- | --- |
+| `openvsp_surface_intersection` provider | formal `v1` | `.vsp3 -> normalized STEP`, topology report, provider log |
+| `GeometryProviderResult` | fixed | formal provider contract |
+| `aircraft_assembly` family dispatch | formal `v1` | `thin_sheet_aircraft_assembly` |
+| `gmsh_thin_sheet_aircraft_assembly` | formal `v1` | real Gmsh external-flow volume mesh |
+| `mesh_handoff.v1` | fixed | downstream mesh contract |
+| baseline SU2 materialization | formal `v1` | case generation, solver invocation, history parse |
+| `su2_handoff.v1` | fixed | baseline CFD contract |
+| reference provenance gate | fixed | `geometry_derived`, `baseline_envelope_derived`, `user_declared` |
+| force-surface provenance gate | fixed | currently whole-aircraft wall only |
+
+## Experimental
+
+| Capability | Status | Why |
+| --- | --- | --- |
+| `esp_rebuilt` provider | experimental | registry/reporting contract only |
+| `main_wing` / `tail_wing` | experimental | dispatch exists, real backend not productized |
+| `fairing_solid` / `fairing_vented` | experimental | dispatch exists, real backend not productized |
+| direct multi-family package configs | experimental | do not present as formal current route |
+
+If a route returns `route_stage=placeholder`, it is not a formal meshing result.
+
+## Explicit Non-Goals For This Round
+
+- claiming final high-quality CFD credibility
+- mesh study / convergence proof
+- alpha sweep
+- component-level force mapping
+- making ESP/OpenCSM a hard runtime dependency
+
+## Planned Next Gates
+
+1. Mesh / iterative convergence gate for the formal package-native line
+2. Alpha sweep only after convergence gate exists
+3. Component-level force mapping after the wall-marker story is stronger
+
+## What A New Contributor Should Assume
+
+- Start from the package root, not from old worktree memory
+- Treat the provider-aware `aircraft_assembly` route as source of truth
+- Treat everything else as scaffolding until it is promoted with a real backend and smoke evidence
