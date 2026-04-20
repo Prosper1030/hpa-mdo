@@ -143,6 +143,10 @@ def _dedupe_presets(presets: Sequence[str] | None) -> list[str]:
     return ordered
 
 
+def _format_optional_metric(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.6f}"
+
+
 def _write_mesh_study_artifacts(
     *,
     output_dir: Path,
@@ -166,9 +170,11 @@ def _write_mesh_study_artifacts(
         "",
         f"- Verdict: `{assessment['verdict']}`",
         f"- Presets compared: {assessment['preset_count']}",
-        f"- Max |CD spread|: {assessment['cd_spread_abs']:.6f}",
-        f"- Max |CL spread|: {assessment['cl_spread_abs']:.6f}",
-        f"- Max |CM spread|: {assessment['cm_spread_abs']:.6f}",
+        f"- Common AoA coverage complete: {assessment['coverage_complete']}",
+        f"- Compared AoA values: {assessment['compared_alpha_deg']}",
+        f"- Max |CD spread|: {_format_optional_metric(assessment['cd_spread_abs'])}",
+        f"- Max |CL spread|: {_format_optional_metric(assessment['cl_spread_abs'])}",
+        f"- Max |CM spread|: {_format_optional_metric(assessment['cm_spread_abs'])}",
         "",
         "## Thresholds",
         "",
@@ -386,6 +392,16 @@ def run_origin_aero_sweep(
                 raise ValueError(
                     f"mesh-study preset {preset!r} did not produce SU2 histories after the run stage"
                 ) from exc
+            requested_alpha_deg = {float(value) for value in aoa_list}
+            observed_alpha_deg = {
+                float(point.alpha_deg)
+                for point in mesh_study_points_by_preset[preset]
+            }
+            missing_alpha_deg = sorted(requested_alpha_deg - observed_alpha_deg)
+            if missing_alpha_deg:
+                raise ValueError(
+                    f"mesh-study preset {preset!r} missing requested AoA coverage: {missing_alpha_deg}"
+                )
         mesh_study_verdict = assess_origin_mesh_study(points_by_preset=mesh_study_points_by_preset)
         mesh_study_summary_json, mesh_study_report_md = _write_mesh_study_artifacts(
             output_dir=Path(output_dir).expanduser().resolve(),
