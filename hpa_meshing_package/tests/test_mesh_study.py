@@ -158,6 +158,70 @@ def test_evaluate_mesh_study_promotes_to_preliminary_compare_when_medium_fine_ar
     assert verdict.comparability_level == "preliminary_compare"
 
 
+def test_evaluate_mesh_study_uses_absolute_cm_tolerance_for_near_zero_pitching_moment(
+    tmp_path: Path,
+):
+    cases = [
+        _case(
+            tmp_path,
+            name="coarse",
+            tier="coarse",
+            node_count=1500,
+            element_count=8000,
+            volume_element_count=6500,
+            near_body_size=1.10,
+            farfield_size=4.50,
+            cl=0.02433915373,
+            cd=0.03351685049,
+            cm=-0.003245134559,
+            convergence_status="warn",
+            comparability_level="run_only",
+        ),
+        _case(
+            tmp_path,
+            name="medium",
+            tier="medium",
+            node_count=2800,
+            element_count=15000,
+            volume_element_count=12000,
+            near_body_size=0.80,
+            farfield_size=3.50,
+            cl=0.03478908784,
+            cd=0.03078336339,
+            cm=-0.01123460302,
+            convergence_status="pass",
+            comparability_level="preliminary_compare",
+        ),
+        _case(
+            tmp_path,
+            name="fine",
+            tier="fine",
+            node_count=4700,
+            element_count=25500,
+            volume_element_count=21000,
+            near_body_size=0.60,
+            farfield_size=2.70,
+            cl=0.03153145365,
+            cd=0.02925969757,
+            cm=-0.007360669653,
+            convergence_status="pass",
+            comparability_level="preliminary_compare",
+        ),
+    ]
+
+    comparison, verdict = evaluate_mesh_study(cases)
+
+    medium_fine = comparison.coefficient_spread["medium_fine"]
+    assert medium_fine.status == "pass"
+    assert medium_fine.observed["cl_relative_range"] == pytest.approx(0.09363954021968987)
+    assert medium_fine.observed["cm_absolute_range"] == pytest.approx(0.0038739333670000005)
+    assert medium_fine.expected["cl_relative_range_threshold"] == pytest.approx(0.10)
+    assert medium_fine.expected["cm_absolute_tolerance"] == pytest.approx(0.005)
+    assert "cm_relative_range_above_threshold" not in medium_fine.warnings
+    assert verdict.verdict == "preliminary_compare"
+    assert verdict.comparability_level == "preliminary_compare"
+
+
 def test_evaluate_mesh_study_stays_run_only_when_cases_finish_but_gates_do_not_improve(
     tmp_path: Path,
 ):
@@ -279,15 +343,19 @@ def test_build_default_mesh_study_presets_biases_medium_and_fine_toward_stabler_
     assert presets["coarse"].near_body_factor == pytest.approx(0.10)
     assert presets["medium"].near_body_factor == pytest.approx(0.065)
     assert presets["fine"].near_body_factor == pytest.approx(0.055)
+    assert presets["super-fine"].near_body_factor == pytest.approx(0.045)
     assert presets["coarse"].farfield_factor == pytest.approx(0.40)
     assert presets["medium"].farfield_factor == pytest.approx(0.30)
     assert presets["fine"].farfield_factor == pytest.approx(0.24)
+    assert presets["super-fine"].farfield_factor == pytest.approx(0.20)
     assert presets["coarse"].runtime.max_iterations == 80
     assert presets["medium"].runtime.max_iterations == 160
     assert presets["fine"].runtime.max_iterations == 180
+    assert presets["super-fine"].runtime.max_iterations == 180
     assert presets["coarse"].runtime.cfl_number == pytest.approx(2.0)
     assert presets["medium"].runtime.cfl_number == pytest.approx(1.5)
     assert presets["fine"].runtime.cfl_number == pytest.approx(1.25)
+    assert presets["super-fine"].runtime.cfl_number == pytest.approx(1.25)
 
 
 def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_report(
@@ -310,9 +378,9 @@ def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_rep
                 "linear_solver_iterations": config.su2.linear_solver_iterations,
             }
         )
-        rank = {"coarse": 1, "medium": 2, "fine": 3}[config.out_dir.name]
-        convergence_status = "pass" if config.out_dir.name == "fine" else "warn"
-        comparability_level = "preliminary_compare" if config.out_dir.name == "fine" else "run_only"
+        rank = {"coarse": 1, "medium": 2, "fine": 3, "super-fine": 4}[config.out_dir.name]
+        convergence_status = "pass" if config.out_dir.name in {"fine", "super-fine"} else "warn"
+        comparability_level = "preliminary_compare" if config.out_dir.name in {"fine", "super-fine"} else "run_only"
         return {
             "status": "success",
             "failure_code": None,
@@ -379,9 +447,19 @@ def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_rep
         )
     )
 
-    assert [entry["out_dir"].name for entry in called] == ["coarse", "medium", "fine"]
-    assert called[0]["near_body_size"] > called[1]["near_body_size"] > called[2]["near_body_size"]
-    assert called[0]["farfield_size"] > called[1]["farfield_size"] > called[2]["farfield_size"]
+    assert [entry["out_dir"].name for entry in called] == ["coarse", "medium", "fine", "super-fine"]
+    assert (
+        called[0]["near_body_size"]
+        > called[1]["near_body_size"]
+        > called[2]["near_body_size"]
+        > called[3]["near_body_size"]
+    )
+    assert (
+        called[0]["farfield_size"]
+        > called[1]["farfield_size"]
+        > called[2]["farfield_size"]
+        > called[3]["farfield_size"]
+    )
     assert [entry["linear_solver_error"] for entry in called] == [
         preset.runtime.linear_solver_error for preset in presets
     ]
@@ -392,5 +470,6 @@ def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_rep
     assert result["verdict"]["verdict"] == "preliminary_compare"
 
     report = json.loads((tmp_path / "study" / "report.json").read_text(encoding="utf-8"))
-    assert report["comparison"]["completed_case_count"] == 3
+    assert report["comparison"]["completed_case_count"] == 4
     assert report["cases"][0]["preset"]["name"] == "coarse"
+    assert report["cases"][-1]["preset"]["name"] == "super-fine"

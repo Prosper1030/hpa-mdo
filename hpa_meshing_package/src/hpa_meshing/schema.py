@@ -46,7 +46,7 @@ BackendCapabilityType = Literal[
 ProvenanceConfidenceType = Literal["low", "medium", "high"]
 GateStatusType = Literal["pass", "warn", "fail"]
 ComparabilityLevelType = Literal["preliminary_compare", "run_only", "not_comparable"]
-MeshStudyTierType = Literal["coarse", "medium", "fine"]
+MeshStudyTierType = Literal["coarse", "medium", "fine", "super-fine"]
 MeshStudyVerdictType = Literal["insufficient", "still_run_only", "preliminary_compare"]
 SU2ReferenceModeType = Literal[
     "auto",

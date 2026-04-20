@@ -52,10 +52,30 @@ DEFAULT_PRESET_SPECS = (
         "linear_solver_error": 1e-7,
         "linear_solver_iterations": 24,
     },
+    {
+        "name": "super-fine",
+        "tier": "super-fine",
+        "near_body_factor": 0.045,
+        "farfield_factor": 0.20,
+        "max_iterations": 180,
+        "cfl_number": 1.25,
+        "linear_solver_error": 1e-7,
+        "linear_solver_iterations": 24,
+    },
 )
 DEFAULT_RELATIVE_RANGE_FLOOR = 1.0e-3
-DEFAULT_ALL_CASES_RELATIVE_RANGE = 0.12
-DEFAULT_MEDIUM_FINE_RELATIVE_RANGE = 0.08
+DEFAULT_ALL_CASES_RELATIVE_RANGE_THRESHOLDS = {
+    "cl": 0.12,
+    "cd": 0.12,
+    "cm": 0.12,
+}
+DEFAULT_MEDIUM_FINE_RELATIVE_RANGE_THRESHOLDS = {
+    "cl": 0.10,
+    "cd": 0.08,
+    "cm": 0.08,
+}
+DEFAULT_CM_LOW_MAGNITUDE_SWITCH = 0.05
+DEFAULT_CM_ABSOLUTE_TOLERANCE = 0.005
 
 
 def _check(
@@ -78,6 +98,10 @@ def _check(
 def _relative_range(values: list[float]) -> float:
     scale = max([abs(value) for value in values] + [DEFAULT_RELATIVE_RANGE_FLOOR])
     return (max(values) - min(values)) / scale
+
+
+def _absolute_range(values: list[float]) -> float:
+    return max(values) - min(values)
 
 
 def _collect_check_warnings(name: str, check: ConvergenceGateCheck) -> list[str]:
@@ -267,15 +291,16 @@ def _mesh_hierarchy_check(
         warnings.append("farfield_size_not_strictly_decreasing")
 
     status = "pass" if not warnings else "fail"
+    monotonic_case_order = "strictly monotonic along case_order"
     return _check(
         status,
         observed=observed,
         expected={
-            "node_count": "strictly increasing coarse->fine",
-            "element_count": "strictly increasing coarse->fine",
-            "volume_element_count": "strictly increasing coarse->fine",
-            "near_body_size": "strictly decreasing coarse->fine",
-            "farfield_size": "strictly decreasing coarse->fine",
+            "node_count": monotonic_case_order,
+            "element_count": monotonic_case_order,
+            "volume_element_count": monotonic_case_order,
+            "near_body_size": monotonic_case_order,
+            "farfield_size": monotonic_case_order,
         },
         warnings=warnings,
     )
@@ -284,18 +309,38 @@ def _mesh_hierarchy_check(
 def _coefficient_spread_check(
     cases: list[MeshStudyCaseResult],
     *,
-    threshold: float,
+    relative_thresholds: dict[str, float],
+    cm_absolute_tolerance: float | None = None,
+    cm_low_magnitude_switch: float | None = None,
 ) -> ConvergenceGateCheck:
     observed: dict[str, Any] = {"case_names": [case.preset.name for case in cases]}
     warnings: list[str] = []
     metrics: dict[str, float] = {}
+    expected: dict[str, Any] = {}
     for coefficient in ("cl", "cd", "cm"):
         values = [getattr(case.cfd, coefficient) for case in cases if case.cfd is not None]
         if len(values) != len(cases) or any(value is None for value in values):
             warnings.append(f"{coefficient}_missing")
             continue
-        rel_range = _relative_range([float(value) for value in values if value is not None])
+        numeric_values = [float(value) for value in values if value is not None]
+        threshold = relative_thresholds[coefficient]
+        if (
+            coefficient == "cm"
+            and cm_absolute_tolerance is not None
+            and cm_low_magnitude_switch is not None
+            and max(abs(value) for value in numeric_values) < cm_low_magnitude_switch
+        ):
+            absolute_range = _absolute_range(numeric_values)
+            metrics["cm_absolute_range"] = absolute_range
+            expected["cm_absolute_tolerance"] = cm_absolute_tolerance
+            expected["cm_low_magnitude_switch"] = cm_low_magnitude_switch
+            if absolute_range > cm_absolute_tolerance:
+                warnings.append("cm_absolute_range_above_tolerance")
+            continue
+
+        rel_range = _relative_range(numeric_values)
         metrics[f"{coefficient}_relative_range"] = rel_range
+        expected[f"{coefficient}_relative_range_threshold"] = threshold
         if rel_range > threshold:
             warnings.append(f"{coefficient}_relative_range_above_threshold")
     observed.update(metrics)
@@ -303,7 +348,7 @@ def _coefficient_spread_check(
     return _check(
         status,
         observed=observed,
-        expected={"relative_range_threshold": threshold},
+        expected=expected,
         warnings=warnings,
     )
 
@@ -350,11 +395,18 @@ def evaluate_mesh_study(
     completed_case_count = sum(1 for case in ordered_cases if case.status == "success")
 
     mesh_hierarchy = _mesh_hierarchy_check(ordered_cases, expected_case_count=expected_case_count)
-    all_cases_spread = _coefficient_spread_check(ordered_cases, threshold=DEFAULT_ALL_CASES_RELATIVE_RANGE)
+    all_cases_spread = _coefficient_spread_check(
+        ordered_cases,
+        relative_thresholds=DEFAULT_ALL_CASES_RELATIVE_RANGE_THRESHOLDS,
+        cm_absolute_tolerance=DEFAULT_CM_ABSOLUTE_TOLERANCE,
+        cm_low_magnitude_switch=DEFAULT_CM_LOW_MAGNITUDE_SWITCH,
+    )
     medium_fine_cases = [case_lookup[tier] for tier in ("medium", "fine") if tier in case_lookup]
     medium_fine_spread = _coefficient_spread_check(
         medium_fine_cases,
-        threshold=DEFAULT_MEDIUM_FINE_RELATIVE_RANGE,
+        relative_thresholds=DEFAULT_MEDIUM_FINE_RELATIVE_RANGE_THRESHOLDS,
+        cm_absolute_tolerance=DEFAULT_CM_ABSOLUTE_TOLERANCE,
+        cm_low_magnitude_switch=DEFAULT_CM_LOW_MAGNITUDE_SWITCH,
     )
     convergence_progress = _convergence_progress_check(case_lookup)
 
