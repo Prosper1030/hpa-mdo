@@ -76,6 +76,7 @@ DEFAULT_MEDIUM_FINE_RELATIVE_RANGE_THRESHOLDS = {
 }
 DEFAULT_CM_LOW_MAGNITUDE_SWITCH = 0.05
 DEFAULT_CM_ABSOLUTE_TOLERANCE = 0.005
+DEFAULT_BASE_COMPARISON_TIERS = ("coarse", "medium", "fine")
 
 
 def _check(
@@ -106,6 +107,11 @@ def _absolute_range(values: list[float]) -> float:
 
 def _collect_check_warnings(name: str, check: ConvergenceGateCheck) -> list[str]:
     return [f"{name}:{warning}" for warning in check.warnings]
+
+
+def _comparison_tiers(presets: list[MeshStudyPreset]) -> list[str]:
+    tiers = [preset.tier for preset in presets if preset.tier in DEFAULT_BASE_COMPARISON_TIERS]
+    return tiers or [preset.tier for preset in presets]
 
 
 def build_default_mesh_study_presets(characteristic_length: float) -> list[MeshStudyPreset]:
@@ -482,7 +488,28 @@ def run_mesh_study(config: MeshJobConfig) -> dict[str, Any]:
         result = run_job(case_config)
         cases.append(_case_result_from_run(preset, characteristic_length, case_config, result))
 
-    comparison, verdict = evaluate_mesh_study(cases, expected_tiers=[preset.tier for preset in presets])
+    comparison_tiers = _comparison_tiers(presets)
+    comparison, verdict = evaluate_mesh_study(cases, expected_tiers=comparison_tiers)
+    diagnostic_cases = [case for case in cases if case.preset.tier not in comparison_tiers]
+    report_notes = [
+        "Each case uses the package-native provider -> mesh -> SU2 baseline -> convergence gate line.",
+    ]
+    report_warnings: list[str] = []
+    if diagnostic_cases:
+        diagnostic_tiers = [case.preset.tier for case in diagnostic_cases]
+        comparison.notes.append(
+            f"Diagnostic tiers are recorded outside the base verdict: {', '.join(diagnostic_tiers)}."
+        )
+        verdict.notes.append(
+            "Base verdict is derived from coarse/medium/fine only; inspect diagnostic tiers separately."
+        )
+        report_notes.append(
+            f"Diagnostic tiers executed outside the base verdict: {', '.join(diagnostic_tiers)}."
+        )
+        diagnostic_failures = [case.preset.tier for case in diagnostic_cases if case.status != 'success']
+        if diagnostic_failures:
+            report_warnings.append(f"diagnostic_case_failed:{','.join(diagnostic_failures)}")
+
     report = MeshStudyReport(
         study_name=DEFAULT_STUDY_NAME,
         component=config.component,
@@ -491,9 +518,8 @@ def run_mesh_study(config: MeshJobConfig) -> dict[str, Any]:
         cases=cases,
         comparison=comparison,
         verdict=verdict,
-        notes=[
-            "Each case uses the package-native provider -> mesh -> SU2 baseline -> convergence gate line.",
-        ],
+        notes=report_notes,
+        warnings=report_warnings,
     )
     payload = report.model_dump(mode="json")
     write_json_report(study_root / "report.json", payload)

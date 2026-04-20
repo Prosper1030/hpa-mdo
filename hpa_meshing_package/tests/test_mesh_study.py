@@ -470,6 +470,107 @@ def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_rep
     assert result["verdict"]["verdict"] == "preliminary_compare"
 
     report = json.loads((tmp_path / "study" / "report.json").read_text(encoding="utf-8"))
-    assert report["comparison"]["completed_case_count"] == 4
+    assert report["comparison"]["completed_case_count"] == 3
+    assert report["comparison"]["case_order"] == ["coarse", "medium", "fine"]
     assert report["cases"][0]["preset"]["name"] == "coarse"
     assert report["cases"][-1]["preset"]["name"] == "super-fine"
+
+
+def test_run_mesh_study_keeps_base_verdict_when_super_fine_diagnostic_case_fails(
+    tmp_path: Path,
+    monkeypatch,
+):
+    geometry = tmp_path / "assembly.vsp3"
+    geometry.write_text("<vsp3/>", encoding="utf-8")
+
+    def fake_run_job(config: MeshJobConfig):
+        if config.out_dir.name == "super-fine":
+            return {
+                "status": "failed",
+                "failure_code": "quality_gate_failed",
+                "mesh": {},
+                "su2": {
+                    "final_coefficients": {
+                        "cl": None,
+                        "cd": None,
+                        "cm": None,
+                        "cm_axis": None,
+                    }
+                },
+            }
+
+        rank = {"coarse": 1, "medium": 2, "fine": 3}[config.out_dir.name]
+        convergence_status = "pass" if config.out_dir.name in {"medium", "fine"} else "warn"
+        comparability_level = "preliminary_compare" if config.out_dir.name in {"medium", "fine"} else "run_only"
+        return {
+            "status": "success",
+            "failure_code": None,
+            "mesh": {
+                "node_count": 1000 * rank,
+                "element_count": 6000 * rank,
+                "surface_element_count": 1200 * rank,
+                "volume_element_count": 4800 * rank,
+                "mesh_dim": 3,
+                "metadata_path": str(config.out_dir / "artifacts" / "mesh" / "mesh_metadata.json"),
+            },
+            "su2": {
+                "history_path": str(config.out_dir / "artifacts" / "su2" / "history.csv"),
+                "final_coefficients": {
+                    "cl": 0.02433915373 if config.out_dir.name == "coarse" else (0.03478908784 if config.out_dir.name == "medium" else 0.03153145365),
+                    "cd": 0.03351685049 if config.out_dir.name == "coarse" else (0.03078336339 if config.out_dir.name == "medium" else 0.02925969757),
+                    "cm": -0.003245134559 if config.out_dir.name == "coarse" else (-0.01123460302 if config.out_dir.name == "medium" else -0.007360669653),
+                    "cm_axis": "CMy",
+                },
+                "convergence_gate": {
+                    "contract": "convergence_gate.v1",
+                    "mesh_gate": {
+                        "status": "pass",
+                        "confidence": "high",
+                        "checks": {},
+                        "warnings": [],
+                        "notes": [],
+                    },
+                    "iterative_gate": {
+                        "status": convergence_status,
+                        "confidence": "medium",
+                        "checks": {},
+                        "warnings": [],
+                        "notes": [],
+                    },
+                    "overall_convergence_gate": {
+                        "status": convergence_status,
+                        "confidence": "medium",
+                        "comparability_level": comparability_level,
+                        "checks": {},
+                        "warnings": [],
+                        "notes": [],
+                    },
+                },
+            },
+        }
+
+    monkeypatch.setattr("hpa_meshing.mesh_study._resolve_characteristic_length", lambda config: 10.0)
+    monkeypatch.setattr("hpa_meshing.mesh_study.run_job", fake_run_job)
+
+    result = run_mesh_study(
+        MeshJobConfig(
+            component="aircraft_assembly",
+            geometry=geometry,
+            out_dir=tmp_path / "study",
+            geometry_provider="openvsp_surface_intersection",
+            su2=SU2RuntimeConfig(
+                enabled=True,
+                case_name="alpha_0_baseline",
+                linear_solver_error=1e-4,
+                linear_solver_iterations=3,
+            ),
+        )
+    )
+
+    assert result["verdict"]["verdict"] == "preliminary_compare"
+    assert result["comparison"]["expected_case_count"] == 3
+    assert result["comparison"]["completed_case_count"] == 3
+    assert result["comparison"]["case_order"] == ["coarse", "medium", "fine"]
+    assert result["warnings"] == ["diagnostic_case_failed:super-fine"]
+    assert result["cases"][-1]["preset"]["name"] == "super-fine"
+    assert result["cases"][-1]["status"] == "failed"
