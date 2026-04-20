@@ -246,6 +246,48 @@ def test_prepare_origin_su2_alpha_sweep_rejects_non_default_mesh_preset_with_ext
         raise AssertionError("expected non-default mesh preset with external mesh to fail")
 
 
+def test_prepare_origin_su2_alpha_sweep_rejects_non_default_mesh_preset_without_auto_mesh(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    try:
+        prepare_origin_su2_alpha_sweep(
+            config_path=tmp_path / "blackcat.yaml",
+            output_dir=tmp_path / "su2_alpha_sweep",
+            aoa_list=[0.0],
+            mesh_preset="study_medium",
+        )
+    except ValueError as exc:
+        assert "mesh_preset" in str(exc)
+    else:  # pragma: no cover - red/green guard
+        raise AssertionError("expected non-default mesh preset without auto_mesh to fail")
+
+
 def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, tmp_path: Path) -> None:
     from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
 

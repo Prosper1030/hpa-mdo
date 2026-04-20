@@ -439,7 +439,7 @@ def prepare_origin_su2_alpha_sweep(
         raise ValueError("run_cases and dry_run_cases cannot both be true")
     if mesh_path is not None and auto_mesh:
         raise ValueError("mesh_path and auto_mesh cannot both be set")
-    if mesh_path is not None and mesh_preset != "baseline":
+    if not auto_mesh and mesh_preset != "baseline":
         raise ValueError("mesh_preset is only applicable when auto_mesh=True")
 
     cfg = load_config(config_path)
