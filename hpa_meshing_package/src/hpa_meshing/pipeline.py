@@ -45,6 +45,7 @@ def _mesh_summary(exec_result: Dict[str, Any]) -> Dict[str, Any]:
         "geometry_provider": mesh_handoff.get("geometry_provider", backend_result.get("geometry_provider")),
         "mesh_format": mesh_handoff.get("mesh_format", backend_result.get("mesh_format")),
         "units": mesh_handoff.get("units", backend_result.get("units")),
+        "mesh_dim": mesh_stats.get("mesh_dim"),
         "mesh_artifact": artifacts.get("mesh"),
         "metadata_path": artifacts.get("mesh_metadata"),
         "marker_summary_path": artifacts.get("marker_summary"),

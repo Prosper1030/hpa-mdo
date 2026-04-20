@@ -8,6 +8,7 @@ import yaml
 
 from .schema import MeshJobConfig, BatchManifest
 from .pipeline import run_job, validate_geometry_only
+from .mesh_study import run_mesh_study
 
 
 def _load_yaml(path: Path):
@@ -47,6 +48,18 @@ def cmd_batch(args: argparse.Namespace) -> int:
     return 0 if all(r.get("status") == "success" for r in results) else 2
 
 
+def cmd_mesh_study(args: argparse.Namespace) -> int:
+    raw = _load_yaml(Path(args.config))
+    raw["component"] = args.component or raw.get("component")
+    raw["geometry"] = args.geometry or raw.get("geometry")
+    raw["geometry_provider"] = args.geometry_provider or raw.get("geometry_provider")
+    raw["out_dir"] = args.out or raw.get("out_dir")
+    config = MeshJobConfig.model_validate(raw)
+    result = run_mesh_study(config)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("verdict", {}).get("verdict") != "insufficient" else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpa-mesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -70,6 +83,14 @@ def build_parser() -> argparse.ArgumentParser:
     batch = sub.add_parser("batch")
     batch.add_argument("--manifest", type=str, required=True)
     batch.set_defaults(func=cmd_batch)
+
+    mesh_study = sub.add_parser("mesh-study")
+    mesh_study.add_argument("--component", type=str)
+    mesh_study.add_argument("--geometry", type=str)
+    mesh_study.add_argument("--geometry-provider", type=str)
+    mesh_study.add_argument("--config", type=str, required=True)
+    mesh_study.add_argument("--out", type=str)
+    mesh_study.set_defaults(func=cmd_mesh_study)
 
     return parser
 

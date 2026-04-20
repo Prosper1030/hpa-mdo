@@ -12,6 +12,13 @@ def test_parser_builds():
     assert parser.prog == "hpa-mesh"
 
 
+def test_parser_supports_mesh_study_command():
+    parser = build_parser()
+    args = parser.parse_args(["mesh-study", "--config", "configs/demo.yaml"])
+    assert args.command == "mesh-study"
+    assert args.config == "configs/demo.yaml"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

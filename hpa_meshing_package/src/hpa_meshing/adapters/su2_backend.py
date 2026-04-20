@@ -806,6 +806,7 @@ def run_baseline_case(
         "solver_command": " ".join(case.solver_command),
         "runtime_cfg_path": str(case.runtime_cfg_path),
         "history_path": str(history_path),
+        "final_iteration": case.history.final_iteration,
         "case_output_paths": case.case_output_paths.model_dump(mode="json"),
         "final_coefficients": {
             "cl": case.history.cl,

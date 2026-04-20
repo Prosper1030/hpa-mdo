@@ -11,6 +11,10 @@ from hpa_meshing.schema import (
     MeshArtifactBundle,
     MeshHandoff,
     MeshJobConfig,
+    MeshStudyCaseResult,
+    MeshStudyComparison,
+    MeshStudyReport,
+    MeshStudyVerdict,
     SU2CaseArtifacts,
     SU2CaseHandoff,
     SU2ForceSurfaceMarkerGroup,
@@ -33,6 +37,97 @@ def test_schema_builds():
         out_dir=Path("out/demo"),
     )
     assert cfg.component == "main_wing"
+
+
+def test_schema_supports_mesh_study_contract_models(tmp_path: Path):
+    case_dir = tmp_path / "coarse"
+    report = MeshStudyReport(
+        component="aircraft_assembly",
+        geometry=tmp_path / "blackcat.vsp3",
+        geometry_provider="openvsp_surface_intersection",
+        cases=[
+            MeshStudyCaseResult.model_validate(
+                {
+                    "preset": {
+                        "name": "coarse",
+                        "tier": "coarse",
+                        "characteristic_length_policy": "body_max_span",
+                        "near_body_factor": 0.11,
+                        "farfield_factor": 0.45,
+                        "near_body_size": 1.1,
+                        "farfield_size": 4.5,
+                        "runtime": {
+                            "max_iterations": 40,
+                            "cfl_number": 4.0,
+                        },
+                    },
+                    "out_dir": case_dir,
+                    "report_path": case_dir / "report.json",
+                    "status": "success",
+                    "mesh": {
+                        "mesh_dim": 3,
+                        "node_count": 1500,
+                        "element_count": 8000,
+                        "surface_element_count": 1400,
+                        "volume_element_count": 6500,
+                        "characteristic_length": 10.0,
+                        "near_body_size": 1.1,
+                        "farfield_size": 4.5,
+                    },
+                    "cfd": {
+                        "case_name": "alpha_0_coarse",
+                        "history_path": case_dir / "history.csv",
+                        "final_iteration": 39,
+                        "cl": 0.035,
+                        "cd": 0.029,
+                        "cm": -0.013,
+                        "cm_axis": "CMy",
+                    },
+                    "overall_convergence_status": "warn",
+                    "comparability_level": "run_only",
+                }
+            )
+        ],
+        comparison=MeshStudyComparison.model_validate(
+            {
+                "expected_case_count": 3,
+                "completed_case_count": 1,
+                "case_order": ["coarse", "medium", "fine"],
+                "mesh_hierarchy": {
+                    "status": "warn",
+                    "observed": {"completed_case_count": 1},
+                    "expected": {"completed_case_count": 3},
+                    "warnings": ["study_not_complete"],
+                    "notes": [],
+                },
+                "coefficient_spread": {
+                    "all_cases": {
+                        "status": "warn",
+                        "observed": {"cl_relative_range": 0.0},
+                        "expected": {"cl_relative_range": "<= 0.12"},
+                        "warnings": [],
+                        "notes": [],
+                    }
+                },
+                "convergence_progress": {
+                    "status": "warn",
+                    "observed": {"fine_status": None},
+                    "expected": {"fine_status": "pass"},
+                    "warnings": ["fine_case_missing"],
+                    "notes": [],
+                },
+            }
+        ),
+        verdict=MeshStudyVerdict(
+            verdict="insufficient",
+            comparability_level="not_comparable",
+            blockers=["study_not_complete"],
+        ),
+    )
+
+    assert report.contract == "mesh_study.v1"
+    assert report.cases[0].mesh.volume_element_count == 6500
+    assert report.verdict.verdict == "insufficient"
 
 
 def test_schema_supports_geometry_family_first_fields():

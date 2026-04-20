@@ -46,6 +46,8 @@ BackendCapabilityType = Literal[
 ProvenanceConfidenceType = Literal["low", "medium", "high"]
 GateStatusType = Literal["pass", "warn", "fail"]
 ComparabilityLevelType = Literal["preliminary_compare", "run_only", "not_comparable"]
+MeshStudyTierType = Literal["coarse", "medium", "fine"]
+MeshStudyVerdictType = Literal["insufficient", "still_run_only", "preliminary_compare"]
 SU2ReferenceModeType = Literal[
     "auto",
     "baseline_envelope_derived",
@@ -432,6 +434,93 @@ class BaselineConvergenceGate(BaseModel):
     mesh_gate: ConvergenceGateSection = Field(default_factory=ConvergenceGateSection)
     iterative_gate: ConvergenceGateSection = Field(default_factory=ConvergenceGateSection)
     overall_convergence_gate: OverallConvergenceGate = Field(default_factory=OverallConvergenceGate)
+
+
+class MeshStudyPresetRuntime(BaseModel):
+    max_iterations: int
+    cfl_number: float
+
+
+class MeshStudyPreset(BaseModel):
+    name: str
+    tier: MeshStudyTierType
+    characteristic_length_policy: Literal["body_max_span"] = "body_max_span"
+    near_body_factor: float
+    farfield_factor: float
+    near_body_size: float
+    farfield_size: float
+    runtime: MeshStudyPresetRuntime
+    notes: List[str] = Field(default_factory=list)
+
+
+class MeshStudyMeshStats(BaseModel):
+    mesh_dim: Optional[int] = None
+    node_count: Optional[int] = None
+    element_count: Optional[int] = None
+    surface_element_count: Optional[int] = None
+    volume_element_count: Optional[int] = None
+    characteristic_length: Optional[float] = None
+    near_body_size: Optional[float] = None
+    farfield_size: Optional[float] = None
+
+
+class MeshStudyCFDResult(BaseModel):
+    case_name: str
+    history_path: Optional[Path] = None
+    final_iteration: Optional[int] = None
+    cl: Optional[float] = None
+    cd: Optional[float] = None
+    cm: Optional[float] = None
+    cm_axis: Optional[str] = None
+
+
+class MeshStudyCaseResult(BaseModel):
+    preset: MeshStudyPreset
+    out_dir: Path
+    report_path: Path
+    status: Literal["success", "failed"] = "success"
+    failure_code: Optional[str] = None
+    mesh: MeshStudyMeshStats = Field(default_factory=MeshStudyMeshStats)
+    cfd: Optional[MeshStudyCFDResult] = None
+    convergence_gate: Optional[BaselineConvergenceGate] = None
+    overall_convergence_status: Optional[GateStatusType] = None
+    comparability_level: Optional[ComparabilityLevelType] = None
+    warnings: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class MeshStudyComparison(BaseModel):
+    expected_case_count: int
+    completed_case_count: int
+    case_order: List[str] = Field(default_factory=list)
+    mesh_hierarchy: ConvergenceGateCheck = Field(default_factory=ConvergenceGateCheck)
+    coefficient_spread: Dict[str, ConvergenceGateCheck] = Field(default_factory=dict)
+    convergence_progress: ConvergenceGateCheck = Field(default_factory=ConvergenceGateCheck)
+    warnings: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class MeshStudyVerdict(BaseModel):
+    verdict: MeshStudyVerdictType = "insufficient"
+    comparability_level: ComparabilityLevelType = "not_comparable"
+    confidence: ProvenanceConfidenceType = "low"
+    blockers: List[str] = Field(default_factory=list)
+    checks: Dict[str, ConvergenceGateCheck] = Field(default_factory=dict)
+    warnings: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class MeshStudyReport(BaseModel):
+    contract: Literal["mesh_study.v1"] = "mesh_study.v1"
+    study_name: str = "baseline_mesh_study"
+    component: ComponentType
+    geometry: Path
+    geometry_provider: Optional[GeometryProviderType] = None
+    cases: List[MeshStudyCaseResult] = Field(default_factory=list)
+    comparison: MeshStudyComparison
+    verdict: MeshStudyVerdict
+    notes: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
 
 
 class SU2CaseHandoff(BaseModel):
