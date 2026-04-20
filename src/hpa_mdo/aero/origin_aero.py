@@ -20,6 +20,10 @@ from hpa_mdo.aero.origin_su2 import (
     prepare_origin_su2_alpha_sweep,
     run_prepared_origin_su2_alpha_sweep,
 )
+from hpa_mdo.aero.origin_geometry_contract import (
+    build_origin_geometry_contract,
+    write_origin_geometry_contract,
+)
 from hpa_mdo.aero.vsp_builder import VSPBuilder
 from hpa_mdo.core.config import load_config
 
@@ -212,6 +216,8 @@ def run_origin_aero_sweep(
     if origin_vsp_path is None:
         raise ValueError("config does not define io.vsp_model for the origin .vsp3")
 
+    origin_geometry_contract = build_origin_geometry_contract(config_path=config_path, cfg=cfg)
+
     raw_dir = Path(output_dir).expanduser().resolve() / "vspaero_raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
 
@@ -266,11 +272,15 @@ def run_origin_aero_sweep(
                 raise
             su2_note = str(exc)
 
+    contract_json = write_origin_geometry_contract(output_dir, origin_geometry_contract)
+
     bundle = write_origin_aero_artifacts(
         output_dir=output_dir,
         vspaero_points=vspaero_points,
         su2_points=su2_points,
         metadata={
+            "origin_geometry_contract": origin_geometry_contract,
+            "origin_geometry_contract_json": contract_json,
             "config_path": str(Path(config_path).expanduser().resolve()),
             "origin_vsp_path": str(Path(origin_vsp_path).expanduser().resolve()),
             "aoa_list_deg": [float(value) for value in aoa_list],

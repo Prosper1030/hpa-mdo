@@ -36,6 +36,10 @@ from hpa_mdo.aero.avl_stability_parser import (
 )
 from hpa_mdo.aero.load_mapper import LoadMapper
 from hpa_mdo.aero.origin_aero import run_origin_aero_sweep, write_origin_aero_artifacts
+from hpa_mdo.aero.origin_geometry_contract import (
+    build_origin_geometry_contract,
+    write_origin_geometry_contract,
+)
 from hpa_mdo.aero.origin_gmsh_mesh import (
     GmshExternalFlowMeshError,
     generate_stl_external_flow_mesh,
@@ -63,6 +67,7 @@ __all__ = [
     "GmshExternalFlowMeshError",
     "build_avl_aero_gate_settings",
     "build_candidate_avl_spanwise_artifact",
+    "build_origin_geometry_contract",
     "build_fixed_alpha_dihedral_corrected_case",
     "build_fixed_alpha_dihedral_corrector_artifact",
     "build_spanwise_load_from_avl_strip_forces",
@@ -88,6 +93,7 @@ __all__ = [
     "stage_avl_airfoil_files",
     "validate_su2_mesh",
     "write_candidate_avl_spanwise_artifact",
+    "write_origin_geometry_contract",
     "write_fixed_alpha_dihedral_corrector_artifact",
     "write_origin_aero_artifacts",
 ]

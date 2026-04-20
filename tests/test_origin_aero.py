@@ -162,6 +162,19 @@ def test_run_origin_aero_sweep_runs_builder_and_optionally_loads_su2(monkeypatch
 
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.load_config", lambda _: cfg)
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_aero.build_origin_geometry_contract",
+        lambda *, config_path, cfg=None: {
+            "origin_vsp_path": str(origin_vsp_path.resolve()),
+            "tail_geometry_confirmed": True,
+            "control_surface_contract_confirmed": False,
+            "surfaces": {
+                "main_wing": {"name": "Main Wing", "controls": []},
+                "horizontal_tail": {"name": "Elevator", "controls": []},
+                "vertical_fin": {"name": "Fin", "controls": []},
+            },
+        },
+    )
 
     bundle = run_origin_aero_sweep(
         config_path=tmp_path / "blackcat.yaml",
@@ -248,6 +261,19 @@ def test_run_origin_aero_sweep_can_prepare_su2_cases_before_analysis(
 
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.load_config", lambda _: cfg)
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_aero.build_origin_geometry_contract",
+        lambda *, config_path, cfg=None: {
+            "origin_vsp_path": str(origin_vsp_path.resolve()),
+            "tail_geometry_confirmed": True,
+            "control_surface_contract_confirmed": False,
+            "surfaces": {
+                "main_wing": {"name": "Main Wing", "controls": []},
+                "horizontal_tail": {"name": "Elevator", "controls": []},
+                "vertical_fin": {"name": "Fin", "controls": []},
+            },
+        },
+    )
     monkeypatch.setattr("hpa_mdo.aero.origin_aero.prepare_origin_su2_alpha_sweep", _fake_prepare)
 
     bundle = run_origin_aero_sweep(
@@ -258,6 +284,7 @@ def test_run_origin_aero_sweep_can_prepare_su2_cases_before_analysis(
     )
 
     payload = json.loads(Path(bundle["bundle_json"]).read_text(encoding="utf-8"))
+    assert payload["metadata"]["origin_geometry_contract"]["tail_geometry_confirmed"] is True
     assert payload["metadata"]["su2_preparation"]["case_count"] == 2
     assert payload["su2"]["count"] == 1
 
