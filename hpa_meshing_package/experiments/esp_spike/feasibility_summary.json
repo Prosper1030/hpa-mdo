@@ -1,0 +1,228 @@
+{
+  "date": "2026-04-20",
+  "status": "experimental-go",
+  "repo_root": "/Volumes/Samsung SSD/hpa-mdo/.worktrees/hpa-meshing-esp-spike",
+  "scope": "ESP/OpenCSM feasibility spike for upstream geometry normalization evidence",
+  "decision": {
+    "openvsp_derived_geometry_path": "go",
+    "esp_opencsm_v1_first_class_provider": "no-go",
+    "esp_opencsm_experimental_provider": "go",
+    "preferred_next_provider": "openvsp_surface_intersection"
+  },
+  "core_answers": {
+    "q1_install_call_minimal_use": {
+      "answer": "install-feasible-not-locally-run-end-to-end",
+      "details": [
+        "This machine is macOS 26.4.1 arm64.",
+        "Official ESP129 macOS arm64 prebuilt exists.",
+        "serveESP/serveCSM/ocsm are not currently installed on PATH.",
+        "Rosetta is installed.",
+        "XQuartz does not appear to be installed.",
+        "A live serveESP/OpenCSM run was not completed in this spike."
+      ]
+    },
+    "q2_openvsp_to_esp_entry": {
+      "answer": "yes",
+      "details": [
+        "ESP manual documents VspSetup.",
+        "Official 2024 paper documents UDPRIM vsp3 import path.",
+        "Official 2024 paper documents vspscript-driven STEP export and VspSetup user-parameter exposure."
+      ]
+    },
+    "q3_cleaner_topology_than_current_direct_step": {
+      "answer": "likely-yes-vs-current-raw-direct-step-but-not-yet-proven-better-than-openvsp-surface-intersection",
+      "details": [
+        "Raw EXPORT_STEP import into Gmsh produced 46 surfaces and 0 volumes.",
+        "OpenVSP SurfaceIntersection trimmed STEP import into Gmsh produced 38 surfaces and 3 volumes.",
+        "Current origin mesh metadata already shows 46 imported surfaces, 6 candidate fluid volumes, 1 retained fluid volume, and 12 dropped aircraft marker facets."
+      ]
+    },
+    "q4_provider_contract": {
+      "answer": "provider-should-materialize-normalized-geometry-plus-topology-report-before-core-meshing",
+      "details": [
+        "Keep provider complexity out of core recipe/fallback dispatch.",
+        "Return normalized geometry path, representation, units, counts, labels, provenance, and artifacts."
+      ]
+    },
+    "q5_v1_vs_experimental": {
+      "answer": "provider-contract-and-openvsp_surface_intersection-are-v1-worthy-esp_opencsm-should-stay-experimental",
+      "details": [
+        "Do not make ESP/OpenCSM a first-class v1 provider.",
+        "If included in v1 at all, mark it experimental.",
+        "Promote a cheaper openvsp_surface_intersection provider first."
+      ]
+    }
+  },
+  "local_environment": {
+    "platform": {
+      "os": "macOS",
+      "version": "26.4.1",
+      "arch": "arm64"
+    },
+    "path_tools": {
+      "serveESP": false,
+      "serveCSM": false,
+      "ocsm": false,
+      "vspscript": false,
+      "openvsp_cli": false,
+      "gmsh_cli": true
+    },
+    "python_bindings": {
+      "openvsp_import": true,
+      "openvsp_module_path": "/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/openvsp/__init__.py"
+    },
+    "system_prereqs": {
+      "rosetta_installed": true,
+      "xquartz_detected": false
+    }
+  },
+  "local_probes": [
+    {
+      "name": "openvsp_pytest_baseline",
+      "status": "pass",
+      "command": "/Volumes/Samsung SSD/hpa-mdo/.venv/bin/python -m pytest -q tests/test_vsp_builder.py",
+      "result": {
+        "summary": "12 passed in 5.48s"
+      }
+    },
+    {
+      "name": "openvsp_raw_export_step_iges",
+      "status": "pass",
+      "command": "/Volumes/Samsung SSD/hpa-mdo/.venv/bin/python /Volumes/Samsung SSD/hpa-mdo/scripts/vsp_to_cfd.py --vsp /Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3 --out /tmp/hpa_esp_probe/openvsp_export/blackcat_004_origin --formats step iges",
+      "artifacts": {
+        "step": "/tmp/hpa_esp_probe/openvsp_export/blackcat_004_origin.step",
+        "step_bytes": 2105839,
+        "iges": "/tmp/hpa_esp_probe/openvsp_export/blackcat_004_origin.igs",
+        "iges_bytes": 1587195
+      },
+      "topology_probe": {
+        "tool": "gmsh",
+        "points": 144,
+        "curves": 184,
+        "surfaces": 46,
+        "volumes": 0
+      }
+    },
+    {
+      "name": "openvsp_surface_intersection_trimmed_step",
+      "status": "pass",
+      "command": "openvsp Python API ExecAnalysis('SurfaceIntersection') with STEPFileFlag=1 and non-STEP outputs disabled",
+      "artifacts": {
+        "trimmed_step": "/tmp/hpa_esp_probe/surface_intersection/blackcat_004_origin_trimmed.stp",
+        "trimmed_step_bytes": 1973186
+      },
+      "topology_probe": {
+        "tool": "gmsh",
+        "points": 32,
+        "curves": 64,
+        "surfaces": 38,
+        "volumes": 3
+      }
+    },
+    {
+      "name": "existing_origin_occ_mesh_metadata",
+      "status": "observed",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/.worktrees/origin-su2-high-quality/.tmp/origin_occ_smoke_fix/output/su2_alpha_sweep/geometry/mesh_metadata.json",
+      "result": {
+        "ImportedSurfaceCount": 46,
+        "BodySurfaceCount": 42,
+        "CandidateFluidVolumeCount": 6,
+        "FluidVolumeCount": 1,
+        "RemovedDuplicateBoundaryFacets": 2,
+        "MarkerElementsDroppedOutsideVolume": {
+          "aircraft": 12,
+          "farfield": 0
+        }
+      }
+    },
+    {
+      "name": "esp_prebuilt_installability_probe",
+      "status": "partial",
+      "command": "curl -I https://acdl.mit.edu/ESP/PreBuilts/ESP129-macos-arm64.tgz && partial download to /tmp/hpa_esp_probe/ESP129-macos-arm64.tgz",
+      "artifact": {
+        "partial_download": "/tmp/hpa_esp_probe/ESP129-macos-arm64.tgz",
+        "partial_download_bytes": 4894720
+      },
+      "result": {
+        "official_prebuilt_available": true,
+        "full_install_completed": false,
+        "serveESP_locally_runnable": false
+      }
+    }
+  ],
+  "input_model_observations": {
+    "vsp3_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+    "top_level_geoms": [
+      "Main Wing",
+      "Elevator",
+      "Fin"
+    ],
+    "user_parm_container_present": true,
+    "user_parm_note": "Current file appears to contain default User_0..User_15 placeholders under User_Group rather than curated ESP-facing parameter names."
+  },
+  "provider_contract": {
+    "request_fields": [
+      "source_kind",
+      "source_path",
+      "provider",
+      "target_representation",
+      "component_hint",
+      "units_hint",
+      "staging_dir",
+      "label_policy"
+    ],
+    "response_fields": [
+      "status",
+      "provider",
+      "provider_version",
+      "normalized_geometry_path",
+      "representation",
+      "units",
+      "body_count",
+      "surface_count",
+      "volume_count",
+      "label_schema",
+      "artifacts",
+      "warnings",
+      "provenance"
+    ],
+    "design_rule": "Provider must emit a machine-readable topology report before core meshing starts."
+  },
+  "v1_recommendation": {
+    "include_provider_contract": true,
+    "include_openvsp_surface_intersection_provider": true,
+    "include_esp_opencsm_provider_as_first_class": false,
+    "include_esp_opencsm_provider_as_experimental": true
+  },
+  "blockers_and_risks": [
+    "ESP/OpenCSM is not locally installed yet, so serveESP/OpenCSM runtime behavior remains unverified on this machine.",
+    "Current blackcat_004_origin.vsp3 is not obviously prepared with meaningful ESP-facing UserParms, so VspSetup parameter exposure would be limited until the model is curated.",
+    "OpenVSP official changelog explicitly warns that trimmed STEP/IGES import success varies by downstream program, so provider evaluation must stay evidence-driven and mesh-tool-specific."
+  ],
+  "official_sources": [
+    {
+      "topic": "ESP tool menu includes VspSetup and ErepEd",
+      "url": "https://flexcompute.github.io/EngineeringSketchPad/EngSketchPad/ESP/ESP-help.html"
+    },
+    {
+      "topic": "ESP architecture, EGADS watertight tessellation, OpenCSM layer, server platform support",
+      "url": "https://acdl.mit.edu/ESP/Publications/AIAApaper2024-1315.pdf"
+    },
+    {
+      "topic": "OpenVSP-to-ESP import path, vspscript mechanism, VspSetup parameter exposure",
+      "url": "https://acdl.mit.edu/esp/Publications/AIAApaper2024-4304.pdf"
+    },
+    {
+      "topic": "OpenVSP trimmed STEP/IGES and robustness changelog",
+      "url": "https://github.com/OpenVSP/OpenVSP/blob/main/CHANGELOG.md"
+    },
+    {
+      "topic": "ESP macOS prebuilt distribution and install README",
+      "url": "https://acdl.mit.edu/ESP/PreBuilts/"
+    },
+    {
+      "topic": "ESP macOS install notes",
+      "url": "https://acdl.mit.edu/ESP/PreBuilts/macREADME.txt"
+    }
+  ]
+}
