@@ -273,6 +273,23 @@ def test_evaluate_mesh_study_marks_non_monotonic_mesh_tiers_as_insufficient(tmp_
     assert verdict.comparability_level == "not_comparable"
 
 
+def test_build_default_mesh_study_presets_biases_medium_and_fine_toward_stabler_compare_window():
+    presets = {preset.name: preset for preset in build_default_mesh_study_presets(10.0)}
+
+    assert presets["coarse"].near_body_factor == pytest.approx(0.10)
+    assert presets["medium"].near_body_factor == pytest.approx(0.065)
+    assert presets["fine"].near_body_factor == pytest.approx(0.055)
+    assert presets["coarse"].farfield_factor == pytest.approx(0.40)
+    assert presets["medium"].farfield_factor == pytest.approx(0.30)
+    assert presets["fine"].farfield_factor == pytest.approx(0.24)
+    assert presets["coarse"].runtime.max_iterations == 80
+    assert presets["medium"].runtime.max_iterations == 160
+    assert presets["fine"].runtime.max_iterations == 180
+    assert presets["coarse"].runtime.cfl_number == pytest.approx(2.0)
+    assert presets["medium"].runtime.cfl_number == pytest.approx(1.5)
+    assert presets["fine"].runtime.cfl_number == pytest.approx(1.25)
+
+
 def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_report(
     tmp_path: Path,
     monkeypatch,
