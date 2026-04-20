@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence
 
+from hpa_mdo.aero.origin_gmsh_mesh import generate_stl_external_flow_mesh
 from hpa_mdo.aero.vsp_builder import VSPBuilder, _has_openvsp
 from hpa_mdo.core.config import load_config
 
@@ -427,6 +428,7 @@ def prepare_origin_su2_alpha_sweep(
     output_dir: str | Path,
     aoa_list: Sequence[float],
     mesh_path: str | Path | None = None,
+    auto_mesh: bool = False,
     run_cases: bool = False,
     dry_run_cases: bool = False,
     su2_binary: str | None = None,
@@ -437,6 +439,8 @@ def prepare_origin_su2_alpha_sweep(
 ) -> dict[str, Any]:
     if run_cases and dry_run_cases:
         raise ValueError("run_cases and dry_run_cases cannot both be true")
+    if mesh_path is not None and auto_mesh:
+        raise ValueError("mesh_path and auto_mesh cannot both be set")
 
     cfg = load_config(config_path)
     vsp_path = Path(cfg.io.vsp_model).expanduser().resolve()
@@ -452,7 +456,17 @@ def prepare_origin_su2_alpha_sweep(
     kinematic_viscosity = float(getattr(cfg.flight, "kinematic_viscosity", 1.46e-5) or 1.46e-5)
     dynamic_viscosity_pas = density_kgpm3 * kinematic_viscosity
 
+    generated_mesh = None
     mesh_source = None if mesh_path is None else Path(mesh_path).expanduser().resolve()
+    if mesh_source is None and auto_mesh:
+        generated_mesh_path = geometry_dir / mesh_filename
+        generated_mesh = generate_stl_external_flow_mesh(
+            geometry["stl"],
+            generated_mesh_path,
+            body_marker=wall_marker,
+            farfield_marker=farfield_marker,
+        )
+        mesh_source = Path(generated_mesh["MeshFile"]).expanduser().resolve()
     if mesh_source is not None and not mesh_source.exists():
         raise FileNotFoundError(f"SU2 mesh not found: {mesh_source}")
 
@@ -534,6 +548,7 @@ def prepare_origin_su2_alpha_sweep(
         "case_count": len(cases),
         "cases": cases,
         "mesh_path": None if mesh_source is None else str(mesh_source),
+        "generated_mesh": generated_mesh,
         "run_cases": bool(run_cases),
         "dry_run_cases": bool(dry_run_cases),
         "mpi_ranks": mpi_ranks,

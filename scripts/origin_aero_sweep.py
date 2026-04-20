@@ -26,6 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--su2-sweep-dir", default=None, help="Optional SU2 alpha sweep root to ingest")
     parser.add_argument("--prepare-su2", action="store_true", help="Prepare origin-based SU2 alpha cases")
     parser.add_argument("--su2-mesh", default=None, help="Optional .su2 mesh copied into each prepared case")
+    parser.add_argument("--auto-mesh-su2", action="store_true", help="Auto-generate an external-flow SU2 mesh from origin_surface.stl")
     parser.add_argument("--run-su2", action="store_true", help="Run prepared SU2 cases after writing configs")
     parser.add_argument("--dry-run-su2", action="store_true", help="Preview prepared SU2 commands without executing")
     parser.add_argument("--su2-ranks", type=int, default=None, help="Optional MPI ranks when --run-su2 is used")
@@ -46,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         su2_sweep_dir=args.su2_sweep_dir,
         prepare_su2=args.prepare_su2,
         su2_mesh_path=args.su2_mesh,
+        auto_mesh_su2=args.auto_mesh_su2,
         run_su2_cases=args.run_su2,
         dry_run_su2_cases=args.dry_run_su2,
         su2_binary=args.su2_binary,

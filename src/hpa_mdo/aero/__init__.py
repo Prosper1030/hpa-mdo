@@ -36,6 +36,10 @@ from hpa_mdo.aero.avl_stability_parser import (
 )
 from hpa_mdo.aero.load_mapper import LoadMapper
 from hpa_mdo.aero.origin_aero import run_origin_aero_sweep, write_origin_aero_artifacts
+from hpa_mdo.aero.origin_gmsh_mesh import (
+    GmshExternalFlowMeshError,
+    generate_stl_external_flow_mesh,
+)
 from hpa_mdo.aero.origin_su2 import (
     prepare_origin_su2_alpha_sweep,
     run_prepared_origin_su2_alpha_sweep,
@@ -56,6 +60,7 @@ __all__ = [
     "VSPAeroParser",
     "VSPBuilder",
     "XFLR5Parser",
+    "GmshExternalFlowMeshError",
     "build_avl_aero_gate_settings",
     "build_candidate_avl_spanwise_artifact",
     "build_fixed_alpha_dihedral_corrected_case",
@@ -65,6 +70,7 @@ __all__ = [
     "empty_aero_performance",
     "export_aswing",
     "evaluate_aero_performance",
+    "generate_stl_external_flow_mesh",
     "load_candidate_avl_spanwise_artifact",
     "load_fixed_alpha_dihedral_corrector_artifact",
     "load_reference_area_from_avl",

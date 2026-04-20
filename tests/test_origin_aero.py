@@ -350,3 +350,73 @@ def test_run_origin_aero_sweep_can_dry_run_prepared_su2_cases(
     payload = json.loads(Path(bundle["bundle_json"]).read_text(encoding="utf-8"))
     assert payload["metadata"]["su2_run_summary"]["dry_run"] is True
     assert payload["metadata"]["su2_analysis_note"] is not None
+
+
+def test_run_origin_aero_sweep_passes_auto_mesh_flag_into_prepare(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    origin_vsp_path = tmp_path / "origin.vsp3"
+    origin_vsp_path.write_text("stub\n", encoding="utf-8")
+    lod_path = _write_text(
+        tmp_path / "origin.lod",
+        """
+        Sref_ 35.1750000 Lunit^2
+        Bref_ 33.0000000 Lunit
+        Cref_ 1.0425000 Lunit
+        Rho_ 1.2250000 Munit/Lunit^3
+        Vinf_ 6.5000000 Lunit/Tunit
+        """,
+    )
+    polar_path = _write_text(
+        tmp_path / "origin.polar",
+        """
+        Beta Mach AoA Re/1e6 CLo CLi CLtot CDo CDi CDtot CSo CSi CStot L/D E CMox CMoy CMoz CMix CMiy CMiz CMxtot CMytot CMztot
+        0.0 0.0 0.0 0.46 -0.0010 1.0577 1.0567 0.0206 0.0127 0.0333 0.0 0.0 0.0 31.7 0.90 0.0 0.0045 0.0 0.0 -0.4943 0.0 0.0 -0.4898 0.0
+        """,
+    )
+
+    cfg = SimpleNamespace(
+        project_name="Black Cat 004",
+        io=SimpleNamespace(vsp_model=origin_vsp_path, output_dir=tmp_path / "output"),
+    )
+
+    class FakeBuilder:
+        def __init__(self, loaded_cfg):
+            self.cfg = loaded_cfg
+
+        def run_vspaero(self, vsp3_path: str, aoa_list: list[float], output_dir: str) -> dict:
+            return {
+                "success": True,
+                "lod_path": str(lod_path),
+                "polar_path": str(polar_path),
+                "analysis_method": "panel",
+                "solver_backend": "fake_vspaero",
+                "error": None,
+            }
+
+    def _fake_prepare(**kwargs) -> dict[str, object]:
+        assert kwargs["auto_mesh"] is True
+        sweep_dir = Path(kwargs["output_dir"])
+        sweep_dir.mkdir(parents=True, exist_ok=True)
+        return {
+            "sweep_dir": str(sweep_dir),
+            "case_count": 1,
+            "cases": [{"alpha_deg": 0.0}],
+            "mesh_path": str(tmp_path / "origin_mesh.su2"),
+        }
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_aero.load_config", lambda _: cfg)
+    monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
+    monkeypatch.setattr("hpa_mdo.aero.origin_aero.prepare_origin_su2_alpha_sweep", _fake_prepare)
+
+    bundle = run_origin_aero_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "analysis",
+        aoa_list=[0.0],
+        prepare_su2=True,
+        auto_mesh_su2=True,
+    )
+
+    payload = json.loads(Path(bundle["bundle_json"]).read_text(encoding="utf-8"))
+    assert payload["metadata"]["su2_preparation"]["case_count"] == 1
