@@ -281,9 +281,66 @@ def _resolve_case_paths(sweep_dir: Path) -> list[Path]:
     return case_dirs
 
 
+def _load_json_dict(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, dict):
+        return payload
+    return {}
+
+
+def _load_case_metadata(case_dir: Path) -> dict[str, Any]:
+    for candidate in (
+        case_dir / "case_metadata.json",
+        case_dir / "metadata.json",
+        case_dir / "case.json",
+    ):
+        payload = _load_json_dict(candidate)
+        if payload:
+            return payload
+    return {}
+
+
+def _load_run_summary_cases(sweep_dir: Path) -> dict[str, dict[str, Any]]:
+    payload = _load_json_dict(sweep_dir / "su2_run_summary.json")
+    raw_cases = payload.get("cases")
+    if not isinstance(raw_cases, list):
+        return {}
+
+    cases_by_name: dict[str, dict[str, Any]] = {}
+    for case in raw_cases:
+        if not isinstance(case, dict):
+            continue
+        case_name = case.get("case_name")
+        if case_name:
+            cases_by_name[str(case_name)] = case
+    return cases_by_name
+
+
+def _build_su2_case_notes(
+    *,
+    alpha_source: str,
+    case_metadata: dict[str, Any],
+    run_summary_case: dict[str, Any],
+) -> str:
+    note_parts = [f"alpha_source={alpha_source}"]
+
+    case_status = run_summary_case.get("status") or case_metadata.get("run_status")
+    if case_status:
+        note_parts.append(f"run_status={case_status}")
+
+    mesh_preset = case_metadata.get("mesh_preset") or run_summary_case.get("mesh_preset")
+    if mesh_preset:
+        note_parts.append(f"mesh_preset={mesh_preset}")
+
+    return "; ".join(note_parts)
+
+
 def load_su2_alpha_sweep(sweep_dir: str | Path) -> list[AeroSweepPoint]:
     root = Path(sweep_dir)
     case_dirs = _resolve_case_paths(root)
+    run_summary_cases = _load_run_summary_cases(root)
     points: list[AeroSweepPoint] = []
 
     for case_dir in case_dirs:
@@ -296,6 +353,8 @@ def load_su2_alpha_sweep(sweep_dir: str | Path) -> list[AeroSweepPoint]:
         last_row = rows[-1]
         cfg_values = _parse_su2_cfg(case_dir / "su2_runtime.cfg")
         alpha_deg, alpha_source = _resolve_case_alpha(case_dir, cfg_values)
+        case_metadata = _load_case_metadata(case_dir)
+        run_summary_case = run_summary_cases.get(case_dir.name, {})
         density = _parse_float(cfg_values.get("INC_DENSITY_INIT")) or _parse_float(
             cfg_values.get("FREESTREAM_DENSITY")
         )
@@ -314,7 +373,11 @@ def load_su2_alpha_sweep(sweep_dir: str | Path) -> list[AeroSweepPoint]:
                 lift_n=_force_from_coefficient(cl, density, velocity, ref_area),
                 drag_n=_force_from_coefficient(cd, density, velocity, ref_area),
                 source_path=str(history_path.resolve()),
-                notes=f"alpha_source={alpha_source}",
+                notes=_build_su2_case_notes(
+                    alpha_source=alpha_source,
+                    case_metadata=case_metadata,
+                    run_summary_case=run_summary_case,
+                ),
             )
         )
 

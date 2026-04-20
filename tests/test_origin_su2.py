@@ -491,11 +491,69 @@ def test_run_prepared_origin_su2_alpha_sweep_executes_fake_solver(monkeypatch, t
         su2_binary=str(fake_solver),
     )
 
-    assert summary["cases"][0]["status"] == "completed"
+    assert summary["cases"][0]["status"] == "completed_converged"
     assert Path(summary["cases"][0]["history_path"]).exists()
     points = load_su2_alpha_sweep(prepared["sweep_dir"])
     assert len(points) == 1
     assert points[0].cd == 0.04
+
+
+def test_run_prepared_origin_su2_alpha_sweep_records_history_summary(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_su2 import (
+        prepare_origin_su2_alpha_sweep,
+        run_prepared_origin_su2_alpha_sweep,
+    )
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
+    fake_solver = _write_text(
+        tmp_path / "fake_su2_history.sh",
+        """
+        #!/bin/sh
+        printf '"Time_Iter","Outer_Iter","Inner_Iter","CD","CL","CMy"\n1499,1499,49,0.0400,0.9900,-0.0200\n' > history.csv
+        exit 0
+        """,
+    )
+    fake_solver.chmod(0o755)
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    prepared = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[0.0],
+        mesh_path=mesh_path,
+    )
+    summary = run_prepared_origin_su2_alpha_sweep(
+        prepared["sweep_dir"],
+        su2_binary=str(fake_solver),
+    )
+
+    assert summary["cases"][0]["status"] == "completed_but_weak"
+    assert summary["cases"][0]["history_summary"]["final_inner_iter"] == 49
+    assert summary["cases"][0]["history_summary"]["final_cl"] == 0.99
 
 
 def test_run_prepared_origin_su2_alpha_sweep_rejects_missing_history_after_execution(

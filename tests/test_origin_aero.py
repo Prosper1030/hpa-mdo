@@ -390,7 +390,13 @@ def test_run_origin_aero_sweep_can_dry_run_prepared_su2_cases(
         return {
             "case_count": 1,
             "dry_run": True,
-            "cases": [{"case_name": "alpha_0p0", "status": "dry_run"}],
+            "cases": [
+                {
+                    "case_name": "alpha_0p0",
+                    "status": "completed_but_weak",
+                    "mesh_preset": "study_medium",
+                }
+            ],
             "summary_json": str(tmp_path / "su2_run_summary.json"),
         }
 
@@ -416,6 +422,11 @@ def test_run_origin_aero_sweep_can_dry_run_prepared_su2_cases(
 
     payload = json.loads(Path(bundle["bundle_json"]).read_text(encoding="utf-8"))
     assert payload["metadata"]["su2_run_summary"]["dry_run"] is True
+    assert payload["metadata"]["su2_run_summary"]["cases"][0]["mesh_preset"] == "study_medium"
+    assert payload["metadata"]["su2_run_summary"]["cases"][0]["status"] in {
+        "completed_converged",
+        "completed_but_weak",
+    }
     assert payload["metadata"]["su2_analysis_note"] is not None
 
 
