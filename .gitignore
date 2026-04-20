@@ -45,3 +45,4 @@ configs/local_paths.yaml
 # Temporary
 *_out/
 uv.lock
+.worktrees/
