@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import shutil
 import subprocess
 from datetime import datetime
@@ -17,6 +18,7 @@ DEFAULT_WALL_MARKER = "aircraft"
 DEFAULT_FARFIELD_MARKER = "farfield"
 DEFAULT_MESH_FILENAME = "origin_mesh.su2"
 DEFAULT_SU2_ITER = 1500
+_CFG_VALUE_RE = re.compile(r"^\s*([^=%#]+?)\s*=\s*(.+?)\s*$")
 
 
 def _format_alpha_case_name(alpha_deg: float) -> str:
@@ -202,6 +204,82 @@ def _copy_case_mesh(mesh_path: Path, case_dir: Path, mesh_filename: str) -> Path
     return target
 
 
+def _read_cfg_values(config_path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw_line in config_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("%") or line.startswith("#"):
+            continue
+        match = _CFG_VALUE_RE.match(raw_line)
+        if match is None:
+            continue
+        key, value = match.groups()
+        values[key.strip().upper()] = value.strip()
+    return values
+
+
+def _mesh_filename_from_runtime_cfg(runtime_cfg: Path) -> str:
+    return _read_cfg_values(runtime_cfg).get("MESH_FILENAME", DEFAULT_MESH_FILENAME)
+
+
+def _required_markers_for_case(case_dir: Path) -> tuple[str, str]:
+    metadata_path = case_dir / "case_metadata.json"
+    if metadata_path.exists():
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        return (
+            str(payload.get("wall_marker", DEFAULT_WALL_MARKER)),
+            str(payload.get("farfield_marker", DEFAULT_FARFIELD_MARKER)),
+        )
+    return DEFAULT_WALL_MARKER, DEFAULT_FARFIELD_MARKER
+
+
+def validate_su2_mesh(
+    mesh_path: str | Path,
+    *,
+    required_markers: Sequence[str] = (DEFAULT_WALL_MARKER, DEFAULT_FARFIELD_MARKER),
+) -> dict[str, Any]:
+    path = Path(mesh_path).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"SU2 mesh not found: {path}")
+
+    marker_names: list[str] = []
+    marker_element_counts: dict[str, int] = {}
+    ndime = None
+    pending_marker = None
+
+    for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("NDIME="):
+            ndime = int(line.split("=", 1)[1].strip())
+            continue
+        if line.startswith("MARKER_TAG="):
+            pending_marker = line.split("=", 1)[1].strip()
+            marker_names.append(pending_marker)
+            continue
+        if pending_marker is not None and line.startswith("MARKER_ELEMS="):
+            marker_element_counts[pending_marker] = int(line.split("=", 1)[1].strip())
+            pending_marker = None
+
+    if ndime != 3:
+        raise ValueError(f"expected a 3D SU2 mesh, found NDIME={ndime!r}: {path}")
+
+    missing_markers = [marker for marker in required_markers if marker not in marker_names]
+    if missing_markers:
+        raise ValueError(
+            f"SU2 mesh is missing required markers {missing_markers}: {path}"
+        )
+
+    return {
+        "path": str(path),
+        "ndime": ndime,
+        "marker_names": marker_names,
+        "marker_element_counts": marker_element_counts,
+        "required_markers": [str(marker) for marker in required_markers],
+    }
+
+
 def _resolve_su2_binary(su2_binary: str | None = None) -> str:
     candidate = su2_binary or shutil.which("SU2_CFD")
     if candidate is None:
@@ -223,22 +301,124 @@ def _run_prepared_case(
     runtime_cfg: Path,
     su2_binary: str,
     mpi_ranks: int | None,
+    dry_run: bool = False,
+    timeout_seconds: int | None = None,
 ) -> list[str]:
     if mpi_ranks is not None and mpi_ranks > 1:
         launcher = _resolve_mpi_launcher()
         if launcher is None:
             raise RuntimeError("MPI launcher not found for requested SU2 parallel run")
-        command = [launcher, "-n", str(int(mpi_ranks)), su2_binary, runtime_cfg.name]
+        command = [launcher, "-n", str(int(mpi_ranks)), su2_binary]
+        if dry_run:
+            command.append("-d")
+        command.append(runtime_cfg.name)
     else:
-        command = [su2_binary, runtime_cfg.name]
-    subprocess.run(
+        command = [su2_binary]
+        if dry_run:
+            command.append("-d")
+        command.append(runtime_cfg.name)
+    if dry_run:
+        return command
+    completed = subprocess.run(
         command,
         cwd=case_dir,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
+        timeout=timeout_seconds,
     )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"SU2 execution failed in {case_dir.name}: exit={completed.returncode}\n"
+            f"{completed.stderr.strip()}"
+        )
     return command
+
+
+def _discover_prepared_cases(sweep_dir: Path) -> list[Path]:
+    cases = sorted(
+        child for child in sweep_dir.iterdir() if child.is_dir() and (child / "su2_runtime.cfg").exists()
+    )
+    if not cases:
+        raise ValueError(f"no prepared SU2 cases found under: {sweep_dir}")
+    return cases
+
+
+def _history_file_for_case(case_dir: Path) -> Path | None:
+    for candidate in (
+        case_dir / "history.csv",
+        case_dir / "history.dat",
+        case_dir / "conv_history.csv",
+        case_dir / "conv_history.dat",
+    ):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def run_prepared_origin_su2_alpha_sweep(
+    sweep_dir: str | Path,
+    *,
+    su2_binary: str | None = None,
+    mpi_ranks: int | None = None,
+    dry_run: bool = False,
+    timeout_seconds: int | None = None,
+) -> dict[str, Any]:
+    root = Path(sweep_dir).expanduser().resolve()
+    if not root.exists() or not root.is_dir():
+        raise FileNotFoundError(f"SU2 sweep directory not found: {root}")
+
+    solver_binary = (su2_binary or "SU2_CFD") if dry_run else _resolve_su2_binary(su2_binary)
+    cases = _discover_prepared_cases(root)
+    case_results: list[dict[str, Any]] = []
+
+    for case_dir in cases:
+        runtime_cfg = case_dir / "su2_runtime.cfg"
+        mesh_filename = _mesh_filename_from_runtime_cfg(runtime_cfg)
+        mesh_path = case_dir / mesh_filename
+        required_markers = _required_markers_for_case(case_dir)
+        mesh_validation = validate_su2_mesh(mesh_path, required_markers=required_markers)
+
+        case_result: dict[str, Any] = {
+            "case_name": case_dir.name,
+            "case_dir": str(case_dir),
+            "runtime_cfg": str(runtime_cfg),
+            "mesh_path": str(mesh_path),
+            "mesh_validation": mesh_validation,
+            "status": "pending",
+        }
+
+        command = _run_prepared_case(
+            case_dir=case_dir,
+            runtime_cfg=runtime_cfg,
+            su2_binary=solver_binary,
+            mpi_ranks=mpi_ranks,
+            dry_run=dry_run,
+            timeout_seconds=timeout_seconds,
+        )
+        case_result["solver_command"] = " ".join(command)
+        if dry_run:
+            case_result["status"] = "dry_run"
+        else:
+            history_path = _history_file_for_case(case_dir)
+            if history_path is None:
+                raise RuntimeError(f"SU2 run completed but produced no history file: {case_dir}")
+            case_result["status"] = "completed"
+            case_result["history_path"] = str(history_path)
+        case_results.append(case_result)
+
+    summary = {
+        "generated_at": datetime.now().isoformat(),
+        "sweep_dir": str(root),
+        "case_count": len(case_results),
+        "dry_run": bool(dry_run),
+        "mpi_ranks": mpi_ranks,
+        "cases": case_results,
+    }
+    summary_json = root / "su2_run_summary.json"
+    summary_json.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    summary["summary_json"] = str(summary_json)
+    return summary
 
 
 def prepare_origin_su2_alpha_sweep(
@@ -248,12 +428,16 @@ def prepare_origin_su2_alpha_sweep(
     aoa_list: Sequence[float],
     mesh_path: str | Path | None = None,
     run_cases: bool = False,
+    dry_run_cases: bool = False,
     su2_binary: str | None = None,
     mpi_ranks: int | None = None,
     wall_marker: str = DEFAULT_WALL_MARKER,
     farfield_marker: str = DEFAULT_FARFIELD_MARKER,
     mesh_filename: str = DEFAULT_MESH_FILENAME,
 ) -> dict[str, Any]:
+    if run_cases and dry_run_cases:
+        raise ValueError("run_cases and dry_run_cases cannot both be true")
+
     cfg = load_config(config_path)
     vsp_path = Path(cfg.io.vsp_model).expanduser().resolve()
     sweep_dir = Path(output_dir).expanduser().resolve()
@@ -272,7 +456,6 @@ def prepare_origin_su2_alpha_sweep(
     if mesh_source is not None and not mesh_source.exists():
         raise FileNotFoundError(f"SU2 mesh not found: {mesh_source}")
 
-    su2_exec = _resolve_su2_binary(su2_binary) if run_cases else None
     cases: list[dict[str, Any]] = []
     for alpha_deg in aoa_list:
         alpha_value = float(alpha_deg)
@@ -297,6 +480,7 @@ def prepare_origin_su2_alpha_sweep(
         su2_runtime_cfg.write_text(cfg_text, encoding="utf-8")
 
         mesh_target = None
+        mesh_validation = None
         if mesh_source is None:
             _write_mesh_placeholder(
                 case_dir,
@@ -306,6 +490,10 @@ def prepare_origin_su2_alpha_sweep(
             )
         else:
             mesh_target = _copy_case_mesh(mesh_source, case_dir, mesh_filename)
+            mesh_validation = validate_su2_mesh(
+                mesh_target,
+                required_markers=(wall_marker, farfield_marker),
+            )
 
         metadata = {
             "alpha_deg": alpha_value,
@@ -313,6 +501,7 @@ def prepare_origin_su2_alpha_sweep(
             "case_dir": str(case_dir),
             "mesh_filename": mesh_filename,
             "mesh_path": None if mesh_target is None else str(mesh_target),
+            "mesh_validation": mesh_validation,
             "wall_marker": wall_marker,
             "farfield_marker": farfield_marker,
             "reference_values": refs,
@@ -323,17 +512,6 @@ def prepare_origin_su2_alpha_sweep(
             encoding="utf-8",
         )
 
-        solver_command = None
-        if run_cases:
-            if mesh_target is None:
-                raise RuntimeError("run_cases=True requires mesh_path so each case has a runnable mesh")
-            solver_command = _run_prepared_case(
-                case_dir=case_dir,
-                runtime_cfg=su2_runtime_cfg,
-                su2_binary=str(su2_exec),
-                mpi_ranks=mpi_ranks,
-            )
-
         cases.append(
             {
                 "alpha_deg": alpha_value,
@@ -342,7 +520,7 @@ def prepare_origin_su2_alpha_sweep(
                 "su2_case_cfg": str(su2_case_cfg),
                 "su2_runtime_cfg": str(su2_runtime_cfg),
                 "mesh_path": None if mesh_target is None else str(mesh_target),
-                "solver_command": solver_command,
+                "mesh_validation": mesh_validation,
             }
         )
 
@@ -357,8 +535,18 @@ def prepare_origin_su2_alpha_sweep(
         "cases": cases,
         "mesh_path": None if mesh_source is None else str(mesh_source),
         "run_cases": bool(run_cases),
+        "dry_run_cases": bool(dry_run_cases),
         "mpi_ranks": mpi_ranks,
     }
+    if run_cases or dry_run_cases:
+        if mesh_source is None:
+            raise RuntimeError("run_cases/dry_run_cases require mesh_path so each case has a runnable mesh")
+        result["run_summary"] = run_prepared_origin_su2_alpha_sweep(
+            sweep_dir,
+            su2_binary=su2_binary,
+            mpi_ranks=mpi_ranks,
+            dry_run=dry_run_cases,
+        )
     (sweep_dir / "su2_case_bundle.json").write_text(
         json.dumps(result, indent=2) + "\n",
         encoding="utf-8",

@@ -260,3 +260,93 @@ def test_run_origin_aero_sweep_can_prepare_su2_cases_before_analysis(
     payload = json.loads(Path(bundle["bundle_json"]).read_text(encoding="utf-8"))
     assert payload["metadata"]["su2_preparation"]["case_count"] == 2
     assert payload["su2"]["count"] == 1
+
+
+def test_run_origin_aero_sweep_can_dry_run_prepared_su2_cases(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    origin_vsp_path = tmp_path / "origin.vsp3"
+    origin_vsp_path.write_text("stub\n", encoding="utf-8")
+    lod_path = _write_text(
+        tmp_path / "origin.lod",
+        """
+        Sref_ 35.1750000 Lunit^2
+        Bref_ 33.0000000 Lunit
+        Cref_ 1.0425000 Lunit
+        Rho_ 1.2250000 Munit/Lunit^3
+        Vinf_ 6.5000000 Lunit/Tunit
+        """,
+    )
+    polar_path = _write_text(
+        tmp_path / "origin.polar",
+        """
+        Beta Mach AoA Re/1e6 CLo CLi CLtot CDo CDi CDtot CSo CSi CStot L/D E CMox CMoy CMoz CMix CMiy CMiz CMxtot CMytot CMztot
+        0.0 0.0 -2.0 0.46 -0.0002 0.8463 0.8461 0.0182 0.0084 0.0266 0.0 0.0 0.0 31.7 0.87 0.0 0.0040 0.0 0.0 -0.4033 0.0 0.0 -0.3992 0.0
+        0.0 0.0  0.0 0.46 -0.0010 1.0577 1.0567 0.0206 0.0127 0.0333 0.0 0.0 0.0 31.7 0.90 0.0 0.0045 0.0 0.0 -0.4943 0.0 0.0 -0.4898 0.0
+        """,
+    )
+
+    cfg = SimpleNamespace(
+        project_name="Black Cat 004",
+        io=SimpleNamespace(vsp_model=origin_vsp_path, output_dir=tmp_path / "output"),
+    )
+
+    class FakeBuilder:
+        def __init__(self, loaded_cfg):
+            self.cfg = loaded_cfg
+
+        def run_vspaero(self, vsp3_path: str, aoa_list: list[float], output_dir: str) -> dict:
+            return {
+                "success": True,
+                "lod_path": str(lod_path),
+                "polar_path": str(polar_path),
+                "analysis_method": "panel",
+                "solver_backend": "fake_vspaero",
+                "error": None,
+            }
+
+    def _fake_prepare(**kwargs) -> dict[str, object]:
+        sweep_dir = Path(kwargs["output_dir"])
+        _write_text(
+            sweep_dir / "alpha_0p0" / "su2_runtime.cfg",
+            """
+            AOA= 0.0
+            REF_AREA= 35.175
+            INC_DENSITY_INIT= 1.225
+            INC_VELOCITY_INIT= ( 6.5, 0.0, 0.0 )
+            """,
+        )
+        return {
+            "sweep_dir": str(sweep_dir),
+            "case_count": 1,
+            "cases": [{"alpha_deg": 0.0}],
+        }
+
+    def _fake_run_prepared(*args, **kwargs) -> dict[str, object]:
+        return {
+            "case_count": 1,
+            "dry_run": True,
+            "cases": [{"case_name": "alpha_0p0", "status": "dry_run"}],
+            "summary_json": str(tmp_path / "su2_run_summary.json"),
+        }
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_aero.load_config", lambda _: cfg)
+    monkeypatch.setattr("hpa_mdo.aero.origin_aero.VSPBuilder", FakeBuilder)
+    monkeypatch.setattr("hpa_mdo.aero.origin_aero.prepare_origin_su2_alpha_sweep", _fake_prepare)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_aero.run_prepared_origin_su2_alpha_sweep",
+        _fake_run_prepared,
+    )
+
+    bundle = run_origin_aero_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "analysis",
+        aoa_list=[-2.0, 0.0],
+        prepare_su2=True,
+        dry_run_su2_cases=True,
+    )
+
+    payload = json.loads(Path(bundle["bundle_json"]).read_text(encoding="utf-8"))
+    assert payload["metadata"]["su2_run_summary"]["dry_run"] is True
+    assert payload["metadata"]["su2_analysis_note"] is not None

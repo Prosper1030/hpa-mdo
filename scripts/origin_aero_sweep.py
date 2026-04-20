@@ -27,6 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--prepare-su2", action="store_true", help="Prepare origin-based SU2 alpha cases")
     parser.add_argument("--su2-mesh", default=None, help="Optional .su2 mesh copied into each prepared case")
     parser.add_argument("--run-su2", action="store_true", help="Run prepared SU2 cases after writing configs")
+    parser.add_argument("--dry-run-su2", action="store_true", help="Preview prepared SU2 commands without executing")
     parser.add_argument("--su2-ranks", type=int, default=None, help="Optional MPI ranks when --run-su2 is used")
     parser.add_argument("--su2-binary", default=None, help="Override SU2_CFD binary path when running cases")
     args = parser.parse_args(argv)
@@ -46,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         prepare_su2=args.prepare_su2,
         su2_mesh_path=args.su2_mesh,
         run_su2_cases=args.run_su2,
+        dry_run_su2_cases=args.dry_run_su2,
         su2_binary=args.su2_binary,
         su2_mpi_ranks=args.su2_ranks,
     )

@@ -16,7 +16,10 @@ from hpa_mdo.aero.aero_sweep import (
     load_su2_alpha_sweep,
     sweep_points_to_dataframe,
 )
-from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
+from hpa_mdo.aero.origin_su2 import (
+    prepare_origin_su2_alpha_sweep,
+    run_prepared_origin_su2_alpha_sweep,
+)
 from hpa_mdo.aero.vsp_builder import VSPBuilder
 from hpa_mdo.core.config import load_config
 
@@ -199,6 +202,7 @@ def run_origin_aero_sweep(
     prepare_su2: bool = False,
     su2_mesh_path: str | Path | None = None,
     run_su2_cases: bool = False,
+    dry_run_su2_cases: bool = False,
     su2_binary: str | None = None,
     su2_mpi_ranks: int | None = None,
 ) -> dict[str, Any]:
@@ -223,6 +227,7 @@ def run_origin_aero_sweep(
     vspaero_points = build_vspaero_sweep_points(lod_path=lod_path, polar_path=polar_path)
     resolved_su2_dir = None if su2_sweep_dir is None else Path(su2_sweep_dir).expanduser().resolve()
     su2_preparation = None
+    su2_run_summary = None
     su2_note = None
     if prepare_su2:
         prep_dir = (
@@ -235,11 +240,20 @@ def run_origin_aero_sweep(
             output_dir=prep_dir,
             aoa_list=aoa_list,
             mesh_path=su2_mesh_path,
-            run_cases=run_su2_cases,
+            run_cases=False,
+            dry_run_cases=False,
             su2_binary=su2_binary,
             mpi_ranks=su2_mpi_ranks,
         )
         resolved_su2_dir = Path(su2_preparation["sweep_dir"]).expanduser().resolve()
+
+    if (run_su2_cases or dry_run_su2_cases) and resolved_su2_dir is not None:
+        su2_run_summary = run_prepared_origin_su2_alpha_sweep(
+            resolved_su2_dir,
+            su2_binary=su2_binary,
+            mpi_ranks=su2_mpi_ranks,
+            dry_run=dry_run_su2_cases,
+        )
 
     su2_points = None
     if resolved_su2_dir is not None:
@@ -266,6 +280,7 @@ def run_origin_aero_sweep(
             },
             "su2_sweep_dir": None if resolved_su2_dir is None else str(resolved_su2_dir),
             "su2_preparation": su2_preparation,
+            "su2_run_summary": su2_run_summary,
             "su2_analysis_note": su2_note,
         },
     )

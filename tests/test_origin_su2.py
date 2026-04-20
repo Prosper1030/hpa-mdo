@@ -33,6 +33,28 @@ def _fake_cfg(tmp_path: Path, origin_vsp_path: Path) -> SimpleNamespace:
     )
 
 
+def _sample_su2_mesh_text(*, wall_marker: str = "aircraft", farfield_marker: str = "farfield") -> str:
+    return f"""
+    NDIME= 3
+    NPOIN= 4
+    0.0 0.0 0.0
+    1.0 0.0 0.0
+    0.0 1.0 0.0
+    0.0 0.0 1.0
+    NELEM= 1
+    10 0 1 2 3
+    NMARK= 2
+    MARKER_TAG= {wall_marker}
+    MARKER_ELEMS= 1
+    5 0 1 2
+    MARKER_TAG= {farfield_marker}
+    MARKER_ELEMS= 3
+    5 0 1 3
+    5 0 2 3
+    5 1 2 3
+    """
+
+
 def test_prepare_origin_su2_alpha_sweep_writes_cases_and_configs(monkeypatch, tmp_path: Path) -> None:
     from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
 
@@ -90,7 +112,7 @@ def test_prepare_origin_su2_alpha_sweep_can_feed_the_shared_reader(monkeypatch, 
     from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
 
     origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
-    mesh_path = _write_text(tmp_path / "origin_mesh.su2", "NDIME= 3")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
     cfg = _fake_cfg(tmp_path, origin_vsp_path)
 
     monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
@@ -135,3 +157,183 @@ def test_prepare_origin_su2_alpha_sweep_can_feed_the_shared_reader(monkeypatch, 
     assert points[0].cl == 1.03
     assert points[0].drag_n is not None
     assert (alpha_zero / "origin_mesh.su2").exists()
+
+
+def test_validate_su2_mesh_rejects_missing_required_marker(tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_su2 import validate_su2_mesh
+
+    mesh_path = _write_text(
+        tmp_path / "origin_mesh.su2",
+        _sample_su2_mesh_text(wall_marker="wing_surface", farfield_marker="farfield"),
+    )
+
+    try:
+        validate_su2_mesh(mesh_path, required_markers=("aircraft", "farfield"))
+    except ValueError as exc:
+        assert "aircraft" in str(exc)
+    else:  # pragma: no cover - red/green guard
+        raise AssertionError("expected missing marker validation to fail")
+
+
+def test_run_prepared_origin_su2_alpha_sweep_dry_run_writes_summary(monkeypatch, tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_su2 import (
+        prepare_origin_su2_alpha_sweep,
+        run_prepared_origin_su2_alpha_sweep,
+    )
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    prepared = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[-2.0, 0.0],
+        mesh_path=mesh_path,
+    )
+    summary = run_prepared_origin_su2_alpha_sweep(
+        prepared["sweep_dir"],
+        dry_run=True,
+        su2_binary="/tmp/fake/SU2_CFD",
+    )
+
+    assert summary["case_count"] == 2
+    assert summary["cases"][0]["status"] == "dry_run"
+    assert summary["cases"][0]["mesh_validation"]["marker_names"] == ["aircraft", "farfield"]
+    assert Path(summary["summary_json"]).exists()
+
+
+def test_run_prepared_origin_su2_alpha_sweep_executes_fake_solver(monkeypatch, tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_su2 import (
+        prepare_origin_su2_alpha_sweep,
+        run_prepared_origin_su2_alpha_sweep,
+    )
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
+    fake_solver = _write_text(
+        tmp_path / "fake_su2.sh",
+        """
+        #!/bin/sh
+        printf '"ITER","CD","CL","CMy"\n20,0.0400,0.9900,-0.0200\n' > history.csv
+        exit 0
+        """,
+    )
+    fake_solver.chmod(0o755)
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    prepared = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[0.0],
+        mesh_path=mesh_path,
+    )
+    summary = run_prepared_origin_su2_alpha_sweep(
+        prepared["sweep_dir"],
+        su2_binary=str(fake_solver),
+    )
+
+    assert summary["cases"][0]["status"] == "completed"
+    assert Path(summary["cases"][0]["history_path"]).exists()
+    points = load_su2_alpha_sweep(prepared["sweep_dir"])
+    assert len(points) == 1
+    assert points[0].cd == 0.04
+
+
+def test_run_prepared_origin_su2_alpha_sweep_rejects_missing_history_after_execution(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_su2 import (
+        prepare_origin_su2_alpha_sweep,
+        run_prepared_origin_su2_alpha_sweep,
+    )
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
+    fake_solver = _write_text(
+        tmp_path / "fake_su2_no_history.sh",
+        """
+        #!/bin/sh
+        exit 0
+        """,
+    )
+    fake_solver.chmod(0o755)
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    prepared = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[0.0],
+        mesh_path=mesh_path,
+    )
+
+    try:
+        run_prepared_origin_su2_alpha_sweep(
+            prepared["sweep_dir"],
+            su2_binary=str(fake_solver),
+        )
+    except RuntimeError as exc:
+        assert "history" in str(exc).lower()
+    else:  # pragma: no cover - red/green guard
+        raise AssertionError("expected missing history to fail")
