@@ -101,6 +101,28 @@ def test_assess_origin_mesh_study_does_not_mark_shared_missing_metric_values_usa
     assert assessment["cl_spread_abs"] is None
 
 
+def test_assess_origin_mesh_study_does_not_use_only_fully_populated_shared_alpha() -> None:
+    assessment = assess_origin_mesh_study(
+        points_by_preset={
+            "study_coarse": [
+                _points(solver="su2", alpha_deg=0.0, cl=1.00, cd=0.0310, cm=-0.021),
+                _points(solver="su2", alpha_deg=2.0, cl=1.17, cd=0.0340, cm=-0.018),
+            ],
+            "study_medium": [
+                _points(solver="su2", alpha_deg=0.0, cl=1.01, cd=0.0317, cm=-0.020),
+                _points(solver="su2", alpha_deg=2.0, cl=None, cd=0.0345, cm=-0.017),
+            ],
+            "study_fine": [
+                _points(solver="su2", alpha_deg=0.0, cl=1.02, cd=0.0324, cm=-0.019),
+                _points(solver="su2", alpha_deg=2.0, cl=1.19, cd=0.0350, cm=-0.016),
+            ],
+        }
+    )
+
+    assert assessment["compared_alpha_deg"] == []
+    assert assessment["verdict"] == "still_baseline_only"
+
+
 def test_assess_origin_mesh_study_marks_no_common_alpha_coverage_baseline_only() -> None:
     assessment = assess_origin_mesh_study(
         points_by_preset={

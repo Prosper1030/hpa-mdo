@@ -36,6 +36,14 @@ def _max_metric_spread(
     if not common_alpha_deg:
         return None, []
 
+    for alpha_deg in common_alpha_deg:
+        for points in points_by_preset.values():
+            for point in points:
+                if float(point.alpha_deg) != alpha_deg:
+                    continue
+                if point.cl is None or point.cd is None or point.cm is None:
+                    return None, []
+
     alpha_to_values: dict[float, list[float | None]] = {}
     for points in points_by_preset.values():
         for point in points:
@@ -50,7 +58,7 @@ def _max_metric_spread(
         values = alpha_to_values[alpha_deg]
         spread = _spread(values)
         if spread is None:
-            continue
+            return None, []
         compared_alpha_deg.append(alpha_deg)
         max_spread = spread if max_spread is None else max(max_spread, spread)
     return max_spread, compared_alpha_deg
