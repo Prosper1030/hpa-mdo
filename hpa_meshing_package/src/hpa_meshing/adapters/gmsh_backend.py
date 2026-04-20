@@ -151,7 +151,7 @@ def _configure_mesh_field(
     aircraft_surface_tags: list[int],
     body_bounds: tuple[list[float], list[float]],
     config: MeshJobConfig,
-) -> Dict[str, float]:
+) -> Dict[str, Any]:
     mins, maxs = body_bounds
     characteristic_length = max(
         maxs[0] - mins[0],
@@ -161,8 +161,17 @@ def _configure_mesh_field(
     )
     near_body_size = config.global_min_size or max(characteristic_length * 0.08, 1e-3)
     farfield_size = config.global_max_size or max(characteristic_length * 0.35, near_body_size * 2.5)
-    distance_min = max(characteristic_length * 0.20, near_body_size)
-    distance_max = max(characteristic_length * 1.75, farfield_size)
+    # Keep the transition band tied to the requested mesh sizes so finer study
+    # presets refine a meaningfully smaller neighborhood instead of reusing the
+    # same broad distance ramp for every tier.
+    distance_min = max(near_body_size * 2.0, characteristic_length * 0.04)
+    distance_max = max(
+        distance_min + 6.0 * near_body_size,
+        farfield_size * 2.5,
+        characteristic_length * 0.35,
+    )
+    mesh_algorithm_2d = int(config.mesh_algorithm_2d) if config.mesh_algorithm_2d is not None else 6
+    mesh_algorithm_3d = int(config.mesh_algorithm_3d) if config.mesh_algorithm_3d is not None else 1
 
     distance_field = gmsh.model.mesh.field.add("Distance")
     gmsh.model.mesh.field.setNumbers(distance_field, "FacesList", aircraft_surface_tags)
@@ -177,13 +186,13 @@ def _configure_mesh_field(
 
     gmsh.option.setNumber("Mesh.MeshSizeMin", near_body_size)
     gmsh.option.setNumber("Mesh.MeshSizeMax", farfield_size)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 12)
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
     gmsh.option.setNumber("Mesh.Optimize", 1)
     gmsh.option.setNumber("Mesh.OptimizeNetgen", 0)
-    if config.mesh_algorithm_2d is not None:
-        gmsh.option.setNumber("Mesh.Algorithm", float(config.mesh_algorithm_2d))
-    if config.mesh_algorithm_3d is not None:
-        gmsh.option.setNumber("Mesh.Algorithm3D", float(config.mesh_algorithm_3d))
+    gmsh.option.setNumber("Mesh.Algorithm", float(mesh_algorithm_2d))
+    gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
 
     return {
         "characteristic_length": characteristic_length,
@@ -191,7 +200,44 @@ def _configure_mesh_field(
         "farfield_size": farfield_size,
         "distance_min": distance_min,
         "distance_max": distance_max,
+        "mesh_size_from_points": 0,
+        "mesh_size_from_curvature": 0,
+        "mesh_size_extend_from_boundary": 0,
+        "mesh_algorithm_2d": mesh_algorithm_2d,
+        "mesh_algorithm_3d": mesh_algorithm_3d,
     }
+
+
+def _heal_imported_bodies(gmsh, body_dim_tags: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], Dict[str, Any]]:
+    summary: Dict[str, Any] = {
+        "attempted": True,
+        "input_volume_count": len(body_dim_tags),
+        "input_surface_count": len(gmsh.model.getEntities(2)),
+        "tolerance": 1.0e-8,
+    }
+    healed_entities = gmsh.model.occ.healShapes(
+        body_dim_tags,
+        tolerance=1.0e-8,
+        fixDegenerated=True,
+        fixSmallEdges=True,
+        fixSmallFaces=True,
+        sewFaces=True,
+        makeSolids=True,
+    )
+    gmsh.model.occ.removeAllDuplicates()
+    gmsh.model.occ.synchronize()
+
+    healed_body_dim_tags = [entity for entity in healed_entities if entity[0] == 3]
+    if not healed_body_dim_tags:
+        healed_body_dim_tags = gmsh.model.getEntities(3)
+
+    summary.update(
+        {
+            "output_volume_count": len(healed_body_dim_tags),
+            "output_surface_count": len(gmsh.model.getEntities(2)),
+        }
+    )
+    return healed_body_dim_tags, summary
 
 
 def _count_elements_for_entities(gmsh, dim: int, entity_tags: Iterable[int]) -> tuple[int, Dict[str, int]]:
@@ -314,6 +360,9 @@ def _apply_thin_sheet_aircraft_assembly_route(
             body_dim_tags = gmsh.model.getEntities(3)
             imported_surface_count = len(gmsh.model.getEntities(2))
 
+        body_dim_tags, healing_summary = _heal_imported_bodies(gmsh, body_dim_tags)
+        imported_surface_count = len(gmsh.model.getEntities(2))
+
         body_bounds = _bbox_for_entities(gmsh, body_dim_tags)
         bounds = _farfield_bounds(*body_bounds, farfield=config.farfield)
         box_tag = gmsh.model.occ.addBox(
@@ -422,6 +471,7 @@ def _apply_thin_sheet_aircraft_assembly_route(
                 "body": {
                     "imported_volume_count": len(body_dim_tags),
                     "imported_surface_count": imported_surface_count,
+                    "healing": healing_summary,
                 },
                 "farfield": {
                     "enabled": config.farfield.enabled,
@@ -455,6 +505,7 @@ def _apply_thin_sheet_aircraft_assembly_route(
                 "imported_volume_count": len(body_dim_tags),
                 "imported_surface_count": imported_surface_count,
                 "bounds": body_bounds_dict,
+                "healing": healing_summary,
             },
             "farfield": {
                 "enabled": config.farfield.enabled,

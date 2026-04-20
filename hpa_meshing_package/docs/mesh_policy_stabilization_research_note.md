@@ -44,7 +44,7 @@ Without that, changing `AOA` just moves the freestream direction on top of an al
    - explicitly disable `Mesh.MeshSizeFromPoints`
    - explicitly disable `Mesh.MeshSizeFromCurvature`
    - explicitly disable `Mesh.MeshSizeExtendFromBoundary`
-   - explicitly use 2D `Delaunay` for the field-driven thin-sheet route
+   - keep the route on the repo-validated 2D surface algorithm instead of forcing a new 2D branch just because the size-field examples prefer it
    - explicitly record the chosen mesh-policy settings in metadata / tests
 
 ## Expected outcome
