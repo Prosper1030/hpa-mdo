@@ -1,0 +1,36 @@
+component: fairing_solid
+geometry: examples/fairing_solid/example.step
+out_dir: out/fairing_solid
+units: m
+mesh_dim: 3
+global_min_size: 0.005
+global_max_size: 0.08
+
+boundary_layer:
+  enabled: false
+  growth_rate: 1.2
+  n_layers: 8
+
+farfield:
+  enabled: true
+  upstream_factor: 4.0
+  downstream_factor: 12.0
+  lateral_factor: 6.0
+  vertical_factor: 6.0
+  wake_box_factor: 6.0
+
+quality_gate:
+  max_skewness: null
+  min_scaled_jacobian: null
+  max_elements: 2500000
+  allow_no_bl_fallback: true
+
+fallback:
+  max_attempts: 4
+  relax_local_size_factor: 1.25
+  reduce_bl_layers_step: 2
+  increase_global_size_factor: 1.2
+  disable_bl_on_final_attempt: true
+
+rules:
+  min_feature_size: 0.002

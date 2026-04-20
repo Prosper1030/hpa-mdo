@@ -1,0 +1,84 @@
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+from hpa_meshing.cli import build_parser
+
+
+def test_parser_builds():
+    parser = build_parser()
+    assert parser.prog == "hpa-mesh"
+
+
+def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
+    geometry = tmp_path / "wing.step"
+    geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+    out_dir = tmp_path / "out"
+    package_root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "hpa_meshing.cli",
+            "validate-geometry",
+            "--component",
+            "main_wing",
+            "--geometry",
+            str(geometry),
+            "--out",
+            str(out_dir),
+        ],
+        cwd=package_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["geometry_family"] == "thin_sheet_lifting_surface"
+    assert (out_dir / "report.json").exists()
+
+
+def test_python_m_cli_reports_experimental_provider_status(tmp_path: Path):
+    geometry = tmp_path / "assembly.vsp3"
+    geometry.write_text("<vsp3/>", encoding="utf-8")
+    out_dir = tmp_path / "out"
+    package_root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "hpa_meshing.cli",
+            "validate-geometry",
+            "--component",
+            "aircraft_assembly",
+            "--geometry",
+            str(geometry),
+            "--geometry-provider",
+            "esp_rebuilt",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=package_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    payload = json.loads(result.stdout)
+    assert payload["failure_code"] == "geometry_provider_not_materialized"
+    assert payload["geometry_provider"] == "esp_rebuilt"
+    assert payload["provider"]["provider_stage"] == "experimental"
+    assert payload["provider"]["status"] == "not_materialized"
