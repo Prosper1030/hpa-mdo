@@ -297,3 +297,27 @@ def test_parse_real_candidate_rerun_lod_has_strictly_positive_chord():
             f"parsed y range looks truncated (max={case.y.max():.2f} m); "
             "did the parser fall back to the legacy column layout?"
         )
+
+
+def test_get_polar_df_skips_real_vspaero_banner_lines(tmp_path):
+    polar_path = tmp_path / "origin_banner.polar"
+    polar_path.write_text(
+        "\n".join(
+            [
+                "Surface Integration Forces and Moments -->",
+                "Surf-Surf-Surf-Surf-Surf Wake-Wake-Wake",
+                "Beta Mach AoA Re/1e6 CLo CLi CLtot CDo CDi CDtot CSo CSi CStot L/D E CMox CMoy CMoz",
+                "0.0 0.0 -2.0 0.46 -0.0002 0.8463 0.8461 0.0182 0.0084 0.0266 0.0 0.0 0.0 31.7 0.87 0.0 0.0040 0.0",
+                "0.0 0.0 0.0 0.46 -0.0010 1.0577 1.0567 0.0206 0.0127 0.0333 0.0 0.0 0.0 31.7 0.90 0.0 0.0045 0.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    parser = VSPAeroParser(tmp_path / "unused.lod", polar_path=polar_path)
+    df = parser.get_polar_df()
+
+    assert df is not None
+    assert df["AoA"].tolist() == pytest.approx([-2.0, 0.0])
+    assert df["CLtot"].tolist() == pytest.approx([0.8461, 1.0567])
