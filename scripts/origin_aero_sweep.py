@@ -16,6 +16,7 @@ from hpa_mdo.core.config import load_config
 
 DEFAULT_CONFIG = "configs/blackcat_004.yaml"
 DEFAULT_AOA = [-2.0, 0.0, 2.0]
+DEFAULT_MESH_PRESET = "baseline"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,6 +27,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--su2-sweep-dir", default=None, help="Optional SU2 alpha sweep root to ingest")
     parser.add_argument("--prepare-su2", action="store_true", help="Prepare origin-based SU2 alpha cases")
     parser.add_argument("--su2-mesh", default=None, help="Optional .su2 mesh copied into each prepared case")
+    parser.add_argument(
+        "--su2-mesh-preset",
+        default=DEFAULT_MESH_PRESET,
+        choices=["baseline", "study_coarse", "study_medium", "study_fine"],
+        help="Preset mesh sizing contract used when auto-generating the SU2 mesh",
+    )
     parser.add_argument("--auto-mesh-su2", action="store_true", help="Auto-generate an external-flow SU2 mesh from origin_surface.stl")
     parser.add_argument("--run-su2", action="store_true", help="Run prepared SU2 cases after writing configs")
     parser.add_argument("--dry-run-su2", action="store_true", help="Preview prepared SU2 commands without executing")
@@ -48,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         prepare_su2=args.prepare_su2,
         su2_mesh_path=args.su2_mesh,
         auto_mesh_su2=args.auto_mesh_su2,
+        su2_mesh_preset=args.su2_mesh_preset,
         run_su2_cases=args.run_su2,
         dry_run_su2_cases=args.dry_run_su2,
         su2_binary=args.su2_binary,

@@ -48,6 +48,23 @@ def _tetrahedron_stl() -> str:
     """
 
 
+def test_origin_su2_mesh_presets_have_expected_contract() -> None:
+    from hpa_mdo.aero.origin_gmsh_mesh import ORIGIN_SU2_MESH_PRESETS
+
+    assert set(ORIGIN_SU2_MESH_PRESETS) == {
+        "baseline",
+        "study_coarse",
+        "study_medium",
+        "study_fine",
+    }
+    assert ORIGIN_SU2_MESH_PRESETS["study_fine"]["near_body_size_factor"] < ORIGIN_SU2_MESH_PRESETS[
+        "study_coarse"
+    ]["near_body_size_factor"]
+    assert ORIGIN_SU2_MESH_PRESETS["study_fine"]["farfield_size_factor"] < ORIGIN_SU2_MESH_PRESETS[
+        "study_coarse"
+    ]["farfield_size_factor"]
+
+
 def test_generate_stl_external_flow_mesh_writes_valid_su2(tmp_path: Path) -> None:
     from hpa_mdo.aero.origin_gmsh_mesh import (
         GmshExternalFlowMeshError,
@@ -75,6 +92,7 @@ def test_generate_stl_external_flow_mesh_writes_valid_su2(tmp_path: Path) -> Non
 
     assert output_path.exists()
     assert metadata["MeshMode"] == "stl_external_box"
+    assert metadata["PresetName"] == "baseline"
     assert metadata["Nodes"] > 0
     assert metadata["VolumeElements"] > 0
     assert metadata["MarkerElements"]["aircraft"] > 0

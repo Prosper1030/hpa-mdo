@@ -426,6 +426,7 @@ def prepare_origin_su2_alpha_sweep(
     aoa_list: Sequence[float],
     mesh_path: str | Path | None = None,
     auto_mesh: bool = False,
+    mesh_preset: str = "baseline",
     run_cases: bool = False,
     dry_run_cases: bool = False,
     su2_binary: str | None = None,
@@ -460,6 +461,7 @@ def prepare_origin_su2_alpha_sweep(
         generated_mesh = generate_stl_external_flow_mesh(
             geometry["stl"],
             generated_mesh_path,
+            preset_name=mesh_preset,
             body_marker=wall_marker,
             farfield_marker=farfield_marker,
         )
@@ -515,6 +517,7 @@ def prepare_origin_su2_alpha_sweep(
             "mesh_validation": mesh_validation,
             "wall_marker": wall_marker,
             "farfield_marker": farfield_marker,
+            "mesh_preset": mesh_preset,
             "reference_values": refs,
             "geometry": geometry,
         }
@@ -532,6 +535,7 @@ def prepare_origin_su2_alpha_sweep(
                 "su2_runtime_cfg": str(su2_runtime_cfg),
                 "mesh_path": None if mesh_target is None else str(mesh_target),
                 "mesh_validation": mesh_validation,
+                "mesh_preset": mesh_preset,
             }
         )
 
@@ -546,6 +550,7 @@ def prepare_origin_su2_alpha_sweep(
         "cases": cases,
         "mesh_path": None if mesh_source is None else str(mesh_source),
         "generated_mesh": generated_mesh,
+        "mesh_preset": mesh_preset,
         "run_cases": bool(run_cases),
         "dry_run_cases": bool(dry_run_cases),
         "mpi_ranks": mpi_ranks,

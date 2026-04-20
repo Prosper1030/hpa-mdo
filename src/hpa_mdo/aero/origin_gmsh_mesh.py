@@ -26,6 +26,28 @@ DEFAULT_STL_EXTERNAL_FLOW_OPTIONS = {
     "mesh_size_from_curvature": 20,
 }
 
+ORIGIN_SU2_MESH_PRESETS: dict[str, dict[str, Any]] = {
+    "baseline": dict(DEFAULT_STL_EXTERNAL_FLOW_OPTIONS),
+    "study_coarse": {
+        "near_body_size_factor": 0.055,
+        "farfield_size_factor": 0.18,
+        "distance_min_factor": 0.12,
+        "distance_max_factor": 0.80,
+    },
+    "study_medium": {
+        "near_body_size_factor": 0.028,
+        "farfield_size_factor": 0.10,
+        "distance_min_factor": 0.07,
+        "distance_max_factor": 0.45,
+    },
+    "study_fine": {
+        "near_body_size_factor": 0.018,
+        "farfield_size_factor": 0.075,
+        "distance_min_factor": 0.05,
+        "distance_max_factor": 0.30,
+    },
+}
+
 GMSH_TRIANGLE = 2
 GMSH_QUAD = 3
 GMSH_TETRA = 4
@@ -104,6 +126,23 @@ def _json_default(value):
     if isinstance(value, Path):
         return str(value)
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def resolve_origin_mesh_options(
+    *,
+    preset_name: str = "baseline",
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if preset_name not in ORIGIN_SU2_MESH_PRESETS:
+        raise ValueError(
+            f"unknown origin SU2 mesh preset {preset_name!r}; expected one of {sorted(ORIGIN_SU2_MESH_PRESETS)}"
+        )
+
+    resolved = dict(DEFAULT_STL_EXTERNAL_FLOW_OPTIONS)
+    resolved.update(ORIGIN_SU2_MESH_PRESETS[preset_name])
+    if overrides:
+        resolved.update(overrides)
+    return resolved
 
 
 def _global_bbox(gmsh, dim: int) -> tuple[list[float], list[float]]:
@@ -326,13 +365,12 @@ def generate_stl_external_flow_mesh(
     output_path: str | Path,
     *,
     options: dict[str, Any] | None = None,
+    preset_name: str = "baseline",
     body_marker: str = "aircraft",
     farfield_marker: str = "farfield",
 ) -> dict[str, Any]:
     gmsh = _gmsh()
-    resolved_options = dict(DEFAULT_STL_EXTERNAL_FLOW_OPTIONS)
-    if options:
-        resolved_options.update(options)
+    resolved_options = resolve_origin_mesh_options(preset_name=preset_name, overrides=options)
 
     surface_stl = Path(surface_stl_path).expanduser().resolve()
     if not surface_stl.exists():
@@ -397,6 +435,7 @@ def generate_stl_external_flow_mesh(
 
     metadata = {
         "MeshMode": "stl_external_box",
+        "PresetName": preset_name,
         "SurfaceStl": str(surface_stl),
         "MeshFile": str(output_path),
         "NativeMshFile": str(msh_path),

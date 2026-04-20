@@ -195,6 +195,7 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, 
         return {
             "MeshMode": "stl_external_box",
             "MeshFile": str(output_path),
+            "PresetName": kwargs.get("preset_name", "baseline"),
             "MarkerElements": {"aircraft": 1, "farfield": 3},
             "Nodes": 4,
             "VolumeElements": 1,
@@ -210,9 +211,12 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, 
         output_dir=tmp_path / "su2_alpha_sweep",
         aoa_list=[0.0],
         auto_mesh=True,
+        mesh_preset="study_medium",
     )
 
+    assert result["mesh_preset"] == "study_medium"
     assert result["generated_mesh"]["MeshMode"] == "stl_external_box"
+    assert result["generated_mesh"]["PresetName"] == "study_medium"
     assert Path(result["mesh_path"]).exists()
     assert Path(result["cases"][0]["mesh_path"]).exists()
     assert result["cases"][0]["mesh_validation"]["marker_names"] == ["aircraft", "farfield"]
