@@ -12,7 +12,9 @@ CM_SPREAD_LIMIT = 0.03
 
 
 def _spread(values: Sequence[float | None]) -> float | None:
-    numeric = [float(value) for value in values if value is not None]
+    if any(value is None for value in values):
+        return None
+    numeric = [float(value) for value in values]
     if not numeric:
         return None
     return max(numeric) - min(numeric)
@@ -78,6 +80,8 @@ def assess_origin_mesh_study(
     verdict = (
         "usable_for_comparison"
         if (
+            len(points_by_preset) >= 2
+            and
             bool(compared_alpha_deg)
             and coverage_complete
             and cd_spread_abs is not None

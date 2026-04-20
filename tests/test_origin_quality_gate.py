@@ -56,6 +56,17 @@ def test_assess_origin_mesh_study_marks_large_spreads_baseline_only() -> None:
     assert assessment["cm_spread_abs"] > 0.03
 
 
+def test_assess_origin_mesh_study_does_not_mark_single_preset_usable() -> None:
+    assessment = assess_origin_mesh_study(
+        points_by_preset={
+            "study_coarse": [_points(solver="su2", alpha_deg=0.0, cl=1.00, cd=0.0310, cm=-0.021)],
+        }
+    )
+
+    assert assessment["preset_count"] == 1
+    assert assessment["verdict"] == "still_baseline_only"
+
+
 def test_assess_origin_mesh_study_does_not_mark_partial_alpha_coverage_usable() -> None:
     assessment = assess_origin_mesh_study(
         points_by_preset={
@@ -75,6 +86,19 @@ def test_assess_origin_mesh_study_does_not_mark_partial_alpha_coverage_usable() 
 
     assert assessment["compared_alpha_deg"] == [0.0]
     assert assessment["verdict"] == "still_baseline_only"
+
+
+def test_assess_origin_mesh_study_does_not_mark_shared_missing_metric_values_usable() -> None:
+    assessment = assess_origin_mesh_study(
+        points_by_preset={
+            "study_coarse": [_points(solver="su2", alpha_deg=0.0, cl=1.00, cd=0.0310, cm=-0.021)],
+            "study_medium": [_points(solver="su2", alpha_deg=0.0, cl=None, cd=0.0318, cm=-0.020)],
+            "study_fine": [_points(solver="su2", alpha_deg=0.0, cl=1.02, cd=0.0326, cm=-0.019)],
+        }
+    )
+
+    assert assessment["verdict"] == "still_baseline_only"
+    assert assessment["cl_spread_abs"] is None
 
 
 def test_assess_origin_mesh_study_marks_no_common_alpha_coverage_baseline_only() -> None:
