@@ -85,9 +85,23 @@ class VSPAeroParser(AeroParser):
         if self.polar_path is None or not self.polar_path.exists():
             return None
         text = self.polar_path.read_text()
-        lines = [line for line in text.strip().splitlines() if line.strip()]
-        header = lines[0].split()
-        rows = [line.split() for line in lines[1:]]
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        header_idx = None
+        for idx, line in enumerate(lines):
+            tokens = line.split()
+            if self._looks_like_polar_header(tokens):
+                header_idx = idx
+                break
+        if header_idx is None:
+            raise ValueError(f"Could not find VSPAero .polar header row in {self.polar_path}")
+
+        header = lines[header_idx].split()
+        rows = []
+        for line in lines[header_idx + 1:]:
+            values = line.split()
+            if len(values) != len(header):
+                continue
+            rows.append(values)
         df = pd.DataFrame(rows, columns=header).astype(float)
         return df
 
@@ -170,6 +184,13 @@ class VSPAeroParser(AeroParser):
         "cd": ("cd",),
         "cmy": ("cmy",),
     }
+
+    @staticmethod
+    def _looks_like_polar_header(tokens: list[str]) -> bool:
+        if not tokens:
+            return False
+        lowered = {token.lower() for token in tokens}
+        return "aoa" in lowered and "cltot" in lowered and "cdtot" in lowered
 
     @staticmethod
     def _parse_header(block: str) -> dict:
