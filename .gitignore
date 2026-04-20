@@ -32,7 +32,7 @@ database/
 
 # OpenMDAO
 *.db
-reports/
+/reports/
 
 # Jupyter
 .ipynb_checkpoints/
