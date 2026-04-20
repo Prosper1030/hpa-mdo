@@ -19,6 +19,7 @@ from .schema import (
 
 DEFAULT_MIN_ITERATIONS = 20
 DEFAULT_TAIL_WINDOW = 10
+DEFAULT_RESIDUAL_STARTUP_SKIP = 5
 DEFAULT_RESIDUAL_MEDIAN_DROP = 0.5
 DEFAULT_COEFFICIENT_REL_RANGE_PASS = 0.02
 DEFAULT_COEFFICIENT_REL_RANGE_WARN = 0.05
@@ -380,6 +381,26 @@ def _residual_columns(rows: list[dict[str, str]]) -> list[str]:
     ]
 
 
+def _residual_windows(series: list[float], tail_window: int) -> tuple[list[float], list[float], int]:
+    if len(series) < 2:
+        return series, series, 0
+
+    max_skip = max(len(series) - 2, 0)
+    startup_skip = min(DEFAULT_RESIDUAL_STARTUP_SKIP, max_skip)
+    analysis_series = series[startup_skip:]
+    if len(analysis_series) < 2:
+        startup_skip = 0
+        analysis_series = series
+
+    tail_size = min(tail_window, len(analysis_series) - 1)
+    if tail_size <= 0:
+        return analysis_series[:1], analysis_series, startup_skip
+    baseline_size = len(analysis_series) - tail_size
+    baseline = analysis_series[:baseline_size]
+    tail = analysis_series[-tail_size:]
+    return baseline, tail, startup_skip
+
+
 def _cm_column(final_row: dict[str, str]) -> str | None:
     return next(
         (name for name in ("CMy", "CMY", "CMz", "CMZ", "CMx", "CMX", "CM") if name in final_row),
@@ -454,13 +475,24 @@ def evaluate_iterative_gate(
         residual_warnings.append("no_residual_columns_found")
     else:
         improvement_by_column = {}
+        baseline_median_by_column = {}
+        tail_median_by_column = {}
+        startup_skip = 0
         for column in residual_columns:
             series = _numeric_series(rows, column)
             if len(series) < 2:
                 continue
-            improvement_by_column[column] = series[0] - series[-1]
+            baseline_window, tail_window_values, startup_skip = _residual_windows(series, tail_window)
+            baseline_median = statistics.median(baseline_window)
+            tail_median = statistics.median(tail_window_values)
+            baseline_median_by_column[column] = baseline_median
+            tail_median_by_column[column] = tail_median
+            improvement_by_column[column] = baseline_median - tail_median
         residual_observed["improvement_by_column"] = improvement_by_column
         residual_observed["improved_columns"] = [name for name, drop in improvement_by_column.items() if drop > 0.0]
+        residual_observed["startup_skip"] = startup_skip
+        residual_observed["baseline_median_by_column"] = baseline_median_by_column
+        residual_observed["tail_median_by_column"] = tail_median_by_column
         residual_observed["median_log_drop"] = (
             statistics.median(improvement_by_column.values()) if improvement_by_column else None
         )
@@ -474,7 +506,10 @@ def evaluate_iterative_gate(
         observed=residual_observed,
         expected={"minimum_median_log_drop": DEFAULT_RESIDUAL_MEDIAN_DROP},
         warnings=residual_warnings,
-        notes=["Residual columns are treated as log10 RMS values, so lower is better."],
+        notes=[
+            "Residual columns are treated as log10 RMS values, so lower is better.",
+            "Residual trend ignores the startup transient rows before comparing early-vs-tail medians.",
+        ],
     )
 
     coefficient_statuses: list[GateStatusType] = []

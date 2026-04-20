@@ -439,6 +439,8 @@ class BaselineConvergenceGate(BaseModel):
 class MeshStudyPresetRuntime(BaseModel):
     max_iterations: int
     cfl_number: float
+    linear_solver_error: float = 1e-6
+    linear_solver_iterations: int = 8
 
 
 class MeshStudyPreset(BaseModel):

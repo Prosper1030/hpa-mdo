@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hpa_meshing.mesh_study import evaluate_mesh_study, run_mesh_study
+from hpa_meshing.mesh_study import build_default_mesh_study_presets, evaluate_mesh_study, run_mesh_study
 from hpa_meshing.schema import MeshJobConfig, MeshStudyCaseResult, SU2RuntimeConfig
 
 
@@ -287,6 +287,8 @@ def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_rep
                 "farfield_size": config.global_max_size,
                 "max_iterations": config.su2.max_iterations,
                 "cfl_number": config.su2.cfl_number,
+                "linear_solver_error": config.su2.linear_solver_error,
+                "linear_solver_iterations": config.su2.linear_solver_iterations,
             }
         )
         rank = {"coarse": 1, "medium": 2, "fine": 3}[config.out_dir.name]
@@ -342,23 +344,34 @@ def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_rep
     monkeypatch.setattr("hpa_meshing.mesh_study._resolve_characteristic_length", lambda config: 10.0)
     monkeypatch.setattr("hpa_meshing.mesh_study.run_job", fake_run_job)
 
+    presets = build_default_mesh_study_presets(10.0)
     result = run_mesh_study(
         MeshJobConfig(
             component="aircraft_assembly",
             geometry=geometry,
             out_dir=tmp_path / "study",
             geometry_provider="openvsp_surface_intersection",
-            su2=SU2RuntimeConfig(enabled=True, case_name="alpha_0_baseline"),
+            su2=SU2RuntimeConfig(
+                enabled=True,
+                case_name="alpha_0_baseline",
+                linear_solver_error=1e-4,
+                linear_solver_iterations=3,
+            ),
         )
     )
 
     assert [entry["out_dir"].name for entry in called] == ["coarse", "medium", "fine"]
     assert called[0]["near_body_size"] > called[1]["near_body_size"] > called[2]["near_body_size"]
     assert called[0]["farfield_size"] > called[1]["farfield_size"] > called[2]["farfield_size"]
+    assert [entry["linear_solver_error"] for entry in called] == [
+        preset.runtime.linear_solver_error for preset in presets
+    ]
+    assert [entry["linear_solver_iterations"] for entry in called] == [
+        preset.runtime.linear_solver_iterations for preset in presets
+    ]
     assert result["contract"] == "mesh_study.v1"
     assert result["verdict"]["verdict"] == "preliminary_compare"
 
     report = json.loads((tmp_path / "study" / "report.json").read_text(encoding="utf-8"))
     assert report["comparison"]["completed_case_count"] == 3
     assert report["cases"][0]["preset"]["name"] == "coarse"
-

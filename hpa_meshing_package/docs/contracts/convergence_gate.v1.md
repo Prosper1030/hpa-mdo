@@ -51,8 +51,12 @@ The current baseline iterative gate reads `history.csv` directly and checks:
 
 - the history file exists and is parseable
 - iteration count is large enough for a tail window
-- residual columns show a usable trend signal
+- residual columns show a usable post-startup trend signal
 - `CL / CD / CM` become stable over the final tail window
+
+The residual trend check intentionally ignores the startup transient rows before
+it compares an early post-startup window against the final tail window. This
+avoids treating SU2's iteration-0 initialization spike as the reference state.
 
 ### `overall_convergence_gate`
 

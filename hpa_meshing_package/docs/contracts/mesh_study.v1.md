@@ -56,6 +56,9 @@ It aggregates several package-native baseline runs for the same geometry so the 
 
 - the default package study uses three presets: `coarse`, `medium`, and `fine`
 - presets are resolved from a geometry-derived body-span characteristic length, not case-name hacks
+- each preset runtime can carry solver controls such as `max_iterations`,
+  `cfl_number`, and linear-solver settings when the study needs a more stable
+  baseline solve
 - each preset still runs the normal package-native line:
   - provider
   - meshing

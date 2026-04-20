@@ -29,6 +29,8 @@ DEFAULT_PRESET_SPECS = (
         "farfield_factor": 0.45,
         "max_iterations": 40,
         "cfl_number": 4.0,
+        "linear_solver_error": 1e-6,
+        "linear_solver_iterations": 8,
     },
     {
         "name": "medium",
@@ -37,6 +39,8 @@ DEFAULT_PRESET_SPECS = (
         "farfield_factor": 0.35,
         "max_iterations": 60,
         "cfl_number": 3.0,
+        "linear_solver_error": 1e-7,
+        "linear_solver_iterations": 16,
     },
     {
         "name": "fine",
@@ -45,6 +49,8 @@ DEFAULT_PRESET_SPECS = (
         "farfield_factor": 0.27,
         "max_iterations": 80,
         "cfl_number": 2.5,
+        "linear_solver_error": 1e-7,
+        "linear_solver_iterations": 20,
     },
 )
 DEFAULT_RELATIVE_RANGE_FLOOR = 1.0e-3
@@ -94,6 +100,8 @@ def build_default_mesh_study_presets(characteristic_length: float) -> list[MeshS
                 runtime=MeshStudyPresetRuntime(
                     max_iterations=int(spec["max_iterations"]),
                     cfl_number=float(spec["cfl_number"]),
+                    linear_solver_error=float(spec["linear_solver_error"]),
+                    linear_solver_iterations=int(spec["linear_solver_iterations"]),
                 ),
                 notes=[
                     "Resolved from body_max_span characteristic length.",
@@ -133,6 +141,8 @@ def _build_case_config(base_config: MeshJobConfig, preset: MeshStudyPreset) -> M
             "case_name": f"alpha_0_{preset.name}",
             "max_iterations": preset.runtime.max_iterations,
             "cfl_number": preset.runtime.cfl_number,
+            "linear_solver_error": preset.runtime.linear_solver_error,
+            "linear_solver_iterations": preset.runtime.linear_solver_iterations,
         }
     )
     return case_config

@@ -183,6 +183,41 @@ def test_evaluate_iterative_gate_warns_when_residuals_stall_but_tail_is_stable(t
     assert gate.checks["coefficient_stability"].status == "pass"
 
 
+def test_evaluate_iterative_gate_uses_post_startup_window_for_residual_trend(tmp_path: Path):
+    history_path = tmp_path / "history.csv"
+    rows = []
+    for iteration in range(40):
+        if iteration == 0:
+            rms_p = -2.6
+            rms_u = -2.7
+            rms_v = -2.8
+            rms_w = -2.65
+        else:
+            rms_p = -0.55 - 0.04 * iteration
+            rms_u = -0.60 - 0.035 * iteration
+            rms_v = -0.72 - 0.038 * iteration
+            rms_w = -0.58 - 0.036 * iteration
+        rows.append(
+            {
+                "Inner_Iter": iteration,
+                "rms[P]": rms_p,
+                "rms[U]": rms_u,
+                "rms[V]": rms_v,
+                "rms[W]": rms_w,
+                "CL": 0.12 + (0.02 / (iteration + 1)),
+                "CD": 0.03 + (0.01 / (iteration + 1)),
+                "CMy": -0.004 - (0.002 / (iteration + 1)),
+            }
+        )
+    _write_history(history_path, rows)
+
+    gate = evaluate_iterative_gate(history_path, min_iterations=20, tail_window=10)
+
+    assert gate.status == "pass"
+    assert gate.checks["residual_trend"].status == "pass"
+    assert gate.checks["coefficient_stability"].status == "pass"
+
+
 def test_evaluate_iterative_gate_fails_when_coefficients_are_still_drifting(tmp_path: Path):
     history_path = tmp_path / "history.csv"
     rows = []
