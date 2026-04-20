@@ -288,7 +288,10 @@ def test_prepare_origin_su2_alpha_sweep_rejects_non_default_mesh_preset_without_
         raise AssertionError("expected non-default mesh preset without auto_mesh to fail")
 
 
-def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, tmp_path: Path) -> None:
+def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_geometry_via_dispatcher(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
     from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
 
     origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
@@ -314,20 +317,25 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, 
         },
     )
 
-    def _fake_generate_mesh(*args, **kwargs) -> dict[str, object]:
-        output_path = Path(args[1])
+    called: dict[str, object] = {}
+
+    def _fake_generate_mesh(*, step_path, stl_path, output_path, preset_name, **kwargs) -> dict[str, object]:
+        called["step_path"] = str(step_path)
+        called["stl_path"] = str(stl_path)
+        called["preset_name"] = preset_name
         _write_text(output_path, _sample_su2_mesh_text())
         return {
-            "MeshMode": "stl_external_box",
+            "MeshMode": "stl_external_box_fallback",
             "MeshFile": str(output_path),
-            "PresetName": kwargs.get("preset_name", "baseline"),
+            "PresetName": preset_name,
             "MarkerElements": {"aircraft": 1, "farfield": 3},
             "Nodes": 4,
             "VolumeElements": 1,
+            "FallbackReason": "bad step",
         }
 
     monkeypatch.setattr(
-        "hpa_mdo.aero.origin_su2.generate_stl_external_flow_mesh",
+        "hpa_mdo.aero.origin_su2.generate_origin_external_flow_mesh",
         _fake_generate_mesh,
     )
 
@@ -339,9 +347,13 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, 
         mesh_preset="study_medium",
     )
 
+    assert called["step_path"].endswith("origin_surface.step")
+    assert called["stl_path"].endswith("origin_surface.stl")
+    assert called["preset_name"] == "study_medium"
     assert result["mesh_preset"] == "study_medium"
-    assert result["generated_mesh"]["MeshMode"] == "stl_external_box"
+    assert result["generated_mesh"]["MeshMode"] == "stl_external_box_fallback"
     assert result["generated_mesh"]["PresetName"] == "study_medium"
+    assert result["generated_mesh"]["FallbackReason"] == "bad step"
     assert Path(result["mesh_path"]).exists()
     assert Path(result["cases"][0]["mesh_path"]).exists()
     assert result["cases"][0]["mesh_validation"]["marker_names"] == ["aircraft", "farfield"]

@@ -163,6 +163,23 @@ def _global_bbox(gmsh, dim: int) -> tuple[list[float], list[float]]:
     return mins, maxs
 
 
+def _dim_tags_bbox(gmsh, dim_tags: list[tuple[int, int]]) -> tuple[list[float], list[float]]:
+    if not dim_tags:
+        raise GmshExternalFlowMeshError("Gmsh entity list is empty")
+
+    mins = [float("inf"), float("inf"), float("inf")]
+    maxs = [float("-inf"), float("-inf"), float("-inf")]
+    for dim, tag in dim_tags:
+        x_min, y_min, z_min, x_max, y_max, z_max = gmsh.model.getBoundingBox(dim, tag)
+        mins[0] = min(mins[0], float(x_min))
+        mins[1] = min(mins[1], float(y_min))
+        mins[2] = min(mins[2], float(z_min))
+        maxs[0] = max(maxs[0], float(x_max))
+        maxs[1] = max(maxs[1], float(y_max))
+        maxs[2] = max(maxs[2], float(z_max))
+    return mins, maxs
+
+
 def _box_bounds(mins: list[float], maxs: list[float], options: dict[str, Any]) -> dict[str, float]:
     x_span = max(maxs[0] - mins[0], 1e-6)
     y_span = max(maxs[1] - mins[1], 1e-6)
@@ -254,6 +271,65 @@ def _configure_mesh_fields(gmsh, body_surface_tags: list[int], body_ranges: list
         "FarfieldSize": farfield_size,
         "CharacteristicLength": characteristic_length,
     }
+
+
+def _boundary_surface_tags(gmsh, dim_tags: list[tuple[int, int]]) -> list[int]:
+    if not dim_tags:
+        return []
+
+    boundary = gmsh.model.getBoundary(dim_tags, oriented=False, recursive=False)
+    surface_tags: list[int] = []
+    seen: set[int] = set()
+    for dim, tag in boundary:
+        if dim != 2:
+            continue
+        entity_tag = int(tag)
+        if entity_tag in seen:
+            continue
+        seen.add(entity_tag)
+        surface_tags.append(entity_tag)
+    return surface_tags
+
+
+def _is_box_face_surface(gmsh, surface_tag: int, bounds: dict[str, float], tolerance: float) -> bool:
+    x_min, y_min, z_min, x_max, y_max, z_max = gmsh.model.getBoundingBox(2, surface_tag)
+    face_bounds = (
+        (x_min, x_max, bounds["x_min"], bounds["x_min"]),
+        (x_min, x_max, bounds["x_max"], bounds["x_max"]),
+        (y_min, y_max, bounds["y_min"], bounds["y_min"]),
+        (y_min, y_max, bounds["y_max"], bounds["y_max"]),
+        (z_min, z_max, bounds["z_min"], bounds["z_min"]),
+        (z_min, z_max, bounds["z_max"], bounds["z_max"]),
+    )
+    return any(
+        abs(entity_min - target_min) <= tolerance and abs(entity_max - target_max) <= tolerance
+        for entity_min, entity_max, target_min, target_max in face_bounds
+    )
+
+
+def _classify_outer_boundary_surfaces(gmsh, surface_tags: list[int], bounds: dict[str, float]) -> tuple[list[int], list[int]]:
+    box_spans = (
+        bounds["x_max"] - bounds["x_min"],
+        bounds["y_max"] - bounds["y_min"],
+        bounds["z_max"] - bounds["z_min"],
+    )
+    tolerance = max(max(box_spans), 1.0) * 1e-6
+
+    farfield_surface_tags = [
+        tag for tag in surface_tags if _is_box_face_surface(gmsh, tag, bounds, tolerance)
+    ]
+    body_surface_tags = [tag for tag in surface_tags if tag not in set(farfield_surface_tags)]
+    return body_surface_tags, farfield_surface_tags
+
+
+def _write_metadata(metadata: dict[str, Any]) -> None:
+    metadata_path = metadata.get("MetadataFile")
+    if metadata_path is None:
+        return
+    Path(metadata_path).write_text(
+        json.dumps(metadata, indent=2, ensure_ascii=False, default=_json_default) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _collect_physical_group_elements_raw(gmsh, dim: int, physical_tag: int) -> list[tuple[int, list[int]]]:
@@ -360,6 +436,143 @@ def _write_su2_mesh(gmsh, output_path: Path, marker_names: dict[int, str], fluid
     }
 
 
+def generate_step_occ_external_flow_mesh(
+    step_path: str | Path,
+    output_path: str | Path,
+    *,
+    options: dict[str, Any] | None = None,
+    preset_name: str = "baseline",
+    body_marker: str = "aircraft",
+    farfield_marker: str = "farfield",
+) -> dict[str, Any]:
+    gmsh = _gmsh()
+    resolved_options = resolve_origin_mesh_options(preset_name=preset_name, overrides=options)
+
+    step_file = Path(step_path).expanduser().resolve()
+    if not step_file.exists():
+        raise FileNotFoundError(f"surface STEP not found: {step_file}")
+
+    output_path = Path(output_path).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    msh_path = output_path.with_suffix(".msh")
+
+    marker_names = {
+        2: body_marker,
+        3: farfield_marker,
+    }
+
+    gmsh.initialize()
+    try:
+        gmsh.model.add("origin_external_flow_occ")
+        gmsh.option.setNumber("General.Terminal", 1)
+
+        imported_entities = gmsh.model.occ.importShapes(str(step_file))
+        gmsh.model.occ.synchronize()
+        if not imported_entities:
+            raise GmshExternalFlowMeshError("STEP import produced no OCC entities")
+
+        body_volume_tags = [int(tag) for dim, tag in gmsh.model.occ.getEntities(3)]
+        if not body_volume_tags:
+            imported_surface_tags = sorted({int(tag) for dim, tag in imported_entities if dim == 2})
+            if not imported_surface_tags:
+                raise GmshExternalFlowMeshError("STEP import produced no closed body surfaces or volumes")
+            body_shell = gmsh.model.occ.addSurfaceLoop(imported_surface_tags, -1, True)
+            body_volume_tags = [int(gmsh.model.occ.addVolume([body_shell]))]
+            gmsh.model.occ.synchronize()
+
+        body_dim_tags = [(3, tag) for tag in body_volume_tags]
+        body_mins, body_maxs = _dim_tags_bbox(gmsh, body_dim_tags)
+        body_ranges = [b - a for a, b in zip(body_mins, body_maxs)]
+        bounds = _box_bounds(body_mins, body_maxs, resolved_options)
+
+        outer_box = gmsh.model.occ.addBox(
+            bounds["x_min"],
+            bounds["y_min"],
+            bounds["z_min"],
+            bounds["x_max"] - bounds["x_min"],
+            bounds["y_max"] - bounds["y_min"],
+            bounds["z_max"] - bounds["z_min"],
+        )
+        fluid_entities, _ = gmsh.model.occ.cut(
+            [(3, outer_box)],
+            body_dim_tags,
+            removeObject=True,
+            removeTool=False,
+        )
+        gmsh.model.occ.synchronize()
+
+        fluid_volume_tags = [int(tag) for dim, tag in fluid_entities if dim == 3]
+        if not fluid_volume_tags:
+            raise GmshExternalFlowMeshError("STEP/OCC cut produced no external-flow volume")
+
+        fluid_boundary_surfaces = _boundary_surface_tags(gmsh, [(3, tag) for tag in fluid_volume_tags])
+        if not fluid_boundary_surfaces:
+            raise GmshExternalFlowMeshError("STEP/OCC cut produced no fluid boundary surfaces")
+
+        body_surface_tags, farfield_surface_tags = _classify_outer_boundary_surfaces(
+            gmsh,
+            fluid_boundary_surfaces,
+            bounds,
+        )
+        if not body_surface_tags:
+            raise GmshExternalFlowMeshError("STEP/OCC route could not identify aircraft boundary surfaces")
+        if not farfield_surface_tags:
+            raise GmshExternalFlowMeshError("STEP/OCC route could not identify farfield boundary surfaces")
+
+        fluid_group_tag = gmsh.model.addPhysicalGroup(3, fluid_volume_tags, 1)
+        gmsh.model.setPhysicalName(3, fluid_group_tag, "fluid")
+        body_group_tag = gmsh.model.addPhysicalGroup(2, body_surface_tags, 2)
+        gmsh.model.setPhysicalName(2, body_group_tag, body_marker)
+        farfield_group_tag = gmsh.model.addPhysicalGroup(2, farfield_surface_tags, 3)
+        gmsh.model.setPhysicalName(2, farfield_group_tag, farfield_marker)
+
+        mesh_field_info = _configure_mesh_fields(
+            gmsh,
+            body_surface_tags=body_surface_tags,
+            body_ranges=body_ranges,
+            options=resolved_options,
+        )
+
+        gmsh.model.mesh.generate(3)
+        gmsh.write(str(msh_path))
+        su2_stats = _write_su2_mesh(gmsh, output_path, marker_names, fluid_group_tag)
+    except Exception as exc:  # pragma: no cover - exercised via integration smoke
+        if isinstance(exc, GmshExternalFlowMeshError):
+            raise
+        raise GmshExternalFlowMeshError(str(exc)) from exc
+    finally:
+        gmsh.finalize()
+
+    metadata = {
+        "MeshMode": "step_occ_box",
+        "PresetName": preset_name,
+        "SurfaceStep": str(step_file),
+        "MeshFile": str(output_path),
+        "NativeMshFile": str(msh_path),
+        "BodyVolumeCount": int(len(body_volume_tags)),
+        "FluidVolumeCount": int(len(fluid_volume_tags)),
+        "BodySurfaceCount": int(len(body_surface_tags)),
+        "FarfieldSurfaceCount": int(len(farfield_surface_tags)),
+        "FluidVolumeTags": fluid_volume_tags,
+        "BodyBounds": {
+            "x_min": body_mins[0],
+            "x_max": body_maxs[0],
+            "y_min": body_mins[1],
+            "y_max": body_maxs[1],
+            "z_min": body_mins[2],
+            "z_max": body_maxs[2],
+        },
+        "FarfieldBounds": bounds,
+        "MeshFieldInfo": mesh_field_info,
+        "Options": resolved_options,
+        **su2_stats,
+    }
+    metadata_path = output_path.with_name("mesh_metadata.json")
+    metadata["MetadataFile"] = str(metadata_path)
+    _write_metadata(metadata)
+    return metadata
+
+
 def generate_stl_external_flow_mesh(
     surface_stl_path: str | Path,
     output_path: str | Path,
@@ -456,9 +669,43 @@ def generate_stl_external_flow_mesh(
         **su2_stats,
     }
     metadata_path = output_path.with_name("mesh_metadata.json")
-    metadata_path.write_text(
-        json.dumps(metadata, indent=2, ensure_ascii=False, default=_json_default) + "\n",
-        encoding="utf-8",
-    )
     metadata["MetadataFile"] = str(metadata_path)
+    _write_metadata(metadata)
     return metadata
+
+
+def generate_origin_external_flow_mesh(
+    *,
+    step_path: str | Path | None,
+    stl_path: str | Path,
+    output_path: str | Path,
+    preset_name: str = "baseline",
+    mesh_overrides: dict[str, Any] | None = None,
+    prefer_step_occ: bool = True,
+) -> dict[str, Any]:
+    if prefer_step_occ and step_path is not None:
+        try:
+            return generate_step_occ_external_flow_mesh(
+                step_path,
+                output_path,
+                preset_name=preset_name,
+                options=mesh_overrides,
+            )
+        except GmshExternalFlowMeshError as exc:
+            fallback = generate_stl_external_flow_mesh(
+                stl_path,
+                output_path,
+                preset_name=preset_name,
+                options=mesh_overrides,
+            )
+            fallback["MeshMode"] = "stl_external_box_fallback"
+            fallback["FallbackReason"] = str(exc)
+            _write_metadata(fallback)
+            return fallback
+
+    return generate_stl_external_flow_mesh(
+        stl_path,
+        output_path,
+        preset_name=preset_name,
+        options=mesh_overrides,
+    )

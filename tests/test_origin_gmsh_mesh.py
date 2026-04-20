@@ -100,3 +100,82 @@ def test_generate_stl_external_flow_mesh_writes_valid_su2(tmp_path: Path) -> Non
 
     validation = validate_su2_mesh(output_path)
     assert validation["marker_names"] == ["aircraft", "farfield"]
+
+
+def test_generate_origin_external_flow_mesh_prefers_step_when_available(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_gmsh_mesh import generate_origin_external_flow_mesh
+
+    step_path = _write_text(tmp_path / "origin_surface.step", "ISO-10303-21;")
+    stl_path = _write_text(tmp_path / "origin_surface.stl", _tetrahedron_stl())
+    output_path = tmp_path / "origin_mesh.su2"
+    called: dict[str, str] = {}
+
+    def _fake_step(*args, **kwargs) -> dict[str, object]:
+        called["mode"] = "step"
+        return {
+            "MeshMode": "step_occ_box",
+            "PresetName": kwargs["preset_name"],
+            "MeshFile": str(output_path),
+        }
+
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_gmsh_mesh.generate_step_occ_external_flow_mesh",
+        _fake_step,
+    )
+
+    metadata = generate_origin_external_flow_mesh(
+        step_path=step_path,
+        stl_path=stl_path,
+        output_path=output_path,
+        preset_name="study_medium",
+    )
+
+    assert called["mode"] == "step"
+    assert metadata["MeshMode"] == "step_occ_box"
+    assert metadata["PresetName"] == "study_medium"
+
+
+def test_generate_origin_external_flow_mesh_falls_back_to_stl(monkeypatch, tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_gmsh_mesh import (
+        GmshExternalFlowMeshError,
+        generate_origin_external_flow_mesh,
+    )
+
+    step_path = _write_text(tmp_path / "origin_surface.step", "ISO-10303-21;")
+    stl_path = _write_text(tmp_path / "origin_surface.stl", _tetrahedron_stl())
+    output_path = tmp_path / "origin_mesh.su2"
+
+    def _fake_step(*args, **kwargs) -> dict[str, object]:
+        raise GmshExternalFlowMeshError("bad step")
+
+    def _fake_stl(*args, **kwargs) -> dict[str, object]:
+        return {
+            "MeshMode": "stl_external_box",
+            "PresetName": kwargs["preset_name"],
+            "Nodes": 42,
+            "MeshFile": str(output_path),
+        }
+
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_gmsh_mesh.generate_step_occ_external_flow_mesh",
+        _fake_step,
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_gmsh_mesh.generate_stl_external_flow_mesh",
+        _fake_stl,
+    )
+
+    metadata = generate_origin_external_flow_mesh(
+        step_path=step_path,
+        stl_path=stl_path,
+        output_path=output_path,
+        preset_name="study_medium",
+    )
+
+    assert metadata["MeshMode"] == "stl_external_box_fallback"
+    assert metadata["PresetName"] == "study_medium"
+    assert metadata["Nodes"] == 42
+    assert "FallbackReason" in metadata

@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence
 
-from hpa_mdo.aero.origin_gmsh_mesh import generate_stl_external_flow_mesh
+from hpa_mdo.aero.origin_gmsh_mesh import generate_origin_external_flow_mesh
 from hpa_mdo.aero.vsp_builder import VSPBuilder, _has_openvsp
 from hpa_mdo.core.config import load_config
 
@@ -461,12 +461,11 @@ def prepare_origin_su2_alpha_sweep(
     mesh_source = None if mesh_path is None else Path(mesh_path).expanduser().resolve()
     if mesh_source is None and auto_mesh:
         generated_mesh_path = geometry_dir / mesh_filename
-        generated_mesh = generate_stl_external_flow_mesh(
-            geometry["stl"],
-            generated_mesh_path,
+        generated_mesh = generate_origin_external_flow_mesh(
+            step_path=geometry["step"],
+            stl_path=geometry["stl"],
+            output_path=generated_mesh_path,
             preset_name=mesh_preset,
-            body_marker=wall_marker,
-            farfield_marker=farfield_marker,
         )
         mesh_source = Path(generated_mesh["MeshFile"]).expanduser().resolve()
     if mesh_source is not None and not mesh_source.exists():
