@@ -35,10 +35,10 @@
 - package-native SU2 baseline 會真的 materialize case、跑 `SU2_CFD`、parse history、輸出 `su2_handoff.v1`。
 - reference provenance gate 和 force-surface provenance gate 已經接進 baseline SU2 handoff。
 - mesh / iterative convergence gate 會直接寫進 `su2_handoff.v1` 與 `report.json`，明確標示這次 baseline run 是 `preliminary_compare`、`run_only` 還是 `not_comparable`。
+- package-native mesh study 會用 `coarse / medium / fine` 預設，連跑同一幾何的 baseline CFD，並輸出 `mesh_study.v1`。
 
 ### Not in v1
 
-- mesh study
 - alpha sweep
 - component-level force mapping
 - final high-quality credibility claim
@@ -94,12 +94,29 @@ This produces:
 - `artifacts/su2/alpha_0_baseline/su2_handoff.json`
 - `artifacts/su2/alpha_0_baseline/history.csv`
 
+### 4. Run the minimal baseline mesh study
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli mesh-study \
+  --config configs/aircraft_assembly.openvsp_baseline.yaml \
+  --out .tmp/runs/blackcat_004_mesh_study
+```
+
+This produces:
+
+- `report.json` with the `mesh_study.v1` payload
+- `cases/coarse/report.json`
+- `cases/medium/report.json`
+- `cases/fine/report.json`
+
 ## Artifact Contracts
 
 - [`GeometryProviderResult`](docs/contracts/GeometryProviderResult.md)
 - [`mesh_handoff.v1`](docs/contracts/mesh_handoff.v1.md)
 - [`su2_handoff.v1`](docs/contracts/su2_handoff.v1.md)
 - [`convergence_gate.v1`](docs/contracts/convergence_gate.v1.md)
+- [`mesh_study.v1`](docs/contracts/mesh_study.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
 
 ## Capability Boundaries
@@ -116,15 +133,14 @@ This produces:
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
 | `esp_rebuilt` | experimental | registry + reporting only |
 | Other component families | experimental | schema/dispatch exists, backend placeholder |
-| Mesh study | roadmap | next planned production hardening step after the baseline gate exists |
-| Alpha sweep | roadmap | after a passing comparability gate is available for the chosen mesh/runtime |
+| Mesh study | formal minimal `v1` | three-tier baseline study that emits `mesh_study.v1` and decides whether the baseline stays `run_only` or can move to `preliminary_compare` |
+| Alpha sweep | roadmap | after the chosen mesh/runtime clears the mesh-study verdict |
 | Component-level force mapping | roadmap | not implemented yet |
 
 ## Recommended Next Gates
 
-1. `mesh study`
-2. `alpha sweep`
-3. component-level force mapping
-4. more providers only after the current product line is harder to validate
+1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
+2. component-level force mapping
+3. more providers only after the current product line is harder to validate
 
 ESP/OpenCSM can remain experimental until it earns a separate formal promotion.

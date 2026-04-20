@@ -71,4 +71,4 @@ This combines:
 
 ## Important Limitation
 
-This contract does not claim final high-quality CFD truth. It is only the baseline comparability gate that must exist before mesh study, alpha sweep, or stronger credibility work can build on top of the package-native line.
+This contract does not claim final high-quality CFD truth. It is the per-case baseline comparability gate that `mesh_study.v1`, alpha sweep, and stronger credibility work build on top of.

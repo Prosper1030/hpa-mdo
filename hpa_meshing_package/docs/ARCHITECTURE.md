@@ -9,7 +9,8 @@
 3. package-native meshing backend
 4. package-native SU2 baseline handoff
 5. convergence + provenance gating
-6. machine-readable reporting
+6. mesh study aggregation for baseline promotion
+7. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -22,6 +23,7 @@
   -> mesh_handoff.v1
   -> su2_handoff.v1
   -> convergence_gate.v1
+  -> mesh_study.v1 (when running the study entrypoint)
 ```
 
 ## Layer Breakdown
@@ -31,7 +33,7 @@
 `src/hpa_meshing/schema.py`
 
 - Defines `MeshJobConfig`, `GeometryProviderResult`, `MeshHandoff`, `SU2CaseHandoff`
-- Defines `BaselineConvergenceGate` and the machine-readable gate sections/checks
+- Defines `BaselineConvergenceGate`, `MeshStudyReport`, and the machine-readable gate sections/checks
 - Keeps the artifact contracts explicit and versioned
 - Lets reports, tests, and downstream tools agree on the same payload shape
 
@@ -88,6 +90,15 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Mirrors the baseline convergence gate into `report.json["convergence"]` for downstream orchestration
 - Keeps failure codes and route stage explicit
 
+### 7. Mesh Study Layer
+
+`src/hpa_meshing/mesh_study.py`
+
+- Resolves the default `coarse / medium / fine` presets from geometry-derived characteristic length
+- Reuses `run_job(...)` so each case still follows the normal package-native mainline
+- Aggregates mesh stats, CFD coefficients, and per-case `convergence_gate.v1`
+- Emits `mesh_study.v1` so downstream tools can decide whether alpha sweep should even start
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -113,6 +124,7 @@ MeshJobConfig
   -> mesh_handoff.v1
   -> su2_handoff.v1
   -> convergence_gate.v1
+  -> mesh_study.v1
   -> report.json
 ```
 
@@ -123,4 +135,4 @@ The contracts are intentionally machine-readable first, then human-readable thro
 - New AI / new developers can tell what is formal without reading multiple worktrees
 - Baseline CFD can evolve without dragging in `origin-su2-high-quality`
 - ESP/OpenCSM can stay experimental without blocking the formal package
-- The next hardening step can focus on mesh study / alpha sweep policy instead of reopening the baseline gate shape again
+- The next hardening step can focus on alpha sweep / force-mapping policy instead of reopening the baseline gate shape again
