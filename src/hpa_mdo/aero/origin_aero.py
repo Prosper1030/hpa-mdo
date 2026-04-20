@@ -355,6 +355,10 @@ def run_origin_aero_sweep(
     if resolved_mesh_study_presets:
         if not auto_mesh_su2:
             raise ValueError("mesh_study_presets require auto_mesh_su2=True")
+        if not run_su2_cases:
+            raise ValueError("mesh-study verdict generation requires run_su2_cases=True")
+        if dry_run_su2_cases:
+            raise ValueError("mesh-study verdict generation does not support dry_run_su2_cases=True")
         mesh_study_root = Path(output_dir).expanduser().resolve() / "mesh_study"
         for preset in resolved_mesh_study_presets:
             preset_dir = mesh_study_root / preset
@@ -370,14 +374,18 @@ def run_origin_aero_sweep(
                 su2_binary=su2_binary,
                 mpi_ranks=su2_mpi_ranks,
             )
-            if run_su2_cases or dry_run_su2_cases:
-                run_prepared_origin_su2_alpha_sweep(
-                    preset_dir,
-                    su2_binary=su2_binary,
-                    mpi_ranks=su2_mpi_ranks,
-                    dry_run=dry_run_su2_cases,
-                )
-            mesh_study_points_by_preset[preset] = load_su2_alpha_sweep(preset_dir)
+            run_prepared_origin_su2_alpha_sweep(
+                preset_dir,
+                su2_binary=su2_binary,
+                mpi_ranks=su2_mpi_ranks,
+                dry_run=False,
+            )
+            try:
+                mesh_study_points_by_preset[preset] = load_su2_alpha_sweep(preset_dir)
+            except ValueError as exc:
+                raise ValueError(
+                    f"mesh-study preset {preset!r} did not produce SU2 histories after the run stage"
+                ) from exc
         mesh_study_verdict = assess_origin_mesh_study(points_by_preset=mesh_study_points_by_preset)
         mesh_study_summary_json, mesh_study_report_md = _write_mesh_study_artifacts(
             output_dir=Path(output_dir).expanduser().resolve(),
