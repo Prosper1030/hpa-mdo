@@ -48,6 +48,22 @@ def _tetrahedron_stl() -> str:
     """
 
 
+def _write_occ_sheet_step(path: Path) -> Path:
+    from hpa_mdo.aero.origin_gmsh_mesh import _gmsh
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    gmsh = _gmsh()
+    gmsh.initialize()
+    try:
+        gmsh.model.add("thin_surface_step")
+        gmsh.model.occ.addRectangle(-0.5, -0.25, 0.0, 1.0, 0.5)
+        gmsh.model.occ.synchronize()
+        gmsh.write(str(path))
+    finally:
+        gmsh.finalize()
+    return path
+
+
 def test_origin_su2_mesh_presets_have_expected_contract() -> None:
     from hpa_mdo.aero.origin_gmsh_mesh import ORIGIN_SU2_MESH_PRESETS
 
@@ -95,6 +111,46 @@ def test_generate_stl_external_flow_mesh_writes_valid_su2(tmp_path: Path) -> Non
     assert metadata["PresetName"] == "baseline"
     assert metadata["Nodes"] > 0
     assert metadata["VolumeElements"] > 0
+    assert metadata["MarkerElements"]["aircraft"] > 0
+    assert metadata["MarkerElements"]["farfield"] > 0
+
+    validation = validate_su2_mesh(output_path)
+    assert validation["marker_names"] == ["aircraft", "farfield"]
+
+
+def test_generate_step_occ_external_flow_mesh_handles_thin_surface_step(tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_gmsh_mesh import (
+        GmshExternalFlowMeshError,
+        generate_step_occ_external_flow_mesh,
+    )
+
+    try:
+        step_path = _write_occ_sheet_step(tmp_path / "thin_surface.step")
+    except GmshExternalFlowMeshError as exc:  # pragma: no cover - env guard
+        pytest.skip(str(exc))
+
+    output_path = tmp_path / "origin_mesh.su2"
+    metadata = generate_step_occ_external_flow_mesh(
+        step_path,
+        output_path,
+        options={
+            "upstream_factor": 0.8,
+            "downstream_factor": 1.2,
+            "lateral_factor": 0.9,
+            "vertical_factor": 0.9,
+            "near_body_size_factor": 0.2,
+            "farfield_size_factor": 0.4,
+            "distance_min_factor": 0.2,
+            "distance_max_factor": 0.5,
+        },
+    )
+
+    assert output_path.exists()
+    assert metadata["MeshMode"] == "step_occ_box"
+    assert metadata["BodyVolumeCount"] == 0
+    assert metadata["FluidVolumeCount"] > 0
+    assert metadata["BodySurfaceCount"] > 0
+    assert metadata["FarfieldSurfaceCount"] > 0
     assert metadata["MarkerElements"]["aircraft"] > 0
     assert metadata["MarkerElements"]["farfield"] > 0
 

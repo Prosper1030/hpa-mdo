@@ -235,7 +235,14 @@ def _create_geo_farfield_box(gmsh, bounds: dict[str, float], mesh_size: float) -
     ]
 
 
-def _configure_mesh_fields(gmsh, body_surface_tags: list[int], body_ranges: list[float], options: dict[str, Any]) -> dict[str, float]:
+def _configure_mesh_fields(
+    gmsh,
+    body_surface_tags: list[int],
+    body_ranges: list[float],
+    options: dict[str, Any],
+    *,
+    optimize_netgen: bool = True,
+) -> dict[str, float]:
     characteristic_length = max(max(body_ranges), 1e-6)
     near_body_size = max(float(options["near_body_size_factor"]) * characteristic_length, 5e-3)
     farfield_size = max(float(options["farfield_size_factor"]) * characteristic_length, near_body_size * 1.5)
@@ -263,13 +270,14 @@ def _configure_mesh_fields(gmsh, body_surface_tags: list[int], body_ranges: list
     gmsh.option.setNumber("Mesh.MeshSizeMax", farfield_size)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", float(options["mesh_size_from_curvature"]))
     gmsh.option.setNumber("Mesh.Optimize", 1)
-    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1 if optimize_netgen else 0)
     gmsh.option.setNumber("Mesh.Algorithm3D", float(options["mesh_algorithm_3d"]))
 
     return {
         "NearBodySize": near_body_size,
         "FarfieldSize": farfield_size,
         "CharacteristicLength": characteristic_length,
+        "OptimizeNetgen": bool(optimize_netgen),
     }
 
 
@@ -320,6 +328,75 @@ def _classify_outer_boundary_surfaces(gmsh, surface_tags: list[int], bounds: dic
     ]
     body_surface_tags = [tag for tag in surface_tags if tag not in set(farfield_surface_tags)]
     return body_surface_tags, farfield_surface_tags
+
+
+def _embedded_surface_tags(gmsh, volume_tags: list[int]) -> list[int]:
+    embedded_surface_tags: list[int] = []
+    seen: set[int] = set()
+    for volume_tag in volume_tags:
+        for dim, tag in gmsh.model.mesh.getEmbedded(3, int(volume_tag)):
+            if dim != 2:
+                continue
+            surface_tag = int(tag)
+            if surface_tag in seen:
+                continue
+            seen.add(surface_tag)
+            embedded_surface_tags.append(surface_tag)
+    return embedded_surface_tags
+
+
+def _surface_tags_from_occ_map(occ_map: list[list[tuple[int, int]]]) -> list[int]:
+    surface_tags: list[int] = []
+    seen: set[int] = set()
+    for mapping in occ_map:
+        for dim, tag in mapping:
+            if dim != 2:
+                continue
+            surface_tag = int(tag)
+            if surface_tag in seen:
+                continue
+            seen.add(surface_tag)
+            surface_tags.append(surface_tag)
+    return surface_tags
+
+
+def _select_outer_fluid_volumes(
+    gmsh,
+    candidate_volume_tags: list[int],
+    bounds: dict[str, float],
+) -> tuple[list[int], list[int], list[int]]:
+    fluid_volume_tags: list[int] = []
+    body_boundary_surface_tags: list[int] = []
+    farfield_surface_tags: list[int] = []
+    seen_body_surface_tags: set[int] = set()
+    seen_farfield_surface_tags: set[int] = set()
+
+    for volume_tag in candidate_volume_tags:
+        boundary_surfaces = _boundary_surface_tags(gmsh, [(3, int(volume_tag))])
+        if not boundary_surfaces:
+            continue
+
+        body_surfaces, farfield_surfaces = _classify_outer_boundary_surfaces(
+            gmsh,
+            boundary_surfaces,
+            bounds,
+        )
+        if not farfield_surfaces:
+            continue
+
+        fluid_volume_tags.append(int(volume_tag))
+        for surface_tag in body_surfaces:
+            if surface_tag in seen_body_surface_tags:
+                continue
+            seen_body_surface_tags.add(surface_tag)
+            body_boundary_surface_tags.append(surface_tag)
+        for surface_tag in farfield_surfaces:
+            if surface_tag in seen_farfield_surface_tags:
+                continue
+            seen_farfield_surface_tags.add(surface_tag)
+            farfield_surface_tags.append(surface_tag)
+
+    return fluid_volume_tags, body_boundary_surface_tags, farfield_surface_tags
 
 
 def _write_metadata(metadata: dict[str, Any]) -> None:
@@ -466,22 +543,22 @@ def generate_step_occ_external_flow_mesh(
         gmsh.model.add("origin_external_flow_occ")
         gmsh.option.setNumber("General.Terminal", 1)
 
-        imported_entities = gmsh.model.occ.importShapes(str(step_file))
+        imported_entities = gmsh.model.occ.importShapes(str(step_file), highestDimOnly=False)
         gmsh.model.occ.synchronize()
         if not imported_entities:
             raise GmshExternalFlowMeshError("STEP import produced no OCC entities")
 
-        body_volume_tags = [int(tag) for dim, tag in gmsh.model.occ.getEntities(3)]
-        if not body_volume_tags:
-            imported_surface_tags = sorted({int(tag) for dim, tag in imported_entities if dim == 2})
-            if not imported_surface_tags:
-                raise GmshExternalFlowMeshError("STEP import produced no closed body surfaces or volumes")
-            body_shell = gmsh.model.occ.addSurfaceLoop(imported_surface_tags, -1, True)
-            body_volume_tags = [int(gmsh.model.occ.addVolume([body_shell]))]
-            gmsh.model.occ.synchronize()
+        imported_volume_tags = sorted({int(tag) for dim, tag in imported_entities if dim == 3})
+        imported_surface_tags = sorted({int(tag) for dim, tag in imported_entities if dim == 2})
+        if not imported_volume_tags and not imported_surface_tags:
+            raise GmshExternalFlowMeshError("STEP import produced no body surfaces or volumes")
 
-        body_dim_tags = [(3, tag) for tag in body_volume_tags]
-        body_mins, body_maxs = _dim_tags_bbox(gmsh, body_dim_tags)
+        body_bbox_dim_tags = (
+            [(3, tag) for tag in imported_volume_tags]
+            if imported_volume_tags
+            else [(2, tag) for tag in imported_surface_tags]
+        )
+        body_mins, body_maxs = _dim_tags_bbox(gmsh, body_bbox_dim_tags)
         body_ranges = [b - a for a, b in zip(body_mins, body_maxs)]
         bounds = _box_bounds(body_mins, body_maxs, resolved_options)
 
@@ -493,27 +570,48 @@ def generate_step_occ_external_flow_mesh(
             bounds["y_max"] - bounds["y_min"],
             bounds["z_max"] - bounds["z_min"],
         )
-        fluid_entities, _ = gmsh.model.occ.cut(
-            [(3, outer_box)],
-            body_dim_tags,
-            removeObject=True,
-            removeTool=False,
+        body_entity_mode = "closed_volumes" if imported_volume_tags else "embedded_surfaces"
+        body_tool_dim_tags = (
+            [(3, tag) for tag in imported_volume_tags]
+            if imported_volume_tags
+            else [(2, tag) for tag in imported_surface_tags]
         )
+        if imported_volume_tags:
+            fluid_entities, occ_map = gmsh.model.occ.cut(
+                [(3, outer_box)],
+                body_tool_dim_tags,
+                removeObject=True,
+                removeTool=False,
+            )
+        else:
+            fluid_entities, occ_map = gmsh.model.occ.fragment(
+                [(3, outer_box)],
+                body_tool_dim_tags,
+                removeObject=True,
+                removeTool=False,
+            )
         gmsh.model.occ.synchronize()
 
-        fluid_volume_tags = [int(tag) for dim, tag in fluid_entities if dim == 3]
-        if not fluid_volume_tags:
-            raise GmshExternalFlowMeshError("STEP/OCC cut produced no external-flow volume")
+        candidate_volume_tags = [int(tag) for dim, tag in fluid_entities if dim == 3]
+        if not candidate_volume_tags:
+            raise GmshExternalFlowMeshError("STEP/OCC route produced no external-flow volume")
 
-        fluid_boundary_surfaces = _boundary_surface_tags(gmsh, [(3, tag) for tag in fluid_volume_tags])
-        if not fluid_boundary_surfaces:
-            raise GmshExternalFlowMeshError("STEP/OCC cut produced no fluid boundary surfaces")
-
-        body_surface_tags, farfield_surface_tags = _classify_outer_boundary_surfaces(
+        fluid_volume_tags, body_surface_tags, farfield_surface_tags = _select_outer_fluid_volumes(
             gmsh,
-            fluid_boundary_surfaces,
+            candidate_volume_tags,
             bounds,
         )
+        if not fluid_volume_tags:
+            raise GmshExternalFlowMeshError("STEP/OCC route could not identify external fluid volumes")
+        embedded_surface_count = 0
+        if body_entity_mode == "embedded_surfaces":
+            embedded_surface_tags = _embedded_surface_tags(gmsh, fluid_volume_tags)
+            if not embedded_surface_tags:
+                embedded_surface_tags = _surface_tags_from_occ_map(occ_map[1:])
+            embedded_surface_count = int(len(embedded_surface_tags))
+            body_surface_tags = sorted(
+                set(body_surface_tags).union(embedded_surface_tags).difference(farfield_surface_tags)
+            )
         if not body_surface_tags:
             raise GmshExternalFlowMeshError("STEP/OCC route could not identify aircraft boundary surfaces")
         if not farfield_surface_tags:
@@ -531,6 +629,7 @@ def generate_step_occ_external_flow_mesh(
             body_surface_tags=body_surface_tags,
             body_ranges=body_ranges,
             options=resolved_options,
+            optimize_netgen=body_entity_mode != "embedded_surfaces",
         )
 
         gmsh.model.mesh.generate(3)
@@ -546,12 +645,17 @@ def generate_step_occ_external_flow_mesh(
     metadata = {
         "MeshMode": "step_occ_box",
         "PresetName": preset_name,
+        "BodyEntityMode": body_entity_mode,
         "SurfaceStep": str(step_file),
         "MeshFile": str(output_path),
         "NativeMshFile": str(msh_path),
-        "BodyVolumeCount": int(len(body_volume_tags)),
+        "ImportedVolumeCount": int(len(imported_volume_tags)),
+        "ImportedSurfaceCount": int(len(imported_surface_tags)),
+        "BodyVolumeCount": int(len(imported_volume_tags)),
+        "CandidateFluidVolumeCount": int(len(candidate_volume_tags)),
         "FluidVolumeCount": int(len(fluid_volume_tags)),
         "BodySurfaceCount": int(len(body_surface_tags)),
+        "EmbeddedSurfaceCount": embedded_surface_count,
         "FarfieldSurfaceCount": int(len(farfield_surface_tags)),
         "FluidVolumeTags": fluid_volume_tags,
         "BodyBounds": {
