@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from hpa_meshing.mesh_study import build_default_mesh_study_presets, evaluate_mesh_study, run_mesh_study
 from hpa_meshing.schema import MeshJobConfig, MeshStudyCaseResult, SU2RuntimeConfig
 
