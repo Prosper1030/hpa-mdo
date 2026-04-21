@@ -408,10 +408,10 @@ def test_apply_recipe_scales_mesh_field_transition_with_requested_sizes(tmp_path
     assert coarse_result["status"] == "success"
     assert fine_result["status"] == "success"
     assert fine_metadata["mesh_field"]["near_body_size"] < coarse_metadata["mesh_field"]["near_body_size"]
-    assert fine_metadata["mesh_field"]["edge_size"] <= coarse_metadata["mesh_field"]["edge_size"]
+    assert fine_metadata["mesh_field"]["edge_size"] < coarse_metadata["mesh_field"]["edge_size"]
     assert fine_metadata["mesh_field"]["farfield_size"] < coarse_metadata["mesh_field"]["farfield_size"]
     assert fine_metadata["mesh_field"]["distance_max"] < coarse_metadata["mesh_field"]["distance_max"]
-    assert fine_metadata["mesh_field"]["edge_distance_max"] <= coarse_metadata["mesh_field"]["edge_distance_max"]
+    assert fine_metadata["mesh_field"]["edge_distance_max"] < coarse_metadata["mesh_field"]["edge_distance_max"]
     assert fine_metadata["body"]["healing"]["attempted"] is True
     assert coarse_metadata["body"]["healing"]["attempted"] is True
 

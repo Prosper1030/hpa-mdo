@@ -194,7 +194,7 @@ def _configure_mesh_field(
         raise GmshBackendError(
             "near-body surface size exceeds reference length; aircraft surface would be under-resolved"
         )
-    edge_size = min(near_body_size * DEFAULT_EDGE_REFINEMENT_RATIO, reference_length / (2.0 * DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH))
+    edge_size = near_body_size * DEFAULT_EDGE_REFINEMENT_RATIO
     farfield_size = config.global_max_size or max(reference_length * DEFAULT_FARFIELD_REFERENCE_FACTOR, near_body_size * 40.0)
     distance_min = 0.0
     distance_max = max(reference_length * DEFAULT_SURFACE_DISTANCE_FACTOR, near_body_size * DEFAULT_SURFACE_TRANSITION_FACTOR)
