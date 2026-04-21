@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import json
+import math
 import re
 import uuid
 from pathlib import Path
@@ -39,6 +40,13 @@ DEFAULT_SURFACE_DISTANCE_FACTOR = 0.25
 DEFAULT_EDGE_DISTANCE_FACTOR = 0.05
 DEFAULT_SURFACE_TRANSITION_FACTOR = 10.0
 DEFAULT_EDGE_TRANSITION_FACTOR = 10.0
+SURFACE_REPAIR_CLASSIFY_ANGLE_DEGREES = 40.0
+SURFACE_REPAIR_ERROR_SIGNATURES = (
+    "plc error",
+    "self-intersecting facets",
+    "failed to recover constrained lines/triangles",
+    "invalid boundary mesh (overlapping facets)",
+)
 PLC_INTERSECTION_POINT_PATTERN = re.compile(
     r"\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)"
 )
@@ -530,6 +538,43 @@ def _probe_radius_for_point(point: list[float]) -> float:
     return max(scale * 1.0e-5, 1.0e-4)
 
 
+def _should_attempt_surface_repair_fallback(error_text: str, logger_messages: Iterable[str]) -> bool:
+    combined = "\n".join([str(error_text), *(str(message) for message in logger_messages)]).lower()
+    return any(signature in combined for signature in SURFACE_REPAIR_ERROR_SIGNATURES)
+
+
+def _physical_groups_payload(gmsh) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
+    for dim, tag in gmsh.model.getPhysicalGroups():
+        groups.append(
+            {
+                "dim": int(dim),
+                "tag": int(tag),
+                "name": gmsh.model.getPhysicalName(int(dim), int(tag)),
+            }
+        )
+    return groups
+
+
+def _entity_counts_snapshot(gmsh) -> Dict[str, Any]:
+    return {
+        "point_count": len(gmsh.model.getEntities(0)),
+        "curve_count": len(gmsh.model.getEntities(1)),
+        "surface_count": len(gmsh.model.getEntities(2)),
+        "volume_count": len(gmsh.model.getEntities(3)),
+        "physical_groups": _physical_groups_payload(gmsh),
+    }
+
+
+def _remove_all_physical_groups(gmsh) -> list[dict[str, Any]]:
+    groups = gmsh.model.getPhysicalGroups()
+    if groups:
+        remove_groups = getattr(gmsh.model, "removePhysicalGroups", None)
+        if callable(remove_groups):
+            remove_groups(groups)
+    return _entity_dim_tags_payload(groups)
+
+
 def _collect_plc_error_probe(
     gmsh,
     *,
@@ -699,6 +744,214 @@ def _run_3d_algorithm_probe(
     }
 
 
+def _run_surface_repair_fallback(
+    *,
+    surface_mesh_path: Path,
+    bounds: dict[str, float],
+    mesh_path: Path,
+    cleanup_report_path: Path,
+    discrete_reparam_report_path: Path,
+    retry_metadata_path: Path,
+    mesh_algorithm_2d: int,
+    mesh_algorithm_3d: int,
+) -> Dict[str, Any]:
+    gmsh = load_gmsh()
+    cleanup_report: Dict[str, Any] = {
+        "status": "started",
+        "surface_mesh_artifact": str(surface_mesh_path),
+        "mesh_algorithm_2d": int(mesh_algorithm_2d),
+        "mesh_algorithm_3d": int(mesh_algorithm_3d),
+    }
+    discrete_report: Dict[str, Any] = {
+        "status": "started",
+        "surface_mesh_artifact": str(surface_mesh_path),
+        "classify_angle_degrees": float(SURFACE_REPAIR_CLASSIFY_ANGLE_DEGREES),
+        "mesh_algorithm_2d": int(mesh_algorithm_2d),
+        "mesh_algorithm_3d": int(mesh_algorithm_3d),
+    }
+    retry_metadata: Dict[str, Any] = {
+        "status": "started",
+        "route_stage": "surface_repair_fallback",
+        "surface_mesh_artifact": str(surface_mesh_path),
+        "mesh_artifact": str(mesh_path),
+        "mesh_algorithm_2d": int(mesh_algorithm_2d),
+        "mesh_algorithm_3d": int(mesh_algorithm_3d),
+        "cleanup_report_artifact": str(cleanup_report_path),
+        "discrete_reparam_report_artifact": str(discrete_reparam_report_path),
+    }
+
+    gmsh_initialized = False
+    gmsh_logger_started = False
+    try:
+        gmsh.initialize()
+        gmsh_initialized = True
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.option.setNumber("Mesh.Binary", 0)
+        gmsh.option.setNumber("Mesh.Algorithm", float(mesh_algorithm_2d))
+        gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
+        gmsh.option.setNumber("Mesh.MeshOnlyEmpty", 1)
+        gmsh.logger.start()
+        gmsh_logger_started = True
+
+        gmsh.open(str(surface_mesh_path))
+        cleanup_report["pre_cleanup"] = _entity_counts_snapshot(gmsh)
+        node_count_before = len(gmsh.model.mesh.getNodes()[0])
+        cleanup_report["node_count_before"] = node_count_before
+        gmsh.model.mesh.removeDuplicateNodes()
+        node_count_after = len(gmsh.model.mesh.getNodes()[0])
+        cleanup_report["node_count_after"] = node_count_after
+        cleanup_report["duplicate_nodes_removed"] = max(0, node_count_before - node_count_after)
+        try:
+            gmsh.model.mesh.removeDuplicateElements([])
+        except TypeError:
+            gmsh.model.mesh.removeDuplicateElements()
+        cleanup_report["remove_duplicate_elements_called"] = True
+        cleanup_report["post_cleanup"] = _entity_counts_snapshot(gmsh)
+        cleanup_report["status"] = "completed"
+        _json_write(cleanup_report_path, cleanup_report)
+
+        discrete_report["pre_classify"] = _entity_counts_snapshot(gmsh)
+        classify_angle = SURFACE_REPAIR_CLASSIFY_ANGLE_DEGREES * math.pi / 180.0
+        gmsh.model.mesh.classifySurfaces(
+            classify_angle,
+            True,
+            True,
+            math.pi,
+            True,
+        )
+        discrete_report["post_classify"] = _entity_counts_snapshot(gmsh)
+        gmsh.model.mesh.createGeometry()
+        discrete_report["post_create_geometry"] = _entity_counts_snapshot(gmsh)
+        gmsh.model.mesh.createTopology(True, False)
+        discrete_report["post_create_topology"] = _entity_counts_snapshot(gmsh)
+
+        fluid_volume_tags = [int(tag) for dim, tag in gmsh.model.getEntities(3) if dim == 3]
+        if not fluid_volume_tags:
+            raise GmshBackendError("surface-repair fallback did not recover any fluid volume.")
+
+        boundary_surface_tags = _boundary_surface_tags(gmsh, [(3, tag) for tag in fluid_volume_tags])
+        aircraft_surface_tags, farfield_surface_tags = _classify_outer_boundary_surfaces(
+            gmsh,
+            boundary_surface_tags,
+            bounds,
+        )
+        if not aircraft_surface_tags:
+            raise GmshBackendError("surface-repair fallback did not recover aircraft boundary surfaces.")
+        if not farfield_surface_tags:
+            raise GmshBackendError("surface-repair fallback did not recover farfield boundary surfaces.")
+
+        discrete_report["boundary_surface_count"] = len(boundary_surface_tags)
+        discrete_report["aircraft_surface_count"] = len(aircraft_surface_tags)
+        discrete_report["farfield_surface_count"] = len(farfield_surface_tags)
+        discrete_report["removed_physical_groups"] = _remove_all_physical_groups(gmsh)
+
+        fluid_group = gmsh.model.addPhysicalGroup(3, fluid_volume_tags)
+        gmsh.model.setPhysicalName(3, fluid_group, "fluid")
+        aircraft_group = gmsh.model.addPhysicalGroup(2, aircraft_surface_tags)
+        gmsh.model.setPhysicalName(2, aircraft_group, "aircraft")
+        farfield_group = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
+        gmsh.model.setPhysicalName(2, farfield_group, "farfield")
+
+        discrete_report["post_group_rebuild"] = _entity_counts_snapshot(gmsh)
+        discrete_report["status"] = "completed"
+        _json_write(discrete_reparam_report_path, discrete_report)
+
+        gmsh.model.mesh.generate(3)
+        gmsh.write(str(mesh_path))
+
+        physical_groups = {
+            "fluid": _physical_group_summary(gmsh, 3, fluid_group),
+            "aircraft": _physical_group_summary(gmsh, 2, aircraft_group),
+            "farfield": _physical_group_summary(gmsh, 2, farfield_group),
+        }
+        marker_summary = {
+            "aircraft": physical_groups["aircraft"],
+            "farfield": physical_groups["farfield"],
+        }
+        mesh_stats = _mesh_stats(gmsh)
+        retry_metadata.update(
+            {
+                "status": "success",
+                "marker_summary": marker_summary,
+                "physical_groups": physical_groups,
+                "mesh": {
+                    "format": "msh",
+                    "mesh_dim": 3,
+                    **mesh_stats,
+                },
+            }
+        )
+        _json_write(retry_metadata_path, retry_metadata)
+        return {
+            "status": "success",
+            "route_stage": "surface_repair_fallback",
+            "marker_summary": marker_summary,
+            "physical_groups": physical_groups,
+            "mesh_stats": mesh_stats,
+            "cleanup_report_path": cleanup_report_path,
+            "discrete_reparam_report_path": discrete_reparam_report_path,
+            "retry_metadata_path": retry_metadata_path,
+            "notes": [
+                "fresh-session surface mesh cleanup and discrete reparametrization completed",
+                "boundary groups rebuilt from discrete fallback volume boundary",
+            ],
+        }
+    except Exception as exc:
+        logger_messages = [str(message) for message in gmsh.logger.get()] if gmsh_logger_started else []
+        if cleanup_report.get("status") == "started":
+            cleanup_report["status"] = "failed"
+            cleanup_report["error"] = str(exc)
+            _json_write(cleanup_report_path, cleanup_report)
+        discrete_report["status"] = "failed"
+        discrete_report["error"] = str(exc)
+        if logger_messages:
+            discrete_report["logger_tail"] = logger_messages[-80:]
+        _json_write(discrete_reparam_report_path, discrete_report)
+
+        plc_probe = None
+        if gmsh_initialized:
+            try:
+                plc_probe = _collect_plc_error_probe(
+                    gmsh,
+                    error_text=str(exc),
+                    logger_messages=logger_messages,
+                    surface_mesh_path=surface_mesh_path,
+                    mesh_algorithm_3d=int(mesh_algorithm_3d),
+                )
+            except Exception:
+                plc_probe = None
+        retry_metadata.update(
+            {
+                "status": "failed",
+                "error": str(exc),
+                "plc_probe": plc_probe,
+            }
+        )
+        _json_write(retry_metadata_path, retry_metadata)
+        return {
+            "status": "failed",
+            "route_stage": "surface_repair_fallback",
+            "error": str(exc),
+            "marker_summary": {},
+            "physical_groups": {},
+            "mesh_stats": {},
+            "cleanup_report_path": cleanup_report_path,
+            "discrete_reparam_report_path": discrete_reparam_report_path,
+            "retry_metadata_path": retry_metadata_path,
+            "notes": [
+                "fresh-session surface mesh cleanup and discrete reparametrization failed",
+            ],
+        }
+    finally:
+        if gmsh_initialized:
+            if gmsh_logger_started:
+                try:
+                    gmsh.logger.stop()
+                except Exception:
+                    pass
+            gmsh.finalize()
+
+
 def _placeholder_backend_result(
     recipe: MeshRecipe,
     handle: GeometryHandle,
@@ -736,6 +989,9 @@ def _apply_occ_external_flow_route(
     surface_mesh_path = mesh_dir / "surface_mesh_2d.msh"
     gmsh_log_path = mesh_dir / "gmsh_log.txt"
     plc_probe_path = mesh_dir / "plc_probe.json"
+    surface_cleanup_report_path = mesh_dir / "surface_cleanup_report.json"
+    discrete_reparam_report_path = mesh_dir / "discrete_reparam_report.json"
+    retry_mesh_metadata_path = mesh_dir / "retry_mesh_metadata.json"
     if config.boundary_layer.enabled:
         return {
             "status": "failed",
@@ -752,6 +1008,9 @@ def _apply_occ_external_flow_route(
                 "surface_mesh_2d": str(surface_mesh_path),
                 "gmsh_log": str(gmsh_log_path),
                 "plc_probe": str(plc_probe_path),
+                "surface_cleanup_report": str(surface_cleanup_report_path),
+                "discrete_reparam_report": str(discrete_reparam_report_path),
+                "retry_mesh_metadata": str(retry_mesh_metadata_path),
             },
             "marker_summary": {},
             "mesh_stats": {},
@@ -802,6 +1061,7 @@ def _apply_occ_external_flow_route(
     unit_normalization: Dict[str, Any] | None = None
     mesh_stats: Dict[str, Any] = {}
     plc_probe: Dict[str, Any] | None = None
+    surface_repair_result: Dict[str, Any] | None = None
     try:
         gmsh.initialize()
         gmsh_initialized = True
@@ -937,6 +1197,148 @@ def _apply_occ_external_flow_route(
                     )
                 _json_write(plc_probe_path, plc_probe)
                 metadata["plc_probe"] = plc_probe
+                if _should_attempt_surface_repair_fallback(str(exc), logger_messages) and surface_mesh_path.exists():
+                    if gmsh_logger_started:
+                        _text_write(gmsh_log_path, [str(message) for message in gmsh.logger.get()])
+                        try:
+                            gmsh.logger.stop()
+                        except Exception:
+                            pass
+                        gmsh_logger_started = False
+                    if gmsh_initialized:
+                        gmsh.finalize()
+                        gmsh_initialized = False
+                    surface_repair_result = _run_surface_repair_fallback(
+                        surface_mesh_path=surface_mesh_path,
+                        bounds=bounds,
+                        mesh_path=mesh_path,
+                        cleanup_report_path=surface_cleanup_report_path,
+                        discrete_reparam_report_path=discrete_reparam_report_path,
+                        retry_metadata_path=retry_mesh_metadata_path,
+                        mesh_algorithm_2d=int(field_info.get("mesh_algorithm_2d", 6)),
+                        mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+                    )
+                    metadata["surface_repair_fallback"] = {
+                        "status": surface_repair_result["status"],
+                        "route_stage": surface_repair_result["route_stage"],
+                        "cleanup_report_artifact": str(surface_cleanup_report_path),
+                        "discrete_reparam_report_artifact": str(discrete_reparam_report_path),
+                        "retry_mesh_metadata_artifact": str(retry_mesh_metadata_path),
+                        "notes": surface_repair_result.get("notes", []),
+                    }
+                    if surface_repair_result["status"] == "success":
+                        physical_groups = surface_repair_result["physical_groups"]
+                        marker_summary = surface_repair_result["marker_summary"]
+                        mesh_stats = surface_repair_result["mesh_stats"]
+                        body_bounds_dict = _bounds_dict(*body_bounds)
+                        if unit_normalization is None:
+                            unit_normalization = {
+                                "units": output_units or config.units,
+                                "backend_rescale_applied": backend_rescale_applied,
+                                "import_scale_to_units": import_scale,
+                                "imported_body_bounds": _bounds_dict(*imported_body_bounds),
+                                "provider_topology_bounds": (
+                                    handle.provider_result.topology.bounds.model_dump(mode="json")
+                                    if handle.provider_result is not None and handle.provider_result.topology.bounds is not None
+                                    else None
+                                ),
+                            }
+                        artifacts = MeshArtifactBundle(
+                            mesh=mesh_path,
+                            mesh_metadata=metadata_path,
+                            marker_summary=marker_summary_path,
+                            surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
+                            gmsh_log=gmsh_log_path,
+                            plc_probe=plc_probe_path if plc_probe_path.exists() else None,
+                            surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
+                            discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
+                            retry_mesh_metadata=retry_mesh_metadata_path if retry_mesh_metadata_path.exists() else None,
+                        )
+                        provider_provenance = None
+                        if handle.provider_result is not None:
+                            provider_provenance = {
+                                "provider": handle.provider_result.provider,
+                                "provider_stage": handle.provider_result.provider_stage,
+                                "provider_status": handle.provider_result.status,
+                                "topology": handle.provider_result.topology.model_dump(mode="json"),
+                                "provenance": handle.provider_result.provenance,
+                                "artifacts": {
+                                    key: str(value)
+                                    for key, value in handle.provider_result.artifacts.items()
+                                },
+                            }
+                        handoff = MeshHandoff(
+                            route_stage="surface_repair_fallback",
+                            backend_capability=recipe.backend_capability,
+                            meshing_route=recipe.meshing_route,
+                            geometry_family=recipe.geometry_family,
+                            geometry_source=recipe.geometry_source,
+                            geometry_provider=handle.provider,
+                            source_path=handle.source_path,
+                            normalized_geometry_path=handle.path,
+                            units=output_units or config.units,
+                            body_bounds=_bounds_model(*body_bounds),
+                            farfield_bounds=Bounds3D(**bounds),
+                            mesh_stats=mesh_stats,
+                            marker_summary=marker_summary,
+                            physical_groups=physical_groups,
+                            artifacts=artifacts,
+                            provenance={
+                                "route_provenance": recipe.route_provenance,
+                                "geometry_loader": handle.loader,
+                                "provider": provider_provenance,
+                            },
+                            unit_normalization=unit_normalization or {},
+                        )
+                        metadata["status"] = "success"
+                        metadata["route_stage"] = "surface_repair_fallback"
+                        metadata["physical_groups"] = physical_groups
+                        metadata["marker_summary"] = marker_summary
+                        metadata["mesh"] = {
+                            "format": "msh",
+                            "mesh_dim": config.mesh_dim,
+                            **mesh_stats,
+                        }
+                        metadata["artifacts"] = {
+                            "mesh": str(mesh_path),
+                            "mesh_metadata": str(metadata_path),
+                            "marker_summary": str(marker_summary_path),
+                            "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                            "gmsh_log": str(gmsh_log_path),
+                            "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
+                            "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
+                            "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
+                            "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
+                        }
+                        _json_write(metadata_path, metadata)
+                        _json_write(marker_summary_path, marker_summary)
+                        return {
+                            "status": "success",
+                            "backend": recipe.backend,
+                            "backend_capability": recipe.backend_capability,
+                            "meshing_route": recipe.meshing_route,
+                            "geometry_family": recipe.geometry_family,
+                            "geometry_source": recipe.geometry_source,
+                            "route_stage": "surface_repair_fallback",
+                            "mesh_format": "msh",
+                            "units": output_units or config.units,
+                            "contract": handoff.contract,
+                            "geometry_provider": handoff.geometry_provider,
+                            "body_bounds": body_bounds_dict,
+                            "farfield_bounds": bounds,
+                            "unit_normalization": unit_normalization,
+                            "artifacts": metadata["artifacts"],
+                            "marker_summary": marker_summary,
+                            "physical_groups": physical_groups,
+                            "mesh_stats": mesh_stats,
+                            "mesh_handoff": handoff.model_dump(mode="json"),
+                            "provenance": handoff.provenance,
+                            "notes": [
+                                "baseline OCC external-flow mesh failed, then surface-repair fallback generated a tetra mesh",
+                                f"loader={handle.loader}",
+                                f"mesh_dim={config.mesh_dim}",
+                            ],
+                        }
                 raise
         gmsh.write(str(mesh_path))
 
@@ -969,6 +1371,9 @@ def _apply_occ_external_flow_route(
             surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
             gmsh_log=gmsh_log_path,
             plc_probe=plc_probe_path if plc_probe_path.exists() else None,
+            surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
+            discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
+            retry_mesh_metadata=retry_mesh_metadata_path if retry_mesh_metadata_path.exists() else None,
         )
         provider_provenance = None
         if handle.provider_result is not None:
@@ -1076,6 +1481,9 @@ def _apply_occ_external_flow_route(
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "gmsh_log": str(gmsh_log_path),
                 "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
+                "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
+                "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
+                "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
             },
             "marker_summary": marker_summary,
             "physical_groups": physical_groups,
@@ -1089,8 +1497,13 @@ def _apply_occ_external_flow_route(
             ],
         }
     except Exception as exc:
+        final_error = (
+            surface_repair_result["error"]
+            if surface_repair_result is not None and surface_repair_result.get("status") == "failed"
+            else str(exc)
+        )
         metadata["status"] = "failed"
-        metadata["error"] = str(exc)
+        metadata["error"] = final_error
         if body_bounds_dict is not None:
             metadata.setdefault("body", {})
             metadata["body"]["bounds"] = body_bounds_dict
@@ -1109,6 +1522,20 @@ def _apply_occ_external_flow_route(
             metadata["mesh_field"] = field_info
         if unit_normalization is not None:
             metadata["unit_normalization"] = unit_normalization
+        if surface_repair_result is not None:
+            metadata["surface_repair_fallback"] = {
+                "status": surface_repair_result["status"],
+                "route_stage": surface_repair_result["route_stage"],
+                "error": surface_repair_result.get("error"),
+                "cleanup_report_artifact": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
+                "discrete_reparam_report_artifact": (
+                    str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None
+                ),
+                "retry_mesh_metadata_artifact": (
+                    str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None
+                ),
+                "notes": surface_repair_result.get("notes", []),
+            }
         if physical_groups:
             metadata["physical_groups"] = physical_groups
         if marker_summary:
@@ -1126,6 +1553,9 @@ def _apply_occ_external_flow_route(
             "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
             "gmsh_log": str(gmsh_log_path),
             "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
+            "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
+            "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
+            "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
         }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
@@ -1144,13 +1574,20 @@ def _apply_occ_external_flow_route(
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "gmsh_log": str(gmsh_log_path),
                 "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
+                "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
+                "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
+                "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
             },
             "marker_summary": marker_summary,
             "mesh_stats": mesh_stats,
             "physical_groups": physical_groups,
-            "error": str(exc),
+            "error": final_error,
             "notes": [
-                "baseline OCC external-flow mesh failed",
+                (
+                    "baseline OCC external-flow mesh failed and surface-repair fallback did not resolve the boundary mesh"
+                    if surface_repair_result is not None
+                    else "baseline OCC external-flow mesh failed"
+                ),
                 f"loader={handle.loader}",
                 f"mesh_dim={config.mesh_dim}",
             ],

@@ -302,6 +302,9 @@ class MeshArtifactBundle(BaseModel):
     surface_mesh_2d: Optional[Path] = None
     gmsh_log: Optional[Path] = None
     plc_probe: Optional[Path] = None
+    surface_cleanup_report: Optional[Path] = None
+    discrete_reparam_report: Optional[Path] = None
+    retry_mesh_metadata: Optional[Path] = None
 
 
 class MeshHandoff(BaseModel):

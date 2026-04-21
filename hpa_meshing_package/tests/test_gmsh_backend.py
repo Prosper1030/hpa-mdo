@@ -8,6 +8,8 @@ import pytest
 from hpa_meshing.adapters.gmsh_backend import (
     _collect_plc_error_probe,
     _configure_mesh_field,
+    _run_surface_repair_fallback,
+    _should_attempt_surface_repair_fallback,
     apply_recipe,
 )
 from hpa_meshing.mesh.recipes import build_recipe
@@ -182,6 +184,117 @@ def test_collect_plc_error_probe_falls_back_to_last_node_coordinates_when_logger
     assert probe["mesh_algorithm_3d"] == 10
     assert probe["intersection_points"][0]["source"] == "last_node_error"
     assert probe["intersection_points"][0]["coordinates"] == [1.0, 2.0, 3.0]
+
+
+def test_should_attempt_surface_repair_fallback_matches_known_boundary_recovery_signatures():
+    assert _should_attempt_surface_repair_fallback(
+        "PLC Error: A segment and a facet intersect at point",
+        [],
+    )
+    assert _should_attempt_surface_repair_fallback(
+        "Invalid boundary mesh (overlapping facets) on surface 39 surface 40",
+        [],
+    )
+    assert _should_attempt_surface_repair_fallback(
+        "3D mesher failed",
+        ["Info    : failed to recover constrained lines/triangles"],
+    )
+    assert _should_attempt_surface_repair_fallback(
+        "3D mesher failed",
+        ["Info    : Found two exactly self-intersecting facets"],
+    )
+    assert _should_attempt_surface_repair_fallback(
+        "3D mesher failed",
+        ["Info    : Found two nearly self-intersecting facets"],
+    )
+    assert not _should_attempt_surface_repair_fallback(
+        "OpenCASCADE import failed",
+        ["Info    : STEP parser aborted"],
+    )
+
+
+def test_run_surface_repair_fallback_rebuilds_boundary_groups_and_writes_reports(tmp_path: Path):
+    normalized = _write_occ_box_step(tmp_path, "box_for_surface_repair.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = _provider_result(source, normalized)
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "baseline_out",
+        geometry_source="provider_generated",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:openvsp_surface_intersection",
+        geometry_source="provider_generated",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="openvsp_surface_intersection",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        declared_family="thin_sheet_aircraft_assembly",
+        inferred_family=None,
+        geometry_family="thin_sheet_aircraft_assembly",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    baseline = apply_recipe(recipe, handle, config)
+    assert baseline["status"] == "success"
+
+    baseline_metadata = json.loads(Path(baseline["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
+    surface_mesh_path = Path(baseline["artifacts"]["surface_mesh_2d"])
+    retry_mesh_path = tmp_path / "surface_repair_retry.msh"
+    cleanup_report_path = tmp_path / "surface_cleanup_report.json"
+    discrete_reparam_report_path = tmp_path / "discrete_reparam_report.json"
+    retry_metadata_path = tmp_path / "retry_mesh_metadata.json"
+
+    fallback = _run_surface_repair_fallback(
+        surface_mesh_path=surface_mesh_path,
+        bounds=baseline_metadata["farfield"]["bounds"],
+        mesh_path=retry_mesh_path,
+        cleanup_report_path=cleanup_report_path,
+        discrete_reparam_report_path=discrete_reparam_report_path,
+        retry_metadata_path=retry_metadata_path,
+        mesh_algorithm_2d=5,
+        mesh_algorithm_3d=1,
+    )
+
+    assert fallback["status"] == "success"
+    assert fallback["route_stage"] == "surface_repair_fallback"
+    assert retry_mesh_path.exists()
+    assert cleanup_report_path.exists()
+    assert discrete_reparam_report_path.exists()
+    assert retry_metadata_path.exists()
+    assert fallback["marker_summary"]["aircraft"]["exists"] is True
+    assert fallback["marker_summary"]["farfield"]["exists"] is True
+    assert fallback["mesh_stats"]["volume_element_count"] > 0
+
+    cleanup_report = json.loads(cleanup_report_path.read_text(encoding="utf-8"))
+    assert cleanup_report["status"] == "completed"
+    assert cleanup_report["duplicate_nodes_removed"] >= 0
+
+    discrete_report = json.loads(discrete_reparam_report_path.read_text(encoding="utf-8"))
+    assert discrete_report["status"] == "completed"
+    assert discrete_report["aircraft_surface_count"] > 0
+    assert discrete_report["farfield_surface_count"] > 0
+
+    retry_metadata = json.loads(retry_metadata_path.read_text(encoding="utf-8"))
+    assert retry_metadata["status"] == "success"
+    assert retry_metadata["mesh"]["volume_element_count"] > 0
 
 
 def test_apply_recipe_generates_occ_mesh_artifacts_and_marker_summary(tmp_path: Path):
