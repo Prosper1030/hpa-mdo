@@ -448,6 +448,61 @@ def test_run_mesh3d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
     assert persisted["timeout_phase_classification"] == "volume_insertion"
 
 
+def test_run_mesh3d_with_watchdog_classifies_hxt_volume_insertion(tmp_path: Path):
+    gmsh = _FakeWatchdogGmsh(
+        sleep_seconds=0.05,
+        logger_messages=[
+            "Info    : Meshing 3D...",
+            "Info    : 3D Meshing 1 volume with 1 connected component",
+            "Info    : Done computing mesh sizes",
+            "Info    : Delaunay of   47429693 points on   1 threads - mesh.nvert: 11320365",
+            "Info    :           -   13128411 points filtered",
+            "Info    :           =   34301282 points added",
+            "Info    : Computing mesh sizes...",
+        ],
+    )
+    watchdog_path = tmp_path / "mesh3d_watchdog_hxt.json"
+    sample_path = tmp_path / "mesh3d_watchdog_hxt_sample.txt"
+
+    def _fake_sample_runner(pid: int, sample_seconds: int, output_path: Path):
+        output_path.write_text(f"sample pid={pid} seconds={sample_seconds}\n", encoding="utf-8")
+        return {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": "sample ok",
+        }
+
+    payload, error = _run_mesh3d_with_watchdog(
+        gmsh,
+        watchdog_path=watchdog_path,
+        sample_path=sample_path,
+        timeout_seconds=0.01,
+        sample_seconds=1,
+        mesh_algorithm_3d=10,
+        sample_runner=_fake_sample_runner,
+        pre_mesh_stats={
+            "mesh_dim": 2,
+            "node_count": 128,
+            "element_count": 256,
+            "surface_element_count": 240,
+            "volume_element_count": 0,
+        },
+    )
+
+    assert error is None
+    assert payload["mesh_algorithm_3d"] == 10
+    assert payload["timeout_phase_classification"] == "volume_insertion"
+    assert payload["nodes_created"] == 34301282
+    assert payload["nodes_created_per_boundary_node"] == pytest.approx(34301282.0 / 128.0)
+    assert payload["hxt_mesh_vertex_count"] == 11320365
+    assert payload["hxt_points_filtered"] == 13128411
+    assert payload["hxt_points_added"] == 34301282
+
+    persisted = json.loads(watchdog_path.read_text(encoding="utf-8"))
+    assert persisted["timeout_phase_classification"] == "volume_insertion"
+    assert persisted["hxt_points_added"] == 34301282
+
+
 def test_collect_surface_patch_diagnostics_ranks_short_curve_strip_candidates():
     bbox_lookup = {
         (2, 11): (0.95, 13.5, 0.28, 1.10, 16.5, 0.50),

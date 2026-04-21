@@ -94,6 +94,18 @@ THREE_D_INSERTION_ITERATION_PATTERN = re.compile(
     r"(?:\s*\(nodes removed\s*(\d+)\s*(\d+)\))?",
     re.IGNORECASE,
 )
+HXT_DELAUNAY_POINTS_PATTERN = re.compile(
+    r"Delaunay of\s+(\d+)\s+points on\s+\d+\s+threads\s+-\s+mesh\.nvert:\s+(\d+)",
+    re.IGNORECASE,
+)
+HXT_POINTS_FILTERED_PATTERN = re.compile(
+    r"-\s+(\d+)\s+points filtered",
+    re.IGNORECASE,
+)
+HXT_POINTS_ADDED_PATTERN = re.compile(
+    r"=\s+(\d+)\s+points added",
+    re.IGNORECASE,
+)
 MESH_ALGORITHM_NAME_LOOKUP = {
     1: "MeshAdapt",
     2: "Automatic",
@@ -196,6 +208,39 @@ def _extract_3d_insertion_iteration(logger_messages: Iterable[str]) -> Dict[str,
     return None
 
 
+def _extract_hxt_iteration_summary(logger_messages: Iterable[str]) -> Dict[str, Any] | None:
+    materialized = [str(message) for message in logger_messages]
+    delaunay_match = None
+    delaunay_message = None
+    points_filtered = None
+    points_added = None
+    for message in reversed(materialized):
+        if points_added is None:
+            match = HXT_POINTS_ADDED_PATTERN.search(message)
+            if match is not None:
+                points_added = int(match.group(1))
+        if points_filtered is None:
+            match = HXT_POINTS_FILTERED_PATTERN.search(message)
+            if match is not None:
+                points_filtered = int(match.group(1))
+        if delaunay_match is None:
+            match = HXT_DELAUNAY_POINTS_PATTERN.search(message)
+            if match is not None:
+                delaunay_match = match
+                delaunay_message = message
+        if delaunay_match is not None and points_added is not None and points_filtered is not None:
+            break
+    if delaunay_match is None:
+        return None
+    return {
+        "points_considered": int(delaunay_match.group(1)),
+        "mesh_vertex_count": int(delaunay_match.group(2)),
+        "points_filtered": points_filtered,
+        "points_added": points_added,
+        "message": delaunay_message,
+    }
+
+
 def _ratio_or_none(numerator: int | float | None, denominator: int | float | None) -> float | None:
     if numerator is None or denominator in (None, 0):
         return None
@@ -209,6 +254,12 @@ def _classify_3d_timeout_phase(logger_messages: Iterable[str]) -> str:
         if "recover" in lowered:
             phase = "boundary_recovery"
         if THREE_D_INSERTION_ITERATION_PATTERN.search(str(message)) or "tetrahedriz" in lowered:
+            phase = "volume_insertion"
+        if (
+            HXT_DELAUNAY_POINTS_PATTERN.search(str(message))
+            or HXT_POINTS_ADDED_PATTERN.search(str(message))
+            or HXT_POINTS_FILTERED_PATTERN.search(str(message))
+        ):
             phase = "volume_insertion"
         if "optimiz" in lowered:
             phase = "optimization"
@@ -225,6 +276,7 @@ def _extract_3d_burden_metrics(
     boundary_node_count = int(pre_mesh_stats.get("node_count", 0) or 0)
     surface_triangle_count = int(pre_mesh_stats.get("surface_element_count", 0) or 0)
     iteration_summary = _extract_3d_insertion_iteration(logger_messages)
+    hxt_summary = _extract_hxt_iteration_summary(logger_messages)
     metrics: Dict[str, Any] = {
         "boundary_node_count": boundary_node_count,
         "surface_triangle_count": surface_triangle_count,
@@ -247,6 +299,19 @@ def _extract_3d_burden_metrics(
             metrics["nodes_removed"] = int(iteration_summary["nodes_removed"])
         if iteration_summary.get("nodes_removed_total") is not None:
             metrics["nodes_removed_total"] = int(iteration_summary["nodes_removed_total"])
+    elif hxt_summary is not None:
+        if hxt_summary.get("points_added") is not None:
+            metrics["nodes_created"] = int(hxt_summary["points_added"])
+            metrics["nodes_created_per_boundary_node"] = _ratio_or_none(
+                int(hxt_summary["points_added"]),
+                boundary_node_count,
+            )
+            metrics["hxt_points_added"] = int(hxt_summary["points_added"])
+        if hxt_summary.get("points_filtered") is not None:
+            metrics["hxt_points_filtered"] = int(hxt_summary["points_filtered"])
+        metrics["hxt_points_considered"] = int(hxt_summary["points_considered"])
+        metrics["hxt_mesh_vertex_count"] = int(hxt_summary["mesh_vertex_count"])
+        metrics["latest_iteration_message"] = str(hxt_summary["message"])
     return metrics
 
 
@@ -1522,6 +1587,10 @@ def _run_mesh3d_with_watchdog(
             "nodes_created",
             "nodes_created_per_boundary_node",
             "iterations_per_surface_triangle",
+            "hxt_points_considered",
+            "hxt_mesh_vertex_count",
+            "hxt_points_filtered",
+            "hxt_points_added",
             "latest_iteration_message",
             "latest_worst_tet_radius",
             "nodes_removed",
@@ -2806,6 +2875,10 @@ def _apply_occ_external_flow_route(
             "nodes_created": mesh3d_watchdog.get("nodes_created"),
             "nodes_created_per_boundary_node": mesh3d_watchdog.get("nodes_created_per_boundary_node"),
             "iterations_per_surface_triangle": mesh3d_watchdog.get("iterations_per_surface_triangle"),
+            "hxt_points_considered": mesh3d_watchdog.get("hxt_points_considered"),
+            "hxt_mesh_vertex_count": mesh3d_watchdog.get("hxt_mesh_vertex_count"),
+            "hxt_points_filtered": mesh3d_watchdog.get("hxt_points_filtered"),
+            "hxt_points_added": mesh3d_watchdog.get("hxt_points_added"),
             "tetrahedrizing_node_count": mesh3d_watchdog.get("tetrahedrizing_node_count"),
             "volume_count": mesh3d_watchdog.get("volume_count"),
             "connected_component_count": mesh3d_watchdog.get("connected_component_count"),
@@ -2815,6 +2888,19 @@ def _apply_occ_external_flow_route(
         metadata["volume_meshing"]["watchdog_status"] = mesh3d_watchdog.get("status")
         metadata["volume_meshing"]["watchdog_artifact"] = str(mesh3d_watchdog_path)
         metadata["volume_meshing"]["watchdog_sample_artifact"] = str(mesh3d_watchdog_sample_path)
+        metadata["volume_meshing"]["burden_metrics"] = {
+            "boundary_node_count": mesh3d_watchdog.get("boundary_node_count"),
+            "surface_triangle_count": mesh3d_watchdog.get("surface_triangle_count"),
+            "iteration_count": mesh3d_watchdog.get("iteration_count"),
+            "nodes_created": mesh3d_watchdog.get("nodes_created"),
+            "nodes_created_per_boundary_node": mesh3d_watchdog.get("nodes_created_per_boundary_node"),
+            "iterations_per_surface_triangle": mesh3d_watchdog.get("iterations_per_surface_triangle"),
+            "timeout_phase_classification": mesh3d_watchdog.get("timeout_phase_classification"),
+            "hxt_points_considered": mesh3d_watchdog.get("hxt_points_considered"),
+            "hxt_mesh_vertex_count": mesh3d_watchdog.get("hxt_mesh_vertex_count"),
+            "hxt_points_filtered": mesh3d_watchdog.get("hxt_points_filtered"),
+            "hxt_points_added": mesh3d_watchdog.get("hxt_points_added"),
+        }
 
         if mesh3d_error is not None:
             try:
