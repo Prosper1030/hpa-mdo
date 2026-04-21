@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -9,9 +10,12 @@ import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
     _probe_discrete_classify_angles,
     _collect_plc_error_probe,
+    _collect_surface_patch_diagnostics,
     _configure_mesh_field,
+    _extract_last_meshing_surface,
     _extract_overlap_surface_details,
     _resolve_exact_overlap_surface_pair,
+    _run_mesh2d_with_watchdog,
     _run_surface_repair_fallback,
     _should_probe_discrete_classify_angles,
     _should_attempt_surface_repair_fallback,
@@ -188,6 +192,75 @@ class _FakeOverlapGmsh:
         self.model = _FakeOverlapModel()
 
 
+class _FakeWatchdogLogger:
+    def __init__(self, messages: list[str]) -> None:
+        self._messages = messages
+
+    def get(self):
+        return list(self._messages)
+
+
+class _FakeWatchdogMeshModule:
+    def __init__(self, sleep_seconds: float) -> None:
+        self.sleep_seconds = sleep_seconds
+        self.calls: list[int] = []
+
+    def generate(self, dim: int) -> None:
+        self.calls.append(int(dim))
+        time.sleep(self.sleep_seconds)
+
+
+class _FakeWatchdogModel:
+    def __init__(self, sleep_seconds: float) -> None:
+        self.mesh = _FakeWatchdogMeshModule(sleep_seconds)
+
+
+class _FakeWatchdogGmsh:
+    def __init__(self, *, sleep_seconds: float, logger_messages: list[str]) -> None:
+        self.model = _FakeWatchdogModel(sleep_seconds)
+        self.logger = _FakeWatchdogLogger(logger_messages)
+
+
+class _FakeSurfaceDiagOcc:
+    def __init__(self, mass_lookup: dict[tuple[int, int], float]) -> None:
+        self._mass_lookup = mass_lookup
+
+    def getMass(self, dim: int, tag: int) -> float:
+        return self._mass_lookup[(int(dim), int(tag))]
+
+
+class _FakeSurfaceDiagModel:
+    def __init__(
+        self,
+        bbox_lookup: dict[tuple[int, int], tuple[float, float, float, float, float, float]],
+        boundary_lookup: dict[int, list[int]],
+        mass_lookup: dict[tuple[int, int], float],
+    ) -> None:
+        self._bbox_lookup = bbox_lookup
+        self._boundary_lookup = boundary_lookup
+        self.occ = _FakeSurfaceDiagOcc(mass_lookup)
+
+    def getBoundingBox(self, dim: int, tag: int):
+        return self._bbox_lookup[(int(dim), int(tag))]
+
+    def getBoundary(self, dim_tags, oriented=False, recursive=False):
+        assert oriented is False
+        assert recursive is False
+        dim, tag = dim_tags[0]
+        assert int(dim) == 2
+        return [(1, curve_tag) for curve_tag in self._boundary_lookup[int(tag)]]
+
+
+class _FakeSurfaceDiagGmsh:
+    def __init__(
+        self,
+        bbox_lookup: dict[tuple[int, int], tuple[float, float, float, float, float, float]],
+        boundary_lookup: dict[int, list[int]],
+        mass_lookup: dict[tuple[int, int], float],
+    ) -> None:
+        self.model = _FakeSurfaceDiagModel(bbox_lookup, boundary_lookup, mass_lookup)
+
+
 def test_collect_plc_error_probe_includes_point_localization_and_last_errors(tmp_path: Path):
     probe = _collect_plc_error_probe(
         _FakePlcGmsh(),
@@ -222,6 +295,117 @@ def test_collect_plc_error_probe_falls_back_to_last_node_coordinates_when_logger
     assert probe["mesh_algorithm_3d"] == 10
     assert probe["intersection_points"][0]["source"] == "last_node_error"
     assert probe["intersection_points"][0]["coordinates"] == [1.0, 2.0, 3.0]
+
+
+def test_extract_last_meshing_surface_returns_last_surface_tag_and_message():
+    result = _extract_last_meshing_surface(
+        [
+            "Info    : Meshing surface 40 (Discrete surface, Frontal-Delaunay)",
+            "Info    : Meshing surface 41 (Discrete surface, Frontal-Delaunay)",
+            "Progress: Meshing 2D...",
+            "Info    : Meshing surface 57 (Discrete surface, MeshAdapt)",
+        ]
+    )
+
+    assert result is not None
+    assert result["surface_tag"] == 57
+    assert "MeshAdapt" in result["message"]
+
+
+def test_run_mesh2d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
+    gmsh = _FakeWatchdogGmsh(
+        sleep_seconds=0.05,
+        logger_messages=[
+            "Info    : Meshing 2D...",
+            "Info    : Meshing surface 45 (Discrete surface, Frontal-Delaunay)",
+        ],
+    )
+    watchdog_path = tmp_path / "mesh2d_watchdog.json"
+    sample_path = tmp_path / "mesh2d_watchdog_sample.txt"
+
+    def _fake_sample_runner(pid: int, sample_seconds: int, output_path: Path):
+        output_path.write_text(f"sample pid={pid} seconds={sample_seconds}\n", encoding="utf-8")
+        return {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": "sample ok",
+        }
+
+    payload = _run_mesh2d_with_watchdog(
+        gmsh,
+        watchdog_path=watchdog_path,
+        sample_path=sample_path,
+        timeout_seconds=0.01,
+        sample_seconds=1,
+        sample_runner=_fake_sample_runner,
+        surface_patch_lookup={
+            45: {
+                "tag": 45,
+                "area": 0.003,
+                "family_hints": ["short_curve_candidate", "high_aspect_strip_candidate"],
+            }
+        },
+    )
+
+    assert gmsh.model.mesh.calls == [2]
+    assert payload["status"] == "completed_after_timeout"
+    assert payload["last_meshing_surface_tag"] == 45
+    assert payload["sample"]["returncode"] == 0
+    assert payload["last_meshing_surface_record"]["tag"] == 45
+    assert watchdog_path.exists()
+    assert sample_path.exists()
+
+    persisted = json.loads(watchdog_path.read_text(encoding="utf-8"))
+    assert persisted["status"] == "completed_after_timeout"
+    assert persisted["last_meshing_surface_tag"] == 45
+
+
+def test_collect_surface_patch_diagnostics_ranks_short_curve_strip_candidates():
+    bbox_lookup = {
+        (2, 11): (0.95, 13.5, 0.28, 1.10, 16.5, 0.50),
+        (2, 12): (0.10, 0.0, -0.05, 0.95, 13.5, 0.75),
+        (1, 101): (0.95, 13.5, 0.28, 0.95, 13.5009, 0.28),
+        (1, 102): (0.95, 13.5, 0.28, 1.10, 16.5, 0.50),
+        (1, 103): (0.95, 13.5, 0.28, 1.10, 16.5, 0.50),
+        (1, 104): (1.10, 16.499, 0.50, 1.10, 16.5, 0.50),
+        (1, 201): (0.10, 0.0, -0.05, 0.10, 13.5, -0.05),
+        (1, 202): (0.10, 0.0, -0.05, 0.95, 13.5, 0.75),
+        (1, 203): (0.10, 0.0, -0.05, 0.95, 13.5, 0.75),
+        (1, 204): (0.95, 13.5, 0.75, 0.95, 13.5005, 0.75),
+    }
+    boundary_lookup = {
+        11: [101, 102, 103, 104],
+        12: [201, 202, 203, 204],
+    }
+    mass_lookup = {
+        (2, 11): 0.0030,
+        (2, 12): 0.42,
+        (1, 101): 0.0009,
+        (1, 102): 3.01,
+        (1, 103): 3.01,
+        (1, 104): 0.0011,
+        (1, 201): 13.5,
+        (1, 202): 13.6,
+        (1, 203): 13.6,
+        (1, 204): 0.0005,
+    }
+    gmsh = _FakeSurfaceDiagGmsh(bbox_lookup, boundary_lookup, mass_lookup)
+
+    payload = _collect_surface_patch_diagnostics(
+        gmsh,
+        surface_tags=[11, 12],
+        reference_length=1.0425,
+        near_body_size=1.0425 / 128.0,
+    )
+
+    assert payload["surface_count"] == 2
+    assert payload["short_curve_threshold"] > 0.0
+    assert payload["tiny_face_area_threshold"] > 0.0
+    assert payload["smallest_area_surfaces"][0]["tag"] == 11
+    assert payload["shortest_curves"][0]["tag"] == 204
+    assert payload["suspicious_surfaces"][0]["tag"] == 11
+    assert "short_curve_candidate" in payload["suspicious_surfaces"][0]["family_hints"]
+    assert "high_aspect_strip_candidate" in payload["suspicious_surfaces"][0]["family_hints"]
 
 
 def test_should_attempt_surface_repair_fallback_matches_known_boundary_recovery_signatures():

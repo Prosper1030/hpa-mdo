@@ -3,10 +3,14 @@ from __future__ import annotations
 from collections import defaultdict
 import json
 import math
+import os
 import re
+import subprocess
+import threading
+import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Callable, Dict, Iterable
 
 from ..gmsh_runtime import GmshRuntimeError, load_gmsh
 from ..reference_geometry import resolve_reference_length
@@ -41,6 +45,8 @@ DEFAULT_EDGE_DISTANCE_FACTOR = 0.05
 DEFAULT_SURFACE_TRANSITION_FACTOR = 10.0
 DEFAULT_EDGE_TRANSITION_FACTOR = 10.0
 SURFACE_REPAIR_CLASSIFY_ANGLE_DEGREES = 40.0
+DEFAULT_MESH2D_WATCHDOG_TIMEOUT_SECONDS = 20.0
+DEFAULT_MESH2D_WATCHDOG_SAMPLE_SECONDS = 1
 SURFACE_REPAIR_ERROR_SIGNATURES = (
     "plc error",
     "self-intersecting facets",
@@ -58,6 +64,10 @@ LOGGER_FACET_TAG_PATTERN = re.compile(
     r"(?:1st|2nd):\s*\[[^\]]+\]\s*#(\d+)",
     re.IGNORECASE,
 )
+LAST_MESHING_SURFACE_PATTERN = re.compile(
+    r"Meshing surface\s+(\d+)\b",
+    re.IGNORECASE,
+)
 
 
 class GmshBackendError(RuntimeError):
@@ -72,6 +82,46 @@ def _json_write(path: Path, data: Dict[str, Any]) -> None:
 def _text_write(path: Path, lines: Iterable[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(str(line) for line in lines), encoding="utf-8")
+
+
+def _logger_tail(messages: Iterable[str], *, limit: int = 80) -> list[str]:
+    materialized = [str(message) for message in messages]
+    return materialized[-limit:]
+
+
+def _extract_last_meshing_surface(logger_messages: Iterable[str]) -> Dict[str, Any] | None:
+    materialized = [str(message) for message in logger_messages]
+    for message in reversed(materialized):
+        match = LAST_MESHING_SURFACE_PATTERN.search(message)
+        if match is None:
+            continue
+        return {
+            "surface_tag": int(match.group(1)),
+            "message": message,
+        }
+    return None
+
+
+def _run_process_sample(pid: int, sample_seconds: int, output_path: Path) -> Dict[str, Any]:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sample_bin = Path("/usr/bin/sample")
+    if not sample_bin.exists():
+        return {
+            "returncode": -1,
+            "stdout_tail": "",
+            "stderr_tail": "sample binary not available at /usr/bin/sample",
+        }
+    completed = subprocess.run(
+        [str(sample_bin), str(int(pid)), str(max(int(sample_seconds), 1)), "-file", str(output_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return {
+        "returncode": int(completed.returncode),
+        "stdout_tail": (completed.stdout or "")[-4000:],
+        "stderr_tail": (completed.stderr or "")[-4000:],
+    }
 
 
 def _bbox_for_entities(gmsh, dim_tags: Iterable[tuple[int, int]]) -> tuple[list[float], list[float]]:
@@ -124,6 +174,27 @@ def _entity_bbox_payload(gmsh, dim: int, tag: int) -> Dict[str, Any]:
             "y_max": float(y_max),
             "z_max": float(z_max),
         },
+    }
+
+
+def _safe_occ_mass(gmsh, dim: int, tag: int) -> float | None:
+    try:
+        return float(gmsh.model.occ.getMass(int(dim), int(tag)))
+    except Exception:
+        return None
+
+
+def _surface_patch_excerpt(surface_record: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    if surface_record is None:
+        return None
+    return {
+        "tag": int(surface_record["tag"]),
+        "area": surface_record.get("area"),
+        "min_curve_length": surface_record.get("min_curve_length"),
+        "aspect_ratio_proxy": surface_record.get("aspect_ratio_proxy"),
+        "flat_axis": surface_record.get("flat_axis"),
+        "family_hints": list(surface_record.get("family_hints", [])),
+        "bbox": surface_record.get("bbox"),
     }
 
 
@@ -242,6 +313,165 @@ def _surface_connectivity_summary(gmsh, surface_tags: list[int]) -> Dict[str, An
         "free_curve_tags_sample": free_curve_tags[:25],
         "non_manifold_curve_count": len(non_manifold_curve_tags),
         "non_manifold_curve_tags_sample": non_manifold_curve_tags[:25],
+    }
+
+
+def _collect_surface_patch_diagnostics(
+    gmsh,
+    *,
+    surface_tags: list[int],
+    reference_length: float,
+    near_body_size: float,
+) -> Dict[str, Any]:
+    surface_to_curves: dict[int, list[int]] = {}
+    curve_to_surfaces: dict[int, list[int]] = defaultdict(list)
+    for surface_tag in surface_tags:
+        curves: list[int] = []
+        seen_curves: set[int] = set()
+        boundary = gmsh.model.getBoundary([(2, int(surface_tag))], oriented=False, recursive=False)
+        for dim, tag in boundary:
+            if int(dim) != 1:
+                continue
+            curve_tag = int(tag)
+            if curve_tag in seen_curves:
+                continue
+            seen_curves.add(curve_tag)
+            curves.append(curve_tag)
+            curve_to_surfaces[curve_tag].append(int(surface_tag))
+        surface_to_curves[int(surface_tag)] = curves
+
+    aircraft_mins, aircraft_maxs = _bbox_for_entities(gmsh, [(2, int(tag)) for tag in surface_tags])
+    edge_size = near_body_size * DEFAULT_EDGE_REFINEMENT_RATIO
+    short_curve_threshold = max(edge_size * 0.5, reference_length * 5.0e-4, 1.0e-6)
+    tiny_face_area_threshold = max(reference_length * near_body_size * 0.5, edge_size * edge_size, 1.0e-8)
+    extrema_tol = max(reference_length * 1.0e-3, near_body_size * 0.5, 1.0e-6)
+
+    curve_records: list[Dict[str, Any]] = []
+    curve_length_lookup: dict[int, float | None] = {}
+    for curve_tag, owner_surface_tags in curve_to_surfaces.items():
+        curve_length = _safe_occ_mass(gmsh, 1, curve_tag)
+        curve_length_lookup[curve_tag] = curve_length
+        curve_records.append(
+            {
+                "tag": int(curve_tag),
+                "length": curve_length,
+                "owner_surface_tags": list(owner_surface_tags),
+                "bbox": _entity_bbox_payload(gmsh, 1, curve_tag)["bbox"],
+            }
+        )
+
+    surface_records: list[Dict[str, Any]] = []
+    for surface_tag in surface_tags:
+        bbox_payload = _entity_bbox_payload(gmsh, 2, int(surface_tag))
+        bbox = bbox_payload["bbox"]
+        spans = {
+            "x": max(0.0, float(bbox["x_max"]) - float(bbox["x_min"])),
+            "y": max(0.0, float(bbox["y_max"]) - float(bbox["y_min"])),
+            "z": max(0.0, float(bbox["z_max"]) - float(bbox["z_min"])),
+        }
+        flat_axis = min(spans, key=spans.get)
+        nonzero_spans = sorted((value for value in spans.values() if value > 1.0e-12), reverse=True)
+        aspect_ratio_proxy = (
+            nonzero_spans[0] / max(nonzero_spans[-1], 1.0e-12)
+            if len(nonzero_spans) >= 2
+            else None
+        )
+        area = _safe_occ_mass(gmsh, 2, int(surface_tag))
+        curve_tags = surface_to_curves.get(int(surface_tag), [])
+        curve_lengths = [curve_length_lookup.get(curve_tag) for curve_tag in curve_tags]
+        valid_curve_lengths = [length for length in curve_lengths if length is not None]
+        short_curve_tags = [
+            int(curve_tag)
+            for curve_tag in curve_tags
+            if (curve_length_lookup.get(curve_tag) is not None and curve_length_lookup[curve_tag] <= short_curve_threshold)
+        ]
+        extrema = {
+            "near_x_min": abs(float(bbox["x_min"]) - aircraft_mins[0]) <= extrema_tol,
+            "near_x_max": abs(float(bbox["x_max"]) - aircraft_maxs[0]) <= extrema_tol,
+            "near_y_min": abs(float(bbox["y_min"]) - aircraft_mins[1]) <= extrema_tol,
+            "near_y_max": abs(float(bbox["y_max"]) - aircraft_maxs[1]) <= extrema_tol,
+            "near_z_min": abs(float(bbox["z_min"]) - aircraft_mins[2]) <= extrema_tol,
+            "near_z_max": abs(float(bbox["z_max"]) - aircraft_maxs[2]) <= extrema_tol,
+            "near_root_plane": min(abs(float(bbox["y_min"])), abs(float(bbox["y_max"]))) <= extrema_tol,
+        }
+        family_hints: list[str] = []
+        if area is not None and area <= tiny_face_area_threshold:
+            family_hints.append("tiny_face_candidate")
+        if short_curve_tags:
+            family_hints.append("short_curve_candidate")
+        if aspect_ratio_proxy is not None and aspect_ratio_proxy >= 10.0:
+            family_hints.append("high_aspect_strip_candidate")
+        if extrema["near_y_min"] or extrema["near_y_max"]:
+            family_hints.append("span_extreme_candidate")
+        if (extrema["near_y_min"] or extrema["near_y_max"]) and flat_axis in {"x", "z"}:
+            family_hints.append("span_extreme_strip_candidate")
+        if extrema["near_root_plane"] and flat_axis == "y":
+            family_hints.append("root_plane_cap_candidate")
+
+        suspect_score = 0.0
+        if area is not None:
+            suspect_score += min(25.0, tiny_face_area_threshold / max(area, 1.0e-12))
+        if valid_curve_lengths:
+            suspect_score += min(25.0, short_curve_threshold / max(min(valid_curve_lengths), 1.0e-12))
+        if aspect_ratio_proxy is not None:
+            suspect_score += min(15.0, aspect_ratio_proxy / 4.0)
+        suspect_score += 2.5 * len(family_hints)
+
+        surface_records.append(
+            {
+                "tag": int(surface_tag),
+                "area": area,
+                "bbox": bbox,
+                "spans": spans,
+                "flat_axis": flat_axis,
+                "curve_count": len(curve_tags),
+                "curve_tags": list(curve_tags),
+                "curve_owner_count_summary": {
+                    "shared_curve_count": sum(1 for curve_tag in curve_tags if len(curve_to_surfaces.get(curve_tag, [])) > 1),
+                    "boundary_curve_count": sum(1 for curve_tag in curve_tags if len(curve_to_surfaces.get(curve_tag, [])) == 1),
+                },
+                "min_curve_length": min(valid_curve_lengths) if valid_curve_lengths else None,
+                "max_curve_length": max(valid_curve_lengths) if valid_curve_lengths else None,
+                "short_curve_count": len(short_curve_tags),
+                "short_curve_tags": short_curve_tags,
+                "aspect_ratio_proxy": aspect_ratio_proxy,
+                "extrema": extrema,
+                "family_hints": family_hints,
+                "suspect_score": suspect_score,
+            }
+        )
+
+    smallest_area_surfaces = sorted(
+        surface_records,
+        key=lambda record: float(record["area"]) if record["area"] is not None else float("inf"),
+    )[:12]
+    shortest_curves = sorted(
+        curve_records,
+        key=lambda record: float(record["length"]) if record["length"] is not None else float("inf"),
+    )[:20]
+    suspicious_surfaces = sorted(
+        surface_records,
+        key=lambda record: (
+            -float(record["suspect_score"]),
+            float(record["area"]) if record["area"] is not None else float("inf"),
+            int(record["tag"]),
+        ),
+    )[:12]
+
+    return {
+        "status": "captured",
+        "reference_length": float(reference_length),
+        "near_body_size": float(near_body_size),
+        "edge_size": float(edge_size),
+        "short_curve_threshold": float(short_curve_threshold),
+        "tiny_face_area_threshold": float(tiny_face_area_threshold),
+        "aircraft_surface_bounds": _bounds_dict(aircraft_mins, aircraft_maxs),
+        "surface_count": len(surface_tags),
+        "curve_count": len(curve_records),
+        "surface_records": surface_records,
+        "smallest_area_surfaces": smallest_area_surfaces,
+        "shortest_curves": shortest_curves,
+        "suspicious_surfaces": suspicious_surfaces,
     }
 
 
@@ -410,6 +640,86 @@ def _configure_mesh_field(
         "mesh_algorithm_2d": mesh_algorithm_2d,
         "mesh_algorithm_3d": mesh_algorithm_3d,
     }
+
+
+def _run_mesh2d_with_watchdog(
+    gmsh,
+    *,
+    watchdog_path: Path,
+    sample_path: Path,
+    timeout_seconds: float,
+    sample_seconds: int,
+    sample_runner: Callable[[int, int, Path], Dict[str, Any]] = _run_process_sample,
+    surface_patch_lookup: Dict[int, Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "status": "armed",
+        "pid": int(os.getpid()),
+        "timeout_seconds": float(timeout_seconds),
+        "sample_seconds": int(sample_seconds),
+        "sample_artifact": str(sample_path),
+        "partial_surface_mesh_artifact": None,
+        "partial_surface_mesh_attempted": False,
+        "partial_surface_mesh_reason": "not_attempted_while_gmsh_generate2_is_active",
+    }
+    start = time.monotonic()
+    completed = threading.Event()
+    payload_lock = threading.Lock()
+
+    def _trigger_watchdog() -> None:
+        if completed.wait(float(timeout_seconds)):
+            return
+        try:
+            logger_messages = [str(message) for message in gmsh.logger.get()]
+        except Exception as exc:
+            logger_messages = [f"gmsh.logger.get failed during Mesh2D watchdog capture: {exc}"]
+        last_surface = _extract_last_meshing_surface(logger_messages)
+        sample_result = sample_runner(int(os.getpid()), int(sample_seconds), sample_path)
+        with payload_lock:
+            payload["status"] = "triggered_while_meshing"
+            payload["triggered_at_elapsed_sec"] = float(time.monotonic() - start)
+            payload["logger_message_count"] = len(logger_messages)
+            payload["logger_tail"] = _logger_tail(logger_messages)
+            payload["last_meshing_surface_tag"] = (
+                int(last_surface["surface_tag"]) if last_surface is not None else None
+            )
+            payload["last_meshing_surface_message"] = (
+                str(last_surface["message"]) if last_surface is not None else None
+            )
+            payload["last_meshing_surface_record"] = _surface_patch_excerpt(
+                surface_patch_lookup.get(int(last_surface["surface_tag"]))
+                if (last_surface is not None and surface_patch_lookup is not None)
+                else None
+            )
+            payload["sample"] = sample_result
+        _json_write(watchdog_path, payload)
+
+    watchdog_thread = threading.Thread(target=_trigger_watchdog, name="mesh2d-watchdog", daemon=True)
+    watchdog_thread.start()
+    try:
+        gmsh.model.mesh.generate(2)
+    finally:
+        completed.set()
+        watchdog_thread.join(timeout=0.5)
+
+    try:
+        final_logger_messages = [str(message) for message in gmsh.logger.get()]
+    except Exception as exc:
+        final_logger_messages = [f"gmsh.logger.get failed after Mesh2D: {exc}"]
+    last_surface = _extract_last_meshing_surface(final_logger_messages)
+    with payload_lock:
+        payload["completed_elapsed_sec"] = float(time.monotonic() - start)
+        payload["logger_message_count_after_generate"] = len(final_logger_messages)
+        payload["logger_tail_after_generate"] = _logger_tail(final_logger_messages)
+        if last_surface is not None:
+            payload["last_meshing_surface_tag_after_generate"] = int(last_surface["surface_tag"])
+            payload["last_meshing_surface_message_after_generate"] = str(last_surface["message"])
+        if payload["status"] == "armed":
+            payload["status"] = "completed_without_timeout"
+        elif payload["status"] == "triggered_while_meshing":
+            payload["status"] = "completed_after_timeout"
+    _json_write(watchdog_path, payload)
+    return payload
 
 
 def _heal_imported_bodies(gmsh, body_dim_tags: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], Dict[str, Any]]:
@@ -1247,7 +1557,10 @@ def _apply_occ_external_flow_route(
     metadata_path = mesh_dir / "mesh_metadata.json"
     marker_summary_path = mesh_dir / "marker_summary.json"
     surface_mesh_path = mesh_dir / "surface_mesh_2d.msh"
+    surface_patch_diagnostics_path = mesh_dir / "surface_patch_diagnostics.json"
     gmsh_log_path = mesh_dir / "gmsh_log.txt"
+    mesh2d_watchdog_path = mesh_dir / "mesh2d_watchdog.json"
+    mesh2d_watchdog_sample_path = mesh_dir / "mesh2d_watchdog_sample.txt"
     plc_probe_path = mesh_dir / "plc_probe.json"
     surface_cleanup_report_path = mesh_dir / "surface_cleanup_report.json"
     discrete_reparam_report_path = mesh_dir / "discrete_reparam_report.json"
@@ -1267,7 +1580,10 @@ def _apply_occ_external_flow_route(
                 "mesh_metadata": str(metadata_path),
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path),
+                "surface_patch_diagnostics": str(surface_patch_diagnostics_path),
                 "gmsh_log": str(gmsh_log_path),
+                "mesh2d_watchdog": str(mesh2d_watchdog_path),
+                "mesh2d_watchdog_sample": str(mesh2d_watchdog_sample_path),
                 "plc_probe": str(plc_probe_path),
                 "surface_cleanup_report": str(surface_cleanup_report_path),
                 "discrete_reparam_report": str(discrete_reparam_report_path),
@@ -1322,6 +1638,8 @@ def _apply_occ_external_flow_route(
     bounds: Dict[str, float] | None = None
     unit_normalization: Dict[str, Any] | None = None
     mesh_stats: Dict[str, Any] = {}
+    surface_patch_diagnostics: Dict[str, Any] | None = None
+    mesh2d_watchdog: Dict[str, Any] | None = None
     plc_probe: Dict[str, Any] | None = None
     surface_repair_result: Dict[str, Any] | None = None
     try:
@@ -1415,8 +1733,44 @@ def _apply_occ_external_flow_route(
 
         field_info = _configure_mesh_field(gmsh, aircraft_surface_tags, aircraft_curve_tags, reference_length, config)
         metadata["mesh_field"] = field_info
-
-        gmsh.model.mesh.generate(2)
+        surface_patch_diagnostics = _collect_surface_patch_diagnostics(
+            gmsh,
+            surface_tags=aircraft_surface_tags,
+            reference_length=reference_length,
+            near_body_size=float(field_info["near_body_size"]),
+        )
+        _json_write(surface_patch_diagnostics_path, surface_patch_diagnostics)
+        metadata["surface_patch_diagnostics"] = {
+            "artifact": str(surface_patch_diagnostics_path),
+            "surface_count": int(surface_patch_diagnostics["surface_count"]),
+            "curve_count": int(surface_patch_diagnostics["curve_count"]),
+            "suspicious_surface_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["suspicious_surfaces"][:12]],
+            "shortest_curve_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["shortest_curves"][:20]],
+        }
+        mesh2d_watchdog = _run_mesh2d_with_watchdog(
+            gmsh,
+            watchdog_path=mesh2d_watchdog_path,
+            sample_path=mesh2d_watchdog_sample_path,
+            timeout_seconds=float(
+                config.metadata.get("mesh2d_watchdog_timeout_sec", DEFAULT_MESH2D_WATCHDOG_TIMEOUT_SECONDS)
+            ),
+            sample_seconds=int(
+                config.metadata.get("mesh2d_watchdog_sample_seconds", DEFAULT_MESH2D_WATCHDOG_SAMPLE_SECONDS)
+            ),
+            surface_patch_lookup={
+                int(record["tag"]): record
+                for record in surface_patch_diagnostics["surface_records"]
+            },
+        )
+        metadata["mesh2d_watchdog"] = {
+            "artifact": str(mesh2d_watchdog_path),
+            "sample_artifact": str(mesh2d_watchdog_sample_path),
+            "status": mesh2d_watchdog["status"],
+            "timeout_seconds": mesh2d_watchdog["timeout_seconds"],
+            "triggered_at_elapsed_sec": mesh2d_watchdog.get("triggered_at_elapsed_sec"),
+            "completed_elapsed_sec": mesh2d_watchdog.get("completed_elapsed_sec"),
+            "last_meshing_surface_tag": mesh2d_watchdog.get("last_meshing_surface_tag"),
+        }
         pre_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
         duplicate_cleanup = _remove_duplicate_surface_facets(gmsh, aircraft_surface_tags)
         post_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
@@ -1431,6 +1785,12 @@ def _apply_occ_external_flow_route(
             "duplicate_facets_before_cleanup": pre_cleanup_duplicates,
             "duplicate_facets_after_cleanup": post_cleanup_duplicates,
             "cleanup_actions": duplicate_cleanup,
+            "mesh2d_watchdog_status": mesh2d_watchdog.get("status") if mesh2d_watchdog is not None else None,
+            "last_meshing_surface_tag_from_watchdog": (
+                mesh2d_watchdog.get("last_meshing_surface_tag")
+                if mesh2d_watchdog is not None
+                else None
+            ),
             "artifact": str(surface_mesh_path),
         }
         gmsh.write(str(surface_mesh_path))
@@ -1510,7 +1870,10 @@ def _apply_occ_external_flow_route(
                             mesh_metadata=metadata_path,
                             marker_summary=marker_summary_path,
                             surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
+                            surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
                             gmsh_log=gmsh_log_path,
+                            mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
+                            mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
                             plc_probe=plc_probe_path if plc_probe_path.exists() else None,
                             surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
                             discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
@@ -1567,7 +1930,12 @@ def _apply_occ_external_flow_route(
                             "mesh_metadata": str(metadata_path),
                             "marker_summary": str(marker_summary_path),
                             "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                            "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
                             "gmsh_log": str(gmsh_log_path),
+                            "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
+                            "mesh2d_watchdog_sample": (
+                                str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
+                            ),
                             "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
                             "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
                             "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
@@ -1633,7 +2001,10 @@ def _apply_occ_external_flow_route(
             mesh_metadata=metadata_path,
             marker_summary=marker_summary_path,
             surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
+            surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
             gmsh_log=gmsh_log_path,
+            mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
+            mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
             plc_probe=plc_probe_path if plc_probe_path.exists() else None,
             surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
             discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
@@ -1744,7 +2115,12 @@ def _apply_occ_external_flow_route(
                 "mesh_metadata": str(metadata_path),
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
                 "gmsh_log": str(gmsh_log_path),
+                "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
+                "mesh2d_watchdog_sample": (
+                    str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
+                ),
                 "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
                 "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
                 "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
@@ -1829,12 +2205,35 @@ def _apply_occ_external_flow_route(
                 "mesh_dim": config.mesh_dim,
                 **mesh_stats,
             }
+        if surface_patch_diagnostics is not None and "surface_patch_diagnostics" not in metadata:
+            metadata["surface_patch_diagnostics"] = {
+                "artifact": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "surface_count": int(surface_patch_diagnostics["surface_count"]),
+                "curve_count": int(surface_patch_diagnostics["curve_count"]),
+                "suspicious_surface_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["suspicious_surfaces"][:12]],
+                "shortest_curve_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["shortest_curves"][:20]],
+            }
+        if mesh2d_watchdog is not None:
+            metadata["mesh2d_watchdog"] = {
+                "artifact": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
+                "sample_artifact": str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None,
+                "status": mesh2d_watchdog.get("status"),
+                "timeout_seconds": mesh2d_watchdog.get("timeout_seconds"),
+                "triggered_at_elapsed_sec": mesh2d_watchdog.get("triggered_at_elapsed_sec"),
+                "completed_elapsed_sec": mesh2d_watchdog.get("completed_elapsed_sec"),
+                "last_meshing_surface_tag": mesh2d_watchdog.get("last_meshing_surface_tag"),
+            }
         metadata["artifacts"] = {
             "mesh": str(mesh_path),
             "mesh_metadata": str(metadata_path),
             "marker_summary": str(marker_summary_path),
             "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+            "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
             "gmsh_log": str(gmsh_log_path),
+            "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
+            "mesh2d_watchdog_sample": (
+                str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
+            ),
             "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
             "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
             "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
@@ -1856,7 +2255,12 @@ def _apply_occ_external_flow_route(
                 "mesh_metadata": str(metadata_path),
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
                 "gmsh_log": str(gmsh_log_path),
+                "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
+                "mesh2d_watchdog_sample": (
+                    str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
+                ),
                 "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
                 "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
                 "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,

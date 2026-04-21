@@ -300,7 +300,10 @@ class MeshArtifactBundle(BaseModel):
     mesh_metadata: Path
     marker_summary: Path
     surface_mesh_2d: Optional[Path] = None
+    surface_patch_diagnostics: Optional[Path] = None
     gmsh_log: Optional[Path] = None
+    mesh2d_watchdog: Optional[Path] = None
+    mesh2d_watchdog_sample: Optional[Path] = None
     plc_probe: Optional[Path] = None
     surface_cleanup_report: Optional[Path] = None
     discrete_reparam_report: Optional[Path] = None
