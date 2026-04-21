@@ -5,6 +5,9 @@ from pathlib import Path
 
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.providers.esp_pipeline import (
+    _ComponentInputModel,
+    _VspWingCandidate,
+    _select_component_candidate,
     _analyze_symmetry_touching_solids,
     _combine_union_groups_with_singletons,
     materialize_with_esp,
@@ -130,6 +133,53 @@ def test_materialize_with_esp_reports_normalization_before_after_counts(monkeypa
     assert normalization["final_analysis"]["duplicate_interface_face_pair_count"] == 0
 
 
+def test_materialize_with_esp_uses_component_subset_in_union_script(monkeypatch, tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    staging = tmp_path / "provider"
+    subset_path = staging / "esp_runtime" / "main_wing.vsp3"
+    raw_template = tmp_path / "raw_template.step"
+    union_template = tmp_path / "union_template.step"
+    _write_boxes_step(raw_template, _raw_symmetry_boxes())
+    _write_boxes_step(union_template, _unioned_boxes())
+
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._prepare_component_input_model",
+        lambda **_: _ComponentInputModel(
+            input_model_path=subset_path,
+            notes=["component_subset_exported=main_wing"],
+            provenance={"requested_component": "main_wing"},
+            artifacts={},
+        ),
+    )
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline.load_openvsp_reference_data",
+        lambda _: {"ref_length": 1.0},
+    )
+
+    def fake_runner(args, cwd):
+        script_name = Path(args[-1]).name
+        if script_name == "rebuild.csm":
+            (Path(cwd) / "raw_dump.stp").write_bytes(raw_template.read_bytes())
+        elif script_name == "union_groups.csm":
+            union_script_text = (staging / "esp_runtime" / "union_groups.csm").read_text(encoding="utf-8")
+            assert "main_wing.vsp3" in union_script_text
+            (Path(cwd) / "union_groups.step").write_bytes(union_template.read_bytes())
+        else:
+            raise AssertionError(f"unexpected script {script_name}")
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{script_name} ok\n", stderr="")
+
+    result = materialize_with_esp(
+        source_path=source,
+        staging_dir=staging,
+        component="main_wing",
+        runner=fake_runner,
+        batch_binary="/opt/esp/bin/serveCSM",
+    )
+
+    assert result.status == "success"
+
+
 def test_analyze_symmetry_touching_solids_does_not_fuse_non_mirrored_touching_boxes(tmp_path: Path):
     raw_path = tmp_path / "touching_but_not_mirrored.step"
     _write_boxes_step(
@@ -146,3 +196,46 @@ def test_analyze_symmetry_touching_solids_does_not_fuse_non_mirrored_touching_bo
     assert analysis.touching_groups == []
     assert analysis.grouped_body_tags == []
     assert analysis.singleton_body_tags == [1, 2, 3]
+
+
+def test_select_component_candidate_distinguishes_main_horizontal_and_vertical_tail():
+    candidates = [
+        _VspWingCandidate(
+            geom_id="main",
+            name="Main Wing",
+            type_name="Wing",
+            normalized_name="mainwing",
+            is_symmetric_xz=True,
+            x_location=0.0,
+            x_rotation_deg=0.0,
+            bbox_min=(0.0, 0.0, -0.05),
+            bbox_max=(1.3, 16.5, 0.83),
+        ),
+        _VspWingCandidate(
+            geom_id="htail",
+            name="Elevator",
+            type_name="Wing",
+            normalized_name="elevator",
+            is_symmetric_xz=True,
+            x_location=4.0,
+            x_rotation_deg=0.0,
+            bbox_min=(4.0, 0.0, -0.04),
+            bbox_max=(4.8, 1.5, 0.04),
+        ),
+        _VspWingCandidate(
+            geom_id="vtail",
+            name="Fin",
+            type_name="Wing",
+            normalized_name="fin",
+            is_symmetric_xz=False,
+            x_location=5.0,
+            x_rotation_deg=90.0,
+            bbox_min=(5.0, -0.03, -0.7),
+            bbox_max=(5.7, 0.03, 1.7),
+        ),
+    ]
+
+    assert _select_component_candidate("main_wing", candidates).geom_id == "main"
+    assert _select_component_candidate("horizontal_tail", candidates).geom_id == "htail"
+    assert _select_component_candidate("tail_wing", candidates).geom_id == "htail"
+    assert _select_component_candidate("vertical_tail", candidates).geom_id == "vtail"

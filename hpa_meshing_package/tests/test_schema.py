@@ -39,6 +39,16 @@ def test_schema_builds():
     assert cfg.component == "main_wing"
 
 
+def test_schema_accepts_explicit_tail_component_names():
+    cfg = MeshJobConfig(
+        component="horizontal_tail",
+        geometry=Path("demo.step"),
+        out_dir=Path("out/demo"),
+    )
+
+    assert cfg.component == "horizontal_tail"
+
+
 def test_schema_supports_mesh_study_contract_models(tmp_path: Path):
     case_dir = tmp_path / "coarse"
     report = MeshStudyReport(

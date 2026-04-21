@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 
 from hpa_meshing.providers import get_provider, materialize_geometry
+from hpa_meshing.providers.openvsp_surface_intersection import _infer_import_scale
+from hpa_meshing.schema import Bounds3D
 from hpa_meshing.schema import GeometryProviderRequest, GeometryTopologyMetadata
 
 
@@ -266,3 +268,26 @@ def test_probe_step_topology_ignores_near_identity_import_scale(tmp_path: Path, 
     assert topology.units == "m"
     assert topology.import_scale_to_units == 1.0
     assert topology.backend_rescale_required is False
+
+
+def test_infer_import_scale_prefers_consistent_axes_when_one_step_axis_is_contaminated():
+    normalized_bounds = Bounds3D(
+        x_min=0.0,
+        x_max=4.8,
+        y_min=-1.5,
+        y_max=1.5,
+        z_min=-0.036,
+        z_max=0.036,
+    )
+    import_bounds = Bounds3D(
+        x_min=4000.0,
+        x_max=4800.0,
+        y_min=-1500.0,
+        y_max=1500.0,
+        z_min=-36.0,
+        z_max=36.0,
+    )
+
+    scale = _infer_import_scale(normalized_bounds, import_bounds)
+
+    assert scale == 0.001

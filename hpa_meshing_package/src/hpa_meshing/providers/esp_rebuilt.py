@@ -100,6 +100,7 @@ def materialize(request: GeometryProviderRequest) -> GeometryProviderResult:
         pipeline_result = materialize_with_esp(
             source_path=request.source_path,
             staging_dir=request.staging_dir,
+            component=request.component,
             batch_binary=runtime.batch_binary,
         )
     except NotImplementedError as exc:

@@ -18,7 +18,7 @@ def build_recipe(
     )
     spec = route_spec(route.meshing_route)
     family_features = list(spec["family_features"])
-    if config.component in {"main_wing", "tail_wing"}:
+    if config.component in {"main_wing", "tail_wing", "horizontal_tail", "vertical_tail"}:
         family_features.append("component_profile:lifting_surface")
     if config.component == "fairing_vented":
         family_features.append("component_profile:perforation_aware")

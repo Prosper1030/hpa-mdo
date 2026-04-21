@@ -117,10 +117,31 @@ def _infer_import_scale(
     if not ratios:
         return None
 
-    scale = sum(ratios) / len(ratios)
-    tolerance = max(abs(scale) * 0.02, 1e-9)
-    if any(abs(ratio - scale) > tolerance for ratio in ratios):
+    clusters: list[list[float]] = []
+    for ratio in ratios:
+        matched_cluster = None
+        for cluster in clusters:
+            anchor = sum(cluster) / len(cluster)
+            tolerance = max(abs(anchor) * 0.02, 1e-9)
+            if abs(ratio - anchor) <= tolerance:
+                matched_cluster = cluster
+                break
+        if matched_cluster is None:
+            clusters.append([ratio])
+        else:
+            matched_cluster.append(ratio)
+
+    best_cluster = max(
+        clusters,
+        key=lambda cluster: (
+            len(cluster),
+            -abs((sum(cluster) / len(cluster)) - 1.0),
+        ),
+    )
+    if len(best_cluster) == 1 and len(ratios) > 1:
         return None
+
+    scale = sum(best_cluster) / len(best_cluster)
     if not math.isfinite(scale) or scale <= 0.0:
         return None
     if abs(scale - 1.0) <= _IMPORT_SCALE_IDENTITY_TOL:

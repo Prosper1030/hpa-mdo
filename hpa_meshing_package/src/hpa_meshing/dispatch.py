@@ -15,6 +15,8 @@ from .schema import (
 COMPONENT_DEFAULT_FAMILIES: Dict[ComponentType, GeometryFamilyType] = {
     "main_wing": "thin_sheet_lifting_surface",
     "tail_wing": "thin_sheet_lifting_surface",
+    "horizontal_tail": "thin_sheet_lifting_surface",
+    "vertical_tail": "thin_sheet_lifting_surface",
     "fairing_solid": "closed_solid",
     "fairing_vented": "perforated_solid",
     "aircraft_assembly": "thin_sheet_aircraft_assembly",
@@ -23,6 +25,8 @@ COMPONENT_DEFAULT_FAMILIES: Dict[ComponentType, GeometryFamilyType] = {
 COMPONENT_SUPPORTED_FAMILIES: Dict[ComponentType, List[GeometryFamilyType]] = {
     "main_wing": ["thin_sheet_lifting_surface"],
     "tail_wing": ["thin_sheet_lifting_surface"],
+    "horizontal_tail": ["thin_sheet_lifting_surface"],
+    "vertical_tail": ["thin_sheet_lifting_surface"],
     "fairing_solid": ["closed_solid"],
     "fairing_vented": ["perforated_solid"],
     "aircraft_assembly": ["thin_sheet_aircraft_assembly"],

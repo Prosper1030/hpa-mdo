@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 ComponentType = Literal[
     "main_wing",
     "tail_wing",
+    "horizontal_tail",
+    "vertical_tail",
     "fairing_solid",
     "fairing_vented",
     "aircraft_assembly",

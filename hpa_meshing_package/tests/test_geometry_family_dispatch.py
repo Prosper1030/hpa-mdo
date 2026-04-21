@@ -88,6 +88,37 @@ def test_recipe_dispatch_is_shared_by_family_not_component(tmp_path: Path):
     assert tail_recipe.backend_capability == "sheet_lifting_surface_meshing"
 
 
+def test_recipe_dispatch_supports_explicit_horizontal_and_vertical_tail_components(tmp_path: Path):
+    geometry = _write_step(tmp_path, "tail_surface.step")
+
+    htail_cfg = MeshJobConfig(
+        component="horizontal_tail",
+        geometry=geometry,
+        out_dir=tmp_path / "htail-out",
+    )
+    vtail_cfg = MeshJobConfig(
+        component="vertical_tail",
+        geometry=geometry,
+        out_dir=tmp_path / "vtail-out",
+    )
+
+    htail_recipe = build_recipe(
+        load_geometry(htail_cfg.geometry, htail_cfg),
+        classify_geometry_family(load_geometry(htail_cfg.geometry, htail_cfg), htail_cfg),
+        htail_cfg,
+    )
+    vtail_recipe = build_recipe(
+        load_geometry(vtail_cfg.geometry, vtail_cfg),
+        classify_geometry_family(load_geometry(vtail_cfg.geometry, vtail_cfg), vtail_cfg),
+        vtail_cfg,
+    )
+
+    assert htail_recipe.geometry_family == "thin_sheet_lifting_surface"
+    assert vtail_recipe.geometry_family == "thin_sheet_lifting_surface"
+    assert htail_recipe.meshing_route == "gmsh_thin_sheet_surface"
+    assert vtail_recipe.meshing_route == "gmsh_thin_sheet_surface"
+
+
 def test_geometry_classifier_prefers_provider_family_hint(tmp_path: Path):
     source = tmp_path / "assembly.vsp3"
     source.write_text("<vsp3/>", encoding="utf-8")

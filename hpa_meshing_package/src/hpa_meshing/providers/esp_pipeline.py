@@ -31,6 +31,23 @@ NORMALIZATION_REPORT_NAME = "normalization.json"
 _STEP_MILLI_UNIT_PATTERN = re.compile(r"SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)")
 _STEP_COORDS_LOOK_LIKE_METERS_MAX_REF_RATIO = 500.0
 _IMPORT_SCALE_IDENTITY_TOL = 1.0e-6
+_MAIN_WING_ALIASES = {"mainwing", "main", "wing"}
+_HORIZONTAL_TAIL_ALIASES = {
+    "elevator",
+    "htail",
+    "horizontaltail",
+    "hstab",
+    "tailplane",
+    "tailwing",
+}
+_VERTICAL_TAIL_ALIASES = {
+    "fin",
+    "vtail",
+    "verticaltail",
+    "verticalfin",
+    "vstab",
+    "rudder",
+}
 
 
 @dataclass(frozen=True)
@@ -68,6 +85,39 @@ class _SymmetryTouchingAnalysis:
 
 
 @dataclass(frozen=True)
+class _VspWingCandidate:
+    geom_id: str
+    name: str
+    type_name: str
+    normalized_name: str
+    is_symmetric_xz: bool
+    x_location: float
+    x_rotation_deg: float
+    bbox_min: tuple[float, float, float]
+    bbox_max: tuple[float, float, float]
+
+    @property
+    def span_y(self) -> float:
+        return self.bbox_max[1] - self.bbox_min[1]
+
+    @property
+    def span_z(self) -> float:
+        return self.bbox_max[2] - self.bbox_min[2]
+
+    @property
+    def chord_x(self) -> float:
+        return self.bbox_max[0] - self.bbox_min[0]
+
+
+@dataclass(frozen=True)
+class _ComponentInputModel:
+    input_model_path: Path
+    notes: list[str] = field(default_factory=list)
+    provenance: Dict[str, Any] = field(default_factory=dict)
+    artifacts: Dict[str, Path] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class EspMaterializationResult:
     status: str
     normalized_geometry_path: Optional[Path]
@@ -82,6 +132,12 @@ class EspMaterializationResult:
     input_model_path: Optional[Path] = None
     provenance: Dict[str, Any] = field(default_factory=dict)
     artifacts: Dict[str, Path] = field(default_factory=dict)
+
+
+def _load_openvsp():
+    import openvsp as vsp  # type: ignore
+
+    return vsp
 
 
 def _default_runner(args: List[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -131,6 +187,303 @@ def _build_union_csm_script(source_path: Path, export_path: Path, body_count: in
         "",
     ]
     return "\n".join(script_lines)
+
+
+def _normalize_component_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def _vsp_point_component(point: Any, axis: str) -> float:
+    value = getattr(point, axis, None)
+    if callable(value):
+        return float(value())
+    if value is None:
+        raise AttributeError(f"point does not expose axis {axis}")
+    return float(value)
+
+
+def _safe_vsp_parm(vsp, geom_id: str, parm_names: list[str], group: str) -> float:
+    for parm_name in parm_names:
+        try:
+            parm_id = vsp.FindParm(geom_id, parm_name, group)
+        except Exception:
+            parm_id = ""
+        if not parm_id:
+            continue
+        try:
+            return float(vsp.GetParmVal(parm_id))
+        except Exception:
+            continue
+    return 0.0
+
+
+def _is_symmetric_xz(vsp, geom_id: str) -> bool:
+    try:
+        parm_id = vsp.FindParm(geom_id, "Sym_Planar_Flag", "Sym")
+    except Exception:
+        parm_id = ""
+    if not parm_id:
+        return False
+    try:
+        flag = int(vsp.GetParmVal(parm_id))
+    except Exception:
+        return False
+    return bool(flag & int(getattr(vsp, "SYM_XZ", 2)))
+
+
+def _bbox_xyz(vsp, geom_id: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    bbox_min = vsp.GetGeomBBoxMin(geom_id)
+    bbox_max = vsp.GetGeomBBoxMax(geom_id)
+    return (
+        (
+            _vsp_point_component(bbox_min, "x"),
+            _vsp_point_component(bbox_min, "y"),
+            _vsp_point_component(bbox_min, "z"),
+        ),
+        (
+            _vsp_point_component(bbox_max, "x"),
+            _vsp_point_component(bbox_max, "y"),
+            _vsp_point_component(bbox_max, "z"),
+        ),
+    )
+
+
+def _collect_vsp_wing_candidates(vsp) -> list[_VspWingCandidate]:
+    candidates: list[_VspWingCandidate] = []
+    for geom_id in vsp.FindGeoms():
+        type_name = str(vsp.GetGeomTypeName(geom_id) or "")
+        if type_name.lower() != "wing":
+            continue
+        name = str(vsp.GetGeomName(geom_id) or "")
+        bbox_min, bbox_max = _bbox_xyz(vsp, geom_id)
+        candidates.append(
+            _VspWingCandidate(
+                geom_id=str(geom_id),
+                name=name,
+                type_name=type_name,
+                normalized_name=_normalize_component_name(name),
+                is_symmetric_xz=_is_symmetric_xz(vsp, geom_id),
+                x_location=_safe_vsp_parm(vsp, geom_id, ["X_Location", "X_Rel_Location"], "XForm"),
+                x_rotation_deg=_safe_vsp_parm(vsp, geom_id, ["X_Rotation", "X_Rel_Rotation"], "XForm"),
+                bbox_min=bbox_min,
+                bbox_max=bbox_max,
+            )
+        )
+    return candidates
+
+
+def _component_alias(component: str) -> str:
+    if component == "tail_wing":
+        return "horizontal_tail"
+    return component
+
+
+def _candidate_priority(
+    candidate: _VspWingCandidate,
+    *,
+    aliases: set[str],
+    require_symmetric: bool | None = None,
+    downstream_x: float | None = None,
+) -> tuple[int, int, int, float, float, float]:
+    alias_match = int(candidate.normalized_name in aliases)
+    symmetric_match = (
+        0
+        if require_symmetric is None
+        else int(candidate.is_symmetric_xz is require_symmetric)
+    )
+    downstream_match = 0
+    if downstream_x is not None:
+        downstream_match = int(candidate.x_location > downstream_x + 1.0e-6)
+    vertical_orientation = int(
+        abs(abs(candidate.x_rotation_deg) - 90.0) <= 15.0
+        or candidate.span_z > max(candidate.span_y * 2.0, 1.0e-6)
+    )
+    return (
+        alias_match,
+        symmetric_match,
+        downstream_match,
+        candidate.span_y,
+        vertical_orientation,
+        candidate.span_z,
+    )
+
+
+def _select_component_candidate(
+    component: str,
+    candidates: list[_VspWingCandidate],
+) -> _VspWingCandidate:
+    effective_component = _component_alias(component)
+    if effective_component == "aircraft_assembly":
+        raise ValueError("assembly does not require component candidate selection")
+
+    symmetric_candidates = [candidate for candidate in candidates if candidate.is_symmetric_xz]
+    if effective_component == "main_wing":
+        if not symmetric_candidates:
+            raise ValueError("no symmetric OpenVSP wing candidates were available for main_wing")
+        return max(
+            symmetric_candidates,
+            key=lambda candidate: (
+                int(candidate.normalized_name in _MAIN_WING_ALIASES),
+                candidate.span_y,
+                -candidate.x_location,
+                candidate.chord_x,
+            ),
+        )
+
+    if effective_component == "horizontal_tail":
+        main_wing = _select_component_candidate("main_wing", candidates)
+        tail_candidates = [candidate for candidate in symmetric_candidates if candidate.geom_id != main_wing.geom_id]
+        if not tail_candidates:
+            raise ValueError("no symmetric OpenVSP wing candidates remained for horizontal_tail")
+        return max(
+            tail_candidates,
+            key=lambda candidate: (
+                int(candidate.normalized_name in _HORIZONTAL_TAIL_ALIASES),
+                int(candidate.x_location > main_wing.x_location + 1.0e-6),
+                candidate.span_y,
+                candidate.x_location,
+            ),
+        )
+
+    if effective_component == "vertical_tail":
+        vertical_candidates = [candidate for candidate in candidates if not candidate.is_symmetric_xz]
+        if not vertical_candidates:
+            raise ValueError("no non-symmetric OpenVSP wing candidates were available for vertical_tail")
+        return max(
+            vertical_candidates,
+            key=lambda candidate: (
+                int(candidate.normalized_name in _VERTICAL_TAIL_ALIASES),
+                int(abs(abs(candidate.x_rotation_deg) - 90.0) <= 15.0),
+                int(candidate.span_z > max(candidate.span_y * 2.0, 1.0e-6)),
+                candidate.span_z,
+                candidate.x_location,
+            ),
+        )
+
+    raise ValueError(f"component {component!r} is not selectable from a VSP wing subset")
+
+
+def _collect_descendant_geom_ids(vsp, geom_id: str) -> list[str]:
+    descendants: list[str] = []
+    pending = [geom_id]
+    seen = {geom_id}
+    while pending:
+        current = pending.pop()
+        try:
+            children = list(vsp.GetGeomChildren(current))
+        except Exception:
+            children = []
+        for child_id in children:
+            child_id = str(child_id)
+            if child_id in seen:
+                continue
+            seen.add(child_id)
+            descendants.append(child_id)
+            pending.append(child_id)
+    return descendants
+
+
+def _prepare_component_input_model(
+    *,
+    source_path: Path,
+    artifact_dir: Path,
+    component: str,
+) -> _ComponentInputModel:
+    effective_component = _component_alias(component)
+    selection_report_path = (artifact_dir / "component_selection.json").resolve()
+    base_payload: Dict[str, Any] = {
+        "requested_component": component,
+        "effective_component": effective_component,
+        "source_path": str(source_path),
+    }
+    if effective_component == "aircraft_assembly":
+        payload = {
+            **base_payload,
+            "selection_mode": "full_assembly_source",
+        }
+        selection_report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return _ComponentInputModel(
+            input_model_path=source_path,
+            notes=["component_selection_mode=full_assembly_source"],
+            provenance=payload,
+            artifacts={"component_selection_report": selection_report_path},
+        )
+
+    if source_path.suffix.lower() != ".vsp3":
+        raise RuntimeError(
+            f"component subset export requires a .vsp3 source, got {source_path.suffix or '<none>'}"
+        )
+
+    vsp = _load_openvsp()
+    try:
+        vsp.ClearVSPModel()
+        vsp.ReadVSPFile(str(source_path))
+        vsp.Update()
+        candidates = _collect_vsp_wing_candidates(vsp)
+        selected = _select_component_candidate(effective_component, candidates)
+        selected_descendants = _collect_descendant_geom_ids(vsp, selected.geom_id)
+        top_level_geom_ids = [str(geom_id) for geom_id in vsp.FindGeoms()]
+        delete_ids = [geom_id for geom_id in top_level_geom_ids if geom_id != selected.geom_id]
+        if delete_ids:
+            try:
+                vsp.DeleteGeomVec(delete_ids)
+            except Exception:
+                for geom_id in delete_ids:
+                    vsp.DeleteGeom(geom_id)
+        vsp.Update()
+        subset_path = (artifact_dir / f"{effective_component}.vsp3").resolve()
+        vsp.WriteVSPFile(str(subset_path), int(getattr(vsp, "SET_ALL", 0)))
+    finally:
+        try:
+            vsp.ClearVSPModel()
+        except Exception:
+            pass
+
+    payload = {
+        **base_payload,
+        "selection_mode": "openvsp_single_component_subset",
+        "selected_geom": {
+            "geom_id": selected.geom_id,
+            "name": selected.name,
+            "type_name": selected.type_name,
+            "is_symmetric_xz": selected.is_symmetric_xz,
+            "x_location": selected.x_location,
+            "x_rotation_deg": selected.x_rotation_deg,
+            "bbox_min": list(selected.bbox_min),
+            "bbox_max": list(selected.bbox_max),
+            "span_y": selected.span_y,
+            "span_z": selected.span_z,
+            "chord_x": selected.chord_x,
+        },
+        "selected_geom_ids": [selected.geom_id, *selected_descendants],
+        "removed_top_level_geom_ids": delete_ids,
+        "candidate_summary": [
+            {
+                "geom_id": candidate.geom_id,
+                "name": candidate.name,
+                "type_name": candidate.type_name,
+                "is_symmetric_xz": candidate.is_symmetric_xz,
+                "x_location": candidate.x_location,
+                "x_rotation_deg": candidate.x_rotation_deg,
+                "span_y": candidate.span_y,
+                "span_z": candidate.span_z,
+                "bbox_min": list(candidate.bbox_min),
+                "bbox_max": list(candidate.bbox_max),
+            }
+            for candidate in candidates
+        ],
+        "subset_path": str(subset_path),
+    }
+    selection_report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return _ComponentInputModel(
+        input_model_path=subset_path,
+        notes=[f"component_subset_exported={effective_component}"],
+        provenance=payload,
+        artifacts={
+            "component_selection_report": selection_report_path,
+            "component_input_model": subset_path,
+        },
+    )
 
 
 def _bbox_close(lhs: tuple[float, ...], rhs: tuple[float, ...], tol: float) -> bool:
@@ -723,6 +1076,7 @@ def materialize_with_esp(
     *,
     source_path: Path,
     staging_dir: Path,
+    component: str = "aircraft_assembly",
     runner: Optional[Runner] = None,
     batch_binary: Optional[str] = None,
 ) -> EspMaterializationResult:
@@ -734,6 +1088,43 @@ def materialize_with_esp(
         artifact_dir,
         work_dir,
     )
+    try:
+        component_input = _prepare_component_input_model(
+            source_path=artifact_source_path,
+            artifact_dir=artifact_dir,
+            component=component,
+        )
+    except Exception as exc:
+        reason = f"ESP component selection failed for {component}: {exc}"
+        command_log_path = (artifact_dir / COMMAND_LOG_NAME).resolve()
+        script_path = (artifact_dir / OCSM_SCRIPT_NAME).resolve()
+        selection_artifacts: Dict[str, Path] = {
+            "esp_input_model": artifact_source_path,
+        }
+        selection_report_path = (artifact_dir / "component_selection.json").resolve()
+        if selection_report_path.exists():
+            selection_artifacts["component_selection_report"] = selection_report_path
+        _write_command_log(
+            log_path=command_log_path,
+            args=[],
+            returncode=-1,
+            stdout="",
+            stderr=reason,
+        )
+        return EspMaterializationResult(
+            status="failed",
+            normalized_geometry_path=None,
+            topology_report_path=None,
+            notes=[reason],
+            warnings=[reason],
+            failure_code="esp_component_selection_failed",
+            command_log_path=command_log_path,
+            script_path=script_path,
+            input_model_path=artifact_source_path,
+            provenance={"component_selection": {"requested_component": component, "error": str(exc)}},
+            artifacts=selection_artifacts,
+        )
+    work_input_model_path = work_dir / component_input.input_model_path.name
     script_path = (artifact_dir / OCSM_SCRIPT_NAME).resolve()
     union_script_path = (artifact_dir / UNION_SCRIPT_NAME).resolve()
     raw_export_path = (artifact_dir / RAW_EXPORT_FILE_NAME).resolve()
@@ -751,7 +1142,7 @@ def materialize_with_esp(
     work_union_export_path = work_dir / UNION_EXPORT_FILE_NAME
 
     script_path.write_text(
-        _build_csm_script(source_path=work_source_path, export_path=work_raw_export_path),
+        _build_csm_script(source_path=work_input_model_path, export_path=work_raw_export_path),
         encoding="utf-8",
     )
 
@@ -775,10 +1166,13 @@ def materialize_with_esp(
             failure_code="esp_batch_binary_missing",
             command_log_path=command_log_path,
             script_path=script_path,
-            input_model_path=artifact_source_path,
+            input_model_path=component_input.input_model_path,
+            provenance={"component_selection": component_input.provenance},
             artifacts={
                 "esp_script": script_path,
-                "esp_input_model": artifact_source_path,
+                "esp_input_model": component_input.input_model_path,
+                "source_model": artifact_source_path,
+                **component_input.artifacts,
             },
         )
 
@@ -804,11 +1198,14 @@ def materialize_with_esp(
             failure_code="esp_ocsm_batch_failed",
             command_log_path=command_log_path,
             script_path=script_path,
-            input_model_path=artifact_source_path,
+            input_model_path=component_input.input_model_path,
+            provenance={"component_selection": component_input.provenance},
             artifacts={
                 "esp_script": script_path,
-                "esp_input_model": artifact_source_path,
+                "esp_input_model": component_input.input_model_path,
+                "source_model": artifact_source_path,
                 "command_log": command_log_path,
+                **component_input.artifacts,
             },
         )
 
@@ -826,11 +1223,14 @@ def materialize_with_esp(
             failure_code="esp_export_missing",
             command_log_path=command_log_path,
             script_path=script_path,
-            input_model_path=artifact_source_path,
+            input_model_path=component_input.input_model_path,
+            provenance={"component_selection": component_input.provenance},
             artifacts={
                 "esp_script": script_path,
-                "esp_input_model": artifact_source_path,
+                "esp_input_model": component_input.input_model_path,
+                "source_model": artifact_source_path,
                 "command_log": command_log_path,
+                **component_input.artifacts,
             },
         )
 
@@ -842,12 +1242,12 @@ def materialize_with_esp(
         report_path=raw_topology_report_path,
         export_path=raw_export_path,
         source_path=source_path,
-        input_model_path=artifact_source_path,
+        input_model_path=component_input.input_model_path,
         batch_binary=resolved_binary,
         runtime_exec_dir=work_dir,
         stdout=completed.stdout or "",
         stderr=completed.stderr or "",
-        extra_notes=raw_unit_notes,
+        extra_notes=[*component_input.notes, *raw_unit_notes],
     )
     raw_analysis = _analyze_symmetry_touching_solids(raw_export_path)
 
@@ -887,17 +1287,19 @@ def materialize_with_esp(
     final_stderr = completed.stderr or ""
     output_artifacts: Dict[str, Path] = {
         "esp_script": script_path,
-        "esp_input_model": artifact_source_path,
+        "esp_input_model": component_input.input_model_path,
+        "source_model": artifact_source_path,
         "command_log": command_log_path,
         "raw_geometry": raw_export_path,
         "raw_topology_report": raw_topology_report_path,
         "normalization_report": normalization_report_path,
+        **component_input.artifacts,
     }
 
     if raw_analysis.touching_groups:
         union_script_path.write_text(
             _build_union_csm_script(
-                source_path=work_source_path,
+                source_path=work_input_model_path,
                 export_path=work_union_export_path,
                 body_count=max(raw_analysis.body_count, 1),
             ),
@@ -931,8 +1333,11 @@ def materialize_with_esp(
                 failure_code="esp_union_batch_failed",
                 command_log_path=union_command_log_path,
                 script_path=union_script_path,
-                input_model_path=artifact_source_path,
-                provenance={"normalization": normalization_payload},
+                input_model_path=component_input.input_model_path,
+                provenance={
+                    "component_selection": component_input.provenance,
+                    "normalization": normalization_payload,
+                },
                 artifacts=output_artifacts,
             )
         if not union_export_path.exists():
@@ -949,8 +1354,11 @@ def materialize_with_esp(
                 failure_code="esp_union_export_missing",
                 command_log_path=union_command_log_path,
                 script_path=union_script_path,
-                input_model_path=artifact_source_path,
-                provenance={"normalization": normalization_payload},
+                input_model_path=component_input.input_model_path,
+                provenance={
+                    "component_selection": component_input.provenance,
+                    "normalization": normalization_payload,
+                },
                 artifacts=output_artifacts,
             )
 
@@ -1025,8 +1433,9 @@ def materialize_with_esp(
                 failure_code="esp_union_validation_failed",
                 command_log_path=union_command_log_path,
                 script_path=union_script_path,
-                input_model_path=artifact_source_path,
+                input_model_path=component_input.input_model_path,
                 provenance={
+                    "component_selection": component_input.provenance,
                     "normalization": {
                         **normalization_payload,
                         "union_topology": union_topology.model_dump(mode="json"),
@@ -1107,8 +1516,11 @@ def materialize_with_esp(
             failure_code="esp_normalized_geometry_not_cfd_clean",
             command_log_path=command_log_path,
             script_path=script_path,
-            input_model_path=artifact_source_path,
-            provenance={"normalization": normalization_payload},
+            input_model_path=component_input.input_model_path,
+            provenance={
+                "component_selection": component_input.provenance,
+                "normalization": normalization_payload,
+            },
             artifacts=output_artifacts,
         )
 
@@ -1116,13 +1528,16 @@ def materialize_with_esp(
         report_path=topology_report_path,
         export_path=export_path,
         source_path=source_path,
-        input_model_path=artifact_source_path,
+        input_model_path=component_input.input_model_path,
         batch_binary=resolved_binary,
         runtime_exec_dir=work_dir,
         stdout=final_stdout,
         stderr=final_stderr,
-        extra_notes=[*final_notes, *raw_analysis.notes, *final_analysis.notes],
-        extra_payload={"normalization": normalization_payload},
+        extra_notes=[*component_input.notes, *final_notes, *raw_analysis.notes, *final_analysis.notes],
+        extra_payload={
+            "component_selection": component_input.provenance,
+            "normalization": normalization_payload,
+        },
     )
     topology.normalization = {
         **normalization_payload,
@@ -1154,8 +1569,11 @@ def materialize_with_esp(
         provider_version=provider_version,
         command_log_path=command_log_path,
         script_path=script_path,
-        input_model_path=artifact_source_path,
+        input_model_path=component_input.input_model_path,
         topology=topology,
-        provenance={"normalization": normalization_payload},
+        provenance={
+            "component_selection": component_input.provenance,
+            "normalization": normalization_payload,
+        },
         artifacts=output_artifacts,
     )

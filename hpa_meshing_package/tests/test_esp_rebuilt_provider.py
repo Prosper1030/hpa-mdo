@@ -66,10 +66,15 @@ def test_esp_rebuilt_delegates_to_materialize_with_esp_when_runtime_available(
     captured: dict = {}
 
     def fake_pipeline(
-        *, source_path: Path, staging_dir: Path, batch_binary: str | None = None
+        *,
+        source_path: Path,
+        staging_dir: Path,
+        component: str = "aircraft_assembly",
+        batch_binary: str | None = None,
     ) -> EspMaterializationResult:
         captured["source_path"] = source_path
         captured["staging_dir"] = staging_dir
+        captured["component"] = component
         captured["batch_binary"] = batch_binary
         return EspMaterializationResult(
             status="failed",
@@ -87,6 +92,7 @@ def test_esp_rebuilt_delegates_to_materialize_with_esp_when_runtime_available(
 
     assert captured["source_path"] == request.source_path
     assert captured["staging_dir"] == request.staging_dir
+    assert captured["component"] == request.component
     assert captured["batch_binary"] == "/opt/esp/bin/serveCSM"
     assert result.status == "failed"
     assert result.provenance.get("failure_code") == "esp_pipeline_unavailable"
