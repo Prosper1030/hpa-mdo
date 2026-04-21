@@ -44,6 +44,13 @@ DEFAULT_SURFACE_DISTANCE_FACTOR = 0.25
 DEFAULT_EDGE_DISTANCE_FACTOR = 0.05
 DEFAULT_SURFACE_TRANSITION_FACTOR = 10.0
 DEFAULT_EDGE_TRANSITION_FACTOR = 10.0
+COARSE_FIRST_TETRA_SURFACE_NODES_PER_REFERENCE_LENGTH = 24.0
+COARSE_FIRST_TETRA_EDGE_REFINEMENT_RATIO = 1.0
+COARSE_FIRST_TETRA_SPAN_EXTREME_STRIP_FLOOR_SIZE = 0.12
+COARSE_FIRST_TETRA_SUSPECT_STRIP_FLOOR_SIZE = 0.08
+COARSE_FIRST_TETRA_SUSPECT_SURFACE_ALGORITHM = 5
+COARSE_FIRST_TETRA_GENERAL_SURFACE_ALGORITHM = 5
+COARSE_FIRST_TETRA_FARFIELD_SURFACE_ALGORITHM = 5
 SURFACE_REPAIR_CLASSIFY_ANGLE_DEGREES = 40.0
 DEFAULT_MESH2D_WATCHDOG_TIMEOUT_SECONDS = 20.0
 DEFAULT_MESH2D_WATCHDOG_SAMPLE_SECONDS = 1
@@ -810,13 +817,84 @@ def _resolve_sizing_reference_length(handle: GeometryHandle, config: MeshJobConf
     return float(reference_length)
 
 
+def _resolve_coarse_first_tetra_profile(config: MeshJobConfig) -> Dict[str, Any]:
+    metadata = config.metadata or {}
+    enabled = bool(metadata.get("coarse_first_tetra_enabled", False))
+    nodes_per_ref_length = float(
+        metadata.get(
+            "coarse_first_tetra_surface_nodes_per_reference_length",
+            COARSE_FIRST_TETRA_SURFACE_NODES_PER_REFERENCE_LENGTH,
+        )
+    )
+    edge_ratio = float(
+        metadata.get(
+            "coarse_first_tetra_edge_refinement_ratio",
+            COARSE_FIRST_TETRA_EDGE_REFINEMENT_RATIO,
+        )
+    )
+    span_extreme_floor = float(
+        metadata.get(
+            "coarse_first_tetra_span_extreme_strip_floor_size",
+            COARSE_FIRST_TETRA_SPAN_EXTREME_STRIP_FLOOR_SIZE,
+        )
+    )
+    suspect_floor = float(
+        metadata.get(
+            "coarse_first_tetra_suspect_strip_floor_size",
+            COARSE_FIRST_TETRA_SUSPECT_STRIP_FLOOR_SIZE,
+        )
+    )
+    suspect_algorithm = int(
+        metadata.get(
+            "coarse_first_tetra_suspect_surface_algorithm",
+            COARSE_FIRST_TETRA_SUSPECT_SURFACE_ALGORITHM,
+        )
+    )
+    general_algorithm = int(
+        metadata.get(
+            "coarse_first_tetra_general_surface_algorithm",
+            COARSE_FIRST_TETRA_GENERAL_SURFACE_ALGORITHM,
+        )
+    )
+    farfield_algorithm = int(
+        metadata.get(
+            "coarse_first_tetra_farfield_surface_algorithm",
+            COARSE_FIRST_TETRA_FARFIELD_SURFACE_ALGORITHM,
+        )
+    )
+    clamp_min_to_near_body = bool(
+        metadata.get(
+            "coarse_first_tetra_clamp_mesh_size_min_to_near_body",
+            True,
+        )
+    )
+    return {
+        "enabled": enabled,
+        "surface_nodes_per_reference_length": nodes_per_ref_length,
+        "edge_refinement_ratio": edge_ratio,
+        "span_extreme_strip_floor_size": span_extreme_floor,
+        "suspect_strip_floor_size": suspect_floor,
+        "suspect_surface_algorithm": suspect_algorithm,
+        "general_surface_algorithm": general_algorithm,
+        "farfield_surface_algorithm": farfield_algorithm,
+        "clamp_mesh_size_min_to_near_body": clamp_min_to_near_body,
+    }
+
+
 def _resolve_mesh_field_defaults(reference_length: float, config: MeshJobConfig) -> Dict[str, Any]:
-    near_body_size = config.global_min_size or (reference_length / DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH)
+    coarse_profile = _resolve_coarse_first_tetra_profile(config)
+    if coarse_profile["enabled"]:
+        nodes_per_ref_length = float(coarse_profile["surface_nodes_per_reference_length"])
+        edge_ratio = float(coarse_profile["edge_refinement_ratio"])
+    else:
+        nodes_per_ref_length = DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH
+        edge_ratio = DEFAULT_EDGE_REFINEMENT_RATIO
+    near_body_size = config.global_min_size or (reference_length / nodes_per_ref_length)
     if near_body_size > reference_length:
         raise GmshBackendError(
             "near-body surface size exceeds reference length; aircraft surface would be under-resolved"
         )
-    edge_size = near_body_size * DEFAULT_EDGE_REFINEMENT_RATIO
+    edge_size = near_body_size * edge_ratio
     farfield_size = config.global_max_size or max(reference_length * DEFAULT_FARFIELD_REFERENCE_FACTOR, near_body_size * 40.0)
     distance_min = 0.0
     distance_max = max(reference_length * DEFAULT_SURFACE_DISTANCE_FACTOR, near_body_size * DEFAULT_SURFACE_TRANSITION_FACTOR)
@@ -832,6 +910,9 @@ def _resolve_mesh_field_defaults(reference_length: float, config: MeshJobConfig)
         "edge_distance_max": float(edge_distance_max),
         "mesh_algorithm_2d": int(mesh_algorithm_2d),
         "mesh_algorithm_3d": int(mesh_algorithm_3d),
+        "surface_nodes_per_reference_length": float(nodes_per_ref_length),
+        "edge_refinement_ratio": float(edge_ratio),
+        "coarse_first_tetra": coarse_profile,
     }
 
 
@@ -895,12 +976,34 @@ def _build_native_esp_surface_meshing_policy(
     suspect_curve_tags = _curve_tags_from_surface_records(suspect_records)
     farfield_surface_tags_sorted = _unique_sorted_ints(farfield_surface_tags)
 
+    coarse_profile = _resolve_coarse_first_tetra_profile(config)
+    coarse_first_active = bool(coarse_profile["enabled"])
+    if coarse_first_active:
+        primary_floor_default = float(coarse_profile["span_extreme_strip_floor_size"])
+        secondary_floor_default = float(coarse_profile["suspect_strip_floor_size"])
+        suspect_algorithm_default = int(coarse_profile["suspect_surface_algorithm"])
+        general_algorithm_default = int(coarse_profile["general_surface_algorithm"])
+        farfield_algorithm_default = int(coarse_profile["farfield_surface_algorithm"])
+        policy_name = "esp_rebuilt_native_rule_loft_c1_coarse_first_tetra"
+        extra_notes = [
+            "coarse-first-tetra surface budget reduction engaged",
+            "span-extreme / suspect strip floors raised to defuse first 3D tetra attempt",
+        ]
+    else:
+        primary_floor_default = 0.03
+        secondary_floor_default = 0.02
+        suspect_algorithm_default = 1
+        general_algorithm_default = 5
+        farfield_algorithm_default = 5
+        policy_name = "esp_rebuilt_native_rule_loft_c1"
+        extra_notes = []
+
     local_size_floors: list[Dict[str, Any]] = []
     if span_extreme_surface_tags:
         local_size_floors.append(
             {
                 "name": "span_extreme_strip_floor",
-                "size": max(near_body_size, float(config.metadata.get("esp_native_primary_strip_floor_size", 0.03))),
+                "size": max(near_body_size, float(config.metadata.get("esp_native_primary_strip_floor_size", primary_floor_default))),
                 "surface_tags": span_extreme_surface_tags,
                 "curve_tags": span_extreme_curve_tags,
             }
@@ -909,7 +1012,7 @@ def _build_native_esp_surface_meshing_policy(
         local_size_floors.append(
             {
                 "name": "suspect_strip_floor",
-                "size": max(near_body_size, float(config.metadata.get("esp_native_secondary_strip_floor_size", 0.02))),
+                "size": max(near_body_size, float(config.metadata.get("esp_native_secondary_strip_floor_size", secondary_floor_default))),
                 "surface_tags": suspect_surface_tags,
                 "curve_tags": suspect_curve_tags,
             }
@@ -934,7 +1037,7 @@ def _build_native_esp_surface_meshing_policy(
         per_surface_algorithms.append(
             {
                 "name": "suspect_strip_family",
-                "algorithm": int(config.metadata.get("esp_native_suspect_surface_algorithm", 1)),
+                "algorithm": int(config.metadata.get("esp_native_suspect_surface_algorithm", suspect_algorithm_default)),
                 "surface_tags": suspect_family_surface_tags,
             }
         )
@@ -942,7 +1045,7 @@ def _build_native_esp_surface_meshing_policy(
         per_surface_algorithms.append(
             {
                 "name": "aircraft_general_surfaces",
-                "algorithm": int(config.metadata.get("esp_native_general_surface_algorithm", 5)),
+                "algorithm": int(config.metadata.get("esp_native_general_surface_algorithm", general_algorithm_default)),
                 "surface_tags": aircraft_general_surface_tags,
             }
         )
@@ -950,7 +1053,7 @@ def _build_native_esp_surface_meshing_policy(
         per_surface_algorithms.append(
             {
                 "name": "farfield_boundary_surfaces",
-                "algorithm": int(config.metadata.get("esp_native_farfield_surface_algorithm", 5)),
+                "algorithm": int(config.metadata.get("esp_native_farfield_surface_algorithm", farfield_algorithm_default)),
                 "surface_tags": farfield_surface_tags_sorted,
             }
         )
@@ -960,13 +1063,15 @@ def _build_native_esp_surface_meshing_policy(
 
     return {
         "enabled": True,
-        "name": "esp_rebuilt_native_rule_loft_c1",
+        "name": policy_name,
+        "coarse_first_tetra_active": coarse_first_active,
         "local_size_floors": local_size_floors,
         "per_surface_algorithms": per_surface_algorithms,
         "notes": [
             "native esp_rebuilt C1 policy enabled",
             "farfield surfaces use a dedicated surface floor and 2D algorithm",
             "suspect strip family gets protected local size floors before full-route meshing",
+            *extra_notes,
         ],
     }
 
@@ -1073,7 +1178,25 @@ def _configure_mesh_field(
                 gmsh.model.mesh.setAlgorithm(2, int(surface_tag), int(algorithm_spec["algorithm"]))
     gmsh.model.mesh.field.setAsBackgroundMesh(background_field_tag)
 
-    gmsh.option.setNumber("Mesh.MeshSizeMin", edge_size)
+    coarse_profile = field_defaults.get("coarse_first_tetra") if isinstance(field_defaults, dict) else None
+    if coarse_profile is None:
+        coarse_profile = _resolve_coarse_first_tetra_profile(config)
+    coarse_first_active = bool(coarse_profile.get("enabled", False))
+    mesh_size_min_value = float(
+        near_body_size if (coarse_first_active and coarse_profile.get("clamp_mesh_size_min_to_near_body", True)) else edge_size
+    )
+    surface_nodes_per_reference_length = float(
+        field_defaults.get("surface_nodes_per_reference_length", DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH)
+        if isinstance(field_defaults, dict)
+        else DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH
+    )
+    edge_refinement_ratio_value = float(
+        field_defaults.get("edge_refinement_ratio", DEFAULT_EDGE_REFINEMENT_RATIO)
+        if isinstance(field_defaults, dict)
+        else DEFAULT_EDGE_REFINEMENT_RATIO
+    )
+
+    gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size_min_value)
     gmsh.option.setNumber("Mesh.MeshSizeMax", farfield_size)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
@@ -1086,13 +1209,19 @@ def _configure_mesh_field(
     return {
         "characteristic_length_policy": "reference_length",
         "reference_length": reference_length,
-        "surface_target_nodes_per_reference_length": int(DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH),
+        "surface_target_nodes_per_reference_length": (
+            int(surface_nodes_per_reference_length)
+            if surface_nodes_per_reference_length.is_integer()
+            else surface_nodes_per_reference_length
+        ),
+        "edge_refinement_ratio": edge_refinement_ratio_value,
         "near_body_size": near_body_size,
         "edge_size": edge_size,
         "farfield_size": farfield_size,
         "distance_min": distance_min,
         "distance_max": distance_max,
         "edge_distance_max": edge_distance_max,
+        "mesh_size_min": mesh_size_min_value,
         "mesh_size_from_points": 0,
         "mesh_size_from_curvature": 0,
         "mesh_size_extend_from_boundary": 0,
@@ -1115,6 +1244,18 @@ def _configure_mesh_field(
             "name": surface_policy.get("name"),
             "reason": surface_policy.get("reason"),
             "notes": list(surface_policy.get("notes", [])),
+            "coarse_first_tetra_active": bool(surface_policy.get("coarse_first_tetra_active", False)),
+        },
+        "coarse_first_tetra": {
+            "enabled": coarse_first_active,
+            "clamp_mesh_size_min_to_near_body": bool(coarse_profile.get("clamp_mesh_size_min_to_near_body", True)),
+            "surface_nodes_per_reference_length": float(coarse_profile.get("surface_nodes_per_reference_length", COARSE_FIRST_TETRA_SURFACE_NODES_PER_REFERENCE_LENGTH)),
+            "edge_refinement_ratio": float(coarse_profile.get("edge_refinement_ratio", COARSE_FIRST_TETRA_EDGE_REFINEMENT_RATIO)),
+            "span_extreme_strip_floor_size": float(coarse_profile.get("span_extreme_strip_floor_size", COARSE_FIRST_TETRA_SPAN_EXTREME_STRIP_FLOOR_SIZE)),
+            "suspect_strip_floor_size": float(coarse_profile.get("suspect_strip_floor_size", COARSE_FIRST_TETRA_SUSPECT_STRIP_FLOOR_SIZE)),
+            "suspect_surface_algorithm": int(coarse_profile.get("suspect_surface_algorithm", COARSE_FIRST_TETRA_SUSPECT_SURFACE_ALGORITHM)),
+            "general_surface_algorithm": int(coarse_profile.get("general_surface_algorithm", COARSE_FIRST_TETRA_GENERAL_SURFACE_ALGORITHM)),
+            "farfield_surface_algorithm": int(coarse_profile.get("farfield_surface_algorithm", COARSE_FIRST_TETRA_FARFIELD_SURFACE_ALGORITHM)),
         },
     }
 

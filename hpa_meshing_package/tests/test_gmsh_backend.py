@@ -15,7 +15,9 @@ from hpa_meshing.adapters.gmsh_backend import (
     _extract_last_meshing_curve,
     _extract_last_meshing_surface,
     _extract_overlap_surface_details,
+    _resolve_coarse_first_tetra_profile,
     _resolve_exact_overlap_surface_pair,
+    _resolve_mesh_field_defaults,
     _run_mesh2d_with_watchdog,
     _run_mesh3d_with_watchdog,
     _run_surface_repair_fallback,
@@ -1292,6 +1294,104 @@ def test_configure_mesh_field_applies_native_esp_surface_policy_from_patch_diagn
             "curve_tags": [],
         },
     ]
+
+
+def test_coarse_first_tetra_profile_defaults_disabled(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+    )
+    profile = _resolve_coarse_first_tetra_profile(config)
+    assert profile["enabled"] is False
+    defaults = _resolve_mesh_field_defaults(1.0425, config)
+    assert defaults["surface_nodes_per_reference_length"] == pytest.approx(128.0)
+    assert defaults["edge_refinement_ratio"] == pytest.approx(0.5)
+    assert defaults["near_body_size"] == pytest.approx(1.0425 / 128.0)
+    assert defaults["edge_size"] == pytest.approx(1.0425 / 256.0)
+    assert defaults["coarse_first_tetra"]["enabled"] is False
+
+
+def test_coarse_first_tetra_profile_scales_sizes_when_enabled(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        metadata={"coarse_first_tetra_enabled": True},
+    )
+    profile = _resolve_coarse_first_tetra_profile(config)
+    assert profile["enabled"] is True
+    assert profile["surface_nodes_per_reference_length"] == pytest.approx(24.0)
+    assert profile["edge_refinement_ratio"] == pytest.approx(1.0)
+    defaults = _resolve_mesh_field_defaults(1.0425, config)
+    assert defaults["near_body_size"] == pytest.approx(1.0425 / 24.0)
+    assert defaults["edge_size"] == pytest.approx(1.0425 / 24.0)
+    assert defaults["coarse_first_tetra"]["enabled"] is True
+
+
+def test_configure_mesh_field_coarse_first_tetra_clamps_size_min_and_raises_floors(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={"coarse_first_tetra_enabled": True},
+    )
+    gmsh = _FakeGmsh()
+    surface_patch_diagnostics = {
+        "surface_records": [
+            {
+                "tag": 5,
+                "surface_role": "aircraft",
+                "curve_tags": [105, 205],
+                "family_hints": ["short_curve_candidate", "high_aspect_strip_candidate"],
+            },
+            {
+                "tag": 31,
+                "surface_role": "aircraft",
+                "curve_tags": [131, 231],
+                "family_hints": [
+                    "short_curve_candidate",
+                    "high_aspect_strip_candidate",
+                    "span_extreme_candidate",
+                ],
+            },
+            {
+                "tag": 14,
+                "surface_role": "aircraft",
+                "curve_tags": [114],
+                "family_hints": [],
+            },
+        ]
+    }
+
+    info = _configure_mesh_field(
+        gmsh,
+        [5, 14, 31],
+        [105, 114, 131, 205, 231],
+        1.0425,
+        config,
+        farfield_surface_tags=[33],
+        surface_patch_diagnostics=surface_patch_diagnostics,
+    )
+
+    expected_near_body = 1.0425 / 24.0
+    assert info["coarse_first_tetra"]["enabled"] is True
+    assert info["coarse_first_tetra"]["clamp_mesh_size_min_to_near_body"] is True
+    assert info["near_body_size"] == pytest.approx(expected_near_body)
+    assert info["edge_size"] == pytest.approx(expected_near_body)
+    assert info["mesh_size_min"] == pytest.approx(expected_near_body)
+    assert gmsh.option.values["Mesh.MeshSizeMin"] == pytest.approx(expected_near_body)
+    assert info["surface_policy"]["coarse_first_tetra_active"] is True
+    assert info["surface_policy"]["name"] == "esp_rebuilt_native_rule_loft_c1_coarse_first_tetra"
+    floors_by_name = {entry["name"]: entry for entry in info["local_size_floors"]}
+    assert floors_by_name["span_extreme_strip_floor"]["size"] == pytest.approx(0.12)
+    assert floors_by_name["suspect_strip_floor"]["size"] == pytest.approx(0.08)
+    algorithms_by_name = {entry["name"]: entry for entry in info["per_surface_algorithms"]}
+    assert algorithms_by_name["suspect_strip_family"]["algorithm"] == 5
+    assert algorithms_by_name["aircraft_general_surfaces"]["algorithm"] == 5
 
 
 def test_configure_mesh_field_uses_reference_length_surface_and_edge_policy(tmp_path: Path):
