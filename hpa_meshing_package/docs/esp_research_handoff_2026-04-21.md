@@ -63,6 +63,17 @@ Evidence:
 
 This is no longer a provider-existence gap. The concrete remaining gap is downstream meshing stability.
 
+### Latest C1 meshing-forensics update
+
+After the native provider landed, the next round of work added mesh-side watchdog artifacts and ran new `main_wing` / `assembly` probes. The important new truth is:
+
+- the minimal blocker is now a **Gmsh meshing-regime problem**, not a provider materialization problem
+- `main_wing` is the cleanest reproducer
+- the external-flow route mixes two costs together:
+  - aircraft BSpline surface meshing under default ref-length sizing
+  - downstream farfield / full-route overhead
+- if we isolate the aircraft-only surface mesh and coarsen it, native `main_wing` **can** complete 2D
+
 ## What Has Already Been Researched
 
 There is a real feasibility spike:
@@ -103,6 +114,78 @@ Meaning:
 - current `esp_rebuilt` does reach Gmsh-stage execution
 - there is still no real completed ESP coarse mesh yet
 - there are no ESP `CL / CD / CM` results yet
+
+### D. 2026-04-21 C1 Mesh2D forensics narrowed the blocker
+
+New artifacts:
+
+- [codex_c1_mesh2d_forensics_20260421](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/codex_c1_mesh2d_forensics_20260421)
+- [codex_c1_surface_only_forensics_scaled_20260421](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/codex_c1_surface_only_forensics_scaled_20260421)
+
+What changed in the evidence:
+
+- the route now drops `mesh2d_watchdog.json`, `mesh2d_watchdog_sample.txt`, and `surface_patch_diagnostics.json`
+- this means the failure is no longer just "sample looked stuck"; each run now leaves:
+  - the last meshing surface tag seen by the logger
+  - a call-stack sample artifact
+  - ranked suspicious surface / curve families
+
+Main-wing full-route result:
+
+- `Mesh.Algorithm = 1 / 5 / 6` on the native `main_wing` full route all timed out under default sizing
+- the default-size route consistently triggered the watchdog around `16 s`
+- algorithm `6` and `5` both last reported `surface 14 (BSpline surface)`
+- algorithm `1` last reported `surface 11 (BSpline surface, MeshAdapt)`
+- the call-stack samples show the default-size route spending time in Gmsh `Mesh2D -> meshGenerator`, with default frontal/delaunay runs going through `laplaceSmoothing` / BSpline reparameterization paths rather than producing a clean explicit geometry error
+
+Main-wing coarse full-route result:
+
+- coarse route cases (`global_min_size = 0.05`, `global_max_size = 1.0`) still timed out on the full route
+- but their watchdog advanced to `surface 33 (Plane)`, which is outside the 32-aircraft-surface set
+- this is strong evidence that coarse sizing can get through the aircraft surfaces and then pay heavily in the downstream farfield plane / external-flow path
+
+Main-wing aircraft-only scaled probe:
+
+- the properly scaled aircraft-only default-size probe still timed out and last reported `surface 14 (BSpline surface, Frontal-Delaunay)`
+- the properly scaled aircraft-only coarse005 probe **completed**
+- completed artifact:
+  - [surface_mesh_2d.msh](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/codex_c1_surface_only_forensics_scaled_20260421/main_wing_surface_only_scaled_alg6_coarse005/artifacts/mesh/surface_mesh_2d.msh)
+- completion evidence:
+  - `35770 nodes / 74077 elements`
+  - `Done meshing 2D` in about `1.26 s`
+  - wrapper wall time about `2.83 s`
+
+Assembly minimal smoke:
+
+- the full-route assembly probe also timed out
+- but the watchdog triggered while Gmsh was still in `Mesh1D`, not yet `Mesh2D`
+- the corresponding sample showed roughly `9.9 GB` physical footprint on this Mac mini
+- engineering meaning: assembly is same-family downstream pain, but it is not the cleanest minimal blocker; `main_wing` remains the right first diagnostic target
+
+Suspicious patch family:
+
+- the ranked suspicious surfaces are consistently `31/32` and then `5/6/1/10`
+- common traits:
+  - `short_curve_candidate`
+  - `high_aspect_strip_candidate`
+  - often `span_extreme_candidate`
+- these live around:
+  - the wing outer-span strip / cap family
+  - root / trailing-edge-adjacent tiny strip faces
+
+Important nuance:
+
+- the surface that the watchdog catches during default-size timeout is `surface 14`, not one of the top-ranked tiny strips
+- so the small-strip family is best treated as a likely **global meshing-regime trigger / quality poison**, while the actual visible stall manifests later on a larger BSpline patch
+
+Current engineering interpretation:
+
+- native C1 geometry is **not** fundamentally unmeshable in 2D
+- the true blocker is the combination of:
+  - default ref-length-driven near-body sizing
+  - native BSpline patch parameterization / short-curve strip family
+  - full external-flow farfield route overhead
+- this means the next useful work should stay on meshing diagnostics / policy, not on provider existence, runtime installation, or large source-geometry redesigns
 
 ### B. Current OpenVSP route materializes geometry, but high-resolution meshing is still unstable
 
@@ -267,22 +350,22 @@ Make `esp_rebuilt` into a real provider that can:
    - remaining question is whether that loft recipe should be refined, not whether `UDPRIM vsp3` should come back
 
 2. Why does the current native geometry still hang in Gmsh `Mesh2D`?
-   - mixed solid/sheet body behavior before STEP export?
-   - section ordering or loft closure issue?
-   - surface-meshing option mismatch for the exported topology?
+   - default sizing plus BSpline reparameterization cost on the exported patch family?
+   - short-curve / high-aspect strip surfaces poisoning global meshing quality?
+   - full-route farfield plane cost hiding the fact that aircraft-only coarse 2D is already passable?
 
 3. Should the next diagnostic focus on `main_wing` first, or on the full `aircraft_assembly` export?
-   - main wing already gives the cleanest provider topology evidence
-   - assembly smoke suggests more complex body behavior before export
+   - answer is now clearly `main_wing` first
+   - assembly smoke is same-family evidence, but its first visible pain can appear earlier in `Mesh1D` with much higher memory pressure
 
 4. What exact Gmsh diagnostics should be added next?
-   - 2D-only artifact export
-   - per-surface meshing traces
-   - mesh-option sweeps around the `Mesh2D -> bowyerWatsonFrontal -> insertAPoint` hang
+   - keep the new watchdog / sample / patch-ranking artifacts
+   - consider an in-route diagnostic mode that skips farfield and meshes aircraft-only surfaces directly
+   - localize size / meshing-policy experiments around the suspicious strip family instead of doing blind global sweeps
 
 5. Does the native ESP export actually reduce the old overlap disease on the main wing?
    - current evidence says yes at the provider topology layer (`duplicate_interface_face_pair_count = 0`)
-   - but that still needs meshing-side confirmation
+   - and the new aircraft-only coarse005 completion is the first meshing-side evidence that the native provider is at least salvageable as a mainline direction
 
 ## What Another AI Should Not Waste Time On First
 
@@ -311,4 +394,4 @@ Those are downstream concerns. The immediate blocker is now a stable meshing pat
 
 ## One-Sentence Summary
 
-Current `main` now has a runnable native ESP provider, but the route still lacks a stable Gmsh meshing window for `blackcat_004`, so the next engineering target is meshing diagnostics rather than provider enablement.
+Current `main` now has a runnable native ESP provider and at least one completed native `main_wing` aircraft-only coarse 2D probe, but the full external-flow route still lacks a stable default-size Gmsh meshing window for `blackcat_004`, so the next engineering target is meshing-policy hardening rather than provider enablement.
