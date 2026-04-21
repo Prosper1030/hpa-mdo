@@ -57,9 +57,14 @@ def test_python_m_cli_reports_experimental_provider_status(tmp_path: Path):
     geometry = tmp_path / "assembly.vsp3"
     geometry.write_text("<vsp3/>", encoding="utf-8")
     out_dir = tmp_path / "out"
+    runtime_free_path = tmp_path / "bin"
+    runtime_free_path.mkdir()
     package_root = Path(__file__).resolve().parents[1]
     env = dict(os.environ)
     env["PYTHONPATH"] = "src"
+    env["PATH"] = str(runtime_free_path)
+    env.pop("ESP_ROOT", None)
+    env.pop("CASROOT", None)
 
     result = subprocess.run(
         [
