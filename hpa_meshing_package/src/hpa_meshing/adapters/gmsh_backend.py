@@ -1009,6 +1009,92 @@ def _run_surface_repair_fallback(
             gmsh.finalize()
 
 
+def _probe_discrete_classify_angles(
+    *,
+    surface_mesh_path: Path,
+    probe_path: Path,
+    angle_degrees: list[float],
+    mesh_algorithm_2d: int,
+    mesh_algorithm_3d: int,
+) -> Dict[str, Any]:
+    gmsh = load_gmsh()
+    results: list[Dict[str, Any]] = []
+    for angle_deg in angle_degrees:
+        gmsh.initialize()
+        logger_started = False
+        try:
+            gmsh.option.setNumber("General.Terminal", 0)
+            gmsh.option.setNumber("Mesh.Binary", 0)
+            gmsh.option.setNumber("Mesh.Algorithm", float(mesh_algorithm_2d))
+            gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
+            gmsh.option.setNumber("Mesh.MeshOnlyEmpty", 1)
+            gmsh.logger.start()
+            logger_started = True
+
+            gmsh.open(str(surface_mesh_path))
+            gmsh.model.mesh.removeDuplicateNodes()
+            try:
+                gmsh.model.mesh.removeDuplicateElements([])
+            except TypeError:
+                gmsh.model.mesh.removeDuplicateElements()
+
+            gmsh.model.mesh.classifySurfaces(
+                float(angle_deg) * math.pi / 180.0,
+                True,
+                True,
+                math.pi,
+                True,
+            )
+            counts = {
+                "surfaces_after_classify": len(gmsh.model.getEntities(2)),
+                "curves_after_classify": len(gmsh.model.getEntities(1)),
+            }
+            gmsh.model.mesh.createGeometry()
+            gmsh.model.mesh.createTopology(True, False)
+            try:
+                gmsh.model.mesh.generate(3)
+                node_tags, _, _ = gmsh.model.mesh.getNodes()
+                _, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
+                results.append(
+                    {
+                        "angle_deg": float(angle_deg),
+                        "status": "success",
+                        **counts,
+                        "node_count": len(node_tags),
+                        "volume_element_count": sum(len(tags) for tags in volume_element_tags),
+                    }
+                )
+            except Exception as exc:
+                logger_messages = [str(message) for message in gmsh.logger.get()]
+                results.append(
+                    {
+                        "angle_deg": float(angle_deg),
+                        "status": "failed",
+                        **counts,
+                        "error": str(exc),
+                        "logger_tail": logger_messages[-40:],
+                        "overlap_surface_pair": _extract_overlap_surface_details(gmsh, str(exc), logger_messages),
+                    }
+                )
+        finally:
+            if logger_started:
+                try:
+                    gmsh.logger.stop()
+                except Exception:
+                    pass
+            gmsh.finalize()
+
+    payload = {
+        "status": "completed",
+        "surface_mesh_artifact": str(surface_mesh_path),
+        "mesh_algorithm_2d": int(mesh_algorithm_2d),
+        "mesh_algorithm_3d": int(mesh_algorithm_3d),
+        "results": results,
+    }
+    _json_write(probe_path, payload)
+    return payload
+
+
 def _placeholder_backend_result(
     recipe: MeshRecipe,
     handle: GeometryHandle,
@@ -1049,6 +1135,7 @@ def _apply_occ_external_flow_route(
     surface_cleanup_report_path = mesh_dir / "surface_cleanup_report.json"
     discrete_reparam_report_path = mesh_dir / "discrete_reparam_report.json"
     retry_mesh_metadata_path = mesh_dir / "retry_mesh_metadata.json"
+    classify_angle_probe_path = mesh_dir / "classify_angle_probe.json"
     if config.boundary_layer.enabled:
         return {
             "status": "failed",
@@ -1068,6 +1155,7 @@ def _apply_occ_external_flow_route(
                 "surface_cleanup_report": str(surface_cleanup_report_path),
                 "discrete_reparam_report": str(discrete_reparam_report_path),
                 "retry_mesh_metadata": str(retry_mesh_metadata_path),
+                "classify_angle_probe": str(classify_angle_probe_path),
             },
             "marker_summary": {},
             "mesh_stats": {},
@@ -1310,6 +1398,7 @@ def _apply_occ_external_flow_route(
                             surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
                             discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
                             retry_mesh_metadata=retry_mesh_metadata_path if retry_mesh_metadata_path.exists() else None,
+                            classify_angle_probe=classify_angle_probe_path if classify_angle_probe_path.exists() else None,
                         )
                         provider_provenance = None
                         if handle.provider_result is not None:
@@ -1366,6 +1455,7 @@ def _apply_occ_external_flow_route(
                             "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
                             "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
                             "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
+                            "classify_angle_probe": str(classify_angle_probe_path) if classify_angle_probe_path.exists() else None,
                         }
                         _json_write(metadata_path, metadata)
                         _json_write(marker_summary_path, marker_summary)
@@ -1431,6 +1521,7 @@ def _apply_occ_external_flow_route(
             surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
             discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
             retry_mesh_metadata=retry_mesh_metadata_path if retry_mesh_metadata_path.exists() else None,
+            classify_angle_probe=classify_angle_probe_path if classify_angle_probe_path.exists() else None,
         )
         provider_provenance = None
         if handle.provider_result is not None:
@@ -1541,6 +1632,7 @@ def _apply_occ_external_flow_route(
                 "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
                 "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
                 "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
+                "classify_angle_probe": str(classify_angle_probe_path) if classify_angle_probe_path.exists() else None,
             },
             "marker_summary": marker_summary,
             "physical_groups": physical_groups,
@@ -1580,6 +1672,18 @@ def _apply_occ_external_flow_route(
         if unit_normalization is not None:
             metadata["unit_normalization"] = unit_normalization
         if surface_repair_result is not None:
+            if (
+                surface_repair_result.get("status") == "failed"
+                and surface_mesh_path.exists()
+                and not classify_angle_probe_path.exists()
+            ):
+                _probe_discrete_classify_angles(
+                    surface_mesh_path=surface_mesh_path,
+                    probe_path=classify_angle_probe_path,
+                    angle_degrees=[40.0, 20.0, 10.0],
+                    mesh_algorithm_2d=int(field_info.get("mesh_algorithm_2d", 6) or 6),
+                    mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1) or 1),
+                )
             metadata["surface_repair_fallback"] = {
                 "status": surface_repair_result["status"],
                 "route_stage": surface_repair_result["route_stage"],
@@ -1591,8 +1695,13 @@ def _apply_occ_external_flow_route(
                 "retry_mesh_metadata_artifact": (
                     str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None
                 ),
+                "classify_angle_probe_artifact": (
+                    str(classify_angle_probe_path) if classify_angle_probe_path.exists() else None
+                ),
                 "notes": surface_repair_result.get("notes", []),
             }
+            if classify_angle_probe_path.exists():
+                metadata["surface_repair_fallback"]["classify_angle_probe_artifact"] = str(classify_angle_probe_path)
         if physical_groups:
             metadata["physical_groups"] = physical_groups
         if marker_summary:
@@ -1613,6 +1722,7 @@ def _apply_occ_external_flow_route(
             "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
             "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
             "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
+            "classify_angle_probe": str(classify_angle_probe_path) if classify_angle_probe_path.exists() else None,
         }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
@@ -1634,6 +1744,7 @@ def _apply_occ_external_flow_route(
                 "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
                 "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
                 "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
+                "classify_angle_probe": str(classify_angle_probe_path) if classify_angle_probe_path.exists() else None,
             },
             "marker_summary": marker_summary,
             "mesh_stats": mesh_stats,

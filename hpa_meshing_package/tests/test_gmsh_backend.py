@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from hpa_meshing.adapters.gmsh_backend import (
+    _probe_discrete_classify_angles,
     _collect_plc_error_probe,
     _configure_mesh_field,
     _extract_overlap_surface_details,
@@ -315,6 +316,64 @@ def test_run_surface_repair_fallback_rebuilds_boundary_groups_and_writes_reports
     retry_metadata = json.loads(retry_metadata_path.read_text(encoding="utf-8"))
     assert retry_metadata["status"] == "success"
     assert retry_metadata["mesh"]["volume_element_count"] > 0
+
+
+def test_probe_discrete_classify_angles_reports_results_for_surface_mesh(tmp_path: Path):
+    normalized = _write_occ_box_step(tmp_path, "box_for_classify_probe.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = _provider_result(source, normalized)
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "baseline_out",
+        geometry_source="provider_generated",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:openvsp_surface_intersection",
+        geometry_source="provider_generated",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="openvsp_surface_intersection",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        declared_family="thin_sheet_aircraft_assembly",
+        inferred_family=None,
+        geometry_family="thin_sheet_aircraft_assembly",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    baseline = apply_recipe(recipe, handle, config)
+    assert baseline["status"] == "success"
+
+    surface_mesh_path = Path(baseline["artifacts"]["surface_mesh_2d"])
+    probe_path = tmp_path / "classify_angle_probe.json"
+    probe = _probe_discrete_classify_angles(
+        surface_mesh_path=surface_mesh_path,
+        probe_path=probe_path,
+        angle_degrees=[40.0, 20.0],
+        mesh_algorithm_2d=5,
+        mesh_algorithm_3d=1,
+    )
+
+    assert probe_path.exists()
+    assert probe["status"] == "completed"
+    assert len(probe["results"]) == 2
+    assert all(item["status"] in {"success", "failed"} for item in probe["results"])
 
 
 def test_apply_recipe_generates_occ_mesh_artifacts_and_marker_summary(tmp_path: Path):

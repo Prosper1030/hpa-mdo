@@ -305,6 +305,7 @@ class MeshArtifactBundle(BaseModel):
     surface_cleanup_report: Optional[Path] = None
     discrete_reparam_report: Optional[Path] = None
     retry_mesh_metadata: Optional[Path] = None
+    classify_angle_probe: Optional[Path] = None
 
 
 class MeshHandoff(BaseModel):
