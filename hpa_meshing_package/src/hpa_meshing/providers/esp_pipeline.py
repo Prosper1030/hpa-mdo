@@ -48,6 +48,19 @@ _VERTICAL_TAIL_ALIASES = {
     "vstab",
     "rudder",
 }
+_WING_SECTION_PARAM_NAMES = (
+    "Root_Chord",
+    "Tip_Chord",
+    "Sweep",
+    "Dihedral",
+    "Twist",
+    "ThickChord",
+    "SectTess_U",
+    "TE_Close_Thick",
+    "TE_Close_Thick_Chord",
+    "LE_Cap_Type",
+    "TE_Cap_Type",
+)
 
 
 @dataclass(frozen=True)
@@ -383,6 +396,95 @@ def _collect_descendant_geom_ids(vsp, geom_id: str) -> list[str]:
     return descendants
 
 
+def _cap_type_name(vsp, value: float) -> str:
+    cap_value = int(round(float(value)))
+    cap_names = {
+        int(getattr(vsp, "NO_END_CAP", -1)): "NO_END_CAP",
+        int(getattr(vsp, "FLAT_END_CAP", -2)): "FLAT_END_CAP",
+        int(getattr(vsp, "ROUND_END_CAP", -3)): "ROUND_END_CAP",
+        int(getattr(vsp, "EDGE_END_CAP", -4)): "EDGE_END_CAP",
+        int(getattr(vsp, "SHARP_END_CAP", -5)): "SHARP_END_CAP",
+        int(getattr(vsp, "POINT_END_CAP", -6)): "POINT_END_CAP",
+        int(getattr(vsp, "ROUND_EXT_END_CAP_NONE", -7)): "ROUND_EXT_END_CAP_NONE",
+        int(getattr(vsp, "ROUND_EXT_END_CAP_LE", -8)): "ROUND_EXT_END_CAP_LE",
+        int(getattr(vsp, "ROUND_EXT_END_CAP_TE", -9)): "ROUND_EXT_END_CAP_TE",
+        int(getattr(vsp, "ROUND_EXT_END_CAP_BOTH", -10)): "ROUND_EXT_END_CAP_BOTH",
+    }
+    return cap_names.get(cap_value, f"UNKNOWN_CAP_TYPE_{cap_value}")
+
+
+def _safe_get_xsec_parm_value(vsp, xsec: Any, parm_name: str) -> Optional[float]:
+    try:
+        parm_id = vsp.GetXSecParm(xsec, parm_name)
+    except Exception:
+        return None
+    if not parm_id:
+        return None
+    try:
+        return float(vsp.GetParmVal(parm_id))
+    except Exception:
+        return None
+
+
+def _collect_wing_section_report(vsp, geom_id: str) -> Dict[str, Any]:
+    xsec_surf = vsp.GetXSecSurf(geom_id, 0)
+    section_count = int(vsp.GetNumXSec(xsec_surf))
+    sections: list[Dict[str, Any]] = []
+    for index in range(section_count):
+        xsec = vsp.GetXSec(xsec_surf, index)
+        params: Dict[str, Any] = {}
+        for parm_name in _WING_SECTION_PARAM_NAMES:
+            value = _safe_get_xsec_parm_value(vsp, xsec, parm_name)
+            if value is not None:
+                params[parm_name] = value
+        if "LE_Cap_Type" in params:
+            params["LE_Cap_Type_Name"] = _cap_type_name(vsp, params["LE_Cap_Type"])
+        if "TE_Cap_Type" in params:
+            params["TE_Cap_Type_Name"] = _cap_type_name(vsp, params["TE_Cap_Type"])
+        sections.append(
+            {
+                "index": index,
+                "xsec_shape": int(vsp.GetXSecShape(xsec)),
+                "params": params,
+            }
+        )
+    return {
+        "section_count": section_count,
+        "sections": sections,
+        "terminal_section": sections[-1] if sections else None,
+    }
+
+
+def _collect_wing_component_report(
+    vsp,
+    *,
+    candidates: list[_VspWingCandidate],
+    selected_geom_id: Optional[str],
+) -> Dict[str, Any]:
+    return {
+        "selected_geom_id": selected_geom_id,
+        "candidate_count": len(candidates),
+        "candidates": [
+            {
+                "geom_id": candidate.geom_id,
+                "name": candidate.name,
+                "type_name": candidate.type_name,
+                "normalized_name": candidate.normalized_name,
+                "is_symmetric_xz": candidate.is_symmetric_xz,
+                "x_location": candidate.x_location,
+                "x_rotation_deg": candidate.x_rotation_deg,
+                "bbox_min": list(candidate.bbox_min),
+                "bbox_max": list(candidate.bbox_max),
+                "span_y": candidate.span_y,
+                "span_z": candidate.span_z,
+                "chord_x": candidate.chord_x,
+                "section_report": _collect_wing_section_report(vsp, candidate.geom_id),
+            }
+            for candidate in candidates
+        ],
+    }
+
+
 def _prepare_component_input_model(
     *,
     source_path: Path,
@@ -391,6 +493,7 @@ def _prepare_component_input_model(
 ) -> _ComponentInputModel:
     effective_component = _component_alias(component)
     selection_report_path = (artifact_dir / "component_selection.json").resolve()
+    wing_report_path = (artifact_dir / "wing_component_report.json").resolve()
     base_payload: Dict[str, Any] = {
         "requested_component": component,
         "effective_component": effective_component,
@@ -415,12 +518,18 @@ def _prepare_component_input_model(
         )
 
     vsp = _load_openvsp()
+    wing_report: Optional[Dict[str, Any]] = None
     try:
         vsp.ClearVSPModel()
         vsp.ReadVSPFile(str(source_path))
         vsp.Update()
         candidates = _collect_vsp_wing_candidates(vsp)
         selected = _select_component_candidate(effective_component, candidates)
+        wing_report = _collect_wing_component_report(
+            vsp,
+            candidates=candidates,
+            selected_geom_id=selected.geom_id,
+        )
         selected_descendants = _collect_descendant_geom_ids(vsp, selected.geom_id)
         top_level_geom_ids = [str(geom_id) for geom_id in vsp.FindGeoms()]
         delete_ids = [geom_id for geom_id in top_level_geom_ids if geom_id != selected.geom_id]
@@ -474,15 +583,20 @@ def _prepare_component_input_model(
         ],
         "subset_path": str(subset_path),
     }
+    artifacts: Dict[str, Path] = {
+        "component_selection_report": selection_report_path,
+        "component_input_model": subset_path,
+    }
+    if wing_report is not None:
+        wing_report_path.write_text(json.dumps(wing_report, ensure_ascii=False, indent=2), encoding="utf-8")
+        payload["wing_component_report"] = str(wing_report_path)
+        artifacts["wing_component_report"] = wing_report_path
     selection_report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return _ComponentInputModel(
         input_model_path=subset_path,
         notes=[f"component_subset_exported={effective_component}"],
         provenance=payload,
-        artifacts={
-            "component_selection_report": selection_report_path,
-            "component_input_model": subset_path,
-        },
+        artifacts=artifacts,
     )
 
 

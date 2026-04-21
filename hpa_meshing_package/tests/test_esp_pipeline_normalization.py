@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.providers.esp_pipeline import (
     _ComponentInputModel,
     _VspWingCandidate,
+    _prepare_component_input_model,
     _select_component_candidate,
     _analyze_symmetry_touching_solids,
     _combine_union_groups_with_singletons,
@@ -239,3 +241,197 @@ def test_select_component_candidate_distinguishes_main_horizontal_and_vertical_t
     assert _select_component_candidate("horizontal_tail", candidates).geom_id == "htail"
     assert _select_component_candidate("tail_wing", candidates).geom_id == "htail"
     assert _select_component_candidate("vertical_tail", candidates).geom_id == "vtail"
+
+
+class _FakePoint:
+    def __init__(self, x: float, y: float, z: float):
+        self.x = x
+        self.y = y
+        self.z = z
+
+
+class _FakeOpenVsp:
+    SET_ALL = 0
+    SYM_XZ = 2
+    NO_END_CAP = 0
+    FLAT_END_CAP = 1
+    ROUND_END_CAP = 2
+    EDGE_END_CAP = 3
+    SHARP_END_CAP = 4
+    POINT_END_CAP = 5
+    ROUND_EXT_END_CAP_NONE = 6
+    ROUND_EXT_END_CAP_LE = 7
+    ROUND_EXT_END_CAP_TE = 8
+    ROUND_EXT_END_CAP_BOTH = 9
+
+    def __init__(self) -> None:
+        self._geom_data = {
+            "main": {
+                "name": "Main Wing",
+                "type_name": "Wing",
+                "bbox_min": (0.0, 0.0, -0.05),
+                "bbox_max": (1.3, 16.5, 0.83),
+                "parms": {
+                    ("Sym", "Sym_Planar_Flag"): float(self.SYM_XZ),
+                    ("XForm", "X_Location"): 0.0,
+                    ("XForm", "X_Rotation"): 0.0,
+                },
+                "xsecs": [
+                    {
+                        "shape": 12,
+                        "params": {
+                            "Root_Chord": 1.0,
+                            "Tip_Chord": 1.3,
+                            "Sweep": 0.0,
+                            "Dihedral": 0.0,
+                            "Twist": 0.0,
+                            "ThickChord": 0.1409,
+                            "SectTess_U": 6.0,
+                            "TE_Close_Thick": 0.0,
+                            "TE_Close_Thick_Chord": 0.0,
+                            "LE_Cap_Type": float(self.FLAT_END_CAP),
+                            "TE_Cap_Type": float(self.FLAT_END_CAP),
+                        },
+                    },
+                    {
+                        "shape": 12,
+                        "params": {
+                            "Root_Chord": 0.83,
+                            "Tip_Chord": 0.435,
+                            "Sweep": 1.91,
+                            "Dihedral": 5.0,
+                            "Twist": 0.0,
+                            "ThickChord": 0.1173,
+                            "SectTess_U": 15.0,
+                            "TE_Close_Thick": 0.0,
+                            "TE_Close_Thick_Chord": 0.0,
+                            "LE_Cap_Type": float(self.FLAT_END_CAP),
+                            "TE_Cap_Type": float(self.ROUND_EXT_END_CAP_TE),
+                        },
+                    },
+                ],
+            },
+            "htail": {
+                "name": "Elevator",
+                "type_name": "Wing",
+                "bbox_min": (4.0, 0.0, -0.04),
+                "bbox_max": (4.8, 1.5, 0.04),
+                "parms": {
+                    ("Sym", "Sym_Planar_Flag"): float(self.SYM_XZ),
+                    ("XForm", "X_Location"): 4.0,
+                    ("XForm", "X_Rotation"): 0.0,
+                },
+                "xsecs": [
+                    {
+                        "shape": 7,
+                        "params": {
+                            "Root_Chord": 1.0,
+                            "Tip_Chord": 0.8,
+                            "Sweep": 0.0,
+                            "Dihedral": 0.0,
+                            "Twist": 0.0,
+                            "ThickChord": 0.09,
+                            "SectTess_U": 6.0,
+                            "TE_Close_Thick": 0.0,
+                            "TE_Close_Thick_Chord": 0.0,
+                            "LE_Cap_Type": float(self.FLAT_END_CAP),
+                            "TE_Cap_Type": float(self.FLAT_END_CAP),
+                        },
+                    }
+                ],
+            },
+        }
+        self._geom_ids = list(self._geom_data)
+
+    def ClearVSPModel(self) -> None:
+        self._geom_ids = list(self._geom_data)
+
+    def ReadVSPFile(self, _path: str) -> None:
+        self._geom_ids = list(self._geom_data)
+
+    def Update(self) -> None:
+        return None
+
+    def FindGeoms(self):
+        return list(self._geom_ids)
+
+    def GetGeomTypeName(self, geom_id: str) -> str:
+        return self._geom_data[geom_id]["type_name"]
+
+    def GetGeomName(self, geom_id: str) -> str:
+        return self._geom_data[geom_id]["name"]
+
+    def GetGeomBBoxMin(self, geom_id: str) -> _FakePoint:
+        return _FakePoint(*self._geom_data[geom_id]["bbox_min"])
+
+    def GetGeomBBoxMax(self, geom_id: str) -> _FakePoint:
+        return _FakePoint(*self._geom_data[geom_id]["bbox_max"])
+
+    def FindParm(self, geom_id: str, parm_name: str, group: str):
+        if (group, parm_name) in self._geom_data[geom_id]["parms"]:
+            return ("geom", geom_id, group, parm_name)
+        return ""
+
+    def GetParmVal(self, parm_ref):
+        if parm_ref and parm_ref[0] == "geom":
+            _, geom_id, group, parm_name = parm_ref
+            return self._geom_data[geom_id]["parms"][(group, parm_name)]
+        if parm_ref and parm_ref[0] == "xsec":
+            _, geom_id, index, parm_name = parm_ref
+            return self._geom_data[geom_id]["xsecs"][index]["params"][parm_name]
+        raise KeyError(parm_ref)
+
+    def GetGeomChildren(self, _geom_id: str):
+        return []
+
+    def GetXSecSurf(self, geom_id: str, _index: int):
+        return geom_id
+
+    def GetNumXSec(self, xsec_surf: str) -> int:
+        return len(self._geom_data[xsec_surf]["xsecs"])
+
+    def GetXSec(self, xsec_surf: str, index: int):
+        return (xsec_surf, index)
+
+    def GetXSecShape(self, xsec_ref) -> int:
+        geom_id, index = xsec_ref
+        return self._geom_data[geom_id]["xsecs"][index]["shape"]
+
+    def GetXSecParm(self, xsec_ref, parm_name: str):
+        geom_id, index = xsec_ref
+        if parm_name in self._geom_data[geom_id]["xsecs"][index]["params"]:
+            return ("xsec", geom_id, index, parm_name)
+        return ""
+
+    def DeleteGeomVec(self, delete_ids):
+        self._geom_ids = [geom_id for geom_id in self._geom_ids if geom_id not in set(delete_ids)]
+
+    def WriteVSPFile(self, path: str, _set_index: int) -> None:
+        Path(path).write_text("<vsp3/>", encoding="utf-8")
+
+
+def test_prepare_component_input_model_writes_wing_component_report(monkeypatch, tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._load_openvsp",
+        lambda: _FakeOpenVsp(),
+    )
+
+    result = _prepare_component_input_model(
+        source_path=source,
+        artifact_dir=artifact_dir,
+        component="main_wing",
+    )
+
+    wing_report_path = result.artifacts["wing_component_report"]
+    wing_report = json.loads(wing_report_path.read_text(encoding="utf-8"))
+    assert wing_report["selected_geom_id"] == "main"
+    selected = next(item for item in wing_report["candidates"] if item["geom_id"] == "main")
+    terminal = selected["section_report"]["terminal_section"]
+    assert terminal["params"]["Tip_Chord"] == 0.435
+    assert terminal["params"]["LE_Cap_Type_Name"] == "FLAT_END_CAP"
+    assert terminal["params"]["TE_Cap_Type_Name"] == "ROUND_EXT_END_CAP_TE"
