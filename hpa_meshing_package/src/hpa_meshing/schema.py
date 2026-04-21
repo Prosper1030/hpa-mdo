@@ -24,7 +24,7 @@ GeometryProviderType = Literal[
     "esp_rebuilt",
 ]
 GeometryProviderStageType = Literal["v1", "experimental"]
-GeometryProviderStatusType = Literal["materialized", "not_materialized"]
+GeometryProviderStatusType = Literal["materialized", "not_materialized", "failed"]
 GeometryFamilyType = Literal[
     "closed_solid",
     "thin_sheet_lifting_surface",

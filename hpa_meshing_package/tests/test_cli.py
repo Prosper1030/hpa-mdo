@@ -88,4 +88,6 @@ def test_python_m_cli_reports_experimental_provider_status(tmp_path: Path):
     assert payload["failure_code"] == "geometry_provider_not_materialized"
     assert payload["geometry_provider"] == "esp_rebuilt"
     assert payload["provider"]["provider_stage"] == "experimental"
-    assert payload["provider"]["status"] == "not_materialized"
+    assert payload["provider"]["status"] == "failed"
+    assert payload["provider"]["provenance"]["failure_code"] == "esp_runtime_missing"
+    assert payload["provider"]["provenance"]["runtime"]["available"] is False
