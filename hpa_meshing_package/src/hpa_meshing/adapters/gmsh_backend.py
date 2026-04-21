@@ -47,6 +47,8 @@ DEFAULT_EDGE_TRANSITION_FACTOR = 10.0
 SURFACE_REPAIR_CLASSIFY_ANGLE_DEGREES = 40.0
 DEFAULT_MESH2D_WATCHDOG_TIMEOUT_SECONDS = 20.0
 DEFAULT_MESH2D_WATCHDOG_SAMPLE_SECONDS = 1
+DEFAULT_MESH3D_WATCHDOG_TIMEOUT_SECONDS = 20.0
+DEFAULT_MESH3D_WATCHDOG_SAMPLE_SECONDS = 1
 SURFACE_REPAIR_ERROR_SIGNATURES = (
     "plc error",
     "self-intersecting facets",
@@ -70,6 +72,14 @@ LAST_MESHING_SURFACE_PATTERN = re.compile(
 )
 LAST_MESHING_CURVE_PATTERN = re.compile(
     r"Meshing curve\s+(\d+)\b",
+    re.IGNORECASE,
+)
+THREE_D_MESHING_VOLUME_PATTERN = re.compile(
+    r"3D Meshing\s+(\d+)\s+volume(?:s)?\s+with\s+(\d+)\s+connected component",
+    re.IGNORECASE,
+)
+TETRAHEDRIZING_NODE_PATTERN = re.compile(
+    r"Tetrahedrizing\s+(\d+)\s+nodes",
     re.IGNORECASE,
 )
 MESH_ALGORITHM_NAME_LOOKUP = {
@@ -125,6 +135,33 @@ def _extract_last_meshing_curve(logger_messages: Iterable[str]) -> Dict[str, Any
             continue
         return {
             "curve_tag": int(match.group(1)),
+            "message": message,
+        }
+    return None
+
+
+def _extract_3d_meshing_volume(logger_messages: Iterable[str]) -> Dict[str, Any] | None:
+    materialized = [str(message) for message in logger_messages]
+    for message in reversed(materialized):
+        match = THREE_D_MESHING_VOLUME_PATTERN.search(message)
+        if match is None:
+            continue
+        return {
+            "volume_count": int(match.group(1)),
+            "connected_component_count": int(match.group(2)),
+            "message": message,
+        }
+    return None
+
+
+def _extract_tetrahedrizing_node_count(logger_messages: Iterable[str]) -> Dict[str, Any] | None:
+    materialized = [str(message) for message in logger_messages]
+    for message in reversed(materialized):
+        match = TETRAHEDRIZING_NODE_PATTERN.search(message)
+        if match is None:
+            continue
+        return {
+            "tetrahedrizing_node_count": int(match.group(1)),
             "message": message,
         }
     return None
@@ -1181,6 +1218,99 @@ def _run_mesh2d_with_watchdog(
     return payload
 
 
+def _run_mesh3d_with_watchdog(
+    gmsh,
+    *,
+    watchdog_path: Path,
+    sample_path: Path,
+    timeout_seconds: float,
+    sample_seconds: int,
+    mesh_algorithm_3d: int,
+    pre_mesh_stats: Dict[str, Any] | None = None,
+    sample_runner: Callable[[int, int, Path], Dict[str, Any]] = _run_process_sample,
+) -> tuple[Dict[str, Any], Exception | None]:
+    payload: Dict[str, Any] = {
+        "status": "armed",
+        "pid": int(os.getpid()),
+        "timeout_seconds": float(timeout_seconds),
+        "sample_seconds": int(sample_seconds),
+        "sample_artifact": str(sample_path),
+        "mesh_algorithm_3d": int(mesh_algorithm_3d),
+        "pre_mesh_stats": dict(pre_mesh_stats or {}),
+    }
+    start = time.monotonic()
+    completed = threading.Event()
+    payload_lock = threading.Lock()
+
+    def _trigger_watchdog() -> None:
+        if completed.wait(float(timeout_seconds)):
+            return
+        try:
+            logger_messages = [str(message) for message in gmsh.logger.get()]
+        except Exception as exc:
+            logger_messages = [f"gmsh.logger.get failed during Mesh3D watchdog capture: {exc}"]
+        volume_summary = _extract_3d_meshing_volume(logger_messages)
+        tetra_summary = _extract_tetrahedrizing_node_count(logger_messages)
+        sample_result = sample_runner(int(os.getpid()), int(sample_seconds), sample_path)
+        with payload_lock:
+            payload["status"] = "triggered_while_meshing"
+            payload["triggered_at_elapsed_sec"] = float(time.monotonic() - start)
+            payload["logger_message_count"] = len(logger_messages)
+            payload["meshing_stage_at_timeout"] = _infer_meshing_stage(logger_messages)
+            payload["logger_tail"] = _logger_tail(logger_messages)
+            if volume_summary is not None:
+                payload["volume_count"] = int(volume_summary["volume_count"])
+                payload["connected_component_count"] = int(volume_summary["connected_component_count"])
+                payload["volume_meshing_message"] = str(volume_summary["message"])
+            if tetra_summary is not None:
+                payload["tetrahedrizing_node_count"] = int(tetra_summary["tetrahedrizing_node_count"])
+                payload["tetrahedrizing_message"] = str(tetra_summary["message"])
+            payload["sample"] = sample_result
+        _json_write(watchdog_path, payload)
+
+    watchdog_thread = threading.Thread(target=_trigger_watchdog, name="mesh3d-watchdog", daemon=True)
+    watchdog_thread.start()
+    mesh_error: Exception | None = None
+    try:
+        gmsh.model.mesh.generate(3)
+    except Exception as exc:
+        mesh_error = exc
+    finally:
+        completed.set()
+        watchdog_thread.join(timeout=0.5)
+
+    try:
+        final_logger_messages = [str(message) for message in gmsh.logger.get()]
+    except Exception as exc:
+        final_logger_messages = [f"gmsh.logger.get failed after Mesh3D: {exc}"]
+    volume_summary = _extract_3d_meshing_volume(final_logger_messages)
+    tetra_summary = _extract_tetrahedrizing_node_count(final_logger_messages)
+    with payload_lock:
+        payload["completed_elapsed_sec"] = float(time.monotonic() - start)
+        payload["logger_message_count_after_return"] = len(final_logger_messages)
+        payload["meshing_stage_after_return"] = _infer_meshing_stage(final_logger_messages)
+        payload["logger_tail_after_return"] = _logger_tail(final_logger_messages)
+        if volume_summary is not None:
+            payload["volume_count_after_return"] = int(volume_summary["volume_count"])
+            payload["connected_component_count_after_return"] = int(volume_summary["connected_component_count"])
+            payload["volume_meshing_message_after_return"] = str(volume_summary["message"])
+        if tetra_summary is not None:
+            payload["tetrahedrizing_node_count_after_return"] = int(tetra_summary["tetrahedrizing_node_count"])
+            payload["tetrahedrizing_message_after_return"] = str(tetra_summary["message"])
+        if mesh_error is not None:
+            payload["error"] = str(mesh_error)
+            if payload["status"] == "armed":
+                payload["status"] = "failed_without_timeout"
+            elif payload["status"] == "triggered_while_meshing":
+                payload["status"] = "failed_after_timeout"
+        elif payload["status"] == "armed":
+            payload["status"] = "completed_without_timeout"
+        elif payload["status"] == "triggered_while_meshing":
+            payload["status"] = "completed_after_timeout"
+    _json_write(watchdog_path, payload)
+    return payload, mesh_error
+
+
 def _heal_imported_bodies(gmsh, body_dim_tags: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], Dict[str, Any]]:
     summary: Dict[str, Any] = {
         "attempted": True,
@@ -1439,6 +1569,21 @@ def _ensure_positive_volume_mesh(mesh_stats: Dict[str, Any], *, context: str) ->
     if int(mesh_stats.get("volume_element_count", 0) or 0) > 0:
         return
     raise GmshBackendError(f"{context} returned without exception but did not generate any volume elements")
+
+
+def _backend_failure_code(error_text: str) -> str:
+    lowered = str(error_text).lower()
+    if "plc error" in lowered:
+        return "gmsh_plc_error"
+    if "invalid boundary mesh" in lowered:
+        return "gmsh_invalid_boundary_mesh"
+    if "hxt 3d mesh failed" in lowered:
+        return "gmsh_hxt_3d_failed"
+    if "did not generate any volume elements" in lowered:
+        return "gmsh_no_volume_elements"
+    if "surface-only probe" in lowered:
+        return "surface_mesh_only_probe"
+    return "gmsh_backend_failed"
 
 
 def _resolve_exact_overlap_surface_pair(gmsh, overlap_details: Dict[str, Any] | None) -> Dict[str, Any]:
@@ -1789,7 +1934,10 @@ def _run_surface_repair_fallback(
             gmsh.model.mesh.generate(3)
         gmsh.write(str(mesh_path))
 
-        mesh_stats = _mesh_stats(gmsh)
+        mesh_stats = {
+            "mesh_dim": 3,
+            **_mesh_stats(gmsh),
+        }
         physical_groups = {
             "fluid": _physical_group_summary(gmsh, 3, fluid_group),
             "aircraft": _physical_group_summary(gmsh, 2, aircraft_group),
@@ -2020,6 +2168,8 @@ def _apply_occ_external_flow_route(
     gmsh_log_path = mesh_dir / "gmsh_log.txt"
     mesh2d_watchdog_path = mesh_dir / "mesh2d_watchdog.json"
     mesh2d_watchdog_sample_path = mesh_dir / "mesh2d_watchdog_sample.txt"
+    mesh3d_watchdog_path = mesh_dir / "mesh3d_watchdog.json"
+    mesh3d_watchdog_sample_path = mesh_dir / "mesh3d_watchdog_sample.txt"
     plc_probe_path = mesh_dir / "plc_probe.json"
     surface_cleanup_report_path = mesh_dir / "surface_cleanup_report.json"
     discrete_reparam_report_path = mesh_dir / "discrete_reparam_report.json"
@@ -2043,6 +2193,8 @@ def _apply_occ_external_flow_route(
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path),
                 "mesh2d_watchdog_sample": str(mesh2d_watchdog_sample_path),
+                "mesh3d_watchdog": str(mesh3d_watchdog_path),
+                "mesh3d_watchdog_sample": str(mesh3d_watchdog_sample_path),
                 "plc_probe": str(plc_probe_path),
                 "surface_cleanup_report": str(surface_cleanup_report_path),
                 "discrete_reparam_report": str(discrete_reparam_report_path),
@@ -2099,6 +2251,7 @@ def _apply_occ_external_flow_route(
     mesh_stats: Dict[str, Any] = {}
     surface_patch_diagnostics: Dict[str, Any] | None = None
     mesh2d_watchdog: Dict[str, Any] | None = None
+    mesh3d_watchdog: Dict[str, Any] | None = None
     plc_probe: Dict[str, Any] | None = None
     surface_repair_result: Dict[str, Any] | None = None
     try:
@@ -2281,196 +2434,10 @@ def _apply_occ_external_flow_route(
             "artifact": str(surface_mesh_path),
         }
         gmsh.write(str(surface_mesh_path))
-
-        if config.mesh_dim == 3:
-            try:
-                gmsh.model.mesh.generate(3)
-            except Exception as exc:
-                logger_messages = [str(message) for message in gmsh.logger.get()]
-                plc_probe = _collect_plc_error_probe(
-                    gmsh,
-                    error_text=str(exc),
-                    logger_messages=logger_messages,
-                    surface_mesh_path=surface_mesh_path,
-                    mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
-                )
-                if "PLC Error" in str(exc):
-                    hxt_logger_checkpoint = len(logger_messages)
-                    plc_probe["hxt_probe"] = _run_3d_algorithm_probe(
-                        gmsh,
-                        aircraft_surface_tags=aircraft_surface_tags,
-                        fluid_volume_tags=fluid_volume_tags,
-                        algorithm3d=10,
-                        logger_checkpoint=hxt_logger_checkpoint,
-                        surface_mesh_path=surface_mesh_path,
-                    )
-                _json_write(plc_probe_path, plc_probe)
-                metadata["plc_probe"] = plc_probe
-                if _should_attempt_surface_repair_fallback(str(exc), logger_messages) and surface_mesh_path.exists():
-                    if gmsh_logger_started:
-                        _text_write(gmsh_log_path, [str(message) for message in gmsh.logger.get()])
-                        try:
-                            gmsh.logger.stop()
-                        except Exception:
-                            pass
-                        gmsh_logger_started = False
-                    if gmsh_initialized:
-                        gmsh.finalize()
-                        gmsh_initialized = False
-                    surface_repair_result = _run_surface_repair_fallback(
-                        surface_mesh_path=surface_mesh_path,
-                        bounds=bounds,
-                        mesh_path=mesh_path,
-                        cleanup_report_path=surface_cleanup_report_path,
-                        discrete_reparam_report_path=discrete_reparam_report_path,
-                        retry_metadata_path=retry_mesh_metadata_path,
-                        mesh_algorithm_2d=int(field_info.get("mesh_algorithm_2d", 6)),
-                        mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
-                    )
-                    metadata["surface_repair_fallback"] = {
-                        "status": surface_repair_result["status"],
-                        "route_stage": surface_repair_result["route_stage"],
-                        "cleanup_report_artifact": str(surface_cleanup_report_path),
-                        "discrete_reparam_report_artifact": str(discrete_reparam_report_path),
-                        "retry_mesh_metadata_artifact": str(retry_mesh_metadata_path),
-                        "notes": surface_repair_result.get("notes", []),
-                    }
-                    if surface_repair_result["status"] == "success":
-                        physical_groups = surface_repair_result["physical_groups"]
-                        marker_summary = surface_repair_result["marker_summary"]
-                        mesh_stats = surface_repair_result["mesh_stats"]
-                        body_bounds_dict = _bounds_dict(*body_bounds)
-                        if unit_normalization is None:
-                            unit_normalization = {
-                                "units": output_units or config.units,
-                                "backend_rescale_applied": backend_rescale_applied,
-                                "import_scale_to_units": import_scale,
-                                "imported_body_bounds": _bounds_dict(*imported_body_bounds),
-                                "provider_topology_bounds": (
-                                    handle.provider_result.topology.bounds.model_dump(mode="json")
-                                    if handle.provider_result is not None and handle.provider_result.topology.bounds is not None
-                                    else None
-                                ),
-                            }
-                        artifacts = MeshArtifactBundle(
-                            mesh=mesh_path,
-                            mesh_metadata=metadata_path,
-                            marker_summary=marker_summary_path,
-                            surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
-                            surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
-                            gmsh_log=gmsh_log_path,
-                            mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
-                            mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
-                            plc_probe=plc_probe_path if plc_probe_path.exists() else None,
-                            surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
-                            discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
-                            retry_mesh_metadata=retry_mesh_metadata_path if retry_mesh_metadata_path.exists() else None,
-                            classify_angle_probe=classify_angle_probe_path if classify_angle_probe_path.exists() else None,
-                        )
-                        provider_provenance = None
-                        if handle.provider_result is not None:
-                            provider_provenance = {
-                                "provider": handle.provider_result.provider,
-                                "provider_stage": handle.provider_result.provider_stage,
-                                "provider_status": handle.provider_result.status,
-                                "topology": handle.provider_result.topology.model_dump(mode="json"),
-                                "provenance": handle.provider_result.provenance,
-                                "artifacts": {
-                                    key: str(value)
-                                    for key, value in handle.provider_result.artifacts.items()
-                                },
-                            }
-                        handoff = MeshHandoff(
-                            route_stage="surface_repair_fallback",
-                            backend_capability=recipe.backend_capability,
-                            meshing_route=recipe.meshing_route,
-                            geometry_family=recipe.geometry_family,
-                            geometry_source=recipe.geometry_source,
-                            geometry_provider=handle.provider,
-                            source_path=handle.source_path,
-                            normalized_geometry_path=handle.path,
-                            units=output_units or config.units,
-                            body_bounds=_bounds_model(*body_bounds),
-                            farfield_bounds=Bounds3D(**bounds),
-                            mesh_stats=mesh_stats,
-                            marker_summary=marker_summary,
-                            physical_groups=physical_groups,
-                            artifacts=artifacts,
-                            provenance={
-                                "route_provenance": recipe.route_provenance,
-                                "geometry_loader": handle.loader,
-                                "provider": provider_provenance,
-                            },
-                            unit_normalization=unit_normalization or {},
-                        )
-                        metadata["status"] = "success"
-                        metadata["route_stage"] = "surface_repair_fallback"
-                        metadata["physical_groups"] = physical_groups
-                        metadata["marker_summary"] = marker_summary
-                        metadata["mesh"] = {
-                            "format": "msh",
-                            "mesh_dim": config.mesh_dim,
-                            **mesh_stats,
-                        }
-                        metadata["artifacts"] = {
-                            "mesh": str(mesh_path),
-                            "mesh_metadata": str(metadata_path),
-                            "marker_summary": str(marker_summary_path),
-                            "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
-                            "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
-                            "gmsh_log": str(gmsh_log_path),
-                            "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
-                            "mesh2d_watchdog_sample": (
-                                str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
-                            ),
-                            "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
-                            "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
-                            "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
-                            "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
-                            "classify_angle_probe": str(classify_angle_probe_path) if classify_angle_probe_path.exists() else None,
-                        }
-                        _json_write(metadata_path, metadata)
-                        _json_write(marker_summary_path, marker_summary)
-                        return {
-                            "status": "success",
-                            "backend": recipe.backend,
-                            "backend_capability": recipe.backend_capability,
-                            "meshing_route": recipe.meshing_route,
-                            "geometry_family": recipe.geometry_family,
-                            "geometry_source": recipe.geometry_source,
-                            "route_stage": "surface_repair_fallback",
-                            "mesh_format": "msh",
-                            "units": output_units or config.units,
-                            "contract": handoff.contract,
-                            "geometry_provider": handoff.geometry_provider,
-                            "body_bounds": body_bounds_dict,
-                            "farfield_bounds": bounds,
-                            "unit_normalization": unit_normalization,
-                            "artifacts": metadata["artifacts"],
-                            "marker_summary": marker_summary,
-                            "physical_groups": physical_groups,
-                            "mesh_stats": mesh_stats,
-                            "mesh_handoff": handoff.model_dump(mode="json"),
-                            "provenance": handoff.provenance,
-                            "notes": [
-                                "baseline OCC external-flow mesh failed, then surface-repair fallback generated a tetra mesh",
-                                f"loader={handle.loader}",
-                                f"mesh_dim={config.mesh_dim}",
-                            ],
-                        }
-                raise
-        gmsh.write(str(mesh_path))
-
-        physical_groups = {
-            "fluid": _physical_group_summary(gmsh, 3, fluid_group),
-            "aircraft": _physical_group_summary(gmsh, 2, aircraft_group),
-            "farfield": _physical_group_summary(gmsh, 2, farfield_group),
+        mesh_stats = {
+            "mesh_dim": int(config.mesh_dim),
+            **_mesh_stats(gmsh),
         }
-        marker_summary = {
-            name: physical_groups[name]
-            for name in ("aircraft", "farfield")
-        }
-        mesh_stats = _mesh_stats(gmsh)
         body_bounds_dict = _bounds_dict(*body_bounds)
         unit_normalization = {
             "units": output_units or config.units,
@@ -2483,6 +2450,306 @@ def _apply_occ_external_flow_route(
                 else None
             ),
         }
+        physical_groups = {
+            "fluid": _physical_group_summary(gmsh, 3, fluid_group),
+            "aircraft": _physical_group_summary(gmsh, 2, aircraft_group),
+            "farfield": _physical_group_summary(gmsh, 2, farfield_group),
+        }
+        marker_summary = {
+            name: physical_groups[name]
+            for name in ("aircraft", "farfield")
+        }
+        metadata["volume_meshing"] = {
+            "requested": bool(config.mesh_dim == 3),
+            "attempted": False,
+            "completed": False,
+            "mesh_dim_requested": int(config.mesh_dim),
+            "mesh_algorithm_3d": int(field_info.get("mesh_algorithm_3d", 1)),
+            "pre_generate3_mesh_stats": {
+                "mesh_dim": int(mesh_stats.get("mesh_dim", 0) or 0),
+                "node_count": int(mesh_stats.get("node_count", 0) or 0),
+                "element_count": int(mesh_stats.get("element_count", 0) or 0),
+                "surface_element_count": int(mesh_stats.get("surface_element_count", 0) or 0),
+                "volume_element_count": int(mesh_stats.get("volume_element_count", 0) or 0),
+            },
+        }
+
+        if config.mesh_dim != 3:
+            gmsh.write(str(mesh_path))
+            metadata["status"] = "surface_mesh_only"
+            metadata["route_stage"] = "surface_mesh_only"
+            metadata["failure_code"] = "surface_mesh_only_probe"
+            metadata["error"] = (
+                "surface-only probe completed without volume meshing; "
+                "config.mesh_dim=2 skipped generate(3)"
+            )
+            metadata["physical_groups"] = physical_groups
+            metadata["marker_summary"] = marker_summary
+            metadata["mesh"] = {
+                "format": "msh",
+                "mesh_dim": int(config.mesh_dim),
+                **mesh_stats,
+            }
+            metadata["artifacts"] = {
+                "mesh": str(mesh_path),
+                "mesh_metadata": str(metadata_path),
+                "marker_summary": str(marker_summary_path),
+                "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "gmsh_log": str(gmsh_log_path),
+                "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
+                "mesh2d_watchdog_sample": (
+                    str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
+                ),
+                "mesh3d_watchdog": None,
+                "mesh3d_watchdog_sample": None,
+                "plc_probe": None,
+                "surface_cleanup_report": None,
+                "discrete_reparam_report": None,
+                "retry_mesh_metadata": None,
+                "classify_angle_probe": None,
+            }
+            _json_write(metadata_path, metadata)
+            _json_write(marker_summary_path, marker_summary)
+            return {
+                "status": "failed",
+                "failure_code": "surface_mesh_only_probe",
+                "backend": recipe.backend,
+                "backend_capability": recipe.backend_capability,
+                "meshing_route": recipe.meshing_route,
+                "geometry_family": recipe.geometry_family,
+                "geometry_source": recipe.geometry_source,
+                "route_stage": "surface_mesh_only",
+                "mesh_format": "msh",
+                "units": output_units or config.units,
+                "body_bounds": body_bounds_dict,
+                "farfield_bounds": bounds,
+                "unit_normalization": unit_normalization,
+                "artifacts": metadata["artifacts"],
+                "marker_summary": marker_summary,
+                "physical_groups": physical_groups,
+                "mesh_stats": mesh_stats,
+                "error": metadata["error"],
+                "notes": [
+                    "surface-only probe completed; volume meshing was intentionally not attempted",
+                    f"loader={handle.loader}",
+                    f"mesh_dim={config.mesh_dim}",
+                ],
+            }
+
+        mesh3d_watchdog, mesh3d_error = _run_mesh3d_with_watchdog(
+            gmsh,
+            watchdog_path=mesh3d_watchdog_path,
+            sample_path=mesh3d_watchdog_sample_path,
+            timeout_seconds=float(
+                config.metadata.get("mesh3d_watchdog_timeout_sec", DEFAULT_MESH3D_WATCHDOG_TIMEOUT_SECONDS)
+            ),
+            sample_seconds=int(
+                config.metadata.get("mesh3d_watchdog_sample_seconds", DEFAULT_MESH3D_WATCHDOG_SAMPLE_SECONDS)
+            ),
+            mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+            pre_mesh_stats=metadata["volume_meshing"]["pre_generate3_mesh_stats"],
+        )
+        metadata["mesh3d_watchdog"] = {
+            "artifact": str(mesh3d_watchdog_path),
+            "sample_artifact": str(mesh3d_watchdog_sample_path),
+            "status": mesh3d_watchdog.get("status"),
+            "timeout_seconds": mesh3d_watchdog.get("timeout_seconds"),
+            "triggered_at_elapsed_sec": mesh3d_watchdog.get("triggered_at_elapsed_sec"),
+            "completed_elapsed_sec": mesh3d_watchdog.get("completed_elapsed_sec"),
+            "meshing_stage_at_timeout": mesh3d_watchdog.get("meshing_stage_at_timeout"),
+            "meshing_stage_after_return": mesh3d_watchdog.get("meshing_stage_after_return"),
+            "tetrahedrizing_node_count": mesh3d_watchdog.get("tetrahedrizing_node_count"),
+            "volume_count": mesh3d_watchdog.get("volume_count"),
+            "connected_component_count": mesh3d_watchdog.get("connected_component_count"),
+            "error": mesh3d_watchdog.get("error"),
+        }
+        metadata["volume_meshing"]["attempted"] = True
+        metadata["volume_meshing"]["watchdog_status"] = mesh3d_watchdog.get("status")
+        metadata["volume_meshing"]["watchdog_artifact"] = str(mesh3d_watchdog_path)
+        metadata["volume_meshing"]["watchdog_sample_artifact"] = str(mesh3d_watchdog_sample_path)
+
+        if mesh3d_error is not None:
+            try:
+                logger_messages = [str(message) for message in gmsh.logger.get()]
+            except Exception:
+                logger_messages = []
+            exc = mesh3d_error
+            plc_probe = _collect_plc_error_probe(
+                gmsh,
+                error_text=str(exc),
+                logger_messages=logger_messages,
+                surface_mesh_path=surface_mesh_path,
+                mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+            )
+            if "PLC Error" in str(exc):
+                hxt_logger_checkpoint = len(logger_messages)
+                plc_probe["hxt_probe"] = _run_3d_algorithm_probe(
+                    gmsh,
+                    aircraft_surface_tags=aircraft_surface_tags,
+                    fluid_volume_tags=fluid_volume_tags,
+                    algorithm3d=10,
+                    logger_checkpoint=hxt_logger_checkpoint,
+                    surface_mesh_path=surface_mesh_path,
+                )
+            _json_write(plc_probe_path, plc_probe)
+            metadata["plc_probe"] = plc_probe
+            if _should_attempt_surface_repair_fallback(str(exc), logger_messages) and surface_mesh_path.exists():
+                if gmsh_logger_started:
+                    _text_write(gmsh_log_path, [str(message) for message in gmsh.logger.get()])
+                    try:
+                        gmsh.logger.stop()
+                    except Exception:
+                        pass
+                    gmsh_logger_started = False
+                if gmsh_initialized:
+                    gmsh.finalize()
+                    gmsh_initialized = False
+                surface_repair_result = _run_surface_repair_fallback(
+                    surface_mesh_path=surface_mesh_path,
+                    bounds=bounds,
+                    mesh_path=mesh_path,
+                    cleanup_report_path=surface_cleanup_report_path,
+                    discrete_reparam_report_path=discrete_reparam_report_path,
+                    retry_metadata_path=retry_mesh_metadata_path,
+                    mesh_algorithm_2d=int(field_info.get("mesh_algorithm_2d", 6)),
+                    mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+                )
+                metadata["surface_repair_fallback"] = {
+                    "status": surface_repair_result["status"],
+                    "route_stage": surface_repair_result["route_stage"],
+                    "cleanup_report_artifact": str(surface_cleanup_report_path),
+                    "discrete_reparam_report_artifact": str(discrete_reparam_report_path),
+                    "retry_mesh_metadata_artifact": str(retry_mesh_metadata_path),
+                    "notes": surface_repair_result.get("notes", []),
+                }
+                if surface_repair_result["status"] == "success":
+                    physical_groups = surface_repair_result["physical_groups"]
+                    marker_summary = surface_repair_result["marker_summary"]
+                    mesh_stats = {
+                        "mesh_dim": int(config.mesh_dim),
+                        **surface_repair_result["mesh_stats"],
+                    }
+                    artifacts = MeshArtifactBundle(
+                        mesh=mesh_path,
+                        mesh_metadata=metadata_path,
+                        marker_summary=marker_summary_path,
+                        surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
+                        surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
+                        gmsh_log=gmsh_log_path,
+                        mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
+                        mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
+                        mesh3d_watchdog=mesh3d_watchdog_path if mesh3d_watchdog_path.exists() else None,
+                        mesh3d_watchdog_sample=mesh3d_watchdog_sample_path if mesh3d_watchdog_sample_path.exists() else None,
+                        plc_probe=plc_probe_path if plc_probe_path.exists() else None,
+                        surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
+                        discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
+                        retry_mesh_metadata=retry_mesh_metadata_path if retry_mesh_metadata_path.exists() else None,
+                        classify_angle_probe=classify_angle_probe_path if classify_angle_probe_path.exists() else None,
+                    )
+                    provider_provenance = None
+                    if handle.provider_result is not None:
+                        provider_provenance = {
+                            "provider": handle.provider_result.provider,
+                            "provider_stage": handle.provider_result.provider_stage,
+                            "provider_status": handle.provider_result.status,
+                            "topology": handle.provider_result.topology.model_dump(mode="json"),
+                            "provenance": handle.provider_result.provenance,
+                            "artifacts": {
+                                key: str(value)
+                                for key, value in handle.provider_result.artifacts.items()
+                            },
+                        }
+                    handoff = MeshHandoff(
+                        route_stage="surface_repair_fallback",
+                        backend_capability=recipe.backend_capability,
+                        meshing_route=recipe.meshing_route,
+                        geometry_family=recipe.geometry_family,
+                        geometry_source=recipe.geometry_source,
+                        geometry_provider=handle.provider,
+                        source_path=handle.source_path,
+                        normalized_geometry_path=handle.path,
+                        units=output_units or config.units,
+                        body_bounds=_bounds_model(*body_bounds),
+                        farfield_bounds=Bounds3D(**bounds),
+                        mesh_stats=mesh_stats,
+                        marker_summary=marker_summary,
+                        physical_groups=physical_groups,
+                        artifacts=artifacts,
+                        provenance={
+                            "route_provenance": recipe.route_provenance,
+                            "geometry_loader": handle.loader,
+                            "provider": provider_provenance,
+                        },
+                        unit_normalization=unit_normalization or {},
+                    )
+                    metadata["status"] = "success"
+                    metadata["route_stage"] = "surface_repair_fallback"
+                    metadata["volume_meshing"]["completed"] = True
+                    metadata["physical_groups"] = physical_groups
+                    metadata["marker_summary"] = marker_summary
+                    metadata["mesh"] = {
+                        "format": "msh",
+                        "mesh_dim": config.mesh_dim,
+                        **mesh_stats,
+                    }
+                    metadata["artifacts"] = {
+                        "mesh": str(mesh_path),
+                        "mesh_metadata": str(metadata_path),
+                        "marker_summary": str(marker_summary_path),
+                        "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                        "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                        "gmsh_log": str(gmsh_log_path),
+                        "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
+                        "mesh2d_watchdog_sample": (
+                            str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
+                        ),
+                        "mesh3d_watchdog": str(mesh3d_watchdog_path) if mesh3d_watchdog_path.exists() else None,
+                        "mesh3d_watchdog_sample": (
+                            str(mesh3d_watchdog_sample_path) if mesh3d_watchdog_sample_path.exists() else None
+                        ),
+                        "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
+                        "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
+                        "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
+                        "retry_mesh_metadata": str(retry_mesh_metadata_path) if retry_mesh_metadata_path.exists() else None,
+                        "classify_angle_probe": str(classify_angle_probe_path) if classify_angle_probe_path.exists() else None,
+                    }
+                    _json_write(metadata_path, metadata)
+                    _json_write(marker_summary_path, marker_summary)
+                    return {
+                        "status": "success",
+                        "backend": recipe.backend,
+                        "backend_capability": recipe.backend_capability,
+                        "meshing_route": recipe.meshing_route,
+                        "geometry_family": recipe.geometry_family,
+                        "geometry_source": recipe.geometry_source,
+                        "route_stage": "surface_repair_fallback",
+                        "mesh_format": "msh",
+                        "units": output_units or config.units,
+                        "contract": handoff.contract,
+                        "geometry_provider": handoff.geometry_provider,
+                        "body_bounds": body_bounds_dict,
+                        "farfield_bounds": bounds,
+                        "unit_normalization": unit_normalization,
+                        "artifacts": metadata["artifacts"],
+                        "marker_summary": marker_summary,
+                        "physical_groups": physical_groups,
+                        "mesh_stats": mesh_stats,
+                        "mesh_handoff": handoff.model_dump(mode="json"),
+                        "provenance": handoff.provenance,
+                        "notes": [
+                            "baseline OCC external-flow mesh failed, then surface-repair fallback generated a tetra mesh",
+                            f"loader={handle.loader}",
+                            f"mesh_dim={config.mesh_dim}",
+                        ],
+                    }
+            raise exc
+        gmsh.write(str(mesh_path))
+        mesh_stats = {
+            "mesh_dim": int(config.mesh_dim),
+            **_mesh_stats(gmsh),
+        }
+        metadata["volume_meshing"]["completed"] = True
         artifacts = MeshArtifactBundle(
             mesh=mesh_path,
             mesh_metadata=metadata_path,
@@ -2492,6 +2759,8 @@ def _apply_occ_external_flow_route(
             gmsh_log=gmsh_log_path,
             mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
             mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
+            mesh3d_watchdog=mesh3d_watchdog_path if mesh3d_watchdog_path.exists() else None,
+            mesh3d_watchdog_sample=mesh3d_watchdog_sample_path if mesh3d_watchdog_sample_path.exists() else None,
             plc_probe=plc_probe_path if plc_probe_path.exists() else None,
             surface_cleanup_report=surface_cleanup_report_path if surface_cleanup_report_path.exists() else None,
             discrete_reparam_report=discrete_reparam_report_path if discrete_reparam_report_path.exists() else None,
@@ -2608,6 +2877,10 @@ def _apply_occ_external_flow_route(
                 "mesh2d_watchdog_sample": (
                     str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
                 ),
+                "mesh3d_watchdog": str(mesh3d_watchdog_path) if mesh3d_watchdog_path.exists() else None,
+                "mesh3d_watchdog_sample": (
+                    str(mesh3d_watchdog_sample_path) if mesh3d_watchdog_sample_path.exists() else None
+                ),
                 "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
                 "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
                 "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
@@ -2632,6 +2905,7 @@ def _apply_occ_external_flow_route(
             else str(exc)
         )
         metadata["status"] = "failed"
+        metadata["failure_code"] = _backend_failure_code(final_error)
         metadata["error"] = final_error
         if body_bounds_dict is not None:
             metadata.setdefault("body", {})
@@ -2710,6 +2984,21 @@ def _apply_occ_external_flow_route(
                 "completed_elapsed_sec": mesh2d_watchdog.get("completed_elapsed_sec"),
                 "last_meshing_surface_tag": mesh2d_watchdog.get("last_meshing_surface_tag"),
             }
+        if mesh3d_watchdog is not None:
+            metadata["mesh3d_watchdog"] = {
+                "artifact": str(mesh3d_watchdog_path) if mesh3d_watchdog_path.exists() else None,
+                "sample_artifact": str(mesh3d_watchdog_sample_path) if mesh3d_watchdog_sample_path.exists() else None,
+                "status": mesh3d_watchdog.get("status"),
+                "timeout_seconds": mesh3d_watchdog.get("timeout_seconds"),
+                "triggered_at_elapsed_sec": mesh3d_watchdog.get("triggered_at_elapsed_sec"),
+                "completed_elapsed_sec": mesh3d_watchdog.get("completed_elapsed_sec"),
+                "meshing_stage_at_timeout": mesh3d_watchdog.get("meshing_stage_at_timeout"),
+                "meshing_stage_after_return": mesh3d_watchdog.get("meshing_stage_after_return"),
+                "tetrahedrizing_node_count": mesh3d_watchdog.get("tetrahedrizing_node_count"),
+                "volume_count": mesh3d_watchdog.get("volume_count"),
+                "connected_component_count": mesh3d_watchdog.get("connected_component_count"),
+                "error": mesh3d_watchdog.get("error"),
+            }
         metadata["artifacts"] = {
             "mesh": str(mesh_path),
             "mesh_metadata": str(metadata_path),
@@ -2721,6 +3010,10 @@ def _apply_occ_external_flow_route(
             "mesh2d_watchdog_sample": (
                 str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
             ),
+            "mesh3d_watchdog": str(mesh3d_watchdog_path) if mesh3d_watchdog_path.exists() else None,
+            "mesh3d_watchdog_sample": (
+                str(mesh3d_watchdog_sample_path) if mesh3d_watchdog_sample_path.exists() else None
+            ),
             "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
             "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,
             "discrete_reparam_report": str(discrete_reparam_report_path) if discrete_reparam_report_path.exists() else None,
@@ -2731,6 +3024,7 @@ def _apply_occ_external_flow_route(
         _json_write(marker_summary_path, marker_summary)
         return {
             "status": "failed",
+            "failure_code": _backend_failure_code(final_error),
             "backend": recipe.backend,
             "backend_capability": recipe.backend_capability,
             "meshing_route": recipe.meshing_route,
@@ -2747,6 +3041,10 @@ def _apply_occ_external_flow_route(
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
                 "mesh2d_watchdog_sample": (
                     str(mesh2d_watchdog_sample_path) if mesh2d_watchdog_sample_path.exists() else None
+                ),
+                "mesh3d_watchdog": str(mesh3d_watchdog_path) if mesh3d_watchdog_path.exists() else None,
+                "mesh3d_watchdog_sample": (
+                    str(mesh3d_watchdog_sample_path) if mesh3d_watchdog_sample_path.exists() else None
                 ),
                 "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
                 "surface_cleanup_report": str(surface_cleanup_report_path) if surface_cleanup_report_path.exists() else None,

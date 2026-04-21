@@ -336,6 +336,62 @@ def test_run_job_surfaces_mesh_handoff_contract(tmp_path: Path, monkeypatch):
     assert report["mesh"]["provenance"]["provider"]["provider_stage"] == "v1"
 
 
+def test_run_job_preserves_surface_only_probe_failure_code(tmp_path: Path, monkeypatch):
+    source = tmp_path / "assembly.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    normalized = _write_occ_box_step(tmp_path, "assembly_surface_only.stp")
+
+    provider_result = GeometryProviderResult(
+        provider="openvsp_surface_intersection",
+        provider_stage="v1",
+        status="materialized",
+        geometry_source="provider_generated",
+        source_path=source,
+        normalized_geometry_path=normalized,
+        geometry_family_hint="thin_sheet_aircraft_assembly",
+        topology=GeometryTopologyMetadata(
+            representation="brep_trimmed_step",
+            source_kind="stp",
+            units="m",
+            body_count=1,
+            surface_count=6,
+            volume_count=1,
+            labels_present=False,
+            label_schema="preserve_component_labels",
+        ),
+        provenance=_provider_provenance(),
+    )
+
+    monkeypatch.setattr(
+        geometry_loader,
+        "materialize_geometry_with_provider",
+        lambda path, config: provider_result,
+    )
+
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "out",
+        geometry_provider="openvsp_surface_intersection",
+        mesh_dim=2,
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+
+    result = run_job(config)
+
+    assert result["status"] == "failed"
+    assert result["failure_code"] == "surface_mesh_only_probe"
+    assert result["mesh"]["route_stage"] == "surface_mesh_only"
+    assert result["mesh"]["contract"] is None
+    assert result["mesh"]["volume_element_count"] == 0
+
+    report = json.loads((config.out_dir / "report.json").read_text(encoding="utf-8"))
+    assert report["failure_code"] == "surface_mesh_only_probe"
+    assert report["mesh"]["route_stage"] == "surface_mesh_only"
+    assert report["mesh"]["contract"] is None
+
+
 def test_run_job_fails_when_su2_baseline_fails(tmp_path: Path, monkeypatch):
     from hpa_meshing import pipeline as mesh_pipeline
 

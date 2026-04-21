@@ -140,10 +140,16 @@ def run_job(config: MeshJobConfig) -> Dict[str, Any]:
     mesh = _mesh_summary(exec_result)
     su2 = None
 
+    backend_result = exec_result.get("backend_result", {})
     status = "success" if quality["ok"] else "failed"
-    failure_code = None if status == "success" else "quality_gate_failed"
+    if status == "success":
+        failure_code = None
+    elif exec_result.get("status") != "success":
+        failure_code = backend_result.get("failure_code") or "meshing_failed"
+    else:
+        failure_code = quality.get("failure_code") or "quality_gate_failed"
     if config.su2.enabled:
-        mesh_handoff_payload = exec_result.get("backend_result", {}).get("mesh_handoff")
+        mesh_handoff_payload = backend_result.get("mesh_handoff")
         if mesh_handoff_payload is None:
             su2 = {
                 "contract": "su2_handoff.v1",
@@ -192,6 +198,9 @@ def run_job(config: MeshJobConfig) -> Dict[str, Any]:
         "quality": quality,
         "attempts": exec_result.get("attempts", 1),
     }
+    backend_error = backend_result.get("error")
+    if backend_error is not None:
+        result["error"] = backend_error
     if su2 is not None:
         result["su2"] = su2
         if su2.get("convergence_gate") is not None:

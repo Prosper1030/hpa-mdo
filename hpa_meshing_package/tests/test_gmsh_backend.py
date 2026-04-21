@@ -17,6 +17,7 @@ from hpa_meshing.adapters.gmsh_backend import (
     _extract_overlap_surface_details,
     _resolve_exact_overlap_surface_pair,
     _run_mesh2d_with_watchdog,
+    _run_mesh3d_with_watchdog,
     _run_surface_repair_fallback,
     _should_probe_discrete_classify_angles,
     _should_attempt_surface_repair_fallback,
@@ -378,6 +379,61 @@ def test_run_mesh2d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
     assert persisted["status"] == "completed_after_timeout"
     assert persisted["last_meshing_curve_tag"] == 44
     assert persisted["last_meshing_surface_tag"] == 45
+
+
+def test_run_mesh3d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
+    gmsh = _FakeWatchdogGmsh(
+        sleep_seconds=0.05,
+        logger_messages=[
+            "Info    : Meshing 3D...",
+            "Info    : 3D Meshing 1 volume with 1 connected component",
+            "Info    : Tetrahedrizing 128 nodes...",
+        ],
+    )
+    watchdog_path = tmp_path / "mesh3d_watchdog.json"
+    sample_path = tmp_path / "mesh3d_watchdog_sample.txt"
+
+    def _fake_sample_runner(pid: int, sample_seconds: int, output_path: Path):
+        output_path.write_text(f"sample pid={pid} seconds={sample_seconds}\n", encoding="utf-8")
+        return {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": "sample ok",
+        }
+
+    payload, error = _run_mesh3d_with_watchdog(
+        gmsh,
+        watchdog_path=watchdog_path,
+        sample_path=sample_path,
+        timeout_seconds=0.01,
+        sample_seconds=1,
+        mesh_algorithm_3d=1,
+        sample_runner=_fake_sample_runner,
+        pre_mesh_stats={
+            "mesh_dim": 2,
+            "node_count": 128,
+            "element_count": 256,
+            "surface_element_count": 240,
+            "volume_element_count": 0,
+        },
+    )
+
+    assert error is None
+    assert gmsh.model.mesh.calls == [3]
+    assert payload["status"] == "completed_after_timeout"
+    assert payload["meshing_stage_at_timeout"] == "meshing_3d"
+    assert payload["mesh_algorithm_3d"] == 1
+    assert payload["tetrahedrizing_node_count"] == 128
+    assert payload["connected_component_count"] == 1
+    assert payload["volume_count"] == 1
+    assert payload["sample"]["returncode"] == 0
+    assert payload["pre_mesh_stats"]["mesh_dim"] == 2
+    assert watchdog_path.exists()
+    assert sample_path.exists()
+
+    persisted = json.loads(watchdog_path.read_text(encoding="utf-8"))
+    assert persisted["status"] == "completed_after_timeout"
+    assert persisted["tetrahedrizing_node_count"] == 128
 
 
 def test_collect_surface_patch_diagnostics_ranks_short_curve_strip_candidates():
@@ -807,6 +863,64 @@ def test_apply_recipe_generates_occ_mesh_artifacts_and_marker_summary(tmp_path: 
     assert metadata["geometry"]["normalized_path"] == str(normalized)
     assert metadata["marker_summary"]["aircraft"]["exists"] is True
     assert metadata["marker_summary"]["farfield"]["exists"] is True
+
+
+def test_apply_recipe_marks_mesh_dim_2_route_as_surface_only_probe(tmp_path: Path):
+    normalized = _write_occ_box_step(tmp_path, "surface_only_box.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = _provider_result(source, normalized)
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "surface_only_out",
+        geometry_source="provider_generated",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_provider="openvsp_surface_intersection",
+        mesh_dim=2,
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:openvsp_surface_intersection",
+        geometry_source="provider_generated",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="openvsp_surface_intersection",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        declared_family="thin_sheet_aircraft_assembly",
+        inferred_family=None,
+        geometry_family="thin_sheet_aircraft_assembly",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    result = apply_recipe(recipe, handle, config)
+
+    assert result["status"] == "failed"
+    assert result["failure_code"] == "surface_mesh_only_probe"
+    assert result["route_stage"] == "surface_mesh_only"
+    assert result["mesh_stats"]["mesh_dim"] == 2
+    assert result["mesh_stats"]["volume_element_count"] == 0
+    assert result["artifacts"]["surface_mesh_2d"] is not None
+    assert result.get("mesh_handoff") is None
+
+    metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
+    assert metadata["status"] == "surface_mesh_only"
+    assert metadata["failure_code"] == "surface_mesh_only_probe"
+    assert metadata["route_stage"] == "surface_mesh_only"
+    assert metadata["volume_meshing"]["requested"] is False
+    assert metadata["volume_meshing"]["attempted"] is False
 
 
 def test_apply_recipe_heals_clean_esp_rebuilt_geometry_before_external_flow_meshing(tmp_path: Path):

@@ -304,6 +304,8 @@ class MeshArtifactBundle(BaseModel):
     gmsh_log: Optional[Path] = None
     mesh2d_watchdog: Optional[Path] = None
     mesh2d_watchdog_sample: Optional[Path] = None
+    mesh3d_watchdog: Optional[Path] = None
+    mesh3d_watchdog_sample: Optional[Path] = None
     plc_probe: Optional[Path] = None
     surface_cleanup_report: Optional[Path] = None
     discrete_reparam_report: Optional[Path] = None
