@@ -390,6 +390,7 @@ def test_run_mesh3d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
             "Info    : Meshing 3D...",
             "Info    : 3D Meshing 1 volume with 1 connected component",
             "Info    : Tetrahedrizing 128 nodes...",
+            "Info    : It. 640 - 512 nodes created - worst tet radius 8.25 (nodes removed 0 33)",
         ],
     )
     watchdog_path = tmp_path / "mesh3d_watchdog.json"
@@ -428,6 +429,13 @@ def test_run_mesh3d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
     assert payload["tetrahedrizing_node_count"] == 128
     assert payload["connected_component_count"] == 1
     assert payload["volume_count"] == 1
+    assert payload["boundary_node_count"] == 128
+    assert payload["surface_triangle_count"] == 240
+    assert payload["iteration_count"] == 640
+    assert payload["nodes_created"] == 512
+    assert payload["nodes_created_per_boundary_node"] == pytest.approx(4.0)
+    assert payload["iterations_per_surface_triangle"] == pytest.approx(640.0 / 240.0)
+    assert payload["timeout_phase_classification"] == "volume_insertion"
     assert payload["sample"]["returncode"] == 0
     assert payload["pre_mesh_stats"]["mesh_dim"] == 2
     assert watchdog_path.exists()
@@ -436,6 +444,8 @@ def test_run_mesh3d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
     persisted = json.loads(watchdog_path.read_text(encoding="utf-8"))
     assert persisted["status"] == "completed_after_timeout"
     assert persisted["tetrahedrizing_node_count"] == 128
+    assert persisted["nodes_created"] == 512
+    assert persisted["timeout_phase_classification"] == "volume_insertion"
 
 
 def test_collect_surface_patch_diagnostics_ranks_short_curve_strip_candidates():
@@ -1434,6 +1444,23 @@ def test_configure_mesh_field_uses_reference_length_surface_and_edge_policy(tmp_
     assert gmsh.option.values["Mesh.MeshSizeExtendFromBoundary"] == 0.0
     assert gmsh.option.values["Mesh.Algorithm"] == 6.0
     assert gmsh.option.values["Mesh.Algorithm3D"] == 1.0
+
+
+def test_resolve_mesh_field_defaults_honors_transition_overrides(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        metadata={
+            "mesh_field_distance_max": 0.18,
+            "mesh_field_edge_distance_max": 0.07,
+        },
+    )
+
+    defaults = _resolve_mesh_field_defaults(1.0425, config)
+
+    assert defaults["distance_max"] == pytest.approx(0.18)
+    assert defaults["edge_distance_max"] == pytest.approx(0.07)
 
 
 def test_import_scale_to_units_falls_back_to_dominant_span_when_provider_scale_missing(tmp_path: Path):

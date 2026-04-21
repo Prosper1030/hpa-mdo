@@ -89,6 +89,11 @@ TETRAHEDRIZING_NODE_PATTERN = re.compile(
     r"Tetrahedrizing\s+(\d+)\s+nodes",
     re.IGNORECASE,
 )
+THREE_D_INSERTION_ITERATION_PATTERN = re.compile(
+    r"It\.\s*(\d+)\s*-\s*(\d+)\s+nodes created\s*-\s*worst tet radius\s*([-+0-9.eE]+)"
+    r"(?:\s*\(nodes removed\s*(\d+)\s*(\d+)\))?",
+    re.IGNORECASE,
+)
 MESH_ALGORITHM_NAME_LOOKUP = {
     1: "MeshAdapt",
     2: "Automatic",
@@ -172,6 +177,77 @@ def _extract_tetrahedrizing_node_count(logger_messages: Iterable[str]) -> Dict[s
             "message": message,
         }
     return None
+
+
+def _extract_3d_insertion_iteration(logger_messages: Iterable[str]) -> Dict[str, Any] | None:
+    materialized = [str(message) for message in logger_messages]
+    for message in reversed(materialized):
+        match = THREE_D_INSERTION_ITERATION_PATTERN.search(message)
+        if match is None:
+            continue
+        return {
+            "iteration_count": int(match.group(1)),
+            "nodes_created": int(match.group(2)),
+            "worst_tet_radius": float(match.group(3)),
+            "nodes_removed": int(match.group(4)) if match.group(4) is not None else None,
+            "nodes_removed_total": int(match.group(5)) if match.group(5) is not None else None,
+            "message": message,
+        }
+    return None
+
+
+def _ratio_or_none(numerator: int | float | None, denominator: int | float | None) -> float | None:
+    if numerator is None or denominator in (None, 0):
+        return None
+    return float(numerator) / float(denominator)
+
+
+def _classify_3d_timeout_phase(logger_messages: Iterable[str]) -> str:
+    phase = "unknown"
+    for message in logger_messages:
+        lowered = str(message).lower()
+        if "recover" in lowered:
+            phase = "boundary_recovery"
+        if THREE_D_INSERTION_ITERATION_PATTERN.search(str(message)) or "tetrahedriz" in lowered:
+            phase = "volume_insertion"
+        if "optimiz" in lowered:
+            phase = "optimization"
+        if "writing" in lowered or "saving" in lowered:
+            phase = "write_out"
+    return phase
+
+
+def _extract_3d_burden_metrics(
+    logger_messages: Iterable[str],
+    pre_mesh_stats: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    pre_mesh_stats = dict(pre_mesh_stats or {})
+    boundary_node_count = int(pre_mesh_stats.get("node_count", 0) or 0)
+    surface_triangle_count = int(pre_mesh_stats.get("surface_element_count", 0) or 0)
+    iteration_summary = _extract_3d_insertion_iteration(logger_messages)
+    metrics: Dict[str, Any] = {
+        "boundary_node_count": boundary_node_count,
+        "surface_triangle_count": surface_triangle_count,
+        "timeout_phase_classification": _classify_3d_timeout_phase(logger_messages),
+    }
+    if iteration_summary is not None:
+        metrics["iteration_count"] = int(iteration_summary["iteration_count"])
+        metrics["nodes_created"] = int(iteration_summary["nodes_created"])
+        metrics["nodes_created_per_boundary_node"] = _ratio_or_none(
+            int(iteration_summary["nodes_created"]),
+            boundary_node_count,
+        )
+        metrics["iterations_per_surface_triangle"] = _ratio_or_none(
+            int(iteration_summary["iteration_count"]),
+            surface_triangle_count,
+        )
+        metrics["latest_iteration_message"] = str(iteration_summary["message"])
+        metrics["latest_worst_tet_radius"] = float(iteration_summary["worst_tet_radius"])
+        if iteration_summary.get("nodes_removed") is not None:
+            metrics["nodes_removed"] = int(iteration_summary["nodes_removed"])
+        if iteration_summary.get("nodes_removed_total") is not None:
+            metrics["nodes_removed_total"] = int(iteration_summary["nodes_removed_total"])
+    return metrics
 
 
 def _infer_meshing_stage(logger_messages: Iterable[str]) -> str | None:
@@ -899,6 +975,10 @@ def _resolve_mesh_field_defaults(reference_length: float, config: MeshJobConfig)
     distance_min = 0.0
     distance_max = max(reference_length * DEFAULT_SURFACE_DISTANCE_FACTOR, near_body_size * DEFAULT_SURFACE_TRANSITION_FACTOR)
     edge_distance_max = max(reference_length * DEFAULT_EDGE_DISTANCE_FACTOR, edge_size * DEFAULT_EDGE_TRANSITION_FACTOR)
+    if "mesh_field_distance_max" in config.metadata:
+        distance_max = float(config.metadata["mesh_field_distance_max"])
+    if "mesh_field_edge_distance_max" in config.metadata:
+        edge_distance_max = float(config.metadata["mesh_field_edge_distance_max"])
     mesh_algorithm_2d = int(config.mesh_algorithm_2d) if config.mesh_algorithm_2d is not None else 6
     mesh_algorithm_3d = int(config.mesh_algorithm_3d) if config.mesh_algorithm_3d is not None else 1
     return {
@@ -1393,12 +1473,14 @@ def _run_mesh3d_with_watchdog(
         volume_summary = _extract_3d_meshing_volume(logger_messages)
         tetra_summary = _extract_tetrahedrizing_node_count(logger_messages)
         sample_result = sample_runner(int(os.getpid()), int(sample_seconds), sample_path)
+        burden_metrics = _extract_3d_burden_metrics(logger_messages, pre_mesh_stats)
         with payload_lock:
             payload["status"] = "triggered_while_meshing"
             payload["triggered_at_elapsed_sec"] = float(time.monotonic() - start)
             payload["logger_message_count"] = len(logger_messages)
             payload["meshing_stage_at_timeout"] = _infer_meshing_stage(logger_messages)
             payload["logger_tail"] = _logger_tail(logger_messages)
+            payload.update(burden_metrics)
             if volume_summary is not None:
                 payload["volume_count"] = int(volume_summary["volume_count"])
                 payload["connected_component_count"] = int(volume_summary["connected_component_count"])
@@ -1426,11 +1508,27 @@ def _run_mesh3d_with_watchdog(
         final_logger_messages = [f"gmsh.logger.get failed after Mesh3D: {exc}"]
     volume_summary = _extract_3d_meshing_volume(final_logger_messages)
     tetra_summary = _extract_tetrahedrizing_node_count(final_logger_messages)
+    burden_metrics_after_return = _extract_3d_burden_metrics(final_logger_messages, pre_mesh_stats)
     with payload_lock:
         payload["completed_elapsed_sec"] = float(time.monotonic() - start)
         payload["logger_message_count_after_return"] = len(final_logger_messages)
         payload["meshing_stage_after_return"] = _infer_meshing_stage(final_logger_messages)
         payload["logger_tail_after_return"] = _logger_tail(final_logger_messages)
+        payload["phase_classification_after_return"] = burden_metrics_after_return.get("timeout_phase_classification")
+        for key in (
+            "boundary_node_count",
+            "surface_triangle_count",
+            "iteration_count",
+            "nodes_created",
+            "nodes_created_per_boundary_node",
+            "iterations_per_surface_triangle",
+            "latest_iteration_message",
+            "latest_worst_tet_radius",
+            "nodes_removed",
+            "nodes_removed_total",
+        ):
+            if key in burden_metrics_after_return:
+                payload[f"{key}_after_return"] = burden_metrics_after_return[key]
         if volume_summary is not None:
             payload["volume_count_after_return"] = int(volume_summary["volume_count"])
             payload["connected_component_count_after_return"] = int(volume_summary["connected_component_count"])
@@ -2700,6 +2798,14 @@ def _apply_occ_external_flow_route(
             "completed_elapsed_sec": mesh3d_watchdog.get("completed_elapsed_sec"),
             "meshing_stage_at_timeout": mesh3d_watchdog.get("meshing_stage_at_timeout"),
             "meshing_stage_after_return": mesh3d_watchdog.get("meshing_stage_after_return"),
+            "timeout_phase_classification": mesh3d_watchdog.get("timeout_phase_classification"),
+            "phase_classification_after_return": mesh3d_watchdog.get("phase_classification_after_return"),
+            "boundary_node_count": mesh3d_watchdog.get("boundary_node_count"),
+            "surface_triangle_count": mesh3d_watchdog.get("surface_triangle_count"),
+            "iteration_count": mesh3d_watchdog.get("iteration_count"),
+            "nodes_created": mesh3d_watchdog.get("nodes_created"),
+            "nodes_created_per_boundary_node": mesh3d_watchdog.get("nodes_created_per_boundary_node"),
+            "iterations_per_surface_triangle": mesh3d_watchdog.get("iterations_per_surface_triangle"),
             "tetrahedrizing_node_count": mesh3d_watchdog.get("tetrahedrizing_node_count"),
             "volume_count": mesh3d_watchdog.get("volume_count"),
             "connected_component_count": mesh3d_watchdog.get("connected_component_count"),
