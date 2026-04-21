@@ -1,0 +1,426 @@
+from pathlib import Path
+
+from hpa_meshing.schema import (
+    BaselineConvergenceGate,
+    Bounds3D,
+    ConvergenceGateCheck,
+    ConvergenceGateSection,
+    GeometryProviderRequest,
+    GeometryProviderResult,
+    GeometryTopologyMetadata,
+    MeshArtifactBundle,
+    MeshHandoff,
+    MeshJobConfig,
+    MeshStudyCaseResult,
+    MeshStudyComparison,
+    MeshStudyReport,
+    MeshStudyVerdict,
+    SU2CaseArtifacts,
+    SU2CaseHandoff,
+    SU2ForceSurfaceMarkerGroup,
+    SU2ForceSurfaceProvenance,
+    SU2GateCheck,
+    SU2HistorySummary,
+    OverallConvergenceGate,
+    SU2ReferenceGeometry,
+    SU2ReferenceOverride,
+    SU2ReferenceQuantityProvenance,
+    SU2ProvenanceGates,
+    SU2RuntimeConfig,
+)
+
+
+def test_schema_builds():
+    cfg = MeshJobConfig(
+        component="main_wing",
+        geometry=Path("demo.step"),
+        out_dir=Path("out/demo"),
+    )
+    assert cfg.component == "main_wing"
+
+
+def test_schema_supports_mesh_study_contract_models(tmp_path: Path):
+    case_dir = tmp_path / "coarse"
+    report = MeshStudyReport(
+        component="aircraft_assembly",
+        geometry=tmp_path / "blackcat.vsp3",
+        geometry_provider="openvsp_surface_intersection",
+        cases=[
+            MeshStudyCaseResult.model_validate(
+                {
+                    "preset": {
+                        "name": "coarse",
+                        "tier": "coarse",
+                        "characteristic_length_policy": "body_max_span",
+                        "near_body_factor": 0.11,
+                        "farfield_factor": 0.45,
+                        "near_body_size": 1.1,
+                        "farfield_size": 4.5,
+                        "runtime": {
+                            "max_iterations": 40,
+                            "cfl_number": 4.0,
+                        },
+                    },
+                    "out_dir": case_dir,
+                    "report_path": case_dir / "report.json",
+                    "status": "success",
+                    "mesh": {
+                        "mesh_dim": 3,
+                        "node_count": 1500,
+                        "element_count": 8000,
+                        "surface_element_count": 1400,
+                        "volume_element_count": 6500,
+                        "characteristic_length": 10.0,
+                        "near_body_size": 1.1,
+                        "farfield_size": 4.5,
+                    },
+                    "cfd": {
+                        "case_name": "alpha_0_coarse",
+                        "history_path": case_dir / "history.csv",
+                        "final_iteration": 39,
+                        "cl": 0.035,
+                        "cd": 0.029,
+                        "cm": -0.013,
+                        "cm_axis": "CMy",
+                    },
+                    "overall_convergence_status": "warn",
+                    "comparability_level": "run_only",
+                }
+            )
+        ],
+        comparison=MeshStudyComparison.model_validate(
+            {
+                "expected_case_count": 3,
+                "completed_case_count": 1,
+                "case_order": ["coarse", "medium", "fine"],
+                "mesh_hierarchy": {
+                    "status": "warn",
+                    "observed": {"completed_case_count": 1},
+                    "expected": {"completed_case_count": 3},
+                    "warnings": ["study_not_complete"],
+                    "notes": [],
+                },
+                "coefficient_spread": {
+                    "all_cases": {
+                        "status": "warn",
+                        "observed": {"cl_relative_range": 0.0},
+                        "expected": {"cl_relative_range": "<= 0.12"},
+                        "warnings": [],
+                        "notes": [],
+                    }
+                },
+                "convergence_progress": {
+                    "status": "warn",
+                    "observed": {"fine_status": None},
+                    "expected": {"fine_status": "pass"},
+                    "warnings": ["fine_case_missing"],
+                    "notes": [],
+                },
+            }
+        ),
+        verdict=MeshStudyVerdict(
+            verdict="insufficient",
+            comparability_level="not_comparable",
+            blockers=["study_not_complete"],
+        ),
+    )
+
+    assert report.contract == "mesh_study.v1"
+    assert report.cases[0].mesh.volume_element_count == 6500
+    assert report.verdict.verdict == "insufficient"
+
+
+def test_schema_supports_geometry_family_first_fields():
+    cfg = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=Path("demo.step"),
+        out_dir=Path("out/demo"),
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_aircraft_assembly",
+        meshing_route="gmsh_thin_sheet_aircraft_assembly",
+        backend_capability="sheet_aircraft_assembly_meshing",
+    )
+    assert cfg.geometry_source == "esp_rebuilt"
+    assert cfg.geometry_family == "thin_sheet_aircraft_assembly"
+    assert cfg.meshing_route == "gmsh_thin_sheet_aircraft_assembly"
+    assert cfg.backend_capability == "sheet_aircraft_assembly_meshing"
+
+
+def test_schema_supports_provider_contract_models(tmp_path: Path):
+    source = tmp_path / "blackcat.vsp3"
+    staging_dir = tmp_path / "out" / "providers" / "openvsp_surface_intersection"
+    normalized = staging_dir / "normalized.stp"
+
+    request = GeometryProviderRequest(
+        provider="openvsp_surface_intersection",
+        source_path=source,
+        component="aircraft_assembly",
+        staging_dir=staging_dir,
+        geometry_family_hint="thin_sheet_aircraft_assembly",
+    )
+    result = GeometryProviderResult(
+        provider="openvsp_surface_intersection",
+        provider_stage="v1",
+        status="materialized",
+        geometry_source="provider_generated",
+        source_path=source,
+        normalized_geometry_path=normalized,
+        geometry_family_hint="thin_sheet_aircraft_assembly",
+        topology=GeometryTopologyMetadata(
+            representation="brep_trimmed_step",
+            source_kind="vsp3",
+            units="m",
+            body_count=3,
+            surface_count=38,
+            volume_count=3,
+            labels_present=True,
+            label_schema="component/name",
+        ),
+        artifacts={"topology_report": staging_dir / "topology.json"},
+        provenance={"analysis": "SurfaceIntersection"},
+    )
+
+    assert request.provider == "openvsp_surface_intersection"
+    assert request.geometry_family_hint == "thin_sheet_aircraft_assembly"
+    assert result.status == "materialized"
+    assert result.topology.volume_count == 3
+
+
+def test_schema_supports_experimental_provider_not_materialized(tmp_path: Path):
+    source = tmp_path / "blackcat.vsp3"
+
+    result = GeometryProviderResult(
+        provider="esp_rebuilt",
+        provider_stage="experimental",
+        status="not_materialized",
+        geometry_source="esp_rebuilt",
+        source_path=source,
+        geometry_family_hint="thin_sheet_aircraft_assembly",
+        topology=GeometryTopologyMetadata(
+            representation="provider_deferred",
+            source_kind="vsp3",
+            units=None,
+        ),
+        provenance={"status": "experimental_not_materialized"},
+    )
+
+    assert result.provider == "esp_rebuilt"
+    assert result.provider_stage == "experimental"
+    assert result.normalized_geometry_path is None
+
+
+def test_schema_supports_mesh_handoff_contract_models(tmp_path: Path):
+    mesh_dir = tmp_path / "out" / "mesh"
+    handoff = MeshHandoff(
+        route_stage="baseline",
+        backend="gmsh",
+        backend_capability="sheet_aircraft_assembly_meshing",
+        meshing_route="gmsh_thin_sheet_aircraft_assembly",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        source_path=tmp_path / "blackcat.vsp3",
+        normalized_geometry_path=tmp_path / "normalized.stp",
+        units="m",
+        mesh_format="msh",
+        body_bounds=Bounds3D(x_min=0.0, x_max=5.7, y_min=-16.4, y_max=16.4, z_min=-0.7, z_max=1.7),
+        farfield_bounds=Bounds3D(
+            x_min=-28.5,
+            x_max=74.1,
+            y_min=-280.0,
+            y_max=280.0,
+            z_min=-19.9,
+            z_max=20.9,
+        ),
+        mesh_stats={"node_count": 123, "element_count": 456},
+        marker_summary={"aircraft": {"exists": True}},
+        physical_groups={"fluid": {"exists": True}},
+        artifacts=MeshArtifactBundle(
+            mesh=mesh_dir / "mesh.msh",
+            mesh_metadata=mesh_dir / "mesh_metadata.json",
+            marker_summary=mesh_dir / "marker_summary.json",
+        ),
+        provenance={"route_provenance": "geometry_family_registry"},
+    )
+
+    assert handoff.contract == "mesh_handoff.v1"
+    assert handoff.artifacts.mesh.name == "mesh.msh"
+    assert handoff.body_bounds.x_max == 5.7
+
+
+def test_schema_supports_su2_handoff_contract_models(tmp_path: Path):
+    case_dir = tmp_path / "out" / "su2"
+    runtime = SU2RuntimeConfig(
+        enabled=True,
+        alpha_deg=0.0,
+        max_iterations=25,
+        reference_mode="user_declared",
+        reference_override=SU2ReferenceOverride(
+            ref_area=12.0,
+            ref_length=3.5,
+            ref_origin_moment={"x": 1.0, "y": 0.0, "z": 0.1},
+            source_label="manual_test_reference",
+        ),
+    )
+    handoff = SU2CaseHandoff(
+        geometry_family="thin_sheet_aircraft_assembly",
+        units="m",
+        input_mesh_artifact=tmp_path / "mesh.msh",
+        mesh_markers={
+            "wall": "aircraft",
+            "farfield": "farfield",
+            "monitoring": ["aircraft"],
+            "plotting": ["aircraft"],
+            "euler": ["aircraft"],
+        },
+        reference_geometry=SU2ReferenceGeometry(
+            ref_area=12.0,
+            ref_length=3.5,
+            ref_origin_moment={"x": 1.0, "y": 0.0, "z": 0.1},
+            area_provenance=SU2ReferenceQuantityProvenance(
+                source_category="user_declared",
+                method="runtime.reference_override.ref_area",
+                confidence="high",
+                source_path=tmp_path / "manual_reference.json",
+            ),
+            length_provenance=SU2ReferenceQuantityProvenance(
+                source_category="user_declared",
+                method="runtime.reference_override.ref_length",
+                confidence="high",
+                source_path=tmp_path / "manual_reference.json",
+            ),
+            moment_origin_provenance=SU2ReferenceQuantityProvenance(
+                source_category="user_declared",
+                method="runtime.reference_override.ref_origin_moment",
+                confidence="high",
+                source_path=tmp_path / "manual_reference.json",
+            ),
+            gate_status="pass",
+            confidence="high",
+            notes=["baseline envelope-derived references"],
+        ),
+        runtime=runtime,
+        runtime_cfg_path=case_dir / "su2_runtime.cfg",
+        case_output_paths=SU2CaseArtifacts(
+            case_dir=case_dir,
+            su2_mesh=case_dir / "mesh.su2",
+            history=case_dir / "history.csv",
+            solver_log=case_dir / "solver.log",
+            surface_output=case_dir / "surface.csv",
+            restart_output=case_dir / "restart.csv",
+            volume_output=case_dir / "vol_solution.vtk",
+            contract_path=case_dir / "su2_handoff.json",
+        ),
+        history=SU2HistorySummary(
+            history_path=case_dir / "history.csv",
+            final_iteration=24,
+            cl=0.12,
+            cd=0.03,
+            cm=-0.004,
+            cm_axis="CMy",
+            source_columns={"cl": "CL", "cd": "CD", "cm": "CMy"},
+        ),
+        run_status="completed",
+        solver_command=["SU2_CFD", "su2_runtime.cfg"],
+        force_surface_provenance=SU2ForceSurfaceProvenance(
+            gate_status="pass",
+            confidence="medium",
+            source_kind="mesh_physical_group",
+            wall_marker="aircraft",
+            monitoring_markers=["aircraft"],
+            plotting_markers=["aircraft"],
+            euler_markers=["aircraft"],
+            source_groups=[
+                SU2ForceSurfaceMarkerGroup(
+                    marker_name="aircraft",
+                    physical_name="aircraft",
+                    physical_tag=2,
+                    dimension=2,
+                    entity_count=38,
+                    element_count=180,
+                ),
+            ],
+            primary_group=SU2ForceSurfaceMarkerGroup(
+                marker_name="aircraft",
+                physical_name="aircraft",
+                physical_tag=2,
+                dimension=2,
+                entity_count=38,
+                element_count=180,
+            ),
+            matches_wall_marker=True,
+            matches_entire_aircraft_wall=True,
+            scope="whole_aircraft_wall",
+            body_count=3,
+            component_labels_present_in_geometry=True,
+            component_label_schema="preserve_component_labels",
+            component_provenance="geometry_labels_present_but_not_mapped",
+        ),
+        provenance_gates=SU2ProvenanceGates(
+            overall_status="pass",
+            reference_quantities=SU2GateCheck(
+                status="pass",
+                confidence="high",
+            ),
+            force_surface=SU2GateCheck(
+                status="pass",
+                confidence="medium",
+            ),
+        ),
+        convergence_gate=BaselineConvergenceGate(
+            mesh_gate=ConvergenceGateSection(
+                status="pass",
+                confidence="high",
+                checks={
+                    "mesh_handoff_complete": ConvergenceGateCheck(
+                        status="pass",
+                        observed={"contract": "mesh_handoff.v1"},
+                        expected={"contract": "mesh_handoff.v1"},
+                    )
+                },
+            ),
+            iterative_gate=ConvergenceGateSection(
+                status="warn",
+                confidence="medium",
+                checks={
+                    "residual_trend": ConvergenceGateCheck(
+                        status="warn",
+                        observed={"median_log_drop": 0.2},
+                        expected={"minimum_median_log_drop": 0.5},
+                    )
+                },
+                warnings=["residual trend remains mixed"],
+            ),
+            overall_convergence_gate=OverallConvergenceGate(
+                status="warn",
+                confidence="medium",
+                comparability_level="run_only",
+                checks={
+                    "mesh_gate": ConvergenceGateCheck(
+                        status="pass",
+                        observed={"status": "pass"},
+                        expected={"status": "pass"},
+                    ),
+                    "iterative_gate": ConvergenceGateCheck(
+                        status="warn",
+                        observed={"status": "warn"},
+                        expected={"status": "pass"},
+                    ),
+                },
+                warnings=["iterative convergence still needs caution"],
+            ),
+        ),
+        provenance={"source_contract": "mesh_handoff.v1"},
+        notes=["package-native baseline case"],
+    )
+
+    assert handoff.contract == "su2_handoff.v1"
+    assert handoff.runtime.enabled is True
+    assert handoff.runtime.alpha_deg == 0.0
+    assert handoff.case_output_paths.contract_path.name == "su2_handoff.json"
+    assert handoff.history.cm_axis == "CMy"
+    assert handoff.mesh_markers["wall"] == "aircraft"
+    assert handoff.reference_geometry.area_provenance.source_category == "user_declared"
+    assert handoff.force_surface_provenance.scope == "whole_aircraft_wall"
+    assert handoff.provenance_gates.overall_status == "pass"
+    assert handoff.convergence_gate.overall_convergence_gate.comparability_level == "run_only"
