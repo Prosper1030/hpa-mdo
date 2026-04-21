@@ -1222,6 +1222,64 @@ def test_configure_mesh_field_uses_reference_length_surface_and_edge_policy(tmp_
     assert gmsh.option.values["Mesh.Algorithm3D"] == 1.0
 
 
+def test_import_scale_to_units_falls_back_to_dominant_span_when_provider_scale_missing(tmp_path: Path):
+    from hpa_meshing.schema import Bounds3D
+
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    normalized = tmp_path / "normalized.stp"
+    normalized.write_text("ISO-10303-21;", encoding="utf-8")
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=".stp",
+        loader="provider:esp_rebuilt",
+        geometry_source="esp_rebuilt",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="esp_rebuilt",
+        provider_status="materialized",
+        provider_result=GeometryProviderResult(
+            provider="esp_rebuilt",
+            provider_stage="experimental",
+            status="materialized",
+            geometry_source="esp_rebuilt",
+            source_path=source,
+            normalized_geometry_path=normalized,
+            geometry_family_hint="thin_sheet_aircraft_assembly",
+            topology=GeometryTopologyMetadata(
+                representation="brep_trimmed_step",
+                source_kind="stp",
+                units="m",
+                bounds=Bounds3D(
+                    x_min=-0.0009837188121968,
+                    x_max=5.7,
+                    y_min=-16.5,
+                    y_max=16.5,
+                    z_min=-0.7,
+                    z_max=1.7,
+                ),
+                import_bounds=Bounds3D(
+                    x_min=-0.9837189121968,
+                    x_max=1302.3292691,
+                    y_min=-16500.0000001,
+                    y_max=16500.0000001,
+                    z_min=-68.0367432158,
+                    z_max=835.294794189,
+                ),
+                import_scale_to_units=None,
+                backend_rescale_required=False,
+            ),
+        ),
+    )
+
+    scale, units = gmsh_backend_module._import_scale_to_units(handle)
+
+    assert units == "m"
+    assert scale == pytest.approx(1.0e-3, rel=1e-6)
+
+
 def test_apply_recipe_scales_mesh_field_transition_with_requested_sizes(tmp_path: Path):
     normalized = _write_occ_box_step(tmp_path)
     source = tmp_path / "demo.vsp3"

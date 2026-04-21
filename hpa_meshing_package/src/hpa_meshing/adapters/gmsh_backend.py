@@ -259,6 +259,25 @@ def _farfield_bounds(mins: list[float], maxs: list[float], farfield: FarfieldCon
     }
 
 
+def _dominant_span_axis(bounds: Bounds3D | None) -> tuple[str, float] | None:
+    if bounds is None:
+        return None
+    spans = {
+        "x": float(bounds.x_max) - float(bounds.x_min),
+        "y": float(bounds.y_max) - float(bounds.y_min),
+        "z": float(bounds.z_max) - float(bounds.z_min),
+    }
+    positive = [
+        (axis, span)
+        for axis, span in spans.items()
+        if math.isfinite(span) and span > 1.0e-12
+    ]
+    if not positive:
+        return None
+    positive.sort(key=lambda item: item[1], reverse=True)
+    return positive[0]
+
+
 def _import_scale_to_units(handle: GeometryHandle) -> tuple[float, str | None]:
     provider_result = handle.provider_result
     if provider_result is None:
@@ -266,6 +285,18 @@ def _import_scale_to_units(handle: GeometryHandle) -> tuple[float, str | None]:
     topology = provider_result.topology
     scale = topology.import_scale_to_units
     if scale is None or scale <= 0.0:
+        dominant_bounds = _dominant_span_axis(topology.bounds)
+        dominant_import_bounds = _dominant_span_axis(topology.import_bounds)
+        if (
+            dominant_bounds is not None
+            and dominant_import_bounds is not None
+            and dominant_bounds[0] == dominant_import_bounds[0]
+        ):
+            inferred_scale = dominant_bounds[1] / dominant_import_bounds[1]
+            if math.isfinite(inferred_scale) and inferred_scale > 0.0:
+                if abs(inferred_scale - 1.0) <= 1.0e-6:
+                    return 1.0, topology.units
+                return float(inferred_scale), topology.units
         return 1.0, topology.units
     return float(scale), topology.units
 
