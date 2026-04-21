@@ -211,8 +211,8 @@ def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: P
 
     def fake_runner(args, cwd):
         invocations.append({"args": list(args), "cwd": Path(cwd)})
-        normalized = Path(cwd) / "normalized.stp"
-        normalized.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+        exported = Path(cwd) / "raw_dump.stp"
+        exported.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
         return subprocess.CompletedProcess(
             args=args,
             returncode=0,
@@ -253,8 +253,10 @@ def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: P
     script_text = result.script_path.read_text(encoding="utf-8")
     assert "provider with spaces" not in script_text
     assert result.input_model_path.name in script_text
-    assert result.normalized_geometry_path.name in script_text
+    assert "raw_dump.stp" in script_text
     assert "DUMP !export_path 0 1" in script_text
+    assert result.artifacts["raw_geometry"].name == "raw_dump.stp"
+    assert result.artifacts["normalization_report"].name == "normalization.json"
     topology_payload = json.loads(result.topology_report_path.read_text(encoding="utf-8"))
     assert topology_payload["export_exists"] is True
     assert "units" in topology_payload
@@ -284,8 +286,8 @@ def test_materialize_with_esp_rewrites_mislabeled_mm_export_to_meter_units(
     )
 
     def fake_runner(args, cwd):
-        normalized = Path(cwd) / "normalized.stp"
-        normalized.write_text(
+        exported = Path(cwd) / "raw_dump.stp"
+        exported.write_text(
             "\n".join(
                 [
                     "ISO-10303-21;",
