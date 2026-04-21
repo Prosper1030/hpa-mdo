@@ -5,11 +5,13 @@ from pathlib import Path
 
 import pytest
 
+import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
     _probe_discrete_classify_angles,
     _collect_plc_error_probe,
     _configure_mesh_field,
     _extract_overlap_surface_details,
+    _resolve_exact_overlap_surface_pair,
     _run_surface_repair_fallback,
     _should_attempt_surface_repair_fallback,
     apply_recipe,
@@ -152,6 +154,39 @@ class _FakePlcGmsh:
         self.model = _FakePlcModel()
 
 
+class _FakeOverlapMeshModule:
+    def __init__(self) -> None:
+        self.removed_elements: list[tuple[int, int, list[int]]] = []
+        self.reclassify_calls = 0
+        self.remove_duplicate_node_calls = 0
+
+    def removeElements(self, dim, tag, element_tags):
+        self.removed_elements.append((int(dim), int(tag), list(element_tags)))
+
+    def reclassifyNodes(self):
+        self.reclassify_calls += 1
+
+    def removeDuplicateNodes(self):
+        self.remove_duplicate_node_calls += 1
+
+
+class _FakeOverlapModel:
+    def __init__(self) -> None:
+        self.mesh = _FakeOverlapMeshModule()
+        self._bboxes = {
+            (2, 48): (0.1939135563076736, -15.47845725851829, 0.5697698172955429, 0.876824496018745, -13.48606786258499, 0.7147903383577676),
+            (2, 39): (0.0, -15.47845725851829, -0.06803674310717782, 1.302328642723384, 15.47845725851962, 0.7147903383577676),
+        }
+
+    def getBoundingBox(self, dim, tag):
+        return self._bboxes[(int(dim), int(tag))]
+
+
+class _FakeOverlapGmsh:
+    def __init__(self) -> None:
+        self.model = _FakeOverlapModel()
+
+
 def test_collect_plc_error_probe_includes_point_localization_and_last_errors(tmp_path: Path):
     probe = _collect_plc_error_probe(
         _FakePlcGmsh(),
@@ -232,6 +267,28 @@ def test_extract_overlap_surface_details_reports_surface_pair_bboxes_and_facet_t
     assert details["self_intersection_kind"] == "exact"
     assert details["surface_bboxes"][0]["tag"] == 48
     assert details["surface_bboxes"][1]["tag"] == 39
+
+
+def test_resolve_exact_overlap_surface_pair_removes_smaller_surface_mesh():
+    gmsh = _FakeOverlapGmsh()
+
+    resolved = _resolve_exact_overlap_surface_pair(
+        gmsh,
+        {
+            "surface_tags": [48, 39],
+            "self_intersection_kind": "exact",
+            "surface_bboxes": [
+                {"dim": 2, "tag": 48, "bbox": gmsh.model.getBoundingBox(2, 48)},
+                {"dim": 2, "tag": 39, "bbox": gmsh.model.getBoundingBox(2, 39)},
+            ],
+        },
+    )
+
+    assert resolved["status"] == "resolved"
+    assert resolved["removed_surface_tag"] == 48
+    assert gmsh.model.mesh.removed_elements == [(2, 48, [])]
+    assert gmsh.model.mesh.reclassify_calls == 1
+    assert gmsh.model.mesh.remove_duplicate_node_calls == 1
 
 
 def test_run_surface_repair_fallback_rebuilds_boundary_groups_and_writes_reports(tmp_path: Path):
@@ -316,6 +373,85 @@ def test_run_surface_repair_fallback_rebuilds_boundary_groups_and_writes_reports
     retry_metadata = json.loads(retry_metadata_path.read_text(encoding="utf-8"))
     assert retry_metadata["status"] == "success"
     assert retry_metadata["mesh"]["volume_element_count"] > 0
+
+
+def test_run_surface_repair_fallback_fails_when_retry_mesh_has_no_volume_elements(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    normalized = _write_occ_box_step(tmp_path, "box_for_surface_repair_no_volume.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = _provider_result(source, normalized)
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "baseline_out",
+        geometry_source="provider_generated",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:openvsp_surface_intersection",
+        geometry_source="provider_generated",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="openvsp_surface_intersection",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        declared_family="thin_sheet_aircraft_assembly",
+        inferred_family=None,
+        geometry_family="thin_sheet_aircraft_assembly",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    baseline = apply_recipe(recipe, handle, config)
+    assert baseline["status"] == "success"
+
+    surface_mesh_path = Path(baseline["artifacts"]["surface_mesh_2d"])
+    retry_mesh_path = tmp_path / "surface_repair_retry_no_volume.msh"
+    cleanup_report_path = tmp_path / "surface_cleanup_report.json"
+    discrete_reparam_report_path = tmp_path / "discrete_reparam_report.json"
+    retry_metadata_path = tmp_path / "retry_mesh_metadata.json"
+
+    real_mesh_stats = gmsh_backend_module._mesh_stats
+
+    def _fake_mesh_stats(gmsh):
+        stats = real_mesh_stats(gmsh)
+        stats["volume_element_count"] = 0
+        stats["volume_element_type_counts"] = {}
+        return stats
+
+    monkeypatch.setattr(gmsh_backend_module, "_mesh_stats", _fake_mesh_stats)
+
+    fallback = _run_surface_repair_fallback(
+        surface_mesh_path=surface_mesh_path,
+        bounds=json.loads(Path(baseline["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))["farfield"]["bounds"],
+        mesh_path=retry_mesh_path,
+        cleanup_report_path=cleanup_report_path,
+        discrete_reparam_report_path=discrete_reparam_report_path,
+        retry_metadata_path=retry_metadata_path,
+        mesh_algorithm_2d=5,
+        mesh_algorithm_3d=1,
+    )
+
+    assert fallback["status"] == "failed"
+    assert "did not generate any volume elements" in fallback["error"]
+    retry_metadata = json.loads(retry_metadata_path.read_text(encoding="utf-8"))
+    assert retry_metadata["status"] == "failed"
+    assert "did not generate any volume elements" in retry_metadata["error"]
 
 
 def test_probe_discrete_classify_angles_reports_results_for_surface_mesh(tmp_path: Path):

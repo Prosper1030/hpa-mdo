@@ -627,6 +627,68 @@ def _extract_overlap_surface_details(
     }
 
 
+def _surface_bbox_area_proxy(bbox: Dict[str, float] | tuple[float, float, float, float, float, float] | None) -> float:
+    if bbox is None:
+        return float("inf")
+    if isinstance(bbox, tuple):
+        bbox = {
+            "x_min": float(bbox[0]),
+            "y_min": float(bbox[1]),
+            "z_min": float(bbox[2]),
+            "x_max": float(bbox[3]),
+            "y_max": float(bbox[4]),
+            "z_max": float(bbox[5]),
+        }
+    spans = sorted(
+        [
+            max(0.0, float(bbox["x_max"]) - float(bbox["x_min"])),
+            max(0.0, float(bbox["y_max"]) - float(bbox["y_min"])),
+            max(0.0, float(bbox["z_max"]) - float(bbox["z_min"])),
+        ],
+        reverse=True,
+    )
+    return spans[0] * spans[1]
+
+
+def _ensure_positive_volume_mesh(mesh_stats: Dict[str, Any], *, context: str) -> None:
+    if int(mesh_stats.get("volume_element_count", 0) or 0) > 0:
+        return
+    raise GmshBackendError(f"{context} returned without exception but did not generate any volume elements")
+
+
+def _resolve_exact_overlap_surface_pair(gmsh, overlap_details: Dict[str, Any] | None) -> Dict[str, Any]:
+    if not overlap_details:
+        return {"status": "skipped", "reason": "missing_overlap_details"}
+    if overlap_details.get("self_intersection_kind") != "exact":
+        return {"status": "skipped", "reason": "overlap_not_exact"}
+
+    surface_bboxes = overlap_details.get("surface_bboxes") or []
+    if len(surface_bboxes) != 2:
+        return {"status": "skipped", "reason": "expected_two_surface_bboxes"}
+
+    ranked = sorted(
+        surface_bboxes,
+        key=lambda entry: (
+            _surface_bbox_area_proxy(entry.get("bbox")),
+            int(entry["tag"]),
+        ),
+    )
+    removed_surface = ranked[0]
+    kept_surface = ranked[1]
+
+    gmsh.model.mesh.removeElements(2, int(removed_surface["tag"]), [])
+    gmsh.model.mesh.reclassifyNodes()
+    gmsh.model.mesh.removeDuplicateNodes()
+
+    return {
+        "status": "resolved",
+        "removed_surface_tag": int(removed_surface["tag"]),
+        "kept_surface_tag": int(kept_surface["tag"]),
+        "removed_surface_area_proxy": _surface_bbox_area_proxy(removed_surface.get("bbox")),
+        "kept_surface_area_proxy": _surface_bbox_area_proxy(kept_surface.get("bbox")),
+    }
+
+
 def _collect_plc_error_probe(
     gmsh,
     *,
@@ -777,12 +839,14 @@ def _run_3d_algorithm_probe(
         }
 
     mesh_stats = _mesh_stats(gmsh)
-    if mesh_stats.get("volume_element_count", 0) <= 0:
+    try:
+        _ensure_positive_volume_mesh(mesh_stats, context="3D probe")
+    except GmshBackendError as exc:
         logger_messages = [str(message) for message in gmsh.logger.get()[logger_checkpoint:]]
         return {
             "status": "failed_no_volume_elements",
             "mesh_algorithm_3d": int(algorithm3d),
-            "error": "3D probe returned without exception but did not generate any volume elements",
+            "error": str(exc),
             "mesh_stats": mesh_stats,
             "surface_probe": surface_probe,
             "logger_tail": logger_messages[-80:],
@@ -908,9 +972,39 @@ def _run_surface_repair_fallback(
         discrete_report["status"] = "completed"
         _json_write(discrete_reparam_report_path, discrete_report)
 
-        gmsh.model.mesh.generate(3)
+        overlap_resolution = None
+        try:
+            gmsh.model.mesh.generate(3)
+        except Exception as exc:
+            logger_messages = [str(message) for message in gmsh.logger.get()]
+            overlap_details = _extract_overlap_surface_details(gmsh, str(exc), logger_messages)
+            overlap_resolution = _resolve_exact_overlap_surface_pair(gmsh, overlap_details)
+            if overlap_resolution.get("status") != "resolved":
+                raise
+            try:
+                gmsh.model.mesh.clear([(3, int(tag)) for tag in fluid_volume_tags])
+            except Exception:
+                pass
+
+            removed_surface_tag = int(overlap_resolution["removed_surface_tag"])
+            aircraft_surface_tags = [tag for tag in aircraft_surface_tags if int(tag) != removed_surface_tag]
+            farfield_surface_tags = [tag for tag in farfield_surface_tags if int(tag) != removed_surface_tag]
+            discrete_report["overlap_resolution"] = overlap_resolution
+            discrete_report["aircraft_surface_count_after_overlap_resolution"] = len(aircraft_surface_tags)
+            discrete_report["farfield_surface_count_after_overlap_resolution"] = len(farfield_surface_tags)
+            discrete_report["removed_physical_groups_after_overlap_resolution"] = _remove_all_physical_groups(gmsh)
+
+            fluid_group = gmsh.model.addPhysicalGroup(3, fluid_volume_tags)
+            gmsh.model.setPhysicalName(3, fluid_group, "fluid")
+            aircraft_group = gmsh.model.addPhysicalGroup(2, aircraft_surface_tags)
+            gmsh.model.setPhysicalName(2, aircraft_group, "aircraft")
+            farfield_group = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
+            gmsh.model.setPhysicalName(2, farfield_group, "farfield")
+
+            gmsh.model.mesh.generate(3)
         gmsh.write(str(mesh_path))
 
+        mesh_stats = _mesh_stats(gmsh)
         physical_groups = {
             "fluid": _physical_group_summary(gmsh, 3, fluid_group),
             "aircraft": _physical_group_summary(gmsh, 2, aircraft_group),
@@ -920,10 +1014,8 @@ def _run_surface_repair_fallback(
             "aircraft": physical_groups["aircraft"],
             "farfield": physical_groups["farfield"],
         }
-        mesh_stats = _mesh_stats(gmsh)
         retry_metadata.update(
             {
-                "status": "success",
                 "marker_summary": marker_summary,
                 "physical_groups": physical_groups,
                 "mesh": {
@@ -933,6 +1025,10 @@ def _run_surface_repair_fallback(
                 },
             }
         )
+        if overlap_resolution is not None:
+            retry_metadata["overlap_resolution"] = overlap_resolution
+        _ensure_positive_volume_mesh(mesh_stats, context="surface-repair fallback")
+        retry_metadata["status"] = "success"
         _json_write(retry_metadata_path, retry_metadata)
         return {
             "status": "success",
@@ -946,6 +1042,11 @@ def _run_surface_repair_fallback(
             "notes": [
                 "fresh-session surface mesh cleanup and discrete reparametrization completed",
                 "boundary groups rebuilt from discrete fallback volume boundary",
+                *(
+                    [f"resolved_exact_overlap_surface_pair:removed_surface={overlap_resolution['removed_surface_tag']}"]
+                    if overlap_resolution is not None
+                    else []
+                ),
             ],
         }
     except Exception as exc:
