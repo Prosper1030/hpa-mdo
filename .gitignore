@@ -46,3 +46,31 @@ configs/local_paths.yaml
 *_out/
 uv.lock
 .worktrees/
+
+# Local CFD / geometry scratch artifacts
+hpa_meshing_package/.tmp/
+hpa_meshing_package/.bak/
+.bak
+.vsptime
+TeMpVsP3.stp.bak
+port*.jrnl
+
+# Local official manual bundles kept outside version control
+docs/Manual/gmsh.pdf
+docs/Manual/su2_wiki_minimal/
+
+# OpenVSP / VSPAero generated outputs
+data/*.adb
+data/*.adb.cases
+data/*.case.*.dat
+data/*.csf
+data/*.cuts
+data/*.group.*
+data/*.history
+data/*.lod
+data/*.polar
+data/*.quad.cases
+data/*.slc
+data/*.vkey
+data/*.vspaero
+data/*.vspgeom
