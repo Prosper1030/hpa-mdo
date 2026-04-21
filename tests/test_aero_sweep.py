@@ -87,6 +87,14 @@ def test_load_su2_alpha_sweep_reads_csv_and_dat_cases_and_derives_alpha_from_nam
         INC_VELOCITY_INIT= ( 6.5, 0.0, 0.0 )
         """,
     )
+    _write_text(
+        alpha_from_name / "case_metadata.json",
+        """
+        {
+          "mesh_preset": "study_medium"
+        }
+        """,
+    )
 
     alpha_from_cfg = tmp_path / "trimmed_case"
     _write_text(
@@ -103,6 +111,19 @@ def test_load_su2_alpha_sweep_reads_csv_and_dat_cases_and_derives_alpha_from_nam
         REF_AREA= 35.175
         INC_DENSITY_INIT= 1.225
         INC_VELOCITY_INIT= ( 6.5, 0.0, 0.0 )
+        """,
+    )
+    _write_text(
+        tmp_path / "su2_run_summary.json",
+        """
+        {
+          "cases": [
+            {
+              "case_name": "alpha_m2p0",
+              "status": "completed_but_weak"
+            }
+          ]
+        }
         """,
     )
 
@@ -125,3 +146,77 @@ def test_load_su2_alpha_sweep_reads_csv_and_dat_cases_and_derives_alpha_from_nam
     assert isinstance(df, pd.DataFrame)
     assert df["solver"].tolist() == ["su2", "su2"]
     assert math.isfinite(float(df.iloc[0]["drag_n"]))
+    assert "alpha_source=case_name" in points[0].notes
+    assert "run_status=completed_but_weak" in points[0].notes
+    assert "mesh_preset=study_medium" in points[0].notes
+
+
+def test_load_su2_alpha_sweep_ignores_malformed_optional_provenance_json(tmp_path: Path) -> None:
+    case_dir = tmp_path / "alpha_1p0"
+    _write_text(
+        case_dir / "history.csv",
+        """
+        "ITER","CD","CL","CMy"
+        20,0.0310,0.9500,-0.0200
+        """,
+    )
+    _write_text(
+        case_dir / "su2_runtime.cfg",
+        """
+        REF_AREA= 35.175
+        INC_DENSITY_INIT= 1.225
+        INC_VELOCITY_INIT= ( 6.5, 0.0, 0.0 )
+        """,
+    )
+    _write_text(case_dir / "case_metadata.json", "{broken json")
+    _write_text(tmp_path / "su2_run_summary.json", "{also broken")
+
+    points = load_su2_alpha_sweep(tmp_path)
+
+    assert len(points) == 1
+    assert points[0].alpha_deg == pytest.approx(1.0)
+    assert points[0].cl == pytest.approx(0.95)
+    assert points[0].notes == "alpha_source=case_name"
+
+
+def test_load_su2_alpha_sweep_enriches_root_level_single_case_from_run_summary(
+    tmp_path: Path,
+) -> None:
+    _write_text(
+        tmp_path / "history.csv",
+        """
+        "ITER","CD","CL","CMy"
+        20,0.0310,0.9500,-0.0200
+        """,
+    )
+    _write_text(
+        tmp_path / "su2_runtime.cfg",
+        """
+        AOA= 1.0
+        REF_AREA= 35.175
+        INC_DENSITY_INIT= 1.225
+        INC_VELOCITY_INIT= ( 6.5, 0.0, 0.0 )
+        """,
+    )
+    _write_text(
+        tmp_path / "su2_run_summary.json",
+        """
+        {
+          "cases": [
+            {
+              "case_name": "alpha_1p0",
+              "status": "completed_but_weak",
+              "mesh_preset": "study_medium"
+            }
+          ]
+        }
+        """,
+    )
+
+    points = load_su2_alpha_sweep(tmp_path)
+
+    assert len(points) == 1
+    assert points[0].alpha_deg == pytest.approx(1.0)
+    assert "alpha_source=cfg" in points[0].notes
+    assert "run_status=completed_but_weak" in points[0].notes
+    assert "mesh_preset=study_medium" in points[0].notes

@@ -11,7 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence
 
-from hpa_mdo.aero.origin_gmsh_mesh import generate_stl_external_flow_mesh
+from hpa_mdo.aero.aero_sweep import _load_history_rows, _lookup_metric, _parse_float
+from hpa_mdo.aero.origin_gmsh_mesh import generate_origin_external_flow_mesh
 from hpa_mdo.aero.vsp_builder import VSPBuilder, _has_openvsp
 from hpa_mdo.core.config import load_config
 
@@ -354,6 +355,48 @@ def _history_file_for_case(case_dir: Path) -> Path | None:
     return None
 
 
+def _load_case_metadata(case_dir: Path) -> dict[str, Any]:
+    metadata_path = case_dir / "case_metadata.json"
+    if not metadata_path.exists():
+        return {}
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if isinstance(payload, dict):
+        return payload
+    return {}
+
+
+def summarize_su2_history(history_path: Path, runtime_cfg: Path) -> dict[str, Any]:
+    rows = _load_history_rows(history_path)
+    if not rows:
+        raise ValueError(f"history file has no rows: {history_path}")
+
+    last_row = rows[-1]
+    cfg_values = _read_cfg_values(runtime_cfg)
+    iter_cap = int(_parse_float(cfg_values.get("ITER")) or DEFAULT_SU2_ITER)
+
+    final_iter_value = _lookup_metric(last_row, "TIME_ITER", "OUTER_ITER", "ITER")
+    final_inner_iter_value = _lookup_metric(last_row, "INNER_ITER", "ITER")
+    final_iter = None if final_iter_value is None else int(final_iter_value)
+    final_inner_iter = None if final_inner_iter_value is None else int(final_inner_iter_value)
+    final_cl = _lookup_metric(last_row, "CL", "LIFT")
+    final_cd = _lookup_metric(last_row, "CD", "DRAG")
+    final_cm = _lookup_metric(last_row, "CMY", "CM", "CMYTOT", "MOMENT_Y")
+    converged = final_iter is not None and final_iter < iter_cap - 1
+    status = "completed_converged" if converged else "completed_but_weak"
+
+    return {
+        "history_path": str(history_path),
+        "iter_cap": iter_cap,
+        "final_iter": final_iter,
+        "final_inner_iter": final_inner_iter,
+        "final_cl": final_cl,
+        "final_cd": final_cd,
+        "final_cm": final_cm,
+        "converged": converged,
+        "status": status,
+    }
+
+
 def run_prepared_origin_su2_alpha_sweep(
     sweep_dir: str | Path,
     *,
@@ -376,6 +419,7 @@ def run_prepared_origin_su2_alpha_sweep(
         mesh_path = case_dir / mesh_filename
         required_markers = _required_markers_for_case(case_dir)
         mesh_validation = validate_su2_mesh(mesh_path, required_markers=required_markers)
+        case_metadata = _load_case_metadata(case_dir)
 
         case_result: dict[str, Any] = {
             "case_name": case_dir.name,
@@ -383,6 +427,8 @@ def run_prepared_origin_su2_alpha_sweep(
             "runtime_cfg": str(runtime_cfg),
             "mesh_path": str(mesh_path),
             "mesh_validation": mesh_validation,
+            "mesh_preset": case_metadata.get("mesh_preset"),
+            "geometry_export": case_metadata.get("geometry_export", case_metadata.get("geometry")),
             "status": "pending",
         }
 
@@ -401,8 +447,10 @@ def run_prepared_origin_su2_alpha_sweep(
             history_path = _history_file_for_case(case_dir)
             if history_path is None:
                 raise RuntimeError(f"SU2 run completed but produced no history file: {case_dir}")
-            case_result["status"] = "completed"
+            history_summary = summarize_su2_history(history_path, runtime_cfg)
+            case_result["status"] = history_summary["status"]
             case_result["history_path"] = str(history_path)
+            case_result["history_summary"] = history_summary
         case_results.append(case_result)
 
     summary = {
@@ -426,6 +474,7 @@ def prepare_origin_su2_alpha_sweep(
     aoa_list: Sequence[float],
     mesh_path: str | Path | None = None,
     auto_mesh: bool = False,
+    mesh_preset: str = "baseline",
     run_cases: bool = False,
     dry_run_cases: bool = False,
     su2_binary: str | None = None,
@@ -438,6 +487,8 @@ def prepare_origin_su2_alpha_sweep(
         raise ValueError("run_cases and dry_run_cases cannot both be true")
     if mesh_path is not None and auto_mesh:
         raise ValueError("mesh_path and auto_mesh cannot both be set")
+    if not auto_mesh and mesh_preset != "baseline":
+        raise ValueError("mesh_preset is only applicable when auto_mesh=True")
 
     cfg = load_config(config_path)
     vsp_path = Path(cfg.io.vsp_model).expanduser().resolve()
@@ -454,12 +505,15 @@ def prepare_origin_su2_alpha_sweep(
     dynamic_viscosity_pas = density_kgpm3 * kinematic_viscosity
 
     generated_mesh = None
+    applied_mesh_preset = mesh_preset if auto_mesh else None
     mesh_source = None if mesh_path is None else Path(mesh_path).expanduser().resolve()
     if mesh_source is None and auto_mesh:
         generated_mesh_path = geometry_dir / mesh_filename
-        generated_mesh = generate_stl_external_flow_mesh(
-            geometry["stl"],
-            generated_mesh_path,
+        generated_mesh = generate_origin_external_flow_mesh(
+            step_path=geometry["step"],
+            stl_path=geometry["stl"],
+            output_path=generated_mesh_path,
+            preset_name=mesh_preset,
             body_marker=wall_marker,
             farfield_marker=farfield_marker,
         )
@@ -515,6 +569,7 @@ def prepare_origin_su2_alpha_sweep(
             "mesh_validation": mesh_validation,
             "wall_marker": wall_marker,
             "farfield_marker": farfield_marker,
+            "mesh_preset": applied_mesh_preset,
             "reference_values": refs,
             "geometry": geometry,
         }
@@ -532,6 +587,7 @@ def prepare_origin_su2_alpha_sweep(
                 "su2_runtime_cfg": str(su2_runtime_cfg),
                 "mesh_path": None if mesh_target is None else str(mesh_target),
                 "mesh_validation": mesh_validation,
+                "mesh_preset": applied_mesh_preset,
             }
         )
 
@@ -546,6 +602,7 @@ def prepare_origin_su2_alpha_sweep(
         "cases": cases,
         "mesh_path": None if mesh_source is None else str(mesh_source),
         "generated_mesh": generated_mesh,
+        "mesh_preset": applied_mesh_preset,
         "run_cases": bool(run_cases),
         "dry_run_cases": bool(dry_run_cases),
         "mpi_ranks": mpi_ranks,

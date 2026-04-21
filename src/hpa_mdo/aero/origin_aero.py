@@ -16,9 +16,14 @@ from hpa_mdo.aero.aero_sweep import (
     load_su2_alpha_sweep,
     sweep_points_to_dataframe,
 )
+from hpa_mdo.aero.origin_quality_gate import assess_origin_mesh_study
 from hpa_mdo.aero.origin_su2 import (
     prepare_origin_su2_alpha_sweep,
     run_prepared_origin_su2_alpha_sweep,
+)
+from hpa_mdo.aero.origin_geometry_contract import (
+    build_origin_geometry_contract,
+    write_origin_geometry_contract,
 )
 from hpa_mdo.aero.vsp_builder import VSPBuilder
 from hpa_mdo.core.config import load_config
@@ -124,6 +129,83 @@ def _plot_groups(
     plt.close(fig)
 
 
+def _dedupe_presets(presets: Sequence[str] | None) -> list[str]:
+    if not presets:
+        return []
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for preset in presets:
+        token = str(preset)
+        if token in seen:
+            continue
+        seen.add(token)
+        ordered.append(token)
+    return ordered
+
+
+def _format_optional_metric(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.6f}"
+
+
+def _write_mesh_study_artifacts(
+    *,
+    output_dir: Path,
+    points_by_preset: dict[str, Sequence[AeroSweepPoint]],
+    assessment: dict[str, Any],
+) -> tuple[str, str]:
+    summary_path = output_dir / "mesh_study_summary.json"
+    report_path = output_dir / "mesh_study_report.md"
+
+    summary_payload = {
+        "assessment": assessment,
+        "presets": {
+            preset: [point.to_dict() for point in points]
+            for preset, points in sorted(points_by_preset.items())
+        },
+    }
+    summary_path.write_text(json.dumps(summary_payload, indent=2) + "\n", encoding="utf-8")
+
+    lines = [
+        "# Origin SU2 Mesh Study",
+        "",
+        f"- Verdict: `{assessment['verdict']}`",
+        f"- Presets compared: {assessment['preset_count']}",
+        f"- Common AoA coverage complete: {assessment['coverage_complete']}",
+        f"- Compared AoA values: {assessment['compared_alpha_deg']}",
+        f"- Max |CD spread|: {_format_optional_metric(assessment['cd_spread_abs'])}",
+        f"- Max |CL spread|: {_format_optional_metric(assessment['cl_spread_abs'])}",
+        f"- Max |CM spread|: {_format_optional_metric(assessment['cm_spread_abs'])}",
+        "",
+        "## Thresholds",
+        "",
+        f"- CD spread <= {assessment['thresholds']['cd_spread_abs_max']:.6f}",
+        f"- CL spread <= {assessment['thresholds']['cl_spread_abs_max']:.6f}",
+        f"- CM spread <= {assessment['thresholds']['cm_spread_abs_max']:.6f}",
+        "",
+    ]
+
+    for preset, points in sorted(points_by_preset.items()):
+        lines.extend(
+            [
+                f"## {preset}",
+                "",
+                "| Alpha (deg) | CL | CD | CM |",
+                "| ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for point in sorted(points, key=lambda item: item.alpha_deg):
+            lines.append(
+                f"| {float(point.alpha_deg):.3f} | "
+                f"{float(point.cl) if point.cl is not None else float('nan'):.6f} | "
+                f"{float(point.cd) if point.cd is not None else float('nan'):.6f} | "
+                f"{float(point.cm) if point.cm is not None else float('nan'):.6f} |"
+            )
+        lines.append("")
+
+    report_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    return str(summary_path), str(report_path)
+
+
 def write_origin_aero_artifacts(
     *,
     output_dir: str | Path,
@@ -202,15 +284,19 @@ def run_origin_aero_sweep(
     prepare_su2: bool = False,
     su2_mesh_path: str | Path | None = None,
     auto_mesh_su2: bool = False,
+    su2_mesh_preset: str = "baseline",
     run_su2_cases: bool = False,
     dry_run_su2_cases: bool = False,
     su2_binary: str | None = None,
     su2_mpi_ranks: int | None = None,
+    mesh_study_presets: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     cfg = load_config(config_path)
     origin_vsp_path = getattr(cfg.io, "vsp_model", None)
     if origin_vsp_path is None:
         raise ValueError("config does not define io.vsp_model for the origin .vsp3")
+
+    origin_geometry_contract = build_origin_geometry_contract(config_path=config_path, cfg=cfg)
 
     raw_dir = Path(output_dir).expanduser().resolve() / "vspaero_raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -230,6 +316,10 @@ def run_origin_aero_sweep(
     su2_preparation = None
     su2_run_summary = None
     su2_note = None
+    mesh_study_points_by_preset: dict[str, Sequence[AeroSweepPoint]] = {}
+    mesh_study_verdict = None
+    mesh_study_summary_json = None
+    mesh_study_report_md = None
     if prepare_su2:
         prep_dir = (
             resolved_su2_dir
@@ -242,6 +332,7 @@ def run_origin_aero_sweep(
             aoa_list=aoa_list,
             mesh_path=su2_mesh_path,
             auto_mesh=auto_mesh_su2,
+            mesh_preset=su2_mesh_preset,
             run_cases=False,
             dry_run_cases=False,
             su2_binary=su2_binary,
@@ -266,11 +357,67 @@ def run_origin_aero_sweep(
                 raise
             su2_note = str(exc)
 
+    resolved_mesh_study_presets = _dedupe_presets(mesh_study_presets)
+    if resolved_mesh_study_presets:
+        if not auto_mesh_su2:
+            raise ValueError("mesh_study_presets require auto_mesh_su2=True")
+        if not run_su2_cases:
+            raise ValueError("mesh-study verdict generation requires run_su2_cases=True")
+        if dry_run_su2_cases:
+            raise ValueError("mesh-study verdict generation does not support dry_run_su2_cases=True")
+        mesh_study_root = Path(output_dir).expanduser().resolve() / "mesh_study"
+        for preset in resolved_mesh_study_presets:
+            preset_dir = mesh_study_root / preset
+            prepare_origin_su2_alpha_sweep(
+                config_path=config_path,
+                output_dir=preset_dir,
+                aoa_list=aoa_list,
+                mesh_path=su2_mesh_path,
+                auto_mesh=auto_mesh_su2,
+                mesh_preset=preset,
+                run_cases=False,
+                dry_run_cases=False,
+                su2_binary=su2_binary,
+                mpi_ranks=su2_mpi_ranks,
+            )
+            run_prepared_origin_su2_alpha_sweep(
+                preset_dir,
+                su2_binary=su2_binary,
+                mpi_ranks=su2_mpi_ranks,
+                dry_run=False,
+            )
+            try:
+                mesh_study_points_by_preset[preset] = load_su2_alpha_sweep(preset_dir)
+            except ValueError as exc:
+                raise ValueError(
+                    f"mesh-study preset {preset!r} did not produce SU2 histories after the run stage"
+                ) from exc
+            requested_alpha_deg = {float(value) for value in aoa_list}
+            observed_alpha_deg = {
+                float(point.alpha_deg)
+                for point in mesh_study_points_by_preset[preset]
+            }
+            missing_alpha_deg = sorted(requested_alpha_deg - observed_alpha_deg)
+            if missing_alpha_deg:
+                raise ValueError(
+                    f"mesh-study preset {preset!r} missing requested AoA coverage: {missing_alpha_deg}"
+                )
+        mesh_study_verdict = assess_origin_mesh_study(points_by_preset=mesh_study_points_by_preset)
+        mesh_study_summary_json, mesh_study_report_md = _write_mesh_study_artifacts(
+            output_dir=Path(output_dir).expanduser().resolve(),
+            points_by_preset=mesh_study_points_by_preset,
+            assessment=mesh_study_verdict,
+        )
+
+    contract_json = write_origin_geometry_contract(output_dir, origin_geometry_contract)
+
     bundle = write_origin_aero_artifacts(
         output_dir=output_dir,
         vspaero_points=vspaero_points,
         su2_points=su2_points,
         metadata={
+            "origin_geometry_contract": origin_geometry_contract,
+            "origin_geometry_contract_json": contract_json,
             "config_path": str(Path(config_path).expanduser().resolve()),
             "origin_vsp_path": str(Path(origin_vsp_path).expanduser().resolve()),
             "aoa_list_deg": [float(value) for value in aoa_list],
@@ -284,6 +431,10 @@ def run_origin_aero_sweep(
             "su2_preparation": su2_preparation,
             "su2_run_summary": su2_run_summary,
             "su2_analysis_note": su2_note,
+            "mesh_study_presets": resolved_mesh_study_presets or None,
+            "mesh_study_verdict": mesh_study_verdict,
+            "mesh_study_summary_json": mesh_study_summary_json,
+            "mesh_study_report_md": mesh_study_report_md,
         },
     )
     return bundle

@@ -163,7 +163,93 @@ def test_prepare_origin_su2_alpha_sweep_can_feed_the_shared_reader(monkeypatch, 
     assert (alpha_zero / "origin_mesh.su2").exists()
 
 
-def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, tmp_path: Path) -> None:
+def test_prepare_origin_su2_alpha_sweep_omits_mesh_preset_for_external_mesh(monkeypatch, tmp_path: Path) -> None:
+    from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    result = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[0.0],
+        mesh_path=mesh_path,
+    )
+
+    assert result["mesh_preset"] is None
+    assert result["cases"][0]["mesh_preset"] is None
+    assert result["generated_mesh"] is None
+
+
+def test_prepare_origin_su2_alpha_sweep_rejects_non_default_mesh_preset_with_external_mesh(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    try:
+        prepare_origin_su2_alpha_sweep(
+            config_path=tmp_path / "blackcat.yaml",
+            output_dir=tmp_path / "su2_alpha_sweep",
+            aoa_list=[0.0],
+            mesh_path=mesh_path,
+            mesh_preset="study_medium",
+        )
+    except ValueError as exc:
+        assert "mesh_preset" in str(exc)
+    else:  # pragma: no cover - red/green guard
+        raise AssertionError("expected non-default mesh preset with external mesh to fail")
+
+
+def test_prepare_origin_su2_alpha_sweep_rejects_non_default_mesh_preset_without_auto_mesh(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
     from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
 
     origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
@@ -189,19 +275,81 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, 
         },
     )
 
-    def _fake_generate_mesh(*args, **kwargs) -> dict[str, object]:
-        output_path = Path(args[1])
-        _write_text(output_path, _sample_su2_mesh_text())
+    try:
+        prepare_origin_su2_alpha_sweep(
+            config_path=tmp_path / "blackcat.yaml",
+            output_dir=tmp_path / "su2_alpha_sweep",
+            aoa_list=[0.0],
+            mesh_preset="study_medium",
+        )
+    except ValueError as exc:
+        assert "mesh_preset" in str(exc)
+    else:  # pragma: no cover - red/green guard
+        raise AssertionError("expected non-default mesh preset without auto_mesh to fail")
+
+
+def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_geometry_via_dispatcher(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_su2 import prepare_origin_su2_alpha_sweep
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    called: dict[str, object] = {}
+
+    def _fake_generate_mesh(
+        *,
+        step_path,
+        stl_path,
+        output_path,
+        preset_name,
+        body_marker,
+        farfield_marker,
+        **kwargs,
+    ) -> dict[str, object]:
+        called["step_path"] = str(step_path)
+        called["stl_path"] = str(stl_path)
+        called["preset_name"] = preset_name
+        called["body_marker"] = body_marker
+        called["farfield_marker"] = farfield_marker
+        _write_text(
+            output_path,
+            _sample_su2_mesh_text(wall_marker=body_marker, farfield_marker=farfield_marker),
+        )
         return {
-            "MeshMode": "stl_external_box",
+            "MeshMode": "stl_external_box_fallback",
             "MeshFile": str(output_path),
-            "MarkerElements": {"aircraft": 1, "farfield": 3},
+            "PresetName": preset_name,
+            "MarkerElements": {body_marker: 1, farfield_marker: 3},
             "Nodes": 4,
             "VolumeElements": 1,
+            "FallbackReason": "bad step",
         }
 
     monkeypatch.setattr(
-        "hpa_mdo.aero.origin_su2.generate_stl_external_flow_mesh",
+        "hpa_mdo.aero.origin_su2.generate_origin_external_flow_mesh",
         _fake_generate_mesh,
     )
 
@@ -210,12 +358,23 @@ def test_prepare_origin_su2_alpha_sweep_can_auto_mesh_exported_stl(monkeypatch, 
         output_dir=tmp_path / "su2_alpha_sweep",
         aoa_list=[0.0],
         auto_mesh=True,
+        mesh_preset="study_medium",
+        wall_marker="wing_surface",
+        farfield_marker="outer_box",
     )
 
-    assert result["generated_mesh"]["MeshMode"] == "stl_external_box"
+    assert called["step_path"].endswith("origin_surface.step")
+    assert called["stl_path"].endswith("origin_surface.stl")
+    assert called["preset_name"] == "study_medium"
+    assert called["body_marker"] == "wing_surface"
+    assert called["farfield_marker"] == "outer_box"
+    assert result["mesh_preset"] == "study_medium"
+    assert result["generated_mesh"]["MeshMode"] == "stl_external_box_fallback"
+    assert result["generated_mesh"]["PresetName"] == "study_medium"
+    assert result["generated_mesh"]["FallbackReason"] == "bad step"
     assert Path(result["mesh_path"]).exists()
     assert Path(result["cases"][0]["mesh_path"]).exists()
-    assert result["cases"][0]["mesh_validation"]["marker_names"] == ["aircraft", "farfield"]
+    assert result["cases"][0]["mesh_validation"]["marker_names"] == ["wing_surface", "outer_box"]
 
 
 def test_validate_su2_mesh_rejects_missing_required_marker(tmp_path: Path) -> None:
@@ -332,11 +491,69 @@ def test_run_prepared_origin_su2_alpha_sweep_executes_fake_solver(monkeypatch, t
         su2_binary=str(fake_solver),
     )
 
-    assert summary["cases"][0]["status"] == "completed"
+    assert summary["cases"][0]["status"] == "completed_converged"
     assert Path(summary["cases"][0]["history_path"]).exists()
     points = load_su2_alpha_sweep(prepared["sweep_dir"])
     assert len(points) == 1
     assert points[0].cd == 0.04
+
+
+def test_run_prepared_origin_su2_alpha_sweep_records_history_summary(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from hpa_mdo.aero.origin_su2 import (
+        prepare_origin_su2_alpha_sweep,
+        run_prepared_origin_su2_alpha_sweep,
+    )
+
+    origin_vsp_path = _write_text(tmp_path / "origin.vsp3", "stub")
+    mesh_path = _write_text(tmp_path / "origin_mesh.su2", _sample_su2_mesh_text())
+    fake_solver = _write_text(
+        tmp_path / "fake_su2_history.sh",
+        """
+        #!/bin/sh
+        printf '"Time_Iter","Outer_Iter","Inner_Iter","CD","CL","CMy"\n1499,1499,49,0.0400,0.9900,-0.0200\n' > history.csv
+        exit 0
+        """,
+    )
+    fake_solver.chmod(0o755)
+    cfg = _fake_cfg(tmp_path, origin_vsp_path)
+
+    monkeypatch.setattr("hpa_mdo.aero.origin_su2.load_config", lambda _: cfg)
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._resolve_origin_reference_values",
+        lambda _: {
+            "sref": 35.175,
+            "bref": 33.0,
+            "cref": 1.13,
+            "xcg": 0.25,
+            "ycg": 0.0,
+            "zcg": 0.0,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_mdo.aero.origin_su2._export_origin_cfd_geometry",
+        lambda *, vsp3_path, output_dir: {
+            "stl": str(_write_text(Path(output_dir) / "origin_surface.stl", "solid wing\nendsolid wing")),
+            "step": str(_write_text(Path(output_dir) / "origin_surface.step", "ISO-10303-21;")),
+        },
+    )
+
+    prepared = prepare_origin_su2_alpha_sweep(
+        config_path=tmp_path / "blackcat.yaml",
+        output_dir=tmp_path / "su2_alpha_sweep",
+        aoa_list=[0.0],
+        mesh_path=mesh_path,
+    )
+    summary = run_prepared_origin_su2_alpha_sweep(
+        prepared["sweep_dir"],
+        su2_binary=str(fake_solver),
+    )
+
+    assert summary["cases"][0]["status"] == "completed_but_weak"
+    assert summary["cases"][0]["history_summary"]["final_inner_iter"] == 49
+    assert summary["cases"][0]["history_summary"]["final_cl"] == 0.99
 
 
 def test_run_prepared_origin_su2_alpha_sweep_rejects_missing_history_after_execution(

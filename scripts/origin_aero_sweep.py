@@ -10,12 +10,15 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from hpa_mdo.aero.origin_gmsh_mesh import ORIGIN_SU2_MESH_PRESETS
 from hpa_mdo.aero.origin_aero import run_origin_aero_sweep
 from hpa_mdo.core.config import load_config
 
 
 DEFAULT_CONFIG = "configs/blackcat_004.yaml"
 DEFAULT_AOA = [-2.0, 0.0, 2.0]
+DEFAULT_MESH_PRESET = "baseline"
+MESH_PRESET_CHOICES = tuple(ORIGIN_SU2_MESH_PRESETS)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,6 +29,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--su2-sweep-dir", default=None, help="Optional SU2 alpha sweep root to ingest")
     parser.add_argument("--prepare-su2", action="store_true", help="Prepare origin-based SU2 alpha cases")
     parser.add_argument("--su2-mesh", default=None, help="Optional .su2 mesh copied into each prepared case")
+    parser.add_argument(
+        "--su2-mesh-preset",
+        default=DEFAULT_MESH_PRESET,
+        choices=MESH_PRESET_CHOICES,
+        help="Preset mesh sizing contract used when auto-generating the SU2 mesh",
+    )
+    parser.add_argument(
+        "--mesh-study-presets",
+        nargs="+",
+        default=None,
+        choices=MESH_PRESET_CHOICES,
+        help="Optional mesh-study preset list to prepare and assess as a comparison-quality gate",
+    )
     parser.add_argument("--auto-mesh-su2", action="store_true", help="Auto-generate an external-flow SU2 mesh from origin_surface.stl")
     parser.add_argument("--run-su2", action="store_true", help="Run prepared SU2 cases after writing configs")
     parser.add_argument("--dry-run-su2", action="store_true", help="Preview prepared SU2 commands without executing")
@@ -48,10 +64,12 @@ def main(argv: list[str] | None = None) -> int:
         prepare_su2=args.prepare_su2,
         su2_mesh_path=args.su2_mesh,
         auto_mesh_su2=args.auto_mesh_su2,
+        su2_mesh_preset=args.su2_mesh_preset,
         run_su2_cases=args.run_su2,
         dry_run_su2_cases=args.dry_run_su2,
         su2_binary=args.su2_binary,
         su2_mpi_ranks=args.su2_ranks,
+        mesh_study_presets=args.mesh_study_presets,
     )
 
     print(f"Origin aero sweep complete: {bundle['bundle_json']}")
@@ -60,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"SU2 CSV: {bundle['su2']['files']['csv']}")
     if bundle["metadata"].get("su2_preparation"):
         print(f"SU2 sweep dir: {bundle['metadata']['su2_preparation']['sweep_dir']}")
+    if bundle["metadata"].get("mesh_study_summary_json"):
+        print(f"Mesh study summary: {bundle['metadata']['mesh_study_summary_json']}")
     return 0
 
 
