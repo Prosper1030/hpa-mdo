@@ -54,14 +54,16 @@ def _provider_provenance() -> dict[str, object]:
 
 
 def test_run_job_reports_geometry_family_and_route_provenance(tmp_path: Path):
-    geometry = tmp_path / "wing.step"
-    geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+    geometry = _write_occ_box_step(tmp_path, "wing.step")
 
     config = MeshJobConfig(
         component="main_wing",
         geometry=geometry,
         out_dir=tmp_path / "out",
         geometry_source="esp_rebuilt",
+        global_min_size=0.5,
+        global_max_size=2.0,
+        metadata={"reference_geometry": _provider_provenance()["reference_geometry"]},
     )
 
     result = run_job(config)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 import uuid
 from pathlib import Path
@@ -26,6 +27,10 @@ SUPPORTED_GMSH_CAPABILITIES = {
 }
 
 REAL_OCC_ROUTE = "gmsh_thin_sheet_aircraft_assembly"
+REAL_OCC_ROUTES = {
+    "gmsh_thin_sheet_aircraft_assembly",
+    "gmsh_thin_sheet_surface",
+}
 DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH = 128.0
 DEFAULT_EDGE_REFINEMENT_RATIO = 0.5
 DEFAULT_FARFIELD_REFERENCE_FACTOR = 4.0
@@ -169,6 +174,114 @@ def _aircraft_curve_tags(gmsh, aircraft_surface_tags: list[int]) -> list[int]:
     return curve_tags
 
 
+def _surface_connectivity_summary(gmsh, surface_tags: list[int]) -> Dict[str, Any]:
+    curve_to_surfaces: dict[int, list[int]] = defaultdict(list)
+    for surface_tag in surface_tags:
+        boundary = gmsh.model.getBoundary([(2, int(surface_tag))], oriented=False, recursive=False)
+        seen_curves: set[int] = set()
+        for dim, tag in boundary:
+            if dim != 1:
+                continue
+            curve_tag = int(tag)
+            if curve_tag in seen_curves:
+                continue
+            seen_curves.add(curve_tag)
+            curve_to_surfaces[curve_tag].append(int(surface_tag))
+
+    free_curve_tags = sorted(tag for tag, owners in curve_to_surfaces.items() if len(owners) == 1)
+    non_manifold_curve_tags = sorted(tag for tag, owners in curve_to_surfaces.items() if len(owners) > 2)
+    return {
+        "surface_count": len(surface_tags),
+        "curve_count": len(curve_to_surfaces),
+        "free_curve_count": len(free_curve_tags),
+        "free_curve_tags_sample": free_curve_tags[:25],
+        "non_manifold_curve_count": len(non_manifold_curve_tags),
+        "non_manifold_curve_tags_sample": non_manifold_curve_tags[:25],
+    }
+
+
+def _scan_duplicate_surface_facets(gmsh, surface_tags: list[int]) -> Dict[str, Any]:
+    duplicate_elements: dict[tuple[int, tuple[int, ...]], list[tuple[int, int]]] = defaultdict(list)
+
+    for surface_tag in surface_tags:
+        element_types, element_tags_blocks, node_tags_blocks = gmsh.model.mesh.getElements(2, int(surface_tag))
+        for element_type, element_tags, node_tags in zip(element_types, element_tags_blocks, node_tags_blocks):
+            if int(element_type) == 2:
+                node_count = 3
+            elif int(element_type) == 3:
+                node_count = 4
+            else:
+                continue
+            for index, element_tag in enumerate(element_tags):
+                start = index * node_count
+                nodes = node_tags[start:start + node_count]
+                key = (int(element_type), tuple(sorted(int(node_tag) for node_tag in nodes)))
+                duplicate_elements[key].append((int(surface_tag), int(element_tag)))
+
+    duplicate_groups = [entries for entries in duplicate_elements.values() if len(entries) > 1]
+    return {
+        "duplicate_group_count": len(duplicate_groups),
+        "duplicate_facet_count": sum(len(entries) - 1 for entries in duplicate_groups),
+        "sample_groups": [
+            {
+                "surface_tags": [surface_tag for surface_tag, _ in entries],
+                "element_tags": [element_tag for _, element_tag in entries],
+            }
+            for entries in duplicate_groups[:10]
+        ],
+    }
+
+
+def _remove_duplicate_surface_facets(gmsh, surface_tags: list[int]) -> Dict[str, Any]:
+    duplicate_elements: dict[tuple[int, tuple[int, ...]], list[tuple[int, int]]] = defaultdict(list)
+
+    for surface_tag in surface_tags:
+        element_types, element_tags_blocks, node_tags_blocks = gmsh.model.mesh.getElements(2, int(surface_tag))
+        for element_type, element_tags, node_tags in zip(element_types, element_tags_blocks, node_tags_blocks):
+            if int(element_type) == 2:
+                node_count = 3
+            elif int(element_type) == 3:
+                node_count = 4
+            else:
+                continue
+            for index, element_tag in enumerate(element_tags):
+                start = index * node_count
+                nodes = node_tags[start:start + node_count]
+                key = (int(element_type), tuple(sorted(int(node_tag) for node_tag in nodes)))
+                duplicate_elements[key].append((int(surface_tag), int(element_tag)))
+
+    duplicate_groups = [entries for entries in duplicate_elements.values() if len(entries) > 1]
+    removed_facet_count = 0
+    for entries in duplicate_groups:
+        for surface_tag, element_tag in entries[1:]:
+            gmsh.model.mesh.removeElements(2, int(surface_tag), [int(element_tag)])
+            removed_facet_count += 1
+
+    if removed_facet_count:
+        gmsh.model.mesh.reclassifyNodes()
+
+    node_count_before = len(gmsh.model.mesh.getNodes()[0])
+    try:
+        gmsh.model.mesh.removeDuplicateNodes()
+    except Exception:
+        duplicate_nodes_removed = None
+    else:
+        duplicate_nodes_removed = max(0, node_count_before - len(gmsh.model.mesh.getNodes()[0]))
+
+    return {
+        "duplicate_group_count": len(duplicate_groups),
+        "removed_duplicate_facets": removed_facet_count,
+        "duplicate_nodes_removed": duplicate_nodes_removed,
+        "sample_groups": [
+            {
+                "surface_tags": [surface_tag for surface_tag, _ in entries],
+                "element_tags": [element_tag for _, element_tag in entries],
+            }
+            for entries in duplicate_groups[:10]
+        ],
+    }
+
+
 def _resolve_sizing_reference_length(handle: GeometryHandle, config: MeshJobConfig) -> float:
     reference_length = resolve_reference_length(
         handle.source_path,
@@ -287,18 +400,11 @@ def _heal_imported_bodies(gmsh, body_dim_tags: list[tuple[int, int]]) -> tuple[l
 
 
 def _should_skip_occ_heal(handle: GeometryHandle) -> bool:
-    provider_result = handle.provider_result
-    if provider_result is None or provider_result.provider != "esp_rebuilt":
-        return False
-    normalization = provider_result.topology.normalization or {}
-    if not normalization.get("applied"):
-        return False
-    final_analysis = normalization.get("final_analysis") or {}
-    return (
-        not final_analysis.get("touching_groups")
-        and int(final_analysis.get("duplicate_interface_face_pair_count", 0)) == 0
-        and int(final_analysis.get("internal_cap_face_count", 0)) == 0
-    )
+    # ESP normalization removes known symmetry interfaces, but the resulting OCC shell can
+    # still contain free curves or overlapping surface patches that only show up during the
+    # external-flow cut/mesh path. Keep healing enabled until the route proves it can import
+    # these provider outputs without geometric inconsistencies.
+    return False
 
 
 def _maybe_heal_imported_bodies(
@@ -391,14 +497,14 @@ def _placeholder_backend_result(
         "marker_summary": {},
         "mesh_stats": {},
         "notes": [
-            "Real OCC backend currently implemented only for gmsh_thin_sheet_aircraft_assembly.",
+            "Real OCC backend currently implemented for gmsh_thin_sheet_aircraft_assembly and gmsh_thin_sheet_surface.",
             f"loader={handle.loader}",
             f"mesh_dim={config.mesh_dim}",
         ],
     }
 
 
-def _apply_thin_sheet_aircraft_assembly_route(
+def _apply_occ_external_flow_route(
     recipe: MeshRecipe,
     handle: GeometryHandle,
     config: MeshJobConfig,
@@ -440,6 +546,34 @@ def _apply_thin_sheet_aircraft_assembly_route(
     mesh_dir.mkdir(parents=True, exist_ok=True)
 
     gmsh_initialized = False
+    metadata: Dict[str, Any] = {
+        "status": "started",
+        "route_stage": "baseline",
+        "backend": recipe.backend,
+        "backend_capability": recipe.backend_capability,
+        "meshing_route": recipe.meshing_route,
+        "geometry_family": recipe.geometry_family,
+        "geometry_source": recipe.geometry_source,
+        "geometry": {
+            "source_path": str(handle.source_path),
+            "normalized_path": str(handle.path),
+            "loader": handle.loader,
+            "provider": handle.provider,
+            "provider_status": handle.provider_status,
+            "provider_topology": (
+                handle.provider_result.topology.model_dump(mode="json")
+                if handle.provider_result is not None
+                else None
+            ),
+        },
+    }
+    marker_summary: Dict[str, Any] = {}
+    physical_groups: Dict[str, Any] = {}
+    field_info: Dict[str, Any] = {}
+    body_bounds_dict: Dict[str, Any] | None = None
+    bounds: Dict[str, float] | None = None
+    unit_normalization: Dict[str, Any] | None = None
+    mesh_stats: Dict[str, Any] = {}
     try:
         gmsh.initialize()
         gmsh_initialized = True
@@ -472,6 +606,11 @@ def _apply_thin_sheet_aircraft_assembly_route(
             skip_heal=_should_skip_occ_heal(handle),
         )
         imported_surface_count = len(gmsh.model.getEntities(2))
+        metadata["body"] = {
+            "imported_volume_count": len(body_dim_tags),
+            "imported_surface_count": imported_surface_count,
+            "healing": healing_summary,
+        }
 
         body_bounds = _bbox_for_entities(gmsh, body_dim_tags)
         bounds = _farfield_bounds(*body_bounds, farfield=config.farfield)
@@ -505,6 +644,12 @@ def _apply_thin_sheet_aircraft_assembly_route(
             raise GmshBackendError("Failed to recover aircraft boundary surfaces from fluid boundary.")
         if not farfield_surface_tags:
             raise GmshBackendError("Failed to recover farfield boundary surfaces from fluid boundary.")
+        metadata["surface_topology"] = {
+            "boundary_surface_count": len(boundary_surface_tags),
+            "aircraft_surface_count": len(aircraft_surface_tags),
+            "farfield_surface_count": len(farfield_surface_tags),
+            "aircraft_connectivity_before_meshing": _surface_connectivity_summary(gmsh, aircraft_surface_tags),
+        }
 
         aircraft_curve_tags = _aircraft_curve_tags(gmsh, aircraft_surface_tags)
         reference_length = _resolve_sizing_reference_length(handle, config)
@@ -517,7 +662,27 @@ def _apply_thin_sheet_aircraft_assembly_route(
         gmsh.model.setPhysicalName(2, farfield_group, "farfield")
 
         field_info = _configure_mesh_field(gmsh, aircraft_surface_tags, aircraft_curve_tags, reference_length, config)
-        gmsh.model.mesh.generate(config.mesh_dim)
+        metadata["mesh_field"] = field_info
+
+        gmsh.model.mesh.generate(2)
+        pre_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
+        duplicate_cleanup = _remove_duplicate_surface_facets(gmsh, aircraft_surface_tags)
+        post_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
+        surface_element_count, surface_element_type_counts = _count_elements_for_entities(
+            gmsh,
+            2,
+            aircraft_surface_tags,
+        )
+        metadata["surface_mesh"] = {
+            "aircraft_surface_element_count": surface_element_count,
+            "aircraft_surface_element_type_counts": surface_element_type_counts,
+            "duplicate_facets_before_cleanup": pre_cleanup_duplicates,
+            "duplicate_facets_after_cleanup": post_cleanup_duplicates,
+            "cleanup_actions": duplicate_cleanup,
+        }
+
+        if config.mesh_dim == 3:
+            gmsh.model.mesh.generate(3)
         gmsh.write(str(mesh_path))
 
         physical_groups = {
@@ -600,20 +765,9 @@ def _apply_thin_sheet_aircraft_assembly_route(
             unit_normalization=unit_normalization,
         )
         metadata = {
+            **metadata,
+            "status": "success",
             **handoff.model_dump(mode="json"),
-            "geometry": {
-                "source_path": str(handle.source_path),
-                "normalized_path": str(handle.path),
-                "geometry_source": recipe.geometry_source,
-                "loader": handle.loader,
-                "provider": handle.provider,
-                "provider_status": handle.provider_status,
-                "provider_topology": (
-                    handle.provider_result.topology.model_dump(mode="json")
-                    if handle.provider_result is not None
-                    else None
-                ),
-            },
             "body": {
                 "imported_volume_count": len(body_dim_tags),
                 "imported_surface_count": imported_surface_count,
@@ -674,6 +828,38 @@ def _apply_thin_sheet_aircraft_assembly_route(
             ],
         }
     except Exception as exc:
+        metadata["status"] = "failed"
+        metadata["error"] = str(exc)
+        if body_bounds_dict is not None:
+            metadata.setdefault("body", {})
+            metadata["body"]["bounds"] = body_bounds_dict
+        if bounds is not None:
+            metadata["farfield"] = {
+                "enabled": config.farfield.enabled,
+                "bounds": bounds,
+                "scale_factors": {
+                    "upstream_factor": config.farfield.upstream_factor,
+                    "downstream_factor": config.farfield.downstream_factor,
+                    "lateral_factor": config.farfield.lateral_factor,
+                    "vertical_factor": config.farfield.vertical_factor,
+                },
+            }
+        if field_info:
+            metadata["mesh_field"] = field_info
+        if unit_normalization is not None:
+            metadata["unit_normalization"] = unit_normalization
+        if physical_groups:
+            metadata["physical_groups"] = physical_groups
+        if marker_summary:
+            metadata["marker_summary"] = marker_summary
+        if mesh_stats:
+            metadata["mesh"] = {
+                "format": "msh",
+                "mesh_dim": config.mesh_dim,
+                **mesh_stats,
+            }
+        _json_write(metadata_path, metadata)
+        _json_write(marker_summary_path, marker_summary)
         return {
             "status": "failed",
             "backend": recipe.backend,
@@ -687,8 +873,9 @@ def _apply_thin_sheet_aircraft_assembly_route(
                 "mesh_metadata": str(metadata_path),
                 "marker_summary": str(marker_summary_path),
             },
-            "marker_summary": {},
-            "mesh_stats": {},
+            "marker_summary": marker_summary,
+            "mesh_stats": mesh_stats,
+            "physical_groups": physical_groups,
             "error": str(exc),
             "notes": [
                 "baseline OCC external-flow mesh failed",
@@ -706,8 +893,8 @@ def apply_recipe(
     handle: GeometryHandle,
     config: MeshJobConfig,
 ) -> Dict[str, Any]:
-    if recipe.meshing_route == REAL_OCC_ROUTE:
-        return _apply_thin_sheet_aircraft_assembly_route(recipe, handle, config)
+    if recipe.meshing_route in REAL_OCC_ROUTES:
+        return _apply_occ_external_flow_route(recipe, handle, config)
     return _placeholder_backend_result(recipe, handle, config)
 
 
