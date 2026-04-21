@@ -1020,6 +1020,10 @@ class _FakeFieldApi:
 class _FakeMeshApi:
     def __init__(self) -> None:
         self.field = _FakeFieldApi()
+        self.set_algorithm_calls: list[tuple[int, int, int]] = []
+
+    def setAlgorithm(self, dim: int, tag: int, val: int) -> None:
+        self.set_algorithm_calls.append((int(dim), int(tag), int(val)))
 
 
 class _FakeModelApi:
@@ -1039,6 +1043,141 @@ class _FakeGmsh:
     def __init__(self) -> None:
         self.model = _FakeModelApi()
         self.option = _FakeOptionApi()
+
+
+def test_configure_mesh_field_applies_native_esp_surface_policy_from_patch_diagnostics(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+    )
+    gmsh = _FakeGmsh()
+    surface_patch_diagnostics = {
+        "surface_records": [
+            {
+                "tag": 5,
+                "surface_role": "aircraft",
+                "curve_tags": [105, 205],
+                "family_hints": ["short_curve_candidate", "high_aspect_strip_candidate"],
+            },
+            {
+                "tag": 6,
+                "surface_role": "aircraft",
+                "curve_tags": [106, 206],
+                "family_hints": ["short_curve_candidate", "high_aspect_strip_candidate"],
+            },
+            {
+                "tag": 14,
+                "surface_role": "aircraft",
+                "curve_tags": [114, 214],
+                "family_hints": [],
+            },
+            {
+                "tag": 31,
+                "surface_role": "aircraft",
+                "curve_tags": [131, 231],
+                "family_hints": [
+                    "short_curve_candidate",
+                    "high_aspect_strip_candidate",
+                    "span_extreme_candidate",
+                ],
+            },
+            {
+                "tag": 32,
+                "surface_role": "aircraft",
+                "curve_tags": [132, 232],
+                "family_hints": [
+                    "short_curve_candidate",
+                    "high_aspect_strip_candidate",
+                    "span_extreme_candidate",
+                ],
+            },
+        ]
+    }
+
+    info = _configure_mesh_field(
+        gmsh,
+        [5, 6, 14, 31, 32],
+        [105, 106, 114, 131, 132, 205, 206, 214, 231, 232],
+        1.0425,
+        config,
+        farfield_surface_tags=[33],
+        surface_patch_diagnostics=surface_patch_diagnostics,
+    )
+
+    assert gmsh.model.mesh.field.added == [
+        "Distance",
+        "Threshold",
+        "Distance",
+        "Threshold",
+        "Min",
+        "Constant",
+        "Constant",
+        "Constant",
+        "Max",
+    ]
+    assert gmsh.model.mesh.field.numbers[(6, "SurfacesList")] == [31.0, 32.0]
+    assert gmsh.model.mesh.field.numbers[(6, "CurvesList")] == [131.0, 132.0, 231.0, 232.0]
+    assert gmsh.model.mesh.field.number_values[(6, "VIn")] == pytest.approx(0.03)
+    assert gmsh.model.mesh.field.number_values[(6, "VOut")] == pytest.approx(0.0)
+    assert gmsh.model.mesh.field.numbers[(7, "SurfacesList")] == [5.0, 6.0]
+    assert gmsh.model.mesh.field.number_values[(7, "VIn")] == pytest.approx(0.02)
+    assert gmsh.model.mesh.field.numbers[(8, "SurfacesList")] == [33.0]
+    assert gmsh.model.mesh.field.number_values[(8, "VIn")] == pytest.approx(1.0425 * 4.0)
+    assert gmsh.model.mesh.field.numbers[(9, "FieldsList")] == [5.0, 6.0, 7.0, 8.0]
+    assert gmsh.model.mesh.field.background == 9
+    assert gmsh.model.mesh.set_algorithm_calls == [
+        (2, 31, 1),
+        (2, 32, 1),
+        (2, 5, 1),
+        (2, 6, 1),
+        (2, 14, 5),
+        (2, 33, 5),
+    ]
+    assert info["background_field_composition"] == "max_with_local_floors"
+    assert info["per_surface_algorithms"] == [
+        {
+            "name": "suspect_strip_family",
+            "algorithm": 1,
+            "algorithm_name": "MeshAdapt",
+            "surface_tags": [31, 32, 5, 6],
+        },
+        {
+            "name": "aircraft_general_surfaces",
+            "algorithm": 5,
+            "algorithm_name": "Delaunay",
+            "surface_tags": [14],
+        },
+        {
+            "name": "farfield_boundary_surfaces",
+            "algorithm": 5,
+            "algorithm_name": "Delaunay",
+            "surface_tags": [33],
+        },
+    ]
+    assert info["local_size_floors"] == [
+        {
+            "name": "span_extreme_strip_floor",
+            "size": pytest.approx(0.03),
+            "surface_tags": [31, 32],
+            "curve_tags": [131, 132, 231, 232],
+        },
+        {
+            "name": "suspect_strip_floor",
+            "size": pytest.approx(0.02),
+            "surface_tags": [5, 6],
+            "curve_tags": [105, 106, 205, 206],
+        },
+        {
+            "name": "farfield_surface_floor",
+            "size": pytest.approx(1.0425 * 4.0),
+            "surface_tags": [33],
+            "curve_tags": [],
+        },
+    ]
 
 
 def test_configure_mesh_field_uses_reference_length_surface_and_edge_policy(tmp_path: Path):

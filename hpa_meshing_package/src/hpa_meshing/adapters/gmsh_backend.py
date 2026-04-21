@@ -72,6 +72,17 @@ LAST_MESHING_CURVE_PATTERN = re.compile(
     r"Meshing curve\s+(\d+)\b",
     re.IGNORECASE,
 )
+MESH_ALGORITHM_NAME_LOOKUP = {
+    1: "MeshAdapt",
+    2: "Automatic",
+    3: "Initial",
+    5: "Delaunay",
+    6: "Frontal-Delaunay",
+    7: "BAMG",
+    8: "Frontal-Delaunay for Quads",
+    9: "Packing of Parallelograms",
+    11: "Quasi-structured Quad",
+}
 
 
 class GmshBackendError(RuntimeError):
@@ -731,13 +742,7 @@ def _resolve_sizing_reference_length(handle: GeometryHandle, config: MeshJobConf
     return float(reference_length)
 
 
-def _configure_mesh_field(
-    gmsh,
-    aircraft_surface_tags: list[int],
-    aircraft_curve_tags: list[int],
-    reference_length: float,
-    config: MeshJobConfig,
-) -> Dict[str, Any]:
+def _resolve_mesh_field_defaults(reference_length: float, config: MeshJobConfig) -> Dict[str, Any]:
     near_body_size = config.global_min_size or (reference_length / DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH)
     if near_body_size > reference_length:
         raise GmshBackendError(
@@ -750,6 +755,192 @@ def _configure_mesh_field(
     edge_distance_max = max(reference_length * DEFAULT_EDGE_DISTANCE_FACTOR, edge_size * DEFAULT_EDGE_TRANSITION_FACTOR)
     mesh_algorithm_2d = int(config.mesh_algorithm_2d) if config.mesh_algorithm_2d is not None else 6
     mesh_algorithm_3d = int(config.mesh_algorithm_3d) if config.mesh_algorithm_3d is not None else 1
+    return {
+        "near_body_size": float(near_body_size),
+        "edge_size": float(edge_size),
+        "farfield_size": float(farfield_size),
+        "distance_min": float(distance_min),
+        "distance_max": float(distance_max),
+        "edge_distance_max": float(edge_distance_max),
+        "mesh_algorithm_2d": int(mesh_algorithm_2d),
+        "mesh_algorithm_3d": int(mesh_algorithm_3d),
+    }
+
+
+def _mesh_algorithm_name(value: int) -> str:
+    return MESH_ALGORITHM_NAME_LOOKUP.get(int(value), f"Unknown({int(value)})")
+
+
+def _unique_sorted_ints(values: Iterable[int]) -> list[int]:
+    return sorted({int(value) for value in values})
+
+
+def _curve_tags_from_surface_records(surface_records: Iterable[Dict[str, Any]]) -> list[int]:
+    curve_tags: list[int] = []
+    for record in surface_records:
+        for curve_tag in record.get("curve_tags", []):
+            curve_tags.append(int(curve_tag))
+    return _unique_sorted_ints(curve_tags)
+
+
+def _build_native_esp_surface_meshing_policy(
+    *,
+    config: MeshJobConfig,
+    aircraft_surface_tags: list[int],
+    farfield_surface_tags: list[int],
+    surface_patch_diagnostics: Dict[str, Any] | None,
+    near_body_size: float,
+    farfield_size: float,
+) -> Dict[str, Any]:
+    if config.geometry_provider != "esp_rebuilt":
+        return {"enabled": False, "reason": "geometry_provider_not_esp_rebuilt"}
+    if config.component not in {"main_wing", "aircraft_assembly"}:
+        return {"enabled": False, "reason": "component_outside_c1_scope"}
+    if config.metadata.get("esp_native_c1_surface_policy_enabled", True) is False:
+        return {"enabled": False, "reason": "disabled_by_metadata"}
+    if surface_patch_diagnostics is None:
+        return {"enabled": False, "reason": "missing_surface_patch_diagnostics"}
+
+    aircraft_surface_set = {int(tag) for tag in aircraft_surface_tags}
+    surface_records = [
+        record
+        for record in surface_patch_diagnostics.get("surface_records", [])
+        if int(record.get("tag", -1)) in aircraft_surface_set
+    ]
+    if not surface_records:
+        return {"enabled": False, "reason": "no_aircraft_surface_records"}
+
+    span_extreme_records: list[Dict[str, Any]] = []
+    suspect_records: list[Dict[str, Any]] = []
+    for record in surface_records:
+        family_hints = {str(hint) for hint in record.get("family_hints", [])}
+        if {"short_curve_candidate", "high_aspect_strip_candidate"} - family_hints:
+            continue
+        if "span_extreme_candidate" in family_hints:
+            span_extreme_records.append(record)
+            continue
+        suspect_records.append(record)
+
+    span_extreme_surface_tags = _unique_sorted_ints(int(record["tag"]) for record in span_extreme_records)
+    suspect_surface_tags = _unique_sorted_ints(int(record["tag"]) for record in suspect_records)
+    span_extreme_curve_tags = _curve_tags_from_surface_records(span_extreme_records)
+    suspect_curve_tags = _curve_tags_from_surface_records(suspect_records)
+    farfield_surface_tags_sorted = _unique_sorted_ints(farfield_surface_tags)
+
+    local_size_floors: list[Dict[str, Any]] = []
+    if span_extreme_surface_tags:
+        local_size_floors.append(
+            {
+                "name": "span_extreme_strip_floor",
+                "size": max(near_body_size, float(config.metadata.get("esp_native_primary_strip_floor_size", 0.03))),
+                "surface_tags": span_extreme_surface_tags,
+                "curve_tags": span_extreme_curve_tags,
+            }
+        )
+    if suspect_surface_tags:
+        local_size_floors.append(
+            {
+                "name": "suspect_strip_floor",
+                "size": max(near_body_size, float(config.metadata.get("esp_native_secondary_strip_floor_size", 0.02))),
+                "surface_tags": suspect_surface_tags,
+                "curve_tags": suspect_curve_tags,
+            }
+        )
+    if farfield_surface_tags_sorted:
+        local_size_floors.append(
+            {
+                "name": "farfield_surface_floor",
+                "size": max(farfield_size, near_body_size),
+                "surface_tags": farfield_surface_tags_sorted,
+                "curve_tags": [],
+            }
+        )
+
+    suspect_family_surface_tags = [*span_extreme_surface_tags, *suspect_surface_tags]
+    aircraft_general_surface_tags = _unique_sorted_ints(
+        tag for tag in aircraft_surface_tags if int(tag) not in set(suspect_family_surface_tags)
+    )
+
+    per_surface_algorithms: list[Dict[str, Any]] = []
+    if suspect_family_surface_tags:
+        per_surface_algorithms.append(
+            {
+                "name": "suspect_strip_family",
+                "algorithm": int(config.metadata.get("esp_native_suspect_surface_algorithm", 1)),
+                "surface_tags": suspect_family_surface_tags,
+            }
+        )
+    if aircraft_general_surface_tags:
+        per_surface_algorithms.append(
+            {
+                "name": "aircraft_general_surfaces",
+                "algorithm": int(config.metadata.get("esp_native_general_surface_algorithm", 5)),
+                "surface_tags": aircraft_general_surface_tags,
+            }
+        )
+    if farfield_surface_tags_sorted:
+        per_surface_algorithms.append(
+            {
+                "name": "farfield_boundary_surfaces",
+                "algorithm": int(config.metadata.get("esp_native_farfield_surface_algorithm", 5)),
+                "surface_tags": farfield_surface_tags_sorted,
+            }
+        )
+
+    if not local_size_floors and not per_surface_algorithms:
+        return {"enabled": False, "reason": "no_policy_targets"}
+
+    return {
+        "enabled": True,
+        "name": "esp_rebuilt_native_rule_loft_c1",
+        "local_size_floors": local_size_floors,
+        "per_surface_algorithms": per_surface_algorithms,
+        "notes": [
+            "native esp_rebuilt C1 policy enabled",
+            "farfield surfaces use a dedicated surface floor and 2D algorithm",
+            "suspect strip family gets protected local size floors before full-route meshing",
+        ],
+    }
+
+
+def _add_constant_size_floor_field(
+    gmsh,
+    *,
+    size: float,
+    surface_tags: list[int],
+    curve_tags: list[int],
+) -> int:
+    field_tag = gmsh.model.mesh.field.add("Constant")
+    gmsh.model.mesh.field.setNumber(field_tag, "IncludeBoundary", 1)
+    gmsh.model.mesh.field.setNumber(field_tag, "VIn", float(size))
+    gmsh.model.mesh.field.setNumber(field_tag, "VOut", 0.0)
+    if surface_tags:
+        gmsh.model.mesh.field.setNumbers(field_tag, "SurfacesList", surface_tags)
+    if curve_tags:
+        gmsh.model.mesh.field.setNumbers(field_tag, "CurvesList", curve_tags)
+    return field_tag
+
+
+def _configure_mesh_field(
+    gmsh,
+    aircraft_surface_tags: list[int],
+    aircraft_curve_tags: list[int],
+    reference_length: float,
+    config: MeshJobConfig,
+    *,
+    farfield_surface_tags: list[int] | None = None,
+    surface_patch_diagnostics: Dict[str, Any] | None = None,
+    resolved_field_defaults: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    field_defaults = resolved_field_defaults or _resolve_mesh_field_defaults(reference_length, config)
+    near_body_size = float(field_defaults["near_body_size"])
+    edge_size = float(field_defaults["edge_size"])
+    farfield_size = float(field_defaults["farfield_size"])
+    distance_min = float(field_defaults["distance_min"])
+    distance_max = float(field_defaults["distance_max"])
+    edge_distance_max = float(field_defaults["edge_distance_max"])
+    mesh_algorithm_2d = int(field_defaults["mesh_algorithm_2d"])
+    mesh_algorithm_3d = int(field_defaults["mesh_algorithm_3d"])
 
     surface_distance_field = gmsh.model.mesh.field.add("Distance")
     gmsh.model.mesh.field.setNumbers(surface_distance_field, "FacesList", aircraft_surface_tags)
@@ -773,7 +964,46 @@ def _configure_mesh_field(
 
     combined_field = gmsh.model.mesh.field.add("Min")
     gmsh.model.mesh.field.setNumbers(combined_field, "FieldsList", [surface_threshold_field, edge_threshold_field])
-    gmsh.model.mesh.field.setAsBackgroundMesh(combined_field)
+
+    surface_policy = _build_native_esp_surface_meshing_policy(
+        config=config,
+        aircraft_surface_tags=aircraft_surface_tags,
+        farfield_surface_tags=farfield_surface_tags or [],
+        surface_patch_diagnostics=surface_patch_diagnostics,
+        near_body_size=near_body_size,
+        farfield_size=farfield_size,
+    )
+    background_field_tag = combined_field
+    background_field_composition = "base_min_field"
+    local_size_floors_payload: list[Dict[str, Any]] = []
+    if surface_policy.get("enabled"):
+        fields_list = [combined_field]
+        for floor in surface_policy["local_size_floors"]:
+            floor_surface_tags = _unique_sorted_ints(floor.get("surface_tags", []))
+            floor_curve_tags = _unique_sorted_ints(floor.get("curve_tags", []))
+            field_tag = _add_constant_size_floor_field(
+                gmsh,
+                size=float(floor["size"]),
+                surface_tags=floor_surface_tags,
+                curve_tags=floor_curve_tags,
+            )
+            fields_list.append(field_tag)
+            local_size_floors_payload.append(
+                {
+                    "name": str(floor["name"]),
+                    "size": float(floor["size"]),
+                    "surface_tags": floor_surface_tags,
+                    "curve_tags": floor_curve_tags,
+                }
+            )
+        if len(fields_list) > 1:
+            background_field_tag = gmsh.model.mesh.field.add("Max")
+            gmsh.model.mesh.field.setNumbers(background_field_tag, "FieldsList", fields_list)
+            background_field_composition = "max_with_local_floors"
+        for algorithm_spec in surface_policy["per_surface_algorithms"]:
+            for surface_tag in algorithm_spec["surface_tags"]:
+                gmsh.model.mesh.setAlgorithm(2, int(surface_tag), int(algorithm_spec["algorithm"]))
+    gmsh.model.mesh.field.setAsBackgroundMesh(background_field_tag)
 
     gmsh.option.setNumber("Mesh.MeshSizeMin", edge_size)
     gmsh.option.setNumber("Mesh.MeshSizeMax", farfield_size)
@@ -800,6 +1030,24 @@ def _configure_mesh_field(
         "mesh_size_extend_from_boundary": 0,
         "mesh_algorithm_2d": mesh_algorithm_2d,
         "mesh_algorithm_3d": mesh_algorithm_3d,
+        "background_field_tag": int(background_field_tag),
+        "background_field_composition": background_field_composition,
+        "local_size_floors": local_size_floors_payload,
+        "per_surface_algorithms": [
+            {
+                "name": str(spec["name"]),
+                "algorithm": int(spec["algorithm"]),
+                "algorithm_name": _mesh_algorithm_name(int(spec["algorithm"])),
+                "surface_tags": [int(tag) for tag in spec["surface_tags"]],
+            }
+            for spec in surface_policy.get("per_surface_algorithms", [])
+        ],
+        "surface_policy": {
+            "enabled": bool(surface_policy.get("enabled", False)),
+            "name": surface_policy.get("name"),
+            "reason": surface_policy.get("reason"),
+            "notes": list(surface_policy.get("notes", [])),
+        },
     }
 
 
@@ -1903,6 +2151,13 @@ def _apply_occ_external_flow_route(
 
         aircraft_curve_tags = _aircraft_curve_tags(gmsh, aircraft_surface_tags)
         reference_length = _resolve_sizing_reference_length(handle, config)
+        resolved_field_defaults = _resolve_mesh_field_defaults(reference_length, config)
+        surface_patch_diagnostics = _collect_surface_patch_diagnostics(
+            gmsh,
+            surface_tags=aircraft_surface_tags,
+            reference_length=reference_length,
+            near_body_size=float(resolved_field_defaults["near_body_size"]),
+        )
 
         fluid_group = gmsh.model.addPhysicalGroup(3, fluid_volume_tags)
         gmsh.model.setPhysicalName(3, fluid_group, "fluid")
@@ -1911,14 +2166,17 @@ def _apply_occ_external_flow_route(
         farfield_group = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
         gmsh.model.setPhysicalName(2, farfield_group, "farfield")
 
-        field_info = _configure_mesh_field(gmsh, aircraft_surface_tags, aircraft_curve_tags, reference_length, config)
-        metadata["mesh_field"] = field_info
-        surface_patch_diagnostics = _collect_surface_patch_diagnostics(
+        field_info = _configure_mesh_field(
             gmsh,
-            surface_tags=aircraft_surface_tags,
-            reference_length=reference_length,
-            near_body_size=float(field_info["near_body_size"]),
+            aircraft_surface_tags,
+            aircraft_curve_tags,
+            reference_length,
+            config,
+            farfield_surface_tags=farfield_surface_tags,
+            surface_patch_diagnostics=surface_patch_diagnostics,
+            resolved_field_defaults=resolved_field_defaults,
         )
+        metadata["mesh_field"] = field_info
         _json_write(surface_patch_diagnostics_path, surface_patch_diagnostics)
         metadata["surface_patch_diagnostics"] = {
             "artifact": str(surface_patch_diagnostics_path),
