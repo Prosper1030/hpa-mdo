@@ -46,6 +46,13 @@ This is the only route that should currently be treated as a real productized wo
 
 If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 
+## ESP Current Reality
+
+- `esp_rebuilt` has been researched, but it has **not** been promoted into a runnable provider on current `main`.
+- The current implementation still reports `status=not_materialized` unless a future implementation replaces the stub in `src/hpa_meshing/providers/esp_rebuilt.py`.
+- This means `esp_rebuilt` is not a degraded production path; it is a non-materializing experimental contract.
+- The concrete enablement plan lives at [docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md](../../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md).
+
 ## Explicit Non-Goals For This Round
 
 - claiming final high-quality CFD credibility

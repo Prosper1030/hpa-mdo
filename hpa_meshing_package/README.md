@@ -50,6 +50,14 @@
 - `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在，但 backend 仍是 placeholder，不是正式可交付路徑。
 - 目前只有 `gmsh_thin_sheet_aircraft_assembly` 會走真實 Gmsh meshing；其他 route 會回 `route_stage=placeholder`。
 
+## ESP Reality Check
+
+- `esp_rebuilt` 在目前 `main` 上**不是可直接跑的 provider**。
+- 現況不是「mesh 品質不好但還能重跑 ESP」；而是 [esp_rebuilt.py](src/hpa_meshing/providers/esp_rebuilt.py) 目前仍會直接回 `status="not_materialized"`。
+- 如果你現在把 geometry provider 切成 `esp_rebuilt`，package 會在 provider 階段停下來，而不是進到 Gmsh。
+- 真正要把 ESP 變成可用路線，需要先補 runtime discovery、ESP materialization pipeline、topology artifact、以及至少一個真實 `blackcat_004 coarse` smoke。
+- 實作規劃請看 [ESP Rebuilt Provider Enablement Implementation Plan](../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
+
 ## Quick Start
 
 ### 1. Run tests
