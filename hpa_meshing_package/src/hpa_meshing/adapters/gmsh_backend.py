@@ -68,6 +68,10 @@ LAST_MESHING_SURFACE_PATTERN = re.compile(
     r"Meshing surface\s+(\d+)\b",
     re.IGNORECASE,
 )
+LAST_MESHING_CURVE_PATTERN = re.compile(
+    r"Meshing curve\s+(\d+)\b",
+    re.IGNORECASE,
+)
 
 
 class GmshBackendError(RuntimeError):
@@ -100,6 +104,38 @@ def _extract_last_meshing_surface(logger_messages: Iterable[str]) -> Dict[str, A
             "message": message,
         }
     return None
+
+
+def _extract_last_meshing_curve(logger_messages: Iterable[str]) -> Dict[str, Any] | None:
+    materialized = [str(message) for message in logger_messages]
+    for message in reversed(materialized):
+        match = LAST_MESHING_CURVE_PATTERN.search(message)
+        if match is None:
+            continue
+        return {
+            "curve_tag": int(match.group(1)),
+            "message": message,
+        }
+    return None
+
+
+def _infer_meshing_stage(logger_messages: Iterable[str]) -> str | None:
+    stage: str | None = None
+    for message in logger_messages:
+        text = str(message).lower()
+        if "meshing 1d" in text:
+            stage = "meshing_1d"
+        elif "done meshing 1d" in text:
+            stage = "completed_1d"
+        elif "meshing 2d" in text:
+            stage = "meshing_2d"
+        elif "done meshing 2d" in text:
+            stage = "completed_2d"
+        elif "meshing 3d" in text:
+            stage = "meshing_3d"
+        elif "done meshing 3d" in text:
+            stage = "completed_3d"
+    return stage
 
 
 def _run_process_sample(pid: int, sample_seconds: int, output_path: Path) -> Dict[str, Any]:
@@ -316,12 +352,106 @@ def _surface_connectivity_summary(gmsh, surface_tags: list[int]) -> Dict[str, An
     }
 
 
+def _distribution_summary(values: Iterable[float | None]) -> Dict[str, Any]:
+    usable = sorted(float(value) for value in values if value is not None)
+    if not usable:
+        return {
+            "count": 0,
+            "min": None,
+            "p05": None,
+            "p50": None,
+            "p95": None,
+            "max": None,
+        }
+
+    def _pick(frac: float) -> float:
+        index = min(len(usable) - 1, max(0, int(round((len(usable) - 1) * frac))))
+        return usable[index]
+
+    return {
+        "count": len(usable),
+        "min": usable[0],
+        "p05": _pick(0.05),
+        "p50": _pick(0.50),
+        "p95": _pick(0.95),
+        "max": usable[-1],
+    }
+
+
+def _bbox_union(bboxes: Iterable[Dict[str, float]]) -> Dict[str, float] | None:
+    materialized = [bbox for bbox in bboxes]
+    if not materialized:
+        return None
+    return {
+        "x_min": min(float(bbox["x_min"]) for bbox in materialized),
+        "y_min": min(float(bbox["y_min"]) for bbox in materialized),
+        "z_min": min(float(bbox["z_min"]) for bbox in materialized),
+        "x_max": max(float(bbox["x_max"]) for bbox in materialized),
+        "y_max": max(float(bbox["y_max"]) for bbox in materialized),
+        "z_max": max(float(bbox["z_max"]) for bbox in materialized),
+    }
+
+
+def _surface_family_groups(surface_records: Iterable[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    grouped: dict[tuple[str, ...], Dict[str, Any]] = {}
+    for record in surface_records:
+        family_hints = tuple(sorted(str(hint) for hint in record.get("family_hints", [])))
+        if not family_hints:
+            continue
+        group = grouped.setdefault(
+            family_hints,
+            {
+                "family_hints": list(family_hints),
+                "member_tags": [],
+                "member_count": 0,
+                "surface_roles": set(),
+                "bbox_samples": [],
+                "suspect_score_max": 0.0,
+                "suspect_score_sum": 0.0,
+                "short_curve_count_total": 0,
+            },
+        )
+        group["member_tags"].append(int(record["tag"]))
+        group["member_count"] += 1
+        group["surface_roles"].add(str(record.get("surface_role", "aircraft")))
+        group["bbox_samples"].append(record["bbox"])
+        group["suspect_score_max"] = max(group["suspect_score_max"], float(record["suspect_score"]))
+        group["suspect_score_sum"] += float(record["suspect_score"])
+        group["short_curve_count_total"] += int(record.get("short_curve_count", 0))
+
+    families: list[Dict[str, Any]] = []
+    for group in grouped.values():
+        families.append(
+            {
+                "family_hints": group["family_hints"],
+                "member_tags": sorted(group["member_tags"]),
+                "member_count": int(group["member_count"]),
+                "surface_roles": sorted(group["surface_roles"]),
+                "bbox_union": _bbox_union(group["bbox_samples"]),
+                "suspect_score_max": float(group["suspect_score_max"]),
+                "suspect_score_sum": float(group["suspect_score_sum"]),
+                "short_curve_count_total": int(group["short_curve_count_total"]),
+            }
+        )
+
+    return sorted(
+        families,
+        key=lambda record: (
+            -float(record["suspect_score_max"]),
+            -int(record["member_count"]),
+            -float(record["suspect_score_sum"]),
+            tuple(record["family_hints"]),
+        ),
+    )
+
+
 def _collect_surface_patch_diagnostics(
     gmsh,
     *,
     surface_tags: list[int],
     reference_length: float,
     near_body_size: float,
+    surface_role_lookup: Dict[int, str] | None = None,
 ) -> Dict[str, Any]:
     surface_to_curves: dict[int, list[int]] = {}
     curve_to_surfaces: dict[int, list[int]] = defaultdict(list)
@@ -407,6 +537,19 @@ def _collect_surface_patch_diagnostics(
             family_hints.append("span_extreme_strip_candidate")
         if extrema["near_root_plane"] and flat_axis == "y":
             family_hints.append("root_plane_cap_candidate")
+        location_hints: list[str] = []
+        if extrema["near_root_plane"]:
+            location_hints.append("root_plane")
+        if extrema["near_x_min"]:
+            location_hints.append("x_min_extreme")
+        if extrema["near_x_max"]:
+            location_hints.append("x_max_extreme")
+        if extrema["near_y_min"] or extrema["near_y_max"]:
+            location_hints.append("span_extreme")
+        if extrema["near_z_min"]:
+            location_hints.append("z_min_extreme")
+        if extrema["near_z_max"]:
+            location_hints.append("z_max_extreme")
 
         suspect_score = 0.0
         if area is not None:
@@ -424,6 +567,11 @@ def _collect_surface_patch_diagnostics(
                 "bbox": bbox,
                 "spans": spans,
                 "flat_axis": flat_axis,
+                "surface_role": (
+                    str(surface_role_lookup.get(int(surface_tag), "aircraft"))
+                    if surface_role_lookup is not None
+                    else "aircraft"
+                ),
                 "curve_count": len(curve_tags),
                 "curve_tags": list(curve_tags),
                 "curve_owner_count_summary": {
@@ -436,6 +584,7 @@ def _collect_surface_patch_diagnostics(
                 "short_curve_tags": short_curve_tags,
                 "aspect_ratio_proxy": aspect_ratio_proxy,
                 "extrema": extrema,
+                "location_hints": location_hints,
                 "family_hints": family_hints,
                 "suspect_score": suspect_score,
             }
@@ -457,6 +606,12 @@ def _collect_surface_patch_diagnostics(
             int(record["tag"]),
         ),
     )[:12]
+    family_hint_counts: dict[str, int] = defaultdict(int)
+    surface_role_counts: dict[str, int] = defaultdict(int)
+    for record in surface_records:
+        surface_role_counts[str(record["surface_role"])] += 1
+        for hint in record["family_hints"]:
+            family_hint_counts[str(hint)] += 1
 
     return {
         "status": "captured",
@@ -468,10 +623,16 @@ def _collect_surface_patch_diagnostics(
         "aircraft_surface_bounds": _bounds_dict(aircraft_mins, aircraft_maxs),
         "surface_count": len(surface_tags),
         "curve_count": len(curve_records),
+        "surface_role_counts": dict(surface_role_counts),
+        "surface_area_distribution": _distribution_summary(record["area"] for record in surface_records),
+        "curve_length_distribution": _distribution_summary(record["length"] for record in curve_records),
+        "family_hint_counts": dict(sorted(family_hint_counts.items())),
+        "curve_records": curve_records,
         "surface_records": surface_records,
         "smallest_area_surfaces": smallest_area_surfaces,
         "shortest_curves": shortest_curves,
         "suspicious_surfaces": suspicious_surfaces,
+        "suspicious_family_groups": _surface_family_groups(suspicious_surfaces),
     }
 
 
@@ -651,6 +812,7 @@ def _run_mesh2d_with_watchdog(
     sample_seconds: int,
     sample_runner: Callable[[int, int, Path], Dict[str, Any]] = _run_process_sample,
     surface_patch_lookup: Dict[int, Dict[str, Any]] | None = None,
+    curve_patch_lookup: Dict[int, Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "status": "armed",
@@ -673,13 +835,26 @@ def _run_mesh2d_with_watchdog(
             logger_messages = [str(message) for message in gmsh.logger.get()]
         except Exception as exc:
             logger_messages = [f"gmsh.logger.get failed during Mesh2D watchdog capture: {exc}"]
+        last_curve = _extract_last_meshing_curve(logger_messages)
         last_surface = _extract_last_meshing_surface(logger_messages)
         sample_result = sample_runner(int(os.getpid()), int(sample_seconds), sample_path)
         with payload_lock:
             payload["status"] = "triggered_while_meshing"
             payload["triggered_at_elapsed_sec"] = float(time.monotonic() - start)
             payload["logger_message_count"] = len(logger_messages)
+            payload["meshing_stage_at_timeout"] = _infer_meshing_stage(logger_messages)
             payload["logger_tail"] = _logger_tail(logger_messages)
+            payload["last_meshing_curve_tag"] = (
+                int(last_curve["curve_tag"]) if last_curve is not None else None
+            )
+            payload["last_meshing_curve_message"] = (
+                str(last_curve["message"]) if last_curve is not None else None
+            )
+            payload["last_meshing_curve_record"] = (
+                curve_patch_lookup.get(int(last_curve["curve_tag"]))
+                if (last_curve is not None and curve_patch_lookup is not None)
+                else None
+            )
             payload["last_meshing_surface_tag"] = (
                 int(last_surface["surface_tag"]) if last_surface is not None else None
             )
@@ -706,11 +881,16 @@ def _run_mesh2d_with_watchdog(
         final_logger_messages = [str(message) for message in gmsh.logger.get()]
     except Exception as exc:
         final_logger_messages = [f"gmsh.logger.get failed after Mesh2D: {exc}"]
+    last_curve = _extract_last_meshing_curve(final_logger_messages)
     last_surface = _extract_last_meshing_surface(final_logger_messages)
     with payload_lock:
         payload["completed_elapsed_sec"] = float(time.monotonic() - start)
         payload["logger_message_count_after_generate"] = len(final_logger_messages)
+        payload["meshing_stage_after_generate"] = _infer_meshing_stage(final_logger_messages)
         payload["logger_tail_after_generate"] = _logger_tail(final_logger_messages)
+        if last_curve is not None:
+            payload["last_meshing_curve_tag_after_generate"] = int(last_curve["curve_tag"])
+            payload["last_meshing_curve_message_after_generate"] = str(last_curve["message"])
         if last_surface is not None:
             payload["last_meshing_surface_tag_after_generate"] = int(last_surface["surface_tag"])
             payload["last_meshing_surface_message_after_generate"] = str(last_surface["message"])
@@ -1746,7 +1926,22 @@ def _apply_occ_external_flow_route(
             "curve_count": int(surface_patch_diagnostics["curve_count"]),
             "suspicious_surface_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["suspicious_surfaces"][:12]],
             "shortest_curve_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["shortest_curves"][:20]],
+            "family_hint_counts": surface_patch_diagnostics["family_hint_counts"],
         }
+        watchdog_surface_lookup = {
+            int(record["tag"]): record
+            for record in surface_patch_diagnostics["surface_records"]
+        }
+        for farfield_surface_tag in farfield_surface_tags:
+            if int(farfield_surface_tag) in watchdog_surface_lookup:
+                continue
+            watchdog_surface_lookup[int(farfield_surface_tag)] = {
+                "tag": int(farfield_surface_tag),
+                "surface_role": "farfield",
+                "area": _safe_occ_mass(gmsh, 2, int(farfield_surface_tag)),
+                "bbox": _entity_bbox_payload(gmsh, 2, int(farfield_surface_tag))["bbox"],
+                "family_hints": ["farfield_boundary"],
+            }
         mesh2d_watchdog = _run_mesh2d_with_watchdog(
             gmsh,
             watchdog_path=mesh2d_watchdog_path,
@@ -1757,9 +1952,10 @@ def _apply_occ_external_flow_route(
             sample_seconds=int(
                 config.metadata.get("mesh2d_watchdog_sample_seconds", DEFAULT_MESH2D_WATCHDOG_SAMPLE_SECONDS)
             ),
-            surface_patch_lookup={
+            surface_patch_lookup=watchdog_surface_lookup,
+            curve_patch_lookup={
                 int(record["tag"]): record
-                for record in surface_patch_diagnostics["surface_records"]
+                for record in surface_patch_diagnostics["curve_records"]
             },
         )
         metadata["mesh2d_watchdog"] = {
@@ -1769,6 +1965,8 @@ def _apply_occ_external_flow_route(
             "timeout_seconds": mesh2d_watchdog["timeout_seconds"],
             "triggered_at_elapsed_sec": mesh2d_watchdog.get("triggered_at_elapsed_sec"),
             "completed_elapsed_sec": mesh2d_watchdog.get("completed_elapsed_sec"),
+            "meshing_stage_at_timeout": mesh2d_watchdog.get("meshing_stage_at_timeout"),
+            "last_meshing_curve_tag": mesh2d_watchdog.get("last_meshing_curve_tag"),
             "last_meshing_surface_tag": mesh2d_watchdog.get("last_meshing_surface_tag"),
         }
         pre_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)

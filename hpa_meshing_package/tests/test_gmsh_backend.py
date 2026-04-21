@@ -12,6 +12,7 @@ from hpa_meshing.adapters.gmsh_backend import (
     _collect_plc_error_probe,
     _collect_surface_patch_diagnostics,
     _configure_mesh_field,
+    _extract_last_meshing_curve,
     _extract_last_meshing_surface,
     _extract_overlap_surface_details,
     _resolve_exact_overlap_surface_pair,
@@ -312,10 +313,26 @@ def test_extract_last_meshing_surface_returns_last_surface_tag_and_message():
     assert "MeshAdapt" in result["message"]
 
 
+def test_extract_last_meshing_curve_returns_last_curve_tag_and_message():
+    result = _extract_last_meshing_curve(
+        [
+            "Info    : Meshing curve 40 (Discrete curve)",
+            "Info    : Meshing curve 41 (TrimmedCurve)",
+            "Progress: Meshing 1D...",
+            "Info    : Meshing curve 57 (Line)",
+        ]
+    )
+
+    assert result is not None
+    assert result["curve_tag"] == 57
+    assert "Line" in result["message"]
+
+
 def test_run_mesh2d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
     gmsh = _FakeWatchdogGmsh(
         sleep_seconds=0.05,
         logger_messages=[
+            "Info    : Meshing curve 44 (TrimmedCurve)",
             "Info    : Meshing 2D...",
             "Info    : Meshing surface 45 (Discrete surface, Frontal-Delaunay)",
         ],
@@ -349,6 +366,8 @@ def test_run_mesh2d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
 
     assert gmsh.model.mesh.calls == [2]
     assert payload["status"] == "completed_after_timeout"
+    assert payload["meshing_stage_at_timeout"] == "meshing_2d"
+    assert payload["last_meshing_curve_tag"] == 44
     assert payload["last_meshing_surface_tag"] == 45
     assert payload["sample"]["returncode"] == 0
     assert payload["last_meshing_surface_record"]["tag"] == 45
@@ -357,6 +376,7 @@ def test_run_mesh2d_with_watchdog_writes_timeout_artifact(tmp_path: Path):
 
     persisted = json.loads(watchdog_path.read_text(encoding="utf-8"))
     assert persisted["status"] == "completed_after_timeout"
+    assert persisted["last_meshing_curve_tag"] == 44
     assert persisted["last_meshing_surface_tag"] == 45
 
 
@@ -401,6 +421,11 @@ def test_collect_surface_patch_diagnostics_ranks_short_curve_strip_candidates():
     assert payload["surface_count"] == 2
     assert payload["short_curve_threshold"] > 0.0
     assert payload["tiny_face_area_threshold"] > 0.0
+    assert payload["surface_area_distribution"]["min"] == pytest.approx(0.0030)
+    assert payload["curve_length_distribution"]["min"] == pytest.approx(0.0005)
+    assert payload["family_hint_counts"]["short_curve_candidate"] >= 1
+    assert payload["surface_records"][0]["surface_role"] == "aircraft"
+    assert payload["suspicious_family_groups"][0]["member_tags"]
     assert payload["smallest_area_surfaces"][0]["tag"] == 11
     assert payload["shortest_curves"][0]["tag"] == 204
     assert payload["suspicious_surfaces"][0]["tag"] == 11
