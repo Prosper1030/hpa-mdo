@@ -551,6 +551,22 @@ def _should_attempt_surface_repair_fallback(error_text: str, logger_messages: It
     return any(signature in combined for signature in SURFACE_REPAIR_ERROR_SIGNATURES)
 
 
+def _should_probe_discrete_classify_angles(
+    surface_repair_result: Dict[str, Any] | None,
+    *,
+    surface_mesh_exists: bool,
+    classify_probe_exists: bool,
+) -> bool:
+    if not surface_repair_result or surface_repair_result.get("status") != "failed":
+        return False
+    if not surface_mesh_exists or classify_probe_exists:
+        return False
+    error_text = str(surface_repair_result.get("error") or "").lower()
+    if "did not generate any volume elements" in error_text:
+        return False
+    return True
+
+
 def _physical_groups_payload(gmsh) -> list[dict[str, Any]]:
     groups: list[dict[str, Any]] = []
     for dim, tag in gmsh.model.getPhysicalGroups():
@@ -1773,10 +1789,10 @@ def _apply_occ_external_flow_route(
         if unit_normalization is not None:
             metadata["unit_normalization"] = unit_normalization
         if surface_repair_result is not None:
-            if (
-                surface_repair_result.get("status") == "failed"
-                and surface_mesh_path.exists()
-                and not classify_angle_probe_path.exists()
+            if _should_probe_discrete_classify_angles(
+                surface_repair_result,
+                surface_mesh_exists=surface_mesh_path.exists(),
+                classify_probe_exists=classify_angle_probe_path.exists(),
             ):
                 _probe_discrete_classify_angles(
                     surface_mesh_path=surface_mesh_path,

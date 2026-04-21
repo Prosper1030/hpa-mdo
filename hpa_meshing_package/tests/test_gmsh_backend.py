@@ -13,6 +13,7 @@ from hpa_meshing.adapters.gmsh_backend import (
     _extract_overlap_surface_details,
     _resolve_exact_overlap_surface_pair,
     _run_surface_repair_fallback,
+    _should_probe_discrete_classify_angles,
     _should_attempt_surface_repair_fallback,
     apply_recipe,
 )
@@ -247,6 +248,33 @@ def test_should_attempt_surface_repair_fallback_matches_known_boundary_recovery_
     assert not _should_attempt_surface_repair_fallback(
         "OpenCASCADE import failed",
         ["Info    : STEP parser aborted"],
+    )
+
+
+def test_should_probe_discrete_classify_angles_skips_no_volume_failures():
+    assert not _should_probe_discrete_classify_angles(
+        {
+            "status": "failed",
+            "error": "surface-repair fallback returned without exception but did not generate any volume elements",
+        },
+        surface_mesh_exists=True,
+        classify_probe_exists=False,
+    )
+    assert _should_probe_discrete_classify_angles(
+        {
+            "status": "failed",
+            "error": "Invalid boundary mesh (overlapping facets) on surface 39 surface 40",
+        },
+        surface_mesh_exists=True,
+        classify_probe_exists=False,
+    )
+    assert not _should_probe_discrete_classify_angles(
+        {
+            "status": "success",
+            "error": None,
+        },
+        surface_mesh_exists=True,
+        classify_probe_exists=False,
     )
 
 
