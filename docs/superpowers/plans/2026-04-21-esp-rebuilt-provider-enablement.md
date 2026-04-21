@@ -10,6 +10,12 @@
 
 ---
 
+## Execution Constraint
+
+- Do **not** create a new worktree for this implementation.
+- Execute directly inside `/Volumes/Samsung SSD/hpa-mdo`.
+- The user explicitly wants to avoid additional worktrees for this task.
+
 ## Current Blocker Snapshot
 
 - `hpa_meshing_package/src/hpa_meshing/providers/esp_rebuilt.py` is a stub that always returns `status="not_materialized"`.
