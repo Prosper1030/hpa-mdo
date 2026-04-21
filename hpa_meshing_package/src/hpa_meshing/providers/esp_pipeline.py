@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -9,7 +10,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from ..schema import GeometryTopologyMetadata
-from .openvsp_surface_intersection import _probe_step_topology
+from ..reference_geometry import load_openvsp_reference_data
+from .openvsp_surface_intersection import _probe_step_topology, _read_step_units_and_bounds
 
 Runner = Callable[[List[str], Path], subprocess.CompletedProcess]
 
@@ -17,6 +19,8 @@ OCSM_SCRIPT_NAME = "rebuild.csm"
 EXPORT_FILE_NAME = "normalized.stp"
 COMMAND_LOG_NAME = "ocsm.log"
 TOPOLOGY_REPORT_NAME = "topology.json"
+_STEP_MILLI_UNIT_PATTERN = re.compile(r"SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)")
+_STEP_COORDS_LOOK_LIKE_METERS_MAX_REF_RATIO = 500.0
 
 
 @dataclass(frozen=True)
@@ -102,8 +106,12 @@ def _write_topology_report(
     runtime_exec_dir: Path,
     stdout: str,
     stderr: str,
+    extra_notes: Optional[List[str]] = None,
 ) -> GeometryTopologyMetadata:
     topology = _probe_step_topology(export_path, report_path.parent)
+    for note in extra_notes or []:
+        if note not in topology.notes:
+            topology.notes.append(note)
     payload: Dict[str, Any] = topology.model_dump(mode="json")
     payload.update(
         {
