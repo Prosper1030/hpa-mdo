@@ -1,0 +1,22 @@
+component: aircraft_assembly
+geometry: ../data/blackcat_004_origin.vsp3
+geometry_provider: esp_rebuilt
+out_dir: .tmp/runs/blackcat_004_coarse_esp_rebuilt_cfd_ready
+units: m
+mesh_dim: 3
+global_min_size: 1.0
+global_max_size: 8.0
+
+farfield:
+  enabled: true
+  upstream_factor: 5.0
+  downstream_factor: 12.0
+  lateral_factor: 8.0
+  vertical_factor: 8.0
+
+su2:
+  enabled: true
+  case_name: alpha_0_baseline
+  alpha_deg: 0.0
+  max_iterations: 50
+  reference_mode: auto

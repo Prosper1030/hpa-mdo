@@ -286,6 +286,40 @@ def _heal_imported_bodies(gmsh, body_dim_tags: list[tuple[int, int]]) -> tuple[l
     return healed_body_dim_tags, summary
 
 
+def _should_skip_occ_heal(handle: GeometryHandle) -> bool:
+    provider_result = handle.provider_result
+    if provider_result is None or provider_result.provider != "esp_rebuilt":
+        return False
+    normalization = provider_result.topology.normalization or {}
+    if not normalization.get("applied"):
+        return False
+    final_analysis = normalization.get("final_analysis") or {}
+    return (
+        not final_analysis.get("touching_groups")
+        and int(final_analysis.get("duplicate_interface_face_pair_count", 0)) == 0
+        and int(final_analysis.get("internal_cap_face_count", 0)) == 0
+    )
+
+
+def _maybe_heal_imported_bodies(
+    gmsh,
+    body_dim_tags: list[tuple[int, int]],
+    *,
+    skip_heal: bool,
+) -> tuple[list[tuple[int, int]], Dict[str, Any]]:
+    if not skip_heal:
+        return _heal_imported_bodies(gmsh, body_dim_tags)
+    summary = {
+        "attempted": False,
+        "reason": "skipped_for_provider_declared_clean_external_geometry",
+        "input_volume_count": len(body_dim_tags),
+        "input_surface_count": len(gmsh.model.getEntities(2)),
+        "output_volume_count": len(body_dim_tags),
+        "output_surface_count": len(gmsh.model.getEntities(2)),
+    }
+    return body_dim_tags, summary
+
+
 def _count_elements_for_entities(gmsh, dim: int, entity_tags: Iterable[int]) -> tuple[int, Dict[str, int]]:
     total = 0
     type_counts: Dict[str, int] = {}
@@ -432,7 +466,11 @@ def _apply_thin_sheet_aircraft_assembly_route(
             body_dim_tags = gmsh.model.getEntities(3)
             imported_surface_count = len(gmsh.model.getEntities(2))
 
-        body_dim_tags, healing_summary = _heal_imported_bodies(gmsh, body_dim_tags)
+        body_dim_tags, healing_summary = _maybe_heal_imported_bodies(
+            gmsh,
+            body_dim_tags,
+            skip_heal=_should_skip_occ_heal(handle),
+        )
         imported_surface_count = len(gmsh.model.getEntities(2))
 
         body_bounds = _bbox_for_entities(gmsh, body_dim_tags)
