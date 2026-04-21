@@ -20,6 +20,7 @@ _LEN_UNIT_MAP = {
     "mm": "LEN_MM",
     "m": "LEN_M",
 }
+_IMPORT_SCALE_IDENTITY_TOL = 1.0e-6
 
 _STEP_UNIT_PATTERN = re.compile(r"SI_UNIT\(\s*(\.[A-Z]+\.|[$])\s*,\s*\.METRE\.\s*\)")
 _STEP_POINT_PATTERN = re.compile(
@@ -122,7 +123,7 @@ def _infer_import_scale(
         return None
     if not math.isfinite(scale) or scale <= 0.0:
         return None
-    if abs(scale - 1.0) <= 1e-9:
+    if abs(scale - 1.0) <= _IMPORT_SCALE_IDENTITY_TOL:
         return 1.0
     return scale
 
@@ -158,7 +159,9 @@ def _probe_step_topology(path: Path, staging_dir: Path) -> GeometryTopologyMetad
         surface_entities = gmsh.model.getEntities(2)
         import_bounds = _bbox_for_entities(gmsh, volume_entities or surface_entities)
         import_scale = _infer_import_scale(step_bounds, import_bounds)
-        backend_rescale_required = bool(import_scale is not None and abs(import_scale - 1.0) > 1e-9)
+        backend_rescale_required = bool(
+            import_scale is not None and abs(import_scale - 1.0) > _IMPORT_SCALE_IDENTITY_TOL
+        )
         if backend_rescale_required:
             notes.append(
                 f"gmsh_occ_import_requires_rescale_to_declared_units:scale={import_scale:.12g}"

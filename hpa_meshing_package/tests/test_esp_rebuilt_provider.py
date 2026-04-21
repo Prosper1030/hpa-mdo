@@ -267,6 +267,65 @@ def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: P
     assert "runtime_exec_dir" in topology_payload
 
 
+def test_materialize_with_esp_rewrites_mislabeled_mm_export_to_meter_units(
+    monkeypatch, tmp_path: Path
+):
+    from hpa_meshing.providers import esp_pipeline
+    from hpa_meshing.providers.esp_pipeline import materialize_with_esp
+
+    source = tmp_path / "source model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    staging = tmp_path / "provider"
+
+    monkeypatch.setattr(
+        esp_pipeline,
+        "load_openvsp_reference_data",
+        lambda _: {"ref_length": 1.0425},
+    )
+
+    def fake_runner(args, cwd):
+        normalized = Path(cwd) / "normalized.stp"
+        normalized.write_text(
+            "\n".join(
+                [
+                    "ISO-10303-21;",
+                    "HEADER;",
+                    "ENDSEC;",
+                    "DATA;",
+                    "#1 = ( LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.) );",
+                    "#2 = CARTESIAN_POINT('',(0.,0.,0.));",
+                    "#3 = CARTESIAN_POINT('',(5.7,16.47465195858,1.7));",
+                    "#4 = CARTESIAN_POINT('',(-0.00002156555057324,-16.47465195858,-0.7));",
+                    "ENDSEC;",
+                    "END-ISO-10303-21;",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="ocsm: build complete\n",
+            stderr="",
+        )
+
+    result = materialize_with_esp(
+        source_path=source,
+        staging_dir=staging,
+        runner=fake_runner,
+        batch_binary="/opt/esp/bin/serveCSM",
+    )
+
+    assert result.status == "success"
+    assert result.normalized_geometry_path is not None
+    step_text = result.normalized_geometry_path.read_text(encoding="utf-8")
+    assert "SI_UNIT(.MILLI.,.METRE.)" not in step_text
+    assert "SI_UNIT(.UNSET.,.METRE.)" in step_text
+    assert result.topology is not None
+    assert result.topology.units == "m"
+    assert any(note.startswith("rewrote_step_length_units:mm_to_m") for note in result.notes)
+
+
 def test_materialize_with_esp_reports_failed_when_runner_returns_nonzero(
     tmp_path: Path,
 ):

@@ -133,6 +133,49 @@ def _write_topology_report(
     return topology
 
 
+def _rewrite_mislabeled_mm_step_to_meters_if_needed(
+    *,
+    export_path: Path,
+    source_path: Path,
+) -> List[str]:
+    declared_units, bounds = _read_step_units_and_bounds(export_path)
+    if declared_units != "mm" or bounds is None:
+        return []
+
+    reference_data = load_openvsp_reference_data(source_path)
+    ref_length = None if reference_data is None else reference_data.get("ref_length")
+    if not isinstance(ref_length, (int, float)) or float(ref_length) <= 0.0:
+        return []
+
+    max_span = max(
+        bounds.x_max - bounds.x_min,
+        bounds.y_max - bounds.y_min,
+        bounds.z_max - bounds.z_min,
+    )
+    if max_span <= 0.0:
+        return []
+
+    # For aircraft assemblies, meter-scale coordinates should stay O(1..100) times the
+    # reference chord. If the STEP says "mm" but the coordinates are still in this
+    # range, ESP likely mislabeled the units rather than scaling the geometry.
+    if (max_span / float(ref_length)) >= _STEP_COORDS_LOOK_LIKE_METERS_MAX_REF_RATIO:
+        return []
+
+    original_text = export_path.read_text(encoding="utf-8", errors="ignore")
+    rewritten_text, replacements = _STEP_MILLI_UNIT_PATTERN.subn(
+        "SI_UNIT(.UNSET.,.METRE.)",
+        original_text,
+    )
+    if replacements == 0:
+        return []
+
+    export_path.write_text(rewritten_text, encoding="utf-8")
+    return [
+        "rewrote_step_length_units:mm_to_m_based_on_reference_length"
+        f":ref_length={float(ref_length):.12g}:max_span={max_span:.12g}"
+    ]
+
+
 def _write_command_log(
     *,
     log_path: Path,
@@ -252,6 +295,10 @@ def materialize_with_esp(
             input_model_path=artifact_source_path,
         )
 
+    normalization_notes = _rewrite_mislabeled_mm_step_to_meters_if_needed(
+        export_path=export_path,
+        source_path=source_path,
+    )
     topology = _write_topology_report(
         report_path=topology_report_path,
         export_path=export_path,
@@ -261,6 +308,7 @@ def materialize_with_esp(
         runtime_exec_dir=work_dir,
         stdout=completed.stdout or "",
         stderr=completed.stderr or "",
+        extra_notes=normalization_notes,
     )
 
     provider_version = None
@@ -273,7 +321,10 @@ def materialize_with_esp(
         status="success",
         normalized_geometry_path=export_path,
         topology_report_path=topology_report_path,
-        notes=[f"OpenCSM batch succeeded via {Path(resolved_binary).name}."],
+        notes=[
+            *normalization_notes,
+            f"OpenCSM batch succeeded via {Path(resolved_binary).name}.",
+        ],
         warnings=[],
         failure_code=None,
         provider_version=provider_version,

@@ -180,3 +180,89 @@ def test_probe_step_topology_tracks_step_bounds_and_occ_import_scale(tmp_path: P
     assert topology.import_bounds.x_max == 5700.0
     assert topology.import_scale_to_units == 0.001
     assert topology.backend_rescale_required is True
+
+
+def test_probe_step_topology_ignores_near_identity_import_scale(tmp_path: Path, monkeypatch):
+    step_path = tmp_path / "normalized.stp"
+    step_path.write_text(
+        "\n".join(
+            [
+                "ISO-10303-21;",
+                "DATA;",
+                "#1=(",
+                "LENGTH_UNIT()",
+                "NAMED_UNIT(*)",
+                "SI_UNIT(.UNSET.,.METRE.)",
+                ");",
+                "#2=CARTESIAN_POINT('',(0.,0.,0.));",
+                "#3=CARTESIAN_POINT('',(5.7,16.4746519585795,1.7));",
+                "#4=CARTESIAN_POINT('',(-0.0000215655505732439,-16.4746519585795,-0.7));",
+                "ENDSEC;",
+                "END-ISO-10303-21;",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    from hpa_meshing.providers import openvsp_surface_intersection as provider_module
+
+    class FakeOption:
+        @staticmethod
+        def setNumber(name: str, value: float) -> None:
+            return None
+
+    class FakeOCC:
+        @staticmethod
+        def importShapes(path: str):
+            return [(3, 1)]
+
+        @staticmethod
+        def synchronize() -> None:
+            return None
+
+    class FakeModel:
+        occ = FakeOCC()
+
+        @staticmethod
+        def add(name: str) -> None:
+            return None
+
+        @staticmethod
+        def getEntities(dim: int):
+            if dim == 3:
+                return [(3, 1)]
+            if dim == 2:
+                return [(2, idx) for idx in range(1, 47)]
+            return []
+
+        @staticmethod
+        def getBoundingBox(dim: int, tag: int):
+            assert (dim, tag) == (3, 1)
+            return (
+                -0.000021665550573239997,
+                -16.474652058580002,
+                -0.7000000999999999,
+                5.7000001000000005,
+                16.474652058580002,
+                1.7000001,
+            )
+
+    class FakeGmsh:
+        option = FakeOption()
+        model = FakeModel()
+
+        @staticmethod
+        def initialize() -> None:
+            return None
+
+        @staticmethod
+        def finalize() -> None:
+            return None
+
+    monkeypatch.setattr(provider_module, "load_gmsh", lambda: FakeGmsh())
+
+    topology = provider_module._probe_step_topology(step_path, tmp_path)
+
+    assert topology.units == "m"
+    assert topology.import_scale_to_units == 1.0
+    assert topology.backend_rescale_required is False
