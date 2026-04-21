@@ -4,7 +4,7 @@ Date: 2026-04-20
 
 Status: experimental-go
 
-> 2026-04-21 implementation note: this document is a feasibility spike, not a statement that `esp_rebuilt` is runnable on current `main`. Check `README.md`, `docs/current_status.md`, and the latest blackcat smoke evidence before treating ESP as usable.
+> 2026-04-21 implementation note: this document is a feasibility spike, not a statement that `esp_rebuilt` is runnable on current `main`. The 2026-04-21 enablement pass landed runtime discovery, a UDPRIM-vsp3 OpenCSM batch skeleton, and fail-loud diagnostics — but the live blackcat coarse smoke at `hpa_meshing_package/.tmp/runs/blackcat_004_coarse_esp_rebuilt/` still stops in the provider stage with `failure_code="esp_runtime_missing"` because ESP129 is not yet installed on this machine. Check `README.md`, `docs/current_status.md`, and that smoke evidence before treating ESP as usable.
 
 Primary conclusion: `ESP/OpenCSM` is worth keeping as an experimental upstream geometry provider for `hpa_meshing_package`, but it is not ready to be the v1 first-class provider. The strongest local evidence for cleaner topology came from OpenVSP's own `SurfaceIntersection` trimmed-CAD route, not from a completed local `serveESP` run.
 

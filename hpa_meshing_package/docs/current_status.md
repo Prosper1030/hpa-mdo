@@ -39,7 +39,7 @@ This is the only route that should currently be treated as a real productized wo
 
 | Capability | Status | Why |
 | --- | --- | --- |
-| `esp_rebuilt` provider | experimental | registry/reporting contract only |
+| `esp_rebuilt` provider | experimental | runtime discovery + OpenVSP→ESP batch pipeline skeleton；smoke 仍被卡在本機未安裝 ESP129 |
 | `main_wing` / `tail_wing` | experimental | dispatch exists, real backend not productized |
 | `fairing_solid` / `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |
@@ -48,10 +48,11 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 
 ## ESP Current Reality
 
-- `esp_rebuilt` has been researched, but it has **not** been promoted into a runnable provider on current `main`.
-- The current implementation still reports `status=not_materialized` unless a future implementation replaces the stub in `src/hpa_meshing/providers/esp_rebuilt.py`.
-- This means `esp_rebuilt` is not a degraded production path; it is a non-materializing experimental contract.
-- The concrete enablement plan lives at [docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md](../../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md).
+- `esp_rebuilt` 已從「只回 not_materialized」的 stub 升級成 fail-loud provider：`src/hpa_meshing/providers/esp_rebuilt.py` 會先呼叫 `detect_esp_runtime()`，runtime 缺席時回傳 `status="failed"` + `failure_code="esp_runtime_missing"` 並把缺了哪些 binary 附在 provenance 與 `provider_log.json`。
+- `src/hpa_meshing/providers/esp_pipeline.py` 已實作官方 `UDPRIM vsp3` batch skeleton（`serveCSM` / `ocsm` -batch + DUMP STEP），含 runner 與 batch_binary 注入點；測試以 fake runner 覆蓋 success / nonzero / 缺 binary 三條路徑。
+- 這台 Mac mini（macOS 26.4.1 / arm64）仍未安裝 `ESP129-macos-arm64`，所以 2026-04-21 跑的 blackcat coarse smoke（`.tmp/runs/blackcat_004_coarse_esp_rebuilt/`）仍在 provider 階段停下；`failure_code=esp_runtime_missing`、失敗訊息指名 `serveESP / serveCSM / ocsm` 缺席，不是 Gmsh 問題。
+- 結論：`esp_rebuilt` 目前仍是 experimental、在本機仍非 runnable；唯一剩下的 blocker 是安裝 ESP129 並把 `serveCSM` / `ocsm` 放上 `PATH`。
+- 具體實作規劃請看 [docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md](../../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
 
 ## Explicit Non-Goals For This Round
 

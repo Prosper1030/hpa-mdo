@@ -52,10 +52,10 @@
 
 ## ESP Reality Check
 
-- `esp_rebuilt` 在目前 `main` 上**不是可直接跑的 provider**。
-- 現況不是「mesh 品質不好但還能重跑 ESP」；而是 [esp_rebuilt.py](src/hpa_meshing/providers/esp_rebuilt.py) 目前仍會直接回 `status="not_materialized"`。
-- 如果你現在把 geometry provider 切成 `esp_rebuilt`，package 會在 provider 階段停下來，而不是進到 Gmsh。
-- 真正要把 ESP 變成可用路線，需要先補 runtime discovery、ESP materialization pipeline、topology artifact、以及至少一個真實 `blackcat_004 coarse` smoke。
+- `esp_rebuilt` 在目前 `main` 上**仍不是可直接跑的 provider**，但已經從「回傳 not_materialized」的 stub 升級成具備 runtime discovery 與官方 `UDPRIM vsp3` pipeline skeleton 的 fail-loud provider。
+- 現況是：[esp_rebuilt.py](src/hpa_meshing/providers/esp_rebuilt.py) 會先呼叫 `detect_esp_runtime()`，只要本機 `serveESP` / `serveCSM` / `ocsm` 任一缺席，就會在 provider 階段回 `status="failed"`、`failure_code="esp_runtime_missing"`、並把缺了哪些 binary 寫進 provenance 與 provider_log。
+- 這台 Mac mini M4（macOS 26.4.1 / arm64）目前仍未安裝 `ESP129-macos-arm64`，因此 2026-04-21 的 blackcat coarse smoke 仍會在 provider 階段被擋住；證據收在 `.tmp/runs/blackcat_004_coarse_esp_rebuilt/`，包含 `report.json` 與 `artifacts/providers/esp_rebuilt/provider_log.json`。
+- 要把 `esp_rebuilt` 升為真實可用路線，剩下的步驟是：安裝 ESP129 並把 `serveCSM` / `ocsm` 放上 `PATH`；其餘 runtime discovery、batch pipeline、topology artifact、fail-loud 診斷在本輪已經落地。
 - 實作規劃請看 [ESP Rebuilt Provider Enablement Implementation Plan](../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
 
 ## Quick Start
@@ -139,7 +139,7 @@ This produces:
 | `convergence_gate.v1` | fixed contract | machine-readable mesh / iterative / overall comparability gate |
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
-| `esp_rebuilt` | experimental | registry + reporting only |
+| `esp_rebuilt` | experimental | runtime discovery + OpenVSP→ESP batch pipeline skeleton；本機尚未安裝 ESP129，coarse smoke 仍會被擋在 provider 階段 |
 | Other component families | experimental | schema/dispatch exists, backend placeholder |
 | Mesh study | formal minimal `v1` | three-tier baseline study that emits `mesh_study.v1` and decides whether the baseline stays `run_only` or can move to `preliminary_compare` |
 | Alpha sweep | roadmap | after the chosen mesh/runtime clears the mesh-study verdict |
