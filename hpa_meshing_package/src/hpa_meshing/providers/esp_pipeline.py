@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+
+from ..schema import GeometryTopologyMetadata
+from .openvsp_surface_intersection import _probe_step_topology
 
 Runner = Callable[[List[str], Path], subprocess.CompletedProcess]
 
@@ -20,12 +24,14 @@ class EspMaterializationResult:
     status: str
     normalized_geometry_path: Optional[Path]
     topology_report_path: Optional[Path]
+    topology: Optional[GeometryTopologyMetadata] = None
     notes: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     failure_code: Optional[str] = None
     provider_version: Optional[str] = None
     command_log_path: Optional[Path] = None
     script_path: Optional[Path] = None
+    input_model_path: Optional[Path] = None
 
 
 def _default_runner(args: List[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -62,26 +68,61 @@ def _build_csm_script(source_path: Path, export_path: Path) -> str:
     return "\n".join(script_lines)
 
 
+def _prepare_runtime_dirs(staging_dir: Path) -> tuple[Path, Path]:
+    artifact_dir = (staging_dir / "esp_runtime").resolve()
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    scratch_root = Path(
+        tempfile.mkdtemp(prefix="hpa_esp_runtime_", dir="/tmp")
+    ).resolve()
+    work_dir = scratch_root / "runtime"
+    work_dir.symlink_to(artifact_dir, target_is_directory=True)
+    return artifact_dir, work_dir
+
+
+def _stage_source_model(
+    source_path: Path,
+    artifact_dir: Path,
+    work_dir: Path,
+) -> tuple[Path, Path]:
+    resolved_source = source_path.resolve()
+    artifact_source = (artifact_dir / resolved_source.name).resolve()
+    if artifact_source != resolved_source:
+        shutil.copy2(resolved_source, artifact_source)
+    work_source = work_dir / artifact_source.name
+    return artifact_source, work_source
+
+
 def _write_topology_report(
     *,
     report_path: Path,
     export_path: Path,
     source_path: Path,
+    input_model_path: Path,
+    batch_binary: str,
+    runtime_exec_dir: Path,
     stdout: str,
     stderr: str,
-) -> None:
-    payload: Dict[str, Any] = {
+) -> GeometryTopologyMetadata:
+    topology = _probe_step_topology(export_path, report_path.parent)
+    payload: Dict[str, Any] = topology.model_dump(mode="json")
+    payload.update(
+        {
         "source_path": str(source_path),
+        "input_model_path": str(input_model_path),
         "export_path": str(export_path),
         "export_exists": export_path.exists(),
         "export_size_bytes": export_path.stat().st_size if export_path.exists() else None,
+        "batch_binary": batch_binary,
+        "runtime_exec_dir": str(runtime_exec_dir),
         "stdout_tail": stdout[-2000:] if stdout else "",
         "stderr_tail": stderr[-2000:] if stderr else "",
-    }
+        }
+    )
     report_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    return topology
 
 
 def _write_command_log(
@@ -115,16 +156,23 @@ def materialize_with_esp(
     runner: Optional[Runner] = None,
     batch_binary: Optional[str] = None,
 ) -> EspMaterializationResult:
-    work_dir = staging_dir / "esp_runtime"
-    work_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir, work_dir = _prepare_runtime_dirs(staging_dir)
 
-    script_path = work_dir / OCSM_SCRIPT_NAME
-    export_path = work_dir / EXPORT_FILE_NAME
-    command_log_path = work_dir / COMMAND_LOG_NAME
-    topology_report_path = work_dir / TOPOLOGY_REPORT_NAME
+    source_path = source_path.resolve()
+    artifact_source_path, work_source_path = _stage_source_model(
+        source_path,
+        artifact_dir,
+        work_dir,
+    )
+    script_path = (artifact_dir / OCSM_SCRIPT_NAME).resolve()
+    export_path = (artifact_dir / EXPORT_FILE_NAME).resolve()
+    command_log_path = (artifact_dir / COMMAND_LOG_NAME).resolve()
+    topology_report_path = (artifact_dir / TOPOLOGY_REPORT_NAME).resolve()
+    work_script_path = work_dir / OCSM_SCRIPT_NAME
+    work_export_path = work_dir / EXPORT_FILE_NAME
 
     script_path.write_text(
-        _build_csm_script(source_path=source_path, export_path=export_path),
+        _build_csm_script(source_path=work_source_path, export_path=work_export_path),
         encoding="utf-8",
     )
 
@@ -148,9 +196,10 @@ def materialize_with_esp(
             failure_code="esp_batch_binary_missing",
             command_log_path=command_log_path,
             script_path=script_path,
+            input_model_path=artifact_source_path,
         )
 
-    args = [resolved_binary, "-batch", str(script_path)]
+    args = [resolved_binary, "-batch", str(work_script_path)]
     completed = resolved_runner(args, work_dir)
 
     _write_command_log(
@@ -175,6 +224,7 @@ def materialize_with_esp(
             failure_code="esp_ocsm_batch_failed",
             command_log_path=command_log_path,
             script_path=script_path,
+            input_model_path=artifact_source_path,
         )
 
     if not export_path.exists():
@@ -191,12 +241,16 @@ def materialize_with_esp(
             failure_code="esp_export_missing",
             command_log_path=command_log_path,
             script_path=script_path,
+            input_model_path=artifact_source_path,
         )
 
-    _write_topology_report(
+    topology = _write_topology_report(
         report_path=topology_report_path,
         export_path=export_path,
         source_path=source_path,
+        input_model_path=artifact_source_path,
+        batch_binary=resolved_binary,
+        runtime_exec_dir=work_dir,
         stdout=completed.stdout or "",
         stderr=completed.stderr or "",
     )
@@ -217,4 +271,6 @@ def materialize_with_esp(
         provider_version=provider_version,
         command_log_path=command_log_path,
         script_path=script_path,
+        input_model_path=artifact_source_path,
+        topology=topology,
     )

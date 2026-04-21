@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
-from hpa_meshing.schema import GeometryProviderRequest
+from hpa_meshing.schema import GeometryProviderRequest, GeometryTopologyMetadata
 
 
 def _make_request(tmp_path: Path) -> GeometryProviderRequest:
@@ -58,14 +59,18 @@ def test_esp_rebuilt_delegates_to_materialize_with_esp_when_runtime_available(
                 "ocsm": "/opt/esp/bin/ocsm",
             },
             missing=[],
+            batch_binary="/opt/esp/bin/serveCSM",
         ),
     )
 
     captured: dict = {}
 
-    def fake_pipeline(*, source_path: Path, staging_dir: Path) -> EspMaterializationResult:
+    def fake_pipeline(
+        *, source_path: Path, staging_dir: Path, batch_binary: str | None = None
+    ) -> EspMaterializationResult:
         captured["source_path"] = source_path
         captured["staging_dir"] = staging_dir
+        captured["batch_binary"] = batch_binary
         return EspMaterializationResult(
             status="failed",
             normalized_geometry_path=None,
@@ -82,6 +87,7 @@ def test_esp_rebuilt_delegates_to_materialize_with_esp_when_runtime_available(
 
     assert captured["source_path"] == request.source_path
     assert captured["staging_dir"] == request.staging_dir
+    assert captured["batch_binary"] == "/opt/esp/bin/serveCSM"
     assert result.status == "failed"
     assert result.provenance.get("failure_code") == "esp_pipeline_unavailable"
     assert "materialization pipeline not implemented yet" in result.warnings
@@ -104,6 +110,7 @@ def test_esp_rebuilt_reports_pipeline_not_implemented_when_raised(
                 "ocsm": "/opt/esp/bin/ocsm",
             },
             missing=[],
+            batch_binary="/opt/esp/bin/serveCSM",
         ),
     )
 
@@ -137,6 +144,7 @@ def test_esp_rebuilt_returns_normalized_geometry_when_pipeline_succeeds(
                 "ocsm": "/opt/esp/bin/ocsm",
             },
             missing=[],
+            batch_binary="/opt/esp/bin/serveCSM",
         ),
     )
 
@@ -144,10 +152,12 @@ def test_esp_rebuilt_returns_normalized_geometry_when_pipeline_succeeds(
     topology = tmp_path / "topology.json"
     command_log = tmp_path / "ocsm.log"
     script_path = tmp_path / "rebuild.csm"
+    input_model = tmp_path / "model_copy.vsp3"
     normalized.write_text("ISO-10303-21;\n", encoding="utf-8")
     topology.write_text('{"surface_count": 38}\n', encoding="utf-8")
     command_log.write_text("ocsm output\n", encoding="utf-8")
     script_path.write_text("UDPRIM vsp3 filename $model.vsp3\n", encoding="utf-8")
+    input_model.write_text("<vsp3/>\n", encoding="utf-8")
 
     monkeypatch.setattr(
         provider_module,
@@ -156,11 +166,20 @@ def test_esp_rebuilt_returns_normalized_geometry_when_pipeline_succeeds(
             status="success",
             normalized_geometry_path=normalized,
             topology_report_path=topology,
+            topology=GeometryTopologyMetadata(
+                representation="brep_trimmed_step",
+                source_kind="stp",
+                units="m",
+                body_count=2,
+                surface_count=38,
+                volume_count=2,
+            ),
             notes=["esp rebuild succeeded"],
             warnings=[],
             provider_version="esp129-macos-arm64",
             command_log_path=command_log,
             script_path=script_path,
+            input_model_path=input_model,
         ),
     )
 
@@ -173,16 +192,20 @@ def test_esp_rebuilt_returns_normalized_geometry_when_pipeline_succeeds(
     assert result.artifacts["topology_report"] == topology
     assert result.artifacts["command_log"] == command_log
     assert result.artifacts["esp_script"] == script_path
+    assert result.artifacts["esp_input_model"] == input_model
     assert result.provider_version == "esp129-macos-arm64"
-    assert result.topology.representation == "brep_component_volumes"
+    assert result.topology.representation == "brep_trimmed_step"
+    assert result.topology.surface_count == 38
+    assert result.topology.body_count == 2
+    assert "esp rebuild succeeded" in result.topology.notes
 
 
 def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: Path):
     from hpa_meshing.providers.esp_pipeline import materialize_with_esp
 
-    source = tmp_path / "model.vsp3"
+    source = tmp_path / "source model.vsp3"
     source.write_text("<vsp3/>", encoding="utf-8")
-    staging = tmp_path / "provider"
+    staging = tmp_path / "provider with spaces"
 
     invocations: list[dict] = []
 
@@ -213,11 +236,34 @@ def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: P
     assert result.command_log_path.exists()
     assert result.topology_report_path is not None
     assert result.topology_report_path.exists()
+    assert result.input_model_path is not None
+    assert result.input_model_path.exists()
+    assert result.input_model_path.read_text(encoding="utf-8") == "<vsp3/>"
+    assert result.topology is not None
     assert invocations, "runner was not invoked"
     first_args = invocations[0]["args"]
     assert Path(first_args[0]).name in {"serveCSM", "ocsm"}
     script_arg = Path(first_args[-1])
+    assert script_arg.is_absolute()
+    assert " " not in str(script_arg)
     assert script_arg.name.endswith(".csm")
+    assert result.script_path is not None
+    assert script_arg.name == result.script_path.name
+    assert "provider with spaces" in str(result.script_path)
+    script_text = result.script_path.read_text(encoding="utf-8")
+    assert "provider with spaces" not in script_text
+    assert result.input_model_path.name in script_text
+    assert result.normalized_geometry_path.name in script_text
+    topology_payload = json.loads(result.topology_report_path.read_text(encoding="utf-8"))
+    assert topology_payload["export_exists"] is True
+    assert "units" in topology_payload
+    assert "body_count" in topology_payload
+    assert "surface_count" in topology_payload
+    assert "volume_count" in topology_payload
+    assert "bounds" in topology_payload
+    assert "import_scale_to_units" in topology_payload
+    assert "backend_rescale_required" in topology_payload
+    assert "runtime_exec_dir" in topology_payload
 
 
 def test_materialize_with_esp_reports_failed_when_runner_returns_nonzero(

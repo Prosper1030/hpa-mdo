@@ -100,6 +100,7 @@ def materialize(request: GeometryProviderRequest) -> GeometryProviderResult:
         pipeline_result = materialize_with_esp(
             source_path=request.source_path,
             staging_dir=request.staging_dir,
+            batch_binary=runtime.batch_binary,
         )
     except NotImplementedError as exc:
         reason = f"ESP materialization pipeline not implemented: {exc}"
@@ -159,6 +160,8 @@ def _result_from_pipeline(
         pipeline_artifacts["command_log"] = pipeline_result.command_log_path
     if pipeline_result.script_path is not None:
         pipeline_artifacts["esp_script"] = pipeline_result.script_path
+    if pipeline_result.input_model_path is not None:
+        pipeline_artifacts["esp_input_model"] = pipeline_result.input_model_path
 
     if pipeline_result.status != "success":
         failure_code = pipeline_result.failure_code or "esp_pipeline_failed"
@@ -215,6 +218,19 @@ def _result_from_pipeline(
     )
     artifact_map: Dict[str, Path] = {"provider_log": provider_log}
     artifact_map.update(pipeline_artifacts)
+    topology = pipeline_result.topology
+    if topology is None:
+        topology = GeometryTopologyMetadata(
+            representation="brep_trimmed_step",
+            source_kind=source_kind,
+            units=resolved_units,
+            notes=list(pipeline_result.notes),
+        )
+    else:
+        topology = topology.model_copy(deep=True)
+        for note in pipeline_result.notes:
+            if note not in topology.notes:
+                topology.notes.append(note)
     return GeometryProviderResult(
         provider="esp_rebuilt",
         provider_stage="experimental",
@@ -224,12 +240,7 @@ def _result_from_pipeline(
         normalized_geometry_path=pipeline_result.normalized_geometry_path,
         geometry_family_hint=request.geometry_family_hint,
         provider_version=provider_version,
-        topology=GeometryTopologyMetadata(
-            representation="brep_component_volumes",
-            source_kind=source_kind,
-            units=resolved_units,
-            notes=list(pipeline_result.notes),
-        ),
+        topology=topology,
         artifacts=artifact_map,
         provenance={
             "runtime": runtime_payload,
