@@ -8,6 +8,7 @@ import pytest
 from hpa_meshing.adapters.gmsh_backend import (
     _collect_plc_error_probe,
     _configure_mesh_field,
+    _extract_overlap_surface_details,
     _run_surface_repair_fallback,
     _should_attempt_surface_repair_fallback,
     apply_recipe,
@@ -211,6 +212,25 @@ def test_should_attempt_surface_repair_fallback_matches_known_boundary_recovery_
         "OpenCASCADE import failed",
         ["Info    : STEP parser aborted"],
     )
+
+
+def test_extract_overlap_surface_details_reports_surface_pair_bboxes_and_facet_tags():
+    details = _extract_overlap_surface_details(
+        _FakePlcGmsh(),
+        "Invalid boundary mesh (overlapping facets) on surface 48 surface 39",
+        [
+            "Info    : Found two exactly self-intersecting facets (dihedral angle  0.00000E+00).",
+            "Info    :   1st: [80, 83, 82] #48",
+            "Info    :   2nd: [80, 83, 18] #39",
+            "Error   : Invalid boundary mesh (overlapping facets) on surface 48 surface 39",
+        ],
+    )
+
+    assert details["surface_tags"] == [48, 39]
+    assert details["facet_tags_from_logger"] == [48, 39]
+    assert details["self_intersection_kind"] == "exact"
+    assert details["surface_bboxes"][0]["tag"] == 48
+    assert details["surface_bboxes"][1]["tag"] == 39
 
 
 def test_run_surface_repair_fallback_rebuilds_boundary_groups_and_writes_reports(tmp_path: Path):

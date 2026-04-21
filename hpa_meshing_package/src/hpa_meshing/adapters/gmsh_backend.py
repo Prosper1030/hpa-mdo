@@ -50,6 +50,14 @@ SURFACE_REPAIR_ERROR_SIGNATURES = (
 PLC_INTERSECTION_POINT_PATTERN = re.compile(
     r"\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)"
 )
+OVERLAP_SURFACE_PATTERN = re.compile(
+    r"overlapping facets\)\s+on surface\s+(\d+)\s+surface\s+(\d+)",
+    re.IGNORECASE,
+)
+LOGGER_FACET_TAG_PATTERN = re.compile(
+    r"(?:1st|2nd):\s*\[[^\]]+\]\s*#(\d+)",
+    re.IGNORECASE,
+)
 
 
 class GmshBackendError(RuntimeError):
@@ -575,6 +583,50 @@ def _remove_all_physical_groups(gmsh) -> list[dict[str, Any]]:
     return _entity_dim_tags_payload(groups)
 
 
+def _extract_overlap_surface_details(
+    gmsh,
+    error_text: str,
+    logger_messages: Iterable[str],
+) -> Dict[str, Any] | None:
+    combined_messages = [str(error_text), *(str(message) for message in logger_messages)]
+    surface_match = None
+    for message in reversed(combined_messages):
+        surface_match = OVERLAP_SURFACE_PATTERN.search(message)
+        if surface_match is not None:
+            break
+    if surface_match is None:
+        return None
+
+    surface_tags = [int(surface_match.group(1)), int(surface_match.group(2))]
+    facet_tags_from_logger: list[int] = []
+    for message in combined_messages:
+        facet_match = LOGGER_FACET_TAG_PATTERN.search(message)
+        if facet_match is None:
+            continue
+        facet_tags_from_logger.append(int(facet_match.group(1)))
+
+    intersection_kind = None
+    lowered_messages = "\n".join(combined_messages).lower()
+    if "exactly self-intersecting facets" in lowered_messages:
+        intersection_kind = "exact"
+    elif "nearly self-intersecting facets" in lowered_messages:
+        intersection_kind = "near"
+
+    surface_bboxes: list[Dict[str, Any]] = []
+    for surface_tag in surface_tags:
+        try:
+            surface_bboxes.append(_entity_bbox_payload(gmsh, 2, surface_tag))
+        except Exception:
+            surface_bboxes.append({"dim": 2, "tag": int(surface_tag), "bbox": None})
+
+    return {
+        "surface_tags": surface_tags,
+        "facet_tags_from_logger": facet_tags_from_logger,
+        "self_intersection_kind": intersection_kind,
+        "surface_bboxes": surface_bboxes,
+    }
+
+
 def _collect_plc_error_probe(
     gmsh,
     *,
@@ -898,12 +950,15 @@ def _run_surface_repair_fallback(
         }
     except Exception as exc:
         logger_messages = [str(message) for message in gmsh.logger.get()] if gmsh_logger_started else []
+        overlap_details = _extract_overlap_surface_details(gmsh, str(exc), logger_messages)
         if cleanup_report.get("status") == "started":
             cleanup_report["status"] = "failed"
             cleanup_report["error"] = str(exc)
             _json_write(cleanup_report_path, cleanup_report)
         discrete_report["status"] = "failed"
         discrete_report["error"] = str(exc)
+        if overlap_details is not None:
+            discrete_report["overlap_surface_pair"] = overlap_details
         if logger_messages:
             discrete_report["logger_tail"] = logger_messages[-80:]
         _json_write(discrete_reparam_report_path, discrete_report)
@@ -927,6 +982,8 @@ def _run_surface_repair_fallback(
                 "plc_probe": plc_probe,
             }
         )
+        if overlap_details is not None:
+            retry_metadata["overlap_surface_pair"] = overlap_details
         _json_write(retry_metadata_path, retry_metadata)
         return {
             "status": "failed",
