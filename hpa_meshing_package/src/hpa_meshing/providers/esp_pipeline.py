@@ -61,7 +61,7 @@ def _build_csm_script(source_path: Path, export_path: Path) -> str:
         "UDPRIM vsp3 filename !vsp_model_path",
         "STORE aircraft_assembly",
         "RESTORE aircraft_assembly",
-        "DUMP !export_path",
+        "DUMP !export_path 0 1",
         "END",
         "",
     ]

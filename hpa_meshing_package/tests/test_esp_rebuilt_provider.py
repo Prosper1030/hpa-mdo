@@ -254,6 +254,7 @@ def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: P
     assert "provider with spaces" not in script_text
     assert result.input_model_path.name in script_text
     assert result.normalized_geometry_path.name in script_text
+    assert "DUMP !export_path 0 1" in script_text
     topology_payload = json.loads(result.topology_report_path.read_text(encoding="utf-8"))
     assert topology_payload["export_exists"] is True
     assert "units" in topology_payload
