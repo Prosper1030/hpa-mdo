@@ -299,6 +299,9 @@ class MeshArtifactBundle(BaseModel):
     mesh: Path
     mesh_metadata: Path
     marker_summary: Path
+    surface_mesh_2d: Optional[Path] = None
+    gmsh_log: Optional[Path] = None
+    plc_probe: Optional[Path] = None
 
 
 class MeshHandoff(BaseModel):

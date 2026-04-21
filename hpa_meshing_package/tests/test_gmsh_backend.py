@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from hpa_meshing.adapters.gmsh_backend import _configure_mesh_field, apply_recipe
+from hpa_meshing.adapters.gmsh_backend import (
+    _collect_plc_error_probe,
+    _configure_mesh_field,
+    apply_recipe,
+)
 from hpa_meshing.mesh.recipes import build_recipe
 from hpa_meshing.schema import (
     GeometryClassification,
@@ -102,6 +106,82 @@ def _provider_result(source: Path, normalized: Path) -> GeometryProviderResult:
             },
         },
     )
+
+
+class _FakePlcMeshModule:
+    def __init__(self) -> None:
+        self.last_entity_error = [(2, 16), (1, 44)]
+        self.last_node_error = [101, 202]
+        self.node_lookup = {
+            101: ([1.0, 2.0, 3.0], [], 2, 16),
+            202: ([1.0, 2.0, 3.0], [], 1, 44),
+        }
+
+    def getLastEntityError(self):
+        return list(self.last_entity_error)
+
+    def getLastNodeError(self):
+        return list(self.last_node_error)
+
+    def getNode(self, tag):
+        return self.node_lookup[int(tag)]
+
+
+class _FakePlcModel:
+    def __init__(self) -> None:
+        self.mesh = _FakePlcMeshModule()
+
+    def getEntitiesInBoundingBox(self, xmin, ymin, zmin, xmax, ymax, zmax, dim=-1):
+        assert xmax >= xmin
+        assert ymax >= ymin
+        assert zmax >= zmin
+        if dim == -1:
+            return [(2, 16), (1, 44), (2, 19)]
+        return [(dim, 16)]
+
+    def getBoundingBox(self, dim, tag):
+        return (0.9, 1.9, 2.9, 1.1, 2.1, 3.1)
+
+
+class _FakePlcGmsh:
+    def __init__(self) -> None:
+        self.model = _FakePlcModel()
+
+
+def test_collect_plc_error_probe_includes_point_localization_and_last_errors(tmp_path: Path):
+    probe = _collect_plc_error_probe(
+        _FakePlcGmsh(),
+        error_text="PLC Error: A segment and a facet intersect at point",
+        logger_messages=[
+            "Info    : Found problem near point (1.0, 2.0, 3.0)",
+            "Error   : PLC Error: A segment and a facet intersect at point",
+        ],
+        surface_mesh_path=tmp_path / "surface_mesh_2d.msh",
+        mesh_algorithm_3d=1,
+    )
+
+    assert probe["status"] == "captured"
+    assert probe["mesh_algorithm_3d"] == 1
+    assert probe["intersection_points"][0]["coordinates"] == [1.0, 2.0, 3.0]
+    assert probe["last_entity_error_dim_tags"] == [{"dim": 2, "tag": 16}, {"dim": 1, "tag": 44}]
+    assert probe["last_node_error_nodes"][0]["tag"] == 101
+    assert probe["intersection_point_entity_hits"][0]["entities"][0] == {"dim": 2, "tag": 16}
+    assert probe["surface_mesh_artifact"] == str(tmp_path / "surface_mesh_2d.msh")
+
+
+def test_collect_plc_error_probe_falls_back_to_last_node_coordinates_when_logger_has_no_xyz():
+    probe = _collect_plc_error_probe(
+        _FakePlcGmsh(),
+        error_text="PLC Error: A segment and a facet intersect at point",
+        logger_messages=["Error   : PLC Error: A segment and a facet intersect at point"],
+        surface_mesh_path=None,
+        mesh_algorithm_3d=10,
+    )
+
+    assert probe["status"] == "captured"
+    assert probe["mesh_algorithm_3d"] == 10
+    assert probe["intersection_points"][0]["source"] == "last_node_error"
+    assert probe["intersection_points"][0]["coordinates"] == [1.0, 2.0, 3.0]
 
 
 def test_apply_recipe_generates_occ_mesh_artifacts_and_marker_summary(tmp_path: Path):

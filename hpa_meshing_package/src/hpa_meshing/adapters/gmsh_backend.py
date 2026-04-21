@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import json
+import re
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Iterable
@@ -38,6 +39,9 @@ DEFAULT_SURFACE_DISTANCE_FACTOR = 0.25
 DEFAULT_EDGE_DISTANCE_FACTOR = 0.05
 DEFAULT_SURFACE_TRANSITION_FACTOR = 10.0
 DEFAULT_EDGE_TRANSITION_FACTOR = 10.0
+PLC_INTERSECTION_POINT_PATTERN = re.compile(
+    r"\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)"
+)
 
 
 class GmshBackendError(RuntimeError):
@@ -47,6 +51,11 @@ class GmshBackendError(RuntimeError):
 def _json_write(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _text_write(path: Path, lines: Iterable[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(str(line) for line in lines), encoding="utf-8")
 
 
 def _bbox_for_entities(gmsh, dim_tags: Iterable[tuple[int, int]]) -> tuple[list[float], list[float]]:
@@ -80,6 +89,26 @@ def _bounds_dict(mins: list[float], maxs: list[float]) -> dict[str, float]:
 
 def _bounds_model(mins: list[float], maxs: list[float]) -> Bounds3D:
     return Bounds3D(**_bounds_dict(mins, maxs))
+
+
+def _entity_dim_tags_payload(dim_tags: Iterable[tuple[int, int]]) -> list[dict[str, int]]:
+    return [{"dim": int(dim), "tag": int(tag)} for dim, tag in dim_tags]
+
+
+def _entity_bbox_payload(gmsh, dim: int, tag: int) -> Dict[str, Any]:
+    x_min, y_min, z_min, x_max, y_max, z_max = gmsh.model.getBoundingBox(int(dim), int(tag))
+    return {
+        "dim": int(dim),
+        "tag": int(tag),
+        "bbox": {
+            "x_min": float(x_min),
+            "y_min": float(y_min),
+            "z_min": float(z_min),
+            "x_max": float(x_max),
+            "y_max": float(y_max),
+            "z_max": float(z_max),
+        },
+    }
 
 
 def _farfield_bounds(mins: list[float], maxs: list[float], farfield: FarfieldConfig) -> dict[str, float]:
@@ -479,6 +508,197 @@ def _mesh_stats(gmsh) -> Dict[str, Any]:
     }
 
 
+def _extract_logged_intersection_points(logger_messages: Iterable[str]) -> list[list[float]]:
+    points: list[list[float]] = []
+    seen: set[tuple[float, float, float]] = set()
+    for message in logger_messages:
+        for match in PLC_INTERSECTION_POINT_PATTERN.finditer(str(message)):
+            point = (
+                float(match.group(1)),
+                float(match.group(2)),
+                float(match.group(3)),
+            )
+            if point in seen:
+                continue
+            seen.add(point)
+            points.append([point[0], point[1], point[2]])
+    return points
+
+
+def _probe_radius_for_point(point: list[float]) -> float:
+    scale = max(max(abs(float(value)) for value in point), 1.0)
+    return max(scale * 1.0e-5, 1.0e-4)
+
+
+def _collect_plc_error_probe(
+    gmsh,
+    *,
+    error_text: str,
+    logger_messages: list[str],
+    surface_mesh_path: Path | None,
+    mesh_algorithm_3d: int,
+) -> Dict[str, Any]:
+    last_entity_error_dim_tags = _entity_dim_tags_payload(getattr(gmsh.model.mesh, "getLastEntityError", lambda: [])())
+    last_node_error_tags = [int(tag) for tag in getattr(gmsh.model.mesh, "getLastNodeError", lambda: [])()]
+
+    last_node_error_nodes: list[Dict[str, Any]] = []
+    for node_tag in last_node_error_tags:
+        try:
+            coordinates, _, dim, entity_tag = gmsh.model.mesh.getNode(int(node_tag))
+        except Exception:
+            continue
+        last_node_error_nodes.append(
+            {
+                "tag": int(node_tag),
+                "coordinates": [float(coordinates[0]), float(coordinates[1]), float(coordinates[2])],
+                "dim": int(dim),
+                "entity_tag": int(entity_tag),
+            }
+        )
+
+    intersection_points = [
+        {"source": "logger", "coordinates": point}
+        for point in _extract_logged_intersection_points(logger_messages)
+    ]
+    if not intersection_points:
+        seen_node_points: set[tuple[float, float, float]] = set()
+        for node in last_node_error_nodes:
+            point = tuple(float(value) for value in node["coordinates"])
+            if point in seen_node_points:
+                continue
+            seen_node_points.add(point)
+            intersection_points.append({"source": "last_node_error", "coordinates": list(point)})
+
+    point_hits: list[Dict[str, Any]] = []
+    for point in intersection_points[:8]:
+        radius = _probe_radius_for_point(point["coordinates"])
+        x, y, z = point["coordinates"]
+        try:
+            dim_tags = gmsh.model.getEntitiesInBoundingBox(
+                x - radius,
+                y - radius,
+                z - radius,
+                x + radius,
+                y + radius,
+                z + radius,
+                -1,
+            )
+        except Exception:
+            continue
+        point_hits.append(
+            {
+                "coordinates": [float(x), float(y), float(z)],
+                "source": point["source"],
+                "radius": float(radius),
+                "entities": _entity_dim_tags_payload(dim_tags),
+                "entity_bboxes": [
+                    _entity_bbox_payload(gmsh, dim, tag)
+                    for dim, tag in dim_tags[:12]
+                ],
+            }
+        )
+
+    return {
+        "status": "captured",
+        "error": error_text,
+        "mesh_algorithm_3d": int(mesh_algorithm_3d),
+        "surface_mesh_artifact": str(surface_mesh_path) if surface_mesh_path is not None else None,
+        "logger_message_count": len(logger_messages),
+        "logger_tail": [str(message) for message in logger_messages[-80:]],
+        "intersection_points": intersection_points,
+        "intersection_point_entity_hits": point_hits,
+        "last_entity_error_dim_tags": last_entity_error_dim_tags,
+        "last_entity_error_bboxes": [
+            _entity_bbox_payload(gmsh, dim_tag["dim"], dim_tag["tag"])
+            for dim_tag in last_entity_error_dim_tags[:12]
+        ],
+        "last_node_error_tags": last_node_error_tags,
+        "last_node_error_nodes": last_node_error_nodes,
+    }
+
+
+def _run_3d_algorithm_probe(
+    gmsh,
+    *,
+    aircraft_surface_tags: list[int] | None,
+    fluid_volume_tags: list[int],
+    algorithm3d: int,
+    logger_checkpoint: int,
+    surface_mesh_path: Path | None,
+) -> Dict[str, Any]:
+    try:
+        gmsh.model.mesh.clear()
+    except Exception as exc:
+        return {
+            "status": "failed_to_prepare",
+            "mesh_algorithm_3d": int(algorithm3d),
+            "error": f"failed to clear previous mesh state: {exc}",
+        }
+
+    surface_probe: Dict[str, Any] = {}
+    try:
+        gmsh.model.mesh.generate(2)
+        if aircraft_surface_tags:
+            pre_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
+            duplicate_cleanup = _remove_duplicate_surface_facets(gmsh, aircraft_surface_tags)
+            post_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
+            surface_probe = {
+                "duplicate_facets_before_cleanup": pre_cleanup_duplicates,
+                "duplicate_facets_after_cleanup": post_cleanup_duplicates,
+                "cleanup_actions": duplicate_cleanup,
+            }
+    except Exception as exc:
+        logger_messages = [str(message) for message in gmsh.logger.get()[logger_checkpoint:]]
+        return {
+            "status": "failed_surface_remesh",
+            "mesh_algorithm_3d": int(algorithm3d),
+            "error": str(exc),
+            "probe": _collect_plc_error_probe(
+                gmsh,
+                error_text=str(exc),
+                logger_messages=logger_messages,
+                surface_mesh_path=surface_mesh_path,
+                mesh_algorithm_3d=algorithm3d,
+            ),
+        }
+
+    gmsh.option.setNumber("Mesh.Algorithm3D", float(algorithm3d))
+    try:
+        gmsh.model.mesh.generate(3)
+    except Exception as exc:
+        logger_messages = [str(message) for message in gmsh.logger.get()[logger_checkpoint:]]
+        return {
+            "status": "failed",
+            "mesh_algorithm_3d": int(algorithm3d),
+            "probe": _collect_plc_error_probe(
+                gmsh,
+                error_text=str(exc),
+                logger_messages=logger_messages,
+                surface_mesh_path=surface_mesh_path,
+                mesh_algorithm_3d=algorithm3d,
+            ),
+        }
+
+    mesh_stats = _mesh_stats(gmsh)
+    if mesh_stats.get("volume_element_count", 0) <= 0:
+        logger_messages = [str(message) for message in gmsh.logger.get()[logger_checkpoint:]]
+        return {
+            "status": "failed_no_volume_elements",
+            "mesh_algorithm_3d": int(algorithm3d),
+            "error": "3D probe returned without exception but did not generate any volume elements",
+            "mesh_stats": mesh_stats,
+            "surface_probe": surface_probe,
+            "logger_tail": logger_messages[-80:],
+        }
+
+    return {
+        "status": "success",
+        "mesh_algorithm_3d": int(algorithm3d),
+        "mesh_stats": mesh_stats,
+        "surface_probe": surface_probe,
+    }
+
+
 def _placeholder_backend_result(
     recipe: MeshRecipe,
     handle: GeometryHandle,
@@ -513,6 +733,9 @@ def _apply_occ_external_flow_route(
     mesh_path = mesh_dir / "mesh.msh"
     metadata_path = mesh_dir / "mesh_metadata.json"
     marker_summary_path = mesh_dir / "marker_summary.json"
+    surface_mesh_path = mesh_dir / "surface_mesh_2d.msh"
+    gmsh_log_path = mesh_dir / "gmsh_log.txt"
+    plc_probe_path = mesh_dir / "plc_probe.json"
     if config.boundary_layer.enabled:
         return {
             "status": "failed",
@@ -526,6 +749,9 @@ def _apply_occ_external_flow_route(
                 "mesh": str(mesh_path),
                 "mesh_metadata": str(metadata_path),
                 "marker_summary": str(marker_summary_path),
+                "surface_mesh_2d": str(surface_mesh_path),
+                "gmsh_log": str(gmsh_log_path),
+                "plc_probe": str(plc_probe_path),
             },
             "marker_summary": {},
             "mesh_stats": {},
@@ -546,6 +772,7 @@ def _apply_occ_external_flow_route(
     mesh_dir.mkdir(parents=True, exist_ok=True)
 
     gmsh_initialized = False
+    gmsh_logger_started = False
     metadata: Dict[str, Any] = {
         "status": "started",
         "route_stage": "baseline",
@@ -574,12 +801,15 @@ def _apply_occ_external_flow_route(
     bounds: Dict[str, float] | None = None
     unit_normalization: Dict[str, Any] | None = None
     mesh_stats: Dict[str, Any] = {}
+    plc_probe: Dict[str, Any] | None = None
     try:
         gmsh.initialize()
         gmsh_initialized = True
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.option.setNumber("Mesh.Binary", 0)
         gmsh.model.add(f"hpa_meshing_{uuid.uuid4().hex}")
+        gmsh.logger.start()
+        gmsh_logger_started = True
 
         imported_entities = gmsh.model.occ.importShapes(str(handle.path))
         gmsh.model.occ.synchronize()
@@ -679,10 +909,35 @@ def _apply_occ_external_flow_route(
             "duplicate_facets_before_cleanup": pre_cleanup_duplicates,
             "duplicate_facets_after_cleanup": post_cleanup_duplicates,
             "cleanup_actions": duplicate_cleanup,
+            "artifact": str(surface_mesh_path),
         }
+        gmsh.write(str(surface_mesh_path))
 
         if config.mesh_dim == 3:
-            gmsh.model.mesh.generate(3)
+            try:
+                gmsh.model.mesh.generate(3)
+            except Exception as exc:
+                logger_messages = [str(message) for message in gmsh.logger.get()]
+                plc_probe = _collect_plc_error_probe(
+                    gmsh,
+                    error_text=str(exc),
+                    logger_messages=logger_messages,
+                    surface_mesh_path=surface_mesh_path,
+                    mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+                )
+                if "PLC Error" in str(exc):
+                    hxt_logger_checkpoint = len(logger_messages)
+                    plc_probe["hxt_probe"] = _run_3d_algorithm_probe(
+                        gmsh,
+                        aircraft_surface_tags=aircraft_surface_tags,
+                        fluid_volume_tags=fluid_volume_tags,
+                        algorithm3d=10,
+                        logger_checkpoint=hxt_logger_checkpoint,
+                        surface_mesh_path=surface_mesh_path,
+                    )
+                _json_write(plc_probe_path, plc_probe)
+                metadata["plc_probe"] = plc_probe
+                raise
         gmsh.write(str(mesh_path))
 
         physical_groups = {
@@ -711,6 +966,9 @@ def _apply_occ_external_flow_route(
             mesh=mesh_path,
             mesh_metadata=metadata_path,
             marker_summary=marker_summary_path,
+            surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
+            gmsh_log=gmsh_log_path,
+            plc_probe=plc_probe_path if plc_probe_path.exists() else None,
         )
         provider_provenance = None
         if handle.provider_result is not None:
@@ -815,6 +1073,9 @@ def _apply_occ_external_flow_route(
                 "mesh": str(mesh_path),
                 "mesh_metadata": str(metadata_path),
                 "marker_summary": str(marker_summary_path),
+                "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                "gmsh_log": str(gmsh_log_path),
+                "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
             },
             "marker_summary": marker_summary,
             "physical_groups": physical_groups,
@@ -858,6 +1119,14 @@ def _apply_occ_external_flow_route(
                 "mesh_dim": config.mesh_dim,
                 **mesh_stats,
             }
+        metadata["artifacts"] = {
+            "mesh": str(mesh_path),
+            "mesh_metadata": str(metadata_path),
+            "marker_summary": str(marker_summary_path),
+            "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+            "gmsh_log": str(gmsh_log_path),
+            "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
+        }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
         return {
@@ -872,6 +1141,9 @@ def _apply_occ_external_flow_route(
                 "mesh": str(mesh_path),
                 "mesh_metadata": str(metadata_path),
                 "marker_summary": str(marker_summary_path),
+                "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
+                "gmsh_log": str(gmsh_log_path),
+                "plc_probe": str(plc_probe_path) if plc_probe_path.exists() else None,
             },
             "marker_summary": marker_summary,
             "mesh_stats": mesh_stats,
@@ -885,6 +1157,15 @@ def _apply_occ_external_flow_route(
         }
     finally:
         if gmsh_initialized:
+            if gmsh_logger_started:
+                try:
+                    _text_write(gmsh_log_path, [str(message) for message in gmsh.logger.get()])
+                except Exception:
+                    pass
+                try:
+                    gmsh.logger.stop()
+                except Exception:
+                    pass
             gmsh.finalize()
 
 
