@@ -7,7 +7,11 @@ from pathlib import Path
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.providers.esp_pipeline import (
     _ComponentInputModel,
+    _NativeRebuildModel,
+    _NativeSectionRecord,
+    _NativeSurfaceRecord,
     _VspWingCandidate,
+    _build_native_rebuild_model,
     _prepare_component_input_model,
     _select_component_candidate,
     _analyze_symmetry_touching_solids,
@@ -44,6 +48,62 @@ def _unioned_boxes() -> list[tuple[float, float, float, float, float, float]]:
         (0.0, -2.0, 0.0, 1.0, 4.0, 0.10),
         (3.0, -0.8, 0.0, 0.5, 1.6, 0.05),
     ]
+
+
+def _sample_airfoil_coords(scale: float = 1.0) -> tuple[tuple[float, float], ...]:
+    return (
+        (1.0, 0.0),
+        (0.75, 0.035 * scale),
+        (0.35, 0.055 * scale),
+        (0.0, 0.0),
+        (0.35, -0.040 * scale),
+        (0.75, -0.018 * scale),
+        (1.0, 0.0),
+    )
+
+
+def _sample_native_rebuild_model(source: Path) -> _NativeRebuildModel:
+    return _NativeRebuildModel(
+        source_path=source,
+        surfaces=(
+            _NativeSurfaceRecord(
+                component="main_wing",
+                geom_id="main",
+                name="Main Wing",
+                caps_group="main_wing",
+                symmetric_xz=True,
+                sections=(
+                    _NativeSectionRecord(
+                        x_le=0.0,
+                        y_le=0.0,
+                        z_le=0.0,
+                        chord=1.30,
+                        twist_deg=0.0,
+                        airfoil_name="NACA 2412",
+                        airfoil_source="inline_coordinates",
+                        airfoil_coordinates=_sample_airfoil_coords(),
+                        thickness_tc=0.12,
+                        camber=0.02,
+                        camber_loc=0.4,
+                    ),
+                    _NativeSectionRecord(
+                        x_le=0.10,
+                        y_le=16.5,
+                        z_le=1.70,
+                        chord=0.435,
+                        twist_deg=0.0,
+                        airfoil_name="NACA 2412",
+                        airfoil_source="inline_coordinates",
+                        airfoil_coordinates=_sample_airfoil_coords(0.8),
+                        thickness_tc=0.12,
+                        camber=0.02,
+                        camber_loc=0.4,
+                    ),
+                ),
+            ),
+        ),
+        notes=("unit-test-native-model",),
+    )
 
 
 def test_analyze_symmetry_touching_solids_detects_groups_and_preserves_singleton(tmp_path: Path):
@@ -102,6 +162,10 @@ def test_materialize_with_esp_reports_normalization_before_after_counts(monkeypa
         "hpa_meshing.providers.esp_pipeline.load_openvsp_reference_data",
         lambda _: {"ref_length": 1.0},
     )
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._build_native_rebuild_model",
+        lambda **_: _sample_native_rebuild_model(source),
+    )
 
     def fake_runner(args, cwd):
         script_name = Path(args[-1]).name
@@ -158,6 +222,10 @@ def test_materialize_with_esp_uses_component_subset_in_union_script(monkeypatch,
         "hpa_meshing.providers.esp_pipeline.load_openvsp_reference_data",
         lambda _: {"ref_length": 1.0},
     )
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._build_native_rebuild_model",
+        lambda **_: _sample_native_rebuild_model(subset_path),
+    )
 
     def fake_runner(args, cwd):
         script_name = Path(args[-1]).name
@@ -165,7 +233,9 @@ def test_materialize_with_esp_uses_component_subset_in_union_script(monkeypatch,
             (Path(cwd) / "raw_dump.stp").write_bytes(raw_template.read_bytes())
         elif script_name == "union_groups.csm":
             union_script_text = (staging / "esp_runtime" / "union_groups.csm").read_text(encoding="utf-8")
-            assert "main_wing.vsp3" in union_script_text
+            assert "UDPRIM vsp3" not in union_script_text
+            assert "rule" in union_script_text.lower()
+            assert "main_wing" in union_script_text
             (Path(cwd) / "union_groups.step").write_bytes(union_template.read_bytes())
         else:
             raise AssertionError(f"unexpected script {script_name}")
@@ -435,3 +505,222 @@ def test_prepare_component_input_model_writes_wing_component_report(monkeypatch,
     assert terminal["params"]["Tip_Chord"] == 0.435
     assert terminal["params"]["LE_Cap_Type_Name"] == "FLAT_END_CAP"
     assert terminal["params"]["TE_Cap_Type_Name"] == "ROUND_EXT_END_CAP_TE"
+
+
+class _FakeAirfoilPoint:
+    def __init__(self, x: float, y: float, z: float):
+        self.x = x
+        self.y = y
+        self.z = z
+
+
+class _FakeNativeOpenVsp(_FakeOpenVsp):
+    XS_FOUR_SERIES = 7
+    XS_FILE_AIRFOIL = 1
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._geom_data["main"]["parms"].update(
+            {
+                ("XForm", "Y_Location"): 0.0,
+                ("XForm", "Z_Location"): 0.0,
+                ("XForm", "Y_Rotation"): 0.0,
+                ("XForm", "Z_Rotation"): 0.0,
+            }
+        )
+        self._geom_data["main"]["xsecs"] = [
+            {
+                "shape": self.XS_FOUR_SERIES,
+                "params": {
+                    "Root_Chord": 1.30,
+                    "Tip_Chord": 1.30,
+                    "Sweep": 0.0,
+                    "Sweep_Location": 0.25,
+                    "Span": 0.0,
+                    "Dihedral": 0.0,
+                    "Twist": 0.0,
+                    "ThickChord": 0.1409,
+                    "Camber": 0.02,
+                    "CamberLoc": 0.4,
+                },
+            },
+            {
+                "shape": self.XS_FOUR_SERIES,
+                "params": {
+                    "Root_Chord": 1.30,
+                    "Tip_Chord": 0.435,
+                    "Sweep": 1.91,
+                    "Sweep_Location": 0.25,
+                    "Span": 16.5,
+                    "Dihedral": 5.0,
+                    "Twist": 0.0,
+                    "ThickChord": 0.1173,
+                    "Camber": 0.02,
+                    "CamberLoc": 0.4,
+                },
+            },
+        ]
+        self._geom_data["htail"]["parms"].update(
+            {
+                ("XForm", "Y_Location"): 0.0,
+                ("XForm", "Z_Location"): 0.0,
+                ("XForm", "Y_Rotation"): 0.0,
+                ("XForm", "Z_Rotation"): 0.0,
+            }
+        )
+        self._geom_data["htail"]["xsecs"] = [
+            {
+                "shape": self.XS_FOUR_SERIES,
+                "params": {
+                    "Root_Chord": 0.8,
+                    "Tip_Chord": 0.8,
+                    "Sweep": 0.0,
+                    "Sweep_Location": 0.25,
+                    "Span": 0.0,
+                    "Dihedral": 0.0,
+                    "Twist": 0.0,
+                    "ThickChord": 0.09,
+                    "Camber": 0.0,
+                    "CamberLoc": 0.4,
+                },
+            },
+            {
+                "shape": self.XS_FOUR_SERIES,
+                "params": {
+                    "Root_Chord": 0.8,
+                    "Tip_Chord": 0.7,
+                    "Sweep": 4.0,
+                    "Sweep_Location": 0.25,
+                    "Span": 1.5,
+                    "Dihedral": 0.0,
+                    "Twist": 0.0,
+                    "ThickChord": 0.09,
+                    "Camber": 0.0,
+                    "CamberLoc": 0.4,
+                },
+            },
+        ]
+        self._geom_data["fin"] = {
+            "name": "Fin",
+            "type_name": "Wing",
+            "bbox_min": (5.0, -0.03, -0.7),
+            "bbox_max": (5.7, 0.03, 1.7),
+            "parms": {
+                ("Sym", "Sym_Planar_Flag"): 0.0,
+                ("XForm", "X_Location"): 5.0,
+                ("XForm", "Y_Location"): 0.0,
+                ("XForm", "Z_Location"): -0.7,
+                ("XForm", "X_Rotation"): 90.0,
+                ("XForm", "Y_Rotation"): 0.0,
+                ("XForm", "Z_Rotation"): 0.0,
+            },
+            "xsecs": [
+                {
+                    "shape": self.XS_FOUR_SERIES,
+                    "params": {
+                        "Root_Chord": 0.7,
+                        "Tip_Chord": 0.7,
+                        "Sweep": 0.0,
+                        "Sweep_Location": 0.25,
+                        "Span": 0.0,
+                        "Dihedral": 0.0,
+                        "Twist": 0.0,
+                        "ThickChord": 0.09,
+                        "Camber": 0.0,
+                        "CamberLoc": 0.4,
+                    },
+                },
+                {
+                    "shape": self.XS_FOUR_SERIES,
+                    "params": {
+                        "Root_Chord": 0.7,
+                        "Tip_Chord": 0.5,
+                        "Sweep": 5.0,
+                        "Sweep_Location": 0.25,
+                        "Span": 2.4,
+                        "Dihedral": 0.0,
+                        "Twist": 0.0,
+                        "ThickChord": 0.09,
+                        "Camber": 0.0,
+                        "CamberLoc": 0.4,
+                    },
+                },
+            ],
+        }
+        self._geom_ids = list(self._geom_data)
+
+    def GetAirfoilUpperPnts(self, xsec_ref):
+        geom_id, index = xsec_ref
+        chord = self._geom_data[geom_id]["xsecs"][index]["params"].get("Tip_Chord", 1.0)
+        return [
+            _FakeAirfoilPoint(1.0 * chord, 0.0, 0.0),
+            _FakeAirfoilPoint(0.6 * chord, 0.0, 0.05 * chord),
+            _FakeAirfoilPoint(0.0, 0.0, 0.0),
+        ]
+
+    def GetAirfoilLowerPnts(self, xsec_ref):
+        geom_id, index = xsec_ref
+        chord = self._geom_data[geom_id]["xsecs"][index]["params"].get("Tip_Chord", 1.0)
+        return [
+            _FakeAirfoilPoint(0.0, 0.0, 0.0),
+            _FakeAirfoilPoint(0.6 * chord, 0.0, -0.04 * chord),
+            _FakeAirfoilPoint(1.0 * chord, 0.0, 0.0),
+        ]
+
+
+def test_build_native_rebuild_model_extracts_canonical_surfaces(monkeypatch, tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._load_openvsp",
+        lambda: _FakeNativeOpenVsp(),
+    )
+
+    model = _build_native_rebuild_model(
+        source_path=source,
+        component="aircraft_assembly",
+    )
+
+    components = [surface.component for surface in model.surfaces]
+    assert components == ["main_wing", "horizontal_tail", "vertical_tail"]
+
+    main_wing = model.surfaces[0]
+    assert main_wing.symmetric_xz is True
+    assert len(main_wing.sections) == 2
+    assert main_wing.sections[1].y_le == 16.5
+    assert len(main_wing.sections[0].airfoil_coordinates) >= 5
+
+    vertical_tail = model.surfaces[2]
+    assert vertical_tail.symmetric_xz is False
+    assert vertical_tail.sections[-1].z_le > vertical_tail.sections[0].z_le
+
+
+def test_materialize_with_esp_writes_native_rule_loft_script(monkeypatch, tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    staging = tmp_path / "provider"
+
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._build_native_rebuild_model",
+        lambda **_: _sample_native_rebuild_model(source),
+    )
+
+    def fake_runner(args, cwd):
+        exported = Path(cwd) / "raw_dump.stp"
+        exported.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="serveCSM ok\n", stderr="")
+
+    result = materialize_with_esp(
+        source_path=source,
+        staging_dir=staging,
+        runner=fake_runner,
+        batch_binary="/opt/esp/bin/serveCSM",
+    )
+
+    assert result.status == "success"
+    script_text = result.script_path.read_text(encoding="utf-8")
+    assert "UDPRIM vsp3" not in script_text
+    assert "rule" in script_text.lower()
+    assert "ATTRIBUTE _name $main_wing" in script_text
+    assert "ATTRIBUTE capsGroup $main_wing" in script_text

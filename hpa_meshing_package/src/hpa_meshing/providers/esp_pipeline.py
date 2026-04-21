@@ -9,7 +9,7 @@ import tempfile
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from ..gmsh_runtime import GmshRuntimeError, load_gmsh
 from ..schema import GeometryTopologyMetadata
@@ -51,10 +51,14 @@ _VERTICAL_TAIL_ALIASES = {
 _WING_SECTION_PARAM_NAMES = (
     "Root_Chord",
     "Tip_Chord",
+    "Span",
     "Sweep",
+    "Sweep_Location",
     "Dihedral",
     "Twist",
     "ThickChord",
+    "Camber",
+    "CamberLoc",
     "SectTess_U",
     "TE_Close_Thick",
     "TE_Close_Thick_Chord",
@@ -123,6 +127,39 @@ class _VspWingCandidate:
 
 
 @dataclass(frozen=True)
+class _NativeSectionRecord:
+    x_le: float
+    y_le: float
+    z_le: float
+    chord: float
+    twist_deg: float
+    airfoil_name: Optional[str]
+    airfoil_source: str
+    airfoil_coordinates: tuple[tuple[float, float], ...]
+    thickness_tc: Optional[float] = None
+    camber: Optional[float] = None
+    camber_loc: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class _NativeSurfaceRecord:
+    component: str
+    geom_id: str
+    name: str
+    caps_group: str
+    symmetric_xz: bool
+    sections: tuple[_NativeSectionRecord, ...]
+    rotation_deg: tuple[float, float, float] = (0.0, 0.0, 0.0)
+
+
+@dataclass(frozen=True)
+class _NativeRebuildModel:
+    source_path: Path
+    surfaces: tuple[_NativeSurfaceRecord, ...]
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class _ComponentInputModel:
     input_model_path: Path
     notes: list[str] = field(default_factory=list)
@@ -171,15 +208,447 @@ def _resolve_batch_binary() -> Optional[str]:
     return None
 
 
-def _build_csm_script(source_path: Path, export_path: Path) -> str:
+def _format_csm_number(value: float) -> str:
+    return f"{float(value):.12g}"
+
+
+def _rotate_xyz(
+    point: tuple[float, float, float],
+    rotation_deg: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    x, y, z = (float(value) for value in point)
+    rx, ry, rz = (math.radians(float(value)) for value in rotation_deg)
+
+    y, z = (
+        y * math.cos(rx) - z * math.sin(rx),
+        y * math.sin(rx) + z * math.cos(rx),
+    )
+    x, z = (
+        x * math.cos(ry) + z * math.sin(ry),
+        -x * math.sin(ry) + z * math.cos(ry),
+    )
+    x, y = (
+        x * math.cos(rz) - y * math.sin(rz),
+        x * math.sin(rz) + y * math.cos(rz),
+    )
+    return float(x), float(y), float(z)
+
+
+def _rotate_about_local_span(
+    point: tuple[float, float, float],
+    twist_deg: float,
+) -> tuple[float, float, float]:
+    angle = math.radians(-float(twist_deg))
+    x, y, z = (float(value) for value in point)
+    return (
+        x * math.cos(angle) + z * math.sin(angle),
+        y,
+        -x * math.sin(angle) + z * math.cos(angle),
+    )
+
+
+def _naca_four_series_name(camber_frac: float, camber_loc: float, tc: float) -> str:
+    d1 = max(0, min(9, int(round(float(camber_frac) * 100))))
+    d2 = max(0, min(9, int(round(float(camber_loc) * 10))))
+    d34 = max(0, min(99, int(round(float(tc) * 100))))
+    return f"NACA {d1}{d2}{d34:02d}"
+
+
+def _normalize_airfoil_coordinates(
+    coordinates: Sequence[tuple[float, float]],
+) -> tuple[tuple[float, float], ...]:
+    if not coordinates:
+        return ()
+    xs = [float(pair[0]) for pair in coordinates]
+    zs = [float(pair[1]) for pair in coordinates]
+    min_x = min(xs)
+    max_x = max(xs)
+    chord = max(max_x - min_x, 1.0e-9)
+    normalized = tuple(
+        ((float(x) - min_x) / chord, float(z) / chord)
+        for x, z in zip(xs, zs)
+    )
+    return normalized
+
+
+def _extract_airfoil_coordinates(vsp, xsec: Any) -> tuple[tuple[float, float], ...]:
+    try:
+        upper = list(vsp.GetAirfoilUpperPnts(xsec))
+        lower = list(vsp.GetAirfoilLowerPnts(xsec))
+    except Exception:
+        return ()
+    if not upper or not lower:
+        return ()
+
+    axis_spans: dict[str, float] = {}
+    all_points = list(upper) + list(lower)
+    for axis in ("y", "z"):
+        try:
+            values = [_vsp_point_component(point, axis) for point in all_points]
+        except Exception:
+            axis_spans[axis] = float("-inf")
+            continue
+        axis_spans[axis] = max(values) - min(values) if values else float("-inf")
+    ordinate_axis = "y" if axis_spans.get("y", float("-inf")) >= axis_spans.get("z", float("-inf")) else "z"
+
+    upper_pairs = sorted(
+        [(_vsp_point_component(point, "x"), _vsp_point_component(point, ordinate_axis)) for point in upper],
+        key=lambda pair: pair[0],
+        reverse=True,
+    )
+    lower_pairs = sorted(
+        [(_vsp_point_component(point, "x"), _vsp_point_component(point, ordinate_axis)) for point in lower],
+        key=lambda pair: pair[0],
+    )
+    if not upper_pairs or not lower_pairs:
+        return ()
+    if (
+        abs(upper_pairs[-1][0] - lower_pairs[0][0]) <= 1.0e-9
+        and abs(upper_pairs[-1][1] - lower_pairs[0][1]) <= 1.0e-9
+    ):
+        combined = upper_pairs + lower_pairs[1:]
+    else:
+        combined = upper_pairs + lower_pairs
+    return _normalize_airfoil_coordinates([(float(x), float(z)) for x, z in combined])
+
+
+def _downsample_airfoil_coordinates(
+    coordinates: Sequence[tuple[float, float]],
+    *,
+    max_points: int = 61,
+) -> tuple[tuple[float, float], ...]:
+    if len(coordinates) <= max_points:
+        return tuple((float(x), float(z)) for x, z in coordinates)
+    if max_points < 3:
+        max_points = 3
+    interior_budget = max_points - 2
+    step = (len(coordinates) - 2) / max(interior_budget, 1)
+    sampled = [coordinates[0]]
+    for idx in range(1, max_points - 1):
+        sample_index = min(len(coordinates) - 2, max(1, int(round(idx * step))))
+        sampled.append(coordinates[sample_index])
+    sampled.append(coordinates[-1])
+    deduped: list[tuple[float, float]] = []
+    for point in sampled:
+        normalized = (float(point[0]), float(point[1]))
+        if deduped and all(abs(a - b) <= 1.0e-9 for a, b in zip(deduped[-1], normalized)):
+            continue
+        deduped.append(normalized)
+    if len(deduped) >= 2 and all(abs(a - b) <= 1.0e-9 for a, b in zip(deduped[0], deduped[-1])):
+        return tuple(deduped)
+    deduped.append(deduped[0])
+    return tuple(deduped)
+
+
+def _naca_profile_coordinates(
+    *,
+    thickness_tc: float,
+    camber: float,
+    camber_loc: float,
+    num_points: int = 41,
+) -> tuple[tuple[float, float], ...]:
+    xs = [
+        0.5 * (1.0 - math.cos(math.pi * idx / max(num_points - 1, 1)))
+        for idx in range(num_points)
+    ]
+    upper: list[tuple[float, float]] = []
+    lower: list[tuple[float, float]] = []
+    m = max(float(camber), 0.0)
+    p = float(camber_loc)
+    t = max(float(thickness_tc), 1.0e-4)
+    for x in xs:
+        yt = 5.0 * t * (
+            0.2969 * math.sqrt(max(x, 0.0))
+            - 0.1260 * x
+            - 0.3516 * x**2
+            + 0.2843 * x**3
+            - 0.1015 * x**4
+        )
+        if m <= 1.0e-9 or p <= 1.0e-9 or p >= 1.0:
+            yc = 0.0
+            dyc_dx = 0.0
+        elif x < p:
+            yc = m / (p**2) * (2.0 * p * x - x**2)
+            dyc_dx = 2.0 * m / (p**2) * (p - x)
+        else:
+            yc = m / ((1.0 - p) ** 2) * ((1.0 - 2.0 * p) + 2.0 * p * x - x**2)
+            dyc_dx = 2.0 * m / ((1.0 - p) ** 2) * (p - x)
+        theta = math.atan(dyc_dx)
+        upper.append((x - yt * math.sin(theta), yc + yt * math.cos(theta)))
+        lower.append((x + yt * math.sin(theta), yc - yt * math.cos(theta)))
+    return tuple(reversed(upper)) + tuple(lower[1:])
+
+
+def _resolve_section_airfoil_coordinates(
+    section: _NativeSectionRecord,
+) -> tuple[tuple[float, float], ...]:
+    if section.airfoil_coordinates:
+        return _downsample_airfoil_coordinates(section.airfoil_coordinates)
+    return _naca_profile_coordinates(
+        thickness_tc=section.thickness_tc or 0.12,
+        camber=section.camber or 0.0,
+        camber_loc=section.camber_loc or 0.4,
+    )
+
+
+def _mirrored_section(section: _NativeSectionRecord) -> _NativeSectionRecord:
+    return _NativeSectionRecord(
+        x_le=section.x_le,
+        y_le=-section.y_le,
+        z_le=section.z_le,
+        chord=section.chord,
+        twist_deg=section.twist_deg,
+        airfoil_name=section.airfoil_name,
+        airfoil_source=section.airfoil_source,
+        airfoil_coordinates=section.airfoil_coordinates,
+        thickness_tc=section.thickness_tc,
+        camber=section.camber,
+        camber_loc=section.camber_loc,
+    )
+
+
+def _surface_sections_for_rule(surface: _NativeSurfaceRecord) -> list[_NativeSectionRecord]:
+    sections = list(surface.sections)
+    if not surface.symmetric_xz or len(sections) <= 1:
+        return sections
+    mirrored = [_mirrored_section(section) for section in reversed(sections[1:])]
+    return [*mirrored, *sections]
+
+
+def _build_section_sketch_lines(
+    section: _NativeSectionRecord,
+    *,
+    rotation_deg: tuple[float, float, float],
+) -> list[str]:
+    coordinates = _resolve_section_airfoil_coordinates(section)
+    if len(coordinates) < 3:
+        raise ValueError("native rebuild section needs at least three profile points")
+    global_points: list[tuple[float, float, float]] = []
+    for x_rel, z_rel in coordinates:
+        local_offset = _rotate_about_local_span(
+            (float(x_rel) * section.chord, 0.0, float(z_rel) * section.chord),
+            section.twist_deg,
+        )
+        rotated_offset = _rotate_xyz(local_offset, rotation_deg)
+        global_points.append(
+            (
+                section.x_le + rotated_offset[0],
+                section.y_le + rotated_offset[1],
+                section.z_le + rotated_offset[2],
+            )
+        )
+
+    lines = [
+        "skbeg "
+        + " ".join(_format_csm_number(value) for value in global_points[0])
+    ]
+    for index, point in enumerate(global_points[1:], start=1):
+        opcode = "linseg" if index == 1 or index == len(global_points) - 1 else "spline"
+        lines.append(
+            f"   {opcode} " + " ".join(_format_csm_number(value) for value in point)
+        )
+    lines.append("skend")
+    return lines
+
+
+def _sanitize_caps_group(name: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9_]+", "_", name).strip("_")
+    return sanitized or "surface"
+
+
+def _build_native_geometry_lines(rebuild_model: _NativeRebuildModel) -> list[str]:
+    lines = [
+        "# Native lifting-surface rebuild generated from OpenVSP section data",
+        f"# Source model: {rebuild_model.source_path}",
+    ]
+    for surface in rebuild_model.surfaces:
+        sections = _surface_sections_for_rule(surface)
+        if len(sections) < 2:
+            continue
+        lines.append("")
+        lines.append(f"# Surface: {surface.component} ({surface.name})")
+        lines.append("mark")
+        for section in sections:
+            lines.extend(_build_section_sketch_lines(section, rotation_deg=surface.rotation_deg))
+        caps_group = _sanitize_caps_group(surface.caps_group)
+        lines.append("rule")
+        lines.append(f"ATTRIBUTE _name ${caps_group}")
+        lines.append(f"ATTRIBUTE capsGroup ${caps_group}")
+    return lines
+
+
+def _build_native_rebuild_model(
+    *,
+    source_path: Path,
+    component: str,
+) -> _NativeRebuildModel:
+    if source_path.suffix.lower() != ".vsp3":
+        raise RuntimeError(f"native ESP rebuild requires a .vsp3 source, got {source_path.suffix or '<none>'}")
+
+    vsp = _load_openvsp()
+    try:
+        vsp.ClearVSPModel()
+        vsp.ReadVSPFile(str(source_path))
+        vsp.Update()
+        candidates = _collect_vsp_wing_candidates(vsp)
+        selected_components: list[tuple[str, _VspWingCandidate]] = []
+        seen_geom_ids: set[str] = set()
+        effective_component = _component_alias(component)
+        component_order = (
+            ("main_wing", "horizontal_tail", "vertical_tail")
+            if effective_component == "aircraft_assembly"
+            else (effective_component,)
+        )
+        for component_name in component_order:
+            try:
+                candidate = _select_component_candidate(component_name, candidates)
+            except Exception:
+                continue
+            if candidate.geom_id in seen_geom_ids:
+                continue
+            seen_geom_ids.add(candidate.geom_id)
+            selected_components.append((component_name, candidate))
+
+        surfaces: list[_NativeSurfaceRecord] = []
+        notes: list[str] = []
+        for component_name, candidate in selected_components:
+            geom_rotation = (
+                _safe_vsp_parm(vsp, candidate.geom_id, ["X_Rotation", "X_Rel_Rotation"], "XForm"),
+                _safe_vsp_parm(vsp, candidate.geom_id, ["Y_Rotation", "Y_Rel_Rotation"], "XForm"),
+                _safe_vsp_parm(vsp, candidate.geom_id, ["Z_Rotation", "Z_Rel_Rotation"], "XForm"),
+            )
+            geom_translation = (
+                _safe_vsp_parm(vsp, candidate.geom_id, ["X_Location", "X_Rel_Location"], "XForm"),
+                _safe_vsp_parm(vsp, candidate.geom_id, ["Y_Location", "Y_Rel_Location"], "XForm"),
+                _safe_vsp_parm(vsp, candidate.geom_id, ["Z_Location", "Z_Rel_Location"], "XForm"),
+            )
+            xsec_surf = vsp.GetXSecSurf(candidate.geom_id, 0)
+            section_count = int(vsp.GetNumXSec(xsec_surf))
+            if section_count <= 0:
+                notes.append(f"skip_{component_name}:no_xsecs")
+                continue
+
+            local_positions: list[tuple[float, float, float]] = [(0.0, 0.0, 0.0)]
+            root_chord = None
+            if section_count > 1:
+                first_segment = vsp.GetXSec(xsec_surf, 1)
+                root_chord = _safe_get_xsec_parm_value(vsp, first_segment, "Root_Chord")
+            if root_chord is None:
+                first_root = vsp.GetXSec(xsec_surf, 0)
+                root_chord = (
+                    _safe_get_xsec_parm_value(vsp, first_root, "Root_Chord")
+                    or _safe_get_xsec_parm_value(vsp, first_root, "Tip_Chord")
+                    or 1.0
+                )
+            section_specs: list[tuple[Any, tuple[float, float, float], float, float]] = []
+            root_xsec = vsp.GetXSec(xsec_surf, 0)
+            section_specs.append((root_xsec, local_positions[0], float(root_chord), _safe_get_xsec_parm_value(vsp, root_xsec, "Twist") or 0.0))
+
+            for index in range(1, section_count):
+                xsec = vsp.GetXSec(xsec_surf, index)
+                root_c = _safe_get_xsec_parm_value(vsp, xsec, "Root_Chord") or section_specs[-1][2]
+                tip_c = _safe_get_xsec_parm_value(vsp, xsec, "Tip_Chord") or root_c
+                span = _safe_get_xsec_parm_value(vsp, xsec, "Span") or 0.0
+                sweep = _safe_get_xsec_parm_value(vsp, xsec, "Sweep") or 0.0
+                sweep_location = _safe_get_xsec_parm_value(vsp, xsec, "Sweep_Location")
+                if sweep_location is None:
+                    sweep_location = 0.25
+                dihedral = _safe_get_xsec_parm_value(vsp, xsec, "Dihedral") or 0.0
+                prev_x, prev_y, prev_z = local_positions[-1]
+                dx = span * math.tan(math.radians(sweep)) - sweep_location * (tip_c - root_c)
+                dz = span * math.tan(math.radians(dihedral))
+                local_position = (prev_x + dx, prev_y + span, prev_z + dz)
+                local_positions.append(local_position)
+                section_specs.append(
+                    (
+                        xsec,
+                        local_position,
+                        float(tip_c),
+                        _safe_get_xsec_parm_value(vsp, xsec, "Twist") or 0.0,
+                    )
+                )
+
+            section_records: list[_NativeSectionRecord] = []
+            for xsec, local_position, chord, twist_deg in section_specs:
+                rotated_position = _rotate_xyz(local_position, geom_rotation)
+                global_le = (
+                    geom_translation[0] + rotated_position[0],
+                    geom_translation[1] + rotated_position[1],
+                    geom_translation[2] + rotated_position[2],
+                )
+                thickness_tc = _safe_get_xsec_parm_value(vsp, xsec, "ThickChord")
+                camber = _safe_get_xsec_parm_value(vsp, xsec, "Camber")
+                camber_loc = _safe_get_xsec_parm_value(vsp, xsec, "CamberLoc")
+                coordinates = _extract_airfoil_coordinates(vsp, xsec)
+                try:
+                    shape = int(vsp.GetXSecShape(xsec))
+                except Exception:
+                    shape = -1
+                if coordinates:
+                    airfoil_source = "inline_coordinates"
+                elif shape == int(getattr(vsp, "XS_FOUR_SERIES", -1)):
+                    airfoil_source = "naca"
+                else:
+                    airfoil_source = f"vsp_shape_{shape}"
+                airfoil_name = None
+                if shape == int(getattr(vsp, "XS_FOUR_SERIES", -1)) and thickness_tc is not None:
+                    airfoil_name = _naca_four_series_name(camber or 0.0, camber_loc or 0.4, thickness_tc)
+                section_records.append(
+                    _NativeSectionRecord(
+                        x_le=global_le[0],
+                        y_le=global_le[1],
+                        z_le=global_le[2],
+                        chord=float(chord),
+                        twist_deg=float(twist_deg),
+                        airfoil_name=airfoil_name,
+                        airfoil_source=airfoil_source,
+                        airfoil_coordinates=coordinates,
+                        thickness_tc=thickness_tc,
+                        camber=camber,
+                        camber_loc=camber_loc,
+                    )
+                )
+
+            if len(section_records) < 2:
+                notes.append(f"skip_{component_name}:insufficient_sections")
+                continue
+            surfaces.append(
+                _NativeSurfaceRecord(
+                    component=component_name,
+                    geom_id=candidate.geom_id,
+                    name=candidate.name,
+                    caps_group=component_name,
+                    symmetric_xz=bool(candidate.is_symmetric_xz and component_name != "vertical_tail"),
+                    sections=tuple(section_records),
+                    rotation_deg=geom_rotation,
+                )
+            )
+        if not surfaces:
+            raise RuntimeError("native ESP rebuild could not extract any loftable wing-like surfaces from the .vsp3")
+        return _NativeRebuildModel(
+            source_path=source_path,
+            surfaces=tuple(surfaces),
+            notes=tuple(notes),
+        )
+    finally:
+        try:
+            vsp.ClearVSPModel()
+        except Exception:
+            pass
+
+
+def _build_csm_script(
+    source_path: Path,
+    export_path: Path,
+    *,
+    component: str,
+) -> str:
+    rebuild_model = _build_native_rebuild_model(source_path=source_path, component=component)
     script_lines = [
         "# Auto-generated by hpa_meshing.providers.esp_pipeline",
-        "# Rebuilds OpenVSP model through the official UDPRIM vsp3 bridge",
-        f"SET vsp_model_path $\"{source_path}\"",
+        "# Rebuilds OpenVSP lifting surfaces into native OpenCSM rule lofts",
         f"SET export_path $\"{export_path}\"",
-        "UDPRIM vsp3 filename !vsp_model_path",
-        "STORE aircraft_assembly",
-        "RESTORE aircraft_assembly",
+        *_build_native_geometry_lines(rebuild_model),
         "DUMP !export_path 0 1",
         "END",
         "",
@@ -187,13 +656,13 @@ def _build_csm_script(source_path: Path, export_path: Path) -> str:
     return "\n".join(script_lines)
 
 
-def _build_union_csm_script(source_path: Path, export_path: Path, body_count: int) -> str:
+def _build_union_csm_script(source_path: Path, export_path: Path, body_count: int, *, component: str) -> str:
+    rebuild_model = _build_native_rebuild_model(source_path=source_path, component=component)
     script_lines = [
         "# Auto-generated by hpa_meshing.providers.esp_pipeline",
-        "# Unions touching ESP/OpenCSM bodies produced by the UDPRIM vsp3 bridge",
-        f"SET vsp_model_path $\"{source_path}\"",
+        "# Rebuilds OpenVSP lifting surfaces into native OpenCSM rule lofts",
         f"SET export_path $\"{export_path}\"",
-        "UDPRIM vsp3 filename !vsp_model_path",
+        *_build_native_geometry_lines(rebuild_model),
         f"UNION {body_count}",
         "DUMP !export_path 0 1",
         "END",
@@ -1256,7 +1725,11 @@ def materialize_with_esp(
     work_union_export_path = work_dir / UNION_EXPORT_FILE_NAME
 
     script_path.write_text(
-        _build_csm_script(source_path=work_input_model_path, export_path=work_raw_export_path),
+        _build_csm_script(
+            source_path=work_input_model_path,
+            export_path=work_raw_export_path,
+            component=component,
+        ),
         encoding="utf-8",
     )
 
@@ -1416,6 +1889,7 @@ def materialize_with_esp(
                 source_path=work_input_model_path,
                 export_path=work_union_export_path,
                 body_count=max(raw_analysis.body_count, 1),
+                component=component,
             ),
             encoding="utf-8",
         )

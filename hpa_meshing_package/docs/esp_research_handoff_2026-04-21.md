@@ -8,8 +8,8 @@ This note is the current handoff for another AI or engineer who needs to study o
 
 The goal is to prevent three recurring mistakes:
 
-1. confusing the ESP feasibility spike with a runnable provider on current `main`
-2. confusing meshing-policy tuning with provider-level geometry normalization work
+1. treating the old "ESP provider is still non-runnable" statement as current truth
+2. confusing the now-landed native provider work with the still-open downstream Gmsh meshing problem
 3. restarting from the wrong premise and repeating already-known dead ends
 
 ## Execution Constraint
@@ -20,11 +20,11 @@ The goal is to prevent three recurring mistakes:
 
 ## What The User Wants Now
 
-- Stop treating `openvsp_surface_intersection` as the only route
-- Make `esp_rebuilt` actually runnable
-- Use ESP/OpenCSM to rebuild cleaner, topology-stable geometry for the `aircraft_assembly` route
-- Re-run at least `blackcat_004` `coarse`
-- Do not keep drifting into solver-only tweaks or gate-only tweaks while the provider itself is still non-runnable
+- Keep `openvsp_surface_intersection` as the formal v1 baseline, but stop treating it as the only path worth improving
+- Preserve the native ESP/OpenCSM rebuild that is now landed on current `main`
+- Use that native provider to study why `blackcat_004` still hangs in downstream Gmsh surface meshing
+- Re-run at least provider smoke and mesh-only probes before making broader CFD claims
+- Do not drift back into runtime-install framing or solver-only tuning when the current blocker is now post-provider
 
 ## Current Repo Truth
 
@@ -52,15 +52,16 @@ Evidence:
 
 ### ESP on current `main`
 
-`esp_rebuilt` is **not runnable** right now.
+`esp_rebuilt` is now **provider-runnable**, but it is still **not a production-ready meshing route**.
 
 Evidence:
 
-- [esp_rebuilt.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/providers/esp_rebuilt.py) is still a stub
-- it always returns `status="not_materialized"`
-- no normalized geometry artifact is produced
+- [esp_pipeline.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/providers/esp_pipeline.py) now rebuilds lifting surfaces natively from `.vsp3` section data into OpenCSM `rule` lofts
+- [blackcat_004_esp_rebuilt_native_provider_smoke/topology.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_native_provider_smoke/esp_runtime/topology.json) shows `1 body / 32 surfaces / 1 volume`
+- [blackcat_004_esp_rebuilt_native_provider_smoke/provider_log.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_native_provider_smoke/provider_log.json) records a successful materialization path
+- [blackcat_004_esp_rebuilt_main_wing_mesh_only_hang_probe/provider_log.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_main_wing_mesh_only_hang_probe/artifacts/providers/esp_rebuilt/provider_log.json) shows the provider completes before the later meshing hang
 
-This is not a vague maturity problem. It is a concrete implementation gap.
+This is no longer a provider-existence gap. The concrete remaining gap is downstream meshing stability.
 
 ## What Has Already Been Researched
 
@@ -78,28 +79,29 @@ That spike concluded:
 
 Important warning:
 
-That spike was valid research, but it did **not** produce a runnable `esp_rebuilt` provider on `main`.
+That spike was valid research, and current `main` has now moved one layer past it: the native provider exists, but a stable mesh route still does not.
 
 ## Real Failures Already Observed
 
-### A. ESP route currently fails before meshing
+### A. ESP provider no longer fails before meshing, but the route still fails during meshing
 
-Real attempted run:
+Real provider / route probes:
 
-- [blackcat_004_coarse_esp_rebuilt_attempt/report.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_coarse_esp_rebuilt_attempt/report.json)
+- [blackcat_004_esp_rebuilt_native_provider_smoke/topology.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_native_provider_smoke/esp_runtime/topology.json)
+- [blackcat_004_esp_rebuilt_main_wing_mesh_only_hang_probe/provider_log.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_main_wing_mesh_only_hang_probe/artifacts/providers/esp_rebuilt/provider_log.json)
+- [blackcat_004_esp_rebuilt_assembly_mesh_only_hang_probe/provider_log.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_assembly_mesh_only_hang_probe/artifacts/providers/esp_rebuilt/provider_log.json)
 
 Observed result:
 
-- `status = failed`
-- `failure_code = geometry_provider_not_materialized`
-- `provider.status = not_materialized`
-- `normalized_geometry_path = null`
-- `provider_ready = false`
+- provider materialization succeeds and emits normalized geometry artifacts
+- main-wing topology probe reports `1 body / 32 surfaces / 1 volume`
+- `duplicate_interface_face_pair_count = 0`
+- both mesh-only CLI probes still hang before producing final mesh artifacts
 
 Meaning:
 
-- current `esp_rebuilt` does not reach Gmsh at all
-- there is no real ESP coarse mesh yet
+- current `esp_rebuilt` does reach Gmsh-stage execution
+- there is still no real completed ESP coarse mesh yet
 - there are no ESP `CL / CD / CM` results yet
 
 ### B. Current OpenVSP route materializes geometry, but high-resolution meshing is still unstable
@@ -217,7 +219,7 @@ This is an improvement, but it exposed the next blocker more clearly: the route 
 
 ### 3. Documentation drift has been corrected
 
-The repo now explicitly says that ESP is researched but not runnable:
+The repo now explicitly says that ESP is provider-runnable but not yet a stable production meshing route:
 
 - [README.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/README.md)
 - [current_status.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/docs/current_status.md)
@@ -233,9 +235,9 @@ The current ESP attempt never reaches SU2.
 
 The current blocker is before trustworthy CFD results exist.
 
-### Not "ESP already exists but is flaky"
+### Not "ESP provider still does not exist"
 
-That is too optimistic. Current `main` does not have a real ESP materialization path yet.
+That is now outdated. Current `main` does have a real ESP materialization path; the unresolved issue is the downstream meshing path.
 
 ### Not "OpenVSP provider always produces garbage"
 
@@ -252,37 +254,35 @@ The more accurate statement is:
 
 Make `esp_rebuilt` into a real provider that can:
 
-1. discover ESP/OpenCSM runtime on this machine
-2. rebuild geometry from `.vsp3`
-3. export normalized geometry for Gmsh
-4. emit topology/provenance artifacts
-5. complete at least one real `blackcat_004 coarse` run without failing at `geometry_provider_not_materialized`
+1. keep the native `.vsp3 -> OpenCSM rule-loft -> normalized STEP` path working
+2. explain why the current native geometry still hangs in Gmsh `Mesh2D`
+3. produce at least one completed mesh-only `blackcat_004` run
+4. then decide whether assembly, main-wing-only, or a refined fallback should carry the first real ESP coarse run
+5. only after that, resume higher-level CFD/gate work
 
 ### Questions worth researching
 
 1. What is the best automatable official OpenVSP -> ESP path on macOS arm64 for this repo?
-   - `UDPRIM vsp3`
-   - `VspSetup`
-   - `serveESP` session flow
-   - `ocsm` batch flow
+   - current landed answer is native OpenCSM `rule` lofts via `serveCSM -batch`
+   - remaining question is whether that loft recipe should be refined, not whether `UDPRIM vsp3` should come back
 
-2. Which ESP/OpenCSM command path is easiest to script non-interactively?
+2. Why does the current native geometry still hang in Gmsh `Mesh2D`?
+   - mixed solid/sheet body behavior before STEP export?
+   - section ordering or loft closure issue?
+   - surface-meshing option mismatch for the exported topology?
 
-3. How should the provider emit a normalized geometry artifact?
-   - STEP
-   - EGADS/other intermediate
-   - how to preserve component labels
+3. Should the next diagnostic focus on `main_wing` first, or on the full `aircraft_assembly` export?
+   - main wing already gives the cleanest provider topology evidence
+   - assembly smoke suggests more complex body behavior before export
 
-4. What exact runtime installation steps are needed on this machine?
-   - binaries
-   - environment variables
-   - prerequisites such as XQuartz if still needed for the chosen path
+4. What exact Gmsh diagnostics should be added next?
+   - 2D-only artifact export
+   - per-surface meshing traces
+   - mesh-option sweeps around the `Mesh2D -> bowyerWatsonFrontal -> insertAPoint` hang
 
-5. Can the provider stay headless, or does the official path require GUI/session behavior that needs extra wrapping?
-
-6. After ESP export, does the resulting geometry reduce or eliminate the two current Gmsh failure modes?
-   - `overlapping facets`
-   - `PLC Error: A segment and a facet intersect at point`
+5. Does the native ESP export actually reduce the old overlap disease on the main wing?
+   - current evidence says yes at the provider topology layer (`duplicate_interface_face_pair_count = 0`)
+   - but that still needs meshing-side confirmation
 
 ## What Another AI Should Not Waste Time On First
 
@@ -291,23 +291,24 @@ Make `esp_rebuilt` into a real provider that can:
 - alpha sweep
 - component force mapping
 - report beautification
+- redoing runtime installation work that the current machine no longer needs for provider execution
 - trying to infer final aero truth from the historical low-resolution `fine` run
 
-Those are downstream concerns. The immediate blocker is still geometry-provider enablement plus a stable meshing path.
+Those are downstream concerns. The immediate blocker is now a stable meshing path on top of the already-landed provider.
 
 ## Concrete Files To Read First
 
 1. [ESP enablement plan](/Volumes/Samsung%20SSD/hpa-mdo/docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)
 2. [esp_rebuilt.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/providers/esp_rebuilt.py)
-3. [esp_opencsm_feasibility.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/docs/esp_opencsm_feasibility.md)
-4. [README.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/README.md)
-5. [current_status.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/docs/current_status.md)
-6. [gmsh_backend.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/adapters/gmsh_backend.py)
-7. [mesh_study.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/mesh_study.py)
-8. [blackcat_004_coarse_esp_rebuilt_attempt/report.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_coarse_esp_rebuilt_attempt/report.json)
-9. [blackcat_probe_1m/report.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_probe_1m/report.json)
-10. [blackcat_probe_mid_0_80/report.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_probe_mid_0_80/report.json)
+3. [esp_pipeline.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/providers/esp_pipeline.py)
+4. [esp_opencsm_feasibility.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/docs/esp_opencsm_feasibility.md)
+5. [README.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/README.md)
+6. [current_status.md](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/docs/current_status.md)
+7. [gmsh_backend.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/adapters/gmsh_backend.py)
+8. [mesh_study.py](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/mesh_study.py)
+9. [blackcat_004_esp_rebuilt_native_provider_smoke/topology.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_native_provider_smoke/esp_runtime/topology.json)
+10. [blackcat_004_esp_rebuilt_main_wing_mesh_only_hang_probe/provider_log.json](/Volumes/Samsung%20SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_main_wing_mesh_only_hang_probe/artifacts/providers/esp_rebuilt/provider_log.json)
 
 ## One-Sentence Summary
 
-Current `main` has already moved past the old span-based fake-mesh setup, but it still does **not** have a runnable ESP provider, and the current OpenVSP route still has no stable high-resolution meshing window for `blackcat_004`.
+Current `main` now has a runnable native ESP provider, but the route still lacks a stable Gmsh meshing window for `blackcat_004`, so the next engineering target is meshing diagnostics rather than provider enablement.

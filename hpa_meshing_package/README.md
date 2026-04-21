@@ -46,16 +46,17 @@
 
 ## Experimental / Placeholder Areas
 
-- `esp_rebuilt` 目前只保留 experimental provider contract，沒有要求本輪 materialize 成功。
+- `esp_rebuilt` 目前已經能在本機 materialize provider-normalized geometry，但仍停留在 experimental：它不是 formal `v1` route，而且 blackcat meshing smoke 目前還卡在 downstream Gmsh `Mesh2D` hang。
 - `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在，但 backend 仍是 placeholder，不是正式可交付路徑。
 - 目前只有 `gmsh_thin_sheet_aircraft_assembly` 會走真實 Gmsh meshing；其他 route 會回 `route_stage=placeholder`。
 
 ## ESP Reality Check
 
-- `esp_rebuilt` 在目前 `main` 上**仍不是可直接跑的 provider**，但已經從「回傳 not_materialized」的 stub 升級成具備 runtime discovery 與官方 `UDPRIM vsp3` pipeline skeleton 的 fail-loud provider。
-- 現況是：[esp_rebuilt.py](src/hpa_meshing/providers/esp_rebuilt.py) 會先呼叫 `detect_esp_runtime()`，只要本機 `serveESP` / `serveCSM` / `ocsm` 任一缺席，就會在 provider 階段回 `status="failed"`、`failure_code="esp_runtime_missing"`、並把缺了哪些 binary 寫進 provenance 與 provider_log。
-- 這台 Mac mini M4（macOS 26.4.1 / arm64）目前仍未安裝 `ESP129-macos-arm64`，因此 2026-04-21 的 blackcat coarse smoke 仍會在 provider 階段被擋住；證據收在 `.tmp/runs/blackcat_004_coarse_esp_rebuilt/`，包含 `report.json` 與 `artifacts/providers/esp_rebuilt/provider_log.json`。
-- 要把 `esp_rebuilt` 升為真實可用路線，剩下的步驟是：安裝 ESP129 並把 `serveCSM` / `ocsm` 放上 `PATH`；其餘 runtime discovery、batch pipeline、topology artifact、fail-loud 診斷在本輪已經落地。
+- `esp_rebuilt` 在目前 `main` 上已經不再是 `not_materialized` stub。它現在會走 native OpenCSM lifting-surface rebuild：從 `.vsp3` 讀 wing/tail sections，生成 rule-loft `.csm`，再用 `serveCSM -batch` 輸出 normalized STEP 與 topology artifact。
+- 這台 Mac mini M4（macOS 26.4.1 / arm64）目前可用的 runtime truth 是：`serveESP` / `serveCSM` 在 `PATH` 上、`ocsm` 仍缺席，但 batch 路徑可以直接用 `serveCSM`。所以 `detect_esp_runtime()` 會回 `available=true`、`batch_binary=serveCSM`，provider 已可執行。
+- 2026-04-21 的 provider smoke 已經成功 materialize：`hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_native_provider_smoke/` 內有 `normalized.stp` / `topology.json` / `provider_log.json`。主翼單體 smoke 也能 materialize：`hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_main_wing_mesh_only_hang_probe/`。
+- 目前真正的 blocker 已經往後移：不是 provider runtime 缺失，而是 downstream Gmsh surface meshing 仍會 hang。`sample` 顯示 main-wing mesh-only smoke 卡在 `gmsh::model::mesh::generate(2) -> Mesh2D -> bowyerWatsonFrontal -> insertAPoint`。
+- 結論：`esp_rebuilt` 現在是「provider runnable but route not yet production-ready」。下一步不是再補 runtime 安裝，而是把 native ESP geometry 接到更穩的 Gmsh meshing policy / diagnostics。
 - 實作規劃請看 [ESP Rebuilt Provider Enablement Implementation Plan](../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
 
 ## Quick Start
@@ -139,7 +140,7 @@ This produces:
 | `convergence_gate.v1` | fixed contract | machine-readable mesh / iterative / overall comparability gate |
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
-| `esp_rebuilt` | experimental | runtime discovery + OpenVSP→ESP batch pipeline skeleton；本機尚未安裝 ESP129，coarse smoke 仍會被擋在 provider 階段 |
+| `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
 | Other component families | experimental | schema/dispatch exists, backend placeholder |
 | Mesh study | formal minimal `v1` | three-tier baseline study that emits `mesh_study.v1` and decides whether the baseline stays `run_only` or can move to `preliminary_compare` |
 | Alpha sweep | roadmap | after the chosen mesh/runtime clears the mesh-study verdict |

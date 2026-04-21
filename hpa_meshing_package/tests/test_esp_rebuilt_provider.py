@@ -7,6 +7,72 @@ from pathlib import Path
 from hpa_meshing.schema import GeometryProviderRequest, GeometryTopologyMetadata
 
 
+def _sample_native_model(source: Path):
+    from hpa_meshing.providers.esp_pipeline import (
+        _NativeRebuildModel,
+        _NativeSectionRecord,
+        _NativeSurfaceRecord,
+    )
+
+    return _NativeRebuildModel(
+        source_path=source,
+        surfaces=(
+            _NativeSurfaceRecord(
+                component="main_wing",
+                geom_id="main",
+                name="Main Wing",
+                caps_group="main_wing",
+                symmetric_xz=True,
+                sections=(
+                    _NativeSectionRecord(
+                        x_le=0.0,
+                        y_le=0.0,
+                        z_le=0.0,
+                        chord=1.3,
+                        twist_deg=0.0,
+                        airfoil_name="NACA 2412",
+                        airfoil_source="inline_coordinates",
+                        airfoil_coordinates=(
+                            (1.0, 0.0),
+                            (0.7, 0.04),
+                            (0.3, 0.05),
+                            (0.0, 0.0),
+                            (0.3, -0.03),
+                            (0.7, -0.015),
+                            (1.0, 0.0),
+                        ),
+                        thickness_tc=0.12,
+                        camber=0.02,
+                        camber_loc=0.4,
+                    ),
+                    _NativeSectionRecord(
+                        x_le=0.1,
+                        y_le=16.5,
+                        z_le=1.7,
+                        chord=0.435,
+                        twist_deg=0.0,
+                        airfoil_name="NACA 2412",
+                        airfoil_source="inline_coordinates",
+                        airfoil_coordinates=(
+                            (1.0, 0.0),
+                            (0.7, 0.03),
+                            (0.3, 0.04),
+                            (0.0, 0.0),
+                            (0.3, -0.025),
+                            (0.7, -0.012),
+                            (1.0, 0.0),
+                        ),
+                        thickness_tc=0.12,
+                        camber=0.02,
+                        camber_loc=0.4,
+                    ),
+                ),
+            ),
+        ),
+        notes=("unit-test-native-model",),
+    )
+
+
 def _make_request(tmp_path: Path) -> GeometryProviderRequest:
     return GeometryProviderRequest(
         provider="esp_rebuilt",
@@ -206,7 +272,8 @@ def test_esp_rebuilt_returns_normalized_geometry_when_pipeline_succeeds(
     assert "esp rebuild succeeded" in result.topology.notes
 
 
-def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: Path):
+def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(monkeypatch, tmp_path: Path):
+    from hpa_meshing.providers import esp_pipeline
     from hpa_meshing.providers.esp_pipeline import materialize_with_esp
 
     source = tmp_path / "source model.vsp3"
@@ -226,6 +293,11 @@ def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: P
             stderr="",
         )
 
+    monkeypatch.setattr(
+        esp_pipeline,
+        "_build_native_rebuild_model",
+        lambda **_: _sample_native_model(source),
+    )
     result = materialize_with_esp(
         source_path=source,
         staging_dir=staging,
@@ -258,7 +330,9 @@ def test_materialize_with_esp_runs_ocsm_batch_and_collects_artifacts(tmp_path: P
     assert "provider with spaces" in str(result.script_path)
     script_text = result.script_path.read_text(encoding="utf-8")
     assert "provider with spaces" not in script_text
-    assert result.input_model_path.name in script_text
+    assert "UDPRIM vsp3" not in script_text
+    assert "rule" in script_text.lower()
+    assert "ATTRIBUTE capsGroup $main_wing" in script_text
     assert "raw_dump.stp" in script_text
     assert "DUMP !export_path 0 1" in script_text
     assert result.artifacts["raw_geometry"].name == "raw_dump.stp"
@@ -289,6 +363,11 @@ def test_materialize_with_esp_rewrites_mislabeled_mm_export_to_meter_units(
         esp_pipeline,
         "load_openvsp_reference_data",
         lambda _: {"ref_length": 1.0425},
+    )
+    monkeypatch.setattr(
+        esp_pipeline,
+        "_build_native_rebuild_model",
+        lambda **_: _sample_native_model(source),
     )
 
     def fake_runner(args, cwd):
@@ -335,8 +414,10 @@ def test_materialize_with_esp_rewrites_mislabeled_mm_export_to_meter_units(
 
 
 def test_materialize_with_esp_reports_failed_when_runner_returns_nonzero(
+    monkeypatch,
     tmp_path: Path,
 ):
+    from hpa_meshing.providers import esp_pipeline
     from hpa_meshing.providers.esp_pipeline import materialize_with_esp
 
     source = tmp_path / "model.vsp3"
@@ -351,6 +432,11 @@ def test_materialize_with_esp_reports_failed_when_runner_returns_nonzero(
             stderr="ocsm: UDPRIM vsp3 import failed\n",
         )
 
+    monkeypatch.setattr(
+        esp_pipeline,
+        "_build_native_rebuild_model",
+        lambda **_: _sample_native_model(source),
+    )
     result = materialize_with_esp(
         source_path=source,
         staging_dir=staging,
@@ -376,11 +462,14 @@ def test_materialize_with_esp_reports_missing_binary_when_path_empty(tmp_path: P
     staging = tmp_path / "provider"
 
     original_which = esp_pipeline.shutil.which
+    original_model_builder = esp_pipeline._build_native_rebuild_model
     try:
         esp_pipeline.shutil.which = lambda _: None  # type: ignore[assignment]
+        esp_pipeline._build_native_rebuild_model = lambda **_: _sample_native_model(source)  # type: ignore[assignment]
         result = materialize_with_esp(source_path=source, staging_dir=staging)
     finally:
         esp_pipeline.shutil.which = original_which  # type: ignore[assignment]
+        esp_pipeline._build_native_rebuild_model = original_model_builder  # type: ignore[assignment]
 
     assert result.status == "failed"
     assert result.failure_code == "esp_batch_binary_missing"
