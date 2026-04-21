@@ -165,6 +165,7 @@ class GeometryTopologyMetadata(BaseModel):
     volume_count: Optional[int] = None
     labels_present: Optional[bool] = None
     label_schema: Optional[str] = None
+    normalization: Dict[str, Any] = Field(default_factory=dict)
     notes: List[str] = Field(default_factory=list)
 
 

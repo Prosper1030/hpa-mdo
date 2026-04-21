@@ -162,6 +162,7 @@ def _result_from_pipeline(
         pipeline_artifacts["esp_script"] = pipeline_result.script_path
     if pipeline_result.input_model_path is not None:
         pipeline_artifacts["esp_input_model"] = pipeline_result.input_model_path
+    pipeline_artifacts.update(pipeline_result.artifacts)
 
     if pipeline_result.status != "success":
         failure_code = pipeline_result.failure_code or "esp_pipeline_failed"
@@ -192,6 +193,7 @@ def _result_from_pipeline(
             provenance={
                 "failure_code": failure_code,
                 "runtime": runtime_payload,
+                **pipeline_result.provenance,
             },
             artifacts=pipeline_artifacts,
         )
@@ -245,6 +247,7 @@ def _result_from_pipeline(
         provenance={
             "runtime": runtime_payload,
             "pipeline_status": pipeline_result.status,
+            **pipeline_result.provenance,
         },
         warnings=list(pipeline_result.warnings),
         notes=[],
