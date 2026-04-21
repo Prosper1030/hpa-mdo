@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 from ..gmsh_runtime import GmshRuntimeError, load_gmsh
+from ..reference_geometry import load_openvsp_reference_data
 from ..schema import (
     Bounds3D,
     GeometryProviderRequest,
@@ -228,6 +229,7 @@ def materialize(request: GeometryProviderRequest) -> GeometryProviderResult:
     analysis_result = vsp.ExecAnalysis("SurfaceIntersection")
 
     topology = _probe_step_topology(normalized_path, request.staging_dir)
+    reference_geometry = load_openvsp_reference_data(request.source_path)
     if request.units_hint != "auto":
         if topology.units is None:
             topology.units = request.units_hint
@@ -250,14 +252,15 @@ def materialize(request: GeometryProviderRequest) -> GeometryProviderResult:
                 "analysis_result": analysis_result,
                 "source_path": str(request.source_path),
                 "normalized_geometry_path": str(normalized_path),
-                "target_representation": request.target_representation,
-                "units_hint": request.units_hint,
-                "label_policy": request.label_policy,
-                "topology": topology.model_dump(mode="json"),
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
+                    "target_representation": request.target_representation,
+                    "units_hint": request.units_hint,
+                    "label_policy": request.label_policy,
+                    "topology": topology.model_dump(mode="json"),
+                    "reference_geometry": reference_geometry,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
         encoding="utf-8",
     )
 
@@ -282,6 +285,7 @@ def materialize(request: GeometryProviderRequest) -> GeometryProviderResult:
             "target_representation": request.target_representation,
             "label_policy": request.label_policy,
             "topology": topology.model_dump(mode="json"),
+            "reference_geometry": reference_geometry,
         },
         notes=[
             "normalized via OpenVSP SurfaceIntersection trimmed STEP export",

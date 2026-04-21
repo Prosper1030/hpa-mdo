@@ -38,6 +38,21 @@ def _write_occ_box_step(tmp_path: Path, name: str = "box.step") -> Path:
     return step_path
 
 
+def _provider_provenance() -> dict[str, object]:
+    return {
+        "analysis": "SurfaceIntersection",
+        "reference_geometry": {
+            "ref_area": 1.0,
+            "ref_length": 1.0,
+            "ref_origin_moment": {"x": 0.25, "y": 0.0, "z": 0.0},
+            "area_method": "test.reference_area",
+            "length_method": "test.reference_length",
+            "moment_method": "test.reference_origin",
+            "warnings": [],
+        },
+    }
+
+
 def test_run_job_reports_geometry_family_and_route_provenance(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
@@ -93,7 +108,7 @@ def test_run_job_reports_provider_provenance_and_normalized_geometry(
             labels_present=True,
         ),
         artifacts={"topology_report": topology_report},
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance=_provider_provenance(),
     )
 
     monkeypatch.setattr(
@@ -107,6 +122,8 @@ def test_run_job_reports_provider_provenance_and_normalized_geometry(
         geometry=source,
         out_dir=tmp_path / "out",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
 
     result = run_job(config)
@@ -151,7 +168,7 @@ def test_run_job_reports_mesh_artifacts_marker_summary_and_counts(
             labels_present=False,
             label_schema="preserve_component_labels",
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance=_provider_provenance(),
     )
 
     monkeypatch.setattr(
@@ -165,6 +182,8 @@ def test_run_job_reports_mesh_artifacts_marker_summary_and_counts(
         geometry=source,
         out_dir=tmp_path / "out",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
 
     result = run_job(config)
@@ -229,7 +248,7 @@ def test_run_job_reports_unit_normalized_mesh_bounds(tmp_path: Path, monkeypatch
             import_scale_to_units=0.001,
             backend_rescale_required=True,
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance=_provider_provenance(),
     )
 
     monkeypatch.setattr(
@@ -243,6 +262,8 @@ def test_run_job_reports_unit_normalized_mesh_bounds(tmp_path: Path, monkeypatch
         geometry=source,
         out_dir=tmp_path / "out",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
 
     result = run_job(config)
@@ -281,7 +302,7 @@ def test_run_job_surfaces_mesh_handoff_contract(tmp_path: Path, monkeypatch):
             labels_present=False,
             label_schema="preserve_component_labels",
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance=_provider_provenance(),
     )
 
     monkeypatch.setattr(
@@ -295,6 +316,8 @@ def test_run_job_surfaces_mesh_handoff_contract(tmp_path: Path, monkeypatch):
         geometry=source,
         out_dir=tmp_path / "out",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
 
     result = run_job(config)
@@ -335,7 +358,7 @@ def test_run_job_fails_when_su2_baseline_fails(tmp_path: Path, monkeypatch):
             labels_present=False,
             label_schema="preserve_component_labels",
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance=_provider_provenance(),
     )
 
     monkeypatch.setattr(
@@ -364,6 +387,8 @@ def test_run_job_fails_when_su2_baseline_fails(tmp_path: Path, monkeypatch):
         geometry=geometry,
         out_dir=tmp_path / "out",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
         su2=SU2RuntimeConfig(enabled=True),
     )
 
@@ -402,7 +427,7 @@ def test_run_job_reports_su2_reference_and_force_surface_gates(tmp_path: Path, m
             labels_present=True,
             label_schema="preserve_component_labels",
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance=_provider_provenance(),
     )
 
     monkeypatch.setattr(
@@ -548,6 +573,8 @@ def test_run_job_reports_su2_reference_and_force_surface_gates(tmp_path: Path, m
         geometry=geometry,
         out_dir=tmp_path / "out",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
         su2=SU2RuntimeConfig(enabled=True),
     )
 

@@ -5,6 +5,7 @@ from typing import Any
 
 from .geometry.loader import load_geometry
 from .pipeline import run_job
+from .reference_geometry import resolve_reference_length
 from .reports.json_report import write_json_report
 from .schema import (
     ConvergenceGateCheck,
@@ -25,8 +26,8 @@ DEFAULT_PRESET_SPECS = (
     {
         "name": "coarse",
         "tier": "coarse",
-        "near_body_factor": 0.10,
-        "farfield_factor": 0.40,
+        "near_body_factor": 1.0 / 64.0,
+        "farfield_factor": 6.0,
         "max_iterations": 80,
         "cfl_number": 2.0,
         "linear_solver_error": 1e-6,
@@ -35,8 +36,8 @@ DEFAULT_PRESET_SPECS = (
     {
         "name": "medium",
         "tier": "medium",
-        "near_body_factor": 0.065,
-        "farfield_factor": 0.30,
+        "near_body_factor": 1.0 / 96.0,
+        "farfield_factor": 5.0,
         "max_iterations": 160,
         "cfl_number": 1.5,
         "linear_solver_error": 1e-7,
@@ -45,8 +46,8 @@ DEFAULT_PRESET_SPECS = (
     {
         "name": "fine",
         "tier": "fine",
-        "near_body_factor": 0.055,
-        "farfield_factor": 0.24,
+        "near_body_factor": 1.0 / 128.0,
+        "farfield_factor": 4.0,
         "max_iterations": 180,
         "cfl_number": 1.25,
         "linear_solver_error": 1e-7,
@@ -55,8 +56,8 @@ DEFAULT_PRESET_SPECS = (
     {
         "name": "super-fine",
         "tier": "super-fine",
-        "near_body_factor": 0.045,
-        "farfield_factor": 0.20,
+        "near_body_factor": 1.0 / 160.0,
+        "farfield_factor": 3.5,
         "max_iterations": 180,
         "cfl_number": 1.25,
         "linear_solver_error": 1e-7,
@@ -114,15 +115,16 @@ def _comparison_tiers(presets: list[MeshStudyPreset]) -> list[str]:
     return tiers or [preset.tier for preset in presets]
 
 
-def build_default_mesh_study_presets(characteristic_length: float) -> list[MeshStudyPreset]:
+def build_default_mesh_study_presets(reference_length: float) -> list[MeshStudyPreset]:
     presets: list[MeshStudyPreset] = []
     for spec in DEFAULT_PRESET_SPECS:
-        near_body_size = characteristic_length * float(spec["near_body_factor"])
-        farfield_size = characteristic_length * float(spec["farfield_factor"])
+        near_body_size = reference_length * float(spec["near_body_factor"])
+        farfield_size = reference_length * float(spec["farfield_factor"])
         presets.append(
             MeshStudyPreset(
                 name=str(spec["name"]),
                 tier=str(spec["tier"]),
+                characteristic_length_policy="reference_length",
                 near_body_factor=float(spec["near_body_factor"]),
                 farfield_factor=float(spec["farfield_factor"]),
                 near_body_size=near_body_size,
@@ -134,30 +136,27 @@ def build_default_mesh_study_presets(characteristic_length: float) -> list[MeshS
                     linear_solver_iterations=int(spec["linear_solver_iterations"]),
                 ),
                 notes=[
-                    "Resolved from body_max_span characteristic length.",
+                    "Resolved from geometry-derived reference length.",
                 ],
             )
         )
     return presets
 
 
-def _resolve_characteristic_length(config: MeshJobConfig) -> float:
+def _resolve_reference_length(config: MeshJobConfig) -> float:
     probe_config = config.model_copy(deep=True)
     probe_config.out_dir = config.out_dir / ".study_probe"
     geometry = load_geometry(config.geometry, probe_config)
-    provider_result = geometry.provider_result
-    topology = None if provider_result is None else provider_result.topology
-    bounds = None if topology is None else topology.bounds or topology.import_bounds
-    if bounds is None:
+    reference_length = resolve_reference_length(
+        geometry.source_path,
+        provider_result=geometry.provider_result,
+        metadata=config.metadata,
+    )
+    if reference_length is None:
         raise RuntimeError(
-            "mesh study requires provider topology bounds so default presets can resolve characteristic length"
+            "mesh study requires geometry-derived reference length so default presets can resolve surface sizing"
         )
-    spans = [
-        float(bounds.x_max) - float(bounds.x_min),
-        float(bounds.y_max) - float(bounds.y_min),
-        float(bounds.z_max) - float(bounds.z_min),
-    ]
-    return max(max(spans), 1.0e-3)
+    return max(float(reference_length), 1.0e-6)
 
 
 def _build_case_config(base_config: MeshJobConfig, preset: MeshStudyPreset) -> MeshJobConfig:
@@ -479,7 +478,7 @@ def run_mesh_study(config: MeshJobConfig) -> dict[str, Any]:
 
     study_root = config.out_dir
     study_root.mkdir(parents=True, exist_ok=True)
-    characteristic_length = _resolve_characteristic_length(config)
+    characteristic_length = _resolve_reference_length(config)
     presets = build_default_mesh_study_presets(characteristic_length)
 
     cases: list[MeshStudyCaseResult] = []

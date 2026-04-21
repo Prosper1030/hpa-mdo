@@ -36,7 +36,7 @@ def _case(
             "preset": {
                 "name": name,
                 "tier": tier,
-                "characteristic_length_policy": "body_max_span",
+                "characteristic_length_policy": "reference_length",
                 "near_body_factor": near_body_size / 10.0,
                 "farfield_factor": farfield_size / 10.0,
                 "near_body_size": near_body_size,
@@ -337,17 +337,22 @@ def test_evaluate_mesh_study_marks_non_monotonic_mesh_tiers_as_insufficient(tmp_
     assert verdict.comparability_level == "not_comparable"
 
 
-def test_build_default_mesh_study_presets_biases_medium_and_fine_toward_stabler_compare_window():
-    presets = {preset.name: preset for preset in build_default_mesh_study_presets(10.0)}
+def test_build_default_mesh_study_presets_biases_surface_refinement_by_reference_length():
+    presets = {preset.name: preset for preset in build_default_mesh_study_presets(1.0425)}
 
-    assert presets["coarse"].near_body_factor == pytest.approx(0.10)
-    assert presets["medium"].near_body_factor == pytest.approx(0.065)
-    assert presets["fine"].near_body_factor == pytest.approx(0.055)
-    assert presets["super-fine"].near_body_factor == pytest.approx(0.045)
-    assert presets["coarse"].farfield_factor == pytest.approx(0.40)
-    assert presets["medium"].farfield_factor == pytest.approx(0.30)
-    assert presets["fine"].farfield_factor == pytest.approx(0.24)
-    assert presets["super-fine"].farfield_factor == pytest.approx(0.20)
+    assert presets["coarse"].characteristic_length_policy == "reference_length"
+    assert presets["coarse"].near_body_factor == pytest.approx(1.0 / 64.0)
+    assert presets["medium"].near_body_factor == pytest.approx(1.0 / 96.0)
+    assert presets["fine"].near_body_factor == pytest.approx(1.0 / 128.0)
+    assert presets["super-fine"].near_body_factor == pytest.approx(1.0 / 160.0)
+    assert presets["coarse"].farfield_factor == pytest.approx(6.0)
+    assert presets["medium"].farfield_factor == pytest.approx(5.0)
+    assert presets["fine"].farfield_factor == pytest.approx(4.0)
+    assert presets["super-fine"].farfield_factor == pytest.approx(3.5)
+    assert presets["coarse"].near_body_size == pytest.approx(1.0425 / 64.0)
+    assert presets["medium"].near_body_size == pytest.approx(1.0425 / 96.0)
+    assert presets["fine"].near_body_size == pytest.approx(1.0425 / 128.0)
+    assert presets["super-fine"].near_body_size == pytest.approx(1.0425 / 160.0)
     assert presets["coarse"].runtime.max_iterations == 80
     assert presets["medium"].runtime.max_iterations == 160
     assert presets["fine"].runtime.max_iterations == 180
@@ -428,10 +433,10 @@ def test_run_mesh_study_executes_default_presets_and_writes_machine_readable_rep
             },
         }
 
-    monkeypatch.setattr("hpa_meshing.mesh_study._resolve_characteristic_length", lambda config: 10.0)
+    monkeypatch.setattr("hpa_meshing.mesh_study._resolve_reference_length", lambda config: 1.0425)
     monkeypatch.setattr("hpa_meshing.mesh_study.run_job", fake_run_job)
 
-    presets = build_default_mesh_study_presets(10.0)
+    presets = build_default_mesh_study_presets(1.0425)
     result = run_mesh_study(
         MeshJobConfig(
             component="aircraft_assembly",
@@ -549,7 +554,7 @@ def test_run_mesh_study_keeps_base_verdict_when_super_fine_diagnostic_case_fails
             },
         }
 
-    monkeypatch.setattr("hpa_meshing.mesh_study._resolve_characteristic_length", lambda config: 10.0)
+    monkeypatch.setattr("hpa_meshing.mesh_study._resolve_reference_length", lambda config: 1.0425)
     monkeypatch.setattr("hpa_meshing.mesh_study.run_job", fake_run_job)
 
     result = run_mesh_study(

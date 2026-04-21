@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -68,7 +69,35 @@ def _provider_result(source: Path, normalized: Path) -> GeometryProviderResult:
             labels_present=True,
             label_schema="preserve_component_labels",
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance={
+            "analysis": "SurfaceIntersection",
+            "reference_geometry": {
+                "ref_area": 35.175,
+                "ref_length": 1.0425,
+                "ref_origin_moment": {"x": 4.15, "y": 0.0, "z": 0.12},
+                "area_method": "openvsp_reference_wing.sref",
+                "length_method": "openvsp_reference_wing.cref",
+                "moment_method": "openvsp_vspaero_settings.cg",
+                "reference_wing_name": "Main Wing",
+                "reference_wing_id": "IPAWXFWPQF",
+                "settings": {
+                    "sref": 35.175,
+                    "bref": 33.0,
+                    "cref": 1.0425,
+                    "xcg": 4.15,
+                    "ycg": 0.0,
+                    "zcg": 0.12,
+                    "ref_flag": 1.0,
+                    "mac_flag": 0.0,
+                },
+                "wing_quantities": {
+                    "sref": 35.175,
+                    "bref": 33.0,
+                    "cref": 1.0425,
+                },
+                "warnings": [],
+            },
+        },
     )
 
 
@@ -84,6 +113,8 @@ def _build_mesh_handoff(tmp_path: Path) -> MeshHandoff:
         geometry_source="provider_generated",
         geometry_family="thin_sheet_aircraft_assembly",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
     handle = GeometryHandle(
         source_path=source,
@@ -131,13 +162,14 @@ def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: 
     assert case.case_output_paths.su2_mesh.exists()
     assert case.runtime_cfg_path.exists()
     assert case.case_output_paths.contract_path.exists()
-    assert case.reference_geometry.gate_status == "warn"
-    assert case.reference_geometry.area_provenance.source_category == "baseline_envelope_derived"
-    assert case.reference_geometry.length_provenance.method == "mesh.body_bounds.x_span"
+    assert case.reference_geometry.gate_status == "pass"
+    assert case.reference_geometry.area_provenance.source_category == "geometry_derived"
+    assert case.reference_geometry.length_provenance.method == "openvsp_reference_wing.cref"
+    assert case.reference_geometry.ref_origin_moment.x == pytest.approx(4.15)
     assert case.force_surface_provenance.scope == "whole_aircraft_wall"
     assert case.force_surface_provenance.matches_entire_aircraft_wall is True
     assert case.force_surface_provenance.component_provenance == "geometry_labels_present_but_not_mapped"
-    assert case.provenance_gates.overall_status == "warn"
+    assert case.provenance_gates.overall_status == "pass"
 
     runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
     assert "MESH_FILENAME= mesh.su2" in runtime_cfg
@@ -152,9 +184,9 @@ def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: 
     payload = json.loads(case.case_output_paths.contract_path.read_text(encoding="utf-8"))
     assert payload["contract"] == "su2_handoff.v1"
     assert payload["run_status"] == "not_started"
-    assert payload["reference_geometry"]["gate_status"] == "warn"
+    assert payload["reference_geometry"]["gate_status"] == "pass"
     assert payload["force_surface_provenance"]["scope"] == "whole_aircraft_wall"
-    assert payload["provenance_gates"]["overall_status"] == "warn"
+    assert payload["provenance_gates"]["overall_status"] == "pass"
 
 
 def test_materialize_baseline_case_prefers_geometry_derived_reference_when_available(
@@ -169,7 +201,7 @@ def test_materialize_baseline_case_prefers_geometry_derived_reference_when_avail
         lambda source_path: {
             "ref_area": 35.175,
             "ref_length": 1.0425,
-            "ref_origin_moment": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "ref_origin_moment": {"x": 4.15, "y": 0.0, "z": 0.12},
             "area_method": "openvsp_reference_wing.sref",
             "length_method": "openvsp_reference_wing.cref",
             "moment_method": "openvsp_vspaero_settings.cg",
@@ -179,9 +211,9 @@ def test_materialize_baseline_case_prefers_geometry_derived_reference_when_avail
                 "sref": 35.175,
                 "bref": 33.0,
                 "cref": 1.0425,
-                "xcg": 0.0,
+                "xcg": 4.15,
                 "ycg": 0.0,
-                "zcg": 0.0,
+                "zcg": 0.12,
                 "ref_flag": 1.0,
                 "mac_flag": 0.0,
             },
@@ -207,6 +239,36 @@ def test_materialize_baseline_case_prefers_geometry_derived_reference_when_avail
     runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
     assert "REF_AREA= 35.175000" in runtime_cfg
     assert "REF_LENGTH= 1.042500" in runtime_cfg
+
+
+def test_materialize_baseline_case_warns_when_geometry_derived_moment_origin_is_zero_vector(
+    tmp_path: Path,
+):
+    mesh_handoff = _build_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(enabled=True, max_iterations=12, reference_mode="auto")
+    mesh_handoff.provenance["provider"]["provenance"]["reference_geometry"]["ref_origin_moment"] = {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+    }
+    mesh_handoff.provenance["provider"]["provenance"]["reference_geometry"]["settings"]["xcg"] = 0.0
+    mesh_handoff.provenance["provider"]["provenance"]["reference_geometry"]["settings"]["ycg"] = 0.0
+    mesh_handoff.provenance["provider"]["provenance"]["reference_geometry"]["settings"]["zcg"] = 0.0
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert case.reference_geometry.gate_status == "warn"
+    assert "geometry_derived_moment_origin_is_zero_vector" in case.reference_geometry.warnings
+    assert case.provenance_gates.reference_quantities.status == "warn"
+    runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
+    assert "REF_ORIGIN_MOMENT_X= 0.000000" in runtime_cfg
+    assert "REF_ORIGIN_MOMENT_Y= 0.000000" in runtime_cfg
+    assert "REF_ORIGIN_MOMENT_Z= 0.000000" in runtime_cfg
 
 
 def test_materialize_baseline_case_accepts_user_declared_reference_override(tmp_path: Path):
@@ -482,6 +544,8 @@ def test_run_job_surfaces_su2_baseline_report(tmp_path: Path, monkeypatch):
         geometry=geometry,
         out_dir=tmp_path / "out",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
         su2=SU2RuntimeConfig(enabled=True),
     )
 
@@ -505,6 +569,8 @@ def test_run_job_surfaces_su2_baseline_report(tmp_path: Path, monkeypatch):
 
 
 def test_package_native_su2_smoke(tmp_path: Path):
+    if os.environ.get("HPA_MESHING_ENABLE_PACKAGE_SMOKE") != "1":
+        pytest.skip("set HPA_MESHING_ENABLE_PACKAGE_SMOKE=1 to run the package-native SU2 smoke")
     data_path = Path(__file__).resolve().parents[2] / "data" / "blackcat_004_origin.vsp3"
     if shutil.which("SU2_CFD") is None:
         pytest.skip("SU2_CFD not available on PATH")
@@ -520,6 +586,8 @@ def test_package_native_su2_smoke(tmp_path: Path):
         geometry=data_path,
         out_dir=tmp_path / "smoke",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
         su2=SU2RuntimeConfig(enabled=True, max_iterations=5),
     )
 

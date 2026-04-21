@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from ..gmsh_runtime import GmshRuntimeError, load_gmsh
+from ..reference_geometry import resolve_reference_length
 from ..schema import (
     Bounds3D,
     FarfieldConfig,
@@ -25,6 +26,13 @@ SUPPORTED_GMSH_CAPABILITIES = {
 }
 
 REAL_OCC_ROUTE = "gmsh_thin_sheet_aircraft_assembly"
+DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH = 128.0
+DEFAULT_EDGE_REFINEMENT_RATIO = 0.5
+DEFAULT_FARFIELD_REFERENCE_FACTOR = 4.0
+DEFAULT_SURFACE_DISTANCE_FACTOR = 0.25
+DEFAULT_EDGE_DISTANCE_FACTOR = 0.05
+DEFAULT_SURFACE_TRANSITION_FACTOR = 10.0
+DEFAULT_EDGE_TRANSITION_FACTOR = 10.0
 
 
 class GmshBackendError(RuntimeError):
@@ -146,45 +154,79 @@ def _classify_outer_boundary_surfaces(
     return aircraft_surface_tags, farfield_surface_tags
 
 
+def _aircraft_curve_tags(gmsh, aircraft_surface_tags: list[int]) -> list[int]:
+    curve_dim_tags = gmsh.model.getBoundary([(2, tag) for tag in aircraft_surface_tags], oriented=False, recursive=False)
+    curve_tags: list[int] = []
+    seen: set[int] = set()
+    for dim, tag in curve_dim_tags:
+        if dim != 1:
+            continue
+        curve_tag = int(tag)
+        if curve_tag in seen:
+            continue
+        seen.add(curve_tag)
+        curve_tags.append(curve_tag)
+    return curve_tags
+
+
+def _resolve_sizing_reference_length(handle: GeometryHandle, config: MeshJobConfig) -> float:
+    reference_length = resolve_reference_length(
+        handle.source_path,
+        provider_result=handle.provider_result,
+        metadata=config.metadata,
+    )
+    if reference_length is None or reference_length <= 0.0:
+        raise GmshBackendError(
+            "geometry-derived reference length is required for thin_sheet_aircraft_assembly surface sizing"
+        )
+    return float(reference_length)
+
+
 def _configure_mesh_field(
     gmsh,
     aircraft_surface_tags: list[int],
-    body_bounds: tuple[list[float], list[float]],
+    aircraft_curve_tags: list[int],
+    reference_length: float,
     config: MeshJobConfig,
 ) -> Dict[str, Any]:
-    mins, maxs = body_bounds
-    characteristic_length = max(
-        maxs[0] - mins[0],
-        maxs[1] - mins[1],
-        maxs[2] - mins[2],
-        1e-3,
-    )
-    near_body_size = config.global_min_size or max(characteristic_length * 0.08, 1e-3)
-    farfield_size = config.global_max_size or max(characteristic_length * 0.35, near_body_size * 2.5)
-    # Keep the transition band tied to the requested mesh sizes so finer study
-    # presets refine a meaningfully smaller neighborhood instead of reusing the
-    # same broad distance ramp for every tier.
-    distance_min = max(near_body_size * 2.0, characteristic_length * 0.04)
-    distance_max = max(
-        distance_min + 6.0 * near_body_size,
-        farfield_size * 2.5,
-        characteristic_length * 0.35,
-    )
+    near_body_size = config.global_min_size or (reference_length / DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH)
+    if near_body_size > reference_length:
+        raise GmshBackendError(
+            "near-body surface size exceeds reference length; aircraft surface would be under-resolved"
+        )
+    edge_size = min(near_body_size * DEFAULT_EDGE_REFINEMENT_RATIO, reference_length / (2.0 * DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH))
+    farfield_size = config.global_max_size or max(reference_length * DEFAULT_FARFIELD_REFERENCE_FACTOR, near_body_size * 40.0)
+    distance_min = 0.0
+    distance_max = max(reference_length * DEFAULT_SURFACE_DISTANCE_FACTOR, near_body_size * DEFAULT_SURFACE_TRANSITION_FACTOR)
+    edge_distance_max = max(reference_length * DEFAULT_EDGE_DISTANCE_FACTOR, edge_size * DEFAULT_EDGE_TRANSITION_FACTOR)
     mesh_algorithm_2d = int(config.mesh_algorithm_2d) if config.mesh_algorithm_2d is not None else 6
     mesh_algorithm_3d = int(config.mesh_algorithm_3d) if config.mesh_algorithm_3d is not None else 1
 
-    distance_field = gmsh.model.mesh.field.add("Distance")
-    gmsh.model.mesh.field.setNumbers(distance_field, "FacesList", aircraft_surface_tags)
+    surface_distance_field = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(surface_distance_field, "FacesList", aircraft_surface_tags)
 
-    threshold_field = gmsh.model.mesh.field.add("Threshold")
-    gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
-    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", near_body_size)
-    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", farfield_size)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", distance_min)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", distance_max)
-    gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
+    surface_threshold_field = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(surface_threshold_field, "InField", surface_distance_field)
+    gmsh.model.mesh.field.setNumber(surface_threshold_field, "SizeMin", near_body_size)
+    gmsh.model.mesh.field.setNumber(surface_threshold_field, "SizeMax", farfield_size)
+    gmsh.model.mesh.field.setNumber(surface_threshold_field, "DistMin", distance_min)
+    gmsh.model.mesh.field.setNumber(surface_threshold_field, "DistMax", distance_max)
 
-    gmsh.option.setNumber("Mesh.MeshSizeMin", near_body_size)
+    edge_distance_field = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(edge_distance_field, "CurvesList", aircraft_curve_tags)
+
+    edge_threshold_field = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(edge_threshold_field, "InField", edge_distance_field)
+    gmsh.model.mesh.field.setNumber(edge_threshold_field, "SizeMin", edge_size)
+    gmsh.model.mesh.field.setNumber(edge_threshold_field, "SizeMax", near_body_size)
+    gmsh.model.mesh.field.setNumber(edge_threshold_field, "DistMin", 0.0)
+    gmsh.model.mesh.field.setNumber(edge_threshold_field, "DistMax", edge_distance_max)
+
+    combined_field = gmsh.model.mesh.field.add("Min")
+    gmsh.model.mesh.field.setNumbers(combined_field, "FieldsList", [surface_threshold_field, edge_threshold_field])
+    gmsh.model.mesh.field.setAsBackgroundMesh(combined_field)
+
+    gmsh.option.setNumber("Mesh.MeshSizeMin", edge_size)
     gmsh.option.setNumber("Mesh.MeshSizeMax", farfield_size)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
@@ -195,11 +237,15 @@ def _configure_mesh_field(
     gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
 
     return {
-        "characteristic_length": characteristic_length,
+        "characteristic_length_policy": "reference_length",
+        "reference_length": reference_length,
+        "surface_target_nodes_per_reference_length": int(DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH),
         "near_body_size": near_body_size,
+        "edge_size": edge_size,
         "farfield_size": farfield_size,
         "distance_min": distance_min,
         "distance_max": distance_max,
+        "edge_distance_max": edge_distance_max,
         "mesh_size_from_points": 0,
         "mesh_size_from_curvature": 0,
         "mesh_size_extend_from_boundary": 0,
@@ -323,14 +369,40 @@ def _apply_thin_sheet_aircraft_assembly_route(
     handle: GeometryHandle,
     config: MeshJobConfig,
 ) -> Dict[str, Any]:
-    try:
-        gmsh = load_gmsh()
-    except GmshRuntimeError as exc:
-        raise GmshBackendError(str(exc)) from exc
     mesh_dir = config.out_dir / "artifacts" / "mesh"
     mesh_path = mesh_dir / "mesh.msh"
     metadata_path = mesh_dir / "mesh_metadata.json"
     marker_summary_path = mesh_dir / "marker_summary.json"
+    if config.boundary_layer.enabled:
+        return {
+            "status": "failed",
+            "backend": recipe.backend,
+            "backend_capability": recipe.backend_capability,
+            "meshing_route": recipe.meshing_route,
+            "geometry_family": recipe.geometry_family,
+            "geometry_source": recipe.geometry_source,
+            "route_stage": "baseline",
+            "artifacts": {
+                "mesh": str(mesh_path),
+                "mesh_metadata": str(metadata_path),
+                "marker_summary": str(marker_summary_path),
+            },
+            "marker_summary": {},
+            "mesh_stats": {},
+            "error": (
+                "3D boundary layer / prism layers are not implemented for the current OCC tetra route; "
+                "boundary_layer.enabled requires a dedicated prism route"
+            ),
+            "notes": [
+                "baseline OCC external-flow mesh failed before meshing",
+                f"loader={handle.loader}",
+                f"mesh_dim={config.mesh_dim}",
+            ],
+        }
+    try:
+        gmsh = load_gmsh()
+    except GmshRuntimeError as exc:
+        raise GmshBackendError(str(exc)) from exc
     mesh_dir.mkdir(parents=True, exist_ok=True)
 
     gmsh_initialized = False
@@ -396,6 +468,9 @@ def _apply_thin_sheet_aircraft_assembly_route(
         if not farfield_surface_tags:
             raise GmshBackendError("Failed to recover farfield boundary surfaces from fluid boundary.")
 
+        aircraft_curve_tags = _aircraft_curve_tags(gmsh, aircraft_surface_tags)
+        reference_length = _resolve_sizing_reference_length(handle, config)
+
         fluid_group = gmsh.model.addPhysicalGroup(3, fluid_volume_tags)
         gmsh.model.setPhysicalName(3, fluid_group, "fluid")
         aircraft_group = gmsh.model.addPhysicalGroup(2, aircraft_surface_tags)
@@ -403,7 +478,7 @@ def _apply_thin_sheet_aircraft_assembly_route(
         farfield_group = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
         gmsh.model.setPhysicalName(2, farfield_group, "farfield")
 
-        field_info = _configure_mesh_field(gmsh, aircraft_surface_tags, body_bounds, config)
+        field_info = _configure_mesh_field(gmsh, aircraft_surface_tags, aircraft_curve_tags, reference_length, config)
         gmsh.model.mesh.generate(config.mesh_dim)
         gmsh.write(str(mesh_path))
 

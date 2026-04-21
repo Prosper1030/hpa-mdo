@@ -446,7 +446,7 @@ class MeshStudyPresetRuntime(BaseModel):
 class MeshStudyPreset(BaseModel):
     name: str
     tier: MeshStudyTierType
-    characteristic_length_policy: Literal["body_max_span"] = "body_max_span"
+    characteristic_length_policy: Literal["body_max_span", "reference_length"] = "reference_length"
     near_body_factor: float
     farfield_factor: float
     near_body_size: float

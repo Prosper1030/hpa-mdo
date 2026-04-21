@@ -89,7 +89,18 @@ def _provider_result(source: Path, normalized: Path) -> GeometryProviderResult:
             labels_present=False,
             label_schema="preserve_component_labels",
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance={
+            "analysis": "SurfaceIntersection",
+            "reference_geometry": {
+                "ref_area": 1.0,
+                "ref_length": 1.0,
+                "ref_origin_moment": {"x": 0.25, "y": 0.0, "z": 0.0},
+                "area_method": "test.reference_area",
+                "length_method": "test.reference_length",
+                "moment_method": "test.reference_origin",
+                "warnings": [],
+            },
+        },
     )
 
 
@@ -105,6 +116,8 @@ def test_apply_recipe_generates_occ_mesh_artifacts_and_marker_summary(tmp_path: 
         geometry_source="provider_generated",
         geometry_family="thin_sheet_aircraft_assembly",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
     handle = GeometryHandle(
         source_path=source,
@@ -191,7 +204,18 @@ def test_apply_recipe_rescales_imported_geometry_to_provider_units(tmp_path: Pat
             import_scale_to_units=0.001,
             backend_rescale_required=True,
         ),
-        provenance={"analysis": "SurfaceIntersection"},
+        provenance={
+            "analysis": "SurfaceIntersection",
+            "reference_geometry": {
+                "ref_area": 1.0,
+                "ref_length": 1.0,
+                "ref_origin_moment": {"x": 0.25, "y": 0.0, "z": 0.0},
+                "area_method": "test.reference_area",
+                "length_method": "test.reference_length",
+                "moment_method": "test.reference_origin",
+                "warnings": [],
+            },
+        },
     )
     config = MeshJobConfig(
         component="aircraft_assembly",
@@ -200,6 +224,8 @@ def test_apply_recipe_rescales_imported_geometry_to_provider_units(tmp_path: Pat
         geometry_source="provider_generated",
         geometry_family="thin_sheet_aircraft_assembly",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
     handle = GeometryHandle(
         source_path=source,
@@ -233,7 +259,8 @@ def test_apply_recipe_rescales_imported_geometry_to_provider_units(tmp_path: Pat
     assert metadata["body"]["bounds"]["x_max"] == pytest.approx(1.0, rel=1e-3)
     assert metadata["body"]["bounds"]["y_max"] == pytest.approx(0.2, rel=1e-3)
     assert metadata["body"]["bounds"]["z_max"] == pytest.approx(0.1, rel=1e-3)
-    assert metadata["mesh_field"]["characteristic_length"] == pytest.approx(1.0, rel=1e-3)
+    assert metadata["mesh_field"]["characteristic_length_policy"] == "reference_length"
+    assert metadata["mesh_field"]["reference_length"] == pytest.approx(1.0, rel=1e-3)
 
 
 class _FakeFieldApi:
@@ -281,7 +308,7 @@ class _FakeGmsh:
         self.option = _FakeOptionApi()
 
 
-def test_configure_mesh_field_uses_field_driven_surface_default_policy(tmp_path: Path):
+def test_configure_mesh_field_uses_reference_length_surface_and_edge_policy(tmp_path: Path):
     config = MeshJobConfig(
         component="aircraft_assembly",
         geometry=tmp_path / "demo.vsp3",
@@ -289,25 +316,33 @@ def test_configure_mesh_field_uses_field_driven_surface_default_policy(tmp_path:
         geometry_source="provider_generated",
         geometry_family="thin_sheet_aircraft_assembly",
         geometry_provider="openvsp_surface_intersection",
-        global_min_size=0.11,
-        global_max_size=0.45,
     )
     gmsh = _FakeGmsh()
 
     info = _configure_mesh_field(
         gmsh,
         [101, 102],
-        ([0.0, -1.0, -0.05], [1.0, 1.0, 0.05]),
+        [201, 202, 203],
+        1.0425,
         config,
     )
 
-    assert gmsh.model.mesh.field.added == ["Distance", "Threshold"]
+    assert gmsh.model.mesh.field.added == ["Distance", "Threshold", "Distance", "Threshold", "Min"]
     assert gmsh.model.mesh.field.numbers[(1, "FacesList")] == [101.0, 102.0]
-    assert gmsh.model.mesh.field.background == 2
-    assert info["distance_min"] == pytest.approx(0.22)
-    assert info["distance_max"] == pytest.approx(1.125)
-    assert gmsh.option.values["Mesh.MeshSizeMin"] == pytest.approx(0.11)
-    assert gmsh.option.values["Mesh.MeshSizeMax"] == pytest.approx(0.45)
+    assert gmsh.model.mesh.field.numbers[(3, "CurvesList")] == [201.0, 202.0, 203.0]
+    assert gmsh.model.mesh.field.numbers[(5, "FieldsList")] == [2.0, 4.0]
+    assert gmsh.model.mesh.field.background == 5
+    assert info["characteristic_length_policy"] == "reference_length"
+    assert info["reference_length"] == pytest.approx(1.0425)
+    assert info["surface_target_nodes_per_reference_length"] == 128
+    assert info["near_body_size"] == pytest.approx(1.0425 / 128.0)
+    assert info["edge_size"] == pytest.approx(1.0425 / 256.0)
+    assert info["farfield_size"] == pytest.approx(1.0425 * 4.0)
+    assert info["distance_min"] == pytest.approx(0.0)
+    assert info["distance_max"] == pytest.approx(1.0425 * 0.25)
+    assert info["edge_distance_max"] == pytest.approx(1.0425 * 0.05)
+    assert gmsh.option.values["Mesh.MeshSizeMin"] == pytest.approx(1.0425 / 256.0)
+    assert gmsh.option.values["Mesh.MeshSizeMax"] == pytest.approx(1.0425 * 4.0)
     assert gmsh.option.values["Mesh.MeshSizeFromPoints"] == 0.0
     assert gmsh.option.values["Mesh.MeshSizeFromCurvature"] == 0.0
     assert gmsh.option.values["Mesh.MeshSizeExtendFromBoundary"] == 0.0
@@ -349,8 +384,8 @@ def test_apply_recipe_scales_mesh_field_transition_with_requested_sizes(tmp_path
         geometry_source="provider_generated",
         geometry_family="thin_sheet_aircraft_assembly",
         geometry_provider="openvsp_surface_intersection",
-        global_min_size=0.11,
-        global_max_size=0.45,
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
     fine_config = MeshJobConfig(
         component="aircraft_assembly",
@@ -359,8 +394,8 @@ def test_apply_recipe_scales_mesh_field_transition_with_requested_sizes(tmp_path
         geometry_source="provider_generated",
         geometry_family="thin_sheet_aircraft_assembly",
         geometry_provider="openvsp_surface_intersection",
-        global_min_size=0.06,
-        global_max_size=0.27,
+        global_min_size=0.3,
+        global_max_size=1.5,
     )
     recipe = build_recipe(handle, classification, coarse_config)
 
@@ -372,10 +407,64 @@ def test_apply_recipe_scales_mesh_field_transition_with_requested_sizes(tmp_path
 
     assert coarse_result["status"] == "success"
     assert fine_result["status"] == "success"
-    assert fine_metadata["mesh_field"]["distance_min"] < coarse_metadata["mesh_field"]["distance_min"]
+    assert fine_metadata["mesh_field"]["near_body_size"] < coarse_metadata["mesh_field"]["near_body_size"]
+    assert fine_metadata["mesh_field"]["edge_size"] <= coarse_metadata["mesh_field"]["edge_size"]
+    assert fine_metadata["mesh_field"]["farfield_size"] < coarse_metadata["mesh_field"]["farfield_size"]
     assert fine_metadata["mesh_field"]["distance_max"] < coarse_metadata["mesh_field"]["distance_max"]
+    assert fine_metadata["mesh_field"]["edge_distance_max"] <= coarse_metadata["mesh_field"]["edge_distance_max"]
     assert fine_metadata["body"]["healing"]["attempted"] is True
     assert coarse_metadata["body"]["healing"]["attempted"] is True
+
+
+def test_apply_recipe_rejects_boundary_layer_on_current_occ_tetra_route(tmp_path: Path):
+    normalized = _write_occ_box_step(tmp_path)
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = _provider_result(source, normalized)
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "out",
+        geometry_source="provider_generated",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_provider="openvsp_surface_intersection",
+        boundary_layer={
+            "enabled": True,
+            "first_layer_height": 1.0e-4,
+            "total_thickness": 0.01,
+            "growth_rate": 1.2,
+            "n_layers": 12,
+        },
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:openvsp_surface_intersection",
+        geometry_source="provider_generated",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="openvsp_surface_intersection",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        declared_family="thin_sheet_aircraft_assembly",
+        inferred_family=None,
+        geometry_family="thin_sheet_aircraft_assembly",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    result = apply_recipe(recipe, handle, config)
+
+    assert result["status"] == "failed"
+    assert "boundary layer" in result["error"].lower()
+    assert "not implemented" in result["error"].lower()
 
 
 def test_apply_recipe_writes_mesh_handoff_contract(tmp_path: Path):
@@ -390,6 +479,8 @@ def test_apply_recipe_writes_mesh_handoff_contract(tmp_path: Path):
         geometry_source="provider_generated",
         geometry_family="thin_sheet_aircraft_assembly",
         geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
     )
     handle = GeometryHandle(
         source_path=source,
