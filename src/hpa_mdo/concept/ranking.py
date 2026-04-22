@@ -15,12 +15,24 @@ class CandidateConceptResult:
     mission_score: float
     best_range_m: float
     assembly_penalty: float
+    local_stall_feasible: bool = True
+
+    @property
+    def safety_feasible(self) -> bool:
+        return (
+            self.launch_feasible
+            and self.turn_feasible
+            and self.trim_feasible
+            and self.local_stall_feasible
+        )
 
 
 @dataclass(frozen=True)
 class RankedConcept:
     concept_id: str
     score: float
+    safety_feasible: bool
+    selection_status: str
     why_not_higher: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -34,6 +46,8 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             reasons.append("turn_not_feasible")
         if not result.trim_feasible:
             reasons.append("trim_not_feasible")
+        if not result.local_stall_feasible:
+            reasons.append("local_stall_not_feasible")
         if not result.mission_feasible:
             reasons.append("target_range_not_met")
         if result.safety_margin < 0.10:
@@ -54,6 +68,7 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             (0.0 if result.launch_feasible else 1000.0)
             + (0.0 if result.turn_feasible else 1000.0)
             + (0.0 if result.trim_feasible else 1000.0)
+            + (0.0 if result.local_stall_feasible else 1000.0)
             + (0.0 if result.mission_feasible else 500.0)
             + mission_component
             - 10.0 * result.safety_margin
@@ -61,8 +76,9 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
         )
         scored.append((result, score, reasons))
 
-    scored.sort(key=lambda item: (item[1], item[0].concept_id))
+    scored.sort(key=lambda item: (0 if item[0].safety_feasible else 1, item[1], item[0].concept_id))
     best_result = None if not scored else scored[0][0]
+    first_infeasible_emitted = False
     ranked: list[RankedConcept] = []
     for result, score, reasons in scored:
         augmented_reasons = list(reasons)
@@ -79,10 +95,20 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             elif result.assembly_penalty > best_result.assembly_penalty:
                 augmented_reasons.append("higher_assembly_penalty_than_best")
 
+        if result.safety_feasible:
+            selection_status = "selected"
+        elif not first_infeasible_emitted:
+            selection_status = "best_infeasible"
+            first_infeasible_emitted = True
+        else:
+            selection_status = "infeasible_runner_up"
+
         ranked.append(
             RankedConcept(
                 concept_id=result.concept_id,
                 score=score,
+                safety_feasible=result.safety_feasible,
+                selection_status=selection_status,
                 why_not_higher=tuple(augmented_reasons),
             )
         )

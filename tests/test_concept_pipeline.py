@@ -15,6 +15,22 @@ from hpa_mdo.concept.geometry import GeometryConcept, build_segment_plan
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
 
+def _first_ranked_record(summary: dict[str, object]) -> dict[str, object]:
+    selected = summary.get("selected_concepts", [])
+    if selected:
+        return selected[0]
+    fallback = summary.get("best_infeasible_concepts", [])
+    assert fallback, "expected at least one selected or best infeasible concept"
+    return fallback[0]
+
+
+def _first_bundle_dir_from_summary(summary: dict[str, object]) -> Path:
+    record = _first_ranked_record(summary)
+    bundle_dir = record.get("bundle_dir")
+    assert bundle_dir is not None, "expected first ranked concept to have a bundle_dir"
+    return Path(bundle_dir)
+
+
 def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     factory_calls: list[dict[str, object]] = []
     loader_calls: list[tuple[str, int]] = []
@@ -78,27 +94,32 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     )
 
     assert result.summary_json_path.exists()
-    assert 3 <= len(result.selected_concept_dirs) <= 5
+    assert 3 <= (
+        len(result.selected_concept_dirs) + len(result.best_infeasible_concept_dirs)
+    ) <= 5
     assert factory_calls
     assert factory_calls[0]["project_dir"] == Path(__file__).resolve().parents[1]
     assert factory_calls[0]["cache_dir"] == tmp_path / "polar_db"
-    assert len(loader_calls) == len(result.selected_concept_dirs)
+    assert len(loader_calls) == (
+        len(result.selected_concept_dirs) + len(result.best_infeasible_concept_dirs)
+    )
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    first = _first_ranked_record(summary)
     assert summary["worker_backend"] == "test_stub"
     assert summary["worker_statuses"]
     assert all(status == "ok" for status in summary["worker_statuses"])
-    assert summary["selected_concepts"][0]["worker_backend"] == "test_stub"
-    assert summary["selected_concepts"][0]["worker_statuses"] == ["ok", "ok", "ok", "ok"]
-    assert "launch" in summary["selected_concepts"][0]
-    assert "turn" in summary["selected_concepts"][0]
-    assert "trim" in summary["selected_concepts"][0]
-    assert "local_stall" in summary["selected_concepts"][0]
-    assert "spanwise_requirements" in summary["selected_concepts"][0]
-    assert isinstance(summary["selected_concepts"][0]["launch"]["cl_required"], float)
-    assert isinstance(summary["selected_concepts"][0]["turn"]["required_cl"], float)
-    assert isinstance(summary["selected_concepts"][0]["trim"]["margin_deg"], float)
-    assert isinstance(summary["selected_concepts"][0]["local_stall"]["min_margin"], float)
+    assert first["worker_backend"] == "test_stub"
+    assert first["worker_statuses"] == ["ok", "ok", "ok", "ok"]
+    assert "launch" in first
+    assert "turn" in first
+    assert "trim" in first
+    assert "local_stall" in first
+    assert "spanwise_requirements" in first
+    assert isinstance(first["launch"]["cl_required"], float)
+    assert isinstance(first["turn"]["required_cl"], float)
+    assert isinstance(first["trim"]["margin_deg"], float)
+    assert isinstance(first["local_stall"]["min_margin"], float)
 
 
 def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path) -> None:
@@ -136,7 +157,7 @@ def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path)
     )
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
-    spanwise_summary = summary["selected_concepts"][0]["spanwise_requirements"]
+    spanwise_summary = _first_ranked_record(summary)["spanwise_requirements"]
 
     assert spanwise_summary["unique_sources"] == ["fallback_coarse_loader"]
     assert spanwise_summary["fallback_detected"] is True
@@ -208,7 +229,7 @@ def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
     )
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
-    spanwise_summary = summary["selected_concepts"][0]["spanwise_requirements"]
+    spanwise_summary = _first_ranked_record(summary)["spanwise_requirements"]
 
     assert spanwise_summary["reference_condition_policies"] == [
         "mission_objective_and_limiting_mass_proxy_v1"
@@ -300,7 +321,8 @@ def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
         },
     )
 
-    bundle = result.selected_concept_dirs[0]
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    bundle = _first_bundle_dir_from_summary(summary)
     airfoil_templates = json.loads((bundle / "airfoil_templates.json").read_text(encoding="utf-8"))
 
     assert airfoil_templates["root"]["authority"] == "cst_candidate"
@@ -333,7 +355,8 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
         },
     )
 
-    bundle = result.selected_concept_dirs[0]
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    bundle = _first_bundle_dir_from_summary(summary)
     airfoil_templates = json.loads((bundle / "airfoil_templates.json").read_text(encoding="utf-8"))
     prop_assumption = json.loads((bundle / "prop_assumption.json").read_text(encoding="utf-8"))
     concept_summary = json.loads((bundle / "concept_summary.json").read_text(encoding="utf-8"))
@@ -355,7 +378,7 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     assert prop_assumption["blade_count"] == 2
     assert prop_assumption["diameter_m"] == 3.0
     assert prop_assumption["rpm_range"] == [100.0, 160.0]
-    assert concept_summary["selected"] is True
+    assert concept_summary["selected"] is False
     assert concept_summary["launch"]["status"] in {
         "ok",
         "launch_cl_insufficient",
@@ -505,7 +528,7 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     )
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
-    first = summary["selected_concepts"][0]
+    first = _first_ranked_record(summary)
 
     assert first["launch"]["gross_mass_kg"] == pytest.approx(105.0)
     assert first["launch"]["cl_available_source"] == "airfoil_observed_lower_bound"
@@ -746,6 +769,118 @@ def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     assert summary["selected_concepts"][0]["ranking"]["score"] <= summary["selected_concepts"][1]["ranking"]["score"]
 
 
+def test_pipeline_excludes_safety_infeasible_concepts_from_selected_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    payload["pipeline"]["keep_top_n"] = 2
+    payload["output"]["export_candidate_bundle"] = False
+    custom_cfg = tmp_path / "concept_safety_split.yaml"
+    custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    safe_concept = GeometryConcept(
+        span_m=30.0,
+        wing_area_m2=60.0,
+        root_chord_m=2.0,
+        tip_chord_m=2.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(7.5, 7.5),
+    )
+    unsafe_concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=64.0,
+        root_chord_m=2.0,
+        tip_chord_m=2.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    backup_infeasible = GeometryConcept(
+        span_m=34.0,
+        wing_area_m2=68.0,
+        root_chord_m=2.0,
+        tip_chord_m=2.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.5, 8.5),
+    )
+    monkeypatch.setattr(
+        concept_pipeline,
+        "enumerate_geometry_concepts",
+        lambda cfg: (safe_concept, unsafe_concept, backup_infeasible),
+    )
+
+    result = run_birdman_concept_pipeline(
+        config_path=custom_cfg,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "polar_points": [
+                            {
+                                "cl_target": query.cl_samples[0],
+                                "cl": query.cl_samples[0],
+                                "cd": 0.020,
+                                "cm": -0.02,
+                                "converged": True,
+                            }
+                        ],
+                        "sweep_summary": {
+                            "cl_max_observed": 1.35 if query.reynolds >= 300000.0 else 1.05,
+                            "converged_point_count": 10,
+                            "sweep_point_count": 10,
+                        },
+                    }
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 300000.0 if concept.span_m == 30.0 else 180000.0,
+                        "cl_target": 0.60 if concept.span_m == 30.0 else (1.30 if concept.span_m == 32.0 else 1.35),
+                        "cm_target": -0.02,
+                        "weight": 1.0,
+                        "station_y_m": 13.0,
+                    }
+                ]
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+
+    assert [item["enumeration_index"] for item in summary["selected_concepts"]] == [1]
+    assert summary["selected_concepts"][0]["local_stall"]["feasible"] is True
+    assert [item["enumeration_index"] for item in summary["best_infeasible_concepts"]] == [2]
+    assert summary["best_infeasible_concepts"][0]["local_stall"]["feasible"] is False
+    assert summary["evaluation_scope"]["selected_concept_count"] == 1
+    assert summary["evaluation_scope"]["best_infeasible_count"] == 1
+    assert result.selected_concept_dirs == ()
+    assert result.best_infeasible_concept_dirs == ()
+
+
 def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -772,7 +907,7 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     )
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
-    first = summary["selected_concepts"][0]
+    first = _first_ranked_record(summary)
 
     assert worker_call_lengths
     assert all(length == 0 for length in worker_call_lengths)
@@ -955,7 +1090,7 @@ def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
 
     summary = json.loads((output_dir / "concept_summary.json").read_text(encoding="utf-8"))
     assert summary["worker_backend"] == "cli_stubbed"
-    assert summary["selected_concepts"]
+    assert summary["selected_concepts"] or summary["best_infeasible_concepts"]
 
 
 @pytest.mark.skipif(shutil.which("julia") is None, reason="Julia runtime not available")
@@ -978,7 +1113,7 @@ def test_cli_smoke_can_use_real_julia_worker(tmp_path: Path) -> None:
 
     summary = json.loads((output_dir / "concept_summary.json").read_text(encoding="utf-8"))
     assert summary["worker_backend"] == "julia_xfoil"
-    assert summary["selected_concepts"]
+    assert summary["selected_concepts"] or summary["best_infeasible_concepts"]
     assert all(status == "ok" for status in summary["worker_statuses"])
 
 
@@ -1050,10 +1185,12 @@ def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
         },
     )
 
-    assert len(result.selected_concept_dirs) == 3
+    assert len(result.selected_concept_dirs) + len(result.best_infeasible_concept_dirs) == 3
 
-    first_bundle = result.selected_concept_dirs[0]
-    third_bundle = result.selected_concept_dirs[2]
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    ranked_records = summary["selected_concepts"] + summary["best_infeasible_concepts"]
+    first_bundle = Path(ranked_records[0]["bundle_dir"])
+    third_bundle = Path(ranked_records[2]["bundle_dir"])
 
     stations_csv = (first_bundle / "stations.csv").read_text(encoding="utf-8").strip().splitlines()
     assert len(stations_csv) == 10  # header + 9 stations
@@ -1103,8 +1240,9 @@ def test_pipeline_skips_bundle_exports_when_candidate_bundle_output_is_disabled(
 
     assert result.selected_concept_dirs == ()
     assert not (tmp_path / "out" / "selected_concepts").exists()
-    assert summary["selected_concepts"]
+    assert summary["selected_concepts"] or summary["best_infeasible_concepts"]
     assert all(item["bundle_dir"] is None for item in summary["selected_concepts"])
+    assert all(item["bundle_dir"] is None for item in summary["best_infeasible_concepts"])
 
 
 def test_pipeline_writes_dihedral_geometry_into_bundle_and_vsp_preview(tmp_path: Path) -> None:
@@ -1122,7 +1260,8 @@ def test_pipeline_writes_dihedral_geometry_into_bundle_and_vsp_preview(tmp_path:
         spanwise_loader=lambda concept, stations: {"root": {"points": []}},
     )
 
-    bundle = result.selected_concept_dirs[0]
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    bundle = _first_bundle_dir_from_summary(summary)
     concept_cfg = yaml.safe_load((bundle / "concept_config.yaml").read_text(encoding="utf-8"))
     stations_csv = (bundle / "stations.csv").read_text(encoding="utf-8")
 

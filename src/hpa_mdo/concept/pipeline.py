@@ -65,6 +65,7 @@ AirfoilWorkerFactory = Callable[..., AirfoilWorker]
 class ConceptPipelineResult:
     summary_json_path: Path
     selected_concept_dirs: tuple[Path, ...]
+    best_infeasible_concept_dirs: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1294,6 +1295,7 @@ def run_birdman_concept_pipeline(
 
     evaluated_concepts: list[_EvaluatedConcept] = []
     selected_concept_dirs: list[Path] = []
+    best_infeasible_concept_dirs: list[Path] = []
     summary_worker_statuses: list[str] = []
 
     for enumeration_index, concept in enumerate(concepts, start=1):
@@ -1393,6 +1395,7 @@ def run_birdman_concept_pipeline(
             mission_score=float(mission_summary["mission_score"]),
             best_range_m=float(mission_summary["best_range_m"]),
             assembly_penalty=_assembly_penalty(concept),
+            local_stall_feasible=bool(local_stall_summary["feasible"]),
         )
         concept_worker_statuses = _worker_statuses(worker_results)
         summary_worker_statuses.extend(concept_worker_statuses)
@@ -1419,11 +1422,21 @@ def run_birdman_concept_pipeline(
     ranked_concepts = rank_concepts([record.ranking_input for record in evaluated_concepts])
     evaluated_by_id = {record.evaluation_id: record for record in evaluated_concepts}
     summary_records: list[dict[str, Any]] = []
+    best_infeasible_records: list[dict[str, Any]] = []
 
-    for concept_index, ranked in enumerate(ranked_concepts, start=1):
+    selected_ranked = [ranked for ranked in ranked_concepts if ranked.safety_feasible]
+    infeasible_ranked = [ranked for ranked in ranked_concepts if not ranked.safety_feasible]
+    best_infeasible_ranked = (
+        infeasible_ranked[:1]
+        if selected_ranked
+        else infeasible_ranked[: int(cfg.pipeline.keep_top_n)]
+    )
+
+    for concept_index, ranked in enumerate(selected_ranked, start=1):
         record = evaluated_by_id[ranked.concept_id]
         ranking_summary = {
             "score": ranked.score,
+            "selection_status": ranked.selection_status,
             "why_not_higher": list(ranked.why_not_higher),
             "safety_margin": record.ranking_input.safety_margin,
             "assembly_penalty": record.ranking_input.assembly_penalty,
@@ -1498,6 +1511,97 @@ def run_birdman_concept_pipeline(
             }
         )
 
+    for infeasible_index, ranked in enumerate(best_infeasible_ranked, start=1):
+        record = evaluated_by_id[ranked.concept_id]
+        spanwise_requirement_summary = _summarize_spanwise_requirements(record.zone_requirements)
+        bundle_dir: Path | None = None
+        if cfg.output.export_candidate_bundle:
+            (
+                concept_config,
+                stations_rows,
+                airfoil_templates,
+                lofting_guides,
+                prop_assumption,
+                concept_summary,
+            ) = _concept_to_bundle_payload(
+                cfg=cfg,
+                concept=record.concept,
+                stations=record.stations,
+                zone_requirements=record.zone_requirements,
+                airfoil_templates=record.airfoil_templates,
+                worker_results=record.worker_results,
+                worker_backend=record.worker_backend,
+                concept_index=infeasible_index,
+                enumeration_index=record.enumeration_index,
+                airfoil_feedback=record.airfoil_feedback,
+                launch_summary=record.launch_summary,
+                turn_summary=record.turn_summary,
+                trim_summary=record.trim_summary,
+                local_stall_summary=record.local_stall_summary,
+                mission_summary=record.mission_summary,
+                ranking_summary={
+                    "score": ranked.score,
+                    "selection_status": ranked.selection_status,
+                    "why_not_higher": list(ranked.why_not_higher),
+                    "safety_margin": record.ranking_input.safety_margin,
+                    "assembly_penalty": record.ranking_input.assembly_penalty,
+                    "ranking_basis": "airfoil_informed_mission_proxy_v1",
+                    "selection_scope": "ranked_bounded_prefix_pool",
+                },
+                spanwise_requirement_summary=spanwise_requirement_summary,
+            )
+            concept_summary["selected"] = False
+            concept_summary["concept_id"] = f"infeasible-{record.enumeration_index:02d}"
+            concept_summary["rank"] = infeasible_index
+            bundle_dir = write_selected_concept_bundle(
+                output_dir=output_dir / "best_infeasible_concepts",
+                concept_id=concept_summary["concept_id"],
+                concept_config=concept_config,
+                stations_rows=stations_rows,
+                airfoil_templates=airfoil_templates,
+                lofting_guides=lofting_guides,
+                prop_assumption=prop_assumption,
+                concept_summary=concept_summary,
+                export_vsp=(
+                    cfg.output.export_vsp
+                    and not selected_ranked
+                    and infeasible_index <= cfg.output.export_vsp_for_top_n
+                ),
+            )
+            best_infeasible_concept_dirs.append(bundle_dir)
+        best_infeasible_records.append(
+            {
+                "concept_id": f"infeasible-{record.enumeration_index:02d}",
+                "enumeration_index": record.enumeration_index,
+                "overall_rank": next(
+                    index for index, item in enumerate(ranked_concepts, start=1) if item.concept_id == ranked.concept_id
+                ),
+                "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
+                "span_m": record.concept.span_m,
+                "wing_area_m2": record.concept.wing_area_m2,
+                "zone_count": len(record.zone_requirements),
+                "worker_result_count": len(record.worker_results),
+                "worker_backend": record.worker_backend,
+                "worker_statuses": list(_worker_statuses(record.worker_results)),
+                "airfoil_feedback": record.airfoil_feedback,
+                "launch": record.launch_summary,
+                "turn": record.turn_summary,
+                "trim": record.trim_summary,
+                "local_stall": record.local_stall_summary,
+                "spanwise_requirements": spanwise_requirement_summary,
+                "mission": record.mission_summary,
+                "ranking": {
+                    "score": ranked.score,
+                    "selection_status": ranked.selection_status,
+                    "why_not_higher": list(ranked.why_not_higher),
+                    "safety_margin": record.ranking_input.safety_margin,
+                    "assembly_penalty": record.ranking_input.assembly_penalty,
+                    "ranking_basis": "airfoil_informed_mission_proxy_v1",
+                    "selection_scope": "ranked_bounded_prefix_pool",
+                },
+            }
+        )
+
     summary_json_path = output_dir / "concept_summary.json"
     summary_json_path.write_text(
         json.dumps(
@@ -1512,6 +1616,7 @@ def run_birdman_concept_pipeline(
                     "enumerated_concept_count": len(all_concepts),
                     "evaluated_concept_count": len(evaluated_concepts),
                     "selected_concept_count": len(summary_records),
+                    "best_infeasible_count": len(best_infeasible_records),
                     "speed_sweep_window_mps": [
                         float(cfg.mission.speed_sweep_min_mps),
                         float(cfg.mission.speed_sweep_max_mps),
@@ -1519,6 +1624,7 @@ def run_birdman_concept_pipeline(
                     "speed_sweep_points": int(cfg.mission.speed_sweep_points),
                 },
                 "selected_concepts": summary_records,
+                "best_infeasible_concepts": best_infeasible_records,
             },
             indent=2,
             sort_keys=True,
@@ -1529,4 +1635,5 @@ def run_birdman_concept_pipeline(
     return ConceptPipelineResult(
         summary_json_path=summary_json_path,
         selected_concept_dirs=tuple(selected_concept_dirs),
+        best_infeasible_concept_dirs=tuple(best_infeasible_concept_dirs),
     )

@@ -177,6 +177,42 @@ def test_rank_concepts_explains_pure_mission_runner_up():
     assert "less_range_than_best" in ranked[1].why_not_higher
 
 
+def test_rank_concepts_prefers_safety_feasible_candidate_over_infeasible_one():
+    ranked = rank_concepts(
+        [
+            CandidateConceptResult(
+                concept_id="infeasible-best-range",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                local_stall_feasible=False,
+                mission_feasible=True,
+                safety_margin=-0.05,
+                mission_objective_mode="max_range",
+                mission_score=-50000.0,
+                best_range_m=50000.0,
+                assembly_penalty=0.0,
+            ),
+            CandidateConceptResult(
+                concept_id="safe-runner",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                local_stall_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.15,
+                mission_objective_mode="max_range",
+                mission_score=-42000.0,
+                best_range_m=42000.0,
+                assembly_penalty=0.5,
+            ),
+        ]
+    )
+
+    assert ranked[0].concept_id == "safe-runner"
+    assert "local_stall_not_feasible" in ranked[1].why_not_higher
+
+
 def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
     bundle_dir = write_selected_concept_bundle(
         output_dir=tmp_path,
