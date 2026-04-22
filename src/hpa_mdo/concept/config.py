@@ -4,16 +4,20 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class EnvironmentConfig(BaseModel):
+class ConceptBaseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class EnvironmentConfig(ConceptBaseModel):
     temperature_c: float = Field(..., gt=-50.0, lt=80.0)
     relative_humidity: float = Field(..., ge=0.0, le=100.0)
     altitude_m: float = Field(0.0, ge=-100.0)
 
 
-class MassConfig(BaseModel):
+class MassConfig(ConceptBaseModel):
     pilot_mass_kg: float = Field(..., gt=0.0)
     baseline_aircraft_mass_kg: float = Field(..., gt=0.0)
     gross_mass_sweep_kg: tuple[float, ...] = Field(..., min_length=3, max_length=3)
@@ -27,10 +31,15 @@ class MassConfig(BaseModel):
             for earlier, later in zip(self.gross_mass_sweep_kg, self.gross_mass_sweep_kg[1:])
         ):
             raise ValueError("mass.gross_mass_sweep_kg must be non-decreasing.")
+        min_gross_mass = self.pilot_mass_kg + self.baseline_aircraft_mass_kg
+        if any(mass < min_gross_mass for mass in self.gross_mass_sweep_kg):
+            raise ValueError(
+                "mass.gross_mass_sweep_kg entries must be >= pilot_mass_kg + baseline_aircraft_mass_kg."
+            )
         return self
 
 
-class MissionConfig(BaseModel):
+class MissionConfig(ConceptBaseModel):
     target_distance_km: float = Field(42.195, gt=0.0)
     rider_model: Literal["fake_anchor_curve"] = "fake_anchor_curve"
     anchor_power_w: float = Field(300.0, gt=0.0)
@@ -46,7 +55,7 @@ class MissionConfig(BaseModel):
         return self
 
 
-class SegmentationConfig(BaseModel):
+class SegmentationConfig(ConceptBaseModel):
     min_segment_length_m: float = Field(1.0, gt=0.0)
     max_segment_length_m: float = Field(3.0, gt=0.0)
 
@@ -57,17 +66,17 @@ class SegmentationConfig(BaseModel):
         return self
 
 
-class LaunchConfig(BaseModel):
+class LaunchConfig(ConceptBaseModel):
     platform_height_m: float = Field(10.0, gt=0.0)
     runup_length_m: float = Field(10.0, gt=0.0)
     use_ground_effect: bool = True
 
 
-class TurnConfig(BaseModel):
+class TurnConfig(ConceptBaseModel):
     required_bank_angle_deg: float = Field(15.0, gt=0.0, lt=45.0)
 
 
-class GeometryFamilyConfig(BaseModel):
+class GeometryFamilyConfig(ConceptBaseModel):
     span_candidates_m: tuple[float, ...] = Field((30.0, 32.0, 34.0), min_length=1)
     wing_area_candidates_m2: tuple[float, ...] = Field((26.0, 28.0, 30.0), min_length=1)
     taper_ratio_candidates: tuple[float, ...] = Field((0.30, 0.35, 0.40), min_length=1)
@@ -76,6 +85,16 @@ class GeometryFamilyConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_candidate_ranges(self) -> GeometryFamilyConfig:
+        if len(set(self.span_candidates_m)) != len(self.span_candidates_m):
+            raise ValueError("geometry_family.span_candidates_m entries must be unique.")
+        if len(set(self.wing_area_candidates_m2)) != len(self.wing_area_candidates_m2):
+            raise ValueError("geometry_family.wing_area_candidates_m2 entries must be unique.")
+        if len(set(self.taper_ratio_candidates)) != len(self.taper_ratio_candidates):
+            raise ValueError("geometry_family.taper_ratio_candidates entries must be unique.")
+        if len(set(self.twist_tip_candidates_deg)) != len(self.twist_tip_candidates_deg):
+            raise ValueError("geometry_family.twist_tip_candidates_deg entries must be unique.")
+        if len(set(self.tail_area_candidates_m2)) != len(self.tail_area_candidates_m2):
+            raise ValueError("geometry_family.tail_area_candidates_m2 entries must be unique.")
         if any(span <= 0.0 for span in self.span_candidates_m):
             raise ValueError("geometry_family.span_candidates_m entries must all be positive.")
         if any(area <= 0.0 for area in self.wing_area_candidates_m2):
@@ -93,7 +112,7 @@ class GeometryFamilyConfig(BaseModel):
         return self
 
 
-class BirdmanConceptConfig(BaseModel):
+class BirdmanConceptConfig(ConceptBaseModel):
     environment: EnvironmentConfig
     mass: MassConfig
     mission: MissionConfig
