@@ -189,6 +189,20 @@ def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: 
     assert payload["provenance_gates"]["overall_status"] == "pass"
 
 
+def test_materialize_baseline_case_defaults_to_four_su2_threads(tmp_path: Path):
+    mesh_handoff = _build_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(enabled=True, max_iterations=12)
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert case.solver_command == ["SU2_CFD", "-t", "4", "su2_runtime.cfg"]
+
+
 def test_materialize_baseline_case_prefers_geometry_derived_reference_when_available(
     tmp_path: Path,
     monkeypatch,
@@ -393,9 +407,9 @@ def test_run_baseline_case_invokes_solver_and_updates_contract(tmp_path: Path, m
     runtime = SU2RuntimeConfig(enabled=True, max_iterations=5)
     calls: list[dict[str, object]] = []
 
-    def _fake_run(command, cwd=None, stdout=None, stderr=None, text=None, check=None):
+    def _fake_run(command, cwd=None, stdout=None, stderr=None, text=None, check=None, env=None):
         case_dir = Path(cwd)
-        calls.append({"command": list(command), "cwd": str(case_dir)})
+        calls.append({"command": list(command), "cwd": str(case_dir), "omp_num_threads": None if env is None else env.get("OMP_NUM_THREADS")})
         (case_dir / "history.csv").write_text(
             '"Time_Iter","Inner_Iter","CD","CL","CMy"\n0,0,0.021,0.13,-0.005\n',
             encoding="utf-8",
@@ -413,10 +427,11 @@ def test_run_baseline_case_invokes_solver_and_updates_contract(tmp_path: Path, m
     )
 
     assert calls
-    assert calls[0]["command"] == ["SU2_CFD", "su2_runtime.cfg"]
+    assert calls[0]["command"] == ["SU2_CFD", "-t", "4", "su2_runtime.cfg"]
+    assert calls[0]["omp_num_threads"] == "4"
     assert Path(calls[0]["cwd"]) == tmp_path / "su2_case" / runtime.case_name
     assert result["run_status"] == "completed"
-    assert result["solver_command"] == "SU2_CFD su2_runtime.cfg"
+    assert result["solver_command"] == "SU2_CFD -t 4 su2_runtime.cfg"
     assert result["final_coefficients"]["cl"] == pytest.approx(0.13)
     assert result["final_coefficients"]["cd"] == pytest.approx(0.021)
     assert result["final_coefficients"]["cm"] == pytest.approx(-0.005)
@@ -470,7 +485,7 @@ def test_run_job_surfaces_su2_baseline_report(tmp_path: Path, monkeypatch):
         return {
             "contract": "su2_handoff.v1",
             "run_status": "completed",
-            "solver_command": "SU2_CFD su2_runtime.cfg",
+            "solver_command": "SU2_CFD -t 4 su2_runtime.cfg",
             "runtime_cfg_path": str(case_dir / "su2_runtime.cfg"),
             "history_path": str(history),
             "case_output_paths": {
@@ -620,7 +635,7 @@ def test_run_job_surfaces_su2_baseline_report(tmp_path: Path, monkeypatch):
 
     assert result["status"] == "success"
     assert result["su2"]["run_status"] == "completed"
-    assert result["su2"]["solver_command"] == "SU2_CFD su2_runtime.cfg"
+    assert result["su2"]["solver_command"] == "SU2_CFD -t 4 su2_runtime.cfg"
     assert result["su2"]["final_coefficients"]["cl"] == pytest.approx(0.19)
     assert result["su2"]["reference_geometry"]["area_provenance"]["source_category"] == "geometry_derived"
     assert result["su2"]["force_surface_provenance"]["scope"] == "whole_aircraft_wall"

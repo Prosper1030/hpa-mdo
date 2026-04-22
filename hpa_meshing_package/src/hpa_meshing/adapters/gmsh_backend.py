@@ -127,6 +127,18 @@ class GmshBackendError(RuntimeError):
     """Raised when the real Gmsh backend cannot produce a mesh artifact."""
 
 
+def _configure_gmsh_runtime_options(
+    gmsh: Any,
+    *,
+    thread_count: int,
+    terminal: bool = False,
+    binary: bool = False,
+) -> None:
+    gmsh.option.setNumber("General.Terminal", float(int(bool(terminal))))
+    gmsh.option.setNumber("Mesh.Binary", float(int(bool(binary))))
+    gmsh.option.setNumber("General.NumThreads", float(max(1, int(thread_count))))
+
+
 def _json_write(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -4522,6 +4534,7 @@ def _run_surface_repair_fallback(
     retry_metadata_path: Path,
     mesh_algorithm_2d: int,
     mesh_algorithm_3d: int,
+    thread_count: int = 4,
 ) -> Dict[str, Any]:
     gmsh = load_gmsh()
     cleanup_report: Dict[str, Any] = {
@@ -4553,8 +4566,7 @@ def _run_surface_repair_fallback(
     try:
         gmsh.initialize()
         gmsh_initialized = True
-        gmsh.option.setNumber("General.Terminal", 0)
-        gmsh.option.setNumber("Mesh.Binary", 0)
+        _configure_gmsh_runtime_options(gmsh, thread_count=thread_count)
         gmsh.option.setNumber("Mesh.Algorithm", float(mesh_algorithm_2d))
         gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
         gmsh.option.setNumber("Mesh.MeshOnlyEmpty", 1)
@@ -4772,6 +4784,7 @@ def _probe_discrete_classify_angles(
     angle_degrees: list[float],
     mesh_algorithm_2d: int,
     mesh_algorithm_3d: int,
+    thread_count: int = 4,
 ) -> Dict[str, Any]:
     gmsh = load_gmsh()
     results: list[Dict[str, Any]] = []
@@ -4779,8 +4792,7 @@ def _probe_discrete_classify_angles(
         gmsh.initialize()
         logger_started = False
         try:
-            gmsh.option.setNumber("General.Terminal", 0)
-            gmsh.option.setNumber("Mesh.Binary", 0)
+            _configure_gmsh_runtime_options(gmsh, thread_count=thread_count)
             gmsh.option.setNumber("Mesh.Algorithm", float(mesh_algorithm_2d))
             gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
             gmsh.option.setNumber("Mesh.MeshOnlyEmpty", 1)
@@ -4989,8 +5001,7 @@ def _apply_occ_external_flow_route(
     try:
         gmsh.initialize()
         gmsh_initialized = True
-        gmsh.option.setNumber("General.Terminal", 0)
-        gmsh.option.setNumber("Mesh.Binary", 0)
+        _configure_gmsh_runtime_options(gmsh, thread_count=config.gmsh_threads)
         gmsh.model.add(f"hpa_meshing_{uuid.uuid4().hex}")
         gmsh.logger.start()
         gmsh_logger_started = True
@@ -5468,6 +5479,7 @@ def _apply_occ_external_flow_route(
                     retry_metadata_path=retry_mesh_metadata_path,
                     mesh_algorithm_2d=int(field_info.get("mesh_algorithm_2d", 6)),
                     mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+                    thread_count=config.gmsh_threads,
                 )
                 metadata["surface_repair_fallback"] = {
                     "status": surface_repair_result["status"],
@@ -5941,6 +5953,7 @@ def _apply_occ_external_flow_route(
                     angle_degrees=[40.0, 20.0, 10.0],
                     mesh_algorithm_2d=int(field_info.get("mesh_algorithm_2d", 6) or 6),
                     mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1) or 1),
+                    thread_count=config.gmsh_threads,
                 )
             metadata["surface_repair_fallback"] = {
                 "status": surface_repair_result["status"],

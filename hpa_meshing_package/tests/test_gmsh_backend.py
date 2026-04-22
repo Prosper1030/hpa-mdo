@@ -1515,6 +1515,16 @@ def test_apply_compound_meshing_policy_sets_compound_options_and_groups():
     ]
 
 
+def test_configure_gmsh_runtime_options_sets_default_thread_count():
+    gmsh = _FakeGmsh()
+
+    gmsh_backend_module._configure_gmsh_runtime_options(gmsh, thread_count=4)
+
+    assert gmsh.option.values["General.Terminal"] == 0.0
+    assert gmsh.option.values["Mesh.Binary"] == 0.0
+    assert gmsh.option.values["General.NumThreads"] == 4.0
+
+
 def test_resolve_brep_hotspot_request_tracks_requested_faces_and_curves():
     request = _resolve_brep_hotspot_request(
         surface_patch_diagnostics={

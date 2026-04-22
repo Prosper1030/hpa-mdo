@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -437,7 +438,22 @@ def _cfg_text(
     return "\n".join(lines)
 
 
-def _convert_mesh_to_su2(source_mesh: Path, output_mesh: Path) -> None:
+def _solver_command(runtime: SU2RuntimeConfig, runtime_cfg_name: str) -> list[str]:
+    return [
+        runtime.solver_command,
+        "-t",
+        str(max(1, int(runtime.cpu_threads))),
+        runtime_cfg_name,
+    ]
+
+
+def _solver_env(runtime: SU2RuntimeConfig) -> dict[str, str]:
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = str(max(1, int(runtime.cpu_threads)))
+    return env
+
+
+def _convert_mesh_to_su2(source_mesh: Path, output_mesh: Path, *, thread_count: int = 4) -> None:
     try:
         gmsh = load_gmsh()
     except GmshRuntimeError as exc:
@@ -448,6 +464,7 @@ def _convert_mesh_to_su2(source_mesh: Path, output_mesh: Path) -> None:
         gmsh.initialize()
         initialized = True
         gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.option.setNumber("General.NumThreads", float(max(1, int(thread_count))))
         gmsh.open(str(source_mesh))
         gmsh.write(str(output_mesh))
     finally:
@@ -498,7 +515,7 @@ def materialize_baseline_case(
     )
     runtime_cfg_path = case_dir / "su2_runtime.cfg"
 
-    _convert_mesh_to_su2(input_mesh, artifacts.su2_mesh)
+    _convert_mesh_to_su2(input_mesh, artifacts.su2_mesh, thread_count=runtime.cpu_threads)
     runtime_cfg_path.write_text(_cfg_text(runtime, reference, markers), encoding="utf-8")
 
     case = SU2CaseHandoff(
@@ -510,7 +527,7 @@ def materialize_baseline_case(
         runtime=runtime,
         runtime_cfg_path=runtime_cfg_path,
         case_output_paths=artifacts,
-        solver_command=[runtime.solver_command, runtime_cfg_path.name],
+        solver_command=_solver_command(runtime, runtime_cfg_path.name),
         force_surface_provenance=force_surface_provenance,
         provenance_gates=provenance_gates,
         provenance={
@@ -690,6 +707,7 @@ def run_baseline_case(
                 stderr=subprocess.STDOUT,
                 text=True,
                 check=False,
+                env=_solver_env(runtime),
             )
     except Exception as exc:
         return _failure_result(case, failure_code="solver_execution_failed", error=str(exc))

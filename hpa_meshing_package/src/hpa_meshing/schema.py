@@ -148,6 +148,7 @@ class SU2RuntimeConfig(BaseModel):
     inc_density_model: Literal["CONSTANT"] = "CONSTANT"
     fluid_model: Literal["CONSTANT_DENSITY"] = "CONSTANT_DENSITY"
     solver_command: str = "SU2_CFD"
+    cpu_threads: int = 4
     case_name: str = "alpha_0_baseline"
     max_iterations: int = 50
     cfl_number: float = 5.0
@@ -495,6 +496,7 @@ class MeshJobConfig(BaseModel):
     geometry_provider: Optional[GeometryProviderType] = None
     units: Literal["m", "mm"] = "m"
     mesh_dim: Literal[2, 3] = 3
+    gmsh_threads: int = 4
     mesh_algorithm_2d: Optional[int] = None
     mesh_algorithm_3d: Optional[int] = None
     global_min_size: Optional[float] = None
