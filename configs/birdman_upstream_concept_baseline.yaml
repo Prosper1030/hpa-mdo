@@ -1,0 +1,37 @@
+environment:
+  temperature_c: 33.0
+  relative_humidity: 80.0
+  altitude_m: 0.0
+
+mass:
+  pilot_mass_kg: 60.0
+  baseline_aircraft_mass_kg: 40.0
+  gross_mass_sweep_kg: [95.0, 100.0, 105.0]
+
+mission:
+  target_distance_km: 42.195
+  rider_model: fake_anchor_curve
+  anchor_power_w: 300.0
+  anchor_duration_min: 30.0
+  speed_sweep_min_mps: 6.0
+  speed_sweep_max_mps: 10.0
+  speed_sweep_points: 9
+
+segmentation:
+  min_segment_length_m: 1.0
+  max_segment_length_m: 3.0
+
+launch:
+  platform_height_m: 10.0
+  runup_length_m: 10.0
+  use_ground_effect: true
+
+turn:
+  required_bank_angle_deg: 15.0
+
+geometry_family:
+  span_candidates_m: [30.0, 32.0, 34.0]
+  wing_area_candidates_m2: [26.0, 28.0, 30.0]
+  taper_ratio_candidates: [0.30, 0.35, 0.40]
+  twist_tip_candidates_deg: [-2.0, -1.5, -1.0]
+  tail_area_candidates_m2: [3.8, 4.2, 4.6]
