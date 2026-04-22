@@ -144,9 +144,6 @@ class SU2RuntimeConfig(BaseModel):
     temperature_k: float = 288.15
     dynamic_viscosity_pas: float = 1.789e-5
     solver: Literal["INC_NAVIER_STOKES"] = "INC_NAVIER_STOKES"
-    inc_nondim: Literal["INITIAL_VALUES", "DIMENSIONAL"] = "INITIAL_VALUES"
-    inc_density_model: Literal["CONSTANT"] = "CONSTANT"
-    fluid_model: Literal["CONSTANT_DENSITY"] = "CONSTANT_DENSITY"
     solver_command: str = "SU2_CFD"
     case_name: str = "alpha_0_baseline"
     max_iterations: int = 50

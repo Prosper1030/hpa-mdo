@@ -320,53 +320,6 @@ def test_materialize_baseline_case_supports_adiabatic_no_slip_wall(tmp_path: Pat
     assert "MARKER_EULER= ( aircraft )" not in runtime_cfg
 
 
-def test_materialize_baseline_case_supports_dimensional_case_contract(tmp_path: Path):
-    mesh_handoff = _build_mesh_handoff(tmp_path)
-    runtime = SU2RuntimeConfig(
-        enabled=True,
-        max_iterations=12,
-        velocity_mps=6.5,
-        density_kgpm3=1.225,
-        temperature_k=288.15,
-        dynamic_viscosity_pas=1.789e-5,
-        wall_boundary_condition="adiabatic_no_slip",
-        reference_mode="user_declared",
-        reference_override={
-            "ref_area": 35.175,
-            "ref_length": 1.0425,
-            "ref_origin_moment": {"x": 0.0, "y": 0.0, "z": 0.0},
-            "source_label": "unit_test_fixed_contract",
-        },
-        inc_nondim="DIMENSIONAL",
-        fluid_model="CONSTANT_DENSITY",
-        inc_density_model="CONSTANT",
-    )
-
-    case = materialize_baseline_case(
-        mesh_handoff,
-        runtime,
-        tmp_path / "su2_case",
-        source_root=Path.cwd(),
-    )
-
-    runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
-    assert "SOLVER= INC_NAVIER_STOKES" in runtime_cfg
-    assert "INC_NONDIM= DIMENSIONAL" in runtime_cfg
-    assert "INC_DENSITY_MODEL= CONSTANT" in runtime_cfg
-    assert "FLUID_MODEL= CONSTANT_DENSITY" in runtime_cfg
-    assert "INC_DENSITY_INIT= 1.225000" in runtime_cfg
-    assert "INC_VELOCITY_INIT= ( 6.500000, 0.000000, 0.000000 )" in runtime_cfg
-    assert "INC_TEMPERATURE_INIT= 288.150000" in runtime_cfg
-    assert "MU_CONSTANT= 1.789000e-05" in runtime_cfg
-    assert "MARKER_HEATFLUX= ( aircraft, 0.0 )" in runtime_cfg
-    assert "MARKER_FAR= ( farfield )" in runtime_cfg
-    assert "REF_AREA= 35.175000" in runtime_cfg
-    assert "REF_LENGTH= 1.042500" in runtime_cfg
-    assert "KIND_TURB_MODEL= NONE" in runtime_cfg
-    assert "AOA= 0.000000" in runtime_cfg
-    assert "SIDESLIP_ANGLE= 0.000000" in runtime_cfg
-
-
 def test_parse_history_extracts_final_coefficients(tmp_path: Path):
     history_path = tmp_path / "history.csv"
     history_path.write_text(

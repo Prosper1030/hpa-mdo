@@ -8,7 +8,6 @@ import yaml
 
 from .schema import MeshJobConfig, BatchManifest
 from .frozen_baseline import evaluate_shell_v3_baseline_regression, run_shell_v3_baseline_cfd
-from .near_wall_baseline import run_shell_v3_near_wall_study
 from .pipeline import run_job, validate_geometry_only
 from .mesh_study import run_mesh_study
 
@@ -85,19 +84,6 @@ def cmd_baseline_cfd(args: argparse.Namespace) -> int:
     return 0 if result.get("status") == "success" else 2
 
 
-def cmd_near_wall_study(args: argparse.Namespace) -> int:
-    result = run_shell_v3_near_wall_study(
-        Path(args.baseline_manifest),
-        solver_summary_path=None if args.solver_summary is None else Path(args.solver_summary),
-        out_dir=Path(args.out),
-    )
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0 if result.get("result_kind") in {
-        "shell_v3_near_wall_cfd_baseline_candidate",
-        "near_wall_no_go_summary",
-    } else 2
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpa-mesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -141,12 +127,6 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_cfd.add_argument("--mesh-handoff", type=str)
     baseline_cfd.add_argument("--out", type=str, required=True)
     baseline_cfd.set_defaults(func=cmd_baseline_cfd)
-
-    near_wall_study = sub.add_parser("near-wall-study")
-    near_wall_study.add_argument("--baseline-manifest", type=str, required=True)
-    near_wall_study.add_argument("--solver-summary", type=str)
-    near_wall_study.add_argument("--out", type=str, required=True)
-    near_wall_study.set_defaults(func=cmd_near_wall_study)
 
     return parser
 
