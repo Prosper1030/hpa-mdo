@@ -25,7 +25,16 @@ def test_worker_raises_clear_error_when_julia_runtime_is_missing(tmp_path, monke
     monkeypatch.setattr(worker, "_resolve_julia", lambda: None)
 
     with pytest.raises(RuntimeError, match="Julia runtime not found"):
-        worker.run_queries([])
+        worker.run_queries(
+            [
+                PolarQuery(
+                    template_id="root-v1",
+                    reynolds=350000.0,
+                    cl_samples=(0.7,),
+                    roughness_mode="clean",
+                )
+            ]
+        )
 
 
 @pytest.mark.parametrize("project_dir_kind", ["repo_root", "worker_dir"])
@@ -59,6 +68,7 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
                     {
                         "template_id": "root-v1",
                         "reynolds": 350000.0,
+                        "cl_samples": [0.7],
                         "roughness_mode": "clean",
                         "status": "stubbed_ok",
                     }
@@ -94,6 +104,7 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
         {
             "template_id": "root-v1",
             "reynolds": 350000.0,
+            "cl_samples": [0.7],
             "roughness_mode": "clean",
             "status": "stubbed_ok",
         }
@@ -105,10 +116,21 @@ def test_worker_fails_fast_when_worker_project_cannot_be_resolved(tmp_path, monk
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     with pytest.raises(RuntimeError, match="Unable to resolve Julia XFoil worker project"):
-        worker.run_queries([])
+        worker.run_queries(
+            [
+                PolarQuery(
+                    template_id="root-v1",
+                    reynolds=350000.0,
+                    cl_samples=(0.7,),
+                    roughness_mode="clean",
+                )
+            ]
+        )
 
 
-def test_worker_uses_per_query_cache_and_skips_subprocess_on_cache_hit(tmp_path, monkeypatch):
+def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
+    tmp_path, monkeypatch
+):
     worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
     worker_dir.mkdir(parents=True)
     (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
@@ -132,6 +154,7 @@ def test_worker_uses_per_query_cache_and_skips_subprocess_on_cache_hit(tmp_path,
                     {
                         "template_id": "root-v1",
                         "reynolds": 350000.0,
+                        "cl_samples": [0.7],
                         "roughness_mode": "clean",
                         "status": "stubbed_ok",
                     }
@@ -148,6 +171,7 @@ def test_worker_uses_per_query_cache_and_skips_subprocess_on_cache_hit(tmp_path,
     def fail_run(cmd, check, cwd):
         raise AssertionError("subprocess.run should not be called for cache hits")
 
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: None)
     monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fail_run)
     second_result = worker.run_queries([query])
 
@@ -167,6 +191,7 @@ def test_worker_uses_per_query_cache_and_skips_subprocess_on_cache_hit(tmp_path,
                 {
                     "template_id": "tip-v9",
                     "reynolds": 350000.0,
+                    "cl_samples": [0.7],
                     "roughness_mode": "clean",
                     "status": "stubbed_ok",
                 }
@@ -191,6 +216,45 @@ def test_worker_fails_fast_when_julia_response_does_not_match_uncached_queries(
     monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
 
     with pytest.raises(RuntimeError, match=error_match):
+        worker.run_queries(
+            [
+                PolarQuery(
+                    template_id="root-v1",
+                    reynolds=350000.0,
+                    cl_samples=(0.7,),
+                    roughness_mode="clean",
+                )
+            ]
+        )
+
+
+def test_worker_rejects_response_with_wrong_cl_samples_identity(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    def fake_run(cmd, check, cwd):
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "cl_samples": [0.8],
+                        "roughness_mode": "clean",
+                        "status": "stubbed_ok",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="did not match requested query identity"):
         worker.run_queries(
             [
                 PolarQuery(

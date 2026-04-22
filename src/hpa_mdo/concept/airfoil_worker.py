@@ -56,12 +56,29 @@ class JuliaXFoilWorker:
     def _cache_path(self, query: PolarQuery) -> Path:
         return self.cache_dir / f"{self.cache_key(query)}.json"
 
-    def _query_identity(self, query: PolarQuery) -> tuple[str, float, str]:
-        return (query.template_id, query.reynolds, query.roughness_mode)
+    def _normalize_cl_samples(self, cl_samples: object) -> tuple[float, ...]:
+        if not isinstance(cl_samples, list | tuple):
+            raise RuntimeError("Julia XFoil worker identity requires cl_samples as a JSON array.")
 
-    def _result_identity(self, result: dict[str, object]) -> tuple[str, float, str]:
+        normalized_samples: list[float] = []
+        for value in cl_samples:
+            if not isinstance(value, int | float):
+                raise RuntimeError("Julia XFoil worker cl_samples entries must be numeric.")
+            normalized_samples.append(float(value))
+        return tuple(normalized_samples)
+
+    def _query_identity(self, query: PolarQuery) -> tuple[str, float, tuple[float, ...], str]:
+        return (
+            query.template_id,
+            float(query.reynolds),
+            tuple(float(value) for value in query.cl_samples),
+            query.roughness_mode,
+        )
+
+    def _result_identity(self, result: dict[str, object]) -> tuple[str, float, tuple[float, ...], str]:
         template_id = result.get("template_id")
         reynolds = result.get("reynolds")
+        cl_samples = result.get("cl_samples")
         roughness_mode = result.get("roughness_mode")
         if not isinstance(template_id, str):
             raise RuntimeError("Julia XFoil worker response is missing a valid template_id.")
@@ -69,7 +86,12 @@ class JuliaXFoilWorker:
             raise RuntimeError("Julia XFoil worker response is missing a valid roughness_mode.")
         if not isinstance(reynolds, int | float):
             raise RuntimeError("Julia XFoil worker response is missing a valid reynolds value.")
-        return (template_id, float(reynolds), roughness_mode)
+        return (
+            template_id,
+            float(reynolds),
+            self._normalize_cl_samples(cl_samples),
+            roughness_mode,
+        )
 
     def _load_cached_result(self, query: PolarQuery) -> dict[str, object] | None:
         cache_path = self._cache_path(query)
@@ -97,11 +119,6 @@ class JuliaXFoilWorker:
         )
 
     def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
-        julia = self._resolve_julia()
-        if julia is None:
-            raise RuntimeError("Julia runtime not found. Install Julia before running the XFoil worker.")
-
-        worker_dir = self._resolve_worker_project_dir()
         resolved_results: list[dict[str, object] | None] = [None] * len(queries)
         uncached_queries: list[PolarQuery] = []
         uncached_indices: list[int] = []
@@ -115,6 +132,13 @@ class JuliaXFoilWorker:
             uncached_indices.append(index)
 
         if uncached_queries:
+            julia = self._resolve_julia()
+            if julia is None:
+                raise RuntimeError(
+                    "Julia runtime not found. Install Julia before running the XFoil worker."
+                )
+
+            worker_dir = self._resolve_worker_project_dir()
             request_path, response_path = self._build_scratch_paths()
             request_payload = [asdict(query) for query in uncached_queries]
             request_path.write_text(

@@ -10,6 +10,7 @@ for query in queries
     push!(results, Dict(
         "template_id" => query["template_id"],
         "reynolds" => query["reynolds"],
+        "cl_samples" => query["cl_samples"],
         "roughness_mode" => query["roughness_mode"],
         "status" => "stubbed_ok",
         "polar_points" => Any[],
