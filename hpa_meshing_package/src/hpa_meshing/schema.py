@@ -301,6 +301,7 @@ class MeshArtifactBundle(BaseModel):
     marker_summary: Path
     surface_mesh_2d: Optional[Path] = None
     surface_patch_diagnostics: Optional[Path] = None
+    hotspot_patch_report: Optional[Path] = None
     gmsh_log: Optional[Path] = None
     mesh2d_watchdog: Optional[Path] = None
     mesh2d_watchdog_sample: Optional[Path] = None

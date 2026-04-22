@@ -352,6 +352,118 @@ def _percentile(values: Iterable[float], fraction: float) -> float | None:
     return ordered[lower_index] * lower_weight + ordered[upper_index] * upper_weight
 
 
+def _extended_distribution_summary(values: Iterable[float | None]) -> Dict[str, Any]:
+    usable = sorted(float(value) for value in values if value is not None)
+    if not usable:
+        return {
+            "count": 0,
+            "min": None,
+            "p01": None,
+            "p05": None,
+            "p50": None,
+            "p95": None,
+            "p99": None,
+            "max": None,
+        }
+    return {
+        "count": len(usable),
+        "min": usable[0],
+        "p01": _percentile(usable, 0.01),
+        "p05": _percentile(usable, 0.05),
+        "p50": _percentile(usable, 0.50),
+        "p95": _percentile(usable, 0.95),
+        "p99": _percentile(usable, 0.99),
+        "max": usable[-1],
+    }
+
+
+def _primary_node_slices(gmsh, element_type: int, element_tags: Iterable[int], node_tags_flat: Iterable[int]) -> list[tuple[int, list[int]]]:
+    _, _, _, num_nodes, _, num_primary_nodes = gmsh.model.mesh.getElementProperties(int(element_type))
+    node_count = int(num_nodes)
+    primary_count = int(num_primary_nodes)
+    materialized_tags = [int(tag) for tag in element_tags]
+    materialized_nodes = [int(tag) for tag in node_tags_flat]
+    slices: list[tuple[int, list[int]]] = []
+    for index, element_tag in enumerate(materialized_tags):
+        start = index * node_count
+        element_node_tags = materialized_nodes[start : start + node_count]
+        slices.append((int(element_tag), [int(tag) for tag in element_node_tags[:primary_count]]))
+    return slices
+
+
+def _get_node_coordinate(gmsh, node_tag: int, *, cache: Dict[int, list[float]]) -> list[float]:
+    cached = cache.get(int(node_tag))
+    if cached is not None:
+        return cached
+    coord, *_ = gmsh.model.mesh.getNode(int(node_tag))
+    payload = [float(coord[0]), float(coord[1]), float(coord[2])]
+    cache[int(node_tag)] = payload
+    return payload
+
+
+def _point_distance(point_a: Iterable[float], point_b: Iterable[float]) -> float:
+    coord_a = [float(value) for value in point_a]
+    coord_b = [float(value) for value in point_b]
+    return math.sqrt(
+        (coord_a[0] - coord_b[0]) ** 2
+        + (coord_a[1] - coord_b[1]) ** 2
+        + (coord_a[2] - coord_b[2]) ** 2
+    )
+
+
+def _triangle_metrics(points: list[list[float]]) -> Dict[str, float | None]:
+    if len(points) < 3:
+        return {
+            "area": None,
+            "gamma": None,
+            "aspect_ratio": None,
+            "min_edge_length": None,
+            "max_edge_length": None,
+        }
+    edges = [
+        _point_distance(points[0], points[1]),
+        _point_distance(points[1], points[2]),
+        _point_distance(points[2], points[0]),
+    ]
+    vector_ab = [points[1][axis] - points[0][axis] for axis in range(3)]
+    vector_ac = [points[2][axis] - points[0][axis] for axis in range(3)]
+    cross = [
+        vector_ab[1] * vector_ac[2] - vector_ab[2] * vector_ac[1],
+        vector_ab[2] * vector_ac[0] - vector_ab[0] * vector_ac[2],
+        vector_ab[0] * vector_ac[1] - vector_ab[1] * vector_ac[0],
+    ]
+    area = 0.5 * math.sqrt(sum(component * component for component in cross))
+    edge_sum_sq = sum(edge * edge for edge in edges)
+    gamma = (4.0 * math.sqrt(3.0) * area / edge_sum_sq) if edge_sum_sq > 0.0 else None
+    min_edge_length = min(edges) if edges else None
+    max_edge_length = max(edges) if edges else None
+    aspect_ratio = (
+        max_edge_length / min_edge_length
+        if min_edge_length is not None and min_edge_length > 0.0 and max_edge_length is not None
+        else None
+    )
+    return {
+        "area": float(area),
+        "gamma": float(gamma) if gamma is not None else None,
+        "aspect_ratio": float(aspect_ratio) if aspect_ratio is not None else None,
+        "min_edge_length": float(min_edge_length) if min_edge_length is not None else None,
+        "max_edge_length": float(max_edge_length) if max_edge_length is not None else None,
+    }
+
+
+def _tetra_edge_metrics(points: list[list[float]]) -> Dict[str, float | None]:
+    if len(points) < 4:
+        return {"min_edge_length": None, "max_edge_length": None}
+    lengths = [
+        _point_distance(points[first], points[second])
+        for first, second in ((0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3))
+    ]
+    return {
+        "min_edge_length": float(min(lengths)) if lengths else None,
+        "max_edge_length": float(max(lengths)) if lengths else None,
+    }
+
+
 def _nearest_surface_payload(
     gmsh,
     *,
@@ -383,6 +495,256 @@ def _nearest_surface_payload(
     return best_match
 
 
+def _nearest_curve_payload(
+    gmsh,
+    *,
+    point: list[float],
+    curve_tags: Iterable[int],
+) -> Dict[str, Any] | None:
+    best_match: Dict[str, Any] | None = None
+    for curve_tag in curve_tags:
+        try:
+            closest_coord, _ = gmsh.model.getClosestPoint(1, int(curve_tag), point)
+        except Exception:
+            continue
+        if len(closest_coord) < 3:
+            continue
+        closest_point = [float(closest_coord[0]), float(closest_coord[1]), float(closest_coord[2])]
+        distance = _point_distance(closest_point, point)
+        candidate = {
+            "curve_tag": int(curve_tag),
+            "distance": float(distance),
+            "closest_point": closest_point,
+        }
+        if best_match is None or candidate["distance"] < best_match["distance"]:
+            best_match = candidate
+    return best_match
+
+
+def _collect_surface_triangle_mesh_stats(gmsh, surface_tag: int) -> Dict[str, Any]:
+    node_cache: Dict[int, list[float]] = {}
+    triangle_areas: list[float] = []
+    triangle_gamma: list[float] = []
+    triangle_aspect_ratios: list[float] = []
+    triangle_min_edges: list[float] = []
+    triangle_max_edges: list[float] = []
+    triangle_element_tags: list[int] = []
+    element_types, element_tags_groups, node_tags_groups = gmsh.model.mesh.getElements(2, int(surface_tag))
+    for element_type, element_tags, node_tags_flat in zip(element_types, element_tags_groups, node_tags_groups):
+        _, dim, _, _, _, num_primary_nodes = gmsh.model.mesh.getElementProperties(int(element_type))
+        if int(dim) != 2 or int(num_primary_nodes) != 3:
+            continue
+        for element_tag, node_tags in _primary_node_slices(gmsh, int(element_type), element_tags, node_tags_flat):
+            points = [_get_node_coordinate(gmsh, node_tag, cache=node_cache) for node_tag in node_tags]
+            metrics = _triangle_metrics(points)
+            triangle_element_tags.append(int(element_tag))
+            triangle_areas.append(float(metrics["area"]) if metrics["area"] is not None else 0.0)
+            if metrics["gamma"] is not None:
+                triangle_gamma.append(float(metrics["gamma"]))
+            if metrics["aspect_ratio"] is not None:
+                triangle_aspect_ratios.append(float(metrics["aspect_ratio"]))
+            if metrics["min_edge_length"] is not None:
+                triangle_min_edges.append(float(metrics["min_edge_length"]))
+            if metrics["max_edge_length"] is not None:
+                triangle_max_edges.append(float(metrics["max_edge_length"]))
+
+    return {
+        "triangle_count": len(triangle_element_tags),
+        "min_area": min(triangle_areas) if triangle_areas else None,
+        "gamma": _extended_distribution_summary(triangle_gamma),
+        "aspect_ratio": _extended_distribution_summary(triangle_aspect_ratios),
+        "min_edge_length": min(triangle_min_edges) if triangle_min_edges else None,
+        "max_edge_length": max(triangle_max_edges) if triangle_max_edges else None,
+    }
+
+
+def _collect_curve_mesh_stats(gmsh, curve_tag: int) -> Dict[str, Any]:
+    node_cache: Dict[int, list[float]] = {}
+    edge_lengths: list[float] = []
+    node_tags_seen: set[int] = set()
+    element_types, element_tags_groups, node_tags_groups = gmsh.model.mesh.getElements(1, int(curve_tag))
+    for element_type, element_tags, node_tags_flat in zip(element_types, element_tags_groups, node_tags_groups):
+        _, dim, _, _, _, num_primary_nodes = gmsh.model.mesh.getElementProperties(int(element_type))
+        if int(dim) != 1 or int(num_primary_nodes) < 2:
+            continue
+        for _, node_tags in _primary_node_slices(gmsh, int(element_type), element_tags, node_tags_flat):
+            if len(node_tags) < 2:
+                continue
+            start = _get_node_coordinate(gmsh, node_tags[0], cache=node_cache)
+            end = _get_node_coordinate(gmsh, node_tags[1], cache=node_cache)
+            edge_lengths.append(_point_distance(start, end))
+            node_tags_seen.update(int(tag) for tag in node_tags[:2])
+
+    min_edge_length = min(edge_lengths) if edge_lengths else None
+    max_edge_length = max(edge_lengths) if edge_lengths else None
+    return {
+        "node_count": len(node_tags_seen),
+        "min_edge_length": min_edge_length,
+        "max_edge_length": max_edge_length,
+        "max_min_edge_ratio": (
+            float(max_edge_length) / float(min_edge_length)
+            if min_edge_length is not None and min_edge_length > 0.0 and max_edge_length is not None
+            else None
+        ),
+    }
+
+
+def _surface_target_size_hint(surface_tag: int, mesh_field: Dict[str, Any] | None) -> float | None:
+    if not isinstance(mesh_field, dict):
+        return None
+    candidate_sizes: list[float] = []
+    near_body_size = mesh_field.get("near_body_size")
+    if near_body_size is not None:
+        candidate_sizes.append(float(near_body_size))
+    for entry in mesh_field.get("local_size_floors", []):
+        if int(surface_tag) in {int(tag) for tag in entry.get("surface_tags", [])}:
+            size = entry.get("size")
+            if size is not None:
+                candidate_sizes.append(float(size))
+    if not candidate_sizes:
+        return None
+    return max(candidate_sizes)
+
+
+def _collect_hotspot_patch_report(
+    gmsh,
+    *,
+    surface_patch_diagnostics: Dict[str, Any] | None,
+    quality_metrics: Dict[str, Any] | None,
+    mesh_field: Dict[str, Any] | None = None,
+    requested_surface_tags: Iterable[int] | None = None,
+    top_surface_count: int = 4,
+) -> Dict[str, Any]:
+    surface_records = {
+        int(record["tag"]): record
+        for record in (surface_patch_diagnostics or {}).get("surface_records", [])
+        if isinstance(record, dict) and record.get("tag") is not None
+    }
+    curve_records = {
+        int(record["tag"]): record
+        for record in (surface_patch_diagnostics or {}).get("curve_records", [])
+        if isinstance(record, dict) and record.get("tag") is not None
+    }
+    worst_tets = [
+        entry
+        for entry in (quality_metrics or {}).get("worst_20_tets", [])
+        if isinstance(entry, dict)
+    ]
+
+    requested = []
+    seen_surface_tags: set[int] = set()
+    for tag in requested_surface_tags or []:
+        materialized = int(tag)
+        if materialized in seen_surface_tags:
+            continue
+        seen_surface_tags.add(materialized)
+        requested.append(materialized)
+
+    hotspot_surface_counts: Dict[int, int] = defaultdict(int)
+    ranked_surface_tags: list[int] = []
+    for entry in worst_tets:
+        nearest_surface = entry.get("nearest_surface")
+        if not isinstance(nearest_surface, dict) or nearest_surface.get("surface_tag") is None:
+            continue
+        surface_tag = int(nearest_surface["surface_tag"])
+        hotspot_surface_counts[surface_tag] += 1
+        if surface_tag not in ranked_surface_tags:
+            ranked_surface_tags.append(surface_tag)
+
+    selection_limit = max(int(top_surface_count), len(requested), 1)
+    selected_surface_tags: list[int] = []
+    for surface_tag in requested + ranked_surface_tags:
+        if surface_tag in selected_surface_tags:
+            continue
+        selected_surface_tags.append(int(surface_tag))
+        if len(selected_surface_tags) >= selection_limit:
+            break
+
+    surface_reports: list[Dict[str, Any]] = []
+    for surface_tag in selected_surface_tags:
+        record = surface_records.get(int(surface_tag), {})
+        curve_tags = [int(tag) for tag in record.get("curve_tags", [])]
+        surface_triangle_stats = _collect_surface_triangle_mesh_stats(gmsh, int(surface_tag))
+        boundary_curves = []
+        for curve_tag in curve_tags:
+            boundary_curves.append(
+                {
+                    "curve_id": int(curve_tag),
+                    "curve_length": curve_records.get(int(curve_tag), {}).get("length"),
+                    "owner_surface_tags": curve_records.get(int(curve_tag), {}).get("owner_surface_tags", []),
+                    **_collect_curve_mesh_stats(gmsh, int(curve_tag)),
+                }
+            )
+        adjacent_surfaces = sorted(
+            {
+                int(owner_surface_tag)
+                for curve_tag in curve_tags
+                for owner_surface_tag in curve_records.get(int(curve_tag), {}).get("owner_surface_tags", [])
+                if int(owner_surface_tag) != int(surface_tag)
+            }
+        )
+        worst_entries = []
+        for entry in worst_tets:
+            nearest_surface = entry.get("nearest_surface")
+            if not isinstance(nearest_surface, dict) or int(nearest_surface.get("surface_tag", -1)) != int(surface_tag):
+                continue
+            nearest_curve = _nearest_curve_payload(
+                gmsh,
+                point=[float(value) for value in entry.get("barycenter", [0.0, 0.0, 0.0])],
+                curve_tags=curve_tags,
+            )
+            worst_entries.append(
+                {
+                    "element_id": int(entry["element_id"]),
+                    "barycenter": [float(value) for value in entry.get("barycenter", [])],
+                    "distance_to_surface": nearest_surface.get("distance"),
+                    "nearest_surface_id": int(surface_tag),
+                    "nearest_curve_id": (
+                        int(nearest_curve["curve_tag"])
+                        if isinstance(nearest_curve, dict) and nearest_curve.get("curve_tag") is not None
+                        else None
+                    ),
+                    "local_tetra_edge_length_min": entry.get("tetra_edge_length_min"),
+                    "local_tetra_edge_length_max": entry.get("tetra_edge_length_max"),
+                    "min_sicn": entry.get("min_sicn"),
+                    "min_sige": entry.get("min_sige"),
+                    "gamma": entry.get("gamma"),
+                    "volume": entry.get("volume"),
+                }
+            )
+
+        surface_reports.append(
+            {
+                "surface_id": int(surface_tag),
+                "surface_area": record.get("area"),
+                "surface_bbox": record.get("bbox"),
+                "surface_role": record.get("surface_role"),
+                "surface_triangle_count": surface_triangle_stats.get("triangle_count"),
+                "surface_triangle_quality": surface_triangle_stats,
+                "boundary_curves": boundary_curves,
+                "adjacent_surfaces": adjacent_surfaces,
+                "local_target_size_hint": _surface_target_size_hint(int(surface_tag), mesh_field),
+                "family_hints": record.get("family_hints", []),
+                "worst_tets_near_this_surface": {
+                    "count": len(worst_entries),
+                    "min_gamma": min((entry["gamma"] for entry in worst_entries), default=None),
+                    "min_sicn": min((entry["min_sicn"] for entry in worst_entries), default=None),
+                    "min_sige": min((entry["min_sige"] for entry in worst_entries), default=None),
+                    "min_volume": min((entry["volume"] for entry in worst_entries), default=None),
+                    "entries": worst_entries,
+                },
+            }
+        )
+
+    return {
+        "status": "captured",
+        "requested_surface_tags": requested,
+        "selected_surface_tags": selected_surface_tags,
+        "hotspot_surface_counts": dict(sorted(hotspot_surface_counts.items())),
+        "surface_reports": surface_reports,
+    }
+
+
 def _collect_volume_quality_metrics(
     gmsh,
     *,
@@ -391,12 +753,19 @@ def _collect_volume_quality_metrics(
     logger_messages: Iterable[str] | None = None,
     worst_count: int = 20,
 ) -> Dict[str, Any]:
-    volume_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
+    volume_types, volume_element_tags, volume_node_tags = gmsh.model.mesh.getElements(3)
     tetra_tags: list[int] = []
-    for element_type, tags in zip(volume_types, volume_element_tags):
+    tetra_node_tags_lookup: Dict[int, list[int]] = {}
+    for element_type, tags, node_tags_flat in zip(volume_types, volume_element_tags, volume_node_tags):
         if int(element_type) != 4:
             continue
         tetra_tags.extend(int(tag) for tag in tags)
+        tetra_node_tags_lookup.update(
+            {
+                int(element_tag): [int(node_tag) for node_tag in node_tags]
+                for element_tag, node_tags in _primary_node_slices(gmsh, int(element_type), tags, node_tags_flat)
+            }
+        )
 
     if not tetra_tags:
         return {
@@ -483,6 +852,7 @@ def _collect_volume_quality_metrics(
     logged_ill_shaped_count = _extract_ill_shaped_tet_count(logger_messages or [])
 
     worst_subset = worst_entries[: max(0, int(worst_count))]
+    node_cache: Dict[int, list[float]] = {}
     if surface_tag_to_name:
         for entry in worst_subset:
             entry["nearest_surface"] = _nearest_surface_payload(
@@ -493,6 +863,13 @@ def _collect_volume_quality_metrics(
     else:
         for entry in worst_subset:
             entry["nearest_surface"] = None
+    for entry in worst_subset:
+        corner_node_tags = tetra_node_tags_lookup.get(int(entry["element_id"]), [])
+        entry["corner_node_tags"] = list(corner_node_tags)
+        tetra_points = [_get_node_coordinate(gmsh, node_tag, cache=node_cache) for node_tag in corner_node_tags]
+        edge_metrics = _tetra_edge_metrics(tetra_points)
+        entry["tetra_edge_length_min"] = edge_metrics["min_edge_length"]
+        entry["tetra_edge_length_max"] = edge_metrics["max_edge_length"]
 
     return {
         "tetrahedron_count": len(tetra_tags),
@@ -2890,6 +3267,7 @@ def _apply_occ_external_flow_route(
     marker_summary_path = mesh_dir / "marker_summary.json"
     surface_mesh_path = mesh_dir / "surface_mesh_2d.msh"
     surface_patch_diagnostics_path = mesh_dir / "surface_patch_diagnostics.json"
+    hotspot_patch_report_path = mesh_dir / "hotspot_patch_report.json"
     gmsh_log_path = mesh_dir / "gmsh_log.txt"
     mesh2d_watchdog_path = mesh_dir / "mesh2d_watchdog.json"
     mesh2d_watchdog_sample_path = mesh_dir / "mesh2d_watchdog_sample.txt"
@@ -2915,6 +3293,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path),
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path),
+                "hotspot_patch_report": str(hotspot_patch_report_path),
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path),
                 "mesh2d_watchdog_sample": str(mesh2d_watchdog_sample_path),
@@ -3242,6 +3621,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "hotspot_patch_report": None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
                 "mesh2d_watchdog_sample": (
@@ -3543,6 +3923,17 @@ def _apply_occ_external_flow_route(
             if int(mesh_stats.get("volume_element_count", 0) or 0) > 0
             else None
         )
+        hotspot_patch_report = (
+            _collect_hotspot_patch_report(
+                gmsh,
+                surface_patch_diagnostics=surface_patch_diagnostics,
+                quality_metrics=quality_metrics,
+                mesh_field=field_info,
+                requested_surface_tags=config.metadata.get("mesh_hotspot_surface_tags"),
+            )
+            if quality_metrics is not None
+            else None
+        )
         metadata["volume_meshing"]["completed"] = True
         artifacts = MeshArtifactBundle(
             mesh=mesh_path,
@@ -3550,6 +3941,7 @@ def _apply_occ_external_flow_route(
             marker_summary=marker_summary_path,
             surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
             surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
+            hotspot_patch_report=hotspot_patch_report_path if hotspot_patch_report is not None else None,
             gmsh_log=gmsh_log_path,
             mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
             mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
@@ -3642,8 +4034,16 @@ def _apply_occ_external_flow_route(
         }
         if quality_metrics is not None:
             metadata["quality_metrics"] = quality_metrics
+        if hotspot_patch_report is not None:
+            metadata["hotspot_patch_report"] = {
+                "artifact": str(hotspot_patch_report_path),
+                "selected_surface_tags": hotspot_patch_report.get("selected_surface_tags", []),
+                "requested_surface_tags": hotspot_patch_report.get("requested_surface_tags", []),
+            }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
+        if hotspot_patch_report is not None:
+            _json_write(hotspot_patch_report_path, hotspot_patch_report)
 
         return {
             "status": "success",
@@ -3668,6 +4068,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "hotspot_patch_report": str(hotspot_patch_report_path) if hotspot_patch_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
                 "mesh2d_watchdog_sample": (

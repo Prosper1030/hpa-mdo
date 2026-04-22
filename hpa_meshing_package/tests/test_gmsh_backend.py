@@ -8,6 +8,7 @@ import pytest
 
 import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
+    _collect_hotspot_patch_report,
     _probe_discrete_classify_angles,
     _collect_volume_quality_metrics,
     _collect_plc_error_probe,
@@ -266,6 +267,68 @@ class _FakeSurfaceDiagGmsh:
         mass_lookup: dict[tuple[int, int], float],
     ) -> None:
         self.model = _FakeSurfaceDiagModel(bbox_lookup, boundary_lookup, mass_lookup)
+
+
+class _FakeHotspotMeshApi:
+    def __init__(self) -> None:
+        self._elements = {
+            (2, 31): ([2], [[3101, 3102]], [[1, 2, 3, 1, 3, 4]]),
+            (2, 32): ([2], [[3201, 3202]], [[5, 6, 7, 5, 7, 8]]),
+            (1, 101): ([1], [[10101, 10102]], [[1, 2, 2, 3]]),
+            (1, 102): ([1], [[10201]], [[3, 4]]),
+            (1, 201): ([1], [[20101]], [[5, 6]]),
+            (1, 202): ([1], [[20201]], [[7, 8]]),
+        }
+        self._element_properties = {
+            1: ("Line 2", 1, 1, 2, [], 2),
+            2: ("Triangle 3", 2, 1, 3, [], 3),
+            4: ("Tetrahedron 4", 3, 1, 4, [], 4),
+        }
+        self._node_coords = {
+            1: [0.0, 0.0, 0.0],
+            2: [1.0, 0.0, 0.0],
+            3: [1.0, 1.0, 0.0],
+            4: [0.0, 1.0, 0.0],
+            5: [0.0, 2.0, 0.0],
+            6: [1.0, 2.0, 0.0],
+            7: [1.0, 3.0, 0.0],
+            8: [0.0, 3.0, 0.0],
+        }
+
+    def getElements(self, dim: int = -1, tag: int = -1):
+        return self._elements.get((int(dim), int(tag)), ([], [], []))
+
+    def getElementProperties(self, element_type: int):
+        return self._element_properties[int(element_type)]
+
+    def getNode(self, node_tag: int):
+        return self._node_coords[int(node_tag)], [], 0, 0
+
+
+class _FakeHotspotModel:
+    def __init__(self) -> None:
+        self.mesh = _FakeHotspotMeshApi()
+
+    def getClosestPoint(self, dim: int, tag: int, coord):
+        point = [float(value) for value in coord]
+        if int(dim) == 1 and int(tag) == 101:
+            return [point[0], 0.0, 0.0], [0.0]
+        if int(dim) == 1 and int(tag) == 102:
+            return [1.0, point[1], 0.0], [0.0]
+        if int(dim) == 1 and int(tag) == 201:
+            return [point[0], 2.0, 0.0], [0.0]
+        if int(dim) == 1 and int(tag) == 202:
+            return [point[0], 3.0, 0.0], [0.0]
+        if int(dim) == 2 and int(tag) == 31:
+            return [point[0], min(max(point[1], 0.0), 1.0), 0.0], [0.0, 0.0]
+        if int(dim) == 2 and int(tag) == 32:
+            return [point[0], min(max(point[1], 2.0), 3.0), 0.0], [0.0, 0.0]
+        return [point[0], point[1], point[2]], [0.0, 0.0]
+
+
+class _FakeHotspotGmsh:
+    def __init__(self) -> None:
+        self.model = _FakeHotspotModel()
 
 
 def test_collect_plc_error_probe_includes_point_localization_and_last_errors(tmp_path: Path):
@@ -1307,11 +1370,15 @@ class _FakeQualityMeshApi:
     def __init__(self) -> None:
         self._volume_types = [4]
         self._volume_tags = [[101, 102, 103]]
+        self._volume_node_tags = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]]
         self._qualities = {
             "minSICN": [0.45, -0.02, 0.12],
             "minSIGE": [0.52, -0.01, 0.09],
             "gamma": [0.82, 0.03, 0.24],
             "volume": [0.4, 0.01, 0.08],
+        }
+        self._element_properties = {
+            4: ("Tetrahedron 4", 3, 1, 4, [], 4),
         }
         self._barycenters = [
             0.1,
@@ -1324,10 +1391,24 @@ class _FakeQualityMeshApi:
             1.3,
             1.4,
         ]
+        self._node_coords = {
+            1: [0.0, 0.0, 0.0],
+            2: [1.0, 0.0, 0.0],
+            3: [0.0, 1.0, 0.0],
+            4: [0.0, 0.0, 1.0],
+            5: [1.0, 1.0, 1.0],
+            6: [2.0, 1.0, 1.0],
+            7: [1.0, 2.0, 1.0],
+            8: [1.0, 1.0, 2.0],
+            9: [2.0, 2.0, 2.0],
+            10: [3.0, 2.0, 2.0],
+            11: [2.0, 3.0, 2.0],
+            12: [2.0, 2.0, 3.0],
+        }
 
     def getElements(self, dim: int = -1, tag: int = -1):
         assert int(dim) == 3
-        return self._volume_types, self._volume_tags, [[]]
+        return self._volume_types, self._volume_tags, self._volume_node_tags
 
     def getElementQualities(self, element_tags, quality_name: str):
         assert [int(tag) for tag in element_tags] == [101, 102, 103]
@@ -1336,6 +1417,12 @@ class _FakeQualityMeshApi:
     def getBarycenters(self, element_type: int, tag: int, fast: bool, primary: bool):
         assert int(element_type) == 4
         return self._barycenters
+
+    def getElementProperties(self, element_type: int):
+        return self._element_properties[int(element_type)]
+
+    def getNode(self, node_tag: int):
+        return self._node_coords[int(node_tag)], [], 0, 0
 
 
 class _FakeQualityModelApi:
@@ -1478,6 +1565,86 @@ def test_collect_volume_quality_metrics_reports_stats_and_worst_tets():
     assert quality_metrics["worst_20_tets"][0]["element_id"] == 102
     assert quality_metrics["worst_20_tets"][0]["nearest_surface"]["physical_name"] == "farfield"
     assert quality_metrics["worst_20_tets"][0]["physical_volume_name"] == "fluid"
+    assert quality_metrics["worst_20_tets"][0]["tetra_edge_length_min"] is not None
+    assert quality_metrics["worst_20_tets"][0]["tetra_edge_length_max"] is not None
+
+
+def test_collect_hotspot_patch_report_tracks_surface_curve_and_tet_hotspots():
+    gmsh = _FakeHotspotGmsh()
+
+    report = _collect_hotspot_patch_report(
+        gmsh,
+        surface_patch_diagnostics={
+            "surface_records": [
+                {
+                    "tag": 31,
+                    "area": 0.12,
+                    "bbox": {"x_min": 0.0, "y_min": 0.0, "z_min": 0.0, "x_max": 1.0, "y_max": 1.0, "z_max": 0.0},
+                    "surface_role": "aircraft",
+                    "curve_tags": [101, 102],
+                    "family_hints": ["span_extreme_strip_candidate"],
+                },
+                {
+                    "tag": 32,
+                    "area": 0.13,
+                    "bbox": {"x_min": 0.0, "y_min": 2.0, "z_min": 0.0, "x_max": 1.0, "y_max": 3.0, "z_max": 0.0},
+                    "surface_role": "aircraft",
+                    "curve_tags": [201, 202],
+                    "family_hints": [],
+                },
+            ],
+            "curve_records": [
+                {"tag": 101, "length": 1.0, "owner_surface_tags": [31]},
+                {"tag": 102, "length": 1.0, "owner_surface_tags": [31, 32]},
+                {"tag": 201, "length": 1.0, "owner_surface_tags": [32]},
+                {"tag": 202, "length": 1.0, "owner_surface_tags": [32]},
+            ],
+        },
+        quality_metrics={
+            "worst_20_tets": [
+                {
+                    "element_id": 7001,
+                    "barycenter": [0.2, 0.1, 0.05],
+                    "nearest_surface": {"surface_tag": 31, "distance": 0.05},
+                    "tetra_edge_length_min": 0.12,
+                    "tetra_edge_length_max": 0.48,
+                    "min_sicn": 0.01,
+                    "min_sige": 0.04,
+                    "gamma": 0.02,
+                    "volume": 1.0e-6,
+                },
+                {
+                    "element_id": 7002,
+                    "barycenter": [0.4, 2.2, 0.08],
+                    "nearest_surface": {"surface_tag": 32, "distance": 0.08},
+                    "tetra_edge_length_min": 0.15,
+                    "tetra_edge_length_max": 0.52,
+                    "min_sicn": 0.02,
+                    "min_sige": 0.05,
+                    "gamma": 0.03,
+                    "volume": 2.0e-6,
+                },
+            ]
+        },
+        mesh_field={
+            "near_body_size": 0.0434375,
+            "local_size_floors": [
+                {"size": 0.12, "surface_tags": [31], "curve_tags": [101, 102]},
+            ],
+        },
+        requested_surface_tags=[31, 32],
+    )
+
+    assert report["selected_surface_tags"] == [31, 32]
+    surface31 = report["surface_reports"][0]
+    assert surface31["surface_id"] == 31
+    assert surface31["surface_triangle_count"] == 2
+    assert surface31["surface_triangle_quality"]["aspect_ratio"]["max"] is not None
+    assert surface31["boundary_curves"][0]["node_count"] >= 2
+    assert surface31["adjacent_surfaces"] == [32]
+    assert surface31["local_target_size_hint"] == pytest.approx(0.12)
+    assert surface31["worst_tets_near_this_surface"]["count"] == 1
+    assert surface31["worst_tets_near_this_surface"]["entries"][0]["nearest_curve_id"] == 101
 
 
 def test_configure_mesh_field_applies_native_esp_surface_policy_from_patch_diagnostics(tmp_path: Path):
@@ -2140,6 +2307,7 @@ def test_apply_recipe_successful_3d_run_persists_quality_metrics(tmp_path: Path)
 
     assert result["status"] == "success"
     metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
+    hotspot = json.loads(Path(result["artifacts"]["hotspot_patch_report"]).read_text(encoding="utf-8"))
     quality = metadata["quality_metrics"]
     optimization = metadata["volume_meshing"]["optimization"]
     assert quality["tetrahedron_count"] == metadata["mesh"]["volume_element_count"]
@@ -2147,6 +2315,9 @@ def test_apply_recipe_successful_3d_run_persists_quality_metrics(tmp_path: Path)
     assert "gamma_percentiles" in quality
     assert "min_sicn_percentiles" in quality
     assert quality["min_volume"] > 0.0
+    assert metadata["hotspot_patch_report"]["artifact"] == result["artifacts"]["hotspot_patch_report"]
+    assert hotspot["surface_reports"]
+    assert hotspot["selected_surface_tags"]
     assert optimization["mesh_optimize"] == 1
     assert optimization["mesh_optimize_netgen"] == 0
     assert optimization["post_optimize_methods"] == []
