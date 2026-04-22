@@ -188,7 +188,7 @@ def test_seed_airfoil_loader_accepts_headerless_selig_dat(tmp_path, monkeypatch)
     assert len(coordinates) == 5
 
 
-def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
+def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     tmp_path: Path,
 ) -> None:
     result = run_birdman_concept_pipeline(
@@ -199,7 +199,28 @@ def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
             (),
             {
                 "backend_name": "test_stub",
-                "run_queries": lambda self, queries: [],
+                "run_queries": lambda self, queries: [
+                    {
+                        "status": "ok",
+                        "polar_points": [
+                            {
+                                "cl_target": query.cl_samples[0],
+                                "alpha_deg": 4.2,
+                                "cl": query.cl_samples[0] + 0.001,
+                                "cd": 0.021,
+                                "cm": -0.08,
+                                "converged": True,
+                            }
+                        ],
+                        "airfoil_feedback": {
+                            "source": "real_polar",
+                            "conservative": True,
+                            "first_usable_cl_max_proxy": 0.92,
+                        },
+                        "template_id": query.template_id,
+                    }
+                    for query in queries
+                ],
             },
         )(),
         spanwise_loader=lambda concept, stations: {
@@ -207,7 +228,7 @@ def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
                 "points": [
                     {
                         "reynolds": 350000.0,
-                        "cl_target": 0.68,
+                        "cl_target": 0.66,
                         "cm_target": -0.04,
                         "weight": 1.0,
                         "station_y_m": 1.0,
@@ -218,10 +239,21 @@ def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
                 "points": [
                     {
                         "reynolds": 300000.0,
-                        "cl_target": 0.74,
-                        "cm_target": 0.12,
+                        "cl_target": 0.73,
+                        "cm_target": -0.07,
                         "weight": 1.0,
                         "station_y_m": 5.0,
+                    }
+                ]
+            },
+            "mid2": {
+                "points": [
+                    {
+                        "reynolds": 250000.0,
+                        "cl_target": 0.79,
+                        "cm_target": -0.09,
+                        "weight": 1.0,
+                        "station_y_m": 9.0,
                     }
                 ]
             },
@@ -229,8 +261,8 @@ def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
                 "points": [
                     {
                         "reynolds": 220000.0,
-                        "cl_target": 0.81,
-                        "cm_target": -0.08,
+                        "cl_target": 0.87,
+                        "cm_target": -0.13,
                         "weight": 1.0,
                         "station_y_m": 14.0,
                     }
@@ -243,8 +275,59 @@ def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
     first = summary["selected_concepts"][0]
 
     assert first["launch"]["gross_mass_kg"] == pytest.approx(105.0)
-    assert first["turn"]["cl_level"] == pytest.approx(0.81)
-    assert first["trim"]["representative_cm"] == pytest.approx(-0.12)
+    assert first["launch"]["cl_available"] >= first["turn"]["cl_level"]
+    assert first["turn"]["cl_level"] == pytest.approx(0.87)
+    assert first["trim"]["representative_cm"] == pytest.approx(-0.13)
+
+
+def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
+    tmp_path: Path,
+) -> None:
+    worker_call_lengths: list[int] = []
+
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: worker_call_lengths.append(len(queries))
+                or [],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {"points": []},
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    first = summary["selected_concepts"][0]
+
+    assert worker_call_lengths
+    assert all(length == 0 for length in worker_call_lengths)
+    assert first["worker_result_count"] == 0
+    assert first["worker_statuses"] == []
+    assert isinstance(first["launch"]["cl_available"], float)
+    assert isinstance(first["turn"]["cl_max"], float)
+    assert isinstance(first["trim"]["margin_deg"], float)
+    assert isinstance(first["local_stall"]["min_margin"], float)
+    assert first["launch"]["status"] in {
+        "ok",
+        "launch_cl_insufficient",
+        "trim_margin_insufficient",
+    }
+    assert first["turn"]["status"] in {
+        "ok",
+        "stall_margin_insufficient",
+        "trim_not_feasible",
+    }
+    assert first["trim"]["status"] in {"ok", "trim_margin_insufficient"}
+    assert first["local_stall"]["status"] in {"ok", "stall_margin_insufficient"}
 
 
 def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:

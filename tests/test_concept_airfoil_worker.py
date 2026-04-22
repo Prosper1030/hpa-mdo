@@ -219,6 +219,72 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
     assert (worker.cache_dir / f"{worker.cache_key(query)}.json").is_file()
 
 
+def test_worker_preserves_airfoil_feedback_fields_through_cache_round_trip(
+    tmp_path, monkeypatch
+):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    query = _sample_query(cl_samples=(0.7,))
+    response_payload = [
+        {
+            "template_id": "root-v1",
+            "reynolds": 350000.0,
+            "cl_samples": [0.7],
+            "roughness_mode": "clean",
+            "geometry_hash": query.geometry_hash,
+            "status": "ok",
+            "polar_points": [
+                {
+                    "cl_target": 0.7,
+                    "alpha_deg": 4.2,
+                    "cl": 0.701,
+                    "cd": 0.021,
+                    "cm": -0.08,
+                    "converged": True,
+                }
+            ],
+            "airfoil_feedback": {
+                "source": "real_polar",
+                "conservative": True,
+                "first_usable_cl_max_proxy": 0.92,
+                "near_target_point": {
+                    "cl": 0.701,
+                    "cd": 0.021,
+                    "cm": -0.08,
+                },
+            },
+            "safety_basis": "airfoil_real_polar",
+        }
+    ]
+
+    def fake_run(cmd, check, cwd):
+        Path(cmd[4]).write_text(json.dumps(response_payload), encoding="utf-8")
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    first_result = worker.run_queries([query])
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: None)
+    monkeypatch.setattr(
+        "hpa_mdo.concept.airfoil_worker.subprocess.run",
+        lambda *args, **kwargs: pytest.fail("subprocess.run should not be called for cache hits"),
+    )
+    second_result = worker.run_queries([query])
+
+    assert second_result == first_result
+    assert first_result[0]["airfoil_feedback"]["source"] == "real_polar"
+    assert first_result[0]["airfoil_feedback"]["conservative"] is True
+    assert first_result[0]["airfoil_feedback"]["first_usable_cl_max_proxy"] == pytest.approx(0.92)
+    assert first_result[0]["airfoil_feedback"]["near_target_point"]["cm"] == pytest.approx(-0.08)
+    assert first_result[0]["polar_points"][0]["cd"] == pytest.approx(0.021)
+    assert first_result[0]["safety_basis"] == "airfoil_real_polar"
+    assert json.loads((worker.cache_dir / f"{worker.cache_key(query)}.json").read_text(encoding="utf-8")) == first_result[0]
+
+
 @pytest.mark.parametrize(
     ("response_payload", "error_match"),
     [
