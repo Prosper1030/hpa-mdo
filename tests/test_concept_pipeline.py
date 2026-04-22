@@ -254,22 +254,46 @@ def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
         spanwise_loader=lambda concept, stations: {
             "root": {
                 "points": [
-                    {"reynolds": 260000.0, "cl_target": 0.70, "cm_target": -0.10, "weight": 1.0}
+                    {
+                        "reynolds": 260000.0,
+                        "chord_m": 1.30,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
                 ]
             },
             "mid1": {
                 "points": [
-                    {"reynolds": 240000.0, "cl_target": 0.66, "cm_target": -0.09, "weight": 1.0}
+                    {
+                        "reynolds": 240000.0,
+                        "chord_m": 1.15,
+                        "cl_target": 0.66,
+                        "cm_target": -0.09,
+                        "weight": 1.0,
+                    }
                 ]
             },
             "mid2": {
                 "points": [
-                    {"reynolds": 220000.0, "cl_target": 0.62, "cm_target": -0.08, "weight": 1.0}
+                    {
+                        "reynolds": 220000.0,
+                        "chord_m": 1.00,
+                        "cl_target": 0.62,
+                        "cm_target": -0.08,
+                        "weight": 1.0,
+                    }
                 ]
             },
             "tip": {
                 "points": [
-                    {"reynolds": 200000.0, "cl_target": 0.58, "cm_target": -0.07, "weight": 1.0}
+                    {
+                        "reynolds": 200000.0,
+                        "chord_m": 0.82,
+                        "cl_target": 0.58,
+                        "cm_target": -0.07,
+                        "weight": 1.0,
+                    }
                 ]
             },
         },
@@ -282,6 +306,7 @@ def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
     assert "upper_coefficients" in airfoil_templates["root"]
     assert "lower_coefficients" in airfoil_templates["root"]
     assert "candidate_role" in airfoil_templates["root"]
+    assert airfoil_templates["root"]["points"][0]["chord_m"] == pytest.approx(1.30)
 
 
 def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:

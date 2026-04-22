@@ -516,6 +516,7 @@ def avl_zone_payload_from_spanwise_load(
             "points": [
                 {
                     "reynolds": float(point.reynolds),
+                    "chord_m": float(point.chord_m),
                     "cl_target": float(point.cl_target),
                     "cm_target": float(point.cm_target),
                     "weight": float(point.weight),

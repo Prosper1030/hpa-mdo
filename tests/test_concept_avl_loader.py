@@ -96,7 +96,9 @@ def test_avl_zone_payload_from_spanwise_load_preserves_station_y() -> None:
     assert tuple(payload) == ("root", "mid1", "mid2", "tip")
     assert sum(len(zone["points"]) for zone in payload.values()) == len(stations)
     assert payload["root"]["points"][0]["station_y_m"] == stations[0].y_m
+    assert payload["root"]["points"][0]["chord_m"] == pytest.approx(resampled.chord[0])
     assert payload["tip"]["points"][-1]["station_y_m"] == stations[-1].y_m
+    assert payload["tip"]["points"][-1]["chord_m"] == pytest.approx(resampled.chord[-1])
     assert all(point["weight"] > 0.0 for zone in payload.values() for point in zone["points"])
 
 

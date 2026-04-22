@@ -71,6 +71,7 @@ def test_build_zone_requirements_uses_station_geometry_for_zone_assignment() -> 
     expected_density = 2.0 * load.dynamic_pressure / (load.velocity**2)
     expected_reynolds = expected_density * load.velocity * 1.30 / 1.8e-5
     assert math.isclose(zone_requirements["root"].points[0].reynolds, expected_reynolds, rel_tol=1e-12)
+    assert zone_requirements["root"].points[0].chord_m == pytest.approx(1.30)
     assert zone_requirements["root"].points[0].cl_target == 0.90
     assert zone_requirements["root"].points[0].cm_target == -0.12
     weights = [point.weight for requirement in zone_requirements.values() for point in requirement.points]

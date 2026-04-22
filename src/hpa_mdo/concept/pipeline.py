@@ -294,6 +294,7 @@ def _default_spanwise_loader(
         zone_payload[zone]["points"].append(
             {
                 "reynolds": 250000.0 + 10000.0 * index,
+                "chord_m": station.chord_m,
                 "cl_target": max(0.5, 0.72 - 0.02 * index),
                 "cm_target": -0.10 + 0.01 * index,
                 "weight": 1.0,
@@ -370,6 +371,7 @@ def _flatten_zone_points(
                     "zone_index": float(zone_index),
                     "point_index": float(point_index),
                     "station_y_m": float(station_y_m),
+                    "chord_m": float(point.get("chord_m", 1.0)),
                     "cl_target": float(point["cl_target"]),
                     "cm_target": float(point["cm_target"]),
                     "weight": float(point.get("weight", 1.0)),

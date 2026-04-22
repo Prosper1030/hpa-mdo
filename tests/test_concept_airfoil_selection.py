@@ -66,6 +66,101 @@ def test_select_best_zone_candidate_prefers_lower_drag_when_cl_is_usable() -> No
     assert selected.template.candidate_role == "thickness_up"
 
 
+def test_select_best_zone_candidate_prefers_thicker_candidate_when_margin_is_tight() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "root",
+            (0.04, 0.05, 0.03, 0.01),
+            (-0.03, -0.04, -0.02, -0.01),
+            0.0002,
+            seed_name="fx76mp140",
+            candidate_role="thin_low_drag",
+        ),
+        CSTAirfoilTemplate(
+            "root",
+            (0.20, 0.28, 0.18, 0.08),
+            (-0.18, -0.16, -0.10, -0.04),
+            0.0018,
+            seed_name="fx76mp140",
+            candidate_role="thick_safe",
+        ),
+    )
+    zone_points = [
+        {"reynolds": 260000.0, "chord_m": 1.32, "cl_target": 0.76, "cm_target": -0.11, "weight": 1.2},
+        {"reynolds": 230000.0, "chord_m": 1.05, "cl_target": 0.70, "cm_target": -0.10, "weight": 0.8},
+    ]
+    candidate_results = {
+        "thin_low_drag": {"status": "ok", "mean_cd": 0.016, "usable_clmax": 0.88, "mean_cm": -0.08},
+        "thick_safe": {"status": "ok", "mean_cd": 0.020, "usable_clmax": 1.12, "mean_cm": -0.11},
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.14,
+    )
+
+    assert selected.template.candidate_role == "thick_safe"
+    assert selected.candidate_score > 0.0
+
+
+def test_select_best_zone_candidate_uses_matched_polar_points_when_available() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.28, 0.18, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            seed_name="fx76mp140",
+            candidate_role="weight_high_first",
+        ),
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.28, 0.18, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            seed_name="fx76mp140",
+            candidate_role="weight_high_second",
+        ),
+    )
+    zone_points = [
+        {"reynolds": 260000.0, "chord_m": 1.34, "cl_target": 0.70, "cm_target": -0.10, "weight": 2.0},
+        {"reynolds": 230000.0, "chord_m": 0.92, "cl_target": 0.76, "cm_target": -0.11, "weight": 1.0},
+    ]
+    candidate_results = {
+        "weight_high_first": {
+            "status": "ok",
+            "mean_cd": 0.0205,
+            "mean_cm": -0.105,
+            "usable_clmax": 1.08,
+            "polar_points": [
+                {"cl_target": 0.70, "cl": 0.70, "cd": 0.016, "cm": -0.10},
+                {"cl_target": 0.76, "cl": 0.76, "cd": 0.025, "cm": -0.11},
+            ],
+        },
+        "weight_high_second": {
+            "status": "ok",
+            "mean_cd": 0.0205,
+            "mean_cm": -0.105,
+            "usable_clmax": 1.08,
+            "polar_points": [
+                {"cl_target": 0.70, "cl": 0.70, "cd": 0.022, "cm": -0.10},
+                {"cl_target": 0.76, "cl": 0.76, "cd": 0.019, "cm": -0.11},
+            ],
+        },
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.14,
+    )
+
+    assert selected.template.candidate_role == "weight_high_first"
+
+
 def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone() -> None:
     class FakeWorker:
         def run_queries(self, queries):

@@ -18,6 +18,7 @@ class ZoneDefinition:
 @dataclass(frozen=True)
 class ZoneOperatingPoint:
     reynolds: float
+    chord_m: float
     cl_target: float
     cm_target: float
     weight: float
@@ -154,6 +155,7 @@ def build_zone_requirements(
             zone_points.append(
                 ZoneOperatingPoint(
                     reynolds=reynolds,
+                    chord_m=float(chord_m),
                     cl_target=float(cl_value),
                     cm_target=float(cm_value),
                     weight=float(weight),
