@@ -1640,6 +1640,49 @@ def test_configure_volume_smoke_decoupled_field_allows_uniform_volume_sanity(tmp
     assert gmsh.option.values["Mesh.MeshSizeMax"] == pytest.approx(16.0)
 
 
+def test_configure_volume_smoke_decoupled_field_supports_volume_only_shell_size_min_override(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 12.0,
+            "volume_smoke_shell_enabled": True,
+            "volume_smoke_shell_size_min": 0.012,
+            "volume_smoke_shell_dist_max": 0.18,
+            "volume_smoke_shell_size_max": 3.0,
+        },
+    )
+    gmsh = _FakeGmsh()
+
+    info = _configure_volume_smoke_decoupled_field(
+        gmsh,
+        aircraft_surface_tags=[1, 2, 3],
+        near_body_size=0.0434375,
+        mesh_algorithm_3d=1,
+        bounds={
+            "x_min": -6.5,
+            "x_max": 16.9,
+            "y_min": -280.5,
+            "y_max": 280.5,
+            "z_min": -7.3,
+            "z_max": 8.1,
+        },
+        surface_patch_diagnostics=None,
+        config=config,
+    )
+
+    assert info["enabled"] is True
+    assert info["near_body_shell"]["size_min"] == pytest.approx(0.012)
+    assert info["field_architecture"]["effective_mesh_size_min"] == pytest.approx(0.012)
+    assert gmsh.model.mesh.field.number_values[(3, "SizeMin")] == pytest.approx(0.012)
+    assert gmsh.option.values["Mesh.MeshSizeMin"] == pytest.approx(0.012)
+
+
 def test_configure_volume_smoke_decoupled_field_supports_tip_quality_buffer_policy(tmp_path: Path):
     config = MeshJobConfig(
         component="main_wing",

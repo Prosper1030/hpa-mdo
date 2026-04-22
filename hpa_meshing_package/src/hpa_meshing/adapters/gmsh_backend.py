@@ -3344,6 +3344,12 @@ def _configure_volume_smoke_decoupled_field(
         )
     )
     shell_enabled = bool(config.metadata.get("volume_smoke_shell_enabled", True))
+    shell_size_min = float(
+        config.metadata.get(
+            "volume_smoke_shell_size_min",
+            near_body_size,
+        )
+    )
     shell_dist_min = float(config.metadata.get("volume_smoke_shell_dist_min", 0.0))
     shell_dist_max = float(
         config.metadata.get(
@@ -3390,7 +3396,7 @@ def _configure_volume_smoke_decoupled_field(
 
         near_body_shell_field = gmsh.model.mesh.field.add("Threshold")
         gmsh.model.mesh.field.setNumber(near_body_shell_field, "InField", near_body_distance_field)
-        gmsh.model.mesh.field.setNumber(near_body_shell_field, "SizeMin", near_body_size)
+        gmsh.model.mesh.field.setNumber(near_body_shell_field, "SizeMin", shell_size_min)
         gmsh.model.mesh.field.setNumber(near_body_shell_field, "SizeMax", shell_size_max)
         gmsh.model.mesh.field.setNumber(near_body_shell_field, "DistMin", shell_dist_min)
         gmsh.model.mesh.field.setNumber(near_body_shell_field, "DistMax", shell_dist_max)
@@ -3483,7 +3489,7 @@ def _configure_volume_smoke_decoupled_field(
         background_field_tag = gmsh.model.mesh.field.add("Min")
         gmsh.model.mesh.field.setNumbers(background_field_tag, "FieldsList", fields_list)
 
-    effective_mesh_size_min = float(near_body_size)
+    effective_mesh_size_min = float(shell_size_min if shell_enabled else near_body_size)
     if tip_quality_buffer_policy.get("enabled"):
         effective_mesh_size_min = min(effective_mesh_size_min, float(tip_quality_buffer_policy["h_tip_m"]))
     if sliver_volume_pocket_policy.get("enabled"):
@@ -3546,7 +3552,7 @@ def _configure_volume_smoke_decoupled_field(
             "distance_field_tag": int(near_body_distance_field) if near_body_distance_field is not None else None,
             "threshold_field_tag": int(near_body_shell_field) if near_body_shell_field is not None else None,
             "surfaces_list": [int(tag) for tag in aircraft_surface_tags] if shell_enabled else [],
-            "size_min": float(near_body_size) if shell_enabled else None,
+            "size_min": float(shell_size_min) if shell_enabled else None,
             "size_max": float(shell_size_max) if shell_enabled else None,
             "dist_min": float(shell_dist_min) if shell_enabled else None,
             "dist_max": float(shell_dist_max) if shell_enabled else None,
