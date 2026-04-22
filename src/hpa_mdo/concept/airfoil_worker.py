@@ -18,6 +18,8 @@ class PolarQuery:
 
 
 class JuliaXFoilWorker:
+    backend_name = "julia_xfoil"
+
     def __init__(self, *, project_dir: Path, cache_dir: Path) -> None:
         self.project_dir = Path(project_dir)
         self.cache_dir = Path(cache_dir)

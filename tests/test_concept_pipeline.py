@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 
+from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
 
@@ -102,3 +103,22 @@ def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
     summary = json.loads((output_dir / "concept_summary.json").read_text(encoding="utf-8"))
     assert summary["worker_backend"] == "cli_stubbed"
     assert summary["selected_concepts"]
+
+
+def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    factory_calls: list[dict[str, object]] = []
+
+    result = run_birdman_concept_pipeline(
+        config_path=repo_root / "configs" / "birdman_upstream_concept_baseline.yaml",
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **kwargs: factory_calls.append(kwargs)
+        or JuliaXFoilWorker(**kwargs),
+        spanwise_loader=lambda concept, stations: {"root": {"points": []}},
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    assert factory_calls[0]["project_dir"] == repo_root
+    assert summary["worker_backend"] == "julia_xfoil"
+    assert all(item["worker_backend"] == "julia_xfoil" for item in summary["selected_concepts"])
+    assert summary["worker_statuses"] == []
