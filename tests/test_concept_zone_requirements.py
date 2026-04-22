@@ -182,6 +182,20 @@ def test_build_lofting_guides_uses_cst_templates_as_authority() -> None:
     assert guides["interpolation_rule"] == "linear_in_coeff_space"
 
 
+def test_build_lofting_guides_canonicalizes_known_zone_order() -> None:
+    templates = {
+        "tip": CSTAirfoilTemplate("tip", (0.1, 0.2), (-0.08, -0.15), 0.0010),
+        "mid2": CSTAirfoilTemplate("mid2", (0.12, 0.22), (-0.09, -0.16), 0.0011),
+        "mid1": CSTAirfoilTemplate("mid1", (0.15, 0.25), (-0.10, -0.18), 0.0012),
+        "root": CSTAirfoilTemplate("root", (0.2, 0.3), (-0.1, -0.2), 0.0015),
+    }
+
+    guides = build_lofting_guides(templates)
+
+    assert guides["zones"] == ["root", "mid1", "mid2", "tip"]
+    assert guides["blend_pairs"] == [("root", "mid1"), ("mid1", "mid2"), ("mid2", "tip")]
+
+
 def test_build_lofting_guides_rejects_empty_or_incompatible_templates() -> None:
     with pytest.raises(ValueError):
         build_lofting_guides({})
