@@ -7,6 +7,16 @@ from pathlib import Path
 import yaml
 
 
+def _validate_stations_rows(stations_rows: list[dict]) -> None:
+    if not stations_rows:
+        raise ValueError("stations_rows must not be empty.")
+
+    expected_keys = set(stations_rows[0].keys())
+    for row in stations_rows[1:]:
+        if set(row.keys()) != expected_keys:
+            raise ValueError("stations_rows rows must share the same schema.")
+
+
 def write_selected_concept_bundle(
     *,
     output_dir: Path,
@@ -18,11 +28,10 @@ def write_selected_concept_bundle(
     prop_assumption: dict,
     concept_summary: dict,
 ) -> Path:
+    _validate_stations_rows(stations_rows)
+
     bundle_dir = Path(output_dir) / concept_id
     bundle_dir.mkdir(parents=True, exist_ok=True)
-
-    if not stations_rows:
-        raise ValueError("stations_rows must not be empty.")
 
     (bundle_dir / "concept_config.yaml").write_text(
         yaml.safe_dump(concept_config, sort_keys=False),

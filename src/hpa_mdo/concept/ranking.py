@@ -38,4 +38,4 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
                 score=score,
             )
         )
-    return sorted(ranked, key=lambda item: item.score)
+    return sorted(ranked, key=lambda item: (item.score, item.concept_id))

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
 from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
 
@@ -16,6 +18,17 @@ def test_rank_concepts_prefers_feasible_safer_candidate():
 
     assert ranked[0].concept_id == "B"
     assert ranked[0].why_not_higher == ()
+
+
+def test_rank_concepts_uses_deterministic_tie_break_on_concept_id():
+    ranked = rank_concepts(
+        [
+            CandidateConceptResult("b-concept", True, True, True, 0.20, 41000.0, 1.0),
+            CandidateConceptResult("a-concept", True, True, True, 0.20, 41000.0, 1.0),
+        ]
+    )
+
+    assert [item.concept_id for item in ranked] == ["a-concept", "b-concept"]
 
 
 def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
@@ -36,3 +49,22 @@ def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
     assert (bundle_dir / "lofting_guides.json").exists()
     assert (bundle_dir / "prop_assumption.json").exists()
     assert json.loads((bundle_dir / "concept_summary.json").read_text(encoding="utf-8"))["rank"] == 1
+
+
+def test_write_selected_concept_bundle_rejects_station_schema_mismatch_before_writing(tmp_path):
+    with pytest.raises(ValueError, match="stations_rows"):
+        write_selected_concept_bundle(
+            output_dir=tmp_path,
+            concept_id="concept-01",
+            concept_config={"name": "concept-01"},
+            stations_rows=[
+                {"y_m": 0.0, "chord_m": 1.3, "twist_deg": 2.0},
+                {"y_m": 1.0, "chord_m": 1.1},
+            ],
+            airfoil_templates={"root": {"upper": [0.2], "lower": [-0.1]}},
+            lofting_guides={"authority": "cst_coefficients"},
+            prop_assumption={"diameter_m": 3.0},
+            concept_summary={"rank": 1},
+        )
+
+    assert not (tmp_path / "concept-01").exists()
