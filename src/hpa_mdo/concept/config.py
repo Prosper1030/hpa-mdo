@@ -18,6 +18,17 @@ class MassConfig(BaseModel):
     baseline_aircraft_mass_kg: float = Field(..., gt=0.0)
     gross_mass_sweep_kg: tuple[float, ...] = Field(..., min_length=3, max_length=3)
 
+    @model_validator(mode="after")
+    def validate_gross_mass_sweep(self) -> MassConfig:
+        if any(mass <= 0.0 for mass in self.gross_mass_sweep_kg):
+            raise ValueError("mass.gross_mass_sweep_kg entries must all be positive.")
+        if any(
+            later < earlier
+            for earlier, later in zip(self.gross_mass_sweep_kg, self.gross_mass_sweep_kg[1:])
+        ):
+            raise ValueError("mass.gross_mass_sweep_kg must be non-decreasing.")
+        return self
+
 
 class MissionConfig(BaseModel):
     target_distance_km: float = Field(42.195, gt=0.0)
@@ -27,6 +38,12 @@ class MissionConfig(BaseModel):
     speed_sweep_min_mps: float = Field(6.0, gt=0.0)
     speed_sweep_max_mps: float = Field(10.0, gt=0.0)
     speed_sweep_points: int = Field(9, ge=3)
+
+    @model_validator(mode="after")
+    def validate_speed_sweep_bounds(self) -> MissionConfig:
+        if self.speed_sweep_max_mps < self.speed_sweep_min_mps:
+            raise ValueError("mission.speed_sweep_max_mps must be >= mission.speed_sweep_min_mps.")
+        return self
 
 
 class SegmentationConfig(BaseModel):
@@ -56,6 +73,20 @@ class GeometryFamilyConfig(BaseModel):
     taper_ratio_candidates: tuple[float, ...] = Field((0.30, 0.35, 0.40), min_length=1)
     twist_tip_candidates_deg: tuple[float, ...] = Field((-2.0, -1.5, -1.0), min_length=1)
     tail_area_candidates_m2: tuple[float, ...] = Field((3.8, 4.2, 4.6), min_length=1)
+
+    @model_validator(mode="after")
+    def validate_candidate_ranges(self) -> GeometryFamilyConfig:
+        if any(span <= 0.0 for span in self.span_candidates_m):
+            raise ValueError("geometry_family.span_candidates_m entries must all be positive.")
+        if any(area <= 0.0 for area in self.wing_area_candidates_m2):
+            raise ValueError("geometry_family.wing_area_candidates_m2 entries must all be positive.")
+        if any(taper <= 0.0 or taper > 1.0 for taper in self.taper_ratio_candidates):
+            raise ValueError(
+                "geometry_family.taper_ratio_candidates entries must be in the interval (0, 1]."
+            )
+        if any(tail_area <= 0.0 for tail_area in self.tail_area_candidates_m2):
+            raise ValueError("geometry_family.tail_area_candidates_m2 entries must all be positive.")
+        return self
 
 
 class BirdmanConceptConfig(BaseModel):
