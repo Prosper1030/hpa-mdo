@@ -12,6 +12,7 @@ from hpa_meshing.adapters.gmsh_backend import (
     _collect_plc_error_probe,
     _collect_surface_patch_diagnostics,
     _configure_mesh_field,
+    _configure_volume_smoke_decoupled_field,
     _extract_last_meshing_curve,
     _extract_last_meshing_surface,
     _extract_overlap_surface_details,
@@ -1224,6 +1225,100 @@ class _FakeGmsh:
     def __init__(self) -> None:
         self.model = _FakeModelApi()
         self.option = _FakeOptionApi()
+
+
+def test_configure_volume_smoke_decoupled_field_uses_bounded_near_body_shell(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 12.0,
+            "volume_smoke_shell_enabled": True,
+            "volume_smoke_shell_dist_max": 0.18,
+            "volume_smoke_shell_size_max": 3.0,
+        },
+    )
+    gmsh = _FakeGmsh()
+
+    info = _configure_volume_smoke_decoupled_field(
+        gmsh,
+        aircraft_surface_tags=[1, 2, 3],
+        near_body_size=0.0434375,
+        mesh_algorithm_3d=1,
+        bounds={
+            "x_min": -6.5,
+            "x_max": 16.9,
+            "y_min": -280.5,
+            "y_max": 280.5,
+            "z_min": -7.3,
+            "z_max": 8.1,
+        },
+        config=config,
+    )
+
+    assert info["enabled"] is True
+    assert info["field_architecture"]["base_far_volume_enabled"] is True
+    assert info["field_architecture"]["near_body_shell_enabled"] is True
+    assert info["field_architecture"]["near_body_shell_stop_at_dist_max"] is True
+    assert info["field_architecture"]["distance_faces_exclude_farfield"] is True
+    assert gmsh.model.mesh.field.added == ["Box", "Distance", "Threshold", "Min"]
+    assert gmsh.model.mesh.field.numbers[(2, "FacesList")] == [1.0, 2.0, 3.0]
+    assert gmsh.model.mesh.field.number_values[(3, "StopAtDistMax")] == 1.0
+    assert gmsh.model.mesh.field.number_values[(3, "SizeMin")] == pytest.approx(0.0434375)
+    assert gmsh.model.mesh.field.number_values[(3, "SizeMax")] == pytest.approx(3.0)
+    assert gmsh.model.mesh.field.number_values[(1, "VIn")] == pytest.approx(12.0)
+    assert gmsh.model.mesh.field.number_values[(1, "VOut")] == pytest.approx(12.0)
+    assert gmsh.model.mesh.field.numbers[(4, "FieldsList")] == [1.0, 3.0]
+    assert gmsh.model.mesh.field.background == 4
+    assert gmsh.option.values["Mesh.MeshSizeMin"] == pytest.approx(0.0434375)
+    assert gmsh.option.values["Mesh.MeshSizeMax"] == pytest.approx(12.0)
+    assert gmsh.option.values["Mesh.MeshSizeFromPoints"] == 0.0
+    assert gmsh.option.values["Mesh.MeshSizeFromCurvature"] == 0.0
+    assert gmsh.option.values["Mesh.MeshSizeExtendFromBoundary"] == 0.0
+
+
+def test_configure_volume_smoke_decoupled_field_allows_uniform_volume_sanity(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 16.0,
+            "volume_smoke_shell_enabled": False,
+        },
+    )
+    gmsh = _FakeGmsh()
+
+    info = _configure_volume_smoke_decoupled_field(
+        gmsh,
+        aircraft_surface_tags=[1, 2, 3],
+        near_body_size=0.0434375,
+        mesh_algorithm_3d=1,
+        bounds={
+            "x_min": -6.5,
+            "x_max": 16.9,
+            "y_min": -280.5,
+            "y_max": 280.5,
+            "z_min": -7.3,
+            "z_max": 8.1,
+        },
+        config=config,
+    )
+
+    assert info["enabled"] is True
+    assert info["field_architecture"]["near_body_shell_enabled"] is False
+    assert gmsh.model.mesh.field.added == ["Box"]
+    assert gmsh.model.mesh.field.background == 1
+    assert gmsh.option.values["Mesh.MeshSizeMax"] == pytest.approx(16.0)
 
 
 def test_configure_mesh_field_applies_native_esp_surface_policy_from_patch_diagnostics(tmp_path: Path):

@@ -1239,6 +1239,129 @@ def _add_constant_size_floor_field(
     return field_tag
 
 
+def _configure_volume_smoke_decoupled_field(
+    gmsh,
+    *,
+    aircraft_surface_tags: list[int],
+    near_body_size: float,
+    mesh_algorithm_3d: int,
+    bounds: Dict[str, float],
+    config: MeshJobConfig,
+) -> Dict[str, Any]:
+    if not bool(config.metadata.get("volume_smoke_decoupled_enabled", False)):
+        return {"enabled": False, "reason": "disabled_by_metadata"}
+
+    base_volume_size = float(
+        config.metadata.get(
+            "volume_smoke_base_size",
+            config.global_max_size or max(near_body_size * 40.0, DEFAULT_FARFIELD_REFERENCE_FACTOR),
+        )
+    )
+    shell_enabled = bool(config.metadata.get("volume_smoke_shell_enabled", True))
+    shell_dist_min = float(config.metadata.get("volume_smoke_shell_dist_min", 0.0))
+    shell_dist_max = float(
+        config.metadata.get(
+            "volume_smoke_shell_dist_max",
+            config.metadata.get("mesh_field_distance_max", max(near_body_size * 4.0, 0.05)),
+        )
+    )
+    shell_size_max = float(
+        config.metadata.get(
+            "volume_smoke_shell_size_max",
+            config.metadata.get("volume_smoke_mid_volume_size", base_volume_size),
+        )
+    )
+    stop_at_dist_max = bool(config.metadata.get("volume_smoke_shell_stop_at_dist_max", True))
+
+    base_field = gmsh.model.mesh.field.add("Box")
+    gmsh.model.mesh.field.setNumber(base_field, "VIn", base_volume_size)
+    gmsh.model.mesh.field.setNumber(base_field, "VOut", base_volume_size)
+    gmsh.model.mesh.field.setNumber(base_field, "XMin", float(bounds["x_min"]))
+    gmsh.model.mesh.field.setNumber(base_field, "XMax", float(bounds["x_max"]))
+    gmsh.model.mesh.field.setNumber(base_field, "YMin", float(bounds["y_min"]))
+    gmsh.model.mesh.field.setNumber(base_field, "YMax", float(bounds["y_max"]))
+    gmsh.model.mesh.field.setNumber(base_field, "ZMin", float(bounds["z_min"]))
+    gmsh.model.mesh.field.setNumber(base_field, "ZMax", float(bounds["z_max"]))
+
+    background_field_tag = base_field
+    background_field_composition = "base_far_volume_only"
+    near_body_distance_field = None
+    near_body_shell_field = None
+    fields_list = [base_field]
+
+    if shell_enabled:
+        near_body_distance_field = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(near_body_distance_field, "FacesList", aircraft_surface_tags)
+
+        near_body_shell_field = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(near_body_shell_field, "InField", near_body_distance_field)
+        gmsh.model.mesh.field.setNumber(near_body_shell_field, "SizeMin", near_body_size)
+        gmsh.model.mesh.field.setNumber(near_body_shell_field, "SizeMax", shell_size_max)
+        gmsh.model.mesh.field.setNumber(near_body_shell_field, "DistMin", shell_dist_min)
+        gmsh.model.mesh.field.setNumber(near_body_shell_field, "DistMax", shell_dist_max)
+        gmsh.model.mesh.field.setNumber(
+            near_body_shell_field,
+            "StopAtDistMax",
+            1.0 if stop_at_dist_max else 0.0,
+        )
+
+        fields_list.append(near_body_shell_field)
+        background_field_tag = gmsh.model.mesh.field.add("Min")
+        gmsh.model.mesh.field.setNumbers(background_field_tag, "FieldsList", fields_list)
+        background_field_composition = "min_base_far_volume_with_bounded_shell"
+
+    gmsh.model.mesh.field.setAsBackgroundMesh(background_field_tag)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", float(near_body_size))
+    gmsh.option.setNumber("Mesh.MeshSizeMax", float(base_volume_size))
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+    gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
+
+    return {
+        "enabled": True,
+        "name": "volume_smoke_decoupled_v0",
+        "background_field_tag": int(background_field_tag),
+        "background_field_composition": background_field_composition,
+        "base_far_volume_field": {
+            "field_tag": int(base_field),
+            "kind": "Box",
+            "size": float(base_volume_size),
+            "bounds": {
+                "x_min": float(bounds["x_min"]),
+                "x_max": float(bounds["x_max"]),
+                "y_min": float(bounds["y_min"]),
+                "y_max": float(bounds["y_max"]),
+                "z_min": float(bounds["z_min"]),
+                "z_max": float(bounds["z_max"]),
+            },
+        },
+        "near_body_shell": {
+            "enabled": shell_enabled,
+            "distance_field_tag": int(near_body_distance_field) if near_body_distance_field is not None else None,
+            "threshold_field_tag": int(near_body_shell_field) if near_body_shell_field is not None else None,
+            "surfaces_list": [int(tag) for tag in aircraft_surface_tags] if shell_enabled else [],
+            "size_min": float(near_body_size) if shell_enabled else None,
+            "size_max": float(shell_size_max) if shell_enabled else None,
+            "dist_min": float(shell_dist_min) if shell_enabled else None,
+            "dist_max": float(shell_dist_max) if shell_enabled else None,
+            "stop_at_dist_max": bool(stop_at_dist_max) if shell_enabled else None,
+        },
+        "field_architecture": {
+            "base_far_volume_enabled": True,
+            "base_far_volume_kind": "Box",
+            "near_body_shell_enabled": bool(shell_enabled),
+            "near_body_shell_stop_at_dist_max": bool(stop_at_dist_max) if shell_enabled else False,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+            "mesh_size_extend_from_boundary": 0,
+            "distance_faces_source": "aircraft_surfaces_only" if shell_enabled else "disabled",
+            "distance_faces_exclude_farfield": True,
+            "background_field_composition": background_field_composition,
+        },
+    }
+
+
 def _configure_mesh_field(
     gmsh,
     aircraft_surface_tags: list[int],
@@ -2767,12 +2890,29 @@ def _apply_occ_external_flow_route(
             name: physical_groups[name]
             for name in ("aircraft", "farfield")
         }
+        volume_smoke_decoupled = None
+        if config.mesh_dim == 3:
+            volume_smoke_decoupled = _configure_volume_smoke_decoupled_field(
+                gmsh,
+                aircraft_surface_tags=aircraft_surface_tags,
+                near_body_size=float(field_info.get("near_body_size", 0.0)),
+                mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+                bounds=bounds,
+                config=config,
+            )
+            if volume_smoke_decoupled.get("enabled"):
+                field_info["volume_smoke_decoupled"] = volume_smoke_decoupled
         metadata["volume_meshing"] = {
             "requested": bool(config.mesh_dim == 3),
             "attempted": False,
             "completed": False,
             "mesh_dim_requested": int(config.mesh_dim),
             "mesh_algorithm_3d": int(field_info.get("mesh_algorithm_3d", 1)),
+            "field_architecture": (
+                volume_smoke_decoupled.get("field_architecture")
+                if isinstance(volume_smoke_decoupled, dict) and volume_smoke_decoupled.get("enabled")
+                else None
+            ),
             "pre_generate3_mesh_stats": {
                 "mesh_dim": int(mesh_stats.get("mesh_dim", 0) or 0),
                 "node_count": int(mesh_stats.get("node_count", 0) or 0),
