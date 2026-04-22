@@ -13,10 +13,27 @@ class LaunchGateResult:
 
 
 @dataclass(frozen=True)
+class TrimGateResult:
+    feasible: bool
+    margin_deg: float
+    required_margin_deg: float
+    reason: str
+
+
+@dataclass(frozen=True)
 class TurnGateResult:
     feasible: bool
     required_cl: float
     stall_margin: float
+    reason: str
+
+
+@dataclass(frozen=True)
+class LocalStallResult:
+    feasible: bool
+    min_margin: float
+    min_margin_station_y_m: float
+    tip_critical: bool
     reason: str
 
 
@@ -28,6 +45,7 @@ def evaluate_launch_gate(
     cl_required: float,
     cl_available: float,
     trim_margin_deg: float,
+    required_trim_margin_deg: float,
     use_ground_effect: bool,
 ) -> LaunchGateResult:
     if platform_height_m <= 0.0:
@@ -51,13 +69,19 @@ def evaluate_launch_gate(
         drag_factor = max(0.82, 1.0 - 0.6 * math.exp(-8.0 * height_ratio))
         adjusted_cl_required *= drag_factor
 
-    feasible = float(cl_available) >= adjusted_cl_required and float(trim_margin_deg) > 0.0
-    if not feasible:
+    if float(cl_available) < adjusted_cl_required:
         return LaunchGateResult(
             feasible=False,
             ground_effect_applied=ground_effect_applied,
             adjusted_cl_required=adjusted_cl_required,
-            reason="launch_cl_or_trim_insufficient",
+            reason="launch_cl_insufficient",
+        )
+    if float(trim_margin_deg) < float(required_trim_margin_deg):
+        return LaunchGateResult(
+            feasible=False,
+            ground_effect_applied=ground_effect_applied,
+            adjusted_cl_required=adjusted_cl_required,
+            reason="trim_margin_insufficient",
         )
     return LaunchGateResult(
         feasible=True,
@@ -74,6 +98,7 @@ def evaluate_turn_gate(
     cl_level: float,
     cl_max: float,
     trim_feasible: bool,
+    required_stall_margin: float,
 ) -> TurnGateResult:
     if bank_angle_deg <= 0.0 or bank_angle_deg >= 85.0:
         raise ValueError("bank_angle_deg must be in the interval (0, 85).")
@@ -89,15 +114,14 @@ def evaluate_turn_gate(
     required_cl = float(cl_level) * load_factor
     stall_margin = float(cl_max) - required_cl
 
-    feasible = bool(trim_feasible and stall_margin > 0.10)
-    if not feasible:
-        if not trim_feasible:
-            return TurnGateResult(
-                feasible=False,
-                required_cl=required_cl,
-                stall_margin=stall_margin,
-                reason="trim_not_feasible",
-            )
+    if not trim_feasible:
+        return TurnGateResult(
+            feasible=False,
+            required_cl=required_cl,
+            stall_margin=stall_margin,
+            reason="trim_not_feasible",
+        )
+    if stall_margin < float(required_stall_margin):
         return TurnGateResult(
             feasible=False,
             required_cl=required_cl,
@@ -112,9 +136,67 @@ def evaluate_turn_gate(
     )
 
 
+def evaluate_trim_proxy(
+    *,
+    representative_cm: float,
+    required_margin_deg: float,
+    cm_limit_abs: float = 0.15,
+) -> TrimGateResult:
+    if required_margin_deg <= 0.0:
+        raise ValueError("required_margin_deg must be positive.")
+    if cm_limit_abs <= 0.0:
+        raise ValueError("cm_limit_abs must be positive.")
+
+    margin_deg = max(
+        0.0,
+        6.0 * (float(cm_limit_abs) - abs(float(representative_cm))) / float(cm_limit_abs),
+    )
+    feasible = margin_deg >= float(required_margin_deg)
+    return TrimGateResult(
+        feasible=feasible,
+        margin_deg=margin_deg,
+        required_margin_deg=float(required_margin_deg),
+        reason="ok" if feasible else "trim_margin_insufficient",
+    )
+
+
+def evaluate_local_stall(
+    *,
+    station_points: list[dict[str, float]],
+    half_span_m: float,
+    required_stall_margin: float,
+) -> LocalStallResult:
+    if not station_points:
+        raise ValueError("station_points must not be empty.")
+    if half_span_m <= 0.0:
+        raise ValueError("half_span_m must be positive.")
+    if required_stall_margin <= 0.0:
+        raise ValueError("required_stall_margin must be positive.")
+
+    min_point = min(
+        station_points,
+        key=lambda item: float(item["cl_max_proxy"]) - float(item["cl_target"]),
+    )
+    min_margin = float(min_point["cl_max_proxy"]) - float(min_point["cl_target"])
+    y_m = float(min_point["station_y_m"])
+    tip_critical = y_m >= 0.75 * float(half_span_m)
+    feasible = min_margin >= float(required_stall_margin)
+    return LocalStallResult(
+        feasible=feasible,
+        min_margin=min_margin,
+        min_margin_station_y_m=y_m,
+        tip_critical=tip_critical,
+        reason="ok" if feasible else "stall_margin_insufficient",
+    )
+
+
 __all__ = [
     "LaunchGateResult",
+    "LocalStallResult",
+    "TrimGateResult",
     "TurnGateResult",
     "evaluate_launch_gate",
+    "evaluate_local_stall",
+    "evaluate_trim_proxy",
     "evaluate_turn_gate",
 ]
