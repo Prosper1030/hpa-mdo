@@ -9,14 +9,17 @@ import pytest
 import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
     _apply_compound_meshing_policy,
+    _build_rule_loft_pairing_repair_spec,
     _collect_brep_hotspot_report,
     _collect_hotspot_patch_report,
+    _collect_sliver_cluster_report,
     _probe_discrete_classify_angles,
     _collect_volume_quality_metrics,
     _collect_plc_error_probe,
     _collect_surface_patch_diagnostics,
     _configure_mesh_field,
     _configure_volume_smoke_decoupled_field,
+    _evaluate_sliver_volume_pocket_controller,
     _extract_last_meshing_curve,
     _extract_last_meshing_surface,
     _extract_overlap_surface_details,
@@ -25,6 +28,8 @@ from hpa_meshing.adapters.gmsh_backend import (
     _resolve_coarse_first_tetra_profile,
     _resolve_exact_overlap_surface_pair,
     _resolve_mesh_field_defaults,
+    _select_sliver_volume_pocket_winner,
+    _summarize_sliver_volume_pocket_candidate,
     _select_tip_quality_buffer_winner,
     _summarize_tip_quality_buffer_candidate,
     _run_mesh2d_with_watchdog,
@@ -1733,6 +1738,87 @@ def test_configure_volume_smoke_decoupled_field_supports_tip_quality_buffer_poli
     assert gmsh.option.values["Mesh.MeshSizeMin"] == pytest.approx(0.0303)
 
 
+def test_configure_volume_smoke_decoupled_field_supports_sliver_ball_volume_pocket_policy(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 12.0,
+            "volume_smoke_shell_enabled": False,
+        },
+        sliver_volume_pocket_policy={
+            "enabled": True,
+            "source_baseline": "shell_v2_strip_suppression",
+            "cluster_report_path": "artifacts/mesh/sliver_cluster_report.json",
+            "active_variant": "sliver_ball_mid",
+            "variants": [
+                {
+                    "name": "sliver_ball_mid",
+                    "field_type": "Ball",
+                    "pockets": [
+                        {
+                            "cluster_id": 0,
+                            "source_bad_tet_ids": [220280, 220281],
+                            "center": [1.83, 14.55, 0.36],
+                            "radius": 0.5,
+                            "thickness": 0.25,
+                            "VIn": 0.06,
+                            "VOut": 1e22,
+                        }
+                    ],
+                }
+            ],
+            "mesh_size_extend_from_boundary": 0,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+        },
+    )
+    gmsh = _FakeGmsh()
+
+    info = _configure_volume_smoke_decoupled_field(
+        gmsh,
+        aircraft_surface_tags=[1, 2, 3],
+        near_body_size=0.0434375,
+        mesh_algorithm_3d=1,
+        bounds={
+            "x_min": -6.5,
+            "x_max": 16.9,
+            "y_min": -280.5,
+            "y_max": 280.5,
+            "z_min": -7.3,
+            "z_max": 8.1,
+        },
+        surface_patch_diagnostics=None,
+        config=config,
+    )
+
+    policy = info["sliver_volume_pocket_policy"]
+    assert policy["enabled"] is True
+    assert policy["active_variant"]["name"] == "sliver_ball_mid"
+    assert policy["active_variant"]["field_type"] == "Ball"
+    assert policy["active_variant"]["pockets"][0]["center"] == [1.83, 14.55, 0.36]
+    assert policy["active_variant"]["pockets"][0]["radius"] == pytest.approx(0.5)
+    assert policy["active_variant"]["pockets"][0]["thickness"] == pytest.approx(0.25)
+    assert policy["active_variant"]["pockets"][0]["VIn"] == pytest.approx(0.06)
+    assert policy["active_variant"]["pockets"][0]["VOut"] == pytest.approx(1e22)
+    assert policy["active_variant"]["pockets"][0]["source_bad_tet_ids"] == [220280, 220281]
+    assert gmsh.model.mesh.field.added == ["Box", "Ball", "Min"]
+    assert gmsh.model.mesh.field.number_values[(2, "XCenter")] == pytest.approx(1.83)
+    assert gmsh.model.mesh.field.number_values[(2, "YCenter")] == pytest.approx(14.55)
+    assert gmsh.model.mesh.field.number_values[(2, "ZCenter")] == pytest.approx(0.36)
+    assert gmsh.model.mesh.field.number_values[(2, "Radius")] == pytest.approx(0.5)
+    assert gmsh.model.mesh.field.number_values[(2, "Thickness")] == pytest.approx(0.25)
+    assert gmsh.model.mesh.field.number_values[(2, "VIn")] == pytest.approx(0.06)
+    assert gmsh.model.mesh.field.number_values[(2, "VOut")] == pytest.approx(1e22)
+    assert info["field_architecture"]["sliver_volume_pocket_enabled"] is True
+    assert gmsh.model.mesh.field.numbers[(3, "FieldsList")] == [1.0, 2.0]
+
+
 def test_collect_volume_quality_metrics_reports_stats_and_worst_tets():
     gmsh = _FakeQualityGmsh()
 
@@ -1865,6 +1951,273 @@ def test_select_tip_quality_buffer_winner_returns_null_when_no_candidate_passes(
     assert failed["passed"] is False
     assert winner is None
     assert "no passing candidates" in reason
+
+
+def test_collect_sliver_cluster_report_groups_bad_tets_into_local_clusters():
+    quality_metrics = {
+        "ill_shaped_tet_count": 5,
+        "worst_20_tets": [
+            {
+                "element_id": 220280,
+                "barycenter": [1.8409, 14.4913, 0.3593],
+                "volume": 1.0e-4,
+                "gamma": 9.4e-4,
+                "min_sicn": 8.1e-4,
+                "min_sige": 0.456,
+                "tetra_edge_length_min": 0.0014,
+                "tetra_edge_length_max": 4.08,
+                "nearest_surface": {"surface_tag": 30, "distance": 1.0126},
+            },
+            {
+                "element_id": 220281,
+                "barycenter": [1.8350, 14.5490, 0.3644],
+                "volume": 1.0e-4,
+                "gamma": 9.5e-4,
+                "min_sicn": 8.2e-4,
+                "min_sige": 0.458,
+                "tetra_edge_length_min": 0.0014,
+                "tetra_edge_length_max": 4.07,
+                "nearest_surface": {"surface_tag": 30, "distance": 1.0125},
+            },
+            {
+                "element_id": 214270,
+                "barycenter": [1.8324, 14.5779, 0.3674],
+                "volume": 1.2e-4,
+                "gamma": 0.0011,
+                "min_sicn": 9.3e-4,
+                "min_sige": 0.468,
+                "tetra_edge_length_min": 0.0016,
+                "tetra_edge_length_max": 4.06,
+                "nearest_surface": {"surface_tag": 30, "distance": 1.0126},
+            },
+            {
+                "element_id": 214621,
+                "barycenter": [1.8207, -14.6255, 0.3986],
+                "volume": 1.1e-4,
+                "gamma": 0.0011,
+                "min_sicn": 9.3e-4,
+                "min_sige": 0.462,
+                "tetra_edge_length_min": 0.0016,
+                "tetra_edge_length_max": 4.04,
+                "nearest_surface": {"surface_tag": 21, "distance": 1.0003},
+            },
+            {
+                "element_id": 214619,
+                "barycenter": [1.8148, -14.6832, 0.4036],
+                "volume": 1.1e-4,
+                "gamma": 0.0011,
+                "min_sicn": 9.4e-4,
+                "min_sige": 0.464,
+                "tetra_edge_length_min": 0.0016,
+                "tetra_edge_length_max": 4.03,
+                "nearest_surface": {"surface_tag": 21, "distance": 1.0002},
+            },
+        ],
+    }
+    hotspot_patch_report = {
+        "surface_reports": [
+            {
+                "surface_id": 30,
+                "worst_tets_near_this_surface": {
+                    "count": 3,
+                    "entries": [
+                        {"element_id": 220280, "distance_to_surface": 1.0126},
+                        {"element_id": 220281, "distance_to_surface": 1.0125},
+                        {"element_id": 214270, "distance_to_surface": 1.0126},
+                    ],
+                },
+            },
+            {
+                "surface_id": 21,
+                "worst_tets_near_this_surface": {
+                    "count": 2,
+                    "entries": [
+                        {"element_id": 214621, "distance_to_surface": 1.0003},
+                        {"element_id": 214619, "distance_to_surface": 1.0002},
+                    ],
+                },
+            },
+        ]
+    }
+
+    report = _collect_sliver_cluster_report(
+        baseline="shell_v2_strip_suppression",
+        quality_metrics=quality_metrics,
+        hotspot_patch_report=hotspot_patch_report,
+        focus_surface_tags=[30, 21, 31, 32],
+    )
+
+    assert report["baseline"] == "shell_v2_strip_suppression"
+    assert report["ill_shaped_tet_count"] == 5
+    assert len(report["bad_tets"]) == 5
+    assert report["bad_tets"][0]["nearest_hotspot_surface"] == 30
+    assert report["bad_tets"][0]["distance_to_surfaces_30_21_31_32"] == pytest.approx(1.0126)
+    assert len(report["clusters"]) == 2
+    assert {cluster["classification"] for cluster in report["clusters"]} == {"elongated"}
+    assert {cluster["recommended_field_type"] for cluster in report["clusters"]} == {"Cylinder"}
+
+
+def test_summarize_sliver_volume_pocket_candidate_and_winner_selection():
+    candidate_mid = _summarize_sliver_volume_pocket_candidate(
+        name="sliver_cylinder_mid",
+        mesh_metadata={
+            "status": "success",
+            "mesh": {"surface_element_count": 108000, "volume_element_count": 140000},
+            "mesh3d_watchdog": {
+                "nodes_created_per_boundary_node": 0.08,
+                "phase_classification_after_return": "optimization",
+            },
+            "quality_metrics": {
+                "ill_shaped_tet_count": 0,
+                "min_gamma": 0.01,
+                "min_sicn": 0.03,
+                "min_sige": 0.05,
+                "min_volume": 1.0e-6,
+            },
+            "physical_groups": {
+                "fluid": {"exists": True},
+                "aircraft": {"exists": True},
+                "farfield": {"exists": True},
+            },
+        },
+        hotspot_patch_report={"surface_reports": [{"surface_id": 30, "worst_tets_near_this_surface": {"count": 1}}]},
+        sliver_cluster_report={"clusters": [{"cluster_id": 0}]},
+        sliver_volume_pocket_policy={
+            "active_variant": {
+                "name": "sliver_cylinder_mid",
+                "field_type": "Cylinder",
+                "pockets": [
+                    {
+                        "center": [1.83, 14.55, 0.36],
+                        "radius": 0.25,
+                        "VIn": 0.06,
+                        "VOut": 1e22,
+                    }
+                ],
+            }
+        },
+    )
+    candidate_strong = _summarize_sliver_volume_pocket_candidate(
+        name="sliver_cylinder_strong",
+        mesh_metadata={
+            "status": "success",
+            "mesh": {"surface_element_count": 109000, "volume_element_count": 150000},
+            "mesh3d_watchdog": {
+                "nodes_created_per_boundary_node": 0.07,
+                "phase_classification_after_return": "optimization",
+            },
+            "quality_metrics": {
+                "ill_shaped_tet_count": 0,
+                "min_gamma": 0.008,
+                "min_sicn": 0.04,
+                "min_sige": 0.06,
+                "min_volume": 2.0e-6,
+            },
+            "physical_groups": {
+                "fluid": {"exists": True},
+                "aircraft": {"exists": True},
+                "farfield": {"exists": True},
+            },
+        },
+        hotspot_patch_report=None,
+        sliver_cluster_report={"clusters": [{"cluster_id": 0}]},
+        sliver_volume_pocket_policy={
+            "active_variant": {
+                "name": "sliver_cylinder_strong",
+                "field_type": "Cylinder",
+                "pockets": [
+                    {
+                        "center": [1.83, 14.55, 0.36],
+                        "radius": 0.35,
+                        "VIn": 0.04,
+                        "VOut": 1e22,
+                    }
+                ],
+            }
+        },
+    )
+
+    winner, reason = _select_sliver_volume_pocket_winner([candidate_mid, candidate_strong])
+    assert candidate_mid["passed"] is True
+    assert candidate_mid["field_type"] == "Cylinder"
+    assert candidate_mid["center"] == [1.83, 14.55, 0.36]
+    assert winner is not None
+    assert winner["name"] == "sliver_cylinder_mid"
+    assert "lowest volume_element_count" in reason
+
+
+def test_evaluate_sliver_volume_pocket_controller_allows_cycle1_only_for_improvement():
+    baseline = {"ill_shaped_tet_count": 5}
+    improved = {
+        "name": "sliver_cylinder_mid",
+        "passed": False,
+        "ill_shaped_tet_count": 3,
+        "volume_element_count": 150000,
+        "nodes_created_per_boundary_node": 0.1,
+        "timeout_phase_classification": "optimization",
+        "failed_checks": ["ill_shaped_tets_present"],
+    }
+    no_improve = {
+        "name": "sliver_cylinder_strong",
+        "passed": False,
+        "ill_shaped_tet_count": 5,
+        "volume_element_count": 151000,
+        "nodes_created_per_boundary_node": 0.1,
+        "timeout_phase_classification": "optimization",
+        "failed_checks": ["ill_shaped_tets_present"],
+    }
+
+    evaluation = _evaluate_sliver_volume_pocket_controller(
+        baseline_metrics=baseline,
+        candidates=[improved, no_improve],
+        cycle_index=0,
+    )
+
+    assert evaluation["winner"] is None
+    assert evaluation["run_cycle_1"] is True
+    assert evaluation["mesh_only_no_go"] is False
+    assert evaluation["best_candidate"]["name"] == "sliver_cylinder_mid"
+
+
+def test_evaluate_sliver_volume_pocket_controller_marks_no_go_after_cycle1_or_scattered_failure():
+    baseline = {"ill_shaped_tet_count": 5}
+    failed = {
+        "name": "residual_pocket_strong",
+        "passed": False,
+        "ill_shaped_tet_count": 4,
+        "volume_element_count": 150000,
+        "nodes_created_per_boundary_node": 0.1,
+        "timeout_phase_classification": "optimization",
+        "failed_checks": ["ill_shaped_tets_present"],
+    }
+    evaluation = _evaluate_sliver_volume_pocket_controller(
+        baseline_metrics=baseline,
+        candidates=[failed],
+        cycle_index=1,
+    )
+
+    assert evaluation["winner"] is None
+    assert evaluation["run_cycle_1"] is False
+    assert evaluation["mesh_only_no_go"] is True
+    assert "did not reduce residual ill-shaped tets" in evaluation["reason"]
+
+
+def test_build_rule_loft_pairing_repair_spec_uses_current_tip_evidence():
+    spec = _build_rule_loft_pairing_repair_spec(
+        known_good_suppression={
+            "trim_count_per_side": 3,
+            "terminal_bridge_m": 0.005055,
+            "ill_shaped_tet_count": 5,
+        },
+        bad_aggressive_probe={
+            "effect": "hotspot spread to 20/11/29/21",
+            "ill_shaped_tet_count": 6,
+        },
+    )
+
+    assert spec["source_section_index"] == 5
+    assert spec["known_good_suppression"]["trim_count_per_side"] == 3
+    assert "compound 31/32 family" in spec["do_not_do"]
 
 
 def test_collect_hotspot_patch_report_tracks_surface_curve_and_tet_hotspots():
@@ -2738,6 +3091,124 @@ def test_apply_recipe_successful_3d_run_persists_tip_quality_buffer_policy(tmp_p
     assert policy["dist_min_m"] == pytest.approx(0.01)
     assert policy["dist_max_m"] == pytest.approx(0.05)
     assert policy["stop_at_dist_max"] is True
+
+
+def test_apply_recipe_successful_3d_run_persists_sliver_cluster_report_and_policy(tmp_path: Path):
+    normalized = _write_occ_box_step(tmp_path, "sliver_pocket_box.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = GeometryProviderResult(
+        provider="esp_rebuilt",
+        provider_stage="experimental",
+        status="materialized",
+        geometry_source="esp_rebuilt",
+        source_path=source,
+        normalized_geometry_path=normalized,
+        geometry_family_hint="thin_sheet_lifting_surface",
+        topology=GeometryTopologyMetadata(
+            representation="brep_trimmed_step",
+            source_kind="stp",
+            units="m",
+            body_count=1,
+            surface_count=6,
+            volume_count=1,
+            labels_present=True,
+            label_schema="preserve_component_labels",
+            normalization={
+                "applied": True,
+                "final_analysis": {
+                    "touching_groups": [],
+                    "duplicate_interface_face_pair_count": 0,
+                    "internal_cap_face_count": 0,
+                },
+            },
+        ),
+        provenance={
+            "reference_geometry": {
+                "ref_area": 1.0,
+                "ref_length": 1.0,
+                "ref_origin_moment": {"x": 0.25, "y": 0.0, "z": 0.0},
+                "area_method": "test.reference_area",
+                "length_method": "test.reference_length",
+                "moment_method": "test.reference_origin",
+                "warnings": [],
+            },
+        },
+    )
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=source,
+        out_dir=tmp_path / "sliver_policy_out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        global_min_size=0.5,
+        global_max_size=2.0,
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 12.0,
+            "volume_smoke_shell_enabled": False,
+        },
+        sliver_volume_pocket_policy={
+            "enabled": True,
+            "source_baseline": "shell_v2_strip_suppression",
+            "cluster_report_path": "artifacts/mesh/sliver_cluster_report.json",
+            "active_variant": "sliver_ball_test",
+            "variants": [
+                {
+                    "name": "sliver_ball_test",
+                    "field_type": "Ball",
+                    "pockets": [
+                        {
+                            "cluster_id": 0,
+                            "source_bad_tet_ids": [101, 102],
+                            "center": [0.5, 0.1, 0.05],
+                            "radius": 0.2,
+                            "thickness": 0.1,
+                            "VIn": 0.08,
+                            "VOut": 1e22,
+                        }
+                    ],
+                }
+            ],
+            "mesh_size_extend_from_boundary": 0,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+        },
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:esp_rebuilt",
+        geometry_source="esp_rebuilt",
+        declared_family="thin_sheet_lifting_surface",
+        component="main_wing",
+        provider="esp_rebuilt",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="esp_rebuilt",
+        geometry_provider="esp_rebuilt",
+        declared_family="thin_sheet_lifting_surface",
+        inferred_family=None,
+        geometry_family="thin_sheet_lifting_surface",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    result = apply_recipe(recipe, handle, config)
+
+    assert result["status"] == "success"
+    metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
+    assert "quality_metrics" in metadata
+    assert "burden_metrics" in metadata["volume_meshing"]
+    assert metadata["sliver_cluster_report"]["artifact"] == result["artifacts"]["sliver_cluster_report"]
+    assert metadata["sliver_volume_pocket_policy"]["enabled"] is True
+    assert metadata["sliver_volume_pocket_policy"]["active_variant"]["name"] == "sliver_ball_test"
 
 
 def test_apply_recipe_persists_brep_hotspot_report_when_requested(

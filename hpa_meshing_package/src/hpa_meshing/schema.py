@@ -288,6 +288,74 @@ class TipQualityBufferPolicy(BaseModel):
     mesh_size_from_curvature: int = 0
 
 
+class SliverClusterBadTet(BaseModel):
+    element_id: int
+    barycenter: List[float]
+    volume: float
+    gamma: float
+    minSICN: float
+    minSIGE: float
+    min_edge: Optional[float] = None
+    max_edge: Optional[float] = None
+    edge_ratio: Optional[float] = None
+    nearest_surface: Optional[int] = None
+    distance_to_nearest_surface: Optional[float] = None
+    nearest_hotspot_surface: Optional[int] = None
+    distance_to_surfaces_30_21_31_32: Optional[float] = None
+
+
+class SliverClusterRecord(BaseModel):
+    cluster_id: int
+    tet_count: int
+    center: List[float]
+    bbox_min: List[float]
+    bbox_max: List[float]
+    radius_m: float
+    pca_eigenvalue_ratio: float
+    classification: Literal["compact", "elongated", "scattered"]
+    recommended_field_type: Literal["Ball", "Cylinder", "no_mesh_policy"]
+    source_bad_tet_ids: List[int] = Field(default_factory=list)
+    principal_axis: Optional[List[float]] = None
+    axis_span_m: Optional[float] = None
+    perpendicular_radius_m: Optional[float] = None
+
+
+class SliverClusterReport(BaseModel):
+    baseline: str
+    ill_shaped_tet_count: int
+    bad_tets: List[SliverClusterBadTet] = Field(default_factory=list)
+    clusters: List[SliverClusterRecord] = Field(default_factory=list)
+
+
+class SliverVolumePocketField(BaseModel):
+    cluster_id: Optional[int] = None
+    source_bad_tet_ids: List[int] = Field(default_factory=list)
+    center: List[float]
+    radius: float
+    thickness: Optional[float] = None
+    VIn: float
+    VOut: float = 1e22
+    axis: Optional[List[float]] = None
+    length: Optional[float] = None
+
+
+class SliverVolumePocketVariant(BaseModel):
+    name: str
+    field_type: Literal["Ball", "Cylinder"]
+    pockets: List[SliverVolumePocketField] = Field(default_factory=list)
+
+
+class SliverVolumePocketPolicy(BaseModel):
+    enabled: bool = False
+    source_baseline: Optional[str] = None
+    cluster_report_path: Optional[str] = None
+    active_variant: Optional[str] = None
+    variants: List[SliverVolumePocketVariant] = Field(default_factory=list)
+    mesh_size_extend_from_boundary: int = 0
+    mesh_size_from_points: int = 0
+    mesh_size_from_curvature: int = 0
+
+
 class MeshJobConfig(BaseModel):
     component: ComponentType
     geometry: Path
@@ -315,6 +383,7 @@ class MeshJobConfig(BaseModel):
     })
     metadata: Dict[str, Any] = Field(default_factory=dict)
     tip_quality_buffer_policy: Optional[TipQualityBufferPolicy] = None
+    sliver_volume_pocket_policy: Optional[SliverVolumePocketPolicy] = None
     su2: SU2RuntimeConfig = Field(default_factory=SU2RuntimeConfig)
 
 
@@ -326,6 +395,9 @@ class MeshArtifactBundle(BaseModel):
     surface_patch_diagnostics: Optional[Path] = None
     brep_hotspot_report: Optional[Path] = None
     hotspot_patch_report: Optional[Path] = None
+    sliver_cluster_report: Optional[Path] = None
+    sliver_volume_pocket_summary: Optional[Path] = None
+    rule_loft_pairing_repair_spec: Optional[Path] = None
     compound_report: Optional[Path] = None
     gmsh_log: Optional[Path] = None
     mesh2d_watchdog: Optional[Path] = None

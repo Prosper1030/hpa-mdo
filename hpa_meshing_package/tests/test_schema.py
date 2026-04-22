@@ -27,6 +27,12 @@ from hpa_meshing.schema import (
     SU2ReferenceQuantityProvenance,
     SU2ProvenanceGates,
     SU2RuntimeConfig,
+    SliverClusterBadTet,
+    SliverClusterRecord,
+    SliverClusterReport,
+    SliverVolumePocketField,
+    SliverVolumePocketPolicy,
+    SliverVolumePocketVariant,
     TipQualityBufferPolicy,
     TipQualityBufferVariant,
 )
@@ -208,6 +214,138 @@ def test_schema_supports_tip_quality_buffer_policy_roundtrip():
         h_tip_m=0.0404,
         dist_min_m=0.0101,
         dist_max_m=0.0505,
+    )
+
+
+def test_schema_supports_sliver_cluster_report_roundtrip():
+    report = SliverClusterReport.model_validate(
+        {
+            "baseline": "shell_v2_strip_suppression",
+            "ill_shaped_tet_count": 5,
+            "bad_tets": [
+                {
+                    "element_id": 220280,
+                    "barycenter": [1.84, 14.49, 0.36],
+                    "volume": 1.0e-4,
+                    "gamma": 9.4e-4,
+                    "minSICN": 8.1e-4,
+                    "minSIGE": 0.45,
+                    "min_edge": 0.0014,
+                    "max_edge": 4.08,
+                    "edge_ratio": 2872.0,
+                    "nearest_surface": 30,
+                    "distance_to_nearest_surface": 1.0126,
+                    "nearest_hotspot_surface": 30,
+                    "distance_to_surfaces_30_21_31_32": 1.0126,
+                }
+            ],
+            "clusters": [
+                {
+                    "cluster_id": 0,
+                    "tet_count": 3,
+                    "center": [1.83, 14.55, 0.36],
+                    "bbox_min": [1.82, 14.49, 0.35],
+                    "bbox_max": [1.84, 14.58, 0.37],
+                    "radius_m": 0.05,
+                    "pca_eigenvalue_ratio": 12.0,
+                    "classification": "elongated",
+                    "recommended_field_type": "Cylinder",
+                    "source_bad_tet_ids": [220280],
+                }
+            ],
+        }
+    )
+
+    dumped = report.model_dump(mode="json")
+    assert dumped["clusters"][0]["classification"] == "elongated"
+    roundtrip = SliverClusterReport.model_validate(dumped)
+    assert roundtrip.bad_tets[0] == SliverClusterBadTet(
+        element_id=220280,
+        barycenter=[1.84, 14.49, 0.36],
+        volume=1.0e-4,
+        gamma=9.4e-4,
+        minSICN=8.1e-4,
+        minSIGE=0.45,
+        min_edge=0.0014,
+        max_edge=4.08,
+        edge_ratio=2872.0,
+        nearest_surface=30,
+        distance_to_nearest_surface=1.0126,
+        nearest_hotspot_surface=30,
+        distance_to_surfaces_30_21_31_32=1.0126,
+    )
+    assert roundtrip.clusters[0] == SliverClusterRecord(
+        cluster_id=0,
+        tet_count=3,
+        center=[1.83, 14.55, 0.36],
+        bbox_min=[1.82, 14.49, 0.35],
+        bbox_max=[1.84, 14.58, 0.37],
+        radius_m=0.05,
+        pca_eigenvalue_ratio=12.0,
+        classification="elongated",
+        recommended_field_type="Cylinder",
+        source_bad_tet_ids=[220280],
+    )
+
+
+def test_schema_supports_sliver_volume_pocket_policy_roundtrip():
+    cfg = MeshJobConfig.model_validate(
+        {
+            "component": "main_wing",
+            "geometry": "demo.vsp3",
+            "out_dir": "out/demo",
+            "geometry_source": "esp_rebuilt",
+            "geometry_family": "thin_sheet_lifting_surface",
+            "geometry_provider": "esp_rebuilt",
+            "sliver_volume_pocket_policy": {
+                "enabled": True,
+                "source_baseline": "shell_v2_strip_suppression",
+                "cluster_report_path": "artifacts/mesh/sliver_cluster_report.json",
+                "active_variant": "sliver_ball_mid",
+                "variants": [
+                    {
+                        "name": "sliver_ball_mid",
+                        "field_type": "Ball",
+                        "pockets": [
+                            {
+                                "cluster_id": 0,
+                                "source_bad_tet_ids": [220280, 220281],
+                                "center": [1.83, 14.55, 0.36],
+                                "radius": 0.5,
+                                "thickness": 0.25,
+                                "VIn": 0.06,
+                                "VOut": 1e22,
+                            }
+                        ],
+                    }
+                ],
+                "mesh_size_extend_from_boundary": 0,
+                "mesh_size_from_points": 0,
+                "mesh_size_from_curvature": 0,
+            },
+        }
+    )
+
+    assert cfg.sliver_volume_pocket_policy is not None
+    assert cfg.sliver_volume_pocket_policy.enabled is True
+    assert cfg.sliver_volume_pocket_policy.active_variant == "sliver_ball_mid"
+    dumped = cfg.model_dump(mode="json")
+    assert dumped["sliver_volume_pocket_policy"]["variants"][0]["pockets"][0]["VOut"] == 1e22
+    roundtrip = SliverVolumePocketPolicy.model_validate(dumped["sliver_volume_pocket_policy"])
+    assert roundtrip.variants[0] == SliverVolumePocketVariant(
+        name="sliver_ball_mid",
+        field_type="Ball",
+        pockets=[
+            SliverVolumePocketField(
+                cluster_id=0,
+                source_bad_tet_ids=[220280, 220281],
+                center=[1.83, 14.55, 0.36],
+                radius=0.5,
+                thickness=0.25,
+                VIn=0.06,
+                VOut=1e22,
+            )
+        ],
     )
 
 

@@ -1863,6 +1863,412 @@ def _resolve_tip_quality_buffer_policy(
     }
 
 
+def _resolve_sliver_volume_pocket_policy(
+    *,
+    config: MeshJobConfig,
+) -> Dict[str, Any]:
+    policy = config.sliver_volume_pocket_policy
+    if policy is None or not bool(policy.enabled):
+        return {"enabled": False, "reason": "disabled_by_config"}
+
+    active_variant_name = policy.active_variant
+    if active_variant_name is None and len(policy.variants) == 1:
+        active_variant_name = policy.variants[0].name
+    if active_variant_name is None:
+        return {"enabled": False, "reason": "missing_active_variant"}
+
+    active_variant = next((variant for variant in policy.variants if variant.name == active_variant_name), None)
+    if active_variant is None:
+        return {
+            "enabled": False,
+            "reason": "active_variant_not_found",
+            "active_variant": active_variant_name,
+        }
+
+    pockets = [pocket.model_dump(mode="json") for pocket in active_variant.pockets]
+    return {
+        "enabled": True,
+        "source_baseline": policy.source_baseline,
+        "cluster_report_path": policy.cluster_report_path,
+        "active_variant": {
+            "name": active_variant.name,
+            "field_type": active_variant.field_type,
+            "pockets": pockets,
+        },
+        "mesh_size_extend_from_boundary": int(policy.mesh_size_extend_from_boundary),
+        "mesh_size_from_points": int(policy.mesh_size_from_points),
+        "mesh_size_from_curvature": int(policy.mesh_size_from_curvature),
+    }
+
+
+def _collect_sliver_cluster_report(
+    *,
+    baseline: str,
+    quality_metrics: Dict[str, Any] | None,
+    hotspot_patch_report: Dict[str, Any] | None,
+    focus_surface_tags: Iterable[int] | None = None,
+) -> Dict[str, Any]:
+    quality_metrics = dict(quality_metrics or {})
+    ill_shaped_tet_count = int(quality_metrics.get("ill_shaped_tet_count", 0) or 0)
+    worst_tets = list(quality_metrics.get("worst_20_tets", []) or [])
+    bad_tet_entries = worst_tets[:ill_shaped_tet_count] if ill_shaped_tet_count > 0 else []
+    focus_surface_set = {int(tag) for tag in (focus_surface_tags or [])}
+
+    hotspot_distance_lookup: Dict[int, list[tuple[int, float]]] = defaultdict(list)
+    for surface_report in (hotspot_patch_report or {}).get("surface_reports", []):
+        surface_id = surface_report.get("surface_id")
+        if surface_id is None:
+            continue
+        for entry in (surface_report.get("worst_tets_near_this_surface") or {}).get("entries", []):
+            element_id = entry.get("element_id")
+            distance_to_surface = entry.get("distance_to_surface")
+            if element_id is None or distance_to_surface is None:
+                continue
+            hotspot_distance_lookup[int(element_id)].append((int(surface_id), float(distance_to_surface)))
+
+    bad_tets: list[Dict[str, Any]] = []
+    point_records: list[tuple[int, list[float]]] = []
+    for entry in bad_tet_entries:
+        element_id = int(entry.get("element_id", 0) or 0)
+        barycenter = [float(value) for value in entry.get("barycenter", [0.0, 0.0, 0.0])]
+        nearest_surface_info = entry.get("nearest_surface") or {}
+        nearest_surface = nearest_surface_info.get("surface_tag", entry.get("nearest_surface_id"))
+        nearest_surface = int(nearest_surface) if nearest_surface is not None else None
+        distance_to_nearest_surface = nearest_surface_info.get("distance", entry.get("distance_to_surface"))
+        distance_to_nearest_surface = (
+            float(distance_to_nearest_surface) if distance_to_nearest_surface is not None else None
+        )
+        hotspot_distances = hotspot_distance_lookup.get(element_id, [])
+        if focus_surface_set:
+            hotspot_distances = [item for item in hotspot_distances if item[0] in focus_surface_set]
+        nearest_hotspot_surface = None
+        distance_to_focus_surfaces = None
+        if hotspot_distances:
+            nearest_hotspot_surface, distance_to_focus_surfaces = min(hotspot_distances, key=lambda item: item[1])
+        min_edge = entry.get("tetra_edge_length_min", entry.get("local_tetra_edge_length_min"))
+        max_edge = entry.get("tetra_edge_length_max", entry.get("local_tetra_edge_length_max"))
+        min_edge = float(min_edge) if min_edge is not None else None
+        max_edge = float(max_edge) if max_edge is not None else None
+        edge_ratio = None
+        if min_edge is not None and max_edge is not None and min_edge > 0:
+            edge_ratio = float(max_edge / min_edge)
+        bad_tets.append(
+            {
+                "element_id": element_id,
+                "barycenter": barycenter,
+                "volume": float(entry.get("volume", 0.0) or 0.0),
+                "gamma": float(entry.get("gamma", 0.0) or 0.0),
+                "minSICN": float(entry.get("min_sicn", 0.0) or 0.0),
+                "minSIGE": float(entry.get("min_sige", 0.0) or 0.0),
+                "min_edge": min_edge,
+                "max_edge": max_edge,
+                "edge_ratio": edge_ratio,
+                "nearest_surface": nearest_surface,
+                "distance_to_nearest_surface": distance_to_nearest_surface,
+                "nearest_hotspot_surface": nearest_hotspot_surface,
+                "distance_to_surfaces_30_21_31_32": distance_to_focus_surfaces,
+            }
+        )
+        point_records.append((element_id, barycenter))
+
+    clusters: list[Dict[str, Any]] = []
+    if point_records:
+        import numpy as np
+
+        point_ids = [element_id for element_id, _ in point_records]
+        points = np.asarray([coords for _, coords in point_records], dtype=float)
+        if len(points) == 1:
+            components = [[0]]
+        else:
+            distances = np.linalg.norm(points[:, None, :] - points[None, :, :], axis=2)
+            np.fill_diagonal(distances, np.inf)
+            nearest_neighbor_distances = np.min(distances, axis=1)
+            finite_neighbor_distances = nearest_neighbor_distances[np.isfinite(nearest_neighbor_distances)]
+            cluster_eps = 0.1
+            if finite_neighbor_distances.size:
+                cluster_eps = float(min(max(3.0 * np.median(finite_neighbor_distances), 0.05), 0.5))
+            adjacency = {index: set() for index in range(len(points))}
+            for i in range(len(points)):
+                for j in range(i + 1, len(points)):
+                    if float(distances[i, j]) <= cluster_eps:
+                        adjacency[i].add(j)
+                        adjacency[j].add(i)
+            components = []
+            remaining = set(range(len(points)))
+            while remaining:
+                start = remaining.pop()
+                queue = [start]
+                component = [start]
+                while queue:
+                    current = queue.pop()
+                    for neighbor in adjacency[current]:
+                        if neighbor in remaining:
+                            remaining.remove(neighbor)
+                            queue.append(neighbor)
+                            component.append(neighbor)
+                components.append(sorted(component))
+
+        for cluster_id, component in enumerate(components):
+            cluster_points = points[component]
+            center = cluster_points.mean(axis=0)
+            centered = cluster_points - center
+            distances_to_center = np.linalg.norm(centered, axis=1)
+            bbox_min = cluster_points.min(axis=0)
+            bbox_max = cluster_points.max(axis=0)
+            radius = float(distances_to_center.max()) if len(distances_to_center) else 0.0
+            principal_axis = np.array([1.0, 0.0, 0.0], dtype=float)
+            axis_span = 0.0
+            perpendicular_radius = 0.0
+            pca_ratio = 1.0
+            if len(cluster_points) >= 2:
+                cov = np.cov(centered.T)
+                eigenvalues, eigenvectors = np.linalg.eigh(np.atleast_2d(cov))
+                order = np.argsort(eigenvalues)[::-1]
+                eigenvalues = eigenvalues[order]
+                eigenvectors = eigenvectors[:, order]
+                principal_axis = eigenvectors[:, 0]
+                pca_ratio = float(eigenvalues[0] / max(float(eigenvalues[1]) if len(eigenvalues) > 1 else 1.0, 1e-12))
+                projections = centered @ principal_axis
+                axis_span = float(projections.max() - projections.min()) if len(projections) else 0.0
+                perpendicular_vectors = centered - np.outer(projections, principal_axis)
+                perpendicular_radius = (
+                    float(np.linalg.norm(perpendicular_vectors, axis=1).max())
+                    if len(perpendicular_vectors)
+                    else 0.0
+                )
+            classification = "compact"
+            recommended_field_type = "Ball"
+            if pca_ratio >= 3.0:
+                classification = "elongated"
+                recommended_field_type = "Cylinder"
+            elif radius > 0.8:
+                classification = "scattered"
+                recommended_field_type = "no_mesh_policy"
+            clusters.append(
+                {
+                    "cluster_id": int(cluster_id),
+                    "tet_count": len(component),
+                    "center": [float(value) for value in center.tolist()],
+                    "bbox_min": [float(value) for value in bbox_min.tolist()],
+                    "bbox_max": [float(value) for value in bbox_max.tolist()],
+                    "radius_m": float(radius),
+                    "pca_eigenvalue_ratio": float(pca_ratio),
+                    "classification": classification,
+                    "recommended_field_type": recommended_field_type,
+                    "source_bad_tet_ids": [int(point_ids[index]) for index in component],
+                    "principal_axis": [float(value) for value in principal_axis.tolist()],
+                    "axis_span_m": float(axis_span),
+                    "perpendicular_radius_m": float(perpendicular_radius),
+                }
+            )
+
+    return {
+        "baseline": str(baseline),
+        "ill_shaped_tet_count": ill_shaped_tet_count,
+        "bad_tets": bad_tets,
+        "clusters": clusters,
+    }
+
+
+def _summarize_sliver_volume_pocket_candidate(
+    *,
+    name: str,
+    mesh_metadata: Dict[str, Any],
+    hotspot_patch_report: Dict[str, Any] | None,
+    sliver_cluster_report: Dict[str, Any] | None,
+    sliver_volume_pocket_policy: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    mesh_stats = mesh_metadata.get("mesh", mesh_metadata.get("mesh_stats", {}))
+    quality_metrics = mesh_metadata.get("quality_metrics", {})
+    mesh3d_watchdog = mesh_metadata.get("mesh3d_watchdog", {})
+    physical_groups = mesh_metadata.get("physical_groups", {})
+    phase = (
+        mesh3d_watchdog.get("phase_classification_after_return")
+        or mesh3d_watchdog.get("timeout_phase_classification")
+        or mesh_metadata.get("volume_meshing", {}).get("burden_metrics", {}).get("timeout_phase_classification")
+    )
+    active_variant = (sliver_volume_pocket_policy or {}).get("active_variant") or {}
+    pockets = active_variant.get("pockets", []) if isinstance(active_variant, dict) else []
+    primary_pocket = dict(pockets[0]) if pockets else {}
+    worst_hotspot_surfaces = [
+        int(entry["surface_id"])
+        for entry in sorted(
+            hotspot_patch_report.get("surface_reports", []) if isinstance(hotspot_patch_report, dict) else [],
+            key=lambda record: (record.get("worst_tets_near_this_surface") or {}).get("count", 0),
+            reverse=True,
+        )
+        if int((entry.get("worst_tets_near_this_surface") or {}).get("count", 0)) > 0
+    ]
+
+    candidate = {
+        "name": str(name),
+        "field_type": active_variant.get("field_type"),
+        "center": primary_pocket.get("center"),
+        "radius": primary_pocket.get("radius"),
+        "thickness": primary_pocket.get("thickness"),
+        "VIn": primary_pocket.get("VIn"),
+        "VOut": primary_pocket.get("VOut"),
+        "axis": primary_pocket.get("axis"),
+        "length": primary_pocket.get("length"),
+        "source_bad_tet_ids": primary_pocket.get("source_bad_tet_ids", []),
+        "cluster_ids": [pocket.get("cluster_id") for pocket in pockets if pocket.get("cluster_id") is not None],
+        "surface_triangle_count": int(mesh_stats.get("surface_element_count", 0) or 0),
+        "volume_element_count": int(mesh_stats.get("volume_element_count", 0) or 0),
+        "nodes_created_per_boundary_node": mesh3d_watchdog.get("nodes_created_per_boundary_node"),
+        "ill_shaped_tet_count": int(quality_metrics.get("ill_shaped_tet_count", 0) or 0),
+        "min_gamma": quality_metrics.get("min_gamma"),
+        "min_sicn": quality_metrics.get("min_sicn"),
+        "min_sige": quality_metrics.get("min_sige"),
+        "min_volume": quality_metrics.get("min_volume"),
+        "worst_hotspot_surfaces": worst_hotspot_surfaces,
+        "timeout_phase_classification": phase,
+        "passed": False,
+        "failed_checks": [],
+        "failure_reason": "",
+        "cluster_report_cluster_count": len((sliver_cluster_report or {}).get("clusters", [])),
+    }
+
+    failed_checks: list[str] = []
+    if str(mesh_metadata.get("status")) != "success":
+        failed_checks.append("status_not_success")
+    if candidate["surface_triangle_count"] <= 0:
+        failed_checks.append("surface_triangle_count_missing")
+    if candidate["volume_element_count"] <= 0:
+        failed_checks.append("volume_element_count_missing")
+    if candidate["surface_triangle_count"] >= 120000:
+        failed_checks.append("surface_triangle_count_limit")
+    if candidate["volume_element_count"] >= 180000:
+        failed_checks.append("volume_element_count_limit")
+    if candidate["ill_shaped_tet_count"] != 0:
+        failed_checks.append("ill_shaped_tets_present")
+    if float(candidate["min_volume"] or 0.0) <= 0.0:
+        failed_checks.append("min_volume_not_positive")
+    if float(candidate["min_sicn"] or 0.0) <= 0.0:
+        failed_checks.append("min_sicn_not_positive")
+    if float(candidate["min_sige"] or 0.0) <= 0.0:
+        failed_checks.append("min_sige_not_positive")
+    if candidate["nodes_created_per_boundary_node"] is None:
+        failed_checks.append("nodes_created_per_boundary_node_missing")
+    elif float(candidate["nodes_created_per_boundary_node"]) >= 0.5:
+        failed_checks.append("nodes_created_per_boundary_node_limit")
+    if str(phase or "") == "volume_insertion":
+        failed_checks.append("volume_insertion_phase")
+    if not all(bool(physical_groups.get(name, {}).get("exists")) for name in ("fluid", "aircraft", "farfield")):
+        failed_checks.append("physical_groups_not_preserved")
+
+    candidate["failed_checks"] = failed_checks
+    candidate["failure_reason"] = ", ".join(failed_checks)
+    candidate["passed"] = not failed_checks
+    return candidate
+
+
+def _select_sliver_volume_pocket_winner(
+    candidates: Iterable[Dict[str, Any]],
+) -> tuple[Dict[str, Any] | None, str]:
+    candidate_list = [dict(candidate) for candidate in candidates]
+    passing = [candidate for candidate in candidate_list if bool(candidate.get("passed"))]
+    if not passing:
+        return None, "no passing candidates met the quality-clean gates"
+
+    winner = sorted(
+        passing,
+        key=lambda candidate: (
+            int(candidate.get("volume_element_count", 0) or 0),
+            int(candidate.get("surface_triangle_count", 0) or 0),
+            -float(candidate.get("min_sicn", 0.0) or 0.0),
+            -float(candidate.get("min_sige", 0.0) or 0.0),
+            str(candidate.get("name", "")),
+        ),
+    )[0]
+    return winner, (
+        "selected passing candidate with lowest volume_element_count, "
+        "then lowest surface_triangle_count, then highest min_sicn/min_sige"
+    )
+
+
+def _evaluate_sliver_volume_pocket_controller(
+    *,
+    baseline_metrics: Dict[str, Any],
+    candidates: Iterable[Dict[str, Any]],
+    cycle_index: int,
+) -> Dict[str, Any]:
+    candidate_list = [dict(candidate) for candidate in candidates]
+    winner, winner_reason = _select_sliver_volume_pocket_winner(candidate_list)
+    if winner is not None:
+        return {
+            "winner": winner,
+            "reason": winner_reason,
+            "run_cycle_1": False,
+            "mesh_only_no_go": False,
+            "best_candidate": winner,
+        }
+
+    baseline_ill_shaped = int(baseline_metrics.get("ill_shaped_tet_count", 0) or 0)
+    improved_candidates = [
+        candidate
+        for candidate in candidate_list
+        if int(candidate.get("ill_shaped_tet_count", baseline_ill_shaped) or baseline_ill_shaped) < baseline_ill_shaped
+        and int(candidate.get("volume_element_count", 10**9) or 10**9) < 180000
+        and str(candidate.get("timeout_phase_classification") or "") != "volume_insertion"
+        and float(candidate.get("nodes_created_per_boundary_node", 1.0) or 1.0) < 0.5
+    ]
+    if cycle_index == 0 and improved_candidates:
+        best_candidate = sorted(
+            improved_candidates,
+            key=lambda candidate: (
+                int(candidate.get("ill_shaped_tet_count", baseline_ill_shaped) or baseline_ill_shaped),
+                int(candidate.get("volume_element_count", 0) or 0),
+                int(candidate.get("surface_triangle_count", 0) or 0),
+            ),
+        )[0]
+        return {
+            "winner": None,
+            "reason": "cycle_0_found_improved_candidate_for_cycle_1",
+            "run_cycle_1": True,
+            "mesh_only_no_go": False,
+            "best_candidate": best_candidate,
+        }
+
+    return {
+        "winner": None,
+        "reason": "sliver volume pocket did not reduce residual ill-shaped tets",
+        "run_cycle_1": False,
+        "mesh_only_no_go": True,
+        "best_candidate": None,
+    }
+
+
+def _build_rule_loft_pairing_repair_spec(
+    *,
+    known_good_suppression: Dict[str, Any],
+    bad_aggressive_probe: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "reason": "mesh-only volume pocket failed or residual slivers are scattered",
+        "source_section_index": 5,
+        "known_good_suppression": dict(known_good_suppression),
+        "bad_aggressive_probe": dict(bad_aggressive_probe),
+        "do_not_do": [
+            "increase trim count blindly",
+            "compound 31/32 family",
+            "global OCC healing",
+        ],
+        "next_upstream_contract": [
+            "inspect rule-loft pairing at terminal tip TE neighborhood",
+            "coalesce terminal source section 5 with adjacent panel topology before BRep face emission",
+            "avoid emitting high-aspect terminal transition panels as independent faces",
+            "preserve aircraft-wall physical attributes through old-face to new-face lineage map",
+        ],
+        "required_artifacts_for_next_attempt": [
+            "old_face_to_new_face_map",
+            "topology_lineage_report",
+            "brep_valid_default/exact",
+            "hotspot_patch_report",
+            "mesh_metadata with quality_metrics",
+        ],
+    }
+
+
 def _summarize_tip_quality_buffer_candidate(
     *,
     name: str,
@@ -2973,8 +3379,10 @@ def _configure_volume_smoke_decoupled_field(
         surface_patch_diagnostics=surface_patch_diagnostics,
         near_body_size=near_body_size,
     )
+    sliver_volume_pocket_policy = _resolve_sliver_volume_pocket_policy(config=config)
     tip_distance_field = None
     tip_threshold_field = None
+    sliver_volume_field_tags: list[int] = []
 
     if shell_enabled:
         near_body_distance_field = gmsh.model.mesh.field.add("Distance")
@@ -3026,6 +3434,40 @@ def _configure_volume_smoke_decoupled_field(
         else:
             background_field_composition = "min_base_far_volume_with_bounded_shell_and_tip_quality_buffer"
 
+    if sliver_volume_pocket_policy.get("enabled"):
+        active_variant = sliver_volume_pocket_policy.get("active_variant", {})
+        for pocket in active_variant.get("pockets", []):
+            field_type = str(active_variant.get("field_type", "Ball"))
+            pocket_field = gmsh.model.mesh.field.add(field_type)
+            center = [float(value) for value in pocket.get("center", [0.0, 0.0, 0.0])]
+            gmsh.model.mesh.field.setNumber(pocket_field, "XCenter", center[0])
+            gmsh.model.mesh.field.setNumber(pocket_field, "YCenter", center[1])
+            gmsh.model.mesh.field.setNumber(pocket_field, "ZCenter", center[2])
+            gmsh.model.mesh.field.setNumber(pocket_field, "Radius", float(pocket.get("radius", 0.0) or 0.0))
+            gmsh.model.mesh.field.setNumber(pocket_field, "VIn", float(pocket.get("VIn", base_volume_size)))
+            gmsh.model.mesh.field.setNumber(pocket_field, "VOut", float(pocket.get("VOut", 1e22)))
+            if field_type == "Ball":
+                gmsh.model.mesh.field.setNumber(
+                    pocket_field,
+                    "Thickness",
+                    float(pocket.get("thickness", 0.0) or 0.0),
+                )
+            elif field_type == "Cylinder":
+                axis = [float(value) for value in pocket.get("axis", [1.0, 0.0, 0.0])]
+                length = float(pocket.get("length", 0.0) or 0.0)
+                gmsh.model.mesh.field.setNumber(pocket_field, "XAxis", axis[0] * length)
+                gmsh.model.mesh.field.setNumber(pocket_field, "YAxis", axis[1] * length)
+                gmsh.model.mesh.field.setNumber(pocket_field, "ZAxis", axis[2] * length)
+            sliver_volume_field_tags.append(int(pocket_field))
+            fields_list.append(pocket_field)
+        if sliver_volume_field_tags:
+            if background_field_composition == "base_far_volume_only":
+                background_field_composition = "min_base_far_volume_with_sliver_volume_pocket"
+            elif "tip_quality_buffer" in background_field_composition:
+                background_field_composition += "_and_sliver_volume_pocket"
+            else:
+                background_field_composition = "min_base_far_volume_with_bounded_shell_and_sliver_volume_pocket"
+
     if len(fields_list) > 1:
         background_field_tag = gmsh.model.mesh.field.add("Min")
         gmsh.model.mesh.field.setNumbers(background_field_tag, "FieldsList", fields_list)
@@ -3033,25 +3475,38 @@ def _configure_volume_smoke_decoupled_field(
     effective_mesh_size_min = float(near_body_size)
     if tip_quality_buffer_policy.get("enabled"):
         effective_mesh_size_min = min(effective_mesh_size_min, float(tip_quality_buffer_policy["h_tip_m"]))
+    if sliver_volume_pocket_policy.get("enabled"):
+        pocket_sizes = [
+            float(pocket.get("VIn", effective_mesh_size_min) or effective_mesh_size_min)
+            for pocket in sliver_volume_pocket_policy.get("active_variant", {}).get("pockets", [])
+        ]
+        if pocket_sizes:
+            effective_mesh_size_min = min(effective_mesh_size_min, min(pocket_sizes))
 
     gmsh.model.mesh.field.setAsBackgroundMesh(background_field_tag)
     gmsh.option.setNumber("Mesh.MeshSizeMin", float(effective_mesh_size_min))
     gmsh.option.setNumber("Mesh.MeshSizeMax", float(base_volume_size))
     gmsh.option.setNumber(
         "Mesh.MeshSizeFromPoints",
-        float(tip_quality_buffer_policy.get("mesh_size_from_points", 0))
+        float(sliver_volume_pocket_policy.get("mesh_size_from_points", 0))
+        if sliver_volume_pocket_policy.get("enabled")
+        else float(tip_quality_buffer_policy.get("mesh_size_from_points", 0))
         if tip_quality_buffer_policy.get("enabled")
         else 0.0,
     )
     gmsh.option.setNumber(
         "Mesh.MeshSizeFromCurvature",
-        float(tip_quality_buffer_policy.get("mesh_size_from_curvature", 0))
+        float(sliver_volume_pocket_policy.get("mesh_size_from_curvature", 0))
+        if sliver_volume_pocket_policy.get("enabled")
+        else float(tip_quality_buffer_policy.get("mesh_size_from_curvature", 0))
         if tip_quality_buffer_policy.get("enabled")
         else 0.0,
     )
     gmsh.option.setNumber(
         "Mesh.MeshSizeExtendFromBoundary",
-        float(tip_quality_buffer_policy.get("mesh_size_extend_from_boundary", 0))
+        float(sliver_volume_pocket_policy.get("mesh_size_extend_from_boundary", 0))
+        if sliver_volume_pocket_policy.get("enabled")
+        else float(tip_quality_buffer_policy.get("mesh_size_extend_from_boundary", 0))
         if tip_quality_buffer_policy.get("enabled")
         else 0.0,
     )
@@ -3121,6 +3576,16 @@ def _configure_volume_smoke_decoupled_field(
             ],
             "missing_curve_tags": [int(tag) for tag in tip_quality_buffer_policy.get("missing_curve_tags", [])],
         },
+        "sliver_volume_pocket_policy": {
+            "enabled": bool(sliver_volume_pocket_policy.get("enabled", False)),
+            "source_baseline": sliver_volume_pocket_policy.get("source_baseline"),
+            "cluster_report_path": sliver_volume_pocket_policy.get("cluster_report_path"),
+            "active_variant": sliver_volume_pocket_policy.get("active_variant"),
+            "field_tags": sliver_volume_field_tags,
+            "mesh_size_from_points": sliver_volume_pocket_policy.get("mesh_size_from_points"),
+            "mesh_size_from_curvature": sliver_volume_pocket_policy.get("mesh_size_from_curvature"),
+            "mesh_size_extend_from_boundary": sliver_volume_pocket_policy.get("mesh_size_extend_from_boundary"),
+        },
         "field_architecture": {
             "base_far_volume_enabled": True,
             "base_far_volume_kind": "Box",
@@ -3128,21 +3593,34 @@ def _configure_volume_smoke_decoupled_field(
             "near_body_shell_stop_at_dist_max": bool(stop_at_dist_max) if shell_enabled else False,
             "tip_quality_buffer_enabled": bool(tip_quality_buffer_policy.get("enabled", False)),
             "tip_quality_buffer_stop_at_dist_max": bool(tip_quality_buffer_policy.get("stop_at_dist_max", False)),
+            "sliver_volume_pocket_enabled": bool(sliver_volume_pocket_policy.get("enabled", False)),
             "effective_mesh_size_min": float(effective_mesh_size_min),
             "mesh_size_from_points": (
+                int(sliver_volume_pocket_policy.get("mesh_size_from_points", 0))
+                if sliver_volume_pocket_policy.get("enabled")
+                else (
                 int(tip_quality_buffer_policy.get("mesh_size_from_points", 0))
                 if tip_quality_buffer_policy.get("enabled")
                 else 0
+                )
             ),
             "mesh_size_from_curvature": (
+                int(sliver_volume_pocket_policy.get("mesh_size_from_curvature", 0))
+                if sliver_volume_pocket_policy.get("enabled")
+                else (
                 int(tip_quality_buffer_policy.get("mesh_size_from_curvature", 0))
                 if tip_quality_buffer_policy.get("enabled")
                 else 0
+                )
             ),
             "mesh_size_extend_from_boundary": (
+                int(sliver_volume_pocket_policy.get("mesh_size_extend_from_boundary", 0))
+                if sliver_volume_pocket_policy.get("enabled")
+                else (
                 int(tip_quality_buffer_policy.get("mesh_size_extend_from_boundary", 0))
                 if tip_quality_buffer_policy.get("enabled")
                 else 0
+                )
             ),
             "distance_faces_source": "aircraft_surfaces_only" if shell_enabled else "disabled",
             "distance_faces_exclude_farfield": True,
@@ -4400,6 +4878,7 @@ def _apply_occ_external_flow_route(
     surface_patch_diagnostics_path = mesh_dir / "surface_patch_diagnostics.json"
     brep_hotspot_report_path = mesh_dir / "brep_hotspot_report.json"
     hotspot_patch_report_path = mesh_dir / "hotspot_patch_report.json"
+    sliver_cluster_report_path = mesh_dir / "sliver_cluster_report.json"
     compound_report_path = mesh_dir / "compound_report.json"
     gmsh_log_path = mesh_dir / "gmsh_log.txt"
     mesh2d_watchdog_path = mesh_dir / "mesh2d_watchdog.json"
@@ -4778,6 +5257,11 @@ def _apply_occ_external_flow_route(
                 if isinstance(volume_smoke_decoupled, dict) and volume_smoke_decoupled.get("enabled")
                 else None
             ),
+            "sliver_volume_pocket_policy": (
+                volume_smoke_decoupled.get("sliver_volume_pocket_policy")
+                if isinstance(volume_smoke_decoupled, dict) and volume_smoke_decoupled.get("enabled")
+                else None
+            ),
             "pre_generate3_mesh_stats": {
                 "mesh_dim": int(mesh_stats.get("mesh_dim", 0) or 0),
                 "node_count": int(mesh_stats.get("node_count", 0) or 0),
@@ -4819,6 +5303,7 @@ def _apply_occ_external_flow_route(
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
                 "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
                 "hotspot_patch_report": None,
+                "sliver_cluster_report": None,
                 "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
@@ -5161,6 +5646,21 @@ def _apply_occ_external_flow_route(
             if quality_metrics is not None
             else None
         )
+        sliver_cluster_report = (
+            _collect_sliver_cluster_report(
+                baseline=str(
+                    config.metadata.get(
+                        "codex_case_name",
+                        (config.sliver_volume_pocket_policy.source_baseline if config.sliver_volume_pocket_policy else "baseline"),
+                    )
+                ),
+                quality_metrics=quality_metrics,
+                hotspot_patch_report=hotspot_patch_report,
+                focus_surface_tags=config.metadata.get("mesh_hotspot_surface_tags"),
+            )
+            if quality_metrics is not None and config.sliver_volume_pocket_policy is not None
+            else None
+        )
         metadata["volume_meshing"]["completed"] = True
         artifacts = MeshArtifactBundle(
             mesh=mesh_path,
@@ -5170,6 +5670,7 @@ def _apply_occ_external_flow_route(
             surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
             brep_hotspot_report=brep_hotspot_report_path if brep_hotspot_report is not None else None,
             hotspot_patch_report=hotspot_patch_report_path if hotspot_patch_report is not None else None,
+            sliver_cluster_report=sliver_cluster_report_path if sliver_cluster_report is not None else None,
             compound_report=compound_report_path if compound_report is not None else None,
             gmsh_log=gmsh_log_path,
             mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
@@ -5269,6 +5770,12 @@ def _apply_occ_external_flow_route(
             and volume_smoke_decoupled["tip_quality_buffer_policy"].get("enabled")
         ):
             metadata["tip_quality_buffer_policy"] = volume_smoke_decoupled["tip_quality_buffer_policy"]
+        if (
+            isinstance(volume_smoke_decoupled, dict)
+            and isinstance(volume_smoke_decoupled.get("sliver_volume_pocket_policy"), dict)
+            and volume_smoke_decoupled["sliver_volume_pocket_policy"].get("enabled")
+        ):
+            metadata["sliver_volume_pocket_policy"] = volume_smoke_decoupled["sliver_volume_pocket_policy"]
         if brep_hotspot_report is not None:
             metadata["brep_hotspot_report"] = {
                 "artifact": str(brep_hotspot_report_path),
@@ -5284,6 +5791,13 @@ def _apply_occ_external_flow_route(
                 "selected_surface_tags": hotspot_patch_report.get("selected_surface_tags", []),
                 "requested_surface_tags": hotspot_patch_report.get("requested_surface_tags", []),
             }
+        if sliver_cluster_report is not None:
+            metadata["sliver_cluster_report"] = {
+                "artifact": str(sliver_cluster_report_path),
+                "baseline": sliver_cluster_report.get("baseline"),
+                "ill_shaped_tet_count": sliver_cluster_report.get("ill_shaped_tet_count"),
+                "cluster_count": len(sliver_cluster_report.get("clusters", [])),
+            }
         if compound_report is not None:
             compound_report["status"] = "success"
             metadata["compound_result"] = {
@@ -5296,6 +5810,8 @@ def _apply_occ_external_flow_route(
             _json_write(brep_hotspot_report_path, brep_hotspot_report)
         if hotspot_patch_report is not None:
             _json_write(hotspot_patch_report_path, hotspot_patch_report)
+        if sliver_cluster_report is not None:
+            _json_write(sliver_cluster_report_path, sliver_cluster_report)
         if compound_report is not None:
             _json_write(compound_report_path, compound_report)
 
@@ -5324,6 +5840,7 @@ def _apply_occ_external_flow_route(
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
                 "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
                 "hotspot_patch_report": str(hotspot_patch_report_path) if hotspot_patch_report is not None else None,
+                "sliver_cluster_report": str(sliver_cluster_report_path) if sliver_cluster_report is not None else None,
                 "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
@@ -5491,6 +6008,7 @@ def _apply_occ_external_flow_route(
             "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
             "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
             "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
+            "sliver_cluster_report": str(sliver_cluster_report_path) if sliver_cluster_report_path.exists() else None,
             "compound_report": str(compound_report_path) if compound_report is not None else None,
             "gmsh_log": str(gmsh_log_path),
             "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
