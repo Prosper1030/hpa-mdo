@@ -121,23 +121,27 @@ def _concept_to_bundle_payload(
     ]
     airfoil_templates = {
         zone_name: {
+            "template_id": f"{zone_name}-seed",
             "points": zone_data.get("points", []),
             "point_count": len(zone_data.get("points", [])),
         }
         for zone_name, zone_data in zone_requirements.items()
     }
     lofting_guides = {
-        "authority": "first_pass_orchestrator",
+        "authority": "cst_coefficients",
         "stations_per_half": len(stations),
         "zone_names": list(zone_requirements.keys()),
+        "interpolation_rule": "linear_in_coeff_space",
     }
     prop_assumption = {
+        "blade_count": 2,
+        "diameter_m": 3.0,
+        "rpm_range": [100.0, 160.0],
         "mode": "simplified",
-        "concept_index": concept_index,
-        "worker_result_count": len(worker_results),
     }
     worker_statuses = _worker_statuses(worker_results)
     concept_summary = {
+        "selected": True,
         "concept_id": f"concept-{concept_index:02d}",
         "rank": concept_index,
         "span_m": concept.span_m,
@@ -147,6 +151,10 @@ def _concept_to_bundle_payload(
         "worker_result_count": len(worker_results),
         "worker_backend": worker_backend,
         "worker_statuses": list(worker_statuses),
+        "launch": {"status": "stubbed_ok"},
+        "turn": {"status": "stubbed_ok"},
+        "trim": {"status": "stubbed_ok"},
+        "local_stall": {"status": "stubbed_ok"},
     }
     return (
         concept_config,

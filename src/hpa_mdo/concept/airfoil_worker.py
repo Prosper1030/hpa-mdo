@@ -105,13 +105,22 @@ class JuliaXFoilWorker:
             raise RuntimeError("Julia XFoil worker cache entries must be JSON objects.")
         if self._result_identity(cached_payload) != self._query_identity(query):
             raise RuntimeError("Julia XFoil worker cache entry did not match requested query identity.")
-        return cached_payload
+        return self._validate_success_status(cached_payload)
 
     def _write_cached_result(self, query: PolarQuery, result: dict[str, object]) -> None:
         self._cache_path(query).write_text(
             json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False),
             encoding="utf-8",
         )
+
+    def _validate_success_status(self, result: dict[str, object]) -> dict[str, object]:
+        status = result.get("status")
+        if status not in {"ok", "stubbed_ok"}:
+            raise RuntimeError(
+                "Julia/XFoil worker returned a non-success status: "
+                f"{status!r}. Expected 'ok' or 'stubbed_ok'."
+            )
+        return result
 
     def _build_scratch_paths(self) -> tuple[Path, Path]:
         token = uuid4().hex
@@ -176,8 +185,9 @@ class JuliaXFoilWorker:
                     raise RuntimeError(
                         "Julia XFoil worker response entry did not match requested query identity."
                     )
-                resolved_results[index] = item
-                self._write_cached_result(query, item)
+                validated_item = self._validate_success_status(item)
+                resolved_results[index] = validated_item
+                self._write_cached_result(query, validated_item)
 
         finalized_results: list[dict[str, object]] = []
         for item in resolved_results:

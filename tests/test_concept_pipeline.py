@@ -85,6 +85,53 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert summary["selected_concepts"][0]["worker_statuses"] == ["ok", "ok", "ok", "ok"]
 
 
+def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {"status": "stubbed_ok", "polar_points": [], "template_id": query.template_id}
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {"points": []},
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        },
+    )
+
+    bundle = result.selected_concept_dirs[0]
+    airfoil_templates = json.loads((bundle / "airfoil_templates.json").read_text(encoding="utf-8"))
+    prop_assumption = json.loads((bundle / "prop_assumption.json").read_text(encoding="utf-8"))
+    concept_summary = json.loads((bundle / "concept_summary.json").read_text(encoding="utf-8"))
+
+    assert (bundle / "concept_config.yaml").exists()
+    assert (bundle / "stations.csv").exists()
+    assert (bundle / "airfoil_templates.json").exists()
+    assert (bundle / "lofting_guides.json").exists()
+    assert (bundle / "prop_assumption.json").exists()
+    assert (bundle / "concept_summary.json").exists()
+    assert set(airfoil_templates) == {"root", "mid1", "mid2", "tip"}
+    assert all("template_id" in payload for payload in airfoil_templates.values())
+    assert all("points" in payload for payload in airfoil_templates.values())
+    assert prop_assumption["blade_count"] == 2
+    assert prop_assumption["diameter_m"] == 3.0
+    assert prop_assumption["rpm_range"] == [100.0, 160.0]
+    assert concept_summary["selected"] is True
+    assert concept_summary["launch"]["status"] == "stubbed_ok"
+    assert concept_summary["turn"]["status"] == "stubbed_ok"
+    assert concept_summary["trim"]["status"] == "stubbed_ok"
+    assert concept_summary["local_stall"]["status"] == "stubbed_ok"
+
+
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
     output_dir = tmp_path / "smoke"
     subprocess.run(
