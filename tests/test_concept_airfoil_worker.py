@@ -2,22 +2,67 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 
 import pytest
 
-from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker, PolarQuery
+from hpa_mdo.concept.airfoil_worker import (
+    JuliaXFoilWorker,
+    PolarQuery,
+    geometry_hash_from_coordinates,
+)
+
+
+def _sample_query(**overrides) -> PolarQuery:
+    coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.05),
+        (0.0, 0.0),
+        (0.5, -0.05),
+        (1.0, 0.0),
+    )
+    payload = {
+        "template_id": "root-v1",
+        "reynolds": 350000.0,
+        "cl_samples": (0.70, 0.75, 0.80),
+        "roughness_mode": "clean",
+        "geometry_hash": geometry_hash_from_coordinates(coordinates),
+        "coordinates": coordinates,
+    }
+    payload.update(overrides)
+    return PolarQuery(**payload)
 
 
 def test_worker_cache_key_is_stable_for_identical_query(tmp_path):
     worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
-    query = PolarQuery(
-        template_id="root-v1",
-        reynolds=350000.0,
-        cl_samples=(0.70, 0.75, 0.80),
-        roughness_mode="clean",
-    )
+    query = _sample_query()
 
     assert worker.cache_key(query) == worker.cache_key(query)
+
+
+def test_worker_cache_key_changes_when_geometry_hash_changes(tmp_path):
+    worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+
+    assert worker.cache_key(_sample_query()) != worker.cache_key(
+        _sample_query(
+            coordinates=(
+                (1.0, 0.0),
+                (0.5, 0.06),
+                (0.0, 0.0),
+                (0.5, -0.04),
+                (1.0, 0.0),
+            ),
+            geometry_hash=geometry_hash_from_coordinates(
+                (
+                    (1.0, 0.0),
+                    (0.5, 0.06),
+                    (0.0, 0.0),
+                    (0.5, -0.04),
+                    (1.0, 0.0),
+                )
+            ),
+        )
+    )
 
 
 def test_worker_raises_clear_error_when_julia_runtime_is_missing(tmp_path, monkeypatch):
@@ -25,16 +70,7 @@ def test_worker_raises_clear_error_when_julia_runtime_is_missing(tmp_path, monke
     monkeypatch.setattr(worker, "_resolve_julia", lambda: None)
 
     with pytest.raises(RuntimeError, match="Julia runtime not found"):
-        worker.run_queries(
-            [
-                PolarQuery(
-                    template_id="root-v1",
-                    reynolds=350000.0,
-                    cl_samples=(0.7,),
-                    roughness_mode="clean",
-                )
-            ]
-        )
+        worker.run_queries([_sample_query(cl_samples=(0.7,))])
 
 
 @pytest.mark.parametrize("project_dir_kind", ["repo_root", "worker_dir"])
@@ -54,6 +90,7 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
     cache_dir = tmp_path / "cache"
     worker = JuliaXFoilWorker(project_dir=project_dir, cache_dir=cache_dir)
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+    query = _sample_query(cl_samples=(0.7,))
 
     called = {}
 
@@ -65,12 +102,24 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
         response_path.write_text(
             json.dumps(
                 [
-                    {
-                        "template_id": "root-v1",
-                        "reynolds": 350000.0,
-                        "cl_samples": [0.7],
-                        "roughness_mode": "clean",
-                        "status": "stubbed_ok",
+                        {
+                            "template_id": "root-v1",
+                            "reynolds": 350000.0,
+                            "cl_samples": [0.7],
+                            "roughness_mode": "clean",
+                            "geometry_hash": query.geometry_hash,
+                            "status": "ok",
+                        "polar_points": [
+                            {
+                                "cl_target": 0.7,
+                                "alpha_deg": 4.2,
+                                "cl": 0.701,
+                                "cd": 0.021,
+                                "cdp": 0.015,
+                                "cm": -0.08,
+                                "converged": True,
+                            }
+                        ],
                     }
                 ]
             ),
@@ -79,16 +128,7 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
 
     monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
 
-    result = worker.run_queries(
-        [
-            PolarQuery(
-                template_id="root-v1",
-                reynolds=350000.0,
-                cl_samples=(0.7,),
-                roughness_mode="clean",
-            )
-        ]
-    )
+    result = worker.run_queries([query])
 
     assert called["check"] is True
     assert called["cwd"] == project_dir
@@ -106,7 +146,19 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
             "reynolds": 350000.0,
             "cl_samples": [0.7],
             "roughness_mode": "clean",
-            "status": "stubbed_ok",
+            "geometry_hash": query.geometry_hash,
+            "status": "ok",
+            "polar_points": [
+                {
+                    "cl_target": 0.7,
+                    "alpha_deg": 4.2,
+                    "cl": 0.701,
+                    "cd": 0.021,
+                    "cdp": 0.015,
+                    "cm": -0.08,
+                    "converged": True,
+                }
+            ],
         }
     ]
 
@@ -116,16 +168,7 @@ def test_worker_fails_fast_when_worker_project_cannot_be_resolved(tmp_path, monk
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     with pytest.raises(RuntimeError, match="Unable to resolve Julia XFoil worker project"):
-        worker.run_queries(
-            [
-                PolarQuery(
-                    template_id="root-v1",
-                    reynolds=350000.0,
-                    cl_samples=(0.7,),
-                    roughness_mode="clean",
-                )
-            ]
-        )
+        worker.run_queries([_sample_query(cl_samples=(0.7,))])
 
 
 def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
@@ -138,12 +181,7 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
     worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
-    query = PolarQuery(
-        template_id="root-v1",
-        reynolds=350000.0,
-        cl_samples=(0.7,),
-        roughness_mode="clean",
-    )
+    query = _sample_query(cl_samples=(0.7,))
     calls = {"count": 0}
 
     def fake_run(cmd, check, cwd):
@@ -156,7 +194,9 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
                         "reynolds": 350000.0,
                         "cl_samples": [0.7],
                         "roughness_mode": "clean",
-                        "status": "stubbed_ok",
+                        "geometry_hash": query.geometry_hash,
+                        "status": "ok",
+                        "polar_points": [{"cl_target": 0.7, "alpha_deg": 4.2, "cl": 0.701}],
                     }
                 ]
             ),
@@ -193,7 +233,9 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
                     "reynolds": 350000.0,
                     "cl_samples": [0.7],
                     "roughness_mode": "clean",
-                    "status": "stubbed_ok",
+                    "geometry_hash": "geom-root-v1",
+                    "status": "ok",
+                    "polar_points": [],
                 }
             ],
             "did not match requested query identity",
@@ -218,12 +260,7 @@ def test_worker_fails_fast_when_julia_response_does_not_match_uncached_queries(
     with pytest.raises(RuntimeError, match=error_match):
         worker.run_queries(
             [
-                PolarQuery(
-                    template_id="root-v1",
-                    reynolds=350000.0,
-                    cl_samples=(0.7,),
-                    roughness_mode="clean",
-                )
+                _sample_query(cl_samples=(0.7,))
             ]
         )
 
@@ -245,7 +282,9 @@ def test_worker_rejects_response_with_wrong_cl_samples_identity(tmp_path, monkey
                         "reynolds": 350000.0,
                         "cl_samples": [0.8],
                         "roughness_mode": "clean",
-                        "status": "stubbed_ok",
+                        "geometry_hash": "geom-root-v1",
+                        "status": "ok",
+                        "polar_points": [],
                     }
                 ]
             ),
@@ -257,11 +296,61 @@ def test_worker_rejects_response_with_wrong_cl_samples_identity(tmp_path, monkey
     with pytest.raises(RuntimeError, match="did not match requested query identity"):
         worker.run_queries(
             [
-                PolarQuery(
-                    template_id="root-v1",
-                    reynolds=350000.0,
-                    cl_samples=(0.7,),
-                    roughness_mode="clean",
-                )
+                _sample_query(cl_samples=(0.7,))
             ]
         )
+
+
+def test_worker_rejects_response_with_wrong_geometry_hash_identity(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    def fake_run(cmd, check, cwd):
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "cl_samples": [0.7],
+                        "roughness_mode": "clean",
+                        "geometry_hash": "geom-root-v2",
+                        "status": "ok",
+                        "polar_points": [],
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="did not match requested query identity"):
+        worker.run_queries([_sample_query(cl_samples=(0.7,))])
+
+
+def test_worker_rejects_query_with_geometry_hash_that_does_not_match_coordinates(tmp_path):
+    worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+
+    with pytest.raises(RuntimeError, match="geometry_hash did not match"):
+        worker.cache_key(
+            _sample_query(
+                geometry_hash="bad-hash",
+            )
+        )
+
+
+@pytest.mark.skipif(shutil.which("julia") is None, reason="Julia runtime not available")
+def test_real_julia_worker_returns_geometry_hash_and_polar_points(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    worker = JuliaXFoilWorker(project_dir=repo_root, cache_dir=tmp_path / "cache")
+
+    result = worker.run_queries([_sample_query(cl_samples=(0.7,))])
+
+    assert result[0]["status"] == "ok"
+    assert result[0]["geometry_hash"] == _sample_query(cl_samples=(0.7,)).geometry_hash
+    assert result[0]["polar_points"]

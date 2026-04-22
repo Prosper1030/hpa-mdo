@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import json
 import math
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from hpa_mdo.concept.airfoil_worker import PolarQuery
+from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
     GeometryConcept,
@@ -21,6 +22,9 @@ from hpa_mdo.concept.safety import (
     evaluate_trim_proxy,
     evaluate_turn_gate,
 )
+
+_ROOT_SEED_AIRFOIL = "fx76mp140"
+_TIP_SEED_AIRFOIL = "clarkysm"
 
 
 class SpanwiseLoadLoader(Protocol):
@@ -46,6 +50,54 @@ class ConceptPipelineResult:
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _airfoil_data_dir() -> Path:
+    return _repo_root() / "data" / "airfoils"
+
+
+@lru_cache(maxsize=None)
+def _load_seed_airfoil_coordinates(seed_name: str) -> tuple[tuple[float, float], ...]:
+    dat_path = _airfoil_data_dir() / f"{seed_name}.dat"
+    if not dat_path.is_file():
+        raise FileNotFoundError(f"Seed airfoil .dat file not found: {dat_path}")
+
+    coordinates: list[tuple[float, float]] = []
+    for line in dat_path.read_text(encoding="utf-8").splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        try:
+            coordinates.append((float(parts[0]), float(parts[1])))
+        except ValueError:
+            continue
+    if len(coordinates) < 3:
+        raise ValueError(f"Seed airfoil file {dat_path} did not contain enough coordinates.")
+    return tuple(coordinates)
+
+
+def _seed_airfoil_name(zone_name: str, zone_index: int, zone_count: int) -> str:
+    midpoint_fraction = _zone_midpoint_fraction(zone_name, zone_index, zone_count)
+    return _ROOT_SEED_AIRFOIL if midpoint_fraction <= 0.5 else _TIP_SEED_AIRFOIL
+
+
+def _build_seed_airfoil_templates(
+    zone_requirements: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    templates: dict[str, dict[str, Any]] = {}
+    zone_items = list(zone_requirements.items())
+    for zone_index, (zone_name, zone_data) in enumerate(zone_items):
+        seed_name = _seed_airfoil_name(zone_name, zone_index, len(zone_items))
+        coordinates = _load_seed_airfoil_coordinates(seed_name)
+        templates[zone_name] = {
+            "template_id": f"{zone_name}-seed",
+            "seed_name": seed_name,
+            "geometry_hash": geometry_hash_from_coordinates(coordinates),
+            "coordinates": [list(point) for point in coordinates],
+            "points": zone_data.get("points", []),
+            "point_count": len(zone_data.get("points", [])),
+        }
+    return templates
 
 
 def _default_spanwise_loader(
@@ -313,6 +365,7 @@ def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
                     "reynolds": query.reynolds,
                     "cl_samples": list(query.cl_samples),
                     "roughness_mode": query.roughness_mode,
+                    "geometry_hash": query.geometry_hash,
                     "status": "stubbed_ok",
                 }
                 for query in queries
@@ -339,6 +392,7 @@ def _concept_to_bundle_payload(
     concept: GeometryConcept,
     stations: tuple[WingStation, ...],
     zone_requirements: dict[str, dict[str, Any]],
+    airfoil_templates: dict[str, dict[str, Any]],
     worker_results: list[dict[str, object]],
     worker_backend: str,
     concept_index: int,
@@ -372,14 +426,6 @@ def _concept_to_bundle_payload(
         }
         for station in stations
     ]
-    airfoil_templates = {
-        zone_name: {
-            "template_id": f"{zone_name}-seed",
-            "points": zone_data.get("points", []),
-            "point_count": len(zone_data.get("points", [])),
-        }
-        for zone_name, zone_data in zone_requirements.items()
-    }
     lofting_guides = {
         "authority": "cst_coefficients",
         "stations_per_half": len(stations),
@@ -449,6 +495,7 @@ def run_birdman_concept_pipeline(
             stations_per_half=cfg.pipeline.stations_per_half,
         )
         zone_requirements = spanwise_loader(concept, stations)
+        airfoil_templates = _build_seed_airfoil_templates(zone_requirements)
         station_points = _flatten_zone_points(zone_requirements, stations)
         station_points = _attach_cl_max_proxies(
             station_points,
@@ -475,13 +522,19 @@ def run_birdman_concept_pipeline(
         )
         worker_queries: list[PolarQuery] = []
         for zone_name, zone_data in zone_requirements.items():
+            airfoil_template = airfoil_templates[zone_name]
+            coordinates = tuple(
+                (float(point[0]), float(point[1])) for point in airfoil_template["coordinates"]
+            )
             for point_index, point in enumerate(zone_data.get("points", []), start=1):
                 worker_queries.append(
                     PolarQuery(
-                        template_id=f"{zone_name}-template-{point_index:02d}",
+                        template_id=f"{airfoil_template['template_id']}-{point_index:02d}",
                         reynolds=float(point["reynolds"]),
                         cl_samples=(float(point["cl_target"]),),
                         roughness_mode="clean",
+                        geometry_hash=str(airfoil_template["geometry_hash"]),
+                        coordinates=coordinates,
                     )
                 )
 
@@ -498,6 +551,7 @@ def run_birdman_concept_pipeline(
             concept=concept,
             stations=stations,
             zone_requirements=zone_requirements,
+            airfoil_templates=airfoil_templates,
             worker_results=worker_results,
             worker_backend=worker_backend,
             concept_index=concept_index,

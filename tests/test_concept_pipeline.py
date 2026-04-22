@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 import subprocess
 
 import yaml
 import pytest
 
+from hpa_mdo.concept import pipeline as concept_pipeline
 from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
@@ -133,6 +135,10 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     assert set(airfoil_templates) == {"root", "mid1", "mid2", "tip"}
     assert all("template_id" in payload for payload in airfoil_templates.values())
     assert all("points" in payload for payload in airfoil_templates.values())
+    assert airfoil_templates["root"]["seed_name"] == "fx76mp140"
+    assert airfoil_templates["tip"]["seed_name"] == "clarkysm"
+    assert len(airfoil_templates["root"]["coordinates"]) > 20
+    assert len(airfoil_templates["tip"]["coordinates"]) > 20
     assert prop_assumption["blade_count"] == 2
     assert prop_assumption["diameter_m"] == 3.0
     assert prop_assumption["rpm_range"] == [100.0, 160.0]
@@ -153,6 +159,33 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     assert isinstance(concept_summary["turn"]["required_cl"], float)
     assert isinstance(concept_summary["trim"]["margin_deg"], float)
     assert isinstance(concept_summary["local_stall"]["min_margin"], float)
+
+
+def test_seed_airfoil_loader_accepts_headerless_selig_dat(tmp_path, monkeypatch) -> None:
+    airfoil_dir = tmp_path / "airfoils"
+    airfoil_dir.mkdir()
+    (airfoil_dir / "headerless.dat").write_text(
+        "\n".join(
+            [
+                "1.0 0.0",
+                "0.5 0.05",
+                "0.0 0.0",
+                "0.5 -0.05",
+                "1.0 0.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(concept_pipeline, "_airfoil_data_dir", lambda: airfoil_dir)
+    concept_pipeline._load_seed_airfoil_coordinates.cache_clear()
+    try:
+        coordinates = concept_pipeline._load_seed_airfoil_coordinates("headerless")
+    finally:
+        concept_pipeline._load_seed_airfoil_coordinates.cache_clear()
+
+    assert coordinates[0] == pytest.approx((1.0, 0.0))
+    assert len(coordinates) == 5
 
 
 def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
@@ -284,6 +317,8 @@ def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
             "configs/birdman_upstream_concept_baseline.yaml",
             "--output-dir",
             str(output_dir),
+            "--worker-mode",
+            "stubbed",
         ],
         check=True,
         cwd=Path(__file__).resolve().parents[1],
@@ -292,6 +327,30 @@ def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
     summary = json.loads((output_dir / "concept_summary.json").read_text(encoding="utf-8"))
     assert summary["worker_backend"] == "cli_stubbed"
     assert summary["selected_concepts"]
+
+
+@pytest.mark.skipif(shutil.which("julia") is None, reason="Julia runtime not available")
+def test_cli_smoke_can_use_real_julia_worker(tmp_path: Path) -> None:
+    output_dir = tmp_path / "smoke_julia"
+    subprocess.run(
+        [
+            "../../.venv/bin/python",
+            "scripts/birdman_upstream_concept_design.py",
+            "--config",
+            "configs/birdman_upstream_concept_baseline.yaml",
+            "--output-dir",
+            str(output_dir),
+            "--worker-mode",
+            "julia",
+        ],
+        check=True,
+        cwd=Path(__file__).resolve().parents[1],
+    )
+
+    summary = json.loads((output_dir / "concept_summary.json").read_text(encoding="utf-8"))
+    assert summary["worker_backend"] == "julia_xfoil"
+    assert summary["selected_concepts"]
+    assert all(status == "ok" for status in summary["worker_statuses"])
 
 
 def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_path: Path) -> None:

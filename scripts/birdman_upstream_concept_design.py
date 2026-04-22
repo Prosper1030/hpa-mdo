@@ -13,6 +13,7 @@ if str(SRC_DIR) not in sys.path:
 
 
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline  # noqa: E402
+from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker  # noqa: E402
 
 
 def _cli_spanwise_loader(concept, stations):
@@ -58,12 +59,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Birdman upstream concept design smoke.")
     parser.add_argument("--config", required=True, help="Path to the concept YAML config.")
     parser.add_argument("--output-dir", required=True, help="Directory for generated artifacts.")
+    parser.add_argument(
+        "--worker-mode",
+        choices=("julia", "stubbed"),
+        default="julia",
+        help="Choose the airfoil-worker backend for the concept smoke run.",
+    )
     args = parser.parse_args()
+
+    airfoil_worker_factory = (
+        JuliaXFoilWorker if args.worker_mode == "julia" else _cli_airfoil_worker_factory
+    )
 
     run_birdman_concept_pipeline(
         config_path=Path(args.config).expanduser().resolve(),
         output_dir=Path(args.output_dir).expanduser().resolve(),
-        airfoil_worker_factory=_cli_airfoil_worker_factory,
+        airfoil_worker_factory=airfoil_worker_factory,
         spanwise_loader=_cli_spanwise_loader,
     )
 

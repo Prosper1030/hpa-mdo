@@ -15,6 +15,34 @@ class PolarQuery:
     reynolds: float
     cl_samples: tuple[float, ...]
     roughness_mode: str
+    geometry_hash: str
+    coordinates: tuple[tuple[float, float], ...]
+
+
+def _normalize_coordinates(
+    coordinates: object,
+) -> tuple[tuple[float, float], ...]:
+    if not isinstance(coordinates, list | tuple):
+        raise RuntimeError("Airfoil coordinates must be a JSON-compatible array of [x, y] pairs.")
+
+    normalized: list[tuple[float, float]] = []
+    for point in coordinates:
+        if not isinstance(point, list | tuple) or len(point) != 2:
+            raise RuntimeError("Airfoil coordinates entries must be [x, y] pairs.")
+        x_value, y_value = point
+        if not isinstance(x_value, int | float) or not isinstance(y_value, int | float):
+            raise RuntimeError("Airfoil coordinates entries must be numeric.")
+        normalized.append((float(x_value), float(y_value)))
+
+    if len(normalized) < 3:
+        raise RuntimeError("Airfoil coordinates must contain at least three points.")
+    return tuple(normalized)
+
+
+def geometry_hash_from_coordinates(coordinates: object) -> str:
+    normalized = _normalize_coordinates(coordinates)
+    encoded = json.dumps(normalized, sort_keys=False, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
 
 
 class JuliaXFoilWorker:
@@ -31,6 +59,7 @@ class JuliaXFoilWorker:
             "reynolds": query.reynolds,
             "cl_samples": list(query.cl_samples),
             "roughness_mode": query.roughness_mode,
+            "geometry_hash": self._validated_geometry_hash(query),
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
@@ -69,23 +98,35 @@ class JuliaXFoilWorker:
             normalized_samples.append(float(value))
         return tuple(normalized_samples)
 
-    def _query_identity(self, query: PolarQuery) -> tuple[str, float, tuple[float, ...], str]:
+    def _validated_geometry_hash(self, query: PolarQuery) -> str:
+        derived_hash = geometry_hash_from_coordinates(query.coordinates)
+        if query.geometry_hash != derived_hash:
+            raise RuntimeError(
+                "PolarQuery geometry_hash did not match the provided airfoil coordinates."
+            )
+        return derived_hash
+
+    def _query_identity(self, query: PolarQuery) -> tuple[str, float, tuple[float, ...], str, str]:
         return (
             query.template_id,
             float(query.reynolds),
             tuple(float(value) for value in query.cl_samples),
             query.roughness_mode,
+            self._validated_geometry_hash(query),
         )
 
-    def _result_identity(self, result: dict[str, object]) -> tuple[str, float, tuple[float, ...], str]:
+    def _result_identity(self, result: dict[str, object]) -> tuple[str, float, tuple[float, ...], str, str]:
         template_id = result.get("template_id")
         reynolds = result.get("reynolds")
         cl_samples = result.get("cl_samples")
         roughness_mode = result.get("roughness_mode")
+        geometry_hash = result.get("geometry_hash")
         if not isinstance(template_id, str):
             raise RuntimeError("Julia XFoil worker response is missing a valid template_id.")
         if not isinstance(roughness_mode, str):
             raise RuntimeError("Julia XFoil worker response is missing a valid roughness_mode.")
+        if not isinstance(geometry_hash, str):
+            raise RuntimeError("Julia XFoil worker response is missing a valid geometry_hash.")
         if not isinstance(reynolds, int | float):
             raise RuntimeError("Julia XFoil worker response is missing a valid reynolds value.")
         return (
@@ -93,6 +134,7 @@ class JuliaXFoilWorker:
             float(reynolds),
             self._normalize_cl_samples(cl_samples),
             roughness_mode,
+            geometry_hash,
         )
 
     def _load_cached_result(self, query: PolarQuery) -> dict[str, object] | None:
