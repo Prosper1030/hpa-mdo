@@ -41,6 +41,9 @@ def evaluate_launch_gate(
     if cl_available <= 0.0:
         raise ValueError("cl_available must be positive.")
 
+    # The current launch gate works on CL terms that were already computed from a
+    # chosen speed upstream. We keep speed_mps in the contract for later envelope
+    # models even though Task 5 does not use it directly here.
     ground_effect_applied = bool(use_ground_effect and platform_height_m > 0.0)
     adjusted_cl_required = float(cl_required)
     if ground_effect_applied:
@@ -79,6 +82,9 @@ def evaluate_turn_gate(
     if cl_max <= 0.0:
         raise ValueError("cl_max must be positive.")
 
+    # Like the launch gate, this MVP consumes an upstream CL state. The speed is
+    # retained on the API surface so later turn-envelope refinements can use it
+    # without changing the pipeline contract.
     load_factor = 1.0 / math.cos(math.radians(float(bank_angle_deg)))
     required_cl = float(cl_level) * load_factor
     stall_margin = float(cl_max) - required_cl

@@ -6,6 +6,10 @@ import math
 
 @dataclass(frozen=True)
 class SimplifiedPropModel:
+    # Diameter and RPM bounds are preserved on the concept artifact surface so later
+    # tasks can hand them off to richer prop models. Task 5 keeps the actual
+    # efficiency estimate intentionally coarse and tied only to the current
+    # speed/power operating point.
     diameter_m: float
     rpm_min: float
     rpm_max: float
@@ -20,10 +24,6 @@ class SimplifiedPropModel:
             raise ValueError("rpm_max must be greater than rpm_min.")
         if not 0.0 < self.design_efficiency <= 1.0:
             raise ValueError("design_efficiency must be in the interval (0, 1].")
-
-    @property
-    def _mean_rpm(self) -> float:
-        return 0.5 * (float(self.rpm_min) + float(self.rpm_max))
 
     def efficiency(self, *, speed_mps: float, shaft_power_w: float) -> float:
         if speed_mps < 0.0:

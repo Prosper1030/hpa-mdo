@@ -42,6 +42,22 @@ def test_launch_gate_applies_ground_effect_and_can_pass():
     assert result.reason == "ok"
 
 
+def test_launch_gate_reports_generic_failure_reason():
+    result = evaluate_launch_gate(
+        platform_height_m=10.0,
+        wing_span_m=32.0,
+        speed_mps=8.0,
+        cl_required=1.05,
+        cl_available=0.95,
+        trim_margin_deg=2.0,
+        use_ground_effect=False,
+    )
+
+    assert result.ground_effect_applied is False
+    assert result.feasible is False
+    assert result.reason == "launch_cl_or_trim_insufficient"
+
+
 def test_turn_gate_rejects_insufficient_stall_margin():
     result = evaluate_turn_gate(
         bank_angle_deg=15.0,
