@@ -93,10 +93,53 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert "turn" in summary["selected_concepts"][0]
     assert "trim" in summary["selected_concepts"][0]
     assert "local_stall" in summary["selected_concepts"][0]
+    assert "spanwise_requirements" in summary["selected_concepts"][0]
     assert isinstance(summary["selected_concepts"][0]["launch"]["cl_required"], float)
     assert isinstance(summary["selected_concepts"][0]["turn"]["required_cl"], float)
     assert isinstance(summary["selected_concepts"][0]["trim"]["margin_deg"], float)
     assert isinstance(summary["selected_concepts"][0]["local_stall"]["min_margin"], float)
+
+
+def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path) -> None:
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {"status": "stubbed_ok", "polar_points": [], "template_id": query.template_id}
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "source": "fallback_coarse_loader",
+                "fallback_reason": "avl failed",
+                "points": [
+                    {
+                        "reynolds": 350000.0,
+                        "cl_target": 0.75,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+            },
+            "mid1": {"source": "fallback_coarse_loader", "fallback_reason": "avl failed", "points": []},
+            "mid2": {"source": "fallback_coarse_loader", "fallback_reason": "avl failed", "points": []},
+            "tip": {"source": "fallback_coarse_loader", "fallback_reason": "avl failed", "points": []},
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    spanwise_summary = summary["selected_concepts"][0]["spanwise_requirements"]
+
+    assert spanwise_summary["unique_sources"] == ["fallback_coarse_loader"]
+    assert spanwise_summary["fallback_detected"] is True
+    assert spanwise_summary["fallback_reasons"] == ["avl failed"]
 
 
 def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:

@@ -866,6 +866,38 @@ def _concept_safety_margin(
     return min(launch_margin, turn_margin, local_margin, trim_margin)
 
 
+def _summarize_spanwise_requirements(
+    zone_requirements: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    sources = sorted(
+        {
+            str(zone_data.get("source", "unknown"))
+            for zone_data in zone_requirements.values()
+        }
+    )
+    fallback_reasons = sorted(
+        {
+            str(zone_data["fallback_reason"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("fallback_reason")
+        }
+    )
+    reference_condition_policies = sorted(
+        {
+            str(zone_data["reference_condition_policy"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("reference_condition_policy")
+        }
+    )
+    return {
+        "zone_count": len(zone_requirements),
+        "unique_sources": sources,
+        "fallback_detected": any(source.startswith("fallback") for source in sources),
+        "fallback_reasons": fallback_reasons,
+        "reference_condition_policies": reference_condition_policies,
+    }
+
+
 def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
     class _NoopWorker:
         backend_name = "python_stubbed"
@@ -916,6 +948,7 @@ def _concept_to_bundle_payload(
     local_stall_summary: dict[str, Any],
     mission_summary: dict[str, Any],
     ranking_summary: dict[str, Any],
+    spanwise_requirement_summary: dict[str, Any],
 ) -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
@@ -980,6 +1013,7 @@ def _concept_to_bundle_payload(
         "turn": turn_summary,
         "trim": trim_summary,
         "local_stall": local_stall_summary,
+        "spanwise_requirements": spanwise_requirement_summary,
         "mission": mission_summary,
         "ranking": ranking_summary,
     }
@@ -1119,6 +1153,7 @@ def run_birdman_concept_pipeline(
             "ranking_basis": "airfoil_informed_mission_proxy_v1",
             "selection_scope": "ranked_bounded_prefix_pool",
         }
+        spanwise_requirement_summary = _summarize_spanwise_requirements(record.zone_requirements)
         (
             concept_config,
             stations_rows,
@@ -1143,6 +1178,7 @@ def run_birdman_concept_pipeline(
             local_stall_summary=record.local_stall_summary,
             mission_summary=record.mission_summary,
             ranking_summary=ranking_summary,
+            spanwise_requirement_summary=spanwise_requirement_summary,
         )
 
         bundle_dir: Path | None = None
@@ -1179,6 +1215,7 @@ def run_birdman_concept_pipeline(
                 "turn": record.turn_summary,
                 "trim": record.trim_summary,
                 "local_stall": record.local_stall_summary,
+                "spanwise_requirements": spanwise_requirement_summary,
                 "mission": record.mission_summary,
                 "ranking": ranking_summary,
             }

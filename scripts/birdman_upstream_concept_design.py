@@ -14,6 +14,8 @@ if str(SRC_DIR) not in sys.path:
 
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline  # noqa: E402
 from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker  # noqa: E402
+from hpa_mdo.concept.avl_loader import build_avl_backed_spanwise_loader  # noqa: E402
+from hpa_mdo.concept.config import load_concept_config  # noqa: E402
 
 
 def _cli_spanwise_loader(concept, stations):
@@ -70,12 +72,18 @@ def main() -> None:
     airfoil_worker_factory = (
         JuliaXFoilWorker if args.worker_mode == "julia" else _cli_airfoil_worker_factory
     )
+    cfg = load_concept_config(Path(args.config).expanduser().resolve())
+    spanwise_loader = build_avl_backed_spanwise_loader(
+        cfg=cfg,
+        working_root=Path(args.output_dir).expanduser().resolve() / "avl_cases",
+        fallback_loader=_cli_spanwise_loader,
+    )
 
     run_birdman_concept_pipeline(
         config_path=Path(args.config).expanduser().resolve(),
         output_dir=Path(args.output_dir).expanduser().resolve(),
         airfoil_worker_factory=airfoil_worker_factory,
-        spanwise_loader=_cli_spanwise_loader,
+        spanwise_loader=spanwise_loader,
     )
 
 
