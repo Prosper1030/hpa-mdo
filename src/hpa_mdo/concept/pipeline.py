@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
@@ -14,6 +15,12 @@ from hpa_mdo.concept.geometry import (
     enumerate_geometry_concepts,
 )
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
+from hpa_mdo.concept.safety import (
+    evaluate_launch_gate,
+    evaluate_local_stall,
+    evaluate_trim_proxy,
+    evaluate_turn_gate,
+)
 
 
 class SpanwiseLoadLoader(Protocol):
@@ -63,6 +70,239 @@ def _default_spanwise_loader(
     return zone_payload
 
 
+def _air_density_from_environment(cfg: BirdmanConceptConfig) -> float:
+    """Approximate humid-air density from the configured environment."""
+
+    temp_c = float(cfg.environment.temperature_c)
+    temp_k = temp_c + 273.15
+    altitude_m = float(cfg.environment.altitude_m)
+    relative_humidity = max(0.0, min(1.0, float(cfg.environment.relative_humidity) / 100.0))
+
+    pressure_pa = 101325.0 * (1.0 - 2.25577e-5 * altitude_m) ** 5.25588
+    saturation_vapor_pa = 610.94 * math.exp((17.625 * temp_c) / (temp_c + 243.04))
+    vapor_pa = relative_humidity * saturation_vapor_pa
+    dry_pa = max(0.0, pressure_pa - vapor_pa)
+    return dry_pa / (287.058 * temp_k) + vapor_pa / (461.495 * temp_k)
+
+
+def _zone_midpoint_fraction(zone_name: str, zone_index: int, zone_count: int) -> float:
+    named_defaults = {
+        "root": 0.125,
+        "mid1": 0.40,
+        "mid2": 0.675,
+        "tip": 0.90,
+    }
+    if zone_name in named_defaults:
+        return named_defaults[zone_name]
+    if zone_count <= 0:
+        return 0.5
+    return (zone_index + 0.5) / float(zone_count)
+
+
+def _flatten_zone_points(
+    zone_requirements: dict[str, dict[str, Any]],
+    stations: tuple[WingStation, ...],
+) -> list[dict[str, float]]:
+    """Flatten zone targets into station-like safety points.
+
+    The zone loader may or may not provide explicit station locations. When the
+    location is omitted we place the point at the center of its zone, using the
+    current station layout as the span reference.
+    """
+
+    if not zone_requirements:
+        raise ValueError("zone_requirements must not be empty.")
+
+    half_span_m = float(stations[-1].y_m) if stations else 0.0
+    zone_items = list(zone_requirements.items())
+    flattened: list[dict[str, float]] = []
+
+    for zone_index, (zone_name, zone_data) in enumerate(zone_items):
+        points = zone_data.get("points", [])
+        for point_index, point in enumerate(points):
+            if "cl_target" not in point or "cm_target" not in point:
+                raise ValueError("zone point entries must include cl_target and cm_target.")
+            station_y_m = point.get("station_y_m")
+            if station_y_m is None:
+                station_y_m = (
+                    _zone_midpoint_fraction(zone_name, zone_index, len(zone_items)) * half_span_m
+                )
+            flattened.append(
+                {
+                    "zone_index": float(zone_index),
+                    "point_index": float(point_index),
+                    "station_y_m": float(station_y_m),
+                    "cl_target": float(point["cl_target"]),
+                    "cm_target": float(point["cm_target"]),
+                    "weight": float(point.get("weight", 1.0)),
+                    "reynolds": float(point.get("reynolds", 0.0)),
+                }
+            )
+
+    if flattened:
+        return flattened
+
+    if not stations:
+        raise ValueError("zone_requirements must contain at least one point or stations must exist.")
+
+    # Honest fallback when the loader does not provide zone targets. The current
+    # concept geometry still drives a coarse spanwise load shape instead of a
+    # hard-coded stub.
+    fallback: list[dict[str, float]] = []
+    for station in stations:
+        eta = 0.0 if half_span_m <= 0.0 else float(station.y_m) / half_span_m
+        fallback.append(
+            {
+                "zone_index": 0.0,
+                "point_index": float(len(fallback)),
+                "station_y_m": float(station.y_m),
+                "cl_target": 0.72 - 0.14 * eta + 0.02 * (1.0 - eta),
+                "cm_target": -0.09 - 0.03 * eta,
+                "weight": 1.0,
+                "reynolds": 0.0,
+            }
+        )
+    return fallback
+
+
+def _attach_cl_max_proxies(
+    station_points: list[dict[str, float]],
+    *,
+    half_span_m: float,
+    concept: GeometryConcept,
+) -> list[dict[str, float]]:
+    enriched: list[dict[str, float]] = []
+    span_ratio = 0.0 if concept.span_m <= 0.0 else concept.span_m / max(concept.wing_area_m2, 1.0)
+    twist_delta = abs(concept.twist_tip_deg - concept.twist_root_deg)
+
+    for point in station_points:
+        eta = 0.0 if half_span_m <= 0.0 else min(max(point["station_y_m"] / half_span_m, 0.0), 1.0)
+        cl_headroom = 0.24 - 0.09 * eta - 0.015 * (twist_delta / 5.0) + 0.01 * min(span_ratio, 1.2)
+        cl_headroom = min(max(cl_headroom, 0.08), 0.30)
+        enriched.append({**point, "cl_max_proxy": point["cl_target"] + cl_headroom})
+    return enriched
+
+
+def _summarize_launch(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    station_points: list[dict[str, float]],
+    trim_result,
+    air_density_kg_per_m3: float,
+) -> tuple[dict[str, Any], float, float]:
+    q_pa = 0.5 * air_density_kg_per_m3 * float(cfg.launch.release_speed_mps) ** 2
+    gross_mass_kg = float(cfg.mass.gross_mass_sweep_kg[len(cfg.mass.gross_mass_sweep_kg) // 2])
+    cl_required = (gross_mass_kg * 9.80665) / max(q_pa * concept.wing_area_m2, 1.0e-9)
+    cl_available = min(point["cl_max_proxy"] for point in station_points)
+
+    launch_result = evaluate_launch_gate(
+        platform_height_m=cfg.launch.platform_height_m,
+        wing_span_m=concept.span_m,
+        speed_mps=cfg.launch.release_speed_mps,
+        cl_required=cl_required,
+        cl_available=cl_available,
+        trim_margin_deg=trim_result.margin_deg,
+        required_trim_margin_deg=cfg.launch.min_trim_margin_deg,
+        use_ground_effect=cfg.launch.use_ground_effect,
+    )
+    return (
+        {
+            "status": launch_result.reason,
+            "feasible": launch_result.feasible,
+            "ground_effect_applied": launch_result.ground_effect_applied,
+            "adjusted_cl_required": launch_result.adjusted_cl_required,
+            "cl_required": cl_required,
+            "cl_available": cl_available,
+            "trim_margin_deg": trim_result.margin_deg,
+            "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
+            "release_speed_mps": cfg.launch.release_speed_mps,
+            "air_density_kg_per_m3": air_density_kg_per_m3,
+            "gross_mass_kg": gross_mass_kg,
+            "dynamic_pressure_pa": q_pa,
+        },
+        cl_required,
+        cl_available,
+    )
+
+
+def _summarize_turn(
+    *,
+    cfg: BirdmanConceptConfig,
+    station_points: list[dict[str, float]],
+    trim_result,
+) -> dict[str, Any]:
+    representative_cl = sum(point["cl_target"] * point.get("weight", 1.0) for point in station_points)
+    total_weight = sum(point.get("weight", 1.0) for point in station_points) or 1.0
+    representative_cl /= total_weight
+    cl_max = min(point["cl_max_proxy"] for point in station_points)
+
+    turn_result = evaluate_turn_gate(
+        bank_angle_deg=cfg.turn.required_bank_angle_deg,
+        speed_mps=cfg.launch.release_speed_mps,
+        cl_level=representative_cl,
+        cl_max=cl_max,
+        trim_feasible=trim_result.feasible,
+        required_stall_margin=cfg.launch.min_stall_margin,
+    )
+    return {
+        "status": turn_result.reason,
+        "feasible": turn_result.feasible,
+        "bank_angle_deg": cfg.turn.required_bank_angle_deg,
+        "speed_mps": cfg.launch.release_speed_mps,
+        "cl_level": representative_cl,
+        "required_cl": turn_result.required_cl,
+        "cl_max": cl_max,
+        "stall_margin": turn_result.stall_margin,
+        "required_stall_margin": cfg.launch.min_stall_margin,
+        "trim_feasible": trim_result.feasible,
+    }
+
+
+def _summarize_trim(
+    *,
+    cfg: BirdmanConceptConfig,
+    station_points: list[dict[str, float]],
+) -> tuple[dict[str, Any], Any]:
+    total_weight = sum(point.get("weight", 1.0) for point in station_points) or 1.0
+    representative_cm = sum(
+        point["cm_target"] * point.get("weight", 1.0) for point in station_points
+    ) / total_weight
+    trim_result = evaluate_trim_proxy(
+        representative_cm=representative_cm,
+        required_margin_deg=cfg.launch.min_trim_margin_deg,
+    )
+    return {
+        "status": trim_result.reason,
+        "feasible": trim_result.feasible,
+        "representative_cm": representative_cm,
+        "margin_deg": trim_result.margin_deg,
+        "required_margin_deg": trim_result.required_margin_deg,
+        "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
+    }, trim_result
+
+
+def _summarize_local_stall(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    station_points: list[dict[str, float]],
+) -> dict[str, Any]:
+    local_stall_result = evaluate_local_stall(
+        station_points=station_points,
+        half_span_m=0.5 * concept.span_m,
+        required_stall_margin=cfg.launch.min_stall_margin,
+    )
+    return {
+        "status": local_stall_result.reason,
+        "feasible": local_stall_result.feasible,
+        "min_margin": local_stall_result.min_margin,
+        "min_margin_station_y_m": local_stall_result.min_margin_station_y_m,
+        "tip_critical": local_stall_result.tip_critical,
+        "required_stall_margin": cfg.launch.min_stall_margin,
+    }
+
+
 def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
     class _NoopWorker:
         backend_name = "python_stubbed"
@@ -103,6 +343,10 @@ def _concept_to_bundle_payload(
     worker_results: list[dict[str, object]],
     worker_backend: str,
     concept_index: int,
+    launch_summary: dict[str, Any],
+    turn_summary: dict[str, Any],
+    trim_summary: dict[str, Any],
+    local_stall_summary: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     concept_config = cfg.model_dump(mode="python")
     concept_config["geometry"] = {
@@ -162,10 +406,10 @@ def _concept_to_bundle_payload(
         "worker_result_count": len(worker_results),
         "worker_backend": worker_backend,
         "worker_statuses": list(worker_statuses),
-        "launch": {"status": "stubbed_ok"},
-        "turn": {"status": "stubbed_ok"},
-        "trim": {"status": "stubbed_ok"},
-        "local_stall": {"status": "stubbed_ok"},
+        "launch": launch_summary,
+        "turn": turn_summary,
+        "trim": trim_summary,
+        "local_stall": local_stall_summary,
     }
     return (
         concept_config,
@@ -206,6 +450,30 @@ def run_birdman_concept_pipeline(
             stations_per_half=cfg.pipeline.stations_per_half,
         )
         zone_requirements = spanwise_loader(concept, stations)
+        station_points = _flatten_zone_points(zone_requirements, stations)
+        station_points = _attach_cl_max_proxies(
+            station_points,
+            half_span_m=0.5 * concept.span_m,
+            concept=concept,
+        )
+        trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
+        launch_summary, _, _ = _summarize_launch(
+            cfg=cfg,
+            concept=concept,
+            station_points=station_points,
+            trim_result=trim_result,
+            air_density_kg_per_m3=_air_density_from_environment(cfg),
+        )
+        turn_summary = _summarize_turn(
+            cfg=cfg,
+            station_points=station_points,
+            trim_result=trim_result,
+        )
+        local_stall_summary = _summarize_local_stall(
+            cfg=cfg,
+            concept=concept,
+            station_points=station_points,
+        )
         worker_queries: list[PolarQuery] = []
         for zone_name, zone_data in zone_requirements.items():
             for point_index, point in enumerate(zone_data.get("points", []), start=1):
@@ -234,6 +502,10 @@ def run_birdman_concept_pipeline(
             worker_results=worker_results,
             worker_backend=worker_backend,
             concept_index=concept_index,
+            launch_summary=launch_summary,
+            turn_summary=turn_summary,
+            trim_summary=trim_summary,
+            local_stall_summary=local_stall_summary,
         )
         concept_worker_statuses = list(concept_summary["worker_statuses"])
         summary_worker_statuses.extend(concept_worker_statuses)
@@ -262,6 +534,10 @@ def run_birdman_concept_pipeline(
                 "worker_result_count": len(worker_results),
                 "worker_backend": worker_backend,
                 "worker_statuses": concept_worker_statuses,
+                "launch": launch_summary,
+                "turn": turn_summary,
+                "trim": trim_summary,
+                "local_stall": local_stall_summary,
             }
         )
 

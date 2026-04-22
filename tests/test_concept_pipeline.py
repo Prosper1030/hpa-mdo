@@ -85,6 +85,14 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert all(status == "ok" for status in summary["worker_statuses"])
     assert summary["selected_concepts"][0]["worker_backend"] == "test_stub"
     assert summary["selected_concepts"][0]["worker_statuses"] == ["ok", "ok", "ok", "ok"]
+    assert "launch" in summary["selected_concepts"][0]
+    assert "turn" in summary["selected_concepts"][0]
+    assert "trim" in summary["selected_concepts"][0]
+    assert "local_stall" in summary["selected_concepts"][0]
+    assert isinstance(summary["selected_concepts"][0]["launch"]["cl_required"], float)
+    assert isinstance(summary["selected_concepts"][0]["turn"]["required_cl"], float)
+    assert isinstance(summary["selected_concepts"][0]["trim"]["margin_deg"], float)
+    assert isinstance(summary["selected_concepts"][0]["local_stall"]["min_margin"], float)
 
 
 def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
@@ -128,10 +136,22 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     assert prop_assumption["diameter_m"] == 3.0
     assert prop_assumption["rpm_range"] == [100.0, 160.0]
     assert concept_summary["selected"] is True
-    assert concept_summary["launch"]["status"] == "stubbed_ok"
-    assert concept_summary["turn"]["status"] == "stubbed_ok"
-    assert concept_summary["trim"]["status"] == "stubbed_ok"
-    assert concept_summary["local_stall"]["status"] == "stubbed_ok"
+    assert concept_summary["launch"]["status"] in {
+        "ok",
+        "launch_cl_insufficient",
+        "trim_margin_insufficient",
+    }
+    assert concept_summary["turn"]["status"] in {
+        "ok",
+        "stall_margin_insufficient",
+        "trim_not_feasible",
+    }
+    assert concept_summary["trim"]["status"] in {"ok", "trim_margin_insufficient"}
+    assert concept_summary["local_stall"]["status"] in {"ok", "stall_margin_insufficient"}
+    assert isinstance(concept_summary["launch"]["cl_required"], float)
+    assert isinstance(concept_summary["turn"]["required_cl"], float)
+    assert isinstance(concept_summary["trim"]["margin_deg"], float)
+    assert isinstance(concept_summary["local_stall"]["min_margin"], float)
 
 
 def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:
@@ -163,6 +183,7 @@ def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path
         item["worker_statuses"] == ["stubbed_ok"]
         for item in summary["selected_concepts"]
     )
+    assert all("launch" in item and "turn" in item for item in summary["selected_concepts"])
 
 
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
