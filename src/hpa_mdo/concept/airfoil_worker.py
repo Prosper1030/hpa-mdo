@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -52,40 +53,109 @@ class JuliaXFoilWorker:
             "to contain Project.toml."
         )
 
+    def _cache_path(self, query: PolarQuery) -> Path:
+        return self.cache_dir / f"{self.cache_key(query)}.json"
+
+    def _query_identity(self, query: PolarQuery) -> tuple[str, float, str]:
+        return (query.template_id, query.reynolds, query.roughness_mode)
+
+    def _result_identity(self, result: dict[str, object]) -> tuple[str, float, str]:
+        template_id = result.get("template_id")
+        reynolds = result.get("reynolds")
+        roughness_mode = result.get("roughness_mode")
+        if not isinstance(template_id, str):
+            raise RuntimeError("Julia XFoil worker response is missing a valid template_id.")
+        if not isinstance(roughness_mode, str):
+            raise RuntimeError("Julia XFoil worker response is missing a valid roughness_mode.")
+        if not isinstance(reynolds, int | float):
+            raise RuntimeError("Julia XFoil worker response is missing a valid reynolds value.")
+        return (template_id, float(reynolds), roughness_mode)
+
+    def _load_cached_result(self, query: PolarQuery) -> dict[str, object] | None:
+        cache_path = self._cache_path(query)
+        if not cache_path.is_file():
+            return None
+
+        cached_payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        if not isinstance(cached_payload, dict):
+            raise RuntimeError("Julia XFoil worker cache entries must be JSON objects.")
+        if self._result_identity(cached_payload) != self._query_identity(query):
+            raise RuntimeError("Julia XFoil worker cache entry did not match requested query identity.")
+        return cached_payload
+
+    def _write_cached_result(self, query: PolarQuery, result: dict[str, object]) -> None:
+        self._cache_path(query).write_text(
+            json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def _build_scratch_paths(self) -> tuple[Path, Path]:
+        token = uuid4().hex
+        return (
+            self.cache_dir / f"request_{token}.json",
+            self.cache_dir / f"response_{token}.json",
+        )
+
     def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
         julia = self._resolve_julia()
         if julia is None:
             raise RuntimeError("Julia runtime not found. Install Julia before running the XFoil worker.")
 
         worker_dir = self._resolve_worker_project_dir()
-        request_path = self.cache_dir / "request.json"
-        response_path = self.cache_dir / "response.json"
+        resolved_results: list[dict[str, object] | None] = [None] * len(queries)
+        uncached_queries: list[PolarQuery] = []
+        uncached_indices: list[int] = []
 
-        request_payload = [asdict(query) for query in queries]
-        request_path.write_text(
-            json.dumps(request_payload, indent=2, sort_keys=True, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        for index, query in enumerate(queries):
+            cached_result = self._load_cached_result(query)
+            if cached_result is not None:
+                resolved_results[index] = cached_result
+                continue
+            uncached_queries.append(query)
+            uncached_indices.append(index)
 
-        subprocess.run(
-            [
-                julia,
-                f"--project={worker_dir}",
-                str(worker_dir / "xfoil_worker.jl"),
-                str(request_path),
-                str(response_path),
-            ],
-            check=True,
-            cwd=self.project_dir,
-        )
+        if uncached_queries:
+            request_path, response_path = self._build_scratch_paths()
+            request_payload = [asdict(query) for query in uncached_queries]
+            request_path.write_text(
+                json.dumps(request_payload, indent=2, sort_keys=True, ensure_ascii=False),
+                encoding="utf-8",
+            )
 
-        response_payload = json.loads(response_path.read_text(encoding="utf-8"))
-        if not isinstance(response_payload, list):
-            raise RuntimeError("Julia XFoil worker response must be a JSON array.")
+            subprocess.run(
+                [
+                    julia,
+                    f"--project={worker_dir}",
+                    str(worker_dir / "xfoil_worker.jl"),
+                    str(request_path),
+                    str(response_path),
+                ],
+                check=True,
+                cwd=self.project_dir,
+            )
 
-        parsed_results: list[dict[str, object]] = []
-        for item in response_payload:
-            if not isinstance(item, dict):
-                raise RuntimeError("Julia XFoil worker response entries must be JSON objects.")
-            parsed_results.append(item)
-        return parsed_results
+            response_payload = json.loads(response_path.read_text(encoding="utf-8"))
+            if not isinstance(response_payload, list):
+                raise RuntimeError("Julia XFoil worker response must be a JSON array.")
+            if len(response_payload) != len(uncached_queries):
+                raise RuntimeError(
+                    "Julia XFoil worker returned "
+                    f"{len(response_payload)} results for {len(uncached_queries)} uncached queries."
+                )
+
+            for index, query, item in zip(uncached_indices, uncached_queries, response_payload):
+                if not isinstance(item, dict):
+                    raise RuntimeError("Julia XFoil worker response entries must be JSON objects.")
+                if self._result_identity(item) != self._query_identity(query):
+                    raise RuntimeError(
+                        "Julia XFoil worker response entry did not match requested query identity."
+                    )
+                resolved_results[index] = item
+                self._write_cached_result(query, item)
+
+        finalized_results: list[dict[str, object]] = []
+        for item in resolved_results:
+            if item is None:
+                raise RuntimeError("Julia XFoil worker did not populate all requested query results.")
+            finalized_results.append(item)
+        return finalized_results

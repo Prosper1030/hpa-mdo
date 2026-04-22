@@ -58,6 +58,8 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
                 [
                     {
                         "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "roughness_mode": "clean",
                         "status": "stubbed_ok",
                     }
                 ]
@@ -84,7 +86,18 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
     expected_worker_project = worker_dir
     assert called["cmd"][1] == f"--project={expected_worker_project}"
     assert called["cmd"][2] == str(expected_worker_project / "xfoil_worker.jl")
-    assert result == [{"template_id": "root-v1", "status": "stubbed_ok"}]
+    assert Path(called["cmd"][3]).parent == cache_dir
+    assert Path(called["cmd"][4]).parent == cache_dir
+    assert Path(called["cmd"][3]).name != "request.json"
+    assert Path(called["cmd"][4]).name != "response.json"
+    assert result == [
+        {
+            "template_id": "root-v1",
+            "reynolds": 350000.0,
+            "roughness_mode": "clean",
+            "status": "stubbed_ok",
+        }
+    ]
 
 
 def test_worker_fails_fast_when_worker_project_cannot_be_resolved(tmp_path, monkeypatch):
@@ -93,3 +106,98 @@ def test_worker_fails_fast_when_worker_project_cannot_be_resolved(tmp_path, monk
 
     with pytest.raises(RuntimeError, match="Unable to resolve Julia XFoil worker project"):
         worker.run_queries([])
+
+
+def test_worker_uses_per_query_cache_and_skips_subprocess_on_cache_hit(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    query = PolarQuery(
+        template_id="root-v1",
+        reynolds=350000.0,
+        cl_samples=(0.7,),
+        roughness_mode="clean",
+    )
+    calls = {"count": 0}
+
+    def fake_run(cmd, check, cwd):
+        calls["count"] += 1
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "roughness_mode": "clean",
+                        "status": "stubbed_ok",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    first_result = worker.run_queries([query])
+    assert calls["count"] == 1
+
+    def fail_run(cmd, check, cwd):
+        raise AssertionError("subprocess.run should not be called for cache hits")
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fail_run)
+    second_result = worker.run_queries([query])
+
+    assert second_result == first_result
+    assert (worker.cache_dir / f"{worker.cache_key(query)}.json").is_file()
+
+
+@pytest.mark.parametrize(
+    ("response_payload", "error_match"),
+    [
+        (
+            [],
+            "returned 0 results for 1 uncached queries",
+        ),
+        (
+            [
+                {
+                    "template_id": "tip-v9",
+                    "reynolds": 350000.0,
+                    "roughness_mode": "clean",
+                    "status": "stubbed_ok",
+                }
+            ],
+            "did not match requested query identity",
+        ),
+    ],
+)
+def test_worker_fails_fast_when_julia_response_does_not_match_uncached_queries(
+    tmp_path, monkeypatch, response_payload, error_match
+):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    def fake_run(cmd, check, cwd):
+        Path(cmd[4]).write_text(json.dumps(response_payload), encoding="utf-8")
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match=error_match):
+        worker.run_queries(
+            [
+                PolarQuery(
+                    template_id="root-v1",
+                    reynolds=350000.0,
+                    cl_samples=(0.7,),
+                    roughness_mode="clean",
+                )
+            ]
+        )
