@@ -193,6 +193,32 @@ def test_local_stall_flags_tip_critical_case():
     assert result.reason == "stall_margin_insufficient"
 
 
+def test_local_stall_prefers_airfoil_derived_limit_when_present():
+    result = evaluate_local_stall(
+        station_points=[
+            {
+                "station_y_m": 1.0,
+                "cl_target": 0.70,
+                "cl_max_proxy": 0.92,
+                "cl_max_effective": 1.05,
+            },
+            {
+                "station_y_m": 14.0,
+                "cl_target": 0.82,
+                "cl_max_proxy": 1.02,
+                "cl_max_effective": 0.90,
+            },
+        ],
+        half_span_m=16.0,
+        required_stall_margin=0.10,
+    )
+
+    assert result.min_margin == pytest.approx(0.08)
+    assert result.min_margin_station_y_m == pytest.approx(14.0)
+    assert result.tip_critical is True
+    assert result.feasible is False
+
+
 def test_local_stall_uses_the_limiting_station_even_if_other_points_look_safer():
     result = evaluate_local_stall(
         station_points=[

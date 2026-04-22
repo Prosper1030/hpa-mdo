@@ -185,6 +185,7 @@ def _flatten_zone_points(
                 )
             flattened.append(
                 {
+                    "zone_name": zone_name,
                     "zone_index": float(zone_index),
                     "point_index": float(point_index),
                     "station_y_m": float(station_y_m),
@@ -209,6 +210,7 @@ def _flatten_zone_points(
         eta = 0.0 if half_span_m <= 0.0 else float(station.y_m) / half_span_m
         fallback.append(
             {
+                "zone_name": "fallback",
                 "zone_index": 0.0,
                 "point_index": float(len(fallback)),
                 "station_y_m": float(station.y_m),
@@ -235,7 +237,20 @@ def _attach_cl_max_proxies(
         eta = 0.0 if half_span_m <= 0.0 else min(max(point["station_y_m"] / half_span_m, 0.0), 1.0)
         cl_headroom = 0.24 - 0.09 * eta - 0.015 * (twist_delta / 5.0) + 0.01 * min(span_ratio, 1.2)
         cl_headroom = min(max(cl_headroom, 0.08), 0.30)
-        enriched.append({**point, "cl_max_proxy": point["cl_target"] + cl_headroom})
+        cl_max_proxy = point["cl_target"] + cl_headroom
+        enriched.append(
+            {
+                **point,
+                "cl_max_proxy": cl_max_proxy,
+                "cl_max_effective": cl_max_proxy,
+                "cl_max_effective_source": "geometry_proxy",
+                "cm_effective": float(point["cm_target"]),
+                "cm_effective_source": "zone_target_proxy",
+                "cd_effective": None,
+                "cd_effective_source": "not_available",
+                "airfoil_feedback_applied": False,
+            }
+        )
     return enriched
 
 
@@ -243,6 +258,10 @@ def _numeric_value(value: object) -> float | None:
     if isinstance(value, int | float):
         return float(value)
     return None
+
+
+def _cl_limit(point: dict[str, float]) -> float:
+    return float(point.get("cl_max_effective", point["cl_max_proxy"]))
 
 
 def _build_worker_queries_and_refs(
@@ -316,12 +335,10 @@ def _extract_worker_feedback(result: dict[str, object]) -> dict[str, object] | N
     if not isinstance(sweep_summary, dict):
         return None
 
-    first_pass_clmax_proxy = _numeric_value(
-        sweep_summary.get("first_pass_observed_clmax_proxy")
-    )
-    if first_pass_clmax_proxy is None:
-        first_pass_clmax_proxy = _numeric_value(sweep_summary.get("observed_clmax_proxy"))
-    if first_pass_clmax_proxy is None:
+    cl_max_observed = _numeric_value(sweep_summary.get("cl_max_observed"))
+    if cl_max_observed is None:
+        cl_max_observed = _numeric_value(sweep_summary.get("first_pass_observed_clmax_proxy"))
+    if cl_max_observed is None:
         return None
 
     selected_point = _selected_polar_point(polar_points)
@@ -340,25 +357,23 @@ def _extract_worker_feedback(result: dict[str, object]) -> dict[str, object] | N
         "worker_cm": worker_cm,
         "worker_cd": worker_cd,
         "worker_cdp": worker_cdp,
-        "observed_clmax_proxy": first_pass_clmax_proxy,
-        "observed_clmax_proxy_alpha_deg": _numeric_value(
-            sweep_summary.get("first_pass_observed_clmax_proxy_alpha_deg")
+        "worker_cl_error": _numeric_value(selected_point.get("cl_error")),
+        "cl_max_observed": cl_max_observed,
+        "alpha_at_cl_max_deg": (
+            _numeric_value(sweep_summary.get("alpha_at_cl_max_deg"))
+            if _numeric_value(sweep_summary.get("alpha_at_cl_max_deg")) is not None
+            else _numeric_value(sweep_summary.get("first_pass_observed_clmax_proxy_alpha_deg"))
         ),
-        "observed_clmax_proxy_cd": _numeric_value(
-            sweep_summary.get("first_pass_observed_clmax_proxy_cd")
+        "last_converged_alpha_deg": _numeric_value(sweep_summary.get("last_converged_alpha_deg")),
+        "clmax_is_lower_bound": bool(
+            sweep_summary.get("clmax_is_lower_bound")
+            if sweep_summary.get("clmax_is_lower_bound") is not None
+            else sweep_summary.get("first_pass_observed_clmax_proxy_at_sweep_edge", False)
         ),
-        "observed_clmax_proxy_cdp": _numeric_value(
-            sweep_summary.get("first_pass_observed_clmax_proxy_cdp")
+        "sweep_point_count": int(_numeric_value(sweep_summary.get("sweep_point_count")) or 0.0),
+        "converged_point_count": int(
+            _numeric_value(sweep_summary.get("converged_point_count")) or 0.0
         ),
-        "observed_clmax_proxy_cm": _numeric_value(
-            sweep_summary.get("first_pass_observed_clmax_proxy_cm")
-        ),
-        "observed_clmax_proxy_index": sweep_summary.get("first_pass_observed_clmax_proxy_index"),
-        "observed_clmax_proxy_at_sweep_edge": sweep_summary.get(
-            "first_pass_observed_clmax_proxy_at_sweep_edge"
-        ),
-        "sweep_point_count": sweep_summary.get("sweep_point_count"),
-        "converged_point_count": sweep_summary.get("converged_point_count"),
     }
 
 
@@ -405,6 +420,8 @@ def _apply_worker_airfoil_feedback(
 
     feedback_rows: list[dict[str, Any]] = []
     usable_worker_point_count = 0
+    observed_cd_values: list[float] = []
+    observed_clmax_values: list[float] = []
 
     for ref, result in zip(worker_point_refs, worker_results):
         point_index = int(ref["station_point_index"])
@@ -428,36 +445,37 @@ def _apply_worker_airfoil_feedback(
             continue
 
         usable_worker_point_count += 1
-        cl_max_proxy = min(float(base_point["cl_max_proxy"]), float(feedback["observed_clmax_proxy"]))
+        observed_cd_values.append(float(feedback["worker_cd"]))
+        observed_clmax_values.append(float(feedback["cl_max_observed"]))
         updated_point = {
             **base_point,
-            "cl_target": float(feedback["worker_cl"]),
-            "cm_target": float(feedback["worker_cm"]),
-            "cd_target": float(feedback["worker_cd"]),
-            "cl_max_proxy": cl_max_proxy,
             "worker_cl": float(feedback["worker_cl"]),
+            "worker_cl_error": feedback["worker_cl_error"],
             "worker_cm": float(feedback["worker_cm"]),
             "worker_cd": float(feedback["worker_cd"]),
             "worker_cdp": feedback["worker_cdp"],
+            "cl_max_effective": float(feedback["cl_max_observed"]),
+            "cl_max_effective_source": (
+                "airfoil_observed_lower_bound"
+                if feedback["clmax_is_lower_bound"]
+                else "airfoil_observed"
+            ),
+            "cm_effective": float(feedback["worker_cm"]),
+            "cm_effective_source": "airfoil_near_target",
+            "cd_effective": float(feedback["worker_cd"]),
+            "cd_effective_source": "airfoil_near_target",
             "airfoil_feedback_applied": True,
-            "airfoil_feedback_source": "first_pass_observed_clmax_proxy",
+            "airfoil_feedback_source": "worker_polar_feedback",
             "airfoil_feedback_worker_status": str(result.get("status", "unknown")),
             "airfoil_feedback_template_id": ref["template_id"],
             "airfoil_feedback_zone_name": ref["zone_name"],
             "airfoil_feedback_zone_index": float(ref["zone_index"]),
             "airfoil_feedback_point_index": float(ref["point_index"]),
             "airfoil_feedback_station_point_index": float(point_index),
-            "airfoil_feedback_observed_clmax_proxy": float(feedback["observed_clmax_proxy"]),
-            "airfoil_feedback_observed_clmax_proxy_alpha_deg": feedback[
-                "observed_clmax_proxy_alpha_deg"
-            ],
-            "airfoil_feedback_observed_clmax_proxy_cd": feedback["observed_clmax_proxy_cd"],
-            "airfoil_feedback_observed_clmax_proxy_cdp": feedback["observed_clmax_proxy_cdp"],
-            "airfoil_feedback_observed_clmax_proxy_cm": feedback["observed_clmax_proxy_cm"],
-            "airfoil_feedback_observed_clmax_proxy_index": feedback["observed_clmax_proxy_index"],
-            "airfoil_feedback_observed_clmax_proxy_at_sweep_edge": feedback[
-                "observed_clmax_proxy_at_sweep_edge"
-            ],
+            "airfoil_feedback_cl_max_observed": float(feedback["cl_max_observed"]),
+            "airfoil_feedback_alpha_at_cl_max_deg": feedback["alpha_at_cl_max_deg"],
+            "airfoil_feedback_last_converged_alpha_deg": feedback["last_converged_alpha_deg"],
+            "airfoil_feedback_clmax_is_lower_bound": bool(feedback["clmax_is_lower_bound"]),
             "airfoil_feedback_sweep_point_count": feedback["sweep_point_count"],
             "airfoil_feedback_converged_point_count": feedback["converged_point_count"],
         }
@@ -471,38 +489,34 @@ def _apply_worker_airfoil_feedback(
                 "station_point_index": point_index,
                 "status": str(result.get("status", "unknown")),
                 "applied": True,
-                "cl_target": float(updated_point["cl_target"]),
-                "cm_target": float(updated_point["cm_target"]),
-                "cd_target": float(updated_point["cd_target"]),
-                "cl_max_proxy": float(updated_point["cl_max_proxy"]),
+                "cl_target": float(base_point["cl_target"]),
+                "cm_target": float(base_point["cm_target"]),
+                "cl_max_proxy": float(base_point["cl_max_proxy"]),
                 "worker_cl": float(updated_point["worker_cl"]),
+                "worker_cl_error": updated_point["worker_cl_error"],
                 "worker_cm": float(updated_point["worker_cm"]),
                 "worker_cd": float(updated_point["worker_cd"]),
                 "worker_cdp": updated_point["worker_cdp"],
-                "first_pass_observed_clmax_proxy": float(
-                    updated_point["airfoil_feedback_observed_clmax_proxy"]
-                ),
-                "first_pass_observed_clmax_proxy_alpha_deg": updated_point[
-                    "airfoil_feedback_observed_clmax_proxy_alpha_deg"
-                ],
-                "first_pass_observed_clmax_proxy_cd": updated_point[
-                    "airfoil_feedback_observed_clmax_proxy_cd"
-                ],
-                "first_pass_observed_clmax_proxy_cdp": updated_point[
-                    "airfoil_feedback_observed_clmax_proxy_cdp"
-                ],
-                "first_pass_observed_clmax_proxy_cm": updated_point[
-                    "airfoil_feedback_observed_clmax_proxy_cm"
-                ],
+                "cl_max_effective": float(updated_point["cl_max_effective"]),
+                "cl_max_effective_source": updated_point["cl_max_effective_source"],
+                "cm_effective": float(updated_point["cm_effective"]),
+                "cd_effective": float(updated_point["cd_effective"]),
+                "cl_max_observed": float(updated_point["airfoil_feedback_cl_max_observed"]),
+                "alpha_at_cl_max_deg": updated_point["airfoil_feedback_alpha_at_cl_max_deg"],
+                "clmax_is_lower_bound": updated_point["airfoil_feedback_clmax_is_lower_bound"],
             }
         )
 
     feedback_summary = {
         "applied": usable_worker_point_count > 0,
-        "mode": "worker_polar_points" if usable_worker_point_count > 0 else "geometry_proxy",
+        "mode": "airfoil_informed" if usable_worker_point_count > 0 else "geometry_proxy",
         "worker_result_count": len(worker_results),
         "usable_worker_point_count": usable_worker_point_count,
         "fallback_worker_point_count": len(worker_results) - usable_worker_point_count,
+        "mean_cd_effective": (
+            sum(observed_cd_values) / len(observed_cd_values) if observed_cd_values else None
+        ),
+        "min_cl_max_effective": min(observed_clmax_values) if observed_clmax_values else None,
         "points": feedback_rows,
     }
     if usable_worker_point_count == 0:
@@ -521,7 +535,11 @@ def _summarize_launch(
     q_pa = 0.5 * air_density_kg_per_m3 * float(cfg.launch.release_speed_mps) ** 2
     gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
     cl_required = (gross_mass_kg * 9.80665) / max(q_pa * concept.wing_area_m2, 1.0e-9)
-    cl_available = min(point["cl_max_proxy"] for point in station_points)
+    limiting_point = min(station_points, key=_cl_limit)
+    cl_available = _cl_limit(limiting_point)
+    cl_available_source = str(
+        limiting_point.get("cl_max_effective_source", "geometry_proxy")
+    )
 
     launch_result = evaluate_launch_gate(
         platform_height_m=cfg.launch.platform_height_m,
@@ -541,6 +559,7 @@ def _summarize_launch(
             "adjusted_cl_required": launch_result.adjusted_cl_required,
             "cl_required": cl_required,
             "cl_available": cl_available,
+            "cl_available_source": cl_available_source,
             "trim_margin_deg": trim_result.margin_deg,
             "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
             "release_speed_mps": cfg.launch.release_speed_mps,
@@ -560,7 +579,9 @@ def _summarize_turn(
     trim_result,
 ) -> dict[str, Any]:
     representative_cl = max(point["cl_target"] for point in station_points)
-    cl_max = min(point["cl_max_proxy"] for point in station_points)
+    limiting_point = min(station_points, key=_cl_limit)
+    cl_max = _cl_limit(limiting_point)
+    cl_max_source = str(limiting_point.get("cl_max_effective_source", "geometry_proxy"))
 
     turn_result = evaluate_turn_gate(
         bank_angle_deg=cfg.turn.required_bank_angle_deg,
@@ -578,6 +599,7 @@ def _summarize_turn(
         "cl_level": representative_cl,
         "required_cl": turn_result.required_cl,
         "cl_max": cl_max,
+        "cl_max_source": cl_max_source,
         "stall_margin": turn_result.stall_margin,
         "required_stall_margin": cfg.launch.min_stall_margin,
         "trim_feasible": trim_result.feasible,
@@ -589,7 +611,14 @@ def _summarize_trim(
     cfg: BirdmanConceptConfig,
     station_points: list[dict[str, float]],
 ) -> tuple[dict[str, Any], Any]:
-    representative_cm = -max(abs(point["cm_target"]) for point in station_points)
+    limiting_point = max(
+        station_points,
+        key=lambda point: abs(float(point.get("cm_effective", point["cm_target"]))),
+    )
+    representative_cm = -abs(float(limiting_point.get("cm_effective", limiting_point["cm_target"])))
+    representative_cm_source = str(
+        limiting_point.get("cm_effective_source", "zone_target_proxy")
+    )
     trim_result = evaluate_trim_proxy(
         representative_cm=representative_cm,
         required_margin_deg=cfg.launch.min_trim_margin_deg,
@@ -598,6 +627,7 @@ def _summarize_trim(
         "status": trim_result.reason,
         "feasible": trim_result.feasible,
         "representative_cm": representative_cm,
+        "representative_cm_source": representative_cm_source,
         "margin_deg": trim_result.margin_deg,
         "required_margin_deg": trim_result.required_margin_deg,
         "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
@@ -615,12 +645,17 @@ def _summarize_local_stall(
         half_span_m=0.5 * concept.span_m,
         required_stall_margin=cfg.launch.min_stall_margin,
     )
+    limiting_point = min(
+        station_points,
+        key=lambda point: _cl_limit(point) - float(point["cl_target"]),
+    )
     return {
         "status": local_stall_result.reason,
         "feasible": local_stall_result.feasible,
         "min_margin": local_stall_result.min_margin,
         "min_margin_station_y_m": local_stall_result.min_margin_station_y_m,
         "tip_critical": local_stall_result.tip_critical,
+        "margin_source": str(limiting_point.get("cl_max_effective_source", "geometry_proxy")),
         "required_stall_margin": cfg.launch.min_stall_margin,
     }
 

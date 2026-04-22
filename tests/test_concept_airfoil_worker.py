@@ -219,6 +219,81 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
     assert (worker.cache_dir / f"{worker.cache_key(query)}.json").is_file()
 
 
+def test_worker_preserves_sweep_summary_through_cache_round_trip(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    query = _sample_query(cl_samples=(0.7,))
+
+    def fake_run(cmd, check, cwd):
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "cl_samples": [0.7],
+                        "roughness_mode": "clean",
+                        "geometry_hash": query.geometry_hash,
+                        "status": "ok",
+                        "polar_points": [
+                            {
+                                "cl_target": 0.7,
+                                "alpha_deg": 4.2,
+                                "cl": 0.701,
+                                "cd": 0.021,
+                                "cdp": 0.015,
+                                "cm": -0.08,
+                                "converged": True,
+                            }
+                        ],
+                        "sweep_summary": {
+                            "sweep_point_count": 41,
+                            "converged_point_count": 30,
+                            "alpha_min_deg": -4.0,
+                            "alpha_max_deg": 16.0,
+                            "alpha_step_deg": 0.5,
+                            "usable_polar_points": True,
+                            "cl_max_observed": 1.26,
+                            "alpha_at_cl_max_deg": 12.5,
+                            "last_converged_alpha_deg": 12.5,
+                            "clmax_is_lower_bound": True,
+                            "first_pass_observed_clmax_proxy": 1.26,
+                            "first_pass_observed_clmax_proxy_alpha_deg": 12.5,
+                            "first_pass_observed_clmax_proxy_cd": 0.028,
+                            "first_pass_observed_clmax_proxy_cdp": 0.020,
+                            "first_pass_observed_clmax_proxy_cm": -0.11,
+                            "first_pass_observed_clmax_proxy_index": 33,
+                            "first_pass_observed_clmax_proxy_at_sweep_edge": False,
+                        },
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    first_result = worker.run_queries([query])
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: None)
+    monkeypatch.setattr(
+        "hpa_mdo.concept.airfoil_worker.subprocess.run",
+        lambda *args, **kwargs: pytest.fail("subprocess.run should not be called for cache hits"),
+    )
+    second_result = worker.run_queries([query])
+
+    assert second_result == first_result
+    sweep_summary = first_result[0]["sweep_summary"]
+    assert sweep_summary["cl_max_observed"] == pytest.approx(1.26)
+    assert sweep_summary["alpha_at_cl_max_deg"] == pytest.approx(12.5)
+    assert sweep_summary["clmax_is_lower_bound"] is True
+    assert sweep_summary["alpha_step_deg"] == pytest.approx(0.5)
+
+
 def test_worker_preserves_airfoil_feedback_fields_through_cache_round_trip(
     tmp_path, monkeypatch
 ):

@@ -32,7 +32,7 @@ end
 
 function alpha_grid(cl_samples::Vector{Float64})
     max_abs_cl = isempty(cl_samples) ? 1.0 : maximum(abs.(cl_samples))
-    alpha_max = max(10.0, 4.0 + 10.0 * max_abs_cl)
+    alpha_max = min(18.0, max(12.0, 5.0 + 14.0 * max_abs_cl))
     return collect(-4.0:0.5:alpha_max)
 end
 
@@ -64,12 +64,18 @@ end
 function build_sweep_summary(alpha_deg, cl, cd, cdp, cm, converged)
     alpha_count = length(alpha_deg)
     converged_indices = findall(converged)
+    alpha_step_deg = alpha_count <= 1 ? 0.0 : Float64(alpha_deg[2] - alpha_deg[1])
     summary = Dict(
         "sweep_point_count" => Int(alpha_count),
         "converged_point_count" => Int(length(converged_indices)),
         "alpha_min_deg" => alpha_count == 0 ? nothing : Float64(alpha_deg[1]),
         "alpha_max_deg" => alpha_count == 0 ? nothing : Float64(alpha_deg[end]),
+        "alpha_step_deg" => alpha_step_deg,
         "usable_polar_points" => !isempty(converged_indices),
+        "cl_max_observed" => nothing,
+        "alpha_at_cl_max_deg" => nothing,
+        "last_converged_alpha_deg" => nothing,
+        "clmax_is_lower_bound" => false,
         "first_pass_observed_clmax_proxy" => nothing,
         "first_pass_observed_clmax_proxy_alpha_deg" => nothing,
         "first_pass_observed_clmax_proxy_cd" => nothing,
@@ -86,6 +92,11 @@ function build_sweep_summary(alpha_deg, cl, cd, cdp, cm, converged)
     cl_converged = Float64[Float64(cl[i]) for i in converged_indices]
     observed_local_index = argmax(cl_converged)
     observed_index = converged_indices[observed_local_index]
+    last_converged_index = converged_indices[end]
+    summary["cl_max_observed"] = Float64(cl[observed_index])
+    summary["alpha_at_cl_max_deg"] = Float64(alpha_deg[observed_index])
+    summary["last_converged_alpha_deg"] = Float64(alpha_deg[last_converged_index])
+    summary["clmax_is_lower_bound"] = Bool(observed_index == last_converged_index)
     summary["first_pass_observed_clmax_proxy"] = Float64(cl[observed_index])
     summary["first_pass_observed_clmax_proxy_alpha_deg"] = Float64(alpha_deg[observed_index])
     summary["first_pass_observed_clmax_proxy_cd"] = Float64(cd[observed_index])

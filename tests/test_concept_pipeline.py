@@ -202,22 +202,42 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
                 "run_queries": lambda self, queries: [
                     {
                         "status": "ok",
+                        "template_id": query.template_id,
                         "polar_points": [
                             {
                                 "cl_target": query.cl_samples[0],
                                 "alpha_deg": 4.2,
                                 "cl": query.cl_samples[0] + 0.001,
                                 "cd": 0.021,
+                                "cdp": 0.015,
                                 "cm": -0.08,
                                 "converged": True,
+                                "cl_error": 0.001,
                             }
                         ],
-                        "airfoil_feedback": {
-                            "source": "real_polar",
-                            "conservative": True,
-                            "first_usable_cl_max_proxy": 0.92,
+                        "sweep_summary": {
+                            "sweep_point_count": 41,
+                            "converged_point_count": 30,
+                            "alpha_min_deg": -4.0,
+                            "alpha_max_deg": 16.0,
+                            "alpha_step_deg": 0.5,
+                            "usable_polar_points": True,
+                            "cl_max_observed": 1.24,
+                            "alpha_at_cl_max_deg": 12.0,
+                            "last_converged_alpha_deg": 12.0,
+                            "clmax_is_lower_bound": True,
+                            "first_pass_observed_clmax_proxy": 1.24,
+                            "first_pass_observed_clmax_proxy_alpha_deg": 12.0,
+                            "first_pass_observed_clmax_proxy_cd": 0.028,
+                            "first_pass_observed_clmax_proxy_cdp": 0.020,
+                            "first_pass_observed_clmax_proxy_cm": -0.11,
+                            "first_pass_observed_clmax_proxy_index": 32,
+                            "first_pass_observed_clmax_proxy_at_sweep_edge": False,
                         },
-                        "template_id": query.template_id,
+                        "reynolds": query.reynolds,
+                        "cl_samples": list(query.cl_samples),
+                        "roughness_mode": query.roughness_mode,
+                        "geometry_hash": query.geometry_hash,
                     }
                     for query in queries
                 ],
@@ -275,9 +295,17 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     first = summary["selected_concepts"][0]
 
     assert first["launch"]["gross_mass_kg"] == pytest.approx(105.0)
-    assert first["launch"]["cl_available"] >= first["turn"]["cl_level"]
+    assert first["launch"]["cl_available_source"] == "airfoil_observed_lower_bound"
+    assert first["turn"]["cl_max_source"] == "airfoil_observed_lower_bound"
+    assert first["trim"]["representative_cm_source"] == "airfoil_near_target"
+    assert first["local_stall"]["margin_source"] == "airfoil_observed_lower_bound"
+    assert first["airfoil_feedback"]["applied"] is True
+    assert first["airfoil_feedback"]["usable_worker_point_count"] == 4
+    assert first["airfoil_feedback"]["mean_cd_effective"] == pytest.approx(0.021)
+    assert first["airfoil_feedback"]["min_cl_max_effective"] == pytest.approx(1.24)
     assert first["turn"]["cl_level"] == pytest.approx(0.87)
-    assert first["trim"]["representative_cm"] == pytest.approx(-0.13)
+    assert first["trim"]["representative_cm"] == pytest.approx(-0.08)
+    assert first["launch"]["cl_available"] == pytest.approx(1.24)
 
 
 def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
@@ -312,10 +340,16 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     assert all(length == 0 for length in worker_call_lengths)
     assert first["worker_result_count"] == 0
     assert first["worker_statuses"] == []
+    assert first["airfoil_feedback"]["applied"] is False
+    assert first["airfoil_feedback"]["mode"] == "geometry_proxy"
     assert isinstance(first["launch"]["cl_available"], float)
     assert isinstance(first["turn"]["cl_max"], float)
     assert isinstance(first["trim"]["margin_deg"], float)
     assert isinstance(first["local_stall"]["min_margin"], float)
+    assert first["launch"]["cl_available_source"] == "geometry_proxy"
+    assert first["turn"]["cl_max_source"] == "geometry_proxy"
+    assert first["trim"]["representative_cm_source"] == "zone_target_proxy"
+    assert first["local_stall"]["margin_source"] == "geometry_proxy"
     assert first["launch"]["status"] in {
         "ok",
         "launch_cl_insufficient",

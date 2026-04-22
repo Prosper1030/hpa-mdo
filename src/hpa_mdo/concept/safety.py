@@ -181,11 +181,14 @@ def evaluate_local_stall(
     if required_stall_margin <= 0.0:
         raise ValueError("required_stall_margin must be positive.")
 
+    def _cl_limit(point: dict[str, float]) -> float:
+        return float(point.get("cl_max_effective", point["cl_max_proxy"]))
+
     min_point = min(
         station_points,
-        key=lambda item: float(item["cl_max_proxy"]) - float(item["cl_target"]),
+        key=lambda item: _cl_limit(item) - float(item["cl_target"]),
     )
-    min_margin = float(min_point["cl_max_proxy"]) - float(min_point["cl_target"])
+    min_margin = _cl_limit(min_point) - float(min_point["cl_target"])
     y_m = float(min_point["station_y_m"])
     tip_critical = y_m >= 0.75 * float(half_span_m)
     feasible = min_margin >= float(required_stall_margin)
