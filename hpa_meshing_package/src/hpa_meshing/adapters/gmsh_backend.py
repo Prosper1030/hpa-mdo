@@ -260,6 +260,81 @@ def _ratio_or_none(numerator: int | float | None, denominator: int | float | Non
     return float(numerator) / float(denominator)
 
 
+def _coerce_int_flag(value: Any, *, default: int) -> int:
+    if value is None:
+        return int(default)
+    if isinstance(value, bool):
+        return 1 if value else 0
+    try:
+        return 1 if int(value) != 0 else 0
+    except (TypeError, ValueError):
+        return 1 if bool(value) else 0
+
+
+def _normalize_post_optimize_methods(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw_values = [part.strip() for part in value.split(",")]
+    elif isinstance(value, (list, tuple, set)):
+        raw_values = [str(part).strip() for part in value]
+    else:
+        raw_values = [str(value).strip()]
+
+    methods: list[str] = []
+    seen: set[str] = set()
+    for raw_value in raw_values:
+        if not raw_value or raw_value in seen:
+            continue
+        seen.add(raw_value)
+        methods.append(raw_value)
+    return methods
+
+
+def _resolve_mesh_optimization_settings(config: MeshJobConfig) -> Dict[str, Any]:
+    metadata = config.metadata if isinstance(config.metadata, dict) else {}
+    threshold_raw = metadata.get("mesh_optimize_threshold")
+    methods_raw = metadata.get("mesh_post_optimize_methods", metadata.get("mesh_post_optimize_method"))
+    return {
+        "mesh_optimize": _coerce_int_flag(metadata.get("mesh_optimize"), default=1),
+        "mesh_optimize_netgen": _coerce_int_flag(metadata.get("mesh_optimize_netgen"), default=0),
+        "mesh_optimize_threshold": (float(threshold_raw) if threshold_raw is not None else None),
+        "post_optimize_methods": _normalize_post_optimize_methods(methods_raw),
+        "post_optimize_force": bool(metadata.get("mesh_post_optimize_force", False)),
+        "post_optimize_niter": max(1, int(metadata.get("mesh_post_optimize_niter", 1) or 1)),
+    }
+
+
+def _apply_mesh_optimization_options(gmsh, optimization_settings: Dict[str, Any]) -> None:
+    gmsh.option.setNumber("Mesh.Optimize", float(int(optimization_settings.get("mesh_optimize", 1) or 0)))
+    gmsh.option.setNumber(
+        "Mesh.OptimizeNetgen",
+        float(int(optimization_settings.get("mesh_optimize_netgen", 0) or 0)),
+    )
+    threshold = optimization_settings.get("mesh_optimize_threshold")
+    if threshold is not None:
+        gmsh.option.setNumber("Mesh.OptimizeThreshold", float(threshold))
+
+
+def _run_post_generate3_optimizers(gmsh, optimization_settings: Dict[str, Any]) -> list[Dict[str, Any]]:
+    force = bool(optimization_settings.get("post_optimize_force", False))
+    niter = max(1, int(optimization_settings.get("post_optimize_niter", 1) or 1))
+    runs: list[Dict[str, Any]] = []
+    for method in optimization_settings.get("post_optimize_methods", []):
+        method_name = str(method).strip()
+        if not method_name:
+            continue
+        gmsh.model.mesh.optimize(method_name, force, niter)
+        runs.append(
+            {
+                "method": method_name,
+                "force": force,
+                "niter": niter,
+            }
+        )
+    return runs
+
+
 def _percentile(values: Iterable[float], fraction: float) -> float | None:
     ordered = sorted(float(value) for value in values)
     if not ordered:
@@ -1669,14 +1744,14 @@ def _configure_mesh_field(
         if isinstance(field_defaults, dict)
         else DEFAULT_EDGE_REFINEMENT_RATIO
     )
+    optimization_settings = _resolve_mesh_optimization_settings(config)
 
     gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size_min_value)
     gmsh.option.setNumber("Mesh.MeshSizeMax", farfield_size)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
     gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
-    gmsh.option.setNumber("Mesh.Optimize", 1)
-    gmsh.option.setNumber("Mesh.OptimizeNetgen", 0)
+    _apply_mesh_optimization_options(gmsh, optimization_settings)
     gmsh.option.setNumber("Mesh.Algorithm", float(mesh_algorithm_2d))
     gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
 
@@ -1699,6 +1774,7 @@ def _configure_mesh_field(
         "mesh_size_from_points": 0,
         "mesh_size_from_curvature": 0,
         "mesh_size_extend_from_boundary": 0,
+        "volume_optimization": optimization_settings,
         "mesh_algorithm_2d": mesh_algorithm_2d,
         "mesh_algorithm_3d": mesh_algorithm_3d,
         "background_field_tag": int(background_field_tag),
@@ -3126,6 +3202,10 @@ def _apply_occ_external_flow_route(
             "completed": False,
             "mesh_dim_requested": int(config.mesh_dim),
             "mesh_algorithm_3d": int(field_info.get("mesh_algorithm_3d", 1)),
+            "optimization": {
+                **(field_info.get("volume_optimization", {}) if isinstance(field_info, dict) else {}),
+                "post_runs": [],
+            },
             "field_architecture": (
                 volume_smoke_decoupled.get("field_architecture")
                 if isinstance(volume_smoke_decoupled, dict) and volume_smoke_decoupled.get("enabled")
@@ -3435,6 +3515,14 @@ def _apply_occ_external_flow_route(
                         ],
                     }
             raise exc
+        optimization_settings = (
+            field_info.get("volume_optimization", {}) if isinstance(field_info, dict) else {}
+        )
+        post_optimize_runs = _run_post_generate3_optimizers(gmsh, optimization_settings)
+        metadata["volume_meshing"]["optimization"] = {
+            **optimization_settings,
+            "post_runs": post_optimize_runs,
+        }
         gmsh.write(str(mesh_path))
         mesh_stats = {
             "mesh_dim": int(config.mesh_dim),

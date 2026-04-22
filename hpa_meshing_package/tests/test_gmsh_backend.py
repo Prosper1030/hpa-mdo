@@ -22,6 +22,7 @@ from hpa_meshing.adapters.gmsh_backend import (
     _resolve_mesh_field_defaults,
     _run_mesh2d_with_watchdog,
     _run_mesh3d_with_watchdog,
+    _run_post_generate3_optimizers,
     _run_surface_repair_fallback,
     _should_probe_discrete_classify_angles,
     _should_attempt_surface_repair_fallback,
@@ -1267,9 +1268,20 @@ class _FakeMeshApi:
     def __init__(self) -> None:
         self.field = _FakeFieldApi()
         self.set_algorithm_calls: list[tuple[int, int, int]] = []
+        self.optimize_calls: list[dict[str, object]] = []
 
     def setAlgorithm(self, dim: int, tag: int, val: int) -> None:
         self.set_algorithm_calls.append((int(dim), int(tag), int(val)))
+
+    def optimize(self, method: str = "", force: bool = False, niter: int = 1, dimTags=None) -> None:
+        self.optimize_calls.append(
+            {
+                "method": str(method),
+                "force": bool(force),
+                "niter": int(niter),
+                "dimTags": list(dimTags or []),
+            }
+        )
 
 
 class _FakeModelApi:
@@ -1739,8 +1751,72 @@ def test_configure_mesh_field_uses_reference_length_surface_and_edge_policy(tmp_
     assert gmsh.option.values["Mesh.MeshSizeFromPoints"] == 0.0
     assert gmsh.option.values["Mesh.MeshSizeFromCurvature"] == 0.0
     assert gmsh.option.values["Mesh.MeshSizeExtendFromBoundary"] == 0.0
+    assert gmsh.option.values["Mesh.Optimize"] == 1.0
+    assert gmsh.option.values["Mesh.OptimizeNetgen"] == 0.0
     assert gmsh.option.values["Mesh.Algorithm"] == 6.0
     assert gmsh.option.values["Mesh.Algorithm3D"] == 1.0
+
+
+def test_configure_mesh_field_honors_volume_optimization_metadata(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "mesh_optimize": 1,
+            "mesh_optimize_netgen": 1,
+            "mesh_optimize_threshold": 0.35,
+            "mesh_post_optimize_method": "Netgen",
+            "mesh_post_optimize_force": True,
+            "mesh_post_optimize_niter": 3,
+        },
+    )
+    gmsh = _FakeGmsh()
+
+    info = _configure_mesh_field(
+        gmsh,
+        [5, 14, 31],
+        [105, 114, 131, 205, 231],
+        1.0425,
+        config,
+    )
+
+    assert gmsh.option.values["Mesh.Optimize"] == 1.0
+    assert gmsh.option.values["Mesh.OptimizeNetgen"] == 1.0
+    assert gmsh.option.values["Mesh.OptimizeThreshold"] == pytest.approx(0.35)
+    assert info["volume_optimization"] == {
+        "mesh_optimize": 1,
+        "mesh_optimize_netgen": 1,
+        "mesh_optimize_threshold": pytest.approx(0.35),
+        "post_optimize_methods": ["Netgen"],
+        "post_optimize_force": True,
+        "post_optimize_niter": 3,
+    }
+
+
+def test_run_post_generate3_optimizers_applies_requested_methods():
+    gmsh = _FakeGmsh()
+
+    runs = _run_post_generate3_optimizers(
+        gmsh,
+        {
+            "post_optimize_methods": ["Netgen", "Relocate3D"],
+            "post_optimize_force": True,
+            "post_optimize_niter": 2,
+        },
+    )
+
+    assert runs == [
+        {"method": "Netgen", "force": True, "niter": 2},
+        {"method": "Relocate3D", "force": True, "niter": 2},
+    ]
+    assert gmsh.model.mesh.optimize_calls == [
+        {"method": "Netgen", "force": True, "niter": 2, "dimTags": []},
+        {"method": "Relocate3D", "force": True, "niter": 2, "dimTags": []},
+    ]
 
 
 def test_resolve_mesh_field_defaults_honors_transition_overrides(tmp_path: Path):
@@ -2065,11 +2141,16 @@ def test_apply_recipe_successful_3d_run_persists_quality_metrics(tmp_path: Path)
     assert result["status"] == "success"
     metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
     quality = metadata["quality_metrics"]
+    optimization = metadata["volume_meshing"]["optimization"]
     assert quality["tetrahedron_count"] == metadata["mesh"]["volume_element_count"]
     assert quality["worst_20_tets"]
     assert "gamma_percentiles" in quality
     assert "min_sicn_percentiles" in quality
     assert quality["min_volume"] > 0.0
+    assert optimization["mesh_optimize"] == 1
+    assert optimization["mesh_optimize_netgen"] == 0
+    assert optimization["post_optimize_methods"] == []
+    assert optimization["post_runs"] == []
 
 
 def test_apply_recipe_writes_mesh_handoff_contract(tmp_path: Path):
