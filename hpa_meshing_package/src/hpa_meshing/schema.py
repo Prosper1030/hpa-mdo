@@ -356,6 +356,130 @@ class SliverVolumePocketPolicy(BaseModel):
     mesh_size_from_curvature: int = 0
 
 
+class AutonomousRepairBaselineMetrics(BaseModel):
+    surface_triangle_count: int
+    volume_element_count: int
+    nodes_created_per_boundary_node: float
+    ill_shaped_tet_count: int
+
+
+class AutonomousRepairActiveHotspotFamily(BaseModel):
+    primary: List[str] = Field(default_factory=list)
+    observed_surfaces: List[int] = Field(default_factory=list)
+    legacy_surfaces: List[int] = Field(default_factory=list)
+
+
+class AutonomousRepairContext(BaseModel):
+    baseline: str
+    mesh_only_no_go: bool
+    source_section_index: int
+    known_good_trim_count_per_side: int
+    bad_aggressive_trim: bool
+    baseline_metrics: AutonomousRepairBaselineMetrics
+    active_hotspot_family: AutonomousRepairActiveHotspotFamily
+    do_not_repeat: List[str] = Field(default_factory=list)
+    missing_artifacts: List[str] = Field(default_factory=list)
+
+
+class TipTopologyTerminalNeighborhoodDiagnostics(BaseModel):
+    section_point_count_before: int
+    section_point_count_after_v2: int
+    te_point_indices: List[int] = Field(default_factory=list)
+    trim_count_per_side: int
+    terminal_bridge_m: float
+    adjacent_bridge_lengths_m: List[float] = Field(default_factory=list)
+    bridge_length_ratios: List[float] = Field(default_factory=list)
+    panel_widths_m: List[float] = Field(default_factory=list)
+    panel_lengths_m: List[float] = Field(default_factory=list)
+    width_length_ratios: List[float] = Field(default_factory=list)
+    consecutive_width_ratio_max: float
+    candidate_bad_panels: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class TipTopologyDiagnosticsLineage(BaseModel):
+    old_face_to_source_panel: Dict[str, Any] = Field(default_factory=dict)
+    source_panel_to_faces: Dict[str, Any] = Field(default_factory=dict)
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+    physical_groups: Dict[str, Any] = Field(default_factory=dict)
+
+
+class TipTopologyDiagnosticsClassification(BaseModel):
+    has_residual_sliver_sensitive_topology: bool
+    reason: List[str] = Field(default_factory=list)
+
+
+class TipTopologyDiagnostics(BaseModel):
+    source_section_index: int
+    terminal_tip_neighborhood: TipTopologyTerminalNeighborhoodDiagnostics
+    lineage: TipTopologyDiagnosticsLineage = Field(default_factory=TipTopologyDiagnosticsLineage)
+    classification: TipTopologyDiagnosticsClassification
+
+
+class CandidateTopologyRepairReport(BaseModel):
+    candidate_name: str
+    repair_type: str
+    source_section_index: int
+    changes: Dict[str, Any] = Field(default_factory=dict)
+    old_face_to_new_face_map: Dict[str, Any] = Field(default_factory=dict)
+    attribute_remap: Dict[str, Any] = Field(default_factory=dict)
+    physical_group_remap: Dict[str, Any] = Field(default_factory=dict)
+    expected_effect: str
+    risk: str
+    geometry_score: Optional[float] = None
+    geometry_filter_passed: Optional[bool] = None
+    hard_reject_reasons: List[str] = Field(default_factory=list)
+
+
+class UpstreamTopologyRepairCandidateSummary(BaseModel):
+    name: str
+    repair_type: str
+    geometry_filter_passed: bool
+    ran_3d: bool
+    surface_triangle_count: Optional[int] = None
+    volume_element_count: Optional[int] = None
+    ill_shaped_tet_count: Optional[int] = None
+    nodes_created_per_boundary_node: Optional[float] = None
+    brep_valid_default: Optional[bool] = None
+    brep_valid_exact: Optional[bool] = None
+    physical_groups_preserved: Optional[bool] = None
+    old_face_to_new_face_map_path: str = ""
+    failure_reason: str = ""
+
+
+class UpstreamTopologyRepairSummary(BaseModel):
+    baseline: str
+    controller_version: str
+    mesh_only_no_go_confirmed: bool
+    candidates: List[UpstreamTopologyRepairCandidateSummary] = Field(default_factory=list)
+    winner: Optional[str] = None
+    baseline_promoted: bool = False
+    recommended_next: str = ""
+
+
+class ShellV3QualityCleanBaselineManifest(BaseModel):
+    baseline_name: str
+    source_candidate: str
+    old_baseline: str
+    surface_triangle_count: int
+    volume_element_count: int
+    nodes_created_per_boundary_node: float
+    ill_shaped_tet_count: int
+    min_volume: float
+    minSICN: float
+    minSIGE: float
+    old_face_to_new_face_map: Dict[str, Any] = Field(default_factory=dict)
+    physical_group_remap: Dict[str, Any] = Field(default_factory=dict)
+    artifacts: Dict[str, Any] = Field(default_factory=dict)
+
+
+class UpstreamPairingNoGoSummary(BaseModel):
+    reason: str
+    confirmed_no_go: List[str] = Field(default_factory=list)
+    source_section_index: int
+    next_required_action: str
+    minimum_information_for_manual_review: List[str] = Field(default_factory=list)
+
+
 class MeshJobConfig(BaseModel):
     component: ComponentType
     geometry: Path

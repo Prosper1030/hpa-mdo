@@ -1,8 +1,12 @@
 from pathlib import Path
 
 from hpa_meshing.schema import (
+    AutonomousRepairContext,
+    AutonomousRepairActiveHotspotFamily,
+    AutonomousRepairBaselineMetrics,
     BaselineConvergenceGate,
     Bounds3D,
+    CandidateTopologyRepairReport,
     ConvergenceGateCheck,
     ConvergenceGateSection,
     GeometryProviderRequest,
@@ -33,8 +37,15 @@ from hpa_meshing.schema import (
     SliverVolumePocketField,
     SliverVolumePocketPolicy,
     SliverVolumePocketVariant,
+    TipTopologyDiagnostics,
+    TipTopologyDiagnosticsClassification,
+    TipTopologyDiagnosticsLineage,
+    TipTopologyTerminalNeighborhoodDiagnostics,
     TipQualityBufferPolicy,
     TipQualityBufferVariant,
+    UpstreamPairingNoGoSummary,
+    UpstreamTopologyRepairCandidateSummary,
+    UpstreamTopologyRepairSummary,
 )
 
 
@@ -286,6 +297,233 @@ def test_schema_supports_sliver_cluster_report_roundtrip():
         recommended_field_type="Cylinder",
         source_bad_tet_ids=[220280],
     )
+
+
+def test_schema_supports_autonomous_repair_context_roundtrip():
+    context = AutonomousRepairContext.model_validate(
+        {
+            "baseline": "shell_v2_strip_suppression",
+            "mesh_only_no_go": True,
+            "source_section_index": 5,
+            "known_good_trim_count_per_side": 3,
+            "bad_aggressive_trim": True,
+            "baseline_metrics": {
+                "surface_triangle_count": 107338,
+                "volume_element_count": 129288,
+                "nodes_created_per_boundary_node": 0.0260466156,
+                "ill_shaped_tet_count": 5,
+            },
+            "active_hotspot_family": {
+                "primary": ["tip-adjacent panel family"],
+                "observed_surfaces": [30, 21],
+                "legacy_surfaces": [31, 32],
+            },
+            "do_not_repeat": [
+                "compound",
+                "optimizer zoo",
+                "surface tip buffer",
+                "Ball/Cylinder pocket",
+                "more aggressive trim",
+            ],
+        }
+    )
+
+    dumped = context.model_dump(mode="json")
+    assert dumped["active_hotspot_family"]["observed_surfaces"] == [30, 21]
+    roundtrip = AutonomousRepairContext.model_validate(dumped)
+    assert roundtrip.baseline_metrics == AutonomousRepairBaselineMetrics(
+        surface_triangle_count=107338,
+        volume_element_count=129288,
+        nodes_created_per_boundary_node=0.0260466156,
+        ill_shaped_tet_count=5,
+    )
+    assert roundtrip.active_hotspot_family == AutonomousRepairActiveHotspotFamily(
+        primary=["tip-adjacent panel family"],
+        observed_surfaces=[30, 21],
+        legacy_surfaces=[31, 32],
+    )
+
+
+def test_schema_supports_tip_topology_diagnostics_roundtrip():
+    diagnostics = TipTopologyDiagnostics.model_validate(
+        {
+            "source_section_index": 5,
+            "terminal_tip_neighborhood": {
+                "section_point_count_before": 61,
+                "section_point_count_after_v2": 56,
+                "te_point_indices": [0, 1, 54, 55],
+                "trim_count_per_side": 3,
+                "terminal_bridge_m": 0.005055,
+                "adjacent_bridge_lengths_m": [0.0291, 0.0291],
+                "bridge_length_ratios": [0.17, 0.17],
+                "panel_widths_m": [0.005055, 0.0291],
+                "panel_lengths_m": [3.0, 3.0],
+                "width_length_ratios": [0.0017, 0.0097],
+                "consecutive_width_ratio_max": 5.76,
+                "candidate_bad_panels": [
+                    {
+                        "panel_index": 0,
+                        "width_m": 0.005055,
+                        "length_m": 3.0,
+                        "width_length_ratio": 0.001685,
+                    }
+                ],
+            },
+            "lineage": {
+                "old_face_to_source_panel": {
+                    "legacy_surface_30": "section5_tip_adjacent_right",
+                },
+                "source_panel_to_faces": {
+                    "section5_tip_adjacent_right": [30],
+                },
+                "attributes": {
+                    "section5_tip_adjacent_right": {"caps_group": "main_wing"},
+                },
+                "physical_groups": {
+                    "section5_tip_adjacent_right": "aircraft",
+                },
+            },
+            "classification": {
+                "has_residual_sliver_sensitive_topology": True,
+                "reason": [
+                    "panel_width_below_threshold",
+                    "width_length_ratio_below_threshold",
+                ],
+            },
+        }
+    )
+
+    dumped = diagnostics.model_dump(mode="json")
+    assert dumped["terminal_tip_neighborhood"]["section_point_count_after_v2"] == 56
+    roundtrip = TipTopologyDiagnostics.model_validate(dumped)
+    assert roundtrip.terminal_tip_neighborhood == TipTopologyTerminalNeighborhoodDiagnostics(
+        section_point_count_before=61,
+        section_point_count_after_v2=56,
+        te_point_indices=[0, 1, 54, 55],
+        trim_count_per_side=3,
+        terminal_bridge_m=0.005055,
+        adjacent_bridge_lengths_m=[0.0291, 0.0291],
+        bridge_length_ratios=[0.17, 0.17],
+        panel_widths_m=[0.005055, 0.0291],
+        panel_lengths_m=[3.0, 3.0],
+        width_length_ratios=[0.0017, 0.0097],
+        consecutive_width_ratio_max=5.76,
+        candidate_bad_panels=[{"panel_index": 0, "width_m": 0.005055, "length_m": 3.0, "width_length_ratio": 0.001685}],
+    )
+    assert roundtrip.lineage == TipTopologyDiagnosticsLineage(
+        old_face_to_source_panel={"legacy_surface_30": "section5_tip_adjacent_right"},
+        source_panel_to_faces={"section5_tip_adjacent_right": [30]},
+        attributes={"section5_tip_adjacent_right": {"caps_group": "main_wing"}},
+        physical_groups={"section5_tip_adjacent_right": "aircraft"},
+    )
+    assert roundtrip.classification == TipTopologyDiagnosticsClassification(
+        has_residual_sliver_sensitive_topology=True,
+        reason=["panel_width_below_threshold", "width_length_ratio_below_threshold"],
+    )
+
+
+def test_schema_supports_candidate_topology_repair_report_roundtrip():
+    report = CandidateTopologyRepairReport.model_validate(
+        {
+            "candidate_name": "section5_pairing_smooth_v0",
+            "repair_type": "pairing_smooth",
+            "source_section_index": 5,
+            "changes": {
+                "paired_section_indices": [4, 5],
+                "paired_profile_point_count": 56,
+            },
+            "old_face_to_new_face_map": {
+                "legacy_surface_30": "section5_tip_adjacent_right_paired",
+                "legacy_surface_21": "section5_tip_adjacent_left_paired",
+            },
+            "attribute_remap": {
+                "section5_tip_adjacent_right_paired": {"caps_group": "main_wing"},
+            },
+            "physical_group_remap": {
+                "section5_tip_adjacent_right_paired": "aircraft",
+            },
+            "expected_effect": "smooth section4-section5 pairing near the terminal tip TE neighborhood",
+            "risk": "may move the hotspot into an adjacent healthy panel if the pairing is too aggressive",
+            "geometry_score": 4.5,
+            "geometry_filter_passed": True,
+        }
+    )
+
+    dumped = report.model_dump(mode="json")
+    assert dumped["old_face_to_new_face_map"]["legacy_surface_30"] == "section5_tip_adjacent_right_paired"
+    roundtrip = CandidateTopologyRepairReport.model_validate(dumped)
+    assert roundtrip.candidate_name == "section5_pairing_smooth_v0"
+    assert roundtrip.geometry_filter_passed is True
+
+
+def test_schema_supports_upstream_topology_summary_and_no_go_roundtrip():
+    summary = UpstreamTopologyRepairSummary.model_validate(
+        {
+            "baseline": "shell_v2_strip_suppression",
+            "controller_version": "source_section5_tip_topology_repair_v0",
+            "mesh_only_no_go_confirmed": True,
+            "candidates": [
+                {
+                    "name": "diagnostic_noop_v2_control",
+                    "repair_type": "noop_control",
+                    "geometry_filter_passed": True,
+                    "ran_3d": True,
+                    "surface_triangle_count": 107338,
+                    "volume_element_count": 129288,
+                    "ill_shaped_tet_count": 5,
+                    "nodes_created_per_boundary_node": 0.0260466156,
+                    "brep_valid_default": True,
+                    "brep_valid_exact": True,
+                    "physical_groups_preserved": True,
+                    "old_face_to_new_face_map_path": "control_map.json",
+                    "failure_reason": "ill_shaped_tets_present",
+                }
+            ],
+            "winner": None,
+            "baseline_promoted": False,
+            "recommended_next": "manual review of rule-loft section pairing or geometry construction contract",
+        }
+    )
+
+    dumped = summary.model_dump(mode="json")
+    assert dumped["candidates"][0]["ran_3d"] is True
+    roundtrip = UpstreamTopologyRepairSummary.model_validate(dumped)
+    assert roundtrip.candidates[0] == UpstreamTopologyRepairCandidateSummary(
+        name="diagnostic_noop_v2_control",
+        repair_type="noop_control",
+        geometry_filter_passed=True,
+        ran_3d=True,
+        surface_triangle_count=107338,
+        volume_element_count=129288,
+        ill_shaped_tet_count=5,
+        nodes_created_per_boundary_node=0.0260466156,
+        brep_valid_default=True,
+        brep_valid_exact=True,
+        physical_groups_preserved=True,
+        old_face_to_new_face_map_path="control_map.json",
+        failure_reason="ill_shaped_tets_present",
+    )
+
+    no_go = UpstreamPairingNoGoSummary.model_validate(
+        {
+            "reason": "bounded upstream pairing/coalescing candidates did not clear residual slivers",
+            "confirmed_no_go": [
+                "compound",
+                "optimizer",
+                "surface tip buffer",
+                "Ball/Cylinder volume pocket",
+                "more aggressive trim",
+            ],
+            "source_section_index": 5,
+            "next_required_action": "manual review of rule-loft section pairing or geometry construction contract",
+            "minimum_information_for_manual_review": [
+                "tip_topology_diagnostics.json",
+                "candidate_topology_repair_report.json",
+                "old_face_to_new_face_map",
+            ],
+        }
+    )
+    assert no_go.source_section_index == 5
 
 
 def test_schema_supports_sliver_volume_pocket_policy_roundtrip():
