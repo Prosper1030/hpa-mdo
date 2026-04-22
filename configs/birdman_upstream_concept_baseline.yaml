@@ -22,9 +22,22 @@ segmentation:
   max_segment_length_m: 3.0
 
 launch:
+  mode: restrained_pre_spin
+  prop_ready_before_release: true
+  release_speed_mps: 8.0
+  release_rpm: 140.0
+  min_trim_margin_deg: 2.0
+  min_stall_margin: 2.0
   platform_height_m: 10.0
   runup_length_m: 10.0
   use_ground_effect: true
+
+prop:
+  blade_count: 2
+  diameter_m: 3.0
+  rpm_min: 100.0
+  rpm_max: 160.0
+  position_mode: between_wing_and_tail
 
 turn:
   required_bank_angle_deg: 15.0
@@ -35,3 +48,15 @@ geometry_family:
   taper_ratio_candidates: [0.30, 0.35, 0.40]
   twist_tip_candidates_deg: [-2.0, -1.5, -1.0]
   tail_area_candidates_m2: [3.8, 4.2, 4.6]
+  dihedral_root_deg_candidates: [0.0, 1.0, 2.0]
+  dihedral_tip_deg_candidates: [4.0, 6.0, 8.0]
+  dihedral_exponent_candidates: [1.0, 1.5, 2.0]
+
+pipeline:
+  stations_per_half: 7
+  keep_top_n: 5
+
+output:
+  export_candidate_bundle: true
+  export_vsp: false
+  export_vsp_for_top_n: 0

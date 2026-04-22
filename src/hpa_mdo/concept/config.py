@@ -64,9 +64,29 @@ class SegmentationConfig(ConceptBaseModel):
 
 
 class LaunchConfig(ConceptBaseModel):
+    mode: Literal["restrained_pre_spin"] = "restrained_pre_spin"
+    prop_ready_before_release: bool = True
+    release_speed_mps: float = Field(8.0, gt=0.0)
+    release_rpm: float = Field(140.0, gt=0.0)
+    min_trim_margin_deg: float = Field(2.0, gt=0.0)
+    min_stall_margin: float = Field(2.0, gt=0.0)
     platform_height_m: float = Field(10.0, gt=0.0)
     runup_length_m: float = Field(10.0, gt=0.0)
     use_ground_effect: bool = True
+
+
+class PropConfig(ConceptBaseModel):
+    blade_count: int = Field(2, ge=1)
+    diameter_m: float = Field(3.0, gt=0.0)
+    rpm_min: float = Field(100.0, gt=0.0)
+    rpm_max: float = Field(160.0, gt=0.0)
+    position_mode: Literal["between_wing_and_tail"] = "between_wing_and_tail"
+
+    @model_validator(mode="after")
+    def validate_rpm_bounds(self) -> PropConfig:
+        if self.rpm_max <= self.rpm_min:
+            raise ValueError("prop.rpm_max must be > prop.rpm_min.")
+        return self
 
 
 class TurnConfig(ConceptBaseModel):
@@ -79,6 +99,9 @@ class GeometryFamilyConfig(ConceptBaseModel):
     taper_ratio_candidates: tuple[float, ...] = Field((0.30, 0.35, 0.40), min_length=1)
     twist_tip_candidates_deg: tuple[float, ...] = Field((-2.0, -1.5, -1.0), min_length=1)
     tail_area_candidates_m2: tuple[float, ...] = Field((3.8, 4.2, 4.6), min_length=1)
+    dihedral_root_deg_candidates: tuple[float, ...] = Field((0.0, 1.0, 2.0), min_length=1)
+    dihedral_tip_deg_candidates: tuple[float, ...] = Field((4.0, 6.0, 8.0), min_length=1)
+    dihedral_exponent_candidates: tuple[float, ...] = Field((1.0, 1.5, 2.0), min_length=1)
 
     @model_validator(mode="after")
     def validate_candidate_ranges(self) -> GeometryFamilyConfig:
@@ -92,6 +115,16 @@ class GeometryFamilyConfig(ConceptBaseModel):
             raise ValueError("geometry_family.twist_tip_candidates_deg entries must be unique.")
         if len(set(self.tail_area_candidates_m2)) != len(self.tail_area_candidates_m2):
             raise ValueError("geometry_family.tail_area_candidates_m2 entries must be unique.")
+        if len(set(self.dihedral_root_deg_candidates)) != len(self.dihedral_root_deg_candidates):
+            raise ValueError(
+                "geometry_family.dihedral_root_deg_candidates entries must be unique."
+            )
+        if len(set(self.dihedral_tip_deg_candidates)) != len(self.dihedral_tip_deg_candidates):
+            raise ValueError("geometry_family.dihedral_tip_deg_candidates entries must be unique.")
+        if len(set(self.dihedral_exponent_candidates)) != len(self.dihedral_exponent_candidates):
+            raise ValueError(
+                "geometry_family.dihedral_exponent_candidates entries must be unique."
+            )
         if any(span <= 0.0 for span in self.span_candidates_m):
             raise ValueError("geometry_family.span_candidates_m entries must all be positive.")
         if any(area <= 0.0 for area in self.wing_area_candidates_m2):
@@ -106,6 +139,41 @@ class GeometryFamilyConfig(ConceptBaseModel):
             )
         if any(tail_area <= 0.0 for tail_area in self.tail_area_candidates_m2):
             raise ValueError("geometry_family.tail_area_candidates_m2 entries must all be positive.")
+        if any(root < -10.0 or root > 10.0 for root in self.dihedral_root_deg_candidates):
+            raise ValueError(
+                "geometry_family.dihedral_root_deg_candidates entries must be in the interval [-10, 10]."
+            )
+        if any(tip < -10.0 or tip > 10.0 for tip in self.dihedral_tip_deg_candidates):
+            raise ValueError(
+                "geometry_family.dihedral_tip_deg_candidates entries must be in the interval [-10, 10]."
+            )
+        if min(self.dihedral_tip_deg_candidates) < max(self.dihedral_root_deg_candidates):
+            raise ValueError(
+                "geometry_family.dihedral_tip_deg_candidates must be >= dihedral_root_deg_candidates."
+            )
+        if any(exponent <= 0.0 for exponent in self.dihedral_exponent_candidates):
+            raise ValueError(
+                "geometry_family.dihedral_exponent_candidates entries must be positive."
+            )
+        return self
+
+
+class PipelineConfig(ConceptBaseModel):
+    stations_per_half: int = Field(7, ge=2)
+    keep_top_n: int = Field(5, ge=1)
+
+
+class OutputConfig(ConceptBaseModel):
+    export_candidate_bundle: bool = True
+    export_vsp: bool = False
+    export_vsp_for_top_n: int = Field(0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_vsp_exports(self) -> OutputConfig:
+        if not self.export_vsp and self.export_vsp_for_top_n != 0:
+            raise ValueError(
+                "output.export_vsp_for_top_n must be 0 when output.export_vsp is false."
+            )
         return self
 
 
@@ -115,8 +183,19 @@ class BirdmanConceptConfig(ConceptBaseModel):
     mission: MissionConfig
     segmentation: SegmentationConfig = Field(default_factory=SegmentationConfig)
     launch: LaunchConfig = Field(default_factory=LaunchConfig)
+    prop: PropConfig = Field(default_factory=PropConfig)
     turn: TurnConfig = Field(default_factory=TurnConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
+    pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
+    output: OutputConfig = Field(default_factory=OutputConfig)
+
+    @model_validator(mode="after")
+    def validate_cross_section(self) -> BirdmanConceptConfig:
+        if not (self.prop.rpm_min <= self.launch.release_rpm <= self.prop.rpm_max):
+            raise ValueError("launch.release_rpm must fall within prop.rpm_min and prop.rpm_max.")
+        if self.output.export_vsp_for_top_n > self.pipeline.keep_top_n:
+            raise ValueError("output.export_vsp_for_top_n must be <= pipeline.keep_top_n.")
+        return self
 
 
 def load_concept_config(path: str | Path) -> BirdmanConceptConfig:

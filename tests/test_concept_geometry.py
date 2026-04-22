@@ -37,6 +37,9 @@ def test_build_linear_wing_stations_returns_monotone_stations():
         tip_chord_m=0.45,
         twist_root_deg=2.0,
         twist_tip_deg=-1.5,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=6.0,
+        dihedral_exponent=1.0,
         tail_area_m2=4.0,
         cg_xc=0.30,
         segment_lengths_m=(1.5, 3.0, 3.0, 3.0, 3.0, 2.5),
@@ -49,6 +52,36 @@ def test_build_linear_wing_stations_returns_monotone_stations():
     assert [station.y_m for station in stations] == sorted(station.y_m for station in stations)
     assert stations[0].chord_m > stations[-1].chord_m
     assert stations[0].twist_deg > stations[-1].twist_deg
+    assert stations[0].dihedral_deg == pytest.approx(0.0)
+    assert stations[-1].dihedral_deg == pytest.approx(6.0)
+    assert [station.dihedral_deg for station in stations] == sorted(
+        station.dihedral_deg for station in stations
+    )
+
+
+def test_build_linear_wing_stations_interpolates_progressive_dihedral_schedule():
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=28.0,
+        root_chord_m=1.30,
+        tip_chord_m=0.45,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.5,
+        dihedral_root_deg=1.0,
+        dihedral_tip_deg=5.0,
+        dihedral_exponent=2.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(1.5, 3.0, 3.0, 3.0, 3.0, 2.5),
+    )
+
+    stations = build_linear_wing_stations(concept, stations_per_half=7)
+
+    assert stations[0].dihedral_deg == pytest.approx(1.0)
+    assert stations[-1].dihedral_deg == pytest.approx(5.0)
+    assert stations[3].dihedral_deg == pytest.approx(
+        1.0 + (stations[3].y_m / (concept.span_m / 2.0)) ** 2 * 4.0
+    )
 
 
 def test_build_linear_wing_stations_preserves_segment_boundaries():
@@ -59,6 +92,9 @@ def test_build_linear_wing_stations_preserves_segment_boundaries():
         tip_chord_m=0.45,
         twist_root_deg=2.0,
         twist_tip_deg=-1.5,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=6.0,
+        dihedral_exponent=1.0,
         tail_area_m2=4.0,
         cg_xc=0.30,
         segment_lengths_m=(1.5, 3.0, 3.0, 3.0, 3.0, 2.5),
@@ -88,6 +124,9 @@ def test_build_linear_wing_stations_allocates_extra_points_by_span_coverage():
         tip_chord_m=0.50,
         twist_root_deg=2.0,
         twist_tip_deg=-1.5,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=6.0,
+        dihedral_exponent=1.0,
         tail_area_m2=3.8,
         cg_xc=0.30,
         segment_lengths_m=(1.0, 1.0, 1.0, 1.0, 6.0, 6.0),
@@ -119,6 +158,9 @@ def test_build_linear_wing_stations_rejects_too_few_stations():
         tip_chord_m=0.45,
         twist_root_deg=2.0,
         twist_tip_deg=-1.5,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=6.0,
+        dihedral_exponent=1.0,
         tail_area_m2=4.0,
         cg_xc=0.30,
         segment_lengths_m=(1.5, 3.0, 3.0, 3.0, 3.0, 2.5),
@@ -137,6 +179,9 @@ def test_geometry_concept_rejects_nonphysical_inputs():
             tip_chord_m=0.45,
             twist_root_deg=2.0,
             twist_tip_deg=-1.5,
+            dihedral_root_deg=0.0,
+            dihedral_tip_deg=6.0,
+            dihedral_exponent=1.0,
             tail_area_m2=4.0,
             cg_xc=1.1,
             segment_lengths_m=(1.5, 3.0, 3.0, 3.0, 3.0, 2.5),
@@ -150,6 +195,9 @@ def test_geometry_concept_rejects_nonphysical_inputs():
             tip_chord_m=0.45,
             twist_root_deg=2.0,
             twist_tip_deg=-1.5,
+            dihedral_root_deg=0.0,
+            dihedral_tip_deg=6.0,
+            dihedral_exponent=1.0,
             tail_area_m2=4.0,
             cg_xc=0.30,
             segment_lengths_m=(1.5, 3.0, 3.0, 3.0, 3.0, 2.5),
@@ -166,6 +214,9 @@ def test_geometry_concept_normalizes_segment_lengths_to_tuple():
         tip_chord_m=0.45,
         twist_root_deg=2.0,
         twist_tip_deg=-1.5,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=6.0,
+        dihedral_exponent=1.0,
         tail_area_m2=4.0,
         cg_xc=0.30,
         segment_lengths_m=segment_lengths,
@@ -183,11 +234,14 @@ def test_enumerate_geometry_concepts_generates_multiple_candidates():
     )
     concepts = enumerate_geometry_concepts(cfg)
 
-    assert len(concepts) == 243
+    assert len(concepts) == 6561
 
     first = concepts[0]
     assert first.span_m == pytest.approx(30.0)
     assert first.wing_area_m2 == pytest.approx(26.0)
     assert first.root_chord_m == pytest.approx(52.0 / 39.0)
     assert first.tip_chord_m == pytest.approx((52.0 / 39.0) * 0.30)
+    assert first.dihedral_root_deg == pytest.approx(0.0)
+    assert first.dihedral_tip_deg == pytest.approx(4.0)
+    assert first.dihedral_exponent == pytest.approx(1.0)
     assert sum(first.segment_lengths_m) == pytest.approx(first.span_m / 2.0)
