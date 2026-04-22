@@ -112,13 +112,21 @@ def _concept_to_bundle_payload(
         "tip_chord_m": concept.tip_chord_m,
         "twist_root_deg": concept.twist_root_deg,
         "twist_tip_deg": concept.twist_tip_deg,
+        "dihedral_root_deg": concept.dihedral_root_deg,
+        "dihedral_tip_deg": concept.dihedral_tip_deg,
+        "dihedral_exponent": concept.dihedral_exponent,
         "tail_area_m2": concept.tail_area_m2,
         "cg_xc": concept.cg_xc,
         "segment_lengths_m": list(concept.segment_lengths_m),
     }
 
     stations_rows = [
-        {"y_m": station.y_m, "chord_m": station.chord_m, "twist_deg": station.twist_deg}
+        {
+            "y_m": station.y_m,
+            "chord_m": station.chord_m,
+            "twist_deg": station.twist_deg,
+            "dihedral_deg": station.dihedral_deg,
+        }
         for station in stations
     ]
     airfoil_templates = {
@@ -136,9 +144,10 @@ def _concept_to_bundle_payload(
         "interpolation_rule": "linear_in_coeff_space",
     }
     prop_assumption = {
-        "blade_count": 2,
-        "diameter_m": 3.0,
-        "rpm_range": [100.0, 160.0],
+        "blade_count": cfg.prop.blade_count,
+        "diameter_m": cfg.prop.diameter_m,
+        "rpm_range": [cfg.prop.rpm_min, cfg.prop.rpm_max],
+        "position_mode": cfg.prop.position_mode,
         "mode": "simplified",
     }
     worker_statuses = _worker_statuses(worker_results)
@@ -179,7 +188,7 @@ def run_birdman_concept_pipeline(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    concepts = enumerate_geometry_concepts(cfg)[:5]
+    concepts = enumerate_geometry_concepts(cfg)[: cfg.pipeline.keep_top_n]
     if len(concepts) < 3:
         raise RuntimeError("Birdman concept enumeration must yield at least 3 candidate concepts.")
 
@@ -192,7 +201,10 @@ def run_birdman_concept_pipeline(
     summary_worker_statuses: list[str] = []
 
     for concept_index, concept in enumerate(concepts, start=1):
-        stations = build_linear_wing_stations(concept, stations_per_half=7)
+        stations = build_linear_wing_stations(
+            concept,
+            stations_per_half=cfg.pipeline.stations_per_half,
+        )
         zone_requirements = spanwise_loader(concept, stations)
         worker_queries: list[PolarQuery] = []
         for zone_name, zone_data in zone_requirements.items():
@@ -235,6 +247,9 @@ def run_birdman_concept_pipeline(
             lofting_guides=lofting_guides,
             prop_assumption=prop_assumption,
             concept_summary=concept_summary,
+            export_vsp=(
+                cfg.output.export_vsp and concept_index <= cfg.output.export_vsp_for_top_n
+            ),
         )
         selected_concept_dirs.append(bundle_dir)
         summary_records.append(

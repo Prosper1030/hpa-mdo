@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import subprocess
 
+import yaml
+
 from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
@@ -200,3 +202,96 @@ def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_p
     assert summary["worker_backend"] == "julia_xfoil"
     assert all(item["worker_backend"] == "julia_xfoil" for item in summary["selected_concepts"])
     assert summary["worker_statuses"] == []
+
+
+def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    payload["pipeline"]["stations_per_half"] = 9
+    payload["pipeline"]["keep_top_n"] = 3
+    payload["output"]["export_vsp"] = True
+    payload["output"]["export_vsp_for_top_n"] = 2
+    payload["prop"]["blade_count"] = 3
+    payload["prop"]["diameter_m"] = 3.4
+    payload["prop"]["rpm_min"] = 90.0
+    payload["prop"]["rpm_max"] = 155.0
+
+    custom_cfg = tmp_path / "concept.yaml"
+    custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    result = run_birdman_concept_pipeline(
+        config_path=custom_cfg,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {"status": "ok", "polar_points": [], "template_id": query.template_id}
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 350000.0,
+                        "cl_target": 0.75,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ]
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        },
+    )
+
+    assert len(result.selected_concept_dirs) == 3
+
+    first_bundle = result.selected_concept_dirs[0]
+    third_bundle = result.selected_concept_dirs[2]
+
+    stations_csv = (first_bundle / "stations.csv").read_text(encoding="utf-8").strip().splitlines()
+    assert len(stations_csv) == 10  # header + 9 stations
+    assert stations_csv[0].split(",") == ["y_m", "chord_m", "twist_deg", "dihedral_deg"]
+
+    prop_assumption = json.loads((first_bundle / "prop_assumption.json").read_text(encoding="utf-8"))
+    assert prop_assumption["blade_count"] == 3
+    assert prop_assumption["diameter_m"] == 3.4
+    assert prop_assumption["rpm_range"] == [90.0, 155.0]
+
+    assert (first_bundle / "concept_openvsp.vspscript").exists()
+    assert (first_bundle / "concept_openvsp_metadata.json").exists()
+    assert (third_bundle / "concept_openvsp.vspscript").exists() is False
+
+
+def test_pipeline_writes_dihedral_geometry_into_bundle_and_vsp_preview(tmp_path: Path) -> None:
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {"root": {"points": []}},
+    )
+
+    bundle = result.selected_concept_dirs[0]
+    concept_cfg = yaml.safe_load((bundle / "concept_config.yaml").read_text(encoding="utf-8"))
+    stations_csv = (bundle / "stations.csv").read_text(encoding="utf-8")
+
+    assert concept_cfg["geometry"]["dihedral_root_deg"] == 0.0
+    assert concept_cfg["geometry"]["dihedral_tip_deg"] == 4.0
+    assert concept_cfg["geometry"]["dihedral_exponent"] == 1.0
+    assert "dihedral_deg" in stations_csv.splitlines()[0]

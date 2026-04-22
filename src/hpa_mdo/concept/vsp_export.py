@@ -126,6 +126,9 @@ def build_concept_openvsp_vspscript(
             inboard = stations_rows[seg_idx]
             outboard = stations_rows[seg_idx + 1]
             seg_span = float(outboard["y_m"]) - float(inboard["y_m"])
+            local_dihedral_deg = 0.5 * (
+                float(inboard.get("dihedral_deg", 0.0)) + float(outboard.get("dihedral_deg", 0.0))
+            )
 
             segment_lines.append(
                 f'    // Station {seg_idx}: y={float(inboard["y_m"]):.3f} -> {float(outboard["y_m"]):.3f} m'
@@ -146,7 +149,11 @@ def build_concept_openvsp_vspscript(
                 f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Span" ), {seg_span:.6f} );'
             )
             segment_lines.append('    SetParmVal( GetXSecParm( seg{0}_xs, "Sweep" ), 0.0 );'.format(seg_idx))
-            segment_lines.append('    SetParmVal( GetXSecParm( seg{0}_xs, "Dihedral" ), 0.0 );'.format(seg_idx))
+            segment_lines.append(
+                '    SetParmVal( GetXSecParm( seg{0}_xs, "Dihedral" ), {1:.6f} );'.format(
+                    seg_idx, local_dihedral_deg
+                )
+            )
             segment_lines.append(
                 f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Twist" ), {float(outboard["twist_deg"]):.6f} );'
             )

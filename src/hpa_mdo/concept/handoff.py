@@ -29,6 +29,7 @@ def write_selected_concept_bundle(
     lofting_guides: dict,
     prop_assumption: dict,
     concept_summary: dict,
+    export_vsp: bool = True,
 ) -> Path:
     _validate_stations_rows(stations_rows)
 
@@ -61,14 +62,15 @@ def write_selected_concept_bundle(
         json.dumps(concept_summary, indent=2),
         encoding="utf-8",
     )
-    write_concept_openvsp_handoff(
-        bundle_dir=bundle_dir,
-        concept_id=concept_id,
-        concept_config=concept_config,
-        stations_rows=stations_rows,
-        airfoil_templates=airfoil_templates,
-        lofting_guides=lofting_guides,
-        prop_assumption=prop_assumption,
-        concept_summary=concept_summary,
-    )
+    if export_vsp:
+        write_concept_openvsp_handoff(
+            bundle_dir=bundle_dir,
+            concept_id=concept_id,
+            concept_config=concept_config,
+            stations_rows=stations_rows,
+            airfoil_templates=airfoil_templates,
+            lofting_guides=lofting_guides,
+            prop_assumption=prop_assumption,
+            concept_summary=concept_summary,
+        )
     return bundle_dir
