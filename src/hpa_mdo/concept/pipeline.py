@@ -37,6 +37,10 @@ class ConceptPipelineResult:
     selected_concept_dirs: tuple[Path, ...]
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
 def _default_spanwise_loader(
     concept: GeometryConcept, stations: tuple[WingStation, ...]
 ) -> dict[str, dict[str, Any]]:
@@ -76,6 +80,18 @@ def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
     return _NoopWorker()
 
 
+def _worker_backend(worker: AirfoilWorker) -> str:
+    return str(getattr(worker, "backend_name", "python_stubbed"))
+
+
+def _worker_statuses(worker_results: list[dict[str, object]]) -> tuple[str, ...]:
+    statuses: list[str] = []
+    for result in worker_results:
+        status = result.get("status")
+        statuses.append("unknown" if status is None else str(status))
+    return tuple(statuses)
+
+
 def _concept_to_bundle_payload(
     *,
     cfg: BirdmanConceptConfig,
@@ -83,6 +99,7 @@ def _concept_to_bundle_payload(
     stations: tuple[WingStation, ...],
     zone_requirements: dict[str, dict[str, Any]],
     worker_results: list[dict[str, object]],
+    worker_backend: str,
     concept_index: int,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     concept_config = cfg.model_dump(mode="python")
@@ -119,6 +136,7 @@ def _concept_to_bundle_payload(
         "concept_index": concept_index,
         "worker_result_count": len(worker_results),
     }
+    worker_statuses = _worker_statuses(worker_results)
     concept_summary = {
         "concept_id": f"concept-{concept_index:02d}",
         "rank": concept_index,
@@ -127,6 +145,8 @@ def _concept_to_bundle_payload(
         "station_count": len(stations),
         "zone_count": len(zone_requirements),
         "worker_result_count": len(worker_results),
+        "worker_backend": worker_backend,
+        "worker_statuses": list(worker_statuses),
     }
     return (
         concept_config,
@@ -153,10 +173,13 @@ def run_birdman_concept_pipeline(
     if len(concepts) < 3:
         raise RuntimeError("Birdman concept enumeration must yield at least 3 candidate concepts.")
 
-    worker = airfoil_worker_factory(project_dir=output_dir, cache_dir=output_dir / "polar_db")
+    repo_root = _repo_root()
+    worker = airfoil_worker_factory(project_dir=repo_root, cache_dir=output_dir / "polar_db")
+    worker_backend = _worker_backend(worker)
 
     selected_concept_dirs: list[Path] = []
     summary_records: list[dict[str, Any]] = []
+    summary_worker_statuses: list[str] = []
 
     for concept_index, concept in enumerate(concepts, start=1):
         stations = build_linear_wing_stations(concept, stations_per_half=7)
@@ -187,8 +210,11 @@ def run_birdman_concept_pipeline(
             stations=stations,
             zone_requirements=zone_requirements,
             worker_results=worker_results,
+            worker_backend=worker_backend,
             concept_index=concept_index,
         )
+        concept_worker_statuses = list(concept_summary["worker_statuses"])
+        summary_worker_statuses.extend(concept_worker_statuses)
 
         bundle_dir = write_selected_concept_bundle(
             output_dir=output_dir / "selected_concepts",
@@ -209,6 +235,8 @@ def run_birdman_concept_pipeline(
                 "wing_area_m2": concept.wing_area_m2,
                 "zone_count": len(zone_requirements),
                 "worker_result_count": len(worker_results),
+                "worker_backend": worker_backend,
+                "worker_statuses": concept_worker_statuses,
             }
         )
 
@@ -217,6 +245,8 @@ def run_birdman_concept_pipeline(
         json.dumps(
             {
                 "config_path": str(Path(config_path)),
+                "worker_backend": worker_backend,
+                "worker_statuses": summary_worker_statuses,
                 "selected_concepts": summary_records,
             },
             indent=2,

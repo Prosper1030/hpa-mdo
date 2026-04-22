@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 
@@ -7,19 +8,24 @@ from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
 
 def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
+    factory_calls: list[dict[str, object]] = []
+    loader_calls: list[tuple[str, int]] = []
+
+    class FakeWorker:
+        backend_name = "test_stub"
+
+        def run_queries(self, queries):
+            return [
+                {"status": "ok", "polar_points": [], "template_id": query.template_id}
+                for query in queries
+            ]
+
     result = run_birdman_concept_pipeline(
         config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
         output_dir=tmp_path,
-        airfoil_worker_factory=lambda **_: type(
-            "FakeWorker",
-            (),
-            {
-                "run_queries": lambda self, queries: [
-                    {"status": "ok", "polar_points": []} for _ in queries
-                ]
-            },
-        )(),
-        spanwise_loader=lambda concept, stations: {
+        airfoil_worker_factory=lambda **kwargs: factory_calls.append(kwargs) or FakeWorker(),
+        spanwise_loader=lambda concept, stations: loader_calls.append((concept.span_m, len(stations)))
+        or {
             "root": {
                 "points": [
                     {
@@ -65,6 +71,17 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
 
     assert result.summary_json_path.exists()
     assert 3 <= len(result.selected_concept_dirs) <= 5
+    assert factory_calls
+    assert factory_calls[0]["project_dir"] == Path(__file__).resolve().parents[1]
+    assert factory_calls[0]["cache_dir"] == tmp_path / "polar_db"
+    assert len(loader_calls) == len(result.selected_concept_dirs)
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    assert summary["worker_backend"] == "test_stub"
+    assert summary["worker_statuses"]
+    assert all(status == "ok" for status in summary["worker_statuses"])
+    assert summary["selected_concepts"][0]["worker_backend"] == "test_stub"
+    assert summary["selected_concepts"][0]["worker_statuses"] == ["ok", "ok", "ok", "ok"]
 
 
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
@@ -82,4 +99,6 @@ def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
         cwd=Path(__file__).resolve().parents[1],
     )
 
-    assert (output_dir / "concept_summary.json").exists()
+    summary = json.loads((output_dir / "concept_summary.json").read_text(encoding="utf-8"))
+    assert summary["worker_backend"] == "cli_stubbed"
+    assert summary["selected_concepts"]

@@ -37,6 +37,8 @@ def _cli_spanwise_loader(concept, stations):
 
 def _cli_airfoil_worker_factory(**kwargs):
     class _FakeWorker:
+        backend_name = "cli_stubbed"
+
         def run_queries(self, queries):
             return [
                 {
