@@ -504,6 +504,69 @@ def test_run_mesh3d_with_watchdog_classifies_hxt_volume_insertion(tmp_path: Path
     assert persisted["hxt_points_added"] == 34301282
 
 
+def test_run_mesh3d_with_watchdog_persists_successful_insertion_metrics(tmp_path: Path):
+    gmsh = _FakeWatchdogGmsh(
+        sleep_seconds=0.0,
+        logger_messages=[
+            "Info    : Meshing 3D...",
+            "Info    : 3D Meshing 1 volume with 1 connected component",
+            "Info    : Done tetrahedrizing 128 nodes (Wall 0.5s, CPU 0.5s)",
+            "Info    : Found volume 2",
+            "Info    : It. 4500 - 64 nodes created - worst tet radius 1.01261 (nodes removed 3126 2)",
+            "Info    :  - 131292 tetrahedra created in 1.30747 sec. (100416 tets/s)",
+            "Info    : Optimizing volume 2",
+        ],
+    )
+    watchdog_path = tmp_path / "mesh3d_watchdog_success.json"
+    sample_path = tmp_path / "mesh3d_watchdog_success_sample.txt"
+
+    def _fake_sample_runner(pid: int, sample_seconds: int, output_path: Path):
+        output_path.write_text(f"sample pid={pid} seconds={sample_seconds}\n", encoding="utf-8")
+        return {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": "sample ok",
+        }
+
+    payload, error = _run_mesh3d_with_watchdog(
+        gmsh,
+        watchdog_path=watchdog_path,
+        sample_path=sample_path,
+        timeout_seconds=1.0,
+        sample_seconds=1,
+        mesh_algorithm_3d=1,
+        sample_runner=_fake_sample_runner,
+        pre_mesh_stats={
+            "mesh_dim": 2,
+            "node_count": 128,
+            "element_count": 256,
+            "surface_element_count": 240,
+            "volume_element_count": 0,
+        },
+    )
+
+    assert error is None
+    assert payload["status"] == "completed_without_timeout"
+    assert payload["tetrahedrizing_node_count"] == 128
+    assert payload["volume_count"] == 1
+    assert payload["connected_component_count"] == 1
+    assert payload["boundary_node_count"] == 128
+    assert payload["surface_triangle_count"] == 240
+    assert payload["iteration_count"] == 4500
+    assert payload["nodes_created"] == 64
+    assert payload["nodes_created_per_boundary_node"] == pytest.approx(0.5)
+    assert payload["iterations_per_surface_triangle"] == pytest.approx(4500.0 / 240.0)
+    assert payload["phase_classification_after_return"] == "optimization"
+    assert payload["timeout_phase_classification"] == "optimization"
+    assert payload["nodes_created_after_return"] == 64
+
+    persisted = json.loads(watchdog_path.read_text(encoding="utf-8"))
+    assert persisted["status"] == "completed_without_timeout"
+    assert persisted["tetrahedrizing_node_count"] == 128
+    assert persisted["nodes_created"] == 64
+    assert persisted["timeout_phase_classification"] == "optimization"
+
+
 def test_collect_surface_patch_diagnostics_ranks_short_curve_strip_candidates():
     bbox_lookup = {
         (2, 11): (0.95, 13.5, 0.28, 1.10, 16.5, 0.50),
