@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Any
 
 
 @dataclass(frozen=True)
@@ -36,12 +35,29 @@ class JuliaXFoilWorker:
     def _resolve_julia(self) -> str | None:
         return shutil.which("julia")
 
+    def _resolve_worker_project_dir(self) -> Path:
+        direct_dir = self.project_dir
+        direct_project = direct_dir / "Project.toml"
+        if direct_project.is_file():
+            return direct_dir
+
+        nested_dir = direct_dir / "tools" / "julia" / "xfoil_worker"
+        nested_project = nested_dir / "Project.toml"
+        if nested_project.is_file():
+            return nested_dir
+
+        raise RuntimeError(
+            "Unable to resolve Julia XFoil worker project. "
+            "Expected either project_dir itself or project_dir/tools/julia/xfoil_worker "
+            "to contain Project.toml."
+        )
+
     def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
         julia = self._resolve_julia()
         if julia is None:
             raise RuntimeError("Julia runtime not found. Install Julia before running the XFoil worker.")
 
-        worker_dir = self.project_dir / "tools" / "julia" / "xfoil_worker"
+        worker_dir = self._resolve_worker_project_dir()
         request_path = self.cache_dir / "request.json"
         response_path = self.cache_dir / "response.json"
 
