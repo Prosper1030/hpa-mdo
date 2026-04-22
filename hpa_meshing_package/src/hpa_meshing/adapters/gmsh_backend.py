@@ -1703,6 +1703,8 @@ def _run_mesh3d_with_watchdog(
         payload["meshing_stage_after_return"] = _infer_meshing_stage(final_logger_messages)
         payload["logger_tail_after_return"] = _logger_tail(final_logger_messages)
         payload["phase_classification_after_return"] = burden_metrics_after_return.get("timeout_phase_classification")
+        if payload.get("timeout_phase_classification") is None:
+            payload["timeout_phase_classification"] = payload["phase_classification_after_return"]
         for key in (
             "boundary_node_count",
             "surface_triangle_count",
@@ -1721,13 +1723,23 @@ def _run_mesh3d_with_watchdog(
         ):
             if key in burden_metrics_after_return:
                 payload[f"{key}_after_return"] = burden_metrics_after_return[key]
+                if payload.get(key) is None:
+                    payload[key] = burden_metrics_after_return[key]
         if volume_summary is not None:
             payload["volume_count_after_return"] = int(volume_summary["volume_count"])
             payload["connected_component_count_after_return"] = int(volume_summary["connected_component_count"])
             payload["volume_meshing_message_after_return"] = str(volume_summary["message"])
+            if payload.get("volume_count") is None:
+                payload["volume_count"] = int(volume_summary["volume_count"])
+            if payload.get("connected_component_count") is None:
+                payload["connected_component_count"] = int(volume_summary["connected_component_count"])
         if tetra_summary is not None:
             payload["tetrahedrizing_node_count_after_return"] = int(tetra_summary["tetrahedrizing_node_count"])
             payload["tetrahedrizing_message_after_return"] = str(tetra_summary["message"])
+            if payload.get("tetrahedrizing_node_count") is None:
+                payload["tetrahedrizing_node_count"] = int(tetra_summary["tetrahedrizing_node_count"])
+            if payload.get("tetrahedrizing_message") is None:
+                payload["tetrahedrizing_message"] = str(tetra_summary["message"])
         if mesh_error is not None:
             payload["error"] = str(mesh_error)
             if payload["status"] == "armed":
