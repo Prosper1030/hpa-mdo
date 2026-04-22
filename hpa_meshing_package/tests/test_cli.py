@@ -19,6 +19,22 @@ def test_parser_supports_mesh_study_command():
     assert args.config == "configs/demo.yaml"
 
 
+def test_parser_supports_baseline_freeze_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "baseline-freeze",
+            "--baseline-manifest",
+            "artifacts/baseline.json",
+            "--out",
+            "artifacts/regression.json",
+        ]
+    )
+    assert args.command == "baseline-freeze"
+    assert args.baseline_manifest == "artifacts/baseline.json"
+    assert args.out == "artifacts/regression.json"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

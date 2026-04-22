@@ -7,6 +7,7 @@ import sys
 import yaml
 
 from .schema import MeshJobConfig, BatchManifest
+from .frozen_baseline import evaluate_shell_v3_baseline_regression
 from .pipeline import run_job, validate_geometry_only
 from .mesh_study import run_mesh_study
 
@@ -60,6 +61,19 @@ def cmd_mesh_study(args: argparse.Namespace) -> int:
     return 0 if result.get("verdict", {}).get("verdict") != "insufficient" else 2
 
 
+def cmd_baseline_freeze(args: argparse.Namespace) -> int:
+    result = evaluate_shell_v3_baseline_regression(
+        Path(args.baseline_manifest),
+        mesh_handoff_path=None if args.mesh_handoff is None else Path(args.mesh_handoff),
+    )
+    if args.out:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("status") == "pass" else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpa-mesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -91,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     mesh_study.add_argument("--config", type=str, required=True)
     mesh_study.add_argument("--out", type=str)
     mesh_study.set_defaults(func=cmd_mesh_study)
+
+    baseline_freeze = sub.add_parser("baseline-freeze")
+    baseline_freeze.add_argument("--baseline-manifest", type=str, required=True)
+    baseline_freeze.add_argument("--mesh-handoff", type=str)
+    baseline_freeze.add_argument("--out", type=str)
+    baseline_freeze.set_defaults(func=cmd_baseline_freeze)
 
     return parser
 
