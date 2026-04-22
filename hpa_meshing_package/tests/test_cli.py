@@ -67,6 +67,24 @@ def test_parser_supports_shell_v3_refinement_study_command():
     assert args.out == "artifacts/refinement"
 
 
+def test_parser_supports_shell_v4_half_wing_bl_mesh_macsafe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "shell-v4-half-wing-bl-mesh-macsafe",
+            "--out",
+            "artifacts/shell_v4",
+            "--study-level",
+            "BL_macsafe_upper",
+            "--skip-su2",
+        ]
+    )
+    assert args.command == "shell-v4-half-wing-bl-mesh-macsafe"
+    assert args.out == "artifacts/shell_v4"
+    assert args.study_level == "BL_macsafe_upper"
+    assert args.skip_su2 is True
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

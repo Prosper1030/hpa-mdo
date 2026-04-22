@@ -11,6 +11,7 @@ from .frozen_baseline import evaluate_shell_v3_baseline_regression, run_shell_v3
 from .pipeline import run_job, validate_geometry_only
 from .mesh_study import run_mesh_study
 from .shell_v3_refinement_study import run_shell_v3_refinement_study
+from .shell_v4_half_wing_bl_mesh_macsafe import run_shell_v4_half_wing_bl_mesh_macsafe
 
 
 def _load_yaml(path: Path):
@@ -95,6 +96,17 @@ def cmd_shell_v3_refinement_study(args: argparse.Namespace) -> int:
     return 0 if result.get("status") == "success" else 2
 
 
+def cmd_shell_v4_half_wing_bl_mesh_macsafe(args: argparse.Namespace) -> int:
+    result = run_shell_v4_half_wing_bl_mesh_macsafe(
+        out_dir=Path(args.out),
+        study_level=args.study_level,
+        run_su2=not args.skip_su2,
+        allow_swap_risk=args.allow_swap_risk,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("status") == "success" else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpa-mesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -144,6 +156,18 @@ def build_parser() -> argparse.ArgumentParser:
     refinement.add_argument("--mesh-handoff", type=str)
     refinement.add_argument("--out", type=str, required=True)
     refinement.set_defaults(func=cmd_shell_v3_refinement_study)
+
+    shell_v4 = sub.add_parser("shell-v4-half-wing-bl-mesh-macsafe")
+    shell_v4.add_argument("--out", type=str, required=True)
+    shell_v4.add_argument(
+        "--study-level",
+        type=str,
+        default="BL_macsafe_baseline",
+        choices=["BL_macsafe_baseline", "BL_macsafe_upper"],
+    )
+    shell_v4.add_argument("--skip-su2", action="store_true")
+    shell_v4.add_argument("--allow-swap-risk", action="store_true")
+    shell_v4.set_defaults(func=cmd_shell_v4_half_wing_bl_mesh_macsafe)
 
     return parser
 

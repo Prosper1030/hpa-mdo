@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
+    build_shell_v4_half_wing_bl_macsafe_spec,
+    estimate_first_cell_yplus_range,
+    run_shell_v4_half_wing_bl_mesh_macsafe,
+)
+
+
+def test_build_shell_v4_spec_uses_half_wing_reference_values():
+    spec = build_shell_v4_half_wing_bl_macsafe_spec()
+
+    assert spec["route_name"] == "shell_v4_half_wing_bl_mesh_macsafe"
+    assert spec["study_level"] == "BL_macsafe_baseline"
+    assert spec["geometry"]["chord_m"] == pytest.approx(1.05)
+    assert spec["geometry"]["half_span_m"] == pytest.approx(16.5)
+    assert spec["reference_values"]["ref_length"] == pytest.approx(1.05)
+    assert spec["reference_values"]["ref_area"] == pytest.approx(17.325)
+    assert spec["reference_values"]["alternate_full_wing_ref_area"] == pytest.approx(34.65)
+    assert spec["boundary_layer"]["layers"] == 24
+    assert spec["boundary_layer"]["first_layer_height_m"] == pytest.approx(5.0e-5)
+    assert 0.035 <= spec["boundary_layer"]["target_total_thickness_m"] <= 0.05
+
+
+def test_estimate_first_cell_yplus_range_returns_positive_laminar_to_turbulent_band():
+    result = estimate_first_cell_yplus_range(
+        velocity_mps=6.5,
+        density_kgpm3=1.225,
+        dynamic_viscosity_pas=1.789e-5,
+        ref_length_m=1.05,
+        first_layer_height_m=5.0e-5,
+    )
+
+    assert result["reynolds_number"] > 1.0e5
+    assert result["y_plus_min"] > 0.0
+    assert result["y_plus_max"] > result["y_plus_min"]
+
+
+def test_run_shell_v4_half_wing_route_smoke_creates_required_groups_and_bl_cells(tmp_path: Path):
+    out_dir = tmp_path / "shell_v4_smoke"
+
+    result = run_shell_v4_half_wing_bl_mesh_macsafe(
+        out_dir=out_dir,
+        run_su2=False,
+        allow_swap_risk=False,
+        overrides={
+            "study_level": "BL_macsafe_baseline",
+            "geometry": {
+                "airfoil_loop_points": 24,
+                "half_span_stations": 8,
+            },
+            "boundary_layer": {
+                "first_layer_height_m": 2.0e-3,
+                "layers": 9,
+                "growth_ratio": 1.20,
+            },
+            "wake_refinement": {
+                "wake_length_chords": 2.5,
+                "near_wake_cell_size_chords": 0.18,
+            },
+            "farfield": {
+                "upstream_chords": 2.0,
+                "downstream_chords": 3.0,
+                "normal_chords": 2.0,
+                "outer_cell_size_chords": 2.2,
+            },
+            "tip_refinement": {
+                "spanwise_length_chords": 0.45,
+                "cell_size_chords": 0.20,
+            },
+        },
+    )
+
+    assert result["status"] == "success"
+    assert result["solver"]["status"] == "not_run"
+    assert result["mesh"]["physical_groups"]["wing_wall"]["exists"] is True
+    assert result["mesh"]["physical_groups"]["symmetry"]["exists"] is True
+    assert result["mesh"]["physical_groups"]["farfield"]["exists"] is True
+    assert result["mesh"]["physical_groups"]["wake_refinement_region"]["exists"] is True
+    assert result["mesh"]["physical_groups"]["wake_refinement_region"]["virtual"] is True
+    assert result["mesh"]["physical_groups"]["tip_refinement_region"]["exists"] is True
+    assert result["mesh"]["physical_groups"]["tip_refinement_region"]["virtual"] is True
+    assert result["boundary_layer"]["requested_layers"] == 9
+    assert result["boundary_layer"]["achieved_layers"] >= 1
+    assert result["boundary_layer"]["boundary_layer_cell_count"] > 0
+    assert result["reference_values"]["ref_area"] == pytest.approx(17.325)
+    assert result["mesh"]["total_cells"] > 0
+    assert result["mesh"]["total_nodes"] > 0
+    volume_types = result["mesh"]["volume_element_type_counts"]
+    assert any(int(key) in {5, 6} and int(value) > 0 for key, value in volume_types.items())
+    assert (out_dir / "artifacts" / "mesh" / "mesh.msh").exists()
+    assert (out_dir / "report.json").exists()
