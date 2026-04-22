@@ -11,6 +11,7 @@ from hpa_meshing.providers.esp_pipeline import (
     _NativeSectionRecord,
     _NativeSurfaceRecord,
     _VspWingCandidate,
+    _apply_terminal_strip_suppression,
     _build_topology_lineage_report,
     _build_native_rebuild_model,
     _prepare_component_input_model,
@@ -180,6 +181,28 @@ def test_build_topology_lineage_report_identifies_terminal_tip_strip_candidates(
     assert all(candidate["source_section_index"] == 1 for candidate in candidates)
     assert all(candidate["seam_adjacent_edge_lengths_m"][0] < 0.003 for candidate in candidates)
     assert all(candidate["seam_adjacent_edge_lengths_m"][1] < 0.003 for candidate in candidates)
+
+
+def test_apply_terminal_strip_suppression_rewrites_tip_candidate_section(tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    model = _sample_tip_strip_candidate_model(source)
+
+    suppressed_model, report = _apply_terminal_strip_suppression(model)
+
+    assert report["applied"] is True
+    surface_report = report["surfaces"][0]
+    assert surface_report["suppressed_source_section_indices"] == [1]
+    original_coords = model.surfaces[0].sections[1].airfoil_coordinates
+    suppressed_coords = suppressed_model.surfaces[0].sections[1].airfoil_coordinates
+    assert len(suppressed_coords) < len(original_coords)
+    assert suppressed_coords[0] != original_coords[0]
+    assert suppressed_coords[-1] == suppressed_coords[0]
+    assert surface_report["suppressed_sections"][0]["trim_count_per_side"] >= 1
+    assert (
+        surface_report["suppressed_sections"][0]["bridge_length_m"]
+        >= surface_report["suppressed_sections"][0]["suppression_threshold_m"]
+    )
 
 
 def test_analyze_symmetry_touching_solids_detects_groups_and_preserves_singleton(tmp_path: Path):
@@ -831,3 +854,32 @@ def test_materialize_with_esp_writes_topology_lineage_report(monkeypatch, tmp_pa
     candidates = payload["surfaces"][0]["terminal_strip_candidates"]
     assert [candidate["side"] for candidate in candidates] == ["left_tip", "right_tip"]
     assert all(candidate["would_suppress"] is True for candidate in candidates)
+
+
+def test_materialize_with_esp_writes_topology_suppression_report(monkeypatch, tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    staging = tmp_path / "provider"
+
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._build_native_rebuild_model",
+        lambda **_: _sample_tip_strip_candidate_model(source),
+    )
+
+    def fake_runner(args, cwd):
+        exported = Path(cwd) / "raw_dump.stp"
+        exported.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="serveCSM ok\n", stderr="")
+
+    result = materialize_with_esp(
+        source_path=source,
+        staging_dir=staging,
+        runner=fake_runner,
+        batch_binary="/opt/esp/bin/serveCSM",
+    )
+
+    assert result.status == "success"
+    suppression_path = result.artifacts["topology_suppression_report"]
+    payload = json.loads(suppression_path.read_text(encoding="utf-8"))
+    assert payload["applied"] is True
+    assert payload["surfaces"][0]["suppressed_source_section_indices"] == [1]

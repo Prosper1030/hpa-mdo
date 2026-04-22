@@ -27,6 +27,7 @@ COMMAND_LOG_NAME = "ocsm.log"
 UNION_COMMAND_LOG_NAME = "ocsm_union.log"
 TOPOLOGY_REPORT_NAME = "topology.json"
 TOPOLOGY_LINEAGE_REPORT_NAME = "topology_lineage_report.json"
+TOPOLOGY_SUPPRESSION_REPORT_NAME = "topology_suppression_report.json"
 RAW_TOPOLOGY_REPORT_NAME = "raw_topology.json"
 NORMALIZATION_REPORT_NAME = "normalization.json"
 _STEP_MILLI_UNIT_PATTERN = re.compile(r"SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)")
@@ -211,6 +212,10 @@ def _resolve_batch_binary() -> Optional[str]:
 
 def _format_csm_number(value: float) -> str:
     return f"{float(value):.12g}"
+
+
+def _unique_sorted_ints(values: Sequence[int]) -> list[int]:
+    return sorted({int(value) for value in values})
 
 
 def _rotate_xyz(
@@ -567,6 +572,172 @@ def _build_topology_lineage_report(rebuild_model: _NativeRebuildModel) -> Dict[s
         "surfaces": surfaces,
         "notes": list(rebuild_model.notes),
     }
+
+
+def _suppress_terminal_strip_coordinates(
+    coordinates: Sequence[tuple[float, float]],
+    *,
+    chord: float,
+    min_bridge_length: float,
+) -> tuple[tuple[tuple[float, float], ...], Dict[str, Any]]:
+    profile = [(float(x), float(z)) for x, z in coordinates]
+    if not profile:
+        return (), {"trim_count_per_side": 0, "bridge_length_m": 0.0}
+    if len(profile) >= 2 and all(abs(lhs - rhs) <= 1.0e-12 for lhs, rhs in zip(profile[0], profile[-1])):
+        closed = profile
+    else:
+        closed = [*profile, profile[0]]
+    if len(closed) < 5:
+        return tuple(closed), {"trim_count_per_side": 0, "bridge_length_m": 0.0}
+    max_trim = max((len(closed) - 3) // 2, 1)
+    selected_core = closed
+    selected_trim = 0
+    selected_bridge = _distance_xy(closed[1], closed[-2]) * float(chord)
+    for trim_count in range(1, max_trim + 1):
+        candidate_core = closed[trim_count:-trim_count]
+        if len(candidate_core) < 4:
+            break
+        bridge_length = _distance_xy(candidate_core[0], candidate_core[-1]) * float(chord)
+        selected_core = candidate_core
+        selected_trim = trim_count
+        selected_bridge = bridge_length
+        if bridge_length >= float(min_bridge_length):
+            break
+    simplified = [(float(x), float(z)) for x, z in selected_core]
+    if simplified and not all(abs(lhs - rhs) <= 1.0e-12 for lhs, rhs in zip(simplified[0], simplified[-1])):
+        simplified.append(simplified[0])
+    return tuple(simplified), {
+        "trim_count_per_side": int(selected_trim),
+        "bridge_length_m": float(selected_bridge),
+    }
+
+
+def _clone_section_with_airfoil_coordinates(
+    section: _NativeSectionRecord,
+    coordinates: Sequence[tuple[float, float]],
+    *,
+    source_suffix: str,
+) -> _NativeSectionRecord:
+    return _NativeSectionRecord(
+        x_le=section.x_le,
+        y_le=section.y_le,
+        z_le=section.z_le,
+        chord=section.chord,
+        twist_deg=section.twist_deg,
+        airfoil_name=section.airfoil_name,
+        airfoil_source=f"{section.airfoil_source}|{source_suffix}",
+        airfoil_coordinates=tuple((float(x), float(z)) for x, z in coordinates),
+        thickness_tc=section.thickness_tc,
+        camber=section.camber,
+        camber_loc=section.camber_loc,
+    )
+
+
+def _apply_terminal_strip_suppression(
+    rebuild_model: _NativeRebuildModel,
+) -> tuple[_NativeRebuildModel, Dict[str, Any]]:
+    suppressed_surfaces: list[_NativeSurfaceRecord] = []
+    surface_reports: list[Dict[str, Any]] = []
+    suppressed_source_section_count = 0
+    for surface in rebuild_model.surfaces:
+        rule_sections = _surface_sections_with_lineage(surface)
+        terminal_candidates: list[Dict[str, Any]] = []
+        suppressed_source_indices: list[int] = []
+        for entry in rule_sections:
+            if entry["side"] not in {"left_tip", "right_tip", "start_tip", "end_tip"}:
+                continue
+            candidate = _build_terminal_strip_candidate(
+                section=entry["section"],
+                source_section_index=int(entry["source_section_index"]),
+                mirrored=bool(entry["mirrored"]),
+                side=str(entry["side"]),
+            )
+            terminal_candidates.append(candidate)
+            if candidate.get("would_suppress"):
+                suppressed_source_indices.append(int(entry["source_section_index"]))
+        unique_source_indices = _unique_sorted_ints(suppressed_source_indices)
+        updated_sections = list(surface.sections)
+        applied_sections: list[Dict[str, Any]] = []
+        for source_index in unique_source_indices:
+            original_section = updated_sections[source_index]
+            resolved_coordinates = _resolve_section_airfoil_coordinates(original_section)
+            suppression_threshold = max(float(original_section.chord) * 0.006, 1.5e-3)
+            suppressed_coordinates, suppression_details = _suppress_terminal_strip_coordinates(
+                resolved_coordinates,
+                chord=float(original_section.chord),
+                min_bridge_length=suppression_threshold,
+            )
+            if len(suppressed_coordinates) >= len(resolved_coordinates):
+                continue
+            updated_sections[source_index] = _clone_section_with_airfoil_coordinates(
+                original_section,
+                suppressed_coordinates,
+                source_suffix="terminal_tip_strip_suppressed",
+            )
+            applied_sections.append(
+                {
+                    "source_section_index": int(source_index),
+                    "before_profile_point_count": len(resolved_coordinates),
+                    "after_profile_point_count": len(suppressed_coordinates),
+                    "before_first_point": [
+                        float(resolved_coordinates[0][0]),
+                        float(resolved_coordinates[0][1]),
+                    ] if resolved_coordinates else None,
+                    "after_first_point": [
+                        float(suppressed_coordinates[0][0]),
+                        float(suppressed_coordinates[0][1]),
+                    ] if suppressed_coordinates else None,
+                    "trim_count_per_side": int(suppression_details["trim_count_per_side"]),
+                    "bridge_length_m": float(suppression_details["bridge_length_m"]),
+                    "suppression_threshold_m": float(suppression_threshold),
+                }
+            )
+        if applied_sections:
+            suppressed_source_section_count += len(applied_sections)
+        suppressed_surfaces.append(
+            _NativeSurfaceRecord(
+                component=surface.component,
+                geom_id=surface.geom_id,
+                name=surface.name,
+                caps_group=surface.caps_group,
+                symmetric_xz=surface.symmetric_xz,
+                sections=tuple(updated_sections),
+                rotation_deg=surface.rotation_deg,
+            )
+        )
+        surface_reports.append(
+            {
+                "component": surface.component,
+                "geom_id": surface.geom_id,
+                "name": surface.name,
+                "caps_group": surface.caps_group,
+                "terminal_strip_candidates": terminal_candidates,
+                "suppressed_source_section_indices": [
+                    int(section["source_section_index"]) for section in applied_sections
+                ],
+                "suppressed_sections": applied_sections,
+                "applied": bool(applied_sections),
+            }
+        )
+    applied = bool(suppressed_source_section_count)
+    notes = list(rebuild_model.notes)
+    if applied:
+        notes.append("terminal_tip_strip_suppression_applied")
+    suppressed_model = _NativeRebuildModel(
+        source_path=rebuild_model.source_path,
+        surfaces=tuple(suppressed_surfaces),
+        notes=tuple(notes),
+    )
+    report = {
+        "status": "captured",
+        "applied": applied,
+        "source_path": str(rebuild_model.source_path),
+        "surface_count": len(rebuild_model.surfaces),
+        "suppressed_source_section_count": suppressed_source_section_count,
+        "surfaces": surface_reports,
+        "notes": notes,
+    }
+    return suppressed_model, report
 
 
 def _build_section_sketch_lines(
@@ -1886,6 +2057,7 @@ def materialize_with_esp(
     union_command_log_path = (artifact_dir / UNION_COMMAND_LOG_NAME).resolve()
     topology_report_path = (artifact_dir / TOPOLOGY_REPORT_NAME).resolve()
     topology_lineage_report_path = (artifact_dir / TOPOLOGY_LINEAGE_REPORT_NAME).resolve()
+    topology_suppression_report_path = (artifact_dir / TOPOLOGY_SUPPRESSION_REPORT_NAME).resolve()
     raw_topology_report_path = (artifact_dir / RAW_TOPOLOGY_REPORT_NAME).resolve()
     normalization_report_path = (artifact_dir / NORMALIZATION_REPORT_NAME).resolve()
     work_script_path = work_dir / OCSM_SCRIPT_NAME
@@ -1903,9 +2075,14 @@ def materialize_with_esp(
         json.dumps(topology_lineage_report, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    suppressed_rebuild_model, topology_suppression_report = _apply_terminal_strip_suppression(rebuild_model)
+    topology_suppression_report_path.write_text(
+        json.dumps(topology_suppression_report, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     script_path.write_text(
         _build_csm_script_from_rebuild_model(
-            rebuild_model,
+            suppressed_rebuild_model,
             work_raw_export_path,
         ),
         encoding="utf-8",
@@ -2055,6 +2232,7 @@ def materialize_with_esp(
         "esp_input_model": component_input.input_model_path,
         "source_model": artifact_source_path,
         "topology_lineage_report": topology_lineage_report_path,
+        "topology_suppression_report": topology_suppression_report_path,
         "command_log": command_log_path,
         "raw_geometry": raw_export_path,
         "raw_topology_report": raw_topology_report_path,
@@ -2064,11 +2242,10 @@ def materialize_with_esp(
 
     if raw_analysis.touching_groups:
         union_script_path.write_text(
-            _build_union_csm_script(
-                source_path=work_input_model_path,
+            _build_union_csm_script_from_rebuild_model(
+                suppressed_rebuild_model,
                 export_path=work_union_export_path,
                 body_count=max(raw_analysis.body_count, 1),
-                component=component,
             ),
             encoding="utf-8",
         )
@@ -2304,6 +2481,17 @@ def materialize_with_esp(
         extra_payload={
             "component_selection": component_input.provenance,
             "normalization": normalization_payload,
+            "topology_lineage_report": {
+                "artifact": str(topology_lineage_report_path),
+                "suppression_candidate_count": topology_lineage_report.get("suppression_candidate_count", 0),
+            },
+            "topology_suppression_report": {
+                "artifact": str(topology_suppression_report_path),
+                "applied": topology_suppression_report.get("applied", False),
+                "suppressed_source_section_count": topology_suppression_report.get(
+                    "suppressed_source_section_count", 0
+                ),
+            },
         },
     )
     topology.normalization = {
