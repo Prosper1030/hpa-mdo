@@ -152,6 +152,7 @@ class SU2RuntimeConfig(BaseModel):
     linear_solver_iterations: int = 8
     reference_mode: SU2ReferenceModeType = "auto"
     reference_override: Optional[SU2ReferenceOverride] = None
+    wall_boundary_condition: Literal["euler", "adiabatic_no_slip"] = "euler"
 
 
 class GeometryTopologyMetadata(BaseModel):

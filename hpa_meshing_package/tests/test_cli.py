@@ -35,6 +35,22 @@ def test_parser_supports_baseline_freeze_command():
     assert args.out == "artifacts/regression.json"
 
 
+def test_parser_supports_baseline_cfd_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "baseline-cfd",
+            "--baseline-manifest",
+            "artifacts/baseline.json",
+            "--out",
+            "artifacts/su2_route",
+        ]
+    )
+    assert args.command == "baseline-cfd"
+    assert args.baseline_manifest == "artifacts/baseline.json"
+    assert args.out == "artifacts/su2_route"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

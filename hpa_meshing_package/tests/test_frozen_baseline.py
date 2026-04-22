@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from hpa_meshing.frozen_baseline import evaluate_shell_v3_baseline_regression
+from hpa_meshing.frozen_baseline import (
+    evaluate_shell_v3_baseline_regression,
+    run_shell_v3_baseline_cfd,
+)
+from hpa_meshing.schema import SU2RuntimeConfig
 
 
 def _write_shell_v3_baseline_artifacts(
@@ -198,3 +202,105 @@ def test_evaluate_shell_v3_baseline_regression_fails_on_large_mesh_drift(tmp_pat
     assert report["status"] == "fail"
     assert report["checks"]["surface_triangle_count"]["status"] == "fail"
     assert report["checks"]["volume_element_count"]["status"] == "fail"
+
+
+def test_run_shell_v3_baseline_cfd_promotes_coarse_baseline_for_physical_positive_drag(
+    tmp_path: Path,
+    monkeypatch,
+):
+    manifest_path = _write_shell_v3_baseline_artifacts(tmp_path)
+
+    def _fake_run(mesh_handoff, runtime, case_root, source_root=None):
+        case_dir = Path(case_root) / runtime.case_name
+        case_dir.mkdir(parents=True, exist_ok=True)
+        return {
+            "contract": "su2_handoff.v1",
+            "run_status": "completed",
+            "runtime_cfg_path": str(case_dir / "su2_runtime.cfg"),
+            "history_path": str(case_dir / "history.csv"),
+            "final_iteration": 79,
+            "case_output_paths": {
+                "case_dir": str(case_dir),
+                "solver_log": str(case_dir / "solver.log"),
+                "contract_path": str(case_dir / "su2_handoff.json"),
+            },
+            "final_coefficients": {
+                "cl": 0.60,
+                "cd": 0.38,
+                "cm": -0.49,
+                "cm_axis": "CMy",
+            },
+            "provenance_gates": {
+                "overall_status": "warn",
+                "reference_quantities": {"status": "warn"},
+                "force_surface": {"status": "pass"},
+            },
+            "convergence_gate": {
+                "mesh_gate": {"status": "pass"},
+                "iterative_gate": {
+                    "status": "pass",
+                    "checks": {"residual_trend": {"status": "pass"}},
+                },
+                "overall_convergence_gate": {
+                    "status": "warn",
+                    "comparability_level": "run_only",
+                    "warnings": ["reference_gate=warn"],
+                },
+            },
+        }
+
+    monkeypatch.setattr("hpa_meshing.frozen_baseline.run_baseline_case", _fake_run)
+
+    result = run_shell_v3_baseline_cfd(
+        manifest_path,
+        out_dir=tmp_path / "solver_route",
+        runtime=SU2RuntimeConfig(
+            enabled=True,
+            wall_boundary_condition="adiabatic_no_slip",
+        ),
+    )
+
+    assert result["status"] == "success"
+    assert result["classification"] == "coarse_cfd_baseline"
+    assert result["primary_limitation"]["category"] == "boundary_layer_treatment"
+    assert Path(result["artifacts"]["solver_smoke_summary"]).exists()
+
+
+def test_run_shell_v3_baseline_cfd_writes_no_go_summary_when_solver_smoke_fails(
+    tmp_path: Path,
+    monkeypatch,
+):
+    manifest_path = _write_shell_v3_baseline_artifacts(tmp_path)
+
+    def _fake_run(mesh_handoff, runtime, case_root, source_root=None):
+        return {
+            "contract": "su2_handoff.v1",
+            "run_status": "failed",
+            "failure_code": "solver_execution_failed",
+            "error": "SU2_CFD exited with code 1",
+            "final_coefficients": {
+                "cl": None,
+                "cd": None,
+                "cm": None,
+                "cm_axis": None,
+            },
+            "provenance_gates": {
+                "overall_status": "warn",
+                "reference_quantities": {"status": "warn"},
+                "force_surface": {"status": "pass"},
+            },
+            "convergence_gate": None,
+        }
+
+    monkeypatch.setattr("hpa_meshing.frozen_baseline.run_baseline_case", _fake_run)
+
+    result = run_shell_v3_baseline_cfd(
+        manifest_path,
+        out_dir=tmp_path / "solver_route",
+    )
+
+    assert result["status"] == "failed"
+    assert result["failure_stage"] == "solver_smoke"
+    assert result["issue_assessment"]["likely_root_cause"] == "config"
+    assert result["issue_assessment"]["geometry_baseline_related"] is False
+    assert Path(result["artifacts"]["solver_smoke_no_go_summary"]).exists()

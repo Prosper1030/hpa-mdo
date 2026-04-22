@@ -300,6 +300,26 @@ def test_materialize_baseline_case_accepts_user_declared_reference_override(tmp_
     assert case.provenance_gates.reference_quantities.status == "pass"
 
 
+def test_materialize_baseline_case_supports_adiabatic_no_slip_wall(tmp_path: Path):
+    mesh_handoff = _build_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(
+        enabled=True,
+        max_iterations=12,
+        wall_boundary_condition="adiabatic_no_slip",
+    )
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "su2_case",
+        source_root=Path.cwd(),
+    )
+
+    runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
+    assert "MARKER_HEATFLUX= ( aircraft, 0.0 )" in runtime_cfg
+    assert "MARKER_EULER= ( aircraft )" not in runtime_cfg
+
+
 def test_parse_history_extracts_final_coefficients(tmp_path: Path):
     history_path = tmp_path / "history.csv"
     history_path.write_text(
