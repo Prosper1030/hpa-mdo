@@ -10,6 +10,7 @@ import pytest
 
 from hpa_mdo.concept import pipeline as concept_pipeline
 from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker
+from hpa_mdo.concept.geometry import GeometryConcept, build_segment_plan
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
 
@@ -306,6 +307,188 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     assert first["turn"]["cl_level"] == pytest.approx(0.87)
     assert first["trim"]["representative_cm"] == pytest.approx(-0.08)
     assert first["launch"]["cl_available"] == pytest.approx(1.24)
+
+
+def test_pipeline_reorders_selected_concepts_by_mission_ranking(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    payload["pipeline"]["keep_top_n"] = 3
+    payload["output"]["export_candidate_bundle"] = False
+    custom_cfg = tmp_path / "concept_ranked.yaml"
+    custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    concept_worse = GeometryConcept(
+        span_m=30.0,
+        wing_area_m2=30.0,
+        root_chord_m=1.5384615384615385,
+        tip_chord_m=0.46153846153846156,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=4.0,
+        dihedral_exponent=1.0,
+        tail_area_m2=4.6,
+        cg_xc=0.30,
+        segment_lengths_m=build_segment_plan(
+            half_span_m=15.0,
+            min_segment_length_m=1.0,
+            max_segment_length_m=3.0,
+        ),
+    )
+    concept_better = GeometryConcept(
+        span_m=34.0,
+        wing_area_m2=26.0,
+        root_chord_m=1.1764705882352942,
+        tip_chord_m=0.35294117647058826,
+        twist_root_deg=2.0,
+        twist_tip_deg=-2.0,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=4.0,
+        dihedral_exponent=1.0,
+        tail_area_m2=3.8,
+        cg_xc=0.30,
+        segment_lengths_m=build_segment_plan(
+            half_span_m=17.0,
+            min_segment_length_m=1.0,
+            max_segment_length_m=3.0,
+        ),
+    )
+    concept_middle = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=28.0,
+        root_chord_m=1.3461538461538463,
+        tip_chord_m=0.4038461538461539,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.5,
+        dihedral_root_deg=0.0,
+        dihedral_tip_deg=4.0,
+        dihedral_exponent=1.0,
+        tail_area_m2=4.2,
+        cg_xc=0.30,
+        segment_lengths_m=build_segment_plan(
+            half_span_m=16.0,
+            min_segment_length_m=1.0,
+            max_segment_length_m=3.0,
+        ),
+    )
+    monkeypatch.setattr(
+        concept_pipeline,
+        "enumerate_geometry_concepts",
+        lambda cfg: (concept_worse, concept_better, concept_middle),
+    )
+
+    result = run_birdman_concept_pipeline(
+        config_path=custom_cfg,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "polar_points": [
+                            {
+                                "cl_target": query.cl_samples[0],
+                                "alpha_deg": 3.5,
+                                "cl": query.cl_samples[0],
+                                "cd": 0.014,
+                                "cdp": 0.010,
+                                "cm": -0.02,
+                                "converged": True,
+                                "cl_error": 0.0,
+                            }
+                        ],
+                        "sweep_summary": {
+                            "sweep_point_count": 41,
+                            "converged_point_count": 34,
+                            "alpha_min_deg": -4.0,
+                            "alpha_max_deg": 16.0,
+                            "alpha_step_deg": 0.5,
+                            "usable_polar_points": True,
+                            "cl_max_observed": 1.35,
+                            "alpha_at_cl_max_deg": 10.0,
+                            "last_converged_alpha_deg": 10.0,
+                            "clmax_is_lower_bound": False,
+                            "first_pass_observed_clmax_proxy": 1.35,
+                            "first_pass_observed_clmax_proxy_alpha_deg": 10.0,
+                            "first_pass_observed_clmax_proxy_cd": 0.020,
+                            "first_pass_observed_clmax_proxy_cdp": 0.012,
+                            "first_pass_observed_clmax_proxy_cm": -0.02,
+                            "first_pass_observed_clmax_proxy_index": 28,
+                            "first_pass_observed_clmax_proxy_at_sweep_edge": False,
+                        },
+                    }
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 320000.0,
+                        "cl_target": 0.62,
+                        "cm_target": -0.02,
+                        "weight": 1.0,
+                        "station_y_m": 1.0,
+                    }
+                ]
+            },
+            "mid1": {
+                "points": [
+                    {
+                        "reynolds": 290000.0,
+                        "cl_target": 0.64,
+                        "cm_target": -0.02,
+                        "weight": 1.0,
+                        "station_y_m": 4.0,
+                    }
+                ]
+            },
+            "mid2": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.66,
+                        "cm_target": -0.02,
+                        "weight": 1.0,
+                        "station_y_m": 8.0,
+                    }
+                ]
+            },
+            "tip": {
+                "points": [
+                    {
+                        "reynolds": 220000.0,
+                        "cl_target": 0.68,
+                        "cm_target": -0.02,
+                        "weight": 1.0,
+                        "station_y_m": 13.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+
+    assert len(summary["selected_concepts"]) == 3
+    assert summary["evaluation_scope"]["enumerated_concept_count"] == 3
+    assert summary["evaluation_scope"]["evaluated_concept_count"] == 3
+    assert summary["selected_concepts"][0]["enumeration_index"] == 2
+    assert summary["selected_concepts"][0]["rank"] == 1
+    assert summary["selected_concepts"][1]["rank"] == 2
+    assert summary["selected_concepts"][0]["mission"]["mission_objective_mode"] == "max_range"
+    assert "mission_score" in summary["selected_concepts"][0]["mission"]
+    assert "ranking" in summary["selected_concepts"][0]
+    assert summary["selected_concepts"][0]["ranking"]["score"] <= summary["selected_concepts"][1]["ranking"]["score"]
 
 
 def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(

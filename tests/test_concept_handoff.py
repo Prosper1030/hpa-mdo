@@ -44,8 +44,30 @@ from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
 def test_rank_concepts_prefers_feasible_safer_candidate():
     ranked = rank_concepts(
         [
-            CandidateConceptResult("A", True, True, True, 0.20, 41000.0, 1.0),
-            CandidateConceptResult("B", True, True, True, 0.35, 42000.0, 0.5),
+            CandidateConceptResult(
+                concept_id="A",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.20,
+                mission_objective_mode="max_range",
+                mission_score=-41000.0,
+                best_range_m=41000.0,
+                assembly_penalty=1.0,
+            ),
+            CandidateConceptResult(
+                concept_id="B",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.35,
+                mission_objective_mode="max_range",
+                mission_score=-42000.0,
+                best_range_m=42000.0,
+                assembly_penalty=0.5,
+            ),
         ]
     )
 
@@ -56,12 +78,103 @@ def test_rank_concepts_prefers_feasible_safer_candidate():
 def test_rank_concepts_uses_deterministic_tie_break_on_concept_id():
     ranked = rank_concepts(
         [
-            CandidateConceptResult("b-concept", True, True, True, 0.20, 41000.0, 1.0),
-            CandidateConceptResult("a-concept", True, True, True, 0.20, 41000.0, 1.0),
+            CandidateConceptResult(
+                concept_id="b-concept",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.20,
+                mission_objective_mode="max_range",
+                mission_score=-41000.0,
+                best_range_m=41000.0,
+                assembly_penalty=1.0,
+            ),
+            CandidateConceptResult(
+                concept_id="a-concept",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.20,
+                mission_objective_mode="max_range",
+                mission_score=-41000.0,
+                best_range_m=41000.0,
+                assembly_penalty=1.0,
+            ),
         ]
     )
 
     assert [item.concept_id for item in ranked] == ["a-concept", "b-concept"]
+
+
+def test_rank_concepts_prefers_mission_passing_min_power_case():
+    ranked = rank_concepts(
+        [
+            CandidateConceptResult(
+                concept_id="failing",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=False,
+                safety_margin=0.30,
+                mission_objective_mode="min_power",
+                mission_score=170.0,
+                best_range_m=39000.0,
+                assembly_penalty=0.0,
+            ),
+            CandidateConceptResult(
+                concept_id="passing",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.25,
+                mission_objective_mode="min_power",
+                mission_score=180.0,
+                best_range_m=43000.0,
+                assembly_penalty=0.0,
+            ),
+        ]
+    )
+
+    assert ranked[0].concept_id == "passing"
+    assert "target_range_not_met" in ranked[1].why_not_higher
+
+
+def test_rank_concepts_explains_pure_mission_runner_up():
+    ranked = rank_concepts(
+        [
+            CandidateConceptResult(
+                concept_id="winner",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.20,
+                mission_objective_mode="max_range",
+                mission_score=-43000.0,
+                best_range_m=43000.0,
+                assembly_penalty=1.0,
+            ),
+            CandidateConceptResult(
+                concept_id="runner-up",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.20,
+                mission_objective_mode="max_range",
+                mission_score=-42000.0,
+                best_range_m=42000.0,
+                assembly_penalty=1.0,
+            ),
+        ]
+    )
+
+    assert ranked[0].concept_id == "winner"
+    assert ranked[1].concept_id == "runner-up"
+    assert "less_range_than_best" in ranked[1].why_not_higher
 
 
 def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
@@ -73,7 +186,18 @@ def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
         airfoil_templates={"root": {"upper": [0.2], "lower": [-0.1]}},
         lofting_guides={"authority": "cst_coefficients"},
         prop_assumption={"diameter_m": 3.0},
-        concept_summary={"rank": 1},
+        concept_summary={
+            "rank": 1,
+            "mission": {
+                "mission_objective_mode": "max_range",
+                "mission_score": -42000.0,
+                "mission_score_reason": "maximize_range",
+            },
+            "ranking": {
+                "score": -41.5,
+                "why_not_higher": [],
+            },
+        },
     )
 
     assert (bundle_dir / "concept_config.yaml").exists()
@@ -81,7 +205,10 @@ def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
     assert (bundle_dir / "airfoil_templates.json").exists()
     assert (bundle_dir / "lofting_guides.json").exists()
     assert (bundle_dir / "prop_assumption.json").exists()
-    assert json.loads((bundle_dir / "concept_summary.json").read_text(encoding="utf-8"))["rank"] == 1
+    concept_summary = json.loads((bundle_dir / "concept_summary.json").read_text(encoding="utf-8"))
+    assert concept_summary["rank"] == 1
+    assert concept_summary["mission"]["mission_objective_mode"] == "max_range"
+    assert concept_summary["ranking"]["score"] == pytest.approx(-41.5)
 
 
 def test_write_selected_concept_bundle_writes_openvsp_handoff_artifacts(tmp_path):

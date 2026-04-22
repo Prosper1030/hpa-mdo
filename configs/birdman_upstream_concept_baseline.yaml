@@ -9,6 +9,7 @@ mass:
   gross_mass_sweep_kg: [95.0, 100.0, 105.0]
 
 mission:
+  objective_mode: max_range
   target_distance_km: 42.195
   rider_model: fake_anchor_curve
   anchor_power_w: 300.0

@@ -16,6 +16,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.environment.relative_humidity == pytest.approx(80.0)
     assert cfg.mass.pilot_mass_kg == pytest.approx(60.0)
     assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
+    assert cfg.mission.objective_mode == "max_range"
     assert cfg.launch.mode == "restrained_pre_spin"
     assert cfg.launch.prop_ready_before_release is True
     assert cfg.launch.release_speed_mps == pytest.approx(8.0)

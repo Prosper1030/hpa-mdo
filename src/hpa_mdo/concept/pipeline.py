@@ -16,11 +16,19 @@ from hpa_mdo.concept.geometry import (
     enumerate_geometry_concepts,
 )
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
+from hpa_mdo.concept.propulsion import SimplifiedPropModel
+from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
 from hpa_mdo.concept.safety import (
     evaluate_launch_gate,
     evaluate_local_stall,
     evaluate_trim_proxy,
     evaluate_turn_gate,
+)
+from hpa_mdo.mission.objective import (
+    FakeAnchorCurve,
+    MissionEvaluationInputs,
+    MissionEvaluationResult,
+    evaluate_mission_objective,
 )
 
 _ROOT_SEED_AIRFOIL = "fx76mp140"
@@ -46,6 +54,25 @@ AirfoilWorkerFactory = Callable[..., AirfoilWorker]
 class ConceptPipelineResult:
     summary_json_path: Path
     selected_concept_dirs: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
+class _EvaluatedConcept:
+    evaluation_id: str
+    enumeration_index: int
+    concept: GeometryConcept
+    stations: tuple[WingStation, ...]
+    zone_requirements: dict[str, dict[str, Any]]
+    airfoil_templates: dict[str, dict[str, Any]]
+    worker_results: list[dict[str, object]]
+    worker_backend: str
+    airfoil_feedback: dict[str, Any]
+    launch_summary: dict[str, Any]
+    turn_summary: dict[str, Any]
+    trim_summary: dict[str, Any]
+    local_stall_summary: dict[str, Any]
+    mission_summary: dict[str, Any]
+    ranking_input: CandidateConceptResult
 
 
 def _repo_root() -> Path:
@@ -660,6 +687,185 @@ def _summarize_local_stall(
     }
 
 
+def _speed_sweep_mps(cfg: BirdmanConceptConfig) -> tuple[float, ...]:
+    point_count = int(cfg.mission.speed_sweep_points)
+    if point_count < 2:
+        raise ValueError("mission.speed_sweep_points must be at least 2.")
+    min_speed = float(cfg.mission.speed_sweep_min_mps)
+    max_speed = float(cfg.mission.speed_sweep_max_mps)
+    step = (max_speed - min_speed) / float(point_count - 1)
+    return tuple(min_speed + step * index for index in range(point_count))
+
+
+def _mean_effective_cd(
+    station_points: list[dict[str, float]],
+    airfoil_feedback: dict[str, Any],
+) -> float:
+    weighted_values: list[tuple[float, float]] = []
+    for point in station_points:
+        cd_value = _numeric_value(point.get("cd_effective"))
+        if cd_value is None:
+            continue
+        weighted_values.append((cd_value, float(point.get("weight", 1.0))))
+    if weighted_values:
+        total_weight = sum(weight for _, weight in weighted_values)
+        if total_weight > 0.0:
+            return sum(value * weight for value, weight in weighted_values) / total_weight
+
+    mean_cd = _numeric_value(airfoil_feedback.get("mean_cd_effective"))
+    if mean_cd is not None:
+        return mean_cd
+    return 0.020
+
+
+def _assembly_penalty(concept: GeometryConcept) -> float:
+    joint_count = max(0, len(concept.segment_lengths_m) - 1)
+    return 0.5 * float(joint_count)
+
+
+def _oswald_efficiency_proxy(concept: GeometryConcept) -> float:
+    dihedral_delta = max(0.0, float(concept.dihedral_tip_deg) - float(concept.dihedral_root_deg))
+    twist_delta = abs(float(concept.twist_tip_deg) - float(concept.twist_root_deg))
+    efficiency = 0.88 - 0.012 * dihedral_delta - 0.008 * twist_delta
+    return max(0.68, min(0.92, efficiency))
+
+
+def _shaft_power_required_w(
+    *,
+    drag_n: float,
+    speed_mps: float,
+    prop_model: SimplifiedPropModel,
+) -> float:
+    shaft_power_w = drag_n * speed_mps / max(prop_model.design_efficiency, 1.0e-6)
+    for _ in range(3):
+        eta_prop = prop_model.efficiency(
+            speed_mps=speed_mps,
+            shaft_power_w=max(shaft_power_w, 1.0),
+        )
+        shaft_power_w = drag_n * speed_mps / max(eta_prop, 1.0e-6)
+    return shaft_power_w
+
+
+def _build_concept_mission_summary(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    station_points: list[dict[str, float]],
+    airfoil_feedback: dict[str, Any],
+    air_density_kg_per_m3: float,
+) -> dict[str, Any]:
+    speed_sweep_mps = _speed_sweep_mps(cfg)
+    profile_cd = _mean_effective_cd(station_points, airfoil_feedback)
+    aspect_ratio = concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9)
+    oswald_efficiency = _oswald_efficiency_proxy(concept)
+    tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
+    misc_cd = 0.0035 + 0.20 * tail_area_ratio * profile_cd
+    prop_model = SimplifiedPropModel(
+        diameter_m=float(cfg.prop.diameter_m),
+        rpm_min=float(cfg.prop.rpm_min),
+        rpm_max=float(cfg.prop.rpm_max),
+        design_efficiency=0.83,
+    )
+    rider_curve = FakeAnchorCurve(
+        anchor_power_w=float(cfg.mission.anchor_power_w),
+        anchor_duration_min=float(cfg.mission.anchor_duration_min),
+    )
+
+    mission_results: list[tuple[float, MissionEvaluationResult, tuple[float, ...]]] = []
+    for gross_mass_kg in cfg.mass.gross_mass_sweep_kg:
+        weight_n = float(gross_mass_kg) * 9.80665
+        power_required_w: list[float] = []
+        for speed_mps in speed_sweep_mps:
+            dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
+            cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
+            induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
+            total_cd = profile_cd + induced_cd + misc_cd
+            drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
+            power_required_w.append(
+                _shaft_power_required_w(
+                    drag_n=drag_n,
+                    speed_mps=speed_mps,
+                    prop_model=prop_model,
+                )
+            )
+
+        mission_result = evaluate_mission_objective(
+            MissionEvaluationInputs(
+                objective_mode=str(cfg.mission.objective_mode),
+                target_range_km=float(cfg.mission.target_distance_km),
+                speed_mps=speed_sweep_mps,
+                power_required_w=tuple(power_required_w),
+                rider_curve=rider_curve,
+            )
+        )
+        mission_results.append((float(gross_mass_kg), mission_result, tuple(power_required_w)))
+
+    worst_case_mass_kg, worst_case_result, worst_case_power_required_w = max(
+        mission_results,
+        key=lambda item: float(item[1].mission_score),
+    )
+    return {
+        "mission_objective_mode": worst_case_result.mission_objective_mode,
+        "mission_feasible": all(result.mission_feasible for _, result, _ in mission_results),
+        "target_range_km": worst_case_result.target_range_km,
+        "target_range_passed": all(result.target_range_passed for _, result, _ in mission_results),
+        "target_range_margin_m": min(
+            result.target_range_margin_m for _, result, _ in mission_results
+        ),
+        "best_range_m": worst_case_result.best_range_m,
+        "best_range_speed_mps": worst_case_result.best_range_speed_mps,
+        "best_endurance_s": worst_case_result.best_endurance_s,
+        "min_power_w": worst_case_result.min_power_w,
+        "min_power_speed_mps": worst_case_result.min_power_speed_mps,
+        "mission_score": worst_case_result.mission_score,
+        "mission_score_reason": worst_case_result.mission_score_reason,
+        "pilot_power_model": worst_case_result.pilot_power_model,
+        "pilot_power_anchor": worst_case_result.pilot_power_anchor,
+        "speed_sweep_window_mps": list(worst_case_result.speed_sweep_window_mps),
+        "aggregation_mode": "worst_case_over_gross_mass_sweep",
+        "evaluated_gross_mass_kg": worst_case_mass_kg,
+        "profile_cd_proxy": profile_cd,
+        "misc_cd_proxy": misc_cd,
+        "oswald_efficiency_proxy": oswald_efficiency,
+        "propulsion_model": "simplified_prop_proxy_v1",
+        "mass_cases": [
+            {
+                "gross_mass_kg": gross_mass_kg,
+                "mission_feasible": result.mission_feasible,
+                "target_range_passed": result.target_range_passed,
+                "target_range_margin_m": result.target_range_margin_m,
+                "best_range_m": result.best_range_m,
+                "best_range_speed_mps": result.best_range_speed_mps,
+                "best_endurance_s": result.best_endurance_s,
+                "min_power_w": result.min_power_w,
+                "min_power_speed_mps": result.min_power_speed_mps,
+                "mission_score": result.mission_score,
+                "power_required_w": list(power_required_w),
+            }
+            for gross_mass_kg, result, power_required_w in mission_results
+        ],
+        "power_required_w": list(worst_case_power_required_w),
+    }
+
+
+def _concept_safety_margin(
+    *,
+    launch_summary: dict[str, Any],
+    turn_summary: dict[str, Any],
+    trim_summary: dict[str, Any],
+    local_stall_summary: dict[str, Any],
+) -> float:
+    launch_margin = float(launch_summary["cl_available"]) - float(
+        launch_summary["adjusted_cl_required"]
+    )
+    turn_margin = float(turn_summary["stall_margin"])
+    local_margin = float(local_stall_summary["min_margin"])
+    trim_margin = (
+        float(trim_summary["margin_deg"]) - float(trim_summary["required_trim_margin_deg"])
+    ) / 10.0
+    return min(launch_margin, turn_margin, local_margin, trim_margin)
+
+
 def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
     class _NoopWorker:
         backend_name = "python_stubbed"
@@ -702,12 +908,22 @@ def _concept_to_bundle_payload(
     worker_results: list[dict[str, object]],
     worker_backend: str,
     concept_index: int,
+    enumeration_index: int,
     airfoil_feedback: dict[str, Any],
     launch_summary: dict[str, Any],
     turn_summary: dict[str, Any],
     trim_summary: dict[str, Any],
     local_stall_summary: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    mission_summary: dict[str, Any],
+    ranking_summary: dict[str, Any],
+) -> tuple[
+    dict[str, Any],
+    list[dict[str, Any]],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+]:
     concept_config = cfg.model_dump(mode="python")
     concept_config["geometry"] = {
         "span_m": concept.span_m,
@@ -750,6 +966,7 @@ def _concept_to_bundle_payload(
     concept_summary = {
         "selected": True,
         "concept_id": f"concept-{concept_index:02d}",
+        "enumeration_index": enumeration_index,
         "rank": concept_index,
         "span_m": concept.span_m,
         "wing_area_m2": concept.wing_area_m2,
@@ -763,6 +980,8 @@ def _concept_to_bundle_payload(
         "turn": turn_summary,
         "trim": trim_summary,
         "local_stall": local_stall_summary,
+        "mission": mission_summary,
+        "ranking": ranking_summary,
     }
     return (
         concept_config,
@@ -785,19 +1004,21 @@ def run_birdman_concept_pipeline(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    concepts = enumerate_geometry_concepts(cfg)[: cfg.pipeline.keep_top_n]
-    if len(concepts) < 3:
+    all_concepts = enumerate_geometry_concepts(cfg)
+    if len(all_concepts) < 3:
         raise RuntimeError("Birdman concept enumeration must yield at least 3 candidate concepts.")
+    concepts = all_concepts[: cfg.pipeline.keep_top_n]
 
     repo_root = _repo_root()
     worker = airfoil_worker_factory(project_dir=repo_root, cache_dir=output_dir / "polar_db")
     worker_backend = _worker_backend(worker)
+    air_density_kg_per_m3 = _air_density_from_environment(cfg)
 
+    evaluated_concepts: list[_EvaluatedConcept] = []
     selected_concept_dirs: list[Path] = []
-    summary_records: list[dict[str, Any]] = []
     summary_worker_statuses: list[str] = []
 
-    for concept_index, concept in enumerate(concepts, start=1):
+    for enumeration_index, concept in enumerate(concepts, start=1):
         stations = build_linear_wing_stations(
             concept,
             stations_per_half=cfg.pipeline.stations_per_half,
@@ -826,7 +1047,7 @@ def run_birdman_concept_pipeline(
             concept=concept,
             station_points=station_points,
             trim_result=trim_result,
-            air_density_kg_per_m3=_air_density_from_environment(cfg),
+            air_density_kg_per_m3=air_density_kg_per_m3,
         )
         turn_summary = _summarize_turn(
             cfg=cfg,
@@ -838,6 +1059,66 @@ def run_birdman_concept_pipeline(
             concept=concept,
             station_points=station_points,
         )
+        mission_summary = _build_concept_mission_summary(
+            cfg=cfg,
+            concept=concept,
+            station_points=station_points,
+            airfoil_feedback=airfoil_feedback,
+            air_density_kg_per_m3=air_density_kg_per_m3,
+        )
+        ranking_input = CandidateConceptResult(
+            concept_id=f"eval-{enumeration_index:02d}",
+            launch_feasible=bool(launch_summary["feasible"]),
+            turn_feasible=bool(turn_summary["feasible"]),
+            trim_feasible=bool(trim_summary["feasible"]),
+            mission_feasible=bool(mission_summary["mission_feasible"]),
+            safety_margin=_concept_safety_margin(
+                launch_summary=launch_summary,
+                turn_summary=turn_summary,
+                trim_summary=trim_summary,
+                local_stall_summary=local_stall_summary,
+            ),
+            mission_objective_mode=str(mission_summary["mission_objective_mode"]),
+            mission_score=float(mission_summary["mission_score"]),
+            best_range_m=float(mission_summary["best_range_m"]),
+            assembly_penalty=_assembly_penalty(concept),
+        )
+        concept_worker_statuses = _worker_statuses(worker_results)
+        summary_worker_statuses.extend(concept_worker_statuses)
+        evaluated_concepts.append(
+            _EvaluatedConcept(
+                evaluation_id=ranking_input.concept_id,
+                enumeration_index=enumeration_index,
+                concept=concept,
+                stations=stations,
+                zone_requirements=zone_requirements,
+                airfoil_templates=airfoil_templates,
+                worker_results=worker_results,
+                worker_backend=worker_backend,
+                airfoil_feedback=airfoil_feedback,
+                launch_summary=launch_summary,
+                turn_summary=turn_summary,
+                trim_summary=trim_summary,
+                local_stall_summary=local_stall_summary,
+                mission_summary=mission_summary,
+                ranking_input=ranking_input,
+            )
+        )
+
+    ranked_concepts = rank_concepts([record.ranking_input for record in evaluated_concepts])
+    evaluated_by_id = {record.evaluation_id: record for record in evaluated_concepts}
+    summary_records: list[dict[str, Any]] = []
+
+    for concept_index, ranked in enumerate(ranked_concepts, start=1):
+        record = evaluated_by_id[ranked.concept_id]
+        ranking_summary = {
+            "score": ranked.score,
+            "why_not_higher": list(ranked.why_not_higher),
+            "safety_margin": record.ranking_input.safety_margin,
+            "assembly_penalty": record.ranking_input.assembly_penalty,
+            "ranking_basis": "airfoil_informed_mission_proxy_v1",
+            "selection_scope": "ranked_bounded_prefix_pool",
+        }
         (
             concept_config,
             stations_rows,
@@ -847,21 +1128,22 @@ def run_birdman_concept_pipeline(
             concept_summary,
         ) = _concept_to_bundle_payload(
             cfg=cfg,
-            concept=concept,
-            stations=stations,
-            zone_requirements=zone_requirements,
-            airfoil_templates=airfoil_templates,
-            worker_results=worker_results,
-            worker_backend=worker_backend,
+            concept=record.concept,
+            stations=record.stations,
+            zone_requirements=record.zone_requirements,
+            airfoil_templates=record.airfoil_templates,
+            worker_results=record.worker_results,
+            worker_backend=record.worker_backend,
             concept_index=concept_index,
-            airfoil_feedback=airfoil_feedback,
-            launch_summary=launch_summary,
-            turn_summary=turn_summary,
-            trim_summary=trim_summary,
-            local_stall_summary=local_stall_summary,
+            enumeration_index=record.enumeration_index,
+            airfoil_feedback=record.airfoil_feedback,
+            launch_summary=record.launch_summary,
+            turn_summary=record.turn_summary,
+            trim_summary=record.trim_summary,
+            local_stall_summary=record.local_stall_summary,
+            mission_summary=record.mission_summary,
+            ranking_summary=ranking_summary,
         )
-        concept_worker_statuses = list(concept_summary["worker_statuses"])
-        summary_worker_statuses.extend(concept_worker_statuses)
 
         bundle_dir: Path | None = None
         if cfg.output.export_candidate_bundle:
@@ -879,21 +1161,26 @@ def run_birdman_concept_pipeline(
                 ),
             )
             selected_concept_dirs.append(bundle_dir)
+
         summary_records.append(
             {
                 "concept_id": concept_summary["concept_id"],
+                "enumeration_index": record.enumeration_index,
+                "rank": concept_index,
                 "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
-                "span_m": concept.span_m,
-                "wing_area_m2": concept.wing_area_m2,
-                "zone_count": len(zone_requirements),
-                "worker_result_count": len(worker_results),
-                "worker_backend": worker_backend,
-                "worker_statuses": concept_worker_statuses,
-                "airfoil_feedback": airfoil_feedback,
-                "launch": launch_summary,
-                "turn": turn_summary,
-                "trim": trim_summary,
-                "local_stall": local_stall_summary,
+                "span_m": record.concept.span_m,
+                "wing_area_m2": record.concept.wing_area_m2,
+                "zone_count": len(record.zone_requirements),
+                "worker_result_count": len(record.worker_results),
+                "worker_backend": record.worker_backend,
+                "worker_statuses": list(_worker_statuses(record.worker_results)),
+                "airfoil_feedback": record.airfoil_feedback,
+                "launch": record.launch_summary,
+                "turn": record.turn_summary,
+                "trim": record.trim_summary,
+                "local_stall": record.local_stall_summary,
+                "mission": record.mission_summary,
+                "ranking": ranking_summary,
             }
         )
 
@@ -904,6 +1191,19 @@ def run_birdman_concept_pipeline(
                 "config_path": str(Path(config_path)),
                 "worker_backend": worker_backend,
                 "worker_statuses": summary_worker_statuses,
+                "evaluation_scope": {
+                    "selection_scope": "ranked_bounded_prefix_pool",
+                    "ranking_basis": "airfoil_informed_mission_proxy_v1",
+                    "objective_mode": str(cfg.mission.objective_mode),
+                    "enumerated_concept_count": len(all_concepts),
+                    "evaluated_concept_count": len(evaluated_concepts),
+                    "selected_concept_count": len(summary_records),
+                    "speed_sweep_window_mps": [
+                        float(cfg.mission.speed_sweep_min_mps),
+                        float(cfg.mission.speed_sweep_max_mps),
+                    ],
+                    "speed_sweep_points": int(cfg.mission.speed_sweep_points),
+                },
                 "selected_concepts": summary_records,
             },
             indent=2,
