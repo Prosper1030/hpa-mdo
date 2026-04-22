@@ -7,6 +7,8 @@ import math
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
+from hpa_mdo.concept.airfoil_cst import CSTAirfoilTemplate, build_lofting_guides
+from hpa_mdo.concept.airfoil_selection import select_zone_airfoil_templates
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
@@ -123,6 +125,33 @@ def _build_seed_airfoil_templates(
             "coordinates": [list(point) for point in coordinates],
             "points": zone_data.get("points", []),
             "point_count": len(zone_data.get("points", [])),
+        }
+    return templates
+
+
+def _build_selected_cst_airfoil_templates(
+    *,
+    selection_batch,
+    zone_requirements: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    templates: dict[str, dict[str, Any]] = {}
+    for zone_name, selected in selection_batch.selected_by_zone.items():
+        template = selected.template
+        templates[zone_name] = {
+            "authority": "cst_candidate",
+            "template_id": f"{zone_name}-{template.candidate_role}",
+            "zone_name": zone_name,
+            "seed_name": template.seed_name,
+            "candidate_role": template.candidate_role,
+            "upper_coefficients": list(template.upper_coefficients),
+            "lower_coefficients": list(template.lower_coefficients),
+            "te_thickness_m": float(template.te_thickness_m),
+            "geometry_hash": geometry_hash_from_coordinates(selected.coordinates),
+            "coordinates": [list(point) for point in selected.coordinates],
+            "selected_mean_cd": float(selected.mean_cd),
+            "selected_mean_cm": float(selected.mean_cm),
+            "selected_usable_clmax": float(selected.usable_clmax),
+            "points": zone_requirements[zone_name].get("points", []),
         }
     return templates
 
@@ -1014,12 +1043,19 @@ def _concept_to_bundle_payload(
         }
         for station in stations
     ]
-    lofting_guides = {
-        "authority": "cst_coefficients",
-        "stations_per_half": len(stations),
-        "zone_names": list(zone_requirements.keys()),
-        "interpolation_rule": "linear_in_coeff_space",
-    }
+    lofting_guides = build_lofting_guides(
+        {
+            zone_name: CSTAirfoilTemplate(
+                zone_name=zone_name,
+                upper_coefficients=tuple(payload["upper_coefficients"]),
+                lower_coefficients=tuple(payload["lower_coefficients"]),
+                te_thickness_m=float(payload["te_thickness_m"]),
+                seed_name=payload.get("seed_name"),
+                candidate_role=payload.get("candidate_role", "selected"),
+            )
+            for zone_name, payload in airfoil_templates.items()
+        }
+    )
     prop_assumption = {
         "blade_count": cfg.prop.blade_count,
         "diameter_m": cfg.prop.diameter_m,
@@ -1090,7 +1126,15 @@ def run_birdman_concept_pipeline(
             stations_per_half=cfg.pipeline.stations_per_half,
         )
         zone_requirements = spanwise_loader(concept, stations)
-        airfoil_templates = _build_seed_airfoil_templates(zone_requirements)
+        selection_batch = select_zone_airfoil_templates(
+            zone_requirements=zone_requirements,
+            seed_loader=_load_seed_airfoil_coordinates,
+            worker=worker,
+        )
+        airfoil_templates = _build_selected_cst_airfoil_templates(
+            selection_batch=selection_batch,
+            zone_requirements=zone_requirements,
+        )
         station_points = _flatten_zone_points(zone_requirements, stations)
         station_points = _attach_cl_max_proxies(
             station_points,

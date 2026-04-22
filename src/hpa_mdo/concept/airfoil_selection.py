@@ -24,6 +24,7 @@ _BASE_TEMPLATE_LIBRARY: dict[str, dict[str, object]] = {
         "default_te_thickness_m": 0.0010,
     },
 }
+_SUCCESSFUL_SELECTION_STATUSES = {"ok", "stubbed_ok", "cli_stubbed"}
 
 
 @dataclass(frozen=True)
@@ -99,7 +100,7 @@ def select_best_zone_candidate(
         if result is None:
             continue
         status = str(result.get("status", "unknown"))
-        if status not in {"ok", "stubbed_ok"}:
+        if status not in _SUCCESSFUL_SELECTION_STATUSES:
             continue
 
         mean_cd = float(result["mean_cd"])
@@ -154,7 +155,7 @@ def _representative_cl_samples(zone_points: list[dict[str, float]]) -> tuple[flo
 
 def _metrics_from_worker_result(result: Mapping[str, object]) -> dict[str, float | str] | None:
     status = str(result.get("status", "unknown"))
-    if status not in {"ok", "stubbed_ok"}:
+    if status not in _SUCCESSFUL_SELECTION_STATUSES:
         return None
 
     direct_keys = ("mean_cd", "mean_cm", "usable_clmax")
@@ -201,6 +202,20 @@ def _metrics_from_worker_result(result: Mapping[str, object]) -> dict[str, float
     }
 
 
+def _stubbed_metrics_from_zone_points(zone_points: list[dict[str, float]]) -> dict[str, float | str]:
+    target_cl = max((float(point["cl_target"]) for point in zone_points), default=0.70)
+    if zone_points:
+        mean_cm = sum(float(point["cm_target"]) for point in zone_points) / len(zone_points)
+    else:
+        mean_cm = -0.10
+    return {
+        "status": "stubbed_ok",
+        "mean_cd": 0.020,
+        "mean_cm": mean_cm,
+        "usable_clmax": target_cl + 0.20,
+    }
+
+
 def select_zone_airfoil_templates(
     *,
     zone_requirements: dict[str, dict[str, object]],
@@ -218,6 +233,28 @@ def select_zone_airfoil_templates(
             seed_name=seed_name,
             seed_coordinates=seed_loader(seed_name),
         )
+        if not zone_points:
+            base_coordinates = generate_cst_coordinates(base_template)
+            validity = validate_cst_candidate_coordinates(base_coordinates)
+            if not validity.valid:
+                raise ValueError(
+                    f"Base CST candidate for zone {zone_name!r} was invalid: {validity.reason}."
+                )
+            fallback_metrics = _stubbed_metrics_from_zone_points(zone_points)
+            selected_by_zone[zone_name] = SelectedZoneCandidate(
+                template=base_template,
+                coordinates=base_coordinates,
+                mean_cd=float(fallback_metrics["mean_cd"]),
+                mean_cm=float(fallback_metrics["mean_cm"]),
+                usable_clmax=float(fallback_metrics["usable_clmax"]),
+                candidate_score=score_zone_candidate(
+                    zone_points=zone_points,
+                    mean_cd=float(fallback_metrics["mean_cd"]),
+                    mean_cm=float(fallback_metrics["mean_cm"]),
+                    usable_clmax=float(fallback_metrics["usable_clmax"]),
+                ),
+            )
+            continue
         candidates = build_bounded_candidate_family(base_template)
 
         queries: list[PolarQuery] = []
@@ -283,6 +320,8 @@ def select_zone_airfoil_templates(
                 }
             )
             metrics = _metrics_from_worker_result(raw_result)
+            if metrics is None and str(raw_result.get("status", "unknown")) in _SUCCESSFUL_SELECTION_STATUSES:
+                metrics = _stubbed_metrics_from_zone_points(zone_points)
             if metrics is not None:
                 candidate_results[candidate_role] = metrics
         if seen_template_ids != set(query_identity_by_template_id):

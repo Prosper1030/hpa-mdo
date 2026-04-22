@@ -211,6 +211,29 @@ def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
     assert concept_summary["ranking"]["score"] == pytest.approx(-41.5)
 
 
+def test_write_selected_concept_bundle_accepts_cst_template_payload(tmp_path):
+    bundle_dir = write_selected_concept_bundle(
+        output_dir=tmp_path,
+        concept_id="concept-01",
+        concept_config={"name": "concept-01"},
+        stations_rows=[{"y_m": 0.0, "chord_m": 1.3, "twist_deg": 2.0}],
+        airfoil_templates={
+            "root": {
+                "authority": "cst_candidate",
+                "upper_coefficients": [0.22, 0.28, 0.18, 0.10, 0.04],
+                "lower_coefficients": [-0.18, -0.14, -0.08, -0.03, -0.01],
+                "candidate_role": "base",
+            }
+        },
+        lofting_guides={"authority": "cst_coefficients"},
+        prop_assumption={"diameter_m": 3.0},
+        concept_summary={"rank": 1},
+    )
+
+    payload = json.loads((bundle_dir / "airfoil_templates.json").read_text(encoding="utf-8"))
+    assert payload["root"]["authority"] == "cst_candidate"
+
+
 def test_write_selected_concept_bundle_writes_openvsp_handoff_artifacts(tmp_path):
     bundle_dir = write_selected_concept_bundle(
         output_dir=tmp_path,

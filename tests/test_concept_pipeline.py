@@ -218,6 +218,72 @@ def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
     assert spanwise_summary["mass_selection_reasons"] == ["min_best_range"]
 
 
+def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "polar_points": [
+                            {
+                                "cl_target": query.cl_samples[0],
+                                "cl": query.cl_samples[0],
+                                "cd": 0.020,
+                                "cm": -0.10,
+                                "converged": True,
+                            }
+                        ],
+                        "sweep_summary": {
+                            "cl_max_observed": 1.20,
+                            "converged_point_count": 10,
+                            "sweep_point_count": 10,
+                        },
+                    }
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {"reynolds": 260000.0, "cl_target": 0.70, "cm_target": -0.10, "weight": 1.0}
+                ]
+            },
+            "mid1": {
+                "points": [
+                    {"reynolds": 240000.0, "cl_target": 0.66, "cm_target": -0.09, "weight": 1.0}
+                ]
+            },
+            "mid2": {
+                "points": [
+                    {"reynolds": 220000.0, "cl_target": 0.62, "cm_target": -0.08, "weight": 1.0}
+                ]
+            },
+            "tip": {
+                "points": [
+                    {"reynolds": 200000.0, "cl_target": 0.58, "cm_target": -0.07, "weight": 1.0}
+                ]
+            },
+        },
+    )
+
+    bundle = result.selected_concept_dirs[0]
+    airfoil_templates = json.loads((bundle / "airfoil_templates.json").read_text(encoding="utf-8"))
+
+    assert airfoil_templates["root"]["authority"] == "cst_candidate"
+    assert "upper_coefficients" in airfoil_templates["root"]
+    assert "lower_coefficients" in airfoil_templates["root"]
+    assert "candidate_role" in airfoil_templates["root"]
+
+
 def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     result = run_birdman_concept_pipeline(
         config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
@@ -253,6 +319,7 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     assert (bundle / "prop_assumption.json").exists()
     assert (bundle / "concept_summary.json").exists()
     assert set(airfoil_templates) == {"root", "mid1", "mid2", "tip"}
+    assert all(payload["authority"] == "cst_candidate" for payload in airfoil_templates.values())
     assert all("template_id" in payload for payload in airfoil_templates.values())
     assert all("points" in payload for payload in airfoil_templates.values())
     assert airfoil_templates["root"]["seed_name"] == "fx76mp140"
