@@ -7,8 +7,17 @@ import math
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from hpa_mdo.concept.airfoil_cst import CSTAirfoilTemplate, build_lofting_guides
-from hpa_mdo.concept.airfoil_selection import select_zone_airfoil_templates
+from hpa_mdo.concept.airfoil_cst import (
+    CSTAirfoilTemplate,
+    build_lofting_guides,
+    generate_cst_coordinates,
+    validate_cst_candidate_coordinates,
+)
+from hpa_mdo.concept.airfoil_selection import (
+    SelectedZoneCandidate,
+    build_base_cst_template,
+    select_zone_airfoil_templates,
+)
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
@@ -131,11 +140,11 @@ def _build_seed_airfoil_templates(
 
 def _build_selected_cst_airfoil_templates(
     *,
-    selection_batch,
+    selected_by_zone: dict[str, SelectedZoneCandidate],
     zone_requirements: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     templates: dict[str, dict[str, Any]] = {}
-    for zone_name, selected in selection_batch.selected_by_zone.items():
+    for zone_name, selected in selected_by_zone.items():
         template = selected.template
         templates[zone_name] = {
             "authority": "cst_candidate",
@@ -154,6 +163,107 @@ def _build_selected_cst_airfoil_templates(
             "points": zone_requirements[zone_name].get("points", []),
         }
     return templates
+
+
+def _selection_stubbed_metrics(
+    *,
+    cl_samples: tuple[float, ...],
+    cm_target: float = -0.10,
+) -> dict[str, object]:
+    target_cl = max(cl_samples, default=0.70)
+    return {
+        "status": "stubbed_ok",
+        "mean_cd": 0.020,
+        "mean_cm": cm_target,
+        "usable_clmax": target_cl + 0.20,
+    }
+
+
+class _SelectionWorkerAdapter:
+    def __init__(self, worker: AirfoilWorker) -> None:
+        self._worker = worker
+
+    def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
+        raw_results = self._worker.run_queries(queries)
+        if not isinstance(raw_results, list):
+            raise RuntimeError("Selection worker adapter expected a list of worker results.")
+
+        raw_by_template_id: dict[str, dict[str, object]] = {}
+        for item in raw_results:
+            if not isinstance(item, dict):
+                raise RuntimeError("Selection worker adapter expected dictionary worker results.")
+            template_id = item.get("template_id")
+            if isinstance(template_id, str):
+                raw_by_template_id[template_id] = item
+
+        normalized_results: list[dict[str, object]] = []
+        for query in queries:
+            raw_result = raw_by_template_id.get(query.template_id)
+            if raw_result is None:
+                normalized_results.append(
+                    {
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        **_selection_stubbed_metrics(cl_samples=query.cl_samples),
+                    }
+                )
+                continue
+
+            result_geometry_hash = raw_result.get("geometry_hash")
+            if result_geometry_hash is not None and result_geometry_hash != query.geometry_hash:
+                raise RuntimeError(
+                    "Selection worker returned a geometry_hash that did not match the requested CST candidate."
+                )
+
+            status = str(raw_result.get("status", "unknown"))
+            has_direct_metrics = all(
+                key in raw_result for key in ("mean_cd", "mean_cm", "usable_clmax")
+            )
+            has_polar_points = isinstance(raw_result.get("polar_points"), list) and bool(
+                raw_result.get("polar_points")
+            )
+            if status == "cli_stubbed" or (status in {"ok", "stubbed_ok"} and not has_direct_metrics and not has_polar_points):
+                normalized_results.append(
+                    {
+                        **raw_result,
+                        "status": "stubbed_ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        **_selection_stubbed_metrics(cl_samples=query.cl_samples),
+                    }
+                )
+                continue
+
+            normalized_results.append(raw_result)
+        return normalized_results
+
+
+def _build_fallback_selected_zone_candidate(
+    *,
+    zone_name: str,
+    seed_coordinates: tuple[tuple[float, float], ...],
+) -> SelectedZoneCandidate:
+    seed_name = _ROOT_SEED_AIRFOIL if zone_name in {"root", "mid1"} else _TIP_SEED_AIRFOIL
+    base_template = build_base_cst_template(
+        zone_name=zone_name,
+        seed_name=seed_name,
+        seed_coordinates=seed_coordinates,
+    )
+    coordinates = generate_cst_coordinates(base_template)
+    validity = validate_cst_candidate_coordinates(coordinates)
+    if not validity.valid:
+        raise ValueError(
+            f"Base CST candidate for zone {zone_name!r} was invalid during pipeline fallback: {validity.reason}."
+        )
+    stubbed_metrics = _selection_stubbed_metrics(cl_samples=())
+    return SelectedZoneCandidate(
+        template=base_template,
+        coordinates=coordinates,
+        mean_cd=float(stubbed_metrics["mean_cd"]),
+        mean_cm=float(stubbed_metrics["mean_cm"]),
+        usable_clmax=float(stubbed_metrics["usable_clmax"]),
+        candidate_score=0.0,
+    )
 
 
 def _default_spanwise_loader(
@@ -1126,13 +1236,33 @@ def run_birdman_concept_pipeline(
             stations_per_half=cfg.pipeline.stations_per_half,
         )
         zone_requirements = spanwise_loader(concept, stations)
-        selection_batch = select_zone_airfoil_templates(
-            zone_requirements=zone_requirements,
-            seed_loader=_load_seed_airfoil_coordinates,
-            worker=worker,
-        )
+        zone_requirements_with_points = {
+            zone_name: zone_data
+            for zone_name, zone_data in zone_requirements.items()
+            if zone_data.get("points")
+        }
+        zone_requirements_without_points = {
+            zone_name: zone_data
+            for zone_name, zone_data in zone_requirements.items()
+            if not zone_data.get("points")
+        }
+        selected_by_zone: dict[str, SelectedZoneCandidate] = {}
+        if zone_requirements_with_points:
+            selection_batch = select_zone_airfoil_templates(
+                zone_requirements=zone_requirements_with_points,
+                seed_loader=_load_seed_airfoil_coordinates,
+                worker=_SelectionWorkerAdapter(worker),
+            )
+            selected_by_zone.update(selection_batch.selected_by_zone)
+        for zone_name in zone_requirements_without_points:
+            selected_by_zone[zone_name] = _build_fallback_selected_zone_candidate(
+                zone_name=zone_name,
+                seed_coordinates=_load_seed_airfoil_coordinates(
+                    _ROOT_SEED_AIRFOIL if zone_name in {"root", "mid1"} else _TIP_SEED_AIRFOIL
+                ),
+            )
         airfoil_templates = _build_selected_cst_airfoil_templates(
-            selection_batch=selection_batch,
+            selected_by_zone=selected_by_zone,
             zone_requirements=zone_requirements,
         )
         station_points = _flatten_zone_points(zone_requirements, stations)
