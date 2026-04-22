@@ -381,6 +381,44 @@ def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
     assert (third_bundle / "concept_openvsp.vspscript").exists() is False
 
 
+def test_pipeline_skips_bundle_exports_when_candidate_bundle_output_is_disabled(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    payload["output"]["export_candidate_bundle"] = False
+    payload["output"]["export_vsp"] = False
+    payload["output"]["export_vsp_for_top_n"] = 0
+
+    custom_cfg = tmp_path / "concept_no_bundle.yaml"
+    custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    result = run_birdman_concept_pipeline(
+        config_path=custom_cfg,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {"status": "ok", "polar_points": [], "template_id": query.template_id}
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {"root": {"points": []}},
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+
+    assert result.selected_concept_dirs == ()
+    assert not (tmp_path / "out" / "selected_concepts").exists()
+    assert summary["selected_concepts"]
+    assert all(item["bundle_dir"] is None for item in summary["selected_concepts"])
+
+
 def test_pipeline_writes_dihedral_geometry_into_bundle_and_vsp_preview(tmp_path: Path) -> None:
     result = run_birdman_concept_pipeline(
         config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),

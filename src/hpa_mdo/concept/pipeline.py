@@ -509,24 +509,26 @@ def run_birdman_concept_pipeline(
         concept_worker_statuses = list(concept_summary["worker_statuses"])
         summary_worker_statuses.extend(concept_worker_statuses)
 
-        bundle_dir = write_selected_concept_bundle(
-            output_dir=output_dir / "selected_concepts",
-            concept_id=concept_summary["concept_id"],
-            concept_config=concept_config,
-            stations_rows=stations_rows,
-            airfoil_templates=airfoil_templates,
-            lofting_guides=lofting_guides,
-            prop_assumption=prop_assumption,
-            concept_summary=concept_summary,
-            export_vsp=(
-                cfg.output.export_vsp and concept_index <= cfg.output.export_vsp_for_top_n
-            ),
-        )
-        selected_concept_dirs.append(bundle_dir)
+        bundle_dir: Path | None = None
+        if cfg.output.export_candidate_bundle:
+            bundle_dir = write_selected_concept_bundle(
+                output_dir=output_dir / "selected_concepts",
+                concept_id=concept_summary["concept_id"],
+                concept_config=concept_config,
+                stations_rows=stations_rows,
+                airfoil_templates=airfoil_templates,
+                lofting_guides=lofting_guides,
+                prop_assumption=prop_assumption,
+                concept_summary=concept_summary,
+                export_vsp=(
+                    cfg.output.export_vsp and concept_index <= cfg.output.export_vsp_for_top_n
+                ),
+            )
+            selected_concept_dirs.append(bundle_dir)
         summary_records.append(
             {
                 "concept_id": concept_summary["concept_id"],
-                "bundle_dir": str(bundle_dir),
+                "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
                 "span_m": concept.span_m,
                 "wing_area_m2": concept.wing_area_m2,
                 "zone_count": len(zone_requirements),
