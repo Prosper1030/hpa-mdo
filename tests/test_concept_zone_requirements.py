@@ -113,6 +113,61 @@ def test_build_zone_requirements_rejects_invalid_zone_definitions(zone_definitio
         build_zone_requirements(_sample_load(), stations, zone_definitions)
 
 
+def test_build_zone_requirements_rejects_duplicate_zone_names() -> None:
+    concept = GeometryConcept(
+        span_m=16.0,
+        wing_area_m2=14.4,
+        root_chord_m=1.30,
+        tip_chord_m=0.50,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(1.0, 1.0, 4.0, 2.0),
+    )
+    stations = build_linear_wing_stations(concept, stations_per_half=5)
+
+    duplicate_zones = (
+        ZoneDefinition("root", 0.00, 0.25),
+        ZoneDefinition("root", 0.25, 0.55),
+        ZoneDefinition("mid2", 0.55, 0.80),
+        ZoneDefinition("tip", 0.80, 1.00),
+    )
+
+    with pytest.raises(ValueError):
+        build_zone_requirements(_sample_load(), stations, duplicate_zones)
+
+
+def test_build_zone_requirements_rejects_mismatched_spanwise_load_lengths() -> None:
+    concept = GeometryConcept(
+        span_m=16.0,
+        wing_area_m2=14.4,
+        root_chord_m=1.30,
+        tip_chord_m=0.50,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(1.0, 1.0, 4.0, 2.0),
+    )
+    stations = build_linear_wing_stations(concept, stations_per_half=5)
+    load = SpanwiseLoad(
+        y=np.array([0.0, 2.0, 4.0, 6.0, 8.0]),
+        chord=np.array([1.30, 1.10, 0.90, 0.70]),
+        cl=np.array([0.90, 0.88, 0.82, 0.75, 0.68]),
+        cd=np.array([0.020, 0.019, 0.018, 0.017, 0.016]),
+        cm=np.array([-0.12, -0.11, -0.10, -0.09, -0.08]),
+        lift_per_span=np.array([120.0, 110.0, 100.0, 85.0, 60.0]),
+        drag_per_span=np.array([2.4, 2.1, 1.8, 1.5, 1.1]),
+        aoa_deg=6.0,
+        velocity=8.0,
+        dynamic_pressure=36.8,
+    )
+
+    with pytest.raises(ValueError):
+        build_zone_requirements(load, stations, default_zone_definitions())
+
+
 def test_build_lofting_guides_uses_cst_templates_as_authority() -> None:
     templates = {
         "root": CSTAirfoilTemplate("root", (0.2, 0.3, 0.1), (-0.1, -0.2, -0.05), 0.0015),

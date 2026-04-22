@@ -47,6 +47,9 @@ def _validate_zone_definitions(zone_definitions: Sequence[ZoneDefinition]) -> tu
     validated = tuple(zone_definitions)
     if not validated:
         raise ValueError("zone_definitions must not be empty.")
+    names = [zone.name for zone in validated]
+    if len(set(names)) != len(names):
+        raise ValueError("zone_definitions names must be unique.")
 
     previous_end = 0.0
     for index, zone in enumerate(validated):
@@ -107,12 +110,20 @@ def build_zone_requirements(
     stations,
     zone_definitions: Sequence[ZoneDefinition],
 ) -> dict[str, ZoneRequirement]:
-    if len(spanwise_load.y) != len(stations):
-        raise ValueError("spanwise_load and stations must have the same number of entries.")
-
     validated_zone_definitions = _validate_zone_definitions(zone_definitions)
     span_fractions = _station_span_fractions(stations)
     coverage_weights = _station_coverage_weights(stations)
+
+    station_count = len(stations)
+    if len(spanwise_load.y) != station_count:
+        raise ValueError("spanwise_load.y must have the same number of entries as stations.")
+    if len(spanwise_load.chord) != station_count:
+        raise ValueError("spanwise_load.chord must have the same number of entries as stations.")
+    if len(spanwise_load.cl) != station_count:
+        raise ValueError("spanwise_load.cl must have the same number of entries as stations.")
+    if len(spanwise_load.cm) != station_count:
+        raise ValueError("spanwise_load.cm must have the same number of entries as stations.")
+
     velocity_mps = float(spanwise_load.velocity)
     if velocity_mps <= 0.0:
         raise ValueError("spanwise_load.velocity must be positive.")
