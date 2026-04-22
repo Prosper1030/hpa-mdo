@@ -1,5 +1,5 @@
 using JSON3
-using XFoil
+using Xfoil
 
 request_path = ARGS[1]
 response_path = ARGS[2]

@@ -4,5 +4,5 @@ authors = ["Codex"]
 version = "0.1.0"
 
 [deps]
-JSON3 = "0f8b85d8-7281-11e9-16c3-7d8f0d0f9f4b"
-XFoil = "d7c9c9ef-cd89-4c1a-beb9-7aa7284f4664"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+Xfoil = "19641d66-a62d-11e8-2441-8f57a969a9c4"
