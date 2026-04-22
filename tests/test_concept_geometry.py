@@ -125,6 +125,27 @@ def test_geometry_concept_rejects_nonphysical_inputs():
         )
 
 
+def test_geometry_concept_normalizes_segment_lengths_to_tuple():
+    segment_lengths = [1.5, 3.0, 3.0, 3.0, 3.0, 2.5]
+
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=28.0,
+        root_chord_m=1.30,
+        tip_chord_m=0.45,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.5,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=segment_lengths,
+    )
+
+    segment_lengths[0] = 9.9
+
+    assert isinstance(concept.segment_lengths_m, tuple)
+    assert concept.segment_lengths_m == (1.5, 3.0, 3.0, 3.0, 3.0, 2.5)
+
+
 def test_enumerate_geometry_concepts_generates_multiple_candidates():
     cfg = load_concept_config(
         Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"

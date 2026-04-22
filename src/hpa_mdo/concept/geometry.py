@@ -25,6 +25,9 @@ class GeometryConcept:
     segment_lengths_m: tuple[float, ...]
 
     def __post_init__(self) -> None:
+        segment_lengths_m = tuple(float(length) for length in self.segment_lengths_m)
+        object.__setattr__(self, "segment_lengths_m", segment_lengths_m)
+
         if self.span_m <= 0.0:
             raise ValueError("span_m must be positive.")
         if self.wing_area_m2 <= 0.0:
