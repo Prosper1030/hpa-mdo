@@ -58,6 +58,8 @@ def evaluate_launch_gate(
         raise ValueError("cl_required must be positive.")
     if cl_available <= 0.0:
         raise ValueError("cl_available must be positive.")
+    if required_trim_margin_deg <= 0.0:
+        raise ValueError("required_trim_margin_deg must be positive.")
 
     # The current launch gate works on CL terms that were already computed from a
     # chosen speed upstream. We keep speed_mps in the contract for later envelope

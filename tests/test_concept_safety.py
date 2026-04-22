@@ -113,6 +113,21 @@ def test_launch_gate_respects_required_trim_margin():
     assert result.reason == "trim_margin_insufficient"
 
 
+@pytest.mark.parametrize("required_trim_margin_deg", [0.0, -0.5])
+def test_launch_gate_rejects_nonpositive_required_trim_margin(required_trim_margin_deg: float):
+    with pytest.raises(ValueError, match="required_trim_margin_deg must be positive"):
+        evaluate_launch_gate(
+            platform_height_m=10.0,
+            wing_span_m=32.0,
+            speed_mps=8.0,
+            cl_required=0.95,
+            cl_available=1.10,
+            trim_margin_deg=2.0,
+            required_trim_margin_deg=required_trim_margin_deg,
+            use_ground_effect=True,
+        )
+
+
 def test_turn_gate_uses_configured_stall_margin_threshold():
     loose = evaluate_turn_gate(
         bank_angle_deg=15.0,
