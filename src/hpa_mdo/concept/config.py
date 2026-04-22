@@ -41,8 +41,8 @@ class MissionConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_speed_sweep_bounds(self) -> MissionConfig:
-        if self.speed_sweep_max_mps < self.speed_sweep_min_mps:
-            raise ValueError("mission.speed_sweep_max_mps must be >= mission.speed_sweep_min_mps.")
+        if self.speed_sweep_max_mps <= self.speed_sweep_min_mps:
+            raise ValueError("mission.speed_sweep_max_mps must be > mission.speed_sweep_min_mps.")
         return self
 
 
@@ -83,6 +83,10 @@ class GeometryFamilyConfig(BaseModel):
         if any(taper <= 0.0 or taper > 1.0 for taper in self.taper_ratio_candidates):
             raise ValueError(
                 "geometry_family.taper_ratio_candidates entries must be in the interval (0, 1]."
+            )
+        if any(twist < -10.0 or twist > 10.0 for twist in self.twist_tip_candidates_deg):
+            raise ValueError(
+                "geometry_family.twist_tip_candidates_deg entries must be in the interval [-10, 10]."
             )
         if any(tail_area <= 0.0 for tail_area in self.tail_area_candidates_m2):
             raise ValueError("geometry_family.tail_area_candidates_m2 entries must all be positive.")
