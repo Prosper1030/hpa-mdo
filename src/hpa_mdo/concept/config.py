@@ -20,6 +20,8 @@ class EnvironmentConfig(ConceptBaseModel):
 class MassConfig(ConceptBaseModel):
     pilot_mass_kg: float = Field(..., gt=0.0)
     baseline_aircraft_mass_kg: float = Field(..., gt=0.0)
+    # Reference aircraft mass is a starting estimate, not a lower bound on
+    # the independently swept total gross-mass cases.
     gross_mass_sweep_kg: tuple[float, ...] = Field(..., min_length=3, max_length=3)
 
     @model_validator(mode="after")
@@ -31,11 +33,6 @@ class MassConfig(ConceptBaseModel):
             for earlier, later in zip(self.gross_mass_sweep_kg, self.gross_mass_sweep_kg[1:])
         ):
             raise ValueError("mass.gross_mass_sweep_kg must be non-decreasing.")
-        min_gross_mass = self.pilot_mass_kg + self.baseline_aircraft_mass_kg
-        if any(mass < min_gross_mass for mass in self.gross_mass_sweep_kg):
-            raise ValueError(
-                "mass.gross_mass_sweep_kg entries must be >= pilot_mass_kg + baseline_aircraft_mass_kg."
-            )
         return self
 
 

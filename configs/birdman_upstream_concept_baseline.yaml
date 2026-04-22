@@ -6,7 +6,7 @@ environment:
 mass:
   pilot_mass_kg: 60.0
   baseline_aircraft_mass_kg: 40.0
-  gross_mass_sweep_kg: [100.0, 105.0, 110.0]
+  gross_mass_sweep_kg: [95.0, 100.0, 105.0]
 
 mission:
   target_distance_km: 42.195

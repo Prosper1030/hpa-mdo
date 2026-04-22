@@ -15,7 +15,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.environment.temperature_c == pytest.approx(33.0)
     assert cfg.environment.relative_humidity == pytest.approx(80.0)
     assert cfg.mass.pilot_mass_kg == pytest.approx(60.0)
-    assert cfg.mass.gross_mass_sweep_kg == (100.0, 105.0, 110.0)
+    assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
     assert cfg.launch.platform_height_m == pytest.approx(10.0)
     assert cfg.turn.required_bank_angle_deg == pytest.approx(15.0)
     assert cfg.segmentation.min_segment_length_m == pytest.approx(1.0)
@@ -122,19 +122,21 @@ def test_load_concept_config_rejects_nonpositive_and_unsorted_mass_sweep():
         )
 
 
-def test_load_concept_config_rejects_gross_mass_below_system_mass():
-    with pytest.raises(ValueError, match="pilot_mass_kg"):
-        BirdmanConceptConfig.model_validate(
-            {
-                "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
-                "mass": {
-                    "pilot_mass_kg": 60.0,
-                    "baseline_aircraft_mass_kg": 40.0,
-                    "gross_mass_sweep_kg": [80.0, 85.0, 90.0],
-                },
-                "mission": {"target_distance_km": 42.195},
-            }
-        )
+def test_load_concept_config_treats_reference_mass_as_independent():
+    cfg = BirdmanConceptConfig.model_validate(
+        {
+            "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+            "mass": {
+                "pilot_mass_kg": 60.0,
+                "baseline_aircraft_mass_kg": 40.0,
+                "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+            },
+            "mission": {"target_distance_km": 42.195},
+        }
+    )
+
+    assert cfg.mass.baseline_aircraft_mass_kg == pytest.approx(40.0)
+    assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
 
 
 def test_load_concept_config_rejects_impossible_geometry_candidates():
