@@ -51,6 +51,22 @@ def test_parser_supports_baseline_cfd_command():
     assert args.out == "artifacts/su2_route"
 
 
+def test_parser_supports_shell_v3_refinement_study_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "shell-v3-refinement-study",
+            "--baseline-manifest",
+            "artifacts/baseline.json",
+            "--out",
+            "artifacts/refinement",
+        ]
+    )
+    assert args.command == "shell-v3-refinement-study"
+    assert args.baseline_manifest == "artifacts/baseline.json"
+    assert args.out == "artifacts/refinement"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

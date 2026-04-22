@@ -10,6 +10,7 @@ from .schema import MeshJobConfig, BatchManifest
 from .frozen_baseline import evaluate_shell_v3_baseline_regression, run_shell_v3_baseline_cfd
 from .pipeline import run_job, validate_geometry_only
 from .mesh_study import run_mesh_study
+from .shell_v3_refinement_study import run_shell_v3_refinement_study
 
 
 def _load_yaml(path: Path):
@@ -84,6 +85,16 @@ def cmd_baseline_cfd(args: argparse.Namespace) -> int:
     return 0 if result.get("status") == "success" else 2
 
 
+def cmd_shell_v3_refinement_study(args: argparse.Namespace) -> int:
+    result = run_shell_v3_refinement_study(
+        Path(args.baseline_manifest),
+        out_dir=Path(args.out),
+        mesh_handoff_path=None if args.mesh_handoff is None else Path(args.mesh_handoff),
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("status") == "success" else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpa-mesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -127,6 +138,12 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_cfd.add_argument("--mesh-handoff", type=str)
     baseline_cfd.add_argument("--out", type=str, required=True)
     baseline_cfd.set_defaults(func=cmd_baseline_cfd)
+
+    refinement = sub.add_parser("shell-v3-refinement-study")
+    refinement.add_argument("--baseline-manifest", type=str, required=True)
+    refinement.add_argument("--mesh-handoff", type=str)
+    refinement.add_argument("--out", type=str, required=True)
+    refinement.set_defaults(func=cmd_shell_v3_refinement_study)
 
     return parser
 
