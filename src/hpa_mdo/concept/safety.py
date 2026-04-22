@@ -23,18 +23,68 @@ class TrimGateResult:
 @dataclass(frozen=True)
 class TurnGateResult:
     feasible: bool
+    cl_level: float
+    cl_max: float
     required_cl: float
     stall_margin: float
+    load_factor: float
+    limiting_station_y_m: float
+    tip_critical: bool
+    cl_max_source: str
     reason: str
 
 
 @dataclass(frozen=True)
 class LocalStallResult:
     feasible: bool
+    required_cl: float
+    cl_max: float
     min_margin: float
     min_margin_station_y_m: float
     tip_critical: bool
+    cl_max_source: str
     reason: str
+
+
+def _cl_limit(point: dict[str, float]) -> float:
+    return float(point.get("cl_max_effective", point["cl_max_proxy"]))
+
+
+def _weighted_required_cl(point: dict[str, float], *, load_factor: float) -> float:
+    return float(point["cl_target"]) * float(load_factor)
+
+
+def _evaluate_stationwise_margin(
+    *,
+    station_points: list[dict[str, float]],
+    half_span_m: float,
+    load_factor: float,
+) -> dict[str, float | bool | str]:
+    if not station_points:
+        raise ValueError("station_points must not be empty.")
+    if half_span_m <= 0.0:
+        raise ValueError("half_span_m must be positive.")
+    if load_factor <= 0.0:
+        raise ValueError("load_factor must be positive.")
+
+    min_point = min(
+        station_points,
+        key=lambda item: _cl_limit(item) - _weighted_required_cl(item, load_factor=load_factor),
+    )
+    cl_level = float(min_point["cl_target"])
+    cl_max = _cl_limit(min_point)
+    required_cl = _weighted_required_cl(min_point, load_factor=load_factor)
+    min_margin = cl_max - required_cl
+    y_m = float(min_point["station_y_m"])
+    return {
+        "cl_level": cl_level,
+        "cl_max": cl_max,
+        "required_cl": required_cl,
+        "min_margin": min_margin,
+        "min_margin_station_y_m": y_m,
+        "tip_critical": y_m >= 0.75 * float(half_span_m),
+        "cl_max_source": str(min_point.get("cl_max_effective_source", "geometry_proxy")),
+    }
 
 
 def evaluate_launch_gate(
@@ -97,8 +147,8 @@ def evaluate_turn_gate(
     *,
     bank_angle_deg: float,
     speed_mps: float,
-    cl_level: float,
-    cl_max: float,
+    station_points: list[dict[str, float]],
+    half_span_m: float,
     trim_feasible: bool,
     required_stall_margin: float,
 ) -> TurnGateResult:
@@ -106,34 +156,59 @@ def evaluate_turn_gate(
         raise ValueError("bank_angle_deg must be in the interval (0, 85).")
     if speed_mps <= 0.0:
         raise ValueError("speed_mps must be positive.")
-    if cl_max <= 0.0:
-        raise ValueError("cl_max must be positive.")
-
     # Like the launch gate, this MVP consumes an upstream CL state. The speed is
     # retained on the API surface so later turn-envelope refinements can use it
     # without changing the pipeline contract.
     load_factor = 1.0 / math.cos(math.radians(float(bank_angle_deg)))
-    required_cl = float(cl_level) * load_factor
-    stall_margin = float(cl_max) - required_cl
+    stationwise = _evaluate_stationwise_margin(
+        station_points=station_points,
+        half_span_m=half_span_m,
+        load_factor=load_factor,
+    )
+    cl_level = float(stationwise["cl_level"])
+    cl_max = float(stationwise["cl_max"])
+    required_cl = float(stationwise["required_cl"])
+    stall_margin = float(stationwise["min_margin"])
+    limiting_station_y_m = float(stationwise["min_margin_station_y_m"])
+    tip_critical = bool(stationwise["tip_critical"])
+    cl_max_source = str(stationwise["cl_max_source"])
 
     if not trim_feasible:
         return TurnGateResult(
             feasible=False,
+            cl_level=cl_level,
+            cl_max=cl_max,
             required_cl=required_cl,
             stall_margin=stall_margin,
+            load_factor=load_factor,
+            limiting_station_y_m=limiting_station_y_m,
+            tip_critical=tip_critical,
+            cl_max_source=cl_max_source,
             reason="trim_not_feasible",
         )
     if stall_margin < float(required_stall_margin):
         return TurnGateResult(
             feasible=False,
+            cl_level=cl_level,
+            cl_max=cl_max,
             required_cl=required_cl,
             stall_margin=stall_margin,
+            load_factor=load_factor,
+            limiting_station_y_m=limiting_station_y_m,
+            tip_critical=tip_critical,
+            cl_max_source=cl_max_source,
             reason="stall_margin_insufficient",
         )
     return TurnGateResult(
         feasible=True,
+        cl_level=cl_level,
+        cl_max=cl_max,
         required_cl=required_cl,
         stall_margin=stall_margin,
+        load_factor=load_factor,
+        limiting_station_y_m=limiting_station_y_m,
+        tip_critical=tip_critical,
+        cl_max_source=cl_max_source,
         reason="ok",
     )
 
@@ -143,15 +218,22 @@ def evaluate_trim_proxy(
     representative_cm: float,
     required_margin_deg: float,
     cm_limit_abs: float = 0.15,
+    cm_spread: float = 0.0,
+    spread_factor: float = 0.5,
 ) -> TrimGateResult:
     if required_margin_deg <= 0.0:
         raise ValueError("required_margin_deg must be positive.")
     if cm_limit_abs <= 0.0:
         raise ValueError("cm_limit_abs must be positive.")
+    if cm_spread < 0.0:
+        raise ValueError("cm_spread must not be negative.")
+    if spread_factor < 0.0:
+        raise ValueError("spread_factor must not be negative.")
 
+    effective_abs_cm = abs(float(representative_cm)) + float(spread_factor) * float(cm_spread)
     margin_deg = max(
         0.0,
-        6.0 * (float(cm_limit_abs) - abs(float(representative_cm))) / float(cm_limit_abs),
+        6.0 * (float(cm_limit_abs) - effective_abs_cm) / float(cm_limit_abs),
     )
     required_margin_deg = float(required_margin_deg)
     feasible = margin_deg > required_margin_deg or math.isclose(
@@ -181,22 +263,23 @@ def evaluate_local_stall(
     if required_stall_margin <= 0.0:
         raise ValueError("required_stall_margin must be positive.")
 
-    def _cl_limit(point: dict[str, float]) -> float:
-        return float(point.get("cl_max_effective", point["cl_max_proxy"]))
-
-    min_point = min(
-        station_points,
-        key=lambda item: _cl_limit(item) - float(item["cl_target"]),
+    stationwise = _evaluate_stationwise_margin(
+        station_points=station_points,
+        half_span_m=half_span_m,
+        load_factor=1.0,
     )
-    min_margin = _cl_limit(min_point) - float(min_point["cl_target"])
-    y_m = float(min_point["station_y_m"])
-    tip_critical = y_m >= 0.75 * float(half_span_m)
+    min_margin = float(stationwise["min_margin"])
+    y_m = float(stationwise["min_margin_station_y_m"])
+    tip_critical = bool(stationwise["tip_critical"])
     feasible = min_margin >= float(required_stall_margin)
     return LocalStallResult(
         feasible=feasible,
+        required_cl=float(stationwise["required_cl"]),
+        cl_max=float(stationwise["cl_max"]),
         min_margin=min_margin,
         min_margin_station_y_m=y_m,
         tip_critical=tip_critical,
+        cl_max_source=str(stationwise["cl_max_source"]),
         reason="ok" if feasible else "stall_margin_insufficient",
     )
 

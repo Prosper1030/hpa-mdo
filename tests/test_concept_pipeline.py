@@ -8,6 +8,7 @@ import subprocess
 import yaml
 import pytest
 
+from hpa_mdo.concept import load_concept_config
 from hpa_mdo.concept import pipeline as concept_pipeline
 from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker
 from hpa_mdo.concept.geometry import GeometryConcept, build_segment_plan
@@ -516,8 +517,51 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     assert first["airfoil_feedback"]["mean_cd_effective"] == pytest.approx(0.021)
     assert first["airfoil_feedback"]["min_cl_max_effective"] == pytest.approx(1.24)
     assert first["turn"]["cl_level"] == pytest.approx(0.87)
+    assert first["turn"]["limiting_station_y_m"] == pytest.approx(14.0)
+    assert first["turn"]["tip_critical"] is True
     assert first["trim"]["representative_cm"] == pytest.approx(-0.08)
+    assert first["trim"]["cm_rms"] == pytest.approx(0.0)
     assert first["launch"]["cl_available"] == pytest.approx(1.24)
+
+
+def test_turn_summary_rescales_reference_cl_targets_to_release_condition() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    turn = concept_pipeline._summarize_turn(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "cl_target": 1.0,
+                "cl_max_proxy": 1.2,
+                "reference_speed_mps": 6.0,
+                "reference_gross_mass_kg": 95.0,
+            }
+        ],
+        trim_result=type("TrimResult", (), {"feasible": True})(),
+    )
+
+    cl_scale = (105.0 / 95.0) * (6.0 / 8.0) ** 2
+    assert turn["status"] == "ok"
+    assert turn["cl_level"] == pytest.approx(cl_scale)
+    assert turn["required_cl"] == pytest.approx(cl_scale / 0.9659258262890683)
+    assert turn["cl_scale_factor_min"] == pytest.approx(cl_scale)
+    assert turn["cl_scale_factor_max"] == pytest.approx(cl_scale)
+    assert turn["reference_speed_mps"] == pytest.approx(6.0)
+    assert turn["reference_gross_mass_kg"] == pytest.approx(95.0)
+    assert turn["evaluation_gross_mass_kg"] == pytest.approx(105.0)
 
 
 def test_pipeline_reorders_selected_concepts_by_mission_ranking(
@@ -738,8 +782,11 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     assert first["airfoil_feedback"]["mode"] == "geometry_proxy"
     assert isinstance(first["launch"]["cl_available"], float)
     assert isinstance(first["turn"]["cl_max"], float)
+    assert isinstance(first["turn"]["load_factor"], float)
     assert isinstance(first["trim"]["margin_deg"], float)
+    assert isinstance(first["trim"]["cm_rms"], float)
     assert isinstance(first["local_stall"]["min_margin"], float)
+    assert isinstance(first["local_stall"]["required_cl"], float)
     assert first["launch"]["cl_available_source"] == "geometry_proxy"
     assert first["turn"]["cl_max_source"] == "geometry_proxy"
     assert first["trim"]["representative_cm_source"] == "zone_target_proxy"

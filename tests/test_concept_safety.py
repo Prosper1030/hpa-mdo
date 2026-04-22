@@ -69,13 +69,21 @@ def test_turn_gate_rejects_insufficient_stall_margin():
     result = evaluate_turn_gate(
         bank_angle_deg=15.0,
         speed_mps=8.0,
-        cl_level=0.95,
-        cl_max=1.05,
+        station_points=[
+            {"station_y_m": 2.0, "cl_target": 0.95, "cl_max_proxy": 1.05},
+            {"station_y_m": 14.0, "cl_target": 0.80, "cl_max_proxy": 1.10},
+        ],
+        half_span_m=16.0,
         trim_feasible=True,
         required_stall_margin=0.10,
     )
 
     assert result.required_cl == pytest.approx(0.95 / 0.9659258262890683, rel=1e-9)
+    assert result.cl_level == pytest.approx(0.95)
+    assert result.cl_max == pytest.approx(1.05)
+    assert result.load_factor == pytest.approx(1.0 / 0.9659258262890683, rel=1e-9)
+    assert result.limiting_station_y_m == pytest.approx(2.0)
+    assert result.tip_critical is False
     assert result.stall_margin < 0.10
     assert result.feasible is False
     assert result.reason == "stall_margin_insufficient"
@@ -85,8 +93,11 @@ def test_turn_gate_keeps_failure_contract_when_trim_is_not_feasible():
     result = evaluate_turn_gate(
         bank_angle_deg=15.0,
         speed_mps=8.0,
-        cl_level=0.70,
-        cl_max=1.20,
+        station_points=[
+            {"station_y_m": 1.0, "cl_target": 0.70, "cl_max_proxy": 1.20},
+            {"station_y_m": 14.0, "cl_target": 0.60, "cl_max_proxy": 1.10},
+        ],
+        half_span_m=16.0,
         trim_feasible=False,
         required_stall_margin=0.10,
     )
@@ -132,16 +143,16 @@ def test_turn_gate_uses_configured_stall_margin_threshold():
     loose = evaluate_turn_gate(
         bank_angle_deg=15.0,
         speed_mps=8.0,
-        cl_level=0.95,
-        cl_max=1.12,
+        station_points=[{"station_y_m": 2.0, "cl_target": 0.95, "cl_max_proxy": 1.12}],
+        half_span_m=16.0,
         trim_feasible=True,
         required_stall_margin=0.10,
     )
     tight = evaluate_turn_gate(
         bank_angle_deg=15.0,
         speed_mps=8.0,
-        cl_level=0.95,
-        cl_max=1.12,
+        station_points=[{"station_y_m": 2.0, "cl_target": 0.95, "cl_max_proxy": 1.12}],
+        half_span_m=16.0,
         trim_feasible=True,
         required_stall_margin=0.15,
     )
@@ -155,10 +166,12 @@ def test_trim_proxy_flips_when_required_margin_is_tightened():
     loose = evaluate_trim_proxy(
         representative_cm=-0.10,
         required_margin_deg=1.5,
+        cm_spread=0.0,
     )
     tight = evaluate_trim_proxy(
         representative_cm=-0.10,
         required_margin_deg=2.5,
+        cm_spread=0.0,
     )
 
     assert loose.feasible is True
@@ -170,11 +183,28 @@ def test_trim_proxy_treats_threshold_equality_as_feasible():
     result = evaluate_trim_proxy(
         representative_cm=-0.10,
         required_margin_deg=2.0,
+        cm_spread=0.0,
     )
 
     assert result.margin_deg == pytest.approx(2.0)
     assert result.feasible is True
     assert result.reason == "ok"
+
+
+def test_trim_proxy_penalizes_cm_spread():
+    narrow = evaluate_trim_proxy(
+        representative_cm=-0.08,
+        required_margin_deg=2.0,
+        cm_spread=0.00,
+    )
+    wide = evaluate_trim_proxy(
+        representative_cm=-0.08,
+        required_margin_deg=2.0,
+        cm_spread=0.05,
+    )
+
+    assert narrow.margin_deg > wide.margin_deg
+    assert wide.feasible is False
 
 
 def test_local_stall_flags_tip_critical_case():
@@ -188,6 +218,9 @@ def test_local_stall_flags_tip_critical_case():
     )
 
     assert result.feasible is False
+    assert result.required_cl == pytest.approx(0.82)
+    assert result.cl_max == pytest.approx(0.90)
+    assert result.cl_max_source == "geometry_proxy"
     assert result.tip_critical is True
     assert result.min_margin_station_y_m == pytest.approx(14.0)
     assert result.reason == "stall_margin_insufficient"
@@ -214,6 +247,8 @@ def test_local_stall_prefers_airfoil_derived_limit_when_present():
     )
 
     assert result.min_margin == pytest.approx(0.08)
+    assert result.cl_max == pytest.approx(0.90)
+    assert result.cl_max_source == "geometry_proxy"
     assert result.min_margin_station_y_m == pytest.approx(14.0)
     assert result.tip_critical is True
     assert result.feasible is False
@@ -231,6 +266,7 @@ def test_local_stall_uses_the_limiting_station_even_if_other_points_look_safer()
 
     assert result.feasible is False
     assert result.min_margin == pytest.approx(0.08)
+    assert result.required_cl == pytest.approx(0.82)
     assert result.min_margin_station_y_m == pytest.approx(14.0)
     assert result.tip_critical is True
     assert result.reason == "stall_margin_insufficient"

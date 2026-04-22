@@ -376,6 +376,8 @@ def _flatten_zone_points(
                     "cm_target": float(point["cm_target"]),
                     "weight": float(point.get("weight", 1.0)),
                     "reynolds": float(point.get("reynolds", 0.0)),
+                    "reference_speed_mps": _numeric_value(zone_data.get("reference_speed_mps")),
+                    "reference_gross_mass_kg": _numeric_value(zone_data.get("reference_gross_mass_kg")),
                 }
             )
 
@@ -758,19 +760,42 @@ def _summarize_launch(
 def _summarize_turn(
     *,
     cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
     station_points: list[dict[str, float]],
     trim_result,
 ) -> dict[str, Any]:
-    representative_cl = max(point["cl_target"] for point in station_points)
-    limiting_point = min(station_points, key=_cl_limit)
-    cl_max = _cl_limit(limiting_point)
-    cl_max_source = str(limiting_point.get("cl_max_effective_source", "geometry_proxy"))
+    evaluation_speed_mps = float(cfg.launch.release_speed_mps)
+    evaluation_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+
+    scaled_station_points: list[dict[str, float]] = []
+    cl_scale_factors: list[float] = []
+    for point in station_points:
+        reference_speed_mps = _numeric_value(point.get("reference_speed_mps"))
+        reference_gross_mass_kg = _numeric_value(point.get("reference_gross_mass_kg"))
+        cl_scale = 1.0
+        if (
+            reference_speed_mps is not None
+            and reference_speed_mps > 0.0
+            and reference_gross_mass_kg is not None
+            and reference_gross_mass_kg > 0.0
+        ):
+            cl_scale = (
+                evaluation_gross_mass_kg / reference_gross_mass_kg
+            ) * (reference_speed_mps / evaluation_speed_mps) ** 2
+        cl_scale_factors.append(cl_scale)
+        scaled_station_points.append(
+            {
+                **point,
+                "cl_target": float(point["cl_target"]) * cl_scale,
+                "turn_cl_scale_factor": cl_scale,
+            }
+        )
 
     turn_result = evaluate_turn_gate(
         bank_angle_deg=cfg.turn.required_bank_angle_deg,
-        speed_mps=cfg.launch.release_speed_mps,
-        cl_level=representative_cl,
-        cl_max=cl_max,
+        speed_mps=evaluation_speed_mps,
+        station_points=scaled_station_points,
+        half_span_m=0.5 * concept.span_m,
         trim_feasible=trim_result.feasible,
         required_stall_margin=cfg.launch.min_stall_margin,
     )
@@ -779,13 +804,21 @@ def _summarize_turn(
         "feasible": turn_result.feasible,
         "bank_angle_deg": cfg.turn.required_bank_angle_deg,
         "speed_mps": cfg.launch.release_speed_mps,
-        "cl_level": representative_cl,
+        "load_factor": turn_result.load_factor,
+        "cl_level": turn_result.cl_level,
         "required_cl": turn_result.required_cl,
-        "cl_max": cl_max,
-        "cl_max_source": cl_max_source,
+        "cl_max": turn_result.cl_max,
+        "cl_max_source": turn_result.cl_max_source,
         "stall_margin": turn_result.stall_margin,
         "required_stall_margin": cfg.launch.min_stall_margin,
         "trim_feasible": trim_result.feasible,
+        "limiting_station_y_m": turn_result.limiting_station_y_m,
+        "tip_critical": turn_result.tip_critical,
+        "evaluation_gross_mass_kg": evaluation_gross_mass_kg,
+        "reference_speed_mps": _numeric_value(station_points[0].get("reference_speed_mps")),
+        "reference_gross_mass_kg": _numeric_value(station_points[0].get("reference_gross_mass_kg")),
+        "cl_scale_factor_min": min(cl_scale_factors) if cl_scale_factors else 1.0,
+        "cl_scale_factor_max": max(cl_scale_factors) if cl_scale_factors else 1.0,
     }
 
 
@@ -794,23 +827,41 @@ def _summarize_trim(
     cfg: BirdmanConceptConfig,
     station_points: list[dict[str, float]],
 ) -> tuple[dict[str, Any], Any]:
-    limiting_point = max(
-        station_points,
-        key=lambda point: abs(float(point.get("cm_effective", point["cm_target"]))),
+    effective_points = [
+        (
+            float(point.get("cm_effective", point["cm_target"])),
+            max(float(point.get("weight", 1.0)) * float(point.get("chord_m", 1.0)), 1.0e-9),
+            point,
+        )
+        for point in station_points
+    ]
+    total_weight = sum(weight for _, weight, _ in effective_points)
+    if total_weight <= 0.0:
+        total_weight = float(len(effective_points)) or 1.0
+    weighted_mean_cm = sum(cm * weight for cm, weight, _ in effective_points) / total_weight
+    cm_rms = math.sqrt(
+        sum(weight * (cm - weighted_mean_cm) ** 2 for cm, weight, _ in effective_points)
+        / total_weight
     )
-    representative_cm = -abs(float(limiting_point.get("cm_effective", limiting_point["cm_target"])))
+    dominant_point = max(
+        effective_points,
+        key=lambda item: abs(item[0]) * item[1],
+    )[2]
+    representative_cm = float(weighted_mean_cm)
     representative_cm_source = str(
-        limiting_point.get("cm_effective_source", "zone_target_proxy")
+        dominant_point.get("cm_effective_source", "zone_target_proxy")
     )
     trim_result = evaluate_trim_proxy(
         representative_cm=representative_cm,
         required_margin_deg=cfg.launch.min_trim_margin_deg,
+        cm_spread=cm_rms,
     )
     return {
         "status": trim_result.reason,
         "feasible": trim_result.feasible,
         "representative_cm": representative_cm,
         "representative_cm_source": representative_cm_source,
+        "cm_rms": cm_rms,
         "margin_deg": trim_result.margin_deg,
         "required_margin_deg": trim_result.required_margin_deg,
         "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
@@ -828,17 +879,15 @@ def _summarize_local_stall(
         half_span_m=0.5 * concept.span_m,
         required_stall_margin=cfg.launch.min_stall_margin,
     )
-    limiting_point = min(
-        station_points,
-        key=lambda point: _cl_limit(point) - float(point["cl_target"]),
-    )
     return {
         "status": local_stall_result.reason,
         "feasible": local_stall_result.feasible,
+        "required_cl": local_stall_result.required_cl,
+        "cl_max": local_stall_result.cl_max,
         "min_margin": local_stall_result.min_margin,
         "min_margin_station_y_m": local_stall_result.min_margin_station_y_m,
         "tip_critical": local_stall_result.tip_critical,
-        "margin_source": str(limiting_point.get("cl_max_effective_source", "geometry_proxy")),
+        "margin_source": local_stall_result.cl_max_source,
         "required_stall_margin": cfg.launch.min_stall_margin,
     }
 
@@ -1312,6 +1361,7 @@ def run_birdman_concept_pipeline(
         )
         turn_summary = _summarize_turn(
             cfg=cfg,
+            concept=concept,
             station_points=station_points,
             trim_result=trim_result,
         )
