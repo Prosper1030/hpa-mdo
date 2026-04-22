@@ -793,6 +793,77 @@ def test_pipeline_rejects_altitude_outside_tropospheric_density_range(tmp_path: 
         )
 
 
+def test_pipeline_rejects_real_backend_selection_results_without_usable_metrics(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(RuntimeError, match="unusable metrics"):
+        run_birdman_concept_pipeline(
+            config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+            output_dir=tmp_path,
+            airfoil_worker_factory=lambda **_: type(
+                "FakeWorker",
+                (),
+                {
+                    "backend_name": "realish_backend",
+                    "run_queries": lambda self, queries: [
+                        {"status": "ok", "polar_points": [], "template_id": query.template_id}
+                        for query in queries
+                    ],
+                },
+            )(),
+            spanwise_loader=lambda concept, stations: {
+                "root": {
+                    "points": [
+                        {
+                            "reynolds": 350000.0,
+                            "cl_target": 0.75,
+                            "cm_target": -0.10,
+                            "weight": 1.0,
+                        }
+                    ]
+                }
+            },
+        )
+
+
+def test_pipeline_rejects_duplicate_selection_template_ids(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="duplicate template_id"):
+        run_birdman_concept_pipeline(
+            config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+            output_dir=tmp_path,
+            airfoil_worker_factory=lambda **_: type(
+                "FakeWorker",
+                (),
+                {
+                    "backend_name": "test_stub",
+                    "run_queries": lambda self, queries: [
+                        {
+                            "status": "ok",
+                            "template_id": queries[0].template_id,
+                            "geometry_hash": query.geometry_hash,
+                            "mean_cd": 0.020,
+                            "mean_cm": -0.10,
+                            "usable_clmax": 1.20,
+                        }
+                        for query in queries
+                    ],
+                },
+            )(),
+            spanwise_loader=lambda concept, stations: {
+                "root": {
+                    "points": [
+                        {
+                            "reynolds": 350000.0,
+                            "cl_target": 0.75,
+                            "cm_target": -0.10,
+                            "weight": 1.0,
+                        }
+                    ]
+                }
+            },
+        )
+
+
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
     output_dir = tmp_path / "smoke"
     subprocess.run(

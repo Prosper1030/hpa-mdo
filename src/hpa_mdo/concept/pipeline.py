@@ -180,8 +180,9 @@ def _selection_stubbed_metrics(
 
 
 class _SelectionWorkerAdapter:
-    def __init__(self, worker: AirfoilWorker) -> None:
+    def __init__(self, worker: AirfoilWorker, *, allow_stub_fallback: bool) -> None:
         self._worker = worker
+        self._allow_stub_fallback = allow_stub_fallback
 
     def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
         raw_results = self._worker.run_queries(queries)
@@ -194,12 +195,20 @@ class _SelectionWorkerAdapter:
                 raise RuntimeError("Selection worker adapter expected dictionary worker results.")
             template_id = item.get("template_id")
             if isinstance(template_id, str):
+                if template_id in raw_by_template_id:
+                    raise RuntimeError(
+                        f"Selection worker returned duplicate template_id {template_id!r}."
+                    )
                 raw_by_template_id[template_id] = item
 
         normalized_results: list[dict[str, object]] = []
         for query in queries:
             raw_result = raw_by_template_id.get(query.template_id)
             if raw_result is None:
+                if not self._allow_stub_fallback:
+                    raise RuntimeError(
+                        f"Selection worker did not return template_id {query.template_id!r}."
+                    )
                 normalized_results.append(
                     {
                         "template_id": query.template_id,
@@ -222,7 +231,13 @@ class _SelectionWorkerAdapter:
             has_polar_points = isinstance(raw_result.get("polar_points"), list) and bool(
                 raw_result.get("polar_points")
             )
-            if status == "cli_stubbed" or (status in {"ok", "stubbed_ok"} and not has_direct_metrics and not has_polar_points):
+            if status == "cli_stubbed" or (
+                status in {"ok", "stubbed_ok"} and not has_direct_metrics and not has_polar_points
+            ):
+                if not self._allow_stub_fallback:
+                    raise RuntimeError(
+                        f"Selection worker returned unusable metrics for template_id {query.template_id!r}."
+                    )
                 normalized_results.append(
                     {
                         **raw_result,
@@ -1251,7 +1266,11 @@ def run_birdman_concept_pipeline(
             selection_batch = select_zone_airfoil_templates(
                 zone_requirements=zone_requirements_with_points,
                 seed_loader=_load_seed_airfoil_coordinates,
-                worker=_SelectionWorkerAdapter(worker),
+                worker=_SelectionWorkerAdapter(
+                    worker,
+                    allow_stub_fallback=worker_backend
+                    in {"test_stub", "cli_stubbed", "python_stubbed"},
+                ),
             )
             selected_by_zone.update(selection_batch.selected_by_zone)
         for zone_name in zone_requirements_without_points:
