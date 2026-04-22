@@ -81,12 +81,13 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
                     {
                         "status": "ok",
                         "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
                         "mean_cd": mean_cd,
                         "mean_cm": -0.10,
                         "usable_clmax": usable_clmax,
                     }
                 )
-            return results
+            return list(reversed(results))
 
     seed_coordinates = (
         (1.0, 0.0),

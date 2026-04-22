@@ -248,10 +248,33 @@ def select_zone_airfoil_templates(
                 f"Worker returned {len(zone_results)} results for {len(queries)} CST queries in zone {zone_name!r}."
             )
 
+        query_identity_by_template_id = {
+            query.template_id: {
+                "candidate_role": candidate_role,
+                "geometry_hash": query.geometry_hash,
+            }
+            for query, candidate_role in zip(queries, query_roles, strict=True)
+        }
         candidate_results: dict[str, dict[str, float | str]] = {}
-        for candidate_role, raw_result in zip(query_roles, zone_results, strict=True):
+        seen_template_ids: set[str] = set()
+        for raw_result in zone_results:
             if not isinstance(raw_result, dict):
                 raise RuntimeError("Airfoil worker results must be dictionaries.")
+            template_id = raw_result.get("template_id")
+            if not isinstance(template_id, str):
+                raise RuntimeError("Airfoil worker results must include a template_id.")
+            query_identity = query_identity_by_template_id.get(template_id)
+            if query_identity is None:
+                raise RuntimeError(
+                    f"Airfoil worker returned an unexpected template_id {template_id!r} in zone {zone_name!r}."
+                )
+            candidate_role = str(query_identity["candidate_role"])
+            geometry_hash = raw_result.get("geometry_hash")
+            if geometry_hash is not None and geometry_hash != query_identity["geometry_hash"]:
+                raise RuntimeError(
+                    f"Airfoil worker geometry_hash mismatch for template_id {template_id!r} in zone {zone_name!r}."
+                )
+            seen_template_ids.add(template_id)
             worker_results.append(
                 {
                     **raw_result,
@@ -262,6 +285,11 @@ def select_zone_airfoil_templates(
             metrics = _metrics_from_worker_result(raw_result)
             if metrics is not None:
                 candidate_results[candidate_role] = metrics
+        if seen_template_ids != set(query_identity_by_template_id):
+            missing = sorted(set(query_identity_by_template_id) - seen_template_ids)
+            raise RuntimeError(
+                f"Airfoil worker did not return results for all CST queries in zone {zone_name!r}: missing {missing!r}."
+            )
 
         selected_by_zone[zone_name] = select_best_zone_candidate(
             candidates=candidates,
