@@ -869,6 +869,34 @@ def _concept_safety_margin(
 def _summarize_spanwise_requirements(
     zone_requirements: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
+    reference_speeds_mps = sorted(
+        {
+            float(zone_data["reference_speed_mps"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("reference_speed_mps") is not None
+        }
+    )
+    reference_gross_masses_kg = sorted(
+        {
+            float(zone_data["reference_gross_mass_kg"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("reference_gross_mass_kg") is not None
+        }
+    )
+    reference_speed_reasons = sorted(
+        {
+            str(zone_data["reference_speed_reason"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("reference_speed_reason")
+        }
+    )
+    mass_selection_reasons = sorted(
+        {
+            str(zone_data["mass_selection_reason"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("mass_selection_reason")
+        }
+    )
     sources = sorted(
         {
             str(zone_data.get("source", "unknown"))
@@ -895,6 +923,10 @@ def _summarize_spanwise_requirements(
         "fallback_detected": any(source.startswith("fallback") for source in sources),
         "fallback_reasons": fallback_reasons,
         "reference_condition_policies": reference_condition_policies,
+        "reference_speeds_mps": reference_speeds_mps,
+        "reference_gross_masses_kg": reference_gross_masses_kg,
+        "reference_speed_reasons": reference_speed_reasons,
+        "mass_selection_reasons": mass_selection_reasons,
     }
 
 

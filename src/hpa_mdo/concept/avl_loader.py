@@ -17,7 +17,13 @@ from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.concept.config import BirdmanConceptConfig
 from hpa_mdo.concept.geometry import GeometryConcept, WingStation
+from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.zone_requirements import build_zone_requirements, default_zone_definitions
+from hpa_mdo.mission.objective import (
+    FakeAnchorCurve,
+    MissionEvaluationInputs,
+    evaluate_mission_objective,
+)
 
 _FLOAT_TOKEN = r"[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[Ee][-+]?\d+)?"
 _ROOT_SEED_AIRFOIL = "fx76mp140"
@@ -37,10 +43,126 @@ def _air_density_from_environment(cfg: BirdmanConceptConfig) -> float:
     return dry_pa / (287.058 * temp_k) + vapor_pa / (461.495 * temp_k)
 
 
-def _reference_speed_mps(cfg: BirdmanConceptConfig) -> float:
-    return 0.5 * (
-        float(cfg.mission.speed_sweep_min_mps) + float(cfg.mission.speed_sweep_max_mps)
+def _speed_sweep_mps(cfg: BirdmanConceptConfig) -> tuple[float, ...]:
+    point_count = int(cfg.mission.speed_sweep_points)
+    if point_count < 2:
+        raise ValueError("mission.speed_sweep_points must be at least 2.")
+    min_speed = float(cfg.mission.speed_sweep_min_mps)
+    max_speed = float(cfg.mission.speed_sweep_max_mps)
+    step = (max_speed - min_speed) / float(point_count - 1)
+    return tuple(min_speed + step * index for index in range(point_count))
+
+
+def _oswald_efficiency_proxy(concept: GeometryConcept) -> float:
+    dihedral_delta = max(0.0, float(concept.dihedral_tip_deg) - float(concept.dihedral_root_deg))
+    twist_delta = abs(float(concept.twist_tip_deg) - float(concept.twist_root_deg))
+    efficiency = 0.88 - 0.012 * dihedral_delta - 0.008 * twist_delta
+    return max(0.68, min(0.92, efficiency))
+
+
+def _shaft_power_required_w(
+    *,
+    drag_n: float,
+    speed_mps: float,
+    prop_model: SimplifiedPropModel,
+) -> float:
+    shaft_power_w = drag_n * speed_mps / max(prop_model.design_efficiency, 1.0e-6)
+    for _ in range(3):
+        eta_prop = prop_model.efficiency(
+            speed_mps=speed_mps,
+            shaft_power_w=max(shaft_power_w, 1.0),
+        )
+        shaft_power_w = drag_n * speed_mps / max(eta_prop, 1.0e-6)
+    return shaft_power_w
+
+
+def select_avl_reference_condition(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    air_density_kg_per_m3: float,
+    profile_cd_proxy: float = 0.020,
+) -> dict[str, Any]:
+    speed_sweep_mps = _speed_sweep_mps(cfg)
+    aspect_ratio = float(concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9))
+    oswald_efficiency = _oswald_efficiency_proxy(concept)
+    tail_area_ratio = float(concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9))
+    misc_cd = float(0.0035 + 0.20 * tail_area_ratio * profile_cd_proxy)
+    prop_model = SimplifiedPropModel(
+        diameter_m=float(cfg.prop.diameter_m),
+        rpm_min=float(cfg.prop.rpm_min),
+        rpm_max=float(cfg.prop.rpm_max),
+        design_efficiency=0.83,
     )
+    rider_curve = FakeAnchorCurve(
+        anchor_power_w=float(cfg.mission.anchor_power_w),
+        anchor_duration_min=float(cfg.mission.anchor_duration_min),
+    )
+
+    mass_cases: list[dict[str, Any]] = []
+    for gross_mass_kg in cfg.mass.gross_mass_sweep_kg:
+        weight_n = float(gross_mass_kg) * 9.80665
+        power_required_w: list[float] = []
+        for speed_mps in speed_sweep_mps:
+            dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
+            cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
+            induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
+            total_cd = float(profile_cd_proxy) + induced_cd + misc_cd
+            drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
+            power_required_w.append(
+                _shaft_power_required_w(
+                    drag_n=drag_n,
+                    speed_mps=speed_mps,
+                    prop_model=prop_model,
+                )
+            )
+
+        mission_result = evaluate_mission_objective(
+            MissionEvaluationInputs(
+                objective_mode=str(cfg.mission.objective_mode),
+                target_range_km=float(cfg.mission.target_distance_km),
+                speed_mps=speed_sweep_mps,
+                power_required_w=tuple(power_required_w),
+                rider_curve=rider_curve,
+            )
+        )
+        mass_cases.append(
+            {
+                "gross_mass_kg": float(gross_mass_kg),
+                "best_range_m": float(mission_result.best_range_m),
+                "best_range_speed_mps": float(mission_result.best_range_speed_mps),
+                "min_power_w": float(mission_result.min_power_w),
+                "min_power_speed_mps": float(mission_result.min_power_speed_mps),
+                "mission_feasible": bool(mission_result.mission_feasible),
+                "target_range_passed": bool(mission_result.target_range_passed),
+                "mission_score": float(mission_result.mission_score),
+            }
+        )
+
+    objective_mode = str(cfg.mission.objective_mode)
+    if objective_mode == "max_range":
+        selected_mass_case = min(mass_cases, key=lambda case: float(case["best_range_m"]))
+        mass_selection_reason = "min_best_range"
+        reference_speed_reason = "best_range_speed_mps"
+        reference_speed_mps = float(selected_mass_case["best_range_speed_mps"])
+    elif objective_mode == "min_power":
+        selected_mass_case = max(mass_cases, key=lambda case: float(case["min_power_w"]))
+        mass_selection_reason = "max_min_power"
+        reference_speed_reason = "min_power_speed_mps"
+        reference_speed_mps = float(selected_mass_case["min_power_speed_mps"])
+    else:
+        raise ValueError(f"Unsupported mission objective mode: {objective_mode}")
+
+    return {
+        "objective_mode": objective_mode,
+        "reference_speed_mps": float(reference_speed_mps),
+        "reference_gross_mass_kg": float(selected_mass_case["gross_mass_kg"]),
+        "reference_speed_reason": reference_speed_reason,
+        "mass_selection_reason": mass_selection_reason,
+        "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+        "selected_mass_case": selected_mass_case,
+        "mass_cases": mass_cases,
+    }
 
 
 def _concept_case_slug(concept: GeometryConcept) -> str:
@@ -430,8 +552,13 @@ def load_zone_requirements_from_avl(
     )
 
     air_density_kgpm3 = _air_density_from_environment(cfg)
-    reference_speed_mps = _reference_speed_mps(cfg)
-    reference_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+    reference_condition = select_avl_reference_condition(
+        cfg=cfg,
+        concept=concept,
+        air_density_kg_per_m3=air_density_kgpm3,
+    )
+    reference_speed_mps = float(reference_condition["reference_speed_mps"])
+    reference_gross_mass_kg = float(reference_condition["reference_gross_mass_kg"])
     dynamic_pressure_pa = 0.5 * air_density_kgpm3 * reference_speed_mps**2
     cl_required = (reference_gross_mass_kg * 9.80665) / max(
         dynamic_pressure_pa * float(concept.wing_area_m2),
@@ -475,10 +602,14 @@ def load_zone_requirements_from_avl(
     for zone_payload in payload.values():
         zone_payload["reference_speed_mps"] = float(reference_speed_mps)
         zone_payload["reference_gross_mass_kg"] = float(reference_gross_mass_kg)
+        zone_payload["reference_speed_reason"] = str(reference_condition["reference_speed_reason"])
+        zone_payload["mass_selection_reason"] = str(reference_condition["mass_selection_reason"])
         zone_payload["reference_cl_required"] = float(cl_required)
         zone_payload["trim_aoa_deg"] = float(trim_totals["aoa_trim_deg"])
         zone_payload["trim_cl"] = float(trim_totals["cl_trim"])
-        zone_payload["reference_condition_policy"] = "speed_sweep_midpoint_and_heaviest_mass_v1"
+        zone_payload["reference_condition_policy"] = str(
+            reference_condition["reference_condition_policy"]
+        )
     return payload
 
 

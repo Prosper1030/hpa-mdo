@@ -12,6 +12,7 @@ from hpa_mdo.concept.avl_loader import (
     build_avl_backed_spanwise_loader,
     load_zone_requirements_from_avl,
     resample_spanwise_load_to_stations,
+    select_avl_reference_condition,
 )
 from hpa_mdo.concept.config import load_concept_config
 from hpa_mdo.concept.geometry import GeometryConcept, build_linear_wing_stations, build_segment_plan
@@ -97,6 +98,64 @@ def test_avl_zone_payload_from_spanwise_load_preserves_station_y() -> None:
     assert payload["root"]["points"][0]["station_y_m"] == stations[0].y_m
     assert payload["tip"]["points"][-1]["station_y_m"] == stations[-1].y_m
     assert all(point["weight"] > 0.0 for zone in payload.values() for point in zone["points"])
+
+
+def test_select_avl_reference_condition_uses_range_speed_for_max_range() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "mission": cfg.mission.model_copy(update={"objective_mode": "max_range"})
+        }
+    )
+
+    reference = select_avl_reference_condition(
+        cfg=cfg,
+        concept=_sample_concept(),
+        air_density_kg_per_m3=1.10,
+    )
+
+    assert reference["objective_mode"] == "max_range"
+    assert reference["mass_selection_reason"] == "min_best_range"
+    assert reference["reference_speed_reason"] == "best_range_speed_mps"
+    assert (
+        reference["reference_condition_policy"]
+        == "mission_objective_and_limiting_mass_proxy_v1"
+    )
+    assert reference["reference_speed_mps"] == pytest.approx(
+        reference["selected_mass_case"]["best_range_speed_mps"]
+    )
+    assert reference["reference_gross_mass_kg"] == pytest.approx(
+        reference["selected_mass_case"]["gross_mass_kg"]
+    )
+
+
+def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "mission": cfg.mission.model_copy(update={"objective_mode": "min_power"})
+        }
+    )
+
+    reference = select_avl_reference_condition(
+        cfg=cfg,
+        concept=_sample_concept(),
+        air_density_kg_per_m3=1.10,
+    )
+
+    assert reference["objective_mode"] == "min_power"
+    assert reference["mass_selection_reason"] == "max_min_power"
+    assert reference["reference_speed_reason"] == "min_power_speed_mps"
+    assert (
+        reference["reference_condition_policy"]
+        == "mission_objective_and_limiting_mass_proxy_v1"
+    )
+    assert reference["reference_speed_mps"] == pytest.approx(
+        reference["selected_mass_case"]["min_power_speed_mps"]
+    )
+    assert reference["reference_gross_mass_kg"] == pytest.approx(
+        reference["selected_mass_case"]["gross_mass_kg"]
+    )
 
 
 def test_avl_backed_loader_falls_back_on_avl_failure(tmp_path: Path, monkeypatch) -> None:

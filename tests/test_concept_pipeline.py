@@ -142,6 +142,82 @@ def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path)
     assert spanwise_summary["fallback_reasons"] == ["avl failed"]
 
 
+def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
+    tmp_path: Path,
+) -> None:
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {"status": "stubbed_ok", "polar_points": [], "template_id": query.template_id}
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "source": "avl_strip_forces",
+                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_speed_mps": 6.5,
+                "reference_gross_mass_kg": 105.0,
+                "reference_speed_reason": "best_range_speed_mps",
+                "mass_selection_reason": "min_best_range",
+                "points": [
+                    {
+                        "reynolds": 350000.0,
+                        "cl_target": 0.75,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+            },
+            "mid1": {
+                "source": "avl_strip_forces",
+                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_speed_mps": 6.5,
+                "reference_gross_mass_kg": 105.0,
+                "reference_speed_reason": "best_range_speed_mps",
+                "mass_selection_reason": "min_best_range",
+                "points": [],
+            },
+            "mid2": {
+                "source": "avl_strip_forces",
+                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_speed_mps": 6.5,
+                "reference_gross_mass_kg": 105.0,
+                "reference_speed_reason": "best_range_speed_mps",
+                "mass_selection_reason": "min_best_range",
+                "points": [],
+            },
+            "tip": {
+                "source": "avl_strip_forces",
+                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_speed_mps": 6.5,
+                "reference_gross_mass_kg": 105.0,
+                "reference_speed_reason": "best_range_speed_mps",
+                "mass_selection_reason": "min_best_range",
+                "points": [],
+            },
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    spanwise_summary = summary["selected_concepts"][0]["spanwise_requirements"]
+
+    assert spanwise_summary["reference_condition_policies"] == [
+        "mission_objective_and_limiting_mass_proxy_v1"
+    ]
+    assert spanwise_summary["reference_speeds_mps"] == [6.5]
+    assert spanwise_summary["reference_gross_masses_kg"] == [105.0]
+    assert spanwise_summary["reference_speed_reasons"] == ["best_range_speed_mps"]
+    assert spanwise_summary["mass_selection_reasons"] == ["min_best_range"]
+
+
 def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     result = run_birdman_concept_pipeline(
         config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
