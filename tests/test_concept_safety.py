@@ -166,6 +166,17 @@ def test_trim_proxy_flips_when_required_margin_is_tightened():
     assert tight.reason == "trim_margin_insufficient"
 
 
+def test_trim_proxy_treats_threshold_equality_as_feasible():
+    result = evaluate_trim_proxy(
+        representative_cm=-0.10,
+        required_margin_deg=2.0,
+    )
+
+    assert result.margin_deg == pytest.approx(2.0)
+    assert result.feasible is True
+    assert result.reason == "ok"
+
+
 def test_local_stall_flags_tip_critical_case():
     result = evaluate_local_stall(
         station_points=[

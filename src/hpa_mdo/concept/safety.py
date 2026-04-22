@@ -153,11 +153,17 @@ def evaluate_trim_proxy(
         0.0,
         6.0 * (float(cm_limit_abs) - abs(float(representative_cm))) / float(cm_limit_abs),
     )
-    feasible = margin_deg >= float(required_margin_deg)
+    required_margin_deg = float(required_margin_deg)
+    feasible = margin_deg > required_margin_deg or math.isclose(
+        margin_deg,
+        required_margin_deg,
+        rel_tol=0.0,
+        abs_tol=1.0e-9,
+    )
     return TrimGateResult(
         feasible=feasible,
         margin_deg=margin_deg,
-        required_margin_deg=float(required_margin_deg),
+        required_margin_deg=required_margin_deg,
         reason="ok" if feasible else "trim_margin_insufficient",
     )
 
