@@ -80,6 +80,37 @@ def test_build_linear_wing_stations_preserves_segment_boundaries():
     )
 
 
+def test_build_linear_wing_stations_allocates_extra_points_by_span_coverage():
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=27.2,
+        root_chord_m=1.20,
+        tip_chord_m=0.50,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.5,
+        tail_area_m2=3.8,
+        cg_xc=0.30,
+        segment_lengths_m=(1.0, 1.0, 1.0, 1.0, 6.0, 6.0),
+    )
+
+    stations = build_linear_wing_stations(concept, stations_per_half=13)
+    boundaries = (0.0, 1.0, 2.0, 3.0, 4.0, 10.0, 16.0)
+
+    interior_counts = []
+    for start_y_m, end_y_m in zip(boundaries, boundaries[1:]):
+        interior_counts.append(
+            sum(start_y_m < station.y_m < end_y_m for station in stations)
+        )
+
+    assert all(
+        any(station.y_m == pytest.approx(boundary_y_m) for station in stations)
+        for boundary_y_m in boundaries
+    )
+    assert interior_counts[4] > 0
+    assert interior_counts[5] > 0
+    assert max(interior_counts[4:]) > min(interior_counts[:4])
+
+
 def test_build_linear_wing_stations_rejects_too_few_stations():
     concept = GeometryConcept(
         span_m=32.0,

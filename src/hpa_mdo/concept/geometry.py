@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isclose
+from math import floor, isclose
 from itertools import product
 
 
@@ -96,8 +96,22 @@ def build_linear_wing_stations(
         y_locations = tuple(boundaries)
     else:
         extra_points = stations_per_half - boundary_count
-        per_segment_interior_points = [extra_points // segment_count] * segment_count
-        for index in range(extra_points % segment_count):
+        total_length = sum(concept.segment_lengths_m)
+        ideal_shares = [
+            extra_points * (segment_length / total_length)
+            for segment_length in concept.segment_lengths_m
+        ]
+        per_segment_interior_points = [int(floor(share)) for share in ideal_shares]
+        remaining_points = extra_points - sum(per_segment_interior_points)
+        fractional_order = sorted(
+            range(segment_count),
+            key=lambda index: (
+                -(ideal_shares[index] - per_segment_interior_points[index]),
+                -concept.segment_lengths_m[index],
+                index,
+            ),
+        )
+        for index in fractional_order[:remaining_points]:
             per_segment_interior_points[index] += 1
 
         y_locations: list[float] = [boundaries[0]]
