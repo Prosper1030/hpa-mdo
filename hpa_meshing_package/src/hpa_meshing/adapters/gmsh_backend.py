@@ -3455,6 +3455,17 @@ def _configure_volume_smoke_decoupled_field(
             elif field_type == "Cylinder":
                 axis = [float(value) for value in pocket.get("axis", [1.0, 0.0, 0.0])]
                 length = float(pocket.get("length", 0.0) or 0.0)
+                # Gmsh Cylinder fields are anchored at the center of the first circular face,
+                # not the midpoint of the whole finite cylinder. Shift from the requested
+                # pocket midpoint so the local sliver cluster sits inside the intended pocket.
+                cylinder_face_center = [
+                    center[0] - 0.5 * axis[0] * length,
+                    center[1] - 0.5 * axis[1] * length,
+                    center[2] - 0.5 * axis[2] * length,
+                ]
+                gmsh.model.mesh.field.setNumber(pocket_field, "XCenter", cylinder_face_center[0])
+                gmsh.model.mesh.field.setNumber(pocket_field, "YCenter", cylinder_face_center[1])
+                gmsh.model.mesh.field.setNumber(pocket_field, "ZCenter", cylinder_face_center[2])
                 gmsh.model.mesh.field.setNumber(pocket_field, "XAxis", axis[0] * length)
                 gmsh.model.mesh.field.setNumber(pocket_field, "YAxis", axis[1] * length)
                 gmsh.model.mesh.field.setNumber(pocket_field, "ZAxis", axis[2] * length)

@@ -1819,6 +1819,81 @@ def test_configure_volume_smoke_decoupled_field_supports_sliver_ball_volume_pock
     assert gmsh.model.mesh.field.numbers[(3, "FieldsList")] == [1.0, 2.0]
 
 
+def test_configure_volume_smoke_decoupled_field_centers_sliver_cylinder_on_cluster_midpoint(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 12.0,
+            "volume_smoke_shell_enabled": False,
+        },
+        sliver_volume_pocket_policy={
+            "enabled": True,
+            "source_baseline": "shell_v2_strip_suppression",
+            "cluster_report_path": "artifacts/mesh/sliver_cluster_report.json",
+            "active_variant": "sliver_cylinder_mid",
+            "variants": [
+                {
+                    "name": "sliver_cylinder_mid",
+                    "field_type": "Cylinder",
+                    "pockets": [
+                        {
+                            "cluster_id": 0,
+                            "source_bad_tet_ids": [220280, 220281],
+                            "center": [1.83, 14.55, 0.36],
+                            "radius": 0.2,
+                            "VIn": 0.08,
+                            "VOut": 1e22,
+                            "axis": [0.0, 1.0, 0.0],
+                            "length": 0.6,
+                        }
+                    ],
+                }
+            ],
+            "mesh_size_extend_from_boundary": 0,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+        },
+    )
+    gmsh = _FakeGmsh()
+
+    info = _configure_volume_smoke_decoupled_field(
+        gmsh,
+        aircraft_surface_tags=[1, 2, 3],
+        near_body_size=0.0434375,
+        mesh_algorithm_3d=1,
+        bounds={
+            "x_min": -6.5,
+            "x_max": 16.9,
+            "y_min": -280.5,
+            "y_max": 280.5,
+            "z_min": -7.3,
+            "z_max": 8.1,
+        },
+        surface_patch_diagnostics=None,
+        config=config,
+    )
+
+    pocket = info["sliver_volume_pocket_policy"]["active_variant"]["pockets"][0]
+    assert pocket["center"] == [1.83, 14.55, 0.36]
+    assert pocket["length"] == pytest.approx(0.6)
+    assert gmsh.model.mesh.field.added == ["Box", "Cylinder", "Min"]
+    assert gmsh.model.mesh.field.number_values[(2, "XCenter")] == pytest.approx(1.83)
+    assert gmsh.model.mesh.field.number_values[(2, "YCenter")] == pytest.approx(14.25)
+    assert gmsh.model.mesh.field.number_values[(2, "ZCenter")] == pytest.approx(0.36)
+    assert gmsh.model.mesh.field.number_values[(2, "Radius")] == pytest.approx(0.2)
+    assert gmsh.model.mesh.field.number_values[(2, "XAxis")] == pytest.approx(0.0)
+    assert gmsh.model.mesh.field.number_values[(2, "YAxis")] == pytest.approx(0.6)
+    assert gmsh.model.mesh.field.number_values[(2, "ZAxis")] == pytest.approx(0.0)
+    assert info["field_architecture"]["sliver_volume_pocket_enabled"] is True
+    assert gmsh.model.mesh.field.numbers[(3, "FieldsList")] == [1.0, 2.0]
+
+
 def test_collect_volume_quality_metrics_reports_stats_and_worst_tets():
     gmsh = _FakeQualityGmsh()
 
