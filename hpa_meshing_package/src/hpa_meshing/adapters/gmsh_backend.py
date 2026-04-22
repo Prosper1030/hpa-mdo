@@ -1727,6 +1727,679 @@ def _unique_sorted_ints(values: Iterable[int]) -> list[int]:
     return sorted({int(value) for value in values})
 
 
+def _resolve_brep_hotspot_request(
+    *,
+    surface_patch_diagnostics: Dict[str, Any] | None,
+    requested_surface_tags: Iterable[int] | None = None,
+    requested_curve_tags: Iterable[int] | None = None,
+) -> Dict[str, Any]:
+    requested_surfaces = _unique_sorted_ints(requested_surface_tags or [])
+    requested_curves = _unique_sorted_ints(requested_curve_tags or [])
+    if not requested_surfaces and not requested_curves:
+        return {"enabled": False, "reason": "no_requested_targets"}
+    if not isinstance(surface_patch_diagnostics, dict):
+        return {"enabled": False, "reason": "missing_surface_patch_diagnostics"}
+
+    surface_lookup = {
+        int(record["tag"]): record
+        for record in surface_patch_diagnostics.get("surface_records", [])
+        if record.get("tag") is not None
+    }
+    curve_lookup = {
+        int(record["tag"]): record
+        for record in surface_patch_diagnostics.get("curve_records", [])
+        if record.get("tag") is not None
+    }
+    selected_surface_tags = [tag for tag in requested_surfaces if tag in surface_lookup]
+    selected_curve_tags = [tag for tag in requested_curves if tag in curve_lookup]
+    curve_owner_surface_tags = _unique_sorted_ints(
+        surface_tag
+        for curve_tag in selected_curve_tags
+        for surface_tag in curve_lookup[curve_tag].get("owner_surface_tags", [])
+    )
+    curve_surface_context_tags = _unique_sorted_ints(
+        list(selected_surface_tags) + list(curve_owner_surface_tags)
+    )
+    if not selected_surface_tags and not selected_curve_tags:
+        return {
+            "enabled": False,
+            "reason": "requested_targets_not_found",
+            "missing_surface_tags": [tag for tag in requested_surfaces if tag not in surface_lookup],
+            "missing_curve_tags": [tag for tag in requested_curves if tag not in curve_lookup],
+        }
+    return {
+        "enabled": True,
+        "requested_surface_tags": requested_surfaces,
+        "requested_curve_tags": requested_curves,
+        "selected_surface_tags": selected_surface_tags,
+        "selected_curve_tags": selected_curve_tags,
+        "curve_owner_surface_tags": curve_owner_surface_tags,
+        "curve_surface_context_tags": curve_surface_context_tags,
+        "missing_surface_tags": [tag for tag in requested_surfaces if tag not in surface_lookup],
+        "missing_curve_tags": [tag for tag in requested_curves if tag not in curve_lookup],
+    }
+
+
+def _collect_brep_hotspot_report(
+    *,
+    step_path: Path,
+    surface_patch_diagnostics: Dict[str, Any] | None,
+    requested_surface_tags: Iterable[int] | None = None,
+    requested_curve_tags: Iterable[int] | None = None,
+    scale_to_output_units: float = 1.0,
+    output_units: str = "m",
+) -> Dict[str, Any]:
+    request = _resolve_brep_hotspot_request(
+        surface_patch_diagnostics=surface_patch_diagnostics,
+        requested_surface_tags=requested_surface_tags,
+        requested_curve_tags=requested_curve_tags,
+    )
+    if not request.get("enabled"):
+        return {
+            "status": "disabled",
+            "reason": request.get("reason"),
+            **request,
+        }
+
+    try:
+        from OCP.BRep import BRep_Tool
+        from OCP.BRepBndLib import BRepBndLib
+        from OCP.BRepCheck import BRepCheck_Analyzer
+        from OCP.BRepGProp import BRepGProp
+        from OCP.BRepTools import BRepTools, BRepTools_WireExplorer
+        from OCP.Bnd import Bnd_Box
+        from OCP.GProp import GProp_GProps
+        from OCP.ShapeAnalysis import (
+            ShapeAnalysis_CheckSmallFace,
+            ShapeAnalysis_Edge,
+            ShapeAnalysis_Wire,
+        )
+        from OCP.ShapeExtend import ShapeExtend_Status
+        from OCP.STEPControl import STEPControl_Reader
+        from OCP.IFSelect import IFSelect_RetDone
+        from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX, TopAbs_WIRE
+        from OCP.TopExp import TopExp, TopExp_Explorer
+        from OCP.TopTools import (
+            TopTools_IndexedDataMapOfShapeListOfShape,
+            TopTools_IndexedMapOfShape,
+        )
+        from OCP.TopoDS import TopoDS
+    except Exception as exc:
+        return {
+            "status": "unavailable",
+            "reason": "ocp_python_runtime_not_available",
+            "error": str(exc),
+            **request,
+        }
+
+    scale = float(scale_to_output_units or 1.0)
+    surface_lookup = {
+        int(record["tag"]): record
+        for record in (surface_patch_diagnostics or {}).get("surface_records", [])
+        if record.get("tag") is not None
+    }
+    curve_lookup = {
+        int(record["tag"]): record
+        for record in (surface_patch_diagnostics or {}).get("curve_records", [])
+        if record.get("tag") is not None
+    }
+
+    status_values = [
+        ShapeExtend_Status.ShapeExtend_OK,
+        ShapeExtend_Status.ShapeExtend_DONE,
+        ShapeExtend_Status.ShapeExtend_DONE1,
+        ShapeExtend_Status.ShapeExtend_DONE2,
+        ShapeExtend_Status.ShapeExtend_DONE3,
+        ShapeExtend_Status.ShapeExtend_DONE4,
+        ShapeExtend_Status.ShapeExtend_DONE5,
+        ShapeExtend_Status.ShapeExtend_DONE6,
+        ShapeExtend_Status.ShapeExtend_DONE7,
+        ShapeExtend_Status.ShapeExtend_DONE8,
+        ShapeExtend_Status.ShapeExtend_FAIL,
+        ShapeExtend_Status.ShapeExtend_FAIL1,
+        ShapeExtend_Status.ShapeExtend_FAIL2,
+        ShapeExtend_Status.ShapeExtend_FAIL3,
+        ShapeExtend_Status.ShapeExtend_FAIL4,
+        ShapeExtend_Status.ShapeExtend_FAIL5,
+        ShapeExtend_Status.ShapeExtend_FAIL6,
+        ShapeExtend_Status.ShapeExtend_FAIL7,
+        ShapeExtend_Status.ShapeExtend_FAIL8,
+    ]
+
+    def _enum_name(value: Any) -> str:
+        return str(getattr(value, "name", value)).split(".")[-1]
+
+    def _scaled_number(value: float | None) -> float | None:
+        if value is None:
+            return None
+        return float(value) * scale
+
+    def _scaled_bbox(shape) -> Dict[str, float]:
+        bbox = Bnd_Box()
+        BRepBndLib.Add_s(shape, bbox)
+        xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+        return {
+            "x_min": float(xmin) * scale,
+            "y_min": float(ymin) * scale,
+            "z_min": float(zmin) * scale,
+            "x_max": float(xmax) * scale,
+            "y_max": float(ymax) * scale,
+            "z_max": float(zmax) * scale,
+        }
+
+    def _bbox_center(bbox: Dict[str, float]) -> tuple[float, float, float]:
+        return (
+            0.5 * (float(bbox["x_min"]) + float(bbox["x_max"])),
+            0.5 * (float(bbox["y_min"]) + float(bbox["y_max"])),
+            0.5 * (float(bbox["z_min"]) + float(bbox["z_max"])),
+        )
+
+    def _bbox_span(bbox: Dict[str, float]) -> tuple[float, float, float]:
+        return (
+            float(bbox["x_max"]) - float(bbox["x_min"]),
+            float(bbox["y_max"]) - float(bbox["y_min"]),
+            float(bbox["z_max"]) - float(bbox["z_min"]),
+        )
+
+    def _shape_status_payload(analyzer_default, analyzer_exact, subshape) -> Dict[str, Any]:
+        return {
+            "valid_default": bool(analyzer_default.IsValid(subshape)),
+            "valid_exact": bool(analyzer_exact.IsValid(subshape)),
+            "statuses_default": [_enum_name(status) for status in list(analyzer_default.Result(subshape).Status())],
+            "statuses_exact": [_enum_name(status) for status in list(analyzer_exact.Result(subshape).Status())],
+        }
+
+    def _linear_length(shape) -> float:
+        props = GProp_GProps()
+        BRepGProp.LinearProperties_s(shape, props)
+        return float(props.Mass()) * scale
+
+    def _surface_area(shape) -> float:
+        props = GProp_GProps()
+        BRepGProp.SurfaceProperties_s(shape, props)
+        return float(props.Mass()) * scale * scale
+
+    def _shape_extend_statuses(checker, method_name: str) -> list[str]:
+        method = getattr(checker, method_name)
+        active: list[str] = []
+        for status in status_values:
+            try:
+                if bool(method(status)):
+                    active.append(_enum_name(status))
+            except Exception:
+                continue
+        return active
+
+    reader = STEPControl_Reader()
+    status = reader.ReadFile(str(step_path))
+    if status != IFSelect_RetDone:
+        return {
+            "status": "failed_to_read_step",
+            "reason": "step_reader_failed",
+            "step_path": str(step_path),
+            "reader_status": int(status),
+            **request,
+        }
+    reader.TransferRoots()
+    shape = reader.OneShape()
+
+    analyzer_default = BRepCheck_Analyzer(shape)
+    analyzer_exact = BRepCheck_Analyzer(shape)
+    analyzer_exact.SetExactMethod(True)
+
+    face_index_map = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_FACE, face_index_map)
+    edge_index_map = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_EDGE, edge_index_map)
+    vertex_index_map = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_VERTEX, vertex_index_map)
+    edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
+    TopExp.MapShapesAndAncestors_s(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
+
+    face_shapes: Dict[int, Any] = {}
+    for index in range(1, face_index_map.Size() + 1):
+        face_shapes[index] = TopoDS.Face_s(face_index_map.FindKey(index))
+
+    def _vertex_payload(vertex) -> Dict[str, Any]:
+        point = BRep_Tool.Pnt_s(vertex)
+        return {
+            "vertex_index": int(vertex_index_map.FindIndex(vertex)),
+            "coordinates": [float(point.X()) * scale, float(point.Y()) * scale, float(point.Z()) * scale],
+            "tolerance": _scaled_number(BRep_Tool.Tolerance_s(vertex)),
+        }
+
+    def _edge_record(edge) -> Dict[str, Any]:
+        edge_index = int(edge_index_map.FindIndex(edge))
+        bbox = _scaled_bbox(edge)
+        vertex_first = TopExp.FirstVertex_s(edge)
+        vertex_last = TopExp.LastVertex_s(edge)
+        edge_tolerance = _scaled_number(BRep_Tool.Tolerance_s(edge))
+        edge_range = BRep_Tool.Range_s(edge)
+        same_parameter_flag = bool(BRep_Tool.SameParameter_s(edge))
+        same_range_flag = bool(BRep_Tool.SameRange_s(edge))
+        ancestor_faces = _unique_sorted_ints(
+            int(face_index_map.FindIndex(face_shape))
+            for face_shape in list(edge_face_map.FindFromKey(edge))
+        )
+        sa_edge = ShapeAnalysis_Edge()
+        pcurve_presence: Dict[str, bool] = {}
+        curve3d_with_pcurve: Dict[str, bool | None] = {}
+        same_parameter_by_face: Dict[str, bool | None] = {}
+        vertex_tolerance_by_face: Dict[str, bool | None] = {}
+        pcurve_range_by_face: Dict[str, list[float] | None] = {}
+        pcurve_range_matches_edge_range: Dict[str, bool | None] = {}
+        for face_id in ancestor_faces:
+            face = face_shapes.get(int(face_id))
+            if face is None:
+                continue
+            face_key = str(int(face_id))
+            has_pcurve = bool(sa_edge.HasPCurve(edge, face))
+            pcurve_presence[face_key] = has_pcurve
+            curve3d_with_pcurve[face_key] = (
+                bool(sa_edge.CheckCurve3dWithPCurve(edge, face)) if has_pcurve else None
+            )
+            same_parameter_by_face[face_key] = bool(sa_edge.CheckSameParameter(edge, face, 0.0, 23))
+            vertex_tolerance_by_face[face_key] = bool(sa_edge.CheckVertexTolerance(edge, face, 0.0, 0.0))
+            if has_pcurve:
+                pcurve_range = BRep_Tool.Range_s(edge, face)
+                pcurve_range_by_face[face_key] = [float(pcurve_range[0]), float(pcurve_range[1])]
+                try:
+                    pcurve = BRep_Tool.CurveOnSurface_s(edge, face, 0.0, 0.0)
+                    pcurve_range_matches_edge_range[face_key] = bool(
+                        sa_edge.CheckPCurveRange(
+                            float(edge_range[0]),
+                            float(edge_range[1]),
+                            pcurve,
+                        )
+                    )
+                except Exception:
+                    pcurve_range_matches_edge_range[face_key] = None
+            else:
+                pcurve_range_by_face[face_key] = None
+                pcurve_range_matches_edge_range[face_key] = None
+        overlap_edge_indices: list[int] = []
+        for other_index in range(1, edge_index_map.Size() + 1):
+            if other_index == edge_index:
+                continue
+            other_edge = TopoDS.Edge_s(edge_index_map.FindKey(other_index))
+            other_ancestor_faces = _unique_sorted_ints(
+                int(face_index_map.FindIndex(face_shape))
+                for face_shape in list(edge_face_map.FindFromKey(other_edge))
+            )
+            if not set(other_ancestor_faces).intersection(ancestor_faces):
+                continue
+            tol_overlap = max(
+                float(BRep_Tool.Tolerance_s(edge)),
+                float(BRep_Tool.Tolerance_s(other_edge)),
+                1.0e-9,
+            )
+            try:
+                if bool(sa_edge.CheckOverlapping(edge, other_edge, tol_overlap)):
+                    overlap_edge_indices.append(int(other_index))
+            except Exception:
+                continue
+        max_vertex_tolerance = max(
+            float(vertex_first.IsNull() and 0.0 or BRep_Tool.Tolerance_s(vertex_first)) * scale,
+            float(vertex_last.IsNull() and 0.0 or BRep_Tool.Tolerance_s(vertex_last)) * scale,
+        )
+        edge_length = _linear_length(edge)
+        return {
+            "edge_index": edge_index,
+            "length_3d": edge_length,
+            "bbox": bbox,
+            "bbox_center": list(_bbox_center(bbox)),
+            "bbox_span": list(_bbox_span(bbox)),
+            "edge_tolerance": edge_tolerance,
+            "vertex_start": None if vertex_first.IsNull() else _vertex_payload(vertex_first),
+            "vertex_end": None if vertex_last.IsNull() else _vertex_payload(vertex_last),
+            "same_parameter_flag": same_parameter_flag,
+            "same_range_flag": same_range_flag,
+            "has_3d_curve": bool(sa_edge.HasCurve3d(edge)),
+            "curve_range_3d": [float(edge_range[0]), float(edge_range[1])],
+            "ancestor_face_ids": ancestor_faces,
+            "pcurve_presence_by_face": pcurve_presence,
+            "check_curve3d_with_pcurve_by_face": curve3d_with_pcurve,
+            "check_same_parameter_by_face": same_parameter_by_face,
+            "check_vertex_tolerance_by_face": vertex_tolerance_by_face,
+            "pcurve_range_by_face": pcurve_range_by_face,
+            "pcurve_range_matches_edge_range_by_face": pcurve_range_matches_edge_range,
+            "brepcheck": _shape_status_payload(analyzer_default, analyzer_exact, edge),
+            "overlap_edge_indices": overlap_edge_indices,
+            "tolerance_ratios": {
+                "length_over_edge_tolerance": (
+                    float(edge_length) / float(edge_tolerance)
+                    if edge_tolerance not in {None, 0.0}
+                    else None
+                ),
+                "length_over_max_vertex_tolerance": (
+                    float(edge_length) / float(max_vertex_tolerance)
+                    if max_vertex_tolerance > 0.0
+                    else None
+                ),
+            },
+        }
+
+    def _curve_match_score(curve_record: Dict[str, Any], edge_record: Dict[str, Any]) -> float:
+        curve_bbox = curve_record.get("bbox", {})
+        edge_bbox = edge_record.get("bbox", {})
+        curve_center = _bbox_center(curve_bbox)
+        edge_center = _bbox_center(edge_bbox)
+        curve_span = _bbox_span(curve_bbox)
+        edge_span = _bbox_span(edge_bbox)
+        length_curve = float(curve_record.get("length", 0.0) or 0.0)
+        length_edge = float(edge_record.get("length_3d", 0.0) or 0.0)
+        length_scale = max(length_curve, length_edge, 1.0e-12)
+        center_scale = max(max(curve_span), max(edge_span), length_scale, 1.0e-9)
+        length_term = abs(length_curve - length_edge) / length_scale
+        center_term = math.dist(curve_center, edge_center) / center_scale
+        span_term = sum(abs(lhs - rhs) for lhs, rhs in zip(curve_span, edge_span)) / max(center_scale, 1.0e-12)
+        return length_term * 100.0 + center_term * 10.0 + span_term
+
+    def _match_curves_to_edges(
+        curve_ids: list[int],
+        edge_records: list[Dict[str, Any]],
+    ) -> Dict[int, Dict[str, Any]]:
+        pending_curves = [curve_lookup[int(tag)] for tag in curve_ids if int(tag) in curve_lookup]
+        pending_edges = list(edge_records)
+        matches: Dict[int, Dict[str, Any]] = {}
+        while pending_curves and pending_edges:
+            best_index_curve = None
+            best_index_edge = None
+            best_score = None
+            for curve_index, curve_record in enumerate(pending_curves):
+                for edge_index, edge_record in enumerate(pending_edges):
+                    score = _curve_match_score(curve_record, edge_record)
+                    if best_score is None or score < best_score:
+                        best_score = score
+                        best_index_curve = curve_index
+                        best_index_edge = edge_index
+            if best_index_curve is None or best_index_edge is None:
+                break
+            curve_record = pending_curves.pop(best_index_curve)
+            edge_record = pending_edges.pop(best_index_edge)
+            matches[int(curve_record["tag"])] = {
+                **edge_record,
+                "match_score": float(best_score or 0.0),
+            }
+        return matches
+
+    context_edge_records: Dict[int, Dict[str, Any]] = {}
+    face_reports: list[Dict[str, Any]] = []
+    for surface_tag in request.get("selected_surface_tags", []):
+        face = face_shapes.get(int(surface_tag))
+        if face is None:
+            continue
+        surface_record = surface_lookup.get(int(surface_tag), {})
+        boundary_edge_records: list[Dict[str, Any]] = []
+        seen_edge_indices: set[int] = set()
+        edge_exp = TopExp_Explorer(face, TopAbs_EDGE)
+        while edge_exp.More():
+            edge = TopoDS.Edge_s(edge_exp.Current())
+            edge_index = int(edge_index_map.FindIndex(edge))
+            if edge_index not in seen_edge_indices:
+                record = _edge_record(edge)
+                seen_edge_indices.add(edge_index)
+                boundary_edge_records.append(record)
+                context_edge_records[edge_index] = record
+            edge_exp.Next()
+        matched_curves = _match_curves_to_edges(
+            [int(tag) for tag in surface_record.get("curve_tags", [])],
+            boundary_edge_records,
+        )
+        wire_reports: list[Dict[str, Any]] = []
+        wire_exp = TopExp_Explorer(face, TopAbs_WIRE)
+        wire_index = 0
+        while wire_exp.More():
+            wire_index += 1
+            wire = TopoDS.Wire_s(wire_exp.Current())
+            wire_edges: list[int] = []
+            wire_edge_explorer = BRepTools_WireExplorer()
+            wire_edge_explorer.Init(wire, face)
+            while wire_edge_explorer.More():
+                wire_edge = TopoDS.Edge_s(wire_edge_explorer.Current())
+                wire_edges.append(int(edge_index_map.FindIndex(wire_edge)))
+                wire_edge_explorer.Next()
+            if not wire_edges:
+                edge_in_wire = TopExp_Explorer(wire, TopAbs_EDGE)
+                while edge_in_wire.More():
+                    wire_edge = TopoDS.Edge_s(edge_in_wire.Current())
+                    wire_edges.append(int(edge_index_map.FindIndex(wire_edge)))
+                    edge_in_wire.Next()
+            wire_precision = max(
+                [float(BRep_Tool.Tolerance_s(TopoDS.Edge_s(edge_index_map.FindKey(edge_id)))) for edge_id in wire_edges] or [1.0e-7]
+            )
+            wire_check = ShapeAnalysis_Wire()
+            wire_check.Init(wire, face, wire_precision)
+            wire_order_issue = bool(wire_check.CheckOrder(True, True))
+            wire_connected_issue = bool(wire_check.CheckConnected())
+            wire_closed_issue = bool(wire_check.CheckClosed())
+            wire_self_intersection_issue = bool(wire_check.CheckSelfIntersection())
+            wire_small_issue = bool(wire_check.CheckSmall())
+            wire_reports.append(
+                {
+                    "wire_index": int(wire_index),
+                    "edge_indices": wire_edges,
+                    "edge_curve_ids": [
+                        next(
+                            (
+                                int(curve_id)
+                                for curve_id, record in matched_curves.items()
+                                if int(record["edge_index"]) == int(edge_id)
+                            ),
+                            None,
+                        )
+                        for edge_id in wire_edges
+                    ],
+                    "wire_order_ok": not wire_order_issue,
+                    "wire_connected": not wire_connected_issue,
+                    "wire_closed": not wire_closed_issue,
+                    "wire_self_intersection": wire_self_intersection_issue,
+                    "small_edges_detected": wire_small_issue,
+                    "status_order": _shape_extend_statuses(wire_check, "StatusOrder"),
+                    "status_connected": _shape_extend_statuses(wire_check, "StatusConnected"),
+                    "status_closed": _shape_extend_statuses(wire_check, "StatusClosed"),
+                    "status_self_intersection": _shape_extend_statuses(wire_check, "StatusSelfIntersection"),
+                    "status_small": _shape_extend_statuses(wire_check, "StatusSmall"),
+                }
+            )
+            wire_exp.Next()
+        edge_lengths = sorted(
+            (
+                (
+                    float(record["length_3d"]),
+                    next((int(curve_id) for curve_id, match in matched_curves.items() if int(match["edge_index"]) == int(record["edge_index"])), None),
+                    int(record["edge_index"]),
+                )
+                for record in boundary_edge_records
+            ),
+            key=lambda item: item[0],
+        )
+        width_estimate = None
+        length_estimate = None
+        width_to_length_ratio = None
+        strip_edges: list[int | None] = []
+        if edge_lengths:
+            length_estimate = float(edge_lengths[-1][0])
+            if len(edge_lengths) >= 2:
+                width_estimate = float(sum(item[0] for item in edge_lengths[:2]) / 2.0)
+                strip_edges = [edge_lengths[0][1], edge_lengths[1][1]]
+            else:
+                width_estimate = float(edge_lengths[0][0])
+                strip_edges = [edge_lengths[0][1]]
+            if length_estimate > 0.0:
+                width_to_length_ratio = float(width_estimate) / float(length_estimate)
+        small_face = ShapeAnalysis_CheckSmallFace()
+        strip_pair_hits: list[Dict[str, Any]] = []
+        for lhs_index, lhs_record in enumerate(boundary_edge_records):
+            lhs_edge = TopoDS.Edge_s(edge_index_map.FindKey(int(lhs_record["edge_index"])))
+            for rhs_record in boundary_edge_records[lhs_index + 1:]:
+                rhs_edge = TopoDS.Edge_s(edge_index_map.FindKey(int(rhs_record["edge_index"])))
+                try:
+                    strip_result = small_face.CheckStripFace(face, lhs_edge, rhs_edge, -1.0)
+                except Exception:
+                    strip_result = False
+                try:
+                    single_strip = small_face.CheckSingleStrip(face, lhs_edge, rhs_edge, -1.0)
+                except Exception:
+                    single_strip = False
+                if strip_result or single_strip:
+                    strip_pair_hits.append(
+                        {
+                            "lhs_edge_index": int(lhs_record["edge_index"]),
+                            "rhs_edge_index": int(rhs_record["edge_index"]),
+                            "lhs_curve_id": next((int(curve_id) for curve_id, match in matched_curves.items() if int(match["edge_index"]) == int(lhs_record["edge_index"])), None),
+                            "rhs_curve_id": next((int(curve_id) for curve_id, match in matched_curves.items() if int(match["edge_index"]) == int(rhs_record["edge_index"])), None),
+                            "check_strip_face_result": bool(strip_result),
+                            "check_single_strip_result": bool(single_strip),
+                        }
+                    )
+        uv_bounds = BRepTools.UVBounds_s(face)
+        face_reports.append(
+            {
+                "surface_id": int(surface_tag),
+                "surface_area": _surface_area(face),
+                "surface_bbox": _scaled_bbox(face),
+                "uv_bbox": {
+                    "u_min": float(uv_bounds[0]),
+                    "u_max": float(uv_bounds[1]),
+                    "v_min": float(uv_bounds[2]),
+                    "v_max": float(uv_bounds[3]),
+                },
+                "brepcheck": _shape_status_payload(analyzer_default, analyzer_exact, face),
+                "boundary_curves": [
+                    {
+                        "curve_id": int(curve_id),
+                        "edge_index": int(record["edge_index"]),
+                        "owner_surface_tags": curve_lookup.get(int(curve_id), {}).get("owner_surface_tags", []),
+                        "length_3d": float(record["length_3d"]),
+                        "bbox": record["bbox"],
+                        "edge_tolerance": record["edge_tolerance"],
+                        "vertex_tolerances": {
+                            "start": (
+                                record["vertex_start"]["tolerance"]
+                                if isinstance(record.get("vertex_start"), dict)
+                                else None
+                            ),
+                            "end": (
+                                record["vertex_end"]["tolerance"]
+                                if isinstance(record.get("vertex_end"), dict)
+                                else None
+                            ),
+                        },
+                    }
+                    for curve_id, record in sorted(matched_curves.items())
+                ],
+                "wire_reports": wire_reports,
+                "small_face_analysis": {
+                    "check_spot_face": bool(small_face.CheckSpotFace(face, -1.0)),
+                    "is_strip_support": bool(small_face.IsStripSupport(face, -1.0)),
+                    "strip_pair_hits": strip_pair_hits,
+                    "geometric_strip_face_candidate": bool(
+                        width_to_length_ratio is not None and width_to_length_ratio < 0.05
+                    ),
+                    "physical_width_estimate": width_estimate,
+                    "physical_length_estimate": length_estimate,
+                    "width_to_length_ratio": width_to_length_ratio,
+                    "strip_edges": strip_edges,
+                },
+                "adjacent_surfaces_from_diagnostics": _unique_sorted_ints(
+                    surface_id
+                    for curve_id in surface_record.get("curve_tags", [])
+                    for surface_id in curve_lookup.get(int(curve_id), {}).get("owner_surface_tags", [])
+                    if int(surface_id) != int(surface_tag)
+                ),
+            }
+        )
+
+    for face_id in request.get("curve_surface_context_tags", []):
+        face = face_shapes.get(int(face_id))
+        if face is None:
+            continue
+        edge_exp = TopExp_Explorer(face, TopAbs_EDGE)
+        while edge_exp.More():
+            edge = TopoDS.Edge_s(edge_exp.Current())
+            edge_index = int(edge_index_map.FindIndex(edge))
+            if edge_index not in context_edge_records:
+                context_edge_records[edge_index] = _edge_record(edge)
+            edge_exp.Next()
+
+    curve_reports: list[Dict[str, Any]] = []
+    curve_matches = _match_curves_to_edges(
+        [int(tag) for tag in request.get("selected_curve_tags", [])],
+        list(context_edge_records.values()),
+    )
+    for curve_tag in request.get("selected_curve_tags", []):
+        curve_record = curve_lookup.get(int(curve_tag))
+        matched_edge = curve_matches.get(int(curve_tag))
+        if curve_record is None:
+            continue
+        curve_reports.append(
+            {
+                "curve_id": int(curve_tag),
+                "owner_surface_tags": [int(tag) for tag in curve_record.get("owner_surface_tags", [])],
+                "gmsh_length_3d": float(curve_record.get("length", 0.0) or 0.0),
+                "gmsh_bbox": curve_record.get("bbox"),
+                "mapped_edge_index": (
+                    int(matched_edge["edge_index"]) if isinstance(matched_edge, dict) else None
+                ),
+                "match_score": matched_edge.get("match_score") if isinstance(matched_edge, dict) else None,
+                "edge_length_3d": matched_edge.get("length_3d") if isinstance(matched_edge, dict) else None,
+                "edge_bbox": matched_edge.get("bbox") if isinstance(matched_edge, dict) else None,
+                "ancestor_face_ids": matched_edge.get("ancestor_face_ids") if isinstance(matched_edge, dict) else None,
+                "edge_tolerance": matched_edge.get("edge_tolerance") if isinstance(matched_edge, dict) else None,
+                "vertex_start": matched_edge.get("vertex_start") if isinstance(matched_edge, dict) else None,
+                "vertex_end": matched_edge.get("vertex_end") if isinstance(matched_edge, dict) else None,
+                "same_parameter_flag": (
+                    matched_edge.get("same_parameter_flag") if isinstance(matched_edge, dict) else None
+                ),
+                "same_range_flag": (
+                    matched_edge.get("same_range_flag") if isinstance(matched_edge, dict) else None
+                ),
+                "has_3d_curve": matched_edge.get("has_3d_curve") if isinstance(matched_edge, dict) else None,
+                "curve_range_3d": matched_edge.get("curve_range_3d") if isinstance(matched_edge, dict) else None,
+                "pcurve_presence_by_face": (
+                    matched_edge.get("pcurve_presence_by_face") if isinstance(matched_edge, dict) else {}
+                ),
+                "check_curve3d_with_pcurve_by_face": (
+                    matched_edge.get("check_curve3d_with_pcurve_by_face") if isinstance(matched_edge, dict) else {}
+                ),
+                "check_same_parameter_by_face": (
+                    matched_edge.get("check_same_parameter_by_face") if isinstance(matched_edge, dict) else {}
+                ),
+                "check_vertex_tolerance_by_face": (
+                    matched_edge.get("check_vertex_tolerance_by_face") if isinstance(matched_edge, dict) else {}
+                ),
+                "pcurve_range_by_face": (
+                    matched_edge.get("pcurve_range_by_face") if isinstance(matched_edge, dict) else {}
+                ),
+                "pcurve_range_matches_edge_range_by_face": (
+                    matched_edge.get("pcurve_range_matches_edge_range_by_face") if isinstance(matched_edge, dict) else {}
+                ),
+                "overlap_edge_indices": (
+                    matched_edge.get("overlap_edge_indices") if isinstance(matched_edge, dict) else []
+                ),
+                "tolerance_ratios": (
+                    matched_edge.get("tolerance_ratios") if isinstance(matched_edge, dict) else {}
+                ),
+                "brepcheck": matched_edge.get("brepcheck") if isinstance(matched_edge, dict) else None,
+            }
+        )
+
+    return {
+        "status": "captured",
+        "step_path": str(step_path),
+        "units": str(output_units),
+        "scale_to_output_units": scale,
+        "shape_valid_default": bool(analyzer_default.IsValid(shape)),
+        "shape_valid_exact": bool(analyzer_exact.IsValid(shape)),
+        "shape_status_default": [_enum_name(status) for status in list(analyzer_default.Result(shape).Status())],
+        "shape_status_exact": [_enum_name(status) for status in list(analyzer_exact.Result(shape).Status())],
+        **request,
+        "face_reports": face_reports,
+        "curve_reports": curve_reports,
+    }
+
+
 def _normalize_compound_groups(groups: Any) -> list[list[int]]:
     normalized: list[list[int]] = []
     seen: set[tuple[int, ...]] = set()
@@ -3435,6 +4108,7 @@ def _apply_occ_external_flow_route(
     marker_summary_path = mesh_dir / "marker_summary.json"
     surface_mesh_path = mesh_dir / "surface_mesh_2d.msh"
     surface_patch_diagnostics_path = mesh_dir / "surface_patch_diagnostics.json"
+    brep_hotspot_report_path = mesh_dir / "brep_hotspot_report.json"
     hotspot_patch_report_path = mesh_dir / "hotspot_patch_report.json"
     compound_report_path = mesh_dir / "compound_report.json"
     gmsh_log_path = mesh_dir / "gmsh_log.txt"
@@ -3462,6 +4136,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path),
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path),
+                "brep_hotspot_report": str(brep_hotspot_report_path),
                 "hotspot_patch_report": str(hotspot_patch_report_path),
                 "compound_report": str(compound_report_path),
                 "gmsh_log": str(gmsh_log_path),
@@ -3524,6 +4199,7 @@ def _apply_occ_external_flow_route(
     unit_normalization: Dict[str, Any] | None = None
     mesh_stats: Dict[str, Any] = {}
     surface_patch_diagnostics: Dict[str, Any] | None = None
+    brep_hotspot_report: Dict[str, Any] | None = None
     compound_policy: Dict[str, Any] | None = None
     compound_report: Dict[str, Any] | None = None
     mesh2d_watchdog: Dict[str, Any] | None = None
@@ -3646,6 +4322,24 @@ def _apply_occ_external_flow_route(
             "shortest_curve_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["shortest_curves"][:20]],
             "family_hint_counts": surface_patch_diagnostics["family_hint_counts"],
         }
+        brep_hotspot_report = _collect_brep_hotspot_report(
+            step_path=handle.path,
+            surface_patch_diagnostics=surface_patch_diagnostics,
+            requested_surface_tags=config.metadata.get("mesh_brep_hotspot_surface_tags"),
+            requested_curve_tags=config.metadata.get("mesh_brep_hotspot_curve_tags"),
+            scale_to_output_units=import_scale,
+            output_units=output_units or config.units,
+        )
+        if brep_hotspot_report.get("status") != "disabled":
+            _json_write(brep_hotspot_report_path, brep_hotspot_report)
+            metadata["brep_hotspot_report"] = {
+                "artifact": str(brep_hotspot_report_path),
+                "status": brep_hotspot_report.get("status"),
+                "selected_surface_tags": brep_hotspot_report.get("selected_surface_tags", []),
+                "selected_curve_tags": brep_hotspot_report.get("selected_curve_tags", []),
+                "shape_valid_default": brep_hotspot_report.get("shape_valid_default"),
+                "shape_valid_exact": brep_hotspot_report.get("shape_valid_exact"),
+            }
         compound_policy = _resolve_compound_meshing_policy(config)
         compound_result = _apply_compound_meshing_policy(gmsh, policy=compound_policy)
         compound_report = {
@@ -3827,6 +4521,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
                 "hotspot_patch_report": None,
                 "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
@@ -4003,6 +4698,7 @@ def _apply_occ_external_flow_route(
                         marker_summary=marker_summary_path,
                         surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
                         surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
+                        brep_hotspot_report=brep_hotspot_report_path if brep_hotspot_report is not None else None,
                         compound_report=compound_report_path if compound_report is not None else None,
                         gmsh_log=gmsh_log_path,
                         mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
@@ -4072,6 +4768,7 @@ def _apply_occ_external_flow_route(
                         "marker_summary": str(marker_summary_path),
                         "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                         "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                        "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
                         "compound_report": str(compound_report_path) if compound_report is not None else None,
                         "gmsh_log": str(gmsh_log_path),
                         "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
@@ -4175,6 +4872,7 @@ def _apply_occ_external_flow_route(
             marker_summary=marker_summary_path,
             surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
             surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
+            brep_hotspot_report=brep_hotspot_report_path if brep_hotspot_report is not None else None,
             hotspot_patch_report=hotspot_patch_report_path if hotspot_patch_report is not None else None,
             compound_report=compound_report_path if compound_report is not None else None,
             gmsh_log=gmsh_log_path,
@@ -4269,6 +4967,15 @@ def _apply_occ_external_flow_route(
         }
         if quality_metrics is not None:
             metadata["quality_metrics"] = quality_metrics
+        if brep_hotspot_report is not None:
+            metadata["brep_hotspot_report"] = {
+                "artifact": str(brep_hotspot_report_path),
+                "status": brep_hotspot_report.get("status"),
+                "selected_surface_tags": brep_hotspot_report.get("selected_surface_tags", []),
+                "selected_curve_tags": brep_hotspot_report.get("selected_curve_tags", []),
+                "shape_valid_default": brep_hotspot_report.get("shape_valid_default"),
+                "shape_valid_exact": brep_hotspot_report.get("shape_valid_exact"),
+            }
         if hotspot_patch_report is not None:
             metadata["hotspot_patch_report"] = {
                 "artifact": str(hotspot_patch_report_path),
@@ -4283,6 +4990,8 @@ def _apply_occ_external_flow_route(
             }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
+        if brep_hotspot_report is not None:
+            _json_write(brep_hotspot_report_path, brep_hotspot_report)
         if hotspot_patch_report is not None:
             _json_write(hotspot_patch_report_path, hotspot_patch_report)
         if compound_report is not None:
@@ -4311,6 +5020,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
                 "hotspot_patch_report": str(hotspot_patch_report_path) if hotspot_patch_report is not None else None,
                 "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
@@ -4438,6 +5148,15 @@ def _apply_occ_external_flow_route(
                 "suspicious_surface_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["suspicious_surfaces"][:12]],
                 "shortest_curve_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["shortest_curves"][:20]],
             }
+        if brep_hotspot_report is not None and "brep_hotspot_report" not in metadata:
+            metadata["brep_hotspot_report"] = {
+                "artifact": str(brep_hotspot_report_path) if brep_hotspot_report_path.exists() else None,
+                "status": brep_hotspot_report.get("status"),
+                "selected_surface_tags": brep_hotspot_report.get("selected_surface_tags", []),
+                "selected_curve_tags": brep_hotspot_report.get("selected_curve_tags", []),
+                "shape_valid_default": brep_hotspot_report.get("shape_valid_default"),
+                "shape_valid_exact": brep_hotspot_report.get("shape_valid_exact"),
+            }
         if mesh2d_watchdog is not None:
             metadata["mesh2d_watchdog"] = {
                 "artifact": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
@@ -4469,6 +5188,7 @@ def _apply_occ_external_flow_route(
             "marker_summary": str(marker_summary_path),
             "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
             "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+            "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
             "compound_report": str(compound_report_path) if compound_report is not None else None,
             "gmsh_log": str(gmsh_log_path),
             "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
@@ -4487,6 +5207,8 @@ def _apply_occ_external_flow_route(
         }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
+        if brep_hotspot_report is not None:
+            _json_write(brep_hotspot_report_path, brep_hotspot_report)
         if compound_report is not None:
             _json_write(compound_report_path, compound_report)
         return {
@@ -4504,6 +5226,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "brep_hotspot_report": str(brep_hotspot_report_path) if brep_hotspot_report is not None else None,
                 "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,

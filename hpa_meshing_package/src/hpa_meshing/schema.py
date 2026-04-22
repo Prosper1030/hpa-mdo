@@ -301,6 +301,7 @@ class MeshArtifactBundle(BaseModel):
     marker_summary: Path
     surface_mesh_2d: Optional[Path] = None
     surface_patch_diagnostics: Optional[Path] = None
+    brep_hotspot_report: Optional[Path] = None
     hotspot_patch_report: Optional[Path] = None
     compound_report: Optional[Path] = None
     gmsh_log: Optional[Path] = None

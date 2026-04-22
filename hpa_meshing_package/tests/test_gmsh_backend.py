@@ -9,6 +9,7 @@ import pytest
 import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
     _apply_compound_meshing_policy,
+    _collect_brep_hotspot_report,
     _collect_hotspot_patch_report,
     _probe_discrete_classify_angles,
     _collect_volume_quality_metrics,
@@ -19,6 +20,7 @@ from hpa_meshing.adapters.gmsh_backend import (
     _extract_last_meshing_curve,
     _extract_last_meshing_surface,
     _extract_overlap_surface_details,
+    _resolve_brep_hotspot_request,
     _resolve_compound_meshing_policy,
     _resolve_coarse_first_tetra_profile,
     _resolve_exact_overlap_surface_pair,
@@ -1506,6 +1508,35 @@ def test_apply_compound_meshing_policy_sets_compound_options_and_groups():
     ]
 
 
+def test_resolve_brep_hotspot_request_tracks_requested_faces_and_curves():
+    request = _resolve_brep_hotspot_request(
+        surface_patch_diagnostics={
+            "surface_records": [
+                {"tag": 11, "curve_tags": [3, 32, 33, 34]},
+                {"tag": 20, "curve_tags": [30, 50, 51, 52]},
+                {"tag": 31, "curve_tags": [2, 32, 53]},
+                {"tag": 32, "curve_tags": [31, 52, 63]},
+            ],
+            "curve_records": [
+                {"tag": 2, "owner_surface_tags": [1, 31]},
+                {"tag": 31, "owner_surface_tags": [10, 32]},
+                {"tag": 53, "owner_surface_tags": [21, 31]},
+                {"tag": 63, "owner_surface_tags": [30, 32]},
+            ],
+        },
+        requested_surface_tags=[32, 31, 20, 999],
+        requested_curve_tags=[63, 2, 31, 404],
+    )
+
+    assert request["enabled"] is True
+    assert request["selected_surface_tags"] == [20, 31, 32]
+    assert request["selected_curve_tags"] == [2, 31, 63]
+    assert request["curve_owner_surface_tags"] == [1, 10, 30, 31, 32]
+    assert request["curve_surface_context_tags"] == [1, 10, 20, 30, 31, 32]
+    assert request["missing_surface_tags"] == [999]
+    assert request["missing_curve_tags"] == [404]
+
+
 def test_configure_volume_smoke_decoupled_field_uses_bounded_near_body_shell(tmp_path: Path):
     config = MeshJobConfig(
         component="main_wing",
@@ -2385,6 +2416,78 @@ def test_apply_recipe_successful_3d_run_persists_quality_metrics(tmp_path: Path)
     assert optimization["mesh_optimize_netgen"] == 0
     assert optimization["post_optimize_methods"] == []
     assert optimization["post_runs"] == []
+
+
+def test_apply_recipe_persists_brep_hotspot_report_when_requested(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    normalized = _write_occ_box_step(tmp_path, "brep_box.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = _provider_result(source, normalized)
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "brep_out",
+        geometry_source="provider_generated",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
+        metadata={
+            "mesh_brep_hotspot_surface_tags": [1],
+            "mesh_brep_hotspot_curve_tags": [1],
+        },
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:openvsp_surface_intersection",
+        geometry_source="provider_generated",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="openvsp_surface_intersection",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        declared_family="thin_sheet_aircraft_assembly",
+        inferred_family=None,
+        geometry_family="thin_sheet_aircraft_assembly",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    monkeypatch.setattr(
+        gmsh_backend_module,
+        "_collect_brep_hotspot_report",
+        lambda *args, **kwargs: {
+            "status": "captured",
+            "selected_surface_tags": [1],
+            "selected_curve_tags": [1],
+            "shape_valid_default": True,
+            "shape_valid_exact": True,
+            "face_reports": [{"surface_id": 1}],
+            "curve_reports": [{"curve_id": 1}],
+        },
+    )
+
+    result = apply_recipe(recipe, handle, config)
+
+    assert result["status"] == "success"
+    metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
+    brep = json.loads(Path(result["artifacts"]["brep_hotspot_report"]).read_text(encoding="utf-8"))
+    assert metadata["brep_hotspot_report"]["artifact"] == result["artifacts"]["brep_hotspot_report"]
+    assert metadata["brep_hotspot_report"]["selected_surface_tags"] == [1]
+    assert metadata["brep_hotspot_report"]["selected_curve_tags"] == [1]
+    assert brep["shape_valid_default"] is True
+    assert brep["face_reports"][0]["surface_id"] == 1
 
 
 def test_apply_recipe_writes_mesh_handoff_contract(tmp_path: Path):
