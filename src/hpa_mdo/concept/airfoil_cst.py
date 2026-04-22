@@ -117,9 +117,12 @@ def validate_cst_candidate_coordinates(
     if len(coordinates) < 5:
         return CSTValidationResult(valid=False, reason="too_few_points")
 
-    midpoint = len(coordinates) // 2
-    upper_surface = _sorted_surface(tuple(coordinates[: midpoint + 1]))
-    lower_surface = _sorted_surface(tuple(coordinates[midpoint:]))
+    leading_edge_index = min(range(len(coordinates)), key=lambda index: float(coordinates[index][0]))
+    if leading_edge_index == 0 or leading_edge_index == len(coordinates) - 1:
+        return CSTValidationResult(valid=False, reason="missing_leading_edge_turn")
+
+    upper_surface = _sorted_surface(tuple(coordinates[: leading_edge_index + 1]))
+    lower_surface = _sorted_surface(tuple(coordinates[leading_edge_index:]))
 
     sample_xs = tuple(0.02 + 0.96 * index / 79.0 for index in range(80))
     for x in sample_xs:
@@ -164,7 +167,7 @@ def build_bounded_candidate_family(
         CSTAirfoilTemplate(
             zone_name=template.zone_name,
             upper_coefficients=offset(template.upper_coefficients, delta(first=0.01, second=0.01)),
-            lower_coefficients=template.lower_coefficients,
+            lower_coefficients=offset(template.lower_coefficients, delta(first=-0.01, second=-0.01)),
             te_thickness_m=template.te_thickness_m,
             seed_name=template.seed_name,
             candidate_role="thickness_up",
@@ -172,7 +175,7 @@ def build_bounded_candidate_family(
         CSTAirfoilTemplate(
             zone_name=template.zone_name,
             upper_coefficients=offset(template.upper_coefficients, delta(first=-0.01, second=-0.01)),
-            lower_coefficients=template.lower_coefficients,
+            lower_coefficients=offset(template.lower_coefficients, delta(first=0.01, second=0.01)),
             te_thickness_m=template.te_thickness_m,
             seed_name=template.seed_name,
             candidate_role="thickness_down",

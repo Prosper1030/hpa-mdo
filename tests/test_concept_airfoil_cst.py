@@ -55,3 +55,40 @@ def test_validate_cst_candidate_coordinates_rejects_non_positive_thickness() -> 
 
     assert outcome.valid is False
     assert outcome.reason == "non_positive_thickness"
+
+
+def test_validate_cst_candidate_coordinates_handles_asymmetric_leading_edge_split() -> None:
+    coordinates = (
+        (1.0, 0.0),
+        (0.6666666666666667, 0.026233520365518792),
+        (0.33333333333333337, 0.026233520365518792),
+        (0.0, 0.0),
+        (0.25, 0.0065635527911789586),
+        (0.5, 0.01),
+        (0.75, 0.006563552791178961),
+        (1.0, 0.0),
+    )
+
+    outcome = validate_cst_candidate_coordinates(coordinates)
+
+    assert outcome.valid is True
+    assert outcome.reason == "ok"
+
+
+def test_build_bounded_candidate_family_thickness_roles_modify_both_surfaces() -> None:
+    template = CSTAirfoilTemplate(
+        zone_name="tip",
+        upper_coefficients=(0.22, 0.28, 0.18, 0.10, 0.04),
+        lower_coefficients=(-0.18, -0.14, -0.08, -0.03, -0.01),
+        te_thickness_m=0.0015,
+    )
+
+    candidates = {candidate.candidate_role: candidate for candidate in build_bounded_candidate_family(template)}
+
+    thickness_up = candidates["thickness_up"]
+    thickness_down = candidates["thickness_down"]
+
+    assert thickness_up.upper_coefficients[1] > template.upper_coefficients[1]
+    assert thickness_up.lower_coefficients[1] < template.lower_coefficients[1]
+    assert thickness_down.upper_coefficients[1] < template.upper_coefficients[1]
+    assert thickness_down.lower_coefficients[1] > template.lower_coefficients[1]
