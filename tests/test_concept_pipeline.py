@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 
 import yaml
+import pytest
 
 from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
@@ -184,6 +185,34 @@ def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path
         for item in summary["selected_concepts"]
     )
     assert all("launch" in item and "turn" in item for item in summary["selected_concepts"])
+
+
+def test_pipeline_rejects_altitude_outside_tropospheric_density_range(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    payload["environment"]["altitude_m"] = 12000.0
+
+    custom_cfg = tmp_path / "concept_high_altitude.yaml"
+    custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="environment.altitude_m"):
+        run_birdman_concept_pipeline(
+            config_path=custom_cfg,
+            output_dir=tmp_path / "out",
+            airfoil_worker_factory=lambda **_: type(
+                "FakeWorker",
+                (),
+                {
+                    "backend_name": "test_stub",
+                    "run_queries": lambda self, queries: [
+                        {"status": "ok", "polar_points": [], "template_id": query.template_id}
+                        for query in queries
+                    ],
+                },
+            )(),
+            spanwise_loader=lambda concept, stations: {"root": {"points": []}},
+        )
 
 
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:

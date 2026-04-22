@@ -77,6 +77,10 @@ def _air_density_from_environment(cfg: BirdmanConceptConfig) -> float:
     temp_k = temp_c + 273.15
     altitude_m = float(cfg.environment.altitude_m)
     relative_humidity = max(0.0, min(1.0, float(cfg.environment.relative_humidity) / 100.0))
+    if altitude_m < -100.0 or altitude_m > 11000.0:
+        raise ValueError(
+            "environment.altitude_m must be within -100 m to 11000 m for the tropospheric density approximation."
+        )
 
     pressure_pa = 101325.0 * (1.0 - 2.25577e-5 * altitude_m) ** 5.25588
     saturation_vapor_pa = 610.94 * math.exp((17.625 * temp_c) / (temp_c + 243.04))
