@@ -239,6 +239,277 @@ def _attach_cl_max_proxies(
     return enriched
 
 
+def _numeric_value(value: object) -> float | None:
+    if isinstance(value, int | float):
+        return float(value)
+    return None
+
+
+def _build_worker_queries_and_refs(
+    *,
+    zone_requirements: dict[str, dict[str, Any]],
+    airfoil_templates: dict[str, dict[str, Any]],
+) -> tuple[list[PolarQuery], list[dict[str, Any]]]:
+    worker_queries: list[PolarQuery] = []
+    worker_point_refs: list[dict[str, Any]] = []
+
+    for zone_index, (zone_name, zone_data) in enumerate(zone_requirements.items()):
+        airfoil_template = airfoil_templates[zone_name]
+        coordinates = tuple(
+            (float(point[0]), float(point[1])) for point in airfoil_template["coordinates"]
+        )
+        for point_index, point in enumerate(zone_data.get("points", []), start=1):
+            template_id = f"{airfoil_template['template_id']}-{point_index:02d}"
+            worker_queries.append(
+                PolarQuery(
+                    template_id=template_id,
+                    reynolds=float(point["reynolds"]),
+                    cl_samples=(float(point["cl_target"]),),
+                    roughness_mode="clean",
+                    geometry_hash=str(airfoil_template["geometry_hash"]),
+                    coordinates=coordinates,
+                )
+            )
+            worker_point_refs.append(
+                {
+                    "template_id": template_id,
+                    "zone_name": zone_name,
+                    "zone_index": zone_index,
+                    "point_index": point_index,
+                    "station_point_index": len(worker_point_refs),
+                }
+            )
+
+    return worker_queries, worker_point_refs
+
+
+def _selected_polar_point(polar_points: list[dict[str, object]]) -> dict[str, object] | None:
+    best_point: dict[str, object] | None = None
+    best_error = float("inf")
+    for point in polar_points:
+        if not isinstance(point, dict):
+            continue
+        cl_value = _numeric_value(point.get("cl"))
+        cm_value = _numeric_value(point.get("cm"))
+        cd_value = _numeric_value(point.get("cd"))
+        if cl_value is None or cm_value is None or cd_value is None:
+            continue
+        cl_error = _numeric_value(point.get("cl_error"))
+        if cl_error is None:
+            cl_target = _numeric_value(point.get("cl_target"))
+            cl_error = abs(cl_value - cl_target) if cl_target is not None else 0.0
+        if cl_error < best_error:
+            best_error = cl_error
+            best_point = point
+    return best_point
+
+
+def _extract_worker_feedback(result: dict[str, object]) -> dict[str, object] | None:
+    if str(result.get("status")) != "ok":
+        return None
+
+    polar_points = result.get("polar_points")
+    if not isinstance(polar_points, list) or not polar_points:
+        return None
+
+    sweep_summary = result.get("sweep_summary")
+    if not isinstance(sweep_summary, dict):
+        return None
+
+    first_pass_clmax_proxy = _numeric_value(
+        sweep_summary.get("first_pass_observed_clmax_proxy")
+    )
+    if first_pass_clmax_proxy is None:
+        first_pass_clmax_proxy = _numeric_value(sweep_summary.get("observed_clmax_proxy"))
+    if first_pass_clmax_proxy is None:
+        return None
+
+    selected_point = _selected_polar_point(polar_points)
+    if selected_point is None:
+        return None
+
+    worker_cl = _numeric_value(selected_point.get("cl"))
+    worker_cm = _numeric_value(selected_point.get("cm"))
+    worker_cd = _numeric_value(selected_point.get("cd"))
+    worker_cdp = _numeric_value(selected_point.get("cdp"))
+    if worker_cl is None or worker_cm is None or worker_cd is None:
+        return None
+
+    return {
+        "worker_cl": worker_cl,
+        "worker_cm": worker_cm,
+        "worker_cd": worker_cd,
+        "worker_cdp": worker_cdp,
+        "observed_clmax_proxy": first_pass_clmax_proxy,
+        "observed_clmax_proxy_alpha_deg": _numeric_value(
+            sweep_summary.get("first_pass_observed_clmax_proxy_alpha_deg")
+        ),
+        "observed_clmax_proxy_cd": _numeric_value(
+            sweep_summary.get("first_pass_observed_clmax_proxy_cd")
+        ),
+        "observed_clmax_proxy_cdp": _numeric_value(
+            sweep_summary.get("first_pass_observed_clmax_proxy_cdp")
+        ),
+        "observed_clmax_proxy_cm": _numeric_value(
+            sweep_summary.get("first_pass_observed_clmax_proxy_cm")
+        ),
+        "observed_clmax_proxy_index": sweep_summary.get("first_pass_observed_clmax_proxy_index"),
+        "observed_clmax_proxy_at_sweep_edge": sweep_summary.get(
+            "first_pass_observed_clmax_proxy_at_sweep_edge"
+        ),
+        "sweep_point_count": sweep_summary.get("sweep_point_count"),
+        "converged_point_count": sweep_summary.get("converged_point_count"),
+    }
+
+
+def _apply_worker_airfoil_feedback(
+    *,
+    station_points: list[dict[str, float]],
+    worker_point_refs: list[dict[str, Any]],
+    worker_results: list[dict[str, object]],
+) -> tuple[list[dict[str, float]], dict[str, Any]]:
+    enriched_points = [dict(point) for point in station_points]
+    if len(worker_point_refs) != len(worker_results):
+        fallback_rows: list[dict[str, Any]] = []
+        for ref in worker_point_refs:
+            point_index = int(ref["station_point_index"])
+            base_point = enriched_points[point_index]
+            fallback_rows.append(
+                {
+                    "template_id": ref["template_id"],
+                    "zone_name": ref["zone_name"],
+                    "zone_index": ref["zone_index"],
+                    "point_index": ref["point_index"],
+                    "station_point_index": point_index,
+                    "status": "worker_result_count_mismatch",
+                    "applied": False,
+                    "fallback_reason": "worker_result_count_mismatch",
+                    "cl_target": float(base_point["cl_target"]),
+                    "cm_target": float(base_point["cm_target"]),
+                    "cl_max_proxy": float(base_point["cl_max_proxy"]),
+                }
+            )
+        return (
+            [dict(point) for point in station_points],
+            {
+                "applied": False,
+                "mode": "geometry_proxy",
+                "worker_result_count": len(worker_results),
+                "expected_worker_point_count": len(worker_point_refs),
+                "usable_worker_point_count": 0,
+                "fallback_worker_point_count": len(worker_point_refs),
+                "fallback_reason": "worker_result_count_mismatch",
+                "points": fallback_rows,
+            },
+        )
+
+    feedback_rows: list[dict[str, Any]] = []
+    usable_worker_point_count = 0
+
+    for ref, result in zip(worker_point_refs, worker_results):
+        point_index = int(ref["station_point_index"])
+        base_point = enriched_points[point_index]
+        feedback = _extract_worker_feedback(result)
+        fallback_row = {
+            "template_id": ref["template_id"],
+            "zone_name": ref["zone_name"],
+            "zone_index": ref["zone_index"],
+            "point_index": ref["point_index"],
+            "station_point_index": point_index,
+            "status": str(result.get("status", "unknown")),
+            "applied": False,
+            "fallback_reason": "missing_usable_polar_points",
+            "cl_target": float(base_point["cl_target"]),
+            "cm_target": float(base_point["cm_target"]),
+            "cl_max_proxy": float(base_point["cl_max_proxy"]),
+        }
+        if feedback is None:
+            feedback_rows.append(fallback_row)
+            continue
+
+        usable_worker_point_count += 1
+        cl_max_proxy = min(float(base_point["cl_max_proxy"]), float(feedback["observed_clmax_proxy"]))
+        updated_point = {
+            **base_point,
+            "cl_target": float(feedback["worker_cl"]),
+            "cm_target": float(feedback["worker_cm"]),
+            "cd_target": float(feedback["worker_cd"]),
+            "cl_max_proxy": cl_max_proxy,
+            "worker_cl": float(feedback["worker_cl"]),
+            "worker_cm": float(feedback["worker_cm"]),
+            "worker_cd": float(feedback["worker_cd"]),
+            "worker_cdp": feedback["worker_cdp"],
+            "airfoil_feedback_applied": True,
+            "airfoil_feedback_source": "first_pass_observed_clmax_proxy",
+            "airfoil_feedback_worker_status": str(result.get("status", "unknown")),
+            "airfoil_feedback_template_id": ref["template_id"],
+            "airfoil_feedback_zone_name": ref["zone_name"],
+            "airfoil_feedback_zone_index": float(ref["zone_index"]),
+            "airfoil_feedback_point_index": float(ref["point_index"]),
+            "airfoil_feedback_station_point_index": float(point_index),
+            "airfoil_feedback_observed_clmax_proxy": float(feedback["observed_clmax_proxy"]),
+            "airfoil_feedback_observed_clmax_proxy_alpha_deg": feedback[
+                "observed_clmax_proxy_alpha_deg"
+            ],
+            "airfoil_feedback_observed_clmax_proxy_cd": feedback["observed_clmax_proxy_cd"],
+            "airfoil_feedback_observed_clmax_proxy_cdp": feedback["observed_clmax_proxy_cdp"],
+            "airfoil_feedback_observed_clmax_proxy_cm": feedback["observed_clmax_proxy_cm"],
+            "airfoil_feedback_observed_clmax_proxy_index": feedback["observed_clmax_proxy_index"],
+            "airfoil_feedback_observed_clmax_proxy_at_sweep_edge": feedback[
+                "observed_clmax_proxy_at_sweep_edge"
+            ],
+            "airfoil_feedback_sweep_point_count": feedback["sweep_point_count"],
+            "airfoil_feedback_converged_point_count": feedback["converged_point_count"],
+        }
+        enriched_points[point_index] = updated_point
+        feedback_rows.append(
+            {
+                "template_id": ref["template_id"],
+                "zone_name": ref["zone_name"],
+                "zone_index": ref["zone_index"],
+                "point_index": ref["point_index"],
+                "station_point_index": point_index,
+                "status": str(result.get("status", "unknown")),
+                "applied": True,
+                "cl_target": float(updated_point["cl_target"]),
+                "cm_target": float(updated_point["cm_target"]),
+                "cd_target": float(updated_point["cd_target"]),
+                "cl_max_proxy": float(updated_point["cl_max_proxy"]),
+                "worker_cl": float(updated_point["worker_cl"]),
+                "worker_cm": float(updated_point["worker_cm"]),
+                "worker_cd": float(updated_point["worker_cd"]),
+                "worker_cdp": updated_point["worker_cdp"],
+                "first_pass_observed_clmax_proxy": float(
+                    updated_point["airfoil_feedback_observed_clmax_proxy"]
+                ),
+                "first_pass_observed_clmax_proxy_alpha_deg": updated_point[
+                    "airfoil_feedback_observed_clmax_proxy_alpha_deg"
+                ],
+                "first_pass_observed_clmax_proxy_cd": updated_point[
+                    "airfoil_feedback_observed_clmax_proxy_cd"
+                ],
+                "first_pass_observed_clmax_proxy_cdp": updated_point[
+                    "airfoil_feedback_observed_clmax_proxy_cdp"
+                ],
+                "first_pass_observed_clmax_proxy_cm": updated_point[
+                    "airfoil_feedback_observed_clmax_proxy_cm"
+                ],
+            }
+        )
+
+    feedback_summary = {
+        "applied": usable_worker_point_count > 0,
+        "mode": "worker_polar_points" if usable_worker_point_count > 0 else "geometry_proxy",
+        "worker_result_count": len(worker_results),
+        "usable_worker_point_count": usable_worker_point_count,
+        "fallback_worker_point_count": len(worker_results) - usable_worker_point_count,
+        "points": feedback_rows,
+    }
+    if usable_worker_point_count == 0:
+        return [dict(point) for point in station_points], feedback_summary
+    return enriched_points, feedback_summary
+
+
 def _summarize_launch(
     *,
     cfg: BirdmanConceptConfig,
@@ -396,6 +667,7 @@ def _concept_to_bundle_payload(
     worker_results: list[dict[str, object]],
     worker_backend: str,
     concept_index: int,
+    airfoil_feedback: dict[str, Any],
     launch_summary: dict[str, Any],
     turn_summary: dict[str, Any],
     trim_summary: dict[str, Any],
@@ -451,6 +723,7 @@ def _concept_to_bundle_payload(
         "worker_result_count": len(worker_results),
         "worker_backend": worker_backend,
         "worker_statuses": list(worker_statuses),
+        "airfoil_feedback": airfoil_feedback,
         "launch": launch_summary,
         "turn": turn_summary,
         "trim": trim_summary,
@@ -502,6 +775,16 @@ def run_birdman_concept_pipeline(
             half_span_m=0.5 * concept.span_m,
             concept=concept,
         )
+        worker_queries, worker_point_refs = _build_worker_queries_and_refs(
+            zone_requirements=zone_requirements,
+            airfoil_templates=airfoil_templates,
+        )
+        worker_results = worker.run_queries(worker_queries)
+        station_points, airfoil_feedback = _apply_worker_airfoil_feedback(
+            station_points=station_points,
+            worker_point_refs=worker_point_refs,
+            worker_results=worker_results,
+        )
         trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
         launch_summary, _, _ = _summarize_launch(
             cfg=cfg,
@@ -520,25 +803,6 @@ def run_birdman_concept_pipeline(
             concept=concept,
             station_points=station_points,
         )
-        worker_queries: list[PolarQuery] = []
-        for zone_name, zone_data in zone_requirements.items():
-            airfoil_template = airfoil_templates[zone_name]
-            coordinates = tuple(
-                (float(point[0]), float(point[1])) for point in airfoil_template["coordinates"]
-            )
-            for point_index, point in enumerate(zone_data.get("points", []), start=1):
-                worker_queries.append(
-                    PolarQuery(
-                        template_id=f"{airfoil_template['template_id']}-{point_index:02d}",
-                        reynolds=float(point["reynolds"]),
-                        cl_samples=(float(point["cl_target"]),),
-                        roughness_mode="clean",
-                        geometry_hash=str(airfoil_template["geometry_hash"]),
-                        coordinates=coordinates,
-                    )
-                )
-
-        worker_results = worker.run_queries(worker_queries)
         (
             concept_config,
             stations_rows,
@@ -555,6 +819,7 @@ def run_birdman_concept_pipeline(
             worker_results=worker_results,
             worker_backend=worker_backend,
             concept_index=concept_index,
+            airfoil_feedback=airfoil_feedback,
             launch_summary=launch_summary,
             turn_summary=turn_summary,
             trim_summary=trim_summary,
@@ -589,6 +854,7 @@ def run_birdman_concept_pipeline(
                 "worker_result_count": len(worker_results),
                 "worker_backend": worker_backend,
                 "worker_statuses": concept_worker_statuses,
+                "airfoil_feedback": airfoil_feedback,
                 "launch": launch_summary,
                 "turn": turn_summary,
                 "trim": trim_summary,

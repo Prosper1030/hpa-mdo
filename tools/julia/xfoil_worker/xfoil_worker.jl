@@ -61,6 +61,43 @@ function build_polar_points(alpha_deg, cl, cd, cdp, cm, converged, cl_samples)
 end
 
 
+function build_sweep_summary(alpha_deg, cl, cd, cdp, cm, converged)
+    alpha_count = length(alpha_deg)
+    converged_indices = findall(converged)
+    summary = Dict(
+        "sweep_point_count" => Int(alpha_count),
+        "converged_point_count" => Int(length(converged_indices)),
+        "alpha_min_deg" => alpha_count == 0 ? nothing : Float64(alpha_deg[1]),
+        "alpha_max_deg" => alpha_count == 0 ? nothing : Float64(alpha_deg[end]),
+        "usable_polar_points" => !isempty(converged_indices),
+        "first_pass_observed_clmax_proxy" => nothing,
+        "first_pass_observed_clmax_proxy_alpha_deg" => nothing,
+        "first_pass_observed_clmax_proxy_cd" => nothing,
+        "first_pass_observed_clmax_proxy_cdp" => nothing,
+        "first_pass_observed_clmax_proxy_cm" => nothing,
+        "first_pass_observed_clmax_proxy_index" => nothing,
+        "first_pass_observed_clmax_proxy_at_sweep_edge" => nothing,
+    )
+
+    if isempty(converged_indices)
+        return summary
+    end
+
+    cl_converged = Float64[Float64(cl[i]) for i in converged_indices]
+    observed_local_index = argmax(cl_converged)
+    observed_index = converged_indices[observed_local_index]
+    summary["first_pass_observed_clmax_proxy"] = Float64(cl[observed_index])
+    summary["first_pass_observed_clmax_proxy_alpha_deg"] = Float64(alpha_deg[observed_index])
+    summary["first_pass_observed_clmax_proxy_cd"] = Float64(cd[observed_index])
+    summary["first_pass_observed_clmax_proxy_cdp"] = Float64(cdp[observed_index])
+    summary["first_pass_observed_clmax_proxy_cm"] = Float64(cm[observed_index])
+    summary["first_pass_observed_clmax_proxy_index"] = Int(observed_index)
+    summary["first_pass_observed_clmax_proxy_at_sweep_edge"] =
+        Bool(observed_index == firstindex(alpha_deg) || observed_index == lastindex(alpha_deg))
+    return summary
+end
+
+
 function analyze_query(query)
     template_id = String(query["template_id"])
     reynolds = Float64(query["reynolds"])
@@ -90,6 +127,7 @@ function analyze_query(query)
     )
 
     polar_points = build_polar_points(alpha, cl, cd, cdp, cm, converged, cl_samples)
+    sweep_summary = build_sweep_summary(alpha, cl, cd, cdp, cm, converged)
     status = isempty(polar_points) ? "analysis_failed" : "ok"
 
     return Dict(
@@ -100,6 +138,7 @@ function analyze_query(query)
         "geometry_hash" => geometry_hash,
         "status" => status,
         "polar_points" => polar_points,
+        "sweep_summary" => sweep_summary,
     )
 end
 
