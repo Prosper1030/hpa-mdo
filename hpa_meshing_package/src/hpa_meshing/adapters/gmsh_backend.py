@@ -1727,6 +1727,174 @@ def _unique_sorted_ints(values: Iterable[int]) -> list[int]:
     return sorted({int(value) for value in values})
 
 
+def _normalize_compound_groups(groups: Any) -> list[list[int]]:
+    normalized: list[list[int]] = []
+    seen: set[tuple[int, ...]] = set()
+    if not isinstance(groups, Iterable) or isinstance(groups, (str, bytes, dict)):
+        return normalized
+    for raw_group in groups:
+        if isinstance(raw_group, (str, bytes, dict)) or not isinstance(raw_group, Iterable):
+            continue
+        group = _unique_sorted_ints(raw_group)
+        if len(group) < 2:
+            continue
+        key = tuple(group)
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(group)
+    return normalized
+
+
+def _resolve_compound_meshing_policy(config: MeshJobConfig) -> Dict[str, Any]:
+    metadata = config.metadata or {}
+    enabled = bool(metadata.get("mesh_compound_enabled", False))
+    if not enabled:
+        return {"enabled": False, "reason": "disabled_by_metadata"}
+
+    compound_surfaces = _normalize_compound_groups(metadata.get("mesh_compound_surface_groups", []))
+    compound_curves = _normalize_compound_groups(metadata.get("mesh_compound_curve_groups", []))
+    if not compound_surfaces and not compound_curves:
+        return {"enabled": False, "reason": "no_targets"}
+
+    compound_classify = int(metadata.get("mesh_compound_classify", 1))
+    compound_mesh_size_factor = metadata.get("mesh_compound_mesh_size_factor")
+    if compound_mesh_size_factor is not None:
+        compound_mesh_size_factor = float(compound_mesh_size_factor)
+
+    return {
+        "enabled": True,
+        "name": str(metadata.get("mesh_compound_policy_name", "small_family_compound_v0")),
+        "compound_surfaces": compound_surfaces,
+        "compound_curves": compound_curves,
+        "compound_classify": compound_classify,
+        "compound_mesh_size_factor": compound_mesh_size_factor,
+        "notes": [
+            "small-family compound/reclassify policy requested from config metadata",
+            "compound curves are applied before compound surfaces",
+            "compound classify is recorded explicitly to track tag preservation semantics",
+        ],
+    }
+
+
+def _apply_compound_meshing_policy(
+    gmsh,
+    *,
+    policy: Dict[str, Any],
+) -> Dict[str, Any]:
+    if not policy.get("enabled"):
+        return {
+            "status": "disabled",
+            "compound_surface_group_count": 0,
+            "compound_curve_group_count": 0,
+            "compound_surface_tags": [],
+            "compound_curve_tags": [],
+            "2d_returned": None,
+            "3d_returned": None,
+            "reparam_success": None,
+            "original_surface_tags_preserved": None,
+            "original_curve_tags_preserved": None,
+            "physical_groups_preserved": None,
+        }
+
+    compound_classify = int(policy.get("compound_classify", 1))
+    gmsh.option.setNumber("Mesh.CompoundClassify", float(compound_classify))
+    compound_mesh_size_factor = policy.get("compound_mesh_size_factor")
+    if compound_mesh_size_factor is not None:
+        gmsh.option.setNumber("Mesh.CompoundMeshSizeFactor", float(compound_mesh_size_factor))
+
+    compound_curves = [list(group) for group in policy.get("compound_curves", [])]
+    compound_surfaces = [list(group) for group in policy.get("compound_surfaces", [])]
+    for curve_group in compound_curves:
+        gmsh.model.mesh.setCompound(1, curve_group)
+    for surface_group in compound_surfaces:
+        gmsh.model.mesh.setCompound(2, surface_group)
+
+    return {
+        "status": "configured",
+        "compound_classify": compound_classify,
+        "compound_mesh_size_factor": (
+            float(compound_mesh_size_factor) if compound_mesh_size_factor is not None else None
+        ),
+        "compound_surface_group_count": len(compound_surfaces),
+        "compound_curve_group_count": len(compound_curves),
+        "compound_surface_groups": compound_surfaces,
+        "compound_curve_groups": compound_curves,
+        "compound_surface_tags": _unique_sorted_ints(
+            tag for group in compound_surfaces for tag in group
+        ),
+        "compound_curve_tags": _unique_sorted_ints(
+            tag for group in compound_curves for tag in group
+        ),
+        "2d_returned": None,
+        "3d_returned": None,
+        "reparam_success": None,
+        "original_surface_tags_preserved": None,
+        "original_curve_tags_preserved": None,
+        "physical_groups_preserved": None,
+    }
+
+
+def _entity_tag_set(gmsh, dim: int) -> set[int]:
+    return {int(tag) for entity_dim, tag in gmsh.model.getEntities(dim) if int(entity_dim) == int(dim)}
+
+
+def _safe_physical_group_summary(gmsh, dim: int, physical_tag: int | None) -> Dict[str, Any] | None:
+    if physical_tag is None:
+        return None
+    try:
+        return _physical_group_summary(gmsh, dim, int(physical_tag))
+    except Exception:
+        return None
+
+
+def _refresh_compound_meshing_result(
+    gmsh,
+    *,
+    compound_result: Dict[str, Any] | None,
+    aircraft_group: int | None = None,
+    farfield_group: int | None = None,
+) -> Dict[str, Any] | None:
+    if compound_result is None or compound_result.get("status") == "disabled":
+        return compound_result
+
+    surface_tags_present = _entity_tag_set(gmsh, 2)
+    curve_tags_present = _entity_tag_set(gmsh, 1)
+    compound_surface_tags = [int(tag) for tag in compound_result.get("compound_surface_tags", [])]
+    compound_curve_tags = [int(tag) for tag in compound_result.get("compound_curve_tags", [])]
+    compound_result["surface_tags_present_after_meshing"] = [
+        int(tag) for tag in compound_surface_tags if int(tag) in surface_tags_present
+    ]
+    compound_result["curve_tags_present_after_meshing"] = [
+        int(tag) for tag in compound_curve_tags if int(tag) in curve_tags_present
+    ]
+    compound_result["original_surface_tags_preserved"] = (
+        all(int(tag) in surface_tags_present for tag in compound_surface_tags)
+        if compound_surface_tags
+        else None
+    )
+    compound_result["original_curve_tags_preserved"] = (
+        all(int(tag) in curve_tags_present for tag in compound_curve_tags)
+        if compound_curve_tags
+        else None
+    )
+
+    aircraft_summary = _safe_physical_group_summary(gmsh, 2, aircraft_group)
+    farfield_summary = _safe_physical_group_summary(gmsh, 2, farfield_group)
+    if aircraft_summary is not None or farfield_summary is not None:
+        compound_result["physical_group_summary"] = {
+            "aircraft": aircraft_summary,
+            "farfield": farfield_summary,
+        }
+        compound_result["physical_groups_preserved"] = bool(
+            isinstance(aircraft_summary, dict)
+            and aircraft_summary.get("exists")
+            and isinstance(farfield_summary, dict)
+            and farfield_summary.get("exists")
+        )
+    return compound_result
+
+
 def _curve_tags_from_surface_records(surface_records: Iterable[Dict[str, Any]]) -> list[int]:
     curve_tags: list[int] = []
     for record in surface_records:
@@ -3268,6 +3436,7 @@ def _apply_occ_external_flow_route(
     surface_mesh_path = mesh_dir / "surface_mesh_2d.msh"
     surface_patch_diagnostics_path = mesh_dir / "surface_patch_diagnostics.json"
     hotspot_patch_report_path = mesh_dir / "hotspot_patch_report.json"
+    compound_report_path = mesh_dir / "compound_report.json"
     gmsh_log_path = mesh_dir / "gmsh_log.txt"
     mesh2d_watchdog_path = mesh_dir / "mesh2d_watchdog.json"
     mesh2d_watchdog_sample_path = mesh_dir / "mesh2d_watchdog_sample.txt"
@@ -3294,6 +3463,7 @@ def _apply_occ_external_flow_route(
                 "surface_mesh_2d": str(surface_mesh_path),
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path),
                 "hotspot_patch_report": str(hotspot_patch_report_path),
+                "compound_report": str(compound_report_path),
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path),
                 "mesh2d_watchdog_sample": str(mesh2d_watchdog_sample_path),
@@ -3354,6 +3524,8 @@ def _apply_occ_external_flow_route(
     unit_normalization: Dict[str, Any] | None = None
     mesh_stats: Dict[str, Any] = {}
     surface_patch_diagnostics: Dict[str, Any] | None = None
+    compound_policy: Dict[str, Any] | None = None
+    compound_report: Dict[str, Any] | None = None
     mesh2d_watchdog: Dict[str, Any] | None = None
     mesh3d_watchdog: Dict[str, Any] | None = None
     plc_probe: Dict[str, Any] | None = None
@@ -3474,6 +3646,22 @@ def _apply_occ_external_flow_route(
             "shortest_curve_tags": [int(entry["tag"]) for entry in surface_patch_diagnostics["shortest_curves"][:20]],
             "family_hint_counts": surface_patch_diagnostics["family_hint_counts"],
         }
+        compound_policy = _resolve_compound_meshing_policy(config)
+        compound_result = _apply_compound_meshing_policy(gmsh, policy=compound_policy)
+        compound_report = {
+            "status": str(compound_result.get("status", "disabled")),
+            "compound_policy": compound_policy,
+            "compound_result": compound_result,
+        }
+        if compound_policy.get("enabled"):
+            metadata["compound_policy"] = {
+                "artifact": str(compound_report_path),
+                "name": compound_policy.get("name"),
+                "compound_surface_groups": compound_policy.get("compound_surfaces", []),
+                "compound_curve_groups": compound_policy.get("compound_curves", []),
+                "compound_classify": compound_policy.get("compound_classify"),
+                "compound_mesh_size_factor": compound_policy.get("compound_mesh_size_factor"),
+            }
         watchdog_surface_lookup = {
             int(record["tag"]): record
             for record in surface_patch_diagnostics["surface_records"]
@@ -3515,6 +3703,16 @@ def _apply_occ_external_flow_route(
             "last_meshing_curve_tag": mesh2d_watchdog.get("last_meshing_curve_tag"),
             "last_meshing_surface_tag": mesh2d_watchdog.get("last_meshing_surface_tag"),
         }
+        if compound_report is not None:
+            compound_report["status"] = "generate2_returned"
+            compound_report["compound_result"]["2d_returned"] = True
+            compound_report["compound_result"]["reparam_success"] = True
+            _refresh_compound_meshing_result(
+                gmsh,
+                compound_result=compound_report["compound_result"],
+                aircraft_group=aircraft_group,
+                farfield_group=farfield_group,
+            )
         pre_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
         duplicate_cleanup = _remove_duplicate_surface_facets(gmsh, aircraft_surface_tags)
         post_cleanup_duplicates = _scan_duplicate_surface_facets(gmsh, aircraft_surface_tags)
@@ -3600,6 +3798,14 @@ def _apply_occ_external_flow_route(
         }
 
         if config.mesh_dim != 3:
+            if compound_report is not None:
+                compound_report["status"] = "surface_only_probe"
+                compound_report["compound_result"]["3d_returned"] = False
+                _json_write(compound_report_path, compound_report)
+                metadata["compound_result"] = {
+                    "artifact": str(compound_report_path),
+                    **compound_report["compound_result"],
+                }
             gmsh.write(str(mesh_path))
             metadata["status"] = "surface_mesh_only"
             metadata["route_stage"] = "surface_mesh_only"
@@ -3622,6 +3828,7 @@ def _apply_occ_external_flow_route(
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
                 "hotspot_patch_report": None,
+                "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
                 "mesh2d_watchdog_sample": (
@@ -3721,6 +3928,15 @@ def _apply_occ_external_flow_route(
         }
 
         if mesh3d_error is not None:
+            if compound_report is not None:
+                compound_report["status"] = "generate3_failed"
+                compound_report["compound_result"]["3d_returned"] = False
+                _refresh_compound_meshing_result(
+                    gmsh,
+                    compound_result=compound_report["compound_result"],
+                    aircraft_group=aircraft_group,
+                    farfield_group=farfield_group,
+                )
             try:
                 logger_messages = [str(message) for message in gmsh.logger.get()]
             except Exception:
@@ -3787,6 +4003,7 @@ def _apply_occ_external_flow_route(
                         marker_summary=marker_summary_path,
                         surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
                         surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
+                        compound_report=compound_report_path if compound_report is not None else None,
                         gmsh_log=gmsh_log_path,
                         mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
                         mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
@@ -3844,12 +4061,18 @@ def _apply_occ_external_flow_route(
                         "mesh_dim": config.mesh_dim,
                         **mesh_stats,
                     }
+                    if compound_report is not None:
+                        metadata["compound_result"] = {
+                            "artifact": str(compound_report_path),
+                            **compound_report["compound_result"],
+                        }
                     metadata["artifacts"] = {
                         "mesh": str(mesh_path),
                         "mesh_metadata": str(metadata_path),
                         "marker_summary": str(marker_summary_path),
                         "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                         "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                        "compound_report": str(compound_report_path) if compound_report is not None else None,
                         "gmsh_log": str(gmsh_log_path),
                         "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
                         "mesh2d_watchdog_sample": (
@@ -3867,8 +4090,10 @@ def _apply_occ_external_flow_route(
                     }
                     _json_write(metadata_path, metadata)
                     _json_write(marker_summary_path, marker_summary)
-                    return {
-                        "status": "success",
+                    if compound_report is not None:
+                        _json_write(compound_report_path, compound_report)
+                return {
+                    "status": "success",
                         "backend": recipe.backend,
                         "backend_capability": recipe.backend_capability,
                         "meshing_route": recipe.meshing_route,
@@ -3895,6 +4120,15 @@ def _apply_occ_external_flow_route(
                         ],
                     }
             raise exc
+        if compound_report is not None:
+            compound_report["status"] = "generate3_returned"
+            compound_report["compound_result"]["3d_returned"] = True
+            _refresh_compound_meshing_result(
+                gmsh,
+                compound_result=compound_report["compound_result"],
+                aircraft_group=aircraft_group,
+                farfield_group=farfield_group,
+            )
         optimization_settings = (
             field_info.get("volume_optimization", {}) if isinstance(field_info, dict) else {}
         )
@@ -3942,6 +4176,7 @@ def _apply_occ_external_flow_route(
             surface_mesh_2d=surface_mesh_path if surface_mesh_path.exists() else None,
             surface_patch_diagnostics=surface_patch_diagnostics_path if surface_patch_diagnostics_path.exists() else None,
             hotspot_patch_report=hotspot_patch_report_path if hotspot_patch_report is not None else None,
+            compound_report=compound_report_path if compound_report is not None else None,
             gmsh_log=gmsh_log_path,
             mesh2d_watchdog=mesh2d_watchdog_path if mesh2d_watchdog_path.exists() else None,
             mesh2d_watchdog_sample=mesh2d_watchdog_sample_path if mesh2d_watchdog_sample_path.exists() else None,
@@ -4040,10 +4275,18 @@ def _apply_occ_external_flow_route(
                 "selected_surface_tags": hotspot_patch_report.get("selected_surface_tags", []),
                 "requested_surface_tags": hotspot_patch_report.get("requested_surface_tags", []),
             }
+        if compound_report is not None:
+            compound_report["status"] = "success"
+            metadata["compound_result"] = {
+                "artifact": str(compound_report_path),
+                **compound_report["compound_result"],
+            }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
         if hotspot_patch_report is not None:
             _json_write(hotspot_patch_report_path, hotspot_patch_report)
+        if compound_report is not None:
+            _json_write(compound_report_path, compound_report)
 
         return {
             "status": "success",
@@ -4069,6 +4312,7 @@ def _apply_occ_external_flow_route(
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
                 "hotspot_patch_report": str(hotspot_patch_report_path) if hotspot_patch_report is not None else None,
+                "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
                 "mesh2d_watchdog_sample": (
@@ -4104,6 +4348,29 @@ def _apply_occ_external_flow_route(
         metadata["status"] = "failed"
         metadata["failure_code"] = _backend_failure_code(final_error)
         metadata["error"] = final_error
+        if compound_report is not None:
+            if compound_report["compound_result"].get("2d_returned") is None:
+                compound_report["status"] = "generate2_failed"
+                compound_report["compound_result"]["2d_returned"] = False
+                compound_report["compound_result"]["3d_returned"] = False
+                compound_report["compound_result"]["reparam_success"] = False
+            elif (
+                config.mesh_dim == 3
+                and compound_report["compound_result"].get("3d_returned") is None
+            ):
+                compound_report["status"] = "generate3_failed"
+                compound_report["compound_result"]["3d_returned"] = False
+            if gmsh_initialized:
+                _refresh_compound_meshing_result(
+                    gmsh,
+                    compound_result=compound_report["compound_result"],
+                    aircraft_group=locals().get("aircraft_group"),
+                    farfield_group=locals().get("farfield_group"),
+                )
+            metadata["compound_result"] = {
+                "artifact": str(compound_report_path),
+                **compound_report["compound_result"],
+            }
         if body_bounds_dict is not None:
             metadata.setdefault("body", {})
             metadata["body"]["bounds"] = body_bounds_dict
@@ -4202,6 +4469,7 @@ def _apply_occ_external_flow_route(
             "marker_summary": str(marker_summary_path),
             "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
             "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+            "compound_report": str(compound_report_path) if compound_report is not None else None,
             "gmsh_log": str(gmsh_log_path),
             "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
             "mesh2d_watchdog_sample": (
@@ -4219,6 +4487,8 @@ def _apply_occ_external_flow_route(
         }
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
+        if compound_report is not None:
+            _json_write(compound_report_path, compound_report)
         return {
             "status": "failed",
             "failure_code": _backend_failure_code(final_error),
@@ -4234,6 +4504,7 @@ def _apply_occ_external_flow_route(
                 "marker_summary": str(marker_summary_path),
                 "surface_mesh_2d": str(surface_mesh_path) if surface_mesh_path.exists() else None,
                 "surface_patch_diagnostics": str(surface_patch_diagnostics_path) if surface_patch_diagnostics_path.exists() else None,
+                "compound_report": str(compound_report_path) if compound_report is not None else None,
                 "gmsh_log": str(gmsh_log_path),
                 "mesh2d_watchdog": str(mesh2d_watchdog_path) if mesh2d_watchdog_path.exists() else None,
                 "mesh2d_watchdog_sample": (

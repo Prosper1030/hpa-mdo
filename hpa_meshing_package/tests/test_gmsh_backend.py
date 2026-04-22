@@ -8,6 +8,7 @@ import pytest
 
 import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
+    _apply_compound_meshing_policy,
     _collect_hotspot_patch_report,
     _probe_discrete_classify_angles,
     _collect_volume_quality_metrics,
@@ -18,6 +19,7 @@ from hpa_meshing.adapters.gmsh_backend import (
     _extract_last_meshing_curve,
     _extract_last_meshing_surface,
     _extract_overlap_surface_details,
+    _resolve_compound_meshing_policy,
     _resolve_coarse_first_tetra_profile,
     _resolve_exact_overlap_surface_pair,
     _resolve_mesh_field_defaults,
@@ -1331,10 +1333,14 @@ class _FakeMeshApi:
     def __init__(self) -> None:
         self.field = _FakeFieldApi()
         self.set_algorithm_calls: list[tuple[int, int, int]] = []
+        self.compound_calls: list[tuple[int, list[int]]] = []
         self.optimize_calls: list[dict[str, object]] = []
 
     def setAlgorithm(self, dim: int, tag: int, val: int) -> None:
         self.set_algorithm_calls.append((int(dim), int(tag), int(val)))
+
+    def setCompound(self, dim: int, tags) -> None:
+        self.compound_calls.append((int(dim), [int(tag) for tag in tags]))
 
     def optimize(self, method: str = "", force: bool = False, niter: int = 1, dimTags=None) -> None:
         self.optimize_calls.append(
@@ -1441,6 +1447,63 @@ class _FakeQualityModelApi:
 class _FakeQualityGmsh:
     def __init__(self) -> None:
         self.model = _FakeQualityModelApi()
+
+
+def test_resolve_compound_meshing_policy_collects_small_family_groups(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "mesh_compound_enabled": True,
+            "mesh_compound_policy_name": "small_family_compound_v0",
+            "mesh_compound_surface_groups": [[32, 31, 31], [20, 11, 32, 31]],
+            "mesh_compound_curve_groups": [[63, 31, 2, 53, 31]],
+            "mesh_compound_classify": 1,
+            "mesh_compound_mesh_size_factor": 0.75,
+        },
+    )
+
+    policy = _resolve_compound_meshing_policy(config)
+
+    assert policy["enabled"] is True
+    assert policy["name"] == "small_family_compound_v0"
+    assert policy["compound_surfaces"] == [[31, 32], [11, 20, 31, 32]]
+    assert policy["compound_curves"] == [[2, 31, 53, 63]]
+    assert policy["compound_classify"] == 1
+    assert policy["compound_mesh_size_factor"] == pytest.approx(0.75)
+
+
+def test_apply_compound_meshing_policy_sets_compound_options_and_groups():
+    gmsh = _FakeGmsh()
+
+    result = _apply_compound_meshing_policy(
+        gmsh,
+        policy={
+            "enabled": True,
+            "name": "small_family_compound_v0",
+            "compound_surfaces": [[31, 32], [11, 20, 31, 32]],
+            "compound_curves": [[2, 31, 53, 63]],
+            "compound_classify": 1,
+            "compound_mesh_size_factor": 0.75,
+        },
+    )
+
+    assert result["status"] == "configured"
+    assert result["compound_surface_group_count"] == 2
+    assert result["compound_curve_group_count"] == 1
+    assert result["compound_surface_tags"] == [11, 20, 31, 32]
+    assert result["compound_curve_tags"] == [2, 31, 53, 63]
+    assert gmsh.option.values["Mesh.CompoundClassify"] == 1.0
+    assert gmsh.option.values["Mesh.CompoundMeshSizeFactor"] == pytest.approx(0.75)
+    assert gmsh.model.mesh.compound_calls == [
+        (1, [2, 31, 53, 63]),
+        (2, [31, 32]),
+        (2, [11, 20, 31, 32]),
+    ]
 
 
 def test_configure_volume_smoke_decoupled_field_uses_bounded_near_body_shell(tmp_path: Path):
