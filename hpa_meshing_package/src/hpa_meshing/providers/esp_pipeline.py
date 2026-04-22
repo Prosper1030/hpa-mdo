@@ -26,6 +26,7 @@ UNION_EXPORT_FILE_NAME = "union_groups.step"
 COMMAND_LOG_NAME = "ocsm.log"
 UNION_COMMAND_LOG_NAME = "ocsm_union.log"
 TOPOLOGY_REPORT_NAME = "topology.json"
+TOPOLOGY_LINEAGE_REPORT_NAME = "topology_lineage_report.json"
 RAW_TOPOLOGY_REPORT_NAME = "raw_topology.json"
 NORMALIZATION_REPORT_NAME = "normalization.json"
 _STEP_MILLI_UNIT_PATTERN = re.compile(r"SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)")
@@ -415,6 +416,159 @@ def _surface_sections_for_rule(surface: _NativeSurfaceRecord) -> list[_NativeSec
     return [*mirrored, *sections]
 
 
+def _surface_sections_with_lineage(surface: _NativeSurfaceRecord) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    sections = list(surface.sections)
+    if surface.symmetric_xz and len(sections) > 1:
+        for source_index in range(len(sections) - 1, 0, -1):
+            entries.append(
+                {
+                    "section": _mirrored_section(sections[source_index]),
+                    "source_section_index": int(source_index),
+                    "mirrored": True,
+                    "side": "left_span",
+                }
+            )
+    for source_index, section in enumerate(sections):
+        entries.append(
+            {
+                "section": section,
+                "source_section_index": int(source_index),
+                "mirrored": False,
+                "side": "right_span" if surface.symmetric_xz and source_index > 0 else "center_or_start",
+            }
+        )
+    if entries:
+        entries[0]["side"] = "left_tip" if surface.symmetric_xz else "start_tip"
+        entries[-1]["side"] = "right_tip" if surface.symmetric_xz else "end_tip"
+    return entries
+
+
+def _distance_xy(lhs: tuple[float, float], rhs: tuple[float, float]) -> float:
+    return math.hypot(float(lhs[0]) - float(rhs[0]), float(lhs[1]) - float(rhs[1]))
+
+
+def _build_terminal_strip_candidate(
+    *,
+    section: _NativeSectionRecord,
+    source_section_index: int,
+    mirrored: bool,
+    side: str,
+) -> Dict[str, Any]:
+    coordinates = list(_resolve_section_airfoil_coordinates(section))
+    if not coordinates:
+        return {
+            "side": side,
+            "source_section_index": int(source_section_index),
+            "mirrored": bool(mirrored),
+            "would_suppress": False,
+            "reason": "section_has_no_profile_coordinates",
+        }
+    if len(coordinates) >= 2 and all(
+        abs(float(lhs) - float(rhs)) <= 1.0e-12 for lhs, rhs in zip(coordinates[0], coordinates[-1])
+    ):
+        closed = coordinates
+    else:
+        closed = [*coordinates, coordinates[0]]
+    if len(closed) < 4:
+        return {
+            "side": side,
+            "source_section_index": int(source_section_index),
+            "mirrored": bool(mirrored),
+            "would_suppress": False,
+            "reason": "insufficient_closed_profile_points",
+        }
+
+    seam_point = closed[0]
+    next_point = closed[1]
+    prev_point = closed[-2]
+    chord = float(section.chord)
+    next_length = _distance_xy(seam_point, next_point) * chord
+    prev_length = _distance_xy(seam_point, prev_point) * chord
+    trailing_edge_gap = _distance_xy(prev_point, next_point) * chord
+    perimeter = (
+        sum(_distance_xy(closed[idx], closed[idx + 1]) for idx in range(len(closed) - 1)) * chord
+    )
+    threshold = max(chord * 0.006, 1.5e-3)
+    would_suppress = bool(max(next_length, prev_length) <= threshold)
+    return {
+        "side": side,
+        "source_section_index": int(source_section_index),
+        "mirrored": bool(mirrored),
+        "y_le": float(section.y_le),
+        "chord": chord,
+        "profile_point_count": max(len(closed) - 1, 0),
+        "seam_point_xy": [float(seam_point[0]), float(seam_point[1])],
+        "seam_adjacent_points_xy": {
+            "next": [float(next_point[0]), float(next_point[1])],
+            "prev": [float(prev_point[0]), float(prev_point[1])],
+        },
+        "seam_adjacent_edge_lengths_m": [float(next_length), float(prev_length)],
+        "trailing_edge_gap_m": float(trailing_edge_gap),
+        "profile_perimeter_m": float(perimeter),
+        "suppression_threshold_m": float(threshold),
+        "would_suppress": would_suppress,
+        "suppression_reason": (
+            "terminal_tip_te_strip_candidate" if would_suppress else "terminal_tip_te_edges_not_small_enough"
+        ),
+    }
+
+
+def _build_topology_lineage_report(rebuild_model: _NativeRebuildModel) -> Dict[str, Any]:
+    surfaces: list[Dict[str, Any]] = []
+    suppression_candidate_count = 0
+    for surface in rebuild_model.surfaces:
+        rule_sections = _surface_sections_with_lineage(surface)
+        terminal_strip_candidates: list[Dict[str, Any]] = []
+        for entry in rule_sections:
+            if entry["side"] not in {"left_tip", "right_tip", "start_tip", "end_tip"}:
+                continue
+            candidate = _build_terminal_strip_candidate(
+                section=entry["section"],
+                source_section_index=int(entry["source_section_index"]),
+                mirrored=bool(entry["mirrored"]),
+                side=str(entry["side"]),
+            )
+            terminal_strip_candidates.append(candidate)
+            if candidate.get("would_suppress"):
+                suppression_candidate_count += 1
+        surfaces.append(
+            {
+                "component": surface.component,
+                "geom_id": surface.geom_id,
+                "name": surface.name,
+                "caps_group": surface.caps_group,
+                "symmetric_xz": bool(surface.symmetric_xz),
+                "source_section_count": len(surface.sections),
+                "rule_section_count": len(rule_sections),
+                "rule_sections": [
+                    {
+                        "rule_section_index": int(index),
+                        "source_section_index": int(entry["source_section_index"]),
+                        "mirrored": bool(entry["mirrored"]),
+                        "side": str(entry["side"]),
+                        "x_le": float(entry["section"].x_le),
+                        "y_le": float(entry["section"].y_le),
+                        "z_le": float(entry["section"].z_le),
+                        "chord": float(entry["section"].chord),
+                        "twist_deg": float(entry["section"].twist_deg),
+                        "airfoil_source": str(entry["section"].airfoil_source),
+                    }
+                    for index, entry in enumerate(rule_sections)
+                ],
+                "terminal_strip_candidates": terminal_strip_candidates,
+            }
+        )
+    return {
+        "status": "captured",
+        "source_path": str(rebuild_model.source_path),
+        "surface_count": len(rebuild_model.surfaces),
+        "suppression_candidate_count": suppression_candidate_count,
+        "surfaces": surfaces,
+        "notes": list(rebuild_model.notes),
+    }
+
+
 def _build_section_sketch_lines(
     section: _NativeSectionRecord,
     *,
@@ -475,6 +629,40 @@ def _build_native_geometry_lines(rebuild_model: _NativeRebuildModel) -> list[str
         lines.append(f"ATTRIBUTE _name ${caps_group}")
         lines.append(f"ATTRIBUTE capsGroup ${caps_group}")
     return lines
+
+
+def _build_csm_script_from_rebuild_model(
+    rebuild_model: _NativeRebuildModel,
+    export_path: Path,
+) -> str:
+    script_lines = [
+        "# Auto-generated by hpa_meshing.providers.esp_pipeline",
+        "# Rebuilds OpenVSP lifting surfaces into native OpenCSM rule lofts",
+        f"SET export_path $\"{export_path}\"",
+        *_build_native_geometry_lines(rebuild_model),
+        "DUMP !export_path 0 1",
+        "END",
+        "",
+    ]
+    return "\n".join(script_lines)
+
+
+def _build_union_csm_script_from_rebuild_model(
+    rebuild_model: _NativeRebuildModel,
+    export_path: Path,
+    body_count: int,
+) -> str:
+    script_lines = [
+        "# Auto-generated by hpa_meshing.providers.esp_pipeline",
+        "# Rebuilds OpenVSP lifting surfaces into native OpenCSM rule lofts",
+        f"SET export_path $\"{export_path}\"",
+        *_build_native_geometry_lines(rebuild_model),
+        f"UNION {body_count}",
+        "DUMP !export_path 0 1",
+        "END",
+        "",
+    ]
+    return "\n".join(script_lines)
 
 
 def _build_native_rebuild_model(
@@ -644,31 +832,12 @@ def _build_csm_script(
     component: str,
 ) -> str:
     rebuild_model = _build_native_rebuild_model(source_path=source_path, component=component)
-    script_lines = [
-        "# Auto-generated by hpa_meshing.providers.esp_pipeline",
-        "# Rebuilds OpenVSP lifting surfaces into native OpenCSM rule lofts",
-        f"SET export_path $\"{export_path}\"",
-        *_build_native_geometry_lines(rebuild_model),
-        "DUMP !export_path 0 1",
-        "END",
-        "",
-    ]
-    return "\n".join(script_lines)
+    return _build_csm_script_from_rebuild_model(rebuild_model, export_path)
 
 
 def _build_union_csm_script(source_path: Path, export_path: Path, body_count: int, *, component: str) -> str:
     rebuild_model = _build_native_rebuild_model(source_path=source_path, component=component)
-    script_lines = [
-        "# Auto-generated by hpa_meshing.providers.esp_pipeline",
-        "# Rebuilds OpenVSP lifting surfaces into native OpenCSM rule lofts",
-        f"SET export_path $\"{export_path}\"",
-        *_build_native_geometry_lines(rebuild_model),
-        f"UNION {body_count}",
-        "DUMP !export_path 0 1",
-        "END",
-        "",
-    ]
-    return "\n".join(script_lines)
+    return _build_union_csm_script_from_rebuild_model(rebuild_model, export_path, body_count)
 
 
 def _normalize_component_name(name: str) -> str:
@@ -1716,6 +1885,7 @@ def materialize_with_esp(
     command_log_path = (artifact_dir / COMMAND_LOG_NAME).resolve()
     union_command_log_path = (artifact_dir / UNION_COMMAND_LOG_NAME).resolve()
     topology_report_path = (artifact_dir / TOPOLOGY_REPORT_NAME).resolve()
+    topology_lineage_report_path = (artifact_dir / TOPOLOGY_LINEAGE_REPORT_NAME).resolve()
     raw_topology_report_path = (artifact_dir / RAW_TOPOLOGY_REPORT_NAME).resolve()
     normalization_report_path = (artifact_dir / NORMALIZATION_REPORT_NAME).resolve()
     work_script_path = work_dir / OCSM_SCRIPT_NAME
@@ -1724,11 +1894,19 @@ def materialize_with_esp(
     work_export_path = work_dir / EXPORT_FILE_NAME
     work_union_export_path = work_dir / UNION_EXPORT_FILE_NAME
 
+    rebuild_model = _build_native_rebuild_model(
+        source_path=component_input.input_model_path,
+        component=component,
+    )
+    topology_lineage_report = _build_topology_lineage_report(rebuild_model)
+    topology_lineage_report_path.write_text(
+        json.dumps(topology_lineage_report, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     script_path.write_text(
-        _build_csm_script(
-            source_path=work_input_model_path,
-            export_path=work_raw_export_path,
-            component=component,
+        _build_csm_script_from_rebuild_model(
+            rebuild_model,
+            work_raw_export_path,
         ),
         encoding="utf-8",
     )
@@ -1876,6 +2054,7 @@ def materialize_with_esp(
         "esp_script": script_path,
         "esp_input_model": component_input.input_model_path,
         "source_model": artifact_source_path,
+        "topology_lineage_report": topology_lineage_report_path,
         "command_log": command_log_path,
         "raw_geometry": raw_export_path,
         "raw_topology_report": raw_topology_report_path,

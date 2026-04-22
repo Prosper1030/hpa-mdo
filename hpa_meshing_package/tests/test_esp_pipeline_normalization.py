@@ -11,6 +11,7 @@ from hpa_meshing.providers.esp_pipeline import (
     _NativeSectionRecord,
     _NativeSurfaceRecord,
     _VspWingCandidate,
+    _build_topology_lineage_report,
     _build_native_rebuild_model,
     _prepare_component_input_model,
     _select_component_candidate,
@@ -104,6 +105,81 @@ def _sample_native_rebuild_model(source: Path) -> _NativeRebuildModel:
         ),
         notes=("unit-test-native-model",),
     )
+
+
+def _sample_tip_strip_airfoil_coords() -> tuple[tuple[float, float], ...]:
+    return (
+        (1.0, 0.0),
+        (0.995, 0.0015),
+        (0.72, 0.032),
+        (0.34, 0.048),
+        (0.0, 0.0),
+        (0.34, -0.034),
+        (0.72, -0.020),
+        (0.995, -0.0015),
+        (1.0, 0.0),
+    )
+
+
+def _sample_tip_strip_candidate_model(source: Path) -> _NativeRebuildModel:
+    return _NativeRebuildModel(
+        source_path=source,
+        surfaces=(
+            _NativeSurfaceRecord(
+                component="main_wing",
+                geom_id="main",
+                name="Main Wing",
+                caps_group="main_wing",
+                symmetric_xz=True,
+                sections=(
+                    _NativeSectionRecord(
+                        x_le=0.0,
+                        y_le=0.0,
+                        z_le=0.0,
+                        chord=1.30,
+                        twist_deg=0.0,
+                        airfoil_name="NACA 2412",
+                        airfoil_source="inline_coordinates",
+                        airfoil_coordinates=_sample_airfoil_coords(),
+                        thickness_tc=0.12,
+                        camber=0.02,
+                        camber_loc=0.4,
+                    ),
+                    _NativeSectionRecord(
+                        x_le=0.10,
+                        y_le=16.5,
+                        z_le=1.70,
+                        chord=0.435,
+                        twist_deg=0.0,
+                        airfoil_name="NACA 2412",
+                        airfoil_source="inline_coordinates",
+                        airfoil_coordinates=_sample_tip_strip_airfoil_coords(),
+                        thickness_tc=0.12,
+                        camber=0.02,
+                        camber_loc=0.4,
+                    ),
+                ),
+            ),
+        ),
+        notes=("unit-test-tip-strip-model",),
+    )
+
+
+def test_build_topology_lineage_report_identifies_terminal_tip_strip_candidates(tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+
+    report = _build_topology_lineage_report(_sample_tip_strip_candidate_model(source))
+
+    assert report["status"] == "captured"
+    assert report["surface_count"] == 1
+    surface = report["surfaces"][0]
+    candidates = surface["terminal_strip_candidates"]
+    assert [candidate["side"] for candidate in candidates] == ["left_tip", "right_tip"]
+    assert all(candidate["would_suppress"] is True for candidate in candidates)
+    assert all(candidate["source_section_index"] == 1 for candidate in candidates)
+    assert all(candidate["seam_adjacent_edge_lengths_m"][0] < 0.003 for candidate in candidates)
+    assert all(candidate["seam_adjacent_edge_lengths_m"][1] < 0.003 for candidate in candidates)
 
 
 def test_analyze_symmetry_touching_solids_detects_groups_and_preserves_singleton(tmp_path: Path):
@@ -724,3 +800,34 @@ def test_materialize_with_esp_writes_native_rule_loft_script(monkeypatch, tmp_pa
     assert "rule" in script_text.lower()
     assert "ATTRIBUTE _name $main_wing" in script_text
     assert "ATTRIBUTE capsGroup $main_wing" in script_text
+
+
+def test_materialize_with_esp_writes_topology_lineage_report(monkeypatch, tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    staging = tmp_path / "provider"
+
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._build_native_rebuild_model",
+        lambda **_: _sample_tip_strip_candidate_model(source),
+    )
+
+    def fake_runner(args, cwd):
+        exported = Path(cwd) / "raw_dump.stp"
+        exported.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="serveCSM ok\n", stderr="")
+
+    result = materialize_with_esp(
+        source_path=source,
+        staging_dir=staging,
+        runner=fake_runner,
+        batch_binary="/opt/esp/bin/serveCSM",
+    )
+
+    assert result.status == "success"
+    lineage_path = result.artifacts["topology_lineage_report"]
+    payload = json.loads(lineage_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "captured"
+    candidates = payload["surfaces"][0]["terminal_strip_candidates"]
+    assert [candidate["side"] for candidate in candidates] == ["left_tip", "right_tip"]
+    assert all(candidate["would_suppress"] is True for candidate in candidates)
