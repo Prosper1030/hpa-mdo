@@ -71,3 +71,17 @@ def test_turn_gate_rejects_insufficient_stall_margin():
     assert result.stall_margin < 0.10
     assert result.feasible is False
     assert result.reason == "stall_margin_insufficient"
+
+
+def test_turn_gate_keeps_failure_contract_when_trim_is_not_feasible():
+    result = evaluate_turn_gate(
+        bank_angle_deg=15.0,
+        speed_mps=8.0,
+        cl_level=0.70,
+        cl_max=1.20,
+        trim_feasible=False,
+    )
+
+    assert result.required_cl == pytest.approx(0.70 / 0.9659258262890683, rel=1e-9)
+    assert result.feasible is False
+    assert result.reason == "stall_margin_insufficient"
