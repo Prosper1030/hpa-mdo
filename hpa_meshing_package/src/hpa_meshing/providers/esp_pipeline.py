@@ -331,13 +331,79 @@ def _extract_airfoil_coordinates(vsp, xsec: Any) -> tuple[tuple[float, float], .
     return _normalize_airfoil_coordinates([(float(x), float(z)) for x, z in combined])
 
 
+def _coalesce_trailing_edge_seam(
+    points: list[tuple[float, float]],
+    *,
+    chord: Optional[float],
+    target_bridge_length_m: float = 10.0e-3,
+    ratio_cap: float = 3.0,
+    max_drops_per_side: int = 5,
+) -> list[tuple[float, float]]:
+    if len(points) < 6:
+        return points
+    closed = (
+        abs(points[0][0] - points[-1][0]) <= 1.0e-9
+        and abs(points[0][1] - points[-1][1]) <= 1.0e-9
+    )
+    work = list(points[:-1]) if closed else list(points)
+    if len(work) < 5:
+        return points
+    if chord and chord > 0.0:
+        target_norm = float(target_bridge_length_m) / float(chord)
+    else:
+        target_norm = 0.02
+
+    def _dist(lhs: tuple[float, float], rhs: tuple[float, float]) -> float:
+        return math.hypot(lhs[0] - rhs[0], lhs[1] - rhs[1])
+
+    drops = 0
+    while drops < max_drops_per_side and len(work) >= 6:
+        seam_seg = _dist(work[0], work[1])
+        next_seg = _dist(work[1], work[2])
+        below_target = seam_seg < target_norm
+        ratio_bad = next_seg > 0.0 and next_seg / max(seam_seg, 1.0e-12) > ratio_cap
+        if not (below_target or ratio_bad):
+            break
+        del work[1]
+        drops += 1
+
+    drops = 0
+    if closed:
+        while drops < max_drops_per_side and len(work) >= 6:
+            closure_seg = _dist(work[-1], work[0])
+            prior_seg = _dist(work[-2], work[-1])
+            below_target = closure_seg < target_norm
+            ratio_bad = prior_seg > 0.0 and prior_seg / max(closure_seg, 1.0e-12) > ratio_cap
+            if not (below_target or ratio_bad):
+                break
+            del work[-1]
+            drops += 1
+    else:
+        while drops < max_drops_per_side and len(work) >= 6:
+            seam_seg = _dist(work[-1], work[-2])
+            prior_seg = _dist(work[-2], work[-3])
+            below_target = seam_seg < target_norm
+            ratio_bad = prior_seg > 0.0 and prior_seg / max(seam_seg, 1.0e-12) > ratio_cap
+            if not (below_target or ratio_bad):
+                break
+            del work[-2]
+            drops += 1
+
+    if closed:
+        work.append(work[0])
+    return work
+
+
 def _downsample_airfoil_coordinates(
     coordinates: Sequence[tuple[float, float]],
     *,
     max_points: int = 61,
+    chord: Optional[float] = None,
 ) -> tuple[tuple[float, float], ...]:
     if len(coordinates) <= max_points:
-        return tuple((float(x), float(z)) for x, z in coordinates)
+        prepared = [(float(x), float(z)) for x, z in coordinates]
+        coalesced = _coalesce_trailing_edge_seam(prepared, chord=chord)
+        return tuple(coalesced)
     if max_points < 3:
         max_points = 3
     interior_budget = max_points - 2
@@ -353,6 +419,7 @@ def _downsample_airfoil_coordinates(
         if deduped and all(abs(a - b) <= 1.0e-9 for a, b in zip(deduped[-1], normalized)):
             continue
         deduped.append(normalized)
+    deduped = _coalesce_trailing_edge_seam(deduped, chord=chord)
     if len(deduped) >= 2 and all(abs(a - b) <= 1.0e-9 for a, b in zip(deduped[0], deduped[-1])):
         return tuple(deduped)
     deduped.append(deduped[0])
@@ -402,7 +469,10 @@ def _resolve_section_airfoil_coordinates(
     section: _NativeSectionRecord,
 ) -> tuple[tuple[float, float], ...]:
     if section.airfoil_coordinates:
-        return _downsample_airfoil_coordinates(section.airfoil_coordinates)
+        return _downsample_airfoil_coordinates(
+            section.airfoil_coordinates,
+            chord=float(section.chord) if section.chord else None,
+        )
     return _naca_profile_coordinates(
         thickness_tc=section.thickness_tc or 0.12,
         camber=section.camber or 0.0,
