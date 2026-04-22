@@ -3030,8 +3030,12 @@ def _configure_volume_smoke_decoupled_field(
         background_field_tag = gmsh.model.mesh.field.add("Min")
         gmsh.model.mesh.field.setNumbers(background_field_tag, "FieldsList", fields_list)
 
+    effective_mesh_size_min = float(near_body_size)
+    if tip_quality_buffer_policy.get("enabled"):
+        effective_mesh_size_min = min(effective_mesh_size_min, float(tip_quality_buffer_policy["h_tip_m"]))
+
     gmsh.model.mesh.field.setAsBackgroundMesh(background_field_tag)
-    gmsh.option.setNumber("Mesh.MeshSizeMin", float(near_body_size))
+    gmsh.option.setNumber("Mesh.MeshSizeMin", float(effective_mesh_size_min))
     gmsh.option.setNumber("Mesh.MeshSizeMax", float(base_volume_size))
     gmsh.option.setNumber(
         "Mesh.MeshSizeFromPoints",
@@ -3124,6 +3128,7 @@ def _configure_volume_smoke_decoupled_field(
             "near_body_shell_stop_at_dist_max": bool(stop_at_dist_max) if shell_enabled else False,
             "tip_quality_buffer_enabled": bool(tip_quality_buffer_policy.get("enabled", False)),
             "tip_quality_buffer_stop_at_dist_max": bool(tip_quality_buffer_policy.get("stop_at_dist_max", False)),
+            "effective_mesh_size_min": float(effective_mesh_size_min),
             "mesh_size_from_points": (
                 int(tip_quality_buffer_policy.get("mesh_size_from_points", 0))
                 if tip_quality_buffer_policy.get("enabled")

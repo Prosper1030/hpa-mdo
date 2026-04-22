@@ -1730,6 +1730,7 @@ def test_configure_volume_smoke_decoupled_field_supports_tip_quality_buffer_poli
     assert gmsh.model.mesh.field.number_values[(5, "SizeMax")] == pytest.approx(0.12)
     assert gmsh.model.mesh.field.numbers[(6, "FieldsList")] == [1.0, 3.0, 5.0]
     assert gmsh.model.mesh.field.background == 6
+    assert gmsh.option.values["Mesh.MeshSizeMin"] == pytest.approx(0.0303)
 
 
 def test_collect_volume_quality_metrics_reports_stats_and_worst_tets():
