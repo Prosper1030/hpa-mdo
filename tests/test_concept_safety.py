@@ -84,4 +84,5 @@ def test_turn_gate_keeps_failure_contract_when_trim_is_not_feasible():
 
     assert result.required_cl == pytest.approx(0.70 / 0.9659258262890683, rel=1e-9)
     assert result.feasible is False
-    assert result.reason == "stall_margin_insufficient"
+    assert result.reason == "trim_not_feasible"
+    assert hash(result)

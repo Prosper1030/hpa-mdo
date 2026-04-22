@@ -65,6 +65,8 @@ def _default_spanwise_loader(
 
 def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
     class _NoopWorker:
+        backend_name = "python_stubbed"
+
         def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
             return [
                 {
@@ -72,7 +74,7 @@ def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
                     "reynolds": query.reynolds,
                     "cl_samples": list(query.cl_samples),
                     "roughness_mode": query.roughness_mode,
-                    "status": "skipped",
+                    "status": "stubbed_ok",
                 }
                 for query in queries
             ]

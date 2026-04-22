@@ -132,6 +132,37 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     assert concept_summary["local_stall"]["status"] == "stubbed_ok"
 
 
+def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 350000.0,
+                        "cl_target": 0.75,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ]
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    assert summary["worker_backend"] == "python_stubbed"
+    assert summary["worker_statuses"]
+    assert all(status == "stubbed_ok" for status in summary["worker_statuses"])
+    assert all(
+        item["worker_statuses"] == ["stubbed_ok"]
+        for item in summary["selected_concepts"]
+    )
+
+
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
     output_dir = tmp_path / "smoke"
     subprocess.run(

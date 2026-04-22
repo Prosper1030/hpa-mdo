@@ -20,18 +20,6 @@ class TurnGateResult:
     reason: str
 
 
-class _CompatReason(str):
-    def __new__(cls, value: str, aliases: tuple[str, ...] = ()) -> "_CompatReason":
-        obj = str.__new__(cls, value)
-        obj._aliases = aliases
-        return obj
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, str) and (str.__eq__(self, other) or other in self._aliases):
-            return True
-        return str.__eq__(self, other)
-
-
 def evaluate_launch_gate(
     *,
     platform_height_m: float,
@@ -108,7 +96,7 @@ def evaluate_turn_gate(
                 feasible=False,
                 required_cl=required_cl,
                 stall_margin=stall_margin,
-                reason=_CompatReason("trim_not_feasible", ("stall_margin_insufficient",)),
+                reason="trim_not_feasible",
             )
         return TurnGateResult(
             feasible=False,
