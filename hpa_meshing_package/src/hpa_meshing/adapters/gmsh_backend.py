@@ -106,6 +106,10 @@ HXT_POINTS_ADDED_PATTERN = re.compile(
     r"=\s+(\d+)\s+points added",
     re.IGNORECASE,
 )
+ILL_SHAPED_TETS_PATTERN = re.compile(
+    r"(\d+)\s+ill-shaped tets are still in the mesh",
+    re.IGNORECASE,
+)
 MESH_ALGORITHM_NAME_LOOKUP = {
     1: "MeshAdapt",
     2: "Automatic",
@@ -241,10 +245,212 @@ def _extract_hxt_iteration_summary(logger_messages: Iterable[str]) -> Dict[str, 
     }
 
 
+def _extract_ill_shaped_tet_count(logger_messages: Iterable[str]) -> int:
+    materialized = [str(message) for message in logger_messages]
+    for message in reversed(materialized):
+        match = ILL_SHAPED_TETS_PATTERN.search(message)
+        if match is not None:
+            return int(match.group(1))
+    return 0
+
+
 def _ratio_or_none(numerator: int | float | None, denominator: int | float | None) -> float | None:
     if numerator is None or denominator in (None, 0):
         return None
     return float(numerator) / float(denominator)
+
+
+def _percentile(values: Iterable[float], fraction: float) -> float | None:
+    ordered = sorted(float(value) for value in values)
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return ordered[0]
+    clamped_fraction = min(max(float(fraction), 0.0), 1.0)
+    position = clamped_fraction * float(len(ordered) - 1)
+    lower_index = int(math.floor(position))
+    upper_index = int(math.ceil(position))
+    if lower_index == upper_index:
+        return ordered[lower_index]
+    lower_weight = float(upper_index) - position
+    upper_weight = position - float(lower_index)
+    return ordered[lower_index] * lower_weight + ordered[upper_index] * upper_weight
+
+
+def _nearest_surface_payload(
+    gmsh,
+    *,
+    point: list[float],
+    surface_tag_to_name: Dict[int, str],
+) -> Dict[str, Any] | None:
+    best_match: Dict[str, Any] | None = None
+    for surface_tag, physical_name in surface_tag_to_name.items():
+        try:
+            closest_coord, _ = gmsh.model.getClosestPoint(2, int(surface_tag), point)
+        except Exception:
+            continue
+        if len(closest_coord) < 3:
+            continue
+        closest_point = [float(closest_coord[0]), float(closest_coord[1]), float(closest_coord[2])]
+        distance = math.sqrt(
+            (closest_point[0] - point[0]) ** 2
+            + (closest_point[1] - point[1]) ** 2
+            + (closest_point[2] - point[2]) ** 2
+        )
+        candidate = {
+            "surface_tag": int(surface_tag),
+            "physical_name": str(physical_name),
+            "distance": float(distance),
+            "closest_point": closest_point,
+        }
+        if best_match is None or candidate["distance"] < best_match["distance"]:
+            best_match = candidate
+    return best_match
+
+
+def _collect_volume_quality_metrics(
+    gmsh,
+    *,
+    marker_summary: Dict[str, Any] | None = None,
+    physical_groups: Dict[str, Any] | None = None,
+    logger_messages: Iterable[str] | None = None,
+    worst_count: int = 20,
+) -> Dict[str, Any]:
+    volume_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
+    tetra_tags: list[int] = []
+    for element_type, tags in zip(volume_types, volume_element_tags):
+        if int(element_type) != 4:
+            continue
+        tetra_tags.extend(int(tag) for tag in tags)
+
+    if not tetra_tags:
+        return {
+            "tetrahedron_count": 0,
+            "ill_shaped_tet_count": 0,
+            "non_positive_min_sicn_count": 0,
+            "non_positive_min_sige_count": 0,
+            "non_positive_volume_count": 0,
+            "min_gamma": None,
+            "min_sicn": None,
+            "min_sige": None,
+            "min_volume": None,
+            "gamma_percentiles": {"p01": None, "p05": None, "p50": None},
+            "min_sicn_percentiles": {"p01": None, "p05": None, "p50": None},
+            "min_sige_percentiles": {"p01": None, "p05": None, "p50": None},
+            "volume_percentiles": {"p01": None, "p05": None, "p50": None},
+            "worst_20_tets": [],
+        }
+
+    min_sicn = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "minSICN")]
+    min_sige = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "minSIGE")]
+    gamma = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "gamma")]
+    volume = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "volume")]
+    barycenters_raw = gmsh.model.mesh.getBarycenters(4, -1, False, True)
+    barycenters = [
+        [
+            float(barycenters_raw[index * 3]),
+            float(barycenters_raw[index * 3 + 1]),
+            float(barycenters_raw[index * 3 + 2]),
+        ]
+        for index in range(len(tetra_tags))
+    ]
+
+    surface_tag_to_name: Dict[int, str] = {}
+    for marker_name, payload in (marker_summary or {}).items():
+        if not isinstance(payload, dict) or not payload.get("exists"):
+            continue
+        physical_name = str(payload.get("physical_name") or marker_name)
+        for entity in payload.get("entities", []):
+            surface_tag_to_name[int(entity)] = physical_name
+
+    physical_volume_name = None
+    if isinstance(physical_groups, dict):
+        for payload in physical_groups.values():
+            if not isinstance(payload, dict) or not payload.get("exists"):
+                continue
+            if int(payload.get("dimension", -1) or -1) != 3:
+                continue
+            physical_volume_name = str(payload.get("physical_name") or "fluid")
+            break
+    if physical_volume_name is None:
+        physical_volume_name = "fluid"
+
+    worst_entries: list[Dict[str, Any]] = []
+    for index, element_tag in enumerate(tetra_tags):
+        barycenter = barycenters[index]
+        worst_entries.append(
+            {
+                "element_id": int(element_tag),
+                "barycenter": barycenter,
+                "min_sicn": min_sicn[index],
+                "min_sige": min_sige[index],
+                "gamma": gamma[index],
+                "volume": volume[index],
+                "physical_volume_name": physical_volume_name,
+            }
+        )
+
+    worst_entries.sort(
+        key=lambda entry: (
+            float(entry["min_sicn"]),
+            float(entry["min_sige"]),
+            float(entry["gamma"]),
+            float(entry["volume"]),
+            int(entry["element_id"]),
+        )
+    )
+
+    fallback_ill_shaped_count = sum(
+        1
+        for sicn_value, sige_value, volume_value in zip(min_sicn, min_sige, volume)
+        if sicn_value <= 0.0 or sige_value <= 0.0 or volume_value <= 0.0
+    )
+    logged_ill_shaped_count = _extract_ill_shaped_tet_count(logger_messages or [])
+
+    worst_subset = worst_entries[: max(0, int(worst_count))]
+    if surface_tag_to_name:
+        for entry in worst_subset:
+            entry["nearest_surface"] = _nearest_surface_payload(
+                gmsh,
+                point=[float(value) for value in entry["barycenter"]],
+                surface_tag_to_name=surface_tag_to_name,
+            )
+    else:
+        for entry in worst_subset:
+            entry["nearest_surface"] = None
+
+    return {
+        "tetrahedron_count": len(tetra_tags),
+        "ill_shaped_tet_count": int(logged_ill_shaped_count or fallback_ill_shaped_count),
+        "non_positive_min_sicn_count": sum(1 for value in min_sicn if value <= 0.0),
+        "non_positive_min_sige_count": sum(1 for value in min_sige if value <= 0.0),
+        "non_positive_volume_count": sum(1 for value in volume if value <= 0.0),
+        "min_gamma": min(gamma),
+        "min_sicn": min(min_sicn),
+        "min_sige": min(min_sige),
+        "min_volume": min(volume),
+        "gamma_percentiles": {
+            "p01": _percentile(gamma, 0.01),
+            "p05": _percentile(gamma, 0.05),
+            "p50": _percentile(gamma, 0.50),
+        },
+        "min_sicn_percentiles": {
+            "p01": _percentile(min_sicn, 0.01),
+            "p05": _percentile(min_sicn, 0.05),
+            "p50": _percentile(min_sicn, 0.50),
+        },
+        "min_sige_percentiles": {
+            "p01": _percentile(min_sige, 0.01),
+            "p05": _percentile(min_sige, 0.05),
+            "p50": _percentile(min_sige, 0.50),
+        },
+        "volume_percentiles": {
+            "p01": _percentile(volume, 0.01),
+            "p05": _percentile(volume, 0.05),
+            "p50": _percentile(volume, 0.50),
+        },
+        "worst_20_tets": worst_subset,
+    }
 
 
 def _classify_3d_timeout_phase(logger_messages: Iterable[str]) -> str:
@@ -3234,6 +3440,21 @@ def _apply_occ_external_flow_route(
             "mesh_dim": int(config.mesh_dim),
             **_mesh_stats(gmsh),
         }
+        final_logger_messages: list[str] = []
+        try:
+            final_logger_messages = [str(message) for message in gmsh.logger.get()]
+        except Exception:
+            final_logger_messages = []
+        quality_metrics = (
+            _collect_volume_quality_metrics(
+                gmsh,
+                marker_summary=marker_summary,
+                physical_groups=physical_groups,
+                logger_messages=final_logger_messages,
+            )
+            if int(mesh_stats.get("volume_element_count", 0) or 0) > 0
+            else None
+        )
         metadata["volume_meshing"]["completed"] = True
         artifacts = MeshArtifactBundle(
             mesh=mesh_path,
@@ -3331,6 +3552,8 @@ def _apply_occ_external_flow_route(
                 **mesh_stats,
             },
         }
+        if quality_metrics is not None:
+            metadata["quality_metrics"] = quality_metrics
         _json_write(metadata_path, metadata)
         _json_write(marker_summary_path, marker_summary)
 

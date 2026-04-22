@@ -9,6 +9,7 @@ import pytest
 import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
     _probe_discrete_classify_angles,
+    _collect_volume_quality_metrics,
     _collect_plc_error_probe,
     _collect_surface_patch_diagnostics,
     _configure_mesh_field,
@@ -1290,6 +1291,59 @@ class _FakeGmsh:
         self.option = _FakeOptionApi()
 
 
+class _FakeQualityMeshApi:
+    def __init__(self) -> None:
+        self._volume_types = [4]
+        self._volume_tags = [[101, 102, 103]]
+        self._qualities = {
+            "minSICN": [0.45, -0.02, 0.12],
+            "minSIGE": [0.52, -0.01, 0.09],
+            "gamma": [0.82, 0.03, 0.24],
+            "volume": [0.4, 0.01, 0.08],
+        }
+        self._barycenters = [
+            0.1,
+            0.2,
+            0.3,
+            0.8,
+            0.9,
+            1.0,
+            1.2,
+            1.3,
+            1.4,
+        ]
+
+    def getElements(self, dim: int = -1, tag: int = -1):
+        assert int(dim) == 3
+        return self._volume_types, self._volume_tags, [[]]
+
+    def getElementQualities(self, element_tags, quality_name: str):
+        assert [int(tag) for tag in element_tags] == [101, 102, 103]
+        return self._qualities[quality_name]
+
+    def getBarycenters(self, element_type: int, tag: int, fast: bool, primary: bool):
+        assert int(element_type) == 4
+        return self._barycenters
+
+
+class _FakeQualityModelApi:
+    def __init__(self) -> None:
+        self.mesh = _FakeQualityMeshApi()
+
+    def getClosestPoint(self, dim: int, tag: int, coord):
+        point = [float(value) for value in coord]
+        if int(tag) == 11:
+            return [point[0] - 0.1, point[1], point[2]], [0.0, 0.0]
+        if int(tag) == 22:
+            return [point[0], point[1] - 0.05, point[2]], [0.0, 0.0]
+        return [point[0], point[1], point[2] + 0.2], [0.0, 0.0]
+
+
+class _FakeQualityGmsh:
+    def __init__(self) -> None:
+        self.model = _FakeQualityModelApi()
+
+
 def test_configure_volume_smoke_decoupled_field_uses_bounded_near_body_shell(tmp_path: Path):
     config = MeshJobConfig(
         component="main_wing",
@@ -1382,6 +1436,36 @@ def test_configure_volume_smoke_decoupled_field_allows_uniform_volume_sanity(tmp
     assert gmsh.model.mesh.field.added == ["Box"]
     assert gmsh.model.mesh.field.background == 1
     assert gmsh.option.values["Mesh.MeshSizeMax"] == pytest.approx(16.0)
+
+
+def test_collect_volume_quality_metrics_reports_stats_and_worst_tets():
+    gmsh = _FakeQualityGmsh()
+
+    quality_metrics = _collect_volume_quality_metrics(
+        gmsh,
+        marker_summary={
+            "aircraft": {"exists": True, "entities": [11]},
+            "farfield": {"exists": True, "entities": [22]},
+        },
+        logger_messages=["Warning: 1 ill-shaped tets are still in the mesh"],
+        worst_count=2,
+    )
+
+    assert quality_metrics["tetrahedron_count"] == 3
+    assert quality_metrics["ill_shaped_tet_count"] == 1
+    assert quality_metrics["non_positive_min_sicn_count"] == 1
+    assert quality_metrics["non_positive_min_sige_count"] == 1
+    assert quality_metrics["non_positive_volume_count"] == 0
+    assert quality_metrics["min_gamma"] == pytest.approx(0.03)
+    assert quality_metrics["min_sicn"] == pytest.approx(-0.02)
+    assert quality_metrics["min_sige"] == pytest.approx(-0.01)
+    assert quality_metrics["min_volume"] == pytest.approx(0.01)
+    assert quality_metrics["gamma_percentiles"]["p50"] == pytest.approx(0.24)
+    assert quality_metrics["min_sicn_percentiles"]["p01"] <= quality_metrics["min_sicn_percentiles"]["p50"]
+    assert len(quality_metrics["worst_20_tets"]) == 2
+    assert quality_metrics["worst_20_tets"][0]["element_id"] == 102
+    assert quality_metrics["worst_20_tets"][0]["nearest_surface"]["physical_name"] == "farfield"
+    assert quality_metrics["worst_20_tets"][0]["physical_volume_name"] == "fluid"
 
 
 def test_configure_mesh_field_applies_native_esp_surface_policy_from_patch_diagnostics(tmp_path: Path):
@@ -1935,6 +2019,57 @@ def test_apply_recipe_generates_occ_mesh_for_thin_sheet_surface_route(tmp_path: 
     metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
     assert metadata["geometry_family"] == "thin_sheet_lifting_surface"
     assert metadata["surface_mesh"]["duplicate_facets_after_cleanup"]["duplicate_facet_count"] == 0
+
+
+def test_apply_recipe_successful_3d_run_persists_quality_metrics(tmp_path: Path):
+    normalized = _write_occ_box_step(tmp_path, "quality_box.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = _provider_result(source, normalized)
+    config = MeshJobConfig(
+        component="aircraft_assembly",
+        geometry=source,
+        out_dir=tmp_path / "quality_out",
+        geometry_source="provider_generated",
+        geometry_family="thin_sheet_aircraft_assembly",
+        geometry_provider="openvsp_surface_intersection",
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:openvsp_surface_intersection",
+        geometry_source="provider_generated",
+        declared_family="thin_sheet_aircraft_assembly",
+        component="aircraft_assembly",
+        provider="openvsp_surface_intersection",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="provider_generated",
+        geometry_provider="openvsp_surface_intersection",
+        declared_family="thin_sheet_aircraft_assembly",
+        inferred_family=None,
+        geometry_family="thin_sheet_aircraft_assembly",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    result = apply_recipe(recipe, handle, config)
+
+    assert result["status"] == "success"
+    metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
+    quality = metadata["quality_metrics"]
+    assert quality["tetrahedron_count"] == metadata["mesh"]["volume_element_count"]
+    assert quality["worst_20_tets"]
+    assert "gamma_percentiles" in quality
+    assert "min_sicn_percentiles" in quality
+    assert quality["min_volume"] > 0.0
 
 
 def test_apply_recipe_writes_mesh_handoff_contract(tmp_path: Path):
