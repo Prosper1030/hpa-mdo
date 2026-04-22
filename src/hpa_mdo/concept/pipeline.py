@@ -196,7 +196,7 @@ def _summarize_launch(
     air_density_kg_per_m3: float,
 ) -> tuple[dict[str, Any], float, float]:
     q_pa = 0.5 * air_density_kg_per_m3 * float(cfg.launch.release_speed_mps) ** 2
-    gross_mass_kg = float(cfg.mass.gross_mass_sweep_kg[len(cfg.mass.gross_mass_sweep_kg) // 2])
+    gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
     cl_required = (gross_mass_kg * 9.80665) / max(q_pa * concept.wing_area_m2, 1.0e-9)
     cl_available = min(point["cl_max_proxy"] for point in station_points)
 
@@ -236,9 +236,7 @@ def _summarize_turn(
     station_points: list[dict[str, float]],
     trim_result,
 ) -> dict[str, Any]:
-    representative_cl = sum(point["cl_target"] * point.get("weight", 1.0) for point in station_points)
-    total_weight = sum(point.get("weight", 1.0) for point in station_points) or 1.0
-    representative_cl /= total_weight
+    representative_cl = max(point["cl_target"] for point in station_points)
     cl_max = min(point["cl_max_proxy"] for point in station_points)
 
     turn_result = evaluate_turn_gate(
@@ -268,10 +266,7 @@ def _summarize_trim(
     cfg: BirdmanConceptConfig,
     station_points: list[dict[str, float]],
 ) -> tuple[dict[str, Any], Any]:
-    total_weight = sum(point.get("weight", 1.0) for point in station_points) or 1.0
-    representative_cm = sum(
-        point["cm_target"] * point.get("weight", 1.0) for point in station_points
-    ) / total_weight
+    representative_cm = -max(abs(point["cm_target"]) for point in station_points)
     trim_result = evaluate_trim_proxy(
         representative_cm=representative_cm,
         required_margin_deg=cfg.launch.min_trim_margin_deg,

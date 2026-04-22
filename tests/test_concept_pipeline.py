@@ -155,6 +155,65 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     assert isinstance(concept_summary["local_stall"]["min_margin"], float)
 
 
+def test_pipeline_uses_conservative_representative_values_for_safety_blocks(
+    tmp_path: Path,
+) -> None:
+    result = run_birdman_concept_pipeline(
+        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 350000.0,
+                        "cl_target": 0.68,
+                        "cm_target": -0.04,
+                        "weight": 1.0,
+                        "station_y_m": 1.0,
+                    }
+                ]
+            },
+            "mid1": {
+                "points": [
+                    {
+                        "reynolds": 300000.0,
+                        "cl_target": 0.74,
+                        "cm_target": 0.12,
+                        "weight": 1.0,
+                        "station_y_m": 5.0,
+                    }
+                ]
+            },
+            "tip": {
+                "points": [
+                    {
+                        "reynolds": 220000.0,
+                        "cl_target": 0.81,
+                        "cm_target": -0.08,
+                        "weight": 1.0,
+                        "station_y_m": 14.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    first = summary["selected_concepts"][0]
+
+    assert first["launch"]["gross_mass_kg"] == pytest.approx(105.0)
+    assert first["turn"]["cl_level"] == pytest.approx(0.81)
+    assert first["trim"]["representative_cm"] == pytest.approx(-0.12)
+
+
 def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:
     result = run_birdman_concept_pipeline(
         config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
