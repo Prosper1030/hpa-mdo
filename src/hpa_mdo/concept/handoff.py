@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from hpa_mdo.concept.vsp_export import write_concept_openvsp_handoff
+
 
 def _validate_stations_rows(stations_rows: list[dict]) -> None:
     if not stations_rows:
@@ -58,5 +60,15 @@ def write_selected_concept_bundle(
     (bundle_dir / "concept_summary.json").write_text(
         json.dumps(concept_summary, indent=2),
         encoding="utf-8",
+    )
+    write_concept_openvsp_handoff(
+        bundle_dir=bundle_dir,
+        concept_id=concept_id,
+        concept_config=concept_config,
+        stations_rows=stations_rows,
+        airfoil_templates=airfoil_templates,
+        lofting_guides=lofting_guides,
+        prop_assumption=prop_assumption,
+        concept_summary=concept_summary,
     )
     return bundle_dir
