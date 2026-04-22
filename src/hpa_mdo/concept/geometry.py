@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isclose
 from itertools import product
 
 
@@ -22,6 +23,32 @@ class GeometryConcept:
     tail_area_m2: float
     cg_xc: float
     segment_lengths_m: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if self.span_m <= 0.0:
+            raise ValueError("span_m must be positive.")
+        if self.wing_area_m2 <= 0.0:
+            raise ValueError("wing_area_m2 must be positive.")
+        if self.root_chord_m <= 0.0:
+            raise ValueError("root_chord_m must be positive.")
+        if self.tip_chord_m <= 0.0:
+            raise ValueError("tip_chord_m must be positive.")
+        if self.tail_area_m2 <= 0.0:
+            raise ValueError("tail_area_m2 must be positive.")
+        if not 0.0 <= self.cg_xc <= 1.0:
+            raise ValueError("cg_xc must be in [0, 1].")
+        if not self.segment_lengths_m:
+            raise ValueError("segment_lengths_m must not be empty.")
+        if any(length <= 0.0 for length in self.segment_lengths_m):
+            raise ValueError("segment_lengths_m entries must all be positive.")
+
+        half_span_m = 0.5 * self.span_m
+        if not isclose(sum(self.segment_lengths_m), half_span_m, rel_tol=1e-6, abs_tol=1e-6):
+            raise ValueError("segment_lengths_m must sum to half-span within tolerance.")
+
+        expected_area_m2 = self.span_m * (self.root_chord_m + self.tip_chord_m) / 2.0
+        if not isclose(self.wing_area_m2, expected_area_m2, rel_tol=1e-6, abs_tol=1e-6):
+            raise ValueError("trapezoidal wing area is inconsistent with span/root/tip chord.")
 
 
 def build_segment_plan(
@@ -50,14 +77,39 @@ def build_linear_wing_stations(
     *,
     stations_per_half: int,
 ) -> tuple[WingStation, ...]:
-    if stations_per_half < 2:
-        raise ValueError("stations_per_half must be at least 2.")
+    segment_count = len(concept.segment_lengths_m)
+    boundary_count = segment_count + 1
+    if stations_per_half < boundary_count:
+        raise ValueError(
+            "stations_per_half must be at least len(concept.segment_lengths_m) + 1."
+        )
 
     half_span_m = 0.5 * concept.span_m
+    boundaries = [0.0]
+    for segment_length in concept.segment_lengths_m:
+        boundaries.append(boundaries[-1] + float(segment_length))
+
+    if stations_per_half == boundary_count:
+        y_locations = tuple(boundaries)
+    else:
+        extra_points = stations_per_half - boundary_count
+        per_segment_interior_points = [extra_points // segment_count] * segment_count
+        for index in range(extra_points % segment_count):
+            per_segment_interior_points[index] += 1
+
+        y_locations: list[float] = [boundaries[0]]
+        for segment_index, (start_y_m, end_y_m) in enumerate(zip(boundaries, boundaries[1:])):
+            interior_count = per_segment_interior_points[segment_index]
+            segment_length_m = end_y_m - start_y_m
+            for interior_index in range(1, interior_count + 1):
+                frac = interior_index / float(interior_count + 1)
+                y_locations.append(start_y_m + frac * segment_length_m)
+            y_locations.append(end_y_m)
+        y_locations = tuple(y_locations)
+
     stations: list[WingStation] = []
-    for index in range(stations_per_half):
-        frac = index / float(stations_per_half - 1)
-        y_m = half_span_m * frac
+    for y_m in y_locations:
+        frac = 0.0 if half_span_m == 0.0 else y_m / half_span_m
         chord_m = concept.root_chord_m + frac * (concept.tip_chord_m - concept.root_chord_m)
         twist_deg = concept.twist_root_deg + frac * (concept.twist_tip_deg - concept.twist_root_deg)
         stations.append(WingStation(y_m=y_m, chord_m=chord_m, twist_deg=twist_deg))
