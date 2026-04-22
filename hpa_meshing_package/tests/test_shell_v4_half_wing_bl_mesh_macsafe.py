@@ -26,6 +26,28 @@ def test_build_shell_v4_spec_uses_half_wing_reference_values():
     assert 0.035 <= spec["boundary_layer"]["target_total_thickness_m"] <= 0.05
 
 
+def test_build_shell_v4_baseline_spec_uses_macsafe_off_wall_redesign():
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+
+    assert spec["wake_refinement"]["wake_length_chords"] == pytest.approx(5.0)
+    assert spec["wake_refinement"]["wake_height_chords"] == pytest.approx(0.7)
+    assert spec["wake_refinement"]["near_wake_cell_size_chords"] == pytest.approx(0.10)
+    assert spec["tip_refinement"]["spanwise_length_chords"] == pytest.approx(0.4)
+    assert spec["tip_refinement"]["cell_size_chords"] == pytest.approx(0.16)
+    assert spec["farfield"]["upstream_chords"] == pytest.approx(5.0)
+    assert spec["farfield"]["downstream_chords"] == pytest.approx(8.0)
+    assert spec["farfield"]["normal_chords"] == pytest.approx(5.0)
+    assert spec["farfield"]["outer_cell_size_chords"] == pytest.approx(2.4)
+    assert spec["cell_budget"]["target_total_cells_min"] == 1_500_000
+    assert spec["cell_budget"]["target_total_cells_max"] == 2_200_000
+    assert spec["cell_budget"]["hard_fail_total_cells"] == 3_000_000
+    assert spec["off_wall_growth"]["enabled"] is True
+    assert spec["off_wall_growth"]["support_cell_size_chords"] == pytest.approx(0.20)
+    assert spec["off_wall_growth"]["support_dist_min_chords"] == pytest.approx(0.15)
+    assert spec["off_wall_growth"]["support_dist_max_chords"] == pytest.approx(0.60)
+    assert spec["off_wall_growth"]["stop_at_dist_max"] is True
+
+
 def test_estimate_first_cell_yplus_range_returns_positive_laminar_to_turbulent_band():
     result = estimate_first_cell_yplus_range(
         velocity_mps=6.5,

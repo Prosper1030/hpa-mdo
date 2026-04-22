@@ -59,24 +59,31 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
             "require_explicit_wall_normal_cells": True,
         },
         "wake_refinement": {
-            "wake_length_chords": 8.0,
-            "wake_height_chords": 1.0,
-            "near_wake_cell_size_chords": 0.05,
+            "wake_length_chords": 5.0,
+            "wake_height_chords": 0.7,
+            "near_wake_cell_size_chords": 0.10,
         },
         "tip_refinement": {
-            "spanwise_length_chords": 1.0,
-            "cell_size_chords": 0.08,
+            "spanwise_length_chords": 0.4,
+            "cell_size_chords": 0.16,
+        },
+        "off_wall_growth": {
+            "enabled": True,
+            "support_cell_size_chords": 0.20,
+            "support_dist_min_chords": 0.15,
+            "support_dist_max_chords": 0.60,
+            "stop_at_dist_max": True,
         },
         "farfield": {
-            "upstream_chords": 8.0,
-            "downstream_chords": 12.0,
-            "normal_chords": 8.0,
-            "outer_cell_size_chords": 1.40,
+            "upstream_chords": 5.0,
+            "downstream_chords": 8.0,
+            "normal_chords": 5.0,
+            "outer_cell_size_chords": 2.40,
         },
         "cell_budget": {
-            "target_total_cells_min": 1_000_000,
-            "target_total_cells_max": 2_000_000,
-            "hard_fail_total_cells": 2_500_000,
+            "target_total_cells_min": 1_500_000,
+            "target_total_cells_max": 2_200_000,
+            "hard_fail_total_cells": 3_000_000,
             "min_volume_to_wall_ratio": 15.0,
             "max_bl_collapse_rate": 0.02,
         },
@@ -1178,10 +1185,21 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 "target_cell_size_m": float(spec["tip_refinement"]["cell_size_chords"]) * chord_m,
             },
         }
+        off_wall_growth = spec.get("off_wall_growth", {})
+        outer_cell_size_m = float(spec["farfield"]["outer_cell_size_chords"]) * chord_m
+        if bool(off_wall_growth.get("enabled")):
+            refinement_regions["off_wall_growth_region"] = {
+                "kind": "surface_distance_threshold",
+                "support_cell_size_m": float(off_wall_growth["support_cell_size_chords"]) * chord_m,
+                "outer_cell_size_m": outer_cell_size_m,
+                "support_dist_min_m": float(off_wall_growth["support_dist_min_chords"]) * chord_m,
+                "support_dist_max_m": float(off_wall_growth["support_dist_max_chords"]) * chord_m,
+                "stop_at_dist_max": bool(off_wall_growth.get("stop_at_dist_max", True)),
+            }
 
         wake_field = gmsh.model.mesh.field.add("Box")
         gmsh.model.mesh.field.setNumber(wake_field, "VIn", refinement_regions["wake_refinement_region"]["target_cell_size_m"])
-        gmsh.model.mesh.field.setNumber(wake_field, "VOut", float(spec["farfield"]["outer_cell_size_chords"]) * chord_m)
+        gmsh.model.mesh.field.setNumber(wake_field, "VOut", outer_cell_size_m)
         gmsh.model.mesh.field.setNumber(wake_field, "XMin", refinement_regions["wake_refinement_region"]["x_min"])
         gmsh.model.mesh.field.setNumber(wake_field, "XMax", refinement_regions["wake_refinement_region"]["x_max"])
         gmsh.model.mesh.field.setNumber(wake_field, "YMin", refinement_regions["wake_refinement_region"]["y_min"])
@@ -1191,7 +1209,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
 
         tip_field = gmsh.model.mesh.field.add("Box")
         gmsh.model.mesh.field.setNumber(tip_field, "VIn", refinement_regions["tip_refinement_region"]["target_cell_size_m"])
-        gmsh.model.mesh.field.setNumber(tip_field, "VOut", float(spec["farfield"]["outer_cell_size_chords"]) * chord_m)
+        gmsh.model.mesh.field.setNumber(tip_field, "VOut", outer_cell_size_m)
         gmsh.model.mesh.field.setNumber(tip_field, "XMin", refinement_regions["tip_refinement_region"]["x_min"])
         gmsh.model.mesh.field.setNumber(tip_field, "XMax", refinement_regions["tip_refinement_region"]["x_max"])
         gmsh.model.mesh.field.setNumber(tip_field, "YMin", refinement_regions["tip_refinement_region"]["y_min"])
@@ -1199,8 +1217,42 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         gmsh.model.mesh.field.setNumber(tip_field, "ZMin", refinement_regions["tip_refinement_region"]["z_min"])
         gmsh.model.mesh.field.setNumber(tip_field, "ZMax", refinement_regions["tip_refinement_region"]["z_max"])
 
+        fields_list = [wake_field, tip_field]
+        if bool(off_wall_growth.get("enabled")):
+            support_distance_field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(support_distance_field, "FacesList", bl_top_surface_tags)
+
+            support_threshold_field = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(support_threshold_field, "InField", support_distance_field)
+            gmsh.model.mesh.field.setNumber(
+                support_threshold_field,
+                "SizeMin",
+                refinement_regions["off_wall_growth_region"]["support_cell_size_m"],
+            )
+            gmsh.model.mesh.field.setNumber(
+                support_threshold_field,
+                "SizeMax",
+                refinement_regions["off_wall_growth_region"]["outer_cell_size_m"],
+            )
+            gmsh.model.mesh.field.setNumber(
+                support_threshold_field,
+                "DistMin",
+                refinement_regions["off_wall_growth_region"]["support_dist_min_m"],
+            )
+            gmsh.model.mesh.field.setNumber(
+                support_threshold_field,
+                "DistMax",
+                refinement_regions["off_wall_growth_region"]["support_dist_max_m"],
+            )
+            gmsh.model.mesh.field.setNumber(
+                support_threshold_field,
+                "StopAtDistMax",
+                1.0 if refinement_regions["off_wall_growth_region"]["stop_at_dist_max"] else 0.0,
+            )
+            fields_list.append(support_threshold_field)
+
         minimum_field = gmsh.model.mesh.field.add("Min")
-        gmsh.model.mesh.field.setNumbers(minimum_field, "FieldsList", [wake_field, tip_field])
+        gmsh.model.mesh.field.setNumbers(minimum_field, "FieldsList", fields_list)
         gmsh.model.mesh.field.setAsBackgroundMesh(minimum_field)
         gmsh.model.geo.synchronize()
 
