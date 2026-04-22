@@ -21,7 +21,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.launch.release_speed_mps == pytest.approx(8.0)
     assert cfg.launch.release_rpm == pytest.approx(140.0)
     assert cfg.launch.min_trim_margin_deg == pytest.approx(2.0)
-    assert cfg.launch.min_stall_margin == pytest.approx(2.0)
+    assert cfg.launch.min_stall_margin == pytest.approx(0.10)
     assert cfg.prop.blade_count == 2
     assert cfg.prop.diameter_m == pytest.approx(3.0)
     assert cfg.prop.rpm_min == pytest.approx(100.0)
@@ -69,6 +69,22 @@ def test_segment_length_bounds_must_be_ordered():
                     "min_segment_length_m": 3.5,
                     "max_segment_length_m": 3.0,
                 },
+            }
+        )
+
+
+def test_launch_min_stall_margin_must_be_physical():
+    with pytest.raises(ValueError, match="launch.min_stall_margin"):
+        BirdmanConceptConfig.model_validate(
+            {
+                "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+                "mass": {
+                    "pilot_mass_kg": 60.0,
+                    "baseline_aircraft_mass_kg": 40.0,
+                    "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+                },
+                "mission": {"target_distance_km": 42.195},
+                "launch": {"min_stall_margin": 2.0},
             }
         )
 

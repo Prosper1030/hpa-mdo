@@ -27,7 +27,7 @@ launch:
   release_speed_mps: 8.0
   release_rpm: 140.0
   min_trim_margin_deg: 2.0
-  min_stall_margin: 2.0
+  min_stall_margin: 0.10
   platform_height_m: 10.0
   runup_length_m: 10.0
   use_ground_effect: true

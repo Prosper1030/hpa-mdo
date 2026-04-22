@@ -69,7 +69,7 @@ class LaunchConfig(ConceptBaseModel):
     release_speed_mps: float = Field(8.0, gt=0.0)
     release_rpm: float = Field(140.0, gt=0.0)
     min_trim_margin_deg: float = Field(2.0, gt=0.0)
-    min_stall_margin: float = Field(2.0, gt=0.0)
+    min_stall_margin: float = Field(0.10, gt=0.0, lt=1.0)
     platform_height_m: float = Field(10.0, gt=0.0)
     runup_length_m: float = Field(10.0, gt=0.0)
     use_ground_effect: bool = True
