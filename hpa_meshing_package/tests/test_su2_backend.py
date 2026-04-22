@@ -203,6 +203,20 @@ def test_materialize_baseline_case_defaults_to_four_su2_threads(tmp_path: Path):
     assert case.solver_command == ["SU2_CFD", "-t", "4", "su2_runtime.cfg"]
 
 
+def test_materialize_baseline_case_supports_mpi_launch_mode_with_four_core_budget(tmp_path: Path):
+    mesh_handoff = _build_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(enabled=True, max_iterations=12, parallel_mode="mpi")
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert case.solver_command == ["mpirun", "-np", "4", "SU2_CFD", "-t", "1", "su2_runtime.cfg"]
+
+
 def test_materialize_baseline_case_prefers_geometry_derived_reference_when_available(
     tmp_path: Path,
     monkeypatch,
@@ -448,6 +462,37 @@ def test_run_baseline_case_invokes_solver_and_updates_contract(tmp_path: Path, m
     assert payload["convergence_gate"]["mesh_gate"]["status"] == "pass"
 
 
+def test_run_baseline_case_invokes_mpi_launcher_with_one_thread_per_rank(tmp_path: Path, monkeypatch):
+    mesh_handoff = _build_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(enabled=True, max_iterations=5, parallel_mode="mpi")
+    calls: list[dict[str, object]] = []
+
+    def _fake_run(command, cwd=None, stdout=None, stderr=None, text=None, check=None, env=None):
+        case_dir = Path(cwd)
+        calls.append({"command": list(command), "cwd": str(case_dir), "omp_num_threads": None if env is None else env.get("OMP_NUM_THREADS")})
+        (case_dir / "history.csv").write_text(
+            '"Time_Iter","Inner_Iter","CD","CL","CMy"\n0,0,0.021,0.13,-0.005\n',
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr("hpa_meshing.adapters.su2_backend.shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("hpa_meshing.adapters.su2_backend.subprocess.run", _fake_run)
+
+    result = run_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert calls
+    assert calls[0]["command"] == ["mpirun", "-np", "4", "SU2_CFD", "-t", "1", "su2_runtime.cfg"]
+    assert calls[0]["omp_num_threads"] == "1"
+    assert result["run_status"] == "completed"
+    assert result["solver_command"] == "mpirun -np 4 SU2_CFD -t 1 su2_runtime.cfg"
+
+
 def test_run_baseline_case_fails_clearly_when_solver_missing(tmp_path: Path, monkeypatch):
     mesh_handoff = _build_mesh_handoff(tmp_path)
     runtime = SU2RuntimeConfig(enabled=True)
@@ -464,6 +509,27 @@ def test_run_baseline_case_fails_clearly_when_solver_missing(tmp_path: Path, mon
     assert result["run_status"] == "failed"
     assert result["failure_code"] == "solver_not_found"
     assert "SU2_CFD" in result["error"]
+
+
+def test_run_baseline_case_fails_clearly_when_mpi_launcher_missing(tmp_path: Path, monkeypatch):
+    mesh_handoff = _build_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(enabled=True, parallel_mode="mpi")
+
+    monkeypatch.setattr(
+        "hpa_meshing.adapters.su2_backend.shutil.which",
+        lambda name: None if name == "mpirun" else f"/usr/bin/{name}",
+    )
+
+    result = run_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert result["run_status"] == "failed"
+    assert result["failure_code"] == "launcher_not_found"
+    assert "mpirun" in result["error"]
 
 
 def test_run_job_surfaces_su2_baseline_report(tmp_path: Path, monkeypatch):

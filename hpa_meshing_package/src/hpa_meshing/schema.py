@@ -61,6 +61,7 @@ SU2ReferenceSourceCategoryType = Literal[
     "geometry_derived",
     "user_declared",
 ]
+SU2ParallelModeType = Literal["threads", "mpi"]
 ForceSurfaceScopeType = Literal["whole_aircraft_wall", "component_subset", "unknown"]
 ComponentForceSurfaceProvenanceType = Literal[
     "not_available",
@@ -148,7 +149,10 @@ class SU2RuntimeConfig(BaseModel):
     inc_density_model: Literal["CONSTANT"] = "CONSTANT"
     fluid_model: Literal["CONSTANT_DENSITY"] = "CONSTANT_DENSITY"
     solver_command: str = "SU2_CFD"
+    parallel_mode: SU2ParallelModeType = "threads"
+    mpi_launcher: str = "mpirun"
     cpu_threads: int = 4
+    mpi_ranks: int = 4
     case_name: str = "alpha_0_baseline"
     max_iterations: int = 50
     cfl_number: float = 5.0

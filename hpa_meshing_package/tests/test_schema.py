@@ -689,6 +689,15 @@ def test_schema_supports_mesh_handoff_contract_models(tmp_path: Path):
     assert handoff.body_bounds.x_max == 5.7
 
 
+def test_schema_supports_selectable_su2_parallel_modes():
+    runtime = SU2RuntimeConfig(enabled=True, parallel_mode="mpi")
+
+    assert runtime.parallel_mode == "mpi"
+    assert runtime.cpu_threads == 4
+    assert runtime.mpi_ranks == 4
+    assert runtime.mpi_launcher == "mpirun"
+
+
 def test_schema_supports_su2_handoff_contract_models(tmp_path: Path):
     case_dir = tmp_path / "out" / "su2"
     runtime = SU2RuntimeConfig(

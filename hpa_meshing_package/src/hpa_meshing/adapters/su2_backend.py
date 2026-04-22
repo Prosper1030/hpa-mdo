@@ -438,19 +438,49 @@ def _cfg_text(
     return "\n".join(lines)
 
 
+def _mpi_ranks(runtime: SU2RuntimeConfig) -> int:
+    return max(1, int(runtime.mpi_ranks))
+
+
+def _omp_threads_per_rank(runtime: SU2RuntimeConfig) -> int:
+    total_cores = max(1, int(runtime.cpu_threads))
+    if runtime.parallel_mode == "mpi":
+        return max(1, total_cores // _mpi_ranks(runtime))
+    return total_cores
+
+
 def _solver_command(runtime: SU2RuntimeConfig, runtime_cfg_name: str) -> list[str]:
+    omp_threads = _omp_threads_per_rank(runtime)
+    if runtime.parallel_mode == "mpi":
+        return [
+            runtime.mpi_launcher,
+            "-np",
+            str(_mpi_ranks(runtime)),
+            runtime.solver_command,
+            "-t",
+            str(omp_threads),
+            runtime_cfg_name,
+        ]
     return [
         runtime.solver_command,
         "-t",
-        str(max(1, int(runtime.cpu_threads))),
+        str(omp_threads),
         runtime_cfg_name,
     ]
 
 
 def _solver_env(runtime: SU2RuntimeConfig) -> dict[str, str]:
     env = os.environ.copy()
-    env["OMP_NUM_THREADS"] = str(max(1, int(runtime.cpu_threads)))
+    env["OMP_NUM_THREADS"] = str(_omp_threads_per_rank(runtime))
     return env
+
+
+def _resolve_launch_requirements(runtime: SU2RuntimeConfig) -> tuple[str | None, str | None]:
+    if runtime.parallel_mode == "mpi" and shutil.which(runtime.mpi_launcher) is None:
+        return "launcher_not_found", runtime.mpi_launcher
+    if shutil.which(runtime.solver_command) is None:
+        return "solver_not_found", runtime.solver_command
+    return None, None
 
 
 def _convert_mesh_to_su2(source_mesh: Path, output_mesh: Path, *, thread_count: int = 4) -> None:
@@ -540,6 +570,10 @@ def materialize_baseline_case(
             "source_farfield_bounds": mesh_handoff.farfield_bounds.model_dump(mode="json"),
             "reference_source_path": str(_resolve_path(mesh_handoff.source_path, source_root)),
             "reference_mode_requested": runtime.reference_mode,
+            "parallel_mode_requested": runtime.parallel_mode,
+            "mpi_launcher": runtime.mpi_launcher,
+            "mpi_ranks": _mpi_ranks(runtime),
+            "omp_threads_per_rank": _omp_threads_per_rank(runtime),
             "reference_gate_status": reference.gate_status,
             "force_surface_gate_status": force_surface_provenance.gate_status,
         },
@@ -690,13 +724,15 @@ def run_baseline_case(
     except Exception as exc:
         return _failure_result(None, failure_code="materialization_failed", error=str(exc))
 
-    solver_path = shutil.which(runtime.solver_command)
-    if solver_path is None:
+    failure_code, missing_command = _resolve_launch_requirements(runtime)
+    if failure_code is not None and missing_command is not None:
         return _failure_result(
             case,
-            failure_code="solver_not_found",
-            error=f"{runtime.solver_command} not found on PATH",
+            failure_code=failure_code,
+            error=f"{missing_command} not found on PATH",
         )
+    solver_path = shutil.which(runtime.solver_command) or runtime.solver_command
+    launcher_path = None if runtime.parallel_mode != "mpi" else (shutil.which(runtime.mpi_launcher) or runtime.mpi_launcher)
 
     try:
         with case.case_output_paths.solver_log.open("w", encoding="utf-8") as handle:
@@ -741,6 +777,8 @@ def run_baseline_case(
     )
     case.run_status = "completed"
     case.provenance["solver_binary"] = solver_path
+    if launcher_path is not None:
+        case.provenance["launcher_binary"] = launcher_path
     case.provenance["convergence_gate_status"] = case.convergence_gate.overall_convergence_gate.status
     case.provenance["comparability_level"] = case.convergence_gate.overall_convergence_gate.comparability_level
     _write_json(case.case_output_paths.contract_path, case.model_dump(mode="json"))
