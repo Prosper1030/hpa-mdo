@@ -266,6 +266,28 @@ class MeshRecipe(BaseModel):
     global_max_size: Optional[float]
 
 
+class TipQualityBufferVariant(BaseModel):
+    name: str
+    h_tip_m: float
+    dist_min_m: float
+    dist_max_m: float
+
+
+class TipQualityBufferPolicy(BaseModel):
+    enabled: bool = False
+    source_baseline: Optional[str] = None
+    target_surfaces: List[int] = Field(default_factory=list)
+    target_curves: List[int] = Field(default_factory=list)
+    optional_expanded_surfaces: List[int] = Field(default_factory=list)
+    width_reference_m: Optional[float] = None
+    active_variant: Optional[str] = None
+    variants: List[TipQualityBufferVariant] = Field(default_factory=list)
+    stop_at_dist_max: bool = True
+    mesh_size_extend_from_boundary: int = 0
+    mesh_size_from_points: int = 0
+    mesh_size_from_curvature: int = 0
+
+
 class MeshJobConfig(BaseModel):
     component: ComponentType
     geometry: Path
@@ -292,6 +314,7 @@ class MeshJobConfig(BaseModel):
         "symmetry": "symmetry",
     })
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    tip_quality_buffer_policy: Optional[TipQualityBufferPolicy] = None
     su2: SU2RuntimeConfig = Field(default_factory=SU2RuntimeConfig)
 
 

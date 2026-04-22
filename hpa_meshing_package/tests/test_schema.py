@@ -27,6 +27,8 @@ from hpa_meshing.schema import (
     SU2ReferenceQuantityProvenance,
     SU2ProvenanceGates,
     SU2RuntimeConfig,
+    TipQualityBufferPolicy,
+    TipQualityBufferVariant,
 )
 
 
@@ -154,6 +156,59 @@ def test_schema_supports_geometry_family_first_fields():
     assert cfg.geometry_family == "thin_sheet_aircraft_assembly"
     assert cfg.meshing_route == "gmsh_thin_sheet_aircraft_assembly"
     assert cfg.backend_capability == "sheet_aircraft_assembly_meshing"
+
+
+def test_schema_supports_tip_quality_buffer_policy_roundtrip():
+    cfg = MeshJobConfig.model_validate(
+        {
+            "component": "main_wing",
+            "geometry": "demo.vsp3",
+            "out_dir": "out/demo",
+            "geometry_source": "esp_rebuilt",
+            "geometry_family": "thin_sheet_lifting_surface",
+            "geometry_provider": "esp_rebuilt",
+            "tip_quality_buffer_policy": {
+                "enabled": True,
+                "source_baseline": "shell_v2_strip_suppression",
+                "target_surfaces": [30, 21, 31, 32],
+                "optional_expanded_surfaces": [29, 20],
+                "width_reference_m": 0.005055,
+                "active_variant": "tipbuf_h6",
+                "variants": [
+                    {
+                        "name": "tipbuf_h8",
+                        "h_tip_m": 0.0404,
+                        "dist_min_m": 0.0101,
+                        "dist_max_m": 0.0505,
+                    },
+                    {
+                        "name": "tipbuf_h6",
+                        "h_tip_m": 0.0303,
+                        "dist_min_m": 0.0101,
+                        "dist_max_m": 0.0606,
+                    },
+                ],
+                "stop_at_dist_max": True,
+                "mesh_size_extend_from_boundary": 0,
+                "mesh_size_from_points": 0,
+                "mesh_size_from_curvature": 0,
+            },
+        }
+    )
+
+    assert cfg.tip_quality_buffer_policy is not None
+    assert cfg.tip_quality_buffer_policy.enabled is True
+    assert cfg.tip_quality_buffer_policy.active_variant == "tipbuf_h6"
+    assert cfg.tip_quality_buffer_policy.target_surfaces == [30, 21, 31, 32]
+    dumped = cfg.model_dump(mode="json")
+    assert dumped["tip_quality_buffer_policy"]["variants"][1]["name"] == "tipbuf_h6"
+    roundtrip = TipQualityBufferPolicy.model_validate(dumped["tip_quality_buffer_policy"])
+    assert roundtrip.variants[0] == TipQualityBufferVariant(
+        name="tipbuf_h8",
+        h_tip_m=0.0404,
+        dist_min_m=0.0101,
+        dist_max_m=0.0505,
+    )
 
 
 def test_schema_supports_provider_contract_models(tmp_path: Path):

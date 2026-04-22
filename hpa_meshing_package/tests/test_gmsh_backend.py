@@ -25,6 +25,8 @@ from hpa_meshing.adapters.gmsh_backend import (
     _resolve_coarse_first_tetra_profile,
     _resolve_exact_overlap_surface_pair,
     _resolve_mesh_field_defaults,
+    _select_tip_quality_buffer_winner,
+    _summarize_tip_quality_buffer_candidate,
     _run_mesh2d_with_watchdog,
     _run_mesh3d_with_watchdog,
     _run_post_generate3_optimizers,
@@ -1568,6 +1570,7 @@ def test_configure_volume_smoke_decoupled_field_uses_bounded_near_body_shell(tmp
             "z_min": -7.3,
             "z_max": 8.1,
         },
+        surface_patch_diagnostics=None,
         config=config,
     )
 
@@ -1621,6 +1624,7 @@ def test_configure_volume_smoke_decoupled_field_allows_uniform_volume_sanity(tmp
             "z_min": -7.3,
             "z_max": 8.1,
         },
+        surface_patch_diagnostics=None,
         config=config,
     )
 
@@ -1629,6 +1633,103 @@ def test_configure_volume_smoke_decoupled_field_allows_uniform_volume_sanity(tmp
     assert gmsh.model.mesh.field.added == ["Box"]
     assert gmsh.model.mesh.field.background == 1
     assert gmsh.option.values["Mesh.MeshSizeMax"] == pytest.approx(16.0)
+
+
+def test_configure_volume_smoke_decoupled_field_supports_tip_quality_buffer_policy(tmp_path: Path):
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=tmp_path / "demo.vsp3",
+        out_dir=tmp_path / "out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 12.0,
+            "volume_smoke_shell_enabled": True,
+            "volume_smoke_shell_dist_max": 0.18,
+            "volume_smoke_shell_size_max": 3.0,
+        },
+        tip_quality_buffer_policy={
+            "enabled": True,
+            "source_baseline": "shell_v2_strip_suppression",
+            "target_surfaces": [30, 21, 31, 32],
+            "width_reference_m": 0.005055,
+            "active_variant": "tipbuf_h6",
+            "variants": [
+                {
+                    "name": "tipbuf_h8",
+                    "h_tip_m": 0.0404,
+                    "dist_min_m": 0.0101,
+                    "dist_max_m": 0.0505,
+                },
+                {
+                    "name": "tipbuf_h6",
+                    "h_tip_m": 0.0303,
+                    "dist_min_m": 0.0101,
+                    "dist_max_m": 0.0606,
+                },
+            ],
+            "stop_at_dist_max": True,
+            "mesh_size_extend_from_boundary": 0,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+        },
+    )
+    gmsh = _FakeGmsh()
+
+    info = _configure_volume_smoke_decoupled_field(
+        gmsh,
+        aircraft_surface_tags=[1, 2, 3, 20, 21, 30, 31, 32],
+        near_body_size=0.0434375,
+        mesh_algorithm_3d=1,
+        bounds={
+            "x_min": -6.5,
+            "x_max": 16.9,
+            "y_min": -280.5,
+            "y_max": 280.5,
+            "z_min": -7.3,
+            "z_max": 8.1,
+        },
+        surface_patch_diagnostics={
+            "surface_records": [
+                {"tag": 20, "curve_tags": [2, 31]},
+                {"tag": 21, "curve_tags": [2, 53]},
+                {"tag": 30, "curve_tags": [31, 63]},
+                {"tag": 31, "curve_tags": [2, 53]},
+                {"tag": 32, "curve_tags": [31, 63]},
+            ],
+            "curve_records": [
+                {"tag": 2, "owner_surface_tags": [20, 21, 31]},
+                {"tag": 31, "owner_surface_tags": [20, 30, 32]},
+                {"tag": 53, "owner_surface_tags": [21, 31]},
+                {"tag": 63, "owner_surface_tags": [30, 32]},
+            ],
+        },
+        config=config,
+    )
+
+    assert info["enabled"] is True
+    policy = info["tip_quality_buffer_policy"]
+    assert policy["enabled"] is True
+    assert policy["active_variant"]["name"] == "tipbuf_h6"
+    assert policy["target_surfaces"] == [30, 21, 31, 32]
+    assert policy["selected_surface_tags"] == [21, 30, 31, 32]
+    assert policy["selected_curve_tags"] == [2, 31, 53, 63]
+    assert policy["h_tip_m"] == pytest.approx(0.0303)
+    assert policy["dist_min_m"] == pytest.approx(0.0101)
+    assert policy["dist_max_m"] == pytest.approx(0.0606)
+    assert policy["stop_at_dist_max"] is True
+    assert info["field_architecture"]["tip_quality_buffer_enabled"] is True
+    assert info["field_architecture"]["tip_quality_buffer_stop_at_dist_max"] is True
+    assert gmsh.model.mesh.field.added == ["Box", "Distance", "Threshold", "Distance", "Threshold", "Min"]
+    assert gmsh.model.mesh.field.numbers[(4, "FacesList")] == [21.0, 30.0, 31.0, 32.0]
+    assert gmsh.model.mesh.field.numbers[(4, "CurvesList")] == [2.0, 31.0, 53.0, 63.0]
+    assert gmsh.model.mesh.field.number_values[(5, "StopAtDistMax")] == 1.0
+    assert gmsh.model.mesh.field.number_values[(5, "SizeMin")] == pytest.approx(0.0303)
+    assert gmsh.model.mesh.field.number_values[(5, "SizeMax")] == pytest.approx(0.12)
+    assert gmsh.model.mesh.field.numbers[(6, "FieldsList")] == [1.0, 3.0, 5.0]
+    assert gmsh.model.mesh.field.background == 6
 
 
 def test_collect_volume_quality_metrics_reports_stats_and_worst_tets():
@@ -1661,6 +1762,108 @@ def test_collect_volume_quality_metrics_reports_stats_and_worst_tets():
     assert quality_metrics["worst_20_tets"][0]["physical_volume_name"] == "fluid"
     assert quality_metrics["worst_20_tets"][0]["tetra_edge_length_min"] is not None
     assert quality_metrics["worst_20_tets"][0]["tetra_edge_length_max"] is not None
+
+
+def test_summarize_tip_quality_buffer_candidate_and_winner_selection():
+    candidate_h6 = _summarize_tip_quality_buffer_candidate(
+        name="shell_v3_tipbuf_h6",
+        mesh_metadata={
+            "status": "success",
+            "mesh": {"surface_element_count": 108000, "volume_element_count": 140000},
+            "mesh3d_watchdog": {
+                "nodes_created_per_boundary_node": 0.08,
+                "timeout_phase_classification": "optimization",
+                "phase_classification_after_return": "optimization",
+            },
+            "quality_metrics": {
+                "ill_shaped_tet_count": 0,
+                "min_gamma": 0.01,
+                "min_sicn": 0.02,
+                "min_sige": 0.04,
+                "min_volume": 1.0e-6,
+            },
+            "physical_groups": {
+                "fluid": {"exists": True},
+                "aircraft": {"exists": True},
+                "farfield": {"exists": True},
+            },
+        },
+        hotspot_patch_report={
+            "surface_reports": [
+                {"surface_id": 30, "worst_tets_near_this_surface": {"count": 3}},
+                {"surface_id": 21, "worst_tets_near_this_surface": {"count": 1}},
+            ]
+        },
+    )
+    candidate_h8 = _summarize_tip_quality_buffer_candidate(
+        name="shell_v3_tipbuf_h8",
+        mesh_metadata={
+            "status": "success",
+            "mesh": {"surface_element_count": 107500, "volume_element_count": 135000},
+            "mesh3d_watchdog": {
+                "nodes_created_per_boundary_node": 0.07,
+                "timeout_phase_classification": "optimization",
+                "phase_classification_after_return": "optimization",
+            },
+            "quality_metrics": {
+                "ill_shaped_tet_count": 0,
+                "min_gamma": 0.009,
+                "min_sicn": 0.03,
+                "min_sige": 0.05,
+                "min_volume": 2.0e-6,
+            },
+            "physical_groups": {
+                "fluid": {"exists": True},
+                "aircraft": {"exists": True},
+                "farfield": {"exists": True},
+            },
+        },
+        hotspot_patch_report={
+            "surface_reports": [
+                {"surface_id": 21, "worst_tets_near_this_surface": {"count": 2}},
+            ]
+        },
+    )
+
+    assert candidate_h6["passed"] is True
+    assert candidate_h6["worst_hotspot_surfaces"] == [30, 21]
+    winner, reason = _select_tip_quality_buffer_winner([candidate_h6, candidate_h8])
+    assert winner is not None
+    assert winner["name"] == "shell_v3_tipbuf_h8"
+    assert "lowest volume_element_count" in reason
+
+
+def test_select_tip_quality_buffer_winner_returns_null_when_no_candidate_passes():
+    failed = _summarize_tip_quality_buffer_candidate(
+        name="shell_v3_tipbuf_h4",
+        mesh_metadata={
+            "status": "success",
+            "mesh": {"surface_element_count": 130000, "volume_element_count": 190000},
+            "mesh3d_watchdog": {
+                "nodes_created_per_boundary_node": 0.6,
+                "timeout_phase_classification": "volume_insertion",
+                "phase_classification_after_return": "volume_insertion",
+            },
+            "quality_metrics": {
+                "ill_shaped_tet_count": 2,
+                "min_gamma": 0.001,
+                "min_sicn": -0.02,
+                "min_sige": -0.01,
+                "min_volume": -1.0,
+            },
+            "physical_groups": {
+                "fluid": {"exists": True},
+                "aircraft": {"exists": True},
+                "farfield": {"exists": False},
+            },
+        },
+        hotspot_patch_report=None,
+    )
+
+    winner, reason = _select_tip_quality_buffer_winner([failed])
+    assert failed["passed"] is False
+    assert winner is None
+    assert "no passing candidates" in reason
 
 
 def test_collect_hotspot_patch_report_tracks_surface_curve_and_tet_hotspots():
@@ -2416,6 +2619,124 @@ def test_apply_recipe_successful_3d_run_persists_quality_metrics(tmp_path: Path)
     assert optimization["mesh_optimize_netgen"] == 0
     assert optimization["post_optimize_methods"] == []
     assert optimization["post_runs"] == []
+
+
+def test_apply_recipe_successful_3d_run_persists_tip_quality_buffer_policy(tmp_path: Path):
+    normalized = _write_occ_box_step(tmp_path, "tip_buffer_box.step")
+    source = tmp_path / "demo.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+    provider_result = GeometryProviderResult(
+        provider="esp_rebuilt",
+        provider_stage="experimental",
+        status="materialized",
+        geometry_source="esp_rebuilt",
+        source_path=source,
+        normalized_geometry_path=normalized,
+        geometry_family_hint="thin_sheet_lifting_surface",
+        topology=GeometryTopologyMetadata(
+            representation="brep_trimmed_step",
+            source_kind="stp",
+            units="m",
+            body_count=1,
+            surface_count=6,
+            volume_count=1,
+            labels_present=True,
+            label_schema="preserve_component_labels",
+            normalization={
+                "applied": True,
+                "final_analysis": {
+                    "touching_groups": [],
+                    "duplicate_interface_face_pair_count": 0,
+                    "internal_cap_face_count": 0,
+                },
+            },
+        ),
+        provenance={
+            "reference_geometry": {
+                "ref_area": 1.0,
+                "ref_length": 1.0,
+                "ref_origin_moment": {"x": 0.25, "y": 0.0, "z": 0.0},
+                "area_method": "test.reference_area",
+                "length_method": "test.reference_length",
+                "moment_method": "test.reference_origin",
+                "warnings": [],
+            },
+        },
+    )
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=source,
+        out_dir=tmp_path / "tip_policy_out",
+        geometry_source="esp_rebuilt",
+        geometry_family="thin_sheet_lifting_surface",
+        geometry_provider="esp_rebuilt",
+        global_min_size=0.5,
+        global_max_size=2.0,
+        metadata={
+            "volume_smoke_decoupled_enabled": True,
+            "volume_smoke_base_size": 12.0,
+            "volume_smoke_shell_enabled": True,
+            "volume_smoke_shell_dist_max": 0.18,
+            "volume_smoke_shell_size_max": 3.0,
+        },
+        tip_quality_buffer_policy={
+            "enabled": True,
+            "source_baseline": "shell_v2_strip_suppression",
+            "target_surfaces": [1],
+            "width_reference_m": 0.005055,
+            "active_variant": "tipbuf_test",
+            "variants": [
+                {
+                    "name": "tipbuf_test",
+                    "h_tip_m": 0.04,
+                    "dist_min_m": 0.01,
+                    "dist_max_m": 0.05,
+                }
+            ],
+            "stop_at_dist_max": True,
+            "mesh_size_extend_from_boundary": 0,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+        },
+    )
+    handle = GeometryHandle(
+        source_path=source,
+        path=normalized,
+        exists=True,
+        suffix=normalized.suffix.lower(),
+        loader="provider:esp_rebuilt",
+        geometry_source="esp_rebuilt",
+        declared_family="thin_sheet_lifting_surface",
+        component="main_wing",
+        provider="esp_rebuilt",
+        provider_status="materialized",
+        provider_result=provider_result,
+    )
+    classification = GeometryClassification(
+        geometry_source="esp_rebuilt",
+        geometry_provider="esp_rebuilt",
+        declared_family="thin_sheet_lifting_surface",
+        inferred_family=None,
+        geometry_family="thin_sheet_lifting_surface",
+        provenance="test",
+        notes=[],
+    )
+    recipe = build_recipe(handle, classification, config)
+
+    result = apply_recipe(recipe, handle, config)
+
+    assert result["status"] == "success"
+    metadata = json.loads(Path(result["artifacts"]["mesh_metadata"]).read_text(encoding="utf-8"))
+    policy = metadata["tip_quality_buffer_policy"]
+    assert policy["enabled"] is True
+    assert policy["source_baseline"] == "shell_v2_strip_suppression"
+    assert policy["active_variant"]["name"] == "tipbuf_test"
+    assert policy["target_surfaces"] == [1]
+    assert policy["selected_surface_tags"] == [1]
+    assert policy["h_tip_m"] == pytest.approx(0.04)
+    assert policy["dist_min_m"] == pytest.approx(0.01)
+    assert policy["dist_max_m"] == pytest.approx(0.05)
+    assert policy["stop_at_dist_max"] is True
 
 
 def test_apply_recipe_persists_brep_hotspot_report_when_requested(

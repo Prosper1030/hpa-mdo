@@ -1780,6 +1780,186 @@ def _resolve_brep_hotspot_request(
     }
 
 
+def _resolve_tip_quality_buffer_policy(
+    *,
+    config: MeshJobConfig,
+    surface_patch_diagnostics: Dict[str, Any] | None,
+    near_body_size: float,
+) -> Dict[str, Any]:
+    policy = config.tip_quality_buffer_policy
+    if policy is None or not bool(policy.enabled):
+        return {"enabled": False, "reason": "disabled_by_config"}
+
+    active_variant_name = policy.active_variant
+    if active_variant_name is None and len(policy.variants) == 1:
+        active_variant_name = policy.variants[0].name
+    if active_variant_name is None:
+        return {"enabled": False, "reason": "missing_active_variant"}
+
+    active_variant = next((variant for variant in policy.variants if variant.name == active_variant_name), None)
+    if active_variant is None:
+        return {
+            "enabled": False,
+            "reason": "active_variant_not_found",
+            "active_variant": active_variant_name,
+        }
+
+    request = _resolve_brep_hotspot_request(
+        surface_patch_diagnostics=surface_patch_diagnostics,
+        requested_surface_tags=policy.target_surfaces,
+        requested_curve_tags=policy.target_curves,
+    )
+    if not request.get("enabled"):
+        return {
+            "enabled": False,
+            "reason": request.get("reason"),
+            "active_variant": active_variant_name,
+            "target_surfaces": [int(tag) for tag in policy.target_surfaces],
+            "target_curves": [int(tag) for tag in policy.target_curves],
+            "missing_surface_tags": request.get("missing_surface_tags", []),
+            "missing_curve_tags": request.get("missing_curve_tags", []),
+        }
+
+    surface_lookup = {
+        int(record["tag"]): record
+        for record in (surface_patch_diagnostics or {}).get("surface_records", [])
+        if record.get("tag") is not None
+    }
+    selected_surface_tags = [int(tag) for tag in request.get("selected_surface_tags", [])]
+    selected_curve_tags = [int(tag) for tag in request.get("selected_curve_tags", [])]
+    if not selected_curve_tags:
+        selected_curve_tags = _unique_sorted_ints(
+            curve_tag
+            for surface_tag in selected_surface_tags
+            for curve_tag in surface_lookup.get(int(surface_tag), {}).get("curve_tags", [])
+        )
+
+    size_max_default = max(
+        float(near_body_size),
+        float(config.metadata.get("tip_quality_buffer_size_max", COARSE_FIRST_TETRA_SPAN_EXTREME_STRIP_FLOOR_SIZE)),
+    )
+    return {
+        "enabled": True,
+        "source_baseline": policy.source_baseline,
+        "target_surfaces": [int(tag) for tag in policy.target_surfaces],
+        "target_curves": [int(tag) for tag in policy.target_curves],
+        "optional_expanded_surfaces": [int(tag) for tag in policy.optional_expanded_surfaces],
+        "width_reference_m": float(policy.width_reference_m) if policy.width_reference_m is not None else None,
+        "active_variant": active_variant.model_dump(mode="json"),
+        "selected_surface_tags": selected_surface_tags,
+        "selected_curve_tags": selected_curve_tags,
+        "curve_owner_surface_tags": [int(tag) for tag in request.get("curve_owner_surface_tags", [])],
+        "curve_surface_context_tags": [int(tag) for tag in request.get("curve_surface_context_tags", [])],
+        "missing_surface_tags": [int(tag) for tag in request.get("missing_surface_tags", [])],
+        "missing_curve_tags": [int(tag) for tag in request.get("missing_curve_tags", [])],
+        "h_tip_m": float(active_variant.h_tip_m),
+        "dist_min_m": float(active_variant.dist_min_m),
+        "dist_max_m": float(active_variant.dist_max_m),
+        "size_max_m": float(size_max_default),
+        "stop_at_dist_max": bool(policy.stop_at_dist_max),
+        "mesh_size_extend_from_boundary": int(policy.mesh_size_extend_from_boundary),
+        "mesh_size_from_points": int(policy.mesh_size_from_points),
+        "mesh_size_from_curvature": int(policy.mesh_size_from_curvature),
+    }
+
+
+def _summarize_tip_quality_buffer_candidate(
+    *,
+    name: str,
+    mesh_metadata: Dict[str, Any],
+    hotspot_patch_report: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    mesh_stats = mesh_metadata.get("mesh", {})
+    quality_metrics = mesh_metadata.get("quality_metrics", {})
+    mesh3d_watchdog = mesh_metadata.get("mesh3d_watchdog", {})
+    physical_groups = mesh_metadata.get("physical_groups", {})
+    phase = (
+        mesh3d_watchdog.get("phase_classification_after_return")
+        or mesh3d_watchdog.get("timeout_phase_classification")
+        or mesh_metadata.get("volume_meshing", {}).get("burden_metrics", {}).get("timeout_phase_classification")
+    )
+    worst_hotspot_surfaces = [
+        int(entry["surface_id"])
+        for entry in sorted(
+            hotspot_patch_report.get("surface_reports", []) if isinstance(hotspot_patch_report, dict) else [],
+            key=lambda record: (record.get("worst_tets_near_this_surface") or {}).get("count", 0),
+            reverse=True,
+        )
+        if int((entry.get("worst_tets_near_this_surface") or {}).get("count", 0)) > 0
+    ]
+
+    candidate = {
+        "name": str(name),
+        "surface_triangle_count": int(mesh_stats.get("surface_element_count", 0) or 0),
+        "volume_element_count": int(mesh_stats.get("volume_element_count", 0) or 0),
+        "nodes_created_per_boundary_node": mesh3d_watchdog.get("nodes_created_per_boundary_node"),
+        "ill_shaped_tet_count": int(quality_metrics.get("ill_shaped_tet_count", 0) or 0),
+        "min_gamma": quality_metrics.get("min_gamma"),
+        "min_sicn": quality_metrics.get("min_sicn"),
+        "min_sige": quality_metrics.get("min_sige"),
+        "min_volume": quality_metrics.get("min_volume"),
+        "worst_hotspot_surfaces": worst_hotspot_surfaces,
+        "passed": False,
+        "failed_checks": [],
+    }
+
+    failed_checks: list[str] = []
+    if str(mesh_metadata.get("status")) != "success":
+        failed_checks.append("status_not_success")
+    if candidate["surface_triangle_count"] <= 0:
+        failed_checks.append("surface_triangle_count_missing")
+    if candidate["volume_element_count"] <= 0:
+        failed_checks.append("volume_element_count_missing")
+    if candidate["surface_triangle_count"] >= 120000:
+        failed_checks.append("surface_triangle_count_limit")
+    if candidate["volume_element_count"] >= 180000:
+        failed_checks.append("volume_element_count_limit")
+    if candidate["ill_shaped_tet_count"] != 0:
+        failed_checks.append("ill_shaped_tets_present")
+    if float(candidate["min_volume"] or 0.0) <= 0.0:
+        failed_checks.append("min_volume_not_positive")
+    if float(candidate["min_sicn"] or 0.0) <= 0.0:
+        failed_checks.append("min_sicn_not_positive")
+    if float(candidate["min_sige"] or 0.0) <= 0.0:
+        failed_checks.append("min_sige_not_positive")
+    if candidate["nodes_created_per_boundary_node"] is None:
+        failed_checks.append("nodes_created_per_boundary_node_missing")
+    elif float(candidate["nodes_created_per_boundary_node"]) >= 0.5:
+        failed_checks.append("nodes_created_per_boundary_node_limit")
+    if str(phase or "") == "volume_insertion":
+        failed_checks.append("volume_insertion_phase")
+    if not all(bool(physical_groups.get(name, {}).get("exists")) for name in ("fluid", "aircraft", "farfield")):
+        failed_checks.append("physical_groups_not_preserved")
+
+    candidate["failed_checks"] = failed_checks
+    candidate["passed"] = not failed_checks
+    return candidate
+
+
+def _select_tip_quality_buffer_winner(
+    candidates: Iterable[Dict[str, Any]],
+) -> tuple[Dict[str, Any] | None, str]:
+    candidate_list = [dict(candidate) for candidate in candidates]
+    passing = [candidate for candidate in candidate_list if bool(candidate.get("passed"))]
+    if not passing:
+        return None, "no passing candidates met the quality-clean gates"
+
+    winner = sorted(
+        passing,
+        key=lambda candidate: (
+            int(candidate.get("volume_element_count", 0) or 0),
+            int(candidate.get("surface_triangle_count", 0) or 0),
+            -float(candidate.get("min_sicn", 0.0) or 0.0),
+            -float(candidate.get("min_sige", 0.0) or 0.0),
+            str(candidate.get("name", "")),
+        ),
+    )[0]
+    return winner, (
+        "selected passing candidate with lowest volume_element_count, "
+        "then lowest surface_triangle_count, then highest min_sicn/min_sige"
+    )
+
+
 def _collect_brep_hotspot_report(
     *,
     step_path: Path,
@@ -2745,6 +2925,7 @@ def _configure_volume_smoke_decoupled_field(
     near_body_size: float,
     mesh_algorithm_3d: int,
     bounds: Dict[str, float],
+    surface_patch_diagnostics: Dict[str, Any] | None,
     config: MeshJobConfig,
 ) -> Dict[str, Any]:
     if not bool(config.metadata.get("volume_smoke_decoupled_enabled", False)):
@@ -2787,6 +2968,13 @@ def _configure_volume_smoke_decoupled_field(
     near_body_distance_field = None
     near_body_shell_field = None
     fields_list = [base_field]
+    tip_quality_buffer_policy = _resolve_tip_quality_buffer_policy(
+        config=config,
+        surface_patch_diagnostics=surface_patch_diagnostics,
+        near_body_size=near_body_size,
+    )
+    tip_distance_field = None
+    tip_threshold_field = None
 
     if shell_enabled:
         near_body_distance_field = gmsh.model.mesh.field.add("Distance")
@@ -2805,16 +2993,64 @@ def _configure_volume_smoke_decoupled_field(
         )
 
         fields_list.append(near_body_shell_field)
+        background_field_composition = "min_base_far_volume_with_bounded_shell"
+
+    if tip_quality_buffer_policy.get("enabled"):
+        tip_distance_field = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(
+            tip_distance_field,
+            "FacesList",
+            [int(tag) for tag in tip_quality_buffer_policy["selected_surface_tags"]],
+        )
+        if tip_quality_buffer_policy.get("selected_curve_tags"):
+            gmsh.model.mesh.field.setNumbers(
+                tip_distance_field,
+                "CurvesList",
+                [int(tag) for tag in tip_quality_buffer_policy["selected_curve_tags"]],
+            )
+
+        tip_threshold_field = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(tip_threshold_field, "InField", tip_distance_field)
+        gmsh.model.mesh.field.setNumber(tip_threshold_field, "SizeMin", float(tip_quality_buffer_policy["h_tip_m"]))
+        gmsh.model.mesh.field.setNumber(tip_threshold_field, "SizeMax", float(tip_quality_buffer_policy["size_max_m"]))
+        gmsh.model.mesh.field.setNumber(tip_threshold_field, "DistMin", float(tip_quality_buffer_policy["dist_min_m"]))
+        gmsh.model.mesh.field.setNumber(tip_threshold_field, "DistMax", float(tip_quality_buffer_policy["dist_max_m"]))
+        gmsh.model.mesh.field.setNumber(
+            tip_threshold_field,
+            "StopAtDistMax",
+            1.0 if tip_quality_buffer_policy.get("stop_at_dist_max", True) else 0.0,
+        )
+        fields_list.append(tip_threshold_field)
+        if background_field_composition == "base_far_volume_only":
+            background_field_composition = "min_base_far_volume_with_tip_quality_buffer"
+        else:
+            background_field_composition = "min_base_far_volume_with_bounded_shell_and_tip_quality_buffer"
+
+    if len(fields_list) > 1:
         background_field_tag = gmsh.model.mesh.field.add("Min")
         gmsh.model.mesh.field.setNumbers(background_field_tag, "FieldsList", fields_list)
-        background_field_composition = "min_base_far_volume_with_bounded_shell"
 
     gmsh.model.mesh.field.setAsBackgroundMesh(background_field_tag)
     gmsh.option.setNumber("Mesh.MeshSizeMin", float(near_body_size))
     gmsh.option.setNumber("Mesh.MeshSizeMax", float(base_volume_size))
-    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
-    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+    gmsh.option.setNumber(
+        "Mesh.MeshSizeFromPoints",
+        float(tip_quality_buffer_policy.get("mesh_size_from_points", 0))
+        if tip_quality_buffer_policy.get("enabled")
+        else 0.0,
+    )
+    gmsh.option.setNumber(
+        "Mesh.MeshSizeFromCurvature",
+        float(tip_quality_buffer_policy.get("mesh_size_from_curvature", 0))
+        if tip_quality_buffer_policy.get("enabled")
+        else 0.0,
+    )
+    gmsh.option.setNumber(
+        "Mesh.MeshSizeExtendFromBoundary",
+        float(tip_quality_buffer_policy.get("mesh_size_extend_from_boundary", 0))
+        if tip_quality_buffer_policy.get("enabled")
+        else 0.0,
+    )
     gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm_3d))
 
     return {
@@ -2846,14 +3082,63 @@ def _configure_volume_smoke_decoupled_field(
             "dist_max": float(shell_dist_max) if shell_enabled else None,
             "stop_at_dist_max": bool(stop_at_dist_max) if shell_enabled else None,
         },
+        "tip_quality_buffer_policy": {
+            "enabled": bool(tip_quality_buffer_policy.get("enabled", False)),
+            "source_baseline": tip_quality_buffer_policy.get("source_baseline"),
+            "target_surfaces": [int(tag) for tag in tip_quality_buffer_policy.get("target_surfaces", [])],
+            "target_curves": [int(tag) for tag in tip_quality_buffer_policy.get("target_curves", [])],
+            "optional_expanded_surfaces": [
+                int(tag) for tag in tip_quality_buffer_policy.get("optional_expanded_surfaces", [])
+            ],
+            "width_reference_m": tip_quality_buffer_policy.get("width_reference_m"),
+            "active_variant": tip_quality_buffer_policy.get("active_variant"),
+            "selected_surface_tags": [
+                int(tag) for tag in tip_quality_buffer_policy.get("selected_surface_tags", [])
+            ],
+            "selected_curve_tags": [int(tag) for tag in tip_quality_buffer_policy.get("selected_curve_tags", [])],
+            "curve_owner_surface_tags": [
+                int(tag) for tag in tip_quality_buffer_policy.get("curve_owner_surface_tags", [])
+            ],
+            "curve_surface_context_tags": [
+                int(tag) for tag in tip_quality_buffer_policy.get("curve_surface_context_tags", [])
+            ],
+            "h_tip_m": tip_quality_buffer_policy.get("h_tip_m"),
+            "size_max_m": tip_quality_buffer_policy.get("size_max_m"),
+            "dist_min_m": tip_quality_buffer_policy.get("dist_min_m"),
+            "dist_max_m": tip_quality_buffer_policy.get("dist_max_m"),
+            "stop_at_dist_max": tip_quality_buffer_policy.get("stop_at_dist_max"),
+            "mesh_size_from_points": tip_quality_buffer_policy.get("mesh_size_from_points"),
+            "mesh_size_from_curvature": tip_quality_buffer_policy.get("mesh_size_from_curvature"),
+            "mesh_size_extend_from_boundary": tip_quality_buffer_policy.get("mesh_size_extend_from_boundary"),
+            "distance_field_tag": int(tip_distance_field) if tip_distance_field is not None else None,
+            "threshold_field_tag": int(tip_threshold_field) if tip_threshold_field is not None else None,
+            "missing_surface_tags": [
+                int(tag) for tag in tip_quality_buffer_policy.get("missing_surface_tags", [])
+            ],
+            "missing_curve_tags": [int(tag) for tag in tip_quality_buffer_policy.get("missing_curve_tags", [])],
+        },
         "field_architecture": {
             "base_far_volume_enabled": True,
             "base_far_volume_kind": "Box",
             "near_body_shell_enabled": bool(shell_enabled),
             "near_body_shell_stop_at_dist_max": bool(stop_at_dist_max) if shell_enabled else False,
-            "mesh_size_from_points": 0,
-            "mesh_size_from_curvature": 0,
-            "mesh_size_extend_from_boundary": 0,
+            "tip_quality_buffer_enabled": bool(tip_quality_buffer_policy.get("enabled", False)),
+            "tip_quality_buffer_stop_at_dist_max": bool(tip_quality_buffer_policy.get("stop_at_dist_max", False)),
+            "mesh_size_from_points": (
+                int(tip_quality_buffer_policy.get("mesh_size_from_points", 0))
+                if tip_quality_buffer_policy.get("enabled")
+                else 0
+            ),
+            "mesh_size_from_curvature": (
+                int(tip_quality_buffer_policy.get("mesh_size_from_curvature", 0))
+                if tip_quality_buffer_policy.get("enabled")
+                else 0
+            ),
+            "mesh_size_extend_from_boundary": (
+                int(tip_quality_buffer_policy.get("mesh_size_extend_from_boundary", 0))
+                if tip_quality_buffer_policy.get("enabled")
+                else 0
+            ),
             "distance_faces_source": "aircraft_surfaces_only" if shell_enabled else "disabled",
             "distance_faces_exclude_farfield": True,
             "background_field_composition": background_field_composition,
@@ -4463,6 +4748,7 @@ def _apply_occ_external_flow_route(
                 near_body_size=float(field_info.get("near_body_size", 0.0)),
                 mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
                 bounds=bounds,
+                surface_patch_diagnostics=surface_patch_diagnostics,
                 config=config,
             )
             if volume_smoke_decoupled.get("enabled"):
@@ -4479,6 +4765,11 @@ def _apply_occ_external_flow_route(
             },
             "field_architecture": (
                 volume_smoke_decoupled.get("field_architecture")
+                if isinstance(volume_smoke_decoupled, dict) and volume_smoke_decoupled.get("enabled")
+                else None
+            ),
+            "tip_quality_buffer_policy": (
+                volume_smoke_decoupled.get("tip_quality_buffer_policy")
                 if isinstance(volume_smoke_decoupled, dict) and volume_smoke_decoupled.get("enabled")
                 else None
             ),
@@ -4967,6 +5258,12 @@ def _apply_occ_external_flow_route(
         }
         if quality_metrics is not None:
             metadata["quality_metrics"] = quality_metrics
+        if (
+            isinstance(volume_smoke_decoupled, dict)
+            and isinstance(volume_smoke_decoupled.get("tip_quality_buffer_policy"), dict)
+            and volume_smoke_decoupled["tip_quality_buffer_policy"].get("enabled")
+        ):
+            metadata["tip_quality_buffer_policy"] = volume_smoke_decoupled["tip_quality_buffer_policy"]
         if brep_hotspot_report is not None:
             metadata["brep_hotspot_report"] = {
                 "artifact": str(brep_hotspot_report_path),
