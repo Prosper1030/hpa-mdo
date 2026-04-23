@@ -7,6 +7,12 @@ from typing import Mapping
 
 
 _CANONICAL_ZONE_ORDER = ("root", "mid1", "mid2", "tip")
+DEFAULT_THICKNESS_DELTA_LEVELS = (-0.018, -0.010, -0.006, 0.0, 0.006, 0.010, 0.018)
+DEFAULT_CAMBER_DELTA_LEVELS = (-0.012, -0.008, 0.0, 0.008, 0.012)
+_THICKNESS_UPPER_BASIS = (0.0, 1.0, 1.0, 0.0, 0.0)
+_THICKNESS_LOWER_BASIS = (0.0, -1.0, -1.0, 0.0, 0.0)
+_CAMBER_UPPER_BASIS = (0.0, 1.0, 0.5, 0.0, 0.0)
+_CAMBER_LOWER_BASIS = (0.0, -0.75, -0.375, 0.0, 0.0)
 
 
 @dataclass(frozen=True)
@@ -136,67 +142,111 @@ def validate_cst_candidate_coordinates(
 
 def build_bounded_candidate_family(
     template: CSTAirfoilTemplate,
+    *,
+    thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
+    camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
 ) -> tuple[CSTAirfoilTemplate, ...]:
     if len(template.upper_coefficients) != len(template.lower_coefficients):
         raise ValueError("upper_coefficients and lower_coefficients must have the same length.")
 
-    def offset(values: tuple[float, ...], delta: tuple[float, ...]) -> tuple[float, ...]:
-        if len(values) != len(delta):
-            raise ValueError("offset delta must match coefficient count.")
-        return tuple(value + change for value, change in zip(values, delta, strict=True))
+    def normalize_levels(levels: tuple[float, ...], *, name: str) -> tuple[float, ...]:
+        normalized = tuple(float(level) for level in levels)
+        if not normalized:
+            raise ValueError(f"{name} must not be empty.")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError(f"{name} entries must be unique.")
+        if 0.0 not in normalized:
+            raise ValueError(f"{name} must include 0.0.")
+        return normalized
+
+    thickness_delta_levels = normalize_levels(
+        thickness_delta_levels,
+        name="thickness_delta_levels",
+    )
+    camber_delta_levels = normalize_levels(
+        camber_delta_levels,
+        name="camber_delta_levels",
+    )
 
     coefficient_count = len(template.upper_coefficients)
 
-    def delta(*, first: float = 0.0, second: float = 0.0) -> tuple[float, ...]:
+    def scaled_basis(basis: tuple[float, ...], scale: float) -> tuple[float, ...]:
         values = [0.0] * coefficient_count
-        if coefficient_count > 1:
-            values[1] = first
-        if coefficient_count > 2:
-            values[2] = second
+        for index in range(min(coefficient_count, len(basis))):
+            values[index] = float(basis[index]) * float(scale)
         return tuple(values)
 
-    return (
-        CSTAirfoilTemplate(
-            zone_name=template.zone_name,
-            upper_coefficients=template.upper_coefficients,
-            lower_coefficients=template.lower_coefficients,
-            te_thickness_m=template.te_thickness_m,
-            seed_name=template.seed_name,
-            candidate_role="base",
-        ),
-        CSTAirfoilTemplate(
-            zone_name=template.zone_name,
-            upper_coefficients=offset(template.upper_coefficients, delta(first=0.01, second=0.01)),
-            lower_coefficients=offset(template.lower_coefficients, delta(first=-0.01, second=-0.01)),
-            te_thickness_m=template.te_thickness_m,
-            seed_name=template.seed_name,
-            candidate_role="thickness_up",
-        ),
-        CSTAirfoilTemplate(
-            zone_name=template.zone_name,
-            upper_coefficients=offset(template.upper_coefficients, delta(first=-0.01, second=-0.01)),
-            lower_coefficients=offset(template.lower_coefficients, delta(first=0.01, second=0.01)),
-            te_thickness_m=template.te_thickness_m,
-            seed_name=template.seed_name,
-            candidate_role="thickness_down",
-        ),
-        CSTAirfoilTemplate(
-            zone_name=template.zone_name,
-            upper_coefficients=offset(template.upper_coefficients, delta(first=0.008, second=0.004)),
-            lower_coefficients=offset(template.lower_coefficients, delta(first=-0.006, second=-0.003)),
-            te_thickness_m=template.te_thickness_m,
-            seed_name=template.seed_name,
-            candidate_role="camber_up",
-        ),
-        CSTAirfoilTemplate(
-            zone_name=template.zone_name,
-            upper_coefficients=offset(template.upper_coefficients, delta(first=-0.008, second=-0.004)),
-            lower_coefficients=offset(template.lower_coefficients, delta(first=0.006, second=0.003)),
-            te_thickness_m=template.te_thickness_m,
-            seed_name=template.seed_name,
-            candidate_role="camber_down",
-        ),
+    def offset(values: tuple[float, ...], deltas: tuple[float, ...]) -> tuple[float, ...]:
+        if len(values) != len(deltas):
+            raise ValueError("offset delta must match coefficient count.")
+        return tuple(value + delta for value, delta in zip(values, deltas, strict=True))
+
+    def candidate_role(
+        thickness_delta: float,
+        camber_delta: float,
+        *,
+        thickness_index: int,
+        camber_index: int,
+    ) -> str:
+        def is_close(left: float, right: float) -> bool:
+            return abs(left - right) <= 1.0e-9
+
+        if is_close(thickness_delta, 0.0) and is_close(camber_delta, 0.0):
+            return "base"
+        if is_close(thickness_delta, 0.010) and is_close(camber_delta, 0.0):
+            return "thickness_up"
+        if is_close(thickness_delta, -0.010) and is_close(camber_delta, 0.0):
+            return "thickness_down"
+        if is_close(thickness_delta, 0.0) and is_close(camber_delta, 0.008):
+            return "camber_up"
+        if is_close(thickness_delta, 0.0) and is_close(camber_delta, -0.008):
+            return "camber_down"
+
+        return f"t{thickness_index:02d}_c{camber_index:02d}"
+
+    candidates: list[CSTAirfoilTemplate] = []
+    for thickness_index, thickness_delta in enumerate(thickness_delta_levels):
+        for camber_index, camber_delta in enumerate(camber_delta_levels):
+            upper_delta = tuple(
+                thickness_change + camber_change
+                for thickness_change, camber_change in zip(
+                    scaled_basis(_THICKNESS_UPPER_BASIS, thickness_delta),
+                    scaled_basis(_CAMBER_UPPER_BASIS, camber_delta),
+                    strict=True,
+                )
+            )
+            lower_delta = tuple(
+                thickness_change + camber_change
+                for thickness_change, camber_change in zip(
+                    scaled_basis(_THICKNESS_LOWER_BASIS, thickness_delta),
+                    scaled_basis(_CAMBER_LOWER_BASIS, camber_delta),
+                    strict=True,
+                )
+            )
+            candidates.append(
+                CSTAirfoilTemplate(
+                    zone_name=template.zone_name,
+                    upper_coefficients=offset(template.upper_coefficients, upper_delta),
+                    lower_coefficients=offset(template.lower_coefficients, lower_delta),
+                    te_thickness_m=template.te_thickness_m,
+                    seed_name=template.seed_name,
+                    candidate_role=candidate_role(
+                        thickness_delta,
+                        camber_delta,
+                        thickness_index=thickness_index,
+                        camber_index=camber_index,
+                    ),
+                )
+            )
+
+    base_index = next(
+        index for index, candidate in enumerate(candidates) if candidate.candidate_role == "base"
     )
+    base_candidate = candidates.pop(base_index)
+    all_roles = {base_candidate.candidate_role, *(candidate.candidate_role for candidate in candidates)}
+    if len(all_roles) != len(candidates) + 1:
+        raise ValueError("bounded CST candidate roles must be unique.")
+    return (base_candidate, *candidates)
 
 
 def build_lofting_guides(templates: Mapping[str, CSTAirfoilTemplate]) -> dict[str, object]:

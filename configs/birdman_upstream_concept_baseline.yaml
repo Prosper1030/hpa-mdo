@@ -59,6 +59,10 @@ geometry_family:
   dihedral_tip_deg_candidates: [4.0, 6.0, 8.0]
   dihedral_exponent_candidates: [1.0, 1.5, 2.0]
 
+cst_search:
+  thickness_delta_levels: [-0.018, -0.010, -0.006, 0.0, 0.006, 0.010, 0.018]
+  camber_delta_levels: [-0.012, -0.008, 0.0, 0.008, 0.012]
+
 pipeline:
   stations_per_half: 7
   keep_top_n: 5

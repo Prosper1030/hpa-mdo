@@ -1526,6 +1526,8 @@ def run_birdman_concept_pipeline(
                     allow_stub_fallback=worker_backend
                     in {"test_stub", "cli_stubbed", "python_stubbed"},
                 ),
+                thickness_delta_levels=cfg.cst_search.thickness_delta_levels,
+                camber_delta_levels=cfg.cst_search.camber_delta_levels,
                 safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
                 safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
                 stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,

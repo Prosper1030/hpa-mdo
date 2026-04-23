@@ -39,7 +39,26 @@ def test_build_bounded_candidate_family_includes_base_candidate() -> None:
     assert candidates[0].candidate_role == "base"
     assert candidates[0].upper_coefficients == template.upper_coefficients
     assert candidates[0].lower_coefficients == template.lower_coefficients
-    assert len(candidates) >= 5
+    assert len(candidates) == 35
+
+
+def test_build_bounded_candidate_family_accepts_configured_delta_levels() -> None:
+    template = CSTAirfoilTemplate(
+        zone_name="mid2",
+        upper_coefficients=(0.22, 0.28, 0.18, 0.10, 0.04),
+        lower_coefficients=(-0.18, -0.14, -0.08, -0.03, -0.01),
+        te_thickness_m=0.0015,
+    )
+
+    candidates = build_bounded_candidate_family(
+        template,
+        thickness_delta_levels=(-0.01, 0.0, 0.01),
+        camber_delta_levels=(-0.008, 0.0, 0.008),
+    )
+
+    assert len(candidates) == 9
+    assert len({candidate.candidate_role for candidate in candidates}) == 9
+    assert candidates[0].candidate_role == "base"
 
 
 def test_validate_cst_candidate_coordinates_rejects_non_positive_thickness() -> None:

@@ -6,6 +6,11 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from hpa_mdo.concept.airfoil_cst import (
+    DEFAULT_CAMBER_DELTA_LEVELS,
+    DEFAULT_THICKNESS_DELTA_LEVELS,
+)
+
 
 class ConceptBaseModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -178,6 +183,31 @@ class GeometryFamilyConfig(ConceptBaseModel):
         return self
 
 
+class CSTSearchConfig(ConceptBaseModel):
+    thickness_delta_levels: tuple[float, ...] = Field(
+        DEFAULT_THICKNESS_DELTA_LEVELS,
+        min_length=3,
+    )
+    camber_delta_levels: tuple[float, ...] = Field(
+        DEFAULT_CAMBER_DELTA_LEVELS,
+        min_length=3,
+    )
+
+    @model_validator(mode="after")
+    def validate_levels(self) -> CSTSearchConfig:
+        for name in ("thickness_delta_levels", "camber_delta_levels"):
+            levels = tuple(float(level) for level in getattr(self, name))
+            if len(set(levels)) != len(levels):
+                raise ValueError(f"cst_search.{name} entries must be unique.")
+            if any(later < earlier for earlier, later in zip(levels, levels[1:])):
+                raise ValueError(f"cst_search.{name} must be non-decreasing.")
+            if 0.0 not in levels:
+                raise ValueError(f"cst_search.{name} must include 0.0.")
+            if any(abs(level) > 0.05 for level in levels):
+                raise ValueError(f"cst_search.{name} entries must stay within +/-0.05.")
+        return self
+
+
 class PipelineConfig(ConceptBaseModel):
     stations_per_half: int = Field(7, ge=2)
     keep_top_n: int = Field(5, ge=1)
@@ -207,6 +237,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     prop: PropConfig = Field(default_factory=PropConfig)
     turn: TurnConfig = Field(default_factory=TurnConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
+    cst_search: CSTSearchConfig = Field(default_factory=CSTSearchConfig)
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
 

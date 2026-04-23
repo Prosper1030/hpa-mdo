@@ -41,6 +41,22 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.dihedral_root_deg_candidates == (0.0, 1.0, 2.0)
     assert cfg.geometry_family.dihedral_tip_deg_candidates == (4.0, 6.0, 8.0)
     assert cfg.geometry_family.dihedral_exponent_candidates == (1.0, 1.5, 2.0)
+    assert cfg.cst_search.thickness_delta_levels == (
+        -0.018,
+        -0.010,
+        -0.006,
+        0.0,
+        0.006,
+        0.010,
+        0.018,
+    )
+    assert cfg.cst_search.camber_delta_levels == (
+        -0.012,
+        -0.008,
+        0.0,
+        0.008,
+        0.012,
+    )
     assert cfg.pipeline.stations_per_half == 7
     assert cfg.pipeline.keep_top_n == 5
     assert cfg.output.export_candidate_bundle is True
@@ -262,6 +278,25 @@ def test_load_concept_config_rejects_duplicate_geometry_candidates():
                     "taper_ratio_candidates": [0.3, 0.35, 0.4],
                     "twist_tip_candidates_deg": [-2.0, -1.5, -1.0],
                     "tail_area_candidates_m2": [3.8, 4.2, 4.6],
+                },
+            }
+        )
+
+
+def test_load_concept_config_rejects_invalid_cst_search_levels():
+    with pytest.raises(ValueError, match="cst_search"):
+        BirdmanConceptConfig.model_validate(
+            {
+                "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+                "mass": {
+                    "pilot_mass_kg": 60.0,
+                    "baseline_aircraft_mass_kg": 40.0,
+                    "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+                },
+                "mission": {"target_distance_km": 42.195},
+                "cst_search": {
+                    "thickness_delta_levels": [-0.01, -0.01, 0.01],
+                    "camber_delta_levels": [-0.01, 0.01],
                 },
             }
         )

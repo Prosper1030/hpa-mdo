@@ -316,9 +316,11 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
         },
         seed_loader=lambda _seed_name: seed_coordinates,
         worker=FakeWorker(),
+        thickness_delta_levels=(-0.01, 0.0, 0.01),
+        camber_delta_levels=(-0.008, 0.0, 0.008),
     )
 
     assert set(selection.selected_by_zone) == {"root", "tip"}
     assert selection.selected_by_zone["root"].template.candidate_role == "thickness_up"
     assert selection.selected_by_zone["tip"].template.candidate_role == "thickness_up"
-    assert len(selection.worker_results) == 10
+    assert len(selection.worker_results) == 18

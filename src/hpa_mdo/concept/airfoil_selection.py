@@ -6,6 +6,8 @@ from typing import Any, Callable, Mapping
 
 from hpa_mdo.concept.airfoil_cst import (
     CSTAirfoilTemplate,
+    DEFAULT_CAMBER_DELTA_LEVELS,
+    DEFAULT_THICKNESS_DELTA_LEVELS,
     build_bounded_candidate_family,
     generate_cst_coordinates,
     validate_cst_candidate_coordinates,
@@ -561,6 +563,8 @@ def select_zone_airfoil_templates(
     zone_requirements: dict[str, dict[str, object]],
     seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
     worker: Any,
+    thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
+    camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
@@ -576,7 +580,11 @@ def select_zone_airfoil_templates(
             seed_name=seed_name,
             seed_coordinates=seed_loader(seed_name),
         )
-        candidates = build_bounded_candidate_family(base_template)
+        candidates = build_bounded_candidate_family(
+            base_template,
+            thickness_delta_levels=thickness_delta_levels,
+            camber_delta_levels=camber_delta_levels,
+        )
 
         queries: list[PolarQuery] = []
         query_roles: list[str] = []
