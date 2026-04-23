@@ -22,8 +22,8 @@ from hpa_mdo.concept.safety import evaluate_local_stall
 from hpa_mdo.concept.stall_model import apply_safe_local_clmax_model
 from hpa_mdo.concept.zone_requirements import build_zone_requirements, default_zone_definitions
 from hpa_mdo.mission.objective import (
-    FakeAnchorCurve,
     MissionEvaluationInputs,
+    build_rider_power_curve,
     evaluate_mission_objective,
 )
 
@@ -344,9 +344,13 @@ def _mission_mass_cases_for_avl(
         rpm_max=float(cfg.prop.rpm_max),
         design_efficiency=0.83,
     )
-    rider_curve = FakeAnchorCurve(
+    rider_curve = build_rider_power_curve(
+        rider_model=str(cfg.mission.rider_model),
         anchor_power_w=float(cfg.mission.anchor_power_w),
         anchor_duration_min=float(cfg.mission.anchor_duration_min),
+        rider_power_curve_csv=cfg.mission.rider_power_curve_csv,
+        duration_column=str(cfg.mission.rider_power_curve_duration_column),
+        power_column=str(cfg.mission.rider_power_curve_power_column),
     )
     reference_station_points, reference_speed_filter_summary = _coarse_pre_avl_reference_station_points(
         cfg=cfg,

@@ -1,10 +1,26 @@
+from pathlib import Path
+
 import pytest
 
 from hpa_mdo.mission import (
+    CsvPowerCurve,
     FakeAnchorCurve,
     MissionEvaluationInputs,
+    build_rider_power_curve,
     evaluate_mission_objective,
+    load_csv_power_curve,
 )
+
+
+def _write_power_curve_csv(tmp_path: Path, rows: list[tuple[float, float]]) -> Path:
+    csv_path = tmp_path / "power_curve.csv"
+    csv_path.write_text(
+        "secs,watts\n"
+        + "\n".join(f"{secs},{watts}" for secs, watts in rows)
+        + "\n",
+        encoding="utf-8",
+    )
+    return csv_path
 
 
 def test_fake_anchor_curve_matches_anchor_point():
@@ -27,6 +43,75 @@ def test_duration_at_power_w_decreases_when_required_power_increases():
     higher_power_duration = curve.duration_at_power_w(350.0)
 
     assert higher_power_duration < lower_power_duration
+
+
+def test_load_csv_power_curve_interpolates_duration_and_power(tmp_path: Path):
+    csv_path = _write_power_curve_csv(
+        tmp_path,
+        [
+            (60.0, 400.0),
+            (120.0, 350.0),
+            (300.0, 300.0),
+            (600.0, 250.0),
+        ],
+    )
+
+    curve = load_csv_power_curve(csv_path)
+
+    assert isinstance(curve, CsvPowerCurve)
+    assert curve.power_at_duration_min(5.0) == pytest.approx(300.0)
+    assert curve.duration_at_power_w(300.0) == pytest.approx(5.0)
+    assert curve.duration_at_power_w(275.0) == pytest.approx(7.5)
+    assert curve.duration_at_power_w(450.0) == pytest.approx(1.0)
+    assert curve.duration_at_power_w(200.0) == pytest.approx(10.0)
+
+
+def test_load_csv_power_curve_monotonizes_noisy_measurements(tmp_path: Path):
+    csv_path = _write_power_curve_csv(
+        tmp_path,
+        [
+            (60.0, 400.0),
+            (120.0, 340.0),
+            (180.0, 345.0),
+            (300.0, 300.0),
+        ],
+    )
+
+    curve = load_csv_power_curve(csv_path)
+
+    assert curve.power_at_duration_min(2.0) == pytest.approx(345.0)
+    assert curve.duration_at_power_w(345.0) == pytest.approx(3.0)
+
+
+def test_evaluate_mission_objective_reports_csv_power_curve_metadata(tmp_path: Path):
+    csv_path = _write_power_curve_csv(
+        tmp_path,
+        [
+            (60.0, 400.0),
+            (120.0, 350.0),
+            (300.0, 300.0),
+            (600.0, 250.0),
+            (1800.0, 220.0),
+        ],
+    )
+    curve = build_rider_power_curve(
+        anchor_power_w=300.0,
+        anchor_duration_min=30.0,
+        rider_power_curve_csv=csv_path,
+    )
+    inputs = MissionEvaluationInputs(
+        objective_mode="max_range",
+        target_range_km=20.0,
+        speed_mps=(10.0, 12.0, 14.0),
+        power_required_w=(240.0, 220.0, 260.0),
+        rider_curve=curve,
+    )
+
+    result = evaluate_mission_objective(inputs)
+
+    assert result.pilot_power_model == "csv_power_curve"
+    assert csv_path.name in result.pilot_power_anchor
+    assert "30.0min" in result.pilot_power_anchor
 
 
 @pytest.mark.parametrize("duration_min", [float("nan"), float("inf"), 0.0, -1.0])

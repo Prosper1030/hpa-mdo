@@ -39,9 +39,10 @@ from hpa_mdo.concept.safety import (
 )
 from hpa_mdo.concept.stall_model import apply_safe_local_clmax_model
 from hpa_mdo.mission.objective import (
+    CsvPowerCurve,
     FakeAnchorCurve,
     MissionEvaluationInputs,
-    MissionEvaluationResult,
+    build_rider_power_curve,
     evaluate_mission_objective,
 )
 
@@ -1639,7 +1640,7 @@ def _mission_limiter_audit(
     *,
     target_range_m: float,
     speed_sweep_mps: tuple[float, ...],
-    rider_curve: FakeAnchorCurve,
+    rider_curve: FakeAnchorCurve | CsvPowerCurve,
     mass_case_summary: dict[str, Any],
 ) -> dict[str, Any]:
     feasible_speed_set_mps = [float(speed) for speed in mass_case_summary["feasible_speed_set_mps"]]
@@ -1784,9 +1785,13 @@ def _build_concept_mission_summary(
         rpm_max=float(cfg.prop.rpm_max),
         design_efficiency=0.83,
     )
-    rider_curve = FakeAnchorCurve(
+    rider_curve = build_rider_power_curve(
+        rider_model=str(cfg.mission.rider_model),
         anchor_power_w=float(cfg.mission.anchor_power_w),
         anchor_duration_min=float(cfg.mission.anchor_duration_min),
+        rider_power_curve_csv=cfg.mission.rider_power_curve_csv,
+        duration_column=str(cfg.mission.rider_power_curve_duration_column),
+        power_column=str(cfg.mission.rider_power_curve_power_column),
     )
 
     target_range_m = float(cfg.mission.target_distance_km) * 1000.0
@@ -1908,6 +1913,8 @@ def _build_concept_mission_summary(
                 "min_power_speed_mps": float(unconstrained_result.min_power_speed_mps),
                 "mission_score": mission_score,
                 "mission_score_reason": mission_score_reason,
+                "pilot_power_model": str(unconstrained_result.pilot_power_model),
+                "pilot_power_anchor": str(unconstrained_result.pilot_power_anchor),
                 "power_required_w": tuple(power_required_w),
                 "best_range_unconstrained_m": float(unconstrained_result.best_range_m),
                 "best_range_unconstrained_speed_mps": float(
@@ -1956,8 +1963,8 @@ def _build_concept_mission_summary(
         "min_power_speed_mps": float(worst_case_result["min_power_speed_mps"]),
         "mission_score": float(worst_case_result["mission_score"]),
         "mission_score_reason": str(worst_case_result["mission_score_reason"]),
-        "pilot_power_model": "fake_anchor_curve",
-        "pilot_power_anchor": f"{rider_curve.anchor_power_w:.1f}W@{rider_curve.anchor_duration_min:.1f}min",
+        "pilot_power_model": str(worst_case_result["pilot_power_model"]),
+        "pilot_power_anchor": str(worst_case_result["pilot_power_anchor"]),
         "speed_sweep_window_mps": [float(min(speed_sweep_mps)), float(max(speed_sweep_mps))],
         "aggregation_mode": "worst_case_over_gross_mass_sweep",
         "evaluated_gross_mass_kg": float(worst_case_result["gross_mass_kg"]),
@@ -2001,6 +2008,8 @@ def _build_concept_mission_summary(
                 "min_power_speed_mps": float(result["min_power_speed_mps"]),
                 "mission_score": float(result["mission_score"]),
                 "mission_score_reason": str(result["mission_score_reason"]),
+                "pilot_power_model": str(result["pilot_power_model"]),
+                "pilot_power_anchor": str(result["pilot_power_anchor"]),
                 "feasible_speed_set_mps": list(result["feasible_speed_set_mps"]),
                 "first_feasible_speed_mps": result["first_feasible_speed_mps"],
                 "estimated_first_feasible_speed_mps": result[
@@ -2534,6 +2543,8 @@ def _concept_to_bundle_payload(
     dict[str, Any],
 ]:
     concept_config = cfg.model_dump(mode="python")
+    concept_config.setdefault("mission", {})
+    concept_config["mission"]["resolved_rider_model"] = str(cfg.mission.resolved_rider_model)
     geometry_summary = _concept_geometry_summary(concept)
     concept_config["geometry"] = {
         "span_m": float(concept.span_m),

@@ -63,9 +63,12 @@ class MassConfig(ConceptBaseModel):
 class MissionConfig(ConceptBaseModel):
     objective_mode: Literal["max_range", "min_power"] = "max_range"
     target_distance_km: float = Field(42.195, gt=0.0)
-    rider_model: Literal["fake_anchor_curve"] = "fake_anchor_curve"
+    rider_model: Literal["fake_anchor_curve", "csv_power_curve"] = "fake_anchor_curve"
     anchor_power_w: float = Field(300.0, gt=0.0)
     anchor_duration_min: float = Field(30.0, gt=0.0)
+    rider_power_curve_csv: str | None = None
+    rider_power_curve_duration_column: str = "secs"
+    rider_power_curve_power_column: str = "watts"
     speed_sweep_min_mps: float = Field(6.0, gt=0.0)
     speed_sweep_max_mps: float = Field(10.0, gt=0.0)
     speed_sweep_points: int = Field(9, ge=3)
@@ -74,7 +77,29 @@ class MissionConfig(ConceptBaseModel):
     def validate_speed_sweep_bounds(self) -> MissionConfig:
         if self.speed_sweep_max_mps <= self.speed_sweep_min_mps:
             raise ValueError("mission.speed_sweep_max_mps must be > mission.speed_sweep_min_mps.")
+        if self.rider_model == "csv_power_curve" and self.rider_power_curve_csv is None:
+            raise ValueError(
+                "mission.rider_power_curve_csv must be provided when mission.rider_model=csv_power_curve."
+            )
+        if self.rider_power_curve_csv is not None:
+            csv_path = Path(self.rider_power_curve_csv).expanduser()
+            if not csv_path.exists():
+                raise ValueError(
+                    f"mission.rider_power_curve_csv does not exist: {csv_path}"
+                )
+            if not self.rider_power_curve_duration_column.strip():
+                raise ValueError(
+                    "mission.rider_power_curve_duration_column must not be blank."
+                )
+            if not self.rider_power_curve_power_column.strip():
+                raise ValueError(
+                    "mission.rider_power_curve_power_column must not be blank."
+                )
         return self
+
+    @property
+    def resolved_rider_model(self) -> str:
+        return "csv_power_curve" if self.rider_power_curve_csv is not None else str(self.rider_model)
 
 
 class SegmentationConfig(ConceptBaseModel):
@@ -382,5 +407,36 @@ class BirdmanConceptConfig(ConceptBaseModel):
 
 
 def load_concept_config(path: str | Path) -> BirdmanConceptConfig:
-    payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    path = Path(path)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    mission_payload = payload.get("mission")
+    if isinstance(mission_payload, dict):
+        rider_power_curve_csv = mission_payload.get("rider_power_curve_csv")
+        if rider_power_curve_csv is not None:
+            mission_payload["rider_power_curve_csv"] = str(
+                _resolve_optional_artifact_path(
+                    raw_path=rider_power_curve_csv,
+                    config_path=path,
+                )
+            )
     return BirdmanConceptConfig.model_validate(payload)
+
+
+def _resolve_optional_artifact_path(
+    *,
+    raw_path: str | Path,
+    config_path: Path,
+) -> Path:
+    raw_path = Path(raw_path).expanduser()
+    if raw_path.is_absolute():
+        return raw_path.resolve()
+
+    repo_root = Path(__file__).resolve().parents[3]
+    candidate_paths = [
+        (config_path.resolve().parent / raw_path).resolve(),
+        (repo_root / raw_path).resolve(),
+    ]
+    for candidate_path in candidate_paths:
+        if candidate_path.exists():
+            return candidate_path
+    return candidate_paths[0]

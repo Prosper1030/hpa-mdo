@@ -15,6 +15,9 @@ mission:
   rider_model: fake_anchor_curve
   anchor_power_w: 300.0
   anchor_duration_min: 30.0
+  rider_power_curve_csv: data/pilot_power_curves/current_pilot_power_curve.csv
+  rider_power_curve_duration_column: secs
+  rider_power_curve_power_column: watts
   speed_sweep_min_mps: 6.0
   speed_sweep_max_mps: 10.0
   speed_sweep_points: 9

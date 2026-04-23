@@ -196,6 +196,8 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert "trim" in first
     assert "local_stall" in first
     assert "spanwise_requirements" in first
+    assert first["mission"]["pilot_power_model"] == "csv_power_curve"
+    assert ".csv" in first["mission"]["pilot_power_anchor"]
     assert isinstance(first["launch"]["cl_required"], float)
     assert isinstance(first["turn"]["required_cl"], float)
     assert isinstance(first["trim"]["margin_deg"], float)

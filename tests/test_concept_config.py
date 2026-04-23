@@ -17,6 +17,9 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.mass.pilot_mass_kg == pytest.approx(60.0)
     assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
     assert cfg.mission.objective_mode == "max_range"
+    assert cfg.mission.resolved_rider_model == "csv_power_curve"
+    assert cfg.mission.rider_power_curve_csv is not None
+    assert Path(cfg.mission.rider_power_curve_csv).is_file()
     assert cfg.launch.mode == "restrained_pre_spin"
     assert cfg.launch.prop_ready_before_release is True
     assert cfg.launch.release_speed_mps == pytest.approx(8.0)
@@ -95,6 +98,24 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.output.export_candidate_bundle is True
     assert cfg.output.export_vsp is False
     assert cfg.output.export_vsp_for_top_n == 0
+
+
+def test_load_concept_config_rejects_csv_rider_model_without_csv_path():
+    with pytest.raises(ValueError, match="rider_power_curve_csv"):
+        BirdmanConceptConfig.model_validate(
+            {
+                "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+                "mass": {
+                    "pilot_mass_kg": 60.0,
+                    "baseline_aircraft_mass_kg": 40.0,
+                    "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+                },
+                "mission": {
+                    "target_distance_km": 42.195,
+                    "rider_model": "csv_power_curve",
+                },
+            }
+        )
 
 
 def test_load_concept_config_rejects_unexpected_key():
