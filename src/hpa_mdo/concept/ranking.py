@@ -16,6 +16,7 @@ class CandidateConceptResult:
     best_range_m: float
     assembly_penalty: float
     local_stall_feasible: bool = True
+    mission_margin_m: float | None = None
 
     @property
     def safety_feasible(self) -> bool:
@@ -26,18 +27,55 @@ class CandidateConceptResult:
             and self.local_stall_feasible
         )
 
+    @property
+    def fully_feasible(self) -> bool:
+        return self.safety_feasible and self.mission_feasible
+
+    @property
+    def failed_gate_count(self) -> int:
+        return sum(
+            0 if feasible else 1
+            for feasible in (
+                self.launch_feasible,
+                self.turn_feasible,
+                self.trim_feasible,
+                self.local_stall_feasible,
+                self.mission_feasible,
+            )
+        )
+
 
 @dataclass(frozen=True)
 class RankedConcept:
     concept_id: str
     score: float
     safety_feasible: bool
+    fully_feasible: bool
     selection_status: str
+    failed_gate_count: int = 0
+    combined_feasibility_margin: float = 0.0
     why_not_higher: tuple[str, ...] = field(default_factory=tuple)
 
 
+def _mission_component(result: CandidateConceptResult) -> float:
+    if result.mission_objective_mode == "max_range":
+        return 0.001 * float(result.mission_score)
+    if result.mission_objective_mode == "min_power":
+        return float(result.mission_score)
+    raise ValueError(
+        f"unsupported mission_objective_mode for ranking: {result.mission_objective_mode}"
+    )
+
+
+def _combined_feasibility_margin(result: CandidateConceptResult) -> float:
+    if result.mission_margin_m is None:
+        return float(result.safety_margin)
+    mission_margin_km = float(result.mission_margin_m) / 1000.0
+    return min(float(result.safety_margin), mission_margin_km)
+
+
 def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
-    scored: list[tuple[CandidateConceptResult, float, list[str]]] = []
+    scored: list[tuple[CandidateConceptResult, float, float, list[str]]] = []
     for result in results:
         reasons: list[str] = []
         if not result.launch_feasible:
@@ -50,40 +88,43 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             reasons.append("local_stall_not_feasible")
         if not result.mission_feasible:
             reasons.append("target_range_not_met")
-        if result.safety_margin < 0.10:
-            reasons.append("low_safety_margin")
+        combined_feasibility_margin = _combined_feasibility_margin(result)
         if result.assembly_penalty >= 2.5:
             reasons.append("assembly_complexity")
 
-        if result.mission_objective_mode == "max_range":
-            mission_component = 0.001 * float(result.mission_score)
-        elif result.mission_objective_mode == "min_power":
-            mission_component = float(result.mission_score)
-        else:
-            raise ValueError(
-                f"unsupported mission_objective_mode for ranking: {result.mission_objective_mode}"
-            )
+        mission_component = _mission_component(result)
 
         score = (
-            (0.0 if result.launch_feasible else 1000.0)
-            + (0.0 if result.turn_feasible else 1000.0)
-            + (0.0 if result.trim_feasible else 1000.0)
-            + (0.0 if result.local_stall_feasible else 1000.0)
-            + (0.0 if result.mission_feasible else 500.0)
+            1000.0 * float(result.failed_gate_count)
             + mission_component
-            - 10.0 * result.safety_margin
+            - 100.0 * combined_feasibility_margin
             + result.assembly_penalty
         )
-        scored.append((result, score, reasons))
+        scored.append((result, score, combined_feasibility_margin, reasons))
 
-    scored.sort(key=lambda item: (0 if item[0].safety_feasible else 1, item[1], item[0].concept_id))
+    scored.sort(
+        key=lambda item: (
+            0 if item[0].fully_feasible else 1,
+            item[0].failed_gate_count,
+            -item[2],
+            _mission_component(item[0]),
+            item[0].assembly_penalty,
+            item[0].concept_id,
+        )
+    )
     best_result = None if not scored else scored[0][0]
+    best_margin = float("-inf") if not scored else scored[0][2]
     first_infeasible_emitted = False
     ranked: list[RankedConcept] = []
-    for result, score, reasons in scored:
+    for result, score, combined_feasibility_margin, reasons in scored:
         augmented_reasons = list(reasons)
         if best_result is not None and result.concept_id != best_result.concept_id and not reasons:
-            if result.mission_objective_mode == "max_range" and result.best_range_m < best_result.best_range_m:
+            if combined_feasibility_margin < best_margin:
+                augmented_reasons.append("lower_feasibility_margin_than_best")
+            elif (
+                result.mission_objective_mode == "max_range"
+                and result.best_range_m < best_result.best_range_m
+            ):
                 augmented_reasons.append("less_range_than_best")
             elif (
                 result.mission_objective_mode == "min_power"
@@ -95,7 +136,7 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             elif result.assembly_penalty > best_result.assembly_penalty:
                 augmented_reasons.append("higher_assembly_penalty_than_best")
 
-        if result.safety_feasible:
+        if result.fully_feasible:
             selection_status = "selected"
         elif not first_infeasible_emitted:
             selection_status = "best_infeasible"
@@ -108,7 +149,10 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
                 concept_id=result.concept_id,
                 score=score,
                 safety_feasible=result.safety_feasible,
+                fully_feasible=result.fully_feasible,
                 selection_status=selection_status,
+                failed_gate_count=result.failed_gate_count,
+                combined_feasibility_margin=combined_feasibility_margin,
                 why_not_higher=tuple(augmented_reasons),
             )
         )

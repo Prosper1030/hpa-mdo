@@ -1076,6 +1076,7 @@ def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     payload["pipeline"]["keep_top_n"] = 3
     payload["output"]["export_candidate_bundle"] = False
+    payload["mission"]["target_distance_km"] = 1.0
     payload["stall_model"] = {
         "safe_clmax_scale": 1.0,
         "safe_clmax_delta": 0.0,
@@ -1144,6 +1145,11 @@ def test_pipeline_reorders_selected_concepts_by_mission_ranking(
         concept_pipeline,
         "enumerate_geometry_concepts",
         lambda cfg: (concept_worse, concept_better, concept_middle),
+    )
+    monkeypatch.setattr(
+        concept_pipeline,
+        "_concept_safety_margin",
+        lambda **_: 0.20,
     )
 
     result = run_birdman_concept_pipeline(
@@ -1265,6 +1271,7 @@ def test_pipeline_excludes_safety_infeasible_concepts_from_selected_summary(
     payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     payload["pipeline"]["keep_top_n"] = 2
     payload["output"]["export_candidate_bundle"] = False
+    payload["mission"]["target_distance_km"] = 1.0
     custom_cfg = tmp_path / "concept_safety_split.yaml"
     custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
@@ -1364,6 +1371,116 @@ def test_pipeline_excludes_safety_infeasible_concepts_from_selected_summary(
     assert summary["best_infeasible_concepts"][0]["local_stall"]["feasible"] is False
     assert summary["evaluation_scope"]["selected_concept_count"] == 1
     assert summary["evaluation_scope"]["best_infeasible_count"] == 1
+    assert result.selected_concept_dirs == ()
+    assert result.best_infeasible_concept_dirs == ()
+
+
+def test_pipeline_selected_summary_requires_full_feasibility(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    payload["pipeline"]["keep_top_n"] = 2
+    payload["output"]["export_candidate_bundle"] = False
+    payload["mission"]["target_distance_km"] = 200.0
+    payload["stall_model"] = {
+        "safe_clmax_scale": 1.0,
+        "safe_clmax_delta": 0.0,
+        "local_stall_utilization_limit": 0.98,
+        "turn_utilization_limit": 0.98,
+        "launch_utilization_limit": 0.98,
+    }
+    custom_cfg = tmp_path / "concept_full_feasibility.yaml"
+    custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    concept_a = GeometryConcept(
+        span_m=30.0,
+        wing_area_m2=60.0,
+        root_chord_m=2.0,
+        tip_chord_m=2.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(7.5, 7.5),
+    )
+    concept_b = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=64.0,
+        root_chord_m=2.0,
+        tip_chord_m=2.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    monkeypatch.setattr(
+        concept_pipeline,
+        "enumerate_geometry_concepts",
+        lambda cfg: (concept_a, concept_b, concept_b),
+    )
+
+    result = run_birdman_concept_pipeline(
+        config_path=custom_cfg,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: type(
+            "FakeWorker",
+            (),
+            {
+                "backend_name": "test_stub",
+                "run_queries": lambda self, queries: [
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "polar_points": [
+                            {
+                                "cl_target": query.cl_samples[0],
+                                "cl": query.cl_samples[0],
+                                "cd": 0.018,
+                                "cm": -0.02,
+                                "converged": True,
+                            }
+                        ],
+                        "sweep_summary": {
+                            "cl_max_observed": 1.40,
+                            "converged_point_count": 10,
+                            "sweep_point_count": 10,
+                        },
+                    }
+                    for query in queries
+                ],
+            },
+        )(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 320000.0,
+                        "cl_target": 0.45,
+                        "cm_target": -0.02,
+                        "weight": 1.0,
+                        "station_y_m": 2.0,
+                    }
+                ]
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+
+    assert summary["selected_concepts"] == []
+    assert len(summary["best_infeasible_concepts"]) == 2
+    assert all(
+        item["mission"]["mission_feasible"] is False for item in summary["best_infeasible_concepts"]
+    )
+    assert summary["evaluation_scope"]["selected_concept_count"] == 0
+    assert summary["evaluation_scope"]["best_infeasible_count"] == 2
     assert result.selected_concept_dirs == ()
     assert result.best_infeasible_concept_dirs == ()
 

@@ -1721,6 +1721,7 @@ def _evaluate_selected_airfoils_for_concept(
         best_range_m=float(mission_summary["best_range_m"]),
         assembly_penalty=_assembly_penalty(concept),
         local_stall_feasible=bool(local_stall_summary["feasible"]),
+        mission_margin_m=float(mission_summary["target_range_margin_m"]),
     )
     return (
         updated_selected_by_zone,
@@ -2144,8 +2145,8 @@ def run_birdman_concept_pipeline(
     summary_records: list[dict[str, Any]] = []
     best_infeasible_records: list[dict[str, Any]] = []
 
-    selected_ranked = [ranked for ranked in ranked_concepts if ranked.safety_feasible]
-    infeasible_ranked = [ranked for ranked in ranked_concepts if not ranked.safety_feasible]
+    selected_ranked = [ranked for ranked in ranked_concepts if ranked.fully_feasible]
+    infeasible_ranked = [ranked for ranked in ranked_concepts if not ranked.fully_feasible]
     best_infeasible_ranked = (
         infeasible_ranked[:1]
         if selected_ranked
@@ -2159,8 +2160,13 @@ def run_birdman_concept_pipeline(
             "selection_status": ranked.selection_status,
             "why_not_higher": list(ranked.why_not_higher),
             "safety_margin": record.ranking_input.safety_margin,
+            "mission_margin_m": record.ranking_input.mission_margin_m,
+            "failed_gate_count": ranked.failed_gate_count,
+            "combined_feasibility_margin": ranked.combined_feasibility_margin,
+            "safety_feasible": ranked.safety_feasible,
+            "fully_feasible": ranked.fully_feasible,
             "assembly_penalty": record.ranking_input.assembly_penalty,
-            "ranking_basis": "airfoil_informed_mission_proxy_v1",
+            "ranking_basis": "feasibility_first_contract_aligned_v2",
             "selection_scope": "ranked_bounded_prefix_pool",
         }
         spanwise_requirement_summary = _summarize_spanwise_requirements(record.zone_requirements)
@@ -2276,8 +2282,13 @@ def run_birdman_concept_pipeline(
                     "selection_status": ranked.selection_status,
                     "why_not_higher": list(ranked.why_not_higher),
                     "safety_margin": record.ranking_input.safety_margin,
+                    "mission_margin_m": record.ranking_input.mission_margin_m,
+                    "failed_gate_count": ranked.failed_gate_count,
+                    "combined_feasibility_margin": ranked.combined_feasibility_margin,
+                    "safety_feasible": ranked.safety_feasible,
+                    "fully_feasible": ranked.fully_feasible,
                     "assembly_penalty": record.ranking_input.assembly_penalty,
-                    "ranking_basis": "airfoil_informed_mission_proxy_v1",
+                    "ranking_basis": "feasibility_first_contract_aligned_v2",
                     "selection_scope": "ranked_bounded_prefix_pool",
                 },
                 spanwise_requirement_summary=spanwise_requirement_summary,
@@ -2337,8 +2348,13 @@ def run_birdman_concept_pipeline(
                     "selection_status": ranked.selection_status,
                     "why_not_higher": list(ranked.why_not_higher),
                     "safety_margin": record.ranking_input.safety_margin,
+                    "mission_margin_m": record.ranking_input.mission_margin_m,
+                    "failed_gate_count": ranked.failed_gate_count,
+                    "combined_feasibility_margin": ranked.combined_feasibility_margin,
+                    "safety_feasible": ranked.safety_feasible,
+                    "fully_feasible": ranked.fully_feasible,
                     "assembly_penalty": record.ranking_input.assembly_penalty,
-                    "ranking_basis": "airfoil_informed_mission_proxy_v1",
+                    "ranking_basis": "feasibility_first_contract_aligned_v2",
                     "selection_scope": "ranked_bounded_prefix_pool",
                 },
             }
@@ -2353,7 +2369,7 @@ def run_birdman_concept_pipeline(
                 "worker_statuses": summary_worker_statuses,
                 "evaluation_scope": {
                     "selection_scope": "ranked_bounded_prefix_pool",
-                    "ranking_basis": "airfoil_informed_mission_proxy_v1",
+                    "ranking_basis": "feasibility_first_contract_aligned_v2",
                     "objective_mode": str(cfg.mission.objective_mode),
                     "enumerated_concept_count": len(all_concepts),
                     "evaluated_concept_count": len(evaluated_concepts),

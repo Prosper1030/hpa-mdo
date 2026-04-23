@@ -213,6 +213,84 @@ def test_rank_concepts_prefers_safety_feasible_candidate_over_infeasible_one():
     assert "local_stall_not_feasible" in ranked[1].why_not_higher
 
 
+def test_rank_concepts_prioritizes_feasibility_margin_before_extra_range():
+    ranked = rank_concepts(
+        [
+            CandidateConceptResult(
+                concept_id="longer-range-but-tight",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                local_stall_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.06,
+                mission_margin_m=1500.0,
+                mission_objective_mode="max_range",
+                mission_score=-43500.0,
+                best_range_m=43500.0,
+                assembly_penalty=0.0,
+            ),
+            CandidateConceptResult(
+                concept_id="safer-runner",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                local_stall_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.16,
+                mission_margin_m=1800.0,
+                mission_objective_mode="max_range",
+                mission_score=-42500.0,
+                best_range_m=42500.0,
+                assembly_penalty=0.0,
+            ),
+        ]
+    )
+
+    assert ranked[0].concept_id == "safer-runner"
+    assert "lower_feasibility_margin_than_best" in ranked[1].why_not_higher
+
+
+def test_rank_concepts_requires_mission_feasibility_for_selected_status():
+    ranked = rank_concepts(
+        [
+            CandidateConceptResult(
+                concept_id="safety_only",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                local_stall_feasible=True,
+                mission_feasible=False,
+                safety_margin=0.25,
+                mission_margin_m=-1200.0,
+                mission_objective_mode="max_range",
+                mission_score=-45000.0,
+                best_range_m=45000.0,
+                assembly_penalty=0.0,
+            ),
+            CandidateConceptResult(
+                concept_id="fully_feasible",
+                launch_feasible=True,
+                turn_feasible=True,
+                trim_feasible=True,
+                local_stall_feasible=True,
+                mission_feasible=True,
+                safety_margin=0.12,
+                mission_margin_m=800.0,
+                mission_objective_mode="max_range",
+                mission_score=-42000.0,
+                best_range_m=42000.0,
+                assembly_penalty=0.0,
+            ),
+        ]
+    )
+
+    assert ranked[0].concept_id == "fully_feasible"
+    assert ranked[0].selection_status == "selected"
+    assert ranked[1].selection_status == "best_infeasible"
+    assert "target_range_not_met" in ranked[1].why_not_higher
+
+
 def test_write_selected_concept_bundle_writes_expected_artifacts(tmp_path):
     bundle_dir = write_selected_concept_bundle(
         output_dir=tmp_path,

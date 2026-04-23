@@ -149,6 +149,10 @@ def select_avl_design_cases(
     air_density_kg_per_m3: float,
     profile_cd_proxy: float = 0.020,
 ) -> dict[str, Any]:
+    reference_case_weight = 0.35
+    slow_case_weight = 1.75
+    launch_case_weight = 2.00
+    turn_case_weight = 2.25
     mass_cases = _mission_mass_cases_for_avl(
         cfg=cfg,
         concept=concept,
@@ -179,40 +183,40 @@ def select_avl_design_cases(
             "evaluation_speed_mps": float(reference_speed_mps),
             "evaluation_gross_mass_kg": float(selected_mass_case["gross_mass_kg"]),
             "load_factor": 1.0,
-            "case_weight": 1.0,
+            "case_weight": reference_case_weight,
             "speed_reason": reference_speed_reason,
             "mass_reason": mass_selection_reason,
-            "case_reason": "objective_selected_reference_case",
+            "case_reason": "secondary_cruise_objective_case",
         },
         {
             "case_label": "slow_avl_case",
             "evaluation_speed_mps": float(min_speed_mps),
             "evaluation_gross_mass_kg": float(max_gross_mass_kg),
             "load_factor": 1.0,
-            "case_weight": 1.0,
+            "case_weight": slow_case_weight,
             "speed_reason": "speed_sweep_min_mps",
             "mass_reason": "max_gross_mass",
-            "case_reason": "low_speed_heavy_mass_case",
+            "case_reason": "primary_low_speed_heavy_mass_case",
         },
         {
             "case_label": "launch_release_case",
             "evaluation_speed_mps": float(launch_speed_mps),
             "evaluation_gross_mass_kg": float(max_gross_mass_kg),
             "load_factor": 1.0,
-            "case_weight": 1.0,
+            "case_weight": launch_case_weight,
             "speed_reason": "launch.release_speed_mps",
             "mass_reason": "max_gross_mass",
-            "case_reason": "launch_release_heavy_mass_case",
+            "case_reason": "primary_launch_release_heavy_mass_case",
         },
         {
             "case_label": "turn_avl_case",
             "evaluation_speed_mps": float(launch_speed_mps),
             "evaluation_gross_mass_kg": float(max_gross_mass_kg),
             "load_factor": float(turn_load_factor),
-            "case_weight": 1.0,
+            "case_weight": turn_case_weight,
             "speed_reason": "launch.release_speed_mps",
             "mass_reason": "max_gross_mass",
-            "case_reason": "banked_turn_heavy_mass_case",
+            "case_reason": "primary_banked_turn_heavy_mass_case",
         },
     ]
     return {
@@ -221,7 +225,13 @@ def select_avl_design_cases(
         "reference_gross_mass_kg": float(selected_mass_case["gross_mass_kg"]),
         "reference_speed_reason": reference_speed_reason,
         "mass_selection_reason": mass_selection_reason,
-        "reference_condition_policy": "mission_objective_multipoint_design_cases_v2",
+        "reference_condition_policy": "low_speed_primary_multipoint_design_cases_v3",
+        "primary_case_labels": [
+            "slow_avl_case",
+            "launch_release_case",
+            "turn_avl_case",
+        ],
+        "secondary_case_labels": ["reference_avl_case"],
         "selected_mass_case": selected_mass_case,
         "mass_cases": mass_cases,
         "design_cases": design_cases,

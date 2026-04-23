@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from hpa_mdo.aero.base import SpanwiseLoad
+from hpa_mdo.concept import avl_loader as concept_avl_loader
 from hpa_mdo.concept.avl_loader import (
     avl_zone_payload_from_spanwise_load,
     build_avl_backed_spanwise_loader,
@@ -122,7 +123,7 @@ def test_select_avl_reference_condition_uses_range_speed_for_max_range() -> None
     assert reference["reference_speed_reason"] == "best_range_speed_mps"
     assert (
         reference["reference_condition_policy"]
-        == "mission_objective_multipoint_design_cases_v2"
+        == "low_speed_primary_multipoint_design_cases_v3"
     )
     assert reference["reference_speed_mps"] == pytest.approx(
         reference["selected_mass_case"]["best_range_speed_mps"]
@@ -151,7 +152,7 @@ def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> 
     assert reference["reference_speed_reason"] == "min_power_speed_mps"
     assert (
         reference["reference_condition_policy"]
-        == "mission_objective_multipoint_design_cases_v2"
+        == "low_speed_primary_multipoint_design_cases_v3"
     )
     assert reference["reference_speed_mps"] == pytest.approx(
         reference["selected_mass_case"]["min_power_speed_mps"]
@@ -183,7 +184,17 @@ def test_select_avl_design_cases_exposes_reference_slow_launch_and_turn_cases() 
     assert turn_case["load_factor"] == pytest.approx(
         1.0 / np.cos(np.radians(cfg.turn.required_bank_angle_deg))
     )
-    assert payload["reference_condition_policy"] == "mission_objective_multipoint_design_cases_v2"
+    assert payload["reference_condition_policy"] == "low_speed_primary_multipoint_design_cases_v3"
+    case_weights = {case["case_label"]: case["case_weight"] for case in payload["design_cases"]}
+    assert case_weights["slow_avl_case"] > case_weights["reference_avl_case"]
+    assert case_weights["launch_release_case"] > case_weights["reference_avl_case"]
+    assert case_weights["turn_avl_case"] > case_weights["reference_avl_case"]
+    assert payload["primary_case_labels"] == [
+        "slow_avl_case",
+        "launch_release_case",
+        "turn_avl_case",
+    ]
+    assert payload["secondary_case_labels"] == ["reference_avl_case"]
 
 
 def test_avl_backed_loader_falls_back_on_avl_failure(tmp_path: Path, monkeypatch) -> None:
@@ -202,7 +213,8 @@ def test_avl_backed_loader_falls_back_on_avl_failure(tmp_path: Path, monkeypatch
     }
 
     monkeypatch.setattr(
-        "hpa_mdo.concept.avl_loader.load_zone_requirements_from_avl",
+        concept_avl_loader,
+        "load_zone_requirements_from_avl",
         lambda **_: (_ for _ in ()).throw(RuntimeError("avl failed")),
     )
     loader = build_avl_backed_spanwise_loader(
@@ -235,7 +247,8 @@ def test_avl_backed_loader_uses_avl_payload_when_available(tmp_path: Path, monke
     fallback_calls: list[bool] = []
 
     monkeypatch.setattr(
-        "hpa_mdo.concept.avl_loader.load_zone_requirements_from_avl",
+        concept_avl_loader,
+        "load_zone_requirements_from_avl",
         lambda **_: expected_payload,
     )
     loader = build_avl_backed_spanwise_loader(
