@@ -105,7 +105,7 @@ def compile_topology_family_v1(
         motif_registry=out_dir / "motif_registry.v1.json",
         operator_plan=out_dir / "operator_plan.v1.json",
         pre_plc_audit=out_dir / "pre_plc_audit.v1.json",
-        summary=out_dir / "topology_compiler.v1.json",
+        summary=out_dir / "topology_compiler_summary.v1.json",
     )
 
     result = TopologyCompilerResultV1(
@@ -126,4 +126,5 @@ def compile_topology_family_v1(
     _json_write(artifacts.operator_plan, operator_plan)
     _json_write(artifacts.pre_plc_audit, pre_plc_audit)
     _json_write(artifacts.summary, result)
+    _json_write(out_dir / "topology_compiler.v1.json", result)
     return result

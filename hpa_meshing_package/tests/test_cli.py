@@ -77,12 +77,14 @@ def test_parser_supports_shell_v4_half_wing_bl_mesh_macsafe_command():
             "--study-level",
             "BL_macsafe_upper",
             "--skip-su2",
+            "--topology-compiler-plan-only",
         ]
     )
     assert args.command == "shell-v4-half-wing-bl-mesh-macsafe"
     assert args.out == "artifacts/shell_v4"
     assert args.study_level == "BL_macsafe_upper"
     assert args.skip_su2 is True
+    assert args.topology_compiler_plan_only is True
 
 
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):

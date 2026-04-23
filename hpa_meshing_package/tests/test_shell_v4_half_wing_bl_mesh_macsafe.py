@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from itertools import combinations
 from pathlib import Path
 
@@ -1408,3 +1409,160 @@ def test_shell_v4_pre_plc_root_last4_fixture_reproduces_facet_overlap(tmp_path: 
     assert observed["observed_failure_kind"] == "facet_facet_overlap"
     assert "Invalid boundary mesh (overlapping facets)" in observed["error"]
     assert Path(observed["report_path"]).exists()
+
+
+def test_run_shell_v4_topology_compiler_gate_off_keeps_runtime_decision_unchanged(tmp_path: Path):
+    overrides = {
+        "geometry": {
+            "airfoil_loop_points": 48,
+            "half_span_stations": 18,
+        },
+        "boundary_layer": {
+            "first_layer_height_m": 1.0e-3,
+            "layers": 8,
+            "growth_ratio": 1.20,
+        },
+        "wake_refinement": {
+            "wake_length_chords": 2.0,
+            "wake_height_chords": 0.4,
+            "near_wake_cell_size_chords": 0.18,
+        },
+        "farfield": {
+            "upstream_chords": 2.0,
+            "downstream_chords": 3.0,
+            "normal_chords": 2.0,
+            "outer_cell_size_chords": 2.2,
+        },
+        "tip_refinement": {
+            "spanwise_length_chords": 0.25,
+            "cell_size_chords": 0.20,
+        },
+        "cell_budget": {
+            "target_total_cells_min": 10_000,
+            "target_total_cells_max": 500_000,
+            "hard_fail_total_cells": 1_000_000,
+            "min_volume_to_wall_ratio": 5.0,
+            "max_bl_collapse_rate": 0.2,
+        },
+    }
+    baseline = run_shell_v4_half_wing_bl_mesh_macsafe(
+        out_dir=tmp_path / "baseline",
+        run_su2=False,
+        allow_swap_risk=False,
+        overrides=overrides,
+    )
+    gate_off = run_shell_v4_half_wing_bl_mesh_macsafe(
+        out_dir=tmp_path / "gate_off",
+        run_su2=False,
+        allow_swap_risk=False,
+        overrides=overrides,
+        topology_compiler_gate="off",
+    )
+
+    assert gate_off["status"] == baseline["status"]
+    assert gate_off.get("error") == baseline.get("error")
+    assert gate_off["case_summary"]["mesh_algorithm3d"] == baseline["case_summary"]["mesh_algorithm3d"]
+    assert gate_off["case_summary"]["root_closure_mode"] == baseline["case_summary"]["root_closure_mode"]
+    assert gate_off["boundary_layer"]["achieved_layers"] == baseline["boundary_layer"]["achieved_layers"]
+    assert "topology_compiler" not in gate_off
+    assert not (tmp_path / "gate_off" / "artifacts" / "topology_compiler").exists()
+
+
+def test_run_shell_v4_topology_compiler_gate_plan_only_emits_artifacts_without_runtime_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
+    overrides = {
+        "geometry": {
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(source_path),
+            "component": "main_wing",
+            "airfoil_loop_points": 48,
+            "half_span_stations": 18,
+        },
+        "boundary_layer": {
+            "first_layer_height_m": 1.0e-3,
+            "layers": 8,
+            "growth_ratio": 1.20,
+        },
+        "wake_refinement": {
+            "wake_length_chords": 2.0,
+            "wake_height_chords": 0.4,
+            "near_wake_cell_size_chords": 0.18,
+        },
+        "farfield": {
+            "upstream_chords": 2.0,
+            "downstream_chords": 3.0,
+            "normal_chords": 2.0,
+            "outer_cell_size_chords": 2.2,
+        },
+        "tip_refinement": {
+            "spanwise_length_chords": 0.25,
+            "cell_size_chords": 0.20,
+        },
+        "cell_budget": {
+            "target_total_cells_min": 10_000,
+            "target_total_cells_max": 500_000,
+            "hard_fail_total_cells": 1_000_000,
+            "min_volume_to_wall_ratio": 5.0,
+            "max_bl_collapse_rate": 0.2,
+        },
+    }
+
+    def _fake_topology_compiler_plan_only(**kwargs):
+        artifact_dir = Path(kwargs["out_dir"]) / "artifacts" / "topology_compiler"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        payload = {"status": "written", "gate": "plan_only"}
+        artifacts = {}
+        for name in (
+            "topology_ir.v1.json",
+            "motif_registry.v1.json",
+            "operator_plan.v1.json",
+            "pre_plc_audit.v1.json",
+            "topology_compiler_summary.v1.json",
+        ):
+            path = artifact_dir / name
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            artifacts[name] = str(path)
+        return {
+            "gate": "plan_only",
+            "status": "written",
+            "artifacts": {
+                "topology_ir": artifacts["topology_ir.v1.json"],
+                "motif_registry": artifacts["motif_registry.v1.json"],
+                "operator_plan": artifacts["operator_plan.v1.json"],
+                "pre_plc_audit": artifacts["pre_plc_audit.v1.json"],
+                "summary": artifacts["topology_compiler_summary.v1.json"],
+            },
+        }
+
+    monkeypatch.setattr(
+        shell_v4_bl_mesh,
+        "_run_shell_v4_topology_compiler_plan_only",
+        _fake_topology_compiler_plan_only,
+    )
+
+    baseline = run_shell_v4_half_wing_bl_mesh_macsafe(
+        out_dir=tmp_path / "baseline",
+        run_su2=False,
+        allow_swap_risk=False,
+        overrides=overrides,
+        topology_compiler_gate="off",
+    )
+    gated = run_shell_v4_half_wing_bl_mesh_macsafe(
+        out_dir=tmp_path / "gated",
+        run_su2=False,
+        allow_swap_risk=False,
+        overrides=overrides,
+        topology_compiler_gate="plan_only",
+    )
+
+    assert gated["status"] == baseline["status"]
+    assert gated.get("error") == baseline.get("error")
+    assert gated["case_summary"]["mesh_algorithm3d"] == baseline["case_summary"]["mesh_algorithm3d"]
+    assert gated["case_summary"]["root_closure_mode"] == baseline["case_summary"]["root_closure_mode"]
+    assert gated["topology_compiler"]["gate"] == "plan_only"
+    assert Path(gated["topology_compiler"]["artifacts"]["topology_ir"]).exists()
+    assert Path(gated["topology_compiler"]["artifacts"]["summary"]).exists()

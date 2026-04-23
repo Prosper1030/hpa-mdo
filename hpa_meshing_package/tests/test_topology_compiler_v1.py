@@ -429,6 +429,7 @@ def test_topology_compiler_v1_artifacts_and_shell_role_policies_stay_separated(t
     assert Path(result.artifacts.motif_registry).exists()
     assert Path(result.artifacts.operator_plan).exists()
 
-    summary = json.loads((tmp_path / "topology_compiler.v1.json").read_text(encoding="utf-8"))
+    summary = json.loads((tmp_path / "topology_compiler_summary.v1.json").read_text(encoding="utf-8"))
     assert summary["shell_role_policy"]["role_name"] == "shell_v4_active_bl_validation"
     assert summary["artifacts"]["topology_ir"].endswith("topology_ir.v1.json")
+    assert summary["artifacts"]["summary"].endswith("topology_compiler_summary.v1.json")

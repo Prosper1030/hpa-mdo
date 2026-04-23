@@ -102,6 +102,7 @@ def cmd_shell_v4_half_wing_bl_mesh_macsafe(args: argparse.Namespace) -> int:
         study_level=args.study_level,
         run_su2=not args.skip_su2,
         allow_swap_risk=args.allow_swap_risk,
+        topology_compiler_gate="plan_only" if args.topology_compiler_plan_only else "off",
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("status") == "success" else 2
@@ -167,6 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     shell_v4.add_argument("--skip-su2", action="store_true")
     shell_v4.add_argument("--allow-swap-risk", action="store_true")
+    shell_v4.add_argument("--topology-compiler-plan-only", action="store_true")
     shell_v4.set_defaults(func=cmd_shell_v4_half_wing_bl_mesh_macsafe)
 
     return parser

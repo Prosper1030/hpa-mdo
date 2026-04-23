@@ -20,8 +20,18 @@ from .adapters.su2_backend import (
     _solver_command as _backend_solver_command,
     _solver_env as _backend_solver_env,
 )
+from .compiler.compiler_v1 import compile_topology_family_v1
+from .compiler.pre_plc_audit_v1 import (
+    PrePLCAuditConfigV1,
+    PrePLCAuditObservedEvidenceV1,
+)
 from .gmsh_runtime import GmshRuntimeError, load_gmsh
-from .providers.esp_pipeline import extract_native_lifting_surface_sections
+from .providers.esp_pipeline import (
+    _apply_terminal_strip_suppression,
+    _build_native_rebuild_model,
+    _build_topology_lineage_report,
+    extract_native_lifting_surface_sections,
+)
 from .reports.json_report import write_json_report
 from .reports.markdown_report import write_markdown_report
 from .schema import SU2RuntimeConfig
@@ -37,6 +47,8 @@ DEFAULT_GEOMETRY_SHAPE_MODE = "surrogate_naca0012"
 DEFAULT_REAL_MAIN_WING_SHAPE_MODE = "esp_rebuilt_main_wing"
 ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE = "single_holed_symmetry_face"
 ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES = "use_bl_generated_faces"
+TOPOLOGY_COMPILER_GATE_OFF = "off"
+TOPOLOGY_COMPILER_GATE_PLAN_ONLY = "plan_only"
 PRE_PLC_REPRO_FAMILY_CONFIGS: dict[str, dict[str, Any]] = {
     "root_last3_segment_facet": {
         "section_index_offsets": [0, -3, -2, -1],
@@ -1717,6 +1729,183 @@ def _run_shell_v4_pre_plc_repro_fixture(
         "observed_failure_kind": observed_failure_kind,
         "report_path": str(out_dir / "report.json"),
         "route_result": result,
+    }
+
+
+def _normalize_topology_compiler_gate(topology_compiler_gate: str | None) -> str:
+    normalized = str(topology_compiler_gate or TOPOLOGY_COMPILER_GATE_OFF).strip().lower()
+    if normalized not in {
+        TOPOLOGY_COMPILER_GATE_OFF,
+        TOPOLOGY_COMPILER_GATE_PLAN_ONLY,
+    }:
+        raise ValueError(
+            "Unsupported shell_v4 topology compiler gate: "
+            f"{topology_compiler_gate!r}; expected 'off' or 'plan_only'."
+        )
+    return normalized
+
+
+def _collect_shell_v4_pre_plc_observed_evidence(
+    *,
+    source_path: Path,
+    component: str,
+    artifact_dir: Path,
+) -> tuple[list[PrePLCAuditObservedEvidenceV1], list[dict[str, Any]]]:
+    evidences: list[PrePLCAuditObservedEvidenceV1] = []
+    fixture_runs: list[dict[str, Any]] = []
+    observed_dir = artifact_dir / "observed_fixtures"
+    for family, check_kind in (
+        ("root_last3_segment_facet", "segment_facet_intersection_risk"),
+        ("root_last4_overlap", "facet_facet_overlap_risk"),
+    ):
+        fixture_dir = observed_dir / family
+        fixture = _build_shell_v4_pre_plc_repro_fixture(
+            source_path=source_path,
+            component=component,
+            family=family,
+            artifact_dir=fixture_dir / "fixture",
+        )
+        observed = _run_shell_v4_pre_plc_repro_fixture(
+            fixture,
+            out_dir=fixture_dir / "run",
+        )
+        matched = (
+            observed["status"] == "failed"
+            and observed["observed_failure_kind"] == fixture["expected_failure_kind"]
+            and all(
+                substring in observed["error"]
+                for substring in fixture["expected_error_substrings"]
+            )
+        )
+        fixture_runs.append(
+            {
+                "fixture": fixture,
+                "observed": observed,
+                "matched_expected_failure": matched,
+            }
+        )
+        if not matched:
+            continue
+        evidences.append(
+            PrePLCAuditObservedEvidenceV1(
+                fixture_id=str(fixture["fixture_id"]),
+                check_kind=check_kind,
+                error_text=str(observed["error"]),
+                selected_section_y_le_m=[
+                    float(value) for value in fixture.get("selected_section_y_le_m", [])
+                ],
+                report_path=str(observed["report_path"]),
+                notes=[
+                    f"family={family}",
+                    f"observed_failure_kind={observed['observed_failure_kind']}",
+                ],
+            )
+        )
+    write_json_report(observed_dir / "fixture_runs.json", {"fixture_runs": fixture_runs})
+    return evidences, fixture_runs
+
+
+def _build_shell_v4_topology_compiler_topology_report(
+    *,
+    source_path: Path,
+    export_path: Path,
+    topology_lineage_report_path: Path,
+    topology_suppression_report_path: Path,
+    topology_lineage_report: dict[str, Any],
+) -> dict[str, Any]:
+    interval_count = sum(
+        max(len(surface.get("rule_sections", []) or []) - 1, 0)
+        for surface in topology_lineage_report.get("surfaces", [])
+    )
+    surface_count = int(interval_count) if interval_count > 0 else int(
+        topology_lineage_report.get("surface_count", 0) or 0
+    )
+    return {
+        "representation": "shell_v4_native_section_lineage",
+        "source_kind": str(source_path.suffix.lower().lstrip(".") or "unknown"),
+        "units": "m",
+        "body_count": int(topology_lineage_report.get("surface_count", 0) or 0),
+        "surface_count": surface_count,
+        "volume_count": 1,
+        "source_path": str(source_path),
+        "export_path": str(export_path),
+        "topology_lineage_report": {"artifact": str(topology_lineage_report_path)},
+        "topology_suppression_report": {"artifact": str(topology_suppression_report_path)},
+    }
+
+
+def _run_shell_v4_topology_compiler_plan_only(
+    *,
+    out_dir: Path,
+    geometry: dict[str, Any],
+    real_wing_geometry: dict[str, Any],
+    boundary_layer: dict[str, Any],
+) -> dict[str, Any]:
+    artifact_dir = Path(out_dir) / "artifacts" / "topology_compiler"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    source_path = Path(real_wing_geometry.get("source_path") or geometry.get("source_path") or _default_real_main_wing_source_path())
+    component = str(real_wing_geometry.get("component") or geometry.get("component") or "main_wing")
+    provider_dir = artifact_dir / "provider_inputs"
+
+    rebuild_model = _build_native_rebuild_model(source_path=source_path, component=component)
+    baseline_rebuild_model, topology_suppression_report = _apply_terminal_strip_suppression(rebuild_model)
+    topology_lineage_report = _build_topology_lineage_report(baseline_rebuild_model)
+    topology_lineage_report_path = provider_dir / "topology_lineage_report.json"
+    topology_suppression_report_path = provider_dir / "topology_suppression_report.json"
+    write_json_report(topology_lineage_report_path, topology_lineage_report)
+    write_json_report(topology_suppression_report_path, topology_suppression_report)
+
+    observed_evidence, fixture_runs = _collect_shell_v4_pre_plc_observed_evidence(
+        source_path=source_path,
+        component=component,
+        artifact_dir=artifact_dir,
+    )
+    topology_report = _build_shell_v4_topology_compiler_topology_report(
+        source_path=source_path,
+        export_path=Path(real_wing_geometry["artifact_path"]),
+        topology_lineage_report_path=topology_lineage_report_path,
+        topology_suppression_report_path=topology_suppression_report_path,
+        topology_lineage_report=topology_lineage_report,
+    )
+    result = compile_topology_family_v1(
+        topology_report=topology_report,
+        topology_lineage_report=topology_lineage_report,
+        topology_suppression_report=topology_suppression_report,
+        component=component,
+        shell_role="shell_v4",
+        out_dir=artifact_dir,
+        audit_config=PrePLCAuditConfigV1(
+            first_layer_height_m=float(boundary_layer["first_layer_height_m"]),
+            total_boundary_layer_thickness_m=float(boundary_layer["target_total_thickness_m"]),
+            observed_evidence=observed_evidence,
+        ),
+    )
+    return {
+        "gate": TOPOLOGY_COMPILER_GATE_PLAN_ONLY,
+        "status": "written",
+        "contract": result.contract,
+        "source_path": str(source_path),
+        "component": component,
+        "artifacts": {
+            "topology_ir": str(result.artifacts.topology_ir),
+            "motif_registry": str(result.artifacts.motif_registry),
+            "operator_plan": str(result.artifacts.operator_plan),
+            "pre_plc_audit": str(result.artifacts.pre_plc_audit),
+            "summary": str(result.artifacts.summary),
+        },
+        "provider_artifacts": {
+            "topology_lineage_report": str(topology_lineage_report_path),
+            "topology_suppression_report": str(topology_suppression_report_path),
+            "fixture_runs": str((artifact_dir / "observed_fixtures" / "fixture_runs.json")),
+        },
+        "observed_fixture_count": int(len(observed_evidence)),
+        "matched_fixture_families": [
+            str(entry["fixture"]["family"])
+            for entry in fixture_runs
+            if entry.get("matched_expected_failure")
+        ],
+        "shell_role_policy": result.shell_role_policy.model_dump(mode="json"),
     }
 
 
@@ -4537,6 +4726,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     run_su2: bool = True,
     allow_swap_risk: bool = False,
     overrides: dict[str, Any] | None = None,
+    topology_compiler_gate: str = TOPOLOGY_COMPILER_GATE_OFF,
 ) -> dict[str, Any]:
     route_started = time.perf_counter()
     out_dir = Path(out_dir)
@@ -4544,6 +4734,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     su2_dir = out_dir / "artifacts" / "su2"
     mesh_dir.mkdir(parents=True, exist_ok=True)
     su2_dir.mkdir(parents=True, exist_ok=True)
+    topology_compiler_gate = _normalize_topology_compiler_gate(topology_compiler_gate)
     spec = build_shell_v4_half_wing_bl_macsafe_spec(study_level, overrides=overrides)
     flow = spec["flow_condition"]
     geometry = spec["geometry"]
@@ -5489,6 +5680,30 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             result["notes"].append(
                 f"Tip-near explicit BL termination was auto-armed from y={float(tip_truncation_summary['start_y_m']):.4f} m outward to protect upper/lower BL-top clearance."
             )
+    if topology_compiler_gate == TOPOLOGY_COMPILER_GATE_PLAN_ONLY:
+        if geometry_shape_mode != DEFAULT_REAL_MAIN_WING_SHAPE_MODE or real_wing_geometry is None:
+            result["topology_compiler"] = {
+                "gate": TOPOLOGY_COMPILER_GATE_PLAN_ONLY,
+                "status": "unsupported",
+                "reason": "shell_v4 topology compiler plan-only gate currently supports real-wing prelaunch only",
+            }
+        else:
+            try:
+                result["topology_compiler"] = _run_shell_v4_topology_compiler_plan_only(
+                    out_dir=out_dir,
+                    geometry=geometry,
+                    real_wing_geometry=real_wing_geometry,
+                    boundary_layer=bl_spec,
+                )
+            except Exception as exc:
+                result["topology_compiler"] = {
+                    "gate": TOPOLOGY_COMPILER_GATE_PLAN_ONLY,
+                    "status": "failed",
+                    "error": str(exc),
+                }
+                result["notes"].append(
+                    "Topology compiler plan-only gate failed after the runtime path completed; runtime outputs are unchanged."
+                )
 
     write_json_report(mesh_metadata_path, result)
     write_json_report(out_dir / "report.json", result)
