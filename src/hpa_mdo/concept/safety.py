@@ -9,6 +9,8 @@ class LaunchGateResult:
     feasible: bool
     ground_effect_applied: bool
     adjusted_cl_required: float
+    stall_utilization: float
+    stall_utilization_limit: float
     reason: str
 
 
@@ -27,6 +29,8 @@ class TurnGateResult:
     cl_max: float
     required_cl: float
     stall_margin: float
+    stall_utilization: float
+    stall_utilization_limit: float
     load_factor: float
     limiting_station_y_m: float
     tip_critical: bool
@@ -40,6 +44,8 @@ class LocalStallResult:
     required_cl: float
     cl_max: float
     min_margin: float
+    stall_utilization: float
+    stall_utilization_limit: float
     min_margin_station_y_m: float
     tip_critical: bool
     cl_max_source: str
@@ -47,11 +53,21 @@ class LocalStallResult:
 
 
 def _cl_limit(point: dict[str, float]) -> float:
+    if "cl_max_safe" in point:
+        return float(point["cl_max_safe"])
     return float(point.get("cl_max_effective", point["cl_max_proxy"]))
 
 
 def _weighted_required_cl(point: dict[str, float], *, load_factor: float) -> float:
     return float(point["cl_target"]) * float(load_factor)
+
+
+def _cl_limit_source(point: dict[str, float]) -> str:
+    if "cl_max_safe_source" in point:
+        return str(point["cl_max_safe_source"])
+    if "cl_max_safe" in point:
+        return "geometry_safe_proxy"
+    return str(point.get("cl_max_effective_source", "geometry_proxy"))
 
 
 def _evaluate_stationwise_margin(
@@ -75,15 +91,17 @@ def _evaluate_stationwise_margin(
     cl_max = _cl_limit(min_point)
     required_cl = _weighted_required_cl(min_point, load_factor=load_factor)
     min_margin = cl_max - required_cl
+    stall_utilization = required_cl / max(cl_max, 1.0e-9)
     y_m = float(min_point["station_y_m"])
     return {
         "cl_level": cl_level,
         "cl_max": cl_max,
         "required_cl": required_cl,
         "min_margin": min_margin,
+        "stall_utilization": stall_utilization,
         "min_margin_station_y_m": y_m,
         "tip_critical": y_m >= 0.75 * float(half_span_m),
-        "cl_max_source": str(min_point.get("cl_max_effective_source", "geometry_proxy")),
+        "cl_max_source": _cl_limit_source(min_point),
     }
 
 
@@ -96,6 +114,7 @@ def evaluate_launch_gate(
     cl_available: float,
     trim_margin_deg: float,
     required_trim_margin_deg: float,
+    stall_utilization_limit: float,
     use_ground_effect: bool,
 ) -> LaunchGateResult:
     if platform_height_m <= 0.0:
@@ -110,6 +129,8 @@ def evaluate_launch_gate(
         raise ValueError("cl_available must be positive.")
     if required_trim_margin_deg <= 0.0:
         raise ValueError("required_trim_margin_deg must be positive.")
+    if stall_utilization_limit <= 0.0 or stall_utilization_limit >= 1.0:
+        raise ValueError("stall_utilization_limit must be in the interval (0, 1).")
 
     # The current launch gate works on CL terms that were already computed from a
     # chosen speed upstream. We keep speed_mps in the contract for later envelope
@@ -120,25 +141,41 @@ def evaluate_launch_gate(
         height_ratio = max(float(platform_height_m) / float(wing_span_m), 1.0e-3)
         drag_factor = max(0.82, 1.0 - 0.6 * math.exp(-8.0 * height_ratio))
         adjusted_cl_required *= drag_factor
+    stall_utilization = adjusted_cl_required / max(float(cl_available), 1.0e-9)
 
     if float(cl_available) < adjusted_cl_required:
         return LaunchGateResult(
             feasible=False,
             ground_effect_applied=ground_effect_applied,
             adjusted_cl_required=adjusted_cl_required,
+            stall_utilization=stall_utilization,
+            stall_utilization_limit=float(stall_utilization_limit),
             reason="launch_cl_insufficient",
+        )
+    if stall_utilization > float(stall_utilization_limit):
+        return LaunchGateResult(
+            feasible=False,
+            ground_effect_applied=ground_effect_applied,
+            adjusted_cl_required=adjusted_cl_required,
+            stall_utilization=stall_utilization,
+            stall_utilization_limit=float(stall_utilization_limit),
+            reason="launch_stall_utilization_exceeded",
         )
     if float(trim_margin_deg) < float(required_trim_margin_deg):
         return LaunchGateResult(
             feasible=False,
             ground_effect_applied=ground_effect_applied,
             adjusted_cl_required=adjusted_cl_required,
+            stall_utilization=stall_utilization,
+            stall_utilization_limit=float(stall_utilization_limit),
             reason="trim_margin_insufficient",
         )
     return LaunchGateResult(
         feasible=True,
         ground_effect_applied=ground_effect_applied,
         adjusted_cl_required=adjusted_cl_required,
+        stall_utilization=stall_utilization,
+        stall_utilization_limit=float(stall_utilization_limit),
         reason="ok",
     )
 
@@ -150,7 +187,7 @@ def evaluate_turn_gate(
     station_points: list[dict[str, float]],
     half_span_m: float,
     trim_feasible: bool,
-    required_stall_margin: float,
+    stall_utilization_limit: float,
 ) -> TurnGateResult:
     if bank_angle_deg <= 0.0 or bank_angle_deg >= 85.0:
         raise ValueError("bank_angle_deg must be in the interval (0, 85).")
@@ -169,6 +206,7 @@ def evaluate_turn_gate(
     cl_max = float(stationwise["cl_max"])
     required_cl = float(stationwise["required_cl"])
     stall_margin = float(stationwise["min_margin"])
+    stall_utilization = float(stationwise["stall_utilization"])
     limiting_station_y_m = float(stationwise["min_margin_station_y_m"])
     tip_critical = bool(stationwise["tip_critical"])
     cl_max_source = str(stationwise["cl_max_source"])
@@ -180,24 +218,28 @@ def evaluate_turn_gate(
             cl_max=cl_max,
             required_cl=required_cl,
             stall_margin=stall_margin,
+            stall_utilization=stall_utilization,
+            stall_utilization_limit=float(stall_utilization_limit),
             load_factor=load_factor,
             limiting_station_y_m=limiting_station_y_m,
             tip_critical=tip_critical,
             cl_max_source=cl_max_source,
             reason="trim_not_feasible",
         )
-    if stall_margin < float(required_stall_margin):
+    if stall_utilization > float(stall_utilization_limit):
         return TurnGateResult(
             feasible=False,
             cl_level=cl_level,
             cl_max=cl_max,
             required_cl=required_cl,
             stall_margin=stall_margin,
+            stall_utilization=stall_utilization,
+            stall_utilization_limit=float(stall_utilization_limit),
             load_factor=load_factor,
             limiting_station_y_m=limiting_station_y_m,
             tip_critical=tip_critical,
             cl_max_source=cl_max_source,
-            reason="stall_margin_insufficient",
+            reason="stall_utilization_exceeded",
         )
     return TurnGateResult(
         feasible=True,
@@ -205,6 +247,8 @@ def evaluate_turn_gate(
         cl_max=cl_max,
         required_cl=required_cl,
         stall_margin=stall_margin,
+        stall_utilization=stall_utilization,
+        stall_utilization_limit=float(stall_utilization_limit),
         load_factor=load_factor,
         limiting_station_y_m=limiting_station_y_m,
         tip_critical=tip_critical,
@@ -254,14 +298,14 @@ def evaluate_local_stall(
     *,
     station_points: list[dict[str, float]],
     half_span_m: float,
-    required_stall_margin: float,
+    stall_utilization_limit: float,
 ) -> LocalStallResult:
     if not station_points:
         raise ValueError("station_points must not be empty.")
     if half_span_m <= 0.0:
         raise ValueError("half_span_m must be positive.")
-    if required_stall_margin <= 0.0:
-        raise ValueError("required_stall_margin must be positive.")
+    if stall_utilization_limit <= 0.0 or stall_utilization_limit >= 1.0:
+        raise ValueError("stall_utilization_limit must be in the interval (0, 1).")
 
     stationwise = _evaluate_stationwise_margin(
         station_points=station_points,
@@ -269,18 +313,21 @@ def evaluate_local_stall(
         load_factor=1.0,
     )
     min_margin = float(stationwise["min_margin"])
+    stall_utilization = float(stationwise["stall_utilization"])
     y_m = float(stationwise["min_margin_station_y_m"])
     tip_critical = bool(stationwise["tip_critical"])
-    feasible = min_margin >= float(required_stall_margin)
+    feasible = stall_utilization <= float(stall_utilization_limit)
     return LocalStallResult(
         feasible=feasible,
         required_cl=float(stationwise["required_cl"]),
         cl_max=float(stationwise["cl_max"]),
         min_margin=min_margin,
+        stall_utilization=stall_utilization,
+        stall_utilization_limit=float(stall_utilization_limit),
         min_margin_station_y_m=y_m,
         tip_critical=tip_critical,
         cl_max_source=str(stationwise["cl_max_source"]),
-        reason="ok" if feasible else "stall_margin_insufficient",
+        reason="ok" if feasible else "stall_utilization_exceeded",
     )
 
 

@@ -70,10 +70,29 @@ class LaunchConfig(ConceptBaseModel):
     release_speed_mps: float = Field(8.0, gt=0.0)
     release_rpm: float = Field(140.0, gt=0.0)
     min_trim_margin_deg: float = Field(2.0, gt=0.0)
-    min_stall_margin: float = Field(0.10, gt=0.0, lt=1.0)
     platform_height_m: float = Field(10.0, gt=0.0)
     runup_length_m: float = Field(10.0, gt=0.0)
     use_ground_effect: bool = True
+
+
+class StallModelConfig(ConceptBaseModel):
+    safe_clmax_scale: float = Field(0.90, gt=0.0, le=1.0)
+    safe_clmax_delta: float = Field(0.05, ge=0.0)
+    local_stall_utilization_limit: float = Field(0.80, gt=0.0, lt=1.0)
+    turn_utilization_limit: float = Field(0.85, gt=0.0, lt=1.0)
+    launch_utilization_limit: float = Field(0.75, gt=0.0, lt=1.0)
+
+    @model_validator(mode="after")
+    def validate_limit_order(self) -> StallModelConfig:
+        if self.launch_utilization_limit > self.turn_utilization_limit:
+            raise ValueError(
+                "stall_model.launch_utilization_limit must be <= turn_utilization_limit."
+            )
+        if self.launch_utilization_limit > self.local_stall_utilization_limit:
+            raise ValueError(
+                "stall_model.launch_utilization_limit must be <= local_stall_utilization_limit."
+            )
+        return self
 
 
 class PropConfig(ConceptBaseModel):
@@ -184,6 +203,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     mission: MissionConfig
     segmentation: SegmentationConfig = Field(default_factory=SegmentationConfig)
     launch: LaunchConfig = Field(default_factory=LaunchConfig)
+    stall_model: StallModelConfig = Field(default_factory=StallModelConfig)
     prop: PropConfig = Field(default_factory=PropConfig)
     turn: TurnConfig = Field(default_factory=TurnConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)

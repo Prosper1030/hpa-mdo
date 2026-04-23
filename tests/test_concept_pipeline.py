@@ -386,11 +386,11 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     }
     assert concept_summary["turn"]["status"] in {
         "ok",
-        "stall_margin_insufficient",
+        "stall_utilization_exceeded",
         "trim_not_feasible",
     }
     assert concept_summary["trim"]["status"] in {"ok", "trim_margin_insufficient"}
-    assert concept_summary["local_stall"]["status"] in {"ok", "stall_margin_insufficient"}
+    assert concept_summary["local_stall"]["status"] in {"ok", "stall_utilization_exceeded"}
     assert isinstance(concept_summary["launch"]["cl_required"], float)
     assert isinstance(concept_summary["turn"]["required_cl"], float)
     assert isinstance(concept_summary["trim"]["margin_deg"], float)
@@ -531,20 +531,24 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     first = _first_ranked_record(summary)
 
     assert first["launch"]["gross_mass_kg"] == pytest.approx(105.0)
-    assert first["launch"]["cl_available_source"] == "airfoil_observed_lower_bound"
-    assert first["turn"]["cl_max_source"] == "airfoil_observed_lower_bound"
+    assert first["launch"]["cl_available_source"] == "airfoil_safe_lower_bound"
+    assert first["turn"]["cl_max_source"] == "airfoil_safe_lower_bound"
     assert first["trim"]["representative_cm_source"] == "airfoil_near_target"
-    assert first["local_stall"]["margin_source"] == "airfoil_observed_lower_bound"
+    assert first["local_stall"]["margin_source"] == "airfoil_safe_lower_bound"
     assert first["airfoil_feedback"]["applied"] is True
     assert first["airfoil_feedback"]["usable_worker_point_count"] == 4
     assert first["airfoil_feedback"]["mean_cd_effective"] == pytest.approx(0.021)
     assert first["airfoil_feedback"]["min_cl_max_effective"] == pytest.approx(1.24)
+    assert first["airfoil_feedback"]["min_cl_max_safe"] == pytest.approx(0.9 * 1.24 - 0.05)
     assert first["turn"]["cl_level"] == pytest.approx(0.87)
     assert first["turn"]["limiting_station_y_m"] == pytest.approx(14.0)
     assert first["turn"]["tip_critical"] is True
     assert first["trim"]["representative_cm"] == pytest.approx(-0.08)
     assert first["trim"]["cm_rms"] == pytest.approx(0.0)
-    assert first["launch"]["cl_available"] == pytest.approx(1.24)
+    assert first["launch"]["cl_available"] == pytest.approx(0.9 * 1.24 - 0.05)
+    assert first["turn"]["stall_utilization"] == pytest.approx(
+        first["turn"]["required_cl"] / first["turn"]["cl_max"]
+    )
 
 
 def test_turn_summary_rescales_reference_cl_targets_to_release_condition() -> None:
@@ -585,6 +589,7 @@ def test_turn_summary_rescales_reference_cl_targets_to_release_condition() -> No
     assert turn["reference_speed_mps"] == pytest.approx(6.0)
     assert turn["reference_gross_mass_kg"] == pytest.approx(95.0)
     assert turn["evaluation_gross_mass_kg"] == pytest.approx(105.0)
+    assert turn["stall_utilization"] == pytest.approx(turn["required_cl"] / turn["cl_max"])
 
 
 def test_pipeline_reorders_selected_concepts_by_mission_ranking(
@@ -596,6 +601,13 @@ def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     payload["pipeline"]["keep_top_n"] = 3
     payload["output"]["export_candidate_bundle"] = False
+    payload["stall_model"] = {
+        "safe_clmax_scale": 1.0,
+        "safe_clmax_delta": 0.0,
+        "local_stall_utilization_limit": 0.98,
+        "turn_utilization_limit": 0.98,
+        "launch_utilization_limit": 0.95,
+    }
     custom_cfg = tmp_path / "concept_ranked.yaml"
     custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
@@ -922,10 +934,10 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     assert isinstance(first["trim"]["cm_rms"], float)
     assert isinstance(first["local_stall"]["min_margin"], float)
     assert isinstance(first["local_stall"]["required_cl"], float)
-    assert first["launch"]["cl_available_source"] == "geometry_proxy"
-    assert first["turn"]["cl_max_source"] == "geometry_proxy"
+    assert first["launch"]["cl_available_source"] == "geometry_safe_proxy"
+    assert first["turn"]["cl_max_source"] == "geometry_safe_proxy"
     assert first["trim"]["representative_cm_source"] == "zone_target_proxy"
-    assert first["local_stall"]["margin_source"] == "geometry_proxy"
+    assert first["local_stall"]["margin_source"] == "geometry_safe_proxy"
     assert first["launch"]["status"] in {
         "ok",
         "launch_cl_insufficient",
@@ -933,11 +945,11 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     }
     assert first["turn"]["status"] in {
         "ok",
-        "stall_margin_insufficient",
+        "stall_utilization_exceeded",
         "trim_not_feasible",
     }
     assert first["trim"]["status"] in {"ok", "trim_margin_insufficient"}
-    assert first["local_stall"]["status"] in {"ok", "stall_margin_insufficient"}
+    assert first["local_stall"]["status"] in {"ok", "stall_utilization_exceeded"}
 
 
 def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:

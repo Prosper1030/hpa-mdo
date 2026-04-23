@@ -39,11 +39,13 @@ def test_launch_gate_applies_ground_effect_and_can_pass():
         cl_available=1.10,
         trim_margin_deg=2.0,
         required_trim_margin_deg=2.0,
+        stall_utilization_limit=0.90,
         use_ground_effect=True,
     )
 
     assert result.ground_effect_applied is True
     assert result.adjusted_cl_required < 0.95
+    assert result.stall_utilization < 0.90
     assert result.feasible is True
     assert result.reason == "ok"
 
@@ -57,6 +59,7 @@ def test_launch_gate_reports_generic_failure_reason():
         cl_available=0.95,
         trim_margin_deg=2.0,
         required_trim_margin_deg=2.0,
+        stall_utilization_limit=0.90,
         use_ground_effect=False,
     )
 
@@ -70,12 +73,12 @@ def test_turn_gate_rejects_insufficient_stall_margin():
         bank_angle_deg=15.0,
         speed_mps=8.0,
         station_points=[
-            {"station_y_m": 2.0, "cl_target": 0.95, "cl_max_proxy": 1.05},
-            {"station_y_m": 14.0, "cl_target": 0.80, "cl_max_proxy": 1.10},
+            {"station_y_m": 2.0, "cl_target": 0.95, "cl_max_safe": 1.05},
+            {"station_y_m": 14.0, "cl_target": 0.80, "cl_max_safe": 1.10},
         ],
         half_span_m=16.0,
         trim_feasible=True,
-        required_stall_margin=0.10,
+        stall_utilization_limit=0.80,
     )
 
     assert result.required_cl == pytest.approx(0.95 / 0.9659258262890683, rel=1e-9)
@@ -84,9 +87,9 @@ def test_turn_gate_rejects_insufficient_stall_margin():
     assert result.load_factor == pytest.approx(1.0 / 0.9659258262890683, rel=1e-9)
     assert result.limiting_station_y_m == pytest.approx(2.0)
     assert result.tip_critical is False
-    assert result.stall_margin < 0.10
+    assert result.stall_utilization > 0.80
     assert result.feasible is False
-    assert result.reason == "stall_margin_insufficient"
+    assert result.reason == "stall_utilization_exceeded"
 
 
 def test_turn_gate_keeps_failure_contract_when_trim_is_not_feasible():
@@ -94,12 +97,12 @@ def test_turn_gate_keeps_failure_contract_when_trim_is_not_feasible():
         bank_angle_deg=15.0,
         speed_mps=8.0,
         station_points=[
-            {"station_y_m": 1.0, "cl_target": 0.70, "cl_max_proxy": 1.20},
-            {"station_y_m": 14.0, "cl_target": 0.60, "cl_max_proxy": 1.10},
+            {"station_y_m": 1.0, "cl_target": 0.70, "cl_max_safe": 1.20},
+            {"station_y_m": 14.0, "cl_target": 0.60, "cl_max_safe": 1.10},
         ],
         half_span_m=16.0,
         trim_feasible=False,
-        required_stall_margin=0.10,
+        stall_utilization_limit=0.85,
     )
 
     assert result.required_cl == pytest.approx(0.70 / 0.9659258262890683, rel=1e-9)
@@ -117,6 +120,7 @@ def test_launch_gate_respects_required_trim_margin():
         cl_available=1.10,
         trim_margin_deg=1.5,
         required_trim_margin_deg=2.0,
+        stall_utilization_limit=0.90,
         use_ground_effect=True,
     )
 
@@ -135,6 +139,7 @@ def test_launch_gate_rejects_nonpositive_required_trim_margin(required_trim_marg
             cl_available=1.10,
             trim_margin_deg=2.0,
             required_trim_margin_deg=required_trim_margin_deg,
+            stall_utilization_limit=0.90,
             use_ground_effect=True,
         )
 
@@ -143,23 +148,23 @@ def test_turn_gate_uses_configured_stall_margin_threshold():
     loose = evaluate_turn_gate(
         bank_angle_deg=15.0,
         speed_mps=8.0,
-        station_points=[{"station_y_m": 2.0, "cl_target": 0.95, "cl_max_proxy": 1.12}],
+        station_points=[{"station_y_m": 2.0, "cl_target": 0.95, "cl_max_safe": 1.20}],
         half_span_m=16.0,
         trim_feasible=True,
-        required_stall_margin=0.10,
+        stall_utilization_limit=0.85,
     )
     tight = evaluate_turn_gate(
         bank_angle_deg=15.0,
         speed_mps=8.0,
-        station_points=[{"station_y_m": 2.0, "cl_target": 0.95, "cl_max_proxy": 1.12}],
+        station_points=[{"station_y_m": 2.0, "cl_target": 0.95, "cl_max_safe": 1.20}],
         half_span_m=16.0,
         trim_feasible=True,
-        required_stall_margin=0.15,
+        stall_utilization_limit=0.80,
     )
 
     assert loose.feasible is True
     assert tight.feasible is False
-    assert tight.reason == "stall_margin_insufficient"
+    assert tight.reason == "stall_utilization_exceeded"
 
 
 def test_trim_proxy_flips_when_required_margin_is_tightened():
@@ -210,20 +215,21 @@ def test_trim_proxy_penalizes_cm_spread():
 def test_local_stall_flags_tip_critical_case():
     result = evaluate_local_stall(
         station_points=[
-            {"station_y_m": 1.0, "cl_target": 0.70, "cl_max_proxy": 0.92},
-            {"station_y_m": 14.0, "cl_target": 0.82, "cl_max_proxy": 0.90},
+            {"station_y_m": 1.0, "cl_target": 0.70, "cl_max_safe": 0.92},
+            {"station_y_m": 14.0, "cl_target": 0.82, "cl_max_safe": 0.90},
         ],
         half_span_m=16.0,
-        required_stall_margin=0.10,
+        stall_utilization_limit=0.80,
     )
 
     assert result.feasible is False
     assert result.required_cl == pytest.approx(0.82)
     assert result.cl_max == pytest.approx(0.90)
-    assert result.cl_max_source == "geometry_proxy"
+    assert result.cl_max_source == "geometry_safe_proxy"
     assert result.tip_critical is True
     assert result.min_margin_station_y_m == pytest.approx(14.0)
-    assert result.reason == "stall_margin_insufficient"
+    assert result.stall_utilization == pytest.approx(0.82 / 0.90)
+    assert result.reason == "stall_utilization_exceeded"
 
 
 def test_local_stall_prefers_airfoil_derived_limit_when_present():
@@ -233,22 +239,24 @@ def test_local_stall_prefers_airfoil_derived_limit_when_present():
                 "station_y_m": 1.0,
                 "cl_target": 0.70,
                 "cl_max_proxy": 0.92,
-                "cl_max_effective": 1.05,
+                "cl_max_safe": 1.05,
+                "cl_max_safe_source": "airfoil_safe_observed",
             },
             {
                 "station_y_m": 14.0,
                 "cl_target": 0.82,
                 "cl_max_proxy": 1.02,
-                "cl_max_effective": 0.90,
+                "cl_max_safe": 0.90,
+                "cl_max_safe_source": "airfoil_safe_lower_bound",
             },
         ],
         half_span_m=16.0,
-        required_stall_margin=0.10,
+        stall_utilization_limit=0.80,
     )
 
     assert result.min_margin == pytest.approx(0.08)
     assert result.cl_max == pytest.approx(0.90)
-    assert result.cl_max_source == "geometry_proxy"
+    assert result.cl_max_source == "airfoil_safe_lower_bound"
     assert result.min_margin_station_y_m == pytest.approx(14.0)
     assert result.tip_critical is True
     assert result.feasible is False
@@ -257,11 +265,11 @@ def test_local_stall_prefers_airfoil_derived_limit_when_present():
 def test_local_stall_uses_the_limiting_station_even_if_other_points_look_safer():
     result = evaluate_local_stall(
         station_points=[
-            {"station_y_m": 2.0, "cl_target": 0.66, "cl_max_proxy": 0.98},
-            {"station_y_m": 14.0, "cl_target": 0.82, "cl_max_proxy": 0.90},
+            {"station_y_m": 2.0, "cl_target": 0.66, "cl_max_safe": 0.98},
+            {"station_y_m": 14.0, "cl_target": 0.82, "cl_max_safe": 0.90},
         ],
         half_span_m=16.0,
-        required_stall_margin=0.10,
+        stall_utilization_limit=0.80,
     )
 
     assert result.feasible is False
@@ -269,4 +277,4 @@ def test_local_stall_uses_the_limiting_station_even_if_other_points_look_safer()
     assert result.required_cl == pytest.approx(0.82)
     assert result.min_margin_station_y_m == pytest.approx(14.0)
     assert result.tip_critical is True
-    assert result.reason == "stall_margin_insufficient"
+    assert result.reason == "stall_utilization_exceeded"

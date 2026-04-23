@@ -28,10 +28,16 @@ launch:
   release_speed_mps: 8.0
   release_rpm: 140.0
   min_trim_margin_deg: 2.0
-  min_stall_margin: 0.10
   platform_height_m: 10.0
   runup_length_m: 10.0
   use_ground_effect: true
+
+stall_model:
+  safe_clmax_scale: 0.90
+  safe_clmax_delta: 0.05
+  local_stall_utilization_limit: 0.80
+  turn_utilization_limit: 0.85
+  launch_utilization_limit: 0.75
 
 prop:
   blade_count: 2

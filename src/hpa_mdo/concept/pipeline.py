@@ -447,7 +447,56 @@ def _numeric_value(value: object) -> float | None:
 
 
 def _cl_limit(point: dict[str, float]) -> float:
+    if "cl_max_safe" in point:
+        return float(point["cl_max_safe"])
     return float(point.get("cl_max_effective", point["cl_max_proxy"]))
+
+
+def _safe_clmax_source(raw_source: str) -> str:
+    source_map = {
+        "airfoil_observed_lower_bound": "airfoil_safe_lower_bound",
+        "airfoil_observed": "airfoil_safe_observed",
+        "geometry_proxy": "geometry_safe_proxy",
+    }
+    return source_map.get(raw_source, f"safe_clmax_model_v1:{raw_source}")
+
+
+def _apply_safe_clmax_model(
+    station_points: list[dict[str, float]],
+    *,
+    safe_scale: float,
+    safe_delta: float,
+) -> tuple[list[dict[str, float]], dict[str, Any]]:
+    safe_points: list[dict[str, float]] = []
+    raw_values: list[float] = []
+    safe_values: list[float] = []
+
+    for point in station_points:
+        raw_clmax = float(point.get("cl_max_effective", point["cl_max_proxy"]))
+        raw_source = str(point.get("cl_max_effective_source", "geometry_proxy"))
+        safe_clmax = max(0.10, float(safe_scale) * raw_clmax - float(safe_delta))
+        raw_values.append(raw_clmax)
+        safe_values.append(safe_clmax)
+        safe_points.append(
+            {
+                **point,
+                "cl_max_raw": raw_clmax,
+                "cl_max_raw_source": raw_source,
+                "cl_max_safe": safe_clmax,
+                "cl_max_safe_source": _safe_clmax_source(raw_source),
+                "cl_max_safe_scale": float(safe_scale),
+                "cl_max_safe_delta": float(safe_delta),
+            }
+        )
+
+    summary = {
+        "safe_clmax_applied": True,
+        "safe_clmax_scale": float(safe_scale),
+        "safe_clmax_delta": float(safe_delta),
+        "min_cl_max_raw": min(raw_values) if raw_values else None,
+        "min_cl_max_safe": min(safe_values) if safe_values else None,
+    }
+    return safe_points, summary
 
 
 def _build_worker_queries_and_refs(
@@ -724,7 +773,10 @@ def _summarize_launch(
     limiting_point = min(station_points, key=_cl_limit)
     cl_available = _cl_limit(limiting_point)
     cl_available_source = str(
-        limiting_point.get("cl_max_effective_source", "geometry_proxy")
+        limiting_point.get(
+            "cl_max_safe_source",
+            limiting_point.get("cl_max_effective_source", "geometry_proxy"),
+        )
     )
 
     launch_result = evaluate_launch_gate(
@@ -735,6 +787,7 @@ def _summarize_launch(
         cl_available=cl_available,
         trim_margin_deg=trim_result.margin_deg,
         required_trim_margin_deg=cfg.launch.min_trim_margin_deg,
+        stall_utilization_limit=cfg.stall_model.launch_utilization_limit,
         use_ground_effect=cfg.launch.use_ground_effect,
     )
     return (
@@ -746,6 +799,8 @@ def _summarize_launch(
             "cl_required": cl_required,
             "cl_available": cl_available,
             "cl_available_source": cl_available_source,
+            "stall_utilization": launch_result.stall_utilization,
+            "stall_utilization_limit": launch_result.stall_utilization_limit,
             "trim_margin_deg": trim_result.margin_deg,
             "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
             "release_speed_mps": cfg.launch.release_speed_mps,
@@ -798,7 +853,7 @@ def _summarize_turn(
         station_points=scaled_station_points,
         half_span_m=0.5 * concept.span_m,
         trim_feasible=trim_result.feasible,
-        required_stall_margin=cfg.launch.min_stall_margin,
+        stall_utilization_limit=cfg.stall_model.turn_utilization_limit,
     )
     return {
         "status": turn_result.reason,
@@ -811,7 +866,8 @@ def _summarize_turn(
         "cl_max": turn_result.cl_max,
         "cl_max_source": turn_result.cl_max_source,
         "stall_margin": turn_result.stall_margin,
-        "required_stall_margin": cfg.launch.min_stall_margin,
+        "stall_utilization": turn_result.stall_utilization,
+        "stall_utilization_limit": turn_result.stall_utilization_limit,
         "trim_feasible": trim_result.feasible,
         "limiting_station_y_m": turn_result.limiting_station_y_m,
         "tip_critical": turn_result.tip_critical,
@@ -878,7 +934,7 @@ def _summarize_local_stall(
     local_stall_result = evaluate_local_stall(
         station_points=station_points,
         half_span_m=0.5 * concept.span_m,
-        required_stall_margin=cfg.launch.min_stall_margin,
+        stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
     )
     return {
         "status": local_stall_result.reason,
@@ -886,10 +942,11 @@ def _summarize_local_stall(
         "required_cl": local_stall_result.required_cl,
         "cl_max": local_stall_result.cl_max,
         "min_margin": local_stall_result.min_margin,
+        "stall_utilization": local_stall_result.stall_utilization,
+        "stall_utilization_limit": local_stall_result.stall_utilization_limit,
         "min_margin_station_y_m": local_stall_result.min_margin_station_y_m,
         "tip_critical": local_stall_result.tip_critical,
         "margin_source": local_stall_result.cl_max_source,
-        "required_stall_margin": cfg.launch.min_stall_margin,
     }
 
 
@@ -1061,11 +1118,15 @@ def _concept_safety_margin(
     trim_summary: dict[str, Any],
     local_stall_summary: dict[str, Any],
 ) -> float:
-    launch_margin = float(launch_summary["cl_available"]) - float(
-        launch_summary["adjusted_cl_required"]
+    launch_margin = float(launch_summary["stall_utilization_limit"]) - float(
+        launch_summary["stall_utilization"]
     )
-    turn_margin = float(turn_summary["stall_margin"])
-    local_margin = float(local_stall_summary["min_margin"])
+    turn_margin = float(turn_summary["stall_utilization_limit"]) - float(
+        turn_summary["stall_utilization"]
+    )
+    local_margin = float(local_stall_summary["stall_utilization_limit"]) - float(
+        local_stall_summary["stall_utilization"]
+    )
     trim_margin = (
         float(trim_summary["margin_deg"]) - float(trim_summary["required_trim_margin_deg"])
     ) / 10.0
@@ -1353,6 +1414,15 @@ def run_birdman_concept_pipeline(
             worker_point_refs=worker_point_refs,
             worker_results=worker_results,
         )
+        station_points, safe_clmax_summary = _apply_safe_clmax_model(
+            station_points,
+            safe_scale=cfg.stall_model.safe_clmax_scale,
+            safe_delta=cfg.stall_model.safe_clmax_delta,
+        )
+        airfoil_feedback = {
+            **airfoil_feedback,
+            **safe_clmax_summary,
+        }
         trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
         launch_summary, _, _ = _summarize_launch(
             cfg=cfg,
