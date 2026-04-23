@@ -915,7 +915,22 @@ def _summarize_launch(
         trim_margin_deg=trim_result.margin_deg,
         required_trim_margin_deg=cfg.launch.min_trim_margin_deg,
         stall_utilization_limit=cfg.stall_model.launch_utilization_limit,
-        use_ground_effect=cfg.launch.use_ground_effect,
+        use_ground_effect=False,
+    )
+    ground_effect_sensitivity_result = (
+        evaluate_launch_gate(
+            platform_height_m=cfg.launch.platform_height_m,
+            wing_span_m=concept.span_m,
+            speed_mps=cfg.launch.release_speed_mps,
+            cl_required=cl_required,
+            cl_available=cl_available,
+            trim_margin_deg=trim_result.margin_deg,
+            required_trim_margin_deg=cfg.launch.min_trim_margin_deg,
+            stall_utilization_limit=cfg.stall_model.launch_utilization_limit,
+            use_ground_effect=True,
+        )
+        if cfg.launch.use_ground_effect
+        else None
     )
     return (
         {
@@ -934,6 +949,29 @@ def _summarize_launch(
             "air_density_kg_per_m3": air_density_kg_per_m3,
             "gross_mass_kg": gross_mass_kg,
             "dynamic_pressure_pa": q_pa,
+            "model": "vstall_margin_primary_with_ground_effect_sensitivity",
+            "ground_effect_primary_gate": False,
+            "ground_effect_sensitivity_enabled": ground_effect_sensitivity_result is not None,
+            "ground_effect_sensitivity_adjusted_cl_required": (
+                None
+                if ground_effect_sensitivity_result is None
+                else ground_effect_sensitivity_result.adjusted_cl_required
+            ),
+            "ground_effect_sensitivity_stall_utilization": (
+                None
+                if ground_effect_sensitivity_result is None
+                else ground_effect_sensitivity_result.stall_utilization
+            ),
+            "ground_effect_sensitivity_status": (
+                None
+                if ground_effect_sensitivity_result is None
+                else ground_effect_sensitivity_result.reason
+            ),
+            "ground_effect_sensitivity_feasible": (
+                None
+                if ground_effect_sensitivity_result is None
+                else ground_effect_sensitivity_result.feasible
+            ),
             "evaluation_case": (
                 "launch_release_case" if launch_station_points else "all_station_points_fallback"
             ),
@@ -1138,6 +1176,8 @@ def _summarize_turn(
     return {
         "status": turn_result.reason,
         "feasible": turn_result.feasible,
+        "gate_role": "screening_only",
+        "gate_model": "fixed_bank_screening",
         "bank_angle_deg": cfg.turn.required_bank_angle_deg,
         "speed_mps": cfg.launch.release_speed_mps,
         "load_factor": turn_result.load_factor,
