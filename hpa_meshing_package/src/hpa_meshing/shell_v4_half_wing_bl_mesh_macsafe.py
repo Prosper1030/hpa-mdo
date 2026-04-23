@@ -2065,6 +2065,96 @@ def _curve_mesh_point_count(
     return int(len(_unique_preserve_order(int(node_tag) for node_tag in ordered_node_tags)))
 
 
+def _curve_length(
+    gmsh: Any,
+    curve_tag: int,
+) -> float:
+    curve_points = _curve_polyline_points(gmsh, int(curve_tag))
+    return float(
+        max(
+            _polyline_length(list(curve_points)),
+            _curve_length_proxy(gmsh, int(curve_tag)),
+        )
+    )
+
+
+def _closure_patch_collapse_diagnostics(
+    gmsh: Any,
+    descriptor: ClosureRingPatchDesc,
+    *,
+    abs_tol: float = 1.0e-7,
+    rel_tol: float = 1.0e-6,
+) -> dict[str, Any]:
+    connector_curve_length = _curve_length(gmsh, abs(int(descriptor.wire_source_signed_curves[0])))
+    outer_curve_length = _curve_length(gmsh, abs(int(descriptor.wire_source_signed_curves[2])))
+    right_curve_length = _curve_length(gmsh, abs(int(descriptor.wire_source_signed_curves[1])))
+    left_curve_length = _curve_length(gmsh, abs(int(descriptor.wire_source_signed_curves[3])))
+    connector_left_point_tag, connector_right_point_tag, outer_right_point_tag, outer_left_point_tag = (
+        int(descriptor.semantic_corner_point_tags[0]),
+        int(descriptor.semantic_corner_point_tags[1]),
+        int(descriptor.semantic_corner_point_tags[2]),
+        int(descriptor.semantic_corner_point_tags[3]),
+    )
+    right_span = math.dist(
+        _point_xyz(gmsh, int(connector_right_point_tag)),
+        _point_xyz(gmsh, int(outer_right_point_tag)),
+    )
+    left_span = math.dist(
+        _point_xyz(gmsh, int(outer_left_point_tag)),
+        _point_xyz(gmsh, int(connector_left_point_tag)),
+    )
+    collapse_tol = max(
+        float(abs_tol),
+        float(rel_tol) * max(float(connector_curve_length), float(outer_curve_length), 1.0),
+    )
+    collapsed_side_curve_tags = [
+        abs(int(descriptor.wire_source_signed_curves[1]))
+        if float(right_curve_length) <= float(collapse_tol) or float(right_span) <= float(collapse_tol)
+        else None,
+        abs(int(descriptor.wire_source_signed_curves[3]))
+        if float(left_curve_length) <= float(collapse_tol) or float(left_span) <= float(collapse_tol)
+        else None,
+    ]
+    collapsed_side_curve_tags = [
+        int(curve_tag)
+        for curve_tag in collapsed_side_curve_tags
+        if curve_tag is not None
+    ]
+    return {
+        "collapsed": bool(collapsed_side_curve_tags),
+        "collapse_tol_m": float(collapse_tol),
+        "connector_curve_length_m": float(connector_curve_length),
+        "outer_curve_length_m": float(outer_curve_length),
+        "right_curve_length_m": float(right_curve_length),
+        "left_curve_length_m": float(left_curve_length),
+        "right_span_m": float(right_span),
+        "left_span_m": float(left_span),
+        "collapsed_side_curve_tags": list(collapsed_side_curve_tags),
+    }
+
+
+def _collapsed_triangular_end_cap_source_surface_tags(
+    descriptors: Iterable[ClosureRingPatchDesc],
+    collapse_diagnostics: Iterable[dict[str, Any]],
+) -> set[int]:
+    descriptor_list = [descriptor for descriptor in descriptors]
+    diagnostics_by_source_surface = {
+        int(diagnostic["source_surface_tag"]): dict(diagnostic)
+        for diagnostic in collapse_diagnostics
+    }
+    if len(descriptor_list) != 3:
+        return set()
+    source_surface_tags = [int(descriptor.source_surface_tag) for descriptor in descriptor_list]
+    if len(set(source_surface_tags)) != 3:
+        return set()
+    if not all(
+        bool(diagnostics_by_source_surface.get(int(source_surface_tag), {}).get("collapsed"))
+        for source_surface_tag in source_surface_tags
+    ):
+        return set()
+    return {int(source_surface_tag) for source_surface_tag in source_surface_tags}
+
+
 def _get_or_make_rebuilt_point_tag(
     *,
     gmsh: Any,
@@ -2342,6 +2432,82 @@ def _rebuild_tip_truncation_closure_block(
     for surface_tag in connector_band_surface_tags:
         connector_boundary_curve_tags.update(abs(int(tag)) for tag in _surface_boundary_curve_tags(gmsh, int(surface_tag)))
 
+    initial_curve_occurrence_count: dict[int, int] = defaultdict(int)
+    initial_side_surface_tags_by_curve: dict[int, int] = {}
+    for group in closure_groups:
+        for curve_tag, side_surface_tag in (group.get("side_surface_by_curve") or {}).items():
+            initial_curve_occurrence_count[int(curve_tag)] += 1
+            initial_side_surface_tags_by_curve.setdefault(int(curve_tag), int(side_surface_tag))
+
+    initial_outer_boundary_curve_tags = [
+        int(curve_tag)
+        for curve_tag, count in initial_curve_occurrence_count.items()
+        if int(count) == 1
+    ]
+    initial_connector_closure_curve_tags = [
+        int(curve_tag)
+        for curve_tag in initial_outer_boundary_curve_tags
+        if int(curve_tag) in connector_boundary_curve_tags
+    ]
+    initial_legacy_closure_surface_tags = _unique_preserve_order(
+        initial_side_surface_tags_by_curve[curve_tag]
+        for curve_tag in initial_connector_closure_curve_tags
+        if int(curve_tag) in initial_side_surface_tags_by_curve
+    )
+    closure_ring_patch_descriptors = _build_required_closure_ring_patch_descriptors(
+        gmsh=gmsh,
+        closure_groups=closure_groups,
+        connector_closure_curve_tags=initial_connector_closure_curve_tags,
+    )
+    if len(closure_ring_patch_descriptors) != len(initial_legacy_closure_surface_tags):
+        raise RuntimeError(
+            "required closure ring descriptor count does not match legacy closure surface count"
+        )
+
+    collapsed_end_cap_patch_diagnostics: list[dict[str, Any]] = []
+    for descriptor in closure_ring_patch_descriptors:
+        collapse_diagnostics = dict(_closure_patch_collapse_diagnostics(gmsh, descriptor))
+        collapse_diagnostics["source_surface_tag"] = int(descriptor.source_surface_tag)
+        collapse_diagnostics["legacy_surface_tag"] = int(descriptor.legacy_surface_tag)
+        collapse_diagnostics["connector_curve_tag"] = int(descriptor.connector_curve_tag)
+        collapsed_end_cap_patch_diagnostics.append(collapse_diagnostics)
+    collapsed_end_cap_source_surface_tags = _collapsed_triangular_end_cap_source_surface_tags(
+        closure_ring_patch_descriptors,
+        collapsed_end_cap_patch_diagnostics,
+    )
+    collapsed_end_cap_legacy_surface_tags = {
+        int(descriptor.legacy_surface_tag)
+        for descriptor in closure_ring_patch_descriptors
+        if int(descriptor.source_surface_tag) in collapsed_end_cap_source_surface_tags
+    }
+    collapsed_end_cap_connector_curve_tags = {
+        int(descriptor.connector_curve_tag)
+        for descriptor in closure_ring_patch_descriptors
+        if int(descriptor.source_surface_tag) in collapsed_end_cap_source_surface_tags
+    }
+    collapsed_end_cap_side_curve_tags = {
+        int(curve_tag)
+        for diagnostic in collapsed_end_cap_patch_diagnostics
+        if int(diagnostic["source_surface_tag"]) in collapsed_end_cap_source_surface_tags
+        for curve_tag in diagnostic.get("collapsed_side_curve_tags", [])
+    }
+
+    if collapsed_end_cap_source_surface_tags:
+        closure_groups = [
+            group
+            for group in closure_groups
+            if int(group["source_surface_tag"]) not in collapsed_end_cap_source_surface_tags
+        ]
+        closure_ring_patch_descriptors = [
+            descriptor
+            for descriptor in closure_ring_patch_descriptors
+            if int(descriptor.source_surface_tag) not in collapsed_end_cap_source_surface_tags
+        ]
+        # If the remaining connector-side closure family collapses to end caps,
+        # keep the original extBL termination instead of forcing a degenerated local rebuild.
+        if len(closure_groups) < 2 or not closure_ring_patch_descriptors:
+            return None
+
     curve_occurrence_count: dict[int, int] = defaultdict(int)
     side_surface_tags_by_curve: dict[int, int] = {}
     for group in closure_groups:
@@ -2393,11 +2559,6 @@ def _rebuild_tip_truncation_closure_block(
         side_surface_tags_by_curve[curve_tag]
         for curve_tag in retained_outer_interface_curve_tags
         if int(curve_tag) in side_surface_tags_by_curve
-    )
-    closure_ring_patch_descriptors = _build_required_closure_ring_patch_descriptors(
-        gmsh=gmsh,
-        closure_groups=closure_groups,
-        connector_closure_curve_tags=connector_closure_curve_tags,
     )
     if len(closure_ring_patch_descriptors) != len(legacy_closure_surface_tags):
         raise RuntimeError(
@@ -2461,6 +2622,13 @@ def _rebuild_tip_truncation_closure_block(
         "retained_outer_interface_surface_tags": list(retained_outer_interface_surface_tags),
         "connector_closure_curve_tags": list(connector_closure_curve_tags),
         "retained_outer_interface_curve_tags": list(retained_outer_interface_curve_tags),
+        "collapsed_end_cap_source_surface_tags": sorted(int(tag) for tag in collapsed_end_cap_source_surface_tags),
+        "collapsed_end_cap_legacy_surface_tags": sorted(int(tag) for tag in collapsed_end_cap_legacy_surface_tags),
+        "collapsed_end_cap_connector_curve_tags": sorted(
+            int(tag) for tag in collapsed_end_cap_connector_curve_tags
+        ),
+        "collapsed_end_cap_side_curve_tags": sorted(int(tag) for tag in collapsed_end_cap_side_curve_tags),
+        "collapsed_end_cap_patch_diagnostics": list(collapsed_end_cap_patch_diagnostics),
         "construction_rule": "closure_family_to_oriented_patch_descriptor_to_exact_4edge_wire_surface_filling",
         "block_volume_tag": int(closure_block_volume_tag),
     }

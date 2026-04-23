@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe as shell_v4_bl_mesh
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _analyze_real_wing_tip_bl_interference,
@@ -1135,8 +1136,127 @@ def test_real_main_wing_tip_truncation_closure_block_rebuilds_single_local_volum
         ) == {
             rebuilt_curve_tag_by_source_curve_tag_by_legacy[lhs_legacy_tag][source_curve_tag]
             for source_curve_tag in shared_source_curve_tags
-        }
+    }
     assert all(len(boundary_curves) == 4 for boundary_curves in rebuilt_boundary_curves_by_surface.values())
+
+
+def test_closure_patch_collapse_diagnostics_flags_collapsed_end_cap_side_curve(monkeypatch: pytest.MonkeyPatch):
+    descriptor = shell_v4_bl_mesh.ClosureRingPatchDesc(
+        source_surface_tag=1,
+        legacy_surface_tag=2,
+        connector_curve_tag=11,
+        source_signed_boundary_curves=(11, 21, 31, 41),
+        wire_source_signed_curves=(11, 21, 31, 41),
+        semantic_corner_point_tags=(101, 102, 103, 104),
+    )
+    curve_lengths = {
+        11: 0.8,
+        21: 0.0,
+        31: 0.6,
+        41: 0.2,
+    }
+    point_xyz = {
+        101: (0.0, 0.0, 0.0),
+        102: (1.0, 0.0, 0.0),
+        103: (1.0, 0.0, 0.0),
+        104: (0.0, 0.2, 0.0),
+    }
+    monkeypatch.setattr(
+        shell_v4_bl_mesh,
+        "_curve_length",
+        lambda _gmsh, curve_tag: float(curve_lengths[int(curve_tag)]),
+    )
+    monkeypatch.setattr(
+        shell_v4_bl_mesh,
+        "_point_xyz",
+        lambda _gmsh, point_tag: point_xyz[int(point_tag)],
+    )
+
+    diagnostics = shell_v4_bl_mesh._closure_patch_collapse_diagnostics(object(), descriptor)
+
+    assert diagnostics["collapsed"] is True
+    assert diagnostics["collapsed_side_curve_tags"] == [21]
+    assert diagnostics["right_span_m"] == pytest.approx(0.0)
+    assert diagnostics["left_span_m"] > diagnostics["collapse_tol_m"]
+
+
+def test_collapsed_triangular_end_cap_source_surface_tags_requires_three_collapsed_patches():
+    descriptors = [
+        shell_v4_bl_mesh.ClosureRingPatchDesc(
+            source_surface_tag=source_surface_tag,
+            legacy_surface_tag=100 + source_surface_tag,
+            connector_curve_tag=200 + source_surface_tag,
+            source_signed_boundary_curves=(1, 2, 3, 4),
+            wire_source_signed_curves=(1, 2, 3, 4),
+            semantic_corner_point_tags=(10, 11, 12, 13),
+        )
+        for source_surface_tag in (1, 2, 3)
+    ]
+    diagnostics = [
+        {"source_surface_tag": 1, "collapsed": True},
+        {"source_surface_tag": 2, "collapsed": True},
+        {"source_surface_tag": 3, "collapsed": True},
+    ]
+
+    assert shell_v4_bl_mesh._collapsed_triangular_end_cap_source_surface_tags(
+        descriptors,
+        diagnostics,
+    ) == {1, 2, 3}
+    assert shell_v4_bl_mesh._collapsed_triangular_end_cap_source_surface_tags(
+        descriptors,
+        [*diagnostics[:2], {"source_surface_tag": 3, "collapsed": False}],
+    ) == set()
+    assert shell_v4_bl_mesh._collapsed_triangular_end_cap_source_surface_tags(
+        [
+            *descriptors,
+            shell_v4_bl_mesh.ClosureRingPatchDesc(
+                source_surface_tag=4,
+                legacy_surface_tag=104,
+                connector_curve_tag=204,
+                source_signed_boundary_curves=(1, 2, 3, 4),
+                wire_source_signed_curves=(1, 2, 3, 4),
+                semantic_corner_point_tags=(10, 11, 12, 13),
+            ),
+        ],
+        [
+            *diagnostics,
+            {"source_surface_tag": 4, "collapsed": True},
+        ],
+    ) == set()
+
+
+def test_real_main_wing_tip_truncation_closure_block_skips_rebuild_when_collapsed_end_cap_family_is_detected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    setup = _build_real_main_wing_tip_truncation_closure_block_model(tmp_path)
+    gmsh = setup["gmsh"]
+    monkeypatch.setattr(
+        shell_v4_bl_mesh,
+        "_collapsed_triangular_end_cap_source_surface_tags",
+        lambda descriptors, _diagnostics: {
+            int(descriptor.source_surface_tag)
+            for descriptor in descriptors
+        },
+    )
+    try:
+        surface_tags_before = {int(tag) for dim, tag in gmsh.model.getEntities(2) if int(dim) == 2}
+        volume_tags_before = {int(tag) for dim, tag in gmsh.model.getEntities(3) if int(dim) == 3}
+        summary = _rebuild_tip_truncation_closure_block(
+            gmsh=gmsh,
+            bl_source_surface_tags=setup["bl_source_surface_tags"],
+            extbl=setup["extbl"],
+            connector_band_surface_tags=setup["connector_band_surface_tags"],
+            connector_band_start_y_m=setup["truncation_geometry"]["connector_band_start_y_m"],
+        )
+        surface_tags_after = {int(tag) for dim, tag in gmsh.model.getEntities(2) if int(dim) == 2}
+        volume_tags_after = {int(tag) for dim, tag in gmsh.model.getEntities(3) if int(dim) == 3}
+    finally:
+        gmsh.finalize()
+
+    assert summary is None
+    assert surface_tags_after == surface_tags_before
+    assert volume_tags_after == volume_tags_before
 
 
 def test_run_shell_v4_real_main_wing_prelaunch_smoke_reaches_prelaunch_clean_with_tip_truncation(tmp_path: Path):
