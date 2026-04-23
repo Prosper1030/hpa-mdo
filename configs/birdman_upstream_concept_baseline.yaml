@@ -49,6 +49,15 @@ prop:
 turn:
   required_bank_angle_deg: 15.0
 
+tail_model:
+  wing_ac_xc: 0.25
+  tail_arm_to_mac: 4.0
+  tail_dynamic_pressure_ratio: 0.90
+  tail_efficiency: 0.90
+  tail_cl_limit_abs: 0.80
+  body_cm_offset: 0.0
+  cm_spread_factor: 0.50
+
 geometry_family:
   span_candidates_m: [30.0, 32.0, 34.0]
   wing_area_candidates_m2: [26.0, 28.0, 30.0]

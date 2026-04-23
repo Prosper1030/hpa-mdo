@@ -903,6 +903,73 @@ def test_turn_summary_uses_explicit_turn_avl_case_without_rescaling() -> None:
     assert turn["cl_scale_factor_max"] == pytest.approx(1.0)
 
 
+def test_trim_summary_accounts_for_tail_area_and_balance() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    small_tail = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=3.8,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    large_tail = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.6,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    station_points = [
+        {
+            "station_y_m": 4.0,
+            "cl_target": 0.82,
+            "cm_target": -0.08,
+            "cm_effective": -0.08,
+            "cm_effective_source": "airfoil_near_target",
+            "chord_m": 1.15,
+            "weight": 1.0,
+            "case_label": "reference_avl_case",
+        },
+        {
+            "station_y_m": 12.0,
+            "cl_target": 0.70,
+            "cm_target": -0.09,
+            "cm_effective": -0.09,
+            "cm_effective_source": "airfoil_near_target",
+            "chord_m": 0.95,
+            "weight": 1.0,
+            "case_label": "reference_avl_case",
+        },
+    ]
+
+    small_summary, _ = concept_pipeline._summarize_trim(
+        cfg=cfg,
+        concept=small_tail,
+        station_points=station_points,
+    )
+    large_summary, _ = concept_pipeline._summarize_trim(
+        cfg=cfg,
+        concept=large_tail,
+        station_points=station_points,
+    )
+
+    assert small_summary["model"] == "tail_volume_balance"
+    assert small_summary["representative_cm_source"] == "airfoil_near_target"
+    assert small_summary["tail_area_ratio"] < large_summary["tail_area_ratio"]
+    assert small_summary["tail_volume_coefficient"] < large_summary["tail_volume_coefficient"]
+    assert abs(small_summary["tail_cl_required"]) > abs(large_summary["tail_cl_required"])
+    assert small_summary["tail_utilization"] > large_summary["tail_utilization"]
+    assert small_summary["margin_deg"] < large_summary["margin_deg"]
+
+
 def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(

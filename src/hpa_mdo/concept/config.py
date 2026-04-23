@@ -118,6 +118,16 @@ class TurnConfig(ConceptBaseModel):
     required_bank_angle_deg: float = Field(15.0, gt=0.0, lt=45.0)
 
 
+class TailModelConfig(ConceptBaseModel):
+    wing_ac_xc: float = Field(0.25, ge=0.0, le=1.0)
+    tail_arm_to_mac: float = Field(4.0, gt=0.0)
+    tail_dynamic_pressure_ratio: float = Field(0.90, gt=0.0, le=1.5)
+    tail_efficiency: float = Field(0.90, gt=0.0, le=1.5)
+    tail_cl_limit_abs: float = Field(0.80, gt=0.0)
+    body_cm_offset: float = Field(0.0, ge=-0.25, le=0.25)
+    cm_spread_factor: float = Field(0.50, ge=0.0)
+
+
 class GeometryFamilyConfig(ConceptBaseModel):
     span_candidates_m: tuple[float, ...] = Field((30.0, 32.0, 34.0), min_length=1)
     wing_area_candidates_m2: tuple[float, ...] = Field((26.0, 28.0, 30.0), min_length=1)
@@ -263,6 +273,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     stall_model: StallModelConfig = Field(default_factory=StallModelConfig)
     prop: PropConfig = Field(default_factory=PropConfig)
     turn: TurnConfig = Field(default_factory=TurnConfig)
+    tail_model: TailModelConfig = Field(default_factory=TailModelConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
     cst_search: CSTSearchConfig = Field(default_factory=CSTSearchConfig)
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)

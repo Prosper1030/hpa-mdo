@@ -20,6 +20,13 @@ class TrimGateResult:
     margin_deg: float
     required_margin_deg: float
     reason: str
+    wing_cl: float = 0.0
+    wing_cm_airfoil: float = 0.0
+    wing_cm_total: float = 0.0
+    tail_cl_required: float = 0.0
+    tail_cl_limit_abs: float = 0.0
+    tail_utilization: float = 0.0
+    tail_volume_coefficient: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -322,6 +329,80 @@ def evaluate_trim_proxy(
     )
 
 
+def evaluate_trim_balance(
+    *,
+    wing_cl: float,
+    wing_cm_airfoil: float,
+    cg_xc: float,
+    wing_ac_xc: float,
+    tail_area_ratio: float,
+    tail_arm_to_mac: float,
+    tail_dynamic_pressure_ratio: float,
+    tail_efficiency: float,
+    tail_cl_limit_abs: float,
+    required_margin_deg: float,
+    body_cm_offset: float = 0.0,
+    cm_spread: float = 0.0,
+    spread_factor: float = 0.5,
+) -> TrimGateResult:
+    if required_margin_deg <= 0.0:
+        raise ValueError("required_margin_deg must be positive.")
+    if tail_area_ratio <= 0.0:
+        raise ValueError("tail_area_ratio must be positive.")
+    if tail_arm_to_mac <= 0.0:
+        raise ValueError("tail_arm_to_mac must be positive.")
+    if tail_dynamic_pressure_ratio <= 0.0:
+        raise ValueError("tail_dynamic_pressure_ratio must be positive.")
+    if tail_efficiency <= 0.0:
+        raise ValueError("tail_efficiency must be positive.")
+    if tail_cl_limit_abs <= 0.0:
+        raise ValueError("tail_cl_limit_abs must be positive.")
+    if cm_spread < 0.0:
+        raise ValueError("cm_spread must not be negative.")
+    if spread_factor < 0.0:
+        raise ValueError("spread_factor must not be negative.")
+
+    wing_cm_total = (
+        float(wing_cm_airfoil)
+        + float(wing_cl) * (float(wing_ac_xc) - float(cg_xc))
+        + float(body_cm_offset)
+    )
+    tail_volume_coefficient = (
+        float(tail_area_ratio)
+        * float(tail_arm_to_mac)
+        * float(tail_dynamic_pressure_ratio)
+        * float(tail_efficiency)
+    )
+    tail_cl_required = -wing_cm_total / max(tail_volume_coefficient, 1.0e-9)
+    spread_tail_cl = float(spread_factor) * float(cm_spread) / max(tail_volume_coefficient, 1.0e-9)
+    effective_tail_cl_required = abs(float(tail_cl_required)) + abs(spread_tail_cl)
+    tail_utilization = effective_tail_cl_required / max(float(tail_cl_limit_abs), 1.0e-9)
+    margin_deg = max(
+        0.0,
+        6.0 * (float(tail_cl_limit_abs) - effective_tail_cl_required) / float(tail_cl_limit_abs),
+    )
+    required_margin_deg = float(required_margin_deg)
+    feasible = margin_deg > required_margin_deg or math.isclose(
+        margin_deg,
+        required_margin_deg,
+        rel_tol=0.0,
+        abs_tol=1.0e-9,
+    )
+    return TrimGateResult(
+        feasible=feasible,
+        margin_deg=margin_deg,
+        required_margin_deg=required_margin_deg,
+        reason="ok" if feasible else "trim_margin_insufficient",
+        wing_cl=float(wing_cl),
+        wing_cm_airfoil=float(wing_cm_airfoil),
+        wing_cm_total=float(wing_cm_total),
+        tail_cl_required=float(tail_cl_required),
+        tail_cl_limit_abs=float(tail_cl_limit_abs),
+        tail_utilization=float(tail_utilization),
+        tail_volume_coefficient=float(tail_volume_coefficient),
+    )
+
+
 def evaluate_local_stall(
     *,
     station_points: list[dict[str, float]],
@@ -366,6 +447,7 @@ __all__ = [
     "TurnGateResult",
     "evaluate_launch_gate",
     "evaluate_local_stall",
+    "evaluate_trim_balance",
     "evaluate_trim_proxy",
     "evaluate_turn_gate",
 ]

@@ -65,6 +65,20 @@ class GeometryConcept:
         if not isclose(self.wing_area_m2, expected_area_m2, rel_tol=1e-6, abs_tol=1e-6):
             raise ValueError("trapezoidal wing area is inconsistent with span/root/tip chord.")
 
+    @property
+    def taper_ratio(self) -> float:
+        return float(self.tip_chord_m / max(self.root_chord_m, 1.0e-9))
+
+    @property
+    def mean_aerodynamic_chord_m(self) -> float:
+        taper_ratio = self.taper_ratio
+        return float(
+            (2.0 / 3.0)
+            * self.root_chord_m
+            * (1.0 + taper_ratio + taper_ratio**2)
+            / max(1.0 + taper_ratio, 1.0e-9)
+        )
+
 
 def _progressive_schedule_value(
     start_value: float,

@@ -32,7 +32,7 @@ from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
 from hpa_mdo.concept.safety import (
     evaluate_launch_gate,
     evaluate_local_stall,
-    evaluate_trim_proxy,
+    evaluate_trim_balance,
     evaluate_turn_gate,
 )
 from hpa_mdo.mission.objective import (
@@ -1126,48 +1126,88 @@ def _summarize_turn(
 def _summarize_trim(
     *,
     cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
     station_points: list[dict[str, float]],
 ) -> tuple[dict[str, Any], Any]:
     trim_station_points = _station_points_for_case_label(station_points, "reference_avl_case")
     effective_station_points = trim_station_points or station_points
-    effective_points = [
+    cm_points = [
         (
             float(point.get("cm_effective", point["cm_target"])),
-            max(float(point.get("weight", 1.0)) * float(point.get("chord_m", 1.0)), 1.0e-9),
+            max(float(point.get("weight", 1.0)) * float(point.get("chord_m", 1.0)) ** 2, 1.0e-9),
             point,
         )
         for point in effective_station_points
     ]
-    total_weight = sum(weight for _, weight, _ in effective_points)
-    if total_weight <= 0.0:
-        total_weight = float(len(effective_points)) or 1.0
-    weighted_mean_cm = sum(cm * weight for cm, weight, _ in effective_points) / total_weight
+    cl_points = [
+        (
+            float(point["cl_target"]),
+            max(float(point.get("weight", 1.0)) * float(point.get("chord_m", 1.0)), 1.0e-9),
+        )
+        for point in effective_station_points
+    ]
+    total_cm_weight = sum(weight for _, weight, _ in cm_points)
+    if total_cm_weight <= 0.0:
+        total_cm_weight = float(len(cm_points)) or 1.0
+    total_cl_weight = sum(weight for _, weight in cl_points)
+    if total_cl_weight <= 0.0:
+        total_cl_weight = float(len(cl_points)) or 1.0
+
+    weighted_mean_cm = sum(cm * weight for cm, weight, _ in cm_points) / total_cm_weight
+    weighted_mean_cl = sum(cl * weight for cl, weight in cl_points) / total_cl_weight
     cm_rms = math.sqrt(
-        sum(weight * (cm - weighted_mean_cm) ** 2 for cm, weight, _ in effective_points)
-        / total_weight
+        sum(weight * (cm - weighted_mean_cm) ** 2 for cm, weight, _ in cm_points)
+        / total_cm_weight
     )
     dominant_point = max(
-        effective_points,
+        cm_points,
         key=lambda item: abs(item[0]) * item[1],
     )[2]
     representative_cm = float(weighted_mean_cm)
     representative_cm_source = str(
         dominant_point.get("cm_effective_source", "zone_target_proxy")
     )
-    trim_result = evaluate_trim_proxy(
-        representative_cm=representative_cm,
+    tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
+    trim_result = evaluate_trim_balance(
+        wing_cl=weighted_mean_cl,
+        wing_cm_airfoil=representative_cm,
+        cg_xc=concept.cg_xc,
+        wing_ac_xc=cfg.tail_model.wing_ac_xc,
+        tail_area_ratio=tail_area_ratio,
+        tail_arm_to_mac=cfg.tail_model.tail_arm_to_mac,
+        tail_dynamic_pressure_ratio=cfg.tail_model.tail_dynamic_pressure_ratio,
+        tail_efficiency=cfg.tail_model.tail_efficiency,
+        tail_cl_limit_abs=cfg.tail_model.tail_cl_limit_abs,
         required_margin_deg=cfg.launch.min_trim_margin_deg,
+        body_cm_offset=cfg.tail_model.body_cm_offset,
         cm_spread=cm_rms,
+        spread_factor=cfg.tail_model.cm_spread_factor,
     )
+    tail_arm_m = cfg.tail_model.tail_arm_to_mac * concept.mean_aerodynamic_chord_m
     return {
         "status": trim_result.reason,
         "feasible": trim_result.feasible,
         "representative_cm": representative_cm,
         "representative_cm_source": representative_cm_source,
+        "wing_cl_reference": weighted_mean_cl,
+        "wing_ac_xc": cfg.tail_model.wing_ac_xc,
+        "cg_xc": concept.cg_xc,
+        "wing_cm_total": trim_result.wing_cm_total,
         "cm_rms": cm_rms,
+        "tail_area_ratio": tail_area_ratio,
+        "tail_arm_to_mac": cfg.tail_model.tail_arm_to_mac,
+        "tail_arm_m": tail_arm_m,
+        "tail_dynamic_pressure_ratio": cfg.tail_model.tail_dynamic_pressure_ratio,
+        "tail_efficiency": cfg.tail_model.tail_efficiency,
+        "tail_volume_coefficient": trim_result.tail_volume_coefficient,
+        "tail_cl_required": trim_result.tail_cl_required,
+        "tail_cl_limit_abs": cfg.tail_model.tail_cl_limit_abs,
+        "tail_utilization": trim_result.tail_utilization,
+        "body_cm_offset": cfg.tail_model.body_cm_offset,
         "margin_deg": trim_result.margin_deg,
         "required_margin_deg": trim_result.required_margin_deg,
         "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
+        "model": "tail_volume_balance",
         "evaluation_case": (
             "reference_avl_case" if trim_station_points else "all_station_points_fallback"
         ),
@@ -1575,7 +1615,11 @@ def _evaluate_selected_airfoils_for_concept(
         selected_by_zone=updated_selected_by_zone,
         zone_requirements=zone_requirements,
     )
-    trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
+    trim_summary, trim_result = _summarize_trim(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+    )
     launch_summary, _, _ = _summarize_launch(
         cfg=cfg,
         concept=concept,

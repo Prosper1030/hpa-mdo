@@ -6,6 +6,7 @@ from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.safety import (
     evaluate_launch_gate,
     evaluate_local_stall,
+    evaluate_trim_balance,
     evaluate_trim_proxy,
     evaluate_turn_gate,
 )
@@ -234,6 +235,70 @@ def test_trim_proxy_penalizes_cm_spread():
 
     assert narrow.margin_deg > wide.margin_deg
     assert wide.feasible is False
+
+
+def test_trim_balance_rewards_larger_tail_volume() -> None:
+    small_tail = evaluate_trim_balance(
+        wing_cl=0.80,
+        wing_cm_airfoil=-0.10,
+        cg_xc=0.30,
+        wing_ac_xc=0.25,
+        tail_area_ratio=0.12,
+        tail_arm_to_mac=4.0,
+        tail_dynamic_pressure_ratio=0.90,
+        tail_efficiency=0.90,
+        tail_cl_limit_abs=0.80,
+        required_margin_deg=2.0,
+    )
+    large_tail = evaluate_trim_balance(
+        wing_cl=0.80,
+        wing_cm_airfoil=-0.10,
+        cg_xc=0.30,
+        wing_ac_xc=0.25,
+        tail_area_ratio=0.18,
+        tail_arm_to_mac=4.0,
+        tail_dynamic_pressure_ratio=0.90,
+        tail_efficiency=0.90,
+        tail_cl_limit_abs=0.80,
+        required_margin_deg=2.0,
+    )
+
+    assert large_tail.tail_volume_coefficient > small_tail.tail_volume_coefficient
+    assert abs(large_tail.tail_cl_required) < abs(small_tail.tail_cl_required)
+    assert large_tail.tail_utilization < small_tail.tail_utilization
+    assert large_tail.margin_deg > small_tail.margin_deg
+
+
+def test_trim_balance_penalizes_aft_cg() -> None:
+    forward_cg = evaluate_trim_balance(
+        wing_cl=0.75,
+        wing_cm_airfoil=-0.08,
+        cg_xc=0.28,
+        wing_ac_xc=0.25,
+        tail_area_ratio=0.15,
+        tail_arm_to_mac=4.0,
+        tail_dynamic_pressure_ratio=0.90,
+        tail_efficiency=0.90,
+        tail_cl_limit_abs=0.80,
+        required_margin_deg=2.0,
+    )
+    aft_cg = evaluate_trim_balance(
+        wing_cl=0.75,
+        wing_cm_airfoil=-0.08,
+        cg_xc=0.33,
+        wing_ac_xc=0.25,
+        tail_area_ratio=0.15,
+        tail_arm_to_mac=4.0,
+        tail_dynamic_pressure_ratio=0.90,
+        tail_efficiency=0.90,
+        tail_cl_limit_abs=0.80,
+        required_margin_deg=2.0,
+    )
+
+    assert aft_cg.wing_cm_total < forward_cg.wing_cm_total
+    assert abs(aft_cg.tail_cl_required) > abs(forward_cg.tail_cl_required)
+    assert aft_cg.tail_utilization > forward_cg.tail_utilization
+    assert aft_cg.margin_deg < forward_cg.margin_deg
 
 
 def test_local_stall_flags_tip_critical_case():
