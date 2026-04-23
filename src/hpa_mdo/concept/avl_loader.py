@@ -502,8 +502,8 @@ def select_avl_design_cases(
         selected_mass_case = max(
             mass_cases,
             key=lambda case: (
-                _numeric_value(case.get("min_power_feasible_w")) is None,
-                float(_numeric_value(case.get("min_power_feasible_w")) or 0.0),
+                _numeric_value(case.get("min_power_feasible_w")) is not None,
+                float(_numeric_value(case.get("min_power_feasible_w")) or -1.0),
                 float(case["gross_mass_kg"]),
             ),
         )

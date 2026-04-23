@@ -302,6 +302,64 @@ def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> 
     )
 
 
+def test_select_avl_reference_condition_for_min_power_prefers_feasible_case_over_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "mission": cfg.mission.model_copy(update={"objective_mode": "min_power"})
+        }
+    )
+
+    monkeypatch.setattr(
+        concept_avl_loader,
+        "_mission_mass_cases_for_avl",
+        lambda **_: [
+            {
+                "gross_mass_kg": 95.0,
+                "best_range_m": 6800.0,
+                "best_range_speed_mps": 6.0,
+                "best_range_feasible_m": 1600.0,
+                "best_range_feasible_speed_mps": 9.5,
+                "estimated_first_feasible_speed_mps": None,
+                "min_power_w": 350.0,
+                "min_power_speed_mps": 6.0,
+                "min_power_feasible_w": None,
+                "min_power_feasible_speed_mps": None,
+                "mission_feasible": False,
+                "target_range_passed": False,
+                "mission_score": 0.0,
+            },
+            {
+                "gross_mass_kg": 105.0,
+                "best_range_m": 5900.0,
+                "best_range_speed_mps": 6.0,
+                "best_range_feasible_m": 1200.0,
+                "best_range_feasible_speed_mps": 10.0,
+                "estimated_first_feasible_speed_mps": None,
+                "min_power_w": 360.0,
+                "min_power_speed_mps": 6.0,
+                "min_power_feasible_w": 520.0,
+                "min_power_feasible_speed_mps": 10.0,
+                "mission_feasible": False,
+                "target_range_passed": False,
+                "mission_score": 0.0,
+            },
+        ],
+    )
+
+    reference = select_avl_reference_condition(
+        cfg=cfg,
+        concept=_sample_concept(),
+        air_density_kg_per_m3=1.10,
+    )
+
+    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
+    assert reference["reference_speed_reason"] == "min_power_feasible_speed_mps"
+    assert reference["reference_speed_mps"] == pytest.approx(10.0)
+
+
 def test_select_avl_design_cases_exposes_reference_slow_launch_and_turn_cases() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
 
