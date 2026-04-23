@@ -175,6 +175,7 @@ When `clearance_to_thickness_ratio` is already badly out of balance, the compile
 - topology blockers
 - BL compatibility blockers
 - planning-policy fail kinds
+- planning-policy recommendation kinds
 
 separately.
 
@@ -183,6 +184,21 @@ That separation matters because a failing BL policy verdict should tell later us
 - do not misread this as "the topology operator simply needs one more tweak"
 - do not merge the BL incompatibility line into the canonical post-band transition family
 - do treat it as an independent route-level incompatibility that can block planning even while topology-family work is still progressing
+
+This round also pushes the BL line beyond a single block/fail verdict.
+
+When shell_v4 can provide spanwise sampling evidence, the compiler now carries:
+
+- sectionwise budgeting pressure
+- regionwise budgeting pressure
+- tightest sections / tightest regions
+- plan-only recommendation kinds such as shrinking thickness, splitting the budgeted zone, staging back layers, or truncating the tip zone
+
+That advice is still intentionally bounded:
+
+- it is planning guidance, not runtime geometry mutation
+- it does not auto-apply an operator
+- it must stay readable as a separate BL-policy line alongside topology-family progress
 
 ## What is intentionally still skeleton / TODO
 

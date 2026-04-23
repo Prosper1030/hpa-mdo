@@ -24,6 +24,9 @@ from .compiler.compiler_v1 import compile_topology_family_v1
 from .compiler.motif_registry_v1 import MotifRegistryV1
 from .compiler.operator_library_v1 import OperatorLibraryV1
 from .compiler.pre_plc_audit_v1 import (
+    PlanningBudgetRegionV1,
+    PlanningBudgetSectionV1,
+    PlanningBudgetingV1,
     PrePLCAuditConfigV1,
     PrePLCAuditObservedEvidenceV1,
     run_pre_plc_audit_v1,
@@ -1265,7 +1268,7 @@ def _build_real_wing_bl_protection_field(
     )
 
 
-def _analyze_real_wing_tip_bl_interference(
+def _sample_real_wing_bl_interference_payloads(
     *,
     sections: list[dict[str, Any]],
     protection: dict[str, Any],
@@ -1274,16 +1277,7 @@ def _analyze_real_wing_tip_bl_interference(
     span_samples_per_interval: int = 13,
     chordwise_samples: int = 19,
     truncation_start_y_m: float | None = None,
-) -> dict[str, Any]:
-    if not bool(protection.get("enabled", True)) or len(sections) < 2:
-        return {
-            "enabled": False,
-            "intervention_mode": "none",
-            "sample_count": 0,
-            "risk_sample_count": 0,
-            "tip_truncation": {"enabled": False, "start_y_m": None},
-        }
-
+) -> tuple[list[dict[str, float]], list[dict[str, float]], list[dict[str, float]]]:
     x_rel_min = float(protection["thickness_limit_x_rel_min"])
     x_rel_max = float(protection["thickness_limit_x_rel_max"])
     chordwise_count = max(3, int(chordwise_samples))
@@ -1320,6 +1314,215 @@ def _analyze_real_wing_tip_bl_interference(
                     suppressed_payloads.append(payload)
                 else:
                     retained_payloads.append(payload)
+    return full_payloads, retained_payloads, suppressed_payloads
+
+
+def _build_real_wing_bl_budgeting_plan(
+    *,
+    sections: list[dict[str, Any]],
+    protection: dict[str, Any],
+    base_total_thickness_m: float,
+    half_span_m: float,
+    truncation_start_y_m: float | None = None,
+) -> PlanningBudgetingV1:
+    if not bool(protection.get("enabled", True)) or len(sections) < 2:
+        return PlanningBudgetingV1(
+            status="unsupported",
+            total_bl_thickness_m=float(base_total_thickness_m),
+            notes=["Need an enabled real-wing BL protection contract with at least two sections."],
+        )
+
+    full_payloads, _, suppressed_payloads = _sample_real_wing_bl_interference_payloads(
+        sections=sections,
+        protection=protection,
+        base_total_thickness_m=base_total_thickness_m,
+        half_span_m=half_span_m,
+        truncation_start_y_m=truncation_start_y_m,
+    )
+    if not full_payloads:
+        return PlanningBudgetingV1(
+            status="unsupported",
+            total_bl_thickness_m=float(base_total_thickness_m),
+            notes=["No BL budgeting samples were produced from the provided sections."],
+        )
+
+    by_section: dict[float, list[dict[str, float]]] = defaultdict(list)
+    for payload in full_payloads:
+        by_section[round(float(payload["span_y_m"]), 6)].append(payload)
+
+    section_budgets: list[PlanningBudgetSectionV1] = []
+    for section_y in sorted(by_section):
+        payloads = by_section[section_y]
+        sample_count = len(payloads)
+        triggered_sample_count = sum(1 for payload in payloads if float(payload["scale"]) < 0.999999)
+        min_clearance_ratio = min(
+            float(payload["local_half_thickness_m"]) / max(float(base_total_thickness_m), 1.0e-12)
+            for payload in payloads
+        )
+        min_available_budget_ratio = min(
+            float(payload["raw_allowed_total_thickness_m"]) / max(float(base_total_thickness_m), 1.0e-12)
+            for payload in payloads
+        )
+        min_required_scale = min(float(payload["required_scale_for_tip_clearance"]) for payload in payloads)
+        clearance_pressure = max(0.0, float(1.0 - min_available_budget_ratio))
+        region_kind = "baseline_clearance_zone"
+        if truncation_start_y_m is not None and float(section_y) >= float(truncation_start_y_m) - 1.0e-12:
+            region_kind = "suppressed_tip_zone"
+        elif any(int(payload["truncation_candidate"]) == 1 for payload in payloads):
+            region_kind = "tip_truncation_candidate_zone"
+        elif any(int(payload["tip_clearance_active"]) == 1 for payload in payloads):
+            region_kind = "tip_clearance_active_zone"
+        elif triggered_sample_count > 0:
+            region_kind = "outboard_scaling_zone"
+
+        recommended_action_kinds: list[str] = []
+        if min_available_budget_ratio < 0.999999 or min_clearance_ratio < 1.0 - 1.0e-12:
+            recommended_action_kinds.append("shrink_total_thickness")
+        if region_kind in {
+            "outboard_scaling_zone",
+            "tip_clearance_active_zone",
+            "tip_truncation_candidate_zone",
+            "suppressed_tip_zone",
+        } or 0 < triggered_sample_count < sample_count:
+            recommended_action_kinds.append("split_region_budget")
+        if any(int(payload["thickness_limited"]) == 1 or int(payload["tip_limited"]) == 1 for payload in payloads):
+            recommended_action_kinds.append("stage_back_layers")
+        if any(int(payload["truncation_candidate"]) == 1 for payload in payloads):
+            recommended_action_kinds.append("truncate_tip_zone")
+        recommended_action_kinds = list(dict.fromkeys(recommended_action_kinds))
+
+        section_budgets.append(
+            PlanningBudgetSectionV1(
+                section_id=f"section_y:{section_y:.6f}",
+                span_y_m=float(section_y),
+                region_kind=region_kind,
+                sample_count=sample_count,
+                triggered_sample_count=triggered_sample_count,
+                min_local_half_thickness_m=min(float(payload["local_half_thickness_m"]) for payload in payloads),
+                min_clearance_to_thickness_ratio=float(min_clearance_ratio),
+                min_available_budget_ratio=float(min_available_budget_ratio),
+                min_required_scale_for_tip_clearance=float(min_required_scale),
+                min_predicted_bl_top_clearance_m=min(
+                    float(payload["predicted_bl_top_clearance_m"]) for payload in payloads
+                ),
+                clearance_pressure=float(clearance_pressure),
+                recommended_action_kinds=recommended_action_kinds,
+                notes=[
+                    "Budgeting guidance is plan-only and should not be auto-applied to runtime geometry.",
+                    *(
+                        ["suppressed_by_truncation_window"]
+                        if region_kind == "suppressed_tip_zone" and suppressed_payloads
+                        else []
+                    ),
+                ],
+            )
+        )
+
+    region_groups: dict[str, list[PlanningBudgetSectionV1]] = defaultdict(list)
+    for section in section_budgets:
+        region_groups[section.region_kind].append(section)
+
+    region_budgets: list[PlanningBudgetRegionV1] = []
+    for region_kind, grouped_sections in region_groups.items():
+        section_ids = [section.section_id for section in grouped_sections]
+        region_budgets.append(
+            PlanningBudgetRegionV1(
+                region_id=f"region:{region_kind}",
+                region_kind=region_kind,
+                section_ids=section_ids,
+                section_count=len(grouped_sections),
+                span_y_range_m={
+                    "min": float(min(section.span_y_m for section in grouped_sections)),
+                    "max": float(max(section.span_y_m for section in grouped_sections)),
+                },
+                min_clearance_to_thickness_ratio=min(
+                    section.min_clearance_to_thickness_ratio for section in grouped_sections
+                ),
+                min_available_budget_ratio=min(
+                    section.min_available_budget_ratio for section in grouped_sections
+                ),
+                peak_clearance_pressure=max(
+                    section.clearance_pressure if section.clearance_pressure is not None else 0.0
+                    for section in grouped_sections
+                ),
+                recommended_action_kinds=list(
+                    dict.fromkeys(
+                        action
+                        for section in grouped_sections
+                        for action in section.recommended_action_kinds
+                    )
+                ),
+                notes=[
+                    "Regionwise budgeting groups sections by observed clearance-pressure regime, not by topology family.",
+                ],
+            )
+        )
+
+    ranked_sections = sorted(
+        section_budgets,
+        key=lambda section: (
+            float(section.min_available_budget_ratio if section.min_available_budget_ratio is not None else 999.0),
+            float(section.min_clearance_to_thickness_ratio if section.min_clearance_to_thickness_ratio is not None else 999.0),
+            -float(section.span_y_m),
+        ),
+    )
+    ranked_regions = sorted(
+        region_budgets,
+        key=lambda region: (
+            float(region.min_available_budget_ratio if region.min_available_budget_ratio is not None else 999.0),
+            float(region.min_clearance_to_thickness_ratio if region.min_clearance_to_thickness_ratio is not None else 999.0),
+        ),
+    )
+    recommendation_kinds = list(
+        dict.fromkeys(
+            action
+            for section in section_budgets
+            for action in section.recommended_action_kinds
+        )
+    )
+    return PlanningBudgetingV1(
+        status="available",
+        total_bl_thickness_m=float(base_total_thickness_m),
+        section_budgets=section_budgets,
+        region_budgets=region_budgets,
+        tightest_section_ids=[section.section_id for section in ranked_sections[:3]],
+        tightest_region_ids=[region.region_id for region in ranked_regions[:3]],
+        recommendation_kinds=recommendation_kinds,
+        notes=[
+            "Sectionwise/regionwise budgeting remains planning-only guidance.",
+            "Recommendations do not mutate shell_v4 geometry or BL settings at runtime.",
+        ],
+    )
+
+
+def _analyze_real_wing_tip_bl_interference(
+    *,
+    sections: list[dict[str, Any]],
+    protection: dict[str, Any],
+    base_total_thickness_m: float,
+    half_span_m: float,
+    span_samples_per_interval: int = 13,
+    chordwise_samples: int = 19,
+    truncation_start_y_m: float | None = None,
+) -> dict[str, Any]:
+    if not bool(protection.get("enabled", True)) or len(sections) < 2:
+        return {
+            "enabled": False,
+            "intervention_mode": "none",
+            "sample_count": 0,
+            "risk_sample_count": 0,
+            "tip_truncation": {"enabled": False, "start_y_m": None},
+        }
+    full_payloads, retained_payloads, suppressed_payloads = _sample_real_wing_bl_interference_payloads(
+        sections=sections,
+        protection=protection,
+        base_total_thickness_m=base_total_thickness_m,
+        half_span_m=half_span_m,
+        span_samples_per_interval=span_samples_per_interval,
+        chordwise_samples=chordwise_samples,
+        truncation_start_y_m=truncation_start_y_m,
+    )
+    y_values = [float(section["y_le"]) for section in sections]
 
     if not full_payloads:
         return {
@@ -1422,6 +1625,13 @@ def _analyze_real_wing_tip_bl_interference(
             "max": float(max(payload["required_scale_for_tip_clearance"] for payload in truncation_samples)),
         }
         analysis["tip_truncation"]["recommended_start_y_m"] = float(recommended_tip_truncation_start_y)
+    analysis["planning_budgeting"] = _build_real_wing_bl_budgeting_plan(
+        sections=sections,
+        protection=protection,
+        base_total_thickness_m=base_total_thickness_m,
+        half_span_m=half_span_m,
+        truncation_start_y_m=truncation_start_y_m,
+    ).model_dump(mode="json")
     return analysis
 
 
@@ -2310,6 +2520,7 @@ def _run_shell_v4_topology_compiler_plan_only(
     geometry: dict[str, Any],
     real_wing_geometry: dict[str, Any],
     boundary_layer: dict[str, Any],
+    real_wing_bl_protection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     artifact_dir = Path(out_dir) / "artifacts" / "topology_compiler"
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -2330,6 +2541,12 @@ def _run_shell_v4_topology_compiler_plan_only(
         source_path=source_path,
         component=component,
         artifact_dir=artifact_dir,
+    )
+    planning_budgeting = _build_real_wing_bl_budgeting_plan(
+        sections=[dict(section) for section in real_wing_geometry.get("sections", [])],
+        protection=dict(real_wing_bl_protection or {}),
+        base_total_thickness_m=float(boundary_layer["target_total_thickness_m"]),
+        half_span_m=float(geometry.get("half_span_m") or DEFAULT_HALF_SPAN_M),
     )
     operator_regression_runs, operator_regression_report_path = (
         _collect_shell_v4_pre_plc_operator_regression_reports(
@@ -2355,6 +2572,7 @@ def _run_shell_v4_topology_compiler_plan_only(
             first_layer_height_m=float(boundary_layer["first_layer_height_m"]),
             total_boundary_layer_thickness_m=float(boundary_layer["target_total_thickness_m"]),
             observed_evidence=observed_evidence,
+            planning_budgeting=planning_budgeting,
         ),
     )
     return {
@@ -2419,7 +2637,11 @@ def _run_shell_v4_topology_compiler_plan_only(
             result.pre_plc_audit.blocking_bl_compatibility_check_kinds
         ),
         "planning_policy_fail_kinds": list(result.pre_plc_audit.planning_policy_fail_kinds),
+        "planning_policy_recommendation_kinds": list(
+            result.pre_plc_audit.planning_policy_recommendation_kinds
+        ),
         "planning_policy": result.pre_plc_audit.planning_policy.model_dump(mode="json"),
+        "planning_budgeting": result.pre_plc_audit.planning_budgeting.model_dump(mode="json"),
         "shell_role_policy": result.shell_role_policy.model_dump(mode="json"),
     }
 
@@ -6209,6 +6431,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                     geometry=geometry,
                     real_wing_geometry=real_wing_geometry,
                     boundary_layer=bl_spec,
+                    real_wing_bl_protection=protection_config,
                 )
             except Exception as exc:
                 result["topology_compiler"] = {

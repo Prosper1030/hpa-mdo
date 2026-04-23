@@ -14,6 +14,7 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _apply_truncation_connector_band_operator_to_pre_plc_fixture,
     _analyze_real_wing_tip_bl_interference,
     _augment_real_wing_sections_for_tip_truncation,
+    _build_real_wing_bl_budgeting_plan,
     _build_shell_v4_pre_plc_repro_fixture,
     _build_real_main_wing_occ_shell,
     _build_real_wing_bl_protection_field,
@@ -28,6 +29,7 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _rebuild_tip_truncation_closure_block,
     _remove_mesh_constraints_from_surfaces,
     _resolve_real_main_wing_geometry,
+    _run_shell_v4_topology_compiler_plan_only,
     _run_shell_v4_pre_plc_repro_fixture,
     _select_tip_truncation_closure_source_surface_tags,
     _select_tip_truncation_connector_band_surface_tags,
@@ -1576,6 +1578,98 @@ def test_shell_v4_pre_plc_root_last3_post_transition_boundary_recovery_probe_str
     assert plan["blocking_topology_check_kinds"] == ["boundary_recovery_error_2_risk"]
     assert plan["geometry_contact_locus_kind"] == "post_band_transition_guard_to_tip"
     assert Path(localized["report_path"]).exists()
+
+
+def test_build_real_wing_bl_budgeting_plan_reports_sectionwise_and_regionwise_actions(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(repo_root / "data" / "blackcat_004_origin.vsp3"),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path / "geometry",
+    )
+    spec = build_shell_v4_half_wing_bl_macsafe_spec()
+
+    budgeting = _build_real_wing_bl_budgeting_plan(
+        sections=[dict(section) for section in geometry["sections"]],
+        protection=dict(spec["real_wing_bl_protection"]),
+        base_total_thickness_m=float(spec["boundary_layer"]["target_total_thickness_m"]),
+        half_span_m=float(spec["geometry"]["half_span_m"]),
+    )
+
+    assert budgeting.status == "available"
+    assert budgeting.tightest_section_ids
+    assert budgeting.tightest_region_ids
+    assert budgeting.recommendation_kinds == [
+        "shrink_total_thickness",
+        "split_region_budget",
+        "stage_back_layers",
+        "truncate_tip_zone",
+    ]
+    assert any(
+        section.region_kind == "tip_truncation_candidate_zone"
+        and "truncate_tip_zone" in section.recommended_action_kinds
+        for section in budgeting.section_budgets
+    )
+    assert any(
+        region.region_kind == "tip_truncation_candidate_zone"
+        for region in budgeting.region_budgets
+    )
+
+
+def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendations(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    spec = build_shell_v4_half_wing_bl_macsafe_spec()
+    geometry = {
+        **dict(spec["geometry"]),
+        "shape_mode": "esp_rebuilt_main_wing",
+        "source_path": str(repo_root / "data" / "blackcat_004_origin.vsp3"),
+        "component": "main_wing",
+        "airfoil_loop_points": 48,
+        "half_span_stations": 18,
+    }
+    real_wing_geometry = _resolve_real_main_wing_geometry(
+        geometry=geometry,
+        artifact_dir=tmp_path / "geometry",
+    )
+    boundary_layer = {
+        **dict(spec["boundary_layer"]),
+        "first_layer_height_m": 1.0e-3,
+        "layers": 8,
+        "growth_ratio": 1.20,
+    }
+
+    result = _run_shell_v4_topology_compiler_plan_only(
+        out_dir=tmp_path / "plan_only",
+        geometry=geometry,
+        real_wing_geometry=real_wing_geometry,
+        boundary_layer=boundary_layer,
+        real_wing_bl_protection=dict(spec["real_wing_bl_protection"]),
+    )
+
+    assert result["gate"] == "plan_only"
+    assert result["status"] == "written"
+    assert result["planning_policy_fail_kinds"] == ["bl_clearance_incompatibility"]
+    assert result["planning_policy_recommendation_kinds"] == [
+        "shrink_total_thickness",
+        "split_region_budget",
+        "stage_back_layers",
+        "truncate_tip_zone",
+    ]
+    assert result["planning_budgeting"]["status"] == "available"
+    assert result["planning_budgeting"]["tightest_section_ids"]
+    assert result["planning_budgeting"]["tightest_region_ids"]
+    assert any(
+        region["region_kind"] == "tip_truncation_candidate_zone"
+        for region in result["planning_budgeting"]["region_budgets"]
+    )
+    assert Path(result["artifacts"]["summary"]).exists()
 
 
 def test_run_shell_v4_topology_compiler_gate_off_keeps_runtime_decision_unchanged(tmp_path: Path):

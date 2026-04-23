@@ -62,16 +62,50 @@ The dedicated planning-policy fields are:
 
 - `planning_policy`
 - `planning_policy_fail_kinds`
+- `planning_policy_recommendation_kinds`
+- `planning_budgeting`
 
 Current v1 meaning:
 
 - `blocking_topology_check_kinds` tells you which topology-side families are still blocking
 - `blocking_bl_compatibility_check_kinds` tells you the BL compatibility checks that failed
 - `planning_policy_fail_kinds` tells you that the route should already be read as a BL-policy block, not as a topology-operator miss
+- `planning_policy_recommendation_kinds` tells you which budgeting actions are currently recommended without changing runtime geometry
+- `planning_budgeting` carries the sectionwise / regionwise tightness evidence behind those recommendations
 
 The first explicit planning-policy fail kind is:
 
 - `bl_clearance_incompatibility`
+
+Current budgeting recommendation kinds are:
+
+- `shrink_total_thickness`
+- `split_region_budget`
+- `stage_back_layers`
+- `truncate_tip_zone`
+
+## Sectionwise / Regionwise Budgeting
+
+When sectionwise evidence is available, `pre_plc_audit.v1` now carries a separate budgeting payload with:
+
+- `section_budgets`
+- `region_budgets`
+- `tightest_section_ids`
+- `tightest_region_ids`
+- `recommendation_kinds`
+
+This budgeting line is intentionally separate from topology-family progress:
+
+- it explains where the BL budget is tight
+- it suggests how planning could respond
+- it does **not** silently mutate geometry, BL layers, or shell_v4 runtime defaults
+
+That means a report can now say both:
+
+- topology still blocks on one observed family
+- BL budgeting also recommends `split_region_budget` or `truncate_tip_zone`
+
+without mixing those two judgments together.
 
 ## Important Limitation
 

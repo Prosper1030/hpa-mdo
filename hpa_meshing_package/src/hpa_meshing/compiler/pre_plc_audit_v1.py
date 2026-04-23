@@ -10,6 +10,12 @@ from .topology_ir_v1 import TopologyIRV1
 PrePLCAuditStatusV1 = Literal["pass", "warn", "fail", "not_evaluated"]
 PrePLCAuditAssessmentV1 = Literal["observed", "inferred", "placeholder", "unsupported"]
 PlanningPolicyFailKindV1 = Literal["bl_clearance_incompatibility"]
+PlanningPolicyRecommendationKindV1 = Literal[
+    "shrink_total_thickness",
+    "split_region_budget",
+    "stage_back_layers",
+    "truncate_tip_zone",
+]
 PrePLCAuditCheckKindV1 = Literal[
     "segment_facet_intersection_risk",
     "facet_facet_overlap_risk",
@@ -34,6 +40,7 @@ class PrePLCAuditConfigV1(BaseModel):
     first_layer_height_m: Optional[float] = None
     total_boundary_layer_thickness_m: Optional[float] = None
     observed_evidence: List[PrePLCAuditObservedEvidenceV1] = Field(default_factory=list)
+    planning_budgeting: Optional["PlanningBudgetingV1"] = None
 
 
 class PrePLCAuditCheckV1(BaseModel):
@@ -60,6 +67,7 @@ class PrePLCAuditSummaryV1(BaseModel):
     inferred_topology_fail_count: int = 0
     bl_compatibility_fail_count: int = 0
     planning_policy_fail_count: int = 0
+    planning_policy_recommendation_count: int = 0
 
 
 class BLClearanceCompatibilityV1(BaseModel):
@@ -72,11 +80,52 @@ class BLClearanceCompatibilityV1(BaseModel):
     notes: List[str] = Field(default_factory=list)
 
 
+class PlanningBudgetSectionV1(BaseModel):
+    section_id: str
+    span_y_m: float
+    region_kind: str
+    sample_count: int = 0
+    triggered_sample_count: int = 0
+    min_local_half_thickness_m: Optional[float] = None
+    min_clearance_to_thickness_ratio: Optional[float] = None
+    min_available_budget_ratio: Optional[float] = None
+    min_required_scale_for_tip_clearance: Optional[float] = None
+    min_predicted_bl_top_clearance_m: Optional[float] = None
+    clearance_pressure: Optional[float] = None
+    recommended_action_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class PlanningBudgetRegionV1(BaseModel):
+    region_id: str
+    region_kind: str
+    section_ids: List[str] = Field(default_factory=list)
+    section_count: int = 0
+    span_y_range_m: Dict[str, float] = Field(default_factory=dict)
+    min_clearance_to_thickness_ratio: Optional[float] = None
+    min_available_budget_ratio: Optional[float] = None
+    peak_clearance_pressure: Optional[float] = None
+    recommended_action_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class PlanningBudgetingV1(BaseModel):
+    status: Literal["available", "unsupported"] = "unsupported"
+    total_bl_thickness_m: Optional[float] = None
+    section_budgets: List[PlanningBudgetSectionV1] = Field(default_factory=list)
+    region_budgets: List[PlanningBudgetRegionV1] = Field(default_factory=list)
+    tightest_section_ids: List[str] = Field(default_factory=list)
+    tightest_region_ids: List[str] = Field(default_factory=list)
+    recommendation_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
 class PlanningPolicyV1(BaseModel):
     status: PrePLCAuditStatusV1
     verdict: Literal["clear_for_topology_planning", "blocked_by_bl_compatibility", "unsupported"]
     blocking_kind: Optional[str] = None
     fail_kinds: List[PlanningPolicyFailKindV1] = Field(default_factory=list)
+    recommendation_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
 
@@ -86,12 +135,14 @@ class PrePLCAuditReportV1(BaseModel):
     config: PrePLCAuditConfigV1 = Field(default_factory=PrePLCAuditConfigV1)
     checks: List[PrePLCAuditCheckV1] = Field(default_factory=list)
     bl_clearance_compatibility: BLClearanceCompatibilityV1
+    planning_budgeting: PlanningBudgetingV1 = Field(default_factory=PlanningBudgetingV1)
     planning_policy: PlanningPolicyV1
     summary: PrePLCAuditSummaryV1
     blocking_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
     blocking_topology_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
     blocking_bl_compatibility_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
     planning_policy_fail_kinds: List[PlanningPolicyFailKindV1] = Field(default_factory=list)
+    planning_policy_recommendation_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
 
@@ -431,13 +482,21 @@ def _bl_clearance_compatibility_from_check(
 
 def _planning_policy_from_bl_clearance(
     bl_clearance_compatibility: BLClearanceCompatibilityV1,
+    planning_budgeting: PlanningBudgetingV1,
 ) -> PlanningPolicyV1:
+    recommendation_kinds = list(planning_budgeting.recommendation_kinds)
     if bl_clearance_compatibility.verdict == "unsupported":
         return PlanningPolicyV1(
             status="not_evaluated",
             verdict="unsupported",
+            recommendation_kinds=recommendation_kinds,
             notes=[
                 "Need a BL-thickness versus local-clearance comparison before promoting this into a planning policy verdict.",
+                *(
+                    ["Budgeting recommendations remain unavailable until sectionwise/regionwise evidence is provided."]
+                    if planning_budgeting.status != "available"
+                    else ["Available budgeting recommendations are still plan-only and must not mutate geometry."]
+                ),
             ],
         )
     if bl_clearance_compatibility.verdict == "insufficient_clearance":
@@ -446,13 +505,16 @@ def _planning_policy_from_bl_clearance(
             verdict="blocked_by_bl_compatibility",
             blocking_kind="bl_compatibility_policy_fail",
             fail_kinds=["bl_clearance_incompatibility"],
+            recommendation_kinds=recommendation_kinds,
             notes=[
                 "BL compatibility is a separate planning-policy block and should not be misread as a topology-operator miss.",
+                "Budgeting recommendations remain planning-only guidance and must not be auto-applied to geometry.",
             ],
         )
     return PlanningPolicyV1(
         status="pass",
         verdict="clear_for_topology_planning",
+        recommendation_kinds=recommendation_kinds,
         notes=["No BL-compatibility planning-policy block is currently raised."],
     )
 
@@ -506,14 +568,24 @@ def run_pre_plc_audit_v1(
         for check in checks
         if check.status == "fail" and _is_bl_compatibility_check(check.kind)
     )
+    planning_budgeting = resolved_config.planning_budgeting or PlanningBudgetingV1(
+        status="unsupported",
+        notes=[
+            "Sectionwise/regionwise budgeting evidence was not supplied for this audit run.",
+        ],
+    )
     bl_clearance_compatibility = _bl_clearance_compatibility_from_check(
         checks_by_kind["extrusion_self_contact_risk"]
     )
-    planning_policy = _planning_policy_from_bl_clearance(bl_clearance_compatibility)
+    planning_policy = _planning_policy_from_bl_clearance(
+        bl_clearance_compatibility,
+        planning_budgeting,
+    )
     return PrePLCAuditReportV1(
         config=resolved_config,
         checks=checks,
         bl_clearance_compatibility=bl_clearance_compatibility,
+        planning_budgeting=planning_budgeting,
         planning_policy=planning_policy,
         summary=PrePLCAuditSummaryV1(
             highest_status=highest_status,
@@ -528,14 +600,17 @@ def run_pre_plc_audit_v1(
             inferred_topology_fail_count=inferred_topology_fail_count,
             bl_compatibility_fail_count=bl_compatibility_fail_count,
             planning_policy_fail_count=len(planning_policy.fail_kinds),
+            planning_policy_recommendation_count=len(planning_policy.recommendation_kinds),
         ),
         blocking_check_kinds=blocking_check_kinds,
         blocking_topology_check_kinds=blocking_topology_check_kinds,
         blocking_bl_compatibility_check_kinds=blocking_bl_compatibility_check_kinds,
         planning_policy_fail_kinds=list(planning_policy.fail_kinds),
+        planning_policy_recommendation_kinds=list(planning_policy.recommendation_kinds),
         notes=[
             "pre_plc_audit.v1 is a front-loaded risk audit, not a claim that PLC repair is implemented",
             "BL thickness / clearance compatibility is reported separately from observed or inferred topology failures.",
             "planning_policy captures route-level blocks that should remain separate from topology-family repair progress.",
+            "planning_budgeting carries plan-only sectionwise/regionwise advice and must not be misread as runtime mutation.",
         ],
     )

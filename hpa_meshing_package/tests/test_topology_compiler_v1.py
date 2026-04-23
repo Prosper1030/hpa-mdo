@@ -12,6 +12,9 @@ from hpa_meshing.compiler.compiler_v1 import (
 from hpa_meshing.compiler.motif_registry_v1 import MotifRegistryV1
 from hpa_meshing.compiler.operator_library_v1 import OperatorLibraryV1
 from hpa_meshing.compiler.pre_plc_audit_v1 import (
+    PlanningBudgetRegionV1,
+    PlanningBudgetSectionV1,
+    PlanningBudgetingV1,
     PrePLCAuditConfigV1,
     PrePLCAuditObservedEvidenceV1,
     run_pre_plc_audit_v1,
@@ -790,6 +793,94 @@ def test_pre_plc_audit_v1_distinguishes_observed_inferred_placeholder_and_unsupp
     assert report.summary.planning_policy_fail_count == 1
 
 
+def test_pre_plc_audit_v1_surfaces_budgeting_recommendations_separately():
+    ir = _build_minimal_ir().model_copy(
+        update={
+            "patches": [
+                patch.model_copy(
+                    update={
+                        "local_descriptors": patch.local_descriptors.model_copy(
+                            update={"local_clearance_m": 1.0e-5 if index == 1 else 1.2e-4}
+                        )
+                    }
+                )
+                for index, patch in enumerate(_build_minimal_ir().patches)
+            ]
+        }
+    )
+    budgeting = PlanningBudgetingV1(
+        status="available",
+        total_bl_thickness_m=5.0e-5,
+        section_budgets=[
+            PlanningBudgetSectionV1(
+                section_id="section_y:15.400000",
+                span_y_m=15.4,
+                region_kind="tip_truncation_candidate_zone",
+                sample_count=19,
+                triggered_sample_count=11,
+                min_local_half_thickness_m=1.5e-5,
+                min_clearance_to_thickness_ratio=0.3,
+                min_available_budget_ratio=0.24,
+                min_required_scale_for_tip_clearance=0.22,
+                min_predicted_bl_top_clearance_m=0.0,
+                clearance_pressure=0.76,
+                recommended_action_kinds=[
+                    "shrink_total_thickness",
+                    "split_region_budget",
+                    "truncate_tip_zone",
+                ],
+            )
+        ],
+        region_budgets=[
+            PlanningBudgetRegionV1(
+                region_id="region:tip_truncation_candidate_zone",
+                region_kind="tip_truncation_candidate_zone",
+                section_ids=["section_y:15.400000"],
+                section_count=1,
+                span_y_range_m={"min": 15.4, "max": 15.4},
+                min_clearance_to_thickness_ratio=0.3,
+                min_available_budget_ratio=0.24,
+                peak_clearance_pressure=0.76,
+                recommended_action_kinds=[
+                    "shrink_total_thickness",
+                    "split_region_budget",
+                    "truncate_tip_zone",
+                ],
+            )
+        ],
+        tightest_section_ids=["section_y:15.400000"],
+        tightest_region_ids=["region:tip_truncation_candidate_zone"],
+        recommendation_kinds=[
+            "shrink_total_thickness",
+            "split_region_budget",
+            "truncate_tip_zone",
+        ],
+    )
+
+    report = run_pre_plc_audit_v1(
+        ir,
+        config=PrePLCAuditConfigV1(
+            total_boundary_layer_thickness_m=5.0e-5,
+            planning_budgeting=budgeting,
+        ),
+    )
+
+    assert report.blocking_bl_compatibility_check_kinds == ["extrusion_self_contact_risk"]
+    assert report.planning_policy_fail_kinds == ["bl_clearance_incompatibility"]
+    assert report.planning_policy_recommendation_kinds == [
+        "shrink_total_thickness",
+        "split_region_budget",
+        "truncate_tip_zone",
+    ]
+    assert report.planning_policy.recommendation_kinds == [
+        "shrink_total_thickness",
+        "split_region_budget",
+        "truncate_tip_zone",
+    ]
+    assert report.planning_budgeting.tightest_section_ids == ["section_y:15.400000"]
+    assert report.summary.planning_policy_recommendation_count == 3
+
+
 def test_topology_compiler_v1_artifacts_and_shell_role_policies_stay_separated(tmp_path: Path):
     shell_v3_policy = resolve_shell_role_policy_v1("shell_v3")
     shell_v4_policy = resolve_shell_role_policy_v1("shell_v4")
@@ -834,6 +925,51 @@ def test_topology_compiler_summary_surfaces_bl_planning_policy_separately(tmp_pa
         out_dir=tmp_path,
         audit_config=PrePLCAuditConfigV1(
             total_boundary_layer_thickness_m=0.03617304985338917,
+            planning_budgeting=PlanningBudgetingV1(
+                status="available",
+                total_bl_thickness_m=0.03617304985338917,
+                section_budgets=[
+                    PlanningBudgetSectionV1(
+                        section_id="section_y:15.400000",
+                        span_y_m=15.4,
+                        region_kind="tip_truncation_candidate_zone",
+                        sample_count=19,
+                        triggered_sample_count=11,
+                        min_local_half_thickness_m=0.01,
+                        min_clearance_to_thickness_ratio=0.28,
+                        min_available_budget_ratio=0.24,
+                        min_required_scale_for_tip_clearance=0.22,
+                        min_predicted_bl_top_clearance_m=0.0,
+                        clearance_pressure=0.76,
+                        recommended_action_kinds=[
+                            "shrink_total_thickness",
+                            "truncate_tip_zone",
+                        ],
+                    )
+                ],
+                region_budgets=[
+                    PlanningBudgetRegionV1(
+                        region_id="region:tip_truncation_candidate_zone",
+                        region_kind="tip_truncation_candidate_zone",
+                        section_ids=["section_y:15.400000"],
+                        section_count=1,
+                        span_y_range_m={"min": 15.4, "max": 15.4},
+                        min_clearance_to_thickness_ratio=0.28,
+                        min_available_budget_ratio=0.24,
+                        peak_clearance_pressure=0.76,
+                        recommended_action_kinds=[
+                            "shrink_total_thickness",
+                            "truncate_tip_zone",
+                        ],
+                    )
+                ],
+                tightest_section_ids=["section_y:15.400000"],
+                tightest_region_ids=["region:tip_truncation_candidate_zone"],
+                recommendation_kinds=[
+                    "shrink_total_thickness",
+                    "truncate_tip_zone",
+                ],
+            ),
             observed_evidence=[
                 PrePLCAuditObservedEvidenceV1(
                     fixture_id="shell_v4_pre_plc::root_last3_segment_facet",
@@ -854,4 +990,11 @@ def test_topology_compiler_summary_surfaces_bl_planning_policy_separately(tmp_pa
     assert summary["pre_plc_audit"]["blocking_topology_check_kinds"] == ["segment_facet_intersection_risk"]
     assert summary["pre_plc_audit"]["blocking_bl_compatibility_check_kinds"] == ["extrusion_self_contact_risk"]
     assert summary["pre_plc_audit"]["planning_policy_fail_kinds"] == ["bl_clearance_incompatibility"]
+    assert summary["pre_plc_audit"]["planning_policy_recommendation_kinds"] == [
+        "shrink_total_thickness",
+        "truncate_tip_zone",
+    ]
     assert summary["pre_plc_audit"]["planning_policy"]["blocking_kind"] == "bl_compatibility_policy_fail"
+    assert summary["pre_plc_audit"]["planning_budgeting"]["tightest_region_ids"] == [
+        "region:tip_truncation_candidate_zone"
+    ]
