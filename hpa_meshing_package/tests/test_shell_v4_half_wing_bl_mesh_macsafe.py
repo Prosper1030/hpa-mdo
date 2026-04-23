@@ -10,6 +10,7 @@ from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _analyze_real_wing_tip_bl_interference,
     _augment_real_wing_sections_for_tip_truncation,
+    _build_shell_v4_pre_plc_repro_fixture,
     _build_real_main_wing_occ_shell,
     _build_real_wing_bl_protection_field,
     _collect_extbl_surfaces_in_y_band,
@@ -23,6 +24,7 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _rebuild_tip_truncation_closure_block,
     _remove_mesh_constraints_from_surfaces,
     _resolve_real_main_wing_geometry,
+    _run_shell_v4_pre_plc_repro_fixture,
     _select_tip_truncation_closure_source_surface_tags,
     _select_tip_truncation_connector_band_surface_tags,
     _select_tip_truncation_surface_tags,
@@ -1351,3 +1353,58 @@ def test_run_shell_v4_real_main_wing_prelaunch_smoke_reaches_prelaunch_clean_wit
         result["case_summary"]["pre_3d_bl_clearance"]["min_predicted_bl_top_clearance_m"]
         >= result["case_summary"]["pre_3d_bl_clearance"]["required_min_bl_top_clearance_m"] - 1.0e-9
     )
+
+
+def test_build_shell_v4_pre_plc_root_last3_fixture_extracts_shrunk_real_wing_family(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last3_segment_facet",
+        artifact_dir=tmp_path / "fixture",
+    )
+
+    assert fixture["family"] == "root_last3_segment_facet"
+    assert fixture["expected_failure_kind"] == "segment_facet_intersection"
+    assert fixture["selected_section_y_le_m"][0] == pytest.approx(0.0)
+    assert fixture["selected_section_y_le_m"][-1] == pytest.approx(16.5)
+    assert len(fixture["selected_section_y_le_m"]) <= 6
+    assert Path(fixture["geometry"]["artifact_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last3_fixture_reproduces_segment_facet_intersection(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last3_segment_facet",
+        artifact_dir=tmp_path / "fixture",
+    )
+
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        fixture,
+        out_dir=tmp_path / "probe",
+    )
+
+    assert observed["observed_failure_kind"] == "segment_facet_intersection"
+    assert "PLC Error:  A segment and a facet intersect at point" in observed["error"]
+    assert Path(observed["report_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last4_fixture_reproduces_facet_overlap(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last4_overlap",
+        artifact_dir=tmp_path / "fixture",
+    )
+
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        fixture,
+        out_dir=tmp_path / "probe",
+    )
+
+    assert observed["observed_failure_kind"] == "facet_facet_overlap"
+    assert "Invalid boundary mesh (overlapping facets)" in observed["error"]
+    assert Path(observed["report_path"]).exists()

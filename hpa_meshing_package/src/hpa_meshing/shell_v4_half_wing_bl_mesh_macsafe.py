@@ -37,6 +37,18 @@ DEFAULT_GEOMETRY_SHAPE_MODE = "surrogate_naca0012"
 DEFAULT_REAL_MAIN_WING_SHAPE_MODE = "esp_rebuilt_main_wing"
 ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE = "single_holed_symmetry_face"
 ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES = "use_bl_generated_faces"
+PRE_PLC_REPRO_FAMILY_CONFIGS: dict[str, dict[str, Any]] = {
+    "root_last3_segment_facet": {
+        "section_index_offsets": [0, -3, -2, -1],
+        "expected_failure_kind": "segment_facet_intersection",
+        "expected_error_substrings": ["PLC Error:  A segment and a facet intersect at point"],
+    },
+    "root_last4_overlap": {
+        "section_index_offsets": [0, -4, -3, -2, -1],
+        "expected_failure_kind": "facet_facet_overlap",
+        "expected_error_substrings": ["Invalid boundary mesh (overlapping facets)"],
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -1522,6 +1534,189 @@ def _augment_real_wing_sections_for_tip_truncation(
         "inserted_connector_band_section": bool(
             insertion_records.get("connector_band", {}).get("inserted_section", False)
         ),
+    }
+
+
+def _real_main_wing_geometry_from_sections(
+    *,
+    base_geometry: dict[str, Any],
+    sections: list[dict[str, Any]],
+    artifact_path: Path,
+) -> dict[str, Any]:
+    section_profiles = [_global_section_profile_points(section) for section in sections]
+    section_bounds = [_section_bounds(points) for points in section_profiles]
+    overall_bounds = {
+        "x_min": min(bounds["x_min"] for bounds in section_bounds),
+        "x_max": max(bounds["x_max"] for bounds in section_bounds),
+        "y_min": min(bounds["y_min"] for bounds in section_bounds),
+        "y_max": max(bounds["y_max"] for bounds in section_bounds),
+        "z_min": min(bounds["z_min"] for bounds in section_bounds),
+        "z_max": max(bounds["z_max"] for bounds in section_bounds),
+    }
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json_report(
+        artifact_path,
+        {
+            "source_path": base_geometry["source_path"],
+            "component": base_geometry["component"],
+            "surface_name": base_geometry["surface_name"],
+            "selected_section_count": len(sections),
+            "selected_section_y_le_m": [float(section["y_le"]) for section in sections],
+            "sections": sections,
+            "overall_bounds": overall_bounds,
+        },
+    )
+    return {
+        "shape_mode": DEFAULT_REAL_MAIN_WING_SHAPE_MODE,
+        "source_path": str(base_geometry["source_path"]),
+        "component": base_geometry["component"],
+        "surface_name": base_geometry["surface_name"],
+        "surface_rotation_deg": list(base_geometry.get("surface_rotation_deg") or [0.0, 0.0, 0.0]),
+        "sections": sections,
+        "section_profiles": section_profiles,
+        "section_bounds": section_bounds,
+        "overall_bounds": overall_bounds,
+        "artifact_path": str(artifact_path),
+    }
+
+
+def _resolve_pre_plc_repro_section_offsets(section_count: int, offsets: list[int]) -> list[int]:
+    resolved: list[int] = []
+    for offset in offsets:
+        index = int(offset)
+        if index < 0:
+            index = section_count + index
+        if index < 0 or index >= section_count:
+            raise IndexError(f"pre-PLC fixture section index out of range: {offset}")
+        if index not in resolved:
+            resolved.append(index)
+    return resolved
+
+
+def _build_shell_v4_pre_plc_repro_fixture(
+    *,
+    source_path: Path,
+    component: str,
+    family: str,
+    artifact_dir: Path,
+) -> dict[str, Any]:
+    family_config = PRE_PLC_REPRO_FAMILY_CONFIGS.get(family)
+    if family_config is None:
+        raise ValueError(f"Unsupported shell_v4 pre-PLC repro fixture family: {family}")
+    base_geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": DEFAULT_REAL_MAIN_WING_SHAPE_MODE,
+            "source_path": str(source_path),
+            "component": component,
+        },
+        artifact_dir=artifact_dir / "base_geometry",
+    )
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+    protection = dict(spec.get("real_wing_bl_protection", {}))
+    analysis = _analyze_real_wing_tip_bl_interference(
+        sections=list(base_geometry["sections"]),
+        protection=protection,
+        base_total_thickness_m=float(spec["boundary_layer"]["target_total_thickness_m"]),
+        half_span_m=float(base_geometry["overall_bounds"]["y_max"]),
+    )
+    start_y_m = float((analysis.get("tip_truncation") or {}).get("start_y_m") or base_geometry["overall_bounds"]["y_max"])
+    augmented_sections, truncation = _augment_real_wing_sections_for_tip_truncation(
+        sections=list(base_geometry["sections"]),
+        start_y_m=start_y_m,
+        protection=protection,
+    )
+    selected_indices = _resolve_pre_plc_repro_section_offsets(
+        len(augmented_sections),
+        list(family_config["section_index_offsets"]),
+    )
+    selected_sections = [copy.deepcopy(augmented_sections[index]) for index in selected_indices]
+    geometry_payload = _real_main_wing_geometry_from_sections(
+        base_geometry=base_geometry,
+        sections=selected_sections,
+        artifact_path=artifact_dir / f"{family}_sections.json",
+    )
+    return {
+        "fixture_id": f"shell_v4_pre_plc::{family}",
+        "family": family,
+        "component": component,
+        "source_path": str(source_path),
+        "selected_section_indices": selected_indices,
+        "selected_section_y_le_m": [float(section["y_le"]) for section in selected_sections],
+        "expected_failure_kind": str(family_config["expected_failure_kind"]),
+        "expected_error_substrings": list(family_config["expected_error_substrings"]),
+        "tip_truncation_seed": {
+            "requested_start_y_m": float(start_y_m),
+            "resolved": truncation,
+        },
+        "geometry": geometry_payload,
+    }
+
+
+def _shell_v4_pre_plc_repro_overrides(fixture: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "geometry": {
+            "shape_mode": DEFAULT_REAL_MAIN_WING_SHAPE_MODE,
+            "source_path": str(fixture["source_path"]),
+            "component": str(fixture["component"]),
+            "airfoil_loop_points": 48,
+            "half_span_stations": 18,
+            "_preloaded_real_main_wing_geometry": copy.deepcopy(fixture["geometry"]),
+        },
+        "boundary_layer": {
+            "first_layer_height_m": 1.0e-3,
+            "layers": 8,
+            "growth_ratio": 1.20,
+        },
+        "wake_refinement": {
+            "wake_length_chords": 2.0,
+            "wake_height_chords": 0.4,
+            "near_wake_cell_size_chords": 0.18,
+        },
+        "farfield": {
+            "upstream_chords": 2.0,
+            "downstream_chords": 3.0,
+            "normal_chords": 2.0,
+            "outer_cell_size_chords": 2.2,
+        },
+        "tip_refinement": {
+            "spanwise_length_chords": 0.25,
+            "cell_size_chords": 0.20,
+        },
+        "cell_budget": {
+            "target_total_cells_min": 10_000,
+            "target_total_cells_max": 500_000,
+            "hard_fail_total_cells": 1_000_000,
+            "min_volume_to_wall_ratio": 5.0,
+            "max_bl_collapse_rate": 0.2,
+        },
+    }
+
+
+def _run_shell_v4_pre_plc_repro_fixture(
+    fixture: dict[str, Any],
+    *,
+    out_dir: Path,
+) -> dict[str, Any]:
+    result = run_shell_v4_half_wing_bl_mesh_macsafe(
+        out_dir=out_dir,
+        run_su2=False,
+        allow_swap_risk=False,
+        overrides=_shell_v4_pre_plc_repro_overrides(fixture),
+    )
+    error_text = str(result.get("error") or "")
+    observed_failure_kind = "unknown"
+    if "PLC Error:  A segment and a facet intersect at point" in error_text:
+        observed_failure_kind = "segment_facet_intersection"
+    elif "Invalid boundary mesh (overlapping facets)" in error_text:
+        observed_failure_kind = "facet_facet_overlap"
+    return {
+        "fixture_id": str(fixture["fixture_id"]),
+        "family": str(fixture["family"]),
+        "status": str(result.get("status")),
+        "error": error_text,
+        "observed_failure_kind": observed_failure_kind,
+        "report_path": str(out_dir / "report.json"),
+        "route_result": result,
     }
 
 
@@ -4371,10 +4566,14 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     restart_overrides: dict[str, Any] | None = None
     real_wing_geometry: dict[str, Any] | None = None
     if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
-        real_wing_geometry = _resolve_real_main_wing_geometry(
-            geometry=geometry,
-            artifact_dir=mesh_dir,
-        )
+        preloaded_real_wing_geometry = geometry.get("_preloaded_real_main_wing_geometry")
+        if isinstance(preloaded_real_wing_geometry, dict):
+            real_wing_geometry = copy.deepcopy(preloaded_real_wing_geometry)
+        else:
+            real_wing_geometry = _resolve_real_main_wing_geometry(
+                geometry=geometry,
+                artifact_dir=mesh_dir,
+            )
         source_section_count = len(real_wing_geometry["sections"])
         forced_tip_truncation_start_y = protection_config.get("forced_tip_truncation_start_y_m")
         if forced_tip_truncation_start_y is not None:
