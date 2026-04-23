@@ -811,13 +811,15 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     assert first["airfoil_feedback"]["usable_worker_point_count"] == 4
     assert first["airfoil_feedback"]["mean_cd_effective"] == pytest.approx(0.021)
     assert first["airfoil_feedback"]["min_cl_max_effective"] == pytest.approx(1.24)
-    assert first["airfoil_feedback"]["min_cl_max_safe"] == pytest.approx(0.9 * 1.24 - 0.05)
+    assert first["airfoil_feedback"]["safe_clmax_model"] == "safe_clmax_model_v2"
+    assert first["airfoil_feedback"]["max_tip_3d_penalty"] > 0.0
+    assert first["airfoil_feedback"]["min_cl_max_safe"] < first["airfoil_feedback"]["min_cl_max_effective"]
     assert first["turn"]["cl_level"] == pytest.approx(0.87)
     assert first["turn"]["limiting_station_y_m"] == pytest.approx(14.0)
     assert first["turn"]["tip_critical"] is True
     assert first["trim"]["representative_cm"] == pytest.approx(-0.08)
     assert first["trim"]["cm_rms"] == pytest.approx(0.0)
-    assert first["launch"]["cl_available"] == pytest.approx(0.9 * 1.24 - 0.05)
+    assert first["launch"]["cl_available"] == pytest.approx(first["airfoil_feedback"]["min_cl_max_safe"])
     assert first["turn"]["stall_utilization"] == pytest.approx(
         first["turn"]["required_cl"] / first["turn"]["cl_max"]
     )

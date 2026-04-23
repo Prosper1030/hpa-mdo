@@ -83,12 +83,21 @@ class LaunchConfig(ConceptBaseModel):
 class StallModelConfig(ConceptBaseModel):
     safe_clmax_scale: float = Field(0.90, gt=0.0, le=1.0)
     safe_clmax_delta: float = Field(0.05, ge=0.0)
+    tip_3d_penalty_start_eta: float = Field(0.55, ge=0.0, lt=1.0)
+    tip_3d_penalty_max: float = Field(0.04, ge=0.0)
+    tip_taper_penalty_weight: float = Field(0.35, ge=0.0)
+    washout_relief_deg: float = Field(2.0, gt=0.0)
+    washout_relief_max: float = Field(0.02, ge=0.0)
     local_stall_utilization_limit: float = Field(0.80, gt=0.0, lt=1.0)
     turn_utilization_limit: float = Field(0.85, gt=0.0, lt=1.0)
     launch_utilization_limit: float = Field(0.75, gt=0.0, lt=1.0)
 
     @model_validator(mode="after")
     def validate_limit_order(self) -> StallModelConfig:
+        if self.washout_relief_max > (self.tip_3d_penalty_max * (1.0 + self.tip_taper_penalty_weight)):
+            raise ValueError(
+                "stall_model.washout_relief_max must not exceed the configured tip 3D penalty budget."
+            )
         if self.launch_utilization_limit > self.turn_utilization_limit:
             raise ValueError(
                 "stall_model.launch_utilization_limit must be <= turn_utilization_limit."

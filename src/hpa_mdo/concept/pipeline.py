@@ -35,6 +35,7 @@ from hpa_mdo.concept.safety import (
     evaluate_trim_balance,
     evaluate_turn_gate,
 )
+from hpa_mdo.concept.stall_model import apply_safe_local_clmax_model
 from hpa_mdo.mission.objective import (
     FakeAnchorCurve,
     MissionEvaluationInputs,
@@ -396,6 +397,20 @@ def _flatten_zone_points(
                     "cm_target": float(point["cm_target"]),
                     "weight": float(point.get("weight", 1.0)),
                     "reynolds": float(point.get("reynolds", 0.0)),
+                    "span_fraction": float(
+                        point.get(
+                            "span_fraction",
+                            0.0
+                            if half_span_m <= 0.0
+                            else min(max(float(station_y_m) / half_span_m, 0.0), 1.0),
+                        )
+                    ),
+                    "taper_ratio": float(
+                        point.get("taper_ratio", zone_data.get("taper_ratio", 0.35))
+                    ),
+                    "washout_deg": float(
+                        point.get("washout_deg", zone_data.get("washout_deg", 0.0))
+                    ),
                     "case_label": str(point.get("case_label", "reference_avl_case")),
                     "case_weight": float(point.get("case_weight", 1.0)),
                     "evaluation_speed_mps": _numeric_value(point.get("evaluation_speed_mps")),
@@ -501,13 +516,43 @@ def _cl_limit(point: dict[str, float]) -> float:
     return float(point.get("cl_max_effective", point["cl_max_proxy"]))
 
 
-def _safe_clmax_source(raw_source: str) -> str:
-    source_map = {
-        "airfoil_observed_lower_bound": "airfoil_safe_lower_bound",
-        "airfoil_observed": "airfoil_safe_observed",
-        "geometry_proxy": "geometry_safe_proxy",
-    }
-    return source_map.get(raw_source, f"safe_clmax_model_v1:{raw_source}")
+def _annotate_zone_requirements_with_concept_geometry(
+    *,
+    zone_requirements: dict[str, dict[str, Any]],
+    concept: GeometryConcept,
+) -> dict[str, dict[str, Any]]:
+    half_span_m = 0.5 * float(concept.span_m)
+    washout_deg = max(0.0, float(concept.twist_root_deg) - float(concept.twist_tip_deg))
+    taper_ratio = float(concept.taper_ratio)
+    zone_items = list(zone_requirements.items())
+    annotated: dict[str, dict[str, Any]] = {}
+    for zone_index, (zone_name, zone_data) in enumerate(zone_items):
+        points: list[dict[str, Any]] = []
+        for point in zone_data.get("points", []):
+            station_y_m = _numeric_value(point.get("station_y_m"))
+            if station_y_m is None:
+                station_y_m = _zone_midpoint_fraction(zone_name, zone_index, len(zone_items)) * half_span_m
+            span_fraction = (
+                0.0
+                if half_span_m <= 0.0
+                else min(max(float(station_y_m) / half_span_m, 0.0), 1.0)
+            )
+            points.append(
+                {
+                    **point,
+                    "station_y_m": float(station_y_m),
+                    "span_fraction": float(point.get("span_fraction", span_fraction)),
+                    "taper_ratio": float(point.get("taper_ratio", taper_ratio)),
+                    "washout_deg": float(point.get("washout_deg", washout_deg)),
+                }
+            )
+        annotated[zone_name] = {
+            **zone_data,
+            "points": points,
+            "taper_ratio": float(zone_data.get("taper_ratio", taper_ratio)),
+            "washout_deg": float(zone_data.get("washout_deg", washout_deg)),
+        }
+    return annotated
 
 
 def _apply_safe_clmax_model(
@@ -515,37 +560,22 @@ def _apply_safe_clmax_model(
     *,
     safe_scale: float,
     safe_delta: float,
+    tip_3d_penalty_start_eta: float = 0.55,
+    tip_3d_penalty_max: float = 0.04,
+    tip_taper_penalty_weight: float = 0.35,
+    washout_relief_deg: float = 2.0,
+    washout_relief_max: float = 0.02,
 ) -> tuple[list[dict[str, float]], dict[str, Any]]:
-    safe_points: list[dict[str, float]] = []
-    raw_values: list[float] = []
-    safe_values: list[float] = []
-
-    for point in station_points:
-        raw_clmax = float(point.get("cl_max_effective", point["cl_max_proxy"]))
-        raw_source = str(point.get("cl_max_effective_source", "geometry_proxy"))
-        safe_clmax = max(0.10, float(safe_scale) * raw_clmax - float(safe_delta))
-        raw_values.append(raw_clmax)
-        safe_values.append(safe_clmax)
-        safe_points.append(
-            {
-                **point,
-                "cl_max_raw": raw_clmax,
-                "cl_max_raw_source": raw_source,
-                "cl_max_safe": safe_clmax,
-                "cl_max_safe_source": _safe_clmax_source(raw_source),
-                "cl_max_safe_scale": float(safe_scale),
-                "cl_max_safe_delta": float(safe_delta),
-            }
-        )
-
-    summary = {
-        "safe_clmax_applied": True,
-        "safe_clmax_scale": float(safe_scale),
-        "safe_clmax_delta": float(safe_delta),
-        "min_cl_max_raw": min(raw_values) if raw_values else None,
-        "min_cl_max_safe": min(safe_values) if safe_values else None,
-    }
-    return safe_points, summary
+    return apply_safe_local_clmax_model(
+        station_points,
+        safe_scale=float(safe_scale),
+        safe_delta=float(safe_delta),
+        tip_3d_penalty_start_eta=float(tip_3d_penalty_start_eta),
+        tip_3d_penalty_max=float(tip_3d_penalty_max),
+        tip_taper_penalty_weight=float(tip_taper_penalty_weight),
+        washout_relief_deg=float(washout_relief_deg),
+        washout_relief_max=float(washout_relief_max),
+    )
 
 
 def _build_worker_queries_and_refs(
@@ -609,10 +639,17 @@ def _update_selected_by_zone_from_station_points(
             updated[zone_name] = selected
             continue
 
-        mean_cd = sum(float(point["cd_effective"]) for point in zone_station_points) / len(zone_station_points)
-        mean_cm = sum(float(point["cm_effective"]) for point in zone_station_points) / len(zone_station_points)
+        mean_cd = sum(float(point["cd_effective"]) for point in zone_station_points) / len(
+            zone_station_points
+        )
+        mean_cm = sum(float(point["cm_effective"]) for point in zone_station_points) / len(
+            zone_station_points
+        )
         usable_clmax = max(float(point["cl_max_effective"]) for point in zone_station_points)
-        safe_clmax = max(0.10, float(safe_scale) * usable_clmax - float(safe_delta))
+        safe_clmax = min(
+            float(point.get("cl_max_safe", max(0.10, float(safe_scale) * usable_clmax - float(safe_delta))))
+            for point in zone_station_points
+        )
         updated[zone_name] = SelectedZoneCandidate(
             template=selected.template,
             coordinates=selected.coordinates,
@@ -1615,6 +1652,11 @@ def _evaluate_selected_airfoils_for_concept(
         station_points,
         safe_scale=cfg.stall_model.safe_clmax_scale,
         safe_delta=cfg.stall_model.safe_clmax_delta,
+        tip_3d_penalty_start_eta=cfg.stall_model.tip_3d_penalty_start_eta,
+        tip_3d_penalty_max=cfg.stall_model.tip_3d_penalty_max,
+        tip_taper_penalty_weight=cfg.stall_model.tip_taper_penalty_weight,
+        washout_relief_deg=cfg.stall_model.washout_relief_deg,
+        washout_relief_max=cfg.stall_model.washout_relief_max,
     )
     airfoil_feedback = {
         **airfoil_feedback,
@@ -1912,6 +1954,10 @@ def run_birdman_concept_pipeline(
             stations_per_half=cfg.pipeline.stations_per_half,
         )
         zone_requirements = spanwise_loader(concept, stations)
+        zone_requirements = _annotate_zone_requirements_with_concept_geometry(
+            zone_requirements=zone_requirements,
+            concept=concept,
+        )
         prepared_concepts.append(
             _PreparedConcept(
                 evaluation_id=concept_id,

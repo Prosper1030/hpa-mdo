@@ -35,6 +35,11 @@ launch:
 stall_model:
   safe_clmax_scale: 0.90
   safe_clmax_delta: 0.05
+  tip_3d_penalty_start_eta: 0.55
+  tip_3d_penalty_max: 0.04
+  tip_taper_penalty_weight: 0.35
+  washout_relief_deg: 2.0
+  washout_relief_max: 0.02
   local_stall_utilization_limit: 0.80
   turn_utilization_limit: 0.85
   launch_utilization_limit: 0.75
