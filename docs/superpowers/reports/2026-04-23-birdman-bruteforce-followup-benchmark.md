@@ -10,6 +10,7 @@ Capture the performance state after the post-Target-CL follow-up work:
 1. worker negative cache and stage-separated cache buckets
 2. coarse-to-fine CST refinement
 3. all-zone batched screening queries
+4. cross-concept global screening batches
 
 This report answers two practical questions:
 
@@ -25,18 +26,19 @@ This report answers two practical questions:
 | Old full-sweep baseline | pre Target-CL dual-track | `98.48 s` |
 | Target-CL dual-track | finalist-only full sweep | `60.71 s` |
 | Coarse-to-fine CST | bounded refinement after screening | `45.36 s` |
-| Batched zone screening | current state | `38.23 s` |
+| Batched zone screening | zone-level batching only | `38.23 s` |
+| Global concept batching | current state | `27.20 s` |
 
 ## Current Commands
 
 ### Current persistent cold run
 
 ```bash
-rm -rf output/birdman_targetcl_batched_c2f_smoke && /usr/bin/time -l \
+rm -rf output/birdman_targetcl_global_batch_smoke && /usr/bin/time -l \
   env PYTHONPATH=src ../../.venv/bin/python \
   scripts/birdman_upstream_concept_design.py \
   --config configs/birdman_upstream_concept_baseline.yaml \
-  --output-dir output/birdman_targetcl_batched_c2f_smoke \
+  --output-dir output/birdman_targetcl_global_batch_smoke \
   --worker-mode julia
 ```
 
@@ -46,14 +48,14 @@ rm -rf output/birdman_targetcl_batched_c2f_smoke && /usr/bin/time -l \
 /usr/bin/time -l env PYTHONPATH=src ../../.venv/bin/python \
   scripts/birdman_upstream_concept_design.py \
   --config configs/birdman_upstream_concept_baseline.yaml \
-  --output-dir output/birdman_targetcl_batched_c2f_smoke \
+  --output-dir output/birdman_targetcl_global_batch_smoke \
   --worker-mode julia
 ```
 
 ### Current one-shot cold run
 
 ```bash
-rm -rf output/birdman_targetcl_batched_c2f_oneshot && /usr/bin/time -l \
+rm -rf output/birdman_targetcl_global_batch_oneshot && /usr/bin/time -l \
   env PYTHONPATH=src ../../.venv/bin/python - <<'PY'
 from pathlib import Path
 
@@ -63,7 +65,7 @@ from hpa_mdo.concept.config import load_concept_config
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
 cfg_path = Path("configs/birdman_upstream_concept_baseline.yaml").resolve()
-out_dir = Path("output/birdman_targetcl_batched_c2f_oneshot").resolve()
+out_dir = Path("output/birdman_targetcl_global_batch_oneshot").resolve()
 cfg = load_concept_config(cfg_path)
 
 
@@ -123,13 +125,13 @@ PYTHONPATH=src ../../.venv/bin/python -m pytest \
 
 | Case | Runtime (s) | Peak memory footprint (bytes) |
 | --- | ---: | ---: |
-| Current persistent cold | `38.23` | `132,858,576` |
-| Current persistent warm | `8.58` | `131,318,360` |
-| Current one-shot cold | `162.10` | `133,956,184` |
+| Current persistent cold | `27.20` | `143,884,984` |
+| Current persistent warm | `5.83` | `134,709,848` |
+| Current one-shot cold | `87.97` | `144,835,160` |
 
 Regression:
 
-- `132 passed in 89.89s (0:01:29)`
+- `134 passed in 72.01s (0:01:12)`
 
 ## Improvement Breakdown
 
@@ -142,13 +144,16 @@ Regression:
 - Batched zone screening vs earlier coarse-to-fine:
   - `45.36 s -> 38.23 s`
   - about `15.72%` faster
+- Global concept batching vs earlier batched zone screening:
+  - `38.23 s -> 27.20 s`
+  - about `28.85%` faster
 - Current state vs old full-sweep baseline:
-  - `98.48 s -> 38.23 s`
-  - about `61.18%` faster overall
+  - `98.48 s -> 27.20 s`
+  - about `72.38%` faster overall
 - Current one-shot vs current persistent cold:
-  - `162.10 s / 38.23 s ≈ 4.24x`
+  - `87.97 s / 27.20 s ≈ 3.23x`
 - Current warm vs current persistent cold:
-  - `8.58 s / 38.23 s ≈ 22.44%`
+  - `5.83 s / 27.20 s ≈ 21.43%`
 
 ## Engineering Review
 
@@ -160,6 +165,7 @@ state. The later checklist items are not cosmetic:
 - negative cache avoids repeated dead queries
 - coarse-to-fine avoids sending the full bounded family through screening
 - all-zone batching reduces worker scheduling fragmentation
+- global concept batching removes another layer of repeated screening passes
 
 Together, these later steps save another large chunk of cold-path time after
 the original Target-CL screening win.
@@ -171,7 +177,10 @@ The dominant cost is still low-Re viscous XFOIL solve time, not CST geometry.
 That is visible in two ways:
 
 1. persistent cold is still much slower than warm cache-hit runs
-2. one-shot remains much slower than persistent, but even the persistent cold
+2. one-shot remains much slower than persistent, which confirms that session
+   reuse and shared screening batches are still buying a meaningful amount of
+   runtime
+3. even the persistent cold
    path is still solver-dominated rather than Python-dominated
 
 ### What remains from the original checklist
@@ -185,15 +194,13 @@ The low-risk, high-return items are now mostly in place:
 - conservative geometry prescreen: done
 - coarse-to-fine CST refinement: done
 - zone-level batched scheduling: done
+- concept-level global query scheduling: done
 
 The main items that are still only partial or missing are:
 
-1. concept-level global query scheduling
-   - screening is now batched across zones within a concept, but not yet across
-     all concepts in the full geometry pool
-2. cache-assisted or learned surrogate prescreen
+1. cache-assisted or learned surrogate prescreen
    - current prescreen is still conservative and mostly geometry-driven
-3. more aggressive coarse-to-fine / multi-stage search
+2. more aggressive coarse-to-fine / multi-stage search
    - current refinement is local and bounded, not yet a broader beam/successive
      halving architecture
 
