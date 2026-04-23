@@ -240,6 +240,24 @@ def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
     assert spanwise_summary["mass_selection_reasons"] == ["min_best_range"]
 
 
+def test_fallback_selected_zone_candidate_applies_safe_clmax_model() -> None:
+    selected = concept_pipeline._build_fallback_selected_zone_candidate(
+        zone_name="root",
+        seed_coordinates=(
+            (1.0, 0.0),
+            (0.5, 0.06),
+            (0.0, 0.0),
+            (0.5, -0.04),
+            (1.0, 0.0),
+        ),
+        safe_clmax_scale=0.85,
+        safe_clmax_delta=0.10,
+    )
+
+    assert selected.usable_clmax == pytest.approx(0.90)
+    assert selected.safe_clmax == pytest.approx(0.665)
+
+
 def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
     result = run_birdman_concept_pipeline(
         config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),

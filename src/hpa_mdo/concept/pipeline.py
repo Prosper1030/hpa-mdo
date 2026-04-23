@@ -258,6 +258,8 @@ def _build_fallback_selected_zone_candidate(
     *,
     zone_name: str,
     seed_coordinates: tuple[tuple[float, float], ...],
+    safe_clmax_scale: float,
+    safe_clmax_delta: float,
 ) -> SelectedZoneCandidate:
     seed_name = _ROOT_SEED_AIRFOIL if zone_name in {"root", "mid1"} else _TIP_SEED_AIRFOIL
     base_template = build_base_cst_template(
@@ -278,6 +280,11 @@ def _build_fallback_selected_zone_candidate(
         mean_cd=float(stubbed_metrics["mean_cd"]),
         mean_cm=float(stubbed_metrics["mean_cm"]),
         usable_clmax=float(stubbed_metrics["usable_clmax"]),
+        safe_clmax=max(
+            0.10,
+            float(safe_clmax_scale) * float(stubbed_metrics["usable_clmax"])
+            - float(safe_clmax_delta),
+        ),
         candidate_score=0.0,
     )
 
@@ -1385,6 +1392,9 @@ def run_birdman_concept_pipeline(
                     allow_stub_fallback=worker_backend
                     in {"test_stub", "cli_stubbed", "python_stubbed"},
                 ),
+                safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
+                safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
+                stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
             )
             selected_by_zone.update(selection_batch.selected_by_zone)
         for zone_name in zone_requirements_without_points:
@@ -1393,6 +1403,8 @@ def run_birdman_concept_pipeline(
                 seed_coordinates=_load_seed_airfoil_coordinates(
                     _ROOT_SEED_AIRFOIL if zone_name in {"root", "mid1"} else _TIP_SEED_AIRFOIL
                 ),
+                safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
+                safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
             )
         airfoil_templates = _build_selected_cst_airfoil_templates(
             selected_by_zone=selected_by_zone,

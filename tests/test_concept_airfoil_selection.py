@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from hpa_mdo.concept.airfoil_cst import CSTAirfoilTemplate
 from hpa_mdo.concept.airfoil_selection import (
     build_base_cst_template,
@@ -103,6 +105,104 @@ def test_select_best_zone_candidate_prefers_thicker_candidate_when_margin_is_tig
 
     assert selected.template.candidate_role == "thick_safe"
     assert selected.candidate_score > 0.0
+
+
+def test_select_best_zone_candidate_uses_safe_clmax_not_raw_observed_clmax() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "mid2",
+            (0.18, 0.22, 0.14, 0.07, 0.03),
+            (-0.12, -0.10, -0.05, -0.02, -0.005),
+            0.0010,
+            seed_name="clarkysm",
+            candidate_role="thin_low_drag",
+        ),
+        CSTAirfoilTemplate(
+            "mid2",
+            (0.19, 0.24, 0.15, 0.08, 0.03),
+            (-0.13, -0.11, -0.06, -0.02, -0.005),
+            0.0011,
+            seed_name="clarkysm",
+            candidate_role="slightly_safer",
+        ),
+    )
+    zone_points = [
+        {"reynolds": 220000.0, "chord_m": 1.00, "cl_target": 0.75, "cm_target": -0.08, "weight": 1.0},
+    ]
+    candidate_results = {
+        "thin_low_drag": {
+            "status": "ok",
+            "mean_cd": 0.017,
+            "usable_clmax": 1.05,
+            "mean_cm": -0.08,
+        },
+        "slightly_safer": {
+            "status": "ok",
+            "mean_cd": 0.020,
+            "usable_clmax": 1.15,
+            "mean_cm": -0.09,
+        },
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.10,
+    )
+
+    assert selected.template.candidate_role == "slightly_safer"
+
+
+def test_select_best_zone_candidate_honors_custom_stall_model_inputs() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "mid2",
+            (0.18, 0.22, 0.14, 0.07, 0.03),
+            (-0.12, -0.10, -0.05, -0.02, -0.005),
+            0.0010,
+            seed_name="clarkysm",
+            candidate_role="thin_low_drag",
+        ),
+        CSTAirfoilTemplate(
+            "mid2",
+            (0.19, 0.24, 0.15, 0.08, 0.03),
+            (-0.13, -0.11, -0.06, -0.02, -0.005),
+            0.0011,
+            seed_name="clarkysm",
+            candidate_role="slightly_safer",
+        ),
+    )
+    zone_points = [
+        {"reynolds": 220000.0, "chord_m": 1.00, "cl_target": 0.75, "cm_target": -0.08, "weight": 1.0},
+    ]
+    candidate_results = {
+        "thin_low_drag": {
+            "status": "ok",
+            "mean_cd": 0.017,
+            "usable_clmax": 1.05,
+            "mean_cm": -0.08,
+        },
+        "slightly_safer": {
+            "status": "ok",
+            "mean_cd": 0.020,
+            "usable_clmax": 1.15,
+            "mean_cm": -0.09,
+        },
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.10,
+        safe_clmax_scale=1.0,
+        safe_clmax_delta=0.0,
+        stall_utilization_limit=0.98,
+    )
+
+    assert selected.template.candidate_role == "thin_low_drag"
+    assert selected.safe_clmax == pytest.approx(1.05)
 
 
 def test_select_best_zone_candidate_uses_matched_polar_points_when_available() -> None:

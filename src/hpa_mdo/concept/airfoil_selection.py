@@ -34,6 +34,7 @@ class SelectedZoneCandidate:
     mean_cd: float
     mean_cm: float
     usable_clmax: float
+    safe_clmax: float
     candidate_score: float
 
 
@@ -99,6 +100,102 @@ def _candidate_thickness_ratio(coordinates: tuple[tuple[float, float], ...]) -> 
             _surface_y(upper_surface, x) - _surface_y(lower_surface, x),
         )
     return thickness_ratio
+
+
+def _candidate_depth_ratio_at_x(
+    coordinates: tuple[tuple[float, float], ...],
+    *,
+    x_ratio: float,
+) -> float:
+    if len(coordinates) < 5:
+        return 0.0
+
+    leading_edge_index = min(range(len(coordinates)), key=lambda index: float(coordinates[index][0]))
+    if leading_edge_index <= 0 or leading_edge_index >= len(coordinates) - 1:
+        return 0.0
+
+    upper_surface = tuple(sorted(coordinates[: leading_edge_index + 1], key=lambda point: float(point[0])))
+    lower_surface = tuple(sorted(coordinates[leading_edge_index:], key=lambda point: float(point[0])))
+    x_ratio = min(max(float(x_ratio), 0.0), 1.0)
+    return max(0.0, _surface_y(upper_surface, x_ratio) - _surface_y(lower_surface, x_ratio))
+
+
+def _safe_clmax(
+    usable_clmax: float,
+    *,
+    safe_scale: float,
+    safe_delta: float,
+) -> float:
+    return max(0.10, float(safe_scale) * float(usable_clmax) - float(safe_delta))
+
+
+def _zone_candidate_metrics(
+    *,
+    zone_points: list[dict[str, float]],
+    mean_cd: float,
+    mean_cm: float,
+    usable_clmax: float,
+    zone_min_tc_ratio: float,
+    coordinates: tuple[tuple[float, float], ...] | None,
+    polar_points: list[dict[str, float]] | None,
+    safe_clmax_scale: float,
+    safe_clmax_delta: float,
+) -> dict[str, float]:
+    zone_stats = _weighted_zone_point_values(zone_points)
+    weights = list(zone_stats["weights"]) or [1.0 for _ in zone_points]
+    chords = list(zone_stats["chords"]) or [1.0 for _ in zone_points]
+    weight_sum = max(float(zone_stats["weight_sum"]) or 0.0, 1.0e-9)
+    chord_reference = max(float(zone_stats["chord_reference"]) or 0.0, 1.0e-9)
+
+    normalized_polar_points = _normalize_polar_points(polar_points)
+    matched_polar_points = _matched_worker_polar_points(zone_points, normalized_polar_points)
+
+    if matched_polar_points:
+        profile_drag_area = sum(
+            weight * chord * float(point["cd"])
+            for point, weight, chord in zip(matched_polar_points, weights, chords, strict=True)
+        ) / weight_sum
+        trim_moment_proxy = sum(
+            weight * chord**2 * abs(float(point["cm"]))
+            for point, weight, chord in zip(matched_polar_points, weights, chords, strict=True)
+        ) / max(sum(weight * chord**2 for weight, chord in zip(weights, chords, strict=True)), 1.0e-9)
+    else:
+        profile_drag_area = sum(weight * chord for weight, chord in zip(weights, chords, strict=True)) / weight_sum
+        profile_drag_area *= float(mean_cd)
+        trim_moment_proxy = abs(float(mean_cm))
+
+    profile_power_proxy = profile_drag_area / chord_reference
+    safe_clmax = _safe_clmax(
+        usable_clmax,
+        safe_scale=safe_clmax_scale,
+        safe_delta=safe_clmax_delta,
+    )
+    stall_utilization = max(
+        float(point["cl_target"]) / max(safe_clmax, 1.0e-9)
+        for point in zone_points
+    ) if zone_points else 0.0
+
+    candidate_thickness_ratio = (
+        _candidate_thickness_ratio(coordinates)
+        if coordinates is not None
+        else max(zone_min_tc_ratio, 0.12)
+    )
+    spar_depth_ratio = (
+        _candidate_depth_ratio_at_x(coordinates, x_ratio=0.30)
+        if coordinates is not None
+        else max(0.75 * zone_min_tc_ratio, 0.08)
+    )
+    required_spar_depth_ratio = max(0.06, 0.75 * float(zone_min_tc_ratio))
+
+    return {
+        "profile_power_proxy": profile_power_proxy,
+        "trim_moment_proxy": trim_moment_proxy,
+        "safe_clmax": safe_clmax,
+        "stall_utilization": stall_utilization,
+        "candidate_thickness_ratio": candidate_thickness_ratio,
+        "spar_depth_ratio": spar_depth_ratio,
+        "required_spar_depth_ratio": required_spar_depth_ratio,
+    }
 
 
 def _weighted_zone_point_values(
@@ -259,102 +356,57 @@ def score_zone_candidate(
     zone_min_tc_ratio: float = 0.10,
     coordinates: tuple[tuple[float, float], ...] | None = None,
     polar_points: list[dict[str, float]] | None = None,
+    safe_clmax_scale: float = 0.90,
+    safe_clmax_delta: float = 0.05,
+    stall_utilization_limit: float = 0.80,
 ) -> float:
-    zone_stats = _weighted_zone_point_values(zone_points)
-    effective_weights = list(zone_stats["effective_weights"]) or [1.0 for _ in zone_points]
-    total_effective_weight = sum(effective_weights)
-    if total_effective_weight <= 0.0:
-        total_effective_weight = float(len(effective_weights)) or 1.0
-
-    normalized_polar_points = _normalize_polar_points(polar_points)
-    matched_polar_points = _matched_worker_polar_points(zone_points, normalized_polar_points)
-
-    if matched_polar_points:
-        matched_cd = sum(
-            weight * float(point["cd"])
-            for point, weight in zip(matched_polar_points, effective_weights, strict=True)
-        ) / total_effective_weight
-        matched_cm = sum(
-            weight * float(point["cm"])
-            for point, weight in zip(matched_polar_points, effective_weights, strict=True)
-        ) / total_effective_weight
-        matched_cl = sum(
-            weight * float(point["cl"])
-            for point, weight in zip(matched_polar_points, effective_weights, strict=True)
-        ) / total_effective_weight
-        matched_cl_spread = math.sqrt(
-            sum(
-                weight * (float(point["cl"]) - matched_cl) ** 2
-                for point, weight in zip(matched_polar_points, effective_weights, strict=True)
-            )
-            / total_effective_weight
-        )
-        matched_cm_spread = math.sqrt(
-            sum(
-                weight * (float(point["cm"]) - matched_cm) ** 2
-                for point, weight in zip(matched_polar_points, effective_weights, strict=True)
-            )
-            / total_effective_weight
-        )
-        weighted_cm_target = float(zone_stats["weighted_cm_target"])
-        safe_cl_proxy = (
-            matched_cl
-            + 0.35 * matched_cl_spread
-            + 0.20 * max(0.0, float(zone_stats["max_cl_target"]) - matched_cl)
-            + 0.03
-        )
-        trim_proxy = (
-            0.65 * matched_cm_spread
-            + 0.35 * abs(matched_cm - weighted_cm_target)
-        )
-        drag_proxy = matched_cd * float(zone_stats["weighted_chord_factor"])
-    else:
-        safe_cl_proxy = (
-            float(zone_stats["weighted_cl_target"])
-            + 0.40 * float(zone_stats["cl_spread"])
-            + 0.30 * max(
-                0.0,
-                float(zone_stats["max_cl_target"]) - float(zone_stats["weighted_cl_target"]),
-            )
-            + 0.03
-        )
-        trim_proxy = (
-            0.70 * float(zone_stats["cm_rms"])
-            + 0.30 * abs(float(mean_cm) - float(zone_stats["weighted_cm_target"]))
-        )
-        drag_proxy = float(mean_cd) * float(zone_stats["weighted_chord_factor"])
-
-    cl_deficit = max(0.0, safe_cl_proxy - float(usable_clmax))
-    cl_penalty = _bounded_penalty(cl_deficit, 0.16)
-    trim_penalty = _bounded_penalty(trim_proxy, 0.05)
-
-    candidate_thickness_ratio = (
-        _candidate_thickness_ratio(coordinates)
-        if coordinates is not None
-        else max(zone_min_tc_ratio, 0.12)
+    metrics = _zone_candidate_metrics(
+        zone_points=zone_points,
+        mean_cd=mean_cd,
+        mean_cm=mean_cm,
+        usable_clmax=usable_clmax,
+        zone_min_tc_ratio=zone_min_tc_ratio,
+        coordinates=coordinates,
+        polar_points=polar_points,
+        safe_clmax_scale=safe_clmax_scale,
+        safe_clmax_delta=safe_clmax_delta,
     )
-    if candidate_thickness_ratio <= 0.0:
-        thickness_penalty = 1.0
-        usable_thickness = 0.0
-    else:
-        thickness_deficit = max(0.0, float(zone_min_tc_ratio) - candidate_thickness_ratio)
-        thickness_penalty = _bounded_penalty(
-            thickness_deficit,
-            max(0.01, 0.20 * float(zone_min_tc_ratio)),
-        )
-        usable_thickness = candidate_thickness_ratio
 
-    drag_penalty = _bounded_penalty(drag_proxy, 0.02)
+    drag_penalty = _bounded_penalty(float(metrics["profile_power_proxy"]), 0.022)
+    trim_penalty = _bounded_penalty(float(metrics["trim_moment_proxy"]), 0.11)
+    stall_violation = max(0.0, float(metrics["stall_utilization"]) - float(stall_utilization_limit))
+    stall_penalty = _bounded_penalty(stall_violation, 0.10)
+
+    thickness_deficit = max(
+        0.0,
+        float(zone_min_tc_ratio) - float(metrics["candidate_thickness_ratio"]),
+    )
+    thickness_penalty = _bounded_penalty(
+        thickness_deficit,
+        max(0.01, 0.20 * float(zone_min_tc_ratio)),
+    )
+
+    spar_depth_deficit = max(
+        0.0,
+        float(metrics["required_spar_depth_ratio"]) - float(metrics["spar_depth_ratio"]),
+    )
+    spar_penalty = _bounded_penalty(
+        spar_depth_deficit,
+        max(0.008, 0.15 * float(metrics["required_spar_depth_ratio"])),
+    )
 
     infeasible_guard = 0.0
-    if cl_deficit > 0.0 or usable_thickness + 1.0e-9 < float(zone_min_tc_ratio):
-        infeasible_guard = 0.60 + 0.60 * cl_penalty + 0.80 * thickness_penalty
+    if stall_violation > 0.0:
+        infeasible_guard += 1.2 + 2.0 * stall_penalty
+    if thickness_deficit > 0.0 or spar_depth_deficit > 0.0:
+        infeasible_guard += 0.8 + 1.5 * max(thickness_penalty, spar_penalty)
 
     return (
-        1.65 * drag_penalty
-        + 3.00 * cl_penalty
-        + 1.35 * trim_penalty
-        + 4.25 * thickness_penalty
+        1.75 * drag_penalty
+        + 3.50 * stall_penalty
+        + 1.50 * trim_penalty
+        + 3.00 * spar_penalty
+        + 2.50 * thickness_penalty
         + infeasible_guard
     )
 
@@ -365,6 +417,9 @@ def select_best_zone_candidate(
     candidate_results: Mapping[str, Mapping[str, object]],
     *,
     zone_min_tc_ratio: float = 0.10,
+    safe_clmax_scale: float = 0.90,
+    safe_clmax_delta: float = 0.05,
+    stall_utilization_limit: float = 0.80,
 ) -> SelectedZoneCandidate:
     scored: list[tuple[int, SelectedZoneCandidate]] = []
     for candidate in candidates:
@@ -384,6 +439,17 @@ def select_best_zone_candidate(
         mean_cm = float(result["mean_cm"])
         usable_clmax = float(result["usable_clmax"])
         polar_points = result.get("polar_points")
+        metrics = _zone_candidate_metrics(
+            zone_points=zone_points,
+            mean_cd=mean_cd,
+            mean_cm=mean_cm,
+            usable_clmax=usable_clmax,
+            zone_min_tc_ratio=zone_min_tc_ratio,
+            coordinates=coordinates,
+            polar_points=polar_points if isinstance(polar_points, list) else None,
+            safe_clmax_scale=safe_clmax_scale,
+            safe_clmax_delta=safe_clmax_delta,
+        )
         candidate_score = score_zone_candidate(
             zone_points=zone_points,
             mean_cd=mean_cd,
@@ -392,11 +458,20 @@ def select_best_zone_candidate(
             zone_min_tc_ratio=zone_min_tc_ratio,
             coordinates=coordinates,
             polar_points=polar_points if isinstance(polar_points, list) else None,
+            safe_clmax_scale=safe_clmax_scale,
+            safe_clmax_delta=safe_clmax_delta,
+            stall_utilization_limit=stall_utilization_limit,
         )
-        thickness_ratio = _candidate_thickness_ratio(coordinates)
+        thickness_ratio = float(metrics["candidate_thickness_ratio"])
+        spar_depth_ratio = float(metrics["spar_depth_ratio"])
+        required_spar_depth_ratio = float(metrics["required_spar_depth_ratio"])
+        safe_clmax = float(metrics["safe_clmax"])
+        stall_utilization = float(metrics["stall_utilization"])
         feasible = (
-            usable_clmax >= 0.0
+            safe_clmax >= 0.0
+            and stall_utilization <= float(stall_utilization_limit)
             and thickness_ratio >= float(zone_min_tc_ratio)
+            and spar_depth_ratio >= required_spar_depth_ratio
         )
         scored.append(
             (
@@ -407,6 +482,7 @@ def select_best_zone_candidate(
                     mean_cd=mean_cd,
                     mean_cm=mean_cm,
                     usable_clmax=usable_clmax,
+                    safe_clmax=safe_clmax,
                     candidate_score=candidate_score,
                 ),
             )
@@ -485,6 +561,9 @@ def select_zone_airfoil_templates(
     zone_requirements: dict[str, dict[str, object]],
     seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
     worker: Any,
+    safe_clmax_scale: float = 0.90,
+    safe_clmax_delta: float = 0.05,
+    stall_utilization_limit: float = 0.80,
 ) -> ZoneSelectionBatch:
     selected_by_zone: dict[str, SelectedZoneCandidate] = {}
     worker_results: list[dict[str, object]] = []
@@ -575,6 +654,9 @@ def select_zone_airfoil_templates(
             zone_points=zone_points,
             candidate_results=candidate_results,
             zone_min_tc_ratio=float(zone_data.get("min_tc_ratio", 0.10)),
+            safe_clmax_scale=safe_clmax_scale,
+            safe_clmax_delta=safe_clmax_delta,
+            stall_utilization_limit=stall_utilization_limit,
         )
 
     return ZoneSelectionBatch(selected_by_zone=selected_by_zone, worker_results=worker_results)
