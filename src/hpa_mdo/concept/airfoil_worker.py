@@ -20,6 +20,8 @@ class PolarQuery:
     roughness_mode: str
     geometry_hash: str
     coordinates: tuple[tuple[float, float], ...]
+    analysis_mode: str = "full_alpha_sweep"
+    analysis_stage: str = "screening"
 
 
 def _normalize_coordinates(
@@ -76,6 +78,8 @@ class JuliaXFoilWorker:
             "cl_samples": list(query.cl_samples),
             "roughness_mode": query.roughness_mode,
             "geometry_hash": self._validated_geometry_hash(query),
+            "analysis_mode": query.analysis_mode,
+            "analysis_stage": query.analysis_stage,
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
@@ -122,7 +126,10 @@ class JuliaXFoilWorker:
             )
         return derived_hash
 
-    def _query_identity(self, query: PolarQuery) -> tuple[str, float, tuple[float, ...], str, str]:
+    def _query_identity(
+        self,
+        query: PolarQuery,
+    ) -> tuple[str, float, tuple[float, ...], str, str, str, str]:
         return (
             query.template_id,
             *self._physical_query_identity(query),
