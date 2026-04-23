@@ -33,6 +33,8 @@ DEFAULT_FULL_WING_REF_AREA = 34.65
 DEFAULT_REF_ORIGIN = {"x": 0.25 * DEFAULT_CHORD_M, "y": 0.0, "z": 0.0}
 DEFAULT_GEOMETRY_SHAPE_MODE = "surrogate_naca0012"
 DEFAULT_REAL_MAIN_WING_SHAPE_MODE = "esp_rebuilt_main_wing"
+ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE = "single_holed_symmetry_face"
+ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES = "use_bl_generated_faces"
 
 DEFAULT_FLOW_CONDITION = {
     "alpha_deg": 0.0,
@@ -47,6 +49,7 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
         "study_level": "BL_macsafe_baseline",
         "geometry": {
             "shape_mode": DEFAULT_GEOMETRY_SHAPE_MODE,
+            "root_closure_mode": ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE,
             "chord_m": DEFAULT_CHORD_M,
             "half_span_m": DEFAULT_HALF_SPAN_M,
             "airfoil_name": "NACA0012 surrogate",
@@ -126,6 +129,7 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
         "study_level": "BL_macsafe_upper",
         "geometry": {
             "shape_mode": DEFAULT_GEOMETRY_SHAPE_MODE,
+            "root_closure_mode": ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE,
             "chord_m": DEFAULT_CHORD_M,
             "half_span_m": DEFAULT_HALF_SPAN_M,
             "airfoil_name": "NACA0012 surrogate",
@@ -566,6 +570,21 @@ def _geometry_shape_mode(geometry: dict[str, Any]) -> str:
     return str(geometry.get("shape_mode") or DEFAULT_GEOMETRY_SHAPE_MODE)
 
 
+def _geometry_root_closure_mode(
+    geometry: dict[str, Any],
+    *,
+    geometry_shape_mode: str,
+) -> str:
+    configured = str(geometry.get("root_closure_mode") or "").strip()
+    if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
+        if configured == ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES:
+            return configured
+        return ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES
+    if configured:
+        return configured
+    return ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE
+
+
 def _rotate_about_local_span(
     point: tuple[float, float, float],
     twist_deg: float,
@@ -738,6 +757,52 @@ def _curve_endpoint_tags(gmsh: Any, curve_tag: int) -> tuple[int, int]:
     return int(boundary[0][1]), int(boundary[1][1])
 
 
+def _signed_curve_endpoint_tags(gmsh: Any, signed_curve_tag: int) -> tuple[int, int]:
+    start_tag, end_tag = _curve_endpoint_tags(gmsh, abs(int(signed_curve_tag)))
+    if int(signed_curve_tag) < 0:
+        return end_tag, start_tag
+    return start_tag, end_tag
+
+
+def _point_xyz(gmsh: Any, point_tag: int) -> tuple[float, float, float]:
+    values = gmsh.model.getValue(0, int(point_tag), [])
+    if len(values) != 3:
+        raise RuntimeError(f"point {point_tag} did not resolve to 3 coordinates")
+    return (float(values[0]), float(values[1]), float(values[2]))
+
+
+def _unique_preserve_order(values: Iterable[int]) -> list[int]:
+    ordered: list[int] = []
+    seen: set[int] = set()
+    for value in values:
+        key = int(value)
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(key)
+    return ordered
+
+
+def _duplicate_curve_tags(curve_tags: Iterable[int]) -> list[int]:
+    counts: dict[int, int] = {}
+    duplicates: list[int] = []
+    for curve_tag in curve_tags:
+        key = abs(int(curve_tag))
+        counts[key] = counts.get(key, 0) + 1
+        if counts[key] == 2:
+            duplicates.append(key)
+    return duplicates
+
+
+def _curve_length_proxy(gmsh: Any, curve_tag: int) -> float:
+    start_tag, end_tag = _curve_endpoint_tags(gmsh, abs(int(curve_tag)))
+    start_xyz = _point_xyz(gmsh, start_tag)
+    end_xyz = _point_xyz(gmsh, end_tag)
+    return float(
+        math.hypot(end_xyz[0] - start_xyz[0], end_xyz[2] - start_xyz[2])
+    )
+
+
 def _order_curve_loop(gmsh: Any, curve_tags: list[int]) -> list[int]:
     endpoint_map = {tag: _curve_endpoint_tags(gmsh, tag) for tag in curve_tags}
     ordered = [curve_tags[0]]
@@ -777,7 +842,10 @@ def _set_shell_transfinite_controls(
     for dim, tag in gmsh.model.getEntities(1):
         if dim != 1:
             continue
-        x_min, y_min, z_min, x_max, y_max, z_max = gmsh.model.getBoundingBox(dim, tag)
+        try:
+            x_min, y_min, z_min, x_max, y_max, z_max = gmsh.model.getBoundingBox(dim, tag)
+        except Exception:
+            continue
         y_span = y_max - y_min
         x_span = x_max - x_min
         z_span = z_max - z_min
@@ -794,6 +862,454 @@ def _set_shell_transfinite_controls(
             gmsh.model.mesh.setTransfiniteSurface(tag)
         except Exception:
             continue
+
+
+def _sample_curve_polyline(
+    gmsh: Any,
+    signed_curve_tag: int,
+    *,
+    sample_count: int = 16,
+) -> list[tuple[float, float, float]]:
+    curve_tag = abs(int(signed_curve_tag))
+    if sample_count < 2:
+        sample_count = 2
+    try:
+        param_min, param_max = gmsh.model.getParametrizationBounds(1, curve_tag)
+        u_start = float(param_min[0])
+        u_end = float(param_max[0])
+        params = [
+            u_start + (u_end - u_start) * float(index) / float(sample_count - 1)
+            for index in range(sample_count)
+        ]
+        points = [
+            tuple(float(value) for value in gmsh.model.getValue(1, curve_tag, [param]))
+            for param in params
+        ]
+    except Exception:
+        start_tag, end_tag = _curve_endpoint_tags(gmsh, curve_tag)
+        points = [_point_xyz(gmsh, start_tag), _point_xyz(gmsh, end_tag)]
+    if int(signed_curve_tag) < 0:
+        points.reverse()
+    cleaned: list[tuple[float, float, float]] = []
+    for point in points:
+        if cleaned and math.dist(point, cleaned[-1]) <= 1.0e-10:
+            continue
+        cleaned.append(point)
+    return cleaned
+
+
+def _polyline_area_xz(points: list[tuple[float, float, float]]) -> float:
+    if len(points) < 3:
+        return 0.0
+    area = 0.0
+    for index, point in enumerate(points):
+        next_point = points[(index + 1) % len(points)]
+        area += point[0] * next_point[2] - next_point[0] * point[2]
+    return 0.5 * area
+
+
+def _orientation_2d(
+    lhs: tuple[float, float],
+    rhs: tuple[float, float],
+    other: tuple[float, float],
+) -> float:
+    return (rhs[0] - lhs[0]) * (other[1] - lhs[1]) - (rhs[1] - lhs[1]) * (other[0] - lhs[0])
+
+
+def _on_segment_2d(
+    lhs: tuple[float, float],
+    rhs: tuple[float, float],
+    other: tuple[float, float],
+    *,
+    tol: float = 1.0e-10,
+) -> bool:
+    return (
+        min(lhs[0], rhs[0]) - tol <= other[0] <= max(lhs[0], rhs[0]) + tol
+        and min(lhs[1], rhs[1]) - tol <= other[1] <= max(lhs[1], rhs[1]) + tol
+    )
+
+
+def _segments_intersect_xz(
+    start_a: tuple[float, float, float],
+    end_a: tuple[float, float, float],
+    start_b: tuple[float, float, float],
+    end_b: tuple[float, float, float],
+) -> bool:
+    a0 = (float(start_a[0]), float(start_a[2]))
+    a1 = (float(end_a[0]), float(end_a[2]))
+    b0 = (float(start_b[0]), float(start_b[2]))
+    b1 = (float(end_b[0]), float(end_b[2]))
+    if any(
+        math.dist(lhs, rhs) <= 1.0e-10
+        for lhs in (a0, a1)
+        for rhs in (b0, b1)
+    ):
+        return False
+    o1 = _orientation_2d(a0, a1, b0)
+    o2 = _orientation_2d(a0, a1, b1)
+    o3 = _orientation_2d(b0, b1, a0)
+    o4 = _orientation_2d(b0, b1, a1)
+    tol = 1.0e-10
+    if (o1 > tol and o2 < -tol or o1 < -tol and o2 > tol) and (
+        o3 > tol and o4 < -tol or o3 < -tol and o4 > tol
+    ):
+        return True
+    if abs(o1) <= tol and _on_segment_2d(a0, a1, b0, tol=tol):
+        return True
+    if abs(o2) <= tol and _on_segment_2d(a0, a1, b1, tol=tol):
+        return True
+    if abs(o3) <= tol and _on_segment_2d(b0, b1, a0, tol=tol):
+        return True
+    if abs(o4) <= tol and _on_segment_2d(b0, b1, a1, tol=tol):
+        return True
+    return False
+
+
+def _loop_self_intersections(points: list[tuple[float, float, float]]) -> list[tuple[int, int]]:
+    if len(points) < 4:
+        return []
+    closed = list(points)
+    if math.dist(closed[0], closed[-1]) > 1.0e-10:
+        closed.append(closed[0])
+    segment_count = len(closed) - 1
+    intersections: list[tuple[int, int]] = []
+    for first_index in range(segment_count):
+        for second_index in range(first_index + 1, segment_count):
+            if abs(first_index - second_index) <= 1:
+                continue
+            if first_index == 0 and second_index == segment_count - 1:
+                continue
+            if _segments_intersect_xz(
+                closed[first_index],
+                closed[first_index + 1],
+                closed[second_index],
+                closed[second_index + 1],
+            ):
+                intersections.append((first_index, second_index))
+    return intersections
+
+
+def _surface_lies_on_y_plane(gmsh: Any, surface_tag: int, *, y_value: float, tol: float = 1.0e-9) -> bool:
+    boundary = gmsh.model.getBoundary([(2, int(surface_tag))], combined=False, oriented=False, recursive=False)
+    point_tags: list[int] = []
+    for dim, curve_tag in boundary:
+        if dim != 1:
+            continue
+        point_tags.extend(point_tag for _, point_tag in gmsh.model.getBoundary([(1, int(curve_tag))], combined=False, oriented=False))
+    if not point_tags:
+        return False
+    return all(abs(_point_xyz(gmsh, point_tag)[1] - y_value) <= tol for point_tag in point_tags)
+
+
+def _collect_root_side_surface_tags(gmsh: Any, extbl: list[tuple[int, int]]) -> list[int]:
+    root_surfaces: list[int] = []
+    for dim, tag in extbl:
+        if int(dim) != 2:
+            continue
+        surface_tag = int(tag)
+        if surface_tag in root_surfaces:
+            continue
+        if _surface_lies_on_y_plane(gmsh, surface_tag, y_value=0.0):
+            root_surfaces.append(surface_tag)
+    return root_surfaces
+
+
+def _root_opening_curve_tags(
+    gmsh: Any,
+    bl_top_surface_tags: list[int],
+) -> tuple[list[int], list[int], list[int]]:
+    hole_boundary = gmsh.model.getBoundary(
+        [(2, tag) for tag in bl_top_surface_tags],
+        combined=True,
+        oriented=False,
+        recursive=False,
+    )
+    raw_curve_tags = [int(curve_tag) for dim, curve_tag in hole_boundary if dim == 1]
+    duplicate_curve_tags = _duplicate_curve_tags(raw_curve_tags)
+    ordered_curve_tags = _order_curve_loop(gmsh, _unique_preserve_order(raw_curve_tags))
+    return raw_curve_tags, duplicate_curve_tags, ordered_curve_tags
+
+
+def _orient_curve_from_to(gmsh: Any, curve_tag: int, start_point_tag: int, end_point_tag: int) -> int:
+    start_tag, end_tag = _curve_endpoint_tags(gmsh, int(curve_tag))
+    if start_tag == int(start_point_tag) and end_tag == int(end_point_tag):
+        return int(curve_tag)
+    if start_tag == int(end_point_tag) and end_tag == int(start_point_tag):
+        return -int(curve_tag)
+    raise RuntimeError(
+        f"curve {curve_tag} does not connect points {start_point_tag} and {end_point_tag}"
+    )
+
+
+def _classify_root_opening_curves(gmsh: Any, ordered_curve_tags: list[int]) -> dict[str, Any]:
+    if len(ordered_curve_tags) != 3:
+        raise RuntimeError("real-wing root opening currently expects exactly three ordered curves")
+    te_curve_tag = min(
+        (abs(curve_tag) for curve_tag in ordered_curve_tags),
+        key=lambda curve_tag: _curve_length_proxy(gmsh, curve_tag),
+    )
+    long_curve_tags = [abs(curve_tag) for curve_tag in ordered_curve_tags if abs(curve_tag) != te_curve_tag]
+    if len(long_curve_tags) != 2:
+        raise RuntimeError("could not isolate the two long root-opening curves")
+    first_endpoints = set(_curve_endpoint_tags(gmsh, long_curve_tags[0]))
+    second_endpoints = set(_curve_endpoint_tags(gmsh, long_curve_tags[1]))
+    shared_points = list(first_endpoints.intersection(second_endpoints))
+    if len(shared_points) != 1:
+        raise RuntimeError("real-wing root opening did not expose a unique leading-edge point")
+    leading_edge_point = int(shared_points[0])
+    long_curve_records: list[dict[str, Any]] = []
+    for curve_tag in long_curve_tags:
+        start_tag, end_tag = _curve_endpoint_tags(gmsh, curve_tag)
+        te_point = end_tag if start_tag == leading_edge_point else start_tag
+        long_curve_records.append(
+            {
+                "curve_tag": int(curve_tag),
+                "te_point_tag": int(te_point),
+                "te_point_xyz": _point_xyz(gmsh, int(te_point)),
+            }
+        )
+    long_curve_records.sort(key=lambda record: (record["te_point_xyz"][2], record["te_point_xyz"][0]))
+    lower_record = long_curve_records[0]
+    upper_record = long_curve_records[-1]
+    lower_curve_signed = _orient_curve_from_to(
+        gmsh,
+        lower_record["curve_tag"],
+        leading_edge_point,
+        lower_record["te_point_tag"],
+    )
+    upper_curve_signed = _orient_curve_from_to(
+        gmsh,
+        upper_record["curve_tag"],
+        upper_record["te_point_tag"],
+        leading_edge_point,
+    )
+    te_curve_signed = _orient_curve_from_to(
+        gmsh,
+        te_curve_tag,
+        lower_record["te_point_tag"],
+        upper_record["te_point_tag"],
+    )
+    return {
+        "leading_edge_point_tag": leading_edge_point,
+        "leading_edge_point_xyz": _point_xyz(gmsh, leading_edge_point),
+        "upper_curve_signed": int(upper_curve_signed),
+        "lower_curve_signed": int(lower_curve_signed),
+        "te_curve_signed": int(te_curve_signed),
+        "upper_te_point_tag": int(upper_record["te_point_tag"]),
+        "upper_te_point_xyz": tuple(float(value) for value in upper_record["te_point_xyz"]),
+        "lower_te_point_tag": int(lower_record["te_point_tag"]),
+        "lower_te_point_xyz": tuple(float(value) for value in lower_record["te_point_xyz"]),
+    }
+
+
+def _build_real_wing_root_closure_plan(
+    *,
+    gmsh: Any,
+    extbl: list[tuple[int, int]],
+    bl_top_surface_tags: list[int],
+    chord_m: float,
+    bl_total_thickness_m: float,
+    x_min: float,
+    x_max: float,
+    z_min: float,
+    z_max: float,
+) -> dict[str, Any]:
+    root_side_surface_tags = _collect_root_side_surface_tags(gmsh, extbl)
+    if not root_side_surface_tags:
+        raise RuntimeError(
+            "real-wing root closure did not receive any BL-generated root-side faces"
+        )
+    raw_curve_tags, duplicate_curve_tags, ordered_curve_tags = _root_opening_curve_tags(gmsh, bl_top_surface_tags)
+    loop_data = _classify_root_opening_curves(gmsh, ordered_curve_tags)
+    le_xyz = loop_data["leading_edge_point_xyz"]
+    upper_te_xyz = loop_data["upper_te_point_xyz"]
+    lower_te_xyz = loop_data["lower_te_point_xyz"]
+    te_gap = math.hypot(upper_te_xyz[0] - lower_te_xyz[0], upper_te_xyz[2] - lower_te_xyz[2])
+    x_pad = max(0.15 * chord_m, 4.0 * bl_total_thickness_m, 12.0 * te_gap)
+    z_pad = max(0.05 * chord_m, 2.0 * bl_total_thickness_m, 10.0 * te_gap)
+    local_patch_size = max(0.02 * chord_m, 2.0 * bl_total_thickness_m, 6.0 * te_gap)
+    z_mid = 0.5 * (upper_te_xyz[2] + lower_te_xyz[2])
+    q_le = (float(le_xyz[0] - x_pad), 0.0, float(le_xyz[2]))
+    q_upper = (float(max(upper_te_xyz[0], lower_te_xyz[0]) + x_pad), 0.0, float(z_mid + z_pad))
+    q_lower = (float(max(upper_te_xyz[0], lower_te_xyz[0]) + x_pad), 0.0, float(z_mid - z_pad))
+    p1 = (float(x_min), 0.0, float(z_min))
+    p2 = (float(x_max), 0.0, float(z_min))
+    p5 = (float(x_min), 0.0, float(z_max))
+    p6 = (float(x_max), 0.0, float(z_max))
+
+    upper_curve_polyline = _sample_curve_polyline(gmsh, loop_data["upper_curve_signed"])
+    lower_curve_polyline = _sample_curve_polyline(gmsh, loop_data["lower_curve_signed"])
+    te_curve_polyline = _sample_curve_polyline(gmsh, loop_data["te_curve_signed"])
+    patch_polylines = {
+        "ring_upper": [q_le, q_upper, upper_te_xyz, *upper_curve_polyline[1:], q_le],
+        "ring_lower": [q_le, *lower_curve_polyline, q_lower, q_le],
+        "ring_te": [q_upper, q_lower, lower_te_xyz, *te_curve_polyline[1:], q_upper],
+        "outer_left": [p5, q_le, p1, p5],
+        "outer_top": [q_le, q_upper, p6, p5, q_le],
+        "outer_right": [q_upper, q_lower, p2, p6, q_upper],
+        "outer_bottom": [q_lower, q_le, p1, p2, q_lower],
+    }
+    loop_checks = {
+        patch_name: {
+            "self_intersections": _loop_self_intersections(polyline),
+            "area_xz": float(_polyline_area_xz(polyline)),
+        }
+        for patch_name, polyline in patch_polylines.items()
+    }
+    return {
+        "mode": ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES,
+        "holed_symmetry_face_used": False,
+        "root_side_surface_tags": root_side_surface_tags,
+        "raw_root_curve_tags": raw_curve_tags,
+        "duplicate_curve_tags": duplicate_curve_tags,
+        "ordered_root_curve_tags": ordered_curve_tags,
+        "root_loop": loop_data,
+        "local_patch_size_m": float(local_patch_size),
+        "local_points": {
+            "q_le": q_le,
+            "q_upper": q_upper,
+            "q_lower": q_lower,
+            "p1": p1,
+            "p2": p2,
+            "p5": p5,
+            "p6": p6,
+        },
+        "patch_loop_checks": loop_checks,
+    }
+
+
+def _build_real_wing_root_closure_surfaces(
+    *,
+    gmsh: Any,
+    plan: dict[str, Any],
+    p1_tag: int,
+    p2_tag: int,
+    p5_tag: int,
+    p6_tag: int,
+    l1_tag: int,
+    l5_tag: int,
+    l9_tag: int,
+    l10_tag: int,
+) -> tuple[list[int], dict[str, Any]]:
+    geo = gmsh.model.geo
+    if plan["duplicate_curve_tags"]:
+        raise RuntimeError(
+            f"real-wing root closure found duplicate root-opening curves {plan['duplicate_curve_tags']}"
+        )
+    bad_patches = [
+        patch_name
+        for patch_name, payload in plan["patch_loop_checks"].items()
+        if payload["self_intersections"]
+    ]
+    if bad_patches:
+        raise RuntimeError(
+            f"real-wing root closure detected self-intersecting closure loops {bad_patches}"
+        )
+
+    loop_data = plan["root_loop"]
+    local_points = plan["local_points"]
+    local_patch_size = float(plan["local_patch_size_m"])
+    q_le_tag = geo.addPoint(*local_points["q_le"], local_patch_size)
+    q_upper_tag = geo.addPoint(*local_points["q_upper"], local_patch_size)
+    q_lower_tag = geo.addPoint(*local_points["q_lower"], local_patch_size)
+
+    upper_te_point_tag = int(loop_data["upper_te_point_tag"])
+    lower_te_point_tag = int(loop_data["lower_te_point_tag"])
+    leading_edge_point_tag = int(loop_data["leading_edge_point_tag"])
+    outer_upper_tag = geo.addLine(q_le_tag, q_upper_tag)
+    outer_lower_tag = geo.addLine(q_lower_tag, q_le_tag)
+    outer_te_tag = geo.addLine(q_upper_tag, q_lower_tag)
+    left_upper_tag = geo.addLine(p5_tag, q_le_tag)
+    left_lower_tag = geo.addLine(q_le_tag, p1_tag)
+    right_upper_tag = geo.addLine(q_upper_tag, p6_tag)
+    right_lower_tag = geo.addLine(p2_tag, q_lower_tag)
+    le_connector_tag = geo.addLine(q_le_tag, leading_edge_point_tag)
+    upper_connector_tag = geo.addLine(q_upper_tag, upper_te_point_tag)
+    lower_connector_tag = geo.addLine(lower_te_point_tag, q_lower_tag)
+
+    ring_upper_tag = geo.addPlaneSurface(
+        [
+            geo.addCurveLoop(
+                [
+                    outer_upper_tag,
+                    upper_connector_tag,
+                    int(loop_data["upper_curve_signed"]),
+                    -le_connector_tag,
+                ]
+            )
+        ]
+    )
+    ring_lower_tag = geo.addPlaneSurface(
+        [
+            geo.addCurveLoop(
+                [
+                    le_connector_tag,
+                    int(loop_data["lower_curve_signed"]),
+                    lower_connector_tag,
+                    outer_lower_tag,
+                ]
+            )
+        ]
+    )
+    ring_te_tag = geo.addPlaneSurface(
+        [
+            geo.addCurveLoop(
+                [
+                    outer_te_tag,
+                    -lower_connector_tag,
+                    int(loop_data["te_curve_signed"]),
+                    -upper_connector_tag,
+                ]
+            )
+        ]
+    )
+    outer_left_tag = geo.addPlaneSurface([geo.addCurveLoop([left_upper_tag, left_lower_tag, l9_tag])])
+    outer_top_tag = geo.addPlaneSurface(
+        [geo.addCurveLoop([outer_upper_tag, right_upper_tag, -l5_tag, left_upper_tag])]
+    )
+    outer_right_tag = geo.addPlaneSurface(
+        [geo.addCurveLoop([outer_te_tag, -right_lower_tag, l10_tag, -right_upper_tag])]
+    )
+    outer_bottom_tag = geo.addPlaneSurface(
+        [geo.addCurveLoop([outer_lower_tag, left_lower_tag, l1_tag, right_lower_tag])]
+    )
+    geo.synchronize()
+    gmsh.model.mesh.setSize(
+        [
+            (0, leading_edge_point_tag),
+            (0, upper_te_point_tag),
+            (0, lower_te_point_tag),
+            (0, q_le_tag),
+            (0, q_upper_tag),
+            (0, q_lower_tag),
+        ],
+        local_patch_size,
+    )
+    return (
+        list(plan["root_side_surface_tags"])
+        + [
+            int(ring_upper_tag),
+            int(ring_lower_tag),
+            int(ring_te_tag),
+            int(outer_left_tag),
+            int(outer_top_tag),
+            int(outer_right_tag),
+            int(outer_bottom_tag),
+        ],
+        {
+            **plan,
+            "surface_tags": {
+                "root_side": list(plan["root_side_surface_tags"]),
+                "ring": [int(ring_upper_tag), int(ring_lower_tag), int(ring_te_tag)],
+                "outer": [
+                    int(outer_left_tag),
+                    int(outer_top_tag),
+                    int(outer_right_tag),
+                    int(outer_bottom_tag),
+                ],
+            },
+        },
+    )
 
 
 def _count_elements_for_entities(gmsh: Any, dim: int, entity_tags: Iterable[int]) -> tuple[int, dict[str, int]]:
@@ -1608,7 +2124,13 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     flow = spec["flow_condition"]
     geometry = spec["geometry"]
     geometry_shape_mode = _geometry_shape_mode(geometry)
+    root_closure_mode = _geometry_root_closure_mode(
+        geometry,
+        geometry_shape_mode=geometry_shape_mode,
+    )
+    geometry["root_closure_mode"] = root_closure_mode
     bl_spec = spec["boundary_layer"]
+    boundary_layer_total_thickness = float(bl_spec["target_total_thickness_m"])
     cell_budget = spec["cell_budget"]
     reference_values = spec["reference_values"]
     mesh_path = mesh_dir / "mesh.msh"
@@ -1634,7 +2156,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     gmsh.initialize()
     wall_surface_tags: list[int] = []
     farfield_surface_tags: list[int] = []
-    symmetry_surface_tag: int | None = None
+    symmetry_surface_tags: list[int] = []
     fluid_volume_tag: int | None = None
     bl_volume_tags: list[int] = []
     bl_top_surface_tags: list[int] = []
@@ -1656,6 +2178,14 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     symmetry_group_tag: int | None = None
     farfield_group_tag: int | None = None
     fluid_group_tag: int | None = None
+    topology_checks: dict[str, Any] = {
+        "root_closure": {
+            "mode": root_closure_mode,
+            "holed_symmetry_face_used": root_closure_mode == ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE,
+            "duplicate_curve_tags": [],
+            "patch_loop_checks": {},
+        }
+    }
     try:
         gmsh.option.setNumber("General.Terminal", 1)
         gmsh.option.setNumber("General.NumThreads", 1)
@@ -1736,6 +2266,11 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
 
         if real_wing_geometry is None:
             wall_surface_tags = [int(tag) for dim, tag in gmsh.model.getEntities(2) if dim == 2]
+        if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
+            # Real-wing root closure consumes the BL-generated lateral faces on the
+            # symmetry plane directly; without them Gmsh falls back to the old
+            # holed-face behavior that is not robust for this geometry family.
+            gmsh.option.setNumber("Geometry.ExtrudeReturnLateralEntities", 1)
         cumulative_heights = _layer_cumulative_heights(
             float(bl_spec["first_layer_height_m"]),
             float(bl_spec["growth_ratio"]),
@@ -1752,14 +2287,6 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 bl_volume_tags.append(int(extbl[index][1]))
                 bl_top_surface_tags.append(int(extbl[index - 1][1]))
         gmsh.model.geo.synchronize()
-
-        hole_boundary = gmsh.model.getBoundary(
-            [(2, tag) for tag in bl_top_surface_tags],
-            combined=True,
-            oriented=False,
-            recursive=False,
-        )
-        hole_curves = _order_curve_loop(gmsh, [int(curve_tag) for dim, curve_tag in hole_boundary if dim == 1])
         z_center = 0.5 * (float(geometry_bounds["z_min"]) + float(geometry_bounds["z_max"]))
         x_min = float(geometry_bounds["x_min"]) - float(spec["farfield"]["upstream_chords"]) * chord_m
         x_max = float(geometry_bounds["x_max"]) + float(spec["farfield"]["downstream_chords"]) * chord_m
@@ -1789,10 +2316,51 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         l10 = gmsh.model.geo.addLine(p2, p6)
         l11 = gmsh.model.geo.addLine(p3, p7)
         l12 = gmsh.model.geo.addLine(p4, p8)
-
-        cl_hole = gmsh.model.geo.addCurveLoop(hole_curves)
-        cl_sym = gmsh.model.geo.addCurveLoop([l1, l10, -l5, -l9])
-        symmetry_surface_tag = gmsh.model.geo.addPlaneSurface([cl_sym, cl_hole])
+        if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
+            if root_closure_mode != ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES:
+                raise RuntimeError(
+                    "real-wing shell_v4 root closure must use BL-generated faces; holed symmetry faces are disabled"
+                )
+            root_closure_plan = _build_real_wing_root_closure_plan(
+                gmsh=gmsh,
+                extbl=extbl,
+                bl_top_surface_tags=bl_top_surface_tags,
+                chord_m=chord_m,
+                bl_total_thickness_m=boundary_layer_total_thickness,
+                x_min=x_min,
+                x_max=x_max,
+                z_min=z_min,
+                z_max=z_max,
+            )
+            symmetry_surface_tags, topology_checks["root_closure"] = _build_real_wing_root_closure_surfaces(
+                gmsh=gmsh,
+                plan=root_closure_plan,
+                p1_tag=p1,
+                p2_tag=p2,
+                p5_tag=p5,
+                p6_tag=p6,
+                l1_tag=l1,
+                l5_tag=l5,
+                l9_tag=l9,
+                l10_tag=l10,
+            )
+        else:
+            hole_boundary = gmsh.model.getBoundary(
+                [(2, tag) for tag in bl_top_surface_tags],
+                combined=True,
+                oriented=False,
+                recursive=False,
+            )
+            hole_curves = _order_curve_loop(gmsh, [int(curve_tag) for dim, curve_tag in hole_boundary if dim == 1])
+            topology_checks["root_closure"] = {
+                "mode": ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE,
+                "holed_symmetry_face_used": True,
+                "duplicate_curve_tags": _duplicate_curve_tags(hole_curves),
+                "patch_loop_checks": {},
+            }
+            cl_hole = gmsh.model.geo.addCurveLoop(hole_curves)
+            cl_sym = gmsh.model.geo.addCurveLoop([l1, l10, -l5, -l9])
+            symmetry_surface_tags = [int(gmsh.model.geo.addPlaneSurface([cl_sym, cl_hole]))]
         farfield_surface_tags = [
             gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop([l2, l11, -l6, -l10])]),
             gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop([l3, l12, -l7, -l11])]),
@@ -1803,7 +2371,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         fluid_volume_tag = gmsh.model.geo.addVolume(
             [
                 gmsh.model.geo.addSurfaceLoop(
-                    bl_top_surface_tags + [int(symmetry_surface_tag)] + farfield_surface_tags
+                    bl_top_surface_tags + symmetry_surface_tags + farfield_surface_tags
                 )
             ]
         )
@@ -1903,13 +2471,17 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
 
         wall_group_tag = gmsh.model.addPhysicalGroup(2, wall_surface_tags)
         gmsh.model.setPhysicalName(2, wall_group_tag, "wing_wall")
-        symmetry_group_tag = gmsh.model.addPhysicalGroup(2, [int(symmetry_surface_tag)])
+        symmetry_group_tag = gmsh.model.addPhysicalGroup(2, symmetry_surface_tags)
         gmsh.model.setPhysicalName(2, symmetry_group_tag, "symmetry")
         farfield_group_tag = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
         gmsh.model.setPhysicalName(2, farfield_group_tag, "farfield")
         fluid_group_tag = gmsh.model.addPhysicalGroup(3, [int(fluid_volume_tag), *bl_volume_tags])
         gmsh.model.setPhysicalName(3, fluid_group_tag, "fluid")
 
+        gmsh.model.mesh.generate(2)
+        if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
+            for surface_tag in topology_checks["root_closure"].get("surface_tags", {}).get("root_side", []):
+                gmsh.model.mesh.splitQuadrangles(1.0, int(surface_tag))
         gmsh.model.mesh.generate(3)
         gmsh.write(str(mesh_path))
         gmsh.write(str(mesh_dir / "mesh.su2"))
@@ -1922,8 +2494,8 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         surface_element_count = sum(len(tags) for tags in all_surface_tags)
         surface_element_type_counts = _element_type_counts(all_surface_types, all_surface_tags)
         wall_face_count, wall_element_type_counts = _count_elements_for_entities(gmsh, 2, wall_surface_tags)
-        if symmetry_surface_tag is not None:
-            symmetry_face_count, _ = _count_elements_for_entities(gmsh, 2, [int(symmetry_surface_tag)])
+        if symmetry_surface_tags:
+            symmetry_face_count, _ = _count_elements_for_entities(gmsh, 2, symmetry_surface_tags)
         farfield_face_count, _ = _count_elements_for_entities(gmsh, 2, farfield_surface_tags)
         bl_cell_count, bl_cell_type_counts = _count_elements_for_entities(gmsh, 3, bl_volume_tags)
 
@@ -1942,7 +2514,6 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     finally:
         gmsh.finalize()
 
-    boundary_layer_total_thickness = float(bl_spec["target_total_thickness_m"])
     y_plus_estimate = estimate_first_cell_yplus_range(
         velocity_mps=float(flow["velocity_mps"]),
         density_kgpm3=float(flow["density_kgpm3"]),
@@ -1970,7 +2541,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             physical_tag=symmetry_group_tag,
             physical_name="symmetry",
             dimension=2,
-            entity_count=1 if symmetry_surface_tag is not None else 0,
+            entity_count=len(symmetry_surface_tags),
             element_count=symmetry_face_count,
         ),
         "farfield": _physical_group_summary(
@@ -2086,6 +2657,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         "reference_values": reference_values,
         "flow_condition": flow,
         "mesh": mesh_summary,
+        "topology_checks": topology_checks,
         "boundary_layer": {
             "first_layer_height_m": float(bl_spec["first_layer_height_m"]),
             "growth_ratio": float(bl_spec["growth_ratio"]),
@@ -2138,6 +2710,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         "mpi_ranks": solver_result.get("mpi_ranks"),
         "omp_threads_per_rank": solver_result.get("omp_threads_per_rank"),
         "geometry_shape_mode": geometry_shape_mode,
+        "root_closure_mode": root_closure_mode,
         "comparability_classification": result_class,
         "reference_values_used": reference_values,
         "route_note": interpretation_note,
