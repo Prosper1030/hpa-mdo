@@ -400,9 +400,29 @@ def build_topology_ir_v1(
                 ),
                 local_descriptors=LocalTopologyDescriptorsV1(
                     collapse_indicators=collapse_indicators,
+                    local_clearance_m=(
+                        float(tip_candidate.get("trailing_edge_gap_m"))
+                        if tip_candidate is not None and tip_candidate.get("trailing_edge_gap_m") is not None
+                        else None
+                    ),
                     dihedral_consistency=_dihedral_consistency(lhs, rhs),
                     orientation_consistency=_orientation_consistency(lhs, rhs),
                 ),
+                metadata={
+                    "inboard_y_le_m": float(lhs.get("y_le", 0.0)),
+                    "outboard_y_le_m": float(rhs.get("y_le", 0.0)),
+                    "span_interval_m": abs(float(rhs.get("y_le", 0.0)) - float(lhs.get("y_le", 0.0))),
+                    "inboard_chord_m": float(lhs.get("chord", 0.0)),
+                    "outboard_chord_m": float(rhs.get("chord", 0.0)),
+                    **(
+                        {
+                            "terminal_trailing_edge_gap_m": float(tip_candidate.get("trailing_edge_gap_m", 0.0)),
+                            "terminal_suppression_threshold_m": float(tip_candidate.get("suppression_threshold_m", 0.0)),
+                        }
+                        if tip_candidate is not None
+                        else {}
+                    ),
+                },
                 notes=[
                     "inferred_from_rule_section_interval",
                     "not_extracted_from_native_brep_faces",

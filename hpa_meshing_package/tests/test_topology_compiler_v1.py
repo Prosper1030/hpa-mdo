@@ -9,7 +9,11 @@ from hpa_meshing.compiler.compiler_v1 import (
 )
 from hpa_meshing.compiler.motif_registry_v1 import MotifRegistryV1
 from hpa_meshing.compiler.operator_library_v1 import OperatorLibraryV1
-from hpa_meshing.compiler.pre_plc_audit_v1 import PrePLCAuditConfigV1, run_pre_plc_audit_v1
+from hpa_meshing.compiler.pre_plc_audit_v1 import (
+    PrePLCAuditConfigV1,
+    PrePLCAuditObservedEvidenceV1,
+    run_pre_plc_audit_v1,
+)
 from hpa_meshing.compiler.topology_ir_v1 import (
     LocalTopologyDescriptorsV1,
     SectionLineageV1,
@@ -346,6 +350,56 @@ def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():
     assert checks["local_clearance_vs_first_layer_height"].implemented is True
     assert checks["manifold_loop_consistency"].status == "pass"
     assert checks["segment_facet_intersection_risk"].status == "not_evaluated"
+    assert checks["segment_facet_intersection_risk"].assessment == "placeholder"
+
+
+def test_pre_plc_audit_v1_distinguishes_observed_inferred_placeholder_and_unsupported_checks():
+    ir = _build_minimal_ir().model_copy(
+        update={
+            "patches": [
+                patch.model_copy(
+                    update={
+                        "local_descriptors": patch.local_descriptors.model_copy(
+                            update={"local_clearance_m": 1.0e-5 if index == 1 else 1.2e-4}
+                        )
+                    }
+                )
+                for index, patch in enumerate(_build_minimal_ir().patches)
+            ]
+        }
+    )
+    report = run_pre_plc_audit_v1(
+        ir,
+        config=PrePLCAuditConfigV1(
+            total_boundary_layer_thickness_m=5.0e-5,
+            observed_evidence=[
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last3_segment_facet",
+                    check_kind="segment_facet_intersection_risk",
+                    error_text="PLC Error:  A segment and a facet intersect at point",
+                    selected_section_y_le_m=[0.0, 14.992006, 14.998333, 16.5],
+                ),
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last4_overlap",
+                    check_kind="facet_facet_overlap_risk",
+                    error_text="Invalid boundary mesh (overlapping facets) on surface 30 surface 34",
+                    selected_section_y_le_m=[0.0, 13.5, 14.992006, 14.998333, 16.5],
+                ),
+            ],
+        ),
+    )
+    checks = {check.kind: check for check in report.checks}
+
+    assert checks["segment_facet_intersection_risk"].assessment == "observed"
+    assert checks["segment_facet_intersection_risk"].status == "fail"
+    assert checks["facet_facet_overlap_risk"].assessment == "observed"
+    assert checks["facet_facet_overlap_risk"].status == "fail"
+    assert checks["extrusion_self_contact_risk"].assessment == "inferred"
+    assert checks["extrusion_self_contact_risk"].status == "fail"
+    assert checks["degenerated_prism_risk"].assessment == "placeholder"
+    assert checks["degenerated_prism_risk"].status == "not_evaluated"
+    assert checks["local_clearance_vs_first_layer_height"].assessment == "unsupported"
+    assert checks["local_clearance_vs_first_layer_height"].status == "not_evaluated"
 
 
 def test_topology_compiler_v1_artifacts_and_shell_role_policies_stay_separated(tmp_path: Path):
