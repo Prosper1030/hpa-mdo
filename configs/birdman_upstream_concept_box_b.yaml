@@ -1,0 +1,130 @@
+environment:
+  temperature_c: 33.0
+  relative_humidity: 80.0
+  altitude_m: 0.0
+
+mass:
+  pilot_mass_kg: 60.0
+  baseline_aircraft_mass_kg: 40.0
+  gross_mass_sweep_kg: [95.0, 100.0, 105.0]
+  design_gross_mass_kg: 105.0
+
+mission:
+  objective_mode: max_range
+  target_distance_km: 42.195
+  rider_model: fake_anchor_curve
+  anchor_power_w: 300.0
+  anchor_duration_min: 30.0
+  rider_power_curve_csv: data/pilot_power_curves/current_pilot_power_curve.csv
+  rider_power_curve_duration_column: secs
+  rider_power_curve_power_column: watts
+  speed_sweep_min_mps: 6.0
+  speed_sweep_max_mps: 10.0
+  speed_sweep_points: 9
+
+segmentation:
+  min_segment_length_m: 1.0
+  max_segment_length_m: 3.0
+
+launch:
+  mode: restrained_pre_spin
+  prop_ready_before_release: true
+  release_speed_mps: 8.0
+  release_rpm: 140.0
+  min_trim_margin_deg: 2.0
+  platform_height_m: 10.0
+  runup_length_m: 10.0
+  use_ground_effect: true
+
+stall_model:
+  safe_clmax_scale: 0.90
+  safe_clmax_delta: 0.05
+  tip_3d_penalty_start_eta: 0.55
+  tip_3d_penalty_max: 0.04
+  tip_taper_penalty_weight: 0.35
+  washout_relief_deg: 2.0
+  washout_relief_max: 0.02
+  local_stall_utilization_limit: 0.80
+  turn_utilization_limit: 0.85
+  launch_utilization_limit: 0.75
+
+prop:
+  blade_count: 2
+  diameter_m: 3.0
+  rpm_min: 100.0
+  rpm_max: 160.0
+  position_mode: between_wing_and_tail
+
+turn:
+  required_bank_angle_deg: 15.0
+
+tail_model:
+  wing_ac_xc: 0.25
+  tail_arm_to_mac: 4.0
+  tail_dynamic_pressure_ratio: 0.90
+  tail_efficiency: 0.90
+  tail_cl_limit_abs: 0.80
+  tail_aspect_ratio: 5.0
+  tail_oswald_efficiency: 0.85
+  body_cm_offset: 0.0
+  cm_spread_factor: 0.50
+
+geometry_family:
+  sampling:
+    mode: latin_hypercube
+    sample_count: 72
+    seed: 42
+    scramble: true
+  primary_ranges:
+    span_m:
+      min: 30.0
+      max: 36.0
+    wing_loading_target_Npm2:
+      min: 19.0
+      max: 34.0
+    taper_ratio:
+      min: 0.24
+      max: 0.40
+    tip_twist_deg:
+      min: -3.0
+      max: -0.5
+  hard_constraints:
+    wing_area_m2_range:
+      min: 28.0
+      max: 54.0
+    aspect_ratio_range:
+      min: 24.0
+      max: 36.0
+    root_chord_min_m: 1.20
+    tip_chord_min_m: 0.30
+    segment_min_chord_m: 0.32
+    root_zone_min_tc_ratio: 0.14
+    root_zone_spar_depth_fraction: 0.62
+    root_zone_required_spar_depth_m: 0.10
+  twist_root_deg: 2.0
+  tail_area_candidates_m2: [3.8, 4.2, 4.6]
+  dihedral_root_deg_candidates: [0.0, 1.0, 2.0]
+  dihedral_tip_deg_candidates: [4.0, 6.0, 8.0]
+  dihedral_exponent_candidates: [1.0, 1.5, 2.0]
+
+cst_search:
+  thickness_delta_levels: [-0.022, -0.018, -0.014, -0.010, -0.006, 0.0, 0.006, 0.010, 0.014, 0.018, 0.022]
+  camber_delta_levels: [-0.016, -0.012, -0.008, -0.004, 0.0, 0.004, 0.008, 0.012, 0.016]
+  coarse_to_fine_enabled: true
+  coarse_thickness_stride: 3
+  coarse_camber_stride: 2
+  coarse_keep_top_k: 3
+  refine_neighbor_radius: 1
+  successive_halving_enabled: true
+  successive_halving_rounds: 2
+  successive_halving_beam_width: 6
+
+pipeline:
+  stations_per_half: 7
+  keep_top_n: 8
+  finalist_full_sweep_top_l: 4
+
+output:
+  export_candidate_bundle: true
+  export_vsp: false
+  export_vsp_for_top_n: 0
