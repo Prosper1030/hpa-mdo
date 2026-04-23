@@ -426,6 +426,25 @@ def test_write_concept_wing_only_avl_can_use_selected_zone_airfoils(tmp_path: Pa
     assert str(airfoil_paths["tip"]) in avl_text
 
 
+def test_write_concept_wing_only_avl_uses_mac_as_cref(tmp_path: Path) -> None:
+    concept = _sample_concept()
+    stations = build_linear_wing_stations(concept, stations_per_half=7)
+
+    avl_path = write_concept_wing_only_avl(
+        concept=concept,
+        stations=stations,
+        output_path=tmp_path / "concept_wing.avl",
+    )
+
+    avl_lines = avl_path.read_text(encoding="utf-8").splitlines()
+    sref_line_index = avl_lines.index("#Sref  Cref  Bref") + 1
+    sref_m2, cref_m, bref_m = [float(token) for token in avl_lines[sref_line_index].split()]
+
+    assert sref_m2 == pytest.approx(concept.wing_area_m2)
+    assert cref_m == pytest.approx(concept.mean_aerodynamic_chord_m)
+    assert bref_m == pytest.approx(concept.span_m)
+
+
 def test_load_zone_requirements_from_avl_applies_reference_override_and_case_tag(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

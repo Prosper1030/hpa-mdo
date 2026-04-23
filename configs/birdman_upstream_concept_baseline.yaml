@@ -7,6 +7,7 @@ mass:
   pilot_mass_kg: 60.0
   baseline_aircraft_mass_kg: 40.0
   gross_mass_sweep_kg: [95.0, 100.0, 105.0]
+  design_gross_mass_kg: 105.0
 
 mission:
   objective_mode: max_range
@@ -66,10 +67,38 @@ tail_model:
   cm_spread_factor: 0.50
 
 geometry_family:
-  span_candidates_m: [30.0, 32.0, 34.0]
-  wing_area_candidates_m2: [26.0, 28.0, 30.0]
-  taper_ratio_candidates: [0.30, 0.35, 0.40]
-  twist_tip_candidates_deg: [-2.0, -1.5, -1.0]
+  sampling:
+    mode: latin_hypercube
+    sample_count: 48
+    seed: 42
+    scramble: true
+  primary_ranges:
+    span_m:
+      min: 30.0
+      max: 36.0
+    wing_loading_target_Npm2:
+      min: 26.0
+      max: 34.0
+    taper_ratio:
+      min: 0.24
+      max: 0.40
+    tip_twist_deg:
+      min: -3.0
+      max: -0.5
+  hard_constraints:
+    wing_area_m2_range:
+      min: 28.0
+      max: 42.0
+    aspect_ratio_range:
+      min: 24.0
+      max: 36.0
+    root_chord_min_m: 1.20
+    tip_chord_min_m: 0.30
+    segment_min_chord_m: 0.32
+    root_zone_min_tc_ratio: 0.14
+    root_zone_spar_depth_fraction: 0.62
+    root_zone_required_spar_depth_m: 0.10
+  twist_root_deg: 2.0
   tail_area_candidates_m2: [3.8, 4.2, 4.6]
   dihedral_root_deg_candidates: [0.0, 1.0, 2.0]
   dihedral_tip_deg_candidates: [4.0, 6.0, 8.0]

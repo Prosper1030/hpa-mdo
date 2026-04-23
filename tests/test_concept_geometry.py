@@ -2,12 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from hpa_mdo.concept.config import load_concept_config
+from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
     GeometryConcept,
     build_linear_wing_stations,
     build_segment_plan,
     enumerate_geometry_concepts,
+    get_last_geometry_enumeration_diagnostics,
 )
 
 
@@ -233,15 +234,53 @@ def test_enumerate_geometry_concepts_generates_multiple_candidates():
         Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     )
     concepts = enumerate_geometry_concepts(cfg)
+    diagnostics = get_last_geometry_enumeration_diagnostics()
 
-    assert len(concepts) == 6561
+    assert diagnostics is not None
+    assert diagnostics.sampling_mode == "latin_hypercube"
+    assert diagnostics.requested_sample_count == 48
+    assert 1 <= len(concepts) <= diagnostics.requested_sample_count
 
     first = concepts[0]
-    assert first.span_m == pytest.approx(30.0)
-    assert first.wing_area_m2 == pytest.approx(26.0)
-    assert first.root_chord_m == pytest.approx(52.0 / 39.0)
-    assert first.tip_chord_m == pytest.approx((52.0 / 39.0) * 0.30)
-    assert first.dihedral_root_deg == pytest.approx(0.0)
-    assert first.dihedral_tip_deg == pytest.approx(4.0)
-    assert first.dihedral_exponent == pytest.approx(1.0)
+    assert first.wing_loading_target_Npm2 is not None
+    assert first.wing_area_is_derived is True
+    assert first.design_gross_mass_kg == pytest.approx(105.0)
+    assert first.wing_area_m2 == pytest.approx(
+        cfg.design_gross_weight_n / first.wing_loading_target_Npm2
+    )
+    assert first.root_chord_m == pytest.approx(
+        2.0
+        * first.wing_area_m2
+        / (first.span_m * (1.0 + first.taper_ratio))
+    )
+    assert first.tip_chord_m == pytest.approx(first.root_chord_m * first.taper_ratio)
     assert sum(first.segment_lengths_m) == pytest.approx(first.span_m / 2.0)
+    assert any(abs(concept.span_m - round(concept.span_m)) > 1.0e-6 for concept in concepts)
+    assert any(
+        abs(float(concept.wing_loading_target_Npm2) - round(float(concept.wing_loading_target_Npm2)))
+        > 1.0e-6
+        for concept in concepts
+        if concept.wing_loading_target_Npm2 is not None
+    )
+
+
+def test_enumerate_geometry_concepts_tracks_clear_rejection_reasons():
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["geometry_family"]["sampling"]["sample_count"] = 4
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 30.0, "max": 30.0},
+        "wing_loading_target_Npm2": {"min": 34.0, "max": 34.0},
+        "taper_ratio": {"min": 0.24, "max": 0.24},
+        "tip_twist_deg": {"min": -1.0, "max": -1.0},
+    }
+    payload["geometry_family"]["hard_constraints"]["root_chord_min_m"] = 1.80
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+    diagnostics = get_last_geometry_enumeration_diagnostics()
+
+    assert concepts == ()
+    assert diagnostics is not None
+    assert diagnostics.rejected_concept_count == 4
+    assert diagnostics.rejection_reason_counts["root_chord_below_min"] == 4

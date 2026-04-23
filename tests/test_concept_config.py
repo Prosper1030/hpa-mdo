@@ -41,8 +41,22 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.turn.required_bank_angle_deg == pytest.approx(15.0)
     assert cfg.segmentation.min_segment_length_m == pytest.approx(1.0)
     assert cfg.segmentation.max_segment_length_m == pytest.approx(3.0)
-    assert cfg.geometry_family.span_candidates_m == (30.0, 32.0, 34.0)
-    assert cfg.geometry_family.taper_ratio_candidates == (0.30, 0.35, 0.40)
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)
+    assert cfg.geometry_family.sampling.mode == "latin_hypercube"
+    assert cfg.geometry_family.sampling.sample_count == 48
+    assert cfg.geometry_family.primary_ranges.span_m.min == pytest.approx(30.0)
+    assert cfg.geometry_family.primary_ranges.span_m.max == pytest.approx(36.0)
+    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(26.0)
+    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(34.0)
+    assert cfg.geometry_family.primary_ranges.taper_ratio.min == pytest.approx(0.24)
+    assert cfg.geometry_family.primary_ranges.taper_ratio.max == pytest.approx(0.40)
+    assert cfg.geometry_family.primary_ranges.tip_twist_deg.min == pytest.approx(-3.0)
+    assert cfg.geometry_family.primary_ranges.tip_twist_deg.max == pytest.approx(-0.5)
+    assert cfg.geometry_family.hard_constraints.root_chord_min_m == pytest.approx(1.20)
+    assert cfg.geometry_family.hard_constraints.tip_chord_min_m == pytest.approx(0.30)
+    assert cfg.geometry_family.hard_constraints.wing_area_m2_range.min == pytest.approx(28.0)
+    assert cfg.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(42.0)
+    assert cfg.geometry_family.twist_root_deg == pytest.approx(2.0)
     assert cfg.geometry_family.dihedral_root_deg_candidates == (0.0, 1.0, 2.0)
     assert cfg.geometry_family.dihedral_tip_deg_candidates == (4.0, 6.0, 8.0)
     assert cfg.geometry_family.dihedral_exponent_candidates == (1.0, 1.5, 2.0)
@@ -234,10 +248,11 @@ def test_load_concept_config_treats_reference_mass_as_independent():
 
     assert cfg.mass.baseline_aircraft_mass_kg == pytest.approx(40.0)
     assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)
 
 
 def test_load_concept_config_rejects_impossible_geometry_candidates():
-    with pytest.raises(ValueError, match="geometry_family"):
+    with pytest.raises(ValueError, match="primary_ranges"):
         BirdmanConceptConfig.model_validate(
             {
                 "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
@@ -248,10 +263,12 @@ def test_load_concept_config_rejects_impossible_geometry_candidates():
                 },
                 "mission": {"target_distance_km": 42.195},
                 "geometry_family": {
-                    "span_candidates_m": [30.0, -32.0, 34.0],
-                    "wing_area_candidates_m2": [26.0, 28.0, 30.0],
-                    "taper_ratio_candidates": [0.3, 1.2, 0.4],
-                    "twist_tip_candidates_deg": [-2.0, -90.0, -1.0],
+                    "primary_ranges": {
+                        "span_m": {"min": -32.0, "max": 34.0},
+                        "wing_loading_target_Npm2": {"min": 26.0, "max": 34.0},
+                        "taper_ratio": {"min": 0.3, "max": 1.2},
+                        "tip_twist_deg": {"min": -90.0, "max": -1.0},
+                    },
                     "tail_area_candidates_m2": [3.8, 4.2, 4.6],
                 },
             }
@@ -259,7 +276,7 @@ def test_load_concept_config_rejects_impossible_geometry_candidates():
 
 
 def test_load_concept_config_rejects_twist_out_of_bounds():
-    with pytest.raises(ValueError, match="twist_tip_candidates_deg"):
+    with pytest.raises(ValueError, match="tip_twist_deg"):
         BirdmanConceptConfig.model_validate(
             {
                 "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
@@ -270,10 +287,12 @@ def test_load_concept_config_rejects_twist_out_of_bounds():
                 },
                 "mission": {"target_distance_km": 42.195},
                 "geometry_family": {
-                    "span_candidates_m": [30.0, 32.0, 34.0],
-                    "wing_area_candidates_m2": [26.0, 28.0, 30.0],
-                    "taper_ratio_candidates": [0.3, 0.35, 0.4],
-                    "twist_tip_candidates_deg": [-2.0, -10.1, -1.0],
+                    "primary_ranges": {
+                        "span_m": {"min": 30.0, "max": 34.0},
+                        "wing_loading_target_Npm2": {"min": 26.0, "max": 34.0},
+                        "taper_ratio": {"min": 0.3, "max": 0.4},
+                        "tip_twist_deg": {"min": -10.1, "max": -1.0},
+                    },
                     "tail_area_candidates_m2": [3.8, 4.2, 4.6],
                 },
             }
@@ -281,7 +300,7 @@ def test_load_concept_config_rejects_twist_out_of_bounds():
 
 
 def test_load_concept_config_rejects_duplicate_geometry_candidates():
-    with pytest.raises(ValueError, match="span_candidates_m"):
+    with pytest.raises(ValueError, match="tail_area_candidates_m2"):
         BirdmanConceptConfig.model_validate(
             {
                 "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
@@ -292,11 +311,7 @@ def test_load_concept_config_rejects_duplicate_geometry_candidates():
                 },
                 "mission": {"target_distance_km": 42.195},
                 "geometry_family": {
-                    "span_candidates_m": [30.0, 30.0, 34.0],
-                    "wing_area_candidates_m2": [26.0, 28.0, 30.0],
-                    "taper_ratio_candidates": [0.3, 0.35, 0.4],
-                    "twist_tip_candidates_deg": [-2.0, -1.5, -1.0],
-                    "tail_area_candidates_m2": [3.8, 4.2, 4.6],
+                    "tail_area_candidates_m2": [3.8, 4.2, 4.2],
                 },
             }
         )
@@ -353,10 +368,12 @@ def test_load_concept_config_rejects_invalid_dihedral_candidate_bounds():
                 },
                 "mission": {"target_distance_km": 42.195},
                 "geometry_family": {
-                    "span_candidates_m": [30.0, 32.0, 34.0],
-                    "wing_area_candidates_m2": [26.0, 28.0, 30.0],
-                    "taper_ratio_candidates": [0.3, 0.35, 0.4],
-                    "twist_tip_candidates_deg": [-2.0, -1.5, -1.0],
+                    "primary_ranges": {
+                        "span_m": {"min": 30.0, "max": 36.0},
+                        "wing_loading_target_Npm2": {"min": 26.0, "max": 34.0},
+                        "taper_ratio": {"min": 0.3, "max": 0.4},
+                        "tip_twist_deg": {"min": -2.0, "max": -1.0},
+                    },
                     "tail_area_candidates_m2": [3.8, 4.2, 4.6],
                     "dihedral_root_deg_candidates": [2.0, 4.0, 6.0],
                     "dihedral_tip_deg_candidates": [1.0, 3.0, 5.0],

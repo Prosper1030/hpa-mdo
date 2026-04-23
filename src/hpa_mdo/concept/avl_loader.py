@@ -599,8 +599,11 @@ def _concept_case_slug(concept: GeometryConcept) -> str:
     payload = {
         "span_m": concept.span_m,
         "wing_area_m2": concept.wing_area_m2,
+        "wing_loading_target_Npm2": concept.wing_loading_target_Npm2,
+        "wing_area_source": concept.wing_area_source,
         "root_chord_m": concept.root_chord_m,
         "tip_chord_m": concept.tip_chord_m,
+        "mean_aerodynamic_chord_m": concept.mean_aerodynamic_chord_m,
         "twist_root_deg": concept.twist_root_deg,
         "twist_tip_deg": concept.twist_tip_deg,
         "dihedral_root_deg": concept.dihedral_root_deg,
@@ -608,6 +611,7 @@ def _concept_case_slug(concept: GeometryConcept) -> str:
         "dihedral_exponent": concept.dihedral_exponent,
         "tail_area_m2": concept.tail_area_m2,
         "cg_xc": concept.cg_xc,
+        "design_gross_mass_kg": concept.design_gross_mass_kg,
         "segment_lengths_m": list(concept.segment_lengths_m),
     }
     digest = hashlib.sha1(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
@@ -670,7 +674,7 @@ def write_concept_wing_only_avl(
 
     z_positions = _station_z_positions(stations)
     half_span_m = 0.5 * float(concept.span_m)
-    c_ref_m = 0.5 * (float(concept.root_chord_m) + float(concept.tip_chord_m))
+    c_ref_m = float(concept.mean_aerodynamic_chord_m)
     # AVL needs appreciably more spanwise vortices than section breaks once
     # multiple section airfoils are present, otherwise it aborts before trim
     # with "Insufficient number of spanwise vortices to work with."

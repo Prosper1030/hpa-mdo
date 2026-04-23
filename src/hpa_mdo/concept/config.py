@@ -28,6 +28,15 @@ class MassConfig(ConceptBaseModel):
     # Reference aircraft mass is a starting estimate, not a lower bound on
     # the independently swept total gross-mass cases.
     gross_mass_sweep_kg: tuple[float, ...] = Field(..., min_length=3, max_length=3)
+    design_gross_mass_kg: float | None = Field(
+        None,
+        gt=0.0,
+        description=(
+            "Mass case used to derive the primary wing sizing geometry. "
+            "Defaults to the heaviest gross_mass_sweep_kg case so the concept "
+            "line does not under-size the wing around an optimistic mass."
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_gross_mass_sweep(self) -> MassConfig:
@@ -38,6 +47,16 @@ class MassConfig(ConceptBaseModel):
             for earlier, later in zip(self.gross_mass_sweep_kg, self.gross_mass_sweep_kg[1:])
         ):
             raise ValueError("mass.gross_mass_sweep_kg must be non-decreasing.")
+        if self.design_gross_mass_kg is None:
+            self.design_gross_mass_kg = float(max(self.gross_mass_sweep_kg))
+        if not (
+            min(self.gross_mass_sweep_kg)
+            <= float(self.design_gross_mass_kg)
+            <= max(self.gross_mass_sweep_kg)
+        ):
+            raise ValueError(
+                "mass.design_gross_mass_kg must lie within mass.gross_mass_sweep_kg."
+            )
         return self
 
 
@@ -139,11 +158,88 @@ class TailModelConfig(ConceptBaseModel):
     cm_spread_factor: float = Field(0.50, ge=0.0)
 
 
+class ContinuousRangeConfig(ConceptBaseModel):
+    min: float
+    max: float
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> ContinuousRangeConfig:
+        if self.max < self.min:
+            raise ValueError("range.max must be >= range.min.")
+        return self
+
+
+class GeometrySamplingConfig(ConceptBaseModel):
+    mode: Literal["latin_hypercube", "sobol", "uniform_random", "linspace_grid"] = (
+        "latin_hypercube"
+    )
+    sample_count: int = Field(48, ge=1)
+    seed: int = 42
+    scramble: bool = True
+
+
+class GeometryPrimaryRangesConfig(ConceptBaseModel):
+    span_m: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=30.0, max=36.0)
+    )
+    wing_loading_target_Npm2: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=26.0, max=34.0)
+    )
+    taper_ratio: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=0.24, max=0.40)
+    )
+    tip_twist_deg: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=-3.0, max=-0.5)
+    )
+
+    @model_validator(mode="after")
+    def validate_ranges(self) -> GeometryPrimaryRangesConfig:
+        if self.span_m.min <= 0.0:
+            raise ValueError("geometry_family.primary_ranges.span_m must stay positive.")
+        if self.wing_loading_target_Npm2.min <= 0.0:
+            raise ValueError(
+                "geometry_family.primary_ranges.wing_loading_target_Npm2 must stay positive."
+            )
+        if self.taper_ratio.min <= 0.0 or self.taper_ratio.max > 1.0:
+            raise ValueError(
+                "geometry_family.primary_ranges.taper_ratio must stay within (0, 1]."
+            )
+        if self.tip_twist_deg.min < -10.0 or self.tip_twist_deg.max > 10.0:
+            raise ValueError(
+                "geometry_family.primary_ranges.tip_twist_deg must stay within [-10, 10]."
+            )
+        return self
+
+
+class GeometryHardConstraintConfig(ConceptBaseModel):
+    wing_area_m2_range: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=28.0, max=42.0)
+    )
+    aspect_ratio_range: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=24.0, max=36.0)
+    )
+    root_chord_min_m: float = Field(1.20, gt=0.0)
+    tip_chord_min_m: float = Field(0.30, gt=0.0)
+    segment_min_chord_m: float = Field(0.32, gt=0.0)
+    root_zone_min_tc_ratio: float = Field(0.14, gt=0.0, le=1.0)
+    root_zone_spar_depth_fraction: float = Field(0.62, gt=0.0, le=1.0)
+    root_zone_required_spar_depth_m: float = Field(0.10, gt=0.0)
+
+
 class GeometryFamilyConfig(ConceptBaseModel):
-    span_candidates_m: tuple[float, ...] = Field((30.0, 32.0, 34.0), min_length=1)
-    wing_area_candidates_m2: tuple[float, ...] = Field((26.0, 28.0, 30.0), min_length=1)
-    taper_ratio_candidates: tuple[float, ...] = Field((0.30, 0.35, 0.40), min_length=1)
-    twist_tip_candidates_deg: tuple[float, ...] = Field((-2.0, -1.5, -1.0), min_length=1)
+    sampling: GeometrySamplingConfig = Field(default_factory=GeometrySamplingConfig)
+    primary_ranges: GeometryPrimaryRangesConfig = Field(
+        default_factory=GeometryPrimaryRangesConfig
+    )
+    hard_constraints: GeometryHardConstraintConfig = Field(
+        default_factory=GeometryHardConstraintConfig
+    )
+    twist_root_deg: float = Field(
+        2.0,
+        description=(
+            "Root twist stays fixed so tip_twist_deg remains the primary wing twist variable."
+        ),
+    )
     tail_area_candidates_m2: tuple[float, ...] = Field((3.8, 4.2, 4.6), min_length=1)
     dihedral_root_deg_candidates: tuple[float, ...] = Field((0.0, 1.0, 2.0), min_length=1)
     dihedral_tip_deg_candidates: tuple[float, ...] = Field((4.0, 6.0, 8.0), min_length=1)
@@ -151,14 +247,6 @@ class GeometryFamilyConfig(ConceptBaseModel):
 
     @model_validator(mode="after")
     def validate_candidate_ranges(self) -> GeometryFamilyConfig:
-        if len(set(self.span_candidates_m)) != len(self.span_candidates_m):
-            raise ValueError("geometry_family.span_candidates_m entries must be unique.")
-        if len(set(self.wing_area_candidates_m2)) != len(self.wing_area_candidates_m2):
-            raise ValueError("geometry_family.wing_area_candidates_m2 entries must be unique.")
-        if len(set(self.taper_ratio_candidates)) != len(self.taper_ratio_candidates):
-            raise ValueError("geometry_family.taper_ratio_candidates entries must be unique.")
-        if len(set(self.twist_tip_candidates_deg)) != len(self.twist_tip_candidates_deg):
-            raise ValueError("geometry_family.twist_tip_candidates_deg entries must be unique.")
         if len(set(self.tail_area_candidates_m2)) != len(self.tail_area_candidates_m2):
             raise ValueError("geometry_family.tail_area_candidates_m2 entries must be unique.")
         if len(set(self.dihedral_root_deg_candidates)) != len(self.dihedral_root_deg_candidates):
@@ -170,18 +258,6 @@ class GeometryFamilyConfig(ConceptBaseModel):
         if len(set(self.dihedral_exponent_candidates)) != len(self.dihedral_exponent_candidates):
             raise ValueError(
                 "geometry_family.dihedral_exponent_candidates entries must be unique."
-            )
-        if any(span <= 0.0 for span in self.span_candidates_m):
-            raise ValueError("geometry_family.span_candidates_m entries must all be positive.")
-        if any(area <= 0.0 for area in self.wing_area_candidates_m2):
-            raise ValueError("geometry_family.wing_area_candidates_m2 entries must all be positive.")
-        if any(taper <= 0.0 or taper > 1.0 for taper in self.taper_ratio_candidates):
-            raise ValueError(
-                "geometry_family.taper_ratio_candidates entries must be in the interval (0, 1]."
-            )
-        if any(twist < -10.0 or twist > 10.0 for twist in self.twist_tip_candidates_deg):
-            raise ValueError(
-                "geometry_family.twist_tip_candidates_deg entries must be in the interval [-10, 10]."
             )
         if any(tail_area <= 0.0 for tail_area in self.tail_area_candidates_m2):
             raise ValueError("geometry_family.tail_area_candidates_m2 entries must all be positive.")
@@ -201,6 +277,8 @@ class GeometryFamilyConfig(ConceptBaseModel):
             raise ValueError(
                 "geometry_family.dihedral_exponent_candidates entries must be positive."
             )
+        if self.twist_root_deg < -10.0 or self.twist_root_deg > 10.0:
+            raise ValueError("geometry_family.twist_root_deg must be in the interval [-10, 10].")
         return self
 
 
@@ -297,6 +375,10 @@ class BirdmanConceptConfig(ConceptBaseModel):
         if self.output.export_vsp_for_top_n > self.pipeline.keep_top_n:
             raise ValueError("output.export_vsp_for_top_n must be <= pipeline.keep_top_n.")
         return self
+
+    @property
+    def design_gross_weight_n(self) -> float:
+        return float(self.mass.design_gross_mass_kg) * 9.80665
 
 
 def load_concept_config(path: str | Path) -> BirdmanConceptConfig:

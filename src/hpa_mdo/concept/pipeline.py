@@ -26,6 +26,7 @@ from hpa_mdo.concept.geometry import (
     WingStation,
     build_linear_wing_stations,
     enumerate_geometry_concepts,
+    get_last_geometry_enumeration_diagnostics,
 )
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
@@ -545,6 +546,12 @@ def _annotate_zone_requirements_with_concept_geometry(
                     "span_fraction": float(point.get("span_fraction", span_fraction)),
                     "taper_ratio": float(point.get("taper_ratio", taper_ratio)),
                     "washout_deg": float(point.get("washout_deg", washout_deg)),
+                    "wing_loading_target_Npm2": (
+                        None
+                        if concept.wing_loading_target_Npm2 is None
+                        else float(concept.wing_loading_target_Npm2)
+                    ),
+                    "wing_area_source": str(concept.wing_area_source),
                 }
             )
         annotated[zone_name] = {
@@ -552,6 +559,12 @@ def _annotate_zone_requirements_with_concept_geometry(
             "points": points,
             "taper_ratio": float(zone_data.get("taper_ratio", taper_ratio)),
             "washout_deg": float(zone_data.get("washout_deg", washout_deg)),
+            "wing_loading_target_Npm2": (
+                None
+                if concept.wing_loading_target_Npm2 is None
+                else float(concept.wing_loading_target_Npm2)
+            ),
+            "wing_area_source": str(concept.wing_area_source),
         }
     return annotated
 
@@ -2464,6 +2477,34 @@ def _worker_fidelity_summary(worker_results: list[dict[str, object]]) -> dict[st
     }
 
 
+def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
+    return {
+        "primary_variables": {
+            "span_m": float(concept.span_m),
+            "wing_loading_target_Npm2": (
+                None
+                if concept.wing_loading_target_Npm2 is None
+                else float(concept.wing_loading_target_Npm2)
+            ),
+            "taper_ratio": float(concept.taper_ratio),
+            "tip_twist_deg": float(concept.twist_tip_deg),
+        },
+        "derived_geometry": {
+            "wing_area_m2": float(concept.wing_area_m2),
+            "root_chord_m": float(concept.root_chord_m),
+            "tip_chord_m": float(concept.tip_chord_m),
+            "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
+            "aspect_ratio": float(concept.aspect_ratio),
+            "wing_area_source": str(concept.wing_area_source),
+            "design_gross_mass_kg": (
+                None
+                if concept.design_gross_mass_kg is None
+                else float(concept.design_gross_mass_kg)
+            ),
+        },
+    }
+
+
 def _concept_to_bundle_payload(
     *,
     cfg: BirdmanConceptConfig,
@@ -2493,19 +2534,33 @@ def _concept_to_bundle_payload(
     dict[str, Any],
 ]:
     concept_config = cfg.model_dump(mode="python")
+    geometry_summary = _concept_geometry_summary(concept)
     concept_config["geometry"] = {
-        "span_m": concept.span_m,
-        "wing_area_m2": concept.wing_area_m2,
-        "root_chord_m": concept.root_chord_m,
-        "tip_chord_m": concept.tip_chord_m,
-        "twist_root_deg": concept.twist_root_deg,
-        "twist_tip_deg": concept.twist_tip_deg,
-        "dihedral_root_deg": concept.dihedral_root_deg,
-        "dihedral_tip_deg": concept.dihedral_tip_deg,
-        "dihedral_exponent": concept.dihedral_exponent,
-        "tail_area_m2": concept.tail_area_m2,
-        "cg_xc": concept.cg_xc,
+        "span_m": float(concept.span_m),
+        "wing_loading_target_Npm2": (
+            None
+            if concept.wing_loading_target_Npm2 is None
+            else float(concept.wing_loading_target_Npm2)
+        ),
+        "wing_area_m2": float(concept.wing_area_m2),
+        "wing_area_source": str(concept.wing_area_source),
+        "root_chord_m": float(concept.root_chord_m),
+        "tip_chord_m": float(concept.tip_chord_m),
+        "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
+        "aspect_ratio": float(concept.aspect_ratio),
+        "twist_root_deg": float(concept.twist_root_deg),
+        "twist_tip_deg": float(concept.twist_tip_deg),
+        "dihedral_root_deg": float(concept.dihedral_root_deg),
+        "dihedral_tip_deg": float(concept.dihedral_tip_deg),
+        "dihedral_exponent": float(concept.dihedral_exponent),
+        "tail_area_m2": float(concept.tail_area_m2),
+        "cg_xc": float(concept.cg_xc),
         "segment_lengths_m": list(concept.segment_lengths_m),
+        "design_gross_mass_kg": (
+            None
+            if concept.design_gross_mass_kg is None
+            else float(concept.design_gross_mass_kg)
+        ),
     }
 
     stations_rows = [
@@ -2548,8 +2603,16 @@ def _concept_to_bundle_payload(
         "concept_id": f"concept-{concept_index:02d}",
         "enumeration_index": enumeration_index,
         "rank": concept_index,
-        "span_m": concept.span_m,
-        "wing_area_m2": concept.wing_area_m2,
+        "span_m": float(concept.span_m),
+        "wing_area_m2": float(concept.wing_area_m2),
+        "wing_loading_target_Npm2": (
+            None
+            if concept.wing_loading_target_Npm2 is None
+            else float(concept.wing_loading_target_Npm2)
+        ),
+        "wing_area_source": str(concept.wing_area_source),
+        "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
+        "aspect_ratio": float(concept.aspect_ratio),
         "station_count": len(stations),
         "zone_count": len(zone_requirements),
         "worker_result_count": len(worker_results),
@@ -2573,6 +2636,7 @@ def _concept_to_bundle_payload(
         "spanwise_requirements": spanwise_requirement_summary,
         "mission": mission_summary,
         "ranking": ranking_summary,
+        **geometry_summary,
     }
     return (
         concept_config,
@@ -2596,9 +2660,10 @@ def run_birdman_concept_pipeline(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     all_concepts = enumerate_geometry_concepts(cfg)
+    geometry_diagnostics = get_last_geometry_enumeration_diagnostics()
     if len(all_concepts) < 3:
         raise RuntimeError("Birdman concept enumeration must yield at least 3 candidate concepts.")
-    concepts = all_concepts[: cfg.pipeline.keep_top_n]
+    concepts = all_concepts
 
     repo_root = _repo_root()
     worker = airfoil_worker_factory(project_dir=repo_root, cache_dir=output_dir / "polar_db")
@@ -2910,14 +2975,15 @@ def run_birdman_concept_pipeline(
     best_infeasible_records: list[dict[str, Any]] = []
 
     selected_ranked = [ranked for ranked in ranked_concepts if ranked.fully_feasible]
+    selected_output_ranked = selected_ranked[: int(cfg.pipeline.keep_top_n)]
     infeasible_ranked = [ranked for ranked in ranked_concepts if not ranked.fully_feasible]
     best_infeasible_ranked = (
         infeasible_ranked[:1]
-        if selected_ranked
+        if selected_output_ranked
         else infeasible_ranked[: int(cfg.pipeline.keep_top_n)]
     )
 
-    for concept_index, ranked in enumerate(selected_ranked, start=1):
+    for concept_index, ranked in enumerate(selected_output_ranked, start=1):
         record = evaluated_by_id[ranked.concept_id]
         ranking_summary = {
             "score": ranked.score,
@@ -2931,7 +2997,7 @@ def run_birdman_concept_pipeline(
             "fully_feasible": ranked.fully_feasible,
             "assembly_penalty": record.ranking_input.assembly_penalty,
             "ranking_basis": "feasibility_first_contract_aligned_v2",
-            "selection_scope": "ranked_bounded_prefix_pool",
+            "selection_scope": "ranked_sampled_pool",
         }
         spanwise_requirement_summary = _summarize_spanwise_requirements(
             record.zone_requirements,
@@ -2990,6 +3056,14 @@ def run_birdman_concept_pipeline(
                 "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
                 "span_m": record.concept.span_m,
                 "wing_area_m2": record.concept.wing_area_m2,
+                "wing_loading_target_Npm2": (
+                    None
+                    if record.concept.wing_loading_target_Npm2 is None
+                    else float(record.concept.wing_loading_target_Npm2)
+                ),
+                "wing_area_source": str(record.concept.wing_area_source),
+                "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
+                "aspect_ratio": float(record.concept.aspect_ratio),
                 "zone_count": len(record.zone_requirements),
                 "worker_result_count": len(record.worker_results),
                 "worker_backend": record.worker_backend,
@@ -3012,6 +3086,7 @@ def run_birdman_concept_pipeline(
                 "spanwise_requirements": spanwise_requirement_summary,
                 "mission": record.mission_summary,
                 "ranking": ranking_summary,
+                **_concept_geometry_summary(record.concept),
             }
         )
 
@@ -3059,7 +3134,7 @@ def run_birdman_concept_pipeline(
                     "fully_feasible": ranked.fully_feasible,
                     "assembly_penalty": record.ranking_input.assembly_penalty,
                     "ranking_basis": "feasibility_first_contract_aligned_v2",
-                    "selection_scope": "ranked_bounded_prefix_pool",
+                    "selection_scope": "ranked_sampled_pool",
                 },
                 spanwise_requirement_summary=spanwise_requirement_summary,
             )
@@ -3092,6 +3167,14 @@ def run_birdman_concept_pipeline(
                 "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
                 "span_m": record.concept.span_m,
                 "wing_area_m2": record.concept.wing_area_m2,
+                "wing_loading_target_Npm2": (
+                    None
+                    if record.concept.wing_loading_target_Npm2 is None
+                    else float(record.concept.wing_loading_target_Npm2)
+                ),
+                "wing_area_source": str(record.concept.wing_area_source),
+                "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
+                "aspect_ratio": float(record.concept.aspect_ratio),
                 "zone_count": len(record.zone_requirements),
                 "worker_result_count": len(record.worker_results),
                 "worker_backend": record.worker_backend,
@@ -3125,10 +3208,45 @@ def run_birdman_concept_pipeline(
                     "fully_feasible": ranked.fully_feasible,
                     "assembly_penalty": record.ranking_input.assembly_penalty,
                     "ranking_basis": "feasibility_first_contract_aligned_v2",
-                    "selection_scope": "ranked_bounded_prefix_pool",
+                    "selection_scope": "ranked_sampled_pool",
                 },
+                **_concept_geometry_summary(record.concept),
             }
         )
+
+    geometry_sampling_summary = {
+        "sampling_mode": (
+            None
+            if geometry_diagnostics is None
+            else str(geometry_diagnostics.sampling_mode)
+        ),
+        "requested_sample_count": (
+            len(all_concepts)
+            if geometry_diagnostics is None
+            else int(geometry_diagnostics.requested_sample_count)
+        ),
+        "accepted_concept_count": (
+            len(all_concepts)
+            if geometry_diagnostics is None
+            else int(geometry_diagnostics.accepted_concept_count)
+        ),
+        "rejected_concept_count": (
+            0
+            if geometry_diagnostics is None
+            else int(geometry_diagnostics.rejected_concept_count)
+        ),
+        "rejection_reason_counts": (
+            {}
+            if geometry_diagnostics is None
+            else dict(geometry_diagnostics.rejection_reason_counts)
+        ),
+        "design_gross_mass_kg": (
+            float(cfg.mass.design_gross_mass_kg)
+            if geometry_diagnostics is None
+            else float(geometry_diagnostics.design_gross_mass_kg)
+        ),
+        "wing_area_is_derived": True,
+    }
 
     summary_json_path = output_dir / "concept_summary.json"
     summary_json_path.write_text(
@@ -3138,13 +3256,20 @@ def run_birdman_concept_pipeline(
                 "worker_backend": worker_backend,
                 "worker_statuses": summary_worker_statuses,
                 "evaluation_scope": {
-                    "selection_scope": "ranked_bounded_prefix_pool",
+                    "selection_scope": "ranked_sampled_pool",
                     "ranking_basis": "feasibility_first_contract_aligned_v2",
                     "objective_mode": str(cfg.mission.objective_mode),
                     "enumerated_concept_count": len(all_concepts),
                     "evaluated_concept_count": len(evaluated_concepts),
                     "selected_concept_count": len(summary_records),
                     "best_infeasible_count": len(best_infeasible_records),
+                    "geometry_primary_variables": [
+                        "span_m",
+                        "wing_loading_target_Npm2",
+                        "taper_ratio",
+                        "tip_twist_deg",
+                    ],
+                    "geometry_sampling": geometry_sampling_summary,
                     "speed_sweep_window_mps": [
                         float(cfg.mission.speed_sweep_min_mps),
                         float(cfg.mission.speed_sweep_max_mps),

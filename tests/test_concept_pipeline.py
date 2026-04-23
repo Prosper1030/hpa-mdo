@@ -82,10 +82,21 @@ def _worker_result_payload(query, *, sweep_point_count: int) -> dict[str, object
     return payload
 
 
+def _write_fast_test_config(tmp_path: Path, *, filename: str = "fast_concept.yaml") -> Path:
+    payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    payload["geometry_family"]["sampling"]["sample_count"] = 6
+    config_path = tmp_path / filename
+    config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    return config_path
+
+
 def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     factory_calls: list[dict[str, object]] = []
     loader_calls: list[tuple[str, int]] = []
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    config_path = _write_fast_test_config(tmp_path, filename="ranked_summary.yaml")
 
     class FakeWorker:
         backend_name = "test_stub"
@@ -97,7 +108,7 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
             ]
 
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **kwargs: factory_calls.append(kwargs) or FakeWorker(),
         spanwise_loader=lambda concept, stations: loader_calls.append((concept.span_m, len(stations)))
@@ -146,23 +157,40 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     )
 
     assert result.summary_json_path.exists()
-    assert 3 <= (
+    assert 1 <= (
         len(result.selected_concept_dirs) + len(result.best_infeasible_concept_dirs)
     ) <= cfg.pipeline.keep_top_n
     assert factory_calls
     assert factory_calls[0]["project_dir"] == Path(__file__).resolve().parents[1]
     assert factory_calls[0]["cache_dir"] == tmp_path / "polar_db"
-    assert len(loader_calls) == (
-        len(result.selected_concept_dirs) + len(result.best_infeasible_concept_dirs)
-    )
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
     first = _first_ranked_record(summary)
+    assert len(loader_calls) == summary["evaluation_scope"]["evaluated_concept_count"]
     assert summary["worker_backend"] == "test_stub"
     assert summary["worker_statuses"]
     assert all(status == "ok" for status in summary["worker_statuses"])
+    assert summary["evaluation_scope"]["selection_scope"] == "ranked_sampled_pool"
+    assert summary["evaluation_scope"]["geometry_primary_variables"] == [
+        "span_m",
+        "wing_loading_target_Npm2",
+        "taper_ratio",
+        "tip_twist_deg",
+    ]
+    assert (
+        summary["evaluation_scope"]["geometry_sampling"]["accepted_concept_count"]
+        == summary["evaluation_scope"]["enumerated_concept_count"]
+    )
     assert first["worker_backend"] == "test_stub"
     assert first["worker_statuses"] == ["ok", "ok", "ok", "ok"]
+    assert first["wing_area_source"] == "derived_from_wing_loading_target_Npm2"
+    assert isinstance(first["wing_loading_target_Npm2"], float)
+    assert isinstance(first["mean_aerodynamic_chord_m"], float)
+    assert first["primary_variables"]["wing_loading_target_Npm2"] == pytest.approx(
+        first["wing_loading_target_Npm2"]
+    )
+    assert first["derived_geometry"]["wing_area_source"] == first["wing_area_source"]
+    assert first["derived_geometry"]["wing_area_m2"] == pytest.approx(first["wing_area_m2"])
     assert "launch" in first
     assert "turn" in first
     assert "trim" in first
@@ -816,8 +844,9 @@ def test_pipeline_batches_screening_candidate_selection_across_concepts(
 
 
 def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="spanwise_source.yaml")
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: type(
             "FakeWorker",
@@ -860,8 +889,9 @@ def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path)
 def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
     tmp_path: Path,
 ) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="reference_metadata.yaml")
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: type(
             "FakeWorker",
@@ -1009,8 +1039,9 @@ def test_fallback_selected_zone_candidate_applies_safe_clmax_model() -> None:
 
 
 def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="cst_selected_templates.yaml")
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: type(
             "FakeWorker",
@@ -1101,8 +1132,9 @@ def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
 
 
 def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="mvp_artifacts.yaml")
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: type(
             "FakeWorker",
@@ -1195,8 +1227,9 @@ def test_seed_airfoil_loader_accepts_headerless_selig_dat(tmp_path, monkeypatch)
 def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     tmp_path: Path,
 ) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="airfoil_derived_spanwise.yaml")
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: type(
             "FakeWorker",
@@ -2058,12 +2091,14 @@ def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     assert len(summary["selected_concepts"]) == 3
     assert summary["evaluation_scope"]["enumerated_concept_count"] == 3
     assert summary["evaluation_scope"]["evaluated_concept_count"] == 3
+    assert summary["evaluation_scope"]["selection_scope"] == "ranked_sampled_pool"
     assert summary["selected_concepts"][0]["enumeration_index"] == 2
     assert summary["selected_concepts"][0]["rank"] == 1
     assert summary["selected_concepts"][1]["rank"] == 2
     assert summary["selected_concepts"][0]["mission"]["mission_objective_mode"] == "max_range"
     assert "mission_score" in summary["selected_concepts"][0]["mission"]
     assert "ranking" in summary["selected_concepts"][0]
+    assert summary["selected_concepts"][0]["ranking"]["selection_scope"] == "ranked_sampled_pool"
     assert summary["selected_concepts"][0]["ranking"]["score"] <= summary["selected_concepts"][1]["ranking"]["score"]
 
 
@@ -2294,9 +2329,10 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     tmp_path: Path,
 ) -> None:
     worker_call_lengths: list[int] = []
+    config_path = _write_fast_test_config(tmp_path, filename="fallback_spanwise.yaml")
 
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: type(
             "FakeWorker",
@@ -2350,8 +2386,9 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
 
 
 def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="default_worker.yaml")
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         spanwise_loader=lambda concept, stations: {
             "root": {
@@ -2412,9 +2449,10 @@ def test_pipeline_rejects_altitude_outside_tropospheric_density_range(tmp_path: 
 def test_pipeline_rejects_real_backend_selection_results_without_usable_metrics(
     tmp_path: Path,
 ) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="real_backend_guard.yaml")
     with pytest.raises(RuntimeError, match="unusable metrics"):
         run_birdman_concept_pipeline(
-            config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+            config_path=config_path,
             output_dir=tmp_path,
             airfoil_worker_factory=lambda **_: type(
                 "FakeWorker",
@@ -2443,9 +2481,10 @@ def test_pipeline_rejects_real_backend_selection_results_without_usable_metrics(
 
 
 def test_pipeline_rejects_duplicate_selection_template_ids(tmp_path: Path) -> None:
+    config_path = _write_fast_test_config(tmp_path, filename="duplicate_template_ids.yaml")
     with pytest.raises(RuntimeError, match="duplicate template_id"):
         run_birdman_concept_pipeline(
-            config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+            config_path=config_path,
             output_dir=tmp_path,
             airfoil_worker_factory=lambda **_: type(
                 "FakeWorker",
@@ -2482,12 +2521,13 @@ def test_pipeline_rejects_duplicate_selection_template_ids(tmp_path: Path) -> No
 
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
     output_dir = tmp_path / "smoke"
+    config_path = _write_fast_test_config(tmp_path, filename="cli_smoke.yaml")
     subprocess.run(
         [
-            "../../.venv/bin/python",
+            "./.venv/bin/python",
             "scripts/birdman_upstream_concept_design.py",
             "--config",
-            "configs/birdman_upstream_concept_baseline.yaml",
+            str(config_path),
             "--output-dir",
             str(output_dir),
             "--worker-mode",
@@ -2505,12 +2545,13 @@ def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
 @pytest.mark.skipif(shutil.which("julia") is None, reason="Julia runtime not available")
 def test_cli_smoke_can_use_real_julia_worker(tmp_path: Path) -> None:
     output_dir = tmp_path / "smoke_julia"
+    config_path = _write_fast_test_config(tmp_path, filename="cli_smoke_julia.yaml")
     subprocess.run(
         [
-            "../../.venv/bin/python",
+            "./.venv/bin/python",
             "scripts/birdman_upstream_concept_design.py",
             "--config",
-            "configs/birdman_upstream_concept_baseline.yaml",
+            str(config_path),
             "--output-dir",
             str(output_dir),
             "--worker-mode",
@@ -2529,9 +2570,10 @@ def test_cli_smoke_can_use_real_julia_worker(tmp_path: Path) -> None:
 def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     factory_calls: list[dict[str, object]] = []
+    config_path = _write_fast_test_config(tmp_path, filename="real_worker_backend.yaml")
 
     result = run_birdman_concept_pipeline(
-        config_path=repo_root / "configs" / "birdman_upstream_concept_baseline.yaml",
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **kwargs: factory_calls.append(kwargs)
         or JuliaXFoilWorker(**kwargs),
@@ -2546,8 +2588,8 @@ def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_p
 
 
 def test_pipeline_closes_worker_when_supported(tmp_path: Path) -> None:
-    repo_root = Path(__file__).resolve().parents[1]
     closed = {"value": 0}
+    config_path = _write_fast_test_config(tmp_path, filename="closable_worker.yaml")
 
     class _ClosableWorker:
         backend_name = "test_stub"
@@ -2570,7 +2612,7 @@ def test_pipeline_closes_worker_when_supported(tmp_path: Path) -> None:
             closed["value"] += 1
 
     result = run_birdman_concept_pipeline(
-        config_path=repo_root / "configs" / "birdman_upstream_concept_baseline.yaml",
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: _ClosableWorker(),
         spanwise_loader=lambda concept, stations: {"root": {"points": []}},
@@ -2690,8 +2732,17 @@ def test_pipeline_skips_bundle_exports_when_candidate_bundle_output_is_disabled(
 
 
 def test_pipeline_writes_dihedral_geometry_into_bundle_and_vsp_preview(tmp_path: Path) -> None:
+    payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    payload["geometry_family"]["sampling"]["sample_count"] = 6
+    payload["geometry_family"]["dihedral_root_deg_candidates"] = [0.0]
+    payload["geometry_family"]["dihedral_tip_deg_candidates"] = [4.0]
+    payload["geometry_family"]["dihedral_exponent_candidates"] = [1.0]
+    config_path = tmp_path / "dihedral_bundle.yaml"
+    config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     result = run_birdman_concept_pipeline(
-        config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),
+        config_path=config_path,
         output_dir=tmp_path,
         airfoil_worker_factory=lambda **_: type(
             "FakeWorker",

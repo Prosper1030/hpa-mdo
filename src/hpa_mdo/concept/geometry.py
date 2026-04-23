@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from math import floor, isclose
 from itertools import product
+from typing import Any
+
+import numpy as np
+from scipy.stats import qmc
 
 
 @dataclass(frozen=True)
@@ -24,6 +29,9 @@ class GeometryConcept:
     tail_area_m2: float
     cg_xc: float
     segment_lengths_m: tuple[float, ...]
+    wing_loading_target_Npm2: float | None = None
+    wing_area_is_derived: bool = False
+    design_gross_mass_kg: float | None = None
     dihedral_root_deg: float = 0.0
     dihedral_tip_deg: float = 0.0
     dihedral_exponent: float = 1.0
@@ -44,6 +52,10 @@ class GeometryConcept:
             raise ValueError("dihedral_exponent must be positive.")
         if self.tail_area_m2 <= 0.0:
             raise ValueError("tail_area_m2 must be positive.")
+        if self.wing_loading_target_Npm2 is not None and self.wing_loading_target_Npm2 <= 0.0:
+            raise ValueError("wing_loading_target_Npm2 must be positive when provided.")
+        if self.design_gross_mass_kg is not None and self.design_gross_mass_kg <= 0.0:
+            raise ValueError("design_gross_mass_kg must be positive when provided.")
         if not 0.0 <= self.cg_xc <= 1.0:
             raise ValueError("cg_xc must be in [0, 1].")
         if self.dihedral_root_deg < -10.0 or self.dihedral_root_deg > 10.0:
@@ -70,6 +82,10 @@ class GeometryConcept:
         return float(self.tip_chord_m / max(self.root_chord_m, 1.0e-9))
 
     @property
+    def aspect_ratio(self) -> float:
+        return float(self.span_m**2 / max(self.wing_area_m2, 1.0e-9))
+
+    @property
     def mean_aerodynamic_chord_m(self) -> float:
         taper_ratio = self.taper_ratio
         return float(
@@ -79,6 +95,43 @@ class GeometryConcept:
             / max(1.0 + taper_ratio, 1.0e-9)
         )
 
+    @property
+    def wing_area_source(self) -> str:
+        return (
+            "derived_from_wing_loading_target_Npm2"
+            if self.wing_area_is_derived
+            else "explicit_planform_input"
+        )
+
+
+@dataclass(frozen=True)
+class GeometryRejection:
+    sample_index: int
+    reason: str
+    primary_values: dict[str, float]
+    secondary_values: dict[str, float]
+    details: dict[str, float | str]
+
+
+@dataclass(frozen=True)
+class GeometryEnumerationDiagnostics:
+    sampling_mode: str
+    requested_sample_count: int
+    accepted_concept_count: int
+    rejected_concepts: tuple[GeometryRejection, ...]
+    design_gross_mass_kg: float
+
+    @property
+    def rejected_concept_count(self) -> int:
+        return len(self.rejected_concepts)
+
+    @property
+    def rejection_reason_counts(self) -> dict[str, int]:
+        return dict(Counter(rejection.reason for rejection in self.rejected_concepts))
+
+
+_LAST_ENUMERATION_DIAGNOSTICS: GeometryEnumerationDiagnostics | None = None
+
 
 def _progressive_schedule_value(
     start_value: float,
@@ -87,6 +140,194 @@ def _progressive_schedule_value(
     exponent: float,
 ) -> float:
     return start_value + (frac**exponent) * (end_value - start_value)
+
+
+def _sample_unit_hypercube(
+    *,
+    mode: str,
+    sample_count: int,
+    seed: int,
+    scramble: bool,
+) -> np.ndarray:
+    if mode == "latin_hypercube":
+        return qmc.LatinHypercube(d=4, seed=seed, scramble=scramble).random(sample_count)
+    if mode == "sobol":
+        return qmc.Sobol(d=4, seed=seed, scramble=scramble).random(sample_count)
+    if mode == "uniform_random":
+        return np.random.default_rng(seed).random((sample_count, 4))
+    if mode == "linspace_grid":
+        samples_per_axis = max(1, int(round(sample_count ** 0.25)))
+        axis = np.linspace(0.0, 1.0, samples_per_axis)
+        grid = np.asarray(tuple(product(axis, repeat=4)), dtype=float)
+        if grid.shape[0] == sample_count:
+            return grid
+        rng = np.random.default_rng(seed)
+        if grid.shape[0] > sample_count:
+            order = rng.permutation(grid.shape[0])[:sample_count]
+            return grid[order]
+        rows = []
+        while len(rows) < sample_count:
+            order = rng.permutation(grid.shape[0])
+            rows.extend(grid[order].tolist())
+        return np.asarray(rows[:sample_count], dtype=float)
+    raise ValueError(f"Unsupported sampling mode: {mode}")
+
+
+def _sample_primary_variables(cfg) -> tuple[dict[str, float], ...]:
+    sampling = cfg.geometry_family.sampling
+    ranges = cfg.geometry_family.primary_ranges
+    unit_samples = _sample_unit_hypercube(
+        mode=str(sampling.mode),
+        sample_count=int(sampling.sample_count),
+        seed=int(sampling.seed),
+        scramble=bool(sampling.scramble),
+    )
+
+    def _scale(range_cfg, unit_value: float) -> float:
+        return float(range_cfg.min + unit_value * (range_cfg.max - range_cfg.min))
+
+    return tuple(
+        {
+            "span_m": _scale(ranges.span_m, float(row[0])),
+            "wing_loading_target_Npm2": _scale(
+                ranges.wing_loading_target_Npm2, float(row[1])
+            ),
+            "taper_ratio": _scale(ranges.taper_ratio, float(row[2])),
+            "tip_twist_deg": _scale(ranges.tip_twist_deg, float(row[3])),
+        }
+        for row in unit_samples
+    )
+
+
+def _sample_secondary_design_variables(cfg, count: int) -> tuple[tuple[float, float, float, float], ...]:
+    base_combos = tuple(
+        product(
+            cfg.geometry_family.tail_area_candidates_m2,
+            cfg.geometry_family.dihedral_root_deg_candidates,
+            cfg.geometry_family.dihedral_tip_deg_candidates,
+            cfg.geometry_family.dihedral_exponent_candidates,
+        )
+    )
+    if not base_combos:
+        return ()
+
+    rng = np.random.default_rng(int(cfg.geometry_family.sampling.seed) + 1)
+    sampled: list[tuple[float, float, float, float]] = []
+    while len(sampled) < count:
+        order = list(base_combos)
+        rng.shuffle(order)
+        sampled.extend(order)
+    return tuple(sampled[:count])
+
+
+def _geometry_rejection(
+    *,
+    sample_index: int,
+    reason: str,
+    primary_values: dict[str, float],
+    secondary_values: dict[str, float],
+    **details: float | str,
+) -> GeometryRejection:
+    return GeometryRejection(
+        sample_index=sample_index,
+        reason=reason,
+        primary_values={key: float(value) for key, value in primary_values.items()},
+        secondary_values={key: float(value) for key, value in secondary_values.items()},
+        details=details,
+    )
+
+
+def _evaluate_hard_constraints(
+    *,
+    cfg,
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    sample_index: int,
+    primary_values: dict[str, float],
+    secondary_values: dict[str, float],
+) -> GeometryRejection | None:
+    constraints = cfg.geometry_family.hard_constraints
+    if concept.wing_area_m2 < float(constraints.wing_area_m2_range.min):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="wing_area_below_min",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            wing_area_m2=float(concept.wing_area_m2),
+            wing_area_min_m2=float(constraints.wing_area_m2_range.min),
+        )
+    if concept.wing_area_m2 > float(constraints.wing_area_m2_range.max):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="wing_area_above_max",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            wing_area_m2=float(concept.wing_area_m2),
+            wing_area_max_m2=float(constraints.wing_area_m2_range.max),
+        )
+    if concept.aspect_ratio < float(constraints.aspect_ratio_range.min):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="aspect_ratio_below_min",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            aspect_ratio=float(concept.aspect_ratio),
+            aspect_ratio_min=float(constraints.aspect_ratio_range.min),
+        )
+    if concept.aspect_ratio > float(constraints.aspect_ratio_range.max):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="aspect_ratio_above_max",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            aspect_ratio=float(concept.aspect_ratio),
+            aspect_ratio_max=float(constraints.aspect_ratio_range.max),
+        )
+    if concept.root_chord_m < float(constraints.root_chord_min_m):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="root_chord_below_min",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            root_chord_m=float(concept.root_chord_m),
+            root_chord_min_m=float(constraints.root_chord_min_m),
+        )
+    if concept.tip_chord_m < float(constraints.tip_chord_min_m):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="tip_chord_below_min",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            tip_chord_m=float(concept.tip_chord_m),
+            tip_chord_min_m=float(constraints.tip_chord_min_m),
+        )
+
+    root_available_spar_depth_m = (
+        float(concept.root_chord_m)
+        * float(constraints.root_zone_min_tc_ratio)
+        * float(constraints.root_zone_spar_depth_fraction)
+    )
+    if root_available_spar_depth_m < float(constraints.root_zone_required_spar_depth_m):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="root_zone_spar_depth_insufficient",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            available_spar_depth_m=float(root_available_spar_depth_m),
+            required_spar_depth_m=float(constraints.root_zone_required_spar_depth_m),
+        )
+
+    minimum_station_chord_m = min(float(station.chord_m) for station in stations)
+    if minimum_station_chord_m < float(constraints.segment_min_chord_m):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="segment_chord_below_min",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            minimum_station_chord_m=float(minimum_station_chord_m),
+            segment_min_chord_m=float(constraints.segment_min_chord_m),
+        )
+    return None
 
 
 def build_segment_plan(
@@ -177,46 +418,99 @@ def build_linear_wing_stations(
 
 
 def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
-    concepts: list[GeometryConcept] = []
-    for (
-        span_m,
-        wing_area_m2,
-        taper_ratio,
-        twist_tip_deg,
-        tail_area_m2,
-        dihedral_root_deg,
-        dihedral_tip_deg,
-        dihedral_exponent,
-    ) in product(
-        cfg.geometry_family.span_candidates_m,
-        cfg.geometry_family.wing_area_candidates_m2,
-        cfg.geometry_family.taper_ratio_candidates,
-        cfg.geometry_family.twist_tip_candidates_deg,
-        cfg.geometry_family.tail_area_candidates_m2,
-        cfg.geometry_family.dihedral_root_deg_candidates,
-        cfg.geometry_family.dihedral_tip_deg_candidates,
-        cfg.geometry_family.dihedral_exponent_candidates,
+    global _LAST_ENUMERATION_DIAGNOSTICS
+
+    accepted_concepts: list[GeometryConcept] = []
+    rejected_concepts: list[GeometryRejection] = []
+    primary_samples = _sample_primary_variables(cfg)
+    secondary_samples = _sample_secondary_design_variables(cfg, len(primary_samples))
+
+    for sample_index, (primary_values, secondary_values_tuple) in enumerate(
+        zip(primary_samples, secondary_samples, strict=True),
+        start=1,
     ):
+        span_m = float(primary_values["span_m"])
+        wing_loading_target_Npm2 = float(primary_values["wing_loading_target_Npm2"])
+        taper_ratio = float(primary_values["taper_ratio"])
+        tip_twist_deg = float(primary_values["tip_twist_deg"])
+        (
+            tail_area_m2,
+            dihedral_root_deg,
+            dihedral_tip_deg,
+            dihedral_exponent,
+        ) = secondary_values_tuple
+        secondary_values = {
+            "tail_area_m2": float(tail_area_m2),
+            "dihedral_root_deg": float(dihedral_root_deg),
+            "dihedral_tip_deg": float(dihedral_tip_deg),
+            "dihedral_exponent": float(dihedral_exponent),
+        }
+
+        wing_area_m2 = float(cfg.design_gross_weight_n / max(wing_loading_target_Npm2, 1.0e-9))
         root_chord_m = 2.0 * wing_area_m2 / (span_m * (1.0 + taper_ratio))
         tip_chord_m = root_chord_m * taper_ratio
-        concepts.append(
-            GeometryConcept(
-                span_m=float(span_m),
-                wing_area_m2=float(wing_area_m2),
-                root_chord_m=float(root_chord_m),
-                tip_chord_m=float(tip_chord_m),
-                twist_root_deg=2.0,
-                twist_tip_deg=float(twist_tip_deg),
-                dihedral_root_deg=float(dihedral_root_deg),
-                dihedral_tip_deg=float(dihedral_tip_deg),
-                dihedral_exponent=float(dihedral_exponent),
-                tail_area_m2=float(tail_area_m2),
-                cg_xc=0.30,
-                segment_lengths_m=build_segment_plan(
-                    half_span_m=0.5 * float(span_m),
-                    min_segment_length_m=cfg.segmentation.min_segment_length_m,
-                    max_segment_length_m=cfg.segmentation.max_segment_length_m,
-                ),
+
+        try:
+            segment_lengths_m = build_segment_plan(
+                half_span_m=0.5 * span_m,
+                min_segment_length_m=cfg.segmentation.min_segment_length_m,
+                max_segment_length_m=cfg.segmentation.max_segment_length_m,
             )
+        except ValueError as exc:
+            rejected_concepts.append(
+                _geometry_rejection(
+                    sample_index=sample_index,
+                    reason="segment_plan_infeasible",
+                    primary_values=primary_values,
+                    secondary_values=secondary_values,
+                    error=str(exc),
+                )
+            )
+            continue
+
+        concept = GeometryConcept(
+            span_m=float(span_m),
+            wing_area_m2=float(wing_area_m2),
+            root_chord_m=float(root_chord_m),
+            tip_chord_m=float(tip_chord_m),
+            twist_root_deg=float(cfg.geometry_family.twist_root_deg),
+            twist_tip_deg=float(tip_twist_deg),
+            dihedral_root_deg=float(dihedral_root_deg),
+            dihedral_tip_deg=float(dihedral_tip_deg),
+            dihedral_exponent=float(dihedral_exponent),
+            tail_area_m2=float(tail_area_m2),
+            cg_xc=0.30,
+            segment_lengths_m=segment_lengths_m,
+            wing_loading_target_Npm2=float(wing_loading_target_Npm2),
+            wing_area_is_derived=True,
+            design_gross_mass_kg=float(cfg.mass.design_gross_mass_kg),
         )
-    return tuple(concepts)
+        stations = build_linear_wing_stations(
+            concept,
+            stations_per_half=cfg.pipeline.stations_per_half,
+        )
+        rejection = _evaluate_hard_constraints(
+            cfg=cfg,
+            concept=concept,
+            stations=stations,
+            sample_index=sample_index,
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+        )
+        if rejection is not None:
+            rejected_concepts.append(rejection)
+            continue
+        accepted_concepts.append(concept)
+
+    _LAST_ENUMERATION_DIAGNOSTICS = GeometryEnumerationDiagnostics(
+        sampling_mode=str(cfg.geometry_family.sampling.mode),
+        requested_sample_count=int(cfg.geometry_family.sampling.sample_count),
+        accepted_concept_count=len(accepted_concepts),
+        rejected_concepts=tuple(rejected_concepts),
+        design_gross_mass_kg=float(cfg.mass.design_gross_mass_kg),
+    )
+    return tuple(accepted_concepts)
+
+
+def get_last_geometry_enumeration_diagnostics() -> GeometryEnumerationDiagnostics | None:
+    return _LAST_ENUMERATION_DIAGNOSTICS
