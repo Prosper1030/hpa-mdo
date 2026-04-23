@@ -14,6 +14,7 @@ OperatorNameV1 = Literal[
     "extbl_termination_fallback_for_collapsed_endcap",
     "regularize_truncation_connector_band",
     "prototype_split_post_band_transition",
+    "prototype_localize_post_transition_boundary_recovery",
     "reject_unsupported_plc_risk_family",
 ]
 
@@ -85,6 +86,23 @@ class PostBandTransitionSplitPlanV1(BaseModel):
     split_fraction: float = 1.0 / 3.0
     proposed_split_y_le_m: Optional[float] = None
     limitation: str = "prototype_only_inserts_one_synthetic_post_band_transition_section"
+
+
+class PostTransitionBoundaryRecoveryProbePlanV1(BaseModel):
+    contract: str = "post_transition_boundary_recovery_probe_plan.v1"
+    applicable: bool
+    reject_reasons: List[str] = Field(default_factory=list)
+    blocking_topology_check_kinds: List[str] = Field(default_factory=list)
+    connector_band_patch_ids: List[str] = Field(default_factory=list)
+    transition_guard_patch_ids: List[str] = Field(default_factory=list)
+    transition_terminal_patch_ids: List[str] = Field(default_factory=list)
+    transition_start_y_le_m: Optional[float] = None
+    transition_guard_y_le_m: Optional[float] = None
+    tip_y_le_m: Optional[float] = None
+    transition_guard_span_m: Optional[float] = None
+    transition_terminal_span_m: Optional[float] = None
+    geometry_contact_locus_kind: Optional[str] = None
+    limitation: str = "prototype_only_localizes_boundary_recovery_error_2_without_claiming_a_repair"
 
 
 def _truncation_connector_band_context(ir: TopologyIRV1) -> Dict[str, Any]:
@@ -256,6 +274,80 @@ def _post_band_transition_split_plan(
     )
 
 
+def _post_transition_boundary_recovery_probe_plan(
+    *,
+    motif_match: MotifMatchV1,
+    ir: TopologyIRV1,
+    audit_report: Optional[Any],
+) -> PostTransitionBoundaryRecoveryProbePlanV1:
+    connector_band_patches = [
+        patch
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "connector_band"
+    ]
+    transition_guard_patches = [
+        patch
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "post_band_transition_guard"
+    ]
+    transition_terminal_patches = [
+        patch
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "post_band_terminal_transition"
+    ]
+    blocking_topology_check_kinds = list(
+        getattr(audit_report, "blocking_topology_check_kinds", []) or []
+    )
+    if not blocking_topology_check_kinds:
+        blocking_topology_check_kinds = list(
+            motif_match.predicate_evidence.get("blocking_topology_check_kinds", [])
+        )
+
+    reject_reasons: List[str] = []
+    if len(connector_band_patches) != 1:
+        reject_reasons.append("connector_band_patch_count_not_equal_to_one")
+    if len(transition_guard_patches) != 1:
+        reject_reasons.append("transition_guard_patch_count_not_equal_to_one")
+    if len(transition_terminal_patches) != 1:
+        reject_reasons.append("transition_terminal_patch_count_not_equal_to_one")
+    if "boundary_recovery_error_2_risk" not in blocking_topology_check_kinds:
+        reject_reasons.append("missing_boundary_recovery_error_2_blocker")
+
+    guard_patch = transition_guard_patches[0] if len(transition_guard_patches) == 1 else None
+    terminal_patch = transition_terminal_patches[0] if len(transition_terminal_patches) == 1 else None
+    transition_start_y = guard_patch.metadata.get("inboard_y_le_m") if guard_patch is not None else None
+    transition_guard_y = guard_patch.metadata.get("outboard_y_le_m") if guard_patch is not None else None
+    tip_y = terminal_patch.metadata.get("outboard_y_le_m") if terminal_patch is not None else None
+    if transition_start_y is None or transition_guard_y is None or tip_y is None:
+        reject_reasons.append("boundary_recovery_contact_locus_not_localized")
+
+    applicable = not reject_reasons
+    return PostTransitionBoundaryRecoveryProbePlanV1(
+        applicable=applicable,
+        reject_reasons=reject_reasons,
+        blocking_topology_check_kinds=blocking_topology_check_kinds,
+        connector_band_patch_ids=[patch.patch_id for patch in connector_band_patches],
+        transition_guard_patch_ids=[patch.patch_id for patch in transition_guard_patches],
+        transition_terminal_patch_ids=[patch.patch_id for patch in transition_terminal_patches],
+        transition_start_y_le_m=float(transition_start_y) if transition_start_y is not None else None,
+        transition_guard_y_le_m=float(transition_guard_y) if transition_guard_y is not None else None,
+        tip_y_le_m=float(tip_y) if tip_y is not None else None,
+        transition_guard_span_m=(
+            float(guard_patch.metadata.get("span_interval_m"))
+            if guard_patch is not None and guard_patch.metadata.get("span_interval_m") is not None
+            else None
+        ),
+        transition_terminal_span_m=(
+            float(terminal_patch.metadata.get("span_interval_m"))
+            if terminal_patch is not None and terminal_patch.metadata.get("span_interval_m") is not None
+            else None
+        ),
+        geometry_contact_locus_kind=(
+            "post_band_transition_guard_to_tip" if applicable else None
+        ),
+    )
+
+
 class OperatorLibraryV1:
     def __init__(self) -> None:
         self._contracts: Dict[str, OperatorContractV1] = {
@@ -306,6 +398,20 @@ class OperatorLibraryV1:
                 notes=[
                     "This is an honest executable prototype for the post-band transition family after connector-band canonicalization.",
                     "It inserts one synthetic transition-guard section but does not claim solver-entry success.",
+                ],
+            ),
+            "prototype_localize_post_transition_boundary_recovery": OperatorContractV1(
+                operator_name="prototype_localize_post_transition_boundary_recovery",
+                implementation_status="implemented",
+                supported_motif_kinds=["POST_BAND_TRANSITION_BOUNDARY_RECOVERY"],
+                expected_artifact_keys=[
+                    "post_transition_boundary_recovery_probe_plan",
+                    "post_transition_boundary_recovery_probe_report",
+                ],
+                report_key="post_transition_boundary_recovery_probe",
+                notes=[
+                    "This executable prototype localizes the post-band transition boundary-recovery `error 2` family.",
+                    "It is a diagnostic/operator line, not a claim that the boundary recovery failure is repaired.",
                 ],
             ),
             "reject_unsupported_plc_risk_family": OperatorContractV1(
@@ -421,6 +527,42 @@ class OperatorLibraryV1:
                 details={"transition_split_plan": transition_split_plan.model_dump(mode="json")},
                 notes=[
                     "The post-band transition prototype rejected this family honestly instead of mutating a non-canonical case.",
+                ],
+            )
+        if operator_name == "prototype_localize_post_transition_boundary_recovery":
+            boundary_recovery_probe_plan = _post_transition_boundary_recovery_probe_plan(
+                motif_match=motif_match,
+                ir=ir,
+                audit_report=audit_report,
+            )
+            if boundary_recovery_probe_plan.applicable:
+                return OperatorResultV1(
+                    operator_name=operator_name,
+                    motif_kind=motif_match.kind,
+                    status="applied",
+                    applied=True,
+                    report_key=contract.report_key,
+                    expected_artifact_keys=list(contract.expected_artifact_keys),
+                    details={
+                        "boundary_recovery_probe_plan": boundary_recovery_probe_plan.model_dump(mode="json")
+                    },
+                    notes=[
+                        "The executable prototype localizes the boundary-recovery `error 2` locus to the split post-band transition interval.",
+                        "This is classifier/probe evidence only and does not claim a repaired PLC boundary recovery path.",
+                    ],
+                )
+            return OperatorResultV1(
+                operator_name=operator_name,
+                motif_kind=motif_match.kind,
+                status="rejected",
+                applied=False,
+                report_key=contract.report_key,
+                expected_artifact_keys=list(contract.expected_artifact_keys),
+                details={
+                    "boundary_recovery_probe_plan": boundary_recovery_probe_plan.model_dump(mode="json")
+                },
+                notes=[
+                    "The boundary-recovery probe rejected this family honestly instead of overstating the contact locus.",
                 ],
             )
         if operator_name == "reject_unsupported_plc_risk_family":

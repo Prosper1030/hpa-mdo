@@ -247,6 +247,11 @@ def _truncation_connector_band_context(topology_payload: Dict[str, Any]) -> Dict
         "selected_section_y_le_m": [
             float(value) for value in raw.get("selected_section_y_le_m", []) if value is not None
         ],
+        "post_band_transition_guard_y_le_m": (
+            float(raw["post_band_transition_guard_y_le_m"])
+            if raw.get("post_band_transition_guard_y_le_m") is not None
+            else None
+        ),
     }
 
 
@@ -271,6 +276,7 @@ def _classify_truncation_band_role(
     connector_band_start_y = context.get("connector_band_start_y_le_m")
     truncation_start_y = context.get("truncation_start_y_le_m")
     tip_y = context.get("tip_y_le_m")
+    post_band_transition_guard_y = context.get("post_band_transition_guard_y_le_m")
     tolerance = 1.0e-6
 
     role: Optional[str] = None
@@ -295,6 +301,20 @@ def _classify_truncation_band_role(
         role = "pre_band_support"
     elif root_y is not None and _close(lhs_y, root_y, tolerance=tolerance):
         role = "root_to_terminal_support"
+    elif (
+        post_band_transition_guard_y is not None
+        and truncation_start_y is not None
+        and _close(lhs_y, truncation_start_y, tolerance=tolerance)
+        and _close(rhs_y, post_band_transition_guard_y, tolerance=tolerance)
+    ):
+        role = "post_band_transition_guard"
+    elif (
+        post_band_transition_guard_y is not None
+        and tip_y is not None
+        and _close(lhs_y, post_band_transition_guard_y, tolerance=tolerance)
+        and _close(rhs_y, tip_y, tolerance=tolerance)
+    ):
+        role = "post_band_terminal_transition"
 
     if role is None:
         return _default_truncation_band_role()
@@ -315,6 +335,7 @@ def _classify_truncation_band_role(
         "connector_band_start_y_le_m": connector_band_start_y,
         "truncation_start_y_le_m": truncation_start_y,
         "tip_y_le_m": tip_y,
+        "post_band_transition_guard_y_le_m": post_band_transition_guard_y,
         "extra_pre_band_section_y_le_m": extra_pre_band_section_y_le_m,
     }
 
@@ -483,6 +504,9 @@ def build_topology_ir_v1(
             source_patch_family = (
                 "truncation_connector_band"
                 if truncation_band_role.get("role") == "connector_band"
+                else "post_band_transition_boundary_recovery"
+                if truncation_band_role.get("role")
+                in {"post_band_transition_guard", "post_band_terminal_transition"}
                 else "rule_section_strip"
             )
             patch_tags = []
@@ -492,6 +516,10 @@ def build_topology_ir_v1(
                 patch_tags.append("truncation_pre_band_support")
             elif truncation_band_role.get("role") == "truncation_transition":
                 patch_tags.append("truncation_transition")
+            elif truncation_band_role.get("role") == "post_band_transition_guard":
+                patch_tags.append("post_band_transition_guard")
+            elif truncation_band_role.get("role") == "post_band_terminal_transition":
+                patch_tags.append("post_band_terminal_transition")
 
             patch = TopologyPatchV1(
                 patch_id=patch_id,
@@ -550,6 +578,9 @@ def build_topology_ir_v1(
                             "connector_band_start_y_le_m": truncation_band_role.get("connector_band_start_y_le_m"),
                             "truncation_start_y_le_m": truncation_band_role.get("truncation_start_y_le_m"),
                             "tip_y_le_m": truncation_band_role.get("tip_y_le_m"),
+                            "post_band_transition_guard_y_le_m": truncation_band_role.get(
+                                "post_band_transition_guard_y_le_m"
+                            ),
                         }
                         if truncation_band_role.get("status") == "classified"
                         else {}

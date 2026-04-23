@@ -270,6 +270,109 @@ def _build_truncation_connector_band_ir(*, include_extra_pre_band_section: bool)
     )
 
 
+def _build_post_transition_boundary_recovery_ir() -> TopologyIRV1:
+    split_y_le_m = 15.498888888888889
+    return build_topology_ir_v1(
+        topology_report={
+            **_truncation_connector_band_topology_report(
+                [0.0, 14.992006138888888, 14.998333333333333, split_y_le_m, 16.5]
+            ),
+            "compiler_context": {
+                "truncation_connector_band": {
+                    "enabled": True,
+                    "root_y_le_m": 0.0,
+                    "connector_band_start_y_le_m": 14.992006138888888,
+                    "truncation_start_y_le_m": 14.998333333333333,
+                    "tip_y_le_m": 16.5,
+                    "selected_section_y_le_m": [
+                        0.0,
+                        14.992006138888888,
+                        14.998333333333333,
+                        split_y_le_m,
+                        16.5,
+                    ],
+                    "post_band_transition_guard_y_le_m": split_y_le_m,
+                }
+            },
+        },
+        topology_lineage_report={
+            **_truncation_connector_band_lineage_report(include_extra_pre_band_section=False),
+            "surfaces": [
+                {
+                    **_truncation_connector_band_lineage_report(
+                        include_extra_pre_band_section=False
+                    )["surfaces"][0],
+                    "rule_section_count": 5,
+                    "rule_sections": [
+                        {
+                            "rule_section_index": 0,
+                            "source_section_index": 0,
+                            "mirrored": False,
+                            "side": "center_or_start",
+                            "x_le": 0.0,
+                            "y_le": 0.0,
+                            "z_le": 0.0,
+                            "chord": 1.30,
+                            "twist_deg": 0.0,
+                            "airfoil_source": "inline_coordinates",
+                        },
+                        {
+                            "rule_section_index": 1,
+                            "source_section_index": 5,
+                            "mirrored": False,
+                            "side": "right_span",
+                            "x_le": 0.17473981881820483,
+                            "y_le": 14.992006138888888,
+                            "z_le": 0.6726241298774025,
+                            "chord": 0.6335525250462963,
+                            "twist_deg": -0.8,
+                            "airfoil_source": "inline_coordinates",
+                        },
+                        {
+                            "rule_section_index": 2,
+                            "source_section_index": 6,
+                            "mirrored": False,
+                            "side": "right_span",
+                            "x_le": 0.17603530359784303,
+                            "y_le": 14.998333333333333,
+                            "z_le": 0.6738131383867332,
+                            "chord": 0.6327103179012345,
+                            "twist_deg": -0.8,
+                            "airfoil_source": "inline_coordinates",
+                        },
+                        {
+                            "rule_section_index": 3,
+                            "source_section_index": 61,
+                            "mirrored": False,
+                            "side": "right_span",
+                            "x_le": 0.19044519248441888,
+                            "y_le": split_y_le_m,
+                            "z_le": 0.7051985929463964,
+                            "chord": 0.5552212664783951,
+                            "twist_deg": -0.9,
+                            "airfoil_source": "synthetic_tip_cut",
+                        },
+                        {
+                            "rule_section_index": 4,
+                            "source_section_index": 7,
+                            "mirrored": False,
+                            "side": "right_tip",
+                            "x_le": 0.23222778233596357,
+                            "y_le": 16.5,
+                            "z_le": 0.776653890356024,
+                            "chord": 0.43000000000000005,
+                            "twist_deg": -1.0,
+                            "airfoil_source": "inline_coordinates",
+                        },
+                    ],
+                }
+            ],
+        },
+        topology_suppression_report=_sample_suppression_report(),
+        component="main_wing",
+    )
+
+
 def _build_collapsed_endcap_ir() -> TopologyIRV1:
     patches = []
     for index in range(3):
@@ -536,6 +639,56 @@ def test_post_band_transition_split_operator_targets_canonical_segment_facet_fam
     assert plan["blocking_topology_check_kinds"] == ["segment_facet_intersection_risk"]
 
 
+def test_post_transition_boundary_recovery_error_2_family_is_structured():
+    ir = _build_post_transition_boundary_recovery_ir()
+    audit = run_pre_plc_audit_v1(
+        ir,
+        config=PrePLCAuditConfigV1(
+            observed_evidence=[
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last3_post_transition_error2",
+                    check_kind="boundary_recovery_error_2_risk",
+                    error_text="Error   : Could not recover boundary mesh: error 2",
+                    selected_section_y_le_m=[
+                        0.0,
+                        14.992006138888888,
+                        14.998333333333333,
+                        15.498888888888889,
+                        16.5,
+                    ],
+                )
+            ]
+        ),
+    )
+    registry = MotifRegistryV1()
+    library = OperatorLibraryV1()
+
+    match = next(
+        match
+        for match in registry.detect(ir, audit_report=audit).matches
+        if match.kind == "POST_BAND_TRANSITION_BOUNDARY_RECOVERY"
+    )
+    result = library.execute(
+        "prototype_localize_post_transition_boundary_recovery",
+        match,
+        ir,
+        audit_report=audit,
+    )
+
+    assert audit.blocking_topology_check_kinds == ["boundary_recovery_error_2_risk"]
+    assert match.predicate_evidence["geometry_contact_locus_kind"] == "post_band_transition_guard_to_tip"
+    assert match.predicate_evidence["transition_guard_patch_count"] == 1
+    assert match.predicate_evidence["transition_terminal_patch_count"] == 1
+    assert result.status == "applied"
+    assert result.applied is True
+    plan = result.details["boundary_recovery_probe_plan"]
+    assert plan["applicable"] is True
+    assert plan["blocking_topology_check_kinds"] == ["boundary_recovery_error_2_risk"]
+    assert plan["geometry_contact_locus_kind"] == "post_band_transition_guard_to_tip"
+    assert plan["transition_guard_patch_ids"] == ["patch:fixture_band:2:3"]
+    assert plan["transition_terminal_patch_ids"] == ["patch:fixture_band:3:4"]
+
+
 def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():
     ir = _build_minimal_ir().model_copy(
         update={
@@ -558,6 +711,7 @@ def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():
     assert set(checks) == {
         "segment_facet_intersection_risk",
         "facet_facet_overlap_risk",
+        "boundary_recovery_error_2_risk",
         "extrusion_self_contact_risk",
         "degenerated_prism_risk",
         "local_clearance_vs_first_layer_height",

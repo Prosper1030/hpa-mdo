@@ -14,6 +14,7 @@ Before `generate(3)` or later solver-entry claims, this audit should tell us:
 
 - `segment_facet_intersection_risk`
 - `facet_facet_overlap_risk`
+- `boundary_recovery_error_2_risk`
 - `extrusion_self_contact_risk`
 - `degenerated_prism_risk`
 - `local_clearance_vs_first_layer_height`
@@ -35,6 +36,7 @@ Before `generate(3)` or later solver-entry claims, this audit should tell us:
 - `manifold_loop_consistency` is a real consistency check on the inferred IR loops
 - observed topology failures and BL compatibility failures are tracked separately in the summary
 - `extrusion_self_contact_risk` is treated as the BL-thickness / local-clearance compatibility line, not as proof of topology repair success
+- `boundary_recovery_error_2_risk` is reserved for the downstream post-band transition family after the segment-facet string has already been displaced
 
 ## BL Clearance Compatibility Gate
 
@@ -49,6 +51,7 @@ This gate is intentionally separate from observed topology failures such as:
 
 - `segment_facet_intersection_risk`
 - `facet_facet_overlap_risk`
+- `boundary_recovery_error_2_risk`
 
 ## Planning Policy Promotion
 

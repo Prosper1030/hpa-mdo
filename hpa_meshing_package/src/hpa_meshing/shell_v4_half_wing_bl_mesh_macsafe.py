@@ -1672,6 +1672,7 @@ def _build_shell_v4_pre_plc_fixture_topology_report(
     fixture: dict[str, Any],
 ) -> dict[str, Any]:
     resolved = dict((fixture.get("tip_truncation_seed") or {}).get("resolved") or {})
+    post_band_transition_seed = dict(fixture.get("post_band_transition_seed") or {})
     selected_section_y_le_m = [float(value) for value in fixture.get("selected_section_y_le_m", [])]
     return {
         "representation": "shell_v4_pre_plc_fixture",
@@ -1690,6 +1691,7 @@ def _build_shell_v4_pre_plc_fixture_topology_report(
                 "truncation_start_y_le_m": resolved.get("start_y_m"),
                 "tip_y_le_m": selected_section_y_le_m[-1] if selected_section_y_le_m else None,
                 "selected_section_y_le_m": selected_section_y_le_m,
+                "post_band_transition_guard_y_le_m": post_band_transition_seed.get("guard_y_le_m"),
             }
         },
     }
@@ -1830,6 +1832,7 @@ def _pre_plc_observed_check_kind_from_failure_kind(
     mapping = {
         "segment_facet_intersection": "segment_facet_intersection_risk",
         "facet_facet_overlap": "facet_facet_overlap_risk",
+        "boundary_recovery_error_2": "boundary_recovery_error_2_risk",
     }
     return mapping.get(str(observed_failure_kind or ""))
 
@@ -1948,6 +1951,11 @@ def _apply_post_band_transition_split_operator_to_pre_plc_fixture(
             transformed_fixture["geometry"]["sections"] = transformed_sections
             transformed_fixture["geometry"]["selected_section_count"] = len(transformed_sections)
             transformed_fixture["geometry"]["selected_section_y_le_m"] = transformed_y_le_m
+            transformed_fixture["post_band_transition_seed"] = {
+                "enabled": True,
+                "guard_y_le_m": float(split_y) if split_y is not None else None,
+                "source_operator": "prototype_split_post_band_transition",
+            }
             operator_result["details"]["transition_split_plan"]["inserted_section"] = bool(
                 insertion_record.get("inserted_section", False)
             )
@@ -1969,6 +1977,95 @@ def _apply_post_band_transition_split_operator_to_pre_plc_fixture(
     )
     return {
         "fixture": transformed_fixture,
+        "operator_result": operator_result,
+        "report_path": str(report_path),
+    }
+
+
+def _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
+    fixture: dict[str, Any],
+    *,
+    baseline_observed: dict[str, Any] | None,
+    artifact_dir: Path,
+) -> dict[str, Any]:
+    artifact_dir = Path(artifact_dir)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    topology_report = _build_shell_v4_pre_plc_fixture_topology_report(fixture)
+    topology_lineage_report = _build_shell_v4_pre_plc_fixture_topology_lineage_report(fixture)
+    topology_suppression_report = {
+        "status": "captured",
+        "applied": False,
+        "surface_count": 1,
+        "suppressed_source_section_count": 0,
+        "surfaces": [{"suppressed_source_section_indices": [], "suppressed_sections": [], "applied": False}],
+        "notes": [],
+    }
+    topology_ir = build_topology_ir_v1(
+        topology_report=topology_report,
+        topology_lineage_report=topology_lineage_report,
+        topology_suppression_report=topology_suppression_report,
+        component=str(fixture.get("component") or "main_wing"),
+    )
+    audit_report = _build_pre_plc_audit_for_fixture_baseline(
+        topology_ir=topology_ir,
+        fixture=fixture,
+        baseline_observed=baseline_observed,
+    )
+    motif_registry = MotifRegistryV1().detect(topology_ir, audit_report=audit_report)
+    motif_match = next(
+        (
+            match
+            for match in motif_registry.matches
+            if match.kind == "POST_BAND_TRANSITION_BOUNDARY_RECOVERY"
+        ),
+        None,
+    )
+    if motif_match is None:
+        contract = OperatorLibraryV1().describe("prototype_localize_post_transition_boundary_recovery")
+        operator_result = {
+            "contract": "operator_result.v1",
+            "operator_name": "prototype_localize_post_transition_boundary_recovery",
+            "motif_kind": "POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
+            "status": "rejected",
+            "applied": False,
+            "report_key": contract.report_key,
+            "expected_artifact_keys": list(contract.expected_artifact_keys),
+            "details": {
+                "boundary_recovery_probe_plan": {
+                    "contract": "post_transition_boundary_recovery_probe_plan.v1",
+                    "applicable": False,
+                    "reject_reasons": ["post_transition_boundary_recovery_motif_not_detected"],
+                    "blocking_topology_check_kinds": list(
+                        getattr(audit_report, "blocking_topology_check_kinds", []) or []
+                    ),
+                }
+            },
+            "notes": [
+                "The boundary-recovery probe requires a split post-band transition family with observed `error 2` evidence.",
+            ],
+        }
+    else:
+        operator_result = OperatorLibraryV1().execute(
+            "prototype_localize_post_transition_boundary_recovery",
+            motif_match,
+            topology_ir,
+            audit_report=audit_report,
+        ).model_dump(mode="json")
+
+    report_path = artifact_dir / "post_transition_boundary_recovery_probe_report.json"
+    write_json_report(
+        report_path,
+        {
+            "fixture_id": fixture.get("fixture_id"),
+            "family": fixture.get("family"),
+            "baseline_observed": baseline_observed,
+            "operator_result": operator_result,
+            "selected_section_y_le_m": list(fixture.get("selected_section_y_le_m", [])),
+        },
+    )
+    return {
+        "fixture": copy.deepcopy(fixture),
         "operator_result": operator_result,
         "report_path": str(report_path),
     }
@@ -2031,6 +2128,8 @@ def _run_shell_v4_pre_plc_repro_fixture(
         observed_failure_kind = "segment_facet_intersection"
     elif "Invalid boundary mesh (overlapping facets)" in error_text:
         observed_failure_kind = "facet_facet_overlap"
+    elif "Could not recover boundary mesh: error 2" in error_text:
+        observed_failure_kind = "boundary_recovery_error_2"
     return {
         "fixture_id": str(fixture["fixture_id"]),
         "family": str(fixture["family"]),
@@ -2142,6 +2241,11 @@ def _collect_shell_v4_pre_plc_operator_regression_reports(
             transition_split["fixture"],
             out_dir=regression_dir / family / "run",
         )
+        boundary_recovery_probe = _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
+            transition_split["fixture"],
+            baseline_observed=observed,
+            artifact_dir=regression_dir / family / "boundary_recovery_probe",
+        )
         regression_runs.append(
             {
                 "fixture_id": fixture["fixture_id"],
@@ -2149,6 +2253,7 @@ def _collect_shell_v4_pre_plc_operator_regression_reports(
                 "baseline_expected_failure_kind": fixture["expected_failure_kind"],
                 "truncation_connector_band_operator_result": regularized["operator_result"],
                 "post_band_transition_operator_result": transition_split["operator_result"],
+                "post_transition_boundary_recovery_probe_result": boundary_recovery_probe["operator_result"],
                 "regularized_fixture": {
                     "selected_section_y_le_m": regularized["fixture"]["selected_section_y_le_m"],
                 },
@@ -2292,6 +2397,11 @@ def _run_shell_v4_topology_compiler_plan_only(
                 str(entry["family"])
                 for entry in operator_regression_runs
                 if entry["changed_failure_kind_after_transition_split"]
+            ],
+            "post_transition_boundary_recovery_localized_fixture_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if entry["post_transition_boundary_recovery_probe_result"]["status"] == "applied"
             ],
             "improved_fixture_families": [
                 str(entry["family"])

@@ -10,6 +10,7 @@ import hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe as shell_v4_bl_mesh
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _apply_post_band_transition_split_operator_to_pre_plc_fixture,
+    _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture,
     _apply_truncation_connector_band_operator_to_pre_plc_fixture,
     _analyze_real_wing_tip_bl_interference,
     _augment_real_wing_sections_for_tip_truncation,
@@ -1538,6 +1539,43 @@ def test_shell_v4_pre_plc_root_last4_post_band_transition_prototype_keeps_overla
     assert "Invalid boundary mesh (overlapping facets)" not in observed["error"]
     assert "Could not recover boundary mesh: error 2" in observed["error"]
     assert Path(transformed["report_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last3_post_transition_boundary_recovery_probe_structures_error2(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last3_segment_facet",
+        artifact_dir=tmp_path / "fixture",
+    )
+    baseline = _run_shell_v4_pre_plc_repro_fixture(
+        fixture,
+        out_dir=tmp_path / "baseline_probe",
+    )
+    transformed = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        fixture,
+        baseline_observed=baseline,
+        artifact_dir=tmp_path / "transformed",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        transformed["fixture"],
+        out_dir=tmp_path / "transformed_probe",
+    )
+    localized = _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
+        transformed["fixture"],
+        baseline_observed=observed,
+        artifact_dir=tmp_path / "localized",
+    )
+
+    assert observed["observed_failure_kind"] == "boundary_recovery_error_2"
+    assert localized["operator_result"]["status"] == "applied"
+    plan = localized["operator_result"]["details"]["boundary_recovery_probe_plan"]
+    assert plan["blocking_topology_check_kinds"] == ["boundary_recovery_error_2_risk"]
+    assert plan["geometry_contact_locus_kind"] == "post_band_transition_guard_to_tip"
+    assert Path(localized["report_path"]).exists()
 
 
 def test_run_shell_v4_topology_compiler_gate_off_keeps_runtime_decision_unchanged(tmp_path: Path):

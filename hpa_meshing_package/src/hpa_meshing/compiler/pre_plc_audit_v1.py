@@ -13,6 +13,7 @@ PlanningPolicyFailKindV1 = Literal["bl_clearance_incompatibility"]
 PrePLCAuditCheckKindV1 = Literal[
     "segment_facet_intersection_risk",
     "facet_facet_overlap_risk",
+    "boundary_recovery_error_2_risk",
     "extrusion_self_contact_risk",
     "degenerated_prism_risk",
     "local_clearance_vs_first_layer_height",
@@ -136,6 +137,7 @@ def _is_topology_check(kind: PrePLCAuditCheckKindV1) -> bool:
     return kind in {
         "segment_facet_intersection_risk",
         "facet_facet_overlap_risk",
+        "boundary_recovery_error_2_risk",
         "degenerated_prism_risk",
         "manifold_loop_consistency",
     }
@@ -213,6 +215,29 @@ def _facet_facet_overlap_check(
         assessment="placeholder",
         implemented=False,
         summary="No facet-facet overlap evidence or descriptor-level inference is available yet.",
+    )
+
+
+def _boundary_recovery_error_2_check(
+    ir: TopologyIRV1,
+    config: PrePLCAuditConfigV1,
+) -> PrePLCAuditCheckV1:
+    observed = _observed_evidence_for_kind(config, "boundary_recovery_error_2_risk")
+    if observed:
+        return _observed_check(
+            kind="boundary_recovery_error_2_risk",
+            evidences=observed,
+            summary=(
+                "Observed post-band transition boundary-recovery `error 2` failure in the "
+                "shell_v4-derived PLC reproducer fixture."
+            ),
+        )
+    return PrePLCAuditCheckV1(
+        kind="boundary_recovery_error_2_risk",
+        status="not_evaluated",
+        assessment="placeholder",
+        implemented=False,
+        summary="No boundary-recovery `error 2` reproducer evidence is available yet.",
     )
 
 
@@ -441,6 +466,7 @@ def run_pre_plc_audit_v1(
     checks = [
         _segment_facet_intersection_check(ir, resolved_config),
         _facet_facet_overlap_check(ir, resolved_config),
+        _boundary_recovery_error_2_check(ir, resolved_config),
         _extrusion_self_contact_check(ir, resolved_config),
         _degenerated_prism_check(ir, resolved_config),
         _local_clearance_check(ir, resolved_config),

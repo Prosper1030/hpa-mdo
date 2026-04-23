@@ -13,6 +13,7 @@ MotifKindV1 = Literal[
     "TRIANGULAR_ENDCAP_COLLAPSED_3PATCH",
     "TRUNCATION_CONNECTOR_BAND",
     "CANONICAL_CONNECTOR_BAND_POST_TRANSITION",
+    "POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
     "VOLUME_ENTRY_PLC_RISK",
 ]
 
@@ -91,6 +92,19 @@ class MotifRegistryV1:
                     "post_band_transition_split_report",
                 ],
             ),
+            "POST_BAND_TRANSITION_BOUNDARY_RECOVERY": MotifRegistryEntryV1(
+                kind="POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
+                admissible_operators=["prototype_localize_post_transition_boundary_recovery"],
+                reject_conditions=[
+                    "family_not_post_transition_guard_split",
+                    "missing_boundary_recovery_error_2_blocker",
+                ],
+                unsupported_conditions=["boundary_recovery_contact_locus_not_localized"],
+                expected_artifact_keys=[
+                    "post_transition_boundary_recovery_probe_plan",
+                    "post_transition_boundary_recovery_probe_report",
+                ],
+            ),
             "VOLUME_ENTRY_PLC_RISK": MotifRegistryEntryV1(
                 kind="VOLUME_ENTRY_PLC_RISK",
                 admissible_operators=["reject_unsupported_plc_risk_family"],
@@ -114,6 +128,7 @@ class MotifRegistryV1:
         matches.extend(self._match_triangular_endcap_collapsed_3patch(ir))
         matches.extend(self._match_truncation_connector_band(ir))
         matches.extend(self._match_canonical_connector_band_post_transition(ir, audit_report=audit_report))
+        matches.extend(self._match_post_band_transition_boundary_recovery(ir, audit_report=audit_report))
         matches.extend(self._match_volume_entry_plc_risk(audit_report))
         return MotifRegistryReportV1(
             matches=matches,
@@ -310,6 +325,93 @@ class MotifRegistryV1:
                 notes=[
                     "This motif is intentionally downstream of overlap-family regularization.",
                     "It only matches already-canonical connector-band families with zero pre-band support strips.",
+                ],
+            )
+        ]
+
+    def _match_post_band_transition_boundary_recovery(
+        self,
+        ir: TopologyIRV1,
+        *,
+        audit_report: Optional[Any] = None,
+    ) -> List[MotifMatchV1]:
+        root_support_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "root_to_terminal_support"
+        ]
+        connector_band_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "connector_band"
+        ]
+        transition_guard_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "post_band_transition_guard"
+        ]
+        transition_terminal_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "post_band_terminal_transition"
+        ]
+        pre_band_support_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "pre_band_support"
+        ]
+        blocking_topology_check_kinds = list(
+            getattr(audit_report, "blocking_topology_check_kinds", []) or []
+        )
+        if (
+            len(root_support_patches) != 1
+            or len(connector_band_patches) != 1
+            or len(transition_guard_patches) != 1
+            or len(transition_terminal_patches) != 1
+            or pre_band_support_patches
+            or "boundary_recovery_error_2_risk" not in blocking_topology_check_kinds
+        ):
+            return []
+        entry = self.describe("POST_BAND_TRANSITION_BOUNDARY_RECOVERY")
+        guard_patch = transition_guard_patches[0]
+        terminal_patch = transition_terminal_patches[0]
+        guard_split_y = guard_patch.metadata.get("outboard_y_le_m")
+        transition_start_y = guard_patch.metadata.get("inboard_y_le_m")
+        tip_y = terminal_patch.metadata.get("outboard_y_le_m")
+        return [
+            MotifMatchV1(
+                motif_id="POST_BAND_TRANSITION_BOUNDARY_RECOVERY:0",
+                kind="POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
+                entity_ids=[
+                    connector_band_patches[0].patch_id,
+                    guard_patch.patch_id,
+                    terminal_patch.patch_id,
+                ],
+                summary=(
+                    "Canonical connector-band topology now localizes a distinct post-band transition "
+                    "boundary-recovery `error 2` family."
+                ),
+                predicate_evidence={
+                    "root_support_patch_count": len(root_support_patches),
+                    "connector_band_patch_count": len(connector_band_patches),
+                    "transition_guard_patch_count": len(transition_guard_patches),
+                    "transition_terminal_patch_count": len(transition_terminal_patches),
+                    "pre_band_support_patch_count": len(pre_band_support_patches),
+                    "blocking_topology_check_kinds": blocking_topology_check_kinds,
+                    "transition_start_y_le_m": transition_start_y,
+                    "transition_guard_y_le_m": guard_split_y,
+                    "tip_y_le_m": tip_y,
+                    "transition_guard_span_m": guard_patch.metadata.get("span_interval_m"),
+                    "transition_terminal_span_m": terminal_patch.metadata.get("span_interval_m"),
+                    "geometry_contact_locus_kind": "post_band_transition_guard_to_tip",
+                },
+                admissible_operators=entry.admissible_operators,
+                reject_conditions=entry.reject_conditions,
+                unsupported_conditions=entry.unsupported_conditions,
+                expected_artifact_keys=entry.expected_artifact_keys,
+                notes=[
+                    "This family is downstream of overlap and segment-facet families after the deterministic guard split.",
+                    "It is classified as a boundary-recovery failure localized to the post-band transition contact locus.",
                 ],
             )
         ]

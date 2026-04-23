@@ -131,6 +131,41 @@ The remaining observed blocker is now interpreted as a post-band transition fami
 This round therefore adds an explicit prototype operator for the canonical post-band transition family
 instead of pretending the first overlap operator just needs to be widened.
 
+## Third observed family: post-band transition boundary recovery `error 2`
+
+The next family downstream is deliberately no longer described as a segment-facet problem.
+
+Once the canonical post-band transition prototype inserts one deterministic guard section, the
+reproducer can leave the original `segment-facet intersection` string entirely and fail later with:
+
+- `Could not recover boundary mesh: error 2`
+
+That change is not treated as "mission accomplished." It is treated as evidence that the unresolved
+family has moved into a different stage with a different locus:
+
+- the connector band is still canonical
+- overlap-family evidence is already consumed
+- the split post-band transition interval is now the geometry-contact locus
+- the observed blocker is better named as a boundary-recovery family, not a renamed overlap case
+
+This round therefore promotes the new line explicitly:
+
+- new observed topology check: `boundary_recovery_error_2_risk`
+- new motif family: `POST_BAND_TRANSITION_BOUNDARY_RECOVERY`
+- new executable prototype/probe: `prototype_localize_post_transition_boundary_recovery`
+
+What this does mean:
+
+- the `error 2` family is now classified and regression-tested as its own post-band transition line
+- applicability and reject semantics are deterministic
+- artifacts can now point at the guard-to-tip interval instead of only quoting a downstream string
+
+What this still does **not** mean:
+
+- not a production repair for boundary recovery
+- not proof of full prelaunch success
+- not evidence that real-wing or whole-case PLC routing is globally solved
+
 ## BL compatibility as planning policy, not topology blame
 
 The BL clearance ratio line is now promoted one level higher in the artifacts.
@@ -153,7 +188,7 @@ That separation matters because a failing BL policy verdict should tell later us
 
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips
 - no claim that the connector-band operator is fully generalized beyond the one-extra-support-strip family
-- no claim that the new post-band transition prototype is the final production operator
+- no claim that the new post-band transition prototypes are the final production operators
 - no automatic integration into the live `shell_v4` runtime path yet
 
 Those are intentional boundaries, not missing polish.
