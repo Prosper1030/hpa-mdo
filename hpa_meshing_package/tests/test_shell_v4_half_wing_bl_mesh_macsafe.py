@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from itertools import combinations
 from pathlib import Path
 
 import pytest
@@ -15,10 +16,15 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _build_real_wing_root_closure_surfaces,
     _build_su2_cfg,
     _derive_wall_diagnostics_from_surface_vtk,
+    _extrude_boundary_layer_source_groups,
     _global_section_profile_points,
     _layer_cumulative_heights,
+    _rebuild_tip_truncation_closure_block,
+    _remove_mesh_constraints_from_surfaces,
     _resolve_real_main_wing_geometry,
+    _select_tip_truncation_closure_source_surface_tags,
     _select_tip_truncation_connector_band_surface_tags,
+    _select_tip_truncation_surface_tags,
     _set_shell_transfinite_controls,
     _solver_command,
     _solver_env,
@@ -910,6 +916,229 @@ def test_real_main_wing_tip_truncation_inserts_connector_band_strip(tmp_path: Pa
         gmsh.finalize()
 
 
+def _build_real_main_wing_tip_truncation_closure_block_model(tmp_path: Path) -> dict[str, object]:
+    repo_root = Path(__file__).resolve().parents[2]
+    source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
+    start_y = 14.91019607843137
+    spec = build_shell_v4_half_wing_bl_macsafe_spec(
+        "BL_macsafe_baseline",
+        overrides={
+            "geometry": {
+                "shape_mode": "esp_rebuilt_main_wing",
+                "source_path": str(source_path),
+                "component": "main_wing",
+                "airfoil_loop_points": 48,
+                "half_span_stations": 18,
+            }
+        },
+    )
+    real_geometry = _resolve_real_main_wing_geometry(
+        geometry=spec["geometry"],
+        artifact_dir=tmp_path / "artifacts",
+    )
+    augmented_sections, truncation_geometry = _augment_real_wing_sections_for_tip_truncation(
+        sections=list(real_geometry["sections"]),
+        start_y_m=start_y,
+        protection=spec["real_wing_bl_protection"],
+    )
+    real_geometry["sections"] = augmented_sections
+    real_geometry["section_profiles"] = [
+        _global_section_profile_points(section) for section in augmented_sections
+    ]
+    gmsh = load_gmsh()
+    gmsh.initialize()
+    gmsh.option.setNumber("General.Terminal", 1)
+    gmsh.option.setNumber("General.NumThreads", 1)
+    gmsh.option.setNumber("Geometry.ExtrudeReturnLateralEntities", 1)
+    gmsh.model.add("real_main_wing_tip_truncation_closure_block")
+    wall_surface_tags, _, geometry = _build_real_main_wing_occ_shell(
+        gmsh=gmsh,
+        section_profiles=real_geometry["section_profiles"],
+    )
+    _set_shell_transfinite_controls(
+        gmsh,
+        chord_m=float(spec["geometry"]["chord_m"]),
+        half_span_m=float(real_geometry["overall_bounds"]["y_max"]),
+        airfoil_loop_points=int(spec["geometry"]["airfoil_loop_points"]),
+        half_span_stations=int(spec["geometry"]["half_span_stations"]),
+    )
+    tip_truncation_surface_tags = _select_tip_truncation_surface_tags(
+        gmsh=gmsh,
+        wall_surface_tags=wall_surface_tags,
+        start_y_m=start_y,
+        tip_surface_tag=int(geometry["tip_surface_tag"]),
+        include_tip_cap=True,
+    )
+    connector_band_surface_tags = _select_tip_truncation_connector_band_surface_tags(
+        gmsh=gmsh,
+        wall_surface_tags=wall_surface_tags,
+        band_start_y_m=truncation_geometry["connector_band_start_y_m"],
+        start_y_m=start_y,
+        tip_surface_tag=int(geometry["tip_surface_tag"]),
+    )
+    _remove_mesh_constraints_from_surfaces(
+        gmsh,
+        [*tip_truncation_surface_tags, *connector_band_surface_tags],
+    )
+    excluded_surface_tags = list(
+        dict.fromkeys([*tip_truncation_surface_tags, *connector_band_surface_tags])
+    )
+    bl_source_surface_tags = [
+        int(tag)
+        for tag in wall_surface_tags
+        if int(tag) not in set(excluded_surface_tags)
+    ]
+    gmsh.model.mesh.generate(2)
+    protection_summary = _build_real_wing_bl_protection_field(
+        gmsh=gmsh,
+        wall_surface_tags=bl_source_surface_tags,
+        sections=list(real_geometry["sections"]),
+        protection=spec["real_wing_bl_protection"],
+        base_total_thickness_m=float(spec["boundary_layer"]["target_total_thickness_m"]),
+        ref_chord_m=float(spec["geometry"]["chord_m"]),
+        half_span_m=float(real_geometry["overall_bounds"]["y_max"]),
+    )
+    extbl = gmsh.model.geo.extrudeBoundaryLayer(
+        [(2, tag) for tag in bl_source_surface_tags],
+        [1] * int(spec["boundary_layer"]["layers"]),
+        _layer_cumulative_heights(
+            float(spec["boundary_layer"]["first_layer_height_m"]),
+            float(spec["boundary_layer"]["growth_ratio"]),
+            int(spec["boundary_layer"]["layers"]),
+        ),
+        True,
+        False,
+        -1 if protection_summary is None else int(protection_summary["view_index"]),
+    )
+    gmsh.model.geo.synchronize()
+    return {
+        "gmsh": gmsh,
+        "spec": spec,
+        "real_geometry": real_geometry,
+        "truncation_geometry": truncation_geometry,
+        "wall_surface_tags": wall_surface_tags,
+        "bl_source_surface_tags": bl_source_surface_tags,
+        "extbl": extbl,
+        "connector_band_surface_tags": connector_band_surface_tags,
+    }
+
+
+def test_real_main_wing_tip_truncation_closure_block_detects_last_inboard_source_patch(
+    tmp_path: Path,
+):
+    setup = _build_real_main_wing_tip_truncation_closure_block_model(tmp_path)
+    gmsh = setup["gmsh"]
+    try:
+        closure_source_surface_tags = _select_tip_truncation_closure_source_surface_tags(
+            gmsh=gmsh,
+            bl_source_surface_tags=setup["bl_source_surface_tags"],
+            connector_band_start_y_m=setup["truncation_geometry"]["connector_band_start_y_m"],
+        )
+        groups = _extrude_boundary_layer_source_groups(
+            gmsh=gmsh,
+            source_surface_tags=setup["bl_source_surface_tags"],
+            extbl=setup["extbl"],
+        )
+    finally:
+        gmsh.finalize()
+
+    assert closure_source_surface_tags == [23, 24, 25, 26, 27, 28]
+    assert [
+        group["source_surface_tag"]
+        for group in groups
+        if group["source_surface_tag"] in set(closure_source_surface_tags)
+    ] == [23, 24, 25, 26, 27, 28]
+
+
+def test_real_main_wing_tip_truncation_closure_block_rebuilds_single_local_volume_and_drops_transition_surfaces(
+    tmp_path: Path,
+):
+    setup = _build_real_main_wing_tip_truncation_closure_block_model(tmp_path)
+    gmsh = setup["gmsh"]
+    try:
+        summary = _rebuild_tip_truncation_closure_block(
+            gmsh=gmsh,
+            bl_source_surface_tags=setup["bl_source_surface_tags"],
+            extbl=setup["extbl"],
+            connector_band_surface_tags=setup["connector_band_surface_tags"],
+            connector_band_start_y_m=setup["truncation_geometry"]["connector_band_start_y_m"],
+        )
+        gmsh.model.mesh.generate(2)
+        surface_tags = {int(tag) for dim, tag in gmsh.model.getEntities(2) if int(dim) == 2}
+        volume_tags = {int(tag) for dim, tag in gmsh.model.getEntities(3) if int(dim) == 3}
+        rebuilt_boundary_curves_by_surface = {}
+        for rebuilt_surface_tag in summary["rebuilt_closure_ring_surface_tags"]:
+            rebuilt_boundary = gmsh.model.getBoundary(
+                [(2, int(rebuilt_surface_tag))],
+                combined=False,
+                oriented=True,
+                recursive=False,
+            )
+            rebuilt_boundary_curves_by_surface[int(rebuilt_surface_tag)] = [
+                int(entity_tag)
+                for entity_dim, entity_tag in rebuilt_boundary
+                if int(entity_dim) == 1
+            ]
+    finally:
+        gmsh.finalize()
+
+    assert summary is not None
+    assert summary["source_surface_tags"] == [23, 24, 25, 26, 27, 28]
+    assert summary["removed_transition_surface_tags"] == [341, 349, 357, 361, 371, 402, 423]
+    assert summary["legacy_closure_surface_tags"] == [353, 383, 410, 427, 471]
+    assert summary["closure_ring_surface_tags"] == summary["rebuilt_closure_ring_surface_tags"]
+    assert len(summary["rebuilt_closure_ring_surface_tags"]) == 5
+    assert len(set(summary["rebuilt_closure_ring_surface_tags"])) == 5
+    assert set(summary["rebuilt_closure_ring_surface_tags"]).isdisjoint(
+        set(summary["legacy_closure_surface_tags"])
+    )
+    assert set(summary["legacy_to_rebuilt_surface_tags"]) == set(summary["legacy_closure_surface_tags"])
+    assert set(summary["legacy_to_rebuilt_surface_tags"].values()) == set(
+        summary["rebuilt_closure_ring_surface_tags"]
+    )
+    assert all(tag not in surface_tags for tag in summary["removed_transition_surface_tags"])
+    assert all(tag not in surface_tags for tag in summary["legacy_closure_surface_tags"])
+    assert all(tag in surface_tags for tag in summary["rebuilt_closure_ring_surface_tags"])
+    assert summary["block_volume_tag"] in volume_tags
+    rebuild_details = summary["closure_ring_rebuild_details"]
+    assert [detail["source_surface_tag"] for detail in rebuild_details] == [23, 24, 25, 26, 28]
+    assert all(len(detail["source_signed_boundary_curves"]) >= 3 for detail in rebuild_details)
+    assert all(len(detail["wire_source_signed_curves"]) == 4 for detail in rebuild_details)
+    assert all(len(detail["rebuilt_wire_signed_curves"]) == 4 for detail in rebuild_details)
+    assert all(detail["boundary_roundtrip_ok"] is True for detail in rebuild_details)
+    assert all(detail["duplicate_wire_curve_tags"] == [] for detail in rebuild_details)
+    assert all(set(detail["wire_vertex_degrees"].values()) == {2} for detail in rebuild_details)
+    rebuilt_wire_curve_tags_by_legacy = {
+        int(detail["legacy_surface_tag"]): set(abs(int(tag)) for tag in detail["rebuilt_wire_signed_curves"])
+        for detail in rebuild_details
+    }
+    rebuilt_curve_tag_by_source_curve_tag_by_legacy = {
+        int(detail["legacy_surface_tag"]): {
+            int(source_curve_tag): int(rebuilt_curve_tag)
+            for source_curve_tag, rebuilt_curve_tag in detail["rebuilt_curve_tag_by_source_curve_tag"].items()
+        }
+        for detail in rebuild_details
+    }
+    for lhs_legacy_tag, rhs_legacy_tag in combinations(rebuilt_curve_tag_by_source_curve_tag_by_legacy, 2):
+        shared_source_curve_tags = set(
+            rebuilt_curve_tag_by_source_curve_tag_by_legacy[lhs_legacy_tag]
+        ).intersection(rebuilt_curve_tag_by_source_curve_tag_by_legacy[rhs_legacy_tag])
+        assert {
+            rebuilt_curve_tag_by_source_curve_tag_by_legacy[lhs_legacy_tag][source_curve_tag]
+            for source_curve_tag in shared_source_curve_tags
+        } == {
+            rebuilt_curve_tag_by_source_curve_tag_by_legacy[rhs_legacy_tag][source_curve_tag]
+            for source_curve_tag in shared_source_curve_tags
+        }
+        assert rebuilt_wire_curve_tags_by_legacy[lhs_legacy_tag].intersection(
+            rebuilt_wire_curve_tags_by_legacy[rhs_legacy_tag]
+        ) == {
+            rebuilt_curve_tag_by_source_curve_tag_by_legacy[lhs_legacy_tag][source_curve_tag]
+            for source_curve_tag in shared_source_curve_tags
+        }
+    assert all(len(boundary_curves) == 4 for boundary_curves in rebuilt_boundary_curves_by_surface.values())
+
+
 def test_run_shell_v4_real_main_wing_prelaunch_smoke_reaches_prelaunch_clean_with_tip_truncation(tmp_path: Path):
     repo_root = Path(__file__).resolve().parents[2]
     source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
@@ -978,6 +1207,25 @@ def test_run_shell_v4_real_main_wing_prelaunch_smoke_reaches_prelaunch_clean_wit
     assert result["case_summary"]["bl_local_protection"]["tip_truncation"]["enabled"] is True
     assert result["case_summary"]["bl_local_protection"]["tip_truncation"]["connector_band_start_y_m"] is not None
     assert len(result["case_summary"]["bl_local_protection"]["tip_truncation_connector_band_surface_tags"]) > 0
+    closure_block = result["case_summary"]["bl_local_protection"]["tip_truncation_closure_block"]
+    assert closure_block["source_surface_tags"] == [23, 24, 25, 26, 27, 28]
+    assert closure_block["removed_transition_surface_tags"] == [341, 349, 357, 361, 371, 402, 423]
+    assert closure_block["legacy_closure_surface_tags"] == [353, 383, 410, 427, 471]
+    assert closure_block["closure_ring_surface_tags"] == closure_block["rebuilt_closure_ring_surface_tags"]
+    assert len(closure_block["rebuilt_closure_ring_surface_tags"]) == 5
+    assert set(closure_block["rebuilt_closure_ring_surface_tags"]).isdisjoint(
+        set(closure_block["legacy_closure_surface_tags"])
+    )
+    assert (
+        result["case_summary"]["bl_local_protection"]["tip_termination_surface_tags"]
+        == closure_block["rebuilt_closure_ring_surface_tags"]
+    )
+    assert (
+        result["case_summary"]["bl_local_protection"]["tip_truncation_seam_surface_tags"]
+        == closure_block["rebuilt_closure_ring_surface_tags"]
+    )
+    assert "tip_termination_surface_mesh_cleanup" not in result["case_summary"]["bl_local_protection"]
+    assert "tip_truncation_seam_surface_mesh_cleanup" not in result["case_summary"]["bl_local_protection"]
     assert result["case_summary"]["pre_3d_bl_clearance"]["risk_sample_count"] == 0
     assert (
         result["case_summary"]["pre_3d_bl_clearance"]["min_predicted_bl_top_clearance_m"]

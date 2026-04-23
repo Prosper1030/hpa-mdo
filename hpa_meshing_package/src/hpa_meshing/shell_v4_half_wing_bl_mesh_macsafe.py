@@ -9,6 +9,7 @@ import statistics
 import subprocess
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -36,6 +37,16 @@ DEFAULT_GEOMETRY_SHAPE_MODE = "surrogate_naca0012"
 DEFAULT_REAL_MAIN_WING_SHAPE_MODE = "esp_rebuilt_main_wing"
 ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE = "single_holed_symmetry_face"
 ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES = "use_bl_generated_faces"
+
+
+@dataclass(frozen=True)
+class ClosureRingPatchDesc:
+    source_surface_tag: int
+    legacy_surface_tag: int
+    connector_curve_tag: int
+    source_signed_boundary_curves: tuple[int, ...]
+    wire_source_signed_curves: tuple[int, int, int, int]
+    semantic_corner_point_tags: tuple[int, int, int, int]
 
 DEFAULT_FLOW_CONDITION = {
     "alpha_deg": 0.0,
@@ -1684,6 +1695,777 @@ def _select_tip_truncation_connector_band_surface_tags(
     return _unique_preserve_order(selected)
 
 
+def _surface_boundary_curve_tags(
+    gmsh: Any,
+    surface_tag: int,
+) -> list[int]:
+    return [
+        abs(int(entity_tag))
+        for entity_dim, entity_tag in gmsh.model.getBoundary(
+            [(2, int(surface_tag))],
+            combined=False,
+            oriented=True,
+            recursive=False,
+        )
+        if int(entity_dim) == 1
+    ]
+
+
+def _extrude_boundary_layer_source_groups(
+    *,
+    gmsh: Any,
+    source_surface_tags: list[int],
+    extbl: list[tuple[int, int]],
+) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
+    index = 0
+    for source_surface_tag in source_surface_tags:
+        source_boundary_curve_tags = _surface_boundary_curve_tags(gmsh, int(source_surface_tag))
+        group_length = len(source_boundary_curve_tags) + 2
+        group_entities = list(extbl[index : index + group_length])
+        index += group_length
+        if len(group_entities) != group_length:
+            raise RuntimeError(
+                f"boundary-layer extrusion group for source surface {int(source_surface_tag)} is incomplete"
+            )
+        top_dim, top_surface_tag = group_entities[0]
+        volume_dim, volume_tag = group_entities[1]
+        if int(top_dim) != 2 or int(volume_dim) != 3:
+            raise RuntimeError(
+                f"unexpected boundary-layer group layout for source surface {int(source_surface_tag)}"
+            )
+        side_surface_by_curve: dict[int, int] = {}
+        for curve_tag, (side_dim, side_surface_tag) in zip(
+            source_boundary_curve_tags,
+            group_entities[2:],
+            strict=False,
+        ):
+            if int(side_dim) != 2:
+                raise RuntimeError(
+                    f"boundary-layer side entity for source surface {int(source_surface_tag)} curve {int(curve_tag)}"
+                    " is not a surface"
+                )
+            side_surface_by_curve[int(curve_tag)] = int(side_surface_tag)
+        groups.append(
+            {
+                "source_surface_tag": int(source_surface_tag),
+                "source_boundary_curve_tags": list(source_boundary_curve_tags),
+                "top_surface_tag": int(top_surface_tag),
+                "volume_tag": int(volume_tag),
+                "side_surface_by_curve": dict(side_surface_by_curve),
+            }
+        )
+    if index != len(extbl):
+        raise RuntimeError("boundary-layer extrusion groups did not consume all returned entities")
+    return groups
+
+
+def _select_tip_truncation_closure_source_surface_tags(
+    *,
+    gmsh: Any,
+    bl_source_surface_tags: list[int],
+    connector_band_start_y_m: float | None,
+) -> list[int]:
+    if connector_band_start_y_m is None:
+        return []
+    tolerance = 1.0e-6
+    selected: list[int] = []
+    for surface_tag in bl_source_surface_tags:
+        try:
+            _x_min, y_min, _z_min, _x_max, y_max, _z_max = gmsh.model.getBoundingBox(2, int(surface_tag))
+        except Exception:
+            continue
+        if (
+            y_max >= float(connector_band_start_y_m) - tolerance
+            and y_max <= float(connector_band_start_y_m) + tolerance
+            and y_min < float(connector_band_start_y_m) - tolerance
+        ):
+            selected.append(int(surface_tag))
+    return _unique_preserve_order(selected)
+
+
+def _ordered_curve_mesh_node_tags(
+    gmsh: Any,
+    curve_tag: int,
+) -> list[int]:
+    element_types, _element_tags_by_type, node_tags_by_type = gmsh.model.mesh.getElements(1, int(curve_tag))
+    edges: list[tuple[int, int]] = []
+    for element_type, node_tags in zip(element_types, node_tags_by_type, strict=False):
+        if int(element_type) != 1:
+            continue
+        for index in range(0, len(node_tags), 2):
+            edges.append((int(node_tags[index]), int(node_tags[index + 1])))
+    if not edges:
+        return []
+
+    adjacency: dict[int, list[int]] = defaultdict(list)
+    for start_node_tag, end_node_tag in edges:
+        adjacency[int(start_node_tag)].append(int(end_node_tag))
+        adjacency[int(end_node_tag)].append(int(start_node_tag))
+    endpoints = [int(node_tag) for node_tag, neighbors in adjacency.items() if len(neighbors) == 1]
+    start_node_tag = endpoints[0] if endpoints else int(edges[0][0])
+    ordered_node_tags = [int(start_node_tag)]
+    previous_node_tag: int | None = None
+    current_node_tag = int(start_node_tag)
+    max_steps = len(edges) + 2
+    while len(ordered_node_tags) <= max_steps:
+        next_candidates = [
+            int(node_tag)
+            for node_tag in adjacency.get(int(current_node_tag), [])
+            if previous_node_tag is None or int(node_tag) != int(previous_node_tag)
+        ]
+        if not next_candidates:
+            break
+        next_node_tag = int(next_candidates[0])
+        ordered_node_tags.append(int(next_node_tag))
+        previous_node_tag = int(current_node_tag)
+        current_node_tag = int(next_node_tag)
+        if int(current_node_tag) == int(start_node_tag):
+            break
+    return [int(node_tag) for node_tag in ordered_node_tags]
+
+
+def _deduplicate_polyline_points(
+    points: Iterable[tuple[float, float, float]],
+    *,
+    tolerance: float = 1.0e-12,
+) -> list[tuple[float, float, float]]:
+    deduplicated: list[tuple[float, float, float]] = []
+    for point in points:
+        candidate = (float(point[0]), float(point[1]), float(point[2]))
+        if deduplicated and math.dist(deduplicated[-1], candidate) <= tolerance:
+            continue
+        deduplicated.append(candidate)
+    return deduplicated
+
+
+def _curve_polyline_points(
+    gmsh: Any,
+    curve_tag: int,
+    *,
+    geometric_sample_count: int = 24,
+) -> list[tuple[float, float, float]]:
+    ordered_node_tags = _ordered_curve_mesh_node_tags(gmsh, int(curve_tag))
+    if ordered_node_tags:
+        return _deduplicate_polyline_points(
+            tuple(float(value) for value in gmsh.model.mesh.getNode(int(node_tag))[0])
+            for node_tag in ordered_node_tags
+        )
+
+    try:
+        lower_bounds, upper_bounds = gmsh.model.getParametrizationBounds(1, int(curve_tag))
+        lower = float(lower_bounds[0])
+        upper = float(upper_bounds[0])
+    except Exception:
+        lower = 0.0
+        upper = 0.0
+    if geometric_sample_count > 1:
+        sample_parameters = [
+            float(lower + (upper - lower) * index / (geometric_sample_count - 1))
+            for index in range(geometric_sample_count)
+        ]
+    else:
+        sample_parameters = [float(lower)]
+    try:
+        sampled_points = _deduplicate_polyline_points(
+            tuple(float(value) for value in gmsh.model.getValue(1, int(curve_tag), [parameter]))
+            for parameter in sample_parameters
+        )
+        if len(sampled_points) >= 2 and _polyline_length(list(sampled_points)) > 1.0e-8:
+            return sampled_points
+    except Exception:
+        pass
+    boundary_points = gmsh.model.getBoundary(
+        [(1, int(curve_tag))],
+        combined=False,
+        oriented=True,
+        recursive=False,
+    )
+    return _deduplicate_polyline_points(
+        tuple(float(value) for value in gmsh.model.getValue(0, int(entity_tag), []))
+        for entity_dim, entity_tag in boundary_points
+        if int(entity_dim) == 0
+    )
+
+
+def _polyline_length(
+    points: list[tuple[float, float, float]],
+) -> float:
+    if len(points) < 2:
+        return 0.0
+    return float(
+        sum(
+            math.dist(points[index], points[index + 1])
+            for index in range(len(points) - 1)
+        )
+    )
+
+
+def _add_polyline_curve(
+    geo: Any,
+    points: list[tuple[float, float, float]],
+    *,
+    start_point_tag: int | None = None,
+    end_point_tag: int | None = None,
+) -> tuple[int, list[int]]:
+    point_tags: list[int] = []
+    for index, point in enumerate(points):
+        if index == 0 and start_point_tag is not None:
+            point_tags.append(int(start_point_tag))
+            continue
+        if index == len(points) - 1 and end_point_tag is not None:
+            point_tags.append(int(end_point_tag))
+            continue
+        point_tags.append(int(geo.addPoint(*point)))
+    if len(point_tags) < 2:
+        raise RuntimeError("polyline curve reconstruction requires at least two distinct points")
+    if len(point_tags) == 2:
+        return int(geo.addLine(int(point_tags[0]), int(point_tags[1]))), [int(tag) for tag in point_tags]
+    return int(geo.addSpline(point_tags)), [int(tag) for tag in point_tags]
+
+def _limit_polyline_control_points(
+    points: list[tuple[float, float, float]],
+    *,
+    max_points: int,
+) -> list[tuple[float, float, float]]:
+    if len(points) <= int(max_points):
+        return list(points)
+    if int(max_points) < 2:
+        return [tuple(points[0]), tuple(points[-1])]
+    selected_indices = _unique_preserve_order(
+        int(round(index * (len(points) - 1) / (int(max_points) - 1)))
+        for index in range(int(max_points))
+    )
+    limited_points = [tuple(points[index]) for index in selected_indices]
+    if limited_points[0] != tuple(points[0]):
+        limited_points[0] = tuple(points[0])
+    if limited_points[-1] != tuple(points[-1]):
+        limited_points[-1] = tuple(points[-1])
+    return list(limited_points)
+
+
+def _surface_signed_boundary_curve_loop(
+    gmsh: Any,
+    surface_tag: int,
+) -> tuple[int, ...]:
+    return tuple(
+        int(entity_tag)
+        for entity_dim, entity_tag in gmsh.model.getBoundary(
+            [(2, int(surface_tag))],
+            combined=False,
+            oriented=True,
+            recursive=False,
+        )
+        if int(entity_dim) == 1
+    )
+
+
+def _ordered_surface_boundary_curve_loop(
+    gmsh: Any,
+    surface_tag: int,
+) -> tuple[int, ...]:
+    return tuple(
+        int(curve_tag)
+        for curve_tag in _order_curve_loop(
+            gmsh,
+            _surface_boundary_curve_tags(gmsh, int(surface_tag)),
+        )
+    )
+
+
+def _reverse_signed_curve_loop(
+    signed_curve_tags: Iterable[int],
+) -> tuple[int, ...]:
+    return tuple(-int(curve_tag) for curve_tag in reversed(tuple(int(tag) for tag in signed_curve_tags)))
+
+
+def _rotate_signed_curve_loop_to_start(
+    signed_curve_tags: Iterable[int],
+    *,
+    start_signed_curve_tag: int,
+) -> tuple[int, ...]:
+    ordered = tuple(int(tag) for tag in signed_curve_tags)
+    start_index = ordered.index(int(start_signed_curve_tag))
+    return tuple(ordered[start_index:] + ordered[:start_index])
+
+
+def _canonicalize_closure_wire_loop(
+    signed_curve_tags: Iterable[int],
+    *,
+    connector_signed_curve_tag: int,
+) -> tuple[int, int, int, int]:
+    ordered = tuple(int(tag) for tag in signed_curve_tags)
+    if len(ordered) != 4:
+        raise RuntimeError(
+            f"required closure ring wire must be 4-edge, got {len(ordered)} edges: {ordered}"
+        )
+    for candidate in (ordered, _reverse_signed_curve_loop(ordered)):
+        if int(connector_signed_curve_tag) not in set(candidate):
+            continue
+        rotated = _rotate_signed_curve_loop_to_start(
+            candidate,
+            start_signed_curve_tag=int(connector_signed_curve_tag),
+        )
+        if len(rotated) == 4:
+            return tuple(int(tag) for tag in rotated)
+    raise RuntimeError(
+        f"could not orient closure wire {ordered} around connector curve {int(connector_signed_curve_tag)}"
+    )
+
+
+def _curve_loop_vertex_degrees(
+    gmsh: Any,
+    signed_curve_tags: Iterable[int],
+) -> dict[int, int]:
+    vertex_degree: dict[int, int] = defaultdict(int)
+    for signed_curve_tag in signed_curve_tags:
+        start_point_tag, end_point_tag = _signed_curve_endpoint_tags(gmsh, int(signed_curve_tag))
+        vertex_degree[int(start_point_tag)] += 1
+        vertex_degree[int(end_point_tag)] += 1
+    return {int(point_tag): int(degree) for point_tag, degree in vertex_degree.items()}
+
+
+def _closure_wire_corner_point_tags(
+    gmsh: Any,
+    wire_signed_curves: tuple[int, int, int, int],
+) -> tuple[int, int, int, int]:
+    connector_signed_curve, right_signed_curve, outer_signed_curve, left_signed_curve = (
+        int(wire_signed_curves[0]),
+        int(wire_signed_curves[1]),
+        int(wire_signed_curves[2]),
+        int(wire_signed_curves[3]),
+    )
+    connector_left_point_tag, connector_right_point_tag = _signed_curve_endpoint_tags(gmsh, connector_signed_curve)
+    right_start_point_tag, outer_right_point_tag = _signed_curve_endpoint_tags(gmsh, right_signed_curve)
+    outer_start_point_tag, outer_left_point_tag = _signed_curve_endpoint_tags(gmsh, outer_signed_curve)
+    left_start_point_tag, left_end_point_tag = _signed_curve_endpoint_tags(gmsh, left_signed_curve)
+    if right_start_point_tag != connector_right_point_tag:
+        raise RuntimeError("closure wire right connector does not start at the connector endpoint")
+    if outer_start_point_tag != outer_right_point_tag:
+        raise RuntimeError("closure wire outer curve does not continue from the right connector")
+    if left_start_point_tag != outer_left_point_tag:
+        raise RuntimeError("closure wire left connector does not start at the outer endpoint")
+    if left_end_point_tag != connector_left_point_tag:
+        raise RuntimeError("closure wire left connector does not close back to the connector start")
+    return (
+        int(connector_left_point_tag),
+        int(connector_right_point_tag),
+        int(outer_right_point_tag),
+        int(outer_left_point_tag),
+    )
+
+
+def _curve_mesh_point_count(
+    gmsh: Any,
+    curve_tag: int,
+) -> int | None:
+    ordered_node_tags = _ordered_curve_mesh_node_tags(gmsh, int(curve_tag))
+    if not ordered_node_tags:
+        return None
+    return int(len(_unique_preserve_order(int(node_tag) for node_tag in ordered_node_tags)))
+
+
+def _get_or_make_rebuilt_point_tag(
+    *,
+    gmsh: Any,
+    geo: Any,
+    source_point_tag: int,
+    point_registry: dict[int, int],
+) -> int:
+    existing_tag = point_registry.get(int(source_point_tag))
+    if existing_tag is not None:
+        return int(existing_tag)
+    rebuilt_point_tag = int(geo.addPoint(*_point_xyz(gmsh, int(source_point_tag))))
+    point_registry[int(source_point_tag)] = int(rebuilt_point_tag)
+    return int(rebuilt_point_tag)
+
+
+def _get_or_make_rebuilt_curve_tag(
+    *,
+    gmsh: Any,
+    geo: Any,
+    source_curve_tag: int,
+    point_registry: dict[int, int],
+    curve_registry: dict[int, int],
+) -> tuple[int, int | None]:
+    source_curve_tag = abs(int(source_curve_tag))
+    existing_curve_tag = curve_registry.get(int(source_curve_tag))
+    if existing_curve_tag is not None:
+        return int(existing_curve_tag), _curve_mesh_point_count(gmsh, int(source_curve_tag))
+
+    source_start_point_tag, source_end_point_tag = _curve_endpoint_tags(gmsh, int(source_curve_tag))
+    start_xyz = _point_xyz(gmsh, int(source_start_point_tag))
+    end_xyz = _point_xyz(gmsh, int(source_end_point_tag))
+    curve_points = _curve_polyline_points(gmsh, int(source_curve_tag))
+    if not curve_points:
+        curve_points = [tuple(start_xyz), tuple(end_xyz)]
+    if math.dist(tuple(curve_points[0]), tuple(start_xyz)) > math.dist(tuple(curve_points[-1]), tuple(start_xyz)):
+        curve_points = list(reversed(curve_points))
+    limited_curve_points = _limit_polyline_control_points(list(curve_points), max_points=8)
+    if len(limited_curve_points) < 2:
+        limited_curve_points = [tuple(start_xyz), tuple(end_xyz)]
+    if math.dist(tuple(limited_curve_points[0]), tuple(start_xyz)) > 1.0e-10:
+        limited_curve_points[0] = tuple(start_xyz)
+    if math.dist(tuple(limited_curve_points[-1]), tuple(end_xyz)) > 1.0e-10:
+        limited_curve_points[-1] = tuple(end_xyz)
+
+    rebuilt_start_point_tag = _get_or_make_rebuilt_point_tag(
+        gmsh=gmsh,
+        geo=geo,
+        source_point_tag=int(source_start_point_tag),
+        point_registry=point_registry,
+    )
+    rebuilt_end_point_tag = _get_or_make_rebuilt_point_tag(
+        gmsh=gmsh,
+        geo=geo,
+        source_point_tag=int(source_end_point_tag),
+        point_registry=point_registry,
+    )
+    rebuilt_curve_tag, _rebuilt_point_tags = _add_polyline_curve(
+        geo,
+        list(limited_curve_points),
+        start_point_tag=int(rebuilt_start_point_tag),
+        end_point_tag=int(rebuilt_end_point_tag),
+    )
+    curve_registry[int(source_curve_tag)] = int(rebuilt_curve_tag)
+    return int(rebuilt_curve_tag), _curve_mesh_point_count(gmsh, int(source_curve_tag))
+
+
+def _signed_curve_loop_equivalent(
+    lhs: Iterable[int],
+    rhs: Iterable[int],
+) -> bool:
+    lhs_ordered = tuple(int(tag) for tag in lhs)
+    rhs_ordered = tuple(int(tag) for tag in rhs)
+    if len(lhs_ordered) != len(rhs_ordered):
+        return False
+    if not lhs_ordered and not rhs_ordered:
+        return True
+    for candidate in (rhs_ordered, _reverse_signed_curve_loop(rhs_ordered)):
+        for start_index in range(len(candidate)):
+            rotated = candidate[start_index:] + candidate[:start_index]
+            if lhs_ordered == rotated:
+                return True
+    return False
+
+
+def _build_required_closure_ring_patch_descriptors(
+    *,
+    gmsh: Any,
+    closure_groups: list[dict[str, Any]],
+    connector_closure_curve_tags: list[int],
+) -> list[ClosureRingPatchDesc]:
+    connector_curve_tag_set = {int(tag) for tag in connector_closure_curve_tags}
+    descriptors: list[ClosureRingPatchDesc] = []
+    for group in closure_groups:
+        source_surface_tag = int(group["source_surface_tag"])
+        source_signed_boundary_curves = _ordered_surface_boundary_curve_loop(gmsh, int(source_surface_tag))
+        connector_signed_curves = [
+            int(signed_curve_tag)
+            for signed_curve_tag in source_signed_boundary_curves
+            if abs(int(signed_curve_tag)) in connector_curve_tag_set
+        ]
+        if not connector_signed_curves:
+            continue
+        if len(connector_signed_curves) != 1:
+            raise RuntimeError(
+                f"source surface {int(source_surface_tag)} has ambiguous closure connector curves {connector_signed_curves}"
+            )
+        connector_signed_curve_tag = int(connector_signed_curves[0])
+        connector_curve_tag = abs(int(connector_signed_curve_tag))
+        legacy_surface_tag = int((group.get("side_surface_by_curve") or {})[int(connector_curve_tag)])
+        wire_source_signed_curves = _canonicalize_closure_wire_loop(
+            _ordered_surface_boundary_curve_loop(gmsh, int(legacy_surface_tag)),
+            connector_signed_curve_tag=int(connector_signed_curve_tag),
+        )
+        descriptors.append(
+            ClosureRingPatchDesc(
+                source_surface_tag=int(source_surface_tag),
+                legacy_surface_tag=int(legacy_surface_tag),
+                connector_curve_tag=int(connector_curve_tag),
+                source_signed_boundary_curves=tuple(int(tag) for tag in source_signed_boundary_curves),
+                wire_source_signed_curves=tuple(int(tag) for tag in wire_source_signed_curves),
+                semantic_corner_point_tags=_closure_wire_corner_point_tags(
+                    gmsh,
+                    tuple(int(tag) for tag in wire_source_signed_curves),
+                ),
+            )
+        )
+    return list(descriptors)
+
+
+def _rebuild_closure_ring_surface_from_patch_descriptor(
+    *,
+    gmsh: Any,
+    descriptor: ClosureRingPatchDesc,
+    point_registry: dict[int, int],
+    curve_registry: dict[int, int],
+) -> dict[str, Any]:
+    geo = gmsh.model.geo
+    rebuilt_wire_signed_curves: list[int] = []
+    source_curve_point_counts: dict[int, int | None] = {}
+    for source_signed_curve_tag in descriptor.wire_source_signed_curves:
+        rebuilt_curve_tag, source_curve_point_count = _get_or_make_rebuilt_curve_tag(
+            gmsh=gmsh,
+            geo=geo,
+            source_curve_tag=abs(int(source_signed_curve_tag)),
+            point_registry=point_registry,
+            curve_registry=curve_registry,
+        )
+        rebuilt_wire_signed_curves.append(
+            int(rebuilt_curve_tag)
+            if int(source_signed_curve_tag) > 0
+            else -int(rebuilt_curve_tag)
+        )
+        source_curve_point_counts[abs(int(source_signed_curve_tag))] = (
+            int(source_curve_point_count)
+            if source_curve_point_count is not None
+            else None
+        )
+
+    curve_loop_tag = int(geo.addCurveLoop(list(rebuilt_wire_signed_curves)))
+    rebuilt_surface_tag = int(geo.addSurfaceFilling([curve_loop_tag]))
+    gmsh.model.geo.synchronize()
+
+    rebuilt_corner_point_tags = tuple(
+        int(point_registry[int(source_point_tag)])
+        for source_point_tag in descriptor.semantic_corner_point_tags
+    )
+    for source_signed_curve_tag, rebuilt_signed_curve_tag in zip(
+        descriptor.wire_source_signed_curves,
+        rebuilt_wire_signed_curves,
+        strict=True,
+    ):
+        point_count = source_curve_point_counts.get(abs(int(source_signed_curve_tag)))
+        if point_count is not None and int(point_count) >= 2:
+            gmsh.model.mesh.setTransfiniteCurve(abs(int(rebuilt_signed_curve_tag)), int(point_count))
+
+    inner_count = source_curve_point_counts.get(abs(int(descriptor.wire_source_signed_curves[0])))
+    right_count = source_curve_point_counts.get(abs(int(descriptor.wire_source_signed_curves[1])))
+    outer_count = source_curve_point_counts.get(abs(int(descriptor.wire_source_signed_curves[2])))
+    left_count = source_curve_point_counts.get(abs(int(descriptor.wire_source_signed_curves[3])))
+    transfinite_surface_applied = False
+    if (
+        inner_count is not None
+        and right_count is not None
+        and outer_count is not None
+        and left_count is not None
+        and int(inner_count) == int(outer_count)
+        and int(right_count) == int(left_count)
+    ):
+        gmsh.model.mesh.setTransfiniteSurface(
+            int(rebuilt_surface_tag),
+            cornerTags=list(rebuilt_corner_point_tags),
+        )
+        transfinite_surface_applied = True
+
+    rebuilt_boundary_roundtrip = _ordered_surface_boundary_curve_loop(gmsh, int(rebuilt_surface_tag))
+    wire_vertex_degrees = _curve_loop_vertex_degrees(gmsh, rebuilt_wire_signed_curves)
+    return {
+        "source_surface_tag": int(descriptor.source_surface_tag),
+        "legacy_surface_tag": int(descriptor.legacy_surface_tag),
+        "rebuilt_surface_tag": int(rebuilt_surface_tag),
+        "curve_loop_tag": int(curve_loop_tag),
+        "connector_curve_tag": int(descriptor.connector_curve_tag),
+        "source_signed_boundary_curves": [int(tag) for tag in descriptor.source_signed_boundary_curves],
+        "wire_source_signed_curves": [int(tag) for tag in descriptor.wire_source_signed_curves],
+        "wire_source_curve_tags": [
+            abs(int(tag)) for tag in descriptor.wire_source_signed_curves
+        ],
+        "rebuilt_wire_signed_curves": [int(tag) for tag in rebuilt_wire_signed_curves],
+        "rebuilt_wire_curve_tags": [
+            abs(int(tag)) for tag in rebuilt_wire_signed_curves
+        ],
+        "semantic_corner_point_tags": [int(tag) for tag in descriptor.semantic_corner_point_tags],
+        "rebuilt_corner_point_tags": [int(tag) for tag in rebuilt_corner_point_tags],
+        "source_curve_point_counts": {
+            int(curve_tag): (
+                int(point_count)
+                if point_count is not None
+                else None
+            )
+            for curve_tag, point_count in source_curve_point_counts.items()
+        },
+        "rebuilt_curve_tag_by_source_curve_tag": {
+            abs(int(source_signed_curve_tag)): abs(int(rebuilt_signed_curve_tag))
+            for source_signed_curve_tag, rebuilt_signed_curve_tag in zip(
+                descriptor.wire_source_signed_curves,
+                rebuilt_wire_signed_curves,
+                strict=True,
+            )
+        },
+        "duplicate_wire_curve_tags": _duplicate_curve_tags(rebuilt_wire_signed_curves),
+        "wire_vertex_degrees": dict(wire_vertex_degrees),
+        "boundary_roundtrip_ok": _signed_curve_loop_equivalent(
+            rebuilt_wire_signed_curves,
+            rebuilt_boundary_roundtrip,
+        ),
+        "construction": "oriented_patch_descriptor_exact_4edge_wire_surface_filling",
+        "transfinite_surface_applied": bool(transfinite_surface_applied),
+    }
+
+
+def _rebuild_tip_truncation_closure_block(
+    *,
+    gmsh: Any,
+    bl_source_surface_tags: list[int],
+    extbl: list[tuple[int, int]],
+    connector_band_surface_tags: list[int],
+    connector_band_start_y_m: float | None,
+) -> dict[str, Any] | None:
+    closure_source_surface_tags = _select_tip_truncation_closure_source_surface_tags(
+        gmsh=gmsh,
+        bl_source_surface_tags=bl_source_surface_tags,
+        connector_band_start_y_m=connector_band_start_y_m,
+    )
+    if not closure_source_surface_tags:
+        return None
+
+    extbl_groups = _extrude_boundary_layer_source_groups(
+        gmsh=gmsh,
+        source_surface_tags=bl_source_surface_tags,
+        extbl=extbl,
+    )
+    group_by_source_surface = {
+        int(group["source_surface_tag"]): dict(group)
+        for group in extbl_groups
+    }
+    closure_groups = [
+        group_by_source_surface[int(surface_tag)]
+        for surface_tag in closure_source_surface_tags
+        if int(surface_tag) in group_by_source_surface
+    ]
+    if len(closure_groups) < 2:
+        return None
+
+    connector_boundary_curve_tags: set[int] = set()
+    for surface_tag in connector_band_surface_tags:
+        connector_boundary_curve_tags.update(abs(int(tag)) for tag in _surface_boundary_curve_tags(gmsh, int(surface_tag)))
+
+    curve_occurrence_count: dict[int, int] = defaultdict(int)
+    side_surface_tags_by_curve: dict[int, int] = {}
+    for group in closure_groups:
+        for curve_tag, side_surface_tag in (group.get("side_surface_by_curve") or {}).items():
+            curve_occurrence_count[int(curve_tag)] += 1
+            side_surface_tags_by_curve.setdefault(int(curve_tag), int(side_surface_tag))
+
+    outer_boundary_curve_tags = [
+        int(curve_tag)
+        for curve_tag, count in curve_occurrence_count.items()
+        if int(count) == 1
+    ]
+    internal_transition_curve_tags = [
+        int(curve_tag)
+        for curve_tag, count in curve_occurrence_count.items()
+        if int(count) > 1
+    ]
+    connector_closure_curve_tags = [
+        int(curve_tag)
+        for curve_tag in outer_boundary_curve_tags
+        if int(curve_tag) in connector_boundary_curve_tags
+    ]
+    retained_outer_interface_curve_tags = [
+        int(curve_tag)
+        for curve_tag in outer_boundary_curve_tags
+        if int(curve_tag) not in set(connector_closure_curve_tags)
+    ]
+
+    rebuilt_source_surface_tags = [int(group["source_surface_tag"]) for group in closure_groups]
+    rebuilt_top_surface_tags = [int(group["top_surface_tag"]) for group in closure_groups]
+    removed_volume_tags = [int(group["volume_tag"]) for group in closure_groups]
+    root_side_surface_tags = _unique_preserve_order(
+        side_surface_tag
+        for group in closure_groups
+        for side_surface_tag in (group.get("side_surface_by_curve") or {}).values()
+        if _surface_lies_on_y_plane(gmsh, int(side_surface_tag), y_value=0.0, tol=1.0e-6)
+    )
+    removed_transition_surface_tags = _unique_preserve_order(
+        side_surface_tags_by_curve[curve_tag]
+        for curve_tag in internal_transition_curve_tags
+        if int(curve_tag) in side_surface_tags_by_curve
+    )
+    legacy_closure_surface_tags = _unique_preserve_order(
+        side_surface_tags_by_curve[curve_tag]
+        for curve_tag in connector_closure_curve_tags
+        if int(curve_tag) in side_surface_tags_by_curve
+    )
+    retained_outer_interface_surface_tags = _unique_preserve_order(
+        side_surface_tags_by_curve[curve_tag]
+        for curve_tag in retained_outer_interface_curve_tags
+        if int(curve_tag) in side_surface_tags_by_curve
+    )
+    closure_ring_patch_descriptors = _build_required_closure_ring_patch_descriptors(
+        gmsh=gmsh,
+        closure_groups=closure_groups,
+        connector_closure_curve_tags=connector_closure_curve_tags,
+    )
+    if len(closure_ring_patch_descriptors) != len(legacy_closure_surface_tags):
+        raise RuntimeError(
+            "required closure ring descriptor count does not match legacy closure surface count"
+        )
+
+    gmsh.model.geo.remove([(3, int(tag)) for tag in removed_volume_tags], recursive=False)
+    surfaces_to_remove = [
+        *list(removed_transition_surface_tags),
+        *list(legacy_closure_surface_tags),
+    ]
+    if surfaces_to_remove:
+        gmsh.model.geo.remove(
+            [(2, int(tag)) for tag in surfaces_to_remove],
+            recursive=False,
+        )
+    gmsh.model.geo.synchronize()
+
+    closure_ring_rebuild_details: list[dict[str, Any]] = []
+    rebuilt_closure_ring_surface_tags: list[int] = []
+    legacy_to_rebuilt_surface_tags: dict[int, int] = {}
+    point_registry: dict[int, int] = {}
+    curve_registry: dict[int, int] = {}
+    for descriptor in closure_ring_patch_descriptors:
+        rebuild = _rebuild_closure_ring_surface_from_patch_descriptor(
+            gmsh=gmsh,
+            descriptor=descriptor,
+            point_registry=point_registry,
+            curve_registry=curve_registry,
+        )
+        rebuilt_tag = int(rebuild["rebuilt_surface_tag"])
+        rebuilt_closure_ring_surface_tags.append(rebuilt_tag)
+        legacy_to_rebuilt_surface_tags[int(descriptor.legacy_surface_tag)] = rebuilt_tag
+        closure_ring_rebuild_details.append(rebuild)
+    gmsh.model.geo.synchronize()
+
+    surface_loop_surfaces = [
+        *rebuilt_source_surface_tags,
+        *rebuilt_top_surface_tags,
+        *root_side_surface_tags,
+        *retained_outer_interface_surface_tags,
+        *rebuilt_closure_ring_surface_tags,
+    ]
+    closure_block_volume_tag = int(
+        gmsh.model.geo.addVolume([gmsh.model.geo.addSurfaceLoop(surface_loop_surfaces)])
+    )
+    gmsh.model.geo.synchronize()
+
+    return {
+        "enabled": True,
+        "source_surface_tags": list(rebuilt_source_surface_tags),
+        "top_surface_tags": list(rebuilt_top_surface_tags),
+        "root_side_surface_tags": list(root_side_surface_tags),
+        "removed_volume_tags": list(removed_volume_tags),
+        "removed_transition_surface_tags": list(removed_transition_surface_tags),
+        "legacy_closure_surface_tags": list(legacy_closure_surface_tags),
+        "closure_ring_surface_tags": list(rebuilt_closure_ring_surface_tags),
+        "rebuilt_closure_ring_surface_tags": list(rebuilt_closure_ring_surface_tags),
+        "legacy_to_rebuilt_surface_tags": dict(legacy_to_rebuilt_surface_tags),
+        "closure_ring_rebuild_details": list(closure_ring_rebuild_details),
+        "retained_outer_interface_surface_tags": list(retained_outer_interface_surface_tags),
+        "connector_closure_curve_tags": list(connector_closure_curve_tags),
+        "retained_outer_interface_curve_tags": list(retained_outer_interface_curve_tags),
+        "construction_rule": "closure_family_to_oriented_patch_descriptor_to_exact_4edge_wire_surface_filling",
+        "block_volume_tag": int(closure_block_volume_tag),
+    }
+
+
 def _surface_identity_signature(
     gmsh: Any,
     surface_tag: int,
@@ -1692,7 +2474,7 @@ def _surface_identity_signature(
     boundary = gmsh.model.getBoundary(
         [(2, int(surface_tag))],
         combined=False,
-        oriented=False,
+        oriented=True,
         recursive=False,
     )
     curve_tags = tuple(
@@ -1746,11 +2528,38 @@ def _deduplicate_wall_surfaces(
     return kept_surface_tags, updated_tip_surface_tag, duplicate_surface_reports
 
 
-def _curve_endpoint_tags(gmsh: Any, curve_tag: int) -> tuple[int, int]:
-    boundary = gmsh.model.getBoundary([(1, curve_tag)], combined=False)
-    if len(boundary) != 2:
+def _curve_boundary_point_tags(
+    gmsh: Any,
+    curve_tag: int,
+) -> tuple[int, int]:
+    boundary = gmsh.model.getBoundary(
+        [(1, int(curve_tag))],
+        combined=False,
+        oriented=True,
+        recursive=False,
+    )
+    point_tags = [
+        abs(int(entity_tag))
+        for entity_dim, entity_tag in boundary
+        if int(entity_dim) == 0
+    ]
+    if len(point_tags) != 2:
         raise RuntimeError(f"curve {curve_tag} does not expose exactly two endpoints")
-    return int(boundary[0][1]), int(boundary[1][1])
+    return int(point_tags[0]), int(point_tags[1])
+
+
+def _curve_endpoint_tags(gmsh: Any, curve_tag: int) -> tuple[int, int]:
+    first_point_tag, second_point_tag = _curve_boundary_point_tags(gmsh, int(curve_tag))
+    sampled_points = _curve_polyline_points(gmsh, int(curve_tag))
+    if len(sampled_points) < 2:
+        return int(first_point_tag), int(second_point_tag)
+    first_point_xyz = _point_xyz(gmsh, int(first_point_tag))
+    second_point_xyz = _point_xyz(gmsh, int(second_point_tag))
+    forward_cost = math.dist(sampled_points[0], first_point_xyz) + math.dist(sampled_points[-1], second_point_xyz)
+    reverse_cost = math.dist(sampled_points[0], second_point_xyz) + math.dist(sampled_points[-1], first_point_xyz)
+    if reverse_cost < forward_cost:
+        return int(second_point_tag), int(first_point_tag)
+    return int(first_point_tag), int(second_point_tag)
 
 
 def _signed_curve_endpoint_tags(gmsh: Any, signed_curve_tag: int) -> tuple[int, int]:
@@ -1855,7 +2664,7 @@ def _set_shell_transfinite_controls(
         if dim != 2:
             continue
         try:
-            boundary = gmsh.model.getBoundary([(2, int(tag))], combined=False, oriented=False, recursive=False)
+            boundary = gmsh.model.getBoundary([(2, int(tag))], combined=False, oriented=True, recursive=False)
             curve_count = len({abs(int(entity_tag)) for entity_dim, entity_tag in boundary if int(entity_dim) == 1})
             if curve_count in {3, 4}:
                 gmsh.model.mesh.setTransfiniteSurface(tag)
@@ -2000,26 +2809,39 @@ def _loop_self_intersections(points: list[tuple[float, float, float]]) -> list[t
 
 
 def _surface_lies_on_y_plane(gmsh: Any, surface_tag: int, *, y_value: float, tol: float = 1.0e-9) -> bool:
-    boundary = gmsh.model.getBoundary([(2, int(surface_tag))], combined=False, oriented=False, recursive=False)
+    boundary = gmsh.model.getBoundary([(2, int(surface_tag))], combined=False, oriented=True, recursive=False)
     point_tags: list[int] = []
     for dim, curve_tag in boundary:
         if dim != 1:
             continue
-        point_tags.extend(point_tag for _, point_tag in gmsh.model.getBoundary([(1, int(curve_tag))], combined=False, oriented=False))
+        point_tags.extend(
+            abs(int(point_tag))
+            for _, point_tag in gmsh.model.getBoundary(
+                [(1, abs(int(curve_tag)))],
+                combined=False,
+                oriented=True,
+                recursive=False,
+            )
+        )
     if not point_tags:
         return False
     return all(abs(_point_xyz(gmsh, point_tag)[1] - y_value) <= tol for point_tag in point_tags)
 
 
 def _surface_boundary_y_range(gmsh: Any, surface_tag: int) -> tuple[float, float] | None:
-    boundary = gmsh.model.getBoundary([(2, int(surface_tag))], combined=False, oriented=False, recursive=False)
+    boundary = gmsh.model.getBoundary([(2, int(surface_tag))], combined=False, oriented=True, recursive=False)
     point_tags: list[int] = []
     for dim, curve_tag in boundary:
         if dim != 1:
             continue
         point_tags.extend(
-            int(point_tag)
-            for curve_dim, point_tag in gmsh.model.getBoundary([(1, int(curve_tag))], combined=False, oriented=False)
+            abs(int(point_tag))
+            for curve_dim, point_tag in gmsh.model.getBoundary(
+                [(1, abs(int(curve_tag)))],
+                combined=False,
+                oriented=True,
+                recursive=False,
+            )
             if int(curve_dim) == 0
         )
     if not point_tags:
@@ -2247,10 +3069,10 @@ def _root_opening_curve_tags(
     hole_boundary = gmsh.model.getBoundary(
         [(2, tag) for tag in bl_top_surface_tags],
         combined=True,
-        oriented=False,
+        oriented=True,
         recursive=False,
     )
-    raw_curve_tags = [int(curve_tag) for dim, curve_tag in hole_boundary if dim == 1]
+    raw_curve_tags = [abs(int(curve_tag)) for dim, curve_tag in hole_boundary if dim == 1]
     if len(raw_curve_tags) > 3:
         root_plane_curve_tags: list[int] = []
         for curve_tag in raw_curve_tags:
@@ -3460,6 +4282,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     tip_truncation_seam_surface_tags: list[int] = []
     tip_truncation_local_surface_tags: list[int] = []
     tip_truncation_connector_band_surface_tags: list[int] = []
+    tip_truncation_closure_block_summary: dict[str, Any] | None = None
     mesh_algorithm3d = 10
     topology_checks: dict[str, Any] = {
         "root_closure": {
@@ -3678,6 +4501,46 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 bl_volume_tags.append(int(extbl[index][1]))
                 bl_top_surface_tags.append(int(extbl[index - 1][1]))
         gmsh.model.geo.synchronize()
+        if tip_truncation_summary and tip_truncation_summary.get("enabled"):
+            tip_truncation_closure_block_summary = _rebuild_tip_truncation_closure_block(
+                gmsh=gmsh,
+                bl_source_surface_tags=bl_source_surface_tags,
+                extbl=extbl,
+                connector_band_surface_tags=tip_truncation_connector_band_surface_tags,
+                connector_band_start_y_m=tip_truncation_summary.get("connector_band_start_y_m"),
+            )
+            if tip_truncation_closure_block_summary is not None:
+                removed_volume_tags = set(
+                    int(tag)
+                    for tag in tip_truncation_closure_block_summary.get("removed_volume_tags", [])
+                )
+                closure_block_volume_tag = tip_truncation_closure_block_summary.get("block_volume_tag")
+                bl_volume_tags = [
+                    int(tag)
+                    for tag in bl_volume_tags
+                    if int(tag) not in removed_volume_tags
+                ]
+                if closure_block_volume_tag is not None:
+                    bl_volume_tags.append(int(closure_block_volume_tag))
+                bl_volume_tags = _unique_preserve_order(bl_volume_tags)
+                tip_termination_surface_tags = list(
+                    tip_truncation_closure_block_summary.get("rebuilt_closure_ring_surface_tags") or []
+                )
+                tip_truncation_seam_surface_tags = list(tip_termination_surface_tags)
+                tip_truncation_local_surface_tags = list(tip_termination_surface_tags)
+                if bl_protection_summary is not None:
+                    bl_protection_summary["tip_truncation_closure_block"] = dict(
+                        tip_truncation_closure_block_summary
+                    )
+                    bl_protection_summary["tip_termination_surface_tags"] = list(
+                        tip_termination_surface_tags
+                    )
+                    bl_protection_summary["tip_truncation_seam_surface_tags"] = list(
+                        tip_truncation_seam_surface_tags
+                    )
+                    bl_protection_summary["tip_truncation_local_surface_tags"] = list(
+                        tip_truncation_local_surface_tags
+                    )
         z_center = 0.5 * (float(geometry_bounds["z_min"]) + float(geometry_bounds["z_max"]))
         x_min = float(geometry_bounds["x_min"]) - float(spec["farfield"]["upstream_chords"]) * chord_m
         x_max = float(geometry_bounds["x_max"]) + float(spec["farfield"]["downstream_chords"]) * chord_m
@@ -3739,10 +4602,13 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             hole_boundary = gmsh.model.getBoundary(
                 [(2, tag) for tag in bl_top_surface_tags],
                 combined=True,
-                oriented=False,
+                oriented=True,
                 recursive=False,
             )
-            hole_curves = _order_curve_loop(gmsh, [int(curve_tag) for dim, curve_tag in hole_boundary if dim == 1])
+            hole_curves = _order_curve_loop(
+                gmsh,
+                [abs(int(curve_tag)) for dim, curve_tag in hole_boundary if dim == 1],
+            )
             topology_checks["root_closure"] = {
                 "mode": ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE,
                 "holed_symmetry_face_used": True,
@@ -3760,25 +4626,32 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             gmsh.model.geo.addPlaneSurface([gmsh.model.geo.addCurveLoop([l5, l6, l7, l8])]),
         ]
         if tip_truncation_summary and tip_truncation_summary.get("enabled"):
-            tip_termination_surface_tags = _collect_extbl_surfaces_on_y_plane(
-                gmsh,
-                extbl,
-                y_value=float(tip_truncation_summary["start_y_m"]),
-            )
-            seam_cleanup_buffer_m = _tip_truncation_cleanup_buffer_m(
-                sections=list(real_wing_geometry["sections"]),
-                start_y_m=float(tip_truncation_summary["start_y_m"]),
-                protection=protection_config,
-            )
-            tip_truncation_seam_surface_tags = _collect_extbl_surfaces_in_y_band(
-                gmsh,
-                extbl,
-                y_min=float(tip_truncation_summary["start_y_m"]) - seam_cleanup_buffer_m,
-                y_max=float(tip_truncation_summary["start_y_m"]),
-            )
-            tip_truncation_local_surface_tags = _unique_preserve_order(
-                [*tip_truncation_surface_tags, *tip_truncation_seam_surface_tags]
-            )
+            if tip_truncation_closure_block_summary is None:
+                tip_termination_surface_tags = _collect_extbl_surfaces_on_y_plane(
+                    gmsh,
+                    extbl,
+                    y_value=float(tip_truncation_summary["start_y_m"]),
+                )
+                seam_cleanup_buffer_m = _tip_truncation_cleanup_buffer_m(
+                    sections=list(real_wing_geometry["sections"]),
+                    start_y_m=float(tip_truncation_summary["start_y_m"]),
+                    protection=protection_config,
+                )
+                tip_truncation_seam_surface_tags = _collect_extbl_surfaces_in_y_band(
+                    gmsh,
+                    extbl,
+                    y_min=float(tip_truncation_summary["start_y_m"]) - seam_cleanup_buffer_m,
+                    y_max=float(tip_truncation_summary["start_y_m"]),
+                )
+                tip_truncation_local_surface_tags = _unique_preserve_order(
+                    [*tip_truncation_surface_tags, *tip_truncation_seam_surface_tags]
+                )
+            else:
+                seam_cleanup_buffer_m = _tip_truncation_cleanup_buffer_m(
+                    sections=list(real_wing_geometry["sections"]),
+                    start_y_m=float(tip_truncation_summary["start_y_m"]),
+                    protection=protection_config,
+                )
             if bl_protection_summary is not None:
                 bl_protection_summary["tip_termination_surface_tags"] = list(tip_termination_surface_tags)
                 bl_protection_summary["tip_truncation_seam_surface_tags"] = list(
@@ -3913,26 +4786,49 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 gmsh,
                 list(root_side_surface_tags),
             )
-            if tip_termination_surface_tags:
-                for surface_tag in tip_termination_surface_tags:
-                    gmsh.model.mesh.splitQuadrangles(1.0, int(surface_tag))
-                tip_termination_cleanup = _cleanup_surface_mesh(
-                    gmsh,
-                    list(tip_termination_surface_tags),
-                )
-                if bl_protection_summary is not None:
-                    bl_protection_summary["tip_termination_surface_mesh_cleanup"] = tip_termination_cleanup
-            if tip_truncation_local_surface_tags:
-                for surface_tag in tip_truncation_local_surface_tags:
-                    gmsh.model.mesh.splitQuadrangles(1.0, int(surface_tag))
-                tip_truncation_seam_cleanup = _cleanup_surface_mesh(
-                    gmsh,
-                    list(tip_truncation_local_surface_tags),
-                )
-                if bl_protection_summary is not None:
-                    bl_protection_summary["tip_truncation_seam_surface_mesh_cleanup"] = (
-                        tip_truncation_seam_cleanup
+            if tip_truncation_closure_block_summary is None:
+                if tip_termination_surface_tags:
+                    for surface_tag in tip_termination_surface_tags:
+                        gmsh.model.mesh.splitQuadrangles(1.0, int(surface_tag))
+                    tip_termination_cleanup = _cleanup_surface_mesh(
+                        gmsh,
+                        list(tip_termination_surface_tags),
                     )
+                    if bl_protection_summary is not None:
+                        bl_protection_summary["tip_termination_surface_mesh_cleanup"] = tip_termination_cleanup
+                if tip_truncation_local_surface_tags:
+                    for surface_tag in tip_truncation_local_surface_tags:
+                        gmsh.model.mesh.splitQuadrangles(1.0, int(surface_tag))
+                    tip_truncation_seam_cleanup = _cleanup_surface_mesh(
+                        gmsh,
+                        list(tip_truncation_local_surface_tags),
+                    )
+                    if bl_protection_summary is not None:
+                        bl_protection_summary["tip_truncation_seam_surface_mesh_cleanup"] = (
+                            tip_truncation_seam_cleanup
+                        )
+            else:
+                closure_block_cleanup_surface_tags = _unique_preserve_order(
+                    [
+                        *list(
+                            tip_truncation_closure_block_summary.get("retained_outer_interface_surface_tags") or []
+                        ),
+                        *list(
+                            tip_truncation_closure_block_summary.get("rebuilt_closure_ring_surface_tags") or []
+                        ),
+                    ]
+                )
+                if closure_block_cleanup_surface_tags:
+                    for surface_tag in closure_block_cleanup_surface_tags:
+                        gmsh.model.mesh.splitQuadrangles(1.0, int(surface_tag))
+                    closure_block_surface_cleanup = _cleanup_surface_mesh(
+                        gmsh,
+                        list(closure_block_cleanup_surface_tags),
+                    )
+                    if bl_protection_summary is not None:
+                        bl_protection_summary["tip_truncation_closure_block_surface_mesh_cleanup"] = (
+                            closure_block_surface_cleanup
+                        )
             if tip_truncation_summary and tip_truncation_summary.get("enabled"):
                 facet_overlap_angle_tol_deg = float(
                     protection_config.get("tip_truncation_facet_overlap_angle_tol_deg", 0.001)
