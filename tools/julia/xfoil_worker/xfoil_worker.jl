@@ -163,6 +163,14 @@ function analyze_queries(queries)
 end
 
 
+function handle_stdio_payload(payload)
+    if payload isa AbstractDict && get(payload, "command", nothing) == "shutdown"
+        return nothing
+    end
+    return analyze_queries(payload)
+end
+
+
 if length(ARGS) == 1 && ARGS[1] == "--stdio"
     while !eof(stdin)
         line = try
@@ -173,11 +181,9 @@ if length(ARGS) == 1 && ARGS[1] == "--stdio"
         isempty(strip(line)) && continue
 
         payload = JSON3.read(line)
-        if payload isa AbstractDict && get(payload, "command", nothing) == "shutdown"
-            break
-        end
+        results = handle_stdio_payload(payload)
+        results === nothing && break
 
-        results = analyze_queries(payload)
         write(stdout, JSON3.write(results))
         write(stdout, "\n")
         flush(stdout)

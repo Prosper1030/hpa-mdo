@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import threading
 
 import pytest
 
@@ -142,6 +143,167 @@ def test_worker_reuses_persistent_julia_process_across_uncached_batches(
     assert first[0]["status"] == "ok"
     assert second[0]["status"] == "ok"
     assert spawn_count["value"] == 1
+
+
+def test_worker_uses_multi_worker_persistent_pool_for_uncached_queries_and_cache_hits(
+    tmp_path, monkeypatch
+):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=True,
+        persistent_worker_count=2,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    barrier = threading.Barrier(2)
+    spawn_count = {"value": 0}
+    process_ids = {"next": 0}
+    created_processes = []
+
+    class _FakeStdout:
+        def __init__(self, process):
+            self._process = process
+
+        def readline(self):
+            barrier.wait(timeout=5.0)
+            payload = self._process.pending_response
+            self._process.pending_response = ""
+            return payload
+
+    class _FakeStdin:
+        def __init__(self, process):
+            self._process = process
+            self._buffer = ""
+
+        def write(self, text):
+            self._buffer += text
+            return len(text)
+
+        def flush(self):
+            payload = json.loads(self._buffer)
+            self._buffer = ""
+            response = []
+            for query in payload:
+                response.append(
+                    {
+                        "template_id": query["template_id"],
+                        "reynolds": query["reynolds"],
+                        "cl_samples": query["cl_samples"],
+                        "roughness_mode": query["roughness_mode"],
+                        "geometry_hash": query["geometry_hash"],
+                        "status": "ok",
+                        "polar_points": [
+                            {
+                                "cl_target": query["cl_samples"][0],
+                                "alpha_deg": 4.2,
+                                "cl": query["cl_samples"][0],
+                                "cd": 0.021 + 0.001 * self._process.process_id,
+                                "cm": -0.08,
+                                "converged": True,
+                            }
+                        ],
+                    }
+                )
+            self._process.pending_response = json.dumps(response) + "\n"
+
+        def close(self):
+            self._process.stdin_closed = True
+
+    class _FakeProcess:
+        def __init__(self, process_id):
+            self.process_id = process_id
+            self.stdin_closed = False
+            self.pending_response = ""
+            self.stdin = _FakeStdin(self)
+            self.stdout = _FakeStdout(self)
+            self.stderr = io.StringIO("")
+            self.returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout=None):
+            self.returncode = 0
+            return 0
+
+        def terminate(self):
+            self.returncode = 0
+
+        def kill(self):
+            self.returncode = -9
+
+    def fake_popen(cmd, cwd, stdin, stdout, stderr, text):
+        spawn_count["value"] += 1
+        process_id = process_ids["next"]
+        process_ids["next"] += 1
+        process = _FakeProcess(process_id)
+        created_processes.append(process)
+        return process
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.Popen", fake_popen)
+
+    cached_query = _sample_query(template_id="root-v1", cl_samples=(0.7,))
+    cached_result = {
+        "template_id": cached_query.template_id,
+        "reynolds": cached_query.reynolds,
+        "cl_samples": list(cached_query.cl_samples),
+        "roughness_mode": cached_query.roughness_mode,
+        "geometry_hash": cached_query.geometry_hash,
+        "status": "ok",
+        "polar_points": [
+            {
+                "cl_target": 0.7,
+                "alpha_deg": 4.2,
+                "cl": 0.7,
+                "cd": 0.020,
+                "cm": -0.08,
+                "converged": True,
+            }
+        ],
+    }
+    worker._write_cached_result(cached_query, cached_result)
+
+    uncached_query_a = _sample_query(template_id="tip-v9", cl_samples=(0.8,))
+    uncached_query_b = _sample_query(
+        template_id="mid1-v3",
+        cl_samples=(0.9,),
+        coordinates=(
+            (1.0, 0.0),
+            (0.5, 0.06),
+            (0.0, 0.0),
+            (0.5, -0.04),
+            (1.0, 0.0),
+        ),
+        geometry_hash=geometry_hash_from_coordinates(
+            (
+                (1.0, 0.0),
+                (0.5, 0.06),
+                (0.0, 0.0),
+                (0.5, -0.04),
+                (1.0, 0.0),
+            )
+        ),
+    )
+
+    results = worker.run_queries([cached_query, uncached_query_a, uncached_query_b])
+
+    assert spawn_count["value"] == 2
+    assert [result["template_id"] for result in results] == [
+        "root-v1",
+        "tip-v9",
+        "mid1-v3",
+    ]
+    assert results[0]["polar_points"][0]["cd"] == pytest.approx(0.020)
+    assert results[1]["polar_points"][0]["cd"] == pytest.approx(0.021)
+    assert results[2]["polar_points"][0]["cd"] == pytest.approx(0.022)
+
+    worker.close()
+    assert all(process.stdin_closed for process in created_processes)
 
 
 def test_worker_close_terminates_persistent_julia_process(tmp_path, monkeypatch):

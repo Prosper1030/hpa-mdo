@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import atexit
 from dataclasses import asdict, dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -55,12 +57,14 @@ class JuliaXFoilWorker:
         project_dir: Path,
         cache_dir: Path,
         persistent_mode: bool = True,
+        persistent_worker_count: int | None = None,
     ) -> None:
         self.project_dir = Path(project_dir)
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.persistent_mode = bool(persistent_mode)
-        self._persistent_process: subprocess.Popen[str] | None = None
+        self._persistent_worker_count = persistent_worker_count
+        self._persistent_processes: list[subprocess.Popen[str]] = []
         self._atexit_close_registered = False
         if self.persistent_mode:
             atexit.register(self.close)
@@ -226,8 +230,8 @@ class JuliaXFoilWorker:
             self.cache_dir / f"response_{token}.json",
         )
 
-    def _persistent_stderr_text(self) -> str:
-        process = self._persistent_process
+    def _persistent_stderr_text(self, process: subprocess.Popen[str] | None = None) -> str:
+        process = process or (self._persistent_processes[0] if self._persistent_processes else None)
         if process is None or process.stderr is None:
             return ""
         try:
@@ -257,13 +261,78 @@ class JuliaXFoilWorker:
             text=True,
         )
 
-    def _ensure_persistent_process(self) -> subprocess.Popen[str]:
-        process = self._persistent_process
-        if process is not None and process.poll() is None:
-            return process
+    def _persistent_worker_pool_size(self, query_count: int) -> int:
+        if query_count < 1:
+            return 0
+        if query_count == 1:
+            return 1
 
-        self._persistent_process = self._spawn_persistent_process()
-        return self._persistent_process
+        configured = self._persistent_worker_count
+        if configured is not None:
+            if configured < 1:
+                raise ValueError("persistent_worker_count must be at least 1.")
+            return min(query_count, configured)
+
+        cpu_count = os.cpu_count() or 1
+        return min(query_count, max(2, cpu_count))
+
+    def _ensure_persistent_processes(
+        self,
+        count: int,
+    ) -> list[subprocess.Popen[str]]:
+        if count < 1:
+            raise ValueError("count must be at least 1.")
+
+        processes = self._persistent_processes
+        for index, process in enumerate(processes):
+            if process.poll() is not None:
+                processes[index] = self._spawn_persistent_process()
+
+        while len(processes) < count:
+            processes.append(self._spawn_persistent_process())
+
+        return processes[:count]
+
+    def _run_uncached_queries_with_process(
+        self,
+        process: subprocess.Popen[str],
+        queries: list[PolarQuery],
+    ) -> list[dict[str, object]]:
+        if process.stdin is None or process.stdout is None:
+            raise RuntimeError("Persistent Julia XFoil worker is missing stdin/stdout pipes.")
+
+        request_payload = [asdict(query) for query in queries]
+        try:
+            process.stdin.write(json.dumps(request_payload, ensure_ascii=False) + "\n")
+            process.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr_text = self._persistent_stderr_text(process).strip()
+            self.close()
+            raise RuntimeError(
+                "Persistent Julia XFoil worker stdin closed unexpectedly."
+                + (f" Stderr: {stderr_text}" if stderr_text else "")
+            ) from exc
+
+        response_line = process.stdout.readline()
+        if response_line == "":
+            stderr_text = self._persistent_stderr_text(process).strip()
+            return_code = process.poll()
+            self.close()
+            raise RuntimeError(
+                "Persistent Julia XFoil worker exited before returning a response."
+                + (f" Return code: {return_code}." if return_code is not None else "")
+                + (f" Stderr: {stderr_text}" if stderr_text else "")
+            )
+
+        response_payload = json.loads(response_line)
+        if not isinstance(response_payload, list):
+            raise RuntimeError("Persistent Julia XFoil worker response must be a JSON array.")
+        if len(response_payload) != len(queries):
+            raise RuntimeError(
+                "Persistent Julia XFoil worker returned "
+                f"{len(response_payload)} results for {len(queries)} uncached queries."
+            )
+        return response_payload
 
     def _run_uncached_queries_one_shot(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
         julia = self._resolve_julia()
@@ -306,73 +375,91 @@ class JuliaXFoilWorker:
         self,
         queries: list[PolarQuery],
     ) -> list[dict[str, object]]:
-        process = self._ensure_persistent_process()
-        if process.stdin is None or process.stdout is None:
-            raise RuntimeError("Persistent Julia XFoil worker is missing stdin/stdout pipes.")
+        if not queries:
+            return []
 
-        request_payload = [asdict(query) for query in queries]
+        worker_count = self._persistent_worker_pool_size(len(queries))
+        processes = self._ensure_persistent_processes(worker_count)
+
+        chunked_queries: list[list[PolarQuery]] = [[] for _ in range(worker_count)]
+        chunk_positions: list[list[int]] = [[] for _ in range(worker_count)]
+        for index, query in enumerate(queries):
+            slot = index % worker_count
+            chunked_queries[slot].append(query)
+            chunk_positions[slot].append(index)
+
+        chunk_results: list[list[dict[str, object]] | None] = [None] * worker_count
         try:
-            process.stdin.write(json.dumps(request_payload, ensure_ascii=False) + "\n")
-            process.stdin.flush()
-        except BrokenPipeError as exc:
-            stderr_text = self._persistent_stderr_text().strip()
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = {
+                    executor.submit(
+                        self._run_uncached_queries_with_process,
+                        processes[slot],
+                        chunked_queries[slot],
+                    ): slot
+                    for slot in range(worker_count)
+                    if chunked_queries[slot]
+                }
+                for future in as_completed(futures):
+                    slot = futures[future]
+                    chunk_results[slot] = future.result()
+        except Exception:
             self.close()
-            raise RuntimeError(
-                "Persistent Julia XFoil worker stdin closed unexpectedly."
-                + (f" Stderr: {stderr_text}" if stderr_text else "")
-            ) from exc
+            raise
 
-        response_line = process.stdout.readline()
-        if response_line == "":
-            stderr_text = self._persistent_stderr_text().strip()
-            return_code = process.poll()
-            self.close()
-            raise RuntimeError(
-                "Persistent Julia XFoil worker exited before returning a response."
-                + (f" Return code: {return_code}." if return_code is not None else "")
-                + (f" Stderr: {stderr_text}" if stderr_text else "")
-            )
+        responses: list[dict[str, object] | None] = [None] * len(queries)
+        for slot, items in enumerate(chunk_results):
+            if items is None:
+                continue
+            positions = chunk_positions[slot]
+            if len(items) != len(positions):
+                raise RuntimeError(
+                    "Persistent Julia XFoil worker returned an unexpected number of chunk results."
+                )
+            for index, item in zip(positions, items, strict=True):
+                responses[index] = item
 
-        response_payload = json.loads(response_line)
-        if not isinstance(response_payload, list):
-            raise RuntimeError("Persistent Julia XFoil worker response must be a JSON array.")
-        if len(response_payload) != len(queries):
-            raise RuntimeError(
-                "Persistent Julia XFoil worker returned "
-                f"{len(response_payload)} results for {len(queries)} uncached queries."
-            )
-        return response_payload
+        finalized_responses: list[dict[str, object]] = []
+        for item in responses:
+            if item is None:
+                raise RuntimeError(
+                    "Persistent Julia XFoil worker did not populate all uncached query results."
+                )
+            finalized_responses.append(item)
+        return finalized_responses
 
     def close(self) -> None:
-        process = self._persistent_process
-        if process is None:
+        processes = self._persistent_processes
+        if not processes:
             return
 
-        self._persistent_process = None
+        self._persistent_processes = []
         try:
-            if process.stdin is not None:
-                try:
-                    process.stdin.close()
-                except Exception:
-                    pass
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=5.0)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5.0)
+            for process in processes:
+                if process.stdin is not None:
+                    try:
+                        process.stdin.close()
+                    except Exception:
+                        pass
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5.0)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=5.0)
         finally:
-            if process.stdout is not None:
-                try:
-                    process.stdout.close()
-                except Exception:
-                    pass
-            if process.stderr is not None:
-                try:
-                    process.stderr.close()
-                except Exception:
-                    pass
+            for process in processes:
+                if process.stdout is not None:
+                    try:
+                        process.stdout.close()
+                    except Exception:
+                        pass
+                if process.stderr is not None:
+                    try:
+                        process.stderr.close()
+                    except Exception:
+                        pass
 
     def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
         resolved_results: list[dict[str, object] | None] = [None] * len(queries)
