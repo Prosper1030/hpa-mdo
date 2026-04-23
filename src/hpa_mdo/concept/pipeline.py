@@ -18,6 +18,7 @@ from hpa_mdo.concept.airfoil_selection import (
     build_base_cst_template,
     select_zone_airfoil_templates_for_concepts,
 )
+from hpa_mdo.concept.avl_loader import load_zone_requirements_from_avl
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
@@ -553,6 +554,92 @@ def _annotate_zone_requirements_with_concept_geometry(
             "washout_deg": float(zone_data.get("washout_deg", washout_deg)),
         }
     return annotated
+
+
+def _spanwise_loader_avl_rerun_context(
+    spanwise_loader: SpanwiseLoadLoader,
+) -> dict[str, Any] | None:
+    context = getattr(spanwise_loader, "_birdman_avl_rerun_context", None)
+    if not isinstance(context, dict):
+        return None
+
+    cfg = context.get("cfg")
+    working_root = context.get("working_root")
+    if not isinstance(cfg, BirdmanConceptConfig) or working_root is None:
+        return None
+    return {
+        "cfg": cfg,
+        "working_root": Path(working_root),
+        "avl_binary": context.get("avl_binary"),
+    }
+
+
+def _post_airfoil_reference_condition_override(
+    *,
+    mission_summary: dict[str, Any],
+) -> dict[str, Any] | None:
+    reference_speed_mps = _numeric_value(mission_summary.get("best_range_speed_mps"))
+    reference_speed_reason = "post_airfoil_best_range_feasible_speed_mps"
+    if reference_speed_mps is None:
+        reference_speed_mps = _numeric_value(mission_summary.get("estimated_first_feasible_speed_mps"))
+        reference_speed_reason = "post_airfoil_estimated_first_feasible_speed_mps"
+    reference_gross_mass_kg = _numeric_value(mission_summary.get("evaluated_gross_mass_kg"))
+    if reference_speed_mps is None or reference_gross_mass_kg is None:
+        return None
+
+    selected_mass_case = next(
+        (
+            dict(case)
+            for case in mission_summary.get("mass_cases", [])
+            if math.isclose(
+                float(case.get("gross_mass_kg", -1.0)),
+                float(reference_gross_mass_kg),
+                rel_tol=0.0,
+                abs_tol=1.0e-9,
+            )
+        ),
+        {"gross_mass_kg": float(reference_gross_mass_kg)},
+    )
+    return {
+        "reference_speed_mps": float(reference_speed_mps),
+        "reference_gross_mass_kg": float(reference_gross_mass_kg),
+        "reference_speed_reason": reference_speed_reason,
+        "mass_selection_reason": "post_airfoil_worst_case_gross_mass",
+        "reference_condition_policy": "post_airfoil_feasible_reference_avl_rerun_v1",
+        "case_reason": "post_airfoil_finalist_reference_case",
+        "selected_mass_case": selected_mass_case,
+    }
+
+
+def _rerun_finalist_zone_requirements_from_post_airfoil_avl(
+    *,
+    spanwise_loader: SpanwiseLoadLoader,
+    record: _EvaluatedConcept,
+) -> dict[str, dict[str, Any]]:
+    avl_context = _spanwise_loader_avl_rerun_context(spanwise_loader)
+    if avl_context is None:
+        return record.zone_requirements
+
+    reference_condition_override = _post_airfoil_reference_condition_override(
+        mission_summary=record.mission_summary,
+    )
+    if reference_condition_override is None:
+        return record.zone_requirements
+
+    rerun_zone_requirements = load_zone_requirements_from_avl(
+        cfg=avl_context["cfg"],
+        concept=record.concept,
+        stations=record.stations,
+        working_root=Path(avl_context["working_root"]),
+        avl_binary=avl_context.get("avl_binary"),
+        airfoil_templates=record.airfoil_templates,
+        reference_condition_override=reference_condition_override,
+        case_tag="finalist_post_airfoil_avl_rerun",
+    )
+    return _annotate_zone_requirements_with_concept_geometry(
+        zone_requirements=rerun_zone_requirements,
+        concept=record.concept,
+    )
 
 
 def _apply_safe_clmax_model(
@@ -2623,6 +2710,10 @@ def run_birdman_concept_pipeline(
                     reevaluated.append(record)
                     continue
 
+                rerun_zone_requirements = _rerun_finalist_zone_requirements_from_post_airfoil_avl(
+                    spanwise_loader=spanwise_loader,
+                    record=record,
+                )
                 (
                     updated_selected_by_zone,
                     airfoil_templates,
@@ -2639,7 +2730,7 @@ def run_birdman_concept_pipeline(
                     cfg=cfg,
                     concept=record.concept,
                     stations=record.stations,
-                    zone_requirements=record.zone_requirements,
+                    zone_requirements=rerun_zone_requirements,
                     selected_by_zone=record.selected_by_zone,
                     worker=worker,
                     analysis_mode="full_alpha_sweep",
@@ -2653,7 +2744,7 @@ def run_birdman_concept_pipeline(
                         enumeration_index=record.enumeration_index,
                         concept=record.concept,
                         stations=record.stations,
-                        zone_requirements=record.zone_requirements,
+                        zone_requirements=rerun_zone_requirements,
                         selected_by_zone=updated_selected_by_zone,
                         airfoil_templates=airfoil_templates,
                         screening_worker_results=record.screening_worker_results,

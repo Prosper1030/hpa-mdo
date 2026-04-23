@@ -310,6 +310,193 @@ def test_pipeline_summary_distinguishes_screening_and_finalist_worker_fidelity(
     ] * 4
 
 
+def test_pipeline_reruns_finalists_with_post_airfoil_avl_reference_context(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    config_payload["pipeline"]["keep_top_n"] = 3
+    config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
+    config_path = tmp_path / "post_airfoil_rerun.yaml"
+    config_path.write_text(yaml.safe_dump(config_payload, sort_keys=False), encoding="utf-8")
+    cfg = load_concept_config(config_path)
+    rerun_calls: list[dict[str, object]] = []
+
+    class FakeWorker:
+        backend_name = "dual_track_stub"
+
+        def run_queries(self, queries):
+            return [
+                _worker_result_payload(
+                    query,
+                    sweep_point_count=(4 if query.analysis_mode == "screening_target_cl" else 21),
+                )
+                for query in queries
+            ]
+
+    def base_loader(_concept, _stations):
+        return {
+            "root": {
+                "source": "avl_strip_forces",
+                "reference_speed_mps": 6.0,
+                "reference_gross_mass_kg": 105.0,
+                "reference_speed_reason": "proxy_reference_speed",
+                "mass_selection_reason": "proxy_mass_case",
+                "reference_condition_policy": "proxy_reference_policy",
+                "design_cases": [],
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "chord_m": 1.30,
+                        "cl_target": 0.54,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": 6.0,
+                        "evaluation_gross_mass_kg": 105.0,
+                    }
+                ],
+            },
+            "mid1": {
+                "points": [
+                    {
+                        "reynolds": 240000.0,
+                        "chord_m": 1.15,
+                        "cl_target": 0.50,
+                        "cm_target": -0.09,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": 6.0,
+                        "evaluation_gross_mass_kg": 105.0,
+                    }
+                ]
+            },
+            "mid2": {
+                "points": [
+                    {
+                        "reynolds": 220000.0,
+                        "chord_m": 1.00,
+                        "cl_target": 0.46,
+                        "cm_target": -0.08,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": 6.0,
+                        "evaluation_gross_mass_kg": 105.0,
+                    }
+                ]
+            },
+            "tip": {
+                "points": [
+                    {
+                        "reynolds": 200000.0,
+                        "chord_m": 0.82,
+                        "cl_target": 0.42,
+                        "cm_target": -0.07,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": 6.0,
+                        "evaluation_gross_mass_kg": 105.0,
+                    }
+                ]
+            },
+        }
+
+    setattr(
+        base_loader,
+        "_birdman_avl_rerun_context",
+        {
+            "cfg": cfg,
+            "working_root": tmp_path / "avl_rerun",
+            "avl_binary": None,
+        },
+    )
+
+    def fake_load_zone_requirements_from_avl(**kwargs):
+        rerun_calls.append(kwargs)
+        return {
+            "root": {
+                "source": "avl_strip_forces",
+                "reference_speed_mps": float(kwargs["reference_condition_override"]["reference_speed_mps"]),
+                "reference_gross_mass_kg": float(
+                    kwargs["reference_condition_override"]["reference_gross_mass_kg"]
+                ),
+                "reference_speed_reason": str(
+                    kwargs["reference_condition_override"]["reference_speed_reason"]
+                ),
+                "mass_selection_reason": str(
+                    kwargs["reference_condition_override"]["mass_selection_reason"]
+                ),
+                "reference_condition_policy": "post_airfoil_feasible_reference_avl_rerun_v1",
+                "design_cases": [
+                    {
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": float(
+                            kwargs["reference_condition_override"]["reference_speed_mps"]
+                        ),
+                        "evaluation_gross_mass_kg": float(
+                            kwargs["reference_condition_override"]["reference_gross_mass_kg"]
+                        ),
+                        "load_factor": 1.0,
+                        "case_weight": 0.35,
+                        "speed_reason": str(
+                            kwargs["reference_condition_override"]["reference_speed_reason"]
+                        ),
+                        "mass_reason": str(
+                            kwargs["reference_condition_override"]["mass_selection_reason"]
+                        ),
+                        "case_reason": "post_airfoil_finalist_reference_case",
+                    }
+                ],
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "chord_m": 1.30,
+                        "cl_target": 0.50,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": float(
+                            kwargs["reference_condition_override"]["reference_speed_mps"]
+                        ),
+                        "evaluation_gross_mass_kg": float(
+                            kwargs["reference_condition_override"]["reference_gross_mass_kg"]
+                        ),
+                    }
+                ],
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        }
+
+    monkeypatch.setattr(
+        concept_pipeline,
+        "load_zone_requirements_from_avl",
+        fake_load_zone_requirements_from_avl,
+        raising=False,
+    )
+
+    result = run_birdman_concept_pipeline(
+        config_path=config_path,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: FakeWorker(),
+        spanwise_loader=base_loader,
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    first = _first_ranked_record(summary)
+
+    assert len(rerun_calls) == 1
+    assert rerun_calls[0]["case_tag"] == "finalist_post_airfoil_avl_rerun"
+    assert rerun_calls[0]["reference_condition_override"] is not None
+    assert set(rerun_calls[0]["airfoil_templates"]) == {"root", "mid1", "mid2", "tip"}
+    assert first["spanwise_requirements"]["reference_condition_policies"] == [
+        "post_airfoil_feasible_reference_avl_rerun_v1"
+    ]
+
+
 def test_pipeline_batches_screening_candidate_selection_across_concepts(
     tmp_path: Path,
 ) -> None:
