@@ -9,6 +9,7 @@ import pytest
 import hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe as shell_v4_bl_mesh
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
+    _apply_post_band_transition_split_operator_to_pre_plc_fixture,
     _apply_truncation_connector_band_operator_to_pre_plc_fixture,
     _analyze_real_wing_tip_bl_interference,
     _augment_real_wing_sections_for_tip_truncation,
@@ -1463,6 +1464,80 @@ def test_shell_v4_pre_plc_root_last3_operator_honestly_rejects_already_canonical
     ]
     assert observed["observed_failure_kind"] == "segment_facet_intersection"
     assert Path(regularized["report_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last3_post_band_transition_prototype_shifts_failure_family(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last3_segment_facet",
+        artifact_dir=tmp_path / "fixture",
+    )
+    baseline = _run_shell_v4_pre_plc_repro_fixture(
+        fixture,
+        out_dir=tmp_path / "baseline_probe",
+    )
+
+    transformed = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        fixture,
+        baseline_observed=baseline,
+        artifact_dir=tmp_path / "transformed",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        transformed["fixture"],
+        out_dir=tmp_path / "transformed_probe",
+    )
+
+    assert baseline["observed_failure_kind"] == "segment_facet_intersection"
+    assert transformed["operator_result"]["status"] == "applied"
+    assert transformed["operator_result"]["details"]["transition_split_plan"]["proposed_split_y_le_m"] == (
+        pytest.approx(15.498888888888889)
+    )
+    assert transformed["fixture"]["selected_section_y_le_m"] == pytest.approx(
+        [0.0, 14.992006138888888, 14.998333333333333, 15.498888888888889, 16.5]
+    )
+    assert observed["observed_failure_kind"] != "segment_facet_intersection"
+    assert "Could not recover boundary mesh: error 2" in observed["error"]
+    assert Path(transformed["report_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last4_post_band_transition_prototype_keeps_overlap_family_gone(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last4_overlap",
+        artifact_dir=tmp_path / "fixture",
+    )
+    regularized = _apply_truncation_connector_band_operator_to_pre_plc_fixture(
+        fixture,
+        artifact_dir=tmp_path / "regularized",
+    )
+    canonical_observed = _run_shell_v4_pre_plc_repro_fixture(
+        regularized["fixture"],
+        out_dir=tmp_path / "canonical_probe",
+    )
+    transformed = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        regularized["fixture"],
+        baseline_observed=canonical_observed,
+        artifact_dir=tmp_path / "transformed",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        transformed["fixture"],
+        out_dir=tmp_path / "transformed_probe",
+    )
+
+    assert regularized["operator_result"]["status"] == "applied"
+    assert canonical_observed["observed_failure_kind"] == "segment_facet_intersection"
+    assert transformed["operator_result"]["status"] == "applied"
+    assert "Invalid boundary mesh (overlapping facets)" not in observed["error"]
+    assert "Could not recover boundary mesh: error 2" in observed["error"]
+    assert Path(transformed["report_path"]).exists()
 
 
 def test_run_shell_v4_topology_compiler_gate_off_keeps_runtime_decision_unchanged(tmp_path: Path):

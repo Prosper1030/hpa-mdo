@@ -105,13 +105,37 @@ What it does **not** mean:
 The current honest outcome is:
 
 - `root_last4_overlap` can be regularized away from the original overlap family
-- `root_last3_segment_facet` remains a real unresolved observed failure family
+- `root_last3_segment_facet` remains a real observed family after canonicalization, but it is now treated as a distinct post-band transition family instead of "reject + unchanged"
 - BL thickness / local clearance compatibility is still a separate audit line
+
+## Second observed family: canonical connector-band post-transition
+
+The newer observed family is intentionally **not** another overlap rewrite.
+
+After `regularize_truncation_connector_band` consumes the extra pre-band support strip, the remaining
+`root_last3_segment_facet` fixture is already the canonical three-strip chain:
+
+- `root_to_terminal_support`
+- `connector_band`
+- `truncation_transition`
+
+That means the old overlap family has already been separated out.
+
+The remaining observed blocker is now interpreted as a post-band transition family:
+
+- zero `pre_band_support` strips remain
+- the connector band itself is already canonical
+- the unresolved observed blocker is still `segment-facet intersection`
+- a prototype split inside the post-band transition interval can move the downstream failure away from the original segment-facet string, which is useful regression evidence even though it is not a full fix yet
+
+This round therefore adds an explicit prototype operator for the canonical post-band transition family
+instead of pretending the first overlap operator just needs to be widened.
 
 ## What is intentionally still skeleton / TODO
 
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips
 - no claim that the connector-band operator is fully generalized beyond the one-extra-support-strip family
+- no claim that the new post-band transition prototype is the final production operator
 - no automatic integration into the live `shell_v4` runtime path yet
 
 Those are intentional boundaries, not missing polish.

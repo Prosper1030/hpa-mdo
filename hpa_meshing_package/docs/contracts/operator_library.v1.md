@@ -18,6 +18,7 @@ Instead, each operator exposes:
 - `closure_ring_exact_wire_surface_fill`
 - `extbl_termination_fallback_for_collapsed_endcap`
 - `regularize_truncation_connector_band`
+- `prototype_split_post_band_transition`
 - `reject_unsupported_plc_risk_family`
 
 ## Expected Contract Shape
@@ -36,6 +37,8 @@ Each operator contract should expose at least:
 
 - `regularize_truncation_connector_band` is the first implemented geometry-side operator
 - it only regularizes the one-extra-pre-band-support family into a canonical 4-anchor connector-band topology
+- `prototype_split_post_band_transition` is an honest executable prototype for the second observed family after connector-band canonicalization
+- it inserts one deterministic synthetic section inside the post-band transition interval and uses changed downstream failure evidence as progress, not as a success claim
 - the other geometry operators remain **skeleton only**
 - `reject_unsupported_plc_risk_family` is intentionally implemented as a deterministic reject, so unsupported PLC risk families are not silently ignored
 

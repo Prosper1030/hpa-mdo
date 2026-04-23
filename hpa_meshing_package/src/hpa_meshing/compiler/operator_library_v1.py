@@ -13,6 +13,7 @@ OperatorNameV1 = Literal[
     "closure_ring_exact_wire_surface_fill",
     "extbl_termination_fallback_for_collapsed_endcap",
     "regularize_truncation_connector_band",
+    "prototype_split_post_band_transition",
     "reject_unsupported_plc_risk_family",
 ]
 
@@ -68,6 +69,22 @@ class TruncationConnectorBandRegularizationPlanV1(BaseModel):
     truncation_start_y_le_m: Optional[float] = None
     tip_y_le_m: Optional[float] = None
     limitation: str = "v1_only_regularizes_one_extra_pre_band_support_section"
+
+
+class PostBandTransitionSplitPlanV1(BaseModel):
+    contract: str = "post_band_transition_split_plan.v1"
+    applicable: bool
+    reject_reasons: List[str] = Field(default_factory=list)
+    blocking_topology_check_kinds: List[str] = Field(default_factory=list)
+    root_support_patch_ids: List[str] = Field(default_factory=list)
+    connector_band_patch_ids: List[str] = Field(default_factory=list)
+    transition_patch_ids: List[str] = Field(default_factory=list)
+    transition_start_y_le_m: Optional[float] = None
+    tip_y_le_m: Optional[float] = None
+    transition_span_m: Optional[float] = None
+    split_fraction: float = 1.0 / 3.0
+    proposed_split_y_le_m: Optional[float] = None
+    limitation: str = "prototype_only_inserts_one_synthetic_post_band_transition_section"
 
 
 def _truncation_connector_band_context(ir: TopologyIRV1) -> Dict[str, Any]:
@@ -162,6 +179,83 @@ def _connector_band_regularization_plan(
     )
 
 
+def _post_band_transition_split_plan(
+    *,
+    motif_match: MotifMatchV1,
+    ir: TopologyIRV1,
+    audit_report: Optional[Any],
+) -> PostBandTransitionSplitPlanV1:
+    root_support_patches = [
+        patch
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "root_to_terminal_support"
+    ]
+    connector_band_patches = [
+        patch
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "connector_band"
+    ]
+    transition_patches = [
+        patch
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "truncation_transition"
+    ]
+    pre_band_support_patches = [
+        patch
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "pre_band_support"
+    ]
+    blocking_topology_check_kinds = list(
+        getattr(audit_report, "blocking_topology_check_kinds", []) or []
+    )
+    if not blocking_topology_check_kinds:
+        blocking_topology_check_kinds = list(
+            motif_match.predicate_evidence.get("blocking_topology_check_kinds", [])
+        )
+
+    reject_reasons: List[str] = []
+    if len(root_support_patches) != 1:
+        reject_reasons.append("root_support_patch_count_not_equal_to_one")
+    if len(connector_band_patches) != 1:
+        reject_reasons.append("connector_band_patch_count_not_equal_to_one")
+    if len(transition_patches) != 1:
+        reject_reasons.append("transition_patch_count_not_equal_to_one")
+    if pre_band_support_patches:
+        reject_reasons.append("family_not_canonical_connector_band")
+    if "segment_facet_intersection_risk" not in blocking_topology_check_kinds:
+        reject_reasons.append("missing_segment_facet_blocker")
+
+    transition_start_y = None
+    tip_y = None
+    transition_span_m = None
+    proposed_split_y = None
+    if len(transition_patches) == 1:
+        transition_patch = transition_patches[0]
+        if transition_patch.metadata.get("inboard_y_le_m") is not None:
+            transition_start_y = float(transition_patch.metadata["inboard_y_le_m"])
+        if transition_patch.metadata.get("outboard_y_le_m") is not None:
+            tip_y = float(transition_patch.metadata["outboard_y_le_m"])
+        if transition_start_y is None or tip_y is None or tip_y <= transition_start_y:
+            reject_reasons.append("invalid_transition_span")
+        else:
+            transition_span_m = float(tip_y - transition_start_y)
+            proposed_split_y = float(transition_start_y + transition_span_m / 3.0)
+
+    applicable = not reject_reasons
+    return PostBandTransitionSplitPlanV1(
+        applicable=applicable,
+        reject_reasons=reject_reasons,
+        blocking_topology_check_kinds=blocking_topology_check_kinds,
+        root_support_patch_ids=[patch.patch_id for patch in root_support_patches],
+        connector_band_patch_ids=[patch.patch_id for patch in connector_band_patches],
+        transition_patch_ids=[patch.patch_id for patch in transition_patches],
+        transition_start_y_le_m=transition_start_y,
+        tip_y_le_m=tip_y,
+        transition_span_m=transition_span_m,
+        proposed_split_y_le_m=proposed_split_y if applicable else None,
+    )
+
+
 class OperatorLibraryV1:
     def __init__(self) -> None:
         self._contracts: Dict[str, OperatorContractV1] = {
@@ -198,6 +292,20 @@ class OperatorLibraryV1:
                 notes=[
                     "This operator canonicalizes one extra pre-band support strip into the 4-anchor connector-band family.",
                     "It does not claim BL thickness / local clearance compatibility is fixed.",
+                ],
+            ),
+            "prototype_split_post_band_transition": OperatorContractV1(
+                operator_name="prototype_split_post_band_transition",
+                implementation_status="implemented",
+                supported_motif_kinds=["CANONICAL_CONNECTOR_BAND_POST_TRANSITION"],
+                expected_artifact_keys=[
+                    "post_band_transition_split_plan",
+                    "post_band_transition_split_report",
+                ],
+                report_key="post_band_transition_split",
+                notes=[
+                    "This is an honest executable prototype for the post-band transition family after connector-band canonicalization.",
+                    "It inserts one synthetic transition-guard section but does not claim solver-entry success.",
                 ],
             ),
             "reject_unsupported_plc_risk_family": OperatorContractV1(
@@ -281,6 +389,38 @@ class OperatorLibraryV1:
                 details={"regularization_plan": regularization_plan.model_dump(mode="json")},
                 notes=[
                     "The operator rejected this family honestly instead of pretending the local topology was rewritten.",
+                ],
+            )
+        if operator_name == "prototype_split_post_band_transition":
+            transition_split_plan = _post_band_transition_split_plan(
+                motif_match=motif_match,
+                ir=ir,
+                audit_report=audit_report,
+            )
+            if transition_split_plan.applicable:
+                return OperatorResultV1(
+                    operator_name=operator_name,
+                    motif_kind=motif_match.kind,
+                    status="applied",
+                    applied=True,
+                    report_key=contract.report_key,
+                    expected_artifact_keys=list(contract.expected_artifact_keys),
+                    details={"transition_split_plan": transition_split_plan.model_dump(mode="json")},
+                    notes=[
+                        "The prototype inserts one deterministic synthetic guard section in the post-band transition interval.",
+                        "A changed downstream failure kind is treated as progress evidence, not as proof of a full topology fix.",
+                    ],
+                )
+            return OperatorResultV1(
+                operator_name=operator_name,
+                motif_kind=motif_match.kind,
+                status="rejected",
+                applied=False,
+                report_key=contract.report_key,
+                expected_artifact_keys=list(contract.expected_artifact_keys),
+                details={"transition_split_plan": transition_split_plan.model_dump(mode="json")},
+                notes=[
+                    "The post-band transition prototype rejected this family honestly instead of mutating a non-canonical case.",
                 ],
             )
         if operator_name == "reject_unsupported_plc_risk_family":

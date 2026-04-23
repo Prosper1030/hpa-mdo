@@ -494,6 +494,48 @@ def test_truncation_connector_band_operator_rejects_already_canonical_fixture():
     assert plan["reject_reasons"] == ["already_canonical_connector_band_family"]
 
 
+def test_post_band_transition_split_operator_targets_canonical_segment_facet_family():
+    ir = _build_truncation_connector_band_ir(include_extra_pre_band_section=False)
+    audit = run_pre_plc_audit_v1(
+        ir,
+        config=PrePLCAuditConfigV1(
+            observed_evidence=[
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last3_segment_facet",
+                    check_kind="segment_facet_intersection_risk",
+                    error_text="PLC Error:  A segment and a facet intersect at point",
+                    selected_section_y_le_m=[0.0, 14.992006138888888, 14.998333333333333, 16.5],
+                )
+            ]
+        ),
+    )
+    registry = MotifRegistryV1()
+    library = OperatorLibraryV1()
+
+    match = next(
+        match
+        for match in registry.detect(ir, audit_report=audit).matches
+        if match.kind == "CANONICAL_CONNECTOR_BAND_POST_TRANSITION"
+    )
+    result = library.execute("prototype_split_post_band_transition", match, ir, audit_report=audit)
+
+    assert match.entity_ids == [
+        "patch:fixture_band:0:1",
+        "patch:fixture_band:1:2",
+        "patch:fixture_band:2:3",
+    ]
+    assert match.predicate_evidence["pre_band_support_patch_count"] == 0
+    assert match.predicate_evidence["blocking_topology_check_kinds"] == ["segment_facet_intersection_risk"]
+    assert result.status == "applied"
+    assert result.applied is True
+    plan = result.details["transition_split_plan"]
+    assert plan["applicable"] is True
+    assert plan["split_fraction"] == pytest.approx(1.0 / 3.0)
+    assert plan["proposed_split_y_le_m"] == pytest.approx(15.498888888888889)
+    assert plan["transition_span_m"] == pytest.approx(1.5016666666666665)
+    assert plan["blocking_topology_check_kinds"] == ["segment_facet_intersection_risk"]
+
+
 def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():
     ir = _build_minimal_ir().model_copy(
         update={

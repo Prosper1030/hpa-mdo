@@ -26,6 +26,7 @@ from .compiler.operator_library_v1 import OperatorLibraryV1
 from .compiler.pre_plc_audit_v1 import (
     PrePLCAuditConfigV1,
     PrePLCAuditObservedEvidenceV1,
+    run_pre_plc_audit_v1,
 )
 from .compiler.topology_ir_v1 import build_topology_ir_v1
 from .gmsh_runtime import GmshRuntimeError, load_gmsh
@@ -1823,6 +1824,156 @@ def _apply_truncation_connector_band_operator_to_pre_plc_fixture(
     }
 
 
+def _pre_plc_observed_check_kind_from_failure_kind(
+    observed_failure_kind: str | None,
+) -> str | None:
+    mapping = {
+        "segment_facet_intersection": "segment_facet_intersection_risk",
+        "facet_facet_overlap": "facet_facet_overlap_risk",
+    }
+    return mapping.get(str(observed_failure_kind or ""))
+
+
+def _build_pre_plc_audit_for_fixture_baseline(
+    *,
+    topology_ir: Any,
+    fixture: dict[str, Any],
+    baseline_observed: dict[str, Any] | None,
+) -> Any:
+    observed_evidence: list[PrePLCAuditObservedEvidenceV1] = []
+    observed_failure_kind = str((baseline_observed or {}).get("observed_failure_kind") or "")
+    check_kind = _pre_plc_observed_check_kind_from_failure_kind(observed_failure_kind)
+    if check_kind is not None:
+        observed_evidence.append(
+            PrePLCAuditObservedEvidenceV1(
+                fixture_id=str(fixture.get("fixture_id") or ""),
+                check_kind=check_kind,
+                error_text=str((baseline_observed or {}).get("error") or ""),
+                selected_section_y_le_m=[
+                    float(value) for value in fixture.get("selected_section_y_le_m", [])
+                ],
+                report_path=str((baseline_observed or {}).get("report_path") or ""),
+                notes=[f"observed_failure_kind={observed_failure_kind}"],
+            )
+        )
+    return run_pre_plc_audit_v1(
+        topology_ir,
+        config=PrePLCAuditConfigV1(observed_evidence=observed_evidence),
+    )
+
+
+def _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+    fixture: dict[str, Any],
+    *,
+    baseline_observed: dict[str, Any] | None,
+    artifact_dir: Path,
+) -> dict[str, Any]:
+    artifact_dir = Path(artifact_dir)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    topology_report = _build_shell_v4_pre_plc_fixture_topology_report(fixture)
+    topology_lineage_report = _build_shell_v4_pre_plc_fixture_topology_lineage_report(fixture)
+    topology_suppression_report = {
+        "status": "captured",
+        "applied": False,
+        "surface_count": 1,
+        "suppressed_source_section_count": 0,
+        "surfaces": [{"suppressed_source_section_indices": [], "suppressed_sections": [], "applied": False}],
+        "notes": [],
+    }
+    topology_ir = build_topology_ir_v1(
+        topology_report=topology_report,
+        topology_lineage_report=topology_lineage_report,
+        topology_suppression_report=topology_suppression_report,
+        component=str(fixture.get("component") or "main_wing"),
+    )
+    audit_report = _build_pre_plc_audit_for_fixture_baseline(
+        topology_ir=topology_ir,
+        fixture=fixture,
+        baseline_observed=baseline_observed,
+    )
+    motif_registry = MotifRegistryV1().detect(topology_ir, audit_report=audit_report)
+    motif_match = next(
+        (
+            match
+            for match in motif_registry.matches
+            if match.kind == "CANONICAL_CONNECTOR_BAND_POST_TRANSITION"
+        ),
+        None,
+    )
+    if motif_match is None:
+        contract = OperatorLibraryV1().describe("prototype_split_post_band_transition")
+        operator_result = {
+            "contract": "operator_result.v1",
+            "operator_name": "prototype_split_post_band_transition",
+            "motif_kind": "CANONICAL_CONNECTOR_BAND_POST_TRANSITION",
+            "status": "rejected",
+            "applied": False,
+            "report_key": contract.report_key,
+            "expected_artifact_keys": list(contract.expected_artifact_keys),
+            "details": {
+                "transition_split_plan": {
+                    "contract": "post_band_transition_split_plan.v1",
+                    "applicable": False,
+                    "reject_reasons": ["canonical_post_band_transition_motif_not_detected"],
+                    "blocking_topology_check_kinds": list(
+                        getattr(audit_report, "blocking_topology_check_kinds", []) or []
+                    ),
+                }
+            },
+            "notes": [
+                "The post-band transition prototype requires a canonical connector-band family with a segment-facet blocker.",
+            ],
+        }
+        transformed_fixture = copy.deepcopy(fixture)
+    else:
+        operator_result_model = OperatorLibraryV1().execute(
+            "prototype_split_post_band_transition",
+            motif_match,
+            topology_ir,
+            audit_report=audit_report,
+        )
+        operator_result = operator_result_model.model_dump(mode="json")
+        transformed_fixture = copy.deepcopy(fixture)
+        original_sections = [copy.deepcopy(section) for section in fixture.get("geometry", {}).get("sections", [])]
+        if operator_result_model.applied:
+            split_y = operator_result["details"]["transition_split_plan"].get("proposed_split_y_le_m")
+            transformed_sections, insertion_record = _insert_real_wing_section_if_needed(
+                sections=original_sections,
+                y_target=float(split_y) if split_y is not None else None,
+            )
+            transformed_y_le_m = [float(section.get("y_le", 0.0)) for section in transformed_sections]
+            transformed_fixture["selected_section_y_le_m"] = transformed_y_le_m
+            transformed_fixture["selected_section_indices"] = list(range(len(transformed_sections)))
+            transformed_fixture["geometry"]["sections"] = transformed_sections
+            transformed_fixture["geometry"]["selected_section_count"] = len(transformed_sections)
+            transformed_fixture["geometry"]["selected_section_y_le_m"] = transformed_y_le_m
+            operator_result["details"]["transition_split_plan"]["inserted_section"] = bool(
+                insertion_record.get("inserted_section", False)
+            )
+            operator_result["details"]["transition_split_plan"]["inserted_index"] = insertion_record.get(
+                "inserted_index"
+            )
+
+    report_path = artifact_dir / "post_band_transition_split_report.json"
+    write_json_report(
+        report_path,
+        {
+            "fixture_id": fixture.get("fixture_id"),
+            "family": fixture.get("family"),
+            "baseline_observed": baseline_observed,
+            "operator_result": operator_result,
+            "selected_section_y_le_m_before": list(fixture.get("selected_section_y_le_m", [])),
+            "selected_section_y_le_m_after": list(transformed_fixture.get("selected_section_y_le_m", [])),
+        },
+    )
+    return {
+        "fixture": transformed_fixture,
+        "operator_result": operator_result,
+        "report_path": str(report_path),
+    }
+
+
 def _shell_v4_pre_plc_repro_overrides(fixture: dict[str, Any]) -> dict[str, Any]:
     return {
         "geometry": {
@@ -1978,8 +2129,17 @@ def _collect_shell_v4_pre_plc_operator_regression_reports(
             fixture,
             artifact_dir=regression_dir / family / "operator",
         )
-        observed = _run_shell_v4_pre_plc_repro_fixture(
+        canonical_observed = _run_shell_v4_pre_plc_repro_fixture(
             regularized["fixture"],
+            out_dir=regression_dir / family / "canonical_run",
+        )
+        transition_split = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+            regularized["fixture"],
+            baseline_observed=canonical_observed,
+            artifact_dir=regression_dir / family / "post_band_transition",
+        )
+        observed = _run_shell_v4_pre_plc_repro_fixture(
+            transition_split["fixture"],
             out_dir=regression_dir / family / "run",
         )
         regression_runs.append(
@@ -1987,13 +2147,21 @@ def _collect_shell_v4_pre_plc_operator_regression_reports(
                 "fixture_id": fixture["fixture_id"],
                 "family": family,
                 "baseline_expected_failure_kind": fixture["expected_failure_kind"],
-                "operator_result": regularized["operator_result"],
+                "truncation_connector_band_operator_result": regularized["operator_result"],
+                "post_band_transition_operator_result": transition_split["operator_result"],
                 "regularized_fixture": {
                     "selected_section_y_le_m": regularized["fixture"]["selected_section_y_le_m"],
                 },
+                "transition_split_fixture": {
+                    "selected_section_y_le_m": transition_split["fixture"]["selected_section_y_le_m"],
+                },
+                "canonical_observed": canonical_observed,
                 "observed": observed,
                 "improved_original_failure_family": (
                     observed["observed_failure_kind"] != fixture["expected_failure_kind"]
+                ),
+                "changed_failure_kind_after_transition_split": (
+                    observed["observed_failure_kind"] != canonical_observed["observed_failure_kind"]
                 ),
             }
         )
@@ -2110,10 +2278,20 @@ def _run_shell_v4_topology_compiler_plan_only(
             if entry.get("matched_expected_failure")
         ],
         "operator_regression_summary": {
-            "applied_fixture_families": [
+            "regularization_applied_fixture_families": [
                 str(entry["family"])
                 for entry in operator_regression_runs
-                if entry["operator_result"]["status"] == "applied"
+                if entry["truncation_connector_band_operator_result"]["status"] == "applied"
+            ],
+            "post_band_transition_applied_fixture_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if entry["post_band_transition_operator_result"]["status"] == "applied"
+            ],
+            "post_band_transition_changed_failure_kind_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if entry["changed_failure_kind_after_transition_split"]
             ],
             "improved_fixture_families": [
                 str(entry["family"])

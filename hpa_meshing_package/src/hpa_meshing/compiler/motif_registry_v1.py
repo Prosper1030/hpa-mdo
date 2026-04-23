@@ -12,6 +12,7 @@ MotifKindV1 = Literal[
     "TRUNCATION_SEAM_REQUIRED_RING",
     "TRIANGULAR_ENDCAP_COLLAPSED_3PATCH",
     "TRUNCATION_CONNECTOR_BAND",
+    "CANONICAL_CONNECTOR_BAND_POST_TRANSITION",
     "VOLUME_ENTRY_PLC_RISK",
 ]
 
@@ -77,6 +78,19 @@ class MotifRegistryV1:
                     "truncation_connector_band_regularization_report",
                 ],
             ),
+            "CANONICAL_CONNECTOR_BAND_POST_TRANSITION": MotifRegistryEntryV1(
+                kind="CANONICAL_CONNECTOR_BAND_POST_TRANSITION",
+                admissible_operators=["prototype_split_post_band_transition"],
+                reject_conditions=[
+                    "family_not_canonical_connector_band",
+                    "missing_segment_facet_blocker",
+                ],
+                unsupported_conditions=["post_band_transition_not_localized"],
+                expected_artifact_keys=[
+                    "post_band_transition_split_plan",
+                    "post_band_transition_split_report",
+                ],
+            ),
             "VOLUME_ENTRY_PLC_RISK": MotifRegistryEntryV1(
                 kind="VOLUME_ENTRY_PLC_RISK",
                 admissible_operators=["reject_unsupported_plc_risk_family"],
@@ -99,6 +113,7 @@ class MotifRegistryV1:
         matches.extend(self._match_truncation_seam_required_ring(ir))
         matches.extend(self._match_triangular_endcap_collapsed_3patch(ir))
         matches.extend(self._match_truncation_connector_band(ir))
+        matches.extend(self._match_canonical_connector_band_post_transition(ir, audit_report=audit_report))
         matches.extend(self._match_volume_entry_plc_risk(audit_report))
         return MotifRegistryReportV1(
             matches=matches,
@@ -216,6 +231,86 @@ class MotifRegistryV1:
                 reject_conditions=entry.reject_conditions,
                 unsupported_conditions=entry.unsupported_conditions,
                 expected_artifact_keys=entry.expected_artifact_keys,
+            )
+        ]
+
+    def _match_canonical_connector_band_post_transition(
+        self,
+        ir: TopologyIRV1,
+        *,
+        audit_report: Optional[Any] = None,
+    ) -> List[MotifMatchV1]:
+        root_support_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "root_to_terminal_support"
+        ]
+        connector_band_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "connector_band"
+        ]
+        transition_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "truncation_transition"
+        ]
+        pre_band_support_patches = [
+            patch
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "pre_band_support"
+        ]
+        blocking_topology_check_kinds = list(
+            getattr(audit_report, "blocking_topology_check_kinds", []) or []
+        )
+        if (
+            len(root_support_patches) != 1
+            or len(connector_band_patches) != 1
+            or len(transition_patches) != 1
+            or pre_band_support_patches
+            or "segment_facet_intersection_risk" not in blocking_topology_check_kinds
+        ):
+            return []
+        entry = self.describe("CANONICAL_CONNECTOR_BAND_POST_TRANSITION")
+        root_support_patch = root_support_patches[0]
+        connector_patch = connector_band_patches[0]
+        transition_patch = transition_patches[0]
+        transition_start_y = transition_patch.metadata.get("inboard_y_le_m")
+        tip_y = transition_patch.metadata.get("outboard_y_le_m")
+        transition_span_m = None
+        if transition_start_y is not None and tip_y is not None:
+            transition_span_m = float(tip_y) - float(transition_start_y)
+        return [
+            MotifMatchV1(
+                motif_id="CANONICAL_CONNECTOR_BAND_POST_TRANSITION:0",
+                kind="CANONICAL_CONNECTOR_BAND_POST_TRANSITION",
+                entity_ids=[
+                    root_support_patch.patch_id,
+                    connector_patch.patch_id,
+                    transition_patch.patch_id,
+                ],
+                summary=(
+                    "Canonical connector-band topology still carries a post-band transition strip under "
+                    "observed segment-facet pressure."
+                ),
+                predicate_evidence={
+                    "root_support_patch_count": len(root_support_patches),
+                    "connector_band_patch_count": len(connector_band_patches),
+                    "transition_patch_count": len(transition_patches),
+                    "pre_band_support_patch_count": len(pre_band_support_patches),
+                    "blocking_topology_check_kinds": blocking_topology_check_kinds,
+                    "transition_start_y_le_m": transition_start_y,
+                    "tip_y_le_m": tip_y,
+                    "transition_span_m": transition_span_m,
+                },
+                admissible_operators=entry.admissible_operators,
+                reject_conditions=entry.reject_conditions,
+                unsupported_conditions=entry.unsupported_conditions,
+                expected_artifact_keys=entry.expected_artifact_keys,
+                notes=[
+                    "This motif is intentionally downstream of overlap-family regularization.",
+                    "It only matches already-canonical connector-band families with zero pre-band support strips.",
+                ],
             )
         ]
 
