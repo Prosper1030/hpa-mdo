@@ -94,15 +94,15 @@ class MotifRegistryV1:
             ),
             "POST_BAND_TRANSITION_BOUNDARY_RECOVERY": MotifRegistryEntryV1(
                 kind="POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
-                admissible_operators=["prototype_localize_post_transition_boundary_recovery"],
+                admissible_operators=["prototype_regularize_post_transition_boundary_recovery"],
                 reject_conditions=[
                     "family_not_post_transition_guard_split",
                     "missing_boundary_recovery_error_2_blocker",
                 ],
                 unsupported_conditions=["boundary_recovery_contact_locus_not_localized"],
                 expected_artifact_keys=[
-                    "post_transition_boundary_recovery_probe_plan",
-                    "post_transition_boundary_recovery_probe_report",
+                    "post_transition_boundary_recovery_regularization_plan",
+                    "post_transition_boundary_recovery_regularization_report",
                 ],
             ),
             "VOLUME_ENTRY_PLC_RISK": MotifRegistryEntryV1(

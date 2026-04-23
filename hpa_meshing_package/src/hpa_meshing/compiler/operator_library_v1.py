@@ -14,7 +14,7 @@ OperatorNameV1 = Literal[
     "extbl_termination_fallback_for_collapsed_endcap",
     "regularize_truncation_connector_band",
     "prototype_split_post_band_transition",
-    "prototype_localize_post_transition_boundary_recovery",
+    "prototype_regularize_post_transition_boundary_recovery",
     "reject_unsupported_plc_risk_family",
 ]
 
@@ -88,8 +88,8 @@ class PostBandTransitionSplitPlanV1(BaseModel):
     limitation: str = "prototype_only_inserts_one_synthetic_post_band_transition_section"
 
 
-class PostTransitionBoundaryRecoveryProbePlanV1(BaseModel):
-    contract: str = "post_transition_boundary_recovery_probe_plan.v1"
+class PostTransitionBoundaryRecoveryRegularizationPlanV1(BaseModel):
+    contract: str = "post_transition_boundary_recovery_regularization_plan.v1"
     applicable: bool
     reject_reasons: List[str] = Field(default_factory=list)
     blocking_topology_check_kinds: List[str] = Field(default_factory=list)
@@ -102,7 +102,15 @@ class PostTransitionBoundaryRecoveryProbePlanV1(BaseModel):
     transition_guard_span_m: Optional[float] = None
     transition_terminal_span_m: Optional[float] = None
     geometry_contact_locus_kind: Optional[str] = None
-    limitation: str = "prototype_only_localizes_boundary_recovery_error_2_without_claiming_a_repair"
+    acts_on_interval_role: str = "post_band_transition_guard_to_tip_terminal"
+    mutation_kind: str = "insert_transition_terminal_relief_section"
+    relief_fraction: float = 0.4
+    proposed_relief_y_le_m: Optional[float] = None
+    contact_locus_span_m_before: Optional[float] = None
+    contact_locus_span_m_after: Optional[float] = None
+    limitation: str = (
+        "prototype_only_narrows_the_guard_to_tip_contact_locus_without_claiming_full_boundary_recovery_repair"
+    )
 
 
 def _truncation_connector_band_context(ir: TopologyIRV1) -> Dict[str, Any]:
@@ -274,12 +282,12 @@ def _post_band_transition_split_plan(
     )
 
 
-def _post_transition_boundary_recovery_probe_plan(
+def _post_transition_boundary_recovery_regularization_plan(
     *,
     motif_match: MotifMatchV1,
     ir: TopologyIRV1,
     audit_report: Optional[Any],
-) -> PostTransitionBoundaryRecoveryProbePlanV1:
+) -> PostTransitionBoundaryRecoveryRegularizationPlanV1:
     connector_band_patches = [
         patch
         for patch in ir.patches
@@ -320,9 +328,22 @@ def _post_transition_boundary_recovery_probe_plan(
     tip_y = terminal_patch.metadata.get("outboard_y_le_m") if terminal_patch is not None else None
     if transition_start_y is None or transition_guard_y is None or tip_y is None:
         reject_reasons.append("boundary_recovery_contact_locus_not_localized")
+    transition_terminal_span = None
+    proposed_relief_y = None
+    narrowed_contact_span = None
+    if transition_guard_y is not None and tip_y is not None:
+        transition_terminal_span = float(tip_y) - float(transition_guard_y)
+        if transition_terminal_span <= 1.0e-6:
+            reject_reasons.append("post_transition_terminal_interval_too_small")
+        else:
+            proposed_relief_y = round(
+                float(transition_guard_y) + 0.4 * float(transition_terminal_span),
+                2,
+            )
+            narrowed_contact_span = float(tip_y) - float(proposed_relief_y)
 
     applicable = not reject_reasons
-    return PostTransitionBoundaryRecoveryProbePlanV1(
+    return PostTransitionBoundaryRecoveryRegularizationPlanV1(
         applicable=applicable,
         reject_reasons=reject_reasons,
         blocking_topology_check_kinds=blocking_topology_check_kinds,
@@ -344,6 +365,13 @@ def _post_transition_boundary_recovery_probe_plan(
         ),
         geometry_contact_locus_kind=(
             "post_band_transition_guard_to_tip" if applicable else None
+        ),
+        proposed_relief_y_le_m=float(proposed_relief_y) if proposed_relief_y is not None else None,
+        contact_locus_span_m_before=(
+            float(transition_terminal_span) if transition_terminal_span is not None else None
+        ),
+        contact_locus_span_m_after=(
+            float(narrowed_contact_span) if narrowed_contact_span is not None else None
         ),
     )
 
@@ -400,18 +428,18 @@ class OperatorLibraryV1:
                     "It inserts one synthetic transition-guard section but does not claim solver-entry success.",
                 ],
             ),
-            "prototype_localize_post_transition_boundary_recovery": OperatorContractV1(
-                operator_name="prototype_localize_post_transition_boundary_recovery",
+            "prototype_regularize_post_transition_boundary_recovery": OperatorContractV1(
+                operator_name="prototype_regularize_post_transition_boundary_recovery",
                 implementation_status="implemented",
                 supported_motif_kinds=["POST_BAND_TRANSITION_BOUNDARY_RECOVERY"],
                 expected_artifact_keys=[
-                    "post_transition_boundary_recovery_probe_plan",
-                    "post_transition_boundary_recovery_probe_report",
+                    "post_transition_boundary_recovery_regularization_plan",
+                    "post_transition_boundary_recovery_regularization_report",
                 ],
-                report_key="post_transition_boundary_recovery_probe",
+                report_key="post_transition_boundary_recovery_regularization",
                 notes=[
-                    "This executable prototype localizes the post-band transition boundary-recovery `error 2` family.",
-                    "It is a diagnostic/operator line, not a claim that the boundary recovery failure is repaired.",
+                    "This executable prototype applies a bounded post-band transition regularization for the boundary-recovery `error 2` family.",
+                    "It narrows the guard-to-tip contact locus without claiming full boundary recovery repair.",
                 ],
             ),
             "reject_unsupported_plc_risk_family": OperatorContractV1(
@@ -529,13 +557,13 @@ class OperatorLibraryV1:
                     "The post-band transition prototype rejected this family honestly instead of mutating a non-canonical case.",
                 ],
             )
-        if operator_name == "prototype_localize_post_transition_boundary_recovery":
-            boundary_recovery_probe_plan = _post_transition_boundary_recovery_probe_plan(
+        if operator_name == "prototype_regularize_post_transition_boundary_recovery":
+            boundary_recovery_regularization_plan = _post_transition_boundary_recovery_regularization_plan(
                 motif_match=motif_match,
                 ir=ir,
                 audit_report=audit_report,
             )
-            if boundary_recovery_probe_plan.applicable:
+            if boundary_recovery_regularization_plan.applicable:
                 return OperatorResultV1(
                     operator_name=operator_name,
                     motif_kind=motif_match.kind,
@@ -544,11 +572,13 @@ class OperatorLibraryV1:
                     report_key=contract.report_key,
                     expected_artifact_keys=list(contract.expected_artifact_keys),
                     details={
-                        "boundary_recovery_probe_plan": boundary_recovery_probe_plan.model_dump(mode="json")
+                        "boundary_recovery_regularization_plan": boundary_recovery_regularization_plan.model_dump(
+                            mode="json"
+                        )
                     },
                     notes=[
-                        "The executable prototype localizes the boundary-recovery `error 2` locus to the split post-band transition interval.",
-                        "This is classifier/probe evidence only and does not claim a repaired PLC boundary recovery path.",
+                        "The executable prototype inserts one deterministic relief section inside the post-band transition terminal interval.",
+                        "A narrowed contact locus is progress evidence, not a claim that the PLC boundary recovery path is fully repaired.",
                     ],
                 )
             return OperatorResultV1(
@@ -559,10 +589,12 @@ class OperatorLibraryV1:
                 report_key=contract.report_key,
                 expected_artifact_keys=list(contract.expected_artifact_keys),
                 details={
-                    "boundary_recovery_probe_plan": boundary_recovery_probe_plan.model_dump(mode="json")
+                    "boundary_recovery_regularization_plan": boundary_recovery_regularization_plan.model_dump(
+                        mode="json"
+                    )
                 },
                 notes=[
-                    "The boundary-recovery probe rejected this family honestly instead of overstating the contact locus.",
+                    "The boundary-recovery regularization rejected this family honestly instead of overstating repair progress.",
                 ],
             )
         if operator_name == "reject_unsupported_plc_risk_family":

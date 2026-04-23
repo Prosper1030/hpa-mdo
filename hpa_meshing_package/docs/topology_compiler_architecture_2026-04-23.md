@@ -152,13 +152,14 @@ This round therefore promotes the new line explicitly:
 
 - new observed topology check: `boundary_recovery_error_2_risk`
 - new motif family: `POST_BAND_TRANSITION_BOUNDARY_RECOVERY`
-- new executable prototype/probe: `prototype_localize_post_transition_boundary_recovery`
+- new bounded prototype operator: `prototype_regularize_post_transition_boundary_recovery`
 
 What this does mean:
 
 - the `error 2` family is now classified and regression-tested as its own post-band transition line
 - applicability and reject semantics are deterministic
-- artifacts can now point at the guard-to-tip interval instead of only quoting a downstream string
+- artifacts now carry a bounded guard-to-tip relief mutation with before/after interval evidence instead of only quoting a downstream string
+- the current prototype intentionally snaps the relief section to a coarse rounded spanwise location so the mutation stays reproducible and readable
 
 What this still does **not** mean:
 

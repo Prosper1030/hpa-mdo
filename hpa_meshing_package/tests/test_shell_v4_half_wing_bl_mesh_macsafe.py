@@ -10,7 +10,7 @@ import hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe as shell_v4_bl_mesh
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _apply_post_band_transition_split_operator_to_pre_plc_fixture,
-    _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture,
+    _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture,
     _apply_truncation_connector_band_operator_to_pre_plc_fixture,
     _analyze_real_wing_tip_bl_interference,
     _augment_real_wing_sections_for_tip_truncation,
@@ -1543,7 +1543,7 @@ def test_shell_v4_pre_plc_root_last4_post_band_transition_prototype_keeps_overla
     assert Path(transformed["report_path"]).exists()
 
 
-def test_shell_v4_pre_plc_root_last3_post_transition_boundary_recovery_probe_structures_error2(
+def test_shell_v4_pre_plc_root_last3_post_transition_boundary_recovery_operator_shrinks_contact_locus(
     tmp_path: Path,
 ):
     repo_root = Path(__file__).resolve().parents[2]
@@ -1566,18 +1566,71 @@ def test_shell_v4_pre_plc_root_last3_post_transition_boundary_recovery_probe_str
         transformed["fixture"],
         out_dir=tmp_path / "transformed_probe",
     )
-    localized = _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
+    localized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
         transformed["fixture"],
         baseline_observed=observed,
         artifact_dir=tmp_path / "localized",
     )
+    after = _run_shell_v4_pre_plc_repro_fixture(
+        localized["fixture"],
+        out_dir=tmp_path / "localized_probe",
+    )
 
     assert observed["observed_failure_kind"] == "boundary_recovery_error_2"
     assert localized["operator_result"]["status"] == "applied"
-    plan = localized["operator_result"]["details"]["boundary_recovery_probe_plan"]
+    plan = localized["operator_result"]["details"]["boundary_recovery_regularization_plan"]
     assert plan["blocking_topology_check_kinds"] == ["boundary_recovery_error_2_risk"]
     assert plan["geometry_contact_locus_kind"] == "post_band_transition_guard_to_tip"
+    assert plan["mutation_kind"] == "insert_transition_terminal_relief_section"
+    assert plan["proposed_relief_y_le_m"] == pytest.approx(15.9)
+    assert plan["contact_locus_span_m_after"] < plan["contact_locus_span_m_before"]
+    assert localized["fixture"]["selected_section_y_le_m"] == pytest.approx(
+        [0.0, 14.992006138888888, 14.998333333333333, 15.498888888888889, 15.9, 16.5]
+    )
+    assert after["observed_failure_kind"] == "boundary_recovery_error_2"
     assert Path(localized["report_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last4_boundary_recovery_operator_keeps_overlap_family_gone(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last4_overlap",
+        artifact_dir=tmp_path / "fixture",
+    )
+    regularized = _apply_truncation_connector_band_operator_to_pre_plc_fixture(
+        fixture,
+        artifact_dir=tmp_path / "regularized",
+    )
+    canonical_observed = _run_shell_v4_pre_plc_repro_fixture(
+        regularized["fixture"],
+        out_dir=tmp_path / "canonical_probe",
+    )
+    transformed = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        regularized["fixture"],
+        baseline_observed=canonical_observed,
+        artifact_dir=tmp_path / "transformed",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        transformed["fixture"],
+        out_dir=tmp_path / "transformed_probe",
+    )
+    localized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
+        transformed["fixture"],
+        baseline_observed=observed,
+        artifact_dir=tmp_path / "localized",
+    )
+    after = _run_shell_v4_pre_plc_repro_fixture(
+        localized["fixture"],
+        out_dir=tmp_path / "localized_probe",
+    )
+
+    assert observed["observed_failure_kind"] == "boundary_recovery_error_2"
+    assert localized["operator_result"]["status"] == "applied"
+    assert "Invalid boundary mesh (overlapping facets)" not in after["error"]
 
 
 def test_build_real_wing_bl_budgeting_plan_reports_sectionwise_and_regionwise_actions(

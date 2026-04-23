@@ -671,8 +671,9 @@ def test_post_transition_boundary_recovery_error_2_family_is_structured():
         for match in registry.detect(ir, audit_report=audit).matches
         if match.kind == "POST_BAND_TRANSITION_BOUNDARY_RECOVERY"
     )
+    assert match.admissible_operators == ["prototype_regularize_post_transition_boundary_recovery"]
     result = library.execute(
-        "prototype_localize_post_transition_boundary_recovery",
+        "prototype_regularize_post_transition_boundary_recovery",
         match,
         ir,
         audit_report=audit,
@@ -684,12 +685,16 @@ def test_post_transition_boundary_recovery_error_2_family_is_structured():
     assert match.predicate_evidence["transition_terminal_patch_count"] == 1
     assert result.status == "applied"
     assert result.applied is True
-    plan = result.details["boundary_recovery_probe_plan"]
+    plan = result.details["boundary_recovery_regularization_plan"]
     assert plan["applicable"] is True
     assert plan["blocking_topology_check_kinds"] == ["boundary_recovery_error_2_risk"]
     assert plan["geometry_contact_locus_kind"] == "post_band_transition_guard_to_tip"
     assert plan["transition_guard_patch_ids"] == ["patch:fixture_band:2:3"]
     assert plan["transition_terminal_patch_ids"] == ["patch:fixture_band:3:4"]
+    assert plan["mutation_kind"] == "insert_transition_terminal_relief_section"
+    assert plan["acts_on_interval_role"] == "post_band_transition_guard_to_tip_terminal"
+    assert plan["proposed_relief_y_le_m"] == pytest.approx(15.9)
+    assert plan["contact_locus_span_m_after"] < plan["contact_locus_span_m_before"]
 
 
 def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():

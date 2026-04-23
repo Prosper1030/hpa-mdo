@@ -1883,6 +1883,7 @@ def _build_shell_v4_pre_plc_fixture_topology_report(
 ) -> dict[str, Any]:
     resolved = dict((fixture.get("tip_truncation_seed") or {}).get("resolved") or {})
     post_band_transition_seed = dict(fixture.get("post_band_transition_seed") or {})
+    boundary_recovery_seed = dict(fixture.get("post_transition_boundary_recovery_seed") or {})
     selected_section_y_le_m = [float(value) for value in fixture.get("selected_section_y_le_m", [])]
     return {
         "representation": "shell_v4_pre_plc_fixture",
@@ -1902,6 +1903,9 @@ def _build_shell_v4_pre_plc_fixture_topology_report(
                 "tip_y_le_m": selected_section_y_le_m[-1] if selected_section_y_le_m else None,
                 "selected_section_y_le_m": selected_section_y_le_m,
                 "post_band_transition_guard_y_le_m": post_band_transition_seed.get("guard_y_le_m"),
+                "post_transition_boundary_recovery_relief_y_le_m": boundary_recovery_seed.get(
+                    "relief_y_le_m"
+                ),
             }
         },
     }
@@ -2192,7 +2196,7 @@ def _apply_post_band_transition_split_operator_to_pre_plc_fixture(
     }
 
 
-def _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
+def _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
     fixture: dict[str, Any],
     *,
     baseline_observed: dict[str, Any] | None,
@@ -2232,18 +2236,18 @@ def _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
         None,
     )
     if motif_match is None:
-        contract = OperatorLibraryV1().describe("prototype_localize_post_transition_boundary_recovery")
+        contract = OperatorLibraryV1().describe("prototype_regularize_post_transition_boundary_recovery")
         operator_result = {
             "contract": "operator_result.v1",
-            "operator_name": "prototype_localize_post_transition_boundary_recovery",
+            "operator_name": "prototype_regularize_post_transition_boundary_recovery",
             "motif_kind": "POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
             "status": "rejected",
             "applied": False,
             "report_key": contract.report_key,
             "expected_artifact_keys": list(contract.expected_artifact_keys),
             "details": {
-                "boundary_recovery_probe_plan": {
-                    "contract": "post_transition_boundary_recovery_probe_plan.v1",
+                "boundary_recovery_regularization_plan": {
+                    "contract": "post_transition_boundary_recovery_regularization_plan.v1",
                     "applicable": False,
                     "reject_reasons": ["post_transition_boundary_recovery_motif_not_detected"],
                     "blocking_topology_check_kinds": list(
@@ -2252,18 +2256,47 @@ def _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
                 }
             },
             "notes": [
-                "The boundary-recovery probe requires a split post-band transition family with observed `error 2` evidence.",
+                "The boundary-recovery regularization requires a split post-band transition family with observed `error 2` evidence.",
             ],
         }
+        transformed_fixture = copy.deepcopy(fixture)
     else:
-        operator_result = OperatorLibraryV1().execute(
-            "prototype_localize_post_transition_boundary_recovery",
+        operator_result_model = OperatorLibraryV1().execute(
+            "prototype_regularize_post_transition_boundary_recovery",
             motif_match,
             topology_ir,
             audit_report=audit_report,
-        ).model_dump(mode="json")
+        )
+        operator_result = operator_result_model.model_dump(mode="json")
+        transformed_fixture = copy.deepcopy(fixture)
+        original_sections = [copy.deepcopy(section) for section in fixture.get("geometry", {}).get("sections", [])]
+        if operator_result_model.applied:
+            relief_y = operator_result["details"]["boundary_recovery_regularization_plan"].get(
+                "proposed_relief_y_le_m"
+            )
+            transformed_sections, insertion_record = _insert_real_wing_section_if_needed(
+                sections=original_sections,
+                y_target=float(relief_y) if relief_y is not None else None,
+            )
+            transformed_y_le_m = [float(section.get("y_le", 0.0)) for section in transformed_sections]
+            transformed_fixture["selected_section_y_le_m"] = transformed_y_le_m
+            transformed_fixture["selected_section_indices"] = list(range(len(transformed_sections)))
+            transformed_fixture["geometry"]["sections"] = transformed_sections
+            transformed_fixture["geometry"]["selected_section_count"] = len(transformed_sections)
+            transformed_fixture["geometry"]["selected_section_y_le_m"] = transformed_y_le_m
+            transformed_fixture["post_transition_boundary_recovery_seed"] = {
+                "enabled": True,
+                "relief_y_le_m": float(relief_y) if relief_y is not None else None,
+                "source_operator": "prototype_regularize_post_transition_boundary_recovery",
+            }
+            operator_result["details"]["boundary_recovery_regularization_plan"][
+                "inserted_section"
+            ] = bool(insertion_record.get("inserted_section", False))
+            operator_result["details"]["boundary_recovery_regularization_plan"][
+                "inserted_index"
+            ] = insertion_record.get("inserted_index")
 
-    report_path = artifact_dir / "post_transition_boundary_recovery_probe_report.json"
+    report_path = artifact_dir / "post_transition_boundary_recovery_regularization_report.json"
     write_json_report(
         report_path,
         {
@@ -2271,11 +2304,12 @@ def _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
             "family": fixture.get("family"),
             "baseline_observed": baseline_observed,
             "operator_result": operator_result,
-            "selected_section_y_le_m": list(fixture.get("selected_section_y_le_m", [])),
+            "selected_section_y_le_m_before": list(fixture.get("selected_section_y_le_m", [])),
+            "selected_section_y_le_m_after": list(transformed_fixture.get("selected_section_y_le_m", [])),
         },
     )
     return {
-        "fixture": copy.deepcopy(fixture),
+        "fixture": transformed_fixture,
         "operator_result": operator_result,
         "report_path": str(report_path),
     }
@@ -2451,10 +2485,14 @@ def _collect_shell_v4_pre_plc_operator_regression_reports(
             transition_split["fixture"],
             out_dir=regression_dir / family / "run",
         )
-        boundary_recovery_probe = _apply_post_transition_boundary_recovery_probe_to_pre_plc_fixture(
+        boundary_recovery_regularized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
             transition_split["fixture"],
             baseline_observed=observed,
-            artifact_dir=regression_dir / family / "boundary_recovery_probe",
+            artifact_dir=regression_dir / family / "boundary_recovery_regularization",
+        )
+        boundary_recovery_observed = _run_shell_v4_pre_plc_repro_fixture(
+            boundary_recovery_regularized["fixture"],
+            out_dir=regression_dir / family / "boundary_recovery_run",
         )
         regression_runs.append(
             {
@@ -2463,20 +2501,31 @@ def _collect_shell_v4_pre_plc_operator_regression_reports(
                 "baseline_expected_failure_kind": fixture["expected_failure_kind"],
                 "truncation_connector_band_operator_result": regularized["operator_result"],
                 "post_band_transition_operator_result": transition_split["operator_result"],
-                "post_transition_boundary_recovery_probe_result": boundary_recovery_probe["operator_result"],
+                "post_transition_boundary_recovery_operator_result": boundary_recovery_regularized[
+                    "operator_result"
+                ],
                 "regularized_fixture": {
                     "selected_section_y_le_m": regularized["fixture"]["selected_section_y_le_m"],
                 },
                 "transition_split_fixture": {
                     "selected_section_y_le_m": transition_split["fixture"]["selected_section_y_le_m"],
                 },
+                "boundary_recovery_fixture": {
+                    "selected_section_y_le_m": boundary_recovery_regularized["fixture"][
+                        "selected_section_y_le_m"
+                    ],
+                },
                 "canonical_observed": canonical_observed,
                 "observed": observed,
+                "boundary_recovery_observed": boundary_recovery_observed,
                 "improved_original_failure_family": (
                     observed["observed_failure_kind"] != fixture["expected_failure_kind"]
                 ),
                 "changed_failure_kind_after_transition_split": (
                     observed["observed_failure_kind"] != canonical_observed["observed_failure_kind"]
+                ),
+                "changed_failure_kind_after_boundary_recovery_operator": (
+                    boundary_recovery_observed["observed_failure_kind"] != observed["observed_failure_kind"]
                 ),
             }
         )
@@ -2616,10 +2665,20 @@ def _run_shell_v4_topology_compiler_plan_only(
                 for entry in operator_regression_runs
                 if entry["changed_failure_kind_after_transition_split"]
             ],
-            "post_transition_boundary_recovery_localized_fixture_families": [
+            "post_transition_boundary_recovery_applied_fixture_families": [
                 str(entry["family"])
                 for entry in operator_regression_runs
-                if entry["post_transition_boundary_recovery_probe_result"]["status"] == "applied"
+                if entry["post_transition_boundary_recovery_operator_result"]["status"] == "applied"
+            ],
+            "post_transition_boundary_recovery_changed_failure_kind_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if entry["changed_failure_kind_after_boundary_recovery_operator"]
+            ],
+            "post_transition_boundary_recovery_same_failure_kind_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if not entry["changed_failure_kind_after_boundary_recovery_operator"]
             ],
             "improved_fixture_families": [
                 str(entry["family"])
