@@ -85,6 +85,7 @@ def _worker_result_payload(query, *, sweep_point_count: int) -> dict[str, object
 def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     factory_calls: list[dict[str, object]] = []
     loader_calls: list[tuple[str, int]] = []
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
 
     class FakeWorker:
         backend_name = "test_stub"
@@ -147,7 +148,7 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert result.summary_json_path.exists()
     assert 3 <= (
         len(result.selected_concept_dirs) + len(result.best_infeasible_concept_dirs)
-    ) <= 5
+    ) <= cfg.pipeline.keep_top_n
     assert factory_calls
     assert factory_calls[0]["project_dir"] == Path(__file__).resolve().parents[1]
     assert factory_calls[0]["cache_dir"] == tmp_path / "polar_db"

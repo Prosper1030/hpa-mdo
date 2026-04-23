@@ -926,6 +926,15 @@ def _run_batched_zone_candidate_queries(
     return aggregated_results, normalized_worker_results
 
 
+def _successive_halving_radius(
+    *,
+    round_index: int,
+    total_rounds: int,
+    base_radius: int,
+) -> int:
+    return max(0, int(base_radius) + max(int(total_rounds) - int(round_index) - 1, 0))
+
+
 def _representative_reynolds(zone_points: list[dict[str, float]]) -> float:
     if not zone_points:
         return 250000.0
@@ -996,80 +1005,39 @@ def select_zone_airfoil_templates(
     coarse_camber_stride: int = 2,
     coarse_keep_top_k: int = 2,
     refine_neighbor_radius: int = 1,
+    successive_halving_enabled: bool = True,
+    successive_halving_rounds: int = 2,
+    successive_halving_beam_width: int = 6,
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
 ) -> ZoneSelectionBatch:
-    (
-        zone_points_by_name,
-        zone_min_tc_by_name,
-        candidates_by_zone,
-        coarse_candidates_by_zone,
-    ) = _prepare_zone_selection_inputs(
-        zone_requirements=zone_requirements,
+    concept_batches = select_zone_airfoil_templates_for_concepts(
+        concept_zone_requirements={"single": zone_requirements},
         seed_loader=seed_loader,
+        worker=worker,
         thickness_delta_levels=thickness_delta_levels,
         camber_delta_levels=camber_delta_levels,
         coarse_to_fine_enabled=coarse_to_fine_enabled,
         coarse_thickness_stride=coarse_thickness_stride,
         coarse_camber_stride=coarse_camber_stride,
+        coarse_keep_top_k=coarse_keep_top_k,
+        refine_neighbor_radius=refine_neighbor_radius,
+        successive_halving_enabled=successive_halving_enabled,
+        successive_halving_rounds=successive_halving_rounds,
+        successive_halving_beam_width=successive_halving_beam_width,
+        safe_clmax_scale=safe_clmax_scale,
+        safe_clmax_delta=safe_clmax_delta,
+        stall_utilization_limit=stall_utilization_limit,
     )
-    selected_by_zone: dict[str, SelectedZoneCandidate] = {}
-    worker_results: list[dict[str, object]] = []
-
-    candidate_results_by_zone, coarse_worker_results = _run_batched_zone_candidate_queries(
-        zone_candidates=coarse_candidates_by_zone,
-        zone_points_by_name=zone_points_by_name,
-        worker=worker,
+    batch = concept_batches["single"]
+    return ZoneSelectionBatch(
+        selected_by_zone=batch.selected_by_zone,
+        worker_results=[
+            {key: value for key, value in result.items() if key != "concept_id"}
+            for result in batch.worker_results
+        ],
     )
-    worker_results.extend(coarse_worker_results)
-
-    refinement_candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
-    if coarse_to_fine_enabled:
-        for zone_name, candidates in candidates_by_zone.items():
-            zone_points = zone_points_by_name[zone_name]
-            zone_min_tc_ratio = zone_min_tc_by_name[zone_name]
-            candidate_results = candidate_results_by_zone.get(zone_name, {})
-            coarse_candidates = coarse_candidates_by_zone[zone_name]
-            coarse_scored = _score_available_zone_candidates(
-                coarse_candidates,
-                zone_points=zone_points,
-                candidate_results=candidate_results,
-                zone_min_tc_ratio=zone_min_tc_ratio,
-                safe_clmax_scale=safe_clmax_scale,
-                safe_clmax_delta=safe_clmax_delta,
-                stall_utilization_limit=stall_utilization_limit,
-            )
-            coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
-            coarse_beam = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
-            refinement_candidates_by_zone[zone_name] = _refinement_candidates(
-                candidates,
-                seed_candidates=coarse_beam,
-                neighbor_radius=refine_neighbor_radius,
-            )
-            if not refinement_candidates_by_zone[zone_name]:
-                refinement_candidates_by_zone[zone_name] = candidates
-
-        candidate_results_by_zone, refinement_worker_results = _run_batched_zone_candidate_queries(
-            zone_candidates=refinement_candidates_by_zone,
-            zone_points_by_name=zone_points_by_name,
-            worker=worker,
-            existing_results_by_zone=candidate_results_by_zone,
-        )
-        worker_results.extend(refinement_worker_results)
-
-    for zone_name, candidates in candidates_by_zone.items():
-        selected_by_zone[zone_name] = select_best_zone_candidate(
-            candidates=candidates,
-            zone_points=zone_points_by_name[zone_name],
-            candidate_results=candidate_results_by_zone.get(zone_name, {}),
-            zone_min_tc_ratio=zone_min_tc_by_name[zone_name],
-            safe_clmax_scale=safe_clmax_scale,
-            safe_clmax_delta=safe_clmax_delta,
-            stall_utilization_limit=stall_utilization_limit,
-        )
-
-    return ZoneSelectionBatch(selected_by_zone=selected_by_zone, worker_results=worker_results)
 
 
 def select_zone_airfoil_templates_for_concepts(
@@ -1084,6 +1052,9 @@ def select_zone_airfoil_templates_for_concepts(
     coarse_camber_stride: int = 2,
     coarse_keep_top_k: int = 2,
     refine_neighbor_radius: int = 1,
+    successive_halving_enabled: bool = True,
+    successive_halving_rounds: int = 2,
+    successive_halving_beam_width: int = 6,
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
@@ -1137,7 +1108,7 @@ def select_zone_airfoil_templates_for_concepts(
         )
 
     if coarse_to_fine_enabled:
-        refinement_candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+        coarse_beam_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
         for batch_key, candidates in candidates_by_key.items():
             zone_points = zone_points_by_key[batch_key]
             zone_min_tc_ratio = zone_min_tc_by_key[batch_key]
@@ -1153,30 +1124,84 @@ def select_zone_airfoil_templates_for_concepts(
                 stall_utilization_limit=stall_utilization_limit,
             )
             coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
-            coarse_beam = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
-            refinement_candidates_by_key[batch_key] = _refinement_candidates(
-                candidates,
-                seed_candidates=coarse_beam,
-                neighbor_radius=refine_neighbor_radius,
-            )
-            if not refinement_candidates_by_key[batch_key]:
-                refinement_candidates_by_key[batch_key] = candidates
+            coarse_beam_by_key[batch_key] = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
 
-        candidate_results_by_key, refinement_worker_results = _run_batched_zone_candidate_queries(
-            zone_candidates=refinement_candidates_by_key,
-            zone_points_by_name=zone_points_by_key,
-            worker=worker,
-            existing_results_by_zone=candidate_results_by_key,
-        )
-        for result in refinement_worker_results:
-            concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
-            worker_results_by_concept.setdefault(concept_id, []).append(
-                {
-                    **result,
-                    "zone_name": zone_name,
-                    "concept_id": concept_id,
-                }
+        current_beam_by_key = coarse_beam_by_key
+        if successive_halving_enabled:
+            total_rounds = max(1, int(successive_halving_rounds))
+            for round_index in range(total_rounds):
+                stage_candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+                radius = _successive_halving_radius(
+                    round_index=round_index,
+                    total_rounds=total_rounds,
+                    base_radius=refine_neighbor_radius,
+                )
+                for batch_key, candidates in candidates_by_key.items():
+                    stage_candidates = _refinement_candidates(
+                        candidates,
+                        seed_candidates=current_beam_by_key[batch_key],
+                        neighbor_radius=radius,
+                    )
+                    stage_candidates_by_key[batch_key] = stage_candidates or candidates
+
+                candidate_results_by_key, stage_worker_results = _run_batched_zone_candidate_queries(
+                    zone_candidates=stage_candidates_by_key,
+                    zone_points_by_name=zone_points_by_key,
+                    worker=worker,
+                    existing_results_by_zone=candidate_results_by_key,
+                )
+                for result in stage_worker_results:
+                    concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
+                    worker_results_by_concept.setdefault(concept_id, []).append(
+                        {
+                            **result,
+                            "zone_name": zone_name,
+                            "concept_id": concept_id,
+                        }
+                    )
+
+                next_beam_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+                for batch_key, stage_candidates in stage_candidates_by_key.items():
+                    zone_points = zone_points_by_key[batch_key]
+                    zone_min_tc_ratio = zone_min_tc_by_key[batch_key]
+                    stage_scored = _score_available_zone_candidates(
+                        stage_candidates,
+                        zone_points=zone_points,
+                        candidate_results=candidate_results_by_key.get(batch_key, {}),
+                        zone_min_tc_ratio=zone_min_tc_ratio,
+                        safe_clmax_scale=safe_clmax_scale,
+                        safe_clmax_delta=safe_clmax_delta,
+                        stall_utilization_limit=stall_utilization_limit,
+                    )
+                    beam_count = min(max(1, int(successive_halving_beam_width)), len(stage_scored))
+                    next_beam_by_key[batch_key] = tuple(item[3] for item in stage_scored[:beam_count])
+                current_beam_by_key = next_beam_by_key
+        else:
+            refinement_candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+            for batch_key, candidates in candidates_by_key.items():
+                refinement_candidates_by_key[batch_key] = _refinement_candidates(
+                    candidates,
+                    seed_candidates=current_beam_by_key[batch_key],
+                    neighbor_radius=refine_neighbor_radius,
+                )
+                if not refinement_candidates_by_key[batch_key]:
+                    refinement_candidates_by_key[batch_key] = candidates
+
+            candidate_results_by_key, refinement_worker_results = _run_batched_zone_candidate_queries(
+                zone_candidates=refinement_candidates_by_key,
+                zone_points_by_name=zone_points_by_key,
+                worker=worker,
+                existing_results_by_zone=candidate_results_by_key,
             )
+            for result in refinement_worker_results:
+                concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
+                worker_results_by_concept.setdefault(concept_id, []).append(
+                    {
+                        **result,
+                        "zone_name": zone_name,
+                        "concept_id": concept_id,
+                    }
+                )
 
     selected_by_concept: dict[str, dict[str, SelectedZoneCandidate]] = {
         concept_id: {} for concept_id in concept_zone_requirements

@@ -197,6 +197,9 @@ class CSTSearchConfig(ConceptBaseModel):
     coarse_camber_stride: int = Field(2, ge=1)
     coarse_keep_top_k: int = Field(2, ge=1)
     refine_neighbor_radius: int = Field(1, ge=0)
+    successive_halving_enabled: bool = True
+    successive_halving_rounds: int = Field(2, ge=1)
+    successive_halving_beam_width: int = Field(6, ge=1)
 
     @model_validator(mode="after")
     def validate_levels(self) -> CSTSearchConfig:
@@ -215,6 +218,12 @@ class CSTSearchConfig(ConceptBaseModel):
         ):
             raise ValueError(
                 "cst_search.coarse_keep_top_k must not exceed the total candidate count."
+            )
+        if self.successive_halving_beam_width > (
+            len(self.thickness_delta_levels) * len(self.camber_delta_levels)
+        ):
+            raise ValueError(
+                "cst_search.successive_halving_beam_width must not exceed the total candidate count."
             )
         return self
 

@@ -42,23 +42,37 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.dihedral_tip_deg_candidates == (4.0, 6.0, 8.0)
     assert cfg.geometry_family.dihedral_exponent_candidates == (1.0, 1.5, 2.0)
     assert cfg.cst_search.thickness_delta_levels == (
+        -0.022,
         -0.018,
+        -0.014,
         -0.010,
         -0.006,
         0.0,
         0.006,
         0.010,
+        0.014,
         0.018,
+        0.022,
     )
     assert cfg.cst_search.camber_delta_levels == (
+        -0.016,
         -0.012,
         -0.008,
+        -0.004,
         0.0,
+        0.004,
         0.008,
         0.012,
+        0.016,
     )
+    assert cfg.cst_search.coarse_thickness_stride == 3
+    assert cfg.cst_search.coarse_keep_top_k == 3
+    assert cfg.cst_search.successive_halving_enabled is True
+    assert cfg.cst_search.successive_halving_rounds == 2
+    assert cfg.cst_search.successive_halving_beam_width == 6
     assert cfg.pipeline.stations_per_half == 7
-    assert cfg.pipeline.keep_top_n == 5
+    assert cfg.pipeline.keep_top_n == 8
+    assert cfg.pipeline.finalist_full_sweep_top_l == 4
     assert cfg.output.export_candidate_bundle is True
     assert cfg.output.export_vsp is False
     assert cfg.output.export_vsp_for_top_n == 0
@@ -297,6 +311,26 @@ def test_load_concept_config_rejects_invalid_cst_search_levels():
                 "cst_search": {
                     "thickness_delta_levels": [-0.01, -0.01, 0.01],
                     "camber_delta_levels": [-0.01, 0.01],
+                },
+            }
+        )
+
+
+def test_load_concept_config_rejects_successive_halving_beam_width_above_candidate_count():
+    with pytest.raises(ValueError, match="successive_halving_beam_width"):
+        BirdmanConceptConfig.model_validate(
+            {
+                "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+                "mass": {
+                    "pilot_mass_kg": 60.0,
+                    "baseline_aircraft_mass_kg": 40.0,
+                    "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+                },
+                "mission": {"target_distance_km": 42.195},
+                "cst_search": {
+                    "thickness_delta_levels": [-0.01, 0.0, 0.01],
+                    "camber_delta_levels": [-0.01, 0.0, 0.01],
+                    "successive_halving_beam_width": 10,
                 },
             }
         )

@@ -274,6 +274,7 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
             self.call_count += 1
             for query in queries:
                 zone_name = query.template_id.split("-", 1)[0]
+                zone_name = zone_name.split("__", 1)[-1]
                 self.query_count_by_zone[zone_name] = self.query_count_by_zone.get(zone_name, 0) + 1
                 self.analysis_modes_seen.add(query.analysis_mode)
                 self.analysis_stages_seen.add(query.analysis_stage)
@@ -449,6 +450,80 @@ def test_select_zone_airfoil_templates_for_concepts_batches_across_multiple_conc
     )
 
 
+def test_select_zone_airfoil_templates_supports_successive_halving_multi_stage_refinement() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.call_count = 0
+            self.template_ids: list[str] = []
+
+        def run_queries(self, queries):
+            self.call_count += 1
+            self.template_ids.extend(query.template_id for query in queries)
+            results = []
+            for query in queries:
+                role = query.template_id.split("-", 1)[1]
+                if role == "base":
+                    mean_cd = 0.020
+                    usable_clmax = 1.16
+                elif role == "t01_c05":
+                    mean_cd = 0.018
+                    usable_clmax = 1.18
+                else:
+                    mean_cd = 0.024
+                    usable_clmax = 1.10
+                results.append(
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "mean_cd": mean_cd,
+                        "mean_cm": -0.10,
+                        "usable_clmax": usable_clmax,
+                    }
+                )
+            return results
+
+    worker = FakeWorker()
+    seed_coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.06),
+        (0.0, 0.0),
+        (0.5, -0.04),
+        (1.0, 0.0),
+    )
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.12,
+            }
+        },
+        seed_loader=lambda _seed_name: seed_coordinates,
+        worker=worker,
+        thickness_delta_levels=(-0.01, 0.0, 0.01),
+        camber_delta_levels=(-0.016, -0.012, -0.008, 0.0, 0.008, 0.012, 0.016),
+        coarse_to_fine_enabled=True,
+        coarse_thickness_stride=2,
+        coarse_camber_stride=3,
+        coarse_keep_top_k=1,
+        refine_neighbor_radius=1,
+        successive_halving_enabled=True,
+        successive_halving_rounds=2,
+        successive_halving_beam_width=2,
+    )
+
+    assert selection.selected_by_zone["root"].template.candidate_role == "t01_c05"
+    assert worker.call_count == 3
+    assert any(template_id.endswith("t01_c05") for template_id in worker.template_ids)
+
+
 def test_select_zone_airfoil_templates_falls_back_to_all_valid_candidates_when_prescreen_eliminates_everything() -> None:
     class FakeWorker:
         def __init__(self):
@@ -566,6 +641,7 @@ def test_select_zone_airfoil_templates_uses_coarse_to_fine_refinement_to_recover
         coarse_camber_stride=2,
         coarse_keep_top_k=1,
         refine_neighbor_radius=1,
+        successive_halving_enabled=False,
     )
 
     assert selection.selected_by_zone["root"].template.candidate_role == "t01_c04"

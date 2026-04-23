@@ -60,18 +60,21 @@ geometry_family:
   dihedral_exponent_candidates: [1.0, 1.5, 2.0]
 
 cst_search:
-  thickness_delta_levels: [-0.018, -0.010, -0.006, 0.0, 0.006, 0.010, 0.018]
-  camber_delta_levels: [-0.012, -0.008, 0.0, 0.008, 0.012]
+  thickness_delta_levels: [-0.022, -0.018, -0.014, -0.010, -0.006, 0.0, 0.006, 0.010, 0.014, 0.018, 0.022]
+  camber_delta_levels: [-0.016, -0.012, -0.008, -0.004, 0.0, 0.004, 0.008, 0.012, 0.016]
   coarse_to_fine_enabled: true
-  coarse_thickness_stride: 2
+  coarse_thickness_stride: 3
   coarse_camber_stride: 2
-  coarse_keep_top_k: 2
+  coarse_keep_top_k: 3
   refine_neighbor_radius: 1
+  successive_halving_enabled: true
+  successive_halving_rounds: 2
+  successive_halving_beam_width: 6
 
 pipeline:
   stations_per_half: 7
-  keep_top_n: 5
-  finalist_full_sweep_top_l: 3
+  keep_top_n: 8
+  finalist_full_sweep_top_l: 4
 
 output:
   export_candidate_bundle: true
