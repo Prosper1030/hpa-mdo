@@ -393,3 +393,74 @@ def test_select_zone_airfoil_templates_falls_back_to_all_valid_candidates_when_p
 
     assert set(selection.selected_by_zone) == {"root"}
     assert worker.query_count == 9
+
+
+def test_select_zone_airfoil_templates_uses_coarse_to_fine_refinement_to_recover_non_coarse_best() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.query_count = 0
+            self.template_ids: list[str] = []
+
+        def run_queries(self, queries):
+            self.query_count += len(queries)
+            self.template_ids.extend(query.template_id for query in queries)
+            results = []
+            for query in queries:
+                role = query.template_id.split("-", 1)[1]
+                if role == "t01_c04":
+                    mean_cd = 0.017
+                    usable_clmax = 1.28
+                elif role == "t00_c04":
+                    mean_cd = 0.019
+                    usable_clmax = 1.18
+                else:
+                    mean_cd = 0.024
+                    usable_clmax = 1.10
+                results.append(
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "mean_cd": mean_cd,
+                        "mean_cm": -0.10,
+                        "usable_clmax": usable_clmax,
+                    }
+                )
+            return results
+
+    worker = FakeWorker()
+    seed_coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.06),
+        (0.0, 0.0),
+        (0.5, -0.04),
+        (1.0, 0.0),
+    )
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.12,
+            }
+        },
+        seed_loader=lambda _seed_name: seed_coordinates,
+        worker=worker,
+        thickness_delta_levels=(-0.01, 0.0, 0.01),
+        camber_delta_levels=(-0.012, -0.008, 0.0, 0.008, 0.012),
+        coarse_to_fine_enabled=True,
+        coarse_thickness_stride=2,
+        coarse_camber_stride=2,
+        coarse_keep_top_k=1,
+        refine_neighbor_radius=1,
+    )
+
+    assert selection.selected_by_zone["root"].template.candidate_role == "t01_c04"
+    assert worker.query_count < 15
+    assert any(template_id.endswith("t01_c04") for template_id in worker.template_ids)

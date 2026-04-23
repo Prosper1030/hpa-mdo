@@ -62,6 +62,11 @@ geometry_family:
 cst_search:
   thickness_delta_levels: [-0.018, -0.010, -0.006, 0.0, 0.006, 0.010, 0.018]
   camber_delta_levels: [-0.012, -0.008, 0.0, 0.008, 0.012]
+  coarse_to_fine_enabled: true
+  coarse_thickness_stride: 2
+  coarse_camber_stride: 2
+  coarse_keep_top_k: 2
+  refine_neighbor_radius: 1
 
 pipeline:
   stations_per_half: 7

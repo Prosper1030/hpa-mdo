@@ -533,6 +533,245 @@ def _prescreen_zone_candidates(
     return tuple(valid_fallback)
 
 
+def _is_anchor_candidate(candidate: CSTAirfoilTemplate) -> bool:
+    return candidate.candidate_role in {
+        "base",
+        "thickness_up",
+        "thickness_down",
+        "camber_up",
+        "camber_down",
+    }
+
+
+def _coarse_seed_candidates(
+    candidates: tuple[CSTAirfoilTemplate, ...],
+    *,
+    thickness_stride: int,
+    camber_stride: int,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    if not candidates:
+        return ()
+
+    selected: list[CSTAirfoilTemplate] = []
+    seen_roles: set[str] = set()
+    for candidate in candidates:
+        include = False
+        if _is_anchor_candidate(candidate):
+            include = True
+        elif candidate.thickness_index is not None and candidate.camber_index is not None:
+            include = (
+                candidate.thickness_index % max(1, int(thickness_stride)) == 0
+                and candidate.camber_index % max(1, int(camber_stride)) == 0
+            )
+        if include and candidate.candidate_role not in seen_roles:
+            selected.append(candidate)
+            seen_roles.add(candidate.candidate_role)
+    return tuple(selected) if selected else candidates
+
+
+def _score_available_zone_candidates(
+    candidates: tuple[CSTAirfoilTemplate, ...],
+    *,
+    zone_points: list[dict[str, float]],
+    candidate_results: Mapping[str, Mapping[str, object]],
+    zone_min_tc_ratio: float,
+    safe_clmax_scale: float,
+    safe_clmax_delta: float,
+    stall_utilization_limit: float,
+) -> list[tuple[int, float, float, CSTAirfoilTemplate]]:
+    scored: list[tuple[int, float, float, CSTAirfoilTemplate]] = []
+    for candidate in candidates:
+        result = candidate_results.get(candidate.candidate_role)
+        if result is None:
+            continue
+        status = str(result.get("status", "unknown"))
+        if status not in {"ok", "stubbed_ok", "mini_sweep_fallback"}:
+            continue
+
+        coordinates = generate_cst_coordinates(candidate)
+        validity = validate_cst_candidate_coordinates(coordinates)
+        if not validity.valid:
+            continue
+
+        mean_cd = float(result["mean_cd"])
+        mean_cm = float(result["mean_cm"])
+        usable_clmax = float(result["usable_clmax"])
+        polar_points = result.get("polar_points")
+        metrics = _zone_candidate_metrics(
+            zone_points=zone_points,
+            mean_cd=mean_cd,
+            mean_cm=mean_cm,
+            usable_clmax=usable_clmax,
+            zone_min_tc_ratio=zone_min_tc_ratio,
+            coordinates=coordinates,
+            polar_points=polar_points if isinstance(polar_points, list) else None,
+            safe_clmax_scale=safe_clmax_scale,
+            safe_clmax_delta=safe_clmax_delta,
+        )
+        candidate_score = score_zone_candidate(
+            zone_points=zone_points,
+            mean_cd=mean_cd,
+            mean_cm=mean_cm,
+            usable_clmax=usable_clmax,
+            zone_min_tc_ratio=zone_min_tc_ratio,
+            coordinates=coordinates,
+            polar_points=polar_points if isinstance(polar_points, list) else None,
+            safe_clmax_scale=safe_clmax_scale,
+            safe_clmax_delta=safe_clmax_delta,
+            stall_utilization_limit=stall_utilization_limit,
+        )
+        thickness_ratio = float(metrics["candidate_thickness_ratio"])
+        spar_depth_ratio = float(metrics["spar_depth_ratio"])
+        required_spar_depth_ratio = float(metrics["required_spar_depth_ratio"])
+        safe_clmax = float(metrics["safe_clmax"])
+        stall_utilization = float(metrics["stall_utilization"])
+        feasible = (
+            safe_clmax >= 0.0
+            and stall_utilization <= float(stall_utilization_limit)
+            and thickness_ratio >= float(zone_min_tc_ratio)
+            and spar_depth_ratio >= required_spar_depth_ratio
+        )
+        scored.append((0 if feasible else 1, candidate_score, -usable_clmax, candidate))
+    return sorted(scored, key=lambda item: (item[0], item[1], item[2], item[3].candidate_role))
+
+
+def _refinement_candidates(
+    candidates: tuple[CSTAirfoilTemplate, ...],
+    *,
+    seed_candidates: tuple[CSTAirfoilTemplate, ...],
+    neighbor_radius: int,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    if not candidates or not seed_candidates:
+        return candidates
+
+    radius = max(0, int(neighbor_radius))
+    selected: list[CSTAirfoilTemplate] = []
+    seen_roles: set[str] = set()
+    seed_index_pairs = {
+        (candidate.thickness_index, candidate.camber_index)
+        for candidate in seed_candidates
+        if candidate.thickness_index is not None and candidate.camber_index is not None
+    }
+
+    for candidate in candidates:
+        include = _is_anchor_candidate(candidate)
+        if not include and candidate.thickness_index is not None and candidate.camber_index is not None:
+            for thickness_index, camber_index in seed_index_pairs:
+                if thickness_index is None or camber_index is None:
+                    continue
+                if (
+                    abs(candidate.thickness_index - thickness_index) <= radius
+                    and abs(candidate.camber_index - camber_index) <= radius
+                ):
+                    include = True
+                    break
+        if include and candidate.candidate_role not in seen_roles:
+            selected.append(candidate)
+            seen_roles.add(candidate.candidate_role)
+
+    return tuple(selected) if selected else candidates
+
+
+def _zone_queries_for_candidates(
+    *,
+    zone_name: str,
+    candidates: tuple[CSTAirfoilTemplate, ...],
+    zone_points: list[dict[str, float]],
+) -> tuple[list[PolarQuery], list[str]]:
+    queries: list[PolarQuery] = []
+    query_roles: list[str] = []
+    for candidate in candidates:
+        coordinates = generate_cst_coordinates(candidate)
+        validity = validate_cst_candidate_coordinates(coordinates)
+        if not validity.valid:
+            continue
+        queries.append(
+            PolarQuery(
+                template_id=f"{zone_name}-{candidate.candidate_role}",
+                reynolds=_representative_reynolds(zone_points),
+                cl_samples=_representative_cl_samples(zone_points),
+                roughness_mode="clean",
+                geometry_hash=geometry_hash_from_coordinates(coordinates),
+                coordinates=coordinates,
+                analysis_mode="screening_target_cl",
+                analysis_stage="screening",
+            )
+        )
+        query_roles.append(candidate.candidate_role)
+    return queries, query_roles
+
+
+def _run_zone_candidate_queries(
+    *,
+    zone_name: str,
+    candidates: tuple[CSTAirfoilTemplate, ...],
+    zone_points: list[dict[str, float]],
+    worker: Any,
+    existing_results: Mapping[str, dict[str, object]] | None = None,
+) -> tuple[dict[str, dict[str, object]], list[dict[str, object]]]:
+    candidate_results = dict(existing_results or {})
+    candidates_to_run = tuple(
+        candidate for candidate in candidates if candidate.candidate_role not in candidate_results
+    )
+    queries, query_roles = _zone_queries_for_candidates(
+        zone_name=zone_name,
+        candidates=candidates_to_run,
+        zone_points=zone_points,
+    )
+    if not queries:
+        return candidate_results, []
+
+    zone_results = worker.run_queries(queries)
+    if len(zone_results) != len(queries):
+        raise RuntimeError(
+            f"Worker returned {len(zone_results)} results for {len(queries)} CST queries in zone {zone_name!r}."
+        )
+
+    query_identity_by_template_id = {
+        query.template_id: {
+            "candidate_role": candidate_role,
+            "geometry_hash": query.geometry_hash,
+        }
+        for query, candidate_role in zip(queries, query_roles, strict=True)
+    }
+    seen_template_ids: set[str] = set()
+    normalized_worker_results: list[dict[str, object]] = []
+    for raw_result in zone_results:
+        if not isinstance(raw_result, dict):
+            raise RuntimeError("Airfoil worker results must be dictionaries.")
+        template_id = raw_result.get("template_id")
+        if not isinstance(template_id, str):
+            raise RuntimeError("Airfoil worker results must include a template_id.")
+        query_identity = query_identity_by_template_id.get(template_id)
+        if query_identity is None:
+            raise RuntimeError(
+                f"Airfoil worker returned an unexpected template_id {template_id!r} in zone {zone_name!r}."
+            )
+        candidate_role = str(query_identity["candidate_role"])
+        geometry_hash = raw_result.get("geometry_hash")
+        if geometry_hash is not None and geometry_hash != query_identity["geometry_hash"]:
+            raise RuntimeError(
+                f"Airfoil worker geometry_hash mismatch for template_id {template_id!r} in zone {zone_name!r}."
+            )
+        seen_template_ids.add(template_id)
+        normalized_worker_results.append(
+            {
+                **raw_result,
+                "zone_name": zone_name,
+                "candidate_role": candidate_role,
+            }
+        )
+        metrics = _metrics_from_worker_result(raw_result)
+        if metrics is not None:
+            candidate_results[candidate_role] = metrics
+    if seen_template_ids != set(query_identity_by_template_id):
+        missing = sorted(set(query_identity_by_template_id) - seen_template_ids)
+        raise RuntimeError(
+            f"Airfoil worker did not return results for all CST queries in zone {zone_name!r}: missing {missing!r}."
+        )
+    return candidate_results, normalized_worker_results
+
+
 def _representative_reynolds(zone_points: list[dict[str, float]]) -> float:
     if not zone_points:
         return 250000.0
@@ -598,6 +837,11 @@ def select_zone_airfoil_templates(
     worker: Any,
     thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
     camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
+    coarse_to_fine_enabled: bool = True,
+    coarse_thickness_stride: int = 2,
+    coarse_camber_stride: int = 2,
+    coarse_keep_top_k: int = 2,
+    refine_neighbor_radius: int = 1,
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
@@ -624,79 +868,55 @@ def select_zone_airfoil_templates(
             zone_points=zone_points,
             zone_min_tc_ratio=zone_min_tc_ratio,
         )
-
-        queries: list[PolarQuery] = []
-        query_roles: list[str] = []
-        for candidate in candidates:
-            coordinates = generate_cst_coordinates(candidate)
-            validity = validate_cst_candidate_coordinates(coordinates)
-            if not validity.valid:
-                continue
-            queries.append(
-                PolarQuery(
-                    template_id=f"{zone_name}-{candidate.candidate_role}",
-                    reynolds=_representative_reynolds(zone_points),
-                    cl_samples=_representative_cl_samples(zone_points),
-                    roughness_mode="clean",
-                    geometry_hash=geometry_hash_from_coordinates(coordinates),
-                    coordinates=coordinates,
-                    analysis_mode="screening_target_cl",
-                    analysis_stage="screening",
-                )
-            )
-            query_roles.append(candidate.candidate_role)
-
-        if not queries:
+        if not candidates:
             raise ValueError(f"Zone {zone_name!r} did not produce any valid CST candidates.")
 
-        zone_results = worker.run_queries(queries)
-        if len(zone_results) != len(queries):
-            raise RuntimeError(
-                f"Worker returned {len(zone_results)} results for {len(queries)} CST queries in zone {zone_name!r}."
-            )
-
-        query_identity_by_template_id = {
-            query.template_id: {
-                "candidate_role": candidate_role,
-                "geometry_hash": query.geometry_hash,
-            }
-            for query, candidate_role in zip(queries, query_roles, strict=True)
-        }
         candidate_results: dict[str, dict[str, object]] = {}
-        seen_template_ids: set[str] = set()
-        for raw_result in zone_results:
-            if not isinstance(raw_result, dict):
-                raise RuntimeError("Airfoil worker results must be dictionaries.")
-            template_id = raw_result.get("template_id")
-            if not isinstance(template_id, str):
-                raise RuntimeError("Airfoil worker results must include a template_id.")
-            query_identity = query_identity_by_template_id.get(template_id)
-            if query_identity is None:
-                raise RuntimeError(
-                    f"Airfoil worker returned an unexpected template_id {template_id!r} in zone {zone_name!r}."
-                )
-            candidate_role = str(query_identity["candidate_role"])
-            geometry_hash = raw_result.get("geometry_hash")
-            if geometry_hash is not None and geometry_hash != query_identity["geometry_hash"]:
-                raise RuntimeError(
-                    f"Airfoil worker geometry_hash mismatch for template_id {template_id!r} in zone {zone_name!r}."
-                )
-            seen_template_ids.add(template_id)
-            worker_results.append(
-                {
-                    **raw_result,
-                    "zone_name": zone_name,
-                    "candidate_role": candidate_role,
-                }
+        coarse_candidates = (
+            _coarse_seed_candidates(
+                candidates,
+                thickness_stride=coarse_thickness_stride,
+                camber_stride=coarse_camber_stride,
             )
-            metrics = _metrics_from_worker_result(raw_result)
-            if metrics is not None:
-                candidate_results[candidate_role] = metrics
-        if seen_template_ids != set(query_identity_by_template_id):
-            missing = sorted(set(query_identity_by_template_id) - seen_template_ids)
-            raise RuntimeError(
-                f"Airfoil worker did not return results for all CST queries in zone {zone_name!r}: missing {missing!r}."
+            if coarse_to_fine_enabled
+            else candidates
+        )
+        candidate_results, coarse_worker_results = _run_zone_candidate_queries(
+            zone_name=zone_name,
+            candidates=coarse_candidates,
+            zone_points=zone_points,
+            worker=worker,
+            existing_results=candidate_results,
+        )
+        worker_results.extend(coarse_worker_results)
+
+        if coarse_to_fine_enabled:
+            coarse_scored = _score_available_zone_candidates(
+                coarse_candidates,
+                zone_points=zone_points,
+                candidate_results=candidate_results,
+                zone_min_tc_ratio=zone_min_tc_ratio,
+                safe_clmax_scale=safe_clmax_scale,
+                safe_clmax_delta=safe_clmax_delta,
+                stall_utilization_limit=stall_utilization_limit,
             )
+            coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
+            coarse_beam = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
+            refinement_candidates = _refinement_candidates(
+                candidates,
+                seed_candidates=coarse_beam,
+                neighbor_radius=refine_neighbor_radius,
+            )
+            if not refinement_candidates:
+                refinement_candidates = candidates
+            candidate_results, refinement_worker_results = _run_zone_candidate_queries(
+                zone_name=zone_name,
+                candidates=refinement_candidates,
+                zone_points=zone_points,
+                worker=worker,
+                existing_results=candidate_results,
+            )
+            worker_results.extend(refinement_worker_results)
 
         selected_by_zone[zone_name] = select_best_zone_candidate(
             candidates=candidates,

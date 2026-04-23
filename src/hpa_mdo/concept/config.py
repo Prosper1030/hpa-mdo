@@ -192,6 +192,11 @@ class CSTSearchConfig(ConceptBaseModel):
         DEFAULT_CAMBER_DELTA_LEVELS,
         min_length=3,
     )
+    coarse_to_fine_enabled: bool = True
+    coarse_thickness_stride: int = Field(2, ge=1)
+    coarse_camber_stride: int = Field(2, ge=1)
+    coarse_keep_top_k: int = Field(2, ge=1)
+    refine_neighbor_radius: int = Field(1, ge=0)
 
     @model_validator(mode="after")
     def validate_levels(self) -> CSTSearchConfig:
@@ -205,6 +210,12 @@ class CSTSearchConfig(ConceptBaseModel):
                 raise ValueError(f"cst_search.{name} must include 0.0.")
             if any(abs(level) > 0.05 for level in levels):
                 raise ValueError(f"cst_search.{name} entries must stay within +/-0.05.")
+        if self.coarse_keep_top_k > (
+            len(self.thickness_delta_levels) * len(self.camber_delta_levels)
+        ):
+            raise ValueError(
+                "cst_search.coarse_keep_top_k must not exceed the total candidate count."
+            )
         return self
 
 

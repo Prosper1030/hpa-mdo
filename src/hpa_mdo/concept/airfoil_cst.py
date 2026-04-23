@@ -23,6 +23,10 @@ class CSTAirfoilTemplate:
     te_thickness_m: float
     seed_name: str | None = None
     candidate_role: str = "selected"
+    thickness_delta: float = 0.0
+    camber_delta: float = 0.0
+    thickness_index: int | None = None
+    camber_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -236,6 +240,10 @@ def build_bounded_candidate_family(
                         thickness_index=thickness_index,
                         camber_index=camber_index,
                     ),
+                    thickness_delta=float(thickness_delta),
+                    camber_delta=float(camber_delta),
+                    thickness_index=thickness_index,
+                    camber_index=camber_index,
                 )
             )
 
