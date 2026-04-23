@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bisect
 import copy
 import csv
 import json
@@ -71,6 +72,17 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
             "layers": 24,
             "growth_ratio": 1.24,
             "require_explicit_wall_normal_cells": True,
+        },
+        "real_wing_bl_protection": {
+            "enabled": True,
+            "outboard_activation_local_chords": 2.5,
+            "max_total_to_half_thickness_fraction": 0.85,
+            "tip_zone_chords": 0.75,
+            "tip_scale_at_tip": 0.8,
+            "thickness_limit_x_rel_min": 0.05,
+            "thickness_limit_x_rel_max": 0.92,
+            "min_local_scale": 0.05,
+            "exclude_tip_cap_from_bl": False,
         },
         "wake_refinement": {
             "wake_length_chords": 5.0,
@@ -151,6 +163,17 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
             "layers": 24,
             "growth_ratio": 1.25,
             "require_explicit_wall_normal_cells": True,
+        },
+        "real_wing_bl_protection": {
+            "enabled": True,
+            "outboard_activation_local_chords": 2.5,
+            "max_total_to_half_thickness_fraction": 0.85,
+            "tip_zone_chords": 0.75,
+            "tip_scale_at_tip": 0.8,
+            "thickness_limit_x_rel_min": 0.05,
+            "thickness_limit_x_rel_max": 0.92,
+            "min_local_scale": 0.05,
+            "exclude_tip_cap_from_bl": False,
         },
         "wake_refinement": {
             "wake_length_chords": 10.0,
@@ -647,6 +670,340 @@ def _section_bounds(points: list[tuple[float, float, float]]) -> dict[str, float
     }
 
 
+def _section_airfoil_coordinates(section: dict[str, Any]) -> list[tuple[float, float]]:
+    coordinates = [
+        (float(x_value), float(z_value))
+        for x_value, z_value in (section.get("airfoil_coordinates") or [])
+    ]
+    if len(coordinates) >= 2 and all(
+        abs(lhs - rhs) <= 1.0e-12 for lhs, rhs in zip(coordinates[0], coordinates[-1])
+    ):
+        coordinates = coordinates[:-1]
+    if len(coordinates) < 4:
+        raise ValueError("real main wing section needs at least four airfoil coordinates")
+    return coordinates
+
+
+def _leading_edge_index_2d(points: list[tuple[float, float]]) -> int:
+    if len(points) < 3:
+        raise ValueError("airfoil loop needs at least three points")
+    return min(range(len(points)), key=lambda index: (points[index][0], abs(points[index][1])))
+
+
+def _monotonic_branch(
+    points: list[tuple[float, float]],
+    *,
+    take_max: bool,
+) -> list[tuple[float, float]]:
+    ordered = sorted((float(x), float(z)) for x, z in points)
+    merged: list[tuple[float, float]] = []
+    for x_value, z_value in ordered:
+        if merged and abs(x_value - merged[-1][0]) <= 1.0e-12:
+            previous_x, previous_z = merged[-1]
+            merged[-1] = (
+                previous_x,
+                max(previous_z, z_value) if take_max else min(previous_z, z_value),
+            )
+        else:
+            merged.append((x_value, z_value))
+    if len(merged) < 2:
+        raise ValueError("airfoil branch needs at least two monotonic points")
+    return merged
+
+
+def _section_thickness_branches(section: dict[str, Any]) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
+    coordinates = _section_airfoil_coordinates(section)
+    leading_edge_index = _leading_edge_index_2d(coordinates)
+    upper = _monotonic_branch(list(reversed(coordinates[: leading_edge_index + 1])), take_max=True)
+    lower = _monotonic_branch(coordinates[leading_edge_index:], take_max=False)
+    return upper, lower
+
+
+def _interpolate_branch(branch: list[tuple[float, float]], x_value: float) -> float:
+    if x_value <= branch[0][0]:
+        return float(branch[0][1])
+    if x_value >= branch[-1][0]:
+        return float(branch[-1][1])
+    xs = [point[0] for point in branch]
+    index = max(0, min(len(xs) - 2, bisect.bisect_right(xs, x_value) - 1))
+    x0, z0 = branch[index]
+    x1, z1 = branch[index + 1]
+    if abs(x1 - x0) <= 1.0e-12:
+        return float(0.5 * (z0 + z1))
+    ratio = float((x_value - x0) / (x1 - x0))
+    return float(z0 + ratio * (z1 - z0))
+
+
+def _section_local_thickness_at_x(section: dict[str, Any], x_rel: float) -> float:
+    upper, lower = _section_thickness_branches(section)
+    x_clamped = float(max(upper[0][0], min(upper[-1][0], x_rel)))
+    z_upper = _interpolate_branch(upper, x_clamped)
+    z_lower = _interpolate_branch(lower, x_clamped)
+    return max(0.0, float(z_upper - z_lower) * float(section["chord"]))
+
+
+def _section_frame_parameters(section: dict[str, Any]) -> dict[str, float]:
+    return {
+        "x_le": float(section["x_le"]),
+        "y_le": float(section["y_le"]),
+        "z_le": float(section["z_le"]),
+        "chord": float(section["chord"]),
+        "twist_deg": float(section.get("twist_deg", 0.0) or 0.0),
+    }
+
+
+def _inverse_rotate_about_local_span(
+    point: tuple[float, float, float],
+    twist_deg: float,
+) -> tuple[float, float, float]:
+    angle = math.radians(float(twist_deg))
+    x, y, z = (float(value) for value in point)
+    return (
+        x * math.cos(angle) + z * math.sin(angle),
+        y,
+        -x * math.sin(angle) + z * math.cos(angle),
+    )
+
+
+def _local_section_coordinates_for_point(
+    section: dict[str, Any],
+    point_xyz: tuple[float, float, float],
+) -> tuple[float, float]:
+    frame = _section_frame_parameters(section)
+    local_x, _, local_z = _inverse_rotate_about_local_span(
+        (
+            float(point_xyz[0]) - frame["x_le"],
+            0.0,
+            float(point_xyz[2]) - frame["z_le"],
+        ),
+        frame["twist_deg"],
+    )
+    chord = max(frame["chord"], 1.0e-12)
+    return float(local_x / chord), float(local_z / chord)
+
+
+def _interpolate_between_sections(
+    lower_value: float,
+    upper_value: float,
+    ratio: float,
+) -> float:
+    return float((1.0 - ratio) * lower_value + ratio * upper_value)
+
+
+def _bracketing_section_indices(
+    sections: list[dict[str, Any]],
+    y_value: float,
+) -> tuple[int, int, float]:
+    if len(sections) < 2:
+        return 0, 0, 0.0
+    y_sections = [float(section["y_le"]) for section in sections]
+    if y_value <= y_sections[0]:
+        return 0, 0, 0.0
+    if y_value >= y_sections[-1]:
+        last_index = len(sections) - 1
+        return last_index, last_index, 0.0
+    lower_index = max(0, min(len(y_sections) - 2, bisect.bisect_right(y_sections, y_value) - 1))
+    upper_index = lower_index + 1
+    y0 = y_sections[lower_index]
+    y1 = y_sections[upper_index]
+    if abs(y1 - y0) <= 1.0e-12:
+        return lower_index, upper_index, 0.0
+    return lower_index, upper_index, float((y_value - y0) / (y1 - y0))
+
+
+def _real_wing_local_clearance_at_point(
+    *,
+    sections: list[dict[str, Any]],
+    point_xyz: tuple[float, float, float],
+) -> dict[str, float]:
+    lower_index, upper_index, ratio = _bracketing_section_indices(sections, float(point_xyz[1]))
+    lower_section = sections[lower_index]
+    upper_section = sections[upper_index]
+    lower_x_rel, _ = _local_section_coordinates_for_point(lower_section, point_xyz)
+    upper_x_rel, _ = _local_section_coordinates_for_point(upper_section, point_xyz)
+    lower_thickness = _section_local_thickness_at_x(lower_section, lower_x_rel)
+    upper_thickness = _section_local_thickness_at_x(upper_section, upper_x_rel)
+    if lower_index == upper_index:
+        thickness = lower_thickness
+    else:
+        thickness = _interpolate_between_sections(lower_thickness, upper_thickness, ratio)
+    frame = {
+        key: _interpolate_between_sections(
+            _section_frame_parameters(lower_section)[key],
+            _section_frame_parameters(upper_section)[key],
+            ratio,
+        )
+        for key in ("x_le", "y_le", "z_le", "chord", "twist_deg")
+    }
+    local_x, _ = _local_section_coordinates_for_point(
+        {
+            **lower_section,
+            **frame,
+        },
+        point_xyz,
+    )
+    return {
+        "local_thickness_m": float(max(0.0, thickness)),
+        "local_half_thickness_m": float(max(0.0, 0.5 * thickness)),
+        "local_x_rel": float(local_x),
+        "local_chord_m": float(frame["chord"]),
+        "span_y_m": float(point_xyz[1]),
+    }
+
+
+def _build_real_wing_bl_protection_field(
+    *,
+    gmsh: Any,
+    wall_surface_tags: list[int],
+    sections: list[dict[str, Any]],
+    protection: dict[str, Any],
+    base_total_thickness_m: float,
+    ref_chord_m: float,
+    half_span_m: float,
+) -> dict[str, Any] | None:
+    if not bool(protection.get("enabled", True)):
+        return None
+    outboard_activation_local_chords = float(protection["outboard_activation_local_chords"])
+    node_payloads: dict[int, dict[str, float]] = {}
+    for surface_tag in wall_surface_tags:
+        node_tags, coordinates, _ = gmsh.model.mesh.getNodes(
+            2,
+            int(surface_tag),
+            includeBoundary=True,
+            returnParametricCoord=False,
+        )
+        for node_index, node_tag in enumerate(node_tags):
+            node_key = int(node_tag)
+            if node_key in node_payloads:
+                continue
+            xyz = (
+                float(coordinates[3 * node_index]),
+                float(coordinates[3 * node_index + 1]),
+                float(coordinates[3 * node_index + 2]),
+            )
+            clearance = _real_wing_local_clearance_at_point(sections=sections, point_xyz=xyz)
+            local_half_thickness = max(clearance["local_half_thickness_m"], 1.0e-9)
+            local_chord_m = max(clearance["local_chord_m"], 1.0e-9)
+            tip_distance_m = max(0.0, float(half_span_m) - xyz[1])
+            outboard_activation_span_m = max(0.0, outboard_activation_local_chords * local_chord_m)
+            outboard_activated = tip_distance_m <= outboard_activation_span_m + 1.0e-12
+            x_rel_min = float(protection["thickness_limit_x_rel_min"])
+            x_rel_max = float(protection["thickness_limit_x_rel_max"])
+            within_thickness_window = x_rel_min <= clearance["local_x_rel"] <= x_rel_max
+            thickness_limit_active = within_thickness_window and outboard_activated
+            allowed_from_thickness = float(base_total_thickness_m)
+            if thickness_limit_active:
+                allowed_from_thickness = (
+                    float(protection["max_total_to_half_thickness_fraction"]) * local_half_thickness
+                )
+            tip_zone_span_m = max(1.0e-9, float(protection["tip_zone_chords"]) * local_chord_m)
+            tip_progress = 0.0
+            tip_scale = 1.0
+            if tip_distance_m < tip_zone_span_m:
+                tip_progress = float(1.0 - tip_distance_m / tip_zone_span_m)
+                tip_scale = _interpolate_between_sections(
+                    1.0,
+                    float(protection["tip_scale_at_tip"]),
+                    tip_progress,
+                )
+            allowed_total_thickness = min(
+                float(base_total_thickness_m),
+                float(allowed_from_thickness * tip_scale),
+            )
+            raw_scale = float(allowed_total_thickness / max(base_total_thickness_m, 1.0e-12))
+            scale = float(max(float(protection["min_local_scale"]), min(1.0, raw_scale)))
+            node_payloads[node_key] = {
+                "x": xyz[0],
+                "y": xyz[1],
+                "z": xyz[2],
+                "local_thickness_m": float(clearance["local_thickness_m"]),
+                "local_half_thickness_m": float(clearance["local_half_thickness_m"]),
+                "local_x_rel": float(clearance["local_x_rel"]),
+                "local_chord_m": float(local_chord_m),
+                "tip_distance_m": float(tip_distance_m),
+                "outboard_activation_span_m": float(outboard_activation_span_m),
+                "allowed_total_thickness_m": float(allowed_total_thickness),
+                "scale": scale,
+                "tip_progress": float(tip_progress),
+                "thickness_window_active": 1.0 if within_thickness_window else 0.0,
+                "outboard_activated": 1.0 if outboard_activated else 0.0,
+                "thickness_limit_active": 1.0 if thickness_limit_active else 0.0,
+                "thickness_limited": 1.0
+                if thickness_limit_active and allowed_from_thickness < base_total_thickness_m - 1.0e-12
+                else 0.0,
+                "tip_limited": 1.0 if tip_progress > 0.0 else 0.0,
+            }
+    if not node_payloads:
+        return None
+    view_tag = gmsh.view.add("real_wing_bl_protection_scale")
+    node_tags = list(node_payloads.keys())
+    gmsh.view.addModelData(
+        view_tag,
+        0,
+        gmsh.model.getCurrent(),
+        "NodeData",
+        node_tags,
+        [[node_payloads[node_tag]["scale"]] for node_tag in node_tags],
+        numComponents=1,
+    )
+    triggered_nodes = [payload for payload in node_payloads.values() if payload["scale"] < 0.999999]
+    summary = {
+        "enabled": True,
+        "mode": "local_thickness_scaled_boundary_layer",
+        "view_tag": int(view_tag),
+        "view_index": int(gmsh.view.getIndex(view_tag)),
+        "base_total_thickness_m": float(base_total_thickness_m),
+        "outboard_activation_local_chords": float(outboard_activation_local_chords),
+        "max_total_to_half_thickness_fraction": float(protection["max_total_to_half_thickness_fraction"]),
+        "tip_zone_chords": float(protection["tip_zone_chords"]),
+        "tip_scale_at_tip": float(protection["tip_scale_at_tip"]),
+        "thickness_limit_x_rel_min": float(protection["thickness_limit_x_rel_min"]),
+        "thickness_limit_x_rel_max": float(protection["thickness_limit_x_rel_max"]),
+        "min_local_scale": float(protection["min_local_scale"]),
+        "layer_count_preserved": True,
+        "thickness_scaled_locally": True,
+        "node_count": int(len(node_payloads)),
+        "triggered_node_count": int(len(triggered_nodes)),
+        "triggered_node_fraction": float(len(triggered_nodes) / max(len(node_payloads), 1)),
+        "scale_min": float(min(payload["scale"] for payload in node_payloads.values())),
+        "scale_max": float(max(payload["scale"] for payload in node_payloads.values())),
+        "scale_mean": float(statistics.fmean(payload["scale"] for payload in node_payloads.values())),
+        "outboard_activated_node_count": int(sum(int(payload["outboard_activated"]) for payload in node_payloads.values())),
+        "thickness_window_node_count": int(sum(int(payload["thickness_window_active"]) for payload in node_payloads.values())),
+        "thickness_limit_active_node_count": int(sum(int(payload["thickness_limit_active"]) for payload in node_payloads.values())),
+        "thickness_limited_node_count": int(sum(int(payload["thickness_limited"]) for payload in triggered_nodes)),
+        "tip_limited_node_count": int(sum(int(payload["tip_limited"]) for payload in triggered_nodes)),
+    }
+    if triggered_nodes:
+        summary["triggered_span_y_range_m"] = {
+            "min": float(min(payload["y"] for payload in triggered_nodes)),
+            "max": float(max(payload["y"] for payload in triggered_nodes)),
+        }
+        summary["triggered_x_rel_range"] = {
+            "min": float(min(payload["local_x_rel"] for payload in triggered_nodes)),
+            "max": float(max(payload["local_x_rel"] for payload in triggered_nodes)),
+        }
+        summary["triggered_allowed_total_thickness_m"] = {
+            "min": float(min(payload["allowed_total_thickness_m"] for payload in triggered_nodes)),
+            "max": float(max(payload["allowed_total_thickness_m"] for payload in triggered_nodes)),
+            "mean": float(statistics.fmean(payload["allowed_total_thickness_m"] for payload in triggered_nodes)),
+        }
+        summary["triggered_scale_range"] = {
+            "min": float(min(payload["scale"] for payload in triggered_nodes)),
+            "max": float(max(payload["scale"] for payload in triggered_nodes)),
+            "mean": float(statistics.fmean(payload["scale"] for payload in triggered_nodes)),
+        }
+        summary["triggered_tip_distance_range_m"] = {
+            "min": float(min(payload["tip_distance_m"] for payload in triggered_nodes)),
+            "max": float(max(payload["tip_distance_m"] for payload in triggered_nodes)),
+        }
+        summary["triggered_local_chord_range_m"] = {
+            "min": float(min(payload["local_chord_m"] for payload in triggered_nodes)),
+            "max": float(max(payload["local_chord_m"] for payload in triggered_nodes)),
+        }
+    return summary
+
+
 def _resolve_real_main_wing_geometry(
     *,
     geometry: dict[str, Any],
@@ -1012,6 +1369,62 @@ def _collect_root_side_surface_tags(gmsh: Any, extbl: list[tuple[int, int]]) -> 
         if _surface_lies_on_y_plane(gmsh, surface_tag, y_value=0.0):
             root_surfaces.append(surface_tag)
     return root_surfaces
+
+
+def _cleanup_root_side_surface_mesh(
+    gmsh: Any,
+    surface_tags: list[int],
+) -> dict[str, Any]:
+    cleanup: dict[str, Any] = {
+        "surface_tags": [int(tag) for tag in surface_tags],
+        "removed_degenerate_element_count": 0,
+        "removed_degenerate_elements_sample_limit": 40,
+        "removed_degenerate_elements_sample": [],
+        "removed_degenerate_element_count_by_surface": {},
+    }
+    if not surface_tags:
+        return cleanup
+    for surface_tag in surface_tags:
+        element_types, element_tags_by_type, node_tags_by_type = gmsh.model.mesh.getElements(2, int(surface_tag))
+        surface_remove_tags: list[int] = []
+        for element_type, element_tags, node_tags in zip(
+            element_types,
+            element_tags_by_type,
+            node_tags_by_type,
+            strict=False,
+        ):
+            _, _, _, node_count, _, _ = gmsh.model.mesh.getElementProperties(int(element_type))
+            node_count_int = int(node_count)
+            if node_count_int <= 0:
+                continue
+            for element_index, element_tag in enumerate(element_tags):
+                start = element_index * node_count_int
+                stop = start + node_count_int
+                element_node_tags = [int(node) for node in node_tags[start:stop]]
+                if len(set(element_node_tags)) == len(element_node_tags):
+                    continue
+                surface_remove_tags.append(int(element_tag))
+                cleanup["removed_degenerate_element_count_by_surface"][int(surface_tag)] = (
+                    int(cleanup["removed_degenerate_element_count_by_surface"].get(int(surface_tag), 0)) + 1
+                )
+                if len(cleanup["removed_degenerate_elements_sample"]) < int(
+                    cleanup["removed_degenerate_elements_sample_limit"]
+                ):
+                    cleanup["removed_degenerate_elements_sample"].append(
+                        {
+                            "surface_tag": int(surface_tag),
+                            "element_type": int(element_type),
+                            "element_tag": int(element_tag),
+                            "node_tags": element_node_tags,
+                        }
+                    )
+        if surface_remove_tags:
+            gmsh.model.mesh.removeElements(2, int(surface_tag), surface_remove_tags)
+            cleanup["removed_degenerate_element_count"] += len(surface_remove_tags)
+    gmsh.model.mesh.removeDuplicateElements([(2, int(tag)) for tag in surface_tags])
+    gmsh.model.mesh.removeDuplicateNodes([(2, int(tag)) for tag in surface_tags])
+    gmsh.model.mesh.reclassifyNodes()
+    return cleanup
 
 
 def _root_opening_curve_tags(
@@ -2178,6 +2591,10 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     symmetry_group_tag: int | None = None
     farfield_group_tag: int | None = None
     fluid_group_tag: int | None = None
+    bl_protection_summary: dict[str, Any] | None = None
+    bl_excluded_surface_tags: list[int] = []
+    protection_config = dict(spec.get("real_wing_bl_protection", {}))
+    mesh_algorithm3d = 10
     topology_checks: dict[str, Any] = {
         "root_closure": {
             "mode": root_closure_mode,
@@ -2266,22 +2683,54 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
 
         if real_wing_geometry is None:
             wall_surface_tags = [int(tag) for dim, tag in gmsh.model.getEntities(2) if dim == 2]
+        bl_source_surface_tags = list(wall_surface_tags)
         if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
             # Real-wing root closure consumes the BL-generated lateral faces on the
             # symmetry plane directly; without them Gmsh falls back to the old
             # holed-face behavior that is not robust for this geometry family.
+            mesh_algorithm3d = 1
+            gmsh.option.setNumber("Mesh.Algorithm3D", float(mesh_algorithm3d))
             gmsh.option.setNumber("Geometry.ExtrudeReturnLateralEntities", 1)
+            tip_surface_tag = geometry.get("tip_surface_tag")
+            if bool(protection_config.get("exclude_tip_cap_from_bl", True)) and tip_surface_tag is not None:
+                bl_source_surface_tags = [
+                    int(tag) for tag in wall_surface_tags if int(tag) != int(tip_surface_tag)
+                ]
+            bl_excluded_surface_tags = [
+                int(tag) for tag in wall_surface_tags if int(tag) not in bl_source_surface_tags
+            ]
+            gmsh.model.mesh.generate(2)
+            protection_summary = _build_real_wing_bl_protection_field(
+                gmsh=gmsh,
+                wall_surface_tags=bl_source_surface_tags,
+                sections=list(real_wing_geometry["sections"]),
+                protection=protection_config,
+                base_total_thickness_m=boundary_layer_total_thickness,
+                ref_chord_m=chord_m,
+                half_span_m=half_span_m,
+            )
+            if protection_summary is not None:
+                bl_protection_summary = protection_summary
         cumulative_heights = _layer_cumulative_heights(
             float(bl_spec["first_layer_height_m"]),
             float(bl_spec["growth_ratio"]),
             int(bl_spec["layers"]),
         )
         extbl = gmsh.model.geo.extrudeBoundaryLayer(
-            [(2, tag) for tag in wall_surface_tags],
+            [(2, tag) for tag in bl_source_surface_tags],
             [1] * int(bl_spec["layers"]),
             cumulative_heights,
             True,
+            False,
+            -1 if bl_protection_summary is None else int(bl_protection_summary["view_index"]),
         )
+        if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
+            if bl_protection_summary is None:
+                bl_protection_summary = {"enabled": False}
+            bl_protection_summary["exclude_tip_cap_from_bl"] = bool(
+                protection_config.get("exclude_tip_cap_from_bl", True)
+            )
+            bl_protection_summary["excluded_surface_tags_from_bl"] = list(bl_excluded_surface_tags)
         for index in range(1, len(extbl)):
             if extbl[index][0] == 3:
                 bl_volume_tags.append(int(extbl[index][1]))
@@ -2480,8 +2929,13 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
 
         gmsh.model.mesh.generate(2)
         if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
-            for surface_tag in topology_checks["root_closure"].get("surface_tags", {}).get("root_side", []):
+            root_side_surface_tags = topology_checks["root_closure"].get("surface_tags", {}).get("root_side", [])
+            for surface_tag in root_side_surface_tags:
                 gmsh.model.mesh.splitQuadrangles(1.0, int(surface_tag))
+            topology_checks["root_closure"]["surface_mesh_cleanup"] = _cleanup_root_side_surface_mesh(
+                gmsh,
+                list(root_side_surface_tags),
+            )
         gmsh.model.mesh.generate(3)
         gmsh.write(str(mesh_path))
         gmsh.write(str(mesh_dir / "mesh.su2"))
@@ -2640,6 +3094,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         "physical_groups": physical_groups,
         "total_cells": int(total_cells),
         "total_nodes": int(total_nodes),
+        "mesh_algorithm3d": int(mesh_algorithm3d),
         "surface_face_count": int(surface_element_count),
         "wall_face_count": int(wall_face_count),
         "volume_to_wall_ratio": float(volume_to_wall_ratio),
@@ -2672,6 +3127,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 "min": y_plus_estimate["y_plus_min"],
                 "max": y_plus_estimate["y_plus_max"],
             },
+            "local_protection": bl_protection_summary,
         },
         "mesh_quality": quality_metrics,
         "memory_estimate": memory_estimate,
@@ -2698,6 +3154,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     result["case_summary"] = {
         "total_cells": int(total_cells),
         "total_nodes": int(total_nodes),
+        "mesh_algorithm3d": int(mesh_algorithm3d),
         "surface_face_count": int(surface_element_count),
         "wall_face_count": int(wall_face_count),
         "requested_bl_layers": int(bl_spec["layers"]),
@@ -2711,6 +3168,10 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         "omp_threads_per_rank": solver_result.get("omp_threads_per_rank"),
         "geometry_shape_mode": geometry_shape_mode,
         "root_closure_mode": root_closure_mode,
+        "bl_local_protection_triggered": bool(
+            bl_protection_summary and int(bl_protection_summary.get("triggered_node_count", 0)) > 0
+        ),
+        "bl_local_protection": bl_protection_summary,
         "comparability_classification": result_class,
         "reference_values_used": reference_values,
         "route_note": interpretation_note,

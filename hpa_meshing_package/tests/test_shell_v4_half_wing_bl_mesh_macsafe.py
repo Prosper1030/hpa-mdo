@@ -7,6 +7,7 @@ import pytest
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _build_real_main_wing_occ_shell,
+    _build_real_wing_bl_protection_field,
     _build_real_wing_root_closure_plan,
     _build_real_wing_root_closure_surfaces,
     _build_su2_cfg,
@@ -604,7 +605,122 @@ def test_real_main_wing_root_closure_2d_meshing_stage_completes_cleanly(tmp_path
     assert len(plan["surface_tags"]["root_side"]) == 3
 
 
-def test_run_shell_v4_real_main_wing_prelaunch_smoke_reports_post_2d_bl_overlap_failure(tmp_path: Path):
+def test_real_main_wing_bl_protection_only_triggers_in_outboard_local_chord_zone(tmp_path: Path):
+    class _FakeMesh:
+        def __init__(self, nodes_by_surface: dict[int, list[tuple[int, tuple[float, float, float]]]]) -> None:
+            self._nodes_by_surface = nodes_by_surface
+
+        def getNodes(
+            self,
+            dim: int,
+            tag: int,
+            includeBoundary: bool = True,
+            returnParametricCoord: bool = False,
+        ) -> tuple[list[int], list[float], list[float]]:
+            assert dim == 2
+            payload = self._nodes_by_surface[int(tag)]
+            node_tags = [node_tag for node_tag, _ in payload]
+            coordinates = [coordinate for _, xyz in payload for coordinate in xyz]
+            return node_tags, coordinates, []
+
+    class _FakeModel:
+        def __init__(self, nodes_by_surface: dict[int, list[tuple[int, tuple[float, float, float]]]]) -> None:
+            self.mesh = _FakeMesh(nodes_by_surface)
+
+        def getCurrent(self) -> str:
+            return "fake_model"
+
+    class _FakeView:
+        def __init__(self) -> None:
+            self._next_tag = 1
+
+        def add(self, _name: str) -> int:
+            tag = self._next_tag
+            self._next_tag += 1
+            return tag
+
+        def addModelData(
+            self,
+            view_tag: int,
+            step: int,
+            model_name: str,
+            data_type: str,
+            node_tags: list[int],
+            values: list[list[float]],
+            *,
+            numComponents: int,
+        ) -> None:
+            assert view_tag == 1
+            assert step == 0
+            assert model_name == "fake_model"
+            assert data_type == "NodeData"
+            assert numComponents == 1
+            assert len(node_tags) == len(values)
+
+        def getIndex(self, view_tag: int) -> int:
+            return int(view_tag - 1)
+
+    class _FakeGmsh:
+        def __init__(self, nodes_by_surface: dict[int, list[tuple[int, tuple[float, float, float]]]]) -> None:
+            self.model = _FakeModel(nodes_by_surface)
+            self.view = _FakeView()
+
+    def _pick_section_surface_point(
+        section: dict[str, object],
+        profile: list[tuple[float, float, float]],
+        *,
+        target_x_rel: float,
+    ) -> tuple[float, float, float]:
+        x_le = float(section["x_le"])
+        chord = float(section["chord"])
+        candidates = sorted(
+            profile,
+            key=lambda point: abs(((float(point[0]) - x_le) / chord) - target_x_rel),
+        )[:8]
+        return max(candidates, key=lambda point: float(point[2]))
+
+    repo_root = Path(__file__).resolve().parents[2]
+    source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
+    real_geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(source_path),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path,
+    )
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+    sections = list(real_geometry["sections"])
+    profiles = list(real_geometry["section_profiles"])
+    nodes_by_surface = {
+        1: [
+            (101, _pick_section_surface_point(sections[0], profiles[0], target_x_rel=0.85)),
+            (102, _pick_section_surface_point(sections[4], profiles[4], target_x_rel=0.85)),
+            (103, _pick_section_surface_point(sections[-1], profiles[-1], target_x_rel=0.85)),
+        ]
+    }
+
+    summary = _build_real_wing_bl_protection_field(
+        gmsh=_FakeGmsh(nodes_by_surface),
+        wall_surface_tags=[1],
+        sections=sections,
+        protection=dict(spec["real_wing_bl_protection"]),
+        base_total_thickness_m=0.0164990848,
+        ref_chord_m=float(spec["geometry"]["chord_m"]),
+        half_span_m=float(spec["geometry"]["half_span_m"]),
+    )
+
+    assert summary is not None
+    assert summary["node_count"] == 3
+    assert summary["outboard_activated_node_count"] == 1
+    assert summary["triggered_node_count"] == 1
+    assert summary["thickness_limit_active_node_count"] == 1
+    assert summary["triggered_span_y_range_m"]["min"] > 15.0
+    assert summary["triggered_local_chord_range_m"]["max"] < 0.6
+    assert summary["scale_min"] < 1.0
+
+
+def test_run_shell_v4_real_main_wing_prelaunch_smoke_reports_plc_boundary_recovery_failure(tmp_path: Path):
     repo_root = Path(__file__).resolve().parents[2]
     source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
     out_dir = tmp_path / "real_main_wing_smoke"
@@ -654,12 +770,18 @@ def test_run_shell_v4_real_main_wing_prelaunch_smoke_reports_post_2d_bl_overlap_
     assert result["status"] == "failed"
     assert result["geometry"]["shape_mode"] == "esp_rebuilt_main_wing"
     assert result["case_summary"]["root_closure_mode"] == "use_bl_generated_faces"
+    assert result["case_summary"]["mesh_algorithm3d"] == 1
     assert result["error"] is not None
-    assert "HXT 3D mesh failed" in result["error"]
+    assert "PLC Error:" in result["error"]
     assert result["topology_checks"]["root_closure"]["duplicate_curve_tags"] == []
     assert result["topology_checks"]["root_closure"]["holed_symmetry_face_used"] is False
     assert len(result["topology_checks"]["root_closure"]["surface_tags"]["root_side"]) == 3
+    assert (
+        result["topology_checks"]["root_closure"]["surface_mesh_cleanup"]["removed_degenerate_element_count"]
+        > 0
+    )
     assert all(
         not payload["self_intersections"]
         for payload in result["topology_checks"]["root_closure"]["patch_loop_checks"].values()
     )
+    assert result["case_summary"]["bl_local_protection"]["triggered_span_y_range_m"]["min"] > 15.0
