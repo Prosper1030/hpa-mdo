@@ -1155,6 +1155,95 @@ def test_mission_summary_reports_empty_feasible_speed_set_and_delta() -> None:
     assert mission["delta_v_to_first_feasible_mps"] > 0.0
 
 
+def test_mission_summary_audit_marks_stall_as_dominant_limiter_when_no_feasible_speed_exists() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    mission = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "chord_m": 1.0,
+                "weight": 1.0,
+                "cl_target": 0.95,
+                "cm_target": -0.05,
+                "cl_max_safe": 0.50,
+                "cl_max_safe_source": "airfoil_safe_observed",
+                "case_label": "reference_avl_case",
+                "evaluation_speed_mps": 8.0,
+                "evaluation_gross_mass_kg": 105.0,
+                "reference_speed_mps": 8.0,
+                "reference_gross_mass_kg": 105.0,
+            }
+        ],
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+    )
+
+    assert mission["limiter_audit"]["dominant_limiter"] == "stall_operating_point_unavailable"
+    assert mission["limiter_audit"]["feasible_speed_count"] == 0
+    assert mission["limiter_audit"]["best_feasible_speed_mps"] is None
+
+
+def test_mission_summary_audit_marks_endurance_shortfall_when_feasible_speed_still_misses_range() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    mission = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "chord_m": 1.0,
+                "weight": 1.0,
+                "cl_target": 0.60,
+                "cm_target": -0.05,
+                "cl_max_safe": 1.0,
+                "cl_max_safe_source": "airfoil_safe_observed",
+                "case_label": "reference_avl_case",
+                "evaluation_speed_mps": 8.0,
+                "evaluation_gross_mass_kg": 105.0,
+                "reference_speed_mps": 8.0,
+                "reference_gross_mass_kg": 105.0,
+            }
+        ],
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+    )
+
+    assert mission["limiter_audit"]["dominant_limiter"] == "endurance_shortfall_at_best_feasible_speed"
+    assert mission["limiter_audit"]["feasible_speed_count"] > 0
+    assert mission["limiter_audit"]["best_feasible_speed_mps"] == pytest.approx(
+        mission["best_range_speed_mps"]
+    )
+    assert mission["limiter_audit"]["duration_margin_min"] < 0.0
+
+
 def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(

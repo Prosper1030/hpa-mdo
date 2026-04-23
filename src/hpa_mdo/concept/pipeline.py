@@ -1482,6 +1482,66 @@ def _estimated_first_feasible_speed_mps(
     return float(closest_record["speed_mps"]) * math.sqrt(stall_utilization / stall_limit)
 
 
+def _mission_limiter_audit(
+    *,
+    target_range_m: float,
+    speed_sweep_mps: tuple[float, ...],
+    rider_curve: FakeAnchorCurve,
+    mass_case_summary: dict[str, Any],
+) -> dict[str, Any]:
+    feasible_speed_set_mps = [float(speed) for speed in mass_case_summary["feasible_speed_set_mps"]]
+    if not feasible_speed_set_mps:
+        return {
+            "dominant_limiter": "stall_operating_point_unavailable",
+            "feasible_speed_count": 0,
+            "best_feasible_speed_mps": None,
+            "estimated_first_feasible_speed_mps": mass_case_summary["estimated_first_feasible_speed_mps"],
+            "delta_v_to_first_feasible_mps": mass_case_summary["delta_v_to_first_feasible_mps"],
+            "power_required_at_best_feasible_w": None,
+            "available_duration_min_at_best_feasible": None,
+            "target_duration_min_at_best_feasible": None,
+            "duration_margin_min": None,
+            "pilot_power_anchor_w": float(rider_curve.anchor_power_w),
+            "pilot_power_max_w": float(rider_curve.max_power_w),
+        }
+
+    best_feasible_speed_mps = float(mass_case_summary["best_range_speed_mps"])
+    power_by_speed = {
+        float(speed_mps): float(power_required_w)
+        for speed_mps, power_required_w in zip(
+            speed_sweep_mps,
+            mass_case_summary["power_required_w"],
+            strict=True,
+        )
+    }
+    lookup_speed_mps = min(power_by_speed, key=lambda speed_mps: abs(speed_mps - best_feasible_speed_mps))
+    power_required_at_best_feasible_w = float(power_by_speed[lookup_speed_mps])
+    available_duration_min = float(rider_curve.duration_at_power_w(power_required_at_best_feasible_w))
+    target_duration_min = float(target_range_m) / max(best_feasible_speed_mps, 1.0e-9) / 60.0
+    duration_margin_min = available_duration_min - target_duration_min
+
+    if power_required_at_best_feasible_w > float(rider_curve.max_power_w):
+        dominant_limiter = "rider_power_ceiling_at_best_feasible_speed"
+    elif duration_margin_min < 0.0:
+        dominant_limiter = "endurance_shortfall_at_best_feasible_speed"
+    else:
+        dominant_limiter = "target_range_met"
+
+    return {
+        "dominant_limiter": dominant_limiter,
+        "feasible_speed_count": len(feasible_speed_set_mps),
+        "best_feasible_speed_mps": best_feasible_speed_mps,
+        "estimated_first_feasible_speed_mps": mass_case_summary["estimated_first_feasible_speed_mps"],
+        "delta_v_to_first_feasible_mps": mass_case_summary["delta_v_to_first_feasible_mps"],
+        "power_required_at_best_feasible_w": power_required_at_best_feasible_w,
+        "available_duration_min_at_best_feasible": available_duration_min,
+        "target_duration_min_at_best_feasible": target_duration_min,
+        "duration_margin_min": duration_margin_min,
+        "pilot_power_anchor_w": float(rider_curve.anchor_power_w),
+        "pilot_power_max_w": float(rider_curve.max_power_w),
+    }
+
+
 def _mean_effective_cd(
     station_points: list[dict[str, float]],
     airfoil_feedback: dict[str, Any],
@@ -1710,6 +1770,12 @@ def _build_concept_mission_summary(
                 "speed_feasibility_records": speed_feasibility_records,
             }
         )
+        mission_results[-1]["limiter_audit"] = _mission_limiter_audit(
+            target_range_m=target_range_m,
+            speed_sweep_mps=speed_sweep_mps,
+            rider_curve=rider_curve,
+            mass_case_summary=mission_results[-1],
+        )
 
     worst_case_result = max(
         mission_results,
@@ -1758,6 +1824,7 @@ def _build_concept_mission_summary(
         ],
         "delta_v_to_first_feasible_mps": worst_case_result["delta_v_to_first_feasible_mps"],
         "speed_feasibility_records": list(worst_case_result["speed_feasibility_records"]),
+        "limiter_audit": dict(worst_case_result["limiter_audit"]),
         "mission_case_source": "reference_avl_case"
         if cruise_station_points
         else "all_station_points_fallback",
@@ -1790,6 +1857,7 @@ def _build_concept_mission_summary(
                 "operating_point_status": str(result["operating_point_status"]),
                 "operating_point_feasible": bool(result["operating_point_feasible"]),
                 "speed_feasibility_records": list(result["speed_feasibility_records"]),
+                "limiter_audit": dict(result["limiter_audit"]),
                 "power_required_w": list(result["power_required_w"]),
             }
             for result in mission_results
