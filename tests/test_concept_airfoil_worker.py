@@ -587,7 +587,85 @@ def test_worker_accepts_screening_fallback_status_and_caches_it(tmp_path, monkey
     assert result[0]["status"] == "mini_sweep_fallback"
     assert result[0]["analysis_mode"] == "screening_target_cl"
     assert result[0]["analysis_stage"] == "screening"
-    assert (worker.cache_dir / f"{worker.cache_key(query)}.json").is_file()
+    assert worker._positive_cache_path(query).is_file()
+
+
+def test_worker_caches_analysis_failed_result_in_negative_cache_and_reuses_it(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+    query = _sample_query(
+        cl_samples=(0.7,),
+        analysis_mode="screening_target_cl",
+        analysis_stage="screening",
+    )
+    calls = {"count": 0}
+
+    def fake_run(cmd, check, cwd):
+        calls["count"] += 1
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": query.template_id,
+                        "reynolds": query.reynolds,
+                        "cl_samples": list(query.cl_samples),
+                        "roughness_mode": query.roughness_mode,
+                        "geometry_hash": query.geometry_hash,
+                        "analysis_mode": query.analysis_mode,
+                        "analysis_stage": query.analysis_stage,
+                        "status": "analysis_failed",
+                        "polar_points": [],
+                        "screening_summary": {
+                            "target_cl_requested_count": 1,
+                            "target_cl_converged_count": 0,
+                            "fallback_used": False,
+                        },
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    first_result = worker.run_queries([query])
+    assert calls["count"] == 1
+    assert first_result[0]["status"] == "analysis_failed"
+    assert worker._negative_cache_path(query).is_file()
+    assert not worker._positive_cache_path(query).exists()
+
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: None)
+    monkeypatch.setattr(
+        "hpa_mdo.concept.airfoil_worker.subprocess.run",
+        lambda *args, **kwargs: pytest.fail("subprocess.run should not be called for negative cache hits"),
+    )
+    second_result = worker.run_queries([query])
+
+    assert second_result == first_result
+
+
+def test_worker_positive_cache_bucket_separates_screening_and_finalist(tmp_path):
+    worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+
+    screening = _sample_query(
+        analysis_mode="screening_target_cl",
+        analysis_stage="screening",
+    )
+    finalist = _sample_query(
+        analysis_mode="full_alpha_sweep",
+        analysis_stage="finalist",
+    )
+
+    assert worker._positive_cache_path(screening) != worker._positive_cache_path(finalist)
+    assert worker._positive_cache_path(screening).parent != worker._positive_cache_path(finalist).parent
 
 
 def test_worker_raises_clear_error_when_julia_runtime_is_missing(tmp_path, monkeypatch):
@@ -755,7 +833,7 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
     second_result = worker.run_queries([query])
 
     assert second_result == first_result
-    assert (worker.cache_dir / f"{worker.cache_key(query)}.json").is_file()
+    assert worker._positive_cache_path(query).is_file()
 
 
 def test_worker_reuses_physical_cache_for_different_template_id(tmp_path, monkeypatch):
@@ -994,7 +1072,7 @@ def test_worker_preserves_airfoil_feedback_fields_through_cache_round_trip(
     assert first_result[0]["airfoil_feedback"]["near_target_point"]["cm"] == pytest.approx(-0.08)
     assert first_result[0]["polar_points"][0]["cd"] == pytest.approx(0.021)
     assert first_result[0]["safety_basis"] == "airfoil_real_polar"
-    assert json.loads((worker.cache_dir / f"{worker.cache_key(query)}.json").read_text(encoding="utf-8")) == first_result[0]
+    assert json.loads(worker._positive_cache_path(query).read_text(encoding="utf-8")) == first_result[0]
 
 
 @pytest.mark.parametrize(

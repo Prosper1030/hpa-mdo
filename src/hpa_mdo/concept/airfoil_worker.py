@@ -11,6 +11,11 @@ import shutil
 import subprocess
 from uuid import uuid4
 
+_CACHE_SCHEMA_VERSION = 2
+_SUCCESS_STATUSES = frozenset({"ok", "stubbed_ok", "mini_sweep_fallback"})
+_NEGATIVE_CACHE_STATUSES = frozenset({"analysis_failed"})
+_CACHEABLE_STATUSES = _SUCCESS_STATUSES | _NEGATIVE_CACHE_STATUSES
+
 
 @dataclass(frozen=True)
 class PolarQuery:
@@ -74,6 +79,7 @@ class JuliaXFoilWorker:
 
     def cache_key(self, query: PolarQuery) -> str:
         payload = {
+            "cache_schema_version": _CACHE_SCHEMA_VERSION,
             "reynolds": query.reynolds,
             "cl_samples": list(query.cl_samples),
             "roughness_mode": query.roughness_mode,
@@ -104,8 +110,22 @@ class JuliaXFoilWorker:
             "to contain Project.toml."
         )
 
-    def _cache_path(self, query: PolarQuery) -> Path:
-        return self.cache_dir / f"{self.cache_key(query)}.json"
+    def _positive_cache_path(self, query: PolarQuery) -> Path:
+        return (
+            self.cache_dir
+            / query.analysis_mode
+            / query.analysis_stage
+            / f"{self.cache_key(query)}.json"
+        )
+
+    def _negative_cache_path(self, query: PolarQuery) -> Path:
+        return (
+            self.cache_dir
+            / "negative"
+            / query.analysis_mode
+            / query.analysis_stage
+            / f"{self.cache_key(query)}.json"
+        )
 
     def _normalize_cl_samples(self, cl_samples: object) -> tuple[float, ...]:
         if not isinstance(cl_samples, list | tuple):
@@ -204,8 +224,12 @@ class JuliaXFoilWorker:
         )
 
     def _load_cached_result(self, query: PolarQuery) -> dict[str, object] | None:
-        cache_path = self._cache_path(query)
-        if not cache_path.is_file():
+        cache_candidates = (
+            self._positive_cache_path(query),
+            self._negative_cache_path(query),
+        )
+        cache_path = next((path for path in cache_candidates if path.is_file()), None)
+        if cache_path is None:
             return None
 
         cached_payload = json.loads(cache_path.read_text(encoding="utf-8"))
@@ -213,21 +237,33 @@ class JuliaXFoilWorker:
             raise RuntimeError("Julia XFoil worker cache entries must be JSON objects.")
         if self._physical_result_identity(cached_payload) != self._physical_query_identity(query):
             raise RuntimeError("Julia XFoil worker cache entry did not match requested query identity.")
-        return self._validate_success_status(self._materialize_result_for_query(cached_payload, query))
+        return self._validate_cacheable_status(self._materialize_result_for_query(cached_payload, query))
 
     def _write_cached_result(self, query: PolarQuery, result: dict[str, object]) -> None:
         serialized_result = self._materialize_result_for_query(result, query)
-        self._cache_path(query).write_text(
+        cache_path = self._cache_path_for_status(query, str(serialized_result.get("status", "unknown")))
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
             json.dumps(serialized_result, indent=2, sort_keys=True, ensure_ascii=False),
             encoding="utf-8",
         )
 
-    def _validate_success_status(self, result: dict[str, object]) -> dict[str, object]:
+    def _cache_path_for_status(self, query: PolarQuery, status: str) -> Path:
+        if status in _SUCCESS_STATUSES:
+            return self._positive_cache_path(query)
+        if status in _NEGATIVE_CACHE_STATUSES:
+            return self._negative_cache_path(query)
+        raise RuntimeError(
+            "Julia/XFoil worker returned a non-cacheable status: "
+            f"{status!r}. Expected one of {sorted(_CACHEABLE_STATUSES)!r}."
+        )
+
+    def _validate_cacheable_status(self, result: dict[str, object]) -> dict[str, object]:
         status = result.get("status")
-        if status not in {"ok", "stubbed_ok", "mini_sweep_fallback"}:
+        if status not in _CACHEABLE_STATUSES:
             raise RuntimeError(
-                "Julia/XFoil worker returned a non-success status: "
-                f"{status!r}. Expected 'ok', 'stubbed_ok', or 'mini_sweep_fallback'."
+                "Julia/XFoil worker returned a non-cacheable status: "
+                f"{status!r}. Expected one of {sorted(_CACHEABLE_STATUSES)!r}."
             )
         return result
 
@@ -514,7 +550,7 @@ class JuliaXFoilWorker:
                     raise RuntimeError(
                         "Julia XFoil worker response entry did not match requested query identity."
                     )
-                validated_item = self._validate_success_status(item)
+                validated_item = self._validate_cacheable_status(item)
                 self._write_cached_result(query, validated_item)
                 for index, duplicate_query in uncached_groups[self.cache_key(query)]:
                     resolved_results[index] = self._materialize_result_for_query(
