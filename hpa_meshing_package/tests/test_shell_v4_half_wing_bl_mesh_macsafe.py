@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
+    _solver_command,
+    _solver_env,
     build_shell_v4_half_wing_bl_macsafe_spec,
     estimate_first_cell_yplus_range,
     run_shell_v4_half_wing_bl_mesh_macsafe,
@@ -46,6 +48,26 @@ def test_build_shell_v4_baseline_spec_uses_macsafe_off_wall_redesign():
     assert spec["off_wall_growth"]["support_dist_min_chords"] == pytest.approx(0.15)
     assert spec["off_wall_growth"]["support_dist_max_chords"] == pytest.approx(0.60)
     assert spec["off_wall_growth"]["stop_at_dist_max"] is True
+
+
+def test_build_shell_v4_baseline_spec_defaults_to_four_rank_mpi():
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+
+    assert spec["solver"]["parallel_mode"] == "mpi"
+    assert spec["solver"]["mpi_ranks"] == 4
+    assert spec["solver"]["cpu_threads"] == 4
+    assert spec["solver"]["omp_threads_per_rank"] == 1
+    assert spec["solver"]["mpi_launcher"] == "mpirun"
+
+
+def test_shell_v4_solver_command_uses_four_rank_mpi_with_one_thread_per_rank():
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+
+    command = _solver_command(spec, "su2_runtime.cfg")
+    env = _solver_env(spec)
+
+    assert command == ["mpirun", "-np", "4", "SU2_CFD", "-t", "1", "su2_runtime.cfg"]
+    assert env["OMP_NUM_THREADS"] == "1"
 
 
 def test_estimate_first_cell_yplus_range_returns_positive_laminar_to_turbulent_band():
@@ -99,6 +121,14 @@ def test_run_shell_v4_half_wing_route_smoke_creates_required_groups_and_bl_cells
 
     assert result["status"] == "success"
     assert result["solver"]["status"] == "not_run"
+    assert result["solver"]["parallel_mode"] == "mpi"
+    assert result["solver"]["mpi_ranks"] == 4
+    assert result["solver"]["omp_threads_per_rank"] == 1
+    assert result["solver"]["solver_command"] == "mpirun -np 4 SU2_CFD -t 1 su2_runtime.cfg"
+    assert result["solver"]["launch_environment"]["OMP_NUM_THREADS"] == "1"
+    assert result["case_summary"]["parallel_mode"] == "mpi"
+    assert result["case_summary"]["mpi_ranks"] == 4
+    assert result["case_summary"]["omp_threads_per_rank"] == 1
     assert result["mesh"]["physical_groups"]["wing_wall"]["exists"] is True
     assert result["mesh"]["physical_groups"]["symmetry"]["exists"] is True
     assert result["mesh"]["physical_groups"]["farfield"]["exists"] is True

@@ -4,17 +4,23 @@ import copy
 import csv
 import json
 import math
-import os
-import shutil
 import statistics
 import subprocess
 import time
 from pathlib import Path
 from typing import Any, Iterable
 
+from .adapters.su2_backend import (
+    _mpi_ranks as _backend_mpi_ranks,
+    _omp_threads_per_rank as _backend_omp_threads_per_rank,
+    _resolve_launch_requirements as _backend_resolve_launch_requirements,
+    _solver_command as _backend_solver_command,
+    _solver_env as _backend_solver_env,
+)
 from .gmsh_runtime import GmshRuntimeError, load_gmsh
 from .reports.json_report import write_json_report
 from .reports.markdown_report import write_markdown_report
+from .schema import SU2RuntimeConfig
 
 
 DEFAULT_ROUTE_NAME = "shell_v4_half_wing_bl_mesh_macsafe"
@@ -92,9 +98,11 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
             "solver": "INC_RANS",
             "turbulence_model": "SST",
             "transition_model": "NONE",
-            "parallel_mode": "threads",
+            "parallel_mode": "mpi",
+            "mpi_launcher": "mpirun",
             "cpu_threads": 4,
-            "mpi_ranks": 1,
+            "mpi_ranks": 4,
+            "omp_threads_per_rank": 1,
             "solver_command": "SU2_CFD",
             "min_iterations": 500,
             "stretch_iterations": 800,
@@ -161,9 +169,11 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
             "solver": "INC_RANS",
             "turbulence_model": "SST",
             "transition_model": "NONE",
-            "parallel_mode": "threads",
+            "parallel_mode": "mpi",
+            "mpi_launcher": "mpirun",
             "cpu_threads": 4,
-            "mpi_ranks": 1,
+            "mpi_ranks": 4,
+            "omp_threads_per_rank": 1,
             "solver_command": "SU2_CFD",
             "min_iterations": 500,
             "stretch_iterations": 800,
@@ -263,8 +273,43 @@ def build_shell_v4_half_wing_bl_macsafe_spec(
         int(bl["layers"]),
     )
     bl["target_total_thickness_m"] = total_thickness
+    spec["solver"] = _normalize_solver_parallel_settings(spec["solver"])
     spec["flow_condition"] = copy.deepcopy(DEFAULT_FLOW_CONDITION)
     return spec
+
+
+def _normalize_solver_parallel_settings(solver: dict[str, Any]) -> dict[str, Any]:
+    parallel_mode = str(solver.get("parallel_mode", "threads"))
+    solver["parallel_mode"] = parallel_mode
+    solver["mpi_launcher"] = str(solver.get("mpi_launcher", "mpirun"))
+    mpi_ranks = max(1, int(solver.get("mpi_ranks", 1)))
+    solver["mpi_ranks"] = mpi_ranks
+    if parallel_mode == "mpi":
+        if "omp_threads_per_rank" in solver:
+            omp_threads_per_rank = max(1, int(solver["omp_threads_per_rank"]))
+            solver["cpu_threads"] = mpi_ranks * omp_threads_per_rank
+        else:
+            total_cpu_threads = max(1, int(solver.get("cpu_threads", mpi_ranks)))
+            omp_threads_per_rank = max(1, total_cpu_threads // mpi_ranks)
+            solver["cpu_threads"] = mpi_ranks * omp_threads_per_rank
+        solver["omp_threads_per_rank"] = omp_threads_per_rank
+        return solver
+    total_cpu_threads = max(1, int(solver.get("cpu_threads", 1)))
+    solver["cpu_threads"] = total_cpu_threads
+    solver["omp_threads_per_rank"] = total_cpu_threads
+    return solver
+
+
+def _solver_runtime_config(spec: dict[str, Any]) -> SU2RuntimeConfig:
+    solver = spec["solver"]
+    return SU2RuntimeConfig(
+        enabled=bool(solver.get("enabled", True)),
+        solver_command=str(solver.get("solver_command", "SU2_CFD")),
+        parallel_mode=str(solver.get("parallel_mode", "threads")),
+        mpi_launcher=str(solver.get("mpi_launcher", "mpirun")),
+        cpu_threads=max(1, int(solver.get("cpu_threads", 1))),
+        mpi_ranks=max(1, int(solver.get("mpi_ranks", 1))),
+    )
 
 
 def _percentile(values: list[float], fraction: float) -> float | None:
@@ -807,20 +852,13 @@ def _build_su2_cfg(
 
 
 def _solver_command(spec: dict[str, Any], runtime_cfg_name: str) -> list[str]:
-    solver = spec["solver"]
-    threads = max(1, int(solver.get("cpu_threads", 1)))
-    command = [str(solver.get("solver_command", "SU2_CFD"))]
-    if solver.get("parallel_mode") == "threads":
-        command.extend(["-t", str(threads), runtime_cfg_name])
-        return command
-    mpi_ranks = max(1, int(solver.get("mpi_ranks", 1)))
-    return ["mpirun", "-np", str(mpi_ranks), str(solver.get("solver_command", "SU2_CFD")), "-t", str(threads), runtime_cfg_name]
+    runtime = _solver_runtime_config(spec)
+    return _backend_solver_command(runtime, runtime_cfg_name)
 
 
 def _solver_env(spec: dict[str, Any]) -> dict[str, str]:
-    env = dict(os.environ)
-    env["OMP_NUM_THREADS"] = str(max(1, int(spec["solver"].get("cpu_threads", 1))))
-    return env
+    runtime = _solver_runtime_config(spec)
+    return _backend_solver_env(runtime)
 
 
 def _convert_msh_to_su2(mesh_path: Path, su2_path: Path) -> None:
@@ -894,11 +932,22 @@ def _run_solver_if_allowed(
     solver_log = case_dir / "solver.log"
     surface_csv = case_dir / "surface.csv"
     history_csv = case_dir / "history.csv"
+    runtime = _solver_runtime_config(spec)
+    launch_command = _backend_solver_command(runtime, runtime_cfg.name)
+    launch_env = _backend_solver_env(runtime)
     solver_summary: dict[str, Any] = {
         "status": "not_run",
         "run_status": "not_started",
         "launch_policy": "skip_su2" if not run_su2 else "pending_memory_gate",
-        "solver_command": " ".join(_solver_command(spec, runtime_cfg.name)),
+        "solver_command": " ".join(launch_command),
+        "parallel_mode": runtime.parallel_mode,
+        "mpi_ranks": _backend_mpi_ranks(runtime),
+        "omp_threads_per_rank": _backend_omp_threads_per_rank(runtime),
+        "total_cpu_threads": int(runtime.cpu_threads),
+        "mpi_launcher": runtime.mpi_launcher if runtime.parallel_mode == "mpi" else None,
+        "launch_environment": {
+            "OMP_NUM_THREADS": launch_env.get("OMP_NUM_THREADS"),
+        },
         "runtime_cfg_path": str(runtime_cfg),
         "history_path": None,
         "surface_output_path": None,
@@ -924,9 +973,15 @@ def _run_solver_if_allowed(
     else:
         solver_summary["launch_policy"] = "auto_launch"
 
-    solver_binary = shutil.which(spec["solver"].get("solver_command", "SU2_CFD"))
-    if solver_binary is None:
+    launch_requirement_error, missing_value = _backend_resolve_launch_requirements(runtime)
+    if launch_requirement_error == "launcher_not_found":
+        solver_summary["status"] = "launcher_unavailable"
+        solver_summary["missing_runtime"] = missing_value
+        solver_summary["run_status"] = "failed"
+        return solver_summary
+    if launch_requirement_error == "solver_not_found":
         solver_summary["status"] = "solver_unavailable"
+        solver_summary["missing_runtime"] = missing_value
         solver_summary["run_status"] = "failed"
         return solver_summary
 
@@ -935,13 +990,13 @@ def _run_solver_if_allowed(
     started = time.perf_counter()
     with solver_log.open("w", encoding="utf-8") as handle:
         completed = subprocess.run(
-            _solver_command(spec, runtime_cfg.name),
+            launch_command,
             cwd=case_dir,
             stdout=handle,
             stderr=subprocess.STDOUT,
             text=True,
             check=False,
-            env=_solver_env(spec),
+            env=launch_env,
         )
     solver_summary["runtime_seconds"] = float(time.perf_counter() - started)
     if completed.returncode != 0:
@@ -1489,6 +1544,9 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         "runtime_seconds": float(time.perf_counter() - route_started),
         "solver_status": solver_result.get("status"),
         "memory_estimate": memory_estimate,
+        "parallel_mode": solver_result.get("parallel_mode"),
+        "mpi_ranks": solver_result.get("mpi_ranks"),
+        "omp_threads_per_rank": solver_result.get("omp_threads_per_rank"),
         "comparability_classification": result_class,
         "reference_values_used": reference_values,
         "route_note": interpretation_note,
