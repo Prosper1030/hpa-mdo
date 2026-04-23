@@ -4,9 +4,14 @@ from pathlib import Path
 
 import pytest
 
+from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
+    _build_real_main_wing_occ_shell,
     _build_su2_cfg,
     _derive_wall_diagnostics_from_surface_vtk,
+    _layer_cumulative_heights,
+    _resolve_real_main_wing_geometry,
+    _set_shell_transfinite_controls,
     _solver_command,
     _solver_env,
     build_shell_v4_half_wing_bl_macsafe_spec,
@@ -20,6 +25,7 @@ def test_build_shell_v4_spec_uses_half_wing_reference_values():
 
     assert spec["route_name"] == "shell_v4_half_wing_bl_mesh_macsafe"
     assert spec["study_level"] == "BL_macsafe_baseline"
+    assert spec["geometry"]["shape_mode"] == "surrogate_naca0012"
     assert spec["geometry"]["chord_m"] == pytest.approx(1.05)
     assert spec["geometry"]["half_span_m"] == pytest.approx(16.5)
     assert spec["reference_values"]["ref_length"] == pytest.approx(1.05)
@@ -276,3 +282,138 @@ def test_run_shell_v4_half_wing_route_smoke_creates_required_groups_and_bl_cells
     assert any(int(key) in {5, 6} and int(value) > 0 for key, value in volume_types.items())
     assert (out_dir / "artifacts" / "mesh" / "mesh.msh").exists()
     assert (out_dir / "report.json").exists()
+
+
+def test_resolve_real_main_wing_geometry_uses_provider_sections(monkeypatch, tmp_path: Path):
+    source_path = tmp_path / "model.vsp3"
+    source_path.write_text("<vsp3/>", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe.extract_native_lifting_surface_sections",
+        lambda **_: {
+            "source_path": str(source_path),
+            "component": "main_wing",
+            "surface_count": 1,
+            "notes": [],
+            "surfaces": [
+                {
+                    "component": "main_wing",
+                    "geom_id": "main",
+                    "name": "Main Wing",
+                    "caps_group": "main_wing",
+                    "symmetric_xz": True,
+                    "rotation_deg": [0.0, 0.0, 0.0],
+                    "sections": [
+                        {
+                            "x_le": 0.0,
+                            "y_le": 0.0,
+                            "z_le": 0.0,
+                            "chord": 1.3,
+                            "twist_deg": 0.0,
+                            "airfoil_name": "test-root",
+                            "airfoil_source": "inline_coordinates",
+                            "thickness_tc": 0.12,
+                            "camber": 0.02,
+                            "camber_loc": 0.4,
+                            "airfoil_coordinates": [
+                                [1.0, 0.0],
+                                [0.7, 0.05],
+                                [0.0, 0.0],
+                                [0.3, -0.03],
+                                [1.0, 0.0],
+                            ],
+                        },
+                        {
+                            "x_le": 0.2,
+                            "y_le": 16.5,
+                            "z_le": 0.8,
+                            "chord": 0.45,
+                            "twist_deg": 0.0,
+                            "airfoil_name": "test-tip",
+                            "airfoil_source": "inline_coordinates",
+                            "thickness_tc": 0.12,
+                            "camber": 0.02,
+                            "camber_loc": 0.4,
+                            "airfoil_coordinates": [
+                                [1.0, 0.0],
+                                [0.7, 0.04],
+                                [0.0, 0.0],
+                                [0.3, -0.025],
+                                [1.0, 0.0],
+                            ],
+                        },
+                    ],
+                }
+            ],
+        },
+    )
+
+    result = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(source_path),
+        },
+        artifact_dir=tmp_path / "artifacts",
+    )
+
+    assert result["shape_mode"] == "esp_rebuilt_main_wing"
+    assert result["surface_name"] == "Main Wing"
+    assert len(result["sections"]) == 2
+    assert result["overall_bounds"]["y_max"] == pytest.approx(16.5)
+    assert Path(result["artifact_path"]).exists()
+
+
+def test_real_main_wing_occ_shell_sews_duplicate_tip_edges_before_bl_boundary_extraction(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+    real_geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            **spec["geometry"],
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(source_path),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path / "artifacts",
+    )
+    gmsh = load_gmsh()
+    gmsh.initialize()
+    try:
+        gmsh.model.add("real_main_wing_bl_boundary")
+        wall_surface_tags, _, _ = _build_real_main_wing_occ_shell(
+            gmsh=gmsh,
+            section_profiles=real_geometry["section_profiles"],
+        )
+        _set_shell_transfinite_controls(
+            gmsh,
+            chord_m=float(spec["geometry"]["chord_m"]),
+            half_span_m=float(spec["geometry"]["half_span_m"]),
+            airfoil_loop_points=int(spec["geometry"]["airfoil_loop_points"]),
+            half_span_stations=int(spec["geometry"]["half_span_stations"]),
+        )
+        bl_top_surface_tags: list[int] = []
+        extbl = gmsh.model.geo.extrudeBoundaryLayer(
+            [(2, tag) for tag in wall_surface_tags],
+            [1] * int(spec["boundary_layer"]["layers"]),
+            _layer_cumulative_heights(
+                float(spec["boundary_layer"]["first_layer_height_m"]),
+                float(spec["boundary_layer"]["growth_ratio"]),
+                int(spec["boundary_layer"]["layers"]),
+            ),
+            True,
+        )
+        for index in range(1, len(extbl)):
+            if extbl[index][0] == 3:
+                bl_top_surface_tags.append(int(extbl[index - 1][1]))
+        gmsh.model.geo.synchronize()
+        hole_boundary = gmsh.model.getBoundary(
+            [(2, tag) for tag in bl_top_surface_tags],
+            combined=True,
+            oriented=False,
+            recursive=False,
+        )
+        hole_curves = [int(tag) for dim, tag in hole_boundary if dim == 1]
+    finally:
+        gmsh.finalize()
+
+    assert len(hole_curves) == 3

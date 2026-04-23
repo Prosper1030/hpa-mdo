@@ -24,6 +24,7 @@ from hpa_meshing.providers.esp_pipeline import (
     _select_top_geometry_candidates,
     _select_topology_repair_winner,
     _build_upstream_pairing_no_go_summary,
+    extract_native_lifting_surface_sections,
     run_autonomous_tip_topology_repair_controller,
     _build_native_rebuild_model,
     _prepare_component_input_model,
@@ -1673,6 +1674,32 @@ def test_build_native_rebuild_model_extracts_canonical_surfaces(monkeypatch, tmp
     vertical_tail = model.surfaces[2]
     assert vertical_tail.symmetric_xz is False
     assert vertical_tail.sections[-1].z_le > vertical_tail.sections[0].z_le
+
+
+def test_extract_native_lifting_surface_sections_returns_positive_half_sections(monkeypatch, tmp_path: Path):
+    source = tmp_path / "model.vsp3"
+    source.write_text("<vsp3/>", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.providers.esp_pipeline._load_openvsp",
+        lambda: _FakeNativeOpenVsp(),
+    )
+
+    payload = extract_native_lifting_surface_sections(
+        source_path=source,
+        component="main_wing",
+        include_mirrored=False,
+    )
+
+    assert payload["surface_count"] == 1
+    surface = payload["surfaces"][0]
+    assert surface["component"] == "main_wing"
+    assert surface["name"] == "Main Wing"
+    assert len(surface["sections"]) == 2
+    assert surface["sections"][0]["y_le"] == 0.0
+    assert surface["sections"][-1]["y_le"] == 16.5
+    assert len(surface["sections"][0]["airfoil_coordinates"]) >= 5
+    assert surface["sections"][0]["airfoil_source"] == "inline_coordinates"
 
 
 def test_materialize_with_esp_writes_native_rule_loft_script(monkeypatch, tmp_path: Path):

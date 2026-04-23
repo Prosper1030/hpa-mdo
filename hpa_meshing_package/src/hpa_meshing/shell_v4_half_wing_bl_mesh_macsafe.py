@@ -19,6 +19,7 @@ from .adapters.su2_backend import (
     _solver_env as _backend_solver_env,
 )
 from .gmsh_runtime import GmshRuntimeError, load_gmsh
+from .providers.esp_pipeline import extract_native_lifting_surface_sections
 from .reports.json_report import write_json_report
 from .reports.markdown_report import write_markdown_report
 from .schema import SU2RuntimeConfig
@@ -30,6 +31,8 @@ DEFAULT_HALF_SPAN_M = 16.5
 DEFAULT_HALF_WING_REF_AREA = 17.325
 DEFAULT_FULL_WING_REF_AREA = 34.65
 DEFAULT_REF_ORIGIN = {"x": 0.25 * DEFAULT_CHORD_M, "y": 0.0, "z": 0.0}
+DEFAULT_GEOMETRY_SHAPE_MODE = "surrogate_naca0012"
+DEFAULT_REAL_MAIN_WING_SHAPE_MODE = "esp_rebuilt_main_wing"
 
 DEFAULT_FLOW_CONDITION = {
     "alpha_deg": 0.0,
@@ -43,6 +46,7 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
     "BL_macsafe_baseline": {
         "study_level": "BL_macsafe_baseline",
         "geometry": {
+            "shape_mode": DEFAULT_GEOMETRY_SHAPE_MODE,
             "chord_m": DEFAULT_CHORD_M,
             "half_span_m": DEFAULT_HALF_SPAN_M,
             "airfoil_name": "NACA0012 surrogate",
@@ -121,6 +125,7 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
     "BL_macsafe_upper": {
         "study_level": "BL_macsafe_upper",
         "geometry": {
+            "shape_mode": DEFAULT_GEOMETRY_SHAPE_MODE,
             "chord_m": DEFAULT_CHORD_M,
             "half_span_m": DEFAULT_HALF_SPAN_M,
             "airfoil_name": "NACA0012 surrogate",
@@ -551,6 +556,179 @@ def _naca0012_points(loop_points: int, chord_m: float) -> list[tuple[float, floa
     upper = list(reversed(samples))
     lower = [(x, -z) for x, z in samples[1:-1]]
     return upper + lower
+
+
+def _default_real_main_wing_source_path() -> Path:
+    return Path(__file__).resolve().parents[3] / "data" / "blackcat_004_origin.vsp3"
+
+
+def _geometry_shape_mode(geometry: dict[str, Any]) -> str:
+    return str(geometry.get("shape_mode") or DEFAULT_GEOMETRY_SHAPE_MODE)
+
+
+def _rotate_about_local_span(
+    point: tuple[float, float, float],
+    twist_deg: float,
+) -> tuple[float, float, float]:
+    angle = math.radians(-float(twist_deg))
+    x, y, z = (float(value) for value in point)
+    return (
+        x * math.cos(angle) + z * math.sin(angle),
+        y,
+        -x * math.sin(angle) + z * math.cos(angle),
+    )
+
+
+def _global_section_profile_points(section: dict[str, Any]) -> list[tuple[float, float, float]]:
+    chord = float(section["chord"])
+    x_le = float(section["x_le"])
+    y_le = float(section["y_le"])
+    z_le = float(section["z_le"])
+    twist_deg = float(section.get("twist_deg", 0.0) or 0.0)
+    raw_coordinates = section.get("airfoil_coordinates") or []
+    coordinates = [(float(x_value), float(z_value)) for x_value, z_value in raw_coordinates]
+    if not coordinates:
+        raise ValueError("real main wing section is missing airfoil coordinates")
+    if len(coordinates) >= 2 and all(
+        abs(lhs - rhs) <= 1.0e-12 for lhs, rhs in zip(coordinates[0], coordinates[-1])
+    ):
+        coordinates = coordinates[:-1]
+    if len(coordinates) < 4:
+        raise ValueError("real main wing section needs at least four profile points")
+    global_points: list[tuple[float, float, float]] = []
+    for x_rel, z_rel in coordinates:
+        local_offset = _rotate_about_local_span((x_rel * chord, 0.0, z_rel * chord), twist_deg)
+        global_points.append(
+            (
+                x_le + float(local_offset[0]),
+                y_le + float(local_offset[1]),
+                z_le + float(local_offset[2]),
+            )
+        )
+    return global_points
+
+
+def _leading_edge_index(points: list[tuple[float, float, float]]) -> int:
+    if len(points) < 3:
+        raise ValueError("profile loop needs at least three points")
+    return min(range(len(points)), key=lambda index: (points[index][0], abs(points[index][2])))
+
+
+def _section_bounds(points: list[tuple[float, float, float]]) -> dict[str, float]:
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    zs = [point[2] for point in points]
+    return {
+        "x_min": float(min(xs)),
+        "x_max": float(max(xs)),
+        "y_min": float(min(ys)),
+        "y_max": float(max(ys)),
+        "z_min": float(min(zs)),
+        "z_max": float(max(zs)),
+    }
+
+
+def _resolve_real_main_wing_geometry(
+    *,
+    geometry: dict[str, Any],
+    artifact_dir: Path,
+) -> dict[str, Any]:
+    source_path = Path(geometry.get("source_path") or _default_real_main_wing_source_path())
+    if not source_path.exists():
+        raise FileNotFoundError(f"real main wing source not found: {source_path}")
+    component = str(geometry.get("component") or "main_wing")
+    extracted = extract_native_lifting_surface_sections(
+        source_path=source_path,
+        component=component,
+        include_mirrored=False,
+    )
+    if not extracted.get("surfaces"):
+        raise RuntimeError("real main wing extraction returned no surfaces")
+    surface = extracted["surfaces"][0]
+    sections = list(surface.get("sections") or [])
+    if len(sections) < 2:
+        raise RuntimeError("real main wing extraction returned fewer than two spanwise sections")
+
+    section_profiles = [_global_section_profile_points(section) for section in sections]
+    section_bounds = [_section_bounds(points) for points in section_profiles]
+    overall_bounds = {
+        "x_min": min(bounds["x_min"] for bounds in section_bounds),
+        "x_max": max(bounds["x_max"] for bounds in section_bounds),
+        "y_min": min(bounds["y_min"] for bounds in section_bounds),
+        "y_max": max(bounds["y_max"] for bounds in section_bounds),
+        "z_min": min(bounds["z_min"] for bounds in section_bounds),
+        "z_max": max(bounds["z_max"] for bounds in section_bounds),
+    }
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / "real_main_wing_sections.json"
+    write_json_report(
+        artifact_path,
+        {
+            **extracted,
+            "selected_surface": {
+                "component": surface.get("component"),
+                "name": surface.get("name"),
+                "caps_group": surface.get("caps_group"),
+                "rotation_deg": surface.get("rotation_deg"),
+            },
+            "overall_bounds": overall_bounds,
+        },
+    )
+    return {
+        "shape_mode": DEFAULT_REAL_MAIN_WING_SHAPE_MODE,
+        "source_path": str(source_path),
+        "component": component,
+        "surface_name": surface.get("name"),
+        "surface_rotation_deg": list(surface.get("rotation_deg") or [0.0, 0.0, 0.0]),
+        "sections": sections,
+        "section_profiles": section_profiles,
+        "section_bounds": section_bounds,
+        "overall_bounds": overall_bounds,
+        "artifact_path": str(artifact_path),
+    }
+
+
+def _build_real_main_wing_occ_shell(
+    *,
+    gmsh: Any,
+    section_profiles: list[list[tuple[float, float, float]]],
+) -> tuple[list[int], list[int], dict[str, Any]]:
+    occ = gmsh.model.occ
+    wire_tags: list[int] = []
+    tip_curves: list[int] = []
+    for section_index, points in enumerate(section_profiles):
+        point_tags = [occ.addPoint(float(x), float(y), float(z)) for x, y, z in points]
+        split_idx = _leading_edge_index(points)
+        upper_curve = occ.addSpline(point_tags[: split_idx + 1])
+        lower_curve = occ.addSpline(point_tags[split_idx:])
+        trailing_edge_curve = occ.addLine(point_tags[-1], point_tags[0])
+        wire_tag = occ.addWire([upper_curve, lower_curve, trailing_edge_curve], checkClosed=True)
+        wire_tags.append(int(wire_tag))
+        if section_index == len(section_profiles) - 1:
+            tip_curves = [int(upper_curve), int(lower_curve), int(trailing_edge_curve)]
+    if len(wire_tags) < 2:
+        raise RuntimeError("real main wing shell needs at least two section wires")
+    loft_entities = occ.addThruSections(
+        wire_tags,
+        makeSolid=False,
+        continuity="C1",
+        parametrization="ChordLength",
+        smoothing=True,
+    )
+    occ.synchronize()
+    wall_surface_tags = [int(tag) for dim, tag in loft_entities if dim == 2]
+    if not wall_surface_tags:
+        raise RuntimeError("real main wing loft did not create any wall surfaces")
+    tip_loop = occ.addCurveLoop(_order_curve_loop(gmsh, tip_curves))
+    tip_surface_tag = int(occ.addPlaneSurface([tip_loop]))
+    occ.synchronize()
+    wall_surface_tags.append(tip_surface_tag)
+    # The tip cap is geometrically coincident with the loft boundary, but OCC can
+    # keep duplicate edges unless we explicitly collapse them before BL extrusion.
+    occ.removeAllDuplicates()
+    occ.synchronize()
+    wall_surface_tags = [int(tag) for dim, tag in gmsh.model.getEntities(2) if dim == 2]
+    return wall_surface_tags, tip_curves, {"tip_surface_tag": tip_surface_tag}
 
 
 def _curve_endpoint_tags(gmsh: Any, curve_tag: int) -> tuple[int, int]:
@@ -1429,6 +1607,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     spec = build_shell_v4_half_wing_bl_macsafe_spec(study_level, overrides=overrides)
     flow = spec["flow_condition"]
     geometry = spec["geometry"]
+    geometry_shape_mode = _geometry_shape_mode(geometry)
     bl_spec = spec["boundary_layer"]
     cell_budget = spec["cell_budget"]
     reference_values = spec["reference_values"]
@@ -1436,6 +1615,20 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     mesh_metadata_path = mesh_dir / "mesh_metadata.json"
     quality_path = mesh_dir / "mesh_quality.json"
     field_region_path = mesh_dir / "refinement_regions.json"
+    real_wing_geometry: dict[str, Any] | None = None
+    if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
+        real_wing_geometry = _resolve_real_main_wing_geometry(
+            geometry=geometry,
+            artifact_dir=mesh_dir,
+        )
+        geometry["source_path"] = real_wing_geometry["source_path"]
+        geometry["component"] = real_wing_geometry["component"]
+        geometry["airfoil_name"] = f"{real_wing_geometry['surface_name']} extracted sections"
+        geometry["real_main_wing_sections_path"] = real_wing_geometry["artifact_path"]
+        geometry["source_section_count"] = len(real_wing_geometry["sections"])
+        geometry["half_span_m"] = float(real_wing_geometry["overall_bounds"]["y_max"])
+        geometry["actual_bounds"] = dict(real_wing_geometry["overall_bounds"])
+        geometry["surface_name"] = real_wing_geometry["surface_name"]
 
     gmsh = load_gmsh()
     gmsh.initialize()
@@ -1488,25 +1681,50 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
 
         chord_m = float(geometry["chord_m"])
         half_span_m = float(geometry["half_span_m"])
-        profile_points = _naca0012_points(int(geometry["airfoil_loop_points"]), chord_m)
-        occ_points = [occ.addPoint(x, 0.0, z) for x, z in profile_points]
-        split_idx = len(profile_points) // 2
-        upper_curve = occ.addSpline(occ_points[: split_idx + 1])
-        lower_curve = occ.addSpline(occ_points[split_idx:])
-        trailing_edge_curve = occ.addLine(occ_points[-1], occ_points[0])
-        occ.extrude([(1, upper_curve), (1, lower_curve), (1, trailing_edge_curve)], 0.0, half_span_m, 0.0)
-        occ.synchronize()
+        if real_wing_geometry is None:
+            profile_points = _naca0012_points(int(geometry["airfoil_loop_points"]), chord_m)
+            occ_points = [occ.addPoint(x, 0.0, z) for x, z in profile_points]
+            split_idx = len(profile_points) // 2
+            upper_curve = occ.addSpline(occ_points[: split_idx + 1])
+            lower_curve = occ.addSpline(occ_points[split_idx:])
+            trailing_edge_curve = occ.addLine(occ_points[-1], occ_points[0])
+            occ.extrude([(1, upper_curve), (1, lower_curve), (1, trailing_edge_curve)], 0.0, half_span_m, 0.0)
+            occ.synchronize()
 
-        tip_curves: list[int] = []
-        for dim, tag in gmsh.model.getEntities(1):
-            if dim != 1:
-                continue
-            x_min, y_min, z_min, x_max, y_max, z_max = gmsh.model.getBoundingBox(dim, tag)
-            if abs(y_min - half_span_m) < 1.0e-6 and abs(y_max - half_span_m) < 1.0e-6:
-                tip_curves.append(int(tag))
-        tip_loop = occ.addCurveLoop(_order_curve_loop(gmsh, tip_curves))
-        occ.addPlaneSurface([tip_loop])
-        occ.synchronize()
+            tip_curves: list[int] = []
+            for dim, tag in gmsh.model.getEntities(1):
+                if dim != 1:
+                    continue
+                x_min, y_min, z_min, x_max, y_max, z_max = gmsh.model.getBoundingBox(dim, tag)
+                if abs(y_min - half_span_m) < 1.0e-6 and abs(y_max - half_span_m) < 1.0e-6:
+                    tip_curves.append(int(tag))
+            tip_loop = occ.addCurveLoop(_order_curve_loop(gmsh, tip_curves))
+            occ.addPlaneSurface([tip_loop])
+            occ.synchronize()
+            geometry_bounds = {
+                "x_min": 0.0,
+                "x_max": chord_m,
+                "y_min": 0.0,
+                "y_max": half_span_m,
+                "z_min": -0.5 * chord_m * 0.12,
+                "z_max": 0.5 * chord_m * 0.12,
+            }
+            tip_bounds = {
+                "x_min": 0.0,
+                "x_max": chord_m,
+                "y_min": half_span_m,
+                "y_max": half_span_m,
+                "z_min": -0.5 * chord_m * 0.12,
+                "z_max": 0.5 * chord_m * 0.12,
+            }
+        else:
+            wall_surface_tags, _, loft_info = _build_real_main_wing_occ_shell(
+                gmsh=gmsh,
+                section_profiles=real_wing_geometry["section_profiles"],
+            )
+            geometry_bounds = dict(real_wing_geometry["overall_bounds"])
+            tip_bounds = dict(real_wing_geometry["section_bounds"][-1])
+            geometry["tip_surface_tag"] = int(loft_info["tip_surface_tag"])
 
         _set_shell_transfinite_controls(
             gmsh,
@@ -1516,7 +1734,8 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             half_span_stations=int(geometry["half_span_stations"]),
         )
 
-        wall_surface_tags = [int(tag) for dim, tag in gmsh.model.getEntities(2) if dim == 2]
+        if real_wing_geometry is None:
+            wall_surface_tags = [int(tag) for dim, tag in gmsh.model.getEntities(2) if dim == 2]
         cumulative_heights = _layer_cumulative_heights(
             float(bl_spec["first_layer_height_m"]),
             float(bl_spec["growth_ratio"]),
@@ -1541,12 +1760,13 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             recursive=False,
         )
         hole_curves = _order_curve_loop(gmsh, [int(curve_tag) for dim, curve_tag in hole_boundary if dim == 1])
-        x_min = -float(spec["farfield"]["upstream_chords"]) * chord_m
-        x_max = chord_m + float(spec["farfield"]["downstream_chords"]) * chord_m
+        z_center = 0.5 * (float(geometry_bounds["z_min"]) + float(geometry_bounds["z_max"]))
+        x_min = float(geometry_bounds["x_min"]) - float(spec["farfield"]["upstream_chords"]) * chord_m
+        x_max = float(geometry_bounds["x_max"]) + float(spec["farfield"]["downstream_chords"]) * chord_m
         y_min = 0.0
-        y_max = half_span_m + float(spec["farfield"]["normal_chords"]) * chord_m
-        z_min = -float(spec["farfield"]["normal_chords"]) * chord_m
-        z_max = float(spec["farfield"]["normal_chords"]) * chord_m
+        y_max = float(geometry_bounds["y_max"]) + float(spec["farfield"]["normal_chords"]) * chord_m
+        z_min = float(geometry_bounds["z_min"]) - float(spec["farfield"]["normal_chords"]) * chord_m
+        z_max = float(geometry_bounds["z_max"]) + float(spec["farfield"]["normal_chords"]) * chord_m
 
         p1 = gmsh.model.geo.addPoint(x_min, y_min, z_min, chord_m)
         p2 = gmsh.model.geo.addPoint(x_max, y_min, z_min, chord_m)
@@ -1591,22 +1811,22 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         refinement_regions = {
             "wake_refinement_region": {
                 "kind": "box_field",
-                "x_min": chord_m,
-                "x_max": chord_m + float(spec["wake_refinement"]["wake_length_chords"]) * chord_m,
+                "x_min": float(geometry_bounds["x_max"]),
+                "x_max": float(geometry_bounds["x_max"]) + float(spec["wake_refinement"]["wake_length_chords"]) * chord_m,
                 "y_min": 0.0,
-                "y_max": half_span_m,
-                "z_min": -float(spec["wake_refinement"]["wake_height_chords"]) * chord_m,
-                "z_max": float(spec["wake_refinement"]["wake_height_chords"]) * chord_m,
+                "y_max": float(geometry_bounds["y_max"]),
+                "z_min": z_center - float(spec["wake_refinement"]["wake_height_chords"]) * chord_m,
+                "z_max": z_center + float(spec["wake_refinement"]["wake_height_chords"]) * chord_m,
                 "target_cell_size_m": float(spec["wake_refinement"]["near_wake_cell_size_chords"]) * chord_m,
             },
             "tip_refinement_region": {
                 "kind": "box_field",
-                "x_min": -0.05 * chord_m,
-                "x_max": chord_m,
-                "y_min": max(0.0, half_span_m - float(spec["tip_refinement"]["spanwise_length_chords"]) * chord_m),
-                "y_max": half_span_m,
-                "z_min": -1.0 * chord_m,
-                "z_max": 1.0 * chord_m,
+                "x_min": float(tip_bounds["x_min"]) - 0.05 * chord_m,
+                "x_max": float(tip_bounds["x_max"]),
+                "y_min": max(0.0, float(geometry_bounds["y_max"]) - float(spec["tip_refinement"]["spanwise_length_chords"]) * chord_m),
+                "y_max": float(geometry_bounds["y_max"]),
+                "z_min": float(tip_bounds["z_min"]) - 1.0 * chord_m,
+                "z_max": float(tip_bounds["z_max"]) + 1.0 * chord_m,
                 "target_cell_size_m": float(spec["tip_refinement"]["cell_size_chords"]) * chord_m,
             },
         }
@@ -1917,10 +2137,15 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         "parallel_mode": solver_result.get("parallel_mode"),
         "mpi_ranks": solver_result.get("mpi_ranks"),
         "omp_threads_per_rank": solver_result.get("omp_threads_per_rank"),
+        "geometry_shape_mode": geometry_shape_mode,
         "comparability_classification": result_class,
         "reference_values_used": reference_values,
         "route_note": interpretation_note,
     }
+    if geometry_shape_mode == DEFAULT_REAL_MAIN_WING_SHAPE_MODE:
+        result["notes"].append(
+            "Geometry used provider-extracted real main wing sections from the configured .vsp3 source instead of the NACA0012 surrogate."
+        )
 
     write_json_report(mesh_metadata_path, result)
     write_json_report(out_dir / "report.json", result)

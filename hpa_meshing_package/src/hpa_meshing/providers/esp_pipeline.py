@@ -2020,6 +2020,59 @@ def _build_native_rebuild_model(
             pass
 
 
+def extract_native_lifting_surface_sections(
+    *,
+    source_path: Path,
+    component: str = "main_wing",
+    include_mirrored: bool = False,
+) -> dict[str, Any]:
+    rebuild_model = _build_native_rebuild_model(source_path=source_path, component=component)
+    surfaces_payload: list[dict[str, Any]] = []
+    for surface in rebuild_model.surfaces:
+        section_records = (
+            _surface_sections_for_rule(surface)
+            if include_mirrored
+            else list(surface.sections)
+        )
+        surfaces_payload.append(
+            {
+                "component": surface.component,
+                "geom_id": surface.geom_id,
+                "name": surface.name,
+                "caps_group": surface.caps_group,
+                "symmetric_xz": bool(surface.symmetric_xz),
+                "rotation_deg": [float(value) for value in surface.rotation_deg],
+                "sections": [
+                    {
+                        "x_le": float(section.x_le),
+                        "y_le": float(section.y_le),
+                        "z_le": float(section.z_le),
+                        "chord": float(section.chord),
+                        "twist_deg": float(section.twist_deg),
+                        "airfoil_name": section.airfoil_name,
+                        "airfoil_source": section.airfoil_source,
+                        "thickness_tc": None if section.thickness_tc is None else float(section.thickness_tc),
+                        "camber": None if section.camber is None else float(section.camber),
+                        "camber_loc": None if section.camber_loc is None else float(section.camber_loc),
+                        "airfoil_coordinates": [
+                            [float(x_value), float(z_value)]
+                            for x_value, z_value in _resolve_section_airfoil_coordinates(section)
+                        ],
+                    }
+                    for section in section_records
+                ],
+            }
+        )
+    return {
+        "source_path": str(source_path),
+        "component": str(component),
+        "include_mirrored": bool(include_mirrored),
+        "surface_count": len(surfaces_payload),
+        "notes": list(rebuild_model.notes),
+        "surfaces": surfaces_payload,
+    }
+
+
 def _build_csm_script(
     source_path: Path,
     export_path: Path,
