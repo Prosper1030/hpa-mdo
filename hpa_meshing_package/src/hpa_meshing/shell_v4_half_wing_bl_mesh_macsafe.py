@@ -86,6 +86,7 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
             "tip_min_bl_top_clearance_fraction_of_base_thickness": 0.30,
             "tip_truncation_scale_threshold": 0.35,
             "tip_truncation_inboard_buffer_chords": 2.0,
+            "tip_truncation_connector_band_chords": 0.01,
             "tip_truncation_auto_exclude_tip_cap": True,
             "tip_truncation_facet_overlap_angle_tol_deg": 0.001,
             "min_local_scale": 0.05,
@@ -184,6 +185,7 @@ DEFAULT_STUDY_SPECS: dict[str, dict[str, Any]] = {
             "tip_min_bl_top_clearance_fraction_of_base_thickness": 0.30,
             "tip_truncation_scale_threshold": 0.35,
             "tip_truncation_inboard_buffer_chords": 2.0,
+            "tip_truncation_connector_band_chords": 0.01,
             "tip_truncation_auto_exclude_tip_cap": True,
             "tip_truncation_facet_overlap_angle_tol_deg": 0.001,
             "min_local_scale": 0.05,
@@ -1437,35 +1439,78 @@ def _interpolate_real_wing_section(
     return synthetic_section
 
 
-def _augment_real_wing_sections_for_tip_truncation(
+def _insert_real_wing_section_if_needed(
     *,
     sections: list[dict[str, Any]],
-    start_y_m: float | None,
+    y_target: float | None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    if start_y_m is None or len(sections) < 2:
-        return list(sections), {"enabled": False, "inserted_section": False, "start_y_m": start_y_m}
+    if y_target is None or len(sections) < 2:
+        return list(sections), {"inserted_section": False, "y_target_m": y_target}
 
     y_values = [float(section["y_le"]) for section in sections]
-    if start_y_m <= y_values[0] + 1.0e-9 or start_y_m >= y_values[-1] - 1.0e-9:
-        return list(sections), {"enabled": True, "inserted_section": False, "start_y_m": float(start_y_m)}
+    if y_target <= y_values[0] + 1.0e-9 or y_target >= y_values[-1] - 1.0e-9:
+        return list(sections), {"inserted_section": False, "y_target_m": float(y_target)}
     for y_value in y_values:
-        if abs(float(start_y_m) - y_value) <= 1.0e-9:
-            return list(sections), {"enabled": True, "inserted_section": False, "start_y_m": float(y_value)}
+        if abs(float(y_target) - y_value) <= 1.0e-9:
+            return list(sections), {"inserted_section": False, "y_target_m": float(y_value)}
 
-    lower_index, upper_index, _ = _bracketing_section_indices(list(sections), float(start_y_m))
+    lower_index, upper_index, _ = _bracketing_section_indices(list(sections), float(y_target))
     lower_section = sections[lower_index]
     upper_section = sections[min(upper_index, len(sections) - 1)]
     synthetic_section = _interpolate_real_wing_section(
         lower_section,
         upper_section,
-        y_target=float(start_y_m),
+        y_target=float(y_target),
     )
     augmented = list(sections[: upper_index]) + [synthetic_section] + list(sections[upper_index:])
     return augmented, {
-        "enabled": True,
         "inserted_section": True,
-        "start_y_m": float(start_y_m),
+        "y_target_m": float(y_target),
         "inserted_index": int(upper_index),
+    }
+
+
+def _augment_real_wing_sections_for_tip_truncation(
+    *,
+    sections: list[dict[str, Any]],
+    start_y_m: float | None,
+    protection: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if start_y_m is None or len(sections) < 2:
+        return list(sections), {"enabled": False, "inserted_section": False, "start_y_m": start_y_m}
+
+    protection_config = dict(protection or {})
+    connector_band_start_y = _tip_truncation_connector_band_start_y_m(
+        sections=list(sections),
+        start_y_m=float(start_y_m),
+        protection=protection_config,
+    )
+    augmented = list(sections)
+    inserted_any = False
+    insertion_records: dict[str, dict[str, Any]] = {}
+    y_targets = [
+        ("connector_band", connector_band_start_y),
+        ("start", float(start_y_m)),
+    ]
+    for label, y_target in sorted(
+        ((label, y_target) for label, y_target in y_targets if y_target is not None),
+        key=lambda item: float(item[1]),
+    ):
+        augmented, insertion_records[label] = _insert_real_wing_section_if_needed(
+            sections=augmented,
+            y_target=float(y_target),
+        )
+        inserted_any = inserted_any or bool(insertion_records[label]["inserted_section"])
+    return augmented, {
+        "enabled": True,
+        "inserted_section": bool(inserted_any),
+        "start_y_m": float(start_y_m),
+        "connector_band_start_y_m": float(connector_band_start_y) if connector_band_start_y is not None else None,
+        "inserted_index": insertion_records.get("start", {}).get("inserted_index"),
+        "inserted_start_section": bool(insertion_records.get("start", {}).get("inserted_section", False)),
+        "inserted_connector_band_section": bool(
+            insertion_records.get("connector_band", {}).get("inserted_section", False)
+        ),
     }
 
 
@@ -1606,6 +1651,35 @@ def _select_tip_truncation_surface_tags(
         except Exception:
             continue
         if y_min >= float(start_y_m) - tolerance and y_max > float(start_y_m) + tolerance:
+            selected.append(int(surface_tag))
+    return _unique_preserve_order(selected)
+
+
+def _select_tip_truncation_connector_band_surface_tags(
+    *,
+    gmsh: Any,
+    wall_surface_tags: list[int],
+    band_start_y_m: float | None,
+    start_y_m: float,
+    tip_surface_tag: int | None,
+) -> list[int]:
+    if band_start_y_m is None:
+        return []
+    tolerance = 1.0e-6
+    selected: list[int] = []
+    for surface_tag in wall_surface_tags:
+        if tip_surface_tag is not None and int(surface_tag) == int(tip_surface_tag):
+            continue
+        try:
+            _x_min, y_min, _z_min, _x_max, y_max, _z_max = gmsh.model.getBoundingBox(2, int(surface_tag))
+        except Exception:
+            continue
+        if (
+            y_min >= float(band_start_y_m) - tolerance
+            and y_max >= float(start_y_m) - tolerance
+            and y_max <= float(start_y_m) + tolerance
+            and y_min < float(start_y_m) - tolerance
+        ):
             selected.append(int(surface_tag))
     return _unique_preserve_order(selected)
 
@@ -2036,6 +2110,40 @@ def _tip_truncation_cleanup_buffer_m(
     return float(protection.get("tip_truncation_inboard_buffer_chords", 0.0) or 0.0) * local_chord_m
 
 
+def _tip_truncation_connector_band_start_y_m(
+    *,
+    sections: list[dict[str, Any]],
+    start_y_m: float | None,
+    protection: dict[str, Any],
+) -> float | None:
+    if start_y_m is None or len(sections) < 2:
+        return None
+    band_chords = float(protection.get("tip_truncation_connector_band_chords", 0.0) or 0.0)
+    if band_chords <= 0.0:
+        return None
+    lower_y_candidates = sorted(
+        float(section["y_le"])
+        for section in sections
+        if float(section["y_le"]) < float(start_y_m) - 1.0e-9
+    )
+    if not lower_y_candidates:
+        return None
+    lower_y = lower_y_candidates[-1]
+    local_section = _real_wing_local_clearance_at_spanwise_x_rel(
+        sections=sections,
+        y_value=float(start_y_m),
+        x_rel=0.5,
+    )
+    local_chord_m = max(float(local_section["local_chord_m"]), 1.0e-9)
+    band_depth_m = min(float(start_y_m) - lower_y, band_chords * local_chord_m)
+    if band_depth_m <= 1.0e-9:
+        return None
+    connector_band_start_y = max(lower_y, float(start_y_m) - band_depth_m)
+    if connector_band_start_y >= float(start_y_m) - 1.0e-9:
+        return None
+    return float(connector_band_start_y)
+
+
 def _cleanup_surface_mesh(
     gmsh: Any,
     surface_tags: list[int],
@@ -2043,6 +2151,7 @@ def _cleanup_surface_mesh(
     cleanup: dict[str, Any] = {
         "surface_tags": [int(tag) for tag in surface_tags],
         "removed_degenerate_element_count": 0,
+        "removed_cross_surface_duplicate_element_count": 0,
         "removed_degenerate_elements_sample_limit": 40,
         "removed_degenerate_elements_sample": [],
         "removed_degenerate_element_count_by_surface": {},
@@ -2086,6 +2195,45 @@ def _cleanup_surface_mesh(
         if surface_remove_tags:
             gmsh.model.mesh.removeElements(2, int(surface_tag), surface_remove_tags)
             cleanup["removed_degenerate_element_count"] += len(surface_remove_tags)
+    duplicate_element_tags_by_surface: dict[int, list[int]] = defaultdict(list)
+    signature_owner: dict[tuple[int, ...], tuple[int, int]] = {}
+    for surface_tag in surface_tags:
+        element_types, element_tags_by_type, node_tags_by_type = gmsh.model.mesh.getElements(2, int(surface_tag))
+        for element_type, element_tags, node_tags in zip(
+            element_types,
+            element_tags_by_type,
+            node_tags_by_type,
+            strict=False,
+        ):
+            _, _, _, node_count, _, _ = gmsh.model.mesh.getElementProperties(int(element_type))
+            node_count_int = int(node_count)
+            if node_count_int <= 0:
+                continue
+            for element_index, element_tag in enumerate(element_tags):
+                start = element_index * node_count_int
+                stop = start + node_count_int
+                signature = tuple(sorted(int(node) for node in node_tags[start:stop]))
+                owner = signature_owner.get(signature)
+                if owner is None:
+                    signature_owner[signature] = (int(surface_tag), int(element_tag))
+                    continue
+                duplicate_element_tags_by_surface[int(surface_tag)].append(int(element_tag))
+                cleanup["removed_cross_surface_duplicate_element_count"] += 1
+                if len(cleanup["removed_degenerate_elements_sample"]) < int(
+                    cleanup["removed_degenerate_elements_sample_limit"]
+                ):
+                    cleanup["removed_degenerate_elements_sample"].append(
+                        {
+                            "surface_tag": int(surface_tag),
+                            "element_type": int(element_type),
+                            "element_tag": int(element_tag),
+                            "node_tags": list(signature),
+                            "duplicate_of_surface_tag": int(owner[0]),
+                            "duplicate_of_element_tag": int(owner[1]),
+                        }
+                    )
+    for surface_tag, duplicate_element_tags in duplicate_element_tags_by_surface.items():
+        gmsh.model.mesh.removeElements(2, int(surface_tag), duplicate_element_tags)
     gmsh.model.mesh.removeDuplicateElements([(2, int(tag)) for tag in surface_tags])
     gmsh.model.mesh.removeDuplicateNodes([(2, int(tag)) for tag in surface_tags])
     gmsh.model.mesh.reclassifyNodes()
@@ -3257,6 +3405,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             augmented_sections, truncation_geometry = _augment_real_wing_sections_for_tip_truncation(
                 sections=list(real_wing_geometry["sections"]),
                 start_y_m=tip_truncation_summary.get("start_y_m"),
+                protection=protection_config,
             )
             real_wing_geometry["sections"] = augmented_sections
             real_wing_geometry["section_profiles"] = [
@@ -3310,6 +3459,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     bl_excluded_surface_tags: list[int] = []
     tip_truncation_seam_surface_tags: list[int] = []
     tip_truncation_local_surface_tags: list[int] = []
+    tip_truncation_connector_band_surface_tags: list[int] = []
     mesh_algorithm3d = 10
     topology_checks: dict[str, Any] = {
         "root_closure": {
@@ -3424,9 +3574,24 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                         protection_config.get("tip_truncation_auto_exclude_tip_cap", True)
                     ),
                 )
-                tip_truncation_summary["surface_tags"] = list(tip_truncation_surface_tags)
+                tip_truncation_connector_band_surface_tags = (
+                    _select_tip_truncation_connector_band_surface_tags(
+                        gmsh=gmsh,
+                        wall_surface_tags=wall_surface_tags,
+                        band_start_y_m=tip_truncation_summary.get("connector_band_start_y_m"),
+                        start_y_m=float(tip_truncation_summary["start_y_m"]),
+                        tip_surface_tag=int(tip_surface_tag) if tip_surface_tag is not None else None,
+                    )
+                )
+                tip_truncation_summary["surface_tags"] = _unique_preserve_order(
+                    [*tip_truncation_surface_tags, *tip_truncation_connector_band_surface_tags]
+                )
+                tip_truncation_summary["connector_band_surface_tags"] = list(
+                    tip_truncation_connector_band_surface_tags
+                )
             else:
                 tip_truncation_surface_tags = []
+                tip_truncation_connector_band_surface_tags = []
             if auto_exclude_tip_cap and tip_surface_tag is not None:
                 tip_truncation_surface_tags = _unique_preserve_order(
                     [*tip_truncation_surface_tags, int(tip_surface_tag)]
@@ -3439,8 +3604,13 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 tip_truncation_summary["relaxed_surface_mesh_constraints"] = list(
                     relaxed_tip_surface_tags
                 )
+            tip_truncation_bl_excluded_surface_tags = _unique_preserve_order(
+                [*tip_truncation_surface_tags, *tip_truncation_connector_band_surface_tags]
+            )
             bl_source_surface_tags = [
-                int(tag) for tag in wall_surface_tags if int(tag) not in set(tip_truncation_surface_tags)
+                int(tag)
+                for tag in wall_surface_tags
+                if int(tag) not in set(tip_truncation_bl_excluded_surface_tags)
             ]
             bl_excluded_surface_tags = [
                 int(tag) for tag in wall_surface_tags if int(tag) not in bl_source_surface_tags
@@ -3461,7 +3631,10 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 triggered_span = (bl_protection_summary.get("triggered_span_y_range_m") or {}).get("min")
                 current_start = float(tip_truncation_summary.get("start_y_m") or 0.0)
                 restart_count = int(protection_config.get("_tip_truncation_restart_count", 0) or 0)
+                connector_band_locked = tip_truncation_summary.get("connector_band_start_y_m") is not None
                 if (
+                    not connector_band_locked
+                    and
                     triggered_span is not None
                     and float(triggered_span) < current_start - 1.0e-4
                     and restart_count < 3
@@ -3495,6 +3668,9 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             if tip_truncation_summary is not None:
                 bl_protection_summary["tip_truncation"] = dict(tip_truncation_summary)
                 bl_protection_summary["tip_termination_surface_tags"] = list(tip_termination_surface_tags)
+                bl_protection_summary["tip_truncation_connector_band_surface_tags"] = list(
+                    tip_truncation_connector_band_surface_tags
+                )
                 if tip_truncation_summary.get("enabled"):
                     bl_protection_summary["intervention_mode"] = "scaling_and_truncation"
         for index in range(1, len(extbl)):

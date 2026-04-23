@@ -7,6 +7,7 @@ import pytest
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _analyze_real_wing_tip_bl_interference,
+    _augment_real_wing_sections_for_tip_truncation,
     _build_real_main_wing_occ_shell,
     _build_real_wing_bl_protection_field,
     _collect_extbl_surfaces_in_y_band,
@@ -14,8 +15,10 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _build_real_wing_root_closure_surfaces,
     _build_su2_cfg,
     _derive_wall_diagnostics_from_surface_vtk,
+    _global_section_profile_points,
     _layer_cumulative_heights,
     _resolve_real_main_wing_geometry,
+    _select_tip_truncation_connector_band_surface_tags,
     _set_shell_transfinite_controls,
     _solver_command,
     _solver_env,
@@ -818,6 +821,95 @@ def test_collect_extbl_surfaces_in_y_band_includes_tip_truncation_neighborhood()
     assert matching == [339, 348, 369, 436]
 
 
+def test_select_tip_truncation_connector_band_surface_tags_targets_local_strip():
+    class _FakeModel:
+        def __init__(self, bboxes: dict[int, tuple[float, float, float, float, float, float]]) -> None:
+            self._bboxes = bboxes
+
+        def getBoundingBox(self, dim: int, tag: int) -> tuple[float, float, float, float, float, float]:
+            assert dim == 2
+            return self._bboxes[int(tag)]
+
+    class _FakeGmsh:
+        def __init__(self, bboxes: dict[int, tuple[float, float, float, float, float, float]]) -> None:
+            self.model = _FakeModel(bboxes)
+
+    gmsh = _FakeGmsh(
+        {
+            19: (0.23, 14.910196, 0.79, 0.66, 16.5, 0.84),
+            120: (0.12, 14.904074, 0.54, 0.95, 14.910196, 0.74),
+            121: (0.80, 14.904074, 0.54, 0.94, 14.910196, 0.67),
+            130: (0.12, 13.5, 0.54, 0.95, 14.910196, 0.74),
+            140: (0.12, 14.910196, 0.54, 0.95, 16.5, 0.74),
+        }
+    )
+
+    matching = _select_tip_truncation_connector_band_surface_tags(
+        gmsh=gmsh,
+        wall_surface_tags=[19, 120, 121, 130, 140],
+        band_start_y_m=14.904074064233518,
+        start_y_m=14.91019607843137,
+        tip_surface_tag=19,
+    )
+
+    assert matching == [120, 121]
+
+
+def test_real_main_wing_tip_truncation_inserts_connector_band_strip(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
+    start_y = 14.91019607843137
+    spec = build_shell_v4_half_wing_bl_macsafe_spec(
+        "BL_macsafe_baseline",
+        overrides={
+            "geometry": {
+                "shape_mode": "esp_rebuilt_main_wing",
+                "source_path": str(source_path),
+                "component": "main_wing",
+                "airfoil_loop_points": 48,
+                "half_span_stations": 18,
+            }
+        },
+    )
+    real_geometry = _resolve_real_main_wing_geometry(
+        geometry=spec["geometry"],
+        artifact_dir=tmp_path / "artifacts",
+    )
+    augmented_sections, truncation_geometry = _augment_real_wing_sections_for_tip_truncation(
+        sections=list(real_geometry["sections"]),
+        start_y_m=start_y,
+        protection=spec["real_wing_bl_protection"],
+    )
+
+    assert truncation_geometry["connector_band_start_y_m"] is not None
+    assert truncation_geometry["inserted_connector_band_section"] is True
+    assert len(augmented_sections) == len(real_geometry["sections"]) + 2
+
+    gmsh = load_gmsh()
+    gmsh.initialize()
+    try:
+        gmsh.model.add("real_main_wing_tip_connector_strip")
+        wall_surface_tags, _, geometry = _build_real_main_wing_occ_shell(
+            gmsh=gmsh,
+            section_profiles=[_global_section_profile_points(section) for section in augmented_sections],
+        )
+        connector_tags = _select_tip_truncation_connector_band_surface_tags(
+            gmsh=gmsh,
+            wall_surface_tags=wall_surface_tags,
+            band_start_y_m=truncation_geometry["connector_band_start_y_m"],
+            start_y_m=start_y,
+            tip_surface_tag=int(geometry["tip_surface_tag"]),
+        )
+        assert connector_tags
+        for surface_tag in connector_tags:
+            _x_min, y_min, _z_min, _x_max, y_max, _z_max = gmsh.model.getBoundingBox(2, int(surface_tag))
+            assert y_min >= truncation_geometry["connector_band_start_y_m"] - 1.0e-6
+            assert y_max >= start_y - 1.0e-6
+            assert y_max <= start_y + 1.0e-6
+    finally:
+        gmsh.finalize()
+
+
 def test_run_shell_v4_real_main_wing_prelaunch_smoke_reaches_prelaunch_clean_with_tip_truncation(tmp_path: Path):
     repo_root = Path(__file__).resolve().parents[2]
     source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
@@ -884,6 +976,8 @@ def test_run_shell_v4_real_main_wing_prelaunch_smoke_reaches_prelaunch_clean_wit
     assert result["case_summary"]["bl_local_protection"]["triggered_span_y_range_m"]["min"] > 15.0
     assert result["case_summary"]["bl_local_protection"]["intervention_mode"] == "scaling_and_truncation"
     assert result["case_summary"]["bl_local_protection"]["tip_truncation"]["enabled"] is True
+    assert result["case_summary"]["bl_local_protection"]["tip_truncation"]["connector_band_start_y_m"] is not None
+    assert len(result["case_summary"]["bl_local_protection"]["tip_truncation_connector_band_surface_tags"]) > 0
     assert result["case_summary"]["pre_3d_bl_clearance"]["risk_sample_count"] == 0
     assert (
         result["case_summary"]["pre_3d_bl_clearance"]["min_predicted_bl_top_clearance_m"]
