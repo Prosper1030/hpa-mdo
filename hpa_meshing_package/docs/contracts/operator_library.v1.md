@@ -17,7 +17,7 @@ Instead, each operator exposes:
 - `root_closure_from_bl_faces`
 - `closure_ring_exact_wire_surface_fill`
 - `extbl_termination_fallback_for_collapsed_endcap`
-- `local_truncation_protection`
+- `regularize_truncation_connector_band`
 - `reject_unsupported_plc_risk_family`
 
 ## Expected Contract Shape
@@ -34,8 +34,9 @@ Each operator contract should expose at least:
 
 ## Current v1 Behavior
 
-- the first four operators are **skeleton only**
-- they return explicit `not_implemented` results and keep their artifact/report ownership visible
+- `regularize_truncation_connector_band` is the first implemented geometry-side operator
+- it only regularizes the one-extra-pre-band-support family into a canonical 4-anchor connector-band topology
+- the other geometry operators remain **skeleton only**
 - `reject_unsupported_plc_risk_family` is intentionally implemented as a deterministic reject, so unsupported PLC risk families are not silently ignored
 
 ## Important Limitation

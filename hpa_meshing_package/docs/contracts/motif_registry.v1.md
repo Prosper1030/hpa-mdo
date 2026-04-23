@@ -38,7 +38,7 @@ This replaces the older habit of reasoning directly from unstable surface IDs.
 - `ROOT_CLOSURE` means the local topology is adjacent to a symmetry/root closure family
 - `TRUNCATION_SEAM_REQUIRED_RING` means tip-adjacent seam strips require a closure-ring style treatment family
 - `TRIANGULAR_ENDCAP_COLLAPSED_3PATCH` means exactly three collapsed local endcap strips define the family
-- `TRUNCATION_CONNECTOR_BAND` means a connector-band strip was already isolated by classification
+- `TRUNCATION_CONNECTOR_BAND` means the compiler has explicit connector-band descriptors and can dispatch the local regularization operator without surface-id patching
 - `VOLUME_ENTRY_PLC_RISK` means `pre_plc_audit.v1` already sees a blocking or warning-level risk family before 3D generation
 
 ## Important Limitation

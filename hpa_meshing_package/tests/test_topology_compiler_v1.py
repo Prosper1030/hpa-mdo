@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from hpa_meshing.compiler.compiler_v1 import (
     compile_topology_family_v1,
     resolve_shell_role_policy_v1,
@@ -41,6 +43,23 @@ def _sample_topology_report() -> dict[str, object]:
         "topology_lineage_report": {"artifact": "/tmp/topology_lineage_report.json"},
         "topology_suppression_report": {"artifact": "/tmp/topology_suppression_report.json"},
     }
+
+
+def _truncation_connector_band_topology_report(
+    selected_section_y_le_m: list[float],
+) -> dict[str, object]:
+    payload = _sample_topology_report()
+    payload["compiler_context"] = {
+        "truncation_connector_band": {
+            "enabled": True,
+            "root_y_le_m": 0.0,
+            "connector_band_start_y_le_m": 14.992006138888888,
+            "truncation_start_y_le_m": 14.998333333333333,
+            "tip_y_le_m": 16.5,
+            "selected_section_y_le_m": list(selected_section_y_le_m),
+        }
+    }
+    return payload
 
 
 def _sample_lineage_report() -> dict[str, object]:
@@ -136,10 +155,116 @@ def _sample_suppression_report() -> dict[str, object]:
     }
 
 
+def _truncation_connector_band_lineage_report(*, include_extra_pre_band_section: bool) -> dict[str, object]:
+    rule_sections = [
+        {
+            "rule_section_index": 0,
+            "source_section_index": 0,
+            "mirrored": False,
+            "side": "center_or_start",
+            "x_le": 0.0,
+            "y_le": 0.0,
+            "z_le": 0.0,
+            "chord": 1.30,
+            "twist_deg": 0.0,
+            "airfoil_source": "inline_coordinates",
+        },
+    ]
+    if include_extra_pre_band_section:
+        rule_sections.append(
+            {
+                "rule_section_index": 1,
+                "source_section_index": 4,
+                "mirrored": False,
+                "side": "right_span",
+                "x_le": 0.11822077170218112,
+                "y_le": 13.5,
+                "z_le": 0.5448734072648781,
+                "chord": 0.83,
+                "twist_deg": -0.3,
+                "airfoil_source": "inline_coordinates",
+            }
+        )
+    offset = len(rule_sections)
+    rule_sections.extend(
+        [
+            {
+                "rule_section_index": offset,
+                "source_section_index": 5,
+                "mirrored": False,
+                "side": "right_span",
+                "x_le": 0.17473981881820483,
+                "y_le": 14.992006138888888,
+                "z_le": 0.6726241298774025,
+                "chord": 0.6335525250462963,
+                "twist_deg": -0.8,
+                "airfoil_source": "inline_coordinates",
+            },
+            {
+                "rule_section_index": offset + 1,
+                "source_section_index": 6,
+                "mirrored": False,
+                "side": "right_span",
+                "x_le": 0.17497950080851096,
+                "y_le": 14.998333333333333,
+                "z_le": 0.6731658861351816,
+                "chord": 0.6327194444444444,
+                "twist_deg": -0.8,
+                "airfoil_source": "inline_coordinates",
+            },
+            {
+                "rule_section_index": offset + 2,
+                "source_section_index": 7,
+                "mirrored": False,
+                "side": "right_tip",
+                "x_le": 0.23186450072486597,
+                "y_le": 16.5,
+                "z_le": 0.8017437765268873,
+                "chord": 0.435,
+                "twist_deg": -1.0,
+                "airfoil_source": "inline_coordinates",
+            },
+        ]
+    )
+    return {
+        "status": "captured",
+        "surface_count": 1,
+        "surfaces": [
+            {
+                "component": "main_wing",
+                "geom_id": "fixture_band",
+                "name": "Fixture Band",
+                "caps_group": "main_wing",
+                "symmetric_xz": False,
+                "source_section_count": len(rule_sections),
+                "rule_section_count": len(rule_sections),
+                "rule_sections": rule_sections,
+                "terminal_strip_candidates": [],
+            }
+        ],
+        "notes": [],
+    }
+
+
 def _build_minimal_ir() -> TopologyIRV1:
     return build_topology_ir_v1(
         topology_report=_sample_topology_report(),
         topology_lineage_report=_sample_lineage_report(),
+        topology_suppression_report=_sample_suppression_report(),
+        component="main_wing",
+    )
+
+
+def _build_truncation_connector_band_ir(*, include_extra_pre_band_section: bool) -> TopologyIRV1:
+    selected_section_y_le_m = [0.0]
+    if include_extra_pre_band_section:
+        selected_section_y_le_m.append(13.5)
+    selected_section_y_le_m.extend([14.992006138888888, 14.998333333333333, 16.5])
+    return build_topology_ir_v1(
+        topology_report=_truncation_connector_band_topology_report(selected_section_y_le_m),
+        topology_lineage_report=_truncation_connector_band_lineage_report(
+            include_extra_pre_band_section=include_extra_pre_band_section
+        ),
         topology_suppression_report=_sample_suppression_report(),
         component="main_wing",
     )
@@ -319,6 +444,56 @@ def test_operator_library_v1_deterministically_rejects_unsupported_plc_risk_fami
     assert result.details["blocking_check_kinds"] == ["local_clearance_vs_first_layer_height"]
 
 
+def test_build_topology_ir_v1_classifies_truncation_connector_band_from_compiler_context():
+    ir = _build_truncation_connector_band_ir(include_extra_pre_band_section=True)
+
+    connector_patch = next(
+        patch for patch in ir.patches if patch.source_patch_family == "truncation_connector_band"
+    )
+
+    assert connector_patch.local_descriptors.truncation_band_role["status"] == "classified"
+    assert connector_patch.local_descriptors.truncation_band_role["role"] == "connector_band"
+    assert connector_patch.metadata["truncation_start_y_le_m"] == pytest.approx(14.998333333333333)
+
+
+def test_truncation_connector_band_operator_regularizes_single_extra_pre_band_support_family():
+    ir = _build_truncation_connector_band_ir(include_extra_pre_band_section=True)
+    registry = MotifRegistryV1()
+    library = OperatorLibraryV1()
+
+    band_match = next(
+        match for match in registry.detect(ir).matches if match.kind == "TRUNCATION_CONNECTOR_BAND"
+    )
+    result = library.execute("regularize_truncation_connector_band", band_match, ir)
+
+    assert result.status == "applied"
+    assert result.applied is True
+    plan = result.details["regularization_plan"]
+    assert plan["applicable"] is True
+    assert plan["drop_section_y_le_m"] == [pytest.approx(13.5)]
+    assert plan["keep_section_y_le_m"] == pytest.approx(
+        [0.0, 14.992006138888888, 14.998333333333333, 16.5]
+    )
+    assert plan["limitation"] == "v1_only_regularizes_one_extra_pre_band_support_section"
+
+
+def test_truncation_connector_band_operator_rejects_already_canonical_fixture():
+    ir = _build_truncation_connector_band_ir(include_extra_pre_band_section=False)
+    registry = MotifRegistryV1()
+    library = OperatorLibraryV1()
+
+    band_match = next(
+        match for match in registry.detect(ir).matches if match.kind == "TRUNCATION_CONNECTOR_BAND"
+    )
+    result = library.execute("regularize_truncation_connector_band", band_match, ir)
+
+    assert result.status == "rejected"
+    assert result.applied is False
+    plan = result.details["regularization_plan"]
+    assert plan["applicable"] is False
+    assert plan["reject_reasons"] == ["already_canonical_connector_band_family"]
+
+
 def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():
     ir = _build_minimal_ir().model_copy(
         update={
@@ -351,6 +526,7 @@ def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():
     assert checks["manifold_loop_consistency"].status == "pass"
     assert checks["segment_facet_intersection_risk"].status == "not_evaluated"
     assert checks["segment_facet_intersection_risk"].assessment == "placeholder"
+    assert report.bl_clearance_compatibility.verdict == "unsupported"
 
 
 def test_pre_plc_audit_v1_distinguishes_observed_inferred_placeholder_and_unsupported_checks():
@@ -400,6 +576,17 @@ def test_pre_plc_audit_v1_distinguishes_observed_inferred_placeholder_and_unsupp
     assert checks["degenerated_prism_risk"].status == "not_evaluated"
     assert checks["local_clearance_vs_first_layer_height"].assessment == "unsupported"
     assert checks["local_clearance_vs_first_layer_height"].status == "not_evaluated"
+    assert report.bl_clearance_compatibility.total_bl_thickness_m == pytest.approx(5.0e-5)
+    assert report.bl_clearance_compatibility.min_local_clearance_m == pytest.approx(1.0e-5)
+    assert report.bl_clearance_compatibility.clearance_to_thickness_ratio == pytest.approx(0.2)
+    assert report.bl_clearance_compatibility.verdict == "insufficient_clearance"
+    assert report.summary.observed_topology_fail_count == 2
+    assert report.summary.bl_compatibility_fail_count == 1
+    assert report.blocking_topology_check_kinds == [
+        "segment_facet_intersection_risk",
+        "facet_facet_overlap_risk",
+    ]
+    assert report.blocking_bl_compatibility_check_kinds == ["extrusion_self_contact_risk"]
 
 
 def test_topology_compiler_v1_artifacts_and_shell_role_policies_stay_separated(tmp_path: Path):
@@ -433,3 +620,4 @@ def test_topology_compiler_v1_artifacts_and_shell_role_policies_stay_separated(t
     assert summary["shell_role_policy"]["role_name"] == "shell_v4_active_bl_validation"
     assert summary["artifacts"]["topology_ir"].endswith("topology_ir.v1.json")
     assert summary["artifacts"]["summary"].endswith("topology_compiler_summary.v1.json")
+    assert summary["pre_plc_audit"]["bl_clearance_compatibility"]["verdict"] == "unsupported"

@@ -83,16 +83,35 @@ This keeps the architecture honest:
 - versioned compiler package under `src/hpa_meshing/compiler/`
 - `topology_ir.v1` models plus builder from existing `esp_rebuilt` artifacts
 - `motif_registry.v1` with the requested first-wave motif kinds
-- `operator_library.v1` with explicit contracts and skeleton results
-- `pre_plc_audit.v1` schema plus minimal implemented guards for loop consistency and local-clearance-vs-first-layer-height
+- `operator_library.v1` with the first real `TRUNCATION_CONNECTOR_BAND -> regularization` operator
+- `pre_plc_audit.v1` schema plus explicit BL-clearance-compatibility reporting that stays separate from topology failures
 - `topology_compiler.v1` artifact writer and shell-role policy split
 - tests for schema, registry wiring, deterministic reject, and shell role separation
 
+## `TRUNCATION_CONNECTOR_BAND` v1 operator scope
+
+The first implemented operator is intentionally local:
+
+- it only regularizes the terminal truncation connector band
+- it canonicalizes one extra pre-band support strip into the 4-anchor family
+- it is meant to consume the observed overlapping-facet family before we claim any whole-wing rewrite
+
+What it does **not** mean:
+
+- not a whole-wing topology rewrite
+- not a root-closure redesign
+- not proof that segment-facet or BL-thickness failures are solved everywhere
+
+The current honest outcome is:
+
+- `root_last4_overlap` can be regularized away from the original overlap family
+- `root_last3_segment_facet` remains a real unresolved observed failure family
+- BL thickness / local clearance compatibility is still a separate audit line
+
 ## What is intentionally still skeleton / TODO
 
-- no operator except deterministic reject actually repairs geometry
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips
-- no PLC reproducer yet for segment-facet or facet-facet families
+- no claim that the connector-band operator is fully generalized beyond the one-extra-support-strip family
 - no automatic integration into the live `shell_v4` runtime path yet
 
 Those are intentional boundaries, not missing polish.

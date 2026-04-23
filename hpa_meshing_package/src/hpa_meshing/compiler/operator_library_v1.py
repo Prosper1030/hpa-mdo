@@ -12,7 +12,7 @@ OperatorNameV1 = Literal[
     "root_closure_from_bl_faces",
     "closure_ring_exact_wire_surface_fill",
     "extbl_termination_fallback_for_collapsed_endcap",
-    "local_truncation_protection",
+    "regularize_truncation_connector_band",
     "reject_unsupported_plc_risk_family",
 ]
 
@@ -55,6 +55,113 @@ class OperatorPlanV1(BaseModel):
     notes: List[str] = Field(default_factory=list)
 
 
+class TruncationConnectorBandRegularizationPlanV1(BaseModel):
+    contract: str = "truncation_connector_band_regularization_plan.v1"
+    applicable: bool
+    reject_reasons: List[str] = Field(default_factory=list)
+    connector_band_patch_ids: List[str] = Field(default_factory=list)
+    pre_band_support_patch_ids: List[str] = Field(default_factory=list)
+    drop_section_y_le_m: List[float] = Field(default_factory=list)
+    keep_section_y_le_m: List[float] = Field(default_factory=list)
+    root_y_le_m: Optional[float] = None
+    connector_band_start_y_le_m: Optional[float] = None
+    truncation_start_y_le_m: Optional[float] = None
+    tip_y_le_m: Optional[float] = None
+    limitation: str = "v1_only_regularizes_one_extra_pre_band_support_section"
+
+
+def _truncation_connector_band_context(ir: TopologyIRV1) -> Dict[str, Any]:
+    if not isinstance(ir.compiler_context, dict):
+        return {}
+    context = ir.compiler_context.get("truncation_connector_band")
+    if not isinstance(context, dict):
+        return {}
+    return context
+
+
+def _ordered_selected_section_y_le_m(context: Dict[str, Any]) -> List[float]:
+    values = [float(value) for value in context.get("selected_section_y_le_m", []) if value is not None]
+    ordered: List[float] = []
+    for value in values:
+        if value not in ordered:
+            ordered.append(value)
+    return ordered
+
+
+def _connector_band_regularization_plan(
+    *,
+    motif_match: MotifMatchV1,
+    ir: TopologyIRV1,
+) -> TruncationConnectorBandRegularizationPlanV1:
+    context = _truncation_connector_band_context(ir)
+    selected_section_y_le_m = _ordered_selected_section_y_le_m(context)
+    root_y = float(context["root_y_le_m"]) if context.get("root_y_le_m") is not None else None
+    connector_band_start_y = (
+        float(context["connector_band_start_y_le_m"])
+        if context.get("connector_band_start_y_le_m") is not None
+        else None
+    )
+    truncation_start_y = (
+        float(context["truncation_start_y_le_m"])
+        if context.get("truncation_start_y_le_m") is not None
+        else None
+    )
+    tip_y = float(context["tip_y_le_m"]) if context.get("tip_y_le_m") is not None else None
+
+    connector_band_patch_ids = [
+        patch.patch_id
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "connector_band"
+    ]
+    pre_band_support_patch_ids = [
+        patch.patch_id
+        for patch in ir.patches
+        if patch.local_descriptors.truncation_band_role.get("role") == "pre_band_support"
+    ]
+
+    reject_reasons: List[str] = []
+    if not selected_section_y_le_m:
+        reject_reasons.append("missing_selected_section_y_le_m")
+    if root_y is None or connector_band_start_y is None or truncation_start_y is None or tip_y is None:
+        reject_reasons.append("missing_connector_band_descriptors")
+    if len(connector_band_patch_ids) != 1:
+        reject_reasons.append("connector_band_patch_count_not_equal_to_one")
+
+    drop_section_y_le_m = [
+        float(value)
+        for value in selected_section_y_le_m
+        if root_y is not None
+        and connector_band_start_y is not None
+        and float(value) > float(root_y) + 1.0e-6
+        and float(value) < float(connector_band_start_y) - 1.0e-6
+    ]
+    if not reject_reasons:
+        if len(drop_section_y_le_m) == 0:
+            reject_reasons.append("already_canonical_connector_band_family")
+        elif len(drop_section_y_le_m) > 1:
+            reject_reasons.append("multiple_pre_band_support_sections_out_of_scope")
+
+    keep_section_y_le_m = [
+        float(value)
+        for value in selected_section_y_le_m
+        if float(value) not in set(drop_section_y_le_m)
+    ]
+    applicable = not reject_reasons
+
+    return TruncationConnectorBandRegularizationPlanV1(
+        applicable=applicable,
+        reject_reasons=reject_reasons,
+        connector_band_patch_ids=connector_band_patch_ids or list(motif_match.entity_ids),
+        pre_band_support_patch_ids=pre_band_support_patch_ids,
+        drop_section_y_le_m=drop_section_y_le_m if applicable else [],
+        keep_section_y_le_m=keep_section_y_le_m if applicable else selected_section_y_le_m,
+        root_y_le_m=root_y,
+        connector_band_start_y_le_m=connector_band_start_y,
+        truncation_start_y_le_m=truncation_start_y,
+        tip_y_le_m=tip_y,
+    )
+
+
 class OperatorLibraryV1:
     def __init__(self) -> None:
         self._contracts: Dict[str, OperatorContractV1] = {
@@ -79,12 +186,19 @@ class OperatorLibraryV1:
                 expected_artifact_keys=["collapsed_endcap_fallback_plan", "collapsed_endcap_fallback_report"],
                 report_key="extbl_termination_fallback_for_collapsed_endcap",
             ),
-            "local_truncation_protection": OperatorContractV1(
-                operator_name="local_truncation_protection",
-                implementation_status="skeleton",
+            "regularize_truncation_connector_band": OperatorContractV1(
+                operator_name="regularize_truncation_connector_band",
+                implementation_status="implemented",
                 supported_motif_kinds=["TRUNCATION_CONNECTOR_BAND"],
-                expected_artifact_keys=["local_truncation_protection_plan", "local_truncation_protection_report"],
-                report_key="local_truncation_protection",
+                expected_artifact_keys=[
+                    "truncation_connector_band_regularization_plan",
+                    "truncation_connector_band_regularization_report",
+                ],
+                report_key="truncation_connector_band_regularization",
+                notes=[
+                    "This operator canonicalizes one extra pre-band support strip into the 4-anchor connector-band family.",
+                    "It does not claim BL thickness / local clearance compatibility is fixed.",
+                ],
             ),
             "reject_unsupported_plc_risk_family": OperatorContractV1(
                 operator_name="reject_unsupported_plc_risk_family",
@@ -138,6 +252,37 @@ class OperatorLibraryV1:
         audit_report: Optional[Any] = None,
     ) -> OperatorResultV1:
         contract = self.describe(operator_name)
+        if operator_name == "regularize_truncation_connector_band":
+            regularization_plan = _connector_band_regularization_plan(
+                motif_match=motif_match,
+                ir=ir,
+            )
+            if regularization_plan.applicable:
+                return OperatorResultV1(
+                    operator_name=operator_name,
+                    motif_kind=motif_match.kind,
+                    status="applied",
+                    applied=True,
+                    report_key=contract.report_key,
+                    expected_artifact_keys=list(contract.expected_artifact_keys),
+                    details={"regularization_plan": regularization_plan.model_dump(mode="json")},
+                    notes=[
+                        "The operator regularizes one extra pre-band support strip into the canonical connector-band family.",
+                        "Observed topology and BL compatibility remain separate follow-on judgments.",
+                    ],
+                )
+            return OperatorResultV1(
+                operator_name=operator_name,
+                motif_kind=motif_match.kind,
+                status="rejected",
+                applied=False,
+                report_key=contract.report_key,
+                expected_artifact_keys=list(contract.expected_artifact_keys),
+                details={"regularization_plan": regularization_plan.model_dump(mode="json")},
+                notes=[
+                    "The operator rejected this family honestly instead of pretending the local topology was rewritten.",
+                ],
+            )
         if operator_name == "reject_unsupported_plc_risk_family":
             blocking_check_kinds = [
                 check.kind

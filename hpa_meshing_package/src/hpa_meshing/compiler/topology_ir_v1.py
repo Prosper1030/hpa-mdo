@@ -15,6 +15,12 @@ def _default_extrusion_compatibility() -> Dict[str, Any]:
     }
 
 
+def _default_truncation_band_role() -> Dict[str, Any]:
+    return {
+        "status": "not_classified",
+    }
+
+
 class SectionLineageV1(BaseModel):
     source_section_indices: List[int] = Field(default_factory=list)
     rule_section_indices: List[int] = Field(default_factory=list)
@@ -41,6 +47,7 @@ class LocalTopologyDescriptorsV1(BaseModel):
     dihedral_consistency: Dict[str, Any] = Field(default_factory=lambda: {"status": "not_evaluated"})
     orientation_consistency: Dict[str, Any] = Field(default_factory=lambda: {"status": "not_evaluated"})
     extrusion_compatibility: Dict[str, Any] = Field(default_factory=_default_extrusion_compatibility)
+    truncation_band_role: Dict[str, Any] = Field(default_factory=_default_truncation_band_role)
 
 
 class TopologyCurveV1(BaseModel):
@@ -112,6 +119,7 @@ class TopologyIRV1(BaseModel):
     geometry_provider: Optional[str] = None
     normalized_geometry_path: Optional[Path] = None
     extraction_mode: str = "artifact_inferred_section_strip_decomposition"
+    compiler_context: Dict[str, Any] = Field(default_factory=dict)
     topology_counts: Dict[str, Any] = Field(default_factory=dict)
     topology_artifacts: Dict[str, Any] = Field(default_factory=dict)
     patches: List[TopologyPatchV1] = Field(default_factory=list)
@@ -211,6 +219,106 @@ def _tip_candidate_by_source_section(surface: Dict[str, Any]) -> Dict[int, Dict[
     return mapping
 
 
+def _truncation_connector_band_context(topology_payload: Dict[str, Any]) -> Dict[str, Any]:
+    compiler_context = topology_payload.get("compiler_context")
+    if not isinstance(compiler_context, dict):
+        return {}
+    raw = compiler_context.get("truncation_connector_band")
+    if not isinstance(raw, dict) or not raw.get("enabled", False):
+        return {}
+    return {
+        "enabled": True,
+        "root_y_le_m": (
+            float(raw["root_y_le_m"]) if raw.get("root_y_le_m") is not None else None
+        ),
+        "connector_band_start_y_le_m": (
+            float(raw["connector_band_start_y_le_m"])
+            if raw.get("connector_band_start_y_le_m") is not None
+            else None
+        ),
+        "truncation_start_y_le_m": (
+            float(raw["truncation_start_y_le_m"])
+            if raw.get("truncation_start_y_le_m") is not None
+            else None
+        ),
+        "tip_y_le_m": (
+            float(raw["tip_y_le_m"]) if raw.get("tip_y_le_m") is not None else None
+        ),
+        "selected_section_y_le_m": [
+            float(value) for value in raw.get("selected_section_y_le_m", []) if value is not None
+        ],
+    }
+
+
+def _close(lhs: Optional[float], rhs: Optional[float], *, tolerance: float = 1.0e-6) -> bool:
+    if lhs is None or rhs is None:
+        return False
+    return abs(float(lhs) - float(rhs)) <= tolerance
+
+
+def _classify_truncation_band_role(
+    *,
+    lhs: Dict[str, Any],
+    rhs: Dict[str, Any],
+    context: Dict[str, Any],
+) -> Dict[str, Any]:
+    if not context:
+        return _default_truncation_band_role()
+
+    lhs_y = float(lhs.get("y_le", 0.0))
+    rhs_y = float(rhs.get("y_le", 0.0))
+    root_y = context.get("root_y_le_m")
+    connector_band_start_y = context.get("connector_band_start_y_le_m")
+    truncation_start_y = context.get("truncation_start_y_le_m")
+    tip_y = context.get("tip_y_le_m")
+    tolerance = 1.0e-6
+
+    role: Optional[str] = None
+    if _close(lhs_y, connector_band_start_y, tolerance=tolerance) and _close(
+        rhs_y,
+        truncation_start_y,
+        tolerance=tolerance,
+    ):
+        role = "connector_band"
+    elif _close(lhs_y, truncation_start_y, tolerance=tolerance) and _close(
+        rhs_y,
+        tip_y,
+        tolerance=tolerance,
+    ):
+        role = "truncation_transition"
+    elif (
+        connector_band_start_y is not None
+        and root_y is not None
+        and lhs_y > float(root_y) + tolerance
+        and _close(rhs_y, connector_band_start_y, tolerance=tolerance)
+    ):
+        role = "pre_band_support"
+    elif root_y is not None and _close(lhs_y, root_y, tolerance=tolerance):
+        role = "root_to_terminal_support"
+
+    if role is None:
+        return _default_truncation_band_role()
+
+    extra_pre_band_section_y_le_m = [
+        float(value)
+        for value in context.get("selected_section_y_le_m", [])
+        if root_y is not None
+        and connector_band_start_y is not None
+        and float(value) > float(root_y) + tolerance
+        and float(value) < float(connector_band_start_y) - tolerance
+    ]
+
+    return {
+        "status": "classified",
+        "role": role,
+        "root_y_le_m": root_y,
+        "connector_band_start_y_le_m": connector_band_start_y,
+        "truncation_start_y_le_m": truncation_start_y,
+        "tip_y_le_m": tip_y,
+        "extra_pre_band_section_y_le_m": extra_pre_band_section_y_le_m,
+    }
+
+
 def build_topology_ir_v1(
     *,
     topology_report: Any,
@@ -222,6 +330,7 @@ def build_topology_ir_v1(
     topology_payload = _load_payload(topology_report)
     lineage_payload = _load_payload(topology_lineage_report)
     suppression_payload = _load_payload(topology_suppression_report)
+    truncation_band_context = _truncation_connector_band_context(topology_payload)
     surfaces = [dict(surface) for surface in lineage_payload.get("surfaces", [])]
 
     curves_by_id: Dict[str, TopologyCurveV1] = {}
@@ -366,11 +475,30 @@ def build_topology_ir_v1(
                     }
                 )
 
+            truncation_band_role = _classify_truncation_band_role(
+                lhs=lhs,
+                rhs=rhs,
+                context=truncation_band_context,
+            )
+            source_patch_family = (
+                "truncation_connector_band"
+                if truncation_band_role.get("role") == "connector_band"
+                else "rule_section_strip"
+            )
+            patch_tags = []
+            if truncation_band_role.get("role") == "connector_band":
+                patch_tags.append("truncation_connector_band")
+            elif truncation_band_role.get("role") == "pre_band_support":
+                patch_tags.append("truncation_pre_band_support")
+            elif truncation_band_role.get("role") == "truncation_transition":
+                patch_tags.append("truncation_transition")
+
             patch = TopologyPatchV1(
                 patch_id=patch_id,
                 patch_kind="rule_section_strip",
                 component=component_name,
                 label=f"{surface.get('name', component_name)} strip {interval_index}",
+                source_patch_family=source_patch_family,
                 curve_ids=[inboard_curve_id, leading_curve_id, outboard_curve_id, trailing_curve_id],
                 loop_ids=[loop_id],
                 corner_ids=list(corner_specs),
@@ -407,13 +535,25 @@ def build_topology_ir_v1(
                     ),
                     dihedral_consistency=_dihedral_consistency(lhs, rhs),
                     orientation_consistency=_orientation_consistency(lhs, rhs),
+                    truncation_band_role=truncation_band_role,
                 ),
+                tags=patch_tags,
                 metadata={
                     "inboard_y_le_m": float(lhs.get("y_le", 0.0)),
                     "outboard_y_le_m": float(rhs.get("y_le", 0.0)),
                     "span_interval_m": abs(float(rhs.get("y_le", 0.0)) - float(lhs.get("y_le", 0.0))),
                     "inboard_chord_m": float(lhs.get("chord", 0.0)),
                     "outboard_chord_m": float(rhs.get("chord", 0.0)),
+                    **(
+                        {
+                            "root_y_le_m": truncation_band_role.get("root_y_le_m"),
+                            "connector_band_start_y_le_m": truncation_band_role.get("connector_band_start_y_le_m"),
+                            "truncation_start_y_le_m": truncation_band_role.get("truncation_start_y_le_m"),
+                            "tip_y_le_m": truncation_band_role.get("tip_y_le_m"),
+                        }
+                        if truncation_band_role.get("status") == "classified"
+                        else {}
+                    ),
                     **(
                         {
                             "terminal_trailing_edge_gap_m": float(tip_candidate.get("trailing_edge_gap_m", 0.0)),
@@ -484,6 +624,7 @@ def build_topology_ir_v1(
         geometry_source="esp_rebuilt",
         geometry_provider="esp_rebuilt",
         normalized_geometry_path=normalized_geometry_path,
+        compiler_context=dict(topology_payload.get("compiler_context") or {}),
         topology_counts=topology_counts,
         topology_artifacts=topology_artifacts,
         patches=patches,

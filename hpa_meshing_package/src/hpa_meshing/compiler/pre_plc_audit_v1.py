@@ -54,6 +54,19 @@ class PrePLCAuditSummaryV1(BaseModel):
     inferred_count: int
     placeholder_count: int
     unsupported_count: int
+    observed_topology_fail_count: int = 0
+    inferred_topology_fail_count: int = 0
+    bl_compatibility_fail_count: int = 0
+
+
+class BLClearanceCompatibilityV1(BaseModel):
+    status: PrePLCAuditStatusV1
+    verdict: Literal["compatible", "insufficient_clearance", "unsupported"]
+    total_bl_thickness_m: Optional[float] = None
+    min_local_clearance_m: Optional[float] = None
+    clearance_to_thickness_ratio: Optional[float] = None
+    entity_ids: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
 
 
 class PrePLCAuditReportV1(BaseModel):
@@ -61,8 +74,11 @@ class PrePLCAuditReportV1(BaseModel):
     source_contract: str = "topology_ir.v1"
     config: PrePLCAuditConfigV1 = Field(default_factory=PrePLCAuditConfigV1)
     checks: List[PrePLCAuditCheckV1] = Field(default_factory=list)
+    bl_clearance_compatibility: BLClearanceCompatibilityV1
     summary: PrePLCAuditSummaryV1
     blocking_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
+    blocking_topology_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
+    blocking_bl_compatibility_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
 
@@ -102,6 +118,22 @@ def _observed_check(
         },
         notes=[primary.error_text, *list(primary.notes)],
     )
+
+
+def _is_topology_check(kind: PrePLCAuditCheckKindV1) -> bool:
+    return kind in {
+        "segment_facet_intersection_risk",
+        "facet_facet_overlap_risk",
+        "degenerated_prism_risk",
+        "manifold_loop_consistency",
+    }
+
+
+def _is_bl_compatibility_check(kind: PrePLCAuditCheckKindV1) -> bool:
+    return kind in {
+        "extrusion_self_contact_risk",
+        "local_clearance_vs_first_layer_height",
+    }
 
 
 def _segment_facet_intersection_check(
@@ -339,6 +371,27 @@ def _manifold_loop_consistency_check(ir: TopologyIRV1) -> PrePLCAuditCheckV1:
     )
 
 
+def _bl_clearance_compatibility_from_check(
+    check: PrePLCAuditCheckV1,
+) -> BLClearanceCompatibilityV1:
+    if check.status == "not_evaluated":
+        return BLClearanceCompatibilityV1(
+            status="not_evaluated",
+            verdict="unsupported",
+            notes=list(check.notes),
+        )
+    ratio = check.metrics.get("min_clearance_to_total_thickness_ratio")
+    return BLClearanceCompatibilityV1(
+        status=check.status,
+        verdict="compatible" if check.status == "pass" else "insufficient_clearance",
+        total_bl_thickness_m=check.metrics.get("total_boundary_layer_thickness_m"),
+        min_local_clearance_m=check.metrics.get("min_local_clearance_m"),
+        clearance_to_thickness_ratio=ratio,
+        entity_ids=list(check.entity_ids),
+        notes=list(check.notes),
+    )
+
+
 def run_pre_plc_audit_v1(
     ir: TopologyIRV1,
     *,
@@ -353,11 +406,18 @@ def run_pre_plc_audit_v1(
         _local_clearance_check(ir, resolved_config),
         _manifold_loop_consistency_check(ir),
     ]
+    checks_by_kind = {check.kind: check for check in checks}
     highest_status = max((check.status for check in checks), key=_status_rank)
     blocking_check_kinds = [
         check.kind
         for check in checks
         if check.status == "fail"
+    ]
+    blocking_topology_check_kinds = [
+        check.kind for check in checks if check.status == "fail" and _is_topology_check(check.kind)
+    ]
+    blocking_bl_compatibility_check_kinds = [
+        check.kind for check in checks if check.status == "fail" and _is_bl_compatibility_check(check.kind)
     ]
     warning_count = sum(1 for check in checks if check.status == "warn")
     not_evaluated_count = sum(1 for check in checks if check.status == "not_evaluated")
@@ -365,9 +425,27 @@ def run_pre_plc_audit_v1(
     inferred_count = sum(1 for check in checks if check.assessment == "inferred")
     placeholder_count = sum(1 for check in checks if check.assessment == "placeholder")
     unsupported_count = sum(1 for check in checks if check.assessment == "unsupported")
+    observed_topology_fail_count = sum(
+        1
+        for check in checks
+        if check.status == "fail" and check.assessment == "observed" and _is_topology_check(check.kind)
+    )
+    inferred_topology_fail_count = sum(
+        1
+        for check in checks
+        if check.status == "fail" and check.assessment == "inferred" and _is_topology_check(check.kind)
+    )
+    bl_compatibility_fail_count = sum(
+        1
+        for check in checks
+        if check.status == "fail" and _is_bl_compatibility_check(check.kind)
+    )
     return PrePLCAuditReportV1(
         config=resolved_config,
         checks=checks,
+        bl_clearance_compatibility=_bl_clearance_compatibility_from_check(
+            checks_by_kind["extrusion_self_contact_risk"]
+        ),
         summary=PrePLCAuditSummaryV1(
             highest_status=highest_status,
             blocker_count=len(blocking_check_kinds),
@@ -377,9 +455,15 @@ def run_pre_plc_audit_v1(
             inferred_count=inferred_count,
             placeholder_count=placeholder_count,
             unsupported_count=unsupported_count,
+            observed_topology_fail_count=observed_topology_fail_count,
+            inferred_topology_fail_count=inferred_topology_fail_count,
+            bl_compatibility_fail_count=bl_compatibility_fail_count,
         ),
         blocking_check_kinds=blocking_check_kinds,
+        blocking_topology_check_kinds=blocking_topology_check_kinds,
+        blocking_bl_compatibility_check_kinds=blocking_bl_compatibility_check_kinds,
         notes=[
             "pre_plc_audit.v1 is a front-loaded risk audit, not a claim that PLC repair is implemented",
+            "BL thickness / clearance compatibility is reported separately from observed or inferred topology failures.",
         ],
     )

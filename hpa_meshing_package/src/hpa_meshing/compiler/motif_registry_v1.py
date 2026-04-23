@@ -69,10 +69,13 @@ class MotifRegistryV1:
             ),
             "TRUNCATION_CONNECTOR_BAND": MotifRegistryEntryV1(
                 kind="TRUNCATION_CONNECTOR_BAND",
-                admissible_operators=["local_truncation_protection"],
-                reject_conditions=["missing_connector_band_span"],
+                admissible_operators=["regularize_truncation_connector_band"],
+                reject_conditions=["missing_connector_band_descriptors"],
                 unsupported_conditions=["connector_band_not_classified"],
-                expected_artifact_keys=["local_truncation_protection_plan", "local_truncation_protection_report"],
+                expected_artifact_keys=[
+                    "truncation_connector_band_regularization_plan",
+                    "truncation_connector_band_regularization_report",
+                ],
             ),
             "VOLUME_ENTRY_PLC_RISK": MotifRegistryEntryV1(
                 kind="VOLUME_ENTRY_PLC_RISK",
@@ -173,22 +176,42 @@ class MotifRegistryV1:
         ]
 
     def _match_truncation_connector_band(self, ir: TopologyIRV1) -> List[MotifMatchV1]:
-        patch_ids = [
-            patch.patch_id
+        connector_band_patches = [
+            patch
             for patch in ir.patches
             if patch.source_patch_family == "truncation_connector_band"
             or "truncation_connector_band" in patch.tags
+            or patch.local_descriptors.truncation_band_role.get("role") == "connector_band"
         ]
+        patch_ids = [patch.patch_id for patch in connector_band_patches]
         if not patch_ids:
             return []
         entry = self.describe("TRUNCATION_CONNECTOR_BAND")
+        selected_section_y_le_m = (
+            ir.compiler_context.get("truncation_connector_band", {}).get("selected_section_y_le_m", [])
+            if isinstance(ir.compiler_context, dict)
+            else []
+        )
+        extra_pre_band_support_count = sum(
+            1
+            for patch in ir.patches
+            if patch.local_descriptors.truncation_band_role.get("role") == "pre_band_support"
+        )
         return [
             MotifMatchV1(
                 motif_id="TRUNCATION_CONNECTOR_BAND:0",
                 kind="TRUNCATION_CONNECTOR_BAND",
                 entity_ids=patch_ids,
-                summary="Topology already isolates a connector-band strip family for truncation protection.",
-                predicate_evidence={"connector_band_patch_count": len(patch_ids)},
+                summary="Topology isolates a connector-band strip family with explicit truncation-band descriptors.",
+                predicate_evidence={
+                    "connector_band_patch_count": len(patch_ids),
+                    "extra_pre_band_support_count": extra_pre_band_support_count,
+                    "selected_section_y_le_m": list(selected_section_y_le_m),
+                    "connector_band_start_y_le_m": connector_band_patches[0]
+                    .local_descriptors.truncation_band_role.get("connector_band_start_y_le_m"),
+                    "truncation_start_y_le_m": connector_band_patches[0]
+                    .local_descriptors.truncation_band_role.get("truncation_start_y_le_m"),
+                },
                 admissible_operators=entry.admissible_operators,
                 reject_conditions=entry.reject_conditions,
                 unsupported_conditions=entry.unsupported_conditions,

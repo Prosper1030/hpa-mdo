@@ -33,7 +33,22 @@ Before `generate(3)` or later solver-entry claims, this audit should tell us:
 
 - `local_clearance_vs_first_layer_height` is a real guard when both inputs exist
 - `manifold_loop_consistency` is a real consistency check on the inferred IR loops
-- the other risk families remain placeholder-ready checks unless explicit flags are already present in the descriptors
+- observed topology failures and BL compatibility failures are tracked separately in the summary
+- `extrusion_self_contact_risk` is treated as the BL-thickness / local-clearance compatibility line, not as proof of topology repair success
+
+## BL Clearance Compatibility Gate
+
+`pre_plc_audit.v1` now carries a dedicated BL compatibility summary with:
+
+- `total_bl_thickness_m`
+- `min_local_clearance_m`
+- `clearance_to_thickness_ratio`
+- `verdict`
+
+This gate is intentionally separate from observed topology failures such as:
+
+- `segment_facet_intersection_risk`
+- `facet_facet_overlap_risk`
 
 ## Important Limitation
 

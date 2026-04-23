@@ -21,10 +21,13 @@ from .adapters.su2_backend import (
     _solver_env as _backend_solver_env,
 )
 from .compiler.compiler_v1 import compile_topology_family_v1
+from .compiler.motif_registry_v1 import MotifRegistryV1
+from .compiler.operator_library_v1 import OperatorLibraryV1
 from .compiler.pre_plc_audit_v1 import (
     PrePLCAuditConfigV1,
     PrePLCAuditObservedEvidenceV1,
 )
+from .compiler.topology_ir_v1 import build_topology_ir_v1
 from .gmsh_runtime import GmshRuntimeError, load_gmsh
 from .providers.esp_pipeline import (
     _apply_terminal_strip_suppression,
@@ -1664,6 +1667,162 @@ def _build_shell_v4_pre_plc_repro_fixture(
     }
 
 
+def _build_shell_v4_pre_plc_fixture_topology_report(
+    fixture: dict[str, Any],
+) -> dict[str, Any]:
+    resolved = dict((fixture.get("tip_truncation_seed") or {}).get("resolved") or {})
+    selected_section_y_le_m = [float(value) for value in fixture.get("selected_section_y_le_m", [])]
+    return {
+        "representation": "shell_v4_pre_plc_fixture",
+        "source_kind": "fixture",
+        "units": "m",
+        "body_count": 1,
+        "surface_count": max(len(selected_section_y_le_m) - 1, 0),
+        "volume_count": 1,
+        "source_path": str(fixture.get("source_path") or ""),
+        "export_path": str(fixture.get("geometry", {}).get("artifact_path") or ""),
+        "compiler_context": {
+            "truncation_connector_band": {
+                "enabled": bool(resolved.get("enabled")),
+                "root_y_le_m": selected_section_y_le_m[0] if selected_section_y_le_m else None,
+                "connector_band_start_y_le_m": resolved.get("connector_band_start_y_m"),
+                "truncation_start_y_le_m": resolved.get("start_y_m"),
+                "tip_y_le_m": selected_section_y_le_m[-1] if selected_section_y_le_m else None,
+                "selected_section_y_le_m": selected_section_y_le_m,
+            }
+        },
+    }
+
+
+def _build_shell_v4_pre_plc_fixture_topology_lineage_report(
+    fixture: dict[str, Any],
+) -> dict[str, Any]:
+    sections = [dict(section) for section in fixture.get("geometry", {}).get("sections", [])]
+    rule_sections: list[dict[str, Any]] = []
+    for index, section in enumerate(sections):
+        if index == 0:
+            side = "center_or_start"
+        elif index == len(sections) - 1:
+            side = "right_tip"
+        else:
+            side = "right_span"
+        rule_sections.append(
+            {
+                "rule_section_index": index,
+                "source_section_index": index,
+                "mirrored": False,
+                "side": side,
+                "x_le": float(section.get("x_le", 0.0)),
+                "y_le": float(section.get("y_le", 0.0)),
+                "z_le": float(section.get("z_le", 0.0)),
+                "chord": float(section.get("chord", 0.0)),
+                "twist_deg": float(section.get("twist_deg", 0.0)),
+                "airfoil_source": str(section.get("airfoil_source", "inline_coordinates")),
+            }
+        )
+    return {
+        "status": "captured",
+        "surface_count": 1,
+        "surfaces": [
+            {
+                "component": str(fixture.get("component") or "main_wing"),
+                "geom_id": f"fixture::{fixture.get('family', 'unknown')}",
+                "name": str(fixture.get("family") or "fixture"),
+                "caps_group": str(fixture.get("component") or "main_wing"),
+                "symmetric_xz": False,
+                "source_section_count": len(rule_sections),
+                "rule_section_count": len(rule_sections),
+                "rule_sections": rule_sections,
+                "terminal_strip_candidates": [],
+            }
+        ],
+        "notes": [],
+    }
+
+
+def _apply_truncation_connector_band_operator_to_pre_plc_fixture(
+    fixture: dict[str, Any],
+    *,
+    artifact_dir: Path,
+) -> dict[str, Any]:
+    artifact_dir = Path(artifact_dir)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    topology_report = _build_shell_v4_pre_plc_fixture_topology_report(fixture)
+    topology_lineage_report = _build_shell_v4_pre_plc_fixture_topology_lineage_report(fixture)
+    topology_suppression_report = {
+        "status": "captured",
+        "applied": False,
+        "surface_count": 1,
+        "suppressed_source_section_count": 0,
+        "surfaces": [{"suppressed_source_section_indices": [], "suppressed_sections": [], "applied": False}],
+        "notes": [],
+    }
+    topology_ir = build_topology_ir_v1(
+        topology_report=topology_report,
+        topology_lineage_report=topology_lineage_report,
+        topology_suppression_report=topology_suppression_report,
+        component=str(fixture.get("component") or "main_wing"),
+    )
+    motif_match = next(
+        (
+            match
+            for match in MotifRegistryV1().detect(topology_ir).matches
+            if match.kind == "TRUNCATION_CONNECTOR_BAND"
+        ),
+        None,
+    )
+    if motif_match is None:
+        raise RuntimeError("TRUNCATION_CONNECTOR_BAND motif was not classified for the pre-PLC fixture")
+
+    operator_result = OperatorLibraryV1().execute(
+        "regularize_truncation_connector_band",
+        motif_match,
+        topology_ir,
+    )
+
+    regularized_fixture = copy.deepcopy(fixture)
+    original_sections = [copy.deepcopy(section) for section in fixture.get("geometry", {}).get("sections", [])]
+    if operator_result.applied:
+        drop_section_y_le_m = {
+            float(value)
+            for value in operator_result.details["regularization_plan"].get("drop_section_y_le_m", [])
+        }
+        kept_sections = [
+            section
+            for section in original_sections
+            if float(section.get("y_le", 0.0)) not in drop_section_y_le_m
+        ]
+    else:
+        kept_sections = original_sections
+
+    kept_y_le_m = [float(section.get("y_le", 0.0)) for section in kept_sections]
+    regularized_fixture["selected_section_y_le_m"] = kept_y_le_m
+    regularized_fixture["selected_section_indices"] = [
+        index for index, section in enumerate(kept_sections)
+    ]
+    regularized_fixture["geometry"]["sections"] = kept_sections
+    regularized_fixture["geometry"]["selected_section_count"] = len(kept_sections)
+    regularized_fixture["geometry"]["selected_section_y_le_m"] = kept_y_le_m
+
+    report_path = artifact_dir / "truncation_connector_band_regularization_report.json"
+    write_json_report(
+        report_path,
+        {
+            "fixture_id": fixture.get("fixture_id"),
+            "family": fixture.get("family"),
+            "operator_result": operator_result.model_dump(mode="json"),
+            "selected_section_y_le_m_before": list(fixture.get("selected_section_y_le_m", [])),
+            "selected_section_y_le_m_after": kept_y_le_m,
+        },
+    )
+    return {
+        "fixture": regularized_fixture,
+        "operator_result": operator_result.model_dump(mode="json"),
+        "report_path": str(report_path),
+    }
+
+
 def _shell_v4_pre_plc_repro_overrides(fixture: dict[str, Any]) -> dict[str, Any]:
     return {
         "geometry": {
@@ -1805,6 +1964,44 @@ def _collect_shell_v4_pre_plc_observed_evidence(
     return evidences, fixture_runs
 
 
+def _collect_shell_v4_pre_plc_operator_regression_reports(
+    *,
+    fixture_runs: list[dict[str, Any]],
+    artifact_dir: Path,
+) -> tuple[list[dict[str, Any]], Path]:
+    regression_dir = artifact_dir / "operator_regression"
+    regression_runs: list[dict[str, Any]] = []
+    for entry in fixture_runs:
+        fixture = dict(entry["fixture"])
+        family = str(fixture["family"])
+        regularized = _apply_truncation_connector_band_operator_to_pre_plc_fixture(
+            fixture,
+            artifact_dir=regression_dir / family / "operator",
+        )
+        observed = _run_shell_v4_pre_plc_repro_fixture(
+            regularized["fixture"],
+            out_dir=regression_dir / family / "run",
+        )
+        regression_runs.append(
+            {
+                "fixture_id": fixture["fixture_id"],
+                "family": family,
+                "baseline_expected_failure_kind": fixture["expected_failure_kind"],
+                "operator_result": regularized["operator_result"],
+                "regularized_fixture": {
+                    "selected_section_y_le_m": regularized["fixture"]["selected_section_y_le_m"],
+                },
+                "observed": observed,
+                "improved_original_failure_family": (
+                    observed["observed_failure_kind"] != fixture["expected_failure_kind"]
+                ),
+            }
+        )
+    report_path = regression_dir / "operator_regression_runs.json"
+    write_json_report(report_path, {"fixture_runs": regression_runs})
+    return regression_runs, report_path
+
+
 def _build_shell_v4_topology_compiler_topology_report(
     *,
     source_path: Path,
@@ -1861,6 +2058,12 @@ def _run_shell_v4_topology_compiler_plan_only(
         component=component,
         artifact_dir=artifact_dir,
     )
+    operator_regression_runs, operator_regression_report_path = (
+        _collect_shell_v4_pre_plc_operator_regression_reports(
+            fixture_runs=fixture_runs,
+            artifact_dir=artifact_dir,
+        )
+    )
     topology_report = _build_shell_v4_topology_compiler_topology_report(
         source_path=source_path,
         export_path=Path(real_wing_geometry["artifact_path"]),
@@ -1898,6 +2101,7 @@ def _run_shell_v4_topology_compiler_plan_only(
             "topology_lineage_report": str(topology_lineage_report_path),
             "topology_suppression_report": str(topology_suppression_report_path),
             "fixture_runs": str((artifact_dir / "observed_fixtures" / "fixture_runs.json")),
+            "operator_regression_runs": str(operator_regression_report_path),
         },
         "observed_fixture_count": int(len(observed_evidence)),
         "matched_fixture_families": [
@@ -1905,6 +2109,23 @@ def _run_shell_v4_topology_compiler_plan_only(
             for entry in fixture_runs
             if entry.get("matched_expected_failure")
         ],
+        "operator_regression_summary": {
+            "applied_fixture_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if entry["operator_result"]["status"] == "applied"
+            ],
+            "improved_fixture_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if entry["improved_original_failure_family"]
+            ],
+            "unchanged_fixture_families": [
+                str(entry["family"])
+                for entry in operator_regression_runs
+                if not entry["improved_original_failure_family"]
+            ],
+        },
         "shell_role_policy": result.shell_role_policy.model_dump(mode="json"),
     }
 

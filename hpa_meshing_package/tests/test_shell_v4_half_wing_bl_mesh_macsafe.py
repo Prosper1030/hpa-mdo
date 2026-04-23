@@ -9,6 +9,7 @@ import pytest
 import hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe as shell_v4_bl_mesh
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
+    _apply_truncation_connector_band_operator_to_pre_plc_fixture,
     _analyze_real_wing_tip_bl_interference,
     _augment_real_wing_sections_for_tip_truncation,
     _build_shell_v4_pre_plc_repro_fixture,
@@ -1409,6 +1410,59 @@ def test_shell_v4_pre_plc_root_last4_fixture_reproduces_facet_overlap(tmp_path: 
     assert observed["observed_failure_kind"] == "facet_facet_overlap"
     assert "Invalid boundary mesh (overlapping facets)" in observed["error"]
     assert Path(observed["report_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last4_operator_regularization_removes_overlap_family(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last4_overlap",
+        artifact_dir=tmp_path / "fixture",
+    )
+
+    regularized = _apply_truncation_connector_band_operator_to_pre_plc_fixture(
+        fixture,
+        artifact_dir=tmp_path / "regularized",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        regularized["fixture"],
+        out_dir=tmp_path / "regularized_probe",
+    )
+
+    assert regularized["operator_result"]["status"] == "applied"
+    assert regularized["operator_result"]["details"]["regularization_plan"]["drop_section_y_le_m"] == [
+        pytest.approx(13.5)
+    ]
+    assert observed["observed_failure_kind"] == "segment_facet_intersection"
+    assert "Invalid boundary mesh (overlapping facets)" not in observed["error"]
+    assert Path(regularized["report_path"]).exists()
+
+
+def test_shell_v4_pre_plc_root_last3_operator_honestly_rejects_already_canonical_family(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last3_segment_facet",
+        artifact_dir=tmp_path / "fixture",
+    )
+
+    regularized = _apply_truncation_connector_band_operator_to_pre_plc_fixture(
+        fixture,
+        artifact_dir=tmp_path / "regularized",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        regularized["fixture"],
+        out_dir=tmp_path / "regularized_probe",
+    )
+
+    assert regularized["operator_result"]["status"] == "rejected"
+    assert regularized["operator_result"]["details"]["regularization_plan"]["reject_reasons"] == [
+        "already_canonical_connector_band_family"
+    ]
+    assert observed["observed_failure_kind"] == "segment_facet_intersection"
+    assert Path(regularized["report_path"]).exists()
 
 
 def test_run_shell_v4_topology_compiler_gate_off_keeps_runtime_decision_unchanged(tmp_path: Path):
