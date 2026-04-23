@@ -438,6 +438,32 @@ def test_worker_cache_key_changes_when_geometry_hash_changes(tmp_path):
     )
 
 
+def test_worker_materializes_result_with_analysis_mode_and_stage(tmp_path):
+    worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+    query = _sample_query(
+        analysis_mode="screening_target_cl",
+        analysis_stage="screening",
+    )
+
+    materialized = worker._materialize_result_for_query(
+        {
+            "template_id": "ignored",
+            "reynolds": query.reynolds,
+            "cl_samples": list(query.cl_samples),
+            "roughness_mode": query.roughness_mode,
+            "geometry_hash": query.geometry_hash,
+            "analysis_mode": "screening_target_cl",
+            "analysis_stage": "screening",
+            "status": "ok",
+            "polar_points": [],
+        },
+        query,
+    )
+
+    assert materialized["analysis_mode"] == "screening_target_cl"
+    assert materialized["analysis_stage"] == "screening"
+
+
 def test_worker_raises_clear_error_when_julia_runtime_is_missing(tmp_path, monkeypatch):
     worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
     monkeypatch.setattr(worker, "_resolve_julia", lambda: None)
@@ -524,6 +550,8 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
             "cl_samples": [0.7],
             "roughness_mode": "clean",
             "geometry_hash": query.geometry_hash,
+            "analysis_mode": "full_alpha_sweep",
+            "analysis_stage": "screening",
             "status": "ok",
             "polar_points": [
                 {
