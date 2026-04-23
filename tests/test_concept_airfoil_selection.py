@@ -7,6 +7,7 @@ from hpa_mdo.concept.airfoil_selection import (
     build_base_cst_template,
     select_best_zone_candidate,
     select_zone_airfoil_templates,
+    select_zone_airfoil_templates_for_concepts,
 )
 
 
@@ -341,8 +342,111 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
     assert 0 < worker.query_count_by_zone["tip"] < 9
     assert worker.analysis_modes_seen == {"screening_target_cl"}
     assert worker.analysis_stages_seen == {"screening"}
-    assert worker.call_count >= 1
-    assert len(selection.worker_results) == worker.query_count_by_zone["root"] + worker.query_count_by_zone["tip"]
+
+
+def test_select_zone_airfoil_templates_for_concepts_batches_across_multiple_concepts() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.call_count = 0
+            self.batch_template_ids: list[tuple[str, ...]] = []
+
+        def run_queries(self, queries):
+            self.call_count += 1
+            self.batch_template_ids.append(tuple(query.template_id for query in queries))
+            results = []
+            for query in queries:
+                if query.template_id.endswith("thickness_up"):
+                    mean_cd = 0.018
+                    usable_clmax = 1.18
+                else:
+                    mean_cd = 0.024
+                    usable_clmax = 1.20
+                results.append(
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "mean_cd": mean_cd,
+                        "mean_cm": -0.10,
+                        "usable_clmax": usable_clmax,
+                    }
+                )
+            return results
+
+    worker = FakeWorker()
+    seed_coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.06),
+        (0.0, 0.0),
+        (0.5, -0.04),
+        (1.0, 0.0),
+    )
+    selection_by_concept = select_zone_airfoil_templates_for_concepts(
+        concept_zone_requirements={
+            "eval-01": {
+                "root": {
+                    "points": [
+                        {
+                            "reynolds": 260000.0,
+                            "cl_target": 0.70,
+                            "cm_target": -0.10,
+                            "weight": 1.0,
+                        }
+                    ],
+                    "min_tc_ratio": 0.14,
+                },
+                "tip": {
+                    "points": [
+                        {
+                            "reynolds": 200000.0,
+                            "cl_target": 0.58,
+                            "cm_target": -0.07,
+                            "weight": 1.0,
+                        }
+                    ],
+                    "min_tc_ratio": 0.10,
+                },
+            },
+            "eval-02": {
+                "root": {
+                    "points": [
+                        {
+                            "reynolds": 255000.0,
+                            "cl_target": 0.68,
+                            "cm_target": -0.09,
+                            "weight": 1.0,
+                        }
+                    ],
+                    "min_tc_ratio": 0.14,
+                },
+                "tip": {
+                    "points": [
+                        {
+                            "reynolds": 195000.0,
+                            "cl_target": 0.56,
+                            "cm_target": -0.06,
+                            "weight": 1.0,
+                        }
+                    ],
+                    "min_tc_ratio": 0.10,
+                },
+            },
+        },
+        seed_loader=lambda _: seed_coordinates,
+        worker=worker,
+    )
+
+    assert set(selection_by_concept) == {"eval-01", "eval-02"}
+    assert selection_by_concept["eval-01"].selected_by_zone["root"].template.candidate_role == "thickness_up"
+    assert selection_by_concept["eval-02"].selected_by_zone["tip"].template.candidate_role == "thickness_up"
+    assert worker.call_count == 2
+    assert any(template_id.startswith("eval-01__") for template_id in worker.batch_template_ids[0])
+    assert any(template_id.startswith("eval-02__") for template_id in worker.batch_template_ids[0])
+    assert all(
+        result["concept_id"] in {"eval-01", "eval-02"}
+        for batch in selection_by_concept.values()
+        for result in batch.worker_results
+    )
 
 
 def test_select_zone_airfoil_templates_falls_back_to_all_valid_candidates_when_prescreen_eliminates_everything() -> None:

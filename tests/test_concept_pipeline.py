@@ -309,6 +309,67 @@ def test_pipeline_summary_distinguishes_screening_and_finalist_worker_fidelity(
     ] * 4
 
 
+def test_pipeline_batches_screening_candidate_selection_across_concepts(
+    tmp_path: Path,
+) -> None:
+    config_payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    config_payload["pipeline"]["keep_top_n"] = 2
+    config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
+    config_path = tmp_path / "global_screening_batch.yaml"
+    config_path.write_text(yaml.safe_dump(config_payload, sort_keys=False), encoding="utf-8")
+
+    class FakeWorker:
+        backend_name = "dual_track_stub"
+
+        def __init__(self):
+            self.batch_template_ids: list[tuple[str, ...]] = []
+
+        def run_queries(self, queries):
+            self.batch_template_ids.append(tuple(query.template_id for query in queries))
+            return [
+                _worker_result_payload(
+                    query,
+                    sweep_point_count=(4 if query.analysis_mode == "screening_target_cl" else 21),
+                )
+                for query in queries
+            ]
+
+    fake_worker = FakeWorker()
+    run_birdman_concept_pipeline(
+        config_path=config_path,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: fake_worker,
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {"reynolds": 260000.0, "chord_m": 1.30, "cl_target": 0.70, "cm_target": -0.10, "weight": 1.0}
+                ]
+            },
+            "mid1": {
+                "points": [
+                    {"reynolds": 240000.0, "chord_m": 1.15, "cl_target": 0.66, "cm_target": -0.09, "weight": 1.0}
+                ]
+            },
+            "mid2": {
+                "points": [
+                    {"reynolds": 220000.0, "chord_m": 1.00, "cl_target": 0.62, "cm_target": -0.08, "weight": 1.0}
+                ]
+            },
+            "tip": {
+                "points": [
+                    {"reynolds": 200000.0, "chord_m": 0.82, "cl_target": 0.58, "cm_target": -0.07, "weight": 1.0}
+                ]
+            },
+        },
+    )
+
+    first_batch = fake_worker.batch_template_ids[0]
+    assert any(template_id.startswith("eval-01__") for template_id in first_batch)
+    assert any(template_id.startswith("eval-02__") for template_id in first_batch)
+
+
 def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path) -> None:
     result = run_birdman_concept_pipeline(
         config_path=Path("configs/birdman_upstream_concept_baseline.yaml"),

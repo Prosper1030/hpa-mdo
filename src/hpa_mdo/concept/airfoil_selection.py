@@ -46,6 +46,15 @@ class ZoneSelectionBatch:
     worker_results: list[dict[str, object]]
 
 
+def _concept_zone_batch_key(*, concept_id: str, zone_name: str) -> str:
+    return f"{concept_id}__{zone_name}"
+
+
+def _split_concept_zone_batch_key(batch_key: str) -> tuple[str, str]:
+    concept_id, zone_name = batch_key.split("__", 1)
+    return concept_id, zone_name
+
+
 def _bounded_penalty(deficit: float, scale: float) -> float:
     if deficit <= 0.0:
         return 0.0
@@ -500,6 +509,68 @@ def _default_seed_name(zone_name: str) -> str:
     return "fx76mp140" if zone_name in {"root", "mid1"} else "clarkysm"
 
 
+def _prepare_zone_selection_inputs(
+    *,
+    zone_requirements: Mapping[str, dict[str, object]],
+    seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
+    thickness_delta_levels: tuple[float, ...],
+    camber_delta_levels: tuple[float, ...],
+    coarse_to_fine_enabled: bool,
+    coarse_thickness_stride: int,
+    coarse_camber_stride: int,
+) -> tuple[
+    dict[str, list[dict[str, float]]],
+    dict[str, float],
+    dict[str, tuple[CSTAirfoilTemplate, ...]],
+    dict[str, tuple[CSTAirfoilTemplate, ...]],
+]:
+    zone_points_by_name: dict[str, list[dict[str, float]]] = {}
+    zone_min_tc_by_name: dict[str, float] = {}
+    candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+    coarse_candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+
+    for zone_name, zone_data in zone_requirements.items():
+        zone_points = list(zone_data.get("points", []))
+        zone_min_tc_ratio = float(zone_data.get("min_tc_ratio", 0.10))
+        seed_name = _default_seed_name(zone_name)
+        base_template = build_base_cst_template(
+            zone_name=zone_name,
+            seed_name=seed_name,
+            seed_coordinates=seed_loader(seed_name),
+        )
+        candidates = build_bounded_candidate_family(
+            base_template,
+            thickness_delta_levels=thickness_delta_levels,
+            camber_delta_levels=camber_delta_levels,
+        )
+        candidates = _prescreen_zone_candidates(
+            candidates,
+            zone_points=zone_points,
+            zone_min_tc_ratio=zone_min_tc_ratio,
+        )
+        if not candidates:
+            raise ValueError(f"Zone {zone_name!r} did not produce any valid CST candidates.")
+
+        zone_points_by_name[zone_name] = zone_points
+        zone_min_tc_by_name[zone_name] = zone_min_tc_ratio
+        candidates_by_zone[zone_name] = candidates
+        coarse_candidates_by_zone[zone_name] = (
+            _coarse_seed_candidates(
+                candidates,
+                thickness_stride=coarse_thickness_stride,
+                camber_stride=coarse_camber_stride,
+            )
+            if coarse_to_fine_enabled
+            else candidates
+        )
+    return (
+        zone_points_by_name,
+        zone_min_tc_by_name,
+        candidates_by_zone,
+        coarse_candidates_by_zone,
+    )
+
+
 def _prescreen_zone_candidates(
     candidates: tuple[CSTAirfoilTemplate, ...],
     *,
@@ -929,47 +1000,22 @@ def select_zone_airfoil_templates(
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
 ) -> ZoneSelectionBatch:
+    (
+        zone_points_by_name,
+        zone_min_tc_by_name,
+        candidates_by_zone,
+        coarse_candidates_by_zone,
+    ) = _prepare_zone_selection_inputs(
+        zone_requirements=zone_requirements,
+        seed_loader=seed_loader,
+        thickness_delta_levels=thickness_delta_levels,
+        camber_delta_levels=camber_delta_levels,
+        coarse_to_fine_enabled=coarse_to_fine_enabled,
+        coarse_thickness_stride=coarse_thickness_stride,
+        coarse_camber_stride=coarse_camber_stride,
+    )
     selected_by_zone: dict[str, SelectedZoneCandidate] = {}
     worker_results: list[dict[str, object]] = []
-    zone_points_by_name: dict[str, list[dict[str, float]]] = {}
-    zone_min_tc_by_name: dict[str, float] = {}
-    candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
-    coarse_candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
-
-    for zone_name, zone_data in zone_requirements.items():
-        zone_points = list(zone_data.get("points", []))
-        zone_min_tc_ratio = float(zone_data.get("min_tc_ratio", 0.10))
-        seed_name = _default_seed_name(zone_name)
-        base_template = build_base_cst_template(
-            zone_name=zone_name,
-            seed_name=seed_name,
-            seed_coordinates=seed_loader(seed_name),
-        )
-        candidates = build_bounded_candidate_family(
-            base_template,
-            thickness_delta_levels=thickness_delta_levels,
-            camber_delta_levels=camber_delta_levels,
-        )
-        candidates = _prescreen_zone_candidates(
-            candidates,
-            zone_points=zone_points,
-            zone_min_tc_ratio=zone_min_tc_ratio,
-        )
-        if not candidates:
-            raise ValueError(f"Zone {zone_name!r} did not produce any valid CST candidates.")
-
-        zone_points_by_name[zone_name] = zone_points
-        zone_min_tc_by_name[zone_name] = zone_min_tc_ratio
-        candidates_by_zone[zone_name] = candidates
-        coarse_candidates_by_zone[zone_name] = (
-            _coarse_seed_candidates(
-                candidates,
-                thickness_stride=coarse_thickness_stride,
-                camber_stride=coarse_camber_stride,
-            )
-            if coarse_to_fine_enabled
-            else candidates
-        )
 
     candidate_results_by_zone, coarse_worker_results = _run_batched_zone_candidate_queries(
         zone_candidates=coarse_candidates_by_zone,
@@ -1024,3 +1070,134 @@ def select_zone_airfoil_templates(
         )
 
     return ZoneSelectionBatch(selected_by_zone=selected_by_zone, worker_results=worker_results)
+
+
+def select_zone_airfoil_templates_for_concepts(
+    *,
+    concept_zone_requirements: Mapping[str, Mapping[str, dict[str, object]]],
+    seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
+    worker: Any,
+    thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
+    camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
+    coarse_to_fine_enabled: bool = True,
+    coarse_thickness_stride: int = 2,
+    coarse_camber_stride: int = 2,
+    coarse_keep_top_k: int = 2,
+    refine_neighbor_radius: int = 1,
+    safe_clmax_scale: float = 0.90,
+    safe_clmax_delta: float = 0.05,
+    stall_utilization_limit: float = 0.80,
+) -> dict[str, ZoneSelectionBatch]:
+    if not concept_zone_requirements:
+        return {}
+
+    zone_points_by_key: dict[str, list[dict[str, float]]] = {}
+    zone_min_tc_by_key: dict[str, float] = {}
+    candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+    coarse_candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+
+    for concept_id, zone_requirements in concept_zone_requirements.items():
+        (
+            zone_points_by_name,
+            zone_min_tc_by_name,
+            candidates_by_zone,
+            coarse_candidates_by_zone,
+        ) = _prepare_zone_selection_inputs(
+            zone_requirements=zone_requirements,
+            seed_loader=seed_loader,
+            thickness_delta_levels=thickness_delta_levels,
+            camber_delta_levels=camber_delta_levels,
+            coarse_to_fine_enabled=coarse_to_fine_enabled,
+            coarse_thickness_stride=coarse_thickness_stride,
+            coarse_camber_stride=coarse_camber_stride,
+        )
+        for zone_name in zone_requirements:
+            batch_key = _concept_zone_batch_key(concept_id=concept_id, zone_name=zone_name)
+            zone_points_by_key[batch_key] = zone_points_by_name[zone_name]
+            zone_min_tc_by_key[batch_key] = zone_min_tc_by_name[zone_name]
+            candidates_by_key[batch_key] = candidates_by_zone[zone_name]
+            coarse_candidates_by_key[batch_key] = coarse_candidates_by_zone[zone_name]
+
+    candidate_results_by_key, coarse_worker_results = _run_batched_zone_candidate_queries(
+        zone_candidates=coarse_candidates_by_key,
+        zone_points_by_name=zone_points_by_key,
+        worker=worker,
+    )
+    worker_results_by_concept: dict[str, list[dict[str, object]]] = {
+        concept_id: [] for concept_id in concept_zone_requirements
+    }
+    for result in coarse_worker_results:
+        concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
+        worker_results_by_concept.setdefault(concept_id, []).append(
+            {
+                **result,
+                "zone_name": zone_name,
+                "concept_id": concept_id,
+            }
+        )
+
+    if coarse_to_fine_enabled:
+        refinement_candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+        for batch_key, candidates in candidates_by_key.items():
+            zone_points = zone_points_by_key[batch_key]
+            zone_min_tc_ratio = zone_min_tc_by_key[batch_key]
+            candidate_results = candidate_results_by_key.get(batch_key, {})
+            coarse_candidates = coarse_candidates_by_key[batch_key]
+            coarse_scored = _score_available_zone_candidates(
+                coarse_candidates,
+                zone_points=zone_points,
+                candidate_results=candidate_results,
+                zone_min_tc_ratio=zone_min_tc_ratio,
+                safe_clmax_scale=safe_clmax_scale,
+                safe_clmax_delta=safe_clmax_delta,
+                stall_utilization_limit=stall_utilization_limit,
+            )
+            coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
+            coarse_beam = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
+            refinement_candidates_by_key[batch_key] = _refinement_candidates(
+                candidates,
+                seed_candidates=coarse_beam,
+                neighbor_radius=refine_neighbor_radius,
+            )
+            if not refinement_candidates_by_key[batch_key]:
+                refinement_candidates_by_key[batch_key] = candidates
+
+        candidate_results_by_key, refinement_worker_results = _run_batched_zone_candidate_queries(
+            zone_candidates=refinement_candidates_by_key,
+            zone_points_by_name=zone_points_by_key,
+            worker=worker,
+            existing_results_by_zone=candidate_results_by_key,
+        )
+        for result in refinement_worker_results:
+            concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
+            worker_results_by_concept.setdefault(concept_id, []).append(
+                {
+                    **result,
+                    "zone_name": zone_name,
+                    "concept_id": concept_id,
+                }
+            )
+
+    selected_by_concept: dict[str, dict[str, SelectedZoneCandidate]] = {
+        concept_id: {} for concept_id in concept_zone_requirements
+    }
+    for concept_id, zone_requirements in concept_zone_requirements.items():
+        for zone_name in zone_requirements:
+            batch_key = _concept_zone_batch_key(concept_id=concept_id, zone_name=zone_name)
+            selected_by_concept[concept_id][zone_name] = select_best_zone_candidate(
+                candidates=candidates_by_key[batch_key],
+                zone_points=zone_points_by_key[batch_key],
+                candidate_results=candidate_results_by_key.get(batch_key, {}),
+                zone_min_tc_ratio=zone_min_tc_by_key[batch_key],
+                safe_clmax_scale=safe_clmax_scale,
+                safe_clmax_delta=safe_clmax_delta,
+                stall_utilization_limit=stall_utilization_limit,
+            )
+
+    return {
+        concept_id: ZoneSelectionBatch(
+            selected_by_zone=selected_by_concept[concept_id],
+            worker_results=worker_results_by_concept.get(concept_id, []),
+        )
+        for concept_id in concept_zone_requirements
+    }

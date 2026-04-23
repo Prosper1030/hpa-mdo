@@ -16,7 +16,7 @@ from hpa_mdo.concept.airfoil_cst import (
 from hpa_mdo.concept.airfoil_selection import (
     SelectedZoneCandidate,
     build_base_cst_template,
-    select_zone_airfoil_templates,
+    select_zone_airfoil_templates_for_concepts,
 )
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
@@ -88,6 +88,15 @@ class _EvaluatedConcept:
     local_stall_summary: dict[str, Any]
     mission_summary: dict[str, Any]
     ranking_input: CandidateConceptResult
+
+
+@dataclass(frozen=True)
+class _PreparedConcept:
+    evaluation_id: str
+    enumeration_index: int
+    concept: GeometryConcept
+    stations: tuple[WingStation, ...]
+    zone_requirements: dict[str, dict[str, Any]]
 
 
 def _repo_root() -> Path:
@@ -1714,45 +1723,70 @@ def run_birdman_concept_pipeline(
     best_infeasible_concept_dirs: list[Path] = []
     summary_worker_statuses: list[str] = []
 
-    try:
-        for enumeration_index, concept in enumerate(concepts, start=1):
-            concept_id = f"eval-{enumeration_index:02d}"
-            stations = build_linear_wing_stations(
-                concept,
-                stations_per_half=cfg.pipeline.stations_per_half,
+    prepared_concepts: list[_PreparedConcept] = []
+    zone_requirements_with_points_by_concept: dict[str, dict[str, dict[str, Any]]] = {}
+    for enumeration_index, concept in enumerate(concepts, start=1):
+        concept_id = f"eval-{enumeration_index:02d}"
+        stations = build_linear_wing_stations(
+            concept,
+            stations_per_half=cfg.pipeline.stations_per_half,
+        )
+        zone_requirements = spanwise_loader(concept, stations)
+        prepared_concepts.append(
+            _PreparedConcept(
+                evaluation_id=concept_id,
+                enumeration_index=enumeration_index,
+                concept=concept,
+                stations=stations,
+                zone_requirements=zone_requirements,
             )
-            zone_requirements = spanwise_loader(concept, stations)
-            zone_requirements_with_points = {
-                zone_name: zone_data
-                for zone_name, zone_data in zone_requirements.items()
-                if zone_data.get("points")
-            }
+        )
+        zone_requirements_with_points = {
+            zone_name: zone_data
+            for zone_name, zone_data in zone_requirements.items()
+            if zone_data.get("points")
+        }
+        if zone_requirements_with_points:
+            zone_requirements_with_points_by_concept[concept_id] = zone_requirements_with_points
+
+    try:
+        selection_batches_by_concept = (
+            select_zone_airfoil_templates_for_concepts(
+                concept_zone_requirements=zone_requirements_with_points_by_concept,
+                seed_loader=_load_seed_airfoil_coordinates,
+                worker=_SelectionWorkerAdapter(
+                    worker,
+                    allow_stub_fallback=worker_backend
+                    in {"test_stub", "cli_stubbed", "python_stubbed"},
+                ),
+                thickness_delta_levels=cfg.cst_search.thickness_delta_levels,
+                camber_delta_levels=cfg.cst_search.camber_delta_levels,
+                coarse_to_fine_enabled=cfg.cst_search.coarse_to_fine_enabled,
+                coarse_thickness_stride=cfg.cst_search.coarse_thickness_stride,
+                coarse_camber_stride=cfg.cst_search.coarse_camber_stride,
+                coarse_keep_top_k=cfg.cst_search.coarse_keep_top_k,
+                refine_neighbor_radius=cfg.cst_search.refine_neighbor_radius,
+                safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
+                safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
+                stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+            )
+            if zone_requirements_with_points_by_concept
+            else {}
+        )
+
+        for prepared in prepared_concepts:
+            concept_id = prepared.evaluation_id
+            concept = prepared.concept
+            stations = prepared.stations
+            zone_requirements = prepared.zone_requirements
             zone_requirements_without_points = {
                 zone_name: zone_data
                 for zone_name, zone_data in zone_requirements.items()
                 if not zone_data.get("points")
             }
             selected_by_zone: dict[str, SelectedZoneCandidate] = {}
-            if zone_requirements_with_points:
-                selection_batch = select_zone_airfoil_templates(
-                    zone_requirements=zone_requirements_with_points,
-                    seed_loader=_load_seed_airfoil_coordinates,
-                    worker=_SelectionWorkerAdapter(
-                        worker,
-                        allow_stub_fallback=worker_backend
-                        in {"test_stub", "cli_stubbed", "python_stubbed"},
-                    ),
-                    thickness_delta_levels=cfg.cst_search.thickness_delta_levels,
-                    camber_delta_levels=cfg.cst_search.camber_delta_levels,
-                    coarse_to_fine_enabled=cfg.cst_search.coarse_to_fine_enabled,
-                    coarse_thickness_stride=cfg.cst_search.coarse_thickness_stride,
-                    coarse_camber_stride=cfg.cst_search.coarse_camber_stride,
-                    coarse_keep_top_k=cfg.cst_search.coarse_keep_top_k,
-                    refine_neighbor_radius=cfg.cst_search.refine_neighbor_radius,
-                    safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
-                    safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
-                    stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
-                )
+            selection_batch = selection_batches_by_concept.get(concept_id)
+            if selection_batch is not None:
                 selected_by_zone.update(selection_batch.selected_by_zone)
             for zone_name in zone_requirements_without_points:
                 selected_by_zone[zone_name] = _build_fallback_selected_zone_candidate(
@@ -1795,7 +1829,7 @@ def run_birdman_concept_pipeline(
             evaluated_concepts.append(
                 _EvaluatedConcept(
                     evaluation_id=ranking_input.concept_id,
-                    enumeration_index=enumeration_index,
+                    enumeration_index=prepared.enumeration_index,
                     concept=concept,
                     stations=stations,
                     zone_requirements=zone_requirements,
