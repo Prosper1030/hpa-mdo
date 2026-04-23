@@ -224,6 +224,18 @@ def test_worker_cache_key_is_stable_for_identical_query(tmp_path):
     assert worker.cache_key(query) == worker.cache_key(query)
 
 
+def test_worker_cache_key_ignores_template_id_for_physically_identical_query(tmp_path):
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
+
+    assert worker.cache_key(_sample_query(template_id="root-v1")) == worker.cache_key(
+        _sample_query(template_id="tip-v9")
+    )
+
+
 def test_worker_cache_key_changes_when_geometry_hash_changes(tmp_path):
     worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
 
@@ -413,6 +425,96 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
 
     assert second_result == first_result
     assert (worker.cache_dir / f"{worker.cache_key(query)}.json").is_file()
+
+
+def test_worker_reuses_physical_cache_for_different_template_id(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    query_a = _sample_query(template_id="root-v1", cl_samples=(0.7,))
+    query_b = _sample_query(template_id="tip-v9", cl_samples=(0.7,))
+    calls = {"count": 0}
+
+    def fake_run(cmd, check, cwd):
+        calls["count"] += 1
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "cl_samples": [0.7],
+                        "roughness_mode": "clean",
+                        "geometry_hash": query_a.geometry_hash,
+                        "status": "ok",
+                        "polar_points": [{"cl_target": 0.7, "alpha_deg": 4.2, "cl": 0.701}],
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    first_result = worker.run_queries([query_a])
+    second_result = worker.run_queries([query_b])
+
+    assert calls["count"] == 1
+    assert first_result[0]["template_id"] == "root-v1"
+    assert second_result[0]["template_id"] == "tip-v9"
+
+
+def test_worker_deduplicates_physically_identical_queries_within_single_run(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    query_a = _sample_query(template_id="root-v1", cl_samples=(0.7,))
+    query_b = _sample_query(template_id="mid1-v2", cl_samples=(0.7,))
+    calls = {"count": 0}
+
+    def fake_run(cmd, check, cwd):
+        calls["count"] += 1
+        request_payload = json.loads(Path(cmd[3]).read_text(encoding="utf-8"))
+        assert len(request_payload) == 1
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "cl_samples": [0.7],
+                        "roughness_mode": "clean",
+                        "geometry_hash": query_a.geometry_hash,
+                        "status": "ok",
+                        "polar_points": [{"cl_target": 0.7, "alpha_deg": 4.2, "cl": 0.701}],
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    results = worker.run_queries([query_a, query_b])
+
+    assert calls["count"] == 1
+    assert [item["template_id"] for item in results] == ["root-v1", "mid1-v2"]
 
 
 def test_worker_preserves_sweep_summary_through_cache_round_trip(tmp_path, monkeypatch):

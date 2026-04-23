@@ -68,7 +68,6 @@ class JuliaXFoilWorker:
 
     def cache_key(self, query: PolarQuery) -> str:
         payload = {
-            "template_id": query.template_id,
             "reynolds": query.reynolds,
             "cl_samples": list(query.cl_samples),
             "roughness_mode": query.roughness_mode,
@@ -122,6 +121,14 @@ class JuliaXFoilWorker:
     def _query_identity(self, query: PolarQuery) -> tuple[str, float, tuple[float, ...], str, str]:
         return (
             query.template_id,
+            *self._physical_query_identity(query),
+        )
+
+    def _physical_query_identity(
+        self,
+        query: PolarQuery,
+    ) -> tuple[float, tuple[float, ...], str, str]:
+        return (
             float(query.reynolds),
             tuple(float(value) for value in query.cl_samples),
             query.roughness_mode,
@@ -129,6 +136,13 @@ class JuliaXFoilWorker:
         )
 
     def _result_identity(self, result: dict[str, object]) -> tuple[str, float, tuple[float, ...], str, str]:
+        template_id = result.get("template_id")
+        return (
+            self._result_template_id(result),
+            *self._physical_result_identity(result),
+        )
+
+    def _result_template_id(self, result: dict[str, object]) -> str:
         template_id = result.get("template_id")
         reynolds = result.get("reynolds")
         cl_samples = result.get("cl_samples")
@@ -142,8 +156,23 @@ class JuliaXFoilWorker:
             raise RuntimeError("Julia XFoil worker response is missing a valid geometry_hash.")
         if not isinstance(reynolds, int | float):
             raise RuntimeError("Julia XFoil worker response is missing a valid reynolds value.")
+        return template_id
+
+    def _physical_result_identity(
+        self,
+        result: dict[str, object],
+    ) -> tuple[float, tuple[float, ...], str, str]:
+        reynolds = result.get("reynolds")
+        cl_samples = result.get("cl_samples")
+        roughness_mode = result.get("roughness_mode")
+        geometry_hash = result.get("geometry_hash")
+        if not isinstance(roughness_mode, str):
+            raise RuntimeError("Julia XFoil worker response is missing a valid roughness_mode.")
+        if not isinstance(geometry_hash, str):
+            raise RuntimeError("Julia XFoil worker response is missing a valid geometry_hash.")
+        if not isinstance(reynolds, int | float):
+            raise RuntimeError("Julia XFoil worker response is missing a valid reynolds value.")
         return (
-            template_id,
             float(reynolds),
             self._normalize_cl_samples(cl_samples),
             roughness_mode,
@@ -158,9 +187,9 @@ class JuliaXFoilWorker:
         cached_payload = json.loads(cache_path.read_text(encoding="utf-8"))
         if not isinstance(cached_payload, dict):
             raise RuntimeError("Julia XFoil worker cache entries must be JSON objects.")
-        if self._result_identity(cached_payload) != self._query_identity(query):
+        if self._physical_result_identity(cached_payload) != self._physical_query_identity(query):
             raise RuntimeError("Julia XFoil worker cache entry did not match requested query identity.")
-        return self._validate_success_status(cached_payload)
+        return self._validate_success_status(self._materialize_result_for_query(cached_payload, query))
 
     def _write_cached_result(self, query: PolarQuery, result: dict[str, object]) -> None:
         self._cache_path(query).write_text(
@@ -176,6 +205,19 @@ class JuliaXFoilWorker:
                 f"{status!r}. Expected 'ok' or 'stubbed_ok'."
             )
         return result
+
+    def _materialize_result_for_query(
+        self,
+        result: dict[str, object],
+        query: PolarQuery,
+    ) -> dict[str, object]:
+        materialized = dict(result)
+        materialized["template_id"] = query.template_id
+        materialized["reynolds"] = float(query.reynolds)
+        materialized["cl_samples"] = list(float(value) for value in query.cl_samples)
+        materialized["roughness_mode"] = query.roughness_mode
+        materialized["geometry_hash"] = self._validated_geometry_hash(query)
+        return materialized
 
     def _build_scratch_paths(self) -> tuple[Path, Path]:
         token = uuid4().hex
@@ -335,15 +377,18 @@ class JuliaXFoilWorker:
     def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
         resolved_results: list[dict[str, object] | None] = [None] * len(queries)
         uncached_queries: list[PolarQuery] = []
-        uncached_indices: list[int] = []
+        uncached_groups: dict[str, list[tuple[int, PolarQuery]]] = {}
 
         for index, query in enumerate(queries):
             cached_result = self._load_cached_result(query)
             if cached_result is not None:
                 resolved_results[index] = cached_result
                 continue
-            uncached_queries.append(query)
-            uncached_indices.append(index)
+            cache_key = self.cache_key(query)
+            if cache_key not in uncached_groups:
+                uncached_queries.append(query)
+                uncached_groups[cache_key] = []
+            uncached_groups[cache_key].append((index, query))
 
         if uncached_queries:
             response_payload = (
@@ -352,7 +397,7 @@ class JuliaXFoilWorker:
                 else self._run_uncached_queries_one_shot(uncached_queries)
             )
 
-            for index, query, item in zip(uncached_indices, uncached_queries, response_payload):
+            for query, item in zip(uncached_queries, response_payload):
                 if not isinstance(item, dict):
                     raise RuntimeError("Julia XFoil worker response entries must be JSON objects.")
                 if self._result_identity(item) != self._query_identity(query):
@@ -360,8 +405,12 @@ class JuliaXFoilWorker:
                         "Julia XFoil worker response entry did not match requested query identity."
                     )
                 validated_item = self._validate_success_status(item)
-                resolved_results[index] = validated_item
                 self._write_cached_result(query, validated_item)
+                for index, duplicate_query in uncached_groups[self.cache_key(query)]:
+                    resolved_results[index] = self._materialize_result_for_query(
+                        validated_item,
+                        duplicate_query,
+                    )
 
         finalized_results: list[dict[str, object]] = []
         for item in resolved_results:
