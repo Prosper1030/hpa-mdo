@@ -396,6 +396,14 @@ def _flatten_zone_points(
                     "cm_target": float(point["cm_target"]),
                     "weight": float(point.get("weight", 1.0)),
                     "reynolds": float(point.get("reynolds", 0.0)),
+                    "case_label": str(point.get("case_label", "reference_avl_case")),
+                    "case_weight": float(point.get("case_weight", 1.0)),
+                    "evaluation_speed_mps": _numeric_value(point.get("evaluation_speed_mps")),
+                    "evaluation_gross_mass_kg": _numeric_value(
+                        point.get("evaluation_gross_mass_kg")
+                    ),
+                    "load_factor": _numeric_value(point.get("load_factor")) or 1.0,
+                    "case_reason": point.get("case_reason"),
                     "reference_speed_mps": _numeric_value(zone_data.get("reference_speed_mps")),
                     "reference_gross_mass_kg": _numeric_value(zone_data.get("reference_gross_mass_kg")),
                 }
@@ -426,6 +434,28 @@ def _flatten_zone_points(
             }
         )
     return fallback
+
+
+def _station_points_for_case_label(
+    station_points: list[dict[str, float]],
+    case_label: str,
+) -> list[dict[str, float]]:
+    selected = [
+        dict(point)
+        for point in station_points
+        if str(point.get("case_label", "reference_avl_case")) == case_label
+    ]
+    return selected
+
+
+def _group_station_points_by_case_label(
+    station_points: list[dict[str, float]],
+) -> dict[str, list[dict[str, float]]]:
+    grouped: dict[str, list[dict[str, float]]] = {}
+    for point in station_points:
+        case_label = str(point.get("case_label", "reference_avl_case"))
+        grouped.setdefault(case_label, []).append(dict(point))
+    return grouped
 
 
 def _attach_cl_max_proxies(
@@ -829,7 +859,8 @@ def _summarize_launch(
     q_pa = 0.5 * air_density_kg_per_m3 * float(cfg.launch.release_speed_mps) ** 2
     gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
     cl_required = (gross_mass_kg * 9.80665) / max(q_pa * concept.wing_area_m2, 1.0e-9)
-    limiting_point = min(station_points, key=_cl_limit)
+    launch_station_points = _station_points_for_case_label(station_points, "launch_release_case")
+    limiting_point = min(launch_station_points or station_points, key=_cl_limit)
     cl_available = _cl_limit(limiting_point)
     cl_available_source = str(
         limiting_point.get(
@@ -866,6 +897,9 @@ def _summarize_launch(
             "air_density_kg_per_m3": air_density_kg_per_m3,
             "gross_mass_kg": gross_mass_kg,
             "dynamic_pressure_pa": q_pa,
+            "evaluation_case": (
+                "launch_release_case" if launch_station_points else "all_station_points_fallback"
+            ),
         },
         cl_required,
         cl_available,
@@ -913,6 +947,43 @@ def _local_stall_evaluation_cases(
 ) -> list[dict[str, Any]]:
     if not station_points:
         raise ValueError("station_points must not be empty.")
+
+    explicit_case_payload = any(
+        "case_label" in point or "evaluation_speed_mps" in point
+        for point in station_points
+    )
+    grouped_case_points = _group_station_points_by_case_label(station_points)
+    if explicit_case_payload and grouped_case_points:
+        case_labels = (
+            "reference_avl_case",
+            "slow_avl_case",
+            "launch_release_case",
+            "turn_avl_case",
+        )
+        multipoint_cases: list[dict[str, Any]] = []
+        for case_label in case_labels:
+            case_points = grouped_case_points.get(case_label)
+            if not case_points:
+                continue
+            first_point = case_points[0]
+            multipoint_cases.append(
+                {
+                    "case_label": case_label,
+                    "reference_speed_mps": _numeric_value(first_point.get("reference_speed_mps")),
+                    "reference_gross_mass_kg": _numeric_value(
+                        first_point.get("reference_gross_mass_kg")
+                    ),
+                    "evaluation_speed_mps": _numeric_value(first_point.get("evaluation_speed_mps")),
+                    "evaluation_gross_mass_kg": _numeric_value(
+                        first_point.get("evaluation_gross_mass_kg")
+                    ),
+                    "cl_scale_factor_min": 1.0,
+                    "cl_scale_factor_max": 1.0,
+                    "station_points": case_points,
+                }
+            )
+        if multipoint_cases:
+            return multipoint_cases
 
     first_point = station_points[0]
     reference_speed_mps = _numeric_value(first_point.get("reference_speed_mps"))
@@ -987,15 +1058,36 @@ def _summarize_turn(
     station_points: list[dict[str, float]],
     trim_result,
 ) -> dict[str, Any]:
-    evaluation_speed_mps = float(cfg.launch.release_speed_mps)
-    evaluation_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
-    scaled_station_points, cl_scale_factors = _scale_station_points_to_condition(
-        station_points=station_points,
-        evaluation_speed_mps=evaluation_speed_mps,
-        evaluation_gross_mass_kg=evaluation_gross_mass_kg,
-        scale_field_name="turn_cl_scale_factor",
-    )
-
+    turn_station_points = _station_points_for_case_label(station_points, "turn_avl_case")
+    if turn_station_points:
+        evaluation_speed_mps = float(
+            _numeric_value(turn_station_points[0].get("evaluation_speed_mps"))
+            or cfg.launch.release_speed_mps
+        )
+        evaluation_gross_mass_kg = float(
+            _numeric_value(turn_station_points[0].get("evaluation_gross_mass_kg"))
+            or max(cfg.mass.gross_mass_sweep_kg)
+        )
+        load_factor_override = float(
+            _numeric_value(turn_station_points[0].get("load_factor"))
+            or (1.0 / math.cos(math.radians(float(cfg.turn.required_bank_angle_deg))))
+        )
+        scaled_station_points = turn_station_points
+        cl_scale_factors = [1.0 for _ in turn_station_points]
+        pre_scaled_cl = True
+        evaluation_case = "turn_avl_case"
+    else:
+        evaluation_speed_mps = float(cfg.launch.release_speed_mps)
+        evaluation_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+        scaled_station_points, cl_scale_factors = _scale_station_points_to_condition(
+            station_points=station_points,
+            evaluation_speed_mps=evaluation_speed_mps,
+            evaluation_gross_mass_kg=evaluation_gross_mass_kg,
+            scale_field_name="turn_cl_scale_factor",
+        )
+        load_factor_override = None
+        pre_scaled_cl = False
+        evaluation_case = "scaled_reference_fallback"
     turn_result = evaluate_turn_gate(
         bank_angle_deg=cfg.turn.required_bank_angle_deg,
         speed_mps=evaluation_speed_mps,
@@ -1003,6 +1095,8 @@ def _summarize_turn(
         half_span_m=0.5 * concept.span_m,
         trim_feasible=trim_result.feasible,
         stall_utilization_limit=cfg.stall_model.turn_utilization_limit,
+        load_factor_override=load_factor_override,
+        pre_scaled_cl=pre_scaled_cl,
     )
     return {
         "status": turn_result.reason,
@@ -1025,6 +1119,7 @@ def _summarize_turn(
         "reference_gross_mass_kg": _numeric_value(station_points[0].get("reference_gross_mass_kg")),
         "cl_scale_factor_min": min(cl_scale_factors) if cl_scale_factors else 1.0,
         "cl_scale_factor_max": max(cl_scale_factors) if cl_scale_factors else 1.0,
+        "evaluation_case": evaluation_case,
     }
 
 
@@ -1033,13 +1128,15 @@ def _summarize_trim(
     cfg: BirdmanConceptConfig,
     station_points: list[dict[str, float]],
 ) -> tuple[dict[str, Any], Any]:
+    trim_station_points = _station_points_for_case_label(station_points, "reference_avl_case")
+    effective_station_points = trim_station_points or station_points
     effective_points = [
         (
             float(point.get("cm_effective", point["cm_target"])),
             max(float(point.get("weight", 1.0)) * float(point.get("chord_m", 1.0)), 1.0e-9),
             point,
         )
-        for point in station_points
+        for point in effective_station_points
     ]
     total_weight = sum(weight for _, weight, _ in effective_points)
     if total_weight <= 0.0:
@@ -1071,6 +1168,9 @@ def _summarize_trim(
         "margin_deg": trim_result.margin_deg,
         "required_margin_deg": trim_result.required_margin_deg,
         "required_trim_margin_deg": cfg.launch.min_trim_margin_deg,
+        "evaluation_case": (
+            "reference_avl_case" if trim_station_points else "all_station_points_fallback"
+        ),
     }, trim_result
 
 
@@ -1211,7 +1311,14 @@ def _build_concept_mission_summary(
     air_density_kg_per_m3: float,
 ) -> dict[str, Any]:
     speed_sweep_mps = _speed_sweep_mps(cfg)
-    profile_cd = _mean_effective_cd(station_points, airfoil_feedback)
+    cruise_station_points = _station_points_for_case_label(
+        station_points,
+        "reference_avl_case",
+    )
+    profile_cd = _mean_effective_cd(
+        cruise_station_points or station_points,
+        airfoil_feedback,
+    )
     aspect_ratio = concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9)
     oswald_efficiency = _oswald_efficiency_proxy(concept)
     tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
@@ -1284,6 +1391,9 @@ def _build_concept_mission_summary(
         "misc_cd_proxy": misc_cd,
         "oswald_efficiency_proxy": oswald_efficiency,
         "propulsion_model": "simplified_prop_proxy_v1",
+        "mission_case_source": "reference_avl_case"
+        if cruise_station_points
+        else "all_station_points_fallback",
         "mass_cases": [
             {
                 "gross_mass_kg": gross_mass_kg,
@@ -1377,6 +1487,14 @@ def _summarize_spanwise_requirements(
             if zone_data.get("reference_condition_policy")
         }
     )
+    design_case_labels = sorted(
+        {
+            str(case["case_label"])
+            for zone_data in zone_requirements.values()
+            for case in zone_data.get("design_cases", [])
+            if isinstance(case, dict) and case.get("case_label")
+        }
+    )
     return {
         "zone_count": len(zone_requirements),
         "unique_sources": sources,
@@ -1387,6 +1505,8 @@ def _summarize_spanwise_requirements(
         "reference_gross_masses_kg": reference_gross_masses_kg,
         "reference_speed_reasons": reference_speed_reasons,
         "mass_selection_reasons": mass_selection_reasons,
+        "design_case_labels": design_case_labels,
+        "design_case_count": len(design_case_labels),
     }
 
 

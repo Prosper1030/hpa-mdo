@@ -76,13 +76,13 @@ def _shaft_power_required_w(
     return shaft_power_w
 
 
-def select_avl_reference_condition(
+def _mission_mass_cases_for_avl(
     *,
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
     air_density_kg_per_m3: float,
     profile_cd_proxy: float = 0.020,
-) -> dict[str, Any]:
+) -> list[dict[str, Any]]:
     speed_sweep_mps = _speed_sweep_mps(cfg)
     aspect_ratio = float(concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9))
     oswald_efficiency = _oswald_efficiency_proxy(concept)
@@ -139,6 +139,22 @@ def select_avl_reference_condition(
             }
         )
 
+    return mass_cases
+
+
+def select_avl_design_cases(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    air_density_kg_per_m3: float,
+    profile_cd_proxy: float = 0.020,
+) -> dict[str, Any]:
+    mass_cases = _mission_mass_cases_for_avl(
+        cfg=cfg,
+        concept=concept,
+        air_density_kg_per_m3=air_density_kg_per_m3,
+        profile_cd_proxy=profile_cd_proxy,
+    )
     objective_mode = str(cfg.mission.objective_mode)
     if objective_mode == "max_range":
         selected_mass_case = min(mass_cases, key=lambda case: float(case["best_range_m"]))
@@ -153,16 +169,78 @@ def select_avl_reference_condition(
     else:
         raise ValueError(f"Unsupported mission objective mode: {objective_mode}")
 
+    max_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+    min_speed_mps = float(min(_speed_sweep_mps(cfg)))
+    launch_speed_mps = float(cfg.launch.release_speed_mps)
+    turn_load_factor = 1.0 / math.cos(math.radians(float(cfg.turn.required_bank_angle_deg)))
+    design_cases = [
+        {
+            "case_label": "reference_avl_case",
+            "evaluation_speed_mps": float(reference_speed_mps),
+            "evaluation_gross_mass_kg": float(selected_mass_case["gross_mass_kg"]),
+            "load_factor": 1.0,
+            "case_weight": 1.0,
+            "speed_reason": reference_speed_reason,
+            "mass_reason": mass_selection_reason,
+            "case_reason": "objective_selected_reference_case",
+        },
+        {
+            "case_label": "slow_avl_case",
+            "evaluation_speed_mps": float(min_speed_mps),
+            "evaluation_gross_mass_kg": float(max_gross_mass_kg),
+            "load_factor": 1.0,
+            "case_weight": 1.0,
+            "speed_reason": "speed_sweep_min_mps",
+            "mass_reason": "max_gross_mass",
+            "case_reason": "low_speed_heavy_mass_case",
+        },
+        {
+            "case_label": "launch_release_case",
+            "evaluation_speed_mps": float(launch_speed_mps),
+            "evaluation_gross_mass_kg": float(max_gross_mass_kg),
+            "load_factor": 1.0,
+            "case_weight": 1.0,
+            "speed_reason": "launch.release_speed_mps",
+            "mass_reason": "max_gross_mass",
+            "case_reason": "launch_release_heavy_mass_case",
+        },
+        {
+            "case_label": "turn_avl_case",
+            "evaluation_speed_mps": float(launch_speed_mps),
+            "evaluation_gross_mass_kg": float(max_gross_mass_kg),
+            "load_factor": float(turn_load_factor),
+            "case_weight": 1.0,
+            "speed_reason": "launch.release_speed_mps",
+            "mass_reason": "max_gross_mass",
+            "case_reason": "banked_turn_heavy_mass_case",
+        },
+    ]
     return {
         "objective_mode": objective_mode,
         "reference_speed_mps": float(reference_speed_mps),
         "reference_gross_mass_kg": float(selected_mass_case["gross_mass_kg"]),
         "reference_speed_reason": reference_speed_reason,
         "mass_selection_reason": mass_selection_reason,
-        "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+        "reference_condition_policy": "mission_objective_multipoint_design_cases_v2",
         "selected_mass_case": selected_mass_case,
         "mass_cases": mass_cases,
+        "design_cases": design_cases,
     }
+
+
+def select_avl_reference_condition(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    air_density_kg_per_m3: float,
+    profile_cd_proxy: float = 0.020,
+) -> dict[str, Any]:
+    return select_avl_design_cases(
+        cfg=cfg,
+        concept=concept,
+        air_density_kg_per_m3=air_density_kg_per_m3,
+        profile_cd_proxy=profile_cd_proxy,
+    )
 
 
 def _concept_case_slug(concept: GeometryConcept) -> str:
@@ -491,6 +569,12 @@ def avl_zone_payload_from_spanwise_load(
     *,
     spanwise_load: SpanwiseLoad,
     stations: tuple[WingStation, ...],
+    case_label: str = "reference_avl_case",
+    case_weight: float = 1.0,
+    evaluation_speed_mps: float | None = None,
+    evaluation_gross_mass_kg: float | None = None,
+    load_factor: float = 1.0,
+    case_reason: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     zone_requirements = build_zone_requirements(
         spanwise_load=spanwise_load,
@@ -513,14 +597,42 @@ def avl_zone_payload_from_spanwise_load(
         payload[zone_name] = {
             "source": "avl_strip_forces",
             "min_tc_ratio": float(zone_requirement.min_tc_ratio),
+            "design_cases": [
+                {
+                    "case_label": str(case_label),
+                    "evaluation_speed_mps": (
+                        None if evaluation_speed_mps is None else float(evaluation_speed_mps)
+                    ),
+                    "evaluation_gross_mass_kg": (
+                        None
+                        if evaluation_gross_mass_kg is None
+                        else float(evaluation_gross_mass_kg)
+                    ),
+                    "load_factor": float(load_factor),
+                    "case_weight": float(case_weight),
+                    "case_reason": None if case_reason is None else str(case_reason),
+                }
+            ],
             "points": [
                 {
                     "reynolds": float(point.reynolds),
                     "chord_m": float(point.chord_m),
                     "cl_target": float(point.cl_target),
                     "cm_target": float(point.cm_target),
-                    "weight": float(point.weight),
+                    "weight": float(point.weight) * float(case_weight),
                     "station_y_m": float(station_y_m),
+                    "case_label": str(case_label),
+                    "case_weight": float(case_weight),
+                    "evaluation_speed_mps": (
+                        None if evaluation_speed_mps is None else float(evaluation_speed_mps)
+                    ),
+                    "evaluation_gross_mass_kg": (
+                        None
+                        if evaluation_gross_mass_kg is None
+                        else float(evaluation_gross_mass_kg)
+                    ),
+                    "load_factor": float(load_factor),
+                    "case_reason": None if case_reason is None else str(case_reason),
                 }
                 for point, station_y_m in zip(
                     zone_requirement.points,
@@ -553,65 +665,111 @@ def load_zone_requirements_from_avl(
     )
 
     air_density_kgpm3 = _air_density_from_environment(cfg)
-    reference_condition = select_avl_reference_condition(
+    reference_condition = select_avl_design_cases(
         cfg=cfg,
         concept=concept,
         air_density_kg_per_m3=air_density_kgpm3,
     )
+    aggregated_payload: dict[str, dict[str, Any]] = {}
+    design_case_summaries: list[dict[str, Any]] = []
+
+    for case_spec in reference_condition["design_cases"]:
+        case_label = str(case_spec["case_label"])
+        evaluation_speed_mps = float(case_spec["evaluation_speed_mps"])
+        evaluation_gross_mass_kg = float(case_spec["evaluation_gross_mass_kg"])
+        load_factor = float(case_spec["load_factor"])
+        dynamic_pressure_pa = 0.5 * air_density_kgpm3 * evaluation_speed_mps**2
+        cl_required = (evaluation_gross_mass_kg * 9.80665 * load_factor) / max(
+            dynamic_pressure_pa * float(concept.wing_area_m2),
+            1.0e-9,
+        )
+
+        case_case_dir = case_dir / case_label
+        trim_totals = _run_avl_trim_case(
+            avl_path=avl_path,
+            case_dir=case_case_dir,
+            cl_required=cl_required,
+            velocity_mps=evaluation_speed_mps,
+            density_kgpm3=air_density_kgpm3,
+            avl_binary=avl_binary,
+        )
+        fs_path = _run_avl_spanwise_case(
+            avl_path=avl_path,
+            case_dir=case_case_dir,
+            alpha_deg=float(trim_totals["aoa_trim_deg"]),
+            velocity_mps=evaluation_speed_mps,
+            density_kgpm3=air_density_kgpm3,
+            avl_binary=avl_binary,
+        )
+
+        avl_spanwise_load = build_spanwise_load_from_avl_strip_forces(
+            fs_path=fs_path,
+            avl_path=avl_path,
+            aoa_deg=float(trim_totals["aoa_trim_deg"]),
+            velocity_mps=evaluation_speed_mps,
+            density_kgpm3=air_density_kgpm3,
+            target_surface_names=("Wing",),
+            positive_y_only=True,
+        )
+        station_load = resample_spanwise_load_to_stations(
+            spanwise_load=avl_spanwise_load,
+            stations=stations,
+        )
+        case_payload = avl_zone_payload_from_spanwise_load(
+            spanwise_load=station_load,
+            stations=stations,
+            case_label=case_label,
+            case_weight=float(case_spec.get("case_weight", 1.0)),
+            evaluation_speed_mps=evaluation_speed_mps,
+            evaluation_gross_mass_kg=evaluation_gross_mass_kg,
+            load_factor=load_factor,
+            case_reason=str(case_spec.get("case_reason", case_label)),
+        )
+        design_case_summaries.append(
+            {
+                "case_label": case_label,
+                "evaluation_speed_mps": evaluation_speed_mps,
+                "evaluation_gross_mass_kg": evaluation_gross_mass_kg,
+                "load_factor": load_factor,
+                "case_weight": float(case_spec.get("case_weight", 1.0)),
+                "speed_reason": str(case_spec.get("speed_reason", "unknown")),
+                "mass_reason": str(case_spec.get("mass_reason", "unknown")),
+                "case_reason": str(case_spec.get("case_reason", case_label)),
+                "trim_aoa_deg": float(trim_totals["aoa_trim_deg"]),
+                "trim_cl": float(trim_totals["cl_trim"]),
+                "cl_required": float(cl_required),
+            }
+        )
+        for zone_name, zone_payload in case_payload.items():
+            aggregate = aggregated_payload.setdefault(
+                zone_name,
+                {
+                    "source": "avl_strip_forces",
+                    "min_tc_ratio": float(zone_payload["min_tc_ratio"]),
+                    "points": [],
+                    "design_cases": [],
+                },
+            )
+            aggregate["points"].extend(zone_payload["points"])
+            aggregate["design_cases"].extend(zone_payload.get("design_cases", []))
+
     reference_speed_mps = float(reference_condition["reference_speed_mps"])
     reference_gross_mass_kg = float(reference_condition["reference_gross_mass_kg"])
-    dynamic_pressure_pa = 0.5 * air_density_kgpm3 * reference_speed_mps**2
-    cl_required = (reference_gross_mass_kg * 9.80665) / max(
-        dynamic_pressure_pa * float(concept.wing_area_m2),
-        1.0e-9,
-    )
-
-    trim_totals = _run_avl_trim_case(
-        avl_path=avl_path,
-        case_dir=case_dir,
-        cl_required=cl_required,
-        velocity_mps=reference_speed_mps,
-        density_kgpm3=air_density_kgpm3,
-        avl_binary=avl_binary,
-    )
-    fs_path = _run_avl_spanwise_case(
-        avl_path=avl_path,
-        case_dir=case_dir,
-        alpha_deg=float(trim_totals["aoa_trim_deg"]),
-        velocity_mps=reference_speed_mps,
-        density_kgpm3=air_density_kgpm3,
-        avl_binary=avl_binary,
-    )
-
-    avl_spanwise_load = build_spanwise_load_from_avl_strip_forces(
-        fs_path=fs_path,
-        avl_path=avl_path,
-        aoa_deg=float(trim_totals["aoa_trim_deg"]),
-        velocity_mps=reference_speed_mps,
-        density_kgpm3=air_density_kgpm3,
-        target_surface_names=("Wing",),
-        positive_y_only=True,
-    )
-    station_load = resample_spanwise_load_to_stations(
-        spanwise_load=avl_spanwise_load,
-        stations=stations,
-    )
-    payload = avl_zone_payload_from_spanwise_load(
-        spanwise_load=station_load,
-        stations=stations,
-    )
-    for zone_payload in payload.values():
-        zone_payload["reference_speed_mps"] = float(reference_speed_mps)
-        zone_payload["reference_gross_mass_kg"] = float(reference_gross_mass_kg)
+    for zone_payload in aggregated_payload.values():
+        zone_payload["reference_speed_mps"] = reference_speed_mps
+        zone_payload["reference_gross_mass_kg"] = reference_gross_mass_kg
         zone_payload["reference_speed_reason"] = str(reference_condition["reference_speed_reason"])
         zone_payload["mass_selection_reason"] = str(reference_condition["mass_selection_reason"])
-        zone_payload["reference_cl_required"] = float(cl_required)
-        zone_payload["trim_aoa_deg"] = float(trim_totals["aoa_trim_deg"])
-        zone_payload["trim_cl"] = float(trim_totals["cl_trim"])
         zone_payload["reference_condition_policy"] = str(
             reference_condition["reference_condition_policy"]
         )
-    return payload
+        if design_case_summaries:
+            zone_payload["reference_cl_required"] = float(design_case_summaries[0]["cl_required"])
+            zone_payload["trim_aoa_deg"] = float(design_case_summaries[0]["trim_aoa_deg"])
+            zone_payload["trim_cl"] = float(design_case_summaries[0]["trim_cl"])
+        zone_payload["design_case_count"] = len(zone_payload.get("design_cases", []))
+        zone_payload["design_cases"] = design_case_summaries
+    return aggregated_payload
 
 
 def _annotate_fallback_payload(

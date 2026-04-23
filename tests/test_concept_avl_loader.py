@@ -12,6 +12,7 @@ from hpa_mdo.concept.avl_loader import (
     build_avl_backed_spanwise_loader,
     load_zone_requirements_from_avl,
     resample_spanwise_load_to_stations,
+    select_avl_design_cases,
     select_avl_reference_condition,
 )
 from hpa_mdo.concept.config import load_concept_config
@@ -121,7 +122,7 @@ def test_select_avl_reference_condition_uses_range_speed_for_max_range() -> None
     assert reference["reference_speed_reason"] == "best_range_speed_mps"
     assert (
         reference["reference_condition_policy"]
-        == "mission_objective_and_limiting_mass_proxy_v1"
+        == "mission_objective_multipoint_design_cases_v2"
     )
     assert reference["reference_speed_mps"] == pytest.approx(
         reference["selected_mass_case"]["best_range_speed_mps"]
@@ -150,7 +151,7 @@ def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> 
     assert reference["reference_speed_reason"] == "min_power_speed_mps"
     assert (
         reference["reference_condition_policy"]
-        == "mission_objective_and_limiting_mass_proxy_v1"
+        == "mission_objective_multipoint_design_cases_v2"
     )
     assert reference["reference_speed_mps"] == pytest.approx(
         reference["selected_mass_case"]["min_power_speed_mps"]
@@ -158,6 +159,31 @@ def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> 
     assert reference["reference_gross_mass_kg"] == pytest.approx(
         reference["selected_mass_case"]["gross_mass_kg"]
     )
+
+
+def test_select_avl_design_cases_exposes_reference_slow_launch_and_turn_cases() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+
+    payload = select_avl_design_cases(
+        cfg=cfg,
+        concept=_sample_concept(),
+        air_density_kg_per_m3=1.10,
+    )
+
+    labels = [case["case_label"] for case in payload["design_cases"]]
+    assert labels == [
+        "reference_avl_case",
+        "slow_avl_case",
+        "launch_release_case",
+        "turn_avl_case",
+    ]
+    turn_case = payload["design_cases"][-1]
+    assert turn_case["evaluation_speed_mps"] == pytest.approx(cfg.launch.release_speed_mps)
+    assert turn_case["evaluation_gross_mass_kg"] == pytest.approx(max(cfg.mass.gross_mass_sweep_kg))
+    assert turn_case["load_factor"] == pytest.approx(
+        1.0 / np.cos(np.radians(cfg.turn.required_bank_angle_deg))
+    )
+    assert payload["reference_condition_policy"] == "mission_objective_multipoint_design_cases_v2"
 
 
 def test_avl_backed_loader_falls_back_on_avl_failure(tmp_path: Path, monkeypatch) -> None:
@@ -243,5 +269,12 @@ def test_load_zone_requirements_from_avl_returns_nonempty_payload(tmp_path: Path
 
     assert tuple(payload) == ("root", "mid1", "mid2", "tip")
     assert all(zone_payload["source"] == "avl_strip_forces" for zone_payload in payload.values())
-    assert sum(len(zone["points"]) for zone in payload.values()) == len(stations)
+    assert sum(len(zone["points"]) for zone in payload.values()) == 4 * len(stations)
+    assert payload["root"]["design_case_count"] == 4
+    assert {case["case_label"] for case in payload["root"]["design_cases"]} == {
+        "reference_avl_case",
+        "slow_avl_case",
+        "launch_release_case",
+        "turn_avl_case",
+    }
     assert payload["root"]["reference_cl_required"] > 0.0

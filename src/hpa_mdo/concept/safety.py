@@ -62,6 +62,17 @@ def _weighted_required_cl(point: dict[str, float], *, load_factor: float) -> flo
     return float(point["cl_target"]) * float(load_factor)
 
 
+def _resolved_required_cl(
+    point: dict[str, float],
+    *,
+    load_factor: float,
+    pre_scaled_cl: bool,
+) -> float:
+    if pre_scaled_cl:
+        return float(point["cl_target"])
+    return _weighted_required_cl(point, load_factor=load_factor)
+
+
 def _cl_limit_source(point: dict[str, float]) -> str:
     if "cl_max_safe_source" in point:
         return str(point["cl_max_safe_source"])
@@ -75,6 +86,7 @@ def _evaluate_stationwise_margin(
     station_points: list[dict[str, float]],
     half_span_m: float,
     load_factor: float,
+    pre_scaled_cl: bool = False,
 ) -> dict[str, float | bool | str]:
     if not station_points:
         raise ValueError("station_points must not be empty.")
@@ -85,11 +97,20 @@ def _evaluate_stationwise_margin(
 
     min_point = min(
         station_points,
-        key=lambda item: _cl_limit(item) - _weighted_required_cl(item, load_factor=load_factor),
+        key=lambda item: _cl_limit(item)
+        - _resolved_required_cl(
+            item,
+            load_factor=load_factor,
+            pre_scaled_cl=pre_scaled_cl,
+        ),
     )
     cl_level = float(min_point["cl_target"])
     cl_max = _cl_limit(min_point)
-    required_cl = _weighted_required_cl(min_point, load_factor=load_factor)
+    required_cl = _resolved_required_cl(
+        min_point,
+        load_factor=load_factor,
+        pre_scaled_cl=pre_scaled_cl,
+    )
     min_margin = cl_max - required_cl
     stall_utilization = required_cl / max(cl_max, 1.0e-9)
     y_m = float(min_point["station_y_m"])
@@ -188,6 +209,8 @@ def evaluate_turn_gate(
     half_span_m: float,
     trim_feasible: bool,
     stall_utilization_limit: float,
+    load_factor_override: float | None = None,
+    pre_scaled_cl: bool = False,
 ) -> TurnGateResult:
     if bank_angle_deg <= 0.0 or bank_angle_deg >= 85.0:
         raise ValueError("bank_angle_deg must be in the interval (0, 85).")
@@ -196,11 +219,16 @@ def evaluate_turn_gate(
     # Like the launch gate, this MVP consumes an upstream CL state. The speed is
     # retained on the API surface so later turn-envelope refinements can use it
     # without changing the pipeline contract.
-    load_factor = 1.0 / math.cos(math.radians(float(bank_angle_deg)))
+    load_factor = (
+        float(load_factor_override)
+        if load_factor_override is not None
+        else 1.0 / math.cos(math.radians(float(bank_angle_deg)))
+    )
     stationwise = _evaluate_stationwise_margin(
         station_points=station_points,
         half_span_m=half_span_m,
         load_factor=load_factor,
+        pre_scaled_cl=pre_scaled_cl,
     )
     cl_level = float(stationwise["cl_level"])
     cl_max = float(stationwise["cl_max"])

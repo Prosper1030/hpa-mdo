@@ -111,6 +111,30 @@ def test_turn_gate_keeps_failure_contract_when_trim_is_not_feasible():
     assert hash(result)
 
 
+def test_turn_gate_supports_pre_scaled_turn_case_points() -> None:
+    load_factor = 1.0 / 0.9659258262890683
+    result = evaluate_turn_gate(
+        bank_angle_deg=15.0,
+        speed_mps=8.0,
+        station_points=[
+            {
+                "station_y_m": 2.0,
+                "cl_target": 0.98,
+                "cl_max_safe": 1.20,
+            }
+        ],
+        half_span_m=16.0,
+        trim_feasible=True,
+        stall_utilization_limit=0.90,
+        load_factor_override=load_factor,
+        pre_scaled_cl=True,
+    )
+
+    assert result.required_cl == pytest.approx(0.98)
+    assert result.load_factor == pytest.approx(load_factor)
+    assert result.stall_utilization == pytest.approx(0.98 / 1.20)
+
+
 def test_launch_gate_respects_required_trim_margin():
     result = evaluate_launch_gate(
         platform_height_m=10.0,

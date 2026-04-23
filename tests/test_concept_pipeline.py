@@ -433,11 +433,12 @@ def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
         spanwise_loader=lambda concept, stations: {
             "root": {
                 "source": "avl_strip_forces",
-                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_condition_policy": "mission_objective_multipoint_design_cases_v2",
                 "reference_speed_mps": 6.5,
                 "reference_gross_mass_kg": 105.0,
                 "reference_speed_reason": "best_range_speed_mps",
                 "mass_selection_reason": "min_best_range",
+                "design_cases": [{"case_label": "reference_avl_case"}],
                 "points": [
                     {
                         "reynolds": 350000.0,
@@ -449,29 +450,32 @@ def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
             },
             "mid1": {
                 "source": "avl_strip_forces",
-                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_condition_policy": "mission_objective_multipoint_design_cases_v2",
                 "reference_speed_mps": 6.5,
                 "reference_gross_mass_kg": 105.0,
                 "reference_speed_reason": "best_range_speed_mps",
                 "mass_selection_reason": "min_best_range",
+                "design_cases": [{"case_label": "reference_avl_case"}],
                 "points": [],
             },
             "mid2": {
                 "source": "avl_strip_forces",
-                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_condition_policy": "mission_objective_multipoint_design_cases_v2",
                 "reference_speed_mps": 6.5,
                 "reference_gross_mass_kg": 105.0,
                 "reference_speed_reason": "best_range_speed_mps",
                 "mass_selection_reason": "min_best_range",
+                "design_cases": [{"case_label": "reference_avl_case"}],
                 "points": [],
             },
             "tip": {
                 "source": "avl_strip_forces",
-                "reference_condition_policy": "mission_objective_and_limiting_mass_proxy_v1",
+                "reference_condition_policy": "mission_objective_multipoint_design_cases_v2",
                 "reference_speed_mps": 6.5,
                 "reference_gross_mass_kg": 105.0,
                 "reference_speed_reason": "best_range_speed_mps",
                 "mass_selection_reason": "min_best_range",
+                "design_cases": [{"case_label": "reference_avl_case"}],
                 "points": [],
             },
         },
@@ -481,12 +485,13 @@ def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
     spanwise_summary = _first_ranked_record(summary)["spanwise_requirements"]
 
     assert spanwise_summary["reference_condition_policies"] == [
-        "mission_objective_and_limiting_mass_proxy_v1"
+        "mission_objective_multipoint_design_cases_v2"
     ]
     assert spanwise_summary["reference_speeds_mps"] == [6.5]
     assert spanwise_summary["reference_gross_masses_kg"] == [105.0]
     assert spanwise_summary["reference_speed_reasons"] == ["best_range_speed_mps"]
     assert spanwise_summary["mass_selection_reasons"] == ["min_best_range"]
+    assert spanwise_summary["design_case_labels"] == ["reference_avl_case"]
 
 
 def test_fallback_selected_zone_candidate_applies_safe_clmax_model() -> None:
@@ -857,6 +862,45 @@ def test_turn_summary_rescales_reference_cl_targets_to_release_condition() -> No
     assert turn["reference_gross_mass_kg"] == pytest.approx(95.0)
     assert turn["evaluation_gross_mass_kg"] == pytest.approx(105.0)
     assert turn["stall_utilization"] == pytest.approx(turn["required_cl"] / turn["cl_max"])
+
+
+def test_turn_summary_uses_explicit_turn_avl_case_without_rescaling() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    turn = concept_pipeline._summarize_turn(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "cl_target": 0.98,
+                "cl_max_safe": 1.20,
+                "case_label": "turn_avl_case",
+                "evaluation_speed_mps": 8.0,
+                "evaluation_gross_mass_kg": 105.0,
+                "load_factor": 1.0 / 0.9659258262890683,
+                "reference_speed_mps": 6.0,
+                "reference_gross_mass_kg": 95.0,
+            }
+        ],
+        trim_result=type("TrimResult", (), {"feasible": True})(),
+    )
+
+    assert turn["evaluation_case"] == "turn_avl_case"
+    assert turn["required_cl"] == pytest.approx(0.98)
+    assert turn["cl_scale_factor_min"] == pytest.approx(1.0)
+    assert turn["cl_scale_factor_max"] == pytest.approx(1.0)
 
 
 def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch() -> None:
