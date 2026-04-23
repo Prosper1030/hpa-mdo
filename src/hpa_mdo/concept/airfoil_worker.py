@@ -224,10 +224,10 @@ class JuliaXFoilWorker:
 
     def _validate_success_status(self, result: dict[str, object]) -> dict[str, object]:
         status = result.get("status")
-        if status not in {"ok", "stubbed_ok"}:
+        if status not in {"ok", "stubbed_ok", "mini_sweep_fallback"}:
             raise RuntimeError(
                 "Julia/XFoil worker returned a non-success status: "
-                f"{status!r}. Expected 'ok' or 'stubbed_ok'."
+                f"{status!r}. Expected 'ok', 'stubbed_ok', or 'mini_sweep_fallback'."
             )
         return result
 

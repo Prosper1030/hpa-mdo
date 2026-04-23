@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import threading
 
 import pytest
@@ -33,6 +34,69 @@ def _sample_query(**overrides) -> PolarQuery:
     }
     payload.update(overrides)
     return PolarQuery(**payload)
+
+
+def _worker_project_dir() -> Path:
+    return Path(__file__).resolve().parents[1] / "tools" / "julia" / "xfoil_worker"
+
+
+def _run_real_julia_worker_request(tmp_path: Path, payload: list[dict[str, object]]) -> list[dict[str, object]]:
+    julia = shutil.which("julia")
+    if julia is None:
+        pytest.skip("Julia runtime not installed")
+
+    worker_dir = _worker_project_dir()
+    request_path = tmp_path / "request.json"
+    response_path = tmp_path / "response.json"
+    request_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    subprocess.run(
+        [
+            julia,
+            f"--project={worker_dir}",
+            str(worker_dir / "xfoil_worker.jl"),
+            str(request_path),
+            str(response_path),
+        ],
+        check=True,
+        cwd=Path(__file__).resolve().parents[1],
+    )
+    parsed = json.loads(response_path.read_text(encoding="utf-8"))
+    assert isinstance(parsed, list)
+    return parsed
+
+
+def test_real_julia_worker_screening_mode_returns_explicit_fidelity_fields(tmp_path):
+    query = _sample_query(
+        template_id="screening-root-v1",
+        cl_samples=(0.70,),
+        analysis_mode="screening_target_cl",
+        analysis_stage="screening",
+    )
+
+    results = _run_real_julia_worker_request(
+        tmp_path,
+        [
+            {
+                "template_id": query.template_id,
+                "reynolds": query.reynolds,
+                "cl_samples": list(query.cl_samples),
+                "roughness_mode": query.roughness_mode,
+                "geometry_hash": query.geometry_hash,
+                "coordinates": [list(point) for point in query.coordinates],
+                "analysis_mode": query.analysis_mode,
+                "analysis_stage": query.analysis_stage,
+            }
+        ],
+    )
+
+    assert len(results) == 1
+    result = results[0]
+    assert result["analysis_mode"] == "screening_target_cl"
+    assert result["analysis_stage"] == "screening"
+    assert result["status"] in {"ok", "mini_sweep_fallback"}
+    assert "polar_points" in result
+    assert "screening_summary" in result
 
 
 def test_worker_reuses_persistent_julia_process_across_uncached_batches(
@@ -462,6 +526,68 @@ def test_worker_materializes_result_with_analysis_mode_and_stage(tmp_path):
 
     assert materialized["analysis_mode"] == "screening_target_cl"
     assert materialized["analysis_stage"] == "screening"
+
+
+def test_worker_accepts_screening_fallback_status_and_caches_it(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+    query = _sample_query(
+        cl_samples=(0.7,),
+        analysis_mode="screening_target_cl",
+        analysis_stage="screening",
+    )
+
+    def fake_run(cmd, check, cwd):
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": query.template_id,
+                        "reynolds": query.reynolds,
+                        "cl_samples": list(query.cl_samples),
+                        "roughness_mode": query.roughness_mode,
+                        "geometry_hash": query.geometry_hash,
+                        "analysis_mode": query.analysis_mode,
+                        "analysis_stage": query.analysis_stage,
+                        "status": "mini_sweep_fallback",
+                        "polar_points": [
+                            {
+                                "cl_target": 0.7,
+                                "alpha_deg": 5.0,
+                                "cl": 0.66,
+                                "cd": 0.024,
+                                "cm": -0.09,
+                                "converged": True,
+                                "cl_error": -0.04,
+                            }
+                        ],
+                        "screening_summary": {
+                            "target_cl_requested_count": 1,
+                            "target_cl_converged_count": 0,
+                            "fallback_used": True,
+                        },
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+
+    result = worker.run_queries([query])
+
+    assert result[0]["status"] == "mini_sweep_fallback"
+    assert result[0]["analysis_mode"] == "screening_target_cl"
+    assert result[0]["analysis_stage"] == "screening"
+    assert (worker.cache_dir / f"{worker.cache_key(query)}.json").is_file()
 
 
 def test_worker_raises_clear_error_when_julia_runtime_is_missing(tmp_path, monkeypatch):
