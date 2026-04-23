@@ -477,6 +477,11 @@ def test_pipeline_reruns_finalists_with_post_airfoil_avl_reference_context(
         fake_load_zone_requirements_from_avl,
         raising=False,
     )
+    monkeypatch.setattr(
+        concept_pipeline,
+        "_should_iterate_post_airfoil_avl_reference",
+        lambda **_: False,
+    )
 
     result = run_birdman_concept_pipeline(
         config_path=config_path,
@@ -489,12 +494,264 @@ def test_pipeline_reruns_finalists_with_post_airfoil_avl_reference_context(
     first = _first_ranked_record(summary)
 
     assert len(rerun_calls) == 1
-    assert rerun_calls[0]["case_tag"] == "finalist_post_airfoil_avl_rerun"
+    assert rerun_calls[0]["case_tag"] == "finalist_post_airfoil_avl_rerun_iter01"
     assert rerun_calls[0]["reference_condition_override"] is not None
     assert set(rerun_calls[0]["airfoil_templates"]) == {"root", "mid1", "mid2", "tip"}
     assert first["spanwise_requirements"]["reference_condition_policies"] == [
         "post_airfoil_feasible_reference_avl_rerun_v1"
     ]
+
+
+def test_should_iterate_post_airfoil_avl_reference_only_for_speed_mismatch() -> None:
+    assert concept_pipeline._should_iterate_post_airfoil_avl_reference(
+        consistency_audit={
+            "rerun_recommended": True,
+            "rerun_reasons": ["reference_speed_delta_exceeds_1mps"],
+        },
+        rerun_iteration_count=1,
+    )
+    assert not concept_pipeline._should_iterate_post_airfoil_avl_reference(
+        consistency_audit={
+            "rerun_recommended": True,
+            "rerun_reasons": ["pre_avl_feasible_range_ratio_out_of_family"],
+        },
+        rerun_iteration_count=1,
+    )
+    assert not concept_pipeline._should_iterate_post_airfoil_avl_reference(
+        consistency_audit={
+            "rerun_recommended": True,
+            "rerun_reasons": ["reference_speed_delta_exceeds_1mps"],
+        },
+        rerun_iteration_count=2,
+    )
+
+
+def test_pipeline_can_take_second_post_airfoil_avl_rerun_when_reference_still_shifts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    config_payload["pipeline"]["keep_top_n"] = 3
+    config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
+    config_path = tmp_path / "post_airfoil_rerun_iterative.yaml"
+    config_path.write_text(yaml.safe_dump(config_payload, sort_keys=False), encoding="utf-8")
+    cfg = load_concept_config(config_path)
+    rerun_calls: list[dict[str, object]] = []
+
+    class FakeWorker:
+        backend_name = "dual_track_stub"
+
+        def run_queries(self, queries):
+            return [
+                _worker_result_payload(
+                    query,
+                    sweep_point_count=(4 if query.analysis_mode == "screening_target_cl" else 21),
+                )
+                for query in queries
+            ]
+
+    def base_loader(_concept, _stations):
+        return {
+            "root": {
+                "source": "avl_strip_forces",
+                "reference_speed_mps": 6.0,
+                "reference_gross_mass_kg": 105.0,
+                "reference_speed_reason": "proxy_reference_speed",
+                "mass_selection_reason": "proxy_mass_case",
+                "reference_condition_policy": "proxy_reference_policy",
+                "design_cases": [],
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "chord_m": 1.30,
+                        "cl_target": 0.54,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": 6.0,
+                        "evaluation_gross_mass_kg": 105.0,
+                    }
+                ],
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        }
+
+    setattr(
+        base_loader,
+        "_birdman_avl_rerun_context",
+        {
+            "cfg": cfg,
+            "working_root": tmp_path / "avl_rerun",
+            "avl_binary": None,
+        },
+    )
+
+    def fake_load_zone_requirements_from_avl(**kwargs):
+        rerun_calls.append(kwargs)
+        reference_speed_mps = float(kwargs["reference_condition_override"]["reference_speed_mps"])
+        return {
+            "root": {
+                "source": "avl_strip_forces",
+                "reference_speed_mps": reference_speed_mps,
+                "reference_gross_mass_kg": float(
+                    kwargs["reference_condition_override"]["reference_gross_mass_kg"]
+                ),
+                "reference_speed_reason": str(
+                    kwargs["reference_condition_override"]["reference_speed_reason"]
+                ),
+                "mass_selection_reason": str(
+                    kwargs["reference_condition_override"]["mass_selection_reason"]
+                ),
+                "reference_condition_policy": "post_airfoil_feasible_reference_avl_rerun_v1",
+                "design_cases": [],
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "chord_m": 1.30,
+                        "cl_target": 0.50 if len(rerun_calls) == 1 else 0.46,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": reference_speed_mps,
+                        "evaluation_gross_mass_kg": float(
+                            kwargs["reference_condition_override"]["reference_gross_mass_kg"]
+                        ),
+                    }
+                ],
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        }
+
+    monkeypatch.setattr(
+        concept_pipeline,
+        "load_zone_requirements_from_avl",
+        fake_load_zone_requirements_from_avl,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        concept_pipeline,
+        "_should_iterate_post_airfoil_avl_reference",
+        lambda **kwargs: int(kwargs["rerun_iteration_count"]) == 1,
+    )
+
+    run_birdman_concept_pipeline(
+        config_path=config_path,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: FakeWorker(),
+        spanwise_loader=base_loader,
+    )
+
+    assert len(rerun_calls) == 2
+    assert [call["case_tag"] for call in rerun_calls] == [
+        "finalist_post_airfoil_avl_rerun_iter01",
+        "finalist_post_airfoil_avl_rerun_iter02",
+    ]
+
+
+def test_pipeline_falls_back_when_post_airfoil_rerun_has_no_feasible_reference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    config_payload["pipeline"]["keep_top_n"] = 3
+    config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
+    config_path = tmp_path / "post_airfoil_rerun_fallback.yaml"
+    config_path.write_text(yaml.safe_dump(config_payload, sort_keys=False), encoding="utf-8")
+    cfg = load_concept_config(config_path)
+    rerun_calls: list[dict[str, object]] = []
+
+    class FakeWorker:
+        backend_name = "dual_track_stub"
+
+        def __init__(self):
+            self.batches: list[list[tuple[str, str]]] = []
+
+        def run_queries(self, queries):
+            self.batches.append([(query.analysis_mode, query.analysis_stage) for query in queries])
+            return [
+                _worker_result_payload(
+                    query,
+                    sweep_point_count=(4 if query.analysis_mode == "screening_target_cl" else 21),
+                )
+                for query in queries
+            ]
+
+    def base_loader(_concept, _stations):
+        return {
+            "root": {
+                "source": "avl_strip_forces",
+                "reference_speed_mps": 6.0,
+                "reference_gross_mass_kg": 105.0,
+                "reference_speed_reason": "proxy_reference_speed",
+                "mass_selection_reason": "proxy_mass_case",
+                "reference_condition_policy": "proxy_reference_policy",
+                "design_cases": [],
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "chord_m": 1.30,
+                        "cl_target": 0.54,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                        "case_label": "reference_avl_case",
+                        "evaluation_speed_mps": 6.0,
+                        "evaluation_gross_mass_kg": 105.0,
+                    }
+                ],
+            },
+            "mid1": {"points": []},
+            "mid2": {"points": []},
+            "tip": {"points": []},
+        }
+
+    setattr(
+        base_loader,
+        "_birdman_avl_rerun_context",
+        {
+            "cfg": cfg,
+            "working_root": tmp_path / "avl_rerun",
+            "avl_binary": None,
+        },
+    )
+
+    monkeypatch.setattr(
+        concept_pipeline,
+        "load_zone_requirements_from_avl",
+        lambda **kwargs: rerun_calls.append(kwargs) or {"root": {"points": []}},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        concept_pipeline,
+        "_post_airfoil_reference_condition_override",
+        lambda **_: None,
+    )
+
+    fake_worker = FakeWorker()
+    result = run_birdman_concept_pipeline(
+        config_path=config_path,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: fake_worker,
+        spanwise_loader=base_loader,
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    first = _first_ranked_record(summary)
+
+    assert rerun_calls == []
+    assert first["worker_fidelity"]["finalist"]["worker_analysis_modes"]
+    assert all(
+        mode == "full_alpha_sweep"
+        for mode in first["worker_fidelity"]["finalist"]["worker_analysis_modes"]
+    )
+    assert fake_worker.batches
 
 
 def test_pipeline_batches_screening_candidate_selection_across_concepts(

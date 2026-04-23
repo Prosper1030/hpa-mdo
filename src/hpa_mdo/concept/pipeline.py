@@ -611,34 +611,59 @@ def _post_airfoil_reference_condition_override(
     }
 
 
+def _should_iterate_post_airfoil_avl_reference(
+    *,
+    consistency_audit: dict[str, Any],
+    rerun_iteration_count: int,
+    max_rerun_iterations: int = 2,
+) -> bool:
+    if int(rerun_iteration_count) >= int(max_rerun_iterations):
+        return False
+    if not bool(consistency_audit.get("rerun_recommended")):
+        return False
+
+    rerun_reasons = {str(reason) for reason in consistency_audit.get("rerun_reasons", [])}
+    return bool(
+        rerun_reasons
+        & {
+            "reference_speed_outside_post_airfoil_feasible_set",
+            "reference_speed_delta_exceeds_1mps",
+        }
+    )
+
+
 def _rerun_finalist_zone_requirements_from_post_airfoil_avl(
     *,
     spanwise_loader: SpanwiseLoadLoader,
-    record: _EvaluatedConcept,
-) -> dict[str, dict[str, Any]]:
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    airfoil_templates: dict[str, dict[str, Any]],
+    mission_summary: dict[str, Any],
+    rerun_iteration_index: int,
+) -> dict[str, dict[str, Any]] | None:
     avl_context = _spanwise_loader_avl_rerun_context(spanwise_loader)
     if avl_context is None:
-        return record.zone_requirements
+        return None
 
     reference_condition_override = _post_airfoil_reference_condition_override(
-        mission_summary=record.mission_summary,
+        mission_summary=mission_summary,
     )
     if reference_condition_override is None:
-        return record.zone_requirements
+        return None
 
     rerun_zone_requirements = load_zone_requirements_from_avl(
         cfg=avl_context["cfg"],
-        concept=record.concept,
-        stations=record.stations,
+        concept=concept,
+        stations=stations,
         working_root=Path(avl_context["working_root"]),
         avl_binary=avl_context.get("avl_binary"),
-        airfoil_templates=record.airfoil_templates,
+        airfoil_templates=airfoil_templates,
         reference_condition_override=reference_condition_override,
-        case_tag="finalist_post_airfoil_avl_rerun",
+        case_tag=f"finalist_post_airfoil_avl_rerun_iter{int(rerun_iteration_index):02d}",
     )
     return _annotate_zone_requirements_with_concept_geometry(
         zone_requirements=rerun_zone_requirements,
-        concept=record.concept,
+        concept=concept,
     )
 
 
@@ -2710,54 +2735,142 @@ def run_birdman_concept_pipeline(
                     reevaluated.append(record)
                     continue
 
-                rerun_zone_requirements = _rerun_finalist_zone_requirements_from_post_airfoil_avl(
-                    spanwise_loader=spanwise_loader,
-                    record=record,
-                )
-                (
-                    updated_selected_by_zone,
-                    airfoil_templates,
-                    worker_results,
-                    airfoil_feedback,
-                    launch_summary,
-                    turn_summary,
-                    trim_summary,
-                    local_stall_summary,
-                    mission_summary,
-                    ranking_input,
-                ) = _evaluate_selected_airfoils_for_concept(
-                    concept_id=record.evaluation_id,
-                    cfg=cfg,
-                    concept=record.concept,
-                    stations=record.stations,
-                    zone_requirements=rerun_zone_requirements,
-                    selected_by_zone=record.selected_by_zone,
-                    worker=worker,
-                    analysis_mode="full_alpha_sweep",
-                    analysis_stage="finalist",
-                    air_density_kg_per_m3=air_density_kg_per_m3,
-                )
-                summary_worker_statuses.extend(_worker_statuses(worker_results))
+                avl_rerun_context = _spanwise_loader_avl_rerun_context(spanwise_loader)
+                current_zone_requirements = record.zone_requirements
+                current_selected_by_zone = record.selected_by_zone
+                current_airfoil_templates = record.airfoil_templates
+                current_worker_results: list[dict[str, object]]
+                current_airfoil_feedback: dict[str, Any]
+                current_launch_summary: dict[str, Any]
+                current_turn_summary: dict[str, Any]
+                current_trim_summary: dict[str, Any]
+                current_local_stall_summary: dict[str, Any]
+                current_mission_summary: dict[str, Any]
+                current_ranking_input: CandidateConceptResult
+                did_post_airfoil_avl_rerun = False
+                finalist_evaluation_completed = False
+
+                if avl_rerun_context is None:
+                    (
+                        current_selected_by_zone,
+                        current_airfoil_templates,
+                        current_worker_results,
+                        current_airfoil_feedback,
+                        current_launch_summary,
+                        current_turn_summary,
+                        current_trim_summary,
+                        current_local_stall_summary,
+                        current_mission_summary,
+                        current_ranking_input,
+                    ) = _evaluate_selected_airfoils_for_concept(
+                        concept_id=record.evaluation_id,
+                        cfg=cfg,
+                        concept=record.concept,
+                        stations=record.stations,
+                        zone_requirements=current_zone_requirements,
+                        selected_by_zone=current_selected_by_zone,
+                        worker=worker,
+                        analysis_mode="full_alpha_sweep",
+                        analysis_stage="finalist",
+                        air_density_kg_per_m3=air_density_kg_per_m3,
+                    )
+                    summary_worker_statuses.extend(_worker_statuses(current_worker_results))
+                    finalist_evaluation_completed = True
+                else:
+                    current_mission_summary = record.mission_summary
+                    for rerun_iteration_index in range(1, 3):
+                        rerun_zone_requirements = _rerun_finalist_zone_requirements_from_post_airfoil_avl(
+                            spanwise_loader=spanwise_loader,
+                            concept=record.concept,
+                            stations=record.stations,
+                            airfoil_templates=current_airfoil_templates,
+                            mission_summary=current_mission_summary,
+                            rerun_iteration_index=rerun_iteration_index,
+                        )
+                        if rerun_zone_requirements is None:
+                            break
+                        current_zone_requirements = rerun_zone_requirements
+                        did_post_airfoil_avl_rerun = True
+                        (
+                            current_selected_by_zone,
+                            current_airfoil_templates,
+                            current_worker_results,
+                            current_airfoil_feedback,
+                            current_launch_summary,
+                            current_turn_summary,
+                            current_trim_summary,
+                            current_local_stall_summary,
+                            current_mission_summary,
+                            current_ranking_input,
+                        ) = _evaluate_selected_airfoils_for_concept(
+                            concept_id=record.evaluation_id,
+                            cfg=cfg,
+                            concept=record.concept,
+                            stations=record.stations,
+                            zone_requirements=current_zone_requirements,
+                            selected_by_zone=current_selected_by_zone,
+                            worker=worker,
+                            analysis_mode="full_alpha_sweep",
+                            analysis_stage="finalist",
+                            air_density_kg_per_m3=air_density_kg_per_m3,
+                        )
+                        summary_worker_statuses.extend(_worker_statuses(current_worker_results))
+                        finalist_evaluation_completed = True
+                        consistency_audit = _reference_condition_consistency_audit(
+                            zone_requirements=current_zone_requirements,
+                            mission_summary=current_mission_summary,
+                        )
+                        if not _should_iterate_post_airfoil_avl_reference(
+                            consistency_audit=consistency_audit,
+                            rerun_iteration_count=rerun_iteration_index,
+                        ):
+                            break
+
+                if not finalist_evaluation_completed:
+                    (
+                        current_selected_by_zone,
+                        current_airfoil_templates,
+                        current_worker_results,
+                        current_airfoil_feedback,
+                        current_launch_summary,
+                        current_turn_summary,
+                        current_trim_summary,
+                        current_local_stall_summary,
+                        current_mission_summary,
+                        current_ranking_input,
+                    ) = _evaluate_selected_airfoils_for_concept(
+                        concept_id=record.evaluation_id,
+                        cfg=cfg,
+                        concept=record.concept,
+                        stations=record.stations,
+                        zone_requirements=current_zone_requirements,
+                        selected_by_zone=current_selected_by_zone,
+                        worker=worker,
+                        analysis_mode="full_alpha_sweep",
+                        analysis_stage="finalist",
+                        air_density_kg_per_m3=air_density_kg_per_m3,
+                    )
+                    summary_worker_statuses.extend(_worker_statuses(current_worker_results))
                 reevaluated.append(
                     _EvaluatedConcept(
                         evaluation_id=record.evaluation_id,
                         enumeration_index=record.enumeration_index,
                         concept=record.concept,
                         stations=record.stations,
-                        zone_requirements=rerun_zone_requirements,
-                        selected_by_zone=updated_selected_by_zone,
-                        airfoil_templates=airfoil_templates,
+                        zone_requirements=current_zone_requirements,
+                        selected_by_zone=current_selected_by_zone,
+                        airfoil_templates=current_airfoil_templates,
                         screening_worker_results=record.screening_worker_results,
-                        worker_results=worker_results,
+                        worker_results=current_worker_results,
                         worker_backend=record.worker_backend,
                         screening_airfoil_feedback=record.screening_airfoil_feedback,
-                        airfoil_feedback=airfoil_feedback,
-                        launch_summary=launch_summary,
-                        turn_summary=turn_summary,
-                        trim_summary=trim_summary,
-                        local_stall_summary=local_stall_summary,
-                        mission_summary=mission_summary,
-                        ranking_input=ranking_input,
+                        airfoil_feedback=current_airfoil_feedback,
+                        launch_summary=current_launch_summary,
+                        turn_summary=current_turn_summary,
+                        trim_summary=current_trim_summary,
+                        local_stall_summary=current_local_stall_summary,
+                        mission_summary=current_mission_summary,
+                        ranking_input=current_ranking_input,
                     )
                 )
             evaluated_concepts = reevaluated
