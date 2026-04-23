@@ -206,6 +206,140 @@ def test_select_best_zone_candidate_honors_custom_stall_model_inputs() -> None:
     assert selected.safe_clmax == pytest.approx(1.05)
 
 
+def test_select_best_zone_candidate_uses_case_specific_launch_limit() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "mid2",
+            (0.18, 0.22, 0.14, 0.07, 0.03),
+            (-0.12, -0.10, -0.05, -0.02, -0.005),
+            0.0010,
+            seed_name="clarkysm",
+            candidate_role="low_drag_tight_launch",
+        ),
+        CSTAirfoilTemplate(
+            "mid2",
+            (0.19, 0.24, 0.15, 0.08, 0.03),
+            (-0.13, -0.11, -0.06, -0.02, -0.005),
+            0.0011,
+            seed_name="clarkysm",
+            candidate_role="slightly_draggier_launch_safe",
+        ),
+    )
+    zone_points = [
+        {
+            "reynolds": 220000.0,
+            "chord_m": 1.00,
+            "cl_target": 0.70,
+            "cm_target": -0.08,
+            "weight": 0.5,
+            "case_label": "reference_avl_case",
+        },
+        {
+            "reynolds": 220000.0,
+            "chord_m": 1.00,
+            "cl_target": 0.86,
+            "cm_target": -0.08,
+            "weight": 1.5,
+            "case_label": "launch_release_case",
+        },
+    ]
+    candidate_results = {
+        "low_drag_tight_launch": {
+            "status": "ok",
+            "mean_cd": 0.016,
+            "usable_clmax": 1.12,
+            "mean_cm": -0.08,
+        },
+        "slightly_draggier_launch_safe": {
+            "status": "ok",
+            "mean_cd": 0.019,
+            "usable_clmax": 1.22,
+            "mean_cm": -0.09,
+        },
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.10,
+        safe_clmax_scale=1.0,
+        safe_clmax_delta=0.0,
+        launch_stall_utilization_limit=0.75,
+        turn_stall_utilization_limit=0.85,
+        local_stall_utilization_limit=0.80,
+    )
+
+    assert selected.template.candidate_role == "slightly_draggier_launch_safe"
+
+
+def test_select_best_zone_candidate_applies_outer_span_safe_clmax_penalty() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "tip",
+            (0.18, 0.22, 0.14, 0.07, 0.03),
+            (-0.12, -0.10, -0.05, -0.02, -0.005),
+            0.0010,
+            seed_name="clarkysm",
+            candidate_role="tip_low_drag_tight",
+        ),
+        CSTAirfoilTemplate(
+            "tip",
+            (0.19, 0.24, 0.15, 0.08, 0.03),
+            (-0.13, -0.11, -0.06, -0.02, -0.005),
+            0.0011,
+            seed_name="clarkysm",
+            candidate_role="tip_safer_margin",
+        ),
+    )
+    zone_points = [
+        {
+            "reynolds": 200000.0,
+            "chord_m": 0.90,
+            "cl_target": 0.90,
+            "cm_target": -0.08,
+            "weight": 1.0,
+            "case_label": "turn_avl_case",
+            "span_fraction": 0.92,
+            "taper_ratio": 0.30,
+            "washout_deg": 0.5,
+        }
+    ]
+    candidate_results = {
+        "tip_low_drag_tight": {
+            "status": "ok",
+            "mean_cd": 0.016,
+            "usable_clmax": 1.20,
+            "mean_cm": -0.08,
+        },
+        "tip_safer_margin": {
+            "status": "ok",
+            "mean_cd": 0.019,
+            "usable_clmax": 1.28,
+            "mean_cm": -0.09,
+        },
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.10,
+        safe_clmax_scale=1.0,
+        safe_clmax_delta=0.0,
+        tip_3d_penalty_start_eta=0.55,
+        tip_3d_penalty_max=0.05,
+        tip_taper_penalty_weight=0.35,
+        washout_relief_deg=2.0,
+        washout_relief_max=0.01,
+        launch_stall_utilization_limit=0.75,
+        turn_stall_utilization_limit=0.85,
+        local_stall_utilization_limit=0.80,
+    )
+
+    assert selected.template.candidate_role == "tip_safer_margin"
+
+
 def test_select_best_zone_candidate_uses_matched_polar_points_when_available() -> None:
     candidates = (
         CSTAirfoilTemplate(

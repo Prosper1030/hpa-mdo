@@ -1999,6 +1999,14 @@ def run_birdman_concept_pipeline(
                 safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
                 safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
                 stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+                tip_3d_penalty_start_eta=cfg.stall_model.tip_3d_penalty_start_eta,
+                tip_3d_penalty_max=cfg.stall_model.tip_3d_penalty_max,
+                tip_taper_penalty_weight=cfg.stall_model.tip_taper_penalty_weight,
+                washout_relief_deg=cfg.stall_model.washout_relief_deg,
+                washout_relief_max=cfg.stall_model.washout_relief_max,
+                launch_stall_utilization_limit=cfg.stall_model.launch_utilization_limit,
+                turn_stall_utilization_limit=cfg.stall_model.turn_utilization_limit,
+                local_stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
             )
             if zone_requirements_with_points_by_concept
             else {}

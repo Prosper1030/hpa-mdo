@@ -13,6 +13,7 @@ from hpa_mdo.concept.airfoil_cst import (
     validate_cst_candidate_coordinates,
 )
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
+from hpa_mdo.concept.stall_model import compute_safe_local_clmax
 
 
 _BASE_TEMPLATE_LIBRARY: dict[str, dict[str, object]] = {
@@ -140,6 +141,20 @@ def _safe_clmax(
     return max(0.10, float(safe_scale) * float(usable_clmax) - float(safe_delta))
 
 
+def _case_stall_utilization_limit(
+    case_label: str,
+    *,
+    launch_stall_utilization_limit: float,
+    turn_stall_utilization_limit: float,
+    local_stall_utilization_limit: float,
+) -> float:
+    if case_label == "launch_release_case":
+        return float(launch_stall_utilization_limit)
+    if case_label == "turn_avl_case":
+        return float(turn_stall_utilization_limit)
+    return float(local_stall_utilization_limit)
+
+
 def _zone_candidate_metrics(
     *,
     zone_points: list[dict[str, float]],
@@ -151,7 +166,15 @@ def _zone_candidate_metrics(
     polar_points: list[dict[str, float]] | None,
     safe_clmax_scale: float,
     safe_clmax_delta: float,
-) -> dict[str, float]:
+    tip_3d_penalty_start_eta: float,
+    tip_3d_penalty_max: float,
+    tip_taper_penalty_weight: float,
+    washout_relief_deg: float,
+    washout_relief_max: float,
+    launch_stall_utilization_limit: float,
+    turn_stall_utilization_limit: float,
+    local_stall_utilization_limit: float,
+) -> dict[str, float | str]:
     zone_stats = _weighted_zone_point_values(zone_points)
     weights = list(zone_stats["weights"]) or [1.0 for _ in zone_points]
     chords = list(zone_stats["chords"]) or [1.0 for _ in zone_points]
@@ -176,15 +199,54 @@ def _zone_candidate_metrics(
         trim_moment_proxy = abs(float(mean_cm))
 
     profile_power_proxy = profile_drag_area / chord_reference
-    safe_clmax = _safe_clmax(
+    point_safe_clmax_values: list[float] = []
+    point_stall_utilizations: list[float] = []
+    weighted_stall_violation = 0.0
+    worst_case_margin = float("inf")
+    worst_case_label = "reference_avl_case"
+    worst_case_limit = float(local_stall_utilization_limit)
+    worst_case_stall_utilization = 0.0
+    for point, weight in zip(zone_points, weights, strict=True):
+        case_label = str(point.get("case_label", "reference_avl_case"))
+        case_limit = _case_stall_utilization_limit(
+            case_label,
+            launch_stall_utilization_limit=launch_stall_utilization_limit,
+            turn_stall_utilization_limit=turn_stall_utilization_limit,
+            local_stall_utilization_limit=local_stall_utilization_limit,
+        )
+        safe_result = compute_safe_local_clmax(
+            raw_clmax=float(usable_clmax),
+            raw_source="airfoil_observed",
+            span_fraction=float(point.get("span_fraction", 0.5)),
+            taper_ratio=float(point.get("taper_ratio", 0.35)),
+            washout_deg=float(point.get("washout_deg", 0.0)),
+            safe_scale=float(safe_clmax_scale),
+            safe_delta=float(safe_clmax_delta),
+            tip_3d_penalty_start_eta=float(tip_3d_penalty_start_eta),
+            tip_3d_penalty_max=float(tip_3d_penalty_max),
+            tip_taper_penalty_weight=float(tip_taper_penalty_weight),
+            washout_relief_deg=float(washout_relief_deg),
+            washout_relief_max=float(washout_relief_max),
+        )
+        safe_clmax_point = float(safe_result.safe_clmax)
+        stall_utilization_point = float(point["cl_target"]) / max(safe_clmax_point, 1.0e-9)
+        point_safe_clmax_values.append(safe_clmax_point)
+        point_stall_utilizations.append(stall_utilization_point)
+        weighted_stall_violation += float(weight) * max(0.0, stall_utilization_point - case_limit)
+        case_margin = case_limit - stall_utilization_point
+        if case_margin < worst_case_margin:
+            worst_case_margin = case_margin
+            worst_case_label = case_label
+            worst_case_limit = case_limit
+            worst_case_stall_utilization = stall_utilization_point
+
+    safe_clmax = min(point_safe_clmax_values) if point_safe_clmax_values else _safe_clmax(
         usable_clmax,
         safe_scale=safe_clmax_scale,
         safe_delta=safe_clmax_delta,
     )
-    stall_utilization = max(
-        float(point["cl_target"]) / max(safe_clmax, 1.0e-9)
-        for point in zone_points
-    ) if zone_points else 0.0
+    stall_utilization = max(point_stall_utilizations) if point_stall_utilizations else 0.0
+    weighted_stall_violation = weighted_stall_violation / weight_sum
 
     candidate_thickness_ratio = (
         _candidate_thickness_ratio(coordinates)
@@ -203,6 +265,11 @@ def _zone_candidate_metrics(
         "trim_moment_proxy": trim_moment_proxy,
         "safe_clmax": safe_clmax,
         "stall_utilization": stall_utilization,
+        "weighted_stall_violation": weighted_stall_violation,
+        "worst_case_margin": worst_case_margin,
+        "worst_case_label": worst_case_label,
+        "worst_case_limit": worst_case_limit,
+        "worst_case_stall_utilization": worst_case_stall_utilization,
         "candidate_thickness_ratio": candidate_thickness_ratio,
         "spar_depth_ratio": spar_depth_ratio,
         "required_spar_depth_ratio": required_spar_depth_ratio,
@@ -370,7 +437,30 @@ def score_zone_candidate(
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
+    tip_3d_penalty_start_eta: float = 0.55,
+    tip_3d_penalty_max: float = 0.04,
+    tip_taper_penalty_weight: float = 0.35,
+    washout_relief_deg: float = 2.0,
+    washout_relief_max: float = 0.02,
+    launch_stall_utilization_limit: float | None = None,
+    turn_stall_utilization_limit: float | None = None,
+    local_stall_utilization_limit: float | None = None,
 ) -> float:
+    local_stall_utilization_limit = (
+        float(stall_utilization_limit)
+        if local_stall_utilization_limit is None
+        else float(local_stall_utilization_limit)
+    )
+    launch_stall_utilization_limit = (
+        local_stall_utilization_limit
+        if launch_stall_utilization_limit is None
+        else float(launch_stall_utilization_limit)
+    )
+    turn_stall_utilization_limit = (
+        local_stall_utilization_limit
+        if turn_stall_utilization_limit is None
+        else float(turn_stall_utilization_limit)
+    )
     metrics = _zone_candidate_metrics(
         zone_points=zone_points,
         mean_cd=mean_cd,
@@ -381,12 +471,23 @@ def score_zone_candidate(
         polar_points=polar_points,
         safe_clmax_scale=safe_clmax_scale,
         safe_clmax_delta=safe_clmax_delta,
+        tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+        tip_3d_penalty_max=tip_3d_penalty_max,
+        tip_taper_penalty_weight=tip_taper_penalty_weight,
+        washout_relief_deg=washout_relief_deg,
+        washout_relief_max=washout_relief_max,
+        launch_stall_utilization_limit=launch_stall_utilization_limit,
+        turn_stall_utilization_limit=turn_stall_utilization_limit,
+        local_stall_utilization_limit=local_stall_utilization_limit,
     )
 
     drag_penalty = _bounded_penalty(float(metrics["profile_power_proxy"]), 0.022)
     trim_penalty = _bounded_penalty(float(metrics["trim_moment_proxy"]), 0.11)
-    stall_violation = max(0.0, float(metrics["stall_utilization"]) - float(stall_utilization_limit))
-    stall_penalty = _bounded_penalty(stall_violation, 0.10)
+    stall_violation = max(0.0, -float(metrics["worst_case_margin"]))
+    weighted_stall_violation = max(0.0, float(metrics["weighted_stall_violation"]))
+    stall_penalty = _bounded_penalty(max(stall_violation, weighted_stall_violation), 0.08)
+    margin_deficit = max(0.0, 0.08 - float(metrics["worst_case_margin"]))
+    margin_penalty = _bounded_penalty(margin_deficit, 0.06)
 
     thickness_deficit = max(
         0.0,
@@ -408,14 +509,15 @@ def score_zone_candidate(
 
     infeasible_guard = 0.0
     if stall_violation > 0.0:
-        infeasible_guard += 1.2 + 2.0 * stall_penalty
+        infeasible_guard += 1.4 + 2.5 * stall_penalty
     if thickness_deficit > 0.0 or spar_depth_deficit > 0.0:
         infeasible_guard += 0.8 + 1.5 * max(thickness_penalty, spar_penalty)
 
     return (
-        1.75 * drag_penalty
-        + 3.50 * stall_penalty
-        + 1.50 * trim_penalty
+        1.50 * drag_penalty
+        + 4.25 * stall_penalty
+        + 2.25 * margin_penalty
+        + 1.25 * trim_penalty
         + 3.00 * spar_penalty
         + 2.50 * thickness_penalty
         + infeasible_guard
@@ -431,7 +533,30 @@ def select_best_zone_candidate(
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
+    tip_3d_penalty_start_eta: float = 0.55,
+    tip_3d_penalty_max: float = 0.04,
+    tip_taper_penalty_weight: float = 0.35,
+    washout_relief_deg: float = 2.0,
+    washout_relief_max: float = 0.02,
+    launch_stall_utilization_limit: float | None = None,
+    turn_stall_utilization_limit: float | None = None,
+    local_stall_utilization_limit: float | None = None,
 ) -> SelectedZoneCandidate:
+    local_stall_utilization_limit = (
+        float(stall_utilization_limit)
+        if local_stall_utilization_limit is None
+        else float(local_stall_utilization_limit)
+    )
+    launch_stall_utilization_limit = (
+        local_stall_utilization_limit
+        if launch_stall_utilization_limit is None
+        else float(launch_stall_utilization_limit)
+    )
+    turn_stall_utilization_limit = (
+        local_stall_utilization_limit
+        if turn_stall_utilization_limit is None
+        else float(turn_stall_utilization_limit)
+    )
     scored: list[tuple[int, SelectedZoneCandidate]] = []
     for candidate in candidates:
         coordinates = generate_cst_coordinates(candidate)
@@ -460,6 +585,14 @@ def select_best_zone_candidate(
             polar_points=polar_points if isinstance(polar_points, list) else None,
             safe_clmax_scale=safe_clmax_scale,
             safe_clmax_delta=safe_clmax_delta,
+            tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+            tip_3d_penalty_max=tip_3d_penalty_max,
+            tip_taper_penalty_weight=tip_taper_penalty_weight,
+            washout_relief_deg=washout_relief_deg,
+            washout_relief_max=washout_relief_max,
+            launch_stall_utilization_limit=launch_stall_utilization_limit,
+            turn_stall_utilization_limit=turn_stall_utilization_limit,
+            local_stall_utilization_limit=local_stall_utilization_limit,
         )
         candidate_score = score_zone_candidate(
             zone_points=zone_points,
@@ -472,15 +605,23 @@ def select_best_zone_candidate(
             safe_clmax_scale=safe_clmax_scale,
             safe_clmax_delta=safe_clmax_delta,
             stall_utilization_limit=stall_utilization_limit,
+            tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+            tip_3d_penalty_max=tip_3d_penalty_max,
+            tip_taper_penalty_weight=tip_taper_penalty_weight,
+            washout_relief_deg=washout_relief_deg,
+            washout_relief_max=washout_relief_max,
+            launch_stall_utilization_limit=launch_stall_utilization_limit,
+            turn_stall_utilization_limit=turn_stall_utilization_limit,
+            local_stall_utilization_limit=local_stall_utilization_limit,
         )
         thickness_ratio = float(metrics["candidate_thickness_ratio"])
         spar_depth_ratio = float(metrics["spar_depth_ratio"])
         required_spar_depth_ratio = float(metrics["required_spar_depth_ratio"])
         safe_clmax = float(metrics["safe_clmax"])
-        stall_utilization = float(metrics["stall_utilization"])
+        worst_case_margin = float(metrics["worst_case_margin"])
         feasible = (
             safe_clmax >= 0.0
-            and stall_utilization <= float(stall_utilization_limit)
+            and worst_case_margin >= 0.0
             and thickness_ratio >= float(zone_min_tc_ratio)
             and spar_depth_ratio >= required_spar_depth_ratio
         )
@@ -649,6 +790,14 @@ def _score_available_zone_candidates(
     safe_clmax_scale: float,
     safe_clmax_delta: float,
     stall_utilization_limit: float,
+    tip_3d_penalty_start_eta: float,
+    tip_3d_penalty_max: float,
+    tip_taper_penalty_weight: float,
+    washout_relief_deg: float,
+    washout_relief_max: float,
+    launch_stall_utilization_limit: float,
+    turn_stall_utilization_limit: float,
+    local_stall_utilization_limit: float,
 ) -> list[tuple[int, float, float, CSTAirfoilTemplate]]:
     scored: list[tuple[int, float, float, CSTAirfoilTemplate]] = []
     for candidate in candidates:
@@ -678,6 +827,14 @@ def _score_available_zone_candidates(
             polar_points=polar_points if isinstance(polar_points, list) else None,
             safe_clmax_scale=safe_clmax_scale,
             safe_clmax_delta=safe_clmax_delta,
+            tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+            tip_3d_penalty_max=tip_3d_penalty_max,
+            tip_taper_penalty_weight=tip_taper_penalty_weight,
+            washout_relief_deg=washout_relief_deg,
+            washout_relief_max=washout_relief_max,
+            launch_stall_utilization_limit=launch_stall_utilization_limit,
+            turn_stall_utilization_limit=turn_stall_utilization_limit,
+            local_stall_utilization_limit=local_stall_utilization_limit,
         )
         candidate_score = score_zone_candidate(
             zone_points=zone_points,
@@ -690,15 +847,23 @@ def _score_available_zone_candidates(
             safe_clmax_scale=safe_clmax_scale,
             safe_clmax_delta=safe_clmax_delta,
             stall_utilization_limit=stall_utilization_limit,
+            tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+            tip_3d_penalty_max=tip_3d_penalty_max,
+            tip_taper_penalty_weight=tip_taper_penalty_weight,
+            washout_relief_deg=washout_relief_deg,
+            washout_relief_max=washout_relief_max,
+            launch_stall_utilization_limit=launch_stall_utilization_limit,
+            turn_stall_utilization_limit=turn_stall_utilization_limit,
+            local_stall_utilization_limit=local_stall_utilization_limit,
         )
         thickness_ratio = float(metrics["candidate_thickness_ratio"])
         spar_depth_ratio = float(metrics["spar_depth_ratio"])
         required_spar_depth_ratio = float(metrics["required_spar_depth_ratio"])
         safe_clmax = float(metrics["safe_clmax"])
-        stall_utilization = float(metrics["stall_utilization"])
+        worst_case_margin = float(metrics["worst_case_margin"])
         feasible = (
             safe_clmax >= 0.0
-            and stall_utilization <= float(stall_utilization_limit)
+            and worst_case_margin >= 0.0
             and thickness_ratio >= float(zone_min_tc_ratio)
             and spar_depth_ratio >= required_spar_depth_ratio
         )
@@ -1011,6 +1176,14 @@ def select_zone_airfoil_templates(
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
+    tip_3d_penalty_start_eta: float = 0.55,
+    tip_3d_penalty_max: float = 0.04,
+    tip_taper_penalty_weight: float = 0.35,
+    washout_relief_deg: float = 2.0,
+    washout_relief_max: float = 0.02,
+    launch_stall_utilization_limit: float | None = None,
+    turn_stall_utilization_limit: float | None = None,
+    local_stall_utilization_limit: float | None = None,
 ) -> ZoneSelectionBatch:
     concept_batches = select_zone_airfoil_templates_for_concepts(
         concept_zone_requirements={"single": zone_requirements},
@@ -1029,6 +1202,14 @@ def select_zone_airfoil_templates(
         safe_clmax_scale=safe_clmax_scale,
         safe_clmax_delta=safe_clmax_delta,
         stall_utilization_limit=stall_utilization_limit,
+        tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+        tip_3d_penalty_max=tip_3d_penalty_max,
+        tip_taper_penalty_weight=tip_taper_penalty_weight,
+        washout_relief_deg=washout_relief_deg,
+        washout_relief_max=washout_relief_max,
+        launch_stall_utilization_limit=launch_stall_utilization_limit,
+        turn_stall_utilization_limit=turn_stall_utilization_limit,
+        local_stall_utilization_limit=local_stall_utilization_limit,
     )
     batch = concept_batches["single"]
     return ZoneSelectionBatch(
@@ -1058,9 +1239,33 @@ def select_zone_airfoil_templates_for_concepts(
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
+    tip_3d_penalty_start_eta: float = 0.55,
+    tip_3d_penalty_max: float = 0.04,
+    tip_taper_penalty_weight: float = 0.35,
+    washout_relief_deg: float = 2.0,
+    washout_relief_max: float = 0.02,
+    launch_stall_utilization_limit: float | None = None,
+    turn_stall_utilization_limit: float | None = None,
+    local_stall_utilization_limit: float | None = None,
 ) -> dict[str, ZoneSelectionBatch]:
     if not concept_zone_requirements:
         return {}
+
+    local_stall_utilization_limit = (
+        float(stall_utilization_limit)
+        if local_stall_utilization_limit is None
+        else float(local_stall_utilization_limit)
+    )
+    launch_stall_utilization_limit = (
+        local_stall_utilization_limit
+        if launch_stall_utilization_limit is None
+        else float(launch_stall_utilization_limit)
+    )
+    turn_stall_utilization_limit = (
+        local_stall_utilization_limit
+        if turn_stall_utilization_limit is None
+        else float(turn_stall_utilization_limit)
+    )
 
     zone_points_by_key: dict[str, list[dict[str, float]]] = {}
     zone_min_tc_by_key: dict[str, float] = {}
@@ -1122,6 +1327,14 @@ def select_zone_airfoil_templates_for_concepts(
                 safe_clmax_scale=safe_clmax_scale,
                 safe_clmax_delta=safe_clmax_delta,
                 stall_utilization_limit=stall_utilization_limit,
+                tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+                tip_3d_penalty_max=tip_3d_penalty_max,
+                tip_taper_penalty_weight=tip_taper_penalty_weight,
+                washout_relief_deg=washout_relief_deg,
+                washout_relief_max=washout_relief_max,
+                launch_stall_utilization_limit=launch_stall_utilization_limit,
+                turn_stall_utilization_limit=turn_stall_utilization_limit,
+                local_stall_utilization_limit=local_stall_utilization_limit,
             )
             coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
             coarse_beam_by_key[batch_key] = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
@@ -1172,6 +1385,14 @@ def select_zone_airfoil_templates_for_concepts(
                         safe_clmax_scale=safe_clmax_scale,
                         safe_clmax_delta=safe_clmax_delta,
                         stall_utilization_limit=stall_utilization_limit,
+                        tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+                        tip_3d_penalty_max=tip_3d_penalty_max,
+                        tip_taper_penalty_weight=tip_taper_penalty_weight,
+                        washout_relief_deg=washout_relief_deg,
+                        washout_relief_max=washout_relief_max,
+                        launch_stall_utilization_limit=launch_stall_utilization_limit,
+                        turn_stall_utilization_limit=turn_stall_utilization_limit,
+                        local_stall_utilization_limit=local_stall_utilization_limit,
                     )
                     beam_count = min(max(1, int(successive_halving_beam_width)), len(stage_scored))
                     next_beam_by_key[batch_key] = tuple(item[3] for item in stage_scored[:beam_count])
@@ -1217,6 +1438,14 @@ def select_zone_airfoil_templates_for_concepts(
                 safe_clmax_scale=safe_clmax_scale,
                 safe_clmax_delta=safe_clmax_delta,
                 stall_utilization_limit=stall_utilization_limit,
+                tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+                tip_3d_penalty_max=tip_3d_penalty_max,
+                tip_taper_penalty_weight=tip_taper_penalty_weight,
+                washout_relief_deg=washout_relief_deg,
+                washout_relief_max=washout_relief_max,
+                launch_stall_utilization_limit=launch_stall_utilization_limit,
+                turn_stall_utilization_limit=turn_stall_utilization_limit,
+                local_stall_utilization_limit=local_stall_utilization_limit,
             )
 
     return {
