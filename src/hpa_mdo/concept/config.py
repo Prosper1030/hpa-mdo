@@ -211,6 +211,13 @@ class CSTSearchConfig(ConceptBaseModel):
 class PipelineConfig(ConceptBaseModel):
     stations_per_half: int = Field(7, ge=2)
     keep_top_n: int = Field(5, ge=1)
+    finalist_full_sweep_top_l: int = Field(3, ge=1)
+
+    @model_validator(mode="after")
+    def clamp_finalist_full_sweep_top_l(self) -> PipelineConfig:
+        if self.finalist_full_sweep_top_l > self.keep_top_n:
+            self.finalist_full_sweep_top_l = self.keep_top_n
+        return self
 
 
 class OutputConfig(ConceptBaseModel):

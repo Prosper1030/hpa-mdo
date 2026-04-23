@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 import json
 import math
@@ -75,9 +75,12 @@ class _EvaluatedConcept:
     concept: GeometryConcept
     stations: tuple[WingStation, ...]
     zone_requirements: dict[str, dict[str, Any]]
+    selected_by_zone: dict[str, SelectedZoneCandidate]
     airfoil_templates: dict[str, dict[str, Any]]
+    screening_worker_results: list[dict[str, object]]
     worker_results: list[dict[str, object]]
     worker_backend: str
+    screening_airfoil_feedback: dict[str, Any]
     airfoil_feedback: dict[str, Any]
     launch_summary: dict[str, Any]
     turn_summary: dict[str, Any]
@@ -510,6 +513,8 @@ def _build_worker_queries_and_refs(
     *,
     zone_requirements: dict[str, dict[str, Any]],
     airfoil_templates: dict[str, dict[str, Any]],
+    analysis_mode: str,
+    analysis_stage: str,
 ) -> tuple[list[PolarQuery], list[dict[str, Any]]]:
     worker_queries: list[PolarQuery] = []
     worker_point_refs: list[dict[str, Any]] = []
@@ -529,6 +534,8 @@ def _build_worker_queries_and_refs(
                     roughness_mode="clean",
                     geometry_hash=str(airfoil_template["geometry_hash"]),
                     coordinates=coordinates,
+                    analysis_mode=analysis_mode,
+                    analysis_stage=analysis_stage,
                 )
             )
             worker_point_refs.append(
@@ -542,6 +549,42 @@ def _build_worker_queries_and_refs(
             )
 
     return worker_queries, worker_point_refs
+
+
+def _update_selected_by_zone_from_station_points(
+    *,
+    selected_by_zone: dict[str, SelectedZoneCandidate],
+    station_points: list[dict[str, float]],
+    safe_scale: float,
+    safe_delta: float,
+) -> dict[str, SelectedZoneCandidate]:
+    updated: dict[str, SelectedZoneCandidate] = {}
+    for zone_name, selected in selected_by_zone.items():
+        zone_station_points = [
+            point
+            for point in station_points
+            if str(point.get("zone_name")) == zone_name
+            and bool(point.get("airfoil_feedback_applied"))
+        ]
+        if not zone_station_points:
+            updated[zone_name] = selected
+            continue
+
+        mean_cd = sum(float(point["cd_effective"]) for point in zone_station_points) / len(zone_station_points)
+        mean_cm = sum(float(point["cm_effective"]) for point in zone_station_points) / len(zone_station_points)
+        usable_clmax = max(float(point["cl_max_effective"]) for point in zone_station_points)
+        safe_clmax = max(0.10, float(safe_scale) * usable_clmax - float(safe_delta))
+        updated[zone_name] = SelectedZoneCandidate(
+            template=selected.template,
+            coordinates=selected.coordinates,
+            mean_cd=mean_cd,
+            mean_cm=mean_cm,
+            usable_clmax=usable_clmax,
+            safe_clmax=safe_clmax,
+            candidate_score=selected.candidate_score,
+        )
+
+    return updated
 
 
 def _selected_polar_point(polar_points: list[dict[str, object]]) -> dict[str, object] | None:
@@ -1338,6 +1381,130 @@ def _summarize_spanwise_requirements(
     }
 
 
+def _evaluate_selected_airfoils_for_concept(
+    *,
+    concept_id: str,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    zone_requirements: dict[str, dict[str, Any]],
+    selected_by_zone: dict[str, SelectedZoneCandidate],
+    worker: AirfoilWorker,
+    analysis_mode: str,
+    analysis_stage: str,
+    air_density_kg_per_m3: float,
+) -> tuple[
+    dict[str, SelectedZoneCandidate],
+    dict[str, dict[str, Any]],
+    list[dict[str, object]],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    CandidateConceptResult,
+]:
+    airfoil_templates = _build_selected_cst_airfoil_templates(
+        selected_by_zone=selected_by_zone,
+        zone_requirements=zone_requirements,
+    )
+    station_points = _flatten_zone_points(zone_requirements, stations)
+    station_points = _attach_cl_max_proxies(
+        station_points,
+        half_span_m=0.5 * concept.span_m,
+        concept=concept,
+    )
+    worker_queries, worker_point_refs = _build_worker_queries_and_refs(
+        zone_requirements=zone_requirements,
+        airfoil_templates=airfoil_templates,
+        analysis_mode=analysis_mode,
+        analysis_stage=analysis_stage,
+    )
+    worker_results = worker.run_queries(worker_queries)
+    station_points, airfoil_feedback = _apply_worker_airfoil_feedback(
+        station_points=station_points,
+        worker_point_refs=worker_point_refs,
+        worker_results=worker_results,
+    )
+    station_points, safe_clmax_summary = _apply_safe_clmax_model(
+        station_points,
+        safe_scale=cfg.stall_model.safe_clmax_scale,
+        safe_delta=cfg.stall_model.safe_clmax_delta,
+    )
+    airfoil_feedback = {
+        **airfoil_feedback,
+        **safe_clmax_summary,
+    }
+    updated_selected_by_zone = _update_selected_by_zone_from_station_points(
+        selected_by_zone=selected_by_zone,
+        station_points=station_points,
+        safe_scale=cfg.stall_model.safe_clmax_scale,
+        safe_delta=cfg.stall_model.safe_clmax_delta,
+    )
+    airfoil_templates = _build_selected_cst_airfoil_templates(
+        selected_by_zone=updated_selected_by_zone,
+        zone_requirements=zone_requirements,
+    )
+    trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
+    launch_summary, _, _ = _summarize_launch(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        trim_result=trim_result,
+        air_density_kg_per_m3=air_density_kg_per_m3,
+    )
+    turn_summary = _summarize_turn(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        trim_result=trim_result,
+    )
+    mission_summary = _build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback=airfoil_feedback,
+        air_density_kg_per_m3=air_density_kg_per_m3,
+    )
+    local_stall_summary = _summarize_local_stall(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        mission_summary=mission_summary,
+    )
+    ranking_input = CandidateConceptResult(
+        concept_id=concept_id,
+        launch_feasible=bool(launch_summary["feasible"]),
+        turn_feasible=bool(turn_summary["feasible"]),
+        trim_feasible=bool(trim_summary["feasible"]),
+        mission_feasible=bool(mission_summary["mission_feasible"]),
+        safety_margin=_concept_safety_margin(
+            launch_summary=launch_summary,
+            turn_summary=turn_summary,
+            trim_summary=trim_summary,
+            local_stall_summary=local_stall_summary,
+        ),
+        mission_objective_mode=str(mission_summary["mission_objective_mode"]),
+        mission_score=float(mission_summary["mission_score"]),
+        best_range_m=float(mission_summary["best_range_m"]),
+        assembly_penalty=_assembly_penalty(concept),
+        local_stall_feasible=bool(local_stall_summary["feasible"]),
+    )
+    return (
+        updated_selected_by_zone,
+        airfoil_templates,
+        worker_results,
+        airfoil_feedback,
+        launch_summary,
+        turn_summary,
+        trim_summary,
+        local_stall_summary,
+        mission_summary,
+        ranking_input,
+    )
+
+
 def _default_airfoil_worker_factory(**_: Any) -> AirfoilWorker:
     class _NoopWorker:
         backend_name = "python_stubbed"
@@ -1376,6 +1543,31 @@ def _worker_statuses(worker_results: list[dict[str, object]]) -> tuple[str, ...]
     return tuple(statuses)
 
 
+def _worker_analysis_modes(worker_results: list[dict[str, object]]) -> tuple[str, ...]:
+    modes: list[str] = []
+    for result in worker_results:
+        mode = result.get("analysis_mode")
+        modes.append("unknown" if mode is None else str(mode))
+    return tuple(modes)
+
+
+def _worker_analysis_stages(worker_results: list[dict[str, object]]) -> tuple[str, ...]:
+    stages: list[str] = []
+    for result in worker_results:
+        stage = result.get("analysis_stage")
+        stages.append("unknown" if stage is None else str(stage))
+    return tuple(stages)
+
+
+def _worker_fidelity_summary(worker_results: list[dict[str, object]]) -> dict[str, Any]:
+    return {
+        "worker_result_count": len(worker_results),
+        "worker_statuses": list(_worker_statuses(worker_results)),
+        "worker_analysis_modes": list(_worker_analysis_modes(worker_results)),
+        "worker_analysis_stages": list(_worker_analysis_stages(worker_results)),
+    }
+
+
 def _concept_to_bundle_payload(
     *,
     cfg: BirdmanConceptConfig,
@@ -1384,6 +1576,7 @@ def _concept_to_bundle_payload(
     zone_requirements: dict[str, dict[str, Any]],
     airfoil_templates: dict[str, dict[str, Any]],
     worker_results: list[dict[str, object]],
+    screening_worker_results: list[dict[str, object]],
     worker_backend: str,
     concept_index: int,
     enumeration_index: int,
@@ -1449,6 +1642,11 @@ def _concept_to_bundle_payload(
         "mode": "simplified",
     }
     worker_statuses = _worker_statuses(worker_results)
+    finalist_worker_results = (
+        worker_results
+        if any(stage == "finalist" for stage in _worker_analysis_stages(worker_results))
+        else []
+    )
     concept_summary = {
         "selected": True,
         "concept_id": f"concept-{concept_index:02d}",
@@ -1461,6 +1659,16 @@ def _concept_to_bundle_payload(
         "worker_result_count": len(worker_results),
         "worker_backend": worker_backend,
         "worker_statuses": list(worker_statuses),
+        "worker_analysis_modes": list(_worker_analysis_modes(worker_results)),
+        "worker_analysis_stages": list(_worker_analysis_stages(worker_results)),
+        "worker_fidelity": {
+            "screening": _worker_fidelity_summary(screening_worker_results),
+            "finalist": (
+                _worker_fidelity_summary(finalist_worker_results)
+                if finalist_worker_results
+                else None
+            ),
+        },
         "airfoil_feedback": airfoil_feedback,
         "launch": launch_summary,
         "turn": turn_summary,
@@ -1508,6 +1716,7 @@ def run_birdman_concept_pipeline(
 
     try:
         for enumeration_index, concept in enumerate(concepts, start=1):
+            concept_id = f"eval-{enumeration_index:02d}"
             stations = build_linear_wing_stations(
                 concept,
                 stations_per_half=cfg.pipeline.stations_per_half,
@@ -1553,75 +1762,28 @@ def run_birdman_concept_pipeline(
                 selected_by_zone=selected_by_zone,
                 zone_requirements=zone_requirements,
             )
-            station_points = _flatten_zone_points(zone_requirements, stations)
-            station_points = _attach_cl_max_proxies(
-                station_points,
-                half_span_m=0.5 * concept.span_m,
+            (
+                selected_by_zone,
+                airfoil_templates,
+                worker_results,
+                airfoil_feedback,
+                launch_summary,
+                turn_summary,
+                trim_summary,
+                local_stall_summary,
+                mission_summary,
+                ranking_input,
+            ) = _evaluate_selected_airfoils_for_concept(
+                concept_id=concept_id,
+                cfg=cfg,
                 concept=concept,
-            )
-            worker_queries, worker_point_refs = _build_worker_queries_and_refs(
+                stations=stations,
                 zone_requirements=zone_requirements,
-                airfoil_templates=airfoil_templates,
-            )
-            worker_results = worker.run_queries(worker_queries)
-            station_points, airfoil_feedback = _apply_worker_airfoil_feedback(
-                station_points=station_points,
-                worker_point_refs=worker_point_refs,
-                worker_results=worker_results,
-            )
-            station_points, safe_clmax_summary = _apply_safe_clmax_model(
-                station_points,
-                safe_scale=cfg.stall_model.safe_clmax_scale,
-                safe_delta=cfg.stall_model.safe_clmax_delta,
-            )
-            airfoil_feedback = {
-                **airfoil_feedback,
-                **safe_clmax_summary,
-            }
-            trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
-            launch_summary, _, _ = _summarize_launch(
-                cfg=cfg,
-                concept=concept,
-                station_points=station_points,
-                trim_result=trim_result,
+                selected_by_zone=selected_by_zone,
+                worker=worker,
+                analysis_mode="screening_target_cl",
+                analysis_stage="screening",
                 air_density_kg_per_m3=air_density_kg_per_m3,
-            )
-            turn_summary = _summarize_turn(
-                cfg=cfg,
-                concept=concept,
-                station_points=station_points,
-                trim_result=trim_result,
-            )
-            mission_summary = _build_concept_mission_summary(
-                cfg=cfg,
-                concept=concept,
-                station_points=station_points,
-                airfoil_feedback=airfoil_feedback,
-                air_density_kg_per_m3=air_density_kg_per_m3,
-            )
-            local_stall_summary = _summarize_local_stall(
-                cfg=cfg,
-                concept=concept,
-                station_points=station_points,
-                mission_summary=mission_summary,
-            )
-            ranking_input = CandidateConceptResult(
-                concept_id=f"eval-{enumeration_index:02d}",
-                launch_feasible=bool(launch_summary["feasible"]),
-                turn_feasible=bool(turn_summary["feasible"]),
-                trim_feasible=bool(trim_summary["feasible"]),
-                mission_feasible=bool(mission_summary["mission_feasible"]),
-                safety_margin=_concept_safety_margin(
-                    launch_summary=launch_summary,
-                    turn_summary=turn_summary,
-                    trim_summary=trim_summary,
-                    local_stall_summary=local_stall_summary,
-                ),
-                mission_objective_mode=str(mission_summary["mission_objective_mode"]),
-                mission_score=float(mission_summary["mission_score"]),
-                best_range_m=float(mission_summary["best_range_m"]),
-                assembly_penalty=_assembly_penalty(concept),
-                local_stall_feasible=bool(local_stall_summary["feasible"]),
             )
             concept_worker_statuses = _worker_statuses(worker_results)
             summary_worker_statuses.extend(concept_worker_statuses)
@@ -1632,9 +1794,12 @@ def run_birdman_concept_pipeline(
                     concept=concept,
                     stations=stations,
                     zone_requirements=zone_requirements,
+                    selected_by_zone=selected_by_zone,
                     airfoil_templates=airfoil_templates,
+                    screening_worker_results=list(worker_results),
                     worker_results=worker_results,
                     worker_backend=worker_backend,
+                    screening_airfoil_feedback=airfoil_feedback,
                     airfoil_feedback=airfoil_feedback,
                     launch_summary=launch_summary,
                     turn_summary=turn_summary,
@@ -1644,10 +1809,69 @@ def run_birdman_concept_pipeline(
                     ranking_input=ranking_input,
                 )
             )
+
+        ranked_concepts = rank_concepts([record.ranking_input for record in evaluated_concepts])
+        finalist_ranked = ranked_concepts[
+            : min(len(ranked_concepts), int(cfg.pipeline.finalist_full_sweep_top_l))
+        ]
+        finalist_ids = {ranked.concept_id for ranked in finalist_ranked}
+        if finalist_ids:
+            reevaluated: list[_EvaluatedConcept] = []
+            for record in evaluated_concepts:
+                if record.evaluation_id not in finalist_ids:
+                    reevaluated.append(record)
+                    continue
+
+                (
+                    updated_selected_by_zone,
+                    airfoil_templates,
+                    worker_results,
+                    airfoil_feedback,
+                    launch_summary,
+                    turn_summary,
+                    trim_summary,
+                    local_stall_summary,
+                    mission_summary,
+                    ranking_input,
+                ) = _evaluate_selected_airfoils_for_concept(
+                    concept_id=record.evaluation_id,
+                    cfg=cfg,
+                    concept=record.concept,
+                    stations=record.stations,
+                    zone_requirements=record.zone_requirements,
+                    selected_by_zone=record.selected_by_zone,
+                    worker=worker,
+                    analysis_mode="full_alpha_sweep",
+                    analysis_stage="finalist",
+                    air_density_kg_per_m3=air_density_kg_per_m3,
+                )
+                summary_worker_statuses.extend(_worker_statuses(worker_results))
+                reevaluated.append(
+                    _EvaluatedConcept(
+                        evaluation_id=record.evaluation_id,
+                        enumeration_index=record.enumeration_index,
+                        concept=record.concept,
+                        stations=record.stations,
+                        zone_requirements=record.zone_requirements,
+                        selected_by_zone=updated_selected_by_zone,
+                        airfoil_templates=airfoil_templates,
+                        screening_worker_results=record.screening_worker_results,
+                        worker_results=worker_results,
+                        worker_backend=record.worker_backend,
+                        screening_airfoil_feedback=record.screening_airfoil_feedback,
+                        airfoil_feedback=airfoil_feedback,
+                        launch_summary=launch_summary,
+                        turn_summary=turn_summary,
+                        trim_summary=trim_summary,
+                        local_stall_summary=local_stall_summary,
+                        mission_summary=mission_summary,
+                        ranking_input=ranking_input,
+                    )
+                )
+            evaluated_concepts = reevaluated
+            ranked_concepts = rank_concepts([record.ranking_input for record in evaluated_concepts])
     finally:
         _close_worker_if_supported(worker)
-
-    ranked_concepts = rank_concepts([record.ranking_input for record in evaluated_concepts])
     evaluated_by_id = {record.evaluation_id: record for record in evaluated_concepts}
     summary_records: list[dict[str, Any]] = []
     best_infeasible_records: list[dict[str, Any]] = []
@@ -1686,6 +1910,7 @@ def run_birdman_concept_pipeline(
             zone_requirements=record.zone_requirements,
             airfoil_templates=record.airfoil_templates,
             worker_results=record.worker_results,
+            screening_worker_results=record.screening_worker_results,
             worker_backend=record.worker_backend,
             concept_index=concept_index,
             enumeration_index=record.enumeration_index,
@@ -1728,6 +1953,16 @@ def run_birdman_concept_pipeline(
                 "worker_result_count": len(record.worker_results),
                 "worker_backend": record.worker_backend,
                 "worker_statuses": list(_worker_statuses(record.worker_results)),
+                "worker_analysis_modes": list(_worker_analysis_modes(record.worker_results)),
+                "worker_analysis_stages": list(_worker_analysis_stages(record.worker_results)),
+                "worker_fidelity": {
+                    "screening": _worker_fidelity_summary(record.screening_worker_results),
+                    "finalist": (
+                        _worker_fidelity_summary(record.worker_results)
+                        if any(stage == "finalist" for stage in _worker_analysis_stages(record.worker_results))
+                        else None
+                    ),
+                },
                 "airfoil_feedback": record.airfoil_feedback,
                 "launch": record.launch_summary,
                 "turn": record.turn_summary,
@@ -1758,6 +1993,7 @@ def run_birdman_concept_pipeline(
                 zone_requirements=record.zone_requirements,
                 airfoil_templates=record.airfoil_templates,
                 worker_results=record.worker_results,
+                screening_worker_results=record.screening_worker_results,
                 worker_backend=record.worker_backend,
                 concept_index=infeasible_index,
                 enumeration_index=record.enumeration_index,
@@ -1811,6 +2047,16 @@ def run_birdman_concept_pipeline(
                 "worker_result_count": len(record.worker_results),
                 "worker_backend": record.worker_backend,
                 "worker_statuses": list(_worker_statuses(record.worker_results)),
+                "worker_analysis_modes": list(_worker_analysis_modes(record.worker_results)),
+                "worker_analysis_stages": list(_worker_analysis_stages(record.worker_results)),
+                "worker_fidelity": {
+                    "screening": _worker_fidelity_summary(record.screening_worker_results),
+                    "finalist": (
+                        _worker_fidelity_summary(record.worker_results)
+                        if any(stage == "finalist" for stage in _worker_analysis_stages(record.worker_results))
+                        else None
+                    ),
+                },
                 "airfoil_feedback": record.airfoil_feedback,
                 "launch": record.launch_summary,
                 "turn": record.turn_summary,

@@ -434,7 +434,7 @@ def select_best_zone_candidate(
         if result is None:
             continue
         status = str(result.get("status", "unknown"))
-        if status not in {"ok", "stubbed_ok"}:
+        if status not in {"ok", "stubbed_ok", "mini_sweep_fallback"}:
             continue
 
         mean_cd = float(result["mean_cd"])
@@ -555,7 +555,7 @@ def _representative_cl_samples(zone_points: list[dict[str, float]]) -> tuple[flo
 
 def _metrics_from_worker_result(result: Mapping[str, object]) -> dict[str, object] | None:
     status = str(result.get("status", "unknown"))
-    if status not in {"ok", "stubbed_ok"}:
+    if status not in {"ok", "stubbed_ok", "mini_sweep_fallback"}:
         return None
 
     polar_points = _normalize_polar_points(result.get("polar_points"))
@@ -640,6 +640,8 @@ def select_zone_airfoil_templates(
                     roughness_mode="clean",
                     geometry_hash=geometry_hash_from_coordinates(coordinates),
                     coordinates=coordinates,
+                    analysis_mode="screening_target_cl",
+                    analysis_stage="screening",
                 )
             )
             query_roles.append(candidate.candidate_role)

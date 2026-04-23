@@ -265,11 +265,15 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
     class FakeWorker:
         def __init__(self):
             self.query_count_by_zone: dict[str, int] = {}
+            self.analysis_modes_by_zone: dict[str, set[str]] = {}
+            self.analysis_stages_by_zone: dict[str, set[str]] = {}
 
         def run_queries(self, queries):
             if queries:
                 zone_name = queries[0].template_id.split("-", 1)[0]
                 self.query_count_by_zone[zone_name] = len(queries)
+                self.analysis_modes_by_zone[zone_name] = {query.analysis_mode for query in queries}
+                self.analysis_stages_by_zone[zone_name] = {query.analysis_stage for query in queries}
             results = []
             for query in queries:
                 if query.template_id.endswith("thickness_up"):
@@ -333,6 +337,10 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
     assert selection.selected_by_zone["tip"].template.candidate_role == "thickness_up"
     assert worker.query_count_by_zone["root"] < 9
     assert 0 < worker.query_count_by_zone["tip"] < 9
+    assert worker.analysis_modes_by_zone["root"] == {"screening_target_cl"}
+    assert worker.analysis_stages_by_zone["root"] == {"screening"}
+    assert worker.analysis_modes_by_zone["tip"] == {"screening_target_cl"}
+    assert worker.analysis_stages_by_zone["tip"] == {"screening"}
     assert len(selection.worker_results) == worker.query_count_by_zone["root"] + worker.query_count_by_zone["tip"]
 
 

@@ -31,6 +31,57 @@ def _first_bundle_dir_from_summary(summary: dict[str, object]) -> Path:
     return Path(bundle_dir)
 
 
+def _worker_result_payload(query, *, sweep_point_count: int) -> dict[str, object]:
+    sweep_summary = {
+        "sweep_point_count": sweep_point_count,
+        "converged_point_count": max(1, sweep_point_count - 1),
+        "alpha_min_deg": -2.0,
+        "alpha_max_deg": 8.0,
+        "alpha_step_deg": 0.5 if sweep_point_count > 2 else None,
+        "usable_polar_points": True,
+        "cl_max_observed": 1.22,
+        "alpha_at_cl_max_deg": 6.0,
+        "last_converged_alpha_deg": 6.0,
+        "clmax_is_lower_bound": query.analysis_mode == "screening_target_cl",
+        "first_pass_observed_clmax_proxy": 1.22,
+        "first_pass_observed_clmax_proxy_alpha_deg": 6.0,
+        "first_pass_observed_clmax_proxy_cd": 0.023,
+        "first_pass_observed_clmax_proxy_cdp": 0.017,
+        "first_pass_observed_clmax_proxy_cm": -0.09,
+        "first_pass_observed_clmax_proxy_index": 3,
+        "first_pass_observed_clmax_proxy_at_sweep_edge": False,
+    }
+    payload = {
+        "status": "ok",
+        "template_id": query.template_id,
+        "geometry_hash": query.geometry_hash,
+        "analysis_mode": query.analysis_mode,
+        "analysis_stage": query.analysis_stage,
+        "polar_points": [
+            {
+                "cl_target": query.cl_samples[0],
+                "cl": query.cl_samples[0],
+                "cd": 0.020 if query.analysis_mode == "screening_target_cl" else 0.019,
+                "cm": -0.09,
+                "cdp": 0.014,
+                "converged": True,
+                "cl_error": 0.0,
+            }
+        ],
+        "sweep_summary": sweep_summary,
+    }
+    if query.analysis_mode == "screening_target_cl":
+        payload["screening_summary"] = {
+            "target_cl_requested_count": len(query.cl_samples),
+            "target_cl_converged_count": len(query.cl_samples),
+            "fallback_used": False,
+            "mini_sweep_fallback_count": 0,
+            "screening_point_count": sweep_point_count,
+            **sweep_summary,
+        }
+    return payload
+
+
 def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     factory_calls: list[dict[str, object]] = []
     loader_calls: list[tuple[str, int]] = []
@@ -120,6 +171,142 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert isinstance(first["turn"]["required_cl"], float)
     assert isinstance(first["trim"]["margin_deg"], float)
     assert isinstance(first["local_stall"]["min_margin"], float)
+
+
+def test_pipeline_reruns_top_finalists_with_full_alpha_sweep(tmp_path: Path) -> None:
+    config_payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    config_payload["pipeline"]["keep_top_n"] = 3
+    config_payload["pipeline"]["finalist_full_sweep_top_l"] = 2
+    config_path = tmp_path / "dual_track.yaml"
+    config_path.write_text(yaml.safe_dump(config_payload, sort_keys=False), encoding="utf-8")
+
+    class FakeWorker:
+        backend_name = "dual_track_stub"
+
+        def __init__(self):
+            self.batches: list[list[tuple[str, str]]] = []
+
+        def run_queries(self, queries):
+            self.batches.append([(query.analysis_mode, query.analysis_stage) for query in queries])
+            return [
+                _worker_result_payload(
+                    query,
+                    sweep_point_count=(4 if query.analysis_mode == "screening_target_cl" else 21),
+                )
+                for query in queries
+            ]
+
+    fake_worker = FakeWorker()
+    result = run_birdman_concept_pipeline(
+        config_path=config_path,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: fake_worker,
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {"reynolds": 260000.0, "chord_m": 1.30, "cl_target": 0.70, "cm_target": -0.10, "weight": 1.0}
+                ]
+            },
+            "mid1": {
+                "points": [
+                    {"reynolds": 240000.0, "chord_m": 1.15, "cl_target": 0.66, "cm_target": -0.09, "weight": 1.0}
+                ]
+            },
+            "mid2": {
+                "points": [
+                    {"reynolds": 220000.0, "chord_m": 1.00, "cl_target": 0.62, "cm_target": -0.08, "weight": 1.0}
+                ]
+            },
+            "tip": {
+                "points": [
+                    {"reynolds": 200000.0, "chord_m": 0.82, "cl_target": 0.58, "cm_target": -0.07, "weight": 1.0}
+                ]
+            },
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    screening_batches = [
+        batch for batch in fake_worker.batches if all(stage == "screening" for _, stage in batch)
+    ]
+    finalist_batches = [
+        batch for batch in fake_worker.batches if all(stage == "finalist" for _, stage in batch)
+    ]
+
+    assert screening_batches
+    assert len(finalist_batches) == 2
+    assert all(all(mode == "full_alpha_sweep" for mode, _ in batch) for batch in finalist_batches)
+    first = _first_ranked_record(summary)
+    assert first["worker_fidelity"]["screening"]["worker_analysis_modes"]
+    assert first["worker_fidelity"]["finalist"]["worker_analysis_modes"] == ["full_alpha_sweep"] * 4
+
+
+def test_pipeline_summary_distinguishes_screening_and_finalist_worker_fidelity(
+    tmp_path: Path,
+) -> None:
+    config_payload = yaml.safe_load(
+        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
+    )
+    config_payload["pipeline"]["keep_top_n"] = 3
+    config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
+    config_path = tmp_path / "dual_track_summary.yaml"
+    config_path.write_text(yaml.safe_dump(config_payload, sort_keys=False), encoding="utf-8")
+
+    class FakeWorker:
+        backend_name = "dual_track_stub"
+
+        def run_queries(self, queries):
+            return [
+                _worker_result_payload(
+                    query,
+                    sweep_point_count=(4 if query.analysis_mode == "screening_target_cl" else 21),
+                )
+                for query in queries
+            ]
+
+    result = run_birdman_concept_pipeline(
+        config_path=config_path,
+        output_dir=tmp_path / "out",
+        airfoil_worker_factory=lambda **_: FakeWorker(),
+        spanwise_loader=lambda concept, stations: {
+            "root": {
+                "points": [
+                    {"reynolds": 260000.0, "chord_m": 1.30, "cl_target": 0.70, "cm_target": -0.10, "weight": 1.0}
+                ]
+            },
+            "mid1": {
+                "points": [
+                    {"reynolds": 240000.0, "chord_m": 1.15, "cl_target": 0.66, "cm_target": -0.09, "weight": 1.0}
+                ]
+            },
+            "mid2": {
+                "points": [
+                    {"reynolds": 220000.0, "chord_m": 1.00, "cl_target": 0.62, "cm_target": -0.08, "weight": 1.0}
+                ]
+            },
+            "tip": {
+                "points": [
+                    {"reynolds": 200000.0, "chord_m": 0.82, "cl_target": 0.58, "cm_target": -0.07, "weight": 1.0}
+                ]
+            },
+        },
+    )
+
+    summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    first = _first_ranked_record(summary)
+
+    assert first["worker_fidelity"]["screening"]["worker_analysis_stages"] == ["screening"] * 4
+    assert first["worker_fidelity"]["finalist"]["worker_analysis_stages"] == ["finalist"] * 4
+    bundle_dir = _first_bundle_dir_from_summary(summary)
+    concept_summary = json.loads((bundle_dir / "concept_summary.json").read_text(encoding="utf-8"))
+    assert concept_summary["worker_fidelity"]["screening"]["worker_analysis_modes"] == [
+        "screening_target_cl"
+    ] * 4
+    assert concept_summary["worker_fidelity"]["finalist"]["worker_analysis_modes"] == [
+        "full_alpha_sweep"
+    ] * 4
 
 
 def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path) -> None:
@@ -1190,7 +1377,7 @@ def test_cli_smoke_can_use_real_julia_worker(tmp_path: Path) -> None:
     summary = json.loads((output_dir / "concept_summary.json").read_text(encoding="utf-8"))
     assert summary["worker_backend"] == "julia_xfoil"
     assert summary["selected_concepts"] or summary["best_infeasible_concepts"]
-    assert all(status == "ok" for status in summary["worker_statuses"])
+    assert all(status in {"ok", "mini_sweep_fallback"} for status in summary["worker_statuses"])
 
 
 def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_path: Path) -> None:
