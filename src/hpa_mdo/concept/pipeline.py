@@ -820,16 +820,13 @@ def _summarize_launch(
     )
 
 
-def _summarize_turn(
+def _scale_station_points_to_condition(
     *,
-    cfg: BirdmanConceptConfig,
-    concept: GeometryConcept,
     station_points: list[dict[str, float]],
-    trim_result,
-) -> dict[str, Any]:
-    evaluation_speed_mps = float(cfg.launch.release_speed_mps)
-    evaluation_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
-
+    evaluation_speed_mps: float,
+    evaluation_gross_mass_kg: float,
+    scale_field_name: str,
+) -> tuple[list[dict[str, float]], list[float]]:
     scaled_station_points: list[dict[str, float]] = []
     cl_scale_factors: list[float] = []
     for point in station_points:
@@ -850,9 +847,102 @@ def _summarize_turn(
             {
                 **point,
                 "cl_target": float(point["cl_target"]) * cl_scale,
-                "turn_cl_scale_factor": cl_scale,
+                scale_field_name: cl_scale,
             }
         )
+    return scaled_station_points, cl_scale_factors
+
+
+def _local_stall_evaluation_cases(
+    *,
+    cfg: BirdmanConceptConfig,
+    station_points: list[dict[str, float]],
+    mission_summary: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if not station_points:
+        raise ValueError("station_points must not be empty.")
+
+    first_point = station_points[0]
+    reference_speed_mps = _numeric_value(first_point.get("reference_speed_mps"))
+    reference_gross_mass_kg = _numeric_value(first_point.get("reference_gross_mass_kg"))
+    if reference_speed_mps is None:
+        reference_speed_mps = _numeric_value(mission_summary.get("best_range_speed_mps"))
+    if reference_gross_mass_kg is None:
+        reference_gross_mass_kg = _numeric_value(mission_summary.get("evaluated_gross_mass_kg"))
+    if reference_speed_mps is None:
+        reference_speed_mps = float(cfg.launch.release_speed_mps)
+    if reference_gross_mass_kg is None:
+        reference_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+
+    cases: list[dict[str, Any]] = [
+        {
+            "case_label": "reference_avl_case",
+            "reference_speed_mps": reference_speed_mps,
+            "reference_gross_mass_kg": reference_gross_mass_kg,
+            "evaluation_speed_mps": reference_speed_mps,
+            "evaluation_gross_mass_kg": reference_gross_mass_kg,
+            "station_points": [dict(point) for point in station_points],
+            "cl_scale_factor_min": 1.0,
+            "cl_scale_factor_max": 1.0,
+        }
+    ]
+
+    candidate_cases = [
+        (
+            "mission_worst_case",
+            _numeric_value(mission_summary.get("best_range_speed_mps")),
+            _numeric_value(mission_summary.get("evaluated_gross_mass_kg")),
+        ),
+        (
+            "launch_release_case",
+            float(cfg.launch.release_speed_mps),
+            float(max(cfg.mass.gross_mass_sweep_kg)),
+        ),
+    ]
+    seen_conditions = {(reference_speed_mps, reference_gross_mass_kg)}
+    for case_label, evaluation_speed_mps, evaluation_gross_mass_kg in candidate_cases:
+        if evaluation_speed_mps is None or evaluation_gross_mass_kg is None:
+            continue
+        condition_key = (float(evaluation_speed_mps), float(evaluation_gross_mass_kg))
+        if condition_key in seen_conditions:
+            continue
+        scaled_station_points, cl_scale_factors = _scale_station_points_to_condition(
+            station_points=station_points,
+            evaluation_speed_mps=float(evaluation_speed_mps),
+            evaluation_gross_mass_kg=float(evaluation_gross_mass_kg),
+            scale_field_name="local_stall_cl_scale_factor",
+        )
+        cases.append(
+            {
+                "case_label": case_label,
+                "reference_speed_mps": reference_speed_mps,
+                "reference_gross_mass_kg": reference_gross_mass_kg,
+                "evaluation_speed_mps": float(evaluation_speed_mps),
+                "evaluation_gross_mass_kg": float(evaluation_gross_mass_kg),
+                "station_points": scaled_station_points,
+                "cl_scale_factor_min": min(cl_scale_factors) if cl_scale_factors else 1.0,
+                "cl_scale_factor_max": max(cl_scale_factors) if cl_scale_factors else 1.0,
+            }
+        )
+        seen_conditions.add(condition_key)
+    return cases
+
+
+def _summarize_turn(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    station_points: list[dict[str, float]],
+    trim_result,
+) -> dict[str, Any]:
+    evaluation_speed_mps = float(cfg.launch.release_speed_mps)
+    evaluation_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+    scaled_station_points, cl_scale_factors = _scale_station_points_to_condition(
+        station_points=station_points,
+        evaluation_speed_mps=evaluation_speed_mps,
+        evaluation_gross_mass_kg=evaluation_gross_mass_kg,
+        scale_field_name="turn_cl_scale_factor",
+    )
 
     turn_result = evaluate_turn_gate(
         bank_angle_deg=cfg.turn.required_bank_angle_deg,
@@ -937,23 +1027,67 @@ def _summarize_local_stall(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
     station_points: list[dict[str, float]],
+    mission_summary: dict[str, Any],
 ) -> dict[str, Any]:
-    local_stall_result = evaluate_local_stall(
+    evaluation_cases = _local_stall_evaluation_cases(
+        cfg=cfg,
         station_points=station_points,
-        half_span_m=0.5 * concept.span_m,
-        stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+        mission_summary=mission_summary,
+    )
+    case_results: list[dict[str, Any]] = []
+    for case in evaluation_cases:
+        result = evaluate_local_stall(
+            station_points=list(case["station_points"]),
+            half_span_m=0.5 * concept.span_m,
+            stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+        )
+        case_results.append(
+            {
+                "case_label": case["case_label"],
+                "reference_speed_mps": case["reference_speed_mps"],
+                "reference_gross_mass_kg": case["reference_gross_mass_kg"],
+                "evaluation_speed_mps": case["evaluation_speed_mps"],
+                "evaluation_gross_mass_kg": case["evaluation_gross_mass_kg"],
+                "cl_scale_factor_min": case["cl_scale_factor_min"],
+                "cl_scale_factor_max": case["cl_scale_factor_max"],
+                "status": result.reason,
+                "feasible": result.feasible,
+                "required_cl": result.required_cl,
+                "cl_max": result.cl_max,
+                "min_margin": result.min_margin,
+                "stall_utilization": result.stall_utilization,
+                "stall_utilization_limit": result.stall_utilization_limit,
+                "min_margin_station_y_m": result.min_margin_station_y_m,
+                "tip_critical": result.tip_critical,
+                "margin_source": result.cl_max_source,
+            }
+        )
+    worst_case = max(
+        case_results,
+        key=lambda case: (
+            float(case["stall_utilization"]),
+            float(case["required_cl"]),
+        ),
     )
     return {
-        "status": local_stall_result.reason,
-        "feasible": local_stall_result.feasible,
-        "required_cl": local_stall_result.required_cl,
-        "cl_max": local_stall_result.cl_max,
-        "min_margin": local_stall_result.min_margin,
-        "stall_utilization": local_stall_result.stall_utilization,
-        "stall_utilization_limit": local_stall_result.stall_utilization_limit,
-        "min_margin_station_y_m": local_stall_result.min_margin_station_y_m,
-        "tip_critical": local_stall_result.tip_critical,
-        "margin_source": local_stall_result.cl_max_source,
+        "status": str(worst_case["status"]),
+        "feasible": bool(worst_case["feasible"]),
+        "required_cl": float(worst_case["required_cl"]),
+        "cl_max": float(worst_case["cl_max"]),
+        "min_margin": float(worst_case["min_margin"]),
+        "stall_utilization": float(worst_case["stall_utilization"]),
+        "stall_utilization_limit": float(worst_case["stall_utilization_limit"]),
+        "min_margin_station_y_m": float(worst_case["min_margin_station_y_m"]),
+        "tip_critical": bool(worst_case["tip_critical"]),
+        "margin_source": str(worst_case["margin_source"]),
+        "evaluation_case": str(worst_case["case_label"]),
+        "reference_speed_mps": worst_case["reference_speed_mps"],
+        "reference_gross_mass_kg": worst_case["reference_gross_mass_kg"],
+        "evaluation_speed_mps": worst_case["evaluation_speed_mps"],
+        "evaluation_gross_mass_kg": worst_case["evaluation_gross_mass_kg"],
+        "cl_scale_factor_min": worst_case["cl_scale_factor_min"],
+        "cl_scale_factor_max": worst_case["cl_scale_factor_max"],
+        "case_results": case_results,
     }
 
 
@@ -1449,17 +1583,18 @@ def run_birdman_concept_pipeline(
             station_points=station_points,
             trim_result=trim_result,
         )
-        local_stall_summary = _summarize_local_stall(
-            cfg=cfg,
-            concept=concept,
-            station_points=station_points,
-        )
         mission_summary = _build_concept_mission_summary(
             cfg=cfg,
             concept=concept,
             station_points=station_points,
             airfoil_feedback=airfoil_feedback,
             air_density_kg_per_m3=air_density_kg_per_m3,
+        )
+        local_stall_summary = _summarize_local_stall(
+            cfg=cfg,
+            concept=concept,
+            station_points=station_points,
+            mission_summary=mission_summary,
         )
         ranking_input = CandidateConceptResult(
             concept_id=f"eval-{enumeration_index:02d}",

@@ -610,6 +610,52 @@ def test_turn_summary_rescales_reference_cl_targets_to_release_condition() -> No
     assert turn["stall_utilization"] == pytest.approx(turn["required_cl"] / turn["cl_max"])
 
 
+def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    local_stall = concept_pipeline._summarize_local_stall(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "cl_target": 0.70,
+                "cl_max_safe": 1.20,
+                "cl_max_safe_source": "airfoil_safe_observed",
+                "reference_speed_mps": 10.0,
+                "reference_gross_mass_kg": 95.0,
+            }
+        ],
+        mission_summary={
+            "best_range_speed_mps": 9.0,
+            "evaluated_gross_mass_kg": 100.0,
+        },
+    )
+
+    launch_scale = (105.0 / 95.0) * (10.0 / 8.0) ** 2
+    assert local_stall["evaluation_case"] == "launch_release_case"
+    assert local_stall["evaluation_speed_mps"] == pytest.approx(8.0)
+    assert local_stall["evaluation_gross_mass_kg"] == pytest.approx(105.0)
+    assert local_stall["required_cl"] == pytest.approx(0.70 * launch_scale)
+    assert local_stall["stall_utilization"] == pytest.approx(local_stall["required_cl"] / 1.20)
+    assert {case["case_label"] for case in local_stall["case_results"]} == {
+        "reference_avl_case",
+        "mission_worst_case",
+        "launch_release_case",
+    }
+
+
 def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
