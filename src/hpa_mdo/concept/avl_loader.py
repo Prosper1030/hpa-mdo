@@ -16,8 +16,10 @@ from hpa_mdo.aero.avl_exporter import stage_avl_airfoil_files
 from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.concept.config import BirdmanConceptConfig
-from hpa_mdo.concept.geometry import GeometryConcept, WingStation
+from hpa_mdo.concept.geometry import GeometryConcept, WingStation, build_linear_wing_stations
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
+from hpa_mdo.concept.safety import evaluate_local_stall
+from hpa_mdo.concept.stall_model import apply_safe_local_clmax_model
 from hpa_mdo.concept.zone_requirements import build_zone_requirements, default_zone_definitions
 from hpa_mdo.mission.objective import (
     FakeAnchorCurve,
@@ -76,6 +78,254 @@ def _shaft_power_required_w(
     return shaft_power_w
 
 
+def _numeric_value(value: object) -> float | None:
+    if isinstance(value, int | float):
+        return float(value)
+    return None
+
+
+def _station_area_weights(stations: tuple[WingStation, ...]) -> tuple[float, ...]:
+    if not stations:
+        return ()
+    if len(stations) == 1:
+        return (1.0,)
+
+    y_positions = [float(station.y_m) for station in stations]
+    boundaries = [y_positions[0]]
+    boundaries.extend(0.5 * (left + right) for left, right in zip(y_positions[:-1], y_positions[1:]))
+    boundaries.append(y_positions[-1])
+    strip_widths = [
+        max(right - left, 0.0)
+        for left, right in zip(boundaries[:-1], boundaries[1:])
+    ]
+    area_weights = [
+        strip_width * max(float(station.chord_m), 1.0e-9)
+        for strip_width, station in zip(strip_widths, stations, strict=True)
+    ]
+    total_area_weight = sum(area_weights)
+    if total_area_weight <= 0.0:
+        return tuple(1.0 / float(len(stations)) for _ in stations)
+    return tuple(weight / total_area_weight for weight in area_weights)
+
+
+def _coarse_pre_avl_reference_station_points(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    air_density_kg_per_m3: float,
+    speed_sweep_mps: tuple[float, ...],
+) -> tuple[list[dict[str, float]], dict[str, Any]]:
+    stations = build_linear_wing_stations(
+        concept,
+        stations_per_half=int(cfg.pipeline.stations_per_half),
+    )
+    if not stations:
+        return [], {"reference_speed_filter_model": "pre_avl_local_stall_feasible_speed_proxy_v1"}
+
+    half_span_m = 0.5 * float(concept.span_m)
+    reference_speed_mps = max(float(cfg.launch.release_speed_mps), float(min(speed_sweep_mps)))
+    reference_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+    dynamic_pressure_pa = 0.5 * float(air_density_kg_per_m3) * reference_speed_mps**2
+    wing_cl_required = (reference_gross_mass_kg * 9.80665) / max(
+        dynamic_pressure_pa * float(concept.wing_area_m2),
+        1.0e-9,
+    )
+    area_weights = _station_area_weights(stations)
+    total_washout_deg = max(float(concept.twist_root_deg) - float(concept.twist_tip_deg), 0.0)
+    span_ratio = (
+        0.0 if concept.span_m <= 0.0 else float(concept.span_m) / max(float(concept.wing_area_m2), 1.0)
+    )
+    twist_delta = abs(float(concept.twist_tip_deg) - float(concept.twist_root_deg))
+
+    raw_shape: list[float] = []
+    for station in stations:
+        eta = 0.0 if half_span_m <= 0.0 else min(max(float(station.y_m) / half_span_m, 0.0), 1.0)
+        elliptic_loading = math.sqrt(max(1.0 - eta**2, 1.0e-9))
+        chord_ratio = float(station.chord_m) / max(float(concept.root_chord_m), 1.0e-9)
+        local_washout_deg = max(float(concept.twist_root_deg) - float(station.twist_deg), 0.0)
+        washout_relief_factor = 1.0 - 0.10 * (
+            0.0
+            if total_washout_deg <= 0.0
+            else min(local_washout_deg / total_washout_deg, 1.0)
+        )
+        raw_shape.append(
+            max(
+                0.35,
+                (elliptic_loading / max(chord_ratio, 1.0e-6)) * washout_relief_factor,
+            )
+        )
+
+    normalized_denominator = sum(
+        shape * weight for shape, weight in zip(raw_shape, area_weights, strict=True)
+    )
+    normalized_denominator = max(normalized_denominator, 1.0e-9)
+
+    coarse_points: list[dict[str, float]] = []
+    for station, area_weight, shape in zip(stations, area_weights, raw_shape, strict=True):
+        eta = 0.0 if half_span_m <= 0.0 else min(max(float(station.y_m) / half_span_m, 0.0), 1.0)
+        cl_target = float(wing_cl_required) * (shape / normalized_denominator)
+        cl_headroom = (
+            0.24
+            - 0.09 * eta
+            - 0.015 * (twist_delta / 5.0)
+            + 0.01 * min(span_ratio, 1.2)
+        )
+        cl_headroom = min(max(cl_headroom, 0.08), 0.30)
+        coarse_points.append(
+            {
+                "station_y_m": float(station.y_m),
+                "chord_m": float(station.chord_m),
+                "weight": float(area_weight),
+                "cl_target": float(cl_target),
+                "cm_target": -0.10 + 0.01 * (1.0 - eta),
+                "span_fraction": float(eta),
+                "taper_ratio": float(concept.taper_ratio),
+                "washout_deg": float(total_washout_deg),
+                "reference_speed_mps": float(reference_speed_mps),
+                "reference_gross_mass_kg": float(reference_gross_mass_kg),
+                "cl_max_proxy": float(cl_target + cl_headroom),
+                "cl_max_effective": float(cl_target + cl_headroom),
+                "cl_max_effective_source": "geometry_proxy",
+                "cm_effective": -0.10 + 0.01 * (1.0 - eta),
+                "cm_effective_source": "zone_target_proxy",
+            }
+        )
+
+    safe_points, safe_summary = apply_safe_local_clmax_model(
+        coarse_points,
+        safe_scale=float(cfg.stall_model.safe_clmax_scale),
+        safe_delta=float(cfg.stall_model.safe_clmax_delta),
+        tip_3d_penalty_start_eta=float(cfg.stall_model.tip_3d_penalty_start_eta),
+        tip_3d_penalty_max=float(cfg.stall_model.tip_3d_penalty_max),
+        tip_taper_penalty_weight=float(cfg.stall_model.tip_taper_penalty_weight),
+        washout_relief_deg=float(cfg.stall_model.washout_relief_deg),
+        washout_relief_max=float(cfg.stall_model.washout_relief_max),
+    )
+    return safe_points, {
+        **safe_summary,
+        "reference_speed_filter_model": "pre_avl_local_stall_feasible_speed_proxy_v1",
+        "reference_speed_mps": float(reference_speed_mps),
+        "reference_gross_mass_kg": float(reference_gross_mass_kg),
+        "section_cl_distribution_model": "elliptic_over_local_chord_with_washout_relief",
+    }
+
+
+def _scale_station_points_to_condition(
+    *,
+    station_points: list[dict[str, float]],
+    evaluation_speed_mps: float,
+    evaluation_gross_mass_kg: float,
+    scale_field_name: str,
+) -> tuple[list[dict[str, float]], list[float]]:
+    scaled_station_points: list[dict[str, float]] = []
+    cl_scale_factors: list[float] = []
+    for point in station_points:
+        reference_speed_mps = _numeric_value(point.get("reference_speed_mps"))
+        reference_gross_mass_kg = _numeric_value(point.get("reference_gross_mass_kg"))
+        cl_scale = 1.0
+        if (
+            reference_speed_mps is not None
+            and reference_speed_mps > 0.0
+            and reference_gross_mass_kg is not None
+            and reference_gross_mass_kg > 0.0
+        ):
+            cl_scale = (
+                float(evaluation_gross_mass_kg) / float(reference_gross_mass_kg)
+            ) * (float(reference_speed_mps) / float(evaluation_speed_mps)) ** 2
+        cl_scale_factors.append(cl_scale)
+        scaled_station_points.append(
+            {
+                **point,
+                "cl_target": float(point["cl_target"]) * cl_scale,
+                scale_field_name: cl_scale,
+            }
+        )
+    return scaled_station_points, cl_scale_factors
+
+
+def _mission_speed_feasibility_records_for_avl(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    reference_station_points: list[dict[str, float]],
+    gross_mass_kg: float,
+    speed_sweep_mps: tuple[float, ...],
+) -> list[dict[str, Any]]:
+    if not reference_station_points:
+        return []
+
+    records: list[dict[str, Any]] = []
+    for speed_mps in speed_sweep_mps:
+        scaled_station_points, cl_scale_factors = _scale_station_points_to_condition(
+            station_points=reference_station_points,
+            evaluation_speed_mps=float(speed_mps),
+            evaluation_gross_mass_kg=float(gross_mass_kg),
+            scale_field_name="pre_avl_reference_case_cl_scale_factor",
+        )
+        result = evaluate_local_stall(
+            station_points=scaled_station_points,
+            half_span_m=0.5 * float(concept.span_m),
+            stall_utilization_limit=float(cfg.stall_model.local_stall_utilization_limit),
+        )
+        records.append(
+            {
+                "speed_mps": float(speed_mps),
+                "feasible": bool(result.feasible),
+                "status": str(result.reason),
+                "required_cl": float(result.required_cl),
+                "cl_max": float(result.cl_max),
+                "min_margin": float(result.min_margin),
+                "stall_utilization": float(result.stall_utilization),
+                "stall_utilization_limit": float(result.stall_utilization_limit),
+                "min_margin_station_y_m": float(result.min_margin_station_y_m),
+                "tip_critical": bool(result.tip_critical),
+                "margin_source": str(result.cl_max_source),
+                "cl_scale_factor_min": min(cl_scale_factors) if cl_scale_factors else 1.0,
+                "cl_scale_factor_max": max(cl_scale_factors) if cl_scale_factors else 1.0,
+            }
+        )
+    return records
+
+
+def _estimated_first_feasible_speed_mps(
+    speed_feasibility_records: list[dict[str, Any]],
+) -> float | None:
+    if not speed_feasibility_records:
+        return None
+    closest_record = min(
+        speed_feasibility_records,
+        key=lambda record: float(record["stall_utilization"]),
+    )
+    stall_utilization = float(closest_record["stall_utilization"])
+    stall_limit = max(float(closest_record["stall_utilization_limit"]), 1.0e-9)
+    return float(closest_record["speed_mps"]) * math.sqrt(stall_utilization / stall_limit)
+
+
+def _select_reference_speed_for_mass_case(
+    *,
+    objective_mode: str,
+    selected_mass_case: dict[str, Any],
+) -> tuple[float, str]:
+    if objective_mode == "max_range":
+        feasible_speed_mps = _numeric_value(selected_mass_case.get("best_range_feasible_speed_mps"))
+        if feasible_speed_mps is not None:
+            return float(feasible_speed_mps), "best_range_feasible_speed_mps"
+        estimated_speed_mps = _numeric_value(
+            selected_mass_case.get("estimated_first_feasible_speed_mps")
+        )
+        if estimated_speed_mps is not None:
+            return float(estimated_speed_mps), "estimated_first_feasible_speed_mps"
+        return float(selected_mass_case["best_range_speed_mps"]), "best_range_speed_mps_unconstrained_fallback"
+
+    feasible_speed_mps = _numeric_value(selected_mass_case.get("min_power_feasible_speed_mps"))
+    if feasible_speed_mps is not None:
+        return float(feasible_speed_mps), "min_power_feasible_speed_mps"
+    estimated_speed_mps = _numeric_value(selected_mass_case.get("estimated_first_feasible_speed_mps"))
+    if estimated_speed_mps is not None:
+        return float(estimated_speed_mps), "estimated_first_feasible_speed_mps"
+    return float(selected_mass_case["min_power_speed_mps"]), "min_power_speed_mps_unconstrained_fallback"
+
+
 def _mission_mass_cases_for_avl(
     *,
     cfg: BirdmanConceptConfig,
@@ -97,6 +347,12 @@ def _mission_mass_cases_for_avl(
     rider_curve = FakeAnchorCurve(
         anchor_power_w=float(cfg.mission.anchor_power_w),
         anchor_duration_min=float(cfg.mission.anchor_duration_min),
+    )
+    reference_station_points, reference_speed_filter_summary = _coarse_pre_avl_reference_station_points(
+        cfg=cfg,
+        concept=concept,
+        air_density_kg_per_m3=air_density_kg_per_m3,
+        speed_sweep_mps=speed_sweep_mps,
     )
 
     mass_cases: list[dict[str, Any]] = []
@@ -126,16 +382,89 @@ def _mission_mass_cases_for_avl(
                 rider_curve=rider_curve,
             )
         )
+        speed_feasibility_records = _mission_speed_feasibility_records_for_avl(
+            cfg=cfg,
+            concept=concept,
+            reference_station_points=reference_station_points,
+            gross_mass_kg=float(gross_mass_kg),
+            speed_sweep_mps=speed_sweep_mps,
+        )
+        feasible_indices = [
+            index
+            for index, record in enumerate(speed_feasibility_records)
+            if bool(record["feasible"])
+        ]
+        feasible_speed_set_mps = [float(speed_sweep_mps[index]) for index in feasible_indices]
+        first_feasible_speed_mps = (
+            None if not feasible_speed_set_mps else float(feasible_speed_set_mps[0])
+        )
+        estimated_first_feasible_speed_mps = (
+            None
+            if feasible_speed_set_mps
+            else _estimated_first_feasible_speed_mps(speed_feasibility_records)
+        )
+        delta_v_to_first_feasible_mps = (
+            None
+            if (
+                first_feasible_speed_mps is None
+                and estimated_first_feasible_speed_mps is None
+            )
+            else max(
+                0.0,
+                float(
+                    first_feasible_speed_mps
+                    if first_feasible_speed_mps is not None
+                    else estimated_first_feasible_speed_mps
+                )
+                - float(mission_result.best_range_speed_mps),
+            )
+        )
+        feasible_result = None
+        if feasible_indices:
+            feasible_result = evaluate_mission_objective(
+                MissionEvaluationInputs(
+                    objective_mode=str(cfg.mission.objective_mode),
+                    target_range_km=float(cfg.mission.target_distance_km),
+                    speed_mps=tuple(speed_sweep_mps[index] for index in feasible_indices),
+                    power_required_w=tuple(power_required_w[index] for index in feasible_indices),
+                    rider_curve=rider_curve,
+                )
+            )
         mass_cases.append(
             {
                 "gross_mass_kg": float(gross_mass_kg),
                 "best_range_m": float(mission_result.best_range_m),
                 "best_range_speed_mps": float(mission_result.best_range_speed_mps),
+                "best_range_feasible_m": (
+                    None if feasible_result is None else float(feasible_result.best_range_m)
+                ),
+                "best_range_feasible_speed_mps": (
+                    None
+                    if feasible_result is None
+                    else float(feasible_result.best_range_speed_mps)
+                ),
                 "min_power_w": float(mission_result.min_power_w),
                 "min_power_speed_mps": float(mission_result.min_power_speed_mps),
+                "min_power_feasible_w": (
+                    None if feasible_result is None else float(feasible_result.min_power_w)
+                ),
+                "min_power_feasible_speed_mps": (
+                    None
+                    if feasible_result is None
+                    else float(feasible_result.min_power_speed_mps)
+                ),
                 "mission_feasible": bool(mission_result.mission_feasible),
                 "target_range_passed": bool(mission_result.target_range_passed),
                 "mission_score": float(mission_result.mission_score),
+                "feasible_speed_set_mps": tuple(feasible_speed_set_mps),
+                "first_feasible_speed_mps": first_feasible_speed_mps,
+                "estimated_first_feasible_speed_mps": estimated_first_feasible_speed_mps,
+                "delta_v_to_first_feasible_mps": delta_v_to_first_feasible_mps,
+                "speed_feasibility_records": speed_feasibility_records,
+                "reference_speed_filter_model": str(
+                    reference_speed_filter_summary["reference_speed_filter_model"]
+                ),
+                "reference_speed_filter_summary": dict(reference_speed_filter_summary),
             }
         )
 
@@ -161,17 +490,30 @@ def select_avl_design_cases(
     )
     objective_mode = str(cfg.mission.objective_mode)
     if objective_mode == "max_range":
-        selected_mass_case = min(mass_cases, key=lambda case: float(case["best_range_m"]))
-        mass_selection_reason = "min_best_range"
-        reference_speed_reason = "best_range_speed_mps"
-        reference_speed_mps = float(selected_mass_case["best_range_speed_mps"])
+        selected_mass_case = min(
+            mass_cases,
+            key=lambda case: (
+                float(_numeric_value(case.get("best_range_feasible_m")) or 0.0),
+                -float(case["gross_mass_kg"]),
+            ),
+        )
+        mass_selection_reason = "min_best_range_feasible_m"
     elif objective_mode == "min_power":
-        selected_mass_case = max(mass_cases, key=lambda case: float(case["min_power_w"]))
-        mass_selection_reason = "max_min_power"
-        reference_speed_reason = "min_power_speed_mps"
-        reference_speed_mps = float(selected_mass_case["min_power_speed_mps"])
+        selected_mass_case = max(
+            mass_cases,
+            key=lambda case: (
+                _numeric_value(case.get("min_power_feasible_w")) is None,
+                float(_numeric_value(case.get("min_power_feasible_w")) or 0.0),
+                float(case["gross_mass_kg"]),
+            ),
+        )
+        mass_selection_reason = "max_min_power_feasible_w"
     else:
         raise ValueError(f"Unsupported mission objective mode: {objective_mode}")
+    reference_speed_mps, reference_speed_reason = _select_reference_speed_for_mass_case(
+        objective_mode=objective_mode,
+        selected_mass_case=selected_mass_case,
+    )
 
     max_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
     min_speed_mps = float(min(_speed_sweep_mps(cfg)))
@@ -225,7 +567,7 @@ def select_avl_design_cases(
         "reference_gross_mass_kg": float(selected_mass_case["gross_mass_kg"]),
         "reference_speed_reason": reference_speed_reason,
         "mass_selection_reason": mass_selection_reason,
-        "reference_condition_policy": "low_speed_primary_multipoint_design_cases_v3",
+        "reference_condition_policy": "low_speed_primary_multipoint_design_cases_v4_feasible_reference_proxy",
         "primary_case_labels": [
             "slow_avl_case",
             "launch_release_case",
