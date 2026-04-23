@@ -772,6 +772,89 @@ def _run_zone_candidate_queries(
     return candidate_results, normalized_worker_results
 
 
+def _run_batched_zone_candidate_queries(
+    *,
+    zone_candidates: Mapping[str, tuple[CSTAirfoilTemplate, ...]],
+    zone_points_by_name: Mapping[str, list[dict[str, float]]],
+    worker: Any,
+    existing_results_by_zone: Mapping[str, Mapping[str, dict[str, object]]] | None = None,
+) -> tuple[dict[str, dict[str, dict[str, object]]], list[dict[str, object]]]:
+    aggregated_results: dict[str, dict[str, dict[str, object]]] = {
+        zone_name: dict((existing_results_by_zone or {}).get(zone_name, {}))
+        for zone_name in zone_candidates
+    }
+    batch_queries: list[PolarQuery] = []
+    query_identity_by_template_id: dict[str, dict[str, str]] = {}
+
+    for zone_name, candidates in zone_candidates.items():
+        existing_zone_results = aggregated_results.setdefault(zone_name, {})
+        candidates_to_run = tuple(
+            candidate for candidate in candidates if candidate.candidate_role not in existing_zone_results
+        )
+        queries, query_roles = _zone_queries_for_candidates(
+            zone_name=zone_name,
+            candidates=candidates_to_run,
+            zone_points=zone_points_by_name[zone_name],
+        )
+        for query, candidate_role in zip(queries, query_roles, strict=True):
+            batch_queries.append(query)
+            query_identity_by_template_id[query.template_id] = {
+                "zone_name": zone_name,
+                "candidate_role": candidate_role,
+                "geometry_hash": query.geometry_hash,
+            }
+
+    if not batch_queries:
+        return aggregated_results, []
+
+    batch_results = worker.run_queries(batch_queries)
+    if len(batch_results) != len(batch_queries):
+        raise RuntimeError(
+            "Worker returned "
+            f"{len(batch_results)} results for {len(batch_queries)} batched CST queries."
+        )
+
+    seen_template_ids: set[str] = set()
+    normalized_worker_results: list[dict[str, object]] = []
+    for raw_result in batch_results:
+        if not isinstance(raw_result, dict):
+            raise RuntimeError("Airfoil worker results must be dictionaries.")
+        template_id = raw_result.get("template_id")
+        if not isinstance(template_id, str):
+            raise RuntimeError("Airfoil worker results must include a template_id.")
+        query_identity = query_identity_by_template_id.get(template_id)
+        if query_identity is None:
+            raise RuntimeError(
+                f"Airfoil worker returned an unexpected template_id {template_id!r}."
+            )
+        geometry_hash = raw_result.get("geometry_hash")
+        if geometry_hash is not None and geometry_hash != query_identity["geometry_hash"]:
+            raise RuntimeError(
+                f"Airfoil worker geometry_hash mismatch for template_id {template_id!r}."
+            )
+        seen_template_ids.add(template_id)
+        zone_name = str(query_identity["zone_name"])
+        candidate_role = str(query_identity["candidate_role"])
+        normalized_worker_results.append(
+            {
+                **raw_result,
+                "zone_name": zone_name,
+                "candidate_role": candidate_role,
+            }
+        )
+        metrics = _metrics_from_worker_result(raw_result)
+        if metrics is not None:
+            aggregated_results.setdefault(zone_name, {})[candidate_role] = metrics
+
+    if seen_template_ids != set(query_identity_by_template_id):
+        missing = sorted(set(query_identity_by_template_id) - seen_template_ids)
+        raise RuntimeError(
+            "Airfoil worker did not return results for all batched CST queries: "
+            f"missing {missing!r}."
+        )
+    return aggregated_results, normalized_worker_results
+
+
 def _representative_reynolds(zone_points: list[dict[str, float]]) -> float:
     if not zone_points:
         return 250000.0
@@ -848,6 +931,10 @@ def select_zone_airfoil_templates(
 ) -> ZoneSelectionBatch:
     selected_by_zone: dict[str, SelectedZoneCandidate] = {}
     worker_results: list[dict[str, object]] = []
+    zone_points_by_name: dict[str, list[dict[str, float]]] = {}
+    zone_min_tc_by_name: dict[str, float] = {}
+    candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+    coarse_candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
 
     for zone_name, zone_data in zone_requirements.items():
         zone_points = list(zone_data.get("points", []))
@@ -871,8 +958,10 @@ def select_zone_airfoil_templates(
         if not candidates:
             raise ValueError(f"Zone {zone_name!r} did not produce any valid CST candidates.")
 
-        candidate_results: dict[str, dict[str, object]] = {}
-        coarse_candidates = (
+        zone_points_by_name[zone_name] = zone_points
+        zone_min_tc_by_name[zone_name] = zone_min_tc_ratio
+        candidates_by_zone[zone_name] = candidates
+        coarse_candidates_by_zone[zone_name] = (
             _coarse_seed_candidates(
                 candidates,
                 thickness_stride=coarse_thickness_stride,
@@ -881,16 +970,21 @@ def select_zone_airfoil_templates(
             if coarse_to_fine_enabled
             else candidates
         )
-        candidate_results, coarse_worker_results = _run_zone_candidate_queries(
-            zone_name=zone_name,
-            candidates=coarse_candidates,
-            zone_points=zone_points,
-            worker=worker,
-            existing_results=candidate_results,
-        )
-        worker_results.extend(coarse_worker_results)
 
-        if coarse_to_fine_enabled:
+    candidate_results_by_zone, coarse_worker_results = _run_batched_zone_candidate_queries(
+        zone_candidates=coarse_candidates_by_zone,
+        zone_points_by_name=zone_points_by_name,
+        worker=worker,
+    )
+    worker_results.extend(coarse_worker_results)
+
+    refinement_candidates_by_zone: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+    if coarse_to_fine_enabled:
+        for zone_name, candidates in candidates_by_zone.items():
+            zone_points = zone_points_by_name[zone_name]
+            zone_min_tc_ratio = zone_min_tc_by_name[zone_name]
+            candidate_results = candidate_results_by_zone.get(zone_name, {})
+            coarse_candidates = coarse_candidates_by_zone[zone_name]
             coarse_scored = _score_available_zone_candidates(
                 coarse_candidates,
                 zone_points=zone_points,
@@ -902,27 +996,28 @@ def select_zone_airfoil_templates(
             )
             coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
             coarse_beam = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
-            refinement_candidates = _refinement_candidates(
+            refinement_candidates_by_zone[zone_name] = _refinement_candidates(
                 candidates,
                 seed_candidates=coarse_beam,
                 neighbor_radius=refine_neighbor_radius,
             )
-            if not refinement_candidates:
-                refinement_candidates = candidates
-            candidate_results, refinement_worker_results = _run_zone_candidate_queries(
-                zone_name=zone_name,
-                candidates=refinement_candidates,
-                zone_points=zone_points,
-                worker=worker,
-                existing_results=candidate_results,
-            )
-            worker_results.extend(refinement_worker_results)
+            if not refinement_candidates_by_zone[zone_name]:
+                refinement_candidates_by_zone[zone_name] = candidates
 
+        candidate_results_by_zone, refinement_worker_results = _run_batched_zone_candidate_queries(
+            zone_candidates=refinement_candidates_by_zone,
+            zone_points_by_name=zone_points_by_name,
+            worker=worker,
+            existing_results_by_zone=candidate_results_by_zone,
+        )
+        worker_results.extend(refinement_worker_results)
+
+    for zone_name, candidates in candidates_by_zone.items():
         selected_by_zone[zone_name] = select_best_zone_candidate(
             candidates=candidates,
-            zone_points=zone_points,
-            candidate_results=candidate_results,
-            zone_min_tc_ratio=zone_min_tc_ratio,
+            zone_points=zone_points_by_name[zone_name],
+            candidate_results=candidate_results_by_zone.get(zone_name, {}),
+            zone_min_tc_ratio=zone_min_tc_by_name[zone_name],
             safe_clmax_scale=safe_clmax_scale,
             safe_clmax_delta=safe_clmax_delta,
             stall_utilization_limit=stall_utilization_limit,
