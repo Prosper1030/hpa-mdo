@@ -970,6 +970,55 @@ def test_trim_summary_accounts_for_tail_area_and_balance() -> None:
     assert small_summary["margin_deg"] < large_summary["margin_deg"]
 
 
+def test_mission_summary_includes_tail_trim_drag_penalty() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.2,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    station_points = [
+        {
+            "station_y_m": 4.0,
+            "cl_target": 0.82,
+            "cm_target": -0.08,
+            "cm_effective": -0.08,
+            "chord_m": 1.15,
+            "weight": 1.0,
+            "case_label": "reference_avl_case",
+        }
+    ]
+    airfoil_feedback = {
+        "mean_cd_effective": 0.021,
+    }
+    low_trim = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback=airfoil_feedback,
+        trim_summary={"tail_cl_required": 0.10},
+        air_density_kg_per_m3=1.15,
+    )
+    high_trim = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback=airfoil_feedback,
+        trim_summary={"tail_cl_required": 0.45},
+        air_density_kg_per_m3=1.15,
+    )
+
+    assert high_trim["trim_drag_cd_proxy"] > low_trim["trim_drag_cd_proxy"]
+    assert max(high_trim["power_required_w"]) > max(low_trim["power_required_w"])
+    assert high_trim["tail_cl_required_for_trim"] == pytest.approx(0.45)
+
+
 def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(

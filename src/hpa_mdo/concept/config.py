@@ -124,6 +124,8 @@ class TailModelConfig(ConceptBaseModel):
     tail_dynamic_pressure_ratio: float = Field(0.90, gt=0.0, le=1.5)
     tail_efficiency: float = Field(0.90, gt=0.0, le=1.5)
     tail_cl_limit_abs: float = Field(0.80, gt=0.0)
+    tail_aspect_ratio: float = Field(5.0, gt=0.0)
+    tail_oswald_efficiency: float = Field(0.85, gt=0.0, le=1.5)
     body_cm_offset: float = Field(0.0, ge=-0.25, le=0.25)
     cm_spread_factor: float = Field(0.50, ge=0.0)
 

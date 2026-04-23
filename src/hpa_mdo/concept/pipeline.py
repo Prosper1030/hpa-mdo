@@ -1348,6 +1348,7 @@ def _build_concept_mission_summary(
     concept: GeometryConcept,
     station_points: list[dict[str, float]],
     airfoil_feedback: dict[str, Any],
+    trim_summary: dict[str, Any],
     air_density_kg_per_m3: float,
 ) -> dict[str, Any]:
     speed_sweep_mps = _speed_sweep_mps(cfg)
@@ -1362,6 +1363,18 @@ def _build_concept_mission_summary(
     aspect_ratio = concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9)
     oswald_efficiency = _oswald_efficiency_proxy(concept)
     tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
+    tail_cl_required = abs(float(trim_summary.get("tail_cl_required", 0.0)))
+    tail_trim_drag_cd = (
+        float(cfg.tail_model.tail_dynamic_pressure_ratio)
+        * tail_area_ratio
+        * tail_cl_required**2
+        / max(
+            math.pi
+            * float(cfg.tail_model.tail_aspect_ratio)
+            * float(cfg.tail_model.tail_oswald_efficiency),
+            1.0e-9,
+        )
+    )
     misc_cd = 0.0035 + 0.20 * tail_area_ratio * profile_cd
     prop_model = SimplifiedPropModel(
         diameter_m=float(cfg.prop.diameter_m),
@@ -1382,7 +1395,7 @@ def _build_concept_mission_summary(
             dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
             cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
             induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
-            total_cd = profile_cd + induced_cd + misc_cd
+            total_cd = profile_cd + induced_cd + misc_cd + tail_trim_drag_cd
             drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
             power_required_w.append(
                 _shaft_power_required_w(
@@ -1429,6 +1442,8 @@ def _build_concept_mission_summary(
         "evaluated_gross_mass_kg": worst_case_mass_kg,
         "profile_cd_proxy": profile_cd,
         "misc_cd_proxy": misc_cd,
+        "trim_drag_cd_proxy": tail_trim_drag_cd,
+        "tail_cl_required_for_trim": tail_cl_required,
         "oswald_efficiency_proxy": oswald_efficiency,
         "propulsion_model": "simplified_prop_proxy_v1",
         "mission_case_source": "reference_avl_case"
@@ -1638,6 +1653,7 @@ def _evaluate_selected_airfoils_for_concept(
         concept=concept,
         station_points=station_points,
         airfoil_feedback=airfoil_feedback,
+        trim_summary=trim_summary,
         air_density_kg_per_m3=air_density_kg_per_m3,
     )
     local_stall_summary = _summarize_local_stall(
