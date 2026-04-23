@@ -6,8 +6,10 @@ import pytest
 
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
+    _analyze_real_wing_tip_bl_interference,
     _build_real_main_wing_occ_shell,
     _build_real_wing_bl_protection_field,
+    _collect_extbl_surfaces_in_y_band,
     _build_real_wing_root_closure_plan,
     _build_real_wing_root_closure_surfaces,
     _build_su2_cfg,
@@ -720,7 +722,103 @@ def test_real_main_wing_bl_protection_only_triggers_in_outboard_local_chord_zone
     assert summary["scale_min"] < 1.0
 
 
-def test_run_shell_v4_real_main_wing_prelaunch_smoke_reports_plc_boundary_recovery_failure(tmp_path: Path):
+def test_real_main_wing_tip_bl_interference_analysis_requests_local_tip_truncation(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
+    real_geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(source_path),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path / "artifacts",
+    )
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+
+    analysis = _analyze_real_wing_tip_bl_interference(
+        sections=list(real_geometry["sections"]),
+        protection=dict(spec["real_wing_bl_protection"]),
+        base_total_thickness_m=0.0164990848,
+        half_span_m=float(real_geometry["overall_bounds"]["y_max"]),
+    )
+
+    assert analysis["enabled"] is True
+    assert analysis["intervention_mode"] == "scaling_and_truncation"
+    assert analysis["risk_sample_count"] > 0
+    assert analysis["min_predicted_bl_top_clearance_m"] < analysis["required_min_bl_top_clearance_m"]
+    assert analysis["tip_truncation"]["enabled"] is True
+    assert analysis["tip_truncation"]["start_y_m"] > 15.0
+    assert analysis["triggered_span_y_range_m"]["min"] > 15.0
+
+
+def test_real_main_wing_tip_bl_interference_analysis_reports_suppressed_risk_after_truncation(tmp_path: Path):
+    repo_root = Path(__file__).resolve().parents[2]
+    source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
+    real_geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(source_path),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path / "artifacts",
+    )
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+
+    analysis = _analyze_real_wing_tip_bl_interference(
+        sections=list(real_geometry["sections"]),
+        protection=dict(spec["real_wing_bl_protection"]),
+        base_total_thickness_m=0.0164990848,
+        half_span_m=float(real_geometry["overall_bounds"]["y_max"]),
+        truncation_start_y_m=14.0,
+    )
+
+    assert analysis["tip_truncation"]["enabled"] is True
+    assert analysis["tip_truncation"]["start_y_m"] == pytest.approx(14.0)
+    assert analysis["risk_sample_count"] == 0
+    assert analysis["suppressed_risk_sample_count"] > 0
+    assert analysis["full_sample_count"] > analysis["retained_sample_count"] > 0
+    assert analysis["full_min_predicted_bl_top_clearance_m"] < analysis["required_min_bl_top_clearance_m"]
+    assert analysis["intervention_mode"] == "scaling_and_truncation"
+
+
+def test_collect_extbl_surfaces_in_y_band_includes_tip_truncation_neighborhood():
+    class _FakeModel:
+        def __init__(self, bboxes: dict[int, tuple[float, float, float, float, float, float]]) -> None:
+            self._bboxes = bboxes
+
+        def getEntities(self, dim: int) -> list[tuple[int, int]]:
+            assert dim == 2
+            return [(2, tag) for tag in self._bboxes]
+
+        def getBoundingBox(self, dim: int, tag: int) -> tuple[float, float, float, float, float, float]:
+            assert dim == 2
+            return self._bboxes[int(tag)]
+
+    class _FakeGmsh:
+        def __init__(self, bboxes: dict[int, tuple[float, float, float, float, float, float]]) -> None:
+            self.model = _FakeModel(bboxes)
+
+    gmsh = _FakeGmsh(
+        {
+            339: (0.13, 13.997, 0.58, 0.89, 14.000, 0.68),
+            348: (0.11, 13.498, 0.54, 0.94, 14.000, 0.68),
+            369: (0.88, 13.998, 0.57, 0.91, 14.002, 0.59),
+            436: (0.89, 13.498, 0.54, 0.94, 13.871, 0.58),
+            520: (0.50, 12.700, 0.40, 0.70, 13.100, 0.52),
+        }
+    )
+
+    matching = _collect_extbl_surfaces_in_y_band(
+        gmsh,
+        [(2, 339), (2, 348), (2, 369), (2, 436), (2, 520)],
+        y_min=13.5,
+        y_max=14.0,
+    )
+
+    assert matching == [339, 348, 369, 436]
+
+
+def test_run_shell_v4_real_main_wing_prelaunch_smoke_reaches_prelaunch_clean_with_tip_truncation(tmp_path: Path):
     repo_root = Path(__file__).resolve().parents[2]
     source_path = repo_root / "data" / "blackcat_004_origin.vsp3"
     out_dir = tmp_path / "real_main_wing_smoke"
@@ -767,12 +865,11 @@ def test_run_shell_v4_real_main_wing_prelaunch_smoke_reports_plc_boundary_recove
         },
     )
 
-    assert result["status"] == "failed"
+    assert result["status"] == "success"
     assert result["geometry"]["shape_mode"] == "esp_rebuilt_main_wing"
     assert result["case_summary"]["root_closure_mode"] == "use_bl_generated_faces"
     assert result["case_summary"]["mesh_algorithm3d"] == 1
-    assert result["error"] is not None
-    assert "PLC Error:" in result["error"]
+    assert result.get("error") is None
     assert result["topology_checks"]["root_closure"]["duplicate_curve_tags"] == []
     assert result["topology_checks"]["root_closure"]["holed_symmetry_face_used"] is False
     assert len(result["topology_checks"]["root_closure"]["surface_tags"]["root_side"]) == 3
@@ -785,3 +882,10 @@ def test_run_shell_v4_real_main_wing_prelaunch_smoke_reports_plc_boundary_recove
         for payload in result["topology_checks"]["root_closure"]["patch_loop_checks"].values()
     )
     assert result["case_summary"]["bl_local_protection"]["triggered_span_y_range_m"]["min"] > 15.0
+    assert result["case_summary"]["bl_local_protection"]["intervention_mode"] == "scaling_and_truncation"
+    assert result["case_summary"]["bl_local_protection"]["tip_truncation"]["enabled"] is True
+    assert result["case_summary"]["pre_3d_bl_clearance"]["risk_sample_count"] == 0
+    assert (
+        result["case_summary"]["pre_3d_bl_clearance"]["min_predicted_bl_top_clearance_m"]
+        >= result["case_summary"]["pre_3d_bl_clearance"]["required_min_bl_top_clearance_m"] - 1.0e-9
+    )
