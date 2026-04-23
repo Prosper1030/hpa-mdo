@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
+    _build_su2_cfg,
+    _derive_wall_diagnostics_from_surface_vtk,
     _solver_command,
     _solver_env,
     build_shell_v4_half_wing_bl_macsafe_spec,
@@ -68,6 +70,134 @@ def test_shell_v4_solver_command_uses_four_rank_mpi_with_one_thread_per_rank():
 
     assert command == ["mpirun", "-np", "4", "SU2_CFD", "-t", "1", "su2_runtime.cfg"]
     assert env["OMP_NUM_THREADS"] == "1"
+
+
+def test_build_su2_cfg_includes_surface_paraview_ascii_for_wall_diagnostics():
+    spec = build_shell_v4_half_wing_bl_macsafe_spec("BL_macsafe_baseline")
+
+    cfg = _build_su2_cfg(spec=spec, mesh_filename="mesh.su2")
+
+    assert "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW_ASCII, SURFACE_CSV, SURFACE_PARAVIEW_ASCII)" in cfg
+
+
+def test_derive_wall_diagnostics_from_surface_vtk_computes_yplus_summary(tmp_path: Path):
+    surface_vtk = tmp_path / "surface.vtk"
+    surface_vtk.write_text(
+        """# vtk DataFile Version 3.0
+vtk output
+ASCII
+DATASET POLYDATA
+POINTS 2 double
+0.0 0.0 0.0
+1.0 0.0 0.0
+POLYGONS 0 0
+POINT_DATA 2
+SCALARS Pressure_Coefficient double 1
+LOOKUP_TABLE default
+-0.5 -0.25
+VECTORS Skin_Friction_Coefficient double
+0.002 0.0 0.0
+0.008 0.0 0.0
+""",
+        encoding="utf-8",
+    )
+
+    diagnostics = _derive_wall_diagnostics_from_surface_vtk(
+        surface_vtk,
+        {
+            (0.0, 0.0, 0.0): 5.0e-5,
+            (1.0, 0.0, 0.0): 5.0e-5,
+        },
+        {
+            "density_kgpm3": 1.225,
+            "velocity_mps": 6.5,
+            "dynamic_viscosity_pas": 1.789e-5,
+        },
+    )
+
+    assert diagnostics is not None
+    assert diagnostics["point_count"] == 2
+    assert diagnostics["y_plus"]["source"] == "derived_from_surface_vtk_skin_friction_and_mesh_first_layer_height"
+    assert diagnostics["y_plus"]["max"] > diagnostics["y_plus"]["min"] > 0.0
+    assert diagnostics["pressure_coefficient"]["min"] == pytest.approx(-0.5)
+    assert diagnostics["pressure_coefficient"]["max"] == pytest.approx(-0.25)
+    assert diagnostics["skin_friction_coefficient_magnitude"]["max"] == pytest.approx(0.008)
+
+
+def test_derive_wall_diagnostics_from_surface_vtk_prefers_native_yplus_field(tmp_path: Path):
+    surface_vtk = tmp_path / "surface.vtk"
+    surface_vtk.write_text(
+        """# vtk DataFile Version 3.0
+vtk output
+ASCII
+DATASET POLYDATA
+POINTS 2 double
+1.036585 0.0 0.001933869 1.023165 0.0 0.003836836
+POLYGONS 0 0
+POINT_DATA 2
+SCALARS Pressure_Coefficient double 1
+LOOKUP_TABLE default
+-0.4 -0.2
+VECTORS Skin_Friction_Coefficient double
+0.002 0.0 0.0 0.004 0.0 0.0
+SCALARS Y_Plus double 1
+LOOKUP_TABLE default
+0.62 0.95
+""",
+        encoding="utf-8",
+    )
+
+    diagnostics = _derive_wall_diagnostics_from_surface_vtk(
+        surface_vtk,
+        {},
+        {
+            "density_kgpm3": 1.225,
+            "velocity_mps": 6.5,
+            "dynamic_viscosity_pas": 1.789e-5,
+        },
+    )
+
+    assert diagnostics is not None
+    assert diagnostics["point_count"] == 2
+    assert diagnostics["y_plus_field"] == "Y_Plus"
+    assert diagnostics["y_plus"]["source"] == "native_surface_vtk_y_plus"
+    assert diagnostics["y_plus"]["min"] == pytest.approx(0.62)
+    assert diagnostics["y_plus"]["max"] == pytest.approx(0.95)
+
+
+def test_derive_wall_diagnostics_from_surface_vtk_matches_truncated_surface_coordinates(tmp_path: Path):
+    surface_vtk = tmp_path / "surface.vtk"
+    surface_vtk.write_text(
+        """# vtk DataFile Version 3.0
+vtk output
+ASCII
+DATASET POLYDATA
+POINTS 1 double
+1.036585 0.0 0.001933869
+POLYGONS 0 0
+POINT_DATA 1
+VECTORS Skin_Friction_Coefficient double
+0.002 0.0 0.0
+""",
+        encoding="utf-8",
+    )
+
+    diagnostics = _derive_wall_diagnostics_from_surface_vtk(
+        surface_vtk,
+        {
+            (1.036584705781, 0.0, 0.001933869329): 5.0e-5,
+        },
+        {
+            "density_kgpm3": 1.225,
+            "velocity_mps": 6.5,
+            "dynamic_viscosity_pas": 1.789e-5,
+        },
+    )
+
+    assert diagnostics is not None
+    assert diagnostics["point_count"] == 1
+    assert diagnostics["y_plus"]["source"] == "derived_from_surface_vtk_skin_friction_and_mesh_first_layer_height"
+    assert diagnostics["y_plus"]["min"] > 0.0
 
 
 def test_estimate_first_cell_yplus_range_returns_positive_laminar_to_turbulent_band():

@@ -7,6 +7,7 @@ import math
 import statistics
 import subprocess
 import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -681,6 +682,361 @@ def _surface_yplus_summary(path: Path) -> dict[str, Any] | None:
     }
 
 
+def _coord_key(x: float, y: float, z: float, *, ndigits: int = 12) -> tuple[float, float, float]:
+    return (round(float(x), ndigits), round(float(y), ndigits), round(float(z), ndigits))
+
+
+def _height_lookup_maps_by_precision(
+    point_first_layer_heights_m: dict[tuple[float, float, float], float],
+) -> dict[int, dict[tuple[float, float, float], float]]:
+    precision_maps: dict[int, dict[tuple[float, float, float], float]] = {}
+    for ndigits in (12, 10, 8, 6, 4):
+        precision_maps[ndigits] = {
+            _coord_key(*coords, ndigits=ndigits): float(height)
+            for coords, height in point_first_layer_heights_m.items()
+        }
+    return precision_maps
+
+
+def _lookup_first_layer_height(
+    height_maps_by_precision: dict[int, dict[tuple[float, float, float], float]],
+    *,
+    x: float,
+    y: float,
+    z: float,
+) -> float | None:
+    for ndigits in (12, 10, 8, 6, 4):
+        precision_map = height_maps_by_precision.get(ndigits, {})
+        value = precision_map.get(_coord_key(x, y, z, ndigits=ndigits))
+        if value is not None:
+            return float(value)
+    return None
+
+
+def _read_legacy_vtk_point_data(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    points: list[tuple[float, float, float]] = []
+    scalars: dict[str, list[float]] = {}
+    vectors: dict[str, list[tuple[float, float, float]]] = {}
+    point_count: int | None = None
+    index = 0
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if not stripped:
+            index += 1
+            continue
+        parts = stripped.split()
+        keyword = parts[0].upper()
+        if keyword == "POINTS" and len(parts) >= 3:
+            point_count = int(parts[1])
+            values: list[float] = []
+            index += 1
+            while index < len(lines) and len(values) < 3 * point_count:
+                values.extend(float(token) for token in lines[index].split())
+                index += 1
+            points = [
+                (float(values[offset]), float(values[offset + 1]), float(values[offset + 2]))
+                for offset in range(0, 3 * point_count, 3)
+            ]
+            continue
+        if keyword == "POINT_DATA" and len(parts) >= 2:
+            point_count = int(parts[1])
+            index += 1
+            continue
+        if keyword == "SCALARS" and point_count is not None and len(parts) >= 3:
+            field_name = parts[1]
+            component_count = int(parts[3]) if len(parts) >= 4 else 1
+            index += 1
+            if index < len(lines) and lines[index].strip().upper().startswith("LOOKUP_TABLE"):
+                index += 1
+            needed_values = point_count * component_count
+            values: list[float] = []
+            while index < len(lines) and len(values) < needed_values:
+                values.extend(float(token) for token in lines[index].split())
+                index += 1
+            scalars[field_name] = [float(value) for value in values[:point_count]]
+            continue
+        if keyword == "VECTORS" and point_count is not None and len(parts) >= 3:
+            field_name = parts[1]
+            values: list[float] = []
+            index += 1
+            while index < len(lines) and len(values) < 3 * point_count:
+                values.extend(float(token) for token in lines[index].split())
+                index += 1
+            vectors[field_name] = [
+                (float(values[offset]), float(values[offset + 1]), float(values[offset + 2]))
+                for offset in range(0, 3 * point_count, 3)
+            ]
+            continue
+        index += 1
+    if not points:
+        return None
+    return {
+        "points": points,
+        "scalars": scalars,
+        "vectors": vectors,
+    }
+
+
+def _wing_wall_first_layer_height_map(mesh_path: Path) -> dict[tuple[float, float, float], float]:
+    gmsh = load_gmsh()
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.open(str(mesh_path))
+        wall_tag = next(
+            (
+                int(tag)
+                for dim, tag in gmsh.model.getPhysicalGroups(2)
+                if gmsh.model.getPhysicalName(dim, tag) == "wing_wall"
+            ),
+            None,
+        )
+        if wall_tag is None:
+            return {}
+        wall_entities = gmsh.model.getEntitiesForPhysicalGroup(2, wall_tag)
+        wall_faces: set[frozenset[int]] = set()
+        for entity in wall_entities:
+            element_types, _, element_node_tags = gmsh.model.mesh.getElements(2, int(entity))
+            for element_type, node_tags in zip(element_types, element_node_tags):
+                _, _, _, num_nodes, _, _ = gmsh.model.mesh.getElementProperties(int(element_type))
+                if int(num_nodes) != 3:
+                    continue
+                for start in range(0, len(node_tags), 3):
+                    wall_faces.add(frozenset(int(tag) for tag in node_tags[start : start + 3]))
+        if not wall_faces:
+            return {}
+
+        node_tags, node_coords, _ = gmsh.model.mesh.getNodes()
+        coord_by_tag = {
+            int(node_tag): (
+                float(node_coords[3 * index]),
+                float(node_coords[3 * index + 1]),
+                float(node_coords[3 * index + 2]),
+            )
+            for index, node_tag in enumerate(node_tags)
+        }
+
+        heights_by_node: dict[int, list[float]] = defaultdict(list)
+        element_types, _, element_node_tags = gmsh.model.mesh.getElements(3)
+        for element_type, node_tags in zip(element_types, element_node_tags):
+            _, _, _, num_nodes, _, _ = gmsh.model.mesh.getElementProperties(int(element_type))
+            if int(num_nodes) != 6:
+                continue
+            for start in range(0, len(node_tags), 6):
+                prism_nodes = [int(tag) for tag in node_tags[start : start + 6]]
+                lower_face = frozenset(prism_nodes[:3])
+                upper_face = frozenset(prism_nodes[3:6])
+                if lower_face in wall_faces:
+                    wall_nodes = prism_nodes[:3]
+                    first_layer_nodes = prism_nodes[3:6]
+                elif upper_face in wall_faces:
+                    wall_nodes = prism_nodes[3:6]
+                    first_layer_nodes = prism_nodes[:3]
+                else:
+                    continue
+                for wall_node, first_layer_node in zip(wall_nodes, first_layer_nodes):
+                    wx, wy, wz = coord_by_tag[wall_node]
+                    fx, fy, fz = coord_by_tag[first_layer_node]
+                    heights_by_node[wall_node].append(math.dist((wx, wy, wz), (fx, fy, fz)))
+
+        return {
+            _coord_key(*coord_by_tag[node_tag]): float(statistics.fmean(values))
+            for node_tag, values in heights_by_node.items()
+            if values
+        }
+    finally:
+        gmsh.finalize()
+
+
+def _yplus_from_skin_friction(
+    *,
+    skin_friction_coeff_magnitude: float,
+    first_layer_height_m: float,
+    density_kgpm3: float,
+    velocity_mps: float,
+    dynamic_viscosity_pas: float,
+) -> float:
+    tau_wall = 0.5 * density_kgpm3 * velocity_mps**2 * max(abs(skin_friction_coeff_magnitude), 0.0)
+    u_tau = math.sqrt(max(tau_wall / max(density_kgpm3, 1.0e-12), 0.0))
+    return float(
+        density_kgpm3 * u_tau * first_layer_height_m / max(dynamic_viscosity_pas, 1.0e-12)
+    )
+
+
+def _derive_wall_diagnostics_from_surface_vtk(
+    surface_vtk_path: Path,
+    point_first_layer_heights_m: dict[tuple[float, float, float], float],
+    flow: dict[str, Any],
+) -> dict[str, Any] | None:
+    dataset = _read_legacy_vtk_point_data(surface_vtk_path)
+    if dataset is None:
+        return None
+    scalars = dataset["scalars"]
+    vectors = dataset["vectors"]
+    pressure_coeff_field = next(
+        (name for name in ("Pressure_Coefficient", "PRESSURE_COEFF", "PressureCoeff") if name in scalars),
+        None,
+    )
+    pressure_field = next((name for name in ("Pressure", "PRESSURE") if name in scalars), None)
+    y_plus_field = next((name for name in ("Y_Plus", "Y_PLUS", "YPlus") if name in scalars), None)
+    skin_friction_field = next(
+        (
+            name
+            for name in (
+                "Skin_Friction_Coefficient",
+                "SKIN_FRICTION_COEFFICIENT",
+                "Skin_Friction",
+            )
+            if name in vectors
+        ),
+        None,
+    )
+    if y_plus_field is None and skin_friction_field is None and pressure_coeff_field is None and pressure_field is None:
+        return None
+
+    height_maps_by_precision = _height_lookup_maps_by_precision(point_first_layer_heights_m)
+    rows: list[dict[str, float]] = []
+    y_plus_values: list[float] = []
+    cf_values: list[float] = []
+    y_plus_source = "native_surface_vtk_y_plus" if y_plus_field is not None else None
+    for index, (x, y, z) in enumerate(dataset["points"]):
+        row: dict[str, float] = {
+            "x": float(x),
+            "y": float(y),
+            "z": float(z),
+        }
+        if pressure_coeff_field is not None:
+            row["pressure_coefficient"] = float(scalars[pressure_coeff_field][index])
+        if pressure_field is not None:
+            row["pressure"] = float(scalars[pressure_field][index])
+        if skin_friction_field is not None:
+            cf_vector = vectors[skin_friction_field][index]
+            cf_magnitude = math.sqrt(sum(component * component for component in cf_vector))
+            row["skin_friction_x"] = float(cf_vector[0])
+            row["skin_friction_y"] = float(cf_vector[1])
+            row["skin_friction_z"] = float(cf_vector[2])
+            row["skin_friction_coefficient_magnitude"] = float(cf_magnitude)
+            cf_values.append(float(cf_magnitude))
+        else:
+            cf_magnitude = None
+
+        first_layer_height_m = _lookup_first_layer_height(
+            height_maps_by_precision,
+            x=x,
+            y=y,
+            z=z,
+        )
+        if first_layer_height_m is not None:
+            row["first_layer_height_m"] = float(first_layer_height_m)
+
+        if y_plus_field is not None:
+            y_plus_value = float(scalars[y_plus_field][index])
+            row["y_plus"] = y_plus_value
+            y_plus_values.append(y_plus_value)
+        elif cf_magnitude is not None and first_layer_height_m is not None:
+            y_plus_value = _yplus_from_skin_friction(
+                skin_friction_coeff_magnitude=cf_magnitude,
+                first_layer_height_m=first_layer_height_m,
+                density_kgpm3=float(flow["density_kgpm3"]),
+                velocity_mps=float(flow["velocity_mps"]),
+                dynamic_viscosity_pas=float(flow["dynamic_viscosity_pas"]),
+            )
+            row["y_plus"] = y_plus_value
+            y_plus_values.append(y_plus_value)
+            y_plus_source = "derived_from_surface_vtk_skin_friction_and_mesh_first_layer_height"
+        rows.append(row)
+    if not rows:
+        return None
+    diagnostics = {
+        "source": "surface.vtk" if y_plus_field is not None else "surface.vtk+mesh_first_layer",
+        "point_count": len(rows),
+        "pressure_coefficient_field": pressure_coeff_field,
+        "pressure_field": pressure_field,
+        "y_plus_field": y_plus_field,
+        "skin_friction_field": skin_friction_field,
+        "rows": rows,
+    }
+    if y_plus_values:
+        diagnostics["y_plus"] = {
+            "source": y_plus_source,
+            "min": float(min(y_plus_values)),
+            "mean": float(statistics.fmean(y_plus_values)),
+            "max": float(max(y_plus_values)),
+        }
+    if cf_values:
+        diagnostics["skin_friction_coefficient_magnitude"] = {
+            "min": float(min(cf_values)),
+            "mean": float(statistics.fmean(cf_values)),
+            "max": float(max(cf_values)),
+        }
+    if pressure_coeff_field is not None:
+        pressure_coeff_values = [row["pressure_coefficient"] for row in rows if "pressure_coefficient" in row]
+        diagnostics["pressure_coefficient"] = {
+            "min": float(min(pressure_coeff_values)),
+            "mean": float(statistics.fmean(pressure_coeff_values)),
+            "max": float(max(pressure_coeff_values)),
+        }
+    if pressure_field is not None:
+        pressure_values = [row["pressure"] for row in rows if "pressure" in row]
+        diagnostics["pressure"] = {
+            "min": float(min(pressure_values)),
+            "mean": float(statistics.fmean(pressure_values)),
+            "max": float(max(pressure_values)),
+        }
+    return diagnostics
+
+
+def _write_wall_diagnostics_from_surface_vtk(
+    *,
+    surface_vtk_path: Path,
+    mesh_path: Path,
+    flow: dict[str, Any],
+    out_dir: Path,
+) -> dict[str, Any]:
+    point_first_layer_heights = _wing_wall_first_layer_height_map(mesh_path)
+    diagnostics = _derive_wall_diagnostics_from_surface_vtk(
+        surface_vtk_path,
+        point_first_layer_heights,
+        flow,
+    )
+    if diagnostics is None:
+        return {"status": "skipped", "reason": "surface_vtk_missing_required_wall_fields"}
+    rows = diagnostics.pop("rows", [])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / "wing_wall_diagnostics.csv"
+    json_path = out_dir / "wing_wall_diagnostics.json"
+    fieldnames = [
+        "x",
+        "y",
+        "z",
+        "first_layer_height_m",
+        "pressure_coefficient",
+        "pressure",
+        "skin_friction_x",
+        "skin_friction_y",
+        "skin_friction_z",
+        "skin_friction_coefficient_magnitude",
+        "y_plus",
+    ]
+    with csv_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+    write_json_report(json_path, diagnostics)
+    return {
+        "status": "written",
+        "surface_vtk_path": str(surface_vtk_path),
+        "diagnostics_csv_path": str(csv_path),
+        "diagnostics_json_path": str(json_path),
+        "first_layer_height_map_points": len(point_first_layer_heights),
+        **diagnostics,
+    }
+
+
 def _drag_split_from_history(rows: list[dict[str, str]]) -> tuple[float | None, float | None]:
     if not rows:
         return None, None
@@ -844,7 +1200,7 @@ def _build_su2_cfg(
             "TABULAR_FORMAT= CSV",
             "SCREEN_OUTPUT= (INNER_ITER, RMS_RES, AERO_COEFF, CAUCHY)",
             "HISTORY_OUTPUT= (ITER, RMS_RES, AERO_COEFF, CAUCHY)",
-            "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW_ASCII, SURFACE_CSV)",
+            "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW_ASCII, SURFACE_CSV, SURFACE_PARAVIEW_ASCII)",
             f"VOLUME_OUTPUT= {output_fields}",
             "",
         ]
@@ -931,6 +1287,7 @@ def _run_solver_if_allowed(
     runtime_cfg = case_dir / "su2_runtime.cfg"
     solver_log = case_dir / "solver.log"
     surface_csv = case_dir / "surface.csv"
+    surface_vtk = case_dir / "surface.vtk"
     history_csv = case_dir / "history.csv"
     runtime = _solver_runtime_config(spec)
     launch_command = _backend_solver_command(runtime, runtime_cfg.name)
@@ -951,12 +1308,14 @@ def _run_solver_if_allowed(
         "runtime_cfg_path": str(runtime_cfg),
         "history_path": None,
         "surface_output_path": None,
+        "surface_vtk_output_path": None,
         "memory_estimate": estimated_ram,
         "force_variation_last_200": {"reported": False},
         "residual_behavior": {"status": "unavailable"},
         "cauchy_cl": {"status": "unavailable"},
         "final_coefficients": {"cl": None, "cd": None, "cm": None},
         "y_plus": None,
+        "wall_validation_fields": {"status": "skipped", "reason": "solver_not_run"},
         "span_station_profiles": {"status": "skipped", "reason": "solver_not_run"},
         "wake_slices": {"status": "skipped", "reason": "solver_not_run"},
         "pressure_drag": None,
@@ -1006,11 +1365,13 @@ def _run_solver_if_allowed(
 
     history_path = history_csv if history_csv.exists() else None
     surface_path = surface_csv if surface_csv.exists() else None
+    surface_vtk_path = surface_vtk if surface_vtk.exists() else None
     rows = [] if history_path is None else _read_history_rows(history_path)
     solver_summary["status"] = "completed" if rows else "history_missing"
     solver_summary["run_status"] = "completed" if rows else "failed"
     solver_summary["history_path"] = None if history_path is None else str(history_path)
     solver_summary["surface_output_path"] = None if surface_path is None else str(surface_path)
+    solver_summary["surface_vtk_output_path"] = None if surface_vtk_path is None else str(surface_vtk_path)
     if not rows:
         return solver_summary
 
@@ -1038,7 +1399,16 @@ def _run_solver_if_allowed(
             rows=_surface_csv_rows(surface_path),
             half_span_m=float(spec["geometry"]["half_span_m"]),
         )
-        solver_summary["wake_slices"] = {"status": "skipped", "reason": "not_affordable_in_default_macsafe_route"}
+    if surface_vtk_path is not None:
+        solver_summary["wall_validation_fields"] = _write_wall_diagnostics_from_surface_vtk(
+            surface_vtk_path=surface_vtk_path,
+            mesh_path=mesh_path,
+            flow=spec["flow_condition"],
+            out_dir=case_dir / "postprocess",
+        )
+        if solver_summary["y_plus"] is None and solver_summary["wall_validation_fields"].get("status") == "written":
+            solver_summary["y_plus"] = solver_summary["wall_validation_fields"].get("y_plus")
+    solver_summary["wake_slices"] = {"status": "skipped", "reason": "not_affordable_in_default_macsafe_route"}
     return solver_summary
 
 
