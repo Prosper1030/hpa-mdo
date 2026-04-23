@@ -1064,6 +1064,97 @@ def test_launch_summary_uses_vstall_primary_gate_and_tracks_ground_effect_sensit
     }
 
 
+def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    mission = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "chord_m": 1.0,
+                "weight": 1.0,
+                "cl_target": 0.60,
+                "cm_target": -0.05,
+                "cl_max_safe": 1.0,
+                "cl_max_safe_source": "airfoil_safe_observed",
+                "case_label": "reference_avl_case",
+                "evaluation_speed_mps": 8.0,
+                "evaluation_gross_mass_kg": 105.0,
+                "reference_speed_mps": 8.0,
+                "reference_gross_mass_kg": 105.0,
+            }
+        ],
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+    )
+
+    assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(6.0)
+    assert mission["best_range_speed_mps"] == pytest.approx(7.0)
+    assert mission["best_range_m"] < mission["best_range_unconstrained_m"]
+    assert mission["feasible_speed_set_mps"] == pytest.approx([7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0])
+    assert mission["operating_point_status"] == "filtered_to_feasible_speeds"
+    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(1.0)
+
+
+def test_mission_summary_reports_empty_feasible_speed_set_and_delta() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    mission = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "chord_m": 1.0,
+                "weight": 1.0,
+                "cl_target": 0.95,
+                "cm_target": -0.05,
+                "cl_max_safe": 0.50,
+                "cl_max_safe_source": "airfoil_safe_observed",
+                "case_label": "reference_avl_case",
+                "evaluation_speed_mps": 8.0,
+                "evaluation_gross_mass_kg": 105.0,
+                "reference_speed_mps": 8.0,
+                "reference_gross_mass_kg": 105.0,
+            }
+        ],
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+    )
+
+    assert mission["feasible_speed_set_mps"] == []
+    assert mission["best_range_speed_mps"] is None
+    assert mission["best_range_m"] == pytest.approx(0.0)
+    assert mission["operating_point_status"] == "no_feasible_speed_samples"
+    assert mission["delta_v_to_first_feasible_mps"] > 0.0
+
+
 def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(

@@ -123,8 +123,8 @@ def _validate_inputs(inputs: MissionEvaluationInputs) -> None:
     _require_finite_positive(inputs.target_range_km, "target_range_km")
     if len(inputs.speed_mps) != len(inputs.power_required_w):
         raise ValueError("speed_mps and power_required_w must have the same length")
-    if len(inputs.speed_mps) < 2:
-        raise ValueError("at least two sampled speeds are required")
+    if len(inputs.speed_mps) < 1:
+        raise ValueError("at least one sampled speed is required")
     for speed_mps in inputs.speed_mps:
         _require_finite_positive(speed_mps, "speed_mps")
     for power_required_w in inputs.power_required_w:
