@@ -1107,6 +1107,7 @@ def load_zone_requirements_from_avl(
 
     reference_speed_mps = float(reference_condition["reference_speed_mps"])
     reference_gross_mass_kg = float(reference_condition["reference_gross_mass_kg"])
+    selected_mass_case = dict(reference_condition["selected_mass_case"])
     for zone_payload in aggregated_payload.values():
         zone_payload["reference_speed_mps"] = reference_speed_mps
         zone_payload["reference_gross_mass_kg"] = reference_gross_mass_kg
@@ -1114,6 +1115,22 @@ def load_zone_requirements_from_avl(
         zone_payload["mass_selection_reason"] = str(reference_condition["mass_selection_reason"])
         zone_payload["reference_condition_policy"] = str(
             reference_condition["reference_condition_policy"]
+        )
+        zone_payload["reference_speed_filter_model"] = str(
+            selected_mass_case.get("reference_speed_filter_model", "not_available")
+        )
+        zone_payload["pre_avl_best_range_m"] = _numeric_value(selected_mass_case.get("best_range_m"))
+        zone_payload["pre_avl_best_range_feasible_m"] = _numeric_value(
+            selected_mass_case.get("best_range_feasible_m")
+        )
+        zone_payload["pre_avl_best_range_speed_mps"] = _numeric_value(
+            selected_mass_case.get("best_range_speed_mps")
+        )
+        zone_payload["pre_avl_best_range_feasible_speed_mps"] = _numeric_value(
+            selected_mass_case.get("best_range_feasible_speed_mps")
+        )
+        zone_payload["pre_avl_feasible_speed_set_mps"] = list(
+            selected_mass_case.get("feasible_speed_set_mps", ())
         )
         if design_case_summaries:
             zone_payload["reference_cl_required"] = float(design_case_summaries[0]["cl_required"])

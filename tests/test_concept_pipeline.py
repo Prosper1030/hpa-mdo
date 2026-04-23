@@ -494,6 +494,58 @@ def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
     assert spanwise_summary["design_case_labels"] == ["reference_avl_case"]
 
 
+def test_spanwise_summary_flags_reference_condition_consistency_mismatch() -> None:
+    zone_requirements = {
+        "root": {
+            "source": "avl_strip_forces",
+            "reference_condition_policy": "low_speed_primary_multipoint_design_cases_v4_feasible_reference_proxy",
+            "reference_speed_filter_model": "pre_avl_local_stall_feasible_speed_proxy_v1",
+            "reference_speed_mps": 10.0,
+            "reference_gross_mass_kg": 105.0,
+            "reference_speed_reason": "best_range_feasible_speed_mps",
+            "mass_selection_reason": "min_best_range_feasible_m",
+            "pre_avl_best_range_m": 19608.3,
+            "pre_avl_best_range_feasible_m": 1205.95,
+            "pre_avl_best_range_speed_mps": 6.0,
+            "pre_avl_best_range_feasible_speed_mps": 10.0,
+            "pre_avl_feasible_speed_set_mps": [9.5, 10.0],
+            "design_cases": [{"case_label": "reference_avl_case"}],
+            "points": [{"reynolds": 350000.0, "cl_target": 0.75, "cm_target": -0.10, "weight": 1.0}],
+        },
+        "mid1": {"source": "avl_strip_forces", "points": []},
+        "mid2": {"source": "avl_strip_forces", "points": []},
+        "tip": {"source": "avl_strip_forces", "points": []},
+    }
+    mission_summary = {
+        "best_range_m": 16856.2,
+        "best_range_speed_mps": 7.0,
+        "best_range_unconstrained_m": 23882.5,
+        "best_range_unconstrained_speed_mps": 6.0,
+        "first_feasible_speed_mps": 7.0,
+        "feasible_speed_set_mps": [7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0],
+    }
+
+    spanwise_summary = concept_pipeline._summarize_spanwise_requirements(
+        zone_requirements,
+        mission_summary,
+    )
+
+    assert spanwise_summary["reference_speed_filter_models"] == [
+        "pre_avl_local_stall_feasible_speed_proxy_v1"
+    ]
+    audit = spanwise_summary["reference_condition_consistency_audit"]
+    assert audit["pre_avl_reference_speed_mps"] == pytest.approx(10.0)
+    assert audit["post_airfoil_first_feasible_speed_mps"] == pytest.approx(7.0)
+    assert audit["reference_speed_in_post_airfoil_feasible_set"] is True
+    assert audit["delta_reference_to_post_airfoil_first_feasible_mps"] == pytest.approx(3.0)
+    assert audit["pre_avl_to_post_airfoil_feasible_range_ratio"] == pytest.approx(
+        1205.95 / 16856.2
+    )
+    assert audit["rerun_recommended"] is True
+    assert "reference_speed_delta_exceeds_1mps" in audit["rerun_reasons"]
+    assert "pre_avl_feasible_range_ratio_out_of_family" in audit["rerun_reasons"]
+
+
 def test_fallback_selected_zone_candidate_applies_safe_clmax_model() -> None:
     selected = concept_pipeline._build_fallback_selected_zone_candidate(
         zone_name="root",

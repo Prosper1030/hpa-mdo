@@ -1888,8 +1888,155 @@ def _concept_safety_margin(
     return min(launch_margin, turn_margin, local_margin, trim_margin)
 
 
+def _reference_condition_consistency_audit(
+    *,
+    zone_requirements: dict[str, dict[str, Any]],
+    mission_summary: dict[str, Any],
+) -> dict[str, Any]:
+    reference_speeds_mps = sorted(
+        {
+            float(zone_data["reference_speed_mps"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("reference_speed_mps") is not None
+        }
+    )
+    reference_speed_filter_models = sorted(
+        {
+            str(zone_data["reference_speed_filter_model"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("reference_speed_filter_model")
+        }
+    )
+    pre_avl_best_ranges_m = sorted(
+        {
+            float(zone_data["pre_avl_best_range_m"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("pre_avl_best_range_m") is not None
+        }
+    )
+    pre_avl_best_feasible_ranges_m = sorted(
+        {
+            float(zone_data["pre_avl_best_range_feasible_m"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("pre_avl_best_range_feasible_m") is not None
+        }
+    )
+
+    pre_avl_reference_speed_mps = (
+        None if len(reference_speeds_mps) != 1 else float(reference_speeds_mps[0])
+    )
+    pre_avl_best_range_m = None if len(pre_avl_best_ranges_m) != 1 else float(pre_avl_best_ranges_m[0])
+    pre_avl_best_feasible_range_m = (
+        None
+        if len(pre_avl_best_feasible_ranges_m) != 1
+        else float(pre_avl_best_feasible_ranges_m[0])
+    )
+
+    post_airfoil_best_feasible_speed_mps = _numeric_value(mission_summary.get("best_range_speed_mps"))
+    post_airfoil_first_feasible_speed_mps = _numeric_value(
+        mission_summary.get("first_feasible_speed_mps")
+    )
+    post_airfoil_best_unconstrained_speed_mps = _numeric_value(
+        mission_summary.get("best_range_unconstrained_speed_mps")
+    )
+    post_airfoil_best_range_m = _numeric_value(mission_summary.get("best_range_m"))
+    post_airfoil_best_unconstrained_range_m = _numeric_value(
+        mission_summary.get("best_range_unconstrained_m")
+    )
+    post_airfoil_feasible_speed_set_mps = sorted(
+        float(speed_mps) for speed_mps in mission_summary.get("feasible_speed_set_mps", [])
+    )
+
+    reference_speed_in_post_airfoil_feasible_set = None
+    if pre_avl_reference_speed_mps is not None and post_airfoil_feasible_speed_set_mps:
+        reference_speed_in_post_airfoil_feasible_set = any(
+            math.isclose(pre_avl_reference_speed_mps, speed_mps, rel_tol=0.0, abs_tol=1.0e-9)
+            for speed_mps in post_airfoil_feasible_speed_set_mps
+        )
+
+    delta_reference_to_post_airfoil_best_feasible_mps = (
+        None
+        if pre_avl_reference_speed_mps is None or post_airfoil_best_feasible_speed_mps is None
+        else float(pre_avl_reference_speed_mps - post_airfoil_best_feasible_speed_mps)
+    )
+    delta_reference_to_post_airfoil_first_feasible_mps = (
+        None
+        if pre_avl_reference_speed_mps is None or post_airfoil_first_feasible_speed_mps is None
+        else float(pre_avl_reference_speed_mps - post_airfoil_first_feasible_speed_mps)
+    )
+    pre_avl_to_post_airfoil_unconstrained_range_ratio = (
+        None
+        if pre_avl_best_range_m is None
+        or post_airfoil_best_unconstrained_range_m is None
+        or post_airfoil_best_unconstrained_range_m <= 0.0
+        else float(pre_avl_best_range_m / post_airfoil_best_unconstrained_range_m)
+    )
+    pre_avl_to_post_airfoil_feasible_range_ratio = (
+        None
+        if pre_avl_best_feasible_range_m is None
+        or post_airfoil_best_range_m is None
+        or post_airfoil_best_range_m <= 0.0
+        else float(pre_avl_best_feasible_range_m / post_airfoil_best_range_m)
+    )
+
+    rerun_reasons: list[str] = []
+    if reference_speed_in_post_airfoil_feasible_set is False:
+        rerun_reasons.append("reference_speed_outside_post_airfoil_feasible_set")
+    if (
+        delta_reference_to_post_airfoil_first_feasible_mps is not None
+        and abs(delta_reference_to_post_airfoil_first_feasible_mps) >= 1.0
+    ):
+        rerun_reasons.append("reference_speed_delta_exceeds_1mps")
+    if (
+        pre_avl_to_post_airfoil_unconstrained_range_ratio is not None
+        and (
+            pre_avl_to_post_airfoil_unconstrained_range_ratio > 1.5
+            or pre_avl_to_post_airfoil_unconstrained_range_ratio < (2.0 / 3.0)
+        )
+    ):
+        rerun_reasons.append("pre_avl_unconstrained_range_ratio_out_of_family")
+    if (
+        pre_avl_to_post_airfoil_feasible_range_ratio is not None
+        and (
+            pre_avl_to_post_airfoil_feasible_range_ratio > 1.5
+            or pre_avl_to_post_airfoil_feasible_range_ratio < (2.0 / 3.0)
+        )
+    ):
+        rerun_reasons.append("pre_avl_feasible_range_ratio_out_of_family")
+
+    return {
+        "pre_avl_reference_speed_mps": pre_avl_reference_speed_mps,
+        "post_airfoil_best_feasible_speed_mps": post_airfoil_best_feasible_speed_mps,
+        "post_airfoil_first_feasible_speed_mps": post_airfoil_first_feasible_speed_mps,
+        "post_airfoil_best_unconstrained_speed_mps": post_airfoil_best_unconstrained_speed_mps,
+        "post_airfoil_feasible_speed_set_mps": post_airfoil_feasible_speed_set_mps,
+        "reference_speed_in_post_airfoil_feasible_set": reference_speed_in_post_airfoil_feasible_set,
+        "delta_reference_to_post_airfoil_best_feasible_mps": (
+            delta_reference_to_post_airfoil_best_feasible_mps
+        ),
+        "delta_reference_to_post_airfoil_first_feasible_mps": (
+            delta_reference_to_post_airfoil_first_feasible_mps
+        ),
+        "pre_avl_best_range_m": pre_avl_best_range_m,
+        "post_airfoil_best_range_m": post_airfoil_best_range_m,
+        "pre_avl_best_unconstrained_range_m": pre_avl_best_range_m,
+        "post_airfoil_best_unconstrained_range_m": post_airfoil_best_unconstrained_range_m,
+        "pre_avl_best_feasible_range_m": pre_avl_best_feasible_range_m,
+        "pre_avl_to_post_airfoil_unconstrained_range_ratio": (
+            pre_avl_to_post_airfoil_unconstrained_range_ratio
+        ),
+        "pre_avl_to_post_airfoil_feasible_range_ratio": (
+            pre_avl_to_post_airfoil_feasible_range_ratio
+        ),
+        "reference_speed_filter_models": reference_speed_filter_models,
+        "rerun_recommended": bool(rerun_reasons),
+        "rerun_reasons": rerun_reasons,
+    }
+
+
 def _summarize_spanwise_requirements(
     zone_requirements: dict[str, dict[str, Any]],
+    mission_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     reference_speeds_mps = sorted(
         {
@@ -1939,6 +2086,13 @@ def _summarize_spanwise_requirements(
             if zone_data.get("reference_condition_policy")
         }
     )
+    reference_speed_filter_models = sorted(
+        {
+            str(zone_data["reference_speed_filter_model"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("reference_speed_filter_model")
+        }
+    )
     design_case_labels = sorted(
         {
             str(case["case_label"])
@@ -1946,6 +2100,14 @@ def _summarize_spanwise_requirements(
             for case in zone_data.get("design_cases", [])
             if isinstance(case, dict) and case.get("case_label")
         }
+    )
+    consistency_audit = (
+        None
+        if mission_summary is None
+        else _reference_condition_consistency_audit(
+            zone_requirements=zone_requirements,
+            mission_summary=mission_summary,
+        )
     )
     return {
         "zone_count": len(zone_requirements),
@@ -1956,9 +2118,11 @@ def _summarize_spanwise_requirements(
         "reference_speeds_mps": reference_speeds_mps,
         "reference_gross_masses_kg": reference_gross_masses_kg,
         "reference_speed_reasons": reference_speed_reasons,
+        "reference_speed_filter_models": reference_speed_filter_models,
         "mass_selection_reasons": mass_selection_reasons,
         "design_case_labels": design_case_labels,
         "design_case_count": len(design_case_labels),
+        "reference_condition_consistency_audit": consistency_audit,
     }
 
 
@@ -2537,7 +2701,10 @@ def run_birdman_concept_pipeline(
             "ranking_basis": "feasibility_first_contract_aligned_v2",
             "selection_scope": "ranked_bounded_prefix_pool",
         }
-        spanwise_requirement_summary = _summarize_spanwise_requirements(record.zone_requirements)
+        spanwise_requirement_summary = _summarize_spanwise_requirements(
+            record.zone_requirements,
+            record.mission_summary,
+        )
         (
             concept_config,
             stations_rows,
@@ -2618,7 +2785,10 @@ def run_birdman_concept_pipeline(
 
     for infeasible_index, ranked in enumerate(best_infeasible_ranked, start=1):
         record = evaluated_by_id[ranked.concept_id]
-        spanwise_requirement_summary = _summarize_spanwise_requirements(record.zone_requirements)
+        spanwise_requirement_summary = _summarize_spanwise_requirements(
+            record.zone_requirements,
+            record.mission_summary,
+        )
         bundle_dir: Path | None = None
         if cfg.output.export_candidate_bundle:
             (
