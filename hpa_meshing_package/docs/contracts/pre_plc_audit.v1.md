@@ -92,7 +92,16 @@ When sectionwise evidence is available, `pre_plc_audit.v1` now carries a separat
 - `region_budgets`
 - `tightest_section_ids`
 - `tightest_region_ids`
+- `tightest_sections`
+- `tightest_regions`
 - `recommendation_kinds`
+
+Each section / region entry can now also surface:
+
+- explicit `span_y_range_m`
+- ratio deficits such as `clearance_to_thickness_ratio_deficit` and `available_budget_ratio_deficit`
+- `clearance_pressure`
+- per-kind `recommendations` with direction and, when applicable, delta fields such as `delta_total_thickness_m`, `delta_total_thickness_ratio`, or `suggested_truncation_start_y_m`
 
 This budgeting line is intentionally separate from topology-family progress:
 
@@ -104,6 +113,12 @@ That means a report can now say both:
 
 - topology still blocks on one observed family
 - BL budgeting also recommends `split_region_budget` or `truncate_tip_zone`
+
+and the tightest-section summary can still tell you:
+
+- which span window is actually pressured
+- how far the budget ratio is below 1.0
+- whether the first actionable move is shrinking thickness, splitting the budget zone, staging back layers, or moving truncation inboard
 
 without mixing those two judgments together.
 

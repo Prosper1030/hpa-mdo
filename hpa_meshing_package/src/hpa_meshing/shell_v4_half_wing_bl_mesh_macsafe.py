@@ -24,6 +24,7 @@ from .compiler.compiler_v1 import compile_topology_family_v1
 from .compiler.motif_registry_v1 import MotifRegistryV1
 from .compiler.operator_library_v1 import OperatorLibraryV1
 from .compiler.pre_plc_audit_v1 import (
+    PlanningBudgetRecommendationV1,
     PlanningBudgetRegionV1,
     PlanningBudgetSectionV1,
     PlanningBudgetingV1,
@@ -1349,9 +1350,24 @@ def _build_real_wing_bl_budgeting_plan(
     by_section: dict[float, list[dict[str, float]]] = defaultdict(list)
     for payload in full_payloads:
         by_section[round(float(payload["span_y_m"]), 6)].append(payload)
+    ordered_section_y = sorted(by_section)
+
+    def _span_window_for_section(index: int) -> dict[str, float]:
+        center = float(ordered_section_y[index])
+        lower = (
+            center
+            if index == 0
+            else 0.5 * (float(ordered_section_y[index - 1]) + center)
+        )
+        upper = (
+            center
+            if index == len(ordered_section_y) - 1
+            else 0.5 * (center + float(ordered_section_y[index + 1]))
+        )
+        return {"min": float(lower), "max": float(upper)}
 
     section_budgets: list[PlanningBudgetSectionV1] = []
-    for section_y in sorted(by_section):
+    for index, section_y in enumerate(ordered_section_y):
         payloads = by_section[section_y]
         sample_count = len(payloads)
         triggered_sample_count = sum(1 for payload in payloads if float(payload["scale"]) < 0.999999)
@@ -1359,12 +1375,18 @@ def _build_real_wing_bl_budgeting_plan(
             float(payload["local_half_thickness_m"]) / max(float(base_total_thickness_m), 1.0e-12)
             for payload in payloads
         )
-        min_available_budget_ratio = min(
-            float(payload["raw_allowed_total_thickness_m"]) / max(float(base_total_thickness_m), 1.0e-12)
-            for payload in payloads
+        min_allowed_total_thickness = min(
+            float(payload["raw_allowed_total_thickness_m"]) for payload in payloads
+        )
+        min_available_budget_ratio = float(min_allowed_total_thickness) / max(
+            float(base_total_thickness_m),
+            1.0e-12,
         )
         min_required_scale = min(float(payload["required_scale_for_tip_clearance"]) for payload in payloads)
         clearance_pressure = max(0.0, float(1.0 - min_available_budget_ratio))
+        clearance_ratio_deficit = max(0.0, float(1.0 - min_clearance_ratio))
+        budget_ratio_deficit = max(0.0, float(1.0 - min_available_budget_ratio))
+        span_y_range_m = _span_window_for_section(index)
         region_kind = "baseline_clearance_zone"
         if truncation_start_y_m is not None and float(section_y) >= float(truncation_start_y_m) - 1.0e-12:
             region_kind = "suppressed_tip_zone"
@@ -1390,23 +1412,72 @@ def _build_real_wing_bl_budgeting_plan(
         if any(int(payload["truncation_candidate"]) == 1 for payload in payloads):
             recommended_action_kinds.append("truncate_tip_zone")
         recommended_action_kinds = list(dict.fromkeys(recommended_action_kinds))
+        recommendations: list[PlanningBudgetRecommendationV1] = []
+        for action_kind in recommended_action_kinds:
+            if action_kind == "shrink_total_thickness":
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="shrink_total_thickness",
+                        direction="decrease_total_thickness",
+                        span_y_range_m=span_y_range_m,
+                        delta_total_thickness_m=float(
+                            max(0.0, float(base_total_thickness_m) - float(min_allowed_total_thickness))
+                        ),
+                        delta_total_thickness_ratio=float(budget_ratio_deficit),
+                        notes=[
+                            "Plan-only recommendation based on the tightest local allowed total thickness in this section window.",
+                        ],
+                    )
+                )
+            elif action_kind == "split_region_budget":
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="split_region_budget",
+                        direction="split_outboard_budget_zone",
+                        span_y_range_m=span_y_range_m,
+                        notes=["Separate this pressured span window from the inboard budget before changing runtime BL settings."],
+                    )
+                )
+            elif action_kind == "stage_back_layers":
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="stage_back_layers",
+                        direction="reduce_layers_outboard_first",
+                        span_y_range_m=span_y_range_m,
+                        notes=["This window contains thickness-limited or tip-limited samples; prefer staged layer rollback here first."],
+                    )
+                )
+            elif action_kind == "truncate_tip_zone":
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="truncate_tip_zone",
+                        direction="move_truncation_inboard",
+                        span_y_range_m=span_y_range_m,
+                        suggested_truncation_start_y_m=float(section_y),
+                        notes=["This section window is already a truncation candidate under the planning policy."],
+                    )
+                )
 
         section_budgets.append(
             PlanningBudgetSectionV1(
                 section_id=f"section_y:{section_y:.6f}",
                 span_y_m=float(section_y),
+                span_y_range_m=span_y_range_m,
                 region_kind=region_kind,
                 sample_count=sample_count,
                 triggered_sample_count=triggered_sample_count,
                 min_local_half_thickness_m=min(float(payload["local_half_thickness_m"]) for payload in payloads),
                 min_clearance_to_thickness_ratio=float(min_clearance_ratio),
+                clearance_to_thickness_ratio_deficit=float(clearance_ratio_deficit),
                 min_available_budget_ratio=float(min_available_budget_ratio),
+                available_budget_ratio_deficit=float(budget_ratio_deficit),
                 min_required_scale_for_tip_clearance=float(min_required_scale),
                 min_predicted_bl_top_clearance_m=min(
                     float(payload["predicted_bl_top_clearance_m"]) for payload in payloads
                 ),
                 clearance_pressure=float(clearance_pressure),
                 recommended_action_kinds=recommended_action_kinds,
+                recommendations=recommendations,
                 notes=[
                     "Budgeting guidance is plan-only and should not be auto-applied to runtime geometry.",
                     *(
@@ -1422,36 +1493,118 @@ def _build_real_wing_bl_budgeting_plan(
     for section in section_budgets:
         region_groups[section.region_kind].append(section)
 
+    def _recommendation_metric_by_kind(
+        section: PlanningBudgetSectionV1,
+        action_kind: str,
+        field_name: str,
+    ) -> float | None:
+        for recommendation in section.recommendations:
+            if recommendation.kind != action_kind:
+                continue
+            value = getattr(recommendation, field_name)
+            if value is not None:
+                return float(value)
+        return None
+
     region_budgets: list[PlanningBudgetRegionV1] = []
     for region_kind, grouped_sections in region_groups.items():
         section_ids = [section.section_id for section in grouped_sections]
+        span_y_range_m = {
+            "min": float(
+                min(
+                    section.span_y_range_m.get("min", section.span_y_m)
+                    for section in grouped_sections
+                )
+            ),
+            "max": float(
+                max(
+                    section.span_y_range_m.get("max", section.span_y_m)
+                    for section in grouped_sections
+                )
+            ),
+        }
+        min_clearance_ratio = min(
+            section.min_clearance_to_thickness_ratio for section in grouped_sections
+        )
+        min_budget_ratio = min(
+            section.min_available_budget_ratio for section in grouped_sections
+        )
+        peak_clearance_pressure = max(
+            section.clearance_pressure if section.clearance_pressure is not None else 0.0
+            for section in grouped_sections
+        )
+        recommended_action_kinds = list(
+            dict.fromkeys(
+                action
+                for section in grouped_sections
+                for action in section.recommended_action_kinds
+            )
+        )
+        recommendations: list[PlanningBudgetRecommendationV1] = []
+        for action_kind in recommended_action_kinds:
+            if action_kind == "shrink_total_thickness":
+                shrink_deltas = [
+                    value
+                    for value in (
+                        _recommendation_metric_by_kind(
+                            section,
+                            "shrink_total_thickness",
+                            "delta_total_thickness_m",
+                        )
+                        for section in grouped_sections
+                    )
+                    if value is not None
+                ]
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="shrink_total_thickness",
+                        direction="decrease_total_thickness",
+                        span_y_range_m=span_y_range_m,
+                        delta_total_thickness_m=float(
+                            max(shrink_deltas) if shrink_deltas else 0.0
+                        ),
+                        delta_total_thickness_ratio=float(max(0.0, 1.0 - float(min_budget_ratio))),
+                    )
+                )
+            elif action_kind == "split_region_budget":
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="split_region_budget",
+                        direction="split_outboard_budget_zone",
+                        span_y_range_m=span_y_range_m,
+                    )
+                )
+            elif action_kind == "stage_back_layers":
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="stage_back_layers",
+                        direction="reduce_layers_outboard_first",
+                        span_y_range_m=span_y_range_m,
+                    )
+                )
+            elif action_kind == "truncate_tip_zone":
+                recommendations.append(
+                    PlanningBudgetRecommendationV1(
+                        kind="truncate_tip_zone",
+                        direction="move_truncation_inboard",
+                        span_y_range_m=span_y_range_m,
+                        suggested_truncation_start_y_m=float(span_y_range_m["min"]),
+                    )
+                )
         region_budgets.append(
             PlanningBudgetRegionV1(
                 region_id=f"region:{region_kind}",
                 region_kind=region_kind,
                 section_ids=section_ids,
                 section_count=len(grouped_sections),
-                span_y_range_m={
-                    "min": float(min(section.span_y_m for section in grouped_sections)),
-                    "max": float(max(section.span_y_m for section in grouped_sections)),
-                },
-                min_clearance_to_thickness_ratio=min(
-                    section.min_clearance_to_thickness_ratio for section in grouped_sections
-                ),
-                min_available_budget_ratio=min(
-                    section.min_available_budget_ratio for section in grouped_sections
-                ),
-                peak_clearance_pressure=max(
-                    section.clearance_pressure if section.clearance_pressure is not None else 0.0
-                    for section in grouped_sections
-                ),
-                recommended_action_kinds=list(
-                    dict.fromkeys(
-                        action
-                        for section in grouped_sections
-                        for action in section.recommended_action_kinds
-                    )
-                ),
+                span_y_range_m=span_y_range_m,
+                min_clearance_to_thickness_ratio=min_clearance_ratio,
+                clearance_to_thickness_ratio_deficit=float(max(0.0, 1.0 - float(min_clearance_ratio))),
+                min_available_budget_ratio=min_budget_ratio,
+                available_budget_ratio_deficit=float(max(0.0, 1.0 - float(min_budget_ratio))),
+                peak_clearance_pressure=float(peak_clearance_pressure),
+                recommended_action_kinds=recommended_action_kinds,
+                recommendations=recommendations,
                 notes=[
                     "Regionwise budgeting groups sections by observed clearance-pressure regime, not by topology family.",
                 ],
@@ -1487,6 +1640,8 @@ def _build_real_wing_bl_budgeting_plan(
         region_budgets=region_budgets,
         tightest_section_ids=[section.section_id for section in ranked_sections[:3]],
         tightest_region_ids=[region.region_id for region in ranked_regions[:3]],
+        tightest_sections=[section.model_copy(deep=True) for section in ranked_sections[:3]],
+        tightest_regions=[region.model_copy(deep=True) for region in ranked_regions[:3]],
         recommendation_kinds=recommendation_kinds,
         notes=[
             "Sectionwise/regionwise budgeting remains planning-only guidance.",

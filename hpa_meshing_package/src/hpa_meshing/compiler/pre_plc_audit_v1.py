@@ -80,19 +80,33 @@ class BLClearanceCompatibilityV1(BaseModel):
     notes: List[str] = Field(default_factory=list)
 
 
+class PlanningBudgetRecommendationV1(BaseModel):
+    kind: PlanningPolicyRecommendationKindV1
+    direction: str
+    span_y_range_m: Dict[str, float] = Field(default_factory=dict)
+    delta_total_thickness_m: Optional[float] = None
+    delta_total_thickness_ratio: Optional[float] = None
+    suggested_truncation_start_y_m: Optional[float] = None
+    notes: List[str] = Field(default_factory=list)
+
+
 class PlanningBudgetSectionV1(BaseModel):
     section_id: str
     span_y_m: float
+    span_y_range_m: Dict[str, float] = Field(default_factory=dict)
     region_kind: str
     sample_count: int = 0
     triggered_sample_count: int = 0
     min_local_half_thickness_m: Optional[float] = None
     min_clearance_to_thickness_ratio: Optional[float] = None
+    clearance_to_thickness_ratio_deficit: Optional[float] = None
     min_available_budget_ratio: Optional[float] = None
+    available_budget_ratio_deficit: Optional[float] = None
     min_required_scale_for_tip_clearance: Optional[float] = None
     min_predicted_bl_top_clearance_m: Optional[float] = None
     clearance_pressure: Optional[float] = None
     recommended_action_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
+    recommendations: List[PlanningBudgetRecommendationV1] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
 
@@ -103,9 +117,12 @@ class PlanningBudgetRegionV1(BaseModel):
     section_count: int = 0
     span_y_range_m: Dict[str, float] = Field(default_factory=dict)
     min_clearance_to_thickness_ratio: Optional[float] = None
+    clearance_to_thickness_ratio_deficit: Optional[float] = None
     min_available_budget_ratio: Optional[float] = None
+    available_budget_ratio_deficit: Optional[float] = None
     peak_clearance_pressure: Optional[float] = None
     recommended_action_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
+    recommendations: List[PlanningBudgetRecommendationV1] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
 
@@ -116,6 +133,8 @@ class PlanningBudgetingV1(BaseModel):
     region_budgets: List[PlanningBudgetRegionV1] = Field(default_factory=list)
     tightest_section_ids: List[str] = Field(default_factory=list)
     tightest_region_ids: List[str] = Field(default_factory=list)
+    tightest_sections: List[PlanningBudgetSectionV1] = Field(default_factory=list)
+    tightest_regions: List[PlanningBudgetRegionV1] = Field(default_factory=list)
     recommendation_kinds: List[PlanningPolicyRecommendationKindV1] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 

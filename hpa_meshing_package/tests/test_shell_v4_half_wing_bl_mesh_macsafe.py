@@ -1672,6 +1672,36 @@ def test_build_real_wing_bl_budgeting_plan_reports_sectionwise_and_regionwise_ac
         region.region_kind == "tip_truncation_candidate_zone"
         for region in budgeting.region_budgets
     )
+    assert budgeting.tightest_sections
+    assert budgeting.tightest_regions
+
+    tight_section = budgeting.tightest_sections[0]
+    assert tight_section.span_y_range_m["max"] > tight_section.span_y_range_m["min"]
+    assert tight_section.clearance_to_thickness_ratio_deficit > 0.0
+    assert tight_section.available_budget_ratio_deficit > 0.0
+    shrink = next(
+        recommendation
+        for recommendation in tight_section.recommendations
+        if recommendation.kind == "shrink_total_thickness"
+    )
+    assert shrink.direction == "decrease_total_thickness"
+    assert shrink.delta_total_thickness_m > 0.0
+    assert shrink.delta_total_thickness_ratio > 0.0
+
+    tight_region = next(
+        region
+        for region in budgeting.tightest_regions
+        if region.region_kind == "tip_truncation_candidate_zone"
+    )
+    assert tight_region.available_budget_ratio_deficit > 0.0
+    assert tight_region.peak_clearance_pressure > 0.0
+    truncate = next(
+        recommendation
+        for recommendation in tight_region.recommendations
+        if recommendation.kind == "truncate_tip_zone"
+    )
+    assert truncate.direction == "move_truncation_inboard"
+    assert truncate.suggested_truncation_start_y_m >= tight_region.span_y_range_m["min"]
 
 
 def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendations(
@@ -1718,9 +1748,19 @@ def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendat
     assert result["planning_budgeting"]["status"] == "available"
     assert result["planning_budgeting"]["tightest_section_ids"]
     assert result["planning_budgeting"]["tightest_region_ids"]
+    assert result["planning_budgeting"]["tightest_sections"]
+    assert result["planning_budgeting"]["tightest_regions"]
     assert any(
         region["region_kind"] == "tip_truncation_candidate_zone"
         for region in result["planning_budgeting"]["region_budgets"]
+    )
+    tight_section = result["planning_budgeting"]["tightest_sections"][0]
+    assert tight_section["span_y_range_m"]["max"] > tight_section["span_y_range_m"]["min"]
+    assert tight_section["available_budget_ratio_deficit"] > 0.0
+    assert any(
+        recommendation["kind"] == "shrink_total_thickness"
+        and recommendation["delta_total_thickness_m"] > 0.0
+        for recommendation in tight_section["recommendations"]
     )
     assert Path(result["artifacts"]["summary"]).exists()
 

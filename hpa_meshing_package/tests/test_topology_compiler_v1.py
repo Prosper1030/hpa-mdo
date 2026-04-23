@@ -12,6 +12,7 @@ from hpa_meshing.compiler.compiler_v1 import (
 from hpa_meshing.compiler.motif_registry_v1 import MotifRegistryV1
 from hpa_meshing.compiler.operator_library_v1 import OperatorLibraryV1
 from hpa_meshing.compiler.pre_plc_audit_v1 import (
+    PlanningBudgetRecommendationV1,
     PlanningBudgetRegionV1,
     PlanningBudgetSectionV1,
     PlanningBudgetingV1,
@@ -820,12 +821,15 @@ def test_pre_plc_audit_v1_surfaces_budgeting_recommendations_separately():
             PlanningBudgetSectionV1(
                 section_id="section_y:15.400000",
                 span_y_m=15.4,
+                span_y_range_m={"min": 15.2, "max": 15.6},
                 region_kind="tip_truncation_candidate_zone",
                 sample_count=19,
                 triggered_sample_count=11,
                 min_local_half_thickness_m=1.5e-5,
                 min_clearance_to_thickness_ratio=0.3,
+                clearance_to_thickness_ratio_deficit=0.7,
                 min_available_budget_ratio=0.24,
+                available_budget_ratio_deficit=0.76,
                 min_required_scale_for_tip_clearance=0.22,
                 min_predicted_bl_top_clearance_m=0.0,
                 clearance_pressure=0.76,
@@ -833,6 +837,15 @@ def test_pre_plc_audit_v1_surfaces_budgeting_recommendations_separately():
                     "shrink_total_thickness",
                     "split_region_budget",
                     "truncate_tip_zone",
+                ],
+                recommendations=[
+                    PlanningBudgetRecommendationV1(
+                        kind="shrink_total_thickness",
+                        direction="decrease_total_thickness",
+                        span_y_range_m={"min": 15.2, "max": 15.6},
+                        delta_total_thickness_m=3.8e-5,
+                        delta_total_thickness_ratio=0.76,
+                    )
                 ],
             )
         ],
@@ -844,17 +857,86 @@ def test_pre_plc_audit_v1_surfaces_budgeting_recommendations_separately():
                 section_count=1,
                 span_y_range_m={"min": 15.4, "max": 15.4},
                 min_clearance_to_thickness_ratio=0.3,
+                clearance_to_thickness_ratio_deficit=0.7,
                 min_available_budget_ratio=0.24,
+                available_budget_ratio_deficit=0.76,
                 peak_clearance_pressure=0.76,
                 recommended_action_kinds=[
                     "shrink_total_thickness",
                     "split_region_budget",
                     "truncate_tip_zone",
                 ],
+                recommendations=[
+                    PlanningBudgetRecommendationV1(
+                        kind="truncate_tip_zone",
+                        direction="move_truncation_inboard",
+                        span_y_range_m={"min": 15.4, "max": 15.4},
+                        suggested_truncation_start_y_m=15.4,
+                    )
+                ],
             )
         ],
         tightest_section_ids=["section_y:15.400000"],
         tightest_region_ids=["region:tip_truncation_candidate_zone"],
+        tightest_sections=[
+            PlanningBudgetSectionV1(
+                section_id="section_y:15.400000",
+                span_y_m=15.4,
+                span_y_range_m={"min": 15.2, "max": 15.6},
+                region_kind="tip_truncation_candidate_zone",
+                sample_count=19,
+                triggered_sample_count=11,
+                min_local_half_thickness_m=1.5e-5,
+                min_clearance_to_thickness_ratio=0.3,
+                clearance_to_thickness_ratio_deficit=0.7,
+                min_available_budget_ratio=0.24,
+                available_budget_ratio_deficit=0.76,
+                min_required_scale_for_tip_clearance=0.22,
+                min_predicted_bl_top_clearance_m=0.0,
+                clearance_pressure=0.76,
+                recommended_action_kinds=[
+                    "shrink_total_thickness",
+                    "split_region_budget",
+                    "truncate_tip_zone",
+                ],
+                recommendations=[
+                    PlanningBudgetRecommendationV1(
+                        kind="shrink_total_thickness",
+                        direction="decrease_total_thickness",
+                        span_y_range_m={"min": 15.2, "max": 15.6},
+                        delta_total_thickness_m=3.8e-5,
+                        delta_total_thickness_ratio=0.76,
+                    )
+                ],
+            )
+        ],
+        tightest_regions=[
+            PlanningBudgetRegionV1(
+                region_id="region:tip_truncation_candidate_zone",
+                region_kind="tip_truncation_candidate_zone",
+                section_ids=["section_y:15.400000"],
+                section_count=1,
+                span_y_range_m={"min": 15.4, "max": 15.4},
+                min_clearance_to_thickness_ratio=0.3,
+                clearance_to_thickness_ratio_deficit=0.7,
+                min_available_budget_ratio=0.24,
+                available_budget_ratio_deficit=0.76,
+                peak_clearance_pressure=0.76,
+                recommended_action_kinds=[
+                    "shrink_total_thickness",
+                    "split_region_budget",
+                    "truncate_tip_zone",
+                ],
+                recommendations=[
+                    PlanningBudgetRecommendationV1(
+                        kind="truncate_tip_zone",
+                        direction="move_truncation_inboard",
+                        span_y_range_m={"min": 15.4, "max": 15.4},
+                        suggested_truncation_start_y_m=15.4,
+                    )
+                ],
+            )
+        ],
         recommendation_kinds=[
             "shrink_total_thickness",
             "split_region_budget",
@@ -883,6 +965,12 @@ def test_pre_plc_audit_v1_surfaces_budgeting_recommendations_separately():
         "truncate_tip_zone",
     ]
     assert report.planning_budgeting.tightest_section_ids == ["section_y:15.400000"]
+    assert report.planning_budgeting.tightest_sections[0].recommendations[0].delta_total_thickness_m == pytest.approx(
+        3.8e-5
+    )
+    assert report.planning_budgeting.tightest_regions[0].recommendations[0].direction == (
+        "move_truncation_inboard"
+    )
     assert report.summary.planning_policy_recommendation_count == 3
 
 
@@ -937,18 +1025,30 @@ def test_topology_compiler_summary_surfaces_bl_planning_policy_separately(tmp_pa
                     PlanningBudgetSectionV1(
                         section_id="section_y:15.400000",
                         span_y_m=15.4,
+                        span_y_range_m={"min": 15.2, "max": 15.6},
                         region_kind="tip_truncation_candidate_zone",
                         sample_count=19,
                         triggered_sample_count=11,
                         min_local_half_thickness_m=0.01,
                         min_clearance_to_thickness_ratio=0.28,
+                        clearance_to_thickness_ratio_deficit=0.72,
                         min_available_budget_ratio=0.24,
+                        available_budget_ratio_deficit=0.76,
                         min_required_scale_for_tip_clearance=0.22,
                         min_predicted_bl_top_clearance_m=0.0,
                         clearance_pressure=0.76,
                         recommended_action_kinds=[
                             "shrink_total_thickness",
                             "truncate_tip_zone",
+                        ],
+                        recommendations=[
+                            PlanningBudgetRecommendationV1(
+                                kind="shrink_total_thickness",
+                                direction="decrease_total_thickness",
+                                span_y_range_m={"min": 15.2, "max": 15.6},
+                                delta_total_thickness_m=0.02749111788857577,
+                                delta_total_thickness_ratio=0.76,
+                            )
                         ],
                     )
                 ],
@@ -960,16 +1060,83 @@ def test_topology_compiler_summary_surfaces_bl_planning_policy_separately(tmp_pa
                         section_count=1,
                         span_y_range_m={"min": 15.4, "max": 15.4},
                         min_clearance_to_thickness_ratio=0.28,
+                        clearance_to_thickness_ratio_deficit=0.72,
                         min_available_budget_ratio=0.24,
+                        available_budget_ratio_deficit=0.76,
                         peak_clearance_pressure=0.76,
                         recommended_action_kinds=[
                             "shrink_total_thickness",
                             "truncate_tip_zone",
                         ],
+                        recommendations=[
+                            PlanningBudgetRecommendationV1(
+                                kind="truncate_tip_zone",
+                                direction="move_truncation_inboard",
+                                span_y_range_m={"min": 15.4, "max": 15.4},
+                                suggested_truncation_start_y_m=15.4,
+                            )
+                        ],
                     )
                 ],
                 tightest_section_ids=["section_y:15.400000"],
                 tightest_region_ids=["region:tip_truncation_candidate_zone"],
+                tightest_sections=[
+                    PlanningBudgetSectionV1(
+                        section_id="section_y:15.400000",
+                        span_y_m=15.4,
+                        span_y_range_m={"min": 15.2, "max": 15.6},
+                        region_kind="tip_truncation_candidate_zone",
+                        sample_count=19,
+                        triggered_sample_count=11,
+                        min_local_half_thickness_m=0.01,
+                        min_clearance_to_thickness_ratio=0.28,
+                        clearance_to_thickness_ratio_deficit=0.72,
+                        min_available_budget_ratio=0.24,
+                        available_budget_ratio_deficit=0.76,
+                        min_required_scale_for_tip_clearance=0.22,
+                        min_predicted_bl_top_clearance_m=0.0,
+                        clearance_pressure=0.76,
+                        recommended_action_kinds=[
+                            "shrink_total_thickness",
+                            "truncate_tip_zone",
+                        ],
+                        recommendations=[
+                            PlanningBudgetRecommendationV1(
+                                kind="shrink_total_thickness",
+                                direction="decrease_total_thickness",
+                                span_y_range_m={"min": 15.2, "max": 15.6},
+                                delta_total_thickness_m=0.02749111788857577,
+                                delta_total_thickness_ratio=0.76,
+                            )
+                        ],
+                    )
+                ],
+                tightest_regions=[
+                    PlanningBudgetRegionV1(
+                        region_id="region:tip_truncation_candidate_zone",
+                        region_kind="tip_truncation_candidate_zone",
+                        section_ids=["section_y:15.400000"],
+                        section_count=1,
+                        span_y_range_m={"min": 15.4, "max": 15.4},
+                        min_clearance_to_thickness_ratio=0.28,
+                        clearance_to_thickness_ratio_deficit=0.72,
+                        min_available_budget_ratio=0.24,
+                        available_budget_ratio_deficit=0.76,
+                        peak_clearance_pressure=0.76,
+                        recommended_action_kinds=[
+                            "shrink_total_thickness",
+                            "truncate_tip_zone",
+                        ],
+                        recommendations=[
+                            PlanningBudgetRecommendationV1(
+                                kind="truncate_tip_zone",
+                                direction="move_truncation_inboard",
+                                span_y_range_m={"min": 15.4, "max": 15.4},
+                                suggested_truncation_start_y_m=15.4,
+                            )
+                        ],
+                    )
+                ],
                 recommendation_kinds=[
                     "shrink_total_thickness",
                     "truncate_tip_zone",
@@ -1003,3 +1170,6 @@ def test_topology_compiler_summary_surfaces_bl_planning_policy_separately(tmp_pa
     assert summary["pre_plc_audit"]["planning_budgeting"]["tightest_region_ids"] == [
         "region:tip_truncation_candidate_zone"
     ]
+    assert summary["pre_plc_audit"]["planning_budgeting"]["tightest_sections"][0]["recommendations"][0][
+        "delta_total_thickness_m"
+    ] == pytest.approx(0.02749111788857577)
