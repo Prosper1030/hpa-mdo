@@ -629,6 +629,11 @@ def test_pre_plc_audit_v1_distinguishes_observed_inferred_placeholder_and_unsupp
         "facet_facet_overlap_risk",
     ]
     assert report.blocking_bl_compatibility_check_kinds == ["extrusion_self_contact_risk"]
+    assert report.planning_policy.status == "fail"
+    assert report.planning_policy.verdict == "blocked_by_bl_compatibility"
+    assert report.planning_policy.blocking_kind == "bl_compatibility_policy_fail"
+    assert report.planning_policy_fail_kinds == ["bl_clearance_incompatibility"]
+    assert report.summary.planning_policy_fail_count == 1
 
 
 def test_topology_compiler_v1_artifacts_and_shell_role_policies_stay_separated(tmp_path: Path):
@@ -663,3 +668,36 @@ def test_topology_compiler_v1_artifacts_and_shell_role_policies_stay_separated(t
     assert summary["artifacts"]["topology_ir"].endswith("topology_ir.v1.json")
     assert summary["artifacts"]["summary"].endswith("topology_compiler_summary.v1.json")
     assert summary["pre_plc_audit"]["bl_clearance_compatibility"]["verdict"] == "unsupported"
+
+
+def test_topology_compiler_summary_surfaces_bl_planning_policy_separately(tmp_path: Path):
+    result = compile_topology_family_v1(
+        topology_report=_sample_topology_report(),
+        topology_lineage_report=_sample_lineage_report(),
+        topology_suppression_report=_sample_suppression_report(),
+        component="main_wing",
+        shell_role="shell_v4",
+        out_dir=tmp_path,
+        audit_config=PrePLCAuditConfigV1(
+            total_boundary_layer_thickness_m=0.03617304985338917,
+            observed_evidence=[
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last3_segment_facet",
+                    check_kind="segment_facet_intersection_risk",
+                    error_text="PLC Error:  A segment and a facet intersect at point",
+                    selected_section_y_le_m=[0.0, 14.992006138888888, 14.998333333333333, 16.5],
+                )
+            ],
+        ),
+    )
+
+    summary = json.loads((tmp_path / "topology_compiler_summary.v1.json").read_text(encoding="utf-8"))
+
+    assert result.pre_plc_audit.blocking_topology_check_kinds == ["segment_facet_intersection_risk"]
+    assert result.pre_plc_audit.blocking_bl_compatibility_check_kinds == ["extrusion_self_contact_risk"]
+    assert result.pre_plc_audit.planning_policy_fail_kinds == ["bl_clearance_incompatibility"]
+    assert result.pre_plc_audit.planning_policy.verdict == "blocked_by_bl_compatibility"
+    assert summary["pre_plc_audit"]["blocking_topology_check_kinds"] == ["segment_facet_intersection_risk"]
+    assert summary["pre_plc_audit"]["blocking_bl_compatibility_check_kinds"] == ["extrusion_self_contact_risk"]
+    assert summary["pre_plc_audit"]["planning_policy_fail_kinds"] == ["bl_clearance_incompatibility"]
+    assert summary["pre_plc_audit"]["planning_policy"]["blocking_kind"] == "bl_compatibility_policy_fail"

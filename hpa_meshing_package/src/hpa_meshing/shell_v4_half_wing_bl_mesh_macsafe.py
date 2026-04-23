@@ -2304,6 +2304,12 @@ def _run_shell_v4_topology_compiler_plan_only(
                 if not entry["improved_original_failure_family"]
             ],
         },
+        "blocking_topology_check_kinds": list(result.pre_plc_audit.blocking_topology_check_kinds),
+        "blocking_bl_compatibility_check_kinds": list(
+            result.pre_plc_audit.blocking_bl_compatibility_check_kinds
+        ),
+        "planning_policy_fail_kinds": list(result.pre_plc_audit.planning_policy_fail_kinds),
+        "planning_policy": result.pre_plc_audit.planning_policy.model_dump(mode="json"),
         "shell_role_policy": result.shell_role_policy.model_dump(mode="json"),
     }
 

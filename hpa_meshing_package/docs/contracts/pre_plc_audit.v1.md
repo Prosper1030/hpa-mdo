@@ -50,6 +50,26 @@ This gate is intentionally separate from observed topology failures such as:
 - `segment_facet_intersection_risk`
 - `facet_facet_overlap_risk`
 
+## Planning Policy Promotion
+
+When the BL clearance verdict is already `insufficient_clearance`, the artifact should also promote that into
+a separate planning-policy block instead of leaving it as a late report-only observation.
+
+The dedicated planning-policy fields are:
+
+- `planning_policy`
+- `planning_policy_fail_kinds`
+
+Current v1 meaning:
+
+- `blocking_topology_check_kinds` tells you which topology-side families are still blocking
+- `blocking_bl_compatibility_check_kinds` tells you the BL compatibility checks that failed
+- `planning_policy_fail_kinds` tells you that the route should already be read as a BL-policy block, not as a topology-operator miss
+
+The first explicit planning-policy fail kind is:
+
+- `bl_clearance_incompatibility`
+
 ## Important Limitation
 
 `pre_plc_audit.v1` is not a full PLC solver or reproducer.

@@ -9,6 +9,7 @@ from .topology_ir_v1 import TopologyIRV1
 
 PrePLCAuditStatusV1 = Literal["pass", "warn", "fail", "not_evaluated"]
 PrePLCAuditAssessmentV1 = Literal["observed", "inferred", "placeholder", "unsupported"]
+PlanningPolicyFailKindV1 = Literal["bl_clearance_incompatibility"]
 PrePLCAuditCheckKindV1 = Literal[
     "segment_facet_intersection_risk",
     "facet_facet_overlap_risk",
@@ -57,6 +58,7 @@ class PrePLCAuditSummaryV1(BaseModel):
     observed_topology_fail_count: int = 0
     inferred_topology_fail_count: int = 0
     bl_compatibility_fail_count: int = 0
+    planning_policy_fail_count: int = 0
 
 
 class BLClearanceCompatibilityV1(BaseModel):
@@ -69,16 +71,26 @@ class BLClearanceCompatibilityV1(BaseModel):
     notes: List[str] = Field(default_factory=list)
 
 
+class PlanningPolicyV1(BaseModel):
+    status: PrePLCAuditStatusV1
+    verdict: Literal["clear_for_topology_planning", "blocked_by_bl_compatibility", "unsupported"]
+    blocking_kind: Optional[str] = None
+    fail_kinds: List[PlanningPolicyFailKindV1] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
 class PrePLCAuditReportV1(BaseModel):
     contract: str = "pre_plc_audit.v1"
     source_contract: str = "topology_ir.v1"
     config: PrePLCAuditConfigV1 = Field(default_factory=PrePLCAuditConfigV1)
     checks: List[PrePLCAuditCheckV1] = Field(default_factory=list)
     bl_clearance_compatibility: BLClearanceCompatibilityV1
+    planning_policy: PlanningPolicyV1
     summary: PrePLCAuditSummaryV1
     blocking_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
     blocking_topology_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
     blocking_bl_compatibility_check_kinds: List[PrePLCAuditCheckKindV1] = Field(default_factory=list)
+    planning_policy_fail_kinds: List[PlanningPolicyFailKindV1] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
 
@@ -392,6 +404,34 @@ def _bl_clearance_compatibility_from_check(
     )
 
 
+def _planning_policy_from_bl_clearance(
+    bl_clearance_compatibility: BLClearanceCompatibilityV1,
+) -> PlanningPolicyV1:
+    if bl_clearance_compatibility.verdict == "unsupported":
+        return PlanningPolicyV1(
+            status="not_evaluated",
+            verdict="unsupported",
+            notes=[
+                "Need a BL-thickness versus local-clearance comparison before promoting this into a planning policy verdict.",
+            ],
+        )
+    if bl_clearance_compatibility.verdict == "insufficient_clearance":
+        return PlanningPolicyV1(
+            status="fail",
+            verdict="blocked_by_bl_compatibility",
+            blocking_kind="bl_compatibility_policy_fail",
+            fail_kinds=["bl_clearance_incompatibility"],
+            notes=[
+                "BL compatibility is a separate planning-policy block and should not be misread as a topology-operator miss.",
+            ],
+        )
+    return PlanningPolicyV1(
+        status="pass",
+        verdict="clear_for_topology_planning",
+        notes=["No BL-compatibility planning-policy block is currently raised."],
+    )
+
+
 def run_pre_plc_audit_v1(
     ir: TopologyIRV1,
     *,
@@ -440,12 +480,15 @@ def run_pre_plc_audit_v1(
         for check in checks
         if check.status == "fail" and _is_bl_compatibility_check(check.kind)
     )
+    bl_clearance_compatibility = _bl_clearance_compatibility_from_check(
+        checks_by_kind["extrusion_self_contact_risk"]
+    )
+    planning_policy = _planning_policy_from_bl_clearance(bl_clearance_compatibility)
     return PrePLCAuditReportV1(
         config=resolved_config,
         checks=checks,
-        bl_clearance_compatibility=_bl_clearance_compatibility_from_check(
-            checks_by_kind["extrusion_self_contact_risk"]
-        ),
+        bl_clearance_compatibility=bl_clearance_compatibility,
+        planning_policy=planning_policy,
         summary=PrePLCAuditSummaryV1(
             highest_status=highest_status,
             blocker_count=len(blocking_check_kinds),
@@ -458,12 +501,15 @@ def run_pre_plc_audit_v1(
             observed_topology_fail_count=observed_topology_fail_count,
             inferred_topology_fail_count=inferred_topology_fail_count,
             bl_compatibility_fail_count=bl_compatibility_fail_count,
+            planning_policy_fail_count=len(planning_policy.fail_kinds),
         ),
         blocking_check_kinds=blocking_check_kinds,
         blocking_topology_check_kinds=blocking_topology_check_kinds,
         blocking_bl_compatibility_check_kinds=blocking_bl_compatibility_check_kinds,
+        planning_policy_fail_kinds=list(planning_policy.fail_kinds),
         notes=[
             "pre_plc_audit.v1 is a front-loaded risk audit, not a claim that PLC repair is implemented",
             "BL thickness / clearance compatibility is reported separately from observed or inferred topology failures.",
+            "planning_policy captures route-level blocks that should remain separate from topology-family repair progress.",
         ],
     )

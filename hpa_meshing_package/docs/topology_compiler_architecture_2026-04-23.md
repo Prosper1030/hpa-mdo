@@ -106,7 +106,7 @@ The current honest outcome is:
 
 - `root_last4_overlap` can be regularized away from the original overlap family
 - `root_last3_segment_facet` remains a real observed family after canonicalization, but it is now treated as a distinct post-band transition family instead of "reject + unchanged"
-- BL thickness / local clearance compatibility is still a separate audit line
+- BL thickness / local clearance compatibility is now a separate planning-policy block, not just an audit note
 
 ## Second observed family: canonical connector-band post-transition
 
@@ -130,6 +130,24 @@ The remaining observed blocker is now interpreted as a post-band transition fami
 
 This round therefore adds an explicit prototype operator for the canonical post-band transition family
 instead of pretending the first overlap operator just needs to be widened.
+
+## BL compatibility as planning policy, not topology blame
+
+The BL clearance ratio line is now promoted one level higher in the artifacts.
+
+When `clearance_to_thickness_ratio` is already badly out of balance, the compiler should report:
+
+- topology blockers
+- BL compatibility blockers
+- planning-policy fail kinds
+
+separately.
+
+That separation matters because a failing BL policy verdict should tell later users:
+
+- do not misread this as "the topology operator simply needs one more tweak"
+- do not merge the BL incompatibility line into the canonical post-band transition family
+- do treat it as an independent route-level incompatibility that can block planning even while topology-family work is still progressing
 
 ## What is intentionally still skeleton / TODO
 
