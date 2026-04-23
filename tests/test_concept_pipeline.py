@@ -1212,6 +1212,41 @@ def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_p
     assert summary["worker_statuses"] == []
 
 
+def test_pipeline_closes_worker_when_supported(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    closed = {"value": 0}
+
+    class _ClosableWorker:
+        backend_name = "test_stub"
+
+        def run_queries(self, queries):
+            return [
+                {
+                    "status": "ok",
+                    "polar_points": [],
+                    "template_id": query.template_id,
+                    "reynolds": query.reynolds,
+                    "cl_samples": list(query.cl_samples),
+                    "roughness_mode": query.roughness_mode,
+                    "geometry_hash": query.geometry_hash,
+                }
+                for query in queries
+            ]
+
+        def close(self):
+            closed["value"] += 1
+
+    result = run_birdman_concept_pipeline(
+        config_path=repo_root / "configs" / "birdman_upstream_concept_baseline.yaml",
+        output_dir=tmp_path,
+        airfoil_worker_factory=lambda **_: _ClosableWorker(),
+        spanwise_loader=lambda concept, stations: {"root": {"points": []}},
+    )
+
+    assert result.summary_json_path.is_file()
+    assert closed["value"] == 1
+
+
 def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
     tmp_path: Path,
 ) -> None:

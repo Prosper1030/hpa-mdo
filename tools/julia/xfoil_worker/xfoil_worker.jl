@@ -154,13 +154,39 @@ function analyze_query(query)
 end
 
 
-request_path = ARGS[1]
-response_path = ARGS[2]
-queries = JSON3.read(read(request_path, String))
-
-results = Any[]
-for query in queries
-    push!(results, analyze_query(query))
+function analyze_queries(queries)
+    results = Any[]
+    for query in queries
+        push!(results, analyze_query(query))
+    end
+    return results
 end
 
-write(response_path, JSON3.write(results))
+
+if length(ARGS) == 1 && ARGS[1] == "--stdio"
+    while !eof(stdin)
+        line = try
+            readline(stdin)
+        catch
+            break
+        end
+        isempty(strip(line)) && continue
+
+        payload = JSON3.read(line)
+        if payload isa AbstractDict && get(payload, "command", nothing) == "shutdown"
+            break
+        end
+
+        results = analyze_queries(payload)
+        write(stdout, JSON3.write(results))
+        write(stdout, "\n")
+        flush(stdout)
+    end
+elseif length(ARGS) == 2
+    request_path = ARGS[1]
+    response_path = ARGS[2]
+    queries = JSON3.read(read(request_path, String))
+    write(response_path, JSON3.write(analyze_queries(queries)))
+else
+    error("Usage: xfoil_worker.jl <request.json> <response.json> OR xfoil_worker.jl --stdio")
+end

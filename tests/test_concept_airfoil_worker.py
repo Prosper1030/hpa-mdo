@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 import shutil
@@ -31,6 +32,189 @@ def _sample_query(**overrides) -> PolarQuery:
     }
     payload.update(overrides)
     return PolarQuery(**payload)
+
+
+def test_worker_reuses_persistent_julia_process_across_uncached_batches(
+    tmp_path, monkeypatch
+):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=True,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    spawn_count = {"value": 0}
+
+    class _FakeStdout:
+        def __init__(self, process):
+            self._process = process
+
+        def readline(self):
+            payload = self._process.pending_response
+            self._process.pending_response = ""
+            return payload
+
+    class _FakeStdin:
+        def __init__(self, process):
+            self._process = process
+            self._buffer = ""
+
+        def write(self, text):
+            self._buffer += text
+            return len(text)
+
+        def flush(self):
+            payload = json.loads(self._buffer)
+            self._buffer = ""
+            response = []
+            for query in payload:
+                response.append(
+                    {
+                        "template_id": query["template_id"],
+                        "reynolds": query["reynolds"],
+                        "cl_samples": query["cl_samples"],
+                        "roughness_mode": query["roughness_mode"],
+                        "geometry_hash": query["geometry_hash"],
+                        "status": "ok",
+                        "polar_points": [
+                            {
+                                "cl_target": query["cl_samples"][0],
+                                "alpha_deg": 4.2,
+                                "cl": query["cl_samples"][0],
+                                "cd": 0.021,
+                                "cm": -0.08,
+                                "converged": True,
+                            }
+                        ],
+                    }
+                )
+            self._process.pending_response = json.dumps(response) + "\n"
+
+        def close(self):
+            self._process.stdin_closed = True
+
+    class _FakeProcess:
+        def __init__(self):
+            self.stdin_closed = False
+            self.pending_response = ""
+            self.stdin = _FakeStdin(self)
+            self.stdout = _FakeStdout(self)
+            self.stderr = io.StringIO("")
+            self.returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout=None):
+            self.returncode = 0
+            return 0
+
+        def terminate(self):
+            self.returncode = 0
+
+        def kill(self):
+            self.returncode = -9
+
+    def fake_popen(cmd, cwd, stdin, stdout, stderr, text):
+        spawn_count["value"] += 1
+        return _FakeProcess()
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.Popen", fake_popen)
+
+    query1 = _sample_query(template_id="root-v1", cl_samples=(0.7,))
+    query2 = _sample_query(
+        template_id="root-v2",
+        cl_samples=(0.8,),
+        coordinates=((1.0, 0.0), (0.5, 0.06), (0.0, 0.0), (0.5, -0.04), (1.0, 0.0)),
+        geometry_hash=geometry_hash_from_coordinates(
+            ((1.0, 0.0), (0.5, 0.06), (0.0, 0.0), (0.5, -0.04), (1.0, 0.0))
+        ),
+    )
+
+    first = worker.run_queries([query1])
+    second = worker.run_queries([query2])
+
+    assert first[0]["status"] == "ok"
+    assert second[0]["status"] == "ok"
+    assert spawn_count["value"] == 1
+
+
+def test_worker_close_terminates_persistent_julia_process(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=True,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    closed = {"terminated": 0, "stdin_closed": 0}
+
+    class _FakeStdout:
+        def readline(self):
+            return json.dumps(
+                [
+                    {
+                        "template_id": "root-v1",
+                        "reynolds": 350000.0,
+                        "cl_samples": [0.7],
+                        "roughness_mode": "clean",
+                        "geometry_hash": _sample_query(cl_samples=(0.7,)).geometry_hash,
+                        "status": "ok",
+                        "polar_points": [{"cl_target": 0.7, "alpha_deg": 4.2, "cl": 0.7}],
+                    }
+                ]
+            ) + "\n"
+
+    class _FakeStdin:
+        def write(self, text):
+            return len(text)
+
+        def flush(self):
+            return None
+
+        def close(self):
+            closed["stdin_closed"] += 1
+
+    class _FakeProcess:
+        def __init__(self):
+            self.stdin = _FakeStdin()
+            self.stdout = _FakeStdout()
+            self.stderr = io.StringIO("")
+            self.returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout=None):
+            self.returncode = 0
+            return 0
+
+        def terminate(self):
+            closed["terminated"] += 1
+            self.returncode = 0
+
+        def kill(self):
+            self.returncode = -9
+
+    monkeypatch.setattr(
+        "hpa_mdo.concept.airfoil_worker.subprocess.Popen",
+        lambda *args, **kwargs: _FakeProcess(),
+    )
+
+    worker.run_queries([_sample_query(cl_samples=(0.7,))])
+    worker.close()
+
+    assert closed["stdin_closed"] == 1
+    assert closed["terminated"] == 1
 
 
 def test_worker_cache_key_is_stable_for_identical_query(tmp_path):
@@ -88,7 +272,11 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
         project_dir = worker_dir
 
     cache_dir = tmp_path / "cache"
-    worker = JuliaXFoilWorker(project_dir=project_dir, cache_dir=cache_dir)
+    worker = JuliaXFoilWorker(
+        project_dir=project_dir,
+        cache_dir=cache_dir,
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
     query = _sample_query(cl_samples=(0.7,))
 
@@ -164,7 +352,11 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
 
 
 def test_worker_fails_fast_when_worker_project_cannot_be_resolved(tmp_path, monkeypatch):
-    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     with pytest.raises(RuntimeError, match="Unable to resolve Julia XFoil worker project"):
@@ -178,7 +370,11 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
     worker_dir.mkdir(parents=True)
     (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
 
-    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     query = _sample_query(cl_samples=(0.7,))
@@ -224,7 +420,11 @@ def test_worker_preserves_sweep_summary_through_cache_round_trip(tmp_path, monke
     worker_dir.mkdir(parents=True)
     (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
 
-    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     query = _sample_query(cl_samples=(0.7,))
@@ -301,7 +501,11 @@ def test_worker_preserves_airfoil_feedback_fields_through_cache_round_trip(
     worker_dir.mkdir(parents=True)
     (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
 
-    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     query = _sample_query(cl_samples=(0.7,))
@@ -390,7 +594,11 @@ def test_worker_fails_fast_when_julia_response_does_not_match_uncached_queries(
     worker_dir.mkdir(parents=True)
     (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
 
-    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     def fake_run(cmd, check, cwd):
@@ -411,7 +619,11 @@ def test_worker_rejects_response_with_wrong_cl_samples_identity(tmp_path, monkey
     worker_dir.mkdir(parents=True)
     (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
 
-    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     def fake_run(cmd, check, cwd):
@@ -447,7 +659,11 @@ def test_worker_rejects_response_with_wrong_geometry_hash_identity(tmp_path, mon
     worker_dir.mkdir(parents=True)
     (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
 
-    worker = JuliaXFoilWorker(project_dir=tmp_path / "repo", cache_dir=tmp_path / "cache")
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+    )
     monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
 
     def fake_run(cmd, check, cwd):

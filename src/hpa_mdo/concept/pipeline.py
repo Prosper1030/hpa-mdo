@@ -1362,6 +1362,12 @@ def _worker_backend(worker: AirfoilWorker) -> str:
     return str(getattr(worker, "backend_name", "python_stubbed"))
 
 
+def _close_worker_if_supported(worker: AirfoilWorker) -> None:
+    close = getattr(worker, "close", None)
+    if callable(close):
+        close()
+
+
 def _worker_statuses(worker_results: list[dict[str, object]]) -> tuple[str, ...]:
     statuses: list[str] = []
     for result in worker_results:
@@ -1500,143 +1506,146 @@ def run_birdman_concept_pipeline(
     best_infeasible_concept_dirs: list[Path] = []
     summary_worker_statuses: list[str] = []
 
-    for enumeration_index, concept in enumerate(concepts, start=1):
-        stations = build_linear_wing_stations(
-            concept,
-            stations_per_half=cfg.pipeline.stations_per_half,
-        )
-        zone_requirements = spanwise_loader(concept, stations)
-        zone_requirements_with_points = {
-            zone_name: zone_data
-            for zone_name, zone_data in zone_requirements.items()
-            if zone_data.get("points")
-        }
-        zone_requirements_without_points = {
-            zone_name: zone_data
-            for zone_name, zone_data in zone_requirements.items()
-            if not zone_data.get("points")
-        }
-        selected_by_zone: dict[str, SelectedZoneCandidate] = {}
-        if zone_requirements_with_points:
-            selection_batch = select_zone_airfoil_templates(
-                zone_requirements=zone_requirements_with_points,
-                seed_loader=_load_seed_airfoil_coordinates,
-                worker=_SelectionWorkerAdapter(
-                    worker,
-                    allow_stub_fallback=worker_backend
-                    in {"test_stub", "cli_stubbed", "python_stubbed"},
-                ),
-                thickness_delta_levels=cfg.cst_search.thickness_delta_levels,
-                camber_delta_levels=cfg.cst_search.camber_delta_levels,
-                safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
-                safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
-                stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+    try:
+        for enumeration_index, concept in enumerate(concepts, start=1):
+            stations = build_linear_wing_stations(
+                concept,
+                stations_per_half=cfg.pipeline.stations_per_half,
             )
-            selected_by_zone.update(selection_batch.selected_by_zone)
-        for zone_name in zone_requirements_without_points:
-            selected_by_zone[zone_name] = _build_fallback_selected_zone_candidate(
-                zone_name=zone_name,
-                seed_coordinates=_load_seed_airfoil_coordinates(
-                    _ROOT_SEED_AIRFOIL if zone_name in {"root", "mid1"} else _TIP_SEED_AIRFOIL
-                ),
-                safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
-                safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
+            zone_requirements = spanwise_loader(concept, stations)
+            zone_requirements_with_points = {
+                zone_name: zone_data
+                for zone_name, zone_data in zone_requirements.items()
+                if zone_data.get("points")
+            }
+            zone_requirements_without_points = {
+                zone_name: zone_data
+                for zone_name, zone_data in zone_requirements.items()
+                if not zone_data.get("points")
+            }
+            selected_by_zone: dict[str, SelectedZoneCandidate] = {}
+            if zone_requirements_with_points:
+                selection_batch = select_zone_airfoil_templates(
+                    zone_requirements=zone_requirements_with_points,
+                    seed_loader=_load_seed_airfoil_coordinates,
+                    worker=_SelectionWorkerAdapter(
+                        worker,
+                        allow_stub_fallback=worker_backend
+                        in {"test_stub", "cli_stubbed", "python_stubbed"},
+                    ),
+                    thickness_delta_levels=cfg.cst_search.thickness_delta_levels,
+                    camber_delta_levels=cfg.cst_search.camber_delta_levels,
+                    safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
+                    safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
+                    stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+                )
+                selected_by_zone.update(selection_batch.selected_by_zone)
+            for zone_name in zone_requirements_without_points:
+                selected_by_zone[zone_name] = _build_fallback_selected_zone_candidate(
+                    zone_name=zone_name,
+                    seed_coordinates=_load_seed_airfoil_coordinates(
+                        _ROOT_SEED_AIRFOIL if zone_name in {"root", "mid1"} else _TIP_SEED_AIRFOIL
+                    ),
+                    safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
+                    safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
+                )
+            airfoil_templates = _build_selected_cst_airfoil_templates(
+                selected_by_zone=selected_by_zone,
+                zone_requirements=zone_requirements,
             )
-        airfoil_templates = _build_selected_cst_airfoil_templates(
-            selected_by_zone=selected_by_zone,
-            zone_requirements=zone_requirements,
-        )
-        station_points = _flatten_zone_points(zone_requirements, stations)
-        station_points = _attach_cl_max_proxies(
-            station_points,
-            half_span_m=0.5 * concept.span_m,
-            concept=concept,
-        )
-        worker_queries, worker_point_refs = _build_worker_queries_and_refs(
-            zone_requirements=zone_requirements,
-            airfoil_templates=airfoil_templates,
-        )
-        worker_results = worker.run_queries(worker_queries)
-        station_points, airfoil_feedback = _apply_worker_airfoil_feedback(
-            station_points=station_points,
-            worker_point_refs=worker_point_refs,
-            worker_results=worker_results,
-        )
-        station_points, safe_clmax_summary = _apply_safe_clmax_model(
-            station_points,
-            safe_scale=cfg.stall_model.safe_clmax_scale,
-            safe_delta=cfg.stall_model.safe_clmax_delta,
-        )
-        airfoil_feedback = {
-            **airfoil_feedback,
-            **safe_clmax_summary,
-        }
-        trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
-        launch_summary, _, _ = _summarize_launch(
-            cfg=cfg,
-            concept=concept,
-            station_points=station_points,
-            trim_result=trim_result,
-            air_density_kg_per_m3=air_density_kg_per_m3,
-        )
-        turn_summary = _summarize_turn(
-            cfg=cfg,
-            concept=concept,
-            station_points=station_points,
-            trim_result=trim_result,
-        )
-        mission_summary = _build_concept_mission_summary(
-            cfg=cfg,
-            concept=concept,
-            station_points=station_points,
-            airfoil_feedback=airfoil_feedback,
-            air_density_kg_per_m3=air_density_kg_per_m3,
-        )
-        local_stall_summary = _summarize_local_stall(
-            cfg=cfg,
-            concept=concept,
-            station_points=station_points,
-            mission_summary=mission_summary,
-        )
-        ranking_input = CandidateConceptResult(
-            concept_id=f"eval-{enumeration_index:02d}",
-            launch_feasible=bool(launch_summary["feasible"]),
-            turn_feasible=bool(turn_summary["feasible"]),
-            trim_feasible=bool(trim_summary["feasible"]),
-            mission_feasible=bool(mission_summary["mission_feasible"]),
-            safety_margin=_concept_safety_margin(
-                launch_summary=launch_summary,
-                turn_summary=turn_summary,
-                trim_summary=trim_summary,
-                local_stall_summary=local_stall_summary,
-            ),
-            mission_objective_mode=str(mission_summary["mission_objective_mode"]),
-            mission_score=float(mission_summary["mission_score"]),
-            best_range_m=float(mission_summary["best_range_m"]),
-            assembly_penalty=_assembly_penalty(concept),
-            local_stall_feasible=bool(local_stall_summary["feasible"]),
-        )
-        concept_worker_statuses = _worker_statuses(worker_results)
-        summary_worker_statuses.extend(concept_worker_statuses)
-        evaluated_concepts.append(
-            _EvaluatedConcept(
-                evaluation_id=ranking_input.concept_id,
-                enumeration_index=enumeration_index,
+            station_points = _flatten_zone_points(zone_requirements, stations)
+            station_points = _attach_cl_max_proxies(
+                station_points,
+                half_span_m=0.5 * concept.span_m,
                 concept=concept,
-                stations=stations,
+            )
+            worker_queries, worker_point_refs = _build_worker_queries_and_refs(
                 zone_requirements=zone_requirements,
                 airfoil_templates=airfoil_templates,
-                worker_results=worker_results,
-                worker_backend=worker_backend,
-                airfoil_feedback=airfoil_feedback,
-                launch_summary=launch_summary,
-                turn_summary=turn_summary,
-                trim_summary=trim_summary,
-                local_stall_summary=local_stall_summary,
-                mission_summary=mission_summary,
-                ranking_input=ranking_input,
             )
-        )
+            worker_results = worker.run_queries(worker_queries)
+            station_points, airfoil_feedback = _apply_worker_airfoil_feedback(
+                station_points=station_points,
+                worker_point_refs=worker_point_refs,
+                worker_results=worker_results,
+            )
+            station_points, safe_clmax_summary = _apply_safe_clmax_model(
+                station_points,
+                safe_scale=cfg.stall_model.safe_clmax_scale,
+                safe_delta=cfg.stall_model.safe_clmax_delta,
+            )
+            airfoil_feedback = {
+                **airfoil_feedback,
+                **safe_clmax_summary,
+            }
+            trim_summary, trim_result = _summarize_trim(cfg=cfg, station_points=station_points)
+            launch_summary, _, _ = _summarize_launch(
+                cfg=cfg,
+                concept=concept,
+                station_points=station_points,
+                trim_result=trim_result,
+                air_density_kg_per_m3=air_density_kg_per_m3,
+            )
+            turn_summary = _summarize_turn(
+                cfg=cfg,
+                concept=concept,
+                station_points=station_points,
+                trim_result=trim_result,
+            )
+            mission_summary = _build_concept_mission_summary(
+                cfg=cfg,
+                concept=concept,
+                station_points=station_points,
+                airfoil_feedback=airfoil_feedback,
+                air_density_kg_per_m3=air_density_kg_per_m3,
+            )
+            local_stall_summary = _summarize_local_stall(
+                cfg=cfg,
+                concept=concept,
+                station_points=station_points,
+                mission_summary=mission_summary,
+            )
+            ranking_input = CandidateConceptResult(
+                concept_id=f"eval-{enumeration_index:02d}",
+                launch_feasible=bool(launch_summary["feasible"]),
+                turn_feasible=bool(turn_summary["feasible"]),
+                trim_feasible=bool(trim_summary["feasible"]),
+                mission_feasible=bool(mission_summary["mission_feasible"]),
+                safety_margin=_concept_safety_margin(
+                    launch_summary=launch_summary,
+                    turn_summary=turn_summary,
+                    trim_summary=trim_summary,
+                    local_stall_summary=local_stall_summary,
+                ),
+                mission_objective_mode=str(mission_summary["mission_objective_mode"]),
+                mission_score=float(mission_summary["mission_score"]),
+                best_range_m=float(mission_summary["best_range_m"]),
+                assembly_penalty=_assembly_penalty(concept),
+                local_stall_feasible=bool(local_stall_summary["feasible"]),
+            )
+            concept_worker_statuses = _worker_statuses(worker_results)
+            summary_worker_statuses.extend(concept_worker_statuses)
+            evaluated_concepts.append(
+                _EvaluatedConcept(
+                    evaluation_id=ranking_input.concept_id,
+                    enumeration_index=enumeration_index,
+                    concept=concept,
+                    stations=stations,
+                    zone_requirements=zone_requirements,
+                    airfoil_templates=airfoil_templates,
+                    worker_results=worker_results,
+                    worker_backend=worker_backend,
+                    airfoil_feedback=airfoil_feedback,
+                    launch_summary=launch_summary,
+                    turn_summary=turn_summary,
+                    trim_summary=trim_summary,
+                    local_stall_summary=local_stall_summary,
+                    mission_summary=mission_summary,
+                    ranking_input=ranking_input,
+                )
+            )
+    finally:
+        _close_worker_if_supported(worker)
 
     ranked_concepts = rank_concepts([record.ranking_input for record in evaluated_concepts])
     evaluated_by_id = {record.evaluation_id: record for record in evaluated_concepts}

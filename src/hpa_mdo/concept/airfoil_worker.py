@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 from dataclasses import asdict, dataclass
 import hashlib
 import json
@@ -48,10 +49,22 @@ def geometry_hash_from_coordinates(coordinates: object) -> str:
 class JuliaXFoilWorker:
     backend_name = "julia_xfoil"
 
-    def __init__(self, *, project_dir: Path, cache_dir: Path) -> None:
+    def __init__(
+        self,
+        *,
+        project_dir: Path,
+        cache_dir: Path,
+        persistent_mode: bool = True,
+    ) -> None:
         self.project_dir = Path(project_dir)
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.persistent_mode = bool(persistent_mode)
+        self._persistent_process: subprocess.Popen[str] | None = None
+        self._atexit_close_registered = False
+        if self.persistent_mode:
+            atexit.register(self.close)
+            self._atexit_close_registered = True
 
     def cache_key(self, query: PolarQuery) -> str:
         payload = {
@@ -171,6 +184,154 @@ class JuliaXFoilWorker:
             self.cache_dir / f"response_{token}.json",
         )
 
+    def _persistent_stderr_text(self) -> str:
+        process = self._persistent_process
+        if process is None or process.stderr is None:
+            return ""
+        try:
+            return process.stderr.read()
+        except Exception:
+            return ""
+
+    def _spawn_persistent_process(self) -> subprocess.Popen[str]:
+        julia = self._resolve_julia()
+        if julia is None:
+            raise RuntimeError(
+                "Julia runtime not found. Install Julia before running the XFoil worker."
+            )
+
+        worker_dir = self._resolve_worker_project_dir()
+        return subprocess.Popen(
+            [
+                julia,
+                f"--project={worker_dir}",
+                str(worker_dir / "xfoil_worker.jl"),
+                "--stdio",
+            ],
+            cwd=self.project_dir,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+    def _ensure_persistent_process(self) -> subprocess.Popen[str]:
+        process = self._persistent_process
+        if process is not None and process.poll() is None:
+            return process
+
+        self._persistent_process = self._spawn_persistent_process()
+        return self._persistent_process
+
+    def _run_uncached_queries_one_shot(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
+        julia = self._resolve_julia()
+        if julia is None:
+            raise RuntimeError(
+                "Julia runtime not found. Install Julia before running the XFoil worker."
+            )
+
+        worker_dir = self._resolve_worker_project_dir()
+        request_path, response_path = self._build_scratch_paths()
+        request_payload = [asdict(query) for query in queries]
+        request_path.write_text(
+            json.dumps(request_payload, indent=2, sort_keys=True, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        subprocess.run(
+            [
+                julia,
+                f"--project={worker_dir}",
+                str(worker_dir / "xfoil_worker.jl"),
+                str(request_path),
+                str(response_path),
+            ],
+            check=True,
+            cwd=self.project_dir,
+        )
+
+        response_payload = json.loads(response_path.read_text(encoding="utf-8"))
+        if not isinstance(response_payload, list):
+            raise RuntimeError("Julia XFoil worker response must be a JSON array.")
+        if len(response_payload) != len(queries):
+            raise RuntimeError(
+                "Julia XFoil worker returned "
+                f"{len(response_payload)} results for {len(queries)} uncached queries."
+            )
+        return response_payload
+
+    def _run_uncached_queries_persistent(
+        self,
+        queries: list[PolarQuery],
+    ) -> list[dict[str, object]]:
+        process = self._ensure_persistent_process()
+        if process.stdin is None or process.stdout is None:
+            raise RuntimeError("Persistent Julia XFoil worker is missing stdin/stdout pipes.")
+
+        request_payload = [asdict(query) for query in queries]
+        try:
+            process.stdin.write(json.dumps(request_payload, ensure_ascii=False) + "\n")
+            process.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr_text = self._persistent_stderr_text().strip()
+            self.close()
+            raise RuntimeError(
+                "Persistent Julia XFoil worker stdin closed unexpectedly."
+                + (f" Stderr: {stderr_text}" if stderr_text else "")
+            ) from exc
+
+        response_line = process.stdout.readline()
+        if response_line == "":
+            stderr_text = self._persistent_stderr_text().strip()
+            return_code = process.poll()
+            self.close()
+            raise RuntimeError(
+                "Persistent Julia XFoil worker exited before returning a response."
+                + (f" Return code: {return_code}." if return_code is not None else "")
+                + (f" Stderr: {stderr_text}" if stderr_text else "")
+            )
+
+        response_payload = json.loads(response_line)
+        if not isinstance(response_payload, list):
+            raise RuntimeError("Persistent Julia XFoil worker response must be a JSON array.")
+        if len(response_payload) != len(queries):
+            raise RuntimeError(
+                "Persistent Julia XFoil worker returned "
+                f"{len(response_payload)} results for {len(queries)} uncached queries."
+            )
+        return response_payload
+
+    def close(self) -> None:
+        process = self._persistent_process
+        if process is None:
+            return
+
+        self._persistent_process = None
+        try:
+            if process.stdin is not None:
+                try:
+                    process.stdin.close()
+                except Exception:
+                    pass
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5.0)
+        finally:
+            if process.stdout is not None:
+                try:
+                    process.stdout.close()
+                except Exception:
+                    pass
+            if process.stderr is not None:
+                try:
+                    process.stderr.close()
+                except Exception:
+                    pass
+
     def run_queries(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
         resolved_results: list[dict[str, object] | None] = [None] * len(queries)
         uncached_queries: list[PolarQuery] = []
@@ -185,40 +346,11 @@ class JuliaXFoilWorker:
             uncached_indices.append(index)
 
         if uncached_queries:
-            julia = self._resolve_julia()
-            if julia is None:
-                raise RuntimeError(
-                    "Julia runtime not found. Install Julia before running the XFoil worker."
-                )
-
-            worker_dir = self._resolve_worker_project_dir()
-            request_path, response_path = self._build_scratch_paths()
-            request_payload = [asdict(query) for query in uncached_queries]
-            request_path.write_text(
-                json.dumps(request_payload, indent=2, sort_keys=True, ensure_ascii=False),
-                encoding="utf-8",
+            response_payload = (
+                self._run_uncached_queries_persistent(uncached_queries)
+                if self.persistent_mode
+                else self._run_uncached_queries_one_shot(uncached_queries)
             )
-
-            subprocess.run(
-                [
-                    julia,
-                    f"--project={worker_dir}",
-                    str(worker_dir / "xfoil_worker.jl"),
-                    str(request_path),
-                    str(response_path),
-                ],
-                check=True,
-                cwd=self.project_dir,
-            )
-
-            response_payload = json.loads(response_path.read_text(encoding="utf-8"))
-            if not isinstance(response_payload, list):
-                raise RuntimeError("Julia XFoil worker response must be a JSON array.")
-            if len(response_payload) != len(uncached_queries):
-                raise RuntimeError(
-                    "Julia XFoil worker returned "
-                    f"{len(response_payload)} results for {len(uncached_queries)} uncached queries."
-                )
 
             for index, query, item in zip(uncached_indices, uncached_queries, response_payload):
                 if not isinstance(item, dict):
