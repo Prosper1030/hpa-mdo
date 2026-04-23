@@ -1786,6 +1786,55 @@ def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch
     }
 
 
+def test_local_stall_summary_reports_envelope_to_clear_limit() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    local_stall = concept_pipeline._summarize_local_stall(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "cl_target": 0.70,
+                "cl_max_safe": 1.20,
+                "cl_max_safe_source": "airfoil_safe_observed",
+                "reference_speed_mps": 10.0,
+                "reference_gross_mass_kg": 95.0,
+            }
+        ],
+        mission_summary={
+            "best_range_speed_mps": 9.0,
+            "evaluated_gross_mass_kg": 100.0,
+        },
+    )
+
+    required_speed_mps = 8.0 * (local_stall["stall_utilization"] / local_stall["stall_utilization_limit"]) ** 0.5
+    required_area_m2 = 32.0 * (
+        local_stall["stall_utilization"] / local_stall["stall_utilization_limit"]
+    )
+    required_gross_mass_kg = 105.0 * (
+        local_stall["stall_utilization_limit"] / local_stall["stall_utilization"]
+    )
+
+    assert local_stall["required_speed_for_limit_mps"] == pytest.approx(required_speed_mps)
+    assert local_stall["delta_speed_for_limit_mps"] == pytest.approx(required_speed_mps - 8.0)
+    assert local_stall["required_wing_area_for_limit_m2"] == pytest.approx(required_area_m2)
+    assert local_stall["delta_wing_area_for_limit_m2"] == pytest.approx(required_area_m2 - 32.0)
+    assert local_stall["required_gross_mass_for_limit_kg"] == pytest.approx(required_gross_mass_kg)
+    assert local_stall["delta_gross_mass_for_limit_kg"] == pytest.approx(required_gross_mass_kg - 105.0)
+
+
 def test_turn_summary_marks_fixed_bank_case_as_screening_only() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(

@@ -1450,22 +1450,50 @@ def _summarize_local_stall(
             float(case["required_cl"]),
         ),
     )
+    resolved_evaluation_speed_mps = (
+        _numeric_value(worst_case.get("evaluation_speed_mps"))
+        or _numeric_value(worst_case.get("reference_speed_mps"))
+        or _numeric_value(mission_summary.get("best_range_speed_mps"))
+        or float(cfg.launch.release_speed_mps)
+    )
+    resolved_evaluation_gross_mass_kg = (
+        _numeric_value(worst_case.get("evaluation_gross_mass_kg"))
+        or _numeric_value(worst_case.get("reference_gross_mass_kg"))
+        or _numeric_value(mission_summary.get("evaluated_gross_mass_kg"))
+        or float(max(cfg.mass.gross_mass_sweep_kg))
+    )
+    stall_utilization = float(worst_case["stall_utilization"])
+    stall_utilization_limit = max(float(worst_case["stall_utilization_limit"]), 1.0e-9)
+    speed_scale_to_limit = math.sqrt(max(stall_utilization / stall_utilization_limit, 0.0))
+    required_speed_for_limit_mps = resolved_evaluation_speed_mps * speed_scale_to_limit
+    required_wing_area_for_limit_m2 = float(concept.wing_area_m2) * (stall_utilization / stall_utilization_limit)
+    required_gross_mass_for_limit_kg = resolved_evaluation_gross_mass_kg * (
+        stall_utilization_limit / max(stall_utilization, 1.0e-9)
+    )
     return {
         "status": str(worst_case["status"]),
         "feasible": bool(worst_case["feasible"]),
         "required_cl": float(worst_case["required_cl"]),
         "cl_max": float(worst_case["cl_max"]),
         "min_margin": float(worst_case["min_margin"]),
-        "stall_utilization": float(worst_case["stall_utilization"]),
-        "stall_utilization_limit": float(worst_case["stall_utilization_limit"]),
+        "stall_utilization": stall_utilization,
+        "stall_utilization_limit": stall_utilization_limit,
         "min_margin_station_y_m": float(worst_case["min_margin_station_y_m"]),
         "tip_critical": bool(worst_case["tip_critical"]),
         "margin_source": str(worst_case["margin_source"]),
         "evaluation_case": str(worst_case["case_label"]),
         "reference_speed_mps": worst_case["reference_speed_mps"],
         "reference_gross_mass_kg": worst_case["reference_gross_mass_kg"],
-        "evaluation_speed_mps": worst_case["evaluation_speed_mps"],
-        "evaluation_gross_mass_kg": worst_case["evaluation_gross_mass_kg"],
+        "evaluation_speed_mps": resolved_evaluation_speed_mps,
+        "evaluation_gross_mass_kg": resolved_evaluation_gross_mass_kg,
+        "required_speed_for_limit_mps": required_speed_for_limit_mps,
+        "delta_speed_for_limit_mps": (required_speed_for_limit_mps - resolved_evaluation_speed_mps),
+        "required_wing_area_for_limit_m2": required_wing_area_for_limit_m2,
+        "delta_wing_area_for_limit_m2": (required_wing_area_for_limit_m2 - float(concept.wing_area_m2)),
+        "required_gross_mass_for_limit_kg": required_gross_mass_for_limit_kg,
+        "delta_gross_mass_for_limit_kg": (
+            required_gross_mass_for_limit_kg - resolved_evaluation_gross_mass_kg
+        ),
         "cl_scale_factor_min": worst_case["cl_scale_factor_min"],
         "cl_scale_factor_max": worst_case["cl_scale_factor_max"],
         "case_results": case_results,
