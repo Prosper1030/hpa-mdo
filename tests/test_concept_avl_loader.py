@@ -15,6 +15,7 @@ from hpa_mdo.concept.avl_loader import (
     resample_spanwise_load_to_stations,
     select_avl_design_cases,
     select_avl_reference_condition,
+    write_concept_wing_only_avl,
 )
 from hpa_mdo.concept.config import load_concept_config
 from hpa_mdo.concept.geometry import GeometryConcept, build_linear_wing_stations, build_segment_plan
@@ -396,6 +397,168 @@ def test_select_avl_design_cases_exposes_reference_slow_launch_and_turn_cases() 
         "turn_avl_case",
     ]
     assert payload["secondary_case_labels"] == ["reference_avl_case"]
+
+
+def test_write_concept_wing_only_avl_can_use_selected_zone_airfoils(tmp_path: Path) -> None:
+    concept = _sample_concept()
+    stations = build_linear_wing_stations(concept, stations_per_half=7)
+    airfoil_paths = {}
+    for zone_name in ("root", "mid1", "mid2", "tip"):
+        dat_path = tmp_path / f"{zone_name}.dat"
+        dat_path.write_text(
+            "test\n1.0 0.0\n0.5 0.05\n0.0 0.0\n0.5 -0.04\n1.0 0.0\n",
+            encoding="utf-8",
+        )
+        airfoil_paths[zone_name] = dat_path
+
+    avl_path = write_concept_wing_only_avl(
+        concept=concept,
+        stations=stations,
+        output_path=tmp_path / "concept_wing.avl",
+        zone_airfoil_paths=airfoil_paths,
+    )
+
+    avl_text = avl_path.read_text(encoding="utf-8")
+
+    assert str(airfoil_paths["root"]) in avl_text
+    assert str(airfoil_paths["mid1"]) in avl_text
+    assert str(airfoil_paths["mid2"]) in avl_text
+    assert str(airfoil_paths["tip"]) in avl_text
+
+
+def test_load_zone_requirements_from_avl_applies_reference_override_and_case_tag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = _sample_concept()
+    stations = build_linear_wing_stations(concept, stations_per_half=7)
+    captured_case_dirs: list[Path] = []
+
+    monkeypatch.setattr(
+        concept_avl_loader,
+        "select_avl_design_cases",
+        lambda **_: {
+            "objective_mode": "max_range",
+            "reference_speed_mps": 6.0,
+            "reference_gross_mass_kg": 105.0,
+            "reference_speed_reason": "proxy_reference_speed",
+            "mass_selection_reason": "proxy_mass_case",
+            "reference_condition_policy": "proxy_reference_policy",
+            "primary_case_labels": [
+                "slow_avl_case",
+                "launch_release_case",
+                "turn_avl_case",
+            ],
+            "secondary_case_labels": ["reference_avl_case"],
+            "selected_mass_case": {
+                "gross_mass_kg": 105.0,
+                "best_range_m": 5900.0,
+                "best_range_feasible_m": 1200.0,
+                "best_range_speed_mps": 6.0,
+                "best_range_feasible_speed_mps": 10.0,
+                "feasible_speed_set_mps": (9.5, 10.0),
+                "reference_speed_filter_model": "pre_avl_local_stall_feasible_speed_proxy_v1",
+            },
+            "mass_cases": [],
+            "design_cases": [
+                {
+                    "case_label": "reference_avl_case",
+                    "evaluation_speed_mps": 6.0,
+                    "evaluation_gross_mass_kg": 105.0,
+                    "load_factor": 1.0,
+                    "case_weight": 0.35,
+                    "speed_reason": "proxy_reference_speed",
+                    "mass_reason": "proxy_mass_case",
+                    "case_reason": "secondary_cruise_objective_case",
+                },
+                {
+                    "case_label": "slow_avl_case",
+                    "evaluation_speed_mps": 6.0,
+                    "evaluation_gross_mass_kg": 105.0,
+                    "load_factor": 1.0,
+                    "case_weight": 1.75,
+                    "speed_reason": "speed_sweep_min_mps",
+                    "mass_reason": "max_gross_mass",
+                    "case_reason": "primary_low_speed_heavy_mass_case",
+                },
+                {
+                    "case_label": "launch_release_case",
+                    "evaluation_speed_mps": 7.0,
+                    "evaluation_gross_mass_kg": 105.0,
+                    "load_factor": 1.0,
+                    "case_weight": 2.0,
+                    "speed_reason": "launch.release_speed_mps",
+                    "mass_reason": "max_gross_mass",
+                    "case_reason": "primary_launch_release_heavy_mass_case",
+                },
+                {
+                    "case_label": "turn_avl_case",
+                    "evaluation_speed_mps": 7.0,
+                    "evaluation_gross_mass_kg": 105.0,
+                    "load_factor": 1.03,
+                    "case_weight": 2.25,
+                    "speed_reason": "launch.release_speed_mps",
+                    "mass_reason": "max_gross_mass",
+                    "case_reason": "primary_banked_turn_heavy_mass_case",
+                },
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        concept_avl_loader,
+        "_run_avl_trim_case",
+        lambda **kwargs: captured_case_dirs.append(Path(kwargs["case_dir"]))
+        or {"aoa_trim_deg": 3.0, "cl_trim": float(kwargs["cl_required"])},
+    )
+    monkeypatch.setattr(
+        concept_avl_loader,
+        "_run_avl_spanwise_case",
+        lambda **kwargs: Path(kwargs["case_dir"]) / "concept_spanwise.fs",
+    )
+    monkeypatch.setattr(
+        concept_avl_loader,
+        "build_spanwise_load_from_avl_strip_forces",
+        lambda **_: _sample_spanwise_load(),
+    )
+
+    airfoil_templates = {
+        zone_name: {
+            "coordinates": [
+                [1.0, 0.0],
+                [0.5, 0.05],
+                [0.0, 0.0],
+                [0.5, -0.04],
+                [1.0, 0.0],
+            ]
+        }
+        for zone_name in ("root", "mid1", "mid2", "tip")
+    }
+    payload = load_zone_requirements_from_avl(
+        cfg=cfg,
+        concept=concept,
+        stations=stations,
+        working_root=tmp_path,
+        airfoil_templates=airfoil_templates,
+        reference_condition_override={
+            "reference_speed_mps": 9.5,
+            "reference_gross_mass_kg": 100.0,
+            "reference_speed_reason": "post_airfoil_best_range_feasible_speed_mps",
+            "mass_selection_reason": "post_airfoil_worst_case_gross_mass",
+            "reference_condition_policy": "post_airfoil_feasible_reference_avl_rerun_v1",
+        },
+        case_tag="finalist_post_airfoil_avl_rerun",
+    )
+
+    assert captured_case_dirs
+    assert all("finalist_post_airfoil_avl_rerun" in str(path) for path in captured_case_dirs)
+    assert payload["root"]["reference_speed_mps"] == pytest.approx(9.5)
+    assert payload["root"]["reference_gross_mass_kg"] == pytest.approx(100.0)
+    assert payload["root"]["reference_speed_reason"] == "post_airfoil_best_range_feasible_speed_mps"
+    assert payload["root"]["mass_selection_reason"] == "post_airfoil_worst_case_gross_mass"
+    assert payload["root"]["reference_condition_policy"] == "post_airfoil_feasible_reference_avl_rerun_v1"
+    assert payload["root"]["design_cases"][0]["evaluation_speed_mps"] == pytest.approx(9.5)
+    assert payload["root"]["design_cases"][0]["evaluation_gross_mass_kg"] == pytest.approx(100.0)
 
 
 def test_avl_backed_loader_falls_back_on_avl_failure(tmp_path: Path, monkeypatch) -> None:

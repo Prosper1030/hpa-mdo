@@ -630,11 +630,40 @@ def _station_airfoil_name(station: WingStation, half_span_m: float) -> str:
     return _ROOT_SEED_AIRFOIL if eta <= 0.55 else _TIP_SEED_AIRFOIL
 
 
+def _zone_name_for_span_fraction(span_fraction: float) -> str:
+    clamped_fraction = min(max(float(span_fraction), 0.0), 1.0)
+    zone_definitions = default_zone_definitions()
+    for zone_index, zone in enumerate(zone_definitions):
+        is_last_zone = zone_index == len(zone_definitions) - 1
+        in_zone = zone.y0_frac <= clamped_fraction < zone.y1_frac
+        if is_last_zone and clamped_fraction <= zone.y1_frac:
+            in_zone = zone.y0_frac <= clamped_fraction <= zone.y1_frac
+        if in_zone:
+            return str(zone.name)
+    return str(zone_definitions[-1].name)
+
+
+def _station_airfoil_target(
+    *,
+    station: WingStation,
+    half_span_m: float,
+    zone_airfoil_paths: dict[str, str] | None,
+) -> str:
+    if zone_airfoil_paths:
+        eta = 0.0 if half_span_m <= 0.0 else float(station.y_m) / half_span_m
+        zone_name = _zone_name_for_span_fraction(eta)
+        zone_airfoil_path = zone_airfoil_paths.get(zone_name)
+        if zone_airfoil_path is not None:
+            return str(zone_airfoil_path)
+    return _station_airfoil_name(station, half_span_m)
+
+
 def write_concept_wing_only_avl(
     *,
     concept: GeometryConcept,
     stations: tuple[WingStation, ...],
     output_path: Path,
+    zone_airfoil_paths: dict[str, Path | str] | None = None,
 ) -> Path:
     if not stations:
         raise ValueError("stations must not be empty.")
@@ -665,6 +694,14 @@ def write_concept_wing_only_avl(
         f"16  1.0  {span_panels}  1.0",
         "#",
     ]
+    resolved_zone_airfoil_paths = (
+        None
+        if zone_airfoil_paths is None
+        else {
+            str(zone_name): str(Path(airfoil_path).expanduser().resolve())
+            for zone_name, airfoil_path in zone_airfoil_paths.items()
+        }
+    )
     for station, z_le_m in zip(stations, z_positions):
         lines.extend(
             [
@@ -674,7 +711,11 @@ def write_concept_wing_only_avl(
                     f"{float(station.chord_m):.9f}  {float(station.twist_deg):.9f}"
                 ),
                 "AFILE",
-                _station_airfoil_name(station, half_span_m),
+                _station_airfoil_target(
+                    station=station,
+                    half_span_m=half_span_m,
+                    zone_airfoil_paths=resolved_zone_airfoil_paths,
+                ),
                 "#",
             ]
         )
@@ -1003,17 +1044,31 @@ def load_zone_requirements_from_avl(
     stations: tuple[WingStation, ...],
     working_root: Path,
     avl_binary: str | Path | None = None,
+    airfoil_templates: dict[str, dict[str, Any]] | None = None,
+    reference_condition_override: dict[str, Any] | None = None,
+    case_tag: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     if not stations:
         raise ValueError("stations must not be empty.")
 
     working_root = Path(working_root)
     case_dir = working_root / _concept_case_slug(concept)
+    if case_tag is not None:
+        case_dir = case_dir / str(case_tag)
     avl_path = case_dir / "concept_wing.avl"
+    zone_airfoil_paths = (
+        None
+        if airfoil_templates is None
+        else _write_zone_airfoil_dat_files(
+            case_dir=case_dir,
+            airfoil_templates=airfoil_templates,
+        )
+    )
     write_concept_wing_only_avl(
         concept=concept,
         stations=stations,
         output_path=avl_path,
+        zone_airfoil_paths=zone_airfoil_paths,
     )
 
     air_density_kgpm3 = _air_density_from_environment(cfg)
@@ -1022,6 +1077,11 @@ def load_zone_requirements_from_avl(
         concept=concept,
         air_density_kg_per_m3=air_density_kgpm3,
     )
+    if reference_condition_override is not None:
+        reference_condition = _apply_reference_condition_override(
+            reference_condition=reference_condition,
+            reference_condition_override=reference_condition_override,
+        )
     aggregated_payload: dict[str, dict[str, Any]] = {}
     design_case_summaries: list[dict[str, Any]] = []
 
@@ -1159,6 +1219,115 @@ def _annotate_fallback_payload(
     return annotated
 
 
+def _normalize_airfoil_coordinates(
+    coordinates: object,
+) -> tuple[tuple[float, float], ...]:
+    if not isinstance(coordinates, list | tuple):
+        raise ValueError("Airfoil coordinates must be provided as an array of [x, y] pairs.")
+
+    normalized: list[tuple[float, float]] = []
+    for point in coordinates:
+        if not isinstance(point, list | tuple) or len(point) < 2:
+            raise ValueError("Airfoil coordinate entries must be [x, y] pairs.")
+        normalized.append((float(point[0]), float(point[1])))
+
+    if len(normalized) < 3:
+        raise ValueError("Airfoil coordinates must contain at least three points.")
+    return tuple(normalized)
+
+
+def _write_zone_airfoil_dat_files(
+    *,
+    case_dir: Path,
+    airfoil_templates: dict[str, dict[str, Any]],
+) -> dict[str, Path]:
+    airfoil_dir = case_dir / "selected_airfoils"
+    airfoil_dir.mkdir(parents=True, exist_ok=True)
+
+    written_paths: dict[str, Path] = {}
+    for zone_name, template in airfoil_templates.items():
+        coordinates = _normalize_airfoil_coordinates(template.get("coordinates"))
+        geometry_hash = str(template.get("geometry_hash", zone_name))[:12]
+        dat_path = airfoil_dir / f"{zone_name}-{geometry_hash}.dat"
+        lines = [str(template.get("template_id", f"{zone_name}-selected"))]
+        lines.extend(f"{float(x):.8f} {float(y):.8f}" for x, y in coordinates)
+        dat_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        written_paths[str(zone_name)] = dat_path.resolve()
+    return written_paths
+
+
+def _apply_reference_condition_override(
+    *,
+    reference_condition: dict[str, Any],
+    reference_condition_override: dict[str, Any],
+) -> dict[str, Any]:
+    if not reference_condition_override:
+        return reference_condition
+
+    overridden = {
+        **reference_condition,
+        "selected_mass_case": dict(reference_condition.get("selected_mass_case", {})),
+        "design_cases": [dict(case) for case in reference_condition.get("design_cases", [])],
+    }
+    reference_speed_mps = float(
+        reference_condition_override.get(
+            "reference_speed_mps",
+            reference_condition["reference_speed_mps"],
+        )
+    )
+    reference_gross_mass_kg = float(
+        reference_condition_override.get(
+            "reference_gross_mass_kg",
+            reference_condition["reference_gross_mass_kg"],
+        )
+    )
+    reference_speed_reason = str(
+        reference_condition_override.get(
+            "reference_speed_reason",
+            reference_condition["reference_speed_reason"],
+        )
+    )
+    mass_selection_reason = str(
+        reference_condition_override.get(
+            "mass_selection_reason",
+            reference_condition["mass_selection_reason"],
+        )
+    )
+    reference_condition_policy = str(
+        reference_condition_override.get(
+            "reference_condition_policy",
+            reference_condition["reference_condition_policy"],
+        )
+    )
+
+    overridden["reference_speed_mps"] = reference_speed_mps
+    overridden["reference_gross_mass_kg"] = reference_gross_mass_kg
+    overridden["reference_speed_reason"] = reference_speed_reason
+    overridden["mass_selection_reason"] = mass_selection_reason
+    overridden["reference_condition_policy"] = reference_condition_policy
+
+    selected_mass_case = overridden["selected_mass_case"]
+    selected_mass_case.update(reference_condition_override.get("selected_mass_case", {}))
+    selected_mass_case["gross_mass_kg"] = reference_gross_mass_kg
+
+    for case in overridden["design_cases"]:
+        if str(case.get("case_label")) != "reference_avl_case":
+            continue
+        case["evaluation_speed_mps"] = reference_speed_mps
+        case["evaluation_gross_mass_kg"] = reference_gross_mass_kg
+        case["speed_reason"] = reference_speed_reason
+        case["mass_reason"] = mass_selection_reason
+        case["case_reason"] = str(
+            reference_condition_override.get(
+                "case_reason",
+                "post_airfoil_finalist_reference_case",
+            )
+        )
+        break
+
+    return overridden
+
+
 def build_avl_backed_spanwise_loader(
     *,
     cfg: BirdmanConceptConfig,
@@ -1191,4 +1360,13 @@ def build_avl_backed_spanwise_loader(
                 fallback_reason=str(exc),
             )
 
+    setattr(
+        _loader,
+        "_birdman_avl_rerun_context",
+        {
+            "cfg": cfg,
+            "working_root": Path(working_root),
+            "avl_binary": avl_binary,
+        },
+    )
     return _loader
