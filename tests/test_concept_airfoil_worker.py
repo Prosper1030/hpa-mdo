@@ -386,6 +386,21 @@ def test_worker_cache_key_is_stable_for_identical_query(tmp_path):
     assert worker.cache_key(query) == worker.cache_key(query)
 
 
+def test_worker_cache_key_separates_screening_and_full_sweep(tmp_path):
+    worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+
+    screening = _sample_query(
+        analysis_mode="screening_target_cl",
+        analysis_stage="screening",
+    )
+    finalist = _sample_query(
+        analysis_mode="full_alpha_sweep",
+        analysis_stage="finalist",
+    )
+
+    assert worker.cache_key(screening) != worker.cache_key(finalist)
+
+
 def test_worker_cache_key_ignores_template_id_for_physically_identical_query(tmp_path):
     worker = JuliaXFoilWorker(
         project_dir=tmp_path / "repo",

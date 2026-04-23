@@ -138,15 +138,20 @@ class JuliaXFoilWorker:
     def _physical_query_identity(
         self,
         query: PolarQuery,
-    ) -> tuple[float, tuple[float, ...], str, str]:
+    ) -> tuple[float, tuple[float, ...], str, str, str, str]:
         return (
             float(query.reynolds),
             tuple(float(value) for value in query.cl_samples),
             query.roughness_mode,
             self._validated_geometry_hash(query),
+            query.analysis_mode,
+            query.analysis_stage,
         )
 
-    def _result_identity(self, result: dict[str, object]) -> tuple[str, float, tuple[float, ...], str, str]:
+    def _result_identity(
+        self,
+        result: dict[str, object],
+    ) -> tuple[str, float, tuple[float, ...], str, str, str, str]:
         template_id = result.get("template_id")
         return (
             self._result_template_id(result),
@@ -172,22 +177,30 @@ class JuliaXFoilWorker:
     def _physical_result_identity(
         self,
         result: dict[str, object],
-    ) -> tuple[float, tuple[float, ...], str, str]:
+    ) -> tuple[float, tuple[float, ...], str, str, str, str]:
         reynolds = result.get("reynolds")
         cl_samples = result.get("cl_samples")
         roughness_mode = result.get("roughness_mode")
         geometry_hash = result.get("geometry_hash")
+        analysis_mode = result.get("analysis_mode", "full_alpha_sweep")
+        analysis_stage = result.get("analysis_stage", "screening")
         if not isinstance(roughness_mode, str):
             raise RuntimeError("Julia XFoil worker response is missing a valid roughness_mode.")
         if not isinstance(geometry_hash, str):
             raise RuntimeError("Julia XFoil worker response is missing a valid geometry_hash.")
         if not isinstance(reynolds, int | float):
             raise RuntimeError("Julia XFoil worker response is missing a valid reynolds value.")
+        if not isinstance(analysis_mode, str):
+            raise RuntimeError("Julia XFoil worker response is missing a valid analysis_mode.")
+        if not isinstance(analysis_stage, str):
+            raise RuntimeError("Julia XFoil worker response is missing a valid analysis_stage.")
         return (
             float(reynolds),
             self._normalize_cl_samples(cl_samples),
             roughness_mode,
             geometry_hash,
+            analysis_mode,
+            analysis_stage,
         )
 
     def _load_cached_result(self, query: PolarQuery) -> dict[str, object] | None:
@@ -203,8 +216,9 @@ class JuliaXFoilWorker:
         return self._validate_success_status(self._materialize_result_for_query(cached_payload, query))
 
     def _write_cached_result(self, query: PolarQuery, result: dict[str, object]) -> None:
+        serialized_result = self._materialize_result_for_query(result, query)
         self._cache_path(query).write_text(
-            json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False),
+            json.dumps(serialized_result, indent=2, sort_keys=True, ensure_ascii=False),
             encoding="utf-8",
         )
 
@@ -228,6 +242,8 @@ class JuliaXFoilWorker:
         materialized["cl_samples"] = list(float(value) for value in query.cl_samples)
         materialized["roughness_mode"] = query.roughness_mode
         materialized["geometry_hash"] = self._validated_geometry_hash(query)
+        materialized["analysis_mode"] = query.analysis_mode
+        materialized["analysis_stage"] = query.analysis_stage
         return materialized
 
     def _build_scratch_paths(self) -> tuple[Path, Path]:
