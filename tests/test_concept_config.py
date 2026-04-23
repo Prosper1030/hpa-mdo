@@ -100,6 +100,36 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.output.export_vsp_for_top_n == 0
 
 
+def test_load_concept_config_reads_birdman_low_speed_box_variants():
+    repo_root = Path(__file__).resolve().parents[1]
+    box_a = load_concept_config(
+        repo_root / "configs" / "birdman_upstream_concept_box_a.yaml"
+    )
+    box_b = load_concept_config(
+        repo_root / "configs" / "birdman_upstream_concept_box_b.yaml"
+    )
+    box_a_smoke = load_concept_config(
+        repo_root / "configs" / "birdman_upstream_concept_box_a_smoke.yaml"
+    )
+    box_b_smoke = load_concept_config(
+        repo_root / "configs" / "birdman_upstream_concept_box_b_smoke.yaml"
+    )
+
+    assert box_a.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(22.0)
+    assert box_a.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(34.0)
+    assert box_a.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(48.0)
+    assert box_a.geometry_family.primary_ranges.taper_ratio == box_a_smoke.geometry_family.primary_ranges.taper_ratio
+    assert box_a.geometry_family.primary_ranges.tip_twist_deg == box_a_smoke.geometry_family.primary_ranges.tip_twist_deg
+    assert box_a_smoke.geometry_family.sampling.sample_count < box_a.geometry_family.sampling.sample_count
+
+    assert box_b.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(19.0)
+    assert box_b.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(34.0)
+    assert box_b.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(54.0)
+    assert box_b.geometry_family.primary_ranges.taper_ratio == box_b_smoke.geometry_family.primary_ranges.taper_ratio
+    assert box_b.geometry_family.primary_ranges.tip_twist_deg == box_b_smoke.geometry_family.primary_ranges.tip_twist_deg
+    assert box_b_smoke.geometry_family.sampling.sample_count < box_b.geometry_family.sampling.sample_count
+
+
 def test_load_concept_config_rejects_csv_rider_model_without_csv_path():
     with pytest.raises(ValueError, match="rider_power_curve_csv"):
         BirdmanConceptConfig.model_validate(

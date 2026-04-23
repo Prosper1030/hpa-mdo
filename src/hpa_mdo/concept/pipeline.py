@@ -28,6 +28,7 @@ from hpa_mdo.concept.geometry import (
     enumerate_geometry_concepts,
     get_last_geometry_enumeration_diagnostics,
 )
+from hpa_mdo.concept.frontier import build_frontier_summary
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
@@ -2514,6 +2515,72 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
     }
 
 
+def _build_ranked_concept_record(
+    *,
+    record: _EvaluatedConcept,
+    ranked: Any,
+    rank: int,
+    overall_rank: int,
+    bundle_dir: Path | None,
+) -> dict[str, Any]:
+    return {
+        "concept_id": record.evaluation_id,
+        "enumeration_index": record.enumeration_index,
+        "rank": rank,
+        "overall_rank": overall_rank,
+        "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
+        "span_m": record.concept.span_m,
+        "wing_area_m2": record.concept.wing_area_m2,
+        "wing_loading_target_Npm2": (
+            None
+            if record.concept.wing_loading_target_Npm2 is None
+            else float(record.concept.wing_loading_target_Npm2)
+        ),
+        "wing_area_source": str(record.concept.wing_area_source),
+        "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
+        "aspect_ratio": float(record.concept.aspect_ratio),
+        "zone_count": len(record.zone_requirements),
+        "worker_result_count": len(record.worker_results),
+        "worker_backend": record.worker_backend,
+        "worker_statuses": list(_worker_statuses(record.worker_results)),
+        "worker_analysis_modes": list(_worker_analysis_modes(record.worker_results)),
+        "worker_analysis_stages": list(_worker_analysis_stages(record.worker_results)),
+        "worker_fidelity": {
+            "screening": _worker_fidelity_summary(record.screening_worker_results),
+            "finalist": (
+                _worker_fidelity_summary(record.worker_results)
+                if any(stage == "finalist" for stage in _worker_analysis_stages(record.worker_results))
+                else None
+            ),
+        },
+        "airfoil_feedback": record.airfoil_feedback,
+        "launch": record.launch_summary,
+        "turn": record.turn_summary,
+        "trim": record.trim_summary,
+        "local_stall": record.local_stall_summary,
+        "spanwise_requirements": _summarize_spanwise_requirements(
+            record.zone_requirements,
+            record.mission_summary,
+        ),
+        "mission": record.mission_summary,
+        "ranking": {
+            "score": ranked.score,
+            "selection_status": ranked.selection_status,
+            "why_not_higher": list(ranked.why_not_higher),
+            "safety_margin": record.ranking_input.safety_margin,
+            "mission_margin_m": record.ranking_input.mission_margin_m,
+            "failed_gate_count": ranked.failed_gate_count,
+            "combined_feasibility_margin": ranked.combined_feasibility_margin,
+            "safety_feasible": ranked.safety_feasible,
+            "fully_feasible": ranked.fully_feasible,
+            "assembly_penalty": record.ranking_input.assembly_penalty,
+            "ranking_basis": "feasibility_first_contract_aligned_v2",
+            "selection_scope": "ranked_sampled_pool",
+        },
+        **_concept_geometry_summary(record.concept),
+    }
+
+
 def _concept_to_bundle_payload(
     *,
     cfg: BirdmanConceptConfig,
@@ -2993,6 +3060,19 @@ def run_birdman_concept_pipeline(
         if selected_output_ranked
         else infeasible_ranked[: int(cfg.pipeline.keep_top_n)]
     )
+    overall_rank_by_id = {
+        item.concept_id: index for index, item in enumerate(ranked_concepts, start=1)
+    }
+    ranked_pool_records = [
+        _build_ranked_concept_record(
+            record=evaluated_by_id[ranked.concept_id],
+            ranked=ranked,
+            rank=overall_rank_by_id[ranked.concept_id],
+            overall_rank=overall_rank_by_id[ranked.concept_id],
+            bundle_dir=None,
+        )
+        for ranked in ranked_concepts
+    ]
 
     for concept_index, ranked in enumerate(selected_output_ranked, start=1):
         record = evaluated_by_id[ranked.concept_id]
@@ -3059,47 +3139,15 @@ def run_birdman_concept_pipeline(
             )
             selected_concept_dirs.append(bundle_dir)
 
-        summary_records.append(
-            {
-                "concept_id": concept_summary["concept_id"],
-                "enumeration_index": record.enumeration_index,
-                "rank": concept_index,
-                "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
-                "span_m": record.concept.span_m,
-                "wing_area_m2": record.concept.wing_area_m2,
-                "wing_loading_target_Npm2": (
-                    None
-                    if record.concept.wing_loading_target_Npm2 is None
-                    else float(record.concept.wing_loading_target_Npm2)
-                ),
-                "wing_area_source": str(record.concept.wing_area_source),
-                "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
-                "aspect_ratio": float(record.concept.aspect_ratio),
-                "zone_count": len(record.zone_requirements),
-                "worker_result_count": len(record.worker_results),
-                "worker_backend": record.worker_backend,
-                "worker_statuses": list(_worker_statuses(record.worker_results)),
-                "worker_analysis_modes": list(_worker_analysis_modes(record.worker_results)),
-                "worker_analysis_stages": list(_worker_analysis_stages(record.worker_results)),
-                "worker_fidelity": {
-                    "screening": _worker_fidelity_summary(record.screening_worker_results),
-                    "finalist": (
-                        _worker_fidelity_summary(record.worker_results)
-                        if any(stage == "finalist" for stage in _worker_analysis_stages(record.worker_results))
-                        else None
-                    ),
-                },
-                "airfoil_feedback": record.airfoil_feedback,
-                "launch": record.launch_summary,
-                "turn": record.turn_summary,
-                "trim": record.trim_summary,
-                "local_stall": record.local_stall_summary,
-                "spanwise_requirements": spanwise_requirement_summary,
-                "mission": record.mission_summary,
-                "ranking": ranking_summary,
-                **_concept_geometry_summary(record.concept),
-            }
+        summary_record = _build_ranked_concept_record(
+            record=record,
+            ranked=ranked,
+            rank=concept_index,
+            overall_rank=overall_rank_by_id[ranked.concept_id],
+            bundle_dir=bundle_dir,
         )
+        summary_record["concept_id"] = concept_summary["concept_id"]
+        summary_records.append(summary_record)
 
     for infeasible_index, ranked in enumerate(best_infeasible_ranked, start=1):
         record = evaluated_by_id[ranked.concept_id]
@@ -3168,62 +3216,15 @@ def run_birdman_concept_pipeline(
                 ),
             )
             best_infeasible_concept_dirs.append(bundle_dir)
-        best_infeasible_records.append(
-            {
-                "concept_id": f"infeasible-{record.enumeration_index:02d}",
-                "enumeration_index": record.enumeration_index,
-                "overall_rank": next(
-                    index for index, item in enumerate(ranked_concepts, start=1) if item.concept_id == ranked.concept_id
-                ),
-                "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
-                "span_m": record.concept.span_m,
-                "wing_area_m2": record.concept.wing_area_m2,
-                "wing_loading_target_Npm2": (
-                    None
-                    if record.concept.wing_loading_target_Npm2 is None
-                    else float(record.concept.wing_loading_target_Npm2)
-                ),
-                "wing_area_source": str(record.concept.wing_area_source),
-                "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
-                "aspect_ratio": float(record.concept.aspect_ratio),
-                "zone_count": len(record.zone_requirements),
-                "worker_result_count": len(record.worker_results),
-                "worker_backend": record.worker_backend,
-                "worker_statuses": list(_worker_statuses(record.worker_results)),
-                "worker_analysis_modes": list(_worker_analysis_modes(record.worker_results)),
-                "worker_analysis_stages": list(_worker_analysis_stages(record.worker_results)),
-                "worker_fidelity": {
-                    "screening": _worker_fidelity_summary(record.screening_worker_results),
-                    "finalist": (
-                        _worker_fidelity_summary(record.worker_results)
-                        if any(stage == "finalist" for stage in _worker_analysis_stages(record.worker_results))
-                        else None
-                    ),
-                },
-                "airfoil_feedback": record.airfoil_feedback,
-                "launch": record.launch_summary,
-                "turn": record.turn_summary,
-                "trim": record.trim_summary,
-                "local_stall": record.local_stall_summary,
-                "spanwise_requirements": spanwise_requirement_summary,
-                "mission": record.mission_summary,
-                "ranking": {
-                    "score": ranked.score,
-                    "selection_status": ranked.selection_status,
-                    "why_not_higher": list(ranked.why_not_higher),
-                    "safety_margin": record.ranking_input.safety_margin,
-                    "mission_margin_m": record.ranking_input.mission_margin_m,
-                    "failed_gate_count": ranked.failed_gate_count,
-                    "combined_feasibility_margin": ranked.combined_feasibility_margin,
-                    "safety_feasible": ranked.safety_feasible,
-                    "fully_feasible": ranked.fully_feasible,
-                    "assembly_penalty": record.ranking_input.assembly_penalty,
-                    "ranking_basis": "feasibility_first_contract_aligned_v2",
-                    "selection_scope": "ranked_sampled_pool",
-                },
-                **_concept_geometry_summary(record.concept),
-            }
+        best_infeasible_record = _build_ranked_concept_record(
+            record=record,
+            ranked=ranked,
+            rank=infeasible_index,
+            overall_rank=overall_rank_by_id[ranked.concept_id],
+            bundle_dir=bundle_dir,
         )
+        best_infeasible_record["concept_id"] = f"infeasible-{record.enumeration_index:02d}"
+        best_infeasible_records.append(best_infeasible_record)
 
     geometry_sampling_summary = {
         "sampling_mode": (
@@ -3259,11 +3260,39 @@ def run_birdman_concept_pipeline(
         "wing_area_is_derived": True,
     }
 
+    ranked_pool_json_path = output_dir / "concept_ranked_pool.json"
+    ranked_pool_json_path.write_text(
+        json.dumps(
+            {
+                "config_path": str(Path(config_path)),
+                "ranked_pool": ranked_pool_records,
+            },
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    frontier_summary_json_path = output_dir / "frontier_summary.json"
+    frontier_summary_json_path.write_text(
+        json.dumps(
+            build_frontier_summary(ranked_pool_records),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
     summary_json_path = output_dir / "concept_summary.json"
     summary_json_path.write_text(
         json.dumps(
             {
                 "config_path": str(Path(config_path)),
+                "analysis_artifacts": {
+                    "ranked_pool_json_path": str(ranked_pool_json_path),
+                    "frontier_summary_json_path": str(frontier_summary_json_path),
+                },
                 "worker_backend": worker_backend,
                 "worker_statuses": summary_worker_statuses,
                 "evaluation_scope": {

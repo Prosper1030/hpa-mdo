@@ -165,11 +165,18 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert factory_calls[0]["cache_dir"] == tmp_path / "polar_db"
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
+    ranked_pool = json.loads((tmp_path / "concept_ranked_pool.json").read_text(encoding="utf-8"))
+    frontier_summary = json.loads((tmp_path / "frontier_summary.json").read_text(encoding="utf-8"))
     first = _first_ranked_record(summary)
     assert len(loader_calls) == summary["evaluation_scope"]["evaluated_concept_count"]
     assert summary["worker_backend"] == "test_stub"
     assert summary["worker_statuses"]
     assert all(status == "ok" for status in summary["worker_statuses"])
+    assert len(ranked_pool["ranked_pool"]) == summary["evaluation_scope"]["evaluated_concept_count"]
+    assert ranked_pool["ranked_pool"][0]["overall_rank"] == 1
+    assert frontier_summary["counts"]["evaluated_count"] == summary["evaluation_scope"]["evaluated_concept_count"]
+    assert "top_ranked" in frontier_summary["failure_gate_counts"]
+    assert "top_ranked" in frontier_summary["geometry_subsets"]
     assert summary["evaluation_scope"]["selection_scope"] == "ranked_sampled_pool"
     assert summary["evaluation_scope"]["geometry_primary_variables"] == [
         "span_m",
