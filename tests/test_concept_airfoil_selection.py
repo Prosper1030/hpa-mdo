@@ -263,7 +263,13 @@ def test_select_best_zone_candidate_uses_matched_polar_points_when_available() -
 
 def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone() -> None:
     class FakeWorker:
+        def __init__(self):
+            self.query_count_by_zone: dict[str, int] = {}
+
         def run_queries(self, queries):
+            if queries:
+                zone_name = queries[0].template_id.split("-", 1)[0]
+                self.query_count_by_zone[zone_name] = len(queries)
             results = []
             for query in queries:
                 if query.template_id.endswith("thickness_up"):
@@ -284,6 +290,7 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
                 )
             return list(reversed(results))
 
+    worker = FakeWorker()
     seed_coordinates = (
         (1.0, 0.0),
         (0.5, 0.06),
@@ -301,7 +308,8 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
                         "cm_target": -0.10,
                         "weight": 1.0,
                     }
-                ]
+                ],
+                "min_tc_ratio": 0.14,
             },
             "tip": {
                 "points": [
@@ -315,7 +323,7 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
             },
         },
         seed_loader=lambda _seed_name: seed_coordinates,
-        worker=FakeWorker(),
+        worker=worker,
         thickness_delta_levels=(-0.01, 0.0, 0.01),
         camber_delta_levels=(-0.008, 0.0, 0.008),
     )
@@ -323,4 +331,57 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
     assert set(selection.selected_by_zone) == {"root", "tip"}
     assert selection.selected_by_zone["root"].template.candidate_role == "thickness_up"
     assert selection.selected_by_zone["tip"].template.candidate_role == "thickness_up"
-    assert len(selection.worker_results) == 18
+    assert worker.query_count_by_zone["root"] < 9
+    assert 0 < worker.query_count_by_zone["tip"] < 9
+    assert len(selection.worker_results) == worker.query_count_by_zone["root"] + worker.query_count_by_zone["tip"]
+
+
+def test_select_zone_airfoil_templates_falls_back_to_all_valid_candidates_when_prescreen_eliminates_everything() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.query_count = 0
+
+        def run_queries(self, queries):
+            self.query_count = len(queries)
+            return [
+                {
+                    "status": "ok",
+                    "template_id": query.template_id,
+                    "geometry_hash": query.geometry_hash,
+                    "mean_cd": 0.020,
+                    "mean_cm": -0.10,
+                    "usable_clmax": 1.10,
+                }
+                for query in queries
+            ]
+
+    worker = FakeWorker()
+    seed_coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.06),
+        (0.0, 0.0),
+        (0.5, -0.04),
+        (1.0, 0.0),
+    )
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.25,
+            }
+        },
+        seed_loader=lambda _seed_name: seed_coordinates,
+        worker=worker,
+        thickness_delta_levels=(-0.01, 0.0, 0.01),
+        camber_delta_levels=(-0.008, 0.0, 0.008),
+    )
+
+    assert set(selection.selected_by_zone) == {"root"}
+    assert worker.query_count == 9

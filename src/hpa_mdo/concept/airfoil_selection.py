@@ -500,6 +500,39 @@ def _default_seed_name(zone_name: str) -> str:
     return "fx76mp140" if zone_name in {"root", "mid1"} else "clarkysm"
 
 
+def _prescreen_zone_candidates(
+    candidates: tuple[CSTAirfoilTemplate, ...],
+    *,
+    zone_points: list[dict[str, float]],
+    zone_min_tc_ratio: float,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    if not candidates:
+        return ()
+
+    required_spar_depth_ratio = max(0.06, 0.75 * float(zone_min_tc_ratio))
+    prescreened: list[CSTAirfoilTemplate] = []
+    valid_fallback: list[CSTAirfoilTemplate] = []
+
+    for candidate in candidates:
+        coordinates = generate_cst_coordinates(candidate)
+        validity = validate_cst_candidate_coordinates(coordinates)
+        if not validity.valid:
+            continue
+        valid_fallback.append(candidate)
+
+        thickness_ratio = _candidate_thickness_ratio(coordinates)
+        spar_depth_ratio = _candidate_depth_ratio_at_x(coordinates, x_ratio=0.30)
+        if thickness_ratio < float(zone_min_tc_ratio):
+            continue
+        if spar_depth_ratio < required_spar_depth_ratio:
+            continue
+        prescreened.append(candidate)
+
+    if prescreened:
+        return tuple(prescreened)
+    return tuple(valid_fallback)
+
+
 def _representative_reynolds(zone_points: list[dict[str, float]]) -> float:
     if not zone_points:
         return 250000.0
@@ -574,6 +607,7 @@ def select_zone_airfoil_templates(
 
     for zone_name, zone_data in zone_requirements.items():
         zone_points = list(zone_data.get("points", []))
+        zone_min_tc_ratio = float(zone_data.get("min_tc_ratio", 0.10))
         seed_name = _default_seed_name(zone_name)
         base_template = build_base_cst_template(
             zone_name=zone_name,
@@ -584,6 +618,11 @@ def select_zone_airfoil_templates(
             base_template,
             thickness_delta_levels=thickness_delta_levels,
             camber_delta_levels=camber_delta_levels,
+        )
+        candidates = _prescreen_zone_candidates(
+            candidates,
+            zone_points=zone_points,
+            zone_min_tc_ratio=zone_min_tc_ratio,
         )
 
         queries: list[PolarQuery] = []
@@ -661,7 +700,7 @@ def select_zone_airfoil_templates(
             candidates=candidates,
             zone_points=zone_points,
             candidate_results=candidate_results,
-            zone_min_tc_ratio=float(zone_data.get("min_tc_ratio", 0.10)),
+            zone_min_tc_ratio=zone_min_tc_ratio,
             safe_clmax_scale=safe_clmax_scale,
             safe_clmax_delta=safe_clmax_delta,
             stall_utilization_limit=stall_utilization_limit,
