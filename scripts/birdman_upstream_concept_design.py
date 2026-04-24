@@ -43,16 +43,34 @@ def _cli_airfoil_worker_factory(**kwargs):
         backend_name = "cli_stubbed"
 
         def run_queries(self, queries):
-            return [
-                {
-                    "template_id": query.template_id,
-                    "reynolds": query.reynolds,
-                    "cl_samples": list(query.cl_samples),
-                    "roughness_mode": query.roughness_mode,
-                    "status": "cli_stubbed",
-                }
-                for query in queries
-            ]
+            results = []
+            for query in queries:
+                is_nsga_child = "nsga2_" in query.template_id
+                mean_cd = 0.0105 if is_nsga_child else 0.0120
+                mean_cm = -0.055
+                usable_clmax = 1.45 if is_nsga_child else 1.35
+                polar_points = [
+                    {
+                        "cl": float(cl),
+                        "cd": mean_cd + 0.002 * (float(cl) - 0.70) ** 2,
+                        "cm": mean_cm,
+                    }
+                    for cl in query.cl_samples
+                ]
+                results.append(
+                    {
+                        "template_id": query.template_id,
+                        "reynolds": query.reynolds,
+                        "cl_samples": list(query.cl_samples),
+                        "roughness_mode": query.roughness_mode,
+                        "status": "stubbed_ok",
+                        "mean_cd": mean_cd,
+                        "mean_cm": mean_cm,
+                        "usable_clmax": usable_clmax,
+                        "polar_points": polar_points,
+                    }
+                )
+            return results
 
     return _FakeWorker()
 

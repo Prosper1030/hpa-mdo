@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import shutil
@@ -10,7 +11,11 @@ import pytest
 
 from hpa_mdo.concept import load_concept_config
 from hpa_mdo.concept import pipeline as concept_pipeline
-from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker
+from hpa_mdo.concept.airfoil_worker import (
+    JuliaXFoilWorker,
+    PolarQuery,
+    geometry_hash_from_coordinates,
+)
 from hpa_mdo.concept.geometry import GeometryConcept, build_segment_plan
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
@@ -29,6 +34,16 @@ def _first_bundle_dir_from_summary(summary: dict[str, object]) -> Path:
     bundle_dir = record.get("bundle_dir")
     assert bundle_dir is not None, "expected first ranked concept to have a bundle_dir"
     return Path(bundle_dir)
+
+
+def _load_concept_cli_module():
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "birdman_upstream_concept_design.py"
+    spec = importlib.util.spec_from_file_location("birdman_upstream_concept_design", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _worker_result_payload(query, *, sweep_point_count: int) -> dict[str, object]:
@@ -2921,3 +2936,27 @@ def test_pipeline_writes_dihedral_geometry_into_bundle_and_vsp_preview(tmp_path:
     assert concept_cfg["geometry"]["dihedral_tip_deg"] == 4.0
     assert concept_cfg["geometry"]["dihedral_exponent"] == 1.0
     assert "dihedral_deg" in stations_csv.splitlines()[0]
+
+
+def test_cli_stubbed_worker_returns_scoreable_polar_results() -> None:
+    coordinates = ((1.0, 0.0), (0.5, 0.08), (0.0, 0.0), (0.5, -0.05), (1.0, 0.0))
+    query = PolarQuery(
+        template_id="root-nsga2_g01_child_0000-01",
+        reynolds=260000.0,
+        cl_samples=(0.55, 0.75),
+        roughness_mode="clean",
+        geometry_hash=geometry_hash_from_coordinates(coordinates),
+        coordinates=coordinates,
+    )
+
+    cli_module = _load_concept_cli_module()
+    worker = cli_module._cli_airfoil_worker_factory()
+    result = worker.run_queries([query])[0]
+
+    assert result["status"] == "stubbed_ok"
+    assert result["mean_cd"] < 0.0120
+    assert result["usable_clmax"] > 1.35
+    assert result["polar_points"] == [
+        pytest.approx({"cl": 0.55, "cd": 0.010545, "cm": -0.055}),
+        pytest.approx({"cl": 0.75, "cd": 0.010505, "cm": -0.055}),
+    ]
