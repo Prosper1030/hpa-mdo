@@ -28,6 +28,9 @@ def close_area_mass(
     pilot_mass_kg: float,
     fixed_non_area_aircraft_mass_kg: float,
     wing_areal_density_kgpm2: float = 0.22,
+    tube_system_mass_kg: float = 0.0,
+    wing_fittings_base_kg: float = 0.0,
+    wire_terminal_mass_kg: float = 0.0,
     extra_system_margin_kg: float = 0.0,
     initial_wing_area_m2: float | None = None,
     tolerance_m2: float = 1.0e-6,
@@ -48,6 +51,9 @@ def close_area_mass(
         "fixed_non_area_aircraft_mass_kg",
     )
     _require_finite_non_negative(wing_areal_density_kgpm2, "wing_areal_density_kgpm2")
+    _require_finite_non_negative(tube_system_mass_kg, "tube_system_mass_kg")
+    _require_finite_non_negative(wing_fittings_base_kg, "wing_fittings_base_kg")
+    _require_finite_non_negative(wire_terminal_mass_kg, "wire_terminal_mass_kg")
     _require_finite_non_negative(extra_system_margin_kg, "extra_system_margin_kg")
     _require_finite_positive(tolerance_m2, "tolerance_m2")
     _require_finite_positive(float(max_iterations), "max_iterations")
@@ -56,6 +62,9 @@ def close_area_mass(
     fixed_mass_kg = (
         float(pilot_mass_kg)
         + float(fixed_non_area_aircraft_mass_kg)
+        + float(tube_system_mass_kg)
+        + float(wing_fittings_base_kg)
+        + float(wire_terminal_mass_kg)
         + float(extra_system_margin_kg)
     )
     denominator = float(wing_loading_target_Npm2) - float(wing_areal_density_kgpm2) * float(
@@ -102,6 +111,9 @@ def close_area_mass(
         mass_breakdown_kg={
             "pilot_kg": float(pilot_mass_kg),
             "fixed_non_area_aircraft_kg": float(fixed_non_area_aircraft_mass_kg),
+            "tube_system_kg": float(tube_system_mass_kg),
+            "wing_fittings_base_kg": float(wing_fittings_base_kg),
+            "wire_terminal_kg": float(wire_terminal_mass_kg),
             "extra_system_margin_kg": float(extra_system_margin_kg),
             "wing_area_dependent_kg": float(wing_area_dependent_mass_kg),
         },

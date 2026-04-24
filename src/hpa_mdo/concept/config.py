@@ -60,6 +60,19 @@ class MassConfig(ConceptBaseModel):
         return self
 
 
+class MassClosureConfig(ConceptBaseModel):
+    enabled: bool = True
+    fixed_nonwing_aircraft_mass_kg: float = Field(24.0, gt=0.0)
+    tube_system_mass_kg: float = Field(10.5, ge=0.0)
+    rib_skin_areal_density_kgpm2: float = Field(0.20, ge=0.0)
+    wing_fittings_base_kg: float = Field(1.5, ge=0.0)
+    wire_terminal_mass_kg: float = Field(0.6, ge=0.0)
+    system_margin_kg: float = Field(2.0, ge=0.0)
+    gross_mass_hard_max_kg: float = Field(107.0, gt=0.0)
+    area_tolerance_m2: float = Field(1.0e-6, gt=0.0)
+    max_iterations: int = Field(50, ge=1)
+
+
 class MissionConfig(ConceptBaseModel):
     objective_mode: Literal["max_range", "min_power"] = "max_range"
     target_distance_km: float = Field(42.195, gt=0.0)
@@ -381,6 +394,7 @@ class OutputConfig(ConceptBaseModel):
 class BirdmanConceptConfig(ConceptBaseModel):
     environment: EnvironmentConfig
     mass: MassConfig
+    mass_closure: MassClosureConfig = Field(default_factory=MassClosureConfig)
     mission: MissionConfig
     segmentation: SegmentationConfig = Field(default_factory=SegmentationConfig)
     launch: LaunchConfig = Field(default_factory=LaunchConfig)

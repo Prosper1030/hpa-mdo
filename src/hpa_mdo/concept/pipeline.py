@@ -50,7 +50,6 @@ from hpa_mdo.mission.objective import (
 
 _ROOT_SEED_AIRFOIL = "fx76mp140"
 _TIP_SEED_AIRFOIL = "clarkysm"
-_REPORT_ONLY_WING_AREAL_DENSITY_KGPM2 = 0.22
 
 
 class SpanwiseLoadLoader(Protocol):
@@ -1023,7 +1022,7 @@ def _summarize_launch(
     air_density_kg_per_m3: float,
 ) -> tuple[dict[str, Any], float, float]:
     q_pa = 0.5 * air_density_kg_per_m3 * float(cfg.launch.release_speed_mps) ** 2
-    gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+    gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
     cl_required = (gross_mass_kg * 9.80665) / max(q_pa * concept.wing_area_m2, 1.0e-9)
     launch_station_points = _station_points_for_case_label(station_points, "launch_release_case")
     limiting_point = min(launch_station_points or station_points, key=_cl_limit)
@@ -1146,6 +1145,7 @@ def _scale_station_points_to_condition(
 def _local_stall_evaluation_cases(
     *,
     cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
     station_points: list[dict[str, float]],
     mission_summary: dict[str, Any],
 ) -> list[dict[str, Any]]:
@@ -1199,7 +1199,7 @@ def _local_stall_evaluation_cases(
     if reference_speed_mps is None:
         reference_speed_mps = float(cfg.launch.release_speed_mps)
     if reference_gross_mass_kg is None:
-        reference_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+        reference_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
 
     cases: list[dict[str, Any]] = [
         {
@@ -1223,7 +1223,7 @@ def _local_stall_evaluation_cases(
         (
             "launch_release_case",
             float(cfg.launch.release_speed_mps),
-            float(max(cfg.mass.gross_mass_sweep_kg)),
+            _concept_design_gross_mass_kg(cfg, concept),
         ),
     ]
     seen_conditions = {(reference_speed_mps, reference_gross_mass_kg)}
@@ -1270,7 +1270,7 @@ def _summarize_turn(
         )
         evaluation_gross_mass_kg = float(
             _numeric_value(turn_station_points[0].get("evaluation_gross_mass_kg"))
-            or max(cfg.mass.gross_mass_sweep_kg)
+            or _concept_design_gross_mass_kg(cfg, concept)
         )
         load_factor_override = float(
             _numeric_value(turn_station_points[0].get("load_factor"))
@@ -1282,7 +1282,7 @@ def _summarize_turn(
         evaluation_case = "turn_avl_case"
     else:
         evaluation_speed_mps = float(cfg.launch.release_speed_mps)
-        evaluation_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+        evaluation_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
         scaled_station_points, cl_scale_factors = _scale_station_points_to_condition(
             station_points=station_points,
             evaluation_speed_mps=evaluation_speed_mps,
@@ -1429,6 +1429,7 @@ def _summarize_local_stall(
 ) -> dict[str, Any]:
     evaluation_cases = _local_stall_evaluation_cases(
         cfg=cfg,
+        concept=concept,
         station_points=station_points,
         mission_summary=mission_summary,
     )
@@ -1477,7 +1478,7 @@ def _summarize_local_stall(
         _numeric_value(worst_case.get("evaluation_gross_mass_kg"))
         or _numeric_value(worst_case.get("reference_gross_mass_kg"))
         or _numeric_value(mission_summary.get("evaluated_gross_mass_kg"))
-        or float(max(cfg.mass.gross_mass_sweep_kg))
+        or _concept_design_gross_mass_kg(cfg, concept)
     )
     stall_utilization = float(worst_case["stall_utilization"])
     stall_utilization_limit = max(float(worst_case["stall_utilization_limit"]), 1.0e-9)
@@ -1527,6 +1528,24 @@ def _speed_sweep_mps(cfg: BirdmanConceptConfig) -> tuple[float, ...]:
     return tuple(min_speed + step * index for index in range(point_count))
 
 
+def _concept_design_gross_mass_kg(
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+) -> float:
+    if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
+        return float(concept.design_gross_mass_kg)
+    return float(max(cfg.mass.gross_mass_sweep_kg))
+
+
+def _concept_gross_mass_cases(
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+) -> tuple[float, ...]:
+    if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
+        return (float(concept.design_gross_mass_kg),)
+    return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
+
+
 def _mission_speed_feasibility_records(
     *,
     cfg: BirdmanConceptConfig,
@@ -1566,7 +1585,7 @@ def _mission_speed_feasibility_records(
     reference_gross_mass_kg = (
         _numeric_value(first_point.get("evaluation_gross_mass_kg"))
         or _numeric_value(first_point.get("reference_gross_mass_kg"))
-        or float(max(cfg.mass.gross_mass_sweep_kg))
+        or _concept_design_gross_mass_kg(cfg, concept)
     )
 
     normalized_base_station_points = [dict(point) for point in base_station_points]
@@ -1799,7 +1818,7 @@ def _build_concept_mission_summary(
 
     target_range_m = float(cfg.mission.target_distance_km) * 1000.0
     mission_results: list[dict[str, Any]] = []
-    for gross_mass_kg in cfg.mass.gross_mass_sweep_kg:
+    for gross_mass_kg in _concept_gross_mass_cases(cfg, concept):
         weight_n = float(gross_mass_kg) * 9.80665
         power_required_w: list[float] = []
         for speed_mps in speed_sweep_mps:
@@ -2583,9 +2602,19 @@ def _sizing_diagnostics(
             closure = close_area_mass(
                 wing_loading_target_Npm2=float(concept.wing_loading_target_Npm2),
                 pilot_mass_kg=float(cfg.mass.pilot_mass_kg),
-                fixed_non_area_aircraft_mass_kg=float(cfg.mass.baseline_aircraft_mass_kg),
-                wing_areal_density_kgpm2=_REPORT_ONLY_WING_AREAL_DENSITY_KGPM2,
+                fixed_non_area_aircraft_mass_kg=float(
+                    cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
+                ),
+                wing_areal_density_kgpm2=float(
+                    cfg.mass_closure.rib_skin_areal_density_kgpm2
+                ),
+                tube_system_mass_kg=float(cfg.mass_closure.tube_system_mass_kg),
+                wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
+                wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
+                extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
                 initial_wing_area_m2=float(concept.wing_area_m2),
+                tolerance_m2=float(cfg.mass_closure.area_tolerance_m2),
+                max_iterations=int(cfg.mass_closure.max_iterations),
             )
             design_gross_mass_kg = (
                 None
@@ -2616,10 +2645,17 @@ def _sizing_diagnostics(
                 "assumptions": {
                     "pilot_mass_kg": float(cfg.mass.pilot_mass_kg),
                     "fixed_non_area_aircraft_mass_kg": float(
-                        cfg.mass.baseline_aircraft_mass_kg
+                        cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
                     ),
-                    "fixed_mass_source": "mass.baseline_aircraft_mass_kg",
-                    "wing_areal_density_kgpm2": _REPORT_ONLY_WING_AREAL_DENSITY_KGPM2,
+                    "fixed_mass_source": "mass_closure.fixed_nonwing_aircraft_mass_kg",
+                    "tube_system_mass_kg": float(cfg.mass_closure.tube_system_mass_kg),
+                    "wing_fittings_base_kg": float(
+                        cfg.mass_closure.wing_fittings_base_kg
+                    ),
+                    "wire_terminal_mass_kg": float(cfg.mass_closure.wire_terminal_mass_kg),
+                    "wing_areal_density_kgpm2": float(
+                        cfg.mass_closure.rib_skin_areal_density_kgpm2
+                    ),
                 },
             }
         except ValueError as exc:

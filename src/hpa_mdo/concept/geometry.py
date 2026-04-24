@@ -4,10 +4,11 @@ from collections import Counter
 from dataclasses import dataclass
 from math import floor, isclose
 from itertools import product
-from typing import Any
 
 import numpy as np
 from scipy.stats import qmc
+
+from hpa_mdo.concept.mass_closure import close_area_mass
 
 
 @dataclass(frozen=True)
@@ -446,7 +447,69 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             "dihedral_exponent": float(dihedral_exponent),
         }
 
-        wing_area_m2 = float(cfg.design_gross_weight_n / max(wing_loading_target_Npm2, 1.0e-9))
+        initial_wing_area_m2 = float(
+            cfg.design_gross_weight_n / max(wing_loading_target_Npm2, 1.0e-9)
+        )
+        wing_area_m2 = initial_wing_area_m2
+        design_gross_mass_kg = float(cfg.mass.design_gross_mass_kg)
+        if bool(cfg.mass_closure.enabled):
+            try:
+                mass_closure = close_area_mass(
+                    wing_loading_target_Npm2=wing_loading_target_Npm2,
+                    pilot_mass_kg=float(cfg.mass.pilot_mass_kg),
+                    fixed_non_area_aircraft_mass_kg=float(
+                        cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
+                    ),
+                    wing_areal_density_kgpm2=float(
+                        cfg.mass_closure.rib_skin_areal_density_kgpm2
+                    ),
+                    tube_system_mass_kg=float(cfg.mass_closure.tube_system_mass_kg),
+                    wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
+                    wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
+                    extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
+                    initial_wing_area_m2=initial_wing_area_m2,
+                    tolerance_m2=float(cfg.mass_closure.area_tolerance_m2),
+                    max_iterations=int(cfg.mass_closure.max_iterations),
+                )
+            except ValueError as exc:
+                rejected_concepts.append(
+                    _geometry_rejection(
+                        sample_index=sample_index,
+                        reason="mass_area_closure_failed",
+                        primary_values=primary_values,
+                        secondary_values=secondary_values,
+                        error=str(exc),
+                    )
+                )
+                continue
+            if not mass_closure.converged:
+                rejected_concepts.append(
+                    _geometry_rejection(
+                        sample_index=sample_index,
+                        reason="mass_area_closure_failed",
+                        primary_values=primary_values,
+                        secondary_values=secondary_values,
+                        area_residual_m2=float(mass_closure.area_residual_m2),
+                    )
+                )
+                continue
+            if mass_closure.closed_gross_mass_kg > float(
+                cfg.mass_closure.gross_mass_hard_max_kg
+            ):
+                rejected_concepts.append(
+                    _geometry_rejection(
+                        sample_index=sample_index,
+                        reason="mass_hard_max_exceeded",
+                        primary_values=primary_values,
+                        secondary_values=secondary_values,
+                        closed_gross_mass_kg=float(mass_closure.closed_gross_mass_kg),
+                        gross_mass_hard_max_kg=float(cfg.mass_closure.gross_mass_hard_max_kg),
+                        closed_wing_area_m2=float(mass_closure.closed_wing_area_m2),
+                    )
+                )
+                continue
+            wing_area_m2 = float(mass_closure.closed_wing_area_m2)
+            design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
         root_chord_m = 2.0 * wing_area_m2 / (span_m * (1.0 + taper_ratio))
         tip_chord_m = root_chord_m * taper_ratio
 
@@ -483,7 +546,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             segment_lengths_m=segment_lengths_m,
             wing_loading_target_Npm2=float(wing_loading_target_Npm2),
             wing_area_is_derived=True,
-            design_gross_mass_kg=float(cfg.mass.design_gross_mass_kg),
+            design_gross_mass_kg=float(design_gross_mass_kg),
         )
         stations = build_linear_wing_stations(
             concept,

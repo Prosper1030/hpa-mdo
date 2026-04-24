@@ -55,6 +55,24 @@ def _speed_sweep_mps(cfg: BirdmanConceptConfig) -> tuple[float, ...]:
     return tuple(min_speed + step * index for index in range(point_count))
 
 
+def _concept_design_gross_mass_kg(
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+) -> float:
+    if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
+        return float(concept.design_gross_mass_kg)
+    return float(max(cfg.mass.gross_mass_sweep_kg))
+
+
+def _concept_gross_mass_cases(
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+) -> tuple[float, ...]:
+    if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
+        return (float(concept.design_gross_mass_kg),)
+    return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
+
+
 def _oswald_efficiency_proxy(concept: GeometryConcept) -> float:
     dihedral_delta = max(0.0, float(concept.dihedral_tip_deg) - float(concept.dihedral_root_deg))
     twist_delta = abs(float(concept.twist_tip_deg) - float(concept.twist_root_deg))
@@ -124,7 +142,7 @@ def _coarse_pre_avl_reference_station_points(
 
     half_span_m = 0.5 * float(concept.span_m)
     reference_speed_mps = max(float(cfg.launch.release_speed_mps), float(min(speed_sweep_mps)))
-    reference_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+    reference_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
     dynamic_pressure_pa = 0.5 * float(air_density_kg_per_m3) * reference_speed_mps**2
     wing_cl_required = (reference_gross_mass_kg * 9.80665) / max(
         dynamic_pressure_pa * float(concept.wing_area_m2),
@@ -360,7 +378,7 @@ def _mission_mass_cases_for_avl(
     )
 
     mass_cases: list[dict[str, Any]] = []
-    for gross_mass_kg in cfg.mass.gross_mass_sweep_kg:
+    for gross_mass_kg in _concept_gross_mass_cases(cfg, concept):
         weight_n = float(gross_mass_kg) * 9.80665
         power_required_w: list[float] = []
         for speed_mps in speed_sweep_mps:
@@ -538,7 +556,7 @@ def select_avl_design_cases(
         selected_mass_case=selected_mass_case,
     )
 
-    max_gross_mass_kg = float(max(cfg.mass.gross_mass_sweep_kg))
+    max_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
     min_speed_mps = float(min(_speed_sweep_mps(cfg)))
     launch_speed_mps = float(cfg.launch.release_speed_mps)
     turn_load_factor = 1.0 / math.cos(math.radians(float(cfg.turn.required_bank_angle_deg)))

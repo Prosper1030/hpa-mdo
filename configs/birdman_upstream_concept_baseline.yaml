@@ -9,6 +9,16 @@ mass:
   gross_mass_sweep_kg: [95.0, 100.0, 105.0]
   design_gross_mass_kg: 105.0
 
+mass_closure:
+  enabled: true
+  fixed_nonwing_aircraft_mass_kg: 24.0
+  tube_system_mass_kg: 10.5
+  rib_skin_areal_density_kgpm2: 0.20
+  wing_fittings_base_kg: 1.5
+  wire_terminal_mass_kg: 0.6
+  system_margin_kg: 2.0
+  gross_mass_hard_max_kg: 107.0
+
 mission:
   objective_mode: max_range
   target_distance_km: 42.195

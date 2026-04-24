@@ -1679,6 +1679,52 @@ def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() 
     assert concept.wing_area_m2 == pytest.approx(48.6)
 
 
+def test_mission_summary_uses_closed_concept_mass_as_primary_case() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+        wing_loading_target_Npm2=32.0,
+        design_gross_mass_kg=103.25,
+    )
+
+    mission = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "chord_m": 1.0,
+                "weight": 1.0,
+                "cl_target": 0.60,
+                "cm_target": -0.05,
+                "cl_max_safe": 1.0,
+                "cl_max_safe_source": "airfoil_safe_observed",
+                "case_label": "reference_avl_case",
+                "evaluation_speed_mps": 8.0,
+                "evaluation_gross_mass_kg": 103.25,
+                "reference_speed_mps": 8.0,
+                "reference_gross_mass_kg": 103.25,
+            }
+        ],
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+    )
+
+    assert [case["gross_mass_kg"] for case in mission["mass_cases"]] == pytest.approx(
+        [103.25]
+    )
+    assert mission["evaluated_gross_mass_kg"] == pytest.approx(103.25)
+
+
 def test_mission_summary_reports_empty_feasible_speed_set_and_delta() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(

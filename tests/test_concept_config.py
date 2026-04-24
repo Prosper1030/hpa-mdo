@@ -16,6 +16,11 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.environment.relative_humidity == pytest.approx(80.0)
     assert cfg.mass.pilot_mass_kg == pytest.approx(60.0)
     assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
+    assert cfg.mass_closure.enabled is True
+    assert cfg.mass_closure.fixed_nonwing_aircraft_mass_kg == pytest.approx(24.0)
+    assert cfg.mass_closure.tube_system_mass_kg == pytest.approx(10.5)
+    assert cfg.mass_closure.rib_skin_areal_density_kgpm2 == pytest.approx(0.20)
+    assert cfg.mass_closure.gross_mass_hard_max_kg == pytest.approx(107.0)
     assert cfg.mission.objective_mode == "max_range"
     assert cfg.mission.resolved_rider_model == "csv_power_curve"
     assert cfg.mission.rider_power_curve_csv is not None
