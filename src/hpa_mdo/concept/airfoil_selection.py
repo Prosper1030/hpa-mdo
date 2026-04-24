@@ -15,6 +15,7 @@ from hpa_mdo.concept.airfoil_cst import (
     sample_feasible_seedless_cst_sobol,
     validate_cst_candidate_coordinates,
 )
+from hpa_mdo.concept.airfoil_nsga import generate_seedless_nsga2_offspring
 from hpa_mdo.concept.airfoil_pareto import AirfoilParetoCandidate, select_nsga2_survivors
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.stall_model import compute_safe_local_clmax
@@ -974,6 +975,16 @@ def _select_scored_candidate_beam(
     )
 
 
+def _seed_for_generation(
+    *,
+    base_seed: int | None,
+    generation_index: int,
+) -> int | None:
+    if base_seed is None:
+        return None
+    return int(base_seed) + 1009 * int(generation_index)
+
+
 def _refinement_candidates(
     candidates: tuple[CSTAirfoilTemplate, ...],
     *,
@@ -1430,6 +1441,11 @@ def select_zone_airfoil_templates(
     robust_reynolds_factors: tuple[float, ...] = (1.0,),
     robust_roughness_modes: tuple[str, ...] = ("clean",),
     robust_min_pass_rate: float = 0.75,
+    nsga_generation_count: int = 0,
+    nsga_offspring_count: int = 0,
+    nsga_parent_count: int = 8,
+    nsga_random_seed: int | None = 0,
+    nsga_mutation_scale: float = 0.06,
     coarse_to_fine_enabled: bool = True,
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
@@ -1465,6 +1481,11 @@ def select_zone_airfoil_templates(
         robust_reynolds_factors=robust_reynolds_factors,
         robust_roughness_modes=robust_roughness_modes,
         robust_min_pass_rate=robust_min_pass_rate,
+        nsga_generation_count=nsga_generation_count,
+        nsga_offspring_count=nsga_offspring_count,
+        nsga_parent_count=nsga_parent_count,
+        nsga_random_seed=nsga_random_seed,
+        nsga_mutation_scale=nsga_mutation_scale,
         coarse_to_fine_enabled=coarse_to_fine_enabled,
         coarse_thickness_stride=coarse_thickness_stride,
         coarse_camber_stride=coarse_camber_stride,
@@ -1511,6 +1532,11 @@ def select_zone_airfoil_templates_for_concepts(
     robust_reynolds_factors: tuple[float, ...] = (1.0,),
     robust_roughness_modes: tuple[str, ...] = ("clean",),
     robust_min_pass_rate: float = 0.75,
+    nsga_generation_count: int = 0,
+    nsga_offspring_count: int = 0,
+    nsga_parent_count: int = 8,
+    nsga_random_seed: int | None = 0,
+    nsga_mutation_scale: float = 0.06,
     coarse_to_fine_enabled: bool = True,
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
@@ -1602,6 +1628,80 @@ def select_zone_airfoil_templates_for_concepts(
                 "concept_id": concept_id,
             }
         )
+
+    if (
+        search_mode == "seedless_sobol"
+        and int(nsga_generation_count) > 0
+        and int(nsga_offspring_count) > 0
+    ):
+        for generation_index in range(1, int(nsga_generation_count) + 1):
+            offspring_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+            for batch_key, candidates in candidates_by_key.items():
+                zone_points = zone_points_by_key[batch_key]
+                zone_min_tc_ratio = zone_min_tc_by_key[batch_key]
+                scored = _score_available_zone_candidates(
+                    candidates,
+                    zone_points=zone_points,
+                    candidate_results=candidate_results_by_key.get(batch_key, {}),
+                    zone_min_tc_ratio=zone_min_tc_ratio,
+                    safe_clmax_scale=safe_clmax_scale,
+                    safe_clmax_delta=safe_clmax_delta,
+                    stall_utilization_limit=stall_utilization_limit,
+                    tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+                    tip_3d_penalty_max=tip_3d_penalty_max,
+                    tip_taper_penalty_weight=tip_taper_penalty_weight,
+                    washout_relief_deg=washout_relief_deg,
+                    washout_relief_max=washout_relief_max,
+                    launch_stall_utilization_limit=launch_stall_utilization_limit,
+                    turn_stall_utilization_limit=turn_stall_utilization_limit,
+                    local_stall_utilization_limit=local_stall_utilization_limit,
+                )
+                parent_count = min(max(2, int(nsga_parent_count)), len(scored))
+                if parent_count < 2:
+                    continue
+                _, zone_name = _split_concept_zone_batch_key(batch_key)
+                parents = _select_scored_candidate_beam(
+                    scored,
+                    beam_count=parent_count,
+                    selection_strategy=selection_strategy,
+                )
+                offspring = generate_seedless_nsga2_offspring(
+                    zone_name=zone_name,
+                    parents=parents,
+                    bounds=_default_seedless_cst_bounds(zone_name),
+                    constraints=_seedless_constraints_for_zone(zone_min_tc_ratio),
+                    offspring_count=int(nsga_offspring_count),
+                    generation_index=generation_index,
+                    random_seed=_seed_for_generation(
+                        base_seed=nsga_random_seed,
+                        generation_index=generation_index,
+                    ),
+                    mutation_scale=nsga_mutation_scale,
+                )
+                offspring_by_key[batch_key] = offspring
+                candidates_by_key[batch_key] = (*candidates_by_key[batch_key], *offspring)
+
+            if not offspring_by_key:
+                continue
+            candidate_results_by_key, nsga_worker_results = _run_batched_zone_candidate_queries(
+                zone_candidates=offspring_by_key,
+                zone_points_by_name=zone_points_by_key,
+                worker=worker,
+                existing_results_by_zone=candidate_results_by_key,
+                robust_evaluation_enabled=robust_evaluation_enabled,
+                robust_reynolds_factors=robust_reynolds_factors,
+                robust_roughness_modes=robust_roughness_modes,
+                robust_min_pass_rate=robust_min_pass_rate,
+            )
+            for result in nsga_worker_results:
+                concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
+                worker_results_by_concept.setdefault(concept_id, []).append(
+                    {
+                        **result,
+                        "zone_name": zone_name,
+                        "concept_id": concept_id,
+                    }
+                )
 
     if coarse_to_fine_enabled:
         coarse_beam_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}

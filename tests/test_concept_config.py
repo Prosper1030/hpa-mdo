@@ -434,6 +434,11 @@ def test_load_concept_config_accepts_seedless_cst_search_mode():
                 "seedless_sample_count": 8,
                 "seedless_random_seed": 123,
                 "seedless_max_oversample_factor": 4,
+                "nsga_generation_count": 1,
+                "nsga_offspring_count": 4,
+                "nsga_parent_count": 4,
+                "nsga_random_seed": 321,
+                "nsga_mutation_scale": 0.08,
                 "successive_halving_beam_width": 8,
             },
         }
@@ -444,6 +449,11 @@ def test_load_concept_config_accepts_seedless_cst_search_mode():
     assert cfg.cst_search.seedless_sample_count == 8
     assert cfg.cst_search.seedless_random_seed == 123
     assert cfg.cst_search.seedless_max_oversample_factor == 4
+    assert cfg.cst_search.nsga_generation_count == 1
+    assert cfg.cst_search.nsga_offspring_count == 4
+    assert cfg.cst_search.nsga_parent_count == 4
+    assert cfg.cst_search.nsga_random_seed == 321
+    assert cfg.cst_search.nsga_mutation_scale == pytest.approx(0.08)
 
 
 def test_load_concept_config_accepts_robust_airfoil_screening_controls():

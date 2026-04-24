@@ -650,6 +650,60 @@ def test_select_scored_candidate_beam_can_use_constrained_pareto_diversity() -> 
     assert {candidate.candidate_role for candidate in pareto_beam} == {"low_drag", "high_clmax"}
 
 
+def test_select_zone_airfoil_templates_seedless_can_run_nsga_generation() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.template_ids: list[str] = []
+
+        def run_queries(self, queries):
+            self.template_ids.extend(query.template_id for query in queries)
+            results = []
+            for query in queries:
+                is_child = "nsga2_g01_child" in query.template_id
+                results.append(
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "mean_cd": 0.019 if is_child else 0.022,
+                        "mean_cm": -0.10,
+                        "usable_clmax": 1.30 if is_child else 1.22,
+                    }
+                )
+            return results
+
+    worker = FakeWorker()
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.14,
+            }
+        },
+        seed_loader=lambda _seed_name: (),
+        worker=worker,
+        search_mode="seedless_sobol",
+        seedless_sample_count=8,
+        seedless_random_seed=17,
+        nsga_generation_count=1,
+        nsga_offspring_count=2,
+        nsga_parent_count=4,
+        nsga_random_seed=23,
+        coarse_to_fine_enabled=False,
+        successive_halving_enabled=False,
+    )
+
+    assert any("nsga2_g01_child" in template_id for template_id in worker.template_ids)
+    assert selection.selected_by_zone["root"].template.candidate_role.startswith("nsga2_g01_child")
+
+
 def test_select_zone_airfoil_templates_for_concepts_batches_across_multiple_concepts() -> None:
     class FakeWorker:
         def __init__(self):

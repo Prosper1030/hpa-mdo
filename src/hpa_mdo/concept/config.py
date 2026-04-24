@@ -336,6 +336,11 @@ class CSTSearchConfig(ConceptBaseModel):
     robust_reynolds_factors: tuple[float, ...] = (0.85, 1.0, 1.15)
     robust_roughness_modes: tuple[str, ...] = ("clean", "rough")
     robust_min_pass_rate: float = Field(0.75, gt=0.0, le=1.0)
+    nsga_generation_count: int = Field(0, ge=0)
+    nsga_offspring_count: int = Field(0, ge=0)
+    nsga_parent_count: int = Field(8, ge=2)
+    nsga_random_seed: int | None = 0
+    nsga_mutation_scale: float = Field(0.06, ge=0.0, le=0.50)
     successive_halving_enabled: bool = True
     successive_halving_rounds: int = Field(2, ge=1)
     successive_halving_beam_width: int = Field(6, ge=1)
