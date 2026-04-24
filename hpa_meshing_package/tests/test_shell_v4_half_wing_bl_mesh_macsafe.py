@@ -1740,6 +1740,26 @@ def test_shell_v4_root_last3_failed_steiner_handoff_summary_keeps_topology_and_b
     assert root_last3["final_handoff_verdict"] == "topology_attempted_but_bl_policy_blocked"
     assert "unresolved_same_failed_steiner_family" in root_last3["supporting_verdicts"]
     assert "requires_tip_zone_bl_stageback" in root_last3["supporting_verdicts"]
+    assert handoff["current_verdict"] == "topology_attempted_but_bl_policy_blocked"
+    assert handoff["runtime_apply_gate_enabled"] is False
+    assert handoff["runtime_apply_gate_disabled"] is True
+    assert handoff["topology_rerun_recommended_after_candidate_application"] is True
+    assert handoff["recommended_candidate_id"] == "bl_candidate_stageback_plus_truncation"
+    assert handoff["candidate_comparison"]
+    assert root_last3["recommended_bl_candidate_id"] == handoff["recommended_candidate_id"]
+    assert root_last3["candidate_comparison"] == handoff["candidate_comparison"]
+    assert root_last3["bl_candidate_policy_surface"] == "planning_only_report"
+    assert all(candidate["planning_only"] is True for candidate in handoff["candidate_comparison"])
+    assert {
+        candidate["candidate_kind"] for candidate in handoff["candidate_comparison"]
+    } == {
+        "baseline",
+        "tip_zone_stageback",
+        "tip_zone_truncation",
+        "split_region_budget",
+        "shrink_total_thickness",
+        "stageback_plus_truncation",
+    }
 
 
 def test_boundary_recovery_residual_classifier_preserves_inferred_fallback_without_forensics(
@@ -1936,6 +1956,106 @@ def test_build_real_wing_bl_budgeting_plan_reports_sectionwise_and_regionwise_ac
     assert truncate.suggested_truncation_start_y_m >= tight_region.span_y_range_m["min"]
 
 
+def test_build_bl_stageback_truncation_candidate_comparison_is_planning_only(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(repo_root / "data" / "blackcat_004_origin.vsp3"),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path / "geometry",
+    )
+    spec = build_shell_v4_half_wing_bl_macsafe_spec()
+    budgeting = _build_real_wing_bl_budgeting_plan(
+        sections=[dict(section) for section in geometry["sections"]],
+        protection=dict(spec["real_wing_bl_protection"]),
+        base_total_thickness_m=float(spec["boundary_layer"]["target_total_thickness_m"]),
+        half_span_m=float(spec["geometry"]["half_span_m"]),
+    )
+
+    comparison_path = tmp_path / "bl_stageback_truncation_candidate_comparison.v1.json"
+    comparison = shell_v4_bl_mesh._build_bl_stageback_truncation_candidate_comparison(
+        planning_budgeting=budgeting.model_dump(mode="json"),
+        planning_policy_fail_kinds=["bl_clearance_incompatibility"],
+        planning_policy_recommendation_kinds=list(budgeting.recommendation_kinds),
+        original_layer_count=int(spec["boundary_layer"]["layers"]),
+        artifact_path=comparison_path,
+    )
+
+    assert comparison["contract"] == "bl_stageback_truncation_candidate_comparison.v1"
+    assert comparison["current_verdict"] == "topology_attempted_but_bl_policy_blocked"
+    assert comparison["planning_only"] is True
+    assert comparison["runtime_apply_gate_enabled"] is False
+    assert comparison["runtime_apply_gate_disabled"] is True
+    assert comparison["production_default_mutation"] is False
+    assert comparison["recommended_candidate_id"] == "bl_candidate_stageback_plus_truncation"
+    assert comparison["topology_rerun_recommended_after_candidate_application"] is True
+    assert Path(comparison["artifact_path"]).exists()
+
+    candidates = comparison["candidates"]
+    assert [candidate["candidate_kind"] for candidate in candidates] == [
+        "baseline",
+        "tip_zone_stageback",
+        "tip_zone_truncation",
+        "split_region_budget",
+        "shrink_total_thickness",
+        "stageback_plus_truncation",
+    ]
+    required_fields = {
+        "candidate_id",
+        "candidate_kind",
+        "target_y_span",
+        "target_surface_or_region_hint",
+        "original_total_bl_thickness",
+        "estimated_clearance_ratio_after",
+        "estimated_ratio_deficit_after",
+        "expected_effect_on_failed_steiner",
+        "expected_effect_on_degenerated_prism",
+        "risk_notes",
+        "planning_only",
+    }
+    for candidate in candidates:
+        assert required_fields.issubset(candidate)
+        assert candidate["planning_only"] is True
+        assert candidate["target_y_span"]["max"] > candidate["target_y_span"]["min"]
+        assert candidate["target_surface_or_region_hint"]
+        assert candidate["expected_effect_on_failed_steiner"] in {
+            "likely_improves",
+            "uncertain",
+            "unlikely",
+        }
+        assert candidate["expected_effect_on_degenerated_prism"] in {
+            "likely_improves",
+            "uncertain",
+            "unlikely",
+        }
+        assert candidate["risk_notes"]
+
+    by_kind = {candidate["candidate_kind"]: candidate for candidate in candidates}
+    baseline = by_kind["baseline"]
+    stageback = by_kind["tip_zone_stageback"]
+    truncation = by_kind["tip_zone_truncation"]
+    split_budget = by_kind["split_region_budget"]
+    shrink = by_kind["shrink_total_thickness"]
+    combined = by_kind["stageback_plus_truncation"]
+
+    assert baseline["proposed_total_bl_thickness"] == pytest.approx(
+        baseline["original_total_bl_thickness"]
+    )
+    assert stageback["proposed_layer_count"] < int(spec["boundary_layer"]["layers"])
+    assert truncation["suggested_truncation_start_y"] >= truncation["target_y_span"]["min"]
+    assert split_budget["split_boundary_y"] == pytest.approx(split_budget["target_y_span"]["min"])
+    assert shrink["reduction_delta"] > 0.0
+    assert shrink["proposed_total_bl_thickness"] < shrink["original_total_bl_thickness"]
+    assert combined["suggested_truncation_start_y"] >= combined["target_y_span"]["min"]
+    assert combined["proposed_layer_count"] < int(spec["boundary_layer"]["layers"])
+    assert combined["expected_effect_on_failed_steiner"] == "likely_improves"
+    assert combined["expected_effect_on_degenerated_prism"] == "likely_improves"
+
+
 def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendations(
     tmp_path: Path,
 ):
@@ -2020,6 +2140,16 @@ def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendat
     assert root_last3["bl_policy_fail_kinds"] == ["bl_clearance_incompatibility"]
     assert root_last3["manual_candidate_top_1_3"]
     assert all(candidate["planning_only"] is True for candidate in root_last3["manual_candidate_top_1_3"])
+    assert "bl_candidate_comparison" in result["artifacts"]
+    comparison = json.loads(
+        Path(result["artifacts"]["bl_candidate_comparison"]).read_text(encoding="utf-8")
+    )
+    assert comparison["contract"] == "bl_stageback_truncation_candidate_comparison.v1"
+    assert comparison["recommended_candidate_id"] == "bl_candidate_stageback_plus_truncation"
+    assert comparison["runtime_apply_gate_disabled"] is True
+    assert handoff["recommended_candidate_id"] == comparison["recommended_candidate_id"]
+    assert root_last3["final_handoff_verdict"] == "topology_attempted_but_bl_policy_blocked"
+    assert root_last3["candidate_comparison"] == comparison["candidates"]
     assert Path(result["artifacts"]["summary"]).exists()
 
 

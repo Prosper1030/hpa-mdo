@@ -158,6 +158,7 @@ When shell_v4 runs the topology compiler in `plan_only`, the route can also writ
 This artifact is a compact decision view over the topology compiler summary, operator regression
 artifact, and BL budgeting report. For each focused family it surfaces:
 
+- current verdict, including `topology_attempted_but_bl_policy_blocked`
 - `residual_family`
 - `evidence_level`
 - `throw_site_label`
@@ -170,12 +171,54 @@ artifact, and BL budgeting report. For each focused family it surfaces:
 - BL blocking / policy fail kinds
 - BL recommendation kinds
 - top 1-3 plan-only manual edit candidates
+- BL stageback / truncation candidate comparison
+- `recommended_candidate_id`
+- recommendation reason
+- whether a focused topology rerun is recommended after candidate application
+- whether runtime apply remains disabled
 - final handoff verdict such as `local_transition_regularization_candidate`,
   `requires_tip_zone_bl_stageback`, `topology_attempted_but_bl_policy_blocked`,
   `runtime_rerun_required`, or `unresolved_same_failed_steiner_family`
 
 It is intentionally plan/report-only. It must not change runtime geometry, BL settings, or route
 success/failure semantics.
+
+## BL Stageback / Truncation Candidate Comparison
+
+When failed-Steiner evidence remains after the bounded topology operator and the BL policy is already
+blocking, `plan_only` can also write:
+
+- `bl_stageback_truncation_candidate_comparison.v1.json`
+
+This artifact compares BL-policy candidates instead of adding another topology operator. The current
+candidate kinds are:
+
+- `baseline`
+- `tip_zone_stageback`
+- `tip_zone_truncation`
+- `split_region_budget`
+- `shrink_total_thickness`
+- `stageback_plus_truncation`
+
+Each candidate carries:
+
+- `candidate_id`
+- `candidate_kind`
+- `target_y_span`
+- `target_surface_or_region_hint`
+- `original_total_bl_thickness`
+- `proposed_total_bl_thickness` and/or `proposed_layer_count`
+- `estimated_clearance_ratio_after`
+- `estimated_ratio_deficit_after`
+- `expected_effect_on_failed_steiner`
+- `expected_effect_on_degenerated_prism`
+- `risk_notes`
+- `planning_only = true`
+
+The comparison is derived from budgeting evidence only. It does not mean the BL spec has been changed,
+does not mutate production defaults, and does not activate a runtime apply path. If a later round wants
+to test one candidate, it must introduce a separate explicit experimental apply gate and then rerun the
+focused topology validation.
 
 ## Manual Edit Candidates
 

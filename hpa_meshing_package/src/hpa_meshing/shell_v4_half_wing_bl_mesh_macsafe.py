@@ -1509,6 +1509,343 @@ def _build_budget_manual_edit_candidate(
     )
 
 
+def _safe_float(value: Any, default: float | None = None) -> float | None:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalized_y_span(payload: dict[str, Any]) -> dict[str, float]:
+    span = payload.get("span_y_range_m")
+    if not isinstance(span, dict):
+        span = payload.get("target_y_span")
+    if isinstance(span, dict):
+        lower = _safe_float(span.get("min"), 0.0)
+        upper = _safe_float(span.get("max"), lower)
+        if lower is not None and upper is not None and upper > lower:
+            return {"min": float(lower), "max": float(upper)}
+    center = _safe_float(payload.get("span_y_m"), 0.0)
+    center_value = float(center or 0.0)
+    return {"min": center_value, "max": center_value + 1.0e-9}
+
+
+def _first_manual_candidate(payload: dict[str, Any]) -> dict[str, Any]:
+    candidates = payload.get("manual_edit_candidates")
+    if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict):
+        return dict(candidates[0])
+    return {}
+
+
+def _select_bl_candidate_target(planning_budgeting: dict[str, Any]) -> dict[str, Any]:
+    regions = [
+        dict(region)
+        for region in planning_budgeting.get("tightest_regions", [])
+        if isinstance(region, dict)
+    ] or [
+        dict(region)
+        for region in planning_budgeting.get("region_budgets", [])
+        if isinstance(region, dict)
+    ]
+    sections = [
+        dict(section)
+        for section in planning_budgeting.get("tightest_sections", [])
+        if isinstance(section, dict)
+    ] or [
+        dict(section)
+        for section in planning_budgeting.get("section_budgets", [])
+        if isinstance(section, dict)
+    ]
+
+    def _rank(payload: dict[str, Any]) -> tuple[int, float, float, float]:
+        region_kind = str(payload.get("region_kind") or "")
+        preferred_kind_rank = {
+            "tip_truncation_candidate_zone": 0,
+            "tip_clearance_active_zone": 1,
+            "outboard_scaling_zone": 2,
+            "suppressed_tip_zone": 3,
+        }.get(region_kind, 4)
+        budget_deficit = _safe_float(payload.get("available_budget_ratio_deficit"), 0.0) or 0.0
+        clearance_deficit = _safe_float(payload.get("clearance_to_thickness_ratio_deficit"), 0.0) or 0.0
+        span = _normalized_y_span(payload)
+        return (preferred_kind_rank, -budget_deficit, -clearance_deficit, -span["max"])
+
+    if regions:
+        target = sorted(regions, key=_rank)[0]
+        target["target_kind"] = "region"
+        return target
+    if sections:
+        target = sorted(sections, key=_rank)[0]
+        target["target_kind"] = "section"
+        return target
+    return {
+        "target_kind": "unknown",
+        "region_kind": "unknown",
+        "span_y_range_m": {"min": 0.0, "max": 0.0},
+        "manual_edit_candidates": [],
+    }
+
+
+def _candidate_estimated_ratio(
+    *,
+    min_local_clearance_m: float | None,
+    proposed_total_bl_thickness: float | None,
+    fallback_ratio: float,
+) -> float:
+    if proposed_total_bl_thickness is None:
+        return float(fallback_ratio)
+    if proposed_total_bl_thickness <= 0.0:
+        return 1.0
+    if min_local_clearance_m is None:
+        return float(fallback_ratio)
+    return float(min_local_clearance_m) / max(float(proposed_total_bl_thickness), 1.0e-12)
+
+
+def _candidate_ratio_deficit(ratio: float) -> float:
+    return float(max(0.0, 1.0 - float(ratio)))
+
+
+def _build_bl_stageback_truncation_candidate_comparison(
+    *,
+    planning_budgeting: dict[str, Any],
+    planning_policy_fail_kinds: list[str],
+    planning_policy_recommendation_kinds: list[str],
+    original_layer_count: int | None = None,
+    artifact_path: Path | None = None,
+) -> dict[str, Any]:
+    target = _select_bl_candidate_target(dict(planning_budgeting or {}))
+    manual_candidate = _first_manual_candidate(target)
+    target_span = _normalized_y_span(target)
+    original_total = (
+        _safe_float(planning_budgeting.get("total_bl_thickness_m"))
+        or _safe_float(manual_candidate.get("current_total_bl_thickness_m"))
+        or 0.0
+    )
+    min_local_clearance = (
+        _safe_float(target.get("min_local_half_thickness_m"))
+        or _safe_float(manual_candidate.get("min_local_clearance_m"))
+    )
+    current_ratio = (
+        _safe_float(target.get("min_clearance_to_thickness_ratio"))
+        or _safe_float(manual_candidate.get("current_clearance_ratio"))
+        or _candidate_estimated_ratio(
+            min_local_clearance_m=min_local_clearance,
+            proposed_total_bl_thickness=original_total,
+            fallback_ratio=0.0,
+        )
+    )
+    suggested_max_total = (
+        _safe_float(manual_candidate.get("suggested_max_total_bl_thickness_m"))
+        or (
+            float(original_total)
+            * float(target.get("min_available_budget_ratio"))
+            if target.get("min_available_budget_ratio") is not None
+            else None
+        )
+        or min_local_clearance
+        or original_total
+    )
+    suggested_max_total = max(0.0, min(float(original_total), float(suggested_max_total)))
+    split_boundary_y = (
+        _safe_float(manual_candidate.get("suggested_split_boundary_y_m"))
+        or float(target_span["min"])
+    )
+    truncation_start_y = (
+        _safe_float(manual_candidate.get("suggested_truncation_start_y_m"))
+        or float(target_span["min"])
+    )
+    layer_count = int(original_layer_count or 0)
+    proposed_stageback_layers = (
+        max(1, min(layer_count - 1, math.ceil(layer_count * 0.65)))
+        if layer_count > 1
+        else None
+    )
+    stageback_total = (
+        float(original_total) * (float(proposed_stageback_layers) / float(layer_count))
+        if proposed_stageback_layers is not None and layer_count > 0
+        else float(original_total) * 0.65
+    )
+    combined_total = min(float(stageback_total), float(suggested_max_total))
+    target_hint_parts = [
+        str(target.get("region_id") or target.get("section_id") or target.get("target_id") or "unknown"),
+        f"region_kind={target.get('region_kind', 'unknown')}",
+    ]
+    if target.get("section_ids"):
+        target_hint_parts.append(f"section_ids={','.join(str(value) for value in target['section_ids'])}")
+    target_hint = "; ".join(target_hint_parts)
+
+    def _candidate(
+        *,
+        candidate_id: str,
+        candidate_kind: str,
+        proposed_total_bl_thickness: float | None = None,
+        proposed_layer_count: int | None = None,
+        expected_effect_on_failed_steiner: str,
+        expected_effect_on_degenerated_prism: str,
+        risk_notes: list[str],
+        suggested_truncation_start_y_value: float | None = None,
+        split_boundary_y_value: float | None = None,
+        reduction_delta: float | None = None,
+    ) -> dict[str, Any]:
+        proposed_total = (
+            float(proposed_total_bl_thickness)
+            if proposed_total_bl_thickness is not None
+            else None
+        )
+        ratio_after = _candidate_estimated_ratio(
+            min_local_clearance_m=min_local_clearance,
+            proposed_total_bl_thickness=proposed_total,
+            fallback_ratio=float(current_ratio),
+        )
+        payload = {
+            "candidate_id": candidate_id,
+            "candidate_kind": candidate_kind,
+            "target_y_span": copy.deepcopy(target_span),
+            "target_surface_or_region_hint": target_hint,
+            "original_total_bl_thickness": float(original_total),
+            "proposed_total_bl_thickness": proposed_total,
+            "proposed_layer_count": proposed_layer_count,
+            "estimated_clearance_ratio_after": float(ratio_after),
+            "estimated_ratio_deficit_after": _candidate_ratio_deficit(ratio_after),
+            "expected_effect_on_failed_steiner": expected_effect_on_failed_steiner,
+            "expected_effect_on_degenerated_prism": expected_effect_on_degenerated_prism,
+            "risk_notes": list(risk_notes),
+            "planning_only": True,
+        }
+        if suggested_truncation_start_y_value is not None:
+            payload["suggested_truncation_start_y"] = float(suggested_truncation_start_y_value)
+        if split_boundary_y_value is not None:
+            payload["split_boundary_y"] = float(split_boundary_y_value)
+        if reduction_delta is not None:
+            payload["reduction_delta"] = float(reduction_delta)
+        return payload
+
+    candidates = [
+        _candidate(
+            candidate_id="bl_candidate_baseline_current_policy",
+            candidate_kind="baseline",
+            proposed_total_bl_thickness=float(original_total),
+            proposed_layer_count=layer_count or None,
+            expected_effect_on_failed_steiner="unlikely",
+            expected_effect_on_degenerated_prism="unlikely",
+            risk_notes=[
+                "Keeps the current BL policy and therefore preserves the known failed-Steiner residual and degenerated-prism risk.",
+            ],
+        ),
+        _candidate(
+            candidate_id="bl_candidate_tip_zone_stageback",
+            candidate_kind="tip_zone_stageback",
+            proposed_total_bl_thickness=float(stageback_total),
+            proposed_layer_count=proposed_stageback_layers,
+            expected_effect_on_failed_steiner="uncertain",
+            expected_effect_on_degenerated_prism="likely_improves",
+            risk_notes=[
+                "Layer-count rollback can reduce prism crowding, but by itself may not remove the terminal recovery discontinuity.",
+                "Needs an explicit experimental apply gate before any runtime use.",
+            ],
+        ),
+        _candidate(
+            candidate_id="bl_candidate_tip_zone_truncation",
+            candidate_kind="tip_zone_truncation",
+            proposed_total_bl_thickness=0.0,
+            proposed_layer_count=0,
+            expected_effect_on_failed_steiner="likely_improves",
+            expected_effect_on_degenerated_prism="likely_improves",
+            risk_notes=[
+                "Stops BL before the terminal tight region in planning only; this may change local aerodynamic wall treatment and must be reviewed before applying.",
+            ],
+            suggested_truncation_start_y_value=truncation_start_y,
+        ),
+        _candidate(
+            candidate_id="bl_candidate_split_region_budget",
+            candidate_kind="split_region_budget",
+            proposed_total_bl_thickness=float(original_total),
+            proposed_layer_count=layer_count or None,
+            expected_effect_on_failed_steiner="uncertain",
+            expected_effect_on_degenerated_prism="uncertain",
+            risk_notes=[
+                "Splitting the budget is a control-surface for later policy decisions; it does not directly reduce BL thickness.",
+            ],
+            split_boundary_y_value=split_boundary_y,
+        ),
+        _candidate(
+            candidate_id="bl_candidate_shrink_total_thickness",
+            candidate_kind="shrink_total_thickness",
+            proposed_total_bl_thickness=float(suggested_max_total),
+            proposed_layer_count=layer_count or None,
+            expected_effect_on_failed_steiner="uncertain",
+            expected_effect_on_degenerated_prism="likely_improves",
+            risk_notes=[
+                "Uses the local clearance budget to cap total BL thickness, but it does not explicitly stop the BL at the failed-Steiner terminal region.",
+            ],
+            reduction_delta=max(0.0, float(original_total) - float(suggested_max_total)),
+        ),
+        _candidate(
+            candidate_id="bl_candidate_stageback_plus_truncation",
+            candidate_kind="stageback_plus_truncation",
+            proposed_total_bl_thickness=float(combined_total),
+            proposed_layer_count=proposed_stageback_layers,
+            expected_effect_on_failed_steiner="likely_improves",
+            expected_effect_on_degenerated_prism="likely_improves",
+            risk_notes=[
+                "Combines prism-pressure relief with terminal BL removal; this is the best planning candidate, not a runtime default.",
+                "Requires a separate explicit experimental apply gate and a focused topology rerun.",
+            ],
+            suggested_truncation_start_y_value=truncation_start_y,
+            reduction_delta=max(0.0, float(original_total) - float(combined_total)),
+        ),
+    ]
+    candidate_table = [
+        {
+            "candidate_id": candidate["candidate_id"],
+            "candidate_kind": candidate["candidate_kind"],
+            "estimated_clearance_ratio_after": candidate["estimated_clearance_ratio_after"],
+            "estimated_ratio_deficit_after": candidate["estimated_ratio_deficit_after"],
+            "expected_effect_on_failed_steiner": candidate["expected_effect_on_failed_steiner"],
+            "expected_effect_on_degenerated_prism": candidate["expected_effect_on_degenerated_prism"],
+        }
+        for candidate in candidates
+    ]
+    payload = {
+        "contract": "bl_stageback_truncation_candidate_comparison.v1",
+        "status": "written",
+        "planning_only": True,
+        "plan_report_only": True,
+        "runtime_apply_gate_enabled": False,
+        "runtime_apply_gate_disabled": True,
+        "runtime_bl_spec_mutation": False,
+        "runtime_geometry_mutation": False,
+        "production_default_mutation": False,
+        "current_verdict": (
+            "topology_attempted_but_bl_policy_blocked"
+            if planning_policy_fail_kinds
+            else "bl_candidate_review_only"
+        ),
+        "planning_policy_fail_kinds": list(planning_policy_fail_kinds),
+        "planning_policy_recommendation_kinds": list(planning_policy_recommendation_kinds),
+        "candidate_kinds": [candidate["candidate_kind"] for candidate in candidates],
+        "candidates": candidates,
+        "candidate_comparison_table": candidate_table,
+        "recommended_candidate_id": "bl_candidate_stageback_plus_truncation",
+        "recommendation_reason": (
+            "The failed-Steiner residual and degenerated-prism signal both sit in the terminal tip pressure window; "
+            "the combined candidate reduces prism crowding and removes the BL from the terminal recovery region while staying planning-only."
+        ),
+        "topology_rerun_recommended_after_candidate_application": True,
+        "artifact_path": str(artifact_path) if artifact_path is not None else None,
+        "notes": [
+            "Candidate comparison is derived from planning budgeting evidence only.",
+            "It does not modify the shell_v4 runtime BL spec, production defaults, Gmsh, or topology operators.",
+            "Applying any candidate requires a separate explicit experimental apply gate.",
+        ],
+    }
+    if artifact_path is not None:
+        write_json_report(Path(artifact_path), payload)
+    return payload
+
+
 def _build_real_wing_bl_budgeting_plan(
     *,
     sections: list[dict[str, Any]],
@@ -3345,9 +3682,16 @@ def _build_topology_bl_handoff_summary(
     planning_policy_fail_kinds: list[str],
     planning_policy_recommendation_kinds: list[str],
     planning_budgeting: dict[str, Any],
+    bl_candidate_comparison: dict[str, Any] | None = None,
     artifact_path: Path | None = None,
 ) -> dict[str, Any]:
     manual_candidates = _top_manual_candidate_handoffs(planning_budgeting)
+    candidate_comparison = bl_candidate_comparison or _build_bl_stageback_truncation_candidate_comparison(
+        planning_budgeting=planning_budgeting,
+        planning_policy_fail_kinds=list(planning_policy_fail_kinds),
+        planning_policy_recommendation_kinds=list(planning_policy_recommendation_kinds),
+    )
+    candidate_list = copy.deepcopy(candidate_comparison.get("candidates", []))
     family_payloads: dict[str, Any] = {}
     for entry in operator_regression_runs:
         family = str(entry.get("family") or "unknown")
@@ -3426,6 +3770,14 @@ def _build_topology_bl_handoff_summary(
             "bl_policy_fail_kinds": list(planning_policy_fail_kinds),
             "bl_recommended_action_kinds": list(planning_policy_recommendation_kinds),
             "manual_candidate_top_1_3": copy.deepcopy(manual_candidates),
+            "bl_candidate_policy_surface": "planning_only_report",
+            "candidate_comparison": copy.deepcopy(candidate_list),
+            "recommended_bl_candidate_id": candidate_comparison.get("recommended_candidate_id"),
+            "bl_candidate_recommendation_reason": candidate_comparison.get("recommendation_reason"),
+            "topology_rerun_recommended_after_bl_candidate_application": candidate_comparison.get(
+                "topology_rerun_recommended_after_candidate_application"
+            ),
+            "runtime_apply_gate_disabled": candidate_comparison.get("runtime_apply_gate_disabled", True),
             "runtime_comparison": {
                 "validation_level": "focused_fixture_runtime_probe",
                 "before_failure_kind": before_observed.get("observed_failure_kind"),
@@ -3454,6 +3806,18 @@ def _build_topology_bl_handoff_summary(
                 "Focused fixture probes exercise the route failure path, but failed-Steiner throw-site metadata comes from the forensic artifact when local Gmsh is not patched.",
             ],
         }
+    current_verdict = "topology_attempted_but_bl_policy_blocked" if planning_policy_fail_kinds else (
+        candidate_comparison.get("current_verdict") or "runtime_rerun_required"
+    )
+    if family_payloads:
+        verdicts = [
+            str(payload.get("final_handoff_verdict") or "")
+            for payload in family_payloads.values()
+        ]
+        if "topology_attempted_but_bl_policy_blocked" in verdicts:
+            current_verdict = "topology_attempted_but_bl_policy_blocked"
+        elif any(verdicts):
+            current_verdict = verdicts[0]
     payload = {
         "contract": "topology_bl_handoff_summary.v1",
         "status": "written",
@@ -3461,16 +3825,30 @@ def _build_topology_bl_handoff_summary(
         "runtime_geometry_mutation": False,
         "runtime_bl_spec_mutation": False,
         "artifact_path": str(artifact_path) if artifact_path is not None else None,
+        "current_verdict": current_verdict,
+        "candidate_comparison": copy.deepcopy(candidate_list),
+        "candidate_comparison_table": copy.deepcopy(
+            candidate_comparison.get("candidate_comparison_table", [])
+        ),
+        "recommended_candidate_id": candidate_comparison.get("recommended_candidate_id"),
+        "recommendation_reason": candidate_comparison.get("recommendation_reason"),
+        "topology_rerun_recommended_after_candidate_application": candidate_comparison.get(
+            "topology_rerun_recommended_after_candidate_application"
+        ),
+        "runtime_apply_gate_enabled": candidate_comparison.get("runtime_apply_gate_enabled", False),
+        "runtime_apply_gate_disabled": candidate_comparison.get("runtime_apply_gate_disabled", True),
         "bl_policy": {
             "blocking_kinds": list(blocking_bl_compatibility_check_kinds),
             "fail_kinds": list(planning_policy_fail_kinds),
             "recommended_action_kinds": list(planning_policy_recommendation_kinds),
             "manual_candidate_top_1_3": copy.deepcopy(manual_candidates),
+            "candidate_comparison_contract": candidate_comparison.get("contract"),
         },
         "families": family_payloads,
         "notes": [
             "This summary aligns topology residual/operator evidence with BL budgeting advice for downstream decision-making.",
             "It is not a full prelaunch pass claim.",
+            "BL candidate comparison is planning-only; runtime apply remains disabled.",
         ],
     }
     if artifact_path is not None:
@@ -3717,6 +4095,16 @@ def _run_shell_v4_topology_compiler_plan_only(
             planning_budgeting=planning_budgeting,
         ),
     )
+    bl_candidate_comparison_path = artifact_dir / "bl_stageback_truncation_candidate_comparison.v1.json"
+    bl_candidate_comparison = _build_bl_stageback_truncation_candidate_comparison(
+        planning_budgeting=result.pre_plc_audit.planning_budgeting.model_dump(mode="json"),
+        planning_policy_fail_kinds=list(result.pre_plc_audit.planning_policy_fail_kinds),
+        planning_policy_recommendation_kinds=list(
+            result.pre_plc_audit.planning_policy_recommendation_kinds
+        ),
+        original_layer_count=int(boundary_layer.get("layers") or 0),
+        artifact_path=bl_candidate_comparison_path,
+    )
     handoff_summary_path = artifact_dir / "topology_bl_handoff_summary.v1.json"
     handoff_summary = _build_topology_bl_handoff_summary(
         operator_regression_runs=operator_regression_runs,
@@ -3728,6 +4116,7 @@ def _run_shell_v4_topology_compiler_plan_only(
             result.pre_plc_audit.planning_policy_recommendation_kinds
         ),
         planning_budgeting=result.pre_plc_audit.planning_budgeting.model_dump(mode="json"),
+        bl_candidate_comparison=bl_candidate_comparison,
         artifact_path=handoff_summary_path,
     )
     return {
@@ -3742,9 +4131,11 @@ def _run_shell_v4_topology_compiler_plan_only(
             "operator_plan": str(result.artifacts.operator_plan),
             "pre_plc_audit": str(result.artifacts.pre_plc_audit),
             "summary": str(result.artifacts.summary),
+            "bl_candidate_comparison": str(bl_candidate_comparison_path),
             "handoff_summary": str(handoff_summary_path),
         },
         "handoff_summary": handoff_summary,
+        "bl_candidate_comparison": bl_candidate_comparison,
         "provider_artifacts": {
             "topology_lineage_report": str(topology_lineage_report_path),
             "topology_suppression_report": str(topology_suppression_report_path),

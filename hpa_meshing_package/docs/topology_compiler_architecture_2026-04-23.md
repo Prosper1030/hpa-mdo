@@ -253,12 +253,50 @@ That advice is still intentionally bounded:
 - it does not auto-apply an operator
 - it must stay readable as a separate BL-policy line alongside topology-family progress
 
+## Why the next decision is BL candidate planning, not another operator
+
+The failed-Steiner focused validation now shows an important engineering boundary:
+
+- the residual remains `boundary_recovery_error_2_recoversegment_failed_insert_steiner`
+- the local y band and suspicious window did not shrink after the failed-Steiner operator
+- `degenerated_prism_seen = true`
+- the handoff verdict is `topology_attempted_but_bl_policy_blocked`
+- supporting verdicts include `requires_tip_zone_bl_stageback` and `unresolved_same_failed_steiner_family`
+
+That means the next useful artifact is not a fourth topology operator. The route needs a planning-only
+comparison of BL policy candidates that can answer whether the tip-zone BL budget is the real blocker.
+The comparison must stay separate from the topology-family operator layer and must not be auto-applied
+to `shell_v4`.
+
+The plan-only comparison artifact is:
+
+- `bl_stageback_truncation_candidate_comparison.v1.json`
+
+It compares:
+
+- `baseline`
+- `tip_zone_stageback`
+- `tip_zone_truncation`
+- `split_region_budget`
+- `shrink_total_thickness`
+- `stageback_plus_truncation`
+
+The recommended planning candidate is currently `bl_candidate_stageback_plus_truncation` because it
+attacks both observed symptoms: prism crowding and terminal failed-Steiner recovery. This is still only
+a planning recommendation. It is not a BL spec update, not a production default, not a Gmsh change, and
+not evidence of a full prelaunch pass.
+
+If a future round wants to apply one candidate, it must add an explicit experimental apply gate. The
+default runtime path and the `topology_compiler_gate=off` path must remain no-op with respect to these
+candidate policies.
+
 ## What is intentionally still skeleton / TODO
 
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips
 - no claim that the connector-band operator is fully generalized beyond the one-extra-support-strip family
 - no claim that the new post-band transition prototypes are the final production operators
 - no automatic integration into the live `shell_v4` runtime path yet
+- no automatic application of BL stageback, truncation, split-budget, or shrink-thickness candidates
 
 Those are intentional boundaries, not missing polish.
 
@@ -266,6 +304,6 @@ The point of v1 is to expose the landing zones before another round of family-le
 
 ## Recommended next step after this round
 
-1. Add a reproducible PLC-family fixture set and promote the current placeholder checks into real geometric audits.
-2. Connect one real `shell_v4` family path to `topology_compiler.v1` under a clear feature gate, still plan-only by default.
-3. Implement the first non-reject operator on a bounded family, most likely the truncation connector band or closure-ring fill path with dedicated artifacts.
+1. Inspect the BL candidate comparison artifact and choose whether `stageback_plus_truncation` should get an experimental apply gate.
+2. If and only if that gate exists, run a focused topology rerun on the same failed-Steiner family and compare the y band, suspicious window, and degenerated-prism signal.
+3. Keep topology operator work paused unless the BL candidate rerun proves the same family persists after the BL policy blocker is relieved.
