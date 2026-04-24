@@ -94,10 +94,11 @@ class MotifRegistryV1:
             ),
             "POST_BAND_TRANSITION_BOUNDARY_RECOVERY": MotifRegistryEntryV1(
                 kind="POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
-                admissible_operators=["prototype_regularize_post_transition_boundary_recovery"],
+                admissible_operators=["regularize_recoversegment_failed_steiner_post_band"],
                 reject_conditions=[
                     "family_not_post_transition_guard_split",
                     "missing_boundary_recovery_error_2_blocker",
+                    "overlap_family_still_blocking",
                 ],
                 unsupported_conditions=["boundary_recovery_contact_locus_not_localized"],
                 expected_artifact_keys=[
@@ -363,6 +364,12 @@ class MotifRegistryV1:
         blocking_topology_check_kinds = list(
             getattr(audit_report, "blocking_topology_check_kinds", []) or []
         )
+        boundary_recovery_metrics: Dict[str, Any] = {}
+        if audit_report is not None:
+            for check in getattr(audit_report, "checks", []) or []:
+                if getattr(check, "kind", None) == "boundary_recovery_error_2_risk":
+                    boundary_recovery_metrics = dict(getattr(check, "metrics", {}) or {})
+                    break
         if (
             len(root_support_patches) != 1
             or len(connector_band_patches) != 1
@@ -370,6 +377,7 @@ class MotifRegistryV1:
             or len(transition_terminal_patches) != 1
             or pre_band_support_patches
             or "boundary_recovery_error_2_risk" not in blocking_topology_check_kinds
+            or "facet_facet_overlap_risk" in blocking_topology_check_kinds
         ):
             return []
         entry = self.describe("POST_BAND_TRANSITION_BOUNDARY_RECOVERY")
@@ -404,6 +412,22 @@ class MotifRegistryV1:
                     "transition_guard_span_m": guard_patch.metadata.get("span_interval_m"),
                     "transition_terminal_span_m": terminal_patch.metadata.get("span_interval_m"),
                     "geometry_contact_locus_kind": "post_band_transition_guard_to_tip",
+                    **{
+                        key: boundary_recovery_metrics[key]
+                        for key in (
+                            "residual_family",
+                            "evidence_level",
+                            "throw_site_label",
+                            "throw_site_file",
+                            "throw_site_line",
+                            "local_surface_tags",
+                            "local_y_band",
+                            "suspicious_window",
+                            "sevent_e_type",
+                            "degenerated_prism_seen",
+                        )
+                        if key in boundary_recovery_metrics
+                    },
                 },
                 admissible_operators=entry.admissible_operators,
                 reject_conditions=entry.reject_conditions,

@@ -152,20 +152,25 @@ This round therefore promotes the new line explicitly:
 
 - new observed topology check: `boundary_recovery_error_2_risk`
 - new motif family: `POST_BAND_TRANSITION_BOUNDARY_RECOVERY`
-- new bounded prototype operator: `prototype_regularize_post_transition_boundary_recovery`
+- refined residual family: `boundary_recovery_error_2_recoversegment_failed_insert_steiner`
+- evidence level: `observed_candidate`
+- new bounded operator: `regularize_recoversegment_failed_steiner_post_band`
 
 What this does mean:
 
 - the `error 2` family is now classified and regression-tested as its own post-band transition line
+- throw-site evidence can distinguish recoversegment failed-Steiner from generic `boundary_recovery_error_2`
 - applicability and reject semantics are deterministic
-- artifacts now carry a bounded guard-to-tip relief mutation with before/after interval evidence instead of only quoting a downstream string
-- the current prototype intentionally snaps the relief section to a coarse rounded spanwise location so the mutation stays reproducible and readable
+- artifacts now carry bounded guard / relief / terminal spacing evidence instead of only quoting a downstream string
+- the operator can produce `local_transition_regularization`, `bl_stageback_required`, `tip_truncation_required`, `insufficient_clearance_budget`, or `unresolved_recovery_internal_bailout`
+- BL-stageback / truncation advice remains planning-only and does not mutate runtime BL candidates
 
 What this still does **not** mean:
 
 - not a production repair for boundary recovery
 - not proof of full prelaunch success
 - not evidence that real-wing or whole-case PLC routing is globally solved
+- not full observed contact: the forensic rerun did not provide a `sevent` marker or native `int_point`
 
 ## Downstream residual classifier after relief
 
@@ -175,6 +180,7 @@ instead of only repeating the broad `boundary_recovery_error_2` label.
 
 The current classifier separates:
 
+- `boundary_recovery_error_2_recoversegment_failed_insert_steiner` as `observed_candidate` when the runtime-native throw site is `addsteiner4recoversegment:failed_insert_steiner`
 - `residual_contact_near_tip_terminal` as an inferred residual when the rerun still fails after the relief section narrows the active interval to relief-to-terminal
 - `post_relief_interval_too_short` as inferred or rejected from the post-relief span
 - `relief_section_spacing_insufficient` as inferred or rejected from guard/relief/terminal spacing
@@ -182,10 +188,19 @@ The current classifier separates:
 - `recovery_wire_orientation_conflict` as inferred or rejected from monotone span ordering and positive section chords
 - `post_relief_local_clearance` as inferred or unknown sampling evidence, not as a BL policy mutation
 
-For `root_last3` after the rounded relief section, the report currently infers
-`residual_contact_near_tip_terminal`. The exact Gmsh contact point is still not observed, so that
-family remains inferred from the narrowed relief-to-terminal interval rather than claimed as a native
-face-level diagnosis.
+For `root_last3`, the Patch D forensic rerun now upgrades the residual to
+`boundary_recovery_error_2_recoversegment_failed_insert_steiner` at `observed_candidate` level.
+That is more specific than generic `error 2`, but still weaker than full observed contact because
+there is no `sevent` marker or `int_point`. When the forensic payload is absent, the report keeps the
+older inferred `residual_contact_near_tip_terminal` fallback.
+
+This family must not be routed as:
+
+- an overlap cleanup task
+- a generic segment-facet task
+- a root closure rewrite
+- a whole-wing topology rewrite
+- a random surface-ID patch
 
 ## BL compatibility as planning policy, not topology blame
 

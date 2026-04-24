@@ -15,8 +15,12 @@ OperatorNameV1 = Literal[
     "regularize_truncation_connector_band",
     "prototype_split_post_band_transition",
     "prototype_regularize_post_transition_boundary_recovery",
+    "regularize_recoversegment_failed_steiner_post_band",
     "reject_unsupported_plc_risk_family",
 ]
+
+
+FAILED_STEINER_RESIDUAL_FAMILY = "boundary_recovery_error_2_recoversegment_failed_insert_steiner"
 
 
 class OperatorContractV1(BaseModel):
@@ -103,13 +107,36 @@ class PostTransitionBoundaryRecoveryRegularizationPlanV1(BaseModel):
     transition_terminal_span_m: Optional[float] = None
     geometry_contact_locus_kind: Optional[str] = None
     acts_on_interval_role: str = "post_band_transition_guard_to_tip_terminal"
-    mutation_kind: str = "insert_transition_terminal_relief_section"
+    mutation_kind: str = "regularize_recoversegment_failed_steiner_post_band"
     relief_fraction: float = 0.4
     proposed_relief_y_le_m: Optional[float] = None
     contact_locus_span_m_before: Optional[float] = None
     contact_locus_span_m_after: Optional[float] = None
+    residual_family: Optional[str] = None
+    evidence_level: Optional[str] = None
+    throw_site_label: Optional[str] = None
+    throw_site_file: Optional[str] = None
+    throw_site_line: Optional[int] = None
+    local_surface_tags: List[int] = Field(default_factory=list)
+    local_y_band: List[float] = Field(default_factory=list)
+    suspicious_window: List[float] = Field(default_factory=list)
+    sevent_e_type: Optional[int] = None
+    degenerated_prism_seen: Optional[bool] = None
+    candidate_strategies: List[str] = Field(
+        default_factory=lambda: [
+            "smooth_guard_relief_terminal_spacing",
+            "move_relief_to_terminal_spacing",
+            "stage_back_bl_support_before_tip_terminal_if_budget_blocked",
+            "avoid_collapsed_prism_intervals",
+        ]
+    )
+    runtime_bl_spec_mutation: bool = False
+    bl_policy_blocked: bool = False
+    topology_policy_outcome: str = "topology_regularization_plan_created"
+    recommended_next_action: Dict[str, Any] = Field(default_factory=dict)
+    planning_mode: str = "plan_only_prototype"
     limitation: str = (
-        "prototype_only_narrows_the_guard_to_tip_contact_locus_without_claiming_full_boundary_recovery_repair"
+        "bounded_operator_only_regularizes_the_failed_steiner_post_band_family_without_claiming_full_prelaunch_pass"
     )
 
 
@@ -310,8 +337,30 @@ def _post_transition_boundary_recovery_regularization_plan(
         blocking_topology_check_kinds = list(
             motif_match.predicate_evidence.get("blocking_topology_check_kinds", [])
         )
+    evidence = {
+        key: motif_match.predicate_evidence.get(key)
+        for key in (
+            "residual_family",
+            "evidence_level",
+            "throw_site_label",
+            "throw_site_file",
+            "throw_site_line",
+            "local_surface_tags",
+            "local_y_band",
+            "suspicious_window",
+            "sevent_e_type",
+            "degenerated_prism_seen",
+        )
+        if motif_match.predicate_evidence.get(key) is not None
+    }
+    recommended_next_action = _post_band_recovery_next_action(
+        audit_report=audit_report,
+        residual_family=str(evidence.get("residual_family") or ""),
+    )
 
     reject_reasons: List[str] = []
+    if motif_match.kind != "POST_BAND_TRANSITION_BOUNDARY_RECOVERY":
+        reject_reasons.append("family_not_post_transition_guard_split")
     if len(connector_band_patches) != 1:
         reject_reasons.append("connector_band_patch_count_not_equal_to_one")
     if len(transition_guard_patches) != 1:
@@ -320,6 +369,8 @@ def _post_transition_boundary_recovery_regularization_plan(
         reject_reasons.append("transition_terminal_patch_count_not_equal_to_one")
     if "boundary_recovery_error_2_risk" not in blocking_topology_check_kinds:
         reject_reasons.append("missing_boundary_recovery_error_2_blocker")
+    if "facet_facet_overlap_risk" in blocking_topology_check_kinds:
+        reject_reasons.append("overlap_family_still_blocking")
 
     guard_patch = transition_guard_patches[0] if len(transition_guard_patches) == 1 else None
     terminal_patch = transition_terminal_patches[0] if len(transition_terminal_patches) == 1 else None
@@ -373,7 +424,116 @@ def _post_transition_boundary_recovery_regularization_plan(
         contact_locus_span_m_after=(
             float(narrowed_contact_span) if narrowed_contact_span is not None else None
         ),
+        residual_family=(
+            str(evidence.get("residual_family"))
+            if evidence.get("residual_family") is not None
+            else None
+        ),
+        evidence_level=(
+            str(evidence.get("evidence_level"))
+            if evidence.get("evidence_level") is not None
+            else "inferred"
+        ),
+        throw_site_label=(
+            str(evidence.get("throw_site_label"))
+            if evidence.get("throw_site_label") is not None
+            else None
+        ),
+        throw_site_file=(
+            str(evidence.get("throw_site_file"))
+            if evidence.get("throw_site_file") is not None
+            else None
+        ),
+        throw_site_line=(
+            int(evidence["throw_site_line"])
+            if evidence.get("throw_site_line") is not None
+            else None
+        ),
+        local_surface_tags=[
+            int(tag) for tag in list(evidence.get("local_surface_tags") or [])
+        ],
+        local_y_band=[
+            float(value) for value in list(evidence.get("local_y_band") or [])
+        ],
+        suspicious_window=[
+            float(value) for value in list(evidence.get("suspicious_window") or [])
+        ],
+        sevent_e_type=(
+            int(evidence["sevent_e_type"])
+            if evidence.get("sevent_e_type") is not None
+            else None
+        ),
+        degenerated_prism_seen=(
+            bool(evidence["degenerated_prism_seen"])
+            if evidence.get("degenerated_prism_seen") is not None
+            else None
+        ),
+        bl_policy_blocked=bool(recommended_next_action.get("bl_policy_blocked", False)),
+        topology_policy_outcome=str(
+            recommended_next_action.get("topology_policy_outcome", "topology_regularization_plan_created")
+        ),
+        recommended_next_action={
+            key: value
+            for key, value in recommended_next_action.items()
+            if key not in {"bl_policy_blocked", "topology_policy_outcome"}
+        },
     )
+
+
+def _post_band_recovery_next_action(
+    *,
+    audit_report: Optional[Any],
+    residual_family: str,
+) -> Dict[str, Any]:
+    planning_policy = getattr(audit_report, "planning_policy", None)
+    planning_budgeting = getattr(audit_report, "planning_budgeting", None)
+    recommendation_kinds = list(getattr(planning_policy, "recommendation_kinds", []) or [])
+    if not recommendation_kinds and planning_budgeting is not None:
+        recommendation_kinds = list(getattr(planning_budgeting, "recommendation_kinds", []) or [])
+    bl_policy_blocked = getattr(planning_policy, "verdict", None) == "blocked_by_bl_compatibility"
+    if bl_policy_blocked:
+        alternative_kinds: List[str] = []
+        if "truncate_tip_zone" in recommendation_kinds:
+            alternative_kinds.append("tip_truncation_required")
+        if "shrink_total_thickness" in recommendation_kinds or not recommendation_kinds:
+            alternative_kinds.append("insufficient_clearance_budget")
+        if "stage_back_layers" in recommendation_kinds:
+            kind = "bl_stageback_required"
+        elif "truncate_tip_zone" in recommendation_kinds:
+            kind = "tip_truncation_required"
+            alternative_kinds = [
+                alt for alt in alternative_kinds if alt != "tip_truncation_required"
+            ]
+        else:
+            kind = "insufficient_clearance_budget"
+            alternative_kinds = [
+                alt for alt in alternative_kinds if alt != "insufficient_clearance_budget"
+            ]
+        return {
+            "kind": kind,
+            "alternative_kinds": alternative_kinds,
+            "bl_policy_blocked": True,
+            "topology_policy_outcome": "topology_attempted_but_bl_policy_blocked",
+            "reason": (
+                "Boundary-recovery topology can only be planned because BL clearance/thickness policy "
+                "is already blocking runtime mutation."
+            ),
+        }
+    if residual_family == FAILED_STEINER_RESIDUAL_FAMILY:
+        return {
+            "kind": "local_transition_regularization",
+            "alternative_kinds": [],
+            "bl_policy_blocked": False,
+            "topology_policy_outcome": "topology_regularization_plan_created",
+            "reason": "Recoversegment failed-Steiner evidence points to a bounded post-band transition regularization.",
+        }
+    return {
+        "kind": "unresolved_recovery_internal_bailout",
+        "alternative_kinds": ["local_transition_regularization"],
+        "bl_policy_blocked": False,
+        "topology_policy_outcome": "topology_regularization_plan_created",
+        "reason": "Boundary recovery still lacks throw-site evidence, so the operator keeps an inferred fallback.",
+    }
 
 
 class OperatorLibraryV1:
@@ -440,6 +600,20 @@ class OperatorLibraryV1:
                 notes=[
                     "This executable prototype applies a bounded post-band transition regularization for the boundary-recovery `error 2` family.",
                     "It narrows the guard-to-tip contact locus without claiming full boundary recovery repair.",
+                ],
+            ),
+            "regularize_recoversegment_failed_steiner_post_band": OperatorContractV1(
+                operator_name="regularize_recoversegment_failed_steiner_post_band",
+                implementation_status="implemented",
+                supported_motif_kinds=["POST_BAND_TRANSITION_BOUNDARY_RECOVERY"],
+                expected_artifact_keys=[
+                    "post_transition_boundary_recovery_regularization_plan",
+                    "post_transition_boundary_recovery_regularization_report",
+                ],
+                report_key="post_transition_boundary_recovery_regularization",
+                notes=[
+                    "This bounded operator targets recoversegment failed-Steiner evidence near the post-band tip-terminal interval.",
+                    "It creates a local transition regularization plan and keeps BL policy blocks separate from topology progress.",
                 ],
             ),
             "reject_unsupported_plc_risk_family": OperatorContractV1(
@@ -557,7 +731,10 @@ class OperatorLibraryV1:
                     "The post-band transition prototype rejected this family honestly instead of mutating a non-canonical case.",
                 ],
             )
-        if operator_name == "prototype_regularize_post_transition_boundary_recovery":
+        if operator_name in {
+            "prototype_regularize_post_transition_boundary_recovery",
+            "regularize_recoversegment_failed_steiner_post_band",
+        }:
             boundary_recovery_regularization_plan = _post_transition_boundary_recovery_regularization_plan(
                 motif_match=motif_match,
                 ir=ir,
@@ -577,8 +754,8 @@ class OperatorLibraryV1:
                         )
                     },
                     notes=[
-                        "The executable prototype inserts one deterministic relief section inside the post-band transition terminal interval.",
-                        "A narrowed contact locus is progress evidence, not a claim that the PLC boundary recovery path is fully repaired.",
+                        "The bounded operator plans a smoother guard/relief/terminal transition inside the post-band tip-terminal interval.",
+                        "A narrowed or policy-blocked locus is progress evidence, not a claim that the PLC boundary recovery path is fully repaired.",
                     ],
                 )
             return OperatorResultV1(

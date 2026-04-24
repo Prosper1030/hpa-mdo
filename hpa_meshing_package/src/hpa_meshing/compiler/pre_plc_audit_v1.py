@@ -8,7 +8,8 @@ from .topology_ir_v1 import TopologyIRV1
 
 
 PrePLCAuditStatusV1 = Literal["pass", "warn", "fail", "not_evaluated"]
-PrePLCAuditAssessmentV1 = Literal["observed", "inferred", "placeholder", "unsupported"]
+PrePLCAuditAssessmentV1 = Literal["observed", "observed_candidate", "inferred", "placeholder", "unsupported"]
+PrePLCEvidenceLevelV1 = Literal["observed", "observed_candidate"]
 PlanningPolicyFailKindV1 = Literal["bl_clearance_incompatibility"]
 PlanningPolicyRecommendationKindV1 = Literal[
     "shrink_total_thickness",
@@ -33,6 +34,16 @@ class PrePLCAuditObservedEvidenceV1(BaseModel):
     error_text: str
     selected_section_y_le_m: List[float] = Field(default_factory=list)
     report_path: Optional[str] = None
+    evidence_level: PrePLCEvidenceLevelV1 = "observed"
+    residual_family: Optional[str] = None
+    throw_site_label: Optional[str] = None
+    throw_site_file: Optional[str] = None
+    throw_site_line: Optional[int] = None
+    local_surface_tags: List[int] = Field(default_factory=list)
+    local_y_band: List[float] = Field(default_factory=list)
+    suspicious_window: List[float] = Field(default_factory=list)
+    sevent_e_type: Optional[int] = None
+    degenerated_prism_seen: Optional[bool] = None
     notes: List[str] = Field(default_factory=list)
 
 
@@ -60,10 +71,12 @@ class PrePLCAuditSummaryV1(BaseModel):
     warning_count: int
     not_evaluated_count: int
     observed_count: int
+    observed_candidate_count: int = 0
     inferred_count: int
     placeholder_count: int
     unsupported_count: int
     observed_topology_fail_count: int = 0
+    observed_candidate_topology_fail_count: int = 0
     inferred_topology_fail_count: int = 0
     bl_compatibility_fail_count: int = 0
     planning_policy_fail_count: int = 0
@@ -212,18 +225,43 @@ def _observed_check(
     summary: str,
 ) -> PrePLCAuditCheckV1:
     primary = evidences[0]
+    evidence_metrics = {
+        "evidence_level": primary.evidence_level,
+        "residual_family": primary.residual_family,
+        "throw_site_label": primary.throw_site_label,
+        "throw_site_file": primary.throw_site_file,
+        "throw_site_line": primary.throw_site_line,
+        "local_surface_tags": list(primary.local_surface_tags),
+        "local_y_band": list(primary.local_y_band),
+        "suspicious_window": list(primary.suspicious_window),
+        "sevent_e_type": primary.sevent_e_type,
+        "degenerated_prism_seen": primary.degenerated_prism_seen,
+    }
     return PrePLCAuditCheckV1(
         kind=kind,
         status="fail",
-        assessment="observed",
+        assessment=primary.evidence_level,
         implemented=True,
         summary=summary,
         entity_ids=[evidence.fixture_id for evidence in evidences],
         metrics={
             "observed_fixture_count": len(evidences),
             "selected_section_y_le_m": list(primary.selected_section_y_le_m),
+            **{
+                key: value
+                for key, value in evidence_metrics.items()
+                if value is not None and value != []
+            },
         },
-        notes=[primary.error_text, *list(primary.notes)],
+        notes=[
+            primary.error_text,
+            *(
+                [f"residual_family={primary.residual_family}"]
+                if primary.residual_family
+                else []
+            ),
+            *list(primary.notes),
+        ],
     )
 
 
@@ -318,12 +356,21 @@ def _boundary_recovery_error_2_check(
 ) -> PrePLCAuditCheckV1:
     observed = _observed_evidence_for_kind(config, "boundary_recovery_error_2_risk")
     if observed:
+        has_failed_steiner = any(
+            evidence.residual_family == "boundary_recovery_error_2_recoversegment_failed_insert_steiner"
+            for evidence in observed
+        )
         return _observed_check(
             kind="boundary_recovery_error_2_risk",
             evidences=observed,
             summary=(
-                "Observed post-band transition boundary-recovery `error 2` failure in the "
-                "shell_v4-derived PLC reproducer fixture."
+                "Observed-candidate recoversegment failed-Steiner boundary-recovery `error 2` family "
+                "in the shell_v4-derived PLC reproducer fixture."
+                if has_failed_steiner
+                else (
+                    "Observed post-band transition boundary-recovery `error 2` failure in the "
+                    "shell_v4-derived PLC reproducer fixture."
+                )
             ),
         )
     return PrePLCAuditCheckV1(
@@ -593,6 +640,7 @@ def run_pre_plc_audit_v1(
     warning_count = sum(1 for check in checks if check.status == "warn")
     not_evaluated_count = sum(1 for check in checks if check.status == "not_evaluated")
     observed_count = sum(1 for check in checks if check.assessment == "observed")
+    observed_candidate_count = sum(1 for check in checks if check.assessment == "observed_candidate")
     inferred_count = sum(1 for check in checks if check.assessment == "inferred")
     placeholder_count = sum(1 for check in checks if check.assessment == "placeholder")
     unsupported_count = sum(1 for check in checks if check.assessment == "unsupported")
@@ -600,6 +648,11 @@ def run_pre_plc_audit_v1(
         1
         for check in checks
         if check.status == "fail" and check.assessment == "observed" and _is_topology_check(check.kind)
+    )
+    observed_candidate_topology_fail_count = sum(
+        1
+        for check in checks
+        if check.status == "fail" and check.assessment == "observed_candidate" and _is_topology_check(check.kind)
     )
     inferred_topology_fail_count = sum(
         1
@@ -636,10 +689,12 @@ def run_pre_plc_audit_v1(
             warning_count=warning_count,
             not_evaluated_count=not_evaluated_count,
             observed_count=observed_count,
+            observed_candidate_count=observed_candidate_count,
             inferred_count=inferred_count,
             placeholder_count=placeholder_count,
             unsupported_count=unsupported_count,
             observed_topology_fail_count=observed_topology_fail_count,
+            observed_candidate_topology_fail_count=observed_candidate_topology_fail_count,
             inferred_topology_fail_count=inferred_topology_fail_count,
             bl_compatibility_fail_count=bl_compatibility_fail_count,
             planning_policy_fail_count=len(planning_policy.fail_kinds),

@@ -24,6 +24,7 @@ Before `generate(3)` or later solver-entry claims, this audit should tell us:
 
 - `kind`
 - `status`
+- `assessment`
 - `implemented`
 - `summary`
 - `entity_ids`
@@ -35,8 +36,34 @@ Before `generate(3)` or later solver-entry claims, this audit should tell us:
 - `local_clearance_vs_first_layer_height` is a real guard when both inputs exist
 - `manifold_loop_consistency` is a real consistency check on the inferred IR loops
 - observed topology failures and BL compatibility failures are tracked separately in the summary
+- `observed_candidate` is available for runtime-native evidence that localizes a family but does not expose full contact geometry
 - `extrusion_self_contact_risk` is treated as the BL-thickness / local-clearance compatibility line, not as proof of topology repair success
 - `boundary_recovery_error_2_risk` is reserved for the downstream post-band transition family after the segment-facet string has already been displaced
+
+### Failed-Steiner Boundary-Recovery Family
+
+`boundary_recovery_error_2_risk` is now refined when Gmsh forensic evidence shows:
+
+- `residual_family = boundary_recovery_error_2_recoversegment_failed_insert_steiner`
+- `evidence_level = observed_candidate`
+- `throw_site_label = addsteiner4recoversegment:failed_insert_steiner`
+- `throw_site_file` / `throw_site_line`
+- `local_surface_tags`
+- `local_y_band`
+- `suspicious_window`
+- `sevent_e_type`
+- `degenerated_prism_seen`
+
+This is different from:
+
+- the overlap family, which remains `facet_facet_overlap_risk`
+- the generic segment-facet family, which remains `segment_facet_intersection_risk`
+- generic `boundary_recovery_error_2_risk` without a throw-site payload
+
+The throw-site evidence is stronger than a plain error string, so it is `observed_candidate`.
+It is not full `observed` contact because the forensic rerun did not expose a `sevent` marker or
+native `int_point` contact coordinate. If this payload is absent, the audit preserves the older
+inferred / generic fallback instead of requiring this specific debug run.
 
 ## BL Clearance Compatibility Gate
 

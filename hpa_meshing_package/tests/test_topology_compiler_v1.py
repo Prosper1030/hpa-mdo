@@ -24,9 +24,7 @@ from hpa_meshing.compiler.topology_ir_v1 import (
     LocalTopologyDescriptorsV1,
     SectionLineageV1,
     TopologyAdjacencyGraphV1,
-    TopologyCurveV1,
     TopologyIRV1,
-    TopologyLoopV1,
     TopologyPatchV1,
     TopologySeamAdjacencyV1,
     TopologyClosureAdjacencyV1,
@@ -672,9 +670,9 @@ def test_post_transition_boundary_recovery_error_2_family_is_structured():
         for match in registry.detect(ir, audit_report=audit).matches
         if match.kind == "POST_BAND_TRANSITION_BOUNDARY_RECOVERY"
     )
-    assert match.admissible_operators == ["prototype_regularize_post_transition_boundary_recovery"]
+    assert match.admissible_operators == ["regularize_recoversegment_failed_steiner_post_band"]
     result = library.execute(
-        "prototype_regularize_post_transition_boundary_recovery",
+        "regularize_recoversegment_failed_steiner_post_band",
         match,
         ir,
         audit_report=audit,
@@ -692,10 +690,206 @@ def test_post_transition_boundary_recovery_error_2_family_is_structured():
     assert plan["geometry_contact_locus_kind"] == "post_band_transition_guard_to_tip"
     assert plan["transition_guard_patch_ids"] == ["patch:fixture_band:2:3"]
     assert plan["transition_terminal_patch_ids"] == ["patch:fixture_band:3:4"]
-    assert plan["mutation_kind"] == "insert_transition_terminal_relief_section"
+    assert plan["mutation_kind"] == "regularize_recoversegment_failed_steiner_post_band"
     assert plan["acts_on_interval_role"] == "post_band_transition_guard_to_tip_terminal"
+    assert plan["recommended_next_action"]["kind"] == "unresolved_recovery_internal_bailout"
     assert plan["proposed_relief_y_le_m"] == pytest.approx(15.9)
     assert plan["contact_locus_span_m_after"] < plan["contact_locus_span_m_before"]
+
+
+def test_post_transition_boundary_recovery_failed_steiner_evidence_is_observed_candidate():
+    ir = _build_post_transition_boundary_recovery_ir()
+    audit = run_pre_plc_audit_v1(
+        ir,
+        config=PrePLCAuditConfigV1(
+            observed_evidence=[
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last3_post_transition_error2",
+                    check_kind="boundary_recovery_error_2_risk",
+                    error_text="Error   : Could not recover boundary mesh: error 2",
+                    selected_section_y_le_m=[
+                        0.0,
+                        14.992006138888888,
+                        14.998333333333333,
+                        15.498888888888889,
+                        16.5,
+                    ],
+                    evidence_level="observed_candidate",
+                    residual_family="boundary_recovery_error_2_recoversegment_failed_insert_steiner",
+                    throw_site_label="addsteiner4recoversegment:failed_insert_steiner",
+                    throw_site_file="/tmp/gmsh-forensics/src/mesh/tetgenBR.cxx",
+                    throw_site_line=12860,
+                    local_surface_tags=[13, 14, 15, 16, 17, 18, 19],
+                    local_y_band=[14.9983332, 16.5000001],
+                    suspicious_window=[15.4, 16.6],
+                    sevent_e_type=0,
+                    degenerated_prism_seen=True,
+                )
+            ]
+        ),
+    )
+    checks = {check.kind: check for check in audit.checks}
+    registry = MotifRegistryV1()
+    library = OperatorLibraryV1()
+
+    match = next(
+        match
+        for match in registry.detect(ir, audit_report=audit).matches
+        if match.kind == "POST_BAND_TRANSITION_BOUNDARY_RECOVERY"
+    )
+    result = library.execute(
+        "regularize_recoversegment_failed_steiner_post_band",
+        match,
+        ir,
+        audit_report=audit,
+    )
+
+    assert checks["boundary_recovery_error_2_risk"].assessment == "observed_candidate"
+    assert checks["boundary_recovery_error_2_risk"].metrics["residual_family"] == (
+        "boundary_recovery_error_2_recoversegment_failed_insert_steiner"
+    )
+    assert audit.summary.observed_candidate_topology_fail_count == 1
+    assert match.admissible_operators == ["regularize_recoversegment_failed_steiner_post_band"]
+    assert match.predicate_evidence["residual_family"] == (
+        "boundary_recovery_error_2_recoversegment_failed_insert_steiner"
+    )
+    assert match.predicate_evidence["evidence_level"] == "observed_candidate"
+    assert match.predicate_evidence["throw_site_label"] == (
+        "addsteiner4recoversegment:failed_insert_steiner"
+    )
+    assert match.predicate_evidence["local_surface_tags"] == [13, 14, 15, 16, 17, 18, 19]
+    assert match.predicate_evidence["local_y_band"] == pytest.approx([14.9983332, 16.5000001])
+    assert match.predicate_evidence["suspicious_window"] == pytest.approx([15.4, 16.6])
+    assert match.predicate_evidence["sevent_e_type"] == 0
+    assert match.predicate_evidence["degenerated_prism_seen"] is True
+    assert result.status == "applied"
+    plan = result.details["boundary_recovery_regularization_plan"]
+    assert plan["residual_family"] == "boundary_recovery_error_2_recoversegment_failed_insert_steiner"
+    assert plan["evidence_level"] == "observed_candidate"
+    assert plan["throw_site_line"] == 12860
+    assert plan["recommended_next_action"]["kind"] == "local_transition_regularization"
+    assert plan["topology_policy_outcome"] == "topology_regularization_plan_created"
+    assert plan["runtime_bl_spec_mutation"] is False
+    assert plan["candidate_strategies"] == [
+        "smooth_guard_relief_terminal_spacing",
+        "move_relief_to_terminal_spacing",
+        "stage_back_bl_support_before_tip_terminal_if_budget_blocked",
+        "avoid_collapsed_prism_intervals",
+    ]
+
+
+def test_recoversegment_failed_steiner_operator_keeps_bl_policy_separate():
+    base_ir = _build_post_transition_boundary_recovery_ir()
+    ir = base_ir.model_copy(
+        update={
+            "patches": [
+                patch.model_copy(
+                    update={
+                        "local_descriptors": patch.local_descriptors.model_copy(
+                            update={"local_clearance_m": 0.005}
+                        )
+                    }
+                )
+                for patch in base_ir.patches
+            ]
+        }
+    )
+    audit = run_pre_plc_audit_v1(
+        ir,
+        config=PrePLCAuditConfigV1(
+            total_boundary_layer_thickness_m=0.03617304985338917,
+            planning_budgeting=PlanningBudgetingV1(
+                status="available",
+                total_bl_thickness_m=0.03617304985338917,
+                recommendation_kinds=[
+                    "stage_back_layers",
+                    "truncate_tip_zone",
+                    "shrink_total_thickness",
+                ],
+            ),
+            observed_evidence=[
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last3_post_transition_error2",
+                    check_kind="boundary_recovery_error_2_risk",
+                    error_text="Error   : Could not recover boundary mesh: error 2",
+                    selected_section_y_le_m=[
+                        0.0,
+                        14.992006138888888,
+                        14.998333333333333,
+                        15.498888888888889,
+                        16.5,
+                    ],
+                    evidence_level="observed_candidate",
+                    residual_family="boundary_recovery_error_2_recoversegment_failed_insert_steiner",
+                    throw_site_label="addsteiner4recoversegment:failed_insert_steiner",
+                    local_y_band=[14.9983332, 16.5000001],
+                    suspicious_window=[15.4, 16.6],
+                    degenerated_prism_seen=True,
+                )
+            ],
+        ),
+    )
+    match = next(
+        match
+        for match in MotifRegistryV1().detect(ir, audit_report=audit).matches
+        if match.kind == "POST_BAND_TRANSITION_BOUNDARY_RECOVERY"
+    )
+    result = OperatorLibraryV1().execute(
+        "regularize_recoversegment_failed_steiner_post_band",
+        match,
+        ir,
+        audit_report=audit,
+    )
+
+    plan = result.details["boundary_recovery_regularization_plan"]
+    assert audit.blocking_topology_check_kinds == ["boundary_recovery_error_2_risk"]
+    assert audit.blocking_bl_compatibility_check_kinds == ["extrusion_self_contact_risk"]
+    assert audit.planning_policy_fail_kinds == ["bl_clearance_incompatibility"]
+    assert plan["bl_policy_blocked"] is True
+    assert plan["topology_policy_outcome"] == "topology_attempted_but_bl_policy_blocked"
+    assert plan["recommended_next_action"]["kind"] == "bl_stageback_required"
+    assert plan["recommended_next_action"]["alternative_kinds"] == [
+        "tip_truncation_required",
+        "insufficient_clearance_budget",
+    ]
+    assert plan["runtime_bl_spec_mutation"] is False
+
+
+def test_post_transition_boundary_recovery_rejects_overlap_family_even_with_error2_evidence():
+    ir = _build_post_transition_boundary_recovery_ir()
+    audit = run_pre_plc_audit_v1(
+        ir,
+        config=PrePLCAuditConfigV1(
+            observed_evidence=[
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last4_overlap",
+                    check_kind="facet_facet_overlap_risk",
+                    error_text="Invalid boundary mesh (overlapping facets) on surface 30 surface 34",
+                    selected_section_y_le_m=[0.0, 13.5, 14.992006, 14.998333, 16.5],
+                ),
+                PrePLCAuditObservedEvidenceV1(
+                    fixture_id="shell_v4_pre_plc::root_last3_post_transition_error2",
+                    check_kind="boundary_recovery_error_2_risk",
+                    error_text="Error   : Could not recover boundary mesh: error 2",
+                    selected_section_y_le_m=[
+                        0.0,
+                        14.992006138888888,
+                        14.998333333333333,
+                        15.498888888888889,
+                        16.5,
+                    ],
+                    evidence_level="observed_candidate",
+                    residual_family="boundary_recovery_error_2_recoversegment_failed_insert_steiner",
+                    throw_site_label="addsteiner4recoversegment:failed_insert_steiner",
+                ),
+            ],
+        ),
+    )
+
+    matches = MotifRegistryV1().detect(ir, audit_report=audit).matches
+
+    assert "facet_facet_overlap_risk" in audit.blocking_topology_check_kinds
+    assert not any(match.kind == "POST_BAND_TRANSITION_BOUNDARY_RECOVERY" for match in matches)
 
 
 def test_pre_plc_audit_v1_reports_required_checks_and_fails_clearance_guard():

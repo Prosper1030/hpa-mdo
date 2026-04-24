@@ -3,7 +3,6 @@ from __future__ import annotations
 import bisect
 import copy
 import csv
-import json
 import math
 import statistics
 import subprocess
@@ -22,7 +21,7 @@ from .adapters.su2_backend import (
 )
 from .compiler.compiler_v1 import compile_topology_family_v1
 from .compiler.motif_registry_v1 import MotifRegistryV1
-from .compiler.operator_library_v1 import OperatorLibraryV1
+from .compiler.operator_library_v1 import FAILED_STEINER_RESIDUAL_FAMILY, OperatorLibraryV1
 from .compiler.pre_plc_audit_v1 import (
     PlanningManualEditCandidateV1,
     PlanningBudgetRecommendationV1,
@@ -34,7 +33,7 @@ from .compiler.pre_plc_audit_v1 import (
     run_pre_plc_audit_v1,
 )
 from .compiler.topology_ir_v1 import build_topology_ir_v1
-from .gmsh_runtime import GmshRuntimeError, load_gmsh
+from .gmsh_runtime import load_gmsh
 from .providers.esp_pipeline import (
     _apply_terminal_strip_suppression,
     _build_native_rebuild_model,
@@ -70,6 +69,91 @@ PRE_PLC_REPRO_FAMILY_CONFIGS: dict[str, dict[str, Any]] = {
         "expected_error_substrings": ["Invalid boundary mesh (overlapping facets)"],
     },
 }
+
+
+def _normalize_recoversegment_failed_steiner_evidence(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    residual_family = str(payload.get("residual_family") or payload.get("family") or "")
+    throw_site_label = str(payload.get("throw_site_label") or "")
+    if (
+        residual_family != FAILED_STEINER_RESIDUAL_FAMILY
+        and throw_site_label != "addsteiner4recoversegment:failed_insert_steiner"
+    ):
+        return {}
+    normalized: dict[str, Any] = {
+        "residual_family": FAILED_STEINER_RESIDUAL_FAMILY,
+        "evidence_level": str(payload.get("evidence_level") or "observed_candidate"),
+        "throw_site_label": throw_site_label or None,
+        "throw_site_file": (
+            str(payload.get("throw_site_file"))
+            if payload.get("throw_site_file") is not None
+            else None
+        ),
+        "throw_site_line": (
+            int(payload["throw_site_line"])
+            if payload.get("throw_site_line") is not None
+            else None
+        ),
+        "local_surface_tags": [
+            int(tag) for tag in list(payload.get("local_surface_tags") or [])
+        ],
+        "local_y_band": [
+            float(value) for value in list(payload.get("local_y_band") or [])
+        ],
+        "suspicious_window": [
+            float(value) for value in list(payload.get("suspicious_window") or [])
+        ],
+        "sevent_e_type": (
+            int(payload["sevent_e_type"])
+            if payload.get("sevent_e_type") is not None
+            else None
+        ),
+        "degenerated_prism_seen": (
+            bool(payload["degenerated_prism_seen"])
+            if payload.get("degenerated_prism_seen") is not None
+            else None
+        ),
+    }
+    return {key: value for key, value in normalized.items() if value is not None and value != []}
+
+
+def _recoversegment_failed_steiner_evidence_from_observed(observed: Any) -> dict[str, Any]:
+    if not isinstance(observed, dict):
+        return {}
+    for key in (
+        "forensic_evidence",
+        "boundary_recovery_forensic_evidence",
+        "recoversegment_failed_steiner_evidence",
+    ):
+        normalized = _normalize_recoversegment_failed_steiner_evidence(observed.get(key))
+        if normalized:
+            return normalized
+    route_result = observed.get("route_result")
+    if isinstance(route_result, dict):
+        for key in (
+            "forensic_evidence",
+            "boundary_recovery_forensic_evidence",
+            "recoversegment_failed_steiner_evidence",
+        ):
+            normalized = _normalize_recoversegment_failed_steiner_evidence(route_result.get(key))
+            if normalized:
+                return normalized
+        topology_checks = route_result.get("topology_checks")
+        if isinstance(topology_checks, dict):
+            normalized = _normalize_recoversegment_failed_steiner_evidence(
+                topology_checks.get("recoversegment_failed_steiner")
+            )
+            if normalized:
+                return normalized
+    error_text = str(observed.get("error") or "")
+    if "addsteiner4recoversegment:failed_insert_steiner" in error_text:
+        return _normalize_recoversegment_failed_steiner_evidence(
+            {
+                "throw_site_label": "addsteiner4recoversegment:failed_insert_steiner",
+            }
+        )
+    return {}
 
 
 @dataclass(frozen=True)
@@ -2363,6 +2447,7 @@ def _pre_plc_observed_check_kind_from_failure_kind(
         "segment_facet_intersection": "segment_facet_intersection_risk",
         "facet_facet_overlap": "facet_facet_overlap_risk",
         "boundary_recovery_error_2": "boundary_recovery_error_2_risk",
+        FAILED_STEINER_RESIDUAL_FAMILY: "boundary_recovery_error_2_risk",
     }
     return mapping.get(str(observed_failure_kind or ""))
 
@@ -2449,6 +2534,13 @@ def _classify_boundary_recovery_error_2_downstream_residual(
     observed_failure_kind: str,
     error_text: str,
 ) -> dict[str, Any]:
+    forensic_evidence = _normalize_recoversegment_failed_steiner_evidence(
+        fixture.get("boundary_recovery_forensic_evidence")
+    )
+    if not forensic_evidence:
+        forensic_evidence = _normalize_recoversegment_failed_steiner_evidence(
+            dict(fixture.get("post_transition_boundary_recovery_seed") or {}).get("forensic_evidence")
+        )
     selected_y = [
         float(value)
         for value in fixture.get("selected_section_y_le_m", [])
@@ -2522,6 +2614,16 @@ def _classify_boundary_recovery_error_2_downstream_residual(
 
     evidence = {
         "selected_section_y_le_m": selected_y,
+        "residual_family": forensic_evidence.get("residual_family"),
+        "evidence_level": forensic_evidence.get("evidence_level"),
+        "throw_site_label": forensic_evidence.get("throw_site_label"),
+        "throw_site_file": forensic_evidence.get("throw_site_file"),
+        "throw_site_line": forensic_evidence.get("throw_site_line"),
+        "local_surface_tags": list(forensic_evidence.get("local_surface_tags") or []),
+        "local_y_band": list(forensic_evidence.get("local_y_band") or []),
+        "suspicious_window": list(forensic_evidence.get("suspicious_window") or []),
+        "sevent_e_type": forensic_evidence.get("sevent_e_type"),
+        "degenerated_prism_seen": forensic_evidence.get("degenerated_prism_seen"),
         "guard_y_le_m": guard_y,
         "relief_y_le_m": relief_y,
         "terminal_y_le_m": terminal_y,
@@ -2580,7 +2682,10 @@ def _classify_boundary_recovery_error_2_downstream_residual(
         or guard_to_tip_span is None
         or guard_to_tip_span <= 0.0
     )
-    if missing_relief_context:
+    if forensic_evidence.get("residual_family") == FAILED_STEINER_RESIDUAL_FAMILY:
+        classification_status = "observed_candidate"
+        primary_family = FAILED_STEINER_RESIDUAL_FAMILY
+    elif missing_relief_context:
         classification_status = "unknown"
         primary_family = "boundary_recovery_error_2_residual_unknown"
     else:
@@ -2603,8 +2708,35 @@ def _classify_boundary_recovery_error_2_downstream_residual(
     )
     classifications = [
         _entry(
+            family=FAILED_STEINER_RESIDUAL_FAMILY,
+            status=(
+                "observed_candidate"
+                if forensic_evidence.get("residual_family") == FAILED_STEINER_RESIDUAL_FAMILY
+                else "unknown"
+            ),
+            reason=(
+                "Gmsh throw-site evidence points to addsteiner4recoversegment failing to insert a Steiner point "
+                "during segment recovery near the post-band tip-terminal interval."
+            ),
+            evidence_fields=[
+                "evidence_level",
+                "throw_site_label",
+                "throw_site_file",
+                "throw_site_line",
+                "local_surface_tags",
+                "local_y_band",
+                "suspicious_window",
+                "sevent_e_type",
+                "degenerated_prism_seen",
+            ],
+        ),
+        _entry(
             family="residual_contact_near_tip_terminal",
-            status="unknown" if missing_relief_context else "inferred",
+            status=(
+                "rejected"
+                if forensic_evidence.get("residual_family") == FAILED_STEINER_RESIDUAL_FAMILY
+                else "unknown" if missing_relief_context else "inferred"
+            ),
             reason=(
                 "Boundary recovery still fails after the bounded relief section, so the residual locus is inferred "
                 "inside the narrowed relief-to-terminal interval."
@@ -2695,7 +2827,12 @@ def _classify_boundary_recovery_error_2_downstream_residual(
         "classifications": classifications,
         "notes": [
             "This classifier is reporting-only and does not add or apply a second repair operator.",
-            "Observed Gmsh text does not expose an exact contact point, so the terminal residual locus is inferred from the bounded relief interval.",
+            (
+                "Runtime-native throw-site evidence upgrades this family to observed_candidate, but no sevent marker "
+                "or int_point was captured, so this is not full observed contact."
+                if forensic_evidence
+                else "Observed Gmsh text does not expose an exact contact point, so the terminal residual locus is inferred from the bounded relief interval."
+            ),
         ],
     }
 
@@ -2710,6 +2847,11 @@ def _build_pre_plc_audit_for_fixture_baseline(
     observed_failure_kind = str((baseline_observed or {}).get("observed_failure_kind") or "")
     check_kind = _pre_plc_observed_check_kind_from_failure_kind(observed_failure_kind)
     if check_kind is not None:
+        forensic_evidence = (
+            _recoversegment_failed_steiner_evidence_from_observed(baseline_observed)
+            if check_kind == "boundary_recovery_error_2_risk"
+            else {}
+        )
         observed_evidence.append(
             PrePLCAuditObservedEvidenceV1(
                 fixture_id=str(fixture.get("fixture_id") or ""),
@@ -2719,7 +2861,24 @@ def _build_pre_plc_audit_for_fixture_baseline(
                     float(value) for value in fixture.get("selected_section_y_le_m", [])
                 ],
                 report_path=str((baseline_observed or {}).get("report_path") or ""),
-                notes=[f"observed_failure_kind={observed_failure_kind}"],
+                evidence_level=str(forensic_evidence.get("evidence_level") or "observed"),
+                residual_family=forensic_evidence.get("residual_family"),
+                throw_site_label=forensic_evidence.get("throw_site_label"),
+                throw_site_file=forensic_evidence.get("throw_site_file"),
+                throw_site_line=forensic_evidence.get("throw_site_line"),
+                local_surface_tags=list(forensic_evidence.get("local_surface_tags") or []),
+                local_y_band=list(forensic_evidence.get("local_y_band") or []),
+                suspicious_window=list(forensic_evidence.get("suspicious_window") or []),
+                sevent_e_type=forensic_evidence.get("sevent_e_type"),
+                degenerated_prism_seen=forensic_evidence.get("degenerated_prism_seen"),
+                notes=[
+                    f"observed_failure_kind={observed_failure_kind}",
+                    *(
+                        ["forensic_family=recoversegment_failed_insert_steiner"]
+                        if forensic_evidence
+                        else []
+                    ),
+                ],
             )
         )
     return run_pre_plc_audit_v1(
@@ -2885,10 +3044,10 @@ def _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
         None,
     )
     if motif_match is None:
-        contract = OperatorLibraryV1().describe("prototype_regularize_post_transition_boundary_recovery")
+        contract = OperatorLibraryV1().describe("regularize_recoversegment_failed_steiner_post_band")
         operator_result = {
             "contract": "operator_result.v1",
-            "operator_name": "prototype_regularize_post_transition_boundary_recovery",
+            "operator_name": "regularize_recoversegment_failed_steiner_post_band",
             "motif_kind": "POST_BAND_TRANSITION_BOUNDARY_RECOVERY",
             "status": "rejected",
             "applied": False,
@@ -2911,7 +3070,7 @@ def _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
         transformed_fixture = copy.deepcopy(fixture)
     else:
         operator_result_model = OperatorLibraryV1().execute(
-            "prototype_regularize_post_transition_boundary_recovery",
+            "regularize_recoversegment_failed_steiner_post_band",
             motif_match,
             topology_ir,
             audit_report=audit_report,
@@ -2919,6 +3078,7 @@ def _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
         operator_result = operator_result_model.model_dump(mode="json")
         transformed_fixture = copy.deepcopy(fixture)
         original_sections = [copy.deepcopy(section) for section in fixture.get("geometry", {}).get("sections", [])]
+        forensic_evidence = _recoversegment_failed_steiner_evidence_from_observed(baseline_observed)
         if operator_result_model.applied:
             relief_y = operator_result["details"]["boundary_recovery_regularization_plan"].get(
                 "proposed_relief_y_le_m"
@@ -2936,8 +3096,13 @@ def _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
             transformed_fixture["post_transition_boundary_recovery_seed"] = {
                 "enabled": True,
                 "relief_y_le_m": float(relief_y) if relief_y is not None else None,
-                "source_operator": "prototype_regularize_post_transition_boundary_recovery",
+                "source_operator": "regularize_recoversegment_failed_steiner_post_band",
             }
+            if forensic_evidence:
+                transformed_fixture["boundary_recovery_forensic_evidence"] = dict(forensic_evidence)
+                transformed_fixture["post_transition_boundary_recovery_seed"][
+                    "forensic_evidence"
+                ] = dict(forensic_evidence)
             operator_result["details"]["boundary_recovery_regularization_plan"][
                 "inserted_section"
             ] = bool(insertion_record.get("inserted_section", False))
