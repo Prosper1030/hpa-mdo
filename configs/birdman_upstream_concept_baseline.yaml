@@ -54,9 +54,10 @@ stall_model:
   tip_taper_penalty_weight: 0.35
   washout_relief_deg: 2.0
   washout_relief_max: 0.02
-  local_stall_utilization_limit: 0.80
-  turn_utilization_limit: 0.85
-  launch_utilization_limit: 0.75
+  local_stall_utilization_limit: 0.75
+  turn_utilization_limit: 0.75
+  launch_utilization_limit: 0.85
+  slow_speed_report_utilization_limit: 0.85
 
 prop:
   blade_count: 2

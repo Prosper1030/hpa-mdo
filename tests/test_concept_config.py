@@ -37,9 +37,10 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.stall_model.tip_taper_penalty_weight == pytest.approx(0.35)
     assert cfg.stall_model.washout_relief_deg == pytest.approx(2.0)
     assert cfg.stall_model.washout_relief_max == pytest.approx(0.02)
-    assert cfg.stall_model.local_stall_utilization_limit == pytest.approx(0.80)
-    assert cfg.stall_model.turn_utilization_limit == pytest.approx(0.85)
-    assert cfg.stall_model.launch_utilization_limit == pytest.approx(0.75)
+    assert cfg.stall_model.local_stall_utilization_limit == pytest.approx(0.75)
+    assert cfg.stall_model.turn_utilization_limit == pytest.approx(0.75)
+    assert cfg.stall_model.launch_utilization_limit == pytest.approx(0.85)
+    assert cfg.stall_model.slow_speed_report_utilization_limit == pytest.approx(0.85)
     assert cfg.prop.blade_count == 2
     assert cfg.prop.diameter_m == pytest.approx(3.0)
     assert cfg.prop.rpm_min == pytest.approx(100.0)
@@ -199,26 +200,28 @@ def test_load_concept_config_rejects_legacy_launch_min_stall_margin_field():
         )
 
 
-def test_stall_model_utilization_limits_must_be_ordered():
-    with pytest.raises(ValueError, match="stall_model"):
-        BirdmanConceptConfig.model_validate(
-            {
-                "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
-                "mass": {
-                    "pilot_mass_kg": 60.0,
-                    "baseline_aircraft_mass_kg": 40.0,
-                    "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
-                },
-                "mission": {"target_distance_km": 42.195},
-                "stall_model": {
-                    "safe_clmax_scale": 0.90,
-                    "safe_clmax_delta": 0.05,
-                    "launch_utilization_limit": 0.85,
-                    "turn_utilization_limit": 0.80,
-                    "local_stall_utilization_limit": 0.75,
-                },
-            }
-        )
+def test_stall_model_allows_launch_transient_limit_above_cruise_limit():
+    cfg = BirdmanConceptConfig.model_validate(
+        {
+            "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+            "mass": {
+                "pilot_mass_kg": 60.0,
+                "baseline_aircraft_mass_kg": 40.0,
+                "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+            },
+            "mission": {"target_distance_km": 42.195},
+            "stall_model": {
+                "safe_clmax_scale": 0.90,
+                "safe_clmax_delta": 0.05,
+                "launch_utilization_limit": 0.85,
+                "turn_utilization_limit": 0.75,
+                "local_stall_utilization_limit": 0.75,
+                "slow_speed_report_utilization_limit": 0.85,
+            },
+        }
+    )
+
+    assert cfg.stall_model.launch_utilization_limit == pytest.approx(0.85)
 
 
 def test_load_concept_config_rejects_inverted_speed_sweep_bounds():

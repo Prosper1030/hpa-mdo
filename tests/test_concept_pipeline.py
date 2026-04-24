@@ -1199,7 +1199,12 @@ def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
         "trim_not_feasible",
     }
     assert concept_summary["trim"]["status"] in {"ok", "trim_margin_insufficient"}
-    assert concept_summary["local_stall"]["status"] in {"ok", "stall_utilization_exceeded"}
+    assert concept_summary["local_stall"]["status"] in {
+        "ok",
+        "stall_utilization_exceeded",
+        "beyond_safe_clmax",
+        "beyond_raw_clmax",
+    }
     assert isinstance(concept_summary["launch"]["cl_required"], float)
     assert isinstance(concept_summary["turn"]["required_cl"], float)
     assert isinstance(concept_summary["trim"]["margin_deg"], float)
@@ -1340,7 +1345,7 @@ def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
     first = _first_ranked_record(summary)
 
-    assert first["launch"]["gross_mass_kg"] == pytest.approx(105.0)
+    assert first["launch"]["gross_mass_kg"] == pytest.approx(first["mission"]["evaluated_gross_mass_kg"])
     assert first["launch"]["cl_available_source"] == "airfoil_safe_lower_bound"
     assert first["turn"]["cl_max_source"] == "airfoil_safe_lower_bound"
     assert first["trim"]["representative_cm_source"] == "airfoil_near_target"
@@ -1641,16 +1646,16 @@ def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
     )
 
     assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(6.5)
-    assert mission["best_range_speed_mps"] == pytest.approx(7.0)
+    assert mission["best_range_speed_mps"] == pytest.approx(7.5)
     assert mission["best_range_m"] < mission["best_range_unconstrained_m"]
     assert len(mission["power_margin_w_by_speed"]) == len(mission["power_required_w"])
     assert mission["best_power_margin_unconstrained_w"] == pytest.approx(
         max(mission["power_margin_w_by_speed"])
     )
     assert mission["best_power_margin_w"] is not None
-    assert mission["feasible_speed_set_mps"] == pytest.approx([7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0])
+    assert mission["feasible_speed_set_mps"] == pytest.approx([7.5, 8.0, 8.5, 9.0, 9.5, 10.0])
     assert mission["operating_point_status"] == "filtered_to_feasible_speeds"
-    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(0.5)
+    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(1.0)
 
 
 def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() -> None:
@@ -1954,6 +1959,67 @@ def test_local_stall_summary_reports_envelope_to_clear_limit() -> None:
     assert local_stall["delta_gross_mass_for_limit_kg"] == pytest.approx(required_gross_mass_kg - 105.0)
 
 
+def test_local_stall_summary_keeps_slow_case_report_only() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+    local_stall = concept_pipeline._summarize_local_stall(
+        cfg=cfg,
+        concept=concept,
+        station_points=[
+            {
+                "case_label": "reference_avl_case",
+                "station_y_m": 4.0,
+                "cl_target": 0.70,
+                "cl_max_safe": 1.20,
+                "cl_max_raw": 1.45,
+                "reference_speed_mps": 7.5,
+                "evaluation_speed_mps": 7.5,
+                "reference_gross_mass_kg": 105.0,
+                "evaluation_gross_mass_kg": 105.0,
+            },
+            {
+                "case_label": "slow_avl_case",
+                "station_y_m": 4.0,
+                "cl_target": 1.30,
+                "cl_max_safe": 1.20,
+                "cl_max_raw": 1.45,
+                "reference_speed_mps": 7.5,
+                "evaluation_speed_mps": 6.0,
+                "reference_gross_mass_kg": 105.0,
+                "evaluation_gross_mass_kg": 105.0,
+            },
+        ],
+        mission_summary={
+            "best_range_speed_mps": 7.5,
+            "evaluated_gross_mass_kg": 105.0,
+        },
+    )
+
+    slow_case = next(
+        case for case in local_stall["case_results"] if case["case_label"] == "slow_avl_case"
+    )
+    assert local_stall["feasible"] is True
+    assert local_stall["evaluation_case"] == "reference_avl_case"
+    assert local_stall["worst_report_case"] == "slow_avl_case"
+    assert slow_case["case_role"] == "slow_speed_sensitivity"
+    assert slow_case["gate_enforced"] is False
+    assert slow_case["report_only"] is True
+    assert slow_case["feasible"] is False
+    assert slow_case["hard_gate_feasible"] is True
+    assert slow_case["status"] == "beyond_safe_clmax"
+
+
 def test_turn_summary_marks_fixed_bank_case_as_screening_only() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(
@@ -2197,7 +2263,7 @@ def test_pipeline_excludes_safety_infeasible_concepts_from_selected_summary(
     payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     payload["pipeline"]["keep_top_n"] = 2
     payload["output"]["export_candidate_bundle"] = False
-    payload["mission"]["target_distance_km"] = 1.0
+    payload["mission"]["target_distance_km"] = 0.1
     custom_cfg = tmp_path / "concept_safety_split.yaml"
     custom_cfg.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
@@ -2468,7 +2534,12 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
         "trim_not_feasible",
     }
     assert first["trim"]["status"] in {"ok", "trim_margin_insufficient"}
-    assert first["local_stall"]["status"] in {"ok", "stall_utilization_exceeded"}
+    assert first["local_stall"]["status"] in {
+        "ok",
+        "stall_utilization_exceeded",
+        "beyond_safe_clmax",
+        "beyond_raw_clmax",
+    }
 
 
 def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:

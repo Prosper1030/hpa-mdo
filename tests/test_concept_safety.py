@@ -367,3 +367,70 @@ def test_local_stall_uses_the_limiting_station_even_if_other_points_look_safer()
     assert result.min_margin_station_y_m == pytest.approx(14.0)
     assert result.tip_critical is True
     assert result.reason == "stall_utilization_exceeded"
+
+
+def test_local_stall_uses_ratio_limiter_not_smallest_absolute_margin() -> None:
+    result = evaluate_local_stall(
+        station_points=[
+            {"station_y_m": 2.0, "cl_target": 1.80, "cl_max_safe": 2.00},
+            {"station_y_m": 14.0, "cl_target": 0.10, "cl_max_safe": 0.20},
+        ],
+        half_span_m=16.0,
+        stall_utilization_limit=0.85,
+    )
+
+    assert result.feasible is False
+    assert result.required_cl == pytest.approx(1.80)
+    assert result.cl_max == pytest.approx(2.00)
+    assert result.stall_utilization == pytest.approx(0.90)
+    assert result.safe_clmax_ratio == pytest.approx(0.90)
+    assert result.min_margin_station_y_m == pytest.approx(2.0)
+    assert result.reason == "stall_utilization_exceeded"
+
+
+def test_local_stall_reports_raw_and_safe_clmax_ratio_statuses() -> None:
+    result = evaluate_local_stall(
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "cl_target": 0.92,
+                "cl_max_raw": 1.00,
+                "cl_max_raw_source": "airfoil_observed",
+                "cl_max_safe": 1.15,
+                "cl_max_safe_source": "airfoil_safe_observed",
+            }
+        ],
+        half_span_m=16.0,
+        stall_utilization_limit=0.85,
+    )
+
+    assert result.feasible is True
+    assert result.raw_clmax == pytest.approx(1.00)
+    assert result.safe_clmax == pytest.approx(1.15)
+    assert result.raw_clmax_ratio == pytest.approx(0.92)
+    assert result.safe_clmax_ratio == pytest.approx(0.92 / 1.15)
+    assert result.raw_clmax_status == "near_raw_amber"
+    assert result.safe_clmax_status == "case_limit_pass"
+    assert result.safe_stall_speed_margin_ratio == pytest.approx((1.15 / 0.92) ** 0.5)
+
+
+def test_local_stall_treats_beyond_raw_clmax_as_physics_hard_fail() -> None:
+    result = evaluate_local_stall(
+        station_points=[
+            {
+                "station_y_m": 4.0,
+                "cl_target": 1.05,
+                "cl_max_raw": 1.00,
+                "cl_max_raw_source": "airfoil_observed",
+                "cl_max_safe": 1.40,
+                "cl_max_safe_source": "airfoil_safe_observed",
+            }
+        ],
+        half_span_m=16.0,
+        stall_utilization_limit=0.85,
+    )
+
+    assert result.feasible is False
+    assert result.raw_clmax_ratio == pytest.approx(1.05)
+    assert result.raw_clmax_status == "beyond_raw_clmax"
+    assert result.reason == "beyond_raw_clmax"

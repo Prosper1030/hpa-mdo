@@ -43,6 +43,14 @@ class TurnGateResult:
     tip_critical: bool
     cl_max_source: str
     reason: str
+    raw_clmax: float = 0.0
+    safe_clmax: float = 0.0
+    raw_clmax_ratio: float = 0.0
+    safe_clmax_ratio: float = 0.0
+    raw_clmax_status: str = "not_evaluated"
+    safe_clmax_status: str = "not_evaluated"
+    raw_stall_speed_margin_ratio: float = float("inf")
+    safe_stall_speed_margin_ratio: float = float("inf")
 
 
 @dataclass(frozen=True)
@@ -57,12 +65,30 @@ class LocalStallResult:
     tip_critical: bool
     cl_max_source: str
     reason: str
+    raw_clmax: float
+    safe_clmax: float
+    raw_clmax_ratio: float
+    safe_clmax_ratio: float
+    raw_clmax_status: str
+    safe_clmax_status: str
+    raw_stall_speed_margin_ratio: float
+    safe_stall_speed_margin_ratio: float
 
 
 def _cl_limit(point: dict[str, float]) -> float:
     if "cl_max_safe" in point:
         return float(point["cl_max_safe"])
     return float(point.get("cl_max_effective", point["cl_max_proxy"]))
+
+
+def _cl_raw_limit(point: dict[str, float]) -> float:
+    if "cl_max_raw" in point:
+        return float(point["cl_max_raw"])
+    if "cl_max_effective" in point:
+        return float(point["cl_max_effective"])
+    if "cl_max_proxy" in point:
+        return float(point["cl_max_proxy"])
+    return float(point["cl_max_safe"])
 
 
 def _weighted_required_cl(point: dict[str, float], *, load_factor: float) -> float:
@@ -88,6 +114,50 @@ def _cl_limit_source(point: dict[str, float]) -> str:
     return str(point.get("cl_max_effective_source", "geometry_proxy"))
 
 
+def _cl_raw_limit_source(point: dict[str, float]) -> str:
+    if "cl_max_raw_source" in point:
+        return str(point["cl_max_raw_source"])
+    if "cl_max_effective_source" in point:
+        return str(point["cl_max_effective_source"])
+    if "cl_max_proxy" in point:
+        return "geometry_proxy"
+    return "raw_unavailable_uses_safe_clmax"
+
+
+def _ratio(numerator: float, denominator: float) -> float:
+    return float(numerator) / max(float(denominator), 1.0e-9)
+
+
+def _stall_speed_margin_ratio(clmax_ratio: float) -> float:
+    if clmax_ratio <= 0.0:
+        return float("inf")
+    return 1.0 / math.sqrt(float(clmax_ratio))
+
+
+def _raw_clmax_status(raw_clmax_ratio: float) -> str:
+    ratio = float(raw_clmax_ratio)
+    if ratio > 1.0:
+        return "beyond_raw_clmax"
+    if ratio >= 0.95:
+        return "near_raw_red"
+    if ratio >= 0.90:
+        return "near_raw_amber"
+    if ratio >= 0.85:
+        return "raw_caution"
+    return "normal"
+
+
+def _safe_clmax_status(safe_clmax_ratio: float, *, case_limit: float) -> str:
+    ratio = float(safe_clmax_ratio)
+    if ratio > 1.0:
+        return "beyond_safe_clmax"
+    if ratio > float(case_limit):
+        return "exceeds_case_limit"
+    if ratio <= 0.70:
+        return "target"
+    return "case_limit_pass"
+
+
 def _evaluate_stationwise_margin(
     *,
     station_points: list[dict[str, float]],
@@ -102,25 +172,46 @@ def _evaluate_stationwise_margin(
     if load_factor <= 0.0:
         raise ValueError("load_factor must be positive.")
 
-    min_point = min(
+    limiting_point = max(
         station_points,
-        key=lambda item: _cl_limit(item)
-        - _resolved_required_cl(
-            item,
-            load_factor=load_factor,
-            pre_scaled_cl=pre_scaled_cl,
+        key=lambda item: _ratio(
+            _resolved_required_cl(
+                item,
+                load_factor=load_factor,
+                pre_scaled_cl=pre_scaled_cl,
+            ),
+            _cl_limit(item),
         ),
     )
-    cl_level = float(min_point["cl_target"])
-    cl_max = _cl_limit(min_point)
+    raw_limiting_point = max(
+        station_points,
+        key=lambda item: _ratio(
+            _resolved_required_cl(
+                item,
+                load_factor=load_factor,
+                pre_scaled_cl=pre_scaled_cl,
+            ),
+            _cl_raw_limit(item),
+        ),
+    )
+    cl_level = float(limiting_point["cl_target"])
+    cl_max = _cl_limit(limiting_point)
     required_cl = _resolved_required_cl(
-        min_point,
+        limiting_point,
+        load_factor=load_factor,
+        pre_scaled_cl=pre_scaled_cl,
+    )
+    raw_required_cl = _resolved_required_cl(
+        raw_limiting_point,
         load_factor=load_factor,
         pre_scaled_cl=pre_scaled_cl,
     )
     min_margin = cl_max - required_cl
-    stall_utilization = required_cl / max(cl_max, 1.0e-9)
-    y_m = float(min_point["station_y_m"])
+    stall_utilization = _ratio(required_cl, cl_max)
+    raw_clmax = _cl_raw_limit(raw_limiting_point)
+    raw_clmax_ratio = _ratio(raw_required_cl, raw_clmax)
+    y_m = float(limiting_point["station_y_m"])
+    raw_y_m = float(raw_limiting_point.get("station_y_m", y_m))
     return {
         "cl_level": cl_level,
         "cl_max": cl_max,
@@ -129,7 +220,16 @@ def _evaluate_stationwise_margin(
         "stall_utilization": stall_utilization,
         "min_margin_station_y_m": y_m,
         "tip_critical": y_m >= 0.75 * float(half_span_m),
-        "cl_max_source": _cl_limit_source(min_point),
+        "cl_max_source": _cl_limit_source(limiting_point),
+        "raw_clmax": raw_clmax,
+        "raw_clmax_source": _cl_raw_limit_source(raw_limiting_point),
+        "raw_clmax_ratio": raw_clmax_ratio,
+        "raw_ratio_station_y_m": raw_y_m,
+        "raw_clmax_status": _raw_clmax_status(raw_clmax_ratio),
+        "raw_stall_speed_margin_ratio": _stall_speed_margin_ratio(raw_clmax_ratio),
+        "safe_clmax": cl_max,
+        "safe_clmax_ratio": stall_utilization,
+        "safe_stall_speed_margin_ratio": _stall_speed_margin_ratio(stall_utilization),
     }
 
 
@@ -245,6 +345,21 @@ def evaluate_turn_gate(
     limiting_station_y_m = float(stationwise["min_margin_station_y_m"])
     tip_critical = bool(stationwise["tip_critical"])
     cl_max_source = str(stationwise["cl_max_source"])
+    raw_clmax_status = str(stationwise["raw_clmax_status"])
+    safe_clmax_status = _safe_clmax_status(
+        stall_utilization,
+        case_limit=float(stall_utilization_limit),
+    )
+    ratio_fields = {
+        "raw_clmax": float(stationwise["raw_clmax"]),
+        "safe_clmax": float(stationwise["safe_clmax"]),
+        "raw_clmax_ratio": float(stationwise["raw_clmax_ratio"]),
+        "safe_clmax_ratio": float(stationwise["safe_clmax_ratio"]),
+        "raw_clmax_status": raw_clmax_status,
+        "safe_clmax_status": safe_clmax_status,
+        "raw_stall_speed_margin_ratio": float(stationwise["raw_stall_speed_margin_ratio"]),
+        "safe_stall_speed_margin_ratio": float(stationwise["safe_stall_speed_margin_ratio"]),
+    }
 
     if not trim_feasible:
         return TurnGateResult(
@@ -260,6 +375,23 @@ def evaluate_turn_gate(
             tip_critical=tip_critical,
             cl_max_source=cl_max_source,
             reason="trim_not_feasible",
+            **ratio_fields,
+        )
+    if raw_clmax_status == "beyond_raw_clmax":
+        return TurnGateResult(
+            feasible=False,
+            cl_level=cl_level,
+            cl_max=cl_max,
+            required_cl=required_cl,
+            stall_margin=stall_margin,
+            stall_utilization=stall_utilization,
+            stall_utilization_limit=float(stall_utilization_limit),
+            load_factor=load_factor,
+            limiting_station_y_m=limiting_station_y_m,
+            tip_critical=tip_critical,
+            cl_max_source=cl_max_source,
+            reason="beyond_raw_clmax",
+            **ratio_fields,
         )
     if stall_utilization > float(stall_utilization_limit):
         return TurnGateResult(
@@ -275,6 +407,7 @@ def evaluate_turn_gate(
             tip_critical=tip_critical,
             cl_max_source=cl_max_source,
             reason="stall_utilization_exceeded",
+            **ratio_fields,
         )
     return TurnGateResult(
         feasible=True,
@@ -289,6 +422,7 @@ def evaluate_turn_gate(
         tip_critical=tip_critical,
         cl_max_source=cl_max_source,
         reason="ok",
+        **ratio_fields,
     )
 
 
@@ -425,7 +559,20 @@ def evaluate_local_stall(
     stall_utilization = float(stationwise["stall_utilization"])
     y_m = float(stationwise["min_margin_station_y_m"])
     tip_critical = bool(stationwise["tip_critical"])
-    feasible = stall_utilization <= float(stall_utilization_limit)
+    raw_clmax_status = str(stationwise["raw_clmax_status"])
+    safe_clmax_status = _safe_clmax_status(
+        stall_utilization,
+        case_limit=float(stall_utilization_limit),
+    )
+    feasible = (
+        raw_clmax_status != "beyond_raw_clmax"
+        and stall_utilization <= float(stall_utilization_limit)
+    )
+    reason = "ok"
+    if raw_clmax_status == "beyond_raw_clmax":
+        reason = "beyond_raw_clmax"
+    elif not feasible:
+        reason = "stall_utilization_exceeded"
     return LocalStallResult(
         feasible=feasible,
         required_cl=float(stationwise["required_cl"]),
@@ -436,7 +583,15 @@ def evaluate_local_stall(
         min_margin_station_y_m=y_m,
         tip_critical=tip_critical,
         cl_max_source=str(stationwise["cl_max_source"]),
-        reason="ok" if feasible else "stall_utilization_exceeded",
+        reason=reason,
+        raw_clmax=float(stationwise["raw_clmax"]),
+        safe_clmax=float(stationwise["safe_clmax"]),
+        raw_clmax_ratio=float(stationwise["raw_clmax_ratio"]),
+        safe_clmax_ratio=float(stationwise["safe_clmax_ratio"]),
+        raw_clmax_status=raw_clmax_status,
+        safe_clmax_status=safe_clmax_status,
+        raw_stall_speed_margin_ratio=float(stationwise["raw_stall_speed_margin_ratio"]),
+        safe_stall_speed_margin_ratio=float(stationwise["safe_stall_speed_margin_ratio"]),
     )
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import lru_cache
 import json
 import math
@@ -1255,6 +1255,44 @@ def _local_stall_evaluation_cases(
     return cases
 
 
+def _local_stall_case_role(case_label: str) -> str:
+    case_label = str(case_label)
+    if case_label == "slow_avl_case":
+        return "slow_speed_sensitivity"
+    if case_label == "launch_release_case":
+        return "launch_transient"
+    if case_label == "turn_avl_case":
+        return "planned_turn"
+    if case_label == "mission_worst_case":
+        return "sustained_mission_speed"
+    if case_label == "reference_avl_case":
+        return "reference_cruise"
+    return "local_stall_screening"
+
+
+def _local_stall_case_limit(*, cfg: BirdmanConceptConfig, case_label: str) -> float:
+    role = _local_stall_case_role(case_label)
+    if role == "slow_speed_sensitivity":
+        return float(cfg.stall_model.slow_speed_report_utilization_limit)
+    if role == "launch_transient":
+        return float(cfg.stall_model.launch_utilization_limit)
+    if role == "planned_turn":
+        return float(cfg.stall_model.turn_utilization_limit)
+    return float(cfg.stall_model.local_stall_utilization_limit)
+
+
+def _local_stall_case_gate_enforced(case_label: str) -> bool:
+    return _local_stall_case_role(case_label) != "slow_speed_sensitivity"
+
+
+def _stall_case_status(result) -> str:
+    if result.reason == "beyond_raw_clmax":
+        return "beyond_raw_clmax"
+    if result.safe_clmax_status == "beyond_safe_clmax":
+        return "beyond_safe_clmax"
+    return str(result.reason)
+
+
 def _summarize_turn(
     *,
     cfg: BirdmanConceptConfig,
@@ -1317,6 +1355,14 @@ def _summarize_turn(
         "stall_margin": turn_result.stall_margin,
         "stall_utilization": turn_result.stall_utilization,
         "stall_utilization_limit": turn_result.stall_utilization_limit,
+        "raw_clmax": turn_result.raw_clmax,
+        "safe_clmax": turn_result.safe_clmax,
+        "raw_clmax_ratio": turn_result.raw_clmax_ratio,
+        "safe_clmax_ratio": turn_result.safe_clmax_ratio,
+        "raw_clmax_status": turn_result.raw_clmax_status,
+        "safe_clmax_status": turn_result.safe_clmax_status,
+        "raw_stall_speed_margin_ratio": turn_result.raw_stall_speed_margin_ratio,
+        "safe_stall_speed_margin_ratio": turn_result.safe_stall_speed_margin_ratio,
         "trim_feasible": trim_result.feasible,
         "limiting_station_y_m": turn_result.limiting_station_y_m,
         "tip_critical": turn_result.tip_critical,
@@ -1435,36 +1481,62 @@ def _summarize_local_stall(
     )
     case_results: list[dict[str, Any]] = []
     for case in evaluation_cases:
+        case_label = str(case["case_label"])
+        case_role = _local_stall_case_role(case_label)
+        gate_enforced = _local_stall_case_gate_enforced(case_label)
+        stall_utilization_limit = _local_stall_case_limit(cfg=cfg, case_label=case_label)
         result = evaluate_local_stall(
             station_points=list(case["station_points"]),
             half_span_m=0.5 * concept.span_m,
-            stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+            stall_utilization_limit=stall_utilization_limit,
         )
+        status = _stall_case_status(result)
         case_results.append(
             {
-                "case_label": case["case_label"],
+                "case_label": case_label,
+                "case_role": case_role,
+                "gate_enforced": gate_enforced,
+                "report_only": not gate_enforced,
                 "reference_speed_mps": case["reference_speed_mps"],
                 "reference_gross_mass_kg": case["reference_gross_mass_kg"],
                 "evaluation_speed_mps": case["evaluation_speed_mps"],
                 "evaluation_gross_mass_kg": case["evaluation_gross_mass_kg"],
                 "cl_scale_factor_min": case["cl_scale_factor_min"],
                 "cl_scale_factor_max": case["cl_scale_factor_max"],
-                "status": result.reason,
+                "status": status,
                 "feasible": result.feasible,
+                "hard_gate_feasible": (bool(result.feasible) if gate_enforced else True),
                 "required_cl": result.required_cl,
                 "cl_max": result.cl_max,
                 "min_margin": result.min_margin,
                 "stall_utilization": result.stall_utilization,
                 "stall_utilization_limit": result.stall_utilization_limit,
+                "raw_clmax": result.raw_clmax,
+                "safe_clmax": result.safe_clmax,
+                "raw_clmax_ratio": result.raw_clmax_ratio,
+                "safe_clmax_ratio": result.safe_clmax_ratio,
+                "raw_clmax_status": result.raw_clmax_status,
+                "safe_clmax_status": result.safe_clmax_status,
+                "raw_stall_speed_margin_ratio": result.raw_stall_speed_margin_ratio,
+                "safe_stall_speed_margin_ratio": result.safe_stall_speed_margin_ratio,
                 "min_margin_station_y_m": result.min_margin_station_y_m,
                 "tip_critical": result.tip_critical,
                 "margin_source": result.cl_max_source,
             }
         )
+    hard_gate_cases = [case for case in case_results if bool(case["gate_enforced"])]
+    hard_gate_selection_pool = hard_gate_cases or case_results
     worst_case = max(
+        hard_gate_selection_pool,
+        key=lambda case: (
+            float(case["stall_utilization"]) / max(float(case["stall_utilization_limit"]), 1.0e-9),
+            float(case["required_cl"]),
+        ),
+    )
+    worst_report_case = max(
         case_results,
         key=lambda case: (
-            float(case["stall_utilization"]),
+            float(case["stall_utilization"]) / max(float(case["stall_utilization_limit"]), 1.0e-9),
             float(case["required_cl"]),
         ),
     )
@@ -1488,18 +1560,32 @@ def _summarize_local_stall(
     required_gross_mass_for_limit_kg = resolved_evaluation_gross_mass_kg * (
         stall_utilization_limit / max(stall_utilization, 1.0e-9)
     )
+    hard_gate_feasible = all(bool(case["hard_gate_feasible"]) for case in case_results)
     return {
-        "status": str(worst_case["status"]),
-        "feasible": bool(worst_case["feasible"]),
+        "status": "ok" if hard_gate_feasible else str(worst_case["status"]),
+        "feasible": hard_gate_feasible,
         "required_cl": float(worst_case["required_cl"]),
         "cl_max": float(worst_case["cl_max"]),
         "min_margin": float(worst_case["min_margin"]),
         "stall_utilization": stall_utilization,
         "stall_utilization_limit": stall_utilization_limit,
+        "raw_clmax": float(worst_case["raw_clmax"]),
+        "safe_clmax": float(worst_case["safe_clmax"]),
+        "raw_clmax_ratio": float(worst_case["raw_clmax_ratio"]),
+        "safe_clmax_ratio": float(worst_case["safe_clmax_ratio"]),
+        "raw_clmax_status": str(worst_case["raw_clmax_status"]),
+        "safe_clmax_status": str(worst_case["safe_clmax_status"]),
+        "raw_stall_speed_margin_ratio": float(worst_case["raw_stall_speed_margin_ratio"]),
+        "safe_stall_speed_margin_ratio": float(worst_case["safe_stall_speed_margin_ratio"]),
         "min_margin_station_y_m": float(worst_case["min_margin_station_y_m"]),
         "tip_critical": bool(worst_case["tip_critical"]),
         "margin_source": str(worst_case["margin_source"]),
         "evaluation_case": str(worst_case["case_label"]),
+        "case_role": str(worst_case["case_role"]),
+        "worst_hard_gate_case": str(worst_case["case_label"]),
+        "worst_report_case": str(worst_report_case["case_label"]),
+        "worst_report_case_status": str(worst_report_case["status"]),
+        "report_only_case_count": sum(1 for case in case_results if bool(case["report_only"])),
         "reference_speed_mps": worst_case["reference_speed_mps"],
         "reference_gross_mass_kg": worst_case["reference_gross_mass_kg"],
         "evaluation_speed_mps": resolved_evaluation_speed_mps,
@@ -1565,6 +1651,14 @@ def _mission_speed_feasibility_records(
                 "min_margin": 0.0,
                 "stall_utilization": 0.0,
                 "stall_utilization_limit": float(cfg.stall_model.local_stall_utilization_limit),
+                "raw_clmax": 0.0,
+                "safe_clmax": 0.0,
+                "raw_clmax_ratio": 0.0,
+                "safe_clmax_ratio": 0.0,
+                "raw_clmax_status": "not_available",
+                "safe_clmax_status": "not_available",
+                "raw_stall_speed_margin_ratio": None,
+                "safe_stall_speed_margin_ratio": None,
                 "min_margin_station_y_m": None,
                 "tip_critical": False,
                 "margin_source": "not_available",
@@ -1634,6 +1728,14 @@ def _mission_speed_feasibility_records(
                 "min_margin": float(result.min_margin),
                 "stall_utilization": float(result.stall_utilization),
                 "stall_utilization_limit": float(result.stall_utilization_limit),
+                "raw_clmax": float(result.raw_clmax),
+                "safe_clmax": float(result.safe_clmax),
+                "raw_clmax_ratio": float(result.raw_clmax_ratio),
+                "safe_clmax_ratio": float(result.safe_clmax_ratio),
+                "raw_clmax_status": str(result.raw_clmax_status),
+                "safe_clmax_status": str(result.safe_clmax_status),
+                "raw_stall_speed_margin_ratio": float(result.raw_stall_speed_margin_ratio),
+                "safe_stall_speed_margin_ratio": float(result.safe_stall_speed_margin_ratio),
                 "min_margin_station_y_m": float(result.min_margin_station_y_m),
                 "tip_critical": bool(result.tip_critical),
                 "margin_source": str(result.cl_max_source),
@@ -3084,7 +3186,6 @@ def run_birdman_concept_pipeline(
                 current_local_stall_summary: dict[str, Any]
                 current_mission_summary: dict[str, Any]
                 current_ranking_input: CandidateConceptResult
-                did_post_airfoil_avl_rerun = False
                 finalist_evaluation_completed = False
 
                 if avl_rerun_context is None:
@@ -3127,7 +3228,6 @@ def run_birdman_concept_pipeline(
                         if rerun_zone_requirements is None:
                             break
                         current_zone_requirements = rerun_zone_requirements
-                        did_post_airfoil_avl_rerun = True
                         (
                             current_selected_by_zone,
                             current_airfoil_templates,
