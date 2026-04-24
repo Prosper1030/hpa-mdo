@@ -338,6 +338,19 @@ segment-facet intersection. No sweep case is a production default, no Gmsh setti
 `plan_only` remains artifact-only. A later experimental apply round should only be considered after a
 `promising` sweep case exists.
 
+The first sweep did not find a promising case. The important non-generic result is
+`stageback_only_layers5`: it is now classified as
+`stageback_induced_1d_loop_closure_failure`, not as a candidate to apply. Its evidence is a
+pre-recovery surface-loop failure with BL collapse symptoms: Gmsh reports that the 1D mesh does not
+form a closed loop, the achieved BL layer count is zero, the collapse rate reaches 1.0, and the
+volume-to-wall ratio is zero. That means the case did not reach Gmsh 3D boundary recovery and is a
+different family from both failed-Steiner and segment-facet. Pushing to fewer layers would be a blunt
+stageback sweep, not a safer repair.
+
+The next useful direction is therefore a topology-preserving transition around a milder local
+stageback, plus enough instrumentation to prove loop continuity before volume meshing. It is not to
+add another apply candidate or continue reducing the global layer count.
+
 ## What is intentionally still skeleton / TODO
 
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips

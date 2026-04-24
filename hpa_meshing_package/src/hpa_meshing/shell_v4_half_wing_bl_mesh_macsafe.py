@@ -3639,6 +3639,105 @@ def _bl_blocking_kinds_from_observed(observed: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(blocking))
 
 
+def _diagnostic_text_from_observed(observed: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in (
+        "observed_failure_kind",
+        "failure_code",
+        "error",
+        "stderr",
+        "stdout",
+    ):
+        value = observed.get(key)
+        if value is not None:
+            parts.append(str(value))
+    route_result = observed.get("route_result")
+    if isinstance(route_result, dict):
+        for key in (
+            "observed_failure_kind",
+            "failure_code",
+            "error",
+            "stderr",
+            "stdout",
+        ):
+            value = route_result.get(key)
+            if value is not None:
+                parts.append(str(value))
+        for key in ("failure_reasons", "validation_failures"):
+            value = route_result.get(key)
+            if isinstance(value, list):
+                parts.extend(str(item) for item in value)
+    return " ; ".join(parts)
+
+
+def _focused_route_failure_diagnostic(observed: dict[str, Any]) -> dict[str, Any]:
+    route_result = observed.get("route_result")
+    route_result = route_result if isinstance(route_result, dict) else {}
+    mesh = route_result.get("mesh")
+    mesh = mesh if isinstance(mesh, dict) else {}
+    boundary_layer = route_result.get("boundary_layer")
+    boundary_layer = boundary_layer if isinstance(boundary_layer, dict) else {}
+    text = _diagnostic_text_from_observed(observed)
+    text_lower = text.lower()
+    observed_failure_kind = str(observed.get("observed_failure_kind") or "")
+
+    symptoms: list[str] = []
+    loop_not_closed = "forming a closed loop" in text_lower
+    if loop_not_closed:
+        symptoms.append("gmsh_1d_loop_not_closed")
+    if "boundary_layer_collapse_rate_exceeded" in text_lower:
+        symptoms.append("boundary_layer_collapse_rate_exceeded")
+    if "volume_to_wall_ratio_below_limit" in text_lower:
+        symptoms.append("volume_to_wall_ratio_below_limit")
+    if "boundary_layer_total_thickness_outside_target_band" in text_lower:
+        symptoms.append("boundary_layer_total_thickness_outside_target_band")
+
+    achieved_layers = _parse_int(boundary_layer.get("achieved_layers"))
+    requested_layers = _parse_int(boundary_layer.get("requested_layers"))
+    collapse_rate = _parse_float(boundary_layer.get("collapse_rate"))
+    total_cells = _parse_int(mesh.get("total_cells"))
+    total_nodes = _parse_int(mesh.get("total_nodes"))
+    volume_to_wall_ratio = _parse_float(mesh.get("volume_to_wall_ratio"))
+    if requested_layers is not None and achieved_layers == 0:
+        symptoms.append("bl_collapse_zero_achieved_layers")
+    if collapse_rate is not None and collapse_rate >= 1.0:
+        symptoms.append("bl_collapse_rate_1p0")
+    if total_cells == 0:
+        symptoms.append("no_volume_cells")
+    if total_nodes == 0:
+        symptoms.append("no_mesh_nodes")
+    if volume_to_wall_ratio == 0.0:
+        symptoms.append("zero_volume_to_wall_ratio")
+
+    reached_gmsh_3d_boundary_recovery = (
+        observed_failure_kind == "boundary_recovery_error_2"
+        or "could not recover boundary mesh" in text_lower
+        or "recoversegment" in text_lower
+    )
+    diagnostic_family: str | None = None
+    failure_phase = "unknown"
+    if loop_not_closed:
+        diagnostic_family = "gmsh_1d_loop_closure_failure"
+        failure_phase = "gmsh_2d"
+    elif reached_gmsh_3d_boundary_recovery:
+        failure_phase = "gmsh_3d_boundary_recovery"
+    elif observed_failure_kind == "segment_facet_intersection":
+        failure_phase = "gmsh_3d_boundary_recovery"
+
+    return {
+        "diagnostic_family": diagnostic_family,
+        "failure_phase": failure_phase,
+        "observed_symptoms": list(dict.fromkeys(symptoms)),
+        "reached_gmsh_3d_boundary_recovery": bool(reached_gmsh_3d_boundary_recovery),
+        "requested_layers": requested_layers,
+        "achieved_layers": achieved_layers,
+        "collapse_rate": collapse_rate,
+        "total_cells": total_cells,
+        "total_nodes": total_nodes,
+        "volume_to_wall_ratio": volume_to_wall_ratio,
+    }
+
+
 def _focused_residual_summary(
     *,
     observed: dict[str, Any],
@@ -3684,6 +3783,7 @@ def _focused_residual_summary(
     )
     if degenerated_prism_seen is None and "degenerated_prism_risk" in blocking_bl:
         degenerated_prism_seen = True
+    route_diagnostic = _focused_route_failure_diagnostic(observed)
     return {
         "observed_failure_kind": observed.get("observed_failure_kind"),
         "residual_family": residual_family,
@@ -3695,6 +3795,13 @@ def _focused_residual_summary(
         "bl_policy_fail_kinds": (
             ["bl_clearance_incompatibility"] if blocking_bl else []
         ),
+        "diagnostic_family": route_diagnostic.get("diagnostic_family"),
+        "failure_phase": route_diagnostic.get("failure_phase"),
+        "observed_symptoms": list(route_diagnostic.get("observed_symptoms") or []),
+        "reached_gmsh_3d_boundary_recovery": route_diagnostic.get(
+            "reached_gmsh_3d_boundary_recovery"
+        ),
+        "route_failure_diagnostic": route_diagnostic,
         "report_path": observed.get("report_path"),
     }
 
@@ -3907,8 +4014,88 @@ def _apply_bl_candidate_sweep_case_to_fixture(
     return transformed_fixture, None
 
 
+def _focused_sweep_case_after_diagnostic_family(
+    *,
+    sweep_case: dict[str, Any],
+    after_summary: dict[str, Any],
+) -> str | None:
+    diagnostic_family = after_summary.get("diagnostic_family")
+    if (
+        sweep_case.get("sweep_case_id") == "stageback_only_layers5"
+        and sweep_case.get("candidate_kind") == "stageback_only"
+        and int(sweep_case.get("stageback_layer_count") or 0) == 5
+        and diagnostic_family == "gmsh_1d_loop_closure_failure"
+    ):
+        return "stageback_induced_1d_loop_closure_failure"
+    return str(diagnostic_family) if diagnostic_family else None
+
+
+def _focused_failure_relation_to_failed_steiner(
+    *,
+    after_diagnostic_family: str | None,
+    after_summary: dict[str, Any],
+) -> str:
+    if after_summary.get("residual_family") == FAILED_STEINER_RESIDUAL_FAMILY:
+        return "possible_upstream_cause"
+    if after_diagnostic_family == "stageback_induced_1d_loop_closure_failure":
+        return "different_family"
+    if after_summary.get("observed_failure_kind") == "boundary_recovery_error_2":
+        return "possible_upstream_cause"
+    return "unclear"
+
+
+def _focused_failure_relation_to_segment_facet(
+    *,
+    after_diagnostic_family: str | None,
+    after_summary: dict[str, Any],
+) -> str:
+    if after_summary.get("observed_failure_kind") == "segment_facet_intersection":
+        return "regression_risk"
+    if after_diagnostic_family == "stageback_induced_1d_loop_closure_failure":
+        return "different_family"
+    return "unclear"
+
+
+def _focused_sweep_case_diagnostic_family_report(
+    *,
+    sweep_case: dict[str, Any],
+    before_summary: dict[str, Any],
+    after_summary: dict[str, Any],
+    after_diagnostic_family: str | None,
+    relation_to_failed_steiner: str,
+    relation_to_segment_facet: str,
+) -> dict[str, Any]:
+    if not after_diagnostic_family:
+        return {}
+    route_diagnostic = dict(after_summary.get("route_failure_diagnostic") or {})
+    return {
+        "diagnostic_family": after_diagnostic_family,
+        "source_candidate_id": str(sweep_case["sweep_case_id"]),
+        "stageback_layer_count": sweep_case.get("stageback_layer_count"),
+        "original_layer_count": sweep_case.get("original_layer_count"),
+        "truncation_start_y": sweep_case.get("truncation_start_y"),
+        "whether_reached_gmsh_3d_recovery": bool(
+            after_summary.get("reached_gmsh_3d_boundary_recovery")
+        ),
+        "failure_phase": after_summary.get("failure_phase") or "unknown",
+        "observed_symptoms": list(after_summary.get("observed_symptoms") or []),
+        "local_y_band_before": list(before_summary.get("local_y_band") or []),
+        "local_y_band_after": list(after_summary.get("local_y_band") or []),
+        "target_y_span": copy.deepcopy(sweep_case.get("target_y_span") or {}),
+        "relation_to_failed_steiner": relation_to_failed_steiner,
+        "relation_to_segment_facet": relation_to_segment_facet,
+        "requested_layers": route_diagnostic.get("requested_layers"),
+        "achieved_layers": route_diagnostic.get("achieved_layers"),
+        "collapse_rate": route_diagnostic.get("collapse_rate"),
+        "total_cells": route_diagnostic.get("total_cells"),
+        "total_nodes": route_diagnostic.get("total_nodes"),
+        "volume_to_wall_ratio": route_diagnostic.get("volume_to_wall_ratio"),
+    }
+
+
 def _focused_sweep_case_verdict(
     *,
+    sweep_case: dict[str, Any],
     before_summary: dict[str, Any],
     after_summary: dict[str, Any],
     applied: bool,
@@ -3918,6 +4105,10 @@ def _focused_sweep_case_verdict(
         return "rejected", [str(reject_reason)]
     if not applied:
         return "unchanged", ["baseline_no_apply"]
+    after_diagnostic_family = _focused_sweep_case_after_diagnostic_family(
+        sweep_case=sweep_case,
+        after_summary=after_summary,
+    )
     before_family = str(before_summary.get("residual_family") or "")
     after_family = str(after_summary.get("residual_family") or "")
     after_failure = str(after_summary.get("observed_failure_kind") or "")
@@ -3932,6 +4123,10 @@ def _focused_sweep_case_verdict(
         supporting.append("partial_degenerated_prism_improved_needs_follow_up")
     if after_failure == "segment_facet_intersection":
         return "too_aggressive_reintroduces_segment_facet", supporting
+    if after_diagnostic_family == "stageback_induced_1d_loop_closure_failure":
+        supporting.append("pre_recovery_topology_failure")
+        supporting.append("stageback_induced_bl_collapse")
+        return after_diagnostic_family, supporting
     if failed_steiner_resolved and after_failure and after_failure != "unknown":
         return "promising", supporting
     if after_family == FAILED_STEINER_RESIDUAL_FAMILY or after_failure == "boundary_recovery_error_2":
@@ -3952,6 +4147,7 @@ def _build_focused_sweep_case_payload(
     reject_reason: str | None,
 ) -> dict[str, Any]:
     verdict, supporting_verdicts = _focused_sweep_case_verdict(
+        sweep_case=sweep_case,
         before_summary=before_summary,
         after_summary=after_summary,
         applied=bool(sweep_case.get("applied")),
@@ -3969,6 +4165,26 @@ def _build_focused_sweep_case_payload(
         before_family == FAILED_STEINER_RESIDUAL_FAMILY
         and after_family != FAILED_STEINER_RESIDUAL_FAMILY
     )
+    after_diagnostic_family = _focused_sweep_case_after_diagnostic_family(
+        sweep_case=sweep_case,
+        after_summary=after_summary,
+    )
+    relation_to_failed_steiner = _focused_failure_relation_to_failed_steiner(
+        after_diagnostic_family=after_diagnostic_family,
+        after_summary=after_summary,
+    )
+    relation_to_segment_facet = _focused_failure_relation_to_segment_facet(
+        after_diagnostic_family=after_diagnostic_family,
+        after_summary=after_summary,
+    )
+    diagnostic_family_report = _focused_sweep_case_diagnostic_family_report(
+        sweep_case=sweep_case,
+        before_summary=before_summary,
+        after_summary=after_summary,
+        after_diagnostic_family=after_diagnostic_family,
+        relation_to_failed_steiner=relation_to_failed_steiner,
+        relation_to_segment_facet=relation_to_segment_facet,
+    )
     return {
         "sweep_case_id": str(sweep_case["sweep_case_id"]),
         "candidate_kind": str(sweep_case["candidate_kind"]),
@@ -3982,6 +4198,15 @@ def _build_focused_sweep_case_payload(
         "after_residual_family": after_family,
         "before_failure_kind": before_failure,
         "after_failure_kind": after_failure,
+        "after_diagnostic_family": after_diagnostic_family,
+        "failure_phase": after_summary.get("failure_phase") or "unknown",
+        "reached_gmsh_3d_boundary_recovery": bool(
+            after_summary.get("reached_gmsh_3d_boundary_recovery")
+        ),
+        "observed_symptoms": list(after_summary.get("observed_symptoms") or []),
+        "relation_to_failed_steiner": relation_to_failed_steiner,
+        "relation_to_segment_facet": relation_to_segment_facet,
+        "diagnostic_family_report": diagnostic_family_report,
         "segment_facet_regressed": bool(segment_facet_regressed),
         "failed_steiner_resolved": bool(failed_steiner_resolved),
         "degenerated_prism_seen_before": before_summary.get("degenerated_prism_seen"),
@@ -4026,12 +4251,13 @@ def _select_focused_sweep_recommendation(sweep_cases: list[dict[str, Any]]) -> d
     closest = max(sweep_cases, key=_score) if sweep_cases else {}
     closest_id = closest.get("sweep_case_id")
     return {
-        "recommended_sweep_case_id": closest_id,
+        "recommended_sweep_case_id": None,
         "promising_candidate_found": False,
-        "closest_promising_sweep_case_id": closest_id,
+        "closest_promising_sweep_case_id": None,
+        "closest_diagnostic_boundary_sweep_case_id": closest_id,
         "recommendation_reason": (
-            "No promising case was found; keep runtime apply disabled and use the selected case only "
-            "as the least-bad diagnostic boundary for the next sweep/debug round."
+            "No promising case was found; keep runtime apply disabled. The diagnostic boundary case "
+            "is for failure-family analysis only, not for runtime application."
         ),
         "whether_next_runtime_apply_is_recommended": False,
         "whether_more_gmsh_debug_needed": True,

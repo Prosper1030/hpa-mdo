@@ -50,6 +50,9 @@ Each operator contract should expose at least:
 - BL candidates such as stageback, truncation, split budget, and shrink thickness remain outside `operator_library.v1`; applying one requires an explicit experimental gate
 - the current explicit gate is `bl_candidate_apply_gate=stageback_plus_truncation_focused`, default-off, and it only applies `bl_candidate_stageback_plus_truncation` in an isolated focused rerun while writing `bl_candidate_apply_comparison.v1.json`
 - the current stageback-plus-truncation apply evidence is too aggressive because it shifts failed-Steiner/error2 back to `segment_facet_intersection`; the follow-up artifact is the report-only `bl_candidate_parameter_sweep.v1.json`, not a new operator
+- the sweep-only `stageback_only_layers5` case is now a diagnostic family,
+  `stageback_induced_1d_loop_closure_failure`: it shows stageback-induced loop/topology collapse
+  before Gmsh 3D boundary recovery, so it must not be promoted as an operator or apply candidate
 - the other geometry operators remain **skeleton only**
 - `reject_unsupported_plc_risk_family` is intentionally implemented as a deterministic reject, so unsupported PLC risk families are not silently ignored
 

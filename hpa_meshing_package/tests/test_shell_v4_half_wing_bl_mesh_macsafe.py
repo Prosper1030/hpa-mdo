@@ -2231,6 +2231,38 @@ def test_bl_candidate_parameter_sweep_focused_writes_report_only_artifact_and_ve
         mutations = focused_apply.get("focused_mutations") or {}
         layers_after = mutations.get("layers_after")
         truncation_start = mutations.get("forced_tip_truncation_start_y_m")
+        if layers_after == 5 and truncation_start is None:
+            return {
+                "status": "failed",
+                "observed_failure_kind": "unknown",
+                "error": (
+                    "The 1D mesh seems not to be forming a closed loop "
+                    "(2 boundary nodes are considered once); "
+                    "boundary_layer_collapse_rate_exceeded; "
+                    "volume_to_wall_ratio_below_limit"
+                ),
+                "report_path": str(out_dir / "report.json"),
+                "route_result": {
+                    "failure_code": "mesh_route_validation_failed",
+                    "error": (
+                        "The 1D mesh seems not to be forming a closed loop "
+                        "(2 boundary nodes are considered once); "
+                        "boundary_layer_collapse_rate_exceeded; "
+                        "volume_to_wall_ratio_below_limit"
+                    ),
+                    "mesh": {
+                        "total_cells": 0,
+                        "total_nodes": 0,
+                        "volume_to_wall_ratio": 0.0,
+                    },
+                    "boundary_layer": {
+                        "requested_layers": 5,
+                        "achieved_layers": 0,
+                        "collapse_rate": 1.0,
+                        "pre_3d_clearance": {"risk_sample_count": 0},
+                    },
+                },
+            }
         if layers_after == 6 and truncation_start == pytest.approx(15.875):
             return {
                 "status": "failed",
@@ -2310,11 +2342,108 @@ def test_bl_candidate_parameter_sweep_focused_writes_report_only_artifact_and_ve
     assert current["failed_steiner_resolved"] is True
     assert current["verdict"] == "too_aggressive_reintroduces_segment_facet"
 
+    layers5 = cases["stageback_only_layers5"]
+    assert layers5["verdict"] == "stageback_induced_1d_loop_closure_failure"
+    assert layers5["after_diagnostic_family"] == "stageback_induced_1d_loop_closure_failure"
+    assert layers5["reached_gmsh_3d_boundary_recovery"] is False
+    assert layers5["failure_phase"] == "gmsh_2d"
+    assert layers5["relation_to_failed_steiner"] == "different_family"
+    assert layers5["relation_to_segment_facet"] == "different_family"
+    assert layers5["diagnostic_family_report"]["source_candidate_id"] == "stageback_only_layers5"
+    assert layers5["diagnostic_family_report"]["stageback_layer_count"] == 5
+    assert "gmsh_1d_loop_not_closed" in layers5["diagnostic_family_report"]["observed_symptoms"]
+
     promising = cases["combined_mild_layers7_truncation_y16p250"]
     assert promising["verdict"] == "promising"
     assert result["recommended_sweep_case_id"] == promising["sweep_case_id"]
     assert result["whether_next_runtime_apply_is_recommended"] is True
     assert result["whether_topology_operator_should_remain_paused"] is True
+
+
+def test_stageback_layers5_loop_closure_diagnostic_is_not_promising():
+    before_summary = {
+        "observed_failure_kind": "boundary_recovery_error_2",
+        "residual_family": FAILED_STEINER_RESIDUAL_FAMILY,
+        "local_y_band": [14.9983332, 16.5000001],
+        "suspicious_window": [15.4, 16.6],
+        "degenerated_prism_seen": True,
+    }
+    after_summary = shell_v4_bl_mesh._focused_residual_summary(
+        observed={
+            "status": "failed",
+            "observed_failure_kind": "unknown",
+            "error": (
+                "The 1D mesh seems not to be forming a closed loop "
+                "(2 boundary nodes are considered once); "
+                "boundary_layer_collapse_rate_exceeded; "
+                "volume_to_wall_ratio_below_limit"
+            ),
+            "route_result": {
+                "failure_code": "mesh_route_validation_failed",
+                "error": (
+                    "The 1D mesh seems not to be forming a closed loop "
+                    "(2 boundary nodes are considered once); "
+                    "boundary_layer_collapse_rate_exceeded; "
+                    "volume_to_wall_ratio_below_limit"
+                ),
+                "mesh": {
+                    "total_cells": 0,
+                    "total_nodes": 0,
+                    "volume_to_wall_ratio": 0.0,
+                },
+                "boundary_layer": {
+                    "requested_layers": 5,
+                    "achieved_layers": 0,
+                    "collapse_rate": 1.0,
+                    "pre_3d_clearance": {"risk_sample_count": 0},
+                },
+            },
+        }
+    )
+    case = shell_v4_bl_mesh._build_focused_sweep_case_payload(
+        sweep_case={
+            "sweep_case_id": "stageback_only_layers5",
+            "candidate_kind": "stageback_only",
+            "stageback_layer_count": 5,
+            "original_layer_count": 8,
+            "truncation_start_y": None,
+            "target_y_span": {"min": 15.875, "max": 16.5},
+            "applied": True,
+        },
+        before_summary=before_summary,
+        after_summary=after_summary,
+        reject_reason=None,
+    )
+    recommendation = shell_v4_bl_mesh._select_focused_sweep_recommendation(
+        [
+            {
+                "sweep_case_id": "stageback_only_layers7",
+                "verdict": "insufficient_still_failed_steiner",
+                "failed_steiner_resolved": False,
+                "degenerated_prism_seen_after": True,
+                "applied": True,
+                "stageback_layer_count": 7,
+            },
+            case,
+        ]
+    )
+
+    assert case["verdict"] == "stageback_induced_1d_loop_closure_failure"
+    assert case["failed_steiner_resolved"] is True
+    assert case["segment_facet_regressed"] is False
+    assert case["reached_gmsh_3d_boundary_recovery"] is False
+    assert case["failure_phase"] == "gmsh_2d"
+    assert case["after_failure_kind"] == "unknown"
+    assert case["after_diagnostic_family"] == "stageback_induced_1d_loop_closure_failure"
+    assert case["relation_to_failed_steiner"] == "different_family"
+    assert case["relation_to_segment_facet"] == "different_family"
+    assert "gmsh_1d_loop_not_closed" in case["observed_symptoms"]
+    assert case["diagnostic_family_report"]["source_candidate_id"] == "stageback_only_layers5"
+    assert case["diagnostic_family_report"]["whether_reached_gmsh_3d_recovery"] is False
+    assert recommendation["promising_candidate_found"] is False
+    assert recommendation["recommended_sweep_case_id"] is None
+    assert recommendation["closest_diagnostic_boundary_sweep_case_id"] == "stageback_only_layers5"
+    assert recommendation["whether_next_runtime_apply_is_recommended"] is False
 
 
 def test_bl_candidate_parameter_sweep_is_not_a_production_default():

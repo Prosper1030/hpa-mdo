@@ -262,6 +262,10 @@ The allowed production interpretation is deliberately conservative:
 - `insufficient_still_failed_steiner` means the BL intervention did not move the blocker far enough.
 - `promising` only means failed-Steiner disappeared without returning to segment-facet; it is still
   experimental evidence, not a default route change.
+- `stageback_induced_1d_loop_closure_failure` means a stageback-only case moved away from the
+  failed-Steiner residual but collapsed earlier: the surface meshing boundary no longer formed a
+  closed 1D loop, zero BL layers were achieved, and the case did not reach Gmsh 3D boundary
+  recovery. This is not promising evidence; it is a separate topology/collapse diagnostic family.
 
 The sweep exists to find the minimum safe intervention. It must not mutate `shell_v4` defaults, must
 not change `topology_compiler_gate=off`, must not make `plan_only` apply geometry, and must not add a
