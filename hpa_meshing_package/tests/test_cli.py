@@ -79,6 +79,7 @@ def test_parser_supports_shell_v4_half_wing_bl_mesh_macsafe_command():
             "--skip-su2",
             "--topology-compiler-plan-only",
             "--apply-bl-stageback-plus-truncation-focused",
+            "--apply-bl-stage-with-termination-guard-8-to-7-focused",
             "--run-bl-candidate-sweep-focused",
         ]
     )
@@ -88,6 +89,7 @@ def test_parser_supports_shell_v4_half_wing_bl_mesh_macsafe_command():
     assert args.skip_su2 is True
     assert args.topology_compiler_plan_only is True
     assert args.apply_bl_stageback_plus_truncation_focused is True
+    assert args.apply_bl_stage_with_termination_guard_8_to_7_focused is True
     assert args.run_bl_candidate_sweep_focused is True
 
     default_args = parser.parse_args(
@@ -98,6 +100,7 @@ def test_parser_supports_shell_v4_half_wing_bl_mesh_macsafe_command():
         ]
     )
     assert default_args.apply_bl_stageback_plus_truncation_focused is False
+    assert default_args.apply_bl_stage_with_termination_guard_8_to_7_focused is False
     assert default_args.run_bl_candidate_sweep_focused is False
 
 

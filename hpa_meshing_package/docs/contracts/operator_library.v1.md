@@ -58,6 +58,13 @@ Each operator contract should expose at least:
   `bl_topology_preserving_staged_transition_prototypes.v1.json`
 - staged transition prototypes are planning objects only; they compare topology-preserving schedules
   such as `8 -> 7` with a terminal guard and explicitly exclude a direct `8 -> 5` drop
+- the current staged-transition apply gate is
+  `bl_candidate_apply_gate=stage_with_termination_guard_8_to_7_focused`, default-off; it applies only
+  the `stage_with_termination_guard_8_to_7` prototype inside an isolated root_last3 focused rerun and
+  writes `staged_transition_apply_comparison.v1.json`
+- this guarded staged-transition apply is still outside `operator_library.v1`: it must not add a
+  topology operator, must not become a production default, and must keep root_last4 overlap as
+  non-regression only
 - the other geometry operators remain **skeleton only**
 - `reject_unsupported_plc_risk_family` is intentionally implemented as a deterministic reject, so unsupported PLC risk families are not silently ignored
 

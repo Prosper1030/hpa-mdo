@@ -290,10 +290,12 @@ The first experimental runtime hook is deliberately separate from `topology_comp
 
 - Python argument: `bl_candidate_apply_gate`
 - default value: `off`
-- only enabled value: `stageback_plus_truncation_focused`
+- enabled values:
+  - `stageback_plus_truncation_focused`
+  - `stage_with_termination_guard_8_to_7_focused`
 - CLI flag: `--apply-bl-stageback-plus-truncation-focused`
 
-This gate only runs an isolated focused validation rerun for
+The original gate only runs an isolated focused validation rerun for
 `bl_candidate_stageback_plus_truncation`. It does not change production defaults, does not change
 `topology_compiler_gate=off`, and does not make `plan_only` apply anything. Its artifact is:
 
@@ -380,12 +382,47 @@ closure failure, not a promising candidate. These prototypes are not runtime mut
 operator, and not a new apply gate. They exist only to choose the next explicit experimental apply
 case after loop-continuity evidence is available.
 
+The next focused apply gate is now:
+
+- Python argument: `bl_candidate_apply_gate`
+- enabled value: `stage_with_termination_guard_8_to_7_focused`
+- CLI flag: `--apply-bl-stage-with-termination-guard-8-to-7-focused`
+- artifact: `staged_transition_apply_comparison.v1.json`
+- scope: isolated `root_last3_segment_facet` focused fixture only
+
+This gate tests only `stage_with_termination_guard_8_to_7`. It is default-off, experimental, and not a
+production default. The implementation preserves the existing topology-operator boundary: it does not
+add a new topology operator, does not edit Gmsh settings, does not touch `shell_v3`, and does not
+apply to full prelaunch or the root_last4 path.
+
+The engineering reason to stop sweeping more layer counts is that the sweep already found a topology
+limit, not merely a scalar BL-thickness limit. The direct `8 -> 5` case failed before Gmsh 3D boundary
+recovery with an invalid 1D loop, zero achieved BL layers, collapse rate 1.0, and zero
+volume-to-wall ratio. A deeper or broader layer-count sweep would mainly explore more loop-collapse
+variants. The more useful question is whether a mild `8 -> 7` transition with an explicit terminal
+guard can reduce failed-Steiner / degenerated-prism pressure without reopening segment-facet or loop
+closure failures.
+
+The success criteria for this gate are deliberately narrower than a full prelaunch pass:
+
+- do not reintroduce `segment_facet_intersection`
+- do not induce loop-closure failure
+- keep connector-band continuity inferred valid enough to reach the focused Gmsh 3D recovery phase
+- improve or shift failed-Steiner, `degenerated_prism_seen`, local y band, or suspicious window
+
+The first guarded staged-transition focused result is conservative: it keeps the loop closed by
+inference, does not reintroduce segment-facet, and keeps root_last4 overlap non-regression passing,
+but it leaves the failed-Steiner residual family, local y band, suspicious window, and
+`degenerated_prism_seen` unchanged. The current verdict is therefore
+`unchanged_same_failed_steiner`, with `tune_guard_location` as the next local action.
+
 ## What is intentionally still skeleton / TODO
 
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips
 - no claim that the connector-band operator is fully generalized beyond the one-extra-support-strip family
 - no claim that the new post-band transition prototypes are the final production operators
-- no automatic integration into the live production `shell_v4` runtime path yet
+- no automatic integration into the live production `shell_v4` runtime path yet; guarded staged
+  transition apply is an explicit focused experiment only
 - no automatic application of BL stageback, truncation, split-budget, or shrink-thickness candidates;
   the focused apply gate is explicit and default-off
 - no promotion of any `bl_candidate_parameter_sweep.v1.json` case into runtime defaults
@@ -399,6 +436,7 @@ The point of v1 is to expose the landing zones before another round of family-le
 1. Run `--run-bl-candidate-sweep-focused` and inspect `bl_candidate_parameter_sweep.v1.json`,
    `bl_stageback_loop_continuity_diagnostic.v1.json`, and
    `bl_topology_preserving_staged_transition_prototypes.v1.json`.
-2. If no case is `promising`, keep topology operator work paused and use the loop diagnostic to decide
-   whether `stage_with_termination_guard_8_to_7` is safe enough for a later focused experimental apply.
+2. If no case is `promising`, keep topology operator work paused and use the guarded staged-transition
+   apply result to decide whether the terminal guard location should be tuned or whether loop-graph
+   instrumentation is required first.
 3. If one case is `promising`, consider a later explicit experimental apply gate for that case only; still do not promote it to production by default.

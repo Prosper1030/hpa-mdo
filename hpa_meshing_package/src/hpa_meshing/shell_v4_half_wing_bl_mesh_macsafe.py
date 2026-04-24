@@ -59,12 +59,17 @@ TOPOLOGY_COMPILER_GATE_OFF = "off"
 TOPOLOGY_COMPILER_GATE_PLAN_ONLY = "plan_only"
 BL_CANDIDATE_APPLY_GATE_OFF = "off"
 BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED = "stageback_plus_truncation_focused"
+BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED = (
+    "stage_with_termination_guard_8_to_7_focused"
+)
 BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID = "bl_candidate_stageback_plus_truncation"
+BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID = "stage_with_termination_guard_8_to_7"
 BL_CANDIDATE_PARAMETER_SWEEP_CONTRACT = "bl_candidate_parameter_sweep.v1"
 BL_STAGEBACK_LOOP_CONTINUITY_DIAGNOSTIC_CONTRACT = "bl_stageback_loop_continuity_diagnostic.v1"
 BL_TOPOLOGY_PRESERVING_STAGED_TRANSITION_PROTOTYPES_CONTRACT = (
     "bl_topology_preserving_staged_transition_prototypes.v1"
 )
+BL_STAGED_TRANSITION_APPLY_COMPARISON_CONTRACT = "staged_transition_apply_comparison.v1"
 PRE_PLC_REPRO_FAMILY_CONFIGS: dict[str, dict[str, Any]] = {
     "root_last3_segment_facet": {
         "section_index_offsets": [0, -3, -2, -1],
@@ -3520,9 +3525,18 @@ def _shell_v4_pre_plc_repro_overrides(fixture: dict[str, Any]) -> dict[str, Any]
         if layers_after is not None:
             overrides["boundary_layer"]["layers"] = max(1, int(layers_after))
         forced_truncation_start = mutations.get("forced_tip_truncation_start_y_m")
-        if forced_truncation_start is not None:
+        staged_transition_guard_y = mutations.get("terminal_guard_y_m")
+        if forced_truncation_start is not None or staged_transition_guard_y is not None:
             protection = dict(overrides.get("real_wing_bl_protection") or {})
-            protection["forced_tip_truncation_start_y_m"] = float(forced_truncation_start)
+            if forced_truncation_start is not None:
+                protection["forced_tip_truncation_start_y_m"] = float(forced_truncation_start)
+            if staged_transition_guard_y is not None:
+                protection["_experimental_staged_transition_guard_y_m"] = float(
+                    staged_transition_guard_y
+                )
+                protection["_experimental_staged_transition_schedule"] = list(
+                    mutations.get("staged_layer_schedule") or []
+                )
             protection["_experimental_bl_candidate_apply_gate"] = str(
                 focused_apply.get("apply_gate") or ""
             )
@@ -4993,6 +5007,414 @@ def _run_shell_v4_bl_stageback_plus_truncation_focused_apply(
     return payload
 
 
+def _find_staged_transition_prototype(
+    staged_transition_prototypes: dict[str, Any],
+    prototype_id: str = BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID,
+) -> dict[str, Any]:
+    for prototype in list(staged_transition_prototypes.get("prototypes") or []):
+        if isinstance(prototype, dict) and prototype.get("prototype_id") == prototype_id:
+            return dict(prototype)
+    return {}
+
+
+def _validate_staged_transition_guard_prototype(
+    *,
+    apply_gate: str,
+    staged_transition_prototypes: dict[str, Any],
+) -> tuple[dict[str, Any], str | None]:
+    if apply_gate == BL_CANDIDATE_APPLY_GATE_OFF:
+        return {}, "apply_gate_disabled"
+    if apply_gate != BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED:
+        return {}, "unsupported_apply_gate"
+    if not isinstance(staged_transition_prototypes, dict) or not staged_transition_prototypes:
+        return {}, "staged_transition_prototypes_missing"
+    if (
+        staged_transition_prototypes.get("contract")
+        != BL_TOPOLOGY_PRESERVING_STAGED_TRANSITION_PROTOTYPES_CONTRACT
+    ):
+        return {}, "staged_transition_prototypes_contract_mismatch"
+    if (
+        staged_transition_prototypes.get("recommended_next_experimental_apply_prototype_id")
+        != BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID
+    ):
+        return {}, "recommended_prototype_not_stage_with_termination_guard_8_to_7"
+    prototype = _find_staged_transition_prototype(staged_transition_prototypes)
+    if not prototype:
+        return {}, "stage_with_termination_guard_8_to_7_prototype_missing"
+    if prototype.get("planning_only") is not True:
+        return prototype, "prototype_is_not_from_planning_surface"
+    layer_schedule = [int(value) for value in list(prototype.get("layer_schedule") or [])]
+    if layer_schedule != [8, 7]:
+        return prototype, "prototype_layer_schedule_not_mild_8_to_7"
+    if any(layer <= 6 for layer in layer_schedule[1:]):
+        return prototype, "prototype_layer_schedule_too_aggressive"
+    breakpoints = [float(value) for value in list(prototype.get("y_breakpoints") or [])]
+    if len(breakpoints) != 1:
+        return prototype, "prototype_missing_single_terminal_guard_breakpoint"
+    target_y_span = dict(staged_transition_prototypes.get("target_y_span") or {})
+    if target_y_span.get("min") is None or target_y_span.get("max") is None:
+        return prototype, "prototype_missing_target_y_span"
+    y_min = float(target_y_span["min"])
+    y_max = float(target_y_span["max"])
+    guard_y = float(breakpoints[0])
+    if guard_y <= y_min or guard_y >= y_max:
+        return prototype, "prototype_guard_not_inside_terminal_span"
+    return prototype, None
+
+
+def _loop_fields_from_focused_summary(
+    summary: dict[str, Any],
+    *,
+    guarded_transition: bool,
+) -> dict[str, Any]:
+    symptoms = set(str(value) for value in list(summary.get("observed_symptoms") or []))
+    if (
+        summary.get("diagnostic_family") == "gmsh_1d_loop_closure_failure"
+        or "gmsh_1d_loop_not_closed" in symptoms
+    ):
+        return {
+            "loop_closed": False,
+            "termination_ring_valid": False,
+            "connector_band_continuity": "fail",
+        }
+    if summary.get("reached_gmsh_3d_boundary_recovery") or summary.get("failure_phase") == "gmsh_3d_boundary_recovery":
+        return {
+            "loop_closed": True,
+            "termination_ring_valid": "guarded_inferred" if guarded_transition else "inferred",
+            "connector_band_continuity": "pass",
+        }
+    return {
+        "loop_closed": "unknown",
+        "termination_ring_valid": "unknown",
+        "connector_band_continuity": "unknown",
+    }
+
+
+def _staged_transition_endpoint_summary(
+    summary: dict[str, Any],
+    *,
+    guarded_transition: bool,
+) -> dict[str, Any]:
+    loop_fields = _loop_fields_from_focused_summary(
+        summary,
+        guarded_transition=guarded_transition,
+    )
+    return {
+        "residual_family": summary.get("residual_family"),
+        "failure_kind": summary.get("observed_failure_kind"),
+        "local_y_band": list(summary.get("local_y_band") or []),
+        "suspicious_window": list(summary.get("suspicious_window") or []),
+        "degenerated_prism_seen": summary.get("degenerated_prism_seen"),
+        **loop_fields,
+    }
+
+
+def _staged_transition_apply_verdict(
+    *,
+    before: dict[str, Any],
+    after: dict[str, Any],
+    applied: bool,
+    reject_reason: str | None,
+) -> str:
+    if not applied or reject_reason:
+        return "rejected"
+    if after.get("loop_closed") is False:
+        return "induced_loop_closure_failure"
+    before_failure = str(before.get("failure_kind") or "")
+    after_failure = str(after.get("failure_kind") or "")
+    before_family = str(before.get("residual_family") or "")
+    after_family = str(after.get("residual_family") or "")
+    if after_failure == "segment_facet_intersection" and after_failure != before_failure:
+        return "reintroduced_segment_facet"
+    if after_failure == "facet_facet_overlap" and after_failure != before_failure:
+        return "worsened"
+    local_change = _window_change_label(before.get("local_y_band"), after.get("local_y_band"))
+    suspicious_change = _window_change_label(
+        before.get("suspicious_window"),
+        after.get("suspicious_window"),
+    )
+    prism_improved = (
+        before.get("degenerated_prism_seen") is True
+        and after.get("degenerated_prism_seen") is False
+    )
+    if local_change == "reduced" or suspicious_change == "reduced" or prism_improved:
+        return "improved"
+    if before_family == FAILED_STEINER_RESIDUAL_FAMILY and after_family != before_family:
+        if after_family or after_failure != before_failure:
+            return "shifted_to_cleaner_family"
+    if before_family == FAILED_STEINER_RESIDUAL_FAMILY and after_family == before_family:
+        return "unchanged_same_failed_steiner"
+    return "unknown"
+
+
+def _staged_transition_recommended_next_action(comparison_verdict: str) -> str:
+    if comparison_verdict in {"improved", "shifted_to_cleaner_family"}:
+        return "keep_stage_guard_candidate"
+    if comparison_verdict == "unchanged_same_failed_steiner":
+        return "tune_guard_location"
+    if comparison_verdict in {"reintroduced_segment_facet", "worsened"}:
+        return "revert_candidate"
+    if comparison_verdict == "induced_loop_closure_failure":
+        return "requires_loop_graph_instrumentation"
+    if comparison_verdict == "rejected":
+        return "requires_loop_graph_instrumentation"
+    return "requires_loop_graph_instrumentation"
+
+
+def _write_rejected_staged_transition_apply_comparison(
+    *,
+    artifact_dir: Path,
+    apply_gate: str,
+    reject_reason: str,
+    prototype: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / "staged_transition_apply_comparison.v1.json"
+    payload = {
+        "contract": BL_STAGED_TRANSITION_APPLY_COMPARISON_CONTRACT,
+        "prototype_id": (prototype or {}).get(
+            "prototype_id",
+            BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID,
+        ),
+        "apply_gate": apply_gate,
+        "focused_path": "root_last3_segment_facet",
+        "focused_scope": "isolated_pre_plc_fixture_rerun",
+        "planning_only": False,
+        "experimental_focused_only": True,
+        "full_prelaunch_pass_attempted": False,
+        "applied": False,
+        "reject_reason": reject_reason,
+        "before": {},
+        "after": {},
+        "comparison_verdict": "rejected",
+        "recommended_next_action": _staged_transition_recommended_next_action("rejected"),
+        "production_default_changed": False,
+        "topology_compiler_gate_off_changed": False,
+        "plan_only_behavior_changed": False,
+        "runtime_bl_spec_mutation": False,
+        "runtime_geometry_mutation": False,
+        "gmsh_settings_changed": False,
+        "shell_v3_changed": False,
+        "topology_operator_added": False,
+        "root_last4_overlap_path_changed": False,
+        "artifacts": {
+            "staged_transition_apply_comparison": str(artifact_path),
+        },
+        "notes": [
+            "Rejected deterministically before mutating any focused fixture.",
+            "The guarded staged-transition apply gate is explicit, experimental, and default-off.",
+        ],
+    }
+    write_json_report(artifact_path, payload)
+    return payload
+
+
+def _apply_staged_transition_guard_prototype_to_fixture(
+    fixture: dict[str, Any],
+    *,
+    prototype: dict[str, Any],
+    apply_gate: str,
+    artifact_dir: Path,
+) -> tuple[dict[str, Any], dict[str, Any], str | None]:
+    layer_schedule = [int(value) for value in list(prototype.get("layer_schedule") or [])]
+    breakpoints = [float(value) for value in list(prototype.get("y_breakpoints") or [])]
+    if layer_schedule != [8, 7]:
+        return copy.deepcopy(fixture), {}, "prototype_layer_schedule_not_mild_8_to_7"
+    if len(breakpoints) != 1:
+        return copy.deepcopy(fixture), {}, "prototype_missing_single_terminal_guard_breakpoint"
+
+    guard_y = float(breakpoints[0])
+    transformed_fixture = copy.deepcopy(fixture)
+    focused_mutations = {
+        "layers_before": int(layer_schedule[0]),
+        "layers_after": int(layer_schedule[-1]),
+        "staged_layer_schedule": list(layer_schedule),
+        "stage_transition_y_m": guard_y,
+        "terminal_guard_y_m": guard_y,
+        "focused_fixture_only": True,
+        "applies_to_family": "root_last3_segment_facet",
+        "applies_to_region": "root_last3_tip_terminal_tight_region",
+        "topology_preserving_transition": True,
+        "avoids_direct_drop_8_to_5": True,
+        "avoids_aggressive_drop_8_to_6": True,
+    }
+    transformed_fixture["focused_bl_candidate_apply"] = {
+        "enabled": True,
+        "apply_gate": apply_gate,
+        "candidate_id": BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID,
+        "candidate_kind": "topology_preserving_staged_transition",
+        "prototype_id": BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID,
+        "prototype": copy.deepcopy(prototype),
+        "focused_mutations": focused_mutations,
+    }
+    artifact = {
+        "contract": "applied_staged_transition.v1",
+        "prototype_id": BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID,
+        "apply_gate": apply_gate,
+        "applied": True,
+        "reject_reason": None,
+        "prototype": copy.deepcopy(prototype),
+        "focused_mutations": focused_mutations,
+        "production_default_changed": False,
+        "topology_compiler_gate_off_changed": False,
+        "plan_only_behavior_changed": False,
+        "runtime_geometry_mutation": False,
+        "runtime_bl_spec_mutation": False,
+        "notes": [
+            "This applies the staged transition only to the isolated root_last3 focused fixture rerun.",
+            "The production shell_v4 route defaults, shell_v3, Gmsh settings, and topology operators are unchanged.",
+        ],
+    }
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / "applied_staged_transition.v1.json"
+    write_json_report(artifact_path, artifact)
+    artifact["artifact_path"] = str(artifact_path)
+    return transformed_fixture, artifact, None
+
+
+def _run_shell_v4_bl_staged_transition_guard_focused_apply(
+    *,
+    out_dir: Path,
+    apply_gate: str,
+    source_path: Path,
+    component: str,
+    staged_transition_prototypes: dict[str, Any],
+    root_last3_failed_steiner_forensic_evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    apply_gate = _normalize_bl_candidate_apply_gate(apply_gate)
+    artifact_dir = Path(out_dir) / "artifacts" / "topology_compiler" / "staged_transition_apply"
+    prototype, reject_reason = _validate_staged_transition_guard_prototype(
+        apply_gate=apply_gate,
+        staged_transition_prototypes=dict(staged_transition_prototypes or {}),
+    )
+    if reject_reason is not None:
+        return _write_rejected_staged_transition_apply_comparison(
+            artifact_dir=artifact_dir,
+            apply_gate=apply_gate,
+            reject_reason=reject_reason,
+            prototype=prototype,
+        )
+
+    root_last3_fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=source_path,
+        component=component,
+        family="root_last3_segment_facet",
+        artifact_dir=artifact_dir / "root_last3" / "fixture",
+    )
+    baseline = _run_shell_v4_pre_plc_repro_fixture(
+        root_last3_fixture,
+        out_dir=artifact_dir / "root_last3" / "baseline_probe",
+    )
+    transition = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        root_last3_fixture,
+        baseline_observed=baseline,
+        artifact_dir=artifact_dir / "root_last3" / "post_band_transition",
+    )
+    error2_observed = _run_shell_v4_pre_plc_repro_fixture(
+        transition["fixture"],
+        out_dir=artifact_dir / "root_last3" / "post_band_transition_probe",
+    )
+    if root_last3_failed_steiner_forensic_evidence:
+        error2_observed["forensic_evidence"] = dict(root_last3_failed_steiner_forensic_evidence)
+    localized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
+        transition["fixture"],
+        baseline_observed=error2_observed,
+        artifact_dir=artifact_dir / "root_last3" / "boundary_recovery_regularization",
+    )
+    before_observed = _run_shell_v4_pre_plc_repro_fixture(
+        localized["fixture"],
+        out_dir=artifact_dir / "root_last3" / "before_apply_probe",
+    )
+    applied_fixture, applied_transition, apply_reject_reason = (
+        _apply_staged_transition_guard_prototype_to_fixture(
+            localized["fixture"],
+            prototype=prototype,
+            apply_gate=apply_gate,
+            artifact_dir=artifact_dir,
+        )
+    )
+    if apply_reject_reason is not None:
+        return _write_rejected_staged_transition_apply_comparison(
+            artifact_dir=artifact_dir,
+            apply_gate=apply_gate,
+            reject_reason=apply_reject_reason,
+            prototype=prototype,
+        )
+    after_observed = _run_shell_v4_pre_plc_repro_fixture(
+        applied_fixture,
+        out_dir=artifact_dir / "root_last3" / "after_apply_probe",
+    )
+    before_summary = _focused_residual_summary(
+        observed=before_observed,
+        fallback_forensic_evidence=root_last3_failed_steiner_forensic_evidence,
+    )
+    after_summary = _focused_residual_summary(observed=after_observed)
+    before_endpoint = _staged_transition_endpoint_summary(
+        before_summary,
+        guarded_transition=False,
+    )
+    after_endpoint = _staged_transition_endpoint_summary(
+        after_summary,
+        guarded_transition=True,
+    )
+    comparison_verdict = _staged_transition_apply_verdict(
+        before=before_endpoint,
+        after=after_endpoint,
+        applied=True,
+        reject_reason=None,
+    )
+    root_last4_non_regression = _run_root_last4_overlap_non_regression_check(
+        source_path=source_path,
+        component=component,
+        artifact_dir=artifact_dir / "root_last4_overlap_non_regression",
+    )
+    artifact_path = artifact_dir / "staged_transition_apply_comparison.v1.json"
+    payload = {
+        "contract": BL_STAGED_TRANSITION_APPLY_COMPARISON_CONTRACT,
+        "prototype_id": BL_STAGED_TRANSITION_GUARD_PROTOTYPE_ID,
+        "apply_gate": apply_gate,
+        "focused_path": "root_last3_segment_facet",
+        "focused_scope": "isolated_pre_plc_fixture_rerun",
+        "planning_only": False,
+        "experimental_focused_only": True,
+        "full_prelaunch_pass_attempted": False,
+        "applied": True,
+        "reject_reason": None,
+        "before": before_endpoint,
+        "after": after_endpoint,
+        "comparison_verdict": comparison_verdict,
+        "recommended_next_action": _staged_transition_recommended_next_action(
+            comparison_verdict
+        ),
+        "applied_staged_transition": applied_transition,
+        "non_regression_checks": {
+            "root_last4_overlap": root_last4_non_regression,
+        },
+        "production_default_changed": False,
+        "topology_compiler_gate_off_changed": False,
+        "plan_only_behavior_changed": False,
+        "runtime_bl_spec_mutation": False,
+        "runtime_geometry_mutation": False,
+        "gmsh_settings_changed": False,
+        "shell_v3_changed": False,
+        "topology_operator_added": False,
+        "root_last4_overlap_path_changed": False,
+        "artifacts": {
+            "applied_staged_transition": str(applied_transition["artifact_path"]),
+            "staged_transition_apply_comparison": str(artifact_path),
+            "before_root_last3_report": str(before_observed.get("report_path")),
+            "after_root_last3_report": str(after_observed.get("report_path")),
+        },
+        "notes": [
+            "This is an explicit default-off focused experimental apply for stage_with_termination_guard_8_to_7.",
+            "Success criteria are not a full prelaunch pass; they are no segment-facet regression, no loop-closure failure, and improvement in failed-Steiner/degenerated-prism/local-window evidence.",
+            "root_last4 overlap is checked only as non-regression; the staged transition is not applied to root_last4.",
+        ],
+    }
+    write_json_report(artifact_path, payload)
+    return payload
+
+
 def _float_window_width(values: Any) -> float | None:
     if not isinstance(values, list) or len(values) < 2:
         return None
@@ -5321,14 +5743,21 @@ def _normalize_bl_candidate_apply_gate(bl_candidate_apply_gate: str | None) -> s
     normalized = str(bl_candidate_apply_gate or BL_CANDIDATE_APPLY_GATE_OFF).strip().lower()
     if normalized in {"stageback_plus_truncation", "apply_stageback_plus_truncation_focused"}:
         normalized = BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED
+    if normalized in {
+        "stage_with_termination_guard_8_to_7",
+        "apply_stage_with_termination_guard_8_to_7_focused",
+    }:
+        normalized = BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED
     if normalized not in {
         BL_CANDIDATE_APPLY_GATE_OFF,
         BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED,
+        BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED,
     }:
         raise ValueError(
             "Unsupported shell_v4 BL candidate apply gate: "
             f"{bl_candidate_apply_gate!r}; expected 'off' or "
-            f"'{BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED}'."
+            f"'{BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED}' or "
+            f"'{BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED}'."
         )
     return normalized
 
@@ -9485,44 +9914,96 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
 
     if bl_candidate_apply_gate != BL_CANDIDATE_APPLY_GATE_OFF:
         if geometry_shape_mode != DEFAULT_REAL_MAIN_WING_SHAPE_MODE or real_wing_geometry is None:
-            result["bl_candidate_apply"] = _write_rejected_bl_candidate_apply_comparison(
-                artifact_dir=out_dir / "artifacts" / "topology_compiler" / "bl_candidate_apply",
-                apply_gate=bl_candidate_apply_gate,
-                reject_reason="real_wing_focused_validation_required",
-            )
+            if bl_candidate_apply_gate == BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED:
+                result["bl_candidate_apply"] = _write_rejected_staged_transition_apply_comparison(
+                    artifact_dir=out_dir
+                    / "artifacts"
+                    / "topology_compiler"
+                    / "staged_transition_apply",
+                    apply_gate=bl_candidate_apply_gate,
+                    reject_reason="real_wing_focused_validation_required",
+                )
+            else:
+                result["bl_candidate_apply"] = _write_rejected_bl_candidate_apply_comparison(
+                    artifact_dir=out_dir / "artifacts" / "topology_compiler" / "bl_candidate_apply",
+                    apply_gate=bl_candidate_apply_gate,
+                    reject_reason="real_wing_focused_validation_required",
+                )
         else:
             try:
-                existing_comparison = (
-                    result.get("topology_compiler", {}).get("bl_candidate_comparison")
+                focused_budgeting_payload = (
+                    result.get("topology_compiler", {}).get("planning_budgeting")
                     if isinstance(result.get("topology_compiler"), dict)
                     else None
                 )
-                if not isinstance(existing_comparison, dict):
-                    focused_budgeting = _build_real_wing_bl_budgeting_plan(
+                if not isinstance(focused_budgeting_payload, dict):
+                    focused_budgeting_payload = _build_real_wing_bl_budgeting_plan(
                         sections=[dict(section) for section in real_wing_geometry.get("sections", [])],
                         protection=dict(protection_config),
                         base_total_thickness_m=float(bl_spec["target_total_thickness_m"]),
                         half_span_m=float(geometry.get("half_span_m") or DEFAULT_HALF_SPAN_M),
+                    ).model_dump(mode="json")
+                if bl_candidate_apply_gate == BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED:
+                    target_y_span, _, _ = _derive_focused_sweep_target_and_truncation_grid(
+                        focused_budgeting_payload
                     )
-                    existing_comparison = _build_bl_stageback_truncation_candidate_comparison(
-                        planning_budgeting=focused_budgeting.model_dump(mode="json"),
-                        planning_policy_fail_kinds=["bl_clearance_incompatibility"],
-                        planning_policy_recommendation_kinds=list(focused_budgeting.recommendation_kinds),
-                        original_layer_count=int(bl_spec.get("layers") or 0),
+                    staged_transition_prototypes = _build_topology_preserving_staged_transition_prototypes(
+                        target_y_span=target_y_span,
+                        original_layer_count=8,
                     )
-                result["bl_candidate_apply"] = _run_shell_v4_bl_stageback_plus_truncation_focused_apply(
-                    out_dir=out_dir,
-                    apply_gate=bl_candidate_apply_gate,
-                    source_path=Path(real_wing_geometry.get("source_path") or geometry.get("source_path")),
-                    component=str(real_wing_geometry.get("component") or geometry.get("component") or "main_wing"),
-                    bl_candidate_comparison=existing_comparison,
-                )
+                    result["bl_candidate_apply"] = (
+                        _run_shell_v4_bl_staged_transition_guard_focused_apply(
+                            out_dir=out_dir,
+                            apply_gate=bl_candidate_apply_gate,
+                            source_path=Path(
+                                real_wing_geometry.get("source_path") or geometry.get("source_path")
+                            ),
+                            component=str(
+                                real_wing_geometry.get("component")
+                                or geometry.get("component")
+                                or "main_wing"
+                            ),
+                            staged_transition_prototypes=staged_transition_prototypes,
+                        )
+                    )
+                else:
+                    existing_comparison = (
+                        result.get("topology_compiler", {}).get("bl_candidate_comparison")
+                        if isinstance(result.get("topology_compiler"), dict)
+                        else None
+                    )
+                    if not isinstance(existing_comparison, dict):
+                        existing_comparison = _build_bl_stageback_truncation_candidate_comparison(
+                            planning_budgeting=focused_budgeting_payload,
+                            planning_policy_fail_kinds=["bl_clearance_incompatibility"],
+                            planning_policy_recommendation_kinds=list(
+                                focused_budgeting_payload.get("recommendation_kinds") or []
+                            ),
+                            original_layer_count=int(bl_spec.get("layers") or 0),
+                        )
+                    result["bl_candidate_apply"] = _run_shell_v4_bl_stageback_plus_truncation_focused_apply(
+                        out_dir=out_dir,
+                        apply_gate=bl_candidate_apply_gate,
+                        source_path=Path(real_wing_geometry.get("source_path") or geometry.get("source_path")),
+                        component=str(real_wing_geometry.get("component") or geometry.get("component") or "main_wing"),
+                        bl_candidate_comparison=existing_comparison,
+                    )
             except Exception as exc:
-                result["bl_candidate_apply"] = _write_rejected_bl_candidate_apply_comparison(
-                    artifact_dir=out_dir / "artifacts" / "topology_compiler" / "bl_candidate_apply",
-                    apply_gate=bl_candidate_apply_gate,
-                    reject_reason=f"focused_apply_failed:{exc}",
-                )
+                if bl_candidate_apply_gate == BL_CANDIDATE_APPLY_GATE_STAGED_TRANSITION_GUARD_FOCUSED:
+                    result["bl_candidate_apply"] = _write_rejected_staged_transition_apply_comparison(
+                        artifact_dir=out_dir
+                        / "artifacts"
+                        / "topology_compiler"
+                        / "staged_transition_apply",
+                        apply_gate=bl_candidate_apply_gate,
+                        reject_reason=f"focused_apply_failed:{exc}",
+                    )
+                else:
+                    result["bl_candidate_apply"] = _write_rejected_bl_candidate_apply_comparison(
+                        artifact_dir=out_dir / "artifacts" / "topology_compiler" / "bl_candidate_apply",
+                        apply_gate=bl_candidate_apply_gate,
+                        reject_reason=f"focused_apply_failed:{exc}",
+                    )
                 result["notes"].append(
                     "Experimental BL candidate focused apply failed after the runtime path completed; production runtime outputs are unchanged."
                 )

@@ -226,11 +226,13 @@ The explicit focused apply gate is separate from `topology_compiler_gate`:
 
 - Python argument: `bl_candidate_apply_gate`
 - default: `off`
-- enabled value: `stageback_plus_truncation_focused`
-- CLI flag: `--apply-bl-stageback-plus-truncation-focused`
+- enabled values: `stageback_plus_truncation_focused`,
+  `stage_with_termination_guard_8_to_7_focused`
+- CLI flags: `--apply-bl-stageback-plus-truncation-focused`,
+  `--apply-bl-stage-with-termination-guard-8-to-7-focused`
 
-When enabled, only `bl_candidate_stageback_plus_truncation` may be applied, and only inside an isolated
-root_last3 focused validation rerun. The gate writes:
+For `stageback_plus_truncation_focused`, only `bl_candidate_stageback_plus_truncation` may be applied,
+and only inside an isolated root_last3 focused validation rerun. That gate writes:
 
 - `applied_candidate.v1.json`
 - `bl_candidate_apply_comparison.v1.json`
@@ -244,6 +246,34 @@ The current `stageback_plus_truncation_focused` result is classified as too aggr
 failed-Steiner residual family but reintroduced `segment_facet_intersection`, while degenerated-prism
 evidence remained present. This is a regression to an upstream PLC / segment-facet family, not a
 production-ready improvement.
+
+The guarded staged-transition gate is the next explicit focused experiment:
+
+- enabled value: `stage_with_termination_guard_8_to_7_focused`
+- prototype id: `stage_with_termination_guard_8_to_7`
+- artifact: `staged_transition_apply_comparison.v1.json`
+- focused path: `root_last3_segment_facet`
+- production default changed: `false`
+
+This gate must deterministic-reject if the prototype artifact is missing, if the recommended prototype
+is not `stage_with_termination_guard_8_to_7`, if the schedule is not the mild `8 -> 7` transition, or
+if the terminal guard breakpoint is not inside the target span. It must not apply a direct `8 -> 5`
+drop, must not apply an aggressive `8 -> 6` drop, must not run full prelaunch, and must not mutate the
+root_last4 overlap path. The root_last4 path is a non-regression check only.
+
+The comparison artifact must carry before/after residual family, failure kind, local y band,
+suspicious window, degenerated-prism evidence, loop-closure status, termination-ring validity, and
+connector-band continuity. Allowed verdicts are `improved`, `shifted_to_cleaner_family`,
+`unchanged_same_failed_steiner`, `reintroduced_segment_facet`, `induced_loop_closure_failure`,
+`worsened`, `rejected`, and `unknown`. Allowed next actions are `keep_stage_guard_candidate`,
+`tune_guard_location`, `revert_candidate`, `requires_loop_graph_instrumentation`, and
+`requires_bl_policy_rethink`.
+
+The first focused result for `stage_with_termination_guard_8_to_7_focused` is
+`unchanged_same_failed_steiner`: it avoids the earlier segment-facet regression and avoids the direct
+`8 -> 5` loop-closure failure, but it does not reduce the failed-Steiner y band, suspicious window, or
+degenerated-prism evidence. That makes it safer than the aggressive candidates but not sufficient as a
+repair.
 
 ## Experimental Focused Parameter Sweep
 
@@ -310,6 +340,11 @@ It compares topology-preserving staged schedules such as direct baseline `8`, mi
 smoother `8 -> 7 -> 6`, hold-then-stage, and `8 -> 7` with an explicit terminal guard. A direct
 `8 -> 5` drop is excluded because it already produced loop-closure failure. Every prototype must keep
 `planning_only = true`; it is not a runtime apply candidate and does not change production defaults.
+
+Further layer-count sweeping is now considered the wrong next experiment unless new loop-graph
+evidence changes the diagnosis. The current engineering question is narrower: can the guarded
+`8 -> 7` staged transition reduce failed-Steiner / degenerated-prism evidence without returning to
+segment-facet or inducing loop-closure failure?
 
 ## Manual Edit Candidates
 

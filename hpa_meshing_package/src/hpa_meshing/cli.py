@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import json
-import sys
 import yaml
 
 from .schema import MeshJobConfig, BatchManifest
@@ -117,7 +116,9 @@ def cmd_shell_v4_half_wing_bl_mesh_macsafe(args: argparse.Namespace) -> int:
         allow_swap_risk=args.allow_swap_risk,
         topology_compiler_gate="plan_only" if args.topology_compiler_plan_only else "off",
         bl_candidate_apply_gate=(
-            "stageback_plus_truncation_focused"
+            "stage_with_termination_guard_8_to_7_focused"
+            if args.apply_bl_stage_with_termination_guard_8_to_7_focused
+            else "stageback_plus_truncation_focused"
             if args.apply_bl_stageback_plus_truncation_focused
             else "off"
         ),
@@ -188,6 +189,7 @@ def build_parser() -> argparse.ArgumentParser:
     shell_v4.add_argument("--allow-swap-risk", action="store_true")
     shell_v4.add_argument("--topology-compiler-plan-only", action="store_true")
     shell_v4.add_argument("--apply-bl-stageback-plus-truncation-focused", action="store_true")
+    shell_v4.add_argument("--apply-bl-stage-with-termination-guard-8-to-7-focused", action="store_true")
     shell_v4.add_argument("--run-bl-candidate-sweep-focused", action="store_true")
     shell_v4.set_defaults(func=cmd_shell_v4_half_wing_bl_mesh_macsafe)
 
