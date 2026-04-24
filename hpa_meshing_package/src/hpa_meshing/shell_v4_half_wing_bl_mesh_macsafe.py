@@ -24,6 +24,7 @@ from .compiler.compiler_v1 import compile_topology_family_v1
 from .compiler.motif_registry_v1 import MotifRegistryV1
 from .compiler.operator_library_v1 import OperatorLibraryV1
 from .compiler.pre_plc_audit_v1 import (
+    PlanningManualEditCandidateV1,
     PlanningBudgetRecommendationV1,
     PlanningBudgetRegionV1,
     PlanningBudgetSectionV1,
@@ -1318,6 +1319,112 @@ def _sample_real_wing_bl_interference_payloads(
     return full_payloads, retained_payloads, suppressed_payloads
 
 
+def _budget_recommendation_value(
+    recommendations: list[PlanningBudgetRecommendationV1],
+    action_kind: str,
+    field_name: str,
+) -> float | None:
+    for recommendation in recommendations:
+        if recommendation.kind != action_kind:
+            continue
+        value = getattr(recommendation, field_name)
+        if value is not None:
+            return float(value)
+    return None
+
+
+def _budget_manual_candidate_reason(
+    *,
+    target_kind: str,
+    target_id: str,
+    recommended_action_kinds: list[str],
+    ratio_deficit: float | None,
+    available_budget_ratio_deficit: float | None,
+) -> str:
+    deficit_fragments: list[str] = []
+    if ratio_deficit is not None:
+        deficit_fragments.append(f"clearance_ratio_deficit={float(ratio_deficit):.6g}")
+    if available_budget_ratio_deficit is not None:
+        deficit_fragments.append(
+            f"available_budget_ratio_deficit={float(available_budget_ratio_deficit):.6g}"
+        )
+    action_fragment = ",".join(recommended_action_kinds) if recommended_action_kinds else "manual_review"
+    deficit_fragment = "; ".join(deficit_fragments) if deficit_fragments else "no_numeric_deficit"
+    return (
+        f"{target_kind} {target_id} is a tight BL budget window; actions={action_fragment}; "
+        f"{deficit_fragment}."
+    )
+
+
+def _build_budget_manual_edit_candidate(
+    *,
+    target_kind: str,
+    target_id: str,
+    span_y_range_m: dict[str, float],
+    current_total_bl_thickness_m: float,
+    min_local_clearance_m: float | None,
+    current_clearance_ratio: float | None,
+    ratio_deficit: float | None,
+    available_budget_ratio: float | None,
+    available_budget_ratio_deficit: float | None,
+    recommended_action_kinds: list[str],
+    recommendations: list[PlanningBudgetRecommendationV1],
+) -> PlanningManualEditCandidateV1:
+    suggested_max_total = (
+        float(current_total_bl_thickness_m) * float(available_budget_ratio)
+        if available_budget_ratio is not None
+        else None
+    )
+    suggested_reduction = (
+        max(0.0, float(current_total_bl_thickness_m) - float(suggested_max_total))
+        if suggested_max_total is not None
+        else None
+    )
+    suggested_truncation_start = _budget_recommendation_value(
+        recommendations,
+        "truncate_tip_zone",
+        "suggested_truncation_start_y_m",
+    )
+    if suggested_truncation_start is None and "truncate_tip_zone" in recommended_action_kinds:
+        suggested_truncation_start = float(span_y_range_m.get("min", 0.0))
+    return PlanningManualEditCandidateV1(
+        candidate_id=f"manual_edit:{target_kind}:{target_id}",
+        target_kind=target_kind,
+        target_id=target_id,
+        planning_only=True,
+        span_y_range_m=dict(span_y_range_m),
+        current_total_bl_thickness_m=float(current_total_bl_thickness_m),
+        min_local_clearance_m=(
+            float(min_local_clearance_m) if min_local_clearance_m is not None else None
+        ),
+        current_clearance_ratio=(
+            float(current_clearance_ratio) if current_clearance_ratio is not None else None
+        ),
+        ratio_deficit=float(ratio_deficit) if ratio_deficit is not None else None,
+        available_budget_ratio_deficit=(
+            float(available_budget_ratio_deficit)
+            if available_budget_ratio_deficit is not None
+            else None
+        ),
+        suggested_max_total_bl_thickness_m=suggested_max_total,
+        suggested_thickness_reduction_m=suggested_reduction,
+        suggested_truncation_start_y_m=suggested_truncation_start,
+        suggested_split_boundary_y_m=float(span_y_range_m.get("min", 0.0)),
+        suggested_layer_stage_back_direction="reduce_layers_outboard_first",
+        recommendation_kinds=list(recommended_action_kinds),
+        recommendation_reason=_budget_manual_candidate_reason(
+            target_kind=target_kind,
+            target_id=target_id,
+            recommended_action_kinds=recommended_action_kinds,
+            ratio_deficit=ratio_deficit,
+            available_budget_ratio_deficit=available_budget_ratio_deficit,
+        ),
+        notes=[
+            "Manual edit candidate is planning-only and must not mutate shell_v4 geometry or BL settings.",
+        ],
+    )
+
+
 def _build_real_wing_bl_budgeting_plan(
     *,
     sections: list[dict[str, Any]],
@@ -1458,6 +1565,28 @@ def _build_real_wing_bl_budgeting_plan(
                     )
                 )
 
+        min_local_half_thickness = min(
+            float(payload["local_half_thickness_m"]) for payload in payloads
+        )
+        manual_edit_candidates = (
+            [
+                _build_budget_manual_edit_candidate(
+                    target_kind="section",
+                    target_id=f"section_y:{section_y:.6f}",
+                    span_y_range_m=span_y_range_m,
+                    current_total_bl_thickness_m=float(base_total_thickness_m),
+                    min_local_clearance_m=float(min_local_half_thickness),
+                    current_clearance_ratio=float(min_clearance_ratio),
+                    ratio_deficit=float(clearance_ratio_deficit),
+                    available_budget_ratio=float(min_available_budget_ratio),
+                    available_budget_ratio_deficit=float(budget_ratio_deficit),
+                    recommended_action_kinds=recommended_action_kinds,
+                    recommendations=recommendations,
+                )
+            ]
+            if recommended_action_kinds
+            else []
+        )
         section_budgets.append(
             PlanningBudgetSectionV1(
                 section_id=f"section_y:{section_y:.6f}",
@@ -1466,7 +1595,7 @@ def _build_real_wing_bl_budgeting_plan(
                 region_kind=region_kind,
                 sample_count=sample_count,
                 triggered_sample_count=triggered_sample_count,
-                min_local_half_thickness_m=min(float(payload["local_half_thickness_m"]) for payload in payloads),
+                min_local_half_thickness_m=float(min_local_half_thickness),
                 min_clearance_to_thickness_ratio=float(min_clearance_ratio),
                 clearance_to_thickness_ratio_deficit=float(clearance_ratio_deficit),
                 min_available_budget_ratio=float(min_available_budget_ratio),
@@ -1478,6 +1607,7 @@ def _build_real_wing_bl_budgeting_plan(
                 clearance_pressure=float(clearance_pressure),
                 recommended_action_kinds=recommended_action_kinds,
                 recommendations=recommendations,
+                manual_edit_candidates=manual_edit_candidates,
                 notes=[
                     "Budgeting guidance is plan-only and should not be auto-applied to runtime geometry.",
                     *(
@@ -1591,6 +1721,30 @@ def _build_real_wing_bl_budgeting_plan(
                         suggested_truncation_start_y_m=float(span_y_range_m["min"]),
                     )
                 )
+        min_local_clearance = min(
+            float(section.min_local_half_thickness_m)
+            for section in grouped_sections
+            if section.min_local_half_thickness_m is not None
+        )
+        region_manual_edit_candidates = (
+            [
+                _build_budget_manual_edit_candidate(
+                    target_kind="region",
+                    target_id=f"region:{region_kind}",
+                    span_y_range_m=span_y_range_m,
+                    current_total_bl_thickness_m=float(base_total_thickness_m),
+                    min_local_clearance_m=float(min_local_clearance),
+                    current_clearance_ratio=float(min_clearance_ratio),
+                    ratio_deficit=float(max(0.0, 1.0 - float(min_clearance_ratio))),
+                    available_budget_ratio=float(min_budget_ratio),
+                    available_budget_ratio_deficit=float(max(0.0, 1.0 - float(min_budget_ratio))),
+                    recommended_action_kinds=recommended_action_kinds,
+                    recommendations=recommendations,
+                )
+            ]
+            if recommended_action_kinds
+            else []
+        )
         region_budgets.append(
             PlanningBudgetRegionV1(
                 region_id=f"region:{region_kind}",
@@ -1605,6 +1759,7 @@ def _build_real_wing_bl_budgeting_plan(
                 peak_clearance_pressure=float(peak_clearance_pressure),
                 recommended_action_kinds=recommended_action_kinds,
                 recommendations=recommendations,
+                manual_edit_candidates=region_manual_edit_candidates,
                 notes=[
                     "Regionwise budgeting groups sections by observed clearance-pressure regime, not by topology family.",
                 ],
@@ -1633,6 +1788,11 @@ def _build_real_wing_bl_budgeting_plan(
             for action in section.recommended_action_kinds
         )
     )
+    manual_edit_candidates = [
+        candidate
+        for budget in [*ranked_sections[:3], *ranked_regions[:3]]
+        for candidate in budget.manual_edit_candidates
+    ]
     return PlanningBudgetingV1(
         status="available",
         total_bl_thickness_m=float(base_total_thickness_m),
@@ -1643,6 +1803,7 @@ def _build_real_wing_bl_budgeting_plan(
         tightest_sections=[section.model_copy(deep=True) for section in ranked_sections[:3]],
         tightest_regions=[region.model_copy(deep=True) for region in ranked_regions[:3]],
         recommendation_kinds=recommendation_kinds,
+        manual_edit_candidates=[candidate.model_copy(deep=True) for candidate in manual_edit_candidates],
         notes=[
             "Sectionwise/regionwise budgeting remains planning-only guidance.",
             "Recommendations do not mutate shell_v4 geometry or BL settings at runtime.",

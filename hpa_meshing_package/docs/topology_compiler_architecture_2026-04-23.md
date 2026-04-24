@@ -216,6 +216,7 @@ When shell_v4 can provide spanwise sampling evidence, the compiler now carries:
 - section / region span windows
 - ratio deficits and pressure metrics
 - per-recommendation direction and deltas for the tightest windows
+- manual edit candidates with current thickness, local clearance, suggested max thickness, shrink delta, truncation start, split boundary, and stage-back direction
 - plan-only recommendation kinds such as shrinking thickness, splitting the budgeted zone, staging back layers, or truncating the tip zone
 
 That advice is still intentionally bounded:

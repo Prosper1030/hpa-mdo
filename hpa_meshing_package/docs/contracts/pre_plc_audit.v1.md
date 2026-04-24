@@ -102,6 +102,7 @@ Each section / region entry can now also surface:
 - ratio deficits such as `clearance_to_thickness_ratio_deficit` and `available_budget_ratio_deficit`
 - `clearance_pressure`
 - per-kind `recommendations` with direction and, when applicable, delta fields such as `delta_total_thickness_m`, `delta_total_thickness_ratio`, or `suggested_truncation_start_y_m`
+- plan-only `manual_edit_candidates` for tight windows and regions
 
 This budgeting line is intentionally separate from topology-family progress:
 
@@ -121,6 +122,28 @@ and the tightest-section summary can still tell you:
 - whether the first actionable move is shrinking thickness, splitting the budget zone, staging back layers, or moving truncation inboard
 
 without mixing those two judgments together.
+
+## Manual Edit Candidates
+
+`manual_edit_candidates` are a human-facing planning view derived from the same budgeting evidence.
+
+Each candidate carries:
+
+- target section or region id
+- `span_y_range_m`
+- current total BL thickness
+- min local clearance inferred from section half-thickness sampling
+- current clearance ratio and ratio deficit
+- suggested max total BL thickness
+- suggested thickness reduction
+- suggested truncation start y
+- suggested split boundary y
+- suggested layer stage-back direction
+- `planning_only = true`
+
+These candidates are not runtime mutations. They should be read as "what a human should inspect next,"
+not as an instruction to automatically change shell geometry, BL layer count, total thickness, or
+route verdict.
 
 ## Important Limitation
 

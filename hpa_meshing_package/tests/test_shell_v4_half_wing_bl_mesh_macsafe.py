@@ -1699,6 +1699,32 @@ def test_build_real_wing_bl_budgeting_plan_reports_sectionwise_and_regionwise_ac
     assert tight_section.span_y_range_m["max"] > tight_section.span_y_range_m["min"]
     assert tight_section.clearance_to_thickness_ratio_deficit > 0.0
     assert tight_section.available_budget_ratio_deficit > 0.0
+    assert tight_section.manual_edit_candidates
+    section_candidate = tight_section.manual_edit_candidates[0]
+    assert section_candidate.planning_only is True
+    assert section_candidate.target_kind == "section"
+    assert section_candidate.target_id == tight_section.section_id
+    assert section_candidate.current_total_bl_thickness_m == pytest.approx(
+        spec["boundary_layer"]["target_total_thickness_m"]
+    )
+    assert section_candidate.min_local_clearance_m == pytest.approx(
+        tight_section.min_local_half_thickness_m
+    )
+    assert section_candidate.current_clearance_ratio == pytest.approx(
+        tight_section.min_clearance_to_thickness_ratio
+    )
+    assert section_candidate.ratio_deficit == pytest.approx(
+        tight_section.clearance_to_thickness_ratio_deficit
+    )
+    assert section_candidate.suggested_max_total_bl_thickness_m < (
+        spec["boundary_layer"]["target_total_thickness_m"]
+    )
+    assert section_candidate.suggested_thickness_reduction_m > 0.0
+    assert section_candidate.suggested_split_boundary_y_m == pytest.approx(
+        tight_section.span_y_range_m["min"]
+    )
+    assert section_candidate.suggested_layer_stage_back_direction == "reduce_layers_outboard_first"
+    assert section_candidate.recommendation_reason
     shrink = next(
         recommendation
         for recommendation in tight_section.recommendations
@@ -1715,6 +1741,19 @@ def test_build_real_wing_bl_budgeting_plan_reports_sectionwise_and_regionwise_ac
     )
     assert tight_region.available_budget_ratio_deficit > 0.0
     assert tight_region.peak_clearance_pressure > 0.0
+    assert tight_region.manual_edit_candidates
+    region_candidate = tight_region.manual_edit_candidates[0]
+    assert region_candidate.planning_only is True
+    assert region_candidate.target_kind == "region"
+    assert region_candidate.target_id == tight_region.region_id
+    assert region_candidate.suggested_max_total_bl_thickness_m < (
+        spec["boundary_layer"]["target_total_thickness_m"]
+    )
+    assert region_candidate.suggested_thickness_reduction_m > 0.0
+    assert region_candidate.suggested_split_boundary_y_m == pytest.approx(
+        tight_region.span_y_range_m["min"]
+    )
+    assert region_candidate.suggested_layer_stage_back_direction == "reduce_layers_outboard_first"
     truncate = next(
         recommendation
         for recommendation in tight_region.recommendations
@@ -1783,6 +1822,16 @@ def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendat
     tight_section = result["planning_budgeting"]["tightest_sections"][0]
     assert tight_section["span_y_range_m"]["max"] > tight_section["span_y_range_m"]["min"]
     assert tight_section["available_budget_ratio_deficit"] > 0.0
+    assert tight_section["manual_edit_candidates"]
+    manual_candidate = tight_section["manual_edit_candidates"][0]
+    assert manual_candidate["planning_only"] is True
+    assert manual_candidate["suggested_max_total_bl_thickness_m"] < boundary_layer[
+        "target_total_thickness_m"
+    ]
+    assert manual_candidate["suggested_thickness_reduction_m"] > 0.0
+    assert manual_candidate["suggested_truncation_start_y_m"] is not None
+    assert manual_candidate["suggested_split_boundary_y_m"] is not None
+    assert manual_candidate["suggested_layer_stage_back_direction"] == "reduce_layers_outboard_first"
     assert any(
         recommendation["kind"] == "shrink_total_thickness"
         and recommendation["delta_total_thickness_m"] > 0.0
