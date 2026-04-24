@@ -286,17 +286,45 @@ attacks both observed symptoms: prism crowding and terminal failed-Steiner recov
 a planning recommendation. It is not a BL spec update, not a production default, not a Gmsh change, and
 not evidence of a full prelaunch pass.
 
-If a future round wants to apply one candidate, it must add an explicit experimental apply gate. The
-default runtime path and the `topology_compiler_gate=off` path must remain no-op with respect to these
-candidate policies.
+The first experimental runtime hook is deliberately separate from `topology_compiler_gate`:
+
+- Python argument: `bl_candidate_apply_gate`
+- default value: `off`
+- only enabled value: `stageback_plus_truncation_focused`
+- CLI flag: `--apply-bl-stageback-plus-truncation-focused`
+
+This gate only runs an isolated focused validation rerun for
+`bl_candidate_stageback_plus_truncation`. It does not change production defaults, does not change
+`topology_compiler_gate=off`, and does not make `plan_only` apply anything. Its artifact is:
+
+- `bl_candidate_apply_comparison.v1.json`
+
+The companion applied-candidate artifact is:
+
+- `applied_candidate.v1.json`
+
+The focused gate exists because `stageback_plus_truncation` is the only current candidate that attacks
+both observed symptoms at once: the failed-Steiner terminal recovery residual and the degenerated-prism
+pressure signal. It is still not a full prelaunch-pass target. The pass/fail question for this gate is
+whether the focused root_last3 rerun improves, shifts, or preserves:
+
+- `boundary_recovery_error_2_recoversegment_failed_insert_steiner`
+- local y band
+- suspicious window
+- `degenerated_prism_seen`
+- downstream failure family
+
+`root_last4_overlap` is carried as a non-regression check only; the experimental candidate is not
+applied to the root_last4 overlap path.
 
 ## What is intentionally still skeleton / TODO
 
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips
 - no claim that the connector-band operator is fully generalized beyond the one-extra-support-strip family
 - no claim that the new post-band transition prototypes are the final production operators
-- no automatic integration into the live `shell_v4` runtime path yet
-- no automatic application of BL stageback, truncation, split-budget, or shrink-thickness candidates
+- no automatic integration into the live production `shell_v4` runtime path yet
+- no automatic application of BL stageback, truncation, split-budget, or shrink-thickness candidates;
+  the focused apply gate is explicit and default-off
 
 Those are intentional boundaries, not missing polish.
 
@@ -304,6 +332,6 @@ The point of v1 is to expose the landing zones before another round of family-le
 
 ## Recommended next step after this round
 
-1. Inspect the BL candidate comparison artifact and choose whether `stageback_plus_truncation` should get an experimental apply gate.
-2. If and only if that gate exists, run a focused topology rerun on the same failed-Steiner family and compare the y band, suspicious window, and degenerated-prism signal.
-3. Keep topology operator work paused unless the BL candidate rerun proves the same family persists after the BL policy blocker is relieved.
+1. Run the explicit focused apply gate on the same failed-Steiner family and inspect `bl_candidate_apply_comparison.v1.json`.
+2. If the failed-Steiner residual remains unchanged, keep topology operator work paused and refine the BL policy candidate before promoting anything.
+3. If the residual shifts to a cleaner downstream family, use that artifact as the next bounded topology-family target.

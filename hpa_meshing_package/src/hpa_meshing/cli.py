@@ -103,6 +103,11 @@ def cmd_shell_v4_half_wing_bl_mesh_macsafe(args: argparse.Namespace) -> int:
         run_su2=not args.skip_su2,
         allow_swap_risk=args.allow_swap_risk,
         topology_compiler_gate="plan_only" if args.topology_compiler_plan_only else "off",
+        bl_candidate_apply_gate=(
+            "stageback_plus_truncation_focused"
+            if args.apply_bl_stageback_plus_truncation_focused
+            else "off"
+        ),
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("status") == "success" else 2
@@ -169,6 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
     shell_v4.add_argument("--skip-su2", action="store_true")
     shell_v4.add_argument("--allow-swap-risk", action="store_true")
     shell_v4.add_argument("--topology-compiler-plan-only", action="store_true")
+    shell_v4.add_argument("--apply-bl-stageback-plus-truncation-focused", action="store_true")
     shell_v4.set_defaults(func=cmd_shell_v4_half_wing_bl_mesh_macsafe)
 
     return parser

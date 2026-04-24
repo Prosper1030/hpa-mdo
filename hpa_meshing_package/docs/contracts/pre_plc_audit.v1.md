@@ -220,6 +220,26 @@ does not mutate production defaults, and does not activate a runtime apply path.
 to test one candidate, it must introduce a separate explicit experimental apply gate and then rerun the
 focused topology validation.
 
+## Experimental Focused Apply Gate
+
+The explicit focused apply gate is separate from `topology_compiler_gate`:
+
+- Python argument: `bl_candidate_apply_gate`
+- default: `off`
+- enabled value: `stageback_plus_truncation_focused`
+- CLI flag: `--apply-bl-stageback-plus-truncation-focused`
+
+When enabled, only `bl_candidate_stageback_plus_truncation` may be applied, and only inside an isolated
+root_last3 focused validation rerun. The gate writes:
+
+- `applied_candidate.v1.json`
+- `bl_candidate_apply_comparison.v1.json`
+
+`plan_only` remains artifact-only, `topology_compiler_gate=off` remains a no-op, and production
+defaults are not changed. The success criteria are not a full prelaunch pass. The comparison only asks
+whether failed-Steiner residual evidence, degenerated-prism evidence, local y band, suspicious window,
+or downstream failure family improves or shifts.
+
 ## Manual Edit Candidates
 
 `manual_edit_candidates` are a human-facing planning view derived from the same budgeting evidence.

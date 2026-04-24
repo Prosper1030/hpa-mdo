@@ -31,6 +31,7 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _rebuild_tip_truncation_closure_block,
     _remove_mesh_constraints_from_surfaces,
     _resolve_real_main_wing_geometry,
+    _run_shell_v4_bl_stageback_plus_truncation_focused_apply,
     _run_shell_v4_topology_compiler_plan_only,
     _run_shell_v4_pre_plc_repro_fixture,
     _select_tip_truncation_closure_source_surface_tags,
@@ -2056,6 +2057,120 @@ def test_build_bl_stageback_truncation_candidate_comparison_is_planning_only(
     assert combined["expected_effect_on_degenerated_prism"] == "likely_improves"
 
 
+def test_bl_stageback_plus_truncation_apply_gate_rejects_without_explicit_gate(
+    tmp_path: Path,
+):
+    comparison = {
+        "recommended_candidate_id": "bl_candidate_stageback_plus_truncation",
+        "candidates": [
+            {
+                "candidate_id": "bl_candidate_stageback_plus_truncation",
+                "candidate_kind": "stageback_plus_truncation",
+                "planning_only": True,
+                "original_layer_count": 8,
+                "proposed_layer_count": 6,
+                "proposed_total_bl_thickness": 0.005,
+                "suggested_truncation_start_y": 15.4,
+            }
+        ],
+    }
+
+    result = _run_shell_v4_bl_stageback_plus_truncation_focused_apply(
+        out_dir=tmp_path / "apply_off",
+        apply_gate="off",
+        source_path=Path(__file__).resolve().parents[2] / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        bl_candidate_comparison=comparison,
+        root_last3_failed_steiner_forensic_evidence=_root_last3_failed_steiner_forensic_evidence(),
+    )
+
+    assert result["apply_gate"] == "off"
+    assert result["applied"] is False
+    assert result["comparison_verdict"] == "rejected"
+    assert result["reject_reason"] == "apply_gate_disabled"
+    assert result["production_default_changed"] is False
+    assert Path(result["artifacts"]["bl_candidate_apply_comparison"]).exists()
+    assert "applied_candidate" not in result["artifacts"]
+
+
+def test_bl_stageback_plus_truncation_apply_gate_runs_focused_root_last3_comparison(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    spec = build_shell_v4_half_wing_bl_macsafe_spec()
+    geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(repo_root / "data" / "blackcat_004_origin.vsp3"),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path / "geometry",
+    )
+    boundary_layer = {
+        **dict(spec["boundary_layer"]),
+        "first_layer_height_m": 1.0e-3,
+        "layers": 8,
+        "growth_ratio": 1.20,
+    }
+    focused_spec = build_shell_v4_half_wing_bl_macsafe_spec(
+        overrides={"boundary_layer": boundary_layer}
+    )
+    budgeting = _build_real_wing_bl_budgeting_plan(
+        sections=[dict(section) for section in geometry["sections"]],
+        protection=dict(spec["real_wing_bl_protection"]),
+        base_total_thickness_m=float(focused_spec["boundary_layer"]["target_total_thickness_m"]),
+        half_span_m=float(spec["geometry"]["half_span_m"]),
+    )
+    comparison = shell_v4_bl_mesh._build_bl_stageback_truncation_candidate_comparison(
+        planning_budgeting=budgeting.model_dump(mode="json"),
+        planning_policy_fail_kinds=["bl_clearance_incompatibility"],
+        planning_policy_recommendation_kinds=list(budgeting.recommendation_kinds),
+        original_layer_count=int(focused_spec["boundary_layer"]["layers"]),
+    )
+
+    result = _run_shell_v4_bl_stageback_plus_truncation_focused_apply(
+        out_dir=tmp_path / "apply_on",
+        apply_gate="stageback_plus_truncation_focused",
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        bl_candidate_comparison=comparison,
+        root_last3_failed_steiner_forensic_evidence=_root_last3_failed_steiner_forensic_evidence(),
+    )
+
+    assert result["contract"] == "bl_candidate_apply_comparison.v1"
+    assert result["candidate_id"] == "bl_candidate_stageback_plus_truncation"
+    assert result["candidate_kind"] == "stageback_plus_truncation"
+    assert result["apply_gate"] == "stageback_plus_truncation_focused"
+    assert result["applied"] is True
+    assert result["production_default_changed"] is False
+    assert result["topology_compiler_gate_off_changed"] is False
+    assert result["plan_only_behavior_changed"] is False
+    assert result["focused_path"] == "root_last3_segment_facet"
+    assert result["before"]["residual_family"] == (
+        "boundary_recovery_error_2_recoversegment_failed_insert_steiner"
+    )
+    assert result["before"]["local_y_band"] == pytest.approx([14.9983332, 16.5000001])
+    assert result["before"]["suspicious_window"] == pytest.approx([15.4, 16.6])
+    assert result["before"]["degenerated_prism_seen"] is True
+    assert result["after"]["blocking_bl_compatibility_check_kinds"]
+    assert result["comparison_verdict"] in {
+        "improved",
+        "shifted_to_cleaner_family",
+        "unchanged_same_failed_steiner",
+        "worsened",
+        "unknown",
+    }
+    assert result["applied_candidate"]["focused_mutations"]["layers_after"] < (
+        result["applied_candidate"]["focused_mutations"]["layers_before"]
+    )
+    assert result["applied_candidate"]["focused_mutations"]["forced_tip_truncation_start_y_m"] >= (
+        result["applied_candidate"]["candidate"]["target_y_span"]["min"]
+    )
+    assert result["non_regression_checks"]["root_last4_overlap"]["overlap_non_regression"] == "pass"
+    assert Path(result["artifacts"]["applied_candidate"]).exists()
+    assert Path(result["artifacts"]["bl_candidate_apply_comparison"]).exists()
+
+
 def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendations(
     tmp_path: Path,
 ):
@@ -2150,6 +2265,7 @@ def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendat
     assert handoff["recommended_candidate_id"] == comparison["recommended_candidate_id"]
     assert root_last3["final_handoff_verdict"] == "topology_attempted_but_bl_policy_blocked"
     assert root_last3["candidate_comparison"] == comparison["candidates"]
+    assert "bl_candidate_apply_comparison" not in result["artifacts"]
     assert Path(result["artifacts"]["summary"]).exists()
 
 
@@ -2308,3 +2424,4 @@ def test_run_shell_v4_topology_compiler_gate_plan_only_emits_artifacts_without_r
     assert gated["topology_compiler"]["gate"] == "plan_only"
     assert Path(gated["topology_compiler"]["artifacts"]["topology_ir"]).exists()
     assert Path(gated["topology_compiler"]["artifacts"]["summary"]).exists()
+    assert "bl_candidate_apply" not in gated

@@ -57,6 +57,9 @@ ROOT_CLOSURE_MODE_SINGLE_HOLED_SYMMETRY_FACE = "single_holed_symmetry_face"
 ROOT_CLOSURE_MODE_USE_BL_GENERATED_FACES = "use_bl_generated_faces"
 TOPOLOGY_COMPILER_GATE_OFF = "off"
 TOPOLOGY_COMPILER_GATE_PLAN_ONLY = "plan_only"
+BL_CANDIDATE_APPLY_GATE_OFF = "off"
+BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED = "stageback_plus_truncation_focused"
+BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID = "bl_candidate_stageback_plus_truncation"
 PRE_PLC_REPRO_FAMILY_CONFIGS: dict[str, dict[str, Any]] = {
     "root_last3_segment_facet": {
         "section_index_offsets": [0, -3, -2, -1],
@@ -1704,6 +1707,7 @@ def _build_bl_stageback_truncation_candidate_comparison(
             "candidate_kind": candidate_kind,
             "target_y_span": copy.deepcopy(target_span),
             "target_surface_or_region_hint": target_hint,
+            "original_layer_count": layer_count or None,
             "original_total_bl_thickness": float(original_total),
             "proposed_total_bl_thickness": proposed_total,
             "proposed_layer_count": proposed_layer_count,
@@ -1783,7 +1787,7 @@ def _build_bl_stageback_truncation_candidate_comparison(
             reduction_delta=max(0.0, float(original_total) - float(suggested_max_total)),
         ),
         _candidate(
-            candidate_id="bl_candidate_stageback_plus_truncation",
+            candidate_id=BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID,
             candidate_kind="stageback_plus_truncation",
             proposed_total_bl_thickness=float(combined_total),
             proposed_layer_count=proposed_stageback_layers,
@@ -1828,7 +1832,7 @@ def _build_bl_stageback_truncation_candidate_comparison(
         "candidate_kinds": [candidate["candidate_kind"] for candidate in candidates],
         "candidates": candidates,
         "candidate_comparison_table": candidate_table,
-        "recommended_candidate_id": "bl_candidate_stageback_plus_truncation",
+        "recommended_candidate_id": BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID,
         "recommendation_reason": (
             "The failed-Steiner residual and degenerated-prism signal both sit in the terminal tip pressure window; "
             "the combined candidate reduces prism crowding and removes the BL from the terminal recovery region while staying planning-only."
@@ -3467,7 +3471,7 @@ def _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
 
 
 def _shell_v4_pre_plc_repro_overrides(fixture: dict[str, Any]) -> dict[str, Any]:
-    return {
+    overrides = {
         "geometry": {
             "shape_mode": DEFAULT_REAL_MAIN_WING_SHAPE_MODE,
             "source_path": str(fixture["source_path"]),
@@ -3504,6 +3508,24 @@ def _shell_v4_pre_plc_repro_overrides(fixture: dict[str, Any]) -> dict[str, Any]
             "max_bl_collapse_rate": 0.2,
         },
     }
+    focused_apply = fixture.get("focused_bl_candidate_apply")
+    if isinstance(focused_apply, dict) and focused_apply.get("enabled"):
+        mutations = dict(focused_apply.get("focused_mutations") or {})
+        layers_after = mutations.get("layers_after")
+        if layers_after is not None:
+            overrides["boundary_layer"]["layers"] = max(1, int(layers_after))
+        forced_truncation_start = mutations.get("forced_tip_truncation_start_y_m")
+        if forced_truncation_start is not None:
+            protection = dict(overrides.get("real_wing_bl_protection") or {})
+            protection["forced_tip_truncation_start_y_m"] = float(forced_truncation_start)
+            protection["_experimental_bl_candidate_apply_gate"] = str(
+                focused_apply.get("apply_gate") or ""
+            )
+            protection["_experimental_bl_candidate_id"] = str(
+                focused_apply.get("candidate_id") or ""
+            )
+            overrides["real_wing_bl_protection"] = protection
+    return overrides
 
 
 def _run_shell_v4_pre_plc_repro_fixture(
@@ -3543,6 +3565,436 @@ def _run_shell_v4_pre_plc_repro_fixture(
             )
         )
     return result_payload
+
+
+def _find_bl_candidate(
+    bl_candidate_comparison: dict[str, Any],
+    candidate_id: str,
+) -> dict[str, Any]:
+    for candidate in list(bl_candidate_comparison.get("candidates") or []):
+        if isinstance(candidate, dict) and candidate.get("candidate_id") == candidate_id:
+            return dict(candidate)
+    return {}
+
+
+def _focused_stageback_layers_for_candidate(
+    candidate: dict[str, Any],
+    *,
+    focused_layers_before: int,
+) -> int | None:
+    proposed_layer_count = candidate.get("proposed_layer_count")
+    original_layer_count = candidate.get("original_layer_count")
+    if proposed_layer_count is None:
+        return None
+    proposed = int(proposed_layer_count)
+    original = int(original_layer_count or focused_layers_before)
+    if proposed <= 0 or original <= 0 or focused_layers_before <= 1:
+        return None
+    ratio = min(0.99, max(0.05, float(proposed) / float(original)))
+    return max(1, min(focused_layers_before - 1, int(math.ceil(focused_layers_before * ratio))))
+
+
+def _validate_stageback_plus_truncation_candidate(
+    *,
+    apply_gate: str,
+    bl_candidate_comparison: dict[str, Any],
+) -> tuple[dict[str, Any], str | None]:
+    if apply_gate == BL_CANDIDATE_APPLY_GATE_OFF:
+        return {}, "apply_gate_disabled"
+    if apply_gate != BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED:
+        return {}, "unsupported_apply_gate"
+    if bl_candidate_comparison.get("recommended_candidate_id") != BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID:
+        return {}, "recommended_candidate_not_stageback_plus_truncation"
+    candidate = _find_bl_candidate(
+        bl_candidate_comparison,
+        BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID,
+    )
+    if not candidate:
+        return {}, "stageback_plus_truncation_candidate_missing"
+    if candidate.get("candidate_kind") != "stageback_plus_truncation":
+        return candidate, "candidate_kind_not_stageback_plus_truncation"
+    if candidate.get("planning_only") is not True:
+        return candidate, "candidate_is_not_from_planning_surface"
+    if candidate.get("suggested_truncation_start_y") is None:
+        return candidate, "candidate_missing_suggested_truncation_start_y"
+    if _focused_stageback_layers_for_candidate(candidate, focused_layers_before=8) is None:
+        return candidate, "candidate_missing_valid_stageback_layer_count"
+    return candidate, None
+
+
+def _bl_blocking_kinds_from_observed(observed: dict[str, Any]) -> list[str]:
+    route_result = observed.get("route_result")
+    if not isinstance(route_result, dict):
+        return []
+    boundary_layer = route_result.get("boundary_layer")
+    if not isinstance(boundary_layer, dict):
+        return []
+    blocking: list[str] = []
+    pre_3d = boundary_layer.get("pre_3d_clearance")
+    if isinstance(pre_3d, dict) and int(pre_3d.get("risk_sample_count", 0) or 0) > 0:
+        blocking.append("extrusion_self_contact_risk")
+    if float(boundary_layer.get("collapse_rate", 0.0) or 0.0) > 0.0:
+        blocking.append("degenerated_prism_risk")
+    return list(dict.fromkeys(blocking))
+
+
+def _focused_residual_summary(
+    *,
+    observed: dict[str, Any],
+    fallback_forensic_evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    observed_failure_kind = str(observed.get("observed_failure_kind") or "")
+    blocking_bl = _bl_blocking_kinds_from_observed(observed)
+    residual_classifier = dict(observed.get("downstream_residual_classifier") or {})
+    residual_evidence = dict(residual_classifier.get("evidence") or {})
+    forensic_evidence = _recoversegment_failed_steiner_evidence_from_observed(observed)
+    if not forensic_evidence and isinstance(fallback_forensic_evidence, dict):
+        forensic_evidence = _normalize_recoversegment_failed_steiner_evidence(
+            fallback_forensic_evidence
+        )
+    if observed_failure_kind == "boundary_recovery_error_2":
+        residual_family = (
+            residual_classifier.get("primary_residual_family")
+            or residual_evidence.get("residual_family")
+            or forensic_evidence.get("residual_family")
+        )
+        local_y_band = (
+            residual_evidence.get("local_y_band")
+            or forensic_evidence.get("local_y_band")
+            or []
+        )
+        suspicious_window = (
+            residual_evidence.get("suspicious_window")
+            or forensic_evidence.get("suspicious_window")
+            or []
+        )
+        residual_status = residual_classifier.get("classification_status")
+    else:
+        residual_family = None
+        local_y_band = []
+        suspicious_window = []
+        residual_status = "not_applicable"
+    degenerated_prism_seen = (
+        residual_evidence.get("degenerated_prism_seen")
+        if residual_evidence.get("degenerated_prism_seen") is not None
+        else forensic_evidence.get("degenerated_prism_seen")
+        if observed_failure_kind == "boundary_recovery_error_2"
+        else None
+    )
+    if degenerated_prism_seen is None and "degenerated_prism_risk" in blocking_bl:
+        degenerated_prism_seen = True
+    return {
+        "observed_failure_kind": observed.get("observed_failure_kind"),
+        "residual_family": residual_family,
+        "residual_status": residual_status,
+        "local_y_band": [float(value) for value in list(local_y_band or [])],
+        "suspicious_window": [float(value) for value in list(suspicious_window or [])],
+        "degenerated_prism_seen": degenerated_prism_seen,
+        "blocking_bl_compatibility_check_kinds": blocking_bl,
+        "bl_policy_fail_kinds": (
+            ["bl_clearance_incompatibility"] if blocking_bl else []
+        ),
+        "report_path": observed.get("report_path"),
+    }
+
+
+def _focused_apply_verdict(
+    *,
+    before: dict[str, Any],
+    after: dict[str, Any],
+    applied: bool,
+    reject_reason: str | None,
+) -> str:
+    if not applied or reject_reason:
+        return "rejected"
+    before_failure = str(before.get("observed_failure_kind") or "")
+    after_failure = str(after.get("observed_failure_kind") or "")
+    before_family = str(before.get("residual_family") or "")
+    after_family = str(after.get("residual_family") or "")
+    if after_failure in {"facet_facet_overlap", "segment_facet_intersection"} and after_failure != before_failure:
+        return "worsened"
+    if before_family == FAILED_STEINER_RESIDUAL_FAMILY and after_family != before_family:
+        if after_family or after_failure != before_failure:
+            return "shifted_to_cleaner_family"
+    local_change = _window_change_label(before.get("local_y_band"), after.get("local_y_band"))
+    suspicious_change = _window_change_label(before.get("suspicious_window"), after.get("suspicious_window"))
+    prism_improved = before.get("degenerated_prism_seen") is True and after.get("degenerated_prism_seen") is False
+    if local_change == "reduced" or suspicious_change == "reduced" or prism_improved:
+        return "improved"
+    if before_family == FAILED_STEINER_RESIDUAL_FAMILY and after_family == before_family:
+        return "unchanged_same_failed_steiner"
+    return "unknown"
+
+
+def _apply_stageback_plus_truncation_candidate_to_fixture(
+    fixture: dict[str, Any],
+    *,
+    candidate: dict[str, Any],
+    apply_gate: str,
+    artifact_dir: Path,
+) -> tuple[dict[str, Any], dict[str, Any], str | None]:
+    focused_layers_before = 8
+    layers_after = _focused_stageback_layers_for_candidate(
+        candidate,
+        focused_layers_before=focused_layers_before,
+    )
+    truncation_start_y = candidate.get("suggested_truncation_start_y")
+    if layers_after is None:
+        return copy.deepcopy(fixture), {}, "candidate_missing_valid_stageback_layer_count"
+    if truncation_start_y is None:
+        return copy.deepcopy(fixture), {}, "candidate_missing_suggested_truncation_start_y"
+
+    transformed_fixture = copy.deepcopy(fixture)
+    focused_mutations = {
+        "layers_before": int(focused_layers_before),
+        "layers_after": int(layers_after),
+        "forced_tip_truncation_start_y_m": float(truncation_start_y),
+        "focused_fixture_only": True,
+        "applies_to_family": "root_last3_segment_facet",
+        "applies_to_region": "root_last3_tip_terminal_tight_region",
+    }
+    transformed_fixture["focused_bl_candidate_apply"] = {
+        "enabled": True,
+        "apply_gate": apply_gate,
+        "candidate_id": BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID,
+        "candidate_kind": "stageback_plus_truncation",
+        "candidate": copy.deepcopy(candidate),
+        "focused_mutations": focused_mutations,
+    }
+    artifact = {
+        "contract": "applied_bl_candidate.v1",
+        "candidate_id": BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID,
+        "candidate_kind": "stageback_plus_truncation",
+        "apply_gate": apply_gate,
+        "applied": True,
+        "reject_reason": None,
+        "candidate": copy.deepcopy(candidate),
+        "focused_mutations": focused_mutations,
+        "production_default_changed": False,
+        "topology_compiler_gate_off_changed": False,
+        "plan_only_behavior_changed": False,
+        "notes": [
+            "This applied candidate only mutates the isolated focused pre-PLC fixture rerun.",
+            "It does not change shell_v4 production defaults, Gmsh settings, shell_v3, or topology_compiler_gate=off.",
+        ],
+    }
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / "applied_candidate.v1.json"
+    write_json_report(artifact_path, artifact)
+    artifact["artifact_path"] = str(artifact_path)
+    return transformed_fixture, artifact, None
+
+
+def _run_root_last4_overlap_non_regression_check(
+    *,
+    source_path: Path,
+    component: str,
+    artifact_dir: Path,
+) -> dict[str, Any]:
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=source_path,
+        component=component,
+        family="root_last4_overlap",
+        artifact_dir=artifact_dir / "fixture",
+    )
+    regularized = _apply_truncation_connector_band_operator_to_pre_plc_fixture(
+        fixture,
+        artifact_dir=artifact_dir / "regularized",
+    )
+    canonical_observed = _run_shell_v4_pre_plc_repro_fixture(
+        regularized["fixture"],
+        out_dir=artifact_dir / "canonical_probe",
+    )
+    transformed = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        regularized["fixture"],
+        baseline_observed=canonical_observed,
+        artifact_dir=artifact_dir / "post_band_transition",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        transformed["fixture"],
+        out_dir=artifact_dir / "post_band_transition_probe",
+    )
+    localized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
+        transformed["fixture"],
+        baseline_observed=observed,
+        artifact_dir=artifact_dir / "boundary_recovery_regularization",
+    )
+    after = _run_shell_v4_pre_plc_repro_fixture(
+        localized["fixture"],
+        out_dir=artifact_dir / "boundary_recovery_probe",
+    )
+    overlap_returned = (
+        after.get("observed_failure_kind") == "facet_facet_overlap"
+        or "Invalid boundary mesh (overlapping facets)" in str(after.get("error") or "")
+    )
+    return {
+        "family": "root_last4_overlap",
+        "candidate_applied": False,
+        "overlap_non_regression": "fail" if overlap_returned else "pass",
+        "canonical_failure_kind": canonical_observed.get("observed_failure_kind"),
+        "post_transition_failure_kind": observed.get("observed_failure_kind"),
+        "after_boundary_recovery_failure_kind": after.get("observed_failure_kind"),
+        "report_path": after.get("report_path"),
+    }
+
+
+def _write_rejected_bl_candidate_apply_comparison(
+    *,
+    artifact_dir: Path,
+    apply_gate: str,
+    reject_reason: str,
+    candidate: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / "bl_candidate_apply_comparison.v1.json"
+    payload = {
+        "contract": "bl_candidate_apply_comparison.v1",
+        "candidate_id": (candidate or {}).get("candidate_id", BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID),
+        "candidate_kind": (candidate or {}).get("candidate_kind", "stageback_plus_truncation"),
+        "apply_gate": apply_gate,
+        "focused_path": "root_last3_segment_facet",
+        "applied": False,
+        "reject_reason": reject_reason,
+        "before": {},
+        "after": {},
+        "comparison_verdict": "rejected",
+        "production_default_changed": False,
+        "topology_compiler_gate_off_changed": False,
+        "plan_only_behavior_changed": False,
+        "artifacts": {
+            "bl_candidate_apply_comparison": str(artifact_path),
+        },
+        "notes": [
+            "Rejected deterministically before mutating any focused fixture.",
+            "Experimental BL candidate application is default-off.",
+        ],
+    }
+    write_json_report(artifact_path, payload)
+    return payload
+
+
+def _run_shell_v4_bl_stageback_plus_truncation_focused_apply(
+    *,
+    out_dir: Path,
+    apply_gate: str,
+    source_path: Path,
+    component: str,
+    bl_candidate_comparison: dict[str, Any],
+    root_last3_failed_steiner_forensic_evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    apply_gate = _normalize_bl_candidate_apply_gate(apply_gate)
+    artifact_dir = Path(out_dir) / "artifacts" / "topology_compiler" / "bl_candidate_apply"
+    candidate, reject_reason = _validate_stageback_plus_truncation_candidate(
+        apply_gate=apply_gate,
+        bl_candidate_comparison=dict(bl_candidate_comparison or {}),
+    )
+    if reject_reason is not None:
+        return _write_rejected_bl_candidate_apply_comparison(
+            artifact_dir=artifact_dir,
+            apply_gate=apply_gate,
+            reject_reason=reject_reason,
+            candidate=candidate,
+        )
+
+    root_last3_fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=source_path,
+        component=component,
+        family="root_last3_segment_facet",
+        artifact_dir=artifact_dir / "root_last3" / "fixture",
+    )
+    baseline = _run_shell_v4_pre_plc_repro_fixture(
+        root_last3_fixture,
+        out_dir=artifact_dir / "root_last3" / "baseline_probe",
+    )
+    transition = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        root_last3_fixture,
+        baseline_observed=baseline,
+        artifact_dir=artifact_dir / "root_last3" / "post_band_transition",
+    )
+    error2_observed = _run_shell_v4_pre_plc_repro_fixture(
+        transition["fixture"],
+        out_dir=artifact_dir / "root_last3" / "post_band_transition_probe",
+    )
+    if root_last3_failed_steiner_forensic_evidence:
+        error2_observed["forensic_evidence"] = dict(root_last3_failed_steiner_forensic_evidence)
+    localized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
+        transition["fixture"],
+        baseline_observed=error2_observed,
+        artifact_dir=artifact_dir / "root_last3" / "boundary_recovery_regularization",
+    )
+    before_observed = _run_shell_v4_pre_plc_repro_fixture(
+        localized["fixture"],
+        out_dir=artifact_dir / "root_last3" / "before_apply_probe",
+    )
+    applied_fixture, applied_candidate, apply_reject_reason = _apply_stageback_plus_truncation_candidate_to_fixture(
+        localized["fixture"],
+        candidate=candidate,
+        apply_gate=apply_gate,
+        artifact_dir=artifact_dir,
+    )
+    if apply_reject_reason is not None:
+        return _write_rejected_bl_candidate_apply_comparison(
+            artifact_dir=artifact_dir,
+            apply_gate=apply_gate,
+            reject_reason=apply_reject_reason,
+            candidate=candidate,
+        )
+    after_observed = _run_shell_v4_pre_plc_repro_fixture(
+        applied_fixture,
+        out_dir=artifact_dir / "root_last3" / "after_apply_probe",
+    )
+    before_summary = _focused_residual_summary(
+        observed=before_observed,
+        fallback_forensic_evidence=root_last3_failed_steiner_forensic_evidence,
+    )
+    after_summary = _focused_residual_summary(
+        observed=after_observed,
+        fallback_forensic_evidence=None,
+    )
+    root_last4_non_regression = _run_root_last4_overlap_non_regression_check(
+        source_path=source_path,
+        component=component,
+        artifact_dir=artifact_dir / "root_last4_overlap_non_regression",
+    )
+    artifact_path = artifact_dir / "bl_candidate_apply_comparison.v1.json"
+    payload = {
+        "contract": "bl_candidate_apply_comparison.v1",
+        "candidate_id": BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID,
+        "candidate_kind": "stageback_plus_truncation",
+        "apply_gate": apply_gate,
+        "focused_path": "root_last3_segment_facet",
+        "focused_scope": "isolated_pre_plc_fixture_rerun",
+        "applied": True,
+        "reject_reason": None,
+        "before": before_summary,
+        "after": after_summary,
+        "comparison_verdict": _focused_apply_verdict(
+            before=before_summary,
+            after=after_summary,
+            applied=True,
+            reject_reason=None,
+        ),
+        "applied_candidate": applied_candidate,
+        "non_regression_checks": {
+            "root_last4_overlap": root_last4_non_regression,
+        },
+        "production_default_changed": False,
+        "topology_compiler_gate_off_changed": False,
+        "plan_only_behavior_changed": False,
+        "artifacts": {
+            "applied_candidate": str(applied_candidate["artifact_path"]),
+            "bl_candidate_apply_comparison": str(artifact_path),
+            "before_root_last3_report": str(before_observed.get("report_path")),
+            "after_root_last3_report": str(after_observed.get("report_path")),
+        },
+        "notes": [
+            "This is an explicit experimental focused apply gate, not a production default.",
+            "Success criteria are failed-Steiner/degenerated-prism/local-window improvement or a cleaner downstream family, not a full prelaunch pass.",
+            "root_last4 overlap is checked as a non-regression path and the candidate is not applied there.",
+        ],
+    }
+    write_json_report(artifact_path, payload)
+    return payload
 
 
 def _float_window_width(values: Any) -> float | None:
@@ -3865,6 +4317,22 @@ def _normalize_topology_compiler_gate(topology_compiler_gate: str | None) -> str
         raise ValueError(
             "Unsupported shell_v4 topology compiler gate: "
             f"{topology_compiler_gate!r}; expected 'off' or 'plan_only'."
+        )
+    return normalized
+
+
+def _normalize_bl_candidate_apply_gate(bl_candidate_apply_gate: str | None) -> str:
+    normalized = str(bl_candidate_apply_gate or BL_CANDIDATE_APPLY_GATE_OFF).strip().lower()
+    if normalized in {"stageback_plus_truncation", "apply_stageback_plus_truncation_focused"}:
+        normalized = BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED
+    if normalized not in {
+        BL_CANDIDATE_APPLY_GATE_OFF,
+        BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED,
+    }:
+        raise ValueError(
+            "Unsupported shell_v4 BL candidate apply gate: "
+            f"{bl_candidate_apply_gate!r}; expected 'off' or "
+            f"'{BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED}'."
         )
     return normalized
 
@@ -7036,6 +7504,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     allow_swap_risk: bool = False,
     overrides: dict[str, Any] | None = None,
     topology_compiler_gate: str = TOPOLOGY_COMPILER_GATE_OFF,
+    bl_candidate_apply_gate: str = BL_CANDIDATE_APPLY_GATE_OFF,
 ) -> dict[str, Any]:
     route_started = time.perf_counter()
     out_dir = Path(out_dir)
@@ -7044,6 +7513,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     mesh_dir.mkdir(parents=True, exist_ok=True)
     su2_dir.mkdir(parents=True, exist_ok=True)
     topology_compiler_gate = _normalize_topology_compiler_gate(topology_compiler_gate)
+    bl_candidate_apply_gate = _normalize_bl_candidate_apply_gate(bl_candidate_apply_gate)
     spec = build_shell_v4_half_wing_bl_macsafe_spec(study_level, overrides=overrides)
     flow = spec["flow_condition"]
     geometry = spec["geometry"]
@@ -7762,6 +8232,8 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
             run_su2=run_su2,
             allow_swap_risk=allow_swap_risk,
             overrides=restart_overrides,
+            topology_compiler_gate=topology_compiler_gate,
+            bl_candidate_apply_gate=bl_candidate_apply_gate,
         )
 
     y_plus_estimate = estimate_first_cell_yplus_range(
@@ -8013,6 +8485,50 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
                 }
                 result["notes"].append(
                     "Topology compiler plan-only gate failed after the runtime path completed; runtime outputs are unchanged."
+                )
+
+    if bl_candidate_apply_gate != BL_CANDIDATE_APPLY_GATE_OFF:
+        if geometry_shape_mode != DEFAULT_REAL_MAIN_WING_SHAPE_MODE or real_wing_geometry is None:
+            result["bl_candidate_apply"] = _write_rejected_bl_candidate_apply_comparison(
+                artifact_dir=out_dir / "artifacts" / "topology_compiler" / "bl_candidate_apply",
+                apply_gate=bl_candidate_apply_gate,
+                reject_reason="real_wing_focused_validation_required",
+            )
+        else:
+            try:
+                existing_comparison = (
+                    result.get("topology_compiler", {}).get("bl_candidate_comparison")
+                    if isinstance(result.get("topology_compiler"), dict)
+                    else None
+                )
+                if not isinstance(existing_comparison, dict):
+                    focused_budgeting = _build_real_wing_bl_budgeting_plan(
+                        sections=[dict(section) for section in real_wing_geometry.get("sections", [])],
+                        protection=dict(protection_config),
+                        base_total_thickness_m=float(bl_spec["target_total_thickness_m"]),
+                        half_span_m=float(geometry.get("half_span_m") or DEFAULT_HALF_SPAN_M),
+                    )
+                    existing_comparison = _build_bl_stageback_truncation_candidate_comparison(
+                        planning_budgeting=focused_budgeting.model_dump(mode="json"),
+                        planning_policy_fail_kinds=["bl_clearance_incompatibility"],
+                        planning_policy_recommendation_kinds=list(focused_budgeting.recommendation_kinds),
+                        original_layer_count=int(bl_spec.get("layers") or 0),
+                    )
+                result["bl_candidate_apply"] = _run_shell_v4_bl_stageback_plus_truncation_focused_apply(
+                    out_dir=out_dir,
+                    apply_gate=bl_candidate_apply_gate,
+                    source_path=Path(real_wing_geometry.get("source_path") or geometry.get("source_path")),
+                    component=str(real_wing_geometry.get("component") or geometry.get("component") or "main_wing"),
+                    bl_candidate_comparison=existing_comparison,
+                )
+            except Exception as exc:
+                result["bl_candidate_apply"] = _write_rejected_bl_candidate_apply_comparison(
+                    artifact_dir=out_dir / "artifacts" / "topology_compiler" / "bl_candidate_apply",
+                    apply_gate=bl_candidate_apply_gate,
+                    reject_reason=f"focused_apply_failed:{exc}",
+                )
+                result["notes"].append(
+                    "Experimental BL candidate focused apply failed after the runtime path completed; production runtime outputs are unchanged."
                 )
 
     write_json_report(mesh_metadata_path, result)
