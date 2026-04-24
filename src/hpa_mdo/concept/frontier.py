@@ -64,6 +64,46 @@ def _geometry_subset_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]
     }
 
 
+def sizing_archetype(record: Mapping[str, Any]) -> str:
+    wing_area_m2 = _optional_float(record.get("wing_area_m2"))
+    wing_loading_target_Npm2 = _optional_float(record.get("wing_loading_target_Npm2"))
+    aspect_ratio = _optional_float(record.get("aspect_ratio"))
+
+    if wing_area_m2 is None:
+        return "unknown"
+    if (
+        wing_area_m2 >= 45.0
+        and (wing_loading_target_Npm2 is None or wing_loading_target_Npm2 <= 24.0)
+        and (aspect_ratio is None or aspect_ratio <= 30.0)
+    ):
+        return "low_speed_large_area_artifact_risk"
+    if (
+        28.0 <= wing_area_m2 <= 34.0
+        and wing_loading_target_Npm2 is not None
+        and 30.0 <= wing_loading_target_Npm2 <= 38.0
+        and aspect_ratio is not None
+        and aspect_ratio >= 35.0
+    ):
+        return "high_efficiency_long_distance_band"
+    return "intermediate_or_unclassified"
+
+
+def _sizing_archetype_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
+    counter = Counter(sizing_archetype(record) for record in records)
+    total = len(records)
+    risk_count = int(counter.get("low_speed_large_area_artifact_risk", 0))
+    dominant = None
+    if counter:
+        dominant = sorted(counter.items(), key=lambda item: (-item[1], item[0]))[0][0]
+    return {
+        "count": total,
+        "counts": dict(sorted(counter.items())),
+        "dominant_archetype": dominant,
+        "risk_count": risk_count,
+        "risk_fraction": None if total == 0 else risk_count / total,
+    }
+
+
 def _margin_subset_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "count": len(records),
@@ -216,7 +256,21 @@ def build_frontier_summary(
         "geometry_subsets": {
             name: _geometry_subset_summary(records_subset) for name, records_subset in subsets.items()
         },
+        "sizing_archetypes": {
+            name: _sizing_archetype_summary(records_subset)
+            for name, records_subset in subsets.items()
+        },
         "margin_subsets": {
             name: _margin_subset_summary(records_subset) for name, records_subset in subsets.items()
         },
     }
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric if numeric == numeric else None

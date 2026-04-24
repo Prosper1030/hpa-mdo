@@ -1640,12 +1640,43 @@ def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
         air_density_kg_per_m3=1.15,
     )
 
-    assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(6.0)
+    assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(6.5)
     assert mission["best_range_speed_mps"] == pytest.approx(7.0)
     assert mission["best_range_m"] < mission["best_range_unconstrained_m"]
+    assert len(mission["power_margin_w_by_speed"]) == len(mission["power_required_w"])
+    assert mission["best_power_margin_unconstrained_w"] == pytest.approx(
+        max(mission["power_margin_w_by_speed"])
+    )
+    assert mission["best_power_margin_w"] is not None
     assert mission["feasible_speed_set_mps"] == pytest.approx([7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0])
     assert mission["operating_point_status"] == "filtered_to_feasible_speeds"
-    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(1.0)
+    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(0.5)
+
+
+def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = GeometryConcept(
+        span_m=34.7,
+        wing_area_m2=48.6,
+        root_chord_m=48.6 / 34.7,
+        tip_chord_m=48.6 / 34.7,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.675, 8.675),
+        wing_loading_target_Npm2=21.187,
+        design_gross_mass_kg=105.0,
+    )
+
+    diagnostics = concept_pipeline._sizing_diagnostics(cfg, concept)
+    closure = diagnostics["area_mass_closure"]
+
+    assert diagnostics["sizing_archetype"] == "low_speed_large_area_artifact_risk"
+    assert closure["model"] == "area_mass_closure_v1_report_only"
+    assert closure["closed_wing_area_m2"] > concept.wing_area_m2
+    assert closure["closed_gross_mass_kg"] > cfg.mass.design_gross_mass_kg
+    assert concept.wing_area_m2 == pytest.approx(48.6)
 
 
 def test_mission_summary_reports_empty_feasible_speed_set_and_delta() -> None:

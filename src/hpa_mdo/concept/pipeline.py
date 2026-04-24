@@ -28,8 +28,9 @@ from hpa_mdo.concept.geometry import (
     enumerate_geometry_concepts,
     get_last_geometry_enumeration_diagnostics,
 )
-from hpa_mdo.concept.frontier import build_frontier_summary
+from hpa_mdo.concept.frontier import build_frontier_summary, sizing_archetype
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
+from hpa_mdo.concept.mass_closure import close_area_mass
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
 from hpa_mdo.concept.safety import (
@@ -49,6 +50,7 @@ from hpa_mdo.mission.objective import (
 
 _ROOT_SEED_AIRFOIL = "fx76mp140"
 _TIP_SEED_AIRFOIL = "clarkysm"
+_REPORT_ONLY_WING_AREAL_DENSITY_KGPM2 = 0.22
 
 
 class SpanwiseLoadLoader(Protocol):
@@ -1879,6 +1881,8 @@ def _build_concept_mission_summary(
             best_range_m = 0.0
             best_range_speed_mps = None
             best_endurance_s = 0.0
+            best_power_margin_w = None
+            best_power_margin_speed_mps = None
             if str(cfg.mission.objective_mode) == "max_range":
                 mission_score = 0.0
                 mission_score_reason = "maximize_range_feasible_only"
@@ -1893,6 +1897,8 @@ def _build_concept_mission_summary(
             best_range_m = float(feasible_result.best_range_m)
             best_range_speed_mps = float(feasible_result.best_range_speed_mps)
             best_endurance_s = float(feasible_result.best_endurance_s)
+            best_power_margin_w = float(feasible_result.best_power_margin_w)
+            best_power_margin_speed_mps = float(feasible_result.best_power_margin_speed_mps)
             mission_score = float(feasible_result.mission_score)
             mission_score_reason = str(feasible_result.mission_score_reason)
             operating_point_status = (
@@ -1910,6 +1916,21 @@ def _build_concept_mission_summary(
                 "best_range_m": best_range_m,
                 "best_range_speed_mps": best_range_speed_mps,
                 "best_endurance_s": best_endurance_s,
+                "best_power_margin_w": best_power_margin_w,
+                "best_power_margin_speed_mps": best_power_margin_speed_mps,
+                "best_power_margin_unconstrained_w": float(
+                    unconstrained_result.best_power_margin_w
+                ),
+                "best_power_margin_unconstrained_speed_mps": float(
+                    unconstrained_result.best_power_margin_speed_mps
+                ),
+                "power_margin_w_by_speed": tuple(unconstrained_result.power_margin_w_by_speed),
+                "required_duration_min_by_speed": tuple(
+                    unconstrained_result.required_duration_min_by_speed
+                ),
+                "available_power_w_by_speed": tuple(
+                    unconstrained_result.available_power_w_by_speed
+                ),
                 "min_power_w": float(unconstrained_result.min_power_w),
                 "min_power_speed_mps": float(unconstrained_result.min_power_speed_mps),
                 "mission_score": mission_score,
@@ -1960,6 +1981,21 @@ def _build_concept_mission_summary(
         "best_endurance_unconstrained_s": float(
             worst_case_result["best_endurance_unconstrained_s"]
         ),
+        "best_power_margin_w": worst_case_result["best_power_margin_w"],
+        "best_power_margin_speed_mps": worst_case_result["best_power_margin_speed_mps"],
+        "best_power_margin_unconstrained_w": float(
+            worst_case_result["best_power_margin_unconstrained_w"]
+        ),
+        "best_power_margin_unconstrained_speed_mps": float(
+            worst_case_result["best_power_margin_unconstrained_speed_mps"]
+        ),
+        "power_margin_w_by_speed": list(worst_case_result["power_margin_w_by_speed"]),
+        "required_duration_min_by_speed": list(
+            worst_case_result["required_duration_min_by_speed"]
+        ),
+        "available_power_w_by_speed": list(
+            worst_case_result["available_power_w_by_speed"]
+        ),
         "min_power_w": float(worst_case_result["min_power_w"]),
         "min_power_speed_mps": float(worst_case_result["min_power_speed_mps"]),
         "mission_score": float(worst_case_result["mission_score"]),
@@ -2004,6 +2040,21 @@ def _build_concept_mission_summary(
                 "best_endurance_s": float(result["best_endurance_s"]),
                 "best_endurance_unconstrained_s": float(
                     result["best_endurance_unconstrained_s"]
+                ),
+                "best_power_margin_w": result["best_power_margin_w"],
+                "best_power_margin_speed_mps": result["best_power_margin_speed_mps"],
+                "best_power_margin_unconstrained_w": float(
+                    result["best_power_margin_unconstrained_w"]
+                ),
+                "best_power_margin_unconstrained_speed_mps": float(
+                    result["best_power_margin_unconstrained_speed_mps"]
+                ),
+                "power_margin_w_by_speed": list(result["power_margin_w_by_speed"]),
+                "required_duration_min_by_speed": list(
+                    result["required_duration_min_by_speed"]
+                ),
+                "available_power_w_by_speed": list(
+                    result["available_power_w_by_speed"]
                 ),
                 "min_power_w": float(result["min_power_w"]),
                 "min_power_speed_mps": float(result["min_power_speed_mps"]),
@@ -2515,14 +2566,86 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
     }
 
 
+def _sizing_diagnostics(
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+) -> dict[str, Any]:
+    archetype = sizing_archetype(
+        {
+            "wing_area_m2": concept.wing_area_m2,
+            "wing_loading_target_Npm2": concept.wing_loading_target_Npm2,
+            "aspect_ratio": concept.aspect_ratio,
+        }
+    )
+    closure_summary = None
+    if concept.wing_loading_target_Npm2 is not None:
+        try:
+            closure = close_area_mass(
+                wing_loading_target_Npm2=float(concept.wing_loading_target_Npm2),
+                pilot_mass_kg=float(cfg.mass.pilot_mass_kg),
+                fixed_non_area_aircraft_mass_kg=float(cfg.mass.baseline_aircraft_mass_kg),
+                wing_areal_density_kgpm2=_REPORT_ONLY_WING_AREAL_DENSITY_KGPM2,
+                initial_wing_area_m2=float(concept.wing_area_m2),
+            )
+            design_gross_mass_kg = (
+                None
+                if concept.design_gross_mass_kg is None
+                else float(concept.design_gross_mass_kg)
+            )
+            closure_summary = {
+                "model": "area_mass_closure_v1_report_only",
+                "status": "ok" if closure.converged else "not_converged",
+                "closed_wing_area_m2": float(closure.closed_wing_area_m2),
+                "current_wing_area_m2": float(concept.wing_area_m2),
+                "closed_area_delta_m2": float(
+                    closure.closed_wing_area_m2 - concept.wing_area_m2
+                ),
+                "closed_area_ratio_to_current": float(
+                    closure.closed_wing_area_m2 / max(concept.wing_area_m2, 1.0e-9)
+                ),
+                "closed_gross_mass_kg": float(closure.closed_gross_mass_kg),
+                "design_gross_mass_kg": design_gross_mass_kg,
+                "closed_gross_mass_delta_vs_design_kg": (
+                    None
+                    if design_gross_mass_kg is None
+                    else float(closure.closed_gross_mass_kg - design_gross_mass_kg)
+                ),
+                "mass_breakdown_kg": dict(closure.mass_breakdown_kg),
+                "area_residual_m2": float(closure.area_residual_m2),
+                "iterations": int(closure.iterations),
+                "assumptions": {
+                    "pilot_mass_kg": float(cfg.mass.pilot_mass_kg),
+                    "fixed_non_area_aircraft_mass_kg": float(
+                        cfg.mass.baseline_aircraft_mass_kg
+                    ),
+                    "fixed_mass_source": "mass.baseline_aircraft_mass_kg",
+                    "wing_areal_density_kgpm2": _REPORT_ONLY_WING_AREAL_DENSITY_KGPM2,
+                },
+            }
+        except ValueError as exc:
+            closure_summary = {
+                "model": "area_mass_closure_v1_report_only",
+                "status": "invalid_assumptions",
+                "error": str(exc),
+            }
+
+    return {
+        "model": "upstream_sizing_diagnostics_v1_report_only",
+        "sizing_archetype": archetype,
+        "area_mass_closure": closure_summary,
+    }
+
+
 def _build_ranked_concept_record(
     *,
+    cfg: BirdmanConceptConfig,
     record: _EvaluatedConcept,
     ranked: Any,
     rank: int,
     overall_rank: int,
     bundle_dir: Path | None,
 ) -> dict[str, Any]:
+    sizing_diagnostics = _sizing_diagnostics(cfg, record.concept)
     return {
         "concept_id": record.evaluation_id,
         "enumeration_index": record.enumeration_index,
@@ -2539,6 +2662,8 @@ def _build_ranked_concept_record(
         "wing_area_source": str(record.concept.wing_area_source),
         "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
         "aspect_ratio": float(record.concept.aspect_ratio),
+        "sizing_archetype": str(sizing_diagnostics["sizing_archetype"]),
+        "sizing_diagnostics": sizing_diagnostics,
         "zone_count": len(record.zone_requirements),
         "worker_result_count": len(record.worker_results),
         "worker_backend": record.worker_backend,
@@ -2613,6 +2738,7 @@ def _concept_to_bundle_payload(
     concept_config.setdefault("mission", {})
     concept_config["mission"]["resolved_rider_model"] = str(cfg.mission.resolved_rider_model)
     geometry_summary = _concept_geometry_summary(concept)
+    sizing_diagnostics = _sizing_diagnostics(cfg, concept)
     concept_config["geometry"] = {
         "span_m": float(concept.span_m),
         "wing_loading_target_Npm2": (
@@ -2639,6 +2765,8 @@ def _concept_to_bundle_payload(
             if concept.design_gross_mass_kg is None
             else float(concept.design_gross_mass_kg)
         ),
+        "sizing_archetype": str(sizing_diagnostics["sizing_archetype"]),
+        "sizing_diagnostics": sizing_diagnostics,
     }
 
     stations_rows = [
@@ -2691,6 +2819,8 @@ def _concept_to_bundle_payload(
         "wing_area_source": str(concept.wing_area_source),
         "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
         "aspect_ratio": float(concept.aspect_ratio),
+        "sizing_archetype": str(sizing_diagnostics["sizing_archetype"]),
+        "sizing_diagnostics": sizing_diagnostics,
         "station_count": len(stations),
         "zone_count": len(zone_requirements),
         "worker_result_count": len(worker_results),
@@ -3065,6 +3195,7 @@ def run_birdman_concept_pipeline(
     }
     ranked_pool_records = [
         _build_ranked_concept_record(
+            cfg=cfg,
             record=evaluated_by_id[ranked.concept_id],
             ranked=ranked,
             rank=overall_rank_by_id[ranked.concept_id],
@@ -3140,6 +3271,7 @@ def run_birdman_concept_pipeline(
             selected_concept_dirs.append(bundle_dir)
 
         summary_record = _build_ranked_concept_record(
+            cfg=cfg,
             record=record,
             ranked=ranked,
             rank=concept_index,
@@ -3217,6 +3349,7 @@ def run_birdman_concept_pipeline(
             )
             best_infeasible_concept_dirs.append(bundle_dir)
         best_infeasible_record = _build_ranked_concept_record(
+            cfg=cfg,
             record=record,
             ranked=ranked,
             rank=infeasible_index,

@@ -447,6 +447,25 @@ def _mission_mass_cases_for_avl(
                     if feasible_result is None
                     else float(feasible_result.best_range_speed_mps)
                 ),
+                "best_power_margin_w": float(mission_result.best_power_margin_w),
+                "best_power_margin_speed_mps": float(
+                    mission_result.best_power_margin_speed_mps
+                ),
+                "power_margin_w_by_speed": tuple(mission_result.power_margin_w_by_speed),
+                "required_duration_min_by_speed": tuple(
+                    mission_result.required_duration_min_by_speed
+                ),
+                "available_power_w_by_speed": tuple(
+                    mission_result.available_power_w_by_speed
+                ),
+                "best_power_margin_feasible_w": (
+                    None if feasible_result is None else float(feasible_result.best_power_margin_w)
+                ),
+                "best_power_margin_feasible_speed_mps": (
+                    None
+                    if feasible_result is None
+                    else float(feasible_result.best_power_margin_speed_mps)
+                ),
                 "min_power_w": float(mission_result.min_power_w),
                 "min_power_speed_mps": float(mission_result.min_power_speed_mps),
                 "min_power_feasible_w": (

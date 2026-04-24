@@ -143,10 +143,10 @@ def test_build_frontier_summary_tracks_failure_modes_and_geometry_trends():
         _record(
             "concept-04",
             overall_rank=4,
-            wing_loading_target_Npm2=25.1,
-            wing_area_m2=41.0,
-            aspect_ratio=28.2,
-            span_m=34.0,
+            wing_loading_target_Npm2=34.0,
+            wing_area_m2=31.0,
+            aspect_ratio=36.0,
+            span_m=33.4,
             launch_feasible=True,
             turn_feasible=True,
             trim_feasible=True,
@@ -186,3 +186,11 @@ def test_build_frontier_summary_tracks_failure_modes_and_geometry_trends():
     assert summary["margin_subsets"]["top_ranked"]["delta_wing_area_for_local_stall_limit_m2"]["median"] == pytest.approx(
         3.0
     )
+    assert summary["sizing_archetypes"]["overall"]["counts"][
+        "low_speed_large_area_artifact_risk"
+    ] == 2
+    assert summary["sizing_archetypes"]["overall"]["counts"][
+        "high_efficiency_long_distance_band"
+    ] == 1
+    assert summary["sizing_archetypes"]["top_ranked"]["risk_count"] == 2
+    assert summary["sizing_archetypes"]["top_ranked"]["risk_fraction"] == pytest.approx(2.0 / 3.0)
