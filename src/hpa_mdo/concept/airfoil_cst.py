@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from bisect import bisect_left
 from math import comb, cos, pi
-from typing import Mapping
+from random import Random
+from typing import Mapping, Sequence
 
 
 _CANONICAL_ZONE_ORDER = ("root", "mid1", "mid2", "tip")
@@ -33,6 +34,37 @@ class CSTAirfoilTemplate:
 class CSTValidationResult:
     valid: bool
     reason: str
+
+
+@dataclass(frozen=True)
+class CSTGeometryMetrics:
+    max_thickness_ratio: float
+    max_thickness_x: float
+    spar_depth_ratio_25_35: float
+    te_thickness_ratio: float
+    curvature_reversal_count: int
+
+
+@dataclass(frozen=True)
+class SeedlessCSTCoefficientBounds:
+    upper_min: tuple[float, ...]
+    upper_max: tuple[float, ...]
+    lower_min: tuple[float, ...]
+    lower_max: tuple[float, ...]
+    te_thickness_min: float
+    te_thickness_max: float
+
+
+@dataclass(frozen=True)
+class SeedlessCSTConstraints:
+    min_thickness_ratio: float = 0.10
+    max_thickness_ratio: float = 0.16
+    max_thickness_x_min: float = 0.25
+    max_thickness_x_max: float = 0.40
+    min_spar_depth_ratio_25_35: float = 0.09
+    te_thickness_min: float = 0.001
+    te_thickness_max: float = 0.004
+    max_curvature_reversal_count: int = 8
 
 
 def _bernstein(n: int, i: int, x: float) -> float:
@@ -142,6 +174,315 @@ def validate_cst_candidate_coordinates(
             return CSTValidationResult(valid=False, reason="non_positive_thickness")
 
     return CSTValidationResult(valid=True, reason="ok")
+
+
+def build_seedless_cst_template(
+    *,
+    zone_name: str,
+    upper_coefficients: tuple[float, ...],
+    lower_coefficients: tuple[float, ...],
+    te_thickness_m: float,
+    candidate_role: str = "seedless",
+) -> CSTAirfoilTemplate:
+    if len(upper_coefficients) != len(lower_coefficients):
+        raise ValueError("upper_coefficients and lower_coefficients must have the same length.")
+    coefficient_count = len(upper_coefficients)
+    if coefficient_count < 6 or coefficient_count > 9:
+        raise ValueError("seedless CST v1 expects order 5..8, i.e. 6..9 coefficients.")
+    if te_thickness_m <= 0.0:
+        raise ValueError("te_thickness_m must be positive.")
+    return CSTAirfoilTemplate(
+        zone_name=str(zone_name),
+        upper_coefficients=tuple(float(value) for value in upper_coefficients),
+        lower_coefficients=tuple(float(value) for value in lower_coefficients),
+        te_thickness_m=float(te_thickness_m),
+        seed_name=None,
+        candidate_role=str(candidate_role),
+    )
+
+
+def _surface_pair_from_coordinates(
+    coordinates: tuple[tuple[float, float], ...],
+) -> tuple[tuple[tuple[float, float], ...], tuple[tuple[float, float], ...]]:
+    leading_edge_index = min(range(len(coordinates)), key=lambda index: float(coordinates[index][0]))
+    upper_surface = _sorted_surface(tuple(coordinates[: leading_edge_index + 1]))
+    lower_surface = _sorted_surface(tuple(coordinates[leading_edge_index:]))
+    return upper_surface, lower_surface
+
+
+def _count_curvature_reversals(values: tuple[float, ...]) -> int:
+    if len(values) < 5:
+        return 0
+    second_differences = tuple(
+        values[index + 1] - 2.0 * values[index] + values[index - 1]
+        for index in range(1, len(values) - 1)
+    )
+    signs: list[int] = []
+    for value in second_differences:
+        if abs(value) <= 1.0e-6:
+            continue
+        signs.append(1 if value > 0.0 else -1)
+    return sum(1 for left, right in zip(signs[:-1], signs[1:]) if left != right)
+
+
+def analyze_cst_geometry(
+    template: CSTAirfoilTemplate,
+    *,
+    point_count: int = 161,
+) -> CSTGeometryMetrics:
+    coordinates = generate_cst_coordinates(template, point_count=point_count)
+    validation = validate_cst_candidate_coordinates(coordinates)
+    if not validation.valid:
+        raise ValueError(f"cannot analyze invalid CST coordinates: {validation.reason}")
+
+    upper_surface, lower_surface = _surface_pair_from_coordinates(coordinates)
+    sample_xs = tuple(0.02 + 0.96 * index / 159.0 for index in range(160))
+    thickness_by_x = tuple(
+        (
+            x,
+            _interp_surface_y(upper_surface, x) - _interp_surface_y(lower_surface, x),
+        )
+        for x in sample_xs
+    )
+    max_thickness_x, max_thickness_ratio = max(thickness_by_x, key=lambda item: item[1])
+    spar_zone_depths = tuple(
+        thickness
+        for x, thickness in thickness_by_x
+        if 0.25 <= x <= 0.35
+    )
+    camber_values = tuple(
+        0.5 * (_interp_surface_y(upper_surface, x) + _interp_surface_y(lower_surface, x))
+        for x in sample_xs
+    )
+    return CSTGeometryMetrics(
+        max_thickness_ratio=float(max_thickness_ratio),
+        max_thickness_x=float(max_thickness_x),
+        spar_depth_ratio_25_35=float(min(spar_zone_depths)) if spar_zone_depths else 0.0,
+        te_thickness_ratio=float(template.te_thickness_m),
+        curvature_reversal_count=_count_curvature_reversals(camber_values),
+    )
+
+
+def validate_seedless_cst_template(
+    template: CSTAirfoilTemplate,
+    *,
+    constraints: SeedlessCSTConstraints = SeedlessCSTConstraints(),
+) -> CSTValidationResult:
+    if template.seed_name is not None:
+        return CSTValidationResult(valid=False, reason="seed_airfoil_identity_present")
+    coordinates = generate_cst_coordinates(template)
+    coordinate_validation = validate_cst_candidate_coordinates(coordinates)
+    if not coordinate_validation.valid:
+        return coordinate_validation
+    metrics = analyze_cst_geometry(template)
+    if metrics.max_thickness_ratio < constraints.min_thickness_ratio:
+        return CSTValidationResult(valid=False, reason="max_thickness_below_min")
+    if metrics.max_thickness_ratio > constraints.max_thickness_ratio:
+        return CSTValidationResult(valid=False, reason="max_thickness_above_max")
+    if not (
+        constraints.max_thickness_x_min
+        <= metrics.max_thickness_x
+        <= constraints.max_thickness_x_max
+    ):
+        return CSTValidationResult(valid=False, reason="max_thickness_location_out_of_range")
+    if metrics.spar_depth_ratio_25_35 < constraints.min_spar_depth_ratio_25_35:
+        return CSTValidationResult(valid=False, reason="spar_depth_below_min")
+    if metrics.te_thickness_ratio < constraints.te_thickness_min:
+        return CSTValidationResult(valid=False, reason="te_thickness_below_min")
+    if metrics.te_thickness_ratio > constraints.te_thickness_max:
+        return CSTValidationResult(valid=False, reason="te_thickness_above_max")
+    if metrics.curvature_reversal_count > constraints.max_curvature_reversal_count:
+        return CSTValidationResult(valid=False, reason="curvature_reversal_count_exceeded")
+    return CSTValidationResult(valid=True, reason="ok")
+
+
+def _validate_seedless_bounds(bounds: SeedlessCSTCoefficientBounds) -> int:
+    coefficient_count = len(bounds.upper_min)
+    if coefficient_count < 6 or coefficient_count > 9:
+        raise ValueError("seedless CST bounds expect order 5..8, i.e. 6..9 coefficients.")
+    if not (
+        len(bounds.upper_max)
+        == len(bounds.lower_min)
+        == len(bounds.lower_max)
+        == coefficient_count
+    ):
+        raise ValueError("seedless CST coefficient bounds must have matching lengths.")
+    for lower, upper in zip(bounds.upper_min, bounds.upper_max, strict=True):
+        if float(upper) < float(lower):
+            raise ValueError("upper coefficient max must be >= min.")
+    for lower, upper in zip(bounds.lower_min, bounds.lower_max, strict=True):
+        if float(upper) < float(lower):
+            raise ValueError("lower coefficient max must be >= min.")
+    if bounds.te_thickness_max < bounds.te_thickness_min:
+        raise ValueError("te_thickness_max must be >= te_thickness_min.")
+    return coefficient_count
+
+
+def _latin_hypercube_columns(
+    *,
+    sample_count: int,
+    dimension_count: int,
+    rng: Random,
+) -> list[list[float]]:
+    columns: list[list[float]] = []
+    for _ in range(dimension_count):
+        values = [
+            (float(index) + rng.random()) / float(sample_count)
+            for index in range(sample_count)
+        ]
+        rng.shuffle(values)
+        columns.append(values)
+    return columns
+
+
+def _lerp(lower: float, upper: float, fraction: float) -> float:
+    return float(lower) + (float(upper) - float(lower)) * float(fraction)
+
+
+def _build_seedless_template_from_unit_sample(
+    *,
+    zone_name: str,
+    unit_sample: Sequence[float],
+    bounds: SeedlessCSTCoefficientBounds,
+    coefficient_count: int,
+    candidate_role: str,
+) -> CSTAirfoilTemplate:
+    if len(unit_sample) != 2 * coefficient_count + 1:
+        raise ValueError("unit sample dimension does not match seedless CST bounds.")
+    upper_coefficients = tuple(
+        _lerp(bounds.upper_min[index], bounds.upper_max[index], unit_sample[index])
+        for index in range(coefficient_count)
+    )
+    lower_coefficients = tuple(
+        _lerp(
+            bounds.lower_min[index],
+            bounds.lower_max[index],
+            unit_sample[coefficient_count + index],
+        )
+        for index in range(coefficient_count)
+    )
+    te_fraction = unit_sample[-1]
+    return build_seedless_cst_template(
+        zone_name=zone_name,
+        upper_coefficients=upper_coefficients,
+        lower_coefficients=lower_coefficients,
+        te_thickness_m=_lerp(
+            bounds.te_thickness_min,
+            bounds.te_thickness_max,
+            te_fraction,
+        ),
+        candidate_role=candidate_role,
+    )
+
+
+def sample_seedless_cst_latin_hypercube(
+    *,
+    zone_name: str,
+    sample_count: int,
+    bounds: SeedlessCSTCoefficientBounds,
+    random_seed: int | None = 0,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    if sample_count <= 0:
+        raise ValueError("sample_count must be positive.")
+    coefficient_count = _validate_seedless_bounds(bounds)
+    dimension_count = 2 * coefficient_count + 1
+    rng = Random(random_seed)
+    columns = _latin_hypercube_columns(
+        sample_count=sample_count,
+        dimension_count=dimension_count,
+        rng=rng,
+    )
+
+    candidates: list[CSTAirfoilTemplate] = []
+    for sample_index in range(sample_count):
+        unit_sample = tuple(column[sample_index] for column in columns)
+        candidates.append(
+            _build_seedless_template_from_unit_sample(
+                zone_name=zone_name,
+                unit_sample=unit_sample,
+                bounds=bounds,
+                coefficient_count=coefficient_count,
+                candidate_role=f"seedless_lhs_{sample_index:04d}",
+            )
+        )
+    return tuple(candidates)
+
+
+def _sobol_base2_exponent(sample_count: int) -> int:
+    sample_power = 1
+    exponent = 0
+    while sample_power < sample_count:
+        sample_power *= 2
+        exponent += 1
+    return exponent
+
+
+def sample_seedless_cst_sobol(
+    *,
+    zone_name: str,
+    sample_count: int,
+    bounds: SeedlessCSTCoefficientBounds,
+    random_seed: int | None = 0,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    if sample_count <= 0:
+        raise ValueError("sample_count must be positive.")
+    coefficient_count = _validate_seedless_bounds(bounds)
+    dimension_count = 2 * coefficient_count + 1
+
+    from scipy.stats import qmc
+
+    sampler = qmc.Sobol(
+        d=dimension_count,
+        scramble=True,
+        seed=random_seed,
+    )
+    unit_samples = sampler.random_base2(m=_sobol_base2_exponent(sample_count))
+
+    candidates: list[CSTAirfoilTemplate] = []
+    for sample_index, unit_sample in enumerate(unit_samples[:sample_count]):
+        candidates.append(
+            _build_seedless_template_from_unit_sample(
+                zone_name=zone_name,
+                unit_sample=tuple(float(value) for value in unit_sample),
+                bounds=bounds,
+                coefficient_count=coefficient_count,
+                candidate_role=f"seedless_sobol_{sample_index:04d}",
+            )
+        )
+    return tuple(candidates)
+
+
+def sample_feasible_seedless_cst_sobol(
+    *,
+    zone_name: str,
+    sample_count: int,
+    bounds: SeedlessCSTCoefficientBounds,
+    constraints: SeedlessCSTConstraints = SeedlessCSTConstraints(),
+    random_seed: int | None = 0,
+    max_oversample_factor: int = 8,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    if sample_count <= 0:
+        raise ValueError("sample_count must be positive.")
+    if max_oversample_factor < 1:
+        raise ValueError("max_oversample_factor must be at least 1.")
+
+    raw_candidates = sample_seedless_cst_sobol(
+        zone_name=zone_name,
+        sample_count=sample_count * max_oversample_factor,
+        bounds=bounds,
+        random_seed=random_seed,
+    )
+    feasible = tuple(
+        candidate
+        for candidate in raw_candidates
+        if validate_seedless_cst_template(candidate, constraints=constraints).valid
+    )
+    if len(feasible) < sample_count:
+        raise ValueError(
+            "insufficient feasible seedless CST candidates after geometry filtering: "
+            f"requested {sample_count}, found {len(feasible)}"
+        )
+    return feasible[:sample_count]
 
 
 def build_bounded_candidate_family(

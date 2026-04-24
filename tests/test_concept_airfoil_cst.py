@@ -4,9 +4,17 @@ import pytest
 
 from hpa_mdo.concept.airfoil_cst import (
     CSTAirfoilTemplate,
+    SeedlessCSTCoefficientBounds,
+    SeedlessCSTConstraints,
+    analyze_cst_geometry,
     build_bounded_candidate_family,
+    build_seedless_cst_template,
     generate_cst_coordinates,
+    sample_feasible_seedless_cst_sobol,
+    sample_seedless_cst_latin_hypercube,
+    sample_seedless_cst_sobol,
     validate_cst_candidate_coordinates,
+    validate_seedless_cst_template,
 )
 
 
@@ -111,3 +119,167 @@ def test_build_bounded_candidate_family_thickness_roles_modify_both_surfaces() -
     assert thickness_up.lower_coefficients[1] < template.lower_coefficients[1]
     assert thickness_down.upper_coefficients[1] < template.upper_coefficients[1]
     assert thickness_down.lower_coefficients[1] > template.lower_coefficients[1]
+
+
+def test_build_seedless_cst_template_has_no_seed_airfoil_identity() -> None:
+    template = build_seedless_cst_template(
+        zone_name="root",
+        upper_coefficients=(0.20, 0.30, 0.28, 0.20, 0.12, 0.06, 0.02),
+        lower_coefficients=(-0.12, -0.16, -0.14, -0.10, -0.05, -0.02, -0.005),
+        te_thickness_m=0.002,
+        candidate_role="seedless_demo",
+    )
+
+    assert template.seed_name is None
+    assert template.candidate_role == "seedless_demo"
+    assert len(template.upper_coefficients) == 7
+    assert len(template.lower_coefficients) == 7
+
+
+def test_analyze_cst_geometry_reports_hpa_filter_metrics() -> None:
+    template = build_seedless_cst_template(
+        zone_name="mid1",
+        upper_coefficients=(0.20, 0.30, 0.28, 0.20, 0.12, 0.06, 0.02),
+        lower_coefficients=(-0.12, -0.16, -0.14, -0.10, -0.05, -0.02, -0.005),
+        te_thickness_m=0.002,
+    )
+
+    metrics = analyze_cst_geometry(template)
+
+    assert 0.10 <= metrics.max_thickness_ratio <= 0.16
+    assert 0.25 <= metrics.max_thickness_x <= 0.45
+    assert metrics.spar_depth_ratio_25_35 > 0.09
+    assert metrics.te_thickness_ratio == pytest.approx(0.002)
+    assert metrics.curvature_reversal_count >= 0
+
+
+def test_validate_seedless_cst_template_rejects_unbuildable_geometry() -> None:
+    too_thin = build_seedless_cst_template(
+        zone_name="tip",
+        upper_coefficients=(0.06, 0.07, 0.06, 0.04, 0.02, 0.01, 0.005),
+        lower_coefficients=(-0.04, -0.04, -0.03, -0.02, -0.01, -0.005, -0.002),
+        te_thickness_m=0.002,
+    )
+
+    outcome = validate_seedless_cst_template(
+        too_thin,
+        constraints=SeedlessCSTConstraints(min_thickness_ratio=0.10),
+    )
+
+    assert outcome.valid is False
+    assert outcome.reason == "max_thickness_below_min"
+
+
+def test_sample_seedless_cst_latin_hypercube_returns_seed_free_candidates() -> None:
+    bounds = SeedlessCSTCoefficientBounds(
+        upper_min=(0.12, 0.16, 0.14, 0.10, 0.06, 0.03, 0.01),
+        upper_max=(0.24, 0.34, 0.32, 0.24, 0.14, 0.08, 0.04),
+        lower_min=(-0.18, -0.20, -0.18, -0.13, -0.07, -0.04, -0.02),
+        lower_max=(-0.08, -0.10, -0.08, -0.05, -0.02, -0.01, -0.002),
+        te_thickness_min=0.001,
+        te_thickness_max=0.004,
+    )
+
+    first = sample_seedless_cst_latin_hypercube(
+        zone_name="root",
+        sample_count=8,
+        bounds=bounds,
+        random_seed=7,
+    )
+    second = sample_seedless_cst_latin_hypercube(
+        zone_name="root",
+        sample_count=8,
+        bounds=bounds,
+        random_seed=7,
+    )
+
+    assert len(first) == 8
+    assert first == second
+    assert all(candidate.seed_name is None for candidate in first)
+    assert {candidate.candidate_role for candidate in first} == {
+        f"seedless_lhs_{index:04d}" for index in range(8)
+    }
+    for candidate in first:
+        assert all(
+            lower <= value <= upper
+            for value, lower, upper in zip(
+                candidate.upper_coefficients,
+                bounds.upper_min,
+                bounds.upper_max,
+                strict=True,
+            )
+        )
+
+
+def test_sample_seedless_cst_sobol_returns_deterministic_seed_free_candidates() -> None:
+    bounds = SeedlessCSTCoefficientBounds(
+        upper_min=(0.12, 0.16, 0.14, 0.10, 0.06, 0.03, 0.01),
+        upper_max=(0.24, 0.34, 0.32, 0.24, 0.14, 0.08, 0.04),
+        lower_min=(-0.18, -0.20, -0.18, -0.13, -0.07, -0.04, -0.02),
+        lower_max=(-0.08, -0.10, -0.08, -0.05, -0.02, -0.01, -0.002),
+        te_thickness_min=0.001,
+        te_thickness_max=0.004,
+    )
+
+    first = sample_seedless_cst_sobol(
+        zone_name="root",
+        sample_count=8,
+        bounds=bounds,
+        random_seed=7,
+    )
+    second = sample_seedless_cst_sobol(
+        zone_name="root",
+        sample_count=8,
+        bounds=bounds,
+        random_seed=7,
+    )
+
+    assert len(first) == 8
+    assert first == second
+    assert all(candidate.seed_name is None for candidate in first)
+    assert {candidate.candidate_role for candidate in first} == {
+        f"seedless_sobol_{index:04d}" for index in range(8)
+    }
+    for candidate in first:
+        assert all(
+            lower <= value <= upper
+            for value, lower, upper in zip(
+                candidate.upper_coefficients,
+                bounds.upper_min,
+                bounds.upper_max,
+                strict=True,
+            )
+        )
+        assert bounds.te_thickness_min <= candidate.te_thickness_m <= bounds.te_thickness_max
+
+
+def test_sample_feasible_seedless_cst_sobol_applies_geometry_filter() -> None:
+    bounds = SeedlessCSTCoefficientBounds(
+        upper_min=(0.18, 0.26, 0.25, 0.18, 0.11, 0.05, 0.015),
+        upper_max=(0.22, 0.32, 0.30, 0.22, 0.13, 0.07, 0.025),
+        lower_min=(-0.14, -0.18, -0.15, -0.11, -0.06, -0.03, -0.010),
+        lower_max=(-0.10, -0.14, -0.13, -0.09, -0.04, -0.015, -0.002),
+        te_thickness_min=0.0015,
+        te_thickness_max=0.0025,
+    )
+    constraints = SeedlessCSTConstraints(
+        min_thickness_ratio=0.10,
+        max_thickness_ratio=0.16,
+        max_thickness_x_min=0.25,
+        max_thickness_x_max=0.45,
+        min_spar_depth_ratio_25_35=0.09,
+    )
+
+    candidates = sample_feasible_seedless_cst_sobol(
+        zone_name="mid1",
+        sample_count=4,
+        bounds=bounds,
+        constraints=constraints,
+        random_seed=11,
+    )
+
+    assert len(candidates) == 4
+    assert all(
+        validate_seedless_cst_template(candidate, constraints=constraints).valid
+        for candidate in candidates
+    )
