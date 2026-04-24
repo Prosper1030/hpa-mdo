@@ -1588,6 +1588,23 @@ def test_shell_v4_pre_plc_root_last3_post_transition_boundary_recovery_operator_
         [0.0, 14.992006138888888, 14.998333333333333, 15.498888888888889, 15.9, 16.5]
     )
     assert after["observed_failure_kind"] == "boundary_recovery_error_2"
+    residual = after["downstream_residual_classifier"]
+    residual_by_family = {
+        entry["family"]: entry for entry in residual["classifications"]
+    }
+    assert residual["contract"] == "boundary_recovery_error_2_downstream_residual_classifier.v1"
+    assert residual["classification_status"] == "inferred"
+    assert residual["primary_residual_family"] == "residual_contact_near_tip_terminal"
+    assert residual["source_failure_kind"] == "boundary_recovery_error_2"
+    assert residual_by_family["residual_contact_near_tip_terminal"]["status"] == "inferred"
+    assert residual_by_family["post_relief_interval_too_short"]["status"] == "rejected"
+    assert residual_by_family["relief_section_spacing_insufficient"]["status"] == "rejected"
+    assert residual_by_family["recovery_wire_orientation_conflict"]["status"] == "rejected"
+    assert residual["evidence"]["guard_y_le_m"] == pytest.approx(15.498888888888889)
+    assert residual["evidence"]["relief_y_le_m"] == pytest.approx(15.9)
+    assert residual["evidence"]["terminal_y_le_m"] == pytest.approx(16.5)
+    assert residual["evidence"]["guard_to_relief_spacing_m"] > 0.0
+    assert residual["evidence"]["relief_to_terminal_spacing_m"] > 0.0
     assert Path(localized["report_path"]).exists()
 
 
@@ -1631,6 +1648,9 @@ def test_shell_v4_pre_plc_root_last4_boundary_recovery_operator_keeps_overlap_fa
     assert observed["observed_failure_kind"] == "boundary_recovery_error_2"
     assert localized["operator_result"]["status"] == "applied"
     assert "Invalid boundary mesh (overlapping facets)" not in after["error"]
+    assert after["downstream_residual_classifier"]["primary_residual_family"] == (
+        "residual_contact_near_tip_terminal"
+    )
 
 
 def test_build_real_wing_bl_budgeting_plan_reports_sectionwise_and_regionwise_actions(
@@ -1750,6 +1770,12 @@ def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendat
     assert result["planning_budgeting"]["tightest_region_ids"]
     assert result["planning_budgeting"]["tightest_sections"]
     assert result["planning_budgeting"]["tightest_regions"]
+    assert result["operator_regression_summary"]["post_transition_boundary_recovery_residual_families"][
+        "root_last3_segment_facet"
+    ] == "residual_contact_near_tip_terminal"
+    assert result["operator_regression_summary"]["post_transition_boundary_recovery_residual_families"][
+        "root_last4_overlap"
+    ] == "residual_contact_near_tip_terminal"
     assert any(
         region["region_kind"] == "tip_truncation_candidate_zone"
         for region in result["planning_budgeting"]["region_budgets"]

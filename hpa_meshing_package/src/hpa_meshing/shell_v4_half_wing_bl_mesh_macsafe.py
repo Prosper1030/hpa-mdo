@@ -2206,6 +2206,339 @@ def _pre_plc_observed_check_kind_from_failure_kind(
     return mapping.get(str(observed_failure_kind or ""))
 
 
+def _section_at_span_y(
+    sections: list[dict[str, Any]],
+    y_value: float | None,
+    *,
+    tolerance: float = 1.0e-6,
+) -> dict[str, Any] | None:
+    if y_value is None:
+        return None
+    for section in sections:
+        if abs(float(section.get("y_le", 0.0)) - float(y_value)) <= tolerance:
+            return section
+    return None
+
+
+def _spanwise_yz_angle_deg(
+    inboard_section: dict[str, Any] | None,
+    outboard_section: dict[str, Any] | None,
+) -> float | None:
+    if inboard_section is None or outboard_section is None:
+        return None
+    dy = float(outboard_section.get("y_le", 0.0)) - float(inboard_section.get("y_le", 0.0))
+    dz = float(outboard_section.get("z_le", 0.0)) - float(inboard_section.get("z_le", 0.0))
+    if abs(dy) <= 1.0e-9:
+        return None
+    return float(math.degrees(math.atan2(dz, dy)))
+
+
+def _post_relief_local_clearance_evidence(
+    *,
+    sections: list[dict[str, Any]],
+    relief_y_le_m: float | None,
+    terminal_y_le_m: float | None,
+) -> dict[str, Any]:
+    if relief_y_le_m is None or terminal_y_le_m is None or terminal_y_le_m <= relief_y_le_m:
+        return {
+            "status": "unknown",
+            "reason": "missing_post_relief_span",
+        }
+    if len(sections) < 2:
+        return {
+            "status": "unknown",
+            "reason": "missing_sections",
+        }
+    sample_y_values = [
+        float(relief_y_le_m),
+        float(0.5 * (relief_y_le_m + terminal_y_le_m)),
+        float(terminal_y_le_m),
+    ]
+    samples: list[dict[str, float]] = []
+    for y_value in sample_y_values:
+        clearance = _real_wing_local_clearance_at_spanwise_x_rel(
+            sections=sections,
+            y_value=y_value,
+            x_rel=0.5,
+        )
+        samples.append(
+            {
+                "span_y_m": float(y_value),
+                "sample_x_rel": 0.5,
+                "local_clearance_m": float(clearance["local_half_thickness_m"]),
+                "local_thickness_m": float(clearance["local_thickness_m"]),
+            }
+        )
+    return {
+        "status": "inferred",
+        "sample_x_rel": 0.5,
+        "min_post_relief_local_clearance_m": float(
+            min(sample["local_clearance_m"] for sample in samples)
+        ),
+        "samples": samples,
+        "notes": [
+            "Local clearance is inferred from section half-thickness samples, not from native BREP face distance.",
+        ],
+    }
+
+
+def _classify_boundary_recovery_error_2_downstream_residual(
+    *,
+    fixture: dict[str, Any],
+    observed_failure_kind: str,
+    error_text: str,
+) -> dict[str, Any]:
+    selected_y = [
+        float(value)
+        for value in fixture.get("selected_section_y_le_m", [])
+        if value is not None
+    ]
+    selected_y = sorted(dict.fromkeys(selected_y))
+    sections = [dict(section) for section in fixture.get("geometry", {}).get("sections", [])]
+    post_band_seed = dict(fixture.get("post_band_transition_seed") or {})
+    relief_seed = dict(fixture.get("post_transition_boundary_recovery_seed") or {})
+    guard_y = post_band_seed.get("guard_y_le_m")
+    relief_y = relief_seed.get("relief_y_le_m")
+    terminal_y = selected_y[-1] if selected_y else None
+    guard_y = float(guard_y) if guard_y is not None else None
+    relief_y = float(relief_y) if relief_y is not None else None
+    terminal_y = float(terminal_y) if terminal_y is not None else None
+
+    guard_to_tip_span = (
+        float(terminal_y - guard_y)
+        if guard_y is not None and terminal_y is not None
+        else None
+    )
+    guard_to_relief_spacing = (
+        float(relief_y - guard_y)
+        if guard_y is not None and relief_y is not None
+        else None
+    )
+    relief_to_terminal_spacing = (
+        float(terminal_y - relief_y)
+        if relief_y is not None and terminal_y is not None
+        else None
+    )
+    guard_to_relief_ratio = (
+        float(guard_to_relief_spacing / guard_to_tip_span)
+        if guard_to_relief_spacing is not None and guard_to_tip_span and guard_to_tip_span > 0.0
+        else None
+    )
+    relief_to_terminal_ratio = (
+        float(relief_to_terminal_spacing / guard_to_tip_span)
+        if relief_to_terminal_spacing is not None and guard_to_tip_span and guard_to_tip_span > 0.0
+        else None
+    )
+    min_spacing = min(
+        spacing
+        for spacing in (guard_to_relief_spacing, relief_to_terminal_spacing)
+        if spacing is not None
+    ) if guard_to_relief_spacing is not None and relief_to_terminal_spacing is not None else None
+    min_spacing_ratio = (
+        float(min_spacing / guard_to_tip_span)
+        if min_spacing is not None and guard_to_tip_span and guard_to_tip_span > 0.0
+        else None
+    )
+
+    guard_section = _section_at_span_y(sections, guard_y)
+    relief_section = _section_at_span_y(sections, relief_y)
+    terminal_section = _section_at_span_y(sections, terminal_y)
+    guard_relief_angle = _spanwise_yz_angle_deg(guard_section, relief_section)
+    relief_terminal_angle = _spanwise_yz_angle_deg(relief_section, terminal_section)
+    terminal_band_angle_jump = (
+        abs(float(relief_terminal_angle) - float(guard_relief_angle))
+        if guard_relief_angle is not None and relief_terminal_angle is not None
+        else None
+    )
+    orientation_monotonic_y = all(rhs > lhs for lhs, rhs in zip(selected_y[:-1], selected_y[1:]))
+    orientation_positive_chords = all(float(section.get("chord", 0.0)) > 0.0 for section in sections)
+    orientation_conflict = not (orientation_monotonic_y and orientation_positive_chords)
+    clearance_evidence = _post_relief_local_clearance_evidence(
+        sections=sections,
+        relief_y_le_m=relief_y,
+        terminal_y_le_m=terminal_y,
+    )
+
+    evidence = {
+        "selected_section_y_le_m": selected_y,
+        "guard_y_le_m": guard_y,
+        "relief_y_le_m": relief_y,
+        "terminal_y_le_m": terminal_y,
+        "guard_to_tip_interval_span_m": guard_to_tip_span,
+        "guard_to_relief_spacing_m": guard_to_relief_spacing,
+        "relief_to_terminal_spacing_m": relief_to_terminal_spacing,
+        "guard_to_relief_spacing_ratio": guard_to_relief_ratio,
+        "relief_to_terminal_spacing_ratio": relief_to_terminal_ratio,
+        "min_relief_spacing_m": min_spacing,
+        "min_relief_spacing_ratio": min_spacing_ratio,
+        "guard_relief_yz_angle_deg": guard_relief_angle,
+        "relief_terminal_yz_angle_deg": relief_terminal_angle,
+        "terminal_band_angle_jump_deg": terminal_band_angle_jump,
+        "orientation_consistency": {
+            "status": "conflict" if orientation_conflict else "pass",
+            "monotonic_y": bool(orientation_monotonic_y),
+            "positive_chords": bool(orientation_positive_chords),
+        },
+        "post_relief_local_clearance": clearance_evidence,
+    }
+
+    def _entry(
+        *,
+        family: str,
+        status: str,
+        reason: str,
+        evidence_fields: list[str],
+    ) -> dict[str, Any]:
+        return {
+            "family": family,
+            "status": status,
+            "reason": reason,
+            "evidence": {
+                key: evidence.get(key)
+                for key in evidence_fields
+            },
+        }
+
+    if observed_failure_kind != "boundary_recovery_error_2":
+        return {
+            "contract": "boundary_recovery_error_2_downstream_residual_classifier.v1",
+            "classification_status": "not_applicable",
+            "primary_residual_family": None,
+            "source_failure_kind": observed_failure_kind,
+            "evidence": evidence,
+            "classifications": [],
+            "notes": [
+                "Downstream residual classification only applies after a relief rerun still observes boundary_recovery_error_2.",
+            ],
+        }
+
+    missing_relief_context = (
+        guard_y is None
+        or relief_y is None
+        or terminal_y is None
+        or guard_to_tip_span is None
+        or guard_to_tip_span <= 0.0
+    )
+    if missing_relief_context:
+        classification_status = "unknown"
+        primary_family = "boundary_recovery_error_2_residual_unknown"
+    else:
+        classification_status = "inferred"
+        primary_family = "residual_contact_near_tip_terminal"
+
+    post_relief_too_short = (
+        relief_to_terminal_spacing is not None
+        and guard_to_tip_span is not None
+        and relief_to_terminal_spacing <= max(0.05, 0.10 * guard_to_tip_span)
+    )
+    spacing_insufficient = (
+        min_spacing is not None
+        and guard_to_tip_span is not None
+        and min_spacing <= max(0.05, 0.10 * guard_to_tip_span)
+    )
+    angle_jump = (
+        terminal_band_angle_jump is not None
+        and terminal_band_angle_jump >= 5.0
+    )
+    classifications = [
+        _entry(
+            family="residual_contact_near_tip_terminal",
+            status="unknown" if missing_relief_context else "inferred",
+            reason=(
+                "Boundary recovery still fails after the bounded relief section, so the residual locus is inferred "
+                "inside the narrowed relief-to-terminal interval."
+            ),
+            evidence_fields=[
+                "relief_y_le_m",
+                "terminal_y_le_m",
+                "relief_to_terminal_spacing_m",
+                "relief_to_terminal_spacing_ratio",
+            ],
+        ),
+        _entry(
+            family="post_relief_interval_too_short",
+            status="inferred" if post_relief_too_short else "rejected",
+            reason=(
+                "The post-relief interval is below the deterministic minimum spacing threshold."
+                if post_relief_too_short
+                else "The post-relief interval is above the deterministic minimum spacing threshold."
+            ),
+            evidence_fields=[
+                "guard_to_tip_interval_span_m",
+                "relief_to_terminal_spacing_m",
+                "relief_to_terminal_spacing_ratio",
+            ],
+        ),
+        _entry(
+            family="relief_section_spacing_insufficient",
+            status="inferred" if spacing_insufficient else "rejected",
+            reason=(
+                "At least one guard/relief/terminal spacing is below the deterministic minimum spacing threshold."
+                if spacing_insufficient
+                else "Guard/relief/terminal spacings clear the deterministic minimum spacing threshold."
+            ),
+            evidence_fields=[
+                "guard_to_relief_spacing_m",
+                "relief_to_terminal_spacing_m",
+                "min_relief_spacing_m",
+                "min_relief_spacing_ratio",
+            ],
+        ),
+        _entry(
+            family="terminal_band_angle_jump",
+            status=(
+                "unknown"
+                if terminal_band_angle_jump is None
+                else "inferred"
+                if angle_jump
+                else "rejected"
+            ),
+            reason=(
+                "The terminal relief-to-tip span has a local yz-angle jump above the threshold."
+                if angle_jump
+                else "No terminal yz-angle jump above the threshold was inferred from section frames."
+            ),
+            evidence_fields=[
+                "guard_relief_yz_angle_deg",
+                "relief_terminal_yz_angle_deg",
+                "terminal_band_angle_jump_deg",
+            ],
+        ),
+        _entry(
+            family="recovery_wire_orientation_conflict",
+            status="inferred" if orientation_conflict else "rejected",
+            reason=(
+                "The selected relief fixture has non-monotone span order or non-positive section chords."
+                if orientation_conflict
+                else "The relief fixture keeps monotone span order and positive section chords."
+            ),
+            evidence_fields=["orientation_consistency"],
+        ),
+        _entry(
+            family="post_relief_local_clearance",
+            status=str(clearance_evidence.get("status", "unknown")),
+            reason="Post-relief local clearance is sampled as evidence, but this classifier does not mutate BL policy.",
+            evidence_fields=["post_relief_local_clearance"],
+        ),
+    ]
+
+    return {
+        "contract": "boundary_recovery_error_2_downstream_residual_classifier.v1",
+        "classification_status": classification_status,
+        "primary_residual_family": primary_family,
+        "source_failure_kind": observed_failure_kind,
+        "error_text_contains_boundary_recovery_error_2": (
+            "Could not recover boundary mesh: error 2" in str(error_text)
+        ),
+        "evidence": evidence,
+        "classifications": classifications,
+        "notes": [
+            "This classifier is reporting-only and does not add or apply a second repair operator.",
+            "Observed Gmsh text does not expose an exact contact point, so the terminal residual locus is inferred from the bounded relief interval.",
+        ],
+    }
+
+
 def _build_pre_plc_audit_for_fixture_baseline(
     *,
     topology_ir: Any,
@@ -2529,7 +2862,7 @@ def _run_shell_v4_pre_plc_repro_fixture(
         observed_failure_kind = "facet_facet_overlap"
     elif "Could not recover boundary mesh: error 2" in error_text:
         observed_failure_kind = "boundary_recovery_error_2"
-    return {
+    result_payload = {
         "fixture_id": str(fixture["fixture_id"]),
         "family": str(fixture["family"]),
         "status": str(result.get("status")),
@@ -2538,6 +2871,15 @@ def _run_shell_v4_pre_plc_repro_fixture(
         "report_path": str(out_dir / "report.json"),
         "route_result": result,
     }
+    if fixture.get("post_transition_boundary_recovery_seed"):
+        result_payload["downstream_residual_classifier"] = (
+            _classify_boundary_recovery_error_2_downstream_residual(
+                fixture=fixture,
+                observed_failure_kind=observed_failure_kind,
+                error_text=error_text,
+            )
+        )
+    return result_payload
 
 
 def _normalize_topology_compiler_gate(topology_compiler_gate: str | None) -> str:
@@ -2835,6 +3177,20 @@ def _run_shell_v4_topology_compiler_plan_only(
                 for entry in operator_regression_runs
                 if not entry["changed_failure_kind_after_boundary_recovery_operator"]
             ],
+            "post_transition_boundary_recovery_residual_families": {
+                str(entry["family"]): entry["boundary_recovery_observed"]
+                .get("downstream_residual_classifier", {})
+                .get("primary_residual_family")
+                for entry in operator_regression_runs
+                if entry["boundary_recovery_observed"].get("downstream_residual_classifier")
+            },
+            "post_transition_boundary_recovery_residual_statuses": {
+                str(entry["family"]): entry["boundary_recovery_observed"]
+                .get("downstream_residual_classifier", {})
+                .get("classification_status")
+                for entry in operator_regression_runs
+                if entry["boundary_recovery_observed"].get("downstream_residual_classifier")
+            },
             "improved_fixture_families": [
                 str(entry["family"])
                 for entry in operator_regression_runs

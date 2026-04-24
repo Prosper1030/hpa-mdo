@@ -167,6 +167,26 @@ What this still does **not** mean:
 - not proof of full prelaunch success
 - not evidence that real-wing or whole-case PLC routing is globally solved
 
+## Downstream residual classifier after relief
+
+The bounded boundary-recovery relief operator can still rerun into the same Gmsh `error 2`
+family. That residual is now reported with `boundary_recovery_error_2_downstream_residual_classifier.v1`
+instead of only repeating the broad `boundary_recovery_error_2` label.
+
+The current classifier separates:
+
+- `residual_contact_near_tip_terminal` as an inferred residual when the rerun still fails after the relief section narrows the active interval to relief-to-terminal
+- `post_relief_interval_too_short` as inferred or rejected from the post-relief span
+- `relief_section_spacing_insufficient` as inferred or rejected from guard/relief/terminal spacing
+- `terminal_band_angle_jump` as inferred, rejected, or unknown from local spanwise yz-angle evidence
+- `recovery_wire_orientation_conflict` as inferred or rejected from monotone span ordering and positive section chords
+- `post_relief_local_clearance` as inferred or unknown sampling evidence, not as a BL policy mutation
+
+For `root_last3` after the rounded relief section, the report currently infers
+`residual_contact_near_tip_terminal`. The exact Gmsh contact point is still not observed, so that
+family remains inferred from the narrowed relief-to-terminal interval rather than claimed as a native
+face-level diagnosis.
+
 ## BL compatibility as planning policy, not topology blame
 
 The BL clearance ratio line is now promoted one level higher in the artifacts.
