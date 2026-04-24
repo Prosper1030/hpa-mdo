@@ -977,33 +977,144 @@ def _refinement_candidates(
     return tuple(selected) if selected else candidates
 
 
+def _normalize_robust_reynolds_factors(
+    reynolds_factors: tuple[float, ...],
+) -> tuple[float, ...]:
+    normalized = tuple(float(value) for value in reynolds_factors)
+    if not normalized:
+        raise ValueError("robust_reynolds_factors must not be empty.")
+    if any(value <= 0.0 for value in normalized):
+        raise ValueError("robust_reynolds_factors entries must be positive.")
+    return normalized
+
+
+def _normalize_robust_roughness_modes(
+    roughness_modes: tuple[str, ...],
+) -> tuple[str, ...]:
+    normalized = tuple(str(value).strip() for value in roughness_modes)
+    if not normalized or any(not value for value in normalized):
+        raise ValueError("robust_roughness_modes must contain non-empty entries.")
+    return normalized
+
+
+def _robust_condition_suffix(
+    *,
+    reynolds_factor: float,
+    roughness_mode: str,
+) -> str:
+    reynolds_token = f"{float(reynolds_factor):.3f}".rstrip("0").rstrip(".").replace(".", "p")
+    roughness_token = str(roughness_mode).replace("-", "_")
+    return f"__robust_re{reynolds_token}_{roughness_token}"
+
+
 def _zone_queries_for_candidates(
     *,
     zone_name: str,
     candidates: tuple[CSTAirfoilTemplate, ...],
     zone_points: list[dict[str, float]],
+    robust_evaluation_enabled: bool = False,
+    robust_reynolds_factors: tuple[float, ...] = (1.0,),
+    robust_roughness_modes: tuple[str, ...] = ("clean",),
 ) -> tuple[list[PolarQuery], list[str]]:
     queries: list[PolarQuery] = []
     query_roles: list[str] = []
+    reynolds_factors = (
+        _normalize_robust_reynolds_factors(robust_reynolds_factors)
+        if robust_evaluation_enabled
+        else (1.0,)
+    )
+    roughness_modes = (
+        _normalize_robust_roughness_modes(robust_roughness_modes)
+        if robust_evaluation_enabled
+        else ("clean",)
+    )
+    base_reynolds = _representative_reynolds(zone_points)
+    cl_samples = _representative_cl_samples(zone_points)
     for candidate in candidates:
         coordinates = generate_cst_coordinates(candidate)
         validity = validate_cst_candidate_coordinates(coordinates)
         if not validity.valid:
             continue
-        queries.append(
-            PolarQuery(
-                template_id=f"{zone_name}-{candidate.candidate_role}",
-                reynolds=_representative_reynolds(zone_points),
-                cl_samples=_representative_cl_samples(zone_points),
-                roughness_mode="clean",
-                geometry_hash=geometry_hash_from_coordinates(coordinates),
-                coordinates=coordinates,
-                analysis_mode="screening_target_cl",
-                analysis_stage="screening",
-            )
-        )
-        query_roles.append(candidate.candidate_role)
+        for reynolds_factor in reynolds_factors:
+            for roughness_mode in roughness_modes:
+                template_id = f"{zone_name}-{candidate.candidate_role}"
+                if robust_evaluation_enabled:
+                    template_id = (
+                        template_id
+                        + _robust_condition_suffix(
+                            reynolds_factor=reynolds_factor,
+                            roughness_mode=roughness_mode,
+                        )
+                    )
+                queries.append(
+                    PolarQuery(
+                        template_id=template_id,
+                        reynolds=base_reynolds * float(reynolds_factor),
+                        cl_samples=cl_samples,
+                        roughness_mode=roughness_mode,
+                        geometry_hash=geometry_hash_from_coordinates(coordinates),
+                        coordinates=coordinates,
+                        analysis_mode=(
+                            "full_alpha_sweep"
+                            if robust_evaluation_enabled
+                            else "screening_target_cl"
+                        ),
+                        analysis_stage=(
+                            "robust_screening"
+                            if robust_evaluation_enabled
+                            else "screening"
+                        ),
+                    )
+                )
+                query_roles.append(candidate.candidate_role)
     return queries, query_roles
+
+
+def _aggregate_worker_condition_metrics(
+    metrics: list[dict[str, object]],
+    *,
+    condition_count: int,
+    min_pass_rate: float,
+) -> dict[str, object] | None:
+    if condition_count <= 0:
+        return None
+    if not metrics:
+        return {
+            "status": "analysis_failed",
+            "mean_cd": float("inf"),
+            "mean_cm": 0.0,
+            "usable_clmax": 0.0,
+            "polar_points": [],
+            "robust_condition_count": condition_count,
+            "robust_success_count": 0,
+            "robust_pass_rate": 0.0,
+        }
+
+    success_count = len(metrics)
+    pass_rate = float(success_count) / float(condition_count)
+    mean_cd = max(float(item["mean_cd"]) for item in metrics)
+    mean_cm = max((float(item["mean_cm"]) for item in metrics), key=abs)
+    usable_clmax = min(float(item["usable_clmax"]) for item in metrics)
+    polar_points = [
+        point
+        for item in metrics
+        for point in item.get("polar_points", [])
+        if isinstance(point, Mapping)
+    ]
+
+    return {
+        "status": "ok" if pass_rate >= float(min_pass_rate) else "analysis_failed",
+        "mean_cd": mean_cd,
+        "mean_cm": mean_cm,
+        "usable_clmax": usable_clmax,
+        "polar_points": polar_points,
+        "robust_condition_count": condition_count,
+        "robust_success_count": success_count,
+        "robust_pass_rate": pass_rate,
+        "robust_min_usable_clmax": usable_clmax,
+        "robust_max_mean_cd": mean_cd,
+        "robust_worst_abs_cm": mean_cm,
+    }
 
 
 def _run_zone_candidate_queries(
@@ -1013,6 +1124,10 @@ def _run_zone_candidate_queries(
     zone_points: list[dict[str, float]],
     worker: Any,
     existing_results: Mapping[str, dict[str, object]] | None = None,
+    robust_evaluation_enabled: bool = False,
+    robust_reynolds_factors: tuple[float, ...] = (1.0,),
+    robust_roughness_modes: tuple[str, ...] = ("clean",),
+    robust_min_pass_rate: float = 0.75,
 ) -> tuple[dict[str, dict[str, object]], list[dict[str, object]]]:
     candidate_results = dict(existing_results or {})
     candidates_to_run = tuple(
@@ -1022,6 +1137,9 @@ def _run_zone_candidate_queries(
         zone_name=zone_name,
         candidates=candidates_to_run,
         zone_points=zone_points,
+        robust_evaluation_enabled=robust_evaluation_enabled,
+        robust_reynolds_factors=robust_reynolds_factors,
+        robust_roughness_modes=robust_roughness_modes,
     )
     if not queries:
         return candidate_results, []
@@ -1041,6 +1159,12 @@ def _run_zone_candidate_queries(
     }
     seen_template_ids: set[str] = set()
     normalized_worker_results: list[dict[str, object]] = []
+    metrics_by_candidate_role: dict[str, list[dict[str, object]]] = {}
+    condition_count_by_candidate_role: dict[str, int] = {}
+    for candidate_role in query_roles:
+        condition_count_by_candidate_role[candidate_role] = (
+            condition_count_by_candidate_role.get(candidate_role, 0) + 1
+        )
     for raw_result in zone_results:
         if not isinstance(raw_result, dict):
             raise RuntimeError("Airfoil worker results must be dictionaries.")
@@ -1068,12 +1192,20 @@ def _run_zone_candidate_queries(
         )
         metrics = _metrics_from_worker_result(raw_result)
         if metrics is not None:
-            candidate_results[candidate_role] = metrics
+            metrics_by_candidate_role.setdefault(candidate_role, []).append(metrics)
     if seen_template_ids != set(query_identity_by_template_id):
         missing = sorted(set(query_identity_by_template_id) - seen_template_ids)
         raise RuntimeError(
             f"Airfoil worker did not return results for all CST queries in zone {zone_name!r}: missing {missing!r}."
         )
+    for candidate_role, condition_count in condition_count_by_candidate_role.items():
+        aggregated_metrics = _aggregate_worker_condition_metrics(
+            metrics_by_candidate_role.get(candidate_role, []),
+            condition_count=condition_count,
+            min_pass_rate=robust_min_pass_rate,
+        )
+        if aggregated_metrics is not None:
+            candidate_results[candidate_role] = aggregated_metrics
     return candidate_results, normalized_worker_results
 
 
@@ -1083,6 +1215,10 @@ def _run_batched_zone_candidate_queries(
     zone_points_by_name: Mapping[str, list[dict[str, float]]],
     worker: Any,
     existing_results_by_zone: Mapping[str, Mapping[str, dict[str, object]]] | None = None,
+    robust_evaluation_enabled: bool = False,
+    robust_reynolds_factors: tuple[float, ...] = (1.0,),
+    robust_roughness_modes: tuple[str, ...] = ("clean",),
+    robust_min_pass_rate: float = 0.75,
 ) -> tuple[dict[str, dict[str, dict[str, object]]], list[dict[str, object]]]:
     aggregated_results: dict[str, dict[str, dict[str, object]]] = {
         zone_name: dict((existing_results_by_zone or {}).get(zone_name, {}))
@@ -1090,6 +1226,7 @@ def _run_batched_zone_candidate_queries(
     }
     batch_queries: list[PolarQuery] = []
     query_identity_by_template_id: dict[str, dict[str, str]] = {}
+    condition_count_by_zone_role: dict[tuple[str, str], int] = {}
 
     for zone_name, candidates in zone_candidates.items():
         existing_zone_results = aggregated_results.setdefault(zone_name, {})
@@ -1100,6 +1237,9 @@ def _run_batched_zone_candidate_queries(
             zone_name=zone_name,
             candidates=candidates_to_run,
             zone_points=zone_points_by_name[zone_name],
+            robust_evaluation_enabled=robust_evaluation_enabled,
+            robust_reynolds_factors=robust_reynolds_factors,
+            robust_roughness_modes=robust_roughness_modes,
         )
         for query, candidate_role in zip(queries, query_roles, strict=True):
             batch_queries.append(query)
@@ -1108,6 +1248,10 @@ def _run_batched_zone_candidate_queries(
                 "candidate_role": candidate_role,
                 "geometry_hash": query.geometry_hash,
             }
+            role_key = (zone_name, candidate_role)
+            condition_count_by_zone_role[role_key] = (
+                condition_count_by_zone_role.get(role_key, 0) + 1
+            )
 
     if not batch_queries:
         return aggregated_results, []
@@ -1121,6 +1265,7 @@ def _run_batched_zone_candidate_queries(
 
     seen_template_ids: set[str] = set()
     normalized_worker_results: list[dict[str, object]] = []
+    metrics_by_zone_role: dict[tuple[str, str], list[dict[str, object]]] = {}
     for raw_result in batch_results:
         if not isinstance(raw_result, dict):
             raise RuntimeError("Airfoil worker results must be dictionaries.")
@@ -1149,7 +1294,7 @@ def _run_batched_zone_candidate_queries(
         )
         metrics = _metrics_from_worker_result(raw_result)
         if metrics is not None:
-            aggregated_results.setdefault(zone_name, {})[candidate_role] = metrics
+            metrics_by_zone_role.setdefault((zone_name, candidate_role), []).append(metrics)
 
     if seen_template_ids != set(query_identity_by_template_id):
         missing = sorted(set(query_identity_by_template_id) - seen_template_ids)
@@ -1157,6 +1302,14 @@ def _run_batched_zone_candidate_queries(
             "Airfoil worker did not return results for all batched CST queries: "
             f"missing {missing!r}."
         )
+    for (zone_name, candidate_role), condition_count in condition_count_by_zone_role.items():
+        aggregated_metrics = _aggregate_worker_condition_metrics(
+            metrics_by_zone_role.get((zone_name, candidate_role), []),
+            condition_count=condition_count,
+            min_pass_rate=robust_min_pass_rate,
+        )
+        if aggregated_metrics is not None:
+            aggregated_results.setdefault(zone_name, {})[candidate_role] = aggregated_metrics
     return aggregated_results, normalized_worker_results
 
 
@@ -1238,6 +1391,10 @@ def select_zone_airfoil_templates(
     seedless_sample_count: int = 32,
     seedless_random_seed: int | None = 0,
     seedless_max_oversample_factor: int = 8,
+    robust_evaluation_enabled: bool = False,
+    robust_reynolds_factors: tuple[float, ...] = (1.0,),
+    robust_roughness_modes: tuple[str, ...] = ("clean",),
+    robust_min_pass_rate: float = 0.75,
     coarse_to_fine_enabled: bool = True,
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
@@ -1268,6 +1425,10 @@ def select_zone_airfoil_templates(
         seedless_sample_count=seedless_sample_count,
         seedless_random_seed=seedless_random_seed,
         seedless_max_oversample_factor=seedless_max_oversample_factor,
+        robust_evaluation_enabled=robust_evaluation_enabled,
+        robust_reynolds_factors=robust_reynolds_factors,
+        robust_roughness_modes=robust_roughness_modes,
+        robust_min_pass_rate=robust_min_pass_rate,
         coarse_to_fine_enabled=coarse_to_fine_enabled,
         coarse_thickness_stride=coarse_thickness_stride,
         coarse_camber_stride=coarse_camber_stride,
@@ -1309,6 +1470,10 @@ def select_zone_airfoil_templates_for_concepts(
     seedless_sample_count: int = 32,
     seedless_random_seed: int | None = 0,
     seedless_max_oversample_factor: int = 8,
+    robust_evaluation_enabled: bool = False,
+    robust_reynolds_factors: tuple[float, ...] = (1.0,),
+    robust_roughness_modes: tuple[str, ...] = ("clean",),
+    robust_min_pass_rate: float = 0.75,
     coarse_to_fine_enabled: bool = True,
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
@@ -1383,6 +1548,10 @@ def select_zone_airfoil_templates_for_concepts(
         zone_candidates=coarse_candidates_by_key,
         zone_points_by_name=zone_points_by_key,
         worker=worker,
+        robust_evaluation_enabled=robust_evaluation_enabled,
+        robust_reynolds_factors=robust_reynolds_factors,
+        robust_roughness_modes=robust_roughness_modes,
+        robust_min_pass_rate=robust_min_pass_rate,
     )
     worker_results_by_concept: dict[str, list[dict[str, object]]] = {
         concept_id: [] for concept_id in concept_zone_requirements
@@ -1447,6 +1616,10 @@ def select_zone_airfoil_templates_for_concepts(
                     zone_points_by_name=zone_points_by_key,
                     worker=worker,
                     existing_results_by_zone=candidate_results_by_key,
+                    robust_evaluation_enabled=robust_evaluation_enabled,
+                    robust_reynolds_factors=robust_reynolds_factors,
+                    robust_roughness_modes=robust_roughness_modes,
+                    robust_min_pass_rate=robust_min_pass_rate,
                 )
                 for result in stage_worker_results:
                     concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
@@ -1498,6 +1671,10 @@ def select_zone_airfoil_templates_for_concepts(
                 zone_points_by_name=zone_points_by_key,
                 worker=worker,
                 existing_results_by_zone=candidate_results_by_key,
+                robust_evaluation_enabled=robust_evaluation_enabled,
+                robust_reynolds_factors=robust_reynolds_factors,
+                robust_roughness_modes=robust_roughness_modes,
+                robust_min_pass_rate=robust_min_pass_rate,
             )
             for result in refinement_worker_results:
                 concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))

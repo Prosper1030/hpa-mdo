@@ -444,6 +444,31 @@ def test_load_concept_config_accepts_seedless_cst_search_mode():
     assert cfg.cst_search.seedless_max_oversample_factor == 4
 
 
+def test_load_concept_config_accepts_robust_airfoil_screening_controls():
+    cfg = BirdmanConceptConfig.model_validate(
+        {
+            "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+            "mass": {
+                "pilot_mass_kg": 60.0,
+                "baseline_aircraft_mass_kg": 40.0,
+                "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+            },
+            "mission": {"target_distance_km": 42.195},
+            "cst_search": {
+                "robust_evaluation_enabled": True,
+                "robust_reynolds_factors": [0.85, 1.0, 1.15],
+                "robust_roughness_modes": ["clean", "rough"],
+                "robust_min_pass_rate": 0.80,
+            },
+        }
+    )
+
+    assert cfg.cst_search.robust_evaluation_enabled is True
+    assert cfg.cst_search.robust_reynolds_factors == (0.85, 1.0, 1.15)
+    assert cfg.cst_search.robust_roughness_modes == ("clean", "rough")
+    assert cfg.cst_search.robust_min_pass_rate == pytest.approx(0.80)
+
+
 def test_load_concept_config_rejects_invalid_dihedral_candidate_bounds():
     with pytest.raises(ValueError, match="dihedral_tip_deg_candidates"):
         BirdmanConceptConfig.model_validate(

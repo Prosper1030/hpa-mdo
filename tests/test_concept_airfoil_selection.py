@@ -537,6 +537,75 @@ def test_select_zone_airfoil_templates_can_use_seedless_sobol_candidates() -> No
     )
 
 
+def test_select_zone_airfoil_templates_can_aggregate_robust_screening_conditions() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.queries = []
+
+        def run_queries(self, queries):
+            self.queries.extend(queries)
+            results = []
+            for query in queries:
+                rough_penalty = 0.08 if query.roughness_mode == "rough" else 0.0
+                low_re_penalty = 0.05 if query.reynolds < 250000.0 else 0.0
+                results.append(
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "mean_cd": 0.020 + rough_penalty + low_re_penalty,
+                        "mean_cm": -0.09 - rough_penalty,
+                        "usable_clmax": 1.30 - rough_penalty - low_re_penalty,
+                    }
+                )
+            return results
+
+    worker = FakeWorker()
+    seed_coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.06),
+        (0.0, 0.0),
+        (0.5, -0.04),
+        (1.0, 0.0),
+    )
+
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.12,
+            }
+        },
+        seed_loader=lambda _seed_name: seed_coordinates,
+        worker=worker,
+        thickness_delta_levels=(0.0,),
+        camber_delta_levels=(0.0,),
+        robust_evaluation_enabled=True,
+        robust_reynolds_factors=(0.90, 1.10),
+        robust_roughness_modes=("clean", "rough"),
+        coarse_to_fine_enabled=False,
+        successive_halving_enabled=False,
+    )
+
+    selected = selection.selected_by_zone["root"]
+    assert len(worker.queries) == 4
+    assert {query.roughness_mode for query in worker.queries} == {"clean", "rough"}
+    assert {round(query.reynolds / 260000.0, 2) for query in worker.queries} == {0.90, 1.10}
+    assert all("__robust_" in query.template_id for query in worker.queries)
+    assert selected.mean_cd == pytest.approx(0.15)
+    assert selected.mean_cm == pytest.approx(-0.17)
+    assert selected.usable_clmax == pytest.approx(1.17)
+    assert selected.safe_clmax < selected.usable_clmax
+    assert all(result["candidate_role"] == "base" for result in selection.worker_results)
+
+
 def test_select_zone_airfoil_templates_for_concepts_batches_across_multiple_concepts() -> None:
     class FakeWorker:
         def __init__(self):
