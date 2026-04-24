@@ -479,6 +479,64 @@ def test_select_zone_airfoil_templates_returns_selected_candidates_for_each_zone
     assert worker.analysis_stages_seen == {"screening"}
 
 
+def test_select_zone_airfoil_templates_can_use_seedless_sobol_candidates() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.template_ids: list[str] = []
+
+        def run_queries(self, queries):
+            self.template_ids.extend(query.template_id for query in queries)
+            results = []
+            for query in queries:
+                results.append(
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "mean_cd": 0.020,
+                        "mean_cm": -0.09,
+                        "usable_clmax": 1.28,
+                    }
+                )
+            return results
+
+    def fail_seed_loader(seed_name: str) -> tuple[tuple[float, float], ...]:
+        raise AssertionError(f"seed loader should not be called in seedless mode: {seed_name}")
+
+    worker = FakeWorker()
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.14,
+            },
+        },
+        seed_loader=fail_seed_loader,
+        worker=worker,
+        search_mode="seedless_sobol",
+        seedless_sample_count=8,
+        seedless_random_seed=11,
+        coarse_to_fine_enabled=False,
+        successive_halving_enabled=False,
+    )
+
+    assert set(selection.selected_by_zone) == {"root"}
+    assert selection.selected_by_zone["root"].template.seed_name is None
+    assert selection.selected_by_zone["root"].template.candidate_role.startswith("seedless_sobol_")
+    assert worker.template_ids
+    assert all(
+        template_id.split("__", 1)[-1].startswith("root-seedless_sobol_")
+        for template_id in worker.template_ids
+    )
+
+
 def test_select_zone_airfoil_templates_for_concepts_batches_across_multiple_concepts() -> None:
     class FakeWorker:
         def __init__(self):

@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Literal, Mapping
 
 from hpa_mdo.concept.airfoil_cst import (
     CSTAirfoilTemplate,
     DEFAULT_CAMBER_DELTA_LEVELS,
     DEFAULT_THICKNESS_DELTA_LEVELS,
+    SeedlessCSTCoefficientBounds,
+    SeedlessCSTConstraints,
     build_bounded_candidate_family,
     generate_cst_coordinates,
+    sample_feasible_seedless_cst_sobol,
     validate_cst_candidate_coordinates,
 )
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
@@ -28,6 +31,24 @@ _BASE_TEMPLATE_LIBRARY: dict[str, dict[str, object]] = {
         "default_te_thickness_m": 0.0010,
     },
 }
+
+_ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
+    upper_min=(0.18, 0.26, 0.25, 0.18, 0.11, 0.05, 0.015),
+    upper_max=(0.22, 0.32, 0.30, 0.22, 0.13, 0.07, 0.025),
+    lower_min=(-0.14, -0.18, -0.15, -0.11, -0.06, -0.03, -0.010),
+    lower_max=(-0.10, -0.14, -0.13, -0.09, -0.04, -0.015, -0.002),
+    te_thickness_min=0.0015,
+    te_thickness_max=0.0025,
+)
+
+_OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
+    upper_min=(0.14, 0.20, 0.18, 0.13, 0.08, 0.04, 0.012),
+    upper_max=(0.20, 0.30, 0.27, 0.20, 0.12, 0.07, 0.024),
+    lower_min=(-0.13, -0.16, -0.14, -0.10, -0.05, -0.025, -0.009),
+    lower_max=(-0.08, -0.11, -0.09, -0.06, -0.025, -0.010, -0.002),
+    te_thickness_min=0.0012,
+    te_thickness_max=0.0025,
+)
 
 
 @dataclass(frozen=True)
@@ -650,6 +671,39 @@ def _default_seed_name(zone_name: str) -> str:
     return "fx76mp140" if zone_name in {"root", "mid1"} else "clarkysm"
 
 
+def _default_seedless_cst_bounds(zone_name: str) -> SeedlessCSTCoefficientBounds:
+    return _ROOT_SEEDLESS_CST_BOUNDS if zone_name in {"root", "mid1"} else _OUTBOARD_SEEDLESS_CST_BOUNDS
+
+
+def _seedless_constraints_for_zone(zone_min_tc_ratio: float) -> SeedlessCSTConstraints:
+    min_tc_ratio = float(zone_min_tc_ratio)
+    return SeedlessCSTConstraints(
+        min_thickness_ratio=min_tc_ratio,
+        max_thickness_ratio=max(0.16, min_tc_ratio + 0.02),
+        max_thickness_x_min=0.25,
+        max_thickness_x_max=0.45,
+        min_spar_depth_ratio_25_35=max(0.09, 0.75 * min_tc_ratio),
+    )
+
+
+def _seedless_zone_candidates(
+    *,
+    zone_name: str,
+    zone_min_tc_ratio: float,
+    sample_count: int,
+    random_seed: int | None,
+    max_oversample_factor: int,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    return sample_feasible_seedless_cst_sobol(
+        zone_name=zone_name,
+        sample_count=sample_count,
+        bounds=_default_seedless_cst_bounds(zone_name),
+        constraints=_seedless_constraints_for_zone(zone_min_tc_ratio),
+        random_seed=random_seed,
+        max_oversample_factor=max_oversample_factor,
+    )
+
+
 def _prepare_zone_selection_inputs(
     *,
     zone_requirements: Mapping[str, dict[str, object]],
@@ -659,6 +713,10 @@ def _prepare_zone_selection_inputs(
     coarse_to_fine_enabled: bool,
     coarse_thickness_stride: int,
     coarse_camber_stride: int,
+    search_mode: Literal["seed_neighborhood", "seedless_sobol"],
+    seedless_sample_count: int,
+    seedless_random_seed: int | None,
+    seedless_max_oversample_factor: int,
 ) -> tuple[
     dict[str, list[dict[str, float]]],
     dict[str, float],
@@ -673,17 +731,28 @@ def _prepare_zone_selection_inputs(
     for zone_name, zone_data in zone_requirements.items():
         zone_points = list(zone_data.get("points", []))
         zone_min_tc_ratio = float(zone_data.get("min_tc_ratio", 0.10))
-        seed_name = _default_seed_name(zone_name)
-        base_template = build_base_cst_template(
-            zone_name=zone_name,
-            seed_name=seed_name,
-            seed_coordinates=seed_loader(seed_name),
-        )
-        candidates = build_bounded_candidate_family(
-            base_template,
-            thickness_delta_levels=thickness_delta_levels,
-            camber_delta_levels=camber_delta_levels,
-        )
+        if search_mode == "seed_neighborhood":
+            seed_name = _default_seed_name(zone_name)
+            base_template = build_base_cst_template(
+                zone_name=zone_name,
+                seed_name=seed_name,
+                seed_coordinates=seed_loader(seed_name),
+            )
+            candidates = build_bounded_candidate_family(
+                base_template,
+                thickness_delta_levels=thickness_delta_levels,
+                camber_delta_levels=camber_delta_levels,
+            )
+        elif search_mode == "seedless_sobol":
+            candidates = _seedless_zone_candidates(
+                zone_name=zone_name,
+                zone_min_tc_ratio=zone_min_tc_ratio,
+                sample_count=seedless_sample_count,
+                random_seed=seedless_random_seed,
+                max_oversample_factor=seedless_max_oversample_factor,
+            )
+        else:
+            raise ValueError(f"Unsupported CST search mode: {search_mode!r}")
         candidates = _prescreen_zone_candidates(
             candidates,
             zone_points=zone_points,
@@ -1163,8 +1232,12 @@ def select_zone_airfoil_templates(
     zone_requirements: dict[str, dict[str, object]],
     seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
     worker: Any,
+    search_mode: Literal["seed_neighborhood", "seedless_sobol"] = "seed_neighborhood",
     thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
     camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
+    seedless_sample_count: int = 32,
+    seedless_random_seed: int | None = 0,
+    seedless_max_oversample_factor: int = 8,
     coarse_to_fine_enabled: bool = True,
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
@@ -1189,8 +1262,12 @@ def select_zone_airfoil_templates(
         concept_zone_requirements={"single": zone_requirements},
         seed_loader=seed_loader,
         worker=worker,
+        search_mode=search_mode,
         thickness_delta_levels=thickness_delta_levels,
         camber_delta_levels=camber_delta_levels,
+        seedless_sample_count=seedless_sample_count,
+        seedless_random_seed=seedless_random_seed,
+        seedless_max_oversample_factor=seedless_max_oversample_factor,
         coarse_to_fine_enabled=coarse_to_fine_enabled,
         coarse_thickness_stride=coarse_thickness_stride,
         coarse_camber_stride=coarse_camber_stride,
@@ -1226,8 +1303,12 @@ def select_zone_airfoil_templates_for_concepts(
     concept_zone_requirements: Mapping[str, Mapping[str, dict[str, object]]],
     seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
     worker: Any,
+    search_mode: Literal["seed_neighborhood", "seedless_sobol"] = "seed_neighborhood",
     thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
     camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
+    seedless_sample_count: int = 32,
+    seedless_random_seed: int | None = 0,
+    seedless_max_oversample_factor: int = 8,
     coarse_to_fine_enabled: bool = True,
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
@@ -1286,6 +1367,10 @@ def select_zone_airfoil_templates_for_concepts(
             coarse_to_fine_enabled=coarse_to_fine_enabled,
             coarse_thickness_stride=coarse_thickness_stride,
             coarse_camber_stride=coarse_camber_stride,
+            search_mode=search_mode,
+            seedless_sample_count=seedless_sample_count,
+            seedless_random_seed=seedless_random_seed,
+            seedless_max_oversample_factor=seedless_max_oversample_factor,
         )
         for zone_name in zone_requirements:
             batch_key = _concept_zone_batch_key(concept_id=concept_id, zone_name=zone_name)

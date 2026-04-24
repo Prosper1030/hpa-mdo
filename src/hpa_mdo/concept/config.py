@@ -314,6 +314,7 @@ class GeometryFamilyConfig(ConceptBaseModel):
 
 
 class CSTSearchConfig(ConceptBaseModel):
+    search_mode: Literal["seed_neighborhood", "seedless_sobol"] = "seed_neighborhood"
     thickness_delta_levels: tuple[float, ...] = Field(
         DEFAULT_THICKNESS_DELTA_LEVELS,
         min_length=3,
@@ -327,6 +328,9 @@ class CSTSearchConfig(ConceptBaseModel):
     coarse_camber_stride: int = Field(2, ge=1)
     coarse_keep_top_k: int = Field(2, ge=1)
     refine_neighbor_radius: int = Field(1, ge=0)
+    seedless_sample_count: int = Field(32, ge=1)
+    seedless_random_seed: int | None = 0
+    seedless_max_oversample_factor: int = Field(8, ge=1)
     successive_halving_enabled: bool = True
     successive_halving_rounds: int = Field(2, ge=1)
     successive_halving_beam_width: int = Field(6, ge=1)
@@ -343,15 +347,16 @@ class CSTSearchConfig(ConceptBaseModel):
                 raise ValueError(f"cst_search.{name} must include 0.0.")
             if any(abs(level) > 0.05 for level in levels):
                 raise ValueError(f"cst_search.{name} entries must stay within +/-0.05.")
-        if self.coarse_keep_top_k > (
-            len(self.thickness_delta_levels) * len(self.camber_delta_levels)
-        ):
+        candidate_count = (
+            self.seedless_sample_count
+            if self.search_mode == "seedless_sobol"
+            else len(self.thickness_delta_levels) * len(self.camber_delta_levels)
+        )
+        if self.coarse_keep_top_k > candidate_count:
             raise ValueError(
                 "cst_search.coarse_keep_top_k must not exceed the total candidate count."
             )
-        if self.successive_halving_beam_width > (
-            len(self.thickness_delta_levels) * len(self.camber_delta_levels)
-        ):
+        if self.successive_halving_beam_width > candidate_count:
             raise ValueError(
                 "cst_search.successive_halving_beam_width must not exceed the total candidate count."
             )

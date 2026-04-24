@@ -95,6 +95,9 @@ def test_load_concept_config_reads_birdman_baseline():
     )
     assert cfg.cst_search.coarse_thickness_stride == 3
     assert cfg.cst_search.coarse_keep_top_k == 3
+    assert cfg.cst_search.search_mode == "seed_neighborhood"
+    assert cfg.cst_search.seedless_sample_count == 32
+    assert cfg.cst_search.seedless_max_oversample_factor == 8
     assert cfg.cst_search.successive_halving_enabled is True
     assert cfg.cst_search.successive_halving_rounds == 2
     assert cfg.cst_search.successive_halving_beam_width == 6
@@ -413,6 +416,32 @@ def test_load_concept_config_rejects_successive_halving_beam_width_above_candida
                 },
             }
         )
+
+
+def test_load_concept_config_accepts_seedless_cst_search_mode():
+    cfg = BirdmanConceptConfig.model_validate(
+        {
+            "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+            "mass": {
+                "pilot_mass_kg": 60.0,
+                "baseline_aircraft_mass_kg": 40.0,
+                "gross_mass_sweep_kg": [95.0, 100.0, 105.0],
+            },
+            "mission": {"target_distance_km": 42.195},
+            "cst_search": {
+                "search_mode": "seedless_sobol",
+                "seedless_sample_count": 8,
+                "seedless_random_seed": 123,
+                "seedless_max_oversample_factor": 4,
+                "successive_halving_beam_width": 8,
+            },
+        }
+    )
+
+    assert cfg.cst_search.search_mode == "seedless_sobol"
+    assert cfg.cst_search.seedless_sample_count == 8
+    assert cfg.cst_search.seedless_random_seed == 123
+    assert cfg.cst_search.seedless_max_oversample_factor == 4
 
 
 def test_load_concept_config_rejects_invalid_dihedral_candidate_bounds():

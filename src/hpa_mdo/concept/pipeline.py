@@ -3061,8 +3061,12 @@ def run_birdman_concept_pipeline(
                     allow_stub_fallback=worker_backend
                     in {"test_stub", "cli_stubbed", "python_stubbed"},
                 ),
+                search_mode=cfg.cst_search.search_mode,
                 thickness_delta_levels=cfg.cst_search.thickness_delta_levels,
                 camber_delta_levels=cfg.cst_search.camber_delta_levels,
+                seedless_sample_count=cfg.cst_search.seedless_sample_count,
+                seedless_random_seed=cfg.cst_search.seedless_random_seed,
+                seedless_max_oversample_factor=cfg.cst_search.seedless_max_oversample_factor,
                 coarse_to_fine_enabled=cfg.cst_search.coarse_to_fine_enabled,
                 coarse_thickness_stride=cfg.cst_search.coarse_thickness_stride,
                 coarse_camber_stride=cfg.cst_search.coarse_camber_stride,
