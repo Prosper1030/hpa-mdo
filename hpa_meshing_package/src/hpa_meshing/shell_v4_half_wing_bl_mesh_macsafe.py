@@ -3208,6 +3208,276 @@ def _run_shell_v4_pre_plc_repro_fixture(
     return result_payload
 
 
+def _float_window_width(values: Any) -> float | None:
+    if not isinstance(values, list) or len(values) < 2:
+        return None
+    numeric = [float(value) for value in values]
+    return max(numeric) - min(numeric)
+
+
+def _window_change_label(before: Any, after: Any) -> str:
+    before_width = _float_window_width(before)
+    after_width = _float_window_width(after)
+    if before_width is None or after_width is None:
+        return "unknown"
+    tolerance = 1.0e-9
+    if after_width < before_width - tolerance:
+        return "reduced"
+    if after_width > before_width + tolerance:
+        return "expanded"
+    return "not_reduced"
+
+
+def _manual_candidate_handoff_payload(candidate: dict[str, Any]) -> dict[str, Any]:
+    fields = (
+        "candidate_id",
+        "target_kind",
+        "target_id",
+        "planning_only",
+        "span_y_range_m",
+        "current_total_bl_thickness_m",
+        "min_local_clearance_m",
+        "current_clearance_ratio",
+        "ratio_deficit",
+        "available_budget_ratio_deficit",
+        "suggested_max_total_bl_thickness_m",
+        "suggested_thickness_reduction_m",
+        "suggested_truncation_start_y_m",
+        "suggested_split_boundary_y_m",
+        "suggested_layer_stage_back_direction",
+        "recommendation_kinds",
+        "recommendation_reason",
+    )
+    return {field: candidate.get(field) for field in fields if field in candidate}
+
+
+def _top_manual_candidate_handoffs(planning_budgeting: dict[str, Any]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    candidates: list[dict[str, Any]] = []
+    candidate_sources = [
+        list(planning_budgeting.get("manual_edit_candidates") or []),
+    ]
+    for section in list(planning_budgeting.get("tightest_sections") or []):
+        if isinstance(section, dict):
+            candidate_sources.append(list(section.get("manual_edit_candidates") or []))
+    for region in list(planning_budgeting.get("tightest_regions") or []):
+        if isinstance(region, dict):
+            candidate_sources.append(list(region.get("manual_edit_candidates") or []))
+    for source in candidate_sources:
+        for candidate in source:
+            if not isinstance(candidate, dict):
+                continue
+            candidate_id = str(candidate.get("candidate_id") or "")
+            if candidate_id and candidate_id in seen:
+                continue
+            if candidate_id:
+                seen.add(candidate_id)
+            candidates.append(_manual_candidate_handoff_payload(candidate))
+            if len(candidates) == 3:
+                return candidates
+    return candidates
+
+
+def _boundary_recovery_plan_from_operator_result(operator_result: dict[str, Any]) -> dict[str, Any]:
+    details = operator_result.get("details")
+    if not isinstance(details, dict):
+        return {}
+    plan = details.get("boundary_recovery_regularization_plan")
+    return dict(plan) if isinstance(plan, dict) else {}
+
+
+def _failed_steiner_runtime_transition(
+    *,
+    before_observed: dict[str, Any],
+    after_observed: dict[str, Any],
+    residual_family: str | None,
+    residual_status: str | None,
+) -> str:
+    before_kind = str(before_observed.get("observed_failure_kind") or "")
+    after_kind = str(after_observed.get("observed_failure_kind") or "")
+    if (
+        residual_family == FAILED_STEINER_RESIDUAL_FAMILY
+        and residual_status == "observed_candidate"
+        and after_kind == before_kind
+    ):
+        return "unresolved_same_family"
+    if after_kind and before_kind and after_kind != before_kind:
+        return "cleaner_downstream_family"
+    if not after_kind or after_kind == "unknown":
+        return "unknown"
+    if after_kind == before_kind:
+        return "unresolved_same_family"
+    return "unknown"
+
+
+def _handoff_verdicts(
+    *,
+    operator_status: str,
+    topology_next_action: str | None,
+    failure_transition: str,
+    bl_policy_fail_kinds: list[str],
+    bl_recommended_action_kinds: list[str],
+) -> tuple[str, list[str]]:
+    supporting: list[str] = []
+    if "stage_back_layers" in bl_recommended_action_kinds:
+        supporting.append("requires_tip_zone_bl_stageback")
+    if "truncate_tip_zone" in bl_recommended_action_kinds:
+        supporting.append("tip_truncation_required")
+    if "shrink_total_thickness" in bl_recommended_action_kinds:
+        supporting.append("insufficient_clearance_budget")
+    if failure_transition == "unresolved_same_family":
+        supporting.append("unresolved_same_failed_steiner_family")
+    if failure_transition == "unknown":
+        supporting.append("runtime_rerun_required")
+    if bl_policy_fail_kinds and operator_status == "applied":
+        return "topology_attempted_but_bl_policy_blocked", supporting
+    if failure_transition == "unresolved_same_family":
+        return "unresolved_same_failed_steiner_family", supporting
+    if topology_next_action == "local_transition_regularization":
+        return "local_transition_regularization_candidate", supporting
+    return "runtime_rerun_required", supporting
+
+
+def _build_topology_bl_handoff_summary(
+    *,
+    operator_regression_runs: list[dict[str, Any]],
+    blocking_bl_compatibility_check_kinds: list[str],
+    planning_policy_fail_kinds: list[str],
+    planning_policy_recommendation_kinds: list[str],
+    planning_budgeting: dict[str, Any],
+    artifact_path: Path | None = None,
+) -> dict[str, Any]:
+    manual_candidates = _top_manual_candidate_handoffs(planning_budgeting)
+    family_payloads: dict[str, Any] = {}
+    for entry in operator_regression_runs:
+        family = str(entry.get("family") or "unknown")
+        before_observed = dict(entry.get("observed") or {})
+        after_observed = dict(entry.get("boundary_recovery_observed") or {})
+        operator_result = dict(entry.get("post_transition_boundary_recovery_operator_result") or {})
+        plan = _boundary_recovery_plan_from_operator_result(operator_result)
+        residual_classifier = dict(after_observed.get("downstream_residual_classifier") or {})
+        residual_evidence = dict(residual_classifier.get("evidence") or {})
+        before_forensic = _recoversegment_failed_steiner_evidence_from_observed(before_observed)
+        residual_family = (
+            residual_classifier.get("primary_residual_family")
+            or plan.get("residual_family")
+            or before_forensic.get("residual_family")
+        )
+        evidence_level = (
+            residual_evidence.get("evidence_level")
+            or plan.get("evidence_level")
+            or before_forensic.get("evidence_level")
+        )
+        throw_site_label = (
+            residual_evidence.get("throw_site_label")
+            or plan.get("throw_site_label")
+            or before_forensic.get("throw_site_label")
+        )
+        local_y_band = (
+            residual_evidence.get("local_y_band")
+            or plan.get("local_y_band")
+            or before_forensic.get("local_y_band")
+            or []
+        )
+        suspicious_window = (
+            residual_evidence.get("suspicious_window")
+            or plan.get("suspicious_window")
+            or before_forensic.get("suspicious_window")
+            or []
+        )
+        degenerated_prism_seen = (
+            residual_evidence.get("degenerated_prism_seen")
+            if residual_evidence.get("degenerated_prism_seen") is not None
+            else plan.get("degenerated_prism_seen")
+            if plan.get("degenerated_prism_seen") is not None
+            else before_forensic.get("degenerated_prism_seen")
+        )
+        recommended_next_action = plan.get("recommended_next_action")
+        topology_next_action = (
+            str(recommended_next_action.get("kind"))
+            if isinstance(recommended_next_action, dict) and recommended_next_action.get("kind")
+            else None
+        )
+        failure_transition = _failed_steiner_runtime_transition(
+            before_observed=before_observed,
+            after_observed=after_observed,
+            residual_family=str(residual_family) if residual_family is not None else None,
+            residual_status=str(residual_classifier.get("classification_status") or ""),
+        )
+        final_verdict, supporting_verdicts = _handoff_verdicts(
+            operator_status=str(operator_result.get("status") or ""),
+            topology_next_action=topology_next_action,
+            failure_transition=failure_transition,
+            bl_policy_fail_kinds=list(planning_policy_fail_kinds),
+            bl_recommended_action_kinds=list(planning_policy_recommendation_kinds),
+        )
+        family_payloads[family] = {
+            "fixture_id": entry.get("fixture_id"),
+            "residual_family": residual_family,
+            "evidence_level": evidence_level,
+            "throw_site_label": throw_site_label,
+            "local_y_band": list(local_y_band),
+            "suspicious_window": list(suspicious_window),
+            "degenerated_prism_seen": degenerated_prism_seen,
+            "operator_action_kind": plan.get("mutation_kind") or operator_result.get("operator_name"),
+            "operator_result_status": operator_result.get("status"),
+            "topology_recommended_next_action": topology_next_action,
+            "bl_blocking_kinds": list(blocking_bl_compatibility_check_kinds),
+            "bl_policy_fail_kinds": list(planning_policy_fail_kinds),
+            "bl_recommended_action_kinds": list(planning_policy_recommendation_kinds),
+            "manual_candidate_top_1_3": copy.deepcopy(manual_candidates),
+            "runtime_comparison": {
+                "validation_level": "focused_fixture_runtime_probe",
+                "before_failure_kind": before_observed.get("observed_failure_kind"),
+                "after_failure_kind": after_observed.get("observed_failure_kind"),
+                "failure_transition": failure_transition,
+                "residual_status": residual_classifier.get("classification_status"),
+                "local_y_band_before": list(before_forensic.get("local_y_band") or []),
+                "local_y_band_after": list(local_y_band),
+                "local_y_band_change": _window_change_label(
+                    before_forensic.get("local_y_band"),
+                    list(local_y_band),
+                ),
+                "suspicious_window_before": list(before_forensic.get("suspicious_window") or []),
+                "suspicious_window_after": list(suspicious_window),
+                "suspicious_window_change": _window_change_label(
+                    before_forensic.get("suspicious_window"),
+                    list(suspicious_window),
+                ),
+                "throw_site_label_after": throw_site_label,
+                "degenerated_prism_seen_after": degenerated_prism_seen,
+            },
+            "final_handoff_verdict": final_verdict,
+            "supporting_verdicts": supporting_verdicts,
+            "notes": [
+                "Handoff is plan/report-only and must not mutate runtime geometry or BL specification.",
+                "Focused fixture probes exercise the route failure path, but failed-Steiner throw-site metadata comes from the forensic artifact when local Gmsh is not patched.",
+            ],
+        }
+    payload = {
+        "contract": "topology_bl_handoff_summary.v1",
+        "status": "written",
+        "plan_report_only": True,
+        "runtime_geometry_mutation": False,
+        "runtime_bl_spec_mutation": False,
+        "artifact_path": str(artifact_path) if artifact_path is not None else None,
+        "bl_policy": {
+            "blocking_kinds": list(blocking_bl_compatibility_check_kinds),
+            "fail_kinds": list(planning_policy_fail_kinds),
+            "recommended_action_kinds": list(planning_policy_recommendation_kinds),
+            "manual_candidate_top_1_3": copy.deepcopy(manual_candidates),
+        },
+        "families": family_payloads,
+        "notes": [
+            "This summary aligns topology residual/operator evidence with BL budgeting advice for downstream decision-making.",
+            "It is not a full prelaunch pass claim.",
+        ],
+    }
+    if artifact_path is not None:
+        write_json_report(Path(artifact_path), payload)
+    return payload
+
+
 def _normalize_topology_compiler_gate(topology_compiler_gate: str | None) -> str:
     normalized = str(topology_compiler_gate or TOPOLOGY_COMPILER_GATE_OFF).strip().lower()
     if normalized not in {
@@ -3447,6 +3717,19 @@ def _run_shell_v4_topology_compiler_plan_only(
             planning_budgeting=planning_budgeting,
         ),
     )
+    handoff_summary_path = artifact_dir / "topology_bl_handoff_summary.v1.json"
+    handoff_summary = _build_topology_bl_handoff_summary(
+        operator_regression_runs=operator_regression_runs,
+        blocking_bl_compatibility_check_kinds=list(
+            result.pre_plc_audit.blocking_bl_compatibility_check_kinds
+        ),
+        planning_policy_fail_kinds=list(result.pre_plc_audit.planning_policy_fail_kinds),
+        planning_policy_recommendation_kinds=list(
+            result.pre_plc_audit.planning_policy_recommendation_kinds
+        ),
+        planning_budgeting=result.pre_plc_audit.planning_budgeting.model_dump(mode="json"),
+        artifact_path=handoff_summary_path,
+    )
     return {
         "gate": TOPOLOGY_COMPILER_GATE_PLAN_ONLY,
         "status": "written",
@@ -3459,7 +3742,9 @@ def _run_shell_v4_topology_compiler_plan_only(
             "operator_plan": str(result.artifacts.operator_plan),
             "pre_plc_audit": str(result.artifacts.pre_plc_audit),
             "summary": str(result.artifacts.summary),
+            "handoff_summary": str(handoff_summary_path),
         },
+        "handoff_summary": handoff_summary,
         "provider_artifacts": {
             "topology_lineage_report": str(topology_lineage_report_path),
             "topology_suppression_report": str(topology_suppression_report_path),

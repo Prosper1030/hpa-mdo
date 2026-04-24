@@ -16,6 +16,7 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _augment_real_wing_sections_for_tip_truncation,
     _build_real_wing_bl_budgeting_plan,
     _build_shell_v4_pre_plc_repro_fixture,
+    _build_topology_bl_handoff_summary,
     _build_real_main_wing_occ_shell,
     _build_real_wing_bl_protection_field,
     _collect_extbl_surfaces_in_y_band,
@@ -1639,6 +1640,108 @@ def test_shell_v4_pre_plc_root_last3_post_transition_boundary_recovery_operator_
     assert Path(localized["report_path"]).exists()
 
 
+def test_shell_v4_root_last3_failed_steiner_handoff_summary_keeps_topology_and_bl_policy_split(
+    tmp_path: Path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        family="root_last3_segment_facet",
+        artifact_dir=tmp_path / "fixture",
+    )
+    baseline = _run_shell_v4_pre_plc_repro_fixture(
+        fixture,
+        out_dir=tmp_path / "baseline_probe",
+    )
+    transformed = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        fixture,
+        baseline_observed=baseline,
+        artifact_dir=tmp_path / "transformed",
+    )
+    observed = _run_shell_v4_pre_plc_repro_fixture(
+        transformed["fixture"],
+        out_dir=tmp_path / "transformed_probe",
+    )
+    observed["forensic_evidence"] = _root_last3_failed_steiner_forensic_evidence()
+    localized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
+        transformed["fixture"],
+        baseline_observed=observed,
+        artifact_dir=tmp_path / "localized",
+    )
+    after = _run_shell_v4_pre_plc_repro_fixture(
+        localized["fixture"],
+        out_dir=tmp_path / "localized_probe",
+    )
+    spec = build_shell_v4_half_wing_bl_macsafe_spec()
+    geometry = _resolve_real_main_wing_geometry(
+        geometry={
+            "shape_mode": "esp_rebuilt_main_wing",
+            "source_path": str(repo_root / "data" / "blackcat_004_origin.vsp3"),
+            "component": "main_wing",
+        },
+        artifact_dir=tmp_path / "geometry",
+    )
+    budgeting = _build_real_wing_bl_budgeting_plan(
+        sections=[dict(section) for section in geometry["sections"]],
+        protection=dict(spec["real_wing_bl_protection"]),
+        base_total_thickness_m=float(spec["boundary_layer"]["target_total_thickness_m"]),
+        half_span_m=float(spec["geometry"]["half_span_m"]),
+    )
+
+    handoff = _build_topology_bl_handoff_summary(
+        operator_regression_runs=[
+            {
+                "fixture_id": fixture["fixture_id"],
+                "family": fixture["family"],
+                "observed": observed,
+                "boundary_recovery_observed": after,
+                "post_transition_boundary_recovery_operator_result": localized["operator_result"],
+                "changed_failure_kind_after_boundary_recovery_operator": (
+                    after["observed_failure_kind"] != observed["observed_failure_kind"]
+                ),
+            }
+        ],
+        blocking_bl_compatibility_check_kinds=["extrusion_self_contact_risk"],
+        planning_policy_fail_kinds=["bl_clearance_incompatibility"],
+        planning_policy_recommendation_kinds=list(budgeting.recommendation_kinds),
+        planning_budgeting=budgeting.model_dump(mode="json"),
+        artifact_path=tmp_path / "handoff" / "topology_bl_handoff_summary.v1.json",
+    )
+
+    assert handoff["contract"] == "topology_bl_handoff_summary.v1"
+    assert Path(handoff["artifact_path"]).exists()
+    root_last3 = handoff["families"]["root_last3_segment_facet"]
+    assert root_last3["residual_family"] == (
+        "boundary_recovery_error_2_recoversegment_failed_insert_steiner"
+    )
+    assert root_last3["evidence_level"] == "observed_candidate"
+    assert root_last3["throw_site_label"] == "addsteiner4recoversegment:failed_insert_steiner"
+    assert root_last3["local_y_band"] == pytest.approx([14.9983332, 16.5000001])
+    assert root_last3["suspicious_window"] == pytest.approx([15.4, 16.6])
+    assert root_last3["degenerated_prism_seen"] is True
+    assert root_last3["operator_action_kind"] == "regularize_recoversegment_failed_steiner_post_band"
+    assert root_last3["operator_result_status"] == "applied"
+    assert root_last3["topology_recommended_next_action"] == "local_transition_regularization"
+    assert root_last3["runtime_comparison"]["failure_transition"] == "unresolved_same_family"
+    assert root_last3["runtime_comparison"]["local_y_band_change"] == "not_reduced"
+    assert root_last3["runtime_comparison"]["suspicious_window_change"] == "not_reduced"
+    assert root_last3["bl_blocking_kinds"] == ["extrusion_self_contact_risk"]
+    assert root_last3["bl_policy_fail_kinds"] == ["bl_clearance_incompatibility"]
+    assert root_last3["bl_recommended_action_kinds"] == [
+        "shrink_total_thickness",
+        "split_region_budget",
+        "stage_back_layers",
+        "truncate_tip_zone",
+    ]
+    assert root_last3["manual_candidate_top_1_3"]
+    assert len(root_last3["manual_candidate_top_1_3"]) <= 3
+    assert all(candidate["planning_only"] is True for candidate in root_last3["manual_candidate_top_1_3"])
+    assert root_last3["final_handoff_verdict"] == "topology_attempted_but_bl_policy_blocked"
+    assert "unresolved_same_failed_steiner_family" in root_last3["supporting_verdicts"]
+    assert "requires_tip_zone_bl_stageback" in root_last3["supporting_verdicts"]
+
+
 def test_boundary_recovery_residual_classifier_preserves_inferred_fallback_without_forensics(
     tmp_path: Path,
 ):
@@ -1907,6 +2010,16 @@ def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendat
         and recommendation["delta_total_thickness_m"] > 0.0
         for recommendation in tight_section["recommendations"]
     )
+    assert "handoff_summary" in result["artifacts"]
+    handoff = json.loads(Path(result["artifacts"]["handoff_summary"]).read_text(encoding="utf-8"))
+    root_last3 = handoff["families"]["root_last3_segment_facet"]
+    assert root_last3["residual_family"] in {
+        "residual_contact_near_tip_terminal",
+        "boundary_recovery_error_2_recoversegment_failed_insert_steiner",
+    }
+    assert root_last3["bl_policy_fail_kinds"] == ["bl_clearance_incompatibility"]
+    assert root_last3["manual_candidate_top_1_3"]
+    assert all(candidate["planning_only"] is True for candidate in root_last3["manual_candidate_top_1_3"])
     assert Path(result["artifacts"]["summary"]).exists()
 
 

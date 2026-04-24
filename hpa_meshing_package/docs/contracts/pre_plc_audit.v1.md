@@ -150,6 +150,33 @@ and the tightest-section summary can still tell you:
 
 without mixing those two judgments together.
 
+## Topology + BL Handoff Summary
+
+When shell_v4 runs the topology compiler in `plan_only`, the route can also write
+`topology_bl_handoff_summary.v1.json`.
+
+This artifact is a compact decision view over the topology compiler summary, operator regression
+artifact, and BL budgeting report. For each focused family it surfaces:
+
+- `residual_family`
+- `evidence_level`
+- `throw_site_label`
+- `local_y_band`
+- `suspicious_window`
+- `degenerated_prism_seen`
+- `operator_action_kind`
+- `operator_result_status`
+- `topology_recommended_next_action`
+- BL blocking / policy fail kinds
+- BL recommendation kinds
+- top 1-3 plan-only manual edit candidates
+- final handoff verdict such as `local_transition_regularization_candidate`,
+  `requires_tip_zone_bl_stageback`, `topology_attempted_but_bl_policy_blocked`,
+  `runtime_rerun_required`, or `unresolved_same_failed_steiner_family`
+
+It is intentionally plan/report-only. It must not change runtime geometry, BL settings, or route
+success/failure semantics.
+
 ## Manual Edit Candidates
 
 `manual_edit_candidates` are a human-facing planning view derived from the same budgeting evidence.

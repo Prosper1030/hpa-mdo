@@ -45,6 +45,7 @@ Each operator contract should expose at least:
 - it can recommend `local_transition_regularization`, `bl_stageback_required`, `tip_truncation_required`, `insufficient_clearance_budget`, or `unresolved_recovery_internal_bailout`
 - it does not mutate the runtime BL specification; BL policy blocks remain separate through `topology_attempted_but_bl_policy_blocked`
 - relief reruns that still hit `error 2` now carry `boundary_recovery_error_2_downstream_residual_classifier.v1`, including the failed-Steiner observed-candidate family when throw-site evidence exists, plus inferred/rejected fallback families such as `residual_contact_near_tip_terminal`, spacing insufficiency, angle jump, orientation conflict, and post-relief local-clearance evidence
+- focused validation is reported through `topology_bl_handoff_summary.v1.json`, which compares the before/after failed-Steiner family and aligns it with BL budgeting without adding another operator
 - the other geometry operators remain **skeleton only**
 - `reject_unsupported_plc_risk_family` is intentionally implemented as a deterministic reject, so unsupported PLC risk families are not silently ignored
 

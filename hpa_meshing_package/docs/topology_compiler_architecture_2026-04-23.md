@@ -194,6 +194,19 @@ That is more specific than generic `error 2`, but still weaker than full observe
 there is no `sevent` marker or `int_point`. When the forensic payload is absent, the report keeps the
 older inferred `residual_contact_near_tip_terminal` fallback.
 
+The focused runtime-validation view is now separated from the operator itself. The route can emit
+`topology_bl_handoff_summary.v1.json` under the plan-only topology compiler artifact directory. That
+handoff aligns the post-transition operator result with BL budgeting evidence and reports whether the
+failed-Steiner line is:
+
+- shifted to a cleaner downstream family
+- still the same failed-Steiner family
+- blocked by BL policy / stageback requirements
+- unknown and requiring another runtime rerun
+
+This handoff is a decision artifact only. It does not add a new operator, does not patch surface IDs,
+does not mutate BL manual candidates, and does not imply a full prelaunch pass.
+
 This family must not be routed as:
 
 - an overlap cleanup task
