@@ -430,6 +430,7 @@ def test_load_concept_config_accepts_seedless_cst_search_mode():
             "mission": {"target_distance_km": 42.195},
             "cst_search": {
                 "search_mode": "seedless_sobol",
+                "selection_strategy": "constrained_pareto",
                 "seedless_sample_count": 8,
                 "seedless_random_seed": 123,
                 "seedless_max_oversample_factor": 4,
@@ -439,6 +440,7 @@ def test_load_concept_config_accepts_seedless_cst_search_mode():
     )
 
     assert cfg.cst_search.search_mode == "seedless_sobol"
+    assert cfg.cst_search.selection_strategy == "constrained_pareto"
     assert cfg.cst_search.seedless_sample_count == 8
     assert cfg.cst_search.seedless_random_seed == 123
     assert cfg.cst_search.seedless_max_oversample_factor == 4

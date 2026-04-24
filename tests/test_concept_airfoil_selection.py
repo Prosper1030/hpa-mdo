@@ -4,6 +4,7 @@ import pytest
 
 from hpa_mdo.concept.airfoil_cst import CSTAirfoilTemplate
 from hpa_mdo.concept.airfoil_selection import (
+    _select_scored_candidate_beam,
     build_base_cst_template,
     select_best_zone_candidate,
     select_zone_airfoil_templates,
@@ -604,6 +605,49 @@ def test_select_zone_airfoil_templates_can_aggregate_robust_screening_conditions
     assert selected.usable_clmax == pytest.approx(1.17)
     assert selected.safe_clmax < selected.usable_clmax
     assert all(result["candidate_role"] == "base" for result in selection.worker_results)
+
+
+def test_select_scored_candidate_beam_can_use_constrained_pareto_diversity() -> None:
+    low_drag = CSTAirfoilTemplate(
+        "root",
+        (0.22, 0.28, 0.18, 0.10, 0.04),
+        (-0.18, -0.14, -0.08, -0.03, -0.01),
+        0.0015,
+        candidate_role="low_drag",
+    )
+    high_clmax = CSTAirfoilTemplate(
+        "root",
+        (0.22, 0.35, 0.24, 0.10, 0.04),
+        (-0.18, -0.20, -0.12, -0.03, -0.01),
+        0.0015,
+        candidate_role="high_clmax",
+    )
+    middle = CSTAirfoilTemplate(
+        "root",
+        (0.22, 0.30, 0.20, 0.10, 0.04),
+        (-0.18, -0.15, -0.09, -0.03, -0.01),
+        0.0015,
+        candidate_role="middle",
+    )
+    scored = (
+        (0, 0.10, -1.10, low_drag),
+        (0, 0.22, -1.18, middle),
+        (0, 0.38, -1.55, high_clmax),
+    )
+
+    scalar_beam = _select_scored_candidate_beam(
+        scored,
+        beam_count=2,
+        selection_strategy="scalar_score",
+    )
+    pareto_beam = _select_scored_candidate_beam(
+        scored,
+        beam_count=2,
+        selection_strategy="constrained_pareto",
+    )
+
+    assert [candidate.candidate_role for candidate in scalar_beam] == ["low_drag", "middle"]
+    assert {candidate.candidate_role for candidate in pareto_beam} == {"low_drag", "high_clmax"}
 
 
 def test_select_zone_airfoil_templates_for_concepts_batches_across_multiple_concepts() -> None:

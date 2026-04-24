@@ -3062,6 +3062,7 @@ def run_birdman_concept_pipeline(
                     in {"test_stub", "cli_stubbed", "python_stubbed"},
                 ),
                 search_mode=cfg.cst_search.search_mode,
+                selection_strategy=cfg.cst_search.selection_strategy,
                 thickness_delta_levels=cfg.cst_search.thickness_delta_levels,
                 camber_delta_levels=cfg.cst_search.camber_delta_levels,
                 seedless_sample_count=cfg.cst_search.seedless_sample_count,

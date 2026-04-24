@@ -315,6 +315,7 @@ class GeometryFamilyConfig(ConceptBaseModel):
 
 class CSTSearchConfig(ConceptBaseModel):
     search_mode: Literal["seed_neighborhood", "seedless_sobol"] = "seed_neighborhood"
+    selection_strategy: Literal["scalar_score", "constrained_pareto"] = "scalar_score"
     thickness_delta_levels: tuple[float, ...] = Field(
         DEFAULT_THICKNESS_DELTA_LEVELS,
         min_length=3,

@@ -15,6 +15,7 @@ from hpa_mdo.concept.airfoil_cst import (
     sample_feasible_seedless_cst_sobol,
     validate_cst_candidate_coordinates,
 )
+from hpa_mdo.concept.airfoil_pareto import AirfoilParetoCandidate, select_nsga2_survivors
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.stall_model import compute_safe_local_clmax
 
@@ -940,6 +941,39 @@ def _score_available_zone_candidates(
     return sorted(scored, key=lambda item: (item[0], item[1], item[2], item[3].candidate_role))
 
 
+def _select_scored_candidate_beam(
+    scored: list[tuple[int, float, float, CSTAirfoilTemplate]]
+    | tuple[tuple[int, float, float, CSTAirfoilTemplate], ...],
+    *,
+    beam_count: int,
+    selection_strategy: Literal["scalar_score", "constrained_pareto"] = "scalar_score",
+) -> tuple[CSTAirfoilTemplate, ...]:
+    count = max(0, int(beam_count))
+    if count <= 0 or not scored:
+        return ()
+    if selection_strategy == "scalar_score":
+        return tuple(item[3] for item in scored[:count])
+    if selection_strategy != "constrained_pareto":
+        raise ValueError(f"Unsupported airfoil selection strategy: {selection_strategy!r}")
+
+    candidate_by_role = {item[3].candidate_role: item[3] for item in scored}
+    pareto_candidates = tuple(
+        AirfoilParetoCandidate(
+            candidate_role=item[3].candidate_role,
+            objectives={
+                "candidate_score": float(item[1]),
+                "negative_usable_clmax": float(item[2]),
+            },
+            constraint_violations={"hard_gate": float(item[0])},
+        )
+        for item in scored
+    )
+    return tuple(
+        candidate_by_role[survivor.candidate_role]
+        for survivor in select_nsga2_survivors(pareto_candidates, survivor_count=count)
+    )
+
+
 def _refinement_candidates(
     candidates: tuple[CSTAirfoilTemplate, ...],
     *,
@@ -1386,6 +1420,7 @@ def select_zone_airfoil_templates(
     seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
     worker: Any,
     search_mode: Literal["seed_neighborhood", "seedless_sobol"] = "seed_neighborhood",
+    selection_strategy: Literal["scalar_score", "constrained_pareto"] = "scalar_score",
     thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
     camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
     seedless_sample_count: int = 32,
@@ -1420,6 +1455,7 @@ def select_zone_airfoil_templates(
         seed_loader=seed_loader,
         worker=worker,
         search_mode=search_mode,
+        selection_strategy=selection_strategy,
         thickness_delta_levels=thickness_delta_levels,
         camber_delta_levels=camber_delta_levels,
         seedless_sample_count=seedless_sample_count,
@@ -1465,6 +1501,7 @@ def select_zone_airfoil_templates_for_concepts(
     seed_loader: Callable[[str], tuple[tuple[float, float], ...]],
     worker: Any,
     search_mode: Literal["seed_neighborhood", "seedless_sobol"] = "seed_neighborhood",
+    selection_strategy: Literal["scalar_score", "constrained_pareto"] = "scalar_score",
     thickness_delta_levels: tuple[float, ...] = DEFAULT_THICKNESS_DELTA_LEVELS,
     camber_delta_levels: tuple[float, ...] = DEFAULT_CAMBER_DELTA_LEVELS,
     seedless_sample_count: int = 32,
@@ -1591,7 +1628,11 @@ def select_zone_airfoil_templates_for_concepts(
                 local_stall_utilization_limit=local_stall_utilization_limit,
             )
             coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
-            coarse_beam_by_key[batch_key] = tuple(item[3] for item in coarse_scored[:coarse_seed_count])
+            coarse_beam_by_key[batch_key] = _select_scored_candidate_beam(
+                coarse_scored,
+                beam_count=coarse_seed_count,
+                selection_strategy=selection_strategy,
+            )
 
         current_beam_by_key = coarse_beam_by_key
         if successive_halving_enabled:
@@ -1653,7 +1694,11 @@ def select_zone_airfoil_templates_for_concepts(
                         local_stall_utilization_limit=local_stall_utilization_limit,
                     )
                     beam_count = min(max(1, int(successive_halving_beam_width)), len(stage_scored))
-                    next_beam_by_key[batch_key] = tuple(item[3] for item in stage_scored[:beam_count])
+                    next_beam_by_key[batch_key] = _select_scored_candidate_beam(
+                        stage_scored,
+                        beam_count=beam_count,
+                        selection_strategy=selection_strategy,
+                    )
                 current_beam_by_key = next_beam_by_key
         else:
             refinement_candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
