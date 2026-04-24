@@ -272,6 +272,45 @@ not change `topology_compiler_gate=off`, must not make `plan_only` apply geometr
 topology operator. A future experimental apply should only be considered after a `promising` sweep case
 exists.
 
+When the sweep does not find a promising case, the next report layer is loop-continuity evidence rather
+than a deeper layer-count sweep. The focused sweep can write:
+
+- `bl_stageback_loop_continuity_diagnostic.v1.json`
+
+Each diagnostic case carries:
+
+- `diagnostic_case_id`
+- `source_candidate_id`
+- `stageback_layer_schedule`
+- `target_y_span`
+- `expected_loop_count`
+- `observed_loop_count` and/or `inferred_loop_count`
+- `loop_closed`
+- `open_loop_gap_count`
+- `open_loop_gap_locations` or `open_loop_gap_y_ranges`
+- `termination_ring_valid`
+- `connector_band_continuity`
+- `collapse_rate`
+- `achieved_bl_layers`
+- `volume_to_wall_ratio`
+- `failure_phase`
+- `diagnostic_verdict`
+
+Allowed diagnostic verdicts are `loop_continuity_pass`, `loop_not_closed`,
+`termination_ring_invalid`, `connector_band_discontinuity`, and `insufficient_evidence`.
+`stageback_only_layers5` must not fall back to a generic unknown verdict: current evidence marks it as
+`loop_not_closed` from the Gmsh 1D-loop failure, zero achieved BL layers, collapse rate 1.0, and zero
+volume-to-wall ratio. Exact gap locations remain unknown unless a future loop graph observes them.
+
+The companion planning artifact is:
+
+- `bl_topology_preserving_staged_transition_prototypes.v1.json`
+
+It compares topology-preserving staged schedules such as direct baseline `8`, mild `8 -> 7`,
+smoother `8 -> 7 -> 6`, hold-then-stage, and `8 -> 7` with an explicit terminal guard. A direct
+`8 -> 5` drop is excluded because it already produced loop-closure failure. Every prototype must keep
+`planning_only = true`; it is not a runtime apply candidate and does not change production defaults.
+
 ## Manual Edit Candidates
 
 `manual_edit_candidates` are a human-facing planning view derived from the same budgeting evidence.

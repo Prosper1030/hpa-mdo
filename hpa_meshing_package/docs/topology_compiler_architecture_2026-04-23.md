@@ -347,9 +347,38 @@ volume-to-wall ratio is zero. That means the case did not reach Gmsh 3D boundary
 different family from both failed-Steiner and segment-facet. Pushing to fewer layers would be a blunt
 stageback sweep, not a safer repair.
 
-The next useful direction is therefore a topology-preserving transition around a milder local
-stageback, plus enough instrumentation to prove loop continuity before volume meshing. It is not to
-add another apply candidate or continue reducing the global layer count.
+Direct layer-count sweep is not enough because it treats the BL as a scalar count while the failure is
+topological: the connector band and terminal ring still have to remain a legal closed loop after any
+stageback. The next useful direction is therefore loop-continuity instrumentation plus a
+topology-preserving transition around a milder local stageback. It is not to add another apply
+candidate or continue reducing the global layer count.
+
+Two report-only artifacts now support that next decision:
+
+- `bl_stageback_loop_continuity_diagnostic.v1.json`
+- `bl_topology_preserving_staged_transition_prototypes.v1.json`
+
+`bl_stageback_loop_continuity_diagnostic.v1.json` records the expected and inferred loop count,
+whether the loop closed, inferred open-gap information when available, termination-ring validity,
+connector-band continuity, BL collapse metrics, failure phase, and a verdict such as
+`loop_continuity_pass`, `loop_not_closed`, `termination_ring_invalid`,
+`connector_band_discontinuity`, or `insufficient_evidence`. For `stageback_only_layers5`, the current
+verdict is `loop_not_closed`: the ring is treated as invalid and the connector band as discontinuous
+based on the Gmsh 1D-loop failure and zero-layer collapse evidence. Exact gap coordinates are not
+claimed unless the report has real evidence.
+
+`bl_topology_preserving_staged_transition_prototypes.v1.json` compares planning-only staged schedules:
+
+- direct baseline `8`
+- mild staged `8 -> 7`
+- smoother staged `8 -> 7 -> 6`
+- hold-then-stage `8 hold -> 7 -> 6 near terminal`
+- stage-with-termination-guard `8 -> 7`
+
+The direct `8 -> 5` drop is explicitly excluded because the focused sweep classified it as a loop
+closure failure, not a promising candidate. These prototypes are not runtime mutation, not a topology
+operator, and not a new apply gate. They exist only to choose the next explicit experimental apply
+case after loop-continuity evidence is available.
 
 ## What is intentionally still skeleton / TODO
 
@@ -367,6 +396,9 @@ The point of v1 is to expose the landing zones before another round of family-le
 
 ## Recommended next step after this round
 
-1. Run `--run-bl-candidate-sweep-focused` and inspect `bl_candidate_parameter_sweep.v1.json`.
-2. If no case is `promising`, keep topology operator work paused and refine the BL parameter grid or Gmsh forensic instrumentation.
+1. Run `--run-bl-candidate-sweep-focused` and inspect `bl_candidate_parameter_sweep.v1.json`,
+   `bl_stageback_loop_continuity_diagnostic.v1.json`, and
+   `bl_topology_preserving_staged_transition_prototypes.v1.json`.
+2. If no case is `promising`, keep topology operator work paused and use the loop diagnostic to decide
+   whether `stage_with_termination_guard_8_to_7` is safe enough for a later focused experimental apply.
 3. If one case is `promising`, consider a later explicit experimental apply gate for that case only; still do not promote it to production by default.

@@ -2285,12 +2285,12 @@ def test_bl_candidate_parameter_sweep_focused_writes_report_only_artifact_and_ve
                 "route_result": {"boundary_layer": {"pre_3d_clearance": {}, "collapse_rate": 0.0}},
                 "downstream_residual_classifier": {
                     "classification_status": "observed_candidate",
-                    "primary_residual_family": "residual_contact_near_tip_terminal",
+                    "primary_residual_family": FAILED_STEINER_RESIDUAL_FAMILY,
                     "evidence": {
-                        "residual_family": "residual_contact_near_tip_terminal",
-                        "local_y_band": [16.0, 16.5],
-                        "suspicious_window": [16.0, 16.5],
-                        "degenerated_prism_seen": False,
+                        "residual_family": FAILED_STEINER_RESIDUAL_FAMILY,
+                        "local_y_band": [14.9983332, 16.5000001],
+                        "suspicious_window": [15.4, 16.6],
+                        "degenerated_prism_seen": True,
                     },
                 },
             }
@@ -2329,6 +2329,8 @@ def test_bl_candidate_parameter_sweep_focused_writes_report_only_artifact_and_ve
     assert result["topology_operator_added"] is False
     assert result["root_last4_non_regression"]["overlap_non_regression"] == "pass"
     assert Path(result["artifacts"]["bl_candidate_parameter_sweep"]).exists()
+    assert Path(result["artifacts"]["loop_continuity_diagnostic"]).exists()
+    assert Path(result["artifacts"]["staged_transition_prototypes"]).exists()
 
     cases = {case["sweep_case_id"]: case for case in result["sweep_cases"]}
     assert "baseline_no_apply" in cases
@@ -2353,11 +2355,48 @@ def test_bl_candidate_parameter_sweep_focused_writes_report_only_artifact_and_ve
     assert layers5["diagnostic_family_report"]["stageback_layer_count"] == 5
     assert "gmsh_1d_loop_not_closed" in layers5["diagnostic_family_report"]["observed_symptoms"]
 
-    promising = cases["combined_mild_layers7_truncation_y16p250"]
-    assert promising["verdict"] == "promising"
-    assert result["recommended_sweep_case_id"] == promising["sweep_case_id"]
-    assert result["whether_next_runtime_apply_is_recommended"] is True
+    assert result["promising_candidate_found"] is False
+    assert result["recommended_sweep_case_id"] is None
+    assert result["closest_diagnostic_boundary_sweep_case_id"] == "stageback_only_layers5"
+    assert result["whether_next_runtime_apply_is_recommended"] is False
     assert result["whether_topology_operator_should_remain_paused"] is True
+
+    diagnostic = json.loads(
+        Path(result["artifacts"]["loop_continuity_diagnostic"]).read_text(encoding="utf-8")
+    )
+    assert diagnostic["contract"] == "bl_stageback_loop_continuity_diagnostic.v1"
+    diagnostic_by_source = {
+        case["source_candidate_id"]: case for case in diagnostic["diagnostic_cases"]
+    }
+    layers5_loop = diagnostic_by_source["stageback_only_layers5"]
+    assert layers5_loop["diagnostic_verdict"] == "loop_not_closed"
+    assert layers5_loop["loop_closed"] is False
+    assert layers5_loop["termination_ring_valid"] is False
+    assert layers5_loop["connector_band_continuity"] == "fail"
+    assert layers5_loop["achieved_bl_layers"] == 0
+    assert layers5_loop["collapse_rate"] == pytest.approx(1.0)
+    assert layers5_loop["volume_to_wall_ratio"] == pytest.approx(0.0)
+    assert layers5_loop["failure_phase"] == "gmsh_2d"
+    assert layers5_loop["open_loop_gap_count"] == 1
+    assert layers5_loop["evidence_quality"] == "inferred_from_gmsh_1d_failure"
+
+    prototypes = json.loads(
+        Path(result["artifacts"]["staged_transition_prototypes"]).read_text(encoding="utf-8")
+    )
+    assert prototypes["contract"] == "bl_topology_preserving_staged_transition_prototypes.v1"
+    prototype_ids = {prototype["prototype_id"] for prototype in prototypes["prototypes"]}
+    assert prototype_ids == {
+        "direct_baseline_layers8",
+        "mild_staged_8_to_7",
+        "smoother_staged_8_to_7_to_6",
+        "hold_then_stage_8_hold_7_6_terminal",
+        "stage_with_termination_guard_8_to_7",
+    }
+    assert "direct_drop_8_to_5" in prototypes["excluded_schedule_ids"]
+    assert all(prototype["planning_only"] is True for prototype in prototypes["prototypes"])
+    assert prototypes["recommended_next_experimental_apply_prototype_id"] == (
+        "stage_with_termination_guard_8_to_7"
+    )
 
 
 def test_stageback_layers5_loop_closure_diagnostic_is_not_promising():

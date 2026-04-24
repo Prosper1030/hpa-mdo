@@ -61,6 +61,10 @@ BL_CANDIDATE_APPLY_GATE_OFF = "off"
 BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED = "stageback_plus_truncation_focused"
 BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID = "bl_candidate_stageback_plus_truncation"
 BL_CANDIDATE_PARAMETER_SWEEP_CONTRACT = "bl_candidate_parameter_sweep.v1"
+BL_STAGEBACK_LOOP_CONTINUITY_DIAGNOSTIC_CONTRACT = "bl_stageback_loop_continuity_diagnostic.v1"
+BL_TOPOLOGY_PRESERVING_STAGED_TRANSITION_PROTOTYPES_CONTRACT = (
+    "bl_topology_preserving_staged_transition_prototypes.v1"
+)
 PRE_PLC_REPRO_FAMILY_CONFIGS: dict[str, dict[str, Any]] = {
     "root_last3_segment_facet": {
         "section_index_offsets": [0, -3, -2, -1],
@@ -4265,6 +4269,285 @@ def _select_focused_sweep_recommendation(sweep_cases: list[dict[str, Any]]) -> d
     }
 
 
+def _stageback_layer_schedule(case: dict[str, Any]) -> list[int]:
+    original = int(case.get("original_layer_count") or 0)
+    stageback = case.get("stageback_layer_count")
+    schedule: list[int] = []
+    if original > 0:
+        schedule.append(original)
+    if stageback is not None:
+        stageback_int = int(stageback)
+        if not schedule or stageback_int != schedule[-1]:
+            schedule.append(stageback_int)
+    return schedule
+
+
+def _infer_loop_continuity_case(case: dict[str, Any]) -> dict[str, Any]:
+    symptoms = set(str(item) for item in case.get("observed_symptoms") or [])
+    diagnostic_report = dict(case.get("diagnostic_family_report") or {})
+    target_y_span = copy.deepcopy(case.get("target_y_span") or {})
+    loop_not_closed = (
+        case.get("after_diagnostic_family") == "stageback_induced_1d_loop_closure_failure"
+        or "gmsh_1d_loop_not_closed" in symptoms
+    )
+    reached_3d = bool(case.get("reached_gmsh_3d_boundary_recovery"))
+    if loop_not_closed:
+        loop_closed: bool | str = False
+        inferred_loop_count: int | None = 0
+        observed_loop_count: int | None = None
+        open_loop_gap_count: int | None = 1
+        open_loop_y_ranges = [copy.deepcopy(target_y_span)] if target_y_span else []
+        termination_ring_valid: bool | str = False
+        connector_band_continuity = "fail"
+        diagnostic_verdict = "loop_not_closed"
+        evidence_quality = "inferred_from_gmsh_1d_failure"
+    elif reached_3d:
+        loop_closed = True
+        inferred_loop_count = 1
+        observed_loop_count = None
+        open_loop_gap_count = 0
+        open_loop_y_ranges: list[dict[str, Any]] = []
+        termination_ring_valid = "unknown"
+        connector_band_continuity = "pass"
+        diagnostic_verdict = "loop_continuity_pass"
+        evidence_quality = "inferred_from_reaching_gmsh_3d_boundary_recovery"
+    else:
+        loop_closed = "unknown"
+        inferred_loop_count = None
+        observed_loop_count = None
+        open_loop_gap_count = None
+        open_loop_y_ranges = []
+        termination_ring_valid = "unknown"
+        connector_band_continuity = "unknown"
+        diagnostic_verdict = "insufficient_evidence"
+        evidence_quality = "insufficient_route_phase_evidence"
+
+    return {
+        "diagnostic_case_id": f"loop_continuity::{case.get('sweep_case_id')}",
+        "source_candidate_id": str(case.get("sweep_case_id") or "unknown"),
+        "stageback_layer_schedule": _stageback_layer_schedule(case),
+        "target_y_span": target_y_span,
+        "expected_loop_count": 1,
+        "observed_loop_count": observed_loop_count,
+        "inferred_loop_count": inferred_loop_count,
+        "loop_closed": loop_closed,
+        "open_loop_gap_count": open_loop_gap_count,
+        "open_loop_gap_locations": [],
+        "open_loop_gap_y_ranges": open_loop_y_ranges,
+        "termination_ring_valid": termination_ring_valid,
+        "connector_band_continuity": connector_band_continuity,
+        "collapse_rate": diagnostic_report.get("collapse_rate"),
+        "achieved_bl_layers": diagnostic_report.get("achieved_layers"),
+        "volume_to_wall_ratio": diagnostic_report.get("volume_to_wall_ratio"),
+        "failure_phase": case.get("failure_phase") or "unknown",
+        "diagnostic_verdict": diagnostic_verdict,
+        "evidence_quality": evidence_quality,
+        "evidence_notes": [
+            "No BREP-edge loop graph is available in this report-only layer; loop status is inferred from focused route failure phase and Gmsh messages.",
+        ],
+    }
+
+
+def _build_bl_stageback_loop_continuity_diagnostic(
+    *,
+    sweep_cases: list[dict[str, Any]],
+    artifact_path: Path | None = None,
+) -> dict[str, Any]:
+    diagnostic_cases = [_infer_loop_continuity_case(case) for case in sweep_cases]
+    verdict_summary = {
+        verdict: sum(
+            1
+            for case in diagnostic_cases
+            if case.get("diagnostic_verdict") == verdict
+        )
+        for verdict in sorted({str(case.get("diagnostic_verdict")) for case in diagnostic_cases})
+    }
+    stageback_layers5 = next(
+        (
+            case
+            for case in diagnostic_cases
+            if case.get("source_candidate_id") == "stageback_only_layers5"
+        ),
+        None,
+    )
+    payload = {
+        "contract": BL_STAGEBACK_LOOP_CONTINUITY_DIAGNOSTIC_CONTRACT,
+        "status": "written",
+        "report_only": True,
+        "planning_only": True,
+        "diagnostic_scope": "focused_root_last3_stageback_sweep_cases",
+        "expected_loop_count_basis": "one closed connector-band termination loop per focused case",
+        "diagnostic_cases": diagnostic_cases,
+        "verdict_summary": verdict_summary,
+        "stageback_only_layers5_verdict": (
+            None if stageback_layers5 is None else stageback_layers5.get("diagnostic_verdict")
+        ),
+        "stageback_only_layers5_runtime_recommendation": False,
+        "runtime_geometry_mutation": False,
+        "runtime_bl_spec_mutation": False,
+        "topology_operator_added": False,
+        "notes": [
+            "Loop gaps are not directly measured from a BREP edge graph yet; unknown values are intentionally left unknown.",
+            "A stageback case that fails before Gmsh 3D boundary recovery is diagnostic evidence, not a runtime recommendation.",
+        ],
+        "artifact_path": str(artifact_path) if artifact_path is not None else None,
+    }
+    if artifact_path is not None:
+        write_json_report(Path(artifact_path), payload)
+    return payload
+
+
+def _minimum_breakpoint_interval(y_breakpoints: list[float]) -> float | None:
+    if len(y_breakpoints) < 2:
+        return None
+    ordered = sorted(float(value) for value in y_breakpoints)
+    return min(
+        float(right) - float(left)
+        for left, right in zip(ordered[:-1], ordered[1:])
+    )
+
+
+def _build_topology_preserving_staged_transition_prototypes(
+    *,
+    target_y_span: dict[str, Any],
+    original_layer_count: int,
+    artifact_path: Path | None = None,
+) -> dict[str, Any]:
+    y_min = float(target_y_span.get("min", 15.875))
+    y_max = float(target_y_span.get("max", DEFAULT_HALF_SPAN_M))
+    span = max(y_max - y_min, 1.0e-6)
+    mid_y = y_min + 0.50 * span
+    hold_y = y_min + 0.35 * span
+    guard_y = max(y_min, y_max - max(0.05, 0.18 * span))
+    layer_count = int(original_layer_count or 8)
+
+    def _prototype(
+        *,
+        prototype_id: str,
+        layer_schedule: list[int],
+        y_breakpoints: list[float],
+        expected_loop_continuity: str,
+        expected_termination_ring_validity: str,
+        expected_effect_on_failed_steiner: str,
+        expected_effect_on_segment_facet_regression: str,
+        expected_effect_on_loop_closure: str,
+        risk_notes: list[str],
+    ) -> dict[str, Any]:
+        normalized_breakpoints = [round(float(value), 6) for value in y_breakpoints]
+        return {
+            "prototype_id": prototype_id,
+            "layer_schedule": [int(value) for value in layer_schedule],
+            "y_breakpoints": normalized_breakpoints,
+            "min_interval_between_breakpoints": _minimum_breakpoint_interval(
+                normalized_breakpoints
+            ),
+            "expected_loop_continuity": expected_loop_continuity,
+            "expected_termination_ring_validity": expected_termination_ring_validity,
+            "expected_effect_on_failed_steiner": expected_effect_on_failed_steiner,
+            "expected_effect_on_segment_facet_regression": expected_effect_on_segment_facet_regression,
+            "expected_effect_on_loop_closure": expected_effect_on_loop_closure,
+            "risk_notes": list(risk_notes),
+            "planning_only": True,
+        }
+
+    prototypes = [
+        _prototype(
+            prototype_id="direct_baseline_layers8",
+            layer_schedule=[layer_count],
+            y_breakpoints=[],
+            expected_loop_continuity="preserved_by_no_stageback",
+            expected_termination_ring_validity="unchanged",
+            expected_effect_on_failed_steiner="insufficient_known_failed_steiner_remains",
+            expected_effect_on_segment_facet_regression="low_regression_risk",
+            expected_effect_on_loop_closure="low_new_loop_closure_risk",
+            risk_notes=[
+                "Keeps the known failed-Steiner blocker and therefore is a reference, not a repair.",
+            ],
+        ),
+        _prototype(
+            prototype_id="mild_staged_8_to_7",
+            layer_schedule=[layer_count, max(layer_count - 1, 1)],
+            y_breakpoints=[y_min],
+            expected_loop_continuity="likely_preserved_but_unproven",
+            expected_termination_ring_validity="unknown_until_loop_instrumented",
+            expected_effect_on_failed_steiner="possibly_insufficient",
+            expected_effect_on_segment_facet_regression="low_to_medium_regression_risk",
+            expected_effect_on_loop_closure="lower_risk_than_direct_deeper_stageback",
+            risk_notes=[
+                "A one-layer step is intentionally mild, but prior 8->7 sweep evidence was insufficient.",
+            ],
+        ),
+        _prototype(
+            prototype_id="smoother_staged_8_to_7_to_6",
+            layer_schedule=[layer_count, max(layer_count - 1, 1), max(layer_count - 2, 1)],
+            y_breakpoints=[y_min, mid_y],
+            expected_loop_continuity="plausible_if_breakpoint_spacing_is_preserved",
+            expected_termination_ring_validity="unknown_until_loop_instrumented",
+            expected_effect_on_failed_steiner="more_relief_than_8_to_7",
+            expected_effect_on_segment_facet_regression="medium_regression_risk",
+            expected_effect_on_loop_closure="medium_risk_due_second_drop",
+            risk_notes=[
+                "This is smoother than a direct 8->6 jump, but the final 6-layer region still needs loop continuity evidence.",
+            ],
+        ),
+        _prototype(
+            prototype_id="hold_then_stage_8_hold_7_6_terminal",
+            layer_schedule=[layer_count, layer_count, max(layer_count - 1, 1), max(layer_count - 2, 1)],
+            y_breakpoints=[y_min, hold_y, guard_y],
+            expected_loop_continuity="plausible_with_terminal_hold_guard",
+            expected_termination_ring_validity="unknown_but_better_than_direct_terminal_drop",
+            expected_effect_on_failed_steiner="targets_terminal_pressure_after_preserving_upstream_band",
+            expected_effect_on_segment_facet_regression="medium_regression_risk",
+            expected_effect_on_loop_closure="medium_low_if_guard_spacing_holds",
+            risk_notes=[
+                "Holding 8 layers before staging reduces abrupt upstream topology change but still reaches 6 layers near the terminal.",
+            ],
+        ),
+        _prototype(
+            prototype_id="stage_with_termination_guard_8_to_7",
+            layer_schedule=[layer_count, max(layer_count - 1, 1)],
+            y_breakpoints=[guard_y],
+            expected_loop_continuity="best_expected_preservation_without_new_operator",
+            expected_termination_ring_validity="guarded_but_unproven",
+            expected_effect_on_failed_steiner="limited_relief_but_cleanest_next_experiment",
+            expected_effect_on_segment_facet_regression="lowest_staged_regression_risk",
+            expected_effect_on_loop_closure="lowest_stageback_loop_closure_risk",
+            risk_notes=[
+                "Keeps the layer transition away from the terminal ring until a guard check can prove continuity.",
+                "Recommended only for a future experimental apply, not runtime default promotion.",
+            ],
+        ),
+    ]
+    payload = {
+        "contract": BL_TOPOLOGY_PRESERVING_STAGED_TRANSITION_PROTOTYPES_CONTRACT,
+        "status": "written",
+        "report_only": True,
+        "planning_only": True,
+        "target_y_span": {"min": y_min, "max": y_max},
+        "prototypes": prototypes,
+        "excluded_schedule_ids": ["direct_drop_8_to_5"],
+        "excluded_schedule_reasons": {
+            "direct_drop_8_to_5": (
+                "stageback_only_layers5 is classified as loop_not_closed / "
+                "stageback_induced_1d_loop_closure_failure, not a promising candidate."
+            ),
+        },
+        "recommended_next_experimental_apply_prototype_id": "stage_with_termination_guard_8_to_7",
+        "recommendation_reason": (
+            "It is the mildest topology-preserving staged transition with an explicit terminal guard; "
+            "it tests whether one-layer relief helps without repeating the direct 8->5 loop failure."
+        ),
+        "runtime_geometry_mutation": False,
+        "runtime_bl_spec_mutation": False,
+        "runtime_apply_candidate_added": False,
+        "topology_operator_added": False,
+        "artifact_path": str(artifact_path) if artifact_path is not None else None,
+    }
+    if artifact_path is not None:
+        write_json_report(Path(artifact_path), payload)
+    return payload
+
+
 def _run_shell_v4_bl_candidate_parameter_sweep_focused(
     *,
     out_dir: Path,
@@ -4373,6 +4656,19 @@ def _run_shell_v4_bl_candidate_parameter_sweep_focused(
         artifact_dir=artifact_dir / "root_last4_overlap_non_regression",
     )
     artifact_path = artifact_dir / "bl_candidate_parameter_sweep.v1.json"
+    loop_diagnostic_path = artifact_dir / "bl_stageback_loop_continuity_diagnostic.v1.json"
+    loop_continuity_diagnostic = _build_bl_stageback_loop_continuity_diagnostic(
+        sweep_cases=sweep_cases,
+        artifact_path=loop_diagnostic_path,
+    )
+    staged_transition_prototypes_path = (
+        artifact_dir / "bl_topology_preserving_staged_transition_prototypes.v1.json"
+    )
+    staged_transition_prototypes = _build_topology_preserving_staged_transition_prototypes(
+        target_y_span=target_y_span,
+        original_layer_count=8,
+        artifact_path=staged_transition_prototypes_path,
+    )
     verdict_summary = {
         verdict: sum(1 for case in sweep_cases if case.get("verdict") == verdict)
         for verdict in sorted({str(case.get("verdict")) for case in sweep_cases})
@@ -4396,6 +4692,8 @@ def _run_shell_v4_bl_candidate_parameter_sweep_focused(
         },
         "sweep_cases": sweep_cases,
         "verdict_summary": verdict_summary,
+        "loop_continuity_diagnostic": loop_continuity_diagnostic,
+        "staged_transition_prototypes": staged_transition_prototypes,
         **recommendation,
         "root_last4_non_regression": root_last4_non_regression,
         "production_default_changed": False,
@@ -4409,12 +4707,15 @@ def _run_shell_v4_bl_candidate_parameter_sweep_focused(
         "root_last4_overlap_path_changed": False,
         "artifacts": {
             "bl_candidate_parameter_sweep": str(artifact_path),
+            "loop_continuity_diagnostic": str(loop_diagnostic_path),
+            "staged_transition_prototypes": str(staged_transition_prototypes_path),
             "before_root_last3_report": str(before_observed.get("report_path")),
         },
         "notes": [
             "Focused experimental sweep compares BL stageback/truncation parameters only.",
             "No sweep candidate is a production default or topology operator.",
             "The current stageback-plus-truncation candidate is represented by the strongest layers6 case at the first derived truncation station.",
+            "Loop-continuity diagnostics and staged-transition prototypes are report-only evidence for selecting a future experimental apply.",
         ],
     }
     write_json_report(artifact_path, payload)

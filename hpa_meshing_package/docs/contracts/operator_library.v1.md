@@ -53,6 +53,11 @@ Each operator contract should expose at least:
 - the sweep-only `stageback_only_layers5` case is now a diagnostic family,
   `stageback_induced_1d_loop_closure_failure`: it shows stageback-induced loop/topology collapse
   before Gmsh 3D boundary recovery, so it must not be promoted as an operator or apply candidate
+- direct layer-count sweep is now considered insufficient by itself; the next artifacts are the
+  report-only `bl_stageback_loop_continuity_diagnostic.v1.json` and
+  `bl_topology_preserving_staged_transition_prototypes.v1.json`
+- staged transition prototypes are planning objects only; they compare topology-preserving schedules
+  such as `8 -> 7` with a terminal guard and explicitly exclude a direct `8 -> 5` drop
 - the other geometry operators remain **skeleton only**
 - `reject_unsupported_plc_risk_family` is intentionally implemented as a deterministic reject, so unsupported PLC risk families are not silently ignored
 
