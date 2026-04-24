@@ -317,6 +317,27 @@ whether the focused root_last3 rerun improves, shifts, or preserves:
 `root_last4_overlap` is carried as a non-regression check only; the experimental candidate is not
 applied to the root_last4 overlap path.
 
+The first focused apply result made the boundary explicit: the current `stageback_plus_truncation`
+settings are too aggressive for root_last3. The failed-Steiner residual
+(`boundary_recovery_error_2_recoversegment_failed_insert_steiner`) disappeared, but the rerun moved
+back upstream to `segment_facet_intersection`, while `degenerated_prism_seen` was still true. In
+engineering terms, that is not a repair; it is a parameter step large enough to reopen the PLC /
+segment-facet family.
+
+The next artifact is therefore a focused parameter sweep, not another topology operator:
+
+- CLI flag: `--run-bl-candidate-sweep-focused`
+- artifact: `bl_candidate_parameter_sweep.v1.json`
+- scope: isolated root_last3 focused fixture only
+- status: experimental / report-only
+
+The sweep compares baseline, layer stageback-only, truncation-only, and mild/strong combined cases
+using the planning-budgeting tip-zone y stations when available. Its purpose is to find the minimum
+stageback/truncation intervention that removes failed-Steiner evidence without reintroducing
+segment-facet intersection. No sweep case is a production default, no Gmsh setting is changed, and
+`plan_only` remains artifact-only. A later experimental apply round should only be considered after a
+`promising` sweep case exists.
+
 ## What is intentionally still skeleton / TODO
 
 - no native BREP-edge extraction yet; `topology_ir.v1` currently uses artifact-inferred section strips
@@ -325,6 +346,7 @@ applied to the root_last4 overlap path.
 - no automatic integration into the live production `shell_v4` runtime path yet
 - no automatic application of BL stageback, truncation, split-budget, or shrink-thickness candidates;
   the focused apply gate is explicit and default-off
+- no promotion of any `bl_candidate_parameter_sweep.v1.json` case into runtime defaults
 
 Those are intentional boundaries, not missing polish.
 
@@ -332,6 +354,6 @@ The point of v1 is to expose the landing zones before another round of family-le
 
 ## Recommended next step after this round
 
-1. Run the explicit focused apply gate on the same failed-Steiner family and inspect `bl_candidate_apply_comparison.v1.json`.
-2. If the failed-Steiner residual remains unchanged, keep topology operator work paused and refine the BL policy candidate before promoting anything.
-3. If the residual shifts to a cleaner downstream family, use that artifact as the next bounded topology-family target.
+1. Run `--run-bl-candidate-sweep-focused` and inspect `bl_candidate_parameter_sweep.v1.json`.
+2. If no case is `promising`, keep topology operator work paused and refine the BL parameter grid or Gmsh forensic instrumentation.
+3. If one case is `promising`, consider a later explicit experimental apply gate for that case only; still do not promote it to production by default.

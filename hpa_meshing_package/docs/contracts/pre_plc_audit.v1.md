@@ -240,6 +240,34 @@ defaults are not changed. The success criteria are not a full prelaunch pass. Th
 whether failed-Steiner residual evidence, degenerated-prism evidence, local y band, suspicious window,
 or downstream failure family improves or shifts.
 
+The current `stageback_plus_truncation_focused` result is classified as too aggressive: it removed the
+failed-Steiner residual family but reintroduced `segment_facet_intersection`, while degenerated-prism
+evidence remained present. This is a regression to an upstream PLC / segment-facet family, not a
+production-ready improvement.
+
+## Experimental Focused Parameter Sweep
+
+The focused sweep is a report-only follow-up to the too-aggressive apply result:
+
+- CLI flag: `--run-bl-candidate-sweep-focused`
+- artifact: `bl_candidate_parameter_sweep.v1.json`
+- focused path: `root_last3_segment_facet`
+- full prelaunch pass attempted: `false`
+
+Each sweep case must report before/after failure kind, residual family, failed-Steiner resolution,
+segment-facet regression, degenerated-prism evidence, local y band, suspicious window, and a verdict.
+The allowed production interpretation is deliberately conservative:
+
+- `too_aggressive_reintroduces_segment_facet` means the case is rejected for runtime apply.
+- `insufficient_still_failed_steiner` means the BL intervention did not move the blocker far enough.
+- `promising` only means failed-Steiner disappeared without returning to segment-facet; it is still
+  experimental evidence, not a default route change.
+
+The sweep exists to find the minimum safe intervention. It must not mutate `shell_v4` defaults, must
+not change `topology_compiler_gate=off`, must not make `plan_only` apply geometry, and must not add a
+topology operator. A future experimental apply should only be considered after a `promising` sweep case
+exists.
+
 ## Manual Edit Candidates
 
 `manual_edit_candidates` are a human-facing planning view derived from the same budgeting evidence.

@@ -79,6 +79,7 @@ def test_parser_supports_shell_v4_half_wing_bl_mesh_macsafe_command():
             "--skip-su2",
             "--topology-compiler-plan-only",
             "--apply-bl-stageback-plus-truncation-focused",
+            "--run-bl-candidate-sweep-focused",
         ]
     )
     assert args.command == "shell-v4-half-wing-bl-mesh-macsafe"
@@ -87,6 +88,17 @@ def test_parser_supports_shell_v4_half_wing_bl_mesh_macsafe_command():
     assert args.skip_su2 is True
     assert args.topology_compiler_plan_only is True
     assert args.apply_bl_stageback_plus_truncation_focused is True
+    assert args.run_bl_candidate_sweep_focused is True
+
+    default_args = parser.parse_args(
+        [
+            "shell-v4-half-wing-bl-mesh-macsafe",
+            "--out",
+            "artifacts/shell_v4",
+        ]
+    )
+    assert default_args.apply_bl_stageback_plus_truncation_focused is False
+    assert default_args.run_bl_candidate_sweep_focused is False
 
 
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):

@@ -49,6 +49,7 @@ Each operator contract should expose at least:
 - when that handoff verdict is `topology_attempted_but_bl_policy_blocked`, the next artifact is the planning-only `bl_stageback_truncation_candidate_comparison.v1.json`, not another topology operator
 - BL candidates such as stageback, truncation, split budget, and shrink thickness remain outside `operator_library.v1`; applying one requires an explicit experimental gate
 - the current explicit gate is `bl_candidate_apply_gate=stageback_plus_truncation_focused`, default-off, and it only applies `bl_candidate_stageback_plus_truncation` in an isolated focused rerun while writing `bl_candidate_apply_comparison.v1.json`
+- the current stageback-plus-truncation apply evidence is too aggressive because it shifts failed-Steiner/error2 back to `segment_facet_intersection`; the follow-up artifact is the report-only `bl_candidate_parameter_sweep.v1.json`, not a new operator
 - the other geometry operators remain **skeleton only**
 - `reject_unsupported_plc_risk_family` is intentionally implemented as a deterministic reject, so unsupported PLC risk families are not silently ignored
 

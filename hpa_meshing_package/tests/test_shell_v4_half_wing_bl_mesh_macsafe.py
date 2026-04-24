@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+from inspect import signature
 from itertools import combinations
 from pathlib import Path
 
 import pytest
 
 import hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe as shell_v4_bl_mesh
+from hpa_meshing.compiler.operator_library_v1 import FAILED_STEINER_RESIDUAL_FAMILY
 from hpa_meshing.gmsh_runtime import load_gmsh
 from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _apply_post_band_transition_split_operator_to_pre_plc_fixture,
@@ -32,6 +34,7 @@ from hpa_meshing.shell_v4_half_wing_bl_mesh_macsafe import (
     _remove_mesh_constraints_from_surfaces,
     _resolve_real_main_wing_geometry,
     _run_shell_v4_bl_stageback_plus_truncation_focused_apply,
+    _run_shell_v4_bl_candidate_parameter_sweep_focused,
     _run_shell_v4_topology_compiler_plan_only,
     _run_shell_v4_pre_plc_repro_fixture,
     _select_tip_truncation_closure_source_surface_tags,
@@ -2171,6 +2174,156 @@ def test_bl_stageback_plus_truncation_apply_gate_runs_focused_root_last3_compari
     assert Path(result["artifacts"]["bl_candidate_apply_comparison"]).exists()
 
 
+def test_bl_candidate_parameter_sweep_focused_writes_report_only_artifact_and_verdicts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+
+    def _fake_build_fixture(**kwargs):
+        return {
+            "fixture_id": f"shell_v4_pre_plc::{kwargs['family']}",
+            "family": kwargs["family"],
+            "expected_failure_kind": "segment_facet_intersection",
+            "expected_error_substrings": [],
+            "selected_section_y_le_m": [0.0, 15.0, 16.0, 16.5],
+            "source_path": str(kwargs["source_path"]),
+            "component": kwargs["component"],
+            "geometry": {"sections": []},
+        }
+
+    def _fake_post_band(fixture, *, baseline_observed, artifact_dir):
+        shifted = dict(fixture)
+        shifted["fixture_phase"] = "post_band_transition"
+        return {"fixture": shifted, "operator_result": {"status": "applied"}}
+
+    def _fake_boundary_recovery(fixture, *, baseline_observed, artifact_dir):
+        localized = dict(fixture)
+        localized["fixture_phase"] = "boundary_recovery_regularized"
+        return {"fixture": localized, "operator_result": {"status": "applied"}}
+
+    def _failed_steiner_observed(out_dir: Path) -> dict[str, object]:
+        return {
+            "status": "failed",
+            "observed_failure_kind": "boundary_recovery_error_2",
+            "error": "Could not recover boundary mesh: error 2",
+            "report_path": str(out_dir / "report.json"),
+            "route_result": {
+                "boundary_layer": {
+                    "pre_3d_clearance": {"risk_sample_count": 1},
+                    "collapse_rate": 0.25,
+                }
+            },
+            "downstream_residual_classifier": {
+                "classification_status": "observed_candidate",
+                "primary_residual_family": FAILED_STEINER_RESIDUAL_FAMILY,
+                "evidence": {
+                    "residual_family": FAILED_STEINER_RESIDUAL_FAMILY,
+                    "local_y_band": [14.9983332, 16.5000001],
+                    "suspicious_window": [15.4, 16.6],
+                    "degenerated_prism_seen": True,
+                },
+            },
+        }
+
+    def _fake_run_fixture(fixture, *, out_dir):
+        focused_apply = fixture.get("focused_bl_candidate_apply") or {}
+        mutations = focused_apply.get("focused_mutations") or {}
+        layers_after = mutations.get("layers_after")
+        truncation_start = mutations.get("forced_tip_truncation_start_y_m")
+        if layers_after == 6 and truncation_start == pytest.approx(15.875):
+            return {
+                "status": "failed",
+                "observed_failure_kind": "segment_facet_intersection",
+                "error": "PLC Error:  A segment and a facet intersect at point",
+                "report_path": str(out_dir / "report.json"),
+                "route_result": {
+                    "boundary_layer": {
+                        "pre_3d_clearance": {"risk_sample_count": 1},
+                        "collapse_rate": 0.35,
+                    }
+                },
+            }
+        if layers_after == 7 and truncation_start == pytest.approx(16.25):
+            return {
+                "status": "failed",
+                "observed_failure_kind": "boundary_recovery_error_2",
+                "error": "Could not recover boundary mesh: error 2",
+                "report_path": str(out_dir / "report.json"),
+                "route_result": {"boundary_layer": {"pre_3d_clearance": {}, "collapse_rate": 0.0}},
+                "downstream_residual_classifier": {
+                    "classification_status": "observed_candidate",
+                    "primary_residual_family": "residual_contact_near_tip_terminal",
+                    "evidence": {
+                        "residual_family": "residual_contact_near_tip_terminal",
+                        "local_y_band": [16.0, 16.5],
+                        "suspicious_window": [16.0, 16.5],
+                        "degenerated_prism_seen": False,
+                    },
+                },
+            }
+        return _failed_steiner_observed(Path(out_dir))
+
+    monkeypatch.setattr(shell_v4_bl_mesh, "_build_shell_v4_pre_plc_repro_fixture", _fake_build_fixture)
+    monkeypatch.setattr(
+        shell_v4_bl_mesh,
+        "_apply_post_band_transition_split_operator_to_pre_plc_fixture",
+        _fake_post_band,
+    )
+    monkeypatch.setattr(
+        shell_v4_bl_mesh,
+        "_apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture",
+        _fake_boundary_recovery,
+    )
+    monkeypatch.setattr(shell_v4_bl_mesh, "_run_shell_v4_pre_plc_repro_fixture", _fake_run_fixture)
+    monkeypatch.setattr(
+        shell_v4_bl_mesh,
+        "_run_root_last4_overlap_non_regression_check",
+        lambda **kwargs: {"family": "root_last4_overlap", "overlap_non_regression": "pass"},
+    )
+
+    result = _run_shell_v4_bl_candidate_parameter_sweep_focused(
+        out_dir=tmp_path / "sweep",
+        source_path=repo_root / "data" / "blackcat_004_origin.vsp3",
+        component="main_wing",
+        root_last3_failed_steiner_forensic_evidence=_root_last3_failed_steiner_forensic_evidence(),
+    )
+
+    assert result["contract"] == "bl_candidate_parameter_sweep.v1"
+    assert result["focused_path"] == "root_last3_segment_facet"
+    assert result["experimental"] is True
+    assert result["report_only"] is True
+    assert result["production_default_changed"] is False
+    assert result["topology_operator_added"] is False
+    assert result["root_last4_non_regression"]["overlap_non_regression"] == "pass"
+    assert Path(result["artifacts"]["bl_candidate_parameter_sweep"]).exists()
+
+    cases = {case["sweep_case_id"]: case for case in result["sweep_cases"]}
+    assert "baseline_no_apply" in cases
+    assert cases["baseline_no_apply"]["applied"] is False
+    current = cases["combined_stronger_layers6_truncation_y15p875_current"]
+    assert current["stageback_layer_count"] == 6
+    assert current["truncation_start_y"] == pytest.approx(15.875)
+    assert current["before_residual_family"] == FAILED_STEINER_RESIDUAL_FAMILY
+    assert current["after_failure_kind"] == "segment_facet_intersection"
+    assert current["segment_facet_regressed"] is True
+    assert current["failed_steiner_resolved"] is True
+    assert current["verdict"] == "too_aggressive_reintroduces_segment_facet"
+
+    promising = cases["combined_mild_layers7_truncation_y16p250"]
+    assert promising["verdict"] == "promising"
+    assert result["recommended_sweep_case_id"] == promising["sweep_case_id"]
+    assert result["whether_next_runtime_apply_is_recommended"] is True
+    assert result["whether_topology_operator_should_remain_paused"] is True
+
+
+def test_bl_candidate_parameter_sweep_is_not_a_production_default():
+    params = signature(run_shell_v4_half_wing_bl_mesh_macsafe).parameters
+
+    assert params["bl_candidate_apply_gate"].default == "off"
+    assert "run_bl_candidate_sweep_focused" not in params
+
+
 def test_run_shell_v4_topology_compiler_plan_only_surfaces_budgeting_recommendations(
     tmp_path: Path,
 ):
@@ -2425,3 +2578,4 @@ def test_run_shell_v4_topology_compiler_gate_plan_only_emits_artifacts_without_r
     assert Path(gated["topology_compiler"]["artifacts"]["topology_ir"]).exists()
     assert Path(gated["topology_compiler"]["artifacts"]["summary"]).exists()
     assert "bl_candidate_apply" not in gated
+    assert "bl_candidate_parameter_sweep" not in gated

@@ -11,7 +11,11 @@ from .frozen_baseline import evaluate_shell_v3_baseline_regression, run_shell_v3
 from .pipeline import run_job, validate_geometry_only
 from .mesh_study import run_mesh_study
 from .shell_v3_refinement_study import run_shell_v3_refinement_study
-from .shell_v4_half_wing_bl_mesh_macsafe import run_shell_v4_half_wing_bl_mesh_macsafe
+from .shell_v4_half_wing_bl_mesh_macsafe import (
+    _default_real_main_wing_source_path,
+    _run_shell_v4_bl_candidate_parameter_sweep_focused,
+    run_shell_v4_half_wing_bl_mesh_macsafe,
+)
 
 
 def _load_yaml(path: Path):
@@ -97,6 +101,15 @@ def cmd_shell_v3_refinement_study(args: argparse.Namespace) -> int:
 
 
 def cmd_shell_v4_half_wing_bl_mesh_macsafe(args: argparse.Namespace) -> int:
+    if args.run_bl_candidate_sweep_focused:
+        result = _run_shell_v4_bl_candidate_parameter_sweep_focused(
+            out_dir=Path(args.out),
+            source_path=_default_real_main_wing_source_path(),
+            component="main_wing",
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result.get("status") == "written" else 2
+
     result = run_shell_v4_half_wing_bl_mesh_macsafe(
         out_dir=Path(args.out),
         study_level=args.study_level,
@@ -175,6 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     shell_v4.add_argument("--allow-swap-risk", action="store_true")
     shell_v4.add_argument("--topology-compiler-plan-only", action="store_true")
     shell_v4.add_argument("--apply-bl-stageback-plus-truncation-focused", action="store_true")
+    shell_v4.add_argument("--run-bl-candidate-sweep-focused", action="store_true")
     shell_v4.set_defaults(func=cmd_shell_v4_half_wing_bl_mesh_macsafe)
 
     return parser

@@ -60,6 +60,7 @@ TOPOLOGY_COMPILER_GATE_PLAN_ONLY = "plan_only"
 BL_CANDIDATE_APPLY_GATE_OFF = "off"
 BL_CANDIDATE_APPLY_GATE_STAGEBACK_PLUS_TRUNCATION_FOCUSED = "stageback_plus_truncation_focused"
 BL_STAGEBACK_PLUS_TRUNCATION_CANDIDATE_ID = "bl_candidate_stageback_plus_truncation"
+BL_CANDIDATE_PARAMETER_SWEEP_CONTRACT = "bl_candidate_parameter_sweep.v1"
 PRE_PLC_REPRO_FAMILY_CONFIGS: dict[str, dict[str, Any]] = {
     "root_last3_segment_facet": {
         "section_index_offsets": [0, -3, -2, -1],
@@ -3724,6 +3725,474 @@ def _focused_apply_verdict(
     if before_family == FAILED_STEINER_RESIDUAL_FAMILY and after_family == before_family:
         return "unchanged_same_failed_steiner"
     return "unknown"
+
+
+def _sweep_float_slug(value: float) -> str:
+    return f"{float(value):.3f}".replace(".", "p")
+
+
+def _derive_focused_sweep_target_and_truncation_grid(
+    planning_budgeting: dict[str, Any],
+) -> tuple[dict[str, float], list[float], list[str]]:
+    notes: list[str] = []
+    target_span = {"min": 15.875, "max": DEFAULT_HALF_SPAN_M}
+    values: list[float] = []
+    tip_region = None
+    for region in list(planning_budgeting.get("tightest_regions") or []):
+        if not isinstance(region, dict):
+            continue
+        if region.get("region_kind") == "tip_truncation_candidate_zone":
+            tip_region = region
+            break
+    if isinstance(tip_region, dict):
+        target_span = _normalized_y_span(tip_region)
+        values.append(float(target_span["min"]))
+        notes.append(
+            "Truncation grid starts from the planning-budgeting tip_truncation_candidate_zone span."
+        )
+        for section_id in list(tip_region.get("section_ids") or []):
+            text = str(section_id)
+            if text.startswith("section_y:"):
+                try:
+                    values.append(float(text.split(":", 1)[1]))
+                except ValueError:
+                    continue
+    for candidate in list(planning_budgeting.get("manual_edit_candidates") or []):
+        if not isinstance(candidate, dict):
+            continue
+        value = candidate.get("suggested_truncation_start_y_m")
+        if value is not None:
+            values.append(float(value))
+    if not values:
+        values.extend([15.95, 16.0, 16.10, 16.25])
+        notes.append(
+            "Fell back to a bounded engineering grid because no planning-budgeting truncation candidates were available."
+        )
+    unique_values = sorted({round(float(value), 6) for value in values})
+    bounded = [
+        value
+        for value in unique_values
+        if float(target_span["min"]) - 1.0e-6 <= value <= float(target_span["max"]) + 1.0e-6
+    ]
+    if not bounded:
+        bounded = [float(target_span["min"])]
+    notes.append(
+        "Using existing planning-budgeting section/manual candidate y stations instead of the example sweep values."
+    )
+    return target_span, [float(value) for value in bounded[:4]], notes
+
+
+def _build_focused_bl_candidate_sweep_cases(
+    *,
+    target_y_span: dict[str, float],
+    truncation_start_y_values: list[float],
+    original_layer_count: int = 8,
+) -> list[dict[str, Any]]:
+    if not truncation_start_y_values:
+        truncation_start_y_values = [float(target_y_span["min"])]
+    primary = float(truncation_start_y_values[0])
+    mild_values = [
+        float(value)
+        for value in truncation_start_y_values
+        if float(value) > primary + 1.0e-9
+    ][:2]
+    if len(mild_values) < 2:
+        mild_values = [float(value) for value in truncation_start_y_values[:2]]
+    strong_values = [primary, *mild_values]
+    cases: list[dict[str, Any]] = [
+        {
+            "sweep_case_id": "baseline_no_apply",
+            "candidate_kind": "baseline_no_apply",
+            "stageback_layer_count": None,
+            "original_layer_count": int(original_layer_count),
+            "truncation_start_y": None,
+            "target_y_span": copy.deepcopy(target_y_span),
+            "applied": False,
+            "reject_reason": None,
+        }
+    ]
+    for layers_after in (7, 6, 5):
+        cases.append(
+            {
+                "sweep_case_id": f"stageback_only_layers{layers_after}",
+                "candidate_kind": "stageback_only",
+                "stageback_layer_count": int(layers_after),
+                "original_layer_count": int(original_layer_count),
+                "truncation_start_y": None,
+                "target_y_span": copy.deepcopy(target_y_span),
+                "applied": True,
+                "reject_reason": None,
+            }
+        )
+    for value in truncation_start_y_values:
+        slug = _sweep_float_slug(float(value))
+        cases.append(
+            {
+                "sweep_case_id": f"truncation_only_y{slug}",
+                "candidate_kind": "truncation_only",
+                "stageback_layer_count": None,
+                "original_layer_count": int(original_layer_count),
+                "truncation_start_y": float(value),
+                "target_y_span": copy.deepcopy(target_y_span),
+                "applied": True,
+                "reject_reason": None,
+            }
+        )
+    for value in mild_values[:2]:
+        slug = _sweep_float_slug(float(value))
+        cases.append(
+            {
+                "sweep_case_id": f"combined_mild_layers7_truncation_y{slug}",
+                "candidate_kind": "combined_mild_stageback_truncation",
+                "stageback_layer_count": 7,
+                "original_layer_count": int(original_layer_count),
+                "truncation_start_y": float(value),
+                "target_y_span": copy.deepcopy(target_y_span),
+                "applied": True,
+                "reject_reason": None,
+            }
+        )
+    for value in strong_values[:3]:
+        slug = _sweep_float_slug(float(value))
+        case_id = f"combined_stronger_layers6_truncation_y{slug}"
+        if abs(float(value) - primary) <= 1.0e-9:
+            case_id = f"{case_id}_current"
+        cases.append(
+            {
+                "sweep_case_id": case_id,
+                "candidate_kind": "combined_stronger_stageback_truncation",
+                "stageback_layer_count": 6,
+                "original_layer_count": int(original_layer_count),
+                "truncation_start_y": float(value),
+                "target_y_span": copy.deepcopy(target_y_span),
+                "applied": True,
+                "reject_reason": None,
+            }
+        )
+    return cases
+
+
+def _apply_bl_candidate_sweep_case_to_fixture(
+    fixture: dict[str, Any],
+    *,
+    sweep_case: dict[str, Any],
+) -> tuple[dict[str, Any], str | None]:
+    if not sweep_case.get("applied"):
+        return copy.deepcopy(fixture), None
+    layers_after = sweep_case.get("stageback_layer_count")
+    truncation_start_y = sweep_case.get("truncation_start_y")
+    if layers_after is None and truncation_start_y is None:
+        return copy.deepcopy(fixture), "sweep_case_has_no_mutation"
+    transformed_fixture = copy.deepcopy(fixture)
+    focused_mutations: dict[str, Any] = {
+        "layers_before": int(sweep_case.get("original_layer_count") or 8),
+        "focused_fixture_only": True,
+        "applies_to_family": "root_last3_segment_facet",
+        "applies_to_region": "root_last3_tip_terminal_tight_region",
+        "sweep_case_id": str(sweep_case["sweep_case_id"]),
+    }
+    if layers_after is not None:
+        focused_mutations["layers_after"] = int(layers_after)
+    if truncation_start_y is not None:
+        focused_mutations["forced_tip_truncation_start_y_m"] = float(truncation_start_y)
+    transformed_fixture["focused_bl_candidate_apply"] = {
+        "enabled": True,
+        "apply_gate": "bl_candidate_parameter_sweep_focused",
+        "candidate_id": str(sweep_case["sweep_case_id"]),
+        "candidate_kind": str(sweep_case["candidate_kind"]),
+        "candidate": copy.deepcopy(sweep_case),
+        "focused_mutations": focused_mutations,
+        "sweep_report_only": True,
+    }
+    return transformed_fixture, None
+
+
+def _focused_sweep_case_verdict(
+    *,
+    before_summary: dict[str, Any],
+    after_summary: dict[str, Any],
+    applied: bool,
+    reject_reason: str | None,
+) -> tuple[str, list[str]]:
+    if reject_reason:
+        return "rejected", [str(reject_reason)]
+    if not applied:
+        return "unchanged", ["baseline_no_apply"]
+    before_family = str(before_summary.get("residual_family") or "")
+    after_family = str(after_summary.get("residual_family") or "")
+    after_failure = str(after_summary.get("observed_failure_kind") or "")
+    failed_steiner_before = before_family == FAILED_STEINER_RESIDUAL_FAMILY
+    failed_steiner_resolved = failed_steiner_before and after_family != FAILED_STEINER_RESIDUAL_FAMILY
+    prism_improved = (
+        before_summary.get("degenerated_prism_seen") is True
+        and after_summary.get("degenerated_prism_seen") is False
+    )
+    supporting: list[str] = []
+    if prism_improved:
+        supporting.append("partial_degenerated_prism_improved_needs_follow_up")
+    if after_failure == "segment_facet_intersection":
+        return "too_aggressive_reintroduces_segment_facet", supporting
+    if failed_steiner_resolved and after_failure and after_failure != "unknown":
+        return "promising", supporting
+    if after_family == FAILED_STEINER_RESIDUAL_FAMILY or after_failure == "boundary_recovery_error_2":
+        return "insufficient_still_failed_steiner", supporting
+    if (
+        after_failure == before_summary.get("observed_failure_kind")
+        and after_family == before_family
+    ):
+        return "unchanged", supporting
+    return "unknown", supporting
+
+
+def _build_focused_sweep_case_payload(
+    *,
+    sweep_case: dict[str, Any],
+    before_summary: dict[str, Any],
+    after_summary: dict[str, Any],
+    reject_reason: str | None,
+) -> dict[str, Any]:
+    verdict, supporting_verdicts = _focused_sweep_case_verdict(
+        before_summary=before_summary,
+        after_summary=after_summary,
+        applied=bool(sweep_case.get("applied")),
+        reject_reason=reject_reason,
+    )
+    before_failure = before_summary.get("observed_failure_kind")
+    after_failure = after_summary.get("observed_failure_kind")
+    before_family = before_summary.get("residual_family")
+    after_family = after_summary.get("residual_family")
+    segment_facet_regressed = (
+        after_failure == "segment_facet_intersection"
+        and before_failure != "segment_facet_intersection"
+    )
+    failed_steiner_resolved = (
+        before_family == FAILED_STEINER_RESIDUAL_FAMILY
+        and after_family != FAILED_STEINER_RESIDUAL_FAMILY
+    )
+    return {
+        "sweep_case_id": str(sweep_case["sweep_case_id"]),
+        "candidate_kind": str(sweep_case["candidate_kind"]),
+        "stageback_layer_count": sweep_case.get("stageback_layer_count"),
+        "original_layer_count": sweep_case.get("original_layer_count"),
+        "truncation_start_y": sweep_case.get("truncation_start_y"),
+        "target_y_span": copy.deepcopy(sweep_case.get("target_y_span") or {}),
+        "applied": bool(sweep_case.get("applied")),
+        "reject_reason": reject_reason,
+        "before_residual_family": before_family,
+        "after_residual_family": after_family,
+        "before_failure_kind": before_failure,
+        "after_failure_kind": after_failure,
+        "segment_facet_regressed": bool(segment_facet_regressed),
+        "failed_steiner_resolved": bool(failed_steiner_resolved),
+        "degenerated_prism_seen_before": before_summary.get("degenerated_prism_seen"),
+        "degenerated_prism_seen_after": after_summary.get("degenerated_prism_seen"),
+        "local_y_band_before": list(before_summary.get("local_y_band") or []),
+        "local_y_band_after": list(after_summary.get("local_y_band") or []),
+        "suspicious_window_before": list(before_summary.get("suspicious_window") or []),
+        "suspicious_window_after": list(after_summary.get("suspicious_window") or []),
+        "partial_needs_follow_up": "partial_degenerated_prism_improved_needs_follow_up"
+        in supporting_verdicts,
+        "supporting_verdicts": supporting_verdicts,
+        "verdict": verdict,
+    }
+
+
+def _select_focused_sweep_recommendation(sweep_cases: list[dict[str, Any]]) -> dict[str, Any]:
+    promising = [case for case in sweep_cases if case.get("verdict") == "promising"]
+    if promising:
+        selected = promising[0]
+        return {
+            "recommended_sweep_case_id": selected["sweep_case_id"],
+            "promising_candidate_found": True,
+            "closest_promising_sweep_case_id": selected["sweep_case_id"],
+            "recommendation_reason": (
+                "Selected the first bounded case that resolved the failed-Steiner residual without "
+                "reintroducing segment-facet intersection."
+            ),
+            "whether_next_runtime_apply_is_recommended": True,
+            "whether_more_gmsh_debug_needed": False,
+            "whether_topology_operator_should_remain_paused": True,
+        }
+
+    def _score(case: dict[str, Any]) -> tuple[int, int, int, int]:
+        if case.get("verdict") == "too_aggressive_reintroduces_segment_facet":
+            return (-100, 0, 0, 0)
+        failed_resolved = 1 if case.get("failed_steiner_resolved") else 0
+        prism_improved = 1 if case.get("degenerated_prism_seen_after") is False else 0
+        applied = 1 if case.get("applied") else 0
+        layers = int(case.get("stageback_layer_count") or case.get("original_layer_count") or 0)
+        return (failed_resolved * 20 + prism_improved * 5 + applied, layers, 0, 0)
+
+    closest = max(sweep_cases, key=_score) if sweep_cases else {}
+    closest_id = closest.get("sweep_case_id")
+    return {
+        "recommended_sweep_case_id": closest_id,
+        "promising_candidate_found": False,
+        "closest_promising_sweep_case_id": closest_id,
+        "recommendation_reason": (
+            "No promising case was found; keep runtime apply disabled and use the selected case only "
+            "as the least-bad diagnostic boundary for the next sweep/debug round."
+        ),
+        "whether_next_runtime_apply_is_recommended": False,
+        "whether_more_gmsh_debug_needed": True,
+        "whether_topology_operator_should_remain_paused": True,
+    }
+
+
+def _run_shell_v4_bl_candidate_parameter_sweep_focused(
+    *,
+    out_dir: Path,
+    source_path: Path,
+    component: str,
+    root_last3_failed_steiner_forensic_evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    artifact_dir = Path(out_dir) / "artifacts" / "topology_compiler" / "bl_candidate_parameter_sweep"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    spec = build_shell_v4_half_wing_bl_macsafe_spec(
+        overrides={
+            "geometry": {
+                "shape_mode": DEFAULT_REAL_MAIN_WING_SHAPE_MODE,
+                "source_path": str(source_path),
+                "component": component,
+                "airfoil_loop_points": 48,
+                "half_span_stations": 18,
+            },
+            "boundary_layer": {
+                "first_layer_height_m": 1.0e-3,
+                "layers": 8,
+                "growth_ratio": 1.20,
+            },
+        }
+    )
+    real_wing_geometry = _resolve_real_main_wing_geometry(
+        geometry=dict(spec["geometry"]),
+        artifact_dir=artifact_dir / "geometry",
+    )
+    planning_budgeting = _build_real_wing_bl_budgeting_plan(
+        sections=[dict(section) for section in real_wing_geometry.get("sections", [])],
+        protection=dict(spec.get("real_wing_bl_protection") or {}),
+        base_total_thickness_m=float(spec["boundary_layer"]["target_total_thickness_m"]),
+        half_span_m=float(spec["geometry"].get("half_span_m") or DEFAULT_HALF_SPAN_M),
+    ).model_dump(mode="json")
+    target_y_span, truncation_grid, grid_notes = _derive_focused_sweep_target_and_truncation_grid(
+        planning_budgeting
+    )
+    sweep_plan_cases = _build_focused_bl_candidate_sweep_cases(
+        target_y_span=target_y_span,
+        truncation_start_y_values=truncation_grid,
+        original_layer_count=8,
+    )
+    root_last3_fixture = _build_shell_v4_pre_plc_repro_fixture(
+        source_path=source_path,
+        component=component,
+        family="root_last3_segment_facet",
+        artifact_dir=artifact_dir / "root_last3" / "fixture",
+    )
+    baseline = _run_shell_v4_pre_plc_repro_fixture(
+        root_last3_fixture,
+        out_dir=artifact_dir / "root_last3" / "baseline_probe",
+    )
+    transition = _apply_post_band_transition_split_operator_to_pre_plc_fixture(
+        root_last3_fixture,
+        baseline_observed=baseline,
+        artifact_dir=artifact_dir / "root_last3" / "post_band_transition",
+    )
+    error2_observed = _run_shell_v4_pre_plc_repro_fixture(
+        transition["fixture"],
+        out_dir=artifact_dir / "root_last3" / "post_band_transition_probe",
+    )
+    if root_last3_failed_steiner_forensic_evidence:
+        error2_observed["forensic_evidence"] = dict(root_last3_failed_steiner_forensic_evidence)
+    localized = _apply_post_transition_boundary_recovery_operator_to_pre_plc_fixture(
+        transition["fixture"],
+        baseline_observed=error2_observed,
+        artifact_dir=artifact_dir / "root_last3" / "boundary_recovery_regularization",
+    )
+    before_observed = _run_shell_v4_pre_plc_repro_fixture(
+        localized["fixture"],
+        out_dir=artifact_dir / "root_last3" / "before_sweep_probe",
+    )
+    before_summary = _focused_residual_summary(
+        observed=before_observed,
+        fallback_forensic_evidence=root_last3_failed_steiner_forensic_evidence,
+    )
+
+    sweep_cases: list[dict[str, Any]] = []
+    for sweep_case in sweep_plan_cases:
+        candidate_fixture, reject_reason = _apply_bl_candidate_sweep_case_to_fixture(
+            localized["fixture"],
+            sweep_case=sweep_case,
+        )
+        if reject_reason is None and sweep_case.get("applied"):
+            after_observed = _run_shell_v4_pre_plc_repro_fixture(
+                candidate_fixture,
+                out_dir=artifact_dir / "root_last3" / "cases" / str(sweep_case["sweep_case_id"]),
+            )
+            after_summary = _focused_residual_summary(observed=after_observed)
+        else:
+            after_summary = copy.deepcopy(before_summary)
+        sweep_cases.append(
+            _build_focused_sweep_case_payload(
+                sweep_case=sweep_case,
+                before_summary=before_summary,
+                after_summary=after_summary,
+                reject_reason=reject_reason,
+            )
+        )
+
+    recommendation = _select_focused_sweep_recommendation(sweep_cases)
+    root_last4_non_regression = _run_root_last4_overlap_non_regression_check(
+        source_path=source_path,
+        component=component,
+        artifact_dir=artifact_dir / "root_last4_overlap_non_regression",
+    )
+    artifact_path = artifact_dir / "bl_candidate_parameter_sweep.v1.json"
+    verdict_summary = {
+        verdict: sum(1 for case in sweep_cases if case.get("verdict") == verdict)
+        for verdict in sorted({str(case.get("verdict")) for case in sweep_cases})
+    }
+    payload = {
+        "contract": BL_CANDIDATE_PARAMETER_SWEEP_CONTRACT,
+        "status": "written",
+        "experimental": True,
+        "focused": True,
+        "report_only": True,
+        "plan_report_only": True,
+        "focused_path": "root_last3_segment_facet",
+        "focused_scope": "isolated_pre_plc_fixture_rerun",
+        "full_prelaunch_pass_attempted": False,
+        "candidate_grid": {
+            "original_layer_count": 8,
+            "stageback_layer_counts": [7, 6, 5],
+            "truncation_start_y_values": list(truncation_grid),
+            "target_y_span": copy.deepcopy(target_y_span),
+            "grid_source_notes": grid_notes,
+        },
+        "sweep_cases": sweep_cases,
+        "verdict_summary": verdict_summary,
+        **recommendation,
+        "root_last4_non_regression": root_last4_non_regression,
+        "production_default_changed": False,
+        "topology_compiler_gate_off_changed": False,
+        "plan_only_behavior_changed": False,
+        "runtime_bl_spec_mutation": False,
+        "runtime_geometry_mutation": False,
+        "gmsh_settings_changed": False,
+        "shell_v3_changed": False,
+        "topology_operator_added": False,
+        "root_last4_overlap_path_changed": False,
+        "artifacts": {
+            "bl_candidate_parameter_sweep": str(artifact_path),
+            "before_root_last3_report": str(before_observed.get("report_path")),
+        },
+        "notes": [
+            "Focused experimental sweep compares BL stageback/truncation parameters only.",
+            "No sweep candidate is a production default or topology operator.",
+            "The current stageback-plus-truncation candidate is represented by the strongest layers6 case at the first derived truncation station.",
+        ],
+    }
+    write_json_report(artifact_path, payload)
+    return payload
 
 
 def _apply_stageback_plus_truncation_candidate_to_fixture(
