@@ -5,6 +5,7 @@ import pytest
 from hpa_mdo.concept.airfoil_cst import CSTAirfoilTemplate
 from hpa_mdo.concept.airfoil_selection import (
     _select_scored_candidate_beam,
+    _ZoneCandidateScore,
     build_base_cst_template,
     select_best_zone_candidate,
     select_zone_airfoil_templates,
@@ -630,9 +631,42 @@ def test_select_scored_candidate_beam_can_use_constrained_pareto_diversity() -> 
         candidate_role="middle",
     )
     scored = (
-        (0, 0.10, -1.10, low_drag),
-        (0, 0.22, -1.18, middle),
-        (0, 0.38, -1.55, high_clmax),
+        _ZoneCandidateScore(
+            template=low_drag,
+            feasibility_gate=0,
+            candidate_score=0.10,
+            mean_cd=0.0090,
+            mean_cm=-0.10,
+            usable_clmax=1.10,
+            safe_clmax=0.95,
+            robust_pass_rate=1.0,
+            cm_penalty=0.0,
+            cm_hard_violation=0.0,
+        ),
+        _ZoneCandidateScore(
+            template=middle,
+            feasibility_gate=0,
+            candidate_score=0.22,
+            mean_cd=0.0105,
+            mean_cm=-0.12,
+            usable_clmax=1.18,
+            safe_clmax=1.05,
+            robust_pass_rate=1.0,
+            cm_penalty=0.0,
+            cm_hard_violation=0.0,
+        ),
+        _ZoneCandidateScore(
+            template=high_clmax,
+            feasibility_gate=0,
+            candidate_score=0.38,
+            mean_cd=0.0150,
+            mean_cm=-0.15,
+            usable_clmax=1.55,
+            safe_clmax=1.40,
+            robust_pass_rate=1.0,
+            cm_penalty=(0.15 - 0.12) ** 2,
+            cm_hard_violation=0.0,
+        ),
     )
 
     scalar_beam = _select_scored_candidate_beam(
@@ -648,6 +682,56 @@ def test_select_scored_candidate_beam_can_use_constrained_pareto_diversity() -> 
 
     assert [candidate.candidate_role for candidate in scalar_beam] == ["low_drag", "middle"]
     assert {candidate.candidate_role for candidate in pareto_beam} == {"low_drag", "high_clmax"}
+
+
+def test_select_scored_candidate_beam_pareto_rejects_cm_hard_violations() -> None:
+    feasible = CSTAirfoilTemplate(
+        "root",
+        (0.22, 0.28, 0.18, 0.10, 0.04),
+        (-0.18, -0.14, -0.08, -0.03, -0.01),
+        0.0015,
+        candidate_role="feasible",
+    )
+    cm_violator = CSTAirfoilTemplate(
+        "root",
+        (0.22, 0.30, 0.20, 0.10, 0.04),
+        (-0.18, -0.15, -0.09, -0.03, -0.01),
+        0.0015,
+        candidate_role="cm_violator",
+    )
+    scored = (
+        _ZoneCandidateScore(
+            template=feasible,
+            feasibility_gate=0,
+            candidate_score=0.30,
+            mean_cd=0.012,
+            mean_cm=-0.11,
+            usable_clmax=1.20,
+            safe_clmax=1.10,
+            robust_pass_rate=1.0,
+            cm_penalty=0.0,
+            cm_hard_violation=0.0,
+        ),
+        _ZoneCandidateScore(
+            template=cm_violator,
+            feasibility_gate=1,
+            candidate_score=0.05,
+            mean_cd=0.010,
+            mean_cm=-0.20,
+            usable_clmax=1.25,
+            safe_clmax=1.15,
+            robust_pass_rate=1.0,
+            cm_penalty=(0.20 - 0.12) ** 2,
+            cm_hard_violation=0.04,
+        ),
+    )
+
+    pareto_beam = _select_scored_candidate_beam(
+        scored,
+        beam_count=1,
+        selection_strategy="constrained_pareto",
+    )
+    assert [candidate.candidate_role for candidate in pareto_beam] == ["feasible"]
 
 
 def test_select_zone_airfoil_templates_seedless_can_run_nsga_generation() -> None:
@@ -702,6 +786,67 @@ def test_select_zone_airfoil_templates_seedless_can_run_nsga_generation() -> Non
 
     assert any("nsga2_g01_child" in template_id for template_id in worker.template_ids)
     assert selection.selected_by_zone["root"].template.candidate_role.startswith("nsga2_g01_child")
+
+
+def test_select_zone_airfoil_templates_seedless_runs_cma_es_knee_refinement() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.template_ids: list[str] = []
+
+        def run_queries(self, queries):
+            self.template_ids.extend(query.template_id for query in queries)
+            results = []
+            for query in queries:
+                is_cma = "cma_k" in query.template_id
+                results.append(
+                    {
+                        "status": "ok",
+                        "template_id": query.template_id,
+                        "geometry_hash": query.geometry_hash,
+                        "mean_cd": 0.018 if is_cma else 0.022,
+                        "mean_cm": -0.10,
+                        "usable_clmax": 1.32 if is_cma else 1.24,
+                    }
+                )
+            return results
+
+    worker = FakeWorker()
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.14,
+            }
+        },
+        seed_loader=lambda _seed_name: (),
+        worker=worker,
+        search_mode="seedless_sobol",
+        selection_strategy="constrained_pareto",
+        seedless_sample_count=8,
+        seedless_random_seed=17,
+        nsga_generation_count=0,
+        nsga_offspring_count=0,
+        cma_es_enabled=True,
+        cma_es_knee_count=2,
+        cma_es_iterations=2,
+        cma_es_population_lambda=4,
+        cma_es_sigma_init=0.05,
+        cma_es_random_seed=29,
+        pareto_knee_count=2,
+        coarse_to_fine_enabled=False,
+        successive_halving_enabled=False,
+    )
+
+    assert any("cma_k" in template_id for template_id in worker.template_ids)
+    selected_role = selection.selected_by_zone["root"].template.candidate_role
+    assert selected_role.startswith("cma_k")
 
 
 def test_select_zone_airfoil_templates_for_concepts_batches_across_multiple_concepts() -> None:

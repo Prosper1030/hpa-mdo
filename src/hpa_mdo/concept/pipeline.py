@@ -1363,6 +1363,12 @@ def _summarize_turn(
         "safe_clmax_status": turn_result.safe_clmax_status,
         "raw_stall_speed_margin_ratio": turn_result.raw_stall_speed_margin_ratio,
         "safe_stall_speed_margin_ratio": turn_result.safe_stall_speed_margin_ratio,
+        "tip_excluded_safe_clmax_ratio": turn_result.tip_excluded_safe_clmax_ratio,
+        "outboard_region_safe_clmax_ratio": turn_result.outboard_region_safe_clmax_ratio,
+        "contiguous_overlimit_span_fraction": turn_result.contiguous_overlimit_span_fraction,
+        "tip_exclusion_eta": turn_result.tip_exclusion_eta,
+        "outboard_region_eta_min": turn_result.outboard_region_eta_min,
+        "outboard_region_eta_max": turn_result.outboard_region_eta_max,
         "trim_feasible": trim_result.feasible,
         "limiting_station_y_m": turn_result.limiting_station_y_m,
         "tip_critical": turn_result.tip_critical,
@@ -1519,6 +1525,12 @@ def _summarize_local_stall(
                 "safe_clmax_status": result.safe_clmax_status,
                 "raw_stall_speed_margin_ratio": result.raw_stall_speed_margin_ratio,
                 "safe_stall_speed_margin_ratio": result.safe_stall_speed_margin_ratio,
+                "tip_excluded_safe_clmax_ratio": result.tip_excluded_safe_clmax_ratio,
+                "outboard_region_safe_clmax_ratio": result.outboard_region_safe_clmax_ratio,
+                "contiguous_overlimit_span_fraction": result.contiguous_overlimit_span_fraction,
+                "tip_exclusion_eta": result.tip_exclusion_eta,
+                "outboard_region_eta_min": result.outboard_region_eta_min,
+                "outboard_region_eta_max": result.outboard_region_eta_max,
                 "min_margin_station_y_m": result.min_margin_station_y_m,
                 "tip_critical": result.tip_critical,
                 "margin_source": result.cl_max_source,
@@ -1577,6 +1589,16 @@ def _summarize_local_stall(
         "safe_clmax_status": str(worst_case["safe_clmax_status"]),
         "raw_stall_speed_margin_ratio": float(worst_case["raw_stall_speed_margin_ratio"]),
         "safe_stall_speed_margin_ratio": float(worst_case["safe_stall_speed_margin_ratio"]),
+        "tip_excluded_safe_clmax_ratio": float(worst_case["tip_excluded_safe_clmax_ratio"]),
+        "outboard_region_safe_clmax_ratio": float(
+            worst_case["outboard_region_safe_clmax_ratio"]
+        ),
+        "contiguous_overlimit_span_fraction": float(
+            worst_case["contiguous_overlimit_span_fraction"]
+        ),
+        "tip_exclusion_eta": float(worst_case["tip_exclusion_eta"]),
+        "outboard_region_eta_min": float(worst_case["outboard_region_eta_min"]),
+        "outboard_region_eta_max": float(worst_case["outboard_region_eta_max"]),
         "min_margin_station_y_m": float(worst_case["min_margin_station_y_m"]),
         "tip_critical": bool(worst_case["tip_critical"]),
         "margin_source": str(worst_case["margin_source"]),
@@ -1612,6 +1634,29 @@ def _speed_sweep_mps(cfg: BirdmanConceptConfig) -> tuple[float, ...]:
     max_speed = float(cfg.mission.speed_sweep_max_mps)
     step = (max_speed - min_speed) / float(point_count - 1)
     return tuple(min_speed + step * index for index in range(point_count))
+
+
+def _estimate_trim_drag_per_cm_squared(cfg: BirdmanConceptConfig) -> float:
+    wing_area_range = cfg.geometry_family.hard_constraints.wing_area_m2_range
+    median_wing_area_m2 = 0.5 * (float(wing_area_range.min) + float(wing_area_range.max))
+    tail_areas = tuple(float(area) for area in cfg.geometry_family.tail_area_candidates_m2)
+    median_tail_area_m2 = float(sorted(tail_areas)[len(tail_areas) // 2]) if tail_areas else 4.0
+    if median_tail_area_m2 <= 0.0 or median_wing_area_m2 <= 0.0:
+        return 0.0
+    tail_arm_to_mac = float(cfg.tail_model.tail_arm_to_mac)
+    q_ratio_tail = float(cfg.tail_model.tail_dynamic_pressure_ratio)
+    aspect_tail = float(cfg.tail_model.tail_aspect_ratio)
+    oswald_tail = float(cfg.tail_model.tail_oswald_efficiency)
+    denominator = (
+        tail_arm_to_mac * tail_arm_to_mac
+        * max(q_ratio_tail, 1.0e-6)
+        * math.pi
+        * max(aspect_tail, 1.0e-6)
+        * max(oswald_tail, 1.0e-6)
+    )
+    if denominator <= 0.0:
+        return 0.0
+    return (median_wing_area_m2 / median_tail_area_m2) / denominator
 
 
 def _concept_design_gross_mass_kg(
@@ -2916,17 +2961,39 @@ def _concept_to_bundle_payload(
         }
         for station in stations
     ]
+    raw_zone_templates = {
+        zone_name: (
+            tuple(payload["upper_coefficients"]),
+            tuple(payload["lower_coefficients"]),
+            float(payload["te_thickness_m"]),
+            payload.get("seed_name"),
+            payload.get("candidate_role", "selected"),
+        )
+        for zone_name, payload in airfoil_templates.items()
+    }
+    if raw_zone_templates:
+        max_upper_count = max(len(values[0]) for values in raw_zone_templates.values())
+        max_lower_count = max(len(values[1]) for values in raw_zone_templates.values())
+    else:
+        max_upper_count = 0
+        max_lower_count = 0
+
+    def _pad_to(values: tuple[float, ...], target_count: int) -> tuple[float, ...]:
+        if len(values) >= target_count:
+            return values
+        return values + tuple(0.0 for _ in range(target_count - len(values)))
+
     lofting_guides = build_lofting_guides(
         {
             zone_name: CSTAirfoilTemplate(
                 zone_name=zone_name,
-                upper_coefficients=tuple(payload["upper_coefficients"]),
-                lower_coefficients=tuple(payload["lower_coefficients"]),
-                te_thickness_m=float(payload["te_thickness_m"]),
-                seed_name=payload.get("seed_name"),
-                candidate_role=payload.get("candidate_role", "selected"),
+                upper_coefficients=_pad_to(values[0], max_upper_count),
+                lower_coefficients=_pad_to(values[1], max_lower_count),
+                te_thickness_m=values[2],
+                seed_name=values[3],
+                candidate_role=values[4],
             )
-            for zone_name, payload in airfoil_templates.items()
+            for zone_name, values in raw_zone_templates.items()
         }
     )
     prop_assumption = {
@@ -3085,6 +3152,16 @@ def run_birdman_concept_pipeline(
                 successive_halving_enabled=cfg.cst_search.successive_halving_enabled,
                 successive_halving_rounds=cfg.cst_search.successive_halving_rounds,
                 successive_halving_beam_width=cfg.cst_search.successive_halving_beam_width,
+                cm_hard_lower_bound=cfg.cst_search.cm_hard_lower_bound,
+                cm_penalty_threshold=cfg.cst_search.cm_penalty_threshold,
+                pareto_knee_count=cfg.cst_search.pareto_knee_count,
+                cma_es_enabled=cfg.cst_search.cma_es_enabled,
+                cma_es_knee_count=cfg.cst_search.cma_es_knee_count,
+                cma_es_iterations=cfg.cst_search.cma_es_iterations,
+                cma_es_population_lambda=cfg.cst_search.cma_es_population_lambda,
+                cma_es_sigma_init=cfg.cst_search.cma_es_sigma_init,
+                cma_es_random_seed=cfg.cst_search.cma_es_random_seed,
+                trim_drag_per_cm_squared=_estimate_trim_drag_per_cm_squared(cfg),
                 safe_clmax_scale=cfg.stall_model.safe_clmax_scale,
                 safe_clmax_delta=cfg.stall_model.safe_clmax_delta,
                 stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,

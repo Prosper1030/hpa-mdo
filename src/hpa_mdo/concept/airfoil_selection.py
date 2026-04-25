@@ -15,8 +15,18 @@ from hpa_mdo.concept.airfoil_cst import (
     sample_feasible_seedless_cst_sobol,
     validate_cst_candidate_coordinates,
 )
+from hpa_mdo.concept.airfoil_cma_es import (
+    CMAESState,
+    initialize_cma_es_state,
+    sample_cma_es_offspring,
+    update_cma_es_state,
+)
 from hpa_mdo.concept.airfoil_nsga import generate_seedless_nsga2_offspring
-from hpa_mdo.concept.airfoil_pareto import AirfoilParetoCandidate, select_nsga2_survivors
+from hpa_mdo.concept.airfoil_pareto import (
+    AirfoilParetoCandidate,
+    select_nsga2_survivors,
+    select_pareto_knees,
+)
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.stall_model import compute_safe_local_clmax
 
@@ -35,21 +45,21 @@ _BASE_TEMPLATE_LIBRARY: dict[str, dict[str, object]] = {
 }
 
 _ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
-    upper_min=(0.18, 0.26, 0.25, 0.18, 0.11, 0.05, 0.015),
-    upper_max=(0.22, 0.32, 0.30, 0.22, 0.13, 0.07, 0.025),
-    lower_min=(-0.14, -0.18, -0.15, -0.11, -0.06, -0.03, -0.010),
-    lower_max=(-0.10, -0.14, -0.13, -0.09, -0.04, -0.015, -0.002),
-    te_thickness_min=0.0015,
-    te_thickness_max=0.0025,
+    upper_min=(0.05, 0.10, 0.10, 0.06, 0.02, 0.005, 0.003),
+    upper_max=(0.30, 0.42, 0.40, 0.32, 0.20, 0.12, 0.040),
+    lower_min=(-0.22, -0.28, -0.25, -0.20, -0.12, -0.06, -0.020),
+    lower_max=(-0.02, -0.04, -0.04, -0.02, 0.02, 0.02, 0.005),
+    te_thickness_min=0.0010,
+    te_thickness_max=0.0040,
 )
 
 _OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
-    upper_min=(0.14, 0.20, 0.18, 0.13, 0.08, 0.04, 0.012),
-    upper_max=(0.20, 0.30, 0.27, 0.20, 0.12, 0.07, 0.024),
-    lower_min=(-0.13, -0.16, -0.14, -0.10, -0.05, -0.025, -0.009),
-    lower_max=(-0.08, -0.11, -0.09, -0.06, -0.025, -0.010, -0.002),
-    te_thickness_min=0.0012,
-    te_thickness_max=0.0025,
+    upper_min=(0.04, 0.08, 0.08, 0.04, 0.02, 0.005, 0.002),
+    upper_max=(0.28, 0.38, 0.36, 0.28, 0.18, 0.10, 0.035),
+    lower_min=(-0.18, -0.24, -0.22, -0.16, -0.10, -0.05, -0.018),
+    lower_max=(-0.02, -0.03, -0.03, -0.02, 0.02, 0.02, 0.005),
+    te_thickness_min=0.0010,
+    te_thickness_max=0.0035,
 )
 
 
@@ -852,6 +862,39 @@ def _coarse_seed_candidates(
     return tuple(selected) if selected else candidates
 
 
+@dataclass(frozen=True)
+class _ZoneCandidateScore:
+    template: CSTAirfoilTemplate
+    feasibility_gate: int
+    candidate_score: float
+    mean_cd: float
+    mean_cm: float
+    usable_clmax: float
+    safe_clmax: float
+    robust_pass_rate: float
+    cm_penalty: float
+    cm_hard_violation: float
+    trim_drag_estimate: float = 0.0
+
+
+def _cm_penalty_value(mean_cm: float, *, cm_penalty_threshold: float) -> float:
+    deficit = -float(mean_cm) - abs(float(cm_penalty_threshold))
+    return float(max(0.0, deficit)) ** 2
+
+
+def _cm_hard_violation_value(mean_cm: float, *, cm_hard_lower_bound: float) -> float:
+    deficit = -float(mean_cm) - abs(float(cm_hard_lower_bound))
+    return float(max(0.0, deficit))
+
+
+def _trim_drag_estimate(mean_cm: float, *, trim_drag_per_cm_squared: float) -> float:
+    factor = float(trim_drag_per_cm_squared)
+    if factor <= 0.0:
+        return 0.0
+    nose_down = max(0.0, -float(mean_cm))
+    return factor * nose_down * nose_down
+
+
 def _score_available_zone_candidates(
     candidates: tuple[CSTAirfoilTemplate, ...],
     *,
@@ -869,8 +912,11 @@ def _score_available_zone_candidates(
     launch_stall_utilization_limit: float,
     turn_stall_utilization_limit: float,
     local_stall_utilization_limit: float,
-) -> list[tuple[int, float, float, CSTAirfoilTemplate]]:
-    scored: list[tuple[int, float, float, CSTAirfoilTemplate]] = []
+    cm_hard_lower_bound: float = -0.16,
+    cm_penalty_threshold: float = -0.12,
+    trim_drag_per_cm_squared: float = 0.0,
+) -> list[_ZoneCandidateScore]:
+    scored: list[_ZoneCandidateScore] = []
     for candidate in candidates:
         result = candidate_results.get(candidate.candidate_role)
         if result is None:
@@ -932,47 +978,97 @@ def _score_available_zone_candidates(
         required_spar_depth_ratio = float(metrics["required_spar_depth_ratio"])
         safe_clmax = float(metrics["safe_clmax"])
         worst_case_margin = float(metrics["worst_case_margin"])
+        robust_pass_rate = float(result.get("robust_pass_rate", 1.0))
+        cm_hard_violation = _cm_hard_violation_value(
+            mean_cm,
+            cm_hard_lower_bound=cm_hard_lower_bound,
+        )
+        cm_penalty = _cm_penalty_value(
+            mean_cm,
+            cm_penalty_threshold=cm_penalty_threshold,
+        )
+        trim_drag_estimate = _trim_drag_estimate(
+            mean_cm,
+            trim_drag_per_cm_squared=trim_drag_per_cm_squared,
+        )
         feasible = (
             safe_clmax >= 0.0
             and worst_case_margin >= 0.0
             and thickness_ratio >= float(zone_min_tc_ratio)
             and spar_depth_ratio >= required_spar_depth_ratio
+            and cm_hard_violation <= 0.0
         )
-        scored.append((0 if feasible else 1, candidate_score, -usable_clmax, candidate))
-    return sorted(scored, key=lambda item: (item[0], item[1], item[2], item[3].candidate_role))
+        scored.append(
+            _ZoneCandidateScore(
+                template=candidate,
+                feasibility_gate=0 if feasible else 1,
+                candidate_score=float(candidate_score),
+                mean_cd=float(mean_cd),
+                mean_cm=float(mean_cm),
+                usable_clmax=float(usable_clmax),
+                safe_clmax=float(safe_clmax),
+                robust_pass_rate=float(robust_pass_rate),
+                cm_penalty=float(cm_penalty),
+                cm_hard_violation=float(cm_hard_violation),
+                trim_drag_estimate=float(trim_drag_estimate),
+            )
+        )
+    return sorted(
+        scored,
+        key=lambda item: (
+            item.feasibility_gate,
+            item.candidate_score,
+            -item.usable_clmax,
+            item.template.candidate_role,
+        ),
+    )
 
 
 def _select_scored_candidate_beam(
-    scored: list[tuple[int, float, float, CSTAirfoilTemplate]]
-    | tuple[tuple[int, float, float, CSTAirfoilTemplate], ...],
+    scored: list[_ZoneCandidateScore] | tuple[_ZoneCandidateScore, ...],
     *,
     beam_count: int,
     selection_strategy: Literal["scalar_score", "constrained_pareto"] = "scalar_score",
+    pareto_knee_count: int = 0,
 ) -> tuple[CSTAirfoilTemplate, ...]:
     count = max(0, int(beam_count))
     if count <= 0 or not scored:
         return ()
     if selection_strategy == "scalar_score":
-        return tuple(item[3] for item in scored[:count])
+        return tuple(item.template for item in scored[:count])
     if selection_strategy != "constrained_pareto":
         raise ValueError(f"Unsupported airfoil selection strategy: {selection_strategy!r}")
 
-    candidate_by_role = {item[3].candidate_role: item[3] for item in scored}
+    candidate_by_role = {item.template.candidate_role: item.template for item in scored}
     pareto_candidates = tuple(
         AirfoilParetoCandidate(
-            candidate_role=item[3].candidate_role,
+            candidate_role=item.template.candidate_role,
             objectives={
-                "candidate_score": float(item[1]),
-                "negative_usable_clmax": float(item[2]),
+                "mission_drag": float(item.mean_cd) + float(item.trim_drag_estimate),
+                "negative_safe_clmax": -float(item.safe_clmax),
+                "cm_penalty": float(item.cm_penalty),
+                "negative_robust_pass_rate": -float(item.robust_pass_rate),
             },
-            constraint_violations={"hard_gate": float(item[0])},
+            constraint_violations={
+                "hard_gate": float(item.feasibility_gate),
+                "cm_hard_violation": float(item.cm_hard_violation),
+            },
         )
         for item in scored
     )
-    return tuple(
-        candidate_by_role[survivor.candidate_role]
-        for survivor in select_nsga2_survivors(pareto_candidates, survivor_count=count)
-    )
+    survivors = select_nsga2_survivors(pareto_candidates, survivor_count=count)
+    knee_count = max(0, int(pareto_knee_count))
+    if knee_count > 0:
+        knees = select_pareto_knees(pareto_candidates, knee_count=min(knee_count, count))
+        ordered_roles: list[str] = []
+        for knee in knees:
+            if knee.candidate_role not in ordered_roles:
+                ordered_roles.append(knee.candidate_role)
+        for survivor in survivors:
+            if survivor.candidate_role not in ordered_roles:
+                ordered_roles.append(survivor.candidate_role)
+        return tuple(candidate_by_role[role] for role in ordered_roles[:count])
+    return tuple(candidate_by_role[survivor.candidate_role] for survivor in survivors)
 
 
 def _seed_for_generation(
@@ -1454,6 +1550,16 @@ def select_zone_airfoil_templates(
     successive_halving_enabled: bool = True,
     successive_halving_rounds: int = 2,
     successive_halving_beam_width: int = 6,
+    cm_hard_lower_bound: float = -0.16,
+    cm_penalty_threshold: float = -0.12,
+    pareto_knee_count: int = 0,
+    cma_es_enabled: bool = False,
+    cma_es_knee_count: int = 0,
+    cma_es_iterations: int = 0,
+    cma_es_population_lambda: int = 16,
+    cma_es_sigma_init: float = 0.05,
+    cma_es_random_seed: int | None = 0,
+    trim_drag_per_cm_squared: float = 0.0,
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
@@ -1494,6 +1600,16 @@ def select_zone_airfoil_templates(
         successive_halving_enabled=successive_halving_enabled,
         successive_halving_rounds=successive_halving_rounds,
         successive_halving_beam_width=successive_halving_beam_width,
+        cm_hard_lower_bound=cm_hard_lower_bound,
+        cm_penalty_threshold=cm_penalty_threshold,
+        pareto_knee_count=pareto_knee_count,
+        cma_es_enabled=cma_es_enabled,
+        cma_es_knee_count=cma_es_knee_count,
+        cma_es_iterations=cma_es_iterations,
+        cma_es_population_lambda=cma_es_population_lambda,
+        cma_es_sigma_init=cma_es_sigma_init,
+        cma_es_random_seed=cma_es_random_seed,
+        trim_drag_per_cm_squared=trim_drag_per_cm_squared,
         safe_clmax_scale=safe_clmax_scale,
         safe_clmax_delta=safe_clmax_delta,
         stall_utilization_limit=stall_utilization_limit,
@@ -1545,6 +1661,16 @@ def select_zone_airfoil_templates_for_concepts(
     successive_halving_enabled: bool = True,
     successive_halving_rounds: int = 2,
     successive_halving_beam_width: int = 6,
+    cm_hard_lower_bound: float = -0.16,
+    cm_penalty_threshold: float = -0.12,
+    pareto_knee_count: int = 0,
+    cma_es_enabled: bool = False,
+    cma_es_knee_count: int = 0,
+    cma_es_iterations: int = 0,
+    cma_es_population_lambda: int = 16,
+    cma_es_sigma_init: float = 0.05,
+    cma_es_random_seed: int | None = 0,
+    trim_drag_per_cm_squared: float = 0.0,
     safe_clmax_scale: float = 0.90,
     safe_clmax_delta: float = 0.05,
     stall_utilization_limit: float = 0.80,
@@ -1655,6 +1781,9 @@ def select_zone_airfoil_templates_for_concepts(
                     launch_stall_utilization_limit=launch_stall_utilization_limit,
                     turn_stall_utilization_limit=turn_stall_utilization_limit,
                     local_stall_utilization_limit=local_stall_utilization_limit,
+                    cm_hard_lower_bound=cm_hard_lower_bound,
+                    cm_penalty_threshold=cm_penalty_threshold,
+                    trim_drag_per_cm_squared=trim_drag_per_cm_squared,
                 )
                 parent_count = min(max(2, int(nsga_parent_count)), len(scored))
                 if parent_count < 2:
@@ -1664,6 +1793,7 @@ def select_zone_airfoil_templates_for_concepts(
                     scored,
                     beam_count=parent_count,
                     selection_strategy=selection_strategy,
+                    pareto_knee_count=pareto_knee_count,
                 )
                 offspring = generate_seedless_nsga2_offspring(
                     zone_name=zone_name,
@@ -1703,6 +1833,166 @@ def select_zone_airfoil_templates_for_concepts(
                     }
                 )
 
+    if (
+        cma_es_enabled
+        and int(cma_es_iterations) > 0
+        and int(cma_es_knee_count) > 0
+    ):
+        cma_state_by_knee: dict[tuple[str, int], CMAESState] = {}
+        cma_parent_score_by_knee: dict[tuple[str, int], float] = {}
+        for batch_key, candidates in candidates_by_key.items():
+            zone_points = zone_points_by_key[batch_key]
+            zone_min_tc_ratio = zone_min_tc_by_key[batch_key]
+            scored = _score_available_zone_candidates(
+                candidates,
+                zone_points=zone_points,
+                candidate_results=candidate_results_by_key.get(batch_key, {}),
+                zone_min_tc_ratio=zone_min_tc_ratio,
+                safe_clmax_scale=safe_clmax_scale,
+                safe_clmax_delta=safe_clmax_delta,
+                stall_utilization_limit=stall_utilization_limit,
+                tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+                tip_3d_penalty_max=tip_3d_penalty_max,
+                tip_taper_penalty_weight=tip_taper_penalty_weight,
+                washout_relief_deg=washout_relief_deg,
+                washout_relief_max=washout_relief_max,
+                launch_stall_utilization_limit=launch_stall_utilization_limit,
+                turn_stall_utilization_limit=turn_stall_utilization_limit,
+                local_stall_utilization_limit=local_stall_utilization_limit,
+                cm_hard_lower_bound=cm_hard_lower_bound,
+                cm_penalty_threshold=cm_penalty_threshold,
+                trim_drag_per_cm_squared=trim_drag_per_cm_squared,
+            )
+            if not scored:
+                continue
+            knee_target = min(int(cma_es_knee_count), len(scored))
+            knee_templates = _select_scored_candidate_beam(
+                scored,
+                beam_count=knee_target,
+                selection_strategy="constrained_pareto",
+                pareto_knee_count=knee_target,
+            )
+            score_by_role = {
+                item.template.candidate_role: float(item.candidate_score)
+                for item in scored
+            }
+            _, zone_name = _split_concept_zone_batch_key(batch_key)
+            knee_bounds = _default_seedless_cst_bounds(zone_name)
+            for knee_index, knee_template in enumerate(knee_templates):
+                state_key = (batch_key, knee_index)
+                cma_state_by_knee[state_key] = initialize_cma_es_state(
+                    zone_name=zone_name,
+                    parent=knee_template,
+                    bounds=knee_bounds,
+                    sigma_init=cma_es_sigma_init,
+                    knee_index=knee_index,
+                )
+                cma_parent_score_by_knee[state_key] = score_by_role.get(
+                    knee_template.candidate_role, 0.0
+                )
+
+        for iteration_index in range(int(cma_es_iterations)):
+            if not cma_state_by_knee:
+                break
+            offspring_by_state: dict[tuple[str, int], tuple[CSTAirfoilTemplate, ...]] = {}
+            for state_key, state in cma_state_by_knee.items():
+                batch_key, knee_index = state_key
+                zone_min_tc_ratio = zone_min_tc_by_key[batch_key]
+                seed = _seed_for_generation(
+                    base_seed=cma_es_random_seed,
+                    generation_index=iteration_index * 1024 + knee_index,
+                )
+                try:
+                    children = sample_cma_es_offspring(
+                        state=state,
+                        bounds=_default_seedless_cst_bounds(state.zone_name),
+                        constraints=_seedless_constraints_for_zone(zone_min_tc_ratio),
+                        population_lambda=int(cma_es_population_lambda),
+                        random_seed=seed,
+                    )
+                except ValueError:
+                    children = ()
+                offspring_by_state[state_key] = children
+
+            offspring_by_key: dict[str, list[CSTAirfoilTemplate]] = {}
+            for (batch_key, _), children in offspring_by_state.items():
+                if children:
+                    offspring_by_key.setdefault(batch_key, []).extend(children)
+            offspring_by_key_tup = {
+                batch_key: tuple(children)
+                for batch_key, children in offspring_by_key.items()
+            }
+            if not offspring_by_key_tup:
+                continue
+
+            candidate_results_by_key, cma_worker_results = _run_batched_zone_candidate_queries(
+                zone_candidates=offspring_by_key_tup,
+                zone_points_by_name=zone_points_by_key,
+                worker=worker,
+                existing_results_by_zone=candidate_results_by_key,
+                robust_evaluation_enabled=robust_evaluation_enabled,
+                robust_reynolds_factors=robust_reynolds_factors,
+                robust_roughness_modes=robust_roughness_modes,
+                robust_min_pass_rate=robust_min_pass_rate,
+            )
+            for result in cma_worker_results:
+                concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
+                worker_results_by_concept.setdefault(concept_id, []).append(
+                    {
+                        **result,
+                        "zone_name": zone_name,
+                        "concept_id": concept_id,
+                    }
+                )
+
+            for batch_key, children in offspring_by_key_tup.items():
+                candidates_by_key[batch_key] = (*candidates_by_key[batch_key], *children)
+
+            updated_states: dict[tuple[str, int], CMAESState] = {}
+            for state_key, state in cma_state_by_knee.items():
+                batch_key, _ = state_key
+                children = offspring_by_state.get(state_key, ())
+                if not children:
+                    updated_states[state_key] = state
+                    continue
+                child_scored = _score_available_zone_candidates(
+                    children,
+                    zone_points=zone_points_by_key[batch_key],
+                    candidate_results=candidate_results_by_key.get(batch_key, {}),
+                    zone_min_tc_ratio=zone_min_tc_by_key[batch_key],
+                    safe_clmax_scale=safe_clmax_scale,
+                    safe_clmax_delta=safe_clmax_delta,
+                    stall_utilization_limit=stall_utilization_limit,
+                    tip_3d_penalty_start_eta=tip_3d_penalty_start_eta,
+                    tip_3d_penalty_max=tip_3d_penalty_max,
+                    tip_taper_penalty_weight=tip_taper_penalty_weight,
+                    washout_relief_deg=washout_relief_deg,
+                    washout_relief_max=washout_relief_max,
+                    launch_stall_utilization_limit=launch_stall_utilization_limit,
+                    turn_stall_utilization_limit=turn_stall_utilization_limit,
+                    local_stall_utilization_limit=local_stall_utilization_limit,
+                    cm_hard_lower_bound=cm_hard_lower_bound,
+                    cm_penalty_threshold=cm_penalty_threshold,
+                    trim_drag_per_cm_squared=trim_drag_per_cm_squared,
+                )
+                if not child_scored:
+                    updated_states[state_key] = state
+                    continue
+                scored_offspring = tuple(
+                    (item.template, float(item.candidate_score)) for item in child_scored
+                )
+                parent_score = cma_parent_score_by_knee[state_key]
+                updated_states[state_key] = update_cma_es_state(
+                    state=state,
+                    scored_offspring=scored_offspring,
+                    parent_score=parent_score,
+                )
+                best_offspring_score = min(score for _, score in scored_offspring)
+                cma_parent_score_by_knee[state_key] = min(
+                    parent_score, best_offspring_score
+                )
+            cma_state_by_knee = updated_states
+
     if coarse_to_fine_enabled:
         coarse_beam_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
         for batch_key, candidates in candidates_by_key.items():
@@ -1726,12 +2016,16 @@ def select_zone_airfoil_templates_for_concepts(
                 launch_stall_utilization_limit=launch_stall_utilization_limit,
                 turn_stall_utilization_limit=turn_stall_utilization_limit,
                 local_stall_utilization_limit=local_stall_utilization_limit,
+                cm_hard_lower_bound=cm_hard_lower_bound,
+                cm_penalty_threshold=cm_penalty_threshold,
+                trim_drag_per_cm_squared=trim_drag_per_cm_squared,
             )
             coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
             coarse_beam_by_key[batch_key] = _select_scored_candidate_beam(
                 coarse_scored,
                 beam_count=coarse_seed_count,
                 selection_strategy=selection_strategy,
+                pareto_knee_count=pareto_knee_count,
             )
 
         current_beam_by_key = coarse_beam_by_key
@@ -1792,12 +2086,16 @@ def select_zone_airfoil_templates_for_concepts(
                         launch_stall_utilization_limit=launch_stall_utilization_limit,
                         turn_stall_utilization_limit=turn_stall_utilization_limit,
                         local_stall_utilization_limit=local_stall_utilization_limit,
+                        cm_hard_lower_bound=cm_hard_lower_bound,
+                        cm_penalty_threshold=cm_penalty_threshold,
+                        trim_drag_per_cm_squared=trim_drag_per_cm_squared,
                     )
                     beam_count = min(max(1, int(successive_halving_beam_width)), len(stage_scored))
                     next_beam_by_key[batch_key] = _select_scored_candidate_beam(
                         stage_scored,
                         beam_count=beam_count,
                         selection_strategy=selection_strategy,
+                        pareto_knee_count=pareto_knee_count,
                     )
                 current_beam_by_key = next_beam_by_key
         else:

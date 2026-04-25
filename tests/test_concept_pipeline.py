@@ -97,11 +97,26 @@ def _worker_result_payload(query, *, sweep_point_count: int) -> dict[str, object
     return payload
 
 
-def _write_fast_test_config(tmp_path: Path, *, filename: str = "fast_concept.yaml") -> Path:
+def _load_fast_concept_payload() -> dict:
     payload = yaml.safe_load(
         Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
     )
     payload["geometry_family"]["sampling"]["sample_count"] = 6
+    cst_search = payload.setdefault("cst_search", {})
+    cst_search["seedless_sample_count"] = 32
+    cst_search["seedless_max_oversample_factor"] = 8
+    cst_search["robust_evaluation_enabled"] = False
+    cst_search["nsga_generation_count"] = 1
+    cst_search["nsga_offspring_count"] = 8
+    cst_search["nsga_parent_count"] = 4
+    cst_search["cma_es_enabled"] = False
+    cst_search["cma_es_knee_count"] = 0
+    cst_search["cma_es_iterations"] = 0
+    return payload
+
+
+def _write_fast_test_config(tmp_path: Path, *, filename: str = "fast_concept.yaml") -> Path:
+    payload = _load_fast_concept_payload()
     config_path = tmp_path / filename
     config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     return config_path
@@ -227,9 +242,7 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
 
 
 def test_pipeline_reruns_top_finalists_with_full_alpha_sweep(tmp_path: Path) -> None:
-    config_payload = yaml.safe_load(
-        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
-    )
+    config_payload = _load_fast_concept_payload()
     config_payload["pipeline"]["keep_top_n"] = 3
     config_payload["pipeline"]["finalist_full_sweep_top_l"] = 2
     config_path = tmp_path / "dual_track.yaml"
@@ -299,9 +312,7 @@ def test_pipeline_reruns_top_finalists_with_full_alpha_sweep(tmp_path: Path) -> 
 def test_pipeline_summary_distinguishes_screening_and_finalist_worker_fidelity(
     tmp_path: Path,
 ) -> None:
-    config_payload = yaml.safe_load(
-        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
-    )
+    config_payload = _load_fast_concept_payload()
     config_payload["pipeline"]["keep_top_n"] = 3
     config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
     config_path = tmp_path / "dual_track_summary.yaml"
@@ -366,9 +377,7 @@ def test_pipeline_reruns_finalists_with_post_airfoil_avl_reference_context(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_payload = yaml.safe_load(
-        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
-    )
+    config_payload = _load_fast_concept_payload()
     config_payload["pipeline"]["keep_top_n"] = 3
     config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
     config_path = tmp_path / "post_airfoil_rerun.yaml"
@@ -582,9 +591,7 @@ def test_pipeline_can_take_second_post_airfoil_avl_rerun_when_reference_still_sh
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_payload = yaml.safe_load(
-        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
-    )
+    config_payload = _load_fast_concept_payload()
     config_payload["pipeline"]["keep_top_n"] = 3
     config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
     config_path = tmp_path / "post_airfoil_rerun_iterative.yaml"
@@ -710,9 +717,7 @@ def test_pipeline_falls_back_when_post_airfoil_rerun_has_no_feasible_reference(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_payload = yaml.safe_load(
-        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
-    )
+    config_payload = _load_fast_concept_payload()
     config_payload["pipeline"]["keep_top_n"] = 3
     config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
     config_path = tmp_path / "post_airfoil_rerun_fallback.yaml"
@@ -809,9 +814,7 @@ def test_pipeline_falls_back_when_post_airfoil_rerun_has_no_feasible_reference(
 def test_pipeline_batches_screening_candidate_selection_across_concepts(
     tmp_path: Path,
 ) -> None:
-    config_payload = yaml.safe_load(
-        Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
-    )
+    config_payload = _load_fast_concept_payload()
     config_payload["pipeline"]["keep_top_n"] = 2
     config_payload["pipeline"]["finalist_full_sweep_top_l"] = 1
     config_path = tmp_path / "global_screening_batch.yaml"

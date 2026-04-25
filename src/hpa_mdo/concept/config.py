@@ -344,6 +344,15 @@ class CSTSearchConfig(ConceptBaseModel):
     successive_halving_enabled: bool = True
     successive_halving_rounds: int = Field(2, ge=1)
     successive_halving_beam_width: int = Field(6, ge=1)
+    cm_hard_lower_bound: float = Field(-0.16, le=0.0)
+    cm_penalty_threshold: float = Field(-0.12, le=0.0)
+    pareto_knee_count: int = Field(0, ge=0)
+    cma_es_enabled: bool = False
+    cma_es_knee_count: int = Field(0, ge=0)
+    cma_es_iterations: int = Field(0, ge=0)
+    cma_es_population_lambda: int = Field(16, ge=2)
+    cma_es_sigma_init: float = Field(0.05, gt=0.0, le=1.0)
+    cma_es_random_seed: int | None = 0
 
     @model_validator(mode="after")
     def validate_levels(self) -> CSTSearchConfig:
@@ -378,6 +387,28 @@ class CSTSearchConfig(ConceptBaseModel):
             raise ValueError(
                 "cst_search.successive_halving_beam_width must not exceed the total candidate count."
             )
+        if self.cm_hard_lower_bound > self.cm_penalty_threshold:
+            raise ValueError(
+                "cst_search.cm_hard_lower_bound must be less than or equal to cm_penalty_threshold."
+            )
+        if self.cma_es_enabled:
+            if self.cma_es_knee_count <= 0:
+                raise ValueError(
+                    "cst_search.cma_es_knee_count must be >= 1 when cma_es_enabled."
+                )
+            if self.cma_es_iterations <= 0:
+                raise ValueError(
+                    "cst_search.cma_es_iterations must be >= 1 when cma_es_enabled."
+                )
+            if self.pareto_knee_count <= 0:
+                raise ValueError(
+                    "cst_search.pareto_knee_count must be >= 1 when cma_es_enabled "
+                    "(CMA-ES refines Pareto knees)."
+                )
+            if self.cma_es_knee_count > self.pareto_knee_count:
+                raise ValueError(
+                    "cst_search.cma_es_knee_count must not exceed pareto_knee_count."
+                )
         return self
 
 

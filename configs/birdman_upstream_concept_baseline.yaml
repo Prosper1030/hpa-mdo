@@ -91,8 +91,8 @@ geometry_family:
       min: 30.0
       max: 36.0
     wing_loading_target_Npm2:
-      min: 26.0
-      max: 34.0
+      min: 22.0
+      max: 30.0
     taper_ratio:
       min: 0.24
       max: 0.40
@@ -102,7 +102,7 @@ geometry_family:
   hard_constraints:
     wing_area_m2_range:
       min: 28.0
-      max: 42.0
+      max: 46.0
     aspect_ratio_range:
       min: 24.0
       max: 36.0
@@ -119,6 +119,8 @@ geometry_family:
   dihedral_exponent_candidates: [1.0, 1.5, 2.0]
 
 cst_search:
+  search_mode: seedless_sobol
+  selection_strategy: constrained_pareto
   thickness_delta_levels: [-0.022, -0.018, -0.014, -0.010, -0.006, 0.0, 0.006, 0.010, 0.014, 0.018, 0.022]
   camber_delta_levels: [-0.016, -0.012, -0.008, -0.004, 0.0, 0.004, 0.008, 0.012, 0.016]
   coarse_to_fine_enabled: true
@@ -129,6 +131,25 @@ cst_search:
   successive_halving_enabled: true
   successive_halving_rounds: 2
   successive_halving_beam_width: 6
+  seedless_sample_count: 512
+  seedless_max_oversample_factor: 16
+  robust_evaluation_enabled: true
+  robust_reynolds_factors: [0.85, 1.0, 1.15]
+  robust_roughness_modes: ["clean", "rough"]
+  robust_min_pass_rate: 0.75
+  nsga_generation_count: 5
+  nsga_offspring_count: 32
+  nsga_parent_count: 16
+  nsga_mutation_scale: 0.06
+  cm_hard_lower_bound: -0.16
+  cm_penalty_threshold: -0.12
+  pareto_knee_count: 3
+  cma_es_enabled: true
+  cma_es_knee_count: 3
+  cma_es_iterations: 4
+  cma_es_population_lambda: 12
+  cma_es_sigma_init: 0.05
+  cma_es_random_seed: 0
 
 pipeline:
   stations_per_half: 7

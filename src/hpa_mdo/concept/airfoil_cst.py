@@ -43,6 +43,8 @@ class CSTGeometryMetrics:
     spar_depth_ratio_25_35: float
     te_thickness_ratio: float
     curvature_reversal_count: int
+    thickness_at_1pct_chord: float
+    max_camber_ratio: float
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,8 @@ class SeedlessCSTConstraints:
     te_thickness_min: float = 0.001
     te_thickness_max: float = 0.004
     max_curvature_reversal_count: int = 8
+    min_thickness_at_1pct_chord: float = 0.015
+    max_camber_ratio: float = 0.10
 
 
 def _bernstein(n: int, i: int, x: float) -> float:
@@ -254,12 +258,18 @@ def analyze_cst_geometry(
         0.5 * (_interp_surface_y(upper_surface, x) + _interp_surface_y(lower_surface, x))
         for x in sample_xs
     )
+    thickness_at_1pct = float(
+        _interp_surface_y(upper_surface, 0.01) - _interp_surface_y(lower_surface, 0.01)
+    )
+    max_camber_ratio = max((abs(value) for value in camber_values), default=0.0)
     return CSTGeometryMetrics(
         max_thickness_ratio=float(max_thickness_ratio),
         max_thickness_x=float(max_thickness_x),
         spar_depth_ratio_25_35=float(min(spar_zone_depths)) if spar_zone_depths else 0.0,
         te_thickness_ratio=float(template.te_thickness_m),
         curvature_reversal_count=_count_curvature_reversals(camber_values),
+        thickness_at_1pct_chord=float(thickness_at_1pct),
+        max_camber_ratio=float(max_camber_ratio),
     )
 
 
@@ -293,6 +303,10 @@ def validate_seedless_cst_template(
         return CSTValidationResult(valid=False, reason="te_thickness_above_max")
     if metrics.curvature_reversal_count > constraints.max_curvature_reversal_count:
         return CSTValidationResult(valid=False, reason="curvature_reversal_count_exceeded")
+    if metrics.thickness_at_1pct_chord < constraints.min_thickness_at_1pct_chord:
+        return CSTValidationResult(valid=False, reason="leading_edge_too_sharp")
+    if metrics.max_camber_ratio > constraints.max_camber_ratio:
+        return CSTValidationResult(valid=False, reason="max_camber_above_max")
     return CSTValidationResult(valid=True, reason="ok")
 
 

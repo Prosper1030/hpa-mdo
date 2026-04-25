@@ -55,8 +55,8 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.sampling.sample_count == 48
     assert cfg.geometry_family.primary_ranges.span_m.min == pytest.approx(30.0)
     assert cfg.geometry_family.primary_ranges.span_m.max == pytest.approx(36.0)
-    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(26.0)
-    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(34.0)
+    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(22.0)
+    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(30.0)
     assert cfg.geometry_family.primary_ranges.taper_ratio.min == pytest.approx(0.24)
     assert cfg.geometry_family.primary_ranges.taper_ratio.max == pytest.approx(0.40)
     assert cfg.geometry_family.primary_ranges.tip_twist_deg.min == pytest.approx(-3.0)
@@ -64,7 +64,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.hard_constraints.root_chord_min_m == pytest.approx(1.20)
     assert cfg.geometry_family.hard_constraints.tip_chord_min_m == pytest.approx(0.30)
     assert cfg.geometry_family.hard_constraints.wing_area_m2_range.min == pytest.approx(28.0)
-    assert cfg.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(42.0)
+    assert cfg.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(46.0)
     assert cfg.geometry_family.twist_root_deg == pytest.approx(2.0)
     assert cfg.geometry_family.dihedral_root_deg_candidates == (0.0, 1.0, 2.0)
     assert cfg.geometry_family.dihedral_tip_deg_candidates == (4.0, 6.0, 8.0)
@@ -95,12 +95,18 @@ def test_load_concept_config_reads_birdman_baseline():
     )
     assert cfg.cst_search.coarse_thickness_stride == 3
     assert cfg.cst_search.coarse_keep_top_k == 3
-    assert cfg.cst_search.search_mode == "seed_neighborhood"
-    assert cfg.cst_search.seedless_sample_count == 32
-    assert cfg.cst_search.seedless_max_oversample_factor == 8
+    assert cfg.cst_search.search_mode == "seedless_sobol"
+    assert cfg.cst_search.seedless_sample_count == 512
+    assert cfg.cst_search.seedless_max_oversample_factor == 16
     assert cfg.cst_search.successive_halving_enabled is True
     assert cfg.cst_search.successive_halving_rounds == 2
     assert cfg.cst_search.successive_halving_beam_width == 6
+    assert cfg.cst_search.cma_es_enabled is True
+    assert cfg.cst_search.cma_es_knee_count == 3
+    assert cfg.cst_search.cma_es_iterations == 4
+    assert cfg.cst_search.cma_es_population_lambda == 12
+    assert cfg.cst_search.cma_es_sigma_init == pytest.approx(0.05)
+    assert cfg.cst_search.cma_es_random_seed == 0
     assert cfg.pipeline.stations_per_half == 7
     assert cfg.pipeline.keep_top_n == 8
     assert cfg.pipeline.finalist_full_sweep_top_l == 4

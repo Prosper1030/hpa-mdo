@@ -51,6 +51,12 @@ class TurnGateResult:
     safe_clmax_status: str = "not_evaluated"
     raw_stall_speed_margin_ratio: float = float("inf")
     safe_stall_speed_margin_ratio: float = float("inf")
+    tip_excluded_safe_clmax_ratio: float = 0.0
+    outboard_region_safe_clmax_ratio: float = 0.0
+    contiguous_overlimit_span_fraction: float = 0.0
+    tip_exclusion_eta: float = 0.97
+    outboard_region_eta_min: float = 0.70
+    outboard_region_eta_max: float = 0.95
 
 
 @dataclass(frozen=True)
@@ -73,6 +79,12 @@ class LocalStallResult:
     safe_clmax_status: str
     raw_stall_speed_margin_ratio: float
     safe_stall_speed_margin_ratio: float
+    tip_excluded_safe_clmax_ratio: float = 0.0
+    outboard_region_safe_clmax_ratio: float = 0.0
+    contiguous_overlimit_span_fraction: float = 0.0
+    tip_exclusion_eta: float = 0.97
+    outboard_region_eta_min: float = 0.70
+    outboard_region_eta_max: float = 0.95
 
 
 def _cl_limit(point: dict[str, float]) -> float:
@@ -158,12 +170,92 @@ def _safe_clmax_status(safe_clmax_ratio: float, *, case_limit: float) -> str:
     return "case_limit_pass"
 
 
+_DEFAULT_TIP_EXCLUSION_ETA = 0.97
+_DEFAULT_OUTBOARD_REGION_ETA_MIN = 0.70
+_DEFAULT_OUTBOARD_REGION_ETA_MAX = 0.95
+
+
+def _spanwise_indicators(
+    *,
+    station_points: list[dict[str, float]],
+    half_span_m: float,
+    load_factor: float,
+    pre_scaled_cl: bool,
+    warning_threshold: float,
+    tip_exclusion_eta: float = _DEFAULT_TIP_EXCLUSION_ETA,
+    outboard_region_eta_min: float = _DEFAULT_OUTBOARD_REGION_ETA_MIN,
+    outboard_region_eta_max: float = _DEFAULT_OUTBOARD_REGION_ETA_MAX,
+) -> dict[str, float]:
+    if outboard_region_eta_max <= outboard_region_eta_min:
+        raise ValueError("outboard_region_eta_max must be > outboard_region_eta_min.")
+    if tip_exclusion_eta <= 0.0 or tip_exclusion_eta > 1.0:
+        raise ValueError("tip_exclusion_eta must be in the interval (0, 1].")
+
+    sorted_points = sorted(station_points, key=lambda item: float(item.get("station_y_m", 0.0)))
+    safe_span_entries: list[tuple[float, float]] = []
+    for point in sorted_points:
+        y_abs = abs(float(point.get("station_y_m", 0.0)))
+        eta = min(1.0, y_abs / max(float(half_span_m), 1.0e-9))
+        required_cl = _resolved_required_cl(
+            point,
+            load_factor=load_factor,
+            pre_scaled_cl=pre_scaled_cl,
+        )
+        safe_ratio = _ratio(required_cl, _cl_limit(point))
+        safe_span_entries.append((eta, safe_ratio))
+
+    if not safe_span_entries:
+        return {
+            "tip_excluded_safe_clmax_ratio": 0.0,
+            "outboard_region_safe_clmax_ratio": 0.0,
+            "contiguous_overlimit_span_fraction": 0.0,
+        }
+
+    tip_excluded_ratios = [ratio for eta, ratio in safe_span_entries if eta <= tip_exclusion_eta]
+    outboard_ratios = [
+        ratio
+        for eta, ratio in safe_span_entries
+        if outboard_region_eta_min <= eta <= outboard_region_eta_max
+    ]
+    tip_excluded_max = max(tip_excluded_ratios) if tip_excluded_ratios else 0.0
+    outboard_max = max(outboard_ratios) if outboard_ratios else 0.0
+
+    contiguous_fraction = 0.0
+    current_start: float | None = None
+    previous_eta: float | None = None
+    segments: list[tuple[float, float]] = []
+    for eta, ratio in safe_span_entries:
+        if ratio > float(warning_threshold):
+            if current_start is None:
+                current_start = eta
+            previous_eta = eta
+        else:
+            if current_start is not None and previous_eta is not None:
+                segments.append((current_start, previous_eta))
+            current_start = None
+            previous_eta = None
+    if current_start is not None and previous_eta is not None:
+        segments.append((current_start, previous_eta))
+    if segments:
+        contiguous_fraction = max(end - start for start, end in segments)
+
+    return {
+        "tip_excluded_safe_clmax_ratio": float(tip_excluded_max),
+        "outboard_region_safe_clmax_ratio": float(outboard_max),
+        "contiguous_overlimit_span_fraction": float(contiguous_fraction),
+    }
+
+
 def _evaluate_stationwise_margin(
     *,
     station_points: list[dict[str, float]],
     half_span_m: float,
     load_factor: float,
     pre_scaled_cl: bool = False,
+    warning_threshold: float | None = None,
+    tip_exclusion_eta: float = _DEFAULT_TIP_EXCLUSION_ETA,
+    outboard_region_eta_min: float = _DEFAULT_OUTBOARD_REGION_ETA_MIN,
+    outboard_region_eta_max: float = _DEFAULT_OUTBOARD_REGION_ETA_MAX,
 ) -> dict[str, float | bool | str]:
     if not station_points:
         raise ValueError("station_points must not be empty.")
@@ -212,6 +304,19 @@ def _evaluate_stationwise_margin(
     raw_clmax_ratio = _ratio(raw_required_cl, raw_clmax)
     y_m = float(limiting_point["station_y_m"])
     raw_y_m = float(raw_limiting_point.get("station_y_m", y_m))
+    warning_threshold_value = (
+        float(stall_utilization) if warning_threshold is None else float(warning_threshold)
+    )
+    spanwise = _spanwise_indicators(
+        station_points=station_points,
+        half_span_m=half_span_m,
+        load_factor=load_factor,
+        pre_scaled_cl=pre_scaled_cl,
+        warning_threshold=warning_threshold_value,
+        tip_exclusion_eta=tip_exclusion_eta,
+        outboard_region_eta_min=outboard_region_eta_min,
+        outboard_region_eta_max=outboard_region_eta_max,
+    )
     return {
         "cl_level": cl_level,
         "cl_max": cl_max,
@@ -230,6 +335,11 @@ def _evaluate_stationwise_margin(
         "safe_clmax": cl_max,
         "safe_clmax_ratio": stall_utilization,
         "safe_stall_speed_margin_ratio": _stall_speed_margin_ratio(stall_utilization),
+        "warning_threshold": warning_threshold_value,
+        "tip_exclusion_eta": float(tip_exclusion_eta),
+        "outboard_region_eta_min": float(outboard_region_eta_min),
+        "outboard_region_eta_max": float(outboard_region_eta_max),
+        **spanwise,
     }
 
 
@@ -336,6 +446,7 @@ def evaluate_turn_gate(
         half_span_m=half_span_m,
         load_factor=load_factor,
         pre_scaled_cl=pre_scaled_cl,
+        warning_threshold=float(stall_utilization_limit),
     )
     cl_level = float(stationwise["cl_level"])
     cl_max = float(stationwise["cl_max"])
@@ -359,6 +470,16 @@ def evaluate_turn_gate(
         "safe_clmax_status": safe_clmax_status,
         "raw_stall_speed_margin_ratio": float(stationwise["raw_stall_speed_margin_ratio"]),
         "safe_stall_speed_margin_ratio": float(stationwise["safe_stall_speed_margin_ratio"]),
+        "tip_excluded_safe_clmax_ratio": float(stationwise["tip_excluded_safe_clmax_ratio"]),
+        "outboard_region_safe_clmax_ratio": float(
+            stationwise["outboard_region_safe_clmax_ratio"]
+        ),
+        "contiguous_overlimit_span_fraction": float(
+            stationwise["contiguous_overlimit_span_fraction"]
+        ),
+        "tip_exclusion_eta": float(stationwise["tip_exclusion_eta"]),
+        "outboard_region_eta_min": float(stationwise["outboard_region_eta_min"]),
+        "outboard_region_eta_max": float(stationwise["outboard_region_eta_max"]),
     }
 
     if not trim_feasible:
@@ -554,6 +675,7 @@ def evaluate_local_stall(
         station_points=station_points,
         half_span_m=half_span_m,
         load_factor=1.0,
+        warning_threshold=float(stall_utilization_limit),
     )
     min_margin = float(stationwise["min_margin"])
     stall_utilization = float(stationwise["stall_utilization"])
@@ -592,6 +714,16 @@ def evaluate_local_stall(
         safe_clmax_status=safe_clmax_status,
         raw_stall_speed_margin_ratio=float(stationwise["raw_stall_speed_margin_ratio"]),
         safe_stall_speed_margin_ratio=float(stationwise["safe_stall_speed_margin_ratio"]),
+        tip_excluded_safe_clmax_ratio=float(stationwise["tip_excluded_safe_clmax_ratio"]),
+        outboard_region_safe_clmax_ratio=float(
+            stationwise["outboard_region_safe_clmax_ratio"]
+        ),
+        contiguous_overlimit_span_fraction=float(
+            stationwise["contiguous_overlimit_span_fraction"]
+        ),
+        tip_exclusion_eta=float(stationwise["tip_exclusion_eta"]),
+        outboard_region_eta_min=float(stationwise["outboard_region_eta_min"]),
+        outboard_region_eta_max=float(stationwise["outboard_region_eta_max"]),
     )
 
 

@@ -6,6 +6,7 @@ from hpa_mdo.concept.airfoil_pareto import (
     AirfoilParetoCandidate,
     rank_constrained_pareto_candidates,
     select_nsga2_survivors,
+    select_pareto_knees,
 )
 
 
@@ -55,3 +56,51 @@ def test_select_nsga2_survivors_keeps_front_extremes_by_crowding_distance() -> N
     assert survivors[1].candidate_role == "front_4"
     assert "front_0" in {candidate.candidate_role for candidate in survivors}
     assert "front_4" in {candidate.candidate_role for candidate in survivors}
+
+
+def test_select_pareto_knees_prefers_balanced_compromise() -> None:
+    low_drag = AirfoilParetoCandidate(
+        candidate_role="low_drag",
+        objectives={"cd": 0.010, "negative_clmax": -1.10},
+    )
+    balanced = AirfoilParetoCandidate(
+        candidate_role="balanced",
+        objectives={"cd": 0.013, "negative_clmax": -1.30},
+    )
+    high_clmax = AirfoilParetoCandidate(
+        candidate_role="high_clmax",
+        objectives={"cd": 0.019, "negative_clmax": -1.55},
+    )
+
+    knees = select_pareto_knees((low_drag, balanced, high_clmax), knee_count=1)
+
+    assert len(knees) == 1
+    assert knees[0].candidate_role == "balanced"
+
+
+def test_select_pareto_knees_ignores_dominated_candidates() -> None:
+    on_front_low = AirfoilParetoCandidate(
+        candidate_role="front_low",
+        objectives={"cd": 0.010, "negative_clmax": -1.10},
+    )
+    on_front_balanced = AirfoilParetoCandidate(
+        candidate_role="front_balanced",
+        objectives={"cd": 0.013, "negative_clmax": -1.30},
+    )
+    on_front_high = AirfoilParetoCandidate(
+        candidate_role="front_high",
+        objectives={"cd": 0.019, "negative_clmax": -1.55},
+    )
+    dominated = AirfoilParetoCandidate(
+        candidate_role="dominated",
+        objectives={"cd": 0.025, "negative_clmax": -1.10},
+    )
+
+    knees = select_pareto_knees(
+        (on_front_low, on_front_balanced, on_front_high, dominated),
+        knee_count=2,
+    )
+
+    chosen = {candidate.candidate_role for candidate in knees}
+    assert "dominated" not in chosen
+    assert "front_balanced" in chosen

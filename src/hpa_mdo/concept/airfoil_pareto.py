@@ -164,3 +164,61 @@ def select_nsga2_survivors(
         return ()
     ranked = rank_constrained_pareto_candidates(candidates)
     return tuple(entry.candidate for entry in ranked[:survivor_count])
+
+
+def _normalize_front_objectives(
+    front_entries: tuple[AirfoilParetoEntry, ...],
+    *,
+    objective_names: tuple[str, ...],
+) -> dict[int, tuple[float, ...]]:
+    if not front_entries:
+        return {}
+    minimums: dict[str, float] = {}
+    maximums: dict[str, float] = {}
+    for name in objective_names:
+        values = [_objective_value(entry.candidate, name) for entry in front_entries]
+        minimums[name] = min(values)
+        maximums[name] = max(values)
+    normalized: dict[int, tuple[float, ...]] = {}
+    for index, entry in enumerate(front_entries):
+        coords: list[float] = []
+        for name in objective_names:
+            value = _objective_value(entry.candidate, name)
+            span = maximums[name] - minimums[name]
+            if span <= 0.0:
+                coords.append(0.0)
+            else:
+                coords.append((value - minimums[name]) / span)
+        normalized[index] = tuple(coords)
+    return normalized
+
+
+def select_pareto_knees(
+    candidates: tuple[AirfoilParetoCandidate, ...],
+    *,
+    knee_count: int,
+) -> tuple[AirfoilParetoCandidate, ...]:
+    if knee_count <= 0 or not candidates:
+        return ()
+    ranked = rank_constrained_pareto_candidates(candidates)
+    first_front = tuple(entry for entry in ranked if entry.rank == 0)
+    if not first_front:
+        return ()
+    objective_names = _objective_names(tuple(entry.candidate for entry in first_front))
+    if not objective_names:
+        return tuple(entry.candidate for entry in first_front[:knee_count])
+    normalized = _normalize_front_objectives(first_front, objective_names=objective_names)
+
+    knee_score: dict[int, float] = {}
+    for index, coords in normalized.items():
+        knee_score[index] = max(coords) if coords else 0.0
+
+    ordered_indices = sorted(
+        range(len(first_front)),
+        key=lambda idx: (
+            knee_score[idx],
+            -first_front[idx].crowding_distance,
+            first_front[idx].candidate.candidate_role,
+        ),
+    )
+    return tuple(first_front[idx].candidate for idx in ordered_indices[:knee_count])
