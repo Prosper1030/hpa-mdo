@@ -97,11 +97,29 @@ class MissionConfig(ConceptBaseModel):
     speed_sweep_min_mps: float = Field(6.0, gt=0.0)
     speed_sweep_max_mps: float = Field(10.0, gt=0.0)
     speed_sweep_points: int = Field(9, ge=3)
+    slow_report_speeds_mps: tuple[float, ...] = Field(default_factory=tuple)
 
     @model_validator(mode="after")
     def validate_speed_sweep_bounds(self) -> MissionConfig:
         if self.speed_sweep_max_mps <= self.speed_sweep_min_mps:
             raise ValueError("mission.speed_sweep_max_mps must be > mission.speed_sweep_min_mps.")
+        if self.slow_report_speeds_mps:
+            slow_speeds = self.slow_report_speeds_mps
+            if any(value <= 0.0 for value in slow_speeds):
+                raise ValueError(
+                    "mission.slow_report_speeds_mps entries must all be positive."
+                )
+            if any(
+                later <= earlier
+                for earlier, later in zip(slow_speeds, slow_speeds[1:])
+            ):
+                raise ValueError(
+                    "mission.slow_report_speeds_mps must be strictly increasing (sorted, unique)."
+                )
+            if any(value >= self.speed_sweep_min_mps for value in slow_speeds):
+                raise ValueError(
+                    "mission.slow_report_speeds_mps entries must all be < mission.speed_sweep_min_mps."
+                )
         if self.rider_model == "csv_power_curve" and self.rider_power_curve_csv is None:
             raise ValueError(
                 "mission.rider_power_curve_csv must be provided when mission.rider_model=csv_power_curve."

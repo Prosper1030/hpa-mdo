@@ -1681,7 +1681,7 @@ def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
         air_density_kg_per_m3=1.15,
     )
 
-    assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(6.5)
+    assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(7.0)
     assert mission["best_range_speed_mps"] == pytest.approx(7.5)
     assert mission["best_range_m"] < mission["best_range_unconstrained_m"]
     assert len(mission["power_margin_w_by_speed"]) == len(mission["power_required_w"])
@@ -1691,7 +1691,7 @@ def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
     assert mission["best_power_margin_w"] is not None
     assert mission["feasible_speed_set_mps"] == pytest.approx([7.5, 8.0, 8.5, 9.0, 9.5, 10.0])
     assert mission["operating_point_status"] == "filtered_to_feasible_speeds"
-    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(1.0)
+    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(0.5)
 
 
 def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() -> None:

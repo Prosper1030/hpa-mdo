@@ -568,7 +568,13 @@ def select_avl_design_cases(
     )
 
     max_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
-    min_speed_mps = float(min(_speed_sweep_mps(cfg)))
+    slow_report_speeds_mps = tuple(cfg.mission.slow_report_speeds_mps)
+    if slow_report_speeds_mps:
+        slow_case_speed_mps = float(min(slow_report_speeds_mps))
+        slow_case_speed_reason = "slow_report_speeds_mps_min"
+    else:
+        slow_case_speed_mps = float(min(_speed_sweep_mps(cfg)))
+        slow_case_speed_reason = "speed_sweep_min_mps"
     launch_speed_mps = float(cfg.launch.release_speed_mps)
     turn_load_factor = 1.0 / math.cos(math.radians(float(cfg.turn.required_bank_angle_deg)))
     design_cases = [
@@ -584,11 +590,11 @@ def select_avl_design_cases(
         },
         {
             "case_label": "slow_avl_case",
-            "evaluation_speed_mps": float(min_speed_mps),
+            "evaluation_speed_mps": float(slow_case_speed_mps),
             "evaluation_gross_mass_kg": float(max_gross_mass_kg),
             "load_factor": 1.0,
             "case_weight": slow_case_weight,
-            "speed_reason": "speed_sweep_min_mps",
+            "speed_reason": slow_case_speed_reason,
             "mass_reason": "max_gross_mass",
             "case_reason": "primary_low_speed_heavy_mass_case",
         },

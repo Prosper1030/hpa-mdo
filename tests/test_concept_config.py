@@ -33,6 +33,10 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.mission.resolved_rider_model == "csv_power_curve"
     assert cfg.mission.rider_power_curve_csv is not None
     assert Path(cfg.mission.rider_power_curve_csv).is_file()
+    assert cfg.mission.speed_sweep_min_mps == pytest.approx(7.0)
+    assert cfg.mission.speed_sweep_max_mps == pytest.approx(10.0)
+    assert cfg.mission.speed_sweep_points == 7
+    assert cfg.mission.slow_report_speeds_mps == (6.0,)
     assert cfg.launch.mode == "restrained_pre_spin"
     assert cfg.launch.prop_ready_before_release is True
     assert cfg.launch.release_speed_mps == pytest.approx(8.0)
@@ -265,6 +269,48 @@ def test_load_concept_config_rejects_inverted_speed_sweep_bounds():
                     "speed_sweep_min_mps": 10.0,
                     "speed_sweep_max_mps": 6.0,
                     "speed_sweep_points": 9,
+                },
+            }
+        )
+
+
+def test_load_concept_config_rejects_slow_report_speed_above_cruise_min():
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    with pytest.raises(ValueError, match="slow_report_speeds_mps"):
+        BirdmanConceptConfig.model_validate(
+            {
+                **load_concept_config(cfg_path).model_dump(),
+                "mission": {
+                    "target_distance_km": 42.195,
+                    "rider_model": "fake_anchor_curve",
+                    "anchor_power_w": 300.0,
+                    "anchor_duration_min": 30.0,
+                    "speed_sweep_min_mps": 7.0,
+                    "speed_sweep_max_mps": 10.0,
+                    "speed_sweep_points": 7,
+                    "slow_report_speeds_mps": [7.5],
+                },
+            }
+        )
+
+
+def test_load_concept_config_rejects_unsorted_slow_report_speeds():
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
+    with pytest.raises(ValueError, match="slow_report_speeds_mps"):
+        BirdmanConceptConfig.model_validate(
+            {
+                **load_concept_config(cfg_path).model_dump(),
+                "mission": {
+                    "target_distance_km": 42.195,
+                    "rider_model": "fake_anchor_curve",
+                    "anchor_power_w": 300.0,
+                    "anchor_duration_min": 30.0,
+                    "speed_sweep_min_mps": 7.0,
+                    "speed_sweep_max_mps": 10.0,
+                    "speed_sweep_points": 7,
+                    "slow_report_speeds_mps": [6.5, 5.5],
                 },
             }
         )
