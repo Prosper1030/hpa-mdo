@@ -65,6 +65,11 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.rigging_drag.total_exposed_length_m == pytest.approx(24.0)
     assert cfg.rigging_drag.drag_coefficient == pytest.approx(1.10)
     assert cfg.rigging_drag.cda_override_m2 is None
+    assert cfg.jig_shape_gate.enabled is True
+    assert cfg.jig_shape_gate.spar_youngs_modulus_pa == pytest.approx(120.0e9)
+    assert cfg.jig_shape_gate.spar_vertical_separation_m == pytest.approx(0.10)
+    assert cfg.jig_shape_gate.deflection_taper_correction_factor == pytest.approx(1.7)
+    assert cfg.jig_shape_gate.max_tip_deflection_to_halfspan_ratio == pytest.approx(0.30)
     assert cfg.segmentation.min_segment_length_m == pytest.approx(1.0)
     assert cfg.segmentation.max_segment_length_m == pytest.approx(3.0)
     assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)

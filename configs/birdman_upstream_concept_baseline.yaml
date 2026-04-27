@@ -85,6 +85,13 @@ rigging_drag:
   total_exposed_length_m: 24.0
   drag_coefficient: 1.10
 
+jig_shape_gate:
+  enabled: true
+  spar_youngs_modulus_pa: 120.0e9
+  spar_vertical_separation_m: 0.10
+  deflection_taper_correction_factor: 1.7
+  max_tip_deflection_to_halfspan_ratio: 0.30
+
 tail_model:
   wing_ac_xc: 0.25
   tail_arm_to_mac: 4.0

@@ -8,6 +8,7 @@ from itertools import product
 import numpy as np
 from scipy.stats import qmc
 
+from hpa_mdo.concept.jig_shape import estimate_tip_deflection_ratio
 from hpa_mdo.concept.mass_closure import close_area_mass, estimate_tube_system_mass_kg
 
 
@@ -534,6 +535,32 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                 continue
             wing_area_m2 = float(mass_closure.closed_wing_area_m2)
             design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
+
+        jig_gate_cfg = getattr(cfg, "jig_shape_gate", None)
+        if jig_gate_cfg is not None and bool(jig_gate_cfg.enabled):
+            tube_geom = getattr(cfg.mass_closure, "tube_system", None)
+            if tube_geom is not None:
+                deflection_ratio = estimate_tip_deflection_ratio(
+                    gross_mass_kg=design_gross_mass_kg,
+                    span_m=span_m,
+                    tube_geom=tube_geom,
+                    gate_cfg=jig_gate_cfg,
+                )
+                limit_ratio = float(jig_gate_cfg.max_tip_deflection_to_halfspan_ratio)
+                if deflection_ratio > limit_ratio:
+                    rejected_concepts.append(
+                        _geometry_rejection(
+                            sample_index=sample_index,
+                            reason="jig_shape_deflection_excessive",
+                            primary_values=primary_values,
+                            secondary_values=secondary_values,
+                            tip_deflection_ratio=float(deflection_ratio),
+                            tip_deflection_ratio_limit=float(limit_ratio),
+                            design_gross_mass_kg=float(design_gross_mass_kg),
+                        )
+                    )
+                    continue
+
         root_chord_m = 2.0 * wing_area_m2 / (span_m * (1.0 + taper_ratio))
         tip_chord_m = root_chord_m * taper_ratio
 

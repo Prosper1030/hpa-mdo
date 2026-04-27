@@ -215,6 +215,14 @@ class RiggingDragConfig(ConceptBaseModel):
     cda_override_m2: float | None = Field(default=None, ge=0.0)
 
 
+class JigShapeGateConfig(ConceptBaseModel):
+    enabled: bool = True
+    spar_youngs_modulus_pa: float = Field(120.0e9, gt=0.0)
+    spar_vertical_separation_m: float = Field(0.10, ge=0.0)
+    deflection_taper_correction_factor: float = Field(1.7, gt=0.0)
+    max_tip_deflection_to_halfspan_ratio: float = Field(0.30, gt=0.0, le=0.5)
+
+
 class TailModelConfig(ConceptBaseModel):
     wing_ac_xc: float = Field(0.25, ge=0.0, le=1.0)
     tail_arm_to_mac: float = Field(4.0, gt=0.0)
@@ -494,6 +502,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     prop: PropConfig = Field(default_factory=PropConfig)
     turn: TurnConfig = Field(default_factory=TurnConfig)
     rigging_drag: RiggingDragConfig = Field(default_factory=RiggingDragConfig)
+    jig_shape_gate: JigShapeGateConfig = Field(default_factory=JigShapeGateConfig)
     tail_model: TailModelConfig = Field(default_factory=TailModelConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
     cst_search: CSTSearchConfig = Field(default_factory=CSTSearchConfig)
