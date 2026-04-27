@@ -46,6 +46,18 @@ configs/local_paths.yaml
 *_out/
 uv.lock
 .worktrees/
+.tmp/
+.claude/
+
+# Polar cache (XFOIL/Julia worker output, geometry-hash addressed)
+**/polar_db/
+
+# VSPAero / geometry scratch CompGeom artifacts at top level
+data/*_CompGeom.csv
+data/*_CompGeom.txt
+
+# XFOIL stdout dumps
+docs/research/xfoil_*/
 
 # Local CFD / geometry scratch artifacts
 hpa_meshing_package/.tmp/

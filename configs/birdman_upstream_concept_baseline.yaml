@@ -156,6 +156,12 @@ pipeline:
   keep_top_n: 8
   finalist_full_sweep_top_l: 4
 
+polar_worker:
+  persistent_worker_count: 4
+  log_cache_statistics: true
+  xfoil_max_iter: 40
+  xfoil_panel_count: 96
+
 output:
   export_candidate_bundle: true
   export_vsp: false

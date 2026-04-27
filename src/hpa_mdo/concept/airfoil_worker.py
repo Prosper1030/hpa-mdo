@@ -11,10 +11,12 @@ import shutil
 import subprocess
 from uuid import uuid4
 
-_CACHE_SCHEMA_VERSION = 2
+_CACHE_SCHEMA_VERSION = 3
 _SUCCESS_STATUSES = frozenset({"ok", "stubbed_ok", "mini_sweep_fallback"})
 _NEGATIVE_CACHE_STATUSES = frozenset({"analysis_failed"})
 _CACHEABLE_STATUSES = _SUCCESS_STATUSES | _NEGATIVE_CACHE_STATUSES
+_DEFAULT_XFOIL_MAX_ITER = 60
+_DEFAULT_XFOIL_PANEL_COUNT = 120
 
 
 @dataclass(frozen=True)
@@ -65,17 +67,34 @@ class JuliaXFoilWorker:
         cache_dir: Path,
         persistent_mode: bool = True,
         persistent_worker_count: int | None = None,
+        xfoil_max_iter: int = _DEFAULT_XFOIL_MAX_ITER,
+        xfoil_panel_count: int = _DEFAULT_XFOIL_PANEL_COUNT,
     ) -> None:
+        if xfoil_max_iter < 1:
+            raise ValueError("xfoil_max_iter must be at least 1.")
+        if xfoil_panel_count < 1:
+            raise ValueError("xfoil_panel_count must be at least 1.")
         self.project_dir = Path(project_dir)
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.persistent_mode = bool(persistent_mode)
         self._persistent_worker_count = persistent_worker_count
+        self._xfoil_max_iter = int(xfoil_max_iter)
+        self._xfoil_panel_count = int(xfoil_panel_count)
         self._persistent_processes: list[subprocess.Popen[str]] = []
         self._atexit_close_registered = False
+        self._cache_hit_count = 0
+        self._cache_miss_count = 0
         if self.persistent_mode:
             atexit.register(self.close)
             self._atexit_close_registered = True
+
+    @property
+    def cache_statistics(self) -> dict[str, int]:
+        return {
+            "cache_hits": self._cache_hit_count,
+            "cache_misses": self._cache_miss_count,
+        }
 
     def cache_key(self, query: PolarQuery) -> str:
         payload = {
@@ -86,6 +105,8 @@ class JuliaXFoilWorker:
             "geometry_hash": self._validated_geometry_hash(query),
             "analysis_mode": query.analysis_mode,
             "analysis_stage": query.analysis_stage,
+            "xfoil_max_iter": self._xfoil_max_iter,
+            "xfoil_panel_count": self._xfoil_panel_count,
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
@@ -352,6 +373,15 @@ class JuliaXFoilWorker:
 
         return processes[:count]
 
+    def _build_request_payload(self, queries: list[PolarQuery]) -> list[dict[str, object]]:
+        payload: list[dict[str, object]] = []
+        for query in queries:
+            entry = asdict(query)
+            entry["xfoil_max_iter"] = self._xfoil_max_iter
+            entry["xfoil_panel_count"] = self._xfoil_panel_count
+            payload.append(entry)
+        return payload
+
     def _run_uncached_queries_with_process(
         self,
         process: subprocess.Popen[str],
@@ -360,7 +390,7 @@ class JuliaXFoilWorker:
         if process.stdin is None or process.stdout is None:
             raise RuntimeError("Persistent Julia XFoil worker is missing stdin/stdout pipes.")
 
-        request_payload = [asdict(query) for query in queries]
+        request_payload = self._build_request_payload(queries)
         try:
             process.stdin.write(json.dumps(request_payload, ensure_ascii=False) + "\n")
             process.stdin.flush()
@@ -402,7 +432,7 @@ class JuliaXFoilWorker:
 
         worker_dir = self._resolve_worker_project_dir()
         request_path, response_path = self._build_scratch_paths()
-        request_payload = [asdict(query) for query in queries]
+        request_payload = self._build_request_payload(queries)
         request_path.write_text(
             json.dumps(request_payload, indent=2, sort_keys=True, ensure_ascii=False),
             encoding="utf-8",
@@ -529,11 +559,13 @@ class JuliaXFoilWorker:
             cached_result = self._load_cached_result(query)
             if cached_result is not None:
                 resolved_results[index] = cached_result
+                self._cache_hit_count += 1
                 continue
             cache_key = self.cache_key(query)
             if cache_key not in uncached_groups:
                 uncached_queries.append(query)
                 uncached_groups[cache_key] = []
+                self._cache_miss_count += 1
             uncached_groups[cache_key].append((index, query))
 
         if uncached_queries:

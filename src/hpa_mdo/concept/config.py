@@ -424,6 +424,13 @@ class PipelineConfig(ConceptBaseModel):
         return self
 
 
+class PolarWorkerConfig(ConceptBaseModel):
+    persistent_worker_count: int = Field(4, ge=1, le=64)
+    log_cache_statistics: bool = True
+    xfoil_max_iter: int = Field(40, ge=10, le=200)
+    xfoil_panel_count: int = Field(96, ge=40, le=200)
+
+
 class OutputConfig(ConceptBaseModel):
     export_candidate_bundle: bool = True
     export_vsp: bool = False
@@ -452,6 +459,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
     cst_search: CSTSearchConfig = Field(default_factory=CSTSearchConfig)
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
+    polar_worker: PolarWorkerConfig = Field(default_factory=PolarWorkerConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
 
     @model_validator(mode="after")

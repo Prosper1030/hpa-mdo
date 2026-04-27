@@ -218,12 +218,21 @@ function screening_summary(points, target_points, requested_count::Int, fallback
 end
 
 
-function solve_target_cl_single(x, y, cl_target::Float64, reynolds::Float64; mach, iter, npan, ncrit, xtrip)
-    coarse_alphas = screening_alpha_grid(cl_target)
-    coarse_points = Any[]
-    initialize_airfoil!(x, y; npan = npan)
+function shared_coarse_alpha_grid(cl_targets::Vector{Float64})
+    union = Set{Float64}()
+    for cl_target in cl_targets
+        for alpha in screening_alpha_grid(cl_target)
+            push!(union, round(alpha; digits = 4))
+        end
+    end
+    return sort(collect(union))
+end
+
+
+function run_alpha_pass(alphas::Vector{Float64}, reynolds::Float64; mach, iter, ncrit, xtrip)
+    points = Any[]
     previous_converged = true
-    for (index, alpha_deg) in enumerate(coarse_alphas)
+    for (index, alpha_deg) in enumerate(alphas)
         point = solve_screening_alpha(
             alpha_deg,
             reynolds;
@@ -233,14 +242,25 @@ function solve_target_cl_single(x, y, cl_target::Float64, reynolds::Float64; mac
             xtrip = xtrip,
             reinit = index == 1 || !previous_converged,
         )
-        push!(coarse_points, point)
+        push!(points, point)
         previous_converged = Bool(point["converged"])
     end
+    return points
+end
 
+
+function refine_target_cl_from_coarse(
+    coarse_points::Vector{Any},
+    cl_target::Float64,
+    reynolds::Float64;
+    mach,
+    iter,
+    ncrit,
+    xtrip,
+)
     bracket = bracket_target_cl(coarse_points, cl_target)
     secant_points = Any[]
     best_point = best_converged_point(coarse_points, cl_target; prefer_below_target = false)
-    fallback_used = false
 
     if bracket !== nothing
         low, high = bracket
@@ -276,7 +296,7 @@ function solve_target_cl_single(x, y, cl_target::Float64, reynolds::Float64; mac
                     )
                     target_result["target_cl_converged"] = true
                     target_result["fallback_used"] = false
-                    return target_result, vcat(coarse_points, secant_points)
+                    return target_result, secant_points, false
                 end
             else
                 break
@@ -284,48 +304,106 @@ function solve_target_cl_single(x, y, cl_target::Float64, reynolds::Float64; mac
         end
     end
 
-    fallback_used = true
-    fallback_center = if best_point === nothing
-        first(coarse_alphas)
-    else
-        Float64(best_point["alpha_deg"])
-    end
-    fallback_alphas = mini_sweep_alphas(fallback_center)
-    fallback_points = Any[]
+    return nothing, secant_points, true
+end
+
+
+function solve_target_cl_batch(
+    x,
+    y,
+    cl_targets::Vector{Float64},
+    reynolds::Float64;
+    mach,
+    iter,
+    npan,
+    ncrit,
+    xtrip,
+)
     initialize_airfoil!(x, y; npan = npan)
-    previous_converged = true
-    for (index, alpha_deg) in enumerate(fallback_alphas)
-        point = solve_screening_alpha(
-            alpha_deg,
+
+    shared_alphas = shared_coarse_alpha_grid(cl_targets)
+    coarse_points = run_alpha_pass(
+        shared_alphas,
+        reynolds;
+        mach = mach,
+        iter = iter,
+        ncrit = ncrit,
+        xtrip = xtrip,
+    )
+
+    target_points = Any[]
+    extra_evaluated = Any[]
+    needs_fallback_targets = Float64[]
+
+    for cl_target in cl_targets
+        target_result, secant_points, needs_fallback = refine_target_cl_from_coarse(
+            convert(Vector{Any}, coarse_points),
+            cl_target,
             reynolds;
             mach = mach,
             iter = iter,
             ncrit = ncrit,
             xtrip = xtrip,
-            reinit = index == 1 || !previous_converged,
         )
-        push!(fallback_points, point)
-        previous_converged = Bool(point["converged"])
+        append!(extra_evaluated, secant_points)
+        if target_result !== nothing
+            push!(target_points, target_result)
+        elseif needs_fallback
+            push!(needs_fallback_targets, cl_target)
+        end
     end
 
-    fallback_best = best_converged_point(vcat(coarse_points, secant_points, fallback_points), cl_target; prefer_below_target = true)
-    if fallback_best === nothing
-        return nothing, vcat(coarse_points, secant_points, fallback_points)
+    if !isempty(needs_fallback_targets)
+        for cl_target in needs_fallback_targets
+            best_point = best_converged_point(
+                convert(Vector{Any}, vcat(coarse_points, extra_evaluated)),
+                cl_target;
+                prefer_below_target = false,
+            )
+            fallback_center = if best_point === nothing
+                first(shared_alphas)
+            else
+                Float64(best_point["alpha_deg"])
+            end
+            fallback_alphas = mini_sweep_alphas(fallback_center)
+            initialize_airfoil!(x, y; npan = npan)
+            fallback_points = run_alpha_pass(
+                fallback_alphas,
+                reynolds;
+                mach = mach,
+                iter = iter,
+                ncrit = ncrit,
+                xtrip = xtrip,
+            )
+            append!(extra_evaluated, fallback_points)
+
+            fallback_best = best_converged_point(
+                convert(Vector{Any}, vcat(coarse_points, extra_evaluated)),
+                cl_target;
+                prefer_below_target = true,
+            )
+            if fallback_best === nothing
+                continue
+            end
+
+            fallback_result = screening_point(
+                Float64(fallback_best["alpha_deg"]),
+                cl_target,
+                Float64(fallback_best["cl"]),
+                Float64(fallback_best["cd"]),
+                Float64(fallback_best["cdp"]),
+                Float64(fallback_best["cm"]),
+                true,
+            )
+            fallback_result["target_cl_converged"] = false
+            fallback_result["fallback_used"] = true
+            fallback_result["clmax_is_lower_bound"] = true
+            push!(target_points, fallback_result)
+        end
     end
 
-    fallback_result = screening_point(
-        Float64(fallback_best["alpha_deg"]),
-        cl_target,
-        Float64(fallback_best["cl"]),
-        Float64(fallback_best["cd"]),
-        Float64(fallback_best["cdp"]),
-        Float64(fallback_best["cm"]),
-        true,
-    )
-    fallback_result["target_cl_converged"] = false
-    fallback_result["fallback_used"] = fallback_used
-    fallback_result["clmax_is_lower_bound"] = true
-    return fallback_result, vcat(coarse_points, secant_points, fallback_points)
+    fallback_used = any(point -> Bool(get(point, "fallback_used", false)), target_points)
+    return target_points, vcat(coarse_points, extra_evaluated), fallback_used
 end
 
 
@@ -409,31 +487,22 @@ function analyze_query_target_cl(query)
     cl_samples = Float64[Float64(value) for value in query["cl_samples"]]
     analysis_mode = String(get(query, "analysis_mode", "screening_target_cl"))
     analysis_stage = String(get(query, "analysis_stage", "screening"))
+    xfoil_max_iter = Int(get(query, "xfoil_max_iter", 60))
+    xfoil_panel_count = Int(get(query, "xfoil_panel_count", 120))
     x, y = parse_coordinates(query["coordinates"])
     controls = roughness_controls(roughness_mode)
 
-    target_points = Any[]
-    evaluated_points = Any[]
-    fallback_used = false
-    for cl_target in cl_samples
-        target_point, points = solve_target_cl_single(
-            x,
-            y,
-            cl_target,
-            reynolds;
-            mach = 0.0,
-            iter = 60,
-            npan = 120,
-            ncrit = controls.ncrit,
-            xtrip = controls.xtrip,
-        )
-        append!(evaluated_points, points)
-        if target_point === nothing
-            continue
-        end
-        fallback_used = fallback_used || Bool(get(target_point, "fallback_used", false))
-        push!(target_points, target_point)
-    end
+    target_points, evaluated_points, fallback_used = solve_target_cl_batch(
+        x,
+        y,
+        cl_samples,
+        reynolds;
+        mach = 0.0,
+        iter = xfoil_max_iter,
+        npan = xfoil_panel_count,
+        ncrit = controls.ncrit,
+        xtrip = controls.xtrip,
+    )
 
     screening_result_summary = screening_summary(
         evaluated_points,
@@ -467,6 +536,8 @@ function analyze_query_full_sweep(query)
     cl_samples = Float64[Float64(value) for value in query["cl_samples"]]
     analysis_mode = String(get(query, "analysis_mode", "full_alpha_sweep"))
     analysis_stage = String(get(query, "analysis_stage", "screening"))
+    xfoil_max_iter = Int(get(query, "xfoil_max_iter", 60))
+    xfoil_panel_count = Int(get(query, "xfoil_panel_count", 120))
     x, y = parse_coordinates(query["coordinates"])
     alpha = alpha_grid(cl_samples)
     controls = roughness_controls(roughness_mode)
@@ -477,8 +548,8 @@ function analyze_query_full_sweep(query)
         alpha,
         reynolds;
         mach = 0.0,
-        iter = 60,
-        npan = 120,
+        iter = xfoil_max_iter,
+        npan = xfoil_panel_count,
         reinit = false,
         percussive_maintenance = true,
         printdata = false,

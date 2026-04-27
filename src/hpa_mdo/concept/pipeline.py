@@ -2665,6 +2665,17 @@ def _worker_backend(worker: AirfoilWorker) -> str:
     return str(getattr(worker, "backend_name", "python_stubbed"))
 
 
+def _collect_worker_cache_statistics(worker: AirfoilWorker) -> dict[str, int] | None:
+    statistics = getattr(worker, "cache_statistics", None)
+    if not isinstance(statistics, dict):
+        return None
+    cache_hits = statistics.get("cache_hits")
+    cache_misses = statistics.get("cache_misses")
+    if not isinstance(cache_hits, int) or not isinstance(cache_misses, int):
+        return None
+    return {"cache_hits": int(cache_hits), "cache_misses": int(cache_misses)}
+
+
 def _close_worker_if_supported(worker: AirfoilWorker) -> None:
     close = getattr(worker, "close", None)
     if callable(close):
@@ -3079,7 +3090,13 @@ def run_birdman_concept_pipeline(
     concepts = all_concepts
 
     repo_root = _repo_root()
-    worker = airfoil_worker_factory(project_dir=repo_root, cache_dir=output_dir / "polar_db")
+    worker = airfoil_worker_factory(
+        project_dir=repo_root,
+        cache_dir=output_dir / "polar_db",
+        persistent_worker_count=cfg.polar_worker.persistent_worker_count,
+        xfoil_max_iter=cfg.polar_worker.xfoil_max_iter,
+        xfoil_panel_count=cfg.polar_worker.xfoil_panel_count,
+    )
     worker_backend = _worker_backend(worker)
     air_density_kg_per_m3 = _air_density_from_environment(cfg)
 
@@ -3644,6 +3661,19 @@ def run_birdman_concept_pipeline(
         encoding="utf-8",
     )
 
+    cache_statistics = _collect_worker_cache_statistics(worker)
+    if cfg.polar_worker.log_cache_statistics and cache_statistics is not None:
+        total_queries = cache_statistics["cache_hits"] + cache_statistics["cache_misses"]
+        hit_rate = (
+            cache_statistics["cache_hits"] / total_queries if total_queries > 0 else 0.0
+        )
+        print(
+            f"[polar_worker] cache hits={cache_statistics['cache_hits']} "
+            f"misses={cache_statistics['cache_misses']} "
+            f"hit_rate={hit_rate:.3f} "
+            f"workers={cfg.polar_worker.persistent_worker_count}"
+        )
+
     summary_json_path = output_dir / "concept_summary.json"
     summary_json_path.write_text(
         json.dumps(
@@ -3655,6 +3685,10 @@ def run_birdman_concept_pipeline(
                 },
                 "worker_backend": worker_backend,
                 "worker_statuses": summary_worker_statuses,
+                "polar_worker": {
+                    "persistent_worker_count": int(cfg.polar_worker.persistent_worker_count),
+                    "cache_statistics": cache_statistics,
+                },
                 "evaluation_scope": {
                     "selection_scope": "ranked_sampled_pool",
                     "ranking_basis": "feasibility_first_contract_aligned_v2",

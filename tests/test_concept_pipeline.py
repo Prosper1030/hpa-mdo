@@ -193,6 +193,9 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert factory_calls
     assert factory_calls[0]["project_dir"] == Path(__file__).resolve().parents[1]
     assert factory_calls[0]["cache_dir"] == tmp_path / "polar_db"
+    assert factory_calls[0]["persistent_worker_count"] == 4
+    assert factory_calls[0]["xfoil_max_iter"] == 40
+    assert factory_calls[0]["xfoil_panel_count"] == 96
 
     summary = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
     ranked_pool = json.loads((tmp_path / "concept_ranked_pool.json").read_text(encoding="utf-8"))
@@ -202,6 +205,8 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert summary["worker_backend"] == "test_stub"
     assert summary["worker_statuses"]
     assert all(status == "ok" for status in summary["worker_statuses"])
+    assert summary["polar_worker"]["persistent_worker_count"] == 4
+    assert summary["polar_worker"]["cache_statistics"] is None
     assert len(ranked_pool["ranked_pool"]) == summary["evaluation_scope"]["evaluated_concept_count"]
     assert ranked_pool["ranked_pool"][0]["overall_rank"] == 1
     assert frontier_summary["counts"]["evaluated_count"] == summary["evaluation_scope"]["evaluated_concept_count"]

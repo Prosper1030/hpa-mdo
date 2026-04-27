@@ -110,6 +110,10 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.pipeline.stations_per_half == 7
     assert cfg.pipeline.keep_top_n == 8
     assert cfg.pipeline.finalist_full_sweep_top_l == 4
+    assert cfg.polar_worker.persistent_worker_count == 4
+    assert cfg.polar_worker.log_cache_statistics is True
+    assert cfg.polar_worker.xfoil_max_iter == 40
+    assert cfg.polar_worker.xfoil_panel_count == 96
     assert cfg.output.export_candidate_bundle is True
     assert cfg.output.export_vsp is False
     assert cfg.output.export_vsp_for_top_n == 0

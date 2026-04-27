@@ -502,6 +502,69 @@ def test_worker_cache_key_changes_when_geometry_hash_changes(tmp_path):
     )
 
 
+def test_worker_cache_key_changes_when_xfoil_iter_or_panels_change(tmp_path):
+    baseline = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+    fewer_iter = JuliaXFoilWorker(
+        project_dir=tmp_path,
+        cache_dir=tmp_path / "cache_iter",
+        xfoil_max_iter=40,
+    )
+    fewer_panels = JuliaXFoilWorker(
+        project_dir=tmp_path,
+        cache_dir=tmp_path / "cache_pan",
+        xfoil_panel_count=96,
+    )
+
+    query = _sample_query()
+    assert baseline.cache_key(query) != fewer_iter.cache_key(query)
+    assert baseline.cache_key(query) != fewer_panels.cache_key(query)
+
+
+def test_worker_request_payload_includes_xfoil_iter_and_panel_count(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=False,
+        xfoil_max_iter=40,
+        xfoil_panel_count=96,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    query = _sample_query(cl_samples=(0.7,))
+    captured: dict[str, object] = {}
+
+    def fake_run(cmd, check, cwd):
+        request_payload = json.loads(Path(cmd[3]).read_text(encoding="utf-8"))
+        captured["payload"] = request_payload
+        Path(cmd[4]).write_text(
+            json.dumps(
+                [
+                    {
+                        "template_id": query.template_id,
+                        "reynolds": query.reynolds,
+                        "cl_samples": list(query.cl_samples),
+                        "roughness_mode": query.roughness_mode,
+                        "geometry_hash": query.geometry_hash,
+                        "status": "ok",
+                        "polar_points": [{"cl_target": 0.7, "alpha_deg": 4.0, "cl": 0.7}],
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.run", fake_run)
+    worker.run_queries([query])
+
+    payload = captured["payload"]
+    assert payload[0]["xfoil_max_iter"] == 40
+    assert payload[0]["xfoil_panel_count"] == 96
+
+
 def test_worker_materializes_result_with_analysis_mode_and_stage(tmp_path):
     worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
     query = _sample_query(
@@ -834,6 +897,7 @@ def test_worker_uses_per_query_cache_and_allows_full_cache_hits_without_julia(
 
     assert second_result == first_result
     assert worker._positive_cache_path(query).is_file()
+    assert worker.cache_statistics == {"cache_hits": 1, "cache_misses": 1}
 
 
 def test_worker_reuses_physical_cache_for_different_template_id(tmp_path, monkeypatch):
