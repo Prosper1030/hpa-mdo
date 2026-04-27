@@ -122,6 +122,7 @@ def _write_fast_test_config(tmp_path: Path, *, filename: str = "fast_concept.yam
     return config_path
 
 
+@pytest.mark.slow
 def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     factory_calls: list[dict[str, object]] = []
     loader_calls: list[tuple[str, int]] = []
@@ -246,6 +247,7 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert isinstance(first["local_stall"]["min_margin"], float)
 
 
+@pytest.mark.slow
 def test_pipeline_reruns_top_finalists_with_full_alpha_sweep(tmp_path: Path) -> None:
     config_payload = _load_fast_concept_payload()
     config_payload["pipeline"]["keep_top_n"] = 3
@@ -314,6 +316,7 @@ def test_pipeline_reruns_top_finalists_with_full_alpha_sweep(tmp_path: Path) -> 
     assert first["worker_fidelity"]["finalist"]["worker_analysis_modes"] == ["full_alpha_sweep"] * 4
 
 
+@pytest.mark.slow
 def test_pipeline_summary_distinguishes_screening_and_finalist_worker_fidelity(
     tmp_path: Path,
 ) -> None:
@@ -378,6 +381,7 @@ def test_pipeline_summary_distinguishes_screening_and_finalist_worker_fidelity(
     ] * 4
 
 
+@pytest.mark.slow
 def test_pipeline_reruns_finalists_with_post_airfoil_avl_reference_context(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -592,6 +596,7 @@ def test_should_iterate_post_airfoil_avl_reference_only_for_speed_mismatch() -> 
     )
 
 
+@pytest.mark.slow
 def test_pipeline_can_take_second_post_airfoil_avl_rerun_when_reference_still_shifts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -718,6 +723,7 @@ def test_pipeline_can_take_second_post_airfoil_avl_rerun_when_reference_still_sh
     ]
 
 
+@pytest.mark.slow
 def test_pipeline_falls_back_when_post_airfoil_rerun_has_no_feasible_reference(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -816,6 +822,7 @@ def test_pipeline_falls_back_when_post_airfoil_rerun_has_no_feasible_reference(
     assert fake_worker.batches
 
 
+@pytest.mark.slow
 def test_pipeline_batches_screening_candidate_selection_across_concepts(
     tmp_path: Path,
 ) -> None:
@@ -875,6 +882,7 @@ def test_pipeline_batches_screening_candidate_selection_across_concepts(
     assert any(template_id.startswith("eval-02__") for template_id in first_batch)
 
 
+@pytest.mark.slow
 def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path) -> None:
     config_path = _write_fast_test_config(tmp_path, filename="spanwise_source.yaml")
     result = run_birdman_concept_pipeline(
@@ -918,6 +926,7 @@ def test_pipeline_records_spanwise_requirement_source_in_summary(tmp_path: Path)
     assert spanwise_summary["fallback_reasons"] == ["avl failed"]
 
 
+@pytest.mark.slow
 def test_pipeline_records_reference_condition_metadata_in_spanwise_summary(
     tmp_path: Path,
 ) -> None:
@@ -1070,6 +1079,7 @@ def test_fallback_selected_zone_candidate_applies_safe_clmax_model() -> None:
     assert selected.safe_clmax == pytest.approx(0.665)
 
 
+@pytest.mark.slow
 def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
     config_path = _write_fast_test_config(tmp_path, filename="cst_selected_templates.yaml")
     result = run_birdman_concept_pipeline(
@@ -1163,6 +1173,7 @@ def test_pipeline_uses_cst_selected_airfoil_templates(tmp_path: Path) -> None:
     assert airfoil_templates["root"]["points"][0]["chord_m"] == pytest.approx(1.30)
 
 
+@pytest.mark.slow
 def test_pipeline_emits_all_required_mvp_artifacts(tmp_path: Path) -> None:
     config_path = _write_fast_test_config(tmp_path, filename="mvp_artifacts.yaml")
     result = run_birdman_concept_pipeline(
@@ -1261,6 +1272,7 @@ def test_seed_airfoil_loader_accepts_headerless_selig_dat(tmp_path, monkeypatch)
     assert len(coordinates) == 5
 
 
+@pytest.mark.slow
 def test_pipeline_uses_airfoil_derived_spanwise_values_when_available(
     tmp_path: Path,
 ) -> None:
@@ -2080,6 +2092,7 @@ def test_turn_summary_marks_fixed_bank_case_as_screening_only() -> None:
     assert turn["gate_model"] == "fixed_bank_screening"
 
 
+@pytest.mark.slow
 def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2277,6 +2290,7 @@ def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     assert summary["selected_concepts"][0]["ranking"]["score"] <= summary["selected_concepts"][1]["ranking"]["score"]
 
 
+@pytest.mark.slow
 def test_pipeline_excludes_safety_infeasible_concepts_from_selected_summary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2390,6 +2404,7 @@ def test_pipeline_excludes_safety_infeasible_concepts_from_selected_summary(
     assert result.best_infeasible_concept_dirs == ()
 
 
+@pytest.mark.slow
 def test_pipeline_selected_summary_requires_full_feasibility(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2500,6 +2515,7 @@ def test_pipeline_selected_summary_requires_full_feasibility(
     assert result.best_infeasible_concept_dirs == ()
 
 
+@pytest.mark.slow
 def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -2565,6 +2581,7 @@ def test_pipeline_falls_back_cleanly_when_spanwise_points_are_unavailable(
     }
 
 
+@pytest.mark.slow
 def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path) -> None:
     config_path = _write_fast_test_config(tmp_path, filename="default_worker.yaml")
     result = run_birdman_concept_pipeline(
@@ -2598,6 +2615,7 @@ def test_pipeline_default_worker_factory_uses_stubbed_ok_statuses(tmp_path: Path
     assert all("launch" in item and "turn" in item for item in summary["selected_concepts"])
 
 
+@pytest.mark.slow
 def test_pipeline_rejects_altitude_outside_tropospheric_density_range(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     cfg_path = repo_root / "configs" / "birdman_upstream_concept_baseline.yaml"
@@ -2626,6 +2644,7 @@ def test_pipeline_rejects_altitude_outside_tropospheric_density_range(tmp_path: 
         )
 
 
+@pytest.mark.slow
 def test_pipeline_rejects_real_backend_selection_results_without_usable_metrics(
     tmp_path: Path,
 ) -> None:
@@ -2660,6 +2679,7 @@ def test_pipeline_rejects_real_backend_selection_results_without_usable_metrics(
         )
 
 
+@pytest.mark.slow
 def test_pipeline_rejects_duplicate_selection_template_ids(tmp_path: Path) -> None:
     config_path = _write_fast_test_config(tmp_path, filename="duplicate_template_ids.yaml")
     with pytest.raises(RuntimeError, match="duplicate template_id"):
@@ -2699,6 +2719,7 @@ def test_pipeline_rejects_duplicate_selection_template_ids(tmp_path: Path) -> No
         )
 
 
+@pytest.mark.slow
 def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
     output_dir = tmp_path / "smoke"
     config_path = _write_fast_test_config(tmp_path, filename="cli_smoke.yaml")
@@ -2723,6 +2744,7 @@ def test_cli_smoke_writes_summary(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(shutil.which("julia") is None, reason="Julia runtime not available")
+@pytest.mark.slow
 def test_cli_smoke_can_use_real_julia_worker(tmp_path: Path) -> None:
     output_dir = tmp_path / "smoke_julia"
     config_path = _write_fast_test_config(tmp_path, filename="cli_smoke_julia.yaml")
@@ -2747,6 +2769,7 @@ def test_cli_smoke_can_use_real_julia_worker(tmp_path: Path) -> None:
     assert all(status in {"ok", "mini_sweep_fallback"} for status in summary["worker_statuses"])
 
 
+@pytest.mark.slow
 def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     factory_calls: list[dict[str, object]] = []
@@ -2767,6 +2790,7 @@ def test_real_worker_backend_surfaces_as_julia_xfoil_without_running_julia(tmp_p
     assert summary["worker_statuses"] == []
 
 
+@pytest.mark.slow
 def test_pipeline_closes_worker_when_supported(tmp_path: Path) -> None:
     closed = {"value": 0}
     config_path = _write_fast_test_config(tmp_path, filename="closable_worker.yaml")
@@ -2802,6 +2826,7 @@ def test_pipeline_closes_worker_when_supported(tmp_path: Path) -> None:
     assert closed["value"] == 1
 
 
+@pytest.mark.slow
 def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
     tmp_path: Path,
 ) -> None:
@@ -2872,6 +2897,7 @@ def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
     assert (third_bundle / "concept_openvsp.vspscript").exists() is False
 
 
+@pytest.mark.slow
 def test_pipeline_skips_bundle_exports_when_candidate_bundle_output_is_disabled(
     tmp_path: Path,
 ) -> None:
@@ -2911,6 +2937,7 @@ def test_pipeline_skips_bundle_exports_when_candidate_bundle_output_is_disabled(
     assert all(item["bundle_dir"] is None for item in summary["best_infeasible_concepts"])
 
 
+@pytest.mark.slow
 def test_pipeline_writes_dihedral_geometry_into_bundle_and_vsp_preview(tmp_path: Path) -> None:
     payload = yaml.safe_load(
         Path("configs/birdman_upstream_concept_baseline.yaml").read_text(encoding="utf-8")
