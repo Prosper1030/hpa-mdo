@@ -1644,6 +1644,7 @@ def test_launch_summary_uses_vstall_primary_gate_and_tracks_ground_effect_sensit
 
 def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg.rigging_drag.enabled = False
     concept = GeometryConcept(
         span_m=32.0,
         wing_area_m2=32.0,

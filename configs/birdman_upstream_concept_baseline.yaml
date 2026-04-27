@@ -78,6 +78,12 @@ prop:
 turn:
   required_bank_angle_deg: 15.0
 
+rigging_drag:
+  enabled: true
+  wire_diameter_m: 0.0020
+  total_exposed_length_m: 24.0
+  drag_coefficient: 1.10
+
 tail_model:
   wing_ac_xc: 0.25
   tail_arm_to_mac: 4.0

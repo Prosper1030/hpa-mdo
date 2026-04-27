@@ -189,6 +189,14 @@ class TurnConfig(ConceptBaseModel):
     required_bank_angle_deg: float = Field(15.0, gt=0.0, lt=45.0)
 
 
+class RiggingDragConfig(ConceptBaseModel):
+    enabled: bool = True
+    wire_diameter_m: float = Field(0.0020, gt=0.0)
+    total_exposed_length_m: float = Field(0.0, ge=0.0)
+    drag_coefficient: float = Field(1.10, gt=0.0)
+    cda_override_m2: float | None = Field(default=None, ge=0.0)
+
+
 class TailModelConfig(ConceptBaseModel):
     wing_ac_xc: float = Field(0.25, ge=0.0, le=1.0)
     tail_arm_to_mac: float = Field(4.0, gt=0.0)
@@ -467,6 +475,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     stall_model: StallModelConfig = Field(default_factory=StallModelConfig)
     prop: PropConfig = Field(default_factory=PropConfig)
     turn: TurnConfig = Field(default_factory=TurnConfig)
+    rigging_drag: RiggingDragConfig = Field(default_factory=RiggingDragConfig)
     tail_model: TailModelConfig = Field(default_factory=TailModelConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
     cst_search: CSTSearchConfig = Field(default_factory=CSTSearchConfig)

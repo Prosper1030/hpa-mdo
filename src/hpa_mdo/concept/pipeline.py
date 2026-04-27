@@ -33,6 +33,7 @@ from hpa_mdo.concept.geometry import (
 from hpa_mdo.concept.frontier import build_frontier_summary, sizing_archetype
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
 from hpa_mdo.concept.mass_closure import close_area_mass
+from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
 from hpa_mdo.concept.safety import (
@@ -1950,6 +1951,8 @@ def _build_concept_mission_summary(
         )
     )
     misc_cd = 0.0035 + 0.20 * tail_area_ratio * profile_cd
+    rigging_cda_m2 = compute_rigging_drag_cda_m2(cfg.rigging_drag)
+    rigging_cd = rigging_cda_m2 / max(concept.wing_area_m2, 1.0e-9)
     prop_model = SimplifiedPropModel(
         diameter_m=float(cfg.prop.diameter_m),
         rpm_min=float(cfg.prop.rpm_min),
@@ -1974,7 +1977,7 @@ def _build_concept_mission_summary(
             dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
             cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
             induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
-            total_cd = profile_cd + induced_cd + misc_cd + tail_trim_drag_cd
+            total_cd = profile_cd + induced_cd + misc_cd + tail_trim_drag_cd + rigging_cd
             drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
             power_required_w.append(
                 _shaft_power_required_w(
@@ -2176,6 +2179,8 @@ def _build_concept_mission_summary(
         "profile_cd_proxy": profile_cd,
         "misc_cd_proxy": misc_cd,
         "trim_drag_cd_proxy": tail_trim_drag_cd,
+        "rigging_cda_m2": float(rigging_cda_m2),
+        "rigging_cd_proxy": float(rigging_cd),
         "tail_cl_required_for_trim": tail_cl_required,
         "oswald_efficiency_proxy": oswald_efficiency,
         "propulsion_model": "simplified_prop_proxy_v1",

@@ -17,6 +17,7 @@ from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.concept.config import BirdmanConceptConfig
 from hpa_mdo.concept.geometry import GeometryConcept, WingStation, build_linear_wing_stations
+from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.safety import evaluate_local_stall
 from hpa_mdo.concept.stall_model import apply_safe_local_clmax_model
@@ -364,6 +365,8 @@ def _mission_mass_cases_for_avl(
     oswald_efficiency = _oswald_efficiency_proxy(concept)
     tail_area_ratio = float(concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9))
     misc_cd = float(0.0035 + 0.20 * tail_area_ratio * profile_cd_proxy)
+    rigging_cda_m2 = compute_rigging_drag_cda_m2(cfg.rigging_drag)
+    rigging_cd = rigging_cda_m2 / max(concept.wing_area_m2, 1.0e-9)
     prop_model = SimplifiedPropModel(
         diameter_m=float(cfg.prop.diameter_m),
         rpm_min=float(cfg.prop.rpm_min),
@@ -393,7 +396,7 @@ def _mission_mass_cases_for_avl(
             dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
             cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
             induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
-            total_cd = float(profile_cd_proxy) + induced_cd + misc_cd
+            total_cd = float(profile_cd_proxy) + induced_cd + misc_cd + rigging_cd
             drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
             power_required_w.append(
                 _shaft_power_required_w(

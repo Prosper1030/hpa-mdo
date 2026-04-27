@@ -56,6 +56,11 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.prop.position_mode == "between_wing_and_tail"
     assert cfg.launch.platform_height_m == pytest.approx(10.0)
     assert cfg.turn.required_bank_angle_deg == pytest.approx(15.0)
+    assert cfg.rigging_drag.enabled is True
+    assert cfg.rigging_drag.wire_diameter_m == pytest.approx(0.0020)
+    assert cfg.rigging_drag.total_exposed_length_m == pytest.approx(24.0)
+    assert cfg.rigging_drag.drag_coefficient == pytest.approx(1.10)
+    assert cfg.rigging_drag.cda_override_m2 is None
     assert cfg.segmentation.min_segment_length_m == pytest.approx(1.0)
     assert cfg.segmentation.max_segment_length_m == pytest.approx(3.0)
     assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)
