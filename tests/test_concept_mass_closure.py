@@ -1,6 +1,8 @@
+import math
+
 import pytest
 
-from hpa_mdo.concept.mass_closure import close_area_mass
+from hpa_mdo.concept.mass_closure import close_area_mass, estimate_tube_system_mass_kg
 
 
 def test_close_area_mass_penalizes_large_area_low_wing_loading():
@@ -47,3 +49,55 @@ def test_close_area_mass_matches_gpt_pro_baseline_components():
     assert result.closed_wing_area_m2 == pytest.approx(30.17, abs=0.02)
     assert result.closed_gross_mass_kg == pytest.approx(104.63, abs=0.03)
     assert result.mass_breakdown_kg["tube_system_kg"] == pytest.approx(10.5)
+
+
+def test_estimate_tube_system_mass_uniform_tube_matches_thin_wall_formula():
+    span_m = 32.0
+    diameter_m = 0.06
+    wall_m = 0.0008
+    density = 1600.0
+    num_spars = 2
+    num_wings = 2
+    mass = estimate_tube_system_mass_kg(
+        span_m=span_m,
+        root_outer_diameter_m=diameter_m,
+        tip_outer_diameter_m=diameter_m,
+        root_wall_thickness_m=wall_m,
+        tip_wall_thickness_m=wall_m,
+        density_kg_per_m3=density,
+        num_spars_per_wing=num_spars,
+        num_wings=num_wings,
+    )
+    expected = (
+        density
+        * math.pi
+        * diameter_m
+        * wall_m
+        * (span_m / 2.0)
+        * num_spars
+        * num_wings
+    )
+    assert mass == pytest.approx(expected, rel=1e-12)
+
+
+def test_estimate_tube_system_mass_scales_linearly_with_span():
+    base_kwargs = dict(
+        root_outer_diameter_m=0.07,
+        tip_outer_diameter_m=0.035,
+        root_wall_thickness_m=0.0007,
+        tip_wall_thickness_m=0.0004,
+    )
+    short = estimate_tube_system_mass_kg(span_m=30.0, **base_kwargs)
+    long = estimate_tube_system_mass_kg(span_m=36.0, **base_kwargs)
+    assert long == pytest.approx(short * 36.0 / 30.0, rel=1e-12)
+
+
+def test_estimate_tube_system_mass_rejects_non_positive_dimensions():
+    with pytest.raises(ValueError, match="root_outer_diameter_m"):
+        estimate_tube_system_mass_kg(
+            span_m=32.0,
+            root_outer_diameter_m=0.0,
+            tip_outer_diameter_m=0.05,
+            root_wall_thickness_m=0.001,
+            tip_wall_thickness_m=0.0005,
+        )

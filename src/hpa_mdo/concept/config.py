@@ -60,10 +60,22 @@ class MassConfig(ConceptBaseModel):
         return self
 
 
+class TubeSystemGeometryConfig(ConceptBaseModel):
+    estimation_enabled: bool = True
+    root_outer_diameter_m: float = Field(0.10, gt=0.0)
+    tip_outer_diameter_m: float = Field(0.05, gt=0.0)
+    root_wall_thickness_m: float = Field(0.0010, gt=0.0)
+    tip_wall_thickness_m: float = Field(0.0006, gt=0.0)
+    density_kg_per_m3: float = Field(1600.0, gt=0.0)
+    num_spars_per_wing: int = Field(2, ge=1)
+    num_wings: int = Field(2, ge=1)
+
+
 class MassClosureConfig(ConceptBaseModel):
     enabled: bool = True
     fixed_nonwing_aircraft_mass_kg: float = Field(24.0, gt=0.0)
     tube_system_mass_kg: float = Field(10.5, ge=0.0)
+    tube_system: TubeSystemGeometryConfig = Field(default_factory=TubeSystemGeometryConfig)
     rib_skin_areal_density_kgpm2: float = Field(0.20, ge=0.0)
     wing_fittings_base_kg: float = Field(1.5, ge=0.0)
     wire_terminal_mass_kg: float = Field(0.6, ge=0.0)

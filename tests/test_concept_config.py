@@ -19,6 +19,14 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.mass_closure.enabled is True
     assert cfg.mass_closure.fixed_nonwing_aircraft_mass_kg == pytest.approx(24.0)
     assert cfg.mass_closure.tube_system_mass_kg == pytest.approx(10.5)
+    assert cfg.mass_closure.tube_system.estimation_enabled is True
+    assert cfg.mass_closure.tube_system.root_outer_diameter_m == pytest.approx(0.070)
+    assert cfg.mass_closure.tube_system.tip_outer_diameter_m == pytest.approx(0.035)
+    assert cfg.mass_closure.tube_system.root_wall_thickness_m == pytest.approx(0.0007)
+    assert cfg.mass_closure.tube_system.tip_wall_thickness_m == pytest.approx(0.0004)
+    assert cfg.mass_closure.tube_system.density_kg_per_m3 == pytest.approx(1600.0)
+    assert cfg.mass_closure.tube_system.num_spars_per_wing == 2
+    assert cfg.mass_closure.tube_system.num_wings == 2
     assert cfg.mass_closure.rib_skin_areal_density_kgpm2 == pytest.approx(0.20)
     assert cfg.mass_closure.gross_mass_hard_max_kg == pytest.approx(107.0)
     assert cfg.mission.objective_mode == "max_range"

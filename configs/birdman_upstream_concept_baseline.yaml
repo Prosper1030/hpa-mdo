@@ -13,6 +13,15 @@ mass_closure:
   enabled: true
   fixed_nonwing_aircraft_mass_kg: 24.0
   tube_system_mass_kg: 10.5
+  tube_system:
+    estimation_enabled: true
+    root_outer_diameter_m: 0.070
+    tip_outer_diameter_m: 0.035
+    root_wall_thickness_m: 0.0007
+    tip_wall_thickness_m: 0.0004
+    density_kg_per_m3: 1600.0
+    num_spars_per_wing: 2
+    num_wings: 2
   rib_skin_areal_density_kgpm2: 0.20
   wing_fittings_base_kg: 1.5
   wire_terminal_mass_kg: 0.6

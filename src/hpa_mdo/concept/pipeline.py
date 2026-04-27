@@ -24,6 +24,8 @@ from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
     GeometryConcept,
     WingStation,
+    _resolve_tube_system_mass_kg,
+    _tube_mass_source_tag,
     build_linear_wing_stations,
     enumerate_geometry_concepts,
     get_last_geometry_enumeration_diagnostics,
@@ -2756,6 +2758,9 @@ def _sizing_diagnostics(
     )
     closure_summary = None
     if concept.wing_loading_target_Npm2 is not None:
+        tube_mass_kg = _resolve_tube_system_mass_kg(
+            cfg.mass_closure, span_m=float(concept.span_m)
+        )
         try:
             closure = close_area_mass(
                 wing_loading_target_Npm2=float(concept.wing_loading_target_Npm2),
@@ -2766,7 +2771,7 @@ def _sizing_diagnostics(
                 wing_areal_density_kgpm2=float(
                     cfg.mass_closure.rib_skin_areal_density_kgpm2
                 ),
-                tube_system_mass_kg=float(cfg.mass_closure.tube_system_mass_kg),
+                tube_system_mass_kg=tube_mass_kg,
                 wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
                 wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
                 extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
@@ -2806,7 +2811,8 @@ def _sizing_diagnostics(
                         cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
                     ),
                     "fixed_mass_source": "mass_closure.fixed_nonwing_aircraft_mass_kg",
-                    "tube_system_mass_kg": float(cfg.mass_closure.tube_system_mass_kg),
+                    "tube_system_mass_kg": float(tube_mass_kg),
+                    "tube_system_mass_source": _tube_mass_source_tag(cfg.mass_closure),
                     "wing_fittings_base_kg": float(
                         cfg.mass_closure.wing_fittings_base_kg
                     ),

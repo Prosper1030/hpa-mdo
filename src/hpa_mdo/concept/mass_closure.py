@@ -9,6 +9,50 @@ from dataclasses import dataclass
 _STANDARD_GRAVITY_MPS2 = 9.80665
 
 
+def estimate_tube_system_mass_kg(
+    *,
+    span_m: float,
+    root_outer_diameter_m: float,
+    tip_outer_diameter_m: float,
+    root_wall_thickness_m: float,
+    tip_wall_thickness_m: float,
+    density_kg_per_m3: float = 1600.0,
+    num_spars_per_wing: int = 2,
+    num_wings: int = 2,
+) -> float:
+    """Mass of a thin-wall circular CFRP tube spar system from geometry.
+
+    Each spar runs from root to tip on one wing-half (length = span / 2).
+    Outer diameter and wall thickness taper linearly along the spar; the
+    integral ∫ π D(x) t(x) dx is evaluated by Simpson's rule, which is exact
+    for the resulting quadratic D(x) t(x). Caller multiplies by spar count
+    (default 2 spars per wing × 2 wings = 4 tubes).
+    """
+
+    _require_finite_positive(span_m, "span_m")
+    _require_finite_positive(root_outer_diameter_m, "root_outer_diameter_m")
+    _require_finite_positive(tip_outer_diameter_m, "tip_outer_diameter_m")
+    _require_finite_positive(root_wall_thickness_m, "root_wall_thickness_m")
+    _require_finite_positive(tip_wall_thickness_m, "tip_wall_thickness_m")
+    _require_finite_positive(density_kg_per_m3, "density_kg_per_m3")
+    if int(num_spars_per_wing) <= 0:
+        raise ValueError("num_spars_per_wing must be a positive integer")
+    if int(num_wings) <= 0:
+        raise ValueError("num_wings must be a positive integer")
+
+    half_span_m = 0.5 * float(span_m)
+    d_root = float(root_outer_diameter_m)
+    d_tip = float(tip_outer_diameter_m)
+    t_root = float(root_wall_thickness_m)
+    t_tip = float(tip_wall_thickness_m)
+    d_mid = 0.5 * (d_root + d_tip)
+    t_mid = 0.5 * (t_root + t_tip)
+    integrand_avg = (d_root * t_root + 4.0 * d_mid * t_mid + d_tip * t_tip) / 6.0
+    mass_per_tube_kg = float(density_kg_per_m3) * math.pi * integrand_avg * half_span_m
+    total_tube_count = int(num_spars_per_wing) * int(num_wings)
+    return float(mass_per_tube_kg * total_tube_count)
+
+
 @dataclass(frozen=True)
 class AreaMassClosureResult:
     wing_loading_target_Npm2: float

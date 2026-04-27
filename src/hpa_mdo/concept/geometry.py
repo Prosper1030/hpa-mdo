@@ -8,7 +8,30 @@ from itertools import product
 import numpy as np
 from scipy.stats import qmc
 
-from hpa_mdo.concept.mass_closure import close_area_mass
+from hpa_mdo.concept.mass_closure import close_area_mass, estimate_tube_system_mass_kg
+
+
+def _resolve_tube_system_mass_kg(mass_closure_cfg, *, span_m: float) -> float:
+    tube_geom = getattr(mass_closure_cfg, "tube_system", None)
+    if tube_geom is not None and bool(tube_geom.estimation_enabled):
+        return estimate_tube_system_mass_kg(
+            span_m=float(span_m),
+            root_outer_diameter_m=float(tube_geom.root_outer_diameter_m),
+            tip_outer_diameter_m=float(tube_geom.tip_outer_diameter_m),
+            root_wall_thickness_m=float(tube_geom.root_wall_thickness_m),
+            tip_wall_thickness_m=float(tube_geom.tip_wall_thickness_m),
+            density_kg_per_m3=float(tube_geom.density_kg_per_m3),
+            num_spars_per_wing=int(tube_geom.num_spars_per_wing),
+            num_wings=int(tube_geom.num_wings),
+        )
+    return float(mass_closure_cfg.tube_system_mass_kg)
+
+
+def _tube_mass_source_tag(mass_closure_cfg) -> str:
+    tube_geom = getattr(mass_closure_cfg, "tube_system", None)
+    if tube_geom is not None and bool(tube_geom.estimation_enabled):
+        return "geometry_thin_wall_v1"
+    return "fixed_value"
 
 
 @dataclass(frozen=True)
@@ -453,6 +476,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
         wing_area_m2 = initial_wing_area_m2
         design_gross_mass_kg = float(cfg.mass.design_gross_mass_kg)
         if bool(cfg.mass_closure.enabled):
+            tube_mass_kg = _resolve_tube_system_mass_kg(cfg.mass_closure, span_m=span_m)
             try:
                 mass_closure = close_area_mass(
                     wing_loading_target_Npm2=wing_loading_target_Npm2,
@@ -463,7 +487,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                     wing_areal_density_kgpm2=float(
                         cfg.mass_closure.rib_skin_areal_density_kgpm2
                     ),
-                    tube_system_mass_kg=float(cfg.mass_closure.tube_system_mass_kg),
+                    tube_system_mass_kg=tube_mass_kg,
                     wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
                     wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
                     extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),

@@ -5,6 +5,7 @@ import pytest
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
     GeometryConcept,
+    _resolve_tube_system_mass_kg,
     build_linear_wing_stations,
     build_segment_plan,
     enumerate_geometry_concepts,
@@ -276,12 +277,15 @@ def test_enumerate_geometry_concepts_uses_area_coupled_design_mass():
         "tip_twist_deg": {"min": -1.0, "max": -1.0},
     }
     cfg = BirdmanConceptConfig.model_validate(payload)
+    expected_tube_mass_kg = _resolve_tube_system_mass_kg(
+        cfg.mass_closure, span_m=32.0
+    )
     expected = close_area_mass(
         wing_loading_target_Npm2=34.0,
         pilot_mass_kg=cfg.mass.pilot_mass_kg,
         fixed_non_area_aircraft_mass_kg=cfg.mass_closure.fixed_nonwing_aircraft_mass_kg,
         wing_areal_density_kgpm2=cfg.mass_closure.rib_skin_areal_density_kgpm2,
-        tube_system_mass_kg=cfg.mass_closure.tube_system_mass_kg,
+        tube_system_mass_kg=expected_tube_mass_kg,
         wing_fittings_base_kg=cfg.mass_closure.wing_fittings_base_kg,
         wire_terminal_mass_kg=cfg.mass_closure.wire_terminal_mass_kg,
         extra_system_margin_kg=cfg.mass_closure.system_margin_kg,
