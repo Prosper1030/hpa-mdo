@@ -367,11 +367,11 @@ def _mission_mass_cases_for_avl(
     misc_cd = float(0.0035 + 0.20 * tail_area_ratio * profile_cd_proxy)
     rigging_cda_m2 = compute_rigging_drag_cda_m2(cfg.rigging_drag)
     rigging_cd = rigging_cda_m2 / max(concept.wing_area_m2, 1.0e-9)
-    prop_model = SimplifiedPropModel(
+    prop_model = SimplifiedPropModel.from_config(
         diameter_m=float(cfg.prop.diameter_m),
         rpm_min=float(cfg.prop.rpm_min),
         rpm_max=float(cfg.prop.rpm_max),
-        design_efficiency=0.83,
+        efficiency_cfg=cfg.prop.efficiency_model,
     )
     rider_curve = build_rider_power_curve(
         rider_model=str(cfg.mission.rider_model),

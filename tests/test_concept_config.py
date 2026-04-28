@@ -58,6 +58,15 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.prop.rpm_min == pytest.approx(100.0)
     assert cfg.prop.rpm_max == pytest.approx(160.0)
     assert cfg.prop.position_mode == "between_wing_and_tail"
+    assert cfg.prop.efficiency_model.design_efficiency == pytest.approx(0.83)
+    assert cfg.prop.efficiency_model.peak_speed_mps == pytest.approx(8.5)
+    assert cfg.prop.efficiency_model.peak_shaft_power_w == pytest.approx(280.0)
+    assert cfg.prop.efficiency_model.speed_falloff_per_mps == pytest.approx(0.015)
+    assert cfg.prop.efficiency_model.power_falloff_per_w == pytest.approx(0.0004)
+    assert cfg.prop.efficiency_model.speed_term_floor == pytest.approx(0.70)
+    assert cfg.prop.efficiency_model.power_term_floor == pytest.approx(0.75)
+    assert cfg.prop.efficiency_model.efficiency_floor == pytest.approx(0.50)
+    assert cfg.prop.efficiency_model.efficiency_ceiling == pytest.approx(0.90)
     assert cfg.launch.platform_height_m == pytest.approx(10.0)
     assert cfg.turn.required_bank_angle_deg == pytest.approx(15.0)
     assert cfg.rigging_drag.enabled is True

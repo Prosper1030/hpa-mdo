@@ -12,13 +12,25 @@ from hpa_mdo.concept.safety import (
 )
 
 
-def test_simplified_prop_model_efficiency_varies_with_speed_and_power():
-    model = SimplifiedPropModel(
+def _build_default_prop_model() -> SimplifiedPropModel:
+    return SimplifiedPropModel(
         diameter_m=3.0,
         rpm_min=100.0,
         rpm_max=160.0,
         design_efficiency=0.83,
+        peak_speed_mps=8.5,
+        peak_shaft_power_w=280.0,
+        speed_falloff_per_mps=0.015,
+        power_falloff_per_w=0.0004,
+        speed_term_floor=0.70,
+        power_term_floor=0.75,
+        efficiency_floor=0.50,
+        efficiency_ceiling=0.90,
     )
+
+
+def test_simplified_prop_model_efficiency_varies_with_speed_and_power():
+    model = _build_default_prop_model()
 
     low_speed = model.efficiency(speed_mps=7.0, shaft_power_w=240.0)
     high_speed = model.efficiency(speed_mps=10.0, shaft_power_w=300.0)
@@ -29,6 +41,29 @@ def test_simplified_prop_model_efficiency_varies_with_speed_and_power():
     assert low_speed == pytest.approx(
         max(0.50, min(0.90, 0.83 * max(0.70, 1.0 - 0.015 * abs(7.0 - 8.5)) * max(0.75, 1.0 - 0.0004 * abs(240.0 - 280.0))))
     )
+
+
+def test_simplified_prop_model_efficiency_respects_configured_peak_and_falloff():
+    model = SimplifiedPropModel(
+        diameter_m=3.0,
+        rpm_min=100.0,
+        rpm_max=160.0,
+        design_efficiency=0.85,
+        peak_speed_mps=9.0,
+        peak_shaft_power_w=320.0,
+        speed_falloff_per_mps=0.020,
+        power_falloff_per_w=0.0006,
+        speed_term_floor=0.72,
+        power_term_floor=0.78,
+        efficiency_floor=0.55,
+        efficiency_ceiling=0.92,
+    )
+    # At the configured peak the operating-point correction collapses to 1.0.
+    assert model.efficiency(speed_mps=9.0, shaft_power_w=320.0) == pytest.approx(0.85)
+    # Off-peak the efficiency must drop and stay within configured clamps.
+    off_peak = model.efficiency(speed_mps=7.0, shaft_power_w=200.0)
+    assert 0.55 <= off_peak <= 0.92
+    assert off_peak < 0.85
 
 
 def test_launch_gate_applies_ground_effect_and_can_pass():

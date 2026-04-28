@@ -189,12 +189,46 @@ class StallModelConfig(ConceptBaseModel):
         return self
 
 
+class PropEfficiencyConfig(ConceptBaseModel):
+    """Parameters of the concept-stage simplified prop efficiency proxy.
+
+    The efficiency model is intentionally a coarse operating-point correction
+    around a peak (V*, P*) point, with linear falloff in both axes and a
+    floor/ceiling clamp. Values default to a generic well-designed HPA prop
+    operating around 8.5 m/s and 280 W shaft power.
+    """
+
+    design_efficiency: float = Field(0.83, gt=0.0, le=1.0)
+    peak_speed_mps: float = Field(8.5, gt=0.0)
+    peak_shaft_power_w: float = Field(280.0, gt=0.0)
+    speed_falloff_per_mps: float = Field(0.015, ge=0.0)
+    power_falloff_per_w: float = Field(0.0004, ge=0.0)
+    speed_term_floor: float = Field(0.70, gt=0.0, le=1.0)
+    power_term_floor: float = Field(0.75, gt=0.0, le=1.0)
+    efficiency_floor: float = Field(0.50, gt=0.0, le=1.0)
+    efficiency_ceiling: float = Field(0.90, gt=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_efficiency_bounds(self) -> PropEfficiencyConfig:
+        if self.efficiency_floor >= self.efficiency_ceiling:
+            raise ValueError(
+                "prop.efficiency_model.efficiency_floor must be < efficiency_ceiling."
+            )
+        if not (self.efficiency_floor <= self.design_efficiency <= self.efficiency_ceiling):
+            raise ValueError(
+                "prop.efficiency_model.design_efficiency must lie within "
+                "[efficiency_floor, efficiency_ceiling]."
+            )
+        return self
+
+
 class PropConfig(ConceptBaseModel):
     blade_count: int = Field(2, ge=1)
     diameter_m: float = Field(3.0, gt=0.0)
     rpm_min: float = Field(100.0, gt=0.0)
     rpm_max: float = Field(160.0, gt=0.0)
     position_mode: Literal["between_wing_and_tail"] = "between_wing_and_tail"
+    efficiency_model: PropEfficiencyConfig = Field(default_factory=PropEfficiencyConfig)
 
     @model_validator(mode="after")
     def validate_rpm_bounds(self) -> PropConfig:
