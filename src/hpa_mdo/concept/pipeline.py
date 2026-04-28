@@ -1935,6 +1935,7 @@ def _build_slow_speed_report(
     prop_model: SimplifiedPropModel,
     rider_curve: Any,
     worst_case_result: dict[str, Any],
+    drivetrain_efficiency: float,
 ) -> dict[str, Any]:
     """Build a per-slow-speed report block for `mission_summary`.
 
@@ -1978,6 +1979,7 @@ def _build_slow_speed_report(
             speed_mps=slow_speed_mps,
             prop_model=prop_model,
         )
+        pedal_power_w = shaft_power_w / max(drivetrain_efficiency, 1.0e-9)
         required_duration_min = target_range_m / max(slow_speed_mps, 1.0e-9) / 60.0
         available_power_w = float(rider_curve.power_at_duration_min(required_duration_min))
         speeds_payload.append(
@@ -1988,8 +1990,9 @@ def _build_slow_speed_report(
                 "total_cd": float(total_cd),
                 "drag_n": float(drag_n),
                 "shaft_power_required_w": float(shaft_power_w),
+                "pedal_power_required_w": float(pedal_power_w),
                 "rider_available_power_w_at_required_duration": available_power_w,
-                "power_margin_w": float(available_power_w - shaft_power_w),
+                "power_margin_w": float(available_power_w - pedal_power_w),
                 "required_duration_min_to_target_range": float(required_duration_min),
                 "delta_v_from_best_range_mps": (
                     None
@@ -2002,6 +2005,7 @@ def _build_slow_speed_report(
         "model": "slow_speed_drag_power_proxy_v1_report_only",
         "evaluation_gross_mass_kg": gross_mass_kg,
         "best_range_speed_mps": best_range_speed_mps,
+        "drivetrain_efficiency": float(drivetrain_efficiency),
         "speeds": speeds_payload,
     }
 
@@ -2064,23 +2068,31 @@ def _build_concept_mission_summary(
     )
 
     target_range_m = float(cfg.mission.target_distance_km) * 1000.0
+    drivetrain_efficiency = float(cfg.drivetrain.efficiency)
     mission_results: list[dict[str, Any]] = []
     for gross_mass_kg in _concept_gross_mass_cases(cfg, concept):
         weight_n = float(gross_mass_kg) * 9.80665
-        power_required_w: list[float] = []
+        shaft_power_required_w: list[float] = []
         for speed_mps in speed_sweep_mps:
             dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
             cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
             induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
             total_cd = profile_cd + induced_cd + misc_cd + tail_trim_drag_cd + rigging_cd
             drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
-            power_required_w.append(
+            shaft_power_required_w.append(
                 _shaft_power_required_w(
                     drag_n=drag_n,
                     speed_mps=speed_mps,
                     prop_model=prop_model,
                 )
             )
+        # Convert shaft power → pedal power via the drivetrain efficiency
+        # so the rider's W-tau curve sees the actual effort at the pedal.
+        # The legacy ``power_required_w`` field now carries pedal power.
+        power_required_w = [
+            shaft_w / max(drivetrain_efficiency, 1.0e-9)
+            for shaft_w in shaft_power_required_w
+        ]
 
         unconstrained_result = evaluate_mission_objective(
             MissionEvaluationInputs(
@@ -2204,6 +2216,8 @@ def _build_concept_mission_summary(
                 "pilot_power_model": str(unconstrained_result.pilot_power_model),
                 "pilot_power_anchor": str(unconstrained_result.pilot_power_anchor),
                 "power_required_w": tuple(power_required_w),
+                "shaft_power_required_w_by_speed": tuple(shaft_power_required_w),
+                "pedal_power_required_w_by_speed": tuple(power_required_w),
                 "best_range_unconstrained_m": float(unconstrained_result.best_range_m),
                 "best_range_unconstrained_speed_mps": float(
                     unconstrained_result.best_range_speed_mps
@@ -2243,7 +2257,30 @@ def _build_concept_mission_summary(
         prop_model=prop_model,
         rider_curve=rider_curve,
         worst_case_result=worst_case_result,
+        drivetrain_efficiency=drivetrain_efficiency,
     )
+
+    best_range_speed_mps_for_loss = worst_case_result.get("best_range_speed_mps")
+    if best_range_speed_mps_for_loss is None:
+        best_range_speed_mps_for_loss = worst_case_result.get(
+            "best_range_unconstrained_speed_mps"
+        )
+    if best_range_speed_mps_for_loss is None:
+        drivetrain_loss_w_at_best_range = None
+    else:
+        speeds = list(worst_case_result["power_required_w"])
+        sweep_speeds = list(speed_sweep_mps)
+        # Find pedal power at best range speed (exact match in the sweep grid)
+        pedal_power_at_best = None
+        for sweep_v, pedal_w in zip(sweep_speeds, speeds):
+            if abs(float(sweep_v) - float(best_range_speed_mps_for_loss)) < 1.0e-9:
+                pedal_power_at_best = float(pedal_w)
+                break
+        drivetrain_loss_w_at_best_range = (
+            None
+            if pedal_power_at_best is None
+            else pedal_power_at_best * (1.0 - drivetrain_efficiency)
+        )
 
     return {
         "mission_objective_mode": str(cfg.mission.objective_mode),
@@ -2292,6 +2329,8 @@ def _build_concept_mission_summary(
         "trim_drag_cd_proxy": tail_trim_drag_cd,
         "rigging_cda_m2": float(rigging_cda_m2),
         "rigging_cd_proxy": float(rigging_cd),
+        "drivetrain_efficiency": drivetrain_efficiency,
+        "drivetrain_loss_w_at_best_range": drivetrain_loss_w_at_best_range,
         "slow_speed_report": slow_speed_report,
         "tail_cl_required_for_trim": tail_cl_required,
         "oswald_efficiency_proxy": oswald_efficiency,
@@ -2358,6 +2397,12 @@ def _build_concept_mission_summary(
                 "speed_feasibility_records": list(result["speed_feasibility_records"]),
                 "limiter_audit": dict(result["limiter_audit"]),
                 "power_required_w": list(result["power_required_w"]),
+                "shaft_power_required_w_by_speed": list(
+                    result["shaft_power_required_w_by_speed"]
+                ),
+                "pedal_power_required_w_by_speed": list(
+                    result["pedal_power_required_w_by_speed"]
+                ),
             }
             for result in mission_results
         ],

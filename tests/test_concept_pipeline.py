@@ -1650,6 +1650,50 @@ def test_mission_summary_emits_slow_speed_report_payload_when_configured() -> No
         assert slow_entry["delta_v_from_best_range_mps"] < 0.0
 
 
+def test_mission_summary_pedal_power_exceeds_shaft_power_by_drivetrain_factor() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    assert cfg.drivetrain.efficiency < 1.0
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.2,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    station_points = [
+        {
+            "station_y_m": 4.0,
+            "cl_target": 0.82,
+            "cm_target": -0.08,
+            "cm_effective": -0.08,
+            "chord_m": 1.15,
+            "weight": 1.0,
+            "case_label": "reference_avl_case",
+        }
+    ]
+    summary = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback={"mean_cd_effective": 0.021},
+        trim_summary={"tail_cl_required": 0.10},
+        air_density_kg_per_m3=1.15,
+    )
+    assert summary["drivetrain_efficiency"] == pytest.approx(cfg.drivetrain.efficiency)
+    mass_case = summary["mass_cases"][0]
+    shaft_list = list(mass_case["shaft_power_required_w_by_speed"])
+    pedal_list = list(mass_case["pedal_power_required_w_by_speed"])
+    assert len(shaft_list) == len(pedal_list)
+    assert all(p > s > 0.0 for p, s in zip(pedal_list, shaft_list))
+    expected_factor = 1.0 / cfg.drivetrain.efficiency
+    for shaft_w, pedal_w in zip(shaft_list, pedal_list):
+        assert pedal_w == pytest.approx(shaft_w * expected_factor, rel=1e-9)
+
+
 def test_mission_summary_slow_speed_report_is_empty_when_no_speeds_configured() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     cfg.mission.slow_report_speeds_mps = ()

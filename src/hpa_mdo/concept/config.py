@@ -259,6 +259,21 @@ class PropConfig(ConceptBaseModel):
         return self
 
 
+class DrivetrainConfig(ConceptBaseModel):
+    """Pedal-to-prop-shaft transmission efficiency.
+
+    Models the chain / belt / gearbox loss between the rider's pedals and
+    the propeller shaft. The W-tau (rider power-duration) curve always
+    refers to power at the pedal, so shaft power must be divided by this
+    factor to compute the actual rider effort at the pedal.
+
+    Default 0.97 reflects a typical HPA chain drive (e.g., Daedalus used
+    a single-stage chain drive with measured 0.95-0.98 efficiency).
+    """
+
+    efficiency: float = Field(0.97, gt=0.0, le=1.0)
+
+
 class TurnConfig(ConceptBaseModel):
     required_bank_angle_deg: float = Field(15.0, gt=0.0, lt=45.0)
 
@@ -627,6 +642,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     launch: LaunchConfig = Field(default_factory=LaunchConfig)
     stall_model: StallModelConfig = Field(default_factory=StallModelConfig)
     prop: PropConfig = Field(default_factory=PropConfig)
+    drivetrain: DrivetrainConfig = Field(default_factory=DrivetrainConfig)
     turn: TurnConfig = Field(default_factory=TurnConfig)
     rigging_drag: RiggingDragConfig = Field(default_factory=RiggingDragConfig)
     jig_shape_gate: JigShapeGateConfig = Field(default_factory=JigShapeGateConfig)
