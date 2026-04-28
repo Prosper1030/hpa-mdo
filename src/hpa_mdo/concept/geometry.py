@@ -9,6 +9,7 @@ import numpy as np
 from scipy.stats import qmc
 
 from hpa_mdo.concept.jig_shape import estimate_tip_deflection_ratio
+from hpa_mdo.concept.lift_wire import estimate_lift_wire_tension_n
 from hpa_mdo.concept.mass_closure import close_area_mass, estimate_tube_system_mass_kg
 
 
@@ -61,6 +62,7 @@ class GeometryConcept:
     dihedral_tip_deg: float = 0.0
     dihedral_exponent: float = 1.0
     tip_deflection_ratio_at_design_mass: float | None = None
+    lift_wire_tension_at_limit_n: float | None = None
 
     def __post_init__(self) -> None:
         segment_lengths_m = tuple(float(length) for length in self.segment_lengths_m)
@@ -88,6 +90,13 @@ class GeometryConcept:
         ):
             raise ValueError(
                 "tip_deflection_ratio_at_design_mass must be non-negative when provided."
+            )
+        if (
+            self.lift_wire_tension_at_limit_n is not None
+            and self.lift_wire_tension_at_limit_n < 0.0
+        ):
+            raise ValueError(
+                "lift_wire_tension_at_limit_n must be non-negative when provided."
             )
         if not 0.0 <= self.cg_xc <= 1.0:
             raise ValueError("cg_xc must be in [0, 1].")
@@ -571,6 +580,32 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                     continue
                 accepted_tip_deflection_ratio = float(deflection_ratio)
 
+        wire_gate_cfg = getattr(cfg, "lift_wire_gate", None)
+        accepted_lift_wire_tension_n: float | None = None
+        if wire_gate_cfg is not None and bool(wire_gate_cfg.enabled):
+            tube_geom = getattr(cfg.mass_closure, "tube_system", None)
+            if tube_geom is not None:
+                wire_tension_n = estimate_lift_wire_tension_n(
+                    gross_mass_kg=design_gross_mass_kg,
+                    tube_geom=tube_geom,
+                    gate_cfg=wire_gate_cfg,
+                )
+                allowable_n = float(wire_gate_cfg.allowable_tension_n)
+                if wire_tension_n > allowable_n:
+                    rejected_concepts.append(
+                        _geometry_rejection(
+                            sample_index=sample_index,
+                            reason="lift_wire_tension_excessive",
+                            primary_values=primary_values,
+                            secondary_values=secondary_values,
+                            estimated_wire_tension_n=float(wire_tension_n),
+                            allowable_tension_n=allowable_n,
+                            design_gross_mass_kg=float(design_gross_mass_kg),
+                        )
+                    )
+                    continue
+                accepted_lift_wire_tension_n = float(wire_tension_n)
+
         root_chord_m = 2.0 * wing_area_m2 / (span_m * (1.0 + taper_ratio))
         tip_chord_m = root_chord_m * taper_ratio
 
@@ -609,6 +644,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             wing_area_is_derived=True,
             design_gross_mass_kg=float(design_gross_mass_kg),
             tip_deflection_ratio_at_design_mass=accepted_tip_deflection_ratio,
+            lift_wire_tension_at_limit_n=accepted_lift_wire_tension_n,
         )
         stations = build_linear_wing_stations(
             concept,

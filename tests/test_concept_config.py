@@ -79,6 +79,10 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.jig_shape_gate.spar_vertical_separation_m == pytest.approx(0.10)
     assert cfg.jig_shape_gate.deflection_taper_correction_factor == pytest.approx(1.7)
     assert cfg.jig_shape_gate.max_tip_deflection_to_halfspan_ratio == pytest.approx(0.30)
+    assert cfg.lift_wire_gate.enabled is True
+    assert cfg.lift_wire_gate.allowable_tension_n == pytest.approx(5000.0)
+    assert cfg.lift_wire_gate.limit_load_factor == pytest.approx(1.75)
+    assert cfg.lift_wire_gate.wing_lift_fraction_carried == pytest.approx(0.75)
     assert cfg.aero_proxies.parasite_drag.fuselage_misc_cd == pytest.approx(0.0035)
     assert cfg.aero_proxies.parasite_drag.tail_profile_coupling_factor == pytest.approx(0.20)
     assert cfg.aero_proxies.oswald_efficiency.base_efficiency == pytest.approx(0.88)

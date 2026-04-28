@@ -257,6 +257,28 @@ class JigShapeGateConfig(ConceptBaseModel):
     max_tip_deflection_to_halfspan_ratio: float = Field(0.30, gt=0.0, le=0.5)
 
 
+class LiftWireGateConfig(ConceptBaseModel):
+    """Concept-stage lift-wire tension screening gate.
+
+    Estimates wire tension at limit load using a simple per-wing share of
+    gross weight, multiplied by a load factor and a fraction representing
+    how much of the wing lift the wire actually reacts. Compares against
+    a configurable allowable. Defaults are tuned for HPA piano-wire /
+    Dyneema rigging (~5 kN allowable).
+
+    Intentionally coarse — actual wire layout, attachment geometry, and
+    catenary effects belong to the downstream OpenMDAO structural model.
+    This gate exists only to catch concepts where the gross mass / span
+    combination puts the rigging firmly outside the operating envelope
+    before the heavier solver has to refute it.
+    """
+
+    enabled: bool = True
+    allowable_tension_n: float = Field(5000.0, gt=0.0)
+    limit_load_factor: float = Field(1.75, gt=0.0)
+    wing_lift_fraction_carried: float = Field(0.75, gt=0.0, le=1.0)
+
+
 class ParasiteDragProxyConfig(ConceptBaseModel):
     """Concept-stage parasite-drag proxy parameters.
 
@@ -586,6 +608,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     turn: TurnConfig = Field(default_factory=TurnConfig)
     rigging_drag: RiggingDragConfig = Field(default_factory=RiggingDragConfig)
     jig_shape_gate: JigShapeGateConfig = Field(default_factory=JigShapeGateConfig)
+    lift_wire_gate: LiftWireGateConfig = Field(default_factory=LiftWireGateConfig)
     aero_proxies: AeroProxiesConfig = Field(default_factory=AeroProxiesConfig)
     tail_model: TailModelConfig = Field(default_factory=TailModelConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)

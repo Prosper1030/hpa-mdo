@@ -2861,6 +2861,11 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
                 if concept.tip_deflection_ratio_at_design_mass is None
                 else float(concept.tip_deflection_ratio_at_design_mass)
             ),
+            "lift_wire_tension_at_limit_n": (
+                None
+                if concept.lift_wire_tension_at_limit_n is None
+                else float(concept.lift_wire_tension_at_limit_n)
+            ),
         },
     }
 
