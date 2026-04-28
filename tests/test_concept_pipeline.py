@@ -1599,6 +1599,93 @@ def test_mission_summary_includes_tail_trim_drag_penalty() -> None:
     assert high_trim["tail_cl_required_for_trim"] == pytest.approx(0.45)
 
 
+def test_mission_summary_emits_slow_speed_report_payload_when_configured() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    # Baseline carries slow_report_speeds_mps=[6.0]; assert that propagates.
+    assert cfg.mission.slow_report_speeds_mps == (6.0,)
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.2,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    station_points = [
+        {
+            "station_y_m": 4.0,
+            "cl_target": 0.82,
+            "cm_target": -0.08,
+            "cm_effective": -0.08,
+            "chord_m": 1.15,
+            "weight": 1.0,
+            "case_label": "reference_avl_case",
+        }
+    ]
+    summary = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback={"mean_cd_effective": 0.021},
+        trim_summary={"tail_cl_required": 0.10},
+        air_density_kg_per_m3=1.15,
+    )
+    slow_report = summary["slow_speed_report"]
+    assert slow_report["model"] == "slow_speed_drag_power_proxy_v1_report_only"
+    assert slow_report["evaluation_gross_mass_kg"] > 0.0
+    assert len(slow_report["speeds"]) == 1
+    slow_entry = slow_report["speeds"][0]
+    assert slow_entry["speed_mps"] == pytest.approx(6.0)
+    # CL_required at 6 m/s should be higher than at any cruise speed >=7 m/s.
+    cruise_min_speed_mps = float(min(summary["speed_sweep_window_mps"]))
+    assert cruise_min_speed_mps >= 7.0
+    assert slow_entry["cl_required"] > 0.0
+    # Power required for the slow case should be a positive shaft power.
+    assert slow_entry["shaft_power_required_w"] > 0.0
+    # delta_v should be negative (slow speed < cruise best-range speed).
+    if slow_entry["delta_v_from_best_range_mps"] is not None:
+        assert slow_entry["delta_v_from_best_range_mps"] < 0.0
+
+
+def test_mission_summary_slow_speed_report_is_empty_when_no_speeds_configured() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg.mission.slow_report_speeds_mps = ()
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.2,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    station_points = [
+        {
+            "station_y_m": 4.0,
+            "cl_target": 0.82,
+            "cm_target": -0.08,
+            "cm_effective": -0.08,
+            "chord_m": 1.15,
+            "weight": 1.0,
+            "case_label": "reference_avl_case",
+        }
+    ]
+    summary = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback={"mean_cd_effective": 0.021},
+        trim_summary={"tail_cl_required": 0.10},
+        air_density_kg_per_m3=1.15,
+    )
+    assert summary["slow_speed_report"]["speeds"] == []
+
+
 def test_launch_summary_uses_vstall_primary_gate_and_tracks_ground_effect_sensitivity() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(

@@ -1917,6 +1917,91 @@ def _shaft_power_required_w(
     return shaft_power_w
 
 
+def _build_slow_speed_report(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    air_density_kg_per_m3: float,
+    aspect_ratio: float,
+    oswald_efficiency: float,
+    profile_cd: float,
+    misc_cd: float,
+    tail_trim_drag_cd: float,
+    rigging_cd: float,
+    prop_model: SimplifiedPropModel,
+    rider_curve: Any,
+    worst_case_result: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a per-slow-speed report block for `mission_summary`.
+
+    For each speed in ``cfg.mission.slow_report_speeds_mps`` (defaults to an
+    empty tuple), evaluate the same drag/power model used by the cruise
+    sweep at the worst-case gross mass and return CL_required, total CD,
+    drag, shaft power required, available rider power for the corresponding
+    duration, and the delta vs the cruise best-range operating point.
+
+    The block is informational only — these speeds are explicitly not part
+    of the cruise feasibility filter, so a station-level CL excursion at,
+    for example, 6 m/s is reported but does not gate the concept.
+    """
+    slow_speeds_mps = tuple(float(speed) for speed in cfg.mission.slow_report_speeds_mps)
+    raw_best_range_speed = worst_case_result.get("best_range_speed_mps")
+    if raw_best_range_speed is None:
+        raw_best_range_speed = worst_case_result.get("best_range_unconstrained_speed_mps")
+    best_range_speed_mps = (
+        None if raw_best_range_speed is None else float(raw_best_range_speed)
+    )
+    if not slow_speeds_mps:
+        return {
+            "model": "slow_speed_drag_power_proxy_v1_report_only",
+            "evaluation_gross_mass_kg": float(worst_case_result["gross_mass_kg"]),
+            "best_range_speed_mps": best_range_speed_mps,
+            "speeds": [],
+        }
+
+    gross_mass_kg = float(worst_case_result["gross_mass_kg"])
+    weight_n = gross_mass_kg * 9.80665
+    target_range_m = float(cfg.mission.target_distance_km) * 1000.0
+    speeds_payload: list[dict[str, Any]] = []
+    for slow_speed_mps in slow_speeds_mps:
+        dynamic_pressure_pa = 0.5 * float(air_density_kg_per_m3) * slow_speed_mps**2
+        cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
+        induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
+        total_cd = profile_cd + induced_cd + misc_cd + tail_trim_drag_cd + rigging_cd
+        drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
+        shaft_power_w = _shaft_power_required_w(
+            drag_n=drag_n,
+            speed_mps=slow_speed_mps,
+            prop_model=prop_model,
+        )
+        required_duration_min = target_range_m / max(slow_speed_mps, 1.0e-9) / 60.0
+        available_power_w = float(rider_curve.power_at_duration_min(required_duration_min))
+        speeds_payload.append(
+            {
+                "speed_mps": float(slow_speed_mps),
+                "cl_required": float(cl_required),
+                "induced_cd": float(induced_cd),
+                "total_cd": float(total_cd),
+                "drag_n": float(drag_n),
+                "shaft_power_required_w": float(shaft_power_w),
+                "rider_available_power_w_at_required_duration": available_power_w,
+                "power_margin_w": float(available_power_w - shaft_power_w),
+                "required_duration_min_to_target_range": float(required_duration_min),
+                "delta_v_from_best_range_mps": (
+                    None
+                    if best_range_speed_mps is None
+                    else float(slow_speed_mps - best_range_speed_mps)
+                ),
+            }
+        )
+    return {
+        "model": "slow_speed_drag_power_proxy_v1_report_only",
+        "evaluation_gross_mass_kg": gross_mass_kg,
+        "best_range_speed_mps": best_range_speed_mps,
+        "speeds": speeds_payload,
+    }
+
+
 def _build_concept_mission_summary(
     *,
     cfg: BirdmanConceptConfig,
@@ -2134,6 +2219,22 @@ def _build_concept_mission_summary(
         mission_results,
         key=lambda item: float(item["mission_score"]),
     )
+
+    slow_speed_report = _build_slow_speed_report(
+        cfg=cfg,
+        concept=concept,
+        air_density_kg_per_m3=air_density_kg_per_m3,
+        aspect_ratio=aspect_ratio,
+        oswald_efficiency=oswald_efficiency,
+        profile_cd=profile_cd,
+        misc_cd=misc_cd,
+        tail_trim_drag_cd=tail_trim_drag_cd,
+        rigging_cd=rigging_cd,
+        prop_model=prop_model,
+        rider_curve=rider_curve,
+        worst_case_result=worst_case_result,
+    )
+
     return {
         "mission_objective_mode": str(cfg.mission.objective_mode),
         "mission_feasible": all(bool(result["mission_feasible"]) for result in mission_results),
@@ -2181,6 +2282,7 @@ def _build_concept_mission_summary(
         "trim_drag_cd_proxy": tail_trim_drag_cd,
         "rigging_cda_m2": float(rigging_cda_m2),
         "rigging_cd_proxy": float(rigging_cd),
+        "slow_speed_report": slow_speed_report,
         "tail_cl_required_for_trim": tail_cl_required,
         "oswald_efficiency_proxy": oswald_efficiency,
         "propulsion_model": "simplified_prop_proxy_v1",
