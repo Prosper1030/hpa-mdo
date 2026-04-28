@@ -12,11 +12,13 @@ from hpa_mdo.concept.safety import (
 )
 
 
-def _build_default_prop_model() -> SimplifiedPropModel:
+def _build_default_prop_model(*, use_bemt_proxy: bool = False) -> SimplifiedPropModel:
     return SimplifiedPropModel(
         diameter_m=3.0,
         rpm_min=100.0,
         rpm_max=160.0,
+        blade_count=2,
+        air_density_kg_per_m3=1.18,
         design_efficiency=0.83,
         peak_speed_mps=8.5,
         peak_shaft_power_w=280.0,
@@ -26,6 +28,15 @@ def _build_default_prop_model() -> SimplifiedPropModel:
         power_term_floor=0.75,
         efficiency_floor=0.50,
         efficiency_ceiling=0.90,
+        use_bemt_proxy=use_bemt_proxy,
+        bemt_blade_loss_constant=0.174,
+        bemt_profile_loss=0.07,
+        bemt_peak_advance_ratio=1.10,
+        bemt_advance_ratio_falloff=0.10,
+        bemt_advance_ratio_floor=0.50,
+        bemt_design_rpm=140.0,
+        bemt_v_tip_max_mps=60.0,
+        bemt_v_tip_penalty_slope=0.5,
     )
 
 
@@ -48,6 +59,8 @@ def test_simplified_prop_model_efficiency_respects_configured_peak_and_falloff()
         diameter_m=3.0,
         rpm_min=100.0,
         rpm_max=160.0,
+        blade_count=2,
+        air_density_kg_per_m3=1.18,
         design_efficiency=0.85,
         peak_speed_mps=9.0,
         peak_shaft_power_w=320.0,
@@ -57,6 +70,15 @@ def test_simplified_prop_model_efficiency_respects_configured_peak_and_falloff()
         power_term_floor=0.78,
         efficiency_floor=0.55,
         efficiency_ceiling=0.92,
+        use_bemt_proxy=False,
+        bemt_blade_loss_constant=0.174,
+        bemt_profile_loss=0.07,
+        bemt_peak_advance_ratio=1.10,
+        bemt_advance_ratio_falloff=0.10,
+        bemt_advance_ratio_floor=0.50,
+        bemt_design_rpm=140.0,
+        bemt_v_tip_max_mps=60.0,
+        bemt_v_tip_penalty_slope=0.5,
     )
     # At the configured peak the operating-point correction collapses to 1.0.
     assert model.efficiency(speed_mps=9.0, shaft_power_w=320.0) == pytest.approx(0.85)

@@ -381,6 +381,8 @@ def _mission_mass_cases_for_avl(
         diameter_m=float(cfg.prop.diameter_m),
         rpm_min=float(cfg.prop.rpm_min),
         rpm_max=float(cfg.prop.rpm_max),
+        blade_count=int(cfg.prop.blade_count),
+        air_density_kg_per_m3=float(air_density_kg_per_m3),
         efficiency_cfg=cfg.prop.efficiency_model,
     )
     rider_curve = build_rider_power_curve(

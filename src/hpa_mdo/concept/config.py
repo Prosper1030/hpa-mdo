@@ -192,10 +192,23 @@ class StallModelConfig(ConceptBaseModel):
 class PropEfficiencyConfig(ConceptBaseModel):
     """Parameters of the concept-stage simplified prop efficiency proxy.
 
-    The efficiency model is intentionally a coarse operating-point correction
-    around a peak (V*, P*) point, with linear falloff in both axes and a
-    floor/ceiling clamp. Values default to a generic well-designed HPA prop
-    operating around 8.5 m/s and 280 W shaft power.
+    Two modes are supported:
+
+    - ``use_bemt_proxy=False`` (default): coarse operating-point correction
+      around a peak (V*, P*) point with linear falloff in both axes and a
+      floor/ceiling clamp. Independent of diameter / RPM / blade count.
+
+    - ``use_bemt_proxy=True``: physics-anchored proxy that combines
+      momentum-theory ideal efficiency (depends on disk loading T/A and
+      thus on diameter), finite-blade knockdown (1 - k/B), profile-drag
+      knockdown (1 - k_profile), an off-design penalty parabolic in
+      advance ratio J = V/(n·D), and a soft V_tip ceiling. RPM enters
+      via ``bemt_design_rpm`` (used to compute n and J at the operating
+      point — fixed-pitch HPA props don't tightly couple RPM to power).
+
+    Defaults are tuned so the BEMT proxy yields ≈0.83 at the reference
+    operating point (V=8.5 m/s, P=280 W, D=3 m, B=2, RPM=140), matching
+    the operating-point proxy at that anchor.
     """
 
     design_efficiency: float = Field(0.83, gt=0.0, le=1.0)
@@ -207,6 +220,15 @@ class PropEfficiencyConfig(ConceptBaseModel):
     power_term_floor: float = Field(0.75, gt=0.0, le=1.0)
     efficiency_floor: float = Field(0.50, gt=0.0, le=1.0)
     efficiency_ceiling: float = Field(0.90, gt=0.0, le=1.0)
+    use_bemt_proxy: bool = False
+    bemt_blade_loss_constant: float = Field(0.174, ge=0.0)
+    bemt_profile_loss: float = Field(0.07, ge=0.0, lt=1.0)
+    bemt_peak_advance_ratio: float = Field(1.10, gt=0.0)
+    bemt_advance_ratio_falloff: float = Field(0.10, ge=0.0)
+    bemt_advance_ratio_floor: float = Field(0.50, gt=0.0, le=1.0)
+    bemt_design_rpm: float = Field(140.0, gt=0.0)
+    bemt_v_tip_max_mps: float = Field(60.0, gt=0.0)
+    bemt_v_tip_penalty_slope: float = Field(0.5, ge=0.0)
 
     @model_validator(mode="after")
     def validate_efficiency_bounds(self) -> PropEfficiencyConfig:

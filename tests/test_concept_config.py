@@ -67,6 +67,15 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.prop.efficiency_model.power_term_floor == pytest.approx(0.75)
     assert cfg.prop.efficiency_model.efficiency_floor == pytest.approx(0.50)
     assert cfg.prop.efficiency_model.efficiency_ceiling == pytest.approx(0.90)
+    assert cfg.prop.efficiency_model.use_bemt_proxy is False
+    assert cfg.prop.efficiency_model.bemt_blade_loss_constant == pytest.approx(0.174)
+    assert cfg.prop.efficiency_model.bemt_profile_loss == pytest.approx(0.07)
+    assert cfg.prop.efficiency_model.bemt_peak_advance_ratio == pytest.approx(1.10)
+    assert cfg.prop.efficiency_model.bemt_advance_ratio_falloff == pytest.approx(0.10)
+    assert cfg.prop.efficiency_model.bemt_advance_ratio_floor == pytest.approx(0.50)
+    assert cfg.prop.efficiency_model.bemt_design_rpm == pytest.approx(140.0)
+    assert cfg.prop.efficiency_model.bemt_v_tip_max_mps == pytest.approx(60.0)
+    assert cfg.prop.efficiency_model.bemt_v_tip_penalty_slope == pytest.approx(0.5)
     assert cfg.launch.platform_height_m == pytest.approx(10.0)
     assert cfg.turn.required_bank_angle_deg == pytest.approx(15.0)
     assert cfg.rigging_drag.enabled is True
