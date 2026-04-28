@@ -100,6 +100,17 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.aero_proxies.oswald_efficiency.twist_delta_slope_per_deg == pytest.approx(0.008)
     assert cfg.aero_proxies.oswald_efficiency.efficiency_floor == pytest.approx(0.68)
     assert cfg.aero_proxies.oswald_efficiency.efficiency_ceiling == pytest.approx(0.92)
+    assert cfg.airfoil_selection_score.drag_weight == pytest.approx(1.50)
+    assert cfg.airfoil_selection_score.stall_weight == pytest.approx(4.25)
+    assert cfg.airfoil_selection_score.margin_weight == pytest.approx(2.25)
+    assert cfg.airfoil_selection_score.trim_weight == pytest.approx(1.25)
+    assert cfg.airfoil_selection_score.spar_weight == pytest.approx(3.00)
+    assert cfg.airfoil_selection_score.thickness_weight == pytest.approx(2.50)
+    assert cfg.airfoil_selection_score.drag_penalty_scale == pytest.approx(0.022)
+    assert cfg.airfoil_selection_score.stall_penalty_scale == pytest.approx(0.08)
+    assert cfg.airfoil_selection_score.margin_target == pytest.approx(0.08)
+    assert cfg.airfoil_selection_score.enforce_stall_as_hard_reject is False
+    assert cfg.airfoil_selection_score.enforce_structural_as_hard_reject is False
     assert cfg.segmentation.min_segment_length_m == pytest.approx(1.0)
     assert cfg.segmentation.max_segment_length_m == pytest.approx(3.0)
     assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)

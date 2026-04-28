@@ -3368,6 +3368,7 @@ def run_birdman_concept_pipeline(
                 launch_stall_utilization_limit=cfg.stall_model.launch_utilization_limit,
                 turn_stall_utilization_limit=cfg.stall_model.turn_utilization_limit,
                 local_stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
+                score_cfg=cfg.airfoil_selection_score,
             )
             if zone_requirements_with_points_by_concept
             else {}

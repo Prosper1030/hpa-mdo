@@ -478,6 +478,7 @@ def score_zone_candidate(
     launch_stall_utilization_limit: float | None = None,
     turn_stall_utilization_limit: float | None = None,
     local_stall_utilization_limit: float | None = None,
+    score_cfg: object | None = None,
 ) -> float:
     local_stall_utilization_limit = (
         float(stall_utilization_limit)
@@ -514,13 +515,22 @@ def score_zone_candidate(
         local_stall_utilization_limit=local_stall_utilization_limit,
     )
 
-    drag_penalty = _bounded_penalty(float(metrics["profile_power_proxy"]), 0.022)
-    trim_penalty = _bounded_penalty(float(metrics["trim_moment_proxy"]), 0.11)
+    weights = _resolve_score_weights(score_cfg)
+    drag_penalty = _bounded_penalty(
+        float(metrics["profile_power_proxy"]), weights["drag_penalty_scale"]
+    )
+    trim_penalty = _bounded_penalty(
+        float(metrics["trim_moment_proxy"]), weights["trim_penalty_scale"]
+    )
     stall_violation = max(0.0, -float(metrics["worst_case_margin"]))
     weighted_stall_violation = max(0.0, float(metrics["weighted_stall_violation"]))
-    stall_penalty = _bounded_penalty(max(stall_violation, weighted_stall_violation), 0.08)
-    margin_deficit = max(0.0, 0.08 - float(metrics["worst_case_margin"]))
-    margin_penalty = _bounded_penalty(margin_deficit, 0.06)
+    stall_penalty = _bounded_penalty(
+        max(stall_violation, weighted_stall_violation), weights["stall_penalty_scale"]
+    )
+    margin_deficit = max(
+        0.0, weights["margin_target"] - float(metrics["worst_case_margin"])
+    )
+    margin_penalty = _bounded_penalty(margin_deficit, weights["margin_penalty_scale"])
 
     thickness_deficit = max(
         0.0,
@@ -528,7 +538,10 @@ def score_zone_candidate(
     )
     thickness_penalty = _bounded_penalty(
         thickness_deficit,
-        max(0.01, 0.20 * float(zone_min_tc_ratio)),
+        max(
+            weights["thickness_penalty_scale_min"],
+            weights["thickness_penalty_scale_factor"] * float(zone_min_tc_ratio),
+        ),
     )
 
     spar_depth_deficit = max(
@@ -537,24 +550,84 @@ def score_zone_candidate(
     )
     spar_penalty = _bounded_penalty(
         spar_depth_deficit,
-        max(0.008, 0.15 * float(metrics["required_spar_depth_ratio"])),
+        max(
+            weights["spar_penalty_scale_min"],
+            weights["spar_penalty_scale_factor"]
+            * float(metrics["required_spar_depth_ratio"]),
+        ),
     )
 
     infeasible_guard = 0.0
     if stall_violation > 0.0:
-        infeasible_guard += 1.4 + 2.5 * stall_penalty
+        if weights["enforce_stall_as_hard_reject"]:
+            return float("inf")
+        infeasible_guard += (
+            weights["stall_infeasible_base"]
+            + weights["stall_infeasible_slope"] * stall_penalty
+        )
     if thickness_deficit > 0.0 or spar_depth_deficit > 0.0:
-        infeasible_guard += 0.8 + 1.5 * max(thickness_penalty, spar_penalty)
+        if weights["enforce_structural_as_hard_reject"]:
+            return float("inf")
+        infeasible_guard += (
+            weights["structural_infeasible_base"]
+            + weights["structural_infeasible_slope"]
+            * max(thickness_penalty, spar_penalty)
+        )
 
     return (
-        1.50 * drag_penalty
-        + 4.25 * stall_penalty
-        + 2.25 * margin_penalty
-        + 1.25 * trim_penalty
-        + 3.00 * spar_penalty
-        + 2.50 * thickness_penalty
+        weights["drag_weight"] * drag_penalty
+        + weights["stall_weight"] * stall_penalty
+        + weights["margin_weight"] * margin_penalty
+        + weights["trim_weight"] * trim_penalty
+        + weights["spar_weight"] * spar_penalty
+        + weights["thickness_weight"] * thickness_penalty
         + infeasible_guard
     )
+
+
+_LEGACY_SCORE_WEIGHTS: dict[str, float | bool] = {
+    "drag_weight": 1.50,
+    "stall_weight": 4.25,
+    "margin_weight": 2.25,
+    "trim_weight": 1.25,
+    "spar_weight": 3.00,
+    "thickness_weight": 2.50,
+    "drag_penalty_scale": 0.022,
+    "trim_penalty_scale": 0.11,
+    "stall_penalty_scale": 0.08,
+    "margin_target": 0.08,
+    "margin_penalty_scale": 0.06,
+    "thickness_penalty_scale_min": 0.01,
+    "thickness_penalty_scale_factor": 0.20,
+    "spar_penalty_scale_min": 0.008,
+    "spar_penalty_scale_factor": 0.15,
+    "stall_infeasible_base": 1.4,
+    "stall_infeasible_slope": 2.5,
+    "structural_infeasible_base": 0.8,
+    "structural_infeasible_slope": 1.5,
+    "enforce_stall_as_hard_reject": False,
+    "enforce_structural_as_hard_reject": False,
+}
+
+
+def _resolve_score_weights(score_cfg: object | None) -> dict[str, float | bool]:
+    """Return resolved score weights, falling back to legacy hard-coded values.
+
+    When ``score_cfg`` is ``None``, returns the legacy weights byte-for-byte
+    so existing callers that never opted in keep their current rankings.
+    Otherwise, reads each parameter via ``getattr``, which also makes this
+    duck-typed (works with any object exposing the right attribute names).
+    """
+    if score_cfg is None:
+        return dict(_LEGACY_SCORE_WEIGHTS)
+    resolved: dict[str, float | bool] = {}
+    for key, default in _LEGACY_SCORE_WEIGHTS.items():
+        value = getattr(score_cfg, key, default)
+        if isinstance(default, bool):
+            resolved[key] = bool(value)
+        else:
+            resolved[key] = float(value)
+    return resolved
 
 
 def select_best_zone_candidate(
@@ -574,6 +647,7 @@ def select_best_zone_candidate(
     launch_stall_utilization_limit: float | None = None,
     turn_stall_utilization_limit: float | None = None,
     local_stall_utilization_limit: float | None = None,
+    score_cfg: object | None = None,
 ) -> SelectedZoneCandidate:
     local_stall_utilization_limit = (
         float(stall_utilization_limit)
@@ -646,6 +720,7 @@ def select_best_zone_candidate(
             launch_stall_utilization_limit=launch_stall_utilization_limit,
             turn_stall_utilization_limit=turn_stall_utilization_limit,
             local_stall_utilization_limit=local_stall_utilization_limit,
+            score_cfg=score_cfg,
         )
         thickness_ratio = float(metrics["candidate_thickness_ratio"])
         spar_depth_ratio = float(metrics["spar_depth_ratio"])
@@ -915,6 +990,7 @@ def _score_available_zone_candidates(
     cm_hard_lower_bound: float = -0.16,
     cm_penalty_threshold: float = -0.12,
     trim_drag_per_cm_squared: float = 0.0,
+    score_cfg: object | None = None,
 ) -> list[_ZoneCandidateScore]:
     scored: list[_ZoneCandidateScore] = []
     for candidate in candidates:
@@ -972,6 +1048,7 @@ def _score_available_zone_candidates(
             launch_stall_utilization_limit=launch_stall_utilization_limit,
             turn_stall_utilization_limit=turn_stall_utilization_limit,
             local_stall_utilization_limit=local_stall_utilization_limit,
+            score_cfg=score_cfg,
         )
         thickness_ratio = float(metrics["candidate_thickness_ratio"])
         spar_depth_ratio = float(metrics["spar_depth_ratio"])
@@ -1571,6 +1648,7 @@ def select_zone_airfoil_templates(
     launch_stall_utilization_limit: float | None = None,
     turn_stall_utilization_limit: float | None = None,
     local_stall_utilization_limit: float | None = None,
+    score_cfg: object | None = None,
 ) -> ZoneSelectionBatch:
     concept_batches = select_zone_airfoil_templates_for_concepts(
         concept_zone_requirements={"single": zone_requirements},
@@ -1621,6 +1699,7 @@ def select_zone_airfoil_templates(
         launch_stall_utilization_limit=launch_stall_utilization_limit,
         turn_stall_utilization_limit=turn_stall_utilization_limit,
         local_stall_utilization_limit=local_stall_utilization_limit,
+        score_cfg=score_cfg,
     )
     batch = concept_batches["single"]
     return ZoneSelectionBatch(
@@ -1682,6 +1761,7 @@ def select_zone_airfoil_templates_for_concepts(
     launch_stall_utilization_limit: float | None = None,
     turn_stall_utilization_limit: float | None = None,
     local_stall_utilization_limit: float | None = None,
+    score_cfg: object | None = None,
 ) -> dict[str, ZoneSelectionBatch]:
     if not concept_zone_requirements:
         return {}
@@ -1784,6 +1864,7 @@ def select_zone_airfoil_templates_for_concepts(
                     cm_hard_lower_bound=cm_hard_lower_bound,
                     cm_penalty_threshold=cm_penalty_threshold,
                     trim_drag_per_cm_squared=trim_drag_per_cm_squared,
+                    score_cfg=score_cfg,
                 )
                 parent_count = min(max(2, int(nsga_parent_count)), len(scored))
                 if parent_count < 2:
@@ -1862,6 +1943,7 @@ def select_zone_airfoil_templates_for_concepts(
                 cm_hard_lower_bound=cm_hard_lower_bound,
                 cm_penalty_threshold=cm_penalty_threshold,
                 trim_drag_per_cm_squared=trim_drag_per_cm_squared,
+                score_cfg=score_cfg,
             )
             if not scored:
                 continue
@@ -1974,6 +2056,7 @@ def select_zone_airfoil_templates_for_concepts(
                     cm_hard_lower_bound=cm_hard_lower_bound,
                     cm_penalty_threshold=cm_penalty_threshold,
                     trim_drag_per_cm_squared=trim_drag_per_cm_squared,
+                    score_cfg=score_cfg,
                 )
                 if not child_scored:
                     updated_states[state_key] = state
@@ -2019,6 +2102,7 @@ def select_zone_airfoil_templates_for_concepts(
                 cm_hard_lower_bound=cm_hard_lower_bound,
                 cm_penalty_threshold=cm_penalty_threshold,
                 trim_drag_per_cm_squared=trim_drag_per_cm_squared,
+                score_cfg=score_cfg,
             )
             coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
             coarse_beam_by_key[batch_key] = _select_scored_candidate_beam(
@@ -2151,6 +2235,7 @@ def select_zone_airfoil_templates_for_concepts(
                 launch_stall_utilization_limit=launch_stall_utilization_limit,
                 turn_stall_utilization_limit=turn_stall_utilization_limit,
                 local_stall_utilization_limit=local_stall_utilization_limit,
+                score_cfg=score_cfg,
             )
 
     return {

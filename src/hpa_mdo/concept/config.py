@@ -365,6 +365,41 @@ class AeroProxiesConfig(ConceptBaseModel):
     )
 
 
+class AirfoilSelectionScoreConfig(ConceptBaseModel):
+    """Weights and saturation scales for the per-zone airfoil scoring.
+
+    The zone-level airfoil selector minimises a weighted scalar score that
+    blends drag, stall margin, trim moment, spar depth, and thickness
+    deficits. Each penalty saturates via ``_bounded_penalty(value, scale)``;
+    the configured ``*_scale`` is the value at which the penalty reaches
+    its half-saturation. Defaults reproduce the legacy hard-coded values
+    (`airfoil_selection.score_zone_candidate`) so existing rankings are
+    preserved when no override is provided.
+    """
+
+    drag_weight: float = Field(1.50, ge=0.0)
+    stall_weight: float = Field(4.25, ge=0.0)
+    margin_weight: float = Field(2.25, ge=0.0)
+    trim_weight: float = Field(1.25, ge=0.0)
+    spar_weight: float = Field(3.00, ge=0.0)
+    thickness_weight: float = Field(2.50, ge=0.0)
+    drag_penalty_scale: float = Field(0.022, gt=0.0)
+    trim_penalty_scale: float = Field(0.11, gt=0.0)
+    stall_penalty_scale: float = Field(0.08, gt=0.0)
+    margin_target: float = Field(0.08, ge=0.0)
+    margin_penalty_scale: float = Field(0.06, gt=0.0)
+    thickness_penalty_scale_min: float = Field(0.01, gt=0.0)
+    thickness_penalty_scale_factor: float = Field(0.20, ge=0.0)
+    spar_penalty_scale_min: float = Field(0.008, gt=0.0)
+    spar_penalty_scale_factor: float = Field(0.15, ge=0.0)
+    stall_infeasible_base: float = Field(1.4, ge=0.0)
+    stall_infeasible_slope: float = Field(2.5, ge=0.0)
+    structural_infeasible_base: float = Field(0.8, ge=0.0)
+    structural_infeasible_slope: float = Field(1.5, ge=0.0)
+    enforce_stall_as_hard_reject: bool = False
+    enforce_structural_as_hard_reject: bool = False
+
+
 class TailModelConfig(ConceptBaseModel):
     wing_ac_xc: float = Field(0.25, ge=0.0, le=1.0)
     tail_arm_to_mac: float = Field(4.0, gt=0.0)
@@ -648,6 +683,9 @@ class BirdmanConceptConfig(ConceptBaseModel):
     jig_shape_gate: JigShapeGateConfig = Field(default_factory=JigShapeGateConfig)
     lift_wire_gate: LiftWireGateConfig = Field(default_factory=LiftWireGateConfig)
     aero_proxies: AeroProxiesConfig = Field(default_factory=AeroProxiesConfig)
+    airfoil_selection_score: AirfoilSelectionScoreConfig = Field(
+        default_factory=AirfoilSelectionScoreConfig
+    )
     tail_model: TailModelConfig = Field(default_factory=TailModelConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
     cst_search: CSTSearchConfig = Field(default_factory=CSTSearchConfig)
