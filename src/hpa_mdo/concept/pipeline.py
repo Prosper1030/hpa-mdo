@@ -2856,6 +2856,11 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
                 if concept.design_gross_mass_kg is None
                 else float(concept.design_gross_mass_kg)
             ),
+            "tip_deflection_ratio_at_design_mass": (
+                None
+                if concept.tip_deflection_ratio_at_design_mass is None
+                else float(concept.tip_deflection_ratio_at_design_mass)
+            ),
         },
     }
 

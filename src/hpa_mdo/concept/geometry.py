@@ -60,6 +60,7 @@ class GeometryConcept:
     dihedral_root_deg: float = 0.0
     dihedral_tip_deg: float = 0.0
     dihedral_exponent: float = 1.0
+    tip_deflection_ratio_at_design_mass: float | None = None
 
     def __post_init__(self) -> None:
         segment_lengths_m = tuple(float(length) for length in self.segment_lengths_m)
@@ -81,6 +82,13 @@ class GeometryConcept:
             raise ValueError("wing_loading_target_Npm2 must be positive when provided.")
         if self.design_gross_mass_kg is not None and self.design_gross_mass_kg <= 0.0:
             raise ValueError("design_gross_mass_kg must be positive when provided.")
+        if (
+            self.tip_deflection_ratio_at_design_mass is not None
+            and self.tip_deflection_ratio_at_design_mass < 0.0
+        ):
+            raise ValueError(
+                "tip_deflection_ratio_at_design_mass must be non-negative when provided."
+            )
         if not 0.0 <= self.cg_xc <= 1.0:
             raise ValueError("cg_xc must be in [0, 1].")
         if self.dihedral_root_deg < -10.0 or self.dihedral_root_deg > 10.0:
@@ -537,6 +545,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
 
         jig_gate_cfg = getattr(cfg, "jig_shape_gate", None)
+        accepted_tip_deflection_ratio: float | None = None
         if jig_gate_cfg is not None and bool(jig_gate_cfg.enabled):
             tube_geom = getattr(cfg.mass_closure, "tube_system", None)
             if tube_geom is not None:
@@ -560,6 +569,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                         )
                     )
                     continue
+                accepted_tip_deflection_ratio = float(deflection_ratio)
 
         root_chord_m = 2.0 * wing_area_m2 / (span_m * (1.0 + taper_ratio))
         tip_chord_m = root_chord_m * taper_ratio
@@ -598,6 +608,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             wing_loading_target_Npm2=float(wing_loading_target_Npm2),
             wing_area_is_derived=True,
             design_gross_mass_kg=float(design_gross_mass_kg),
+            tip_deflection_ratio_at_design_mass=accepted_tip_deflection_ratio,
         )
         stations = build_linear_wing_stations(
             concept,

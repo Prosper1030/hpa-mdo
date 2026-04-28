@@ -1,8 +1,14 @@
 import math
+from pathlib import Path
 
 import pytest
 
-from hpa_mdo.concept.config import JigShapeGateConfig, TubeSystemGeometryConfig
+from hpa_mdo.concept.config import (
+    JigShapeGateConfig,
+    TubeSystemGeometryConfig,
+    load_concept_config,
+)
+from hpa_mdo.concept.geometry import enumerate_geometry_concepts
 from hpa_mdo.concept.jig_shape import estimate_tip_deflection_ratio
 
 
@@ -139,3 +145,24 @@ def test_tip_deflection_ratio_raises_on_nonpositive_span():
             tube_geom=tube_geom,
             gate_cfg=gate_cfg,
         )
+
+
+def test_accepted_concepts_carry_tip_deflection_ratio_when_gate_enabled():
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    assert cfg.jig_shape_gate.enabled
+    concepts = enumerate_geometry_concepts(cfg)
+    assert concepts, "baseline must yield at least one accepted concept"
+    limit = float(cfg.jig_shape_gate.max_tip_deflection_to_halfspan_ratio)
+    for concept in concepts:
+        ratio = concept.tip_deflection_ratio_at_design_mass
+        assert ratio is not None
+        assert 0.0 <= ratio <= limit
+
+
+def test_accepted_concepts_omit_tip_deflection_ratio_when_gate_disabled():
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg.jig_shape_gate.enabled = False
+    concepts = enumerate_geometry_concepts(cfg)
+    assert concepts
+    for concept in concepts:
+        assert concept.tip_deflection_ratio_at_design_mass is None
