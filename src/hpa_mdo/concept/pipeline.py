@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
+from hpa_mdo.concept.aero_proxies import misc_cd_proxy, oswald_efficiency_proxy
 from hpa_mdo.concept.airfoil_cst import (
     CSTAirfoilTemplate,
     build_lofting_guides,
@@ -1894,11 +1895,14 @@ def _assembly_penalty(concept: GeometryConcept) -> float:
     return 0.5 * float(joint_count)
 
 
-def _oswald_efficiency_proxy(concept: GeometryConcept) -> float:
-    dihedral_delta = max(0.0, float(concept.dihedral_tip_deg) - float(concept.dihedral_root_deg))
-    twist_delta = abs(float(concept.twist_tip_deg) - float(concept.twist_root_deg))
-    efficiency = 0.88 - 0.012 * dihedral_delta - 0.008 * twist_delta
-    return max(0.68, min(0.92, efficiency))
+def _oswald_efficiency_proxy(
+    concept: GeometryConcept,
+    cfg: BirdmanConceptConfig,
+) -> float:
+    return oswald_efficiency_proxy(
+        concept=concept,
+        proxy_cfg=cfg.aero_proxies.oswald_efficiency,
+    )
 
 
 def _shaft_power_required_w(
@@ -2021,7 +2025,7 @@ def _build_concept_mission_summary(
         airfoil_feedback,
     )
     aspect_ratio = concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9)
-    oswald_efficiency = _oswald_efficiency_proxy(concept)
+    oswald_efficiency = _oswald_efficiency_proxy(concept, cfg)
     tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
     tail_cl_required = abs(float(trim_summary.get("tail_cl_required", 0.0)))
     tail_trim_drag_cd = (
@@ -2035,7 +2039,11 @@ def _build_concept_mission_summary(
             1.0e-9,
         )
     )
-    misc_cd = 0.0035 + 0.20 * tail_area_ratio * profile_cd
+    misc_cd = misc_cd_proxy(
+        profile_cd=profile_cd,
+        tail_area_ratio=tail_area_ratio,
+        proxy_cfg=cfg.aero_proxies.parasite_drag,
+    )
     rigging_cda_m2 = compute_rigging_drag_cda_m2(cfg.rigging_drag)
     rigging_cd = rigging_cda_m2 / max(concept.wing_area_m2, 1.0e-9)
     prop_model = SimplifiedPropModel.from_config(

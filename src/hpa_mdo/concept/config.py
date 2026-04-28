@@ -257,6 +257,55 @@ class JigShapeGateConfig(ConceptBaseModel):
     max_tip_deflection_to_halfspan_ratio: float = Field(0.30, gt=0.0, le=0.5)
 
 
+class ParasiteDragProxyConfig(ConceptBaseModel):
+    """Concept-stage parasite-drag proxy parameters.
+
+    ``misc_cd`` lumps fuselage / pilot pod / cockpit parasite plus a small
+    profile-drag coupling that scales with tail area ratio. Both magic
+    numbers (0.0035 base + 0.20 tail-coupling) historically lived inline
+    in pipeline.py and avl_loader.py.
+    """
+
+    fuselage_misc_cd: float = Field(0.0035, ge=0.0)
+    tail_profile_coupling_factor: float = Field(0.20, ge=0.0)
+
+
+class OswaldEfficiencyProxyConfig(ConceptBaseModel):
+    """Concept-stage Oswald-efficiency proxy parameters.
+
+    Linear knockdown around ``base_efficiency`` driven by dihedral spread
+    and twist spread, then clamped to ``[efficiency_floor, efficiency_ceiling]``.
+    """
+
+    base_efficiency: float = Field(0.88, gt=0.0, le=1.0)
+    dihedral_delta_slope_per_deg: float = Field(0.012, ge=0.0)
+    twist_delta_slope_per_deg: float = Field(0.008, ge=0.0)
+    efficiency_floor: float = Field(0.68, gt=0.0, le=1.0)
+    efficiency_ceiling: float = Field(0.92, gt=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> OswaldEfficiencyProxyConfig:
+        if self.efficiency_floor >= self.efficiency_ceiling:
+            raise ValueError(
+                "aero_proxies.oswald_efficiency.efficiency_floor must be < efficiency_ceiling."
+            )
+        if not (
+            self.efficiency_floor <= self.base_efficiency <= self.efficiency_ceiling
+        ):
+            raise ValueError(
+                "aero_proxies.oswald_efficiency.base_efficiency must lie within "
+                "[efficiency_floor, efficiency_ceiling]."
+            )
+        return self
+
+
+class AeroProxiesConfig(ConceptBaseModel):
+    parasite_drag: ParasiteDragProxyConfig = Field(default_factory=ParasiteDragProxyConfig)
+    oswald_efficiency: OswaldEfficiencyProxyConfig = Field(
+        default_factory=OswaldEfficiencyProxyConfig
+    )
+
+
 class TailModelConfig(ConceptBaseModel):
     wing_ac_xc: float = Field(0.25, ge=0.0, le=1.0)
     tail_arm_to_mac: float = Field(4.0, gt=0.0)
@@ -537,6 +586,7 @@ class BirdmanConceptConfig(ConceptBaseModel):
     turn: TurnConfig = Field(default_factory=TurnConfig)
     rigging_drag: RiggingDragConfig = Field(default_factory=RiggingDragConfig)
     jig_shape_gate: JigShapeGateConfig = Field(default_factory=JigShapeGateConfig)
+    aero_proxies: AeroProxiesConfig = Field(default_factory=AeroProxiesConfig)
     tail_model: TailModelConfig = Field(default_factory=TailModelConfig)
     geometry_family: GeometryFamilyConfig = Field(default_factory=GeometryFamilyConfig)
     cst_search: CSTSearchConfig = Field(default_factory=CSTSearchConfig)

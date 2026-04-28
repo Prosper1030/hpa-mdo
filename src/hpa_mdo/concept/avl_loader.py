@@ -15,6 +15,7 @@ import numpy as np
 from hpa_mdo.aero.avl_exporter import stage_avl_airfoil_files
 from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
 from hpa_mdo.aero.base import SpanwiseLoad
+from hpa_mdo.concept.aero_proxies import misc_cd_proxy, oswald_efficiency_proxy
 from hpa_mdo.concept.config import BirdmanConceptConfig
 from hpa_mdo.concept.geometry import GeometryConcept, WingStation, build_linear_wing_stations
 from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
@@ -74,11 +75,14 @@ def _concept_gross_mass_cases(
     return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
 
 
-def _oswald_efficiency_proxy(concept: GeometryConcept) -> float:
-    dihedral_delta = max(0.0, float(concept.dihedral_tip_deg) - float(concept.dihedral_root_deg))
-    twist_delta = abs(float(concept.twist_tip_deg) - float(concept.twist_root_deg))
-    efficiency = 0.88 - 0.012 * dihedral_delta - 0.008 * twist_delta
-    return max(0.68, min(0.92, efficiency))
+def _oswald_efficiency_proxy(
+    concept: GeometryConcept,
+    cfg: BirdmanConceptConfig,
+) -> float:
+    return oswald_efficiency_proxy(
+        concept=concept,
+        proxy_cfg=cfg.aero_proxies.oswald_efficiency,
+    )
 
 
 def _shaft_power_required_w(
@@ -362,9 +366,15 @@ def _mission_mass_cases_for_avl(
 ) -> list[dict[str, Any]]:
     speed_sweep_mps = _speed_sweep_mps(cfg)
     aspect_ratio = float(concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9))
-    oswald_efficiency = _oswald_efficiency_proxy(concept)
+    oswald_efficiency = _oswald_efficiency_proxy(concept, cfg)
     tail_area_ratio = float(concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9))
-    misc_cd = float(0.0035 + 0.20 * tail_area_ratio * profile_cd_proxy)
+    misc_cd = float(
+        misc_cd_proxy(
+            profile_cd=profile_cd_proxy,
+            tail_area_ratio=tail_area_ratio,
+            proxy_cfg=cfg.aero_proxies.parasite_drag,
+        )
+    )
     rigging_cda_m2 = compute_rigging_drag_cda_m2(cfg.rigging_drag)
     rigging_cd = rigging_cda_m2 / max(concept.wing_area_m2, 1.0e-9)
     prop_model = SimplifiedPropModel.from_config(
