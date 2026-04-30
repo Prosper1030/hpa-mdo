@@ -68,13 +68,15 @@ PYTHONPATH=src python -m hpa_meshing.cli main-wing-route-readiness --out .tmp/ru
 This writes `main_wing_route_readiness.v1.json` and
 `main_wing_route_readiness.v1.md`. The committed snapshot is kept under
 `docs/reports/main_wing_route_readiness/`. It is report-only: it reads the
-existing main-wing geometry / mesh / SU2 smoke reports and records which stages
-are real evidence, which are synthetic wiring evidence, and which are absent.
-The current result is `blocked_at_real_mesh_handoff`: real geometry passes,
-real 3D mesh handoff times out during `volume_insertion`, synthetic mesh/SU2
-handoff wiring exists, and solver/convergence are not run. It also confirms the
-current main-wing SU2 materialization artifact uses the HPA standard
-`V=6.5 m/s`; any old `V=10` artifact remains legacy mismatch evidence only.
+existing main-wing geometry / mesh / SU2 / solver reports and records which
+stages are real evidence, which are synthetic wiring evidence, and which are
+absent. The current result is `solver_executed_not_converged`: real geometry,
+real Gmsh mesh handoff, real SU2 handoff, and a bounded SU2 solver smoke now
+exist. The solver reached `history.csv` with exit code 0, but
+`convergence_gate.v1` is `fail` / `not_comparable`; this is not a converged CFD
+result. It also confirms the current main-wing SU2 artifacts use the HPA
+standard `V=6.5 m/s`; any old `V=10` artifact remains legacy mismatch evidence
+only.
 
 The first real fairing geometry smoke is emitted by:
 
@@ -207,19 +209,63 @@ The first real main-wing mesh handoff probe is emitted by:
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
-PYTHONPATH=src python -m hpa_meshing.cli main-wing-real-mesh-handoff-probe --out .tmp/runs/main_wing_real_mesh_handoff_probe
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-real-mesh-handoff-probe --out .tmp/runs/main_wing_real_mesh_handoff_probe --global-min-size 0.35 --global-max-size 1.4
 ```
 
 This writes `main_wing_real_mesh_handoff_probe.v1.json` and
-`main_wing_real_mesh_handoff_probe.v1.md`. The current result is
-`mesh_handoff_timeout`: provider geometry is materialized with
-`surface_count=32` and `volume_count=1`, 2D meshing completes
-(`mesh2d_watchdog_status=completed_without_timeout`), and 3D meshing times out
-during `volume_insertion` before `mesh_handoff.v1` is written. This is a
-bounded coarse probe, not production sizing, and it still does not run SU2 or
-convergence. The CLI exposes probe-local `--global-min-size` and
-`--global-max-size` knobs for sizing-sensitivity experiments; these do not
-change the production route default.
+`main_wing_real_mesh_handoff_probe.v1.md`. The current committed result is
+`mesh_handoff_pass`: provider geometry is materialized with `surface_count=32`
+and `volume_count=1`, and the coarse bounded Gmsh route writes
+`mesh_handoff.v1` with `main_wing`, `farfield`, and `fluid` groups. The current
+snapshot has `node_count=97299`, `volume_element_count=584460`, and
+`mesh3d_watchdog_status=completed_without_timeout`. This is still a bounded
+coarse probe, not production sizing, and it does not run BL runtime. The CLI
+exposes probe-local `--global-min-size` and `--global-max-size` knobs for
+sizing-sensitivity experiments; these do not change the production route
+default.
+
+The first real main-wing SU2 handoff probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-real-su2-handoff-probe --out .tmp/runs/main_wing_real_su2_handoff_probe --source-mesh-probe-report docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json
+```
+
+This writes `main_wing_real_su2_handoff_probe.v1.json` and
+`main_wing_real_su2_handoff_probe.v1.md`. The current committed result is
+`su2_handoff_written`: the real main-wing mesh handoff materializes
+`su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` with a component-owned
+`main_wing` force marker and `V=6.5 m/s`. It does not execute `SU2_CFD` and it
+keeps `reference_geometry_status=warn`.
+
+The first real main-wing solver smoke probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-real-solver-smoke-probe --out .tmp/runs/main_wing_real_solver_smoke_probe --source-su2-probe-report docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.json --timeout-seconds 180
+```
+
+This writes `main_wing_real_solver_smoke_probe.v1.json`,
+`main_wing_real_solver_smoke_probe.v1.md`, and a `convergence_gate.v1.json`
+artifact. The current committed result is
+`solver_executed_but_not_converged`: `SU2_CFD` exits successfully and writes
+`history.csv`, but the iterative gate fails after 12 rows, coefficient tails are
+still drifting, and the reference gate remains `warn`. Treat this as a solver
+smoke / blocker artifact, not a converged CFD result.
+
+The main-wing reference-geometry gate is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-reference-geometry-gate --out .tmp/runs/main_wing_reference_geometry_gate
+```
+
+This writes `main_wing_reference_geometry_gate.v1.json` and
+`main_wing_reference_geometry_gate.v1.md`. The current result is `warn`: the
+declared `REF_AREA=34.65` and `REF_LENGTH=1.05` imply a 33 m full span, which
+cross-checks against real geometry bounds, but the reference chord and
+quarter-chord moment origin are still user-declared rather than independently
+certified.
 
 The first route-specific main-wing mesh smoke is emitted by:
 
@@ -246,8 +292,9 @@ This writes `main_wing_su2_handoff_smoke.v1.json` and
 `main_wing_su2_handoff_smoke.v1.md`. It consumes the synthetic non-BL
 main-wing `mesh_handoff.v1` and materializes `su2_handoff.v1`, `mesh.su2`, and
 `su2_runtime.cfg` without executing `SU2_CFD`. It consumes the component-owned
-`main_wing` wall marker; real main-wing geometry, solver history, and
-convergence remain missing.
+`main_wing` wall marker, but remains synthetic wiring evidence. Real main-wing
+mesh/SU2/solver status is owned by the real probes above, and convergence still
+fails.
 
 The first tail-wing ESP-rebuilt geometry smoke is emitted by:
 
@@ -369,7 +416,7 @@ ownership cleanup, not solver execution.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff probe times out during 3D volume insertion after 2D completion; synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real-geometry mesh handoff, solver history, and convergence gate are missing |
+| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; bounded solver smoke executes and writes `history.csv`, but `convergence_gate.v1` fails and reference chord / moment-origin provenance remains `warn` |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is now applied in a gated override handoff; borrowed zero moment origin, solver history, and convergence gate are still missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
@@ -381,7 +428,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 
 - `esp_rebuilt` 已不再是 `not_materialized` stub。`src/hpa_meshing/providers/esp_pipeline.py` 現在走 native OpenCSM lifting-surface rebuild：從 `.vsp3` 讀 wing/tail sections，生成 rule-loft `.csm`，再用 `serveCSM -batch` 輸出 normalized STEP 與 topology artifact。
 - 這台 Mac mini（macOS 26.4.1 / arm64）的 runtime truth 已更新：`serveESP` / `serveCSM` 在 `PATH` 上、`ocsm` 仍缺席，但 batch 路徑可以直接用 `serveCSM`。因此 provider 在本機已經 runnable，不再被 `esp_runtime_missing` 擋住。
-- 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已把主翼 real provider evidence 收進 committed report：`Main Wing` 可被選取並 materialize 成 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`；後續 `main_wing_real_mesh_handoff_probe.v1` 則把下一個 blocker 收斂成 3D volume insertion timeout。
+- 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已把主翼 real provider evidence 收進 committed report：`Main Wing` 可被選取並 materialize 成 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`；後續 `main_wing_real_mesh_handoff_probe.v1` 已用 coarse bounded sizing 寫出 real `mesh_handoff.v1`，`main_wing_real_su2_handoff_probe.v1` 寫出 real `su2_handoff.v1`，`main_wing_real_solver_smoke_probe.v1` 則留下 solver executed but not converged 的 evidence。
 - 2026-04-21 的 provider smoke 已成功 materialize：`hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_native_provider_smoke/` 內有 `normalized.stp` / `topology.json` / `provider_log.json`，且 topology 為 `1 body / 32 surfaces / 1 volume`、`duplicate_interface_face_pair_count = 0`。
 - 2026-04-21 晚上的 C1 diagnostics 已把「有 hang」收斂成更精確的證據：`hpa_meshing_package/.tmp/runs/codex_c1_mesh2d_forensics_20260421/` 內的 `main_wing` full-route A/B 顯示 `Mesh.Algorithm = 1 / 5 / 6` 在 default sizing 下都會 timeout；default case 的 watchdog 會穩定卡在 `surface 14 (BSpline surface)`，coarse route 則能穿過 aircraft surfaces、把最後 surface 記到 `surface 33 (Plane)`，表示 farfield 會放大下游成本。
 - 同一輪 `surface_patch_diagnostics.json` 也留下了可疑 patch family：`surface 31/32` 與 `surface 5/6/1/10` 持續被排在最前面，特徵是 `short_curve_candidate + high_aspect_strip_candidate`，位置落在翼外段 span-extreme strip 與 root / trailing-edge 附近的小 strip faces。
@@ -399,7 +446,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Real ESP/VSP main-wing 3D volume-insertion timeout repair before solver claims on the `main_wing` route
+2. Main-wing reference-chord / moment-origin provenance, then a bounded longer-iteration solver campaign; do not call the current 12-iteration smoke converged
 3. Run real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
 4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
 5. Component-level force mapping after the wall-marker story is stronger
