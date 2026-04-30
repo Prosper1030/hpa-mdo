@@ -152,6 +152,20 @@ def test_parser_supports_main_wing_su2_handoff_smoke_command():
     assert args.out == "artifacts/main_wing_su2_smoke"
 
 
+def test_parser_supports_fairing_solid_su2_handoff_smoke_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "fairing-solid-su2-handoff-smoke",
+            "--out",
+            "artifacts/fairing_su2_smoke",
+        ]
+    )
+
+    assert args.command == "fairing-solid-su2-handoff-smoke"
+    assert args.out == "artifacts/fairing_su2_smoke"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

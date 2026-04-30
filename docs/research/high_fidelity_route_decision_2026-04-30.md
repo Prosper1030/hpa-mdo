@@ -132,6 +132,30 @@ force marker in the mesh-handoff evidence. The SU2 backend can materialize a
 route evidence is still not a solver route and `convergence_gate.v1` is
 intentionally absent.
 
+The first fairing SU2 handoff materialization smoke is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-su2-handoff-smoke \
+  --out .tmp/runs/fairing_solid_su2_handoff_smoke
+```
+
+It writes:
+
+- `fairing_solid_su2_handoff_smoke.v1.json`
+- `fairing_solid_su2_handoff_smoke.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/fairing_solid_su2_handoff_smoke/fairing_solid_su2_handoff_smoke.v1.json`
+- `hpa_meshing_package/docs/reports/fairing_solid_su2_handoff_smoke/fairing_solid_su2_handoff_smoke.v1.md`
+
+This smoke emits `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` without
+running `SU2_CFD`. It consumes the component-owned `fairing_solid` wall marker
+and reports `force_surface_scope=component_subset`. It deliberately keeps the
+remaining engineering blockers visible: the geometry is still synthetic, solver
+history is absent, and convergence has not been evaluated.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash
@@ -189,7 +213,7 @@ The current expected strategic reading is:
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | tail-specific geometry and mesh smoke |
-| `fairing_solid` | registered future route | no | committed SU2 materialization smoke, then solver/convergence gate |
+| `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
 ## Boundary-Layer Promotion Policy
@@ -242,5 +266,5 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 1. Replace the synthetic main-wing slab with real ESP/VSP main-wing geometry
    evidence before any solver/convergence claim.
-2. Write the committed `fairing_solid` `su2_handoff.v1` materialization report
-   artifact, then add the next tail-family non-BL mesh-handoff smoke.
+2. Add the next tail-family non-BL mesh-handoff smoke, then move real geometry
+   evidence onto the main-wing and fairing component routes.

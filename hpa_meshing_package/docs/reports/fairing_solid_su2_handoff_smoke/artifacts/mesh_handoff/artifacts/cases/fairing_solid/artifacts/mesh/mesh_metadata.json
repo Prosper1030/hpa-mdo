@@ -1,0 +1,1202 @@
+{
+  "status": "success",
+  "route_stage": "baseline",
+  "backend": "gmsh",
+  "backend_capability": "occ_closed_solid_meshing",
+  "meshing_route": "gmsh_closed_solid_volume",
+  "geometry_family": "closed_solid",
+  "geometry_source": "direct_cad",
+  "geometry": {
+    "source_path": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/fixtures/fairing_solid_box.step",
+    "normalized_path": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/fixtures/fairing_solid_box.step",
+    "loader": "filesystem_stub",
+    "provider": null,
+    "provider_status": null,
+    "provider_topology": null
+  },
+  "body": {
+    "imported_volume_count": 1,
+    "imported_surface_count": 6,
+    "bounds": {
+      "x_min": -1e-07,
+      "x_max": 1.0000001,
+      "y_min": -1e-07,
+      "y_max": 0.2400001,
+      "z_min": -1e-07,
+      "z_max": 0.1800001
+    },
+    "healing": {
+      "attempted": true,
+      "input_volume_count": 1,
+      "input_surface_count": 6,
+      "tolerance": 1e-08,
+      "output_volume_count": 1,
+      "output_surface_count": 6
+    }
+  },
+  "surface_topology": {
+    "boundary_surface_count": 12,
+    "aircraft_surface_count": 6,
+    "farfield_surface_count": 6,
+    "aircraft_connectivity_before_meshing": {
+      "surface_count": 6,
+      "curve_count": 12,
+      "free_curve_count": 0,
+      "free_curve_tags_sample": [],
+      "non_manifold_curve_count": 0,
+      "non_manifold_curve_tags_sample": []
+    }
+  },
+  "mesh_field": {
+    "characteristic_length_policy": "reference_length",
+    "reference_length": 1.0000002000000001,
+    "surface_target_nodes_per_reference_length": 128,
+    "edge_refinement_ratio": 0.5,
+    "near_body_size": 0.5,
+    "edge_size": 0.25,
+    "farfield_size": 2.0,
+    "distance_min": 0.0,
+    "distance_max": 5.0,
+    "edge_distance_max": 2.5,
+    "mesh_size_min": 0.25,
+    "mesh_size_from_points": 0,
+    "mesh_size_from_curvature": 0,
+    "mesh_size_extend_from_boundary": 0,
+    "volume_optimization": {
+      "mesh_optimize": 1,
+      "mesh_optimize_netgen": 0,
+      "mesh_optimize_threshold": null,
+      "post_optimize_methods": [],
+      "post_optimize_force": false,
+      "post_optimize_niter": 1
+    },
+    "mesh_algorithm_2d": 6,
+    "mesh_algorithm_3d": 1,
+    "background_field_tag": 5,
+    "background_field_composition": "base_min_field",
+    "local_size_floors": [],
+    "per_surface_algorithms": [],
+    "surface_policy": {
+      "enabled": false,
+      "name": null,
+      "reason": "geometry_provider_not_esp_rebuilt",
+      "notes": [],
+      "coarse_first_tetra_active": false
+    },
+    "coarse_first_tetra": {
+      "enabled": false,
+      "clamp_mesh_size_min_to_near_body": true,
+      "surface_nodes_per_reference_length": 24.0,
+      "edge_refinement_ratio": 1.0,
+      "span_extreme_strip_floor_size": 0.12,
+      "suspect_strip_floor_size": 0.08,
+      "suspect_surface_algorithm": 5,
+      "general_surface_algorithm": 5,
+      "farfield_surface_algorithm": 5
+    }
+  },
+  "surface_patch_diagnostics": {
+    "artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/surface_patch_diagnostics.json",
+    "surface_count": 6,
+    "curve_count": 12,
+    "suspicious_surface_tags": [
+      1,
+      3,
+      2,
+      4,
+      5,
+      6
+    ],
+    "shortest_curve_tags": [
+      1,
+      3,
+      7,
+      9,
+      2,
+      4,
+      8,
+      10,
+      5,
+      6,
+      11,
+      12
+    ],
+    "family_hint_counts": {
+      "high_aspect_strip_candidate": 6,
+      "root_plane_cap_candidate": 2,
+      "span_extreme_candidate": 6,
+      "span_extreme_strip_candidate": 4,
+      "tiny_face_candidate": 6
+    }
+  },
+  "mesh2d_watchdog": {
+    "artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh2d_watchdog.json",
+    "sample_artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh2d_watchdog_sample.txt",
+    "status": "completed_without_timeout",
+    "timeout_seconds": 20.0,
+    "triggered_at_elapsed_sec": null,
+    "completed_elapsed_sec": 0.015843792003579438,
+    "meshing_stage_at_timeout": null,
+    "last_meshing_curve_tag": null,
+    "last_meshing_surface_tag": null
+  },
+  "surface_mesh": {
+    "aircraft_surface_element_count": 32,
+    "aircraft_surface_element_type_counts": {
+      "2": 32
+    },
+    "duplicate_facets_before_cleanup": {
+      "duplicate_group_count": 0,
+      "duplicate_facet_count": 0,
+      "sample_groups": []
+    },
+    "duplicate_facets_after_cleanup": {
+      "duplicate_group_count": 0,
+      "duplicate_facet_count": 0,
+      "sample_groups": []
+    },
+    "cleanup_actions": {
+      "duplicate_group_count": 0,
+      "removed_duplicate_facets": 0,
+      "duplicate_nodes_removed": 0,
+      "sample_groups": []
+    },
+    "mesh2d_watchdog_status": "completed_without_timeout",
+    "last_meshing_surface_tag_from_watchdog": null,
+    "artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/surface_mesh_2d.msh"
+  },
+  "volume_meshing": {
+    "requested": true,
+    "attempted": true,
+    "completed": true,
+    "mesh_dim_requested": 3,
+    "mesh_algorithm_3d": 1,
+    "optimization": {
+      "mesh_optimize": 1,
+      "mesh_optimize_netgen": 0,
+      "mesh_optimize_threshold": null,
+      "post_optimize_methods": [],
+      "post_optimize_force": false,
+      "post_optimize_niter": 1,
+      "post_runs": []
+    },
+    "field_architecture": null,
+    "tip_quality_buffer_policy": null,
+    "sliver_volume_pocket_policy": null,
+    "pre_generate3_mesh_stats": {
+      "mesh_dim": 3,
+      "node_count": 1408,
+      "element_count": 3048,
+      "surface_element_count": 2808,
+      "volume_element_count": 0
+    },
+    "watchdog_status": "completed_without_timeout",
+    "watchdog_artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh3d_watchdog.json",
+    "watchdog_sample_artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh3d_watchdog_sample.txt",
+    "burden_metrics": {
+      "boundary_node_count": 1408,
+      "surface_triangle_count": 2808,
+      "iteration_count": 500,
+      "nodes_created": 500,
+      "nodes_created_per_boundary_node": 0.35511363636363635,
+      "iterations_per_surface_triangle": 0.17806267806267806,
+      "timeout_phase_classification": "optimization",
+      "hxt_points_considered": null,
+      "hxt_mesh_vertex_count": null,
+      "hxt_points_filtered": null,
+      "hxt_points_added": null
+    }
+  },
+  "mesh3d_watchdog": {
+    "artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh3d_watchdog.json",
+    "sample_artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh3d_watchdog_sample.txt",
+    "status": "completed_without_timeout",
+    "timeout_seconds": 20.0,
+    "triggered_at_elapsed_sec": null,
+    "completed_elapsed_sec": 0.05893045791890472,
+    "meshing_stage_at_timeout": null,
+    "meshing_stage_after_return": "meshing_3d",
+    "timeout_phase_classification": "optimization",
+    "phase_classification_after_return": "optimization",
+    "boundary_node_count": 1408,
+    "surface_triangle_count": 2808,
+    "iteration_count": 500,
+    "nodes_created": 500,
+    "nodes_created_per_boundary_node": 0.35511363636363635,
+    "iterations_per_surface_triangle": 0.17806267806267806,
+    "hxt_points_considered": null,
+    "hxt_mesh_vertex_count": null,
+    "hxt_points_filtered": null,
+    "hxt_points_added": null,
+    "tetrahedrizing_node_count": 1416,
+    "volume_count": 1,
+    "connected_component_count": 1,
+    "error": null
+  },
+  "contract": "mesh_handoff.v1",
+  "geometry_provider": null,
+  "source_path": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/fixtures/fairing_solid_box.step",
+  "normalized_geometry_path": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/fixtures/fairing_solid_box.step",
+  "units": "m",
+  "mesh_format": "msh",
+  "body_bounds": {
+    "x_min": -1e-07,
+    "x_max": 1.0000001,
+    "y_min": -1e-07,
+    "y_max": 0.2400001,
+    "z_min": -1e-07,
+    "z_max": 0.1800001
+  },
+  "farfield_bounds": {
+    "x_min": -5.000001100000001,
+    "x_max": 13.0000025,
+    "y_min": -1.9200017,
+    "y_max": 2.1600017,
+    "z_min": -1.4400017,
+    "z_max": 1.6200017
+  },
+  "mesh_stats": {
+    "mesh_dim": 3,
+    "node_count": 2215,
+    "element_count": 12101,
+    "surface_element_count": 2808,
+    "volume_element_count": 9053,
+    "element_type_counts": {
+      "1": 224,
+      "2": 2808,
+      "4": 9053,
+      "15": 16
+    },
+    "surface_element_type_counts": {
+      "2": 2808
+    },
+    "volume_element_type_counts": {
+      "4": 9053
+    }
+  },
+  "marker_summary": {
+    "fairing_solid": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "fairing_solid",
+      "physical_tag": 2,
+      "entity_count": 6,
+      "entities": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "element_count": 32,
+      "element_type_counts": {
+        "2": 32
+      }
+    },
+    "farfield": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "farfield",
+      "physical_tag": 3,
+      "entity_count": 6,
+      "entities": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "element_count": 2776,
+      "element_type_counts": {
+        "2": 2776
+      }
+    }
+  },
+  "physical_groups": {
+    "fluid": {
+      "exists": true,
+      "dimension": 3,
+      "physical_name": "fluid",
+      "physical_tag": 1,
+      "entity_count": 1,
+      "entities": [
+        2
+      ],
+      "element_count": 0,
+      "element_type_counts": {}
+    },
+    "fairing_solid": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "fairing_solid",
+      "physical_tag": 2,
+      "entity_count": 6,
+      "entities": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "element_count": 32,
+      "element_type_counts": {
+        "2": 32
+      }
+    },
+    "farfield": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "farfield",
+      "physical_tag": 3,
+      "entity_count": 6,
+      "entities": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "element_count": 2776,
+      "element_type_counts": {
+        "2": 2776
+      }
+    }
+  },
+  "artifacts": {
+    "mesh": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh.msh",
+    "mesh_metadata": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh_metadata.json",
+    "marker_summary": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/marker_summary.json",
+    "surface_mesh_2d": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/surface_mesh_2d.msh",
+    "surface_patch_diagnostics": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/surface_patch_diagnostics.json",
+    "brep_hotspot_report": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/brep_hotspot_report.json",
+    "hotspot_patch_report": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/hotspot_patch_report.json",
+    "sliver_cluster_report": null,
+    "sliver_volume_pocket_summary": null,
+    "rule_loft_pairing_repair_spec": null,
+    "compound_report": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/compound_report.json",
+    "gmsh_log": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/gmsh_log.txt",
+    "mesh2d_watchdog": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh2d_watchdog.json",
+    "mesh2d_watchdog_sample": null,
+    "mesh3d_watchdog": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/mesh3d_watchdog.json",
+    "mesh3d_watchdog_sample": null,
+    "plc_probe": null,
+    "surface_cleanup_report": null,
+    "discrete_reparam_report": null,
+    "retry_mesh_metadata": null,
+    "classify_angle_probe": null
+  },
+  "provenance": {
+    "route_provenance": "geometry_family_registry",
+    "loader": "filesystem_stub",
+    "provider": null,
+    "body": {
+      "imported_volume_count": 1,
+      "imported_surface_count": 6,
+      "healing": {
+        "attempted": true,
+        "input_volume_count": 1,
+        "input_surface_count": 6,
+        "tolerance": 1e-08,
+        "output_volume_count": 1,
+        "output_surface_count": 6
+      }
+    },
+    "farfield": {
+      "enabled": true,
+      "scale_factors": {
+        "upstream_factor": 5.0,
+        "downstream_factor": 12.0,
+        "lateral_factor": 8.0,
+        "vertical_factor": 8.0
+      }
+    },
+    "mesh_field": {
+      "characteristic_length_policy": "reference_length",
+      "reference_length": 1.0000002000000001,
+      "surface_target_nodes_per_reference_length": 128,
+      "edge_refinement_ratio": 0.5,
+      "near_body_size": 0.5,
+      "edge_size": 0.25,
+      "farfield_size": 2.0,
+      "distance_min": 0.0,
+      "distance_max": 5.0,
+      "edge_distance_max": 2.5,
+      "mesh_size_min": 0.25,
+      "mesh_size_from_points": 0,
+      "mesh_size_from_curvature": 0,
+      "mesh_size_extend_from_boundary": 0,
+      "volume_optimization": {
+        "mesh_optimize": 1,
+        "mesh_optimize_netgen": 0,
+        "mesh_optimize_threshold": null,
+        "post_optimize_methods": [],
+        "post_optimize_force": false,
+        "post_optimize_niter": 1
+      },
+      "mesh_algorithm_2d": 6,
+      "mesh_algorithm_3d": 1,
+      "background_field_tag": 5,
+      "background_field_composition": "base_min_field",
+      "local_size_floors": [],
+      "per_surface_algorithms": [],
+      "surface_policy": {
+        "enabled": false,
+        "name": null,
+        "reason": "geometry_provider_not_esp_rebuilt",
+        "notes": [],
+        "coarse_first_tetra_active": false
+      },
+      "coarse_first_tetra": {
+        "enabled": false,
+        "clamp_mesh_size_min_to_near_body": true,
+        "surface_nodes_per_reference_length": 24.0,
+        "edge_refinement_ratio": 1.0,
+        "span_extreme_strip_floor_size": 0.12,
+        "suspect_strip_floor_size": 0.08,
+        "suspect_surface_algorithm": 5,
+        "general_surface_algorithm": 5,
+        "farfield_surface_algorithm": 5
+      }
+    }
+  },
+  "unit_normalization": {
+    "units": "m",
+    "backend_rescale_applied": false,
+    "import_scale_to_units": 1.0,
+    "imported_body_bounds": {
+      "x_min": -1e-07,
+      "x_max": 1.0000001,
+      "y_min": -1e-07,
+      "y_max": 0.2400001,
+      "z_min": -1e-07,
+      "z_max": 0.1800001
+    },
+    "provider_topology_bounds": null
+  },
+  "farfield": {
+    "enabled": true,
+    "bounds": {
+      "x_min": -5.000001100000001,
+      "x_max": 13.0000025,
+      "y_min": -1.9200017,
+      "y_max": 2.1600017,
+      "z_min": -1.4400017,
+      "z_max": 1.6200017
+    },
+    "scale_factors": {
+      "upstream_factor": 5.0,
+      "downstream_factor": 12.0,
+      "lateral_factor": 8.0,
+      "vertical_factor": 8.0
+    }
+  },
+  "mesh": {
+    "format": "msh",
+    "mesh_dim": 3,
+    "node_count": 2215,
+    "element_count": 12101,
+    "surface_element_count": 2808,
+    "volume_element_count": 9053,
+    "element_type_counts": {
+      "1": 224,
+      "2": 2808,
+      "4": 9053,
+      "15": 16
+    },
+    "surface_element_type_counts": {
+      "2": 2808
+    },
+    "volume_element_type_counts": {
+      "4": 9053
+    }
+  },
+  "quality_metrics": {
+    "tetrahedron_count": 9053,
+    "ill_shaped_tet_count": 0,
+    "non_positive_min_sicn_count": 0,
+    "non_positive_min_sige_count": 0,
+    "non_positive_volume_count": 0,
+    "min_gamma": 0.24042523808814004,
+    "min_sicn": 0.26988141353097633,
+    "min_sige": 0.3076202374066302,
+    "min_volume": 0.0013462528495851215,
+    "gamma_percentiles": {
+      "p01": 0.3616925709686277,
+      "p05": 0.5263619284732937,
+      "p50": 0.8096685170331143
+    },
+    "min_sicn_percentiles": {
+      "p01": 0.37003307570965305,
+      "p05": 0.5434709215266078,
+      "p50": 0.8432513651245296
+    },
+    "min_sige_percentiles": {
+      "p01": 0.3908963893856829,
+      "p05": 0.562436051810099,
+      "p50": 0.8697748020782226
+    },
+    "volume_percentiles": {
+      "p01": 0.008023062512500907,
+      "p05": 0.012708660897123391,
+      "p50": 0.024082388712789657
+    },
+    "worst_20_tets": [
+      {
+        "element_id": 11470,
+        "barycenter": [
+          -0.30385292192546265,
+          0.14366165948329426,
+          0.19482505332324346
+        ],
+        "min_sicn": 0.26988141353097633,
+        "min_sige": 0.45595203337845164,
+        "gamma": 0.2931910002625272,
+        "volume": 0.00486765630884985,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "fairing_solid",
+          "distance": 0.014825053323243464,
+          "closest_point": [
+            -0.30385292192546265,
+            0.14366165948329426,
+            0.18
+          ]
+        },
+        "corner_node_tags": [
+          217,
+          4,
+          1480,
+          1890
+        ],
+        "tetra_edge_length_min": 0.15,
+        "tetra_edge_length_max": 0.7429760901863468
+      },
+      {
+        "element_id": 7854,
+        "barycenter": [
+          1.093489781221189,
+          0.10290513514219218,
+          0.24664669244482484
+        ],
+        "min_sicn": 0.2871755399505867,
+        "min_sige": 0.4578496166198818,
+        "gamma": 0.24042523808814004,
+        "volume": 0.0013462528495851215,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "fairing_solid",
+          "distance": 0.06664669244482485,
+          "closest_point": [
+            1.093489781221189,
+            0.10290513514219218,
+            0.18
+          ]
+        },
+        "corner_node_tags": [
+          218,
+          8,
+          6,
+          2133
+        ],
+        "tetra_edge_length_min": 0.15,
+        "tetra_edge_length_max": 0.5864818159999412
+      },
+      {
+        "element_id": 4313,
+        "barycenter": [
+          -0.3669871846044167,
+          -1.6054263977289613,
+          0.8885263976489787
+        ],
+        "min_sicn": 0.3031903425409401,
+        "min_sige": 0.31377145128144235,
+        "gamma": 0.30302729485609836,
+        "volume": 0.011621763604128693,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 8,
+          "physical_name": "farfield",
+          "distance": 0.3145753022710387,
+          "closest_point": [
+            -0.3669871846044167,
+            -1.9200017,
+            0.8885263976489787
+          ]
+        },
+        "corner_node_tags": [
+          436,
+          1948,
+          301,
+          1998
+        ],
+        "tetra_edge_length_min": 0.499929536229344,
+        "tetra_edge_length_max": 0.8767484342810621
+      },
+      {
+        "element_id": 5110,
+        "barycenter": [
+          -2.508114008945081,
+          0.8823554210701555,
+          -1.1769053874716304
+        ],
+        "min_sicn": 0.30371520004387703,
+        "min_sige": 0.3127651922323541,
+        "gamma": 0.3017661263622579,
+        "volume": 0.010348798836337193,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 11,
+          "physical_name": "farfield",
+          "distance": 0.2630963125283696,
+          "closest_point": [
+            -2.508114008945081,
+            0.8823554210701555,
+            -1.4400017
+          ]
+        },
+        "corner_node_tags": [
+          1269,
+          1944,
+          1157,
+          1971
+        ],
+        "tetra_edge_length_min": 0.499953051420349,
+        "tetra_edge_length_max": 0.8470679084933352
+      },
+      {
+        "element_id": 7079,
+        "barycenter": [
+          1.1315252306948884,
+          0.07128065815629607,
+          -0.0429160695330262
+        ],
+        "min_sicn": 0.30669867962358355,
+        "min_sige": 0.5358303861751528,
+        "gamma": 0.2783117273783455,
+        "volume": 0.0018939633220063944,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "fairing_solid",
+          "distance": 0.0429160695330262,
+          "closest_point": [
+            1.1315252306948884,
+            0.07128065815629607,
+            0.0
+          ]
+        },
+        "corner_node_tags": [
+          7,
+          218,
+          5,
+          1899
+        ],
+        "tetra_edge_length_min": 0.15,
+        "tetra_edge_length_max": 0.6666319313420176
+      },
+      {
+        "element_id": 3791,
+        "barycenter": [
+          2.8714532835388353,
+          0.8546624531333908,
+          1.0066241860361633
+        ],
+        "min_sicn": 0.3069143101747253,
+        "min_sige": 0.30898864939244736,
+        "gamma": 0.3012900455062906,
+        "volume": 0.012356346624771053,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 9,
+          "physical_name": "farfield",
+          "distance": 0.6133775139638369,
+          "closest_point": [
+            2.8714532835388353,
+            0.8546624531333908,
+            1.6200017000000002
+          ]
+        },
+        "corner_node_tags": [
+          1506,
+          1989,
+          1679,
+          1993
+        ],
+        "tetra_edge_length_min": 0.550150485633135,
+        "tetra_edge_length_max": 0.919831342706509
+      },
+      {
+        "element_id": 8156,
+        "barycenter": [
+          8.72062239266836,
+          -0.07234699091576122,
+          0.4609120737131932
+        ],
+        "min_sicn": 0.30831219748630445,
+        "min_sige": 0.3111098414971751,
+        "gamma": 0.30985445694934816,
+        "volume": 0.008741015308443477,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 2,
+          "physical_name": "fairing_solid",
+          "distance": 0.07234699091576122,
+          "closest_point": [
+            8.72062239266836,
+            0.0,
+            0.4609120737131932
+          ]
+        },
+        "corner_node_tags": [
+          1622,
+          1828,
+          1509,
+          2212
+        ],
+        "tetra_edge_length_min": 0.5006913236294458,
+        "tetra_edge_length_max": 0.7975402266806232
+      },
+      {
+        "element_id": 8906,
+        "barycenter": [
+          -0.128435846241383,
+          0.13261903772966685,
+          0.2313334987225531
+        ],
+        "min_sicn": 0.3096013170462478,
+        "min_sige": 0.5441891203149706,
+        "gamma": 0.28966998165807556,
+        "volume": 0.0018494761858759148,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "fairing_solid",
+          "distance": 0.051333498722553106,
+          "closest_point": [
+            -0.128435846241383,
+            0.13261903772966685,
+            0.18
+          ]
+        },
+        "corner_node_tags": [
+          2,
+          4,
+          217,
+          1890
+        ],
+        "tetra_edge_length_min": 0.15,
+        "tetra_edge_length_max": 0.6441757485542724
+      },
+      {
+        "element_id": 7699,
+        "barycenter": [
+          8.364903044305283,
+          -1.0309080781748017,
+          -0.2821878032900844
+        ],
+        "min_sicn": 0.3099178905698053,
+        "min_sige": 0.3081580686187079,
+        "gamma": 0.30777164063897083,
+        "volume": 0.009074285894570449,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "fairing_solid",
+          "distance": 0.2821878032900844,
+          "closest_point": [
+            8.364903044305283,
+            -1.0309080781748017,
+            0.0
+          ]
+        },
+        "corner_node_tags": [
+          1524,
+          2041,
+          1548,
+          2081
+        ],
+        "tetra_edge_length_min": 0.5304679816290266,
+        "tetra_edge_length_max": 0.8138444440470323
+      },
+      {
+        "element_id": 9434,
+        "barycenter": [
+          3.7569919076228566,
+          -1.1400185948888968,
+          0.45250442994535955
+        ],
+        "min_sicn": 0.31178622677147744,
+        "min_sige": 0.3076202374066302,
+        "gamma": 0.30817894757977676,
+        "volume": 0.0074981920608452185,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "fairing_solid",
+          "distance": 0.27250442994535956,
+          "closest_point": [
+            3.756991907622857,
+            -1.140018594888897,
+            0.18
+          ]
+        },
+        "corner_node_tags": [
+          1483,
+          1594,
+          1970,
+          2181
+        ],
+        "tetra_edge_length_min": 0.50749257301597,
+        "tetra_edge_length_max": 0.7603389054233191
+      },
+      {
+        "element_id": 4444,
+        "barycenter": [
+          9.64839689708991,
+          -1.230326540611138,
+          -1.1120026152796396
+        ],
+        "min_sicn": 0.3122801044979997,
+        "min_sige": 0.33318071426448254,
+        "gamma": 0.3089471116416897,
+        "volume": 0.011140420125606457,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 11,
+          "physical_name": "farfield",
+          "distance": 0.32799908472036043,
+          "closest_point": [
+            9.64839689708991,
+            -1.230326540611138,
+            -1.4400017
+          ]
+        },
+        "corner_node_tags": [
+          1339,
+          1055,
+          1602,
+          1788
+        ],
+        "tetra_edge_length_min": 0.41646578222523184,
+        "tetra_edge_length_max": 0.8586205180056051
+      },
+      {
+        "element_id": 5143,
+        "barycenter": [
+          0.4292111369059042,
+          0.2705354303376499,
+          -0.3010921867041233
+        ],
+        "min_sicn": 0.3125225272118742,
+        "min_sige": 0.3716357130489449,
+        "gamma": 0.31682604966124633,
+        "volume": 0.0069727021115601725,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 4,
+          "physical_name": "fairing_solid",
+          "distance": 0.030535430337649883,
+          "closest_point": [
+            0.4292111369059042,
+            0.24,
+            -0.3010921867041233
+          ]
+        },
+        "corner_node_tags": [
+          219,
+          1502,
+          19,
+          1841
+        ],
+        "tetra_edge_length_min": 0.27730849247724093,
+        "tetra_edge_length_max": 0.7748144635149391
+      },
+      {
+        "element_id": 4318,
+        "barycenter": [
+          -0.2648136296012957,
+          -0.07864586892019497,
+          0.17713055554889792
+        ],
+        "min_sicn": 0.31270682235123315,
+        "min_sige": 0.5099122989897307,
+        "gamma": 0.32569385786285865,
+        "volume": 0.008025631242003048,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "fairing_solid",
+          "distance": 0.002869444451102071,
+          "closest_point": [
+            -0.2648136296012957,
+            -0.07864586892019497,
+            0.18
+          ]
+        },
+        "corner_node_tags": [
+          2,
+          1480,
+          1,
+          1983
+        ],
+        "tetra_edge_length_min": 0.18,
+        "tetra_edge_length_max": 0.7180635796052848
+      },
+      {
+        "element_id": 3671,
+        "barycenter": [
+          4.978056613480613,
+          0.6460582222208585,
+          0.6742415981560974
+        ],
+        "min_sicn": 0.3128810084527149,
+        "min_sige": 0.3091660973774301,
+        "gamma": 0.3117094376583122,
+        "volume": 0.013868313903254895,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 4,
+          "physical_name": "fairing_solid",
+          "distance": 0.4060582222208585,
+          "closest_point": [
+            4.978056613480612,
+            0.24,
+            0.6742415981560974
+          ]
+        },
+        "corner_node_tags": [
+          1488,
+          1436,
+          1718,
+          1824
+        ],
+        "tetra_edge_length_min": 0.6004747101796725,
+        "tetra_edge_length_max": 0.9282393768642845
+      },
+      {
+        "element_id": 11808,
+        "barycenter": [
+          -0.17541707568407966,
+          0.10104262175362742,
+          0.030991554600690318
+        ],
+        "min_sicn": 0.3145795746229839,
+        "min_sige": 0.6230232499672063,
+        "gamma": 0.30684476841379316,
+        "volume": 0.0025260058898507465,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "fairing_solid",
+          "distance": 0.030991554600690318,
+          "closest_point": [
+            -0.17541707568407966,
+            0.10104262175362742,
+            0.0
+          ]
+        },
+        "corner_node_tags": [
+          1,
+          3,
+          1480,
+          217
+        ],
+        "tetra_edge_length_min": 0.15,
+        "tetra_edge_length_max": 0.7292745088192679
+      },
+      {
+        "element_id": 5426,
+        "barycenter": [
+          1.993196345182335,
+          -1.1225873557312176,
+          0.7925341135043639
+        ],
+        "min_sicn": 0.3146330051898348,
+        "min_sige": 0.31586322399776995,
+        "gamma": 0.3112281052115838,
+        "volume": 0.011037553291518332,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "fairing_solid",
+          "distance": 0.6125341135043638,
+          "closest_point": [
+            1.993196345182335,
+            -1.1225873557312176,
+            0.18
+          ]
+        },
+        "corner_node_tags": [
+          1428,
+          1949,
+          1821,
+          2213
+        ],
+        "tetra_edge_length_min": 0.5026172783439044,
+        "tetra_edge_length_max": 0.8718481239267952
+      },
+      {
+        "element_id": 4425,
+        "barycenter": [
+          -0.676422916047373,
+          0.6772670527374665,
+          -1.1125677482466303
+        ],
+        "min_sicn": 0.31610939239958885,
+        "min_sige": 0.32169442243455115,
+        "gamma": 0.3124037192248472,
+        "volume": 0.011981153141369822,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 11,
+          "physical_name": "farfield",
+          "distance": 0.32743395175336976,
+          "closest_point": [
+            -0.676422916047373,
+            0.6772670527374665,
+            -1.4400017
+          ]
+        },
+        "corner_node_tags": [
+          1111,
+          1580,
+          1266,
+          1806
+        ],
+        "tetra_edge_length_min": 0.49638319883801973,
+        "tetra_edge_length_max": 0.8759611093800653
+      },
+      {
+        "element_id": 4434,
+        "barycenter": [
+          1.4143909254920741,
+          -0.8646917644881831,
+          0.08686830370560812
+        ],
+        "min_sicn": 0.3173802933343461,
+        "min_sige": 0.3228530901236784,
+        "gamma": 0.3026663507445328,
+        "volume": 0.010752588936418641,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "fairing_solid",
+          "distance": 0.08686830370560812,
+          "closest_point": [
+            1.4143909254920741,
+            -0.864691764488183,
+            0.0
+          ]
+        },
+        "corner_node_tags": [
+          1642,
+          1692,
+          1459,
+          2147
+        ],
+        "tetra_edge_length_min": 0.5163943484061614,
+        "tetra_edge_length_max": 0.8812842084207431
+      },
+      {
+        "element_id": 4310,
+        "barycenter": [
+          0.045712769377866225,
+          0.17323708483059003,
+          0.8641642030617385
+        ],
+        "min_sicn": 0.31778730737347327,
+        "min_sige": 0.32670396385226386,
+        "gamma": 0.30001550182515646,
+        "volume": 0.01022815660201376,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 1,
+          "physical_name": "fairing_solid",
+          "distance": 0.045712769377866225,
+          "closest_point": [
+            0.0,
+            0.17323708483059003,
+            0.8641642030617385
+          ]
+        },
+        "corner_node_tags": [
+          1516,
+          1808,
+          1588,
+          1977
+        ],
+        "tetra_edge_length_min": 0.5001644286229618,
+        "tetra_edge_length_max": 0.8691798295066764
+      },
+      {
+        "element_id": 9352,
+        "barycenter": [
+          1.250024444208726,
+          -0.1385917935318794,
+          0.014532265579709117
+        ],
+        "min_sicn": 0.31890498373364223,
+        "min_sige": 0.48931479920122894,
+        "gamma": 0.33580247283532577,
+        "volume": 0.006503051796611314,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "fairing_solid",
+          "distance": 0.014532265579709117,
+          "closest_point": [
+            1.250024444208726,
+            -0.1385917935318794,
+            0.0
+          ]
+        },
+        "corner_node_tags": [
+          5,
+          6,
+          1692,
+          1899
+        ],
+        "tetra_edge_length_min": 0.18,
+        "tetra_edge_length_max": 0.6909820082118164
+      }
+    ]
+  },
+  "brep_hotspot_report": {
+    "artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/brep_hotspot_report.json",
+    "status": "disabled",
+    "selected_surface_tags": [],
+    "selected_curve_tags": [],
+    "shape_valid_default": null,
+    "shape_valid_exact": null
+  },
+  "hotspot_patch_report": {
+    "artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/hotspot_patch_report.json",
+    "selected_surface_tags": [
+      6,
+      8,
+      11,
+      5
+    ],
+    "requested_surface_tags": []
+  },
+  "compound_result": {
+    "artifact": "docs/reports/fairing_solid_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/fairing_solid/artifacts/mesh/compound_report.json",
+    "status": "disabled",
+    "compound_surface_group_count": 0,
+    "compound_curve_group_count": 0,
+    "compound_surface_tags": [],
+    "compound_curve_tags": [],
+    "2d_returned": true,
+    "3d_returned": true,
+    "reparam_success": true,
+    "original_surface_tags_preserved": null,
+    "original_curve_tags_preserved": null,
+    "physical_groups_preserved": null
+  }
+}

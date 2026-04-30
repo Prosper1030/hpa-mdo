@@ -17,7 +17,7 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 | `tail_wing` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
 | `horizontal_tail` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
 | `vertical_tail` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
-| `fairing_solid` | `dispatch_smoke_pass` | `closed_solid` | `gmsh_closed_solid_volume` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_su2_handoff` |
+| `fairing_solid` | `dispatch_smoke_pass` | `closed_solid` | `gmsh_closed_solid_volume` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_solver_convergence` |
 | `fairing_vented` | `dispatch_smoke_pass` | `perforated_solid` | `gmsh_perforated_solid_volume` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
 
 ## Scope Policy
@@ -37,6 +37,6 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 
 ## Next Actions
 
-- `promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate`
+- `replace synthetic fairing fixture with real fairing geometry before solver claims`
 - `replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims`
 - `keep BL prelaunch excluded until handoff topology ownership passes`

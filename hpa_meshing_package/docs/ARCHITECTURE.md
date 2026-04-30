@@ -138,9 +138,20 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Emits a real `mesh_handoff.v1` for the route-smoke fixture
 - Keeps SU2, BL runtime, and production defaults off
 - Records a component-specific `fairing_solid` force marker in the mesh-handoff evidence
-- Keeps fairing SU2 promotion blocked until `su2_handoff.v1` consumes that marker
+- Keeps fairing solver promotion blocked until real fairing geometry and convergence evidence exist
 
-### 11. main_wing Mesh-Handoff Smoke Layer
+### 11. fairing_solid SU2-Handoff Smoke Layer
+
+`src/hpa_meshing/fairing_solid_su2_handoff_smoke.py`
+
+- Consumes the synthetic closed-solid fairing `mesh_handoff.v1` smoke
+- Calls the package-native SU2 materializer without executing `SU2_CFD`
+- Writes `fairing_solid_su2_handoff_smoke.v1.json` and `.md`
+- Emits `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg`
+- Keeps solver execution, history parsing, convergence, and production defaults off
+- Records component force-surface ownership from the `fairing_solid` marker, while keeping real-geometry and solver credibility outside the guarantee set
+
+### 12. main_wing Mesh-Handoff Smoke Layer
 
 `src/hpa_meshing/main_wing_mesh_handoff_smoke.py`
 
@@ -152,7 +163,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Records component-owned `main_wing` / `farfield` markers in the mesh-handoff evidence
 - Keeps main-wing SU2 promotion blocked until `su2_handoff.v1` materializes from this handoff
 
-### 12. main_wing SU2-Handoff Smoke Layer
+### 13. main_wing SU2-Handoff Smoke Layer
 
 `src/hpa_meshing/main_wing_su2_handoff_smoke.py`
 
@@ -176,7 +187,7 @@ That matters because a route can be valid in schema/dispatch but still be non-pr
 Current truth:
 
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
-- `fairing_solid` has a real closed-solid mesh-handoff smoke, but is not yet a SU2 product route
+- `fairing_solid` has real closed-solid mesh-handoff and SU2-handoff materialization smokes on a synthetic box with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
 - `main_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
 - `tail_wing`, `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
@@ -195,6 +206,7 @@ MeshJobConfig
   -> component_family_route_readiness.v1
   -> component_family_route_smoke_matrix.v1
   -> fairing_solid_mesh_handoff_smoke.v1
+  -> fairing_solid_su2_handoff_smoke.v1
   -> main_wing_mesh_handoff_smoke.v1
   -> main_wing_su2_handoff_smoke.v1
   -> report.json
@@ -206,7 +218,11 @@ artifact; it does not imply that a component family has run.
 `component_family_route_smoke_matrix.v1` is also beside the per-run flow: it proves dispatch
 visibility only and still does not imply that Gmsh or SU2 ran.
 `fairing_solid_mesh_handoff_smoke.v1` is the first route-specific real Gmsh smoke
-outside the formal aircraft-assembly line; it proves mesh handoff only, not SU2 readiness.
+outside the formal aircraft-assembly line; it proves mesh handoff only.
+`fairing_solid_su2_handoff_smoke.v1` proves that this fairing mesh handoff can
+materialize an SU2 case without running the solver; it now owns the
+`fairing_solid` force marker, but still leaves real geometry, solver history,
+and convergence outside the guarantee set.
 `main_wing_mesh_handoff_smoke.v1` adds the matching lifting-surface non-BL
 route smoke; it proves the route can emit `mesh_handoff.v1` on a synthetic slab,
 not that real ESP/VSP main-wing geometry or solver comparability is ready.

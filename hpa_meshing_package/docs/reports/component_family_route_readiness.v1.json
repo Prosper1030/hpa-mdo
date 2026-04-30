@@ -135,21 +135,23 @@
       "provider_strategy": "direct_cad_or_future_fairing_provider",
       "productization_status": "registered_not_productized",
       "route_role": "registered_future_route",
-      "su2_status": "blocked_until_su2_handoff",
+      "su2_status": "handoff_materialized_force_marker_owned_solver_not_run",
       "bl_contract_policy": "not_default",
       "gmsh_boundary_recovery_policy": "baseline_gmsh_backend_boundary_recovery",
       "blocking_reasons": [
-        "fairing_su2_handoff_artifact_missing",
+        "fairing_real_geometry_smoke_missing",
+        "fairing_solver_not_run",
         "convergence_gate_not_run"
       ],
       "next_actions": [
-        "write_fairing_solid_su2_materialization_smoke_artifact",
+        "replace_synthetic_fairing_fixture_with_real_fairing_geometry_smoke",
         "promote_to_product_line_only_after_convergence_gate_artifact"
       ],
       "notes": [
         "fairing_solid_mesh_handoff_smoke_available",
         "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke",
-        "su2_backend_materializes_fairing_solid_marker_without_running_su2"
+        "su2_backend_materializes_fairing_solid_marker_without_running_su2",
+        "fairing_solid_su2_handoff_materialization_smoke_available"
       ]
     },
     {

@@ -86,8 +86,8 @@ def _row_promotion_status(component: ComponentType) -> PromotionStatusType:
         return "not_a_promotion_gate"
     if component == "main_wing":
         return "blocked_before_solver_convergence"
-    if component in {"main_wing", "fairing_solid"}:
-        return "blocked_before_su2_handoff"
+    if component == "fairing_solid":
+        return "blocked_before_solver_convergence"
     return "blocked_before_mesh_handoff"
 
 
@@ -188,7 +188,7 @@ def build_component_family_route_smoke_matrix(
             "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim.",
         ],
         next_actions=[
-            "promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate",
+            "replace synthetic fairing fixture with real fairing geometry before solver claims",
             "replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims",
             "keep BL prelaunch excluded until handoff topology ownership passes",
         ],

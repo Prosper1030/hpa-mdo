@@ -174,7 +174,25 @@ This is the first real Gmsh handoff smoke for `fairing_solid`. It emits
 run SU2. It does include a component-owned `fairing_solid` force marker in the
 mesh-handoff evidence.
 
-### 8. Write the main wing mesh-handoff smoke
+### 8. Write the fairing solid SU2-handoff smoke
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli fairing-solid-su2-handoff-smoke \
+  --out .tmp/runs/fairing_solid_su2_handoff_smoke
+```
+
+This produces:
+
+- `fairing_solid_su2_handoff_smoke.v1.json`
+- `fairing_solid_su2_handoff_smoke.v1.md`
+
+This consumes the synthetic closed-solid fairing mesh handoff and materializes
+`su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` without executing `SU2_CFD`.
+It consumes the component-owned `fairing_solid` wall marker; real fairing
+geometry, solver history, and convergence remain blocking gates.
+
+### 9. Write the main wing mesh-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -192,7 +210,7 @@ This is a real Gmsh non-BL handoff smoke for `main_wing`. It emits
 component-owned `main_wing` / `farfield` markers. It does not run BL runtime, SU2, or a
 convergence gate, and it does not prove real aerodynamic main-wing geometry.
 
-### 9. Write the main wing SU2-handoff smoke
+### 10. Write the main wing SU2-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -219,6 +237,7 @@ blocking gates are real main-wing geometry, solver history, and convergence.
 - [`mesh_study.v1`](docs/contracts/mesh_study.v1.md)
 - [`component_family_route_smoke_matrix.v1`](docs/contracts/component_family_route_smoke_matrix.v1.md)
 - [`fairing_solid_mesh_handoff_smoke.v1`](docs/contracts/fairing_solid_mesh_handoff_smoke.v1.md)
+- [`fairing_solid_su2_handoff_smoke.v1`](docs/contracts/fairing_solid_su2_handoff_smoke.v1.md)
 - [`main_wing_mesh_handoff_smoke.v1`](docs/contracts/main_wing_mesh_handoff_smoke.v1.md)
 - [`main_wing_su2_handoff_smoke.v1`](docs/contracts/main_wing_su2_handoff_smoke.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
@@ -237,7 +256,7 @@ blocking gates are real main-wing geometry, solver history, and convergence.
 | Force-surface provenance gate | fixed contract | supports whole-aircraft wall and component-owned `fairing_solid` / lifting-surface markers |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
 | `main_wing` non-BL smoke | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist for a synthetic thin closed-solid wing slab with a `main_wing` marker; real geometry, solver, and convergence are not productized |
-| `fairing_solid` closed-solid route | experimental | first real `mesh_handoff.v1` smoke exists with a `fairing_solid` force marker; SU2 handoff can materialize from that marker, but solver/convergence are not productized |
+| `fairing_solid` closed-solid route | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver, and convergence are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
 | Component-family route smoke matrix | report-only `v1` | pre-mesh dispatch smoke for main-wing / tail / fairing route skeletons; no Gmsh, no SU2, no BL runtime |
@@ -249,7 +268,7 @@ blocking gates are real main-wing geometry, solver history, and convergence.
 
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
 2. replace synthetic `main_wing` slab evidence with real ESP/VSP main-wing geometry before solver claims
-3. materialize `su2_handoff.v1` for `fairing_solid` as a committed report artifact
+3. replace synthetic `fairing_solid` box evidence with real fairing geometry before solver claims
 4. component-level force mapping
 5. more providers only after the current product line is harder to validate
 

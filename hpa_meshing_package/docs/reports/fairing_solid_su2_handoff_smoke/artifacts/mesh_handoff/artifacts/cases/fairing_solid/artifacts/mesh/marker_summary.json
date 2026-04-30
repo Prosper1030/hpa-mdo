@@ -1,0 +1,40 @@
+{
+  "fairing_solid": {
+    "exists": true,
+    "dimension": 2,
+    "physical_name": "fairing_solid",
+    "physical_tag": 2,
+    "entity_count": 6,
+    "entities": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "element_count": 32,
+    "element_type_counts": {
+      "2": 32
+    }
+  },
+  "farfield": {
+    "exists": true,
+    "dimension": 2,
+    "physical_name": "farfield",
+    "physical_tag": 3,
+    "entity_count": 6,
+    "entities": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "element_count": 2776,
+    "element_type_counts": {
+      "2": 2776
+    }
+  }
+}
