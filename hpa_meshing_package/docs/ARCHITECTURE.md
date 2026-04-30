@@ -284,6 +284,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 `src/hpa_meshing/main_wing_station_seam_same_parameter_feasibility.py`
 `src/hpa_meshing/main_wing_station_seam_shape_fix_feasibility.py`
 `src/hpa_meshing/main_wing_station_seam_export_source_audit.py`
+`src/hpa_meshing/main_wing_station_seam_export_strategy_probe.py`
 
 - Keep the main-wing station-seam route risk visible as report-only evidence
 - Do not run Gmsh, SU2, BL runtime, convergence gates, or production defaults
@@ -294,7 +295,9 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Record that a bounded in-memory `BRepLib.SameParameter` tolerance sweep from `1e-7` through `1e-3` does not recover the station checks
 - Record that a bounded in-memory `ShapeFix_Edge` operation/tolerance sweep also does not recover the station checks
 - Record that the generated OpenCSM export currently uses one multi-section `rule` loft and that the unrecovered station defects map to internal rule sections
-- Promote the next gate to station-seam export strategy prototyping before compound meshing policy or solver-budget campaigns
+- Prototype split-at-defect-section OpenCSM export candidates under report artifacts only
+- Record that split candidates move the target sections to rule boundaries but remain blocked by multi-volume / span-bound topology risk
+- Promote the next gate to internal-cap inspection or PCurve/export rebuild before compound meshing policy or solver-budget campaigns
 
 ### 22. main_wing Mesh-Handoff Smoke Layer
 

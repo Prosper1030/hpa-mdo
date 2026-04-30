@@ -1,0 +1,266 @@
+{
+  "schema_version": "main_wing_station_seam_export_strategy_probe.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_station_seam_export_strategy_probe",
+  "production_default_changed": false,
+  "probe_status": "export_strategy_candidate_materialized_but_topology_risk",
+  "export_source_audit_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_source_audit/main_wing_station_seam_export_source_audit.v1.json",
+  "rebuild_csm_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/provider_geometry/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/rebuild.csm",
+  "materialization_requested": true,
+  "target_rule_section_indices": [
+    2,
+    9
+  ],
+  "candidate_reports": [
+    {
+      "candidate": "split_at_defect_sections_no_union",
+      "apply_union": false,
+      "intended_use": "diagnostic_pcure_boundary_probe",
+      "risk": "multiple touching solids and duplicate internal station caps",
+      "rule_count": 3,
+      "section_groups": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        [
+          9,
+          10
+        ]
+      ],
+      "target_section_roles": {
+        "2": [
+          {
+            "group_index": 0,
+            "role": "end_boundary",
+            "group_section_indices": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "group_index": 1,
+            "role": "start_boundary",
+            "group_section_indices": [
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ]
+          }
+        ],
+        "9": [
+          {
+            "group_index": 1,
+            "role": "end_boundary",
+            "group_section_indices": [
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ]
+          },
+          {
+            "group_index": 2,
+            "role": "start_boundary",
+            "group_section_indices": [
+              9,
+              10
+            ]
+          }
+        ]
+      },
+      "all_targets_exported_as_rule_boundaries": true,
+      "target_boundary_duplication_count": 2,
+      "expected_station_bounds": {
+        "y_min": -16.5,
+        "y_max": 16.5
+      },
+      "materialization": {
+        "status": "materialized",
+        "returncode": 0,
+        "csm_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_no_union/candidate.csm",
+        "step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_no_union/candidate_raw_dump.stp",
+        "step_exists": true,
+        "step_size_bytes": 432984,
+        "command_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_no_union/ocsm.log",
+        "stdout_tail": "olid_body    0.000    0.000    0.000 \n                                             total    0.084\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  177   2.7362e-01   9.8685e+00    5.1481e-01  -1.2676e+01   5.3774e-01     6.9974e-01  -6.5776e-03   1.4306e-03   1.1982e-02   4.9090e-02   7.0432e-01\n  656   2.4965e+00   5.9480e+01    5.9063e-01   8.2894e-01   1.8929e-01     1.0780e+02   6.9870e-02   2.2176e-02   1.9570e-01  -7.1833e-01   1.0791e+02\n  773   8.5406e-02   4.0017e+00    4.8161e-01   1.4628e+01   6.7186e-01     6.1714e-02   7.9720e-04   2.4272e-04   2.0310e-03  -4.6632e-03   6.2954e-02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.348 sec\n==> serveCSM completed successfully with 13 warnings\n",
+        "stderr_tail": "",
+        "topology": {
+          "status": "topology_counted",
+          "imported_entity_count": 3,
+          "body_count": 3,
+          "volume_count": 3,
+          "surface_count": 36,
+          "curve_count": 69,
+          "point_count": 39,
+          "bbox": [
+            -0.001259412194113,
+            -16.5000001,
+            -0.06803684311580001,
+            1.302329369,
+            16.5000001,
+            0.835306042127
+          ]
+        }
+      },
+      "span_y_bounds_preserved": true
+    },
+    {
+      "candidate": "split_at_defect_sections_union",
+      "apply_union": true,
+      "intended_use": "single_body_candidate_before_brep_validation",
+      "risk": "boolean union may fail or keep internal cap scars",
+      "rule_count": 3,
+      "section_groups": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        [
+          9,
+          10
+        ]
+      ],
+      "target_section_roles": {
+        "2": [
+          {
+            "group_index": 0,
+            "role": "end_boundary",
+            "group_section_indices": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "group_index": 1,
+            "role": "start_boundary",
+            "group_section_indices": [
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ]
+          }
+        ],
+        "9": [
+          {
+            "group_index": 1,
+            "role": "end_boundary",
+            "group_section_indices": [
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ]
+          },
+          {
+            "group_index": 2,
+            "role": "start_boundary",
+            "group_section_indices": [
+              9,
+              10
+            ]
+          }
+        ]
+      },
+      "all_targets_exported_as_rule_boundaries": true,
+      "target_boundary_duplication_count": 2,
+      "expected_station_bounds": {
+        "y_min": -16.5,
+        "y_max": 16.5
+      },
+      "materialization": {
+        "status": "materialized",
+        "returncode": 0,
+        "csm_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_union/candidate.csm",
+        "step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_union/candidate_raw_dump.stp",
+        "step_exists": true,
+        "step_size_bytes": 1046909,
+        "command_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_union/ocsm.log",
+        "stdout_tail": "     9     5 solid_body    0.000    0.000    0.000 \n      774    778 union       177   656   775   774    0.000    30    57    29 solid_body    3.000    0.000    0.000 \n      775*   778 union       774   773     0   775   37.408    82   114    34 solid_body    3.000    0.000    0.000 \n                                             total   37.490\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  775   3.2000e+00   6.9161e+01    5.6402e-01  -6.9638e-01   2.0551e-01     1.7373e+02  -3.3516e-01   1.3378e-02   2.7925e-01   6.5323e-01   1.7384e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n   possible ganged UNIONs that created Bodys: 774 775 \n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 37.803 sec\n==> serveCSM completed successfully with 56 warnings\n",
+        "stderr_tail": "",
+        "topology": {
+          "status": "topology_counted",
+          "imported_entity_count": 1,
+          "body_count": 1,
+          "volume_count": 1,
+          "surface_count": 34,
+          "curve_count": 114,
+          "point_count": 82,
+          "bbox": [
+            -0.0012596026137576667,
+            -16.500000290419646,
+            -0.06803703353544467,
+            1.3023295594196447,
+            13.500000290419644,
+            0.8352749987586446
+          ]
+        }
+      },
+      "span_y_bounds_preserved": false
+    }
+  ],
+  "engineering_findings": [
+    "station_seam_export_strategy_probe_captured",
+    "split_candidate_moves_target_stations_to_rule_boundaries",
+    "split_candidate_duplicates_station_boundaries",
+    "split_at_defect_sections_no_union_materialized_with_topology_risk",
+    "split_at_defect_sections_union_materialized_but_span_bounds_not_preserved",
+    "split_at_defect_sections_union_materialized_with_topology_risk"
+  ],
+  "blocking_reasons": [
+    "split_candidate_topology_not_single_volume_or_has_duplicate_cap_risk",
+    "split_candidate_does_not_preserve_full_span_bounds",
+    "split_candidate_duplicates_target_station_sections"
+  ],
+  "next_actions": [
+    "inspect_split_candidate_internal_caps_before_mesh_handoff",
+    "try_pcurve_rebuild_strategy_if_split_candidate_keeps_duplicate_caps"
+  ],
+  "limitations": [
+    "This probe writes candidate export sources only under its report directory.",
+    "It does not change esp_rebuilt, Gmsh, SU2, or production defaults.",
+    "A materialized split candidate is not a CFD-ready geometry until BRep, mesh handoff, marker ownership, and solver gates pass."
+  ]
+}

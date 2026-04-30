@@ -107,7 +107,7 @@ recovered station checks. The export-source audit then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
 `y=-10.5 m` and `y=13.5 m`. The current readiness next action is
-`prototype_station_seam_export_strategy_before_solver_budget`.
+`inspect_split_candidate_internal_caps_before_mesh_handoff`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -235,6 +235,23 @@ under `docs/reports/main_wing_station_seam_export_source_audit/` records
 the two unrecovered station defects map to internal rule sections. This is
 evidence for an export-strategy probe next; it is not a production default
 change and does not run Gmsh, SU2, or convergence gates.
+
+The main-wing station-seam export-strategy probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-export-strategy-probe --out .tmp/runs/main_wing_station_seam_export_strategy_probe --materialize-candidates
+```
+
+This writes `main_wing_station_seam_export_strategy_probe.v1.json` and
+`main_wing_station_seam_export_strategy_probe.v1.md`, plus candidate CSM/STEP
+artifacts under the report directory. The committed snapshot records
+`export_strategy_candidate_materialized_but_topology_risk`: split-at-defect
+rules move target rule sections 2 and 9 to rule boundaries, but the no-union
+candidate imports as 3 volumes, while the union candidate imports as 1 volume
+with y-bounds ending at `13.5 m` instead of the expected `16.5 m`. This blocks
+split-bay promotion; the next gate is internal-cap inspection or a PCurve /
+export rebuild strategy before mesh handoff or solver-budget work.
 
 The first real fairing geometry smoke is emitted by:
 

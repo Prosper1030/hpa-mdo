@@ -32,6 +32,7 @@ StageType = Literal[
     "station_seam_same_parameter_feasibility",
     "station_seam_shape_fix_feasibility",
     "station_seam_export_source_audit",
+    "station_seam_export_strategy_probe",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -984,6 +985,73 @@ def _station_seam_export_source_audit_observed(
     }
 
 
+def _station_seam_export_strategy_probe_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("probe_status")
+        == "export_strategy_candidate_materialized_needs_brep_validation"
+        else "blocked"
+    )
+
+
+def _station_seam_export_strategy_probe_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    candidate_summaries: list[dict[str, Any]] = []
+    if isinstance(payload, dict):
+        for candidate in payload.get("candidate_reports", []):
+            if not isinstance(candidate, dict):
+                continue
+            materialization = candidate.get("materialization", {})
+            topology = materialization.get("topology", {}) if isinstance(materialization, dict) else {}
+            candidate_summaries.append(
+                {
+                    "candidate": candidate.get("candidate"),
+                    "apply_union": candidate.get("apply_union"),
+                    "all_targets_exported_as_rule_boundaries": candidate.get(
+                        "all_targets_exported_as_rule_boundaries"
+                    ),
+                    "target_boundary_duplication_count": candidate.get(
+                        "target_boundary_duplication_count"
+                    ),
+                    "span_y_bounds_preserved": candidate.get(
+                        "span_y_bounds_preserved"
+                    ),
+                    "materialization_status": materialization.get("status")
+                    if isinstance(materialization, dict)
+                    else None,
+                    "body_count": topology.get("body_count")
+                    if isinstance(topology, dict)
+                    else None,
+                    "volume_count": topology.get("volume_count")
+                    if isinstance(topology, dict)
+                    else None,
+                    "surface_count": topology.get("surface_count")
+                    if isinstance(topology, dict)
+                    else None,
+                    "bbox": topology.get("bbox") if isinstance(topology, dict) else None,
+                }
+            )
+    return {
+        "probe_status": None if payload is None else payload.get("probe_status"),
+        "materialization_requested": (
+            None if payload is None else payload.get("materialization_requested")
+        ),
+        "target_rule_section_indices": (
+            [] if payload is None else payload.get("target_rule_section_indices", [])
+        ),
+        "candidate_summaries": candidate_summaries,
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -1130,6 +1198,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_export_source_audit"
         / "main_wing_station_seam_export_source_audit.v1.json"
     )
+    station_seam_export_strategy_probe_path = (
+        root
+        / "main_wing_station_seam_export_strategy_probe"
+        / "main_wing_station_seam_export_strategy_probe.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1188,6 +1261,9 @@ def build_main_wing_route_readiness_report(
     )
     station_seam_export_source_audit = _load_json(
         station_seam_export_source_audit_path
+    )
+    station_seam_export_strategy_probe = _load_json(
+        station_seam_export_strategy_probe_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -1864,6 +1940,26 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(station_seam_export_source_audit),
         ),
         _stage(
+            stage="station_seam_export_strategy_probe",
+            status=_station_seam_export_strategy_probe_status(
+                station_seam_export_strategy_probe
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(station_seam_export_strategy_probe, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_export_strategy_probe_path
+                if isinstance(station_seam_export_strategy_probe, dict)
+                else None
+            ),
+            observed=_station_seam_export_strategy_probe_observed(
+                station_seam_export_strategy_probe
+            ),
+            blockers=_blocking_reasons(station_seam_export_strategy_probe),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -2169,6 +2265,28 @@ def build_main_wing_route_readiness_report(
             and export_source_next_actions
         ):
             next_actions[0] = str(export_source_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_export_strategy_probe, dict)
+        and station_seam_export_strategy_probe.get("probe_status")
+        in {
+            "export_strategy_candidate_materialized_needs_brep_validation",
+            "export_strategy_candidate_materialized_but_topology_risk",
+            "export_strategy_candidate_materialization_failed",
+            "export_strategy_candidate_source_only_ready_for_materialization",
+            "blocked",
+        }
+    ):
+        export_strategy_next_actions = station_seam_export_strategy_probe.get(
+            "next_actions",
+            [],
+        )
+        if (
+            isinstance(export_strategy_next_actions, list)
+            and export_strategy_next_actions
+        ):
+            next_actions[0] = str(export_strategy_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

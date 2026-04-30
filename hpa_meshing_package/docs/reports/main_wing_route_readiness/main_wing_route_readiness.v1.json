@@ -2425,6 +2425,77 @@
       ]
     },
     {
+      "stage": "station_seam_export_strategy_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/main_wing_station_seam_export_strategy_probe.v1.json",
+      "observed": {
+        "probe_status": "export_strategy_candidate_materialized_but_topology_risk",
+        "materialization_requested": true,
+        "target_rule_section_indices": [
+          2,
+          9
+        ],
+        "candidate_summaries": [
+          {
+            "candidate": "split_at_defect_sections_no_union",
+            "apply_union": false,
+            "all_targets_exported_as_rule_boundaries": true,
+            "target_boundary_duplication_count": 2,
+            "span_y_bounds_preserved": true,
+            "materialization_status": "materialized",
+            "body_count": 3,
+            "volume_count": 3,
+            "surface_count": 36,
+            "bbox": [
+              -0.001259412194113,
+              -16.5000001,
+              -0.06803684311580001,
+              1.302329369,
+              16.5000001,
+              0.835306042127
+            ]
+          },
+          {
+            "candidate": "split_at_defect_sections_union",
+            "apply_union": true,
+            "all_targets_exported_as_rule_boundaries": true,
+            "target_boundary_duplication_count": 2,
+            "span_y_bounds_preserved": false,
+            "materialization_status": "materialized",
+            "body_count": 1,
+            "volume_count": 1,
+            "surface_count": 34,
+            "bbox": [
+              -0.0012596026137576667,
+              -16.500000290419646,
+              -0.06803703353544467,
+              1.3023295594196447,
+              13.500000290419644,
+              0.8352749987586446
+            ]
+          }
+        ],
+        "engineering_findings": [
+          "station_seam_export_strategy_probe_captured",
+          "split_candidate_moves_target_stations_to_rule_boundaries",
+          "split_candidate_duplicates_station_boundaries",
+          "split_at_defect_sections_no_union_materialized_with_topology_risk",
+          "split_at_defect_sections_union_materialized_but_span_bounds_not_preserved",
+          "split_at_defect_sections_union_materialized_with_topology_risk"
+        ],
+        "next_actions": [
+          "inspect_split_candidate_internal_caps_before_mesh_handoff",
+          "try_pcurve_rebuild_strategy_if_split_candidate_keeps_duplicate_caps"
+        ]
+      },
+      "blockers": [
+        "split_candidate_topology_not_single_volume_or_has_duplicate_cap_risk",
+        "split_candidate_does_not_preserve_full_span_bounds",
+        "split_candidate_duplicates_target_station_sections"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -2465,10 +2536,13 @@
     "station_seam_brep_hotspot_suspect",
     "station_same_parameter_repair_not_recovered",
     "station_shape_fix_repair_not_recovered",
-    "station_single_rule_internal_export_source_requires_strategy_probe"
+    "station_single_rule_internal_export_source_requires_strategy_probe",
+    "split_candidate_topology_not_single_volume_or_has_duplicate_cap_risk",
+    "split_candidate_does_not_preserve_full_span_bounds",
+    "split_candidate_duplicates_target_station_sections"
   ],
   "next_actions": [
-    "prototype_station_seam_export_strategy_before_solver_budget",
+    "inspect_split_candidate_internal_caps_before_mesh_handoff",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

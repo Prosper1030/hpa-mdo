@@ -580,6 +580,28 @@ def test_parser_supports_main_wing_station_seam_export_source_audit_command():
     assert args.topology_lineage == "artifacts/main_wing/topology_lineage_report.json"
 
 
+def test_parser_supports_main_wing_station_seam_export_strategy_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-export-strategy-probe",
+            "--out",
+            "artifacts/main_wing_station_seam_export_strategy_probe",
+            "--export-source-audit",
+            "artifacts/main_wing/export_source_audit.json",
+            "--materialize-candidates",
+            "--timeout-seconds",
+            "12.5",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-export-strategy-probe"
+    assert args.out == "artifacts/main_wing_station_seam_export_strategy_probe"
+    assert args.export_source_audit == "artifacts/main_wing/export_source_audit.json"
+    assert args.materialize_candidates is True
+    assert args.timeout_seconds == 12.5
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(
