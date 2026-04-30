@@ -250,6 +250,8 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Materializes `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` from the real main-wing mesh
 - Records component force-surface ownership from the `main_wing` marker
 - Uses HPA standard `V=6.5 m/s`
+- Supports explicit probe-local `reference_policy=openvsp_geometry_derived`
+  handoff checks without changing the default declared-reference route
 - Keeps solver execution and convergence off
 - Current committed evidence has `reference_geometry_status=warn`
 
@@ -474,6 +476,8 @@ can write a coarse bounded real `mesh_handoff.v1`; it is not production sizing
 and does not include BL runtime.
 `main_wing_real_su2_handoff_probe.v1` proves that the real main-wing mesh can
 materialize a package-native SU2 handoff with a component-owned force marker.
+The OpenVSP reference-policy snapshot proves the same handoff can request
+geometry-derived `Sref/cref/CG` without changing production defaults.
 `main_wing_real_solver_smoke_probe.v1` proves that `SU2_CFD` executes and writes
 history. The default committed smoke is `fail/not_comparable`; the non-default
 40-iteration follow-up is `warn/run_only`, still not converged.

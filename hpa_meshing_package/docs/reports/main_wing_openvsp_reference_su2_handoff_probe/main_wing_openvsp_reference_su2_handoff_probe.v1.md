@@ -5,7 +5,7 @@ This probe materializes an SU2 case from the real main-wing mesh handoff without
 - materialization_status: `su2_handoff_written`
 - source_mesh_probe_status: `mesh_handoff_pass`
 - source_mesh_handoff_status: `written`
-- reference_policy: `declared_blackcat_full_span`
+- reference_policy: `openvsp_geometry_derived`
 - su2_contract: `su2_handoff.v1`
 - input_mesh_contract: `mesh_handoff.v1`
 - solver_execution_status: `not_run`
@@ -36,11 +36,12 @@ This probe materializes an SU2 case from the real main-wing mesh handoff without
 - `convergence_gate_not_emitted`
 - `production_default_unchanged`
 - `main_wing_force_marker_owned`
+- `main_wing_openvsp_reference_policy_requested`
 
 ## Limitations
 
 - This probe materializes an SU2 case from the real main-wing mesh handoff only; it does not run SU2_CFD.
 - convergence_gate.v1 is not emitted because no solver history exists.
-- Reference geometry is a declared Blackcat main-wing full-span reference; warn/fail remains a blocker for credibility.
+- Reference geometry is requested from OpenVSP/VSPAERO geometry-derived data; warn/fail remains a blocker for credibility.
 - The upstream mesh is a coarse bounded probe, not production default sizing.
 - Production defaults were not changed.

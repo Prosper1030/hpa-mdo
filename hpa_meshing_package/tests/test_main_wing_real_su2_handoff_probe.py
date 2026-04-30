@@ -89,6 +89,7 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
         assert runtime.reference_mode == "user_declared"
         assert runtime.reference_override.ref_area == 34.65
         assert runtime.reference_override.ref_length == 1.05
+        assert runtime.case_name == "alpha_0_real_main_wing_materialization_probe"
         return _fake_case(case_root)
 
     monkeypatch.setattr(
@@ -103,6 +104,7 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
     )
 
     assert report.schema_version == "main_wing_real_su2_handoff_probe.v1"
+    assert report.reference_policy == "declared_blackcat_full_span"
     assert report.materialization_status == "su2_handoff_written"
     assert report.source_mesh_probe_status == "mesh_handoff_pass"
     assert report.source_mesh_handoff_status == "written"
@@ -124,6 +126,39 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
     assert "su2_handoff_v1_written_for_real_main_wing" in report.hpa_mdo_guarantees
     assert "main_wing_force_marker_owned" in report.hpa_mdo_guarantees
     assert "hpa_standard_flow_conditions_6p5_mps" in report.hpa_mdo_guarantees
+
+
+def test_main_wing_real_su2_handoff_probe_can_request_openvsp_reference_policy(
+    tmp_path: Path,
+    monkeypatch,
+):
+    probe_path = _write_mesh_probe_report(tmp_path)
+
+    def fake_materialize(mesh_handoff, runtime, case_root, source_root=None):
+        assert mesh_handoff["contract"] == "mesh_handoff.v1"
+        assert runtime.flow_conditions.velocity_mps == 6.5
+        assert runtime.reference_mode == "geometry_derived"
+        assert runtime.reference_override is None
+        assert runtime.case_name == "alpha_0_real_main_wing_openvsp_reference_probe"
+        return _fake_case(case_root)
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_su2_handoff_probe.materialize_baseline_case",
+        fake_materialize,
+    )
+
+    report = build_main_wing_real_su2_handoff_probe_report(
+        tmp_path / "su2_probe",
+        source_mesh_probe_report_path=probe_path,
+        reference_policy="openvsp_geometry_derived",
+    )
+
+    assert report.materialization_status == "su2_handoff_written"
+    assert report.reference_policy == "openvsp_geometry_derived"
+    assert report.production_default_changed is False
+    assert any("OpenVSP/VSPAERO" in limitation for limitation in report.limitations)
+    assert "main_wing_openvsp_reference_policy_requested" in report.hpa_mdo_guarantees
+    assert "production_default_unchanged" in report.hpa_mdo_guarantees
 
 
 def test_main_wing_real_su2_handoff_probe_blocks_when_real_mesh_handoff_missing(

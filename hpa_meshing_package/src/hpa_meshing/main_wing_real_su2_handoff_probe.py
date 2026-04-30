@@ -34,6 +34,7 @@ ComponentForceOwnershipStatusType = Literal[
     "missing",
     "insufficient_evidence",
 ]
+ReferencePolicyType = Literal["declared_blackcat_full_span", "openvsp_geometry_derived"]
 
 
 class MainWingRealSU2HandoffProbeReport(BaseModel):
@@ -55,6 +56,7 @@ class MainWingRealSU2HandoffProbeReport(BaseModel):
     )
     source_path: str | None = None
     case_dir: str
+    reference_policy: ReferencePolicyType = "declared_blackcat_full_span"
     no_su2_execution: bool = True
     no_convergence_gate: bool = True
     no_bl_runtime: bool = True
@@ -91,7 +93,19 @@ class MainWingRealSU2HandoffProbeReport(BaseModel):
     error: str | None = None
 
 
-def _runtime_config(*, max_iterations: int = 12) -> SU2RuntimeConfig:
+def _runtime_config(
+    *,
+    max_iterations: int = 12,
+    reference_policy: ReferencePolicyType = "declared_blackcat_full_span",
+) -> SU2RuntimeConfig:
+    if reference_policy == "openvsp_geometry_derived":
+        return SU2RuntimeConfig(
+            enabled=True,
+            case_name="alpha_0_real_main_wing_openvsp_reference_probe",
+            max_iterations=int(max_iterations),
+            flow_conditions=SU2FlowConditions(),
+            reference_mode="geometry_derived",
+        )
     return SU2RuntimeConfig(
         enabled=True,
         case_name="alpha_0_real_main_wing_materialization_probe",
@@ -225,6 +239,7 @@ def _blocked_report(
     mesh_probe: MainWingRealMeshHandoffProbeReport | None,
     mesh_probe_path: Path | None,
     materialization_status: MaterializationStatusType,
+    reference_policy: ReferencePolicyType = "declared_blackcat_full_span",
     blocking_reasons: list[str],
     limitations: list[str],
     error: str | None = None,
@@ -235,6 +250,7 @@ def _blocked_report(
         ),
         source_path=None if mesh_probe is None else mesh_probe.source_path,
         case_dir=str(out_dir),
+        reference_policy=reference_policy,
         materialization_status=materialization_status,
         source_mesh_probe_status=None if mesh_probe is None else mesh_probe.probe_status,
         source_mesh_handoff_status=None
@@ -265,6 +281,7 @@ def build_main_wing_real_su2_handoff_probe_report(
     timeout_seconds: float = 45.0,
     source_mesh_probe_report_path: Path | None = None,
     max_iterations: int = 12,
+    reference_policy: ReferencePolicyType = "declared_blackcat_full_span",
 ) -> MainWingRealSU2HandoffProbeReport:
     out_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -280,6 +297,7 @@ def build_main_wing_real_su2_handoff_probe_report(
             mesh_probe=None,
             mesh_probe_path=source_mesh_probe_report_path,
             materialization_status="unavailable",
+            reference_policy=reference_policy,
             blocking_reasons=[
                 "main_wing_real_mesh_probe_report_unavailable",
                 "main_wing_real_su2_handoff_not_materialized",
@@ -300,6 +318,7 @@ def build_main_wing_real_su2_handoff_probe_report(
             mesh_probe=mesh_probe,
             mesh_probe_path=mesh_probe_path,
             materialization_status="blocked_before_su2_handoff",
+            reference_policy=reference_policy,
             blocking_reasons=[
                 "main_wing_real_mesh_handoff_not_available",
                 "main_wing_real_su2_handoff_not_materialized",
@@ -310,7 +329,10 @@ def build_main_wing_real_su2_handoff_probe_report(
             error=mesh_probe.error,
         )
 
-    runtime = _runtime_config(max_iterations=max_iterations)
+    runtime = _runtime_config(
+        max_iterations=max_iterations,
+        reference_policy=reference_policy,
+    )
     try:
         mesh_handoff = _load_mesh_handoff_from_case_report(mesh_case_report)
         case = materialize_baseline_case(
@@ -325,6 +347,7 @@ def build_main_wing_real_su2_handoff_probe_report(
             mesh_probe=mesh_probe,
             mesh_probe_path=mesh_probe_path,
             materialization_status="failed",
+            reference_policy=reference_policy,
             blocking_reasons=[
                 "main_wing_real_su2_handoff_materialization_failed",
             ],
@@ -361,11 +384,19 @@ def build_main_wing_real_su2_handoff_probe_report(
     ]
     if component_force_status == "owned":
         hpa_mdo_guarantees.append("main_wing_force_marker_owned")
+    if reference_policy == "openvsp_geometry_derived":
+        hpa_mdo_guarantees.append("main_wing_openvsp_reference_policy_requested")
+    reference_limitation = (
+        "Reference geometry is requested from OpenVSP/VSPAERO geometry-derived data; warn/fail remains a blocker for credibility."
+        if reference_policy == "openvsp_geometry_derived"
+        else "Reference geometry is a declared Blackcat main-wing full-span reference; warn/fail remains a blocker for credibility."
+    )
 
     return MainWingRealSU2HandoffProbeReport(
         source_fixture=mesh_probe.source_fixture,
         source_path=mesh_probe.source_path,
         case_dir=str(case.case_output_paths.case_dir),
+        reference_policy=reference_policy,
         materialization_status="su2_handoff_written",
         source_mesh_probe_status=mesh_probe.probe_status,
         source_mesh_handoff_status=mesh_probe.mesh_handoff_status,
@@ -397,7 +428,7 @@ def build_main_wing_real_su2_handoff_probe_report(
         limitations=[
             "This probe materializes an SU2 case from the real main-wing mesh handoff only; it does not run SU2_CFD.",
             "convergence_gate.v1 is not emitted because no solver history exists.",
-            "Reference geometry is a declared Blackcat main-wing full-span reference; warn/fail remains a blocker for credibility.",
+            reference_limitation,
             "The upstream mesh is a coarse bounded probe, not production default sizing.",
             "Production defaults were not changed.",
         ],
@@ -413,6 +444,7 @@ def _render_markdown(report: MainWingRealSU2HandoffProbeReport) -> str:
         f"- materialization_status: `{report.materialization_status}`",
         f"- source_mesh_probe_status: `{report.source_mesh_probe_status}`",
         f"- source_mesh_handoff_status: `{report.source_mesh_handoff_status}`",
+        f"- reference_policy: `{report.reference_policy}`",
         f"- su2_contract: `{report.su2_contract}`",
         f"- input_mesh_contract: `{report.input_mesh_contract}`",
         f"- solver_execution_status: `{report.solver_execution_status}`",
@@ -444,6 +476,7 @@ def write_main_wing_real_su2_handoff_probe_report(
     timeout_seconds: float = 45.0,
     source_mesh_probe_report_path: Path | None = None,
     max_iterations: int = 12,
+    reference_policy: ReferencePolicyType = "declared_blackcat_full_span",
 ) -> Dict[str, Path]:
     if report is None:
         report = build_main_wing_real_su2_handoff_probe_report(
@@ -452,6 +485,7 @@ def write_main_wing_real_su2_handoff_probe_report(
             timeout_seconds=timeout_seconds,
             source_mesh_probe_report_path=source_mesh_probe_report_path,
             max_iterations=max_iterations,
+            reference_policy=reference_policy,
         )
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / "main_wing_real_su2_handoff_probe.v1.json"

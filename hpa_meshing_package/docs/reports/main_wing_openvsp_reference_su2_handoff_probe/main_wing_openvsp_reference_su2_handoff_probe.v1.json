@@ -8,8 +8,8 @@
   "execution_mode": "real_mesh_handoff_su2_materialization_only_no_solver",
   "source_mesh_probe_schema": "main_wing_real_mesh_handoff_probe.v1",
   "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
-  "case_dir": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe",
-  "reference_policy": "declared_blackcat_full_span",
+  "case_dir": "hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe",
+  "reference_policy": "openvsp_geometry_derived",
   "no_su2_execution": true,
   "no_convergence_gate": true,
   "no_bl_runtime": true,
@@ -33,10 +33,10 @@
   "source_mesh_probe_path": "hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json",
   "source_mesh_case_report_path": "hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/report.json",
   "input_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
-  "su2_handoff_path": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/su2_handoff.json",
-  "su2_mesh_path": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/mesh.su2",
-  "runtime_cfg_path": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/su2_runtime.cfg",
-  "history_path": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/history.csv",
+  "su2_handoff_path": "hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/su2_handoff.json",
+  "su2_mesh_path": "hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/mesh.su2",
+  "runtime_cfg_path": "hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/su2_runtime.cfg",
+  "history_path": "hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/history.csv",
   "node_count": 97299,
   "element_count": 593217,
   "volume_element_count": 584460,
@@ -49,7 +49,8 @@
     "solver_not_executed",
     "convergence_gate_not_emitted",
     "production_default_unchanged",
-    "main_wing_force_marker_owned"
+    "main_wing_force_marker_owned",
+    "main_wing_openvsp_reference_policy_requested"
   ],
   "blocking_reasons": [
     "main_wing_solver_not_run",
@@ -59,7 +60,7 @@
   "limitations": [
     "This probe materializes an SU2 case from the real main-wing mesh handoff only; it does not run SU2_CFD.",
     "convergence_gate.v1 is not emitted because no solver history exists.",
-    "Reference geometry is a declared Blackcat main-wing full-span reference; warn/fail remains a blocker for credibility.",
+    "Reference geometry is requested from OpenVSP/VSPAERO geometry-derived data; warn/fail remains a blocker for credibility.",
     "The upstream mesh is a coarse bounded probe, not production default sizing.",
     "Production defaults were not changed."
   ],

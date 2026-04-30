@@ -262,6 +262,14 @@ mesh/SU2 handoff route with probe-local `runtime_max_iterations=40` and
 `solver_executed_but_not_converged` because residual drop remains below the gate
 threshold and reference geometry remains `warn`.
 
+An explicit OpenVSP/VSPAERO reference-policy SU2 handoff snapshot is kept under
+`docs/reports/main_wing_openvsp_reference_su2_handoff_probe/`. It uses the same
+real main-wing mesh handoff but requests `reference_policy=openvsp_geometry_derived`,
+producing `REF_AREA=35.175`, `REF_LENGTH=1.0425`,
+`REF_ORIGIN_MOMENT=(0,0,0)`, `V=6.5 m/s`, and the component-owned `main_wing`
+force marker. This is a materialized handoff only: no solver or convergence
+claim is made, and production defaults are unchanged.
+
 The main-wing reference-geometry gate is emitted by:
 
 ```bash
@@ -427,7 +435,7 @@ ownership cleanup, not solver execution.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; default 12-iteration solver smoke fails the convergence gate, non-default 40-iteration follow-up reaches `warn/run_only`, reference chord now cross-checks against OpenVSP/VSPAERO `cref`, and reference-area / moment-origin provenance remains `warn` |
+| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; a probe-local OpenVSP reference-policy handoff also materializes; default 12-iteration solver smoke fails the convergence gate, non-default 40-iteration follow-up reaches `warn/run_only`, reference chord now cross-checks against OpenVSP/VSPAERO `cref`, and reference-area / moment-origin provenance remains `warn` |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is now applied in a gated override handoff; borrowed zero moment origin, solver history, and convergence gate are still missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |

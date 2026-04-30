@@ -238,6 +238,8 @@ def test_parser_supports_main_wing_real_su2_handoff_probe_command():
             "artifacts/main_wing_real_mesh_probe/main_wing_real_mesh_handoff_probe.v1.json",
             "--max-iterations",
             "40",
+            "--reference-policy",
+            "openvsp_geometry_derived",
         ]
     )
 
@@ -247,6 +249,7 @@ def test_parser_supports_main_wing_real_su2_handoff_probe_command():
         "artifacts/main_wing_real_mesh_probe/main_wing_real_mesh_handoff_probe.v1.json"
     )
     assert args.max_iterations == 40
+    assert args.reference_policy == "openvsp_geometry_derived"
 
 
 def test_parser_supports_main_wing_real_solver_smoke_probe_command():

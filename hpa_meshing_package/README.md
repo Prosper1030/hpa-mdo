@@ -395,6 +395,12 @@ There is also a non-default 40-iteration follow-up snapshot at
 `docs/reports/main_wing_real_solver_smoke_probe_iter40/`. It improves the gate
 to `warn/run_only`, but still remains `solver_executed_but_not_converged`.
 
+An OpenVSP/VSPAERO reference-policy SU2 handoff snapshot is kept at
+`docs/reports/main_wing_openvsp_reference_su2_handoff_probe/`. It is explicit
+probe-local evidence only: `REF_AREA=35.175`, `REF_LENGTH=1.0425`,
+`REF_ORIGIN_MOMENT=(0,0,0)`, `V=6.5`, and `main_wing` force marker ownership
+are materialized, but `SU2_CFD` and convergence are not run.
+
 ### 19. Check main wing reference geometry provenance
 
 ```bash
@@ -623,7 +629,7 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | supports whole-aircraft wall and component-owned `fairing_solid` / lifting-surface markers |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine; main-wing coarse bounded mesh evidence exists, but the provider route is still not a formal production CFD path |
-| `main_wing` non-BL route | experimental | real ESP/VSP geometry, real coarse bounded `mesh_handoff.v1`, real `su2_handoff.v1`, and solver-executed evidence now exist; convergence gate fails, reference chord now cross-checks against OpenVSP/VSPAERO `cref`, and reference-area / moment-origin provenance remains `warn`, so it is not productized CFD |
+| `main_wing` non-BL route | experimental | real ESP/VSP geometry, real coarse bounded `mesh_handoff.v1`, real `su2_handoff.v1`, probe-local OpenVSP reference-policy handoff, and solver-executed evidence now exist; convergence gate fails, reference chord now cross-checks against OpenVSP/VSPAERO `cref`, and reference-area / moment-origin provenance remains `warn`, so it is not productized CFD |
 | `tail_wing` non-BL smoke | experimental | real ESP/VSP provider geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is still blocked by surface-only provider output, negative signed-volume surface-loop behavior, and baffle-fragment PLC failure; synthetic `mesh_handoff.v1` / `su2_handoff.v1` materialization smokes exist but are not real tail mesh evidence |
 | `fairing_solid` closed-solid route | experimental | real fairing VSP geometry smoke exists for `best_design` Fuselage with `1 body / 8 surfaces / 1 volume`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is applied in a gated override handoff; solver, convergence, and owned moment-origin policy are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |

@@ -448,6 +448,26 @@ Engineering reading: reference geometry is no longer opaque, but it is not a
 pass gate. The next credibility work should own reference-area and moment-origin
 provenance before treating a longer solver campaign as comparable CFD.
 
+A probe-local OpenVSP/VSPAERO reference-policy SU2 handoff snapshot now exists
+at:
+
+- `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_su2_handoff_probe/`
+
+Observed result:
+
+- `materialization_status = su2_handoff_written`
+- `reference_policy = openvsp_geometry_derived`
+- `REF_AREA = 35.175`
+- `REF_LENGTH = 1.0425`
+- `REF_ORIGIN_MOMENT = (0,0,0)`
+- `V = 6.5 m/s`
+- force marker = `main_wing`
+
+Engineering reading: this removes ambiguity about whether the real handoff can
+consume OpenVSP reference quantities. It is still not a solver or convergence
+claim, and the zero VSPAERO CG moment origin keeps the reference state at
+`warn`.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash

@@ -11,6 +11,7 @@ It is intentionally solver-free:
 - it writes `mesh.su2`
 - it writes `su2_runtime.cfg`
 - it uses the HPA standard flow condition `V=6.5 m/s`
+- it records the probe-local `reference_policy`
 - it records component-owned `main_wing` force-marker ownership
 - it does not run `SU2_CFD`
 - it does not emit `convergence_gate.v1`
@@ -27,6 +28,9 @@ It is intentionally solver-free:
 - `meshing_route`: fixed string `gmsh_thin_sheet_surface`
 - `execution_mode`: fixed string `real_mesh_handoff_su2_materialization_only_no_solver`
 - `source_mesh_probe_schema`: expected `main_wing_real_mesh_handoff_probe.v1`
+- `reference_policy`: `declared_blackcat_full_span` by default, or
+  `openvsp_geometry_derived` for explicit probe-local OpenVSP/VSPAERO reference
+  handoff checks
 - `no_su2_execution`: must be `true`
 - `no_convergence_gate`: must be `true`
 - `no_bl_runtime`: must be `true`
@@ -63,6 +67,12 @@ mesh is still a coarse bounded probe rather than production default sizing.
 `runtime_max_iterations` is a probe-local solver-budget setting for downstream
 smoke campaigns; it does not change production defaults.
 
+`reference_policy=openvsp_geometry_derived` means the handoff requested
+OpenVSP/VSPAERO reference-wing quantities through `runtime.reference_mode =
+geometry_derived`. The current probe-local snapshot writes `REF_AREA=35.175`,
+`REF_LENGTH=1.0425`, and zero VSPAERO CG moment origin. It remains a `warn`
+reference state because the moment origin policy is still not owned.
+
 ## Promotion Rule
 
 This probe can move the real main-wing route past "real SU2 handoff missing".
@@ -70,5 +80,5 @@ It cannot promote the route to aerodynamic credibility until:
 
 1. `SU2_CFD` executes from this real handoff
 2. `convergence_gate.v1` passes
-3. reference chord and moment-origin provenance pass
+3. reference-area and moment-origin provenance pass
 4. mesh sizing / BL policy is promoted separately

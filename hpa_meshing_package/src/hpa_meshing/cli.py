@@ -411,6 +411,7 @@ def cmd_main_wing_real_su2_handoff_probe(args: argparse.Namespace) -> int:
         timeout_seconds=float(args.timeout_seconds),
         source_mesh_probe_report_path=source_mesh_probe_report_path,
         max_iterations=int(args.max_iterations),
+        reference_policy=args.reference_policy,
     )
     write_main_wing_real_su2_handoff_probe_report(out_dir, report=report)
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
@@ -685,6 +686,11 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_real_su2_probe.add_argument("--source", type=str)
     main_wing_real_su2_probe.add_argument("--timeout-seconds", type=float, default=45.0)
     main_wing_real_su2_probe.add_argument("--max-iterations", type=int, default=12)
+    main_wing_real_su2_probe.add_argument(
+        "--reference-policy",
+        choices=["declared_blackcat_full_span", "openvsp_geometry_derived"],
+        default="declared_blackcat_full_span",
+    )
     main_wing_real_su2_probe.add_argument("--source-mesh-probe-report", type=str)
     main_wing_real_su2_probe.set_defaults(func=cmd_main_wing_real_su2_handoff_probe)
 
