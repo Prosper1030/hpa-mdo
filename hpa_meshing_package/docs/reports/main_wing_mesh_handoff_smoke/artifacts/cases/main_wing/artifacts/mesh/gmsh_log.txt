@@ -1,0 +1,130 @@
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.9 1' (3D)
+Info: Healing shapes (tolerance: 1e-08)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info: Done healing shapes (Wall 0.00395067s, CPU 0.002971s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 1 (1)
+Info:  - Shells             : 1 (1)
+Info:  - Wires              : 6 (6)
+Info:  - Faces              : 6 (6)
+Info:  - Edges              : 12 (12)
+Info:  - Vertices           : 8 (8)
+Info:  - Total surface area : 4.3 (4.3)
+Progress: Fragments
+Progress: Fragments - Performing intersection of shapes
+Progress: Fragments - Building the result of General Fuse operation
+Warning: Boolean fragments skipped - too few arguments
+Progress: Difference
+Progress: Difference - Performing intersection of shapes
+Progress: Difference
+Progress: Difference - Adding holes
+Progress: Difference - Post treatment of result shape
+Info: Meshing 1D...
+Info: Meshing curve 1 (Line)
+Info: Meshing curve 19 (Line)
+Info: Meshing curve 13 (Line)
+Info: Meshing curve 7 (Line)
+Progress: Meshing 1D...
+Info: Meshing curve 14 (Line)
+Info: Meshing curve 2 (Line)
+Info: Meshing curve 20 (Line)
+Info: Meshing curve 15 (Line)
+Info: Meshing curve 8 (Line)
+Info: Meshing curve 21 (Line)
+Info: Meshing curve 16 (Line)
+Info: Meshing curve 9 (Line)
+Info: Meshing curve 22 (Line)
+Info: Meshing curve 17 (Line)
+Info: Meshing curve 10 (Line)
+Info: Meshing curve 23 (Line)
+Info: Meshing curve 18 (Line)
+Info: Meshing curve 11 (Line)
+Info: Meshing curve 24 (Line)
+Progress: Meshing 1D...
+Info: Meshing curve 6 (Line)
+Info: Meshing curve 3 (Line)
+Info: Meshing curve 12 (Line)
+Info: Meshing curve 5 (Line)
+Info: Meshing curve 4 (Line)
+Progress: Meshing 1D...
+Info: Done meshing 1D (Wall 0.000794334s, CPU 0.001859s)
+Info: Meshing 2D...
+Info: Meshing surface 4 (Plane, Frontal-Delaunay)
+Info: Meshing surface 7 (Plane, Frontal-Delaunay)
+Info: Meshing surface 1 (Plane, Frontal-Delaunay)
+Info: Meshing surface 10 (Plane, Frontal-Delaunay)
+Info: Meshing surface 5 (Plane, Frontal-Delaunay)
+Info: Meshing surface 11 (Plane, Frontal-Delaunay)
+Info: Meshing surface 8 (Plane, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Meshing surface 2 (Plane, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Meshing surface 3 (Plane, Frontal-Delaunay)
+Info: Meshing surface 9 (Plane, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Meshing surface 6 (Plane, Frontal-Delaunay)
+Info: Meshing surface 12 (Plane, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Done meshing 2D (Wall 0.0105894s, CPU 0.0165s)
+Info: 310 nodes 740 elements
+Info: Removing duplicate mesh nodes...
+Info: Found 0 duplicate nodes
+Info: No duplicate nodes found
+Info: Writing 'docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/surface_mesh_2d.msh'...
+Info: Done writing 'docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/surface_mesh_2d.msh'
+Info: Meshing 3D...
+Progress: Meshing 3D...
+Info: 3D Meshing 1 volume with 1 connected component
+Info: Tetrahedrizing 310 nodes...
+Info: Done tetrahedrizing 318 nodes (Wall 0.00156721s, CPU 0.00337s)
+Info: Reconstructing mesh...
+Info:  - Creating surface mesh
+Info:  - Identifying boundary edges
+Info:  - Recovering boundary
+Info: Done reconstructing mesh (Wall 0.00450963s, CPU 0.008238s)
+Info: Found volume 2
+Info: Found void region
+Info: It. 0 - 0 nodes created - worst tet radius 1.4791 (nodes removed 0 0)
+Info: 3D refinement terminated (310 nodes total):
+Info:  - 0 Delaunay cavities modified for star shapeness
+Info:  - 34 nodes could not be inserted
+Info:  - 911 tetrahedra created in 5.30001e-05 sec. (17188661 tets/s)
+Info: 0 node relocations
+Progress: Meshing 3D...
+Info: Done meshing 3D (Wall 0.00839888s, CPU 0.01731s)
+Info: Optimizing mesh...
+Info: Optimizing volume 2
+Info: Optimization starts (volume = 14.9001) with worst = 0.00781729 / average = 0.489898:
+Info: 0.00 < quality < 0.10 :        52 elements
+Info: 0.10 < quality < 0.20 :        85 elements
+Info: 0.20 < quality < 0.30 :        64 elements
+Info: 0.30 < quality < 0.40 :        20 elements
+Info: 0.40 < quality < 0.50 :        16 elements
+Info: 0.50 < quality < 0.60 :       447 elements
+Info: 0.60 < quality < 0.70 :       215 elements
+Info: 0.70 < quality < 0.80 :        12 elements
+Info: 0.80 < quality < 0.90 :         0 elements
+Info: 0.90 < quality < 1.00 :         0 elements
+Info: 82 edge swaps, 0 node relocations (volume = 14.9001): worst = 0.0147355 / average = 0.521901 (Wall 0.00095825s, CPU 0.003002s)
+Info: 87 edge swaps, 0 node relocations (volume = 14.9001): worst = 0.0272208 / average = 0.521151 (Wall 0.00153567s, CPU 0.004505s)
+Info: 88 edge swaps, 0 node relocations (volume = 14.9001): worst = 0.0272208 / average = 0.521707 (Wall 0.00205412s, CPU 0.005785s)
+Info: No ill-shaped tets in the mesh :-)
+Info: 0.00 < quality < 0.10 :         2 elements
+Info: 0.10 < quality < 0.20 :        73 elements
+Info: 0.20 < quality < 0.30 :        55 elements
+Info: 0.30 < quality < 0.40 :        21 elements
+Info: 0.40 < quality < 0.50 :        19 elements
+Info: 0.50 < quality < 0.60 :       457 elements
+Info: 0.60 < quality < 0.70 :       205 elements
+Info: 0.70 < quality < 0.80 :         9 elements
+Info: 0.80 < quality < 0.90 :         1 elements
+Info: 0.90 < quality < 1.00 :         0 elements
+Info: Done optimizing mesh (Wall 0.00241875s, CPU 0.006779s)
+Info: 310 nodes 1582 elements
+Info: Writing 'docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh.msh'...
+Info: Done writing 'docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh.msh'

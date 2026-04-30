@@ -48,7 +48,7 @@
 ## Experimental / Placeholder Areas
 
 - `esp_rebuilt` 目前已經能在本機 materialize provider-normalized geometry，但仍停留在 experimental：它不是 formal `v1` route，而且 blackcat meshing smoke 目前還卡在 downstream Gmsh `Mesh2D` hang。
-- `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在，但 backend 仍是 placeholder，不是正式可交付路徑。
+- `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在；`main_wing` 與 `fairing_solid` 目前各有 synthetic non-BL `mesh_handoff.v1` smoke，但都還不是正式可交付 CFD 路徑。
 - 目前只有 `gmsh_thin_sheet_aircraft_assembly` 會走真實 Gmsh meshing；其他 route 會回 `route_stage=placeholder`。
 - `shell_v4` 是 BL / solver-entry diagnostic branch，不是任意主翼 product route；BL route 只有在 hpa-mdo owns transition sleeve / receiver faces / interface loops / layer-drop events 之後才可 promotion。
 
@@ -173,6 +173,24 @@ This is the first real Gmsh handoff smoke for `fairing_solid`. It emits
 `mesh_handoff.v1` for a synthetic closed-solid fixture, but it still does not
 run SU2 or prove fairing-specific force-surface ownership.
 
+### 8. Write the main wing mesh-handoff smoke
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli main-wing-mesh-handoff-smoke \
+  --out .tmp/runs/main_wing_mesh_handoff_smoke
+```
+
+This produces:
+
+- `main_wing_mesh_handoff_smoke.v1.json`
+- `main_wing_mesh_handoff_smoke.v1.md`
+
+This is a real Gmsh non-BL handoff smoke for `main_wing`. It emits
+`mesh_handoff.v1` for a synthetic thin closed-solid wing slab with generic
+`aircraft` / `farfield` markers. It does not run BL runtime, SU2, or a
+convergence gate, and it does not prove real aerodynamic main-wing geometry.
+
 ## Artifact Contracts
 
 - [`GeometryProviderResult`](docs/contracts/GeometryProviderResult.md)
@@ -182,6 +200,7 @@ run SU2 or prove fairing-specific force-surface ownership.
 - [`mesh_study.v1`](docs/contracts/mesh_study.v1.md)
 - [`component_family_route_smoke_matrix.v1`](docs/contracts/component_family_route_smoke_matrix.v1.md)
 - [`fairing_solid_mesh_handoff_smoke.v1`](docs/contracts/fairing_solid_mesh_handoff_smoke.v1.md)
+- [`main_wing_mesh_handoff_smoke.v1`](docs/contracts/main_wing_mesh_handoff_smoke.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
 
 ## Capability Boundaries
@@ -197,6 +216,7 @@ run SU2 or prove fairing-specific force-surface ownership.
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
+| `main_wing` non-BL smoke | experimental | real `mesh_handoff.v1` smoke exists for a synthetic thin closed-solid wing slab; SU2 handoff, real geometry, and convergence are not productized |
 | `fairing_solid` closed-solid route | experimental | first real `mesh_handoff.v1` smoke exists with a `fairing_solid` force marker; SU2 handoff can materialize from that marker, but solver/convergence are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
@@ -208,7 +228,8 @@ run SU2 or prove fairing-specific force-surface ownership.
 ## Recommended Next Gates
 
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
-2. component-level force mapping
-3. more providers only after the current product line is harder to validate
+2. materialize `su2_handoff.v1` from the new component-family mesh handoffs before solver claims
+3. component-level force mapping
+4. more providers only after the current product line is harder to validate
 
 ESP/OpenCSM can remain experimental until it earns a separate formal promotion.

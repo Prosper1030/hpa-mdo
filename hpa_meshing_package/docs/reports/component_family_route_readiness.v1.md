@@ -9,7 +9,7 @@
 | component | status | route role | default route | SU2 | BL policy | Gmsh boundary policy |
 | --- | --- | --- | --- | --- | --- | --- |
 | `aircraft_assembly` | `formal_v1` | `current_product_line` | `gmsh_thin_sheet_aircraft_assembly` | `baseline_productized` | `not_required_for_baseline` | `baseline_gmsh_backend_boundary_recovery` |
-| `main_wing` | `experimental` | `experimental_and_diagnostic` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `promotion_only_when_hpa_mdo_owns_handoff_topology` | `not_allowed_as_owned_boundary_handoff` |
+| `main_wing` | `experimental` | `experimental_and_diagnostic` | `gmsh_thin_sheet_surface` | `blocked_until_su2_handoff` | `promotion_only_when_hpa_mdo_owns_handoff_topology` | `not_allowed_as_owned_boundary_handoff` |
 | `tail_wing` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `horizontal_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `vertical_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
@@ -44,7 +44,8 @@
 ### `main_wing`
 - `shell_v4_root_last3_is_not_product_route`
 - `explicit_bl_to_core_handoff_topology_not_owned`
-- `route_specific_mesh_and_su2_productization_missing`
+- `main_wing_su2_handoff_not_materialized`
+- `convergence_gate_not_run`
 
 ### `tail_wing`
 - `tail_family_backend_not_productized`

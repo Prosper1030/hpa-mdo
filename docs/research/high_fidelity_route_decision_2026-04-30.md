@@ -132,12 +132,38 @@ force marker in the mesh-handoff evidence. The SU2 backend can materialize a
 route evidence is still not a solver route and `convergence_gate.v1` is
 intentionally absent.
 
+The matching non-BL main-wing mesh smoke is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-mesh-handoff-smoke \
+  --out .tmp/runs/main_wing_mesh_handoff_smoke
+```
+
+It writes:
+
+- `main_wing_mesh_handoff_smoke.v1.json`
+- `main_wing_mesh_handoff_smoke.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/main_wing_mesh_handoff_smoke/main_wing_mesh_handoff_smoke.v1.json`
+- `hpa_meshing_package/docs/reports/main_wing_mesh_handoff_smoke/main_wing_mesh_handoff_smoke.v1.md`
+
+This smoke emits a real `mesh_handoff.v1` for `main_wing ->
+gmsh_thin_sheet_surface` on a synthetic thin closed-solid wing slab. It is not a
+BL route, not real aerodynamic wing geometry, not a solver handoff, and not a
+convergence claim. Its engineering value is narrower but important: the main-wing
+family now has a real package-native mesh-handoff artifact outside `root_last3`,
+so the next honest gate is `su2_handoff.v1` materialization rather than more
+BL topology microscopy.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | route-specific baseline smoke before BL prelaunch |
+| `main_wing` | experimental + diagnostic | no | committed SU2 materialization smoke from the non-BL mesh handoff |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | tail-specific geometry and mesh smoke |
 | `fairing_solid` | registered future route | no | committed SU2 materialization smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -190,7 +216,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Write a committed fairing `su2_handoff.v1` materialization smoke artifact
-   without running `SU2_CFD`.
-2. Build the next non-BL `main_wing` real `mesh_handoff.v1` smoke while keeping
-   BL transition ownership as a separate promotion gate.
+1. Write committed `su2_handoff.v1` materialization smoke artifacts for
+   `fairing_solid` and `main_wing` without running `SU2_CFD`.
+2. Add the next tail-family non-BL mesh-handoff smoke, then keep BL transition
+   ownership as a separate promotion gate.

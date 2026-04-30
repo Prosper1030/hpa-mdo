@@ -1,0 +1,1595 @@
+{
+  "status": "captured",
+  "reference_length": 1.0,
+  "near_body_size": 0.8,
+  "edge_size": 0.4,
+  "short_curve_threshold": 0.2,
+  "tiny_face_area_threshold": 0.4,
+  "aircraft_surface_bounds": {
+    "x_min": -1e-07,
+    "x_max": 1.0000001,
+    "y_min": -1.0000001,
+    "y_max": 1.0000001,
+    "z_min": -0.0250001,
+    "z_max": 0.0250001
+  },
+  "surface_count": 6,
+  "curve_count": 12,
+  "surface_role_counts": {
+    "aircraft": 6
+  },
+  "surface_area_distribution": {
+    "count": 6,
+    "min": 0.05,
+    "p05": 0.05,
+    "p50": 0.1,
+    "p95": 2.0,
+    "max": 2.0
+  },
+  "curve_length_distribution": {
+    "count": 12,
+    "min": 0.05,
+    "p05": 0.05,
+    "p50": 1.0,
+    "p95": 2.0,
+    "max": 2.0
+  },
+  "family_hint_counts": {
+    "high_aspect_strip_candidate": 6,
+    "short_curve_candidate": 4,
+    "span_extreme_candidate": 6,
+    "span_extreme_strip_candidate": 4,
+    "tiny_face_candidate": 4
+  },
+  "curve_records": [
+    {
+      "tag": 1,
+      "length": 0.05,
+      "owner_surface_tags": [
+        1,
+        2
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 2,
+      "length": 2.0,
+      "owner_surface_tags": [
+        1,
+        5
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 3,
+      "length": 0.05,
+      "owner_surface_tags": [
+        1,
+        4
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 4,
+      "length": 2.0,
+      "owner_surface_tags": [
+        1,
+        6
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 5,
+      "length": 1.0,
+      "owner_surface_tags": [
+        2,
+        5
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 6,
+      "length": 1.0,
+      "owner_surface_tags": [
+        2,
+        6
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 7,
+      "length": 0.05,
+      "owner_surface_tags": [
+        2,
+        3
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 8,
+      "length": 2.0,
+      "owner_surface_tags": [
+        3,
+        5
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 9,
+      "length": 0.05,
+      "owner_surface_tags": [
+        3,
+        4
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 10,
+      "length": 2.0,
+      "owner_surface_tags": [
+        3,
+        6
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 11,
+      "length": 1.0,
+      "owner_surface_tags": [
+        4,
+        5
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 12,
+      "length": 1.0,
+      "owner_surface_tags": [
+        4,
+        6
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    }
+  ],
+  "surface_records": [
+    {
+      "tag": 1,
+      "area": 0.1,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 2e-07,
+        "y": 2.0000002,
+        "z": 0.0500002
+      },
+      "flat_axis": "x",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 2.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        1,
+        3
+      ],
+      "aspect_ratio_proxy": 10000001.000000002,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": false,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 35.5
+    },
+    {
+      "tag": 2,
+      "area": 0.05,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000000000575113e-07,
+        "z": 0.0500002
+      },
+      "flat_axis": "y",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        1,
+        5,
+        6,
+        7
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 1.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        1,
+        7
+      ],
+      "aspect_ratio_proxy": 5000000.999856222,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": false,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate"
+      ],
+      "suspect_score": 37.0
+    },
+    {
+      "tag": 3,
+      "area": 0.1,
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 2.0000000000575113e-07,
+        "y": 2.0000002,
+        "z": 0.0500002
+      },
+      "flat_axis": "x",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        7,
+        8,
+        9,
+        10
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 2.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        7,
+        9
+      ],
+      "aspect_ratio_proxy": 10000000.999712443,
+      "extrema": {
+        "near_x_min": false,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 35.5
+    },
+    {
+      "tag": 4,
+      "area": 0.05,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000000000575113e-07,
+        "z": 0.0500002
+      },
+      "flat_axis": "y",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        3,
+        9,
+        11,
+        12
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 1.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        3,
+        9
+      ],
+      "aspect_ratio_proxy": 5000000.999856222,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": false,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate"
+      ],
+      "suspect_score": 37.0
+    },
+    {
+      "tag": 5,
+      "area": 2.0,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000002,
+        "z": 1.9999999999881224e-07
+      },
+      "flat_axis": "z",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        2,
+        5,
+        8,
+        11
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 1.0,
+      "max_curve_length": 2.0,
+      "short_curve_count": 0,
+      "short_curve_tags": [],
+      "aspect_ratio_proxy": 10000001.000059389,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 22.9
+    },
+    {
+      "tag": 6,
+      "area": 2.0,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000002,
+        "z": 1.9999999999881224e-07
+      },
+      "flat_axis": "z",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        4,
+        6,
+        10,
+        12
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 1.0,
+      "max_curve_length": 2.0,
+      "short_curve_count": 0,
+      "short_curve_tags": [],
+      "aspect_ratio_proxy": 10000001.000059389,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 22.9
+    }
+  ],
+  "smallest_area_surfaces": [
+    {
+      "tag": 2,
+      "area": 0.05,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000000000575113e-07,
+        "z": 0.0500002
+      },
+      "flat_axis": "y",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        1,
+        5,
+        6,
+        7
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 1.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        1,
+        7
+      ],
+      "aspect_ratio_proxy": 5000000.999856222,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": false,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate"
+      ],
+      "suspect_score": 37.0
+    },
+    {
+      "tag": 4,
+      "area": 0.05,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000000000575113e-07,
+        "z": 0.0500002
+      },
+      "flat_axis": "y",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        3,
+        9,
+        11,
+        12
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 1.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        3,
+        9
+      ],
+      "aspect_ratio_proxy": 5000000.999856222,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": false,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate"
+      ],
+      "suspect_score": 37.0
+    },
+    {
+      "tag": 1,
+      "area": 0.1,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 2e-07,
+        "y": 2.0000002,
+        "z": 0.0500002
+      },
+      "flat_axis": "x",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 2.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        1,
+        3
+      ],
+      "aspect_ratio_proxy": 10000001.000000002,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": false,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 35.5
+    },
+    {
+      "tag": 3,
+      "area": 0.1,
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 2.0000000000575113e-07,
+        "y": 2.0000002,
+        "z": 0.0500002
+      },
+      "flat_axis": "x",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        7,
+        8,
+        9,
+        10
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 2.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        7,
+        9
+      ],
+      "aspect_ratio_proxy": 10000000.999712443,
+      "extrema": {
+        "near_x_min": false,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 35.5
+    },
+    {
+      "tag": 5,
+      "area": 2.0,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000002,
+        "z": 1.9999999999881224e-07
+      },
+      "flat_axis": "z",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        2,
+        5,
+        8,
+        11
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 1.0,
+      "max_curve_length": 2.0,
+      "short_curve_count": 0,
+      "short_curve_tags": [],
+      "aspect_ratio_proxy": 10000001.000059389,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 22.9
+    },
+    {
+      "tag": 6,
+      "area": 2.0,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000002,
+        "z": 1.9999999999881224e-07
+      },
+      "flat_axis": "z",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        4,
+        6,
+        10,
+        12
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 1.0,
+      "max_curve_length": 2.0,
+      "short_curve_count": 0,
+      "short_curve_tags": [],
+      "aspect_ratio_proxy": 10000001.000059389,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 22.9
+    }
+  ],
+  "shortest_curves": [
+    {
+      "tag": 1,
+      "length": 0.05,
+      "owner_surface_tags": [
+        1,
+        2
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 3,
+      "length": 0.05,
+      "owner_surface_tags": [
+        1,
+        4
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 7,
+      "length": 0.05,
+      "owner_surface_tags": [
+        2,
+        3
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 9,
+      "length": 0.05,
+      "owner_surface_tags": [
+        3,
+        4
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 5,
+      "length": 1.0,
+      "owner_surface_tags": [
+        2,
+        5
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 6,
+      "length": 1.0,
+      "owner_surface_tags": [
+        2,
+        6
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 11,
+      "length": 1.0,
+      "owner_surface_tags": [
+        4,
+        5
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 12,
+      "length": 1.0,
+      "owner_surface_tags": [
+        4,
+        6
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 2,
+      "length": 2.0,
+      "owner_surface_tags": [
+        1,
+        5
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 4,
+      "length": 2.0,
+      "owner_surface_tags": [
+        1,
+        6
+      ],
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    },
+    {
+      "tag": 8,
+      "length": 2.0,
+      "owner_surface_tags": [
+        3,
+        5
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      }
+    },
+    {
+      "tag": 10,
+      "length": 2.0,
+      "owner_surface_tags": [
+        3,
+        6
+      ],
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      }
+    }
+  ],
+  "suspicious_surfaces": [
+    {
+      "tag": 2,
+      "area": 0.05,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": -0.9999999,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000000000575113e-07,
+        "z": 0.0500002
+      },
+      "flat_axis": "y",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        1,
+        5,
+        6,
+        7
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 1.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        1,
+        7
+      ],
+      "aspect_ratio_proxy": 5000000.999856222,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": false,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate"
+      ],
+      "suspect_score": 37.0
+    },
+    {
+      "tag": 4,
+      "area": 0.05,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": 0.9999999,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000000000575113e-07,
+        "z": 0.0500002
+      },
+      "flat_axis": "y",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        3,
+        9,
+        11,
+        12
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 1.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        3,
+        9
+      ],
+      "aspect_ratio_proxy": 5000000.999856222,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": false,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate"
+      ],
+      "suspect_score": 37.0
+    },
+    {
+      "tag": 1,
+      "area": 0.1,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1e-07,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 2e-07,
+        "y": 2.0000002,
+        "z": 0.0500002
+      },
+      "flat_axis": "x",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 2.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        1,
+        3
+      ],
+      "aspect_ratio_proxy": 10000001.000000002,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": false,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 35.5
+    },
+    {
+      "tag": 3,
+      "area": 0.1,
+      "bbox": {
+        "x_min": 0.9999999,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 2.0000000000575113e-07,
+        "y": 2.0000002,
+        "z": 0.0500002
+      },
+      "flat_axis": "x",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        7,
+        8,
+        9,
+        10
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 0.05,
+      "max_curve_length": 2.0,
+      "short_curve_count": 2,
+      "short_curve_tags": [
+        7,
+        9
+      ],
+      "aspect_ratio_proxy": 10000000.999712443,
+      "extrema": {
+        "near_x_min": false,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "tiny_face_candidate",
+        "short_curve_candidate",
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 35.5
+    },
+    {
+      "tag": 5,
+      "area": 2.0,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": -0.024999900000000002
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000002,
+        "z": 1.9999999999881224e-07
+      },
+      "flat_axis": "z",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        2,
+        5,
+        8,
+        11
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 1.0,
+      "max_curve_length": 2.0,
+      "short_curve_count": 0,
+      "short_curve_tags": [],
+      "aspect_ratio_proxy": 10000001.000059389,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 22.9
+    },
+    {
+      "tag": 6,
+      "area": 2.0,
+      "bbox": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": 0.024999900000000002,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "spans": {
+        "x": 1.0000002000000001,
+        "y": 2.0000002,
+        "z": 1.9999999999881224e-07
+      },
+      "flat_axis": "z",
+      "surface_role": "aircraft",
+      "curve_count": 4,
+      "curve_tags": [
+        4,
+        6,
+        10,
+        12
+      ],
+      "curve_owner_count_summary": {
+        "shared_curve_count": 4,
+        "boundary_curve_count": 0
+      },
+      "min_curve_length": 1.0,
+      "max_curve_length": 2.0,
+      "short_curve_count": 0,
+      "short_curve_tags": [],
+      "aspect_ratio_proxy": 10000001.000059389,
+      "extrema": {
+        "near_x_min": true,
+        "near_x_max": true,
+        "near_y_min": true,
+        "near_y_max": true,
+        "near_z_min": true,
+        "near_z_max": true,
+        "near_root_plane": false
+      },
+      "location_hints": [
+        "x_min_extreme",
+        "x_max_extreme",
+        "span_extreme",
+        "z_min_extreme",
+        "z_max_extreme"
+      ],
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "suspect_score": 22.9
+    }
+  ],
+  "suspicious_family_groups": [
+    {
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "short_curve_candidate",
+        "span_extreme_candidate",
+        "tiny_face_candidate"
+      ],
+      "member_tags": [
+        2,
+        4
+      ],
+      "member_count": 2,
+      "surface_roles": [
+        "aircraft"
+      ],
+      "bbox_union": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "suspect_score_max": 37.0,
+      "suspect_score_sum": 74.0,
+      "short_curve_count_total": 4
+    },
+    {
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "short_curve_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate",
+        "tiny_face_candidate"
+      ],
+      "member_tags": [
+        1,
+        3
+      ],
+      "member_count": 2,
+      "surface_roles": [
+        "aircraft"
+      ],
+      "bbox_union": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "suspect_score_max": 35.5,
+      "suspect_score_sum": 71.0,
+      "short_curve_count_total": 4
+    },
+    {
+      "family_hints": [
+        "high_aspect_strip_candidate",
+        "span_extreme_candidate",
+        "span_extreme_strip_candidate"
+      ],
+      "member_tags": [
+        5,
+        6
+      ],
+      "member_count": 2,
+      "surface_roles": [
+        "aircraft"
+      ],
+      "bbox_union": {
+        "x_min": -1e-07,
+        "y_min": -1.0000001,
+        "z_min": -0.0250001,
+        "x_max": 1.0000001,
+        "y_max": 1.0000001,
+        "z_max": 0.0250001
+      },
+      "suspect_score_max": 22.9,
+      "suspect_score_sum": 45.8,
+      "short_curve_count_total": 0
+    }
+  ]
+}

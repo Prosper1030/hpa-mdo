@@ -149,18 +149,24 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             provider_strategy="esp_rebuilt_experimental_or_direct_cad",
             productization_status="experimental",
             route_role="experimental_and_diagnostic",
-            su2_status="blocked_until_route_smoke",
+            su2_status="blocked_until_su2_handoff",
             bl_contract_policy="promotion_only_when_hpa_mdo_owns_handoff_topology",
             gmsh_boundary_recovery_policy="not_allowed_as_owned_boundary_handoff",
             blocking_reasons=[
                 "shell_v4_root_last3_is_not_product_route",
                 "explicit_bl_to_core_handoff_topology_not_owned",
-                "route_specific_mesh_and_su2_productization_missing",
+                "main_wing_su2_handoff_not_materialized",
+                "convergence_gate_not_run",
             ],
-            next_actions=lifting_surface_next_actions,
+            next_actions=[
+                "write_main_wing_su2_handoff_materialization_smoke",
+                "promote_route_only_after_mesh_handoff_and_su2_handoff_exist",
+                "keep_bl_transition_contract_as_promotion_gate_not_default_runtime",
+            ],
             notes=[
                 "shell_v3 is the frozen geometry/coarse CFD reference.",
                 "shell_v4 is a BL diagnostic and solver-entry exploration branch.",
+                "main_wing_mesh_handoff_smoke_available_non_bl_synthetic",
             ],
         ),
         _row(

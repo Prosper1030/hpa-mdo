@@ -1,0 +1,828 @@
+{
+  "status": "success",
+  "failure_code": null,
+  "component": "main_wing",
+  "geometry": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/fixtures/main_wing_slab.step",
+  "normalized_geometry": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/fixtures/main_wing_slab.step",
+  "geometry_source": "direct_cad",
+  "geometry_provider": null,
+  "geometry_family": "thin_sheet_lifting_surface",
+  "provider": null,
+  "classification": {
+    "geometry_source": "direct_cad",
+    "geometry_provider": null,
+    "declared_family": "thin_sheet_lifting_surface",
+    "inferred_family": null,
+    "geometry_family": "thin_sheet_lifting_surface",
+    "provenance": "config.geometry_family",
+    "notes": [
+      "geometry family declared in config",
+      "component=main_wing",
+      "geometry_source=direct_cad"
+    ]
+  },
+  "validation": {
+    "ok": true,
+    "exists_ok": true,
+    "suffix_ok": true,
+    "component_family_ok": true,
+    "provider_ready": true,
+    "geometry_source": "direct_cad",
+    "geometry_provider": null,
+    "geometry_family": "thin_sheet_lifting_surface",
+    "failure_code": null,
+    "supported_suffixes": [
+      ".iges",
+      ".igs",
+      ".step",
+      ".stp"
+    ],
+    "supported_families": [
+      "thin_sheet_lifting_surface"
+    ],
+    "notes": [
+      "Replace stub validation with provider-aware topology checks.",
+      "component=main_wing",
+      "geometry_family=thin_sheet_lifting_surface"
+    ]
+  },
+  "dispatch": {
+    "meshing_route": "gmsh_thin_sheet_surface",
+    "backend": "gmsh",
+    "backend_capability": "sheet_lifting_surface_meshing",
+    "route_provenance": "config.meshing_route"
+  },
+  "recipe": {
+    "name": "gmsh_thin_sheet_surface:main_wing",
+    "component": "main_wing",
+    "geometry": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/fixtures/main_wing_slab.step",
+    "geometry_source": "direct_cad",
+    "geometry_provider": null,
+    "geometry_family": "thin_sheet_lifting_surface",
+    "meshing_route": "gmsh_thin_sheet_surface",
+    "backend": "gmsh",
+    "backend_capability": "sheet_lifting_surface_meshing",
+    "route_provenance": "config.meshing_route",
+    "family_features": [
+      "sheet_surface_meshing",
+      "lifting_surface_edge_refinement",
+      "farfield_envelope_generation",
+      "component_profile:lifting_surface"
+    ],
+    "farfield_enabled": true,
+    "boundary_layer_enabled": false,
+    "global_min_size": 0.8,
+    "global_max_size": 2.0
+  },
+  "mesh": {
+    "contract": "mesh_handoff.v1",
+    "route_stage": "baseline",
+    "backend": "gmsh",
+    "backend_capability": "sheet_lifting_surface_meshing",
+    "meshing_route": "gmsh_thin_sheet_surface",
+    "geometry_family": "thin_sheet_lifting_surface",
+    "geometry_source": "direct_cad",
+    "geometry_provider": null,
+    "mesh_format": "msh",
+    "units": "m",
+    "mesh_dim": 3,
+    "mesh_artifact": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh.msh",
+    "metadata_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh_metadata.json",
+    "marker_summary_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/marker_summary.json",
+    "source_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/fixtures/main_wing_slab.step",
+    "normalized_geometry_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/fixtures/main_wing_slab.step",
+    "body_bounds": {
+      "x_min": -1e-07,
+      "x_max": 1.0000001,
+      "y_min": -1.0000001,
+      "y_max": 1.0000001,
+      "z_min": -0.0250001,
+      "z_max": 0.0250001
+    },
+    "farfield_bounds": {
+      "x_min": -2.0000005,
+      "x_max": 4.0000007,
+      "y_min": -5.0000005000000005,
+      "y_max": 5.0000005000000005,
+      "z_min": -0.12500050000000001,
+      "z_max": 0.12500050000000001
+    },
+    "node_count": 310,
+    "element_count": 1582,
+    "surface_element_count": 612,
+    "volume_element_count": 842,
+    "marker_summary": {
+      "aircraft": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "aircraft",
+        "physical_tag": 2,
+        "entity_count": 6,
+        "entities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "element_count": 48,
+        "element_type_counts": {
+          "2": 48
+        }
+      },
+      "farfield": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "farfield",
+        "physical_tag": 3,
+        "entity_count": 6,
+        "entities": [
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "element_count": 564,
+        "element_type_counts": {
+          "2": 564
+        }
+      }
+    },
+    "physical_groups": {
+      "fluid": {
+        "exists": true,
+        "dimension": 3,
+        "physical_name": "fluid",
+        "physical_tag": 1,
+        "entity_count": 1,
+        "entities": [
+          2
+        ],
+        "element_count": 0,
+        "element_type_counts": {}
+      },
+      "aircraft": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "aircraft",
+        "physical_tag": 2,
+        "entity_count": 6,
+        "entities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "element_count": 48,
+        "element_type_counts": {
+          "2": 48
+        }
+      },
+      "farfield": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "farfield",
+        "physical_tag": 3,
+        "entity_count": 6,
+        "entities": [
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "element_count": 564,
+        "element_type_counts": {
+          "2": 564
+        }
+      }
+    },
+    "provenance": {
+      "route_provenance": "config.meshing_route",
+      "loader": "filesystem_stub",
+      "provider": null,
+      "body": {
+        "imported_volume_count": 1,
+        "imported_surface_count": 6,
+        "healing": {
+          "attempted": true,
+          "input_volume_count": 1,
+          "input_surface_count": 6,
+          "tolerance": 1e-08,
+          "output_volume_count": 1,
+          "output_surface_count": 6
+        }
+      },
+      "farfield": {
+        "enabled": true,
+        "scale_factors": {
+          "upstream_factor": 2.0,
+          "downstream_factor": 3.0,
+          "lateral_factor": 2.0,
+          "vertical_factor": 2.0
+        }
+      },
+      "mesh_field": {
+        "characteristic_length_policy": "reference_length",
+        "reference_length": 1.0,
+        "surface_target_nodes_per_reference_length": 128,
+        "edge_refinement_ratio": 0.5,
+        "near_body_size": 0.8,
+        "edge_size": 0.4,
+        "farfield_size": 2.0,
+        "distance_min": 0.0,
+        "distance_max": 8.0,
+        "edge_distance_max": 4.0,
+        "mesh_size_min": 0.4,
+        "mesh_size_from_points": 0,
+        "mesh_size_from_curvature": 0,
+        "mesh_size_extend_from_boundary": 0,
+        "volume_optimization": {
+          "mesh_optimize": 1,
+          "mesh_optimize_netgen": 0,
+          "mesh_optimize_threshold": null,
+          "post_optimize_methods": [],
+          "post_optimize_force": false,
+          "post_optimize_niter": 1
+        },
+        "mesh_algorithm_2d": 6,
+        "mesh_algorithm_3d": 1,
+        "background_field_tag": 5,
+        "background_field_composition": "base_min_field",
+        "local_size_floors": [],
+        "per_surface_algorithms": [],
+        "surface_policy": {
+          "enabled": false,
+          "name": null,
+          "reason": "geometry_provider_not_esp_rebuilt",
+          "notes": [],
+          "coarse_first_tetra_active": false
+        },
+        "coarse_first_tetra": {
+          "enabled": false,
+          "clamp_mesh_size_min_to_near_body": true,
+          "surface_nodes_per_reference_length": 24.0,
+          "edge_refinement_ratio": 1.0,
+          "span_extreme_strip_floor_size": 0.12,
+          "suspect_strip_floor_size": 0.08,
+          "suspect_surface_algorithm": 5,
+          "general_surface_algorithm": 5,
+          "farfield_surface_algorithm": 5
+        }
+      }
+    },
+    "unit_normalization": {
+      "units": "m",
+      "backend_rescale_applied": false,
+      "import_scale_to_units": 1.0,
+      "imported_body_bounds": {
+        "x_min": -1e-07,
+        "x_max": 1.0000001,
+        "y_min": -1.0000001,
+        "y_max": 1.0000001,
+        "z_min": -0.0250001,
+        "z_max": 0.0250001
+      },
+      "provider_topology_bounds": null
+    }
+  },
+  "run": {
+    "status": "success",
+    "attempts": 1,
+    "history": [
+      {
+        "attempt": 1,
+        "action": "initial"
+      }
+    ],
+    "backend_result": {
+      "status": "success",
+      "backend": "gmsh",
+      "backend_capability": "sheet_lifting_surface_meshing",
+      "meshing_route": "gmsh_thin_sheet_surface",
+      "geometry_family": "thin_sheet_lifting_surface",
+      "geometry_source": "direct_cad",
+      "route_stage": "baseline",
+      "mesh_format": "msh",
+      "units": "m",
+      "contract": "mesh_handoff.v1",
+      "geometry_provider": null,
+      "body_bounds": {
+        "x_min": -1e-07,
+        "x_max": 1.0000001,
+        "y_min": -1.0000001,
+        "y_max": 1.0000001,
+        "z_min": -0.0250001,
+        "z_max": 0.0250001
+      },
+      "farfield_bounds": {
+        "x_min": -2.0000005,
+        "x_max": 4.0000007,
+        "y_min": -5.0000005000000005,
+        "y_max": 5.0000005000000005,
+        "z_min": -0.12500050000000001,
+        "z_max": 0.12500050000000001
+      },
+      "unit_normalization": {
+        "units": "m",
+        "backend_rescale_applied": false,
+        "import_scale_to_units": 1.0,
+        "imported_body_bounds": {
+          "x_min": -1e-07,
+          "x_max": 1.0000001,
+          "y_min": -1.0000001,
+          "y_max": 1.0000001,
+          "z_min": -0.0250001,
+          "z_max": 0.0250001
+        },
+        "provider_topology_bounds": null
+      },
+      "artifacts": {
+        "mesh": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh.msh",
+        "mesh_metadata": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh_metadata.json",
+        "marker_summary": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/marker_summary.json",
+        "surface_mesh_2d": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/surface_mesh_2d.msh",
+        "surface_patch_diagnostics": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/surface_patch_diagnostics.json",
+        "brep_hotspot_report": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/brep_hotspot_report.json",
+        "hotspot_patch_report": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/hotspot_patch_report.json",
+        "sliver_cluster_report": null,
+        "compound_report": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/compound_report.json",
+        "gmsh_log": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/gmsh_log.txt",
+        "mesh2d_watchdog": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh2d_watchdog.json",
+        "mesh2d_watchdog_sample": null,
+        "mesh3d_watchdog": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh3d_watchdog.json",
+        "mesh3d_watchdog_sample": null,
+        "plc_probe": null,
+        "surface_cleanup_report": null,
+        "discrete_reparam_report": null,
+        "retry_mesh_metadata": null,
+        "classify_angle_probe": null
+      },
+      "marker_summary": {
+        "aircraft": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "aircraft",
+          "physical_tag": 2,
+          "entity_count": 6,
+          "entities": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "element_count": 48,
+          "element_type_counts": {
+            "2": 48
+          }
+        },
+        "farfield": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "farfield",
+          "physical_tag": 3,
+          "entity_count": 6,
+          "entities": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "element_count": 564,
+          "element_type_counts": {
+            "2": 564
+          }
+        }
+      },
+      "physical_groups": {
+        "fluid": {
+          "exists": true,
+          "dimension": 3,
+          "physical_name": "fluid",
+          "physical_tag": 1,
+          "entity_count": 1,
+          "entities": [
+            2
+          ],
+          "element_count": 0,
+          "element_type_counts": {}
+        },
+        "aircraft": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "aircraft",
+          "physical_tag": 2,
+          "entity_count": 6,
+          "entities": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "element_count": 48,
+          "element_type_counts": {
+            "2": 48
+          }
+        },
+        "farfield": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "farfield",
+          "physical_tag": 3,
+          "entity_count": 6,
+          "entities": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "element_count": 564,
+          "element_type_counts": {
+            "2": 564
+          }
+        }
+      },
+      "mesh_stats": {
+        "mesh_dim": 3,
+        "node_count": 310,
+        "element_count": 1582,
+        "surface_element_count": 612,
+        "volume_element_count": 842,
+        "element_type_counts": {
+          "1": 112,
+          "2": 612,
+          "4": 842,
+          "15": 16
+        },
+        "surface_element_type_counts": {
+          "2": 612
+        },
+        "volume_element_type_counts": {
+          "4": 842
+        }
+      },
+      "mesh_handoff": {
+        "contract": "mesh_handoff.v1",
+        "route_stage": "baseline",
+        "backend": "gmsh",
+        "backend_capability": "sheet_lifting_surface_meshing",
+        "meshing_route": "gmsh_thin_sheet_surface",
+        "geometry_family": "thin_sheet_lifting_surface",
+        "geometry_source": "direct_cad",
+        "geometry_provider": null,
+        "source_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/fixtures/main_wing_slab.step",
+        "normalized_geometry_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/fixtures/main_wing_slab.step",
+        "units": "m",
+        "mesh_format": "msh",
+        "body_bounds": {
+          "x_min": -1e-07,
+          "x_max": 1.0000001,
+          "y_min": -1.0000001,
+          "y_max": 1.0000001,
+          "z_min": -0.0250001,
+          "z_max": 0.0250001
+        },
+        "farfield_bounds": {
+          "x_min": -2.0000005,
+          "x_max": 4.0000007,
+          "y_min": -5.0000005000000005,
+          "y_max": 5.0000005000000005,
+          "z_min": -0.12500050000000001,
+          "z_max": 0.12500050000000001
+        },
+        "mesh_stats": {
+          "mesh_dim": 3,
+          "node_count": 310,
+          "element_count": 1582,
+          "surface_element_count": 612,
+          "volume_element_count": 842,
+          "element_type_counts": {
+            "1": 112,
+            "2": 612,
+            "4": 842,
+            "15": 16
+          },
+          "surface_element_type_counts": {
+            "2": 612
+          },
+          "volume_element_type_counts": {
+            "4": 842
+          }
+        },
+        "marker_summary": {
+          "aircraft": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "aircraft",
+            "physical_tag": 2,
+            "entity_count": 6,
+            "entities": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "element_count": 48,
+            "element_type_counts": {
+              "2": 48
+            }
+          },
+          "farfield": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "farfield",
+            "physical_tag": 3,
+            "entity_count": 6,
+            "entities": [
+              7,
+              8,
+              9,
+              10,
+              11,
+              12
+            ],
+            "element_count": 564,
+            "element_type_counts": {
+              "2": 564
+            }
+          }
+        },
+        "physical_groups": {
+          "fluid": {
+            "exists": true,
+            "dimension": 3,
+            "physical_name": "fluid",
+            "physical_tag": 1,
+            "entity_count": 1,
+            "entities": [
+              2
+            ],
+            "element_count": 0,
+            "element_type_counts": {}
+          },
+          "aircraft": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "aircraft",
+            "physical_tag": 2,
+            "entity_count": 6,
+            "entities": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "element_count": 48,
+            "element_type_counts": {
+              "2": 48
+            }
+          },
+          "farfield": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "farfield",
+            "physical_tag": 3,
+            "entity_count": 6,
+            "entities": [
+              7,
+              8,
+              9,
+              10,
+              11,
+              12
+            ],
+            "element_count": 564,
+            "element_type_counts": {
+              "2": 564
+            }
+          }
+        },
+        "artifacts": {
+          "mesh": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh.msh",
+          "mesh_metadata": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh_metadata.json",
+          "marker_summary": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/marker_summary.json",
+          "surface_mesh_2d": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/surface_mesh_2d.msh",
+          "surface_patch_diagnostics": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/surface_patch_diagnostics.json",
+          "brep_hotspot_report": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/brep_hotspot_report.json",
+          "hotspot_patch_report": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/hotspot_patch_report.json",
+          "sliver_cluster_report": null,
+          "sliver_volume_pocket_summary": null,
+          "rule_loft_pairing_repair_spec": null,
+          "compound_report": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/compound_report.json",
+          "gmsh_log": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/gmsh_log.txt",
+          "mesh2d_watchdog": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh2d_watchdog.json",
+          "mesh2d_watchdog_sample": null,
+          "mesh3d_watchdog": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh3d_watchdog.json",
+          "mesh3d_watchdog_sample": null,
+          "plc_probe": null,
+          "surface_cleanup_report": null,
+          "discrete_reparam_report": null,
+          "retry_mesh_metadata": null,
+          "classify_angle_probe": null
+        },
+        "provenance": {
+          "route_provenance": "config.meshing_route",
+          "loader": "filesystem_stub",
+          "provider": null,
+          "body": {
+            "imported_volume_count": 1,
+            "imported_surface_count": 6,
+            "healing": {
+              "attempted": true,
+              "input_volume_count": 1,
+              "input_surface_count": 6,
+              "tolerance": 1e-08,
+              "output_volume_count": 1,
+              "output_surface_count": 6
+            }
+          },
+          "farfield": {
+            "enabled": true,
+            "scale_factors": {
+              "upstream_factor": 2.0,
+              "downstream_factor": 3.0,
+              "lateral_factor": 2.0,
+              "vertical_factor": 2.0
+            }
+          },
+          "mesh_field": {
+            "characteristic_length_policy": "reference_length",
+            "reference_length": 1.0,
+            "surface_target_nodes_per_reference_length": 128,
+            "edge_refinement_ratio": 0.5,
+            "near_body_size": 0.8,
+            "edge_size": 0.4,
+            "farfield_size": 2.0,
+            "distance_min": 0.0,
+            "distance_max": 8.0,
+            "edge_distance_max": 4.0,
+            "mesh_size_min": 0.4,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+            "mesh_size_extend_from_boundary": 0,
+            "volume_optimization": {
+              "mesh_optimize": 1,
+              "mesh_optimize_netgen": 0,
+              "mesh_optimize_threshold": null,
+              "post_optimize_methods": [],
+              "post_optimize_force": false,
+              "post_optimize_niter": 1
+            },
+            "mesh_algorithm_2d": 6,
+            "mesh_algorithm_3d": 1,
+            "background_field_tag": 5,
+            "background_field_composition": "base_min_field",
+            "local_size_floors": [],
+            "per_surface_algorithms": [],
+            "surface_policy": {
+              "enabled": false,
+              "name": null,
+              "reason": "geometry_provider_not_esp_rebuilt",
+              "notes": [],
+              "coarse_first_tetra_active": false
+            },
+            "coarse_first_tetra": {
+              "enabled": false,
+              "clamp_mesh_size_min_to_near_body": true,
+              "surface_nodes_per_reference_length": 24.0,
+              "edge_refinement_ratio": 1.0,
+              "span_extreme_strip_floor_size": 0.12,
+              "suspect_strip_floor_size": 0.08,
+              "suspect_surface_algorithm": 5,
+              "general_surface_algorithm": 5,
+              "farfield_surface_algorithm": 5
+            }
+          }
+        },
+        "unit_normalization": {
+          "units": "m",
+          "backend_rescale_applied": false,
+          "import_scale_to_units": 1.0,
+          "imported_body_bounds": {
+            "x_min": -1e-07,
+            "x_max": 1.0000001,
+            "y_min": -1.0000001,
+            "y_max": 1.0000001,
+            "z_min": -0.0250001,
+            "z_max": 0.0250001
+          },
+          "provider_topology_bounds": null
+        }
+      },
+      "provenance": {
+        "route_provenance": "config.meshing_route",
+        "loader": "filesystem_stub",
+        "provider": null,
+        "body": {
+          "imported_volume_count": 1,
+          "imported_surface_count": 6,
+          "healing": {
+            "attempted": true,
+            "input_volume_count": 1,
+            "input_surface_count": 6,
+            "tolerance": 1e-08,
+            "output_volume_count": 1,
+            "output_surface_count": 6
+          }
+        },
+        "farfield": {
+          "enabled": true,
+          "scale_factors": {
+            "upstream_factor": 2.0,
+            "downstream_factor": 3.0,
+            "lateral_factor": 2.0,
+            "vertical_factor": 2.0
+          }
+        },
+        "mesh_field": {
+          "characteristic_length_policy": "reference_length",
+          "reference_length": 1.0,
+          "surface_target_nodes_per_reference_length": 128,
+          "edge_refinement_ratio": 0.5,
+          "near_body_size": 0.8,
+          "edge_size": 0.4,
+          "farfield_size": 2.0,
+          "distance_min": 0.0,
+          "distance_max": 8.0,
+          "edge_distance_max": 4.0,
+          "mesh_size_min": 0.4,
+          "mesh_size_from_points": 0,
+          "mesh_size_from_curvature": 0,
+          "mesh_size_extend_from_boundary": 0,
+          "volume_optimization": {
+            "mesh_optimize": 1,
+            "mesh_optimize_netgen": 0,
+            "mesh_optimize_threshold": null,
+            "post_optimize_methods": [],
+            "post_optimize_force": false,
+            "post_optimize_niter": 1
+          },
+          "mesh_algorithm_2d": 6,
+          "mesh_algorithm_3d": 1,
+          "background_field_tag": 5,
+          "background_field_composition": "base_min_field",
+          "local_size_floors": [],
+          "per_surface_algorithms": [],
+          "surface_policy": {
+            "enabled": false,
+            "name": null,
+            "reason": "geometry_provider_not_esp_rebuilt",
+            "notes": [],
+            "coarse_first_tetra_active": false
+          },
+          "coarse_first_tetra": {
+            "enabled": false,
+            "clamp_mesh_size_min_to_near_body": true,
+            "surface_nodes_per_reference_length": 24.0,
+            "edge_refinement_ratio": 1.0,
+            "span_extreme_strip_floor_size": 0.12,
+            "suspect_strip_floor_size": 0.08,
+            "suspect_surface_algorithm": 5,
+            "general_surface_algorithm": 5,
+            "farfield_surface_algorithm": 5
+          }
+        }
+      },
+      "notes": [
+        "baseline OCC external-flow mesh generated from normalized STEP",
+        "loader=filesystem_stub",
+        "mesh_dim=3"
+      ]
+    },
+    "notes": [
+      "Replace with real backend retry loop.",
+      "max_attempts=4"
+    ]
+  },
+  "quality": {
+    "ok": true,
+    "checked_route": "gmsh_thin_sheet_surface",
+    "checked_backend_capability": "sheet_lifting_surface_meshing",
+    "notes": [
+      "max_elements=None",
+      "node_count=310",
+      "element_count=1582",
+      "volume_element_count=842",
+      "missing_markers=[]"
+    ]
+  },
+  "attempts": 1
+}
