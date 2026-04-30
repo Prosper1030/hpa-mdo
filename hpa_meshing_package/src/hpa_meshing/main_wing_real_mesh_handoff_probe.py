@@ -29,6 +29,28 @@ MarkerSummaryStatusType = Literal[
     "missing_required_markers",
     "unavailable",
 ]
+ProbeProfileType = Literal["coarse_first_volume_insertion_probe_not_production_default"]
+
+
+PROBE_PROFILE: ProbeProfileType = "coarse_first_volume_insertion_probe_not_production_default"
+
+
+def _probe_metadata() -> dict[str, Any]:
+    return {
+        "probe_profile": PROBE_PROFILE,
+        "reference_geometry": {
+            "ref_area": 34.65,
+            "ref_length": 1.05,
+            "ref_origin_moment": {"x": 0.2625, "y": 0.0, "z": 0.0},
+            "area_method": "blackcat_main_wing_full_span_reference",
+            "length_method": "blackcat_main_wing_chord_reference",
+            "moment_method": "quarter_chord_reference",
+            "warnings": ["coarse_real_geometry_probe_not_production_default"],
+        },
+        "mesh2d_watchdog_timeout_sec": 8.0,
+        "mesh3d_watchdog_timeout_sec": 8.0,
+        "coarse_first_tetra_enabled": True,
+    }
 
 
 class MainWingRealMeshHandoffProbeReport(BaseModel):
@@ -53,6 +75,8 @@ class MainWingRealMeshHandoffProbeReport(BaseModel):
     no_su2_execution: bool = True
     no_bl_runtime: bool = True
     production_default_changed: bool = False
+    probe_profile: ProbeProfileType = PROBE_PROFILE
+    coarse_first_tetra_enabled: bool = True
     probe_status: ProbeStatusType
     mesh_probe_status: MeshProbeStatusType
     mesh_handoff_status: MeshHandoffStatusType
@@ -151,6 +175,7 @@ def _run_bounded_mesh_job(
         "source_path": str(source_path),
         "case_dir": str(case_dir),
         "result_path": str(result_path),
+        "metadata": _probe_metadata(),
     }
     payload_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     code = r"""
@@ -180,19 +205,7 @@ result = run_job(
             lateral_factor=2.0,
             vertical_factor=2.0,
         ),
-        metadata={
-            "reference_geometry": {
-                "ref_area": 34.65,
-                "ref_length": 1.05,
-                "ref_origin_moment": {"x": 0.2625, "y": 0.0, "z": 0.0},
-                "area_method": "blackcat_main_wing_full_span_reference",
-                "length_method": "blackcat_main_wing_chord_reference",
-                "moment_method": "quarter_chord_reference",
-                "warnings": ["coarse_real_geometry_probe_not_production_default"],
-            },
-            "mesh2d_watchdog_timeout_sec": 8.0,
-            "mesh3d_watchdog_timeout_sec": 8.0,
-        },
+        metadata=payload["metadata"],
     )
 )
 Path(payload["result_path"]).write_text(
@@ -461,6 +474,8 @@ def _render_markdown(report: MainWingRealMeshHandoffProbeReport) -> str:
         f"- provider_volume_count: `{report.provider_volume_count}`",
         f"- selected_geom_name: `{report.selected_geom_name}`",
         f"- marker_summary_status: `{report.marker_summary_status}`",
+        f"- probe_profile: `{report.probe_profile}`",
+        f"- coarse_first_tetra_enabled: `{report.coarse_first_tetra_enabled}`",
         f"- volume_element_count: `{report.volume_element_count}`",
         f"- bounded_probe_timeout_seconds: `{report.bounded_probe_timeout_seconds}`",
         f"- mesh2d_watchdog_status: `{report.mesh2d_watchdog_status}`",

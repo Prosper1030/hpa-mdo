@@ -1,9 +1,12 @@
+import json
+import subprocess
 from pathlib import Path
 
 from hpa_meshing.main_wing_esp_rebuilt_geometry_smoke import (
     MainWingESPRebuiltGeometrySmokeReport,
 )
 from hpa_meshing.main_wing_real_mesh_handoff_probe import (
+    _run_bounded_mesh_job,
     build_main_wing_real_mesh_handoff_probe_report,
     write_main_wing_real_mesh_handoff_probe_report,
 )
@@ -84,6 +87,8 @@ def test_main_wing_real_mesh_handoff_probe_records_pass_when_bounded_job_writes_
     assert report.provider_volume_count == 1
     assert report.no_su2_execution is True
     assert report.production_default_changed is False
+    assert report.probe_profile == "coarse_first_volume_insertion_probe_not_production_default"
+    assert report.coarse_first_tetra_enabled is True
     assert "mesh_handoff_v1_written_for_real_main_wing_probe" in report.hpa_mdo_guarantees
     assert "main_wing_solver_not_run" in report.blocking_reasons
 
@@ -145,7 +150,50 @@ def test_main_wing_real_mesh_handoff_probe_records_bounded_timeout(
     assert report.mesh3d_watchdog_status == "triggered_while_meshing"
     assert report.mesh3d_timeout_phase_classification == "volume_insertion"
     assert report.mesh3d_nodes_created_per_boundary_node == 13.5
+    assert report.probe_profile == "coarse_first_volume_insertion_probe_not_production_default"
+    assert report.coarse_first_tetra_enabled is True
     assert "bounded_mesh_probe_executed" in report.hpa_mdo_guarantees
+
+
+def test_main_wing_real_mesh_probe_child_payload_uses_coarse_first_volume_profile(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "blackcat_004_origin.vsp3"
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def _fake_run(cmd, **kwargs):
+        payload = json.loads(Path(cmd[-1]).read_text(encoding="utf-8"))
+        captured["metadata"] = payload["metadata"]
+        Path(payload["result_path"]).write_text(
+            json.dumps({"status": "failed", "failure_code": "intentional_probe_stop"})
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(cmd, returncode=1, stdout="", stderr="intentional")
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.subprocess.run",
+        _fake_run,
+    )
+
+    mesh_run = _run_bounded_mesh_job(
+        source_path=source,
+        case_dir=tmp_path / "case",
+        timeout_seconds=3.0,
+    )
+
+    assert mesh_run["status"] == "failed"
+    metadata = captured["metadata"]
+    assert isinstance(metadata, dict)
+    assert metadata["coarse_first_tetra_enabled"] is True
+    assert metadata["mesh3d_watchdog_timeout_sec"] == 8.0
+    assert metadata["reference_geometry"]["ref_area"] == 34.65
+    assert (
+        metadata["probe_profile"]
+        == "coarse_first_volume_insertion_probe_not_production_default"
+    )
 
 
 def test_main_wing_real_mesh_handoff_probe_writer_outputs_json_and_markdown(
