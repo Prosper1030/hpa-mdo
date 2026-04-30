@@ -166,6 +166,10 @@ from .main_wing_station_seam_side_aware_brep_validation_probe import (
     build_main_wing_station_seam_side_aware_brep_validation_probe_report,
     write_main_wing_station_seam_side_aware_brep_validation_probe_report,
 )
+from .main_wing_station_seam_side_aware_pcurve_residual_diagnostic import (
+    build_main_wing_station_seam_side_aware_pcurve_residual_diagnostic_report,
+    write_main_wing_station_seam_side_aware_pcurve_residual_diagnostic_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -1134,6 +1138,36 @@ def cmd_main_wing_station_seam_side_aware_brep_validation_probe(
     return 0 if report.probe_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_side_aware_pcurve_residual_diagnostic(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    side_aware_brep_validation_probe_path = (
+        None
+        if args.side_aware_brep_validation_probe is None
+        else Path(args.side_aware_brep_validation_probe)
+    )
+    candidate_step_path = (
+        None if args.candidate_step is None else Path(args.candidate_step)
+    )
+    report = build_main_wing_station_seam_side_aware_pcurve_residual_diagnostic_report(
+        side_aware_brep_validation_probe_path=side_aware_brep_validation_probe_path,
+        candidate_step_path=candidate_step_path,
+        sample_count=args.sample_count,
+        absolute_tolerance_m=args.absolute_tolerance,
+    )
+    write_main_wing_station_seam_side_aware_pcurve_residual_diagnostic_report(
+        out_dir,
+        report=report,
+        side_aware_brep_validation_probe_path=side_aware_brep_validation_probe_path,
+        candidate_step_path=candidate_step_path,
+        sample_count=args.sample_count,
+        absolute_tolerance_m=args.absolute_tolerance,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.diagnostic_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -2071,6 +2105,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_side_aware_brep_validation_probe.set_defaults(
         func=cmd_main_wing_station_seam_side_aware_brep_validation_probe
+    )
+
+    main_wing_station_seam_side_aware_pcurve_residual_diagnostic = sub.add_parser(
+        "main-wing-station-seam-side-aware-pcurve-residual-diagnostic"
+    )
+    main_wing_station_seam_side_aware_pcurve_residual_diagnostic.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_side_aware_pcurve_residual_diagnostic.add_argument(
+        "--side-aware-brep-validation-probe",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_pcurve_residual_diagnostic.add_argument(
+        "--candidate-step",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_pcurve_residual_diagnostic.add_argument(
+        "--sample-count",
+        type=int,
+        default=11,
+    )
+    main_wing_station_seam_side_aware_pcurve_residual_diagnostic.add_argument(
+        "--absolute-tolerance",
+        type=float,
+        default=1.0e-12,
+    )
+    main_wing_station_seam_side_aware_pcurve_residual_diagnostic.set_defaults(
+        func=cmd_main_wing_station_seam_side_aware_pcurve_residual_diagnostic
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

@@ -1,0 +1,663 @@
+{
+  "schema_version": "main_wing_station_seam_side_aware_pcurve_residual_diagnostic.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_side_aware_station_pcurve_residual_diagnostic",
+  "production_default_changed": false,
+  "diagnostic_status": "side_aware_station_pcurve_residuals_below_tolerance_but_shape_analysis_flags_fail",
+  "side_aware_brep_validation_probe_path": "docs/reports/main_wing_station_seam_side_aware_brep_validation_probe/main_wing_station_seam_side_aware_brep_validation_probe.v1.json",
+  "candidate_step_path": "docs/reports/main_wing_station_seam_side_aware_parametrization_probe/side_aware_profile_parametrization_single_rule/candidate_raw_dump.stp",
+  "target_station_y_m": [
+    -10.5,
+    13.5
+  ],
+  "sample_count": 23,
+  "absolute_tolerance_m": 1e-12,
+  "target_selection": {
+    "selection_mode": "station_y_geometry_on_candidate_step",
+    "source_fixture_tags_replayed": false,
+    "station_tolerance_m": 0.0001,
+    "target_station_y_m": [
+      -10.5,
+      13.5
+    ],
+    "imported_entity_count": 1,
+    "volume_count": 1,
+    "surface_count": 32,
+    "model_bbox": [
+      -0.004617172251426,
+      -16.5000001,
+      -0.06803684311580001,
+      1.302329369,
+      16.5000001,
+      0.8352291747389999
+    ],
+    "selected_curve_tags": [
+      7,
+      28,
+      36,
+      50,
+      55,
+      62
+    ],
+    "selected_surface_tags": [
+      2,
+      3,
+      9,
+      10,
+      12,
+      13,
+      19,
+      20,
+      22,
+      23,
+      29,
+      30
+    ],
+    "station_edge_groups": [
+      {
+        "station_y_m": -10.5,
+        "candidate_curve_tags": [
+          36,
+          55,
+          7
+        ],
+        "owner_surface_tags": [
+          2,
+          3,
+          12,
+          13,
+          22,
+          23
+        ],
+        "curve_count": 3,
+        "curve_records": [
+          {
+            "candidate_curve_tag": 36,
+            "length_3d_m": 2.136130527696136,
+            "owner_surface_tags": [
+              12,
+              13
+            ],
+            "bbox": {
+              "x_min": 0.05722226769792526,
+              "y_min": -10.5000001,
+              "z_min": 0.28585353045399997,
+              "x_max": 1.0864346068600002,
+              "y_max": -10.4999999,
+              "z_max": 0.463075787146
+            }
+          },
+          {
+            "candidate_curve_tag": 55,
+            "length_3d_m": 0.011309738135821127,
+            "owner_surface_tags": [
+              22,
+              23
+            ],
+            "bbox": {
+              "x_min": 1.08643440686,
+              "y_min": -10.5000001,
+              "z_min": 0.283554501375,
+              "x_max": 1.0961382614200001,
+              "y_max": -10.4999999,
+              "z_max": 0.289364113125
+            }
+          },
+          {
+            "candidate_curve_tag": 7,
+            "length_3d_m": 0.010151388133646745,
+            "owner_surface_tags": [
+              2,
+              3
+            ],
+            "bbox": {
+              "x_min": 1.0862504355,
+              "y_min": -10.5000001,
+              "z_min": 0.283554501375,
+              "x_max": 1.0961382614200001,
+              "y_max": -10.4999999,
+              "z_max": 0.285853730454
+            }
+          }
+        ]
+      },
+      {
+        "station_y_m": 13.5,
+        "candidate_curve_tags": [
+          50,
+          62,
+          28
+        ],
+        "owner_surface_tags": [
+          9,
+          10,
+          19,
+          20,
+          29,
+          30
+        ],
+        "curve_count": 3,
+        "curve_records": [
+          {
+            "candidate_curve_tag": 50,
+            "length_3d_m": 1.6616134883216807,
+            "owner_surface_tags": [
+              19,
+              20
+            ],
+            "bbox": {
+              "x_min": 0.11774495961260713,
+              "y_min": 13.4999999,
+              "z_min": 0.5085566457220001,
+              "x_max": 0.919486528622,
+              "y_max": 13.5000001,
+              "z_max": 0.644281074969
+            }
+          },
+          {
+            "candidate_curve_tag": 62,
+            "length_3d_m": 0.030410893329204353,
+            "owner_surface_tags": [
+              29,
+              30
+            ],
+            "bbox": {
+              "x_min": 0.9194863286220001,
+              "y_min": 13.4999999,
+              "z_min": 0.501434463583,
+              "x_max": 0.947083385548,
+              "y_max": 13.5000001,
+              "z_max": 0.514211044952
+            }
+          },
+          {
+            "candidate_curve_tag": 28,
+            "length_3d_m": 0.028928371604672883,
+            "owner_surface_tags": [
+              9,
+              10
+            ],
+            "bbox": {
+              "x_min": 0.919045261137,
+              "y_min": 13.4999999,
+              "z_min": 0.501434463583,
+              "x_max": 0.947083385548,
+              "y_max": 13.5000001,
+              "z_max": 0.508556845722
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "residual_summary": {
+    "edge_face_residual_count": 12,
+    "sampled_edge_face_count": 12,
+    "shape_analysis_flag_failure_count": 12,
+    "pcurve_missing_count": 0,
+    "sample_error_count": 0,
+    "residual_exceeds_edge_tolerance_count": 0,
+    "unbounded_pcurve_domain_count": 12,
+    "max_sample_distance_m": 0.0,
+    "max_sample_distance_over_edge_tolerance": 0.0
+  },
+  "edge_face_residuals": [
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 7,
+      "candidate_step_edge_index": 7,
+      "candidate_step_face_tag": 2,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 7,
+      "candidate_step_edge_index": 7,
+      "candidate_step_face_tag": 3,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 28,
+      "candidate_step_edge_index": 28,
+      "candidate_step_face_tag": 9,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 28,
+      "candidate_step_edge_index": 28,
+      "candidate_step_face_tag": 10,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 36,
+      "candidate_step_edge_index": 36,
+      "candidate_step_face_tag": 12,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 36,
+      "candidate_step_edge_index": 36,
+      "candidate_step_face_tag": 13,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 50,
+      "candidate_step_edge_index": 50,
+      "candidate_step_face_tag": 19,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 50,
+      "candidate_step_edge_index": 50,
+      "candidate_step_face_tag": 20,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 55,
+      "candidate_step_edge_index": 55,
+      "candidate_step_face_tag": 22,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 55,
+      "candidate_step_edge_index": 55,
+      "candidate_step_face_tag": 23,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 62,
+      "candidate_step_edge_index": 62,
+      "candidate_step_face_tag": 29,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 62,
+      "candidate_step_edge_index": 62,
+      "candidate_step_face_tag": 30,
+      "edge_found": true,
+      "face_found": true,
+      "pcurve_present": true,
+      "shape_analysis_curve3d_with_pcurve": false,
+      "shape_analysis_same_parameter": false,
+      "shape_analysis_vertex_tolerance": false,
+      "edge_tolerance_m": 1e-07,
+      "first_vertex_tolerance_m": 1e-07,
+      "last_vertex_tolerance_m": 1e-07,
+      "max_vertex_tolerance_m": 1e-07,
+      "curve3d_type": "Geom_BSplineCurve",
+      "pcurve_type": "Geom2d_Line",
+      "edge_range": [
+        0.0,
+        1.0
+      ],
+      "pcurve_edge_range": [
+        0.0,
+        1.0
+      ],
+      "curve3d_first_parameter": 0.0,
+      "curve3d_last_parameter": 1.0,
+      "pcurve_first_parameter": -2e+100,
+      "pcurve_last_parameter": 2e+100,
+      "sample_count": 23,
+      "max_sample_distance_m": 0.0,
+      "mean_sample_distance_m": 0.0,
+      "start_sample_distance_m": 0.0,
+      "end_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0
+    }
+  ],
+  "engineering_findings": [
+    "side_aware_pcurve_residual_diagnostic_captured",
+    "source_fixture_curve_surface_tags_not_replayed",
+    "station_pcurve_residuals_sampled_on_candidate_step",
+    "station_pcurve_sampled_geometric_residuals_within_edge_tolerance",
+    "shape_analysis_flags_fail_despite_low_sampled_residual",
+    "unbounded_line_pcurve_parameter_domain_observed",
+    "side_aware_candidate_still_not_mesh_ready"
+  ],
+  "blocking_reasons": [
+    "side_aware_station_shape_analysis_flags_still_block_mesh_handoff",
+    "side_aware_candidate_mesh_handoff_not_run"
+  ],
+  "next_actions": [
+    "test_side_aware_same_parameter_metadata_repair_before_mesh_handoff",
+    "correlate_shape_analysis_flags_with_gmsh_volume_recovery_before_solver_budget",
+    "avoid_solver_iteration_budget_until_station_metadata_gate_is_clean"
+  ],
+  "limitations": [
+    "This diagnostic samples existing side-aware candidate STEP PCurves; it does not change production defaults.",
+    "Low sampled residual is diagnostic evidence only; it does not override failed ShapeAnalysis/SameParameter route gates.",
+    "A sampled-clean PCurve residual report is not a CFD-ready or mesh-ready claim until BRep validation and mesh handoff pass.",
+    "It does not run Gmsh volume meshing, SU2_CFD, CL acceptance, or convergence checks.",
+    "Engineering acceptance still requires CL >= 1 under the HPA 6.5 m/s flow condition when solver evidence is evaluated."
+  ]
+}

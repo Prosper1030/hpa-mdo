@@ -41,6 +41,7 @@ StageType = Literal[
     "station_seam_profile_parametrization_audit",
     "station_seam_side_aware_parametrization_probe",
     "station_seam_side_aware_brep_validation_probe",
+    "station_seam_side_aware_pcurve_residual_diagnostic",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -1434,6 +1435,51 @@ def _station_seam_side_aware_brep_validation_probe_observed(
     }
 
 
+def _station_seam_side_aware_pcurve_residual_diagnostic_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("diagnostic_status")
+        == "side_aware_station_pcurve_residuals_sampled_clean"
+        else "blocked"
+    )
+
+
+def _station_seam_side_aware_pcurve_residual_diagnostic_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    target_selection = (
+        payload.get("target_selection", {}) if isinstance(payload, dict) else {}
+    )
+    target_selection = target_selection if isinstance(target_selection, dict) else {}
+    return {
+        "diagnostic_status": (
+            None if payload is None else payload.get("diagnostic_status")
+        ),
+        "candidate_step_path": (
+            None if payload is None else payload.get("candidate_step_path")
+        ),
+        "target_station_y_m": (
+            [] if payload is None else payload.get("target_station_y_m", [])
+        ),
+        "selection_mode": target_selection.get("selection_mode"),
+        "source_fixture_tags_replayed": target_selection.get(
+            "source_fixture_tags_replayed"
+        ),
+        "sample_count": None if payload is None else payload.get("sample_count"),
+        "residual_summary": (
+            {} if payload is None else payload.get("residual_summary", {})
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -1625,6 +1671,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_side_aware_brep_validation_probe"
         / "main_wing_station_seam_side_aware_brep_validation_probe.v1.json"
     )
+    station_seam_side_aware_pcurve_residual_diagnostic_path = (
+        root
+        / "main_wing_station_seam_side_aware_pcurve_residual_diagnostic"
+        / "main_wing_station_seam_side_aware_pcurve_residual_diagnostic.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1706,6 +1757,9 @@ def build_main_wing_route_readiness_report(
     )
     station_seam_side_aware_brep_validation_probe = _load_json(
         station_seam_side_aware_brep_validation_probe_path
+    )
+    station_seam_side_aware_pcurve_residual_diagnostic = _load_json(
+        station_seam_side_aware_pcurve_residual_diagnostic_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -2570,6 +2624,28 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(station_seam_side_aware_brep_validation_probe),
         ),
         _stage(
+            stage="station_seam_side_aware_pcurve_residual_diagnostic",
+            status=_station_seam_side_aware_pcurve_residual_diagnostic_status(
+                station_seam_side_aware_pcurve_residual_diagnostic
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(station_seam_side_aware_pcurve_residual_diagnostic, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_side_aware_pcurve_residual_diagnostic_path
+                if isinstance(station_seam_side_aware_pcurve_residual_diagnostic, dict)
+                else None
+            ),
+            observed=_station_seam_side_aware_pcurve_residual_diagnostic_observed(
+                station_seam_side_aware_pcurve_residual_diagnostic
+            ),
+            blockers=_blocking_reasons(
+                station_seam_side_aware_pcurve_residual_diagnostic
+            ),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -3039,6 +3115,27 @@ def build_main_wing_route_readiness_report(
             and side_aware_brep_next_actions
         ):
             next_actions[0] = str(side_aware_brep_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_side_aware_pcurve_residual_diagnostic, dict)
+        and station_seam_side_aware_pcurve_residual_diagnostic.get("diagnostic_status")
+        in {
+            "side_aware_station_pcurve_residuals_sampled_clean",
+            "side_aware_station_pcurve_residuals_below_tolerance_but_shape_analysis_flags_fail",
+            "side_aware_station_pcurve_sampled_residuals_exceed_tolerance",
+            "side_aware_station_pcurve_residual_diagnostic_unavailable",
+            "blocked",
+        }
+    ):
+        side_aware_pcurve_next_actions = (
+            station_seam_side_aware_pcurve_residual_diagnostic.get("next_actions", [])
+        )
+        if (
+            isinstance(side_aware_pcurve_next_actions, list)
+            and side_aware_pcurve_next_actions
+        ):
+            next_actions[0] = str(side_aware_pcurve_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

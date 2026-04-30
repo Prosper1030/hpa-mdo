@@ -240,6 +240,56 @@ def test_main_wing_route_readiness_includes_side_aware_brep_validation_probe(
     )
 
 
+def test_main_wing_route_readiness_includes_side_aware_pcurve_residual_diagnostic(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_side_aware_pcurve_residual_diagnostic"
+        / "main_wing_station_seam_side_aware_pcurve_residual_diagnostic.v1.json",
+        {
+            "diagnostic_status": "side_aware_station_pcurve_residuals_below_tolerance_but_shape_analysis_flags_fail",
+            "candidate_step_path": "artifacts/side_aware_candidate_raw_dump.stp",
+            "target_selection": {
+                "selection_mode": "station_y_geometry_on_candidate_step",
+                "source_fixture_tags_replayed": False,
+            },
+            "residual_summary": {
+                "edge_face_residual_count": 12,
+                "sampled_edge_face_count": 12,
+                "shape_analysis_flag_failure_count": 12,
+                "residual_exceeds_edge_tolerance_count": 0,
+                "unbounded_pcurve_domain_count": 12,
+                "max_sample_distance_m": 0.0,
+                "max_sample_distance_over_edge_tolerance": 0.0,
+            },
+            "engineering_findings": [
+                "station_pcurve_sampled_geometric_residuals_within_edge_tolerance",
+                "shape_analysis_flags_fail_despite_low_sampled_residual",
+            ],
+            "blocking_reasons": [
+                "side_aware_station_shape_analysis_flags_still_block_mesh_handoff"
+            ],
+            "next_actions": [
+                "test_side_aware_same_parameter_metadata_repair_before_mesh_handoff"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    stage = stages["station_seam_side_aware_pcurve_residual_diagnostic"]
+    assert stage.status == "blocked"
+    assert stage.evidence_kind == "real"
+    assert stage.observed["source_fixture_tags_replayed"] is False
+    assert stage.observed["residual_summary"]["max_sample_distance_m"] == 0.0
+    assert "side_aware_station_shape_analysis_flags_still_block_mesh_handoff" in (
+        report.blocking_reasons
+    )
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

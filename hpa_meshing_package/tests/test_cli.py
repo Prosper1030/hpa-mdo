@@ -665,6 +665,37 @@ def test_parser_supports_main_wing_station_seam_side_aware_brep_validation_probe
     assert args.scale_to_output_units == 1.0
 
 
+def test_parser_supports_main_wing_station_seam_side_aware_pcurve_residual_diagnostic_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-side-aware-pcurve-residual-diagnostic",
+            "--out",
+            "artifacts/main_wing_side_aware_pcurve_residual",
+            "--side-aware-brep-validation-probe",
+            "artifacts/main_wing/side_aware_brep_validation.json",
+            "--candidate-step",
+            "artifacts/main_wing/side_aware_candidate_raw_dump.stp",
+            "--sample-count",
+            "17",
+            "--absolute-tolerance",
+            "1e-12",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-side-aware-pcurve-residual-diagnostic"
+    )
+    assert args.out == "artifacts/main_wing_side_aware_pcurve_residual"
+    assert args.side_aware_brep_validation_probe == (
+        "artifacts/main_wing/side_aware_brep_validation.json"
+    )
+    assert args.candidate_step == "artifacts/main_wing/side_aware_candidate_raw_dump.stp"
+    assert args.sample_count == 17
+    assert args.absolute_tolerance == 1e-12
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(

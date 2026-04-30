@@ -119,9 +119,13 @@ station edges by candidate station-y geometry (`source_fixture_tags_replayed=fal
 the candidate remains `1 volume / 32 surfaces`, 6 station edges and 12 owner
 faces are checked, PCurves are present, and owner-face wires are valid, but all
 6 station edges still fail the combined PCurve consistency checks. The
-side-aware candidate is therefore not mesh-ready, and the next repair target is
-OpenCSM/export-side PCurve generation rather than mesh or solver budget. The
-export-source audit then traces those target
+side-aware PCurve residual diagnostic then samples all 12 edge-face PCurves:
+sampled 3D-vs-PCurve residual max is `0.0 m`, but all 12 ShapeAnalysis /
+same-parameter / vertex-tolerance flags still fail and the PCurves are
+unbounded `Geom2d_Line` domains. The side-aware candidate is therefore not
+mesh-ready; the next repair target is same-parameter / PCurve metadata for the
+side-aware export rather than mesh or solver budget. The export-source audit
+then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
 `y=-10.5 m` and `y=13.5 m`. The mesh-quality hotspot audit now partitions the
@@ -130,7 +134,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`repair_side_aware_candidate_pcurve_export_before_mesh_handoff`.
+`test_side_aware_same_parameter_metadata_repair_before_mesh_handoff`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -423,6 +427,25 @@ ordered. However, all 6 station edges fail curve-3D-with-PCurve,
 same-parameter-by-face, and vertex-tolerance-by-face checks. This keeps the
 route blocked before Gmsh mesh handoff and shifts the next action to repairing
 side-aware OpenCSM/export PCurve generation.
+
+The main-wing side-aware PCurve residual diagnostic is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-side-aware-pcurve-residual-diagnostic --out .tmp/runs/main_wing_station_seam_side_aware_pcurve_residual_diagnostic
+```
+
+This writes
+`main_wing_station_seam_side_aware_pcurve_residual_diagnostic.v1.json` and
+`main_wing_station_seam_side_aware_pcurve_residual_diagnostic.v1.md`. The
+committed snapshot records
+`side_aware_station_pcurve_residuals_below_tolerance_but_shape_analysis_flags_fail`:
+all 12 selected edge-face pairs have sampled 3D-vs-PCurve residual max
+`0.0 m`, so the current blocker is not gross PCurve geometric separation.
+However, all 12 ShapeAnalysis / same-parameter / vertex-tolerance flags still
+fail and all sampled PCurves are unbounded `Geom2d_Line` domains. This keeps the
+route blocked before Gmsh mesh handoff; the next gate is a bounded
+same-parameter / metadata repair probe on the side-aware candidate.
 
 The first real fairing geometry smoke is emitted by:
 
