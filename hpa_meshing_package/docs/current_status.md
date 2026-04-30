@@ -299,6 +299,17 @@ The SU2 preprocessing log also reports high mesh-quality ratios
 so the next numerics work should inspect mesh quality and local sizing rather
 than only raising the iteration budget again.
 
+The main-wing solver-validation policy is now recorded under
+`docs/contracts/main_wing_solver_validation_policy.v1.md`, with a committed
+snapshot under `docs/reports/main_wing_solver_validation_policy/`. It clarifies
+that the 12/40/80-iteration artifacts are route-smoke and diagnostic evidence
+only. SU2's own documentation and tutorials use explicit residual or
+coefficient-Cauchy stopping criteria with much larger iteration ceilings
+(`9999` or higher; coefficient windows such as 50-100 samples). Therefore this
+project must not invent a convergence standard from the current short smoke
+budgets. Engineering convergence claims need a source-backed solver budget and
+stopping policy before they can be used for validation.
+
 The main-wing lift-acceptance diagnostic is emitted by:
 
 ```bash

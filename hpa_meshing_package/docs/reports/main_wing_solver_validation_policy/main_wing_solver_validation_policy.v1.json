@@ -1,0 +1,75 @@
+{
+  "schema_version": "main_wing_solver_validation_policy.v1",
+  "component": "main_wing",
+  "execution_scope": "policy_report_no_solver_execution",
+  "production_default_changed": false,
+  "policy_status": "source_backed_convergence_policy_recorded",
+  "hpa_standard_velocity_mps": 6.5,
+  "current_smoke_budget_interpretation": {
+    "current_max_observed_iterations": 80,
+    "allowed_meaning": [
+      "route_smoke",
+      "history_parser_smoke",
+      "run_only_diagnostic_signal"
+    ],
+    "disallowed_meaning": [
+      "engineering_convergence_validation",
+      "final_cfd_ready_evidence"
+    ]
+  },
+  "source_backed_observations": [
+    {
+      "source": "SU2 Solver Setup",
+      "url": "https://su2code.github.io/docs_v7/Solver-Setup/",
+      "observation": "Steady-state simulations are controlled by ITER or convergence criteria; residual and coefficient Cauchy criteria are distinct stopping modes."
+    },
+    {
+      "source": "SU2 Inviscid Hydrofoil tutorial config",
+      "url": "https://github.com/su2code/Tutorials/blob/master/incompressible_flow/Inc_Inviscid_Hydrofoil/inv_naca0012.cfg",
+      "observation": "The incompressible hydrofoil tutorial uses ITER=9999, residual stopping at RMS_PRESSURE=-15, CONV_STARTITER=10, and CONV_CAUCHY_ELEMS=50."
+    },
+    {
+      "source": "SU2 Inviscid ONERA M6 tutorial",
+      "url": "https://su2code.github.io/tutorials/Inviscid_ONERAM6/",
+      "observation": "The inviscid 3D wing tutorial reports rapid convergence after approximately 100 iterations only with aggressive multigrid and automatic CFL adaptation."
+    },
+    {
+      "source": "SU2 Turbulent ONERA M6 tutorial",
+      "url": "https://su2code.github.io/tutorials/Turbulent_ONERAM6/",
+      "observation": "The turbulent wing tutorial uses drag coefficient Cauchy convergence over 100 elements with CONV_CAUCHY_EPS=1E-6 and a very large iteration ceiling."
+    },
+    {
+      "source": "SU2 FAQ",
+      "url": "https://su2code.github.io/docs/FAQ/",
+      "observation": "Residuals are log10 quantities, and convergence is usually determined by a desired residual reduction."
+    }
+  ],
+  "hpa_main_wing_engineering_convergence_requirements": [
+    "real_main_wing_geometry_and_mesh_handoff",
+    "hpa_standard_flow_condition_v_6p5_mps",
+    "reference_geometry_gate_pass",
+    "force_marker_gate_pass",
+    "mesh_quality_acceptable_for_solver_mode",
+    "source_backed_su2_iteration_budget_and_stopping_criteria",
+    "convergence_gate_pass",
+    "main_wing_cl_gt_1_at_hpa_6p5_mps"
+  ],
+  "current_main_wing_status": {
+    "solver_execution": "executed",
+    "convergence_gate_status": "warn",
+    "convergence_comparability_level": "run_only",
+    "final_cl": 0.263161913,
+    "main_wing_lift_acceptance_status": "fail",
+    "engineering_verdict": "not_converged_engineering_evidence"
+  },
+  "next_actions": [
+    "record_openvsp_main_wing_incidence_twist_camber_provenance",
+    "treat_alpha_trim_probe_as_lift_slope_diagnostic_only",
+    "define_source_backed_convergence_campaign_before_engineering_validation_claim"
+  ],
+  "limitations": [
+    "This policy does not execute SU2.",
+    "No new iteration budget is promoted to production default.",
+    "The current convergence_gate.v1 defaults remain baseline comparability gates, not final validation budgets."
+  ]
+}

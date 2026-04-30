@@ -76,3 +76,11 @@ This combines:
 ## Important Limitation
 
 This contract does not claim final high-quality CFD truth. It is the per-case baseline comparability gate that `mesh_study.v1`, alpha sweep, and stronger credibility work build on top of.
+
+`DEFAULT_MIN_ITERATIONS` and `DEFAULT_TAIL_WINDOW` in the implementation are
+baseline gate parameters for detecting whether a short history is usable. They
+are not an engineering convergence campaign budget. For main-wing validation,
+the stronger policy is owned by
+[`main_wing_solver_validation_policy.v1`](main_wing_solver_validation_policy.v1.md):
+short 12/40/80-iteration solver smokes may prove route execution and expose
+diagnostic trends, but they must not be treated as convergence standards.

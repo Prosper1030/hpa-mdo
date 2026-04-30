@@ -59,6 +59,12 @@ or as a comparable aerodynamic result.
 handoff. Increasing it is allowed only as a probe-local campaign choice and is
 not a production default change.
 
+The bounded 12/40/80-iteration artifacts are route-smoke and diagnostic
+evidence only. They must not become the engineering convergence standard.
+Before a main-wing result is promoted as engineering-converged, the solver
+budget and stopping criteria must follow
+[`main_wing_solver_validation_policy.v1`](main_wing_solver_validation_policy.v1.md).
+
 At the HPA standard flow condition (`V=6.5 m/s`), a numerically stable main-wing
 run with `CL <= 1.0` is still rejected for convergence acceptance. The report
 must record `main_wing_lift_acceptance_status=fail` and include
