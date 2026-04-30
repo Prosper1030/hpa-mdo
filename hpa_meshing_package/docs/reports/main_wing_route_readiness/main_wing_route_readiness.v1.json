@@ -991,6 +991,56 @@
       "blockers": []
     },
     {
+      "stage": "su2_topology_defect_localization",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_topology_defect_localization/main_wing_su2_topology_defect_localization.v1.json",
+      "observed": {
+        "localization_status": "defects_localized",
+        "defect_summary": {
+          "surface_triangle_count": 2424,
+          "unique_edge_count": 3637,
+          "boundary_edge_count": 4,
+          "nonmanifold_edge_count": 2,
+          "defect_edge_count": 6,
+          "station_count": 2
+        },
+        "station_summary": [
+          {
+            "station_y_m": -10.5,
+            "defect_count": 3,
+            "defect_kind_counts": {
+              "nonmanifold_edge": 1,
+              "boundary_edge": 2
+            },
+            "semispan_fraction": 0.6363636363636362,
+            "span_station_label": "midspan_region"
+          },
+          {
+            "station_y_m": 13.5,
+            "defect_count": 3,
+            "defect_kind_counts": {
+              "nonmanifold_edge": 1,
+              "boundary_edge": 2
+            },
+            "semispan_fraction": 0.818181818181818,
+            "span_station_label": "outer_panel_region"
+          }
+        ],
+        "engineering_findings": [
+          "boundary_edges_localized",
+          "nonmanifold_edges_localized",
+          "topology_defects_clustered_at_few_span_stations"
+        ],
+        "next_actions": [
+          "inspect_openvsp_export_topology_at_localized_defect_span_stations",
+          "trace_defect_edges_to_gmsh_entities_before_backend_changes",
+          "decide_if_local_topology_repair_or_closed_thickness_export_is_required"
+        ]
+      },
+      "blockers": []
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -1029,7 +1079,7 @@
     "panel_to_force_breakdown_cl_ratio_above_four"
   ],
   "next_actions": [
-    "localize_main_wing_open_boundary_and_nonmanifold_edges",
+    "inspect_openvsp_export_topology_at_localized_defect_span_stations",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

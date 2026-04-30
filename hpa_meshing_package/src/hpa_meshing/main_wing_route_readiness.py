@@ -22,6 +22,7 @@ StageType = Literal[
     "su2_mesh_normal_audit",
     "panel_wake_semantics_audit",
     "su2_surface_topology_audit",
+    "su2_topology_defect_localization",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -660,6 +661,38 @@ def _su2_surface_topology_audit_observed(
     }
 
 
+def _su2_topology_defect_localization_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "blocked"
+        if payload.get("localization_status") == "blocked"
+        else "pass"
+    )
+
+
+def _su2_topology_defect_localization_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "localization_status": (
+            None if payload is None else payload.get("localization_status")
+        ),
+        "defect_summary": (
+            {} if payload is None else payload.get("defect_summary", {})
+        ),
+        "station_summary": (
+            [] if payload is None else payload.get("station_summary", [])
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -756,6 +789,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_su2_surface_topology_audit"
         / "main_wing_su2_surface_topology_audit.v1.json"
     )
+    su2_topology_defect_localization_path = (
+        root
+        / "main_wing_su2_topology_defect_localization"
+        / "main_wing_su2_topology_defect_localization.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -791,6 +829,9 @@ def build_main_wing_route_readiness_report(
     su2_mesh_normal_audit = _load_json(su2_mesh_normal_audit_path)
     panel_wake_semantics_audit = _load_json(panel_wake_semantics_audit_path)
     su2_surface_topology_audit = _load_json(su2_surface_topology_audit_path)
+    su2_topology_defect_localization = _load_json(
+        su2_topology_defect_localization_path
+    )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1276,6 +1317,26 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(su2_surface_topology_audit),
         ),
         _stage(
+            stage="su2_topology_defect_localization",
+            status=_su2_topology_defect_localization_status(
+                su2_topology_defect_localization
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(su2_topology_defect_localization, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                su2_topology_defect_localization_path
+                if isinstance(su2_topology_defect_localization, dict)
+                else None
+            ),
+            observed=_su2_topology_defect_localization_observed(
+                su2_topology_defect_localization
+            ),
+            blockers=_blocking_reasons(su2_topology_defect_localization),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1442,6 +1503,18 @@ def build_main_wing_route_readiness_report(
         topology_next_actions = su2_surface_topology_audit.get("next_actions", [])
         if isinstance(topology_next_actions, list) and topology_next_actions:
             next_actions[0] = str(topology_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(su2_topology_defect_localization, dict)
+        and su2_topology_defect_localization.get("localization_status")
+        == "defects_localized"
+    ):
+        localization_next_actions = su2_topology_defect_localization.get(
+            "next_actions", []
+        )
+        if isinstance(localization_next_actions, list) and localization_next_actions:
+            next_actions[0] = str(localization_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

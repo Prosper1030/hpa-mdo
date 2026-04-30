@@ -90,6 +90,10 @@ from .main_wing_su2_surface_topology_audit import (
     build_main_wing_su2_surface_topology_audit_report,
     write_main_wing_su2_surface_topology_audit_report,
 )
+from .main_wing_su2_topology_defect_localization import (
+    build_main_wing_su2_topology_defect_localization_report,
+    write_main_wing_su2_topology_defect_localization_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -525,6 +529,21 @@ def cmd_main_wing_su2_surface_topology_audit(args: argparse.Namespace) -> int:
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.audit_status != "blocked" else 2
+
+
+def cmd_main_wing_su2_topology_defect_localization(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    mesh_path = None if args.mesh is None else Path(args.mesh)
+    report = build_main_wing_su2_topology_defect_localization_report(
+        mesh_path=mesh_path,
+    )
+    write_main_wing_su2_topology_defect_localization_report(
+        out_dir,
+        report=report,
+        mesh_path=mesh_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.localization_status != "blocked" else 2
 
 
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
@@ -970,6 +989,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_su2_surface_topology_audit.set_defaults(
         func=cmd_main_wing_su2_surface_topology_audit
+    )
+
+    main_wing_su2_topology_defect_localization = sub.add_parser(
+        "main-wing-su2-topology-defect-localization"
+    )
+    main_wing_su2_topology_defect_localization.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_su2_topology_defect_localization.add_argument("--mesh", type=str)
+    main_wing_su2_topology_defect_localization.set_defaults(
+        func=cmd_main_wing_su2_topology_defect_localization
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

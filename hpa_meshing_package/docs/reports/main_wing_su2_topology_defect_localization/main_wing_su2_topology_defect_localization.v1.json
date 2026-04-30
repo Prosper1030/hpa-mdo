@@ -1,0 +1,256 @@
+{
+  "schema_version": "main_wing_su2_topology_defect_localization.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_existing_mesh",
+  "production_default_changed": false,
+  "localization_status": "defects_localized",
+  "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+  "physical_group_name": "main_wing",
+  "physical_group_tag": 2,
+  "defect_summary": {
+    "surface_triangle_count": 2424,
+    "unique_edge_count": 3637,
+    "boundary_edge_count": 4,
+    "nonmanifold_edge_count": 2,
+    "defect_edge_count": 6,
+    "station_count": 2
+  },
+  "defect_edges": [
+    {
+      "kind": "nonmanifold_edge",
+      "nodes": [
+        251,
+        253
+      ],
+      "use_count": 3,
+      "node_coordinates": [
+        {
+          "node": 251,
+          "xyz": [
+            0.4781079769862041,
+            -10.49999999866688,
+            0.3165848266987335
+          ]
+        },
+        {
+          "node": 253,
+          "xyz": [
+            0.2015051201608233,
+            -10.49999999866688,
+            0.4334489330597007
+          ]
+        }
+      ],
+      "midpoint_xyz": [
+        0.3398065485735137,
+        -10.49999999866688,
+        0.3750168798792171
+      ],
+      "semispan_fraction": 0.6363636363636362,
+      "span_station_label": "midspan_region"
+    },
+    {
+      "kind": "boundary_edge",
+      "nodes": [
+        252,
+        253
+      ],
+      "use_count": 1,
+      "node_coordinates": [
+        {
+          "node": 252,
+          "xyz": [
+            0.1729856570790095,
+            -10.49999999866688,
+            0.3111919294038362
+          ]
+        },
+        {
+          "node": 253,
+          "xyz": [
+            0.2015051201608233,
+            -10.49999999866688,
+            0.4334489330597007
+          ]
+        }
+      ],
+      "midpoint_xyz": [
+        0.1872453886199164,
+        -10.49999999866688,
+        0.3723204312317685
+      ],
+      "semispan_fraction": 0.6363636363636362,
+      "span_station_label": "midspan_region"
+    },
+    {
+      "kind": "boundary_edge",
+      "nodes": [
+        251,
+        252
+      ],
+      "use_count": 1,
+      "node_coordinates": [
+        {
+          "node": 251,
+          "xyz": [
+            0.4781079769862041,
+            -10.49999999866688,
+            0.3165848266987335
+          ]
+        },
+        {
+          "node": 252,
+          "xyz": [
+            0.1729856570790095,
+            -10.49999999866688,
+            0.3111919294038362
+          ]
+        }
+      ],
+      "midpoint_xyz": [
+        0.3255468170326068,
+        -10.49999999866688,
+        0.3138883780512849
+      ],
+      "semispan_fraction": 0.6363636363636362,
+      "span_station_label": "midspan_region"
+    },
+    {
+      "kind": "nonmanifold_edge",
+      "nodes": [
+        359,
+        361
+      ],
+      "use_count": 3,
+      "node_coordinates": [
+        {
+          "node": 359,
+          "xyz": [
+            0.5978775743645144,
+            13.49999999828599,
+            0.5268552014245504
+          ]
+        },
+        {
+          "node": 361,
+          "xyz": [
+            0.2741453027612658,
+            13.49999999828599,
+            0.6311263632938879
+          ]
+        }
+      ],
+      "midpoint_xyz": [
+        0.4360114385628901,
+        13.49999999828599,
+        0.5789907823592192
+      ],
+      "semispan_fraction": 0.8181818181818181,
+      "span_station_label": "outer_panel_region"
+    },
+    {
+      "kind": "boundary_edge",
+      "nodes": [
+        360,
+        361
+      ],
+      "use_count": 1,
+      "node_coordinates": [
+        {
+          "node": 360,
+          "xyz": [
+            0.261184233028701,
+            13.49999999828599,
+            0.5244980839505203
+          ]
+        },
+        {
+          "node": 361,
+          "xyz": [
+            0.2741453027612658,
+            13.49999999828599,
+            0.6311263632938879
+          ]
+        }
+      ],
+      "midpoint_xyz": [
+        0.2676647678949834,
+        13.49999999828599,
+        0.5778122236222041
+      ],
+      "semispan_fraction": 0.8181818181818181,
+      "span_station_label": "outer_panel_region"
+    },
+    {
+      "kind": "boundary_edge",
+      "nodes": [
+        359,
+        360
+      ],
+      "use_count": 1,
+      "node_coordinates": [
+        {
+          "node": 359,
+          "xyz": [
+            0.5978775743645144,
+            13.49999999828599,
+            0.5268552014245504
+          ]
+        },
+        {
+          "node": 360,
+          "xyz": [
+            0.261184233028701,
+            13.49999999828599,
+            0.5244980839505203
+          ]
+        }
+      ],
+      "midpoint_xyz": [
+        0.4295309036966077,
+        13.49999999828599,
+        0.5256766426875354
+      ],
+      "semispan_fraction": 0.8181818181818181,
+      "span_station_label": "outer_panel_region"
+    }
+  ],
+  "station_summary": [
+    {
+      "station_y_m": -10.5,
+      "defect_count": 3,
+      "defect_kind_counts": {
+        "nonmanifold_edge": 1,
+        "boundary_edge": 2
+      },
+      "semispan_fraction": 0.6363636363636362,
+      "span_station_label": "midspan_region"
+    },
+    {
+      "station_y_m": 13.5,
+      "defect_count": 3,
+      "defect_kind_counts": {
+        "nonmanifold_edge": 1,
+        "boundary_edge": 2
+      },
+      "semispan_fraction": 0.818181818181818,
+      "span_station_label": "outer_panel_region"
+    }
+  ],
+  "blocking_reasons": [],
+  "engineering_findings": [
+    "boundary_edges_localized",
+    "nonmanifold_edges_localized",
+    "topology_defects_clustered_at_few_span_stations"
+  ],
+  "next_actions": [
+    "inspect_openvsp_export_topology_at_localized_defect_span_stations",
+    "trace_defect_edges_to_gmsh_entities_before_backend_changes",
+    "decide_if_local_topology_repair_or_closed_thickness_export_is_required"
+  ],
+  "limitations": [
+    "This report localizes topology defects only; it does not repair the mesh.",
+    "Node IDs are mesh-local and must be traced through Gmsh/OpenVSP artifacts before code changes.",
+    "Localized defects are route-risk evidence, not proof of SU2 convergence behavior."
+  ]
+}

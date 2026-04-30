@@ -335,6 +335,23 @@ def test_parser_supports_main_wing_su2_surface_topology_audit_command():
     assert args.reference_area == 35.175
 
 
+def test_parser_supports_main_wing_su2_topology_defect_localization_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-su2-topology-defect-localization",
+            "--out",
+            "artifacts/main_wing_su2_topology_defect_localization",
+            "--mesh",
+            "artifacts/main_wing/mesh.msh",
+        ]
+    )
+
+    assert args.command == "main-wing-su2-topology-defect-localization"
+    assert args.out == "artifacts/main_wing_su2_topology_defect_localization"
+    assert args.mesh == "artifacts/main_wing/mesh.msh"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

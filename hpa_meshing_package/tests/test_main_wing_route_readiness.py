@@ -828,6 +828,86 @@ def test_main_wing_route_readiness_records_su2_surface_topology_audit_stage(
     )
 
 
+def test_main_wing_route_readiness_records_topology_defect_localization_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_su2_topology_defect_localization"
+        / "main_wing_su2_topology_defect_localization.v1.json",
+        {
+            "localization_status": "defects_localized",
+            "defect_summary": {
+                "boundary_edge_count": 4,
+                "nonmanifold_edge_count": 2,
+                "station_count": 2,
+            },
+            "station_summary": [
+                {"station_y_m": -10.5, "defect_count": 3},
+                {"station_y_m": 13.5, "defect_count": 3},
+            ],
+            "engineering_findings": [
+                "topology_defects_clustered_at_few_span_stations"
+            ],
+            "next_actions": [
+                "inspect_openvsp_export_topology_at_localized_defect_span_stations"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    localization_stage = stages["su2_topology_defect_localization"]
+    assert localization_stage.status == "pass"
+    assert localization_stage.evidence_kind == "real"
+    assert localization_stage.observed["defect_summary"]["station_count"] == 2
+    assert localization_stage.observed["station_summary"][0]["station_y_m"] == -10.5
+    assert report.next_actions[0] == (
+        "inspect_openvsp_export_topology_at_localized_defect_span_stations"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):
