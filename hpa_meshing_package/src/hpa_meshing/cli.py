@@ -174,6 +174,10 @@ from .main_wing_station_seam_side_aware_metadata_repair_probe import (
     build_main_wing_station_seam_side_aware_metadata_repair_probe_report,
     write_main_wing_station_seam_side_aware_metadata_repair_probe_report,
 )
+from .main_wing_station_seam_side_aware_pcurve_metadata_builder_probe import (
+    build_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe_report,
+    write_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -1204,6 +1208,34 @@ def cmd_main_wing_station_seam_side_aware_metadata_repair_probe(
     return 0 if report.metadata_repair_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    side_aware_brep_validation_probe_path = (
+        None
+        if args.side_aware_brep_validation_probe is None
+        else Path(args.side_aware_brep_validation_probe)
+    )
+    metadata_repair_probe_path = (
+        None if args.metadata_repair_probe is None else Path(args.metadata_repair_probe)
+    )
+    report = build_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe_report(
+        side_aware_brep_validation_probe_path=side_aware_brep_validation_probe_path,
+        metadata_repair_probe_path=metadata_repair_probe_path,
+        strategies=args.strategies,
+    )
+    write_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe_report(
+        out_dir,
+        report=report,
+        side_aware_brep_validation_probe_path=side_aware_brep_validation_probe_path,
+        metadata_repair_probe_path=metadata_repair_probe_path,
+        strategies=args.strategies,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.metadata_builder_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -2201,6 +2233,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_side_aware_metadata_repair_probe.set_defaults(
         func=cmd_main_wing_station_seam_side_aware_metadata_repair_probe
+    )
+
+    main_wing_station_seam_side_aware_pcurve_metadata_builder_probe = sub.add_parser(
+        "main-wing-station-seam-side-aware-pcurve-metadata-builder-probe"
+    )
+    main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.add_argument(
+        "--side-aware-brep-validation-probe",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.add_argument(
+        "--metadata-repair-probe",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.add_argument(
+        "--strategies",
+        nargs="+",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.set_defaults(
+        func=cmd_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

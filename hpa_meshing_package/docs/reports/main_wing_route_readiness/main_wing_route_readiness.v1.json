@@ -3484,6 +3484,114 @@
       ]
     },
     {
+      "stage": "station_seam_side_aware_pcurve_metadata_builder_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_pcurve_metadata_builder_probe/main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.v1.json",
+      "observed": {
+        "metadata_builder_status": "side_aware_station_pcurve_metadata_builder_partial",
+        "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/side_aware_profile_parametrization_single_rule/candidate_raw_dump.stp",
+        "target_edge_count": 6,
+        "baseline_summary": {
+          "target_edge_count": 6,
+          "target_face_count": 12,
+          "pcurve_present_face_count": 12,
+          "bounded_pcurve_face_count": 0,
+          "same_parameter_pass_face_count": 0,
+          "curve3d_with_pcurve_pass_face_count": 0,
+          "vertex_tolerance_pass_face_count": 0,
+          "passed_face_count": 0,
+          "check_error_count": 0,
+          "all_station_metadata_checks_pass": false
+        },
+        "strategy_attempt_summary": {
+          "attempt_count": 4,
+          "strategies_evaluated": [
+            "bounded_existing_pcurve_update_edge",
+            "bounded_existing_pcurve_update_edge_and_vertex_params",
+            "bounded_existing_pcurve_replace",
+            "bounded_existing_pcurve_replace_and_vertex_params"
+          ],
+          "recovered_attempt_count": 0,
+          "first_recovered_strategy": null,
+          "best_bounded_face_count": 12,
+          "best_passed_face_count": 0,
+          "partial_progress_observed": true,
+          "attempt_summaries": [
+            {
+              "strategy": "bounded_existing_pcurve_update_edge",
+              "target_edge_count": 6,
+              "target_face_count": 12,
+              "pcurve_present_face_count": 12,
+              "bounded_pcurve_face_count": 12,
+              "same_parameter_pass_face_count": 0,
+              "curve3d_with_pcurve_pass_face_count": 0,
+              "vertex_tolerance_pass_face_count": 0,
+              "passed_face_count": 0,
+              "check_error_count": 0,
+              "all_station_metadata_checks_pass": false
+            },
+            {
+              "strategy": "bounded_existing_pcurve_update_edge_and_vertex_params",
+              "target_edge_count": 6,
+              "target_face_count": 12,
+              "pcurve_present_face_count": 12,
+              "bounded_pcurve_face_count": 12,
+              "same_parameter_pass_face_count": 0,
+              "curve3d_with_pcurve_pass_face_count": 0,
+              "vertex_tolerance_pass_face_count": 0,
+              "passed_face_count": 0,
+              "check_error_count": 0,
+              "all_station_metadata_checks_pass": false
+            },
+            {
+              "strategy": "bounded_existing_pcurve_replace",
+              "target_edge_count": 6,
+              "target_face_count": 12,
+              "pcurve_present_face_count": 12,
+              "bounded_pcurve_face_count": 12,
+              "same_parameter_pass_face_count": 0,
+              "curve3d_with_pcurve_pass_face_count": 0,
+              "vertex_tolerance_pass_face_count": 0,
+              "passed_face_count": 0,
+              "check_error_count": 0,
+              "all_station_metadata_checks_pass": false
+            },
+            {
+              "strategy": "bounded_existing_pcurve_replace_and_vertex_params",
+              "target_edge_count": 6,
+              "target_face_count": 12,
+              "pcurve_present_face_count": 12,
+              "bounded_pcurve_face_count": 12,
+              "same_parameter_pass_face_count": 0,
+              "curve3d_with_pcurve_pass_face_count": 0,
+              "vertex_tolerance_pass_face_count": 0,
+              "passed_face_count": 0,
+              "check_error_count": 0,
+              "all_station_metadata_checks_pass": false
+            }
+          ]
+        },
+        "engineering_findings": [
+          "side_aware_pcurve_metadata_builder_evaluated",
+          "upstream_same_parameter_shape_fix_repair_not_recovered",
+          "unbounded_existing_pcurve_domain_observed",
+          "bounded_pcurve_domains_observed_without_station_metadata_recovery",
+          "projected_or_sampled_pcurve_builder_still_needed",
+          "no_target_edge_face_pair_passed_full_metadata_gate"
+        ],
+        "next_actions": [
+          "prototype_projected_or_sampled_pcurve_builder_with_vertex_orientation_gate",
+          "avoid_claiming_mesh_handoff_readiness_from_bounded_pcurve_domain_only",
+          "do_not_advance_to_solver_budget_until_station_metadata_gate_passes"
+        ]
+      },
+      "blockers": [
+        "side_aware_station_pcurve_metadata_builder_not_recovered",
+        "side_aware_candidate_mesh_handoff_not_run"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -3542,10 +3650,11 @@
     "side_aware_candidate_station_brep_pcurve_checks_suspect",
     "side_aware_candidate_mesh_handoff_not_run",
     "side_aware_station_shape_analysis_flags_still_block_mesh_handoff",
-    "side_aware_station_metadata_repair_not_recovered"
+    "side_aware_station_metadata_repair_not_recovered",
+    "side_aware_station_pcurve_metadata_builder_not_recovered"
   ],
   "next_actions": [
-    "prototype_side_aware_station_pcurve_rewrite_or_export_metadata_builder",
+    "prototype_projected_or_sampled_pcurve_builder_with_vertex_orientation_gate",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

@@ -344,6 +344,57 @@ def test_main_wing_route_readiness_includes_side_aware_metadata_repair_probe(
     )
 
 
+def test_main_wing_route_readiness_includes_side_aware_pcurve_metadata_builder_probe(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_side_aware_pcurve_metadata_builder_probe"
+        / "main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.v1.json",
+        {
+            "schema_version": "main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.v1",
+            "metadata_builder_status": "side_aware_station_pcurve_metadata_builder_partial",
+            "candidate_step_path": "candidate_raw_dump.stp",
+            "target_edges": [
+                {"curve_id": 7, "edge_index": 7, "face_ids": [2, 3]},
+                {"curve_id": 50, "edge_index": 50, "face_ids": [19, 20]},
+            ],
+            "strategy_attempt_summary": {
+                "attempt_count": 2,
+                "recovered_attempt_count": 0,
+                "best_bounded_face_count": 4,
+                "best_passed_face_count": 0,
+            },
+            "engineering_findings": [
+                "bounded_pcurve_domains_observed_without_station_metadata_recovery"
+            ],
+            "blocking_reasons": [
+                "side_aware_station_pcurve_metadata_builder_not_recovered"
+            ],
+            "next_actions": [
+                "prototype_projected_or_sampled_pcurve_builder_with_vertex_orientation_gate"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+    stages = {stage.stage: stage for stage in report.stages}
+
+    stage = stages["station_seam_side_aware_pcurve_metadata_builder_probe"]
+    assert stage.status == "blocked"
+    assert stage.evidence_kind == "real"
+    assert (
+        stage.observed["metadata_builder_status"]
+        == "side_aware_station_pcurve_metadata_builder_partial"
+    )
+    assert stage.observed["target_edge_count"] == 2
+    assert stage.observed["strategy_attempt_summary"]["best_bounded_face_count"] == 4
+    assert "side_aware_station_pcurve_metadata_builder_not_recovered" in (
+        stage.blockers
+    )
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

@@ -730,6 +730,40 @@ def test_parser_supports_main_wing_station_seam_side_aware_metadata_repair_probe
     assert args.operations == ["fix_same_parameter_edge"]
 
 
+def test_parser_supports_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-side-aware-pcurve-metadata-builder-probe",
+            "--out",
+            "artifacts/main_wing_side_aware_pcurve_metadata_builder",
+            "--side-aware-brep-validation-probe",
+            "artifacts/main_wing/side_aware_brep_validation.json",
+            "--metadata-repair-probe",
+            "artifacts/main_wing/side_aware_metadata_repair.json",
+            "--strategies",
+            "bounded_existing_pcurve_update_edge",
+            "bounded_existing_pcurve_update_edge_and_vertex_params",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-side-aware-pcurve-metadata-builder-probe"
+    )
+    assert args.out == "artifacts/main_wing_side_aware_pcurve_metadata_builder"
+    assert args.side_aware_brep_validation_probe == (
+        "artifacts/main_wing/side_aware_brep_validation.json"
+    )
+    assert args.metadata_repair_probe == (
+        "artifacts/main_wing/side_aware_metadata_repair.json"
+    )
+    assert args.strategies == [
+        "bounded_existing_pcurve_update_edge",
+        "bounded_existing_pcurve_update_edge_and_vertex_params",
+    ]
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(

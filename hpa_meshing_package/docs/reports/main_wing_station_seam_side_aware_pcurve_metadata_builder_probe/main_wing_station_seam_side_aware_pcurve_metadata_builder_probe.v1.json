@@ -1,0 +1,3403 @@
+{
+  "schema_version": "main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_side_aware_station_pcurve_metadata_builder",
+  "production_default_changed": false,
+  "metadata_builder_status": "side_aware_station_pcurve_metadata_builder_partial",
+  "side_aware_brep_validation_probe_path": "docs/reports/main_wing_station_seam_side_aware_brep_validation_probe/main_wing_station_seam_side_aware_brep_validation_probe.v1.json",
+  "metadata_repair_probe_path": "docs/reports/main_wing_station_seam_side_aware_metadata_repair_probe/main_wing_station_seam_side_aware_metadata_repair_probe.v1.json",
+  "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/side_aware_profile_parametrization_single_rule/candidate_raw_dump.stp",
+  "target_edges": [
+    {
+      "curve_id": 7,
+      "edge_index": 7,
+      "face_ids": [
+        2,
+        3
+      ]
+    },
+    {
+      "curve_id": 28,
+      "edge_index": 28,
+      "face_ids": [
+        9,
+        10
+      ]
+    },
+    {
+      "curve_id": 36,
+      "edge_index": 36,
+      "face_ids": [
+        12,
+        13
+      ]
+    },
+    {
+      "curve_id": 50,
+      "edge_index": 50,
+      "face_ids": [
+        19,
+        20
+      ]
+    },
+    {
+      "curve_id": 55,
+      "edge_index": 55,
+      "face_ids": [
+        22,
+        23
+      ]
+    },
+    {
+      "curve_id": 62,
+      "edge_index": 62,
+      "face_ids": [
+        29,
+        30
+      ]
+    }
+  ],
+  "strategies": [
+    "bounded_existing_pcurve_update_edge",
+    "bounded_existing_pcurve_update_edge_and_vertex_params",
+    "bounded_existing_pcurve_replace",
+    "bounded_existing_pcurve_replace_and_vertex_params"
+  ],
+  "api_semantics": {
+    "primary_api_family": "OCCT/OCP in-memory topology metadata editing",
+    "candidate_operations": [
+      "BRep_Builder.UpdateEdge(edge, pcurve, face, tolerance)",
+      "BRep_Builder.Range(edge, face, first, last)",
+      "BRep_Builder.UpdateVertex(vertex, parameter, edge, face, tolerance)",
+      "ShapeBuild_Edge.ReplacePCurve(edge, pcurve, face)",
+      "Geom2d_TrimmedCurve(existing_pcurve, first, last, sense)"
+    ],
+    "success_gate": [
+      "HasPCurve",
+      "bounded PCurve domain",
+      "CheckPCurveRange",
+      "CheckSameParameter",
+      "CheckCurve3dWithPCurve",
+      "CheckVertexTolerance"
+    ],
+    "truth_source": "ShapeAnalysis_Edge checks, not SameParameter/SameRange flags alone"
+  },
+  "upstream_metadata_repair_summary": {
+    "metadata_repair_status": "side_aware_station_metadata_repair_not_recovered",
+    "same_parameter_attempt_summary": {
+      "attempt_count": 5,
+      "tolerances_evaluated": [
+        1e-07,
+        1e-06,
+        1e-05,
+        0.0001,
+        0.001
+      ],
+      "recovered_attempt_count": 0,
+      "first_recovered_tolerance": null
+    },
+    "shape_fix_attempt_summary": {
+      "attempt_count": 25,
+      "tolerances_evaluated": [
+        1e-07,
+        1e-06,
+        1e-05,
+        0.0001,
+        0.001
+      ],
+      "recovered_attempt_count": 0,
+      "first_recovered_tolerance": null,
+      "operations_evaluated": [
+        "fix_reversed_2d_then_same_parameter",
+        "fix_same_parameter_edge",
+        "fix_same_parameter_edge_face",
+        "fix_vertex_tolerance_then_same_parameter",
+        "remove_add_pcurve_then_same_parameter"
+      ],
+      "first_recovered_operation": null
+    },
+    "residual_context_summary": {
+      "diagnostic_status": "side_aware_station_pcurve_residuals_below_tolerance_but_shape_analysis_flags_fail",
+      "edge_face_residual_count": 12,
+      "sampled_edge_face_count": 12,
+      "max_sample_distance_m": 0.0,
+      "max_sample_distance_over_edge_tolerance": 0.0,
+      "shape_analysis_flag_failure_count": 12,
+      "residual_exceeds_edge_tolerance_count": 0,
+      "unbounded_pcurve_domain_count": 12,
+      "pcurve_missing_count": 0
+    },
+    "blocking_reasons": [
+      "side_aware_station_metadata_repair_not_recovered",
+      "side_aware_candidate_mesh_handoff_not_run"
+    ]
+  },
+  "baseline_checks": [
+    {
+      "curve_id": 7,
+      "edge_index": 7,
+      "face_ids": [
+        2,
+        3
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 2,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        },
+        {
+          "face_id": 3,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        }
+      ]
+    },
+    {
+      "curve_id": 28,
+      "edge_index": 28,
+      "face_ids": [
+        9,
+        10
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 9,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        },
+        {
+          "face_id": 10,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        }
+      ]
+    },
+    {
+      "curve_id": 36,
+      "edge_index": 36,
+      "face_ids": [
+        12,
+        13
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 12,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        },
+        {
+          "face_id": 13,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        }
+      ]
+    },
+    {
+      "curve_id": 50,
+      "edge_index": 50,
+      "face_ids": [
+        19,
+        20
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 19,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        },
+        {
+          "face_id": 20,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        }
+      ]
+    },
+    {
+      "curve_id": 55,
+      "edge_index": 55,
+      "face_ids": [
+        22,
+        23
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 22,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        },
+        {
+          "face_id": 23,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        }
+      ]
+    },
+    {
+      "curve_id": 62,
+      "edge_index": 62,
+      "face_ids": [
+        29,
+        30
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 29,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        },
+        {
+          "face_id": 30,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": []
+        }
+      ]
+    }
+  ],
+  "baseline_summary": {
+    "target_edge_count": 6,
+    "target_face_count": 12,
+    "pcurve_present_face_count": 12,
+    "bounded_pcurve_face_count": 0,
+    "same_parameter_pass_face_count": 0,
+    "curve3d_with_pcurve_pass_face_count": 0,
+    "vertex_tolerance_pass_face_count": 0,
+    "passed_face_count": 0,
+    "check_error_count": 0,
+    "all_station_metadata_checks_pass": false
+  },
+  "strategy_attempts": [
+    {
+      "strategy": "bounded_existing_pcurve_update_edge",
+      "operation_results": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 2,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 3,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 9,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 10,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 12,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 13,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 19,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 20,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 22,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 23,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 29,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 30,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "bounded_existing_pcurve_update_edge_and_vertex_params",
+      "operation_results": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.UpdateEdge(trimmed, face, tolerance)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 2,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 3,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 9,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 10,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 12,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 13,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 19,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 20,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 22,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 23,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 29,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 30,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "bounded_existing_pcurve_replace",
+      "operation_results": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 2,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 9,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 12,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 19,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 22,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 29,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 2,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 3,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 9,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 10,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 12,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 13,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 19,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 20,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 22,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 23,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 29,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 30,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "bounded_existing_pcurve_replace_and_vertex_params",
+      "operation_results": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 2,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 2,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 9,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 9,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 12,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 12,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 19,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 19,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 22,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 22,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "face_operations": [
+            {
+              "face_id": 29,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 29,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "ShapeBuild_Edge.ReplacePCurve(trimmed, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.Range(edge, face, first, last)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.UpdateVertex(first, first_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "label": "BRep_Builder.UpdateVertex(last, last_param, edge, face)",
+              "called": true,
+              "result": null,
+              "error": null
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 2,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 3,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 9,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 10,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 12,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 13,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 19,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 20,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 22,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 23,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 29,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            },
+            {
+              "face_id": 30,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_TrimmedCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 0.0,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "strategy_attempt_summary": {
+    "attempt_count": 4,
+    "strategies_evaluated": [
+      "bounded_existing_pcurve_update_edge",
+      "bounded_existing_pcurve_update_edge_and_vertex_params",
+      "bounded_existing_pcurve_replace",
+      "bounded_existing_pcurve_replace_and_vertex_params"
+    ],
+    "recovered_attempt_count": 0,
+    "first_recovered_strategy": null,
+    "best_bounded_face_count": 12,
+    "best_passed_face_count": 0,
+    "partial_progress_observed": true,
+    "attempt_summaries": [
+      {
+        "strategy": "bounded_existing_pcurve_update_edge",
+        "target_edge_count": 6,
+        "target_face_count": 12,
+        "pcurve_present_face_count": 12,
+        "bounded_pcurve_face_count": 12,
+        "same_parameter_pass_face_count": 0,
+        "curve3d_with_pcurve_pass_face_count": 0,
+        "vertex_tolerance_pass_face_count": 0,
+        "passed_face_count": 0,
+        "check_error_count": 0,
+        "all_station_metadata_checks_pass": false
+      },
+      {
+        "strategy": "bounded_existing_pcurve_update_edge_and_vertex_params",
+        "target_edge_count": 6,
+        "target_face_count": 12,
+        "pcurve_present_face_count": 12,
+        "bounded_pcurve_face_count": 12,
+        "same_parameter_pass_face_count": 0,
+        "curve3d_with_pcurve_pass_face_count": 0,
+        "vertex_tolerance_pass_face_count": 0,
+        "passed_face_count": 0,
+        "check_error_count": 0,
+        "all_station_metadata_checks_pass": false
+      },
+      {
+        "strategy": "bounded_existing_pcurve_replace",
+        "target_edge_count": 6,
+        "target_face_count": 12,
+        "pcurve_present_face_count": 12,
+        "bounded_pcurve_face_count": 12,
+        "same_parameter_pass_face_count": 0,
+        "curve3d_with_pcurve_pass_face_count": 0,
+        "vertex_tolerance_pass_face_count": 0,
+        "passed_face_count": 0,
+        "check_error_count": 0,
+        "all_station_metadata_checks_pass": false
+      },
+      {
+        "strategy": "bounded_existing_pcurve_replace_and_vertex_params",
+        "target_edge_count": 6,
+        "target_face_count": 12,
+        "pcurve_present_face_count": 12,
+        "bounded_pcurve_face_count": 12,
+        "same_parameter_pass_face_count": 0,
+        "curve3d_with_pcurve_pass_face_count": 0,
+        "vertex_tolerance_pass_face_count": 0,
+        "passed_face_count": 0,
+        "check_error_count": 0,
+        "all_station_metadata_checks_pass": false
+      }
+    ]
+  },
+  "engineering_findings": [
+    "side_aware_pcurve_metadata_builder_evaluated",
+    "upstream_same_parameter_shape_fix_repair_not_recovered",
+    "unbounded_existing_pcurve_domain_observed",
+    "bounded_pcurve_domains_observed_without_station_metadata_recovery",
+    "projected_or_sampled_pcurve_builder_still_needed",
+    "no_target_edge_face_pair_passed_full_metadata_gate"
+  ],
+  "blocking_reasons": [
+    "side_aware_station_pcurve_metadata_builder_not_recovered",
+    "side_aware_candidate_mesh_handoff_not_run"
+  ],
+  "next_actions": [
+    "prototype_projected_or_sampled_pcurve_builder_with_vertex_orientation_gate",
+    "avoid_claiming_mesh_handoff_readiness_from_bounded_pcurve_domain_only",
+    "do_not_advance_to_solver_budget_until_station_metadata_gate_passes"
+  ],
+  "limitations": [
+    "This probe evaluates in-memory PCurve metadata construction only and writes no repaired STEP.",
+    "It does not change production defaults or promote the side-aware candidate to mesh handoff.",
+    "Bounding an existing PCurve domain is recorded as partial progress only unless all ShapeAnalysis gates pass.",
+    "SameParameter/SameRange flags are not treated as proof; ShapeAnalysis_Edge checks are the route gate.",
+    "It does not run Gmsh volume meshing, SU2_CFD, CL acceptance, or convergence checks."
+  ]
+}

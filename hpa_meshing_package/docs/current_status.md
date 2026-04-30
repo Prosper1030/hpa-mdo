@@ -126,9 +126,13 @@ unbounded `Geom2d_Line` domains. The side-aware candidate is therefore not
 mesh-ready. The side-aware metadata repair probe then runs the bounded
 SameParameter / ShapeFix repair gate on those six station edges: 5
 `BRepLib.SameParameter` tolerances and 25 `ShapeFix_Edge`
-operation/tolerance attempts all have `recovered_attempt_count = 0`. The next
-repair target is explicit PCurve/export metadata construction for the
-side-aware export rather than mesh or solver budget. The export-source audit
+operation/tolerance attempts all have `recovered_attempt_count = 0`. The
+side-aware PCurve metadata builder probe then tests four bounded-existing-PCurve
+strategies: all 12 edge-face PCurve domains can be made bounded, but 0 / 12
+edge-face pairs pass the full ShapeAnalysis metadata gate. The next repair
+target is therefore a projected or sampled PCurve builder with explicit
+vertex-parameter and orientation validation for the side-aware export, rather
+than mesh or solver budget. The export-source audit
 then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
@@ -138,7 +142,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`prototype_side_aware_station_pcurve_rewrite_or_export_metadata_builder`.
+`prototype_projected_or_sampled_pcurve_builder_with_vertex_orientation_gate`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -469,6 +473,24 @@ operation/tolerance attempts all report `recovered_attempt_count=0`. This keeps
 the route blocked before Gmsh mesh handoff; the next gate is a side-aware
 station PCurve rewrite or export-metadata builder, not more generic
 SameParameter/ShapeFix sweeps or solver budget.
+
+The main-wing side-aware PCurve metadata builder probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-side-aware-pcurve-metadata-builder-probe --out .tmp/runs/main_wing_station_seam_side_aware_pcurve_metadata_builder_probe
+```
+
+This writes
+`main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.v1.json` and
+`.md`. The committed result is
+`side_aware_station_pcurve_metadata_builder_partial`: baseline has 12 / 12
+PCurves present but 0 / 12 bounded domains and 0 / 12 full metadata passes.
+Four bounded-existing-PCurve strategies bound all 12 PCurve domains, but still
+leave 0 / 12 edge-face pairs passing same-parameter,
+curve-3D-with-PCurve, and vertex-tolerance checks. This is partial CAD
+metadata progress only, not mesh readiness; the next gate is projected/sampled
+PCurve construction with vertex/orientation validation.
 
 The first real fairing geometry smoke is emitted by:
 
