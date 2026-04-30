@@ -23,7 +23,8 @@
 17. main-wing reference-geometry gate reporting
 18. main-wing mesh-handoff smoke reporting
 19. main-wing SU2-handoff smoke reporting
-20. machine-readable reporting
+20. main-wing station-seam topology / BRep feasibility reporting
+21. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -274,6 +275,22 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Cross-checks `REF_LENGTH=1.05` against OpenVSP/VSPAERO `cref=1.0425 m`
 - Keeps the gate at `warn` because applied `REF_AREA` differs from OpenVSP/VSPAERO `Sref` and the quarter-chord moment origin differs from the VSPAERO CG settings
 - Writes `main_wing_reference_geometry_gate.v1.json` and `.md`
+
+### 21a. main_wing Station-Seam Topology and BRep Feasibility Layers
+
+`src/hpa_meshing/main_wing_openvsp_section_station_topology_fixture.py`
+`src/hpa_meshing/main_wing_station_seam_repair_decision.py`
+`src/hpa_meshing/main_wing_station_seam_brep_hotspot_probe.py`
+`src/hpa_meshing/main_wing_station_seam_same_parameter_feasibility.py`
+
+- Keep the main-wing station-seam route risk visible as report-only evidence
+- Do not run Gmsh, SU2, BL runtime, convergence gates, or production defaults
+- Localize the current real-route station defect to curves 36 and 50 and owner surfaces 12 / 13 / 19 / 20
+- Record that those station curves map cleanly to STEP edge ids after the expected mm-to-m scale
+- Record that the owner-surface wires are closed, connected, and ordered
+- Record that PCurves are present but curve-3D-with-PCurve, same-parameter-by-face, and vertex-tolerance-by-face checks remain suspect
+- Record that a bounded in-memory `BRepLib.SameParameter` tolerance sweep from `1e-7` through `1e-3` does not recover the station checks
+- Promote the next gate to PCurve / station-seam inspection or rebuild before compound meshing policy or solver-budget campaigns
 
 ### 22. main_wing Mesh-Handoff Smoke Layer
 

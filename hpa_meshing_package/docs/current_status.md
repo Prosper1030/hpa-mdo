@@ -91,8 +91,18 @@ passes the output-retention checks because `surface.csv` and
 artifacts. SU2 lift acceptance remains blocked because the selected
 current-route smoke has `CL=0.263161913`, about `4.89x` lower than the VSPAERO
 panel baseline and below the main-wing `CL > 1.0` acceptance gate for the HPA
-operating point. The current readiness next action is
-`debug_panel_su2_lift_gap_from_retained_force_breakdown`.
+operating point. The retained `surface.csv` / `forces_breakdown.dat` artifacts
+make force-breakdown debugging possible, but the next engineering blocker is
+now geometry-side station-seam topology, not a self-invented solver-iteration
+budget. The station fixture records 4 boundary edges and 2 nonmanifold edges at
+OpenVSP sections 3 and 4. The BRep hotspot probe confirms that station curves
+36 and 50 map cleanly to STEP edge ids after the expected mm-to-m scale and
+that owner surfaces 12 / 13 / 19 / 20 have closed, connected, ordered wires;
+however, PCurve consistency / same-parameter checks remain suspect. The
+same-parameter feasibility probe then attempts in-memory `BRepLib.SameParameter`
+from `1e-7` through `1e-3` and does not recover those station checks. The
+current readiness next action is
+`inspect_or_rebuild_station_pcurves_before_compound_meshing_policy`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -150,6 +160,43 @@ standpoint. The audit still observes `V=6.5 m/s`, derives
 `main_wing_lift_acceptance_status=fail` from `CL=0.263161913`, and keeps the
 VSPAERO panel baseline visible at `CLtot=1.287645495943`; none of this is a
 convergence claim.
+
+The main-wing station-seam BRep hotspot probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-brep-hotspot-probe --out .tmp/runs/main_wing_station_seam_brep_hotspot_probe
+```
+
+This writes `main_wing_station_seam_brep_hotspot_probe.v1.json` and
+`main_wing_station_seam_brep_hotspot_probe.v1.md`. The committed snapshot under
+`docs/reports/main_wing_station_seam_brep_hotspot_probe/` reads the real
+main-wing normalized STEP plus the station-topology fixture and records
+`brep_hotspot_captured_station_edges_suspect`. Current evidence localizes the
+hotspot to station curves 36 and 50: both curves map to same-number STEP edges
+after `scale_to_output_units=0.001`, their owner faces are 12 / 13 and 19 / 20,
+and all target owner wires are closed, connected, and ordered. PCurves are
+present, but curve-3D-with-PCurve, same-parameter-by-face, and
+vertex-tolerance-by-face checks remain suspect. The report is diagnostic only:
+it does not run Gmsh, SU2, or change production defaults.
+
+The main-wing station-seam same-parameter feasibility probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-same-parameter-feasibility --out .tmp/runs/main_wing_station_seam_same_parameter_feasibility
+```
+
+This writes `main_wing_station_seam_same_parameter_feasibility.v1.json` and
+`main_wing_station_seam_same_parameter_feasibility.v1.md`. The committed
+snapshot under `docs/reports/main_wing_station_seam_same_parameter_feasibility/`
+records `same_parameter_repair_not_recovered`: baseline PCurves are present,
+but baseline same-parameter / curve-3D-with-PCurve / vertex-tolerance checks do
+not all pass, and an in-memory `BRepLib.SameParameter` tolerance sweep from
+`1e-7` through `1e-3` does not recover either target curve. This is evidence
+against treating a simple OCCT same-parameter pass as the main-wing station
+repair; the next gate is inspecting or rebuilding the station PCurves /
+station-seam geometry before trying to promote a compound meshing policy.
 
 The first real fairing geometry smoke is emitted by:
 
