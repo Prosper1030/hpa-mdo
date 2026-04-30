@@ -12,6 +12,7 @@ from hpa_meshing.adapters.gmsh_backend import apply_recipe
 from hpa_meshing.adapters.su2_backend import (
     materialize_baseline_case,
     parse_history,
+    parse_solver_log_quality_metrics,
     run_baseline_case,
 )
 from hpa_meshing.mesh.recipes import build_recipe
@@ -601,6 +602,38 @@ def test_parse_history_extracts_final_coefficients(tmp_path: Path):
     assert parsed["cl"] == pytest.approx(0.12)
     assert parsed["cm"] == pytest.approx(-0.004)
     assert parsed["cm_axis"] == "CMy"
+
+
+def test_parse_solver_log_quality_metrics_extracts_preprocessing_values(tmp_path: Path):
+    solver_log = tmp_path / "solver.log"
+    solver_log.write_text(
+        "\n".join(
+            [
+                "Compute the surface curvature.",
+                "Max K: 1768.33. Mean K: 23.2247. Standard deviation K: 107.701.",
+                "+--------------------------------------------------------------+",
+                "|           Mesh Quality Metric|        Minimum|        Maximum|",
+                "+--------------------------------------------------------------+",
+                "|    Orthogonality Angle (deg.)|         31.473|        84.6248|",
+                "|     CV Face Area Aspect Ratio|         1.2135|        377.909|",
+                "|           CV Sub-Volume Ratio|        1.00013|        13256.1|",
+                "+--------------------------------------------------------------+",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    metrics = parse_solver_log_quality_metrics(solver_log)
+
+    assert metrics["surface_curvature"]["max"] == pytest.approx(1768.33)
+    assert metrics["surface_curvature"]["mean"] == pytest.approx(23.2247)
+    assert metrics["surface_curvature"]["std"] == pytest.approx(107.701)
+    dual_quality = metrics["dual_control_volume_quality"]
+    assert dual_quality["orthogonality_angle_deg"]["min"] == pytest.approx(31.473)
+    assert dual_quality["orthogonality_angle_deg"]["max"] == pytest.approx(84.6248)
+    assert dual_quality["cv_face_area_aspect_ratio"]["max"] == pytest.approx(377.909)
+    assert dual_quality["cv_sub_volume_ratio"]["max"] == pytest.approx(13256.1)
 
 
 def test_run_baseline_case_invokes_solver_and_updates_contract(tmp_path: Path, monkeypatch):

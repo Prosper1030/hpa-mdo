@@ -4,6 +4,7 @@ import csv
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -652,6 +653,49 @@ def _parse_int(value: Any) -> int | None:
     if parsed is None:
         return None
     return int(parsed)
+
+
+_QUALITY_LABELS = {
+    "Orthogonality Angle (deg.)": "orthogonality_angle_deg",
+    "CV Face Area Aspect Ratio": "cv_face_area_aspect_ratio",
+    "CV Sub-Volume Ratio": "cv_sub_volume_ratio",
+}
+
+
+def parse_solver_log_quality_metrics(solver_log_path: Path) -> dict[str, Any]:
+    text = solver_log_path.read_text(encoding="utf-8", errors="replace")
+    metrics: dict[str, Any] = {}
+
+    number = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+    curvature = re.search(
+        rf"Max K:\s*({number})\.\s*Mean K:\s*({number})\.\s*Standard deviation K:\s*({number})\.",
+        text,
+    )
+    if curvature is not None:
+        metrics["surface_curvature"] = {
+            "max": _parse_float(curvature.group(1)),
+            "mean": _parse_float(curvature.group(2)),
+            "std": _parse_float(curvature.group(3)),
+        }
+
+    dual_quality: dict[str, dict[str, float | None]] = {}
+    for line in text.splitlines():
+        if "|" not in line:
+            continue
+        parts = [part.strip() for part in line.strip().strip("|").split("|")]
+        if len(parts) < 3:
+            continue
+        key = _QUALITY_LABELS.get(parts[0])
+        if key is None:
+            continue
+        dual_quality[key] = {
+            "min": _parse_float(parts[1]),
+            "max": _parse_float(parts[2]),
+        }
+    if dual_quality:
+        metrics["dual_control_volume_quality"] = dual_quality
+
+    return metrics
 
 
 def _read_history_rows(history_path: Path) -> list[dict[str, str]]:

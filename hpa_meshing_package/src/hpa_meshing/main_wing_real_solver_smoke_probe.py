@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Literal
 
 from pydantic import BaseModel, Field
 
-from .adapters.su2_backend import parse_history
+from .adapters.su2_backend import parse_history, parse_solver_log_quality_metrics
 from .convergence import evaluate_baseline_convergence_gate
 from .main_wing_real_su2_handoff_probe import (
     _load_mesh_handoff_from_case_report,
@@ -58,6 +58,7 @@ class MainWingRealSolverSmokeProbeReport(BaseModel):
     return_code: int | None = None
     final_iteration: int | None = None
     final_coefficients: Dict[str, float | str | None] = Field(default_factory=dict)
+    solver_log_quality_metrics: Dict[str, Any] = Field(default_factory=dict)
     convergence_comparability_level: str | None = None
     component_force_ownership_status: str | None = None
     reference_geometry_status: str | None = None
@@ -679,6 +680,7 @@ def build_main_wing_real_solver_smoke_probe_report(
         if hasattr(convergence_gate, "model_dump")
         else dict(convergence_gate)
     )
+    solver_log_quality_metrics = parse_solver_log_quality_metrics(solver_log_path)
     convergence_gate_path = out_dir / "artifacts" / "convergence_gate.v1.json"
     _write_json(convergence_gate_path, gate_payload)
     status = _gate_status(convergence_gate) or "unavailable"
@@ -733,6 +735,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             "cm": parsed_history.get("cm"),
             "cm_axis": parsed_history.get("cm_axis"),
         },
+        solver_log_quality_metrics=solver_log_quality_metrics,
         convergence_comparability_level=comparability,
         component_force_ownership_status=source_report.get("component_force_ownership_status"),
         reference_geometry_status=reference_status,
@@ -775,6 +778,23 @@ def _render_markdown(report: MainWingRealSolverSmokeProbeReport) -> str:
         "",
     ]
     lines.extend(f"- `{reason}`" for reason in report.blocking_reasons)
+    if report.solver_log_quality_metrics:
+        dual_quality = report.solver_log_quality_metrics.get(
+            "dual_control_volume_quality", {}
+        )
+        curvature = report.solver_log_quality_metrics.get("surface_curvature", {})
+        lines.extend(["", "## Solver Log Mesh Quality", ""])
+        lines.extend(
+            [
+                f"- max_surface_curvature: `{curvature.get('max')}`",
+                "- min_orthogonality_angle_deg: "
+                f"`{dual_quality.get('orthogonality_angle_deg', {}).get('min')}`",
+                "- max_cv_face_area_aspect_ratio: "
+                f"`{dual_quality.get('cv_face_area_aspect_ratio', {}).get('max')}`",
+                "- max_cv_sub_volume_ratio: "
+                f"`{dual_quality.get('cv_sub_volume_ratio', {}).get('max')}`",
+            ]
+        )
     lines.extend(["", "## HPA-MDO Guarantees", ""])
     lines.extend(f"- `{guarantee}`" for guarantee in report.hpa_mdo_guarantees)
     lines.extend(["", "## Limitations", ""])

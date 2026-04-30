@@ -86,6 +86,22 @@ def _history_text() -> str:
     ) + "\n"
 
 
+def _solver_quality_log_text() -> str:
+    return "\n".join(
+        [
+            "Compute the surface curvature.",
+            "Max K: 1768.33. Mean K: 23.2247. Standard deviation K: 107.701.",
+            "+--------------------------------------------------------------+",
+            "|           Mesh Quality Metric|        Minimum|        Maximum|",
+            "+--------------------------------------------------------------+",
+            "|    Orthogonality Angle (deg.)|         31.473|        84.6248|",
+            "|     CV Face Area Aspect Ratio|         1.2135|        377.909|",
+            "|           CV Sub-Volume Ratio|        1.00013|        13256.1|",
+            "+--------------------------------------------------------------+",
+        ]
+    ) + "\n"
+
+
 def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
     tmp_path: Path,
     monkeypatch,
@@ -101,7 +117,7 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
         assert command == ["SU2_CFD", "-t", "4", "su2_runtime.cfg"]
         assert cwd == tmp_path / "su2_case"
         assert timeout == 12.0
-        stdout.write("fake SU2 completed\n")
+        stdout.write(_solver_quality_log_text())
         (Path(cwd) / "history.csv").write_text(_history_text(), encoding="utf-8")
         (Path(cwd) / "restart.csv").write_text("large restart\n", encoding="utf-8")
         (Path(cwd) / "surface.csv").write_text("large surface\n", encoding="utf-8")
@@ -145,6 +161,13 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
     assert report.component_force_ownership_status == "owned"
     assert report.reference_geometry_status == "warn"
     assert report.runtime_max_iterations == 40
+    assert report.solver_log_quality_metrics["surface_curvature"]["max"] == 1768.33
+    assert (
+        report.solver_log_quality_metrics["dual_control_volume_quality"][
+            "cv_sub_volume_ratio"
+        ]["max"]
+        == 13256.1
+    )
     assert "solver_executed_but_not_converged" in report.blocking_reasons
     assert "hpa_standard_flow_conditions_6p5_mps" in report.hpa_mdo_guarantees
     assert "heavy_solver_outputs_pruned" in report.hpa_mdo_guarantees
