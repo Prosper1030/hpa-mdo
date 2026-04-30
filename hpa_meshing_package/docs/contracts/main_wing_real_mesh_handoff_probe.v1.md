@@ -9,7 +9,7 @@ It is intentionally report-only:
 - it consumes `data/blackcat_004_origin.vsp3`
 - it requires the `esp_rebuilt` provider to select OpenVSP `Main Wing`
 - it runs the current Gmsh handoff route in a bounded child process
-- it records timeout / blocker evidence instead of forcing a pass
+- it records pass / timeout / blocker evidence instead of forcing a pass
 - it does not run BL runtime
 - it does not run `SU2_CFD`
 - it does not emit `su2_handoff.v1` or `convergence_gate.v1`
@@ -41,5 +41,6 @@ the real main-wing provider geometry. It still would not be solver credibility,
 because SU2 and convergence are not run here.
 
 A timeout is also useful evidence. For example, the current committed report
-shows 2D meshing completed but 3D meshing timed out during volume insertion.
-That is a meshing-policy blocker, not a reason to claim solver failure.
+can be compared against earlier reports where 2D meshing completed but 3D
+meshing timed out during volume insertion. That is meshing-policy evidence, not
+a reason to claim solver failure.

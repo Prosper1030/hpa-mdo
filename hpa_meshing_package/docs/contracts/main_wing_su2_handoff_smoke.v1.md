@@ -42,14 +42,15 @@ the solver to run.
 
 It does **not** mean the route is CFD-ready. The current smoke still uses the
 component-owned `main_wing` wall marker, but the mesh remains synthetic.
-Solver execution, history parsing, convergence, and real aerodynamic geometry
-remain blocking gates.
+Real aerodynamic geometry, real SU2 handoff, and real solver smoke are tracked
+by the separate real-route probes. This smoke remains synthetic wiring evidence.
 
 ## Promotion Rule
 
 This smoke can move the route past "missing SU2 handoff", but it cannot promote
-the route to solver credibility. The next gates are:
+the route to solver credibility. The current real-route gates are:
 
-1. real VSP/ESP main-wing geometry evidence
-2. solver run
-3. `convergence_gate.v1`
+1. real VSP/ESP main-wing mesh and SU2 handoff evidence
+2. solver execution evidence
+3. `convergence_gate.v1` pass
+4. reference chord / moment-origin provenance pass
