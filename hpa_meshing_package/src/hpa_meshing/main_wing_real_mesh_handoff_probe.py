@@ -30,7 +30,10 @@ MarkerSummaryStatusType = Literal[
     "unavailable",
 ]
 ProbeProfileType = Literal["coarse_first_volume_insertion_probe_not_production_default"]
-MeshFailureClassificationType = Literal["invalid_boundary_mesh_overlapping_facets"]
+MeshFailureClassificationType = Literal[
+    "invalid_boundary_mesh_overlapping_facets",
+    "boundary_parametrization_topology_failed",
+]
 
 
 PROBE_PROFILE: ProbeProfileType = "coarse_first_volume_insertion_probe_not_production_default"
@@ -177,8 +180,12 @@ def _mesh_failure_classification(
 ) -> MeshFailureClassificationType | None:
     if failure_code == "gmsh_invalid_boundary_mesh":
         return "invalid_boundary_mesh_overlapping_facets"
+    if failure_code == "gmsh_boundary_parametrization_topology":
+        return "boundary_parametrization_topology_failed"
     if isinstance(error, str) and "Invalid boundary mesh" in error and "overlapping facets" in error:
         return "invalid_boundary_mesh_overlapping_facets"
+    if isinstance(error, str) and "Wrong topology of boundary mesh for parametrization" in error:
+        return "boundary_parametrization_topology_failed"
     return None
 
 
@@ -405,6 +412,11 @@ def build_main_wing_real_mesh_handoff_probe_report(
         blocking_reasons.insert(
             1,
             "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets",
+        )
+    elif mesh_failure_classification == "boundary_parametrization_topology_failed":
+        blocking_reasons.insert(
+            1,
+            "main_wing_real_geometry_boundary_parametrization_topology_failed",
         )
 
     hpa_mdo_guarantees = [

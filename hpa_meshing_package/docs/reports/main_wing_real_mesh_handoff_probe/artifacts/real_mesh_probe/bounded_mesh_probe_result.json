@@ -1,0 +1,2629 @@
+{
+  "status": "success",
+  "failure_code": null,
+  "component": "main_wing",
+  "geometry": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "normalized_geometry": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "geometry_source": "esp_rebuilt",
+  "geometry_provider": "esp_rebuilt",
+  "geometry_family": "thin_sheet_lifting_surface",
+  "provider": {
+    "provider": "esp_rebuilt",
+    "provider_stage": "experimental",
+    "status": "materialized",
+    "geometry_source": "esp_rebuilt",
+    "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+    "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+    "geometry_family_hint": "thin_sheet_lifting_surface",
+    "provider_version": "**********************************************************",
+    "topology": {
+      "representation": "brep_trimmed_step",
+      "source_kind": "stp",
+      "units": "m",
+      "bounds": {
+        "x_min": -0.001259312194113,
+        "x_max": 1.302329269,
+        "y_min": -16.5,
+        "y_max": 16.5,
+        "z_min": -0.0680367431158,
+        "z_max": 0.835274708339
+      },
+      "import_bounds": {
+        "x_min": -1.2593122941130002,
+        "x_max": 1302.3292691,
+        "y_min": -16500.0000001,
+        "y_max": 16500.0000001,
+        "z_min": -68.0367432158,
+        "z_max": 835.2747084389999
+      },
+      "import_scale_to_units": 0.0009999999998730363,
+      "backend_rescale_required": true,
+      "body_count": 1,
+      "surface_count": 32,
+      "volume_count": 1,
+      "labels_present": true,
+      "label_schema": "preserve_component_labels",
+      "normalization": {
+        "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+        "applied": false,
+        "raw_counts": {
+          "body_count": 1,
+          "surface_count": 32,
+          "volume_count": 1
+        },
+        "raw_analysis": {
+          "touching_groups": [],
+          "singleton_body_tags": [
+            1
+          ],
+          "grouped_body_tags": [],
+          "duplicate_interface_face_pair_count": 0,
+          "duplicate_interface_face_pairs": [],
+          "internal_cap_face_count": 0,
+          "internal_cap_face_tags": [],
+          "body_records": [
+            {
+              "body_tag": 1,
+              "bbox": [
+                -1.2593122941130002,
+                -16500.0000001,
+                -68.0367432158,
+                1302.3292691,
+                16500.0000001,
+                835.2747084389999
+              ],
+              "center_of_mass": [
+                578.5483077132791,
+                5.725274466761298e-10,
+                223.39512611241304
+              ],
+              "face_count": 32
+            }
+          ],
+          "notes": []
+        },
+        "actions": [
+          "raw_export_already_cfd_clean_enough"
+        ],
+        "final_analysis": {
+          "touching_groups": [],
+          "singleton_body_tags": [
+            1
+          ],
+          "grouped_body_tags": [],
+          "duplicate_interface_face_pair_count": 0,
+          "internal_cap_face_count": 0,
+          "notes": []
+        },
+        "normalized_counts": {
+          "body_count": 1,
+          "surface_count": 32,
+          "volume_count": 1
+        }
+      },
+      "notes": [
+        "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999873",
+        "component_subset_exported=main_wing",
+        "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=33",
+        "normalization_pass_not_needed",
+        "OpenCSM batch succeeded via serveCSM."
+      ]
+    },
+    "artifacts": {
+      "provider_log": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/provider_log.json",
+      "normalized_geometry": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+      "topology_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/topology.json",
+      "command_log": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/ocsm.log",
+      "esp_script": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/rebuild.csm",
+      "esp_input_model": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+      "source_model": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/blackcat_004_origin.vsp3",
+      "topology_lineage_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/topology_lineage_report.json",
+      "topology_suppression_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/topology_suppression_report.json",
+      "raw_geometry": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/raw_dump.stp",
+      "raw_topology_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/raw_topology.json",
+      "normalization_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalization.json",
+      "component_selection_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/component_selection.json",
+      "component_input_model": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+      "wing_component_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/wing_component_report.json"
+    },
+    "provenance": {
+      "runtime": {
+        "available": true,
+        "binaries": {
+          "serveESP": "/Users/linyuan/.local/bin/serveESP",
+          "serveCSM": "/Users/linyuan/.local/bin/serveCSM",
+          "ocsm": null
+        },
+        "missing": [
+          "ocsm"
+        ],
+        "batch_binary": "/Users/linyuan/.local/bin/serveCSM"
+      },
+      "pipeline_status": "success",
+      "component_selection": {
+        "requested_component": "main_wing",
+        "effective_component": "main_wing",
+        "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/blackcat_004_origin.vsp3",
+        "selection_mode": "openvsp_single_component_subset",
+        "selected_geom": {
+          "geom_id": "IPAWXFWPQF",
+          "name": "Main Wing",
+          "type_name": "Wing",
+          "is_symmetric_xz": true,
+          "x_location": 0.0,
+          "x_rotation_deg": 0.0,
+          "bbox_min": [
+            -2.156555057324391e-05,
+            0.0,
+            -0.06803674311582698
+          ],
+          "bbox_max": [
+            1.3023286428893068,
+            16.47465195857948,
+            0.8333975052217898
+          ],
+          "span_y": 16.47465195857948,
+          "span_z": 0.9014342483376168,
+          "chord_x": 1.3023502084398801
+        },
+        "selected_geom_ids": [
+          "IPAWXFWPQF"
+        ],
+        "removed_top_level_geom_ids": [
+          "ZXAGZMPIBY",
+          "BROUAZWXIU"
+        ],
+        "candidate_summary": [
+          {
+            "geom_id": "IPAWXFWPQF",
+            "name": "Main Wing",
+            "type_name": "Wing",
+            "is_symmetric_xz": true,
+            "x_location": 0.0,
+            "x_rotation_deg": 0.0,
+            "span_y": 16.47465195857948,
+            "span_z": 0.9014342483376168,
+            "bbox_min": [
+              -2.156555057324391e-05,
+              0.0,
+              -0.06803674311582698
+            ],
+            "bbox_max": [
+              1.3023286428893068,
+              16.47465195857948,
+              0.8333975052217898
+            ]
+          },
+          {
+            "geom_id": "ZXAGZMPIBY",
+            "name": "Elevator",
+            "type_name": "Wing",
+            "is_symmetric_xz": true,
+            "x_location": 4.0,
+            "x_rotation_deg": 0.0,
+            "span_y": 1.5000000000000002,
+            "span_z": 0.07204467854937947,
+            "bbox_min": [
+              4.0,
+              0.0,
+              -0.03602233927468974
+            ],
+            "bbox_max": [
+              4.8,
+              1.5000000000000002,
+              0.03602233927468974
+            ]
+          },
+          {
+            "geom_id": "BROUAZWXIU",
+            "name": "Fin",
+            "type_name": "Wing",
+            "is_symmetric_xz": false,
+            "x_location": 5.0,
+            "x_rotation_deg": 90.0,
+            "span_y": 0.06303909373070718,
+            "span_z": 2.4,
+            "bbox_min": [
+              5.0,
+              -0.031519546865353514,
+              -0.7
+            ],
+            "bbox_max": [
+              5.7,
+              0.031519546865353666,
+              1.7
+            ]
+          }
+        ],
+        "subset_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+        "wing_component_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/wing_component_report.json"
+      },
+      "normalization": {
+        "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+        "applied": false,
+        "raw_counts": {
+          "body_count": 1,
+          "surface_count": 32,
+          "volume_count": 1
+        },
+        "raw_analysis": {
+          "touching_groups": [],
+          "singleton_body_tags": [
+            1
+          ],
+          "grouped_body_tags": [],
+          "duplicate_interface_face_pair_count": 0,
+          "duplicate_interface_face_pairs": [],
+          "internal_cap_face_count": 0,
+          "internal_cap_face_tags": [],
+          "body_records": [
+            {
+              "body_tag": 1,
+              "bbox": [
+                -1.2593122941130002,
+                -16500.0000001,
+                -68.0367432158,
+                1302.3292691,
+                16500.0000001,
+                835.2747084389999
+              ],
+              "center_of_mass": [
+                578.5483077132791,
+                5.725274466761298e-10,
+                223.39512611241304
+              ],
+              "face_count": 32
+            }
+          ],
+          "notes": []
+        },
+        "actions": [
+          "raw_export_already_cfd_clean_enough"
+        ],
+        "final_analysis": {
+          "touching_groups": [],
+          "singleton_body_tags": [
+            1
+          ],
+          "grouped_body_tags": [],
+          "duplicate_interface_face_pair_count": 0,
+          "internal_cap_face_count": 0,
+          "notes": []
+        },
+        "normalized_counts": {
+          "body_count": 1,
+          "surface_count": 32,
+          "volume_count": 1
+        }
+      }
+    },
+    "warnings": [],
+    "notes": []
+  },
+  "classification": {
+    "geometry_source": "esp_rebuilt",
+    "geometry_provider": "esp_rebuilt",
+    "declared_family": "thin_sheet_lifting_surface",
+    "inferred_family": null,
+    "geometry_family": "thin_sheet_lifting_surface",
+    "provenance": "config.geometry_family",
+    "notes": [
+      "geometry family declared in config",
+      "component=main_wing",
+      "geometry_source=esp_rebuilt"
+    ]
+  },
+  "validation": {
+    "ok": true,
+    "exists_ok": true,
+    "suffix_ok": true,
+    "component_family_ok": true,
+    "provider_ready": true,
+    "geometry_source": "esp_rebuilt",
+    "geometry_provider": "esp_rebuilt",
+    "geometry_family": "thin_sheet_lifting_surface",
+    "failure_code": null,
+    "supported_suffixes": [
+      ".iges",
+      ".igs",
+      ".step",
+      ".stp"
+    ],
+    "supported_families": [
+      "thin_sheet_lifting_surface"
+    ],
+    "notes": [
+      "Replace stub validation with provider-aware topology checks.",
+      "component=main_wing",
+      "geometry_family=thin_sheet_lifting_surface"
+    ]
+  },
+  "dispatch": {
+    "meshing_route": "gmsh_thin_sheet_surface",
+    "backend": "gmsh",
+    "backend_capability": "sheet_lifting_surface_meshing",
+    "route_provenance": "config.meshing_route"
+  },
+  "recipe": {
+    "name": "gmsh_thin_sheet_surface:main_wing",
+    "component": "main_wing",
+    "geometry": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+    "geometry_source": "esp_rebuilt",
+    "geometry_provider": "esp_rebuilt",
+    "geometry_family": "thin_sheet_lifting_surface",
+    "meshing_route": "gmsh_thin_sheet_surface",
+    "backend": "gmsh",
+    "backend_capability": "sheet_lifting_surface_meshing",
+    "route_provenance": "config.meshing_route",
+    "family_features": [
+      "sheet_surface_meshing",
+      "lifting_surface_edge_refinement",
+      "farfield_envelope_generation",
+      "component_profile:lifting_surface"
+    ],
+    "farfield_enabled": true,
+    "boundary_layer_enabled": false,
+    "global_min_size": 0.35,
+    "global_max_size": 1.4
+  },
+  "mesh": {
+    "contract": "mesh_handoff.v1",
+    "route_stage": "baseline",
+    "backend": "gmsh",
+    "backend_capability": "sheet_lifting_surface_meshing",
+    "meshing_route": "gmsh_thin_sheet_surface",
+    "geometry_family": "thin_sheet_lifting_surface",
+    "geometry_source": "esp_rebuilt",
+    "geometry_provider": "esp_rebuilt",
+    "mesh_format": "msh",
+    "units": "m",
+    "mesh_dim": 3,
+    "mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+    "metadata_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+    "marker_summary_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+    "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+    "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+    "body_bounds": {
+      "x_min": -0.0012594121939531132,
+      "x_max": 1.3023293688346513,
+      "y_min": -16.500000097905104,
+      "y_max": 16.500000097905104,
+      "z_min": -0.0680368431071618,
+      "z_max": 0.8441453609632887
+    },
+    "farfield_bounds": {
+      "x_min": -2.608436974251162,
+      "x_max": 5.213095711920465,
+      "y_min": -82.50000048952552,
+      "y_max": 82.50000048952552,
+      "z_min": -1.892401251248063,
+      "z_max": 2.66850976910419
+    },
+    "node_count": 97299,
+    "element_count": 593217,
+    "surface_element_count": 7800,
+    "volume_element_count": 584460,
+    "marker_summary": {
+      "main_wing": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "main_wing",
+        "physical_tag": 2,
+        "entity_count": 32,
+        "entities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32
+        ],
+        "element_count": 2424,
+        "element_type_counts": {
+          "2": 2424
+        }
+      },
+      "farfield": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "farfield",
+        "physical_tag": 3,
+        "entity_count": 6,
+        "entities": [
+          33,
+          34,
+          35,
+          36,
+          37,
+          38
+        ],
+        "element_count": 5376,
+        "element_type_counts": {
+          "2": 5376
+        }
+      }
+    },
+    "physical_groups": {
+      "fluid": {
+        "exists": true,
+        "dimension": 3,
+        "physical_name": "fluid",
+        "physical_tag": 1,
+        "entity_count": 1,
+        "entities": [
+          2
+        ],
+        "element_count": 0,
+        "element_type_counts": {}
+      },
+      "main_wing": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "main_wing",
+        "physical_tag": 2,
+        "entity_count": 32,
+        "entities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32
+        ],
+        "element_count": 2424,
+        "element_type_counts": {
+          "2": 2424
+        }
+      },
+      "farfield": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "farfield",
+        "physical_tag": 3,
+        "entity_count": 6,
+        "entities": [
+          33,
+          34,
+          35,
+          36,
+          37,
+          38
+        ],
+        "element_count": 5376,
+        "element_type_counts": {
+          "2": 5376
+        }
+      }
+    },
+    "provenance": {
+      "route_provenance": "config.meshing_route",
+      "loader": "provider:esp_rebuilt",
+      "provider": {
+        "provider": "esp_rebuilt",
+        "provider_stage": "experimental",
+        "provider_status": "materialized",
+        "topology": {
+          "representation": "brep_trimmed_step",
+          "source_kind": "stp",
+          "units": "m",
+          "bounds": {
+            "x_min": -0.001259312194113,
+            "x_max": 1.302329269,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -0.0680367431158,
+            "z_max": 0.835274708339
+          },
+          "import_bounds": {
+            "x_min": -1.2593122941130002,
+            "x_max": 1302.3292691,
+            "y_min": -16500.0000001,
+            "y_max": 16500.0000001,
+            "z_min": -68.0367432158,
+            "z_max": 835.2747084389999
+          },
+          "import_scale_to_units": 0.0009999999998730363,
+          "backend_rescale_required": true,
+          "body_count": 1,
+          "surface_count": 32,
+          "volume_count": 1,
+          "labels_present": true,
+          "label_schema": "preserve_component_labels",
+          "normalization": {
+            "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+            "applied": false,
+            "raw_counts": {
+              "body_count": 1,
+              "surface_count": 32,
+              "volume_count": 1
+            },
+            "raw_analysis": {
+              "touching_groups": [],
+              "singleton_body_tags": [
+                1
+              ],
+              "grouped_body_tags": [],
+              "duplicate_interface_face_pair_count": 0,
+              "duplicate_interface_face_pairs": [],
+              "internal_cap_face_count": 0,
+              "internal_cap_face_tags": [],
+              "body_records": [
+                {
+                  "body_tag": 1,
+                  "bbox": [
+                    -1.2593122941130002,
+                    -16500.0000001,
+                    -68.0367432158,
+                    1302.3292691,
+                    16500.0000001,
+                    835.2747084389999
+                  ],
+                  "center_of_mass": [
+                    578.5483077132791,
+                    5.725274466761298e-10,
+                    223.39512611241304
+                  ],
+                  "face_count": 32
+                }
+              ],
+              "notes": []
+            },
+            "actions": [
+              "raw_export_already_cfd_clean_enough"
+            ],
+            "final_analysis": {
+              "touching_groups": [],
+              "singleton_body_tags": [
+                1
+              ],
+              "grouped_body_tags": [],
+              "duplicate_interface_face_pair_count": 0,
+              "internal_cap_face_count": 0,
+              "notes": []
+            },
+            "normalized_counts": {
+              "body_count": 1,
+              "surface_count": 32,
+              "volume_count": 1
+            }
+          },
+          "notes": [
+            "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999873",
+            "component_subset_exported=main_wing",
+            "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=33",
+            "normalization_pass_not_needed",
+            "OpenCSM batch succeeded via serveCSM."
+          ]
+        },
+        "provenance": {
+          "runtime": {
+            "available": true,
+            "binaries": {
+              "serveESP": "/Users/linyuan/.local/bin/serveESP",
+              "serveCSM": "/Users/linyuan/.local/bin/serveCSM",
+              "ocsm": null
+            },
+            "missing": [
+              "ocsm"
+            ],
+            "batch_binary": "/Users/linyuan/.local/bin/serveCSM"
+          },
+          "pipeline_status": "success",
+          "component_selection": {
+            "requested_component": "main_wing",
+            "effective_component": "main_wing",
+            "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/blackcat_004_origin.vsp3",
+            "selection_mode": "openvsp_single_component_subset",
+            "selected_geom": {
+              "geom_id": "IPAWXFWPQF",
+              "name": "Main Wing",
+              "type_name": "Wing",
+              "is_symmetric_xz": true,
+              "x_location": 0.0,
+              "x_rotation_deg": 0.0,
+              "bbox_min": [
+                -2.156555057324391e-05,
+                0.0,
+                -0.06803674311582698
+              ],
+              "bbox_max": [
+                1.3023286428893068,
+                16.47465195857948,
+                0.8333975052217898
+              ],
+              "span_y": 16.47465195857948,
+              "span_z": 0.9014342483376168,
+              "chord_x": 1.3023502084398801
+            },
+            "selected_geom_ids": [
+              "IPAWXFWPQF"
+            ],
+            "removed_top_level_geom_ids": [
+              "ZXAGZMPIBY",
+              "BROUAZWXIU"
+            ],
+            "candidate_summary": [
+              {
+                "geom_id": "IPAWXFWPQF",
+                "name": "Main Wing",
+                "type_name": "Wing",
+                "is_symmetric_xz": true,
+                "x_location": 0.0,
+                "x_rotation_deg": 0.0,
+                "span_y": 16.47465195857948,
+                "span_z": 0.9014342483376168,
+                "bbox_min": [
+                  -2.156555057324391e-05,
+                  0.0,
+                  -0.06803674311582698
+                ],
+                "bbox_max": [
+                  1.3023286428893068,
+                  16.47465195857948,
+                  0.8333975052217898
+                ]
+              },
+              {
+                "geom_id": "ZXAGZMPIBY",
+                "name": "Elevator",
+                "type_name": "Wing",
+                "is_symmetric_xz": true,
+                "x_location": 4.0,
+                "x_rotation_deg": 0.0,
+                "span_y": 1.5000000000000002,
+                "span_z": 0.07204467854937947,
+                "bbox_min": [
+                  4.0,
+                  0.0,
+                  -0.03602233927468974
+                ],
+                "bbox_max": [
+                  4.8,
+                  1.5000000000000002,
+                  0.03602233927468974
+                ]
+              },
+              {
+                "geom_id": "BROUAZWXIU",
+                "name": "Fin",
+                "type_name": "Wing",
+                "is_symmetric_xz": false,
+                "x_location": 5.0,
+                "x_rotation_deg": 90.0,
+                "span_y": 0.06303909373070718,
+                "span_z": 2.4,
+                "bbox_min": [
+                  5.0,
+                  -0.031519546865353514,
+                  -0.7
+                ],
+                "bbox_max": [
+                  5.7,
+                  0.031519546865353666,
+                  1.7
+                ]
+              }
+            ],
+            "subset_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+            "wing_component_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/wing_component_report.json"
+          },
+          "normalization": {
+            "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+            "applied": false,
+            "raw_counts": {
+              "body_count": 1,
+              "surface_count": 32,
+              "volume_count": 1
+            },
+            "raw_analysis": {
+              "touching_groups": [],
+              "singleton_body_tags": [
+                1
+              ],
+              "grouped_body_tags": [],
+              "duplicate_interface_face_pair_count": 0,
+              "duplicate_interface_face_pairs": [],
+              "internal_cap_face_count": 0,
+              "internal_cap_face_tags": [],
+              "body_records": [
+                {
+                  "body_tag": 1,
+                  "bbox": [
+                    -1.2593122941130002,
+                    -16500.0000001,
+                    -68.0367432158,
+                    1302.3292691,
+                    16500.0000001,
+                    835.2747084389999
+                  ],
+                  "center_of_mass": [
+                    578.5483077132791,
+                    5.725274466761298e-10,
+                    223.39512611241304
+                  ],
+                  "face_count": 32
+                }
+              ],
+              "notes": []
+            },
+            "actions": [
+              "raw_export_already_cfd_clean_enough"
+            ],
+            "final_analysis": {
+              "touching_groups": [],
+              "singleton_body_tags": [
+                1
+              ],
+              "grouped_body_tags": [],
+              "duplicate_interface_face_pair_count": 0,
+              "internal_cap_face_count": 0,
+              "notes": []
+            },
+            "normalized_counts": {
+              "body_count": 1,
+              "surface_count": 32,
+              "volume_count": 1
+            }
+          }
+        }
+      },
+      "body": {
+        "imported_volume_count": 1,
+        "imported_surface_count": 32,
+        "healing": {
+          "attempted": true,
+          "input_volume_count": 1,
+          "input_surface_count": 32,
+          "tolerance": 1e-08,
+          "output_volume_count": 1,
+          "output_surface_count": 32
+        }
+      },
+      "farfield": {
+        "enabled": true,
+        "scale_factors": {
+          "upstream_factor": 2.0,
+          "downstream_factor": 3.0,
+          "lateral_factor": 2.0,
+          "vertical_factor": 2.0
+        }
+      },
+      "mesh_field": {
+        "characteristic_length_policy": "reference_length",
+        "reference_length": 1.05,
+        "surface_target_nodes_per_reference_length": 24,
+        "edge_refinement_ratio": 1.0,
+        "near_body_size": 0.35,
+        "edge_size": 0.35,
+        "farfield_size": 1.4,
+        "distance_min": 0.0,
+        "distance_max": 3.5,
+        "edge_distance_max": 3.5,
+        "mesh_size_min": 0.35,
+        "mesh_size_from_points": 0,
+        "mesh_size_from_curvature": 0,
+        "mesh_size_extend_from_boundary": 0,
+        "volume_optimization": {
+          "mesh_optimize": 1,
+          "mesh_optimize_netgen": 0,
+          "mesh_optimize_threshold": null,
+          "post_optimize_methods": [],
+          "post_optimize_force": false,
+          "post_optimize_niter": 1
+        },
+        "mesh_algorithm_2d": 6,
+        "mesh_algorithm_3d": 1,
+        "background_field_tag": 9,
+        "background_field_composition": "max_with_local_floors",
+        "local_size_floors": [
+          {
+            "name": "span_extreme_strip_floor",
+            "size": 0.35,
+            "surface_tags": [
+              1,
+              10,
+              21,
+              30,
+              31,
+              32
+            ],
+            "curve_tags": [
+              1,
+              2,
+              3,
+              4,
+              28,
+              29,
+              30,
+              31,
+              32,
+              33,
+              51,
+              52,
+              53,
+              54,
+              62,
+              63
+            ]
+          },
+          {
+            "name": "suspect_strip_floor",
+            "size": 0.35,
+            "surface_tags": [
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29
+            ],
+            "curve_tags": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              35,
+              37,
+              39,
+              41,
+              43,
+              45,
+              47,
+              49,
+              54,
+              55,
+              56,
+              57,
+              58,
+              59,
+              60,
+              61,
+              62
+            ]
+          },
+          {
+            "name": "farfield_surface_floor",
+            "size": 1.4,
+            "surface_tags": [
+              33,
+              34,
+              35,
+              36,
+              37,
+              38
+            ],
+            "curve_tags": []
+          }
+        ],
+        "per_surface_algorithms": [
+          {
+            "name": "suspect_strip_family",
+            "algorithm": 5,
+            "algorithm_name": "Delaunay",
+            "surface_tags": [
+              1,
+              10,
+              21,
+              30,
+              31,
+              32,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29
+            ]
+          },
+          {
+            "name": "aircraft_general_surfaces",
+            "algorithm": 5,
+            "algorithm_name": "Delaunay",
+            "surface_tags": [
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20
+            ]
+          },
+          {
+            "name": "farfield_boundary_surfaces",
+            "algorithm": 5,
+            "algorithm_name": "Delaunay",
+            "surface_tags": [
+              33,
+              34,
+              35,
+              36,
+              37,
+              38
+            ]
+          }
+        ],
+        "surface_policy": {
+          "enabled": true,
+          "name": "esp_rebuilt_native_rule_loft_c1_coarse_first_tetra",
+          "reason": null,
+          "notes": [
+            "native esp_rebuilt C1 policy enabled",
+            "farfield surfaces use a dedicated surface floor and 2D algorithm",
+            "suspect strip family gets protected local size floors before full-route meshing",
+            "coarse-first-tetra surface budget reduction engaged",
+            "span-extreme / suspect strip floors raised to defuse first 3D tetra attempt"
+          ],
+          "coarse_first_tetra_active": true
+        },
+        "coarse_first_tetra": {
+          "enabled": true,
+          "clamp_mesh_size_min_to_near_body": true,
+          "surface_nodes_per_reference_length": 24.0,
+          "edge_refinement_ratio": 1.0,
+          "span_extreme_strip_floor_size": 0.12,
+          "suspect_strip_floor_size": 0.08,
+          "suspect_surface_algorithm": 5,
+          "general_surface_algorithm": 5,
+          "farfield_surface_algorithm": 5
+        }
+      }
+    },
+    "unit_normalization": {
+      "units": "m",
+      "backend_rescale_applied": true,
+      "import_scale_to_units": 0.0009999999998730363,
+      "imported_body_bounds": {
+        "x_min": -1.2593122941130002,
+        "x_max": 1302.3292691,
+        "y_min": -16500.0000001,
+        "y_max": 16500.0000001,
+        "z_min": -68.0367432158,
+        "z_max": 835.2747084389999
+      },
+      "provider_topology_bounds": {
+        "x_min": -0.001259312194113,
+        "x_max": 1.302329269,
+        "y_min": -16.5,
+        "y_max": 16.5,
+        "z_min": -0.0680367431158,
+        "z_max": 0.835274708339
+      }
+    }
+  },
+  "run": {
+    "status": "success",
+    "attempts": 1,
+    "history": [
+      {
+        "attempt": 1,
+        "action": "initial"
+      }
+    ],
+    "backend_result": {
+      "status": "success",
+      "backend": "gmsh",
+      "backend_capability": "sheet_lifting_surface_meshing",
+      "meshing_route": "gmsh_thin_sheet_surface",
+      "geometry_family": "thin_sheet_lifting_surface",
+      "geometry_source": "esp_rebuilt",
+      "route_stage": "baseline",
+      "mesh_format": "msh",
+      "units": "m",
+      "contract": "mesh_handoff.v1",
+      "geometry_provider": "esp_rebuilt",
+      "body_bounds": {
+        "x_min": -0.0012594121939531132,
+        "x_max": 1.3023293688346513,
+        "y_min": -16.500000097905104,
+        "y_max": 16.500000097905104,
+        "z_min": -0.0680368431071618,
+        "z_max": 0.8441453609632887
+      },
+      "farfield_bounds": {
+        "x_min": -2.608436974251162,
+        "x_max": 5.213095711920465,
+        "y_min": -82.50000048952552,
+        "y_max": 82.50000048952552,
+        "z_min": -1.892401251248063,
+        "z_max": 2.66850976910419
+      },
+      "unit_normalization": {
+        "units": "m",
+        "backend_rescale_applied": true,
+        "import_scale_to_units": 0.0009999999998730363,
+        "imported_body_bounds": {
+          "x_min": -1.2593122941130002,
+          "x_max": 1302.3292691,
+          "y_min": -16500.0000001,
+          "y_max": 16500.0000001,
+          "z_min": -68.0367432158,
+          "z_max": 835.2747084389999
+        },
+        "provider_topology_bounds": {
+          "x_min": -0.001259312194113,
+          "x_max": 1.302329269,
+          "y_min": -16.5,
+          "y_max": 16.5,
+          "z_min": -0.0680367431158,
+          "z_max": 0.835274708339
+        }
+      },
+      "artifacts": {
+        "mesh": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+        "mesh_metadata": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+        "marker_summary": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+        "surface_mesh_2d": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh",
+        "surface_patch_diagnostics": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_patch_diagnostics.json",
+        "brep_hotspot_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/brep_hotspot_report.json",
+        "hotspot_patch_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/hotspot_patch_report.json",
+        "sliver_cluster_report": null,
+        "compound_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/compound_report.json",
+        "gmsh_log": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/gmsh_log.txt",
+        "mesh2d_watchdog": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh2d_watchdog.json",
+        "mesh2d_watchdog_sample": null,
+        "mesh3d_watchdog": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh3d_watchdog.json",
+        "mesh3d_watchdog_sample": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh3d_watchdog_sample.txt",
+        "plc_probe": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/plc_probe.json",
+        "surface_cleanup_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_cleanup_report.json",
+        "discrete_reparam_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/discrete_reparam_report.json",
+        "retry_mesh_metadata": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/retry_mesh_metadata.json",
+        "classify_angle_probe": null
+      },
+      "marker_summary": {
+        "main_wing": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "main_wing",
+          "physical_tag": 2,
+          "entity_count": 32,
+          "entities": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "element_count": 2424,
+          "element_type_counts": {
+            "2": 2424
+          }
+        },
+        "farfield": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "farfield",
+          "physical_tag": 3,
+          "entity_count": 6,
+          "entities": [
+            33,
+            34,
+            35,
+            36,
+            37,
+            38
+          ],
+          "element_count": 5376,
+          "element_type_counts": {
+            "2": 5376
+          }
+        }
+      },
+      "physical_groups": {
+        "fluid": {
+          "exists": true,
+          "dimension": 3,
+          "physical_name": "fluid",
+          "physical_tag": 1,
+          "entity_count": 1,
+          "entities": [
+            2
+          ],
+          "element_count": 0,
+          "element_type_counts": {}
+        },
+        "main_wing": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "main_wing",
+          "physical_tag": 2,
+          "entity_count": 32,
+          "entities": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "element_count": 2424,
+          "element_type_counts": {
+            "2": 2424
+          }
+        },
+        "farfield": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "farfield",
+          "physical_tag": 3,
+          "entity_count": 6,
+          "entities": [
+            33,
+            34,
+            35,
+            36,
+            37,
+            38
+          ],
+          "element_count": 5376,
+          "element_type_counts": {
+            "2": 5376
+          }
+        }
+      },
+      "mesh_stats": {
+        "mesh_dim": 3,
+        "node_count": 97299,
+        "element_count": 593217,
+        "surface_element_count": 7800,
+        "volume_element_count": 584460,
+        "element_type_counts": {
+          "1": 916,
+          "2": 7800,
+          "4": 584460,
+          "15": 41
+        },
+        "surface_element_type_counts": {
+          "2": 7800
+        },
+        "volume_element_type_counts": {
+          "4": 584460
+        }
+      },
+      "mesh_handoff": {
+        "contract": "mesh_handoff.v1",
+        "route_stage": "baseline",
+        "backend": "gmsh",
+        "backend_capability": "sheet_lifting_surface_meshing",
+        "meshing_route": "gmsh_thin_sheet_surface",
+        "geometry_family": "thin_sheet_lifting_surface",
+        "geometry_source": "esp_rebuilt",
+        "geometry_provider": "esp_rebuilt",
+        "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+        "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+        "units": "m",
+        "mesh_format": "msh",
+        "body_bounds": {
+          "x_min": -0.0012594121939531132,
+          "x_max": 1.3023293688346513,
+          "y_min": -16.500000097905104,
+          "y_max": 16.500000097905104,
+          "z_min": -0.0680368431071618,
+          "z_max": 0.8441453609632887
+        },
+        "farfield_bounds": {
+          "x_min": -2.608436974251162,
+          "x_max": 5.213095711920465,
+          "y_min": -82.50000048952552,
+          "y_max": 82.50000048952552,
+          "z_min": -1.892401251248063,
+          "z_max": 2.66850976910419
+        },
+        "mesh_stats": {
+          "mesh_dim": 3,
+          "node_count": 97299,
+          "element_count": 593217,
+          "surface_element_count": 7800,
+          "volume_element_count": 584460,
+          "element_type_counts": {
+            "1": 916,
+            "2": 7800,
+            "4": 584460,
+            "15": 41
+          },
+          "surface_element_type_counts": {
+            "2": 7800
+          },
+          "volume_element_type_counts": {
+            "4": 584460
+          }
+        },
+        "marker_summary": {
+          "main_wing": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "main_wing",
+            "physical_tag": 2,
+            "entity_count": 32,
+            "entities": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32
+            ],
+            "element_count": 2424,
+            "element_type_counts": {
+              "2": 2424
+            }
+          },
+          "farfield": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "farfield",
+            "physical_tag": 3,
+            "entity_count": 6,
+            "entities": [
+              33,
+              34,
+              35,
+              36,
+              37,
+              38
+            ],
+            "element_count": 5376,
+            "element_type_counts": {
+              "2": 5376
+            }
+          }
+        },
+        "physical_groups": {
+          "fluid": {
+            "exists": true,
+            "dimension": 3,
+            "physical_name": "fluid",
+            "physical_tag": 1,
+            "entity_count": 1,
+            "entities": [
+              2
+            ],
+            "element_count": 0,
+            "element_type_counts": {}
+          },
+          "main_wing": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "main_wing",
+            "physical_tag": 2,
+            "entity_count": 32,
+            "entities": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32
+            ],
+            "element_count": 2424,
+            "element_type_counts": {
+              "2": 2424
+            }
+          },
+          "farfield": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "farfield",
+            "physical_tag": 3,
+            "entity_count": 6,
+            "entities": [
+              33,
+              34,
+              35,
+              36,
+              37,
+              38
+            ],
+            "element_count": 5376,
+            "element_type_counts": {
+              "2": 5376
+            }
+          }
+        },
+        "artifacts": {
+          "mesh": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+          "mesh_metadata": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+          "marker_summary": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+          "surface_mesh_2d": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh",
+          "surface_patch_diagnostics": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_patch_diagnostics.json",
+          "brep_hotspot_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/brep_hotspot_report.json",
+          "hotspot_patch_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/hotspot_patch_report.json",
+          "sliver_cluster_report": null,
+          "sliver_volume_pocket_summary": null,
+          "rule_loft_pairing_repair_spec": null,
+          "compound_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/compound_report.json",
+          "gmsh_log": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/gmsh_log.txt",
+          "mesh2d_watchdog": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh2d_watchdog.json",
+          "mesh2d_watchdog_sample": null,
+          "mesh3d_watchdog": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh3d_watchdog.json",
+          "mesh3d_watchdog_sample": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh3d_watchdog_sample.txt",
+          "plc_probe": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/plc_probe.json",
+          "surface_cleanup_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_cleanup_report.json",
+          "discrete_reparam_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/discrete_reparam_report.json",
+          "retry_mesh_metadata": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/retry_mesh_metadata.json",
+          "classify_angle_probe": null
+        },
+        "provenance": {
+          "route_provenance": "config.meshing_route",
+          "loader": "provider:esp_rebuilt",
+          "provider": {
+            "provider": "esp_rebuilt",
+            "provider_stage": "experimental",
+            "provider_status": "materialized",
+            "topology": {
+              "representation": "brep_trimmed_step",
+              "source_kind": "stp",
+              "units": "m",
+              "bounds": {
+                "x_min": -0.001259312194113,
+                "x_max": 1.302329269,
+                "y_min": -16.5,
+                "y_max": 16.5,
+                "z_min": -0.0680367431158,
+                "z_max": 0.835274708339
+              },
+              "import_bounds": {
+                "x_min": -1.2593122941130002,
+                "x_max": 1302.3292691,
+                "y_min": -16500.0000001,
+                "y_max": 16500.0000001,
+                "z_min": -68.0367432158,
+                "z_max": 835.2747084389999
+              },
+              "import_scale_to_units": 0.0009999999998730363,
+              "backend_rescale_required": true,
+              "body_count": 1,
+              "surface_count": 32,
+              "volume_count": 1,
+              "labels_present": true,
+              "label_schema": "preserve_component_labels",
+              "normalization": {
+                "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+                "applied": false,
+                "raw_counts": {
+                  "body_count": 1,
+                  "surface_count": 32,
+                  "volume_count": 1
+                },
+                "raw_analysis": {
+                  "touching_groups": [],
+                  "singleton_body_tags": [
+                    1
+                  ],
+                  "grouped_body_tags": [],
+                  "duplicate_interface_face_pair_count": 0,
+                  "duplicate_interface_face_pairs": [],
+                  "internal_cap_face_count": 0,
+                  "internal_cap_face_tags": [],
+                  "body_records": [
+                    {
+                      "body_tag": 1,
+                      "bbox": [
+                        -1.2593122941130002,
+                        -16500.0000001,
+                        -68.0367432158,
+                        1302.3292691,
+                        16500.0000001,
+                        835.2747084389999
+                      ],
+                      "center_of_mass": [
+                        578.5483077132791,
+                        5.725274466761298e-10,
+                        223.39512611241304
+                      ],
+                      "face_count": 32
+                    }
+                  ],
+                  "notes": []
+                },
+                "actions": [
+                  "raw_export_already_cfd_clean_enough"
+                ],
+                "final_analysis": {
+                  "touching_groups": [],
+                  "singleton_body_tags": [
+                    1
+                  ],
+                  "grouped_body_tags": [],
+                  "duplicate_interface_face_pair_count": 0,
+                  "internal_cap_face_count": 0,
+                  "notes": []
+                },
+                "normalized_counts": {
+                  "body_count": 1,
+                  "surface_count": 32,
+                  "volume_count": 1
+                }
+              },
+              "notes": [
+                "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999873",
+                "component_subset_exported=main_wing",
+                "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=33",
+                "normalization_pass_not_needed",
+                "OpenCSM batch succeeded via serveCSM."
+              ]
+            },
+            "provenance": {
+              "runtime": {
+                "available": true,
+                "binaries": {
+                  "serveESP": "/Users/linyuan/.local/bin/serveESP",
+                  "serveCSM": "/Users/linyuan/.local/bin/serveCSM",
+                  "ocsm": null
+                },
+                "missing": [
+                  "ocsm"
+                ],
+                "batch_binary": "/Users/linyuan/.local/bin/serveCSM"
+              },
+              "pipeline_status": "success",
+              "component_selection": {
+                "requested_component": "main_wing",
+                "effective_component": "main_wing",
+                "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/blackcat_004_origin.vsp3",
+                "selection_mode": "openvsp_single_component_subset",
+                "selected_geom": {
+                  "geom_id": "IPAWXFWPQF",
+                  "name": "Main Wing",
+                  "type_name": "Wing",
+                  "is_symmetric_xz": true,
+                  "x_location": 0.0,
+                  "x_rotation_deg": 0.0,
+                  "bbox_min": [
+                    -2.156555057324391e-05,
+                    0.0,
+                    -0.06803674311582698
+                  ],
+                  "bbox_max": [
+                    1.3023286428893068,
+                    16.47465195857948,
+                    0.8333975052217898
+                  ],
+                  "span_y": 16.47465195857948,
+                  "span_z": 0.9014342483376168,
+                  "chord_x": 1.3023502084398801
+                },
+                "selected_geom_ids": [
+                  "IPAWXFWPQF"
+                ],
+                "removed_top_level_geom_ids": [
+                  "ZXAGZMPIBY",
+                  "BROUAZWXIU"
+                ],
+                "candidate_summary": [
+                  {
+                    "geom_id": "IPAWXFWPQF",
+                    "name": "Main Wing",
+                    "type_name": "Wing",
+                    "is_symmetric_xz": true,
+                    "x_location": 0.0,
+                    "x_rotation_deg": 0.0,
+                    "span_y": 16.47465195857948,
+                    "span_z": 0.9014342483376168,
+                    "bbox_min": [
+                      -2.156555057324391e-05,
+                      0.0,
+                      -0.06803674311582698
+                    ],
+                    "bbox_max": [
+                      1.3023286428893068,
+                      16.47465195857948,
+                      0.8333975052217898
+                    ]
+                  },
+                  {
+                    "geom_id": "ZXAGZMPIBY",
+                    "name": "Elevator",
+                    "type_name": "Wing",
+                    "is_symmetric_xz": true,
+                    "x_location": 4.0,
+                    "x_rotation_deg": 0.0,
+                    "span_y": 1.5000000000000002,
+                    "span_z": 0.07204467854937947,
+                    "bbox_min": [
+                      4.0,
+                      0.0,
+                      -0.03602233927468974
+                    ],
+                    "bbox_max": [
+                      4.8,
+                      1.5000000000000002,
+                      0.03602233927468974
+                    ]
+                  },
+                  {
+                    "geom_id": "BROUAZWXIU",
+                    "name": "Fin",
+                    "type_name": "Wing",
+                    "is_symmetric_xz": false,
+                    "x_location": 5.0,
+                    "x_rotation_deg": 90.0,
+                    "span_y": 0.06303909373070718,
+                    "span_z": 2.4,
+                    "bbox_min": [
+                      5.0,
+                      -0.031519546865353514,
+                      -0.7
+                    ],
+                    "bbox_max": [
+                      5.7,
+                      0.031519546865353666,
+                      1.7
+                    ]
+                  }
+                ],
+                "subset_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+                "wing_component_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/wing_component_report.json"
+              },
+              "normalization": {
+                "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+                "applied": false,
+                "raw_counts": {
+                  "body_count": 1,
+                  "surface_count": 32,
+                  "volume_count": 1
+                },
+                "raw_analysis": {
+                  "touching_groups": [],
+                  "singleton_body_tags": [
+                    1
+                  ],
+                  "grouped_body_tags": [],
+                  "duplicate_interface_face_pair_count": 0,
+                  "duplicate_interface_face_pairs": [],
+                  "internal_cap_face_count": 0,
+                  "internal_cap_face_tags": [],
+                  "body_records": [
+                    {
+                      "body_tag": 1,
+                      "bbox": [
+                        -1.2593122941130002,
+                        -16500.0000001,
+                        -68.0367432158,
+                        1302.3292691,
+                        16500.0000001,
+                        835.2747084389999
+                      ],
+                      "center_of_mass": [
+                        578.5483077132791,
+                        5.725274466761298e-10,
+                        223.39512611241304
+                      ],
+                      "face_count": 32
+                    }
+                  ],
+                  "notes": []
+                },
+                "actions": [
+                  "raw_export_already_cfd_clean_enough"
+                ],
+                "final_analysis": {
+                  "touching_groups": [],
+                  "singleton_body_tags": [
+                    1
+                  ],
+                  "grouped_body_tags": [],
+                  "duplicate_interface_face_pair_count": 0,
+                  "internal_cap_face_count": 0,
+                  "notes": []
+                },
+                "normalized_counts": {
+                  "body_count": 1,
+                  "surface_count": 32,
+                  "volume_count": 1
+                }
+              }
+            }
+          },
+          "body": {
+            "imported_volume_count": 1,
+            "imported_surface_count": 32,
+            "healing": {
+              "attempted": true,
+              "input_volume_count": 1,
+              "input_surface_count": 32,
+              "tolerance": 1e-08,
+              "output_volume_count": 1,
+              "output_surface_count": 32
+            }
+          },
+          "farfield": {
+            "enabled": true,
+            "scale_factors": {
+              "upstream_factor": 2.0,
+              "downstream_factor": 3.0,
+              "lateral_factor": 2.0,
+              "vertical_factor": 2.0
+            }
+          },
+          "mesh_field": {
+            "characteristic_length_policy": "reference_length",
+            "reference_length": 1.05,
+            "surface_target_nodes_per_reference_length": 24,
+            "edge_refinement_ratio": 1.0,
+            "near_body_size": 0.35,
+            "edge_size": 0.35,
+            "farfield_size": 1.4,
+            "distance_min": 0.0,
+            "distance_max": 3.5,
+            "edge_distance_max": 3.5,
+            "mesh_size_min": 0.35,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+            "mesh_size_extend_from_boundary": 0,
+            "volume_optimization": {
+              "mesh_optimize": 1,
+              "mesh_optimize_netgen": 0,
+              "mesh_optimize_threshold": null,
+              "post_optimize_methods": [],
+              "post_optimize_force": false,
+              "post_optimize_niter": 1
+            },
+            "mesh_algorithm_2d": 6,
+            "mesh_algorithm_3d": 1,
+            "background_field_tag": 9,
+            "background_field_composition": "max_with_local_floors",
+            "local_size_floors": [
+              {
+                "name": "span_extreme_strip_floor",
+                "size": 0.35,
+                "surface_tags": [
+                  1,
+                  10,
+                  21,
+                  30,
+                  31,
+                  32
+                ],
+                "curve_tags": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  28,
+                  29,
+                  30,
+                  31,
+                  32,
+                  33,
+                  51,
+                  52,
+                  53,
+                  54,
+                  62,
+                  63
+                ]
+              },
+              {
+                "name": "suspect_strip_floor",
+                "size": 0.35,
+                "surface_tags": [
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  22,
+                  23,
+                  24,
+                  25,
+                  26,
+                  27,
+                  28,
+                  29
+                ],
+                "curve_tags": [
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17,
+                  18,
+                  19,
+                  20,
+                  21,
+                  22,
+                  23,
+                  24,
+                  25,
+                  26,
+                  27,
+                  28,
+                  35,
+                  37,
+                  39,
+                  41,
+                  43,
+                  45,
+                  47,
+                  49,
+                  54,
+                  55,
+                  56,
+                  57,
+                  58,
+                  59,
+                  60,
+                  61,
+                  62
+                ]
+              },
+              {
+                "name": "farfield_surface_floor",
+                "size": 1.4,
+                "surface_tags": [
+                  33,
+                  34,
+                  35,
+                  36,
+                  37,
+                  38
+                ],
+                "curve_tags": []
+              }
+            ],
+            "per_surface_algorithms": [
+              {
+                "name": "suspect_strip_family",
+                "algorithm": 5,
+                "algorithm_name": "Delaunay",
+                "surface_tags": [
+                  1,
+                  10,
+                  21,
+                  30,
+                  31,
+                  32,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  22,
+                  23,
+                  24,
+                  25,
+                  26,
+                  27,
+                  28,
+                  29
+                ]
+              },
+              {
+                "name": "aircraft_general_surfaces",
+                "algorithm": 5,
+                "algorithm_name": "Delaunay",
+                "surface_tags": [
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17,
+                  18,
+                  19,
+                  20
+                ]
+              },
+              {
+                "name": "farfield_boundary_surfaces",
+                "algorithm": 5,
+                "algorithm_name": "Delaunay",
+                "surface_tags": [
+                  33,
+                  34,
+                  35,
+                  36,
+                  37,
+                  38
+                ]
+              }
+            ],
+            "surface_policy": {
+              "enabled": true,
+              "name": "esp_rebuilt_native_rule_loft_c1_coarse_first_tetra",
+              "reason": null,
+              "notes": [
+                "native esp_rebuilt C1 policy enabled",
+                "farfield surfaces use a dedicated surface floor and 2D algorithm",
+                "suspect strip family gets protected local size floors before full-route meshing",
+                "coarse-first-tetra surface budget reduction engaged",
+                "span-extreme / suspect strip floors raised to defuse first 3D tetra attempt"
+              ],
+              "coarse_first_tetra_active": true
+            },
+            "coarse_first_tetra": {
+              "enabled": true,
+              "clamp_mesh_size_min_to_near_body": true,
+              "surface_nodes_per_reference_length": 24.0,
+              "edge_refinement_ratio": 1.0,
+              "span_extreme_strip_floor_size": 0.12,
+              "suspect_strip_floor_size": 0.08,
+              "suspect_surface_algorithm": 5,
+              "general_surface_algorithm": 5,
+              "farfield_surface_algorithm": 5
+            }
+          }
+        },
+        "unit_normalization": {
+          "units": "m",
+          "backend_rescale_applied": true,
+          "import_scale_to_units": 0.0009999999998730363,
+          "imported_body_bounds": {
+            "x_min": -1.2593122941130002,
+            "x_max": 1302.3292691,
+            "y_min": -16500.0000001,
+            "y_max": 16500.0000001,
+            "z_min": -68.0367432158,
+            "z_max": 835.2747084389999
+          },
+          "provider_topology_bounds": {
+            "x_min": -0.001259312194113,
+            "x_max": 1.302329269,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -0.0680367431158,
+            "z_max": 0.835274708339
+          }
+        }
+      },
+      "provenance": {
+        "route_provenance": "config.meshing_route",
+        "loader": "provider:esp_rebuilt",
+        "provider": {
+          "provider": "esp_rebuilt",
+          "provider_stage": "experimental",
+          "provider_status": "materialized",
+          "topology": {
+            "representation": "brep_trimmed_step",
+            "source_kind": "stp",
+            "units": "m",
+            "bounds": {
+              "x_min": -0.001259312194113,
+              "x_max": 1.302329269,
+              "y_min": -16.5,
+              "y_max": 16.5,
+              "z_min": -0.0680367431158,
+              "z_max": 0.835274708339
+            },
+            "import_bounds": {
+              "x_min": -1.2593122941130002,
+              "x_max": 1302.3292691,
+              "y_min": -16500.0000001,
+              "y_max": 16500.0000001,
+              "z_min": -68.0367432158,
+              "z_max": 835.2747084389999
+            },
+            "import_scale_to_units": 0.0009999999998730363,
+            "backend_rescale_required": true,
+            "body_count": 1,
+            "surface_count": 32,
+            "volume_count": 1,
+            "labels_present": true,
+            "label_schema": "preserve_component_labels",
+            "normalization": {
+              "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+              "applied": false,
+              "raw_counts": {
+                "body_count": 1,
+                "surface_count": 32,
+                "volume_count": 1
+              },
+              "raw_analysis": {
+                "touching_groups": [],
+                "singleton_body_tags": [
+                  1
+                ],
+                "grouped_body_tags": [],
+                "duplicate_interface_face_pair_count": 0,
+                "duplicate_interface_face_pairs": [],
+                "internal_cap_face_count": 0,
+                "internal_cap_face_tags": [],
+                "body_records": [
+                  {
+                    "body_tag": 1,
+                    "bbox": [
+                      -1.2593122941130002,
+                      -16500.0000001,
+                      -68.0367432158,
+                      1302.3292691,
+                      16500.0000001,
+                      835.2747084389999
+                    ],
+                    "center_of_mass": [
+                      578.5483077132791,
+                      5.725274466761298e-10,
+                      223.39512611241304
+                    ],
+                    "face_count": 32
+                  }
+                ],
+                "notes": []
+              },
+              "actions": [
+                "raw_export_already_cfd_clean_enough"
+              ],
+              "final_analysis": {
+                "touching_groups": [],
+                "singleton_body_tags": [
+                  1
+                ],
+                "grouped_body_tags": [],
+                "duplicate_interface_face_pair_count": 0,
+                "internal_cap_face_count": 0,
+                "notes": []
+              },
+              "normalized_counts": {
+                "body_count": 1,
+                "surface_count": 32,
+                "volume_count": 1
+              }
+            },
+            "notes": [
+              "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999873",
+              "component_subset_exported=main_wing",
+              "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=33",
+              "normalization_pass_not_needed",
+              "OpenCSM batch succeeded via serveCSM."
+            ]
+          },
+          "provenance": {
+            "runtime": {
+              "available": true,
+              "binaries": {
+                "serveESP": "/Users/linyuan/.local/bin/serveESP",
+                "serveCSM": "/Users/linyuan/.local/bin/serveCSM",
+                "ocsm": null
+              },
+              "missing": [
+                "ocsm"
+              ],
+              "batch_binary": "/Users/linyuan/.local/bin/serveCSM"
+            },
+            "pipeline_status": "success",
+            "component_selection": {
+              "requested_component": "main_wing",
+              "effective_component": "main_wing",
+              "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/blackcat_004_origin.vsp3",
+              "selection_mode": "openvsp_single_component_subset",
+              "selected_geom": {
+                "geom_id": "IPAWXFWPQF",
+                "name": "Main Wing",
+                "type_name": "Wing",
+                "is_symmetric_xz": true,
+                "x_location": 0.0,
+                "x_rotation_deg": 0.0,
+                "bbox_min": [
+                  -2.156555057324391e-05,
+                  0.0,
+                  -0.06803674311582698
+                ],
+                "bbox_max": [
+                  1.3023286428893068,
+                  16.47465195857948,
+                  0.8333975052217898
+                ],
+                "span_y": 16.47465195857948,
+                "span_z": 0.9014342483376168,
+                "chord_x": 1.3023502084398801
+              },
+              "selected_geom_ids": [
+                "IPAWXFWPQF"
+              ],
+              "removed_top_level_geom_ids": [
+                "ZXAGZMPIBY",
+                "BROUAZWXIU"
+              ],
+              "candidate_summary": [
+                {
+                  "geom_id": "IPAWXFWPQF",
+                  "name": "Main Wing",
+                  "type_name": "Wing",
+                  "is_symmetric_xz": true,
+                  "x_location": 0.0,
+                  "x_rotation_deg": 0.0,
+                  "span_y": 16.47465195857948,
+                  "span_z": 0.9014342483376168,
+                  "bbox_min": [
+                    -2.156555057324391e-05,
+                    0.0,
+                    -0.06803674311582698
+                  ],
+                  "bbox_max": [
+                    1.3023286428893068,
+                    16.47465195857948,
+                    0.8333975052217898
+                  ]
+                },
+                {
+                  "geom_id": "ZXAGZMPIBY",
+                  "name": "Elevator",
+                  "type_name": "Wing",
+                  "is_symmetric_xz": true,
+                  "x_location": 4.0,
+                  "x_rotation_deg": 0.0,
+                  "span_y": 1.5000000000000002,
+                  "span_z": 0.07204467854937947,
+                  "bbox_min": [
+                    4.0,
+                    0.0,
+                    -0.03602233927468974
+                  ],
+                  "bbox_max": [
+                    4.8,
+                    1.5000000000000002,
+                    0.03602233927468974
+                  ]
+                },
+                {
+                  "geom_id": "BROUAZWXIU",
+                  "name": "Fin",
+                  "type_name": "Wing",
+                  "is_symmetric_xz": false,
+                  "x_location": 5.0,
+                  "x_rotation_deg": 90.0,
+                  "span_y": 0.06303909373070718,
+                  "span_z": 2.4,
+                  "bbox_min": [
+                    5.0,
+                    -0.031519546865353514,
+                    -0.7
+                  ],
+                  "bbox_max": [
+                    5.7,
+                    0.031519546865353666,
+                    1.7
+                  ]
+                }
+              ],
+              "subset_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+              "wing_component_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/wing_component_report.json"
+            },
+            "normalization": {
+              "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+              "applied": false,
+              "raw_counts": {
+                "body_count": 1,
+                "surface_count": 32,
+                "volume_count": 1
+              },
+              "raw_analysis": {
+                "touching_groups": [],
+                "singleton_body_tags": [
+                  1
+                ],
+                "grouped_body_tags": [],
+                "duplicate_interface_face_pair_count": 0,
+                "duplicate_interface_face_pairs": [],
+                "internal_cap_face_count": 0,
+                "internal_cap_face_tags": [],
+                "body_records": [
+                  {
+                    "body_tag": 1,
+                    "bbox": [
+                      -1.2593122941130002,
+                      -16500.0000001,
+                      -68.0367432158,
+                      1302.3292691,
+                      16500.0000001,
+                      835.2747084389999
+                    ],
+                    "center_of_mass": [
+                      578.5483077132791,
+                      5.725274466761298e-10,
+                      223.39512611241304
+                    ],
+                    "face_count": 32
+                  }
+                ],
+                "notes": []
+              },
+              "actions": [
+                "raw_export_already_cfd_clean_enough"
+              ],
+              "final_analysis": {
+                "touching_groups": [],
+                "singleton_body_tags": [
+                  1
+                ],
+                "grouped_body_tags": [],
+                "duplicate_interface_face_pair_count": 0,
+                "internal_cap_face_count": 0,
+                "notes": []
+              },
+              "normalized_counts": {
+                "body_count": 1,
+                "surface_count": 32,
+                "volume_count": 1
+              }
+            }
+          }
+        },
+        "body": {
+          "imported_volume_count": 1,
+          "imported_surface_count": 32,
+          "healing": {
+            "attempted": true,
+            "input_volume_count": 1,
+            "input_surface_count": 32,
+            "tolerance": 1e-08,
+            "output_volume_count": 1,
+            "output_surface_count": 32
+          }
+        },
+        "farfield": {
+          "enabled": true,
+          "scale_factors": {
+            "upstream_factor": 2.0,
+            "downstream_factor": 3.0,
+            "lateral_factor": 2.0,
+            "vertical_factor": 2.0
+          }
+        },
+        "mesh_field": {
+          "characteristic_length_policy": "reference_length",
+          "reference_length": 1.05,
+          "surface_target_nodes_per_reference_length": 24,
+          "edge_refinement_ratio": 1.0,
+          "near_body_size": 0.35,
+          "edge_size": 0.35,
+          "farfield_size": 1.4,
+          "distance_min": 0.0,
+          "distance_max": 3.5,
+          "edge_distance_max": 3.5,
+          "mesh_size_min": 0.35,
+          "mesh_size_from_points": 0,
+          "mesh_size_from_curvature": 0,
+          "mesh_size_extend_from_boundary": 0,
+          "volume_optimization": {
+            "mesh_optimize": 1,
+            "mesh_optimize_netgen": 0,
+            "mesh_optimize_threshold": null,
+            "post_optimize_methods": [],
+            "post_optimize_force": false,
+            "post_optimize_niter": 1
+          },
+          "mesh_algorithm_2d": 6,
+          "mesh_algorithm_3d": 1,
+          "background_field_tag": 9,
+          "background_field_composition": "max_with_local_floors",
+          "local_size_floors": [
+            {
+              "name": "span_extreme_strip_floor",
+              "size": 0.35,
+              "surface_tags": [
+                1,
+                10,
+                21,
+                30,
+                31,
+                32
+              ],
+              "curve_tags": [
+                1,
+                2,
+                3,
+                4,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                51,
+                52,
+                53,
+                54,
+                62,
+                63
+              ]
+            },
+            {
+              "name": "suspect_strip_floor",
+              "size": 0.35,
+              "surface_tags": [
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29
+              ],
+              "curve_tags": [
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                35,
+                37,
+                39,
+                41,
+                43,
+                45,
+                47,
+                49,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62
+              ]
+            },
+            {
+              "name": "farfield_surface_floor",
+              "size": 1.4,
+              "surface_tags": [
+                33,
+                34,
+                35,
+                36,
+                37,
+                38
+              ],
+              "curve_tags": []
+            }
+          ],
+          "per_surface_algorithms": [
+            {
+              "name": "suspect_strip_family",
+              "algorithm": 5,
+              "algorithm_name": "Delaunay",
+              "surface_tags": [
+                1,
+                10,
+                21,
+                30,
+                31,
+                32,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29
+              ]
+            },
+            {
+              "name": "aircraft_general_surfaces",
+              "algorithm": 5,
+              "algorithm_name": "Delaunay",
+              "surface_tags": [
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20
+              ]
+            },
+            {
+              "name": "farfield_boundary_surfaces",
+              "algorithm": 5,
+              "algorithm_name": "Delaunay",
+              "surface_tags": [
+                33,
+                34,
+                35,
+                36,
+                37,
+                38
+              ]
+            }
+          ],
+          "surface_policy": {
+            "enabled": true,
+            "name": "esp_rebuilt_native_rule_loft_c1_coarse_first_tetra",
+            "reason": null,
+            "notes": [
+              "native esp_rebuilt C1 policy enabled",
+              "farfield surfaces use a dedicated surface floor and 2D algorithm",
+              "suspect strip family gets protected local size floors before full-route meshing",
+              "coarse-first-tetra surface budget reduction engaged",
+              "span-extreme / suspect strip floors raised to defuse first 3D tetra attempt"
+            ],
+            "coarse_first_tetra_active": true
+          },
+          "coarse_first_tetra": {
+            "enabled": true,
+            "clamp_mesh_size_min_to_near_body": true,
+            "surface_nodes_per_reference_length": 24.0,
+            "edge_refinement_ratio": 1.0,
+            "span_extreme_strip_floor_size": 0.12,
+            "suspect_strip_floor_size": 0.08,
+            "suspect_surface_algorithm": 5,
+            "general_surface_algorithm": 5,
+            "farfield_surface_algorithm": 5
+          }
+        }
+      },
+      "notes": [
+        "baseline OCC external-flow mesh generated from normalized STEP",
+        "loader=provider:esp_rebuilt",
+        "mesh_dim=3"
+      ]
+    },
+    "notes": [
+      "Replace with real backend retry loop.",
+      "max_attempts=4"
+    ]
+  },
+  "quality": {
+    "ok": true,
+    "checked_route": "gmsh_thin_sheet_surface",
+    "checked_backend_capability": "sheet_lifting_surface_meshing",
+    "notes": [
+      "max_elements=None",
+      "node_count=97299",
+      "element_count=593217",
+      "volume_element_count=584460",
+      "missing_markers=[]"
+    ]
+  },
+  "attempts": 1
+}

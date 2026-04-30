@@ -234,8 +234,18 @@ def build_main_wing_route_readiness_report(
             status="blocked",
             evidence_kind="absent",
             artifact_path=None,
-            observed={"reason": "real_mesh_handoff_required_first"},
-            blockers=["blocked_until_real_main_wing_mesh_handoff_v1_exists"],
+            observed={
+                "reason": (
+                    "real_su2_handoff_artifact_missing_after_mesh_handoff"
+                    if real_mesh_pass
+                    else "real_mesh_handoff_required_first"
+                ),
+            },
+            blockers=(
+                ["real_main_wing_su2_handoff_not_materialized"]
+                if real_mesh_pass
+                else ["blocked_until_real_main_wing_mesh_handoff_v1_exists"]
+            ),
         ),
         _stage(
             stage="solver_smoke",
@@ -264,17 +274,25 @@ def build_main_wing_route_readiness_report(
 
     blocking_reasons = []
     for stage in stages:
+        if stage.status == "materialized_synthetic_only":
+            continue
         for reason in stage.blockers:
             if reason not in blocking_reasons:
                 blocking_reasons.append(reason)
 
     next_actions = [
-        "repair_real_main_wing_mesh3d_volume_insertion_policy",
-        "materialize_real_main_wing_su2_handoff_only_after_real_mesh_handoff_v1",
+        (
+            "materialize_real_main_wing_su2_handoff_from_real_mesh_handoff_v1"
+            if real_mesh_pass
+            else "repair_real_main_wing_mesh3d_volume_insertion_policy"
+        ),
         "run_solver_smoke_then_convergence_gate_after_real_su2_handoff",
+        "preserve_synthetic_su2_as_wiring_evidence_only",
     ]
     if "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets" in blocking_reasons:
         next_actions[0] = "repair_real_main_wing_boundary_overlap_before_volume_meshing"
+    if "main_wing_real_geometry_boundary_parametrization_topology_failed" in blocking_reasons:
+        next_actions[0] = "repair_real_main_wing_boundary_topology_before_volume_meshing"
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

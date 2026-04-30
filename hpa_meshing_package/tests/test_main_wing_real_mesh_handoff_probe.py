@@ -247,6 +247,45 @@ def test_main_wing_real_mesh_handoff_probe_classifies_invalid_boundary_mesh(
     assert report.volume_element_count == 0
 
 
+def test_main_wing_real_mesh_handoff_probe_classifies_boundary_parametrization_failure(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "blackcat_004_origin.vsp3"
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.build_main_wing_esp_rebuilt_geometry_smoke_report",
+        lambda out_dir, source_path=None: _provider_report(tmp_path),
+    )
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe._run_bounded_mesh_job",
+        lambda **_: {
+            "status": "failed",
+            "timeout_seconds": 12.0,
+            "result": {
+                "status": "failed",
+                "failure_code": "gmsh_boundary_parametrization_topology",
+                "error": "Wrong topology of boundary mesh for parametrization",
+            },
+            "error": None,
+        },
+    )
+
+    report = build_main_wing_real_mesh_handoff_probe_report(
+        tmp_path / "probe",
+        source_path=source,
+    )
+
+    assert report.probe_status == "mesh_handoff_blocked"
+    assert report.mesh_failure_classification == "boundary_parametrization_topology_failed"
+    assert (
+        "main_wing_real_geometry_boundary_parametrization_topology_failed"
+        in report.blocking_reasons
+    )
+
+
 def test_main_wing_real_mesh_probe_child_payload_uses_coarse_first_volume_profile(
     monkeypatch,
     tmp_path: Path,

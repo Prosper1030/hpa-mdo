@@ -1,0 +1,67 @@
+{
+  "status": "failed",
+  "surface_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh",
+  "classify_angle_degrees": 40.0,
+  "mesh_algorithm_2d": 6,
+  "mesh_algorithm_3d": 1,
+  "pre_classify": {
+    "point_count": 41,
+    "curve_count": 75,
+    "surface_count": 38,
+    "volume_count": 1,
+    "physical_groups": [
+      {
+        "dim": 2,
+        "tag": 2,
+        "name": "main_wing"
+      },
+      {
+        "dim": 2,
+        "tag": 3,
+        "name": "farfield"
+      },
+      {
+        "dim": 3,
+        "tag": 1,
+        "name": "fluid"
+      }
+    ]
+  },
+  "post_classify": {
+    "point_count": 272,
+    "curve_count": 482,
+    "surface_count": 215,
+    "volume_count": 1,
+    "physical_groups": [
+      {
+        "dim": 3,
+        "tag": 1,
+        "name": "fluid"
+      }
+    ]
+  },
+  "error": "Wrong topology of boundary mesh for parametrization",
+  "logger_tail": [
+    "Info: Reading '/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh'...",
+    "Info: 155 entities",
+    "Info: 3903 nodes",
+    "Info: 7797 elements",
+    "Info: Done reading '/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh'",
+    "Info: Removing duplicate mesh nodes...",
+    "Info: Found 0 duplicate nodes ",
+    "Info: No duplicate nodes found",
+    "Info: Removing duplicate mesh elements...",
+    "Info: Done removing duplicate mesh elements",
+    "Info: Classifying surfaces (angle: 40)...",
+    "Info: Splitting triangulations to make them parametrizable:",
+    "Info: Model has 1 non manifold mesh edges and 2 boundary mesh edges",
+    "Info: Found 215 model surfaces",
+    "Info: Found 473 model curves",
+    "Info: Done classifying surfaces (Wall 0.0502333s, CPU 0.185345s)",
+    "Info: Creating geometry of discrete curves...",
+    "Info: Done creating geometry of discrete curves (Wall 9.42911e-05s, CPU 0.000362s)",
+    "Info: Creating geometry of discrete surfaces...",
+    "Progress: Creating geometry",
+    "Error: Wrong topology of boundary mesh for parametrization"
+  ]
+}

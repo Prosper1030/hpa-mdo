@@ -1,5 +1,28 @@
 {
   "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
-  "case_dir": "docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe",
-  "result_path": "docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/bounded_mesh_probe_result.json"
+  "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe",
+  "result_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/bounded_mesh_probe_result.json",
+  "metadata": {
+    "probe_profile": "coarse_first_volume_insertion_probe_not_production_default",
+    "reference_geometry": {
+      "ref_area": 34.65,
+      "ref_length": 1.05,
+      "ref_origin_moment": {
+        "x": 0.2625,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "area_method": "blackcat_main_wing_full_span_reference",
+      "length_method": "blackcat_main_wing_chord_reference",
+      "moment_method": "quarter_chord_reference",
+      "warnings": [
+        "coarse_real_geometry_probe_not_production_default"
+      ]
+    },
+    "mesh2d_watchdog_timeout_sec": 8.0,
+    "mesh3d_watchdog_timeout_sec": 8.0,
+    "coarse_first_tetra_enabled": true
+  },
+  "global_min_size": 0.35,
+  "global_max_size": 1.4
 }

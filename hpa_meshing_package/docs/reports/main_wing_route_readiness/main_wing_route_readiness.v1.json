@@ -2,7 +2,7 @@
   "schema_version": "main_wing_route_readiness.v1",
   "component": "main_wing",
   "target_route": "real_main_wing_vsp_or_esp_to_gmsh_to_su2",
-  "overall_status": "blocked_at_real_mesh_handoff",
+  "overall_status": "blocked_at_real_su2_handoff",
   "hpa_standard_velocity_mps": 6.5,
   "observed_velocity_mps": 6.5,
   "hpa_standard_flow_status": "hpa_standard_6p5_observed",
@@ -22,22 +22,18 @@
     },
     {
       "stage": "real_mesh_handoff",
-      "status": "blocked",
+      "status": "pass",
       "evidence_kind": "real",
       "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json",
       "observed": {
-        "probe_status": "mesh_handoff_timeout",
-        "mesh_handoff_status": "missing",
+        "probe_status": "mesh_handoff_pass",
+        "mesh_handoff_status": "written",
         "mesh2d_watchdog_status": "completed_without_timeout",
-        "mesh3d_timeout_phase_classification": "volume_insertion",
-        "mesh3d_nodes_created_per_boundary_node": 13.486605569263306
+        "mesh3d_timeout_phase_classification": "optimization",
+        "mesh_failure_classification": null,
+        "mesh3d_nodes_created_per_boundary_node": 23.914980793854035
       },
-      "blockers": [
-        "main_wing_real_geometry_mesh_handoff_timeout",
-        "main_wing_real_geometry_mesh3d_volume_insertion_timeout",
-        "main_wing_solver_not_run",
-        "convergence_gate_not_run"
-      ]
+      "blockers": []
     },
     {
       "stage": "synthetic_mesh_handoff",
@@ -81,10 +77,10 @@
       "evidence_kind": "absent",
       "artifact_path": null,
       "observed": {
-        "reason": "real_mesh_handoff_required_first"
+        "reason": "real_su2_handoff_artifact_missing_after_mesh_handoff"
       },
       "blockers": [
-        "blocked_until_real_main_wing_mesh_handoff_v1_exists"
+        "real_main_wing_su2_handoff_not_materialized"
       ]
     },
     {
@@ -113,20 +109,14 @@
     }
   ],
   "blocking_reasons": [
-    "main_wing_real_geometry_mesh_handoff_timeout",
-    "main_wing_real_geometry_mesh3d_volume_insertion_timeout",
+    "real_main_wing_su2_handoff_not_materialized",
     "main_wing_solver_not_run",
-    "convergence_gate_not_run",
-    "main_wing_su2_handoff_not_run",
-    "synthetic_fixture_not_real_aerodynamic_wing_geometry",
-    "su2_solver_not_run",
-    "real_main_wing_geometry_not_used",
-    "blocked_until_real_main_wing_mesh_handoff_v1_exists"
+    "convergence_gate_not_run"
   ],
   "next_actions": [
-    "repair_real_main_wing_mesh3d_volume_insertion_policy",
-    "materialize_real_main_wing_su2_handoff_only_after_real_mesh_handoff_v1",
-    "run_solver_smoke_then_convergence_gate_after_real_su2_handoff"
+    "materialize_real_main_wing_su2_handoff_from_real_mesh_handoff_v1",
+    "run_solver_smoke_then_convergence_gate_after_real_su2_handoff",
+    "preserve_synthetic_su2_as_wiring_evidence_only"
   ],
   "notes": [
     "Synthetic mesh/SU2 stages prove route wiring only; they are not real aircraft CFD evidence.",

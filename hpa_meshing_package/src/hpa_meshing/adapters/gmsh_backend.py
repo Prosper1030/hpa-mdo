@@ -4340,6 +4340,8 @@ def _backend_failure_code(error_text: str) -> str:
         return "gmsh_plc_error"
     if "invalid boundary mesh" in lowered:
         return "gmsh_invalid_boundary_mesh"
+    if "wrong topology of boundary mesh for parametrization" in lowered:
+        return "gmsh_boundary_parametrization_topology"
     if "hxt 3d mesh failed" in lowered:
         return "gmsh_hxt_3d_failed"
     if "did not generate any volume elements" in lowered:
@@ -4847,9 +4849,9 @@ def _probe_discrete_classify_angles(
                 "surfaces_after_classify": len(gmsh.model.getEntities(2)),
                 "curves_after_classify": len(gmsh.model.getEntities(1)),
             }
-            gmsh.model.mesh.createGeometry()
-            gmsh.model.mesh.createTopology(True, False)
             try:
+                gmsh.model.mesh.createGeometry()
+                gmsh.model.mesh.createTopology(True, False)
                 gmsh.model.mesh.generate(3)
                 node_tags, _, _ = gmsh.model.mesh.getNodes()
                 _, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
@@ -5633,6 +5635,8 @@ def _apply_occ_external_flow_route(
                     _json_write(marker_summary_path, marker_summary)
                     if compound_report is not None:
                         _json_write(compound_report_path, compound_report)
+                if surface_repair_result["status"] != "success":
+                    raise exc
                 return {
                     "status": "success",
                         "backend": recipe.backend,

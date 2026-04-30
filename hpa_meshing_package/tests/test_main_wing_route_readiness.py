@@ -105,6 +105,42 @@ def test_main_wing_route_readiness_summarizes_stage_truth(tmp_path: Path):
     assert "repair_real_main_wing_mesh3d_volume_insertion_policy" in report.next_actions
 
 
+def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "mesh3d_timeout_phase_classification": "optimization",
+            "mesh3d_nodes_created_per_boundary_node": 23.9,
+            "blocking_reasons": ["main_wing_solver_not_run", "convergence_gate_not_run"],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    assert report.overall_status == "blocked_at_real_su2_handoff"
+    assert stages["real_mesh_handoff"].status == "pass"
+    assert stages["real_su2_handoff"].observed["reason"] == (
+        "real_su2_handoff_artifact_missing_after_mesh_handoff"
+    )
+    assert "real_main_wing_su2_handoff_not_materialized" in report.blocking_reasons
+    assert "real_main_wing_geometry_not_used" not in report.blocking_reasons
+    assert report.next_actions[0] == (
+        "materialize_real_main_wing_su2_handoff_from_real_mesh_handoff_v1"
+    )
+
+
 def test_main_wing_route_readiness_prioritizes_invalid_boundary_mesh_action(
     tmp_path: Path,
 ):
@@ -134,6 +170,35 @@ def test_main_wing_route_readiness_prioritizes_invalid_boundary_mesh_action(
     )
     assert (
         "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets"
+        in report.blocking_reasons
+    )
+
+
+def test_main_wing_route_readiness_prioritizes_boundary_topology_action(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh["failure_code"] = "gmsh_boundary_parametrization_topology"
+    real_mesh["mesh_failure_classification"] = "boundary_parametrization_topology_failed"
+    real_mesh["blocking_reasons"] = [
+        "main_wing_real_geometry_mesh_handoff_blocked",
+        "main_wing_real_geometry_boundary_parametrization_topology_failed",
+    ]
+    _write_json(real_mesh_path, real_mesh)
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    assert report.next_actions[0] == (
+        "repair_real_main_wing_boundary_topology_before_volume_meshing"
+    )
+    assert (
+        "main_wing_real_geometry_boundary_parametrization_topology_failed"
         in report.blocking_reasons
     )
 

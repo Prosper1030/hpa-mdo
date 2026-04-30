@@ -1,0 +1,56 @@
+{
+  "status": "completed",
+  "surface_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh",
+  "mesh_algorithm_2d": 6,
+  "mesh_algorithm_3d": 1,
+  "pre_cleanup": {
+    "point_count": 41,
+    "curve_count": 75,
+    "surface_count": 38,
+    "volume_count": 1,
+    "physical_groups": [
+      {
+        "dim": 2,
+        "tag": 2,
+        "name": "main_wing"
+      },
+      {
+        "dim": 2,
+        "tag": 3,
+        "name": "farfield"
+      },
+      {
+        "dim": 3,
+        "tag": 1,
+        "name": "fluid"
+      }
+    ]
+  },
+  "node_count_before": 3903,
+  "node_count_after": 3903,
+  "duplicate_nodes_removed": 0,
+  "remove_duplicate_elements_called": true,
+  "post_cleanup": {
+    "point_count": 41,
+    "curve_count": 75,
+    "surface_count": 38,
+    "volume_count": 1,
+    "physical_groups": [
+      {
+        "dim": 2,
+        "tag": 2,
+        "name": "main_wing"
+      },
+      {
+        "dim": 2,
+        "tag": 3,
+        "name": "farfield"
+      },
+      {
+        "dim": 3,
+        "tag": 1,
+        "name": "fluid"
+      }
+    ]
+  }
+}

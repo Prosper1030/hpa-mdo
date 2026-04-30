@@ -9,6 +9,7 @@ import pytest
 import hpa_meshing.adapters.gmsh_backend as gmsh_backend_module
 from hpa_meshing.adapters.gmsh_backend import (
     _apply_compound_meshing_policy,
+    _backend_failure_code,
     _build_rule_loft_pairing_repair_spec,
     _collect_brep_hotspot_report,
     _collect_hotspot_patch_report,
@@ -238,6 +239,77 @@ class _FakeWatchdogGmsh:
     def __init__(self, *, sleep_seconds: float, logger_messages: list[str]) -> None:
         self.model = _FakeWatchdogModel(sleep_seconds)
         self.logger = _FakeWatchdogLogger(logger_messages)
+
+
+class _FakeDiscreteProbeLogger:
+    def __init__(self) -> None:
+        self.started = False
+        self.messages = [
+            "Info: Classifying surfaces (angle: 40)",
+            "Error: Wrong topology of boundary mesh for parametrization",
+        ]
+
+    def start(self) -> None:
+        self.started = True
+
+    def get(self):
+        return list(self.messages)
+
+    def stop(self) -> None:
+        self.started = False
+
+
+class _FakeDiscreteProbeMesh:
+    def removeDuplicateNodes(self) -> None:
+        pass
+
+    def removeDuplicateElements(self, *args) -> None:
+        pass
+
+    def classifySurfaces(self, *args) -> None:
+        pass
+
+    def createGeometry(self) -> None:
+        raise Exception("Wrong topology of boundary mesh for parametrization")
+
+    def createTopology(self, *args) -> None:
+        pass
+
+    def generate(self, dim: int) -> None:
+        raise AssertionError("generate should not run after createGeometry failure")
+
+    def getNodes(self):
+        return [], [], []
+
+    def getElements(self, dim: int = -1, tag: int = -1):
+        return [], [], []
+
+
+class _FakeDiscreteProbeModel:
+    def __init__(self) -> None:
+        self.mesh = _FakeDiscreteProbeMesh()
+
+    def getEntities(self, dim: int):
+        return [(int(dim), 1), (int(dim), 2)]
+
+
+class _FakeDiscreteProbeGmsh:
+    def __init__(self) -> None:
+        self.model = _FakeDiscreteProbeModel()
+        self.option = _FakeOptionApi()
+        self.logger = _FakeDiscreteProbeLogger()
+        self.opened_paths: list[str] = []
+        self.initialize_count = 0
+        self.finalize_count = 0
+
+    def initialize(self) -> None:
+        self.initialize_count += 1
+
+    def open(self, path: str) -> None:
+        self.opened_paths.append(str(path))
+
+    def finalize(self) -> None:
+        self.finalize_count += 1
 
 
 class _FakeSurfaceDiagOcc:
@@ -723,6 +795,13 @@ def test_should_attempt_surface_repair_fallback_matches_known_boundary_recovery_
     )
 
 
+def test_backend_failure_code_classifies_boundary_parametrization_topology():
+    assert (
+        _backend_failure_code("Wrong topology of boundary mesh for parametrization")
+        == "gmsh_boundary_parametrization_topology"
+    )
+
+
 def test_should_probe_discrete_classify_angles_skips_no_volume_failures():
     assert not _should_probe_discrete_classify_angles(
         {
@@ -748,6 +827,34 @@ def test_should_probe_discrete_classify_angles_skips_no_volume_failures():
         surface_mesh_exists=True,
         classify_probe_exists=False,
     )
+
+
+def test_probe_discrete_classify_angles_records_create_geometry_failure(
+    monkeypatch,
+    tmp_path: Path,
+):
+    fake_gmsh = _FakeDiscreteProbeGmsh()
+    monkeypatch.setattr(gmsh_backend_module, "load_gmsh", lambda: fake_gmsh)
+    surface_mesh = tmp_path / "surface_mesh_2d.msh"
+    surface_mesh.write_text("$MeshFormat\n4.1 0 8\n$EndMeshFormat\n", encoding="utf-8")
+    probe_path = tmp_path / "classify_angle_probe.json"
+
+    payload = _probe_discrete_classify_angles(
+        surface_mesh_path=surface_mesh,
+        probe_path=probe_path,
+        angle_degrees=[40.0],
+        mesh_algorithm_2d=6,
+        mesh_algorithm_3d=1,
+        thread_count=2,
+    )
+
+    assert fake_gmsh.finalize_count == 1
+    assert payload["status"] == "completed"
+    assert payload["results"][0]["status"] == "failed"
+    assert payload["results"][0]["error"] == (
+        "Wrong topology of boundary mesh for parametrization"
+    )
+    assert probe_path.exists()
 
 
 def test_extract_overlap_surface_details_reports_surface_pair_bboxes_and_facet_tags():

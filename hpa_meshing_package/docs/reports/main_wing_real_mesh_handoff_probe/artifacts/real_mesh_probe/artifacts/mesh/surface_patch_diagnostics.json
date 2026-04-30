@@ -1,10 +1,10 @@
 {
   "status": "captured",
   "reference_length": 1.05,
-  "near_body_size": 0.2,
-  "edge_size": 0.1,
-  "short_curve_threshold": 0.05,
-  "tiny_face_area_threshold": 0.10500000000000001,
+  "near_body_size": 0.35,
+  "edge_size": 0.175,
+  "short_curve_threshold": 0.0875,
+  "tiny_face_area_threshold": 0.18375,
   "aircraft_surface_bounds": {
     "x_min": -0.0012594121939531132,
     "x_max": 1.3023293688346513,
@@ -1109,7 +1109,7 @@
         "span_extreme_candidate",
         "span_extreme_strip_candidate"
       ],
-      "suspect_score": 20.92700000652173
+      "suspect_score": 25.220839054862783
     },
     {
       "tag": 2,
@@ -1163,7 +1163,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 19.868075202659107
+      "suspect_score": 25.69378907991865
     },
     {
       "tag": 3,
@@ -1204,20 +1204,22 @@
       "aspect_ratio_proxy": 31.013178589954606,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 23.41297105227098
+      "suspect_score": 29.53272835585772
     },
     {
       "tag": 4,
@@ -1274,7 +1276,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 21.348941213409855
+      "suspect_score": 26.790956588290378
     },
     {
       "tag": 5,
@@ -1332,7 +1334,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 28.27890531530787
+      "suspect_score": 32.613084301788774
     },
     {
       "tag": 6,
@@ -1390,7 +1392,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 28.27890531530789
+      "suspect_score": 32.61308430178881
     },
     {
       "tag": 7,
@@ -1447,7 +1449,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 21.34894121340991
+      "suspect_score": 26.790956588290467
     },
     {
       "tag": 8,
@@ -1488,20 +1490,22 @@
       "aspect_ratio_proxy": 31.013178589954606,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 23.412971052271114
+      "suspect_score": 29.53272835585796
     },
     {
       "tag": 9,
@@ -1555,7 +1559,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 19.86807520265908
+      "suspect_score": 25.693789079918602
     },
     {
       "tag": 10,
@@ -1614,7 +1618,7 @@
         "span_extreme_candidate",
         "span_extreme_strip_candidate"
       ],
-      "suspect_score": 20.927000006521702
+      "suspect_score": 25.220839054862733
     },
     {
       "tag": 11,
@@ -1651,7 +1655,7 @@
       "short_curve_tags": [],
       "aspect_ratio_proxy": 9.08519934524001,
       "extrema": {
-        "near_x_min": false,
+        "near_x_min": true,
         "near_x_max": false,
         "near_y_min": true,
         "near_y_max": false,
@@ -1660,6 +1664,7 @@
         "near_root_plane": false
       },
       "location_hints": [
+        "x_min_extreme",
         "span_extreme",
         "z_max_extreme"
       ],
@@ -1667,7 +1672,7 @@
         "span_extreme_candidate",
         "span_extreme_strip_candidate"
       ],
-      "suspect_score": 7.357224866226198
+      "suspect_score": 7.421668638663344
     },
     {
       "tag": 12,
@@ -1716,7 +1721,7 @@
         "x_min_extreme"
       ],
       "family_hints": [],
-      "suspect_score": 2.1378799015839376
+      "suspect_score": 2.1738690706754045
     },
     {
       "tag": 13,
@@ -1754,7 +1759,7 @@
       "aspect_ratio_proxy": 8.846916341321444,
       "extrema": {
         "near_x_min": true,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
@@ -1762,10 +1767,11 @@
         "near_root_plane": false
       },
       "location_hints": [
-        "x_min_extreme"
+        "x_min_extreme",
+        "x_max_extreme"
       ],
       "family_hints": [],
-      "suspect_score": 2.250502973008378
+      "suspect_score": 2.2795833887668904
     },
     {
       "tag": 14,
@@ -1816,7 +1822,7 @@
         "z_min_extreme"
       ],
       "family_hints": [],
-      "suspect_score": 2.4435555149390304
+      "suspect_score": 2.469414829525782
     },
     {
       "tag": 15,
@@ -1870,7 +1876,7 @@
       "family_hints": [
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 6.274943355301906
+      "suspect_score": 6.295539324085062
     },
     {
       "tag": 16,
@@ -1924,7 +1930,7 @@
       "family_hints": [
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 6.274943355301906
+      "suspect_score": 6.295539324085062
     },
     {
       "tag": 17,
@@ -1975,7 +1981,7 @@
         "z_min_extreme"
       ],
       "family_hints": [],
-      "suspect_score": 2.4435555149390304
+      "suspect_score": 2.469414829525782
     },
     {
       "tag": 18,
@@ -2013,7 +2019,7 @@
       "aspect_ratio_proxy": 8.846916341321444,
       "extrema": {
         "near_x_min": true,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
@@ -2021,10 +2027,11 @@
         "near_root_plane": false
       },
       "location_hints": [
-        "x_min_extreme"
+        "x_min_extreme",
+        "x_max_extreme"
       ],
       "family_hints": [],
-      "suspect_score": 2.250502973008378
+      "suspect_score": 2.2795833887668904
     },
     {
       "tag": 19,
@@ -2073,7 +2080,7 @@
         "x_min_extreme"
       ],
       "family_hints": [],
-      "suspect_score": 2.1378799015839385
+      "suspect_score": 2.173869070675406
     },
     {
       "tag": 20,
@@ -2110,7 +2117,7 @@
       "short_curve_tags": [],
       "aspect_ratio_proxy": 9.08519934524001,
       "extrema": {
-        "near_x_min": false,
+        "near_x_min": true,
         "near_x_max": false,
         "near_y_min": false,
         "near_y_max": true,
@@ -2119,6 +2126,7 @@
         "near_root_plane": false
       },
       "location_hints": [
+        "x_min_extreme",
         "span_extreme",
         "z_max_extreme"
       ],
@@ -2126,7 +2134,7 @@
         "span_extreme_candidate",
         "span_extreme_strip_candidate"
       ],
-      "suspect_score": 7.357224866226199
+      "suspect_score": 7.421668638663347
     },
     {
       "tag": 21,
@@ -2185,7 +2193,7 @@
         "span_extreme_candidate",
         "span_extreme_strip_candidate"
       ],
-      "suspect_score": 19.788744926914095
+      "suspect_score": 23.26508409699072
     },
     {
       "tag": 22,
@@ -2239,7 +2247,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 18.306083793886565
+      "suspect_score": 23.112670800502737
     },
     {
       "tag": 23,
@@ -2280,20 +2288,22 @@
       "aspect_ratio_proxy": 31.072273250553575,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 22.5936637053081
+      "suspect_score": 28.08786024981038
     },
     {
       "tag": 24,
@@ -2350,7 +2360,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 20.38444975035972
+      "suspect_score": 25.269679820943132
     },
     {
       "tag": 25,
@@ -2408,7 +2418,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 27.687073798135675
+      "suspect_score": 31.577379146737428
     },
     {
       "tag": 26,
@@ -2466,7 +2476,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 27.687073798135685
+      "suspect_score": 31.57737914673745
     },
     {
       "tag": 27,
@@ -2523,7 +2533,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 20.384449750359675
+      "suspect_score": 25.269679820943047
     },
     {
       "tag": 28,
@@ -2564,20 +2574,22 @@
       "aspect_ratio_proxy": 31.072273250553575,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 22.593663705308195
+      "suspect_score": 28.087860249810543
     },
     {
       "tag": 29,
@@ -2631,7 +2643,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 18.306083793886636
+      "suspect_score": 23.11267080050286
     },
     {
       "tag": 30,
@@ -2690,7 +2702,7 @@
         "span_extreme_candidate",
         "span_extreme_strip_candidate"
       ],
-      "suspect_score": 19.788744926914116
+      "suspect_score": 23.265084096990755
     },
     {
       "tag": 31,
@@ -2747,7 +2759,7 @@
         "high_aspect_strip_candidate",
         "span_extreme_candidate"
       ],
-      "suspect_score": 34.6699325407071
+      "suspect_score": 41.92238194623743
     },
     {
       "tag": 32,
@@ -2804,7 +2816,7 @@
         "high_aspect_strip_candidate",
         "span_extreme_candidate"
       ],
-      "suspect_score": 34.6699325407071
+      "suspect_score": 41.92238194623743
     }
   ],
   "smallest_area_surfaces": [
@@ -2863,7 +2875,7 @@
         "high_aspect_strip_candidate",
         "span_extreme_candidate"
       ],
-      "suspect_score": 34.6699325407071
+      "suspect_score": 41.92238194623743
     },
     {
       "tag": 32,
@@ -2920,7 +2932,7 @@
         "high_aspect_strip_candidate",
         "span_extreme_candidate"
       ],
-      "suspect_score": 34.6699325407071
+      "suspect_score": 41.92238194623743
     },
     {
       "tag": 8,
@@ -2961,20 +2973,22 @@
       "aspect_ratio_proxy": 31.013178589954606,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 23.412971052271114
+      "suspect_score": 29.53272835585796
     },
     {
       "tag": 3,
@@ -3015,20 +3029,22 @@
       "aspect_ratio_proxy": 31.013178589954606,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 23.41297105227098
+      "suspect_score": 29.53272835585772
     },
     {
       "tag": 28,
@@ -3069,20 +3085,22 @@
       "aspect_ratio_proxy": 31.072273250553575,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 22.593663705308195
+      "suspect_score": 28.087860249810543
     },
     {
       "tag": 23,
@@ -3123,20 +3141,22 @@
       "aspect_ratio_proxy": 31.072273250553575,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 22.5936637053081
+      "suspect_score": 28.08786024981038
     },
     {
       "tag": 7,
@@ -3193,7 +3213,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 21.34894121340991
+      "suspect_score": 26.790956588290467
     },
     {
       "tag": 4,
@@ -3250,7 +3270,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 21.348941213409855
+      "suspect_score": 26.790956588290378
     },
     {
       "tag": 2,
@@ -3304,7 +3324,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 19.868075202659107
+      "suspect_score": 25.69378907991865
     },
     {
       "tag": 9,
@@ -3358,7 +3378,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 19.86807520265908
+      "suspect_score": 25.693789079918602
     },
     {
       "tag": 24,
@@ -3415,7 +3435,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 20.38444975035972
+      "suspect_score": 25.269679820943132
     },
     {
       "tag": 27,
@@ -3472,7 +3492,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 20.384449750359675
+      "suspect_score": 25.269679820943047
     }
   ],
   "shortest_curves": [
@@ -3853,7 +3873,7 @@
         "high_aspect_strip_candidate",
         "span_extreme_candidate"
       ],
-      "suspect_score": 34.6699325407071
+      "suspect_score": 41.92238194623743
     },
     {
       "tag": 32,
@@ -3910,7 +3930,7 @@
         "high_aspect_strip_candidate",
         "span_extreme_candidate"
       ],
-      "suspect_score": 34.6699325407071
+      "suspect_score": 41.92238194623743
     },
     {
       "tag": 6,
@@ -3968,7 +3988,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 28.27890531530789
+      "suspect_score": 32.61308430178881
     },
     {
       "tag": 5,
@@ -4026,7 +4046,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 28.27890531530787
+      "suspect_score": 32.613084301788774
     },
     {
       "tag": 26,
@@ -4084,7 +4104,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 27.687073798135685
+      "suspect_score": 31.57737914673745
     },
     {
       "tag": 25,
@@ -4142,7 +4162,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 27.687073798135675
+      "suspect_score": 31.577379146737428
     },
     {
       "tag": 8,
@@ -4183,20 +4203,22 @@
       "aspect_ratio_proxy": 31.013178589954606,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 23.412971052271114
+      "suspect_score": 29.53272835585796
     },
     {
       "tag": 3,
@@ -4237,20 +4259,22 @@
       "aspect_ratio_proxy": 31.013178589954606,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 23.41297105227098
+      "suspect_score": 29.53272835585772
     },
     {
       "tag": 28,
@@ -4291,20 +4315,22 @@
       "aspect_ratio_proxy": 31.072273250553575,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 22.593663705308195
+      "suspect_score": 28.087860249810543
     },
     {
       "tag": 23,
@@ -4345,20 +4371,22 @@
       "aspect_ratio_proxy": 31.072273250553575,
       "extrema": {
         "near_x_min": false,
-        "near_x_max": false,
+        "near_x_max": true,
         "near_y_min": false,
         "near_y_max": false,
         "near_z_min": false,
         "near_z_max": false,
         "near_root_plane": false
       },
-      "location_hints": [],
+      "location_hints": [
+        "x_max_extreme"
+      ],
       "family_hints": [
         "tiny_face_candidate",
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 22.5936637053081
+      "suspect_score": 28.08786024981038
     },
     {
       "tag": 7,
@@ -4415,7 +4443,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 21.34894121340991
+      "suspect_score": 26.790956588290467
     },
     {
       "tag": 4,
@@ -4472,7 +4500,7 @@
         "short_curve_candidate",
         "high_aspect_strip_candidate"
       ],
-      "suspect_score": 21.348941213409855
+      "suspect_score": 26.790956588290378
     }
   ],
   "suspicious_family_groups": [
@@ -4499,8 +4527,8 @@
         "y_max": 16.500000097905104,
         "z_max": 0.8441453609632887
       },
-      "suspect_score_max": 34.6699325407071,
-      "suspect_score_sum": 69.3398650814142,
+      "suspect_score_max": 41.92238194623743,
+      "suspect_score_sum": 83.84476389247486,
       "short_curve_count_total": 4
     },
     {
@@ -4533,8 +4561,8 @@
         "y_max": 10.50000009866688,
         "z_max": 0.28936411308826127
       },
-      "suspect_score_max": 28.27890531530789,
-      "suspect_score_sum": 246.6431101688653,
+      "suspect_score_max": 32.61308430178881,
+      "suspect_score_sum": 297.2040172849699,
       "short_curve_count_total": 20
     }
   ]
