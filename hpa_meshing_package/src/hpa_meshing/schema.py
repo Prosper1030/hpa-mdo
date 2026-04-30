@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Optional, List, Dict, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 ComponentType = Literal[
@@ -138,13 +138,23 @@ class SU2ReferenceOverride(BaseModel):
     notes: List[str] = Field(default_factory=list)
 
 
+class SU2FlowConditions(BaseModel):
+    velocity_mps: float = 6.5
+    density_kgpm3: float = 1.225
+    temperature_k: float = 288.15
+    dynamic_viscosity_pas: float = 1.7894e-5
+    source_label: str = "hpa_standard_6p5_mps"
+    notes: List[str] = Field(default_factory=list)
+
+
 class SU2RuntimeConfig(BaseModel):
     enabled: bool = False
     alpha_deg: float = 0.0
-    velocity_mps: float = 10.0
+    velocity_mps: float = 6.5
     density_kgpm3: float = 1.225
     temperature_k: float = 288.15
-    dynamic_viscosity_pas: float = 1.789e-5
+    dynamic_viscosity_pas: float = 1.7894e-5
+    flow_conditions: Optional[SU2FlowConditions] = None
     solver: Literal["INC_NAVIER_STOKES"] = "INC_NAVIER_STOKES"
     inc_nondim: Literal["INITIAL_VALUES", "DIMENSIONAL"] = "INITIAL_VALUES"
     inc_density_model: Literal["CONSTANT"] = "CONSTANT"
@@ -162,6 +172,16 @@ class SU2RuntimeConfig(BaseModel):
     reference_mode: SU2ReferenceModeType = "auto"
     reference_override: Optional[SU2ReferenceOverride] = None
     wall_boundary_condition: Literal["euler", "adiabatic_no_slip"] = "euler"
+
+    @model_validator(mode="after")
+    def apply_flow_conditions(self) -> "SU2RuntimeConfig":
+        if self.flow_conditions is None:
+            return self
+        self.velocity_mps = self.flow_conditions.velocity_mps
+        self.density_kgpm3 = self.flow_conditions.density_kgpm3
+        self.temperature_k = self.flow_conditions.temperature_k
+        self.dynamic_viscosity_pas = self.flow_conditions.dynamic_viscosity_pas
+        return self
 
 
 class GeometryTopologyMetadata(BaseModel):

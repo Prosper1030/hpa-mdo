@@ -216,14 +216,16 @@ Observed result:
 
 - `reference_policy_status = reference_mismatch_observed`
 - external fairing policy: `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, `V=6.5`
-- current hpa-mdo real fairing handoff: `REF_AREA=100`, `REF_LENGTH=1`, `V=10`
+- legacy pre-standard hpa-mdo real fairing handoff artifact: `REF_AREA=100`, `REF_LENGTH=1`, `V=10`
 - marker mapping needed: external `fairing` -> hpa-mdo `fairing_solid`
 - no runtime apply, no Gmsh, no `SU2_CFD`, no convergence
 
 Engineering reading: this explains the current `reference_geometry_status=warn`
 as a concrete policy mismatch rather than a vague provider concern. The next
 fairing step should be an explicit approved reference override, not a solver run
-with the wrong coefficient normalization.
+with the wrong coefficient normalization. `V=10` is not the HPA operating
+standard; package-native SU2 defaults and editable `su2.flow_conditions` now use
+`V=6.5`.
 
 That reference override now exists as a gated materialization probe:
 

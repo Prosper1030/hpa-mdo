@@ -90,6 +90,10 @@ Current boundary:
 - Writes `su2_handoff.v1`
 - Parses `history.csv`
 - Carries reference / force-surface provenance gates plus the baseline convergence gate
+- Defaults to the HPA standard flow condition `V=6.5 m/s`, `rho=1.225 kg/m^3`,
+  `T=288.15 K`, and `mu=1.7894e-5 Pa*s`
+- Accepts editable operator-facing flow inputs through `su2.flow_conditions`;
+  those values are copied into the scalar SU2 runtime fields before materialization
 
 This is a baseline CFD route, not the repo's final high-quality validation framework.
 
@@ -173,9 +177,9 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 
 - Reads the neighboring fairing optimization project as external reference evidence
 - Extracts `REF_AREA`, `REF_LENGTH`, velocity, density, viscosity, and marker names from fairing config / SU2 config
-- Compares that policy against the current hpa-mdo real fairing SU2 handoff runtime config
+- Compares that policy against the legacy pre-standard hpa-mdo real fairing SU2 handoff runtime artifact
 - Writes `fairing_solid_reference_policy_probe.v1.json` and `.md`
-- Current committed evidence observes a mismatch: external fairing policy uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, `V=6.5`; hpa-mdo currently emits `REF_AREA=100`, `REF_LENGTH=1`, `V=10`
+- Current committed evidence observes a mismatch: external fairing policy uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, `V=6.5`; the older handoff artifact emitted `REF_AREA=100`, `REF_LENGTH=1`, `V=10`
 - Keeps Gmsh, SU2, BL runtime, and production defaults off
 
 ### 14. fairing_solid Reference-Override SU2-Handoff Probe Layer
@@ -410,7 +414,9 @@ guarantee set.
 project's SU2 policy into report-only evidence. It observes the current mismatch
 between external fairing values (`REF_AREA=1.0`, `REF_LENGTH=2.82880659`,
 `V=6.5`) and hpa-mdo's original real fairing handoff (`REF_AREA=100`,
-`REF_LENGTH=1`, `V=10`), without applying runtime changes.
+`REF_LENGTH=1`, `V=10`), without applying runtime changes. The original `V=10`
+value is retained only as historical mismatch evidence; the package-native HPA
+flow standard is `V=6.5`.
 `fairing_solid_reference_override_su2_handoff_probe.v1` consumes that evidence
 and writes a corrected real fairing SU2 handoff with `reference_mode=user_declared`.
 It applies the external drag/reference normalization and owns the `fairing_solid`

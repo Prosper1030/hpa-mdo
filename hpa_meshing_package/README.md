@@ -89,6 +89,11 @@ The copy-paste config for the canonical smoke is:
 
 - [`configs/aircraft_assembly.openvsp_baseline.yaml`](configs/aircraft_assembly.openvsp_baseline.yaml)
 
+The default HPA flow condition is explicit in that YAML: `V=6.5 m/s`,
+`rho=1.225 kg/m^3`, `T=288.15 K`, and `mu=1.7894e-5 Pa*s`. Operators should
+adjust flow conditions through `su2.flow_conditions` rather than editing the
+SU2 runtime file after materialization.
+
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
 PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli run \
@@ -264,10 +269,11 @@ This produces:
 - `fairing_solid_reference_policy_probe.v1.md`
 
 This reads the neighboring fairing optimization project and compares its SU2
-reference policy against the current hpa-mdo real fairing handoff. The current
-committed result is `reference_mismatch_observed`: external fairing evidence
-uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, and `V=6.5`, while the current
-hpa-mdo probe still writes `REF_AREA=100`, `REF_LENGTH=1`, and `V=10`.
+reference policy against the legacy pre-standard hpa-mdo real fairing handoff
+artifact. The committed result is `reference_mismatch_observed`: external
+fairing evidence uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, and `V=6.5`,
+while that older handoff artifact wrote `REF_AREA=100`, `REF_LENGTH=1`, and
+`V=10`. `V=10` is not the HPA standard.
 
 ### 13. Write the fairing solid reference-override SU2 handoff probe
 

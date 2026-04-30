@@ -224,6 +224,10 @@ def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: 
     assert "MARKER_PLOTTING= ( aircraft )" in runtime_cfg
     assert "MARKER_FAR= ( farfield )" in runtime_cfg
     assert "AOA= 0.000000" in runtime_cfg
+    assert "INC_DENSITY_INIT= 1.225000" in runtime_cfg
+    assert "INC_VELOCITY_INIT= ( 6.500000, 0.000000, 0.000000 )" in runtime_cfg
+    assert "INC_TEMPERATURE_INIT= 288.150000" in runtime_cfg
+    assert "MU_CONSTANT= 1.789400e-05" in runtime_cfg
     assert "REF_AREA=" in runtime_cfg
     assert "REF_LENGTH=" in runtime_cfg
 

@@ -68,6 +68,37 @@ def test_schema_accepts_explicit_tail_component_names():
     assert cfg.component == "horizontal_tail"
 
 
+def test_su2_runtime_defaults_to_hpa_standard_6p5_mps_flow_condition():
+    runtime = SU2RuntimeConfig()
+
+    assert runtime.velocity_mps == 6.5
+    assert runtime.density_kgpm3 == 1.225
+    assert runtime.temperature_k == 288.15
+    assert runtime.dynamic_viscosity_pas == 1.7894e-5
+
+
+def test_su2_runtime_accepts_nested_flow_conditions_for_easy_adjustment():
+    runtime = SU2RuntimeConfig.model_validate(
+        {
+            "enabled": True,
+            "flow_conditions": {
+                "velocity_mps": 7.25,
+                "density_kgpm3": 1.18,
+                "temperature_k": 292.0,
+                "dynamic_viscosity_pas": 1.82e-5,
+                "source_label": "operator_test_day",
+            },
+        }
+    )
+
+    assert runtime.velocity_mps == 7.25
+    assert runtime.density_kgpm3 == 1.18
+    assert runtime.temperature_k == 292.0
+    assert runtime.dynamic_viscosity_pas == 1.82e-5
+    assert runtime.flow_conditions is not None
+    assert runtime.flow_conditions.source_label == "operator_test_day"
+
+
 def test_schema_supports_mesh_study_contract_models(tmp_path: Path):
     case_dir = tmp_path / "coarse"
     report = MeshStudyReport(

@@ -115,11 +115,11 @@ PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-reference-policy-probe --
 This writes `fairing_solid_reference_policy_probe.v1.json` and
 `fairing_solid_reference_policy_probe.v1.md`. It reads the neighboring fairing
 optimization project under `/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project`.
-The current committed result is `reference_mismatch_observed`: the external
-fairing policy uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, and `V=6.5`, while
-the current hpa-mdo real fairing SU2 handoff still uses `REF_AREA=100`,
-`REF_LENGTH=1`, and `V=10`. This remains report-only evidence; it does not
-change runtime defaults.
+The committed result is `reference_mismatch_observed`: the external fairing
+policy uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, and the HPA standard
+`V=6.5`, while the legacy pre-standard hpa-mdo real fairing SU2 handoff artifact
+used `REF_AREA=100`, `REF_LENGTH=1`, and `V=10`. `V=10` is historical mismatch
+evidence, not the current HPA standard.
 
 The fairing reference-override SU2 handoff probe is emitted by:
 
@@ -136,6 +136,11 @@ committed result is `su2_handoff_written` with
 materialized into a real fairing `su2_handoff.v1`. Solver history and
 convergence are still absent, and the borrowed zero moment origin remains a
 blocker for moment coefficients.
+
+Package-native SU2 runtime defaults now follow the same HPA flow standard:
+`velocity_mps=6.5`, `density_kgpm3=1.225`, `temperature_k=288.15`, and
+`dynamic_viscosity_pas=1.7894e-5`. Editable operator-facing values live under
+`su2.flow_conditions` in the YAML config.
 
 The first route-specific fairing mesh-handoff smoke is emitted by:
 

@@ -18,3 +18,9 @@ su2:
   alpha_deg: 0.0
   max_iterations: 50
   reference_mode: auto
+  flow_conditions:
+    source_label: hpa_standard_6p5_mps
+    velocity_mps: 6.5
+    density_kgpm3: 1.225
+    temperature_k: 288.15
+    dynamic_viscosity_pas: 1.7894e-5
