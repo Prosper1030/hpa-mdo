@@ -190,6 +190,8 @@ def _run_bounded_mesh_job(
     global_min_size: float = 0.2,
     global_max_size: float = 0.8,
 ) -> dict[str, Any]:
+    source_path = source_path.expanduser().resolve()
+    case_dir = case_dir.expanduser().resolve()
     case_dir.mkdir(parents=True, exist_ok=True)
     payload_path = case_dir / "bounded_mesh_probe_payload.json"
     result_path = case_dir / "bounded_mesh_probe_result.json"

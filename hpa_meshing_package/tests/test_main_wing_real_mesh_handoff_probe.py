@@ -294,6 +294,46 @@ def test_main_wing_real_mesh_probe_child_payload_uses_coarse_first_volume_profil
     )
 
 
+def test_main_wing_real_mesh_probe_child_payload_uses_absolute_paths_for_relative_case_dir(
+    monkeypatch,
+    tmp_path: Path,
+):
+    monkeypatch.chdir(tmp_path)
+    source = Path("blackcat_004_origin.vsp3")
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def _fake_run(cmd, **kwargs):
+        payload_path = Path(cmd[-1])
+        assert payload_path.is_absolute()
+        payload = json.loads(payload_path.read_text(encoding="utf-8"))
+        captured["source_path"] = payload["source_path"]
+        captured["case_dir"] = payload["case_dir"]
+        captured["result_path"] = payload["result_path"]
+        Path(payload["result_path"]).write_text(
+            json.dumps({"status": "failed", "failure_code": "intentional_probe_stop"})
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(cmd, returncode=1, stdout="", stderr="intentional")
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.subprocess.run",
+        _fake_run,
+    )
+
+    mesh_run = _run_bounded_mesh_job(
+        source_path=source,
+        case_dir=Path("relative_probe_case"),
+        timeout_seconds=3.0,
+    )
+
+    assert mesh_run["status"] == "failed"
+    assert Path(str(captured["source_path"])).is_absolute()
+    assert Path(str(captured["case_dir"])).is_absolute()
+    assert Path(str(captured["result_path"])).is_absolute()
+
+
 def test_main_wing_real_mesh_probe_report_records_probe_sizing(
     monkeypatch,
     tmp_path: Path,
