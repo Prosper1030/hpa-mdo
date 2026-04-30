@@ -89,7 +89,7 @@ def _row_promotion_status(component: ComponentType) -> PromotionStatusType:
     if component == "fairing_solid":
         return "blocked_before_solver_convergence"
     if component == "tail_wing":
-        return "blocked_before_su2_handoff"
+        return "blocked_before_solver_convergence"
     return "blocked_before_mesh_handoff"
 
 
@@ -192,6 +192,7 @@ def build_component_family_route_smoke_matrix(
         next_actions=[
             "replace synthetic fairing fixture with real fairing geometry before solver claims",
             "replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims",
+            "replace synthetic tail_wing fixture with real ESP/VSP geometry before solver claims",
             "keep BL prelaunch excluded until handoff topology ownership passes",
         ],
     )

@@ -128,6 +128,20 @@ closed-solid tail slab and emits `mesh_handoff.v1` with component-owned
 SU2, does not emit `su2_handoff.v1`, does not emit `convergence_gate.v1`, and
 does not prove real aerodynamic tail geometry.
 
+The first tail-wing SU2 handoff materialization smoke is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-su2-handoff-smoke --out .tmp/runs/tail_wing_su2_handoff_smoke
+```
+
+This writes `tail_wing_su2_handoff_smoke.v1.json` and
+`tail_wing_su2_handoff_smoke.v1.md`. It consumes the synthetic non-BL
+tail-wing `mesh_handoff.v1` and materializes `su2_handoff.v1`, `mesh.su2`, and
+`su2_runtime.cfg` without executing `SU2_CFD`. It consumes the component-owned
+`tail_wing` wall marker; real tail geometry, solver history, and convergence
+remain missing.
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |
@@ -150,7 +164,7 @@ does not prove real aerodynamic tail geometry.
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real geometry, solver history, and convergence gate are missing |
-| `tail_wing` | experimental | synthetic non-BL `mesh_handoff.v1` smoke exists with a `tail_wing` marker; SU2 handoff, real geometry, solver history, and convergence gate are missing |
+| `tail_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `tail_wing` marker; real geometry, solver history, and convergence gate are missing |
 | `fairing_solid` | experimental | synthetic `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver history, and convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |

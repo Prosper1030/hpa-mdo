@@ -100,10 +100,10 @@
       "mesh_handoff_status": "not_run",
       "su2_handoff_status": "not_run",
       "convergence_gate_status": "not_run",
-      "promotion_status": "blocked_before_su2_handoff",
+      "promotion_status": "blocked_before_solver_convergence",
       "blocking_reasons": [
         "tail_real_geometry_smoke_missing",
-        "tail_wing_su2_handoff_not_run",
+        "tail_wing_solver_not_run",
         "convergence_gate_not_run"
       ],
       "guarantees": [
@@ -291,6 +291,7 @@
   "next_actions": [
     "replace synthetic fairing fixture with real fairing geometry before solver claims",
     "replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims",
+    "replace synthetic tail_wing fixture with real ESP/VSP geometry before solver claims",
     "keep BL prelaunch excluded until handoff topology ownership passes"
   ]
 }

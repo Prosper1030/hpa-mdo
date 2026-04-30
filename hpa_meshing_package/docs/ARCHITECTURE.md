@@ -186,6 +186,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Records component-owned `tail_wing` / `farfield` markers in the mesh-handoff evidence
 - Keeps tail solver promotion blocked until `su2_handoff.v1`, real tail geometry, and convergence evidence exist
 
+### 15. tail_wing SU2-Handoff Smoke Layer
+
+`src/hpa_meshing/tail_wing_su2_handoff_smoke.py`
+
+- Consumes the synthetic non-BL tail-wing `mesh_handoff.v1` smoke
+- Calls the package-native SU2 materializer without executing `SU2_CFD`
+- Writes `tail_wing_su2_handoff_smoke.v1.json` and `.md`
+- Emits `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg`
+- Keeps solver execution, history parsing, convergence, and production defaults off
+- Records component force-surface ownership from the `tail_wing` marker, while keeping real-geometry and solver credibility outside the guarantee set
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -201,7 +212,7 @@ Current truth:
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
 - `fairing_solid` has real closed-solid mesh-handoff and SU2-handoff materialization smokes on a synthetic box with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
 - `main_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
-- `tail_wing` has a real non-BL mesh-handoff smoke on a synthetic slab with component-owned force markers, but is not yet a SU2, real-geometry, solver, or convergence route
+- `tail_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
 - `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
 
@@ -223,6 +234,7 @@ MeshJobConfig
   -> main_wing_mesh_handoff_smoke.v1
   -> main_wing_su2_handoff_smoke.v1
   -> tail_wing_mesh_handoff_smoke.v1
+  -> tail_wing_su2_handoff_smoke.v1
   -> report.json
 ```
 
@@ -247,6 +259,9 @@ but still leaves real geometry, solver history, and convergence outside the guar
 it proves the `tail_wing` component can emit an owned-marker `mesh_handoff.v1`
 on a synthetic slab, not that horizontal/vertical tail subroutes or real tail CFD
 are ready.
+`tail_wing_su2_handoff_smoke.v1` proves that this mesh handoff can materialize
+an SU2 case without running the solver; it now owns the `tail_wing` force marker,
+but still leaves real geometry, solver history, and convergence outside the guarantee set.
 
 ## Why This Boundary Matters
 

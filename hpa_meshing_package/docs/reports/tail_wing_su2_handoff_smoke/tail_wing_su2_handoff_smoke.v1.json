@@ -1,0 +1,52 @@
+{
+  "schema_version": "tail_wing_su2_handoff_smoke.v1",
+  "component": "tail_wing",
+  "geometry_family": "thin_sheet_lifting_surface",
+  "meshing_route": "gmsh_thin_sheet_surface",
+  "execution_mode": "su2_materialization_only_no_solver",
+  "source_mesh_smoke_schema": "tail_wing_mesh_handoff_smoke.v1",
+  "case_dir": "docs/reports/tail_wing_su2_handoff_smoke/artifacts/su2/alpha_0_materialization_smoke",
+  "no_su2_execution": true,
+  "no_convergence_gate": true,
+  "production_default_changed": false,
+  "materialization_status": "su2_handoff_written",
+  "su2_contract": "su2_handoff.v1",
+  "input_mesh_contract": "mesh_handoff.v1",
+  "solver_execution_status": "not_run",
+  "convergence_gate_status": "not_run",
+  "run_status": "not_started",
+  "wall_marker_status": "tail_wing_marker_present",
+  "force_surface_scope": "component_subset",
+  "component_force_ownership_status": "owned",
+  "reference_geometry_status": "pass",
+  "source_mesh_smoke_path": "docs/reports/tail_wing_su2_handoff_smoke/artifacts/mesh_handoff/tail_wing_mesh_handoff_smoke.v1.json",
+  "source_mesh_case_report_path": "docs/reports/tail_wing_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/tail_wing/report.json",
+  "input_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/tail_wing/artifacts/mesh/mesh.msh",
+  "su2_handoff_path": "docs/reports/tail_wing_su2_handoff_smoke/artifacts/su2/alpha_0_materialization_smoke/su2_handoff.json",
+  "su2_mesh_path": "docs/reports/tail_wing_su2_handoff_smoke/artifacts/su2/alpha_0_materialization_smoke/mesh.su2",
+  "runtime_cfg_path": "docs/reports/tail_wing_su2_handoff_smoke/artifacts/su2/alpha_0_materialization_smoke/su2_runtime.cfg",
+  "history_path": "docs/reports/tail_wing_su2_handoff_smoke/artifacts/su2/alpha_0_materialization_smoke/history.csv",
+  "hpa_mdo_guarantees": [
+    "mesh_handoff_v1_consumed",
+    "su2_handoff_v1_written",
+    "runtime_cfg_written",
+    "su2_mesh_written",
+    "tail_wing_force_marker_owned",
+    "solver_not_executed",
+    "production_default_unchanged"
+  ],
+  "blocking_reasons": [
+    "su2_solver_not_run",
+    "convergence_gate_not_run",
+    "synthetic_fixture_not_real_aerodynamic_tail_geometry",
+    "real_tail_wing_geometry_not_used"
+  ],
+  "limitations": [
+    "This smoke materializes an SU2 case only; it does not run SU2_CFD.",
+    "convergence_gate.v1 is not emitted because no solver history exists.",
+    "The input mesh is a synthetic thin closed-solid tail slab, not real aerodynamic tail geometry.",
+    "The handoff uses a component-owned tail_wing wall marker, but the geometry is still synthetic.",
+    "Production defaults were not changed."
+  ],
+  "error": null
+}
