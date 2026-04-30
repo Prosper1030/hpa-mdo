@@ -54,6 +54,10 @@ from .main_wing_real_solver_smoke_probe import (
     build_main_wing_real_solver_smoke_probe_report,
     write_main_wing_real_solver_smoke_probe_report,
 )
+from .main_wing_reference_geometry_gate import (
+    build_main_wing_reference_geometry_gate_report,
+    write_main_wing_reference_geometry_gate_report,
+)
 from .main_wing_su2_handoff_smoke import (
     build_main_wing_su2_handoff_smoke_report,
     write_main_wing_su2_handoff_smoke_report,
@@ -432,6 +436,14 @@ def cmd_main_wing_real_solver_smoke_probe(args: argparse.Namespace) -> int:
     } else 2
 
 
+def cmd_main_wing_reference_geometry_gate(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    report = build_main_wing_reference_geometry_gate_report()
+    write_main_wing_reference_geometry_gate_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.reference_gate_status in {"pass", "warn"} else 2
+
+
 def cmd_tail_wing_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report = build_tail_wing_mesh_handoff_smoke_report(out_dir)
@@ -679,6 +691,10 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_real_solver_probe.add_argument("--source-su2-probe-report", type=str)
     main_wing_real_solver_probe.add_argument("--timeout-seconds", type=float, default=120.0)
     main_wing_real_solver_probe.set_defaults(func=cmd_main_wing_real_solver_smoke_probe)
+
+    main_wing_reference_gate = sub.add_parser("main-wing-reference-geometry-gate")
+    main_wing_reference_gate.add_argument("--out", type=str, required=True)
+    main_wing_reference_gate.set_defaults(func=cmd_main_wing_reference_geometry_gate)
 
     tail_wing_smoke = sub.add_parser("tail-wing-mesh-handoff-smoke")
     tail_wing_smoke.add_argument("--out", type=str, required=True)

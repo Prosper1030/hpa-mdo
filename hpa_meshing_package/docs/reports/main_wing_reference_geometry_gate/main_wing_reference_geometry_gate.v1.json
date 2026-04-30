@@ -1,0 +1,140 @@
+{
+  "schema_version": "main_wing_reference_geometry_gate.v1",
+  "component": "main_wing",
+  "execution_mode": "reference_geometry_report_only_no_solver",
+  "production_default_changed": false,
+  "reference_gate_status": "warn",
+  "source_fixture": "blackcat_004_origin_vsp3",
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "source_geometry_report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_esp_rebuilt_geometry_smoke/main_wing_esp_rebuilt_geometry_smoke.v1.json",
+  "source_mesh_probe_report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json",
+  "source_su2_probe_report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.json",
+  "su2_handoff_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/su2_handoff.json",
+  "observed_velocity_mps": 6.5,
+  "applied_reference": {
+    "ref_area": 34.65,
+    "ref_length": 1.05,
+    "ref_origin_moment": {
+      "x": 0.2625,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "source_label": "blackcat_main_wing_full_span_reference"
+  },
+  "derived_full_span_m": 33.0,
+  "geometry_bounds_span_y_m": 33.0,
+  "selected_geom_full_span_y_m": 32.94930391715896,
+  "selected_geom_chord_x_m": 1.3023502084398801,
+  "geometry_bounds_chord_x_m": 1.3035885811941128,
+  "checks": {
+    "positive_reference_values": {
+      "status": "pass",
+      "observed": {
+        "ref_area": 34.65,
+        "ref_length": 1.05,
+        "ref_origin_moment": {
+          "x": 0.2625,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "expected": {
+        "ref_area": "> 0",
+        "ref_length": "> 0",
+        "ref_origin_moment": "present"
+      },
+      "warnings": [],
+      "notes": []
+    },
+    "declared_span_vs_bounds_y": {
+      "status": "pass",
+      "observed": {
+        "declared_span_from_ref_area_over_ref_length_m": 33.0,
+        "geometry_bounds_span_y_m": 33.0,
+        "relative_error": 0.0
+      },
+      "expected": {
+        "relative_error_max": 0.01
+      },
+      "warnings": [],
+      "notes": []
+    },
+    "declared_span_vs_selected_geom_span": {
+      "status": "pass",
+      "observed": {
+        "declared_span_from_ref_area_over_ref_length_m": 33.0,
+        "selected_geom_full_span_y_m": 32.94930391715896,
+        "relative_error": 0.0015386086142670178
+      },
+      "expected": {
+        "relative_error_max": 0.01
+      },
+      "warnings": [],
+      "notes": []
+    },
+    "ref_length_independent_source": {
+      "status": "warn",
+      "observed": {
+        "ref_length_m": 1.05,
+        "selected_geom_chord_x_m": 1.3023502084398801,
+        "geometry_bounds_chord_x_m": 1.3035885811941128,
+        "ref_length_vs_selected_chord_relative_error": 0.1937652459411644
+      },
+      "expected": {
+        "independent_aerodynamic_chord_source": true,
+        "selected_geom_chord_x_is_not_certified_ref_chord": true
+      },
+      "warnings": [
+        "main_wing_reference_chord_not_independently_certified"
+      ],
+      "notes": [
+        "The declared 1.05 m reference chord is plausible but not independently certified by the current geometry artifacts.",
+        "The x-projection bounds include geometric projection effects and must not be treated as the reference chord by itself."
+      ]
+    },
+    "moment_origin_policy": {
+      "status": "warn",
+      "observed": {
+        "ref_origin_moment": {
+          "x": 0.2625,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "source_label": "blackcat_main_wing_full_span_reference",
+        "override_warnings": [
+          "coarse_real_geometry_probe_reference_not_production_certified"
+        ]
+      },
+      "expected": {
+        "moment_origin_independent_source": true,
+        "cg_or_aerodynamic_reference_policy": "documented"
+      },
+      "warnings": [
+        "main_wing_moment_origin_not_certified"
+      ],
+      "notes": [
+        "Quarter-chord moment origin is declared for this probe but not yet tied to an aircraft CG or approved aerodynamic reference policy."
+      ]
+    }
+  },
+  "hpa_mdo_guarantees": [
+    "reference_geometry_gate_evaluated",
+    "reference_geometry_not_promoted_to_pass",
+    "production_default_unchanged",
+    "ref_area_ref_length_and_origin_present",
+    "declared_span_crosschecked_against_real_geometry_bounds",
+    "hpa_standard_flow_conditions_6p5_mps_observed"
+  ],
+  "blocking_reasons": [
+    "main_wing_reference_geometry_incomplete",
+    "main_wing_reference_chord_not_independently_certified",
+    "main_wing_moment_origin_not_certified"
+  ],
+  "limitations": [
+    "This gate is report-only and does not change the SU2 runtime config.",
+    "Span is cross-checked against real geometry bounds, but the reference chord is still user-declared.",
+    "Moment origin is a declared quarter-chord probe policy, not a certified aircraft CG or aerodynamic-reference policy.",
+    "A reference-geometry warn must remain a comparability blocker for solver/convergence results."
+  ],
+  "error": null
+}

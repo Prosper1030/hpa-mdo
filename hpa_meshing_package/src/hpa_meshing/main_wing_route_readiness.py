@@ -146,6 +146,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_real_su2_handoff_probe"
         / "main_wing_real_su2_handoff_probe.v1.json"
     )
+    reference_gate_path = (
+        root
+        / "main_wing_reference_geometry_gate"
+        / "main_wing_reference_geometry_gate.v1.json"
+    )
     solver_smoke_path = (
         root
         / "main_wing_real_solver_smoke_probe"
@@ -165,6 +170,7 @@ def build_main_wing_route_readiness_report(
     synthetic_mesh = _load_json(synthetic_mesh_path)
     synthetic_su2 = _load_json(synthetic_su2_path)
     real_su2 = _load_json(real_su2_path)
+    reference_gate = _load_json(reference_gate_path)
     solver_smoke = _load_json(solver_smoke_path)
     synthetic_su2_runtime = _load_json(synthetic_su2_runtime_path)
     hpa_flow_status, observed_velocity = _flow_status(synthetic_su2_runtime)
@@ -191,6 +197,11 @@ def build_main_wing_route_readiness_report(
     real_su2_materialized = (
         isinstance(real_su2, dict)
         and real_su2.get("materialization_status") == "su2_handoff_written"
+    )
+    reference_gate_status = (
+        reference_gate.get("reference_gate_status")
+        if isinstance(reference_gate, dict)
+        else None
     )
     solver_executed = (
         isinstance(solver_smoke, dict)
@@ -294,6 +305,10 @@ def build_main_wing_route_readiness_report(
                 "reference_geometry_status": (
                     None if real_su2 is None else real_su2.get("reference_geometry_status")
                 ),
+                "reference_gate_status": reference_gate_status,
+                "reference_gate_path": (
+                    str(reference_gate_path) if isinstance(reference_gate, dict) else None
+                ),
                 "observed_velocity_mps": (
                     None if real_su2 is None else real_su2.get("observed_velocity_mps")
                 ),
@@ -304,7 +319,16 @@ def build_main_wing_route_readiness_report(
                 ),
             },
             blockers=(
-                _real_su2_stage_blockers(real_su2)
+                [
+                    *(
+                        _real_su2_stage_blockers(real_su2)
+                    ),
+                    *(
+                        _blocking_reasons(reference_gate)
+                        if isinstance(reference_gate, dict)
+                        else []
+                    ),
+                ]
                 if real_su2_materialized
                 else (
                     ["real_main_wing_su2_handoff_not_materialized"]

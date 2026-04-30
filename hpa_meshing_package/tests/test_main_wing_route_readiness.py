@@ -243,6 +243,18 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
             ],
         },
     )
+    _write_json(
+        root
+        / "main_wing_reference_geometry_gate"
+        / "main_wing_reference_geometry_gate.v1.json",
+        {
+            "reference_gate_status": "warn",
+            "blocking_reasons": [
+                "main_wing_reference_geometry_incomplete",
+                "main_wing_reference_chord_not_independently_certified",
+            ],
+        },
+    )
 
     report = build_main_wing_route_readiness_report(report_root=root)
 
@@ -251,9 +263,11 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
     assert stages["solver_smoke"].status == "pass"
     assert stages["solver_smoke"].evidence_kind == "real"
     assert stages["solver_smoke"].observed["solver_execution_status"] == "solver_executed"
+    assert stages["real_su2_handoff"].observed["reference_gate_status"] == "warn"
     assert stages["convergence_gate"].status == "blocked"
     assert stages["convergence_gate"].observed["convergence_gate_status"] == "fail"
     assert "solver_executed_but_not_converged" in report.blocking_reasons
+    assert "main_wing_reference_geometry_incomplete" in report.blocking_reasons
     assert "main_wing_solver_not_run" not in report.blocking_reasons
     assert report.next_actions[0] == "diagnose_main_wing_solver_nonconvergence_before_cfd_claims"
     assert "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean" in report.next_actions

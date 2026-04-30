@@ -82,11 +82,16 @@
         "input_mesh_contract": "mesh_handoff.v1",
         "component_force_ownership_status": "owned",
         "reference_geometry_status": "warn",
+        "reference_gate_status": "warn",
+        "reference_gate_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_reference_geometry_gate/main_wing_reference_geometry_gate.v1.json",
         "observed_velocity_mps": 6.5,
         "reason": null
       },
       "blockers": [
-        "main_wing_real_reference_geometry_warn"
+        "main_wing_real_reference_geometry_warn",
+        "main_wing_reference_geometry_incomplete",
+        "main_wing_reference_chord_not_independently_certified",
+        "main_wing_moment_origin_not_certified"
       ]
     },
     {
@@ -124,6 +129,9 @@
   ],
   "blocking_reasons": [
     "main_wing_real_reference_geometry_warn",
+    "main_wing_reference_geometry_incomplete",
+    "main_wing_reference_chord_not_independently_certified",
+    "main_wing_moment_origin_not_certified",
     "solver_executed_but_not_converged"
   ],
   "next_actions": [

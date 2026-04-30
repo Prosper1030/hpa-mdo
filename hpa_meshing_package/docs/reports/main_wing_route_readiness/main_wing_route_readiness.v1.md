@@ -19,6 +19,9 @@
 ## Blocking Reasons
 
 - `main_wing_real_reference_geometry_warn`
+- `main_wing_reference_geometry_incomplete`
+- `main_wing_reference_chord_not_independently_certified`
+- `main_wing_moment_origin_not_certified`
 - `solver_executed_but_not_converged`
 
 ## Next Actions

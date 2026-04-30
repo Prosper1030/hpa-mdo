@@ -268,6 +268,20 @@ def test_parser_supports_main_wing_real_solver_smoke_probe_command():
     assert args.timeout_seconds == 30.0
 
 
+def test_parser_supports_main_wing_reference_geometry_gate_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-reference-geometry-gate",
+            "--out",
+            "artifacts/main_wing_reference_geometry_gate",
+        ]
+    )
+
+    assert args.command == "main-wing-reference-geometry-gate"
+    assert args.out == "artifacts/main_wing_reference_geometry_gate"
+
+
 def test_parser_supports_tail_wing_mesh_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(
