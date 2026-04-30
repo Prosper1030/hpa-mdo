@@ -19,6 +19,7 @@ StageType = Literal[
     "su2_force_marker_audit",
     "surface_force_output_audit",
     "panel_su2_lift_gap_debug",
+    "mesh_quality_hotspot_audit",
     "su2_mesh_normal_audit",
     "panel_wake_semantics_audit",
     "su2_surface_topology_audit",
@@ -640,6 +641,37 @@ def _panel_wake_semantics_audit_observed(
         ),
         "normal_audit_observed": (
             {} if payload is None else payload.get("normal_audit_observed", {})
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
+def _mesh_quality_hotspot_audit_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "blocked" if payload.get("hotspot_status") == "blocked" else "pass"
+
+
+def _mesh_quality_hotspot_audit_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "hotspot_status": None if payload is None else payload.get("hotspot_status"),
+        "quality_summary": (
+            {} if payload is None else payload.get("quality_summary", {})
+        ),
+        "worst_tet_sample_partition": (
+            {} if payload is None else payload.get("worst_tet_sample_partition", {})
+        ),
+        "station_seam_overlap_observed": (
+            {}
+            if payload is None
+            else payload.get("station_seam_overlap_observed", {})
         ),
         "engineering_findings": (
             [] if payload is None else payload.get("engineering_findings", [])
@@ -1347,6 +1379,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_su2_mesh_normal_audit"
         / "main_wing_su2_mesh_normal_audit.v1.json"
     )
+    mesh_quality_hotspot_audit_path = (
+        root
+        / "main_wing_mesh_quality_hotspot_audit"
+        / "main_wing_mesh_quality_hotspot_audit.v1.json"
+    )
     panel_wake_semantics_audit_path = (
         root
         / "main_wing_panel_wake_semantics_audit"
@@ -1465,6 +1502,7 @@ def build_main_wing_route_readiness_report(
     lift_acceptance = _load_json(lift_acceptance_path)
     panel_su2_lift_gap_debug = _load_json(panel_su2_lift_gap_debug_path)
     su2_mesh_normal_audit = _load_json(su2_mesh_normal_audit_path)
+    mesh_quality_hotspot_audit = _load_json(mesh_quality_hotspot_audit_path)
     panel_wake_semantics_audit = _load_json(panel_wake_semantics_audit_path)
     su2_surface_topology_audit = _load_json(su2_surface_topology_audit_path)
     su2_topology_defect_localization = _load_json(
@@ -1947,6 +1985,20 @@ def build_main_wing_route_readiness_report(
             ),
             observed=_panel_su2_lift_gap_debug_observed(panel_su2_lift_gap_debug),
             blockers=_panel_su2_lift_gap_debug_blockers(panel_su2_lift_gap_debug),
+        ),
+        _stage(
+            stage="mesh_quality_hotspot_audit",
+            status=_mesh_quality_hotspot_audit_status(mesh_quality_hotspot_audit),
+            evidence_kind=(
+                "real" if isinstance(mesh_quality_hotspot_audit, dict) else "absent"
+            ),
+            artifact_path=(
+                mesh_quality_hotspot_audit_path
+                if isinstance(mesh_quality_hotspot_audit, dict)
+                else None
+            ),
+            observed=_mesh_quality_hotspot_audit_observed(mesh_quality_hotspot_audit),
+            blockers=_blocking_reasons(mesh_quality_hotspot_audit),
         ),
         _stage(
             stage="su2_mesh_normal_audit",

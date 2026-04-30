@@ -110,8 +110,13 @@ ShapeFix feasibility probe extends that negative result across 25 in-memory
 recovered station checks. The export-source audit then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
-`y=-10.5 m` and `y=13.5 m`. The current readiness next action is
-`inspect_split_candidate_internal_caps_before_mesh_handoff`.
+`y=-10.5 m` and `y=13.5 m`. The mesh-quality hotspot audit now partitions the
+real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
+`farfield`, while 5 / 20 are nearest to `main_wing` surfaces 19 / 29 / 32; the
+surface-19 hotspot overlaps the station-seam entity trace surface set
+`12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
+not convergence evidence, and it reinforces that the current readiness next action is
+`change_profile_resample_export_pcurve_generation_or_section_parametrization`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -174,6 +179,26 @@ standpoint. The audit still observes `V=6.5 m/s`, derives
 `main_wing_lift_acceptance_status=fail` from `CL=0.263161913`, and keeps the
 VSPAERO panel baseline visible at `CLtot=1.287645495943`; none of this is a
 convergence claim.
+
+The main-wing mesh-quality hotspot audit is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-mesh-quality-hotspot-audit --out .tmp/runs/main_wing_mesh_quality_hotspot_audit
+```
+
+This writes `main_wing_mesh_quality_hotspot_audit.v1.json` and
+`main_wing_mesh_quality_hotspot_audit.v1.md`. The committed snapshot under
+`docs/reports/main_wing_mesh_quality_hotspot_audit/` reads the real mesh
+handoff quality metrics, `mesh_metadata.json`, `hotspot_patch_report.json`,
+`surface_patch_diagnostics.json`, and the Gmsh defect entity trace. Current
+result is `mesh_quality_hotspots_localized`: the real mesh still has
+`78` ill-shaped tets and `min_gamma=8.131677887160085e-07`; the bounded
+worst-tet sample is mostly farfield (`15 / 20`) but still includes main-wing
+hotspots on surfaces `19 / 29 / 32`, with surface `19` overlapping the traced
+station-seam surface set. This supports fixing station export / section
+parametrization before spending more solver-iteration budget; it does not claim
+that mesh quality explains the whole panel/SU2 lift gap.
 
 The main-wing station-seam BRep hotspot probe is emitted by:
 

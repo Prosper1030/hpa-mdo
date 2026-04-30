@@ -82,6 +82,10 @@ from .main_wing_panel_wake_semantics_audit import (
     build_main_wing_panel_wake_semantics_audit_report,
     write_main_wing_panel_wake_semantics_audit_report,
 )
+from .main_wing_mesh_quality_hotspot_audit import (
+    build_main_wing_mesh_quality_hotspot_audit_report,
+    write_main_wing_mesh_quality_hotspot_audit_report,
+)
 from .main_wing_su2_mesh_normal_audit import (
     build_main_wing_su2_mesh_normal_audit_report,
     write_main_wing_su2_mesh_normal_audit_report,
@@ -585,6 +589,51 @@ def cmd_main_wing_su2_surface_topology_audit(args: argparse.Namespace) -> int:
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.audit_status != "blocked" else 2
+
+
+def cmd_main_wing_mesh_quality_hotspot_audit(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    mesh_handoff_report_path = (
+        None
+        if args.mesh_handoff_report is None
+        else Path(args.mesh_handoff_report)
+    )
+    mesh_metadata_path = (
+        None if args.mesh_metadata is None else Path(args.mesh_metadata)
+    )
+    hotspot_patch_report_path = (
+        None
+        if args.hotspot_patch_report is None
+        else Path(args.hotspot_patch_report)
+    )
+    surface_patch_diagnostics_path = (
+        None
+        if args.surface_patch_diagnostics is None
+        else Path(args.surface_patch_diagnostics)
+    )
+    gmsh_defect_entity_trace_path = (
+        None
+        if args.gmsh_defect_entity_trace is None
+        else Path(args.gmsh_defect_entity_trace)
+    )
+    report = build_main_wing_mesh_quality_hotspot_audit_report(
+        mesh_handoff_report_path=mesh_handoff_report_path,
+        mesh_metadata_path=mesh_metadata_path,
+        hotspot_patch_report_path=hotspot_patch_report_path,
+        surface_patch_diagnostics_path=surface_patch_diagnostics_path,
+        gmsh_defect_entity_trace_path=gmsh_defect_entity_trace_path,
+    )
+    write_main_wing_mesh_quality_hotspot_audit_report(
+        out_dir,
+        report=report,
+        mesh_handoff_report_path=mesh_handoff_report_path,
+        mesh_metadata_path=mesh_metadata_path,
+        hotspot_patch_report_path=hotspot_patch_report_path,
+        surface_patch_diagnostics_path=surface_patch_diagnostics_path,
+        gmsh_defect_entity_trace_path=gmsh_defect_entity_trace_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.hotspot_status != "blocked" else 2
 
 
 def cmd_main_wing_su2_topology_defect_localization(args: argparse.Namespace) -> int:
@@ -1422,6 +1471,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_su2_surface_topology_audit.set_defaults(
         func=cmd_main_wing_su2_surface_topology_audit
+    )
+
+    main_wing_mesh_quality_hotspot_audit = sub.add_parser(
+        "main-wing-mesh-quality-hotspot-audit"
+    )
+    main_wing_mesh_quality_hotspot_audit.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_mesh_quality_hotspot_audit.add_argument(
+        "--mesh-handoff-report",
+        type=str,
+    )
+    main_wing_mesh_quality_hotspot_audit.add_argument(
+        "--mesh-metadata",
+        type=str,
+    )
+    main_wing_mesh_quality_hotspot_audit.add_argument(
+        "--hotspot-patch-report",
+        type=str,
+    )
+    main_wing_mesh_quality_hotspot_audit.add_argument(
+        "--surface-patch-diagnostics",
+        type=str,
+    )
+    main_wing_mesh_quality_hotspot_audit.add_argument(
+        "--gmsh-defect-entity-trace",
+        type=str,
+    )
+    main_wing_mesh_quality_hotspot_audit.set_defaults(
+        func=cmd_main_wing_mesh_quality_hotspot_audit
     )
 
     main_wing_su2_topology_defect_localization = sub.add_parser(

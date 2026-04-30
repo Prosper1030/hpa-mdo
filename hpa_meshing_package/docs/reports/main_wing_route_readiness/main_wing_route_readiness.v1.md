@@ -25,6 +25,7 @@
 | `solver_budget_probe` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe_iter40/main_wing_real_solver_smoke_probe.v1.json` |
 | `lift_acceptance_diagnostic` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_lift_acceptance_diagnostic/main_wing_lift_acceptance_diagnostic.v1.json` |
 | `panel_su2_lift_gap_debug` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_panel_su2_lift_gap_debug/main_wing_panel_su2_lift_gap_debug.v1.json` |
+| `mesh_quality_hotspot_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_mesh_quality_hotspot_audit/main_wing_mesh_quality_hotspot_audit.v1.json` |
 | `su2_mesh_normal_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_mesh_normal_audit/main_wing_su2_mesh_normal_audit.v1.json` |
 | `panel_wake_semantics_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_panel_wake_semantics_audit/main_wing_panel_wake_semantics_audit.v1.json` |
 | `su2_surface_topology_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_surface_topology_audit/main_wing_su2_surface_topology_audit.v1.json` |

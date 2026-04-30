@@ -794,6 +794,94 @@
       "blockers": []
     },
     {
+      "stage": "mesh_quality_hotspot_audit",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_mesh_quality_hotspot_audit/main_wing_mesh_quality_hotspot_audit.v1.json",
+      "observed": {
+        "hotspot_status": "mesh_quality_hotspots_localized",
+        "quality_summary": {
+          "mesh_quality_status": "warn",
+          "mesh_quality_advisory_flags": [
+            "gmsh_ill_shaped_tets_present",
+            "gmsh_min_gamma_below_1e_minus_4",
+            "gmsh_gamma_p01_below_0p20"
+          ],
+          "tetrahedron_count": 584460,
+          "ill_shaped_tet_count": 78,
+          "min_gamma": 8.131677887160085e-07,
+          "min_sicn": 0.0007790197756303649,
+          "min_sige": 0.0008646308768278953,
+          "min_volume": 1.096125480738833e-06,
+          "worst_tet_sample_count": 20,
+          "worst_tet_sample_covers_all_ill_shaped": false,
+          "gamma_percentiles": {
+            "p01": 0.13359208369407768,
+            "p05": 0.33242963726724084,
+            "p50": 0.8056187158799668
+          }
+        },
+        "worst_tet_sample_partition": {
+          "sample_count": 20,
+          "by_nearest_physical_name": {
+            "farfield": 15,
+            "main_wing": 5
+          },
+          "by_nearest_surface_tag": {
+            "19": 2,
+            "29": 1,
+            "32": 2,
+            "33": 3,
+            "35": 4,
+            "37": 6,
+            "38": 2
+          },
+          "farfield_sample_count": 15,
+          "main_wing_sample_count": 5,
+          "unknown_sample_count": 0
+        },
+        "station_seam_overlap_observed": {
+          "trace_status": "defect_edges_traced_to_gmsh_entities",
+          "traced_surface_entity_tags": [
+            12,
+            13,
+            19,
+            20
+          ],
+          "candidate_curve_tags": [
+            36,
+            50
+          ],
+          "main_wing_hotspot_surface_tags": [
+            19,
+            29,
+            32
+          ],
+          "overlap_surface_tags": [
+            19
+          ],
+          "overlap_worst_tet_sample_count": 2
+        },
+        "engineering_findings": [
+          "mesh_quality_warning_present",
+          "gmsh_ill_shaped_tets_present",
+          "gmsh_min_gamma_below_1e_minus_4",
+          "worst_tet_sample_incomplete_for_all_ill_shaped_tets",
+          "worst_tet_sample_mostly_farfield",
+          "main_wing_near_surface_quality_hotspots_present",
+          "main_wing_quality_hotspot_overlaps_station_seam_trace",
+          "main_wing_hotspot_surfaces_include_short_curve_strips"
+        ],
+        "next_actions": [
+          "repair_station_seam_export_before_solver_iteration_budget",
+          "inspect_main_wing_hotspot_surfaces_19_29_32_after_station_pcurve_fix",
+          "separate_farfield_sliver_cleanup_from_lift_gap_root_cause",
+          "avoid_more_solver_iterations_until_geometry_and_mesh_gates_are_clean"
+        ]
+      },
+      "blockers": []
+    },
+    {
       "stage": "su2_mesh_normal_audit",
       "status": "pass",
       "evidence_kind": "real",
