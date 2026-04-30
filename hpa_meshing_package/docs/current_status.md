@@ -196,6 +196,23 @@ This writes `tail_wing_solidification_probe.v1.json` and
 surfaces and 0 volumes. The next viable implementation is explicit caps or a
 baffle-volume route.
 
+The explicit tail volume route probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-explicit-volume-route-probe --out .tmp/runs/tail_wing_explicit_volume_route_probe
+```
+
+This writes `tail_wing_explicit_volume_route_probe.v1.json` and
+`tail_wing_explicit_volume_route_probe.v1.md`. The current result is
+`explicit_volume_route_blocked`: `occ.addSurfaceLoop(..., sewing=True)` plus
+`occ.addVolume(...)` creates one explicit volume candidate, but the signed
+volume is negative and the farfield cut is not a valid external-flow boundary.
+The baffle-fragment candidate owns a fluid/farfield candidate, but fails 3D
+meshing with `tail_baffle_fragment_mesh_failed_plc`. The next viable
+implementation is explicit volume orientation repair or baffle-surface
+ownership cleanup, not solver execution.
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |
@@ -218,7 +235,7 @@ baffle-volume route.
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real geometry, solver history, and convergence gate are missing |
-| `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, and naive-solidification probes exist; real volume mesh handoff is blocked by surface-only provider output and naive Gmsh heal creates 0 volumes; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
+| `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | synthetic `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver history, and convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |

@@ -1,0 +1,93 @@
+{
+  "schema_version": "tail_wing_explicit_volume_route_probe.v1",
+  "component": "tail_wing",
+  "source_fixture": "blackcat_004_origin_vsp3",
+  "geometry_provider": "esp_rebuilt",
+  "geometry_family": "thin_sheet_lifting_surface",
+  "execution_mode": "real_provider_explicit_volume_route_probe_no_su2",
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "case_dir": "docs/reports/tail_wing_explicit_volume_route_probe",
+  "no_su2_execution": true,
+  "no_bl_runtime": true,
+  "production_default_changed": false,
+  "route_probe_status": "explicit_volume_route_blocked",
+  "mesh_handoff_status": "not_written",
+  "su2_volume_handoff_status": "not_su2_ready",
+  "provider_status": "materialized",
+  "provider_surface_count": 6,
+  "provider_body_count": 0,
+  "provider_volume_count": 0,
+  "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "surface_loop_volume_status": "volume_created",
+  "surface_loop_farfield_cut_status": "invalid_fluid_boundary",
+  "surface_loop_signed_volume": -0.03945880563457954,
+  "baffle_fragment_status": "mesh_failed_plc",
+  "explicit_volume_metadata_path": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/metadata.json",
+  "gmsh_log_path": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/baffle_fragment/gmsh_log.txt",
+  "recommended_next": "repair_explicit_volume_orientation_or_baffle_surface_ownership",
+  "candidates": [
+    {
+      "candidate_id": "surface_loop_volume",
+      "strategy": "occ_surface_loop_add_volume",
+      "status": "volume_created",
+      "input_surface_count": 6,
+      "created_volume_count": 1,
+      "created_surface_count": 6,
+      "signed_volume": -0.03945880563457954,
+      "orientation_status": "negative_signed_volume",
+      "fluid_volume_count": 1,
+      "farfield_surface_count": 0,
+      "tail_surface_count": 6,
+      "mesh_status": "not_attempted",
+      "mesh_stats": {},
+      "error": "surface-loop volume did not produce a valid external-flow fluid boundary",
+      "artifacts": {
+        "metadata": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/surface_loop_volume/metadata.json",
+        "gmsh_log": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/surface_loop_volume/gmsh_log.txt"
+      }
+    },
+    {
+      "candidate_id": "baffle_fragment_volume",
+      "strategy": "occ_baffle_fragment",
+      "status": "mesh_failed_plc",
+      "input_surface_count": 6,
+      "created_volume_count": 1,
+      "created_surface_count": 18,
+      "signed_volume": null,
+      "orientation_status": "unknown",
+      "fluid_volume_count": 1,
+      "farfield_surface_count": 6,
+      "tail_surface_count": 12,
+      "mesh_status": "mesh_failed",
+      "mesh_stats": {},
+      "error": "PLC Error:  A segment and a facet intersect at point",
+      "artifacts": {
+        "metadata": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/baffle_fragment/metadata.json",
+        "gmsh_log": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/baffle_fragment/gmsh_log.txt"
+      }
+    }
+  ],
+  "hpa_mdo_guarantees": [
+    "real_vsp3_source_consumed",
+    "esp_rebuilt_tail_wing_geometry_materialized",
+    "explicit_occ_surface_loop_add_volume_attempted",
+    "baffle_fragment_volume_attempted",
+    "mesh_handoff_not_emitted",
+    "su2_volume_handoff_not_claimed",
+    "production_default_unchanged"
+  ],
+  "blocking_reasons": [
+    "tail_explicit_surface_loop_volume_not_valid_external_flow_handoff",
+    "tail_baffle_fragment_mesh_failed_plc",
+    "tail_wing_solver_not_run",
+    "convergence_gate_not_run"
+  ],
+  "limitations": [
+    "This is a report-only route probe and does not emit mesh_handoff.v1.",
+    "The existing production default route is unchanged.",
+    "A Gmsh volume tag alone is not treated as a valid external-flow handoff.",
+    "SU2_CFD was not executed.",
+    "convergence_gate.v1 was not emitted."
+  ],
+  "error": null
+}

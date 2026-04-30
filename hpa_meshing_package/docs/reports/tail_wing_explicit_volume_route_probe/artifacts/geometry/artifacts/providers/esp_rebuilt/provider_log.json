@@ -1,0 +1,20 @@
+{
+  "provider": "esp_rebuilt",
+  "provider_stage": "experimental",
+  "status": "materialized",
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "runtime": {
+    "available": true,
+    "binaries": {
+      "serveESP": "/Users/linyuan/.local/bin/serveESP",
+      "serveCSM": "/Users/linyuan/.local/bin/serveCSM",
+      "ocsm": null
+    },
+    "missing": [
+      "ocsm"
+    ],
+    "batch_binary": "/Users/linyuan/.local/bin/serveCSM"
+  },
+  "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "topology_report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/topology.json"
+}

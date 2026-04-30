@@ -339,13 +339,37 @@ Observed result:
 Engineering reading: naive Gmsh heal/sew/makeSolids is not the next serious
 path. The next route should construct explicit caps or a baffle-volume topology.
 
+The explicit volume route probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-explicit-volume-route-probe \
+  --out .tmp/runs/tail_wing_explicit_volume_route_probe
+```
+
+Observed result:
+
+- `route_probe_status = explicit_volume_route_blocked`
+- `surface_loop_volume_status = volume_created`
+- `surface_loop_signed_volume = -0.03945880563457954`
+- `surface_loop_farfield_cut_status = invalid_fluid_boundary`
+- `baffle_fragment_status = mesh_failed_plc`
+- `mesh_handoff_status = not_written`
+
+Engineering reading: the real tail has now moved past "maybe Gmsh cannot see a
+volume" into a more specific route blocker. `occ.addSurfaceLoop` can create an
+explicit volume candidate, but the candidate is not a valid external-flow body
+until orientation / signed-volume behavior is fixed. The baffle route can own a
+farfield fluid candidate, but hpa-mdo still needs to own or de-duplicate the
+baffle wall topology before asking Gmsh to tetrahedralize it.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
-| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit caps or baffle-volume route, then real volume mesh/SU2 smoke |
+| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
@@ -397,7 +421,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Replace the synthetic main-wing slab with real ESP/VSP main-wing geometry
+1. Repair the real tail explicit-volume route by fixing surface-loop orientation
+   or baffle-surface ownership before any solver claim.
+2. Replace the synthetic main-wing slab with real ESP/VSP main-wing geometry
    evidence before any solver/convergence claim.
-2. Move real geometry evidence onto the main-wing, fairing, and tail component
-   routes before any solver/convergence claim.

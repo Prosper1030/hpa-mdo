@@ -1,0 +1,43 @@
+{
+  "representation": "brep_trimmed_step",
+  "source_kind": "stp",
+  "units": "m",
+  "bounds": {
+    "x_min": 0.0,
+    "x_max": 4.8,
+    "y_min": -1.5,
+    "y_max": 1.5,
+    "z_min": -0.03606235691824,
+    "z_max": 0.0360560044917
+  },
+  "import_bounds": {
+    "x_min": 3999.509171351,
+    "x_max": 4800.0000001,
+    "y_min": -1500.0000001,
+    "y_max": 1500.0000001,
+    "z_min": -36.06235701824,
+    "z_max": 36.0560045917
+  },
+  "import_scale_to_units": 0.0009999999985800573,
+  "backend_rescale_required": true,
+  "body_count": 0,
+  "surface_count": 6,
+  "volume_count": 0,
+  "labels_present": true,
+  "label_schema": "preserve_component_labels",
+  "normalization": {},
+  "notes": [
+    "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.00099999999858",
+    "component_subset_exported=horizontal_tail",
+    "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=4.8"
+  ],
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "input_model_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/horizontal_tail.vsp3",
+  "export_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/raw_dump.stp",
+  "export_exists": true,
+  "export_size_bytes": 103238,
+  "batch_binary": "/Users/linyuan/.local/bin/serveCSM",
+  "runtime_exec_dir": "/private/tmp/hpa_esp_runtime_lvocz4z_/runtime",
+  "stdout_tail": "1   190    0.000     0     0     0     sketch    4.553    1.500   -0.022 \n      191    193 spline      190    -1   192   191    0.000     0     0     0     sketch    4.609    1.500   -0.018 \n      192    194 spline      191    -1   193   192    0.000     0     0     0     sketch    4.635    1.500   -0.016 \n      193    195 spline      192    -1   194   193    0.000     0     0     0     sketch    4.660    1.500   -0.014 \n      194    196 spline      193    -1   195   194    0.000     0     0     0     sketch    4.683    1.500   -0.012 \n      195    197 spline      194    -1   196   195    0.000     0     0     0     sketch    4.724    1.500   -0.008 \n      196    198 spline      195    -1   197   196    0.000     0     0     0     sketch    4.741    1.500   -0.007 \n      197    199 spline      196    -1   198   197    0.000     0     0     0     sketch    4.756    1.500   -0.005 \n      198    200 spline      197    -1   199   198    0.000     0     0     0     sketch    4.770    1.500   -0.004 \n      199    201 linseg      198    -1   200   199    0.000     0     0     0     sketch    4.789    1.500    0.002 \n      200    202 skend       199    -1   201   200    0.001     3     3     1 sheet_body    0.000 \n      201*   203 rule         59   200     0   201    0.008    10    17     6 sheet_body    0.000    0.000    0.000 \n                                             total    0.011\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  201   0.0000e+00   4.7701e+00    4.3977e+00   7.2733e-19   1.2437e-05     3.5715e+00  -5.4131e-17  -2.4468e-04   2.5178e-01   5.8958e-19   3.8210e+00\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.111 sec\n==> serveCSM completed successfully with 3 warnings\n",
+  "stderr_tail": ""
+}

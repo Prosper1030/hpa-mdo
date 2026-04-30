@@ -1,0 +1,130 @@
+{
+  "schema_version": "tail_wing_explicit_volume_route_probe_metadata.v1",
+  "status": "explicit_volume_route_blocked",
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "provider_topology": {
+    "representation": "brep_trimmed_step",
+    "source_kind": "stp",
+    "units": "m",
+    "bounds": {
+      "x_min": 0.0,
+      "x_max": 4.8,
+      "y_min": -1.5,
+      "y_max": 1.5,
+      "z_min": -0.03606235691824,
+      "z_max": 0.0360560044917
+    },
+    "import_bounds": {
+      "x_min": 3999.509171351,
+      "x_max": 4800.0000001,
+      "y_min": -1500.0000001,
+      "y_max": 1500.0000001,
+      "z_min": -36.06235701824,
+      "z_max": 36.0560045917
+    },
+    "import_scale_to_units": 0.0009999999985800573,
+    "backend_rescale_required": true,
+    "body_count": 0,
+    "surface_count": 6,
+    "volume_count": 0,
+    "labels_present": true,
+    "label_schema": "preserve_component_labels",
+    "normalization": {
+      "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+      "applied": false,
+      "raw_counts": {
+        "body_count": 0,
+        "surface_count": 6,
+        "volume_count": 0
+      },
+      "raw_analysis": {
+        "touching_groups": [],
+        "singleton_body_tags": [],
+        "grouped_body_tags": [],
+        "duplicate_interface_face_pair_count": 0,
+        "duplicate_interface_face_pairs": [],
+        "internal_cap_face_count": 0,
+        "internal_cap_face_tags": [],
+        "body_records": [],
+        "notes": [
+          "step_import_contains_no_occ_volumes"
+        ]
+      },
+      "actions": [
+        "raw_export_already_cfd_clean_enough"
+      ],
+      "final_analysis": {
+        "touching_groups": [],
+        "singleton_body_tags": [],
+        "grouped_body_tags": [],
+        "duplicate_interface_face_pair_count": 0,
+        "internal_cap_face_count": 0,
+        "notes": [
+          "step_import_contains_no_occ_volumes"
+        ]
+      },
+      "normalized_counts": {
+        "body_count": 0,
+        "surface_count": 6,
+        "volume_count": 0
+      }
+    },
+    "notes": [
+      "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.00099999999858",
+      "component_subset_exported=horizontal_tail",
+      "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=4.8",
+      "normalization_pass_not_needed",
+      "step_import_contains_no_occ_volumes",
+      "OpenCSM batch succeeded via serveCSM."
+    ]
+  },
+  "candidates": [
+    {
+      "candidate_id": "surface_loop_volume",
+      "strategy": "occ_surface_loop_add_volume",
+      "status": "volume_created",
+      "input_surface_count": 6,
+      "created_volume_count": 1,
+      "created_surface_count": 6,
+      "signed_volume": -0.03945880563457954,
+      "orientation_status": "negative_signed_volume",
+      "fluid_volume_count": 1,
+      "farfield_surface_count": 0,
+      "tail_surface_count": 6,
+      "mesh_status": "not_attempted",
+      "mesh_stats": {},
+      "error": "surface-loop volume did not produce a valid external-flow fluid boundary",
+      "artifacts": {
+        "metadata": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/surface_loop_volume/metadata.json",
+        "gmsh_log": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/surface_loop_volume/gmsh_log.txt"
+      }
+    },
+    {
+      "candidate_id": "baffle_fragment_volume",
+      "strategy": "occ_baffle_fragment",
+      "status": "mesh_failed_plc",
+      "input_surface_count": 6,
+      "created_volume_count": 1,
+      "created_surface_count": 18,
+      "signed_volume": null,
+      "orientation_status": "unknown",
+      "fluid_volume_count": 1,
+      "farfield_surface_count": 6,
+      "tail_surface_count": 12,
+      "mesh_status": "mesh_failed",
+      "mesh_stats": {},
+      "error": "PLC Error:  A segment and a facet intersect at point",
+      "artifacts": {
+        "metadata": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/baffle_fragment/metadata.json",
+        "gmsh_log": "docs/reports/tail_wing_explicit_volume_route_probe/artifacts/explicit_volume/baffle_fragment/gmsh_log.txt"
+      }
+    }
+  ],
+  "blocking_reasons": [
+    "tail_explicit_surface_loop_volume_not_valid_external_flow_handoff",
+    "tail_baffle_fragment_mesh_failed_plc",
+    "tail_wing_solver_not_run",
+    "convergence_gate_not_run"
+  ]
+}

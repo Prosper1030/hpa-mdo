@@ -1,0 +1,186 @@
+{
+  "representation": "brep_trimmed_step",
+  "source_kind": "stp",
+  "units": "m",
+  "bounds": {
+    "x_min": 0.0,
+    "x_max": 4.8,
+    "y_min": -1.5,
+    "y_max": 1.5,
+    "z_min": -0.03606235691824,
+    "z_max": 0.0360560044917
+  },
+  "import_bounds": {
+    "x_min": 3999.509171351,
+    "x_max": 4800.0000001,
+    "y_min": -1500.0000001,
+    "y_max": 1500.0000001,
+    "z_min": -36.06235701824,
+    "z_max": 36.0560045917
+  },
+  "import_scale_to_units": 0.0009999999985800573,
+  "backend_rescale_required": true,
+  "body_count": 0,
+  "surface_count": 6,
+  "volume_count": 0,
+  "labels_present": true,
+  "label_schema": "preserve_component_labels",
+  "normalization": {
+    "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+    "applied": false,
+    "raw_counts": {
+      "body_count": 0,
+      "surface_count": 6,
+      "volume_count": 0
+    },
+    "raw_analysis": {
+      "touching_groups": [],
+      "singleton_body_tags": [],
+      "grouped_body_tags": [],
+      "duplicate_interface_face_pair_count": 0,
+      "duplicate_interface_face_pairs": [],
+      "internal_cap_face_count": 0,
+      "internal_cap_face_tags": [],
+      "body_records": [],
+      "notes": [
+        "step_import_contains_no_occ_volumes"
+      ]
+    },
+    "actions": [
+      "raw_export_already_cfd_clean_enough"
+    ],
+    "final_analysis": {
+      "touching_groups": [],
+      "singleton_body_tags": [],
+      "grouped_body_tags": [],
+      "duplicate_interface_face_pair_count": 0,
+      "internal_cap_face_count": 0,
+      "notes": [
+        "step_import_contains_no_occ_volumes"
+      ]
+    }
+  },
+  "notes": [
+    "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.00099999999858",
+    "component_subset_exported=horizontal_tail",
+    "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=4.8",
+    "normalization_pass_not_needed",
+    "step_import_contains_no_occ_volumes"
+  ],
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "input_model_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/horizontal_tail.vsp3",
+  "export_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "export_exists": true,
+  "export_size_bytes": 103238,
+  "batch_binary": "/Users/linyuan/.local/bin/serveCSM",
+  "runtime_exec_dir": "/private/tmp/hpa_esp_runtime_lvocz4z_/runtime",
+  "stdout_tail": "1   190    0.000     0     0     0     sketch    4.553    1.500   -0.022 \n      191    193 spline      190    -1   192   191    0.000     0     0     0     sketch    4.609    1.500   -0.018 \n      192    194 spline      191    -1   193   192    0.000     0     0     0     sketch    4.635    1.500   -0.016 \n      193    195 spline      192    -1   194   193    0.000     0     0     0     sketch    4.660    1.500   -0.014 \n      194    196 spline      193    -1   195   194    0.000     0     0     0     sketch    4.683    1.500   -0.012 \n      195    197 spline      194    -1   196   195    0.000     0     0     0     sketch    4.724    1.500   -0.008 \n      196    198 spline      195    -1   197   196    0.000     0     0     0     sketch    4.741    1.500   -0.007 \n      197    199 spline      196    -1   198   197    0.000     0     0     0     sketch    4.756    1.500   -0.005 \n      198    200 spline      197    -1   199   198    0.000     0     0     0     sketch    4.770    1.500   -0.004 \n      199    201 linseg      198    -1   200   199    0.000     0     0     0     sketch    4.789    1.500    0.002 \n      200    202 skend       199    -1   201   200    0.001     3     3     1 sheet_body    0.000 \n      201*   203 rule         59   200     0   201    0.008    10    17     6 sheet_body    0.000    0.000    0.000 \n                                             total    0.011\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  201   0.0000e+00   4.7701e+00    4.3977e+00   7.2733e-19   1.2437e-05     3.5715e+00  -5.4131e-17  -2.4468e-04   2.5178e-01   5.8958e-19   3.8210e+00\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.111 sec\n==> serveCSM completed successfully with 3 warnings\n",
+  "stderr_tail": "",
+  "component_selection": {
+    "requested_component": "tail_wing",
+    "effective_component": "horizontal_tail",
+    "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/blackcat_004_origin.vsp3",
+    "selection_mode": "openvsp_single_component_subset",
+    "selected_geom": {
+      "geom_id": "ZXAGZMPIBY",
+      "name": "Elevator",
+      "type_name": "Wing",
+      "is_symmetric_xz": true,
+      "x_location": 4.0,
+      "x_rotation_deg": 0.0,
+      "bbox_min": [
+        4.0,
+        0.0,
+        -0.03602233927468974
+      ],
+      "bbox_max": [
+        4.8,
+        1.5000000000000002,
+        0.03602233927468974
+      ],
+      "span_y": 1.5000000000000002,
+      "span_z": 0.07204467854937947,
+      "chord_x": 0.7999999999999998
+    },
+    "selected_geom_ids": [
+      "ZXAGZMPIBY"
+    ],
+    "removed_top_level_geom_ids": [
+      "IPAWXFWPQF",
+      "BROUAZWXIU"
+    ],
+    "candidate_summary": [
+      {
+        "geom_id": "IPAWXFWPQF",
+        "name": "Main Wing",
+        "type_name": "Wing",
+        "is_symmetric_xz": true,
+        "x_location": 0.0,
+        "x_rotation_deg": 0.0,
+        "span_y": 16.47465195857948,
+        "span_z": 0.9014342483376168,
+        "bbox_min": [
+          -2.156555057324391e-05,
+          0.0,
+          -0.06803674311582698
+        ],
+        "bbox_max": [
+          1.3023286428893068,
+          16.47465195857948,
+          0.8333975052217898
+        ]
+      },
+      {
+        "geom_id": "ZXAGZMPIBY",
+        "name": "Elevator",
+        "type_name": "Wing",
+        "is_symmetric_xz": true,
+        "x_location": 4.0,
+        "x_rotation_deg": 0.0,
+        "span_y": 1.5000000000000002,
+        "span_z": 0.07204467854937947,
+        "bbox_min": [
+          4.0,
+          0.0,
+          -0.03602233927468974
+        ],
+        "bbox_max": [
+          4.8,
+          1.5000000000000002,
+          0.03602233927468974
+        ]
+      },
+      {
+        "geom_id": "BROUAZWXIU",
+        "name": "Fin",
+        "type_name": "Wing",
+        "is_symmetric_xz": false,
+        "x_location": 5.0,
+        "x_rotation_deg": 90.0,
+        "span_y": 0.06303909373070718,
+        "span_z": 2.4,
+        "bbox_min": [
+          5.0,
+          -0.031519546865353514,
+          -0.7
+        ],
+        "bbox_max": [
+          5.7,
+          0.031519546865353666,
+          1.7
+        ]
+      }
+    ],
+    "subset_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/horizontal_tail.vsp3",
+    "wing_component_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/wing_component_report.json"
+  },
+  "topology_lineage_report": {
+    "artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/topology_lineage_report.json",
+    "suppression_candidate_count": 2
+  },
+  "topology_suppression_report": {
+    "artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/topology_suppression_report.json",
+    "applied": true,
+    "suppressed_source_section_count": 1
+  }
+}

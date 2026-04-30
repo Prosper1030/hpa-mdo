@@ -1,0 +1,5 @@
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.8 1' (2D)
+Progress: Difference
+Progress: Difference - Performing intersection of shapes
+Progress: Difference
+Progress: Difference - Classify solids

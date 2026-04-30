@@ -1,0 +1,35 @@
+{
+  "schema_version": "tail_wing_explicit_volume_candidate.v1",
+  "candidate_id": "surface_loop_volume",
+  "strategy": "occ_surface_loop_add_volume",
+  "status": "volume_created",
+  "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_explicit_volume_route_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "surface_loop_tag": 1,
+  "volume_tag": 1,
+  "input_surface_count": 6,
+  "created_volume_count": 1,
+  "created_surface_count": 6,
+  "signed_volume": -0.03945880563457954,
+  "orientation_status": "negative_signed_volume",
+  "body_bounds": {
+    "x_min": 3.9995090657719263,
+    "x_max": 4.800000093184275,
+    "y_min": -1.500000097870086,
+    "y_max": 1.500000097870086,
+    "z_min": -0.03606245686703352,
+    "z_max": 0.03605610444050254
+  },
+  "farfield_bounds": {
+    "x_min": 2.3985270109472285,
+    "x_max": 7.201473175421322,
+    "y_min": -7.50000048935043,
+    "y_max": 7.50000048935043,
+    "z_min": -0.18029957948210565,
+    "z_max": 0.18029322705557466
+  },
+  "farfield_cut_status": "invalid_fluid_boundary",
+  "fluid_volume_count": 1,
+  "aircraft_surface_count": 6,
+  "farfield_surface_count": 0,
+  "boundary_surface_count": 6
+}

@@ -192,7 +192,7 @@ def build_component_family_route_smoke_matrix(
         next_actions=[
             "replace synthetic fairing fixture with real fairing geometry before solver claims",
             "replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims",
-            "implement explicit caps or baffle-volume tail_wing route before solver claims",
+            "repair explicit tail_wing volume orientation or baffle-surface ownership before solver claims",
             "keep BL prelaunch excluded until handoff topology ownership passes",
         ],
     )

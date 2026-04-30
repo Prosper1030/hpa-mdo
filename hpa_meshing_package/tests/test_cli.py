@@ -218,6 +218,20 @@ def test_parser_supports_tail_wing_solidification_probe_command():
     assert args.out == "artifacts/tail_wing_solidification_probe"
 
 
+def test_parser_supports_tail_wing_explicit_volume_route_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "tail-wing-explicit-volume-route-probe",
+            "--out",
+            "artifacts/tail_wing_explicit_volume_route_probe",
+        ]
+    )
+
+    assert args.command == "tail-wing-explicit-volume-route-probe"
+    assert args.out == "artifacts/tail_wing_explicit_volume_route_probe"
+
+
 def test_parser_supports_main_wing_su2_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(
