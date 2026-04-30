@@ -207,6 +207,20 @@ def test_parser_supports_main_wing_real_mesh_handoff_probe_command():
     assert args.out == "artifacts/main_wing_real_mesh_probe"
 
 
+def test_parser_supports_main_wing_route_readiness_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-route-readiness",
+            "--out",
+            "artifacts/main_wing_route_readiness",
+        ]
+    )
+
+    assert args.command == "main-wing-route-readiness"
+    assert args.out == "artifacts/main_wing_route_readiness"
+
+
 def test_parser_supports_tail_wing_mesh_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(

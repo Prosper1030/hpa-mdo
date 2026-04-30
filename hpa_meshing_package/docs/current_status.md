@@ -58,6 +58,24 @@ and fairing component families classify and dispatch to registered route
 skeletons outside `root_last3`. It does not run Gmsh, BL runtime, SU2,
 `mesh_handoff.v1`, `su2_handoff.v1`, or `convergence_gate.v1`.
 
+The main-wing route-readiness report is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-route-readiness --out .tmp/runs/main_wing_route_readiness
+```
+
+This writes `main_wing_route_readiness.v1.json` and
+`main_wing_route_readiness.v1.md`. The committed snapshot is kept under
+`docs/reports/main_wing_route_readiness/`. It is report-only: it reads the
+existing main-wing geometry / mesh / SU2 smoke reports and records which stages
+are real evidence, which are synthetic wiring evidence, and which are absent.
+The current result is `blocked_at_real_mesh_handoff`: real geometry passes,
+real 3D mesh handoff times out during `volume_insertion`, synthetic mesh/SU2
+handoff wiring exists, and solver/convergence are not run. It also confirms the
+current main-wing SU2 materialization artifact uses the HPA standard
+`V=6.5 m/s`; any old `V=10` artifact remains legacy mismatch evidence only.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash

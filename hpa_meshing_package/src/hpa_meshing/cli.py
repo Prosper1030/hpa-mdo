@@ -50,6 +50,10 @@ from .main_wing_su2_handoff_smoke import (
     build_main_wing_su2_handoff_smoke_report,
     write_main_wing_su2_handoff_smoke_report,
 )
+from .main_wing_route_readiness import (
+    build_main_wing_route_readiness_report,
+    write_main_wing_route_readiness_report,
+)
 from .main_wing_esp_rebuilt_geometry_smoke import (
     build_main_wing_esp_rebuilt_geometry_smoke_report,
     write_main_wing_esp_rebuilt_geometry_smoke_report,
@@ -371,6 +375,14 @@ def cmd_main_wing_real_mesh_handoff_probe(args: argparse.Namespace) -> int:
     return 0 if report.probe_status in {"mesh_handoff_pass", "mesh_handoff_blocked", "mesh_handoff_timeout"} else 2
 
 
+def cmd_main_wing_route_readiness(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    report = build_main_wing_route_readiness_report()
+    write_main_wing_route_readiness_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_tail_wing_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report = build_tail_wing_mesh_handoff_smoke_report(out_dir)
@@ -599,6 +611,10 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_real_mesh_probe.add_argument("--source", type=str)
     main_wing_real_mesh_probe.add_argument("--timeout-seconds", type=float, default=45.0)
     main_wing_real_mesh_probe.set_defaults(func=cmd_main_wing_real_mesh_handoff_probe)
+
+    main_wing_route_readiness = sub.add_parser("main-wing-route-readiness")
+    main_wing_route_readiness.add_argument("--out", type=str, required=True)
+    main_wing_route_readiness.set_defaults(func=cmd_main_wing_route_readiness)
 
     tail_wing_smoke = sub.add_parser("tail-wing-mesh-handoff-smoke")
     tail_wing_smoke.add_argument("--out", type=str, required=True)

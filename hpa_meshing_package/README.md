@@ -161,7 +161,27 @@ fairing component families classify and dispatch to registered routes without
 using `root_last3`; it does not run Gmsh, BL runtime, SU2, or any production
 mesh promotion.
 
-### 7. Write the fairing solid real-geometry smoke
+### 7. Write the main-wing route-readiness report
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli main-wing-route-readiness \
+  --out .tmp/runs/main_wing_route_readiness
+```
+
+This produces:
+
+- `main_wing_route_readiness.v1.json`
+- `main_wing_route_readiness.v1.md`
+
+This report reads the committed main-wing geometry / mesh / SU2 smoke reports
+and summarizes each stage as real evidence, synthetic wiring evidence, or absent
+evidence. It does not run Gmsh or SU2. The current snapshot is blocked at real
+mesh handoff: real geometry exists, real 3D meshing times out during volume
+insertion, synthetic mesh/SU2 handoff wiring exists, and solver/convergence are
+not run.
+
+### 8. Write the fairing solid real-geometry smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -180,7 +200,7 @@ OpenVSP `Fuselage`, materializes a normalized STEP through
 `openvsp_surface_intersection`, and observes closed-solid topology. It does not
 run Gmsh meshing, SU2, BL runtime, or convergence.
 
-### 8. Probe the real fairing mesh handoff
+### 9. Probe the real fairing mesh handoff
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -199,7 +219,7 @@ result is `mesh_handoff_pass`: `mesh_handoff.v1` is written with a
 component-owned `fairing_solid` marker and a `farfield` marker. It does not run
 SU2, BL runtime, or convergence.
 
-### 9. Write the fairing solid mesh-handoff smoke
+### 10. Write the fairing solid mesh-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -217,7 +237,7 @@ This is the first real Gmsh handoff smoke for `fairing_solid`. It emits
 run SU2. It does include a component-owned `fairing_solid` force marker in the
 mesh-handoff evidence.
 
-### 10. Write the fairing solid SU2-handoff smoke
+### 11. Write the fairing solid SU2-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -235,7 +255,7 @@ This consumes the synthetic closed-solid fairing mesh handoff and materializes
 It consumes the component-owned `fairing_solid` wall marker; real fairing
 geometry, solver history, and convergence remain blocking gates.
 
-### 11. Write the fairing solid real SU2-handoff probe
+### 12. Write the fairing solid real SU2-handoff probe
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -255,7 +275,7 @@ This consumes the real fairing `mesh_handoff.v1` probe and materializes
 and has `reference_geometry_status=warn`, so solver and coefficient claims
 remain blocked until reference policy and convergence evidence are explicit.
 
-### 12. Probe the fairing solid reference policy
+### 13. Probe the fairing solid reference policy
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -275,7 +295,7 @@ fairing evidence uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, and `V=6.5`,
 while that older handoff artifact wrote `REF_AREA=100`, `REF_LENGTH=1`, and
 `V=10`. `V=10` is not the HPA standard.
 
-### 13. Write the fairing solid reference-override SU2 handoff probe
+### 14. Write the fairing solid reference-override SU2 handoff probe
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -296,7 +316,7 @@ keeping the hpa-mdo `fairing_solid` force marker. It does not run `SU2_CFD`,
 does not emit convergence, and keeps moment coefficients blocked because the
 moment origin is still borrowed as zero-origin evidence.
 
-### 14. Write the main wing ESP-rebuilt geometry smoke
+### 15. Write the main wing ESP-rebuilt geometry smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -314,7 +334,7 @@ This is provider-only evidence for the real main-wing source path. It consumes
 materializes an ESP-normalized STEP with provider topology evidence. It does
 not run Gmsh, SU2, BL runtime, or convergence.
 
-### 14. Probe the real main wing mesh handoff
+### 16. Probe the real main wing mesh handoff
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -333,7 +353,7 @@ is `mesh_handoff_timeout`: 2D meshing completes, but 3D volume insertion times
 out before `mesh_handoff.v1` is written. It does not run SU2, BL runtime, or
 convergence.
 
-### 15. Write the main wing mesh-handoff smoke
+### 17. Write the main wing mesh-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -351,7 +371,7 @@ This is a real Gmsh non-BL handoff smoke for `main_wing`. It emits
 component-owned `main_wing` / `farfield` markers. It does not run BL runtime, SU2, or a
 convergence gate, and it does not prove real aerodynamic main-wing geometry.
 
-### 16. Write the main wing SU2-handoff smoke
+### 18. Write the main wing SU2-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -369,7 +389,7 @@ This consumes the synthetic non-BL main-wing mesh handoff and materializes
 It now consumes the component-owned `main_wing` wall marker, so the remaining
 blocking gates are real main-wing geometry, solver history, and convergence.
 
-### 17. Write the tail wing ESP-rebuilt geometry smoke
+### 19. Write the tail wing ESP-rebuilt geometry smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -387,7 +407,7 @@ This is provider-only evidence for the real tail source path. It consumes
 `tail_wing` / `horizontal_tail`, and materializes an ESP-normalized STEP. It
 does not run Gmsh, SU2, BL runtime, or convergence.
 
-### 18. Write the tail wing mesh-handoff smoke
+### 20. Write the tail wing mesh-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -405,7 +425,7 @@ This is a real Gmsh non-BL handoff smoke for `tail_wing`. It emits
 component-owned `tail_wing` / `farfield` markers. It does not run BL runtime,
 SU2, or a convergence gate, and it does not prove real aerodynamic tail geometry.
 
-### 19. Write the tail wing SU2-handoff smoke
+### 21. Write the tail wing SU2-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -423,7 +443,7 @@ This consumes the synthetic non-BL tail-wing mesh handoff and materializes
 It consumes the component-owned `tail_wing` wall marker; real tail geometry,
 solver history, and convergence remain blocking gates.
 
-### 20. Probe the real tail wing mesh handoff
+### 22. Probe the real tail wing mesh handoff
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -443,7 +463,7 @@ The real ESP tail geometry materializes as surface-only STEP evidence
 architecture choice is provider-side solidification/capping or a baffle-volume
 route.
 
-### 21. Probe the real tail wing surface mesh
+### 23. Probe the real tail wing surface mesh
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -461,7 +481,7 @@ surface evidence (`surface_element_count=2286`) with a `tail_wing` physical
 group. It intentionally does not emit `mesh_handoff.v1`: there is no farfield
 volume, no fluid volume, no SU2-ready external-flow mesh, and no solver run.
 
-### 22. Probe naive tail wing solidification
+### 24. Probe naive tail wing solidification
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -480,7 +500,7 @@ makeSolids=True)` variants on the real ESP tail surfaces. The current result is
 next implementation should build explicit caps or a baffle-volume route, not
 continue tuning naive heal settings.
 
-### 23. Probe explicit tail wing volume routes
+### 25. Probe explicit tail wing volume routes
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
