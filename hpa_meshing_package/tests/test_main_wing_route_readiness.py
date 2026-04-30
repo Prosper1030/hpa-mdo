@@ -401,6 +401,71 @@ def test_main_wing_route_readiness_records_solver_budget_probe_stages(
     assert "solver_executed_but_not_converged" in report.blocking_reasons
 
 
+def test_main_wing_route_readiness_selects_highest_solver_budget_probe(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    for iterations, cl in [(20, 0.25), (80, 0.28)]:
+        _write_json(
+            root
+            / f"main_wing_real_solver_smoke_probe_iter{iterations}"
+            / "main_wing_real_solver_smoke_probe.v1.json",
+            {
+                "solver_execution_status": "solver_executed",
+                "convergence_gate_status": "warn",
+                "run_status": "solver_executed_but_not_converged",
+                "convergence_comparability_level": "run_only",
+                "final_iteration": iterations - 1,
+                "runtime_max_iterations": iterations,
+                "final_coefficients": {
+                    "cl": cl,
+                    "cd": 0.02,
+                    "cm": -0.15,
+                    "cm_axis": "CMy",
+                },
+                "observed_velocity_mps": 6.5,
+                "blocking_reasons": ["solver_executed_but_not_converged"],
+            },
+        )
+    for iterations, cm in [(40, -0.21), (80, -0.22)]:
+        _write_json(
+            root
+            / f"main_wing_openvsp_reference_solver_smoke_probe_iter{iterations}"
+            / "main_wing_real_solver_smoke_probe.v1.json",
+            {
+                "solver_execution_status": "solver_executed",
+                "convergence_gate_status": "warn",
+                "run_status": "solver_executed_but_not_converged",
+                "convergence_comparability_level": "run_only",
+                "final_iteration": iterations - 1,
+                "runtime_max_iterations": iterations,
+                "final_coefficients": {
+                    "cl": 0.27,
+                    "cd": 0.026,
+                    "cm": cm,
+                    "cm_axis": "CMy",
+                },
+                "observed_velocity_mps": 6.5,
+                "blocking_reasons": ["solver_executed_but_not_converged"],
+            },
+        )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    solver_budget = stages["solver_budget_probe"]
+    openvsp_solver_budget = stages["openvsp_reference_solver_budget_probe"]
+    assert "main_wing_real_solver_smoke_probe_iter80" in solver_budget.artifact_path
+    assert solver_budget.observed["runtime_max_iterations"] == 80
+    assert solver_budget.observed["final_coefficients"]["cl"] == 0.28
+    assert (
+        "main_wing_openvsp_reference_solver_smoke_probe_iter80"
+        in openvsp_solver_budget.artifact_path
+    )
+    assert openvsp_solver_budget.observed["runtime_max_iterations"] == 80
+    assert openvsp_solver_budget.observed["final_coefficients"]["cm"] == -0.22
+
+
 def test_main_wing_route_readiness_prioritizes_invalid_boundary_mesh_action(
     tmp_path: Path,
 ):

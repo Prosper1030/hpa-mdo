@@ -78,6 +78,47 @@ def _load_json(path: Path) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _int_or_none(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return None
+
+
+def _budget_from_report_path(path: Path, directory_prefix: str) -> int | None:
+    suffix = path.parent.name.removeprefix(directory_prefix)
+    return int(suffix) if suffix.isdigit() else None
+
+
+def _load_latest_solver_budget_probe(
+    root: Path,
+    *,
+    directory_prefix: str,
+) -> tuple[Path | None, dict[str, Any] | None]:
+    selected_budget: int | None = None
+    selected_path: Path | None = None
+    selected_payload: dict[str, Any] | None = None
+    for report_path in sorted(
+        root.glob(f"{directory_prefix}*/main_wing_real_solver_smoke_probe.v1.json")
+    ):
+        payload = _load_json(report_path)
+        if not isinstance(payload, dict):
+            continue
+        budget = _int_or_none(payload.get("runtime_max_iterations"))
+        if budget is None:
+            budget = _budget_from_report_path(report_path, directory_prefix)
+        if budget is None:
+            continue
+        if selected_budget is None or budget > selected_budget:
+            selected_budget = budget
+            selected_path = report_path
+            selected_payload = payload
+    return selected_path, selected_payload
+
+
 def _blocking_reasons(payload: dict[str, Any] | None) -> list[str]:
     if not isinstance(payload, dict):
         return []
@@ -204,11 +245,6 @@ def build_main_wing_route_readiness_report(
         / "main_wing_openvsp_reference_solver_smoke_probe"
         / "main_wing_real_solver_smoke_probe.v1.json"
     )
-    openvsp_reference_solver_budget_path = (
-        root
-        / "main_wing_openvsp_reference_solver_smoke_probe_iter40"
-        / "main_wing_real_solver_smoke_probe.v1.json"
-    )
     reference_gate_path = (
         root
         / "main_wing_reference_geometry_gate"
@@ -217,11 +253,6 @@ def build_main_wing_route_readiness_report(
     solver_smoke_path = (
         root
         / "main_wing_real_solver_smoke_probe"
-        / "main_wing_real_solver_smoke_probe.v1.json"
-    )
-    solver_budget_path = (
-        root
-        / "main_wing_real_solver_smoke_probe_iter40"
         / "main_wing_real_solver_smoke_probe.v1.json"
     )
     synthetic_su2_runtime_path = (
@@ -240,10 +271,19 @@ def build_main_wing_route_readiness_report(
     real_su2 = _load_json(real_su2_path)
     openvsp_reference_su2 = _load_json(openvsp_reference_su2_path)
     openvsp_reference_solver = _load_json(openvsp_reference_solver_path)
-    openvsp_reference_solver_budget = _load_json(openvsp_reference_solver_budget_path)
+    (
+        openvsp_reference_solver_budget_path,
+        openvsp_reference_solver_budget,
+    ) = _load_latest_solver_budget_probe(
+        root,
+        directory_prefix="main_wing_openvsp_reference_solver_smoke_probe_iter",
+    )
     reference_gate = _load_json(reference_gate_path)
     solver_smoke = _load_json(solver_smoke_path)
-    solver_budget = _load_json(solver_budget_path)
+    solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
+        root,
+        directory_prefix="main_wing_real_solver_smoke_probe_iter",
+    )
     synthetic_su2_runtime = _load_json(synthetic_su2_runtime_path)
     hpa_flow_status, observed_velocity = _flow_status(synthetic_su2_runtime)
 
