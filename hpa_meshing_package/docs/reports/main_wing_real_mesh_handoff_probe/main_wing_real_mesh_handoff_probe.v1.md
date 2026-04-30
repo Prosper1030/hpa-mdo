@@ -24,6 +24,9 @@ It runs in a bounded child process and does not run SU2.
 - mesh3d_watchdog_status: `completed_without_timeout`
 - mesh3d_timeout_phase_classification: `optimization`
 - mesh_failure_classification: `None`
+- mesh_quality_status: `warn`
+- mesh_quality_advisory_flags: `['gmsh_ill_shaped_tets_present', 'gmsh_min_gamma_below_1e_minus_4', 'gmsh_gamma_p01_below_0p20']`
+- mesh_quality_metrics: `{'tetrahedron_count': 584460, 'ill_shaped_tet_count': 78, 'non_positive_min_sicn_count': 0, 'non_positive_min_sige_count': 0, 'non_positive_volume_count': 0, 'min_gamma': 8.131677887160085e-07, 'min_sicn': 0.0007790197756303649, 'min_sige': 0.0008646308768278953, 'min_volume': 1.096125480738833e-06, 'gamma_percentiles': {'p01': 0.13359208369407768, 'p05': 0.33242963726724084, 'p50': 0.8056187158799668}, 'min_sicn_percentiles': {'p01': 0.29972214941891534, 'p05': 0.42705267509854167, 'p50': 0.8377961522730251}, 'min_sige_percentiles': {'p01': 0.31680952267939777, 'p05': 0.4447358513541527, 'p50': 0.8604170445340937}, 'volume_percentiles': {'p01': 0.0032049488207234198, 'p05': 0.004861129795522252, 'p50': 0.009257178820713675}, 'worst_tet_sample_count': 20}`
 - mesh3d_nodes_created_per_boundary_node: `23.914980793854035`
 - error: `None`
 
@@ -39,3 +42,4 @@ It runs in a bounded child process and does not run SU2.
 - It does not run SU2_CFD.
 - convergence_gate.v1 was not emitted.
 - A timeout or blocked mesh is evidence for meshing policy work, not a solver result.
+- Mesh handoff was materialized, but Gmsh quality advisories mean it should not be treated as CFD-ready.

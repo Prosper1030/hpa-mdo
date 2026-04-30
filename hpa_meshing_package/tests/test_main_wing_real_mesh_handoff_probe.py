@@ -48,6 +48,29 @@ def test_main_wing_real_mesh_handoff_probe_records_pass_when_bounded_job_writes_
         "hpa_meshing.main_wing_real_mesh_handoff_probe.build_main_wing_esp_rebuilt_geometry_smoke_report",
         lambda out_dir, source_path=None: _provider_report(tmp_path),
     )
+
+    mesh_metadata_path = tmp_path / "mesh_metadata.json"
+    mesh_metadata_path.write_text(
+        json.dumps(
+            {
+                "quality_metrics": {
+                    "tetrahedron_count": 584460,
+                    "ill_shaped_tet_count": 78,
+                    "non_positive_min_sicn_count": 0,
+                    "non_positive_min_sige_count": 0,
+                    "non_positive_volume_count": 0,
+                    "min_gamma": 8.13e-7,
+                    "min_sicn": 7.79e-4,
+                    "min_sige": 8.65e-4,
+                    "min_volume": 1.09e-6,
+                    "gamma_percentiles": {"p01": 0.133, "p05": 0.332},
+                    "worst_20_tets": [{"element_id": 515801}],
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(
         "hpa_meshing.main_wing_real_mesh_handoff_probe._run_bounded_mesh_job",
         lambda **_: {
@@ -59,7 +82,7 @@ def test_main_wing_real_mesh_handoff_probe_records_pass_when_bounded_job_writes_
                 "mesh": {
                     "contract": "mesh_handoff.v1",
                     "route_stage": "real_gmsh",
-                    "metadata_path": str(tmp_path / "mesh_metadata.json"),
+                    "metadata_path": str(mesh_metadata_path),
                     "marker_summary_path": str(tmp_path / "marker_summary.json"),
                     "node_count": 120,
                     "element_count": 300,
@@ -91,6 +114,11 @@ def test_main_wing_real_mesh_handoff_probe_records_pass_when_bounded_job_writes_
     assert report.coarse_first_tetra_enabled is True
     assert "mesh_handoff_v1_written_for_real_main_wing_probe" in report.hpa_mdo_guarantees
     assert "main_wing_solver_not_run" in report.blocking_reasons
+    assert report.mesh_quality_status == "warn"
+    assert report.mesh_quality_metrics["ill_shaped_tet_count"] == 78
+    assert report.mesh_quality_metrics["worst_tet_sample_count"] == 1
+    assert "gmsh_ill_shaped_tets_present" in report.mesh_quality_advisory_flags
+    assert "gmsh_min_gamma_below_1e_minus_4" in report.mesh_quality_advisory_flags
 
 
 def test_main_wing_real_mesh_handoff_probe_records_bounded_timeout(

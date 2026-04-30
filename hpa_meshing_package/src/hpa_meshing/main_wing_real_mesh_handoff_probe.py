@@ -34,6 +34,7 @@ MeshFailureClassificationType = Literal[
     "invalid_boundary_mesh_overlapping_facets",
     "boundary_parametrization_topology_failed",
 ]
+MeshQualityStatusType = Literal["pass", "warn", "unavailable"]
 
 
 PROBE_PROFILE: ProbeProfileType = "coarse_first_volume_insertion_probe_not_production_default"
@@ -111,6 +112,9 @@ class MainWingRealMeshHandoffProbeReport(BaseModel):
     mesh3d_watchdog_status: str | None = None
     mesh3d_timeout_phase_classification: str | None = None
     mesh_failure_classification: MeshFailureClassificationType | None = None
+    mesh_quality_status: MeshQualityStatusType = "unavailable"
+    mesh_quality_metrics: Dict[str, Any] = Field(default_factory=dict)
+    mesh_quality_advisory_flags: List[str] = Field(default_factory=list)
     mesh3d_nodes_created_per_boundary_node: float | None = None
     mesh3d_iteration_count: int | None = None
     mesh3d_latest_worst_tet_radius: float | None = None
@@ -187,6 +191,80 @@ def _mesh_failure_classification(
     if isinstance(error, str) and "Wrong topology of boundary mesh for parametrization" in error:
         return "boundary_parametrization_topology_failed"
     return None
+
+
+def _mesh_quality_metrics_summary(mesh_metadata: dict[str, Any]) -> dict[str, Any]:
+    quality = mesh_metadata.get("quality_metrics")
+    if not isinstance(quality, dict):
+        return {}
+    summary: dict[str, Any] = {}
+    scalar_keys = [
+        "tetrahedron_count",
+        "ill_shaped_tet_count",
+        "non_positive_min_sicn_count",
+        "non_positive_min_sige_count",
+        "non_positive_volume_count",
+        "min_gamma",
+        "min_sicn",
+        "min_sige",
+        "min_volume",
+    ]
+    for key in scalar_keys:
+        value = quality.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            summary[key] = value
+    for key in (
+        "gamma_percentiles",
+        "min_sicn_percentiles",
+        "min_sige_percentiles",
+        "volume_percentiles",
+    ):
+        value = quality.get(key)
+        if isinstance(value, dict):
+            summary[key] = {
+                str(name): metric
+                for name, metric in value.items()
+                if isinstance(metric, (int, float)) and not isinstance(metric, bool)
+            }
+    worst_tets = quality.get("worst_20_tets")
+    if isinstance(worst_tets, list):
+        summary["worst_tet_sample_count"] = len(worst_tets)
+    return summary
+
+
+def _mesh_quality_flags(summary: dict[str, Any]) -> list[str]:
+    if not summary:
+        return []
+    flags: list[str] = []
+    ill_shaped_count = summary.get("ill_shaped_tet_count")
+    if isinstance(ill_shaped_count, (int, float)) and ill_shaped_count > 0:
+        flags.append("gmsh_ill_shaped_tets_present")
+    min_gamma = summary.get("min_gamma")
+    if isinstance(min_gamma, (int, float)) and min_gamma < 1.0e-4:
+        flags.append("gmsh_min_gamma_below_1e_minus_4")
+    gamma_percentiles = summary.get("gamma_percentiles", {})
+    gamma_p01 = (
+        gamma_percentiles.get("p01") if isinstance(gamma_percentiles, dict) else None
+    )
+    if isinstance(gamma_p01, (int, float)) and gamma_p01 < 0.2:
+        flags.append("gmsh_gamma_p01_below_0p20")
+    non_positive_keys = (
+        "non_positive_min_sicn_count",
+        "non_positive_min_sige_count",
+        "non_positive_volume_count",
+    )
+    if any(
+        isinstance(summary.get(key), (int, float)) and summary[key] > 0
+        for key in non_positive_keys
+    ):
+        flags.append("gmsh_non_positive_quality_detected")
+    return flags
+
+
+def _mesh_quality_status(summary: dict[str, Any], flags: list[str]) -> MeshQualityStatusType:
+    if not summary:
+        return "unavailable"
+    return "warn" if flags else "pass"
 
 
 def _run_bounded_mesh_job(
@@ -419,6 +497,19 @@ def build_main_wing_real_mesh_handoff_probe_report(
             "main_wing_real_geometry_boundary_parametrization_topology_failed",
         )
 
+    mesh_metadata_path = (
+        Path(mesh["metadata_path"])
+        if isinstance(mesh.get("metadata_path"), str)
+        else mesh_dir / "mesh_metadata.json"
+    )
+    mesh_metadata = _safe_load_json(mesh_metadata_path) or {}
+    mesh_quality_metrics = _mesh_quality_metrics_summary(mesh_metadata)
+    mesh_quality_advisory_flags = _mesh_quality_flags(mesh_quality_metrics)
+    mesh_quality_status = _mesh_quality_status(
+        mesh_quality_metrics,
+        mesh_quality_advisory_flags,
+    )
+
     hpa_mdo_guarantees = [
         "real_vsp3_source_consumed",
         "esp_rebuilt_main_wing_geometry_materialized",
@@ -502,6 +593,9 @@ def build_main_wing_real_mesh_handoff_probe_report(
             mesh3d_timeout_phase if isinstance(mesh3d_timeout_phase, str) else None
         ),
         mesh_failure_classification=mesh_failure_classification,
+        mesh_quality_status=mesh_quality_status,
+        mesh_quality_metrics=mesh_quality_metrics,
+        mesh_quality_advisory_flags=mesh_quality_advisory_flags,
         mesh3d_nodes_created_per_boundary_node=(
             float(mesh3d_watchdog["nodes_created_per_boundary_node"])
             if isinstance(mesh3d_watchdog.get("nodes_created_per_boundary_node"), (int, float))
@@ -537,6 +631,13 @@ def build_main_wing_real_mesh_handoff_probe_report(
             "It does not run SU2_CFD.",
             "convergence_gate.v1 was not emitted.",
             "A timeout or blocked mesh is evidence for meshing policy work, not a solver result.",
+            *(
+                [
+                    "Mesh handoff was materialized, but Gmsh quality advisories mean it should not be treated as CFD-ready."
+                ]
+                if mesh_quality_status == "warn"
+                else []
+            ),
         ],
     )
 
@@ -569,6 +670,9 @@ def _render_markdown(report: MainWingRealMeshHandoffProbeReport) -> str:
         f"- mesh3d_watchdog_status: `{report.mesh3d_watchdog_status}`",
         f"- mesh3d_timeout_phase_classification: `{report.mesh3d_timeout_phase_classification}`",
         f"- mesh_failure_classification: `{report.mesh_failure_classification}`",
+        f"- mesh_quality_status: `{report.mesh_quality_status}`",
+        f"- mesh_quality_advisory_flags: `{report.mesh_quality_advisory_flags}`",
+        f"- mesh_quality_metrics: `{report.mesh_quality_metrics}`",
         f"- mesh3d_nodes_created_per_boundary_node: `{report.mesh3d_nodes_created_per_boundary_node}`",
         f"- error: `{report.error}`",
         "",

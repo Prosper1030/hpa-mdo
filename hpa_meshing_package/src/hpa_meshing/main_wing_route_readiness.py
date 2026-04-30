@@ -300,6 +300,12 @@ def build_main_wing_route_readiness_report(
         and real_mesh.get("probe_status") == "mesh_handoff_pass"
         and real_mesh.get("mesh_handoff_status") == "written"
     )
+    real_mesh_quality_flags = (
+        real_mesh.get("mesh_quality_advisory_flags", [])
+        if isinstance(real_mesh, dict)
+        else []
+    )
+    real_mesh_quality_warn = bool(real_mesh_quality_flags)
     synthetic_mesh_pass = (
         isinstance(synthetic_mesh, dict)
         and synthetic_mesh.get("smoke_status") == "mesh_handoff_pass"
@@ -379,6 +385,15 @@ def build_main_wing_route_readiness_report(
                 ),
                 "mesh3d_nodes_created_per_boundary_node": (
                     None if real_mesh is None else real_mesh.get("mesh3d_nodes_created_per_boundary_node")
+                ),
+                "mesh_quality_status": (
+                    None if real_mesh is None else real_mesh.get("mesh_quality_status")
+                ),
+                "mesh_quality_advisory_flags": (
+                    [] if real_mesh is None else real_mesh.get("mesh_quality_advisory_flags", [])
+                ),
+                "mesh_quality_metrics": (
+                    {} if real_mesh is None else real_mesh.get("mesh_quality_metrics", {})
                 ),
             },
             blockers=[] if real_mesh_pass else _blocking_reasons(real_mesh),
@@ -727,6 +742,8 @@ def build_main_wing_route_readiness_report(
         next_actions[0] = "repair_real_main_wing_boundary_overlap_before_volume_meshing"
     if "main_wing_real_geometry_boundary_parametrization_topology_failed" in blocking_reasons:
         next_actions[0] = "repair_real_main_wing_boundary_topology_before_volume_meshing"
+    if convergence_blocked and real_mesh_quality_warn:
+        next_actions[0] = "inspect_main_wing_mesh_quality_before_more_solver_budget"
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

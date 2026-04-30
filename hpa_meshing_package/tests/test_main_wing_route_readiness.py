@@ -278,6 +278,80 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
     assert "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean" in report.next_actions
 
 
+def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "mesh_quality_status": "warn",
+            "mesh_quality_metrics": {
+                "ill_shaped_tet_count": 78,
+                "min_gamma": 8.13e-7,
+                "gamma_percentiles": {"p01": 0.133},
+            },
+            "mesh_quality_advisory_flags": [
+                "gmsh_ill_shaped_tets_present",
+                "gmsh_min_gamma_below_1e_minus_4",
+            ],
+            "blocking_reasons": ["main_wing_solver_not_run", "convergence_gate_not_run"],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "su2_contract": "su2_handoff.v1",
+            "input_mesh_contract": "mesh_handoff.v1",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "warn",
+            "run_status": "solver_executed_but_not_converged",
+            "final_iteration": 40,
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [
+                "solver_executed_but_not_converged",
+                "main_wing_real_reference_geometry_warn",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    real_mesh_stage = stages["real_mesh_handoff"]
+    assert real_mesh_stage.status == "pass"
+    assert real_mesh_stage.observed["mesh_quality_status"] == "warn"
+    assert real_mesh_stage.observed["mesh_quality_metrics"]["ill_shaped_tet_count"] == 78
+    assert "gmsh_min_gamma_below_1e_minus_4" in real_mesh_stage.observed[
+        "mesh_quality_advisory_flags"
+    ]
+    assert report.next_actions[0] == (
+        "inspect_main_wing_mesh_quality_before_more_solver_budget"
+    )
+
+
 def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
     tmp_path: Path,
 ):

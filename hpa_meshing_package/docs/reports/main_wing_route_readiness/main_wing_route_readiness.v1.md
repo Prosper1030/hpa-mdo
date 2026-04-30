@@ -30,7 +30,7 @@
 
 ## Next Actions
 
-- `diagnose_main_wing_solver_nonconvergence_before_cfd_claims`
+- `inspect_main_wing_mesh_quality_before_more_solver_budget`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 
