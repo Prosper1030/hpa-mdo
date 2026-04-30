@@ -285,6 +285,43 @@ def test_materialize_baseline_case_consumes_fairing_solid_marker_without_running
     assert payload["force_surface_provenance"]["scope"] == "component_subset"
 
 
+def test_materialize_baseline_case_preserves_user_declared_reference_warnings(tmp_path: Path):
+    mesh_handoff = _build_fairing_solid_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(
+        enabled=True,
+        max_iterations=12,
+        reference_mode="user_declared",
+        reference_override={
+            "ref_area": 1.0,
+            "ref_length": 2.82880659,
+            "ref_origin_moment": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "source_label": "external_fairing_project_reference_policy",
+            "warnings": ["borrowed_zero_moment_origin_from_source_su2_handoff"],
+        },
+    )
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "fairing_su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert case.reference_geometry.gate_status == "warn"
+    assert case.provenance_gates.reference_quantities.status == "warn"
+    assert (
+        "borrowed_zero_moment_origin_from_source_su2_handoff"
+        in case.reference_geometry.warnings
+    )
+
+    payload = json.loads(case.case_output_paths.contract_path.read_text(encoding="utf-8"))
+    assert payload["reference_geometry"]["gate_status"] == "warn"
+    assert (
+        "borrowed_zero_moment_origin_from_source_su2_handoff"
+        in payload["reference_geometry"]["warnings"]
+    )
+
+
 def test_materialize_baseline_case_consumes_main_wing_marker_without_running_su2(tmp_path: Path):
     mesh_handoff = _build_main_wing_mesh_handoff(tmp_path)
     runtime = SU2RuntimeConfig(

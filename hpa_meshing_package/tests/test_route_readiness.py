@@ -70,13 +70,14 @@ def test_route_readiness_marks_fairing_solid_mesh_handoff_smoke_as_available_not
     assert fairing_solid.productization_status == "registered_not_productized"
     assert (
         fairing_solid.su2_status
-        == "real_handoff_materialized_force_marker_owned_solver_not_run_reference_warn"
+        == "reference_override_materialized_force_marker_owned_solver_not_run_moment_origin_warn"
     )
     assert fairing_solid.default_route == "gmsh_closed_solid_volume"
     assert "fairing_solid_real_geometry_smoke_available" in fairing_solid.notes
     assert "fairing_solid_real_mesh_handoff_probe_pass_available" in fairing_solid.notes
     assert "fairing_solid_real_su2_handoff_probe_available" in fairing_solid.notes
     assert "fairing_solid_reference_policy_probe_available" in fairing_solid.notes
+    assert "fairing_solid_reference_override_su2_handoff_probe_available" in fairing_solid.notes
     assert "fairing_solid_mesh_handoff_smoke_available" in fairing_solid.notes
     assert "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke" in fairing_solid.notes
     assert "su2_backend_materializes_fairing_solid_marker_without_running_su2" in fairing_solid.notes
@@ -87,7 +88,11 @@ def test_route_readiness_marks_fairing_solid_mesh_handoff_smoke_as_available_not
     assert "fairing_real_geometry_su2_handoff_not_run" not in fairing_solid.blocking_reasons
     assert "fairing_solver_not_run" in fairing_solid.blocking_reasons
     assert "convergence_gate_not_run" in fairing_solid.blocking_reasons
-    assert "fairing_real_reference_policy_mismatch_observed" in fairing_solid.blocking_reasons
+    assert "fairing_real_reference_policy_mismatch_observed" not in fairing_solid.blocking_reasons
+    assert (
+        "fairing_moment_origin_policy_incomplete_for_moment_coefficients"
+        in fairing_solid.blocking_reasons
+    )
 
 
 def test_route_readiness_marks_tail_wing_mesh_handoff_smoke_as_available_not_productized():

@@ -225,6 +225,27 @@ as a concrete policy mismatch rather than a vague provider concern. The next
 fairing step should be an explicit approved reference override, not a solver run
 with the wrong coefficient normalization.
 
+That reference override now exists as a gated materialization probe:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-reference-override-su2-handoff-probe \
+  --out .tmp/runs/fairing_solid_reference_override_su2_handoff_probe
+```
+
+Observed result:
+
+- `materialization_status = su2_handoff_written`
+- `reference_override_status = applied_with_moment_origin_warning`
+- applied fairing policy: `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, `V=6.5`
+- `MARKER_MONITORING = fairing_solid`
+- `solver_execution_status = not_run`
+- `convergence_gate_status = not_run`
+
+Engineering reading: drag/reference normalization is now explicit enough for a
+bounded solver smoke. It is still not enough for moment coefficients because the
+moment origin is borrowed zero-origin evidence and remains a blocker.
+
 The synthetic closed-solid route-specific Gmsh smoke selected from that matrix is:
 
 ```bash
@@ -551,7 +572,7 @@ The current expected strategic reading is:
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | repair real ESP/VSP 3D volume-insertion timeout, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
-| `fairing_solid` | registered future route | no | approve/apply reference policy, then solver/convergence gate |
+| `fairing_solid` | registered future route | no | bounded solver/convergence smoke; moment-origin policy before moment coefficients |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
 ## Boundary-Layer Promotion Policy
@@ -602,7 +623,8 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Approve and apply real fairing reference policy before coefficient claims,
-   then run a bounded real fairing solver smoke.
+1. Run a bounded real fairing solver smoke now that drag/reference normalization
+   is explicit; keep moment coefficients blocked until moment-origin policy is
+   owned.
 2. Repair the real ESP/VSP main-wing 3D volume-insertion timeout before any
    solver/convergence claim.

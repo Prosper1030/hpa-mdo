@@ -29,6 +29,7 @@ SU2ReadinessStatusType = Literal[
     "handoff_materialized_solver_not_run",
     "handoff_materialized_force_marker_owned_solver_not_run",
     "real_handoff_materialized_force_marker_owned_solver_not_run_reference_warn",
+    "reference_override_materialized_force_marker_owned_solver_not_run_moment_origin_warn",
 ]
 BLContractPolicyType = Literal[
     "not_required_for_baseline",
@@ -251,17 +252,17 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             provider_strategy="direct_cad_or_future_fairing_provider",
             productization_status="registered_not_productized",
             route_role="registered_future_route",
-            su2_status="real_handoff_materialized_force_marker_owned_solver_not_run_reference_warn",
+            su2_status="reference_override_materialized_force_marker_owned_solver_not_run_moment_origin_warn",
             bl_contract_policy="not_default",
             gmsh_boundary_recovery_policy="baseline_gmsh_backend_boundary_recovery",
             blocking_reasons=[
                 "fairing_solver_not_run",
                 "convergence_gate_not_run",
-                "fairing_real_reference_policy_mismatch_observed",
+                "fairing_moment_origin_policy_incomplete_for_moment_coefficients",
             ],
             next_actions=[
-                "approve_and_apply_real_fairing_reference_policy_before_coefficients_are_trusted",
                 "run_real_fairing_solver_smoke_only_after_reference_policy_is_explicit",
+                "replace_borrowed_zero_moment_origin_before_moment_coefficients_are_trusted",
                 "promote_to_product_line_only_after_convergence_gate_artifact",
             ],
             notes=[
@@ -269,6 +270,7 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
                 "fairing_solid_real_mesh_handoff_probe_pass_available",
                 "fairing_solid_real_su2_handoff_probe_available",
                 "fairing_solid_reference_policy_probe_available",
+                "fairing_solid_reference_override_su2_handoff_probe_available",
                 "fairing_solid_mesh_handoff_smoke_available",
                 "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke",
                 "su2_backend_materializes_fairing_solid_marker_without_running_su2",

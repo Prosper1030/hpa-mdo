@@ -134,6 +134,7 @@ class SU2ReferenceOverride(BaseModel):
     ref_origin_moment: Point3D
     source_label: str = "user_declared"
     source_path: Optional[Path] = None
+    warnings: List[str] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
 

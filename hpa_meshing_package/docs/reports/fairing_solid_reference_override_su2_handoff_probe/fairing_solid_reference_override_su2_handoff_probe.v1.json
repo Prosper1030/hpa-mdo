@@ -1,0 +1,93 @@
+{
+  "schema_version": "fairing_solid_reference_override_su2_handoff_probe.v1",
+  "component": "fairing_solid",
+  "execution_mode": "external_reference_override_su2_materialization_only_no_solver",
+  "source_reference_policy_schema": "fairing_solid_reference_policy_probe.v1",
+  "source_su2_probe_schema": "fairing_solid_real_su2_handoff_probe.v1",
+  "case_dir": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe",
+  "no_su2_execution": true,
+  "no_gmsh_execution": false,
+  "no_bl_runtime": true,
+  "production_default_changed": false,
+  "materialization_status": "su2_handoff_written",
+  "reference_override_status": "applied_with_moment_origin_warning",
+  "marker_mapping_status": "mapped_external_fairing_to_fairing_solid",
+  "source_reference_policy_status": "reference_mismatch_observed",
+  "source_external_reference_status": "candidate_available",
+  "source_hpa_reference_status": "warn",
+  "previous_reference": {
+    "ref_area": 100.0,
+    "ref_length": 1.0,
+    "velocity_mps": 10.0,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pas": 1.789e-05,
+    "temperature_k": null,
+    "ref_origin_moment": null,
+    "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/fairing_solid_real_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_materialization_probe/su2_runtime.cfg",
+    "source_label": "hpa_mdo_real_su2_handoff_probe_runtime_cfg"
+  },
+  "applied_reference": {
+    "ref_area": 1.0,
+    "ref_length": 2.82880659,
+    "velocity_mps": 6.5,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pas": 1.7894e-05,
+    "temperature_k": 288.15,
+    "ref_origin_moment": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/su2_converged_v7_best_cflsafe_v1/best_gene/su2_case.cfg",
+    "source_label": "external_fairing_project_reference_policy"
+  },
+  "reference_mismatch_fields": [
+    "ref_area",
+    "ref_length",
+    "velocity_mps"
+  ],
+  "moment_origin_policy_status": "borrowed_zero_origin_for_drag_only",
+  "source_reference_policy_probe_path": "hpa_meshing_package/docs/reports/fairing_solid_reference_policy_probe/fairing_solid_reference_policy_probe.v1.json",
+  "source_su2_probe_report_path": "hpa_meshing_package/docs/reports/fairing_solid_real_su2_handoff_probe/fairing_solid_real_su2_handoff_probe.v1.json",
+  "source_mesh_case_report_path": "hpa_meshing_package/docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/report.json",
+  "source_su2_handoff_path": "hpa_meshing_package/docs/reports/fairing_solid_real_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_materialization_probe/su2_handoff.json",
+  "su2_contract": "su2_handoff.v1",
+  "input_mesh_contract": "mesh_handoff.v1",
+  "solver_execution_status": "not_run",
+  "convergence_gate_status": "not_run",
+  "run_status": "not_started",
+  "reference_geometry_status": "warn",
+  "wall_marker_status": "fairing_solid_marker_present",
+  "force_surface_scope": "component_subset",
+  "component_force_ownership_status": "owned",
+  "su2_handoff_path": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/su2_handoff.json",
+  "su2_mesh_path": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/mesh.su2",
+  "runtime_cfg_path": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/su2_runtime.cfg",
+  "history_path": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/history.csv",
+  "hpa_mdo_guarantees": [
+    "external_fairing_reference_override_applied",
+    "su2_handoff_v1_written_with_user_declared_reference",
+    "runtime_cfg_written",
+    "su2_mesh_written",
+    "solver_not_executed",
+    "convergence_gate_not_emitted",
+    "production_default_unchanged",
+    "fairing_solid_force_marker_owned",
+    "external_fairing_marker_mapped_to_fairing_solid"
+  ],
+  "blocking_reasons": [
+    "fairing_solver_not_run",
+    "convergence_gate_not_run",
+    "fairing_moment_origin_policy_incomplete_for_moment_coefficients"
+  ],
+  "limitations": [
+    "This probe materializes an SU2 handoff with an explicit external fairing reference override; it does not run SU2_CFD.",
+    "The external fairing marker is mapped to the hpa-mdo fairing_solid marker, not used as a new mesh marker.",
+    "Moment-origin policy remains incomplete when the source origin is zero; drag coefficients may be reference-policy corrected, but moment coefficients are not promoted.",
+    "Production defaults were not changed.",
+    "reference_wing_quantities_unavailable_using_vspaero_settings",
+    "geometry_derived_moment_origin_is_zero_vector",
+    "borrowed_zero_moment_origin_from_source_su2_handoff"
+  ],
+  "error": null
+}

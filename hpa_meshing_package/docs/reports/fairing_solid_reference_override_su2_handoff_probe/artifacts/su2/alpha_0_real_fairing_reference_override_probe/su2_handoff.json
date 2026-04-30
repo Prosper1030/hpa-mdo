@@ -1,0 +1,256 @@
+{
+  "contract": "su2_handoff.v1",
+  "route_stage": "baseline",
+  "source_contract": "mesh_handoff.v1",
+  "geometry_family": "closed_solid",
+  "units": "m",
+  "input_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+  "mesh_markers": {
+    "wall": "fairing_solid",
+    "farfield": "farfield",
+    "monitoring": [
+      "fairing_solid"
+    ],
+    "plotting": [
+      "fairing_solid"
+    ],
+    "euler": [
+      "fairing_solid"
+    ]
+  },
+  "reference_geometry": {
+    "ref_area": 1.0,
+    "ref_length": 2.82880659,
+    "ref_origin_moment": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "area_provenance": {
+      "source_category": "user_declared",
+      "method": "runtime.reference_override.ref_area",
+      "confidence": "high",
+      "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/su2_converged_v7_best_cflsafe_v1/best_gene/su2_case.cfg",
+      "source_units": null,
+      "details": {
+        "source_label": "external_fairing_project_reference_policy"
+      },
+      "warnings": []
+    },
+    "length_provenance": {
+      "source_category": "user_declared",
+      "method": "runtime.reference_override.ref_length",
+      "confidence": "high",
+      "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/su2_converged_v7_best_cflsafe_v1/best_gene/su2_case.cfg",
+      "source_units": null,
+      "details": {
+        "source_label": "external_fairing_project_reference_policy"
+      },
+      "warnings": []
+    },
+    "moment_origin_provenance": {
+      "source_category": "user_declared",
+      "method": "runtime.reference_override.ref_origin_moment",
+      "confidence": "medium",
+      "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/su2_converged_v7_best_cflsafe_v1/best_gene/su2_case.cfg",
+      "source_units": null,
+      "details": {
+        "source_label": "external_fairing_project_reference_policy"
+      },
+      "warnings": [
+        "reference_wing_quantities_unavailable_using_vspaero_settings",
+        "geometry_derived_moment_origin_is_zero_vector",
+        "borrowed_zero_moment_origin_from_source_su2_handoff"
+      ]
+    },
+    "gate_status": "warn",
+    "confidence": "medium",
+    "warnings": [
+      "reference_wing_quantities_unavailable_using_vspaero_settings",
+      "geometry_derived_moment_origin_is_zero_vector",
+      "borrowed_zero_moment_origin_from_source_su2_handoff"
+    ],
+    "notes": [
+      "Reference quantities supplied via external_fairing_project_reference_policy."
+    ]
+  },
+  "runtime": {
+    "enabled": true,
+    "alpha_deg": 0.0,
+    "velocity_mps": 6.5,
+    "density_kgpm3": 1.225,
+    "temperature_k": 288.15,
+    "dynamic_viscosity_pas": 1.7894e-05,
+    "solver": "INC_NAVIER_STOKES",
+    "inc_nondim": "INITIAL_VALUES",
+    "inc_density_model": "CONSTANT",
+    "fluid_model": "CONSTANT_DENSITY",
+    "solver_command": "SU2_CFD",
+    "parallel_mode": "threads",
+    "mpi_launcher": "mpirun",
+    "cpu_threads": 4,
+    "mpi_ranks": 4,
+    "case_name": "alpha_0_real_fairing_reference_override_probe",
+    "max_iterations": 12,
+    "cfl_number": 5.0,
+    "linear_solver_error": 1e-06,
+    "linear_solver_iterations": 8,
+    "reference_mode": "user_declared",
+    "reference_override": {
+      "ref_area": 1.0,
+      "ref_length": 2.82880659,
+      "ref_origin_moment": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "source_label": "external_fairing_project_reference_policy",
+      "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/su2_converged_v7_best_cflsafe_v1/best_gene/su2_case.cfg",
+      "warnings": [
+        "reference_wing_quantities_unavailable_using_vspaero_settings",
+        "geometry_derived_moment_origin_is_zero_vector",
+        "borrowed_zero_moment_origin_from_source_su2_handoff"
+      ],
+      "notes": [
+        "REF_AREA, REF_LENGTH, velocity, density, and viscosity were extracted from the neighboring fairing project policy.",
+        "The moment origin is borrowed from the previous hpa-mdo fairing SU2 handoff unless a dedicated fairing moment policy exists."
+      ]
+    },
+    "wall_boundary_condition": "euler"
+  },
+  "runtime_cfg_path": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/su2_runtime.cfg",
+  "case_output_paths": {
+    "case_dir": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe",
+    "su2_mesh": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/mesh.su2",
+    "history": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/history.csv",
+    "solver_log": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/solver.log",
+    "surface_output": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/surface.csv",
+    "restart_output": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/restart.csv",
+    "volume_output": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/vol_solution.vtk",
+    "contract_path": "hpa_meshing_package/docs/reports/fairing_solid_reference_override_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_reference_override_probe/su2_handoff.json"
+  },
+  "history": {
+    "history_path": null,
+    "final_iteration": null,
+    "cl": null,
+    "cd": null,
+    "cm": null,
+    "cm_axis": null,
+    "source_columns": {}
+  },
+  "run_status": "not_started",
+  "solver_command": [
+    "SU2_CFD",
+    "-t",
+    "4",
+    "su2_runtime.cfg"
+  ],
+  "force_surface_provenance": {
+    "gate_status": "pass",
+    "confidence": "medium",
+    "source_kind": "mesh_physical_group",
+    "wall_marker": "fairing_solid",
+    "monitoring_markers": [
+      "fairing_solid"
+    ],
+    "plotting_markers": [
+      "fairing_solid"
+    ],
+    "euler_markers": [
+      "fairing_solid"
+    ],
+    "source_groups": [
+      {
+        "marker_name": "fairing_solid",
+        "physical_name": "fairing_solid",
+        "physical_tag": 2,
+        "dimension": 2,
+        "entity_count": 8,
+        "element_count": 339
+      }
+    ],
+    "primary_group": {
+      "marker_name": "fairing_solid",
+      "physical_name": "fairing_solid",
+      "physical_tag": 2,
+      "dimension": 2,
+      "entity_count": 8,
+      "element_count": 339
+    },
+    "matches_wall_marker": true,
+    "matches_entire_aircraft_wall": false,
+    "scope": "component_subset",
+    "body_count": 1,
+    "component_labels_present_in_geometry": true,
+    "component_label_schema": "preserve_component_labels",
+    "component_provenance": "component_groups_mapped",
+    "warnings": [],
+    "notes": [
+      "force monitoring uses a component-specific mesh physical group"
+    ]
+  },
+  "provenance_gates": {
+    "overall_status": "warn",
+    "reference_quantities": {
+      "status": "warn",
+      "confidence": "medium",
+      "warnings": [
+        "reference_wing_quantities_unavailable_using_vspaero_settings",
+        "geometry_derived_moment_origin_is_zero_vector",
+        "borrowed_zero_moment_origin_from_source_su2_handoff"
+      ],
+      "notes": [
+        "Reference quantities supplied via external_fairing_project_reference_policy."
+      ]
+    },
+    "force_surface": {
+      "status": "pass",
+      "confidence": "medium",
+      "warnings": [],
+      "notes": [
+        "force monitoring uses a component-specific mesh physical group"
+      ]
+    },
+    "warnings": [
+      "reference_wing_quantities_unavailable_using_vspaero_settings",
+      "geometry_derived_moment_origin_is_zero_vector",
+      "borrowed_zero_moment_origin_from_source_su2_handoff"
+    ]
+  },
+  "convergence_gate": null,
+  "provenance": {
+    "source_contract": "mesh_handoff.v1",
+    "source_mesh_metadata": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+    "source_marker_summary": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+    "source_units": "m",
+    "source_geometry_family": "closed_solid",
+    "source_body_bounds": {
+      "x_min": -1.0000000000028911e-07,
+      "x_max": 2.8176664452664038,
+      "y_min": -0.28035873341322887,
+      "y_max": 0.2803866923741762,
+      "z_min": -0.26938454381750904,
+      "z_max": 0.8513468531821645
+    },
+    "source_farfield_bounds": {
+      "x_min": -5.6353331905328075,
+      "x_max": 11.270666081065615,
+      "y_min": -1.401849584988039,
+      "y_max": 1.4018775439489863,
+      "z_min": -2.510847337816856,
+      "z_max": 3.0928096471815114
+    },
+    "reference_source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+    "reference_mode_requested": "user_declared",
+    "parallel_mode_requested": "threads",
+    "mpi_launcher": "mpirun",
+    "mpi_ranks": 4,
+    "omp_threads_per_rank": 4,
+    "reference_gate_status": "warn",
+    "force_surface_gate_status": "pass"
+  },
+  "notes": [
+    "Package-native SU2 baseline case materialized directly from mesh_handoff.v1.",
+    "This baseline route trusts mesh_handoff markers, units, and bounds without recomputing them."
+  ]
+}

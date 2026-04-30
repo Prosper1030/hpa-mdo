@@ -367,6 +367,26 @@ def test_parser_supports_fairing_solid_reference_policy_probe_command():
     assert args.hpa_su2_probe_report == "artifacts/hpa_probe.json"
 
 
+def test_parser_supports_fairing_solid_reference_override_su2_handoff_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "fairing-solid-reference-override-su2-handoff-probe",
+            "--out",
+            "artifacts/fairing_reference_override_su2",
+            "--reference-policy-probe",
+            "artifacts/fairing_reference_policy.v1.json",
+            "--source-su2-probe-report",
+            "artifacts/fairing_real_su2_probe.v1.json",
+        ]
+    )
+
+    assert args.command == "fairing-solid-reference-override-su2-handoff-probe"
+    assert args.out == "artifacts/fairing_reference_override_su2"
+    assert args.reference_policy_probe == "artifacts/fairing_reference_policy.v1.json"
+    assert args.source_su2_probe_report == "artifacts/fairing_real_su2_probe.v1.json"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

@@ -150,6 +150,9 @@ def _user_declared_reference_geometry(runtime: SU2RuntimeConfig) -> SU2Reference
     override = runtime.reference_override
     if override is None:
         return None
+    warnings = list(override.warnings)
+    gate_status = "warn" if warnings else "pass"
+    confidence = "medium" if warnings else "high"
     return SU2ReferenceGeometry(
         ref_area=override.ref_area,
         ref_length=override.ref_length,
@@ -171,12 +174,14 @@ def _user_declared_reference_geometry(runtime: SU2RuntimeConfig) -> SU2Reference
         moment_origin_provenance=SU2ReferenceQuantityProvenance(
             source_category="user_declared",
             method="runtime.reference_override.ref_origin_moment",
-            confidence="high",
+            confidence=confidence,
             source_path=override.source_path,
             details={"source_label": override.source_label},
+            warnings=warnings,
         ),
-        gate_status="pass",
-        confidence="high",
+        gate_status=gate_status,
+        confidence=confidence,
+        warnings=warnings,
         notes=[f"Reference quantities supplied via {override.source_label}."],
     )
 

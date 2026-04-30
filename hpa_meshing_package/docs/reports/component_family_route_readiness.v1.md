@@ -13,7 +13,7 @@
 | `tail_wing` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `handoff_materialized_force_marker_owned_solver_not_run` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `horizontal_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `vertical_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
-| `fairing_solid` | `registered_not_productized` | `registered_future_route` | `gmsh_closed_solid_volume` | `real_handoff_materialized_force_marker_owned_solver_not_run_reference_warn` | `not_default` | `baseline_gmsh_backend_boundary_recovery` |
+| `fairing_solid` | `registered_not_productized` | `registered_future_route` | `gmsh_closed_solid_volume` | `reference_override_materialized_force_marker_owned_solver_not_run_moment_origin_warn` | `not_default` | `baseline_gmsh_backend_boundary_recovery` |
 | `fairing_vented` | `registered_not_productized` | `registered_future_route` | `gmsh_perforated_solid_volume` | `blocked_until_route_smoke` | `not_default` | `baseline_gmsh_backend_boundary_recovery` |
 
 ## Promotion Gates
@@ -68,7 +68,7 @@
 ### `fairing_solid`
 - `fairing_solver_not_run`
 - `convergence_gate_not_run`
-- `fairing_real_reference_policy_mismatch_observed`
+- `fairing_moment_origin_policy_incomplete_for_moment_coefficients`
 
 ### `fairing_vented`
 - `fairing_vented_backend_not_productized`
