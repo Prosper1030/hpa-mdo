@@ -283,6 +283,123 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
     assert "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean" in report.next_actions
 
 
+def test_main_wing_route_readiness_blocks_convergence_pass_when_cl_is_too_low(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "su2_contract": "su2_handoff.v1",
+            "input_mesh_contract": "mesh_handoff.v1",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "pass",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "pass",
+            "run_status": "solver_executed",
+            "final_iteration": 200,
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.72, "cd": 0.02, "cm": -0.1},
+            "blocking_reasons": [],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    assert report.overall_status == "solver_executed_not_converged"
+    assert stages["solver_smoke"].observed["main_wing_lift_acceptance_status"] == "fail"
+    assert stages["convergence_gate"].status == "blocked"
+    assert "main_wing_cl_below_expected_lift" in report.blocking_reasons
+    assert report.next_actions[0] == (
+        "resolve_main_wing_cl_below_expected_lift_before_convergence_claims"
+    )
+
+
+def test_main_wing_route_readiness_records_geometry_and_lift_diagnostic_stages(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_geometry_provenance_probe"
+        / "main_wing_geometry_provenance_probe.v1.json",
+        {
+            "geometry_provenance_status": "provenance_available",
+            "selected_geom_id": "IPAWXFWPQF",
+            "selected_geom_name": "Main Wing",
+            "installation_incidence_deg": 3.0,
+            "section_count": 6,
+            "twist_summary": {"all_sections_zero_twist": True},
+            "airfoil_summary": {
+                "cambered_airfoil_coordinates_observed": True,
+                "max_abs_camber_over_chord": 0.071,
+            },
+            "alpha_zero_interpretation": (
+                "alpha_zero_expected_positive_lift_but_not_acceptance_lift"
+            ),
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_lift_acceptance_diagnostic"
+        / "main_wing_lift_acceptance_diagnostic.v1.json",
+        {
+            "diagnostic_status": "lift_deficit_observed",
+            "minimum_acceptable_cl": 1.0,
+            "selected_solver_report": {"runtime_max_iterations": 80},
+            "flow_condition_observed": {"velocity_mps": 6.5, "alpha_deg": 0.0},
+            "reference_observed": {"ref_area_m2": 35.175},
+            "lift_metrics": {"cl": 0.263, "observed_cl_to_minimum_ratio": 0.263},
+            "engineering_flags": [
+                "main_wing_cl_below_expected_lift",
+                "alpha_zero_operating_lift_not_demonstrated",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    geometry_stage = stages["geometry_provenance"]
+    lift_stage = stages["lift_acceptance_diagnostic"]
+    assert geometry_stage.status == "pass"
+    assert geometry_stage.observed["installation_incidence_deg"] == 3.0
+    assert geometry_stage.observed["airfoil_summary"][
+        "cambered_airfoil_coordinates_observed"
+    ]
+    assert lift_stage.status == "blocked"
+    assert lift_stage.observed["minimum_acceptable_cl"] == 1.0
+    assert "main_wing_cl_below_expected_lift" in lift_stage.blockers
+    assert "alpha_zero_operating_lift_not_demonstrated" in report.blocking_reasons
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

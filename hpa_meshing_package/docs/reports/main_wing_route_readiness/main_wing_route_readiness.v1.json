@@ -21,6 +21,36 @@
       "blockers": []
     },
     {
+      "stage": "geometry_provenance",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_geometry_provenance_probe/main_wing_geometry_provenance_probe.v1.json",
+      "observed": {
+        "geometry_provenance_status": "provenance_available",
+        "selected_geom_id": "IPAWXFWPQF",
+        "selected_geom_name": "Main Wing",
+        "installation_incidence_deg": 3.0,
+        "section_count": 6,
+        "twist_summary": {
+          "status": "available",
+          "min_twist_deg": 0.0,
+          "max_twist_deg": 0.0,
+          "all_sections_zero_twist": true
+        },
+        "airfoil_summary": {
+          "unique_airfoil_names": [
+            "CLARK-Y 11.7% smoothed",
+            "FX 76-MP-140"
+          ],
+          "cambered_airfoil_coordinates_observed": true,
+          "max_abs_camber_over_chord": 0.07121500198263675,
+          "max_thickness_over_chord": 0.14107999438419938
+        },
+        "alpha_zero_interpretation": "alpha_zero_expected_positive_lift_but_not_acceptance_lift"
+      },
+      "blockers": []
+    },
+    {
       "stage": "real_mesh_handoff",
       "status": "pass",
       "evidence_kind": "real",
@@ -286,6 +316,72 @@
       ]
     },
     {
+      "stage": "lift_acceptance_diagnostic",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_lift_acceptance_diagnostic/main_wing_lift_acceptance_diagnostic.v1.json",
+      "observed": {
+        "diagnostic_status": "lift_deficit_observed",
+        "minimum_acceptable_cl": 1.0,
+        "selected_solver_report": {
+          "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json",
+          "reference_policy": "openvsp_geometry_derived",
+          "runtime_max_iterations": 80,
+          "final_iteration": 79,
+          "convergence_gate_status": "warn",
+          "convergence_comparability_level": "run_only",
+          "coefficient_stability_status": "pass",
+          "final_coefficients": {
+            "cl": 0.263161913,
+            "cd": 0.02496911575,
+            "cm": -0.2096803732,
+            "cm_axis": "CMy"
+          },
+          "su2_handoff_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2_handoff.json",
+          "su2_handoff_path_source": "committed_openvsp_reference_su2_handoff_probe",
+          "solver_report_su2_handoff_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/su2_handoff.json"
+        },
+        "flow_condition_observed": {
+          "velocity_mps": 6.5,
+          "density_kgpm3": 1.225,
+          "alpha_deg": 0.0,
+          "flow_conditions_source_label": "hpa_standard_6p5_mps"
+        },
+        "reference_observed": {
+          "ref_area_m2": 35.175,
+          "ref_length_m": 1.0425,
+          "reference_geometry_status": "warn",
+          "declared_vs_openvsp_area_relative_error": 0.01492537313432832
+        },
+        "lift_metrics": {
+          "cl": 0.263161913,
+          "minimum_acceptable_cl_exclusive": 1.0,
+          "dynamic_pressure_pa": 25.878125,
+          "reference_area_m2": 35.175,
+          "observed_lift_n": 239.5465647488337,
+          "lift_at_minimum_acceptable_cl_n": 910.263046875,
+          "observed_cl_to_minimum_ratio": 0.263161913,
+          "cl_shortfall_to_minimum": 0.736838087
+        },
+        "engineering_flags": [
+          "main_wing_cl_below_expected_lift",
+          "alpha_zero_operating_lift_not_demonstrated",
+          "solver_not_converged",
+          "reference_geometry_warn",
+          "mesh_quality_warning_present",
+          "reference_area_delta_too_small_to_explain_lift_deficit"
+        ]
+      },
+      "blockers": [
+        "main_wing_cl_below_expected_lift",
+        "alpha_zero_operating_lift_not_demonstrated",
+        "solver_not_converged",
+        "reference_geometry_warn",
+        "mesh_quality_warning_present",
+        "reference_area_delta_too_small_to_explain_lift_deficit"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -310,7 +406,12 @@
     "main_wing_reference_area_differs_from_openvsp_sref",
     "main_wing_moment_origin_not_certified",
     "solver_executed_but_not_converged",
-    "main_wing_cl_below_expected_lift"
+    "main_wing_cl_below_expected_lift",
+    "alpha_zero_operating_lift_not_demonstrated",
+    "solver_not_converged",
+    "reference_geometry_warn",
+    "mesh_quality_warning_present",
+    "reference_area_delta_too_small_to_explain_lift_deficit"
   ],
   "next_actions": [
     "resolve_main_wing_cl_below_expected_lift_before_convergence_claims",
@@ -320,6 +421,7 @@
   "notes": [
     "Synthetic mesh/SU2 stages prove route wiring only; they are not real aircraft CFD evidence.",
     "A materialized SU2 handoff is not a solver run, and a solver run is not convergence.",
+    "Lift acceptance is a report-only gate here; main-wing convergence acceptance at V=6.5 m/s still requires CL > 1.0.",
     "HPA standard flow is V=6.5 m/s; V=10 artifacts are legacy mismatch evidence only."
   ]
 }

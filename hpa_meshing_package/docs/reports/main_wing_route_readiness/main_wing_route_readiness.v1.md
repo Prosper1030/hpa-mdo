@@ -9,6 +9,7 @@
 | stage | status | evidence | artifact |
 |---|---|---|---|
 | `real_geometry` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_esp_rebuilt_geometry_smoke/main_wing_esp_rebuilt_geometry_smoke.v1.json` |
+| `geometry_provenance` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_geometry_provenance_probe/main_wing_geometry_provenance_probe.v1.json` |
 | `real_mesh_handoff` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json` |
 | `synthetic_mesh_handoff` | `materialized_synthetic_only` | `synthetic` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_mesh_handoff_smoke/main_wing_mesh_handoff_smoke.v1.json` |
 | `synthetic_su2_handoff` | `materialized_synthetic_only` | `synthetic` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_handoff_smoke/main_wing_su2_handoff_smoke.v1.json` |
@@ -18,6 +19,7 @@
 | `openvsp_reference_solver_budget_probe` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json` |
 | `solver_smoke` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 | `solver_budget_probe` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe_iter40/main_wing_real_solver_smoke_probe.v1.json` |
+| `lift_acceptance_diagnostic` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_lift_acceptance_diagnostic/main_wing_lift_acceptance_diagnostic.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -28,6 +30,11 @@
 - `main_wing_moment_origin_not_certified`
 - `solver_executed_but_not_converged`
 - `main_wing_cl_below_expected_lift`
+- `alpha_zero_operating_lift_not_demonstrated`
+- `solver_not_converged`
+- `reference_geometry_warn`
+- `mesh_quality_warning_present`
+- `reference_area_delta_too_small_to_explain_lift_deficit`
 
 ## Next Actions
 
@@ -39,4 +46,5 @@
 
 - Synthetic mesh/SU2 stages prove route wiring only; they are not real aircraft CFD evidence.
 - A materialized SU2 handoff is not a solver run, and a solver run is not convergence.
+- Lift acceptance is a report-only gate here; main-wing convergence acceptance at V=6.5 m/s still requires CL > 1.0.
 - HPA standard flow is V=6.5 m/s; V=10 artifacts are legacy mismatch evidence only.

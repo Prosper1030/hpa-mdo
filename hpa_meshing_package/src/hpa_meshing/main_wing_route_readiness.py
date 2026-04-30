@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 StageType = Literal[
     "real_geometry",
+    "geometry_provenance",
     "real_mesh_handoff",
     "synthetic_mesh_handoff",
     "synthetic_su2_handoff",
@@ -18,6 +19,7 @@ StageType = Literal[
     "openvsp_reference_solver_budget_probe",
     "solver_smoke",
     "solver_budget_probe",
+    "lift_acceptance_diagnostic",
     "convergence_gate",
 ]
 StageStatusType = Literal["pass", "blocked", "materialized_synthetic_only", "not_run"]
@@ -239,6 +241,110 @@ def _solver_probe_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _geometry_provenance_status(payload: dict[str, Any] | None) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("geometry_provenance_status") == "provenance_available"
+        else "blocked"
+    )
+
+
+def _geometry_provenance_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
+    return {
+        "geometry_provenance_status": (
+            None if payload is None else payload.get("geometry_provenance_status")
+        ),
+        "selected_geom_id": None if payload is None else payload.get("selected_geom_id"),
+        "selected_geom_name": (
+            None if payload is None else payload.get("selected_geom_name")
+        ),
+        "installation_incidence_deg": (
+            None if payload is None else payload.get("installation_incidence_deg")
+        ),
+        "section_count": None if payload is None else payload.get("section_count"),
+        "twist_summary": {} if payload is None else payload.get("twist_summary", {}),
+        "airfoil_summary": {} if payload is None else payload.get("airfoil_summary", {}),
+        "alpha_zero_interpretation": (
+            None if payload is None else payload.get("alpha_zero_interpretation")
+        ),
+    }
+
+
+def _geometry_provenance_blockers(payload: dict[str, Any] | None) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    if payload.get("geometry_provenance_status") == "provenance_available":
+        return []
+    error = payload.get("error")
+    if isinstance(error, str) and error:
+        return [f"main_wing_geometry_provenance_missing: {error}"]
+    return ["main_wing_geometry_provenance_missing"]
+
+
+def _lift_acceptance_stage_status(payload: dict[str, Any] | None) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("diagnostic_status") == "lift_acceptance_passed"
+        else "blocked"
+    )
+
+
+def _lift_acceptance_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
+    return {
+        "diagnostic_status": None if payload is None else payload.get("diagnostic_status"),
+        "minimum_acceptable_cl": (
+            None if payload is None else payload.get("minimum_acceptable_cl")
+        ),
+        "selected_solver_report": (
+            {} if payload is None else payload.get("selected_solver_report", {})
+        ),
+        "flow_condition_observed": (
+            {} if payload is None else payload.get("flow_condition_observed", {})
+        ),
+        "reference_observed": (
+            {} if payload is None else payload.get("reference_observed", {})
+        ),
+        "lift_metrics": {} if payload is None else payload.get("lift_metrics", {}),
+        "engineering_flags": (
+            [] if payload is None else payload.get("engineering_flags", [])
+        ),
+    }
+
+
+def _lift_acceptance_blockers(payload: dict[str, Any] | None) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    status = payload.get("diagnostic_status")
+    flags = [
+        str(flag)
+        for flag in payload.get("engineering_flags", [])
+        if isinstance(flag, str) and flag
+    ]
+    if status == "lift_acceptance_passed":
+        return []
+    if status == "lift_margin_observed_without_convergence":
+        return list(
+            dict.fromkeys(
+                ["main_wing_lift_margin_observed_without_convergence", *flags]
+            )
+        )
+    if status == "lift_deficit_observed":
+        return list(dict.fromkeys(["main_wing_cl_below_expected_lift", *flags]))
+    if status == "nonstandard_flow_observed":
+        return list(dict.fromkeys(["nonstandard_flow_condition", *flags]))
+    if status == "insufficient_solver_evidence":
+        return list(
+            dict.fromkeys(
+                ["main_wing_lift_acceptance_insufficient_solver_evidence", *flags]
+            )
+        )
+    return list(dict.fromkeys([f"main_wing_lift_acceptance_{status}", *flags]))
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -248,6 +354,11 @@ def build_main_wing_route_readiness_report(
         root
         / "main_wing_esp_rebuilt_geometry_smoke"
         / "main_wing_esp_rebuilt_geometry_smoke.v1.json"
+    )
+    geometry_provenance_path = (
+        root
+        / "main_wing_geometry_provenance_probe"
+        / "main_wing_geometry_provenance_probe.v1.json"
     )
     real_mesh_path = (
         root
@@ -285,6 +396,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_real_solver_smoke_probe"
         / "main_wing_real_solver_smoke_probe.v1.json"
     )
+    lift_acceptance_path = (
+        root
+        / "main_wing_lift_acceptance_diagnostic"
+        / "main_wing_lift_acceptance_diagnostic.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -295,6 +411,7 @@ def build_main_wing_route_readiness_report(
     )
 
     real_geometry = _load_json(real_geometry_path)
+    geometry_provenance = _load_json(geometry_provenance_path)
     real_mesh = _load_json(real_mesh_path)
     synthetic_mesh = _load_json(synthetic_mesh_path)
     synthetic_su2 = _load_json(synthetic_su2_path)
@@ -310,6 +427,7 @@ def build_main_wing_route_readiness_report(
     )
     reference_gate = _load_json(reference_gate_path)
     solver_smoke = _load_json(solver_smoke_path)
+    lift_acceptance = _load_json(lift_acceptance_path)
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -378,8 +496,6 @@ def build_main_wing_route_readiness_report(
         if isinstance(solver_smoke, dict)
         else None
     )
-    convergence_pass = solver_executed and convergence_status == "pass"
-    convergence_blocked = solver_executed and convergence_status in {"warn", "fail", "unavailable"}
     solver_lift_acceptance_failed = any(
         _solver_probe_lift_acceptance_status(candidate) == "fail"
         for candidate in (
@@ -393,6 +509,15 @@ def build_main_wing_route_readiness_report(
         ["main_wing_cl_below_expected_lift"]
         if solver_lift_acceptance_failed
         else []
+    )
+    convergence_pass = (
+        solver_executed
+        and convergence_status == "pass"
+        and not solver_lift_acceptance_failed
+    )
+    convergence_blocked = solver_executed and (
+        convergence_status in {"warn", "fail", "unavailable"}
+        or (convergence_status == "pass" and solver_lift_acceptance_failed)
     )
 
     stages = [
@@ -408,6 +533,18 @@ def build_main_wing_route_readiness_report(
                 "volume_count": None if real_geometry is None else real_geometry.get("volume_count"),
             },
             blockers=[] if real_geometry_pass else _blocking_reasons(real_geometry),
+        ),
+        _stage(
+            stage="geometry_provenance",
+            status=_geometry_provenance_status(geometry_provenance),
+            evidence_kind="real" if isinstance(geometry_provenance, dict) else "absent",
+            artifact_path=(
+                geometry_provenance_path
+                if isinstance(geometry_provenance, dict)
+                else None
+            ),
+            observed=_geometry_provenance_observed(geometry_provenance),
+            blockers=_geometry_provenance_blockers(geometry_provenance),
         ),
         _stage(
             stage="real_mesh_handoff",
@@ -652,6 +789,16 @@ def build_main_wing_route_readiness_report(
             ),
         ),
         _stage(
+            stage="lift_acceptance_diagnostic",
+            status=_lift_acceptance_stage_status(lift_acceptance),
+            evidence_kind="real" if isinstance(lift_acceptance, dict) else "absent",
+            artifact_path=(
+                lift_acceptance_path if isinstance(lift_acceptance, dict) else None
+            ),
+            observed=_lift_acceptance_observed(lift_acceptance),
+            blockers=_lift_acceptance_blockers(lift_acceptance),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -764,6 +911,7 @@ def build_main_wing_route_readiness_report(
         notes=[
             "Synthetic mesh/SU2 stages prove route wiring only; they are not real aircraft CFD evidence.",
             "A materialized SU2 handoff is not a solver run, and a solver run is not convergence.",
+            "Lift acceptance is a report-only gate here; main-wing convergence acceptance at V=6.5 m/s still requires CL > 1.0.",
             "HPA standard flow is V=6.5 m/s; V=10 artifacts are legacy mismatch evidence only.",
         ],
     )
