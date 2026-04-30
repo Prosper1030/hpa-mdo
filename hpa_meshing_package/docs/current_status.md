@@ -101,8 +101,10 @@ that owner surfaces 12 / 13 / 19 / 20 have closed, connected, ordered wires;
 however, PCurve consistency / same-parameter checks remain suspect. The
 same-parameter feasibility probe then attempts in-memory `BRepLib.SameParameter`
 from `1e-7` through `1e-3` and does not recover those station checks. The
-current readiness next action is
-`inspect_or_rebuild_station_pcurves_before_compound_meshing_policy`.
+ShapeFix feasibility probe extends that negative result across 25 in-memory
+`ShapeFix_Edge` attempts: five operations over five tolerances, with zero
+recovered station checks. The current readiness next action is
+`rebuild_station_pcurves_or_export_station_seams_before_meshing_policy`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -197,6 +199,23 @@ not all pass, and an in-memory `BRepLib.SameParameter` tolerance sweep from
 against treating a simple OCCT same-parameter pass as the main-wing station
 repair; the next gate is inspecting or rebuilding the station PCurves /
 station-seam geometry before trying to promote a compound meshing policy.
+
+The main-wing station-seam ShapeFix feasibility probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-shape-fix-feasibility --out .tmp/runs/main_wing_station_seam_shape_fix_feasibility
+```
+
+This writes `main_wing_station_seam_shape_fix_feasibility.v1.json` and
+`main_wing_station_seam_shape_fix_feasibility.v1.md`. The committed snapshot
+under `docs/reports/main_wing_station_seam_shape_fix_feasibility/` records
+`shape_fix_repair_not_recovered`: baseline PCurves are present, but station
+checks do not all pass, and five `ShapeFix_Edge` operation families over
+tolerances `1e-7` through `1e-3` recover zero targets. This is evidence against
+continuing generic OCCT edge-fix sweeps; the next gate is rebuilding station
+PCurves or changing the station-seam export strategy before meshing-policy or
+solver-budget work.
 
 The first real fairing geometry smoke is emitted by:
 

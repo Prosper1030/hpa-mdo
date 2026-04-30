@@ -30,6 +30,7 @@ StageType = Literal[
     "station_seam_repair_decision",
     "station_seam_brep_hotspot_probe",
     "station_seam_same_parameter_feasibility",
+    "station_seam_shape_fix_feasibility",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -919,6 +920,38 @@ def _station_seam_same_parameter_feasibility_observed(
     }
 
 
+def _station_seam_shape_fix_feasibility_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("feasibility_status") == "shape_fix_repair_recovered"
+        else "blocked"
+    )
+
+
+def _station_seam_shape_fix_feasibility_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "feasibility_status": (
+            None if payload is None else payload.get("feasibility_status")
+        ),
+        "baseline_summary": (
+            {} if payload is None else payload.get("baseline_summary", {})
+        ),
+        "attempt_summary": (
+            {} if payload is None else payload.get("attempt_summary", {})
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -1055,6 +1088,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_same_parameter_feasibility"
         / "main_wing_station_seam_same_parameter_feasibility.v1.json"
     )
+    station_seam_shape_fix_feasibility_path = (
+        root
+        / "main_wing_station_seam_shape_fix_feasibility"
+        / "main_wing_station_seam_shape_fix_feasibility.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1107,6 +1145,9 @@ def build_main_wing_route_readiness_report(
     )
     station_seam_same_parameter_feasibility = _load_json(
         station_seam_same_parameter_feasibility_path
+    )
+    station_seam_shape_fix_feasibility = _load_json(
+        station_seam_shape_fix_feasibility_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -1743,6 +1784,26 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(station_seam_same_parameter_feasibility),
         ),
         _stage(
+            stage="station_seam_shape_fix_feasibility",
+            status=_station_seam_shape_fix_feasibility_status(
+                station_seam_shape_fix_feasibility
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(station_seam_shape_fix_feasibility, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_shape_fix_feasibility_path
+                if isinstance(station_seam_shape_fix_feasibility, dict)
+                else None
+            ),
+            observed=_station_seam_shape_fix_feasibility_observed(
+                station_seam_shape_fix_feasibility
+            ),
+            blockers=_blocking_reasons(station_seam_shape_fix_feasibility),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -2010,6 +2071,24 @@ def build_main_wing_route_readiness_report(
             and same_parameter_next_actions
         ):
             next_actions[0] = str(same_parameter_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_shape_fix_feasibility, dict)
+        and station_seam_shape_fix_feasibility.get("feasibility_status")
+        in {
+            "shape_fix_repair_recovered",
+            "shape_fix_repair_not_recovered",
+            "unavailable",
+            "blocked",
+        }
+    ):
+        shape_fix_next_actions = station_seam_shape_fix_feasibility.get(
+            "next_actions",
+            [],
+        )
+        if isinstance(shape_fix_next_actions, list) and shape_fix_next_actions:
+            next_actions[0] = str(shape_fix_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

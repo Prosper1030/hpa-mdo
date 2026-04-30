@@ -36,6 +36,7 @@
 | `station_seam_repair_decision` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_repair_decision/main_wing_station_seam_repair_decision.v1.json` |
 | `station_seam_brep_hotspot_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_brep_hotspot_probe/main_wing_station_seam_brep_hotspot_probe.v1.json` |
 | `station_seam_same_parameter_feasibility` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_same_parameter_feasibility/main_wing_station_seam_same_parameter_feasibility.v1.json` |
+| `station_seam_shape_fix_feasibility` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_shape_fix_feasibility/main_wing_station_seam_shape_fix_feasibility.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -60,10 +61,11 @@
 - `station_seam_repair_required_before_solver_budget`
 - `station_seam_brep_hotspot_suspect`
 - `station_same_parameter_repair_not_recovered`
+- `station_shape_fix_repair_not_recovered`
 
 ## Next Actions
 
-- `inspect_or_rebuild_station_pcurves_before_compound_meshing_policy`
+- `rebuild_station_pcurves_or_export_station_seams_before_meshing_policy`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

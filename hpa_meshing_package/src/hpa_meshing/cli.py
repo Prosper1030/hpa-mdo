@@ -122,6 +122,10 @@ from .main_wing_station_seam_same_parameter_feasibility import (
     build_main_wing_station_seam_same_parameter_feasibility_report,
     write_main_wing_station_seam_same_parameter_feasibility_report,
 )
+from .main_wing_station_seam_shape_fix_feasibility import (
+    build_main_wing_station_seam_shape_fix_feasibility_report,
+    write_main_wing_station_seam_shape_fix_feasibility_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -762,6 +766,31 @@ def cmd_main_wing_station_seam_same_parameter_feasibility(
     return 0 if report.feasibility_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_shape_fix_feasibility(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    same_parameter_feasibility_path = (
+        None
+        if args.same_parameter_feasibility is None
+        else Path(args.same_parameter_feasibility)
+    )
+    report = build_main_wing_station_seam_shape_fix_feasibility_report(
+        same_parameter_feasibility_path=same_parameter_feasibility_path,
+        tolerances=args.tolerances,
+        operations=args.operations,
+    )
+    write_main_wing_station_seam_shape_fix_feasibility_report(
+        out_dir,
+        report=report,
+        same_parameter_feasibility_path=same_parameter_feasibility_path,
+        tolerances=args.tolerances,
+        operations=args.operations,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.feasibility_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1377,6 +1406,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_same_parameter_feasibility.set_defaults(
         func=cmd_main_wing_station_seam_same_parameter_feasibility
+    )
+
+    main_wing_station_seam_shape_fix_feasibility = sub.add_parser(
+        "main-wing-station-seam-shape-fix-feasibility"
+    )
+    main_wing_station_seam_shape_fix_feasibility.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_shape_fix_feasibility.add_argument(
+        "--same-parameter-feasibility",
+        type=str,
+    )
+    main_wing_station_seam_shape_fix_feasibility.add_argument(
+        "--tolerances",
+        nargs="+",
+        type=float,
+    )
+    main_wing_station_seam_shape_fix_feasibility.add_argument(
+        "--operations",
+        nargs="+",
+        type=str,
+    )
+    main_wing_station_seam_shape_fix_feasibility.set_defaults(
+        func=cmd_main_wing_station_seam_shape_fix_feasibility
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

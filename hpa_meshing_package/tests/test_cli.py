@@ -524,6 +524,36 @@ def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_comma
     assert args.tolerances == [1e-7, 1e-5]
 
 
+def test_parser_supports_main_wing_station_seam_shape_fix_feasibility_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-shape-fix-feasibility",
+            "--out",
+            "artifacts/main_wing_station_seam_shape_fix_feasibility",
+            "--same-parameter-feasibility",
+            "artifacts/main_wing/same_parameter.json",
+            "--tolerances",
+            "1e-7",
+            "1e-5",
+            "--operations",
+            "fix_same_parameter_edge",
+            "remove_add_pcurve_then_same_parameter",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-shape-fix-feasibility"
+    assert args.out == "artifacts/main_wing_station_seam_shape_fix_feasibility"
+    assert args.same_parameter_feasibility == (
+        "artifacts/main_wing/same_parameter.json"
+    )
+    assert args.tolerances == [1e-7, 1e-5]
+    assert args.operations == [
+        "fix_same_parameter_edge",
+        "remove_add_pcurve_then_same_parameter",
+    ]
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

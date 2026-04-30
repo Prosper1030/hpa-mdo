@@ -2238,6 +2238,57 @@
       ]
     },
     {
+      "stage": "station_seam_shape_fix_feasibility",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_shape_fix_feasibility/main_wing_station_seam_shape_fix_feasibility.v1.json",
+      "observed": {
+        "feasibility_status": "shape_fix_repair_not_recovered",
+        "baseline_summary": {
+          "target_edge_count": 2,
+          "all_target_pcurves_present": true,
+          "all_same_parameter_checks_pass": false,
+          "all_curve3d_with_pcurve_checks_pass": false,
+          "all_vertex_tolerance_checks_pass": false,
+          "all_station_checks_pass": false
+        },
+        "attempt_summary": {
+          "attempt_count": 25,
+          "operations_evaluated": [
+            "fix_reversed_2d_then_same_parameter",
+            "fix_same_parameter_edge",
+            "fix_same_parameter_edge_face",
+            "fix_vertex_tolerance_then_same_parameter",
+            "remove_add_pcurve_then_same_parameter"
+          ],
+          "tolerances_evaluated": [
+            1e-07,
+            1e-06,
+            1e-05,
+            0.0001,
+            0.001
+          ],
+          "recovered_attempt_count": 0,
+          "first_recovered_operation": null,
+          "first_recovered_tolerance": null
+        },
+        "engineering_findings": [
+          "station_shape_fix_feasibility_evaluated",
+          "station_target_pcurves_present_before_shape_fix",
+          "station_shape_fix_baseline_checks_fail",
+          "shape_fix_edge_did_not_recover_station_curve_checks",
+          "shape_fix_operation_sweep_no_recovery"
+        ],
+        "next_actions": [
+          "rebuild_station_pcurves_or_export_station_seams_before_meshing_policy",
+          "avoid_more_occt_edge_fix_sweeps_until_pcurve_generation_strategy_changes"
+        ]
+      },
+      "blockers": [
+        "station_shape_fix_repair_not_recovered"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -2276,10 +2327,11 @@
     "panel_to_force_breakdown_cl_ratio_above_four",
     "station_seam_repair_required_before_solver_budget",
     "station_seam_brep_hotspot_suspect",
-    "station_same_parameter_repair_not_recovered"
+    "station_same_parameter_repair_not_recovered",
+    "station_shape_fix_repair_not_recovered"
   ],
   "next_actions": [
-    "inspect_or_rebuild_station_pcurves_before_compound_meshing_policy",
+    "rebuild_station_pcurves_or_export_station_seams_before_meshing_policy",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],
