@@ -539,6 +539,24 @@ These are observed log values, not a proven root-cause diagnosis. They are
 nevertheless enough to make mesh-quality/local-sizing inspection a higher-value
 next task than another blind iteration-budget increase.
 
+The matching surface-force output audit is:
+
+- `hpa_meshing_package/docs/reports/main_wing_surface_force_output_audit/`
+
+Observed result:
+
+- `audit_status = blocked`
+- solver log expects `surface.csv`
+- solver log expects `forces_breakdown.dat`
+- committed raw solver artifacts retain `history.csv` and `solver.log` only
+- selected solver report records `surface.csv` as a pruned output
+- VSPAERO panel reference remains `CLtot ~= 1.2876` at `V=6.5 m/s`
+
+Engineering reading: the route now owns the `main_wing` force marker, but it
+does not yet retain the surface-force outputs needed to compare SU2 force
+breakdown against the VSPAERO panel baseline. This should be fixed before using
+another solver budget run as a CL-gap diagnosis.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash

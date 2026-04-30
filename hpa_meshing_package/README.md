@@ -57,7 +57,7 @@
 - `esp_rebuilt` 在目前 `main` 上已經不再是 `not_materialized` stub。它現在會走 native OpenCSM lifting-surface rebuild：從 `.vsp3` 讀 wing/tail sections，生成 rule-loft `.csm`，再用 `serveCSM -batch` 輸出 normalized STEP 與 topology artifact。
 - 這台 Mac mini M4（macOS 26.4.1 / arm64）目前可用的 runtime truth 是：`serveESP` / `serveCSM` 在 `PATH` 上、`ocsm` 仍缺席，但 batch 路徑可以直接用 `serveCSM`。所以 `detect_esp_runtime()` 會回 `available=true`、`batch_binary=serveCSM`，provider 已可執行。
 - 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已經把主翼單體 real geometry evidence 收進 committed report：它從 `blackcat_004_origin.vsp3` 選到 `Main Wing`，產生 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`。
-- 目前真正的 blocker 已經往後移：coarse bounded real mesh handoff 和 real SU2 handoff 都已經 materialize，`SU2_CFD` 也能執行並寫出 `history.csv`；但 12-iteration smoke 的 convergence gate 為 `fail/not_comparable`，OpenVSP-reference 80-iteration follow-up 也只到 `warn/run_only`，main-wing reference chord 已可用 OpenVSP/VSPAERO `cref` cross-check，reference area / moment origin 仍是比較性 blocker。
+- 目前真正的 blocker 已經往後移：coarse bounded real mesh handoff 和 real SU2 handoff 都已經 materialize，`SU2_CFD` 也能執行並寫出 `history.csv`；但 12-iteration smoke 的 convergence gate 為 `fail/not_comparable`，OpenVSP-reference 80-iteration follow-up 也只到 `warn/run_only`，surface-force outputs (`surface.csv` / `forces_breakdown.dat`) 尚未被保留為可審核 artifact，main-wing reference chord 已可用 OpenVSP/VSPAERO `cref` cross-check，reference area / moment origin 仍是比較性 blocker。
 - 結論：`esp_rebuilt` 現在是「provider runnable + route artifact exists, but not production CFD」。下一步不是再補 runtime 安裝，也不是宣稱 solver converged，而是先把 reference provenance 補齊，再做 bounded longer-iteration / numerics campaign。
 - 實作規劃請看 [ESP Rebuilt Provider Enablement Implementation Plan](../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
 
@@ -620,6 +620,7 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 - [`main_wing_real_su2_handoff_probe.v1`](docs/contracts/main_wing_real_su2_handoff_probe.v1.md)
 - [`main_wing_real_solver_smoke_probe.v1`](docs/contracts/main_wing_real_solver_smoke_probe.v1.md)
 - [`main_wing_reference_geometry_gate.v1`](docs/contracts/main_wing_reference_geometry_gate.v1.md)
+- [`main_wing_surface_force_output_audit.v1`](docs/contracts/main_wing_surface_force_output_audit.v1.md)
 - [`main_wing_mesh_handoff_smoke.v1`](docs/contracts/main_wing_mesh_handoff_smoke.v1.md)
 - [`main_wing_su2_handoff_smoke.v1`](docs/contracts/main_wing_su2_handoff_smoke.v1.md)
 - [`tail_wing_esp_rebuilt_geometry_smoke.v1`](docs/contracts/tail_wing_esp_rebuilt_geometry_smoke.v1.md)

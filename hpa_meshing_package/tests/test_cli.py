@@ -283,6 +283,31 @@ def test_parser_supports_main_wing_su2_force_marker_audit_command():
     )
 
 
+def test_parser_supports_main_wing_surface_force_output_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-surface-force-output-audit",
+            "--out",
+            "artifacts/main_wing_surface_force_output_audit",
+            "--report-root",
+            "docs/reports",
+            "--solver-report",
+            "docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json",
+            "--panel-reference-report",
+            "docs/reports/main_wing_vspaero_panel_reference_probe/main_wing_vspaero_panel_reference_probe.v1.json",
+        ]
+    )
+
+    assert args.command == "main-wing-surface-force-output-audit"
+    assert args.out == "artifacts/main_wing_surface_force_output_audit"
+    assert args.report_root == "docs/reports"
+    assert args.solver_report.endswith("main_wing_real_solver_smoke_probe.v1.json")
+    assert args.panel_reference_report.endswith(
+        "main_wing_vspaero_panel_reference_probe.v1.json"
+    )
+
+
 def test_parser_supports_main_wing_vspaero_panel_reference_probe_command():
     parser = build_parser()
     args = parser.parse_args(

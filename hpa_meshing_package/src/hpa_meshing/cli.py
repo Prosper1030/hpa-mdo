@@ -78,6 +78,10 @@ from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
 )
+from .main_wing_surface_force_output_audit import (
+    build_main_wing_surface_force_output_audit_report,
+    write_main_wing_surface_force_output_audit_report,
+)
 from .main_wing_vspaero_panel_reference_probe import (
     build_main_wing_vspaero_panel_reference_probe_report,
     write_main_wing_vspaero_panel_reference_probe_report,
@@ -465,6 +469,31 @@ def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     return 0 if report.audit_status in {"pass", "warn"} else 2
 
 
+def cmd_main_wing_surface_force_output_audit(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    report_root = None if args.report_root is None else Path(args.report_root)
+    solver_report_path = None if args.solver_report is None else Path(args.solver_report)
+    panel_reference_report_path = (
+        None
+        if args.panel_reference_report is None
+        else Path(args.panel_reference_report)
+    )
+    report = build_main_wing_surface_force_output_audit_report(
+        report_root=report_root,
+        solver_report_path=solver_report_path,
+        panel_reference_report_path=panel_reference_report_path,
+    )
+    write_main_wing_surface_force_output_audit_report(
+        out_dir,
+        report=report,
+        report_root=report_root,
+        solver_report_path=solver_report_path,
+        panel_reference_report_path=panel_reference_report_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.audit_status in {"pass", "warn"} else 2
+
+
 def cmd_main_wing_vspaero_panel_reference_probe(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     polar_path = None if args.polar is None else Path(args.polar)
@@ -825,6 +854,20 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_su2_force_marker_audit.add_argument("--source-su2-probe-report", type=str)
     main_wing_su2_force_marker_audit.set_defaults(
         func=cmd_main_wing_su2_force_marker_audit
+    )
+
+    main_wing_surface_force_output_audit = sub.add_parser(
+        "main-wing-surface-force-output-audit"
+    )
+    main_wing_surface_force_output_audit.add_argument("--out", type=str, required=True)
+    main_wing_surface_force_output_audit.add_argument("--report-root", type=str)
+    main_wing_surface_force_output_audit.add_argument("--solver-report", type=str)
+    main_wing_surface_force_output_audit.add_argument(
+        "--panel-reference-report",
+        type=str,
+    )
+    main_wing_surface_force_output_audit.set_defaults(
+        func=cmd_main_wing_surface_force_output_audit
     )
 
     main_wing_vspaero_panel_reference = sub.add_parser(

@@ -126,6 +126,27 @@ Euler wall condition and the reference moment origin is still not formally
 certified, so this audit supports force-marker ownership but does not make the
 route viscous-CFD-ready.
 
+The main-wing surface-force output audit is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-surface-force-output-audit --out .tmp/runs/main_wing_surface_force_output_audit
+```
+
+This writes `main_wing_surface_force_output_audit.v1.json` and
+`main_wing_surface_force_output_audit.v1.md`. The committed snapshot under
+`docs/reports/main_wing_surface_force_output_audit/` reads the OpenVSP-reference
+80-iteration solver smoke, its raw solver log, and the VSPAERO panel reference.
+Current result is `blocked`: the solver log advertises `surface.csv` and
+`forces_breakdown.dat`, but the committed raw-solver artifact directory retains
+only `history.csv` and `solver.log`. The solver report also records
+`surface.csv` as a pruned output. This means force-marker ownership is
+established, but panel/SU2 surface-force breakdown debugging is not ready until
+the solver smoke route preserves those outputs. The audit still observes
+`V=6.5 m/s`, derives `main_wing_lift_acceptance_status=fail` from
+`CL=0.263161913`, and keeps the VSPAERO panel baseline visible at
+`CLtot=1.287645495943`; none of this is a convergence claim.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash
