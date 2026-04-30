@@ -13,7 +13,7 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 | component | smoke | family | route | productization | mesh_handoff | SU2 | promotion |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `aircraft_assembly` | `dispatch_smoke_pass` | `thin_sheet_aircraft_assembly` | `gmsh_thin_sheet_aircraft_assembly` | `formal_v1` | `not_run` | `not_run` | `not_a_promotion_gate` |
-| `main_wing` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `experimental` | `not_run` | `not_run` | `blocked_before_su2_handoff` |
+| `main_wing` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `experimental` | `not_run` | `not_run` | `blocked_before_solver_convergence` |
 | `tail_wing` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
 | `horizontal_tail` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
 | `vertical_tail` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
@@ -38,5 +38,5 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 ## Next Actions
 
 - `promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate`
-- `materialize main_wing su2_handoff.v1 from the non-BL mesh smoke before solver claims`
+- `add main_wing component-specific force markers before solver claims`
 - `keep BL prelaunch excluded until handoff topology ownership passes`

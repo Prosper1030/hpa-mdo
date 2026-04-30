@@ -59,11 +59,12 @@
       "mesh_handoff_status": "not_run",
       "su2_handoff_status": "not_run",
       "convergence_gate_status": "not_run",
-      "promotion_status": "blocked_before_su2_handoff",
+      "promotion_status": "blocked_before_solver_convergence",
       "blocking_reasons": [
         "shell_v4_root_last3_is_not_product_route",
         "explicit_bl_to_core_handoff_topology_not_owned",
-        "main_wing_su2_handoff_not_materialized",
+        "main_wing_component_specific_force_marker_missing",
+        "main_wing_solver_not_run",
         "convergence_gate_not_run"
       ],
       "guarantees": [
@@ -287,7 +288,7 @@
   ],
   "next_actions": [
     "promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate",
-    "materialize main_wing su2_handoff.v1 from the non-BL mesh smoke before solver claims",
+    "add main_wing component-specific force markers before solver claims",
     "keep BL prelaunch excluded until handoff topology ownership passes"
   ]
 }

@@ -85,6 +85,20 @@ closed-solid wing slab and emits `mesh_handoff.v1` with generic `aircraft` /
 not emit `su2_handoff.v1`, does not emit `convergence_gate.v1`, and does not
 prove real aerodynamic main-wing geometry.
 
+The first main-wing SU2 handoff materialization smoke is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-su2-handoff-smoke --out .tmp/runs/main_wing_su2_handoff_smoke
+```
+
+This writes `main_wing_su2_handoff_smoke.v1.json` and
+`main_wing_su2_handoff_smoke.v1.md`. It consumes the synthetic non-BL
+main-wing `mesh_handoff.v1` and materializes `su2_handoff.v1`, `mesh.su2`, and
+`su2_runtime.cfg` without executing `SU2_CFD`. It still uses a generic
+`aircraft` wall marker, so component-specific main-wing force ownership,
+solver history, and convergence remain missing.
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |
@@ -106,7 +120,7 @@ prove real aerodynamic main-wing geometry.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` smoke exists; SU2 handoff, real geometry, and convergence gate are missing |
+| `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist; component force marker, real geometry, solver history, and convergence gate are missing |
 | `tail_wing` | experimental | dispatch exists, real backend not productized |
 | `fairing_solid` | experimental | first real mesh-handoff smoke exists with a `fairing_solid` marker; SU2 handoff materialization can consume it, but solver / convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
@@ -135,8 +149,9 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Component-family `su2_handoff.v1` materialization smoke for main-wing and fairing before solver claims
-3. Component-level force mapping after the wall-marker story is stronger
+2. Component-specific force marker ownership before solver claims on component-family routes
+3. Component-family `su2_handoff.v1` materialization smoke for fairing before solver claims
+4. Component-level force mapping after the wall-marker story is stronger
 
 ## What A New Contributor Should Assume
 

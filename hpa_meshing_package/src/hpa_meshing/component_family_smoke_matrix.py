@@ -31,6 +31,7 @@ PromotionStatusType = Literal[
     "not_a_promotion_gate",
     "blocked_before_mesh_handoff",
     "blocked_before_su2_handoff",
+    "blocked_before_solver_convergence",
 ]
 
 
@@ -83,6 +84,8 @@ def _write_stub_step(path: Path) -> None:
 def _row_promotion_status(component: ComponentType) -> PromotionStatusType:
     if component == "aircraft_assembly":
         return "not_a_promotion_gate"
+    if component == "main_wing":
+        return "blocked_before_solver_convergence"
     if component in {"main_wing", "fairing_solid"}:
         return "blocked_before_su2_handoff"
     return "blocked_before_mesh_handoff"
@@ -186,7 +189,7 @@ def build_component_family_route_smoke_matrix(
         ],
         next_actions=[
             "promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate",
-            "materialize main_wing su2_handoff.v1 from the non-BL mesh smoke before solver claims",
+            "add main_wing component-specific force markers before solver claims",
             "keep BL prelaunch excluded until handoff topology ownership passes",
         ],
     )

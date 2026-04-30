@@ -14,7 +14,8 @@
 8. component-family route smoke matrix reporting
 9. fairing solid mesh-handoff smoke reporting
 10. main-wing mesh-handoff smoke reporting
-11. machine-readable reporting
+11. main-wing SU2-handoff smoke reporting
+12. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -151,6 +152,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Records only generic `aircraft` / `farfield` markers because this smoke is not yet a component-specific solver force contract
 - Keeps main-wing SU2 promotion blocked until `su2_handoff.v1` materializes from this handoff
 
+### 12. main_wing SU2-Handoff Smoke Layer
+
+`src/hpa_meshing/main_wing_su2_handoff_smoke.py`
+
+- Consumes the synthetic non-BL main-wing `mesh_handoff.v1` smoke
+- Calls the package-native SU2 materializer without executing `SU2_CFD`
+- Writes `main_wing_su2_handoff_smoke.v1.json` and `.md`
+- Emits `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg`
+- Keeps solver execution, history parsing, convergence, and production defaults off
+- Records that force-surface ownership is still missing because the current handoff uses the generic `aircraft` wall marker, not an owned `main_wing` marker
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -165,7 +177,7 @@ Current truth:
 
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
 - `fairing_solid` has a real closed-solid mesh-handoff smoke, but is not yet a SU2 product route
-- `main_wing` has a real non-BL mesh-handoff smoke on a synthetic slab, but is not yet a real-geometry or SU2 product route
+- `main_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab, but is not yet a real-geometry, component-force-owned, solver, or convergence route
 - `tail_wing`, `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
 
@@ -184,6 +196,7 @@ MeshJobConfig
   -> component_family_route_smoke_matrix.v1
   -> fairing_solid_mesh_handoff_smoke.v1
   -> main_wing_mesh_handoff_smoke.v1
+  -> main_wing_su2_handoff_smoke.v1
   -> report.json
 ```
 
@@ -197,6 +210,9 @@ outside the formal aircraft-assembly line; it proves mesh handoff only, not SU2 
 `main_wing_mesh_handoff_smoke.v1` adds the matching lifting-surface non-BL
 route smoke; it proves the route can emit `mesh_handoff.v1` on a synthetic slab,
 not that real ESP/VSP main-wing geometry or solver comparability is ready.
+`main_wing_su2_handoff_smoke.v1` proves that this mesh handoff can materialize
+an SU2 case without running the solver; it still leaves component force-surface
+ownership, solver history, and convergence outside the guarantee set.
 
 ## Why This Boundary Matters
 

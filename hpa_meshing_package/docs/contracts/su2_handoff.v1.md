@@ -39,6 +39,7 @@ It packages:
 - `source_contract` must be `mesh_handoff.v1`
 - wall markers are resolved from the mesh handoff:
   - `aircraft` for the formal aircraft-assembly baseline
+  - `aircraft` for the current synthetic main-wing materialization smoke, which is not yet component-owned force evidence
   - `fairing_solid` for the closed-solid fairing route
 - materializing the handoff writes `su2_handoff.json`, `mesh.su2`, and
   `su2_runtime.cfg`; solver execution is a separate step

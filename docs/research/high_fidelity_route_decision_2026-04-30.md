@@ -158,12 +158,35 @@ family now has a real package-native mesh-handoff artifact outside `root_last3`,
 so the next honest gate is `su2_handoff.v1` materialization rather than more
 BL topology microscopy.
 
+The first main-wing SU2 handoff materialization smoke is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-su2-handoff-smoke \
+  --out .tmp/runs/main_wing_su2_handoff_smoke
+```
+
+It writes:
+
+- `main_wing_su2_handoff_smoke.v1.json`
+- `main_wing_su2_handoff_smoke.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/main_wing_su2_handoff_smoke/main_wing_su2_handoff_smoke.v1.json`
+- `hpa_meshing_package/docs/reports/main_wing_su2_handoff_smoke/main_wing_su2_handoff_smoke.v1.md`
+
+This smoke emits `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` without
+running `SU2_CFD`. It deliberately reports the remaining engineering blocker:
+the current synthetic main-wing handoff still uses the generic `aircraft` wall
+marker, so main-wing component force-surface ownership is not yet proven.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | committed SU2 materialization smoke from the non-BL mesh handoff |
+| `main_wing` | experimental + diagnostic | no | component-specific force marker, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | tail-specific geometry and mesh smoke |
 | `fairing_solid` | registered future route | no | committed SU2 materialization smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -216,7 +239,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Write committed `su2_handoff.v1` materialization smoke artifacts for
-   `fairing_solid` and `main_wing` without running `SU2_CFD`.
-2. Add the next tail-family non-BL mesh-handoff smoke, then keep BL transition
-   ownership as a separate promotion gate.
+1. Add component-specific force marker ownership for the main-wing non-BL route,
+   then run only a bounded solver/convergence smoke.
+2. Write the committed `fairing_solid` `su2_handoff.v1` materialization report
+   artifact, then add the next tail-family non-BL mesh-handoff smoke.
