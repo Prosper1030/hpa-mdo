@@ -16,6 +16,7 @@ StageType = Literal[
     "synthetic_su2_handoff",
     "real_su2_handoff",
     "openvsp_reference_su2_handoff",
+    "su2_force_marker_audit",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -324,6 +325,26 @@ def _reference_gate_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _su2_force_marker_audit_status(payload: dict[str, Any] | None) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "pass" if payload.get("audit_status") in {"pass", "warn"} else "blocked"
+
+
+def _su2_force_marker_audit_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
+    return {
+        "audit_status": None if payload is None else payload.get("audit_status"),
+        "marker_contract": {} if payload is None else payload.get("marker_contract", {}),
+        "cfg_markers": {} if payload is None else payload.get("cfg_markers", {}),
+        "flow_reference_observed": (
+            {} if payload is None else payload.get("flow_reference_observed", {})
+        ),
+        "engineering_flags": (
+            [] if payload is None else payload.get("engineering_flags", [])
+        ),
+    }
+
+
 def _vspaero_panel_reference_status(payload: dict[str, Any] | None) -> StageStatusType:
     if not isinstance(payload, dict):
         return "not_run"
@@ -501,6 +522,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_openvsp_reference_su2_handoff_probe"
         / "main_wing_openvsp_reference_su2_handoff_probe.v1.json"
     )
+    su2_force_marker_audit_path = (
+        root
+        / "main_wing_su2_force_marker_audit"
+        / "main_wing_su2_force_marker_audit.v1.json"
+    )
     openvsp_reference_geometry_gate_path = (
         root
         / "main_wing_openvsp_reference_geometry_gate"
@@ -543,6 +569,7 @@ def build_main_wing_route_readiness_report(
     synthetic_su2 = _load_json(synthetic_su2_path)
     real_su2 = _load_json(real_su2_path)
     openvsp_reference_su2 = _load_json(openvsp_reference_su2_path)
+    su2_force_marker_audit = _load_json(su2_force_marker_audit_path)
     openvsp_reference_geometry_gate = _load_json(openvsp_reference_geometry_gate_path)
     openvsp_reference_solver = _load_json(openvsp_reference_solver_path)
     (
@@ -847,6 +874,18 @@ def build_main_wing_route_readiness_report(
                 if isinstance(openvsp_reference_su2, dict)
                 else []
             ),
+        ),
+        _stage(
+            stage="su2_force_marker_audit",
+            status=_su2_force_marker_audit_status(su2_force_marker_audit),
+            evidence_kind=(
+                "real" if isinstance(su2_force_marker_audit, dict) else "absent"
+            ),
+            artifact_path=su2_force_marker_audit_path
+            if isinstance(su2_force_marker_audit, dict)
+            else None,
+            observed=_su2_force_marker_audit_observed(su2_force_marker_audit),
+            blockers=_blocking_reasons(su2_force_marker_audit),
         ),
         _stage(
             stage="openvsp_reference_geometry_gate",

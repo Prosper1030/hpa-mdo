@@ -581,6 +581,30 @@ def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
     )
     _write_json(
         root
+        / "main_wing_su2_force_marker_audit"
+        / "main_wing_su2_force_marker_audit.v1.json",
+        {
+            "audit_status": "warn",
+            "marker_contract": {
+                "wall_marker": "main_wing",
+                "farfield_marker": "farfield",
+                "force_surface_gate_status": "pass",
+            },
+            "cfg_markers": {
+                "MARKER_EULER": ["main_wing"],
+                "MARKER_MONITORING": ["main_wing"],
+                "MARKER_PLOTTING": ["main_wing"],
+                "MARKER_FAR": ["farfield"],
+            },
+            "flow_reference_observed": {"velocity_mps": 6.5},
+            "engineering_flags": [
+                "main_wing_solver_wall_bc_is_euler_smoke_not_viscous"
+            ],
+            "blocking_reasons": [],
+        },
+    )
+    _write_json(
+        root
         / "main_wing_openvsp_reference_solver_smoke_probe"
         / "main_wing_real_solver_smoke_probe.v1.json",
         {
@@ -612,10 +636,15 @@ def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
 
     stages = {stage.stage: stage for stage in report.stages}
     handoff_stage = stages["openvsp_reference_su2_handoff"]
+    marker_audit_stage = stages["su2_force_marker_audit"]
     reference_gate_stage = stages["openvsp_reference_geometry_gate"]
     solver_stage = stages["openvsp_reference_solver_smoke"]
     assert handoff_stage.status == "pass"
     assert handoff_stage.observed["reference_policy"] == "openvsp_geometry_derived"
+    assert marker_audit_stage.status == "pass"
+    assert marker_audit_stage.observed["audit_status"] == "warn"
+    assert marker_audit_stage.observed["marker_contract"]["wall_marker"] == "main_wing"
+    assert not marker_audit_stage.blockers
     assert reference_gate_stage.status == "blocked"
     assert reference_gate_stage.evidence_kind == "real"
     assert reference_gate_stage.observed["derived_full_span_method"] == (

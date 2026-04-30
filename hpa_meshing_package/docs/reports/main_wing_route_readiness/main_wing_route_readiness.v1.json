@@ -211,6 +211,59 @@
       ]
     },
     {
+      "stage": "su2_force_marker_audit",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_force_marker_audit/main_wing_su2_force_marker_audit.v1.json",
+      "observed": {
+        "audit_status": "warn",
+        "marker_contract": {
+          "wall_marker": "main_wing",
+          "farfield_marker": "farfield",
+          "monitoring_markers": [
+            "main_wing"
+          ],
+          "plotting_markers": [
+            "main_wing"
+          ],
+          "euler_markers": [
+            "main_wing"
+          ],
+          "force_surface_gate_status": "pass",
+          "force_surface_scope": "component_subset"
+        },
+        "cfg_markers": {
+          "MARKER_EULER": [
+            "main_wing"
+          ],
+          "MARKER_MONITORING": [
+            "main_wing"
+          ],
+          "MARKER_PLOTTING": [
+            "main_wing"
+          ],
+          "MARKER_FAR": [
+            "farfield"
+          ]
+        },
+        "flow_reference_observed": {
+          "velocity_mps": 6.5,
+          "cfg_velocity_x_mps": 6.5,
+          "ref_area_m2": 35.175,
+          "cfg_ref_area_m2": 35.175,
+          "ref_length_m": 1.0425,
+          "cfg_ref_length_m": 1.0425,
+          "wall_boundary_condition": "euler",
+          "solver": "INC_NAVIER_STOKES"
+        },
+        "engineering_flags": [
+          "main_wing_solver_wall_bc_is_euler_smoke_not_viscous",
+          "main_wing_reference_geometry_warn"
+        ]
+      },
+      "blockers": []
+    },
+    {
       "stage": "openvsp_reference_geometry_gate",
       "status": "blocked",
       "evidence_kind": "real",
