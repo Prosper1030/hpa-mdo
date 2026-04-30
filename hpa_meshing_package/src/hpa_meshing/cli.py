@@ -9,6 +9,10 @@ from .schema import MeshJobConfig, BatchManifest
 from .frozen_baseline import evaluate_shell_v3_baseline_regression, run_shell_v3_baseline_cfd
 from .pipeline import run_job, validate_geometry_only
 from .mesh_study import run_mesh_study
+from .route_readiness import (
+    build_component_family_route_readiness,
+    write_component_family_route_readiness_report,
+)
 from .shell_v3_refinement_study import run_shell_v3_refinement_study
 from .shell_v4_half_wing_bl_mesh_macsafe import (
     _default_real_main_wing_source_path,
@@ -127,6 +131,13 @@ def cmd_shell_v4_half_wing_bl_mesh_macsafe(args: argparse.Namespace) -> int:
     return 0 if result.get("status") == "success" else 2
 
 
+def cmd_route_readiness(args: argparse.Namespace) -> int:
+    write_component_family_route_readiness_report(Path(args.out))
+    report = build_component_family_route_readiness()
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpa-mesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -192,6 +203,10 @@ def build_parser() -> argparse.ArgumentParser:
     shell_v4.add_argument("--apply-bl-stage-with-termination-guard-8-to-7-focused", action="store_true")
     shell_v4.add_argument("--run-bl-candidate-sweep-focused", action="store_true")
     shell_v4.set_defaults(func=cmd_shell_v4_half_wing_bl_mesh_macsafe)
+
+    readiness = sub.add_parser("route-readiness")
+    readiness.add_argument("--out", type=str, required=True)
+    readiness.set_defaults(func=cmd_route_readiness)
 
     return parser
 

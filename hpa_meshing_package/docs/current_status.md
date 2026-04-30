@@ -19,6 +19,32 @@ aircraft_assembly (.vsp3)
 
 This is the only route that should currently be treated as a real productized workflow in `hpa_meshing_package`.
 
+## 2026-04-30 Route Architecture Decision
+
+The high-fidelity line is now explicitly route-matrix first. The long-term goal is arbitrary
+HPA main-wing / tail / fairing automation through:
+
+```text
+VSP / ESP geometry -> component-family classification -> route selection -> Gmsh -> SU2
+```
+
+Do not treat `shell_v4 root_last3` as the product route. It remains a diagnostic and
+promotion branch for BL handoff topology. A boundary-layer route can be promoted only after
+hpa-mdo owns the transition sleeve, receiver faces, interface loops, and layer-drop event
+mapping well enough that Gmsh is only expected to tetrahedralize the core volume.
+
+The machine-readable readiness view is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli route-readiness --out .tmp/runs/component_family_route_readiness
+```
+
+This writes `component_family_route_readiness.v1.json` and
+`component_family_route_readiness.v1.md`. A committed snapshot is kept under
+[`docs/reports/`](reports/). The strategic decision record is
+[`docs/research/high_fidelity_route_decision_2026-04-30.md`](../../docs/research/high_fidelity_route_decision_2026-04-30.md).
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |

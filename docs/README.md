@@ -61,6 +61,7 @@
 | [dual_beam_v2_mainline_spec.md](dual_beam_v2_mainline_spec.md) | mainline 架構與規格細節 |
 | [controls_interface_v1.md](controls_interface_v1.md) | controls interface 定義 |
 | [hi_fidelity_validation_stack.md](hi_fidelity_validation_stack.md) | 高保真驗證層的現況、限制、benchmark policy 與驗證階梯 |
+| [research/high_fidelity_route_decision_2026-04-30.md](research/high_fidelity_route_decision_2026-04-30.md) | 高保真 VSP/ESP -> Gmsh -> SU2 route decision；定義 shell_v4 是 diagnostic branch，不是任意主翼 product route |
 
 ## Reports / Research / Archive
 

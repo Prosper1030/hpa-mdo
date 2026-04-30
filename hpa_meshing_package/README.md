@@ -24,6 +24,7 @@
 2. [`docs/current_status.md`](docs/current_status.md)
 3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 4. Contract docs in [`docs/contracts/`](docs/contracts)
+5. High-fidelity route decision: [`../docs/research/high_fidelity_route_decision_2026-04-30.md`](../docs/research/high_fidelity_route_decision_2026-04-30.md)
 
 ## Official v1 Scope
 
@@ -49,6 +50,7 @@
 - `esp_rebuilt` 目前已經能在本機 materialize provider-normalized geometry，但仍停留在 experimental：它不是 formal `v1` route，而且 blackcat meshing smoke 目前還卡在 downstream Gmsh `Mesh2D` hang。
 - `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在，但 backend 仍是 placeholder，不是正式可交付路徑。
 - 目前只有 `gmsh_thin_sheet_aircraft_assembly` 會走真實 Gmsh meshing；其他 route 會回 `route_stage=placeholder`。
+- `shell_v4` 是 BL / solver-entry diagnostic branch，不是任意主翼 product route；BL route 只有在 hpa-mdo owns transition sleeve / receiver faces / interface loops / layer-drop events 之後才可 promotion。
 
 ## ESP Reality Check
 
@@ -119,6 +121,23 @@ This produces:
 - `cases/medium/report.json`
 - `cases/fine/report.json`
 
+### 5. Write the component-family route-readiness report
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli route-readiness \
+  --out .tmp/runs/component_family_route_readiness
+```
+
+This produces:
+
+- `component_family_route_readiness.v1.json`
+- `component_family_route_readiness.v1.md`
+
+Use this report before choosing the next high-fidelity repair target. It keeps
+the formal `aircraft_assembly` route separate from experimental main-wing,
+tail, fairing, and `shell_v4` BL-promotion work.
+
 ## Artifact Contracts
 
 - [`GeometryProviderResult`](docs/contracts/GeometryProviderResult.md)
@@ -142,6 +161,7 @@ This produces:
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
 | Other component families | experimental | schema/dispatch exists, backend placeholder |
+| Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
 | Mesh study | formal minimal `v1` | three-tier baseline study that emits `mesh_study.v1` and decides whether the baseline stays `run_only` or can move to `preliminary_compare` |
 | Alpha sweep | roadmap | after the chosen mesh/runtime clears the mesh-study verdict |
 | Component-level force mapping | roadmap | not implemented yet |

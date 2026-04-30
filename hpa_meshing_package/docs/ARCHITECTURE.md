@@ -10,7 +10,8 @@
 4. package-native SU2 baseline handoff
 5. convergence + provenance gating
 6. mesh study aggregation for baseline promotion
-7. machine-readable reporting
+7. component-family route-readiness reporting
+8. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -99,6 +100,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Aggregates mesh stats, CFD coefficients, and per-case `convergence_gate.v1`
 - Emits `mesh_study.v1` so downstream tools can decide whether alpha sweep should even start
 
+### 8. Component-Family Route Readiness Layer
+
+`src/hpa_meshing/route_readiness.py`
+
+- Reports which component families are productized versus registered scaffolding
+- Keeps `aircraft_assembly` formal `v1` separate from `main_wing`, tail, and fairing future routes
+- Marks `shell_v4` as a diagnostic / BL-promotion branch, not the current product route
+- Exposes the policy that Gmsh should only be expected to recover core tetrahedra after hpa-mdo owns BL handoff topology
+- Writes `component_family_route_readiness.v1.json` and `component_family_route_readiness.v1.md` through `hpa-mesh route-readiness`
+- This is a report-only strategic artifact, not a per-run mesh artifact and not a runtime route mutation
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -112,7 +124,8 @@ That matters because a route can be valid in schema/dispatch but still be non-pr
 Current truth:
 
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
-- `main_wing`, `tail_wing`, `fairing_solid`, `fairing_vented` are not yet real meshing products in this package
+- `main_wing`, `tail_wing`, `horizontal_tail`, `vertical_tail`, `fairing_solid`, and `fairing_vented` are not yet real meshing products in this package
+- `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
 
 ## Artifact Flow
 
@@ -125,10 +138,13 @@ MeshJobConfig
   -> su2_handoff.v1
   -> convergence_gate.v1
   -> mesh_study.v1
+  -> component_family_route_readiness.v1
   -> report.json
 ```
 
 The contracts are intentionally machine-readable first, then human-readable through docs and reports.
+`component_family_route_readiness.v1` sits beside this per-run flow as a strategic route-status
+artifact; it does not imply that a component family has run.
 
 ## Why This Boundary Matters
 
