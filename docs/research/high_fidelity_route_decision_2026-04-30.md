@@ -487,6 +487,26 @@ Engineering reading: OpenVSP reference normalization changes coefficient
 scaling, especially moment normalization/origin, but it does not fix the
 underlying short-iteration convergence blocker.
 
+A non-default OpenVSP-reference 40-iteration follow-up is kept at:
+
+- `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter40/`
+
+Observed result:
+
+- `solver_execution_status = solver_executed`
+- `run_status = solver_executed_but_not_converged`
+- `convergence_gate_status = warn`
+- `convergence_comparability_level = run_only`
+- `final_iteration = 39`
+- `CL ~= 0.2679`
+- `CD ~= 0.02558`
+- `CMy ~= -0.2131`
+
+Engineering reading: the longer budget moves the OpenVSP-reference smoke from
+`fail/not_comparable` to `warn/run_only`, which is useful residual/numerics
+evidence, but it is still not converged and the reference moment-origin policy
+remains unowned.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash

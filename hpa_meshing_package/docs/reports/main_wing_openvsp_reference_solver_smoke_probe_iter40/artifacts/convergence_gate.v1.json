@@ -1,0 +1,324 @@
+{
+  "contract": "convergence_gate.v1",
+  "mesh_gate": {
+    "status": "pass",
+    "confidence": "high",
+    "checks": {
+      "mesh_handoff_complete": {
+        "status": "pass",
+        "observed": {
+          "contract": "mesh_handoff.v1",
+          "route_stage": "baseline",
+          "mesh_format": "msh",
+          "required_fields_present": true
+        },
+        "expected": {
+          "contract": "mesh_handoff.v1",
+          "route_stage": "baseline",
+          "mesh_format": "msh"
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "artifact_files": {
+        "status": "pass",
+        "observed": {
+          "mesh_exists": true,
+          "mesh_metadata_exists": true,
+          "mesh_metadata_parse_ok": true,
+          "marker_summary_exists": true,
+          "marker_summary_parse_ok": true
+        },
+        "expected": {
+          "mesh_exists": true,
+          "mesh_metadata_parse_ok": true,
+          "marker_summary_parse_ok": true
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "units_and_bounds": {
+        "status": "pass",
+        "observed": {
+          "units": "m",
+          "body_bounds_valid": true,
+          "farfield_bounds_valid": true,
+          "farfield_contains_body": true
+        },
+        "expected": {
+          "units": [
+            "m",
+            "mm"
+          ],
+          "body_bounds_valid": true,
+          "farfield_contains_body": true
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "required_markers_and_groups": {
+        "status": "pass",
+        "observed": {
+          "markers": {
+            "main_wing": true,
+            "farfield": true
+          },
+          "physical_groups": {
+            "main_wing": true,
+            "farfield": true,
+            "fluid": true
+          }
+        },
+        "expected": {
+          "markers": {
+            "main_wing": true,
+            "farfield": true
+          },
+          "physical_groups": {
+            "main_wing": true,
+            "farfield": true,
+            "fluid": true
+          }
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "element_counts": {
+        "status": "pass",
+        "observed": {
+          "mesh_dim": 3,
+          "node_count": 97299,
+          "element_count": 593217,
+          "volume_element_count": 584460
+        },
+        "expected": {
+          "mesh_dim": 3,
+          "node_count": "> 0",
+          "element_count": "> 0",
+          "volume_element_count": "> 0"
+        },
+        "warnings": [],
+        "notes": []
+      }
+    },
+    "warnings": [],
+    "notes": [
+      "Mesh gate uses existing mesh_handoff.v1 plus mesh metadata artifacts only."
+    ]
+  },
+  "iterative_gate": {
+    "status": "warn",
+    "confidence": "medium",
+    "checks": {
+      "history_rows": {
+        "status": "pass",
+        "observed": {
+          "history_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter40/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/history.csv",
+          "row_count": 40,
+          "columns": [
+            "Time_Iter",
+            "Outer_Iter",
+            "Inner_Iter",
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]",
+            "RefForce",
+            "CD",
+            "CL",
+            "CSF",
+            "CMx",
+            "CMy",
+            "CMz",
+            "CFx",
+            "CFy",
+            "CFz",
+            "CEff"
+          ]
+        },
+        "expected": {
+          "history_file_exists": true,
+          "parseable_rows": true
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "iteration_budget": {
+        "status": "pass",
+        "observed": {
+          "row_count": 40,
+          "final_iteration": 39
+        },
+        "expected": {
+          "minimum_iterations": 20,
+          "tail_window": 10
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "residual_trend": {
+        "status": "warn",
+        "observed": {
+          "columns": [
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]"
+          ],
+          "improvement_by_column": {
+            "rms[P]": 0.2425762035000001,
+            "rms[U]": 0.28232996099999985,
+            "rms[V]": 0.15978959250000013,
+            "rms[W]": 0.19111337949999996
+          },
+          "improved_columns": [
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]"
+          ],
+          "startup_skip": 5,
+          "baseline_median_by_column": {
+            "rms[P]": -3.573642324,
+            "rms[U]": -2.964338546,
+            "rms[V]": -3.661041782,
+            "rms[W]": -3.242715923
+          },
+          "tail_median_by_column": {
+            "rms[P]": -3.8162185275000002,
+            "rms[U]": -3.246668507,
+            "rms[V]": -3.8208313745,
+            "rms[W]": -3.4338293025
+          },
+          "median_log_drop": 0.21684479150000002
+        },
+        "expected": {
+          "minimum_median_log_drop": 0.5
+        },
+        "warnings": [
+          "residual_drop_below_threshold"
+        ],
+        "notes": [
+          "Residual columns are treated as log10 RMS values, so lower is better.",
+          "Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+        ]
+      },
+      "coefficient_stability": {
+        "status": "pass",
+        "observed": {
+          "tail_window": 10,
+          "cl": {
+            "status": "pass",
+            "tail_mean": 0.27004541175,
+            "tail_range": 0.004203149699999964,
+            "tail_delta": -0.004203149699999964,
+            "tail_relative_range": 0.015564603274545225,
+            "scale": 0.27004541175,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.005400908235000001,
+            "warn_delta_limit": 0.013502270587500002
+          },
+          "cd": {
+            "status": "pass",
+            "tail_mean": 0.025684595114999997,
+            "tail_range": 0.0003079022099999988,
+            "tail_delta": -8.760757999999938e-05,
+            "tail_relative_range": 0.011987816378704821,
+            "scale": 0.025684595114999997,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.0005136919023,
+            "warn_delta_limit": 0.00128422975575
+          },
+          "cm": {
+            "status": "pass",
+            "tail_mean": -0.21433293348000002,
+            "tail_range": 0.0027662283000000065,
+            "tail_delta": 0.0022615925000000203,
+            "tail_relative_range": 0.01290622143357232,
+            "scale": 0.21433293348000002,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.0042866586696,
+            "warn_delta_limit": 0.010716646674000001
+          }
+        },
+        "expected": {
+          "tail_window": 10,
+          "pass_relative_range_limit": 0.02,
+          "warn_relative_range_limit": 0.05,
+          "absolute_tolerance": 0.0005
+        },
+        "warnings": [],
+        "notes": []
+      }
+    },
+    "warnings": [
+      "residual_trend:residual_drop_below_threshold"
+    ],
+    "notes": [
+      "Iterative gate reads history.csv directly and does not infer extra solver state.",
+      "residual_trend:Residual columns are treated as log10 RMS values, so lower is better.",
+      "residual_trend:Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+    ]
+  },
+  "overall_convergence_gate": {
+    "status": "warn",
+    "confidence": "medium",
+    "checks": {
+      "mesh_gate": {
+        "status": "pass",
+        "observed": {
+          "status": "pass"
+        },
+        "expected": {
+          "status": "pass"
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "iterative_gate": {
+        "status": "warn",
+        "observed": {
+          "status": "warn"
+        },
+        "expected": {
+          "status": "pass"
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "reference_gate": {
+        "status": "warn",
+        "observed": {
+          "status": "warn"
+        },
+        "expected": {
+          "status": "pass"
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "force_surface_gate": {
+        "status": "pass",
+        "observed": {
+          "status": "pass"
+        },
+        "expected": {
+          "status": "pass"
+        },
+        "warnings": [],
+        "notes": []
+      }
+    },
+    "warnings": [
+      "iterative_gate=warn",
+      "reference_gate=warn"
+    ],
+    "notes": [
+      "Baseline run completed, but warned gates mean it should only be treated as runnable."
+    ],
+    "comparability_level": "run_only"
+  }
+}

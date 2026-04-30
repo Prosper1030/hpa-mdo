@@ -481,8 +481,9 @@ geometry-derived `Sref/cref/CG` without changing production defaults.
 `main_wing_real_solver_smoke_probe.v1` proves that `SU2_CFD` executes and writes
 history. The default committed smoke is `fail/not_comparable`; the non-default
 40-iteration follow-up is `warn/run_only`, still not converged. The
-OpenVSP-reference solver smoke also executes, but remains `fail/not_comparable`
-after 12 iterations.
+OpenVSP-reference solver smoke also executes. Its 12-iteration snapshot remains
+`fail/not_comparable`; the non-default 40-iteration OpenVSP-reference follow-up
+reaches `warn/run_only`, still not converged.
 `main_wing_reference_geometry_gate.v1` records the current reference blocker:
 span and chord are cross-checked, but reference-area and moment-origin
 provenance remain `warn`.
