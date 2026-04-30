@@ -22,6 +22,13 @@ This probe runs SU2_CFD from the real main-wing SU2 handoff and keeps solver exe
 - `solver_executed_but_not_converged`
 - `main_wing_real_reference_geometry_warn`
 
+## Solver Log Mesh Quality
+
+- max_surface_curvature: `1768.33`
+- min_orthogonality_angle_deg: `31.473`
+- max_cv_face_area_aspect_ratio: `377.909`
+- max_cv_sub_volume_ratio: `13256.1`
+
 ## HPA-MDO Guarantees
 
 - `real_main_wing_su2_handoff_v1_consumed`

@@ -37,6 +37,27 @@
     "cm": -0.2096803732,
     "cm_axis": "CMy"
   },
+  "solver_log_quality_metrics": {
+    "surface_curvature": {
+      "max": 1768.33,
+      "mean": 23.2247,
+      "std": 107.701
+    },
+    "dual_control_volume_quality": {
+      "orthogonality_angle_deg": {
+        "min": 31.473,
+        "max": 84.6248
+      },
+      "cv_face_area_aspect_ratio": {
+        "min": 1.2135,
+        "max": 377.909
+      },
+      "cv_sub_volume_ratio": {
+        "min": 1.00013,
+        "max": 13256.1
+      }
+    }
+  },
   "convergence_comparability_level": "run_only",
   "component_force_ownership_status": "owned",
   "reference_geometry_status": "warn",
