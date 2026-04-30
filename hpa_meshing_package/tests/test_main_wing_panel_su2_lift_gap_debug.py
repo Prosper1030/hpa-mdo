@@ -162,12 +162,22 @@ def test_main_wing_panel_su2_lift_gap_debug_ranks_engineering_hypotheses(
         1.287645495943
     )
     assert report.panel_reference_decomposition[
-        "induced_lift_fraction_of_cltot"
+        "inviscid_lift_fraction_of_cltot"
     ] == pytest.approx(1.002133)
+    assert report.panel_reference_decomposition["cli_component_label"] == (
+        "inviscid_surface_integration_component"
+    )
+    assert report.panel_reference_decomposition["cliw_component_label"] == (
+        "wake_free_stream_induced_component"
+    )
     assert report.su2_force_breakdown["force_breakdown_marker_owned"] is True
     assert report.su2_force_breakdown["force_breakdown_matches_history_cl"] is True
     assert "reference_normalization_not_primary_cause" in report.engineering_findings
-    assert "panel_lift_dominated_by_wake_induced_terms" in report.engineering_findings
+    assert "panel_lift_dominated_by_inviscid_component" in report.engineering_findings
+    assert (
+        "panel_lift_dominated_by_wake_induced_terms"
+        not in report.engineering_findings
+    )
     assert "su2_force_breakdown_confirms_main_wing_low_cl" in report.engineering_findings
     assert "su2_wall_bc_is_euler_smoke" in report.engineering_findings
     assert "mesh_quality_pathology_present" in report.engineering_findings
@@ -176,7 +186,7 @@ def test_main_wing_panel_su2_lift_gap_debug_ranks_engineering_hypotheses(
         "panel_su2_lifting_surface_semantics_or_geometry_mismatch"
     )
     assert report.next_actions[0] == (
-        "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+        "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_lifting_surface_semantics"
     )
 
 

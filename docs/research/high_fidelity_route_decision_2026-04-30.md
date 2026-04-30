@@ -559,9 +559,13 @@ Observed result:
 Engineering reading: the route now owns the `main_wing` force marker, but it
 still reports `CL ~= 0.2632` in the retained SU2 force breakdown while the
 VSPAERO panel baseline is about `CLtot ~= 1.2876`. The raw force-output blocker
-is resolved; the next CL-gap diagnosis should inspect force integration,
-boundary-condition semantics, mesh quality, and solver state before using
-another solver budget run as the diagnosis.
+is resolved. A source-backed semantics pass also keeps `CLi` labeled as the
+VSPAERO inviscid surface-integration component, while `CLiw` / `CLwtot` are the
+wake/free-stream induced outputs; the high panel CL should not be dismissed as
+a pure wake-column artifact. The next CL-gap diagnosis should inspect force
+integration, VSPAERO DegenGeom lifting-surface vs SU2 Euler-wall semantics,
+mesh quality, and solver state before using another solver budget run as the
+diagnosis.
 
 The matching non-BL main-wing mesh smoke is:
 

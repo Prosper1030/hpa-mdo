@@ -524,7 +524,9 @@ def test_main_wing_route_readiness_records_panel_su2_lift_gap_debug_stage(
             },
             "panel_reference_decomposition": {
                 "cltot": 1.287645495943,
-                "induced_lift_fraction_of_cltot": 1.0021338531262347,
+                "inviscid_lift_fraction_of_cltot": 1.0021338531262347,
+                "cli_component_label": "inviscid_surface_integration_component",
+                "cliw_component_label": "wake_free_stream_induced_component",
             },
             "su2_force_breakdown": {
                 "forces_breakdown_cl": 0.263162,
@@ -534,7 +536,7 @@ def test_main_wing_route_readiness_records_panel_su2_lift_gap_debug_stage(
             "engineering_findings": [
                 "panel_su2_lift_gap_confirmed",
                 "reference_normalization_not_primary_cause",
-                "panel_lift_dominated_by_wake_induced_terms",
+                "panel_lift_dominated_by_inviscid_component",
                 "su2_wall_bc_is_euler_smoke",
             ],
             "primary_hypotheses": [
@@ -544,7 +546,7 @@ def test_main_wing_route_readiness_records_panel_su2_lift_gap_debug_stage(
                 }
             ],
             "next_actions": [
-                "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+                "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_lifting_surface_semantics"
             ],
         },
     )
@@ -558,7 +560,7 @@ def test_main_wing_route_readiness_records_panel_su2_lift_gap_debug_stage(
     assert debug_stage.observed["debug_status"] == "gap_confirmed_debug_ready"
     assert debug_stage.observed["primary_hypotheses"][0]["priority"] == "high"
     assert report.next_actions[0] == (
-        "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+        "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_lifting_surface_semantics"
     )
 
 
@@ -612,7 +614,7 @@ def test_main_wing_route_readiness_records_su2_mesh_normal_audit_stage(
         {
             "debug_status": "gap_confirmed_debug_ready",
             "next_actions": [
-                "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+                "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_lifting_surface_semantics"
             ],
         },
     )
@@ -709,7 +711,9 @@ def test_main_wing_route_readiness_records_panel_wake_semantics_audit_stage(
         {
             "audit_status": "semantics_gap_observed",
             "panel_wake_observed": {
-                "induced_lift_fraction_of_cltot": 1.0021338531262347,
+                "inviscid_lift_fraction_of_cltot": 1.0021338531262347,
+                "cli_component_label": "inviscid_surface_integration_component",
+                "cliw_component_label": "wake_free_stream_induced_component",
                 "cltot": 1.287645495943,
             },
             "su2_semantics_observed": {
@@ -718,7 +722,7 @@ def test_main_wing_route_readiness_records_panel_wake_semantics_audit_stage(
             },
             "engineering_findings": [
                 "panel_su2_semantics_gap_observed",
-                "thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics",
+                "thin_sheet_wall_not_yet_bridged_to_panel_lifting_surface_semantics",
             ],
             "next_actions": [
                 "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export"
@@ -733,7 +737,7 @@ def test_main_wing_route_readiness_records_panel_wake_semantics_audit_stage(
     assert semantics_stage.status == "pass"
     assert semantics_stage.evidence_kind == "real"
     assert semantics_stage.observed["audit_status"] == "semantics_gap_observed"
-    assert "thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics" in (
+    assert "thin_sheet_wall_not_yet_bridged_to_panel_lifting_surface_semantics" in (
         semantics_stage.observed["engineering_findings"]
     )
     assert report.next_actions[0] == (

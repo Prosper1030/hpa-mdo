@@ -108,7 +108,9 @@ def _panel_decomposition(panel: dict[str, Any] | None) -> dict[str, Any]:
             _as_float(selected_case.get("AoA")) if isinstance(selected_case, dict) else None
         ),
         "clo": clo,
+        "clo_component_label": "viscous_or_other_surface_integration_component",
         "cli": cli,
+        "cli_component_label": "inviscid_surface_integration_component",
         "cltot": cltot,
         "cdtot": (
             _as_float(selected_case.get("CDtot"))
@@ -125,11 +127,22 @@ def _panel_decomposition(panel: dict[str, Any] | None) -> dict[str, Any]:
             if isinstance(selected_case, dict)
             else None
         ),
+        "cliw": (
+            _as_float(selected_case.get("CLiw"))
+            if isinstance(selected_case, dict)
+            else None
+        ),
+        "cliw_component_label": "wake_free_stream_induced_component",
+        "source_semantics": (
+            "OpenVSP VSPAERO source writes CLtot=CLi+CLo and labels CLi "
+            "as inviscid, CLo as viscous, and CLiw/CLwtot as wake/free-stream "
+            "induced output."
+        ),
     }
     if cli is not None and cltot is not None and abs(cltot) > 1.0e-12:
-        decomposition["induced_lift_fraction_of_cltot"] = cli / cltot
-    if abs(decomposition.get("induced_lift_fraction_of_cltot", 0.0)) >= 0.8:
-        decomposition["interpretation"] = "panel_lift_dominated_by_wake_induced_terms"
+        decomposition["inviscid_lift_fraction_of_cltot"] = cli / cltot
+    if abs(decomposition.get("inviscid_lift_fraction_of_cltot", 0.0)) >= 0.8:
+        decomposition["interpretation"] = "panel_lift_dominated_by_inviscid_component"
     return decomposition
 
 
@@ -327,8 +340,8 @@ def _engineering_findings(
         findings.append("panel_su2_lift_gap_confirmed")
     if flow.get("status") == "pass":
         findings.append("reference_normalization_not_primary_cause")
-    if panel.get("interpretation") == "panel_lift_dominated_by_wake_induced_terms":
-        findings.append("panel_lift_dominated_by_wake_induced_terms")
+    if panel.get("interpretation") == "panel_lift_dominated_by_inviscid_component":
+        findings.append("panel_lift_dominated_by_inviscid_component")
     if force.get("force_breakdown_marker_owned") is True:
         findings.append("force_marker_ownership_not_primary_cause")
     if force.get("force_breakdown_matches_history_cl") is True:
@@ -346,7 +359,7 @@ def _hypotheses(findings: list[str]) -> list[dict[str, Any]]:
     hypotheses: list[dict[str, Any]] = []
     if {
         "panel_su2_lift_gap_confirmed",
-        "panel_lift_dominated_by_wake_induced_terms",
+        "panel_lift_dominated_by_inviscid_component",
         "su2_wall_bc_is_euler_smoke",
     }.issubset(findings):
         hypotheses.append(
@@ -354,11 +367,11 @@ def _hypotheses(findings: list[str]) -> list[dict[str, Any]]:
                 "hypothesis": "panel_su2_lifting_surface_semantics_or_geometry_mismatch",
                 "priority": "high",
                 "evidence": [
-                    "Panel CL is dominated by induced/wake terms.",
+                    "Panel CL is dominated by the inviscid surface-integration component.",
                     "SU2 force breakdown confirms low CL on the main_wing marker.",
                     "Current SU2 smoke uses an Euler wall on the thin-sheet main-wing route.",
                 ],
-                "next_gate": "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics",
+                "next_gate": "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_lifting_surface_semantics",
             }
         )
     if "mesh_quality_pathology_present" in findings:
@@ -393,11 +406,11 @@ def _hypotheses(findings: list[str]) -> list[dict[str, Any]]:
 
 def _next_actions(findings: list[str]) -> list[str]:
     actions: list[str] = []
-    if "panel_lift_dominated_by_wake_induced_terms" in findings:
+    if "panel_lift_dominated_by_inviscid_component" in findings:
         actions.append(
-            "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+            "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_lifting_surface_semantics"
         )
-        actions.append("inspect_thin_sheet_wall_bc_against_vspaero_lifting_surface_assumption")
+        actions.append("inspect_thin_sheet_wall_bc_against_vspaero_degengeom_lifting_surface_assumption")
     if "mesh_quality_pathology_present" in findings:
         actions.append("localize_main_wing_su2_mesh_quality_hotspots_before_iteration_sweep")
     if "solver_not_converged" in findings:
@@ -449,6 +462,7 @@ def build_main_wing_panel_su2_lift_gap_debug_report(
         limitations=[
             "This report ranks debug hypotheses from existing artifacts; it is not a CFD convergence result.",
             "VSPAERO panel evidence is a lower-order sanity baseline, not high-fidelity CFD truth.",
+            "Do not describe the VSPAERO CLi column as a wake-induced term; source evidence labels it as inviscid.",
             "Solver execution remains separate from convergence.",
         ],
     )

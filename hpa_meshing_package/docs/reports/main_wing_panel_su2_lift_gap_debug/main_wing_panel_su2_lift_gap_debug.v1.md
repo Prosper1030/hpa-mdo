@@ -29,13 +29,18 @@ This report reads existing artifacts only; it does not execute SU2.
 
 - `alpha_deg`: `0`
 - `clo`: `-0.00274765`
+- `clo_component_label`: `viscous_or_other_surface_integration_component`
 - `cli`: `1.29039`
+- `cli_component_label`: `inviscid_surface_integration_component`
 - `cltot`: `1.28765`
 - `cdtot`: `0.0450681`
 - `cfztot`: `1.28765`
 - `clwtot`: `1.28997`
-- `induced_lift_fraction_of_cltot`: `1.00213`
-- `interpretation`: `panel_lift_dominated_by_wake_induced_terms`
+- `cliw`: `1.29272`
+- `cliw_component_label`: `wake_free_stream_induced_component`
+- `source_semantics`: `OpenVSP VSPAERO source writes CLtot=CLi+CLo and labels CLi as inviscid, CLo as viscous, and CLiw/CLwtot as wake/free-stream induced output.`
+- `inviscid_lift_fraction_of_cltot`: `1.00213`
+- `interpretation`: `panel_lift_dominated_by_inviscid_component`
 
 ## SU2 Force Breakdown
 
@@ -62,7 +67,7 @@ This report reads existing artifacts only; it does not execute SU2.
 
 - `panel_su2_lift_gap_confirmed`
 - `reference_normalization_not_primary_cause`
-- `panel_lift_dominated_by_wake_induced_terms`
+- `panel_lift_dominated_by_inviscid_component`
 - `force_marker_ownership_not_primary_cause`
 - `su2_force_breakdown_confirms_main_wing_low_cl`
 - `su2_wall_bc_is_euler_smoke`
@@ -78,8 +83,8 @@ This report reads existing artifacts only; it does not execute SU2.
 
 ## Next Actions
 
-- `compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics`
-- `inspect_thin_sheet_wall_bc_against_vspaero_lifting_surface_assumption`
+- `compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_lifting_surface_semantics`
+- `inspect_thin_sheet_wall_bc_against_vspaero_degengeom_lifting_surface_assumption`
 - `localize_main_wing_su2_mesh_quality_hotspots_before_iteration_sweep`
 - `defer_convergence_claim_until_source_backed_iteration_budget`
 
@@ -87,4 +92,5 @@ This report reads existing artifacts only; it does not execute SU2.
 
 - This report ranks debug hypotheses from existing artifacts; it is not a CFD convergence result.
 - VSPAERO panel evidence is a lower-order sanity baseline, not high-fidelity CFD truth.
+- Do not describe the VSPAERO CLi column as a wake-induced term; source evidence labels it as inviscid.
 - Solver execution remains separate from convergence.

@@ -15,12 +15,17 @@
     "implicit_wake": 0.0,
     "freeze_wake_at_iteration": 10000.0,
     "clo": -0.002747646367,
+    "clo_component_label": "viscous_or_other_surface_integration_component",
     "cli": 1.29039314231,
+    "cli_component_label": "inviscid_surface_integration_component",
     "cltot": 1.287645495943,
     "clwtot": 1.289971668181,
-    "induced_lift_fraction_of_cltot": 1.0021338531262347,
+    "cliw": 1.292719314548,
+    "cliw_component_label": "wake_free_stream_induced_component",
+    "inviscid_lift_fraction_of_cltot": 1.0021338531262347,
     "wake_settings_present": true,
-    "interpretation": "panel_lift_dominated_by_induced_wake_terms"
+    "source_semantics": "OpenVSP VSPAERO source writes CLtot=CLi+CLo and labels CLi as inviscid, CLo as viscous, and CLiw/CLwtot as wake/free-stream induced output.",
+    "interpretation": "panel_lift_dominated_by_inviscid_component"
   },
   "su2_semantics_observed": {
     "status": "available",
@@ -54,20 +59,21 @@
   },
   "engineering_findings": [
     "panel_su2_semantics_gap_observed",
-    "panel_lift_dominated_by_induced_wake_terms",
+    "panel_lift_dominated_by_inviscid_component",
     "su2_euler_wall_no_explicit_wake_model_keys_observed",
     "force_breakdown_marker_owned",
     "single_global_normal_flip_not_supported",
-    "thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics"
+    "thin_sheet_wall_not_yet_bridged_to_panel_lifting_surface_semantics"
   ],
   "next_actions": [
     "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export",
-    "compare_vspaero_panel_wake_sources_against_su2_surface_entities",
+    "compare_vspaero_degengeom_lifting_surface_against_su2_surface_entities",
     "decide_main_wing_product_route_lifting_surface_vs_closed_thickness_cfd_geometry"
   ],
   "limitations": [
     "This report reads existing artifacts only; it does not execute VSPAERO, Gmsh, or SU2.",
     "Observed VSPAERO panel terms are lower-order sanity evidence, not high-fidelity CFD truth.",
+    "Do not describe the VSPAERO CLi column as a wake-induced term; source evidence labels it as inviscid.",
     "The semantics gap is a route-risk gate; it does not prove the final root cause by itself."
   ]
 }

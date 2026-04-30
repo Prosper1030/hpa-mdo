@@ -93,8 +93,12 @@ current-route smoke has `CL=0.263161913`, about `4.89x` lower than the VSPAERO
 panel baseline and below the main-wing `CL > 1.0` acceptance gate for the HPA
 operating point. The retained `surface.csv` / `forces_breakdown.dat` artifacts
 make force-breakdown debugging possible, but the next engineering blocker is
-now geometry-side station-seam topology, not a self-invented solver-iteration
-budget. The station fixture records 4 boundary edges and 2 nonmanifold edges at
+now geometry-side station-seam topology plus panel/SU2 lifting-surface semantics,
+not a self-invented solver-iteration budget. The panel/SU2 semantics reports
+now source-label VSPAERO `CLi` as the inviscid surface-integration component
+and `CLiw` / `CLwtot` as the wake/free-stream induced outputs, so future debug
+should not describe the high panel `CL` as a pure wake-column artifact. The
+station fixture records 4 boundary edges and 2 nonmanifold edges at
 OpenVSP sections 3 and 4. The BRep hotspot probe confirms that station curves
 36 and 50 map cleanly to STEP edge ids after the expected mm-to-m scale and
 that owner surfaces 12 / 13 / 19 / 20 have closed, connected, ordered wires;
@@ -125,6 +129,11 @@ It is `panel_reference_available` at the HPA standard `V=6.5 m/s`, with
 not high-fidelity CFD, but it supports the engineering sanity gate that a
 main-wing route claiming convergence at this operating point must not pass with
 `CL <= 1.0`; the current selected SU2 smoke is about `4.89x` lower in `CL`.
+The source-backed panel/SU2 semantics audit now records `CLi` as an inviscid
+surface-integration component, not a wake-induced column; `CLiw` / `CLwtot`
+carry the wake/free-stream induced output. This keeps the next debug focused on
+lifting-surface / exported-geometry / SU2 wall semantics rather than a mistaken
+`CLi` label.
 
 The main-wing SU2 force-marker audit is emitted by:
 
@@ -596,8 +605,9 @@ the same nominal `alpha=0 deg`, `V=6.5 m/s` setup is already above the CL gate,
 the diagnostic no longer treats alpha-zero alone as a satisfactory explanation.
 It now ranks likely next suspects as SU2 force-marker consistency,
 boundary-condition consistency, reference-policy consistency, non-convergence,
-and mesh-quality pathology. The reference-area mismatch is kept visible but
-marked too small to explain the lift gap by itself.
+mesh-quality pathology, and the VSPAERO DegenGeom lifting-surface vs SU2 Euler
+wall geometry contract. The reference-area mismatch is kept visible but marked
+too small to explain the lift gap by itself.
 
 The main-wing reference-geometry gate is emitted by:
 

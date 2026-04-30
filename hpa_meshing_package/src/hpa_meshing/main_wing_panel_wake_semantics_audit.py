@@ -126,7 +126,7 @@ def _panel_wake_observed(panel: dict[str, Any] | None) -> dict[str, Any]:
     selected = panel.get("selected_case", {}) if isinstance(panel, dict) else {}
     cltot = _as_float(selected.get("CLtot")) if isinstance(selected, dict) else None
     cli = _as_float(selected.get("CLi")) if isinstance(selected, dict) else None
-    induced_fraction = cli / cltot if cli is not None and cltot not in {None, 0.0} else None
+    inviscid_fraction = cli / cltot if cli is not None and cltot not in {None, 0.0} else None
     wake_iters = _as_float(setup.get("WakeIters")) if isinstance(setup, dict) else None
     wake_nodes = _as_float(setup.get("NumWakeNodes")) if isinstance(setup, dict) else None
     return {
@@ -146,18 +146,27 @@ def _panel_wake_observed(panel: dict[str, Any] | None) -> dict[str, Any]:
             else None
         ),
         "clo": _as_float(selected.get("CLo")) if isinstance(selected, dict) else None,
+        "clo_component_label": "viscous_or_other_surface_integration_component",
         "cli": cli,
+        "cli_component_label": "inviscid_surface_integration_component",
         "cltot": cltot,
         "clwtot": (
             _as_float(selected.get("CLwtot")) if isinstance(selected, dict) else None
         ),
-        "induced_lift_fraction_of_cltot": induced_fraction,
+        "cliw": _as_float(selected.get("CLiw")) if isinstance(selected, dict) else None,
+        "cliw_component_label": "wake_free_stream_induced_component",
+        "inviscid_lift_fraction_of_cltot": inviscid_fraction,
         "wake_settings_present": (
             wake_nodes is not None and wake_nodes > 0 and wake_iters is not None
         ),
+        "source_semantics": (
+            "OpenVSP VSPAERO source writes CLtot=CLi+CLo and labels CLi "
+            "as inviscid, CLo as viscous, and CLiw/CLwtot as wake/free-stream "
+            "induced output."
+        ),
         "interpretation": (
-            "panel_lift_dominated_by_induced_wake_terms"
-            if induced_fraction is not None and abs(induced_fraction) >= 0.8
+            "panel_lift_dominated_by_inviscid_component"
+            if inviscid_fraction is not None and abs(inviscid_fraction) >= 0.8
             else None
         ),
     }
@@ -223,15 +232,15 @@ def _audit_status(
     su2: dict[str, Any],
     normal: dict[str, Any],
 ) -> AuditStatusType:
-    induced_fraction = _as_float(panel.get("induced_lift_fraction_of_cltot"))
+    inviscid_fraction = _as_float(panel.get("inviscid_lift_fraction_of_cltot"))
     panel_cl = _as_float(panel.get("cltot"))
     su2_cl = _as_float(su2.get("forces_breakdown_cl"))
     normal_findings = normal.get("engineering_findings", [])
-    required_values = [induced_fraction, panel_cl, su2_cl]
+    required_values = [inviscid_fraction, panel_cl, su2_cl]
     if any(value is None for value in required_values):
         return "insufficient_evidence"
     if (
-        abs(induced_fraction or 0.0) >= 0.8
+        abs(inviscid_fraction or 0.0) >= 0.8
         and (panel_cl or 0.0) > 1.0
         and (su2_cl or 0.0) <= 1.0
         and su2.get("wall_boundary_condition") == "euler"
@@ -251,8 +260,8 @@ def _engineering_findings(
     findings: list[str] = []
     if status == "semantics_gap_observed":
         findings.append("panel_su2_semantics_gap_observed")
-    if panel.get("interpretation") == "panel_lift_dominated_by_induced_wake_terms":
-        findings.append("panel_lift_dominated_by_induced_wake_terms")
+    if panel.get("interpretation") == "panel_lift_dominated_by_inviscid_component":
+        findings.append("panel_lift_dominated_by_inviscid_component")
     if (
         su2.get("wall_boundary_condition") == "euler"
         and su2.get("has_explicit_wake_model_keys") is False
@@ -264,15 +273,15 @@ def _engineering_findings(
     if "single_global_normal_flip_not_supported" in normal_findings:
         findings.append("single_global_normal_flip_not_supported")
     if status == "semantics_gap_observed":
-        findings.append("thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics")
+        findings.append("thin_sheet_wall_not_yet_bridged_to_panel_lifting_surface_semantics")
     return list(dict.fromkeys(findings))
 
 
 def _next_actions(findings: list[str]) -> list[str]:
-    if "thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics" in findings:
+    if "thin_sheet_wall_not_yet_bridged_to_panel_lifting_surface_semantics" in findings:
         return [
             "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export",
-            "compare_vspaero_panel_wake_sources_against_su2_surface_entities",
+            "compare_vspaero_degengeom_lifting_surface_against_su2_surface_entities",
             "decide_main_wing_product_route_lifting_surface_vs_closed_thickness_cfd_geometry",
         ]
     return ["rerun_panel_wake_semantics_audit_after_required_artifacts_exist"]
@@ -301,6 +310,7 @@ def build_main_wing_panel_wake_semantics_audit_report(
         limitations=[
             "This report reads existing artifacts only; it does not execute VSPAERO, Gmsh, or SU2.",
             "Observed VSPAERO panel terms are lower-order sanity evidence, not high-fidelity CFD truth.",
+            "Do not describe the VSPAERO CLi column as a wake-induced term; source evidence labels it as inviscid.",
             "The semantics gap is a route-risk gate; it does not prove the final root cause by itself.",
         ],
     )

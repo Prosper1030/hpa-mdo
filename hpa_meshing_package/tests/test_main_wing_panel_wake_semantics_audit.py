@@ -92,10 +92,20 @@ def test_panel_wake_semantics_audit_identifies_current_model_gap(tmp_path: Path)
 
     assert report.audit_status == "semantics_gap_observed"
     assert report.panel_wake_observed["num_wake_nodes"] == 64.0
-    assert report.panel_wake_observed["induced_lift_fraction_of_cltot"] > 1.0
+    assert report.panel_wake_observed["inviscid_lift_fraction_of_cltot"] > 1.0
+    assert report.panel_wake_observed["cli_component_label"] == (
+        "inviscid_surface_integration_component"
+    )
+    assert report.panel_wake_observed["cliw_component_label"] == (
+        "wake_free_stream_induced_component"
+    )
     assert report.su2_semantics_observed["wall_boundary_condition"] == "euler"
     assert report.su2_semantics_observed["has_explicit_wake_model_keys"] is False
-    assert "panel_lift_dominated_by_induced_wake_terms" in report.engineering_findings
+    assert "panel_lift_dominated_by_inviscid_component" in report.engineering_findings
+    assert (
+        "panel_lift_dominated_by_induced_wake_terms"
+        not in report.engineering_findings
+    )
     assert "single_global_normal_flip_not_supported" in report.engineering_findings
     assert report.next_actions[0] == (
         "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export"
