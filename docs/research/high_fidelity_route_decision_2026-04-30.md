@@ -468,6 +468,25 @@ consume OpenVSP reference quantities. It is still not a solver or convergence
 claim, and the zero VSPAERO CG moment origin keeps the reference state at
 `warn`.
 
+A paired OpenVSP-reference bounded solver smoke exists at:
+
+- `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe/`
+
+Observed result:
+
+- `solver_execution_status = solver_executed`
+- `run_status = solver_executed_but_not_converged`
+- `convergence_gate_status = fail`
+- `convergence_comparability_level = not_comparable`
+- `final_iteration = 11`
+- `CL ~= 0.2603`
+- `CD ~= 0.01859`
+- `CMy ~= -0.2033`
+
+Engineering reading: OpenVSP reference normalization changes coefficient
+scaling, especially moment normalization/origin, but it does not fix the
+underlying short-iteration convergence blocker.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash
