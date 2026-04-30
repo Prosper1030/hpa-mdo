@@ -154,7 +154,28 @@
           "cm_axis": "CMy"
         },
         "observed_velocity_mps": 6.5,
-        "reference_geometry_status": "warn"
+        "reference_geometry_status": "warn",
+        "solver_log_quality_metrics": {
+          "surface_curvature": {
+            "max": 1768.33,
+            "mean": 23.2247,
+            "std": 107.701
+          },
+          "dual_control_volume_quality": {
+            "orthogonality_angle_deg": {
+              "min": 31.473,
+              "max": 84.6248
+            },
+            "cv_face_area_aspect_ratio": {
+              "min": 1.2135,
+              "max": 377.909
+            },
+            "cv_sub_volume_ratio": {
+              "min": 1.00013,
+              "max": 13256.1
+            }
+          }
+        }
       },
       "blockers": [
         "solver_executed_but_not_converged",
@@ -195,7 +216,8 @@
           "cm_axis": "CMy"
         },
         "observed_velocity_mps": 6.5,
-        "reference_geometry_status": "warn"
+        "reference_geometry_status": "warn",
+        "solver_log_quality_metrics": {}
       },
       "blockers": [
         "solver_executed_but_not_converged",

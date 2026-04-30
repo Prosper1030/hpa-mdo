@@ -206,6 +206,9 @@ def _solver_probe_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
         "reference_geometry_status": (
             None if payload is None else payload.get("reference_geometry_status")
         ),
+        "solver_log_quality_metrics": (
+            {} if payload is None else payload.get("solver_log_quality_metrics", {})
+        ),
     }
 
 

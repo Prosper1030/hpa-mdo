@@ -237,6 +237,11 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
             "convergence_gate_path": "solver/convergence_gate.v1.json",
             "final_iteration": 12,
             "observed_velocity_mps": 6.5,
+            "solver_log_quality_metrics": {
+                "dual_control_volume_quality": {
+                    "cv_sub_volume_ratio": {"min": 1.0, "max": 13256.1}
+                }
+            },
             "blocking_reasons": [
                 "solver_executed_but_not_converged",
                 "main_wing_real_reference_geometry_warn",
@@ -312,6 +317,11 @@ def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
                 "cm_axis": "CMy",
             },
             "observed_velocity_mps": 6.5,
+            "solver_log_quality_metrics": {
+                "dual_control_volume_quality": {
+                    "cv_sub_volume_ratio": {"min": 1.0, "max": 13256.1}
+                }
+            },
             "blocking_reasons": [
                 "solver_executed_but_not_converged",
                 "main_wing_real_reference_geometry_warn",
@@ -354,6 +364,11 @@ def test_main_wing_route_readiness_records_solver_budget_probe_stages(
                 "cm_axis": "CMy",
             },
             "observed_velocity_mps": 6.5,
+            "solver_log_quality_metrics": {
+                "dual_control_volume_quality": {
+                    "cv_sub_volume_ratio": {"min": 1.0, "max": 13256.1}
+                }
+            },
             "blocking_reasons": [
                 "solver_executed_but_not_converged",
                 "main_wing_real_reference_geometry_warn",
@@ -394,6 +409,12 @@ def test_main_wing_route_readiness_records_solver_budget_probe_stages(
     assert solver_budget.observed["runtime_max_iterations"] == 40
     assert solver_budget.observed["convergence_comparability_level"] == "run_only"
     assert solver_budget.observed["final_coefficients"]["cm_axis"] == "CMy"
+    assert (
+        solver_budget.observed["solver_log_quality_metrics"][
+            "dual_control_volume_quality"
+        ]["cv_sub_volume_ratio"]["max"]
+        == 13256.1
+    )
     assert openvsp_solver_budget.status == "pass"
     assert openvsp_solver_budget.observed["runtime_max_iterations"] == 40
     assert openvsp_solver_budget.observed["final_coefficients"]["cm"] == -0.2130813257
