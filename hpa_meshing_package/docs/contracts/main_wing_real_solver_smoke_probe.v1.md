@@ -38,6 +38,7 @@ It is intentionally a smoke probe, not a convergence claim:
 - `component_force_ownership_status`
 - `reference_geometry_status`
 - `observed_velocity_mps`
+- `runtime_max_iterations`
 - `volume_element_count`
 - guarantees, blocking reasons, and limitations
 
@@ -49,6 +50,10 @@ main-wing SU2 handoff. It is execution evidence only.
 `solver_executed_but_not_converged` means the solver ran and wrote history, but
 `convergence_gate.v1` did not pass. This must not be reported as converged CFD
 or as a comparable aerodynamic result.
+
+`runtime_max_iterations` records the SU2 iteration budget used by the consumed
+handoff. Increasing it is allowed only as a probe-local campaign choice and is
+not a production default change.
 
 ## Promotion Rule
 

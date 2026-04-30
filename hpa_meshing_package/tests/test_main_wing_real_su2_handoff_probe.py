@@ -85,6 +85,7 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
         assert mesh_handoff["contract"] == "mesh_handoff.v1"
         assert runtime.flow_conditions.velocity_mps == 6.5
         assert runtime.velocity_mps == 6.5
+        assert runtime.max_iterations == 40
         assert runtime.reference_mode == "user_declared"
         assert runtime.reference_override.ref_area == 34.65
         assert runtime.reference_override.ref_length == 1.05
@@ -98,6 +99,7 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
     report = build_main_wing_real_su2_handoff_probe_report(
         tmp_path / "su2_probe",
         source_mesh_probe_report_path=probe_path,
+        max_iterations=40,
     )
 
     assert report.schema_version == "main_wing_real_su2_handoff_probe.v1"
@@ -113,6 +115,7 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
     assert report.component_force_ownership_status == "owned"
     assert report.reference_geometry_status == "warn"
     assert report.observed_velocity_mps == 6.5
+    assert report.runtime_max_iterations == 40
     assert report.production_default_changed is False
     assert "main_wing_solver_not_run" in report.blocking_reasons
     assert "convergence_gate_not_run" in report.blocking_reasons
@@ -194,5 +197,6 @@ def test_main_wing_real_su2_handoff_probe_writer_outputs_json_and_markdown(
     assert payload["source_mesh_probe_status"] == "mesh_handoff_pass"
     assert payload["solver_execution_status"] == "not_run"
     assert payload["observed_velocity_mps"] == 6.5
+    assert payload["runtime_max_iterations"] == 12
     assert "main_wing real su2_handoff probe" in markdown
     assert "su2_handoff.v1" in markdown

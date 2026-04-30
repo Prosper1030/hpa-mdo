@@ -74,6 +74,7 @@ class MainWingRealSU2HandoffProbeReport(BaseModel):
     component_force_ownership_status: ComponentForceOwnershipStatusType
     reference_geometry_status: str | None = None
     observed_velocity_mps: float | None = None
+    runtime_max_iterations: int | None = None
     source_mesh_probe_path: str | None = None
     source_mesh_case_report_path: str | None = None
     input_mesh_artifact: str | None = None
@@ -90,11 +91,11 @@ class MainWingRealSU2HandoffProbeReport(BaseModel):
     error: str | None = None
 
 
-def _runtime_config() -> SU2RuntimeConfig:
+def _runtime_config(*, max_iterations: int = 12) -> SU2RuntimeConfig:
     return SU2RuntimeConfig(
         enabled=True,
         case_name="alpha_0_real_main_wing_materialization_probe",
-        max_iterations=12,
+        max_iterations=int(max_iterations),
         flow_conditions=SU2FlowConditions(),
         reference_mode="user_declared",
         reference_override=SU2ReferenceOverride(
@@ -263,6 +264,7 @@ def build_main_wing_real_su2_handoff_probe_report(
     source_path: Path | None = None,
     timeout_seconds: float = 45.0,
     source_mesh_probe_report_path: Path | None = None,
+    max_iterations: int = 12,
 ) -> MainWingRealSU2HandoffProbeReport:
     out_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -308,7 +310,7 @@ def build_main_wing_real_su2_handoff_probe_report(
             error=mesh_probe.error,
         )
 
-    runtime = _runtime_config()
+    runtime = _runtime_config(max_iterations=max_iterations)
     try:
         mesh_handoff = _load_mesh_handoff_from_case_report(mesh_case_report)
         case = materialize_baseline_case(
@@ -379,6 +381,7 @@ def build_main_wing_real_su2_handoff_probe_report(
         component_force_ownership_status=component_force_status,
         reference_geometry_status=reference_status,
         observed_velocity_mps=runtime.velocity_mps,
+        runtime_max_iterations=runtime.max_iterations,
         source_mesh_probe_path=str(mesh_probe_path),
         source_mesh_case_report_path=str(mesh_case_report),
         input_mesh_artifact=str(case.input_mesh_artifact),
@@ -419,6 +422,7 @@ def _render_markdown(report: MainWingRealSU2HandoffProbeReport) -> str:
         f"- component_force_ownership_status: `{report.component_force_ownership_status}`",
         f"- reference_geometry_status: `{report.reference_geometry_status}`",
         f"- observed_velocity_mps: `{report.observed_velocity_mps}`",
+        f"- runtime_max_iterations: `{report.runtime_max_iterations}`",
         f"- volume_element_count: `{report.volume_element_count}`",
         f"- error: `{report.error}`",
         "",
@@ -439,6 +443,7 @@ def write_main_wing_real_su2_handoff_probe_report(
     source_path: Path | None = None,
     timeout_seconds: float = 45.0,
     source_mesh_probe_report_path: Path | None = None,
+    max_iterations: int = 12,
 ) -> Dict[str, Path]:
     if report is None:
         report = build_main_wing_real_su2_handoff_probe_report(
@@ -446,6 +451,7 @@ def write_main_wing_real_su2_handoff_probe_report(
             source_path=source_path,
             timeout_seconds=timeout_seconds,
             source_mesh_probe_report_path=source_mesh_probe_report_path,
+            max_iterations=max_iterations,
         )
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / "main_wing_real_su2_handoff_probe.v1.json"

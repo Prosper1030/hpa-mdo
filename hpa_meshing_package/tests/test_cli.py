@@ -236,6 +236,8 @@ def test_parser_supports_main_wing_real_su2_handoff_probe_command():
             "artifacts/main_wing_real_su2_probe",
             "--source-mesh-probe-report",
             "artifacts/main_wing_real_mesh_probe/main_wing_real_mesh_handoff_probe.v1.json",
+            "--max-iterations",
+            "40",
         ]
     )
 
@@ -244,6 +246,7 @@ def test_parser_supports_main_wing_real_su2_handoff_probe_command():
     assert args.source_mesh_probe_report == (
         "artifacts/main_wing_real_mesh_probe/main_wing_real_mesh_handoff_probe.v1.json"
     )
+    assert args.max_iterations == 40
 
 
 def test_parser_supports_main_wing_real_solver_smoke_probe_command():

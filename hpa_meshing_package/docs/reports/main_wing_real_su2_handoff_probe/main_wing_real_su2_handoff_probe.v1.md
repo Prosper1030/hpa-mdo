@@ -14,6 +14,7 @@ This probe materializes an SU2 case from the real main-wing mesh handoff without
 - component_force_ownership_status: `owned`
 - reference_geometry_status: `warn`
 - observed_velocity_mps: `6.5`
+- runtime_max_iterations: `12`
 - volume_element_count: `584460`
 - error: `None`
 

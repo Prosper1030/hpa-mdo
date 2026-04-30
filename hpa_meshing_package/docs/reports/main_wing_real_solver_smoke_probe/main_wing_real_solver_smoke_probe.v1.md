@@ -11,6 +11,7 @@ This probe runs SU2_CFD from the real main-wing SU2 handoff and keeps solver exe
 - observed_velocity_mps: `6.5`
 - component_force_ownership_status: `owned`
 - reference_geometry_status: `warn`
+- runtime_max_iterations: `12`
 - history_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/history.csv`
 - solver_log_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/solver.log`
 - convergence_gate_path: `hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/artifacts/convergence_gate.v1.json`

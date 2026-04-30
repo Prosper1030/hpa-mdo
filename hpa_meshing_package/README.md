@@ -366,12 +366,15 @@ experiments; changing them does not change the production route default.
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
 PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli main-wing-real-su2-handoff-probe \
   --out .tmp/runs/main_wing_real_su2_handoff_probe \
-  --source-mesh-probe-report docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json
+  --source-mesh-probe-report docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json \
+  --max-iterations 12
 ```
 
 This consumes the real main-wing `mesh_handoff.v1` and materializes
 `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` with `V=6.5 m/s` and a
-component-owned `main_wing` force marker. It does not run `SU2_CFD`.
+component-owned `main_wing` force marker. It does not run `SU2_CFD`. The
+`--max-iterations` knob is probe-local and exists for bounded solver-budget
+campaigns; it does not change production defaults.
 
 ### 18. Run the real main wing solver smoke
 

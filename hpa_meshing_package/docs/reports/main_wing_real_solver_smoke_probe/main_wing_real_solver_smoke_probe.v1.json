@@ -41,6 +41,7 @@
   "component_force_ownership_status": "owned",
   "reference_geometry_status": "warn",
   "observed_velocity_mps": 6.5,
+  "runtime_max_iterations": 12,
   "volume_element_count": 584460,
   "hpa_mdo_guarantees": [
     "real_main_wing_su2_handoff_v1_consumed",

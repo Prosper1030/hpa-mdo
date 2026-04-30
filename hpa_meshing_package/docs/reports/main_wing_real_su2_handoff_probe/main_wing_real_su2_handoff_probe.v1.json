@@ -28,6 +28,7 @@
   "component_force_ownership_status": "owned",
   "reference_geometry_status": "warn",
   "observed_velocity_mps": 6.5,
+  "runtime_max_iterations": 12,
   "source_mesh_probe_path": "hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json",
   "source_mesh_case_report_path": "hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/report.json",
   "input_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",

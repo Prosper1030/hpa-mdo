@@ -62,6 +62,7 @@ class MainWingRealSolverSmokeProbeReport(BaseModel):
     component_force_ownership_status: str | None = None
     reference_geometry_status: str | None = None
     observed_velocity_mps: float | None = None
+    runtime_max_iterations: int | None = None
     volume_element_count: int | None = None
     hpa_mdo_guarantees: List[str] = Field(default_factory=list)
     blocking_reasons: List[str] = Field(default_factory=list)
@@ -116,6 +117,24 @@ def _runtime_velocity(su2_handoff: dict[str, Any], source_report: dict[str, Any]
         return float(velocity)
     report_velocity = source_report.get("observed_velocity_mps")
     return float(report_velocity) if isinstance(report_velocity, (int, float)) else None
+
+
+def _runtime_max_iterations(
+    su2_handoff: dict[str, Any],
+    source_report: dict[str, Any],
+) -> int | None:
+    runtime = su2_handoff.get("runtime", {})
+    max_iterations = runtime.get("max_iterations") if isinstance(runtime, dict) else None
+    if isinstance(max_iterations, int):
+        return max_iterations
+    if isinstance(max_iterations, float):
+        return int(max_iterations)
+    report_iterations = source_report.get("runtime_max_iterations")
+    if isinstance(report_iterations, int):
+        return report_iterations
+    if isinstance(report_iterations, float):
+        return int(report_iterations)
+    return None
 
 
 def _solver_command(su2_handoff: dict[str, Any]) -> list[str]:
@@ -232,6 +251,9 @@ def _blocked_report(
         observed_velocity_mps=None
         if source_report is None
         else source_report.get("observed_velocity_mps"),
+        runtime_max_iterations=None
+        if source_report is None
+        else source_report.get("runtime_max_iterations"),
         volume_element_count=None
         if source_report is None
         else source_report.get("volume_element_count"),
@@ -352,6 +374,7 @@ def build_main_wing_real_solver_smoke_probe_report(
     command = _solver_command(su2_handoff)
     missing_executable = _missing_executable(command, su2_handoff)
     observed_velocity = _runtime_velocity(su2_handoff, source_report)
+    runtime_max_iterations = _runtime_max_iterations(su2_handoff, source_report)
     base_guarantees = [
         "real_main_wing_su2_handoff_v1_consumed",
         "solver_not_claimed_converged_without_gate_pass",
@@ -380,6 +403,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             component_force_ownership_status=source_report.get("component_force_ownership_status"),
             reference_geometry_status=source_report.get("reference_geometry_status"),
             observed_velocity_mps=observed_velocity,
+            runtime_max_iterations=runtime_max_iterations,
             volume_element_count=source_report.get("volume_element_count"),
             hpa_mdo_guarantees=base_guarantees,
             blocking_reasons=[
@@ -434,6 +458,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             component_force_ownership_status=source_report.get("component_force_ownership_status"),
             reference_geometry_status=source_report.get("reference_geometry_status"),
             observed_velocity_mps=observed_velocity,
+            runtime_max_iterations=runtime_max_iterations,
             volume_element_count=source_report.get("volume_element_count"),
             hpa_mdo_guarantees=base_guarantees,
             blocking_reasons=[
@@ -467,6 +492,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             component_force_ownership_status=source_report.get("component_force_ownership_status"),
             reference_geometry_status=source_report.get("reference_geometry_status"),
             observed_velocity_mps=observed_velocity,
+            runtime_max_iterations=runtime_max_iterations,
             volume_element_count=source_report.get("volume_element_count"),
             hpa_mdo_guarantees=base_guarantees,
             blocking_reasons=[
@@ -504,6 +530,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             component_force_ownership_status=source_report.get("component_force_ownership_status"),
             reference_geometry_status=source_report.get("reference_geometry_status"),
             observed_velocity_mps=observed_velocity,
+            runtime_max_iterations=runtime_max_iterations,
             volume_element_count=source_report.get("volume_element_count"),
             hpa_mdo_guarantees=base_guarantees,
             blocking_reasons=[
@@ -540,6 +567,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             component_force_ownership_status=source_report.get("component_force_ownership_status"),
             reference_geometry_status=source_report.get("reference_geometry_status"),
             observed_velocity_mps=observed_velocity,
+            runtime_max_iterations=runtime_max_iterations,
             volume_element_count=source_report.get("volume_element_count"),
             hpa_mdo_guarantees=base_guarantees,
             blocking_reasons=[
@@ -578,6 +606,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             component_force_ownership_status=source_report.get("component_force_ownership_status"),
             reference_geometry_status=source_report.get("reference_geometry_status"),
             observed_velocity_mps=observed_velocity,
+            runtime_max_iterations=runtime_max_iterations,
             volume_element_count=source_report.get("volume_element_count"),
             hpa_mdo_guarantees=base_guarantees,
             blocking_reasons=[
@@ -631,6 +660,7 @@ def build_main_wing_real_solver_smoke_probe_report(
             component_force_ownership_status=source_report.get("component_force_ownership_status"),
             reference_geometry_status=source_report.get("reference_geometry_status"),
             observed_velocity_mps=observed_velocity,
+            runtime_max_iterations=runtime_max_iterations,
             volume_element_count=source_report.get("volume_element_count"),
             hpa_mdo_guarantees=base_guarantees,
             blocking_reasons=[
@@ -707,6 +737,7 @@ def build_main_wing_real_solver_smoke_probe_report(
         component_force_ownership_status=source_report.get("component_force_ownership_status"),
         reference_geometry_status=reference_status,
         observed_velocity_mps=observed_velocity,
+        runtime_max_iterations=runtime_max_iterations,
         volume_element_count=source_report.get("volume_element_count"),
         hpa_mdo_guarantees=guarantees,
         blocking_reasons=blocking_reasons,
@@ -734,6 +765,7 @@ def _render_markdown(report: MainWingRealSolverSmokeProbeReport) -> str:
         f"- observed_velocity_mps: `{report.observed_velocity_mps}`",
         f"- component_force_ownership_status: `{report.component_force_ownership_status}`",
         f"- reference_geometry_status: `{report.reference_geometry_status}`",
+        f"- runtime_max_iterations: `{report.runtime_max_iterations}`",
         f"- history_path: `{report.history_path}`",
         f"- solver_log_path: `{report.solver_log_path}`",
         f"- convergence_gate_path: `{report.convergence_gate_path}`",

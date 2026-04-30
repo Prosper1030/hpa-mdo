@@ -23,7 +23,7 @@ def _write_source_su2_probe(tmp_path: Path) -> Path:
         case_dir / "su2_handoff.json",
         {
             "contract": "su2_handoff.v1",
-            "runtime": {"velocity_mps": 6.5},
+            "runtime": {"velocity_mps": 6.5, "max_iterations": 40},
             "runtime_cfg_path": str(case_dir / "su2_runtime.cfg"),
             "case_output_paths": {
                 "case_dir": str(case_dir),
@@ -63,6 +63,7 @@ def _write_source_su2_probe(tmp_path: Path) -> Path:
             "component_force_ownership_status": "owned",
             "reference_geometry_status": "warn",
             "observed_velocity_mps": 6.5,
+            "runtime_max_iterations": 40,
             "volume_element_count": 584460,
             "blocking_reasons": [
                 "main_wing_solver_not_run",
@@ -143,6 +144,7 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
     assert report.observed_velocity_mps == 6.5
     assert report.component_force_ownership_status == "owned"
     assert report.reference_geometry_status == "warn"
+    assert report.runtime_max_iterations == 40
     assert "solver_executed_but_not_converged" in report.blocking_reasons
     assert "hpa_standard_flow_conditions_6p5_mps" in report.hpa_mdo_guarantees
     assert "heavy_solver_outputs_pruned" in report.hpa_mdo_guarantees
@@ -227,5 +229,6 @@ def test_main_wing_real_solver_smoke_probe_writer_outputs_json_and_markdown(
 
     assert payload["solver_execution_status"] == "solver_unavailable"
     assert payload["observed_velocity_mps"] == 6.5
+    assert payload["runtime_max_iterations"] == 40
     assert "main_wing real solver smoke probe" in markdown
     assert "solver_executable_missing" in markdown

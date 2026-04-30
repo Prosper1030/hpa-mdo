@@ -45,6 +45,7 @@ It is intentionally solver-free:
 - `component_force_ownership_status`
 - `reference_geometry_status`
 - `observed_velocity_mps`
+- `runtime_max_iterations`
 - source, case, mesh, SU2, runtime, and history paths
 - mesh counts when available
 - guarantees, blocking reasons, and limitations
@@ -59,6 +60,8 @@ evidence.
 It does **not** mean the route is CFD-ready. The solver is not executed, no
 history exists, and no convergence gate is emitted by this probe. The upstream
 mesh is still a coarse bounded probe rather than production default sizing.
+`runtime_max_iterations` is a probe-local solver-budget setting for downstream
+smoke campaigns; it does not change production defaults.
 
 ## Promotion Rule
 
