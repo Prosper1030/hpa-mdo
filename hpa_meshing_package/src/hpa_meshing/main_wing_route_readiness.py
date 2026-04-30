@@ -15,7 +15,9 @@ StageType = Literal[
     "real_su2_handoff",
     "openvsp_reference_su2_handoff",
     "openvsp_reference_solver_smoke",
+    "openvsp_reference_solver_budget_probe",
     "solver_smoke",
+    "solver_budget_probe",
     "convergence_gate",
 ]
 StageStatusType = Literal["pass", "blocked", "materialized_synthetic_only", "not_run"]
@@ -122,6 +124,50 @@ def _flow_status(su2_runtime_handoff: dict[str, Any] | None) -> tuple[HPAFlowSta
     return "legacy_or_nonstandard_velocity_observed", observed
 
 
+def _solver_probe_executed(payload: dict[str, Any] | None) -> bool:
+    return (
+        isinstance(payload, dict)
+        and payload.get("solver_execution_status") == "solver_executed"
+    )
+
+
+def _solver_probe_blocked(payload: dict[str, Any] | None) -> bool:
+    return (
+        isinstance(payload, dict)
+        and payload.get("solver_execution_status")
+        in {"solver_failed", "solver_timeout", "solver_unavailable", "blocked_before_solver"}
+    )
+
+
+def _solver_probe_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
+    return {
+        "solver_execution_status": (
+            None if payload is None else payload.get("solver_execution_status")
+        )
+        or "not_run",
+        "run_status": None if payload is None else payload.get("run_status"),
+        "convergence_gate_status": (
+            None if payload is None else payload.get("convergence_gate_status")
+        ),
+        "convergence_comparability_level": (
+            None if payload is None else payload.get("convergence_comparability_level")
+        ),
+        "final_iteration": None if payload is None else payload.get("final_iteration"),
+        "runtime_max_iterations": (
+            None if payload is None else payload.get("runtime_max_iterations")
+        ),
+        "final_coefficients": (
+            {} if payload is None else payload.get("final_coefficients", {})
+        ),
+        "observed_velocity_mps": (
+            None if payload is None else payload.get("observed_velocity_mps")
+        ),
+        "reference_geometry_status": (
+            None if payload is None else payload.get("reference_geometry_status")
+        ),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -158,6 +204,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_openvsp_reference_solver_smoke_probe"
         / "main_wing_real_solver_smoke_probe.v1.json"
     )
+    openvsp_reference_solver_budget_path = (
+        root
+        / "main_wing_openvsp_reference_solver_smoke_probe_iter40"
+        / "main_wing_real_solver_smoke_probe.v1.json"
+    )
     reference_gate_path = (
         root
         / "main_wing_reference_geometry_gate"
@@ -166,6 +217,11 @@ def build_main_wing_route_readiness_report(
     solver_smoke_path = (
         root
         / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json"
+    )
+    solver_budget_path = (
+        root
+        / "main_wing_real_solver_smoke_probe_iter40"
         / "main_wing_real_solver_smoke_probe.v1.json"
     )
     synthetic_su2_runtime_path = (
@@ -184,8 +240,10 @@ def build_main_wing_route_readiness_report(
     real_su2 = _load_json(real_su2_path)
     openvsp_reference_su2 = _load_json(openvsp_reference_su2_path)
     openvsp_reference_solver = _load_json(openvsp_reference_solver_path)
+    openvsp_reference_solver_budget = _load_json(openvsp_reference_solver_budget_path)
     reference_gate = _load_json(reference_gate_path)
     solver_smoke = _load_json(solver_smoke_path)
+    solver_budget = _load_json(solver_budget_path)
     synthetic_su2_runtime = _load_json(synthetic_su2_runtime_path)
     hpa_flow_status, observed_velocity = _flow_status(synthetic_su2_runtime)
 
@@ -469,6 +527,30 @@ def build_main_wing_route_readiness_report(
             ),
         ),
         _stage(
+            stage="openvsp_reference_solver_budget_probe",
+            status=(
+                "pass"
+                if _solver_probe_executed(openvsp_reference_solver_budget)
+                else "blocked"
+                if _solver_probe_blocked(openvsp_reference_solver_budget)
+                else "not_run"
+            ),
+            evidence_kind=(
+                "real" if isinstance(openvsp_reference_solver_budget, dict) else "absent"
+            ),
+            artifact_path=(
+                openvsp_reference_solver_budget_path
+                if isinstance(openvsp_reference_solver_budget, dict)
+                else None
+            ),
+            observed=_solver_probe_observed(openvsp_reference_solver_budget),
+            blockers=(
+                _blocking_reasons(openvsp_reference_solver_budget)
+                if isinstance(openvsp_reference_solver_budget, dict)
+                else []
+            ),
+        ),
+        _stage(
             stage="solver_smoke",
             status="pass" if solver_executed else "blocked" if solver_blocked else "not_run",
             evidence_kind="real" if isinstance(solver_smoke, dict) else "absent",
@@ -494,6 +576,24 @@ def build_main_wing_route_readiness_report(
                 else []
                 if solver_executed
                 else ["main_wing_solver_not_run"]
+            ),
+        ),
+        _stage(
+            stage="solver_budget_probe",
+            status=(
+                "pass"
+                if _solver_probe_executed(solver_budget)
+                else "blocked"
+                if _solver_probe_blocked(solver_budget)
+                else "not_run"
+            ),
+            evidence_kind="real" if isinstance(solver_budget, dict) else "absent",
+            artifact_path=solver_budget_path if isinstance(solver_budget, dict) else None,
+            observed=_solver_probe_observed(solver_budget),
+            blockers=(
+                _blocking_reasons(solver_budget)
+                if isinstance(solver_budget, dict)
+                else []
             ),
         ),
         _stage(

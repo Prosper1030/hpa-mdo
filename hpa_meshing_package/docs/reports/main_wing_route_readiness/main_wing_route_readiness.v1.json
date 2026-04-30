@@ -136,6 +136,32 @@
       ]
     },
     {
+      "stage": "openvsp_reference_solver_budget_probe",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter40/main_wing_real_solver_smoke_probe.v1.json",
+      "observed": {
+        "solver_execution_status": "solver_executed",
+        "run_status": "solver_executed_but_not_converged",
+        "convergence_gate_status": "warn",
+        "convergence_comparability_level": "run_only",
+        "final_iteration": 39,
+        "runtime_max_iterations": 40,
+        "final_coefficients": {
+          "cl": 0.267856209,
+          "cd": 0.02558236807,
+          "cm": -0.2130813257,
+          "cm_axis": "CMy"
+        },
+        "observed_velocity_mps": 6.5,
+        "reference_geometry_status": "warn"
+      },
+      "blockers": [
+        "solver_executed_but_not_converged",
+        "main_wing_real_reference_geometry_warn"
+      ]
+    },
+    {
       "stage": "solver_smoke",
       "status": "pass",
       "evidence_kind": "real",
@@ -149,6 +175,32 @@
         "observed_velocity_mps": 6.5
       },
       "blockers": []
+    },
+    {
+      "stage": "solver_budget_probe",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe_iter40/main_wing_real_solver_smoke_probe.v1.json",
+      "observed": {
+        "solver_execution_status": "solver_executed",
+        "run_status": "solver_executed_but_not_converged",
+        "convergence_gate_status": "warn",
+        "convergence_comparability_level": "run_only",
+        "final_iteration": 39,
+        "runtime_max_iterations": 40,
+        "final_coefficients": {
+          "cl": 0.2719146364,
+          "cd": 0.02596997971,
+          "cm": -0.1467861013,
+          "cm_axis": "CMy"
+        },
+        "observed_velocity_mps": 6.5,
+        "reference_geometry_status": "warn"
+      },
+      "blockers": [
+        "solver_executed_but_not_converged",
+        "main_wing_real_reference_geometry_warn"
+      ]
     },
     {
       "stage": "convergence_gate",
