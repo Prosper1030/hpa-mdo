@@ -1,0 +1,20 @@
+{
+  "status": "success",
+  "compound_policy": {
+    "enabled": false,
+    "reason": "disabled_by_metadata"
+  },
+  "compound_result": {
+    "status": "disabled",
+    "compound_surface_group_count": 0,
+    "compound_curve_group_count": 0,
+    "compound_surface_tags": [],
+    "compound_curve_tags": [],
+    "2d_returned": true,
+    "3d_returned": true,
+    "reparam_success": true,
+    "original_surface_tags_preserved": null,
+    "original_curve_tags_preserved": null,
+    "physical_groups_preserved": null
+  }
+}

@@ -75,6 +75,21 @@ def test_route_readiness_marks_fairing_solid_mesh_handoff_smoke_as_available_not
     assert "convergence_gate_not_run" in fairing_solid.blocking_reasons
 
 
+def test_route_readiness_marks_tail_wing_mesh_handoff_smoke_as_available_not_productized():
+    report = build_component_family_route_readiness()
+    tail_wing = {row.component: row for row in report.components}["tail_wing"]
+
+    assert tail_wing.productization_status == "registered_not_productized"
+    assert tail_wing.su2_status == "blocked_until_su2_handoff"
+    assert tail_wing.default_route == "gmsh_thin_sheet_surface"
+    assert "tail_wing_mesh_handoff_smoke_available_non_bl_synthetic" in tail_wing.notes
+    assert "tail_wing_specific_force_marker_available" in tail_wing.notes
+    assert "tail_family_backend_not_productized" not in tail_wing.blocking_reasons
+    assert "tail_real_geometry_smoke_missing" in tail_wing.blocking_reasons
+    assert "tail_wing_su2_handoff_not_run" in tail_wing.blocking_reasons
+    assert "convergence_gate_not_run" in tail_wing.blocking_reasons
+
+
 def test_route_readiness_report_writer_outputs_json_and_markdown(tmp_path: Path):
     out_dir = tmp_path / "readiness"
 

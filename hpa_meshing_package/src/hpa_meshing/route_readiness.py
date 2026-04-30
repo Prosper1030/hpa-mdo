@@ -181,14 +181,19 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             provider_strategy="esp_rebuilt_experimental_or_direct_cad",
             productization_status="registered_not_productized",
             route_role="registered_future_route",
-            su2_status="blocked_until_route_smoke",
+            su2_status="blocked_until_su2_handoff",
             bl_contract_policy="not_default",
             gmsh_boundary_recovery_policy="core_tetra_only_after_owned_boundary_handoff",
             blocking_reasons=[
-                "tail_family_backend_not_productized",
-                "tail_specific_geometry_smoke_missing",
+                "tail_real_geometry_smoke_missing",
+                "tail_wing_su2_handoff_not_run",
+                "convergence_gate_not_run",
             ],
             next_actions=lifting_surface_next_actions,
+            notes=[
+                "tail_wing_mesh_handoff_smoke_available_non_bl_synthetic",
+                "tail_wing_specific_force_marker_available",
+            ],
         ),
         _row(
             component="horizontal_tail",

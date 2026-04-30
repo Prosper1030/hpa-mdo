@@ -14,7 +14,7 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `aircraft_assembly` | `dispatch_smoke_pass` | `thin_sheet_aircraft_assembly` | `gmsh_thin_sheet_aircraft_assembly` | `formal_v1` | `not_run` | `not_run` | `not_a_promotion_gate` |
 | `main_wing` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `experimental` | `not_run` | `not_run` | `blocked_before_solver_convergence` |
-| `tail_wing` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
+| `tail_wing` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_su2_handoff` |
 | `horizontal_tail` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
 | `vertical_tail` | `dispatch_smoke_pass` | `thin_sheet_lifting_surface` | `gmsh_thin_sheet_surface` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_mesh_handoff` |
 | `fairing_solid` | `dispatch_smoke_pass` | `closed_solid` | `gmsh_closed_solid_volume` | `registered_not_productized` | `not_run` | `not_run` | `blocked_before_solver_convergence` |

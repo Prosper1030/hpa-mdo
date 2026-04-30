@@ -142,6 +142,16 @@ def test_parser_supports_main_wing_mesh_handoff_smoke_command():
     assert args.out == "artifacts/main_wing_smoke"
 
 
+def test_parser_supports_tail_wing_mesh_handoff_smoke_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["tail-wing-mesh-handoff-smoke", "--out", "artifacts/tail_wing_smoke"]
+    )
+
+    assert args.command == "tail-wing-mesh-handoff-smoke"
+    assert args.out == "artifacts/tail_wing_smoke"
+
+
 def test_parser_supports_main_wing_su2_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(

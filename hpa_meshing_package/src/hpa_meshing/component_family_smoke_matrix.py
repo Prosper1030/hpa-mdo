@@ -88,6 +88,8 @@ def _row_promotion_status(component: ComponentType) -> PromotionStatusType:
         return "blocked_before_solver_convergence"
     if component == "fairing_solid":
         return "blocked_before_solver_convergence"
+    if component == "tail_wing":
+        return "blocked_before_su2_handoff"
     return "blocked_before_mesh_handoff"
 
 

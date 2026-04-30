@@ -206,13 +206,38 @@ and reports `force_surface_scope=component_subset`. It deliberately keeps the
 remaining engineering blockers visible: the geometry is still synthetic, solver
 history is absent, and convergence has not been evaluated.
 
+The first tail-wing mesh handoff smoke is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-mesh-handoff-smoke \
+  --out .tmp/runs/tail_wing_mesh_handoff_smoke
+```
+
+It writes:
+
+- `tail_wing_mesh_handoff_smoke.v1.json`
+- `tail_wing_mesh_handoff_smoke.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/tail_wing_mesh_handoff_smoke/tail_wing_mesh_handoff_smoke.v1.json`
+- `hpa_meshing_package/docs/reports/tail_wing_mesh_handoff_smoke/tail_wing_mesh_handoff_smoke.v1.md`
+
+This smoke emits a real `mesh_handoff.v1` for `tail_wing ->
+gmsh_thin_sheet_surface` on a synthetic thin closed-solid tail slab with
+component-owned `tail_wing` / `farfield` markers. It is not real tail geometry,
+not a solver handoff, and not a convergence claim. Its value is that the tail
+family now has one concrete owned-marker mesh-handoff artifact outside the
+schema-only route matrix.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
-| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | tail-specific geometry and mesh smoke |
+| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | `tail_wing` SU2 handoff, then horizontal/vertical tail mesh smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
@@ -266,5 +291,5 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 1. Replace the synthetic main-wing slab with real ESP/VSP main-wing geometry
    evidence before any solver/convergence claim.
-2. Add the next tail-family non-BL mesh-handoff smoke, then move real geometry
-   evidence onto the main-wing and fairing component routes.
+2. Materialize `tail_wing` `su2_handoff.v1`, then move real geometry evidence
+   onto the main-wing, fairing, and tail component routes.

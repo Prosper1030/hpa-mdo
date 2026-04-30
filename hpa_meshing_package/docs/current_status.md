@@ -114,6 +114,20 @@ main-wing `mesh_handoff.v1` and materializes `su2_handoff.v1`, `mesh.su2`, and
 `main_wing` wall marker; real main-wing geometry, solver history, and
 convergence remain missing.
 
+The first tail-wing mesh handoff smoke is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-mesh-handoff-smoke --out .tmp/runs/tail_wing_mesh_handoff_smoke
+```
+
+This writes `tail_wing_mesh_handoff_smoke.v1.json` and
+`tail_wing_mesh_handoff_smoke.v1.md`. It runs real Gmsh for a synthetic thin
+closed-solid tail slab and emits `mesh_handoff.v1` with component-owned
+`tail_wing` / `farfield` markers. It still does not run BL runtime, does not run
+SU2, does not emit `su2_handoff.v1`, does not emit `convergence_gate.v1`, and
+does not prove real aerodynamic tail geometry.
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |
@@ -136,7 +150,7 @@ convergence remain missing.
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real geometry, solver history, and convergence gate are missing |
-| `tail_wing` | experimental | dispatch exists, real backend not productized |
+| `tail_wing` | experimental | synthetic non-BL `mesh_handoff.v1` smoke exists with a `tail_wing` marker; SU2 handoff, real geometry, solver history, and convergence gate are missing |
 | `fairing_solid` | experimental | synthetic `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver history, and convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |
@@ -166,7 +180,8 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
 2. Real ESP/VSP main-wing geometry smoke before solver claims on the `main_wing` route
 3. Real fairing geometry smoke before solver claims on the `fairing_solid` route
-4. Component-level force mapping after the wall-marker story is stronger
+4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
+5. Component-level force mapping after the wall-marker story is stronger
 
 ## What A New Contributor Should Assume
 

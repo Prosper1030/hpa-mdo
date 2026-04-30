@@ -228,6 +228,24 @@ This consumes the synthetic non-BL main-wing mesh handoff and materializes
 It now consumes the component-owned `main_wing` wall marker, so the remaining
 blocking gates are real main-wing geometry, solver history, and convergence.
 
+### 11. Write the tail wing mesh-handoff smoke
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli tail-wing-mesh-handoff-smoke \
+  --out .tmp/runs/tail_wing_mesh_handoff_smoke
+```
+
+This produces:
+
+- `tail_wing_mesh_handoff_smoke.v1.json`
+- `tail_wing_mesh_handoff_smoke.v1.md`
+
+This is a real Gmsh non-BL handoff smoke for `tail_wing`. It emits
+`mesh_handoff.v1` for a synthetic thin closed-solid tail slab with
+component-owned `tail_wing` / `farfield` markers. It does not run BL runtime,
+SU2, or a convergence gate, and it does not prove real aerodynamic tail geometry.
+
 ## Artifact Contracts
 
 - [`GeometryProviderResult`](docs/contracts/GeometryProviderResult.md)
@@ -240,6 +258,7 @@ blocking gates are real main-wing geometry, solver history, and convergence.
 - [`fairing_solid_su2_handoff_smoke.v1`](docs/contracts/fairing_solid_su2_handoff_smoke.v1.md)
 - [`main_wing_mesh_handoff_smoke.v1`](docs/contracts/main_wing_mesh_handoff_smoke.v1.md)
 - [`main_wing_su2_handoff_smoke.v1`](docs/contracts/main_wing_su2_handoff_smoke.v1.md)
+- [`tail_wing_mesh_handoff_smoke.v1`](docs/contracts/tail_wing_mesh_handoff_smoke.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
 
 ## Capability Boundaries
@@ -256,6 +275,7 @@ blocking gates are real main-wing geometry, solver history, and convergence.
 | Force-surface provenance gate | fixed contract | supports whole-aircraft wall and component-owned `fairing_solid` / lifting-surface markers |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
 | `main_wing` non-BL smoke | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist for a synthetic thin closed-solid wing slab with a `main_wing` marker; real geometry, solver, and convergence are not productized |
+| `tail_wing` non-BL smoke | experimental | real `mesh_handoff.v1` smoke exists for a synthetic thin closed-solid tail slab with a `tail_wing` marker; SU2 handoff, real geometry, solver, and convergence are not productized |
 | `fairing_solid` closed-solid route | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver, and convergence are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
@@ -269,7 +289,7 @@ blocking gates are real main-wing geometry, solver history, and convergence.
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
 2. replace synthetic `main_wing` slab evidence with real ESP/VSP main-wing geometry before solver claims
 3. replace synthetic `fairing_solid` box evidence with real fairing geometry before solver claims
-4. component-level force mapping
-5. more providers only after the current product line is harder to validate
+4. materialize `su2_handoff.v1` for `tail_wing` before solver claims
+5. component-level force mapping
 
 ESP/OpenCSM can remain experimental until it earns a separate formal promotion.

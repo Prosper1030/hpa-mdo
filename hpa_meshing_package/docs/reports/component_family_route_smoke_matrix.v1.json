@@ -100,10 +100,11 @@
       "mesh_handoff_status": "not_run",
       "su2_handoff_status": "not_run",
       "convergence_gate_status": "not_run",
-      "promotion_status": "blocked_before_mesh_handoff",
+      "promotion_status": "blocked_before_su2_handoff",
       "blocking_reasons": [
-        "tail_family_backend_not_productized",
-        "tail_specific_geometry_smoke_missing"
+        "tail_real_geometry_smoke_missing",
+        "tail_wing_su2_handoff_not_run",
+        "convergence_gate_not_run"
       ],
       "guarantees": [
         "fixture_loaded",

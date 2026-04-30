@@ -10,7 +10,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `aircraft_assembly` | `formal_v1` | `current_product_line` | `gmsh_thin_sheet_aircraft_assembly` | `baseline_productized` | `not_required_for_baseline` | `baseline_gmsh_backend_boundary_recovery` |
 | `main_wing` | `experimental` | `experimental_and_diagnostic` | `gmsh_thin_sheet_surface` | `handoff_materialized_force_marker_owned_solver_not_run` | `promotion_only_when_hpa_mdo_owns_handoff_topology` | `not_allowed_as_owned_boundary_handoff` |
-| `tail_wing` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
+| `tail_wing` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_su2_handoff` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `horizontal_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `vertical_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `fairing_solid` | `registered_not_productized` | `registered_future_route` | `gmsh_closed_solid_volume` | `handoff_materialized_force_marker_owned_solver_not_run` | `not_default` | `baseline_gmsh_backend_boundary_recovery` |
@@ -49,8 +49,9 @@
 - `convergence_gate_not_run`
 
 ### `tail_wing`
-- `tail_family_backend_not_productized`
-- `tail_specific_geometry_smoke_missing`
+- `tail_real_geometry_smoke_missing`
+- `tail_wing_su2_handoff_not_run`
+- `convergence_gate_not_run`
 
 ### `horizontal_tail`
 - `horizontal_tail_backend_not_productized`

@@ -1,0 +1,1202 @@
+{
+  "status": "success",
+  "route_stage": "baseline",
+  "backend": "gmsh",
+  "backend_capability": "sheet_lifting_surface_meshing",
+  "meshing_route": "gmsh_thin_sheet_surface",
+  "geometry_family": "thin_sheet_lifting_surface",
+  "geometry_source": "direct_cad",
+  "geometry": {
+    "source_path": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/fixtures/tail_wing_slab.step",
+    "normalized_path": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/fixtures/tail_wing_slab.step",
+    "loader": "filesystem_stub",
+    "provider": null,
+    "provider_status": null,
+    "provider_topology": null
+  },
+  "body": {
+    "imported_volume_count": 1,
+    "imported_surface_count": 6,
+    "bounds": {
+      "x_min": -1e-07,
+      "x_max": 0.5500001,
+      "y_min": -0.4500001,
+      "y_max": 0.4500001,
+      "z_min": -0.015000099999999999,
+      "z_max": 0.015000099999999999
+    },
+    "healing": {
+      "attempted": true,
+      "input_volume_count": 1,
+      "input_surface_count": 6,
+      "tolerance": 1e-08,
+      "output_volume_count": 1,
+      "output_surface_count": 6
+    }
+  },
+  "surface_topology": {
+    "boundary_surface_count": 12,
+    "aircraft_surface_count": 6,
+    "farfield_surface_count": 6,
+    "aircraft_connectivity_before_meshing": {
+      "surface_count": 6,
+      "curve_count": 12,
+      "free_curve_count": 0,
+      "free_curve_tags_sample": [],
+      "non_manifold_curve_count": 0,
+      "non_manifold_curve_tags_sample": []
+    }
+  },
+  "mesh_field": {
+    "characteristic_length_policy": "reference_length",
+    "reference_length": 0.55,
+    "surface_target_nodes_per_reference_length": 128,
+    "edge_refinement_ratio": 0.5,
+    "near_body_size": 0.45,
+    "edge_size": 0.225,
+    "farfield_size": 1.2,
+    "distance_min": 0.0,
+    "distance_max": 4.5,
+    "edge_distance_max": 2.25,
+    "mesh_size_min": 0.225,
+    "mesh_size_from_points": 0,
+    "mesh_size_from_curvature": 0,
+    "mesh_size_extend_from_boundary": 0,
+    "volume_optimization": {
+      "mesh_optimize": 1,
+      "mesh_optimize_netgen": 0,
+      "mesh_optimize_threshold": null,
+      "post_optimize_methods": [],
+      "post_optimize_force": false,
+      "post_optimize_niter": 1
+    },
+    "mesh_algorithm_2d": 6,
+    "mesh_algorithm_3d": 1,
+    "background_field_tag": 5,
+    "background_field_composition": "base_min_field",
+    "local_size_floors": [],
+    "per_surface_algorithms": [],
+    "surface_policy": {
+      "enabled": false,
+      "name": null,
+      "reason": "geometry_provider_not_esp_rebuilt",
+      "notes": [],
+      "coarse_first_tetra_active": false
+    },
+    "coarse_first_tetra": {
+      "enabled": false,
+      "clamp_mesh_size_min_to_near_body": true,
+      "surface_nodes_per_reference_length": 24.0,
+      "edge_refinement_ratio": 1.0,
+      "span_extreme_strip_floor_size": 0.12,
+      "suspect_strip_floor_size": 0.08,
+      "suspect_surface_algorithm": 5,
+      "general_surface_algorithm": 5,
+      "farfield_surface_algorithm": 5
+    }
+  },
+  "surface_patch_diagnostics": {
+    "artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/surface_patch_diagnostics.json",
+    "surface_count": 6,
+    "curve_count": 12,
+    "suspicious_surface_tags": [
+      2,
+      4,
+      1,
+      3,
+      5,
+      6
+    ],
+    "shortest_curve_tags": [
+      1,
+      3,
+      7,
+      9,
+      5,
+      6,
+      11,
+      12,
+      2,
+      4,
+      8,
+      10
+    ],
+    "family_hint_counts": {
+      "high_aspect_strip_candidate": 6,
+      "short_curve_candidate": 4,
+      "span_extreme_candidate": 6,
+      "span_extreme_strip_candidate": 4,
+      "tiny_face_candidate": 4
+    }
+  },
+  "mesh2d_watchdog": {
+    "artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh2d_watchdog.json",
+    "sample_artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh2d_watchdog_sample.txt",
+    "status": "completed_without_timeout",
+    "timeout_seconds": 20.0,
+    "triggered_at_elapsed_sec": null,
+    "completed_elapsed_sec": 0.00482312508393079,
+    "meshing_stage_at_timeout": null,
+    "last_meshing_curve_tag": null,
+    "last_meshing_surface_tag": null
+  },
+  "surface_mesh": {
+    "aircraft_surface_element_count": 28,
+    "aircraft_surface_element_type_counts": {
+      "2": 28
+    },
+    "duplicate_facets_before_cleanup": {
+      "duplicate_group_count": 0,
+      "duplicate_facet_count": 0,
+      "sample_groups": []
+    },
+    "duplicate_facets_after_cleanup": {
+      "duplicate_group_count": 0,
+      "duplicate_facet_count": 0,
+      "sample_groups": []
+    },
+    "cleanup_actions": {
+      "duplicate_group_count": 0,
+      "removed_duplicate_facets": 0,
+      "duplicate_nodes_removed": 0,
+      "sample_groups": []
+    },
+    "mesh2d_watchdog_status": "completed_without_timeout",
+    "last_meshing_surface_tag_from_watchdog": null,
+    "artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/surface_mesh_2d.msh"
+  },
+  "volume_meshing": {
+    "requested": true,
+    "attempted": true,
+    "completed": true,
+    "mesh_dim_requested": 3,
+    "mesh_algorithm_3d": 1,
+    "optimization": {
+      "mesh_optimize": 1,
+      "mesh_optimize_netgen": 0,
+      "mesh_optimize_threshold": null,
+      "post_optimize_methods": [],
+      "post_optimize_force": false,
+      "post_optimize_niter": 1,
+      "post_runs": []
+    },
+    "field_architecture": null,
+    "tip_quality_buffer_policy": null,
+    "sliver_volume_pocket_policy": null,
+    "pre_generate3_mesh_stats": {
+      "mesh_dim": 3,
+      "node_count": 239,
+      "element_count": 582,
+      "surface_element_count": 470,
+      "volume_element_count": 0
+    },
+    "watchdog_status": "completed_without_timeout",
+    "watchdog_artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh3d_watchdog.json",
+    "watchdog_sample_artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh3d_watchdog_sample.txt",
+    "burden_metrics": {
+      "boundary_node_count": 239,
+      "surface_triangle_count": 470,
+      "iteration_count": 0,
+      "nodes_created": 0,
+      "nodes_created_per_boundary_node": 0.0,
+      "iterations_per_surface_triangle": 0.0,
+      "timeout_phase_classification": "optimization",
+      "hxt_points_considered": null,
+      "hxt_mesh_vertex_count": null,
+      "hxt_points_filtered": null,
+      "hxt_points_added": null
+    }
+  },
+  "mesh3d_watchdog": {
+    "artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh3d_watchdog.json",
+    "sample_artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh3d_watchdog_sample.txt",
+    "status": "completed_without_timeout",
+    "timeout_seconds": 20.0,
+    "triggered_at_elapsed_sec": null,
+    "completed_elapsed_sec": 0.007373875007033348,
+    "meshing_stage_at_timeout": null,
+    "meshing_stage_after_return": "meshing_3d",
+    "timeout_phase_classification": "optimization",
+    "phase_classification_after_return": "optimization",
+    "boundary_node_count": 239,
+    "surface_triangle_count": 470,
+    "iteration_count": 0,
+    "nodes_created": 0,
+    "nodes_created_per_boundary_node": 0.0,
+    "iterations_per_surface_triangle": 0.0,
+    "hxt_points_considered": null,
+    "hxt_mesh_vertex_count": null,
+    "hxt_points_filtered": null,
+    "hxt_points_added": null,
+    "tetrahedrizing_node_count": 247,
+    "volume_count": 1,
+    "connected_component_count": 1,
+    "error": null
+  },
+  "contract": "mesh_handoff.v1",
+  "geometry_provider": null,
+  "source_path": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/fixtures/tail_wing_slab.step",
+  "normalized_geometry_path": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/fixtures/tail_wing_slab.step",
+  "units": "m",
+  "mesh_format": "msh",
+  "body_bounds": {
+    "x_min": -1e-07,
+    "x_max": 0.5500001,
+    "y_min": -0.4500001,
+    "y_max": 0.4500001,
+    "z_min": -0.015000099999999999,
+    "z_max": 0.015000099999999999
+  },
+  "farfield_bounds": {
+    "x_min": -1.1000005,
+    "x_max": 2.2000007,
+    "y_min": -2.2500005,
+    "y_max": 2.2500005,
+    "z_min": -0.0750005,
+    "z_max": 0.0750005
+  },
+  "mesh_stats": {
+    "mesh_dim": 3,
+    "node_count": 239,
+    "element_count": 1228,
+    "surface_element_count": 470,
+    "volume_element_count": 646,
+    "element_type_counts": {
+      "1": 96,
+      "2": 470,
+      "4": 646,
+      "15": 16
+    },
+    "surface_element_type_counts": {
+      "2": 470
+    },
+    "volume_element_type_counts": {
+      "4": 646
+    }
+  },
+  "marker_summary": {
+    "tail_wing": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "tail_wing",
+      "physical_tag": 2,
+      "entity_count": 6,
+      "entities": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "element_count": 28,
+      "element_type_counts": {
+        "2": 28
+      }
+    },
+    "farfield": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "farfield",
+      "physical_tag": 3,
+      "entity_count": 6,
+      "entities": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "element_count": 442,
+      "element_type_counts": {
+        "2": 442
+      }
+    }
+  },
+  "physical_groups": {
+    "fluid": {
+      "exists": true,
+      "dimension": 3,
+      "physical_name": "fluid",
+      "physical_tag": 1,
+      "entity_count": 1,
+      "entities": [
+        2
+      ],
+      "element_count": 0,
+      "element_type_counts": {}
+    },
+    "tail_wing": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "tail_wing",
+      "physical_tag": 2,
+      "entity_count": 6,
+      "entities": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "element_count": 28,
+      "element_type_counts": {
+        "2": 28
+      }
+    },
+    "farfield": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "farfield",
+      "physical_tag": 3,
+      "entity_count": 6,
+      "entities": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "element_count": 442,
+      "element_type_counts": {
+        "2": 442
+      }
+    }
+  },
+  "artifacts": {
+    "mesh": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh.msh",
+    "mesh_metadata": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh_metadata.json",
+    "marker_summary": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/marker_summary.json",
+    "surface_mesh_2d": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/surface_mesh_2d.msh",
+    "surface_patch_diagnostics": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/surface_patch_diagnostics.json",
+    "brep_hotspot_report": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/brep_hotspot_report.json",
+    "hotspot_patch_report": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/hotspot_patch_report.json",
+    "sliver_cluster_report": null,
+    "sliver_volume_pocket_summary": null,
+    "rule_loft_pairing_repair_spec": null,
+    "compound_report": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/compound_report.json",
+    "gmsh_log": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/gmsh_log.txt",
+    "mesh2d_watchdog": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh2d_watchdog.json",
+    "mesh2d_watchdog_sample": null,
+    "mesh3d_watchdog": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/mesh3d_watchdog.json",
+    "mesh3d_watchdog_sample": null,
+    "plc_probe": null,
+    "surface_cleanup_report": null,
+    "discrete_reparam_report": null,
+    "retry_mesh_metadata": null,
+    "classify_angle_probe": null
+  },
+  "provenance": {
+    "route_provenance": "config.meshing_route",
+    "loader": "filesystem_stub",
+    "provider": null,
+    "body": {
+      "imported_volume_count": 1,
+      "imported_surface_count": 6,
+      "healing": {
+        "attempted": true,
+        "input_volume_count": 1,
+        "input_surface_count": 6,
+        "tolerance": 1e-08,
+        "output_volume_count": 1,
+        "output_surface_count": 6
+      }
+    },
+    "farfield": {
+      "enabled": true,
+      "scale_factors": {
+        "upstream_factor": 2.0,
+        "downstream_factor": 3.0,
+        "lateral_factor": 2.0,
+        "vertical_factor": 2.0
+      }
+    },
+    "mesh_field": {
+      "characteristic_length_policy": "reference_length",
+      "reference_length": 0.55,
+      "surface_target_nodes_per_reference_length": 128,
+      "edge_refinement_ratio": 0.5,
+      "near_body_size": 0.45,
+      "edge_size": 0.225,
+      "farfield_size": 1.2,
+      "distance_min": 0.0,
+      "distance_max": 4.5,
+      "edge_distance_max": 2.25,
+      "mesh_size_min": 0.225,
+      "mesh_size_from_points": 0,
+      "mesh_size_from_curvature": 0,
+      "mesh_size_extend_from_boundary": 0,
+      "volume_optimization": {
+        "mesh_optimize": 1,
+        "mesh_optimize_netgen": 0,
+        "mesh_optimize_threshold": null,
+        "post_optimize_methods": [],
+        "post_optimize_force": false,
+        "post_optimize_niter": 1
+      },
+      "mesh_algorithm_2d": 6,
+      "mesh_algorithm_3d": 1,
+      "background_field_tag": 5,
+      "background_field_composition": "base_min_field",
+      "local_size_floors": [],
+      "per_surface_algorithms": [],
+      "surface_policy": {
+        "enabled": false,
+        "name": null,
+        "reason": "geometry_provider_not_esp_rebuilt",
+        "notes": [],
+        "coarse_first_tetra_active": false
+      },
+      "coarse_first_tetra": {
+        "enabled": false,
+        "clamp_mesh_size_min_to_near_body": true,
+        "surface_nodes_per_reference_length": 24.0,
+        "edge_refinement_ratio": 1.0,
+        "span_extreme_strip_floor_size": 0.12,
+        "suspect_strip_floor_size": 0.08,
+        "suspect_surface_algorithm": 5,
+        "general_surface_algorithm": 5,
+        "farfield_surface_algorithm": 5
+      }
+    }
+  },
+  "unit_normalization": {
+    "units": "m",
+    "backend_rescale_applied": false,
+    "import_scale_to_units": 1.0,
+    "imported_body_bounds": {
+      "x_min": -1e-07,
+      "x_max": 0.5500001,
+      "y_min": -0.4500001,
+      "y_max": 0.4500001,
+      "z_min": -0.015000099999999999,
+      "z_max": 0.015000099999999999
+    },
+    "provider_topology_bounds": null
+  },
+  "farfield": {
+    "enabled": true,
+    "bounds": {
+      "x_min": -1.1000005,
+      "x_max": 2.2000007,
+      "y_min": -2.2500005,
+      "y_max": 2.2500005,
+      "z_min": -0.0750005,
+      "z_max": 0.0750005
+    },
+    "scale_factors": {
+      "upstream_factor": 2.0,
+      "downstream_factor": 3.0,
+      "lateral_factor": 2.0,
+      "vertical_factor": 2.0
+    }
+  },
+  "mesh": {
+    "format": "msh",
+    "mesh_dim": 3,
+    "node_count": 239,
+    "element_count": 1228,
+    "surface_element_count": 470,
+    "volume_element_count": 646,
+    "element_type_counts": {
+      "1": 96,
+      "2": 470,
+      "4": 646,
+      "15": 16
+    },
+    "surface_element_type_counts": {
+      "2": 470
+    },
+    "volume_element_type_counts": {
+      "4": 646
+    }
+  },
+  "quality_metrics": {
+    "tetrahedron_count": 646,
+    "ill_shaped_tet_count": 0,
+    "non_positive_min_sicn_count": 0,
+    "non_positive_min_sige_count": 0,
+    "non_positive_volume_count": 0,
+    "min_gamma": 0.11078494104179529,
+    "min_sicn": 0.11913892102656345,
+    "min_sige": 0.2405313073392428,
+    "min_volume": 0.00019830135708448713,
+    "gamma_percentiles": {
+      "p01": 0.14216756992334742,
+      "p05": 0.16675961384955149,
+      "p50": 0.5946810080479012
+    },
+    "min_sicn_percentiles": {
+      "p01": 0.12771223382927607,
+      "p05": 0.23063615310036398,
+      "p50": 0.5737565267539393
+    },
+    "min_sige_percentiles": {
+      "p01": 0.32103366847492165,
+      "p05": 0.3752360060031457,
+      "p50": 0.7619661182836404
+    },
+    "volume_percentiles": {
+      "p01": 0.0003080889149529361,
+      "p05": 0.0007534233680747681,
+      "p50": 0.0037299284946635558
+    },
+    "worst_20_tets": [
+      {
+        "element_id": 1071,
+        "barycenter": [
+          -0.16041756711780092,
+          0.10078305278252445,
+          0.0
+        ],
+        "min_sicn": 0.11913892102656345,
+        "min_sige": 0.5677245188874749,
+        "gamma": 0.14354365043026393,
+        "volume": 0.0006488060692843942,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.015,
+          "closest_point": [
+            -0.16041756711780092,
+            0.10078305278252447,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          17,
+          199,
+          127,
+          18
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.523429697381806
+      },
+      {
+        "element_id": 868,
+        "barycenter": [
+          -0.08018633138566925,
+          0.21343345401905844,
+          -0.022500125
+        ],
+        "min_sicn": 0.12075647388416584,
+        "min_sige": 0.6032084204687047,
+        "gamma": 0.15151484184593164,
+        "volume": 0.0007216769824710252,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.007500125,
+          "closest_point": [
+            -0.08018633138566925,
+            0.2134334540190585,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          199,
+          18,
+          17,
+          3
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.523429697381806
+      },
+      {
+        "element_id": 995,
+        "barycenter": [
+          0.6562882463817414,
+          -0.6183728665621628,
+          0.0
+        ],
+        "min_sicn": 0.12128699452019284,
+        "min_sige": 0.5776371519011533,
+        "gamma": 0.15406737585977692,
+        "volume": 0.0006325298970000339,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.015,
+          "closest_point": [
+            0.6562882463817414,
+            -0.6183728665621628,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          187,
+          112,
+          5,
+          6
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.46850126345377313
+      },
+      {
+        "element_id": 1064,
+        "barycenter": [
+          0.7235578705417234,
+          0.01665604627718434,
+          0.03750025
+        ],
+        "min_sicn": 0.12258188891068772,
+        "min_sige": 0.6330167821681228,
+        "gamma": 0.14922947953076143,
+        "volume": 0.0008663911668991376,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "tail_wing",
+          "distance": 0.02250025,
+          "closest_point": [
+            0.7235578705417234,
+            0.016656046277184366,
+            0.015
+          ]
+        },
+        "corner_node_tags": [
+          108,
+          21,
+          110,
+          22
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.5054148343560473
+      },
+      {
+        "element_id": 1067,
+        "barycenter": [
+          0.6423326197038013,
+          0.1837603002924384,
+          0.022500125
+        ],
+        "min_sicn": 0.12347199143879167,
+        "min_sige": 0.6366396924169214,
+        "gamma": 0.15774300047174328,
+        "volume": 0.0008309935773342144,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "tail_wing",
+          "distance": 0.007500125,
+          "closest_point": [
+            0.6423326197038013,
+            0.18376030029243834,
+            0.015
+          ]
+        },
+        "corner_node_tags": [
+          8,
+          21,
+          108,
+          22
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.47513532698213146
+      },
+      {
+        "element_id": 933,
+        "barycenter": [
+          -0.02727318796203282,
+          -0.2408639357608634,
+          -0.022500125
+        ],
+        "min_sicn": 0.12357091531060733,
+        "min_sige": 0.4714409741137924,
+        "gamma": 0.1398250542998668,
+        "volume": 0.00024545869165829465,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.007500125,
+          "closest_point": [
+            -0.02727318796203282,
+            -0.2408639357608634,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          1,
+          17,
+          194,
+          2
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.450998891351186
+      },
+      {
+        "element_id": 1073,
+        "barycenter": [
+          -0.08023123573213167,
+          -0.11265040123653462,
+          0.022500125
+        ],
+        "min_sicn": 0.12764824573105532,
+        "min_sige": 0.5993156186298326,
+        "gamma": 0.14414972523262698,
+        "volume": 0.0007220811215891831,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "tail_wing",
+          "distance": 0.007500125,
+          "closest_point": [
+            -0.08023123573213167,
+            -0.11265040123653464,
+            0.015
+          ]
+        },
+        "corner_node_tags": [
+          127,
+          2,
+          17,
+          18
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.5554743886723464
+      },
+      {
+        "element_id": 931,
+        "barycenter": [
+          0.5764019039350794,
+          0.3312649038874029,
+          -0.022500125
+        ],
+        "min_sicn": 0.12779044150487923,
+        "min_sige": 0.504726258213776,
+        "gamma": 0.14103165893626987,
+        "volume": 0.0002376171354157148,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.007500125,
+          "closest_point": [
+            0.5764019039350794,
+            0.3312649038874029,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          21,
+          8,
+          180,
+          7
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.45099889135118854
+      },
+      {
+        "element_id": 1097,
+        "barycenter": [
+          0.6312252508379221,
+          -0.27960425401525435,
+          0.015000125
+        ],
+        "min_sicn": 0.12951571343185625,
+        "min_sige": 0.6304247376953352,
+        "gamma": 0.164692141667336,
+        "volume": 0.0007310272575412962,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "tail_wing",
+          "distance": 1.25000000000125e-07,
+          "closest_point": [
+            0.6312252508379221,
+            -0.27960425401525435,
+            0.015
+          ]
+        },
+        "corner_node_tags": [
+          21,
+          5,
+          110,
+          6
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.450998891351186
+      },
+      {
+        "element_id": 1077,
+        "barycenter": [
+          -0.08018633138566925,
+          0.32593345401905877,
+          -0.015000125
+        ],
+        "min_sicn": 0.1296675212219862,
+        "min_sige": 0.6148811198230776,
+        "gamma": 0.15277985374153014,
+        "volume": 0.0007216769824710252,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 1.25000000000125e-07,
+          "closest_point": [
+            -0.08018633138566925,
+            0.32593345401905877,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          18,
+          199,
+          4,
+          3
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.523429697381806
+      },
+      {
+        "element_id": 1063,
+        "barycenter": [
+          0.6312252508379221,
+          -0.1671042540152547,
+          0.022500125
+        ],
+        "min_sicn": 0.13159251352642498,
+        "min_sige": 0.6369609190387379,
+        "gamma": 0.1663467326261778,
+        "volume": 0.0007310272575412962,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "tail_wing",
+          "distance": 0.007500125,
+          "closest_point": [
+            0.6312252508379221,
+            -0.1671042540152547,
+            0.015
+          ]
+        },
+        "corner_node_tags": [
+          21,
+          6,
+          110,
+          22
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.450998891351186
+      },
+      {
+        "element_id": 1014,
+        "barycenter": [
+          0.506162104515126,
+          -0.618253562123505,
+          -0.03750025
+        ],
+        "min_sicn": 0.13174668152560567,
+        "min_sige": 0.6316023343114883,
+        "gamma": 0.16148398698555472,
+        "volume": 0.0007172950812348377,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.02250025,
+          "closest_point": [
+            0.506162104515126,
+            -0.618253562123505,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          187,
+          186,
+          6,
+          5
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.46850126345377313
+      },
+      {
+        "element_id": 997,
+        "barycenter": [
+          0.7135117954844734,
+          -0.4480671463539935,
+          0.03750025
+        ],
+        "min_sicn": 0.13269618947444525,
+        "min_sige": 0.6387543454339241,
+        "gamma": 0.16159573060214688,
+        "volume": 0.0007447712683719146,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 2,
+          "physical_name": "tail_wing",
+          "distance": 0.0019328536460065382,
+          "closest_point": [
+            0.7135117954844734,
+            -0.45,
+            0.03750025
+          ]
+        },
+        "corner_node_tags": [
+          112,
+          110,
+          5,
+          6
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.4554543378285291
+      },
+      {
+        "element_id": 988,
+        "barycenter": [
+          -0.11276092667207865,
+          -0.35418871737842983,
+          -0.03750025
+        ],
+        "min_sicn": 0.13832464628618715,
+        "min_sige": 0.631780607078577,
+        "gamma": 0.1644430911588649,
+        "volume": 0.0006626954426980853,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.02250025,
+          "closest_point": [
+            -0.11276092667207864,
+            -0.35418871737842983,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          207,
+          194,
+          2,
+          1
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.4540933894061377
+      },
+      {
+        "element_id": 1045,
+        "barycenter": [
+          0.5325076020603691,
+          0.598893394875332,
+          -0.03750025
+        ],
+        "min_sicn": 0.1458770650576014,
+        "min_sige": 0.6405889060764238,
+        "gamma": 0.17646092518562176,
+        "volume": 0.0006026209092973171,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 3,
+          "physical_name": "tail_wing",
+          "distance": 0.017492397939630977,
+          "closest_point": [
+            0.55,
+            0.5988933948753321,
+            -0.03750025
+          ]
+        },
+        "corner_node_tags": [
+          233,
+          8,
+          183,
+          7
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.403236690527799
+      },
+      {
+        "element_id": 1079,
+        "barycenter": [
+          0.6170925290521656,
+          0.5280412882928872,
+          -0.03750025
+        ],
+        "min_sicn": 0.150668625986423,
+        "min_sige": 0.5171341259331512,
+        "gamma": 0.1612788971351902,
+        "volume": 0.00019830135708448713,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.02250025,
+          "closest_point": [
+            0.6170925290521656,
+            0.5280412882928873,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          8,
+          233,
+          180,
+          7
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.3850089155517476
+      },
+      {
+        "element_id": 991,
+        "barycenter": [
+          -0.06780057745721968,
+          -0.507051877195421,
+          0.0
+        ],
+        "min_sicn": 0.152462023272617,
+        "min_sige": 0.5202855385663696,
+        "gamma": 0.14683326309513065,
+        "volume": 0.00038570522405221154,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.015,
+          "closest_point": [
+            -0.06780057745721968,
+            -0.507051877195421,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          115,
+          207,
+          2,
+          1
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.4918657560687128
+      },
+      {
+        "element_id": 1085,
+        "barycenter": [
+          0.06986760675301068,
+          0.5713705141736554,
+          -0.03750025
+        ],
+        "min_sicn": 0.1558692948947651,
+        "min_sige": 0.5975962784620525,
+        "gamma": 0.18016846797422495,
+        "volume": 0.000408968511779495,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.02250025,
+          "closest_point": [
+            0.06986760675301068,
+            0.5713705141736554,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          4,
+          235,
+          183,
+          3
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.4190044677279194
+      },
+      {
+        "element_id": 949,
+        "barycenter": [
+          0.22484756403276213,
+          -0.5620706834779359,
+          0.0
+        ],
+        "min_sicn": 0.16128437543004537,
+        "min_sige": 0.5157245306391938,
+        "gamma": 0.1920703438104292,
+        "volume": 0.00023221771425018325,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.015,
+          "closest_point": [
+            0.22484756403276213,
+            -0.5620706834779359,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          186,
+          20,
+          19,
+          115
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.31686351391238876
+      },
+      {
+        "element_id": 1087,
+        "barycenter": [
+          0.14806697694328286,
+          0.514617010469848,
+          -0.022500125
+        ],
+        "min_sicn": 0.16214282908140107,
+        "min_sige": 0.5644433525864667,
+        "gamma": 0.17794695522555867,
+        "volume": 0.00035539355758416424,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "tail_wing",
+          "distance": 0.007500125,
+          "closest_point": [
+            0.14806697694328286,
+            0.514617010469848,
+            -0.015
+          ]
+        },
+        "corner_node_tags": [
+          183,
+          23,
+          4,
+          3
+        ],
+        "tetra_edge_length_min": 0.03,
+        "tetra_edge_length_max": 0.4190044677279194
+      }
+    ]
+  },
+  "brep_hotspot_report": {
+    "artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/brep_hotspot_report.json",
+    "status": "disabled",
+    "selected_surface_tags": [],
+    "selected_curve_tags": [],
+    "shape_valid_default": null,
+    "shape_valid_exact": null
+  },
+  "hotspot_patch_report": {
+    "artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/hotspot_patch_report.json",
+    "selected_surface_tags": [
+      5,
+      6,
+      2,
+      3
+    ],
+    "requested_surface_tags": []
+  },
+  "compound_result": {
+    "artifact": "docs/reports/tail_wing_mesh_handoff_smoke/artifacts/cases/tail_wing/artifacts/mesh/compound_report.json",
+    "status": "disabled",
+    "compound_surface_group_count": 0,
+    "compound_curve_group_count": 0,
+    "compound_surface_tags": [],
+    "compound_curve_tags": [],
+    "2d_returned": true,
+    "3d_returned": true,
+    "reparam_success": true,
+    "original_surface_tags_preserved": null,
+    "original_curve_tags_preserved": null,
+    "physical_groups_preserved": null
+  }
+}

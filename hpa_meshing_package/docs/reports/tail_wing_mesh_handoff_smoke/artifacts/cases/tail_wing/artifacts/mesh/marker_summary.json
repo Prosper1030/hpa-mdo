@@ -1,0 +1,40 @@
+{
+  "tail_wing": {
+    "exists": true,
+    "dimension": 2,
+    "physical_name": "tail_wing",
+    "physical_tag": 2,
+    "entity_count": 6,
+    "entities": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "element_count": 28,
+    "element_type_counts": {
+      "2": 28
+    }
+  },
+  "farfield": {
+    "exists": true,
+    "dimension": 2,
+    "physical_name": "farfield",
+    "physical_tag": 3,
+    "entity_count": 6,
+    "entities": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "element_count": 442,
+    "element_type_counts": {
+      "2": 442
+    }
+  }
+}
