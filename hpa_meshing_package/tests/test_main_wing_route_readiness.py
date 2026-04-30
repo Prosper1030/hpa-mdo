@@ -545,6 +545,23 @@ def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
     )
     _write_json(
         root
+        / "main_wing_openvsp_reference_geometry_gate"
+        / "main_wing_reference_geometry_gate.v1.json",
+        {
+            "reference_gate_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "applied_reference": {"ref_area": 35.175, "ref_length": 1.0425},
+            "openvsp_reference": {"ref_area": 35.175, "ref_length": 1.0425},
+            "derived_full_span_m": 33.0,
+            "derived_full_span_method": "area_provenance.details.wing_quantities.bref",
+            "blocking_reasons": [
+                "main_wing_reference_geometry_incomplete",
+                "main_wing_moment_origin_not_certified",
+            ],
+        },
+    )
+    _write_json(
+        root
         / "main_wing_openvsp_reference_solver_smoke_probe"
         / "main_wing_real_solver_smoke_probe.v1.json",
         {
@@ -576,9 +593,16 @@ def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
 
     stages = {stage.stage: stage for stage in report.stages}
     handoff_stage = stages["openvsp_reference_su2_handoff"]
+    reference_gate_stage = stages["openvsp_reference_geometry_gate"]
     solver_stage = stages["openvsp_reference_solver_smoke"]
     assert handoff_stage.status == "pass"
     assert handoff_stage.observed["reference_policy"] == "openvsp_geometry_derived"
+    assert reference_gate_stage.status == "blocked"
+    assert reference_gate_stage.evidence_kind == "real"
+    assert reference_gate_stage.observed["derived_full_span_method"] == (
+        "area_provenance.details.wing_quantities.bref"
+    )
+    assert "main_wing_moment_origin_not_certified" in reference_gate_stage.blockers
     assert solver_stage.status == "pass"
     assert solver_stage.observed["run_status"] == "solver_executed_but_not_converged"
     assert solver_stage.observed["final_coefficients"]["cm_axis"] == "CMy"

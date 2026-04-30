@@ -16,6 +16,7 @@ StageType = Literal[
     "synthetic_su2_handoff",
     "real_su2_handoff",
     "openvsp_reference_su2_handoff",
+    "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
     "solver_smoke",
@@ -284,6 +285,45 @@ def _geometry_provenance_blockers(payload: dict[str, Any] | None) -> list[str]:
     return ["main_wing_geometry_provenance_missing"]
 
 
+def _reference_gate_status(payload: dict[str, Any] | None) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "pass" if payload.get("reference_gate_status") == "pass" else "blocked"
+
+
+def _reference_gate_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {"reference_gate_status": None}
+    applied_reference = payload.get("applied_reference", {})
+    openvsp_reference = payload.get("openvsp_reference", {})
+    return {
+        "reference_gate_status": payload.get("reference_gate_status"),
+        "observed_velocity_mps": payload.get("observed_velocity_mps"),
+        "applied_ref_area_m2": (
+            applied_reference.get("ref_area")
+            if isinstance(applied_reference, dict)
+            else None
+        ),
+        "applied_ref_length_m": (
+            applied_reference.get("ref_length")
+            if isinstance(applied_reference, dict)
+            else None
+        ),
+        "openvsp_sref_m2": (
+            openvsp_reference.get("ref_area")
+            if isinstance(openvsp_reference, dict)
+            else None
+        ),
+        "openvsp_cref_m": (
+            openvsp_reference.get("ref_length")
+            if isinstance(openvsp_reference, dict)
+            else None
+        ),
+        "derived_full_span_m": payload.get("derived_full_span_m"),
+        "derived_full_span_method": payload.get("derived_full_span_method"),
+    }
+
+
 def _vspaero_panel_reference_status(payload: dict[str, Any] | None) -> StageStatusType:
     if not isinstance(payload, dict):
         return "not_run"
@@ -452,6 +492,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_openvsp_reference_su2_handoff_probe"
         / "main_wing_openvsp_reference_su2_handoff_probe.v1.json"
     )
+    openvsp_reference_geometry_gate_path = (
+        root
+        / "main_wing_openvsp_reference_geometry_gate"
+        / "main_wing_reference_geometry_gate.v1.json"
+    )
     openvsp_reference_solver_path = (
         root
         / "main_wing_openvsp_reference_solver_smoke_probe"
@@ -489,6 +534,7 @@ def build_main_wing_route_readiness_report(
     synthetic_su2 = _load_json(synthetic_su2_path)
     real_su2 = _load_json(real_su2_path)
     openvsp_reference_su2 = _load_json(openvsp_reference_su2_path)
+    openvsp_reference_geometry_gate = _load_json(openvsp_reference_geometry_gate_path)
     openvsp_reference_solver = _load_json(openvsp_reference_solver_path)
     (
         openvsp_reference_solver_budget_path,
@@ -792,6 +838,18 @@ def build_main_wing_route_readiness_report(
                 if isinstance(openvsp_reference_su2, dict)
                 else []
             ),
+        ),
+        _stage(
+            stage="openvsp_reference_geometry_gate",
+            status=_reference_gate_status(openvsp_reference_geometry_gate),
+            evidence_kind=(
+                "real" if isinstance(openvsp_reference_geometry_gate, dict) else "absent"
+            ),
+            artifact_path=openvsp_reference_geometry_gate_path
+            if isinstance(openvsp_reference_geometry_gate, dict)
+            else None,
+            observed=_reference_gate_observed(openvsp_reference_geometry_gate),
+            blockers=_blocking_reasons(openvsp_reference_geometry_gate),
         ),
         _stage(
             stage="openvsp_reference_solver_smoke",
