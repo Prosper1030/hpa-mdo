@@ -190,7 +190,7 @@ def build_component_family_route_smoke_matrix(
             "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim.",
         ],
         next_actions=[
-            "resolve real fairing reference geometry before coefficient claims",
+            "approve and apply real fairing reference policy before coefficient claims",
             "run real fairing solver smoke only after reference policy is explicit",
             "repair real main_wing 3D volume-insertion timeout before solver claims",
             "repair explicit tail_wing volume orientation or baffle-surface ownership before solver claims",

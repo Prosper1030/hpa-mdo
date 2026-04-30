@@ -257,10 +257,10 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             blocking_reasons=[
                 "fairing_solver_not_run",
                 "convergence_gate_not_run",
-                "fairing_real_reference_geometry_warn",
+                "fairing_real_reference_policy_mismatch_observed",
             ],
             next_actions=[
-                "resolve_real_fairing_reference_geometry_before_coefficients_are_trusted",
+                "approve_and_apply_real_fairing_reference_policy_before_coefficients_are_trusted",
                 "run_real_fairing_solver_smoke_only_after_reference_policy_is_explicit",
                 "promote_to_product_line_only_after_convergence_gate_artifact",
             ],
@@ -268,6 +268,7 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
                 "fairing_solid_real_geometry_smoke_available",
                 "fairing_solid_real_mesh_handoff_probe_pass_available",
                 "fairing_solid_real_su2_handoff_probe_available",
+                "fairing_solid_reference_policy_probe_available",
                 "fairing_solid_mesh_handoff_smoke_available",
                 "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke",
                 "su2_backend_materializes_fairing_solid_marker_without_running_su2",

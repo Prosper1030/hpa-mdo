@@ -26,6 +26,10 @@ from .fairing_solid_real_su2_handoff_probe import (
     build_fairing_solid_real_su2_handoff_probe_report,
     write_fairing_solid_real_su2_handoff_probe_report,
 )
+from .fairing_solid_reference_policy_probe import (
+    build_fairing_solid_reference_policy_probe_report,
+    write_fairing_solid_reference_policy_probe_report,
+)
 from .fairing_solid_su2_handoff_smoke import (
     build_fairing_solid_su2_handoff_smoke_report,
     write_fairing_solid_su2_handoff_smoke_report,
@@ -278,6 +282,31 @@ def cmd_fairing_solid_real_su2_handoff_probe(args: argparse.Namespace) -> int:
     return 0 if report.materialization_status == "su2_handoff_written" else 2
 
 
+def cmd_fairing_solid_reference_policy_probe(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    external_project_root = (
+        None if args.external_project_root is None else Path(args.external_project_root)
+    )
+    external_su2_cfg_path = (
+        None if args.external_su2_cfg is None else Path(args.external_su2_cfg)
+    )
+    hpa_su2_probe_report_path = (
+        None if args.hpa_su2_probe_report is None else Path(args.hpa_su2_probe_report)
+    )
+    report = build_fairing_solid_reference_policy_probe_report(
+        out_dir,
+        external_project_root=external_project_root,
+        external_su2_cfg_path=external_su2_cfg_path,
+        hpa_su2_probe_report_path=hpa_su2_probe_report_path,
+    )
+    write_fairing_solid_reference_policy_probe_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.reference_policy_status in {
+        "candidate_available",
+        "reference_mismatch_observed",
+    } else 2
+
+
 def cmd_main_wing_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report = build_main_wing_mesh_handoff_smoke_report(out_dir)
@@ -497,6 +526,17 @@ def build_parser() -> argparse.ArgumentParser:
     fairing_real_su2_probe.add_argument("--timeout-seconds", type=float, default=60.0)
     fairing_real_su2_probe.add_argument("--source-mesh-probe-report", type=str)
     fairing_real_su2_probe.set_defaults(func=cmd_fairing_solid_real_su2_handoff_probe)
+
+    fairing_reference_policy_probe = sub.add_parser(
+        "fairing-solid-reference-policy-probe"
+    )
+    fairing_reference_policy_probe.add_argument("--out", type=str, required=True)
+    fairing_reference_policy_probe.add_argument("--external-project-root", type=str)
+    fairing_reference_policy_probe.add_argument("--external-su2-cfg", type=str)
+    fairing_reference_policy_probe.add_argument("--hpa-su2-probe-report", type=str)
+    fairing_reference_policy_probe.set_defaults(
+        func=cmd_fairing_solid_reference_policy_probe
+    )
 
     main_wing_smoke = sub.add_parser("main-wing-mesh-handoff-smoke")
     main_wing_smoke.add_argument("--out", type=str, required=True)

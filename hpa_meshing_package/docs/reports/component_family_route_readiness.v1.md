@@ -68,7 +68,7 @@
 ### `fairing_solid`
 - `fairing_solver_not_run`
 - `convergence_gate_not_run`
-- `fairing_real_reference_geometry_warn`
+- `fairing_real_reference_policy_mismatch_observed`
 
 ### `fairing_vented`
 - `fairing_vented_backend_not_productized`

@@ -37,7 +37,7 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 
 ## Next Actions
 
-- `resolve real fairing reference geometry before coefficient claims`
+- `approve and apply real fairing reference policy before coefficient claims`
 - `run real fairing solver smoke only after reference policy is explicit`
 - `repair real main_wing 3D volume-insertion timeout before solver claims`
 - `repair explicit tail_wing volume orientation or baffle-surface ownership before solver claims`

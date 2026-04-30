@@ -105,6 +105,22 @@ This writes `fairing_solid_real_su2_handoff_probe.v1.json` and
 until the fairing reference policy is explicit and a solver/convergence gate is
 recorded.
 
+The fairing reference-policy probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-reference-policy-probe --out .tmp/runs/fairing_solid_reference_policy_probe
+```
+
+This writes `fairing_solid_reference_policy_probe.v1.json` and
+`fairing_solid_reference_policy_probe.v1.md`. It reads the neighboring fairing
+optimization project under `/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project`.
+The current committed result is `reference_mismatch_observed`: the external
+fairing policy uses `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, and `V=6.5`, while
+the current hpa-mdo real fairing SU2 handoff still uses `REF_AREA=100`,
+`REF_LENGTH=1`, and `V=10`. This remains report-only evidence; it does not
+change runtime defaults.
+
 The first route-specific fairing mesh-handoff smoke is emitted by:
 
 ```bash
@@ -314,7 +330,7 @@ ownership cleanup, not solver execution.
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff probe times out during 3D volume insertion after 2D completion; synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real-geometry mesh handoff, solver history, and convergence gate are missing |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
-| `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists with `reference_geometry_status=warn`; solver history and convergence gate are missing |
+| `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy mismatch is observed; solver history and convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |
 
@@ -343,7 +359,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
 2. Real ESP/VSP main-wing 3D volume-insertion timeout repair before solver claims on the `main_wing` route
-3. Resolve real fairing reference geometry before coefficient claims, then run real fairing solver smoke
+3. Approve and apply real fairing reference policy before coefficient claims, then run real fairing solver smoke
 4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
 5. Component-level force mapping after the wall-marker story is stronger
 

@@ -1,0 +1,71 @@
+{
+  "schema_version": "fairing_solid_reference_policy_probe.v1",
+  "component": "fairing_solid",
+  "execution_mode": "external_fairing_reference_policy_report_only",
+  "source_project_root": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project",
+  "case_dir": "docs/reports/fairing_solid_reference_policy_probe",
+  "no_su2_execution": true,
+  "no_gmsh_execution": true,
+  "no_bl_runtime": true,
+  "production_default_changed": false,
+  "reference_policy_status": "reference_mismatch_observed",
+  "external_reference_status": "candidate_available",
+  "hpa_current_reference_status": "warn",
+  "marker_mapping_status": "compatible_mapping_required",
+  "external_fluid_config_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/config/fluid_conditions.json",
+  "external_su2_cfg_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/su2_converged_v7_best_cflsafe_v1/best_gene/su2_case.cfg",
+  "hpa_su2_probe_report_path": "docs/reports/fairing_solid_real_su2_handoff_probe/fairing_solid_real_su2_handoff_probe.v1.json",
+  "hpa_runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/fairing_solid_real_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_materialization_probe/su2_runtime.cfg",
+  "external_reference": {
+    "ref_area": 1.0,
+    "ref_length": 2.82880659,
+    "velocity_mps": 6.5,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pas": 1.7894e-05,
+    "temperature_k": 288.15,
+    "wall_marker": "fairing",
+    "farfield_marker": "farfield",
+    "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/su2_converged_v7_best_cflsafe_v1/best_gene/su2_case.cfg",
+    "source_kind": "external_fairing_project_su2_policy",
+    "warnings": []
+  },
+  "hpa_current_reference": {
+    "ref_area": 100.0,
+    "ref_length": 1.0,
+    "velocity_mps": 10.0,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pas": 1.789e-05,
+    "temperature_k": null,
+    "wall_marker": "fairing_solid",
+    "farfield_marker": "farfield",
+    "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/fairing_solid_real_su2_handoff_probe/artifacts/su2/alpha_0_real_fairing_materialization_probe/su2_runtime.cfg",
+    "source_kind": "hpa_mdo_real_su2_handoff_probe_runtime_cfg",
+    "warnings": []
+  },
+  "reference_mismatch_fields": [
+    "ref_area",
+    "ref_length",
+    "velocity_mps"
+  ],
+  "recommended_runtime_policy": "create_explicit_fairing_reference_override_from_external_policy_before_solver_smoke",
+  "hpa_mdo_guarantees": [
+    "external_fairing_project_inspected",
+    "no_su2_execution",
+    "no_gmsh_execution",
+    "production_default_unchanged",
+    "external_fairing_reference_policy_candidate_available",
+    "hpa_real_fairing_su2_handoff_probe_compared"
+  ],
+  "blocking_reasons": [
+    "hpa_current_reference_policy_mismatch",
+    "hpa_current_reference_geometry_warn",
+    "solver_not_run",
+    "convergence_gate_not_run"
+  ],
+  "limitations": [
+    "This is report-only evidence; it does not apply the external fairing reference policy to hpa-mdo runtime defaults.",
+    "The external fairing marker `fairing` must be explicitly mapped to hpa-mdo marker `fairing_solid` before runtime use.",
+    "Solver and convergence evidence remain absent in this hpa-mdo probe."
+  ],
+  "error": null
+}

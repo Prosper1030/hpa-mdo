@@ -203,6 +203,28 @@ the current reference quantities come from available fairing provider metadata
 with warning status, no solver history exists, and `convergence_gate.v1` is
 absent.
 
+The neighboring fairing project is useful reference-policy evidence. The first
+report-only probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-reference-policy-probe \
+  --out .tmp/runs/fairing_solid_reference_policy_probe
+```
+
+Observed result:
+
+- `reference_policy_status = reference_mismatch_observed`
+- external fairing policy: `REF_AREA=1.0`, `REF_LENGTH=2.82880659`, `V=6.5`
+- current hpa-mdo real fairing handoff: `REF_AREA=100`, `REF_LENGTH=1`, `V=10`
+- marker mapping needed: external `fairing` -> hpa-mdo `fairing_solid`
+- no runtime apply, no Gmsh, no `SU2_CFD`, no convergence
+
+Engineering reading: this explains the current `reference_geometry_status=warn`
+as a concrete policy mismatch rather than a vague provider concern. The next
+fairing step should be an explicit approved reference override, not a solver run
+with the wrong coefficient normalization.
+
 The synthetic closed-solid route-specific Gmsh smoke selected from that matrix is:
 
 ```bash
@@ -529,7 +551,7 @@ The current expected strategic reading is:
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | repair real ESP/VSP 3D volume-insertion timeout, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
-| `fairing_solid` | registered future route | no | resolve reference-quantity policy, then solver/convergence gate |
+| `fairing_solid` | registered future route | no | approve/apply reference policy, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
 ## Boundary-Layer Promotion Policy
@@ -580,7 +602,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Resolve real fairing reference geometry policy before coefficient claims,
+1. Approve and apply real fairing reference policy before coefficient claims,
    then run a bounded real fairing solver smoke.
 2. Repair the real ESP/VSP main-wing 3D volume-insertion timeout before any
    solver/convergence claim.
