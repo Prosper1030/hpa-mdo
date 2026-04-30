@@ -197,6 +197,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps solver execution, history parsing, convergence, and production defaults off
 - Records component force-surface ownership from the `tail_wing` marker, while keeping real-geometry and solver credibility outside the guarantee set
 
+### 16. tail_wing ESP-Rebuilt Geometry Smoke Layer
+
+`src/hpa_meshing/tail_wing_esp_rebuilt_geometry_smoke.py`
+
+- Consumes `data/blackcat_004_origin.vsp3`
+- Selects the OpenVSP `Elevator` geometry as `tail_wing` / `horizontal_tail`
+- Runs the experimental `esp_rebuilt` provider and writes a normalized STEP
+- Writes `tail_wing_esp_rebuilt_geometry_smoke.v1.json` and `.md`
+- Keeps Gmsh, mesh handoff, SU2, convergence, BL runtime, and production defaults off
+- Promotes the blocker from "real tail geometry missing" to "real tail geometry mesh handoff not run"
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -212,7 +223,7 @@ Current truth:
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
 - `fairing_solid` has real closed-solid mesh-handoff and SU2-handoff materialization smokes on a synthetic box with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
 - `main_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
-- `tail_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
+- `tail_wing` has real ESP/VSP provider geometry evidence and synthetic non-BL mesh/SU2 handoff smokes with component-owned force markers, but is not yet a real-geometry mesh, solver, or convergence route
 - `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
 
@@ -233,6 +244,7 @@ MeshJobConfig
   -> fairing_solid_su2_handoff_smoke.v1
   -> main_wing_mesh_handoff_smoke.v1
   -> main_wing_su2_handoff_smoke.v1
+  -> tail_wing_esp_rebuilt_geometry_smoke.v1
   -> tail_wing_mesh_handoff_smoke.v1
   -> tail_wing_su2_handoff_smoke.v1
   -> report.json
@@ -262,6 +274,9 @@ are ready.
 `tail_wing_su2_handoff_smoke.v1` proves that this mesh handoff can materialize
 an SU2 case without running the solver; it now owns the `tail_wing` force marker,
 but still leaves real geometry, solver history, and convergence outside the guarantee set.
+`tail_wing_esp_rebuilt_geometry_smoke.v1` proves the VSP/ESP provider can
+materialize the real tail source geometry, but it does not replace the missing
+real-geometry mesh handoff.
 
 ## Why This Boundary Matters
 

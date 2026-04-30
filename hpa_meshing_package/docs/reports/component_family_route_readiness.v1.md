@@ -49,7 +49,7 @@
 - `convergence_gate_not_run`
 
 ### `tail_wing`
-- `tail_real_geometry_smoke_missing`
+- `tail_real_geometry_mesh_handoff_not_run`
 - `tail_wing_solver_not_run`
 - `convergence_gate_not_run`
 

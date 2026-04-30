@@ -85,8 +85,10 @@ def test_route_readiness_marks_tail_wing_mesh_handoff_smoke_as_available_not_pro
     assert "tail_wing_mesh_handoff_smoke_available_non_bl_synthetic" in tail_wing.notes
     assert "tail_wing_su2_handoff_materialization_smoke_available" in tail_wing.notes
     assert "tail_wing_specific_force_marker_available" in tail_wing.notes
+    assert "tail_wing_esp_rebuilt_geometry_smoke_available" in tail_wing.notes
     assert "tail_family_backend_not_productized" not in tail_wing.blocking_reasons
-    assert "tail_real_geometry_smoke_missing" in tail_wing.blocking_reasons
+    assert "tail_real_geometry_smoke_missing" not in tail_wing.blocking_reasons
+    assert "tail_real_geometry_mesh_handoff_not_run" in tail_wing.blocking_reasons
     assert "tail_wing_su2_handoff_not_run" not in tail_wing.blocking_reasons
     assert "tail_wing_solver_not_run" in tail_wing.blocking_reasons
     assert "convergence_gate_not_run" in tail_wing.blocking_reasons

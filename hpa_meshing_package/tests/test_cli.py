@@ -162,6 +162,20 @@ def test_parser_supports_tail_wing_su2_handoff_smoke_command():
     assert args.out == "artifacts/tail_wing_su2_smoke"
 
 
+def test_parser_supports_tail_wing_esp_rebuilt_geometry_smoke_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "tail-wing-esp-rebuilt-geometry-smoke",
+            "--out",
+            "artifacts/tail_wing_esp_geometry_smoke",
+        ]
+    )
+
+    assert args.command == "tail-wing-esp-rebuilt-geometry-smoke"
+    assert args.out == "artifacts/tail_wing_esp_geometry_smoke"
+
+
 def test_parser_supports_main_wing_su2_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(

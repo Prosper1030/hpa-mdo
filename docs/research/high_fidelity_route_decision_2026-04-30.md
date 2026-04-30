@@ -254,13 +254,36 @@ This smoke consumes the synthetic tail-wing `mesh_handoff.v1` and materializes
 It owns the `tail_wing` force marker for this synthetic fixture, but it still
 does not prove real tail geometry, solver history, or convergence.
 
+The first real tail-wing ESP-rebuilt geometry smoke is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-esp-rebuilt-geometry-smoke \
+  --out .tmp/runs/tail_wing_esp_rebuilt_geometry_smoke
+```
+
+It writes:
+
+- `tail_wing_esp_rebuilt_geometry_smoke.v1.json`
+- `tail_wing_esp_rebuilt_geometry_smoke.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/tail_wing_esp_rebuilt_geometry_smoke/tail_wing_esp_rebuilt_geometry_smoke.v1.json`
+- `hpa_meshing_package/docs/reports/tail_wing_esp_rebuilt_geometry_smoke/tail_wing_esp_rebuilt_geometry_smoke.v1.md`
+
+This smoke consumes `data/blackcat_004_origin.vsp3`, selects the OpenVSP
+`Elevator` as `tail_wing` / `horizontal_tail`, and materializes a normalized
+STEP through `esp_rebuilt`. It does not run Gmsh or SU2. The next tail blocker
+is now a real-geometry mesh handoff, not provider geometry availability.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
-| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | real tail geometry smoke, then horizontal/vertical tail mesh smoke |
+| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | real tail geometry mesh handoff, then horizontal/vertical tail mesh smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
