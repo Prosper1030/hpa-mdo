@@ -11,9 +11,10 @@ def quality_check(run_result: Dict[str, Any], config: MeshJobConfig) -> Dict[str
     route_stage = backend_result.get("route_stage")
     mesh_stats = mesh_handoff.get("mesh_stats", backend_result.get("mesh_stats", {}))
     marker_summary = mesh_handoff.get("marker_summary", backend_result.get("marker_summary", {}))
+    wall_marker = "fairing_solid" if config.component == "fairing_solid" else "aircraft"
     missing_markers = [
         name
-        for name in ("aircraft", "farfield")
+        for name in (wall_marker, "farfield")
         if route_stage == "baseline" and not marker_summary.get(name, {}).get("exists", False)
     ]
     element_count = mesh_stats.get("element_count")

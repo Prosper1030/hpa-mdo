@@ -56,11 +56,11 @@ def test_route_readiness_marks_fairing_solid_mesh_handoff_smoke_as_available_not
     fairing_solid = {row.component: row for row in report.components}["fairing_solid"]
 
     assert fairing_solid.productization_status == "registered_not_productized"
-    assert fairing_solid.su2_status == "not_productized"
+    assert fairing_solid.su2_status == "blocked_until_su2_handoff"
     assert fairing_solid.default_route == "gmsh_closed_solid_volume"
     assert "fairing_solid_mesh_handoff_smoke_available" in fairing_solid.notes
-    assert "fairing_component_specific_force_marker_missing" in fairing_solid.blocking_reasons
-    assert "su2_handoff_not_run" in fairing_solid.blocking_reasons
+    assert "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke" in fairing_solid.notes
+    assert "fairing_su2_handoff_not_materialized" in fairing_solid.blocking_reasons
     assert "convergence_gate_not_run" in fairing_solid.blocking_reasons
 
 

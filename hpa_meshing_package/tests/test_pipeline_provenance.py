@@ -354,13 +354,16 @@ def test_run_job_surfaces_mesh_handoff_contract_for_fairing_solid_direct_cad(tmp
     assert result["mesh"]["contract"] == "mesh_handoff.v1"
     assert result["mesh"]["backend_capability"] == "occ_closed_solid_meshing"
     assert result["mesh"]["geometry_family"] == "closed_solid"
-    assert result["mesh"]["marker_summary"]["aircraft"]["exists"] is True
+    assert "aircraft" not in result["mesh"]["marker_summary"]
+    assert result["mesh"]["marker_summary"]["fairing_solid"]["exists"] is True
     assert result["mesh"]["marker_summary"]["farfield"]["exists"] is True
+    assert result["mesh"]["physical_groups"]["fairing_solid"]["dimension"] == 2
     assert result["mesh"]["volume_element_count"] > 0
 
     report = json.loads((config.out_dir / "report.json").read_text(encoding="utf-8"))
     assert report["mesh"]["contract"] == "mesh_handoff.v1"
     assert report["mesh"]["meshing_route"] == "gmsh_closed_solid_volume"
+    assert report["mesh"]["marker_summary"]["fairing_solid"]["exists"] is True
 
 
 def test_run_job_preserves_surface_only_probe_failure_code(tmp_path: Path, monkeypatch):

@@ -25,6 +25,7 @@ SU2ReadinessStatusType = Literal[
     "baseline_productized",
     "not_productized",
     "blocked_until_route_smoke",
+    "blocked_until_su2_handoff",
 ]
 BLContractPolicyType = Literal[
     "not_required_for_baseline",
@@ -217,22 +218,21 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             provider_strategy="direct_cad_or_future_fairing_provider",
             productization_status="registered_not_productized",
             route_role="registered_future_route",
-            su2_status="not_productized",
+            su2_status="blocked_until_su2_handoff",
             bl_contract_policy="not_default",
             gmsh_boundary_recovery_policy="baseline_gmsh_backend_boundary_recovery",
             blocking_reasons=[
-                "fairing_component_specific_force_marker_missing",
-                "su2_handoff_not_run",
+                "fairing_su2_handoff_not_materialized",
                 "convergence_gate_not_run",
             ],
             next_actions=[
-                "add_fairing_specific_force_marker_contract",
-                "write_su2_handoff_only_after_marker_contract",
+                "materialize_fairing_solid_su2_handoff_from_component_marker",
                 "promote_to_product_line_only_after_convergence_gate_artifact",
             ],
             notes=[
                 "fairing_solid_mesh_handoff_smoke_available",
-                "current wall marker is generic `aircraft`, not a fairing-specific force marker",
+                "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke",
+                "current SU2 handoff has not consumed the fairing-specific marker yet",
             ],
         ),
         _row(

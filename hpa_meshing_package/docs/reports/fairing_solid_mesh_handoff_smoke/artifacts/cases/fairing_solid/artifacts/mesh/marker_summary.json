@@ -1,8 +1,8 @@
 {
-  "aircraft": {
+  "fairing_solid": {
     "exists": true,
     "dimension": 2,
-    "physical_name": "aircraft",
+    "physical_name": "fairing_solid",
     "physical_tag": 2,
     "entity_count": 6,
     "entities": [
@@ -32,9 +32,9 @@
       11,
       12
     ],
-    "element_count": 2774,
+    "element_count": 2776,
     "element_type_counts": {
-      "2": 2774
+      "2": 2776
     }
   }
 }

@@ -15,6 +15,7 @@ from .schema import MeshJobConfig
 SmokeStatusType = Literal["mesh_handoff_pass", "mesh_handoff_fail", "unavailable"]
 MeshHandoffStatusType = Literal["written", "missing", "unavailable"]
 MarkerSummaryStatusType = Literal[
+    "component_wall_and_farfield_present",
     "generic_wall_and_farfield_present",
     "missing_required_markers",
     "unavailable",
@@ -94,7 +95,15 @@ def _write_occ_box_step_fixture(out_dir: Path) -> Path:
 
 def _marker_summary_status(marker_summary: Dict[str, object]) -> MarkerSummaryStatusType:
     aircraft = marker_summary.get("aircraft")
+    fairing = marker_summary.get("fairing_solid")
     farfield = marker_summary.get("farfield")
+    if (
+        isinstance(fairing, dict)
+        and fairing.get("exists") is True
+        and isinstance(farfield, dict)
+        and farfield.get("exists") is True
+    ):
+        return "component_wall_and_farfield_present"
     if (
         isinstance(aircraft, dict)
         and aircraft.get("exists") is True
@@ -147,9 +156,14 @@ def build_fairing_solid_mesh_handoff_smoke_report(
     pass_status = (
         result.get("status") == "success"
         and mesh_contract == "mesh_handoff.v1"
-        and marker_status == "generic_wall_and_farfield_present"
+        and marker_status == "component_wall_and_farfield_present"
         and isinstance(volume_element_count, int)
         and volume_element_count > 0
+    )
+    fairing_force_marker_status: FairingForceMarkerStatusType = (
+        "component_specific_marker_present"
+        if marker_status == "component_wall_and_farfield_present"
+        else "missing_component_specific_marker"
     )
 
     return FairingSolidMeshHandoffSmokeReport(
@@ -167,7 +181,7 @@ def build_fairing_solid_mesh_handoff_smoke_report(
             else None
         ),
         marker_summary_status=marker_status,
-        fairing_force_marker_status="missing_component_specific_marker",
+        fairing_force_marker_status=fairing_force_marker_status,
         node_count=mesh.get("node_count") if isinstance(mesh.get("node_count"), int) else None,
         element_count=(
             mesh.get("element_count") if isinstance(mesh.get("element_count"), int) else None
@@ -181,7 +195,8 @@ def build_fairing_solid_mesh_handoff_smoke_report(
             "closed_solid_direct_cad_fixture_loaded",
             "gmsh_closed_solid_volume_dispatched",
             "mesh_handoff_v1_written",
-            "generic_wall_and_farfield_markers_present",
+            "fairing_wall_and_farfield_markers_present",
+            "fairing_specific_force_marker_present",
         ]
         if pass_status
         else [
@@ -189,13 +204,18 @@ def build_fairing_solid_mesh_handoff_smoke_report(
             "gmsh_closed_solid_volume_dispatched",
         ],
         blocking_reasons=[
+            "fairing_su2_handoff_not_materialized",
+            "convergence_gate_not_run",
+        ]
+        if fairing_force_marker_status == "component_specific_marker_present"
+        else [
             "fairing_component_specific_force_marker_missing",
             "su2_handoff_not_run",
             "convergence_gate_not_run",
         ],
         limitations=[
             "Synthetic OCC box fixture is a route smoke fixture, not fairing aerodynamic geometry.",
-            "The current wall marker is generic `aircraft`; fairing-specific force-surface ownership is not proven.",
+            "The fairing-specific marker is mesh-handoff evidence only; SU2 handoff has not consumed it yet.",
             "SU2_CFD was not executed.",
             "convergence_gate.v1 was not emitted.",
             "Production defaults were not changed.",

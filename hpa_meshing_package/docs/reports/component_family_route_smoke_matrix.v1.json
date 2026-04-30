@@ -214,8 +214,7 @@
       "convergence_gate_status": "not_run",
       "promotion_status": "blocked_before_su2_handoff",
       "blocking_reasons": [
-        "fairing_component_specific_force_marker_missing",
-        "su2_handoff_not_run",
+        "fairing_su2_handoff_not_materialized",
         "convergence_gate_not_run"
       ],
       "guarantees": [
@@ -286,7 +285,7 @@
     "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim."
   ],
   "next_actions": [
-    "promote fairing_solid only after a fairing-specific force marker and su2_handoff.v1 exist",
+    "promote fairing_solid only after su2_handoff.v1 consumes the fairing-specific force marker",
     "select main_wing non-BL route for the next real mesh_handoff.v1 smoke",
     "keep BL prelaunch excluded until handoff topology ownership passes"
   ]

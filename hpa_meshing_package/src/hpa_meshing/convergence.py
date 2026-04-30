@@ -5,7 +5,7 @@ import json
 import math
 import statistics
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from .schema import (
     BaselineConvergenceGate,
@@ -116,6 +116,12 @@ def _group_exists(group: Any) -> bool:
     return isinstance(group, dict) and group.get("exists") is True and int(group.get("entity_count", 0) or 0) > 0
 
 
+def _required_wall_marker(handoff: MeshHandoff) -> str:
+    if handoff.meshing_route == "gmsh_closed_solid_volume":
+        return "fairing_solid"
+    return "aircraft"
+
+
 def evaluate_mesh_gate(
     mesh_handoff: MeshHandoff | dict[str, Any],
     *,
@@ -187,12 +193,13 @@ def evaluate_mesh_gate(
         bounds_status = "fail"
         bounds_warnings.append("farfield_does_not_contain_body")
 
+    wall_marker = _required_wall_marker(handoff)
     required_marker_status = {
-        "aircraft": bool(handoff.marker_summary.get("aircraft", {}).get("exists")),
+        wall_marker: bool(handoff.marker_summary.get(wall_marker, {}).get("exists")),
         "farfield": bool(handoff.marker_summary.get("farfield", {}).get("exists")),
     }
     required_group_status = {
-        "aircraft": _group_exists(handoff.physical_groups.get("aircraft")),
+        wall_marker: _group_exists(handoff.physical_groups.get(wall_marker)),
         "farfield": _group_exists(handoff.physical_groups.get("farfield")),
         "fluid": _group_exists(handoff.physical_groups.get("fluid")),
     }
@@ -256,8 +263,8 @@ def evaluate_mesh_gate(
                 "physical_groups": required_group_status,
             },
             expected={
-                "markers": {"aircraft": True, "farfield": True},
-                "physical_groups": {"aircraft": True, "farfield": True, "fluid": True},
+                "markers": {wall_marker: True, "farfield": True},
+                "physical_groups": {wall_marker: True, "farfield": True, "fluid": True},
             },
         ),
         "element_counts": _check(

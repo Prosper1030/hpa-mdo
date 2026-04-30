@@ -197,7 +197,7 @@ run SU2 or prove fairing-specific force-surface ownership.
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
-| `fairing_solid` closed-solid route | experimental | first real `mesh_handoff.v1` smoke exists; SU2 and fairing-specific force marker are not productized |
+| `fairing_solid` closed-solid route | experimental | first real `mesh_handoff.v1` smoke exists with a `fairing_solid` force marker; SU2 handoff and convergence are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
 | Component-family route smoke matrix | report-only `v1` | pre-mesh dispatch smoke for main-wing / tail / fairing route skeletons; no Gmsh, no SU2, no BL runtime |

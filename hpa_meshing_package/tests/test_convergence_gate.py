@@ -4,8 +4,6 @@ import csv
 import json
 from pathlib import Path
 
-import pytest
-
 from hpa_meshing.convergence import (
     build_overall_convergence_gate,
     evaluate_iterative_gate,

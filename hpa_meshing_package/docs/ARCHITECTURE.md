@@ -134,7 +134,8 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Writes `fairing_solid_mesh_handoff_smoke.v1.json` and `.md`
 - Emits a real `mesh_handoff.v1` for the route-smoke fixture
 - Keeps SU2, BL runtime, and production defaults off
-- Records that the current wall marker is still generic `aircraft`, not a fairing-specific force marker
+- Records a component-specific `fairing_solid` force marker in the mesh-handoff evidence
+- Keeps fairing SU2 promotion blocked until `su2_handoff.v1` consumes that marker
 
 ## Real vs Placeholder Boundary
 

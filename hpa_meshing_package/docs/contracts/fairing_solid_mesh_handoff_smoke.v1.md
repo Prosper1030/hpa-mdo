@@ -34,18 +34,17 @@ It is intentionally narrow:
 ## Pass Meaning
 
 A pass means `fairing_solid -> closed_solid -> gmsh_closed_solid_volume` can
-produce a real package-native `mesh_handoff.v1` with positive volume elements
-and generic wall / farfield markers.
+produce a real package-native `mesh_handoff.v1` with positive volume elements,
+an authoritative `fairing_solid` wall / force marker, and a `farfield` marker.
 
-It does **not** mean the fairing route is productized. The current wall marker
-is still generic `aircraft`; fairing-specific force-surface ownership is not
-yet proven.
+It does **not** mean the fairing route is productized. The component-specific
+marker is mesh-handoff evidence only until `su2_handoff.v1` consumes it and a
+convergence gate is emitted.
 
 ## Promotion Rule
 
 The next promotion gate is not another mesh-only pass. The route remains blocked
 until:
 
-1. a fairing-specific force marker contract exists
-2. `su2_handoff.v1` consumes that marker contract
-3. `convergence_gate.v1` reports solver comparability
+1. `su2_handoff.v1` consumes the `fairing_solid` force marker
+2. `convergence_gate.v1` reports solver comparability

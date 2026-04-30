@@ -25,8 +25,8 @@ def test_fairing_solid_mesh_handoff_smoke_writes_real_handoff_without_su2(tmp_pa
     assert report.smoke_status == "mesh_handoff_pass"
     assert report.mesh_handoff_status == "written"
     assert report.mesh_contract == "mesh_handoff.v1"
-    assert report.marker_summary_status == "generic_wall_and_farfield_present"
-    assert report.fairing_force_marker_status == "missing_component_specific_marker"
+    assert report.marker_summary_status == "component_wall_and_farfield_present"
+    assert report.fairing_force_marker_status == "component_specific_marker_present"
     assert report.su2_promotion_status == "blocked_before_su2_handoff"
     assert report.volume_element_count > 0
 
@@ -46,5 +46,6 @@ def test_fairing_solid_mesh_handoff_smoke_writer_outputs_json_and_markdown(tmp_p
     assert payload["smoke_status"] == "mesh_handoff_pass"
     assert payload["mesh_contract"] == "mesh_handoff.v1"
     assert payload["no_su2_execution"] is True
+    assert payload["fairing_force_marker_status"] == "component_specific_marker_present"
     assert "fairing_solid" in markdown
     assert "mesh_handoff.v1" in markdown

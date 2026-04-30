@@ -106,15 +106,15 @@
       "z_min": -1.4400017,
       "z_max": 1.6200017
     },
-    "node_count": 2232,
-    "element_count": 12204,
-    "surface_element_count": 2806,
-    "volume_element_count": 9158,
+    "node_count": 2235,
+    "element_count": 12227,
+    "surface_element_count": 2808,
+    "volume_element_count": 9179,
     "marker_summary": {
-      "aircraft": {
+      "fairing_solid": {
         "exists": true,
         "dimension": 2,
-        "physical_name": "aircraft",
+        "physical_name": "fairing_solid",
         "physical_tag": 2,
         "entity_count": 6,
         "entities": [
@@ -144,9 +144,9 @@
           11,
           12
         ],
-        "element_count": 2774,
+        "element_count": 2776,
         "element_type_counts": {
-          "2": 2774
+          "2": 2776
         }
       }
     },
@@ -163,10 +163,10 @@
         "element_count": 0,
         "element_type_counts": {}
       },
-      "aircraft": {
+      "fairing_solid": {
         "exists": true,
         "dimension": 2,
-        "physical_name": "aircraft",
+        "physical_name": "fairing_solid",
         "physical_tag": 2,
         "entity_count": 6,
         "entities": [
@@ -196,9 +196,9 @@
           11,
           12
         ],
-        "element_count": 2774,
+        "element_count": 2776,
         "element_type_counts": {
-          "2": 2774
+          "2": 2776
         }
       }
     },
@@ -364,10 +364,10 @@
         "classify_angle_probe": null
       },
       "marker_summary": {
-        "aircraft": {
+        "fairing_solid": {
           "exists": true,
           "dimension": 2,
-          "physical_name": "aircraft",
+          "physical_name": "fairing_solid",
           "physical_tag": 2,
           "entity_count": 6,
           "entities": [
@@ -397,9 +397,9 @@
             11,
             12
           ],
-          "element_count": 2774,
+          "element_count": 2776,
           "element_type_counts": {
-            "2": 2774
+            "2": 2776
           }
         }
       },
@@ -416,10 +416,10 @@
           "element_count": 0,
           "element_type_counts": {}
         },
-        "aircraft": {
+        "fairing_solid": {
           "exists": true,
           "dimension": 2,
-          "physical_name": "aircraft",
+          "physical_name": "fairing_solid",
           "physical_tag": 2,
           "entity_count": 6,
           "entities": [
@@ -449,29 +449,29 @@
             11,
             12
           ],
-          "element_count": 2774,
+          "element_count": 2776,
           "element_type_counts": {
-            "2": 2774
+            "2": 2776
           }
         }
       },
       "mesh_stats": {
         "mesh_dim": 3,
-        "node_count": 2232,
-        "element_count": 12204,
-        "surface_element_count": 2806,
-        "volume_element_count": 9158,
+        "node_count": 2235,
+        "element_count": 12227,
+        "surface_element_count": 2808,
+        "volume_element_count": 9179,
         "element_type_counts": {
           "1": 224,
-          "2": 2806,
-          "4": 9158,
+          "2": 2808,
+          "4": 9179,
           "15": 16
         },
         "surface_element_type_counts": {
-          "2": 2806
+          "2": 2808
         },
         "volume_element_type_counts": {
-          "4": 9158
+          "4": 9179
         }
       },
       "mesh_handoff": {
@@ -505,28 +505,28 @@
         },
         "mesh_stats": {
           "mesh_dim": 3,
-          "node_count": 2232,
-          "element_count": 12204,
-          "surface_element_count": 2806,
-          "volume_element_count": 9158,
+          "node_count": 2235,
+          "element_count": 12227,
+          "surface_element_count": 2808,
+          "volume_element_count": 9179,
           "element_type_counts": {
             "1": 224,
-            "2": 2806,
-            "4": 9158,
+            "2": 2808,
+            "4": 9179,
             "15": 16
           },
           "surface_element_type_counts": {
-            "2": 2806
+            "2": 2808
           },
           "volume_element_type_counts": {
-            "4": 9158
+            "4": 9179
           }
         },
         "marker_summary": {
-          "aircraft": {
+          "fairing_solid": {
             "exists": true,
             "dimension": 2,
-            "physical_name": "aircraft",
+            "physical_name": "fairing_solid",
             "physical_tag": 2,
             "entity_count": 6,
             "entities": [
@@ -556,9 +556,9 @@
               11,
               12
             ],
-            "element_count": 2774,
+            "element_count": 2776,
             "element_type_counts": {
-              "2": 2774
+              "2": 2776
             }
           }
         },
@@ -575,10 +575,10 @@
             "element_count": 0,
             "element_type_counts": {}
           },
-          "aircraft": {
+          "fairing_solid": {
             "exists": true,
             "dimension": 2,
-            "physical_name": "aircraft",
+            "physical_name": "fairing_solid",
             "physical_tag": 2,
             "entity_count": 6,
             "entities": [
@@ -608,9 +608,9 @@
               11,
               12
             ],
-            "element_count": 2774,
+            "element_count": 2776,
             "element_type_counts": {
-              "2": 2774
+              "2": 2776
             }
           }
         },
@@ -817,9 +817,9 @@
     "checked_backend_capability": "occ_closed_solid_meshing",
     "notes": [
       "max_elements=None",
-      "node_count=2232",
-      "element_count=12204",
-      "volume_element_count=9158",
+      "node_count=2235",
+      "element_count=12227",
+      "volume_element_count=9179",
       "missing_markers=[]"
     ]
   },

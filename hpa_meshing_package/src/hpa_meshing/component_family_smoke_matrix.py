@@ -185,7 +185,7 @@ def build_component_family_route_smoke_matrix(
             "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim.",
         ],
         next_actions=[
-            "promote fairing_solid only after a fairing-specific force marker and su2_handoff.v1 exist",
+            "promote fairing_solid only after su2_handoff.v1 consumes the fairing-specific force marker",
             "select main_wing non-BL route for the next real mesh_handoff.v1 smoke",
             "keep BL prelaunch excluded until handoff topology ownership passes",
         ],

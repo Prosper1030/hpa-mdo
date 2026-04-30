@@ -78,6 +78,12 @@ LAST_MESHING_SURFACE_PATTERN = re.compile(
     r"Meshing surface\s+(\d+)\b",
     re.IGNORECASE,
 )
+
+
+def _wall_marker_name_for_recipe(recipe: MeshRecipe) -> str:
+    if recipe.component == "fairing_solid" and recipe.geometry_family == "closed_solid":
+        return "fairing_solid"
+    return "aircraft"
 LAST_MESHING_CURVE_PATTERN = re.compile(
     r"Meshing curve\s+(\d+)\b",
     re.IGNORECASE,
@@ -2175,7 +2181,11 @@ def _summarize_sliver_volume_pocket_candidate(
         failed_checks.append("nodes_created_per_boundary_node_limit")
     if str(phase or "") == "volume_insertion":
         failed_checks.append("volume_insertion_phase")
-    if not all(bool(physical_groups.get(name, {}).get("exists")) for name in ("fluid", "aircraft", "farfield")):
+    wall_group_exists = any(
+        bool(physical_groups.get(name, {}).get("exists"))
+        for name in ("aircraft", "fairing_solid")
+    )
+    if not (wall_group_exists and all(bool(physical_groups.get(name, {}).get("exists")) for name in ("fluid", "farfield"))):
         failed_checks.append("physical_groups_not_preserved")
 
     candidate["failed_checks"] = failed_checks
@@ -2356,7 +2366,11 @@ def _summarize_tip_quality_buffer_candidate(
         failed_checks.append("nodes_created_per_boundary_node_limit")
     if str(phase or "") == "volume_insertion":
         failed_checks.append("volume_insertion_phase")
-    if not all(bool(physical_groups.get(name, {}).get("exists")) for name in ("fluid", "aircraft", "farfield")):
+    wall_group_exists = any(
+        bool(physical_groups.get(name, {}).get("exists"))
+        for name in ("aircraft", "fairing_solid")
+    )
+    if not (wall_group_exists and all(bool(physical_groups.get(name, {}).get("exists")) for name in ("fluid", "farfield"))):
         failed_checks.append("physical_groups_not_preserved")
 
     candidate["failed_checks"] = failed_checks
@@ -4544,6 +4558,7 @@ def _run_surface_repair_fallback(
     retry_metadata_path: Path,
     mesh_algorithm_2d: int,
     mesh_algorithm_3d: int,
+    wall_marker_name: str = "aircraft",
     thread_count: int = 4,
 ) -> Dict[str, Any]:
     gmsh = load_gmsh()
@@ -4638,7 +4653,7 @@ def _run_surface_repair_fallback(
         fluid_group = gmsh.model.addPhysicalGroup(3, fluid_volume_tags)
         gmsh.model.setPhysicalName(3, fluid_group, "fluid")
         aircraft_group = gmsh.model.addPhysicalGroup(2, aircraft_surface_tags)
-        gmsh.model.setPhysicalName(2, aircraft_group, "aircraft")
+        gmsh.model.setPhysicalName(2, aircraft_group, wall_marker_name)
         farfield_group = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
         gmsh.model.setPhysicalName(2, farfield_group, "farfield")
 
@@ -4671,7 +4686,7 @@ def _run_surface_repair_fallback(
             fluid_group = gmsh.model.addPhysicalGroup(3, fluid_volume_tags)
             gmsh.model.setPhysicalName(3, fluid_group, "fluid")
             aircraft_group = gmsh.model.addPhysicalGroup(2, aircraft_surface_tags)
-            gmsh.model.setPhysicalName(2, aircraft_group, "aircraft")
+            gmsh.model.setPhysicalName(2, aircraft_group, wall_marker_name)
             farfield_group = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
             gmsh.model.setPhysicalName(2, farfield_group, "farfield")
 
@@ -4684,11 +4699,11 @@ def _run_surface_repair_fallback(
         }
         physical_groups = {
             "fluid": _physical_group_summary(gmsh, 3, fluid_group),
-            "aircraft": _physical_group_summary(gmsh, 2, aircraft_group),
+            wall_marker_name: _physical_group_summary(gmsh, 2, aircraft_group),
             "farfield": _physical_group_summary(gmsh, 2, farfield_group),
         }
         marker_summary = {
-            "aircraft": physical_groups["aircraft"],
+            wall_marker_name: physical_groups[wall_marker_name],
             "farfield": physical_groups["farfield"],
         }
         retry_metadata.update(
@@ -5103,10 +5118,12 @@ def _apply_occ_external_flow_route(
             near_body_size=float(resolved_field_defaults["near_body_size"]),
         )
 
+        wall_marker_name = _wall_marker_name_for_recipe(recipe)
+
         fluid_group = gmsh.model.addPhysicalGroup(3, fluid_volume_tags)
         gmsh.model.setPhysicalName(3, fluid_group, "fluid")
         aircraft_group = gmsh.model.addPhysicalGroup(2, aircraft_surface_tags)
-        gmsh.model.setPhysicalName(2, aircraft_group, "aircraft")
+        gmsh.model.setPhysicalName(2, aircraft_group, wall_marker_name)
         farfield_group = gmsh.model.addPhysicalGroup(2, farfield_surface_tags)
         gmsh.model.setPhysicalName(2, farfield_group, "farfield")
 
@@ -5256,12 +5273,12 @@ def _apply_occ_external_flow_route(
         }
         physical_groups = {
             "fluid": _physical_group_summary(gmsh, 3, fluid_group),
-            "aircraft": _physical_group_summary(gmsh, 2, aircraft_group),
+            wall_marker_name: _physical_group_summary(gmsh, 2, aircraft_group),
             "farfield": _physical_group_summary(gmsh, 2, farfield_group),
         }
         marker_summary = {
             name: physical_groups[name]
-            for name in ("aircraft", "farfield")
+            for name in (wall_marker_name, "farfield")
         }
         volume_smoke_decoupled = None
         if config.mesh_dim == 3:
@@ -5496,6 +5513,7 @@ def _apply_occ_external_flow_route(
                     retry_metadata_path=retry_mesh_metadata_path,
                     mesh_algorithm_2d=int(field_info.get("mesh_algorithm_2d", 6)),
                     mesh_algorithm_3d=int(field_info.get("mesh_algorithm_3d", 1)),
+                    wall_marker_name=wall_marker_name,
                     thread_count=config.gmsh_threads,
                 )
                 metadata["surface_repair_fallback"] = {
