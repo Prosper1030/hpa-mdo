@@ -103,8 +103,11 @@ same-parameter feasibility probe then attempts in-memory `BRepLib.SameParameter`
 from `1e-7` through `1e-3` and does not recover those station checks. The
 ShapeFix feasibility probe extends that negative result across 25 in-memory
 `ShapeFix_Edge` attempts: five operations over five tolerances, with zero
-recovered station checks. The current readiness next action is
-`rebuild_station_pcurves_or_export_station_seams_before_meshing_policy`.
+recovered station checks. The export-source audit then traces those target
+stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
+over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
+`y=-10.5 m` and `y=13.5 m`. The current readiness next action is
+`prototype_station_seam_export_strategy_before_solver_budget`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -216,6 +219,22 @@ tolerances `1e-7` through `1e-3` recover zero targets. This is evidence against
 continuing generic OCCT edge-fix sweeps; the next gate is rebuilding station
 PCurves or changing the station-seam export strategy before meshing-policy or
 solver-budget work.
+
+The main-wing station-seam export-source audit is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-export-source-audit --out .tmp/runs/main_wing_station_seam_export_source_audit
+```
+
+This writes `main_wing_station_seam_export_source_audit.v1.json` and
+`main_wing_station_seam_export_source_audit.v1.md`. The committed snapshot
+under `docs/reports/main_wing_station_seam_export_source_audit/` records
+`single_rule_internal_station_export_source_confirmed`: the generated
+`rebuild.csm` contains one multi-section `rule` over 11 sketch sections, and
+the two unrecovered station defects map to internal rule sections. This is
+evidence for an export-strategy probe next; it is not a production default
+change and does not run Gmsh, SU2, or convergence gates.
 
 The first real fairing geometry smoke is emitted by:
 

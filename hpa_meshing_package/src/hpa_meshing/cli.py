@@ -126,6 +126,10 @@ from .main_wing_station_seam_shape_fix_feasibility import (
     build_main_wing_station_seam_shape_fix_feasibility_report,
     write_main_wing_station_seam_shape_fix_feasibility_report,
 )
+from .main_wing_station_seam_export_source_audit import (
+    build_main_wing_station_seam_export_source_audit_report,
+    write_main_wing_station_seam_export_source_audit_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -791,6 +795,38 @@ def cmd_main_wing_station_seam_shape_fix_feasibility(
     return 0 if report.feasibility_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_export_source_audit(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    shape_fix_feasibility_path = (
+        None if args.shape_fix_feasibility is None else Path(args.shape_fix_feasibility)
+    )
+    topology_fixture_path = (
+        None if args.topology_fixture is None else Path(args.topology_fixture)
+    )
+    rebuild_csm_path = None if args.rebuild_csm is None else Path(args.rebuild_csm)
+    topology_lineage_path = (
+        None if args.topology_lineage is None else Path(args.topology_lineage)
+    )
+    report = build_main_wing_station_seam_export_source_audit_report(
+        shape_fix_feasibility_path=shape_fix_feasibility_path,
+        topology_fixture_path=topology_fixture_path,
+        rebuild_csm_path=rebuild_csm_path,
+        topology_lineage_path=topology_lineage_path,
+    )
+    write_main_wing_station_seam_export_source_audit_report(
+        out_dir,
+        report=report,
+        shape_fix_feasibility_path=shape_fix_feasibility_path,
+        topology_fixture_path=topology_fixture_path,
+        rebuild_csm_path=rebuild_csm_path,
+        topology_lineage_path=topology_lineage_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.audit_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1432,6 +1468,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_shape_fix_feasibility.set_defaults(
         func=cmd_main_wing_station_seam_shape_fix_feasibility
+    )
+
+    main_wing_station_seam_export_source_audit = sub.add_parser(
+        "main-wing-station-seam-export-source-audit"
+    )
+    main_wing_station_seam_export_source_audit.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_export_source_audit.add_argument(
+        "--shape-fix-feasibility",
+        type=str,
+    )
+    main_wing_station_seam_export_source_audit.add_argument(
+        "--topology-fixture",
+        type=str,
+    )
+    main_wing_station_seam_export_source_audit.add_argument(
+        "--rebuild-csm",
+        type=str,
+    )
+    main_wing_station_seam_export_source_audit.add_argument(
+        "--topology-lineage",
+        type=str,
+    )
+    main_wing_station_seam_export_source_audit.set_defaults(
+        func=cmd_main_wing_station_seam_export_source_audit
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

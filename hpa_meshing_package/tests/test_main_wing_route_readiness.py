@@ -1574,6 +1574,94 @@ def test_main_wing_route_readiness_records_station_seam_shape_fix_feasibility_st
     )
 
 
+def test_main_wing_route_readiness_records_station_seam_export_source_audit_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_station_seam_export_source_audit"
+        / "main_wing_station_seam_export_source_audit.v1.json",
+        {
+            "audit_status": "single_rule_internal_station_export_source_confirmed",
+            "csm_summary": {
+                "single_rule_multi_section_loft": True,
+                "sketch_section_count": 11,
+            },
+            "target_station_mappings": [
+                {"csm_station_role": "internal_station", "candidate_curve_tags": [36]},
+                {"csm_station_role": "internal_station", "candidate_curve_tags": [50]},
+            ],
+            "engineering_findings": [
+                "station_defects_map_to_internal_rule_sections"
+            ],
+            "blocking_reasons": [
+                "station_single_rule_internal_export_source_requires_strategy_probe"
+            ],
+            "next_actions": [
+                "prototype_station_seam_export_strategy_before_solver_budget"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    export_stage = stages["station_seam_export_source_audit"]
+    assert export_stage.status == "blocked"
+    assert export_stage.evidence_kind == "real"
+    assert export_stage.observed["csm_summary"]["sketch_section_count"] == 11
+    assert "station_defects_map_to_internal_rule_sections" in (
+        export_stage.observed["engineering_findings"]
+    )
+    assert (
+        "station_single_rule_internal_export_source_requires_strategy_probe"
+        in report.blocking_reasons
+    )
+    assert report.next_actions[0] == (
+        "prototype_station_seam_export_strategy_before_solver_budget"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

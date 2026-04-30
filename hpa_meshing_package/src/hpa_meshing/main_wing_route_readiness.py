@@ -31,6 +31,7 @@ StageType = Literal[
     "station_seam_brep_hotspot_probe",
     "station_seam_same_parameter_feasibility",
     "station_seam_shape_fix_feasibility",
+    "station_seam_export_source_audit",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -952,6 +953,37 @@ def _station_seam_shape_fix_feasibility_observed(
     }
 
 
+def _station_seam_export_source_audit_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "blocked"
+        if payload.get("audit_status")
+        == "single_rule_internal_station_export_source_confirmed"
+        else "pass"
+        if payload.get("audit_status") == "export_source_audit_captured"
+        else "blocked"
+    )
+
+
+def _station_seam_export_source_audit_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "audit_status": None if payload is None else payload.get("audit_status"),
+        "csm_summary": {} if payload is None else payload.get("csm_summary", {}),
+        "target_station_mappings": (
+            [] if payload is None else payload.get("target_station_mappings", [])
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -1093,6 +1125,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_shape_fix_feasibility"
         / "main_wing_station_seam_shape_fix_feasibility.v1.json"
     )
+    station_seam_export_source_audit_path = (
+        root
+        / "main_wing_station_seam_export_source_audit"
+        / "main_wing_station_seam_export_source_audit.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1148,6 +1185,9 @@ def build_main_wing_route_readiness_report(
     )
     station_seam_shape_fix_feasibility = _load_json(
         station_seam_shape_fix_feasibility_path
+    )
+    station_seam_export_source_audit = _load_json(
+        station_seam_export_source_audit_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -1804,6 +1844,26 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(station_seam_shape_fix_feasibility),
         ),
         _stage(
+            stage="station_seam_export_source_audit",
+            status=_station_seam_export_source_audit_status(
+                station_seam_export_source_audit
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(station_seam_export_source_audit, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_export_source_audit_path
+                if isinstance(station_seam_export_source_audit, dict)
+                else None
+            ),
+            observed=_station_seam_export_source_audit_observed(
+                station_seam_export_source_audit
+            ),
+            blockers=_blocking_reasons(station_seam_export_source_audit),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -2089,6 +2149,26 @@ def build_main_wing_route_readiness_report(
         )
         if isinstance(shape_fix_next_actions, list) and shape_fix_next_actions:
             next_actions[0] = str(shape_fix_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_export_source_audit, dict)
+        and station_seam_export_source_audit.get("audit_status")
+        in {
+            "single_rule_internal_station_export_source_confirmed",
+            "export_source_audit_captured",
+            "blocked",
+        }
+    ):
+        export_source_next_actions = station_seam_export_source_audit.get(
+            "next_actions",
+            [],
+        )
+        if (
+            isinstance(export_source_next_actions, list)
+            and export_source_next_actions
+        ):
+            next_actions[0] = str(export_source_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

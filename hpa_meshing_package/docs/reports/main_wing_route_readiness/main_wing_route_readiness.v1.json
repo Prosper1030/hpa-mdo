@@ -2289,6 +2289,142 @@
       ]
     },
     {
+      "stage": "station_seam_export_source_audit",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_source_audit/main_wing_station_seam_export_source_audit.v1.json",
+      "observed": {
+        "audit_status": "single_rule_internal_station_export_source_confirmed",
+        "csm_summary": {
+          "rule_count": 1,
+          "sketch_section_count": 11,
+          "dump_count": 1,
+          "union_count": 0,
+          "single_rule_multi_section_loft": true,
+          "station_y_values_m": [
+            -16.5,
+            -13.5,
+            -10.5,
+            -7.5,
+            -4.5,
+            0.0,
+            4.5,
+            7.5,
+            10.5,
+            13.5,
+            16.5
+          ],
+          "sections": [
+            {
+              "csm_section_index": 0,
+              "station_y_m": -16.5,
+              "line_count": 58
+            },
+            {
+              "csm_section_index": 1,
+              "station_y_m": -13.5,
+              "line_count": 58
+            },
+            {
+              "csm_section_index": 2,
+              "station_y_m": -10.5,
+              "line_count": 60
+            },
+            {
+              "csm_section_index": 3,
+              "station_y_m": -7.5,
+              "line_count": 60
+            },
+            {
+              "csm_section_index": 4,
+              "station_y_m": -4.5,
+              "line_count": 60
+            },
+            {
+              "csm_section_index": 5,
+              "station_y_m": 0.0,
+              "line_count": 60
+            },
+            {
+              "csm_section_index": 6,
+              "station_y_m": 4.5,
+              "line_count": 60
+            },
+            {
+              "csm_section_index": 7,
+              "station_y_m": 7.5,
+              "line_count": 60
+            },
+            {
+              "csm_section_index": 8,
+              "station_y_m": 10.5,
+              "line_count": 60
+            },
+            {
+              "csm_section_index": 9,
+              "station_y_m": 13.5,
+              "line_count": 58
+            },
+            {
+              "csm_section_index": 10,
+              "station_y_m": 16.5,
+              "line_count": 58
+            }
+          ]
+        },
+        "target_station_mappings": [
+          {
+            "defect_station_y_m": -10.5,
+            "candidate_curve_tags": [
+              36
+            ],
+            "owner_surface_entity_tags": [
+              12,
+              13
+            ],
+            "fixture_source_section_index": 3,
+            "csm_section_index": 2,
+            "csm_station_role": "internal_station",
+            "lineage_rule_section_index": 2,
+            "lineage_source_section_index": 3,
+            "lineage_mirrored": true,
+            "lineage_side": "left_span"
+          },
+          {
+            "defect_station_y_m": 13.5,
+            "candidate_curve_tags": [
+              50
+            ],
+            "owner_surface_entity_tags": [
+              19,
+              20
+            ],
+            "fixture_source_section_index": 4,
+            "csm_section_index": 9,
+            "csm_station_role": "internal_station",
+            "lineage_rule_section_index": 9,
+            "lineage_source_section_index": 4,
+            "lineage_mirrored": false,
+            "lineage_side": "right_span"
+          }
+        ],
+        "engineering_findings": [
+          "station_seam_export_source_audit_captured",
+          "opencsm_export_uses_single_rule_loft_over_multiple_sections",
+          "station_defects_map_to_internal_rule_sections",
+          "generic_occt_edge_fix_sweeps_exhausted_without_recovery",
+          "export_strategy_probe_is_next_geometry_gate"
+        ],
+        "next_actions": [
+          "prototype_station_seam_export_strategy_before_solver_budget",
+          "compare_split_bay_or_pcurve_rebuild_candidate_against_station_fixture"
+        ]
+      },
+      "blockers": [
+        "station_single_rule_internal_export_source_requires_strategy_probe"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -2328,10 +2464,11 @@
     "station_seam_repair_required_before_solver_budget",
     "station_seam_brep_hotspot_suspect",
     "station_same_parameter_repair_not_recovered",
-    "station_shape_fix_repair_not_recovered"
+    "station_shape_fix_repair_not_recovered",
+    "station_single_rule_internal_export_source_requires_strategy_probe"
   ],
   "next_actions": [
-    "rebuild_station_pcurves_or_export_station_seams_before_meshing_policy",
+    "prototype_station_seam_export_strategy_before_solver_budget",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

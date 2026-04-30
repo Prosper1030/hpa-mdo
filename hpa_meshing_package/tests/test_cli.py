@@ -554,6 +554,32 @@ def test_parser_supports_main_wing_station_seam_shape_fix_feasibility_command():
     ]
 
 
+def test_parser_supports_main_wing_station_seam_export_source_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-export-source-audit",
+            "--out",
+            "artifacts/main_wing_station_seam_export_source_audit",
+            "--shape-fix-feasibility",
+            "artifacts/main_wing/shape_fix.json",
+            "--topology-fixture",
+            "artifacts/main_wing/station_fixture.json",
+            "--rebuild-csm",
+            "artifacts/main_wing/rebuild.csm",
+            "--topology-lineage",
+            "artifacts/main_wing/topology_lineage_report.json",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-export-source-audit"
+    assert args.out == "artifacts/main_wing_station_seam_export_source_audit"
+    assert args.shape_fix_feasibility == "artifacts/main_wing/shape_fix.json"
+    assert args.topology_fixture == "artifacts/main_wing/station_fixture.json"
+    assert args.rebuild_csm == "artifacts/main_wing/rebuild.csm"
+    assert args.topology_lineage == "artifacts/main_wing/topology_lineage_report.json"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(
