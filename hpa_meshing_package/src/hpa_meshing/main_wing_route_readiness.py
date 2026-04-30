@@ -26,6 +26,7 @@ StageType = Literal[
     "openvsp_defect_station_audit",
     "gmsh_defect_entity_trace",
     "gmsh_curve_station_rebuild_audit",
+    "openvsp_section_station_topology_fixture",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -787,6 +788,34 @@ def _gmsh_curve_station_rebuild_audit_observed(
     }
 
 
+def _openvsp_section_station_topology_fixture_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "blocked" if payload.get("topology_fixture_status") == "blocked" else "pass"
+
+
+def _openvsp_section_station_topology_fixture_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "topology_fixture_status": (
+            None if payload is None else payload.get("topology_fixture_status")
+        ),
+        "fixture_summary": (
+            {} if payload is None else payload.get("fixture_summary", {})
+        ),
+        "station_fixture_cases": (
+            [] if payload is None else payload.get("station_fixture_cases", [])
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -903,6 +932,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_gmsh_curve_station_rebuild_audit"
         / "main_wing_gmsh_curve_station_rebuild_audit.v1.json"
     )
+    openvsp_section_station_topology_fixture_path = (
+        root
+        / "main_wing_openvsp_section_station_topology_fixture"
+        / "main_wing_openvsp_section_station_topology_fixture.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -945,6 +979,9 @@ def build_main_wing_route_readiness_report(
     gmsh_defect_entity_trace = _load_json(gmsh_defect_entity_trace_path)
     gmsh_curve_station_rebuild_audit = _load_json(
         gmsh_curve_station_rebuild_audit_path
+    )
+    openvsp_section_station_topology_fixture = _load_json(
+        openvsp_section_station_topology_fixture_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -1503,6 +1540,26 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(gmsh_curve_station_rebuild_audit),
         ),
         _stage(
+            stage="openvsp_section_station_topology_fixture",
+            status=_openvsp_section_station_topology_fixture_status(
+                openvsp_section_station_topology_fixture
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(openvsp_section_station_topology_fixture, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                openvsp_section_station_topology_fixture_path
+                if isinstance(openvsp_section_station_topology_fixture, dict)
+                else None
+            ),
+            observed=_openvsp_section_station_topology_fixture_observed(
+                openvsp_section_station_topology_fixture
+            ),
+            blockers=_blocking_reasons(openvsp_section_station_topology_fixture),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1711,6 +1768,19 @@ def build_main_wing_route_readiness_report(
         curve_next_actions = gmsh_curve_station_rebuild_audit.get("next_actions", [])
         if isinstance(curve_next_actions, list) and curve_next_actions:
             next_actions[0] = str(curve_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(openvsp_section_station_topology_fixture, dict)
+        and openvsp_section_station_topology_fixture.get("topology_fixture_status")
+        == "real_defect_station_fixture_materialized"
+    ):
+        fixture_next_actions = openvsp_section_station_topology_fixture.get(
+            "next_actions",
+            [],
+        )
+        if isinstance(fixture_next_actions, list) and fixture_next_actions:
+            next_actions[0] = str(fixture_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

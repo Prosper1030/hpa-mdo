@@ -1156,6 +1156,90 @@ def test_main_wing_route_readiness_records_gmsh_curve_station_rebuild_audit_stag
     )
 
 
+def test_main_wing_route_readiness_records_openvsp_section_station_topology_fixture_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_openvsp_section_station_topology_fixture"
+        / "main_wing_openvsp_section_station_topology_fixture.v1.json",
+        {
+            "topology_fixture_status": (
+                "real_defect_station_fixture_materialized"
+            ),
+            "fixture_summary": {
+                "station_fixture_count": 2,
+                "total_boundary_edge_count": 4,
+                "total_nonmanifold_edge_count": 2,
+                "candidate_curve_tags": [36, 50],
+            },
+            "station_fixture_cases": [
+                {
+                    "defect_station_y_m": -10.5,
+                    "source_section_index": 3,
+                }
+            ],
+            "engineering_findings": [
+                "real_defect_station_topology_fixture_materialized"
+            ],
+            "next_actions": [
+                "decide_station_seam_repair_before_solver_iteration_budget"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    fixture_stage = stages["openvsp_section_station_topology_fixture"]
+    assert fixture_stage.status == "pass"
+    assert fixture_stage.evidence_kind == "real"
+    assert fixture_stage.observed["fixture_summary"]["candidate_curve_tags"] == [36, 50]
+    assert report.next_actions[0] == (
+        "decide_station_seam_repair_before_solver_iteration_budget"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

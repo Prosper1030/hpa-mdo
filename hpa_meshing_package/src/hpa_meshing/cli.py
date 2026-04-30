@@ -106,6 +106,10 @@ from .main_wing_gmsh_curve_station_rebuild_audit import (
     build_main_wing_gmsh_curve_station_rebuild_audit_report,
     write_main_wing_gmsh_curve_station_rebuild_audit_report,
 )
+from .main_wing_openvsp_section_station_topology_fixture import (
+    build_main_wing_openvsp_section_station_topology_fixture_report,
+    write_main_wing_openvsp_section_station_topology_fixture_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -637,6 +641,34 @@ def cmd_main_wing_gmsh_curve_station_rebuild_audit(args: argparse.Namespace) -> 
     return 0 if report.curve_station_rebuild_status != "blocked" else 2
 
 
+def cmd_main_wing_openvsp_section_station_topology_fixture(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    gmsh_defect_entity_trace_path = (
+        None
+        if args.gmsh_defect_entity_trace is None
+        else Path(args.gmsh_defect_entity_trace)
+    )
+    gmsh_curve_station_rebuild_audit_path = (
+        None
+        if args.gmsh_curve_station_rebuild_audit is None
+        else Path(args.gmsh_curve_station_rebuild_audit)
+    )
+    report = build_main_wing_openvsp_section_station_topology_fixture_report(
+        gmsh_defect_entity_trace_path=gmsh_defect_entity_trace_path,
+        gmsh_curve_station_rebuild_audit_path=gmsh_curve_station_rebuild_audit_path,
+    )
+    write_main_wing_openvsp_section_station_topology_fixture_report(
+        out_dir,
+        report=report,
+        gmsh_defect_entity_trace_path=gmsh_defect_entity_trace_path,
+        gmsh_curve_station_rebuild_audit_path=gmsh_curve_station_rebuild_audit_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.topology_fixture_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1156,6 +1188,26 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_gmsh_curve_station_rebuild_audit.add_argument("--source-vsp3", type=str)
     main_wing_gmsh_curve_station_rebuild_audit.set_defaults(
         func=cmd_main_wing_gmsh_curve_station_rebuild_audit
+    )
+
+    main_wing_openvsp_section_station_topology_fixture = sub.add_parser(
+        "main-wing-openvsp-section-station-topology-fixture"
+    )
+    main_wing_openvsp_section_station_topology_fixture.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_openvsp_section_station_topology_fixture.add_argument(
+        "--gmsh-defect-entity-trace",
+        type=str,
+    )
+    main_wing_openvsp_section_station_topology_fixture.add_argument(
+        "--gmsh-curve-station-rebuild-audit",
+        type=str,
+    )
+    main_wing_openvsp_section_station_topology_fixture.set_defaults(
+        func=cmd_main_wing_openvsp_section_station_topology_fixture
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

@@ -423,6 +423,28 @@ def test_parser_supports_main_wing_gmsh_curve_station_rebuild_audit_command():
     assert args.source_vsp3 == "artifacts/main_wing/main_wing.vsp3"
 
 
+def test_parser_supports_main_wing_openvsp_section_station_topology_fixture_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-openvsp-section-station-topology-fixture",
+            "--out",
+            "artifacts/main_wing_openvsp_section_station_topology_fixture",
+            "--gmsh-defect-entity-trace",
+            "artifacts/main_wing/entity_trace.json",
+            "--gmsh-curve-station-rebuild-audit",
+            "artifacts/main_wing/curve_audit.json",
+        ]
+    )
+
+    assert args.command == "main-wing-openvsp-section-station-topology-fixture"
+    assert args.out == "artifacts/main_wing_openvsp_section_station_topology_fixture"
+    assert args.gmsh_defect_entity_trace == "artifacts/main_wing/entity_trace.json"
+    assert args.gmsh_curve_station_rebuild_audit == (
+        "artifacts/main_wing/curve_audit.json"
+    )
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

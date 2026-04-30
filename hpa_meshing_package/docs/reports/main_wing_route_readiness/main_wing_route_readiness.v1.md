@@ -32,6 +32,7 @@
 | `openvsp_defect_station_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_defect_station_audit/main_wing_openvsp_defect_station_audit.v1.json` |
 | `gmsh_defect_entity_trace` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_gmsh_defect_entity_trace/main_wing_gmsh_defect_entity_trace.v1.json` |
 | `gmsh_curve_station_rebuild_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_gmsh_curve_station_rebuild_audit/main_wing_gmsh_curve_station_rebuild_audit.v1.json` |
+| `openvsp_section_station_topology_fixture` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_section_station_topology_fixture/main_wing_openvsp_section_station_topology_fixture.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -56,7 +57,7 @@
 
 ## Next Actions
 
-- `build_minimal_openvsp_section_station_topology_fixture`
+- `decide_station_seam_repair_before_solver_iteration_budget`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 
