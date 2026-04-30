@@ -227,6 +227,23 @@ def test_parser_supports_main_wing_route_readiness_command():
     assert args.out == "artifacts/main_wing_route_readiness"
 
 
+def test_parser_supports_main_wing_solver_budget_comparison_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-solver-budget-comparison",
+            "--out",
+            "artifacts/main_wing_solver_budget_comparison",
+            "--report-root",
+            "docs/reports",
+        ]
+    )
+
+    assert args.command == "main-wing-solver-budget-comparison"
+    assert args.out == "artifacts/main_wing_solver_budget_comparison"
+    assert args.report_root == "docs/reports"
+
+
 def test_parser_supports_main_wing_real_su2_handoff_probe_command():
     parser = build_parser()
     args = parser.parse_args(
@@ -604,3 +621,35 @@ def test_python_m_cli_writes_component_family_smoke_matrix_report(tmp_path: Path
     assert payload["no_gmsh_execution"] is True
     assert (out_dir / "component_family_route_smoke_matrix.v1.json").exists()
     assert (out_dir / "component_family_route_smoke_matrix.v1.md").exists()
+
+
+def test_python_m_cli_writes_main_wing_solver_budget_comparison_report(
+    tmp_path: Path,
+):
+    out_dir = tmp_path / "solver_budget_comparison"
+    package_root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "hpa_meshing.cli",
+            "main-wing-solver-budget-comparison",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=package_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["schema_version"] == "main_wing_solver_budget_comparison.v1"
+    assert payload["hpa_standard_flow_status"] == "hpa_standard_6p5_observed"
+    assert (out_dir / "main_wing_solver_budget_comparison.v1.json").exists()
+    assert (out_dir / "main_wing_solver_budget_comparison.v1.md").exists()

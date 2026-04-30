@@ -1,0 +1,252 @@
+{
+  "schema_version": "main_wing_solver_budget_comparison.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_existing_solver_smokes",
+  "hpa_standard_velocity_mps": 6.5,
+  "hpa_standard_flow_status": "hpa_standard_6p5_observed",
+  "report_status": "solver_budget_nonconverged",
+  "current_route_row": {
+    "reference_policy": "openvsp_geometry_derived",
+    "runtime_max_iterations": 80,
+    "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json",
+    "convergence_gate_status": "warn",
+    "convergence_comparability_level": "run_only",
+    "residual_median_log_drop": 0.3579933982500001,
+    "coefficient_stability_status": "pass",
+    "final_coefficients": {
+      "cl": 0.263161913,
+      "cd": 0.02496911575,
+      "cm": -0.2096803732,
+      "cm_axis": "CMy"
+    },
+    "advisory_flags": [
+      "convergence_gate_not_passed",
+      "residual_drop_below_threshold",
+      "reference_geometry_warn",
+      "mesh_quality_cv_sub_volume_ratio_high",
+      "mesh_quality_cv_face_area_aspect_ratio_high",
+      "overall_gate_warning:iterative_gate=warn",
+      "overall_gate_warning:reference_gate=warn"
+    ]
+  },
+  "rows": [
+    {
+      "reference_policy": "declared_blackcat_full_span",
+      "report_role": "baseline_smoke",
+      "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json",
+      "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/artifacts/convergence_gate.v1.json",
+      "runtime_max_iterations": 12,
+      "final_iteration": 11,
+      "solver_execution_status": "solver_executed",
+      "run_status": "solver_executed_but_not_converged",
+      "convergence_gate_status": "fail",
+      "convergence_comparability_level": "not_comparable",
+      "reference_geometry_status": "warn",
+      "observed_velocity_mps": 6.5,
+      "final_coefficients": {
+        "cl": 0.2642006921,
+        "cd": 0.01886786009,
+        "cm": -0.1388126065,
+        "cm_axis": "CMy"
+      },
+      "residual_median_log_drop": 0.16274343150000004,
+      "coefficient_stability_status": "fail",
+      "coefficient_stability_by_axis": {
+        "cl": "fail",
+        "cd": "fail",
+        "cm": "fail"
+      },
+      "solver_log_quality_metrics": {},
+      "advisory_flags": [
+        "convergence_gate_not_passed",
+        "residual_drop_below_threshold",
+        "coefficient_tail_not_stable",
+        "reference_geometry_warn",
+        "overall_gate_warning:iterative_gate=fail",
+        "overall_gate_warning:reference_gate=warn"
+      ]
+    },
+    {
+      "reference_policy": "declared_blackcat_full_span",
+      "report_role": "budget_probe",
+      "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe_iter40/main_wing_real_solver_smoke_probe.v1.json",
+      "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe_iter40/artifacts/convergence_gate.v1.json",
+      "runtime_max_iterations": 40,
+      "final_iteration": 39,
+      "solver_execution_status": "solver_executed",
+      "run_status": "solver_executed_but_not_converged",
+      "convergence_gate_status": "warn",
+      "convergence_comparability_level": "run_only",
+      "reference_geometry_status": "warn",
+      "observed_velocity_mps": 6.5,
+      "final_coefficients": {
+        "cl": 0.2719146364,
+        "cd": 0.02596997971,
+        "cm": -0.1467861013,
+        "cm_axis": "CMy"
+      },
+      "residual_median_log_drop": 0.21684479150000002,
+      "coefficient_stability_status": "pass",
+      "coefficient_stability_by_axis": {
+        "cl": "pass",
+        "cd": "pass",
+        "cm": "pass"
+      },
+      "solver_log_quality_metrics": {},
+      "advisory_flags": [
+        "convergence_gate_not_passed",
+        "residual_drop_below_threshold",
+        "reference_geometry_warn",
+        "overall_gate_warning:iterative_gate=warn",
+        "overall_gate_warning:reference_gate=warn"
+      ]
+    },
+    {
+      "reference_policy": "openvsp_geometry_derived",
+      "report_role": "baseline_smoke",
+      "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json",
+      "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe/artifacts/convergence_gate.v1.json",
+      "runtime_max_iterations": 12,
+      "final_iteration": 11,
+      "solver_execution_status": "solver_executed",
+      "run_status": "solver_executed_but_not_converged",
+      "convergence_gate_status": "fail",
+      "convergence_comparability_level": "not_comparable",
+      "reference_geometry_status": "warn",
+      "observed_velocity_mps": 6.5,
+      "final_coefficients": {
+        "cl": 0.2602573982,
+        "cd": 0.01858625024,
+        "cm": -0.2032569615,
+        "cm_axis": "CMy"
+      },
+      "residual_median_log_drop": 0.16274343150000004,
+      "coefficient_stability_status": "fail",
+      "coefficient_stability_by_axis": {
+        "cl": "fail",
+        "cd": "fail",
+        "cm": "fail"
+      },
+      "solver_log_quality_metrics": {},
+      "advisory_flags": [
+        "convergence_gate_not_passed",
+        "residual_drop_below_threshold",
+        "coefficient_tail_not_stable",
+        "reference_geometry_warn",
+        "overall_gate_warning:iterative_gate=fail",
+        "overall_gate_warning:reference_gate=warn"
+      ]
+    },
+    {
+      "reference_policy": "openvsp_geometry_derived",
+      "report_role": "budget_probe",
+      "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter40/main_wing_real_solver_smoke_probe.v1.json",
+      "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter40/artifacts/convergence_gate.v1.json",
+      "runtime_max_iterations": 40,
+      "final_iteration": 39,
+      "solver_execution_status": "solver_executed",
+      "run_status": "solver_executed_but_not_converged",
+      "convergence_gate_status": "warn",
+      "convergence_comparability_level": "run_only",
+      "reference_geometry_status": "warn",
+      "observed_velocity_mps": 6.5,
+      "final_coefficients": {
+        "cl": 0.267856209,
+        "cd": 0.02558236807,
+        "cm": -0.2130813257,
+        "cm_axis": "CMy"
+      },
+      "residual_median_log_drop": 0.21684479150000002,
+      "coefficient_stability_status": "pass",
+      "coefficient_stability_by_axis": {
+        "cl": "pass",
+        "cd": "pass",
+        "cm": "pass"
+      },
+      "solver_log_quality_metrics": {},
+      "advisory_flags": [
+        "convergence_gate_not_passed",
+        "residual_drop_below_threshold",
+        "reference_geometry_warn",
+        "overall_gate_warning:iterative_gate=warn",
+        "overall_gate_warning:reference_gate=warn"
+      ]
+    },
+    {
+      "reference_policy": "openvsp_geometry_derived",
+      "report_role": "budget_probe",
+      "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json",
+      "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/convergence_gate.v1.json",
+      "runtime_max_iterations": 80,
+      "final_iteration": 79,
+      "solver_execution_status": "solver_executed",
+      "run_status": "solver_executed_but_not_converged",
+      "convergence_gate_status": "warn",
+      "convergence_comparability_level": "run_only",
+      "reference_geometry_status": "warn",
+      "observed_velocity_mps": 6.5,
+      "final_coefficients": {
+        "cl": 0.263161913,
+        "cd": 0.02496911575,
+        "cm": -0.2096803732,
+        "cm_axis": "CMy"
+      },
+      "residual_median_log_drop": 0.3579933982500001,
+      "coefficient_stability_status": "pass",
+      "coefficient_stability_by_axis": {
+        "cl": "pass",
+        "cd": "pass",
+        "cm": "pass"
+      },
+      "solver_log_quality_metrics": {
+        "surface_curvature": {
+          "max": 1768.33,
+          "mean": 23.2247,
+          "std": 107.701
+        },
+        "dual_control_volume_quality": {
+          "orthogonality_angle_deg": {
+            "min": 31.473,
+            "max": 84.6248
+          },
+          "cv_face_area_aspect_ratio": {
+            "min": 1.2135,
+            "max": 377.909
+          },
+          "cv_sub_volume_ratio": {
+            "min": 1.00013,
+            "max": 13256.1
+          }
+        }
+      },
+      "advisory_flags": [
+        "convergence_gate_not_passed",
+        "residual_drop_below_threshold",
+        "reference_geometry_warn",
+        "mesh_quality_cv_sub_volume_ratio_high",
+        "mesh_quality_cv_face_area_aspect_ratio_high",
+        "overall_gate_warning:iterative_gate=warn",
+        "overall_gate_warning:reference_gate=warn"
+      ]
+    }
+  ],
+  "engineering_assessment": [
+    "This comparison is report-only and does not execute SU2.",
+    "Solver execution is treated separately from convergence; only a pass gate can be called converged.",
+    "The highest available current-route budget remains non-converged or warn-only.",
+    "Current-route coefficient tails are stable, but residual and reference gates still limit comparability.",
+    "SU2 mesh-quality diagnostics now point at local mesh quality as a better next suspect than simply adding iterations.",
+    "Reference geometry remains warn-level, so moments and force comparability are not final engineering evidence."
+  ],
+  "next_actions": [
+    "inspect_main_wing_mesh_quality_before_more_iterations",
+    "compare_solver_numerics_and_mesh_local_sizing_before_larger_budget",
+    "resolve_main_wing_reference_area_and_moment_origin_policy"
+  ],
+  "limitations": [
+    "This report reads existing solver-smoke and convergence-gate artifacts only.",
+    "A stable coefficient tail is not a convergence claim when residual or reference gates warn.",
+    "Mesh-quality advisory flags are triage signals, not replacement convergence gates.",
+    "The current upstream mesh remains a coarse bounded non-BL probe."
+  ]
+}
