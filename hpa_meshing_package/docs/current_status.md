@@ -310,6 +310,23 @@ project must not invent a convergence standard from the current short smoke
 budgets. Engineering convergence claims need a source-backed solver budget and
 stopping policy before they can be used for validation.
 
+The main-wing geometry-provenance probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-geometry-provenance-probe --out .tmp/runs/main_wing_geometry_provenance_probe
+```
+
+This writes `main_wing_geometry_provenance_probe.v1.json` and
+`main_wing_geometry_provenance_probe.v1.md`. The current committed result is
+`provenance_available`: the source OpenVSP `Main Wing` has
+`Y_Rotation=3 deg`, six parsed sections with zero local twist, and embedded
+cambered airfoil coordinates (`FX 76-MP-140` across most sections and
+`CLARK-Y 11.7% smoothed` at the tip). Engineering interpretation: the
+alpha-zero SU2 smoke is not a zero-lift geometry point, so positive
+`CL ~= 0.26` is physically plausible; it still fails the main-wing
+`CL > 1.0` lift-acceptance gate at `V=6.5 m/s`.
+
 The main-wing lift-acceptance diagnostic is emitted by:
 
 ```bash

@@ -74,6 +74,10 @@ from .main_wing_lift_acceptance_diagnostic import (
     build_main_wing_lift_acceptance_diagnostic_report,
     write_main_wing_lift_acceptance_diagnostic_report,
 )
+from .main_wing_geometry_provenance_probe import (
+    build_main_wing_geometry_provenance_probe_report,
+    write_main_wing_geometry_provenance_probe_report,
+)
 from .main_wing_esp_rebuilt_geometry_smoke import (
     build_main_wing_esp_rebuilt_geometry_smoke_report,
     write_main_wing_esp_rebuilt_geometry_smoke_report,
@@ -431,6 +435,19 @@ def cmd_main_wing_lift_acceptance_diagnostic(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_main_wing_geometry_provenance_probe(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    source_path = None if args.source is None else Path(args.source)
+    report = build_main_wing_geometry_provenance_probe_report(source_path=source_path)
+    write_main_wing_geometry_provenance_probe_report(
+        out_dir,
+        report=report,
+        source_path=source_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.geometry_provenance_status == "provenance_available" else 2
+
+
 def cmd_main_wing_real_su2_handoff_probe(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     source_path = None if args.source is None else Path(args.source)
@@ -731,6 +748,15 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_lift_acceptance.add_argument("--report-root", type=str)
     main_wing_lift_acceptance.set_defaults(
         func=cmd_main_wing_lift_acceptance_diagnostic
+    )
+
+    main_wing_geometry_provenance = sub.add_parser(
+        "main-wing-geometry-provenance-probe"
+    )
+    main_wing_geometry_provenance.add_argument("--out", type=str, required=True)
+    main_wing_geometry_provenance.add_argument("--source", type=str)
+    main_wing_geometry_provenance.set_defaults(
+        func=cmd_main_wing_geometry_provenance_probe
     )
 
     main_wing_real_su2_probe = sub.add_parser("main-wing-real-su2-handoff-probe")
