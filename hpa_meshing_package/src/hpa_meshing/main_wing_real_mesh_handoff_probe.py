@@ -30,6 +30,7 @@ MarkerSummaryStatusType = Literal[
     "unavailable",
 ]
 ProbeProfileType = Literal["coarse_first_volume_insertion_probe_not_production_default"]
+MeshFailureClassificationType = Literal["invalid_boundary_mesh_overlapping_facets"]
 
 
 PROBE_PROFILE: ProbeProfileType = "coarse_first_volume_insertion_probe_not_production_default"
@@ -106,6 +107,7 @@ class MainWingRealMeshHandoffProbeReport(BaseModel):
     mesh2d_watchdog_status: str | None = None
     mesh3d_watchdog_status: str | None = None
     mesh3d_timeout_phase_classification: str | None = None
+    mesh_failure_classification: MeshFailureClassificationType | None = None
     mesh3d_nodes_created_per_boundary_node: float | None = None
     mesh3d_iteration_count: int | None = None
     mesh3d_latest_worst_tet_radius: float | None = None
@@ -166,6 +168,18 @@ def _mesh_payload(result: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     mesh = result.get("mesh")
     return mesh if isinstance(mesh, dict) else {}
+
+
+def _mesh_failure_classification(
+    *,
+    failure_code: str | None,
+    error: str | None,
+) -> MeshFailureClassificationType | None:
+    if failure_code == "gmsh_invalid_boundary_mesh":
+        return "invalid_boundary_mesh_overlapping_facets"
+    if isinstance(error, str) and "Invalid boundary mesh" in error and "overlapping facets" in error:
+        return "invalid_boundary_mesh_overlapping_facets"
+    return None
 
 
 def _run_bounded_mesh_job(
@@ -366,11 +380,30 @@ def build_main_wing_real_mesh_handoff_probe_report(
     family_hint_counts = surface_patch_diagnostics.get("family_hint_counts")
     suspicious_surfaces = surface_patch_diagnostics.get("suspicious_surfaces")
     mesh3d_timeout_phase = mesh3d_watchdog.get("timeout_phase_classification")
+    failure_code = (
+        result.get("failure_code")
+        if isinstance(result, dict) and isinstance(result.get("failure_code"), str)
+        else None
+    )
+    error = (
+        result.get("error")
+        if isinstance(result, dict) and isinstance(result.get("error"), str)
+        else mesh_run.get("error") if isinstance(mesh_run.get("error"), str) else None
+    )
+    mesh_failure_classification = _mesh_failure_classification(
+        failure_code=failure_code,
+        error=error,
+    )
     if (
         probe_status == "mesh_handoff_timeout"
         and mesh3d_timeout_phase == "volume_insertion"
     ):
         blocking_reasons.insert(1, "main_wing_real_geometry_mesh3d_volume_insertion_timeout")
+    if mesh_failure_classification == "invalid_boundary_mesh_overlapping_facets":
+        blocking_reasons.insert(
+            1,
+            "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets",
+        )
 
     hpa_mdo_guarantees = [
         "real_vsp3_source_consumed",
@@ -399,16 +432,8 @@ def build_main_wing_real_mesh_handoff_probe_report(
         bounded_probe_timeout_seconds=float(timeout_seconds),
         probe_global_min_size=float(global_min_size),
         probe_global_max_size=float(global_max_size),
-        failure_code=(
-            result.get("failure_code")
-            if isinstance(result, dict) and isinstance(result.get("failure_code"), str)
-            else None
-        ),
-        error=(
-            result.get("error")
-            if isinstance(result, dict) and isinstance(result.get("error"), str)
-            else mesh_run.get("error") if isinstance(mesh_run.get("error"), str) else None
-        ),
+        failure_code=failure_code,
+        error=error,
         provider_surface_count=provider_report.surface_count,
         provider_body_count=provider_report.body_count,
         provider_volume_count=provider_report.volume_count,
@@ -462,6 +487,7 @@ def build_main_wing_real_mesh_handoff_probe_report(
         mesh3d_timeout_phase_classification=(
             mesh3d_timeout_phase if isinstance(mesh3d_timeout_phase, str) else None
         ),
+        mesh_failure_classification=mesh_failure_classification,
         mesh3d_nodes_created_per_boundary_node=(
             float(mesh3d_watchdog["nodes_created_per_boundary_node"])
             if isinstance(mesh3d_watchdog.get("nodes_created_per_boundary_node"), (int, float))
@@ -528,6 +554,7 @@ def _render_markdown(report: MainWingRealMeshHandoffProbeReport) -> str:
         f"- mesh2d_watchdog_status: `{report.mesh2d_watchdog_status}`",
         f"- mesh3d_watchdog_status: `{report.mesh3d_watchdog_status}`",
         f"- mesh3d_timeout_phase_classification: `{report.mesh3d_timeout_phase_classification}`",
+        f"- mesh_failure_classification: `{report.mesh_failure_classification}`",
         f"- mesh3d_nodes_created_per_boundary_node: `{report.mesh3d_nodes_created_per_boundary_node}`",
         f"- error: `{report.error}`",
         "",

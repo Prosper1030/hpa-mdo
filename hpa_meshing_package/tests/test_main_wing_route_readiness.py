@@ -105,6 +105,39 @@ def test_main_wing_route_readiness_summarizes_stage_truth(tmp_path: Path):
     assert "repair_real_main_wing_mesh3d_volume_insertion_policy" in report.next_actions
 
 
+def test_main_wing_route_readiness_prioritizes_invalid_boundary_mesh_action(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh["failure_code"] = "gmsh_invalid_boundary_mesh"
+    real_mesh["mesh_failure_classification"] = "invalid_boundary_mesh_overlapping_facets"
+    real_mesh["blocking_reasons"] = [
+        "main_wing_real_geometry_mesh_handoff_blocked",
+        "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets",
+    ]
+    _write_json(real_mesh_path, real_mesh)
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    assert stages["real_mesh_handoff"].observed["mesh_failure_classification"] == (
+        "invalid_boundary_mesh_overlapping_facets"
+    )
+    assert report.next_actions[0] == (
+        "repair_real_main_wing_boundary_overlap_before_volume_meshing"
+    )
+    assert (
+        "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets"
+        in report.blocking_reasons
+    )
+
+
 def test_main_wing_route_readiness_writer_outputs_json_and_markdown(tmp_path: Path):
     paths = write_main_wing_route_readiness_report(
         tmp_path / "out",

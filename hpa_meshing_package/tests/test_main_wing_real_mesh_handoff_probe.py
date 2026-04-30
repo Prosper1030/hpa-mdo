@@ -177,6 +177,76 @@ def test_main_wing_real_mesh_handoff_probe_records_bounded_timeout(
     assert "bounded_mesh_probe_executed" in report.hpa_mdo_guarantees
 
 
+def test_main_wing_real_mesh_handoff_probe_classifies_invalid_boundary_mesh(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "blackcat_004_origin.vsp3"
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.build_main_wing_esp_rebuilt_geometry_smoke_report",
+        lambda out_dir, source_path=None: _provider_report(tmp_path),
+    )
+
+    def _failed_runner(**kwargs):
+        mesh_dir = kwargs["case_dir"] / "artifacts" / "mesh"
+        mesh_dir.mkdir(parents=True, exist_ok=True)
+        (mesh_dir / "mesh2d_watchdog.json").write_text(
+            '{"status": "completed_without_timeout"}\n',
+            encoding="utf-8",
+        )
+        (mesh_dir / "mesh3d_watchdog.json").write_text(
+            (
+                "{"
+                '"status": "failed_without_timeout", '
+                '"timeout_phase_classification": "boundary_recovery"'
+                "}\n"
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "status": "failed",
+            "timeout_seconds": 12.0,
+            "result": {
+                "status": "failed",
+                "failure_code": "gmsh_invalid_boundary_mesh",
+                "error": "Invalid boundary mesh (overlapping facets) on surface 39 surface 58",
+                "mesh": {
+                    "node_count": 3894,
+                    "element_count": 8737,
+                    "surface_element_count": 7780,
+                    "volume_element_count": 0,
+                },
+            },
+            "error": "child stderr should not hide the structured gmsh error",
+        }
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe._run_bounded_mesh_job",
+        _failed_runner,
+    )
+
+    report = build_main_wing_real_mesh_handoff_probe_report(
+        tmp_path / "probe",
+        source_path=source,
+        global_min_size=0.35,
+        global_max_size=1.4,
+    )
+
+    assert report.probe_status == "mesh_handoff_blocked"
+    assert report.mesh_probe_status == "failed"
+    assert report.mesh_failure_classification == "invalid_boundary_mesh_overlapping_facets"
+    assert (
+        "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets"
+        in report.blocking_reasons
+    )
+    assert report.failure_code == "gmsh_invalid_boundary_mesh"
+    assert report.mesh3d_watchdog_status == "failed_without_timeout"
+    assert report.mesh3d_timeout_phase_classification == "boundary_recovery"
+    assert report.volume_element_count == 0
+
+
 def test_main_wing_real_mesh_probe_child_payload_uses_coarse_first_volume_profile(
     monkeypatch,
     tmp_path: Path,

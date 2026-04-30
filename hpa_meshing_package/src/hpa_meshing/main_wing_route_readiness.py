@@ -191,6 +191,9 @@ def build_main_wing_route_readiness_report(
                 "mesh3d_timeout_phase_classification": (
                     None if real_mesh is None else real_mesh.get("mesh3d_timeout_phase_classification")
                 ),
+                "mesh_failure_classification": (
+                    None if real_mesh is None else real_mesh.get("mesh_failure_classification")
+                ),
                 "mesh3d_nodes_created_per_boundary_node": (
                     None if real_mesh is None else real_mesh.get("mesh3d_nodes_created_per_boundary_node")
                 ),
@@ -265,17 +268,21 @@ def build_main_wing_route_readiness_report(
             if reason not in blocking_reasons:
                 blocking_reasons.append(reason)
 
+    next_actions = [
+        "repair_real_main_wing_mesh3d_volume_insertion_policy",
+        "materialize_real_main_wing_su2_handoff_only_after_real_mesh_handoff_v1",
+        "run_solver_smoke_then_convergence_gate_after_real_su2_handoff",
+    ]
+    if "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets" in blocking_reasons:
+        next_actions[0] = "repair_real_main_wing_boundary_overlap_before_volume_meshing"
+
     return MainWingRouteReadinessReport(
         overall_status=overall_status,
         observed_velocity_mps=observed_velocity,
         hpa_standard_flow_status=hpa_flow_status,
         stages=stages,
         blocking_reasons=blocking_reasons,
-        next_actions=[
-            "repair_real_main_wing_mesh3d_volume_insertion_policy",
-            "materialize_real_main_wing_su2_handoff_only_after_real_mesh_handoff_v1",
-            "run_solver_smoke_then_convergence_gate_after_real_su2_handoff",
-        ],
+        next_actions=next_actions,
         notes=[
             "Synthetic mesh/SU2 stages prove route wiring only; they are not real aircraft CFD evidence.",
             "A materialized SU2 handoff is not a solver run, and a solver run is not convergence.",
