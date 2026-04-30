@@ -2143,6 +2143,59 @@
       ]
     },
     {
+      "stage": "station_seam_brep_hotspot_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_brep_hotspot_probe/main_wing_station_seam_brep_hotspot_probe.v1.json",
+      "observed": {
+        "probe_status": "brep_hotspot_captured_station_edges_suspect",
+        "requested_curve_tags": [
+          36,
+          50
+        ],
+        "requested_surface_tags": [
+          12,
+          13,
+          19,
+          20
+        ],
+        "brep_hotspot_summary": {
+          "hotspot_status": "captured",
+          "shape_valid_default": true,
+          "shape_valid_exact": true,
+          "scale_to_output_units": 0.001,
+          "selected_curve_tags": [
+            36,
+            50
+          ],
+          "selected_surface_tags": [
+            12,
+            13,
+            19,
+            20
+          ],
+          "curve_report_count": 2,
+          "face_report_count": 4
+        },
+        "engineering_findings": [
+          "station_seam_brep_hotspot_report_captured",
+          "station_curve_brep_edges_map_to_gmsh_curves_after_mm_to_m_scale",
+          "station_curve_pcurves_are_present",
+          "station_curve_pcurve_consistency_checks_are_suspect",
+          "station_fixture_failure_not_explained_by_missing_brep_pcurves",
+          "owner_surface_wires_are_closed_connected_and_ordered",
+          "repair_should_target_gmsh_meshing_or_station_surface_connectivity_before_solver_budget"
+        ],
+        "next_actions": [
+          "inspect_station_curve_pcurve_consistency_before_meshing_policy",
+          "rerun_brep_hotspot_probe_after_geometry_export_repair"
+        ]
+      },
+      "blockers": [
+        "station_seam_brep_hotspot_suspect"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -2179,10 +2232,11 @@
     "main_wing_force_breakdown_marker_owned",
     "force_breakdown_matches_solver_history_cl",
     "panel_to_force_breakdown_cl_ratio_above_four",
-    "station_seam_repair_required_before_solver_budget"
+    "station_seam_repair_required_before_solver_budget",
+    "station_seam_brep_hotspot_suspect"
   ],
   "next_actions": [
-    "prototype_station_seam_repair_against_minimal_fixture",
+    "inspect_station_curve_pcurve_consistency_before_meshing_policy",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

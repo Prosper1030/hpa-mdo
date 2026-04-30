@@ -28,6 +28,7 @@ StageType = Literal[
     "gmsh_curve_station_rebuild_audit",
     "openvsp_section_station_topology_fixture",
     "station_seam_repair_decision",
+    "station_seam_brep_hotspot_probe",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -852,6 +853,39 @@ def _station_seam_repair_decision_observed(
     }
 
 
+def _station_seam_brep_hotspot_probe_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("probe_status") == "brep_hotspot_captured_station_edges_valid"
+        else "blocked"
+    )
+
+
+def _station_seam_brep_hotspot_probe_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "probe_status": None if payload is None else payload.get("probe_status"),
+        "requested_curve_tags": (
+            [] if payload is None else payload.get("requested_curve_tags", [])
+        ),
+        "requested_surface_tags": (
+            [] if payload is None else payload.get("requested_surface_tags", [])
+        ),
+        "brep_hotspot_summary": (
+            {} if payload is None else payload.get("brep_hotspot_summary", {})
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -978,6 +1012,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_repair_decision"
         / "main_wing_station_seam_repair_decision.v1.json"
     )
+    station_seam_brep_hotspot_probe_path = (
+        root
+        / "main_wing_station_seam_brep_hotspot_probe"
+        / "main_wing_station_seam_brep_hotspot_probe.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1025,6 +1064,9 @@ def build_main_wing_route_readiness_report(
         openvsp_section_station_topology_fixture_path
     )
     station_seam_repair_decision = _load_json(station_seam_repair_decision_path)
+    station_seam_brep_hotspot_probe = _load_json(
+        station_seam_brep_hotspot_probe_path
+    )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1620,6 +1662,26 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(station_seam_repair_decision),
         ),
         _stage(
+            stage="station_seam_brep_hotspot_probe",
+            status=_station_seam_brep_hotspot_probe_status(
+                station_seam_brep_hotspot_probe
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(station_seam_brep_hotspot_probe, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_brep_hotspot_probe_path
+                if isinstance(station_seam_brep_hotspot_probe, dict)
+                else None
+            ),
+            observed=_station_seam_brep_hotspot_probe_observed(
+                station_seam_brep_hotspot_probe
+            ),
+            blockers=_blocking_reasons(station_seam_brep_hotspot_probe),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1851,6 +1913,21 @@ def build_main_wing_route_readiness_report(
         decision_next_actions = station_seam_repair_decision.get("next_actions", [])
         if isinstance(decision_next_actions, list) and decision_next_actions:
             next_actions[0] = str(decision_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_brep_hotspot_probe, dict)
+        and station_seam_brep_hotspot_probe.get("probe_status")
+        in {
+            "brep_hotspot_captured_station_edges_valid",
+            "brep_hotspot_captured_station_edges_suspect",
+            "unavailable",
+            "blocked",
+        }
+    ):
+        brep_next_actions = station_seam_brep_hotspot_probe.get("next_actions", [])
+        if isinstance(brep_next_actions, list) and brep_next_actions:
+            next_actions[0] = str(brep_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

@@ -1323,6 +1323,91 @@ def test_main_wing_route_readiness_records_station_seam_repair_decision_stage(
     )
 
 
+def test_main_wing_route_readiness_records_station_seam_brep_hotspot_probe_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_station_seam_brep_hotspot_probe"
+        / "main_wing_station_seam_brep_hotspot_probe.v1.json",
+        {
+            "probe_status": "brep_hotspot_captured_station_edges_valid",
+            "requested_curve_tags": [36, 50],
+            "requested_surface_tags": [12, 13, 19, 20],
+            "station_fixture_observed": {
+                "candidate_curve_tags": [36, 50],
+                "owner_surface_entity_tags": [12, 13, 19, 20],
+            },
+            "brep_hotspot_summary": {
+                "hotspot_status": "captured",
+                "shape_valid_exact": True,
+                "curve_report_count": 2,
+                "face_report_count": 4,
+            },
+            "engineering_findings": [
+                "station_fixture_failure_not_explained_by_missing_brep_pcurves"
+            ],
+            "next_actions": [
+                "prototype_station_owner_surface_compound_meshing_policy_against_fixture"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    brep_stage = stages["station_seam_brep_hotspot_probe"]
+    assert brep_stage.status == "pass"
+    assert brep_stage.evidence_kind == "real"
+    assert brep_stage.observed["requested_curve_tags"] == [36, 50]
+    assert "station_fixture_failure_not_explained_by_missing_brep_pcurves" in (
+        brep_stage.observed["engineering_findings"]
+    )
+    assert report.next_actions[0] == (
+        "prototype_station_owner_surface_compound_meshing_policy_against_fixture"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

@@ -465,6 +465,44 @@ def test_parser_supports_main_wing_station_seam_repair_decision_command():
     assert args.solver_report == "artifacts/main_wing/solver.json"
 
 
+def test_parser_supports_main_wing_station_seam_brep_hotspot_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-brep-hotspot-probe",
+            "--out",
+            "artifacts/main_wing_station_seam_brep_hotspot_probe",
+            "--topology-fixture",
+            "artifacts/main_wing/station_fixture.json",
+            "--real-mesh-probe-report",
+            "artifacts/main_wing/mesh_probe.json",
+            "--normalized-step",
+            "artifacts/main_wing/normalized.stp",
+            "--surface-patch-diagnostics",
+            "artifacts/main_wing/surface_patch_diagnostics.json",
+            "--curve-tags",
+            "36",
+            "50",
+            "--surface-tags",
+            "12",
+            "13",
+            "19",
+            "20",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-brep-hotspot-probe"
+    assert args.out == "artifacts/main_wing_station_seam_brep_hotspot_probe"
+    assert args.topology_fixture == "artifacts/main_wing/station_fixture.json"
+    assert args.real_mesh_probe_report == "artifacts/main_wing/mesh_probe.json"
+    assert args.normalized_step == "artifacts/main_wing/normalized.stp"
+    assert args.surface_patch_diagnostics == (
+        "artifacts/main_wing/surface_patch_diagnostics.json"
+    )
+    assert args.curve_tags == [36, 50]
+    assert args.surface_tags == [12, 13, 19, 20]
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

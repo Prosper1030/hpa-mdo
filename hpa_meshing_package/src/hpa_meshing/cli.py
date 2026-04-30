@@ -114,6 +114,10 @@ from .main_wing_station_seam_repair_decision import (
     build_main_wing_station_seam_repair_decision_report,
     write_main_wing_station_seam_repair_decision_report,
 )
+from .main_wing_station_seam_brep_hotspot_probe import (
+    build_main_wing_station_seam_brep_hotspot_probe_report,
+    write_main_wing_station_seam_brep_hotspot_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -693,6 +697,46 @@ def cmd_main_wing_station_seam_repair_decision(args: argparse.Namespace) -> int:
     return 0 if report.repair_decision_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_brep_hotspot_probe(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    topology_fixture_path = (
+        None if args.topology_fixture is None else Path(args.topology_fixture)
+    )
+    real_mesh_probe_report_path = (
+        None
+        if args.real_mesh_probe_report is None
+        else Path(args.real_mesh_probe_report)
+    )
+    normalized_step_path = (
+        None if args.normalized_step is None else Path(args.normalized_step)
+    )
+    surface_patch_diagnostics_path = (
+        None
+        if args.surface_patch_diagnostics is None
+        else Path(args.surface_patch_diagnostics)
+    )
+    report = build_main_wing_station_seam_brep_hotspot_probe_report(
+        topology_fixture_path=topology_fixture_path,
+        real_mesh_probe_report_path=real_mesh_probe_report_path,
+        normalized_step_path=normalized_step_path,
+        surface_patch_diagnostics_path=surface_patch_diagnostics_path,
+        requested_curve_tags=args.curve_tags,
+        requested_surface_tags=args.surface_tags,
+    )
+    write_main_wing_station_seam_brep_hotspot_probe_report(
+        out_dir,
+        report=report,
+        topology_fixture_path=topology_fixture_path,
+        real_mesh_probe_report_path=real_mesh_probe_report_path,
+        normalized_step_path=normalized_step_path,
+        surface_patch_diagnostics_path=surface_patch_diagnostics_path,
+        requested_curve_tags=args.curve_tags,
+        requested_surface_tags=args.surface_tags,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.probe_status not in {"blocked", "unavailable"} else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1249,6 +1293,44 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_station_seam_repair_decision.add_argument("--solver-report", type=str)
     main_wing_station_seam_repair_decision.set_defaults(
         func=cmd_main_wing_station_seam_repair_decision
+    )
+
+    main_wing_station_seam_brep_hotspot_probe = sub.add_parser(
+        "main-wing-station-seam-brep-hotspot-probe"
+    )
+    main_wing_station_seam_brep_hotspot_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_brep_hotspot_probe.add_argument(
+        "--topology-fixture",
+        type=str,
+    )
+    main_wing_station_seam_brep_hotspot_probe.add_argument(
+        "--real-mesh-probe-report",
+        type=str,
+    )
+    main_wing_station_seam_brep_hotspot_probe.add_argument(
+        "--normalized-step",
+        type=str,
+    )
+    main_wing_station_seam_brep_hotspot_probe.add_argument(
+        "--surface-patch-diagnostics",
+        type=str,
+    )
+    main_wing_station_seam_brep_hotspot_probe.add_argument(
+        "--curve-tags",
+        nargs="+",
+        type=int,
+    )
+    main_wing_station_seam_brep_hotspot_probe.add_argument(
+        "--surface-tags",
+        nargs="+",
+        type=int,
+    )
+    main_wing_station_seam_brep_hotspot_probe.set_defaults(
+        func=cmd_main_wing_station_seam_brep_hotspot_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

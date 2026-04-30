@@ -1,0 +1,73 @@
+# Main Wing Station Seam BRep Hotspot Probe v1
+
+This report localizes the station seam blocker at the STEP/BRep hotspot layer without changing meshing defaults.
+
+- probe_status: `brep_hotspot_captured_station_edges_suspect`
+- topology_fixture_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_section_station_topology_fixture/main_wing_openvsp_section_station_topology_fixture.v1.json`
+- real_mesh_probe_report_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json`
+- normalized_step_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/provider_geometry/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp`
+- surface_patch_diagnostics_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_patch_diagnostics.json`
+- production_default_changed: `False`
+
+## Station Fixture Observed
+
+- `topology_fixture_status`: `real_defect_station_fixture_materialized`
+- `station_fixture_count`: `2`
+- `total_boundary_edge_count`: `4`
+- `total_nonmanifold_edge_count`: `2`
+- `candidate_curve_tags`: `[36, 50]`
+- `owner_surface_entity_tags`: `[12, 13, 19, 20]`
+- `source_section_indices`: `[3, 4]`
+
+## BRep Hotspot Summary
+
+- `hotspot_status`: `captured`
+- `shape_valid_default`: `True`
+- `shape_valid_exact`: `True`
+- `scale_to_output_units`: `0.001`
+- `selected_curve_tags`: `[36, 50]`
+- `selected_surface_tags`: `[12, 13, 19, 20]`
+- `curve_report_count`: `2`
+- `face_report_count`: `4`
+
+## Curve Checks
+
+- `{"curve_id": 36, "owner_surface_tags": [12, 13], "gmsh_length_3d_m": 2.1362404645138326, "edge_length_3d_m": 2.1362404647850566, "length_relative_delta": 1.2696320319423257e-10, "match_score": 2.994647188866797e-07, "mapped_edge_index": 36, "ancestor_face_ids": [12, 13], "pcurve_presence_complete": true, "curve3d_with_pcurve_consistent": false, "same_parameter_by_face_ok": false, "vertex_tolerance_by_face_ok": false, "pcurve_range_matches_edge_range": true, "pcurve_checks_complete": false, "same_parameter_flag": true, "same_range_flag": true, "brep_valid_default": true, "brep_valid_exact": true}`
+- `{"curve_id": 50, "owner_surface_tags": [19, 20], "gmsh_length_3d_m": 1.6836563472151995, "edge_length_3d_m": 1.683656347428963, "length_relative_delta": 1.2696382590828642e-10, "match_score": 3.788324995857568e-07, "mapped_edge_index": 50, "ancestor_face_ids": [19, 20], "pcurve_presence_complete": true, "curve3d_with_pcurve_consistent": false, "same_parameter_by_face_ok": false, "vertex_tolerance_by_face_ok": false, "pcurve_range_matches_edge_range": true, "pcurve_checks_complete": false, "same_parameter_flag": true, "same_range_flag": true, "brep_valid_default": true, "brep_valid_exact": true}`
+
+## Face Checks
+
+- `{"surface_id": 12, "brep_valid_default": true, "brep_valid_exact": true, "wire_count": 1, "wire_order_all_ok": true, "wires_connected": true, "wires_closed": true, "wire_self_intersection_detected": false, "small_face_analysis": {"check_spot_face": false, "is_strip_support": false, "strip_pair_hits": [], "geometric_strip_face_candidate": false, "physical_width_estimate": 1.9099484061070098, "physical_length_estimate": 3.0125364871047497, "width_to_length_ratio": 0.6340000907151165, "strip_edges": [34, 36]}}`
+- `{"surface_id": 13, "brep_valid_default": true, "brep_valid_exact": true, "wire_count": 1, "wire_order_all_ok": true, "wires_connected": true, "wires_closed": true, "wire_self_intersection_detected": false, "small_face_analysis": {"check_spot_face": false, "is_strip_support": false, "strip_pair_hits": [], "geometric_strip_face_candidate": false, "physical_width_estimate": 2.2748906872547394, "physical_length_estimate": 3.0055723465080857, "width_to_length_ratio": 0.756891009427119, "strip_edges": [36, 38]}}`
+- `{"surface_id": 19, "brep_valid_default": true, "brep_valid_exact": true, "wire_count": 1, "wire_order_all_ok": true, "wires_connected": true, "wires_closed": true, "wire_self_intersection_detected": false, "small_face_analysis": {"check_spot_face": false, "is_strip_support": false, "strip_pair_hits": [], "geometric_strip_face_candidate": false, "physical_width_estimate": 1.9099484061070098, "physical_length_estimate": 3.0125364871047497, "width_to_length_ratio": 0.6340000907151165, "strip_edges": [50, 48]}}`
+- `{"surface_id": 20, "brep_valid_default": true, "brep_valid_exact": true, "wire_count": 1, "wire_order_all_ok": true, "wires_connected": true, "wires_closed": true, "wire_self_intersection_detected": false, "small_face_analysis": {"check_spot_face": false, "is_strip_support": false, "strip_pair_hits": [], "geometric_strip_face_candidate": false, "physical_width_estimate": 1.26971068327187, "physical_length_estimate": 3.0257851601365213, "width_to_length_ratio": 0.4196301508777912, "strip_edges": [52, 50]}}`
+
+## Prototype Candidates
+
+- `{"candidate_name": "station_owner_surface_compound_meshing_policy_v0", "prototype_status": "prototype_not_applied", "candidate_scope": "localized_station_owner_surface_meshing_probe", "config_metadata": {"mesh_compound_enabled": true, "mesh_compound_policy_name": "main_wing_station_owner_surface_compound_v0", "mesh_compound_surface_groups": [[12, 13], [19, 20]], "mesh_compound_curve_groups": [], "mesh_compound_classify": 1}, "validation_gate": {"rerun": ["main-wing-real-mesh-handoff-probe", "main-wing-gmsh-defect-entity-trace", "main-wing-openvsp-section-station-topology-fixture"], "required_observation": "station fixture boundary/nonmanifold edge counts drop to zero without losing main_wing wall marker ownership"}, "notes": ["This is a meshing-policy experiment proposal, not a production default.", "Curve compound groups are intentionally omitted because each station target is a single closed loop tag in this evidence packet."]}`
+
+## Engineering Findings
+
+- `station_seam_brep_hotspot_report_captured`
+- `station_curve_brep_edges_map_to_gmsh_curves_after_mm_to_m_scale`
+- `station_curve_pcurves_are_present`
+- `station_curve_pcurve_consistency_checks_are_suspect`
+- `station_fixture_failure_not_explained_by_missing_brep_pcurves`
+- `owner_surface_wires_are_closed_connected_and_ordered`
+- `repair_should_target_gmsh_meshing_or_station_surface_connectivity_before_solver_budget`
+
+## Blocking Reasons
+
+- `station_seam_brep_hotspot_suspect`
+
+## Next Actions
+
+- `inspect_station_curve_pcurve_consistency_before_meshing_policy`
+- `rerun_brep_hotspot_probe_after_geometry_export_repair`
+
+## Limitations
+
+- This probe reads existing real-route STEP and Gmsh diagnostic artifacts only.
+- It does not run Gmsh, does not run SU2_CFD, and does not evaluate CL or convergence.
+- A valid station BRep hotspot report does not prove the real mesh topology has been repaired.
+- Prototype candidates are not applied and do not change production defaults.
