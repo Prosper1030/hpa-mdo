@@ -26,6 +26,10 @@ from .main_wing_su2_handoff_smoke import (
     build_main_wing_su2_handoff_smoke_report,
     write_main_wing_su2_handoff_smoke_report,
 )
+from .main_wing_esp_rebuilt_geometry_smoke import (
+    build_main_wing_esp_rebuilt_geometry_smoke_report,
+    write_main_wing_esp_rebuilt_geometry_smoke_report,
+)
 from .tail_wing_mesh_handoff_smoke import (
     build_tail_wing_mesh_handoff_smoke_report,
     write_tail_wing_mesh_handoff_smoke_report,
@@ -218,6 +222,18 @@ def cmd_main_wing_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     return 0 if report.smoke_status == "mesh_handoff_pass" else 2
 
 
+def cmd_main_wing_esp_rebuilt_geometry_smoke(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    source_path = None if args.source is None else Path(args.source)
+    report = build_main_wing_esp_rebuilt_geometry_smoke_report(
+        out_dir,
+        source_path=source_path,
+    )
+    write_main_wing_esp_rebuilt_geometry_smoke_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.geometry_smoke_status == "geometry_smoke_pass" else 2
+
+
 def cmd_tail_wing_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report = build_tail_wing_mesh_handoff_smoke_report(out_dir)
@@ -390,6 +406,11 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_smoke = sub.add_parser("main-wing-mesh-handoff-smoke")
     main_wing_smoke.add_argument("--out", type=str, required=True)
     main_wing_smoke.set_defaults(func=cmd_main_wing_mesh_handoff_smoke)
+
+    main_wing_esp_geometry_smoke = sub.add_parser("main-wing-esp-rebuilt-geometry-smoke")
+    main_wing_esp_geometry_smoke.add_argument("--out", type=str, required=True)
+    main_wing_esp_geometry_smoke.add_argument("--source", type=str)
+    main_wing_esp_geometry_smoke.set_defaults(func=cmd_main_wing_esp_rebuilt_geometry_smoke)
 
     tail_wing_smoke = sub.add_parser("tail-wing-mesh-handoff-smoke")
     tail_wing_smoke.add_argument("--out", type=str, required=True)

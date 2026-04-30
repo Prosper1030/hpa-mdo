@@ -51,8 +51,10 @@ def test_route_readiness_keeps_shell_v4_bl_as_promotion_only():
     assert "shell_v4_root_last3_is_not_product_route" in main_wing.blocking_reasons
     assert "explicit_bl_to_core_handoff_topology_not_owned" in main_wing.blocking_reasons
     assert "main_wing_component_specific_force_marker_missing" not in main_wing.blocking_reasons
-    assert "main_wing_real_geometry_smoke_missing" in main_wing.blocking_reasons
+    assert "main_wing_real_geometry_smoke_missing" not in main_wing.blocking_reasons
+    assert "main_wing_real_geometry_mesh_handoff_not_run" in main_wing.blocking_reasons
     assert "main_wing_solver_not_run" in main_wing.blocking_reasons
+    assert "main_wing_esp_rebuilt_geometry_smoke_available" in main_wing.notes
     assert "main_wing_mesh_handoff_smoke_available_non_bl_synthetic" in main_wing.notes
     assert "main_wing_su2_handoff_materialization_smoke_available" in main_wing.notes
     assert "main_wing_component_specific_force_marker_available" in main_wing.notes

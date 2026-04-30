@@ -1,0 +1,98 @@
+{
+  "requested_component": "main_wing",
+  "effective_component": "main_wing",
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_esp_rebuilt_geometry_smoke/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/blackcat_004_origin.vsp3",
+  "selection_mode": "openvsp_single_component_subset",
+  "selected_geom": {
+    "geom_id": "IPAWXFWPQF",
+    "name": "Main Wing",
+    "type_name": "Wing",
+    "is_symmetric_xz": true,
+    "x_location": 0.0,
+    "x_rotation_deg": 0.0,
+    "bbox_min": [
+      -2.156555057324391e-05,
+      0.0,
+      -0.06803674311582698
+    ],
+    "bbox_max": [
+      1.3023286428893068,
+      16.47465195857948,
+      0.8333975052217898
+    ],
+    "span_y": 16.47465195857948,
+    "span_z": 0.9014342483376168,
+    "chord_x": 1.3023502084398801
+  },
+  "selected_geom_ids": [
+    "IPAWXFWPQF"
+  ],
+  "removed_top_level_geom_ids": [
+    "ZXAGZMPIBY",
+    "BROUAZWXIU"
+  ],
+  "candidate_summary": [
+    {
+      "geom_id": "IPAWXFWPQF",
+      "name": "Main Wing",
+      "type_name": "Wing",
+      "is_symmetric_xz": true,
+      "x_location": 0.0,
+      "x_rotation_deg": 0.0,
+      "span_y": 16.47465195857948,
+      "span_z": 0.9014342483376168,
+      "bbox_min": [
+        -2.156555057324391e-05,
+        0.0,
+        -0.06803674311582698
+      ],
+      "bbox_max": [
+        1.3023286428893068,
+        16.47465195857948,
+        0.8333975052217898
+      ]
+    },
+    {
+      "geom_id": "ZXAGZMPIBY",
+      "name": "Elevator",
+      "type_name": "Wing",
+      "is_symmetric_xz": true,
+      "x_location": 4.0,
+      "x_rotation_deg": 0.0,
+      "span_y": 1.5000000000000002,
+      "span_z": 0.07204467854937947,
+      "bbox_min": [
+        4.0,
+        0.0,
+        -0.03602233927468974
+      ],
+      "bbox_max": [
+        4.8,
+        1.5000000000000002,
+        0.03602233927468974
+      ]
+    },
+    {
+      "geom_id": "BROUAZWXIU",
+      "name": "Fin",
+      "type_name": "Wing",
+      "is_symmetric_xz": false,
+      "x_location": 5.0,
+      "x_rotation_deg": 90.0,
+      "span_y": 0.06303909373070718,
+      "span_z": 2.4,
+      "bbox_min": [
+        5.0,
+        -0.031519546865353514,
+        -0.7
+      ],
+      "bbox_max": [
+        5.7,
+        0.031519546865353666,
+        1.7
+      ]
+    }
+  ],
+  "subset_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_esp_rebuilt_geometry_smoke/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+  "wing_component_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_esp_rebuilt_geometry_smoke/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/wing_component_report.json"
+}

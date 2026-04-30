@@ -44,7 +44,7 @@
 ### `main_wing`
 - `shell_v4_root_last3_is_not_product_route`
 - `explicit_bl_to_core_handoff_topology_not_owned`
-- `main_wing_real_geometry_smoke_missing`
+- `main_wing_real_geometry_mesh_handoff_not_run`
 - `main_wing_solver_not_run`
 - `convergence_gate_not_run`
 

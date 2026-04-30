@@ -156,6 +156,36 @@ and reports `force_surface_scope=component_subset`. It deliberately keeps the
 remaining engineering blockers visible: the geometry is still synthetic, solver
 history is absent, and convergence has not been evaluated.
 
+The first real main-wing ESP-rebuilt geometry smoke is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-esp-rebuilt-geometry-smoke \
+  --out .tmp/runs/main_wing_esp_rebuilt_geometry_smoke
+```
+
+It writes:
+
+- `main_wing_esp_rebuilt_geometry_smoke.v1.json`
+- `main_wing_esp_rebuilt_geometry_smoke.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/main_wing_esp_rebuilt_geometry_smoke/main_wing_esp_rebuilt_geometry_smoke.v1.json`
+- `hpa_meshing_package/docs/reports/main_wing_esp_rebuilt_geometry_smoke/main_wing_esp_rebuilt_geometry_smoke.v1.md`
+
+Observed result:
+
+- `geometry_smoke_status = geometry_smoke_pass`
+- selected VSP geometry: `Main Wing`
+- topology: `1 body / 32 surfaces / 1 volume`
+- Gmsh, SU2, BL runtime, and convergence are not run
+
+Engineering reading: the main-wing blocker has moved from "real geometry
+missing" to "real-geometry mesh handoff not run". The synthetic slab mesh and
+SU2 handoff are still useful marker/materialization evidence, but they are not
+substitutes for a real ESP/VSP main-wing mesh handoff.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash
@@ -368,7 +398,7 @@ The current expected strategic reading is:
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
+| `main_wing` | experimental + diagnostic | no | real ESP/VSP mesh handoff probe, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -423,5 +453,5 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 1. Repair the real tail explicit-volume route by fixing surface-loop orientation
    or baffle-surface ownership before any solver claim.
-2. Replace the synthetic main-wing slab with real ESP/VSP main-wing geometry
-   evidence before any solver/convergence claim.
+2. Probe real ESP/VSP main-wing mesh handoff from the committed provider
+   geometry evidence before any solver/convergence claim.
