@@ -230,6 +230,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps `mesh_handoff.v1`, SU2, BL runtime, convergence, and production defaults off
 - Proves surface meshability, not external-flow volume readiness
 
+### 19. tail_wing Solidification Probe Layer
+
+`src/hpa_meshing/tail_wing_solidification_probe.py`
+
+- Consumes the real ESP-rebuilt tail geometry
+- Runs bounded Gmsh heal/sew/makeSolids attempts
+- Records `no_volume_created` for the current real tail geometry
+- Writes `tail_wing_solidification_probe.v1.json` and `.md`
+- Keeps `mesh_handoff.v1`, SU2, BL runtime, convergence, and production defaults off
+- Promotes the next architecture action from naive heal tuning to explicit caps or baffle-volume construction
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -245,7 +256,7 @@ Current truth:
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
 - `fairing_solid` has real closed-solid mesh-handoff and SU2-handoff materialization smokes on a synthetic box with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
 - `main_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
-- `tail_wing` has real ESP/VSP provider geometry evidence, real surface-mesh evidence, and a real mesh-handoff blocker report; synthetic non-BL mesh/SU2 handoff smokes exist with component-owned force markers, but they are not real tail mesh evidence
+- `tail_wing` has real ESP/VSP provider geometry evidence, real surface-mesh evidence, a naive-solidification no-volume probe, and a real mesh-handoff blocker report; synthetic non-BL mesh/SU2 handoff smokes exist with component-owned force markers, but they are not real tail mesh evidence
 - `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
 
@@ -269,6 +280,7 @@ MeshJobConfig
   -> tail_wing_esp_rebuilt_geometry_smoke.v1
   -> tail_wing_real_mesh_handoff_probe.v1
   -> tail_wing_surface_mesh_probe.v1
+  -> tail_wing_solidification_probe.v1
   -> tail_wing_mesh_handoff_smoke.v1
   -> tail_wing_su2_handoff_smoke.v1
   -> report.json
@@ -307,6 +319,9 @@ current route expects OCC volumes.
 `tail_wing_surface_mesh_probe.v1` proves that the same real provider output is
 meshable as a 2D Gmsh surface with a `tail_wing` marker, but it is explicitly
 not SU2-ready because no farfield or fluid volume exists.
+`tail_wing_solidification_probe.v1` proves that bounded naive Gmsh
+heal/sew/makeSolids attempts still produce 0 volumes, so the next serious route
+needs explicit caps or a baffle-volume construction.
 
 ## Why This Boundary Matters
 

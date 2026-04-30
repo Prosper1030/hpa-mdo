@@ -1,0 +1,179 @@
+{
+  "schema_version": "tail_wing_solidification_probe_metadata.v1",
+  "status": "no_volume_created",
+  "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_solidification_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "provider_topology": {
+    "representation": "brep_trimmed_step",
+    "source_kind": "stp",
+    "units": "m",
+    "bounds": {
+      "x_min": 0.0,
+      "x_max": 4.8,
+      "y_min": -1.5,
+      "y_max": 1.5,
+      "z_min": -0.03606235691824,
+      "z_max": 0.0360560044917
+    },
+    "import_bounds": {
+      "x_min": 3999.509171351,
+      "x_max": 4800.0000001,
+      "y_min": -1500.0000001,
+      "y_max": 1500.0000001,
+      "z_min": -36.06235701824,
+      "z_max": 36.0560045917
+    },
+    "import_scale_to_units": 0.0009999999985800573,
+    "backend_rescale_required": true,
+    "body_count": 0,
+    "surface_count": 6,
+    "volume_count": 0,
+    "labels_present": true,
+    "label_schema": "preserve_component_labels",
+    "normalization": {
+      "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+      "applied": false,
+      "raw_counts": {
+        "body_count": 0,
+        "surface_count": 6,
+        "volume_count": 0
+      },
+      "raw_analysis": {
+        "touching_groups": [],
+        "singleton_body_tags": [],
+        "grouped_body_tags": [],
+        "duplicate_interface_face_pair_count": 0,
+        "duplicate_interface_face_pairs": [],
+        "internal_cap_face_count": 0,
+        "internal_cap_face_tags": [],
+        "body_records": [],
+        "notes": [
+          "step_import_contains_no_occ_volumes"
+        ]
+      },
+      "actions": [
+        "raw_export_already_cfd_clean_enough"
+      ],
+      "final_analysis": {
+        "touching_groups": [],
+        "singleton_body_tags": [],
+        "grouped_body_tags": [],
+        "duplicate_interface_face_pair_count": 0,
+        "internal_cap_face_count": 0,
+        "notes": [
+          "step_import_contains_no_occ_volumes"
+        ]
+      },
+      "normalized_counts": {
+        "body_count": 0,
+        "surface_count": 6,
+        "volume_count": 0
+      }
+    },
+    "notes": [
+      "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.00099999999858",
+      "component_subset_exported=horizontal_tail",
+      "rewrote_step_length_units:mm_to_m_based_on_reference_length:ref_length=1.0425:max_span=4.8",
+      "normalization_pass_not_needed",
+      "step_import_contains_no_occ_volumes",
+      "OpenCSM batch succeeded via serveCSM."
+    ]
+  },
+  "attempts": [
+    {
+      "attempt_id": "gmsh_heal_make_solids_1",
+      "tolerance": 1e-06,
+      "sew_faces": true,
+      "make_solids": true,
+      "fix_small_edges": true,
+      "input_surface_count": 6,
+      "input_volume_count": 0,
+      "output_surface_count": 12,
+      "output_volume_count": 0,
+      "healed_entity_count": 211
+    },
+    {
+      "attempt_id": "gmsh_heal_make_solids_2",
+      "tolerance": 1e-05,
+      "sew_faces": true,
+      "make_solids": true,
+      "fix_small_edges": true,
+      "input_surface_count": 6,
+      "input_volume_count": 0,
+      "output_surface_count": 12,
+      "output_volume_count": 0,
+      "healed_entity_count": 211
+    },
+    {
+      "attempt_id": "gmsh_heal_make_solids_3",
+      "tolerance": 0.0001,
+      "sew_faces": true,
+      "make_solids": true,
+      "fix_small_edges": true,
+      "input_surface_count": 6,
+      "input_volume_count": 0,
+      "output_surface_count": 12,
+      "output_volume_count": 0,
+      "healed_entity_count": 211
+    },
+    {
+      "attempt_id": "gmsh_heal_make_solids_4",
+      "tolerance": 1e-06,
+      "sew_faces": true,
+      "make_solids": true,
+      "fix_small_edges": false,
+      "input_surface_count": 6,
+      "input_volume_count": 0,
+      "output_surface_count": 12,
+      "output_volume_count": 0,
+      "healed_entity_count": 211
+    },
+    {
+      "attempt_id": "gmsh_heal_make_solids_5",
+      "tolerance": 1e-05,
+      "sew_faces": true,
+      "make_solids": true,
+      "fix_small_edges": false,
+      "input_surface_count": 6,
+      "input_volume_count": 0,
+      "output_surface_count": 12,
+      "output_volume_count": 0,
+      "healed_entity_count": 211
+    },
+    {
+      "attempt_id": "gmsh_heal_make_solids_6",
+      "tolerance": 0.0001,
+      "sew_faces": true,
+      "make_solids": true,
+      "fix_small_edges": false,
+      "input_surface_count": 6,
+      "input_volume_count": 0,
+      "output_surface_count": 12,
+      "output_volume_count": 0,
+      "healed_entity_count": 211
+    }
+  ],
+  "best_attempt": {
+    "attempt_id": "gmsh_heal_make_solids_1",
+    "tolerance": 1e-06,
+    "sew_faces": true,
+    "make_solids": true,
+    "fix_small_edges": true,
+    "input_surface_count": 6,
+    "input_volume_count": 0,
+    "output_surface_count": 12,
+    "output_volume_count": 0,
+    "healed_entity_count": 211
+  },
+  "surface_bounds": {
+    "x_min": 3.9995090657719263,
+    "x_max": 4.800000093184275,
+    "y_min": -1.500000097870086,
+    "y_max": 1.500000097870086,
+    "z_min": -0.03606245686703352,
+    "z_max": 0.03605610444050254
+  },
+  "artifacts": {
+    "solidification_metadata": "docs/reports/tail_wing_solidification_probe/artifacts/solidification/solidification_metadata.json",
+    "gmsh_log": "docs/reports/tail_wing_solidification_probe/artifacts/solidification/gmsh_log.txt"
+  }
+}

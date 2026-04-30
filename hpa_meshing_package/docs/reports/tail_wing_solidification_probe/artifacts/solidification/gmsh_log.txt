@@ -1,0 +1,676 @@
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.8 1' (2D)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00300808s, CPU 0.00068s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000570292s, CPU 0.000523s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00702913s, CPU 0.006284s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00598029s, CPU 0.005947s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000485959s, CPU 0.000484s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000432625s, CPU 0.000431s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Filling splits of edges
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Post treatment of result shape
+Info: Clearing all models and views...
+Info: Done clearing all models and views
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.8 1' (2D)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000723458s, CPU 0.0007s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000523959s, CPU 0.000494s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00665087s, CPU 0.006455s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00705475s, CPU 0.006706s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000661084s, CPU 0.000649s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000479875s, CPU 0.000465s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Filling splits of edges
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Post treatment of result shape
+Info: Clearing all models and views...
+Info: Done clearing all models and views
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.8 1' (2D)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000546625s, CPU 0.000545s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000444083s, CPU 0.000441s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00662512s, CPU 0.00649s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00682429s, CPU 0.0066s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00062925s, CPU 0.000627s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing small edges
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000503958s, CPU 0.000485s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Filling splits of edges
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Post treatment of result shape
+Info: Clearing all models and views...
+Info: Done clearing all models and views
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.8 1' (2D)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000625333s, CPU 0.000568s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000469709s, CPU 0.000442s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00558533s, CPU 0.005561s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00561817s, CPU 0.005548s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000390167s, CPU 0.000389s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Info: Healing shapes (tolerance: 1e-06)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000358625s, CPU 0.000352s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Filling splits of edges
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Post treatment of result shape
+Info: Clearing all models and views...
+Info: Done clearing all models and views
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.8 1' (2D)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000620708s, CPU 0.000568s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.0005115s, CPU 0.00046s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00720688s, CPU 0.006657s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00624867s, CPU 0.00609s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000461334s, CPU 0.00044s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Info: Healing shapes (tolerance: 1e-05)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00042225s, CPU 0.000395s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Filling splits of edges
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Post treatment of result shape
+Info: Clearing all models and views...
+Info: Done clearing all models and views
+Info:  - Label 'Shapes/Open CASCADE STEP translator 7.8 1' (2D)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000524875s, CPU 0.000503s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000428084s, CPU 0.000407s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0160557 (0.0160557)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00665475s, CPU 0.006319s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.00615796s, CPU 0.005962s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 2.34357 (2.34357)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000443542s, CPU 0.000415s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Info: Healing shapes (tolerance: 0.0001)
+Info:  - Fixing degenerated edges and faces
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info:  . Could not make solid (no shells)
+Info: Done healing shapes (Wall 0.000397917s, CPU 0.000374s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 0 (0)
+Info:  - Shells             : 0 (0)
+Info:  - Wires              : 1 (1)
+Info:  - Faces              : 1 (1)
+Info:  - Edges              : 4 (4)
+Info:  - Vertices           : 4 (4)
+Info:  - Total surface area : 0.0254465 (0.0254465)
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Filling splits of edges
+Progress: Fragments
+Progress: Fragments
+Progress: Fragments - Post treatment of result shape

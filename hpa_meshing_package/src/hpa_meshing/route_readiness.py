@@ -186,12 +186,13 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             gmsh_boundary_recovery_policy="core_tetra_only_after_owned_boundary_handoff",
             blocking_reasons=[
                 "tail_real_geometry_mesh_handoff_blocked_surface_only",
+                "tail_naive_gmsh_heal_solidification_no_volume",
                 "tail_surface_only_mesh_not_su2_volume_handoff",
                 "tail_wing_solver_not_run",
                 "convergence_gate_not_run",
             ],
             next_actions=[
-                "implement_provider_solidification_or_baffle_volume_route_for_tail_wing",
+                "implement_explicit_caps_or_baffle_volume_route_for_tail_wing",
                 "run_solver_only_after_force_marker_and_real_geometry_evidence",
                 "keep_bl_transition_contract_as_promotion_gate_not_default_runtime",
             ],
@@ -199,6 +200,7 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
                 "tail_wing_esp_rebuilt_geometry_smoke_available",
                 "tail_wing_real_mesh_handoff_probe_surface_only_blocker_available",
                 "tail_wing_surface_mesh_probe_available_not_su2_ready",
+                "tail_wing_solidification_probe_naive_heal_no_volume",
                 "tail_wing_mesh_handoff_smoke_available_non_bl_synthetic",
                 "tail_wing_su2_handoff_materialization_smoke_available",
                 "tail_wing_specific_force_marker_available",

@@ -103,6 +103,7 @@
       "promotion_status": "blocked_before_solver_convergence",
       "blocking_reasons": [
         "tail_real_geometry_mesh_handoff_blocked_surface_only",
+        "tail_naive_gmsh_heal_solidification_no_volume",
         "tail_surface_only_mesh_not_su2_volume_handoff",
         "tail_wing_solver_not_run",
         "convergence_gate_not_run"
@@ -292,7 +293,7 @@
   "next_actions": [
     "replace synthetic fairing fixture with real fairing geometry before solver claims",
     "replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims",
-    "implement provider solidification or baffle-volume tail_wing route before solver claims",
+    "implement explicit caps or baffle-volume tail_wing route before solver claims",
     "keep BL prelaunch excluded until handoff topology ownership passes"
   ]
 }

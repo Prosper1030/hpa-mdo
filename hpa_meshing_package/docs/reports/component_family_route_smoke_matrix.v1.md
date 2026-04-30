@@ -39,5 +39,5 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 
 - `replace synthetic fairing fixture with real fairing geometry before solver claims`
 - `replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims`
-- `implement provider solidification or baffle-volume tail_wing route before solver claims`
+- `implement explicit caps or baffle-volume tail_wing route before solver claims`
 - `keep BL prelaunch excluded until handoff topology ownership passes`

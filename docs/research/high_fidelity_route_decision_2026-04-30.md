@@ -320,13 +320,32 @@ surfaces and `tail_wing` marker can be owned, but it is not SU2-ready. The next
 real route decision is provider-side solidification/capping versus a
 baffle-volume route.
 
+The naive solidification probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-solidification-probe \
+  --out .tmp/runs/tail_wing_solidification_probe
+```
+
+Observed result:
+
+- `solidification_status = no_volume_created`
+- provider surface count: 6
+- best output surface count: 12
+- best output volume count: 0
+- recommended next: `explicit_caps_or_baffle_volume_route_required`
+
+Engineering reading: naive Gmsh heal/sew/makeSolids is not the next serious
+path. The next route should construct explicit caps or a baffle-volume topology.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
-| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | provider solidification or baffle-volume route, then real volume mesh/SU2 smoke |
+| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit caps or baffle-volume route, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 

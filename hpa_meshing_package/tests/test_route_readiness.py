@@ -88,10 +88,12 @@ def test_route_readiness_marks_tail_wing_mesh_handoff_smoke_as_available_not_pro
     assert "tail_wing_esp_rebuilt_geometry_smoke_available" in tail_wing.notes
     assert "tail_wing_real_mesh_handoff_probe_surface_only_blocker_available" in tail_wing.notes
     assert "tail_wing_surface_mesh_probe_available_not_su2_ready" in tail_wing.notes
+    assert "tail_wing_solidification_probe_naive_heal_no_volume" in tail_wing.notes
     assert "tail_family_backend_not_productized" not in tail_wing.blocking_reasons
     assert "tail_real_geometry_smoke_missing" not in tail_wing.blocking_reasons
     assert "tail_real_geometry_mesh_handoff_not_run" not in tail_wing.blocking_reasons
     assert "tail_real_geometry_mesh_handoff_blocked_surface_only" in tail_wing.blocking_reasons
+    assert "tail_naive_gmsh_heal_solidification_no_volume" in tail_wing.blocking_reasons
     assert "tail_surface_only_mesh_not_su2_volume_handoff" in tail_wing.blocking_reasons
     assert "tail_wing_su2_handoff_not_run" not in tail_wing.blocking_reasons
     assert "tail_wing_solver_not_run" in tail_wing.blocking_reasons
