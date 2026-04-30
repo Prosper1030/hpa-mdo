@@ -124,6 +124,25 @@ def test_main_wing_real_mesh_handoff_probe_records_bounded_timeout(
             ),
             encoding="utf-8",
         )
+        (mesh_dir / "surface_patch_diagnostics.json").write_text(
+            json.dumps(
+                {
+                    "family_hint_counts": {
+                        "high_aspect_strip_candidate": 24,
+                        "short_curve_candidate": 22,
+                        "span_extreme_candidate": 8,
+                        "tiny_face_candidate": 22,
+                    },
+                    "suspicious_surfaces": [
+                        {"tag": 31, "family_hints": ["tiny_face_candidate"]},
+                        {"tag": 32, "family_hints": ["tiny_face_candidate"]},
+                        {"tag": 6, "family_hints": ["high_aspect_strip_candidate"]},
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         return {
             "status": "timeout",
             "timeout_seconds": 12.0,
@@ -152,6 +171,9 @@ def test_main_wing_real_mesh_handoff_probe_records_bounded_timeout(
     assert report.mesh3d_nodes_created_per_boundary_node == 13.5
     assert report.probe_profile == "coarse_first_volume_insertion_probe_not_production_default"
     assert report.coarse_first_tetra_enabled is True
+    assert report.surface_patch_diagnostics_status == "available"
+    assert report.surface_family_hint_counts["high_aspect_strip_candidate"] == 24
+    assert report.suspicious_surface_tags == [31, 32, 6]
     assert "bounded_mesh_probe_executed" in report.hpa_mdo_guarantees
 
 

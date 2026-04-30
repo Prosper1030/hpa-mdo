@@ -95,6 +95,10 @@ class MainWingRealMeshHandoffProbeReport(BaseModel):
     mesh_metadata_path: str | None = None
     marker_summary_path: str | None = None
     gmsh_log_path: str | None = None
+    surface_patch_diagnostics_path: str | None = None
+    surface_patch_diagnostics_status: Literal["available", "missing"] = "missing"
+    surface_family_hint_counts: Dict[str, int] = Field(default_factory=dict)
+    suspicious_surface_tags: List[int] = Field(default_factory=list)
     mesh2d_watchdog_path: str | None = None
     mesh3d_watchdog_path: str | None = None
     mesh2d_watchdog_status: str | None = None
@@ -347,6 +351,10 @@ def build_main_wing_real_mesh_handoff_probe_report(
     mesh_dir = case_dir / "artifacts" / "mesh"
     mesh2d_watchdog = _safe_load_json(mesh_dir / "mesh2d_watchdog.json") or {}
     mesh3d_watchdog = _safe_load_json(mesh_dir / "mesh3d_watchdog.json") or {}
+    surface_patch_diagnostics_path = mesh_dir / "surface_patch_diagnostics.json"
+    surface_patch_diagnostics = _safe_load_json(surface_patch_diagnostics_path) or {}
+    family_hint_counts = surface_patch_diagnostics.get("family_hint_counts")
+    suspicious_surfaces = surface_patch_diagnostics.get("suspicious_surfaces")
     mesh3d_timeout_phase = mesh3d_watchdog.get("timeout_phase_classification")
     if (
         probe_status == "mesh_handoff_timeout"
@@ -405,6 +413,28 @@ def build_main_wing_real_mesh_handoff_probe_report(
             else None
         ),
         gmsh_log_path=str(mesh_dir / "gmsh_log.txt"),
+        surface_patch_diagnostics_path=str(surface_patch_diagnostics_path),
+        surface_patch_diagnostics_status=(
+            "available" if surface_patch_diagnostics else "missing"
+        ),
+        surface_family_hint_counts=(
+            {
+                str(name): int(count)
+                for name, count in family_hint_counts.items()
+                if isinstance(count, int)
+            }
+            if isinstance(family_hint_counts, dict)
+            else {}
+        ),
+        suspicious_surface_tags=(
+            [
+                int(entry["tag"])
+                for entry in suspicious_surfaces[:12]
+                if isinstance(entry, dict) and isinstance(entry.get("tag"), int)
+            ]
+            if isinstance(suspicious_surfaces, list)
+            else []
+        ),
         mesh2d_watchdog_path=str(mesh_dir / "mesh2d_watchdog.json"),
         mesh3d_watchdog_path=str(mesh_dir / "mesh3d_watchdog.json"),
         mesh2d_watchdog_status=(
@@ -476,6 +506,9 @@ def _render_markdown(report: MainWingRealMeshHandoffProbeReport) -> str:
         f"- marker_summary_status: `{report.marker_summary_status}`",
         f"- probe_profile: `{report.probe_profile}`",
         f"- coarse_first_tetra_enabled: `{report.coarse_first_tetra_enabled}`",
+        f"- surface_patch_diagnostics_status: `{report.surface_patch_diagnostics_status}`",
+        f"- surface_family_hint_counts: `{report.surface_family_hint_counts}`",
+        f"- suspicious_surface_tags: `{report.suspicious_surface_tags}`",
         f"- volume_element_count: `{report.volume_element_count}`",
         f"- bounded_probe_timeout_seconds: `{report.bounded_probe_timeout_seconds}`",
         f"- mesh2d_watchdog_status: `{report.mesh2d_watchdog_status}`",

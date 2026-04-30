@@ -11,6 +11,11 @@ It runs in a bounded child process and does not run SU2.
 - provider_volume_count: `1`
 - selected_geom_name: `Main Wing`
 - marker_summary_status: `unavailable`
+- probe_profile: `coarse_first_volume_insertion_probe_not_production_default`
+- coarse_first_tetra_enabled: `True`
+- surface_patch_diagnostics_status: `available`
+- surface_family_hint_counts: `{'high_aspect_strip_candidate': 24, 'short_curve_candidate': 22, 'span_extreme_candidate': 8, 'span_extreme_strip_candidate': 6, 'tiny_face_candidate': 22}`
+- suspicious_surface_tags: `[31, 32, 6, 5, 26, 25, 8, 3, 28, 23, 7, 4]`
 - volume_element_count: `None`
 - bounded_probe_timeout_seconds: `45.0`
 - mesh2d_watchdog_status: `completed_without_timeout`
