@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 StageType = Literal[
     "real_geometry",
     "geometry_provenance",
+    "vspaero_panel_reference",
     "real_mesh_handoff",
     "synthetic_mesh_handoff",
     "synthetic_su2_handoff",
@@ -283,6 +284,71 @@ def _geometry_provenance_blockers(payload: dict[str, Any] | None) -> list[str]:
     return ["main_wing_geometry_provenance_missing"]
 
 
+def _vspaero_panel_reference_status(payload: dict[str, Any] | None) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("panel_reference_status") == "panel_reference_available"
+        else "blocked"
+    )
+
+
+def _vspaero_panel_reference_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
+    selected_case = payload.get("selected_case", {}) if isinstance(payload, dict) else {}
+    setup_reference = (
+        payload.get("setup_reference", {}) if isinstance(payload, dict) else {}
+    )
+    return {
+        "panel_reference_status": (
+            None if payload is None else payload.get("panel_reference_status")
+        ),
+        "hpa_standard_flow_status": (
+            None if payload is None else payload.get("hpa_standard_flow_status")
+        ),
+        "lift_acceptance_status": (
+            None if payload is None else payload.get("lift_acceptance_status")
+        ),
+        "minimum_acceptable_cl": (
+            None if payload is None else payload.get("minimum_acceptable_cl")
+        ),
+        "alpha_deg": (
+            selected_case.get("AoA") if isinstance(selected_case, dict) else None
+        ),
+        "cltot": (
+            selected_case.get("CLtot") if isinstance(selected_case, dict) else None
+        ),
+        "cdtot": (
+            selected_case.get("CDtot") if isinstance(selected_case, dict) else None
+        ),
+        "velocity_mps": (
+            setup_reference.get("Vinf") if isinstance(setup_reference, dict) else None
+        ),
+        "su2_smoke_comparison": (
+            {} if payload is None else payload.get("su2_smoke_comparison", {})
+        ),
+        "engineering_flags": (
+            [] if payload is None else payload.get("engineering_flags", [])
+        ),
+    }
+
+
+def _vspaero_panel_reference_blockers(payload: dict[str, Any] | None) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    if payload.get("panel_reference_status") == "panel_reference_available":
+        return []
+    flags = [
+        str(flag)
+        for flag in payload.get("engineering_flags", [])
+        if isinstance(flag, str) and flag
+    ]
+    status = payload.get("panel_reference_status")
+    if isinstance(status, str) and status:
+        return list(dict.fromkeys([status, *flags]))
+    return list(dict.fromkeys(["vspaero_panel_reference_missing", *flags]))
+
+
 def _lift_acceptance_stage_status(payload: dict[str, Any] | None) -> StageStatusType:
     if not isinstance(payload, dict):
         return "not_run"
@@ -360,6 +426,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_geometry_provenance_probe"
         / "main_wing_geometry_provenance_probe.v1.json"
     )
+    vspaero_panel_reference_path = (
+        root
+        / "main_wing_vspaero_panel_reference_probe"
+        / "main_wing_vspaero_panel_reference_probe.v1.json"
+    )
     real_mesh_path = (
         root
         / "main_wing_real_mesh_handoff_probe"
@@ -412,6 +483,7 @@ def build_main_wing_route_readiness_report(
 
     real_geometry = _load_json(real_geometry_path)
     geometry_provenance = _load_json(geometry_provenance_path)
+    vspaero_panel_reference = _load_json(vspaero_panel_reference_path)
     real_mesh = _load_json(real_mesh_path)
     synthetic_mesh = _load_json(synthetic_mesh_path)
     synthetic_su2 = _load_json(synthetic_su2_path)
@@ -545,6 +617,20 @@ def build_main_wing_route_readiness_report(
             ),
             observed=_geometry_provenance_observed(geometry_provenance),
             blockers=_geometry_provenance_blockers(geometry_provenance),
+        ),
+        _stage(
+            stage="vspaero_panel_reference",
+            status=_vspaero_panel_reference_status(vspaero_panel_reference),
+            evidence_kind=(
+                "real" if isinstance(vspaero_panel_reference, dict) else "absent"
+            ),
+            artifact_path=(
+                vspaero_panel_reference_path
+                if isinstance(vspaero_panel_reference, dict)
+                else None
+            ),
+            observed=_vspaero_panel_reference_observed(vspaero_panel_reference),
+            blockers=_vspaero_panel_reference_blockers(vspaero_panel_reference),
         ),
         _stage(
             stage="real_mesh_handoff",
@@ -912,6 +998,7 @@ def build_main_wing_route_readiness_report(
             "Synthetic mesh/SU2 stages prove route wiring only; they are not real aircraft CFD evidence.",
             "A materialized SU2 handoff is not a solver run, and a solver run is not convergence.",
             "Lift acceptance is a report-only gate here; main-wing convergence acceptance at V=6.5 m/s still requires CL > 1.0.",
+            "VSPAERO panel reference evidence is a lower-order sanity baseline only; it is not high-fidelity CFD.",
             "HPA standard flow is V=6.5 m/s; V=10 artifacts are legacy mismatch evidence only.",
         ],
     )

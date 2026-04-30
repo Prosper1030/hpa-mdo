@@ -51,6 +51,37 @@
       "blockers": []
     },
     {
+      "stage": "vspaero_panel_reference",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_vspaero_panel_reference_probe/main_wing_vspaero_panel_reference_probe.v1.json",
+      "observed": {
+        "panel_reference_status": "panel_reference_available",
+        "hpa_standard_flow_status": "hpa_standard_6p5_observed",
+        "lift_acceptance_status": "pass",
+        "minimum_acceptable_cl": 1.0,
+        "alpha_deg": 0.0,
+        "cltot": 1.287645495943,
+        "cdtot": 0.045068093845,
+        "velocity_mps": 6.5,
+        "su2_smoke_comparison": {
+          "status": "available",
+          "panel_reference_cl": 1.287645495943,
+          "selected_su2_smoke_cl": 0.263161913,
+          "cl_delta_panel_minus_su2": 1.024483582943,
+          "panel_to_su2_cl_ratio": 4.892978171742504,
+          "selected_su2_runtime_max_iterations": 80,
+          "selected_su2_report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json",
+          "interpretation": "panel_reference_supports_cl_gt_one_gate_current_su2_smoke_low_lift"
+        },
+        "engineering_flags": [
+          "vspaero_panel_reference_cl_gt_one",
+          "su2_smoke_below_vspaero_panel_reference"
+        ]
+      },
+      "blockers": []
+    },
+    {
       "stage": "real_mesh_handoff",
       "status": "pass",
       "evidence_kind": "real",
@@ -422,6 +453,7 @@
     "Synthetic mesh/SU2 stages prove route wiring only; they are not real aircraft CFD evidence.",
     "A materialized SU2 handoff is not a solver run, and a solver run is not convergence.",
     "Lift acceptance is a report-only gate here; main-wing convergence acceptance at V=6.5 m/s still requires CL > 1.0.",
+    "VSPAERO panel reference evidence is a lower-order sanity baseline only; it is not high-fidelity CFD.",
     "HPA standard flow is V=6.5 m/s; V=10 artifacts are legacy mismatch evidence only."
   ]
 }

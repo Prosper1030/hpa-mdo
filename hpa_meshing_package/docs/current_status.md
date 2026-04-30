@@ -78,11 +78,13 @@ non-default solver-budget follow-ups only reach `warn` / `run_only`, so this is
 not a converged CFD result. It also confirms the current main-wing SU2
 artifacts use the HPA standard `V=6.5 m/s`; any old `V=10` artifact remains
 legacy mismatch evidence only. The readiness report now includes separate
-`geometry_provenance` and `lift_acceptance_diagnostic` stages: OpenVSP
-provenance is available (`Y_Rotation=3 deg`, cambered airfoils, zero parsed
-local twist), but lift acceptance is blocked because the selected current-route
-smoke has `CL=0.263161913`, well below the main-wing `CL > 1.0` acceptance gate
-for the HPA operating point.
+`geometry_provenance`, `vspaero_panel_reference`, and
+`lift_acceptance_diagnostic` stages: OpenVSP provenance is available
+(`Y_Rotation=3 deg`, cambered airfoils, zero parsed local twist), VSPAERO panel
+reference evidence is available at `CLtot=1.287645495943`, but SU2 lift
+acceptance is blocked because the selected current-route smoke has
+`CL=0.263161913`, well below the main-wing `CL > 1.0` acceptance gate for the
+HPA operating point.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 

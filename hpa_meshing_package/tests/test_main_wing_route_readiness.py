@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from hpa_meshing.main_wing_route_readiness import (
     build_main_wing_route_readiness_report,
     write_main_wing_route_readiness_report,
@@ -398,6 +400,51 @@ def test_main_wing_route_readiness_records_geometry_and_lift_diagnostic_stages(
     assert lift_stage.observed["minimum_acceptable_cl"] == 1.0
     assert "main_wing_cl_below_expected_lift" in lift_stage.blockers
     assert "alpha_zero_operating_lift_not_demonstrated" in report.blocking_reasons
+
+
+def test_main_wing_route_readiness_records_vspaero_panel_reference_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_vspaero_panel_reference_probe"
+        / "main_wing_vspaero_panel_reference_probe.v1.json",
+        {
+            "panel_reference_status": "panel_reference_available",
+            "hpa_standard_flow_status": "hpa_standard_6p5_observed",
+            "lift_acceptance_status": "pass",
+            "minimum_acceptable_cl": 1.0,
+            "selected_case": {"AoA": 0.0, "CLtot": 1.287645495943, "CDtot": 0.045},
+            "setup_reference": {"Vinf": 6.5, "Sref": 35.175},
+            "su2_smoke_comparison": {
+                "status": "available",
+                "panel_reference_cl": 1.287645495943,
+                "selected_su2_smoke_cl": 0.263161913,
+                "panel_to_su2_cl_ratio": 4.892978171742504,
+            },
+            "engineering_flags": [
+                "vspaero_panel_reference_cl_gt_one",
+                "su2_smoke_below_vspaero_panel_reference",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    panel_stage = stages["vspaero_panel_reference"]
+    assert panel_stage.status == "pass"
+    assert panel_stage.evidence_kind == "real"
+    assert panel_stage.observed["cltot"] == pytest.approx(1.287645495943)
+    assert panel_stage.observed["velocity_mps"] == 6.5
+    assert panel_stage.observed["su2_smoke_comparison"][
+        "panel_to_su2_cl_ratio"
+    ] == pytest.approx(4.892978171742504)
+    assert "su2_smoke_below_vspaero_panel_reference" in panel_stage.observed[
+        "engineering_flags"
+    ]
+    assert "su2_smoke_below_vspaero_panel_reference" not in report.blocking_reasons
 
 
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
