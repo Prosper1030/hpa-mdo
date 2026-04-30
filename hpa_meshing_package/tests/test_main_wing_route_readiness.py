@@ -273,6 +273,65 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
     assert "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean" in report.next_actions
 
 
+def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_openvsp_reference_su2_handoff_probe"
+        / "main_wing_openvsp_reference_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "reference_policy": "openvsp_geometry_derived",
+            "su2_contract": "su2_handoff.v1",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [
+                "main_wing_solver_not_run",
+                "convergence_gate_not_run",
+                "main_wing_real_reference_geometry_warn",
+            ],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_openvsp_reference_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "convergence_comparability_level": "not_comparable",
+            "final_iteration": 11,
+            "final_coefficients": {
+                "cl": 0.2602573982,
+                "cd": 0.01858625024,
+                "cm": -0.2032569615,
+                "cm_axis": "CMy",
+            },
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [
+                "solver_executed_but_not_converged",
+                "main_wing_real_reference_geometry_warn",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    handoff_stage = stages["openvsp_reference_su2_handoff"]
+    solver_stage = stages["openvsp_reference_solver_smoke"]
+    assert handoff_stage.status == "pass"
+    assert handoff_stage.observed["reference_policy"] == "openvsp_geometry_derived"
+    assert solver_stage.status == "pass"
+    assert solver_stage.observed["run_status"] == "solver_executed_but_not_converged"
+    assert solver_stage.observed["final_coefficients"]["cm_axis"] == "CMy"
+    assert "solver_executed_but_not_converged" in report.blocking_reasons
+
+
 def test_main_wing_route_readiness_prioritizes_invalid_boundary_mesh_action(
     tmp_path: Path,
 ):

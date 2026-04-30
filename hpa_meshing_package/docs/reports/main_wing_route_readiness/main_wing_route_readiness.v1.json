@@ -95,6 +95,47 @@
       ]
     },
     {
+      "stage": "openvsp_reference_su2_handoff",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_su2_handoff_probe/main_wing_openvsp_reference_su2_handoff_probe.v1.json",
+      "observed": {
+        "materialization_status": "su2_handoff_written",
+        "reference_policy": "openvsp_geometry_derived",
+        "su2_contract": "su2_handoff.v1",
+        "component_force_ownership_status": "owned",
+        "reference_geometry_status": "warn",
+        "observed_velocity_mps": 6.5
+      },
+      "blockers": [
+        "main_wing_real_reference_geometry_warn"
+      ]
+    },
+    {
+      "stage": "openvsp_reference_solver_smoke",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json",
+      "observed": {
+        "solver_execution_status": "solver_executed",
+        "run_status": "solver_executed_but_not_converged",
+        "convergence_gate_status": "fail",
+        "convergence_comparability_level": "not_comparable",
+        "final_iteration": 11,
+        "final_coefficients": {
+          "cl": 0.2602573982,
+          "cd": 0.01858625024,
+          "cm": -0.2032569615,
+          "cm_axis": "CMy"
+        },
+        "observed_velocity_mps": 6.5
+      },
+      "blockers": [
+        "solver_executed_but_not_converged",
+        "main_wing_real_reference_geometry_warn"
+      ]
+    },
+    {
       "stage": "solver_smoke",
       "status": "pass",
       "evidence_kind": "real",

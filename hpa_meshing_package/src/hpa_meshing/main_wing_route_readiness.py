@@ -13,6 +13,8 @@ StageType = Literal[
     "synthetic_mesh_handoff",
     "synthetic_su2_handoff",
     "real_su2_handoff",
+    "openvsp_reference_su2_handoff",
+    "openvsp_reference_solver_smoke",
     "solver_smoke",
     "convergence_gate",
 ]
@@ -146,6 +148,16 @@ def build_main_wing_route_readiness_report(
         / "main_wing_real_su2_handoff_probe"
         / "main_wing_real_su2_handoff_probe.v1.json"
     )
+    openvsp_reference_su2_path = (
+        root
+        / "main_wing_openvsp_reference_su2_handoff_probe"
+        / "main_wing_openvsp_reference_su2_handoff_probe.v1.json"
+    )
+    openvsp_reference_solver_path = (
+        root
+        / "main_wing_openvsp_reference_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json"
+    )
     reference_gate_path = (
         root
         / "main_wing_reference_geometry_gate"
@@ -170,6 +182,8 @@ def build_main_wing_route_readiness_report(
     synthetic_mesh = _load_json(synthetic_mesh_path)
     synthetic_su2 = _load_json(synthetic_su2_path)
     real_su2 = _load_json(real_su2_path)
+    openvsp_reference_su2 = _load_json(openvsp_reference_su2_path)
+    openvsp_reference_solver = _load_json(openvsp_reference_solver_path)
     reference_gate = _load_json(reference_gate_path)
     solver_smoke = _load_json(solver_smoke_path)
     synthetic_su2_runtime = _load_json(synthetic_su2_runtime_path)
@@ -197,6 +211,19 @@ def build_main_wing_route_readiness_report(
     real_su2_materialized = (
         isinstance(real_su2, dict)
         and real_su2.get("materialization_status") == "su2_handoff_written"
+    )
+    openvsp_reference_su2_materialized = (
+        isinstance(openvsp_reference_su2, dict)
+        and openvsp_reference_su2.get("materialization_status") == "su2_handoff_written"
+    )
+    openvsp_reference_solver_executed = (
+        isinstance(openvsp_reference_solver, dict)
+        and openvsp_reference_solver.get("solver_execution_status") == "solver_executed"
+    )
+    openvsp_reference_solver_blocked = (
+        isinstance(openvsp_reference_solver, dict)
+        and openvsp_reference_solver.get("solver_execution_status")
+        in {"solver_failed", "solver_timeout", "solver_unavailable", "blocked_before_solver"}
     )
     reference_gate_status = (
         reference_gate.get("reference_gate_status")
@@ -335,6 +362,110 @@ def build_main_wing_route_readiness_report(
                     if real_mesh_pass
                     else ["blocked_until_real_main_wing_mesh_handoff_v1_exists"]
                 )
+            ),
+        ),
+        _stage(
+            stage="openvsp_reference_su2_handoff",
+            status="pass"
+            if openvsp_reference_su2_materialized
+            else "blocked"
+            if isinstance(openvsp_reference_su2, dict)
+            else "not_run",
+            evidence_kind="real" if isinstance(openvsp_reference_su2, dict) else "absent",
+            artifact_path=openvsp_reference_su2_path
+            if isinstance(openvsp_reference_su2, dict)
+            else None,
+            observed={
+                "materialization_status": (
+                    None
+                    if openvsp_reference_su2 is None
+                    else openvsp_reference_su2.get("materialization_status")
+                ),
+                "reference_policy": (
+                    None
+                    if openvsp_reference_su2 is None
+                    else openvsp_reference_su2.get("reference_policy")
+                ),
+                "su2_contract": (
+                    None if openvsp_reference_su2 is None else openvsp_reference_su2.get("su2_contract")
+                ),
+                "component_force_ownership_status": (
+                    None
+                    if openvsp_reference_su2 is None
+                    else openvsp_reference_su2.get("component_force_ownership_status")
+                ),
+                "reference_geometry_status": (
+                    None
+                    if openvsp_reference_su2 is None
+                    else openvsp_reference_su2.get("reference_geometry_status")
+                ),
+                "observed_velocity_mps": (
+                    None
+                    if openvsp_reference_su2 is None
+                    else openvsp_reference_su2.get("observed_velocity_mps")
+                ),
+            },
+            blockers=(
+                _real_su2_stage_blockers(openvsp_reference_su2)
+                if openvsp_reference_su2_materialized
+                else _blocking_reasons(openvsp_reference_su2)
+                if isinstance(openvsp_reference_su2, dict)
+                else []
+            ),
+        ),
+        _stage(
+            stage="openvsp_reference_solver_smoke",
+            status="pass"
+            if openvsp_reference_solver_executed
+            else "blocked"
+            if openvsp_reference_solver_blocked
+            else "not_run",
+            evidence_kind="real" if isinstance(openvsp_reference_solver, dict) else "absent",
+            artifact_path=openvsp_reference_solver_path
+            if isinstance(openvsp_reference_solver, dict)
+            else None,
+            observed={
+                "solver_execution_status": (
+                    None
+                    if openvsp_reference_solver is None
+                    else openvsp_reference_solver.get("solver_execution_status")
+                )
+                or "not_run",
+                "run_status": (
+                    None
+                    if openvsp_reference_solver is None
+                    else openvsp_reference_solver.get("run_status")
+                ),
+                "convergence_gate_status": (
+                    None
+                    if openvsp_reference_solver is None
+                    else openvsp_reference_solver.get("convergence_gate_status")
+                ),
+                "convergence_comparability_level": (
+                    None
+                    if openvsp_reference_solver is None
+                    else openvsp_reference_solver.get("convergence_comparability_level")
+                ),
+                "final_iteration": (
+                    None
+                    if openvsp_reference_solver is None
+                    else openvsp_reference_solver.get("final_iteration")
+                ),
+                "final_coefficients": (
+                    {}
+                    if openvsp_reference_solver is None
+                    else openvsp_reference_solver.get("final_coefficients", {})
+                ),
+                "observed_velocity_mps": (
+                    None
+                    if openvsp_reference_solver is None
+                    else openvsp_reference_solver.get("observed_velocity_mps")
+                ),
+            },
+            blockers=(
+                _blocking_reasons(openvsp_reference_solver)
+                if isinstance(openvsp_reference_solver, dict)
+                else []
             ),
         ),
         _stage(
