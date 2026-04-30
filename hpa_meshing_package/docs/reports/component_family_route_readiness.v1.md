@@ -59,7 +59,7 @@
 - `tail_specific_geometry_smoke_missing`
 
 ### `fairing_solid`
-- `fairing_su2_handoff_not_materialized`
+- `fairing_su2_handoff_artifact_missing`
 - `convergence_gate_not_run`
 
 ### `fairing_vented`

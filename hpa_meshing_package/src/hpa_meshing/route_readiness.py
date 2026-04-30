@@ -222,17 +222,17 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             bl_contract_policy="not_default",
             gmsh_boundary_recovery_policy="baseline_gmsh_backend_boundary_recovery",
             blocking_reasons=[
-                "fairing_su2_handoff_not_materialized",
+                "fairing_su2_handoff_artifact_missing",
                 "convergence_gate_not_run",
             ],
             next_actions=[
-                "materialize_fairing_solid_su2_handoff_from_component_marker",
+                "write_fairing_solid_su2_materialization_smoke_artifact",
                 "promote_to_product_line_only_after_convergence_gate_artifact",
             ],
             notes=[
                 "fairing_solid_mesh_handoff_smoke_available",
                 "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke",
-                "current SU2 handoff has not consumed the fairing-specific marker yet",
+                "su2_backend_materializes_fairing_solid_marker_without_running_su2",
             ],
         ),
         _row(

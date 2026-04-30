@@ -93,7 +93,7 @@ does not prove fairing-specific force-surface ownership.
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` / `tail_wing` | experimental | dispatch exists, real backend not productized |
-| `fairing_solid` | experimental | first real mesh-handoff smoke exists with a `fairing_solid` marker, but SU2 handoff / convergence gate are missing |
+| `fairing_solid` | experimental | first real mesh-handoff smoke exists with a `fairing_solid` marker; SU2 handoff materialization can consume it, but solver / convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |
 

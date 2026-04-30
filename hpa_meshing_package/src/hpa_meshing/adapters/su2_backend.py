@@ -51,6 +51,12 @@ def _require_marker(mesh_handoff: MeshHandoff, name: str) -> dict[str, Any]:
     return marker
 
 
+def _resolve_wall_marker(mesh_handoff: MeshHandoff) -> tuple[str, dict[str, Any]]:
+    if mesh_handoff.meshing_route == "gmsh_closed_solid_volume":
+        return "fairing_solid", _require_marker(mesh_handoff, "fairing_solid")
+    return "aircraft", _require_marker(mesh_handoff, "aircraft")
+
+
 def _overall_gate_status(*statuses: str) -> str:
     if any(status == "fail" for status in statuses):
         return "fail"
@@ -296,18 +302,38 @@ def _build_force_surface_provenance(
         source_groups.append(group)
 
     primary_group = _force_surface_group(wall_marker, group_lookup.get(wall_marker))
-    provider_topology = mesh_handoff.provenance.get("provider", {}).get("topology", {})
+    provider_payload = mesh_handoff.provenance.get("provider")
+    provider_topology = (
+        provider_payload.get("topology", {})
+        if isinstance(provider_payload, dict)
+        else {}
+    )
     component_labels_present = provider_topology.get("labels_present")
     component_label_schema = provider_topology.get("label_schema")
     body_count = provider_topology.get("body_count")
 
     matches_wall_marker = bool(monitoring_markers) and set(monitoring_markers) == {wall_marker}
-    matches_entire_aircraft_wall = matches_wall_marker and len(monitoring_markers) == 1 and primary_group is not None
-    scope = "whole_aircraft_wall" if matches_entire_aircraft_wall else "unknown"
+    component_wall_marker = wall_marker in {"fairing_solid"}
+    matches_entire_aircraft_wall = (
+        matches_wall_marker
+        and len(monitoring_markers) == 1
+        and primary_group is not None
+        and not component_wall_marker
+    )
+    scope = (
+        "component_subset"
+        if component_wall_marker and matches_wall_marker and primary_group is not None
+        else "whole_aircraft_wall"
+        if matches_entire_aircraft_wall
+        else "unknown"
+    )
     component_provenance = "not_available"
     notes: list[str] = []
     warnings: list[str] = []
-    if component_labels_present:
+    if component_wall_marker and matches_wall_marker and primary_group is not None:
+        component_provenance = "component_groups_mapped"
+        notes.append("force monitoring uses a component-specific mesh physical group")
+    elif component_labels_present:
         if len(source_groups) > 1:
             component_provenance = "component_groups_mapped"
         else:
@@ -510,7 +536,7 @@ def materialize_baseline_case(
     source_root: Path | None = None,
 ) -> SU2CaseHandoff:
     mesh_handoff = MeshHandoff.model_validate(mesh_handoff)
-    aircraft_marker = _require_marker(mesh_handoff, "aircraft")
+    _, wall_marker = _resolve_wall_marker(mesh_handoff)
     farfield_marker = _require_marker(mesh_handoff, "farfield")
     case_dir = case_root / runtime.case_name
     case_dir.mkdir(parents=True, exist_ok=True)
@@ -523,12 +549,13 @@ def materialize_baseline_case(
     source_marker_summary = _resolve_path(mesh_handoff.artifacts.marker_summary, source_root)
 
     reference = _resolve_reference_geometry(mesh_handoff, runtime, source_root=source_root)
+    wall_physical_name = wall_marker.get("physical_name", "aircraft")
     markers = {
-        "wall": aircraft_marker.get("physical_name", "aircraft"),
+        "wall": wall_physical_name,
         "farfield": farfield_marker.get("physical_name", "farfield"),
-        "monitoring": [aircraft_marker.get("physical_name", "aircraft")],
-        "plotting": [aircraft_marker.get("physical_name", "aircraft")],
-        "euler": [aircraft_marker.get("physical_name", "aircraft")],
+        "monitoring": [wall_physical_name],
+        "plotting": [wall_physical_name],
+        "euler": [wall_physical_name],
     }
     force_surface_provenance = _build_force_surface_provenance(mesh_handoff, markers)
     provenance_gates = _build_provenance_gates(reference, force_surface_provenance)

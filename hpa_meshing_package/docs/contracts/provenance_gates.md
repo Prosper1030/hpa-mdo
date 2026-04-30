@@ -24,8 +24,10 @@ This gate answers: what surface markers are actually being integrated for aerody
 
 Current package-native baseline status:
 
-- wall marker is expected to be `aircraft`
-- the current scope is `whole_aircraft_wall`
+- aircraft-assembly wall marker is expected to be `aircraft`
+- aircraft-assembly scope is `whole_aircraft_wall`
+- closed-solid fairing wall marker is expected to be `fairing_solid`
+- closed-solid fairing scope is `component_subset`
 - component labels may exist in geometry, but they are not yet mapped into per-component force integration
 
 ## Gate Status Semantics

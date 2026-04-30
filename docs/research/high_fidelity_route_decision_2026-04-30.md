@@ -127,8 +127,9 @@ A committed snapshot is kept at:
 
 This smoke emits a real `mesh_handoff.v1` for `fairing_solid ->
 gmsh_closed_solid_volume`. It now includes a component-specific `fairing_solid`
-force marker in the mesh-handoff evidence. It is still not a SU2 route:
-`su2_handoff.v1` has not consumed that marker and `convergence_gate.v1` is
+force marker in the mesh-handoff evidence. The SU2 backend can materialize a
+`su2_handoff.v1` from that marker without running `SU2_CFD`, but the committed
+route evidence is still not a solver route and `convergence_gate.v1` is
 intentionally absent.
 
 The current expected strategic reading is:
@@ -138,7 +139,7 @@ The current expected strategic reading is:
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | route-specific baseline smoke before BL prelaunch |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | tail-specific geometry and mesh smoke |
-| `fairing_solid` | registered future route | no | SU2 handoff consuming `fairing_solid` marker |
+| `fairing_solid` | registered future route | no | committed SU2 materialization smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
 ## Boundary-Layer Promotion Policy
@@ -189,7 +190,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Materialize fairing `su2_handoff.v1` so it consumes the `fairing_solid`
-   marker instead of relying on the generic whole-aircraft wall.
+1. Write a committed fairing `su2_handoff.v1` materialization smoke artifact
+   without running `SU2_CFD`.
 2. Build the next non-BL `main_wing` real `mesh_handoff.v1` smoke while keeping
    BL transition ownership as a separate promotion gate.

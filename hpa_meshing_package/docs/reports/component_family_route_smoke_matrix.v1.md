@@ -37,6 +37,6 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 
 ## Next Actions
 
-- `promote fairing_solid only after su2_handoff.v1 consumes the fairing-specific force marker`
+- `promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate`
 - `select main_wing non-BL route for the next real mesh_handoff.v1 smoke`
 - `keep BL prelaunch excluded until handoff topology ownership passes`

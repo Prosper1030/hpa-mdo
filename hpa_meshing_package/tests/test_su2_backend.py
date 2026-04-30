@@ -144,6 +144,22 @@ def _build_mesh_handoff(tmp_path: Path) -> MeshHandoff:
     return MeshHandoff.model_validate(result["mesh_handoff"])
 
 
+def _build_fairing_solid_mesh_handoff(tmp_path: Path) -> MeshHandoff:
+    geometry = _write_occ_box_step(tmp_path, "fairing_solid_box.step")
+    config = MeshJobConfig(
+        component="fairing_solid",
+        geometry=geometry,
+        out_dir=tmp_path / "fairing_out",
+        geometry_source="direct_cad",
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+    result = run_job(config)
+    assert result["status"] == "success"
+    assert result["mesh"]["marker_summary"]["fairing_solid"]["exists"] is True
+    return MeshHandoff.model_validate(result["run"]["backend_result"]["mesh_handoff"])
+
+
 def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: Path):
     mesh_handoff = _build_mesh_handoff(tmp_path)
     runtime = SU2RuntimeConfig(enabled=True, max_iterations=12)
@@ -187,6 +203,56 @@ def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: 
     assert payload["reference_geometry"]["gate_status"] == "pass"
     assert payload["force_surface_provenance"]["scope"] == "whole_aircraft_wall"
     assert payload["provenance_gates"]["overall_status"] == "pass"
+
+
+def test_materialize_baseline_case_consumes_fairing_solid_marker_without_running_su2(tmp_path: Path):
+    mesh_handoff = _build_fairing_solid_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(
+        enabled=True,
+        max_iterations=12,
+        reference_mode="user_declared",
+        reference_override={
+            "ref_area": 0.24,
+            "ref_length": 1.0,
+            "ref_origin_moment": {"x": 0.5, "y": 0.12, "z": 0.09},
+            "source_label": "synthetic_fairing_box_reference",
+        },
+    )
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "fairing_su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert case.contract == "su2_handoff.v1"
+    assert case.run_status == "not_started"
+    assert case.mesh_markers["wall"] == "fairing_solid"
+    assert case.mesh_markers["monitoring"] == ["fairing_solid"]
+    assert case.mesh_markers["plotting"] == ["fairing_solid"]
+    assert case.mesh_markers["euler"] == ["fairing_solid"]
+    assert case.case_output_paths.su2_mesh.exists()
+    assert case.case_output_paths.history.exists() is False
+    assert case.reference_geometry.gate_status == "pass"
+    assert case.force_surface_provenance.scope == "component_subset"
+    assert case.force_surface_provenance.matches_wall_marker is True
+    assert case.force_surface_provenance.matches_entire_aircraft_wall is False
+    assert case.force_surface_provenance.component_provenance == "component_groups_mapped"
+    assert case.force_surface_provenance.primary_group is not None
+    assert case.force_surface_provenance.primary_group.marker_name == "fairing_solid"
+    assert case.provenance_gates.overall_status == "pass"
+
+    runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
+    assert "MARKER_EULER= ( fairing_solid )" in runtime_cfg
+    assert "MARKER_MONITORING= ( fairing_solid )" in runtime_cfg
+    assert "MARKER_PLOTTING= ( fairing_solid )" in runtime_cfg
+    assert "MARKER_EULER= ( aircraft )" not in runtime_cfg
+
+    payload = json.loads(case.case_output_paths.contract_path.read_text(encoding="utf-8"))
+    assert payload["run_status"] == "not_started"
+    assert payload["mesh_markers"]["wall"] == "fairing_solid"
+    assert payload["force_surface_provenance"]["scope"] == "component_subset"
 
 
 def test_materialize_baseline_case_defaults_to_four_su2_threads(tmp_path: Path):

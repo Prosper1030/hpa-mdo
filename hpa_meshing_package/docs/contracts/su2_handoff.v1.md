@@ -37,6 +37,11 @@ It packages:
 ## Current Formal v1 Interpretation
 
 - `source_contract` must be `mesh_handoff.v1`
+- wall markers are resolved from the mesh handoff:
+  - `aircraft` for the formal aircraft-assembly baseline
+  - `fairing_solid` for the closed-solid fairing route
+- materializing the handoff writes `su2_handoff.json`, `mesh.su2`, and
+  `su2_runtime.cfg`; solver execution is a separate step
 - `run_status` becomes `completed` only after `SU2_CFD` finishes and `history.csv` is parsed
 - `history` is the authoritative package-native baseline summary for final `CL`, `CD`, and `CM`
 - `convergence_gate` is the authoritative machine-readable verdict for baseline comparability
