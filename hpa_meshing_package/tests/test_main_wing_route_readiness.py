@@ -376,12 +376,24 @@ def test_main_wing_route_readiness_records_geometry_and_lift_diagnostic_stages(
             "diagnostic_status": "lift_deficit_observed",
             "minimum_acceptable_cl": 1.0,
             "selected_solver_report": {"runtime_max_iterations": 80},
+            "panel_reference_observed": {"cltot": 1.287645495943},
             "flow_condition_observed": {"velocity_mps": 6.5, "alpha_deg": 0.0},
             "reference_observed": {"ref_area_m2": 35.175},
             "lift_metrics": {"cl": 0.263, "observed_cl_to_minimum_ratio": 0.263},
+            "lift_gap_diagnostics": {
+                "panel_vs_su2_status": "panel_supports_expected_lift_su2_low",
+                "panel_to_su2_cl_ratio": 4.89,
+            },
+            "root_cause_candidates": [
+                {
+                    "candidate": "su2_route_lift_deficit_not_explained_by_operating_alpha_alone",
+                    "priority": "high",
+                }
+            ],
             "engineering_flags": [
                 "main_wing_cl_below_expected_lift",
                 "alpha_zero_operating_lift_not_demonstrated",
+                "vspaero_panel_cl_gt_one_while_su2_low",
             ],
         },
     )
@@ -398,6 +410,13 @@ def test_main_wing_route_readiness_records_geometry_and_lift_diagnostic_stages(
     ]
     assert lift_stage.status == "blocked"
     assert lift_stage.observed["minimum_acceptable_cl"] == 1.0
+    assert lift_stage.observed["panel_reference_observed"]["cltot"] == pytest.approx(
+        1.287645495943
+    )
+    assert lift_stage.observed["lift_gap_diagnostics"][
+        "panel_vs_su2_status"
+    ] == "panel_supports_expected_lift_su2_low"
+    assert lift_stage.observed["root_cause_candidates"][0]["priority"] == "high"
     assert "main_wing_cl_below_expected_lift" in lift_stage.blockers
     assert "alpha_zero_operating_lift_not_demonstrated" in report.blocking_reasons
 

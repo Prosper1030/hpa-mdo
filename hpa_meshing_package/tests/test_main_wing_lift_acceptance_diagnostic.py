@@ -79,6 +79,21 @@ def _write_solver_fixture(
             }
         },
     )
+    _write_json(
+        report_root
+        / "main_wing_vspaero_panel_reference_probe"
+        / "main_wing_vspaero_panel_reference_probe.v1.json",
+        {
+            "panel_reference_status": "panel_reference_available",
+            "lift_acceptance_status": "pass",
+            "selected_case": {
+                "AoA": alpha_deg,
+                "CLtot": 1.287645495943,
+                "CDtot": 0.045068093845,
+            },
+            "setup_reference": {"Vinf": velocity_mps},
+        },
+    )
     return report_root
 
 
@@ -106,8 +121,22 @@ def test_main_wing_lift_acceptance_diagnostic_reports_low_cl_alpha_zero(
     assert report.lift_metrics["observed_cl_to_minimum_ratio"] == pytest.approx(
         0.263161913
     )
+    assert report.panel_reference_observed["cltot"] == pytest.approx(1.287645495943)
+    assert report.lift_gap_diagnostics["panel_vs_su2_status"] == (
+        "panel_supports_expected_lift_su2_low"
+    )
+    assert report.lift_gap_diagnostics["panel_to_su2_cl_ratio"] == pytest.approx(
+        4.892978171742504
+    )
+    assert "vspaero_panel_cl_gt_one_while_su2_low" in report.engineering_flags
+    assert report.root_cause_candidates[0]["candidate"] == (
+        "su2_route_lift_deficit_not_explained_by_operating_alpha_alone"
+    )
     assert report.next_actions[0] == (
         "run_bounded_main_wing_alpha_trim_sanity_probe_without_changing_default"
+    )
+    assert "audit_su2_force_markers_bc_and_reference_against_vspaero_panel" in (
+        report.next_actions
     )
 
 
@@ -144,4 +173,9 @@ def test_write_main_wing_lift_acceptance_diagnostic_report(tmp_path: Path):
     markdown = written["markdown"].read_text(encoding="utf-8")
     assert payload["schema_version"] == "main_wing_lift_acceptance_diagnostic.v1"
     assert payload["diagnostic_status"] == "lift_deficit_observed"
+    assert payload["lift_gap_diagnostics"]["panel_vs_su2_status"] == (
+        "panel_supports_expected_lift_su2_low"
+    )
     assert "Main Wing Lift Acceptance Diagnostic v1" in markdown
+    assert "Panel Reference" in markdown
+    assert "Root Cause Candidates" in markdown

@@ -34,9 +34,12 @@ class MainWingLiftAcceptanceDiagnosticReport(BaseModel):
     minimum_acceptable_cl: float = MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
     diagnostic_status: DiagnosticStatusType
     selected_solver_report: Dict[str, Any] = Field(default_factory=dict)
+    panel_reference_observed: Dict[str, Any] = Field(default_factory=dict)
     flow_condition_observed: Dict[str, Any] = Field(default_factory=dict)
     reference_observed: Dict[str, Any] = Field(default_factory=dict)
     lift_metrics: Dict[str, Any] = Field(default_factory=dict)
+    lift_gap_diagnostics: Dict[str, Any] = Field(default_factory=dict)
+    root_cause_candidates: List[Dict[str, Any]] = Field(default_factory=list)
     engineering_flags: List[str] = Field(default_factory=list)
     engineering_assessment: List[str] = Field(default_factory=list)
     next_actions: List[str] = Field(default_factory=list)
@@ -125,6 +128,14 @@ def _reference_gate_area_delta(report_root: Path) -> float | None:
     return _as_float(observed.get("relative_error"))
 
 
+def _panel_reference_payload(report_root: Path) -> dict[str, Any] | None:
+    return _load_json(
+        report_root
+        / "main_wing_vspaero_panel_reference_probe"
+        / "main_wing_vspaero_panel_reference_probe.v1.json"
+    )
+
+
 def _committed_su2_handoff_path(
     report_root: Path,
     *,
@@ -198,6 +209,76 @@ def _lift_metrics(
     return metrics
 
 
+def _panel_reference_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
+    selected_case = payload.get("selected_case", {}) if isinstance(payload, dict) else {}
+    setup_reference = payload.get("setup_reference", {}) if isinstance(payload, dict) else {}
+    return {
+        "panel_reference_status": (
+            None if payload is None else payload.get("panel_reference_status")
+        ),
+        "alpha_deg": (
+            _as_float(selected_case.get("AoA"))
+            if isinstance(selected_case, dict)
+            else None
+        ),
+        "cltot": (
+            _as_float(selected_case.get("CLtot"))
+            if isinstance(selected_case, dict)
+            else None
+        ),
+        "cdtot": (
+            _as_float(selected_case.get("CDtot"))
+            if isinstance(selected_case, dict)
+            else None
+        ),
+        "velocity_mps": (
+            _as_float(setup_reference.get("Vinf"))
+            if isinstance(setup_reference, dict)
+            else None
+        ),
+        "lift_acceptance_status": (
+            None if payload is None else payload.get("lift_acceptance_status")
+        ),
+    }
+
+
+def _lift_gap_diagnostics(
+    *,
+    solver_cl: float | None,
+    panel_reference: dict[str, Any],
+) -> dict[str, Any]:
+    panel_cl = _as_float(panel_reference.get("cltot"))
+    diagnostics: dict[str, Any] = {
+        "selected_su2_cl": solver_cl,
+        "vspaero_panel_cl": panel_cl,
+        "minimum_acceptable_cl": MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5,
+    }
+    if solver_cl is None or panel_cl is None:
+        diagnostics["panel_vs_su2_status"] = "insufficient_evidence"
+        return diagnostics
+    diagnostics.update(
+        {
+            "cl_delta_panel_minus_su2": panel_cl - solver_cl,
+            "panel_to_su2_cl_ratio": (
+                panel_cl / solver_cl if abs(solver_cl) > 1.0e-12 else None
+            ),
+            "panel_reference_passes_cl_gate": (
+                panel_cl > MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
+            ),
+            "su2_smoke_passes_cl_gate": (
+                solver_cl > MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
+            ),
+        }
+    )
+    diagnostics["panel_vs_su2_status"] = (
+        "panel_supports_expected_lift_su2_low"
+        if diagnostics["panel_reference_passes_cl_gate"]
+        and not diagnostics["su2_smoke_passes_cl_gate"]
+        else "panel_and_su2_same_lift_gate_side"
+    )
+    return diagnostics
+
+
 def _diagnostic_status(
     *,
     cl: float | None,
@@ -224,6 +305,7 @@ def _engineering_flags(
     selected_row: dict[str, Any],
     reference_geometry_status: Any,
     reference_area_delta: float | None,
+    lift_gap: dict[str, Any],
 ) -> list[str]:
     flags: list[str] = []
     if status == "lift_deficit_observed":
@@ -241,7 +323,73 @@ def _engineering_flags(
         flags.append("mesh_quality_warning_present")
     if reference_area_delta is not None and reference_area_delta <= 0.03:
         flags.append("reference_area_delta_too_small_to_explain_lift_deficit")
+    if lift_gap.get("panel_vs_su2_status") == "panel_supports_expected_lift_su2_low":
+        flags.append("vspaero_panel_cl_gt_one_while_su2_low")
+    ratio = _as_float(lift_gap.get("panel_to_su2_cl_ratio"))
+    if ratio is not None and ratio >= 4.0:
+        flags.append("panel_to_su2_cl_ratio_above_four")
     return list(dict.fromkeys(flags))
+
+
+def _root_cause_candidates(
+    *,
+    flags: list[str],
+    selected_row: dict[str, Any],
+    reference_area_delta: float | None,
+    lift_gap: dict[str, Any],
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    if "vspaero_panel_cl_gt_one_while_su2_low" in flags:
+        candidates.append(
+            {
+                "candidate": "su2_route_lift_deficit_not_explained_by_operating_alpha_alone",
+                "priority": "high",
+                "evidence": [
+                    "VSPAERO panel reference is above CL=1 at the same alpha=0 setup.",
+                    "Current selected SU2 smoke remains below CL=1.",
+                ],
+                "next_gate": "compare_su2_boundary_markers_force_integration_and_reference_policy_against_panel_baseline",
+            }
+        )
+    if selected_row.get("convergence_gate_status") != "pass":
+        candidates.append(
+            {
+                "candidate": "solver_not_converged",
+                "priority": "high",
+                "evidence": [
+                    f"convergence_gate_status={selected_row.get('convergence_gate_status')}",
+                    f"runtime_max_iterations={selected_row.get('runtime_max_iterations')}",
+                ],
+                "next_gate": "use_source_backed_iteration_budget_before_convergence_claim",
+            }
+        )
+    advisory_flags = selected_row.get("advisory_flags", [])
+    if any(str(flag).startswith("mesh_quality_") for flag in advisory_flags):
+        candidates.append(
+            {
+                "candidate": "mesh_quality_or_dual_control_volume_pathology",
+                "priority": "high",
+                "evidence": [
+                    str(flag)
+                    for flag in advisory_flags
+                    if str(flag).startswith("mesh_quality_")
+                ],
+                "next_gate": "inspect_mesh_quality_and_boundary_condition_localization_before_more_iterations",
+            }
+        )
+    if reference_area_delta is not None:
+        candidates.append(
+            {
+                "candidate": "reference_area_normalization",
+                "priority": "low" if reference_area_delta <= 0.03 else "medium",
+                "evidence": [
+                    f"declared_vs_openvsp_area_relative_error={reference_area_delta:.6g}",
+                    f"panel_to_su2_cl_ratio={_as_float(lift_gap.get('panel_to_su2_cl_ratio'))}",
+                ],
+                "next_gate": "keep_reference_area_warning_visible_but_do_not_treat_it_as_primary_lift_gap_cause",
+            }
+        )
+    return candidates
 
 
 def _engineering_assessment(
@@ -251,6 +399,7 @@ def _engineering_assessment(
     alpha_deg: float | None,
     reference_area_delta: float | None,
     flags: list[str],
+    lift_gap: dict[str, Any],
 ) -> list[str]:
     assessment = [
         "This diagnostic reads existing solver-smoke artifacts only and does not execute SU2.",
@@ -276,6 +425,19 @@ def _engineering_assessment(
             "Mesh-quality warnings remain relevant for convergence and coefficient trust, "
             "but the low-lift finding should first be separated from alpha/trim provenance."
         )
+    if "vspaero_panel_cl_gt_one_while_su2_low" in flags:
+        assessment.append(
+            "Because the VSPAERO panel baseline is already above CL=1 at the same nominal "
+            "alpha=0 condition, alpha=0 alone is not a satisfactory explanation for the "
+            "current SU2 CL deficit."
+        )
+    ratio = _as_float(lift_gap.get("panel_to_su2_cl_ratio"))
+    if ratio is not None and ratio >= 4.0:
+        assessment.append(
+            f"The panel/SU2 CL ratio is about {ratio:.3g}x, so force-marker ownership, "
+            "boundary conditions, mesh quality, and solver state should be checked before "
+            "spending a larger run as a convergence test."
+        )
     return assessment
 
 
@@ -286,6 +448,8 @@ def _next_actions(flags: list[str]) -> list[str]:
             "run_bounded_main_wing_alpha_trim_sanity_probe_without_changing_default"
         )
         actions.append("extract_openvsp_main_wing_incidence_twist_camber_provenance")
+    if "vspaero_panel_cl_gt_one_while_su2_low" in flags:
+        actions.append("audit_su2_force_markers_bc_and_reference_against_vspaero_panel")
     if "mesh_quality_warning_present" in flags:
         actions.append("inspect_main_wing_mesh_quality_before_larger_solver_budget")
     if "reference_geometry_warn" in flags or "reference_geometry_fail" in flags:
@@ -301,6 +465,8 @@ def build_main_wing_lift_acceptance_diagnostic_report(
 ) -> MainWingLiftAcceptanceDiagnosticReport:
     root = _default_report_root() if report_root is None else report_root
     selected_row, solver_payload, solver_report_path = _selected_solver_payload(root)
+    panel_payload = _panel_reference_payload(root)
+    panel_reference = _panel_reference_observed(panel_payload)
     coeffs = selected_row.get("final_coefficients", {})
     cl = _as_float(coeffs.get("cl")) if isinstance(coeffs, dict) else None
     solver_report_handoff_path = _resolve_path(
@@ -351,12 +517,23 @@ def build_main_wing_lift_acceptance_diagnostic_report(
         velocity_mps=velocity_mps,
         convergence_gate_status=selected_row.get("convergence_gate_status"),
     )
+    lift_gap = _lift_gap_diagnostics(
+        solver_cl=cl,
+        panel_reference=panel_reference,
+    )
     flags = _engineering_flags(
         status=status,
         alpha_deg=alpha_deg,
         selected_row=selected_row,
         reference_geometry_status=reference_geometry_status,
         reference_area_delta=reference_area_delta,
+        lift_gap=lift_gap,
+    )
+    root_cause_candidates = _root_cause_candidates(
+        flags=flags,
+        selected_row=selected_row,
+        reference_area_delta=reference_area_delta,
+        lift_gap=lift_gap,
     )
     return MainWingLiftAcceptanceDiagnosticReport(
         diagnostic_status=status,
@@ -381,6 +558,7 @@ def build_main_wing_lift_acceptance_diagnostic_report(
                 else str(solver_report_handoff_path)
             ),
         },
+        panel_reference_observed=panel_reference,
         flow_condition_observed={
             "velocity_mps": velocity_mps,
             "density_kgpm3": density_kgpm3,
@@ -403,6 +581,8 @@ def build_main_wing_lift_acceptance_diagnostic_report(
             density_kgpm3=density_kgpm3,
             ref_area_m2=ref_area_m2,
         ),
+        lift_gap_diagnostics=lift_gap,
+        root_cause_candidates=root_cause_candidates,
         engineering_flags=flags,
         engineering_assessment=_engineering_assessment(
             status=status,
@@ -410,6 +590,7 @@ def build_main_wing_lift_acceptance_diagnostic_report(
             alpha_deg=alpha_deg,
             reference_area_delta=reference_area_delta,
             flags=flags,
+            lift_gap=lift_gap,
         ),
         next_actions=_next_actions(flags),
         hpa_mdo_guarantees=[
@@ -452,6 +633,9 @@ def _render_markdown(report: MainWingLiftAcceptanceDiagnosticReport) -> str:
     ]
     for key, value in report.selected_solver_report.items():
         lines.append(f"- `{key}`: `{_fmt(value)}`")
+    lines.extend(["", "## Panel Reference", ""])
+    for key, value in report.panel_reference_observed.items():
+        lines.append(f"- `{key}`: `{_fmt(value)}`")
     lines.extend(["", "## Flow And Reference", ""])
     for key, value in report.flow_condition_observed.items():
         lines.append(f"- `{key}`: `{_fmt(value)}`")
@@ -460,6 +644,12 @@ def _render_markdown(report: MainWingLiftAcceptanceDiagnosticReport) -> str:
     lines.extend(["", "## Lift Metrics", ""])
     for key, value in report.lift_metrics.items():
         lines.append(f"- `{key}`: `{_fmt(value)}`")
+    lines.extend(["", "## Lift Gap Diagnostics", ""])
+    for key, value in report.lift_gap_diagnostics.items():
+        lines.append(f"- `{key}`: `{_fmt(value)}`")
+    lines.extend(["", "## Root Cause Candidates", ""])
+    for candidate in report.root_cause_candidates:
+        lines.append(f"- `{candidate.get('candidate')}`: `{candidate.get('priority')}`")
     lines.extend(["", "## Engineering Flags", ""])
     lines.extend(f"- `{flag}`" for flag in report.engineering_flags)
     lines.extend(["", "## Engineering Assessment", ""])

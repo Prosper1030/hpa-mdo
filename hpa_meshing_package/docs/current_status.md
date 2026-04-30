@@ -84,8 +84,9 @@ OpenVSP provenance is available (`Y_Rotation=3 deg`, cambered airfoils, zero
 parsed local twist), VSPAERO panel reference evidence is available at
 `CLtot=1.287645495943`, and the OpenVSP-reference geometry gate records
 `Bref=33.0 m` as the span provenance. SU2 lift acceptance remains blocked
-because the selected current-route smoke has `CL=0.263161913`, well below the
-main-wing `CL > 1.0` acceptance gate for the HPA operating point.
+because the selected current-route smoke has `CL=0.263161913`, about `4.89x`
+lower than the VSPAERO panel baseline and below the main-wing `CL > 1.0`
+acceptance gate for the HPA operating point.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -368,8 +369,13 @@ that corresponds to about `240 N` of normalized lift versus about `910 N` at
 the minimum acceptable `CL=1.0`. The report therefore treats the current
 solver smoke as below the main-wing lift acceptance gate. This is not a claim
 that the aircraft cannot trim; it means the alpha-zero route smoke cannot be
-accepted as converged main-wing evidence until a bounded alpha/trim sanity
-probe and geometry incidence/twist/camber provenance are recorded.
+accepted as converged main-wing evidence. Because the VSPAERO panel baseline at
+the same nominal `alpha=0 deg`, `V=6.5 m/s` setup is already above the CL gate,
+the diagnostic no longer treats alpha-zero alone as a satisfactory explanation.
+It now ranks likely next suspects as SU2 force-marker consistency,
+boundary-condition consistency, reference-policy consistency, non-convergence,
+and mesh-quality pathology. The reference-area mismatch is kept visible but
+marked too small to explain the lift gap by itself.
 
 The main-wing reference-geometry gate is emitted by:
 
@@ -545,7 +551,7 @@ ownership cleanup, not solver execution.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; a probe-local OpenVSP reference-policy handoff and solver smoke also materialize; default and OpenVSP-reference 12-iteration solver smokes fail the convergence gate, solver-budget follow-ups reach only `warn/run_only`, reference chord now cross-checks against OpenVSP/VSPAERO `cref`; readiness records the OpenVSP-reference geometry gate with span from `Bref=33.0`, while default reference-area and all formal moment-origin policy remain `warn` |
+| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; a probe-local OpenVSP reference-policy handoff and solver smoke also materialize; default and OpenVSP-reference 12-iteration solver smokes fail the convergence gate, solver-budget follow-ups reach only `warn/run_only`, reference chord now cross-checks against OpenVSP/VSPAERO `cref`; readiness records the OpenVSP-reference geometry gate with span from `Bref=33.0`; lift diagnostic records VSPAERO panel `CLtot=1.2876` vs selected SU2 `CL=0.2632`, while default reference-area and all formal moment-origin policy remain `warn` |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is now applied in a gated override handoff; borrowed zero moment origin, solver history, and convergence gate are still missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |

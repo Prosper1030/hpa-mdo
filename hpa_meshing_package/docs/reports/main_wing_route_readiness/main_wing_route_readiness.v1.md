@@ -37,6 +37,8 @@
 - `reference_geometry_warn`
 - `mesh_quality_warning_present`
 - `reference_area_delta_too_small_to_explain_lift_deficit`
+- `vspaero_panel_cl_gt_one_while_su2_low`
+- `panel_to_su2_cl_ratio_above_four`
 
 ## Next Actions
 

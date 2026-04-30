@@ -408,6 +408,9 @@ def _lift_acceptance_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
         "selected_solver_report": (
             {} if payload is None else payload.get("selected_solver_report", {})
         ),
+        "panel_reference_observed": (
+            {} if payload is None else payload.get("panel_reference_observed", {})
+        ),
         "flow_condition_observed": (
             {} if payload is None else payload.get("flow_condition_observed", {})
         ),
@@ -415,6 +418,12 @@ def _lift_acceptance_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
             {} if payload is None else payload.get("reference_observed", {})
         ),
         "lift_metrics": {} if payload is None else payload.get("lift_metrics", {}),
+        "lift_gap_diagnostics": (
+            {} if payload is None else payload.get("lift_gap_diagnostics", {})
+        ),
+        "root_cause_candidates": (
+            [] if payload is None else payload.get("root_cause_candidates", [])
+        ),
         "engineering_flags": (
             [] if payload is None else payload.get("engineering_flags", [])
         ),

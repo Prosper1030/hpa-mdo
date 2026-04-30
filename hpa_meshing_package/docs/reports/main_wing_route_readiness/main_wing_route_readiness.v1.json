@@ -392,6 +392,14 @@
           "su2_handoff_path_source": "committed_openvsp_reference_su2_handoff_probe",
           "solver_report_su2_handoff_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/su2_handoff.json"
         },
+        "panel_reference_observed": {
+          "panel_reference_status": "panel_reference_available",
+          "alpha_deg": 0.0,
+          "cltot": 1.287645495943,
+          "cdtot": 0.045068093845,
+          "velocity_mps": 6.5,
+          "lift_acceptance_status": "pass"
+        },
         "flow_condition_observed": {
           "velocity_mps": 6.5,
           "density_kgpm3": 1.225,
@@ -414,13 +422,63 @@
           "observed_cl_to_minimum_ratio": 0.263161913,
           "cl_shortfall_to_minimum": 0.736838087
         },
+        "lift_gap_diagnostics": {
+          "selected_su2_cl": 0.263161913,
+          "vspaero_panel_cl": 1.287645495943,
+          "minimum_acceptable_cl": 1.0,
+          "cl_delta_panel_minus_su2": 1.024483582943,
+          "panel_to_su2_cl_ratio": 4.892978171742504,
+          "panel_reference_passes_cl_gate": true,
+          "su2_smoke_passes_cl_gate": false,
+          "panel_vs_su2_status": "panel_supports_expected_lift_su2_low"
+        },
+        "root_cause_candidates": [
+          {
+            "candidate": "su2_route_lift_deficit_not_explained_by_operating_alpha_alone",
+            "priority": "high",
+            "evidence": [
+              "VSPAERO panel reference is above CL=1 at the same alpha=0 setup.",
+              "Current selected SU2 smoke remains below CL=1."
+            ],
+            "next_gate": "compare_su2_boundary_markers_force_integration_and_reference_policy_against_panel_baseline"
+          },
+          {
+            "candidate": "solver_not_converged",
+            "priority": "high",
+            "evidence": [
+              "convergence_gate_status=warn",
+              "runtime_max_iterations=80"
+            ],
+            "next_gate": "use_source_backed_iteration_budget_before_convergence_claim"
+          },
+          {
+            "candidate": "mesh_quality_or_dual_control_volume_pathology",
+            "priority": "high",
+            "evidence": [
+              "mesh_quality_cv_sub_volume_ratio_high",
+              "mesh_quality_cv_face_area_aspect_ratio_high"
+            ],
+            "next_gate": "inspect_mesh_quality_and_boundary_condition_localization_before_more_iterations"
+          },
+          {
+            "candidate": "reference_area_normalization",
+            "priority": "low",
+            "evidence": [
+              "declared_vs_openvsp_area_relative_error=0.0149254",
+              "panel_to_su2_cl_ratio=4.892978171742504"
+            ],
+            "next_gate": "keep_reference_area_warning_visible_but_do_not_treat_it_as_primary_lift_gap_cause"
+          }
+        ],
         "engineering_flags": [
           "main_wing_cl_below_expected_lift",
           "alpha_zero_operating_lift_not_demonstrated",
           "solver_not_converged",
           "reference_geometry_warn",
           "mesh_quality_warning_present",
-          "reference_area_delta_too_small_to_explain_lift_deficit"
+          "reference_area_delta_too_small_to_explain_lift_deficit",
+          "vspaero_panel_cl_gt_one_while_su2_low",
+          "panel_to_su2_cl_ratio_above_four"
         ]
       },
       "blockers": [
@@ -429,7 +487,9 @@
         "solver_not_converged",
         "reference_geometry_warn",
         "mesh_quality_warning_present",
-        "reference_area_delta_too_small_to_explain_lift_deficit"
+        "reference_area_delta_too_small_to_explain_lift_deficit",
+        "vspaero_panel_cl_gt_one_while_su2_low",
+        "panel_to_su2_cl_ratio_above_four"
       ]
     },
     {
@@ -462,7 +522,9 @@
     "solver_not_converged",
     "reference_geometry_warn",
     "mesh_quality_warning_present",
-    "reference_area_delta_too_small_to_explain_lift_deficit"
+    "reference_area_delta_too_small_to_explain_lift_deficit",
+    "vspaero_panel_cl_gt_one_while_su2_low",
+    "panel_to_su2_cl_ratio_above_four"
   ],
   "next_actions": [
     "resolve_main_wing_cl_below_expected_lift_before_convergence_claims",
