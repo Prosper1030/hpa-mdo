@@ -107,6 +107,48 @@ def test_main_wing_route_readiness_summarizes_stage_truth(tmp_path: Path):
     assert "repair_real_main_wing_mesh3d_volume_insertion_policy" in report.next_actions
 
 
+def test_main_wing_route_readiness_includes_profile_parametrization_audit(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_profile_parametrization_audit"
+        / "main_wing_station_seam_profile_parametrization_audit.v1.json",
+        {
+            "audit_status": "profile_parametrization_seam_fragment_correlation_observed",
+            "station_fragment_summary": {
+                "station_count": 2,
+                "terminal_linseg_match_count_total": 4,
+                "rest_arc_match_count_total": 2,
+                "failed_pcurve_check_count_total": 6,
+            },
+            "engineering_findings": [
+                "station_short_curves_match_profile_terminal_linseg_segments"
+            ],
+            "blocking_reasons": [
+                "profile_parametrization_export_change_needed_before_mesh_handoff"
+            ],
+            "next_actions": [
+                "prototype_side_aware_profile_parametrization_candidate"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    stage = stages["station_seam_profile_parametrization_audit"]
+    assert stage.status == "pass"
+    assert stage.evidence_kind == "real"
+    assert stage.observed["station_fragment_summary"][
+        "terminal_linseg_match_count_total"
+    ] == 4
+    assert "profile_parametrization_export_change_needed_before_mesh_handoff" in (
+        report.blocking_reasons
+    )
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

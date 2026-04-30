@@ -107,7 +107,11 @@ same-parameter feasibility probe then attempts in-memory `BRepLib.SameParameter`
 from `1e-7` through `1e-3` and does not recover those station checks. The
 ShapeFix feasibility probe extends that negative result across 25 in-memory
 `ShapeFix_Edge` attempts: five operations over five tolerances, with zero
-recovered station checks. The export-source audit then traces those target
+recovered station checks. The profile parametrization audit now correlates the
+current profile-resample candidate back to its CSM section segments: across the
+two target stations, all 6 station-edge PCurve checks fail, 4 short station
+curves match terminal `linseg` fragments, and 2 long station curves match
+spline rest arcs. The export-source audit then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
 `y=-10.5 m` and `y=13.5 m`. The mesh-quality hotspot audit now partitions the
@@ -116,7 +120,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`change_profile_resample_export_pcurve_generation_or_section_parametrization`.
+`prototype_side_aware_profile_parametrization_candidate`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -356,6 +360,24 @@ in-memory ShapeFix / SameParameter operation-tolerance attempts produce
 `recovered_attempt_count = 0`. This is engineering evidence that the next fix
 belongs in export / section parametrization, not direct mesh handoff, solver
 budget, or a surface-id patch.
+
+The main-wing profile parametrization audit is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-profile-parametrization-audit --out .tmp/runs/main_wing_station_seam_profile_parametrization_audit
+```
+
+This writes
+`main_wing_station_seam_profile_parametrization_audit.v1.json` and
+`main_wing_station_seam_profile_parametrization_audit.v1.md`. The committed
+snapshot records
+`profile_parametrization_seam_fragment_correlation_observed`: the six
+candidate-selected station edges still all fail PCurve consistency, four short
+station curves match the candidate CSM terminal `linseg` fragments, and two
+long station curves match the spline rest arcs. This is report-only geometry
+evidence for the next export change; it is not a mesh-handoff, solver, or
+convergence claim.
 
 The first real fairing geometry smoke is emitted by:
 

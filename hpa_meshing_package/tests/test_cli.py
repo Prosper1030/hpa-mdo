@@ -569,6 +569,34 @@ def test_parser_supports_main_wing_station_seam_profile_resample_repair_feasibil
     ]
 
 
+def test_parser_supports_main_wing_station_seam_profile_parametrization_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-profile-parametrization-audit",
+            "--out",
+            "artifacts/main_wing_profile_parametrization_audit",
+            "--profile-resample-probe",
+            "artifacts/main_wing/profile_resample.json",
+            "--brep-validation-probe",
+            "artifacts/main_wing/profile_resample_brep_validation.json",
+            "--match-tolerance",
+            "0.02",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-profile-parametrization-audit"
+    )
+    assert args.out == "artifacts/main_wing_profile_parametrization_audit"
+    assert args.profile_resample_probe == "artifacts/main_wing/profile_resample.json"
+    assert args.brep_validation_probe == (
+        "artifacts/main_wing/profile_resample_brep_validation.json"
+    )
+    assert args.match_tolerance == 0.02
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(

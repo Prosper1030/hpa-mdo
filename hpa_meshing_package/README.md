@@ -48,7 +48,7 @@
 ## Experimental / Placeholder Areas
 
 - `esp_rebuilt` 目前已經能在本機 materialize provider-normalized geometry，但仍停留在 experimental：它不是 formal `v1` route；main-wing 已經能用 coarse bounded sizing 寫出 real `mesh_handoff.v1`，但這仍不是 production default mesh。
-- `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在；`main_wing` 已有 real ESP/VSP geometry、real Gmsh mesh handoff、real SU2 handoff、solver executed but not converged artifact、reference-geometry warn gate，以及 station-seam BRep / same-parameter / ShapeFix / export-source / export-strategy / internal-cap / profile-resample strategy / profile-resample BRep validation / profile-resample repair feasibility / mesh-quality hotspot evidence；目前主翼產品化 blocker 是 station PCurve / export repair，不是 production CFD pass；`tail_wing` 已有 real geometry / surface / blocker probes，`fairing_solid` 已有 real VSP geometry smoke、bounded real mesh handoff probe、real SU2 handoff materialization probe 與 external reference override handoff，但都還不是正式可交付 CFD 路徑。
+- `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在；`main_wing` 已有 real ESP/VSP geometry、real Gmsh mesh handoff、real SU2 handoff、solver executed but not converged artifact、reference-geometry warn gate，以及 station-seam BRep / same-parameter / ShapeFix / export-source / export-strategy / internal-cap / profile-resample strategy / profile-resample BRep validation / profile-resample repair feasibility / profile parametrization audit / mesh-quality hotspot evidence；目前主翼產品化 blocker 是 station PCurve / export repair，不是 production CFD pass；`tail_wing` 已有 real geometry / surface / blocker probes，`fairing_solid` 已有 real VSP geometry smoke、bounded real mesh handoff probe、real SU2 handoff materialization probe 與 external reference override handoff，但都還不是正式可交付 CFD 路徑。
 - 目前只有 `gmsh_thin_sheet_aircraft_assembly` 會走真實 Gmsh meshing；其他 route 會回 `route_stage=placeholder`。
 - `shell_v4` 是 BL / solver-entry diagnostic branch，不是任意主翼 product route；BL route 只有在 hpa-mdo owns transition sleeve / receiver faces / interface loops / layer-drop events 之後才可 promotion。
 
@@ -57,8 +57,8 @@
 - `esp_rebuilt` 在目前 `main` 上已經不再是 `not_materialized` stub。它現在會走 native OpenCSM lifting-surface rebuild：從 `.vsp3` 讀 wing/tail sections，生成 rule-loft `.csm`，再用 `serveCSM -batch` 輸出 normalized STEP 與 topology artifact。
 - 這台 Mac mini M4（macOS 26.4.1 / arm64）目前可用的 runtime truth 是：`serveESP` / `serveCSM` 在 `PATH` 上、`ocsm` 仍缺席，但 batch 路徑可以直接用 `serveCSM`。所以 `detect_esp_runtime()` 會回 `available=true`、`batch_binary=serveCSM`，provider 已可執行。
 - 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已經把主翼單體 real geometry evidence 收進 committed report：它從 `blackcat_004_origin.vsp3` 選到 `Main Wing`，產生 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`。
-- 目前真正的 blocker 已經往後移：coarse bounded real mesh handoff 和 real SU2 handoff 都已經 materialize，`SU2_CFD` 也能執行並寫出 `history.csv`；但 12-iteration smoke 和 OpenVSP-reference 80-iteration follow-up 都是 `fail/not_comparable`，80-iteration run 已保留 `surface.csv` 與 `forces_breakdown.dat`，main-wing reference chord 已可用 OpenVSP/VSPAERO `cref` cross-check，reference area / moment origin 仍是比較性 blocker。後續 station-seam evidence 又把更早的幾何 blocker 定位到曲線 36 / 50：PCurves 存在，但 curve-3D-with-PCurve / same-parameter / vertex-tolerance checks 不一致，`BRepLib.SameParameter` tolerance sweep 不能修復，25 次 `ShapeFix_Edge` operation/tolerance 組合也不能修復；export-source audit 進一步確認 `rebuild.csm` 是單一 OpenCSM `rule` loft over 11 sketch sections，兩個 defect station 都落在 internal rule sections。split-bay export-strategy probe 能把 target stations 變成 rule boundaries，但 no-union candidate 是 3 volumes，union candidate 雖是 1 volume 卻沒有保住 full-span `y=-16.5..16.5 m` bounds；internal-cap probe 又確認 no-union 在兩個 target stations 都有 duplicate cap faces，而 union 在 `y=13.5 m` 留下 6 個 cap fragments 並截斷右半翼。profile-resample strategy probe 則把來源 section profile counts 從 `57/59` 統一到 `59`、保持單一 `rule`，materialize 成 `1 volume / 32 surfaces` 且 target stations 無 cap faces；profile-resample BRep validation 再用 candidate station-y geometry 選出 6 條 station edges，確認 PCurves 存在但 curve-3D-with-PCurve / same-parameter-by-face / vertex-tolerance-by-face 仍 suspect；profile-resample repair feasibility 對 6 條 station edges 跑 25 個 ShapeFix / SameParameter operation-tolerance 組合，`recovered_attempt_count = 0`。mesh-quality hotspot audit 另確認 real mesh 有 `78` 個 ill-shaped tets、`min_gamma=8.131677887160085e-07`，worst-tet sample 多數在 farfield，但仍有 5 / 20 在主翼 surfaces 19 / 29 / 32，其中 surface 19 與 station-seam entity trace 重疊。
-- 結論：`esp_rebuilt` 現在是「provider runnable + route artifact exists, but not production CFD」。下一步不是再補 runtime 安裝，也不是宣稱 solver converged；優先修 OpenCSM export / section parametrization 的 station PCurve consistency，再決定是否做 bounded mesh handoff，之後才回來做 panel-vs-SU2 force-breakdown、reference provenance 與有根據的 numerics campaign。
+- 目前真正的 blocker 已經往後移：coarse bounded real mesh handoff 和 real SU2 handoff 都已經 materialize，`SU2_CFD` 也能執行並寫出 `history.csv`；但 12-iteration smoke 和 OpenVSP-reference 80-iteration follow-up 都是 `fail/not_comparable`，80-iteration run 已保留 `surface.csv` 與 `forces_breakdown.dat`，main-wing reference chord 已可用 OpenVSP/VSPAERO `cref` cross-check，reference area / moment origin 仍是比較性 blocker。後續 station-seam evidence 又把更早的幾何 blocker 定位到曲線 36 / 50：PCurves 存在，但 curve-3D-with-PCurve / same-parameter / vertex-tolerance checks 不一致，`BRepLib.SameParameter` tolerance sweep 不能修復，25 次 `ShapeFix_Edge` operation/tolerance 組合也不能修復；export-source audit 進一步確認 `rebuild.csm` 是單一 OpenCSM `rule` loft over 11 sketch sections，兩個 defect station 都落在 internal rule sections。split-bay export-strategy probe 能把 target stations 變成 rule boundaries，但 no-union candidate 是 3 volumes，union candidate 雖是 1 volume 卻沒有保住 full-span `y=-16.5..16.5 m` bounds；internal-cap probe 又確認 no-union 在兩個 target stations 都有 duplicate cap faces，而 union 在 `y=13.5 m` 留下 6 個 cap fragments 並截斷右半翼。profile-resample strategy probe 則把來源 section profile counts 從 `57/59` 統一到 `59`、保持單一 `rule`，materialize 成 `1 volume / 32 surfaces` 且 target stations 無 cap faces；profile-resample BRep validation 再用 candidate station-y geometry 選出 6 條 station edges，確認 PCurves 存在但 curve-3D-with-PCurve / same-parameter-by-face / vertex-tolerance-by-face 仍 suspect；profile-resample repair feasibility 對 6 條 station edges 跑 25 個 ShapeFix / SameParameter operation-tolerance 組合，`recovered_attempt_count = 0`；profile parametrization audit 進一步把 4 條短 station curves 對回 terminal `linseg` fragments、2 條長 station curves 對回 spline rest arcs，且 6 條 station-edge PCurve consistency 全失敗。mesh-quality hotspot audit 另確認 real mesh 有 `78` 個 ill-shaped tets、`min_gamma=8.131677887160085e-07`，worst-tet sample 多數在 farfield，但仍有 5 / 20 在主翼 surfaces 19 / 29 / 32，其中 surface 19 與 station-seam entity trace 重疊。
+- 結論：`esp_rebuilt` 現在是「provider runnable + route artifact exists, but not production CFD」。下一步不是再補 runtime 安裝，也不是宣稱 solver converged；優先做 side-aware OpenCSM profile parametrization candidate，再重跑 station BRep/PCurve validation，之後才決定是否做 bounded mesh handoff、panel-vs-SU2 force-breakdown、reference provenance 與有根據的 numerics campaign。
 - 實作規劃請看 [ESP Rebuilt Provider Enablement Implementation Plan](../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
 
 ## Quick Start
@@ -579,7 +579,24 @@ edges still have PCurves, but none of the 25 operation/tolerance combinations
 recovers same-parameter, curve-3D-with-PCurve, and vertex-tolerance checks. This
 keeps the next fix at export / section parametrization, not direct mesh handoff.
 
-### 29. Write the main wing mesh-handoff smoke
+### 29. Audit profile-resample section parametrization
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli main-wing-station-seam-profile-parametrization-audit \
+  --out .tmp/runs/main_wing_station_seam_profile_parametrization_audit
+```
+
+This report-only audit parses the current profile-resample candidate CSM and
+correlates candidate station-edge lengths back to CSM section segments. The
+current committed result is
+`profile_parametrization_seam_fragment_correlation_observed`: all six selected
+station-edge PCurve checks fail, four short station curves match terminal
+`linseg` fragments, and two long station curves match spline rest arcs. This
+keeps the next gate at a side-aware profile parametrization candidate; it is not
+a mesh-handoff or solver-convergence claim.
+
+### 30. Write the main wing mesh-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -774,6 +791,7 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 - [`main_wing_station_seam_shape_fix_feasibility.v1`](docs/contracts/main_wing_station_seam_shape_fix_feasibility.v1.md)
 - [`main_wing_station_seam_export_source_audit.v1`](docs/contracts/main_wing_station_seam_export_source_audit.v1.md)
 - [`main_wing_station_seam_export_strategy_probe.v1`](docs/contracts/main_wing_station_seam_export_strategy_probe.v1.md)
+- [`main_wing_station_seam_profile_parametrization_audit.v1`](docs/contracts/main_wing_station_seam_profile_parametrization_audit.v1.md)
 - [`main_wing_mesh_handoff_smoke.v1`](docs/contracts/main_wing_mesh_handoff_smoke.v1.md)
 - [`main_wing_su2_handoff_smoke.v1`](docs/contracts/main_wing_su2_handoff_smoke.v1.md)
 - [`tail_wing_esp_rebuilt_geometry_smoke.v1`](docs/contracts/tail_wing_esp_rebuilt_geometry_smoke.v1.md)
@@ -811,7 +829,7 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 ## Recommended Next Gates
 
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
-2. repair OpenCSM export / section parametrization for profile-resample station PCurve consistency before any mesh handoff or solver-budget work
+2. prototype a side-aware OpenCSM profile parametrization candidate for the profile-resample station PCurve blocker before any mesh handoff or solver-budget work
 3. use the retained main-wing `forces_breakdown.dat` / `surface.csv` to debug the panel-vs-SU2 lift gap with the source-backed `CLi = inviscid`, `CLiw = wake/free-stream` semantics, then fix reference-area / moment-origin provenance before any larger residual/numerics campaign; do not treat either smoke as converged, and keep `CL > 1.0` as the HPA operating-point acceptance floor
 4. run a real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
 5. repair explicit tail volume orientation or baffle-surface ownership before solver claims

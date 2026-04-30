@@ -1,0 +1,64 @@
+# Main Wing Station Seam Profile Parametrization Audit v1
+
+This report correlates profile-resample station-edge failures with CSM section segment parametrization without changing production defaults.
+
+- audit_status: `profile_parametrization_seam_fragment_correlation_observed`
+- profile_resample_probe_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/main_wing_station_seam_profile_resample_strategy_probe.v1.json`
+- brep_validation_probe_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_brep_validation_probe/main_wing_station_seam_profile_resample_brep_validation_probe.v1.json`
+- candidate_csm_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/candidate.csm`
+- source_csm_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/provider_geometry/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/rebuild.csm`
+- production_default_changed: `False`
+
+## Station Fragment Summary
+
+- `station_count`: `2`
+- `station_edge_check_count_total`: `6`
+- `failed_pcurve_check_count_total`: `6`
+- `terminal_linseg_match_count_total`: `4`
+- `rest_arc_match_count_total`: `2`
+- `stations_with_terminal_linseg_matches`: `2`
+- `stations_with_rest_arc_matches`: `2`
+- `all_station_edge_pcurve_checks_failed`: `True`
+
+## Edge Failure Summary
+
+- `station_edge_check_count`: `6`
+- `failed_pcurve_check_count`: `6`
+- `pcurve_presence_complete_count`: `6`
+- `curve3d_with_pcurve_consistent_count`: `0`
+- `same_parameter_by_face_ok_count`: `0`
+- `vertex_tolerance_by_face_ok_count`: `0`
+- `all_station_edge_pcurve_checks_failed`: `True`
+
+## Target Station Correlations
+
+- `{"station_y_m": -10.5, "candidate_section_index": 2, "source_section_index": 2, "segment_summary": {"csm_section_index": 2, "station_y_m": -10.5, "point_count": 59, "segment_count": 58, "first_segment_opcode": "linseg", "first_segment_length_m": 0.03709876400055802, "closing_segment_opcode": "linseg", "closing_segment_length_m": 0.03718050120939017, "rest_arc_length_m": 2.0783939918656245, "perimeter_length_m": 2.152673257075573, "interior_opcodes": ["spline"]}, "source_segment_summary": {"csm_section_index": 2, "station_y_m": -10.5, "point_count": 59, "segment_count": 58, "first_segment_opcode": "linseg", "first_segment_length_m": 0.011309738135821127, "closing_segment_opcode": "linseg", "closing_segment_length_m": 0.010151388133646747, "rest_arc_length_m": 2.135492371159668, "perimeter_length_m": 2.156953497429136, "interior_opcodes": ["spline"]}, "curve_correlations": [{"candidate_step_curve_tag": 36, "curve_length_m": 2.0814045356929585, "classification": "rest_arc", "matched_segment_keys": ["rest_arc"], "pcurve_check_failed": true, "owner_surface_tags": [12, 13]}, {"candidate_step_curve_tag": 7, "curve_length_m": 0.03718050120939017, "classification": "terminal_linseg_segment", "matched_segment_keys": ["first_segment", "closing_segment"], "pcurve_check_failed": true, "owner_surface_tags": [2, 3]}, {"candidate_step_curve_tag": 55, "curve_length_m": 0.03709876400055802, "classification": "terminal_linseg_segment", "matched_segment_keys": ["first_segment", "closing_segment"], "pcurve_check_failed": true, "owner_surface_tags": [22, 23]}], "station_edge_check_count": 3, "terminal_linseg_match_count": 2, "rest_arc_match_count": 1, "failed_pcurve_check_count": 3, "all_station_edge_pcurve_checks_failed": true}`
+- `{"station_y_m": 13.5, "candidate_section_index": 9, "source_section_index": 9, "segment_summary": {"csm_section_index": 9, "station_y_m": 13.5, "point_count": 59, "segment_count": 58, "first_segment_opcode": "linseg", "first_segment_length_m": 0.029662827362268364, "closing_segment_opcode": "linseg", "closing_segment_length_m": 0.029678020564537878, "rest_arc_length_m": 1.6586636513586093, "perimeter_length_m": 1.7180044992854155, "interior_opcodes": ["spline"]}, "source_segment_summary": {"csm_section_index": 9, "station_y_m": 13.5, "point_count": 57, "segment_count": 56, "first_segment_opcode": "linseg", "first_segment_length_m": 0.023895277093156173, "closing_segment_opcode": "linseg", "closing_segment_length_m": 0.014436804086347267, "rest_arc_length_m": 1.6830201707422245, "perimeter_length_m": 1.721352251921728, "interior_opcodes": ["spline"]}, "curve_correlations": [{"candidate_step_curve_tag": 50, "curve_length_m": 1.6610670624194632, "classification": "rest_arc", "matched_segment_keys": ["rest_arc"], "pcurve_check_failed": true, "owner_surface_tags": [19, 20]}, {"candidate_step_curve_tag": 28, "curve_length_m": 0.02967802056453788, "classification": "terminal_linseg_segment", "matched_segment_keys": ["first_segment", "closing_segment"], "pcurve_check_failed": true, "owner_surface_tags": [9, 10]}, {"candidate_step_curve_tag": 62, "curve_length_m": 0.029662827362268357, "classification": "terminal_linseg_segment", "matched_segment_keys": ["first_segment", "closing_segment"], "pcurve_check_failed": true, "owner_surface_tags": [29, 30]}], "station_edge_check_count": 3, "terminal_linseg_match_count": 2, "rest_arc_match_count": 1, "failed_pcurve_check_count": 3, "all_station_edge_pcurve_checks_failed": true}`
+
+## Engineering Findings
+
+- `profile_parametrization_audit_captured`
+- `source_profile_point_count_mismatch_observed`
+- `station_short_curves_match_profile_terminal_linseg_segments`
+- `station_long_curves_match_profile_spline_rest_arc`
+- `profile_resample_candidate_parameter_consistency_fails_on_all_station_fragments`
+- `profile_parametrization_export_change_needed`
+
+## Blocking Reasons
+
+- `profile_resample_candidate_station_brep_pcurve_checks_suspect`
+- `profile_resample_candidate_mesh_handoff_not_run`
+- `profile_parametrization_export_change_needed_before_mesh_handoff`
+
+## Next Actions
+
+- `prototype_side_aware_profile_parametrization_candidate`
+- `rerun_profile_resample_brep_validation_on_side_aware_candidate`
+- `avoid_solver_iteration_budget_until_station_parametrization_gate_is_clean`
+
+## Limitations
+
+- This is a report-only audit and does not change provider defaults.
+- Curve-to-segment correlation is length-based evidence, not a direct CAD identity map.
+- It does not materialize a new CSM candidate, generate a Gmsh mesh, run SU2_CFD, or judge convergence.
+- Engineering acceptance still requires a repaired geometry/mesh gate and CL >= 1 under the HPA 6.5 m/s flow condition.

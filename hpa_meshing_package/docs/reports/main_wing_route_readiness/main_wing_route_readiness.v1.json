@@ -3010,6 +3010,82 @@
       ]
     },
     {
+      "stage": "station_seam_profile_parametrization_audit",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_parametrization_audit/main_wing_station_seam_profile_parametrization_audit.v1.json",
+      "observed": {
+        "audit_status": "profile_parametrization_seam_fragment_correlation_observed",
+        "target_station_y_m": [
+          -10.5,
+          13.5
+        ],
+        "source_profile_point_counts": [
+          57,
+          57,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          57,
+          57
+        ],
+        "candidate_profile_point_counts": [
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59
+        ],
+        "station_fragment_summary": {
+          "station_count": 2,
+          "station_edge_check_count_total": 6,
+          "failed_pcurve_check_count_total": 6,
+          "terminal_linseg_match_count_total": 4,
+          "rest_arc_match_count_total": 2,
+          "stations_with_terminal_linseg_matches": 2,
+          "stations_with_rest_arc_matches": 2,
+          "all_station_edge_pcurve_checks_failed": true
+        },
+        "edge_failure_summary": {
+          "station_edge_check_count": 6,
+          "failed_pcurve_check_count": 6,
+          "pcurve_presence_complete_count": 6,
+          "curve3d_with_pcurve_consistent_count": 0,
+          "same_parameter_by_face_ok_count": 0,
+          "vertex_tolerance_by_face_ok_count": 0,
+          "all_station_edge_pcurve_checks_failed": true
+        },
+        "engineering_findings": [
+          "profile_parametrization_audit_captured",
+          "source_profile_point_count_mismatch_observed",
+          "station_short_curves_match_profile_terminal_linseg_segments",
+          "station_long_curves_match_profile_spline_rest_arc",
+          "profile_resample_candidate_parameter_consistency_fails_on_all_station_fragments",
+          "profile_parametrization_export_change_needed"
+        ],
+        "next_actions": [
+          "prototype_side_aware_profile_parametrization_candidate",
+          "rerun_profile_resample_brep_validation_on_side_aware_candidate",
+          "avoid_solver_iteration_budget_until_station_parametrization_gate_is_clean"
+        ]
+      },
+      "blockers": [
+        "profile_resample_candidate_station_brep_pcurve_checks_suspect",
+        "profile_resample_candidate_mesh_handoff_not_run",
+        "profile_parametrization_export_change_needed_before_mesh_handoff"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -3062,10 +3138,11 @@
     "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff",
     "profile_resample_candidate_station_brep_pcurve_checks_suspect",
     "profile_resample_candidate_mesh_handoff_not_run",
-    "profile_resample_station_shape_fix_repair_not_recovered"
+    "profile_resample_station_shape_fix_repair_not_recovered",
+    "profile_parametrization_export_change_needed_before_mesh_handoff"
   ],
   "next_actions": [
-    "change_profile_resample_export_pcurve_generation_or_section_parametrization",
+    "prototype_side_aware_profile_parametrization_candidate",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

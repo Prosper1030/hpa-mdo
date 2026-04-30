@@ -38,6 +38,7 @@ StageType = Literal[
     "station_seam_profile_resample_strategy_probe",
     "station_seam_profile_resample_brep_validation_probe",
     "station_seam_profile_resample_repair_feasibility_probe",
+    "station_seam_profile_parametrization_audit",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -1293,6 +1294,41 @@ def _station_seam_profile_resample_repair_feasibility_probe_observed(
     }
 
 
+def _station_seam_profile_parametrization_audit_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "blocked" if payload.get("audit_status") == "blocked" else "pass"
+
+
+def _station_seam_profile_parametrization_audit_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "audit_status": None if payload is None else payload.get("audit_status"),
+        "target_station_y_m": (
+            [] if payload is None else payload.get("target_station_y_m", [])
+        ),
+        "source_profile_point_counts": (
+            [] if payload is None else payload.get("source_profile_point_counts", [])
+        ),
+        "candidate_profile_point_counts": (
+            [] if payload is None else payload.get("candidate_profile_point_counts", [])
+        ),
+        "station_fragment_summary": (
+            {} if payload is None else payload.get("station_fragment_summary", {})
+        ),
+        "edge_failure_summary": (
+            {} if payload is None else payload.get("edge_failure_summary", {})
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -1469,6 +1505,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_profile_resample_repair_feasibility_probe"
         / "main_wing_station_seam_profile_resample_repair_feasibility_probe.v1.json"
     )
+    station_seam_profile_parametrization_audit_path = (
+        root
+        / "main_wing_station_seam_profile_parametrization_audit"
+        / "main_wing_station_seam_profile_parametrization_audit.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1541,6 +1582,9 @@ def build_main_wing_route_readiness_report(
     )
     station_seam_profile_resample_repair_feasibility_probe = _load_json(
         station_seam_profile_resample_repair_feasibility_probe_path
+    )
+    station_seam_profile_parametrization_audit = _load_json(
+        station_seam_profile_parametrization_audit_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -2345,6 +2389,26 @@ def build_main_wing_route_readiness_report(
             ),
         ),
         _stage(
+            stage="station_seam_profile_parametrization_audit",
+            status=_station_seam_profile_parametrization_audit_status(
+                station_seam_profile_parametrization_audit
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(station_seam_profile_parametrization_audit, dict)
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_profile_parametrization_audit_path
+                if isinstance(station_seam_profile_parametrization_audit, dict)
+                else None
+            ),
+            observed=_station_seam_profile_parametrization_audit_observed(
+                station_seam_profile_parametrization_audit
+            ),
+            blockers=_blocking_reasons(station_seam_profile_parametrization_audit),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -2756,6 +2820,25 @@ def build_main_wing_route_readiness_report(
             and profile_repair_next_actions
         ):
             next_actions[0] = str(profile_repair_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_profile_parametrization_audit, dict)
+        and station_seam_profile_parametrization_audit.get("audit_status")
+        in {
+            "profile_parametrization_seam_fragment_correlation_observed",
+            "profile_parametrization_audit_captured",
+            "blocked",
+        }
+    ):
+        profile_parametrization_next_actions = (
+            station_seam_profile_parametrization_audit.get("next_actions", [])
+        )
+        if (
+            isinstance(profile_parametrization_next_actions, list)
+            and profile_parametrization_next_actions
+        ):
+            next_actions[0] = str(profile_parametrization_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,
