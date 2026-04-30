@@ -1293,6 +1293,24 @@ def test_select_component_candidate_distinguishes_main_horizontal_and_vertical_t
     assert _select_component_candidate("vertical_tail", candidates).geom_id == "vtail"
 
 
+def test_select_component_candidate_keeps_single_horizontal_tail_subset():
+    candidates = [
+        _VspWingCandidate(
+            geom_id="htail",
+            name="Elevator",
+            type_name="Wing",
+            normalized_name="elevator",
+            is_symmetric_xz=True,
+            x_location=4.0,
+            x_rotation_deg=0.0,
+            bbox_min=(4.0, 0.0, -0.04),
+            bbox_max=(4.8, 1.5, 0.04),
+        )
+    ]
+
+    assert _select_component_candidate("tail_wing", candidates).geom_id == "htail"
+
+
 class _FakePoint:
     def __init__(self, x: float, y: float, z: float):
         self.x = x

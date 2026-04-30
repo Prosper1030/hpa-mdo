@@ -2230,6 +2230,10 @@ def _select_component_candidate(
         )
 
     if effective_component == "horizontal_tail":
+        if len(symmetric_candidates) == 1:
+            only_candidate = symmetric_candidates[0]
+            if only_candidate.normalized_name in _HORIZONTAL_TAIL_ALIASES:
+                return only_candidate
         main_wing = _select_component_candidate("main_wing", candidates)
         tail_candidates = [candidate for candidate in symmetric_candidates if candidate.geom_id != main_wing.geom_id]
         if not tail_candidates:
