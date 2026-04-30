@@ -138,6 +138,10 @@ from .main_wing_station_seam_internal_cap_probe import (
     build_main_wing_station_seam_internal_cap_probe_report,
     write_main_wing_station_seam_internal_cap_probe_report,
 )
+from .main_wing_station_seam_profile_resample_strategy_probe import (
+    build_main_wing_station_seam_profile_resample_strategy_probe_report,
+    write_main_wing_station_seam_profile_resample_strategy_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -880,6 +884,32 @@ def cmd_main_wing_station_seam_internal_cap_probe(
     return 0 if report.probe_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_profile_resample_strategy_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    export_source_audit_path = (
+        None if args.export_source_audit is None else Path(args.export_source_audit)
+    )
+    report = build_main_wing_station_seam_profile_resample_strategy_probe_report(
+        export_source_audit_path=export_source_audit_path,
+        materialization_requested=args.materialize_candidate,
+        materialization_root=out_dir,
+        timeout_seconds=args.timeout_seconds,
+        target_profile_point_count=args.target_profile_point_count,
+    )
+    write_main_wing_station_seam_profile_resample_strategy_probe_report(
+        out_dir,
+        report=report,
+        export_source_audit_path=export_source_audit_path,
+        materialization_requested=args.materialize_candidate,
+        timeout_seconds=args.timeout_seconds,
+        target_profile_point_count=args.target_profile_point_count,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.probe_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1595,6 +1625,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_internal_cap_probe.set_defaults(
         func=cmd_main_wing_station_seam_internal_cap_probe
+    )
+
+    main_wing_station_seam_profile_resample_strategy_probe = sub.add_parser(
+        "main-wing-station-seam-profile-resample-strategy-probe"
+    )
+    main_wing_station_seam_profile_resample_strategy_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_profile_resample_strategy_probe.add_argument(
+        "--export-source-audit",
+        type=str,
+    )
+    main_wing_station_seam_profile_resample_strategy_probe.add_argument(
+        "--materialize-candidate",
+        action="store_true",
+    )
+    main_wing_station_seam_profile_resample_strategy_probe.add_argument(
+        "--target-profile-point-count",
+        type=int,
+    )
+    main_wing_station_seam_profile_resample_strategy_probe.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=90.0,
+    )
+    main_wing_station_seam_profile_resample_strategy_probe.set_defaults(
+        func=cmd_main_wing_station_seam_profile_resample_strategy_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

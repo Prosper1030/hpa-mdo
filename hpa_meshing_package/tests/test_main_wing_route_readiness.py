@@ -1842,6 +1842,97 @@ def test_main_wing_route_readiness_records_station_seam_internal_cap_probe_stage
     assert report.next_actions[0] == "try_pcurve_rebuild_strategy_without_split_caps"
 
 
+def test_main_wing_route_readiness_records_profile_resample_strategy_probe_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_station_seam_profile_resample_strategy_probe"
+        / "main_wing_station_seam_profile_resample_strategy_probe.v1.json",
+        {
+            "probe_status": (
+                "profile_resample_candidate_materialized_needs_brep_validation"
+            ),
+            "source_profile_point_counts": [57, 57, 59, 59, 59, 59, 59, 59, 59, 57, 57],
+            "target_profile_point_count": 59,
+            "target_station_y_m": [-10.5, 13.5],
+            "candidate_report": {
+                "candidate": "uniform_profile_resample_single_rule",
+                "materialization_status": "materialized",
+                "body_count": 1,
+                "volume_count": 1,
+                "surface_count": 32,
+                "span_y_bounds_preserved": True,
+                "target_station_face_groups": [
+                    {"station_y_m": -10.5, "plane_face_count": 0},
+                    {"station_y_m": 13.5, "plane_face_count": 0},
+                ],
+            },
+            "engineering_findings": [
+                "uniform_profile_candidate_no_target_cap_faces_detected"
+            ],
+            "blocking_reasons": [
+                "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff"
+            ],
+            "next_actions": [
+                "run_station_seam_brep_hotspot_probe_on_profile_resample_candidate"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    profile_stage = stages["station_seam_profile_resample_strategy_probe"]
+    assert profile_stage.status == "pass"
+    assert profile_stage.evidence_kind == "real"
+    assert profile_stage.observed["target_profile_point_count"] == 59
+    assert profile_stage.observed["candidate_summary"]["volume_count"] == 1
+    assert report.next_actions[0] == (
+        "run_station_seam_brep_hotspot_probe_on_profile_resample_candidate"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

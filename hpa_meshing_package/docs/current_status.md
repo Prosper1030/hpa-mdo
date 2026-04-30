@@ -268,6 +268,22 @@ has duplicate station cap faces at both `y=-10.5 m` and `y=13.5 m` and remains
 leaves 6 cap fragments at `y=13.5 m`. This confirms the split-bay strategy is
 negative evidence, not a mesh-handoff candidate.
 
+The main-wing profile-resample export strategy probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-profile-resample-strategy-probe --out .tmp/runs/main_wing_station_seam_profile_resample_strategy_probe --materialize-candidate
+```
+
+This writes `main_wing_station_seam_profile_resample_strategy_probe.v1.json`,
+`main_wing_station_seam_profile_resample_strategy_probe.v1.md`, and candidate
+CSM/STEP/log artifacts. The committed snapshot records
+`profile_resample_candidate_materialized_needs_brep_validation`: source section
+profile counts were `57/59`, the candidate uniformizes them to `59`, keeps a
+single OpenCSM `rule`, imports as `1 volume / 32 surfaces`, preserves full span,
+and has zero target-station cap faces. This is not mesh-ready; the next gate is
+station BRep/PCurve validation on the candidate STEP.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash

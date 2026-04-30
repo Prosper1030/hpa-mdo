@@ -1,0 +1,481 @@
+{
+  "schema_version": "main_wing_station_seam_profile_resample_strategy_probe.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_profile_resample_export_strategy_probe",
+  "production_default_changed": false,
+  "probe_status": "profile_resample_candidate_materialized_needs_brep_validation",
+  "export_source_audit_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_source_audit/main_wing_station_seam_export_source_audit.v1.json",
+  "rebuild_csm_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/provider_geometry/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/rebuild.csm",
+  "materialization_requested": true,
+  "source_profile_point_counts": [
+    57,
+    57,
+    59,
+    59,
+    59,
+    59,
+    59,
+    59,
+    59,
+    57,
+    57
+  ],
+  "target_profile_point_count": 59,
+  "target_station_y_m": [
+    -10.5,
+    13.5
+  ],
+  "candidate_report": {
+    "candidate": "uniform_profile_resample_single_rule",
+    "intended_use": "diagnostic_single_rule_profile_count_uniformization_probe",
+    "risk": "resampling can perturb airfoil fidelity and still needs BRep/PCurve validation",
+    "rule_count": 1,
+    "candidate_profile_point_counts": [
+      59,
+      59,
+      59,
+      59,
+      59,
+      59,
+      59,
+      59,
+      59,
+      59,
+      59
+    ],
+    "candidate_csm_text_available": true,
+    "materialization": {
+      "status": "materialized",
+      "returncode": 0,
+      "csm_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/candidate.csm",
+      "step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/candidate_raw_dump.stp",
+      "step_exists": true,
+      "step_size_bytes": 386786,
+      "command_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/ocsm.log",
+      "stdout_tail": "  0.779 \n      659    661 linseg      658    -1   660   659    0.000     0     0     0     sketch    0.666   16.500    0.779 \n      660    662 skend       659    -1   661   660    0.001     3     3     1 sheet_body    0.000 \n      661*   663 rule         60   660     0   661    0.046    33    63    32 solid_body    0.000    0.000    0.000 \n                                             total    0.068\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  661   3.0183e+00   7.3042e+01    5.7655e-01  -1.1035e-16   2.2252e-01     1.8524e+02   6.9615e-16   2.5430e-02   2.7548e-01  -7.4113e-17   1.8532e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.275 sec\n==> serveCSM completed successfully with 11 warnings\n",
+      "stderr_tail": "",
+      "topology": {
+        "status": "topology_counted",
+        "step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/candidate_raw_dump.stp",
+        "imported_entity_count": 1,
+        "body_count": 1,
+        "volume_count": 1,
+        "surface_count": 32,
+        "curve_count": 63,
+        "point_count": 33,
+        "bbox": [
+          -0.008095003419734,
+          -16.5000001,
+          -0.06803684311580001,
+          1.302329369,
+          16.5000001,
+          0.835231969798
+        ],
+        "surfaces": [
+          {
+            "tag": 1,
+            "bbox": [
+              0.650935309764,
+              -16.5000001,
+              0.501434463583,
+              0.947083385548,
+              -13.4999999,
+              0.7790157631679999
+            ]
+          },
+          {
+            "tag": 2,
+            "bbox": [
+              0.918317654203,
+              -13.5000001,
+              0.283554501375,
+              1.0961382614200001,
+              -10.4999999,
+              0.5087373419319999
+            ]
+          },
+          {
+            "tag": 3,
+            "bbox": [
+              1.06010073154,
+              -10.5000001,
+              0.121564031945,
+              1.1829835127400001,
+              -7.4999999,
+              0.292703500493
+            ]
+          },
+          {
+            "tag": 4,
+            "bbox": [
+              1.14226806023,
+              -7.5000001,
+              0.0104033020419,
+              1.302329369,
+              -4.4999999,
+              0.131900615565
+            ]
+          },
+          {
+            "tag": 5,
+            "bbox": [
+              1.25317163283,
+              -4.5000001,
+              -0.06803684311580001,
+              1.302329369,
+              1e-07,
+              0.0218395009374
+            ]
+          },
+          {
+            "tag": 6,
+            "bbox": [
+              1.25317163283,
+              -1e-07,
+              -0.06803684311580001,
+              1.302329369,
+              4.5000001,
+              0.0218395009374
+            ]
+          },
+          {
+            "tag": 7,
+            "bbox": [
+              1.14226806023,
+              4.4999999,
+              0.0104033020419,
+              1.302329369,
+              7.5000001,
+              0.131900615565
+            ]
+          },
+          {
+            "tag": 8,
+            "bbox": [
+              1.06010073154,
+              7.4999999,
+              0.121564031945,
+              1.1829835127400001,
+              10.5000001,
+              0.292703500493
+            ]
+          },
+          {
+            "tag": 9,
+            "bbox": [
+              0.918317654203,
+              10.4999999,
+              0.283554501375,
+              1.0961382614200001,
+              13.5000001,
+              0.5087373419319999
+            ]
+          },
+          {
+            "tag": 10,
+            "bbox": [
+              0.650935309764,
+              13.4999999,
+              0.501434463583,
+              0.947083385548,
+              16.5000001,
+              0.7790157631679999
+            ]
+          },
+          {
+            "tag": 11,
+            "bbox": [
+              0.113071061921,
+              -16.5000001,
+              0.508737141932,
+              0.9201856852239999,
+              -13.4999999,
+              0.835231969798
+            ]
+          },
+          {
+            "tag": 12,
+            "bbox": [
+              0.05108800183023,
+              -13.5000001,
+              0.292703300493,
+              1.0624997197700001,
+              -10.4999999,
+              0.644809166455
+            ]
+          },
+          {
+            "tag": 13,
+            "bbox": [
+              0.002277062084397,
+              -10.5000001,
+              0.13190041556499998,
+              1.14497842962,
+              -7.4999999,
+              0.463202990296
+            ]
+          },
+          {
+            "tag": 14,
+            "bbox": [
+              -0.003984129605152,
+              -7.5000001,
+              0.0218393009374,
+              1.26028119193,
+              -4.4999999,
+              0.324532345307
+            ]
+          },
+          {
+            "tag": 15,
+            "bbox": [
+              -0.008095003419734,
+              -4.5000001,
+              -0.056600844218400004,
+              1.26028119193,
+              1e-07,
+              0.234963967888
+            ]
+          },
+          {
+            "tag": 16,
+            "bbox": [
+              -0.008095003419734,
+              -1e-07,
+              -0.056600844218400004,
+              1.26028119193,
+              4.5000001,
+              0.234963967888
+            ]
+          },
+          {
+            "tag": 17,
+            "bbox": [
+              -0.003984129605152,
+              4.4999999,
+              0.0218393009374,
+              1.26028119193,
+              7.5000001,
+              0.324532345307
+            ]
+          },
+          {
+            "tag": 18,
+            "bbox": [
+              0.002277062084397,
+              7.4999999,
+              0.13190041556499998,
+              1.14497842962,
+              10.5000001,
+              0.463202990296
+            ]
+          },
+          {
+            "tag": 19,
+            "bbox": [
+              0.05108800183023,
+              10.4999999,
+              0.292703300493,
+              1.0624997197700001,
+              13.5000001,
+              0.644809166455
+            ]
+          },
+          {
+            "tag": 20,
+            "bbox": [
+              0.113071061921,
+              13.4999999,
+              0.508737141932,
+              0.9201856852239999,
+              16.5000001,
+              0.835231969798
+            ]
+          },
+          {
+            "tag": 21,
+            "bbox": [
+              0.651631011173,
+              -16.5000001,
+              0.501434463583,
+              0.947083385548,
+              -13.4999999,
+              0.7835441060639999
+            ]
+          },
+          {
+            "tag": 22,
+            "bbox": [
+              0.920185485224,
+              -13.5000001,
+              0.283554501375,
+              1.0961382614200001,
+              -10.4999999,
+              0.513940543976
+            ]
+          },
+          {
+            "tag": 23,
+            "bbox": [
+              1.06249951977,
+              -10.5000001,
+              0.121564031945,
+              1.1829835127400001,
+              -7.4999999,
+              0.299199726336
+            ]
+          },
+          {
+            "tag": 24,
+            "bbox": [
+              1.14497822962,
+              -7.5000001,
+              0.0104033020419,
+              1.302329369,
+              -4.4999999,
+              0.139240101492
+            ]
+          },
+          {
+            "tag": 25,
+            "bbox": [
+              1.25617011811,
+              -4.5000001,
+              -0.06803684311580001,
+              1.302329369,
+              1e-07,
+              0.0299597832406
+            ]
+          },
+          {
+            "tag": 26,
+            "bbox": [
+              1.25617011811,
+              -1e-07,
+              -0.06803684311580001,
+              1.302329369,
+              4.5000001,
+              0.0299597832406
+            ]
+          },
+          {
+            "tag": 27,
+            "bbox": [
+              1.14497822962,
+              4.4999999,
+              0.0104033020419,
+              1.302329369,
+              7.5000001,
+              0.139240101492
+            ]
+          },
+          {
+            "tag": 28,
+            "bbox": [
+              1.06249951977,
+              7.4999999,
+              0.121564031945,
+              1.1829835127400001,
+              10.5000001,
+              0.299199726336
+            ]
+          },
+          {
+            "tag": 29,
+            "bbox": [
+              0.920185485224,
+              10.4999999,
+              0.283554501375,
+              1.0961382614200001,
+              13.5000001,
+              0.513940543976
+            ]
+          },
+          {
+            "tag": 30,
+            "bbox": [
+              0.651631011173,
+              13.4999999,
+              0.501434463583,
+              0.947083385548,
+              16.5000001,
+              0.7835441060639999
+            ]
+          },
+          {
+            "tag": 31,
+            "bbox": [
+              0.23312802624865395,
+              -16.5000001,
+              0.778977535561,
+              0.6662684483429999,
+              -16.4999999,
+              0.835231969798
+            ]
+          },
+          {
+            "tag": 32,
+            "bbox": [
+              0.23312802624865395,
+              16.4999999,
+              0.778977535561,
+              0.6662684483429999,
+              16.5000001,
+              0.835231969798
+            ]
+          }
+        ]
+      }
+    },
+    "materialization_status": "materialized",
+    "body_count": 1,
+    "volume_count": 1,
+    "surface_count": 32,
+    "bbox": [
+      -0.008095003419734,
+      -16.5000001,
+      -0.06803684311580001,
+      1.302329369,
+      16.5000001,
+      0.835231969798
+    ],
+    "span_y_bounds_preserved": true,
+    "target_station_face_groups": [
+      {
+        "station_y_m": -10.5,
+        "plane_face_count": 0,
+        "face_tags": [],
+        "face_bboxes": [],
+        "station_cap_faces_present": false,
+        "duplicate_station_cap_faces": false
+      },
+      {
+        "station_y_m": 13.5,
+        "plane_face_count": 0,
+        "face_tags": [],
+        "face_bboxes": [],
+        "station_cap_faces_present": false,
+        "duplicate_station_cap_faces": false
+      }
+    ]
+  },
+  "engineering_findings": [
+    "station_seam_profile_resample_strategy_probe_captured",
+    "source_profile_point_count_mismatch_observed",
+    "candidate_profile_point_counts_uniformized",
+    "uniform_profile_candidate_no_target_cap_faces_detected",
+    "uniform_profile_candidate_single_volume_full_span_observed"
+  ],
+  "blocking_reasons": [
+    "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff"
+  ],
+  "next_actions": [
+    "run_station_seam_brep_hotspot_probe_on_profile_resample_candidate",
+    "compare_profile_resample_candidate_mesh_handoff_without_promoting_default"
+  ],
+  "limitations": [
+    "This report resamples section profiles in a candidate OpenCSM source only; it does not change the provider default.",
+    "A clean single-volume candidate still needs station BRep/PCurve, mesh handoff, SU2, solver, and convergence gates.",
+    "Profile resampling can perturb airfoil fidelity and must be evaluated before route promotion."
+  ]
+}

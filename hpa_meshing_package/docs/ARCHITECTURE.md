@@ -299,7 +299,9 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Record that split candidates move the target sections to rule boundaries but remain blocked by multi-volume / span-bound topology risk
 - Inspect split-candidate station-plane cap faces before mesh handoff
 - Record that the split candidates remain blocked by duplicate internal caps, multi-volume topology, or span truncation
-- Promote the next gate to PCurve/export rebuild before compound meshing policy or solver-budget campaigns
+- Prototype a single-rule profile-resample export candidate that uniformizes section profile point counts without adding split-bay caps
+- Record that the profile-resample candidate is single volume / full span / no target cap faces but still needs station BRep/PCurve validation
+- Promote the next gate to BRep/PCurve validation on the profile-resample candidate before compound meshing policy or solver-budget campaigns
 
 ### 22. main_wing Mesh-Handoff Smoke Layer
 

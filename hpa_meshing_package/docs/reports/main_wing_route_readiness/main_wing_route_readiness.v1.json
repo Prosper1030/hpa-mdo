@@ -2761,6 +2761,73 @@
       ]
     },
     {
+      "stage": "station_seam_profile_resample_strategy_probe",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/main_wing_station_seam_profile_resample_strategy_probe.v1.json",
+      "observed": {
+        "probe_status": "profile_resample_candidate_materialized_needs_brep_validation",
+        "source_profile_point_counts": [
+          57,
+          57,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          57,
+          57
+        ],
+        "target_profile_point_count": 59,
+        "target_station_y_m": [
+          -10.5,
+          13.5
+        ],
+        "candidate_summary": {
+          "candidate": "uniform_profile_resample_single_rule",
+          "materialization_status": "materialized",
+          "body_count": 1,
+          "volume_count": 1,
+          "surface_count": 32,
+          "span_y_bounds_preserved": true,
+          "target_station_face_groups": [
+            {
+              "station_y_m": -10.5,
+              "plane_face_count": 0,
+              "face_tags": [],
+              "face_bboxes": [],
+              "station_cap_faces_present": false,
+              "duplicate_station_cap_faces": false
+            },
+            {
+              "station_y_m": 13.5,
+              "plane_face_count": 0,
+              "face_tags": [],
+              "face_bboxes": [],
+              "station_cap_faces_present": false,
+              "duplicate_station_cap_faces": false
+            }
+          ]
+        },
+        "engineering_findings": [
+          "station_seam_profile_resample_strategy_probe_captured",
+          "source_profile_point_count_mismatch_observed",
+          "candidate_profile_point_counts_uniformized",
+          "uniform_profile_candidate_no_target_cap_faces_detected",
+          "uniform_profile_candidate_single_volume_full_span_observed"
+        ],
+        "next_actions": [
+          "run_station_seam_brep_hotspot_probe_on_profile_resample_candidate",
+          "compare_profile_resample_candidate_mesh_handoff_without_promoting_default"
+        ]
+      },
+      "blockers": [
+        "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -2809,10 +2876,11 @@
     "duplicate_station_cap_faces_present",
     "split_candidate_span_truncation_confirmed",
     "split_candidate_multi_volume_topology_confirmed",
-    "split_candidate_not_mesh_handoff_ready"
+    "split_candidate_not_mesh_handoff_ready",
+    "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff"
   ],
   "next_actions": [
-    "try_pcurve_rebuild_strategy_without_split_caps",
+    "run_station_seam_brep_hotspot_probe_on_profile_resample_candidate",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],
