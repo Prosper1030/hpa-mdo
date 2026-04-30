@@ -20,6 +20,7 @@ StageType = Literal[
     "surface_force_output_audit",
     "panel_su2_lift_gap_debug",
     "su2_mesh_normal_audit",
+    "panel_wake_semantics_audit",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -598,6 +599,39 @@ def _su2_mesh_normal_audit_observed(
     }
 
 
+def _panel_wake_semantics_audit_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "blocked"
+        if payload.get("audit_status") == "insufficient_evidence"
+        else "pass"
+    )
+
+
+def _panel_wake_semantics_audit_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "audit_status": None if payload is None else payload.get("audit_status"),
+        "panel_wake_observed": (
+            {} if payload is None else payload.get("panel_wake_observed", {})
+        ),
+        "su2_semantics_observed": (
+            {} if payload is None else payload.get("su2_semantics_observed", {})
+        ),
+        "normal_audit_observed": (
+            {} if payload is None else payload.get("normal_audit_observed", {})
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -684,6 +718,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_su2_mesh_normal_audit"
         / "main_wing_su2_mesh_normal_audit.v1.json"
     )
+    panel_wake_semantics_audit_path = (
+        root
+        / "main_wing_panel_wake_semantics_audit"
+        / "main_wing_panel_wake_semantics_audit.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -717,6 +756,7 @@ def build_main_wing_route_readiness_report(
     lift_acceptance = _load_json(lift_acceptance_path)
     panel_su2_lift_gap_debug = _load_json(panel_su2_lift_gap_debug_path)
     su2_mesh_normal_audit = _load_json(su2_mesh_normal_audit_path)
+    panel_wake_semantics_audit = _load_json(panel_wake_semantics_audit_path)
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1174,6 +1214,20 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(su2_mesh_normal_audit),
         ),
         _stage(
+            stage="panel_wake_semantics_audit",
+            status=_panel_wake_semantics_audit_status(panel_wake_semantics_audit),
+            evidence_kind=(
+                "real" if isinstance(panel_wake_semantics_audit, dict) else "absent"
+            ),
+            artifact_path=(
+                panel_wake_semantics_audit_path
+                if isinstance(panel_wake_semantics_audit, dict)
+                else None
+            ),
+            observed=_panel_wake_semantics_audit_observed(panel_wake_semantics_audit),
+            blockers=_blocking_reasons(panel_wake_semantics_audit),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1316,6 +1370,16 @@ def build_main_wing_route_readiness_report(
         normal_next_actions = su2_mesh_normal_audit.get("next_actions", [])
         if isinstance(normal_next_actions, list) and normal_next_actions:
             next_actions[0] = str(normal_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(panel_wake_semantics_audit, dict)
+        and panel_wake_semantics_audit.get("audit_status")
+        == "semantics_gap_observed"
+    ):
+        semantics_next_actions = panel_wake_semantics_audit.get("next_actions", [])
+        if isinstance(semantics_next_actions, list) and semantics_next_actions:
+            next_actions[0] = str(semantics_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

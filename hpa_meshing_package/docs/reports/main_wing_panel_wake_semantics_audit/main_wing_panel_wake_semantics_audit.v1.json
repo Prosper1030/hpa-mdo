@@ -1,0 +1,73 @@
+{
+  "schema_version": "main_wing_panel_wake_semantics_audit.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_existing_artifacts",
+  "production_default_changed": false,
+  "hpa_standard_velocity_mps": 6.5,
+  "minimum_acceptable_cl": 1.0,
+  "audit_status": "semantics_gap_observed",
+  "panel_wake_observed": {
+    "status": "available",
+    "source_setup_path": "/Volumes/Samsung SSD/hpa-mdo/output/dihedral_sweep_fixed_alpha_smoke_rerun/origin_vsp_panel_fixed_alpha_baseline/black_cat_004.vspaero",
+    "velocity_mps": 6.5,
+    "num_wake_nodes": 64.0,
+    "wake_iters": 3.0,
+    "implicit_wake": 0.0,
+    "freeze_wake_at_iteration": 10000.0,
+    "clo": -0.002747646367,
+    "cli": 1.29039314231,
+    "cltot": 1.287645495943,
+    "clwtot": 1.289971668181,
+    "induced_lift_fraction_of_cltot": 1.0021338531262347,
+    "wake_settings_present": true,
+    "interpretation": "panel_lift_dominated_by_induced_wake_terms"
+  },
+  "su2_semantics_observed": {
+    "status": "available",
+    "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/source_su2/su2_runtime.cfg",
+    "solver": "INC_NAVIER_STOKES",
+    "velocity_vector_mps": [
+      6.5,
+      0.0,
+      0.0
+    ],
+    "wall_boundary_condition": "euler",
+    "euler_markers": [
+      "main_wing"
+    ],
+    "monitoring_markers": [
+      "main_wing"
+    ],
+    "wake_related_cfg_keys": [],
+    "has_explicit_wake_model_keys": false,
+    "forces_breakdown_status": "available",
+    "forces_breakdown_cl": 0.263162,
+    "force_breakdown_marker_owned": true
+  },
+  "normal_audit_observed": {
+    "normal_audit_status": "pass",
+    "engineering_findings": [
+      "main_wing_surface_normals_mixed_upper_lower",
+      "single_global_normal_flip_not_supported",
+      "main_wing_normals_mostly_lift_axis_oriented"
+    ]
+  },
+  "engineering_findings": [
+    "panel_su2_semantics_gap_observed",
+    "panel_lift_dominated_by_induced_wake_terms",
+    "su2_euler_wall_no_explicit_wake_model_keys_observed",
+    "force_breakdown_marker_owned",
+    "single_global_normal_flip_not_supported",
+    "thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics"
+  ],
+  "next_actions": [
+    "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export",
+    "compare_vspaero_panel_wake_sources_against_su2_surface_entities",
+    "decide_main_wing_product_route_lifting_surface_vs_closed_thickness_cfd_geometry"
+  ],
+  "limitations": [
+    "This report reads existing artifacts only; it does not execute VSPAERO, Gmsh, or SU2.",
+    "Observed VSPAERO panel terms are lower-order sanity evidence, not high-fidelity CFD truth.",
+    "The semantics gap is a route-risk gate; it does not prove the final root cause by itself."
+  ]
+}

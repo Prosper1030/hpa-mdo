@@ -295,6 +295,26 @@ def test_parser_supports_main_wing_su2_mesh_normal_audit_command():
     assert args.mesh == "artifacts/main_wing/mesh.msh"
 
 
+def test_parser_supports_main_wing_panel_wake_semantics_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-panel-wake-semantics-audit",
+            "--out",
+            "artifacts/main_wing_panel_wake_semantics_audit",
+            "--report-root",
+            "docs/reports",
+            "--runtime-cfg",
+            "artifacts/source_su2/su2_runtime.cfg",
+        ]
+    )
+
+    assert args.command == "main-wing-panel-wake-semantics-audit"
+    assert args.out == "artifacts/main_wing_panel_wake_semantics_audit"
+    assert args.report_root == "docs/reports"
+    assert args.runtime_cfg == "artifacts/source_su2/su2_runtime.cfg"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

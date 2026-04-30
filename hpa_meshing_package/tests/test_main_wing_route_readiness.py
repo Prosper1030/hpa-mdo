@@ -659,6 +659,88 @@ def test_main_wing_route_readiness_records_su2_mesh_normal_audit_stage(
     )
 
 
+def test_main_wing_route_readiness_records_panel_wake_semantics_audit_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_panel_wake_semantics_audit"
+        / "main_wing_panel_wake_semantics_audit.v1.json",
+        {
+            "audit_status": "semantics_gap_observed",
+            "panel_wake_observed": {
+                "induced_lift_fraction_of_cltot": 1.0021338531262347,
+                "cltot": 1.287645495943,
+            },
+            "su2_semantics_observed": {
+                "wall_boundary_condition": "euler",
+                "forces_breakdown_cl": 0.263162,
+            },
+            "engineering_findings": [
+                "panel_su2_semantics_gap_observed",
+                "thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics",
+            ],
+            "next_actions": [
+                "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    semantics_stage = stages["panel_wake_semantics_audit"]
+    assert semantics_stage.status == "pass"
+    assert semantics_stage.evidence_kind == "real"
+    assert semantics_stage.observed["audit_status"] == "semantics_gap_observed"
+    assert "thin_sheet_wall_not_yet_bridged_to_panel_wake_semantics" in (
+        semantics_stage.observed["engineering_findings"]
+    )
+    assert report.next_actions[0] == (
+        "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

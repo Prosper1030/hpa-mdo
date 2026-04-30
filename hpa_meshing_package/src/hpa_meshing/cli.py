@@ -78,6 +78,10 @@ from .main_wing_panel_su2_lift_gap_debug import (
     build_main_wing_panel_su2_lift_gap_debug_report,
     write_main_wing_panel_su2_lift_gap_debug_report,
 )
+from .main_wing_panel_wake_semantics_audit import (
+    build_main_wing_panel_wake_semantics_audit_report,
+    write_main_wing_panel_wake_semantics_audit_report,
+)
 from .main_wing_su2_mesh_normal_audit import (
     build_main_wing_su2_mesh_normal_audit_report,
     write_main_wing_su2_mesh_normal_audit_report,
@@ -479,6 +483,24 @@ def cmd_main_wing_su2_mesh_normal_audit(args: argparse.Namespace) -> int:
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.normal_audit_status == "pass" else 2
+
+
+def cmd_main_wing_panel_wake_semantics_audit(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    report_root = None if args.report_root is None else Path(args.report_root)
+    runtime_cfg_path = None if args.runtime_cfg is None else Path(args.runtime_cfg)
+    report = build_main_wing_panel_wake_semantics_audit_report(
+        report_root=report_root,
+        runtime_cfg_path=runtime_cfg_path,
+    )
+    write_main_wing_panel_wake_semantics_audit_report(
+        out_dir,
+        report=report,
+        report_root=report_root,
+        runtime_cfg_path=runtime_cfg_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.audit_status != "insufficient_evidence" else 2
 
 
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
@@ -896,6 +918,20 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_su2_mesh_normal_audit.add_argument("--mesh", type=str)
     main_wing_su2_mesh_normal_audit.set_defaults(
         func=cmd_main_wing_su2_mesh_normal_audit
+    )
+
+    main_wing_panel_wake_semantics_audit = sub.add_parser(
+        "main-wing-panel-wake-semantics-audit"
+    )
+    main_wing_panel_wake_semantics_audit.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_panel_wake_semantics_audit.add_argument("--report-root", type=str)
+    main_wing_panel_wake_semantics_audit.add_argument("--runtime-cfg", type=str)
+    main_wing_panel_wake_semantics_audit.set_defaults(
+        func=cmd_main_wing_panel_wake_semantics_audit
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(
