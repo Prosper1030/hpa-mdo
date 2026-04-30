@@ -503,6 +503,27 @@ def test_parser_supports_main_wing_station_seam_brep_hotspot_probe_command():
     assert args.surface_tags == [12, 13, 19, 20]
 
 
+def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-same-parameter-feasibility",
+            "--out",
+            "artifacts/main_wing_station_seam_same_parameter_feasibility",
+            "--brep-hotspot-probe",
+            "artifacts/main_wing/brep_hotspot.json",
+            "--tolerances",
+            "1e-7",
+            "1e-5",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-same-parameter-feasibility"
+    assert args.out == "artifacts/main_wing_station_seam_same_parameter_feasibility"
+    assert args.brep_hotspot_probe == "artifacts/main_wing/brep_hotspot.json"
+    assert args.tolerances == [1e-7, 1e-5]
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

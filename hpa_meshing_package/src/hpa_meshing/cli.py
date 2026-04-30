@@ -118,6 +118,10 @@ from .main_wing_station_seam_brep_hotspot_probe import (
     build_main_wing_station_seam_brep_hotspot_probe_report,
     write_main_wing_station_seam_brep_hotspot_probe_report,
 )
+from .main_wing_station_seam_same_parameter_feasibility import (
+    build_main_wing_station_seam_same_parameter_feasibility_report,
+    write_main_wing_station_seam_same_parameter_feasibility_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -737,6 +741,27 @@ def cmd_main_wing_station_seam_brep_hotspot_probe(args: argparse.Namespace) -> i
     return 0 if report.probe_status not in {"blocked", "unavailable"} else 2
 
 
+def cmd_main_wing_station_seam_same_parameter_feasibility(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    brep_hotspot_probe_path = (
+        None if args.brep_hotspot_probe is None else Path(args.brep_hotspot_probe)
+    )
+    report = build_main_wing_station_seam_same_parameter_feasibility_report(
+        brep_hotspot_probe_path=brep_hotspot_probe_path,
+        tolerances=args.tolerances,
+    )
+    write_main_wing_station_seam_same_parameter_feasibility_report(
+        out_dir,
+        report=report,
+        brep_hotspot_probe_path=brep_hotspot_probe_path,
+        tolerances=args.tolerances,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.feasibility_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1331,6 +1356,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_brep_hotspot_probe.set_defaults(
         func=cmd_main_wing_station_seam_brep_hotspot_probe
+    )
+
+    main_wing_station_seam_same_parameter_feasibility = sub.add_parser(
+        "main-wing-station-seam-same-parameter-feasibility"
+    )
+    main_wing_station_seam_same_parameter_feasibility.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_same_parameter_feasibility.add_argument(
+        "--brep-hotspot-probe",
+        type=str,
+    )
+    main_wing_station_seam_same_parameter_feasibility.add_argument(
+        "--tolerances",
+        nargs="+",
+        type=float,
+    )
+    main_wing_station_seam_same_parameter_feasibility.set_defaults(
+        func=cmd_main_wing_station_seam_same_parameter_feasibility
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(
