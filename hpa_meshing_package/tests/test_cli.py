@@ -261,6 +261,31 @@ def test_parser_supports_main_wing_lift_acceptance_diagnostic_command():
     assert args.report_root == "docs/reports"
 
 
+def test_parser_supports_main_wing_vspaero_panel_reference_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-vspaero-panel-reference-probe",
+            "--out",
+            "artifacts/main_wing_vspaero_panel_reference_probe",
+            "--polar",
+            "output/panel/black_cat_004.polar",
+            "--setup",
+            "output/panel/black_cat_004.vspaero",
+            "--lift-diagnostic-report",
+            "docs/reports/main_wing_lift_acceptance_diagnostic/main_wing_lift_acceptance_diagnostic.v1.json",
+        ]
+    )
+
+    assert args.command == "main-wing-vspaero-panel-reference-probe"
+    assert args.out == "artifacts/main_wing_vspaero_panel_reference_probe"
+    assert args.polar == "output/panel/black_cat_004.polar"
+    assert args.setup == "output/panel/black_cat_004.vspaero"
+    assert args.lift_diagnostic_report.endswith(
+        "main_wing_lift_acceptance_diagnostic.v1.json"
+    )
+
+
 def test_parser_supports_main_wing_geometry_provenance_probe_command():
     parser = build_parser()
     args = parser.parse_args(

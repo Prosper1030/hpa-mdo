@@ -84,6 +84,23 @@ local twist), but lift acceptance is blocked because the selected current-route
 smoke has `CL=0.263161913`, well below the main-wing `CL > 1.0` acceptance gate
 for the HPA operating point.
 
+The main-wing VSPAERO panel reference probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-vspaero-panel-reference-probe --out .tmp/runs/main_wing_vspaero_panel_reference_probe
+```
+
+This writes `main_wing_vspaero_panel_reference_probe.v1.json` and
+`main_wing_vspaero_panel_reference_probe.v1.md`. The committed result reads the
+existing fixed-alpha VSPAERO panel baseline at
+`output/dihedral_sweep_fixed_alpha_smoke_rerun/origin_vsp_panel_fixed_alpha_baseline/`.
+It is `panel_reference_available` at the HPA standard `V=6.5 m/s`, with
+`CLtot=1.287645495943` at `alpha=0 deg`. This is lower-order panel evidence,
+not high-fidelity CFD, but it supports the engineering sanity gate that a
+main-wing route claiming convergence at this operating point must not pass with
+`CL <= 1.0`; the current selected SU2 smoke is about `4.89x` lower in `CL`.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash

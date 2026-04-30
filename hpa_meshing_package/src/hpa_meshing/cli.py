@@ -74,6 +74,10 @@ from .main_wing_lift_acceptance_diagnostic import (
     build_main_wing_lift_acceptance_diagnostic_report,
     write_main_wing_lift_acceptance_diagnostic_report,
 )
+from .main_wing_vspaero_panel_reference_probe import (
+    build_main_wing_vspaero_panel_reference_probe_report,
+    write_main_wing_vspaero_panel_reference_probe_report,
+)
 from .main_wing_geometry_provenance_probe import (
     build_main_wing_geometry_provenance_probe_report,
     write_main_wing_geometry_provenance_probe_report,
@@ -435,6 +439,29 @@ def cmd_main_wing_lift_acceptance_diagnostic(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_main_wing_vspaero_panel_reference_probe(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    polar_path = None if args.polar is None else Path(args.polar)
+    setup_path = None if args.setup is None else Path(args.setup)
+    lift_diagnostic_path = (
+        None if args.lift_diagnostic_report is None else Path(args.lift_diagnostic_report)
+    )
+    report = build_main_wing_vspaero_panel_reference_probe_report(
+        polar_path=polar_path,
+        setup_path=setup_path,
+        lift_diagnostic_path=lift_diagnostic_path,
+    )
+    write_main_wing_vspaero_panel_reference_probe_report(
+        out_dir,
+        report=report,
+        polar_path=polar_path,
+        setup_path=setup_path,
+        lift_diagnostic_path=lift_diagnostic_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.panel_reference_status == "panel_reference_available" else 2
+
+
 def cmd_main_wing_geometry_provenance_probe(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     source_path = None if args.source is None else Path(args.source)
@@ -748,6 +775,20 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_lift_acceptance.add_argument("--report-root", type=str)
     main_wing_lift_acceptance.set_defaults(
         func=cmd_main_wing_lift_acceptance_diagnostic
+    )
+
+    main_wing_vspaero_panel_reference = sub.add_parser(
+        "main-wing-vspaero-panel-reference-probe"
+    )
+    main_wing_vspaero_panel_reference.add_argument("--out", type=str, required=True)
+    main_wing_vspaero_panel_reference.add_argument("--polar", type=str)
+    main_wing_vspaero_panel_reference.add_argument("--setup", type=str)
+    main_wing_vspaero_panel_reference.add_argument(
+        "--lift-diagnostic-report",
+        type=str,
+    )
+    main_wing_vspaero_panel_reference.set_defaults(
+        func=cmd_main_wing_vspaero_panel_reference_probe
     )
 
     main_wing_geometry_provenance = sub.add_parser(
