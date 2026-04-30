@@ -45,6 +45,19 @@ This writes `component_family_route_readiness.v1.json` and
 [`docs/reports/`](reports/). The strategic decision record is
 [`docs/research/high_fidelity_route_decision_2026-04-30.md`](../../docs/research/high_fidelity_route_decision_2026-04-30.md).
 
+The pre-mesh dispatch smoke matrix is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli component-family-smoke-matrix --out .tmp/runs/component_family_route_smoke_matrix
+```
+
+This writes `component_family_route_smoke_matrix.v1.json` and
+`component_family_route_smoke_matrix.v1.md`. It checks that main-wing, tail,
+and fairing component families classify and dispatch to registered route
+skeletons outside `root_last3`. It does not run Gmsh, BL runtime, SU2,
+`mesh_handoff.v1`, `su2_handoff.v1`, or `convergence_gate.v1`.
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |

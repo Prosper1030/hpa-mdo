@@ -1,0 +1,292 @@
+{
+  "schema_version": "component_family_route_smoke_matrix.v1",
+  "target_pipeline": "vsp_or_esp_to_gmsh_to_su2_for_hpa_main_wing_tail_fairing",
+  "execution_mode": "pre_mesh_dispatch_smoke",
+  "no_gmsh_execution": true,
+  "no_su2_execution": true,
+  "report_status": "completed",
+  "rows": [
+    {
+      "component": "aircraft_assembly",
+      "fixture_kind": "synthetic_stub_step",
+      "source_path": "docs/reports/artifacts/fixtures/aircraft_assembly.step",
+      "geometry_source": "direct_cad",
+      "geometry_family": "thin_sheet_aircraft_assembly",
+      "classification_provenance": "component_family_default",
+      "validation_status": "pass",
+      "recipe_status": "resolved",
+      "smoke_status": "dispatch_smoke_pass",
+      "productization_status": "formal_v1",
+      "route_role": "current_product_line",
+      "meshing_route": "gmsh_thin_sheet_aircraft_assembly",
+      "backend": "gmsh",
+      "backend_capability": "sheet_aircraft_assembly_meshing",
+      "mesh_handoff_status": "not_run",
+      "su2_handoff_status": "not_run",
+      "convergence_gate_status": "not_run",
+      "promotion_status": "not_a_promotion_gate",
+      "blocking_reasons": [],
+      "guarantees": [
+        "fixture_loaded",
+        "component_family_classified",
+        "component_family_validated",
+        "route_dispatch_resolved"
+      ],
+      "limitations": [
+        "synthetic STEP fixture is a route-skeleton fixture, not aerodynamic geometry",
+        "Gmsh was not executed",
+        "SU2_CFD was not executed",
+        "mesh_handoff.v1 was not emitted",
+        "su2_handoff.v1 was not emitted",
+        "convergence_gate.v1 was not emitted"
+      ]
+    },
+    {
+      "component": "main_wing",
+      "fixture_kind": "synthetic_stub_step",
+      "source_path": "docs/reports/artifacts/fixtures/main_wing.step",
+      "geometry_source": "direct_cad",
+      "geometry_family": "thin_sheet_lifting_surface",
+      "classification_provenance": "component_family_default",
+      "validation_status": "pass",
+      "recipe_status": "resolved",
+      "smoke_status": "dispatch_smoke_pass",
+      "productization_status": "experimental",
+      "route_role": "experimental_and_diagnostic",
+      "meshing_route": "gmsh_thin_sheet_surface",
+      "backend": "gmsh",
+      "backend_capability": "sheet_lifting_surface_meshing",
+      "mesh_handoff_status": "not_run",
+      "su2_handoff_status": "not_run",
+      "convergence_gate_status": "not_run",
+      "promotion_status": "blocked_before_mesh_handoff",
+      "blocking_reasons": [
+        "shell_v4_root_last3_is_not_product_route",
+        "explicit_bl_to_core_handoff_topology_not_owned",
+        "route_specific_mesh_and_su2_productization_missing"
+      ],
+      "guarantees": [
+        "fixture_loaded",
+        "component_family_classified",
+        "component_family_validated",
+        "route_dispatch_resolved"
+      ],
+      "limitations": [
+        "synthetic STEP fixture is a route-skeleton fixture, not aerodynamic geometry",
+        "Gmsh was not executed",
+        "SU2_CFD was not executed",
+        "mesh_handoff.v1 was not emitted",
+        "su2_handoff.v1 was not emitted",
+        "convergence_gate.v1 was not emitted"
+      ]
+    },
+    {
+      "component": "tail_wing",
+      "fixture_kind": "synthetic_stub_step",
+      "source_path": "docs/reports/artifacts/fixtures/tail_wing.step",
+      "geometry_source": "direct_cad",
+      "geometry_family": "thin_sheet_lifting_surface",
+      "classification_provenance": "component_family_default",
+      "validation_status": "pass",
+      "recipe_status": "resolved",
+      "smoke_status": "dispatch_smoke_pass",
+      "productization_status": "registered_not_productized",
+      "route_role": "registered_future_route",
+      "meshing_route": "gmsh_thin_sheet_surface",
+      "backend": "gmsh",
+      "backend_capability": "sheet_lifting_surface_meshing",
+      "mesh_handoff_status": "not_run",
+      "su2_handoff_status": "not_run",
+      "convergence_gate_status": "not_run",
+      "promotion_status": "blocked_before_mesh_handoff",
+      "blocking_reasons": [
+        "tail_family_backend_not_productized",
+        "tail_specific_geometry_smoke_missing"
+      ],
+      "guarantees": [
+        "fixture_loaded",
+        "component_family_classified",
+        "component_family_validated",
+        "route_dispatch_resolved"
+      ],
+      "limitations": [
+        "synthetic STEP fixture is a route-skeleton fixture, not aerodynamic geometry",
+        "Gmsh was not executed",
+        "SU2_CFD was not executed",
+        "mesh_handoff.v1 was not emitted",
+        "su2_handoff.v1 was not emitted",
+        "convergence_gate.v1 was not emitted"
+      ]
+    },
+    {
+      "component": "horizontal_tail",
+      "fixture_kind": "synthetic_stub_step",
+      "source_path": "docs/reports/artifacts/fixtures/horizontal_tail.step",
+      "geometry_source": "direct_cad",
+      "geometry_family": "thin_sheet_lifting_surface",
+      "classification_provenance": "component_family_default",
+      "validation_status": "pass",
+      "recipe_status": "resolved",
+      "smoke_status": "dispatch_smoke_pass",
+      "productization_status": "registered_not_productized",
+      "route_role": "registered_future_route",
+      "meshing_route": "gmsh_thin_sheet_surface",
+      "backend": "gmsh",
+      "backend_capability": "sheet_lifting_surface_meshing",
+      "mesh_handoff_status": "not_run",
+      "su2_handoff_status": "not_run",
+      "convergence_gate_status": "not_run",
+      "promotion_status": "blocked_before_mesh_handoff",
+      "blocking_reasons": [
+        "horizontal_tail_backend_not_productized",
+        "tail_specific_geometry_smoke_missing"
+      ],
+      "guarantees": [
+        "fixture_loaded",
+        "component_family_classified",
+        "component_family_validated",
+        "route_dispatch_resolved"
+      ],
+      "limitations": [
+        "synthetic STEP fixture is a route-skeleton fixture, not aerodynamic geometry",
+        "Gmsh was not executed",
+        "SU2_CFD was not executed",
+        "mesh_handoff.v1 was not emitted",
+        "su2_handoff.v1 was not emitted",
+        "convergence_gate.v1 was not emitted"
+      ]
+    },
+    {
+      "component": "vertical_tail",
+      "fixture_kind": "synthetic_stub_step",
+      "source_path": "docs/reports/artifacts/fixtures/vertical_tail.step",
+      "geometry_source": "direct_cad",
+      "geometry_family": "thin_sheet_lifting_surface",
+      "classification_provenance": "component_family_default",
+      "validation_status": "pass",
+      "recipe_status": "resolved",
+      "smoke_status": "dispatch_smoke_pass",
+      "productization_status": "registered_not_productized",
+      "route_role": "registered_future_route",
+      "meshing_route": "gmsh_thin_sheet_surface",
+      "backend": "gmsh",
+      "backend_capability": "sheet_lifting_surface_meshing",
+      "mesh_handoff_status": "not_run",
+      "su2_handoff_status": "not_run",
+      "convergence_gate_status": "not_run",
+      "promotion_status": "blocked_before_mesh_handoff",
+      "blocking_reasons": [
+        "vertical_tail_backend_not_productized",
+        "tail_specific_geometry_smoke_missing"
+      ],
+      "guarantees": [
+        "fixture_loaded",
+        "component_family_classified",
+        "component_family_validated",
+        "route_dispatch_resolved"
+      ],
+      "limitations": [
+        "synthetic STEP fixture is a route-skeleton fixture, not aerodynamic geometry",
+        "Gmsh was not executed",
+        "SU2_CFD was not executed",
+        "mesh_handoff.v1 was not emitted",
+        "su2_handoff.v1 was not emitted",
+        "convergence_gate.v1 was not emitted"
+      ]
+    },
+    {
+      "component": "fairing_solid",
+      "fixture_kind": "synthetic_stub_step",
+      "source_path": "docs/reports/artifacts/fixtures/fairing_solid.step",
+      "geometry_source": "direct_cad",
+      "geometry_family": "closed_solid",
+      "classification_provenance": "component_family_default",
+      "validation_status": "pass",
+      "recipe_status": "resolved",
+      "smoke_status": "dispatch_smoke_pass",
+      "productization_status": "registered_not_productized",
+      "route_role": "registered_future_route",
+      "meshing_route": "gmsh_closed_solid_volume",
+      "backend": "gmsh",
+      "backend_capability": "occ_closed_solid_meshing",
+      "mesh_handoff_status": "not_run",
+      "su2_handoff_status": "not_run",
+      "convergence_gate_status": "not_run",
+      "promotion_status": "blocked_before_mesh_handoff",
+      "blocking_reasons": [
+        "fairing_solid_backend_not_productized",
+        "fairing_marker_and_su2_contract_missing"
+      ],
+      "guarantees": [
+        "fixture_loaded",
+        "component_family_classified",
+        "component_family_validated",
+        "route_dispatch_resolved"
+      ],
+      "limitations": [
+        "synthetic STEP fixture is a route-skeleton fixture, not aerodynamic geometry",
+        "Gmsh was not executed",
+        "SU2_CFD was not executed",
+        "mesh_handoff.v1 was not emitted",
+        "su2_handoff.v1 was not emitted",
+        "convergence_gate.v1 was not emitted"
+      ]
+    },
+    {
+      "component": "fairing_vented",
+      "fixture_kind": "synthetic_stub_step",
+      "source_path": "docs/reports/artifacts/fixtures/fairing_vented.step",
+      "geometry_source": "direct_cad",
+      "geometry_family": "perforated_solid",
+      "classification_provenance": "component_family_default",
+      "validation_status": "pass",
+      "recipe_status": "resolved",
+      "smoke_status": "dispatch_smoke_pass",
+      "productization_status": "registered_not_productized",
+      "route_role": "registered_future_route",
+      "meshing_route": "gmsh_perforated_solid_volume",
+      "backend": "gmsh",
+      "backend_capability": "occ_perforated_solid_meshing",
+      "mesh_handoff_status": "not_run",
+      "su2_handoff_status": "not_run",
+      "convergence_gate_status": "not_run",
+      "promotion_status": "blocked_before_mesh_handoff",
+      "blocking_reasons": [
+        "fairing_vented_backend_not_productized",
+        "perforation_ownership_and_marker_contract_missing"
+      ],
+      "guarantees": [
+        "fixture_loaded",
+        "component_family_classified",
+        "component_family_validated",
+        "route_dispatch_resolved"
+      ],
+      "limitations": [
+        "synthetic STEP fixture is a route-skeleton fixture, not aerodynamic geometry",
+        "Gmsh was not executed",
+        "SU2_CFD was not executed",
+        "mesh_handoff.v1 was not emitted",
+        "su2_handoff.v1 was not emitted",
+        "convergence_gate.v1 was not emitted"
+      ]
+    }
+  ],
+  "scope_policy": {
+    "root_last3_policy": "excluded_not_product_route",
+    "root_last4_policy": "excluded_overlap_non_regression_only",
+    "bl_runtime_policy": "not_executed",
+    "gmsh_policy": "not_executed",
+    "su2_policy": "not_executed"
+  },
+  "global_limitations": [
+    "This is a report-only component-family smoke matrix.",
+    "It checks route architecture coverage for VSP/ESP -> Gmsh -> SU2 handoff planning.",
+    "A pass here means the route skeleton is visible and internally classified.",
+    "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim."
+  ],
+  "next_actions": [
+    "select one component family for a real mesh_handoff.v1 route smoke",
+    "keep BL prelaunch excluded until handoff topology ownership passes",
+    "attach SU2 only after mesh_handoff.v1 markers and bounds exist"
+  ]
+}

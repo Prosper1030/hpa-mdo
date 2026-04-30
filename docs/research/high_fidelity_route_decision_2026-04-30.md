@@ -85,6 +85,28 @@ A committed snapshot is kept at:
 - `hpa_meshing_package/docs/reports/component_family_route_readiness.v1.json`
 - `hpa_meshing_package/docs/reports/component_family_route_readiness.v1.md`
 
+The companion pre-mesh dispatch smoke matrix is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli component-family-smoke-matrix \
+  --out .tmp/runs/component_family_route_smoke_matrix
+```
+
+It writes:
+
+- `component_family_route_smoke_matrix.v1.json`
+- `component_family_route_smoke_matrix.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/component_family_route_smoke_matrix.v1.json`
+- `hpa_meshing_package/docs/reports/component_family_route_smoke_matrix.v1.md`
+
+This smoke matrix is not a mesh pass. It only proves that main-wing, tail, and
+fairing route skeletons are visible, classified, and dispatched outside
+`root_last3`.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
@@ -143,8 +165,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Promote component-family readiness into the normal handoff/reporting flow so
-   future agents see route status before choosing a repair target.
-2. Build the first component-family route smoke outside `root_last3`: start with
-   a robust non-BL baseline for `main_wing` or a fairing solid route, then attach
-   SU2 only after `mesh_handoff.v1` is real.
+1. Select one component family for the first real `mesh_handoff.v1` smoke outside
+   `root_last3`; start with robust non-BL `main_wing` or `fairing_solid`.
+2. Attach SU2 only after that selected route emits real markers, bounds, and
+   `mesh_handoff.v1`; do not use the smoke matrix as solver evidence.

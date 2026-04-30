@@ -11,7 +11,8 @@
 5. convergence + provenance gating
 6. mesh study aggregation for baseline promotion
 7. component-family route-readiness reporting
-8. machine-readable reporting
+8. component-family route smoke matrix reporting
+9. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -111,6 +112,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Writes `component_family_route_readiness.v1.json` and `component_family_route_readiness.v1.md` through `hpa-mesh route-readiness`
 - This is a report-only strategic artifact, not a per-run mesh artifact and not a runtime route mutation
 
+### 9. Component-Family Route Smoke Matrix Layer
+
+`src/hpa_meshing/component_family_smoke_matrix.py`
+
+- Builds synthetic route-skeleton STEP fixtures for registered component families
+- Runs only load / classify / validate / recipe-dispatch logic
+- Writes `component_family_route_smoke_matrix.v1.json` and `.md`
+- Keeps `main_wing`, tail, and fairing route skeletons outside `root_last3`
+- Does not call `run_job`, Gmsh, BL runtime, SU2, or convergence gates
+- Exists to decide which component family deserves the next real `mesh_handoff.v1` smoke
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -139,12 +151,15 @@ MeshJobConfig
   -> convergence_gate.v1
   -> mesh_study.v1
   -> component_family_route_readiness.v1
+  -> component_family_route_smoke_matrix.v1
   -> report.json
 ```
 
 The contracts are intentionally machine-readable first, then human-readable through docs and reports.
 `component_family_route_readiness.v1` sits beside this per-run flow as a strategic route-status
 artifact; it does not imply that a component family has run.
+`component_family_route_smoke_matrix.v1` is also beside the per-run flow: it proves dispatch
+visibility only and still does not imply that Gmsh or SU2 ran.
 
 ## Why This Boundary Matters
 

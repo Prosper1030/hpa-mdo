@@ -112,6 +112,16 @@ def test_parser_supports_route_readiness_command():
     assert args.out == "artifacts/route_readiness"
 
 
+def test_parser_supports_component_family_smoke_matrix_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["component-family-smoke-matrix", "--out", "artifacts/route_smoke"]
+    )
+
+    assert args.command == "component-family-smoke-matrix"
+    assert args.out == "artifacts/route_smoke"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
@@ -218,3 +228,33 @@ def test_python_m_cli_writes_route_readiness_report(tmp_path: Path):
     assert payload["primary_decision"] == "switch_to_component_family_route_architecture"
     assert (out_dir / "component_family_route_readiness.v1.json").exists()
     assert (out_dir / "component_family_route_readiness.v1.md").exists()
+
+
+def test_python_m_cli_writes_component_family_smoke_matrix_report(tmp_path: Path):
+    out_dir = tmp_path / "smoke"
+    package_root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "hpa_meshing.cli",
+            "component-family-smoke-matrix",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=package_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["execution_mode"] == "pre_mesh_dispatch_smoke"
+    assert payload["no_gmsh_execution"] is True
+    assert (out_dir / "component_family_route_smoke_matrix.v1.json").exists()
+    assert (out_dir / "component_family_route_smoke_matrix.v1.md").exists()

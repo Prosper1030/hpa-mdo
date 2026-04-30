@@ -138,6 +138,24 @@ Use this report before choosing the next high-fidelity repair target. It keeps
 the formal `aircraft_assembly` route separate from experimental main-wing,
 tail, fairing, and `shell_v4` BL-promotion work.
 
+### 6. Write the component-family route smoke matrix
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli component-family-smoke-matrix \
+  --out .tmp/runs/component_family_route_smoke_matrix
+```
+
+This produces:
+
+- `component_family_route_smoke_matrix.v1.json`
+- `component_family_route_smoke_matrix.v1.md`
+
+This is a pre-mesh dispatch smoke only. It checks that main-wing, tail, and
+fairing component families classify and dispatch to registered routes without
+using `root_last3`; it does not run Gmsh, BL runtime, SU2, or any production
+mesh promotion.
+
 ## Artifact Contracts
 
 - [`GeometryProviderResult`](docs/contracts/GeometryProviderResult.md)
@@ -145,6 +163,7 @@ tail, fairing, and `shell_v4` BL-promotion work.
 - [`su2_handoff.v1`](docs/contracts/su2_handoff.v1.md)
 - [`convergence_gate.v1`](docs/contracts/convergence_gate.v1.md)
 - [`mesh_study.v1`](docs/contracts/mesh_study.v1.md)
+- [`component_family_route_smoke_matrix.v1`](docs/contracts/component_family_route_smoke_matrix.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
 
 ## Capability Boundaries
@@ -162,6 +181,7 @@ tail, fairing, and `shell_v4` BL-promotion work.
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
 | Other component families | experimental | schema/dispatch exists, backend placeholder |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
+| Component-family route smoke matrix | report-only `v1` | pre-mesh dispatch smoke for main-wing / tail / fairing route skeletons; no Gmsh, no SU2, no BL runtime |
 | Mesh study | formal minimal `v1` | three-tier baseline study that emits `mesh_study.v1` and decides whether the baseline stays `run_only` or can move to `preliminary_compare` |
 | Alpha sweep | roadmap | after the chosen mesh/runtime clears the mesh-study verdict |
 | Component-level force mapping | roadmap | not implemented yet |
