@@ -107,6 +107,29 @@ This smoke matrix is not a mesh pass. It only proves that main-wing, tail, and
 fairing route skeletons are visible, classified, and dispatched outside
 `root_last3`.
 
+The first route-specific real Gmsh smoke selected from that matrix is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-mesh-handoff-smoke \
+  --out .tmp/runs/fairing_solid_mesh_handoff_smoke
+```
+
+It writes:
+
+- `fairing_solid_mesh_handoff_smoke.v1.json`
+- `fairing_solid_mesh_handoff_smoke.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/fairing_solid_mesh_handoff_smoke/fairing_solid_mesh_handoff_smoke.v1.json`
+- `hpa_meshing_package/docs/reports/fairing_solid_mesh_handoff_smoke/fairing_solid_mesh_handoff_smoke.v1.md`
+
+This smoke emits a real `mesh_handoff.v1` for `fairing_solid ->
+gmsh_closed_solid_volume`. It is still not a SU2 route: the wall marker is
+generic `aircraft`, fairing-specific force-surface ownership is not proven, and
+`su2_handoff.v1` / `convergence_gate.v1` are intentionally absent.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
@@ -114,7 +137,7 @@ The current expected strategic reading is:
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | route-specific baseline smoke before BL prelaunch |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | tail-specific geometry and mesh smoke |
-| `fairing_solid` | registered future route | no | solid fairing mesh handoff and SU2 markers |
+| `fairing_solid` | registered future route | no | fairing-specific force marker, then SU2 handoff |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
 ## Boundary-Layer Promotion Policy
@@ -165,7 +188,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Select one component family for the first real `mesh_handoff.v1` smoke outside
-   `root_last3`; start with robust non-BL `main_wing` or `fairing_solid`.
-2. Attach SU2 only after that selected route emits real markers, bounds, and
-   `mesh_handoff.v1`; do not use the smoke matrix as solver evidence.
+1. Add a fairing-specific force marker / force-surface contract so the existing
+   `fairing_solid` mesh handoff can become a meaningful SU2 input.
+2. Build the next non-BL `main_wing` real `mesh_handoff.v1` smoke while keeping
+   BL transition ownership as a separate promotion gate.

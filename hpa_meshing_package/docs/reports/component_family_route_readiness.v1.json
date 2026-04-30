@@ -130,19 +130,23 @@
       "provider_strategy": "direct_cad_or_future_fairing_provider",
       "productization_status": "registered_not_productized",
       "route_role": "registered_future_route",
-      "su2_status": "blocked_until_route_smoke",
+      "su2_status": "not_productized",
       "bl_contract_policy": "not_default",
       "gmsh_boundary_recovery_policy": "baseline_gmsh_backend_boundary_recovery",
       "blocking_reasons": [
-        "fairing_solid_backend_not_productized",
-        "fairing_marker_and_su2_contract_missing"
+        "fairing_component_specific_force_marker_missing",
+        "su2_handoff_not_run",
+        "convergence_gate_not_run"
       ],
       "next_actions": [
-        "add_family_specific_geometry_smoke",
-        "prove_mesh_handoff_markers_before_su2_claims",
+        "add_fairing_specific_force_marker_contract",
+        "write_su2_handoff_only_after_marker_contract",
         "promote_to_product_line_only_after_convergence_gate_artifact"
       ],
-      "notes": []
+      "notes": [
+        "fairing_solid_mesh_handoff_smoke_available",
+        "current wall marker is generic `aircraft`, not a fairing-specific force marker"
+      ]
     },
     {
       "component": "fairing_vented",

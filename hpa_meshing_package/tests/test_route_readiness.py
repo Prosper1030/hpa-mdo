@@ -51,6 +51,19 @@ def test_route_readiness_keeps_shell_v4_bl_as_promotion_only():
     assert "explicit_bl_to_core_handoff_topology_not_owned" in main_wing.blocking_reasons
 
 
+def test_route_readiness_marks_fairing_solid_mesh_handoff_smoke_as_available_not_productized():
+    report = build_component_family_route_readiness()
+    fairing_solid = {row.component: row for row in report.components}["fairing_solid"]
+
+    assert fairing_solid.productization_status == "registered_not_productized"
+    assert fairing_solid.su2_status == "not_productized"
+    assert fairing_solid.default_route == "gmsh_closed_solid_volume"
+    assert "fairing_solid_mesh_handoff_smoke_available" in fairing_solid.notes
+    assert "fairing_component_specific_force_marker_missing" in fairing_solid.blocking_reasons
+    assert "su2_handoff_not_run" in fairing_solid.blocking_reasons
+    assert "convergence_gate_not_run" in fairing_solid.blocking_reasons
+
+
 def test_route_readiness_report_writer_outputs_json_and_markdown(tmp_path: Path):
     out_dir = tmp_path / "readiness"
 

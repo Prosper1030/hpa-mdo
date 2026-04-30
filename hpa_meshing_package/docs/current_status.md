@@ -58,6 +58,19 @@ and fairing component families classify and dispatch to registered route
 skeletons outside `root_last3`. It does not run Gmsh, BL runtime, SU2,
 `mesh_handoff.v1`, `su2_handoff.v1`, or `convergence_gate.v1`.
 
+The first route-specific fairing smoke is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-mesh-handoff-smoke --out .tmp/runs/fairing_solid_mesh_handoff_smoke
+```
+
+This writes `fairing_solid_mesh_handoff_smoke.v1.json` and
+`fairing_solid_mesh_handoff_smoke.v1.md`. It runs real Gmsh for a synthetic
+closed-solid fairing fixture and emits `mesh_handoff.v1`. It still does not run
+SU2, does not emit `su2_handoff.v1`, does not emit `convergence_gate.v1`, and
+does not prove fairing-specific force-surface ownership.
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |
@@ -80,7 +93,8 @@ skeletons outside `root_last3`. It does not run Gmsh, BL runtime, SU2,
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` / `tail_wing` | experimental | dispatch exists, real backend not productized |
-| `fairing_solid` / `fairing_vented` | experimental | dispatch exists, real backend not productized |
+| `fairing_solid` | experimental | first real mesh-handoff smoke exists, but fairing-specific force marker / SU2 handoff / convergence gate are missing |
+| `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |
 
 If a route returns `route_stage=placeholder`, it is not a formal meshing result.

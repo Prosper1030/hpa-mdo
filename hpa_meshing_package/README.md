@@ -156,6 +156,23 @@ fairing component families classify and dispatch to registered routes without
 using `root_last3`; it does not run Gmsh, BL runtime, SU2, or any production
 mesh promotion.
 
+### 7. Write the fairing solid mesh-handoff smoke
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli fairing-solid-mesh-handoff-smoke \
+  --out .tmp/runs/fairing_solid_mesh_handoff_smoke
+```
+
+This produces:
+
+- `fairing_solid_mesh_handoff_smoke.v1.json`
+- `fairing_solid_mesh_handoff_smoke.v1.md`
+
+This is the first real Gmsh handoff smoke for `fairing_solid`. It emits
+`mesh_handoff.v1` for a synthetic closed-solid fixture, but it still does not
+run SU2 or prove fairing-specific force-surface ownership.
+
 ## Artifact Contracts
 
 - [`GeometryProviderResult`](docs/contracts/GeometryProviderResult.md)
@@ -164,6 +181,7 @@ mesh promotion.
 - [`convergence_gate.v1`](docs/contracts/convergence_gate.v1.md)
 - [`mesh_study.v1`](docs/contracts/mesh_study.v1.md)
 - [`component_family_route_smoke_matrix.v1`](docs/contracts/component_family_route_smoke_matrix.v1.md)
+- [`fairing_solid_mesh_handoff_smoke.v1`](docs/contracts/fairing_solid_mesh_handoff_smoke.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
 
 ## Capability Boundaries
@@ -179,7 +197,8 @@ mesh promotion.
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
-| Other component families | experimental | schema/dispatch exists, backend placeholder |
+| `fairing_solid` closed-solid route | experimental | first real `mesh_handoff.v1` smoke exists; SU2 and fairing-specific force marker are not productized |
+| Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
 | Component-family route smoke matrix | report-only `v1` | pre-mesh dispatch smoke for main-wing / tail / fairing route skeletons; no Gmsh, no SU2, no BL runtime |
 | Mesh study | formal minimal `v1` | three-tier baseline study that emits `mesh_study.v1` and decides whether the baseline stays `run_only` or can move to `preliminary_compare` |

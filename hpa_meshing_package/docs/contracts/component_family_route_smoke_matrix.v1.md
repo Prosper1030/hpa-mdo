@@ -57,6 +57,12 @@ Each row represents one component route skeleton:
 - `guarantees`
 - `limitations`
 
+`promotion_status` may be:
+
+- `not_a_promotion_gate`
+- `blocked_before_mesh_handoff`
+- `blocked_before_su2_handoff`
+
 ## Current Components
 
 The matrix currently covers:

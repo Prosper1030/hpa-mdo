@@ -13,7 +13,7 @@
 | `tail_wing` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `horizontal_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
 | `vertical_tail` | `registered_not_productized` | `registered_future_route` | `gmsh_thin_sheet_surface` | `blocked_until_route_smoke` | `not_default` | `core_tetra_only_after_owned_boundary_handoff` |
-| `fairing_solid` | `registered_not_productized` | `registered_future_route` | `gmsh_closed_solid_volume` | `blocked_until_route_smoke` | `not_default` | `baseline_gmsh_backend_boundary_recovery` |
+| `fairing_solid` | `registered_not_productized` | `registered_future_route` | `gmsh_closed_solid_volume` | `not_productized` | `not_default` | `baseline_gmsh_backend_boundary_recovery` |
 | `fairing_vented` | `registered_not_productized` | `registered_future_route` | `gmsh_perforated_solid_volume` | `blocked_until_route_smoke` | `not_default` | `baseline_gmsh_backend_boundary_recovery` |
 
 ## Promotion Gates
@@ -59,8 +59,9 @@
 - `tail_specific_geometry_smoke_missing`
 
 ### `fairing_solid`
-- `fairing_solid_backend_not_productized`
-- `fairing_marker_and_su2_contract_missing`
+- `fairing_component_specific_force_marker_missing`
+- `su2_handoff_not_run`
+- `convergence_gate_not_run`
 
 ### `fairing_vented`
 - `fairing_vented_backend_not_productized`

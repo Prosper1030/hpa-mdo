@@ -122,6 +122,16 @@ def test_parser_supports_component_family_smoke_matrix_command():
     assert args.out == "artifacts/route_smoke"
 
 
+def test_parser_supports_fairing_solid_mesh_handoff_smoke_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["fairing-solid-mesh-handoff-smoke", "--out", "artifacts/fairing_smoke"]
+    )
+
+    assert args.command == "fairing-solid-mesh-handoff-smoke"
+    assert args.out == "artifacts/fairing_smoke"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

@@ -36,6 +36,7 @@ REAL_OCC_ROUTE = "gmsh_thin_sheet_aircraft_assembly"
 REAL_OCC_ROUTES = {
     "gmsh_thin_sheet_aircraft_assembly",
     "gmsh_thin_sheet_surface",
+    "gmsh_closed_solid_volume",
 }
 DEFAULT_SURFACE_NODES_PER_REFERENCE_LENGTH = 128.0
 DEFAULT_EDGE_REFINEMENT_RATIO = 0.5
@@ -1615,15 +1616,24 @@ def _remove_duplicate_surface_facets(gmsh, surface_tags: list[int]) -> Dict[str,
     }
 
 
-def _resolve_sizing_reference_length(handle: GeometryHandle, config: MeshJobConfig) -> float:
+def _resolve_sizing_reference_length(
+    handle: GeometryHandle,
+    config: MeshJobConfig,
+    *,
+    fallback_body_bounds: tuple[list[float], list[float]] | None = None,
+) -> float:
     reference_length = resolve_reference_length(
         handle.source_path,
         provider_result=handle.provider_result,
         metadata=config.metadata,
     )
+    if (reference_length is None or reference_length <= 0.0) and fallback_body_bounds is not None:
+        mins, maxs = fallback_body_bounds
+        spans = [float(max_value) - float(min_value) for min_value, max_value in zip(mins, maxs)]
+        reference_length = max(spans)
     if reference_length is None or reference_length <= 0.0:
         raise GmshBackendError(
-            "geometry-derived reference length is required for thin_sheet_aircraft_assembly surface sizing"
+            f"geometry-derived reference length is required for {config.component} surface sizing"
         )
     return float(reference_length)
 
@@ -4881,7 +4891,10 @@ def _placeholder_backend_result(
         "marker_summary": {},
         "mesh_stats": {},
         "notes": [
-            "Real OCC backend currently implemented for gmsh_thin_sheet_aircraft_assembly and gmsh_thin_sheet_surface.",
+            (
+                "Real OCC backend currently implemented for gmsh_thin_sheet_aircraft_assembly, "
+                "gmsh_thin_sheet_surface, and gmsh_closed_solid_volume."
+            ),
             f"loader={handle.loader}",
             f"mesh_dim={config.mesh_dim}",
         ],
@@ -5013,7 +5026,7 @@ def _apply_occ_external_flow_route(
             body_dim_tags = gmsh.model.getEntities(3)
         if not body_dim_tags:
             raise GmshBackendError(
-                "normalized STEP did not import any OCC volumes for thin_sheet_aircraft_assembly."
+                f"normalized STEP did not import any OCC volumes for {recipe.meshing_route}."
             )
         imported_surface_count = len(gmsh.model.getEntities(2))
         imported_body_bounds = _bbox_for_entities(gmsh, body_dim_tags)
@@ -5077,7 +5090,11 @@ def _apply_occ_external_flow_route(
         }
 
         aircraft_curve_tags = _aircraft_curve_tags(gmsh, aircraft_surface_tags)
-        reference_length = _resolve_sizing_reference_length(handle, config)
+        reference_length = _resolve_sizing_reference_length(
+            handle,
+            config,
+            fallback_body_bounds=body_bounds if recipe.geometry_family == "closed_solid" else None,
+        )
         resolved_field_defaults = _resolve_mesh_field_defaults(reference_length, config)
         surface_patch_diagnostics = _collect_surface_patch_diagnostics(
             gmsh,
@@ -5849,8 +5866,6 @@ def _apply_occ_external_flow_route(
             "mesh_format": "msh",
             "units": output_units or config.units,
             "contract": handoff.contract,
-            "backend_capability": handoff.backend_capability,
-            "meshing_route": handoff.meshing_route,
             "geometry_provider": handoff.geometry_provider,
             "body_bounds": body_bounds_dict,
             "farfield_bounds": bounds,

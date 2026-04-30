@@ -1,0 +1,63 @@
+{
+  "schema_version": "fairing_solid_mesh_handoff_smoke.v1",
+  "component": "fairing_solid",
+  "geometry_family": "closed_solid",
+  "meshing_route": "gmsh_closed_solid_volume",
+  "execution_mode": "real_gmsh_mesh_handoff_smoke",
+  "fixture_kind": "synthetic_occ_box_closed_solid",
+  "source_path": "docs/reports/fairing_solid_mesh_handoff_smoke/artifacts/fixtures/fairing_solid_box.step",
+  "case_dir": "docs/reports/fairing_solid_mesh_handoff_smoke/artifacts/cases/fairing_solid",
+  "no_su2_execution": true,
+  "no_bl_runtime": true,
+  "production_default_changed": false,
+  "smoke_status": "mesh_handoff_pass",
+  "mesh_handoff_status": "written",
+  "mesh_contract": "mesh_handoff.v1",
+  "route_stage": "baseline",
+  "mesh_artifact": "docs/reports/fairing_solid_mesh_handoff_smoke/artifacts/cases/fairing_solid/artifacts/mesh/mesh.msh",
+  "mesh_metadata_path": "docs/reports/fairing_solid_mesh_handoff_smoke/artifacts/cases/fairing_solid/artifacts/mesh/mesh_metadata.json",
+  "marker_summary_path": "docs/reports/fairing_solid_mesh_handoff_smoke/artifacts/cases/fairing_solid/artifacts/mesh/marker_summary.json",
+  "marker_summary_status": "generic_wall_and_farfield_present",
+  "fairing_force_marker_status": "missing_component_specific_marker",
+  "su2_promotion_status": "blocked_before_su2_handoff",
+  "node_count": 2232,
+  "element_count": 12204,
+  "volume_element_count": 9158,
+  "body_bounds": {
+    "x_min": -1e-07,
+    "x_max": 1.0000001,
+    "y_min": -1e-07,
+    "y_max": 0.2400001,
+    "z_min": -1e-07,
+    "z_max": 0.1800001
+  },
+  "farfield_bounds": {
+    "x_min": -5.000001100000001,
+    "x_max": 13.0000025,
+    "y_min": -1.9200017,
+    "y_max": 2.1600017,
+    "z_min": -1.4400017,
+    "z_max": 1.6200017
+  },
+  "hpa_mdo_guarantees": [
+    "closed_solid_direct_cad_fixture_loaded",
+    "gmsh_closed_solid_volume_dispatched",
+    "mesh_handoff_v1_written",
+    "generic_wall_and_farfield_markers_present"
+  ],
+  "blocking_reasons": [
+    "fairing_component_specific_force_marker_missing",
+    "su2_handoff_not_run",
+    "convergence_gate_not_run"
+  ],
+  "limitations": [
+    "Synthetic OCC box fixture is a route smoke fixture, not fairing aerodynamic geometry.",
+    "The current wall marker is generic `aircraft`; fairing-specific force-surface ownership is not proven.",
+    "SU2_CFD was not executed.",
+    "convergence_gate.v1 was not emitted.",
+    "Production defaults were not changed."
+  ],
+  "run_status": "success",
+  "failure_code": null,
+  "error": null
+}

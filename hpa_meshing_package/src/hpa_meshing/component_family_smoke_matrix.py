@@ -30,6 +30,7 @@ SmokeStatusType = Literal["dispatch_smoke_pass", "dispatch_smoke_fail"]
 PromotionStatusType = Literal[
     "not_a_promotion_gate",
     "blocked_before_mesh_handoff",
+    "blocked_before_su2_handoff",
 ]
 
 
@@ -82,6 +83,8 @@ def _write_stub_step(path: Path) -> None:
 def _row_promotion_status(component: ComponentType) -> PromotionStatusType:
     if component == "aircraft_assembly":
         return "not_a_promotion_gate"
+    if component == "fairing_solid":
+        return "blocked_before_su2_handoff"
     return "blocked_before_mesh_handoff"
 
 
@@ -182,9 +185,9 @@ def build_component_family_route_smoke_matrix(
             "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim.",
         ],
         next_actions=[
-            "select one component family for a real mesh_handoff.v1 route smoke",
+            "promote fairing_solid only after a fairing-specific force marker and su2_handoff.v1 exist",
+            "select main_wing non-BL route for the next real mesh_handoff.v1 smoke",
             "keep BL prelaunch excluded until handoff topology ownership passes",
-            "attach SU2 only after mesh_handoff.v1 markers and bounds exist",
         ],
     )
 

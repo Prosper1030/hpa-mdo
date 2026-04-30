@@ -336,6 +336,33 @@ def test_run_job_surfaces_mesh_handoff_contract(tmp_path: Path, monkeypatch):
     assert report["mesh"]["provenance"]["provider"]["provider_stage"] == "v1"
 
 
+def test_run_job_surfaces_mesh_handoff_contract_for_fairing_solid_direct_cad(tmp_path: Path):
+    geometry = _write_occ_box_step(tmp_path, "fairing_solid_box.step")
+    config = MeshJobConfig(
+        component="fairing_solid",
+        geometry=geometry,
+        out_dir=tmp_path / "out",
+        geometry_source="direct_cad",
+        global_min_size=0.5,
+        global_max_size=2.0,
+    )
+
+    result = run_job(config)
+
+    assert result["status"] == "success"
+    assert result["dispatch"]["meshing_route"] == "gmsh_closed_solid_volume"
+    assert result["mesh"]["contract"] == "mesh_handoff.v1"
+    assert result["mesh"]["backend_capability"] == "occ_closed_solid_meshing"
+    assert result["mesh"]["geometry_family"] == "closed_solid"
+    assert result["mesh"]["marker_summary"]["aircraft"]["exists"] is True
+    assert result["mesh"]["marker_summary"]["farfield"]["exists"] is True
+    assert result["mesh"]["volume_element_count"] > 0
+
+    report = json.loads((config.out_dir / "report.json").read_text(encoding="utf-8"))
+    assert report["mesh"]["contract"] == "mesh_handoff.v1"
+    assert report["mesh"]["meshing_route"] == "gmsh_closed_solid_volume"
+
+
 def test_run_job_preserves_surface_only_probe_failure_code(tmp_path: Path, monkeypatch):
     source = tmp_path / "assembly.vsp3"
     source.write_text("<vsp3/>", encoding="utf-8")

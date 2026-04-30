@@ -12,7 +12,8 @@
 6. mesh study aggregation for baseline promotion
 7. component-family route-readiness reporting
 8. component-family route smoke matrix reporting
-9. machine-readable reporting
+9. fairing solid mesh-handoff smoke reporting
+10. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -69,6 +70,7 @@ The important rule is: dispatch should depend on `geometry_family`, not on a pil
 Current boundary:
 
 - `gmsh_thin_sheet_aircraft_assembly` is real
+- `gmsh_closed_solid_volume` has a real non-BL mesh-handoff smoke for `fairing_solid`
 - other registered routes are placeholder scaffolding for future promotion
 
 ### 5. Baseline CFD Layer
@@ -123,6 +125,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Does not call `run_job`, Gmsh, BL runtime, SU2, or convergence gates
 - Exists to decide which component family deserves the next real `mesh_handoff.v1` smoke
 
+### 10. fairing_solid Mesh-Handoff Smoke Layer
+
+`src/hpa_meshing/fairing_solid_mesh_handoff_smoke.py`
+
+- Builds a synthetic closed-solid OCC box fixture
+- Runs `fairing_solid -> gmsh_closed_solid_volume` through real Gmsh
+- Writes `fairing_solid_mesh_handoff_smoke.v1.json` and `.md`
+- Emits a real `mesh_handoff.v1` for the route-smoke fixture
+- Keeps SU2, BL runtime, and production defaults off
+- Records that the current wall marker is still generic `aircraft`, not a fairing-specific force marker
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -136,7 +149,8 @@ That matters because a route can be valid in schema/dispatch but still be non-pr
 Current truth:
 
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
-- `main_wing`, `tail_wing`, `horizontal_tail`, `vertical_tail`, `fairing_solid`, and `fairing_vented` are not yet real meshing products in this package
+- `fairing_solid` has a real closed-solid mesh-handoff smoke, but is not yet a SU2 product route
+- `main_wing`, `tail_wing`, `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
 
 ## Artifact Flow
@@ -152,6 +166,7 @@ MeshJobConfig
   -> mesh_study.v1
   -> component_family_route_readiness.v1
   -> component_family_route_smoke_matrix.v1
+  -> fairing_solid_mesh_handoff_smoke.v1
   -> report.json
 ```
 
@@ -160,6 +175,8 @@ The contracts are intentionally machine-readable first, then human-readable thro
 artifact; it does not imply that a component family has run.
 `component_family_route_smoke_matrix.v1` is also beside the per-run flow: it proves dispatch
 visibility only and still does not imply that Gmsh or SU2 ran.
+`fairing_solid_mesh_handoff_smoke.v1` is the first route-specific real Gmsh smoke
+outside the formal aircraft-assembly line; it proves mesh handoff only, not SU2 readiness.
 
 ## Why This Boundary Matters
 

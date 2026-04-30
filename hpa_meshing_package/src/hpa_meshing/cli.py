@@ -10,6 +10,10 @@ from .component_family_smoke_matrix import (
     build_component_family_route_smoke_matrix,
     write_component_family_route_smoke_matrix_report,
 )
+from .fairing_solid_mesh_handoff_smoke import (
+    build_fairing_solid_mesh_handoff_smoke_report,
+    write_fairing_solid_mesh_handoff_smoke_report,
+)
 from .frozen_baseline import evaluate_shell_v3_baseline_regression, run_shell_v3_baseline_cfd
 from .pipeline import run_job, validate_geometry_only
 from .mesh_study import run_mesh_study
@@ -150,6 +154,14 @@ def cmd_component_family_smoke_matrix(args: argparse.Namespace) -> int:
     return 0 if report.report_status == "completed" else 2
 
 
+def cmd_fairing_solid_mesh_handoff_smoke(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    report = build_fairing_solid_mesh_handoff_smoke_report(out_dir)
+    write_fairing_solid_mesh_handoff_smoke_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.smoke_status == "mesh_handoff_pass" else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpa-mesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -223,6 +235,10 @@ def build_parser() -> argparse.ArgumentParser:
     smoke_matrix = sub.add_parser("component-family-smoke-matrix")
     smoke_matrix.add_argument("--out", type=str, required=True)
     smoke_matrix.set_defaults(func=cmd_component_family_smoke_matrix)
+
+    fairing_smoke = sub.add_parser("fairing-solid-mesh-handoff-smoke")
+    fairing_smoke.add_argument("--out", type=str, required=True)
+    fairing_smoke.set_defaults(func=cmd_fairing_solid_mesh_handoff_smoke)
 
     return parser
 

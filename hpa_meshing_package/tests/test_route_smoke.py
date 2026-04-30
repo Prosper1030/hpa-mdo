@@ -51,7 +51,8 @@ def test_component_family_route_smoke_keeps_productization_status_visible(tmp_pa
     assert rows["main_wing"].promotion_status == "blocked_before_mesh_handoff"
     assert "explicit_bl_to_core_handoff_topology_not_owned" in rows["main_wing"].blocking_reasons
     assert rows["fairing_solid"].productization_status == "registered_not_productized"
-    assert rows["fairing_solid"].promotion_status == "blocked_before_mesh_handoff"
+    assert rows["fairing_solid"].promotion_status == "blocked_before_su2_handoff"
+    assert "fairing_component_specific_force_marker_missing" in rows["fairing_solid"].blocking_reasons
 
 
 def test_component_family_route_smoke_report_writer_outputs_json_markdown_and_fixtures(tmp_path: Path):
