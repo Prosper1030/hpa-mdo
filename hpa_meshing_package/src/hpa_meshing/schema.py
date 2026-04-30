@@ -129,8 +129,8 @@ SU2RunStatusType = Literal["not_started", "completed", "failed"]
 
 
 class SU2ReferenceOverride(BaseModel):
-    ref_area: float
-    ref_length: float
+    ref_area: float = Field(gt=0)
+    ref_length: float = Field(gt=0)
     ref_origin_moment: Point3D
     source_label: str = "user_declared"
     source_path: Optional[Path] = None
@@ -139,10 +139,10 @@ class SU2ReferenceOverride(BaseModel):
 
 
 class SU2FlowConditions(BaseModel):
-    velocity_mps: float = 6.5
-    density_kgpm3: float = 1.225
-    temperature_k: float = 288.15
-    dynamic_viscosity_pas: float = 1.7894e-5
+    velocity_mps: float = Field(default=6.5, gt=0)
+    density_kgpm3: float = Field(default=1.225, gt=0)
+    temperature_k: float = Field(default=288.15, gt=0)
+    dynamic_viscosity_pas: float = Field(default=1.7894e-5, gt=0)
     source_label: str = "hpa_standard_6p5_mps"
     notes: List[str] = Field(default_factory=list)
 
@@ -150,10 +150,10 @@ class SU2FlowConditions(BaseModel):
 class SU2RuntimeConfig(BaseModel):
     enabled: bool = False
     alpha_deg: float = 0.0
-    velocity_mps: float = 6.5
-    density_kgpm3: float = 1.225
-    temperature_k: float = 288.15
-    dynamic_viscosity_pas: float = 1.7894e-5
+    velocity_mps: float = Field(default=6.5, gt=0)
+    density_kgpm3: float = Field(default=1.225, gt=0)
+    temperature_k: float = Field(default=288.15, gt=0)
+    dynamic_viscosity_pas: float = Field(default=1.7894e-5, gt=0)
     flow_conditions: Optional[SU2FlowConditions] = None
     solver: Literal["INC_NAVIER_STOKES"] = "INC_NAVIER_STOKES"
     inc_nondim: Literal["INITIAL_VALUES", "DIMENSIONAL"] = "INITIAL_VALUES"
@@ -600,8 +600,8 @@ class SU2ReferenceQuantityProvenance(BaseModel):
 
 
 class SU2ReferenceGeometry(BaseModel):
-    ref_area: float
-    ref_length: float
+    ref_area: float = Field(gt=0)
+    ref_length: float = Field(gt=0)
     ref_origin_moment: Point3D
     area_provenance: SU2ReferenceQuantityProvenance
     length_provenance: SU2ReferenceQuantityProvenance

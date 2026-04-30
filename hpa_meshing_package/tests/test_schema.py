@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from hpa_meshing.schema import (
     AutonomousRepairContext,
     AutonomousRepairActiveHotspotFamily,
@@ -23,6 +25,7 @@ from hpa_meshing.schema import (
     SU2CaseHandoff,
     SU2ForceSurfaceMarkerGroup,
     SU2ForceSurfaceProvenance,
+    SU2FlowConditions,
     SU2GateCheck,
     SU2HistorySummary,
     OverallConvergenceGate,
@@ -97,6 +100,49 @@ def test_su2_runtime_accepts_nested_flow_conditions_for_easy_adjustment():
     assert runtime.dynamic_viscosity_pas == 1.82e-5
     assert runtime.flow_conditions is not None
     assert runtime.flow_conditions.source_label == "operator_test_day"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("velocity_mps", 0.0),
+        ("density_kgpm3", 0.0),
+        ("temperature_k", 0.0),
+        ("dynamic_viscosity_pas", 0.0),
+        ("velocity_mps", -1.0),
+        ("density_kgpm3", -1.0),
+        ("temperature_k", -1.0),
+        ("dynamic_viscosity_pas", -1.0),
+    ],
+)
+def test_su2_flow_conditions_reject_nonpositive_physical_values(field: str, value: float):
+    with pytest.raises(ValueError, match=field):
+        SU2FlowConditions.model_validate({field: value})
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("ref_area", 0.0),
+        ("ref_length", 0.0),
+        ("ref_area", -1.0),
+        ("ref_length", -1.0),
+    ],
+)
+def test_su2_reference_override_rejects_nonpositive_reference_values(
+    field: str,
+    value: float,
+):
+    payload = {
+        "ref_area": 12.0,
+        "ref_length": 3.5,
+        "ref_origin_moment": {"x": 1.0, "y": 0.0, "z": 0.1},
+        "source_label": "manual_test_reference",
+        field: value,
+    }
+
+    with pytest.raises(ValueError, match=field):
+        SU2ReferenceOverride.model_validate(payload)
 
 
 def test_schema_supports_mesh_study_contract_models(tmp_path: Path):
