@@ -4,13 +4,13 @@ This report checks the provenance of the reference quantities used by the real m
 
 - reference_gate_status: `warn`
 - observed_velocity_mps: `6.5`
-- ref_area: `34.65`
-- ref_length: `1.05`
+- ref_area: `35.175`
+- ref_length: `1.0425`
 - openvsp_reference_status: `available`
 - openvsp_sref: `35.175`
 - openvsp_cref: `1.0425`
 - derived_full_span_m: `33.0`
-- derived_full_span_method: `ref_area_over_ref_length`
+- derived_full_span_method: `area_provenance.details.wing_quantities.bref`
 - geometry_bounds_span_y_m: `33.0`
 - selected_geom_full_span_y_m: `32.94930391715896`
 - selected_geom_chord_x_m: `1.3023502084398801`
@@ -24,13 +24,12 @@ This report checks the provenance of the reference quantities used by the real m
 | `declared_span_vs_bounds_y` | `pass` |
 | `declared_span_vs_selected_geom_span` | `pass` |
 | `ref_length_independent_source` | `pass` |
-| `applied_ref_area_vs_openvsp_sref` | `warn` |
+| `applied_ref_area_vs_openvsp_sref` | `pass` |
 | `moment_origin_policy` | `warn` |
 
 ## Blocking Reasons
 
 - `main_wing_reference_geometry_incomplete`
-- `main_wing_reference_area_differs_from_openvsp_sref`
 - `main_wing_moment_origin_not_certified`
 
 ## HPA-MDO Guarantees
@@ -49,5 +48,4 @@ This report checks the provenance of the reference quantities used by the real m
 - This gate is report-only and does not change the SU2 runtime config.
 - Span is cross-checked against real geometry bounds, and reference chord is cross-checked against OpenVSP/VSPAERO cref when available.
 - A reference-geometry warn must remain a comparability blocker for solver/convergence results.
-- Applied reference area currently differs from OpenVSP/VSPAERO Sref and must not be silently changed.
-- Moment origin is a declared quarter-chord probe policy and currently differs from OpenVSP/VSPAERO CG settings.
+- Moment origin is a declared quarter-chord probe policy and still needs aerodynamic-reference policy approval.

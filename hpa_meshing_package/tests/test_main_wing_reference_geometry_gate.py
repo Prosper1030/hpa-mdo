@@ -130,6 +130,106 @@ def test_main_wing_reference_geometry_gate_records_warned_provenance(
     assert "reference_geometry_not_promoted_to_pass" in report.hpa_mdo_guarantees
 
 
+def test_main_wing_reference_geometry_gate_uses_openvsp_bref_when_available(
+    tmp_path: Path,
+    monkeypatch,
+):
+    root = _fixture_reports(tmp_path)
+    openvsp_case = (
+        root
+        / "main_wing_openvsp_reference_su2_handoff_probe"
+        / "artifacts"
+        / "su2_case"
+    )
+    reference = {
+        "ref_area": 35.175,
+        "ref_length": 1.0425,
+        "ref_origin_moment": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "area_provenance": {
+            "details": {
+                "wing_quantities": {"sref": 35.175, "bref": 33.0, "cref": 1.0425}
+            }
+        },
+        "length_provenance": {
+            "details": {
+                "settings": {"sref": 35.175, "bref": 33.0, "cref": 1.0425}
+            }
+        },
+    }
+    _write_json(
+        openvsp_case / "su2_handoff.json",
+        {
+            "runtime": {
+                "velocity_mps": 6.5,
+                "reference_override": {
+                    "source_label": "openvsp_geometry_derived",
+                    "warnings": ["geometry_derived_moment_origin_is_zero_vector"],
+                },
+            },
+            "reference_geometry": reference,
+        },
+    )
+    source_probe = (
+        root
+        / "main_wing_openvsp_reference_su2_handoff_probe"
+        / "main_wing_openvsp_reference_su2_handoff_probe.v1.json"
+    )
+    committed_handoff = source_probe.parent / "artifacts" / "su2_handoff.json"
+    _write_json(
+        committed_handoff,
+        {
+            "runtime": {
+                "velocity_mps": 6.5,
+                "reference_override": {
+                    "source_label": "openvsp_geometry_derived",
+                    "warnings": ["geometry_derived_moment_origin_is_zero_vector"],
+                },
+            },
+            "reference_geometry": reference,
+        },
+    )
+    _write_json(
+        source_probe,
+        {
+            "materialization_status": "su2_handoff_written",
+            "su2_handoff_path": "hpa_meshing_package/.tmp/runs/openvsp_reference/su2_handoff.json",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+        },
+    )
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_reference_geometry_gate._load_openvsp_reference_data",
+        lambda source_path: {
+            "ref_area": 35.175,
+            "ref_length": 1.0425,
+            "ref_origin_moment": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "area_method": "openvsp_reference_wing.sref",
+            "length_method": "openvsp_reference_wing.cref",
+            "moment_method": "openvsp_vspaero_settings.cg",
+            "reference_wing_name": "Main Wing",
+            "settings": {"sref": 35.175, "bref": 33.0, "cref": 1.0425},
+            "wing_quantities": {"sref": 35.175, "bref": 33.0, "cref": 1.0425},
+            "warnings": [],
+        },
+    )
+
+    report = build_main_wing_reference_geometry_gate_report(
+        report_root=root,
+        source_su2_probe_report_path=source_probe,
+    )
+
+    assert report.derived_full_span_m == 33.0
+    assert report.su2_handoff_path == str(committed_handoff.resolve())
+    assert report.derived_full_span_method == (
+        "area_provenance.details.wing_quantities.bref"
+    )
+    assert report.checks["declared_span_vs_bounds_y"]["status"] == "pass"
+    assert report.checks["declared_span_vs_selected_geom_span"]["status"] == "pass"
+    assert report.checks["applied_ref_area_vs_openvsp_sref"]["status"] == "pass"
+    assert "main_wing_reference_area_differs_from_openvsp_sref" not in report.blocking_reasons
+    assert "reference_span_provenance_recorded" in report.hpa_mdo_guarantees
+
+
 def test_main_wing_reference_geometry_gate_blocks_without_su2_reference(
     tmp_path: Path,
 ):

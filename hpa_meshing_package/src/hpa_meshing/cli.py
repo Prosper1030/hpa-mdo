@@ -518,8 +518,22 @@ def cmd_main_wing_real_solver_smoke_probe(args: argparse.Namespace) -> int:
 
 def cmd_main_wing_reference_geometry_gate(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
-    report = build_main_wing_reference_geometry_gate_report()
-    write_main_wing_reference_geometry_gate_report(out_dir, report=report)
+    report_root = None if args.report_root is None else Path(args.report_root)
+    source_su2_probe_report_path = (
+        None
+        if args.source_su2_probe_report is None
+        else Path(args.source_su2_probe_report)
+    )
+    report = build_main_wing_reference_geometry_gate_report(
+        report_root=report_root,
+        source_su2_probe_report_path=source_su2_probe_report_path,
+    )
+    write_main_wing_reference_geometry_gate_report(
+        out_dir,
+        report=report,
+        report_root=report_root,
+        source_su2_probe_report_path=source_su2_probe_report_path,
+    )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.reference_gate_status in {"pass", "warn"} else 2
 
@@ -821,6 +835,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     main_wing_reference_gate = sub.add_parser("main-wing-reference-geometry-gate")
     main_wing_reference_gate.add_argument("--out", type=str, required=True)
+    main_wing_reference_gate.add_argument("--report-root", type=str)
+    main_wing_reference_gate.add_argument("--source-su2-probe-report", type=str)
     main_wing_reference_gate.set_defaults(func=cmd_main_wing_reference_geometry_gate)
 
     tail_wing_smoke = sub.add_parser("tail-wing-mesh-handoff-smoke")

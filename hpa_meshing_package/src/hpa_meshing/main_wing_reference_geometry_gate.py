@@ -33,6 +33,7 @@ class MainWingReferenceGeometryGateReport(BaseModel):
     openvsp_reference_status: str | None = None
     openvsp_reference: Dict[str, Any] = Field(default_factory=dict)
     derived_full_span_m: float | None = None
+    derived_full_span_method: str | None = None
     geometry_bounds_span_y_m: float | None = None
     selected_geom_full_span_y_m: float | None = None
     selected_geom_chord_x_m: float | None = None
@@ -67,6 +68,20 @@ def _resolve_payload_path(value: str | None, *, report_path: Path) -> Path | Non
         if candidate.exists():
             return candidate
     return (Path.cwd() / raw).resolve()
+
+
+def _prefer_committed_probe_su2_handoff(
+    value: str | None,
+    *,
+    resolved_path: Path | None,
+    report_path: Path,
+) -> Path | None:
+    if value is None or ".tmp/runs" not in value:
+        return resolved_path
+    committed_path = report_path.parent / "artifacts" / "su2_handoff.json"
+    if committed_path.exists():
+        return committed_path.resolve()
+    return resolved_path
 
 
 def _float(value: Any) -> float | None:
@@ -170,6 +185,31 @@ def _runtime_reference_override(su2_handoff: dict[str, Any]) -> dict[str, Any]:
     return override if isinstance(override, dict) else {}
 
 
+def _nested_float(payload: dict[str, Any], *path: str) -> float | None:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return _float(current)
+
+
+def _reference_span(reference: dict[str, Any]) -> tuple[float | None, str | None]:
+    for provenance_key in ("area_provenance", "length_provenance"):
+        provenance = reference.get(provenance_key)
+        if not isinstance(provenance, dict):
+            continue
+        for details_key in ("wing_quantities", "settings"):
+            bref = _nested_float(provenance, "details", details_key, "bref")
+            if bref is not None and bref > 0.0:
+                return bref, f"{provenance_key}.details.{details_key}.bref"
+    ref_area = _float(reference.get("ref_area"))
+    ref_length = _float(reference.get("ref_length"))
+    if ref_area is not None and ref_length is not None and ref_length > 0.0:
+        return ref_area / ref_length, "ref_area_over_ref_length"
+    return None, None
+
+
 def _unavailable_report(
     *,
     report_root: Path,
@@ -209,6 +249,7 @@ def _unavailable_report(
 def build_main_wing_reference_geometry_gate_report(
     *,
     report_root: Path | None = None,
+    source_su2_probe_report_path: Path | None = None,
 ) -> MainWingReferenceGeometryGateReport:
     root = _default_report_root() if report_root is None else report_root
     geometry_path = (
@@ -222,7 +263,9 @@ def build_main_wing_reference_geometry_gate_report(
         / "main_wing_real_mesh_handoff_probe.v1.json"
     )
     su2_probe_path = (
-        root
+        source_su2_probe_report_path
+        if source_su2_probe_report_path is not None
+        else root
         / "main_wing_real_su2_handoff_probe"
         / "main_wing_real_su2_handoff_probe.v1.json"
     )
@@ -236,8 +279,14 @@ def build_main_wing_reference_geometry_gate_report(
             reason="main_wing_real_su2_handoff_reference_unavailable",
         )
 
+    raw_su2_handoff_path = su2_probe.get("su2_handoff_path")
     su2_handoff_path = _resolve_payload_path(
-        su2_probe.get("su2_handoff_path"),
+        raw_su2_handoff_path,
+        report_path=su2_probe_path,
+    )
+    su2_handoff_path = _prefer_committed_probe_su2_handoff(
+        raw_su2_handoff_path,
+        resolved_path=su2_handoff_path,
         report_path=su2_probe_path,
     )
     su2_handoff = _load_json(su2_handoff_path) if su2_handoff_path is not None else None
@@ -260,11 +309,7 @@ def build_main_wing_reference_geometry_gate_report(
     if observed_velocity is None:
         observed_velocity = _float(su2_probe.get("observed_velocity_mps"))
 
-    derived_full_span = (
-        ref_area / ref_length
-        if ref_area is not None and ref_length is not None and ref_length > 0.0
-        else None
-    )
+    derived_full_span, derived_full_span_method = _reference_span(reference)
     bounds = geometry.get("bounds") if isinstance(geometry, dict) else None
     bounds_span_y = _bounds_span(bounds, "y")
     bounds_chord_x = _bounds_span(bounds, "x")
@@ -346,6 +391,7 @@ def build_main_wing_reference_geometry_gate_report(
         bounds_status,
         observed={
             "declared_span_from_ref_area_over_ref_length_m": derived_full_span,
+            "reference_span_method": derived_full_span_method,
             "geometry_bounds_span_y_m": bounds_span_y,
             "relative_error": bounds_error,
         },
@@ -364,6 +410,7 @@ def build_main_wing_reference_geometry_gate_report(
         selected_status,
         observed={
             "declared_span_from_ref_area_over_ref_length_m": derived_full_span,
+            "reference_span_method": derived_full_span_method,
             "selected_geom_full_span_y_m": selected_full_span,
             "relative_error": selected_error,
         },
@@ -485,6 +532,8 @@ def build_main_wing_reference_geometry_gate_report(
         hpa_mdo_guarantees.append("ref_area_ref_length_and_origin_present")
     if checks["declared_span_vs_bounds_y"]["status"] == "pass":
         hpa_mdo_guarantees.append("declared_span_crosschecked_against_real_geometry_bounds")
+    if derived_full_span_method is not None:
+        hpa_mdo_guarantees.append("reference_span_provenance_recorded")
     if checks["ref_length_independent_source"]["status"] == "pass":
         hpa_mdo_guarantees.append("ref_length_crosschecked_against_openvsp_cref")
     if observed_velocity == 6.5:
@@ -536,6 +585,7 @@ def build_main_wing_reference_geometry_gate_report(
         else "unavailable",
         openvsp_reference=openvsp_reference or {},
         derived_full_span_m=derived_full_span,
+        derived_full_span_method=derived_full_span_method,
         geometry_bounds_span_y_m=bounds_span_y,
         selected_geom_full_span_y_m=selected_full_span,
         selected_geom_chord_x_m=selected_chord,
@@ -561,6 +611,7 @@ def _render_markdown(report: MainWingReferenceGeometryGateReport) -> str:
         f"- openvsp_sref: `{report.openvsp_reference.get('ref_area')}`",
         f"- openvsp_cref: `{report.openvsp_reference.get('ref_length')}`",
         f"- derived_full_span_m: `{report.derived_full_span_m}`",
+        f"- derived_full_span_method: `{report.derived_full_span_method}`",
         f"- geometry_bounds_span_y_m: `{report.geometry_bounds_span_y_m}`",
         f"- selected_geom_full_span_y_m: `{report.selected_geom_full_span_y_m}`",
         f"- selected_geom_chord_x_m: `{report.selected_geom_chord_x_m}`",
@@ -587,9 +638,13 @@ def write_main_wing_reference_geometry_gate_report(
     report: MainWingReferenceGeometryGateReport | None = None,
     *,
     report_root: Path | None = None,
+    source_su2_probe_report_path: Path | None = None,
 ) -> Dict[str, Path]:
     if report is None:
-        report = build_main_wing_reference_geometry_gate_report(report_root=report_root)
+        report = build_main_wing_reference_geometry_gate_report(
+            report_root=report_root,
+            source_su2_probe_report_path=source_su2_probe_report_path,
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / "main_wing_reference_geometry_gate.v1.json"
     markdown_path = out_dir / "main_wing_reference_geometry_gate.v1.md"

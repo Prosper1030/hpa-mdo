@@ -378,13 +378,22 @@ PYTHONPATH=src python -m hpa_meshing.cli main-wing-reference-geometry-gate --out
 ```
 
 This writes `main_wing_reference_geometry_gate.v1.json` and
-`main_wing_reference_geometry_gate.v1.md`. The current result is `warn`: the
-declared `REF_AREA=34.65` and `REF_LENGTH=1.05` imply a 33 m full span, which
-cross-checks against real geometry bounds. The 1.05 m reference chord now also
-cross-checks against OpenVSP/VSPAERO `cref=1.0425 m` within the pass tolerance.
-The remaining reference blockers are the applied-area mismatch
-(`34.65 m^2` vs OpenVSP/VSPAERO `Sref=35.175 m^2`) and the quarter-chord moment
-origin differing from the VSPAERO CG settings.
+`main_wing_reference_geometry_gate.v1.md`. The default declared-reference result
+is `warn`: the declared `REF_AREA=34.65` and `REF_LENGTH=1.05` imply a 33 m full
+span by `ref_area_over_ref_length`, which cross-checks against real geometry
+bounds. The 1.05 m reference chord now also cross-checks against OpenVSP/VSPAERO
+`cref=1.0425 m` within the pass tolerance. The remaining reference blockers are
+the applied-area mismatch (`34.65 m^2` vs OpenVSP/VSPAERO `Sref=35.175 m^2`) and
+the quarter-chord moment origin differing from the VSPAERO CG settings.
+
+An OpenVSP-reference variant is committed under
+`docs/reports/main_wing_openvsp_reference_geometry_gate/`. It reads the
+probe-local OpenVSP-reference SU2 handoff and records `derived_full_span_method`
+as `area_provenance.details.wing_quantities.bref`, so span comes from the
+OpenVSP/VSPAERO `Bref=33.0 m` provenance instead of assuming `Sref/Cref` is a
+span definition. That variant passes the area/chord/span cross-checks and keeps
+only the moment-origin policy as `warn`; it is still report-only and does not
+change production defaults.
 
 The first route-specific main-wing mesh smoke is emitted by:
 
@@ -535,7 +544,7 @@ ownership cleanup, not solver execution.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; a probe-local OpenVSP reference-policy handoff and solver smoke also materialize; default and OpenVSP-reference 12-iteration solver smokes fail the convergence gate, solver-budget follow-ups reach only `warn/run_only`, reference chord now cross-checks against OpenVSP/VSPAERO `cref`, and reference-area / moment-origin provenance remains `warn` |
+| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; a probe-local OpenVSP reference-policy handoff and solver smoke also materialize; default and OpenVSP-reference 12-iteration solver smokes fail the convergence gate, solver-budget follow-ups reach only `warn/run_only`, reference chord now cross-checks against OpenVSP/VSPAERO `cref`; the OpenVSP-reference gate records span from `Bref=33.0`, while default reference-area and all formal moment-origin policy remain `warn` |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is now applied in a gated override handoff; borrowed zero moment origin, solver history, and convergence gate are still missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |

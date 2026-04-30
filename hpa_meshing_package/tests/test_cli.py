@@ -357,11 +357,19 @@ def test_parser_supports_main_wing_reference_geometry_gate_command():
             "main-wing-reference-geometry-gate",
             "--out",
             "artifacts/main_wing_reference_geometry_gate",
+            "--report-root",
+            "docs/reports",
+            "--source-su2-probe-report",
+            "docs/reports/main_wing_openvsp_reference_su2_handoff_probe/main_wing_openvsp_reference_su2_handoff_probe.v1.json",
         ]
     )
 
     assert args.command == "main-wing-reference-geometry-gate"
     assert args.out == "artifacts/main_wing_reference_geometry_gate"
+    assert args.report_root == "docs/reports"
+    assert args.source_su2_probe_report.endswith(
+        "main_wing_openvsp_reference_su2_handoff_probe.v1.json"
+    )
 
 
 def test_parser_supports_tail_wing_mesh_handoff_smoke_command():
