@@ -445,6 +445,26 @@ def test_parser_supports_main_wing_openvsp_section_station_topology_fixture_comm
     )
 
 
+def test_parser_supports_main_wing_station_seam_repair_decision_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-repair-decision",
+            "--out",
+            "artifacts/main_wing_station_seam_repair_decision",
+            "--topology-fixture",
+            "artifacts/main_wing/station_fixture.json",
+            "--solver-report",
+            "artifacts/main_wing/solver.json",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-repair-decision"
+    assert args.out == "artifacts/main_wing_station_seam_repair_decision"
+    assert args.topology_fixture == "artifacts/main_wing/station_fixture.json"
+    assert args.solver_report == "artifacts/main_wing/solver.json"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

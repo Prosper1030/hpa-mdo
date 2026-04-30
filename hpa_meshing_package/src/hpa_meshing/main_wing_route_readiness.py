@@ -27,6 +27,7 @@ StageType = Literal[
     "gmsh_defect_entity_trace",
     "gmsh_curve_station_rebuild_audit",
     "openvsp_section_station_topology_fixture",
+    "station_seam_repair_decision",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -816,6 +817,41 @@ def _openvsp_section_station_topology_fixture_observed(
     }
 
 
+def _station_seam_repair_decision_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("repair_decision_status") == "no_station_seam_repair_required"
+        else "blocked"
+    )
+
+
+def _station_seam_repair_decision_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "repair_decision_status": (
+            None if payload is None else payload.get("repair_decision_status")
+        ),
+        "topology_fixture_observed": (
+            {} if payload is None else payload.get("topology_fixture_observed", {})
+        ),
+        "solver_context_observed": (
+            {} if payload is None else payload.get("solver_context_observed", {})
+        ),
+        "decision_rationale": (
+            [] if payload is None else payload.get("decision_rationale", [])
+        ),
+        "repair_candidate_requirements": (
+            [] if payload is None else payload.get("repair_candidate_requirements", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -937,6 +973,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_openvsp_section_station_topology_fixture"
         / "main_wing_openvsp_section_station_topology_fixture.v1.json"
     )
+    station_seam_repair_decision_path = (
+        root
+        / "main_wing_station_seam_repair_decision"
+        / "main_wing_station_seam_repair_decision.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -983,6 +1024,7 @@ def build_main_wing_route_readiness_report(
     openvsp_section_station_topology_fixture = _load_json(
         openvsp_section_station_topology_fixture_path
     )
+    station_seam_repair_decision = _load_json(station_seam_repair_decision_path)
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1560,6 +1602,24 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(openvsp_section_station_topology_fixture),
         ),
         _stage(
+            stage="station_seam_repair_decision",
+            status=_station_seam_repair_decision_status(
+                station_seam_repair_decision
+            ),
+            evidence_kind=(
+                "real" if isinstance(station_seam_repair_decision, dict) else "absent"
+            ),
+            artifact_path=(
+                station_seam_repair_decision_path
+                if isinstance(station_seam_repair_decision, dict)
+                else None
+            ),
+            observed=_station_seam_repair_decision_observed(
+                station_seam_repair_decision
+            ),
+            blockers=_blocking_reasons(station_seam_repair_decision),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1781,6 +1841,16 @@ def build_main_wing_route_readiness_report(
         )
         if isinstance(fixture_next_actions, list) and fixture_next_actions:
             next_actions[0] = str(fixture_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_repair_decision, dict)
+        and station_seam_repair_decision.get("repair_decision_status")
+        == "station_seam_repair_required_before_solver_budget"
+    ):
+        decision_next_actions = station_seam_repair_decision.get("next_actions", [])
+        if isinstance(decision_next_actions, list) and decision_next_actions:
+            next_actions[0] = str(decision_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,
