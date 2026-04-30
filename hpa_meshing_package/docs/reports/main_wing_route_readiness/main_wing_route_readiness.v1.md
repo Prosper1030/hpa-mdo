@@ -29,6 +29,7 @@
 | `panel_wake_semantics_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_panel_wake_semantics_audit/main_wing_panel_wake_semantics_audit.v1.json` |
 | `su2_surface_topology_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_surface_topology_audit/main_wing_su2_surface_topology_audit.v1.json` |
 | `su2_topology_defect_localization` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_topology_defect_localization/main_wing_su2_topology_defect_localization.v1.json` |
+| `openvsp_defect_station_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_defect_station_audit/main_wing_openvsp_defect_station_audit.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -53,7 +54,7 @@
 
 ## Next Actions
 
-- `inspect_openvsp_export_topology_at_localized_defect_span_stations`
+- `trace_defect_edges_to_gmsh_entities_at_openvsp_section_stations`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

@@ -1,0 +1,45 @@
+# Main Wing OpenVSP Defect Station Audit v1
+
+This report reads existing OpenVSP/ESP topology artifacts only; it does not repair geometry.
+
+- station_alignment_status: `defect_stations_aligned_to_openvsp_rule_sections`
+- defect_localization_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_topology_defect_localization/main_wing_su2_topology_defect_localization.v1.json`
+- topology_lineage_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/topology_lineage_report.json`
+- source_vsp3_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3`
+- production_default_changed: `False`
+
+## Alignment Summary
+
+- `defect_station_count`: `2`
+- `exact_rule_section_match_count`: `2`
+- `max_abs_delta_y_m`: `0`
+- `matched_source_section_indices`: `[3, 4]`
+
+## Station Mappings
+
+- `{"defect_station_y_m": -10.5, "defect_count": 3, "defect_kind_counts": {"nonmanifold_edge": 1, "boundary_edge": 2}, "nearest_rule_section": {"rule_section_index": 2, "source_section_index": 3, "mirrored": true, "side": "left_span", "x_le": 0.0575634452791305, "y_le": -10.5, "z_le": 0.33798399586787137, "chord": 1.0399999999999998, "twist_deg": 0.0, "airfoil_source": "inline_coordinates"}, "source_section": {"source_section_index": 3, "span_m": 2.9999999999999996, "root_chord_m": 1.1749999999999996, "tip_chord_m": 1.0399999999999998, "sect_tess_u": 15.0, "sweep_deg": 0.76, "dihedral_deg": 3.0, "twist_deg": 0.0}, "delta_y_m": 0.0, "exact_rule_section_match": true}`
+- `{"defect_station_y_m": 13.5, "defect_count": 3, "defect_kind_counts": {"nonmanifold_edge": 1, "boundary_edge": 2}, "nearest_rule_section": {"rule_section_index": 9, "source_section_index": 4, "mirrored": false, "side": "right_span", "x_le": 0.11822077170218112, "y_le": 13.5, "z_le": 0.5448734072648781, "chord": 0.83, "twist_deg": 0.0, "airfoil_source": "inline_coordinates"}, "source_section": {"source_section_index": 4, "span_m": 3.0, "root_chord_m": 1.04, "tip_chord_m": 0.83, "sect_tess_u": 14.0, "sweep_deg": 0.95, "dihedral_deg": 4.0, "twist_deg": 0.0}, "delta_y_m": 0.0, "exact_rule_section_match": true}`
+
+## Engineering Findings
+
+- `defect_stations_align_with_openvsp_rule_sections`
+- `defect_stations_clustered_at_few_openvsp_sections`
+- `defect_stations_include_nonmanifold_edges`
+- `defect_stations_span_multiple_source_sections`
+- `left_right_section_station_defects_observed`
+
+## Blocking Reasons
+
+- none
+
+## Next Actions
+
+- `trace_defect_edges_to_gmsh_entities_at_openvsp_section_stations`
+- `build_minimal_openvsp_section_station_topology_fixture`
+- `decide_if_station_seam_repair_or_closed_thickness_export_is_required`
+
+## Limitations
+
+- This report maps localized mesh topology defects to OpenVSP/ESP station evidence only; it does not repair geometry.
+- Station alignment is route-risk provenance, not proof of SU2 convergence behavior.
+- VSP3 section parameters identify source stations but do not by themselves identify the Gmsh curve or surface entity that produced each edge.

@@ -94,6 +94,10 @@ from .main_wing_su2_topology_defect_localization import (
     build_main_wing_su2_topology_defect_localization_report,
     write_main_wing_su2_topology_defect_localization_report,
 )
+from .main_wing_openvsp_defect_station_audit import (
+    build_main_wing_openvsp_defect_station_audit_report,
+    write_main_wing_openvsp_defect_station_audit_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -544,6 +548,31 @@ def cmd_main_wing_su2_topology_defect_localization(args: argparse.Namespace) -> 
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.localization_status != "blocked" else 2
+
+
+def cmd_main_wing_openvsp_defect_station_audit(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    defect_localization_path = (
+        None if args.defect_localization is None else Path(args.defect_localization)
+    )
+    topology_lineage_path = (
+        None if args.topology_lineage is None else Path(args.topology_lineage)
+    )
+    source_vsp3_path = None if args.source_vsp3 is None else Path(args.source_vsp3)
+    report = build_main_wing_openvsp_defect_station_audit_report(
+        defect_localization_path=defect_localization_path,
+        topology_lineage_path=topology_lineage_path,
+        source_vsp3_path=source_vsp3_path,
+    )
+    write_main_wing_openvsp_defect_station_audit_report(
+        out_dir,
+        report=report,
+        defect_localization_path=defect_localization_path,
+        topology_lineage_path=topology_lineage_path,
+        source_vsp3_path=source_vsp3_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.station_alignment_status != "blocked" else 2
 
 
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
@@ -1002,6 +1031,27 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_su2_topology_defect_localization.add_argument("--mesh", type=str)
     main_wing_su2_topology_defect_localization.set_defaults(
         func=cmd_main_wing_su2_topology_defect_localization
+    )
+
+    main_wing_openvsp_defect_station_audit = sub.add_parser(
+        "main-wing-openvsp-defect-station-audit"
+    )
+    main_wing_openvsp_defect_station_audit.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_openvsp_defect_station_audit.add_argument(
+        "--defect-localization",
+        type=str,
+    )
+    main_wing_openvsp_defect_station_audit.add_argument(
+        "--topology-lineage",
+        type=str,
+    )
+    main_wing_openvsp_defect_station_audit.add_argument("--source-vsp3", type=str)
+    main_wing_openvsp_defect_station_audit.set_defaults(
+        func=cmd_main_wing_openvsp_defect_station_audit
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

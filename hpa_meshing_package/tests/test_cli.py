@@ -352,6 +352,29 @@ def test_parser_supports_main_wing_su2_topology_defect_localization_command():
     assert args.mesh == "artifacts/main_wing/mesh.msh"
 
 
+def test_parser_supports_main_wing_openvsp_defect_station_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-openvsp-defect-station-audit",
+            "--out",
+            "artifacts/main_wing_openvsp_defect_station_audit",
+            "--defect-localization",
+            "artifacts/main_wing/defects.json",
+            "--topology-lineage",
+            "artifacts/main_wing/topology_lineage_report.json",
+            "--source-vsp3",
+            "artifacts/main_wing/main_wing.vsp3",
+        ]
+    )
+
+    assert args.command == "main-wing-openvsp-defect-station-audit"
+    assert args.out == "artifacts/main_wing_openvsp_defect_station_audit"
+    assert args.defect_localization == "artifacts/main_wing/defects.json"
+    assert args.topology_lineage == "artifacts/main_wing/topology_lineage_report.json"
+    assert args.source_vsp3 == "artifacts/main_wing/main_wing.vsp3"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

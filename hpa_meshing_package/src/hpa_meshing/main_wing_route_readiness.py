@@ -23,6 +23,7 @@ StageType = Literal[
     "panel_wake_semantics_audit",
     "su2_surface_topology_audit",
     "su2_topology_defect_localization",
+    "openvsp_defect_station_audit",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -693,6 +694,38 @@ def _su2_topology_defect_localization_observed(
     }
 
 
+def _openvsp_defect_station_audit_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "blocked"
+        if payload.get("station_alignment_status") == "blocked"
+        else "pass"
+    )
+
+
+def _openvsp_defect_station_audit_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "station_alignment_status": (
+            None if payload is None else payload.get("station_alignment_status")
+        ),
+        "alignment_summary": (
+            {} if payload is None else payload.get("alignment_summary", {})
+        ),
+        "station_mappings": (
+            [] if payload is None else payload.get("station_mappings", [])
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -794,6 +827,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_su2_topology_defect_localization"
         / "main_wing_su2_topology_defect_localization.v1.json"
     )
+    openvsp_defect_station_audit_path = (
+        root
+        / "main_wing_openvsp_defect_station_audit"
+        / "main_wing_openvsp_defect_station_audit.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -832,6 +870,7 @@ def build_main_wing_route_readiness_report(
     su2_topology_defect_localization = _load_json(
         su2_topology_defect_localization_path
     )
+    openvsp_defect_station_audit = _load_json(openvsp_defect_station_audit_path)
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1337,6 +1376,24 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(su2_topology_defect_localization),
         ),
         _stage(
+            stage="openvsp_defect_station_audit",
+            status=_openvsp_defect_station_audit_status(
+                openvsp_defect_station_audit
+            ),
+            evidence_kind=(
+                "real" if isinstance(openvsp_defect_station_audit, dict) else "absent"
+            ),
+            artifact_path=(
+                openvsp_defect_station_audit_path
+                if isinstance(openvsp_defect_station_audit, dict)
+                else None
+            ),
+            observed=_openvsp_defect_station_audit_observed(
+                openvsp_defect_station_audit
+            ),
+            blockers=_blocking_reasons(openvsp_defect_station_audit),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1515,6 +1572,16 @@ def build_main_wing_route_readiness_report(
         )
         if isinstance(localization_next_actions, list) and localization_next_actions:
             next_actions[0] = str(localization_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(openvsp_defect_station_audit, dict)
+        and openvsp_defect_station_audit.get("station_alignment_status")
+        == "defect_stations_aligned_to_openvsp_rule_sections"
+    ):
+        station_next_actions = openvsp_defect_station_audit.get("next_actions", [])
+        if isinstance(station_next_actions, list) and station_next_actions:
+            next_actions[0] = str(station_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,
