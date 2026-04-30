@@ -1,0 +1,40 @@
+{
+  "strategy": "ocsm_union_touching_groups_plus_occ_singletons",
+  "applied": false,
+  "raw_counts": {
+    "body_count": 0,
+    "surface_count": 6,
+    "volume_count": 0
+  },
+  "raw_analysis": {
+    "touching_groups": [],
+    "singleton_body_tags": [],
+    "grouped_body_tags": [],
+    "duplicate_interface_face_pair_count": 0,
+    "duplicate_interface_face_pairs": [],
+    "internal_cap_face_count": 0,
+    "internal_cap_face_tags": [],
+    "body_records": [],
+    "notes": [
+      "step_import_contains_no_occ_volumes"
+    ]
+  },
+  "actions": [
+    "raw_export_already_cfd_clean_enough"
+  ],
+  "final_analysis": {
+    "touching_groups": [],
+    "singleton_body_tags": [],
+    "grouped_body_tags": [],
+    "duplicate_interface_face_pair_count": 0,
+    "internal_cap_face_count": 0,
+    "notes": [
+      "step_import_contains_no_occ_volumes"
+    ]
+  },
+  "normalized_counts": {
+    "body_count": 0,
+    "surface_count": 6,
+    "volume_count": 0
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "status": "success",
+  "route_stage": "surface_only_lifting_surface_probe",
+  "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_surface_mesh_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "surface_mesh": "docs/reports/tail_wing_surface_mesh_probe/artifacts/surface_mesh/tail_wing_surface_mesh.msh",
+  "mesh_contract": null,
+  "surface_mesh_status": "written",
+  "mesh_handoff_status": "not_written",
+  "su2_volume_handoff_status": "not_su2_ready",
+  "entity_counts": {
+    "surface_count": 6,
+    "curve_count": 17,
+    "point_count": 10,
+    "volume_count": 0
+  },
+  "surface_bounds": {
+    "x_min": 3.9995090657719263,
+    "x_max": 4.800000093184275,
+    "y_min": -1.500000097870086,
+    "y_max": 1.500000097870086,
+    "z_min": -0.03606245686703352,
+    "z_max": 0.03605610444050254
+  },
+  "surface_tags": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "curve_tags": [
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34
+  ],
+  "mesh": {
+    "format": "msh",
+    "mesh_dim": 2,
+    "node_count": 1204,
+    "element_count": 2521,
+    "surface_element_count": 2286,
+    "volume_element_count": 0,
+    "element_type_count": 3,
+    "surface_element_type_count": 1,
+    "volume_element_type_count": 0
+  },
+  "marker_summary": {
+    "tail_wing": {
+      "exists": true,
+      "dimension": 2,
+      "physical_name": "tail_wing",
+      "physical_tag": 1,
+      "entity_count": 6,
+      "entities": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "element_count": 2286
+    }
+  },
+  "artifacts": {
+    "surface_mesh": "docs/reports/tail_wing_surface_mesh_probe/artifacts/surface_mesh/tail_wing_surface_mesh.msh",
+    "surface_mesh_metadata": "docs/reports/tail_wing_surface_mesh_probe/artifacts/surface_mesh/surface_mesh_metadata.json",
+    "marker_summary": "docs/reports/tail_wing_surface_mesh_probe/artifacts/surface_mesh/marker_summary.json",
+    "gmsh_log": "docs/reports/tail_wing_surface_mesh_probe/artifacts/surface_mesh/gmsh_log.txt"
+  },
+  "limitations": [
+    "surface mesh only",
+    "no farfield volume",
+    "no external-flow volume mesh",
+    "mesh_handoff.v1 not emitted"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "tail_wing": {
+    "exists": true,
+    "dimension": 2,
+    "physical_name": "tail_wing",
+    "physical_tag": 1,
+    "entity_count": 6,
+    "entities": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "element_count": 2286
+  }
+}

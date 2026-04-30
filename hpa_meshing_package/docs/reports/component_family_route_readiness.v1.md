@@ -50,6 +50,7 @@
 
 ### `tail_wing`
 - `tail_real_geometry_mesh_handoff_blocked_surface_only`
+- `tail_surface_only_mesh_not_su2_volume_handoff`
 - `tail_wing_solver_not_run`
 - `convergence_gate_not_run`
 

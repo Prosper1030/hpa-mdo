@@ -1,0 +1,120 @@
+{
+  "status": "captured",
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_surface_mesh_probe/artifacts/geometry/artifacts/providers/esp_rebuilt/esp_runtime/horizontal_tail.vsp3",
+  "surface_count": 1,
+  "suppression_candidate_count": 2,
+  "surfaces": [
+    {
+      "component": "horizontal_tail",
+      "geom_id": "ZXAGZMPIBY",
+      "name": "Elevator",
+      "caps_group": "horizontal_tail",
+      "symmetric_xz": true,
+      "source_section_count": 2,
+      "rule_section_count": 3,
+      "rule_sections": [
+        {
+          "rule_section_index": 0,
+          "source_section_index": 1,
+          "mirrored": true,
+          "side": "left_tip",
+          "x_le": 4.0,
+          "y_le": -1.5000000000000002,
+          "z_le": 0.0,
+          "chord": 0.8,
+          "twist_deg": 0.0,
+          "airfoil_source": "naca"
+        },
+        {
+          "rule_section_index": 1,
+          "source_section_index": 0,
+          "mirrored": false,
+          "side": "center_or_start",
+          "x_le": 4.0,
+          "y_le": 0.0,
+          "z_le": 0.0,
+          "chord": 0.8,
+          "twist_deg": 0.0,
+          "airfoil_source": "naca"
+        },
+        {
+          "rule_section_index": 2,
+          "source_section_index": 1,
+          "mirrored": false,
+          "side": "right_tip",
+          "x_le": 4.0,
+          "y_le": 1.5000000000000002,
+          "z_le": 0.0,
+          "chord": 0.8,
+          "twist_deg": 0.0,
+          "airfoil_source": "naca"
+        }
+      ],
+      "terminal_strip_candidates": [
+        {
+          "side": "left_tip",
+          "source_section_index": 1,
+          "mirrored": true,
+          "y_le": -1.5000000000000002,
+          "chord": 0.8,
+          "profile_point_count": 81,
+          "seam_point_xy": [
+            1.0,
+            0.0009449999999999833
+          ],
+          "seam_adjacent_points_xy": {
+            "next": [
+              0.998458666866564,
+              0.0011070436941508803
+            ],
+            "prev": [
+              1.0,
+              -0.0009449999999999833
+            ]
+          },
+          "seam_adjacent_edge_lengths_m": [
+            0.0012398621825455518,
+            0.0015119999999999734
+          ],
+          "trailing_edge_gap_m": 0.0020531483961458755,
+          "profile_perimeter_m": 1.6207935502214625,
+          "suppression_threshold_m": 0.0048000000000000004,
+          "would_suppress": true,
+          "suppression_reason": "terminal_tip_te_strip_candidate"
+        },
+        {
+          "side": "right_tip",
+          "source_section_index": 1,
+          "mirrored": false,
+          "y_le": 1.5000000000000002,
+          "chord": 0.8,
+          "profile_point_count": 81,
+          "seam_point_xy": [
+            1.0,
+            0.0009449999999999833
+          ],
+          "seam_adjacent_points_xy": {
+            "next": [
+              0.998458666866564,
+              0.0011070436941508803
+            ],
+            "prev": [
+              1.0,
+              -0.0009449999999999833
+            ]
+          },
+          "seam_adjacent_edge_lengths_m": [
+            0.0012398621825455518,
+            0.0015119999999999734
+          ],
+          "trailing_edge_gap_m": 0.0020531483961458755,
+          "profile_perimeter_m": 1.6207935502214625,
+          "suppression_threshold_m": 0.0048000000000000004,
+          "would_suppress": true,
+          "suppression_reason": "terminal_tip_te_strip_candidate"
+        }
+      ]
+    }
+  ],
+  "notes": []
+}

@@ -299,8 +299,26 @@ This probe intentionally records the current blocker instead of forcing a pass.
 The real ESP tail geometry materializes as surface-only STEP evidence
 (`surface_count=6`, `volume_count=0`), while the current
 `gmsh_thin_sheet_surface` external-flow route expects OCC volumes. The next
-architecture choice is a surface-only lifting-surface route or provider-side
-solidification/capping.
+architecture choice is provider-side solidification/capping or a baffle-volume
+route.
+
+### 15. Probe the real tail wing surface mesh
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli tail-wing-surface-mesh-probe \
+  --out .tmp/runs/tail_wing_surface_mesh_probe
+```
+
+This produces:
+
+- `tail_wing_surface_mesh_probe.v1.json`
+- `tail_wing_surface_mesh_probe.v1.md`
+
+This probe confirms the real ESP tail surfaces can be meshed by Gmsh as 2D
+surface evidence (`surface_element_count=2286`) with a `tail_wing` physical
+group. It intentionally does not emit `mesh_handoff.v1`: there is no farfield
+volume, no fluid volume, no SU2-ready external-flow mesh, and no solver run.
 
 ## Artifact Contracts
 
@@ -316,6 +334,7 @@ solidification/capping.
 - [`main_wing_su2_handoff_smoke.v1`](docs/contracts/main_wing_su2_handoff_smoke.v1.md)
 - [`tail_wing_esp_rebuilt_geometry_smoke.v1`](docs/contracts/tail_wing_esp_rebuilt_geometry_smoke.v1.md)
 - [`tail_wing_real_mesh_handoff_probe.v1`](docs/contracts/tail_wing_real_mesh_handoff_probe.v1.md)
+- [`tail_wing_surface_mesh_probe.v1`](docs/contracts/tail_wing_surface_mesh_probe.v1.md)
 - [`tail_wing_mesh_handoff_smoke.v1`](docs/contracts/tail_wing_mesh_handoff_smoke.v1.md)
 - [`tail_wing_su2_handoff_smoke.v1`](docs/contracts/tail_wing_su2_handoff_smoke.v1.md)
 - [`reference / force-surface provenance gates`](docs/contracts/provenance_gates.md)
@@ -334,7 +353,7 @@ solidification/capping.
 | Force-surface provenance gate | fixed contract | supports whole-aircraft wall and component-owned `fairing_solid` / lifting-surface markers |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
 | `main_wing` non-BL smoke | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist for a synthetic thin closed-solid wing slab with a `main_wing` marker; real geometry, solver, and convergence are not productized |
-| `tail_wing` non-BL smoke | experimental | real ESP/VSP provider geometry smoke exists; real mesh handoff is blocked because provider output is surface-only while the current route expects OCC volumes; synthetic `mesh_handoff.v1` / `su2_handoff.v1` materialization smokes exist but are not real tail mesh evidence |
+| `tail_wing` non-BL smoke | experimental | real ESP/VSP provider geometry and surface mesh evidence exist; real volume mesh handoff is blocked because provider output is surface-only while the current route expects OCC volumes; synthetic `mesh_handoff.v1` / `su2_handoff.v1` materialization smokes exist but are not real tail mesh evidence |
 | `fairing_solid` closed-solid route | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver, and convergence are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
@@ -348,7 +367,7 @@ solidification/capping.
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
 2. replace synthetic `main_wing` slab evidence with real ESP/VSP main-wing geometry before solver claims
 3. replace synthetic `fairing_solid` box evidence with real fairing geometry before solver claims
-4. choose surface-only `tail_wing` mesh route or provider solidification before solver claims
+4. implement provider solidification/capping or a baffle-volume `tail_wing` route before solver claims
 5. component-level force mapping
 
 ESP/OpenCSM can remain experimental until it earns a separate formal promotion.

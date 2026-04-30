@@ -297,8 +297,28 @@ Observed result:
 - Gmsh route error: `normalized STEP did not import any OCC volumes for gmsh_thin_sheet_surface`
 
 Engineering reading: the synthetic closed-solid tail slab route is not
-representative of real ESP tail geometry. The next real route decision is
-surface-only lifting-surface meshing versus provider-side solidification/capping.
+representative of real ESP tail geometry.
+
+The surface-only follow-up probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-surface-mesh-probe \
+  --out .tmp/runs/tail_wing_surface_mesh_probe
+```
+
+Observed result:
+
+- `probe_status = surface_mesh_pass`
+- imported surface count: 6
+- surface element count: 2286
+- volume element count: 0
+- `mesh_handoff.v1` is not emitted
+
+Engineering reading: surface-only meshing is useful evidence that the ESP tail
+surfaces and `tail_wing` marker can be owned, but it is not SU2-ready. The next
+real route decision is provider-side solidification/capping versus a
+baffle-volume route.
 
 The current expected strategic reading is:
 
@@ -306,7 +326,7 @@ The current expected strategic reading is:
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
-| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | surface-only mesh route or provider solidification, then horizontal/vertical tail mesh smoke |
+| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | provider solidification or baffle-volume route, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
