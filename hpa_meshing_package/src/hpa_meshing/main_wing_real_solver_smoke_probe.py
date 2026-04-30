@@ -52,6 +52,7 @@ class MainWingRealSolverSmokeProbeReport(BaseModel):
     history_path: str | None = None
     convergence_gate_path: str | None = None
     pruned_output_paths: List[str] = Field(default_factory=list)
+    retained_output_paths: List[str] = Field(default_factory=list)
     solver_command: List[str] = Field(default_factory=list)
     timeout_seconds: float
     solver_execution_status: SolverExecutionStatusType
@@ -201,14 +202,30 @@ def _clear_known_history_outputs(case_dir: Path) -> None:
             path.unlink()
 
 
+def _clear_previous_solver_outputs(case_dir: Path) -> None:
+    _clear_known_history_outputs(case_dir)
+    for name in ("restart.csv", "surface.csv", "forces_breakdown.dat", "vol_solution.vtk"):
+        path = case_dir / name
+        if path.exists():
+            path.unlink()
+
+
 def _prune_heavy_solver_outputs(case_dir: Path) -> list[Path]:
     pruned: list[Path] = []
-    for name in ("restart.csv", "surface.csv", "vol_solution.vtk"):
+    for name in ("restart.csv", "vol_solution.vtk"):
         path = case_dir / name
         if path.exists():
             path.unlink()
             pruned.append(path)
     return pruned
+
+
+def _retained_surface_force_output_paths(case_dir: Path) -> list[Path]:
+    return [
+        path
+        for path in (case_dir / "surface.csv", case_dir / "forces_breakdown.dat")
+        if path.exists()
+    ]
 
 
 def _gate_status(convergence_gate: Any) -> str | None:
@@ -302,6 +319,43 @@ def _apply_main_wing_lift_acceptance_to_gate_payload(
                     "Main-wing CL is below the HPA 6.5 m/s acceptance threshold."
                 )
     return gate_payload
+
+
+def _copy_solver_raw_artifacts(
+    out_dir: Path,
+    report: MainWingRealSolverSmokeProbeReport,
+) -> None:
+    raw_dir = out_dir / "artifacts" / "raw_solver"
+    candidates: list[Path] = []
+    for value in (
+        report.history_path,
+        report.solver_log_path,
+        *report.retained_output_paths,
+    ):
+        if value:
+            candidates.append(Path(value))
+    if report.case_dir:
+        case_dir = Path(report.case_dir)
+        candidates.extend(
+            [
+                case_dir / "surface.csv",
+                case_dir / "forces_breakdown.dat",
+            ]
+        )
+    copied: set[Path] = set()
+    for source in candidates:
+        if not source.exists() or not source.is_file():
+            continue
+        resolved = source.resolve()
+        if resolved in copied:
+            continue
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        destination = raw_dir / source.name
+        if destination.exists() and destination.resolve() == resolved:
+            copied.add(resolved)
+            continue
+        shutil.copy2(source, destination)
+        copied.add(resolved)
 
 
 def _blocked_report(
@@ -508,7 +562,7 @@ def build_main_wing_real_solver_smoke_probe_report(
     if solver_log_path is None:
         solver_log_path = case_dir / "solver.log"
     solver_log_path.parent.mkdir(parents=True, exist_ok=True)
-    _clear_known_history_outputs(case_dir)
+    _clear_previous_solver_outputs(case_dir)
     _prune_heavy_solver_outputs(case_dir)
 
     try:
@@ -800,6 +854,7 @@ def build_main_wing_real_solver_smoke_probe_report(
     reference_status = source_report.get("reference_geometry_status")
     if reference_status in {"warn", "fail"}:
         blocking_reasons.append(f"main_wing_real_reference_geometry_{reference_status}")
+    retained_output_paths = _retained_surface_force_output_paths(case_dir)
 
     guarantees = [
         *base_guarantees,
@@ -811,6 +866,8 @@ def build_main_wing_real_solver_smoke_probe_report(
         guarantees.append("convergence_gate_passed")
     if pruned_output_paths:
         guarantees.append("heavy_solver_outputs_pruned")
+    if retained_output_paths:
+        guarantees.append("surface_force_outputs_retained")
 
     return MainWingRealSolverSmokeProbeReport(
         materialized_handoff_consumed=True,
@@ -826,6 +883,7 @@ def build_main_wing_real_solver_smoke_probe_report(
         history_path=str(history_path),
         convergence_gate_path=str(convergence_gate_path),
         pruned_output_paths=[str(path) for path in pruned_output_paths],
+        retained_output_paths=[str(path) for path in retained_output_paths],
         solver_command=command,
         timeout_seconds=float(timeout_seconds),
         solver_execution_status="solver_executed",
@@ -934,4 +992,5 @@ def write_main_wing_real_solver_smoke_probe_report(
         encoding="utf-8",
     )
     markdown_path.write_text(_render_markdown(report), encoding="utf-8")
+    _copy_solver_raw_artifacts(out_dir, report)
     return {"json": json_path, "markdown": markdown_path}

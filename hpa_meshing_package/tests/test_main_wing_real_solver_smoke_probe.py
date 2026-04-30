@@ -121,6 +121,10 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
         (Path(cwd) / "history.csv").write_text(_history_text(), encoding="utf-8")
         (Path(cwd) / "restart.csv").write_text("large restart\n", encoding="utf-8")
         (Path(cwd) / "surface.csv").write_text("large surface\n", encoding="utf-8")
+        (Path(cwd) / "forces_breakdown.dat").write_text(
+            "MARKER_TAG CL CD\nmain_wing 0.30 0.08\n",
+            encoding="utf-8",
+        )
         (Path(cwd) / "vol_solution.vtk").write_text("large volume\n", encoding="utf-8")
         return subprocess.CompletedProcess(command, 0)
 
@@ -174,11 +178,71 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
     assert "main_wing_cl_below_expected_lift" in report.blocking_reasons
     assert "hpa_standard_flow_conditions_6p5_mps" in report.hpa_mdo_guarantees
     assert "heavy_solver_outputs_pruned" in report.hpa_mdo_guarantees
-    assert len(report.pruned_output_paths) == 3
+    assert "surface_force_outputs_retained" in report.hpa_mdo_guarantees
+    assert len(report.pruned_output_paths) == 2
+    assert len(report.retained_output_paths) == 2
     assert not (tmp_path / "su2_case" / "restart.csv").exists()
-    assert not (tmp_path / "su2_case" / "surface.csv").exists()
+    assert (tmp_path / "su2_case" / "surface.csv").exists()
+    assert (tmp_path / "su2_case" / "forces_breakdown.dat").exists()
     assert not (tmp_path / "su2_case" / "vol_solution.vtk").exists()
     assert report.production_default_changed is False
+
+
+def test_main_wing_real_solver_smoke_probe_writer_copies_raw_force_outputs(
+    tmp_path: Path,
+    monkeypatch,
+):
+    probe_path = _write_source_su2_probe(tmp_path)
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.shutil.which",
+        lambda command: f"/fake/bin/{command}",
+    )
+
+    def fake_run(command, cwd, stdout, stderr, text, check, timeout, env):
+        stdout.write(_solver_quality_log_text())
+        (Path(cwd) / "history.csv").write_text(_history_text(), encoding="utf-8")
+        (Path(cwd) / "surface.csv").write_text("surface\n", encoding="utf-8")
+        (Path(cwd) / "forces_breakdown.dat").write_text("forces\n", encoding="utf-8")
+        (Path(cwd) / "vol_solution.vtk").write_text("large volume\n", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.subprocess.run",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.evaluate_baseline_convergence_gate",
+        lambda mesh_handoff, **kwargs: SimpleNamespace(
+            overall_convergence_gate=SimpleNamespace(
+                status="warn",
+                comparability_level="run_only",
+            ),
+            model_dump=lambda mode="json": {
+                "contract": "convergence_gate.v1",
+                "overall_convergence_gate": {
+                    "status": "warn",
+                    "comparability_level": "run_only",
+                },
+            },
+        ),
+    )
+
+    out_dir = tmp_path / "solver_probe"
+    paths = write_main_wing_real_solver_smoke_probe_report(
+        out_dir,
+        source_su2_probe_report_path=probe_path,
+        timeout_seconds=12.0,
+    )
+
+    raw_dir = out_dir / "artifacts" / "raw_solver"
+    payload = json.loads(paths["json"].read_text(encoding="utf-8"))
+    assert payload["retained_output_paths"]
+    assert (raw_dir / "history.csv").exists()
+    assert (raw_dir / "solver.log").exists()
+    assert (raw_dir / "surface.csv").exists()
+    assert (raw_dir / "forces_breakdown.dat").exists()
+    assert not (raw_dir / "vol_solution.vtk").exists()
 
 
 def test_main_wing_real_solver_smoke_probe_rejects_pass_gate_when_cl_below_one(
