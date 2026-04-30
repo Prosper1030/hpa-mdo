@@ -200,11 +200,17 @@ def test_parser_supports_main_wing_real_mesh_handoff_probe_command():
             "main-wing-real-mesh-handoff-probe",
             "--out",
             "artifacts/main_wing_real_mesh_probe",
+            "--global-min-size",
+            "0.35",
+            "--global-max-size",
+            "1.4",
         ]
     )
 
     assert args.command == "main-wing-real-mesh-handoff-probe"
     assert args.out == "artifacts/main_wing_real_mesh_probe"
+    assert args.global_min_size == 0.35
+    assert args.global_max_size == 1.4
 
 
 def test_parser_supports_main_wing_route_readiness_command():

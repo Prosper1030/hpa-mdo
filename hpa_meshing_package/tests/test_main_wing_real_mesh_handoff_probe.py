@@ -188,6 +188,8 @@ def test_main_wing_real_mesh_probe_child_payload_uses_coarse_first_volume_profil
     def _fake_run(cmd, **kwargs):
         payload = json.loads(Path(cmd[-1]).read_text(encoding="utf-8"))
         captured["metadata"] = payload["metadata"]
+        captured["global_min_size"] = payload["global_min_size"]
+        captured["global_max_size"] = payload["global_max_size"]
         Path(payload["result_path"]).write_text(
             json.dumps({"status": "failed", "failure_code": "intentional_probe_stop"})
             + "\n",
@@ -204,11 +206,15 @@ def test_main_wing_real_mesh_probe_child_payload_uses_coarse_first_volume_profil
         source_path=source,
         case_dir=tmp_path / "case",
         timeout_seconds=3.0,
+        global_min_size=0.35,
+        global_max_size=1.4,
     )
 
     assert mesh_run["status"] == "failed"
     metadata = captured["metadata"]
     assert isinstance(metadata, dict)
+    assert captured["global_min_size"] == 0.35
+    assert captured["global_max_size"] == 1.4
     assert metadata["coarse_first_tetra_enabled"] is True
     assert metadata["mesh3d_watchdog_timeout_sec"] == 8.0
     assert metadata["reference_geometry"]["ref_area"] == 34.65
@@ -216,6 +222,46 @@ def test_main_wing_real_mesh_probe_child_payload_uses_coarse_first_volume_profil
         metadata["probe_profile"]
         == "coarse_first_volume_insertion_probe_not_production_default"
     )
+
+
+def test_main_wing_real_mesh_probe_report_records_probe_sizing(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "blackcat_004_origin.vsp3"
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.build_main_wing_esp_rebuilt_geometry_smoke_report",
+        lambda out_dir, source_path=None: _provider_report(tmp_path),
+    )
+
+    def _fake_runner(**kwargs):
+        captured.update(kwargs)
+        return {
+            "status": "failed",
+            "timeout_seconds": kwargs["timeout_seconds"],
+            "result": {"status": "failed", "failure_code": "intentional_probe_stop"},
+            "error": "intentional",
+        }
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe._run_bounded_mesh_job",
+        _fake_runner,
+    )
+
+    report = build_main_wing_real_mesh_handoff_probe_report(
+        tmp_path / "probe",
+        source_path=source,
+        global_min_size=0.35,
+        global_max_size=1.4,
+    )
+
+    assert captured["global_min_size"] == 0.35
+    assert captured["global_max_size"] == 1.4
+    assert report.probe_global_min_size == 0.35
+    assert report.probe_global_max_size == 1.4
 
 
 def test_main_wing_real_mesh_handoff_probe_writer_outputs_json_and_markdown(

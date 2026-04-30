@@ -353,6 +353,10 @@ is `mesh_handoff_timeout`: 2D meshing completes, but 3D volume insertion times
 out before `mesh_handoff.v1` is written. It does not run SU2, BL runtime, or
 convergence.
 
+The default probe sizing is `--global-min-size 0.2 --global-max-size 0.8`.
+Those flags are intentionally probe-local knobs for bounded meshability
+experiments; changing them does not change the production route default.
+
 ### 17. Write the main wing mesh-handoff smoke
 
 ```bash

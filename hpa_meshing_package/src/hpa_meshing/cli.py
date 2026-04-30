@@ -369,6 +369,8 @@ def cmd_main_wing_real_mesh_handoff_probe(args: argparse.Namespace) -> int:
         out_dir,
         source_path=source_path,
         timeout_seconds=float(args.timeout_seconds),
+        global_min_size=float(args.global_min_size),
+        global_max_size=float(args.global_max_size),
     )
     write_main_wing_real_mesh_handoff_probe_report(out_dir, report=report)
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
@@ -610,6 +612,8 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_real_mesh_probe.add_argument("--out", type=str, required=True)
     main_wing_real_mesh_probe.add_argument("--source", type=str)
     main_wing_real_mesh_probe.add_argument("--timeout-seconds", type=float, default=45.0)
+    main_wing_real_mesh_probe.add_argument("--global-min-size", type=float, default=0.2)
+    main_wing_real_mesh_probe.add_argument("--global-max-size", type=float, default=0.8)
     main_wing_real_mesh_probe.set_defaults(func=cmd_main_wing_real_mesh_handoff_probe)
 
     main_wing_route_readiness = sub.add_parser("main-wing-route-readiness")

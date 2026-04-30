@@ -77,6 +77,8 @@ class MainWingRealMeshHandoffProbeReport(BaseModel):
     production_default_changed: bool = False
     probe_profile: ProbeProfileType = PROBE_PROFILE
     coarse_first_tetra_enabled: bool = True
+    probe_global_min_size: float = 0.2
+    probe_global_max_size: float = 0.8
     probe_status: ProbeStatusType
     mesh_probe_status: MeshProbeStatusType
     mesh_handoff_status: MeshHandoffStatusType
@@ -171,6 +173,8 @@ def _run_bounded_mesh_job(
     source_path: Path,
     case_dir: Path,
     timeout_seconds: float,
+    global_min_size: float = 0.2,
+    global_max_size: float = 0.8,
 ) -> dict[str, Any]:
     case_dir.mkdir(parents=True, exist_ok=True)
     payload_path = case_dir / "bounded_mesh_probe_payload.json"
@@ -180,6 +184,8 @@ def _run_bounded_mesh_job(
         "case_dir": str(case_dir),
         "result_path": str(result_path),
         "metadata": _probe_metadata(),
+        "global_min_size": float(global_min_size),
+        "global_max_size": float(global_max_size),
     }
     payload_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     code = r"""
@@ -201,8 +207,8 @@ result = run_job(
         geometry_family="thin_sheet_lifting_surface",
         meshing_route="gmsh_thin_sheet_surface",
         mesh_dim=3,
-        global_min_size=0.2,
-        global_max_size=0.8,
+        global_min_size=float(payload["global_min_size"]),
+        global_max_size=float(payload["global_max_size"]),
         farfield=FarfieldConfig(
             upstream_factor=2.0,
             downstream_factor=3.0,
@@ -257,6 +263,8 @@ def build_main_wing_real_mesh_handoff_probe_report(
     out_dir: Path,
     source_path: Path | None = None,
     timeout_seconds: float = 45.0,
+    global_min_size: float = 0.2,
+    global_max_size: float = 0.8,
 ) -> MainWingRealMeshHandoffProbeReport:
     out_dir.mkdir(parents=True, exist_ok=True)
     source = _default_source_path() if source_path is None else source_path
@@ -313,6 +321,8 @@ def build_main_wing_real_mesh_handoff_probe_report(
         source_path=source,
         case_dir=case_dir,
         timeout_seconds=float(timeout_seconds),
+        global_min_size=float(global_min_size),
+        global_max_size=float(global_max_size),
     )
     result = mesh_run.get("result") if isinstance(mesh_run.get("result"), dict) else None
     mesh = _mesh_payload(result)
@@ -387,6 +397,8 @@ def build_main_wing_real_mesh_handoff_probe_report(
         provider_status=provider_report.provider_status,
         marker_summary_status=marker_status,
         bounded_probe_timeout_seconds=float(timeout_seconds),
+        probe_global_min_size=float(global_min_size),
+        probe_global_max_size=float(global_max_size),
         failure_code=(
             result.get("failure_code")
             if isinstance(result, dict) and isinstance(result.get("failure_code"), str)
@@ -506,6 +518,8 @@ def _render_markdown(report: MainWingRealMeshHandoffProbeReport) -> str:
         f"- marker_summary_status: `{report.marker_summary_status}`",
         f"- probe_profile: `{report.probe_profile}`",
         f"- coarse_first_tetra_enabled: `{report.coarse_first_tetra_enabled}`",
+        f"- probe_global_min_size: `{report.probe_global_min_size}`",
+        f"- probe_global_max_size: `{report.probe_global_max_size}`",
         f"- surface_patch_diagnostics_status: `{report.surface_patch_diagnostics_status}`",
         f"- surface_family_hint_counts: `{report.surface_family_hint_counts}`",
         f"- suspicious_surface_tags: `{report.suspicious_surface_tags}`",
@@ -531,12 +545,16 @@ def write_main_wing_real_mesh_handoff_probe_report(
     report: MainWingRealMeshHandoffProbeReport | None = None,
     source_path: Path | None = None,
     timeout_seconds: float = 45.0,
+    global_min_size: float = 0.2,
+    global_max_size: float = 0.8,
 ) -> Dict[str, Path]:
     if report is None:
         report = build_main_wing_real_mesh_handoff_probe_report(
             out_dir,
             source_path=source_path,
             timeout_seconds=timeout_seconds,
+            global_min_size=global_min_size,
+            global_max_size=global_max_size,
         )
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / "main_wing_real_mesh_handoff_probe.v1.json"

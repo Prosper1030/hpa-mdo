@@ -217,7 +217,9 @@ This writes `main_wing_real_mesh_handoff_probe.v1.json` and
 (`mesh2d_watchdog_status=completed_without_timeout`), and 3D meshing times out
 during `volume_insertion` before `mesh_handoff.v1` is written. This is a
 bounded coarse probe, not production sizing, and it still does not run SU2 or
-convergence.
+convergence. The CLI exposes probe-local `--global-min-size` and
+`--global-max-size` knobs for sizing-sensitivity experiments; these do not
+change the production route default.
 
 The first route-specific main-wing mesh smoke is emitted by:
 
