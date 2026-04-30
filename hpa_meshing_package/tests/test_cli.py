@@ -132,6 +132,23 @@ def test_parser_supports_fairing_solid_mesh_handoff_smoke_command():
     assert args.out == "artifacts/fairing_smoke"
 
 
+def test_parser_supports_fairing_solid_real_geometry_smoke_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "fairing-solid-real-geometry-smoke",
+            "--out",
+            "artifacts/fairing_real_geometry_smoke",
+            "--source",
+            "fairing.vsp3",
+        ]
+    )
+
+    assert args.command == "fairing-solid-real-geometry-smoke"
+    assert args.out == "artifacts/fairing_real_geometry_smoke"
+    assert args.source == "fairing.vsp3"
+
+
 def test_parser_supports_main_wing_mesh_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(

@@ -66,7 +66,7 @@
 - `tail_specific_geometry_smoke_missing`
 
 ### `fairing_solid`
-- `fairing_real_geometry_smoke_missing`
+- `fairing_real_geometry_mesh_handoff_not_run`
 - `fairing_solver_not_run`
 - `convergence_gate_not_run`
 

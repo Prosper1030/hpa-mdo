@@ -58,7 +58,23 @@ and fairing component families classify and dispatch to registered route
 skeletons outside `root_last3`. It does not run Gmsh, BL runtime, SU2,
 `mesh_handoff.v1`, `su2_handoff.v1`, or `convergence_gate.v1`.
 
-The first route-specific fairing smoke is emitted by:
+The first real fairing geometry smoke is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-real-geometry-smoke --out .tmp/runs/fairing_solid_real_geometry_smoke
+```
+
+This writes `fairing_solid_real_geometry_smoke.v1.json` and
+`fairing_solid_real_geometry_smoke.v1.md`. It consumes the external
+`HPA-Fairing-Optimization-Project` `best_design.vsp3`, selects a `Fuselage`,
+materializes a normalized STEP through `openvsp_surface_intersection`, and
+observes closed-solid topology. The current committed result is
+`geometry_smoke_pass` with `1 body / 8 surfaces / 1 volume`. It does not run
+Gmsh meshing, SU2, or convergence, so the next blocker is real fairing mesh
+handoff.
+
+The first route-specific fairing mesh-handoff smoke is emitted by:
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -83,7 +99,7 @@ This writes `fairing_solid_su2_handoff_smoke.v1.json` and
 `fairing_solid_su2_handoff_smoke.v1.md`. It consumes the synthetic closed-solid
 fairing `mesh_handoff.v1` and materializes `su2_handoff.v1`, `mesh.su2`, and
 `su2_runtime.cfg` without executing `SU2_CFD`. It consumes the component-owned
-`fairing_solid` wall marker; real fairing geometry, solver history, and
+`fairing_solid` wall marker; real-geometry mesh handoff, solver history, and
 convergence remain missing.
 
 The first main-wing ESP-rebuilt geometry smoke is emitted by:
@@ -267,7 +283,7 @@ ownership cleanup, not solver execution.
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff probe times out during 3D volume insertion after 2D completion; synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real-geometry mesh handoff, solver history, and convergence gate are missing |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
-| `fairing_solid` | experimental | synthetic `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver history, and convergence gate are missing |
+| `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; synthetic `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real-geometry mesh handoff, solver history, and convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |
 
@@ -296,7 +312,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
 2. Real ESP/VSP main-wing 3D volume-insertion timeout repair before solver claims on the `main_wing` route
-3. Real fairing geometry smoke before solver claims on the `fairing_solid` route
+3. Real fairing mesh handoff probe before solver claims on the `fairing_solid` route
 4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
 5. Component-level force mapping after the wall-marker story is stronger
 

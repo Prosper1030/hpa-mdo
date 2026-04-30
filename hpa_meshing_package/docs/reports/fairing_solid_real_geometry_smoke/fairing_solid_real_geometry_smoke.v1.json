@@ -1,0 +1,79 @@
+{
+  "schema_version": "fairing_solid_real_geometry_smoke.v1",
+  "component": "fairing_solid",
+  "source_fixture": "hpa_fairing_best_design_vsp3",
+  "geometry_provider": "openvsp_surface_intersection",
+  "geometry_family": "closed_solid",
+  "execution_mode": "provider_geometry_only_no_mesh_no_su2",
+  "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+  "case_dir": "docs/reports/fairing_solid_real_geometry_smoke/artifacts/geometry_validation",
+  "no_gmsh_meshing_execution": true,
+  "gmsh_topology_probe_status": "observed",
+  "no_su2_execution": true,
+  "no_bl_runtime": true,
+  "production_default_changed": false,
+  "geometry_smoke_status": "geometry_smoke_pass",
+  "provider_status": "materialized",
+  "validation_status": "success",
+  "mesh_handoff_status": "not_run",
+  "su2_handoff_status": "not_run",
+  "convergence_gate_status": "not_run",
+  "promotion_status": "blocked_before_real_geometry_mesh_handoff",
+  "normalized_geometry_path": "docs/reports/fairing_solid_real_geometry_smoke/artifacts/geometry_validation/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+  "topology_report_path": "docs/reports/fairing_solid_real_geometry_smoke/artifacts/geometry_validation/artifacts/providers/openvsp_surface_intersection/topology.json",
+  "provider_log_path": "docs/reports/fairing_solid_real_geometry_smoke/artifacts/geometry_validation/artifacts/providers/openvsp_surface_intersection/provider_log.json",
+  "selected_geom_id": "GICGAPYMUG",
+  "selected_geom_name": "best_design",
+  "selected_geom_type": "Fuselage",
+  "source_geom_count": 1,
+  "fairing_candidate_count": 1,
+  "body_count": 1,
+  "surface_count": 8,
+  "volume_count": 1,
+  "units": "m",
+  "bounds": {
+    "x_min": -2.89120579329468e-19,
+    "x_max": 2.81766634583567,
+    "y_min": -0.280358633469871,
+    "y_max": 0.280386592430824,
+    "z_min": -0.269384443871934,
+    "z_max": 0.851346753354166
+  },
+  "import_bounds": {
+    "x_min": -1.0000000028912057e-07,
+    "x_max": 2817.6663459356696,
+    "y_min": -280.358633569871,
+    "y_max": 280.386592530824,
+    "z_min": -269.38444397193405,
+    "z_max": 851.346753454166
+  },
+  "import_scale_to_units": 0.0009999999997979655,
+  "backend_rescale_required": true,
+  "topology_notes": [
+    "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+  ],
+  "hpa_mdo_guarantees": [
+    "real_fairing_vsp3_source_consumed",
+    "openvsp_fuselage_fairing_selected",
+    "openvsp_surface_intersection_fairing_step_materialized",
+    "fairing_closed_solid_topology_observed",
+    "no_gmsh_meshing_execution",
+    "no_su2_execution",
+    "production_default_unchanged"
+  ],
+  "blocking_reasons": [
+    "fairing_real_geometry_mesh_handoff_not_run",
+    "fairing_solver_not_run",
+    "convergence_gate_not_run"
+  ],
+  "limitations": [
+    "This smoke materializes provider geometry only; it does not run Gmsh meshing.",
+    "The provider may use Gmsh OCC import only as a topology probe.",
+    "mesh_handoff.v1 is not emitted for the real fairing geometry.",
+    "SU2_CFD was not executed.",
+    "convergence_gate.v1 was not emitted.",
+    "The normalized fairing geometry is not solver credibility evidence by itself.",
+    "Production defaults were not changed."
+  ],
+  "error": null
+}

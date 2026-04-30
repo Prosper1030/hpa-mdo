@@ -14,6 +14,10 @@ from .fairing_solid_mesh_handoff_smoke import (
     build_fairing_solid_mesh_handoff_smoke_report,
     write_fairing_solid_mesh_handoff_smoke_report,
 )
+from .fairing_solid_real_geometry_smoke import (
+    build_fairing_solid_real_geometry_smoke_report,
+    write_fairing_solid_real_geometry_smoke_report,
+)
 from .fairing_solid_su2_handoff_smoke import (
     build_fairing_solid_su2_handoff_smoke_report,
     write_fairing_solid_su2_handoff_smoke_report,
@@ -208,6 +212,18 @@ def cmd_fairing_solid_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     write_fairing_solid_mesh_handoff_smoke_report(out_dir, report=report)
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.smoke_status == "mesh_handoff_pass" else 2
+
+
+def cmd_fairing_solid_real_geometry_smoke(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    source_path = None if args.source is None else Path(args.source)
+    report = build_fairing_solid_real_geometry_smoke_report(
+        out_dir,
+        source_path=source_path,
+    )
+    write_fairing_solid_real_geometry_smoke_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.geometry_smoke_status == "geometry_smoke_pass" else 2
 
 
 def cmd_fairing_solid_su2_handoff_smoke(args: argparse.Namespace) -> int:
@@ -415,6 +431,11 @@ def build_parser() -> argparse.ArgumentParser:
     fairing_smoke = sub.add_parser("fairing-solid-mesh-handoff-smoke")
     fairing_smoke.add_argument("--out", type=str, required=True)
     fairing_smoke.set_defaults(func=cmd_fairing_solid_mesh_handoff_smoke)
+
+    fairing_real_geometry_smoke = sub.add_parser("fairing-solid-real-geometry-smoke")
+    fairing_real_geometry_smoke.add_argument("--out", type=str, required=True)
+    fairing_real_geometry_smoke.add_argument("--source", type=str)
+    fairing_real_geometry_smoke.set_defaults(func=cmd_fairing_solid_real_geometry_smoke)
 
     fairing_su2_smoke = sub.add_parser("fairing-solid-su2-handoff-smoke")
     fairing_su2_smoke.add_argument("--out", type=str, required=True)
