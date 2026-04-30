@@ -12,7 +12,7 @@ This report reads existing solver artifacts only; it does not execute SU2.
 
 - `solver_execution_status`: `solver_executed`
 - `run_status`: `solver_executed_but_not_converged`
-- `convergence_gate_status`: `warn`
+- `convergence_gate_status`: `fail`
 - `main_wing_lift_acceptance_status`: `fail`
 - `observed_velocity_mps`: `6.5`
 - `runtime_max_iterations`: `80`
@@ -30,7 +30,7 @@ This report reads existing solver artifacts only; it does not execute SU2.
 |---|---|
 | `solver_report_available` | `pass` |
 | `solver_executed` | `pass` |
-| `surface_csv_retained` | `blocked` |
+| `surface_csv_retained` | `pass` |
 | `forces_breakdown_retained` | `blocked` |
 | `panel_force_comparison_ready` | `blocked` |
 
@@ -45,7 +45,6 @@ This report reads existing solver artifacts only; it does not execute SU2.
 
 ## Blocking Reasons
 
-- `surface_force_output_pruned_or_missing`
 - `forces_breakdown_output_missing`
 - `panel_force_comparison_not_ready`
 
@@ -57,7 +56,6 @@ This report reads existing solver artifacts only; it does not execute SU2.
 
 ## Next Actions
 
-- `preserve_surface_csv_in_solver_smoke_artifacts`
 - `preserve_forces_breakdown_dat_in_solver_smoke_artifacts`
 - `rerun_surface_force_output_audit_before_panel_delta_debug`
 

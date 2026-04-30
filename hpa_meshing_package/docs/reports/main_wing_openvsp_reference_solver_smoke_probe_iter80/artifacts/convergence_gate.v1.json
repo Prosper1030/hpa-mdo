@@ -264,8 +264,8 @@
     ]
   },
   "overall_convergence_gate": {
-    "status": "warn",
-    "confidence": "medium",
+    "status": "fail",
+    "confidence": "low",
     "checks": {
       "mesh_gate": {
         "status": "pass",
@@ -310,15 +310,59 @@
         },
         "warnings": [],
         "notes": []
+      },
+      "main_wing_lift_acceptance": {
+        "status": "fail",
+        "observed": {
+          "status": "fail"
+        },
+        "expected": {
+          "status": "pass"
+        },
+        "warnings": [
+          "main_wing_cl_below_expected_lift"
+        ],
+        "notes": []
       }
     },
     "warnings": [
       "iterative_gate=warn",
-      "reference_gate=warn"
+      "reference_gate=warn",
+      "main_wing_lift_acceptance=fail"
     ],
     "notes": [
-      "Baseline run completed, but warned gates mean it should only be treated as runnable."
+      "Baseline run completed, but warned gates mean it should only be treated as runnable.",
+      "Main-wing CL is below the HPA 6.5 m/s acceptance threshold."
     ],
-    "comparability_level": "run_only"
+    "comparability_level": "not_comparable"
+  },
+  "main_wing_lift_acceptance": {
+    "status": "fail",
+    "confidence": "high",
+    "checks": {
+      "main_wing_cl_at_hpa_6p5": {
+        "status": "fail",
+        "observed": {
+          "cl": 0.263161913,
+          "velocity_mps": 6.5
+        },
+        "expected": {
+          "velocity_mps": 6.5,
+          "minimum_acceptable_cl_exclusive": 1.0
+        },
+        "warnings": [
+          "main_wing_cl_below_expected_lift"
+        ],
+        "notes": [
+          "Main-wing convergence acceptance at HPA 6.5 m/s requires CL > 1."
+        ]
+      }
+    },
+    "warnings": [
+      "main_wing_cl_below_expected_lift"
+    ],
+    "notes": [
+      "This is a main-wing lift sanity gate; it does not replace residual or coefficient stability checks."
+    ]
   }
 }

@@ -4,11 +4,13 @@ This probe runs SU2_CFD from the real main-wing SU2 handoff and keeps solver exe
 
 - run_status: `solver_executed_but_not_converged`
 - solver_execution_status: `solver_executed`
-- convergence_gate_status: `warn`
-- convergence_comparability_level: `run_only`
+- convergence_gate_status: `fail`
+- convergence_comparability_level: `not_comparable`
 - return_code: `0`
 - final_iteration: `79`
 - observed_velocity_mps: `6.5`
+- minimum_acceptable_cl: `1.0`
+- main_wing_lift_acceptance_status: `fail`
 - component_force_ownership_status: `owned`
 - reference_geometry_status: `warn`
 - runtime_max_iterations: `80`
@@ -20,6 +22,7 @@ This probe runs SU2_CFD from the real main-wing SU2 handoff and keeps solver exe
 ## Blocking Reasons
 
 - `solver_executed_but_not_converged`
+- `main_wing_cl_below_expected_lift`
 - `main_wing_real_reference_geometry_warn`
 
 ## Solver Log Mesh Quality
@@ -39,10 +42,12 @@ This probe runs SU2_CFD from the real main-wing SU2 handoff and keeps solver exe
 - `history_file_written`
 - `convergence_gate_v1_emitted`
 - `heavy_solver_outputs_pruned`
+- `surface_force_outputs_retained`
 
 ## Limitations
 
 - Solver execution is not the same as convergence; only a pass convergence gate can be called converged.
+- At HPA standard V=6.5 m/s, main-wing convergence acceptance additionally requires CL > 1.
 - Reference geometry warn/fail remains a comparability blocker even when the solver runs.
 - The upstream mesh is a coarse bounded probe, not production default sizing.
 - Production defaults were not changed.

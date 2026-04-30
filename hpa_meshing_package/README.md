@@ -57,7 +57,7 @@
 - `esp_rebuilt` 在目前 `main` 上已經不再是 `not_materialized` stub。它現在會走 native OpenCSM lifting-surface rebuild：從 `.vsp3` 讀 wing/tail sections，生成 rule-loft `.csm`，再用 `serveCSM -batch` 輸出 normalized STEP 與 topology artifact。
 - 這台 Mac mini M4（macOS 26.4.1 / arm64）目前可用的 runtime truth 是：`serveESP` / `serveCSM` 在 `PATH` 上、`ocsm` 仍缺席，但 batch 路徑可以直接用 `serveCSM`。所以 `detect_esp_runtime()` 會回 `available=true`、`batch_binary=serveCSM`，provider 已可執行。
 - 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已經把主翼單體 real geometry evidence 收進 committed report：它從 `blackcat_004_origin.vsp3` 選到 `Main Wing`，產生 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`。
-- 目前真正的 blocker 已經往後移：coarse bounded real mesh handoff 和 real SU2 handoff 都已經 materialize，`SU2_CFD` 也能執行並寫出 `history.csv`；但 12-iteration smoke 的 convergence gate 為 `fail/not_comparable`，OpenVSP-reference 80-iteration follow-up 也只到 `warn/run_only`，surface-force outputs (`surface.csv` / `forces_breakdown.dat`) 尚未被保留為可審核 artifact，main-wing reference chord 已可用 OpenVSP/VSPAERO `cref` cross-check，reference area / moment origin 仍是比較性 blocker。
+- 目前真正的 blocker 已經往後移：coarse bounded real mesh handoff 和 real SU2 handoff 都已經 materialize，`SU2_CFD` 也能執行並寫出 `history.csv`；但 12-iteration smoke 和 OpenVSP-reference 80-iteration follow-up 都是 `fail/not_comparable`，80-iteration run 已保留 `surface.csv` 但沒有 materialize `forces_breakdown.dat`，main-wing reference chord 已可用 OpenVSP/VSPAERO `cref` cross-check，reference area / moment origin 仍是比較性 blocker。
 - 結論：`esp_rebuilt` 現在是「provider runnable + route artifact exists, but not production CFD」。下一步不是再補 runtime 安裝，也不是宣稱 solver converged，而是先把 reference provenance 補齊，再做 bounded longer-iteration / numerics campaign。
 - 實作規劃請看 [ESP Rebuilt Provider Enablement Implementation Plan](../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
 
@@ -413,8 +413,11 @@ improves the gate to `warn/run_only` with `V=6.5`, but still remains
 
 The current highest committed OpenVSP-reference budget probe is the 80-iteration
 snapshot at `docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/`.
-It also remains `warn/run_only`: coefficient tails are stable, but residual drop
-is still below the pass threshold.
+It is `fail/not_comparable`: coefficient tails are stable, but residual drop is
+still below the pass threshold and the HPA lift gate fails because `CL <= 1.0`.
+The rerun now retains `surface.csv` in `artifacts/raw_solver/`, but
+`forces_breakdown.dat` is still missing, so panel/SU2 force-breakdown debugging
+is not ready.
 
 ### 19. Check main wing reference geometry provenance
 
@@ -645,7 +648,7 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
 | Force-surface provenance gate | fixed contract | supports whole-aircraft wall and component-owned `fairing_solid` / lifting-surface markers |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine; main-wing coarse bounded mesh evidence exists, but the provider route is still not a formal production CFD path |
-| `main_wing` non-BL route | experimental | real ESP/VSP geometry, real coarse bounded `mesh_handoff.v1`, real `su2_handoff.v1`, probe-local OpenVSP reference-policy handoff/smoke, and solver-executed evidence now exist; 12-iteration gates fail, solver-budget follow-ups only reach `warn/run_only`, surface-force outputs are not retained for panel/SU2 force-breakdown debug, reference chord now cross-checks against OpenVSP/VSPAERO `cref`, and reference-area / moment-origin provenance remains `warn`, so it is not productized CFD |
+| `main_wing` non-BL route | experimental | real ESP/VSP geometry, real coarse bounded `mesh_handoff.v1`, real `su2_handoff.v1`, probe-local OpenVSP reference-policy handoff/smoke, and solver-executed evidence now exist; 12-iteration gates fail, the OpenVSP-reference 80-iteration follow-up is also `fail/not_comparable` after the CL gate, `surface.csv` is retained but `forces_breakdown.dat` is missing for panel/SU2 force-breakdown debug, reference chord now cross-checks against OpenVSP/VSPAERO `cref`, and reference-area / moment-origin provenance remains `warn`, so it is not productized CFD |
 | `tail_wing` non-BL smoke | experimental | real ESP/VSP provider geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is still blocked by surface-only provider output, negative signed-volume surface-loop behavior, and baffle-fragment PLC failure; synthetic `mesh_handoff.v1` / `su2_handoff.v1` materialization smokes exist but are not real tail mesh evidence |
 | `fairing_solid` closed-solid route | experimental | real fairing VSP geometry smoke exists for `best_design` Fuselage with `1 body / 8 surfaces / 1 volume`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is applied in a gated override handoff; solver, convergence, and owned moment-origin policy are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
@@ -658,7 +661,7 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 ## Recommended Next Gates
 
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
-2. fix main-wing reference-area / moment-origin provenance, then continue residual/numerics work beyond the current 80-iteration OpenVSP-reference `warn/run_only` smoke; do not treat either smoke as converged
+2. resolve the missing main-wing `forces_breakdown.dat`, then fix reference-area / moment-origin provenance before any larger residual/numerics campaign; do not treat either smoke as converged
 3. run a real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
 4. repair explicit tail volume orientation or baffle-surface ownership before solver claims
 5. component-level force mapping

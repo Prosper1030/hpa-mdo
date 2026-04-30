@@ -702,6 +702,7 @@ def build_main_wing_route_readiness_report(
         if solver_lift_acceptance_failed
         else []
     )
+    surface_force_output_blockers = set(_blocking_reasons(surface_force_output_audit))
     surface_force_output_blocked = any(
         reason
         in {
@@ -709,7 +710,7 @@ def build_main_wing_route_readiness_report(
             "forces_breakdown_output_missing",
             "panel_force_comparison_not_ready",
         }
-        for reason in _blocking_reasons(surface_force_output_audit)
+        for reason in surface_force_output_blockers
     )
     convergence_pass = (
         solver_executed
@@ -1156,9 +1157,14 @@ def build_main_wing_route_readiness_report(
         and solver_lift_acceptance_failed
         and surface_force_output_blocked
     ):
-        next_actions[0] = (
-            "preserve_main_wing_surface_force_outputs_before_panel_delta_debug"
-        )
+        if "surface_force_output_pruned_or_missing" in surface_force_output_blockers:
+            next_actions[0] = (
+                "preserve_main_wing_surface_force_outputs_before_panel_delta_debug"
+            )
+        elif "forces_breakdown_output_missing" in surface_force_output_blockers:
+            next_actions[0] = (
+                "resolve_main_wing_forces_breakdown_output_before_panel_delta_debug"
+            )
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

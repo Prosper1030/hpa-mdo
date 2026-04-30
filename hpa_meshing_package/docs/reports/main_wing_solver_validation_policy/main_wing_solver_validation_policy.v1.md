@@ -30,8 +30,8 @@ be used as engineering convergence validation or final CFD-ready evidence.
 ## Current Main-Wing Verdict
 
 - solver_execution: `executed`
-- convergence_gate_status: `warn`
-- convergence_comparability_level: `run_only`
+- convergence_gate_status: `fail`
+- convergence_comparability_level: `not_comparable`
 - final_cl: `0.263161913`
 - main_wing_lift_acceptance_status: `fail`
 - engineering_verdict: `not_converged_engineering_evidence`

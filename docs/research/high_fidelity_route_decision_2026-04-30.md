@@ -515,18 +515,21 @@ Observed result:
 
 - `solver_execution_status = solver_executed`
 - `run_status = solver_executed_but_not_converged`
-- `convergence_gate_status = warn`
-- `convergence_comparability_level = run_only`
+- `convergence_gate_status = fail`
+- `convergence_comparability_level = not_comparable`
 - `final_iteration = 79`
 - `CL ~= 0.2632`
 - `CD ~= 0.02497`
 - `CMy ~= -0.2097`
 - median residual log drop ~= `0.358`, below the `0.5` pass threshold
+- retained raw surface output: `surface.csv`
+- missing expected force breakdown output: `forces_breakdown.dat`
 
 Engineering reading: extending from 40 to 80 iterations improves coefficient
-tail stability, but does not clear the residual gate. The next numerics work
-should inspect mesh quality / residual behavior / solver settings, not merely
-claim success from a zero return code.
+tail stability and now retains `surface.csv`, but it does not clear the residual
+or lift gates. The next route-readiness blocker is the missing
+`forces_breakdown.dat`, followed by mesh quality / residual behavior / solver
+settings. Do not claim success from a zero return code.
 
 Additional mesh-quality evidence from the SU2 preprocessing log:
 
@@ -548,13 +551,14 @@ Observed result:
 - `audit_status = blocked`
 - solver log expects `surface.csv`
 - solver log expects `forces_breakdown.dat`
-- committed raw solver artifacts retain `history.csv` and `solver.log` only
-- selected solver report records `surface.csv` as a pruned output
+- committed raw solver artifacts retain `history.csv`, `solver.log`, and
+  `surface.csv`
+- selected solver report no longer records `surface.csv` as a pruned output
 - VSPAERO panel reference remains `CLtot ~= 1.2876` at `V=6.5 m/s`
 
 Engineering reading: the route now owns the `main_wing` force marker, but it
-does not yet retain the surface-force outputs needed to compare SU2 force
-breakdown against the VSPAERO panel baseline. This should be fixed before using
+still lacks `forces_breakdown.dat`, so SU2 force-breakdown comparison against
+the VSPAERO panel baseline is not ready. This should be fixed before using
 another solver budget run as a CL-gap diagnosis.
 
 The matching non-BL main-wing mesh smoke is:
@@ -769,7 +773,7 @@ The current expected strategic reading is:
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | own reference-area / moment-origin provenance, then continue residual/numerics work beyond the current 80-iteration OpenVSP-reference `warn/run_only` smoke |
+| `main_wing` | experimental + diagnostic | no | resolve missing `forces_breakdown.dat`, then own reference-area / moment-origin provenance before a larger residual/numerics campaign |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | bounded solver/convergence smoke; moment-origin policy before moment coefficients |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -825,7 +829,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 1. Run a bounded real fairing solver smoke now that drag/reference normalization
    is explicit; keep moment coefficients blocked until moment-origin policy is
    owned.
-2. Own main-wing reference-area / moment-origin provenance, then continue
-   residual/numerics work beyond the current 80-iteration OpenVSP-reference `warn/run_only`
-   smoke; keep both current solver smokes labeled
+2. Resolve missing main-wing `forces_breakdown.dat`, then own reference-area /
+   moment-origin provenance before a larger residual/numerics campaign; keep
+   both current solver smokes labeled
    `solver_executed_but_not_converged`.

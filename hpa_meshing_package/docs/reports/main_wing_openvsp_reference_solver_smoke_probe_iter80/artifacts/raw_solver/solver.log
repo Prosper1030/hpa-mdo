@@ -46,7 +46,7 @@ Input mesh file name: mesh.su2
 Flux difference splitting (FDS) upwind scheme for the flow inviscid terms.
 Second order integration in space, with slope limiter.
 Venkatakrishnan slope-limiting method, with constant: 0.05.
-The reference element size is: 1.
+The reference element size is: 1. 
 Average of gradients with correction (viscous flow terms).
 Gradient for upwind reconstruction: inverse-distance weighted Least-Squares.
 Gradient for viscous and source terms: inverse-distance weighted Least-Squares.
@@ -70,7 +70,7 @@ Number of Cauchy elements: 100.
 Begin windowed time average at iteration 0.
 
 -------------------- Output Information ( Zone 0 ) ----------------------
-File writing frequency:
+File writing frequency: 
 +------------------------------------+
 |                     File| Frequency|
 +------------------------------------+
@@ -326,3 +326,4 @@ Deleted COutput class.
 -------------------------------------------------------------------------
 
 ------------------------- Exit Success (SU2_CFD) ------------------------
+

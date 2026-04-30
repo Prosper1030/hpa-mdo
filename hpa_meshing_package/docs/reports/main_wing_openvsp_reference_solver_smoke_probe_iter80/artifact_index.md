@@ -11,24 +11,28 @@ evidence only, not a convergence or CFD-ready claim.
   case directory.
 - `artifacts/raw_solver/solver.log`: raw SU2 log copied from the `.tmp` case
   directory.
+- `artifacts/raw_solver/surface.csv`: raw SU2 surface output retained from the
+  `.tmp` case directory.
 
 Observed result:
 
 - `solver_execution_status = solver_executed`
 - `run_status = solver_executed_but_not_converged`
-- `convergence_gate_status = warn`
-- `convergence_comparability_level = run_only`
+- `convergence_gate_status = fail`
+- `convergence_comparability_level = not_comparable`
 - `final_iteration = 79`
 - `CL = 0.263161913`
 - `CD = 0.02496911575`
 - `CMy = -0.2096803732`
 
 The run preserves `V=6.5 m/s` and does not change production defaults. Relative
-to the 40-iteration OpenVSP-reference smoke, coefficient stability improves, but
-the residual gate still warns: median residual log drop is about `0.358` against
-the `0.5` pass threshold. The run is therefore still blocked by
-`solver_executed_but_not_converged`, with `main_wing_real_reference_geometry_warn`
-also remaining active.
+to the 40-iteration OpenVSP-reference smoke, coefficient stability improves and
+`surface.csv` is retained, but the residual gate remains below threshold and the
+main-wing lift gate fails because `CL <= 1.0`. The run is therefore still
+blocked by `solver_executed_but_not_converged`,
+`main_wing_cl_below_expected_lift`, and `main_wing_real_reference_geometry_warn`.
+The solver log advertises `forces_breakdown.dat`, but that file is not
+materialized in the retained raw solver artifacts.
 
 Mesh-quality observations from `artifacts/raw_solver/solver.log`:
 

@@ -32,7 +32,6 @@
 - `main_wing_reference_geometry_incomplete`
 - `main_wing_reference_area_differs_from_openvsp_sref`
 - `main_wing_moment_origin_not_certified`
-- `surface_force_output_pruned_or_missing`
 - `forces_breakdown_output_missing`
 - `panel_force_comparison_not_ready`
 - `solver_executed_but_not_converged`
@@ -47,7 +46,7 @@
 
 ## Next Actions
 
-- `preserve_main_wing_surface_force_outputs_before_panel_delta_debug`
+- `resolve_main_wing_forces_breakdown_output_before_panel_delta_debug`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

@@ -11,8 +11,8 @@
     "reference_policy": "openvsp_geometry_derived",
     "runtime_max_iterations": 80,
     "final_iteration": 79,
-    "convergence_gate_status": "warn",
-    "convergence_comparability_level": "run_only",
+    "convergence_gate_status": "fail",
+    "convergence_comparability_level": "not_comparable",
     "coefficient_stability_status": "pass",
     "final_coefficients": {
       "cl": 0.263161913,
@@ -78,7 +78,7 @@
       "candidate": "solver_not_converged",
       "priority": "high",
       "evidence": [
-        "convergence_gate_status=warn",
+        "convergence_gate_status=fail",
         "runtime_max_iterations=80"
       ],
       "next_gate": "use_source_backed_iteration_budget_before_convergence_claim"

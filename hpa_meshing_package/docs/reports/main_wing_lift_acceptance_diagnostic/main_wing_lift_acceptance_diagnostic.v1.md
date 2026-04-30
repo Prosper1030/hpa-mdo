@@ -13,8 +13,8 @@ This report reads existing solver-smoke artifacts only; it does not execute SU2.
 - `reference_policy`: `openvsp_geometry_derived`
 - `runtime_max_iterations`: `80`
 - `final_iteration`: `79`
-- `convergence_gate_status`: `warn`
-- `convergence_comparability_level`: `run_only`
+- `convergence_gate_status`: `fail`
+- `convergence_comparability_level`: `not_comparable`
 - `coefficient_stability_status`: `pass`
 - `final_coefficients`: `{"cl": 0.263161913, "cd": 0.02496911575, "cm": -0.2096803732, "cm_axis": "CMy"}`
 - `su2_handoff_path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2_handoff.json`

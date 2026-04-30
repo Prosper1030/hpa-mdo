@@ -16,8 +16,10 @@
   "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/convergence_gate.v1.json",
   "pruned_output_paths": [
     "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/restart.csv",
-    "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv",
     "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/vol_solution.vtk"
+  ],
+  "retained_output_paths": [
+    "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv"
   ],
   "solver_command": [
     "SU2_CFD",
@@ -27,7 +29,7 @@
   ],
   "timeout_seconds": 300.0,
   "solver_execution_status": "solver_executed",
-  "convergence_gate_status": "warn",
+  "convergence_gate_status": "fail",
   "run_status": "solver_executed_but_not_converged",
   "return_code": 0,
   "final_iteration": 79,
@@ -58,7 +60,9 @@
       }
     }
   },
-  "convergence_comparability_level": "run_only",
+  "main_wing_lift_acceptance_status": "fail",
+  "minimum_acceptable_cl": 1.0,
+  "convergence_comparability_level": "not_comparable",
   "component_force_ownership_status": "owned",
   "reference_geometry_status": "warn",
   "observed_velocity_mps": 6.5,
@@ -72,14 +76,17 @@
     "su2_solver_executed",
     "history_file_written",
     "convergence_gate_v1_emitted",
-    "heavy_solver_outputs_pruned"
+    "heavy_solver_outputs_pruned",
+    "surface_force_outputs_retained"
   ],
   "blocking_reasons": [
     "solver_executed_but_not_converged",
+    "main_wing_cl_below_expected_lift",
     "main_wing_real_reference_geometry_warn"
   ],
   "limitations": [
     "Solver execution is not the same as convergence; only a pass convergence gate can be called converged.",
+    "At HPA standard V=6.5 m/s, main-wing convergence acceptance additionally requires CL > 1.",
     "Reference geometry warn/fail remains a comparability blocker even when the solver runs.",
     "The upstream mesh is a coarse bounded probe, not production default sizing.",
     "Production defaults were not changed."

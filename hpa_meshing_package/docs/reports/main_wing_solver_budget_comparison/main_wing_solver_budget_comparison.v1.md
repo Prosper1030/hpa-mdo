@@ -11,14 +11,14 @@ This report compares existing solver-smoke artifacts only; it does not execute S
 - `reference_policy`: `openvsp_geometry_derived`
 - `runtime_max_iterations`: `80`
 - `report_path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json`
-- `convergence_gate_status`: `warn`
-- `convergence_comparability_level`: `run_only`
+- `convergence_gate_status`: `fail`
+- `convergence_comparability_level`: `not_comparable`
 - `residual_median_log_drop`: `0.357993`
 - `coefficient_stability_status`: `pass`
 - `final_coefficients`: `{"cl": 0.263161913, "cd": 0.02496911575, "cm": -0.2096803732, "cm_axis": "CMy"}`
 - `main_wing_lift_acceptance_status`: `fail`
 - `minimum_acceptable_cl`: `1`
-- `advisory_flags`: `["convergence_gate_not_passed", "residual_drop_below_threshold", "reference_geometry_warn", "main_wing_cl_below_expected_lift", "mesh_quality_cv_sub_volume_ratio_high", "mesh_quality_cv_face_area_aspect_ratio_high", "overall_gate_warning:iterative_gate=warn", "overall_gate_warning:reference_gate=warn"]`
+- `advisory_flags`: `["convergence_gate_not_passed", "residual_drop_below_threshold", "reference_geometry_warn", "main_wing_cl_below_expected_lift", "mesh_quality_cv_sub_volume_ratio_high", "mesh_quality_cv_face_area_aspect_ratio_high", "overall_gate_warning:iterative_gate=warn", "overall_gate_warning:reference_gate=warn", "overall_gate_warning:main_wing_lift_acceptance=fail"]`
 
 ## Rows
 
@@ -28,7 +28,7 @@ This report compares existing solver-smoke artifacts only; it does not execute S
 | `declared_blackcat_full_span` | `budget_probe` | `40` | `39` | `warn` | `0.216845` | `0.271915` | `0.02597` | `-0.146786` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, main_wing_cl_below_expected_lift, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
 | `openvsp_geometry_derived` | `baseline_smoke` | `12` | `11` | `fail` | `0.162743` | `0.260257` | `0.0185863` | `-0.203257` | convergence_gate_not_passed, residual_drop_below_threshold, coefficient_tail_not_stable, reference_geometry_warn, main_wing_cl_below_expected_lift, overall_gate_warning:iterative_gate=fail, overall_gate_warning:reference_gate=warn |
 | `openvsp_geometry_derived` | `budget_probe` | `40` | `39` | `warn` | `0.216845` | `0.267856` | `0.0255824` | `-0.213081` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, main_wing_cl_below_expected_lift, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
-| `openvsp_geometry_derived` | `budget_probe` | `80` | `79` | `warn` | `0.357993` | `0.263162` | `0.0249691` | `-0.20968` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, main_wing_cl_below_expected_lift, mesh_quality_cv_sub_volume_ratio_high, mesh_quality_cv_face_area_aspect_ratio_high, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
+| `openvsp_geometry_derived` | `budget_probe` | `80` | `79` | `fail` | `0.357993` | `0.263162` | `0.0249691` | `-0.20968` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, main_wing_cl_below_expected_lift, mesh_quality_cv_sub_volume_ratio_high, mesh_quality_cv_face_area_aspect_ratio_high, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn, overall_gate_warning:main_wing_lift_acceptance=fail |
 
 ## Engineering Assessment
 

@@ -273,7 +273,7 @@
         "solver_execution_observed": {
           "solver_execution_status": "solver_executed",
           "run_status": "solver_executed_but_not_converged",
-          "convergence_gate_status": "warn",
+          "convergence_gate_status": "fail",
           "main_wing_lift_acceptance_status": "fail",
           "observed_velocity_mps": 6.5,
           "runtime_max_iterations": 80,
@@ -293,17 +293,18 @@
           "raw_solver_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver",
           "committed_raw_solver_files": [
             "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/history.csv",
-            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/solver.log"
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/solver.log",
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/surface.csv"
           ],
-          "surface_csv_candidates": [],
-          "forces_breakdown_candidates": [],
-          "pruned_surface_outputs": [
+          "surface_csv_candidates": [
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/surface.csv",
             "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv"
           ],
+          "forces_breakdown_candidates": [],
+          "pruned_surface_outputs": [],
           "pruned_force_breakdown_outputs": [],
           "declared_pruned_output_paths": [
             "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/restart.csv",
-            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv",
             "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/vol_solution.vtk"
           ]
         },
@@ -322,7 +323,6 @@
         ]
       },
       "blockers": [
-        "surface_force_output_pruned_or_missing",
         "forces_breakdown_output_missing",
         "panel_force_comparison_not_ready"
       ]
@@ -384,8 +384,8 @@
       "observed": {
         "solver_execution_status": "solver_executed",
         "run_status": "solver_executed_but_not_converged",
-        "convergence_gate_status": "warn",
-        "convergence_comparability_level": "run_only",
+        "convergence_gate_status": "fail",
+        "convergence_comparability_level": "not_comparable",
         "final_iteration": 79,
         "runtime_max_iterations": 80,
         "final_coefficients": {
@@ -422,6 +422,7 @@
       },
       "blockers": [
         "solver_executed_but_not_converged",
+        "main_wing_cl_below_expected_lift",
         "main_wing_real_reference_geometry_warn"
       ]
     },
@@ -633,7 +634,6 @@
     "main_wing_reference_geometry_incomplete",
     "main_wing_reference_area_differs_from_openvsp_sref",
     "main_wing_moment_origin_not_certified",
-    "surface_force_output_pruned_or_missing",
     "forces_breakdown_output_missing",
     "panel_force_comparison_not_ready",
     "solver_executed_but_not_converged",
@@ -647,7 +647,7 @@
     "panel_to_su2_cl_ratio_above_four"
   ],
   "next_actions": [
-    "preserve_main_wing_surface_force_outputs_before_panel_delta_debug",
+    "resolve_main_wing_forces_breakdown_output_before_panel_delta_debug",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],
