@@ -41,6 +41,7 @@
 | `station_seam_export_strategy_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/main_wing_station_seam_export_strategy_probe.v1.json` |
 | `station_seam_internal_cap_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_internal_cap_probe/main_wing_station_seam_internal_cap_probe.v1.json` |
 | `station_seam_profile_resample_strategy_probe` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/main_wing_station_seam_profile_resample_strategy_probe.v1.json` |
+| `station_seam_profile_resample_brep_validation_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_brep_validation_probe/main_wing_station_seam_profile_resample_brep_validation_probe.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -76,10 +77,12 @@
 - `split_candidate_multi_volume_topology_confirmed`
 - `split_candidate_not_mesh_handoff_ready`
 - `candidate_needs_station_brep_pcurve_validation_before_mesh_handoff`
+- `profile_resample_candidate_station_brep_pcurve_checks_suspect`
+- `profile_resample_candidate_mesh_handoff_not_run`
 
 ## Next Actions
 
-- `run_station_seam_brep_hotspot_probe_on_profile_resample_candidate`
+- `repair_profile_resample_candidate_pcurve_export_before_mesh_handoff`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

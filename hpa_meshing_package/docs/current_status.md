@@ -284,6 +284,26 @@ single OpenCSM `rule`, imports as `1 volume / 32 surfaces`, preserves full span,
 and has zero target-station cap faces. This is not mesh-ready; the next gate is
 station BRep/PCurve validation on the candidate STEP.
 
+The main-wing profile-resample BRep validation probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-profile-resample-brep-validation-probe --out .tmp/runs/main_wing_station_seam_profile_resample_brep_validation_probe
+```
+
+This writes
+`main_wing_station_seam_profile_resample_brep_validation_probe.v1.json` and
+`main_wing_station_seam_profile_resample_brep_validation_probe.v1.md`. The
+committed snapshot records
+`profile_resample_candidate_station_brep_edges_suspect`: station seam edges are
+selected from the candidate STEP by target `y` geometry, not replayed from the
+old station-fixture curve/surface ids. Six station edges are found across
+`y=-10.5 m` and `y=13.5 m`; PCurves are present and owner-face wires are
+closed/connected/ordered, but curve-3D-with-PCurve, same-parameter-by-face, and
+vertex-tolerance-by-face checks remain suspect. This keeps the profile-resample
+candidate out of mesh handoff until the station PCurve/export issue is repaired
+or explained.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash

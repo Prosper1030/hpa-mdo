@@ -1933,6 +1933,59 @@ def test_main_wing_route_readiness_records_profile_resample_strategy_probe_stage
     )
 
 
+def test_main_wing_route_readiness_records_profile_resample_brep_validation_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_profile_resample_brep_validation_probe"
+        / "main_wing_station_seam_profile_resample_brep_validation_probe.v1.json",
+        {
+            "probe_status": "profile_resample_candidate_station_brep_edges_suspect",
+            "candidate_step_path": "artifacts/profile_resample/candidate_raw_dump.stp",
+            "target_station_y_m": [-10.5, 13.5],
+            "target_selection": {
+                "selection_mode": "station_y_geometry_on_candidate_step",
+                "source_fixture_tags_replayed": False,
+                "selected_curve_tags": [7, 36, 55, 28, 50, 62],
+                "selected_surface_tags": [2, 3, 9, 10, 12, 13, 19, 20],
+            },
+            "station_edge_checks": [
+                {
+                    "candidate_step_curve_tag": 36,
+                    "candidate_step_edge_index": 36,
+                    "station_y_m": -10.5,
+                    "pcurve_checks_complete": False,
+                }
+            ],
+            "engineering_findings": [
+                "candidate_station_edges_geometrically_selected",
+                "candidate_station_edge_pcurve_consistency_checks_are_suspect",
+            ],
+            "blocking_reasons": [
+                "profile_resample_candidate_station_brep_pcurve_checks_suspect"
+            ],
+            "next_actions": [
+                "repair_profile_resample_candidate_pcurve_export_before_mesh_handoff"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    validation_stage = stages["station_seam_profile_resample_brep_validation_probe"]
+    assert validation_stage.status == "blocked"
+    assert validation_stage.evidence_kind == "real"
+    assert validation_stage.observed["source_fixture_tags_replayed"] is False
+    assert validation_stage.observed["selected_curve_tags"] == [7, 36, 55, 28, 50, 62]
+    assert (
+        "profile_resample_candidate_station_brep_pcurve_checks_suspect"
+        in report.blocking_reasons
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

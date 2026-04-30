@@ -503,6 +503,39 @@ def test_parser_supports_main_wing_station_seam_brep_hotspot_probe_command():
     assert args.surface_tags == [12, 13, 19, 20]
 
 
+def test_parser_supports_main_wing_station_seam_profile_resample_brep_validation_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-profile-resample-brep-validation-probe",
+            "--out",
+            "artifacts/main_wing_profile_resample_brep_validation",
+            "--profile-resample-probe",
+            "artifacts/main_wing/profile_resample.json",
+            "--candidate-step",
+            "artifacts/main_wing/candidate_raw_dump.stp",
+            "--station-y-targets",
+            "-10.5",
+            "13.5",
+            "--station-tolerance",
+            "1e-4",
+            "--scale-to-output-units",
+            "1.0",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-profile-resample-brep-validation-probe"
+    )
+    assert args.out == "artifacts/main_wing_profile_resample_brep_validation"
+    assert args.profile_resample_probe == "artifacts/main_wing/profile_resample.json"
+    assert args.candidate_step == "artifacts/main_wing/candidate_raw_dump.stp"
+    assert args.station_y_targets == [-10.5, 13.5]
+    assert args.station_tolerance == 1e-4
+    assert args.scale_to_output_units == 1.0
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(

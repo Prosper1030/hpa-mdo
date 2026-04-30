@@ -2828,6 +2828,63 @@
       ]
     },
     {
+      "stage": "station_seam_profile_resample_brep_validation_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_brep_validation_probe/main_wing_station_seam_profile_resample_brep_validation_probe.v1.json",
+      "observed": {
+        "probe_status": "profile_resample_candidate_station_brep_edges_suspect",
+        "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/candidate_raw_dump.stp",
+        "target_station_y_m": [
+          -10.5,
+          13.5
+        ],
+        "selection_mode": "station_y_geometry_on_candidate_step",
+        "source_fixture_tags_replayed": false,
+        "selected_curve_tags": [
+          7,
+          28,
+          36,
+          50,
+          55,
+          62
+        ],
+        "selected_surface_tags": [
+          2,
+          3,
+          9,
+          10,
+          12,
+          13,
+          19,
+          20,
+          22,
+          23,
+          29,
+          30
+        ],
+        "station_edge_check_count": 6,
+        "shape_valid_exact": true,
+        "engineering_findings": [
+          "profile_resample_candidate_brep_validation_report_captured",
+          "candidate_station_edges_geometrically_selected",
+          "source_fixture_curve_surface_tags_not_replayed",
+          "candidate_station_edge_pcurves_are_present",
+          "candidate_station_edge_pcurve_consistency_checks_are_suspect",
+          "candidate_owner_faces_wires_are_closed_connected_and_ordered",
+          "profile_resample_candidate_still_not_mesh_ready"
+        ],
+        "next_actions": [
+          "repair_profile_resample_candidate_pcurve_export_before_mesh_handoff",
+          "inspect_station_y_candidate_edges_in_occt"
+        ]
+      },
+      "blockers": [
+        "profile_resample_candidate_station_brep_pcurve_checks_suspect",
+        "profile_resample_candidate_mesh_handoff_not_run"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -2877,10 +2934,12 @@
     "split_candidate_span_truncation_confirmed",
     "split_candidate_multi_volume_topology_confirmed",
     "split_candidate_not_mesh_handoff_ready",
-    "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff"
+    "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff",
+    "profile_resample_candidate_station_brep_pcurve_checks_suspect",
+    "profile_resample_candidate_mesh_handoff_not_run"
   ],
   "next_actions": [
-    "run_station_seam_brep_hotspot_probe_on_profile_resample_candidate",
+    "repair_profile_resample_candidate_pcurve_export_before_mesh_handoff",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

@@ -35,6 +35,7 @@ StageType = Literal[
     "station_seam_export_strategy_probe",
     "station_seam_internal_cap_probe",
     "station_seam_profile_resample_strategy_probe",
+    "station_seam_profile_resample_brep_validation_probe",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -1170,6 +1171,53 @@ def _station_seam_profile_resample_strategy_probe_observed(
     }
 
 
+def _station_seam_profile_resample_brep_validation_probe_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("probe_status")
+        == "profile_resample_candidate_station_brep_edges_valid"
+        else "blocked"
+    )
+
+
+def _station_seam_profile_resample_brep_validation_probe_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    target_selection = (
+        payload.get("target_selection", {}) if isinstance(payload, dict) else {}
+    )
+    target_selection = target_selection if isinstance(target_selection, dict) else {}
+    hotspot_summary = (
+        payload.get("hotspot_summary", {}) if isinstance(payload, dict) else {}
+    )
+    hotspot_summary = hotspot_summary if isinstance(hotspot_summary, dict) else {}
+    return {
+        "probe_status": None if payload is None else payload.get("probe_status"),
+        "candidate_step_path": (
+            None if payload is None else payload.get("candidate_step_path")
+        ),
+        "target_station_y_m": (
+            [] if payload is None else payload.get("target_station_y_m", [])
+        ),
+        "selection_mode": target_selection.get("selection_mode"),
+        "source_fixture_tags_replayed": target_selection.get(
+            "source_fixture_tags_replayed"
+        ),
+        "selected_curve_tags": target_selection.get("selected_curve_tags", []),
+        "selected_surface_tags": target_selection.get("selected_surface_tags", []),
+        "station_edge_check_count": hotspot_summary.get("station_edge_check_count"),
+        "shape_valid_exact": hotspot_summary.get("shape_valid_exact"),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -1331,6 +1379,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_profile_resample_strategy_probe"
         / "main_wing_station_seam_profile_resample_strategy_probe.v1.json"
     )
+    station_seam_profile_resample_brep_validation_probe_path = (
+        root
+        / "main_wing_station_seam_profile_resample_brep_validation_probe"
+        / "main_wing_station_seam_profile_resample_brep_validation_probe.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1396,6 +1449,9 @@ def build_main_wing_route_readiness_report(
     station_seam_internal_cap_probe = _load_json(station_seam_internal_cap_probe_path)
     station_seam_profile_resample_strategy_probe = _load_json(
         station_seam_profile_resample_strategy_probe_path
+    )
+    station_seam_profile_resample_brep_validation_probe = _load_json(
+        station_seam_profile_resample_brep_validation_probe_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -2130,6 +2186,34 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(station_seam_profile_resample_strategy_probe),
         ),
         _stage(
+            stage="station_seam_profile_resample_brep_validation_probe",
+            status=_station_seam_profile_resample_brep_validation_probe_status(
+                station_seam_profile_resample_brep_validation_probe
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(
+                    station_seam_profile_resample_brep_validation_probe,
+                    dict,
+                )
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_profile_resample_brep_validation_probe_path
+                if isinstance(
+                    station_seam_profile_resample_brep_validation_probe,
+                    dict,
+                )
+                else None
+            ),
+            observed=_station_seam_profile_resample_brep_validation_probe_observed(
+                station_seam_profile_resample_brep_validation_probe
+            ),
+            blockers=_blocking_reasons(
+                station_seam_profile_resample_brep_validation_probe
+            ),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -2496,6 +2580,26 @@ def build_main_wing_route_readiness_report(
         )
         if isinstance(profile_next_actions, list) and profile_next_actions:
             next_actions[0] = str(profile_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_profile_resample_brep_validation_probe, dict)
+        and station_seam_profile_resample_brep_validation_probe.get("probe_status")
+        in {
+            "profile_resample_candidate_station_brep_edges_valid",
+            "profile_resample_candidate_station_brep_edges_suspect",
+            "profile_resample_candidate_station_brep_validation_unavailable",
+            "blocked",
+        }
+    ):
+        profile_brep_next_actions = (
+            station_seam_profile_resample_brep_validation_probe.get(
+                "next_actions",
+                [],
+            )
+        )
+        if isinstance(profile_brep_next_actions, list) and profile_brep_next_actions:
+            next_actions[0] = str(profile_brep_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

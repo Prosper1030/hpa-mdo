@@ -1,0 +1,532 @@
+{
+  "schema_version": "main_wing_station_seam_profile_resample_brep_validation_probe.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_profile_resample_candidate_brep_validation",
+  "production_default_changed": false,
+  "probe_status": "profile_resample_candidate_station_brep_edges_suspect",
+  "profile_resample_probe_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/main_wing_station_seam_profile_resample_strategy_probe.v1.json",
+  "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/candidate_raw_dump.stp",
+  "target_station_y_m": [
+    -10.5,
+    13.5
+  ],
+  "station_tolerance_m": 0.0001,
+  "target_selection": {
+    "selection_mode": "station_y_geometry_on_candidate_step",
+    "source_fixture_tags_replayed": false,
+    "station_tolerance_m": 0.0001,
+    "target_station_y_m": [
+      -10.5,
+      13.5
+    ],
+    "imported_entity_count": 1,
+    "volume_count": 1,
+    "surface_count": 32,
+    "model_bbox": [
+      -0.008095003419734,
+      -16.5000001,
+      -0.06803684311580001,
+      1.302329369,
+      16.5000001,
+      0.835231969798
+    ],
+    "selected_curve_tags": [
+      7,
+      28,
+      36,
+      50,
+      55,
+      62
+    ],
+    "selected_surface_tags": [
+      2,
+      3,
+      9,
+      10,
+      12,
+      13,
+      19,
+      20,
+      22,
+      23,
+      29,
+      30
+    ],
+    "station_edge_groups": [
+      {
+        "station_y_m": -10.5,
+        "candidate_curve_tags": [
+          36,
+          7,
+          55
+        ],
+        "owner_surface_tags": [
+          2,
+          3,
+          12,
+          13,
+          22,
+          23
+        ],
+        "curve_count": 3,
+        "curve_records": [
+          {
+            "candidate_curve_tag": 36,
+            "length_3d_m": 2.0814045356929585,
+            "owner_surface_tags": [
+              12,
+              13
+            ],
+            "bbox": {
+              "x_min": 0.05846418901161501,
+              "y_min": -10.5000001,
+              "z_min": 0.292703300493,
+              "x_max": 1.0624997197700001,
+              "y_max": -10.4999999,
+              "z_max": 0.463202990296
+            }
+          },
+          {
+            "candidate_curve_tag": 7,
+            "length_3d_m": 0.03718050120939017,
+            "owner_surface_tags": [
+              2,
+              3
+            ],
+            "bbox": {
+              "x_min": 1.06010073154,
+              "y_min": -10.5000001,
+              "z_min": 0.283554501375,
+              "x_max": 1.0961382614200001,
+              "y_max": -10.4999999,
+              "z_max": 0.292703500493
+            }
+          },
+          {
+            "candidate_curve_tag": 55,
+            "length_3d_m": 0.03709876400055802,
+            "owner_surface_tags": [
+              22,
+              23
+            ],
+            "bbox": {
+              "x_min": 1.06249951977,
+              "y_min": -10.5000001,
+              "z_min": 0.283554501375,
+              "x_max": 1.0961382614200001,
+              "y_max": -10.4999999,
+              "z_max": 0.299199726336
+            }
+          }
+        ]
+      },
+      {
+        "station_y_m": 13.5,
+        "candidate_curve_tags": [
+          50,
+          28,
+          62
+        ],
+        "owner_surface_tags": [
+          9,
+          10,
+          19,
+          20,
+          29,
+          30
+        ],
+        "curve_count": 3,
+        "curve_records": [
+          {
+            "candidate_curve_tag": 50,
+            "length_3d_m": 1.6610670624194632,
+            "owner_surface_tags": [
+              19,
+              20
+            ],
+            "bbox": {
+              "x_min": 0.11894521821341633,
+              "y_min": 13.4999999,
+              "z_min": 0.508737141932,
+              "x_max": 0.9201856852239999,
+              "y_max": 13.5000001,
+              "z_max": 0.644809166455
+            }
+          },
+          {
+            "candidate_curve_tag": 28,
+            "length_3d_m": 0.02967802056453788,
+            "owner_surface_tags": [
+              9,
+              10
+            ],
+            "bbox": {
+              "x_min": 0.918317654203,
+              "y_min": 13.4999999,
+              "z_min": 0.501434463583,
+              "x_max": 0.947083385548,
+              "y_max": 13.5000001,
+              "z_max": 0.5087373419319999
+            }
+          },
+          {
+            "candidate_curve_tag": 62,
+            "length_3d_m": 0.029662827362268357,
+            "owner_surface_tags": [
+              29,
+              30
+            ],
+            "bbox": {
+              "x_min": 0.920185485224,
+              "y_min": 13.4999999,
+              "z_min": 0.501434463583,
+              "x_max": 0.947083385548,
+              "y_max": 13.5000001,
+              "z_max": 0.513940543976
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "hotspot_summary": {
+    "collector_status": "captured",
+    "hotspot_status": "captured",
+    "shape_valid_default": true,
+    "shape_valid_exact": true,
+    "scale_to_output_units": 1.0,
+    "selected_curve_tags": [
+      7,
+      28,
+      36,
+      50,
+      55,
+      62
+    ],
+    "selected_surface_tags": [
+      2,
+      3,
+      9,
+      10,
+      12,
+      13,
+      19,
+      20,
+      22,
+      23,
+      29,
+      30
+    ],
+    "station_edge_check_count": 6,
+    "face_check_count": 12
+  },
+  "station_edge_checks": [
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 7,
+      "candidate_step_edge_index": 7,
+      "owner_surface_tags": [
+        2,
+        3
+      ],
+      "ancestor_face_ids": [
+        2,
+        3
+      ],
+      "gmsh_length_3d_m": 0.03718050120939017,
+      "edge_length_3d_m": 0.03718050120939017,
+      "length_relative_delta": 0.0,
+      "match_score": 0.0,
+      "pcurve_presence_complete": true,
+      "curve3d_with_pcurve_consistent": false,
+      "same_parameter_by_face_ok": false,
+      "vertex_tolerance_by_face_ok": false,
+      "pcurve_range_matches_edge_range": true,
+      "pcurve_checks_complete": false,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "brep_valid_default": true,
+      "brep_valid_exact": true
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 28,
+      "candidate_step_edge_index": 28,
+      "owner_surface_tags": [
+        9,
+        10
+      ],
+      "ancestor_face_ids": [
+        9,
+        10
+      ],
+      "gmsh_length_3d_m": 0.02967802056453788,
+      "edge_length_3d_m": 0.02967802056453788,
+      "length_relative_delta": 0.0,
+      "match_score": 0.0,
+      "pcurve_presence_complete": true,
+      "curve3d_with_pcurve_consistent": false,
+      "same_parameter_by_face_ok": false,
+      "vertex_tolerance_by_face_ok": false,
+      "pcurve_range_matches_edge_range": true,
+      "pcurve_checks_complete": false,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "brep_valid_default": true,
+      "brep_valid_exact": true
+    },
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 36,
+      "candidate_step_edge_index": 36,
+      "owner_surface_tags": [
+        12,
+        13
+      ],
+      "ancestor_face_ids": [
+        12,
+        13
+      ],
+      "gmsh_length_3d_m": 2.0814045356929585,
+      "edge_length_3d_m": 2.0814045356929585,
+      "length_relative_delta": 0.0,
+      "match_score": 6.400810638699979e-16,
+      "pcurve_presence_complete": true,
+      "curve3d_with_pcurve_consistent": false,
+      "same_parameter_by_face_ok": false,
+      "vertex_tolerance_by_face_ok": false,
+      "pcurve_range_matches_edge_range": true,
+      "pcurve_checks_complete": false,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "brep_valid_default": true,
+      "brep_valid_exact": true
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 50,
+      "candidate_step_edge_index": 50,
+      "owner_surface_tags": [
+        19,
+        20
+      ],
+      "ancestor_face_ids": [
+        19,
+        20
+      ],
+      "gmsh_length_3d_m": 1.6610670624194632,
+      "edge_length_3d_m": 1.6610670624194632,
+      "length_relative_delta": 0.0,
+      "match_score": 0.0,
+      "pcurve_presence_complete": true,
+      "curve3d_with_pcurve_consistent": false,
+      "same_parameter_by_face_ok": false,
+      "vertex_tolerance_by_face_ok": false,
+      "pcurve_range_matches_edge_range": true,
+      "pcurve_checks_complete": false,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "brep_valid_default": true,
+      "brep_valid_exact": true
+    },
+    {
+      "station_y_m": -10.5,
+      "candidate_step_curve_tag": 55,
+      "candidate_step_edge_index": 55,
+      "owner_surface_tags": [
+        22,
+        23
+      ],
+      "ancestor_face_ids": [
+        22,
+        23
+      ],
+      "gmsh_length_3d_m": 0.03709876400055802,
+      "edge_length_3d_m": 0.03709876400055802,
+      "length_relative_delta": 0.0,
+      "match_score": 0.0,
+      "pcurve_presence_complete": true,
+      "curve3d_with_pcurve_consistent": false,
+      "same_parameter_by_face_ok": false,
+      "vertex_tolerance_by_face_ok": false,
+      "pcurve_range_matches_edge_range": true,
+      "pcurve_checks_complete": false,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "brep_valid_default": true,
+      "brep_valid_exact": true
+    },
+    {
+      "station_y_m": 13.5,
+      "candidate_step_curve_tag": 62,
+      "candidate_step_edge_index": 62,
+      "owner_surface_tags": [
+        29,
+        30
+      ],
+      "ancestor_face_ids": [
+        29,
+        30
+      ],
+      "gmsh_length_3d_m": 0.029662827362268357,
+      "edge_length_3d_m": 0.029662827362268357,
+      "length_relative_delta": 0.0,
+      "match_score": 0.0,
+      "pcurve_presence_complete": true,
+      "curve3d_with_pcurve_consistent": false,
+      "same_parameter_by_face_ok": false,
+      "vertex_tolerance_by_face_ok": false,
+      "pcurve_range_matches_edge_range": true,
+      "pcurve_checks_complete": false,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "brep_valid_default": true,
+      "brep_valid_exact": true
+    }
+  ],
+  "face_checks": [
+    {
+      "candidate_step_face_tag": 2,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 3,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 9,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 10,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 12,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 13,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 19,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 20,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 22,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 23,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 29,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    },
+    {
+      "candidate_step_face_tag": 30,
+      "brep_valid_default": true,
+      "brep_valid_exact": true,
+      "wire_count": 1,
+      "wire_order_all_ok": true,
+      "wires_connected": true,
+      "wires_closed": true,
+      "wire_self_intersection_detected": false
+    }
+  ],
+  "engineering_findings": [
+    "profile_resample_candidate_brep_validation_report_captured",
+    "candidate_station_edges_geometrically_selected",
+    "source_fixture_curve_surface_tags_not_replayed",
+    "candidate_station_edge_pcurves_are_present",
+    "candidate_station_edge_pcurve_consistency_checks_are_suspect",
+    "candidate_owner_faces_wires_are_closed_connected_and_ordered",
+    "profile_resample_candidate_still_not_mesh_ready"
+  ],
+  "blocking_reasons": [
+    "profile_resample_candidate_station_brep_pcurve_checks_suspect",
+    "profile_resample_candidate_mesh_handoff_not_run"
+  ],
+  "next_actions": [
+    "repair_profile_resample_candidate_pcurve_export_before_mesh_handoff",
+    "inspect_station_y_candidate_edges_in_occt"
+  ],
+  "limitations": [
+    "This probe validates the profile-resample candidate STEP only; it does not change production defaults.",
+    "Station targets are selected geometrically from candidate topology, not replayed from the old station fixture tags.",
+    "It does not run Gmsh volume mesh generation, SU2_CFD, CL acceptance, or convergence checks.",
+    "Profile resampling may perturb airfoil fidelity and still needs a geometry-deviation gate before promotion."
+  ]
+}
