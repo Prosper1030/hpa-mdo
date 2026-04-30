@@ -136,6 +136,14 @@ def _panel_reference_payload(report_root: Path) -> dict[str, Any] | None:
     )
 
 
+def _surface_force_output_audit_payload(report_root: Path) -> dict[str, Any] | None:
+    return _load_json(
+        report_root
+        / "main_wing_surface_force_output_audit"
+        / "main_wing_surface_force_output_audit.v1.json"
+    )
+
+
 def _committed_su2_handoff_path(
     report_root: Path,
     *,
@@ -246,6 +254,7 @@ def _lift_gap_diagnostics(
     *,
     solver_cl: float | None,
     panel_reference: dict[str, Any],
+    surface_force_audit: dict[str, Any] | None,
 ) -> dict[str, Any]:
     panel_cl = _as_float(panel_reference.get("cltot"))
     diagnostics: dict[str, Any] = {
@@ -253,6 +262,88 @@ def _lift_gap_diagnostics(
         "vspaero_panel_cl": panel_cl,
         "minimum_acceptable_cl": MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5,
     }
+    force_breakdown = (
+        surface_force_audit.get("force_breakdown_observed", {})
+        if isinstance(surface_force_audit, dict)
+        else {}
+    )
+    checks = (
+        surface_force_audit.get("checks", {})
+        if isinstance(surface_force_audit, dict)
+        else {}
+    )
+    force_total = (
+        force_breakdown.get("total_coefficients", {})
+        if isinstance(force_breakdown, dict)
+        else {}
+    )
+    force_surfaces = (
+        force_breakdown.get("surface_coefficients", {})
+        if isinstance(force_breakdown, dict)
+        else {}
+    )
+    main_wing_surface = (
+        force_surfaces.get("main_wing", {}) if isinstance(force_surfaces, dict) else {}
+    )
+    force_cl = _as_float(
+        main_wing_surface.get("cl")
+        if isinstance(main_wing_surface, dict)
+        else None
+    )
+    if force_cl is None:
+        force_cl = _as_float(force_total.get("cl") if isinstance(force_total, dict) else None)
+    surface_names = (
+        force_breakdown.get("surface_names", [])
+        if isinstance(force_breakdown, dict)
+        else []
+    )
+    marker_check = checks.get("forces_breakdown_marker_owned", {}) if isinstance(checks, dict) else {}
+    history_check = (
+        checks.get("forces_breakdown_matches_history_cl", {})
+        if isinstance(checks, dict)
+        else {}
+    )
+    history_delta = (
+        _as_float(force_breakdown.get("history_cl_delta_abs"))
+        if isinstance(force_breakdown, dict)
+        else None
+    )
+    marker_owned = (
+        marker_check.get("status") == "pass"
+        if isinstance(marker_check, dict) and marker_check
+        else surface_names == ["main_wing"]
+    )
+    history_matches = (
+        history_check.get("status") == "pass"
+        if isinstance(history_check, dict) and history_check
+        else history_delta is not None and history_delta <= 1.0e-6
+    )
+    force_status = (
+        force_breakdown.get("status")
+        if isinstance(force_breakdown, dict)
+        else None
+    )
+    if force_status is not None:
+        diagnostics.update(
+            {
+                "forces_breakdown_status": force_status,
+                "forces_breakdown_surface_names": surface_names,
+                "forces_breakdown_cl": force_cl,
+                "force_breakdown_marker_owned": marker_owned,
+                "force_breakdown_matches_history_cl": history_matches,
+                "force_breakdown_history_cl_delta_abs": history_delta,
+            }
+        )
+    if panel_cl is not None and force_cl is not None:
+        diagnostics["panel_to_force_breakdown_cl_ratio"] = (
+            panel_cl / force_cl if abs(force_cl) > 1.0e-12 else None
+        )
+        diagnostics["force_breakdown_vs_panel_status"] = (
+            "panel_supports_expected_lift_force_breakdown_low"
+            if panel_cl > MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
+            and force_cl <= MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
+            else "panel_and_force_breakdown_same_lift_gate_side"
+        )
     if solver_cl is None or panel_cl is None:
         diagnostics["panel_vs_su2_status"] = "insufficient_evidence"
         return diagnostics
@@ -328,6 +419,20 @@ def _engineering_flags(
     ratio = _as_float(lift_gap.get("panel_to_su2_cl_ratio"))
     if ratio is not None and ratio >= 4.0:
         flags.append("panel_to_su2_cl_ratio_above_four")
+    force_cl = _as_float(lift_gap.get("forces_breakdown_cl"))
+    if (
+        lift_gap.get("forces_breakdown_status") == "available"
+        and force_cl is not None
+        and force_cl <= MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
+    ):
+        flags.append("force_breakdown_confirms_low_main_wing_cl")
+    if lift_gap.get("force_breakdown_marker_owned") is True:
+        flags.append("main_wing_force_breakdown_marker_owned")
+    if lift_gap.get("force_breakdown_matches_history_cl") is True:
+        flags.append("force_breakdown_matches_solver_history_cl")
+    force_ratio = _as_float(lift_gap.get("panel_to_force_breakdown_cl_ratio"))
+    if force_ratio is not None and force_ratio >= 4.0:
+        flags.append("panel_to_force_breakdown_cl_ratio_above_four")
     return list(dict.fromkeys(flags))
 
 
@@ -339,6 +444,22 @@ def _root_cause_candidates(
     lift_gap: dict[str, Any],
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
+    if (
+        "force_breakdown_confirms_low_main_wing_cl" in flags
+        and "main_wing_force_breakdown_marker_owned" in flags
+    ):
+        candidates.append(
+            {
+                "candidate": "panel_su2_lift_gap_confirmed_on_main_wing_force_breakdown",
+                "priority": "high",
+                "evidence": [
+                    "Retained SU2 forces_breakdown.dat reports the low CL on the main_wing marker.",
+                    "Forces breakdown CL matches the solver-history CL within the audit tolerance.",
+                    "VSPAERO panel reference remains above CL=1 at the same nominal setup.",
+                ],
+                "next_gate": "debug_panel_su2_lift_gap_from_retained_force_breakdown",
+            }
+        )
     if "vspaero_panel_cl_gt_one_while_su2_low" in flags:
         candidates.append(
             {
@@ -431,6 +552,13 @@ def _engineering_assessment(
             "alpha=0 condition, alpha=0 alone is not a satisfactory explanation for the "
             "current SU2 CL deficit."
         )
+    if "force_breakdown_confirms_low_main_wing_cl" in flags:
+        assessment.append(
+            "Retained SU2 forces_breakdown.dat confirms the low CL on the force-integrated "
+            "main_wing marker, so the next debug step should compare panel/SU2 geometry, "
+            "boundary-condition semantics, mesh quality, and solver state rather than rerun "
+            "blindly for more iterations."
+        )
     ratio = _as_float(lift_gap.get("panel_to_su2_cl_ratio"))
     if ratio is not None and ratio >= 4.0:
         assessment.append(
@@ -443,6 +571,8 @@ def _engineering_assessment(
 
 def _next_actions(flags: list[str]) -> list[str]:
     actions: list[str] = []
+    if "force_breakdown_confirms_low_main_wing_cl" in flags:
+        actions.append("debug_panel_su2_lift_gap_from_retained_force_breakdown")
     if "main_wing_cl_below_expected_lift" in flags:
         actions.append(
             "run_bounded_main_wing_alpha_trim_sanity_probe_without_changing_default"
@@ -466,6 +596,7 @@ def build_main_wing_lift_acceptance_diagnostic_report(
     root = _default_report_root() if report_root is None else report_root
     selected_row, solver_payload, solver_report_path = _selected_solver_payload(root)
     panel_payload = _panel_reference_payload(root)
+    surface_force_audit = _surface_force_output_audit_payload(root)
     panel_reference = _panel_reference_observed(panel_payload)
     coeffs = selected_row.get("final_coefficients", {})
     cl = _as_float(coeffs.get("cl")) if isinstance(coeffs, dict) else None
@@ -520,6 +651,7 @@ def build_main_wing_lift_acceptance_diagnostic_report(
     lift_gap = _lift_gap_diagnostics(
         solver_cl=cl,
         panel_reference=panel_reference,
+        surface_force_audit=surface_force_audit,
     )
     flags = _engineering_flags(
         status=status,

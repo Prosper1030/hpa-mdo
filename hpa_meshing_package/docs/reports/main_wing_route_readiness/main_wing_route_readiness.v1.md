@@ -41,6 +41,10 @@
 - `reference_area_delta_too_small_to_explain_lift_deficit`
 - `vspaero_panel_cl_gt_one_while_su2_low`
 - `panel_to_su2_cl_ratio_above_four`
+- `force_breakdown_confirms_low_main_wing_cl`
+- `main_wing_force_breakdown_marker_owned`
+- `force_breakdown_matches_solver_history_cl`
+- `panel_to_force_breakdown_cl_ratio_above_four`
 
 ## Next Actions
 

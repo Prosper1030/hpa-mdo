@@ -97,6 +97,48 @@ def _write_solver_fixture(
     return report_root
 
 
+def _write_surface_force_audit_fixture(report_root: Path) -> None:
+    _write_json(
+        report_root
+        / "main_wing_surface_force_output_audit"
+        / "main_wing_surface_force_output_audit.v1.json",
+        {
+            "audit_status": "warn",
+            "solver_execution_observed": {
+                "solver_execution_status": "solver_executed",
+                "run_status": "solver_executed_but_not_converged",
+                "main_wing_lift_acceptance_status": "fail",
+                "observed_velocity_mps": 6.5,
+                "final_coefficients": {"cl": 0.263161913},
+            },
+            "force_breakdown_observed": {
+                "status": "available",
+                "surface_names": ["main_wing"],
+                "total_coefficients": {"cl": 0.263162, "cd": 0.024969},
+                "surface_coefficients": {
+                    "main_wing": {"cl": 0.263162, "cd": 0.024969}
+                },
+                "history_cl_delta_abs": 8.7e-8,
+                "panel_to_force_breakdown_cl_ratio": 4.892976554149155,
+            },
+            "checks": {
+                "forces_breakdown_marker_owned": {"status": "pass"},
+                "forces_breakdown_matches_history_cl": {"status": "pass"},
+            },
+            "engineering_flags": [
+                "solver_executed_but_not_converged",
+                "main_wing_lift_acceptance_failed_cl_below_one",
+                "forces_breakdown_cl_below_panel_reference",
+            ],
+            "blocking_reasons": [],
+            "next_actions": [
+                "surface_force_outputs_available_for_panel_delta_debug",
+                "debug_panel_su2_lift_gap_from_retained_force_breakdown",
+            ],
+        },
+    )
+
+
 def test_main_wing_lift_acceptance_diagnostic_reports_low_cl_alpha_zero(
     tmp_path: Path,
 ):
@@ -137,6 +179,38 @@ def test_main_wing_lift_acceptance_diagnostic_reports_low_cl_alpha_zero(
     )
     assert "audit_su2_force_markers_bc_and_reference_against_vspaero_panel" in (
         report.next_actions
+    )
+
+
+def test_main_wing_lift_acceptance_diagnostic_uses_retained_force_breakdown(
+    tmp_path: Path,
+):
+    report_root = _write_solver_fixture(tmp_path)
+    _write_surface_force_audit_fixture(report_root)
+
+    report = build_main_wing_lift_acceptance_diagnostic_report(
+        report_root=report_root
+    )
+
+    assert report.lift_gap_diagnostics["forces_breakdown_status"] == "available"
+    assert report.lift_gap_diagnostics["forces_breakdown_surface_names"] == [
+        "main_wing"
+    ]
+    assert report.lift_gap_diagnostics["forces_breakdown_cl"] == pytest.approx(
+        0.263162
+    )
+    assert report.lift_gap_diagnostics[
+        "panel_to_force_breakdown_cl_ratio"
+    ] == pytest.approx(4.892976554149155)
+    assert report.lift_gap_diagnostics["force_breakdown_marker_owned"] is True
+    assert report.lift_gap_diagnostics["force_breakdown_matches_history_cl"] is True
+    assert "force_breakdown_confirms_low_main_wing_cl" in report.engineering_flags
+    assert "main_wing_force_breakdown_marker_owned" in report.engineering_flags
+    assert report.root_cause_candidates[0]["candidate"] == (
+        "panel_su2_lift_gap_confirmed_on_main_wing_force_breakdown"
+    )
+    assert report.next_actions[0] == (
+        "debug_panel_su2_lift_gap_from_retained_force_breakdown"
     )
 
 

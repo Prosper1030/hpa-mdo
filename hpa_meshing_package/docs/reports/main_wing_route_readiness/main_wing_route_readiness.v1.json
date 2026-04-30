@@ -581,6 +581,16 @@
           "selected_su2_cl": 0.263161913,
           "vspaero_panel_cl": 1.287645495943,
           "minimum_acceptable_cl": 1.0,
+          "forces_breakdown_status": "available",
+          "forces_breakdown_surface_names": [
+            "main_wing"
+          ],
+          "forces_breakdown_cl": 0.263162,
+          "force_breakdown_marker_owned": true,
+          "force_breakdown_matches_history_cl": true,
+          "force_breakdown_history_cl_delta_abs": 8.699999998196262e-08,
+          "panel_to_force_breakdown_cl_ratio": 4.892976554149155,
+          "force_breakdown_vs_panel_status": "panel_supports_expected_lift_force_breakdown_low",
           "cl_delta_panel_minus_su2": 1.024483582943,
           "panel_to_su2_cl_ratio": 4.892978171742504,
           "panel_reference_passes_cl_gate": true,
@@ -588,6 +598,16 @@
           "panel_vs_su2_status": "panel_supports_expected_lift_su2_low"
         },
         "root_cause_candidates": [
+          {
+            "candidate": "panel_su2_lift_gap_confirmed_on_main_wing_force_breakdown",
+            "priority": "high",
+            "evidence": [
+              "Retained SU2 forces_breakdown.dat reports the low CL on the main_wing marker.",
+              "Forces breakdown CL matches the solver-history CL within the audit tolerance.",
+              "VSPAERO panel reference remains above CL=1 at the same nominal setup."
+            ],
+            "next_gate": "debug_panel_su2_lift_gap_from_retained_force_breakdown"
+          },
           {
             "candidate": "su2_route_lift_deficit_not_explained_by_operating_alpha_alone",
             "priority": "high",
@@ -633,7 +653,11 @@
           "mesh_quality_warning_present",
           "reference_area_delta_too_small_to_explain_lift_deficit",
           "vspaero_panel_cl_gt_one_while_su2_low",
-          "panel_to_su2_cl_ratio_above_four"
+          "panel_to_su2_cl_ratio_above_four",
+          "force_breakdown_confirms_low_main_wing_cl",
+          "main_wing_force_breakdown_marker_owned",
+          "force_breakdown_matches_solver_history_cl",
+          "panel_to_force_breakdown_cl_ratio_above_four"
         ]
       },
       "blockers": [
@@ -644,7 +668,11 @@
         "mesh_quality_warning_present",
         "reference_area_delta_too_small_to_explain_lift_deficit",
         "vspaero_panel_cl_gt_one_while_su2_low",
-        "panel_to_su2_cl_ratio_above_four"
+        "panel_to_su2_cl_ratio_above_four",
+        "force_breakdown_confirms_low_main_wing_cl",
+        "main_wing_force_breakdown_marker_owned",
+        "force_breakdown_matches_solver_history_cl",
+        "panel_to_force_breakdown_cl_ratio_above_four"
       ]
     },
     {
@@ -679,7 +707,11 @@
     "mesh_quality_warning_present",
     "reference_area_delta_too_small_to_explain_lift_deficit",
     "vspaero_panel_cl_gt_one_while_su2_low",
-    "panel_to_su2_cl_ratio_above_four"
+    "panel_to_su2_cl_ratio_above_four",
+    "force_breakdown_confirms_low_main_wing_cl",
+    "main_wing_force_breakdown_marker_owned",
+    "force_breakdown_matches_solver_history_cl",
+    "panel_to_force_breakdown_cl_ratio_above_four"
   ],
   "next_actions": [
     "debug_panel_su2_lift_gap_from_retained_force_breakdown",

@@ -57,6 +57,14 @@ This report reads existing solver-smoke artifacts only; it does not execute SU2.
 - `selected_su2_cl`: `0.263162`
 - `vspaero_panel_cl`: `1.28765`
 - `minimum_acceptable_cl`: `1`
+- `forces_breakdown_status`: `available`
+- `forces_breakdown_surface_names`: `["main_wing"]`
+- `forces_breakdown_cl`: `0.263162`
+- `force_breakdown_marker_owned`: `True`
+- `force_breakdown_matches_history_cl`: `True`
+- `force_breakdown_history_cl_delta_abs`: `8.7e-08`
+- `panel_to_force_breakdown_cl_ratio`: `4.89298`
+- `force_breakdown_vs_panel_status`: `panel_supports_expected_lift_force_breakdown_low`
 - `cl_delta_panel_minus_su2`: `1.02448`
 - `panel_to_su2_cl_ratio`: `4.89298`
 - `panel_reference_passes_cl_gate`: `True`
@@ -65,6 +73,7 @@ This report reads existing solver-smoke artifacts only; it does not execute SU2.
 
 ## Root Cause Candidates
 
+- `panel_su2_lift_gap_confirmed_on_main_wing_force_breakdown`: `high`
 - `su2_route_lift_deficit_not_explained_by_operating_alpha_alone`: `high`
 - `solver_not_converged`: `high`
 - `mesh_quality_or_dual_control_volume_pathology`: `high`
@@ -80,6 +89,10 @@ This report reads existing solver-smoke artifacts only; it does not execute SU2.
 - `reference_area_delta_too_small_to_explain_lift_deficit`
 - `vspaero_panel_cl_gt_one_while_su2_low`
 - `panel_to_su2_cl_ratio_above_four`
+- `force_breakdown_confirms_low_main_wing_cl`
+- `main_wing_force_breakdown_marker_owned`
+- `force_breakdown_matches_solver_history_cl`
+- `panel_to_force_breakdown_cl_ratio_above_four`
 
 ## Engineering Assessment
 
@@ -90,10 +103,12 @@ This report reads existing solver-smoke artifacts only; it does not execute SU2.
 - The declared-vs-OpenVSP reference-area delta is only warn-level; by itself it is far too small to explain a CL below 1.
 - Mesh-quality warnings remain relevant for convergence and coefficient trust, but the low-lift finding should first be separated from alpha/trim provenance.
 - Because the VSPAERO panel baseline is already above CL=1 at the same nominal alpha=0 condition, alpha=0 alone is not a satisfactory explanation for the current SU2 CL deficit.
+- Retained SU2 forces_breakdown.dat confirms the low CL on the force-integrated main_wing marker, so the next debug step should compare panel/SU2 geometry, boundary-condition semantics, mesh quality, and solver state rather than rerun blindly for more iterations.
 - The panel/SU2 CL ratio is about 4.89x, so force-marker ownership, boundary conditions, mesh quality, and solver state should be checked before spending a larger run as a convergence test.
 
 ## Next Actions
 
+- `debug_panel_su2_lift_gap_from_retained_force_breakdown`
 - `run_bounded_main_wing_alpha_trim_sanity_probe_without_changing_default`
 - `extract_openvsp_main_wing_incidence_twist_camber_provenance`
 - `audit_su2_force_markers_bc_and_reference_against_vspaero_panel`
