@@ -71,6 +71,7 @@ def _fake_case(case_root: Path, *, wall_marker: str = "main_wing"):
             contract_path=contract_path,
             su2_mesh=su2_mesh,
             history=history,
+            forces_breakdown_output=case_dir / "forces_breakdown.dat",
         ),
     )
 
@@ -87,6 +88,7 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
         assert runtime.velocity_mps == 6.5
         assert runtime.max_iterations == 40
         assert runtime.reference_mode == "user_declared"
+        assert runtime.write_forces_breakdown is True
         assert runtime.reference_override.ref_area == 34.65
         assert runtime.reference_override.ref_length == 1.05
         assert runtime.case_name == "alpha_0_real_main_wing_materialization_probe"
@@ -118,6 +120,8 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
     assert report.reference_geometry_status == "warn"
     assert report.observed_velocity_mps == 6.5
     assert report.runtime_max_iterations == 40
+    assert report.forces_breakdown_output_requested is True
+    assert report.forces_breakdown_output_path.endswith("forces_breakdown.dat")
     assert report.production_default_changed is False
     assert "main_wing_solver_not_run" in report.blocking_reasons
     assert "convergence_gate_not_run" in report.blocking_reasons
@@ -126,6 +130,7 @@ def test_main_wing_real_su2_handoff_probe_materializes_from_real_mesh_probe(
     assert "su2_handoff_v1_written_for_real_main_wing" in report.hpa_mdo_guarantees
     assert "main_wing_force_marker_owned" in report.hpa_mdo_guarantees
     assert "hpa_standard_flow_conditions_6p5_mps" in report.hpa_mdo_guarantees
+    assert "main_wing_forces_breakdown_output_requested" in report.hpa_mdo_guarantees
 
 
 def test_main_wing_real_su2_handoff_probe_can_request_openvsp_reference_policy(
@@ -139,6 +144,7 @@ def test_main_wing_real_su2_handoff_probe_can_request_openvsp_reference_policy(
         assert runtime.flow_conditions.velocity_mps == 6.5
         assert runtime.reference_mode == "geometry_derived"
         assert runtime.reference_override is None
+        assert runtime.write_forces_breakdown is True
         assert runtime.case_name == "alpha_0_real_main_wing_openvsp_reference_probe"
         return _fake_case(case_root)
 

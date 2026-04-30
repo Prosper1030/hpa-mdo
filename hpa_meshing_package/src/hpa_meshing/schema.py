@@ -172,6 +172,7 @@ class SU2RuntimeConfig(BaseModel):
     reference_mode: SU2ReferenceModeType = "auto"
     reference_override: Optional[SU2ReferenceOverride] = None
     wall_boundary_condition: Literal["euler", "adiabatic_no_slip"] = "euler"
+    write_forces_breakdown: bool = False
 
     @model_validator(mode="after")
     def apply_flow_conditions(self) -> "SU2RuntimeConfig":
@@ -618,6 +619,7 @@ class SU2CaseArtifacts(BaseModel):
     history: Optional[Path] = None
     solver_log: Path
     surface_output: Optional[Path] = None
+    forces_breakdown_output: Optional[Path] = None
     restart_output: Optional[Path] = None
     volume_output: Optional[Path] = None
     contract_path: Path

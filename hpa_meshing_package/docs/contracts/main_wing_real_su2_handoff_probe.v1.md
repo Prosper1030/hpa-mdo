@@ -13,6 +13,8 @@ It is intentionally solver-free:
 - it uses the HPA standard flow condition `V=6.5 m/s`
 - it records the probe-local `reference_policy`
 - it records component-owned `main_wing` force-marker ownership
+- it requests SU2 forces-breakdown output through
+  `runtime.write_forces_breakdown=true`
 - it does not run `SU2_CFD`
 - it does not emit `convergence_gate.v1`
 - it does not run BL runtime
@@ -50,6 +52,8 @@ It is intentionally solver-free:
 - `reference_geometry_status`
 - `observed_velocity_mps`
 - `runtime_max_iterations`
+- `forces_breakdown_output_requested`
+- `forces_breakdown_output_path`
 - source, case, mesh, SU2, runtime, and history paths
 - mesh counts when available
 - guarantees, blocking reasons, and limitations
@@ -66,6 +70,13 @@ history exists, and no convergence gate is emitted by this probe. The upstream
 mesh is still a coarse bounded probe rather than production default sizing.
 `runtime_max_iterations` is a probe-local solver-budget setting for downstream
 smoke campaigns; it does not change production defaults.
+
+`forces_breakdown_output_requested=true` is a route-diagnostic output contract.
+It must add `WRT_FORCES_BREAKDOWN= YES` and
+`BREAKDOWN_FILENAME= forces_breakdown.dat` to the probe-local SU2 runtime
+configuration so downstream solver smoke can retain per-marker force evidence.
+This is an output request only; it does not alter flow conditions, solver
+physics, or convergence claims.
 
 `reference_policy=openvsp_geometry_derived` means the handoff requested
 OpenVSP/VSPAERO reference-wing quantities through `runtime.reference_mode =

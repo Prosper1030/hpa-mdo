@@ -231,6 +231,8 @@ def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: 
     assert "MU_CONSTANT= 1.789400e-05" in runtime_cfg
     assert "REF_AREA=" in runtime_cfg
     assert "REF_LENGTH=" in runtime_cfg
+    assert "WRT_FORCES_BREAKDOWN= YES" not in runtime_cfg
+    assert "BREAKDOWN_FILENAME= forces_breakdown.dat" not in runtime_cfg
 
     payload = json.loads(case.case_output_paths.contract_path.read_text(encoding="utf-8"))
     assert payload["contract"] == "su2_handoff.v1"
@@ -238,6 +240,36 @@ def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: 
     assert payload["reference_geometry"]["gate_status"] == "pass"
     assert payload["force_surface_provenance"]["scope"] == "whole_aircraft_wall"
     assert payload["provenance_gates"]["overall_status"] == "pass"
+
+
+def test_materialize_baseline_case_can_request_forces_breakdown_output(
+    tmp_path: Path,
+):
+    mesh_handoff = _build_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(
+        enabled=True,
+        max_iterations=12,
+        write_forces_breakdown=True,
+    )
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "su2_case",
+        source_root=Path.cwd(),
+    )
+
+    runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
+    assert "BREAKDOWN_FILENAME= forces_breakdown.dat" in runtime_cfg
+    assert "WRT_FORCES_BREAKDOWN= YES" in runtime_cfg
+    assert case.case_output_paths.forces_breakdown_output == (
+        case.case_output_paths.case_dir / "forces_breakdown.dat"
+    )
+    payload = json.loads(case.case_output_paths.contract_path.read_text(encoding="utf-8"))
+    assert payload["runtime"]["write_forces_breakdown"] is True
+    assert payload["case_output_paths"]["forces_breakdown_output"].endswith(
+        "forces_breakdown.dat"
+    )
 
 
 def test_materialize_baseline_case_consumes_fairing_solid_marker_without_running_su2(tmp_path: Path):

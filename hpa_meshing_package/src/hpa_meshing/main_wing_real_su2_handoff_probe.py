@@ -77,6 +77,8 @@ class MainWingRealSU2HandoffProbeReport(BaseModel):
     reference_geometry_status: str | None = None
     observed_velocity_mps: float | None = None
     runtime_max_iterations: int | None = None
+    forces_breakdown_output_requested: bool = False
+    forces_breakdown_output_path: str | None = None
     source_mesh_probe_path: str | None = None
     source_mesh_case_report_path: str | None = None
     input_mesh_artifact: str | None = None
@@ -105,6 +107,7 @@ def _runtime_config(
             max_iterations=int(max_iterations),
             flow_conditions=SU2FlowConditions(),
             reference_mode="geometry_derived",
+            write_forces_breakdown=True,
         )
     return SU2RuntimeConfig(
         enabled=True,
@@ -112,6 +115,7 @@ def _runtime_config(
         max_iterations=int(max_iterations),
         flow_conditions=SU2FlowConditions(),
         reference_mode="user_declared",
+        write_forces_breakdown=True,
         reference_override=SU2ReferenceOverride(
             ref_area=34.65,
             ref_length=1.05,
@@ -386,6 +390,8 @@ def build_main_wing_real_su2_handoff_probe_report(
         hpa_mdo_guarantees.append("main_wing_force_marker_owned")
     if reference_policy == "openvsp_geometry_derived":
         hpa_mdo_guarantees.append("main_wing_openvsp_reference_policy_requested")
+    if runtime.write_forces_breakdown:
+        hpa_mdo_guarantees.append("main_wing_forces_breakdown_output_requested")
     reference_limitation = (
         "Reference geometry is requested from OpenVSP/VSPAERO geometry-derived data; warn/fail remains a blocker for credibility."
         if reference_policy == "openvsp_geometry_derived"
@@ -413,6 +419,10 @@ def build_main_wing_real_su2_handoff_probe_report(
         reference_geometry_status=reference_status,
         observed_velocity_mps=runtime.velocity_mps,
         runtime_max_iterations=runtime.max_iterations,
+        forces_breakdown_output_requested=runtime.write_forces_breakdown,
+        forces_breakdown_output_path=None
+        if getattr(case.case_output_paths, "forces_breakdown_output", None) is None
+        else str(case.case_output_paths.forces_breakdown_output),
         source_mesh_probe_path=str(mesh_probe_path),
         source_mesh_case_report_path=str(mesh_case_report),
         input_mesh_artifact=str(case.input_mesh_artifact),
