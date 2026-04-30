@@ -1,0 +1,179 @@
+from pathlib import Path
+
+from hpa_meshing.main_wing_esp_rebuilt_geometry_smoke import (
+    MainWingESPRebuiltGeometrySmokeReport,
+)
+from hpa_meshing.main_wing_real_mesh_handoff_probe import (
+    build_main_wing_real_mesh_handoff_probe_report,
+    write_main_wing_real_mesh_handoff_probe_report,
+)
+
+
+def _provider_report(tmp_path: Path) -> MainWingESPRebuiltGeometrySmokeReport:
+    normalized = tmp_path / "normalized.stp"
+    normalized.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+    return MainWingESPRebuiltGeometrySmokeReport(
+        source_path=str(tmp_path / "blackcat_004_origin.vsp3"),
+        case_dir=str(tmp_path / "provider"),
+        geometry_smoke_status="geometry_smoke_pass",
+        provider_status="materialized",
+        validation_status="success",
+        normalized_geometry_path=str(normalized),
+        effective_component="main_wing",
+        selected_geom_name="Main Wing",
+        selected_geom_span_y=16.47465195857948,
+        selected_geom_chord_x=1.3023502084398801,
+        body_count=1,
+        surface_count=32,
+        volume_count=1,
+        hpa_mdo_guarantees=[
+            "real_vsp3_source_consumed",
+            "esp_rebuilt_main_wing_geometry_materialized",
+        ],
+        blocking_reasons=["main_wing_real_geometry_mesh_handoff_not_run"],
+    )
+
+
+def test_main_wing_real_mesh_handoff_probe_records_pass_when_bounded_job_writes_handoff(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "blackcat_004_origin.vsp3"
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.build_main_wing_esp_rebuilt_geometry_smoke_report",
+        lambda out_dir, source_path=None: _provider_report(tmp_path),
+    )
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe._run_bounded_mesh_job",
+        lambda **_: {
+            "status": "completed",
+            "timeout_seconds": 12.0,
+            "result": {
+                "status": "success",
+                "failure_code": None,
+                "mesh": {
+                    "contract": "mesh_handoff.v1",
+                    "route_stage": "real_gmsh",
+                    "metadata_path": str(tmp_path / "mesh_metadata.json"),
+                    "marker_summary_path": str(tmp_path / "marker_summary.json"),
+                    "node_count": 120,
+                    "element_count": 300,
+                    "surface_element_count": 180,
+                    "volume_element_count": 120,
+                    "marker_summary": {
+                        "main_wing": {"exists": True},
+                        "farfield": {"exists": True},
+                    },
+                },
+            },
+            "error": None,
+        },
+    )
+
+    report = build_main_wing_real_mesh_handoff_probe_report(
+        tmp_path / "probe",
+        source_path=source,
+    )
+
+    assert report.schema_version == "main_wing_real_mesh_handoff_probe.v1"
+    assert report.probe_status == "mesh_handoff_pass"
+    assert report.mesh_handoff_status == "written"
+    assert report.provider_status == "materialized"
+    assert report.provider_volume_count == 1
+    assert report.no_su2_execution is True
+    assert report.production_default_changed is False
+    assert "mesh_handoff_v1_written_for_real_main_wing_probe" in report.hpa_mdo_guarantees
+    assert "main_wing_solver_not_run" in report.blocking_reasons
+
+
+def test_main_wing_real_mesh_handoff_probe_records_bounded_timeout(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "blackcat_004_origin.vsp3"
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.build_main_wing_esp_rebuilt_geometry_smoke_report",
+        lambda out_dir, source_path=None: _provider_report(tmp_path),
+    )
+
+    def _timeout_runner(**kwargs):
+        mesh_dir = kwargs["case_dir"] / "artifacts" / "mesh"
+        mesh_dir.mkdir(parents=True, exist_ok=True)
+        (mesh_dir / "mesh2d_watchdog.json").write_text(
+            '{"status": "completed_without_timeout"}\n',
+            encoding="utf-8",
+        )
+        (mesh_dir / "mesh3d_watchdog.json").write_text(
+            (
+                "{"
+                '"status": "triggered_while_meshing", '
+                '"timeout_phase_classification": "volume_insertion", '
+                '"nodes_created_per_boundary_node": 13.5, '
+                '"iteration_count": 160000, '
+                '"latest_worst_tet_radius": 1.43'
+                "}\n"
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "status": "timeout",
+            "timeout_seconds": 12.0,
+            "result": None,
+            "error": "bounded_mesh_handoff_timeout_after_12.0s",
+        }
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe._run_bounded_mesh_job",
+        _timeout_runner,
+    )
+
+    report = build_main_wing_real_mesh_handoff_probe_report(
+        tmp_path / "probe",
+        source_path=source,
+    )
+
+    assert report.probe_status == "mesh_handoff_timeout"
+    assert report.mesh_handoff_status == "missing"
+    assert report.mesh_probe_status == "timeout"
+    assert "main_wing_real_geometry_mesh_handoff_timeout" in report.blocking_reasons
+    assert "main_wing_real_geometry_mesh3d_volume_insertion_timeout" in report.blocking_reasons
+    assert report.mesh2d_watchdog_status == "completed_without_timeout"
+    assert report.mesh3d_watchdog_status == "triggered_while_meshing"
+    assert report.mesh3d_timeout_phase_classification == "volume_insertion"
+    assert report.mesh3d_nodes_created_per_boundary_node == 13.5
+    assert "bounded_mesh_probe_executed" in report.hpa_mdo_guarantees
+
+
+def test_main_wing_real_mesh_handoff_probe_writer_outputs_json_and_markdown(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "blackcat_004_origin.vsp3"
+    source.write_text("<Vsp_Geometry />\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe.build_main_wing_esp_rebuilt_geometry_smoke_report",
+        lambda out_dir, source_path=None: _provider_report(tmp_path),
+    )
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_mesh_handoff_probe._run_bounded_mesh_job",
+        lambda **_: {
+            "status": "timeout",
+            "timeout_seconds": 12.0,
+            "result": None,
+            "error": "bounded_mesh_handoff_timeout_after_12.0s",
+        },
+    )
+
+    paths = write_main_wing_real_mesh_handoff_probe_report(
+        tmp_path / "probe",
+        source_path=source,
+    )
+
+    assert set(paths) == {"json", "markdown"}
+    assert paths["json"].exists()
+    assert "mesh_handoff_timeout" in paths["markdown"].read_text(encoding="utf-8")

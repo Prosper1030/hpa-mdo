@@ -156,6 +156,20 @@ def test_parser_supports_main_wing_esp_rebuilt_geometry_smoke_command():
     assert args.out == "artifacts/main_wing_esp_geometry_smoke"
 
 
+def test_parser_supports_main_wing_real_mesh_handoff_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-real-mesh-handoff-probe",
+            "--out",
+            "artifacts/main_wing_real_mesh_probe",
+        ]
+    )
+
+    assert args.command == "main-wing-real-mesh-handoff-probe"
+    assert args.out == "artifacts/main_wing_real_mesh_probe"
+
+
 def test_parser_supports_tail_wing_mesh_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(

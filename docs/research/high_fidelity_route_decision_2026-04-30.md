@@ -186,6 +186,39 @@ missing" to "real-geometry mesh handoff not run". The synthetic slab mesh and
 SU2 handoff are still useful marker/materialization evidence, but they are not
 substitutes for a real ESP/VSP main-wing mesh handoff.
 
+The first real main-wing mesh handoff probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-real-mesh-handoff-probe \
+  --out .tmp/runs/main_wing_real_mesh_handoff_probe
+```
+
+It writes:
+
+- `main_wing_real_mesh_handoff_probe.v1.json`
+- `main_wing_real_mesh_handoff_probe.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.json`
+- `hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.md`
+
+Observed result:
+
+- `probe_status = mesh_handoff_timeout`
+- provider geometry has `surface_count = 32`, `volume_count = 1`
+- 2D watchdog: `completed_without_timeout`
+- 3D watchdog: `triggered_while_meshing`
+- 3D timeout phase: `volume_insertion`
+- `mesh_handoff.v1` is not emitted
+
+Engineering reading: this is better than the previous "not run" state. The
+main-wing real geometry is not surface-only, but the current coarse external
+volume route still explodes into long 3D insertion work before a handoff exists.
+The next repair is meshing-policy / volume-insertion control on real main-wing
+geometry, not solver execution.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash
@@ -398,7 +431,7 @@ The current expected strategic reading is:
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | real ESP/VSP mesh handoff probe, then solver/convergence smoke |
+| `main_wing` | experimental + diagnostic | no | repair real ESP/VSP 3D volume-insertion timeout, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -453,5 +486,5 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 1. Repair the real tail explicit-volume route by fixing surface-loop orientation
    or baffle-surface ownership before any solver claim.
-2. Probe real ESP/VSP main-wing mesh handoff from the committed provider
-   geometry evidence before any solver/convergence claim.
+2. Repair the real ESP/VSP main-wing 3D volume-insertion timeout before any
+   solver/convergence claim.

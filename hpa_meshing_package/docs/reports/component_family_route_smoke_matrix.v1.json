@@ -63,7 +63,8 @@
       "blocking_reasons": [
         "shell_v4_root_last3_is_not_product_route",
         "explicit_bl_to_core_handoff_topology_not_owned",
-        "main_wing_real_geometry_mesh_handoff_not_run",
+        "main_wing_real_geometry_mesh_handoff_timeout",
+        "main_wing_real_geometry_mesh3d_volume_insertion_timeout",
         "main_wing_solver_not_run",
         "convergence_gate_not_run"
       ],
@@ -293,7 +294,7 @@
   ],
   "next_actions": [
     "replace synthetic fairing fixture with real fairing geometry before solver claims",
-    "probe real main_wing mesh handoff from ESP geometry before solver claims",
+    "repair real main_wing 3D volume-insertion timeout before solver claims",
     "repair explicit tail_wing volume orientation or baffle-surface ownership before solver claims",
     "keep BL prelaunch excluded until handoff topology ownership passes"
   ]

@@ -40,12 +40,13 @@
       "blocking_reasons": [
         "shell_v4_root_last3_is_not_product_route",
         "explicit_bl_to_core_handoff_topology_not_owned",
-        "main_wing_real_geometry_mesh_handoff_not_run",
+        "main_wing_real_geometry_mesh_handoff_timeout",
+        "main_wing_real_geometry_mesh3d_volume_insertion_timeout",
         "main_wing_solver_not_run",
         "convergence_gate_not_run"
       ],
       "next_actions": [
-        "probe_real_main_wing_mesh_handoff_from_esp_geometry",
+        "repair_real_main_wing_mesh3d_volume_insertion_policy",
         "run_solver_only_after_force_marker_and_real_geometry_evidence",
         "keep_bl_transition_contract_as_promotion_gate_not_default_runtime"
       ],
@@ -53,6 +54,7 @@
         "shell_v3 is the frozen geometry/coarse CFD reference.",
         "shell_v4 is a BL diagnostic and solver-entry exploration branch.",
         "main_wing_esp_rebuilt_geometry_smoke_available",
+        "main_wing_real_mesh_handoff_probe_timeout_available",
         "main_wing_mesh_handoff_smoke_available_non_bl_synthetic",
         "main_wing_su2_handoff_materialization_smoke_available",
         "main_wing_component_specific_force_marker_available"

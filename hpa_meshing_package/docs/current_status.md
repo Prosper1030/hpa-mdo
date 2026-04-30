@@ -101,6 +101,22 @@ current committed result is `geometry_smoke_pass` with `surface_count=32` and
 `volume_count=1`. It still does not run Gmsh, does not emit
 `mesh_handoff.v1`, does not run SU2, and does not prove solver credibility.
 
+The first real main-wing mesh handoff probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-real-mesh-handoff-probe --out .tmp/runs/main_wing_real_mesh_handoff_probe
+```
+
+This writes `main_wing_real_mesh_handoff_probe.v1.json` and
+`main_wing_real_mesh_handoff_probe.v1.md`. The current result is
+`mesh_handoff_timeout`: provider geometry is materialized with
+`surface_count=32` and `volume_count=1`, 2D meshing completes
+(`mesh2d_watchdog_status=completed_without_timeout`), and 3D meshing times out
+during `volume_insertion` before `mesh_handoff.v1` is written. This is a
+bounded coarse probe, not production sizing, and it still does not run SU2 or
+convergence.
+
 The first route-specific main-wing mesh smoke is emitted by:
 
 ```bash
@@ -249,7 +265,7 @@ ownership cleanup, not solver execution.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real-geometry mesh handoff, solver history, and convergence gate are missing |
+| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff probe times out during 3D volume insertion after 2D completion; synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real-geometry mesh handoff, solver history, and convergence gate are missing |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | synthetic `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver history, and convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
@@ -261,7 +277,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 
 - `esp_rebuilt` 已不再是 `not_materialized` stub。`src/hpa_meshing/providers/esp_pipeline.py` 現在走 native OpenCSM lifting-surface rebuild：從 `.vsp3` 讀 wing/tail sections，生成 rule-loft `.csm`，再用 `serveCSM -batch` 輸出 normalized STEP 與 topology artifact。
 - 這台 Mac mini（macOS 26.4.1 / arm64）的 runtime truth 已更新：`serveESP` / `serveCSM` 在 `PATH` 上、`ocsm` 仍缺席，但 batch 路徑可以直接用 `serveCSM`。因此 provider 在本機已經 runnable，不再被 `esp_runtime_missing` 擋住。
-- 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已把主翼 real provider evidence 收進 committed report：`Main Wing` 可被選取並 materialize 成 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`；這不代表已經有 real-geometry mesh handoff。
+- 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已把主翼 real provider evidence 收進 committed report：`Main Wing` 可被選取並 materialize 成 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`；後續 `main_wing_real_mesh_handoff_probe.v1` 則把下一個 blocker 收斂成 3D volume insertion timeout。
 - 2026-04-21 的 provider smoke 已成功 materialize：`hpa_meshing_package/.tmp/runs/blackcat_004_esp_rebuilt_native_provider_smoke/` 內有 `normalized.stp` / `topology.json` / `provider_log.json`，且 topology 為 `1 body / 32 surfaces / 1 volume`、`duplicate_interface_face_pair_count = 0`。
 - 2026-04-21 晚上的 C1 diagnostics 已把「有 hang」收斂成更精確的證據：`hpa_meshing_package/.tmp/runs/codex_c1_mesh2d_forensics_20260421/` 內的 `main_wing` full-route A/B 顯示 `Mesh.Algorithm = 1 / 5 / 6` 在 default sizing 下都會 timeout；default case 的 watchdog 會穩定卡在 `surface 14 (BSpline surface)`，coarse route 則能穿過 aircraft surfaces、把最後 surface 記到 `surface 33 (Plane)`，表示 farfield 會放大下游成本。
 - 同一輪 `surface_patch_diagnostics.json` 也留下了可疑 patch family：`surface 31/32` 與 `surface 5/6/1/10` 持續被排在最前面，特徵是 `short_curve_candidate + high_aspect_strip_candidate`，位置落在翼外段 span-extreme strip 與 root / trailing-edge 附近的小 strip faces。
@@ -279,7 +295,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Real ESP/VSP main-wing mesh handoff probe before solver claims on the `main_wing` route
+2. Real ESP/VSP main-wing 3D volume-insertion timeout repair before solver claims on the `main_wing` route
 3. Real fairing geometry smoke before solver claims on the `fairing_solid` route
 4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
 5. Component-level force mapping after the wall-marker story is stronger

@@ -1,0 +1,83 @@
+{
+  "status": "captured",
+  "applied": false,
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/main_wing.vsp3",
+  "surface_count": 1,
+  "suppressed_source_section_count": 0,
+  "surfaces": [
+    {
+      "component": "main_wing",
+      "geom_id": "IPAWXFWPQF",
+      "name": "Main Wing",
+      "caps_group": "main_wing",
+      "terminal_strip_candidates": [
+        {
+          "side": "left_tip",
+          "source_section_index": 5,
+          "mirrored": true,
+          "y_le": -16.5,
+          "chord": 0.435,
+          "profile_point_count": 56,
+          "seam_point_xy": [
+            1.0,
+            0.0
+          ],
+          "seam_adjacent_points_xy": {
+            "next": [
+              0.9619399905204773,
+              0.009720000438392162
+            ],
+            "prev": [
+              0.9619399905204773,
+              -0.0019000000320374966
+            ]
+          },
+          "seam_adjacent_edge_lengths_m": [
+            0.017087488422933107,
+            0.016576721208498055
+          ],
+          "trailing_edge_gap_m": 0.005054700204636902,
+          "profile_perimeter_m": 0.8893131726426434,
+          "suppression_threshold_m": 0.00261,
+          "would_suppress": false,
+          "suppression_reason": "terminal_tip_te_edges_not_small_enough"
+        },
+        {
+          "side": "right_tip",
+          "source_section_index": 5,
+          "mirrored": false,
+          "y_le": 16.5,
+          "chord": 0.435,
+          "profile_point_count": 56,
+          "seam_point_xy": [
+            1.0,
+            0.0
+          ],
+          "seam_adjacent_points_xy": {
+            "next": [
+              0.9619399905204773,
+              0.009720000438392162
+            ],
+            "prev": [
+              0.9619399905204773,
+              -0.0019000000320374966
+            ]
+          },
+          "seam_adjacent_edge_lengths_m": [
+            0.017087488422933107,
+            0.016576721208498055
+          ],
+          "trailing_edge_gap_m": 0.005054700204636902,
+          "profile_perimeter_m": 0.8893131726426434,
+          "suppression_threshold_m": 0.00261,
+          "would_suppress": false,
+          "suppression_reason": "terminal_tip_te_edges_not_small_enough"
+        }
+      ],
+      "suppressed_source_section_indices": [],
+      "suppressed_sections": [],
+      "applied": false
+    }
+  ],
+  "notes": []
+}

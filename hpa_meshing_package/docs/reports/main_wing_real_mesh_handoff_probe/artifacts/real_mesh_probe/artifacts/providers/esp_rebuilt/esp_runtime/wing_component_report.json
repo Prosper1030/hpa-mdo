@@ -1,0 +1,372 @@
+{
+  "selected_geom_id": "IPAWXFWPQF",
+  "candidate_count": 3,
+  "candidates": [
+    {
+      "geom_id": "IPAWXFWPQF",
+      "name": "Main Wing",
+      "type_name": "Wing",
+      "normalized_name": "mainwing",
+      "is_symmetric_xz": true,
+      "x_location": 0.0,
+      "x_rotation_deg": 0.0,
+      "bbox_min": [
+        -2.156555057324391e-05,
+        0.0,
+        -0.06803674311582698
+      ],
+      "bbox_max": [
+        1.3023286428893068,
+        16.47465195857948,
+        0.8333975052217898
+      ],
+      "span_y": 16.47465195857948,
+      "span_z": 0.9014342483376168,
+      "chord_x": 1.3023502084398801,
+      "section_report": {
+        "section_count": 6,
+        "sections": [
+          {
+            "index": 0,
+            "xsec_shape": 12,
+            "params": {
+              "Root_Chord": 1.0,
+              "Tip_Chord": 1.3,
+              "Span": 1.0,
+              "Sweep": 0.0,
+              "Sweep_Location": 0.0,
+              "Dihedral": 0.0,
+              "Twist": 0.0,
+              "ThickChord": 0.14092625368093292,
+              "SectTess_U": 6.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          },
+          {
+            "index": 1,
+            "xsec_shape": 12,
+            "params": {
+              "Root_Chord": 1.3,
+              "Tip_Chord": 1.3,
+              "Span": 4.5,
+              "Sweep": 0.0,
+              "Sweep_Location": 0.0,
+              "Dihedral": 1.0,
+              "Twist": 0.0,
+              "ThickChord": 0.14092625368093292,
+              "SectTess_U": 22.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          },
+          {
+            "index": 2,
+            "xsec_shape": 12,
+            "params": {
+              "Root_Chord": 1.3,
+              "Tip_Chord": 1.1749999999999996,
+              "Span": 3.0000000000000004,
+              "Sweep": 0.0,
+              "Sweep_Location": 0.0,
+              "Dihedral": 2.0,
+              "Twist": 0.0,
+              "ThickChord": 0.14092625368093292,
+              "SectTess_U": 14.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          },
+          {
+            "index": 3,
+            "xsec_shape": 12,
+            "params": {
+              "Root_Chord": 1.1749999999999996,
+              "Tip_Chord": 1.0399999999999998,
+              "Span": 2.9999999999999996,
+              "Sweep": 0.76,
+              "Sweep_Location": 0.0,
+              "Dihedral": 3.0,
+              "Twist": 0.0,
+              "ThickChord": 0.14092625368093292,
+              "SectTess_U": 15.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          },
+          {
+            "index": 4,
+            "xsec_shape": 12,
+            "params": {
+              "Root_Chord": 1.04,
+              "Tip_Chord": 0.83,
+              "Span": 3.0,
+              "Sweep": 0.95,
+              "Sweep_Location": 0.0,
+              "Dihedral": 4.0,
+              "Twist": 0.0,
+              "ThickChord": 0.14092625368093292,
+              "SectTess_U": 14.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          },
+          {
+            "index": 5,
+            "xsec_shape": 12,
+            "params": {
+              "Root_Chord": 0.83,
+              "Tip_Chord": 0.435,
+              "Span": 3.0,
+              "Sweep": 1.91,
+              "Sweep_Location": 0.0,
+              "Dihedral": 5.0,
+              "Twist": 0.0,
+              "ThickChord": 0.11732553068515747,
+              "SectTess_U": 15.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          }
+        ],
+        "terminal_section": {
+          "index": 5,
+          "xsec_shape": 12,
+          "params": {
+            "Root_Chord": 0.83,
+            "Tip_Chord": 0.435,
+            "Span": 3.0,
+            "Sweep": 1.91,
+            "Sweep_Location": 0.0,
+            "Dihedral": 5.0,
+            "Twist": 0.0,
+            "ThickChord": 0.11732553068515747,
+            "SectTess_U": 15.0,
+            "TE_Close_Thick": 0.0,
+            "TE_Close_Thick_Chord": 0.0,
+            "LE_Cap_Type": 1.0,
+            "TE_Cap_Type": 1.0,
+            "LE_Cap_Type_Name": "FLAT_END_CAP",
+            "TE_Cap_Type_Name": "FLAT_END_CAP"
+          }
+        }
+      }
+    },
+    {
+      "geom_id": "ZXAGZMPIBY",
+      "name": "Elevator",
+      "type_name": "Wing",
+      "normalized_name": "elevator",
+      "is_symmetric_xz": true,
+      "x_location": 4.0,
+      "x_rotation_deg": 0.0,
+      "bbox_min": [
+        4.0,
+        0.0,
+        -0.03602233927468974
+      ],
+      "bbox_max": [
+        4.8,
+        1.5000000000000002,
+        0.03602233927468974
+      ],
+      "span_y": 1.5000000000000002,
+      "span_z": 0.07204467854937947,
+      "chord_x": 0.7999999999999998,
+      "section_report": {
+        "section_count": 2,
+        "sections": [
+          {
+            "index": 0,
+            "xsec_shape": 7,
+            "params": {
+              "Root_Chord": 1.0,
+              "Tip_Chord": 0.8,
+              "Span": 1.0,
+              "Sweep": 0.0,
+              "Sweep_Location": 0.0,
+              "Dihedral": 0.0,
+              "Twist": 0.0,
+              "ThickChord": 0.09,
+              "Camber": 0.0,
+              "CamberLoc": 0.2,
+              "SectTess_U": 6.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          },
+          {
+            "index": 1,
+            "xsec_shape": 7,
+            "params": {
+              "Root_Chord": 0.8,
+              "Tip_Chord": 0.8,
+              "Span": 1.5000000000000002,
+              "Sweep": 0.0,
+              "Sweep_Location": 0.0,
+              "Dihedral": 0.0,
+              "Twist": 0.0,
+              "ThickChord": 0.09,
+              "Camber": 0.0,
+              "CamberLoc": 0.2,
+              "SectTess_U": 15.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          }
+        ],
+        "terminal_section": {
+          "index": 1,
+          "xsec_shape": 7,
+          "params": {
+            "Root_Chord": 0.8,
+            "Tip_Chord": 0.8,
+            "Span": 1.5000000000000002,
+            "Sweep": 0.0,
+            "Sweep_Location": 0.0,
+            "Dihedral": 0.0,
+            "Twist": 0.0,
+            "ThickChord": 0.09,
+            "Camber": 0.0,
+            "CamberLoc": 0.2,
+            "SectTess_U": 15.0,
+            "TE_Close_Thick": 0.0,
+            "TE_Close_Thick_Chord": 0.0,
+            "LE_Cap_Type": 1.0,
+            "TE_Cap_Type": 1.0,
+            "LE_Cap_Type_Name": "FLAT_END_CAP",
+            "TE_Cap_Type_Name": "FLAT_END_CAP"
+          }
+        }
+      }
+    },
+    {
+      "geom_id": "BROUAZWXIU",
+      "name": "Fin",
+      "type_name": "Wing",
+      "normalized_name": "fin",
+      "is_symmetric_xz": false,
+      "x_location": 5.0,
+      "x_rotation_deg": 90.0,
+      "bbox_min": [
+        5.0,
+        -0.031519546865353514,
+        -0.7
+      ],
+      "bbox_max": [
+        5.7,
+        0.031519546865353666,
+        1.7
+      ],
+      "span_y": 0.06303909373070718,
+      "span_z": 2.4,
+      "chord_x": 0.7000000000000002,
+      "section_report": {
+        "section_count": 2,
+        "sections": [
+          {
+            "index": 0,
+            "xsec_shape": 7,
+            "params": {
+              "Root_Chord": 1.0,
+              "Tip_Chord": 0.7,
+              "Span": 1.0,
+              "Sweep": 0.0,
+              "Sweep_Location": 0.0,
+              "Dihedral": 0.0,
+              "Twist": 0.0,
+              "ThickChord": 0.09,
+              "Camber": 0.0,
+              "CamberLoc": 0.2,
+              "SectTess_U": 6.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          },
+          {
+            "index": 1,
+            "xsec_shape": 7,
+            "params": {
+              "Root_Chord": 0.7,
+              "Tip_Chord": 0.7,
+              "Span": 2.4,
+              "Sweep": 0.0,
+              "Sweep_Location": 0.0,
+              "Dihedral": 0.0,
+              "Twist": 0.0,
+              "ThickChord": 0.09,
+              "Camber": 0.0,
+              "CamberLoc": 0.2,
+              "SectTess_U": 22.0,
+              "TE_Close_Thick": 0.0,
+              "TE_Close_Thick_Chord": 0.0,
+              "LE_Cap_Type": 1.0,
+              "TE_Cap_Type": 1.0,
+              "LE_Cap_Type_Name": "FLAT_END_CAP",
+              "TE_Cap_Type_Name": "FLAT_END_CAP"
+            }
+          }
+        ],
+        "terminal_section": {
+          "index": 1,
+          "xsec_shape": 7,
+          "params": {
+            "Root_Chord": 0.7,
+            "Tip_Chord": 0.7,
+            "Span": 2.4,
+            "Sweep": 0.0,
+            "Sweep_Location": 0.0,
+            "Dihedral": 0.0,
+            "Twist": 0.0,
+            "ThickChord": 0.09,
+            "Camber": 0.0,
+            "CamberLoc": 0.2,
+            "SectTess_U": 22.0,
+            "TE_Close_Thick": 0.0,
+            "TE_Close_Thick_Chord": 0.0,
+            "LE_Cap_Type": 1.0,
+            "TE_Cap_Type": 1.0,
+            "LE_Cap_Type_Name": "FLAT_END_CAP",
+            "TE_Cap_Type_Name": "FLAT_END_CAP"
+          }
+        }
+      }
+    }
+  ]
+}

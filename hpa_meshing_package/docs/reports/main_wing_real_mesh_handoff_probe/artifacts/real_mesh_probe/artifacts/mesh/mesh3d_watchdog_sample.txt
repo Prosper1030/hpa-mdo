@@ -1,0 +1,1127 @@
+Analysis of sampling python (pid 98888) every 1 millisecond
+Process:         python3.10 [98888]
+Path:            /Users/USER/*/python3.10
+Load Address:    0x104ee8000
+Identifier:      python3.10
+Version:         ???
+Code Type:       ARM64
+Platform:        macOS
+Parent Process:  python3.10 [98718]
+Target Type:     live task
+
+Date/Time:       2026-04-30 15:19:25.146 +0800
+Launch Time:     2026-04-30 15:19:15.016 +0800
+OS Version:      macOS 26.4.1 (25E253)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         301.6M
+Physical footprint (peak):  301.6M
+Idle exit:                  untracked
+----
+
+Call graph:
+    740 Thread_13972476   DispatchQueue_1: com.apple.main-thread  (serial)
+    + 740 start  (in dyld) + 6992  [0x189b7bda4]
+    +   740 Py_BytesMain  (in libpython3.10.dylib) + 44  [0x10636f6fc]
+    +     740 Py_RunMain  (in libpython3.10.dylib) + 360  [0x1062510ec]
+    +       740 PyRun_SimpleStringFlags  (in libpython3.10.dylib) + 156  [0x1062517f0]
+    +         740 run_mod  (in libpython3.10.dylib) + 204  [0x106152dc8]
+    +           740 _PyEval_Vector  (in libpython3.10.dylib) + 500  [0x1061ce83c]
+    +             740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 15892  [0x10633da44]
+    +               740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+    +                 740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+    +                   740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 15892  [0x10633da44]
+    +                     740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+    +                       740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+    +                         740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 15892  [0x10633da44]
+    +                           740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+    +                             740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+    +                               740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 15892  [0x10633da44]
+    +                                 740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+    +                                   740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+    +                                     740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 16992  [0x10633de90]
+    +                                       740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+    +                                         740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+    +                                           740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 37724  [0x106342f8c]
+    +                                             740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+    +                                               740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 70968  [0x10634b168]
+    +                                                 740 PyCFuncPtr_call  (in libpython3.10.dylib) + 200  [0x1062bdd2c]
+    +                                                   740 _ctypes_callproc  (in libpython3.10.dylib) + 328  [0x1062be658]
+    +                                                     740 _call_function_pointer  (in libpython3.10.dylib) + 136  [0x1062bec60]
+    +                                                       740 ffi_call  (in libpython3.10.dylib) + 52  [0x1062bedc8]
+    +                                                         740 ffi_call_int  (in libpython3.10.dylib) + 1452  [0x1063d03b4]
+    +                                                           740 ffi_call_SYSV  (in libpython3.10.dylib) + 80  [0x1063d4050]
+    +                                                             740 gmshModelMeshGenerate  (in libgmsh.4.15.dylib) + 28  [0x115648d54]
+    +                                                               740 gmsh::model::mesh::generate(int)  (in libgmsh.4.15.dylib) + 56  [0x114a2fecc]
+    +                                                                 740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x209ba0  [0x114b95ba0]
+    +                                                                   740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3f663c  [0x114d8263c]
+    +                                                                     740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x451580  [0x114ddd580]
+    +                                                                       474 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x497274  [0x114e23274]
+    +                                                                       ! 324 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4919cc  [0x114e1d9cc]
+    +                                                                       ! : 143 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492210  [0x114e1e210]
+    +                                                                       ! : 141 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492240  [0x114e1e240]
+    +                                                                       ! : 13 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492204  [0x114e1e204]
+    +                                                                       ! : 10 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492298  [0x114e1e298]
+    +                                                                       ! : 6 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492444  [0x114e1e444]
+    +                                                                       ! : 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4921fc  [0x114e1e1fc]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4921ec  [0x114e1e1ec]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492458  [0x114e1e458]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4920d0  [0x114e1e0d0]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4920dc  [0x114e1e0dc]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4921e8  [0x114e1e1e8]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492248  [0x114e1e248]
+    +                                                                       ! 107 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49196c  [0x114e1d96c]
+    +                                                                       ! : 88 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fb3c  [0x114e1bb3c]
+    +                                                                       ! : | 23 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e768  [0x114e1a768]
+    +                                                                       ! : | + 4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e768  [0x114e1a768]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e620  [0x114e1a620]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f458  [0x114e1b458]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f4e4  [0x114e1b4e4]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f528  [0x114e1b528]
+    +                                                                       ! : | + 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ea38  [0x114e1aa38]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f540  [0x114e1b540]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f568  [0x114e1b568]
+    +                                                                       ! : | + 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f440  [0x114e1b440]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ef10  [0x114e1af10]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ef28  [0x114e1af28]
+    +                                                                       ! : | + 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f528  [0x114e1b528]
+    +                                                                       ! : | + 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f568  [0x114e1b568]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5ec  [0x114e1a5ec]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e620  [0x114e1a620]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e650  [0x114e1a650]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e66c  [0x114e1a66c]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f4a4  [0x114e1b4a4]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f4e4  [0x114e1b4e4]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f550  [0x114e1b550]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f578  [0x114e1b578]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f5a0  [0x114e1b5a0]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f5a8  [0x114e1b5a8]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f5b0  [0x114e1b5b0]
+    +                                                                       ! : | 23 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ea38  [0x114e1aa38]
+    +                                                                       ! : | + 4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ea38  [0x114e1aa38]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e52c  [0x114e1a52c]
+    +                                                                       ! : | + ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48edfc  [0x114e1adfc]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f440  [0x114e1b440]
+    +                                                                       ! : | + ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ee18  [0x114e1ae18]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f528  [0x114e1b528]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f568  [0x114e1b568]
+    +                                                                       ! : | + 4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5ec  [0x114e1a5ec]
+    +                                                                       ! : | + 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f584  [0x114e1b584]
+    +                                                                       ! : | + 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e768  [0x114e1a768]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f528  [0x114e1b528]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f584  [0x114e1b584]
+    +                                                                       ! : | + 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e638  [0x114e1a638]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5b4  [0x114e1a5b4]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5d4  [0x114e1a5d4]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e668  [0x114e1a668]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f4a4  [0x114e1b4a4]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f50c  [0x114e1b50c]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f568  [0x114e1b568]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f578  [0x114e1b578]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f5a0  [0x114e1b5a0]
+    +                                                                       ! : | 9 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e638  [0x114e1a638]
+    +                                                                       ! : | 6 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5a0  [0x114e1a5a0]
+    +                                                                       ! : | 4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5ec  [0x114e1a5ec]
+    +                                                                       ! : | 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5a4  [0x114e1a5a4]
+    +                                                                       ! : | 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5fc  [0x114e1a5fc]
+    +                                                                       ! : | 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f458  [0x114e1b458]
+    +                                                                       ! : | 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f5a0  [0x114e1b5a0]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e52c  [0x114e1a52c]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ed60  [0x114e1ad60]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f440  [0x114e1b440]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ef10  [0x114e1af10]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5a8  [0x114e1a5a8]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5b8  [0x114e1a5b8]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5f0  [0x114e1a5f0]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e608  [0x114e1a608]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e620  [0x114e1a620]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f504  [0x114e1b504]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f528  [0x114e1b528]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f55c  [0x114e1b55c]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f568  [0x114e1b568]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f56c  [0x114e1b56c]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f584  [0x114e1b584]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f5a8  [0x114e1b5a8]
+    +                                                                       ! : 11 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fa70  [0x114e1ba70]
+    +                                                                       ! : | 7 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d734  [0x114e19734]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d12c  [0x114e1912c]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d134  [0x114e19134]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d64c  [0x114e1964c]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d67c  [0x114e1967c]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d744  [0x114e19744]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fb74  [0x114e1bb74]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f970  [0x114e1b970]
+    +                                                                       ! : | 1 operator new(unsigned long)  (in libc++abi.dylib) + 52  [0x189eee7e8]
+    +                                                                       ! : |   1 _xzm_xzone_malloc_small_freelist  (in libsystem_malloc.dylib) + 12  [0x189d5a2dc]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fa38  [0x114e1ba38]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fa0c  [0x114e1ba0c]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fbc4  [0x114e1bbc4]
+    +                                                                       ! 18 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49157c  [0x114e1d57c]
+    +                                                                       ! : 5 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491c60  [0x114e1dc60]
+    +                                                                       ! : | 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491f68  [0x114e1df68]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16d730  [0x114af9730]
+    +                                                                       ! : | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16d744  [0x114af9744]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16f678  [0x114afb678]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491c60  [0x114e1dc60]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491e50  [0x114e1de50]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491e44  [0x114e1de44]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492048  [0x114e1e048]
+    +                                                                       ! : 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491cf0  [0x114e1dcf0]
+    +                                                                       ! : | 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+    +                                                                       ! : 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491ca8  [0x114e1dca8]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491c6c  [0x114e1dc6c]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491ba4  [0x114e1dba4]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491bd4  [0x114e1dbd4]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946bc  [0x114d206bc]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491c94  [0x114e1dc94]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946bc  [0x114d206bc]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491d64  [0x114e1dd64]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491bd4  [0x114e1dbd4]
+    +                                                                       ! 10 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49154c  [0x114e1d54c]
+    +                                                                       ! : 8 operator new(unsigned long)  (in libc++abi.dylib) + 52  [0x189eee7e8]
+    +                                                                       ! : | 3 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 76,104,...  [0x189d59f20,0x189d59f3c,...]
+    +                                                                       ! : | 2 malloc_type_malloc  (in libsystem_malloc.dylib) + 0,92  [0x189d47fe4,0x189d48040]
+    +                                                                       ! : | 1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 0  [0x189d540d4]
+    +                                                                       ! : | 1 DYLD-STUB$$malloc_type_malloc  (in libc++abi.dylib) + 12  [0x189eeec1c]
+    +                                                                       ! : | 1 _xzm_xzone_malloc_freelist_outlined  (in libsystem_malloc.dylib) + 324  [0x189d5b77c]
+    +                                                                       ! : |   1 _xzm_xzone_find_and_malloc_from_freelist_chunk  (in libsystem_malloc.dylib) + 336  [0x189d5c064]
+    +                                                                       ! : |     1 _xzm_xzone_malloc_from_freelist_chunk  (in libsystem_malloc.dylib) + 588  [0x189d5bd64]
+    +                                                                       ! : 2 operator new(unsigned long)  (in libc++abi.dylib) + 8  [0x189eee7bc]
+    +                                                                       ! 5 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49199c  [0x114e1d99c]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xb594  [0x114997594]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xb42c  [0x11499742c]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xb454  [0x114997454]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xb4b4  [0x1149974b4]
+    +                                                                       ! 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49151c  [0x114e1d51c]
+    +                                                                       ! : 3 operator new(unsigned long)  (in libc++abi.dylib) + 52  [0x189eee7e8]
+    +                                                                       ! :   2 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 76,392  [0x189d59f20,0x189d5a05c]
+    +                                                                       ! :   1 _xzm_xzone_malloc_freelist_outlined  (in libsystem_malloc.dylib) + 756  [0x189d5b92c]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4919e0  [0x114e1d9e0]
+    +                                                                       ! : 2 operator new(unsigned long)  (in libc++abi.dylib) + 52  [0x189eee7e8]
+    +                                                                       ! :   1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 284  [0x189d59ff0]
+    +                                                                       ! :   1 malloc_type_malloc  (in libsystem_malloc.dylib) + 92  [0x189d48040]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x491534  [0x114e1d534]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x382218  [0x114d0e218]
+    +                                                                       ! :   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x1ffaf0  [0x114b8baf0]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4917ac  [0x114e1d7ac]
+    +                                                                       ! : 1 _xzm_free  (in libsystem_malloc.dylib) + 560  [0x189d5529c]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x382258  [0x114d0e258]
+    +                                                                       ! 1 _xzm_free  (in libsystem_malloc.dylib) + 1568  [0x189d5568c]
+    +                                                                       ! 1 operator new(unsigned long)  (in libc++abi.dylib) + 80  [0x189eee804]
+    +                                                                       152 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49741c  [0x114e2341c]
+    +                                                                       ! 53 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498cbc  [0x114e24cbc]
+    +                                                                       ! 28 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c7c  [0x114e24c7c]
+    +                                                                       ! 23 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498cc8  [0x114e24cc8]
+    +                                                                       ! 10 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498d4c  [0x114e24d4c]
+    +                                                                       ! 7 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498d60  [0x114e24d60]
+    +                                                                       ! 6 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c5c  [0x114e24c5c]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xd708  [0x114999708]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xd524  [0x114999524]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xd570  [0x114999570]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xd69c  [0x11499969c]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xd714  [0x114999714]
+    +                                                                       ! 4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c64  [0x114e24c64]
+    +                                                                       ! : 2 _free  (in libsystem_malloc.dylib) + 0,76  [0x189d64c4c,0x189d64c98]
+    +                                                                       ! : 1 DYLD-STUB$$operator delete(void*)  (in libgmsh.4.15.dylib) + 0  [0x1182e5d00]
+    +                                                                       ! : 1 _xzm_free  (in libsystem_malloc.dylib) + 996  [0x189d55450]
+    +                                                                       ! 4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498cb4  [0x114e24cb4]
+    +                                                                       ! 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c90  [0x114e24c90]
+    +                                                                       ! : 2 _xzm_free  (in libsystem_malloc.dylib) + 684,996  [0x189d55318,0x189d55450]
+    +                                                                       ! : 1 xzm_malloc_zone_try_free_default  (in libsystem_malloc.dylib) + 0  [0x189d60108]
+    +                                                                       ! 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c74  [0x114e24c74]
+    +                                                                       ! 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498d78  [0x114e24d78]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c98  [0x114e24c98]
+    +                                                                       ! : 2 _xzm_free  (in libsystem_malloc.dylib) + 304,656  [0x189d5519c,0x189d552fc]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498ca4  [0x114e24ca4]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c64  [0x114e24c64]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498ca8  [0x114e24ca8]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498cb0  [0x114e24cb0]
+    +                                                                       ! 1 _xzm_free  (in libsystem_malloc.dylib) + 1556  [0x189d55680]
+    +                                                                       77 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x496ea8  [0x114e22ea8]
+    +                                                                       ! 23 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49046c  [0x114e1c46c]
+    +                                                                       ! : 8 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cde4  [0x114e18de4]
+    +                                                                       ! : | 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16d730  [0x114af9730]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16d784  [0x114af9784]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16f63c  [0x114afb63c]
+    +                                                                       ! : | + 1 ___chkstk_darwin  (in libsystem_pthread.dylib) + 52  [0x189f32c54]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16d718  [0x114af9718]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16f658  [0x114afb658]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16f668  [0x114afb668]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16f66c  [0x114afb66c]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16f674  [0x114afb674]
+    +                                                                       ! : 7 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cdcc  [0x114e18dcc]
+    +                                                                       ! : | 6 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x171dd8  [0x114afddd8]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x171e20  [0x114afde20]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x171e38  [0x114afde38]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x171e48  [0x114afde48]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x171e68  [0x114afde68]
+    +                                                                       ! : | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x171f60  [0x114afdf60]
+    +                                                                       ! : | + 1 ___chkstk_darwin  (in libsystem_pthread.dylib) + 52  [0x189f32c54]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cdcc  [0x114e18dcc]
+    +                                                                       ! : |   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x171dd0  [0x114afddd0]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cccc  [0x114e18ccc]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946bc  [0x114d206bc]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cd04  [0x114e18d04]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cd74  [0x114e18d74]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cc70  [0x114e18c70]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cc78  [0x114e18c78]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48ccc8  [0x114e18cc8]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cd04  [0x114e18d04]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48cd74  [0x114e18d74]
+    +                                                                       ! 13 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4905ac  [0x114e1c5ac]
+    +                                                                       ! 9 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490470  [0x114e1c470]
+    +                                                                       ! 4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490814  [0x114e1c814]
+    +                                                                       ! 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490658  [0x114e1c658]
+    +                                                                       ! : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d50c  [0x114e1950c]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d128  [0x114e19128]
+    +                                                                       ! 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49071c  [0x114e1c71c]
+    +                                                                       ! : 3 _xzm_free  (in libsystem_malloc.dylib) + 132,352,...  [0x189d550f0,0x189d551cc,...]
+    +                                                                       ! 3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490818  [0x114e1c818]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490350  [0x114e1c350]
+    +                                                                       ! : 2 operator new(unsigned long)  (in libc++abi.dylib) + 52  [0x189eee7e8]
+    +                                                                       ! :   2 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 824  [0x189d5a20c]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490448  [0x114e1c448]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4905e8  [0x114e1c5e8]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490600  [0x114e1c600]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490638  [0x114e1c638]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490618  [0x114e1c618]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490700  [0x114e1c700]
+    +                                                                       ! : 1 _platform_memmove  (in libsystem_platform.dylib) + 180  [0x189f41474]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49041c  [0x114e1c41c]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490438  [0x114e1c438]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490440  [0x114e1c440]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4906b0  [0x114e1c6b0]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49070c  [0x114e1c70c]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490780  [0x114e1c780]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490824  [0x114e1c824]
+    +                                                                       26 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4971fc  [0x114e231fc]
+    +                                                                       ! 26 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4e8c24  [0x114e74c24]
+    +                                                                       !   26 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4e87e8  [0x114e747e8]
+    +                                                                       !     25 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x55b218  [0x114ee7218]
+    +                                                                       !     : 22 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5595a0  [0x114ee55a0]
+    +                                                                       !     : | 22 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54c7f4  [0x114ed87f4]
+    +                                                                       !     : |   22 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x547568  [0x114ed3568]
+    +                                                                       !     : |     20 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5485a8  [0x114ed45a8]
+    +                                                                       !     : |     + 20 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +   20 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     19 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! 17 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : 16 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : | 16 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   14 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + 8 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + ! 8 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   7 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   : 7 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :   4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + !   :   | 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :   | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :   | + ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486fc  [0x114ed46fc]
+    +                                                                       !     : |     +     ! : |   + !   :   | + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548654  [0x114ed4654]
+    +                                                                       !     : |     +     ! : |   + !   :   | 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + !   :   |   2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :   |     2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :   |       2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + !   :   |         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :   |         ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + !   :   |         !   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :   |         !     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548644  [0x114ed4644]
+    +                                                                       !     : |     +     ! : |   + !   :   |         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + !   :   |           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548644  [0x114ed4644]
+    +                                                                       !     : |     +     ! : |   + !   :   3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :     2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !   :     + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     ! : |   + !   :     + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548798  [0x114ed4798]
+    +                                                                       !     : |     +     ! : |   + !   :     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548798  [0x114ed4798]
+    +                                                                       !     : |     +     ! : |   + !   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + !     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   + !           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   + !             1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     ! : |   + 6 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   4 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : | 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   +   : |   2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |     2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |       2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |         2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |           2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |             2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   +   : |               + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |               +   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |               +     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |               +       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |               +         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   : |               +           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548798  [0x114ed4798]
+    +                                                                       !     : |     +     ! : |   +   : |               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     ! : |   +   : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   +   :   2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |   +   :     2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   :       2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   :         2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   :           2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   :             2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   :               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |   +   :               + 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5487d0  [0x114ed47d0]
+    +                                                                       !     : |     +     ! : |   +   :               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     ! : |   +   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     ! : |   +   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548798  [0x114ed4798]
+    +                                                                       !     : |     +     ! : |   2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |     2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |       2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |         2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |           ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |           !   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |           !     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |           !       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |           !         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     ! : |           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! : |             1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |                 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |                   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! : |                     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     ! :   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! :     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! :       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! :         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! :           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! :             1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     ! :               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486fc  [0x114ed46fc]
+    +                                                                       !     : |     +     ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     !   2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !     2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !       | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     !       |   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     !       |     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !       |       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !       |         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !       |           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     !       |             1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !       |               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !       |                 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486fc  [0x114ed46fc]
+    +                                                                       !     : |     +     !       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +     !         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !             1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +     !                 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+    +                                                                       !     : |     +     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +         1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +           1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +             1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +               1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+    +                                                                       !     : |     +                 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +                   1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +                     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+    +                                                                       !     : |     +                       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548654  [0x114ed4654]
+    +                                                                       !     : |     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x548548  [0x114ed4548]
+    +                                                                       !     : |     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54856c  [0x114ed456c]
+    +                                                                       !     : 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x558ca8  [0x114ee4ca8]
+    +                                                                       !     : | 2 __kmpc_critical_with_hint  (in libgmsh.4.15.dylib) + 44,112  [0x11574692c,0x115746970]
+    +                                                                       !     : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x559538  [0x114ee5538]
+    +                                                                       !     :   1 __kmpc_end_critical  (in libgmsh.4.15.dylib) + 232  [0x115746e60]
+    +                                                                       !     :     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xdeee08  [0x11577ae08]
+    +                                                                       !     :       1 __kmp_release_queuing_lock  (in libgmsh.4.15.dylib) + 88  [0x115777928]
+    +                                                                       !     1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x55b010  [0x114ee7010]
+    +                                                                       !       1 __kmp_get_global_thread_id  (in libgmsh.4.15.dylib) + 292  [0x11574c378]
+    +                                                                       3 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x496fd8  [0x114e22fd8]
+    +                                                                       ! 2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fd8c  [0x114e1bd8c]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fd8c  [0x114e1bd8c]
+    +                                                                       ! : | 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16d728  [0x114af9728]
+    +                                                                       ! : 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x16f678  [0x114afb678]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48fd80  [0x114e1bd80]
+    +                                                                       2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x496f48  [0x114e22f48]
+    +                                                                       ! 1 _xzm_free  (in libsystem_malloc.dylib) + 352  [0x189d551cc]
+    +                                                                       ! : 1 _platform_memset  (in libsystem_platform.dylib) + 180  [0x189f411a4]
+    +                                                                       ! 1 _xzm_free  (in libsystem_malloc.dylib) + 564  [0x189d552a0]
+    +                                                                       2 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x497078  [0x114e23078]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x49970c  [0x114e2570c]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x499748  [0x114e25748]
+    +                                                                       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x496c90  [0x114e22c90]
+    +                                                                       ! 1 _xzm_free  (in libsystem_malloc.dylib) + 776  [0x189d55374]
+    +                                                                       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x496e94  [0x114e22e94]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x1ffb2c  [0x114b8bb2c]
+    +                                                                       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x496ef0  [0x114e22ef0]
+    +                                                                       ! 1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x496eac  [0x114e22eac]
+    +                                                                       1 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4973dc  [0x114e233dc]
+    +                                                                         1 _free  (in libsystem_malloc.dylib) + 36  [0x189d64c70]
+    740 Thread_13973204
+    + 740 start_wqthread  (in libsystem_pthread.dylib) + 8  [0x189f32c10]
+    +   740 _pthread_wqthread  (in libsystem_pthread.dylib) + 368  [0x189f33f0c]
+    +     740 __workq_kernreturn  (in libsystem_kernel.dylib) + 8  [0x189ef59f0]
+    740 Thread_13973208
+    + 740 thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+    +   740 _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+    +     740 OSD_ThreadPool::EnumeratedThread::runThread(void*)  (in libgmsh.4.15.dylib) + 12  [0x11816e24c]
+    +       740 OSD_ThreadPool::EnumeratedThread::performThread()  (in libgmsh.4.15.dylib) + 120  [0x11816e75c]
+    +         740 Standard_Condition::Wait()  (in libgmsh.4.15.dylib) + 56  [0x11817e074]
+    +           740 _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x189f38128]
+    +             740 __psynch_cvwait  (in libsystem_kernel.dylib) + 8  [0x189ef750c]
+    740 Thread_13973209
+    + 740 thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+    +   740 _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+    +     740 OSD_ThreadPool::EnumeratedThread::runThread(void*)  (in libgmsh.4.15.dylib) + 12  [0x11816e24c]
+    +       740 OSD_ThreadPool::EnumeratedThread::performThread()  (in libgmsh.4.15.dylib) + 120  [0x11816e75c]
+    +         740 Standard_Condition::Wait()  (in libgmsh.4.15.dylib) + 56  [0x11817e074]
+    +           740 _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x189f38128]
+    +             740 __psynch_cvwait  (in libsystem_kernel.dylib) + 8  [0x189ef750c]
+    740 Thread_13973210
+    + 740 thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+    +   740 _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+    +     740 OSD_ThreadPool::EnumeratedThread::runThread(void*)  (in libgmsh.4.15.dylib) + 12  [0x11816e24c]
+    +       740 OSD_ThreadPool::EnumeratedThread::performThread()  (in libgmsh.4.15.dylib) + 120  [0x11816e75c]
+    +         740 Standard_Condition::Wait()  (in libgmsh.4.15.dylib) + 56  [0x11817e074]
+    +           740 _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x189f38128]
+    +             740 __psynch_cvwait  (in libsystem_kernel.dylib) + 8  [0x189ef750c]
+    740 Thread_13973218
+    + 740 thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+    +   740 _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+    +     740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xdf2ff4  [0x11577eff4]
+    +       740 __kmp_launch_thread  (in libgmsh.4.15.dylib) + 220  [0x115752a2c]
+    +         740 __kmp_fork_barrier(int, int)  (in libgmsh.4.15.dylib) + 368  [0x115769a40]
+    +           740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xddb9e4  [0x1157679e4]
+    +             740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xddef20  [0x11576af20]
+    +               740 void __kmp_suspend_64<false, true>(int, kmp_flag_64<false, true>*)  (in libgmsh.4.15.dylib) + 384  [0x1157801f0]
+    +                 740 _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x189f38128]
+    +                   740 __psynch_cvwait  (in libsystem_kernel.dylib) + 8  [0x189ef750c]
+    740 Thread_13973219
+    + 740 thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+    +   740 _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+    +     740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xdf2ff4  [0x11577eff4]
+    +       740 __kmp_launch_thread  (in libgmsh.4.15.dylib) + 220  [0x115752a2c]
+    +         740 __kmp_fork_barrier(int, int)  (in libgmsh.4.15.dylib) + 368  [0x115769a40]
+    +           740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xddb9e4  [0x1157679e4]
+    +             740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xddef20  [0x11576af20]
+    +               740 void __kmp_suspend_64<false, true>(int, kmp_flag_64<false, true>*)  (in libgmsh.4.15.dylib) + 384  [0x1157801f0]
+    +                 740 _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x189f38128]
+    +                   740 __psynch_cvwait  (in libsystem_kernel.dylib) + 8  [0x189ef750c]
+    740 Thread_13973220
+    + 740 thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+    +   740 _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+    +     740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xdf2ff4  [0x11577eff4]
+    +       740 __kmp_launch_thread  (in libgmsh.4.15.dylib) + 220  [0x115752a2c]
+    +         740 __kmp_fork_barrier(int, int)  (in libgmsh.4.15.dylib) + 368  [0x115769a40]
+    +           740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xddb9e4  [0x1157679e4]
+    +             740 ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0xddef20  [0x11576af20]
+    +               740 void __kmp_suspend_64<false, true>(int, kmp_flag_64<false, true>*)  (in libgmsh.4.15.dylib) + 384  [0x1157801f0]
+    +                 740 _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x189f38128]
+    +                   740 __psynch_cvwait  (in libsystem_kernel.dylib) + 8  [0x189ef750c]
+    740 Thread_13973227
+      740 thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+        740 _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+          740 pythread_wrapper  (in libpython3.10.dylib) + 48  [0x1067ff178]
+            740 thread_run  (in libpython3.10.dylib) + 164  [0x106275ea8]
+              740 method_vectorcall  (in libpython3.10.dylib) + 384  [0x106305d24]
+                740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                  740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 32400  [0x106341ac0]
+                    740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                      740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 32400  [0x106341ac0]
+                        740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                          740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 31888  [0x1063418c0]
+                            740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                              740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 15892  [0x10633da44]
+                                740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+                                  740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                                    740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 16992  [0x10633de90]
+                                      740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+                                        740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                                          740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 16992  [0x10633de90]
+                                            740 call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+                                              740 method_vectorcall  (in libpython3.10.dylib) + 116  [0x106305c18]
+                                                740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                                                  740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 32400  [0x106341ac0]
+                                                    740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                                                      740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 32400  [0x106341ac0]
+                                                        740 _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+                                                          740 _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 32400  [0x106341ac0]
+                                                            740 method_vectorcall_FASTCALL  (in libpython3.10.dylib) + 108  [0x106307c08]
+                                                              740 select_poll_poll  (in libpython3.10.dylib) + 152  [0x1062c7388]
+                                                                740 poll  (in libsystem_kernel.dylib) + 8  [0x189efc6f8]
+
+Total number in stack (recursive counted multiple, when >=5):
+        78       ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486a4  [0x114ed46a4]
+        22       ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x5486f4  [0x114ed46f4]
+        15       _PyFunction_Vectorcall  (in libpython3.10.dylib) + 520  [0x106169874]
+        9       _xzm_free  (in libsystem_malloc.dylib) + 0  [0x189d5506c]
+        8       ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]
+        8       call_function  (in libpython3.10.dylib) + 136  [0x106130dcc]
+        7       ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]
+        7       _pthread_start  (in libsystem_pthread.dylib) + 136  [0x189f37c58]
+        7       thread_start  (in libsystem_pthread.dylib) + 8  [0x189f32c1c]
+        6       __psynch_cvwait  (in libsystem_kernel.dylib) + 0  [0x189ef7504]
+        6       _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x189f38128]
+        5       ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f528  [0x114e1b528]
+        5       ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f568  [0x114e1b568]
+        5       _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 15892  [0x10633da44]
+        5       _PyEval_EvalFrameDefault  (in libpython3.10.dylib) + 32400  [0x106341ac0]
+        5       operator new(unsigned long)  (in libc++abi.dylib) + 52  [0x189eee7e8]
+
+Sort by top of stack, same collapsed (when >= 5):
+        __psynch_cvwait  (in libsystem_kernel.dylib)        4440
+        __workq_kernreturn  (in libsystem_kernel.dylib)        740
+        poll  (in libsystem_kernel.dylib)        740
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492210  [0x114e1e210]        143
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492240  [0x114e1e240]        141
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498cbc  [0x114e24cbc]        53
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498c7c  [0x114e24c7c]        28
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498cc8  [0x114e24cc8]        23
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x4905ac  [0x114e1c5ac]        13
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492204  [0x114e1e204]        13
+        _xzm_free  (in libsystem_malloc.dylib)        13
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e638  [0x114e1a638]        11
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492298  [0x114e1e298]        10
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498d4c  [0x114e24d4c]        10
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x3946c0  [0x114d206c0]        9
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5ec  [0x114e1a5ec]        9
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x490470  [0x114e1c470]        9
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x54864c  [0x114ed464c]        8
+        _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib)        8
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48d734  [0x114e19734]        7
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x498d60  [0x114e24d60]        7
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48e5a0  [0x114e1a5a0]        6
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f528  [0x114e1b528]        6
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f568  [0x114e1b568]        6
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x492444  [0x114e1e444]        6
+        ???  (in libgmsh.4.15.dylib)  load address 0x11498c000 + 0x48f584  [0x114e1b584]        5
+
+Binary Images:
+       0x104ee8000 -        0x104ee965b +python3.10 (???) <4C4C44F6-5555-3144-A1FD-FB6869AC8859> /Users/*/python3.10
+       0x10533c000 -        0x105353fff +_umath_linalg.cpython-310-darwin.so (0) <8DAA5671-1EFC-3BC2-83EB-BAAB13044C96> /Volumes/*/_umath_linalg.cpython-310-darwin.so
+       0x1060e4000 -        0x106b7586f +libpython3.10.dylib (3.10) <4C4C4429-5555-3144-A13D-216211AA73BF> /Users/*/libpython3.10.dylib
+       0x10b1d4000 -        0x10b5911e7 +_pydantic_core.cpython-310-darwin.so (0) <371BADA8-62C2-3E3B-A6AE-E7F4AFBEBFEF> /Volumes/*/_pydantic_core.cpython-310-darwin.so
+       0x10bc14000 -        0x10bec3fff +_multiarray_umath.cpython-310-darwin.so (0) <03B48752-C999-3D09-B533-4C99D12AD7B4> /Volumes/*/_multiarray_umath.cpython-310-darwin.so
+       0x10d930000 -        0x10f51bfc7 +_vsp.so (0) <FA7A7FA4-2436-378E-8273-68522A1F556C> /Volumes/*/_vsp.so
+       0x11498c000 -        0x118d03ff3 +libgmsh.4.15.dylib (0) <2193FA00-25C1-3D8A-A22E-51C11D4EBBE1> /Volumes/*/libgmsh.4.15.dylib
+       0x189ad4000 -        0x189b26b4b  libobjc.A.dylib (951.7) <2E858E25-1FF6-3DA6-84F6-911630620512> /usr/lib/libobjc.A.dylib
+       0x189b27000 -        0x189b5bb34  libdyld.dylib (1376.6) <2C3C5F75-3686-39A1-9202-BD4D2133379D> /usr/lib/system/libdyld.dylib
+       0x189b5c000 -        0x189c01ec7  dyld (1.0.0 - 1376.6) <9F682DCF-340C-3BFA-BCDD-DD702F30313E> /usr/lib/dyld
+       0x189c02000 -        0x189c05228  libsystem_blocks.dylib (96) <2EA73169-CF76-3DD1-9869-F23C8B338022> /usr/lib/system/libsystem_blocks.dylib
+       0x189c06000 -        0x189c5a51f  libxpc.dylib (3102.100.102) <618039C8-9965-3782-A7D2-90FD4C3DD66F> /usr/lib/system/libxpc.dylib
+       0x189c5b000 -        0x189c7b9bf  libsystem_trace.dylib (1861.100.19) <08629650-54FC-3AA6-910E-EACA563804D0> /usr/lib/system/libsystem_trace.dylib
+       0x189c7c000 -        0x189d29daf  libcorecrypto.dylib (1922.101.2) <D1EC203E-9B2E-391B-8DE3-7C58F0589437> /usr/lib/system/libcorecrypto.dylib
+       0x189d2a000 -        0x189d7a1d7  libsystem_malloc.dylib (812.100.31) <2AD21BE3-FFDB-31D5-A3D7-2F7F672D6E92> /usr/lib/system/libsystem_malloc.dylib
+       0x189d7b000 -        0x189dc223f  libdispatch.dylib (1542.100.32) <E17AA23F-DB2A-3302-B14C-F6B08C540FCF> /usr/lib/system/libdispatch.dylib
+       0x189dc3000 -        0x189dc5ffb  libsystem_featureflags.dylib (103) <0DE01F76-4B36-35A2-98F9-43DD147EDD95> /usr/lib/system/libsystem_featureflags.dylib
+       0x189dc6000 -        0x189e46ef7  libsystem_c.dylib (1752.100.10) <66EBD321-6899-3863-BA24-5CFC3076A0CB> /usr/lib/system/libsystem_c.dylib
+       0x189e47000 -        0x189ed7ae7  libc++.1.dylib (2100.43) <1E9541EC-C564-38CB-BED6-46F708E8D863> /usr/lib/libc++.1.dylib
+       0x189ed8000 -        0x189ef275f  libc++abi.dylib (2100.43) <E8D325ED-3B97-325E-B494-B1B0FF93D133> /usr/lib/libc++abi.dylib
+       0x189ef3000 -        0x189f3028f  libsystem_kernel.dylib (12377.101.15) <51565B39-F595-3E96-A217-FEF29815057A> /usr/lib/system/libsystem_kernel.dylib
+       0x189f31000 -        0x189f3db3b  libsystem_pthread.dylib (539.100.4) <E7A73008-0C09-31E3-9DD9-0C61652F0E85> /usr/lib/system/libsystem_pthread.dylib
+       0x189f3e000 -        0x189f468f3  libsystem_platform.dylib (375.100.10) <D93EC420-F465-3A3A-916D-A04AF9B023EB> /usr/lib/system/libsystem_platform.dylib
+       0x189f47000 -        0x189f766eb  libsystem_info.dylib (600) <201FD67C-3DF6-3788-B132-A69CAA2AA3D7> /usr/lib/system/libsystem_info.dylib
+       0x189f77000 -        0x18a4d4c5f  com.apple.CoreFoundation (6.9 - 4424.1.402) <04941709-2330-3BF8-9213-6D33964DB448> /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation
+       0x18a4d5000 -        0x18a7efbdf  com.apple.LaunchServices (1141.1 - 1141.1) <7E01ED2D-7B3A-34D5-87F0-AA2785A5605F> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices
+       0x18a7f0000 -        0x18a9d89bf  com.apple.gpusw.MetalTools (1.0 - 1) <287AFB31-4869-3E39-BBD1-3BB410FEA798> /System/Library/PrivateFrameworks/MetalTools.framework/Versions/A/MetalTools
+       0x18a9d9000 -        0x18b1d34bf  libBLAS.dylib (1551.100.26) <4FC8C9A8-58C3-35DD-A4D8-F02D57F085ED> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+       0x18b1d4000 -        0x18b2e335f  com.apple.Lexicon-framework (1.0 - 195.12) <AE8E0828-1A0B-373D-8A02-1531D08590D7> /System/Library/PrivateFrameworks/Lexicon.framework/Versions/A/Lexicon
+       0x18b2e4000 -        0x18b451417  libSparse.dylib (184.80.2) <C7D1864B-A800-3452-B01F-CDBBC9EB70CD> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libSparse.dylib
+       0x18b452000 -        0x18b4e51df  com.apple.SystemConfiguration (1.21 - 1.21) <E192312E-A963-3625-9E4E-5BAE21807384> /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration
+       0x18b4e6000 -        0x18b51a57b  libCRFSuite.dylib (55) <33BBBA2B-3BC6-31BB-81A5-03565AF927B3> /usr/lib/libCRFSuite.dylib
+       0x18b7e3000 -        0x18c7c51df  com.apple.Foundation (6.9 - 4424.1.402) <8E9A5C62-7E95-3047-81E7-735AE1AEE5F8> /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation
+       0x18c7c6000 -        0x18c974edf  com.apple.LanguageModeling (1.0 - 433.5) <D10E108F-C0FB-3790-A1A8-BCFCC93E6899> /System/Library/PrivateFrameworks/LanguageModeling.framework/Versions/A/LanguageModeling
+       0x18c975000 -        0x18ca95cbf  com.apple.CoreDisplay (291.3 - 291.3) <193E4CF1-2F3E-3023-BC85-B995752B5290> /System/Library/Frameworks/CoreDisplay.framework/Versions/A/CoreDisplay
+       0x18ca96000 -        0x18ce5873f  com.apple.audio.AudioToolboxCore (1.0 - 1556.528) <E04892F4-3ED8-3993-8683-B8D7A40C3A2D> /System/Library/PrivateFrameworks/AudioToolboxCore.framework/Versions/A/AudioToolboxCore
+       0x18ce59000 -        0x18d081f1f  com.apple.CoreText (877.4.0.7 - 877.4.0.7) <A372F0BF-AC92-39F6-A41C-580158486082> /System/Library/Frameworks/CoreText.framework/Versions/A/CoreText
+       0x18d082000 -        0x18d817e9f  com.apple.audio.CoreAudio (5.0 - 5.0) <72080A9B-8C5B-3E6D-8DE7-0F86C3E698EC> /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio
+       0x18d818000 -        0x18dc35d1f  com.apple.security (7.0 - 61901.101.4) <4CBBF5DD-B67C-3BE4-9B97-5F113FD01950> /System/Library/Frameworks/Security.framework/Versions/A/Security
+       0x18dc36000 -        0x18df0bd33  libicucore.A.dylib (76142.4.7) <BD826EC4-73D6-3F95-ABED-001F02B4A429> /usr/lib/libicucore.A.dylib
+       0x18df0c000 -        0x18df15e5f  libsystem_darwin.dylib (1752.100.10) <D5BA0CAB-F283-3620-AAA9-1EEB718E1BA8> /usr/lib/system/libsystem_darwin.dylib
+       0x18df16000 -        0x18e20dcbf  com.apple.CoreServices.CarbonCore (1333 - 1333) <9BDEEDD0-75AB-38E6-B9D8-E639A234893A> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore
+       0x18e20e000 -        0x18e24da5b  com.apple.CoreServicesInternal (505 - 505) <A460D760-9940-3977-A0D7-900705491053> /System/Library/PrivateFrameworks/CoreServicesInternal.framework/Versions/A/CoreServicesInternal
+       0x18e24e000 -        0x18e28d1bf  com.apple.CSStore (1141.1 - 1141.1) <D703C5EE-2AC4-3EB8-9258-08501E1BD733> /System/Library/PrivateFrameworks/CoreServicesStore.framework/Versions/A/CoreServicesStore
+       0x18e28e000 -        0x18e37623f  com.apple.framework.IOKit (2.0.2 - 100231.100.18.0.1) <E4D05845-A890-377F-BB68-5972BF638119> /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit
+       0x18e377000 -        0x18e388f5b  libsystem_notify.dylib (348.100.7) <9F46F30B-B7C0-3DD7-AC38-57B78C7971FF> /usr/lib/system/libsystem_notify.dylib
+       0x18e389000 -        0x18e3e568f  libsandbox.1.dylib (2680.100.174) <371D12AD-6696-38A6-8BD0-AEC5F095D65F> /usr/lib/libsandbox.1.dylib
+       0x18e3e6000 -        0x18fb08abf  com.apple.AppKit (6.9 - 2685.50.120) <59E23BD5-D01E-305A-B96F-A5790356049A> /System/Library/Frameworks/AppKit.framework/Versions/C/AppKit
+       0x18fb09000 -        0x18fcc17df  com.apple.UIFoundation (1.0 - 1018.1) <D75D6411-8FC8-321A-9CAD-DF4C5D811D84> /System/Library/PrivateFrameworks/UIFoundation.framework/Versions/A/UIFoundation
+       0x18fcc2000 -        0x18fcd83ff  com.apple.UniformTypeIdentifiers (709 - 709) <31BBE997-B323-3535-9ADB-FD7EF7382BAC> /System/Library/Frameworks/UniformTypeIdentifiers.framework/Versions/A/UniformTypeIdentifiers
+       0x1901b3000 -        0x19028b29f  libboringssl.dylib (532.101.3) <042D12D8-A8A0-3F41-ABA8-4F0C1BC7B777> /usr/lib/libboringssl.dylib
+       0x19028c000 -        0x190640f1f  com.apple.CFNetwork (1.0 - 3860.500.112) <3D8050B5-4263-3729-AD04-DF521A24CAC9> /System/Library/Frameworks/CFNetwork.framework/Versions/A/CFNetwork
+       0x190641000 -        0x19065bf5b  libsystem_networkextension.dylib (2226.101.1) <85169C7B-48DD-3542-AD38-F1B88EA2A95A> /usr/lib/system/libsystem_networkextension.dylib
+       0x19065c000 -        0x19065d067  libenergytrace.dylib (23) <62B33A35-EA5F-3FCA-9FD4-79C4DFB82FC9> /usr/lib/libenergytrace.dylib
+       0x19065e000 -        0x1906ddc7f  libMobileGestalt.dylib (1484.100.29.0.1) <018D1CC6-9A6F-309C-92CF-A30594FB12A7> /usr/lib/libMobileGestalt.dylib
+       0x1906de000 -        0x1906f5fdf  libsystem_asl.dylib (406) <6427D987-7938-3278-8C14-10FB9C06BBD5> /usr/lib/system/libsystem_asl.dylib
+       0x1906f6000 -        0x190719827  com.apple.TCC (1.0 - 1) <BC682334-20A5-3374-9FC6-627EA7921E04> /System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC
+       0x19071a000 -        0x190cceb5f  com.apple.SkyLight (1.600.0 - 921.13.1) <EF82BE18-450B-33FE-9C68-A2C88144F367> /System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight
+       0x190ccf000 -        0x191423fff  com.apple.CoreGraphics (2.0 - 1965.4.5) <B00B63EB-CE38-3544-9C9E-D5309957CE58> /System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics
+       0x191424000 -        0x1915cbb8b  com.apple.ColorSync (4.13.0 - 3813.3.3) <5467E64B-022C-3ABE-9D08-A7A433F9FC07> /System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync
+       0x1915cc000 -        0x19163735f  com.apple.HIServices (1.22 - 817) <3AA36B9F-7D37-35FF-8034-A16DABFE5981> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices
+       0x191735000 -        0x19192945f  com.apple.Montreal (1.0 - 178) <C091E6B6-4D00-3B6F-8AFB-03CAE8AEB715> /System/Library/PrivateFrameworks/Montreal.framework/Versions/A/Montreal
+       0x191a20000 -        0x191e0df5f  com.apple.CoreData (120 - 1526) <FC7B6078-A83A-39E4-B4CD-46E46FC71151> /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData
+       0x191e0e000 -        0x191e29d5f  com.apple.ProtocolBuffer (1 - 310.24.7.28.9) <66E64E0E-00B6-38DA-8A84-A90DA509B284> /System/Library/PrivateFrameworks/ProtocolBuffer.framework/Versions/A/ProtocolBuffer
+       0x191e2a000 -        0x1920129ff  libsqlite3.dylib (381) <53ABC511-4939-38EE-9170-BE252A25B254> /usr/lib/libsqlite3.dylib
+       0x192013000 -        0x19209d25f  com.apple.Accounts (113 - 113) <6EE0898E-75B7-3B03-B339-0593C023AA2F> /System/Library/Frameworks/Accounts.framework/Versions/A/Accounts
+       0x1920b5000 -        0x1921a649f  com.apple.BaseBoard (732.1.1 - 732.1.1) <F3D9ECDD-A111-3EFA-913E-7E15E7BB5318> /System/Library/PrivateFrameworks/BaseBoard.framework/Versions/A/BaseBoard
+       0x1921a7000 -        0x19221293f  com.apple.RunningBoardServices (1.0 - 1015.100.16) <4937DF6A-027A-3661-A7CC-CCE0F1674A40> /System/Library/PrivateFrameworks/RunningBoardServices.framework/Versions/A/RunningBoardServices
+       0x192213000 -        0x192286c37  com.apple.AE (944 - 944) <5376E565-7730-3F73-B948-B9D10D08A772> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE
+       0x192287000 -        0x192298d87  libdns_services.dylib (2881.100.56.0.1) <8169DB95-C8DE-322C-99BF-D592F610013E> /usr/lib/libdns_services.dylib
+       0x192299000 -        0x1922a1387  libsystem_symptoms.dylib (2169.100.30) <28B6E34E-9C7D-3437-A3F1-A3C979DE579A> /usr/lib/system/libsystem_symptoms.dylib
+       0x1922a2000 -        0x193abacff  com.apple.Network (1.0 - 5812.101.2) <66B895AF-CEE8-378F-ABD8-D4F9738476CA> /System/Library/Frameworks/Network.framework/Versions/A/Network
+       0x193abb000 -        0x193aeaddf  com.apple.analyticsd (1.0 - 1) <ED4098AC-ECE3-3A22-92F1-A2292DFC13F2> /System/Library/PrivateFrameworks/CoreAnalytics.framework/Versions/A/CoreAnalytics
+       0x193aeb000 -        0x193aec8bb  libDiagnosticMessagesClient.dylib (113) <D5EBC67A-F9F1-3105-A4D0-F1AE518EA2A6> /usr/lib/libDiagnosticMessagesClient.dylib
+       0x193aed000 -        0x193b5901f  com.apple.spotlight.metadata.utilities (1.0 - 2418.4.13.404) <0DFEA3CB-1A37-390A-956D-D956B8688AC6> /System/Library/PrivateFrameworks/MetadataUtilities.framework/Versions/A/MetadataUtilities
+       0x193b5a000 -        0x193be5b5f  com.apple.Metadata (26.4 - 2418.4.13.404) <9A860898-453E-36F4-9830-6D754A8C7CDC> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata
+       0x193be6000 -        0x193bef1eb  com.apple.DiskArbitration (2.7 - 2.7) <CB2C8249-4DCA-34C5-97C0-368485718E68> /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration
+       0x193bf0000 -        0x194014023  com.apple.vImage (8.1 - 632.100.6) <E718351A-2443-3919-8135-67ADB9312327> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage
+       0x194015000 -        0x19442a59f  com.apple.QuartzCore (1195.9 - 1195.9) <B1C40645-C68A-3850-BBC4-29F74E486DF9> /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore
+       0x19442b000 -        0x19447c4ff  libFontRegistry.dylib (408.4.0.1) <16C4640D-B9D6-35E1-9813-DD8480382152> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/Resources/libFontRegistry.dylib
+       0x19447d000 -        0x1946037bf  com.apple.coreui (2.1 - 974.1) <1B12A15C-6172-3FB5-AA64-B5C3F2473F6B> /System/Library/PrivateFrameworks/CoreUI.framework/Versions/A/CoreUI
+       0x194739000 -        0x194742e7f  com.apple.PerformanceAnalysis (1.427 - 427) <ECB271C4-DEED-3295-8200-451EE1509B28> /System/Library/PrivateFrameworks/PerformanceAnalysis.framework/Versions/A/PerformanceAnalysis
+       0x194743000 -        0x194750aff  com.apple.OpenDirectory (26.4 - 666.100.1) <C0B8EA4A-22A3-3801-A66E-C42358AC0468> /System/Library/Frameworks/OpenDirectory.framework/Versions/A/OpenDirectory
+       0x194751000 -        0x19477a27f  com.apple.CFOpenDirectory (26.4 - 666.100.1) <3C2B9FAA-A99C-34B6-AA54-601FF113111D> /System/Library/Frameworks/OpenDirectory.framework/Versions/A/Frameworks/CFOpenDirectory.framework/Versions/A/CFOpenDirectory
+       0x19477b000 -        0x19478791b  com.apple.CoreServices.FSEvents (1413.100.6 - 1413.100.6) <EB26C31A-4C42-31CD-B48B-9BFCCFAA7A4B> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/FSEvents
+       0x194788000 -        0x1947b10df  com.apple.coreservices.SharedFileList (225 - 225) <5BCA48BA-0BDB-355B-9F0A-75E649EC3359> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/SharedFileList.framework/Versions/A/SharedFileList
+       0x1947b2000 -        0x1947b508f  libapp_launch_measurement.dylib (17) <DBB6338E-E92E-364B-8714-9578C3E53B7E> /usr/lib/libapp_launch_measurement.dylib
+       0x1947b6000 -        0x1947fe9bf  com.apple.CoreAutoLayout (1.0 - 34) <EF256F92-D3A3-3C65-97B9-DBAED3A57A8D> /System/Library/PrivateFrameworks/CoreAutoLayout.framework/Versions/A/CoreAutoLayout
+       0x1947ff000 -        0x1948e513b  libxml2.2.dylib (39.10) <B627FBCA-2F68-3C56-B092-73F62A6FCC92> /usr/lib/libxml2.2.dylib
+       0x1948e6000 -        0x19496685f  com.apple.CoreVideo (1.8 - 734.4) <27CE0BA7-202B-34AC-BA6C-56891CCEC5F1> /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo
+       0x194967000 -        0x194969f5f  com.apple.loginsupport (3.0 - 264.4.1) <D27E83AC-E64D-3180-ACB3-9FDAC47541DD> /System/Library/PrivateFrameworks/login.framework/Versions/A/Frameworks/loginsupport.framework/Versions/A/loginsupport
+       0x1949a8000 -        0x1949d465f  com.apple.UserManagement (1.0 - 1) <0C8B7C6C-CCCD-3EAF-B5E5-D4B6F776123A> /System/Library/PrivateFrameworks/UserManagement.framework/Versions/A/UserManagement
+       0x194ed0000 -        0x19570979f  com.apple.CoreML (1.0 - 3520.5.1) <1B0B67DA-8096-3CDD-969F-B38DF46FACC8> /System/Library/Frameworks/CoreML.framework/Versions/A/CoreML
+       0x196534000 -        0x19656c25f  libsystem_containermanager.dylib (725.100.37) <14750F95-BB3A-3654-8610-A05A454643A8> /usr/lib/system/libsystem_containermanager.dylib
+       0x19656d000 -        0x19658925f  com.apple.IOSurface (393.5.7 - 393.5.7) <6A59B8B3-E55E-315B-87BF-260C95008770> /System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface
+       0x19658a000 -        0x19659405f  com.apple.IOAccelerator (487.4.3 - 487.4.3) <D7DC2BD8-513C-3354-ACC0-C3140D9A0A86> /System/Library/PrivateFrameworks/IOAccelerator.framework/Versions/A/IOAccelerator
+       0x196595000 -        0x19686ecdf  com.apple.Metal (372.16 - 372.16) <4E1D8F53-729B-3232-A184-2E9CD18AAD43> /System/Library/Frameworks/Metal.framework/Versions/A/Metal
+       0x19686f000 -        0x19689803f  com.apple.audio.caulk (1.0 - 214.501) <2BDD6811-CE34-3098-9833-10D9F74B7FFC> /System/Library/PrivateFrameworks/caulk.framework/Versions/A/caulk
+       0x196899000 -        0x196a3a01f  com.apple.CoreMedia (1.0 - 3305.24.5.2) <09574F0D-9398-3C09-9DE8-F3834E693B68> /System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia
+       0x196a3b000 -        0x196d0a25f  libFontParser.dylib (435.4.0.2) <8B98C347-62C7-38F2-92C8-244B6DFD3639> /System/Library/PrivateFrameworks/FontServices.framework/libFontParser.dylib
+       0x196d0b000 -        0x19700605f  com.apple.HIToolbox (2.1.1 - 1249.3) <BCB81496-C81F-3D3E-A617-CCCA047989E0> /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox
+       0x197007000 -        0x19701b5ff  com.apple.framework.DFRFoundation (1.0 - 293.1.1) <550E7FEC-455D-35A4-A4BD-EC452B2DA3FC> /System/Library/PrivateFrameworks/DFRFoundation.framework/Versions/A/DFRFoundation
+       0x19701c000 -        0x19702135f  com.apple.dt.XCTTargetBootstrap (26.4 - 24823) <416B231E-8505-3F79-A2C4-E53A03BFCD6C> /System/Library/PrivateFrameworks/XCTTargetBootstrap.framework/Versions/A/XCTTargetBootstrap
+       0x197022000 -        0x19705f19f  com.apple.CoreSVG (1.0 - 341) <30BC4F58-5464-3ABE-ADFB-03A980C6DFE1> /System/Library/PrivateFrameworks/CoreSVG.framework/Versions/A/CoreSVG
+       0x197060000 -        0x19739ecff  com.apple.ImageIO (3.3.0 - 2784.4.14) <7FA508AE-1EC7-36B6-AE29-EDD453A34CAD> /System/Library/Frameworks/ImageIO.framework/Versions/A/ImageIO
+       0x19739f000 -        0x197889eff  com.apple.CoreImage (19.0.0 - 1592.80.2) <8ED0F6C5-AFF1-3217-B13C-DC2FB7090F2D> /System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage
+       0x19788a000 -        0x197943ddf  com.apple.MetalPerformanceShaders.MPSCore (1.0 - 1) <8E8DEA53-FF92-3DA6-A47E-BA27226D8029> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSCore.framework/Versions/A/MPSCore
+       0x197944000 -        0x1979485d7  libsystem_configuration.dylib (1405.100.8) <634F597D-F8BD-3C00-B967-86047FC15D14> /usr/lib/system/libsystem_configuration.dylib
+       0x197949000 -        0x19794f8cf  libsystem_sandbox.dylib (2680.100.174) <AF76231D-EADC-3399-9414-6AD90FB4EA89> /usr/lib/system/libsystem_sandbox.dylib
+       0x197950000 -        0x19795117f  com.apple.AggregateDictionary (1.0 - 1) <1178C8EA-95DB-3BBA-A00F-E6D3A647940E> /System/Library/PrivateFrameworks/AggregateDictionary.framework/Versions/A/AggregateDictionary
+       0x197952000 -        0x1979564d3  com.apple.AppleSystemInfo (3.1.5 - 3.1.5) <450E68B1-E42E-3448-8003-6E070946E9E7> /System/Library/PrivateFrameworks/AppleSystemInfo.framework/Versions/A/AppleSystemInfo
+       0x197957000 -        0x19795846b  liblangid.dylib (140) <A5624740-6148-34D2-B600-FB6FD4FB8451> /usr/lib/liblangid.dylib
+       0x197959000 -        0x197a7845f  com.apple.CoreNLP (1.0 - 313) <1B118152-B1A9-315A-8B44-BDAC6FB589B5> /System/Library/PrivateFrameworks/CoreNLP.framework/Versions/A/CoreNLP
+       0x197a79000 -        0x197a7f91f  com.apple.LinguisticData (1.0 - 483.10) <3273A361-CE08-3AED-91E9-55AB460015F3> /System/Library/PrivateFrameworks/LinguisticData.framework/Versions/A/LinguisticData
+       0x197a80000 -        0x198af47ef  libBNNS.dylib (1961.100.57) <BEA265F4-3EBD-39BD-89B3-39F251359D46> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBNNS.dylib
+       0x198af5000 -        0x198c3246f  libvDSP.dylib (1126.100.7) <7F1C88BC-7C8D-3D5C-B38C-43082CD9C468> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib
+       0x198c33000 -        0x198c6663f  com.apple.CoreEmoji (1.0 - 261.4.6) <65E5FCDB-BD0C-3023-8B50-75CDC213937D> /System/Library/PrivateFrameworks/CoreEmoji.framework/Versions/A/CoreEmoji
+       0x198c67000 -        0x198ca0267  com.apple.IOMobileFramebuffer (343.0.0 - 343.0.0) <4E324CA4-23BF-3216-8749-717D5AD761B3> /System/Library/PrivateFrameworks/IOMobileFramebuffer.framework/Versions/A/IOMobileFramebuffer
+       0x198d24000 -        0x198e97e1f  com.apple.CoreUtils (8.2 - 820.46) <B6ECB9CF-DC74-3D6E-AD7D-0441729179E9> /System/Library/PrivateFrameworks/CoreUtils.framework/Versions/A/CoreUtils
+       0x198e98000 -        0x198eaf6df  com.apple.MobileKeyBag (2.0 - 1.0) <F8D5F6A0-E9FC-3CD4-ABDB-C1AE9347AB2B> /System/Library/PrivateFrameworks/MobileKeyBag.framework/Versions/A/MobileKeyBag
+       0x198eb0000 -        0x198ebe0ff  com.apple.AssertionServices (1.0 - 1015.100.16) <8BDF4215-2AE2-38A1-92D9-8D503B064790> /System/Library/PrivateFrameworks/AssertionServices.framework/Versions/A/AssertionServices
+       0x198ebf000 -        0x198f51a9f  com.apple.securityfoundation (6.0 - 55293) <46DCD2FA-35AA-3CE1-AF5A-CB7D207E4B95> /System/Library/Frameworks/SecurityFoundation.framework/Versions/A/SecurityFoundation
+       0x198f52000 -        0x198f832ff  com.apple.coreservices.BackgroundTaskManagement (1.0 - 104) <92EFE219-3F5F-31DE-BF8F-A48374CC3A11> /System/Library/PrivateFrameworks/BackgroundTaskManagement.framework/Versions/A/BackgroundTaskManagement
+       0x198f8f000 -        0x198f921fb  libquarantine.dylib (196.100.8) <268FEB6E-A237-3050-BFFF-AE3A66B7EAD4> /usr/lib/system/libquarantine.dylib
+       0x198f93000 -        0x198f9e2bf  libCheckFix.dylib (33) <01812E54-6AFA-31D0-9ED8-9780885AA285> /usr/lib/libCheckFix.dylib
+       0x198f9f000 -        0x198fb67ab  libcoretls.dylib (187.100.3) <2CB72424-441F-392D-8F30-40B6DEE19795> /usr/lib/libcoretls.dylib
+       0x198fb7000 -        0x198fc8273  libbsm.0.dylib (90) <B2A2B623-537B-3853-A317-53DC4943A4D8> /usr/lib/libbsm.0.dylib
+       0x198fc9000 -        0x199027c6b  libmecab.dylib (1121.4.4) <AFC99DD8-D62A-3790-B5AA-537CAF849CDA> /usr/lib/libmecab.dylib
+       0x199028000 -        0x19902a41b  libgermantok.dylib (31) <F04FD03E-0352-3625-8E4C-BA96210FD966> /usr/lib/libgermantok.dylib
+       0x19902b000 -        0x19903ee3f  libLinearAlgebra.dylib (1551.100.26) <CD0AE837-ED86-307A-BAB6-69E9B55E809F> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLinearAlgebra.dylib
+       0x19903f000 -        0x19929517f  com.apple.MetalPerformanceShaders.MPSNeuralNetwork (1.0 - 1) <891172A3-75F1-325A-A3A9-7CF2E3F31D79> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSNeuralNetwork.framework/Versions/A/MPSNeuralNetwork
+       0x199296000 -        0x1992ea19f  com.apple.MetalPerformanceShaders.MPSRayIntersector (1.0 - 1) <F10D9EF3-65A3-3DA6-8336-465E4A4C5076> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSRayIntersector.framework/Versions/A/MPSRayIntersector
+       0x1992eb000 -        0x19947dedf  com.apple.MLCompute (1.0 - 1) <5189B965-70C0-3362-96D8-AD587217F5ED> /System/Library/Frameworks/MLCompute.framework/Versions/A/MLCompute
+       0x19947e000 -        0x1994af57f  com.apple.MetalPerformanceShaders.MPSMatrix (1.0 - 1) <3CAC578C-742A-360E-B6FE-703AB65552A3> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSMatrix.framework/Versions/A/MPSMatrix
+       0x1994b0000 -        0x19967fe7f  com.apple.MetalPerformanceShaders.MPSNDArray (1.0 - 1) <93BA8B8F-DD36-370F-B6FF-F47614F314A7> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSNDArray.framework/Versions/A/MPSNDArray
+       0x199680000 -        0x1997141df  com.apple.MetalPerformanceShaders.MPSImage (1.0 - 1) <CB3CEFB0-2E32-3E00-A252-81B8CE6E3DFE> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSImage.framework/Versions/A/MPSImage
+       0x199715000 -        0x1997204b3  com.apple.AppleFSCompression (174.100.2 - 1.0) <5E4BD0FD-F038-33D2-AF7E-5DEC574FF457> /System/Library/PrivateFrameworks/AppleFSCompression.framework/Versions/A/AppleFSCompression
+       0x199721000 -        0x19972d0a3  libbz2.1.0.dylib (47) <95721BB3-328F-34A5-9567-4BB14DD45268> /usr/lib/libbz2.1.0.dylib
+       0x19972e000 -        0x199734d03  libsystem_coreservices.dylib (191.4.5) <7129349D-04F9-3C3C-BF37-3082C1468654> /usr/lib/system/libsystem_coreservices.dylib
+       0x199735000 -        0x199766adf  com.apple.CoreServices.OSServices (1141.1 - 1141.1) <AE3050F3-46C3-3A20-B1F2-DF7F9400A9F0> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices
+       0x199ae8000 -        0x199b386ff  com.apple.UserNotifications (1.0 - 640.4.40) <32687746-BA09-3EB4-A67C-E7CDBDD97EB8> /System/Library/Frameworks/UserNotifications.framework/Versions/A/UserNotifications
+       0x199ca4000 -        0x199cb2d87  libz.1.dylib (100) <25DC8186-B2D8-3839-9F10-D89BC289ECFF> /usr/lib/libz.1.dylib
+       0x199cb3000 -        0x199cf0a77  libsystem_m.dylib (3312.100.1) <83B173CD-7F32-3901-8E67-C0B2676BE015> /usr/lib/system/libsystem_m.dylib
+       0x199cf1000 -        0x199cf1c9b  libcharset.1.dylib (115.100.1) <994633BA-AA7A-31BF-94C5-E31A08CA6243> /usr/lib/libcharset.1.dylib
+       0x199cf2000 -        0x199cf5527  libmacho.dylib (1376.6) <9729ECEA-0A08-32E3-8BDB-B42FC15FF258> /usr/lib/system/libmacho.dylib
+       0x199cf6000 -        0x199d0edc3  libkxld.dylib (12377.101.15) <6808ADDF-053F-3215-916D-A375A3531661> /usr/lib/system/libkxld.dylib
+       0x199d0f000 -        0x199d1c3a7  libcommonCrypto.dylib (600035) <710EC5FA-F77C-3646-A9E3-C037C42E1539> /usr/lib/system/libcommonCrypto.dylib
+       0x199d1d000 -        0x199d26ca3  libunwind.dylib (2100.2) <FB0518B9-DF0F-3A03-A74B-AF1B21C26F8B> /usr/lib/system/libunwind.dylib
+       0x199d27000 -        0x199d2e349  liboah.dylib (367.5) <2FC1EF06-04C4-35FC-8DC3-BEA1E9FBD63F> /usr/lib/liboah.dylib
+       0x199d2f000 -        0x199d397ff  libcopyfile.dylib (240) <0B7FF027-5579-3CBF-A12B-68A4FD36641C> /usr/lib/system/libcopyfile.dylib
+       0x199d3a000 -        0x199d3d987  libcompiler_rt.dylib (103.3) <65E29E6E-7042-3F73-A1D2-F2C4EBCD7524> /usr/lib/system/libcompiler_rt.dylib
+       0x199d3e000 -        0x199d4278b  libsystem_collections.dylib (1752.100.10) <B81193DE-3BEC-3340-86D0-DB7F3683D135> /usr/lib/system/libsystem_collections.dylib
+       0x199d43000 -        0x199d464cf  libsystem_secinit.dylib (168.100.7) <A6B77B36-195D-33F8-8058-FE0B5BFA9D37> /usr/lib/system/libsystem_secinit.dylib
+       0x199d47000 -        0x199d49bf7  libremovefile.dylib (85.100.6) <BD89B1A3-0D06-3881-B5E1-EFC6CFBDFCC1> /usr/lib/system/libremovefile.dylib
+       0x199d4a000 -        0x199d4af27  libkeymgr.dylib (31) <DE8F8219-0072-35C2-8932-C065491ED15D> /usr/lib/system/libkeymgr.dylib
+       0x199d4b000 -        0x199d53e3f  libsystem_dnssd.dylib (2881.100.56.0.1) <DEC8BDD2-366C-3BF9-A123-35744DB06354> /usr/lib/system/libsystem_dnssd.dylib
+       0x199d54000 -        0x199d5909b  libcache.dylib (95) <4D6833A3-C910-3A76-AA8A-303F698B36BF> /usr/lib/system/libcache.dylib
+       0x199d5a000 -        0x199d5bce3  libSystem.B.dylib (1356) <E05F5341-06B7-365E-8014-E9CD64C352FE> /usr/lib/libSystem.B.dylib
+       0x199d5c000 -        0x199d5dfcf  libfakelink.dylib (5) <0DECB33A-FC26-3C73-8762-E9C8F15343AD> /usr/lib/libfakelink.dylib
+       0x199d5e000 -        0x199d5ea33  com.apple.SoftLinking (1.0 - 71) <FACACD62-537D-3FF8-B1D4-B1685938C303> /System/Library/PrivateFrameworks/SoftLinking.framework/Versions/A/SoftLinking
+       0x199d94000 -        0x199d9b1cb  libiconv.2.dylib (115.100.1) <E384E5FE-DFF5-36ED-88C8-0EEF2FBF89CE> /usr/lib/libiconv.2.dylib
+       0x199d9c000 -        0x199dae457  libcmph.dylib (9) <269122C5-B3B8-3881-8C9B-6BFF0812B183> /usr/lib/libcmph.dylib
+       0x199daf000 -        0x199ea6aaf  libarchive.2.dylib (167) <9F7CC46A-CC71-3EF8-BFE9-ABE40819EA73> /usr/lib/libarchive.2.dylib
+       0x199ea7000 -        0x199f0c85b  com.apple.SearchKit (1.4.2 - 1.4.2) <3E8F0ABC-A863-3A3E-8B0C-D01A44A98468> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit
+       0x199f0d000 -        0x199f1518f  libThaiTokenizer.dylib (28) <C2DE957F-29A8-324D-AB0F-1EADC7BB4E89> /usr/lib/libThaiTokenizer.dylib
+       0x199f16000 -        0x199f39f37  com.apple.applesauce (1.0 - 17.7) <8468AF10-88F2-3DD8-9DD4-0BBFCA10B055> /System/Library/PrivateFrameworks/AppleSauce.framework/Versions/A/AppleSauce
+       0x199f3a000 -        0x199f5223b  libapple_nghttp2.dylib (37) <33B20CAF-51C2-32E9-B20B-7F3B137BFFB9> /usr/lib/libapple_nghttp2.dylib
+       0x199f53000 -        0x199f79ac3  libSparseBLAS.dylib (1551.100.26) <1BC4EAAD-4363-31DF-8C91-022B24AD87CD> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libSparseBLAS.dylib
+       0x199f7a000 -        0x199f7b63f  com.apple.MetalPerformanceShaders.MetalPerformanceShaders (1.0 - 1) <59D13EAF-0DF5-3A93-9E12-7A1D22B52520> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/MetalPerformanceShaders
+       0x199f7c000 -        0x199f81ff7  libpam.2.dylib (35) <CF7680E1-7AB2-39A5-B30C-E3AB30A5B0BB> /usr/lib/libpam.2.dylib
+       0x199f82000 -        0x19a051417  libcompression.dylib (193.100.5) <0C99FEA2-9041-3226-9995-046879C3B9B1> /usr/lib/libcompression.dylib
+       0x19a052000 -        0x19a056267  libQuadrature.dylib (8) <B6674817-731D-3178-A928-7963E5EED61C> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libQuadrature.dylib
+       0x19a057000 -        0x19b22794f  libLAPACK.dylib (1551.100.26) <9170F5E5-6D1E-3667-BDCF-E74CC880EB06> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib
+       0x19b228000 -        0x19b27e41f  com.apple.DictionaryServices (1.2 - 373) <EFE68757-B99A-3768-8494-2E54E23C2172> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/DictionaryServices.framework/Versions/A/DictionaryServices
+       0x19b27f000 -        0x19b29d4f7  liblzma.5.dylib (21) <7BC382B4-38A9-3054-8D3F-ED10CFBFF192> /usr/lib/liblzma.5.dylib
+       0x19b29e000 -        0x19b29f85f  libcoretls_cfhelpers.dylib (187.100.3) <67086CB0-340C-3DFD-B1E0-2B4C7C77026A> /usr/lib/libcoretls_cfhelpers.dylib
+       0x19b2a0000 -        0x19b3136cb  com.apple.APFS (2811.101.1 - 2811.101.1) <86DD0616-A944-3596-8742-36F86E537A74> /System/Library/PrivateFrameworks/APFS.framework/Versions/A/APFS
+       0x19b314000 -        0x19b322693  libxar.1.dylib (503) <A3F96FD4-FBE8-3867-93EE-7FF4F9B3E867> /usr/lib/libxar.1.dylib
+       0x19b323000 -        0x19b32679b  libutil.dylib (73) <4FE4BA84-8B65-343C-9A7C-A174849301F1> /usr/lib/libutil.dylib
+       0x19b327000 -        0x19b351cdf  libxslt.1.dylib (21.13) <D88D4FE7-8B33-3553-9CC8-8C5888B8BAA9> /usr/lib/libxslt.1.dylib
+       0x19b35a000 -        0x19b3d3587  libvMisc.dylib (1126.100.7) <4E031DEB-7FC6-343A-8CCA-61617B5C6DF1> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib
+       0x19b3d4000 -        0x19b46345f  libate.dylib (3.0.9) <18973DAC-3297-3904-B329-A46242C87ABA> /usr/lib/libate.dylib
+       0x19b464000 -        0x19b46c923  libIOReport.dylib (107) <78134EA0-367B-3D1D-94A2-75BDB03E5C7E> /usr/lib/libIOReport.dylib
+       0x19b46d000 -        0x19b4801bf  com.apple.CrashReporterSupport (10.13 - 15140) <1238D09C-0D64-377F-913D-2DD04FEE8AF2> /System/Library/PrivateFrameworks/CrashReporterSupport.framework/Versions/A/CrashReporterSupport
+       0x19b4a2000 -        0x19b59f83f  com.apple.CVNLP (1.0 - 119) <CD3D3C09-E9C8-3AF6-B2A0-A61DA0886AA1> /System/Library/PrivateFrameworks/CVNLP.framework/Versions/A/CVNLP
+       0x19b5c4000 -        0x19b604f9f  com.apple.pluginkit.framework (1.0 - 1) <FB09CB89-BB7F-3085-B035-2D99017521B0> /System/Library/PrivateFrameworks/PlugInKit.framework/Versions/A/PlugInKit
+       0x19b605000 -        0x19b60c403  libMatch.1.dylib (49) <9C90F41C-F7B9-356C-A2E6-61A6362F7943> /usr/lib/libMatch.1.dylib
+       0x19b67b000 -        0x19b6c39ff  com.apple.AppleVAFramework (6.2.10 - 6.2.10) <860D72AD-8149-3F4E-ACF4-EAED5CB1A85E> /System/Library/PrivateFrameworks/AppleVA.framework/Versions/A/AppleVA
+       0x19b6c4000 -        0x19b6decbf  libexpat.1.dylib (45) <703912FD-D1AE-310C-BC05-7388D6CED6F5> /usr/lib/libexpat.1.dylib
+       0x19b6df000 -        0x19b6e8bd3  libheimdal-asn1.dylib (710.100.4) <9DA69DFC-DDCE-3986-8997-B944EE0A9965> /usr/lib/libheimdal-asn1.dylib
+       0x19b6e9000 -        0x19b74961f  com.apple.IconFoundation (494 - 494) <B3CD5CD7-92FB-3CBC-98CA-133548B63270> /System/Library/PrivateFrameworks/IconFoundation.framework/Versions/A/IconFoundation
+       0x19b74a000 -        0x19b8082ff  com.apple.IconServices (494 - 494) <B44E2BF9-0F0F-3CE1-8102-862AC2FC3215> /System/Library/PrivateFrameworks/IconServices.framework/Versions/A/IconServices
+       0x19b809000 -        0x19b8ca67f  com.apple.MediaExperience (1.0 - 1) <A9DA4BC3-09C2-3E8B-8345-5A53F0D33056> /System/Library/PrivateFrameworks/MediaExperience.framework/Versions/A/MediaExperience
+       0x19b8f8000 -        0x19b9077ff  com.apple.GraphVisualizer (1.0 - 307) <967136C2-27D1-363D-BB62-7029C00A0FA2> /System/Library/PrivateFrameworks/GraphVisualizer.framework/Versions/A/GraphVisualizer
+       0x19b908000 -        0x19b94751f  com.apple.OTSVG (1.0 - 877.4.0.7) <F032D306-361F-36D7-AB5C-10B81D4326E4> /System/Library/PrivateFrameworks/OTSVG.framework/Versions/A/OTSVG
+       0x19b948000 -        0x19b954c7f  com.apple.xpc.AppServerSupport (1.0 - 3102.100.102) <A88EE161-4724-302C-A026-D1B87AD54106> /System/Library/PrivateFrameworks/AppServerSupport.framework/Versions/A/AppServerSupport
+       0x19b955000 -        0x19b95babf  libspindump.dylib (419.2.4) <7FD26E92-31BB-390A-A80B-29D8AAE9FAD8> /usr/lib/libspindump.dylib
+       0x19b95c000 -        0x19ba1cdff  com.apple.Heimdal (4.0 - 2.0) <26F4315D-6DD3-34D6-B479-B1032834C093> /System/Library/PrivateFrameworks/Heimdal.framework/Versions/A/Heimdal
+       0x19ba41000 -        0x19bbc1b5f  com.apple.corebrightness (1.0 - 1) <C2271915-D67F-3895-A911-58EF8907C63D> /System/Library/PrivateFrameworks/CoreBrightness.framework/Versions/A/CoreBrightness
+       0x19bceb000 -        0x19bd2f6ef  com.apple.AppleJPEG (1.0 - 1) <A67D4167-3070-3F74-AAA3-D026E9B24C20> /System/Library/PrivateFrameworks/AppleJPEG.framework/Versions/A/AppleJPEG
+       0x19bd30000 -        0x19bef092f  libJP2.dylib (2784.4.14) <04679436-B3A9-3394-ACB5-74AE06684A27> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib
+       0x19bef1000 -        0x19bef2e1f  com.apple.WatchdogClient.framework (1.0 - 333) <62C8465E-0729-3B6F-A298-6BB40D0BD3ED> /System/Library/PrivateFrameworks/WatchdogClient.framework/Versions/A/WatchdogClient
+       0x19bef3000 -        0x19bf38c1f  com.apple.MultitouchSupport.framework (9440.9 - 9440.9) <DBBEDD3D-E0C4-3520-9548-5DD8A346A941> /System/Library/PrivateFrameworks/MultitouchSupport.framework/Versions/A/MultitouchSupport
+       0x19bf39000 -        0x19c48f29f  com.apple.VideoToolbox (1.0 - 3305.24.5.2) <C266DA23-A7F3-3D85-81F6-8A9DCD783FD9> /System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox
+       0x19c490000 -        0x19c4b520f  libAudioToolboxUtility.dylib (1556.528) <C2B4CF76-E4A5-32C0-A5F3-8127BDCA92EB> /usr/lib/libAudioToolboxUtility.dylib
+       0x19c4b6000 -        0x19c4e001f  libPng.dylib (2784.4.14) <77ADBD9D-5B48-3588-AB0F-721187BED8EC> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib
+       0x19c4e1000 -        0x19c541a77  libTIFF.dylib (2784.4.14) <88FF9BDE-4C76-3616-A764-9E8C89F7237B> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib
+       0x19c542000 -        0x19c561257  com.apple.IOPresentment (67 - 67) <964E964E-0852-3F03-8B48-331B3102CFE9> /System/Library/PrivateFrameworks/IOPresentment.framework/Versions/A/IOPresentment
+       0x19c562000 -        0x19c5667d3  com.apple.GPUWrangler (8.1.12 - 8.1.12) <87A30363-DC91-34AA-9E7F-34CE76339267> /System/Library/PrivateFrameworks/GPUWrangler.framework/Versions/A/GPUWrangler
+       0x19c567000 -        0x19c569913  libRadiance.dylib (2784.4.14) <9A06F7A0-3845-30D5-95F6-FD16510B8BA9> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib
+       0x19c56a000 -        0x19c56f2f3  com.apple.DSExternalDisplay (3.1 - 380) <B9FC4FDF-0C94-3E77-AE41-B204D287F253> /System/Library/PrivateFrameworks/DSExternalDisplay.framework/Versions/A/DSExternalDisplay
+       0x19c570000 -        0x19c59abaf  libJPEG.dylib (2784.4.14) <77A9D581-5B49-3D6D-AF13-3CF5F6B3301E> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib
+       0x19c59b000 -        0x19c5c857f  com.apple.ATSUI (1.0 - 1) <A415A327-EBE6-34A5-AED1-713B89F40A23> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATSUI.framework/Versions/A/ATSUI
+       0x19c5c9000 -        0x19c5ce9fb  libGIF.dylib (2784.4.14) <2C78C162-3F2C-3159-84F4-8E3AE1DDB990> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib
+       0x19c5cf000 -        0x19c5df19f  com.apple.CMCaptureCore (1.0 - 665.101.3) <2DE5381F-785A-3983-BBC7-0753BB151F14> /System/Library/PrivateFrameworks/CMCaptureCore.framework/Versions/A/CMCaptureCore
+       0x19c5e0000 -        0x19c65271f  com.apple.print.framework.PrintCore (19 - 601.2) <A3EBBAA4-FD6A-3841-B784-0242A5B581E6> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore
+       0x19c653000 -        0x19c6e991f  com.apple.TextureIO (3.10.12 - 3.10.12) <B81B7342-77B2-3DFE-ADE1-C52E21AB7386> /System/Library/PrivateFrameworks/TextureIO.framework/Versions/A/TextureIO
+       0x19c6ea000 -        0x19c9f3f9f  com.apple.InternationalSupport (1.0 - 74) <526A16B3-FD9E-3265-8437-D98395B61A62> /System/Library/PrivateFrameworks/InternationalSupport.framework/Versions/A/InternationalSupport
+       0x19c9f4000 -        0x19ca45cff  com.apple.datadetectorscore (8.0 - 821.6) <C3EB8FCD-83FD-33EF-8E47-205D49127063> /System/Library/PrivateFrameworks/DataDetectorsCore.framework/Versions/A/DataDetectorsCore
+       0x19ca46000 -        0x19cab68df  com.apple.UserActivity (551 - 551) <558FF577-66FB-356C-983E-FBA1B713F80F> /System/Library/PrivateFrameworks/UserActivity.framework/Versions/A/UserActivity
+       0x19cab7000 -        0x19d55335f  com.apple.MediaToolbox (1.0 - 3305.24.5.2) <1EE9EC7B-F475-3D3A-AF35-3B3970A85E56> /System/Library/Frameworks/MediaToolbox.framework/Versions/A/MediaToolbox
+       0x19d554000 -        0x19d5c286f  libusrtcp.dylib (5812.101.2) <923F2A55-C3F5-3D6A-A5FE-F508E9A61204> /usr/lib/libusrtcp.dylib
+       0x19d5c3000 -        0x19db6493f  libswiftCore.dylib (6.3.0 - 6.3.0.123.11) <FB6AD37D-0F92-3774-AB61-0323DB22C111> /usr/lib/swift/libswiftCore.dylib
+       0x19dbde000 -        0x19dc1703f  com.apple.locationsupport (3072.0.46.3.1 - 3072.0.46.3.1) <4E28B985-0375-341D-AB18-532DF320FFA9> /System/Library/PrivateFrameworks/LocationSupport.framework/Versions/A/LocationSupport
+       0x19dc18000 -        0x19dc6d17f  libSessionUtility.dylib (398.516) <5904C1CD-1487-3433-93DE-92DCCAA7CB84> /System/Library/PrivateFrameworks/AudioSession.framework/libSessionUtility.dylib
+       0x19dc6e000 -        0x19de42b9f  com.apple.audio.toolbox.AudioToolbox (1.14 - 1.14) <0D8B0DA8-C582-3CCA-B648-5EE242E876D8> /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox
+       0x19de43000 -        0x19dec37df  com.apple.audio.AudioSession (1.0 - 398.516) <2EB71B02-7180-3007-B6A9-BF5DD3A4F79D> /System/Library/PrivateFrameworks/AudioSession.framework/Versions/A/AudioSession
+       0x19dec4000 -        0x19dedd39f  libAudioStatistics.dylib (262.514) <F2A3C791-1F5B-35C2-972B-69785C913B0C> /usr/lib/libAudioStatistics.dylib
+       0x19dede000 -        0x19df0b93f  com.apple.speech.synthesis.framework (9.2.22 - 9.2.22) <D9A460A9-2C2A-3223-A26C-4CD12220E1FC> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/SpeechSynthesis.framework/Versions/A/SpeechSynthesis
+       0x19df0c000 -        0x19df5339f  com.apple.ApplicationServices.ATS (377 - 587) <B84BE70C-27E0-3910-9A9B-D5BA710E2A47> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS
+       0x19df54000 -        0x19df7019b  libresolv.9.dylib (96) <1F96EC72-E8BA-32DD-84AA-13C44654C1FA> /usr/lib/libresolv.9.dylib
+       0x19df71000 -        0x19df837e7  libsasl2.2.dylib (215) <A12DC471-B201-359D-9F0D-C8F48BDF5870> /usr/lib/libsasl2.2.dylib
+       0x19e069000 -        0x19e16b87f  com.apple.CoreMediaIO (1000.0 - 5617.100.5) <347D8925-13E9-3553-8CDC-57BDF91DB9A2> /System/Library/Frameworks/CoreMediaIO.framework/Versions/A/CoreMediaIO
+       0x19e16c000 -        0x19e24c337  libSMC.dylib (38) <22C15CB5-9AD6-3866-837A-8CBE8AF5BFC4> /usr/lib/libSMC.dylib
+       0x19e24d000 -        0x19e2abb9f  libcups.2.dylib (522.3) <7AF22069-C3A2-3263-81D6-2BE4DB4FECCA> /usr/lib/libcups.2.dylib
+       0x19e2ac000 -        0x19e2b8747  com.apple.NetAuth (6.2 - 6.2) <C9B294F3-C37B-3729-9493-10DCBE2362A6> /System/Library/PrivateFrameworks/NetAuth.framework/Versions/A/NetAuth
+       0x19e2b9000 -        0x19e2bddcb  com.apple.ColorSyncLegacy (4.13.0 - 1) <333CBEEF-B92E-3132-8C87-C4F758D44C82> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ColorSyncLegacy.framework/Versions/A/ColorSyncLegacy
+       0x19e2be000 -        0x19e2c6def  com.apple.QD (4.0 - 451) <4C584383-7D25-3207-BCAA-EDA21353B728> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/QD.framework/Versions/A/QD
+       0x19e2c7000 -        0x19e2d4b1f  com.apple.perfdata (1.0 - 130) <AED99EAC-C348-3326-98F1-97D0AE3CEBAD> /System/Library/PrivateFrameworks/perfdata.framework/Versions/A/perfdata
+       0x19e2d5000 -        0x19e2e2c9f  libperfcheck.dylib (46) <90EEF798-81FA-38B6-99AF-117D4AB01DE6> /usr/lib/libperfcheck.dylib
+       0x19e2e3000 -        0x19e2f4187  com.apple.Kerberos (3.0 - 1) <E44B7A34-FE5B-3390-AC49-00907B159390> /System/Library/Frameworks/Kerberos.framework/Versions/A/Kerberos
+       0x19e2f5000 -        0x19e346aaf  com.apple.GSS (4.0 - 2.0) <6DD8C0F7-306B-3FCF-AE30-A174E455F142> /System/Library/Frameworks/GSS.framework/Versions/A/GSS
+       0x19e347000 -        0x19e357d6f  com.apple.CommonAuth (4.0 - 2.0) <A5F22FD9-D680-3B7C-B7F9-8BE2C58F7DFF> /System/Library/PrivateFrameworks/CommonAuth.framework/Versions/A/CommonAuth
+       0x19e358000 -        0x19e43bc7f  com.apple.MobileAssets (1.0 - 1837.101.1) <BDDD31D4-3841-302F-A4B8-697F85E50F8F> /System/Library/PrivateFrameworks/MobileAsset.framework/Versions/A/MobileAsset
+       0x19e4ce000 -        0x19e4dd160  com.apple.CorePhoneNumbers (1.0 - 1) <8E1BEC85-B822-3578-A145-720317FA3F1F> /System/Library/PrivateFrameworks/CorePhoneNumbers.framework/Versions/A/CorePhoneNumbers
+       0x19e4de000 -        0x19e56745f  libTelephonyUtilDynamic.dylib (6392) <5ABD80F2-0F5C-36B3-B759-32DC018F1809> /usr/lib/libTelephonyUtilDynamic.dylib
+       0x19fdf5000 -        0x19feacfff  com.apple.Bluetooth (1.0 - 1) <59C9AA53-58A9-3FC2-BFEA-9A7D16BAA9E0> /System/Library/Frameworks/IOBluetooth.framework/Versions/A/IOBluetooth
+       0x1a00a7000 -        0x1a019aa36  com.apple.combine (1.0 - 3023) <04059A33-C97D-3F63-A2C4-E56496D251DD> /System/Library/Frameworks/Combine.framework/Versions/A/Combine
+       0x1a019b000 -        0x1a1fb4d7f  com.apple.GeoServices (1.0 - 2031.24.7.17.31) <941EEC3D-2826-3394-A064-9A417CD19D1A> /System/Library/PrivateFrameworks/GeoServices.framework/Versions/A/GeoServices
+       0x1a1fdd000 -        0x1a1fe0967  com.apple.speech.recognition.framework (6.0.5 - 6.0.5) <B7465A14-09B0-338E-A327-28FE7E77F7BC> /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/SpeechRecognition.framework/Versions/A/SpeechRecognition
+       0x1a236c000 -        0x1a238eb9f  com.apple.Accessibility (1.0 - 1) <44FEE1CE-C2A4-3A7B-9180-6908428417CD> /System/Library/Frameworks/Accessibility.framework/Versions/A/Accessibility
+       0x1a238f000 -        0x1a239089f  libpanel.5.4.dylib (79) <613B06CC-8188-3447-B6C0-E712464C136E> /usr/lib/libpanel.5.4.dylib
+       0x1a23c9000 -        0x1a23c986f  com.apple.Accelerate.vecLib (3.11 - vecLib 3.11) <273012BA-11EF-3A4E-A050-A3A488943FA3> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib
+       0x1a23ee000 -        0x1a23ee98f  com.apple.CoreServices (1226 - 1226) <95340769-0B35-37EA-9EAF-9A7E1D530910> /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices
+       0x1a266d000 -        0x1a266d417  com.apple.Accelerate (1.11 - Accelerate 1.11) <0A9F7A80-1DC3-369D-AE67-2D21EE9D7C50> /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate
+       0x1a26bc000 -        0x1a26ce53f  com.apple.MediaAccessibility (1.0 - 153) <A2FBFD9E-30EC-3617-9D3A-05A8625ED12C> /System/Library/Frameworks/MediaAccessibility.framework/Versions/A/MediaAccessibility
+       0x1a2715000 -        0x1a2daeebf  com.apple.VN (9.5.4 - 9.5.4) <F5F8E563-83DF-34D4-A50D-6B19D70EFF35> /System/Library/Frameworks/Vision.framework/Versions/A/Vision
+       0x1a2daf000 -        0x1a2daf3ef  libswiftFoundation.dylib (2000) <927F1F52-43AA-3D11-995E-AC21E4294038> /usr/lib/swift/libswiftFoundation.dylib
+       0x1a3457000 -        0x1a356109f  com.apple.CoreBluetooth (194.26.1.0.1) <B3EE681B-1684-3117-93EF-EE56600BA17A> /System/Library/Frameworks/CoreBluetooth.framework/Versions/A/CoreBluetooth
+       0x1a3562000 -        0x1a357153f  com.apple.SymptomDiagnosticReporter (1.0 - 411.100.14) <A1B05E3E-3DF9-33B6-BDB3-E4644931BB69> /System/Library/PrivateFrameworks/SymptomDiagnosticReporter.framework/Versions/A/SymptomDiagnosticReporter
+       0x1a3572000 -        0x1a35a02ff  com.apple.PowerLog (1.0 - 1) <36E48134-17FF-3841-B765-79589A4CFCBA> /System/Library/PrivateFrameworks/PowerLog.framework/Versions/A/PowerLog
+       0x1a35ae000 -        0x1a365f6df  com.apple.DiscRecording (9.0.3 - 9030.4.5) <79D5F6E9-7FA2-336E-9793-225B4A412D1C> /System/Library/Frameworks/DiscRecording.framework/Versions/A/DiscRecording
+       0x1a3660000 -        0x1a3691137  com.apple.MediaKit (16 - 938) <784D6F29-2E0E-3AB2-8E3E-83009F82812F> /System/Library/PrivateFrameworks/MediaKit.framework/Versions/A/MediaKit
+       0x1a3775000 -        0x1a378123f  com.apple.CoreAUC (616.1 - 616.1) <A77A7D29-C5D1-31FB-B078-7D43E7CC28EF> /System/Library/PrivateFrameworks/CoreAUC.framework/Versions/A/CoreAUC
+       0x1a3782000 -        0x1a378577b  com.apple.Mangrove (1.0 - 25) <0A77F849-B195-3432-B2BF-B0C902AD0408> /System/Library/PrivateFrameworks/Mangrove.framework/Versions/A/Mangrove
+       0x1a3786000 -        0x1a37b3f87  com.apple.CoreAVCHD (6.0.0 - 6244.1) <C9F9BF8E-73E0-3FC6-9442-12A031AE3514> /System/Library/PrivateFrameworks/CoreAVCHD.framework/Versions/A/CoreAVCHD
+       0x1a3f4a000 -        0x1a4131a3f  com.apple.CoreTelephony (113 - 13173) <69DAAAC7-AEA3-3BD0-9BC0-34ABF9CD259A> /System/Library/Frameworks/CoreTelephony.framework/Versions/A/CoreTelephony
+       0x1a414e000 -        0x1a4164950  libswiftDispatch.dylib (1542.100.32) <CFCF86C6-4B2C-3D79-A3B2-93B725BCEF2C> /usr/lib/swift/libswiftDispatch.dylib
+       0x1a4165000 -        0x1a43d411f  com.apple.AVFCore (1.0 - 2410.24.5.1) <37D9A2FB-87BB-356F-B543-4E00C1844176> /System/Library/PrivateFrameworks/AVFCore.framework/Versions/A/AVFCore
+       0x1a43d5000 -        0x1a44ae3bf  com.apple.FrontBoardServices (1000.4.11 - 1000.4.11) <E3110730-AF5C-37E8-ACA3-B74D7A7BDA4F> /System/Library/PrivateFrameworks/FrontBoardServices.framework/Versions/A/FrontBoardServices
+       0x1a44af000 -        0x1a453bc3f  com.apple.BoardServices (1.0 - 732.1.1) <00CE20DD-828E-3ECD-92A3-FF88B0DA61CE> /System/Library/PrivateFrameworks/BoardServices.framework/Versions/A/BoardServices
+       0x1a457c000 -        0x1a458953f  com.apple.GraphicsServices (1.0 - 1.0) <C1833E07-4E3E-3604-9C04-CEF7FA7B55D9> /System/Library/PrivateFrameworks/GraphicsServices.framework/Versions/A/GraphicsServices
+       0x1a458e000 -        0x1a460fadf  com.apple.CryptoTokenKit (1.0 - 1) <F83B4058-AFFB-39D0-82D3-A2AA8D1D3243> /System/Library/Frameworks/CryptoTokenKit.framework/Versions/A/CryptoTokenKit
+       0x1a48a5000 -        0x1a48c6e9f  com.apple.DebugSymbols (216 - 217) <28F7AD5A-D1F0-36D5-9658-BDE3910BEA55> /System/Library/PrivateFrameworks/DebugSymbols.framework/Versions/A/DebugSymbols
+       0x1a48c7000 -        0x1a4a225ff  com.apple.CoreSymbolication (16.0 - 64575.51.1) <FDAEC762-CC55-34D9-9951-85382E50F9F5> /System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication
+       0x1a4a23000 -        0x1a4a2d09f  com.apple.CoreTime (334.0.16.3 - 334.0.16.3) <6B69F2AE-681C-34FE-AF72-5932E6396B76> /System/Library/PrivateFrameworks/CoreTime.framework/Versions/A/CoreTime
+       0x1a4a2e000 -        0x1a4b214bf  com.apple.Rapport (7.1 - 715.2) <F135A4EF-AD5C-33AF-898C-327F9A9AD6DE> /System/Library/PrivateFrameworks/Rapport.framework/Versions/A/Rapport
+       0x1a5eb9000 -        0x1a637a87f  com.apple.CoreWiFi (1.0 - 1000.18) <54180EFA-D1A0-3ECE-8975-0290F0C2B234> /System/Library/PrivateFrameworks/CoreWiFi.framework/Versions/A/CoreWiFi
+       0x1a637b000 -        0x1a63ed59f  com.apple.BackBoardServices (1.0 - 1.0) <1BFBA7A9-B789-3FCB-9C5D-987DE4D1DEE8> /System/Library/PrivateFrameworks/BackBoardServices.framework/Versions/A/BackBoardServices
+       0x1a63ee000 -        0x1a64294ef  com.apple.LDAPFramework (2.4.28 - 194.5) <2FEFD34B-DFD5-36E0-9CEE-7EFE6FDA7FD9> /System/Library/Frameworks/LDAP.framework/Versions/A/LDAP
+       0x1a642a000 -        0x1a642b7b7  com.apple.TrustEvaluationAgent (2.0 - 38) <16ED4F40-C1B7-3F95-8FDD-CDE8DD7FA1A7> /System/Library/PrivateFrameworks/TrustEvaluationAgent.framework/Versions/A/TrustEvaluationAgent
+       0x1a6559000 -        0x1a661257f  com.apple.DiskImagesFramework (683.100.3 - 683.100.3) <B870832E-8BB7-3E88-9B9D-A25AEB6FD2B0> /System/Library/PrivateFrameworks/DiskImages.framework/Versions/A/DiskImages
+       0x1a6653000 -        0x1a66695bf  com.apple.RemoteServiceDiscovery (1.0 - 219.100.6) <F4BB09A4-E464-35B8-968E-8936A4298C48> /System/Library/PrivateFrameworks/RemoteServiceDiscovery.framework/Versions/A/RemoteServiceDiscovery
+       0x1a666a000 -        0x1a667fc3f  com.apple.xpc.RemoteXPC (1.0 - 3102.100.102) <ED290C70-5627-3D78-98CF-FDDCC7E6176B> /System/Library/PrivateFrameworks/RemoteXPC.framework/Versions/A/RemoteXPC
+       0x1a6714000 -        0x1a6794f43  libcurl.4.dylib (164) <E0A4E7B3-7592-39E5-B8B9-D1DB72C95041> /usr/lib/libcurl.4.dylib
+       0x1a679b000 -        0x1a67de25f  com.apple.AppSupport (1.0.0 - 29) <3DE9E998-0707-3635-B57B-1954D8712DFB> /System/Library/PrivateFrameworks/AppSupport.framework/Versions/A/AppSupport
+       0x1a6aae000 -        0x1a6aae927  com.apple.ApplicationServices (48 - 66) <542873FE-897D-3929-A243-4FF3B6468C82> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices
+       0x1a6aaf000 -        0x1a6ab1f3f  com.apple.InternationalTextSearch (1.0 - 1) <33E50974-2591-31C3-9853-2096E37742F3> /System/Library/PrivateFrameworks/InternationalTextSearch.framework/Versions/A/InternationalTextSearch
+       0x1a707a000 -        0x1a707dd3f  com.apple.security.CryptoKit-C-Bridging (1.0 - 1) <D0F2916D-4EEA-3A82-82A7-D2704D32E7A5> /System/Library/PrivateFrameworks/CryptoKitCBridging.framework/Versions/A/CryptoKitCBridging
+       0x1a707e000 -        0x1a707e3f7  libHeimdalProxy.dylib (88) <4E34BA0D-4F2D-3A97-8A03-0F961CF5A58A> /System/Library/Frameworks/Kerberos.framework/Versions/A/Libraries/libHeimdalProxy.dylib
+       0x1a707f000 -        0x1a707f512  com.apple.audio.units.AudioUnit (1.14 - 1.14) <85863348-479E-3696-A780-FC739E0B979A> /System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit
+       0x1a70a9000 -        0x1a70c7b9f  com.apple.StreamingZip (1.0 - 1) <4D3F2AFC-034D-30C7-88D1-B7B2DC521310> /System/Library/PrivateFrameworks/StreamingZip.framework/Versions/A/StreamingZip
+       0x1a7121000 -        0x1a71246bf  libswiftObjectiveC.dylib (951.7) <1BF42593-32DC-301E-B8EC-BFDA5DE18F37> /usr/lib/swift/libswiftObjectiveC.dylib
+       0x1a7125000 -        0x1a71426ff  libswiftos.dylib (1082) <B8E3586E-8FD3-37F9-A004-C0E369A4F650> /usr/lib/swift/libswiftos.dylib
+       0x1a7209000 -        0x1a805a75f  com.apple.vision.EspressoFramework (1.0 - 3520.15.1.14.2) <FBFB25C9-2D45-3A79-8178-9A29D8B51D13> /System/Library/PrivateFrameworks/Espresso.framework/Versions/A/Espresso
+       0x1a805b000 -        0x1a808b99f  com.apple.ANEServices (9.511 - 9.511) <76555323-AE24-3804-8064-60846E7511C4> /System/Library/PrivateFrameworks/ANEServices.framework/Versions/A/ANEServices
+       0x1a808c000 -        0x1a811a85f  com.apple.proactive.support.ProactiveSupport (1.0 - 418.1) <F035491A-8388-3A51-B36A-C3B20C8A0FE8> /System/Library/PrivateFrameworks/ProactiveSupport.framework/Versions/A/ProactiveSupport
+       0x1a8217000 -        0x1a823b29f  com.apple.ASEProcessing (1.55.0 - 1.55.0) <830CFC7B-FEDE-3187-A209-B49966597433> /System/Library/PrivateFrameworks/ASEProcessing.framework/Versions/A/ASEProcessing
+       0x1a92d7000 -        0x1a934487f  com.apple.CoreML.AppleNeuralEngine (1.0 - 1) <342FCCB6-AE2A-3DBA-91A1-44B2D3E5A82D> /System/Library/PrivateFrameworks/AppleNeuralEngine.framework/Versions/A/AppleNeuralEngine
+       0x1a9492000 -        0x1a9560c1f  com.apple.audio.midi.CoreMIDI (2.0 - 88) <03707B1E-A19F-32D7-98A9-E3A7248B1209> /System/Library/Frameworks/CoreMIDI.framework/Versions/A/CoreMIDI
+       0x1a9685000 -        0x1a9685467  com.apple.Cocoa (6.11 - 24) <AC139373-5D57-327A-943E-DD7A3ABB2C6F> /System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa
+       0x1aa19a000 -        0x1aa19e75f  com.apple.IOSurfaceAccelerator (1.0.0 - 1.0.0) <ED79EC5A-409D-39A9-9521-3043C39FE108> /System/Library/PrivateFrameworks/IOSurfaceAccelerator.framework/Versions/A/IOSurfaceAccelerator
+       0x1ad916000 -        0x1adb5713f  com.apple.AVFCapture (1.0 - 665.101.3) <384B6DB9-A738-3199-8298-49A3B970AD5D> /System/Library/PrivateFrameworks/AVFCapture.framework/Versions/A/AVFCapture
+       0x1adb58000 -        0x1adc88d1f  com.apple.Quagga (186 - 186) <A39F98F2-3E99-3150-96EF-0C62B827909D> /System/Library/PrivateFrameworks/Quagga.framework/Versions/A/Quagga
+       0x1adc89000 -        0x1ae2c3b1f  com.apple.CMCapture (1.0 - 665.101.3) <51D4272C-4794-3536-9D9E-86D9B53BBD08> /System/Library/PrivateFrameworks/CMCapture.framework/Versions/A/CMCapture
+       0x1ae2c4000 -        0x1ae44791f  com.apple.RenderBox (7.4.25 - 7.4.25) <392735CB-8F39-390C-A7DE-6DF080C008EB> /System/Library/PrivateFrameworks/RenderBox.framework/Versions/A/RenderBox
+       0x1aeff6000 -        0x1af0099ff  com.apple.HID (1.0 - 1) <F7402197-24C0-392F-9137-8681EF9C6670> /System/Library/PrivateFrameworks/HID.framework/Versions/A/HID
+       0x1afef5000 -        0x1afef617f  com.apple.PhoneNumbers (1.0 - 1) <EA60A0F6-0C9C-3FA4-BD81-AE210925F4E5> /System/Library/PrivateFrameworks/PhoneNumbers.framework/Versions/A/PhoneNumbers
+       0x1aff01000 -        0x1b000cbbf  com.apple.accessibility.AXCoreUtilities (1.0 - 1) <820A456D-11CD-320F-BB0C-25B9E5F69472> /System/Library/PrivateFrameworks/AXCoreUtilities.framework/Versions/A/AXCoreUtilities
+       0x1b000d000 -        0x1b004375f  libAccessibility.dylib (3191.25.1) <09AA52ED-5DA3-382A-B25E-D7859E2DC832> /usr/lib/libAccessibility.dylib
+       0x1b3a9c000 -        0x1b3aab1ff  com.apple.NetFS (6.0 - 4.0) <96DF6DA3-4780-3138-8318-2D9292EA4775> /System/Library/Frameworks/NetFS.framework/Versions/A/NetFS
+       0x1b3ff5000 -        0x1b3ff5357  libswiftCoreGraphics.dylib (17) <B50E0A57-5B80-3B7C-A5FB-C1032C27D887> /usr/lib/swift/libswiftCoreGraphics.dylib
+       0x1b3ff6000 -        0x1b3ff8707  libswiftDarwin.dylib (377.100.15) <319E1D29-E697-3ABC-BE2D-B897CD71F3F2> /usr/lib/swift/libswiftDarwin.dylib
+       0x1b5b13000 -        0x1b5ead29f  com.apple.coremotion (3072.0.46.3.1 - 3072.0.46.3.1) <9B758E78-0B5C-341E-838E-36FEF5DB83FC> /System/Library/Frameworks/CoreMotion.framework/Versions/A/CoreMotion
+       0x1b5f15000 -        0x1b5f155a7  com.apple.avfoundation (2.0 - 2410.24.5.1) <A91FBD2D-DE97-341C-8E45-058E8B968DFE> /System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation
+       0x1b6049000 -        0x1b61324bf  libquic.dylib (5812.101.2) <4D5CD3CB-3FDD-38B3-BB26-EBB2582A5AA1> /usr/lib/libquic.dylib
+       0x1b613e000 -        0x1b6166eff  com.apple.private.SystemPolicy (1.0 - 1) <8618CC84-FA89-362C-AD11-E70A0B62EFF8> /System/Library/PrivateFrameworks/SystemPolicy.framework/Versions/A/SystemPolicy
+       0x1b6cd2000 -        0x1b6d4a5ff  com.apple.NaturalLanguage (1.0 - 114) <768F35AE-2817-3116-AFFB-9A0721FAA2C4> /System/Library/Frameworks/NaturalLanguage.framework/Versions/A/NaturalLanguage
+       0x1b700e000 -        0x1b709cbff  com.apple.LoggingSupport (1.0 - 1861.100.19) <F1F1C407-6F51-3081-B00F-EA13A5B3DED8> /System/Library/PrivateFrameworks/LoggingSupport.framework/Versions/A/LoggingSupport
+       0x1b709d000 -        0x1b70a9acb  com.apple.MallocStackLogging (1.0 - 65000) <0A1A0710-C15E-3C5D-A67A-B582F40B23F4> /System/Library/PrivateFrameworks/MallocStackLogging.framework/Versions/A/MallocStackLogging
+       0x1b70cf000 -        0x1b7127aff  libmis.dylib (463.100.17) <6709C629-CDF4-3590-94C3-720428D172F5> /usr/lib/libmis.dylib
+       0x1b7128000 -        0x1b712bc5f  com.apple.gpusw.GPURawCounter (34 - 34) <5EB9C19F-7B49-31FC-A0F4-F8DDBD5B2859> /System/Library/PrivateFrameworks/GPURawCounter.framework/Versions/A/GPURawCounter
+       0x1b712c000 -        0x1b714b87f  libswiftCoreAudio.dylib (411.520) <E048689E-9E66-3941-AA17-48B0A441ED26> /usr/lib/swift/libswiftCoreAudio.dylib
+       0x1b714c000 -        0x1b7152327  libswiftCoreFoundation.dylib (2411) <8160F4BC-FCFC-3847-8912-7D784E814692> /usr/lib/swift/libswiftCoreFoundation.dylib
+       0x1b715f000 -        0x1b71ab6d3  libswiftXPC.dylib (128.100.15) <60C33839-9A05-3397-A1FB-CC203B10AB2D> /usr/lib/swift/libswiftXPC.dylib
+       0x1b71ac000 -        0x1b71ac7ff  libswiftCoreImage.dylib (2.2) <40B43AC1-C3F9-320C-A4E3-622BF2EE9EF6> /usr/lib/swift/libswiftCoreImage.dylib
+       0x1b71ad000 -        0x1b71ad8a3  libswiftIOKit.dylib (1) <3609AE97-C1C9-3D5C-995D-1351BE19C532> /usr/lib/swift/libswiftIOKit.dylib
+       0x1b7b1c000 -        0x1b7b9a9df  com.apple.TrialProto (1.0 - 474.2.18) <D42C380B-5169-3720-914F-C99F27CB45B7> /System/Library/PrivateFrameworks/TrialProto.framework/Versions/A/TrialProto
+       0x1b7b9b000 -        0x1b7c446ff  com.apple.trial (1.0 - 474.2.18) <5CA59866-367F-30D5-B0AA-7EE72B82B80C> /System/Library/PrivateFrameworks/Trial.framework/Versions/A/Trial
+       0x1b91d9000 -        0x1b92122c7  libbootpolicy.dylib (289.100.5) <906CDC5E-FCE3-3DB4-AC97-46C9373D6C26> /usr/lib/libbootpolicy.dylib
+       0x1ba2be000 -        0x1ba2eca1f  com.apple.skp.FeedbackLogger (1.0 - 1) <270485CB-B53E-3B3E-AD0A-26EF7615320B> /System/Library/PrivateFrameworks/FeedbackLogger.framework/Versions/A/FeedbackLogger
+       0x1bac87000 -        0x1bac9e88b  libswiftsimd.dylib (23) <BF085F71-EE8E-3791-B258-816A98B1E84B> /usr/lib/swift/libswiftsimd.dylib
+       0x1baf0a000 -        0x1bb0e107f  com.apple.TextInput (1.0 - 1.0) <35AA800B-620D-30C5-AC16-AFCC51D29EB7> /System/Library/PrivateFrameworks/TextInput.framework/Versions/A/TextInput
+       0x1bc360000 -        0x1bc39c2af  libncurses.5.4.dylib (79) <071B3987-EFA6-3936-B470-B7ECDCD000FB> /usr/lib/libncurses.5.4.dylib
+       0x1bc39d000 -        0x1bc3a637f  com.apple.IOAccelMemoryInfo (1.0 - 1) <AEE0B693-229A-32BD-8CF6-B534B4FB73E1> /System/Library/PrivateFrameworks/IOAccelMemoryInfo.framework/Versions/A/IOAccelMemoryInfo
+       0x1bcb2a000 -        0x1bda1aadf  com.apple.siri.SiriInstrumentation (1.0 - 1) <B95E0E6A-6B00-340E-B95D-1BAA1208775C> /System/Library/PrivateFrameworks/SiriInstrumentation.framework/Versions/A/SiriInstrumentation
+       0x1bda58000 -        0x1bda610be  libswiftCoreMIDI.dylib (6) <5E94EF55-3133-3ABB-9C73-E75138953F3D> /usr/lib/swift/libswiftCoreMIDI.dylib
+       0x1be234000 -        0x1be23abbf  com.apple.MSUDataAccessor (1.0 - 1) <CBF1231F-9088-3855-83B8-9B5196641BBC> /System/Library/PrivateFrameworks/MSUDataAccessor.framework/Versions/A/MSUDataAccessor
+       0x1be65e000 -        0x1be6c0a3f  com.apple.SoftwareUpdateCoreSupport (1.0 - 1) <820532AC-6CC2-352E-95F0-CD31377DA3B4> /System/Library/PrivateFrameworks/SoftwareUpdateCoreSupport.framework/Versions/A/SoftwareUpdateCoreSupport
+       0x1c026a000 -        0x1c02af0ff  com.apple.AttributeGraph (7.0.80 - 7.0.80) <C9289991-F749-3DF3-AEFA-788884864080> /System/Library/PrivateFrameworks/AttributeGraph.framework/Versions/A/AttributeGraph
+       0x1c041f000 -        0x1c0cc569f  libfaceCore.dylib (9.5.4) <6038AE24-75A6-311E-AC3F-854034BDED2E> /System/Library/Frameworks/Vision.framework/libfaceCore.dylib
+       0x1c0cc6000 -        0x1c0f3859f  com.apple.TextRecognition (1.0 - 157) <F235AA1F-A750-33A7-8697-5A9C1074D9CD> /System/Library/PrivateFrameworks/TextRecognition.framework/Versions/A/TextRecognition
+       0x1c0f39000 -        0x1c0f5025f  com.apple.Futhark (1.0 - 1) <9F8F0EED-5668-3C7F-AC08-AA4C1B14572D> /System/Library/PrivateFrameworks/Futhark.framework/Versions/A/Futhark
+       0x1c1490000 -        0x1c14c9ba7  com.apple.MobileBluetooth (1.0 - 1.0) <AC6F8C2C-8C3E-3EB7-B64C-62696ADB2BED> /System/Library/PrivateFrameworks/MobileBluetooth.framework/Versions/A/MobileBluetooth
+       0x1c2179000 -        0x1c21d039f  com.apple.biome.BiomeFoundation (1.0 - 209.15.0.2) <87FC78C7-6A65-3209-9537-DEE615D84725> /System/Library/PrivateFrameworks/BiomeFoundation.framework/Versions/A/BiomeFoundation
+       0x1c4e60000 -        0x1c4ed73df  com.apple.acg.InertiaCam (1.0 - 1) <61D434C4-AE11-3800-8510-C03EABC6836C> /System/Library/PrivateFrameworks/InertiaCam.framework/Versions/A/InertiaCam
+       0x1c5099000 -        0x1c50a6a1f  libswiftMetal.dylib (372.16) <D96EF332-F72B-3B75-82E3-5FBDD6882BC4> /usr/lib/swift/libswiftMetal.dylib
+       0x1c50a7000 -        0x1c50ade05  libswiftCompression.dylib (11) <E0C174A8-CE74-3FF0-81C3-E71693751F76> /usr/lib/swift/libswiftCompression.dylib
+       0x1c5fcb000 -        0x1c6075d5f  libFDR.dylib (1499.100.48) <142B6C05-3B93-3A74-89BB-FC0719EDAFD0> /usr/lib/libFDR.dylib
+       0x1c6076000 -        0x1c60f68ff  com.apple.TimeSync (1.0 - 1440.24) <FE022DCF-5424-3ADA-8E7B-D3AD1A50B2CD> /System/Library/PrivateFrameworks/TimeSync.framework/Versions/A/TimeSync
+       0x1c60f7000 -        0x1c66c1f5f  com.apple.biome.BiomeStreams (1.0 - 209.15.0.2) <89BE0C47-C549-3DB1-AEEE-8A5DEBEE4688> /System/Library/PrivateFrameworks/BiomeStreams.framework/Versions/A/BiomeStreams
+       0x1c6b95000 -        0x1c6ba98ff  com.apple.SoftwareUpdateCoreConnect (1.0 - 1) <1C3E0445-FC4C-3BA1-A555-7CBB653840F2> /System/Library/PrivateFrameworks/SoftwareUpdateCoreConnect.framework/Versions/A/SoftwareUpdateCoreConnect
+       0x1c7d32000 -        0x1c7d3bb5f  com.apple.audio.IOKitten (300.1 - 300.1) <0686A098-1D27-377C-962F-7961E9FD1B36> /System/Library/PrivateFrameworks/IOKitten.framework/Versions/A/IOKitten
+       0x1c8fe4000 -        0x1c904ec1f  com.apple.osanalytics.OSAnalytics (1.0 - 1) <69F29612-5092-3F2F-BA61-5510D4857FA2> /System/Library/PrivateFrameworks/OSAnalytics.framework/Versions/A/OSAnalytics
+       0x1ca47a000 -        0x1ca47bf9f  libswiftQuartzCore.dylib (5) <CCB3028F-09BA-3887-947D-6F8FD47E2B09> /usr/lib/swift/libswiftQuartzCore.dylib
+       0x1ca86d000 -        0x1ca8728e7  com.apple.kperf (1.0 - 1) <56910FEC-A3D1-3DF4-9CD3-31C65D4B7B88> /System/Library/PrivateFrameworks/kperf.framework/Versions/A/kperf
+       0x1ca984000 -        0x1ca98963f  com.apple.MobileSystemServices (1.0 - 1) <61161103-8CB4-34CC-8AD6-43F587D2D25B> /System/Library/PrivateFrameworks/MobileSystemServices.framework/Versions/A/MobileSystemServices
+       0x1cbf6e000 -        0x1cbf9029f  libamsupport.dylib (434.100.4) <0D37C527-DC1F-363A-B4D8-A0E95104DA36> /usr/lib/libamsupport.dylib
+       0x1cc36c000 -        0x1cc3cc0bf  com.apple.biome.BiomePubSub (1.0 - 209.15.0.2) <1056981B-EFD4-37A2-8CA3-2691A18A34EF> /System/Library/PrivateFrameworks/BiomePubSub.framework/Versions/A/BiomePubSub
+       0x1cc3cd000 -        0x1cc41001f  com.apple.biome.BiomeStorage (1.0 - 209.15.0.2) <31E41201-08D1-338B-BDED-CC6A677D7487> /System/Library/PrivateFrameworks/BiomeStorage.framework/Versions/A/BiomeStorage
+       0x1cef02000 -        0x1cef1113f  libswiftUniformTypeIdentifiers.dylib (877.4.9.400) <B08C16EF-8677-3331-B9A6-16294A1A6AA0> /usr/lib/swift/libswiftUniformTypeIdentifiers.dylib
+       0x1cef12000 -        0x1cefd7a9b  libswiftAccelerate.dylib (77.100.2) <ADC97387-1D6A-3155-B732-3F5066BD6360> /usr/lib/swift/libswiftAccelerate.dylib
+       0x1cf12a000 -        0x1cf13b11f  libpartition2_dynamic.dylib (3476.100.145) <21D8FFBE-3A8A-3D01-B608-085D50238EE5> /usr/lib/libpartition2_dynamic.dylib
+       0x1cf697000 -        0x1cf6a1fdf  com.apple.AFKUser (1.0 - 1) <C25CEB23-5EF8-3E11-A260-EDA76C3A7105> /System/Library/PrivateFrameworks/AFKUser.framework/Versions/A/AFKUser
+       0x1d1b36000 -        0x1d1b40b3f  com.apple.CPMS (1.0 - 1) <1F55B0F5-DC93-3C50-B544-1A509820746D> /System/Library/PrivateFrameworks/CPMS.framework/Versions/A/CPMS
+       0x1d307b000 -        0x1d30dc75f  libswiftCoreMedia.dylib (3305.24.5.2) <450AA35C-B2E6-3327-827B-ACEB171F87D4> /usr/lib/swift/libswiftCoreMedia.dylib
+       0x1d4829000 -        0x1d482abbf  libswiftOSLog.dylib (10) <2B310D36-BAAA-346C-860E-2B9FA9EBFE2F> /usr/lib/swift/libswiftOSLog.dylib
+       0x1d4ac1000 -        0x1d4b095df  libswiftAVFoundation.dylib (2410.24.5.1) <CF222BF4-8FEE-30B8-90D9-52E2BE74466A> /usr/lib/swift/libswiftAVFoundation.dylib
+       0x1d88ef000 -        0x1d89fbaff  com.apple.Symbolication (16.0 - 64575.69.1) <D18DE969-073E-38CF-BA4F-466045A5818D> /System/Library/PrivateFrameworks/Symbolication.framework/Versions/A/Symbolication
+       0x1d90c7000 -        0x1d90d04d3  com.apple.framework.netrb (1.0 - 1) <C618A482-D842-3096-B090-AFD53AC31AA2> /System/Library/PrivateFrameworks/Netrb.framework/Versions/A/Netrb
+       0x1d9105000 -        0x1d9129c1f  com.apple.CoreMaterial (1.0 - 1) <D2A2A7C2-02D9-3586-AD56-B08F345483E5> /System/Library/PrivateFrameworks/CoreMaterial.framework/Versions/A/CoreMaterial
+       0x1dcef6000 -        0x1dcf063df  com.apple.OSLog (1.0 - 1861.100.19) <D1D8B4E1-367E-3ED0-AD02-37D720B6F1E7> /System/Library/Frameworks/OSLog.framework/Versions/A/OSLog
+       0x1dd204000 -        0x1dd31575f  com.apple.InternalSwiftProtobuf (1.0 - 1.26.0) <A510588F-6A70-3706-8E8F-AD186EE908A9> /System/Library/PrivateFrameworks/InternalSwiftProtobuf.framework/Versions/A/InternalSwiftProtobuf
+       0x1dd3db000 -        0x1dd3e60bf  com.apple.HIDDisplay (1.0 - 1) <B2053120-9D29-3678-8566-7388E0B5DC33> /System/Library/PrivateFrameworks/HIDDisplay.framework/Versions/A/HIDDisplay
+       0x1dff5d000 -        0x1e000235f  com.apple.security.CryptoKit (1.0 - 1) <D7C5C0C1-0448-347B-8295-48E58DA1E588> /System/Library/Frameworks/CryptoKit.framework/Versions/A/CryptoKit
+       0x1e3206000 -        0x1e3223d9f  libedit.3.dylib (65) <B52B7A66-3106-3250-829C-A68EC8D0925B> /usr/lib/libedit.3.dylib
+       0x1e533a000 -        0x1e533aaf3  com.apple.FeatureFlags (1.0 - 103) <320F2910-E9AD-3A26-A9E5-80709DE442C6> /System/Library/PrivateFrameworks/FeatureFlags.framework/Versions/A/FeatureFlags
+       0x1e5346000 -        0x1e534dcbf  libswiftNaturalLanguage.dylib (4.3) <7F45AD44-826C-35FB-B6C4-C1670389699E> /usr/lib/swift/libswiftNaturalLanguage.dylib
+       0x1e53be000 -        0x1e540f7bf  com.apple.WiFiPeerToPeer (845.22.0 - 845.22) <57421E22-C817-3A6F-AE74-96942B45E286> /System/Library/PrivateFrameworks/WiFiPeerToPeer.framework/Versions/A/WiFiPeerToPeer
+       0x1ee306000 -        0x1ee32824f  libswiftSwiftOnoneSupport.dylib (6.3.0 - 6.3.0.123.11) <E229DEDA-78FE-3E96-AD2F-53CF7DD8082C> /usr/lib/swift/libswiftSwiftOnoneSupport.dylib
+       0x1ee962000 -        0x1ee9645bf  com.apple.ConfigProfileHelper (18.0 - 1800) <CC0C5D1A-B8D4-31A2-89E1-0EFAC52DCB20> /System/Library/PrivateFrameworks/ConfigProfileHelper.framework/Versions/A/ConfigProfileHelper
+       0x22c324000 -        0x22d99d067  com.apple.ANECompiler (9.509.0 - 9.509.0) <27B2AFC5-42C2-35A0-8DC0-2B06592B4F15> /System/Library/PrivateFrameworks/ANECompiler.framework/Versions/A/ANECompiler
+       0x22ef9a000 -        0x22efa12a3  libCoreFSCache.dylib (352) <4AC2B004-453D-3053-8CE3-DB02BF78634B> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libCoreFSCache.dylib
+       0x22efa2000 -        0x22efa7947  libCoreVMClient.dylib (352) <F3F2109F-8C42-3EF3-8E23-69CE9D6D21AC> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libCoreVMClient.dylib
+       0x22efa8000 -        0x22efb82b7  com.apple.opengl (23.1.1 - 23.1.1) <46037BEA-D5A5-3E3F-BB30-1CAC01B5068F> /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL
+       0x22efb9000 -        0x22efbb7bf  libCVMSPluginSupport.dylib (23.1.1) <484EB0B7-ED7C-312E-B3A6-B64CC93FAA93> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libCVMSPluginSupport.dylib
+       0x22efbc000 -        0x22efc44ff  libGFXShared.dylib (23.1.1) <7288278F-C62B-38D0-A3B9-5745AA80CE86> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGFXShared.dylib
+       0x22efc5000 -        0x22eff854b  libGLImage.dylib (23.1.1) <D1122A05-2EBB-3AD2-8892-C24FF521D310> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib
+       0x22eff9000 -        0x22f0325bf  libGLU.dylib (23.1.1) <535E6602-2A32-3E9B-9556-AD1D11D2C842> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib
+       0x22f189000 -        0x22f192bc7  libGL.dylib (23.1.1) <C7B73037-CD52-3D9D-A485-91245CEFAD48> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
+       0x22f515000 -        0x22f6579ff  com.apple.audio.AVFAudio (1.0 - 743.508) <8E4D44EE-1B59-3DC5-BAC8-FD96078883D4> /System/Library/Frameworks/AVFAudio.framework/Versions/A/AVFAudio
+       0x22f659000 -        0x22f6d3ebf  com.apple.AVRouting (1.0 - 1) <2DE37858-E589-37D2-BC44-DB6C706E2106> /System/Library/Frameworks/AVRouting.framework/Versions/A/AVRouting
+       0x2309a2000 -        0x2309eafdf  com.apple.CoreTransferable (1.0.1 - 1) <40E313C1-EA8E-3768-9692-D4AD6AD87166> /System/Library/Frameworks/CoreTransferable.framework/Versions/A/CoreTransferable
+       0x230ebd000 -        0x230ecabff  com.apple.DataDetection (8.0 - 821.6) <68878A04-565C-3EB1-95D6-1BAA74EF98BF> /System/Library/Frameworks/DataDetection.framework/Versions/A/DataDetection
+       0x230ed4000 -        0x230eeb75f  com.apple.dt.DeveloperToolsSupport (23.40.26 - 23.40.26) <9DE70721-8E63-36A6-A8D1-7457EFDC4505> /System/Library/Frameworks/DeveloperToolsSupport.framework/Versions/A/DeveloperToolsSupport
+       0x23101e000 -        0x23119081f  com.apple.ExtensionFoundation (97 - 97) <8414CA2A-21EF-3B0B-A60B-789666C62990> /System/Library/Frameworks/ExtensionFoundation.framework/Versions/A/ExtensionFoundation
+       0x232409000 -        0x23244ba1f  com.apple.LightweightCodeRequirements (1.0 - 1) <BC31094B-0028-31CE-A0A4-AAAD41DD9AA3> /System/Library/Frameworks/LightweightCodeRequirements.framework/Versions/A/LightweightCodeRequirements
+       0x23326b000 -        0x2332891ff  com.apple.MPSBenchmarkLoop (1.0 - 1) <FE426DDE-CE08-3740-8439-2EF901E3576F> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSBenchmarkLoop.framework/Versions/A/MPSBenchmarkLoop
+       0x23328a000 -        0x23329de7f  com.apple.MPSFunctions (1.0 - 1) <E72A458C-E7CA-3070-983D-DCF1A13856FB> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSFunctions.framework/Versions/A/MPSFunctions
+       0x23329e000 -        0x2332a353f  com.apple.MPSHost (1.0 - 1) <EB2488F5-7C40-3E41-AF79-232149835176> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSHost.framework/Versions/A/MPSHost
+       0x2332a4000 -        0x2345db67f  com.apple.MetalPerformanceShadersGraph (6.4.2 - 6.4.2) <7A190F03-A6E4-316C-B574-DD383E59751C> /System/Library/Frameworks/MetalPerformanceShadersGraph.framework/Versions/A/MetalPerformanceShadersGraph
+       0x23654b000 -        0x2366b74bf  com.apple.SwiftData (1.0 - 135) <35B80273-CE4A-3CF8-BD6C-7DC17BA20BFB> /System/Library/Frameworks/SwiftData.framework/Versions/A/SwiftData
+       0x2366b8000 -        0x23761491f  com.apple.SwiftUICore (7.4.27 - 7.4.27) <85689117-3964-395E-8D53-9526FBC52CF2> /System/Library/Frameworks/SwiftUICore.framework/Versions/A/SwiftUICore
+       0x237615000 -        0x237628e3f  com.apple.Symbols (1.0 - 190.4.0.1) <954D7B6D-E615-3F79-9FF6-D8FD105B5954> /System/Library/Frameworks/Symbols.framework/Versions/A/Symbols
+       0x23762f000 -        0x23776db5f  com.apple.DataFrame (1.0 - 52) <BFF6B68B-3B93-3BDE-9C96-3859450D9166> /System/Library/Frameworks/TabularData.framework/Versions/A/TabularData
+       0x238596000 -        0x2385c0b5f  com.apple.CoreLocation.LocationEssentials (1.0 - 1) <84A21444-813B-3886-AEA4-C345149F4CD9> /System/Library/Frameworks/_LocationEssentials.framework/Versions/A/_LocationEssentials
+       0x23d0fb000 -        0x23d10fabf  com.apple.AppleDeviceQuerySupport (1.0 - 408.100.18) <280507E6-93B0-3DEE-842C-42912C1A394B> /System/Library/PrivateFrameworks/AppleDeviceQuerySupport.framework/Versions/A/AppleDeviceQuerySupport
+       0x23d162000 -        0x23d17d09f  com.apple.siri.flatbuffer.AppleFlatBuffers (1) <A676BCC9-5301-330A-ACF2-E5A82B9CC3B9> /System/Library/PrivateFrameworks/AppleFlatBuffers.framework/Versions/A/AppleFlatBuffers
+       0x23d535000 -        0x23d5c3a5f  com.apple.proactive.AppleIntelligenceReporting (1.0 - 1) <E8DFD4BF-09F5-3E26-9CBB-85A3CCCD53D0> /System/Library/PrivateFrameworks/AppleIntelligenceReporting.framework/Versions/A/AppleIntelligenceReporting
+       0x23d6b7000 -        0x23d885ae7  com.apple.cmphoto.AppleJPEGXL (1.0 - 1) <0EB5DD9C-5074-32F0-98A8-9969C14481E7> /System/Library/PrivateFrameworks/AppleJPEGXL.framework/Versions/A/AppleJPEGXL
+       0x23d886000 -        0x23d900cc6  com.apple.AppleKeyStore (1.0 - 1.0) <67B6D752-B0D2-34AC-9F6B-4368F0CCF674> /System/Library/PrivateFrameworks/AppleKeyStore.framework/Versions/A/AppleKeyStore
+       0x23e229000 -        0x23e2419df  com.apple.private.AppleMobileFileIntegrity-fmk (1.0 - 1) <8EB88354-07F6-3225-A92E-F7CE8595573B> /System/Library/PrivateFrameworks/AppleMobileFileIntegrity.framework/Versions/A/AppleMobileFileIntegrity
+       0x23e3d8000 -        0x23e453ea7  com.apple.ArgumentParserInternal (1.0 - 1.20.2) <45F74F2A-9F13-3C0F-B930-24D348C92B93> /System/Library/PrivateFrameworks/ArgumentParserInternal.framework/Versions/A/ArgumentParserInternal
+       0x23e73a000 -        0x23e74c799  com.apple.AtomicsInternal (1.1.0 - 154) <407FE060-8C88-3194-A21B-8688FD8EC4E5> /System/Library/PrivateFrameworks/AtomicsInternal.framework/Versions/A/AtomicsInternal
+       0x23e809000 -        0x23e82bdff  com.apple.imgaudio.AudioAnalytics (1.0 - 1) <836137A2-2EFE-35FF-B641-6042C5D72771> /System/Library/PrivateFrameworks/AudioAnalytics.framework/Versions/A/AudioAnalytics
+       0x23edfb000 -        0x23ee437df  com.apple.BackBoardHIDEventFoundation (1.0 - 1) <BDDBB7D2-5979-3E4D-A110-D6484BE6B63D> /System/Library/PrivateFrameworks/BackBoardHIDEventFoundation.framework/Versions/A/BackBoardHIDEventFoundation
+       0x23eedc000 -        0x23eef58df  com.apple.biome.BiomeDSL (1.0 - 209.15.0.2) <B81F347F-E6B4-3E12-84CA-F9B1B70FF675> /System/Library/PrivateFrameworks/BiomeDSL.framework/Versions/A/BiomeDSL
+       0x23eef6000 -        0x23f7a315f  com.apple.BiomeLibrary (274.52) <E7A86C30-C81B-3E2E-8C9D-AB0301998890> /System/Library/PrivateFrameworks/BiomeLibrary.framework/Versions/A/BiomeLibrary
+       0x23f7a4000 -        0x23f7a9b5f  com.apple.biome.BiomeSync (1.0 - 209.15.0.2) <102054CD-90EC-3295-9F9B-F98336CD69B3> /System/Library/PrivateFrameworks/BiomeSync.framework/Versions/A/BiomeSync
+       0x2401f6000 -        0x2401f812f  com.apple.CMCaptureDevice (665.101.3) <C69E6385-2B54-340C-9F83-42015FF456EF> /System/Library/PrivateFrameworks/CMCaptureDevice.framework/Versions/A/CMCaptureDevice
+       0x2402bb000 -        0x2404c349f  com.apple.CMImaging (1.0 - 665.101.3) <862E849D-75A7-30F0-9EB4-F0B41676338B> /System/Library/PrivateFrameworks/CMImaging.framework/Versions/A/CMImaging
+       0x2404c4000 -        0x24068e63f  com.apple.CMPhoto (1.0 - 1) <BEA93ABC-917B-34D3-89EF-67DF320E73ED> /System/Library/PrivateFrameworks/CMPhoto.framework/Versions/A/CMPhoto
+       0x240dd2000 -        0x240e6adbf  com.apple.biome.CascadeSets (1.0 - 209.15.0.2) <6CED7B79-85C6-3ABA-A1D4-691B2031239D> /System/Library/PrivateFrameworks/CascadeSets.framework/Versions/A/CascadeSets
+       0x240e86000 -        0x240e8bcff  com.apple.Centauri (1.0 - 1) <6CB1EB51-4330-3BEC-8720-73E9395DCCB8> /System/Library/PrivateFrameworks/Centauri.framework/Versions/A/Centauri
+       0x24137c000 -        0x2413b459f  com.apple.CinematicFraming (1.0 - 665.101.3) <7F3F6586-D7B0-37EF-A91A-38ED74633322> /System/Library/PrivateFrameworks/CinematicFraming.framework/Versions/A/CinematicFraming
+       0x2421fa000 -        0x24221e8ff  com.apple.CollectionViewCore (1.0 - 1) <E1B9C804-83D6-3C89-9D67-CE505D60ACE2> /System/Library/PrivateFrameworks/CollectionViewCore.framework/Versions/A/CollectionViewCore
+       0x24221f000 -        0x24235e2ae  com.apple.CollectionsInternal (1.2.0 - 154) <1A480C96-2A0B-3BDC-BE26-7779B2F282DB> /System/Library/PrivateFrameworks/CollectionsInternal.framework/Versions/A/CollectionsInternal
+       0x244618000 -        0x2446b5fff  com.apple.audio.coreaudio.Stravinsky (1.0 - 1) <B6F95607-CE64-317E-B4CE-3DB1D29DE089> /System/Library/PrivateFrameworks/CoreAudioOrchestration.framework/Versions/A/CoreAudioOrchestration
+       0x2484bb000 -        0x2485c0fbf  com.apple.CoreSceneUnderstanding (1.74.0 - 1.74.0) <EEA014DF-1461-3445-9B98-02406D693C69> /System/Library/PrivateFrameworks/CoreSceneUnderstanding.framework/Versions/A/CoreSceneUnderstanding
+       0x2487c2000 -        0x2487e864f  com.apple.CoreUtilsExtras (1.0 - 1) <C87E479E-42B5-3236-B16D-1A740034CABE> /System/Library/PrivateFrameworks/CoreUtilsExtras.framework/Versions/A/CoreUtilsExtras
+       0x248f9d000 -        0x24900ce7f  com.apple.aiml.dendrite.Dendrite (1.0 - 1) <84E14030-811C-32CA-9F3C-F59C0C7257F5> /System/Library/PrivateFrameworks/Dendrite.framework/Versions/A/Dendrite
+       0x24900d000 -        0x24918ab1f  com.apple.DesignLibrary (7.4.27 - 7.4.27) <A922812C-DD55-3989-8607-AE52925610E4> /System/Library/PrivateFrameworks/DesignLibrary.framework/Versions/A/DesignLibrary
+       0x24951b000 -        0x24952e49f  com.apple.DeviceRecovery (1.0 - 1) <4B0612CE-7637-3581-B9A1-7EBC923047FC> /System/Library/PrivateFrameworks/DeviceRecovery.framework/Versions/A/DeviceRecovery
+       0x24994e000 -        0x24996467f  com.apple.DistributedSensing (1.0 - 1) <2CAB6666-310E-35C3-AC04-DC6145EBE3E7> /System/Library/PrivateFrameworks/DistributedSensing.framework/Versions/A/DistributedSensing
+       0x24b5eb000 -        0x24b63e53f  com.apple.UIKit.FocusEngine (9126.4.27.1.402) <75AB8D8B-DEFD-3F47-A5A0-5584F8B15C47> /System/Library/PrivateFrameworks/FocusEngine.framework/Versions/A/FocusEngine
+       0x24b7b4000 -        0x24b7b72ff  com.apple.FontServices (1.0 - 1) <2D16E478-3384-3947-8A97-472C8265DEA3> /System/Library/PrivateFrameworks/FontServices.framework/Versions/A/FontServices
+       0x24b7b8000 -        0x24b8a7e2f  libXTFontStaticRegistryData.dylib (335.4.0.6) <D3CA2DB8-9982-3978-BABC-92B5D3E4528C> /System/Library/PrivateFrameworks/FontServices.framework/libXTFontStaticRegistryData.dylib
+       0x24b8a9000 -        0x24b8b5c9f  com.apple.FramePacing (1.0 - 1) <94C088E1-45CE-32F2-94E2-D92BE086B6F4> /System/Library/PrivateFrameworks/FramePacing.framework/Versions/A/FramePacing
+       0x24b8b6000 -        0x24b97737f  com.apple.FrontBoard (1000.4.11 - 1000.4.11) <7D654726-E1A4-3061-A7A3-8CF5FC24C4CB> /System/Library/PrivateFrameworks/FrontBoard.framework/Versions/A/FrontBoard
+       0x24c9d6000 -        0x24c9dbf07  libGPUCompilerUtils.dylib (32023.883.1) <CB93CEE8-91B3-31B0-9EF4-9A2261EE0DC1> /System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/libGPUCompilerUtils.dylib
+       0x250e49000 -        0x250e88797  libllvm-flatbuffers.dylib (32023.883.1) <5C724D09-588C-3E79-8D58-209B6147A7AD> /System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/libllvm-flatbuffers.dylib
+       0x2544b0000 -        0x2544fd7a6  com.apple.GenerativeFunctions.GenerativeFunctions (1.0 - 222.35.5) <E149A9D6-6411-3725-AC29-39B7C07398AC> /System/Library/PrivateFrameworks/GenerativeFunctions.framework/Versions/A/GenerativeFunctions
+       0x2544fe000 -        0x25459347f  com.apple.GenerativeFunctions.GenerativeFunctionsFoundation (1.0 - 222.35.5) <6A703D76-0BA5-3548-9354-CC1C34BE061D> /System/Library/PrivateFrameworks/GenerativeFunctionsFoundation.framework/Versions/A/GenerativeFunctionsFoundation
+       0x254594000 -        0x2545f997f  com.apple.GenerativeFunctions.GenerativeFunctionsInstrumentation (1.0 - 222.35.5) <B6E3AA95-1B4D-34B3-A1B1-844EAA18C8F0> /System/Library/PrivateFrameworks/GenerativeFunctionsInstrumentation.framework/Versions/A/GenerativeFunctionsInstrumentation
+       0x2545fa000 -        0x2546dc1df  com.apple.GenerativeFunctions.GenerativeModels (1.0 - 222.35.5) <D49B3220-0E00-3AD9-A4B0-498B09263B40> /System/Library/PrivateFrameworks/GenerativeModels.framework/Versions/A/GenerativeModels
+       0x2546dd000 -        0x254752b9f  com.apple.GenerativeFunctions.GenerativeModelsFoundation (1.0 - 222.35.5) <528AB060-F0CB-31AC-B7FA-8D2CF1959F74> /System/Library/PrivateFrameworks/GenerativeModelsFoundation.framework/Versions/A/GenerativeModelsFoundation
+       0x2548ee000 -        0x2548f327f  com.apple.GeoServices (1.0 - 2031.24.7.17.31) <335F3229-8668-38CE-AC37-2AC6EC15EA11> /System/Library/PrivateFrameworks/GeoServicesCore.framework/Versions/A/GeoServicesCore
+       0x254a9c000 -        0x254b5fe9f  com.apple.Gestures (9126.1.5 - 9126.1.5) <EBD4A257-1460-3CFB-91FF-61EBA39B1AC3> /System/Library/PrivateFrameworks/Gestures.framework/Versions/A/Gestures
+       0x257bc3000 -        0x257c2435f  com.apple.IO80211 (1.0 - 1) <81F5021D-001D-3504-91C4-92AC993A4F47> /System/Library/PrivateFrameworks/IO80211.framework/Versions/A/IO80211
+       0x257c2e000 -        0x257c3883f  com.apple.IPConfiguration (1.21 - 1.21) <D7883181-7B54-352E-B4C2-197C89BAFF20> /System/Library/PrivateFrameworks/IPConfiguration.framework/Versions/A/IPConfiguration
+       0x257c6e000 -        0x257cdf07f  com.apple.cocoa.IconRendering (1.0 - 92.2) <51CD9ACA-CC48-3F76-9BDE-83BD926DBD88> /System/Library/PrivateFrameworks/IconRendering.framework/Versions/A/IconRendering
+       0x2586c3000 -        0x2587cc29f  com.apple.InstalledContentLibrary (1.0 - 1.0) <B509C80B-393D-34B8-969F-F6C7F3332041> /System/Library/PrivateFrameworks/InstalledContentLibrary.framework/Versions/A/InstalledContentLibrary
+       0x25b100000 -        0x25b8ce35f  com.apple.IntelligencePlatformLibrary (274.52) <FB23F4B0-47DB-3BB7-86EB-6B155DA406CF> /System/Library/PrivateFrameworks/IntelligencePlatformLibrary.framework/Versions/A/IntelligencePlatformLibrary
+       0x25ba7c000 -        0x25bab3b5f  com.apple.audio.CoreAudio.IsolatedCoreAudioClient (1.0 - 1) <179E9B66-26D4-35A0-822B-56904562A165> /System/Library/PrivateFrameworks/IsolatedCoreAudioClient.framework/Versions/A/IsolatedCoreAudioClient
+       0x25d08b000 -        0x25d08f5df  com.apple.CoreLocation.LocationLogEncryption (3072.0.46.3.1) <60014D5C-63B9-31EF-897B-9E1C4B7B0280> /System/Library/PrivateFrameworks/LocationLogEncryption.framework/Versions/A/LocationLogEncryption
+       0x25d1a9000 -        0x25d83f923  com.apple.MIL (3520.4 - 3520.4.1) <AE9BCA7C-3F03-3EEE-9687-F02E8CD6110C> /System/Library/PrivateFrameworks/MIL.framework/Versions/A/MIL
+       0x25d840000 -        0x25d8bd03f  com.apple.CoreML.MLAssetIO (1.0 - 3520.5.1) <7B4EFA32-1233-34AA-B422-D17B89A504F3> /System/Library/PrivateFrameworks/MLAssetIO.framework/Versions/A/MLAssetIO
+       0x25d8be000 -        0x25d917b0f  com.apple.mlcompiler.runtime (3404.3.1 - 3404.3.1) <EB556DF4-F092-3B64-A383-7114408B15F6> /System/Library/PrivateFrameworks/MLCompilerRuntime.framework/Versions/A/MLCompilerRuntime
+       0x25d918000 -        0x25d931827  com.apple.mlcompiler.services (3404.3.1 - 3404.3.1) <B1680062-A436-3598-B9B8-0A28EA6DDDA1> /System/Library/PrivateFrameworks/MLCompilerServices.framework/Versions/A/MLCompilerServices
+       0x2605a5000 -        0x2605bc31f  com.apple.ggml.ModelAsset (1.0 - 1) <B532BC19-9B2F-3F0B-9945-E9A7014757A3> /System/Library/PrivateFrameworks/MLModelAsset.framework/Versions/A/MLModelAsset
+       0x2623af000 -        0x262410a5f  com.apple.MessageSecurity (1.0 - 195.100.77) <A209D53C-DAD5-3A1F-A8C2-14B0C20A547A> /System/Library/PrivateFrameworks/MessageSecurity.framework/Versions/A/MessageSecurity
+       0x26333d000 -        0x2635db0bf  com.apple.ModelCatalog.ModelCatalog (1.0 - 233.34.4) <941B7C09-EE1C-3449-B0A9-9D65DDC0F689> /System/Library/PrivateFrameworks/ModelCatalog.framework/Versions/A/ModelCatalog
+       0x263678000 -        0x2638103ff  com.apple.ModelManagerServices (1.0 - 1) <52F929FB-9403-3F7E-8693-5CB50BC8FEC7> /System/Library/PrivateFrameworks/ModelManagerServices.framework/Versions/A/ModelManagerServices
+       0x26702b000 -        0x2672a33df  com.apple.mlpt.ODIE (1.0 - 1) <815E9513-4279-3E15-820A-ACB6134C60EB> /System/Library/PrivateFrameworks/ODIE.framework/Versions/A/ODIE
+       0x2672a9000 -        0x2672d2b1f  com.apple.OSEligibility (319.101.1) <9D45879B-E72F-3EC2-B8BA-F17AF6993AB1> /System/Library/PrivateFrameworks/OSEligibility.framework/Versions/A/OSEligibility
+       0x267f29000 -        0x26804185f  com.apple.ParsingInternal (0.0.1 - 154) <AA740584-BC9B-3F37-9A1A-EF0414380CE6> /System/Library/PrivateFrameworks/ParsingInternal.framework/Versions/A/ParsingInternal
+       0x26b3d4000 -        0x26b3f5e1f  com.apple.accessibility.PhotosensitivityProcessing (1.0 - 1) <3931DECB-C3BB-39E7-BCBF-54CCE20032C7> /System/Library/PrivateFrameworks/PhotosensitivityProcessing.framework/Versions/A/PhotosensitivityProcessing
+       0x26b7e8000 -        0x26b824a3c  com.apple.PoirotSQLite (1.0 - 1) <B3D3E21E-698D-3C9E-B4DF-7DB6B7A31822> /System/Library/PrivateFrameworks/PoirotSQLite.framework/Versions/A/PoirotSQLite
+       0x26b825000 -        0x26b89225f  com.apple.PoirotSchematizer (1.0 - 1) <4992FDC0-2A39-37DD-926E-0E9F9CC9B381> /System/Library/PrivateFrameworks/PoirotSchematizer.framework/Versions/A/PoirotSchematizer
+       0x26b893000 -        0x26b8c8bff  com.apple.PoirotUDFs (1.0 - 1) <A70FE2AE-430C-30E5-B105-B3DCC294DF37> /System/Library/PrivateFrameworks/PoirotUDFs.framework/Versions/A/PoirotUDFs
+       0x26ca5d000 -        0x26cb9911f  com.apple.ProDisplayLibrary (10.4.28 - 10.4.28) <085F6583-4A26-3006-8C7A-853A09AD40E0> /System/Library/PrivateFrameworks/ProDisplayLibrary.framework/Versions/A/ProDisplayLibrary
+       0x26cbfc000 -        0x26cc2957f  com.apple.intelligenceflow.ProactiveDaemonSupport (1.0 - 3520.68.1) <86A8ECBF-55A5-3334-A2ED-FECA2B42CD00> /System/Library/PrivateFrameworks/ProactiveDaemonSupport.framework/Versions/A/ProactiveDaemonSupport
+       0x26d1c3000 -        0x26d372fdf  com.apple.GenerativeFunctions.PromptKit (1.0 - 222.35.5) <26BE1B9A-1C68-3EB1-B920-95448FB2A97A> /System/Library/PrivateFrameworks/PromptKit.framework/Versions/A/PromptKit
+       0x26db31000 -        0x26db394cf  com.apple.ReflectionInternal (1.0.0 - 154) <FBAA34DB-DCB6-36C6-94C7-DFB542C0A55B> /System/Library/PrivateFrameworks/ReflectionInternal.framework/Versions/A/ReflectionInternal
+       0x26ea79000 -        0x26ea8c9c7  com.apple.RuntimeInternal (1.0.0 - 154) <0A0F41D4-3475-30F6-8682-3227EC3FE8A8> /System/Library/PrivateFrameworks/RuntimeInternal.framework/Versions/A/RuntimeInternal
+       0x26ec45000 -        0x26eccaa3f  com.apple.SFSymbolsFramework (1 - 190.4.0.1) <009CB06E-6F11-3411-98C4-18700A3F9371> /System/Library/PrivateFrameworks/SFSymbols.framework/Versions/A/SFSymbols
+       0x26eccb000 -        0x26ed38abf  com.apple.SILManager (53.19 - 53.19) <A1A3D3E5-BB48-318C-A1A2-949DAE63B749> /System/Library/PrivateFrameworks/SILManager.framework/Versions/A/SILManager
+       0x270320000 -        0x27040d0bf  com.apple.SensitiveContentAnalysisML (1) <61D5764F-2201-3003-869E-4F4F4F4EF11C> /System/Library/PrivateFrameworks/SensitiveContentAnalysisML.framework/Versions/A/SensitiveContentAnalysisML
+       0x2705f0000 -        0x2706828ff  com.apple.SentencePieceInternal (57.3) <1BE59A5F-4EC7-3077-BE96-E04E2D3EB910> /System/Library/PrivateFrameworks/SentencePieceInternal.framework/Versions/A/SentencePieceInternal
+       0x271102000 -        0x27121f13f  com.apple.siri.SiriAnalytics (1.0 - 1) <4F77344D-2D2E-3747-B198-8046E6AA04FF> /System/Library/PrivateFrameworks/SiriAnalytics.framework/Versions/A/SiriAnalytics
+       0x27a18c000 -        0x27a1b84a1  com.apple.security.SwiftASN1Internal (1.0 - 1) <EDAC3CA1-D139-3B18-941A-86FC1B7E2143> /System/Library/PrivateFrameworks/SwiftASN1Internal.framework/Versions/A/SwiftASN1Internal
+       0x27afd9000 -        0x27b0346df  com.apple.SystemStatus (1.0 - 1) <5B741C0F-12D3-3234-8EDE-400725731F58> /System/Library/PrivateFrameworks/SystemStatus.framework/Versions/A/SystemStatus
+       0x27d89f000 -        0x27d8db1df  com.apple.tightbeam (1.0 - 483.100.88) <AFDCDFFD-BD5E-3527-B924-8860400C0AD3> /System/Library/PrivateFrameworks/Tightbeam.framework/Versions/A/Tightbeam
+       0x27dda2000 -        0x27dfd917f  com.apple.TokenGeneration (1.0 - 1) <D1BEE003-62F2-347A-9A6A-4DA190F8C7C9> /System/Library/PrivateFrameworks/TokenGeneration.framework/Versions/A/TokenGeneration
+       0x27dfda000 -        0x27e1a7f3f  com.apple.TokenGenerationCore (1.0 - 1) <CE47732C-F9F3-3DB2-894A-E82A155C2434> /System/Library/PrivateFrameworks/TokenGenerationCore.framework/Versions/A/TokenGenerationCore
+       0x27f9e8000 -        0x27fb1e51f  com.apple.UIIntelligenceSupport (1.0 - 1) <9C9DBF7E-9CCC-3939-B102-FED4D9CBD61B> /System/Library/PrivateFrameworks/UIIntelligenceSupport.framework/Versions/A/UIIntelligenceSupport
+       0x2800c3000 -        0x2801883ff  com.apple.UnifiedAssetFramework (1.0 - 1) <C089150D-8EEA-309B-8A92-34522FBB3848> /System/Library/PrivateFrameworks/UnifiedAssetFramework.framework/Versions/A/UnifiedAssetFramework
+       0x2808dc000 -        0x2808de1ff  com.apple.UpdateCycle (1 - 1) <F6455B3C-A322-366F-B294-B2F883D8ADBF> /System/Library/PrivateFrameworks/UpdateCycle.framework/Versions/A/UpdateCycle
+       0x281fa8000 -        0x281fa92cf  com.apple.VideoToolboxParavirtualizationSupport (64.4.7 - 64.4.7) <C020E1A9-FA32-3DDE-A814-761CC904519C> /System/Library/PrivateFrameworks/VideoToolboxParavirtualizationSupport.framework/Versions/A/VideoToolboxParavirtualizationSupport
+       0x282bac000 -        0x282bf809f  com.apple.VisionCore (9.5.4 - 9.5.4) <0F37FF69-F191-3018-A42D-FE24D59B7E57> /System/Library/PrivateFrameworks/VisionCore.framework/Versions/A/VisionCore
+       0x28530a000 -        0x28532a1bf  com.apple.WindowManagement (1.0 - 341.4.4) <5D5B7E51-5830-373E-9DFC-A54809AC758C> /System/Library/PrivateFrameworks/WindowManagement.framework/Versions/A/WindowManagement
+       0x286501000 -        0x2865059ff  com.apple.WritingTools (1.0 - 1) <3AF4E157-9258-34CE-9A93-C8FF2571F436> /System/Library/PrivateFrameworks/WritingTools.framework/Versions/A/WritingTools
+       0x28c0ca000 -        0x28c0cd89f  com.apple.UIUtilities (9126.4.27.1.402) <5271A254-6593-360E-9B2D-0DE34A8A9174> /System/Library/SubFrameworks/UIUtilities.framework/Versions/A/UIUtilities
+       0x28c1ad000 -        0x28c1afd5f  libAXSafeCategoryBundle.dylib (3191.25.1) <3998A41F-D32A-3E02-B658-76FCCB87FCFD> /usr/lib/libAXSafeCategoryBundle.dylib
+       0x28c1ea000 -        0x28c28435f  libAppleArchive.dylib (450.100.4) <F7C3CEC7-1F55-3617-B917-F221A2BCE7B6> /usr/lib/libAppleArchive.dylib
+       0x28c33f000 -        0x28c34945f  libCoreEntitlements.dylib (80.100.6) <40E810FC-0D99-3C00-92D7-F0C66D6152FB> /usr/lib/libCoreEntitlements.dylib
+       0x28c635000 -        0x28c63c87f  libReverseProxyDevice.dylib (104.40.3) <1EE2E566-2280-3B41-B13B-BF71517DC956> /usr/lib/libReverseProxyDevice.dylib
+       0x28c63d000 -        0x28c644349  libRosetta.dylib (367.5) <2FC1EF06-04C4-35FC-8DC3-BEA1E9FBD63F> /usr/lib/libRosetta.dylib
+       0x28c6a9000 -        0x28c6a935f  libSpatial.dylib (108) <7C1FBA2B-DAAD-3E29-86A9-83EA70699458> /usr/lib/libSpatial.dylib
+       0x28c6ac000 -        0x28c6b53ff  libTLE.dylib (80.100.6) <876EA47E-51E0-39FB-9D49-E6654AD58464> /usr/lib/libTLE.dylib
+       0x28cf79000 -        0x28d08ab17  libcrypto.46.dylib (109.100.2) <DAA12A78-F0F0-30B8-92F4-C9257843E858> /usr/lib/libcrypto.46.dylib
+       0x28d1c5000 -        0x28d1e1762  libhvf.dylib (11) <FA8F5DCD-0A2B-30A9-8BD5-065DF59ED592> /usr/lib/libhvf.dylib
+       0x28d615000 -        0x28d61d28a  libmrc.dylib (2881.100.56.0.1) <CC546CAC-2404-3061-A71A-DA8D16F9BEAC> /usr/lib/libmrc.dylib
+       0x28db12000 -        0x28db4a527  libssl.48.dylib (109.100.2) <7BD6E551-5BBF-3AEB-B1A7-BD698770A40E> /usr/lib/libssl.48.dylib
+       0x28db85000 -        0x28dbb2e37  libswiftPrespecialized.dylib (0) <A7F970BC-D107-3D9B-A49E-ACA772E588E6> /usr/lib/libswiftPrespecialized.dylib
+       0x28de4e000 -        0x28de60043  libswiftDistributed.dylib (6.3.0 - 6.3.0.123.11) <B39D029A-D50B-3A5F-8ED3-CDB591E7D429> /usr/lib/swift/libswiftDistributed.dylib
+       0x28de68000 -        0x28de6f31f  libswiftMLCompute.dylib (84) <F385924A-1D49-3B87-8783-DC2C9E667D00> /usr/lib/swift/libswiftMLCompute.dylib
+       0x28de77000 -        0x28de86ebc  libswiftObservation.dylib (6.3.0 - 6.3.0.123.11) <8A5C9C34-6237-3DAF-B402-7CCBDA47E028> /usr/lib/swift/libswiftObservation.dylib
+       0x28de96000 -        0x28dea2817  libswiftRegexBuilder.dylib (6.3 - 6.3.0.123.11) <F73B9447-AD5E-39BD-8925-1C97EB0A2476> /usr/lib/swift/libswiftRegexBuilder.dylib
+       0x28df39000 -        0x28dfaf72f  libswiftSpatial.dylib (108) <70821B44-314F-3799-A2D3-2E9A77A4EEBD> /usr/lib/swift/libswiftSpatial.dylib
+       0x28dfb3000 -        0x28dfc68ef  libswiftSynchronization.dylib (6.3.0 - 6.3.0.123.11) <8D3DB366-76F8-3D99-8CC3-326AA513F7B4> /usr/lib/swift/libswiftSynchronization.dylib
+       0x28dfc7000 -        0x28dfdfe60  libswiftSystem.dylib (75) <9808DC7D-BE41-300B-A7E2-BA827446EE0A> /usr/lib/swift/libswiftSystem.dylib
+       0x28dfe1000 -        0x28dff779f  libswiftVideoToolbox.dylib (3305.24.5.2) <3E76FAE6-CDCE-31A2-BC50-3907797972CF> /usr/lib/swift/libswiftVideoToolbox.dylib
+       0x28dff9000 -        0x28dff9669  libswift_Builtin_float.dylib (6.3.0.123.11) <86B92BEF-06E8-3E10-A155-E1AB40B3F854> /usr/lib/swift/libswift_Builtin_float.dylib
+       0x28dffa000 -        0x28e085095  libswift_Concurrency.dylib (6.3.0 - 6.3.0.123.11) <02634765-CB69-3C2B-9CCE-10103CBEA22A> /usr/lib/swift/libswift_Concurrency.dylib
+       0x28e086000 -        0x28e088f83  libswift_DarwinFoundation1.dylib (377.100.15) <251F0C0D-17E0-37BB-A903-BB04A6C99999> /usr/lib/swift/libswift_DarwinFoundation1.dylib
+       0x28e089000 -        0x28e089eeb  libswift_DarwinFoundation2.dylib (377.100.15) <D22D6BC3-62DD-314C-8A8E-56CD69ABAB3C> /usr/lib/swift/libswift_DarwinFoundation2.dylib
+       0x28e08a000 -        0x28e08a7a7  libswift_DarwinFoundation3.dylib (377.100.15) <02812A8B-CF65-3C0F-A795-C4A03E71D00E> /usr/lib/swift/libswift_DarwinFoundation3.dylib
+       0x28e08b000 -        0x28e12949f  libswift_RegexParser.dylib (6.3 - 6.3.0.123.11) <4AFB7E54-4E3C-351E-A353-9B1C99CBDA36> /usr/lib/swift/libswift_RegexParser.dylib
+       0x28e12a000 -        0x28e1b60bd  libswift_StringProcessing.dylib (6.3 - 6.3.0.123.11) <DC0CDBD3-5AAF-3A71-880F-8E40074817E4> /usr/lib/swift/libswift_StringProcessing.dylib
+       0x28e1bf000 -        0x28e1bf3d3  libswiftsys_time.dylib (377.100.15) <C828D472-DADC-3008-8171-7FAD56785384> /usr/lib/swift/libswiftsys_time.dylib
+       0x28e31a000 -        0x28e31da4b  libsystem_darwindirectory.dylib (122) <CCAA2170-32DD-34BD-A927-32DF30893969> /usr/lib/system/libsystem_darwindirectory.dylib
+       0x28e31e000 -        0x28e3275a7  libsystem_eligibility.dylib (319.101.1) <2D19994A-87BB-34B8-A343-CB8DD47FF110> /usr/lib/system/libsystem_eligibility.dylib
+       0x28e328000 -        0x28e32f8db  libsystem_sanitizers.dylib (26) <FCB93D2F-4437-3089-A43F-A19BC23DD65B> /usr/lib/system/libsystem_sanitizers.dylib
+       0x28e330000 -        0x28e330bb7  libsystem_trial.dylib (474.2.18) <5BB81430-4E33-3160-94D2-1FFB2B614DB2> /usr/lib/system/libsystem_trial.dylib
