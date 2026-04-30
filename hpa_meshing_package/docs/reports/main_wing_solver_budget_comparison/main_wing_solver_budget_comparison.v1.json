@@ -19,10 +19,13 @@
       "cm": -0.2096803732,
       "cm_axis": "CMy"
     },
+    "main_wing_lift_acceptance_status": "fail",
+    "minimum_acceptable_cl": 1.0,
     "advisory_flags": [
       "convergence_gate_not_passed",
       "residual_drop_below_threshold",
       "reference_geometry_warn",
+      "main_wing_cl_below_expected_lift",
       "mesh_quality_cv_sub_volume_ratio_high",
       "mesh_quality_cv_face_area_aspect_ratio_high",
       "overall_gate_warning:iterative_gate=warn",
@@ -49,6 +52,8 @@
         "cm": -0.1388126065,
         "cm_axis": "CMy"
       },
+      "main_wing_lift_acceptance_status": "fail",
+      "minimum_acceptable_cl": 1.0,
       "residual_median_log_drop": 0.16274343150000004,
       "coefficient_stability_status": "fail",
       "coefficient_stability_by_axis": {
@@ -62,6 +67,7 @@
         "residual_drop_below_threshold",
         "coefficient_tail_not_stable",
         "reference_geometry_warn",
+        "main_wing_cl_below_expected_lift",
         "overall_gate_warning:iterative_gate=fail",
         "overall_gate_warning:reference_gate=warn"
       ]
@@ -85,6 +91,8 @@
         "cm": -0.1467861013,
         "cm_axis": "CMy"
       },
+      "main_wing_lift_acceptance_status": "fail",
+      "minimum_acceptable_cl": 1.0,
       "residual_median_log_drop": 0.21684479150000002,
       "coefficient_stability_status": "pass",
       "coefficient_stability_by_axis": {
@@ -97,6 +105,7 @@
         "convergence_gate_not_passed",
         "residual_drop_below_threshold",
         "reference_geometry_warn",
+        "main_wing_cl_below_expected_lift",
         "overall_gate_warning:iterative_gate=warn",
         "overall_gate_warning:reference_gate=warn"
       ]
@@ -120,6 +129,8 @@
         "cm": -0.2032569615,
         "cm_axis": "CMy"
       },
+      "main_wing_lift_acceptance_status": "fail",
+      "minimum_acceptable_cl": 1.0,
       "residual_median_log_drop": 0.16274343150000004,
       "coefficient_stability_status": "fail",
       "coefficient_stability_by_axis": {
@@ -133,6 +144,7 @@
         "residual_drop_below_threshold",
         "coefficient_tail_not_stable",
         "reference_geometry_warn",
+        "main_wing_cl_below_expected_lift",
         "overall_gate_warning:iterative_gate=fail",
         "overall_gate_warning:reference_gate=warn"
       ]
@@ -156,6 +168,8 @@
         "cm": -0.2130813257,
         "cm_axis": "CMy"
       },
+      "main_wing_lift_acceptance_status": "fail",
+      "minimum_acceptable_cl": 1.0,
       "residual_median_log_drop": 0.21684479150000002,
       "coefficient_stability_status": "pass",
       "coefficient_stability_by_axis": {
@@ -168,6 +182,7 @@
         "convergence_gate_not_passed",
         "residual_drop_below_threshold",
         "reference_geometry_warn",
+        "main_wing_cl_below_expected_lift",
         "overall_gate_warning:iterative_gate=warn",
         "overall_gate_warning:reference_gate=warn"
       ]
@@ -191,6 +206,8 @@
         "cm": -0.2096803732,
         "cm_axis": "CMy"
       },
+      "main_wing_lift_acceptance_status": "fail",
+      "minimum_acceptable_cl": 1.0,
       "residual_median_log_drop": 0.3579933982500001,
       "coefficient_stability_status": "pass",
       "coefficient_stability_by_axis": {
@@ -223,6 +240,7 @@
         "convergence_gate_not_passed",
         "residual_drop_below_threshold",
         "reference_geometry_warn",
+        "main_wing_cl_below_expected_lift",
         "mesh_quality_cv_sub_volume_ratio_high",
         "mesh_quality_cv_face_area_aspect_ratio_high",
         "overall_gate_warning:iterative_gate=warn",
@@ -235,10 +253,12 @@
     "Solver execution is treated separately from convergence; only a pass gate can be called converged.",
     "The highest available current-route budget remains non-converged or warn-only.",
     "Current-route coefficient tails are stable, but residual and reference gates still limit comparability.",
+    "Current-route CL is below 1 at HPA 6.5 m/s, so it cannot be accepted as converged main-wing evidence.",
     "SU2 mesh-quality diagnostics now point at local mesh quality as a better next suspect than simply adding iterations.",
     "Reference geometry remains warn-level, so moments and force comparability are not final engineering evidence."
   ],
   "next_actions": [
+    "resolve_main_wing_cl_below_expected_lift_before_convergence_claims",
     "inspect_main_wing_mesh_quality_before_more_iterations",
     "compare_solver_numerics_and_mesh_local_sizing_before_larger_budget",
     "resolve_main_wing_reference_area_and_moment_origin_policy"

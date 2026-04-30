@@ -109,10 +109,18 @@ def test_solver_budget_comparison_summarizes_openvsp_current_route(tmp_path: Pat
     assert report.current_route_row["reference_policy"] == "openvsp_geometry_derived"
     assert report.current_route_row["runtime_max_iterations"] == 80
     assert report.current_route_row["residual_median_log_drop"] == 0.36
+    assert report.current_route_row["main_wing_lift_acceptance_status"] == "fail"
     assert "residual_drop_below_threshold" in report.current_route_row["advisory_flags"]
+    assert (
+        "main_wing_cl_below_expected_lift"
+        in report.current_route_row["advisory_flags"]
+    )
     assert (
         "mesh_quality_cv_sub_volume_ratio_high"
         in report.current_route_row["advisory_flags"]
+    )
+    assert report.next_actions[0] == (
+        "resolve_main_wing_cl_below_expected_lift_before_convergence_claims"
     )
     assert (
         "inspect_main_wing_mesh_quality_before_more_iterations"

@@ -24,6 +24,7 @@ HPAFlowStatusType = Literal[
     "mixed_or_nonstandard_velocity_observed",
     "unavailable",
 ]
+MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5 = 1.0
 
 
 class MainWingSolverBudgetComparisonRow(BaseModel):
@@ -40,6 +41,8 @@ class MainWingSolverBudgetComparisonRow(BaseModel):
     reference_geometry_status: str | None = None
     observed_velocity_mps: float | None = None
     final_coefficients: Dict[str, Any] = Field(default_factory=dict)
+    main_wing_lift_acceptance_status: str = "not_evaluated"
+    minimum_acceptable_cl: float | None = None
     residual_median_log_drop: float | None = None
     coefficient_stability_status: str | None = None
     coefficient_stability_by_axis: Dict[str, str] = Field(default_factory=dict)
@@ -221,6 +224,20 @@ def _quality_metric(payload: dict[str, Any], path: tuple[str, ...]) -> float | N
     return _as_float(current)
 
 
+def _main_wing_lift_acceptance_status(payload: dict[str, Any]) -> str:
+    reported_status = payload.get("main_wing_lift_acceptance_status")
+    if reported_status in {"pass", "fail", "not_evaluated"}:
+        return str(reported_status)
+    velocity = _as_float(payload.get("observed_velocity_mps"))
+    coefficients = payload.get("final_coefficients", {})
+    cl = coefficients.get("cl") if isinstance(coefficients, dict) else None
+    if velocity is None or abs(velocity - 6.5) > 1.0e-9:
+        return "not_evaluated"
+    if not isinstance(cl, (int, float)):
+        return "not_evaluated"
+    return "pass" if float(cl) > MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5 else "fail"
+
+
 def _advisory_flags(
     *,
     payload: dict[str, Any],
@@ -239,6 +256,8 @@ def _advisory_flags(
         flags.append("coefficient_tail_not_stable")
     if payload.get("reference_geometry_status") in {"warn", "fail"}:
         flags.append(f"reference_geometry_{payload['reference_geometry_status']}")
+    if _main_wing_lift_acceptance_status(payload) == "fail":
+        flags.append("main_wing_cl_below_expected_lift")
 
     quality = payload.get("solver_log_quality_metrics", {})
     if isinstance(quality, dict):
@@ -286,6 +305,7 @@ def _row_from_report_path(
     runtime_max_iterations = _as_int(payload.get("runtime_max_iterations"))
     if runtime_max_iterations is None:
         runtime_max_iterations = _iter_from_dir(path)
+    lift_acceptance_status = _main_wing_lift_acceptance_status(payload)
     return MainWingSolverBudgetComparisonRow(
         reference_policy=_infer_reference_policy(path, payload),
         report_role=_report_role(path),
@@ -300,6 +320,12 @@ def _row_from_report_path(
         reference_geometry_status=payload.get("reference_geometry_status"),
         observed_velocity_mps=_as_float(payload.get("observed_velocity_mps")),
         final_coefficients=payload.get("final_coefficients", {}),
+        main_wing_lift_acceptance_status=lift_acceptance_status,
+        minimum_acceptable_cl=(
+            MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
+            if lift_acceptance_status != "not_evaluated"
+            else None
+        ),
         residual_median_log_drop=residual_drop,
         coefficient_stability_status=coefficient_status,
         coefficient_stability_by_axis=coefficient_by_axis,
@@ -357,6 +383,8 @@ def _current_route_row(rows: list[MainWingSolverBudgetComparisonRow]) -> dict[st
         "residual_median_log_drop": selected.residual_median_log_drop,
         "coefficient_stability_status": selected.coefficient_stability_status,
         "final_coefficients": selected.final_coefficients,
+        "main_wing_lift_acceptance_status": selected.main_wing_lift_acceptance_status,
+        "minimum_acceptable_cl": selected.minimum_acceptable_cl,
         "advisory_flags": selected.advisory_flags,
     }
 
@@ -387,6 +415,10 @@ def _engineering_assessment(rows: list[MainWingSolverBudgetComparisonRow]) -> li
         assessment.append(
             "Current-route coefficient tails are stable, but residual and reference gates still limit comparability."
         )
+    if "main_wing_cl_below_expected_lift" in current.get("advisory_flags", []):
+        assessment.append(
+            "Current-route CL is below 1 at HPA 6.5 m/s, so it cannot be accepted as converged main-wing evidence."
+        )
     current_flags = current.get("advisory_flags", [])
     if any(str(flag).startswith("mesh_quality_") for flag in current_flags):
         assessment.append(
@@ -405,6 +437,8 @@ def _next_actions(rows: list[MainWingSolverBudgetComparisonRow]) -> list[str]:
     current = _current_route_row(rows)
     flags = set(current.get("advisory_flags", []))
     actions: list[str] = []
+    if "main_wing_cl_below_expected_lift" in flags:
+        actions.append("resolve_main_wing_cl_below_expected_lift_before_convergence_claims")
     if any(flag.startswith("mesh_quality_") for flag in flags):
         actions.append("inspect_main_wing_mesh_quality_before_more_iterations")
     if "residual_drop_below_threshold" in flags:

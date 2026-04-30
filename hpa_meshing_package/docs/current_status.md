@@ -261,7 +261,8 @@ mesh/SU2 handoff route with probe-local `runtime_max_iterations=40` and
 `convergence_comparability_level=run_only`, with `final_iteration=39`,
 `CL ~= 0.2719`, and `CD ~= 0.0260`, but it is still
 `solver_executed_but_not_converged` because residual drop remains below the gate
-threshold and reference geometry remains `warn`.
+threshold, reference geometry remains `warn`, and the main-wing lift acceptance
+gate requires `CL > 1.0` at the HPA standard `V=6.5 m/s`.
 
 An explicit OpenVSP/VSPAERO reference-policy SU2 handoff snapshot is kept under
 `docs/reports/main_wing_openvsp_reference_su2_handoff_probe/`. It uses the same

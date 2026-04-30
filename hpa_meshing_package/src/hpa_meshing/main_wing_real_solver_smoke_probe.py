@@ -25,6 +25,8 @@ SolverExecutionStatusType = Literal[
     "blocked_before_solver",
 ]
 ConvergenceGateStatusType = Literal["pass", "warn", "fail", "not_run", "unavailable"]
+LiftAcceptanceStatusType = Literal["pass", "fail", "not_evaluated"]
+MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5 = 1.0
 
 
 class MainWingRealSolverSmokeProbeReport(BaseModel):
@@ -59,6 +61,8 @@ class MainWingRealSolverSmokeProbeReport(BaseModel):
     final_iteration: int | None = None
     final_coefficients: Dict[str, float | str | None] = Field(default_factory=dict)
     solver_log_quality_metrics: Dict[str, Any] = Field(default_factory=dict)
+    main_wing_lift_acceptance_status: LiftAcceptanceStatusType = "not_evaluated"
+    minimum_acceptable_cl: float = MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
     convergence_comparability_level: str | None = None
     component_force_ownership_status: str | None = None
     reference_geometry_status: str | None = None
@@ -217,6 +221,87 @@ def _gate_comparability(convergence_gate: Any) -> str | None:
     overall = getattr(convergence_gate, "overall_convergence_gate", None)
     level = getattr(overall, "comparability_level", None)
     return str(level) if level is not None else None
+
+
+def _main_wing_lift_acceptance_status(
+    *,
+    cl: Any,
+    observed_velocity_mps: float | None,
+) -> LiftAcceptanceStatusType:
+    if observed_velocity_mps is None or abs(observed_velocity_mps - 6.5) > 1.0e-9:
+        return "not_evaluated"
+    if not isinstance(cl, (int, float)):
+        return "not_evaluated"
+    return "pass" if float(cl) > MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5 else "fail"
+
+
+def _apply_main_wing_lift_acceptance_to_gate_payload(
+    gate_payload: dict[str, Any],
+    *,
+    lift_status: LiftAcceptanceStatusType,
+    cl: Any,
+    observed_velocity_mps: float | None,
+) -> dict[str, Any]:
+    lift_section = {
+        "status": lift_status,
+        "confidence": "high" if lift_status in {"pass", "fail"} else "low",
+        "checks": {
+            "main_wing_cl_at_hpa_6p5": {
+                "status": lift_status,
+                "observed": {
+                    "cl": cl,
+                    "velocity_mps": observed_velocity_mps,
+                },
+                "expected": {
+                    "velocity_mps": 6.5,
+                    "minimum_acceptable_cl_exclusive": MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5,
+                },
+                "warnings": (
+                    ["main_wing_cl_below_expected_lift"]
+                    if lift_status == "fail"
+                    else []
+                ),
+                "notes": [
+                    "Main-wing convergence acceptance at HPA 6.5 m/s requires CL > 1."
+                ],
+            }
+        },
+        "warnings": (
+            ["main_wing_cl_below_expected_lift"] if lift_status == "fail" else []
+        ),
+        "notes": [
+            "This is a main-wing lift sanity gate; it does not replace residual or coefficient stability checks."
+        ],
+    }
+    gate_payload["main_wing_lift_acceptance"] = lift_section
+    overall = gate_payload.get("overall_convergence_gate", {})
+    if isinstance(overall, dict):
+        checks = overall.setdefault("checks", {})
+        if isinstance(checks, dict):
+            checks["main_wing_lift_acceptance"] = {
+                "status": lift_status,
+                "observed": {"status": lift_status},
+                "expected": {"status": "pass"},
+                "warnings": (
+                    ["main_wing_cl_below_expected_lift"]
+                    if lift_status == "fail"
+                    else []
+                ),
+                "notes": [],
+            }
+        if lift_status == "fail":
+            overall["status"] = "fail"
+            overall["confidence"] = "low"
+            overall["comparability_level"] = "not_comparable"
+            warnings = overall.setdefault("warnings", [])
+            if isinstance(warnings, list) and "main_wing_lift_acceptance=fail" not in warnings:
+                warnings.append("main_wing_lift_acceptance=fail")
+            notes = overall.setdefault("notes", [])
+            if isinstance(notes, list):
+                notes.append(
+                    "Main-wing CL is below the HPA 6.5 m/s acceptance threshold."
+                )
+    return gate_payload
 
 
 def _blocked_report(
@@ -681,16 +766,37 @@ def build_main_wing_real_solver_smoke_probe_report(
         else dict(convergence_gate)
     )
     solver_log_quality_metrics = parse_solver_log_quality_metrics(solver_log_path)
+    final_cl = parsed_history.get("cl")
+    lift_acceptance_status = _main_wing_lift_acceptance_status(
+        cl=final_cl,
+        observed_velocity_mps=observed_velocity,
+    )
+    gate_payload = _apply_main_wing_lift_acceptance_to_gate_payload(
+        gate_payload,
+        lift_status=lift_acceptance_status,
+        cl=final_cl,
+        observed_velocity_mps=observed_velocity,
+    )
     convergence_gate_path = out_dir / "artifacts" / "convergence_gate.v1.json"
     _write_json(convergence_gate_path, gate_payload)
-    status = _gate_status(convergence_gate) or "unavailable"
-    comparability = _gate_comparability(convergence_gate)
+    status = (
+        gate_payload.get("overall_convergence_gate", {}).get("status")
+        if isinstance(gate_payload.get("overall_convergence_gate"), dict)
+        else _gate_status(convergence_gate)
+    ) or "unavailable"
+    comparability = (
+        gate_payload.get("overall_convergence_gate", {}).get("comparability_level")
+        if isinstance(gate_payload.get("overall_convergence_gate"), dict)
+        else _gate_comparability(convergence_gate)
+    )
     if status == "pass":
         run_status = "solver_executed_and_converged"
         blocking_reasons: list[str] = []
     else:
         run_status = "solver_executed_but_not_converged"
         blocking_reasons = ["solver_executed_but_not_converged"]
+    if lift_acceptance_status == "fail":
+        blocking_reasons.append("main_wing_cl_below_expected_lift")
     reference_status = source_report.get("reference_geometry_status")
     if reference_status in {"warn", "fail"}:
         blocking_reasons.append(f"main_wing_real_reference_geometry_{reference_status}")
@@ -730,12 +836,14 @@ def build_main_wing_real_solver_smoke_probe_report(
         return_code=0,
         final_iteration=parsed_history.get("final_iteration"),
         final_coefficients={
-            "cl": parsed_history.get("cl"),
+            "cl": final_cl,
             "cd": parsed_history.get("cd"),
             "cm": parsed_history.get("cm"),
             "cm_axis": parsed_history.get("cm_axis"),
         },
         solver_log_quality_metrics=solver_log_quality_metrics,
+        main_wing_lift_acceptance_status=lift_acceptance_status,
+        minimum_acceptable_cl=MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5,
         convergence_comparability_level=comparability,
         component_force_ownership_status=source_report.get("component_force_ownership_status"),
         reference_geometry_status=reference_status,
@@ -746,6 +854,7 @@ def build_main_wing_real_solver_smoke_probe_report(
         blocking_reasons=blocking_reasons,
         limitations=[
             "Solver execution is not the same as convergence; only a pass convergence gate can be called converged.",
+            "At HPA standard V=6.5 m/s, main-wing convergence acceptance additionally requires CL > 1.",
             "Reference geometry warn/fail remains a comparability blocker even when the solver runs.",
             "The upstream mesh is a coarse bounded probe, not production default sizing.",
             "Production defaults were not changed.",
@@ -766,6 +875,8 @@ def _render_markdown(report: MainWingRealSolverSmokeProbeReport) -> str:
         f"- return_code: `{report.return_code}`",
         f"- final_iteration: `{report.final_iteration}`",
         f"- observed_velocity_mps: `{report.observed_velocity_mps}`",
+        f"- minimum_acceptable_cl: `{report.minimum_acceptable_cl}`",
+        f"- main_wing_lift_acceptance_status: `{report.main_wing_lift_acceptance_status}`",
         f"- component_force_ownership_status: `{report.component_force_ownership_status}`",
         f"- reference_geometry_status: `{report.reference_geometry_status}`",
         f"- runtime_max_iterations: `{report.runtime_max_iterations}`",

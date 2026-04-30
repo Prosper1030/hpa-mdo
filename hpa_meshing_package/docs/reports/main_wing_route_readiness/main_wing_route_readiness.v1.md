@@ -27,10 +27,11 @@
 - `main_wing_reference_area_differs_from_openvsp_sref`
 - `main_wing_moment_origin_not_certified`
 - `solver_executed_but_not_converged`
+- `main_wing_cl_below_expected_lift`
 
 ## Next Actions
 
-- `inspect_main_wing_mesh_quality_before_more_solver_budget`
+- `resolve_main_wing_cl_below_expected_lift_before_convergence_claims`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

@@ -157,6 +157,8 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
     assert report.run_status == "solver_executed_but_not_converged"
     assert report.final_iteration == 2
     assert report.final_coefficients["cl"] == 0.30
+    assert report.minimum_acceptable_cl == 1.0
+    assert report.main_wing_lift_acceptance_status == "fail"
     assert report.observed_velocity_mps == 6.5
     assert report.component_force_ownership_status == "owned"
     assert report.reference_geometry_status == "warn"
@@ -169,6 +171,7 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
         == 13256.1
     )
     assert "solver_executed_but_not_converged" in report.blocking_reasons
+    assert "main_wing_cl_below_expected_lift" in report.blocking_reasons
     assert "hpa_standard_flow_conditions_6p5_mps" in report.hpa_mdo_guarantees
     assert "heavy_solver_outputs_pruned" in report.hpa_mdo_guarantees
     assert len(report.pruned_output_paths) == 3
@@ -176,6 +179,76 @@ def test_main_wing_real_solver_smoke_probe_records_executed_nonconverged_solver(
     assert not (tmp_path / "su2_case" / "surface.csv").exists()
     assert not (tmp_path / "su2_case" / "vol_solution.vtk").exists()
     assert report.production_default_changed is False
+
+
+def test_main_wing_real_solver_smoke_probe_rejects_pass_gate_when_cl_below_one(
+    tmp_path: Path,
+    monkeypatch,
+):
+    probe_path = _write_source_su2_probe(tmp_path)
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.shutil.which",
+        lambda command: f"/fake/bin/{command}",
+    )
+
+    def fake_run(command, cwd, stdout, stderr, text, check, timeout, env):
+        stdout.write(_solver_quality_log_text())
+        (Path(cwd) / "history.csv").write_text(_history_text(), encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.subprocess.run",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.evaluate_baseline_convergence_gate",
+        lambda mesh_handoff, **kwargs: SimpleNamespace(
+            overall_convergence_gate=SimpleNamespace(
+                status="pass",
+                comparability_level="preliminary_compare",
+            ),
+            model_dump=lambda mode="json": {
+                "contract": "convergence_gate.v1",
+                "overall_convergence_gate": {
+                    "status": "pass",
+                    "confidence": "high",
+                    "comparability_level": "preliminary_compare",
+                    "checks": {},
+                    "warnings": [],
+                    "notes": [],
+                },
+            },
+        ),
+    )
+
+    report = build_main_wing_real_solver_smoke_probe_report(
+        tmp_path / "solver_probe",
+        source_su2_probe_report_path=probe_path,
+        timeout_seconds=12.0,
+    )
+    gate_payload = json.loads(
+        (tmp_path / "solver_probe" / "artifacts" / "convergence_gate.v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert report.convergence_gate_status == "fail"
+    assert report.convergence_comparability_level == "not_comparable"
+    assert report.run_status == "solver_executed_but_not_converged"
+    assert report.main_wing_lift_acceptance_status == "fail"
+    assert "main_wing_cl_below_expected_lift" in report.blocking_reasons
+    assert (
+        gate_payload["main_wing_lift_acceptance"]["checks"][
+            "main_wing_cl_at_hpa_6p5"
+        ]["expected"]["minimum_acceptable_cl_exclusive"]
+        == 1.0
+    )
+    assert gate_payload["overall_convergence_gate"]["status"] == "fail"
+    assert (
+        gate_payload["overall_convergence_gate"]["comparability_level"]
+        == "not_comparable"
+    )
 
 
 def test_main_wing_real_solver_smoke_probe_records_solver_timeout(

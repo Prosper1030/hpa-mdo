@@ -16,17 +16,19 @@ This report compares existing solver-smoke artifacts only; it does not execute S
 - `residual_median_log_drop`: `0.357993`
 - `coefficient_stability_status`: `pass`
 - `final_coefficients`: `{"cl": 0.263161913, "cd": 0.02496911575, "cm": -0.2096803732, "cm_axis": "CMy"}`
-- `advisory_flags`: `["convergence_gate_not_passed", "residual_drop_below_threshold", "reference_geometry_warn", "mesh_quality_cv_sub_volume_ratio_high", "mesh_quality_cv_face_area_aspect_ratio_high", "overall_gate_warning:iterative_gate=warn", "overall_gate_warning:reference_gate=warn"]`
+- `main_wing_lift_acceptance_status`: `fail`
+- `minimum_acceptable_cl`: `1`
+- `advisory_flags`: `["convergence_gate_not_passed", "residual_drop_below_threshold", "reference_geometry_warn", "main_wing_cl_below_expected_lift", "mesh_quality_cv_sub_volume_ratio_high", "mesh_quality_cv_face_area_aspect_ratio_high", "overall_gate_warning:iterative_gate=warn", "overall_gate_warning:reference_gate=warn"]`
 
 ## Rows
 
 | reference_policy | role | max_iter | final_iter | gate | residual_drop | CL | CD | CM | flags |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `declared_blackcat_full_span` | `baseline_smoke` | `12` | `11` | `fail` | `0.162743` | `0.264201` | `0.0188679` | `-0.138813` | convergence_gate_not_passed, residual_drop_below_threshold, coefficient_tail_not_stable, reference_geometry_warn, overall_gate_warning:iterative_gate=fail, overall_gate_warning:reference_gate=warn |
-| `declared_blackcat_full_span` | `budget_probe` | `40` | `39` | `warn` | `0.216845` | `0.271915` | `0.02597` | `-0.146786` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
-| `openvsp_geometry_derived` | `baseline_smoke` | `12` | `11` | `fail` | `0.162743` | `0.260257` | `0.0185863` | `-0.203257` | convergence_gate_not_passed, residual_drop_below_threshold, coefficient_tail_not_stable, reference_geometry_warn, overall_gate_warning:iterative_gate=fail, overall_gate_warning:reference_gate=warn |
-| `openvsp_geometry_derived` | `budget_probe` | `40` | `39` | `warn` | `0.216845` | `0.267856` | `0.0255824` | `-0.213081` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
-| `openvsp_geometry_derived` | `budget_probe` | `80` | `79` | `warn` | `0.357993` | `0.263162` | `0.0249691` | `-0.20968` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, mesh_quality_cv_sub_volume_ratio_high, mesh_quality_cv_face_area_aspect_ratio_high, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
+| `declared_blackcat_full_span` | `baseline_smoke` | `12` | `11` | `fail` | `0.162743` | `0.264201` | `0.0188679` | `-0.138813` | convergence_gate_not_passed, residual_drop_below_threshold, coefficient_tail_not_stable, reference_geometry_warn, main_wing_cl_below_expected_lift, overall_gate_warning:iterative_gate=fail, overall_gate_warning:reference_gate=warn |
+| `declared_blackcat_full_span` | `budget_probe` | `40` | `39` | `warn` | `0.216845` | `0.271915` | `0.02597` | `-0.146786` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, main_wing_cl_below_expected_lift, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
+| `openvsp_geometry_derived` | `baseline_smoke` | `12` | `11` | `fail` | `0.162743` | `0.260257` | `0.0185863` | `-0.203257` | convergence_gate_not_passed, residual_drop_below_threshold, coefficient_tail_not_stable, reference_geometry_warn, main_wing_cl_below_expected_lift, overall_gate_warning:iterative_gate=fail, overall_gate_warning:reference_gate=warn |
+| `openvsp_geometry_derived` | `budget_probe` | `40` | `39` | `warn` | `0.216845` | `0.267856` | `0.0255824` | `-0.213081` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, main_wing_cl_below_expected_lift, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
+| `openvsp_geometry_derived` | `budget_probe` | `80` | `79` | `warn` | `0.357993` | `0.263162` | `0.0249691` | `-0.20968` | convergence_gate_not_passed, residual_drop_below_threshold, reference_geometry_warn, main_wing_cl_below_expected_lift, mesh_quality_cv_sub_volume_ratio_high, mesh_quality_cv_face_area_aspect_ratio_high, overall_gate_warning:iterative_gate=warn, overall_gate_warning:reference_gate=warn |
 
 ## Engineering Assessment
 
@@ -34,11 +36,13 @@ This report compares existing solver-smoke artifacts only; it does not execute S
 - Solver execution is treated separately from convergence; only a pass gate can be called converged.
 - The highest available current-route budget remains non-converged or warn-only.
 - Current-route coefficient tails are stable, but residual and reference gates still limit comparability.
+- Current-route CL is below 1 at HPA 6.5 m/s, so it cannot be accepted as converged main-wing evidence.
 - SU2 mesh-quality diagnostics now point at local mesh quality as a better next suspect than simply adding iterations.
 - Reference geometry remains warn-level, so moments and force comparability are not final engineering evidence.
 
 ## Next Actions
 
+- `resolve_main_wing_cl_below_expected_lift_before_convergence_claims`
 - `inspect_main_wing_mesh_quality_before_more_iterations`
 - `compare_solver_numerics_and_mesh_local_sizing_before_larger_budget`
 - `resolve_main_wing_reference_area_and_moment_origin_policy`

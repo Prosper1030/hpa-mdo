@@ -237,6 +237,7 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
             "convergence_gate_path": "solver/convergence_gate.v1.json",
             "final_iteration": 12,
             "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.30, "cd": 0.02, "cm": -0.1},
             "solver_log_quality_metrics": {
                 "dual_control_volume_quality": {
                     "cv_sub_volume_ratio": {"min": 1.0, "max": 13256.1}
@@ -268,13 +269,17 @@ def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
     assert stages["solver_smoke"].status == "pass"
     assert stages["solver_smoke"].evidence_kind == "real"
     assert stages["solver_smoke"].observed["solver_execution_status"] == "solver_executed"
+    assert stages["solver_smoke"].observed["main_wing_lift_acceptance_status"] == "fail"
+    assert stages["solver_smoke"].observed["minimum_acceptable_cl"] == 1.0
     assert stages["real_su2_handoff"].observed["reference_gate_status"] == "warn"
     assert stages["convergence_gate"].status == "blocked"
     assert stages["convergence_gate"].observed["convergence_gate_status"] == "fail"
     assert "solver_executed_but_not_converged" in report.blocking_reasons
     assert "main_wing_reference_geometry_incomplete" in report.blocking_reasons
     assert "main_wing_solver_not_run" not in report.blocking_reasons
-    assert report.next_actions[0] == "diagnose_main_wing_solver_nonconvergence_before_cfd_claims"
+    assert report.next_actions[0] == (
+        "resolve_main_wing_cl_below_expected_lift_before_convergence_claims"
+    )
     assert "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean" in report.next_actions
 
 

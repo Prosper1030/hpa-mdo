@@ -37,6 +37,7 @@ HPAFlowStatusType = Literal[
     "legacy_or_nonstandard_velocity_observed",
     "unavailable",
 ]
+MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5 = 1.0
 
 
 class MainWingRouteStageEvidence(BaseModel):
@@ -180,6 +181,24 @@ def _solver_probe_blocked(payload: dict[str, Any] | None) -> bool:
     )
 
 
+def _solver_probe_lift_acceptance_status(
+    payload: dict[str, Any] | None,
+) -> str:
+    if not isinstance(payload, dict):
+        return "not_evaluated"
+    reported_status = payload.get("main_wing_lift_acceptance_status")
+    if reported_status in {"pass", "fail", "not_evaluated"}:
+        return str(reported_status)
+    velocity = payload.get("observed_velocity_mps")
+    coefficients = payload.get("final_coefficients", {})
+    cl = coefficients.get("cl") if isinstance(coefficients, dict) else None
+    if not isinstance(velocity, (int, float)) or abs(float(velocity) - 6.5) > 1.0e-9:
+        return "not_evaluated"
+    if not isinstance(cl, (int, float)):
+        return "not_evaluated"
+    return "pass" if float(cl) > MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5 else "fail"
+
+
 def _solver_probe_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
     return {
         "solver_execution_status": (
@@ -208,6 +227,14 @@ def _solver_probe_observed(payload: dict[str, Any] | None) -> dict[str, Any]:
         ),
         "solver_log_quality_metrics": (
             {} if payload is None else payload.get("solver_log_quality_metrics", {})
+        ),
+        "main_wing_lift_acceptance_status": _solver_probe_lift_acceptance_status(
+            payload
+        ),
+        "minimum_acceptable_cl": (
+            MIN_MAIN_WING_ACCEPTABLE_CL_AT_HPA_6P5
+            if _solver_probe_lift_acceptance_status(payload) != "not_evaluated"
+            else None
         ),
     }
 
@@ -353,6 +380,20 @@ def build_main_wing_route_readiness_report(
     )
     convergence_pass = solver_executed and convergence_status == "pass"
     convergence_blocked = solver_executed and convergence_status in {"warn", "fail", "unavailable"}
+    solver_lift_acceptance_failed = any(
+        _solver_probe_lift_acceptance_status(candidate) == "fail"
+        for candidate in (
+            solver_smoke,
+            solver_budget,
+            openvsp_reference_solver,
+            openvsp_reference_solver_budget,
+        )
+    )
+    solver_lift_acceptance_blockers = (
+        ["main_wing_cl_below_expected_lift"]
+        if solver_lift_acceptance_failed
+        else []
+    )
 
     stages = [
         _stage(
@@ -540,44 +581,7 @@ def build_main_wing_route_readiness_report(
             artifact_path=openvsp_reference_solver_path
             if isinstance(openvsp_reference_solver, dict)
             else None,
-            observed={
-                "solver_execution_status": (
-                    None
-                    if openvsp_reference_solver is None
-                    else openvsp_reference_solver.get("solver_execution_status")
-                )
-                or "not_run",
-                "run_status": (
-                    None
-                    if openvsp_reference_solver is None
-                    else openvsp_reference_solver.get("run_status")
-                ),
-                "convergence_gate_status": (
-                    None
-                    if openvsp_reference_solver is None
-                    else openvsp_reference_solver.get("convergence_gate_status")
-                ),
-                "convergence_comparability_level": (
-                    None
-                    if openvsp_reference_solver is None
-                    else openvsp_reference_solver.get("convergence_comparability_level")
-                ),
-                "final_iteration": (
-                    None
-                    if openvsp_reference_solver is None
-                    else openvsp_reference_solver.get("final_iteration")
-                ),
-                "final_coefficients": (
-                    {}
-                    if openvsp_reference_solver is None
-                    else openvsp_reference_solver.get("final_coefficients", {})
-                ),
-                "observed_velocity_mps": (
-                    None
-                    if openvsp_reference_solver is None
-                    else openvsp_reference_solver.get("observed_velocity_mps")
-                ),
-            },
+            observed=_solver_probe_observed(openvsp_reference_solver),
             blockers=(
                 _blocking_reasons(openvsp_reference_solver)
                 if isinstance(openvsp_reference_solver, dict)
@@ -614,18 +618,11 @@ def build_main_wing_route_readiness_report(
             evidence_kind="real" if isinstance(solver_smoke, dict) else "absent",
             artifact_path=solver_smoke_path if isinstance(solver_smoke, dict) else None,
             observed={
-                "solver_execution_status": (
-                    None if solver_smoke is None else solver_smoke.get("solver_execution_status")
-                )
-                or "not_run",
-                "run_status": None if solver_smoke is None else solver_smoke.get("run_status"),
+                **_solver_probe_observed(solver_smoke),
                 "return_code": None if solver_smoke is None else solver_smoke.get("return_code"),
                 "history_path": None if solver_smoke is None else solver_smoke.get("history_path"),
                 "solver_log_path": (
                     None if solver_smoke is None else solver_smoke.get("solver_log_path")
-                ),
-                "observed_velocity_mps": (
-                    None if solver_smoke is None else solver_smoke.get("observed_velocity_mps")
                 ),
             },
             blockers=(
@@ -677,7 +674,14 @@ def build_main_wing_route_readiness_report(
                 ),
             },
             blockers=(
-                _blocking_reasons(solver_smoke)
+                [
+                    *(
+                        _blocking_reasons(solver_smoke)
+                        if isinstance(solver_smoke, dict)
+                        else []
+                    ),
+                    *solver_lift_acceptance_blockers,
+                ]
                 if convergence_blocked
                 else []
                 if convergence_pass
@@ -710,6 +714,9 @@ def build_main_wing_route_readiness_report(
         for reason in stage.blockers:
             if reason not in blocking_reasons:
                 blocking_reasons.append(reason)
+    for reason in solver_lift_acceptance_blockers:
+        if reason not in blocking_reasons:
+            blocking_reasons.append(reason)
 
     secondary_next_action = (
         "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean"
@@ -744,6 +751,8 @@ def build_main_wing_route_readiness_report(
         next_actions[0] = "repair_real_main_wing_boundary_topology_before_volume_meshing"
     if convergence_blocked and real_mesh_quality_warn:
         next_actions[0] = "inspect_main_wing_mesh_quality_before_more_solver_budget"
+    if convergence_blocked and solver_lift_acceptance_failed:
+        next_actions[0] = "resolve_main_wing_cl_below_expected_lift_before_convergence_claims"
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

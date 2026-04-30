@@ -160,13 +160,18 @@
         "convergence_gate_status": "fail",
         "convergence_comparability_level": "not_comparable",
         "final_iteration": 11,
+        "runtime_max_iterations": 12,
         "final_coefficients": {
           "cl": 0.2602573982,
           "cd": 0.01858625024,
           "cm": -0.2032569615,
           "cm_axis": "CMy"
         },
-        "observed_velocity_mps": 6.5
+        "observed_velocity_mps": 6.5,
+        "reference_geometry_status": "warn",
+        "solver_log_quality_metrics": {},
+        "main_wing_lift_acceptance_status": "fail",
+        "minimum_acceptable_cl": 1.0
       },
       "blockers": [
         "solver_executed_but_not_converged",
@@ -213,7 +218,9 @@
               "max": 13256.1
             }
           }
-        }
+        },
+        "main_wing_lift_acceptance_status": "fail",
+        "minimum_acceptable_cl": 1.0
       },
       "blockers": [
         "solver_executed_but_not_converged",
@@ -228,10 +235,24 @@
       "observed": {
         "solver_execution_status": "solver_executed",
         "run_status": "solver_executed_but_not_converged",
+        "convergence_gate_status": "fail",
+        "convergence_comparability_level": "not_comparable",
+        "final_iteration": 11,
+        "runtime_max_iterations": 12,
+        "final_coefficients": {
+          "cl": 0.2642006921,
+          "cd": 0.01886786009,
+          "cm": -0.1388126065,
+          "cm_axis": "CMy"
+        },
+        "observed_velocity_mps": 6.5,
+        "reference_geometry_status": "warn",
+        "solver_log_quality_metrics": {},
+        "main_wing_lift_acceptance_status": "fail",
+        "minimum_acceptable_cl": 1.0,
         "return_code": 0,
         "history_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/history.csv",
-        "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/solver.log",
-        "observed_velocity_mps": 6.5
+        "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/solver.log"
       },
       "blockers": []
     },
@@ -255,7 +276,9 @@
         },
         "observed_velocity_mps": 6.5,
         "reference_geometry_status": "warn",
-        "solver_log_quality_metrics": {}
+        "solver_log_quality_metrics": {},
+        "main_wing_lift_acceptance_status": "fail",
+        "minimum_acceptable_cl": 1.0
       },
       "blockers": [
         "solver_executed_but_not_converged",
@@ -276,7 +299,8 @@
       },
       "blockers": [
         "solver_executed_but_not_converged",
-        "main_wing_real_reference_geometry_warn"
+        "main_wing_real_reference_geometry_warn",
+        "main_wing_cl_below_expected_lift"
       ]
     }
   ],
@@ -285,10 +309,11 @@
     "main_wing_reference_geometry_incomplete",
     "main_wing_reference_area_differs_from_openvsp_sref",
     "main_wing_moment_origin_not_certified",
-    "solver_executed_but_not_converged"
+    "solver_executed_but_not_converged",
+    "main_wing_cl_below_expected_lift"
   ],
   "next_actions": [
-    "inspect_main_wing_mesh_quality_before_more_solver_budget",
+    "resolve_main_wing_cl_below_expected_lift_before_convergence_claims",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],
