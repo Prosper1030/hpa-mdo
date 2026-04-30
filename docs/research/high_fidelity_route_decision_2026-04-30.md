@@ -137,7 +137,40 @@ Engineering reading: this moves fairing from "real geometry missing" to
 SU2 handoff remain useful route-materialization evidence, but they are not
 substitutes for a real fairing mesh handoff.
 
-The first route-specific real Gmsh smoke selected from that matrix is:
+The first real fairing mesh handoff probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-real-mesh-handoff-probe \
+  --out .tmp/runs/fairing_solid_real_mesh_handoff_probe
+```
+
+It writes:
+
+- `fairing_solid_real_mesh_handoff_probe.v1.json`
+- `fairing_solid_real_mesh_handoff_probe.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/fairing_solid_real_mesh_handoff_probe/fairing_solid_real_mesh_handoff_probe.v1.json`
+- `hpa_meshing_package/docs/reports/fairing_solid_real_mesh_handoff_probe/fairing_solid_real_mesh_handoff_probe.v1.md`
+
+Observed result:
+
+- `probe_status = mesh_handoff_pass`
+- `mesh_handoff_status = written`
+- markers: `fairing_solid` and `farfield`
+- mesh scale: about `29k nodes / 173k elements`
+- backend unit rescale applied: `import_scale_to_units ~= 0.001`
+- SU2, BL runtime, and convergence are not run
+
+Engineering reading: fairing is now the cleanest component-family branch after
+the formal aircraft assembly. The next fairing task should not be more geometry
+smoke; it should materialize real fairing `su2_handoff.v1`, then decide whether
+the resulting SU2 case is physically meaningful enough for a solver/convergence
+gate.
+
+The synthetic closed-solid route-specific Gmsh smoke selected from that matrix is:
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -463,7 +496,7 @@ The current expected strategic reading is:
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | repair real ESP/VSP 3D volume-insertion timeout, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
-| `fairing_solid` | registered future route | no | real fairing mesh handoff probe, then solver/convergence gate |
+| `fairing_solid` | registered future route | no | real fairing SU2 handoff, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
 ## Boundary-Layer Promotion Policy
@@ -514,7 +547,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Run a bounded real fairing mesh handoff probe now that real fairing geometry
-   has closed-solid topology.
+1. Materialize real fairing `su2_handoff.v1` from the bounded real-geometry
+   mesh handoff before any solver/convergence claim.
 2. Repair the real ESP/VSP main-wing 3D volume-insertion timeout before any
    solver/convergence claim.

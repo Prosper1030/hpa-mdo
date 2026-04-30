@@ -1,0 +1,32 @@
+{
+  "representation": "brep_trimmed_step",
+  "source_kind": "stp",
+  "units": "m",
+  "bounds": {
+    "x_min": -2.89120579329468e-19,
+    "x_max": 2.81766634583567,
+    "y_min": -0.280358633469871,
+    "y_max": 0.280386592430824,
+    "z_min": -0.269384443871934,
+    "z_max": 0.851346753354166
+  },
+  "import_bounds": {
+    "x_min": -1.0000000028912057e-07,
+    "x_max": 2817.6663459356696,
+    "y_min": -280.358633569871,
+    "y_max": 280.386592530824,
+    "z_min": -269.38444397193405,
+    "z_max": 851.346753454166
+  },
+  "import_scale_to_units": 0.0009999999997979655,
+  "backend_rescale_required": true,
+  "body_count": 1,
+  "surface_count": 8,
+  "volume_count": 1,
+  "labels_present": true,
+  "label_schema": "preserve_component_labels",
+  "normalization": {},
+  "notes": [
+    "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+  ]
+}

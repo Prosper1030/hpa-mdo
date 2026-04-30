@@ -254,16 +254,17 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             bl_contract_policy="not_default",
             gmsh_boundary_recovery_policy="baseline_gmsh_backend_boundary_recovery",
             blocking_reasons=[
-                "fairing_real_geometry_mesh_handoff_not_run",
+                "fairing_real_geometry_su2_handoff_not_run",
                 "fairing_solver_not_run",
                 "convergence_gate_not_run",
             ],
             next_actions=[
-                "run_real_fairing_mesh_handoff_probe_before_solver_claims",
+                "materialize_real_fairing_su2_handoff_before_solver_claims",
                 "promote_to_product_line_only_after_convergence_gate_artifact",
             ],
             notes=[
                 "fairing_solid_real_geometry_smoke_available",
+                "fairing_solid_real_mesh_handoff_probe_pass_available",
                 "fairing_solid_mesh_handoff_smoke_available",
                 "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke",
                 "su2_backend_materializes_fairing_solid_marker_without_running_su2",

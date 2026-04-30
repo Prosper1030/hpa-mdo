@@ -221,7 +221,7 @@
       "convergence_gate_status": "not_run",
       "promotion_status": "blocked_before_solver_convergence",
       "blocking_reasons": [
-        "fairing_real_geometry_mesh_handoff_not_run",
+        "fairing_real_geometry_su2_handoff_not_run",
         "fairing_solver_not_run",
         "convergence_gate_not_run"
       ],
@@ -293,7 +293,7 @@
     "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim."
   ],
   "next_actions": [
-    "run real fairing mesh handoff probe before solver claims",
+    "materialize real fairing SU2 handoff before solver claims",
     "repair real main_wing 3D volume-insertion timeout before solver claims",
     "repair explicit tail_wing volume orientation or baffle-surface ownership before solver claims",
     "keep BL prelaunch excluded until handoff topology ownership passes"

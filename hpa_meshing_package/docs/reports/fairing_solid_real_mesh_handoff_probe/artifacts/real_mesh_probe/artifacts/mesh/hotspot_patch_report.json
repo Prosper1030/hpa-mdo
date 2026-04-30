@@ -1,0 +1,615 @@
+{
+  "status": "captured",
+  "requested_surface_tags": [],
+  "selected_surface_tags": [
+    8,
+    7,
+    3,
+    4
+  ],
+  "hotspot_surface_counts": {
+    "1": 2,
+    "2": 1,
+    "3": 1,
+    "4": 3,
+    "5": 1,
+    "6": 4,
+    "7": 5,
+    "8": 3
+  },
+  "surface_reports": [
+    {
+      "surface_id": 8,
+      "surface_area": 0.23768022408064743,
+      "surface_bbox": {
+        "x_min": 1.4086813889871477,
+        "y_min": -1.0000000000016075e-07,
+        "z_min": 0.04546235691095781,
+        "x_max": 2.8176664452664038,
+        "y_max": 0.19705929178244225,
+        "z_max": 0.6065534199608783
+      },
+      "surface_role": "aircraft",
+      "surface_triangle_count": 25,
+      "surface_triangle_quality": {
+        "triangle_count": 25,
+        "min_area": 0.0003013596547744272,
+        "gamma": {
+          "count": 25,
+          "min": 0.036611848263014425,
+          "p01": 0.05425156886869417,
+          "p05": 0.1252562459133869,
+          "p50": 0.8687332907726433,
+          "p95": 0.9893746983925051,
+          "p99": 0.9965593029143834,
+          "max": 0.9983863234827466
+        },
+        "aspect_ratio": {
+          "count": 25,
+          "min": 1.044661528522436,
+          "p01": 1.060218328943839,
+          "p05": 1.1189732547510545,
+          "p50": 1.6088951929348647,
+          "p95": 3.9838691574534923,
+          "p99": 7.28665236212762,
+          "max": 8.31262513218843
+        },
+        "min_edge_length": 0.021667879674971136,
+        "max_edge_length": 0.2349474912945012
+      },
+      "boundary_curves": [
+        {
+          "curve_id": 8,
+          "curve_length": 0.48303967953862403,
+          "owner_surface_tags": [
+            4,
+            8
+          ],
+          "node_count": 4,
+          "min_edge_length": 0.15380696026080984,
+          "max_edge_length": 0.16073420595582594,
+          "max_min_edge_ratio": 1.045038570967592
+        },
+        {
+          "curve_id": 9,
+          "curve_length": 1.443279876689393,
+          "owner_surface_tags": [
+            5,
+            8
+          ],
+          "node_count": 9,
+          "min_edge_length": 0.17984716364189082,
+          "max_edge_length": 0.18040598267882413,
+          "max_min_edge_ratio": 1.0031071884905898
+        },
+        {
+          "curve_id": 12,
+          "curve_length": 1.5443037919913147,
+          "owner_surface_tags": [
+            7,
+            8
+          ],
+          "node_count": 9,
+          "min_edge_length": 0.19258508396316473,
+          "max_edge_length": 0.19303797268325873,
+          "max_min_edge_ratio": 1.0023516292683425
+        }
+      ],
+      "adjacent_surfaces": [
+        4,
+        5,
+        7
+      ],
+      "local_target_size_hint": 0.2,
+      "family_hints": [
+        "span_extreme_candidate",
+        "root_plane_cap_candidate"
+      ],
+      "worst_tets_near_this_surface": {
+        "count": 3,
+        "min_gamma": 0.00023717815181186917,
+        "min_sicn": 0.01151635805047023,
+        "min_sige": 0.011963541145045747,
+        "min_volume": 2.143323815175693e-05,
+        "entries": [
+          {
+            "element_id": 165651,
+            "barycenter": [
+              2.603405768029489,
+              0.05160163126703288,
+              0.09947815763922993
+            ],
+            "distance_to_surface": 0.05164031991695385,
+            "nearest_surface_id": 8,
+            "nearest_curve_id": 9,
+            "local_tetra_edge_length_min": 0.18011696114739992,
+            "local_tetra_edge_length_max": 0.3875442429285186,
+            "min_sicn": 0.01151635805047023,
+            "min_sige": 0.011963541145045747,
+            "gamma": 0.00023717815181186917,
+            "volume": 2.143323815175693e-05
+          },
+          {
+            "element_id": 172002,
+            "barycenter": [
+              2.6630306801477257,
+              0.0465619520167377,
+              0.10641305653383157
+            ],
+            "distance_to_surface": 0.05298459607776629,
+            "nearest_surface_id": 8,
+            "nearest_curve_id": 12,
+            "local_tetra_edge_length_min": 0.06124130578488732,
+            "local_tetra_edge_length_max": 0.3875442429285186,
+            "min_sicn": 0.06738094276689749,
+            "min_sige": 0.09312979889718519,
+            "gamma": 0.021867895391105736,
+            "volume": 5.5908550210139386e-05
+          },
+          {
+            "element_id": 172001,
+            "barycenter": [
+              2.6147711869769115,
+              0.0465619520167377,
+              0.10641305653383157
+            ],
+            "distance_to_surface": 0.052119847231613906,
+            "nearest_surface_id": 8,
+            "nearest_curve_id": 12,
+            "local_tetra_edge_length_min": 0.021667879674971136,
+            "local_tetra_edge_length_max": 0.2954609734639697,
+            "min_sicn": 0.1514157179334001,
+            "min_sige": 0.4395064860708406,
+            "gamma": 0.13014654293497166,
+            "volume": 4.480479188813649e-05
+          }
+        ]
+      }
+    },
+    {
+      "surface_id": 7,
+      "surface_area": 0.07772106715503566,
+      "surface_bbox": {
+        "x_min": 1.4086813889871477,
+        "y_min": -0.19705466202699418,
+        "z_min": 0.04546235691095791,
+        "x_max": 2.8176664452664038,
+        "y_max": 1.0000000066623977e-07,
+        "z_max": 0.6065534199608783
+      },
+      "surface_role": "aircraft",
+      "surface_triangle_count": 25,
+      "surface_triangle_quality": {
+        "triangle_count": 25,
+        "min_area": 0.0009146179139145832,
+        "gamma": {
+          "count": 25,
+          "min": 0.15105663249220083,
+          "p01": 0.1536105880960151,
+          "p05": 0.1779016571741277,
+          "p50": 0.8637321221404097,
+          "p95": 0.9894443860170244,
+          "p99": 0.9920681917176966,
+          "max": 0.9927831760515027
+        },
+        "aspect_ratio": {
+          "count": 25,
+          "min": 1.1085915983529135,
+          "p01": 1.110962044693838,
+          "p05": 1.1218622807317349,
+          "p50": 1.6139900076484108,
+          "p95": 4.923383484595795,
+          "p99": 8.02171110829865,
+          "max": 8.908946772593744
+        },
+        "min_edge_length": 0.021667878101718392,
+        "max_edge_length": 0.2484048998769587
+      },
+      "boundary_curves": [
+        {
+          "curve_id": 6,
+          "curve_length": 0.48303965719700304,
+          "owner_surface_tags": [
+            3,
+            7
+          ],
+          "node_count": 4,
+          "min_edge_length": 0.15380695353491844,
+          "max_edge_length": 0.1607342204493347,
+          "max_min_edge_ratio": 1.0450387108983572
+        },
+        {
+          "curve_id": 11,
+          "curve_length": 1.4432798766893926,
+          "owner_surface_tags": [
+            6,
+            7
+          ],
+          "node_count": 9,
+          "min_edge_length": 0.1798471574947844,
+          "max_edge_length": 0.180405985611545,
+          "max_min_edge_ratio": 1.0031072390831466
+        },
+        {
+          "curve_id": 12,
+          "curve_length": 1.5443037919913147,
+          "owner_surface_tags": [
+            7,
+            8
+          ],
+          "node_count": 9,
+          "min_edge_length": 0.19258508396316473,
+          "max_edge_length": 0.19303797268325873,
+          "max_min_edge_ratio": 1.0023516292683425
+        }
+      ],
+      "adjacent_surfaces": [
+        3,
+        6,
+        8
+      ],
+      "local_target_size_hint": 0.2,
+      "family_hints": [
+        "tiny_face_candidate",
+        "span_extreme_candidate",
+        "root_plane_cap_candidate"
+      ],
+      "worst_tets_near_this_surface": {
+        "count": 5,
+        "min_gamma": 0.002969636540860357,
+        "min_sicn": 0.029911176695922883,
+        "min_sige": 0.04263744504490871,
+        "min_volume": 2.077549730286295e-05,
+        "entries": [
+          {
+            "element_id": 172066,
+            "barycenter": [
+              2.721015330870368,
+              -3.657411666777629e-05,
+              0.13095577658775692
+            ],
+            "distance_to_surface": 0.0548262921255132,
+            "nearest_surface_id": 7,
+            "nearest_curve_id": 12,
+            "local_tetra_edge_length_min": 0.07300104261682498,
+            "local_tetra_edge_length_max": 0.2507156880457418,
+            "min_sicn": 0.029911176695922883,
+            "min_sige": 0.04263744504490871,
+            "gamma": 0.002969636540860357,
+            "volume": 2.077549730286295e-05
+          },
+          {
+            "element_id": 165638,
+            "barycenter": [
+              2.7002706972777135,
+              -0.0490668489766494,
+              0.1352585379784615
+            ],
+            "distance_to_surface": 0.0758346806909353,
+            "nearest_surface_id": 7,
+            "nearest_curve_id": 12,
+            "local_tetra_edge_length_min": 0.021667878101718392,
+            "local_tetra_edge_length_max": 0.3281117262354417,
+            "min_sicn": 0.11264042288399802,
+            "min_sige": 0.49085467033824054,
+            "gamma": 0.1335209165326002,
+            "volume": 0.00016272215155090493
+          },
+          {
+            "element_id": 172117,
+            "barycenter": [
+              2.5146608944237263,
+              -0.04865185538622591,
+              0.11634436699074048
+            ],
+            "distance_to_surface": 0.05872051942689821,
+            "nearest_surface_id": 7,
+            "nearest_curve_id": 12,
+            "local_tetra_edge_length_min": 0.09469925395156044,
+            "local_tetra_edge_length_max": 0.2865585737676432,
+            "min_sicn": 0.11577636840238079,
+            "min_sige": 0.1597810829090303,
+            "gamma": 0.04004364849786262,
+            "volume": 9.439024166701722e-05
+          },
+          {
+            "element_id": 172010,
+            "barycenter": [
+              2.615048350967139,
+              -0.094977539514736,
+              0.17597947233130617
+            ],
+            "distance_to_surface": 0.13563698116966122,
+            "nearest_surface_id": 7,
+            "nearest_curve_id": 12,
+            "local_tetra_edge_length_min": 0.021667878101718392,
+            "local_tetra_edge_length_max": 0.3281117262354417,
+            "min_sicn": 0.11845298733156864,
+            "min_sige": 0.5593284669324704,
+            "gamma": 0.1468801906799157,
+            "volume": 0.0002260938396329946
+          },
+          {
+            "element_id": 172012,
+            "barycenter": [
+              2.5662413353160325,
+              -0.05114107193114223,
+              0.11217978657429757
+            ],
+            "distance_to_surface": 0.05835050889180977,
+            "nearest_surface_id": 7,
+            "nearest_curve_id": 12,
+            "local_tetra_edge_length_min": 0.021667878101718392,
+            "local_tetra_edge_length_max": 0.29561733225967524,
+            "min_sicn": 0.14190446795139283,
+            "min_sige": 0.4547555738498486,
+            "gamma": 0.13905746298490868,
+            "volume": 7.209073997087125e-05
+          }
+        ]
+      }
+    },
+    {
+      "surface_id": 3,
+      "surface_area": 0.7949447558453181,
+      "surface_bbox": {
+        "x_min": -1.0000000000014456e-07,
+        "y_min": -0.28035873341322887,
+        "z_min": -1.0000000000057824e-07,
+        "x_max": 1.4088222738725793,
+        "y_max": 1.0000000100102438e-07,
+        "z_max": 0.8513468531821645
+      },
+      "surface_role": "aircraft",
+      "surface_triangle_count": 59,
+      "surface_triangle_quality": {
+        "triangle_count": 59,
+        "min_area": 0.0019041778683696296,
+        "gamma": {
+          "count": 59,
+          "min": 0.060735315992013865,
+          "p01": 0.3640097871485054,
+          "p05": 0.6407187588661046,
+          "p50": 0.9174278896730444,
+          "p95": 0.9992321187627254,
+          "p99": 0.9999994208254869,
+          "max": 0.9999999181479042
+        },
+        "aspect_ratio": {
+          "count": 59,
+          "min": 1.000303468158529,
+          "p01": 1.0007237800811253,
+          "p05": 1.0306826444883959,
+          "p50": 1.3891606792191087,
+          "p95": 1.9942086112946402,
+          "p99": 2.110176605576746,
+          "max": 2.116096426536938
+        },
+        "min_edge_length": 0.0976100816610801,
+        "max_edge_length": 0.3803619686966563
+      },
+      "boundary_curves": [
+        {
+          "curve_id": 5,
+          "curve_length": 1.5594856068155971,
+          "owner_surface_tags": [
+            2,
+            3
+          ],
+          "node_count": 9,
+          "min_edge_length": 0.190798178548532,
+          "max_edge_length": 0.19445168536611498,
+          "max_min_edge_ratio": 1.0191485413821897
+        },
+        {
+          "curve_id": 6,
+          "curve_length": 0.48303965719700304,
+          "owner_surface_tags": [
+            3,
+            7
+          ],
+          "node_count": 4,
+          "min_edge_length": 0.15380695353491844,
+          "max_edge_length": 0.1607342204493347,
+          "max_min_edge_ratio": 1.0450387108983572
+        },
+        {
+          "curve_id": 7,
+          "curve_length": 1.9075890105470976,
+          "owner_surface_tags": [
+            3,
+            4
+          ],
+          "node_count": 11,
+          "min_edge_length": 0.18949355656727174,
+          "max_edge_length": 0.19073746064398542,
+          "max_min_edge_ratio": 1.0065643608112453
+        }
+      ],
+      "adjacent_surfaces": [
+        2,
+        4,
+        7
+      ],
+      "local_target_size_hint": 0.2,
+      "family_hints": [
+        "span_extreme_candidate",
+        "root_plane_cap_candidate"
+      ],
+      "worst_tets_near_this_surface": {
+        "count": 1,
+        "min_gamma": 0.004583127736716146,
+        "min_sicn": 0.06391477905325803,
+        "min_sige": 0.05590113687908587,
+        "min_volume": 6.060729836419648e-05,
+        "entries": [
+          {
+            "element_id": 165645,
+            "barycenter": [
+              0.0911452771992879,
+              -0.023871443171465515,
+              0.1550612149604167
+            ],
+            "distance_to_surface": 0.020813223872987396,
+            "nearest_surface_id": 3,
+            "nearest_curve_id": 7,
+            "local_tetra_edge_length_min": 0.13649529756745235,
+            "local_tetra_edge_length_max": 0.3803619686966563,
+            "min_sicn": 0.06391477905325803,
+            "min_sige": 0.05590113687908587,
+            "gamma": 0.004583127736716146,
+            "volume": 6.060729836419648e-05
+          }
+        ]
+      }
+    },
+    {
+      "surface_id": 4,
+      "surface_area": 0.7767667072178572,
+      "surface_bbox": {
+        "x_min": -1.0000000000014456e-07,
+        "y_min": -1.000000001676789e-07,
+        "z_min": -1.0000000000057824e-07,
+        "x_max": 1.4088222738725793,
+        "y_max": 0.2803866923741762,
+        "z_max": 0.8513468531821645
+      },
+      "surface_role": "aircraft",
+      "surface_triangle_count": 58,
+      "surface_triangle_quality": {
+        "triangle_count": 58,
+        "min_area": 0.006973268188930245,
+        "gamma": {
+          "count": 58,
+          "min": 0.30957131719025993,
+          "p01": 0.35806691790176604,
+          "p05": 0.5199404189695052,
+          "p50": 0.9189494394085651,
+          "p95": 0.99376976589776,
+          "p99": 0.9987885040967204,
+          "max": 0.9999989779067474
+        },
+        "aspect_ratio": {
+          "count": 58,
+          "min": 1.001072504589374,
+          "p01": 1.0331558065295292,
+          "p05": 1.0991223301040003,
+          "p50": 1.4007364904383652,
+          "p95": 2.423433469498002,
+          "p99": 2.979636088892489,
+          "max": 3.423592598448113
+        },
+        "min_edge_length": 0.09388572851377051,
+        "max_edge_length": 0.3803619686966563
+      },
+      "boundary_curves": [
+        {
+          "curve_id": 1,
+          "curve_length": 1.5594856068155931,
+          "owner_surface_tags": [
+            1,
+            4
+          ],
+          "node_count": 9,
+          "min_edge_length": 0.190798178513483,
+          "max_edge_length": 0.19445168533068008,
+          "max_min_edge_ratio": 1.0191485413836847
+        },
+        {
+          "curve_id": 7,
+          "curve_length": 1.9075890105470976,
+          "owner_surface_tags": [
+            3,
+            4
+          ],
+          "node_count": 11,
+          "min_edge_length": 0.18949355656727174,
+          "max_edge_length": 0.19073746064398542,
+          "max_min_edge_ratio": 1.0065643608112453
+        },
+        {
+          "curve_id": 8,
+          "curve_length": 0.48303967953862403,
+          "owner_surface_tags": [
+            4,
+            8
+          ],
+          "node_count": 4,
+          "min_edge_length": 0.15380696026080984,
+          "max_edge_length": 0.16073420595582594,
+          "max_min_edge_ratio": 1.045038570967592
+        }
+      ],
+      "adjacent_surfaces": [
+        1,
+        3,
+        8
+      ],
+      "local_target_size_hint": 0.2,
+      "family_hints": [
+        "span_extreme_candidate",
+        "root_plane_cap_candidate"
+      ],
+      "worst_tets_near_this_surface": {
+        "count": 3,
+        "min_gamma": 0.004583127736875065,
+        "min_sicn": 0.06391477905585792,
+        "min_sige": 0.05590113687768891,
+        "min_volume": 6.060729835401547e-05,
+        "entries": [
+          {
+            "element_id": 165646,
+            "barycenter": [
+              0.0911452771924068,
+              0.023871443167454896,
+              0.15506121495658118
+            ],
+            "distance_to_surface": 0.020813223870775503,
+            "nearest_surface_id": 4,
+            "nearest_curve_id": 7,
+            "local_tetra_edge_length_min": 0.1364952975526763,
+            "local_tetra_edge_length_max": 0.3803619686966563,
+            "min_sicn": 0.06391477905585792,
+            "min_sige": 0.05590113687768891,
+            "gamma": 0.004583127736875065,
+            "volume": 6.060729835401547e-05
+          },
+          {
+            "element_id": 165648,
+            "barycenter": [
+              0.4485122059534234,
+              0.20644499672871888,
+              0.43972043794310234
+            ],
+            "distance_to_surface": 0.012522333282951062,
+            "nearest_surface_id": 4,
+            "nearest_curve_id": 1,
+            "local_tetra_edge_length_min": 0.09498990328372733,
+            "local_tetra_edge_length_max": 0.325206729809471,
+            "min_sicn": 0.10902332473421361,
+            "min_sige": 0.12499072413702729,
+            "gamma": 0.020953146510420885,
+            "volume": 9.339012113815442e-05
+          },
+          {
+            "element_id": 165650,
+            "barycenter": [
+              1.2075518557495761,
+              0.21364363370316702,
+              0.4050149068509208
+            ],
+            "distance_to_surface": 0.007787775328601541,
+            "nearest_surface_id": 4,
+            "nearest_curve_id": 1,
+            "local_tetra_edge_length_min": 0.15187763420545816,
+            "local_tetra_edge_length_max": 0.3225220875071197,
+            "min_sicn": 0.13347653792929493,
+            "min_sige": 0.1235947483771787,
+            "gamma": 0.022716144584962093,
+            "volume": 0.0001123864005237874
+          }
+        ]
+      }
+    }
+  ]
+}

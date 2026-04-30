@@ -1,0 +1,71 @@
+{
+  "provider": "openvsp_surface_intersection",
+  "provider_stage": "v1",
+  "analysis": "SurfaceIntersection",
+  "analysis_result": "",
+  "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+  "normalized_geometry_path": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+  "target_representation": "brep_component_volumes",
+  "units_hint": "m",
+  "label_policy": "preserve_component_labels",
+  "topology": {
+    "representation": "brep_trimmed_step",
+    "source_kind": "stp",
+    "units": "m",
+    "bounds": {
+      "x_min": -2.89120579329468e-19,
+      "x_max": 2.81766634583567,
+      "y_min": -0.280358633469871,
+      "y_max": 0.280386592430824,
+      "z_min": -0.269384443871934,
+      "z_max": 0.851346753354166
+    },
+    "import_bounds": {
+      "x_min": -1.0000000028912057e-07,
+      "x_max": 2817.6663459356696,
+      "y_min": -280.358633569871,
+      "y_max": 280.386592530824,
+      "z_min": -269.38444397193405,
+      "z_max": 851.346753454166
+    },
+    "import_scale_to_units": 0.0009999999997979655,
+    "backend_rescale_required": true,
+    "body_count": 1,
+    "surface_count": 8,
+    "volume_count": 1,
+    "labels_present": true,
+    "label_schema": "preserve_component_labels",
+    "normalization": {},
+    "notes": [
+      "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+    ]
+  },
+  "reference_geometry": {
+    "ref_area": 100.0,
+    "ref_length": 1.0,
+    "ref_origin_moment": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "area_method": "openvsp_vspaero_settings.sref",
+    "length_method": "openvsp_vspaero_settings.cref",
+    "moment_method": "openvsp_vspaero_settings.cg",
+    "reference_wing_name": null,
+    "reference_wing_id": null,
+    "settings": {
+      "sref": 100.0,
+      "bref": 1.0,
+      "cref": 1.0,
+      "xcg": 0.0,
+      "ycg": 0.0,
+      "zcg": 0.0,
+      "ref_flag": 0.0,
+      "mac_flag": 0.0
+    },
+    "wing_quantities": {},
+    "warnings": [
+      "reference_wing_quantities_unavailable_using_vspaero_settings"
+    ]
+  }
+}

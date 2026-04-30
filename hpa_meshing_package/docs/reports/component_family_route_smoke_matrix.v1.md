@@ -37,7 +37,7 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 
 ## Next Actions
 
-- `run real fairing mesh handoff probe before solver claims`
+- `materialize real fairing SU2 handoff before solver claims`
 - `repair real main_wing 3D volume-insertion timeout before solver claims`
 - `repair explicit tail_wing volume orientation or baffle-surface ownership before solver claims`
 - `keep BL prelaunch excluded until handoff topology ownership passes`

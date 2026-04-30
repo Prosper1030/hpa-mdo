@@ -1,0 +1,5 @@
+{
+  "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+  "case_dir": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe",
+  "result_path": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/bounded_mesh_probe_result.json"
+}

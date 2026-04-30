@@ -190,7 +190,7 @@ def build_component_family_route_smoke_matrix(
             "It is not a production mesh pass, solver pass, BL promotion, or CFD credibility claim.",
         ],
         next_actions=[
-            "run real fairing mesh handoff probe before solver claims",
+            "materialize real fairing SU2 handoff before solver claims",
             "repair real main_wing 3D volume-insertion timeout before solver claims",
             "repair explicit tail_wing volume orientation or baffle-surface ownership before solver claims",
             "keep BL prelaunch excluded until handoff topology ownership passes",

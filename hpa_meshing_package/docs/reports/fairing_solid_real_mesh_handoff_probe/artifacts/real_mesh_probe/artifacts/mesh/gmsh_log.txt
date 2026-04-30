@@ -1,0 +1,221 @@
+Info:  - Label 'Shapes/prodname' (3D)
+Info: Healing shapes (tolerance: 1e-08)
+Info:  - Fixing degenerated edges and faces
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  . Repaired face
+Info:  . Some wires are fixed
+Info:  - Fixing small edges
+Info:   - Removing degenerated edge
+Info:   - Removing degenerated edge
+Info:   - Removing degenerated edge
+Info:   - Removing degenerated edge
+Info:   - Removing degenerated edge
+Info:   - Removing degenerated edge
+Info:  - Fixing wire gaps
+Info:  . Some 3D gaps fixed
+Info:  - Fixing spot and strip faces
+Info:  - Sewing faces
+Info:  - Making solids
+Info: Done healing shapes (Wall 23.6838s, CPU 22.879s):
+Info:  - Compounds          : 0 (0)
+Info:  - Composite solids   : 0 (0)
+Info:  - Solids             : 1 (1)
+Info:  - Shells             : 1 (1)
+Info:  - Wires              : 8 (8)
+Info:  - Faces              : 8 (8)
+Info:  - Edges              : 12 (20)
+Info:  - Vertices           : 6 (6)
+Info:  - Total surface area : 3.14842 (3.84486)
+Progress: Fragments
+Progress: Fragments - Performing intersection of shapes
+Progress: Fragments - Building the result of General Fuse operation
+Warning: Boolean fragments skipped - too few arguments
+Progress: Difference
+Progress: Difference - Performing intersection of shapes
+Progress: Difference
+Progress: Difference - Adding holes
+Progress: Difference - Post treatment of result shape
+Info: OpenCASCADE triangulation of surface 7 failed
+Info: Meshing 1D...
+Info: Meshing curve 31 (Line)
+Info: Meshing curve 1 (TrimmedCurve)
+Info: Meshing curve 11 (TrimmedCurve)
+Info: Meshing curve 21 (TrimmedCurve)
+Info: Meshing curve 32 (Line)
+Info: Meshing curve 33 (Line)
+Info: Meshing curve 34 (Line)
+Info: Meshing curve 35 (Line)
+Info: Meshing curve 36 (Line)
+Info: Meshing curve 37 (Line)
+Info: Meshing curve 38 (Line)
+Info: Meshing curve 39 (Line)
+Info: Meshing curve 40 (Line)
+Info: Meshing curve 9 (TrimmedCurve)
+Info: Meshing curve 12 (TrimmedCurve)
+Info: Meshing curve 23 (TrimmedCurve)
+Info: Meshing curve 14 (TrimmedCurve)
+Info: Meshing curve 25 (TrimmedCurve)
+Info: Meshing curve 10 (TrimmedCurve)
+Info: Meshing curve 8 (TrimmedCurve)
+Info: Meshing curve 7 (TrimmedCurve)
+Info: Meshing curve 27 (TrimmedCurve)
+Info: Meshing curve 29 (Line)
+Info: Meshing curve 30 (Line)
+Info: Meshing curve 6 (TrimmedCurve)
+Info: Meshing curve 5 (TrimmedCurve)
+Info: Meshing curve 4 (TrimmedCurve)
+Info: Meshing curve 3 (TrimmedCurve)
+Info: Meshing curve 2 (TrimmedCurve)
+Info: Meshing curve 19 (TrimmedCurve)
+Progress: Meshing 1D...
+Info: Meshing curve 17 (TrimmedCurve)
+Info: Meshing curve 15 (TrimmedCurve)
+Progress: Meshing 1D...
+Info: Done meshing 1D (Wall 0.0487838s, CPU 0.188259s)
+Info: Meshing 2D...
+Info: Meshing surface 7 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 18 (Plane, Frontal-Delaunay)
+Info: Meshing surface 13 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 1 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 14 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 7 (BSpline surface, MeshAdapt)
+Progress: Meshing 2D...
+Info: Meshing surface 2 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 15 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 15 (BSpline surface, MeshAdapt)
+Progress: Meshing 2D...
+Info: Meshing surface 3 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 16 (BSpline surface, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Meshing surface 4 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 16 (BSpline surface, MeshAdapt)
+Progress: Meshing 2D...
+Info: Meshing surface 5 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 8 (BSpline surface, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Meshing surface 6 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 8 (BSpline surface, MeshAdapt)
+Info: Meshing surface 6 (BSpline surface, MeshAdapt)
+Info: Meshing surface 9 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 10 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 11 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 17 (Plane, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Meshing surface 12 (BSpline surface, Frontal-Delaunay)
+Info: Meshing surface 22 (Plane, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Meshing surface 21 (Plane, Frontal-Delaunay)
+Info: Meshing surface 20 (Plane, Frontal-Delaunay)
+Info: Meshing surface 19 (Plane, Frontal-Delaunay)
+Progress: Meshing 2D...
+Info: Done meshing 2D (Wall 0.0687282s, CPU 0.257204s)
+Info: 9592 nodes 19872 elements
+Info: Removing duplicate mesh nodes...
+Info: Found 61 duplicate nodes
+Info: Removed 61 duplicate mesh nodes
+Info: Done removing duplicate mesh nodes
+Info: Writing 'docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh'...
+Info: Done writing 'docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh'
+Info: Meshing 3D...
+Progress: Meshing 3D...
+Info: 3D Meshing 1 volume with 1 connected component
+Info: Tetrahedrizing 9444 nodes...
+Info: Done tetrahedrizing 9452 nodes (Wall 0.0638817s, CPU 0.155135s)
+Info: Reconstructing mesh...
+Info:  - Creating surface mesh
+Info:  - Identifying boundary edges
+Info:  - Recovering boundary
+Info: Done reconstructing mesh (Wall 0.17284s, CPU 0.376546s)
+Info: Found volume 2
+Info: Found void region
+Info: It. 0 - 0 nodes created - worst tet radius 13.5523 (nodes removed 0 0)
+Info: It. 500 - 485 nodes created - worst tet radius 3.00423 (nodes removed 0 15)
+Info: It. 1000 - 977 nodes created - worst tet radius 2.46844 (nodes removed 0 23)
+Info: It. 1500 - 1476 nodes created - worst tet radius 2.18223 (nodes removed 0 24)
+Info: It. 2000 - 1976 nodes created - worst tet radius 1.99927 (nodes removed 0 24)
+Info: It. 2500 - 2476 nodes created - worst tet radius 1.88003 (nodes removed 0 24)
+Info: It. 3000 - 2976 nodes created - worst tet radius 1.78127 (nodes removed 0 24)
+Info: It. 3500 - 3474 nodes created - worst tet radius 1.70524 (nodes removed 0 26)
+Info: It. 4000 - 3972 nodes created - worst tet radius 1.63882 (nodes removed 0 28)
+Info: It. 4500 - 4472 nodes created - worst tet radius 1.57777 (nodes removed 0 28)
+Info: It. 5000 - 4972 nodes created - worst tet radius 1.52744 (nodes removed 0 28)
+Info: It. 5500 - 5470 nodes created - worst tet radius 1.48504 (nodes removed 0 30)
+Info: It. 6000 - 5970 nodes created - worst tet radius 1.44566 (nodes removed 0 30)
+Info: It. 6500 - 6469 nodes created - worst tet radius 1.41135 (nodes removed 0 31)
+Info: It. 7000 - 6969 nodes created - worst tet radius 1.37924 (nodes removed 0 31)
+Info: It. 7500 - 7469 nodes created - worst tet radius 1.35146 (nodes removed 0 31)
+Info: It. 8000 - 7968 nodes created - worst tet radius 1.3252 (nodes removed 0 32)
+Info: It. 8500 - 8467 nodes created - worst tet radius 1.30182 (nodes removed 0 33)
+Info: It. 9000 - 8967 nodes created - worst tet radius 1.27779 (nodes removed 0 33)
+Info: It. 9500 - 9464 nodes created - worst tet radius 1.2574 (nodes removed 0 36)
+Info: It. 10000 - 9964 nodes created - worst tet radius 1.23697 (nodes removed 0 36)
+Info: It. 10500 - 10464 nodes created - worst tet radius 1.21859 (nodes removed 0 36)
+Info: It. 11000 - 10964 nodes created - worst tet radius 1.20057 (nodes removed 0 36)
+Info: It. 11500 - 11464 nodes created - worst tet radius 1.18424 (nodes removed 0 36)
+Info: It. 12000 - 11964 nodes created - worst tet radius 1.16885 (nodes removed 0 36)
+Info: It. 12500 - 12464 nodes created - worst tet radius 1.15338 (nodes removed 0 36)
+Info: It. 13000 - 12964 nodes created - worst tet radius 1.13964 (nodes removed 0 36)
+Info: It. 13500 - 13464 nodes created - worst tet radius 1.1265 (nodes removed 0 36)
+Info: It. 14000 - 13964 nodes created - worst tet radius 1.11403 (nodes removed 0 36)
+Info: It. 14500 - 14464 nodes created - worst tet radius 1.10213 (nodes removed 0 36)
+Info: It. 15000 - 14964 nodes created - worst tet radius 1.08937 (nodes removed 0 36)
+Info: It. 15500 - 15464 nodes created - worst tet radius 1.07869 (nodes removed 0 36)
+Info: It. 16000 - 15964 nodes created - worst tet radius 1.06817 (nodes removed 0 36)
+Info: It. 16500 - 16464 nodes created - worst tet radius 1.05855 (nodes removed 0 36)
+Info: It. 17000 - 16964 nodes created - worst tet radius 1.04954 (nodes removed 0 36)
+Info: It. 17500 - 17464 nodes created - worst tet radius 1.04 (nodes removed 0 36)
+Info: It. 18000 - 17964 nodes created - worst tet radius 1.03165 (nodes removed 0 36)
+Info: It. 18500 - 18459 nodes created - worst tet radius 1.02266 (nodes removed 0 41)
+Info: It. 19000 - 18958 nodes created - worst tet radius 1.01437 (nodes removed 0 42)
+Info: It. 19500 - 19457 nodes created - worst tet radius 1.00652 (nodes removed 0 43)
+Info: 3D refinement terminated (29394 nodes total):
+Info:  - 15 Delaunay cavities modified for star shapeness
+Info:  - 43 nodes could not be inserted
+Info:  - 155928 tetrahedra created in 0.805067 sec. (193683 tets/s)
+Info: 34 node relocations
+Progress: Meshing 3D...
+Info: Done meshing 3D (Wall 1.17185s, CPU 1.33555s)
+Info: Optimizing mesh...
+Info: Optimizing volume 2
+Info: Optimization starts (volume = 265.084) with worst = 0.000225871 / average = 0.782051:
+Info: 0.00 < quality < 0.10 :       365 elements
+Info: 0.10 < quality < 0.20 :       929 elements
+Info: 0.20 < quality < 0.30 :      1726 elements
+Info: 0.30 < quality < 0.40 :      2661 elements
+Info: 0.40 < quality < 0.50 :      4124 elements
+Info: 0.50 < quality < 0.60 :      6880 elements
+Info: 0.60 < quality < 0.70 :     14890 elements
+Info: 0.70 < quality < 0.80 :     35638 elements
+Info: 0.80 < quality < 0.90 :     59123 elements
+Info: 0.90 < quality < 1.00 :     29592 elements
+Info: 2962 edge swaps, 96 node relocations (volume = 265.084): worst = 0.000225871 / average = 0.794063 (Wall 0.0319959s, CPU 0.031518s)
+Info: 2983 edge swaps, 104 node relocations (volume = 265.084): worst = 0.000227835 / average = 0.794101 (Wall 0.0380014s, CPU 0.037412s)
+Info: 2987 edge swaps, 106 node relocations (volume = 265.084): worst = 0.000237178 / average = 0.794112 (Wall 0.0430558s, CPU 0.04246s)
+Warning: 1 ill-shaped tets are still in the mesh
+Info: 0.00 < quality < 0.10 :        14 elements
+Info: 0.10 < quality < 0.20 :        10 elements
+Info: 0.20 < quality < 0.30 :         8 elements
+Info: 0.30 < quality < 0.40 :      2650 elements
+Info: 0.40 < quality < 0.50 :      3965 elements
+Info: 0.50 < quality < 0.60 :      6603 elements
+Info: 0.60 < quality < 0.70 :     14844 elements
+Info: 0.70 < quality < 0.80 :     36130 elements
+Info: 0.80 < quality < 0.90 :     59585 elements
+Info: 0.90 < quality < 1.00 :     29442 elements
+Info: Done optimizing mesh (Wall 0.135127s, CPU 0.127033s)
+Info: 29394 nodes 173122 elements
+Info: Writing 'docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh'...
+Info: Done writing 'docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh'

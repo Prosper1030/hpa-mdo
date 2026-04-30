@@ -1,0 +1,1283 @@
+{
+  "status": "success",
+  "failure_code": null,
+  "component": "fairing_solid",
+  "geometry": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+  "normalized_geometry": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+  "geometry_source": "provider_generated",
+  "geometry_provider": "openvsp_surface_intersection",
+  "geometry_family": "closed_solid",
+  "provider": {
+    "provider": "openvsp_surface_intersection",
+    "provider_stage": "v1",
+    "status": "materialized",
+    "geometry_source": "provider_generated",
+    "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+    "normalized_geometry_path": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+    "geometry_family_hint": "closed_solid",
+    "provider_version": "openvsp-runtime",
+    "topology": {
+      "representation": "brep_trimmed_step",
+      "source_kind": "stp",
+      "units": "m",
+      "bounds": {
+        "x_min": -2.89120579329468e-19,
+        "x_max": 2.81766634583567,
+        "y_min": -0.280358633469871,
+        "y_max": 0.280386592430824,
+        "z_min": -0.269384443871934,
+        "z_max": 0.851346753354166
+      },
+      "import_bounds": {
+        "x_min": -1.0000000028912057e-07,
+        "x_max": 2817.6663459356696,
+        "y_min": -280.358633569871,
+        "y_max": 280.386592530824,
+        "z_min": -269.38444397193405,
+        "z_max": 851.346753454166
+      },
+      "import_scale_to_units": 0.0009999999997979655,
+      "backend_rescale_required": true,
+      "body_count": 1,
+      "surface_count": 8,
+      "volume_count": 1,
+      "labels_present": true,
+      "label_schema": "preserve_component_labels",
+      "normalization": {},
+      "notes": [
+        "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+      ]
+    },
+    "artifacts": {
+      "normalized_geometry": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+      "topology_report": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/topology.json",
+      "provider_log": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/provider_log.json"
+    },
+    "provenance": {
+      "analysis": "SurfaceIntersection",
+      "analysis_result": "",
+      "target_representation": "brep_component_volumes",
+      "label_policy": "preserve_component_labels",
+      "topology": {
+        "representation": "brep_trimmed_step",
+        "source_kind": "stp",
+        "units": "m",
+        "bounds": {
+          "x_min": -2.89120579329468e-19,
+          "x_max": 2.81766634583567,
+          "y_min": -0.280358633469871,
+          "y_max": 0.280386592430824,
+          "z_min": -0.269384443871934,
+          "z_max": 0.851346753354166
+        },
+        "import_bounds": {
+          "x_min": -1.0000000028912057e-07,
+          "x_max": 2817.6663459356696,
+          "y_min": -280.358633569871,
+          "y_max": 280.386592530824,
+          "z_min": -269.38444397193405,
+          "z_max": 851.346753454166
+        },
+        "import_scale_to_units": 0.0009999999997979655,
+        "backend_rescale_required": true,
+        "body_count": 1,
+        "surface_count": 8,
+        "volume_count": 1,
+        "labels_present": true,
+        "label_schema": "preserve_component_labels",
+        "normalization": {},
+        "notes": [
+          "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+        ]
+      },
+      "reference_geometry": {
+        "ref_area": 100.0,
+        "ref_length": 1.0,
+        "ref_origin_moment": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "area_method": "openvsp_vspaero_settings.sref",
+        "length_method": "openvsp_vspaero_settings.cref",
+        "moment_method": "openvsp_vspaero_settings.cg",
+        "reference_wing_name": null,
+        "reference_wing_id": null,
+        "settings": {
+          "sref": 100.0,
+          "bref": 1.0,
+          "cref": 1.0,
+          "xcg": 0.0,
+          "ycg": 0.0,
+          "zcg": 0.0,
+          "ref_flag": 0.0,
+          "mac_flag": 0.0
+        },
+        "wing_quantities": {},
+        "warnings": [
+          "reference_wing_quantities_unavailable_using_vspaero_settings"
+        ]
+      }
+    },
+    "warnings": [],
+    "notes": [
+      "normalized via OpenVSP SurfaceIntersection trimmed STEP export",
+      "normalized geometry contract expects downstream lengths in topology.units"
+    ]
+  },
+  "classification": {
+    "geometry_source": "provider_generated",
+    "geometry_provider": "openvsp_surface_intersection",
+    "declared_family": "closed_solid",
+    "inferred_family": null,
+    "geometry_family": "closed_solid",
+    "provenance": "config.geometry_family",
+    "notes": [
+      "geometry family declared in config",
+      "component=fairing_solid",
+      "geometry_source=provider_generated"
+    ]
+  },
+  "validation": {
+    "ok": true,
+    "exists_ok": true,
+    "suffix_ok": true,
+    "component_family_ok": true,
+    "provider_ready": true,
+    "geometry_source": "provider_generated",
+    "geometry_provider": "openvsp_surface_intersection",
+    "geometry_family": "closed_solid",
+    "failure_code": null,
+    "supported_suffixes": [
+      ".iges",
+      ".igs",
+      ".step",
+      ".stp"
+    ],
+    "supported_families": [
+      "closed_solid"
+    ],
+    "notes": [
+      "Replace stub validation with provider-aware topology checks.",
+      "component=fairing_solid",
+      "geometry_family=closed_solid"
+    ]
+  },
+  "dispatch": {
+    "meshing_route": "gmsh_closed_solid_volume",
+    "backend": "gmsh",
+    "backend_capability": "occ_closed_solid_meshing",
+    "route_provenance": "config.meshing_route"
+  },
+  "recipe": {
+    "name": "gmsh_closed_solid_volume:fairing_solid",
+    "component": "fairing_solid",
+    "geometry": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+    "geometry_source": "provider_generated",
+    "geometry_provider": "openvsp_surface_intersection",
+    "geometry_family": "closed_solid",
+    "meshing_route": "gmsh_closed_solid_volume",
+    "backend": "gmsh",
+    "backend_capability": "occ_closed_solid_meshing",
+    "route_provenance": "config.meshing_route",
+    "family_features": [
+      "watertight_volume",
+      "farfield_volume",
+      "solid_wall_marker_preservation"
+    ],
+    "farfield_enabled": true,
+    "boundary_layer_enabled": false,
+    "global_min_size": 0.2,
+    "global_max_size": 0.7
+  },
+  "mesh": {
+    "contract": "mesh_handoff.v1",
+    "route_stage": "baseline",
+    "backend": "gmsh",
+    "backend_capability": "occ_closed_solid_meshing",
+    "meshing_route": "gmsh_closed_solid_volume",
+    "geometry_family": "closed_solid",
+    "geometry_source": "provider_generated",
+    "geometry_provider": "openvsp_surface_intersection",
+    "mesh_format": "msh",
+    "units": "m",
+    "mesh_dim": 3,
+    "mesh_artifact": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+    "metadata_path": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+    "marker_summary_path": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+    "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+    "normalized_geometry_path": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+    "body_bounds": {
+      "x_min": -1.0000000000028911e-07,
+      "x_max": 2.8176664452664038,
+      "y_min": -0.28035873341322887,
+      "y_max": 0.2803866923741762,
+      "z_min": -0.26938454381750904,
+      "z_max": 0.8513468531821645
+    },
+    "farfield_bounds": {
+      "x_min": -5.6353331905328075,
+      "x_max": 11.270666081065615,
+      "y_min": -1.401849584988039,
+      "y_max": 1.4018775439489863,
+      "z_min": -2.510847337816856,
+      "z_max": 3.0928096471815114
+    },
+    "node_count": 29394,
+    "element_count": 173122,
+    "surface_element_count": 19195,
+    "volume_element_count": 153251,
+    "marker_summary": {
+      "fairing_solid": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "fairing_solid",
+        "physical_tag": 2,
+        "entity_count": 8,
+        "entities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "element_count": 339,
+        "element_type_counts": {
+          "2": 339
+        }
+      },
+      "farfield": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "farfield",
+        "physical_tag": 3,
+        "entity_count": 6,
+        "entities": [
+          17,
+          18,
+          19,
+          20,
+          21,
+          22
+        ],
+        "element_count": 18540,
+        "element_type_counts": {
+          "2": 18540
+        }
+      }
+    },
+    "physical_groups": {
+      "fluid": {
+        "exists": true,
+        "dimension": 3,
+        "physical_name": "fluid",
+        "physical_tag": 1,
+        "entity_count": 1,
+        "entities": [
+          2
+        ],
+        "element_count": 0,
+        "element_type_counts": {}
+      },
+      "fairing_solid": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "fairing_solid",
+        "physical_tag": 2,
+        "entity_count": 8,
+        "entities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "element_count": 339,
+        "element_type_counts": {
+          "2": 339
+        }
+      },
+      "farfield": {
+        "exists": true,
+        "dimension": 2,
+        "physical_name": "farfield",
+        "physical_tag": 3,
+        "entity_count": 6,
+        "entities": [
+          17,
+          18,
+          19,
+          20,
+          21,
+          22
+        ],
+        "element_count": 18540,
+        "element_type_counts": {
+          "2": 18540
+        }
+      }
+    },
+    "provenance": {
+      "route_provenance": "config.meshing_route",
+      "loader": "provider:openvsp_surface_intersection",
+      "provider": {
+        "provider": "openvsp_surface_intersection",
+        "provider_stage": "v1",
+        "provider_status": "materialized",
+        "topology": {
+          "representation": "brep_trimmed_step",
+          "source_kind": "stp",
+          "units": "m",
+          "bounds": {
+            "x_min": -2.89120579329468e-19,
+            "x_max": 2.81766634583567,
+            "y_min": -0.280358633469871,
+            "y_max": 0.280386592430824,
+            "z_min": -0.269384443871934,
+            "z_max": 0.851346753354166
+          },
+          "import_bounds": {
+            "x_min": -1.0000000028912057e-07,
+            "x_max": 2817.6663459356696,
+            "y_min": -280.358633569871,
+            "y_max": 280.386592530824,
+            "z_min": -269.38444397193405,
+            "z_max": 851.346753454166
+          },
+          "import_scale_to_units": 0.0009999999997979655,
+          "backend_rescale_required": true,
+          "body_count": 1,
+          "surface_count": 8,
+          "volume_count": 1,
+          "labels_present": true,
+          "label_schema": "preserve_component_labels",
+          "normalization": {},
+          "notes": [
+            "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+          ]
+        },
+        "provenance": {
+          "analysis": "SurfaceIntersection",
+          "analysis_result": "",
+          "target_representation": "brep_component_volumes",
+          "label_policy": "preserve_component_labels",
+          "topology": {
+            "representation": "brep_trimmed_step",
+            "source_kind": "stp",
+            "units": "m",
+            "bounds": {
+              "x_min": -2.89120579329468e-19,
+              "x_max": 2.81766634583567,
+              "y_min": -0.280358633469871,
+              "y_max": 0.280386592430824,
+              "z_min": -0.269384443871934,
+              "z_max": 0.851346753354166
+            },
+            "import_bounds": {
+              "x_min": -1.0000000028912057e-07,
+              "x_max": 2817.6663459356696,
+              "y_min": -280.358633569871,
+              "y_max": 280.386592530824,
+              "z_min": -269.38444397193405,
+              "z_max": 851.346753454166
+            },
+            "import_scale_to_units": 0.0009999999997979655,
+            "backend_rescale_required": true,
+            "body_count": 1,
+            "surface_count": 8,
+            "volume_count": 1,
+            "labels_present": true,
+            "label_schema": "preserve_component_labels",
+            "normalization": {},
+            "notes": [
+              "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+            ]
+          },
+          "reference_geometry": {
+            "ref_area": 100.0,
+            "ref_length": 1.0,
+            "ref_origin_moment": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "area_method": "openvsp_vspaero_settings.sref",
+            "length_method": "openvsp_vspaero_settings.cref",
+            "moment_method": "openvsp_vspaero_settings.cg",
+            "reference_wing_name": null,
+            "reference_wing_id": null,
+            "settings": {
+              "sref": 100.0,
+              "bref": 1.0,
+              "cref": 1.0,
+              "xcg": 0.0,
+              "ycg": 0.0,
+              "zcg": 0.0,
+              "ref_flag": 0.0,
+              "mac_flag": 0.0
+            },
+            "wing_quantities": {},
+            "warnings": [
+              "reference_wing_quantities_unavailable_using_vspaero_settings"
+            ]
+          }
+        }
+      },
+      "body": {
+        "imported_volume_count": 1,
+        "imported_surface_count": 16,
+        "healing": {
+          "attempted": true,
+          "input_volume_count": 1,
+          "input_surface_count": 8,
+          "tolerance": 1e-08,
+          "output_volume_count": 1,
+          "output_surface_count": 16
+        }
+      },
+      "farfield": {
+        "enabled": true,
+        "scale_factors": {
+          "upstream_factor": 2.0,
+          "downstream_factor": 3.0,
+          "lateral_factor": 2.0,
+          "vertical_factor": 2.0
+        }
+      },
+      "mesh_field": {
+        "characteristic_length_policy": "reference_length",
+        "reference_length": 1.0,
+        "surface_target_nodes_per_reference_length": 128,
+        "edge_refinement_ratio": 0.5,
+        "near_body_size": 0.2,
+        "edge_size": 0.1,
+        "farfield_size": 0.7,
+        "distance_min": 0.0,
+        "distance_max": 2.0,
+        "edge_distance_max": 1.0,
+        "mesh_size_min": 0.1,
+        "mesh_size_from_points": 0,
+        "mesh_size_from_curvature": 0,
+        "mesh_size_extend_from_boundary": 0,
+        "volume_optimization": {
+          "mesh_optimize": 1,
+          "mesh_optimize_netgen": 0,
+          "mesh_optimize_threshold": null,
+          "post_optimize_methods": [],
+          "post_optimize_force": false,
+          "post_optimize_niter": 1
+        },
+        "mesh_algorithm_2d": 6,
+        "mesh_algorithm_3d": 1,
+        "background_field_tag": 5,
+        "background_field_composition": "base_min_field",
+        "local_size_floors": [],
+        "per_surface_algorithms": [],
+        "surface_policy": {
+          "enabled": false,
+          "name": null,
+          "reason": "geometry_provider_not_esp_rebuilt",
+          "notes": [],
+          "coarse_first_tetra_active": false
+        },
+        "coarse_first_tetra": {
+          "enabled": false,
+          "clamp_mesh_size_min_to_near_body": true,
+          "surface_nodes_per_reference_length": 24.0,
+          "edge_refinement_ratio": 1.0,
+          "span_extreme_strip_floor_size": 0.12,
+          "suspect_strip_floor_size": 0.08,
+          "suspect_surface_algorithm": 5,
+          "general_surface_algorithm": 5,
+          "farfield_surface_algorithm": 5
+        }
+      }
+    },
+    "unit_normalization": {
+      "units": "m",
+      "backend_rescale_applied": true,
+      "import_scale_to_units": 0.0009999999997979655,
+      "imported_body_bounds": {
+        "x_min": -1.0000000028912057e-07,
+        "x_max": 2817.6663459356696,
+        "y_min": -280.358633569871,
+        "y_max": 280.386592530824,
+        "z_min": -269.38444397193405,
+        "z_max": 851.346753454166
+      },
+      "provider_topology_bounds": {
+        "x_min": -2.89120579329468e-19,
+        "x_max": 2.81766634583567,
+        "y_min": -0.280358633469871,
+        "y_max": 0.280386592430824,
+        "z_min": -0.269384443871934,
+        "z_max": 0.851346753354166
+      }
+    }
+  },
+  "run": {
+    "status": "success",
+    "attempts": 1,
+    "history": [
+      {
+        "attempt": 1,
+        "action": "initial"
+      }
+    ],
+    "backend_result": {
+      "status": "success",
+      "backend": "gmsh",
+      "backend_capability": "occ_closed_solid_meshing",
+      "meshing_route": "gmsh_closed_solid_volume",
+      "geometry_family": "closed_solid",
+      "geometry_source": "provider_generated",
+      "route_stage": "baseline",
+      "mesh_format": "msh",
+      "units": "m",
+      "contract": "mesh_handoff.v1",
+      "geometry_provider": "openvsp_surface_intersection",
+      "body_bounds": {
+        "x_min": -1.0000000000028911e-07,
+        "x_max": 2.8176664452664038,
+        "y_min": -0.28035873341322887,
+        "y_max": 0.2803866923741762,
+        "z_min": -0.26938454381750904,
+        "z_max": 0.8513468531821645
+      },
+      "farfield_bounds": {
+        "x_min": -5.6353331905328075,
+        "x_max": 11.270666081065615,
+        "y_min": -1.401849584988039,
+        "y_max": 1.4018775439489863,
+        "z_min": -2.510847337816856,
+        "z_max": 3.0928096471815114
+      },
+      "unit_normalization": {
+        "units": "m",
+        "backend_rescale_applied": true,
+        "import_scale_to_units": 0.0009999999997979655,
+        "imported_body_bounds": {
+          "x_min": -1.0000000028912057e-07,
+          "x_max": 2817.6663459356696,
+          "y_min": -280.358633569871,
+          "y_max": 280.386592530824,
+          "z_min": -269.38444397193405,
+          "z_max": 851.346753454166
+        },
+        "provider_topology_bounds": {
+          "x_min": -2.89120579329468e-19,
+          "x_max": 2.81766634583567,
+          "y_min": -0.280358633469871,
+          "y_max": 0.280386592430824,
+          "z_min": -0.269384443871934,
+          "z_max": 0.851346753354166
+        }
+      },
+      "artifacts": {
+        "mesh": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+        "mesh_metadata": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+        "marker_summary": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+        "surface_mesh_2d": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh",
+        "surface_patch_diagnostics": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_patch_diagnostics.json",
+        "brep_hotspot_report": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/brep_hotspot_report.json",
+        "hotspot_patch_report": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/hotspot_patch_report.json",
+        "sliver_cluster_report": null,
+        "compound_report": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/compound_report.json",
+        "gmsh_log": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/gmsh_log.txt",
+        "mesh2d_watchdog": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh2d_watchdog.json",
+        "mesh2d_watchdog_sample": null,
+        "mesh3d_watchdog": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh3d_watchdog.json",
+        "mesh3d_watchdog_sample": null,
+        "plc_probe": null,
+        "surface_cleanup_report": null,
+        "discrete_reparam_report": null,
+        "retry_mesh_metadata": null,
+        "classify_angle_probe": null
+      },
+      "marker_summary": {
+        "fairing_solid": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "fairing_solid",
+          "physical_tag": 2,
+          "entity_count": 8,
+          "entities": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "element_count": 339,
+          "element_type_counts": {
+            "2": 339
+          }
+        },
+        "farfield": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "farfield",
+          "physical_tag": 3,
+          "entity_count": 6,
+          "entities": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22
+          ],
+          "element_count": 18540,
+          "element_type_counts": {
+            "2": 18540
+          }
+        }
+      },
+      "physical_groups": {
+        "fluid": {
+          "exists": true,
+          "dimension": 3,
+          "physical_name": "fluid",
+          "physical_tag": 1,
+          "entity_count": 1,
+          "entities": [
+            2
+          ],
+          "element_count": 0,
+          "element_type_counts": {}
+        },
+        "fairing_solid": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "fairing_solid",
+          "physical_tag": 2,
+          "entity_count": 8,
+          "entities": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "element_count": 339,
+          "element_type_counts": {
+            "2": 339
+          }
+        },
+        "farfield": {
+          "exists": true,
+          "dimension": 2,
+          "physical_name": "farfield",
+          "physical_tag": 3,
+          "entity_count": 6,
+          "entities": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22
+          ],
+          "element_count": 18540,
+          "element_type_counts": {
+            "2": 18540
+          }
+        }
+      },
+      "mesh_stats": {
+        "mesh_dim": 3,
+        "node_count": 29394,
+        "element_count": 173122,
+        "surface_element_count": 19195,
+        "volume_element_count": 153251,
+        "element_type_counts": {
+          "1": 660,
+          "2": 19195,
+          "4": 153251,
+          "15": 16
+        },
+        "surface_element_type_counts": {
+          "2": 19195
+        },
+        "volume_element_type_counts": {
+          "4": 153251
+        }
+      },
+      "mesh_handoff": {
+        "contract": "mesh_handoff.v1",
+        "route_stage": "baseline",
+        "backend": "gmsh",
+        "backend_capability": "occ_closed_solid_meshing",
+        "meshing_route": "gmsh_closed_solid_volume",
+        "geometry_family": "closed_solid",
+        "geometry_source": "provider_generated",
+        "geometry_provider": "openvsp_surface_intersection",
+        "source_path": "/Volumes/Samsung SSD/HPA-Fairing-Optimization-Project/output/hpa_run_20260417_155036/vsp_models/best_design.vsp3",
+        "normalized_geometry_path": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/openvsp_surface_intersection/normalized.stp",
+        "units": "m",
+        "mesh_format": "msh",
+        "body_bounds": {
+          "x_min": -1.0000000000028911e-07,
+          "x_max": 2.8176664452664038,
+          "y_min": -0.28035873341322887,
+          "y_max": 0.2803866923741762,
+          "z_min": -0.26938454381750904,
+          "z_max": 0.8513468531821645
+        },
+        "farfield_bounds": {
+          "x_min": -5.6353331905328075,
+          "x_max": 11.270666081065615,
+          "y_min": -1.401849584988039,
+          "y_max": 1.4018775439489863,
+          "z_min": -2.510847337816856,
+          "z_max": 3.0928096471815114
+        },
+        "mesh_stats": {
+          "mesh_dim": 3,
+          "node_count": 29394,
+          "element_count": 173122,
+          "surface_element_count": 19195,
+          "volume_element_count": 153251,
+          "element_type_counts": {
+            "1": 660,
+            "2": 19195,
+            "4": 153251,
+            "15": 16
+          },
+          "surface_element_type_counts": {
+            "2": 19195
+          },
+          "volume_element_type_counts": {
+            "4": 153251
+          }
+        },
+        "marker_summary": {
+          "fairing_solid": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "fairing_solid",
+            "physical_tag": 2,
+            "entity_count": 8,
+            "entities": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "element_count": 339,
+            "element_type_counts": {
+              "2": 339
+            }
+          },
+          "farfield": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "farfield",
+            "physical_tag": 3,
+            "entity_count": 6,
+            "entities": [
+              17,
+              18,
+              19,
+              20,
+              21,
+              22
+            ],
+            "element_count": 18540,
+            "element_type_counts": {
+              "2": 18540
+            }
+          }
+        },
+        "physical_groups": {
+          "fluid": {
+            "exists": true,
+            "dimension": 3,
+            "physical_name": "fluid",
+            "physical_tag": 1,
+            "entity_count": 1,
+            "entities": [
+              2
+            ],
+            "element_count": 0,
+            "element_type_counts": {}
+          },
+          "fairing_solid": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "fairing_solid",
+            "physical_tag": 2,
+            "entity_count": 8,
+            "entities": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "element_count": 339,
+            "element_type_counts": {
+              "2": 339
+            }
+          },
+          "farfield": {
+            "exists": true,
+            "dimension": 2,
+            "physical_name": "farfield",
+            "physical_tag": 3,
+            "entity_count": 6,
+            "entities": [
+              17,
+              18,
+              19,
+              20,
+              21,
+              22
+            ],
+            "element_count": 18540,
+            "element_type_counts": {
+              "2": 18540
+            }
+          }
+        },
+        "artifacts": {
+          "mesh": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+          "mesh_metadata": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+          "marker_summary": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+          "surface_mesh_2d": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_mesh_2d.msh",
+          "surface_patch_diagnostics": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/surface_patch_diagnostics.json",
+          "brep_hotspot_report": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/brep_hotspot_report.json",
+          "hotspot_patch_report": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/hotspot_patch_report.json",
+          "sliver_cluster_report": null,
+          "sliver_volume_pocket_summary": null,
+          "rule_loft_pairing_repair_spec": null,
+          "compound_report": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/compound_report.json",
+          "gmsh_log": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/gmsh_log.txt",
+          "mesh2d_watchdog": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh2d_watchdog.json",
+          "mesh2d_watchdog_sample": null,
+          "mesh3d_watchdog": "docs/reports/fairing_solid_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh3d_watchdog.json",
+          "mesh3d_watchdog_sample": null,
+          "plc_probe": null,
+          "surface_cleanup_report": null,
+          "discrete_reparam_report": null,
+          "retry_mesh_metadata": null,
+          "classify_angle_probe": null
+        },
+        "provenance": {
+          "route_provenance": "config.meshing_route",
+          "loader": "provider:openvsp_surface_intersection",
+          "provider": {
+            "provider": "openvsp_surface_intersection",
+            "provider_stage": "v1",
+            "provider_status": "materialized",
+            "topology": {
+              "representation": "brep_trimmed_step",
+              "source_kind": "stp",
+              "units": "m",
+              "bounds": {
+                "x_min": -2.89120579329468e-19,
+                "x_max": 2.81766634583567,
+                "y_min": -0.280358633469871,
+                "y_max": 0.280386592430824,
+                "z_min": -0.269384443871934,
+                "z_max": 0.851346753354166
+              },
+              "import_bounds": {
+                "x_min": -1.0000000028912057e-07,
+                "x_max": 2817.6663459356696,
+                "y_min": -280.358633569871,
+                "y_max": 280.386592530824,
+                "z_min": -269.38444397193405,
+                "z_max": 851.346753454166
+              },
+              "import_scale_to_units": 0.0009999999997979655,
+              "backend_rescale_required": true,
+              "body_count": 1,
+              "surface_count": 8,
+              "volume_count": 1,
+              "labels_present": true,
+              "label_schema": "preserve_component_labels",
+              "normalization": {},
+              "notes": [
+                "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+              ]
+            },
+            "provenance": {
+              "analysis": "SurfaceIntersection",
+              "analysis_result": "",
+              "target_representation": "brep_component_volumes",
+              "label_policy": "preserve_component_labels",
+              "topology": {
+                "representation": "brep_trimmed_step",
+                "source_kind": "stp",
+                "units": "m",
+                "bounds": {
+                  "x_min": -2.89120579329468e-19,
+                  "x_max": 2.81766634583567,
+                  "y_min": -0.280358633469871,
+                  "y_max": 0.280386592430824,
+                  "z_min": -0.269384443871934,
+                  "z_max": 0.851346753354166
+                },
+                "import_bounds": {
+                  "x_min": -1.0000000028912057e-07,
+                  "x_max": 2817.6663459356696,
+                  "y_min": -280.358633569871,
+                  "y_max": 280.386592530824,
+                  "z_min": -269.38444397193405,
+                  "z_max": 851.346753454166
+                },
+                "import_scale_to_units": 0.0009999999997979655,
+                "backend_rescale_required": true,
+                "body_count": 1,
+                "surface_count": 8,
+                "volume_count": 1,
+                "labels_present": true,
+                "label_schema": "preserve_component_labels",
+                "normalization": {},
+                "notes": [
+                  "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+                ]
+              },
+              "reference_geometry": {
+                "ref_area": 100.0,
+                "ref_length": 1.0,
+                "ref_origin_moment": {
+                  "x": 0.0,
+                  "y": 0.0,
+                  "z": 0.0
+                },
+                "area_method": "openvsp_vspaero_settings.sref",
+                "length_method": "openvsp_vspaero_settings.cref",
+                "moment_method": "openvsp_vspaero_settings.cg",
+                "reference_wing_name": null,
+                "reference_wing_id": null,
+                "settings": {
+                  "sref": 100.0,
+                  "bref": 1.0,
+                  "cref": 1.0,
+                  "xcg": 0.0,
+                  "ycg": 0.0,
+                  "zcg": 0.0,
+                  "ref_flag": 0.0,
+                  "mac_flag": 0.0
+                },
+                "wing_quantities": {},
+                "warnings": [
+                  "reference_wing_quantities_unavailable_using_vspaero_settings"
+                ]
+              }
+            }
+          },
+          "body": {
+            "imported_volume_count": 1,
+            "imported_surface_count": 16,
+            "healing": {
+              "attempted": true,
+              "input_volume_count": 1,
+              "input_surface_count": 8,
+              "tolerance": 1e-08,
+              "output_volume_count": 1,
+              "output_surface_count": 16
+            }
+          },
+          "farfield": {
+            "enabled": true,
+            "scale_factors": {
+              "upstream_factor": 2.0,
+              "downstream_factor": 3.0,
+              "lateral_factor": 2.0,
+              "vertical_factor": 2.0
+            }
+          },
+          "mesh_field": {
+            "characteristic_length_policy": "reference_length",
+            "reference_length": 1.0,
+            "surface_target_nodes_per_reference_length": 128,
+            "edge_refinement_ratio": 0.5,
+            "near_body_size": 0.2,
+            "edge_size": 0.1,
+            "farfield_size": 0.7,
+            "distance_min": 0.0,
+            "distance_max": 2.0,
+            "edge_distance_max": 1.0,
+            "mesh_size_min": 0.1,
+            "mesh_size_from_points": 0,
+            "mesh_size_from_curvature": 0,
+            "mesh_size_extend_from_boundary": 0,
+            "volume_optimization": {
+              "mesh_optimize": 1,
+              "mesh_optimize_netgen": 0,
+              "mesh_optimize_threshold": null,
+              "post_optimize_methods": [],
+              "post_optimize_force": false,
+              "post_optimize_niter": 1
+            },
+            "mesh_algorithm_2d": 6,
+            "mesh_algorithm_3d": 1,
+            "background_field_tag": 5,
+            "background_field_composition": "base_min_field",
+            "local_size_floors": [],
+            "per_surface_algorithms": [],
+            "surface_policy": {
+              "enabled": false,
+              "name": null,
+              "reason": "geometry_provider_not_esp_rebuilt",
+              "notes": [],
+              "coarse_first_tetra_active": false
+            },
+            "coarse_first_tetra": {
+              "enabled": false,
+              "clamp_mesh_size_min_to_near_body": true,
+              "surface_nodes_per_reference_length": 24.0,
+              "edge_refinement_ratio": 1.0,
+              "span_extreme_strip_floor_size": 0.12,
+              "suspect_strip_floor_size": 0.08,
+              "suspect_surface_algorithm": 5,
+              "general_surface_algorithm": 5,
+              "farfield_surface_algorithm": 5
+            }
+          }
+        },
+        "unit_normalization": {
+          "units": "m",
+          "backend_rescale_applied": true,
+          "import_scale_to_units": 0.0009999999997979655,
+          "imported_body_bounds": {
+            "x_min": -1.0000000028912057e-07,
+            "x_max": 2817.6663459356696,
+            "y_min": -280.358633569871,
+            "y_max": 280.386592530824,
+            "z_min": -269.38444397193405,
+            "z_max": 851.346753454166
+          },
+          "provider_topology_bounds": {
+            "x_min": -2.89120579329468e-19,
+            "x_max": 2.81766634583567,
+            "y_min": -0.280358633469871,
+            "y_max": 0.280386592430824,
+            "z_min": -0.269384443871934,
+            "z_max": 0.851346753354166
+          }
+        }
+      },
+      "provenance": {
+        "route_provenance": "config.meshing_route",
+        "loader": "provider:openvsp_surface_intersection",
+        "provider": {
+          "provider": "openvsp_surface_intersection",
+          "provider_stage": "v1",
+          "provider_status": "materialized",
+          "topology": {
+            "representation": "brep_trimmed_step",
+            "source_kind": "stp",
+            "units": "m",
+            "bounds": {
+              "x_min": -2.89120579329468e-19,
+              "x_max": 2.81766634583567,
+              "y_min": -0.280358633469871,
+              "y_max": 0.280386592430824,
+              "z_min": -0.269384443871934,
+              "z_max": 0.851346753354166
+            },
+            "import_bounds": {
+              "x_min": -1.0000000028912057e-07,
+              "x_max": 2817.6663459356696,
+              "y_min": -280.358633569871,
+              "y_max": 280.386592530824,
+              "z_min": -269.38444397193405,
+              "z_max": 851.346753454166
+            },
+            "import_scale_to_units": 0.0009999999997979655,
+            "backend_rescale_required": true,
+            "body_count": 1,
+            "surface_count": 8,
+            "volume_count": 1,
+            "labels_present": true,
+            "label_schema": "preserve_component_labels",
+            "normalization": {},
+            "notes": [
+              "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+            ]
+          },
+          "provenance": {
+            "analysis": "SurfaceIntersection",
+            "analysis_result": "",
+            "target_representation": "brep_component_volumes",
+            "label_policy": "preserve_component_labels",
+            "topology": {
+              "representation": "brep_trimmed_step",
+              "source_kind": "stp",
+              "units": "m",
+              "bounds": {
+                "x_min": -2.89120579329468e-19,
+                "x_max": 2.81766634583567,
+                "y_min": -0.280358633469871,
+                "y_max": 0.280386592430824,
+                "z_min": -0.269384443871934,
+                "z_max": 0.851346753354166
+              },
+              "import_bounds": {
+                "x_min": -1.0000000028912057e-07,
+                "x_max": 2817.6663459356696,
+                "y_min": -280.358633569871,
+                "y_max": 280.386592530824,
+                "z_min": -269.38444397193405,
+                "z_max": 851.346753454166
+              },
+              "import_scale_to_units": 0.0009999999997979655,
+              "backend_rescale_required": true,
+              "body_count": 1,
+              "surface_count": 8,
+              "volume_count": 1,
+              "labels_present": true,
+              "label_schema": "preserve_component_labels",
+              "normalization": {},
+              "notes": [
+                "gmsh_occ_import_requires_rescale_to_declared_units:scale=0.000999999999798"
+              ]
+            },
+            "reference_geometry": {
+              "ref_area": 100.0,
+              "ref_length": 1.0,
+              "ref_origin_moment": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "area_method": "openvsp_vspaero_settings.sref",
+              "length_method": "openvsp_vspaero_settings.cref",
+              "moment_method": "openvsp_vspaero_settings.cg",
+              "reference_wing_name": null,
+              "reference_wing_id": null,
+              "settings": {
+                "sref": 100.0,
+                "bref": 1.0,
+                "cref": 1.0,
+                "xcg": 0.0,
+                "ycg": 0.0,
+                "zcg": 0.0,
+                "ref_flag": 0.0,
+                "mac_flag": 0.0
+              },
+              "wing_quantities": {},
+              "warnings": [
+                "reference_wing_quantities_unavailable_using_vspaero_settings"
+              ]
+            }
+          }
+        },
+        "body": {
+          "imported_volume_count": 1,
+          "imported_surface_count": 16,
+          "healing": {
+            "attempted": true,
+            "input_volume_count": 1,
+            "input_surface_count": 8,
+            "tolerance": 1e-08,
+            "output_volume_count": 1,
+            "output_surface_count": 16
+          }
+        },
+        "farfield": {
+          "enabled": true,
+          "scale_factors": {
+            "upstream_factor": 2.0,
+            "downstream_factor": 3.0,
+            "lateral_factor": 2.0,
+            "vertical_factor": 2.0
+          }
+        },
+        "mesh_field": {
+          "characteristic_length_policy": "reference_length",
+          "reference_length": 1.0,
+          "surface_target_nodes_per_reference_length": 128,
+          "edge_refinement_ratio": 0.5,
+          "near_body_size": 0.2,
+          "edge_size": 0.1,
+          "farfield_size": 0.7,
+          "distance_min": 0.0,
+          "distance_max": 2.0,
+          "edge_distance_max": 1.0,
+          "mesh_size_min": 0.1,
+          "mesh_size_from_points": 0,
+          "mesh_size_from_curvature": 0,
+          "mesh_size_extend_from_boundary": 0,
+          "volume_optimization": {
+            "mesh_optimize": 1,
+            "mesh_optimize_netgen": 0,
+            "mesh_optimize_threshold": null,
+            "post_optimize_methods": [],
+            "post_optimize_force": false,
+            "post_optimize_niter": 1
+          },
+          "mesh_algorithm_2d": 6,
+          "mesh_algorithm_3d": 1,
+          "background_field_tag": 5,
+          "background_field_composition": "base_min_field",
+          "local_size_floors": [],
+          "per_surface_algorithms": [],
+          "surface_policy": {
+            "enabled": false,
+            "name": null,
+            "reason": "geometry_provider_not_esp_rebuilt",
+            "notes": [],
+            "coarse_first_tetra_active": false
+          },
+          "coarse_first_tetra": {
+            "enabled": false,
+            "clamp_mesh_size_min_to_near_body": true,
+            "surface_nodes_per_reference_length": 24.0,
+            "edge_refinement_ratio": 1.0,
+            "span_extreme_strip_floor_size": 0.12,
+            "suspect_strip_floor_size": 0.08,
+            "suspect_surface_algorithm": 5,
+            "general_surface_algorithm": 5,
+            "farfield_surface_algorithm": 5
+          }
+        }
+      },
+      "notes": [
+        "baseline OCC external-flow mesh generated from normalized STEP",
+        "loader=provider:openvsp_surface_intersection",
+        "mesh_dim=3"
+      ]
+    },
+    "notes": [
+      "Replace with real backend retry loop.",
+      "max_attempts=4"
+    ]
+  },
+  "quality": {
+    "ok": true,
+    "checked_route": "gmsh_closed_solid_volume",
+    "checked_backend_capability": "occ_closed_solid_meshing",
+    "notes": [
+      "max_elements=None",
+      "node_count=29394",
+      "element_count=173122",
+      "volume_element_count=153251",
+      "missing_markers=[]"
+    ]
+  },
+  "attempts": 1
+}

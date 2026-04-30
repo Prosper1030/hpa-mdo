@@ -149,6 +149,26 @@ def test_parser_supports_fairing_solid_real_geometry_smoke_command():
     assert args.source == "fairing.vsp3"
 
 
+def test_parser_supports_fairing_solid_real_mesh_handoff_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "fairing-solid-real-mesh-handoff-probe",
+            "--out",
+            "artifacts/fairing_real_mesh_probe",
+            "--source",
+            "fairing.vsp3",
+            "--timeout-seconds",
+            "30",
+        ]
+    )
+
+    assert args.command == "fairing-solid-real-mesh-handoff-probe"
+    assert args.out == "artifacts/fairing_real_mesh_probe"
+    assert args.source == "fairing.vsp3"
+    assert args.timeout_seconds == 30.0
+
+
 def test_parser_supports_main_wing_mesh_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(

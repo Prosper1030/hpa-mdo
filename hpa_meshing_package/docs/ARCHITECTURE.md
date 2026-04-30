@@ -141,7 +141,18 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps Gmsh meshing, mesh handoff, SU2, convergence, BL runtime, and production defaults off
 - Promotes the blocker from "real fairing geometry missing" to "real fairing geometry mesh handoff not run"
 
-### 11. fairing_solid Mesh-Handoff Smoke Layer
+### 11. fairing_solid Real Mesh-Handoff Probe Layer
+
+`src/hpa_meshing/fairing_solid_real_mesh_handoff_probe.py`
+
+- Consumes the real fairing geometry smoke before invoking Gmsh
+- Runs `fairing_solid -> gmsh_closed_solid_volume` in a bounded child process with coarse probe sizing
+- Writes `fairing_solid_real_mesh_handoff_probe.v1.json` and `.md`
+- Current committed evidence writes `mesh_handoff.v1` with `fairing_solid` / `farfield` markers
+- Keeps SU2, BL runtime, convergence, and production defaults off
+- Promotes the blocker from "real fairing geometry mesh handoff not run" to "real fairing SU2 handoff not run"
+
+### 12. fairing_solid Mesh-Handoff Smoke Layer
 
 `src/hpa_meshing/fairing_solid_mesh_handoff_smoke.py`
 
@@ -151,9 +162,9 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Emits a real `mesh_handoff.v1` for the route-smoke fixture
 - Keeps SU2, BL runtime, and production defaults off
 - Records a component-specific `fairing_solid` force marker in the mesh-handoff evidence
-- Keeps fairing solver promotion blocked until real-geometry mesh handoff and convergence evidence exist
+- Keeps fairing solver promotion blocked until real-geometry SU2 handoff and convergence evidence exist
 
-### 12. fairing_solid SU2-Handoff Smoke Layer
+### 13. fairing_solid SU2-Handoff Smoke Layer
 
 `src/hpa_meshing/fairing_solid_su2_handoff_smoke.py`
 
@@ -162,9 +173,9 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Writes `fairing_solid_su2_handoff_smoke.v1.json` and `.md`
 - Emits `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg`
 - Keeps solver execution, history parsing, convergence, and production defaults off
-- Records component force-surface ownership from the `fairing_solid` marker, while keeping real-geometry mesh handoff and solver credibility outside the guarantee set
+- Records component force-surface ownership from the `fairing_solid` marker, while keeping real-geometry SU2 handoff and solver credibility outside the guarantee set
 
-### 13. main_wing ESP-Rebuilt Geometry Smoke Layer
+### 14. main_wing ESP-Rebuilt Geometry Smoke Layer
 
 `src/hpa_meshing/main_wing_esp_rebuilt_geometry_smoke.py`
 
@@ -175,7 +186,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps Gmsh, mesh handoff, SU2, convergence, BL runtime, and production defaults off
 - Promotes the blocker from "real main-wing geometry missing" to "real main-wing geometry mesh handoff not run"
 
-### 14. main_wing Real Mesh-Handoff Probe Layer
+### 15. main_wing Real Mesh-Handoff Probe Layer
 
 `src/hpa_meshing/main_wing_real_mesh_handoff_probe.py`
 
@@ -186,7 +197,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps BL runtime, SU2, convergence, and production defaults off
 - Makes the current blocker explicit: 2D completes, but 3D times out during volume insertion before `mesh_handoff.v1`
 
-### 15. main_wing Mesh-Handoff Smoke Layer
+### 16. main_wing Mesh-Handoff Smoke Layer
 
 `src/hpa_meshing/main_wing_mesh_handoff_smoke.py`
 
@@ -198,7 +209,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Records component-owned `main_wing` / `farfield` markers in the mesh-handoff evidence
 - Keeps main-wing SU2 promotion blocked until `su2_handoff.v1` materializes from this handoff
 
-### 16. main_wing SU2-Handoff Smoke Layer
+### 17. main_wing SU2-Handoff Smoke Layer
 
 `src/hpa_meshing/main_wing_su2_handoff_smoke.py`
 
@@ -209,7 +220,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps solver execution, history parsing, convergence, and production defaults off
 - Records component force-surface ownership from the `main_wing` marker, while keeping real-geometry and solver credibility outside the guarantee set
 
-### 17. tail_wing Mesh-Handoff Smoke Layer
+### 18. tail_wing Mesh-Handoff Smoke Layer
 
 `src/hpa_meshing/tail_wing_mesh_handoff_smoke.py`
 
@@ -221,7 +232,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Records component-owned `tail_wing` / `farfield` markers in the mesh-handoff evidence
 - Keeps tail solver promotion blocked until `su2_handoff.v1`, real tail geometry, and convergence evidence exist
 
-### 18. tail_wing SU2-Handoff Smoke Layer
+### 19. tail_wing SU2-Handoff Smoke Layer
 
 `src/hpa_meshing/tail_wing_su2_handoff_smoke.py`
 
@@ -232,7 +243,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps solver execution, history parsing, convergence, and production defaults off
 - Records component force-surface ownership from the `tail_wing` marker, while keeping real-geometry and solver credibility outside the guarantee set
 
-### 19. tail_wing ESP-Rebuilt Geometry Smoke Layer
+### 20. tail_wing ESP-Rebuilt Geometry Smoke Layer
 
 `src/hpa_meshing/tail_wing_esp_rebuilt_geometry_smoke.py`
 
@@ -243,7 +254,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps Gmsh, mesh handoff, SU2, convergence, BL runtime, and production defaults off
 - Promotes the blocker from "real tail geometry missing" to "real tail geometry mesh handoff not run"
 
-### 20. tail_wing Real Mesh-Handoff Probe Layer
+### 21. tail_wing Real Mesh-Handoff Probe Layer
 
 `src/hpa_meshing/tail_wing_real_mesh_handoff_probe.py`
 
@@ -254,7 +265,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps BL runtime, SU2, convergence, and production defaults off
 - Makes the current volume-handoff blocker explicit: the route expects OCC volumes
 
-### 21. tail_wing Surface Mesh Probe Layer
+### 22. tail_wing Surface Mesh Probe Layer
 
 `src/hpa_meshing/tail_wing_surface_mesh_probe.py`
 
@@ -265,7 +276,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps `mesh_handoff.v1`, SU2, BL runtime, convergence, and production defaults off
 - Proves surface meshability, not external-flow volume readiness
 
-### 22. tail_wing Solidification Probe Layer
+### 23. tail_wing Solidification Probe Layer
 
 `src/hpa_meshing/tail_wing_solidification_probe.py`
 
@@ -276,7 +287,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps `mesh_handoff.v1`, SU2, BL runtime, convergence, and production defaults off
 - Promotes the next architecture action from naive heal tuning to explicit caps or baffle-volume construction
 
-### 23. tail_wing Explicit Volume Route Probe Layer
+### 24. tail_wing Explicit Volume Route Probe Layer
 
 `src/hpa_meshing/tail_wing_explicit_volume_route_probe.py`
 
@@ -301,7 +312,7 @@ That matters because a route can be valid in schema/dispatch but still be non-pr
 Current truth:
 
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
-- `fairing_solid` has real VSP geometry smoke for a Fuselage closed solid and synthetic closed-solid mesh-handoff / SU2-handoff materialization smokes with component-owned force markers, but is not yet a real-geometry mesh, solver, or convergence route
+- `fairing_solid` has real VSP geometry smoke for a Fuselage closed solid and a bounded real-geometry `mesh_handoff.v1` pass with component-owned force markers, but is not yet a real-geometry SU2, solver, or convergence route
 - `main_wing` has real ESP/VSP provider geometry evidence and a bounded real-geometry mesh-handoff timeout report; real non-BL mesh-handoff / SU2-handoff materialization smokes also exist on a synthetic slab with component-owned force markers, but it is not yet a real-geometry mesh, solver, or convergence route
 - `tail_wing` has real ESP/VSP provider geometry evidence, real surface-mesh evidence, a naive-solidification no-volume probe, an explicit-volume-route blocker probe, and a real mesh-handoff blocker report; synthetic non-BL mesh/SU2 handoff smokes exist with component-owned force markers, but they are not real tail mesh evidence
 - `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
@@ -321,6 +332,7 @@ MeshJobConfig
   -> component_family_route_readiness.v1
   -> component_family_route_smoke_matrix.v1
   -> fairing_solid_real_geometry_smoke.v1
+  -> fairing_solid_real_mesh_handoff_probe.v1
   -> fairing_solid_mesh_handoff_smoke.v1
   -> fairing_solid_su2_handoff_smoke.v1
   -> main_wing_esp_rebuilt_geometry_smoke.v1
@@ -345,12 +357,16 @@ visibility only and still does not imply that Gmsh or SU2 ran.
 `fairing_solid_real_geometry_smoke.v1` proves the real fairing VSP source can
 be selected as a Fuselage and materialized as a closed-solid normalized STEP,
 but it does not replace the missing real-geometry mesh handoff.
+`fairing_solid_real_mesh_handoff_probe.v1` proves the current real fairing
+geometry can write `mesh_handoff.v1` with component-owned `fairing_solid` and
+`farfield` markers using coarse bounded probe sizing. It still does not replace
+the missing real-geometry SU2 handoff, solver history, or convergence gate.
 `fairing_solid_mesh_handoff_smoke.v1` is the first route-specific real Gmsh smoke
 outside the formal aircraft-assembly line; it proves mesh handoff only on a
 synthetic closed-solid fixture.
 `fairing_solid_su2_handoff_smoke.v1` proves that this fairing mesh handoff can
 materialize an SU2 case without running the solver; it now owns the
-`fairing_solid` force marker, but still leaves real-geometry mesh handoff,
+`fairing_solid` force marker, but still leaves real-geometry SU2 handoff,
 solver history, and convergence outside the guarantee set.
 `main_wing_esp_rebuilt_geometry_smoke.v1` proves the VSP/ESP provider can
 select and materialize the real `Main Wing` source geometry, but it does not
