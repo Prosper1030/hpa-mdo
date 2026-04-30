@@ -1986,6 +1986,55 @@ def test_main_wing_route_readiness_records_profile_resample_brep_validation_stag
     )
 
 
+def test_main_wing_route_readiness_records_profile_resample_repair_feasibility_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_profile_resample_repair_feasibility_probe"
+        / "main_wing_station_seam_profile_resample_repair_feasibility_probe.v1.json",
+        {
+            "feasibility_status": (
+                "profile_resample_station_shape_fix_repair_not_recovered"
+            ),
+            "candidate_step_path": "artifacts/profile_resample/candidate_raw_dump.stp",
+            "target_edges": [
+                {"curve_id": 36, "edge_index": 36, "face_ids": [12, 13]}
+            ],
+            "baseline_summary": {
+                "target_edge_count": 1,
+                "all_station_checks_pass": False,
+            },
+            "attempt_summary": {
+                "attempt_count": 25,
+                "recovered_attempt_count": 0,
+            },
+            "engineering_findings": [
+                "profile_resample_station_shape_fix_did_not_recover_candidate_checks"
+            ],
+            "blocking_reasons": [
+                "profile_resample_station_shape_fix_repair_not_recovered"
+            ],
+            "next_actions": [
+                "change_profile_resample_export_pcurve_generation_or_section_parametrization"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    repair_stage = stages["station_seam_profile_resample_repair_feasibility_probe"]
+    assert repair_stage.status == "blocked"
+    assert repair_stage.evidence_kind == "real"
+    assert repair_stage.observed["recovered_attempt_count"] == 0
+    assert (
+        "profile_resample_station_shape_fix_repair_not_recovered"
+        in report.blocking_reasons
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

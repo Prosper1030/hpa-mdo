@@ -302,7 +302,8 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Prototype a single-rule profile-resample export candidate that uniformizes section profile point counts without adding split-bay caps
 - Record that the profile-resample candidate is single volume / full span / no target cap faces, then validate station BRep/PCurve checks on candidate-selected station edges
 - Record that profile-resample station PCurves are present but curve-3D-with-PCurve, same-parameter-by-face, and vertex-tolerance-by-face checks remain suspect
-- Keep the next gate on station PCurve/export repair before compound meshing policy, mesh handoff, or solver-budget campaigns
+- Run bounded in-memory repair feasibility on profile-resample station edges and record that no ShapeFix / SameParameter sweep recovers the checks
+- Keep the next gate on export / section-parametrization repair before compound meshing policy, mesh handoff, or solver-budget campaigns
 
 ### 22. main_wing Mesh-Handoff Smoke Layer
 

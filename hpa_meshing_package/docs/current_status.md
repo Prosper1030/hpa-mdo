@@ -304,6 +304,25 @@ vertex-tolerance-by-face checks remain suspect. This keeps the profile-resample
 candidate out of mesh handoff until the station PCurve/export issue is repaired
 or explained.
 
+The main-wing profile-resample repair feasibility probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-profile-resample-repair-feasibility-probe --out .tmp/runs/main_wing_station_seam_profile_resample_repair_feasibility_probe
+```
+
+This writes
+`main_wing_station_seam_profile_resample_repair_feasibility_probe.v1.json` and
+`main_wing_station_seam_profile_resample_repair_feasibility_probe.v1.md`. The
+committed snapshot records
+`profile_resample_station_shape_fix_repair_not_recovered`: the six
+candidate-selected station edges all have PCurves, but same-parameter,
+curve-3D-with-PCurve, and vertex-tolerance checks fail at baseline; 25 bounded
+in-memory ShapeFix / SameParameter operation-tolerance attempts produce
+`recovered_attempt_count = 0`. This is engineering evidence that the next fix
+belongs in export / section parametrization, not direct mesh handoff, solver
+budget, or a surface-id patch.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash

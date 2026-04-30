@@ -2885,6 +2885,33 @@
       ]
     },
     {
+      "stage": "station_seam_profile_resample_repair_feasibility_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_repair_feasibility_probe/main_wing_station_seam_profile_resample_repair_feasibility_probe.v1.json",
+      "observed": {
+        "feasibility_status": "profile_resample_station_shape_fix_repair_not_recovered",
+        "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_profile_resample_strategy_probe/artifacts/uniform_profile_resample_single_rule/candidate_raw_dump.stp",
+        "target_edge_count": 6,
+        "all_station_checks_pass": false,
+        "attempt_count": 25,
+        "recovered_attempt_count": 0,
+        "engineering_findings": [
+          "profile_resample_station_repair_feasibility_evaluated",
+          "profile_resample_station_target_pcurves_are_present",
+          "profile_resample_station_shape_fix_did_not_recover_candidate_checks",
+          "profile_resample_station_export_repair_needed"
+        ],
+        "next_actions": [
+          "change_profile_resample_export_pcurve_generation_or_section_parametrization",
+          "avoid_direct_mesh_handoff_from_current_profile_resample_candidate"
+        ]
+      },
+      "blockers": [
+        "profile_resample_station_shape_fix_repair_not_recovered"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -2936,10 +2963,11 @@
     "split_candidate_not_mesh_handoff_ready",
     "candidate_needs_station_brep_pcurve_validation_before_mesh_handoff",
     "profile_resample_candidate_station_brep_pcurve_checks_suspect",
-    "profile_resample_candidate_mesh_handoff_not_run"
+    "profile_resample_candidate_mesh_handoff_not_run",
+    "profile_resample_station_shape_fix_repair_not_recovered"
   ],
   "next_actions": [
-    "repair_profile_resample_candidate_pcurve_export_before_mesh_handoff",
+    "change_profile_resample_export_pcurve_generation_or_section_parametrization",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

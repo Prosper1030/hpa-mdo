@@ -146,6 +146,10 @@ from .main_wing_station_seam_profile_resample_brep_validation_probe import (
     build_main_wing_station_seam_profile_resample_brep_validation_probe_report,
     write_main_wing_station_seam_profile_resample_brep_validation_probe_report,
 )
+from .main_wing_station_seam_profile_resample_repair_feasibility_probe import (
+    build_main_wing_station_seam_profile_resample_repair_feasibility_probe_report,
+    write_main_wing_station_seam_profile_resample_repair_feasibility_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -818,6 +822,33 @@ def cmd_main_wing_station_seam_profile_resample_brep_validation_probe(
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.probe_status != "blocked" else 2
+
+
+def cmd_main_wing_station_seam_profile_resample_repair_feasibility_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    brep_validation_probe_path = (
+        None
+        if args.brep_validation_probe is None
+        else Path(args.brep_validation_probe)
+    )
+    report = (
+        build_main_wing_station_seam_profile_resample_repair_feasibility_probe_report(
+            brep_validation_probe_path=brep_validation_probe_path,
+            tolerances=args.tolerances,
+            operations=args.operations,
+        )
+    )
+    write_main_wing_station_seam_profile_resample_repair_feasibility_probe_report(
+        out_dir,
+        report=report,
+        brep_validation_probe_path=brep_validation_probe_path,
+        tolerances=args.tolerances,
+        operations=args.operations,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.feasibility_status != "blocked" else 2
 
 
 def cmd_main_wing_station_seam_shape_fix_feasibility(
@@ -1727,6 +1758,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_profile_resample_brep_validation_probe.set_defaults(
         func=cmd_main_wing_station_seam_profile_resample_brep_validation_probe
+    )
+
+    main_wing_station_seam_profile_resample_repair_feasibility_probe = (
+        sub.add_parser(
+            "main-wing-station-seam-profile-resample-repair-feasibility-probe"
+        )
+    )
+    main_wing_station_seam_profile_resample_repair_feasibility_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_profile_resample_repair_feasibility_probe.add_argument(
+        "--brep-validation-probe",
+        type=str,
+    )
+    main_wing_station_seam_profile_resample_repair_feasibility_probe.add_argument(
+        "--tolerances",
+        nargs="+",
+        type=float,
+    )
+    main_wing_station_seam_profile_resample_repair_feasibility_probe.add_argument(
+        "--operations",
+        nargs="+",
+        type=str,
+    )
+    main_wing_station_seam_profile_resample_repair_feasibility_probe.set_defaults(
+        func=cmd_main_wing_station_seam_profile_resample_repair_feasibility_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

@@ -36,6 +36,7 @@ StageType = Literal[
     "station_seam_internal_cap_probe",
     "station_seam_profile_resample_strategy_probe",
     "station_seam_profile_resample_brep_validation_probe",
+    "station_seam_profile_resample_repair_feasibility_probe",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -1218,6 +1219,48 @@ def _station_seam_profile_resample_brep_validation_probe_observed(
     }
 
 
+def _station_seam_profile_resample_repair_feasibility_probe_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "pass"
+        if payload.get("feasibility_status")
+        == "profile_resample_station_shape_fix_repair_recovered"
+        else "blocked"
+    )
+
+
+def _station_seam_profile_resample_repair_feasibility_probe_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    baseline_summary = (
+        payload.get("baseline_summary", {}) if isinstance(payload, dict) else {}
+    )
+    baseline_summary = baseline_summary if isinstance(baseline_summary, dict) else {}
+    attempt_summary = (
+        payload.get("attempt_summary", {}) if isinstance(payload, dict) else {}
+    )
+    attempt_summary = attempt_summary if isinstance(attempt_summary, dict) else {}
+    return {
+        "feasibility_status": (
+            None if payload is None else payload.get("feasibility_status")
+        ),
+        "candidate_step_path": (
+            None if payload is None else payload.get("candidate_step_path")
+        ),
+        "target_edge_count": baseline_summary.get("target_edge_count"),
+        "all_station_checks_pass": baseline_summary.get("all_station_checks_pass"),
+        "attempt_count": attempt_summary.get("attempt_count"),
+        "recovered_attempt_count": attempt_summary.get("recovered_attempt_count"),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -1384,6 +1427,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_station_seam_profile_resample_brep_validation_probe"
         / "main_wing_station_seam_profile_resample_brep_validation_probe.v1.json"
     )
+    station_seam_profile_resample_repair_feasibility_probe_path = (
+        root
+        / "main_wing_station_seam_profile_resample_repair_feasibility_probe"
+        / "main_wing_station_seam_profile_resample_repair_feasibility_probe.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -1452,6 +1500,9 @@ def build_main_wing_route_readiness_report(
     )
     station_seam_profile_resample_brep_validation_probe = _load_json(
         station_seam_profile_resample_brep_validation_probe_path
+    )
+    station_seam_profile_resample_repair_feasibility_probe = _load_json(
+        station_seam_profile_resample_repair_feasibility_probe_path
     )
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
@@ -2214,6 +2265,34 @@ def build_main_wing_route_readiness_report(
             ),
         ),
         _stage(
+            stage="station_seam_profile_resample_repair_feasibility_probe",
+            status=_station_seam_profile_resample_repair_feasibility_probe_status(
+                station_seam_profile_resample_repair_feasibility_probe
+            ),
+            evidence_kind=(
+                "real"
+                if isinstance(
+                    station_seam_profile_resample_repair_feasibility_probe,
+                    dict,
+                )
+                else "absent"
+            ),
+            artifact_path=(
+                station_seam_profile_resample_repair_feasibility_probe_path
+                if isinstance(
+                    station_seam_profile_resample_repair_feasibility_probe,
+                    dict,
+                )
+                else None
+            ),
+            observed=_station_seam_profile_resample_repair_feasibility_probe_observed(
+                station_seam_profile_resample_repair_feasibility_probe
+            ),
+            blockers=_blocking_reasons(
+                station_seam_profile_resample_repair_feasibility_probe
+            ),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -2600,6 +2679,31 @@ def build_main_wing_route_readiness_report(
         )
         if isinstance(profile_brep_next_actions, list) and profile_brep_next_actions:
             next_actions[0] = str(profile_brep_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(station_seam_profile_resample_repair_feasibility_probe, dict)
+        and station_seam_profile_resample_repair_feasibility_probe.get(
+            "feasibility_status"
+        )
+        in {
+            "profile_resample_station_shape_fix_repair_recovered",
+            "profile_resample_station_shape_fix_repair_not_recovered",
+            "unavailable",
+            "blocked",
+        }
+    ):
+        profile_repair_next_actions = (
+            station_seam_profile_resample_repair_feasibility_probe.get(
+                "next_actions",
+                [],
+            )
+        )
+        if (
+            isinstance(profile_repair_next_actions, list)
+            and profile_repair_next_actions
+        ):
+            next_actions[0] = str(profile_repair_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

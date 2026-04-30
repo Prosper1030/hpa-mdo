@@ -536,6 +536,39 @@ def test_parser_supports_main_wing_station_seam_profile_resample_brep_validation
     assert args.scale_to_output_units == 1.0
 
 
+def test_parser_supports_main_wing_station_seam_profile_resample_repair_feasibility_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-profile-resample-repair-feasibility-probe",
+            "--out",
+            "artifacts/main_wing_profile_resample_repair_feasibility",
+            "--brep-validation-probe",
+            "artifacts/main_wing/profile_resample_brep_validation.json",
+            "--tolerances",
+            "1e-7",
+            "1e-5",
+            "--operations",
+            "fix_same_parameter_edge",
+            "remove_add_pcurve_then_same_parameter",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-profile-resample-repair-feasibility-probe"
+    )
+    assert args.out == "artifacts/main_wing_profile_resample_repair_feasibility"
+    assert args.brep_validation_probe == (
+        "artifacts/main_wing/profile_resample_brep_validation.json"
+    )
+    assert args.tolerances == [1e-7, 1e-5]
+    assert args.operations == [
+        "fix_same_parameter_edge",
+        "remove_add_pcurve_then_same_parameter",
+    ]
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(
