@@ -24,6 +24,7 @@ StageType = Literal[
     "su2_surface_topology_audit",
     "su2_topology_defect_localization",
     "openvsp_defect_station_audit",
+    "gmsh_defect_entity_trace",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -726,6 +727,33 @@ def _openvsp_defect_station_audit_observed(
     }
 
 
+def _gmsh_defect_entity_trace_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "blocked" if payload.get("trace_status") == "blocked" else "pass"
+
+
+def _gmsh_defect_entity_trace_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "trace_status": None if payload is None else payload.get("trace_status"),
+        "trace_summary": (
+            {} if payload is None else payload.get("trace_summary", {})
+        ),
+        "edge_traces": [] if payload is None else payload.get("edge_traces", []),
+        "station_traces": (
+            [] if payload is None else payload.get("station_traces", [])
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -832,6 +860,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_openvsp_defect_station_audit"
         / "main_wing_openvsp_defect_station_audit.v1.json"
     )
+    gmsh_defect_entity_trace_path = (
+        root
+        / "main_wing_gmsh_defect_entity_trace"
+        / "main_wing_gmsh_defect_entity_trace.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -871,6 +904,7 @@ def build_main_wing_route_readiness_report(
         su2_topology_defect_localization_path
     )
     openvsp_defect_station_audit = _load_json(openvsp_defect_station_audit_path)
+    gmsh_defect_entity_trace = _load_json(gmsh_defect_entity_trace_path)
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1394,6 +1428,20 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(openvsp_defect_station_audit),
         ),
         _stage(
+            stage="gmsh_defect_entity_trace",
+            status=_gmsh_defect_entity_trace_status(gmsh_defect_entity_trace),
+            evidence_kind=(
+                "real" if isinstance(gmsh_defect_entity_trace, dict) else "absent"
+            ),
+            artifact_path=(
+                gmsh_defect_entity_trace_path
+                if isinstance(gmsh_defect_entity_trace, dict)
+                else None
+            ),
+            observed=_gmsh_defect_entity_trace_observed(gmsh_defect_entity_trace),
+            blockers=_blocking_reasons(gmsh_defect_entity_trace),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1582,6 +1630,16 @@ def build_main_wing_route_readiness_report(
         station_next_actions = openvsp_defect_station_audit.get("next_actions", [])
         if isinstance(station_next_actions, list) and station_next_actions:
             next_actions[0] = str(station_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(gmsh_defect_entity_trace, dict)
+        and gmsh_defect_entity_trace.get("trace_status")
+        == "defect_edges_traced_to_gmsh_entities"
+    ):
+        trace_next_actions = gmsh_defect_entity_trace.get("next_actions", [])
+        if isinstance(trace_next_actions, list) and trace_next_actions:
+            next_actions[0] = str(trace_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

@@ -98,6 +98,10 @@ from .main_wing_openvsp_defect_station_audit import (
     build_main_wing_openvsp_defect_station_audit_report,
     write_main_wing_openvsp_defect_station_audit_report,
 )
+from .main_wing_gmsh_defect_entity_trace import (
+    build_main_wing_gmsh_defect_entity_trace_report,
+    write_main_wing_gmsh_defect_entity_trace_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -573,6 +577,38 @@ def cmd_main_wing_openvsp_defect_station_audit(args: argparse.Namespace) -> int:
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.station_alignment_status != "blocked" else 2
+
+
+def cmd_main_wing_gmsh_defect_entity_trace(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    mesh_path = None if args.mesh is None else Path(args.mesh)
+    defect_localization_path = (
+        None if args.defect_localization is None else Path(args.defect_localization)
+    )
+    openvsp_station_audit_path = (
+        None if args.openvsp_station_audit is None else Path(args.openvsp_station_audit)
+    )
+    surface_patch_diagnostics_path = (
+        None
+        if args.surface_patch_diagnostics is None
+        else Path(args.surface_patch_diagnostics)
+    )
+    report = build_main_wing_gmsh_defect_entity_trace_report(
+        mesh_path=mesh_path,
+        defect_localization_path=defect_localization_path,
+        openvsp_station_audit_path=openvsp_station_audit_path,
+        surface_patch_diagnostics_path=surface_patch_diagnostics_path,
+    )
+    write_main_wing_gmsh_defect_entity_trace_report(
+        out_dir,
+        report=report,
+        mesh_path=mesh_path,
+        defect_localization_path=defect_localization_path,
+        openvsp_station_audit_path=openvsp_station_audit_path,
+        surface_patch_diagnostics_path=surface_patch_diagnostics_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.trace_status != "blocked" else 2
 
 
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
@@ -1052,6 +1088,31 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_openvsp_defect_station_audit.add_argument("--source-vsp3", type=str)
     main_wing_openvsp_defect_station_audit.set_defaults(
         func=cmd_main_wing_openvsp_defect_station_audit
+    )
+
+    main_wing_gmsh_defect_entity_trace = sub.add_parser(
+        "main-wing-gmsh-defect-entity-trace"
+    )
+    main_wing_gmsh_defect_entity_trace.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_gmsh_defect_entity_trace.add_argument("--mesh", type=str)
+    main_wing_gmsh_defect_entity_trace.add_argument(
+        "--defect-localization",
+        type=str,
+    )
+    main_wing_gmsh_defect_entity_trace.add_argument(
+        "--openvsp-station-audit",
+        type=str,
+    )
+    main_wing_gmsh_defect_entity_trace.add_argument(
+        "--surface-patch-diagnostics",
+        type=str,
+    )
+    main_wing_gmsh_defect_entity_trace.set_defaults(
+        func=cmd_main_wing_gmsh_defect_entity_trace
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

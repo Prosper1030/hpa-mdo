@@ -375,6 +375,34 @@ def test_parser_supports_main_wing_openvsp_defect_station_audit_command():
     assert args.source_vsp3 == "artifacts/main_wing/main_wing.vsp3"
 
 
+def test_parser_supports_main_wing_gmsh_defect_entity_trace_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-gmsh-defect-entity-trace",
+            "--out",
+            "artifacts/main_wing_gmsh_defect_entity_trace",
+            "--mesh",
+            "artifacts/main_wing/mesh.msh",
+            "--defect-localization",
+            "artifacts/main_wing/defects.json",
+            "--openvsp-station-audit",
+            "artifacts/main_wing/station_audit.json",
+            "--surface-patch-diagnostics",
+            "artifacts/main_wing/surface_patch_diagnostics.json",
+        ]
+    )
+
+    assert args.command == "main-wing-gmsh-defect-entity-trace"
+    assert args.out == "artifacts/main_wing_gmsh_defect_entity_trace"
+    assert args.mesh == "artifacts/main_wing/mesh.msh"
+    assert args.defect_localization == "artifacts/main_wing/defects.json"
+    assert args.openvsp_station_audit == "artifacts/main_wing/station_audit.json"
+    assert args.surface_patch_diagnostics == (
+        "artifacts/main_wing/surface_patch_diagnostics.json"
+    )
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(
