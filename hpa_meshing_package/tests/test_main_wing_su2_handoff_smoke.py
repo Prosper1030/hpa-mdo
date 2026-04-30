@@ -54,3 +54,19 @@ def test_main_wing_su2_handoff_smoke_writer_outputs_json_and_markdown(tmp_path: 
     assert payload["component_force_ownership_status"] == "owned"
     assert "main_wing" in markdown
     assert "su2_handoff.v1" in markdown
+
+
+def test_committed_main_wing_su2_handoff_smoke_uses_hpa_standard_flow():
+    report_root = Path(__file__).resolve().parents[1] / "docs" / "reports"
+    case_dir = (
+        report_root
+        / "main_wing_su2_handoff_smoke"
+        / "artifacts"
+        / "su2"
+        / "alpha_0_materialization_smoke"
+    )
+    handoff = json.loads((case_dir / "su2_handoff.json").read_text(encoding="utf-8"))
+    runtime_cfg = (case_dir / "su2_runtime.cfg").read_text(encoding="utf-8")
+
+    assert handoff["runtime"]["velocity_mps"] == 6.5
+    assert "INC_VELOCITY_INIT= ( 6.500000, 0.000000, 0.000000 )" in runtime_cfg

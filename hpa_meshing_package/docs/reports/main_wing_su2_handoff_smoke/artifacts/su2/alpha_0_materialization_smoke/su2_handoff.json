@@ -69,10 +69,11 @@
   "runtime": {
     "enabled": true,
     "alpha_deg": 0.0,
-    "velocity_mps": 10.0,
+    "velocity_mps": 6.5,
     "density_kgpm3": 1.225,
     "temperature_k": 288.15,
-    "dynamic_viscosity_pas": 1.789e-05,
+    "dynamic_viscosity_pas": 1.7894e-05,
+    "flow_conditions": null,
     "solver": "INC_NAVIER_STOKES",
     "inc_nondim": "INITIAL_VALUES",
     "inc_density_model": "CONSTANT",
@@ -98,6 +99,7 @@
       },
       "source_label": "synthetic_main_wing_slab_reference",
       "source_path": null,
+      "warnings": [],
       "notes": []
     },
     "wall_boundary_condition": "euler"
