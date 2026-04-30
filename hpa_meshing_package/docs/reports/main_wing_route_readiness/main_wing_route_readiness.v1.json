@@ -264,6 +264,70 @@
       "blockers": []
     },
     {
+      "stage": "surface_force_output_audit",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_surface_force_output_audit/main_wing_surface_force_output_audit.v1.json",
+      "observed": {
+        "audit_status": "blocked",
+        "solver_execution_observed": {
+          "solver_execution_status": "solver_executed",
+          "run_status": "solver_executed_but_not_converged",
+          "convergence_gate_status": "warn",
+          "main_wing_lift_acceptance_status": "fail",
+          "observed_velocity_mps": 6.5,
+          "runtime_max_iterations": 80,
+          "final_iteration": 79,
+          "final_coefficients": {
+            "cl": 0.263161913,
+            "cd": 0.02496911575,
+            "cm": -0.2096803732,
+            "cm_axis": "CMy"
+          }
+        },
+        "expected_outputs_from_log": {
+          "surface_csv": "surface.csv",
+          "forces_breakdown": "forces_breakdown.dat"
+        },
+        "artifact_retention_observed": {
+          "raw_solver_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver",
+          "committed_raw_solver_files": [
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/history.csv",
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/solver.log"
+          ],
+          "surface_csv_candidates": [],
+          "forces_breakdown_candidates": [],
+          "pruned_surface_outputs": [
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv"
+          ],
+          "pruned_force_breakdown_outputs": [],
+          "declared_pruned_output_paths": [
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/restart.csv",
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv",
+            "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/vol_solution.vtk"
+          ]
+        },
+        "panel_reference_observed": {
+          "status": "available",
+          "panel_reference_cl": 1.287645495943,
+          "selected_su2_smoke_cl": 0.263161913,
+          "panel_to_su2_cl_ratio": 4.892978171742504,
+          "velocity_mps": 6.5,
+          "alpha_deg": 0.0
+        },
+        "engineering_flags": [
+          "solver_executed_but_not_converged",
+          "main_wing_lift_acceptance_failed_cl_below_one",
+          "hpa_standard_flow_conditions_6p5_mps_observed"
+        ]
+      },
+      "blockers": [
+        "surface_force_output_pruned_or_missing",
+        "forces_breakdown_output_missing",
+        "panel_force_comparison_not_ready"
+      ]
+    },
+    {
       "stage": "openvsp_reference_geometry_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -569,6 +633,9 @@
     "main_wing_reference_geometry_incomplete",
     "main_wing_reference_area_differs_from_openvsp_sref",
     "main_wing_moment_origin_not_certified",
+    "surface_force_output_pruned_or_missing",
+    "forces_breakdown_output_missing",
+    "panel_force_comparison_not_ready",
     "solver_executed_but_not_converged",
     "main_wing_cl_below_expected_lift",
     "alpha_zero_operating_lift_not_demonstrated",
@@ -580,7 +647,7 @@
     "panel_to_su2_cl_ratio_above_four"
   ],
   "next_actions": [
-    "resolve_main_wing_cl_below_expected_lift_before_convergence_claims",
+    "preserve_main_wing_surface_force_outputs_before_panel_delta_debug",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],
@@ -589,6 +656,7 @@
     "A materialized SU2 handoff is not a solver run, and a solver run is not convergence.",
     "Lift acceptance is a report-only gate here; main-wing convergence acceptance at V=6.5 m/s still requires CL > 1.0.",
     "VSPAERO panel reference evidence is a lower-order sanity baseline only; it is not high-fidelity CFD.",
+    "Surface-force output retention is required before panel/SU2 force breakdown can be used to debug the CL gap.",
     "HPA standard flow is V=6.5 m/s; V=10 artifacts are legacy mismatch evidence only."
   ]
 }

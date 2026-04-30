@@ -657,6 +657,137 @@ def test_main_wing_route_readiness_records_openvsp_reference_probe_stages(
     assert "solver_executed_but_not_converged" in report.blocking_reasons
 
 
+def test_main_wing_route_readiness_records_surface_force_output_audit_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_surface_force_output_audit"
+        / "main_wing_surface_force_output_audit.v1.json",
+        {
+            "audit_status": "blocked",
+            "solver_execution_observed": {
+                "solver_execution_status": "solver_executed",
+                "run_status": "solver_executed_but_not_converged",
+                "main_wing_lift_acceptance_status": "fail",
+                "observed_velocity_mps": 6.5,
+                "final_coefficients": {"cl": 0.263161913},
+            },
+            "expected_outputs_from_log": {
+                "surface_csv": "surface.csv",
+                "forces_breakdown": "forces_breakdown.dat",
+            },
+            "artifact_retention_observed": {
+                "surface_csv_candidates": [],
+                "forces_breakdown_candidates": [],
+                "pruned_surface_outputs": ["case/surface.csv"],
+            },
+            "panel_reference_observed": {
+                "status": "available",
+                "panel_reference_cl": 1.287645495943,
+                "selected_su2_smoke_cl": 0.263161913,
+                "panel_to_su2_cl_ratio": 4.892978171742504,
+            },
+            "engineering_flags": [
+                "solver_executed_but_not_converged",
+                "main_wing_lift_acceptance_failed_cl_below_one",
+            ],
+            "blocking_reasons": [
+                "surface_force_output_pruned_or_missing",
+                "forces_breakdown_output_missing",
+                "panel_force_comparison_not_ready",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    surface_force_stage = stages["surface_force_output_audit"]
+    assert surface_force_stage.status == "blocked"
+    assert surface_force_stage.evidence_kind == "real"
+    assert surface_force_stage.observed["audit_status"] == "blocked"
+    assert surface_force_stage.observed["expected_outputs_from_log"][
+        "surface_csv"
+    ] == "surface.csv"
+    assert surface_force_stage.observed["panel_reference_observed"][
+        "panel_reference_cl"
+    ] == pytest.approx(1.287645495943)
+    assert "surface_force_output_pruned_or_missing" in surface_force_stage.blockers
+    assert "panel_force_comparison_not_ready" in report.blocking_reasons
+
+
+def test_main_wing_route_readiness_prioritizes_surface_force_retention_for_cl_gap(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "su2_contract": "su2_handoff.v1",
+            "input_mesh_contract": "mesh_handoff.v1",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "pass",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "warn",
+            "run_status": "solver_executed_but_not_converged",
+            "final_iteration": 80,
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_surface_force_output_audit"
+        / "main_wing_surface_force_output_audit.v1.json",
+        {
+            "audit_status": "blocked",
+            "blocking_reasons": [
+                "surface_force_output_pruned_or_missing",
+                "forces_breakdown_output_missing",
+                "panel_force_comparison_not_ready",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    assert report.overall_status == "solver_executed_not_converged"
+    assert "main_wing_cl_below_expected_lift" in report.blocking_reasons
+    assert "surface_force_output_pruned_or_missing" in report.blocking_reasons
+    assert report.next_actions[0] == (
+        "preserve_main_wing_surface_force_outputs_before_panel_delta_debug"
+    )
+
+
 def test_main_wing_route_readiness_records_solver_budget_probe_stages(
     tmp_path: Path,
 ):

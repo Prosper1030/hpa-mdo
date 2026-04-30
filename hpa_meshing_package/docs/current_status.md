@@ -79,16 +79,19 @@ not a converged CFD result. It also confirms the current main-wing SU2
 artifacts use the HPA standard `V=6.5 m/s`; any old `V=10` artifact remains
 legacy mismatch evidence only. The readiness report now includes separate
 `geometry_provenance`, `vspaero_panel_reference`,
-`su2_force_marker_audit`, `openvsp_reference_geometry_gate`, and
-`lift_acceptance_diagnostic` stages:
+`su2_force_marker_audit`, `surface_force_output_audit`,
+`openvsp_reference_geometry_gate`, and `lift_acceptance_diagnostic` stages:
 OpenVSP provenance is available (`Y_Rotation=3 deg`, cambered airfoils, zero
 parsed local twist), VSPAERO panel reference evidence is available at
 `CLtot=1.287645495943`, and the OpenVSP-reference geometry gate records
 `Bref=33.0 m` as the span provenance. The force-marker audit is real evidence
-with marker checks passing but scope `warn`. SU2 lift acceptance remains blocked
-because the selected current-route smoke has `CL=0.263161913`, about `4.89x`
-lower than the VSPAERO panel baseline and below the main-wing `CL > 1.0`
-acceptance gate for the HPA operating point.
+with marker checks passing but scope `warn`; the surface-force output audit is
+blocked because `surface.csv` / `forces_breakdown.dat` are not retained as
+reviewable artifacts. SU2 lift acceptance remains blocked because the selected
+current-route smoke has `CL=0.263161913`, about `4.89x` lower than the VSPAERO
+panel baseline and below the main-wing `CL > 1.0` acceptance gate for the HPA
+operating point. The current readiness next action is
+`preserve_main_wing_surface_force_outputs_before_panel_delta_debug`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 

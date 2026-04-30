@@ -17,6 +17,7 @@ StageType = Literal[
     "real_su2_handoff",
     "openvsp_reference_su2_handoff",
     "su2_force_marker_audit",
+    "surface_force_output_audit",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -345,6 +346,37 @@ def _su2_force_marker_audit_observed(payload: dict[str, Any] | None) -> dict[str
     }
 
 
+def _surface_force_output_audit_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "pass" if payload.get("audit_status") in {"pass", "warn"} else "blocked"
+
+
+def _surface_force_output_audit_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "audit_status": None if payload is None else payload.get("audit_status"),
+        "solver_execution_observed": (
+            {} if payload is None else payload.get("solver_execution_observed", {})
+        ),
+        "expected_outputs_from_log": (
+            {} if payload is None else payload.get("expected_outputs_from_log", {})
+        ),
+        "artifact_retention_observed": (
+            {} if payload is None else payload.get("artifact_retention_observed", {})
+        ),
+        "panel_reference_observed": (
+            {} if payload is None else payload.get("panel_reference_observed", {})
+        ),
+        "engineering_flags": (
+            [] if payload is None else payload.get("engineering_flags", [])
+        ),
+    }
+
+
 def _vspaero_panel_reference_status(payload: dict[str, Any] | None) -> StageStatusType:
     if not isinstance(payload, dict):
         return "not_run"
@@ -527,6 +559,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_su2_force_marker_audit"
         / "main_wing_su2_force_marker_audit.v1.json"
     )
+    surface_force_output_audit_path = (
+        root
+        / "main_wing_surface_force_output_audit"
+        / "main_wing_surface_force_output_audit.v1.json"
+    )
     openvsp_reference_geometry_gate_path = (
         root
         / "main_wing_openvsp_reference_geometry_gate"
@@ -570,6 +607,7 @@ def build_main_wing_route_readiness_report(
     real_su2 = _load_json(real_su2_path)
     openvsp_reference_su2 = _load_json(openvsp_reference_su2_path)
     su2_force_marker_audit = _load_json(su2_force_marker_audit_path)
+    surface_force_output_audit = _load_json(surface_force_output_audit_path)
     openvsp_reference_geometry_gate = _load_json(openvsp_reference_geometry_gate_path)
     openvsp_reference_solver = _load_json(openvsp_reference_solver_path)
     (
@@ -663,6 +701,15 @@ def build_main_wing_route_readiness_report(
         ["main_wing_cl_below_expected_lift"]
         if solver_lift_acceptance_failed
         else []
+    )
+    surface_force_output_blocked = any(
+        reason
+        in {
+            "surface_force_output_pruned_or_missing",
+            "forces_breakdown_output_missing",
+            "panel_force_comparison_not_ready",
+        }
+        for reason in _blocking_reasons(surface_force_output_audit)
     )
     convergence_pass = (
         solver_executed
@@ -888,6 +935,18 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(su2_force_marker_audit),
         ),
         _stage(
+            stage="surface_force_output_audit",
+            status=_surface_force_output_audit_status(surface_force_output_audit),
+            evidence_kind=(
+                "real" if isinstance(surface_force_output_audit, dict) else "absent"
+            ),
+            artifact_path=surface_force_output_audit_path
+            if isinstance(surface_force_output_audit, dict)
+            else None,
+            observed=_surface_force_output_audit_observed(surface_force_output_audit),
+            blockers=_blocking_reasons(surface_force_output_audit),
+        ),
+        _stage(
             stage="openvsp_reference_geometry_gate",
             status=_reference_gate_status(openvsp_reference_geometry_gate),
             evidence_kind=(
@@ -1092,6 +1151,14 @@ def build_main_wing_route_readiness_report(
         next_actions[0] = "inspect_main_wing_mesh_quality_before_more_solver_budget"
     if convergence_blocked and solver_lift_acceptance_failed:
         next_actions[0] = "resolve_main_wing_cl_below_expected_lift_before_convergence_claims"
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and surface_force_output_blocked
+    ):
+        next_actions[0] = (
+            "preserve_main_wing_surface_force_outputs_before_panel_delta_debug"
+        )
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,
@@ -1105,6 +1172,7 @@ def build_main_wing_route_readiness_report(
             "A materialized SU2 handoff is not a solver run, and a solver run is not convergence.",
             "Lift acceptance is a report-only gate here; main-wing convergence acceptance at V=6.5 m/s still requires CL > 1.0.",
             "VSPAERO panel reference evidence is a lower-order sanity baseline only; it is not high-fidelity CFD.",
+            "Surface-force output retention is required before panel/SU2 force breakdown can be used to debug the CL gap.",
             "HPA standard flow is V=6.5 m/s; V=10 artifacts are legacy mismatch evidence only.",
         ],
     )
