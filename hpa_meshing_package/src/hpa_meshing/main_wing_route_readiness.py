@@ -21,6 +21,7 @@ StageType = Literal[
     "panel_su2_lift_gap_debug",
     "su2_mesh_normal_audit",
     "panel_wake_semantics_audit",
+    "su2_surface_topology_audit",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -632,6 +633,33 @@ def _panel_wake_semantics_audit_observed(
     }
 
 
+def _su2_surface_topology_audit_status(
+    payload: dict[str, Any] | None,
+) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return "blocked" if payload.get("audit_status") == "blocked" else "pass"
+
+
+def _su2_surface_topology_audit_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "audit_status": None if payload is None else payload.get("audit_status"),
+        "edge_topology_observed": (
+            {} if payload is None else payload.get("edge_topology_observed", {})
+        ),
+        "area_evidence_observed": (
+            {} if payload is None else payload.get("area_evidence_observed", {})
+        ),
+        "bbox_observed": {} if payload is None else payload.get("bbox_observed", {}),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -723,6 +751,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_panel_wake_semantics_audit"
         / "main_wing_panel_wake_semantics_audit.v1.json"
     )
+    su2_surface_topology_audit_path = (
+        root
+        / "main_wing_su2_surface_topology_audit"
+        / "main_wing_su2_surface_topology_audit.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -757,6 +790,7 @@ def build_main_wing_route_readiness_report(
     panel_su2_lift_gap_debug = _load_json(panel_su2_lift_gap_debug_path)
     su2_mesh_normal_audit = _load_json(su2_mesh_normal_audit_path)
     panel_wake_semantics_audit = _load_json(panel_wake_semantics_audit_path)
+    su2_surface_topology_audit = _load_json(su2_surface_topology_audit_path)
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1228,6 +1262,20 @@ def build_main_wing_route_readiness_report(
             blockers=_blocking_reasons(panel_wake_semantics_audit),
         ),
         _stage(
+            stage="su2_surface_topology_audit",
+            status=_su2_surface_topology_audit_status(su2_surface_topology_audit),
+            evidence_kind=(
+                "real" if isinstance(su2_surface_topology_audit, dict) else "absent"
+            ),
+            artifact_path=(
+                su2_surface_topology_audit_path
+                if isinstance(su2_surface_topology_audit, dict)
+                else None
+            ),
+            observed=_su2_surface_topology_audit_observed(su2_surface_topology_audit),
+            blockers=_blocking_reasons(su2_surface_topology_audit),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1380,6 +1428,20 @@ def build_main_wing_route_readiness_report(
         semantics_next_actions = panel_wake_semantics_audit.get("next_actions", [])
         if isinstance(semantics_next_actions, list) and semantics_next_actions:
             next_actions[0] = str(semantics_next_actions[0])
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(su2_surface_topology_audit, dict)
+        and su2_surface_topology_audit.get("audit_status")
+        in {
+            "thin_surface_like_with_local_topology_defects",
+            "open_or_lifting_surface_like",
+            "closed_surface_with_local_topology_defects",
+        }
+    ):
+        topology_next_actions = su2_surface_topology_audit.get("next_actions", [])
+        if isinstance(topology_next_actions, list) and topology_next_actions:
+            next_actions[0] = str(topology_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

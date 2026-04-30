@@ -315,6 +315,26 @@ def test_parser_supports_main_wing_panel_wake_semantics_audit_command():
     assert args.runtime_cfg == "artifacts/source_su2/su2_runtime.cfg"
 
 
+def test_parser_supports_main_wing_su2_surface_topology_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-su2-surface-topology-audit",
+            "--out",
+            "artifacts/main_wing_su2_surface_topology_audit",
+            "--mesh",
+            "artifacts/main_wing/mesh.msh",
+            "--reference-area",
+            "35.175",
+        ]
+    )
+
+    assert args.command == "main-wing-su2-surface-topology-audit"
+    assert args.out == "artifacts/main_wing_su2_surface_topology_audit"
+    assert args.mesh == "artifacts/main_wing/mesh.msh"
+    assert args.reference_area == 35.175
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

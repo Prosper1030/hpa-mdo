@@ -27,6 +27,7 @@
 | `panel_su2_lift_gap_debug` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_panel_su2_lift_gap_debug/main_wing_panel_su2_lift_gap_debug.v1.json` |
 | `su2_mesh_normal_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_mesh_normal_audit/main_wing_su2_mesh_normal_audit.v1.json` |
 | `panel_wake_semantics_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_panel_wake_semantics_audit/main_wing_panel_wake_semantics_audit.v1.json` |
+| `su2_surface_topology_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_surface_topology_audit/main_wing_su2_surface_topology_audit.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -51,7 +52,7 @@
 
 ## Next Actions
 
-- `audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export`
+- `localize_main_wing_open_boundary_and_nonmanifold_edges`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

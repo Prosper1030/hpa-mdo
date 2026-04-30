@@ -905,6 +905,92 @@
       "blockers": []
     },
     {
+      "stage": "su2_surface_topology_audit",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_surface_topology_audit/main_wing_su2_surface_topology_audit.v1.json",
+      "observed": {
+        "audit_status": "thin_surface_like_with_local_topology_defects",
+        "edge_topology_observed": {
+          "surface_triangle_count": 2424,
+          "unique_edge_count": 3637,
+          "boundary_edge_count": 4,
+          "nonmanifold_edge_count": 2,
+          "boundary_edge_fraction": 0.0010998075336816058,
+          "nonmanifold_edge_fraction": 0.0005499037668408029,
+          "sample_boundary_edges": [
+            [
+              252,
+              253
+            ],
+            [
+              251,
+              252
+            ],
+            [
+              360,
+              361
+            ],
+            [
+              359,
+              360
+            ]
+          ],
+          "sample_nonmanifold_edges": [
+            {
+              "edge": [
+                251,
+                253
+              ],
+              "use_count": 3
+            },
+            {
+              "edge": [
+                359,
+                361
+              ],
+              "use_count": 3
+            }
+          ]
+        },
+        "area_evidence_observed": {
+          "surface_area_m2": 42.43206367601745,
+          "projected_abs_lift_axis_area_m2": 37.8477727674209,
+          "reference_area_m2": 35.175,
+          "surface_area_to_reference_area_ratio": 1.206313110903126,
+          "projected_abs_area_to_reference_area_ratio": 1.0759850111562446,
+          "single_sheet_area_like": true,
+          "double_sided_closed_area_like": false
+        },
+        "bbox_observed": {
+          "status": "available",
+          "x_min": 0.01440308533574042,
+          "x_max": 1.302329268834651,
+          "y_min": -16.4999999979051,
+          "y_max": 16.4999999979051,
+          "z_min": -0.0680367431071618,
+          "z_max": 0.7961582680232265,
+          "x_extent": 1.2879261834989106,
+          "y_extent": 32.9999999958102,
+          "z_extent": 0.8641950111303883
+        },
+        "engineering_findings": [
+          "open_boundary_edges_present",
+          "open_boundary_edges_localized_low_fraction",
+          "nonmanifold_edges_present",
+          "thin_or_single_sheet_surface_area_evidence_observed",
+          "main_wing_surface_edges_mostly_manifold",
+          "thin_surface_like_area_with_local_topology_defects"
+        ],
+        "next_actions": [
+          "localize_main_wing_open_boundary_and_nonmanifold_edges",
+          "inspect_openvsp_export_surface_thickness_before_more_solver_iterations",
+          "decide_main_wing_product_route_lifting_surface_vs_closed_thickness_cfd_geometry"
+        ]
+      },
+      "blockers": []
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -943,7 +1029,7 @@
     "panel_to_force_breakdown_cl_ratio_above_four"
   ],
   "next_actions": [
-    "audit_su2_thin_surface_geometry_closed_vs_lifting_surface_export",
+    "localize_main_wing_open_boundary_and_nonmanifold_edges",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

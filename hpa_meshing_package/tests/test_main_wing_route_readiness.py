@@ -741,6 +741,93 @@ def test_main_wing_route_readiness_records_panel_wake_semantics_audit_stage(
     )
 
 
+def test_main_wing_route_readiness_records_su2_surface_topology_audit_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_su2_surface_topology_audit"
+        / "main_wing_su2_surface_topology_audit.v1.json",
+        {
+            "audit_status": "thin_surface_like_with_local_topology_defects",
+            "edge_topology_observed": {
+                "boundary_edge_count": 4,
+                "nonmanifold_edge_count": 2,
+                "boundary_edge_fraction": 0.0011,
+            },
+            "area_evidence_observed": {
+                "surface_area_to_reference_area_ratio": 1.2063,
+                "projected_abs_area_to_reference_area_ratio": 1.076,
+                "single_sheet_area_like": True,
+            },
+            "engineering_findings": [
+                "open_boundary_edges_localized_low_fraction",
+                "nonmanifold_edges_present",
+                "thin_surface_like_area_with_local_topology_defects",
+            ],
+            "next_actions": [
+                "localize_main_wing_open_boundary_and_nonmanifold_edges"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    topology_stage = stages["su2_surface_topology_audit"]
+    assert topology_stage.status == "pass"
+    assert topology_stage.evidence_kind == "real"
+    assert topology_stage.observed["audit_status"] == (
+        "thin_surface_like_with_local_topology_defects"
+    )
+    assert topology_stage.observed["edge_topology_observed"][
+        "boundary_edge_count"
+    ] == 4
+    assert report.next_actions[0] == (
+        "localize_main_wing_open_boundary_and_nonmanifold_edges"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):
