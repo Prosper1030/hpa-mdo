@@ -407,6 +407,25 @@ not converged. The SU2 log itself reports max iterations reached before
 convergence; the gate also shows residual drop below threshold, coefficient
 tails still drifting, and reference gate warning.
 
+A non-default 40-iteration follow-up smoke is kept at:
+
+- `hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe_iter40/main_wing_real_solver_smoke_probe.v1.json`
+- `hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe_iter40/artifacts/convergence_gate.v1.json`
+
+Observed result:
+
+- `runtime_max_iterations = 40`
+- `solver_execution_status = solver_executed`
+- `run_status = solver_executed_but_not_converged`
+- `convergence_gate_status = warn`
+- `convergence_comparability_level = run_only`
+- `final_iteration = 39`
+- final coefficients from the smoke history: `CL ~= 0.2719`, `CD ~= 0.0260`
+
+Engineering reading: the longer budget helps. Coefficient stability reaches
+`pass`, but residual trend is still below threshold and the reference gate is
+still `warn`. This is useful blocker evidence, not converged CFD.
+
 The main-wing reference-geometry gate is:
 
 ```bash
@@ -639,7 +658,7 @@ The current expected strategic reading is:
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | own reference chord / moment-origin provenance, then run a bounded longer-iteration solver campaign |
+| `main_wing` | experimental + diagnostic | no | own reference chord / moment-origin provenance, then continue residual/numerics work beyond the current 40-iteration `warn/run_only` smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | bounded solver/convergence smoke; moment-origin policy before moment coefficients |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -695,6 +714,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 1. Run a bounded real fairing solver smoke now that drag/reference normalization
    is explicit; keep moment coefficients blocked until moment-origin policy is
    owned.
-2. Own main-wing reference chord / moment-origin provenance, then run a bounded
-   longer-iteration solver campaign; keep the current smoke labeled
+2. Own main-wing reference chord / moment-origin provenance, then continue
+   residual/numerics work beyond the current 40-iteration `warn/run_only`
+   smoke; keep both current solver smokes labeled
    `solver_executed_but_not_converged`.

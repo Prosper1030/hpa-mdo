@@ -388,7 +388,7 @@ Current truth:
 
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
 - `fairing_solid` has real VSP geometry smoke for a Fuselage closed solid, a bounded real-geometry `mesh_handoff.v1` pass with component-owned force markers, a real-geometry `su2_handoff.v1` materialization probe, an external reference-policy mismatch report, and a gated reference-override SU2 handoff; it is not yet a solver or convergence route
-- `main_wing` has real ESP/VSP provider geometry evidence, a bounded real-geometry `mesh_handoff.v1` pass, real `su2_handoff.v1`, and solver-executed evidence; it is still not converged or productized because `convergence_gate.v1` fails and reference chord / moment-origin provenance remains `warn`
+- `main_wing` has real ESP/VSP provider geometry evidence, a bounded real-geometry `mesh_handoff.v1` pass, real `su2_handoff.v1`, and solver-executed evidence; it is still not converged or productized because the default 12-iteration smoke fails, the non-default 40-iteration follow-up only reaches `warn/run_only`, and reference chord / moment-origin provenance remains `warn`
 - `tail_wing` has real ESP/VSP provider geometry evidence, real surface-mesh evidence, a naive-solidification no-volume probe, an explicit-volume-route blocker probe, and a real mesh-handoff blocker report; synthetic non-BL mesh/SU2 handoff smokes exist with component-owned force markers, but they are not real tail mesh evidence
 - `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
@@ -474,7 +474,8 @@ and does not include BL runtime.
 `main_wing_real_su2_handoff_probe.v1` proves that the real main-wing mesh can
 materialize a package-native SU2 handoff with a component-owned force marker.
 `main_wing_real_solver_smoke_probe.v1` proves that `SU2_CFD` executes and writes
-history, but the committed convergence gate is `fail/not_comparable`.
+history. The default committed smoke is `fail/not_comparable`; the non-default
+40-iteration follow-up is `warn/run_only`, still not converged.
 `main_wing_reference_geometry_gate.v1` records the current reference blocker:
 span is cross-checked, but chord and moment-origin provenance remain `warn`.
 `main_wing_mesh_handoff_smoke.v1` adds the matching lifting-surface non-BL

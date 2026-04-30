@@ -391,6 +391,10 @@ This executes `SU2_CFD` from the real main-wing SU2 handoff and writes
 result is `solver_executed_but_not_converged`: exit code 0 is solver-execution
 evidence only, not convergence.
 
+There is also a non-default 40-iteration follow-up snapshot at
+`docs/reports/main_wing_real_solver_smoke_probe_iter40/`. It improves the gate
+to `warn/run_only`, but still remains `solver_executed_but_not_converged`.
+
 ### 19. Check main wing reference geometry provenance
 
 ```bash
@@ -630,7 +634,7 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 ## Recommended Next Gates
 
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
-2. fix main-wing reference chord / moment-origin provenance, then run a bounded longer-iteration solver campaign; do not treat the current smoke as converged
+2. fix main-wing reference chord / moment-origin provenance, then continue residual/numerics work beyond the current 40-iteration `warn/run_only` smoke; do not treat either smoke as converged
 3. run a real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
 4. repair explicit tail volume orientation or baffle-surface ownership before solver claims
 5. component-level force mapping

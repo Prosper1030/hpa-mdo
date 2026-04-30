@@ -253,6 +253,15 @@ artifact. The current committed result is
 still drifting, and the reference gate remains `warn`. Treat this as a solver
 smoke / blocker artifact, not a converged CFD result.
 
+A non-default 40-iteration follow-up artifact is kept under
+`docs/reports/main_wing_real_solver_smoke_probe_iter40/`. It uses the same real
+mesh/SU2 handoff route with probe-local `runtime_max_iterations=40` and
+`V=6.5 m/s`. The result improves to `convergence_gate_status=warn` and
+`convergence_comparability_level=run_only`, with `final_iteration=39`,
+`CL ~= 0.2719`, and `CD ~= 0.0260`, but it is still
+`solver_executed_but_not_converged` because residual drop remains below the gate
+threshold and reference geometry remains `warn`.
+
 The main-wing reference-geometry gate is emitted by:
 
 ```bash
@@ -416,7 +425,7 @@ ownership cleanup, not solver execution.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; bounded solver smoke executes and writes `history.csv`, but `convergence_gate.v1` fails and reference chord / moment-origin provenance remains `warn` |
+| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; default 12-iteration solver smoke fails the convergence gate, non-default 40-iteration follow-up reaches `warn/run_only`, and reference chord / moment-origin provenance remains `warn` |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is now applied in a gated override handoff; borrowed zero moment origin, solver history, and convergence gate are still missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
@@ -446,7 +455,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Main-wing reference-chord / moment-origin provenance, then a bounded longer-iteration solver campaign; do not call the current 12-iteration smoke converged
+2. Main-wing reference-chord / moment-origin provenance, then residual/numerics work beyond the current 40-iteration `warn/run_only` smoke; do not call either smoke converged
 3. Run real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
 4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
 5. Component-level force mapping after the wall-marker story is stronger
