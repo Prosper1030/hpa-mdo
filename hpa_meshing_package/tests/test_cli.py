@@ -246,6 +246,28 @@ def test_parser_supports_main_wing_real_su2_handoff_probe_command():
     )
 
 
+def test_parser_supports_main_wing_real_solver_smoke_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-real-solver-smoke-probe",
+            "--out",
+            "artifacts/main_wing_real_solver_probe",
+            "--source-su2-probe-report",
+            "artifacts/main_wing_real_su2_probe/main_wing_real_su2_handoff_probe.v1.json",
+            "--timeout-seconds",
+            "30",
+        ]
+    )
+
+    assert args.command == "main-wing-real-solver-smoke-probe"
+    assert args.out == "artifacts/main_wing_real_solver_probe"
+    assert args.source_su2_probe_report == (
+        "artifacts/main_wing_real_su2_probe/main_wing_real_su2_handoff_probe.v1.json"
+    )
+    assert args.timeout_seconds == 30.0
+
+
 def test_parser_supports_tail_wing_mesh_handoff_smoke_command():
     parser = build_parser()
     args = parser.parse_args(

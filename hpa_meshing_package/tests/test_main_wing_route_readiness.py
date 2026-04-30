@@ -191,6 +191,74 @@ def test_main_wing_route_readiness_moves_to_solver_after_real_su2_handoff(
     assert report.next_actions[0] == "run_main_wing_solver_smoke_from_real_su2_handoff"
 
 
+def test_main_wing_route_readiness_records_solver_nonconvergence_artifact(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": ["main_wing_solver_not_run", "convergence_gate_not_run"],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "su2_contract": "su2_handoff.v1",
+            "input_mesh_contract": "mesh_handoff.v1",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [
+                "main_wing_real_reference_geometry_warn",
+            ],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "history_path": "solver/history.csv",
+            "convergence_gate_path": "solver/convergence_gate.v1.json",
+            "final_iteration": 12,
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [
+                "solver_executed_but_not_converged",
+                "main_wing_real_reference_geometry_warn",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    assert report.overall_status == "solver_executed_not_converged"
+    assert stages["solver_smoke"].status == "pass"
+    assert stages["solver_smoke"].evidence_kind == "real"
+    assert stages["solver_smoke"].observed["solver_execution_status"] == "solver_executed"
+    assert stages["convergence_gate"].status == "blocked"
+    assert stages["convergence_gate"].observed["convergence_gate_status"] == "fail"
+    assert "solver_executed_but_not_converged" in report.blocking_reasons
+    assert "main_wing_solver_not_run" not in report.blocking_reasons
+    assert report.next_actions[0] == "diagnose_main_wing_solver_nonconvergence_before_cfd_claims"
+    assert "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean" in report.next_actions
+
+
 def test_main_wing_route_readiness_prioritizes_invalid_boundary_mesh_action(
     tmp_path: Path,
 ):

@@ -1,6 +1,6 @@
 # main_wing route readiness v1
 
-- overall_status: `solver_not_run`
+- overall_status: `solver_executed_not_converged`
 - hpa_standard_flow_status: `hpa_standard_6p5_observed`
 - observed_velocity_mps: `6.5`
 
@@ -13,19 +13,18 @@
 | `synthetic_mesh_handoff` | `materialized_synthetic_only` | `synthetic` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_mesh_handoff_smoke/main_wing_mesh_handoff_smoke.v1.json` |
 | `synthetic_su2_handoff` | `materialized_synthetic_only` | `synthetic` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_handoff_smoke/main_wing_su2_handoff_smoke.v1.json` |
 | `real_su2_handoff` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.json` |
-| `solver_smoke` | `not_run` | `absent` | `` |
-| `convergence_gate` | `not_run` | `absent` | `` |
+| `solver_smoke` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
+| `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
 
 - `main_wing_real_reference_geometry_warn`
-- `main_wing_solver_not_run`
-- `convergence_gate_not_run`
+- `solver_executed_but_not_converged`
 
 ## Next Actions
 
-- `run_main_wing_solver_smoke_from_real_su2_handoff`
-- `run_solver_smoke_then_convergence_gate_after_real_su2_handoff`
+- `diagnose_main_wing_solver_nonconvergence_before_cfd_claims`
+- `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 
 ## Notes

@@ -2,7 +2,7 @@
   "schema_version": "main_wing_route_readiness.v1",
   "component": "main_wing",
   "target_route": "real_main_wing_vsp_or_esp_to_gmsh_to_su2",
-  "overall_status": "solver_not_run",
+  "overall_status": "solver_executed_not_converged",
   "hpa_standard_velocity_mps": 6.5,
   "observed_velocity_mps": 6.5,
   "hpa_standard_flow_status": "hpa_standard_6p5_observed",
@@ -91,37 +91,44 @@
     },
     {
       "stage": "solver_smoke",
-      "status": "not_run",
-      "evidence_kind": "absent",
-      "artifact_path": null,
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json",
       "observed": {
-        "solver_execution_status": "not_run"
+        "solver_execution_status": "solver_executed",
+        "run_status": "solver_executed_but_not_converged",
+        "return_code": 0,
+        "history_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/history.csv",
+        "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/solver.log",
+        "observed_velocity_mps": 6.5
       },
-      "blockers": [
-        "main_wing_solver_not_run"
-      ]
+      "blockers": []
     },
     {
       "stage": "convergence_gate",
-      "status": "not_run",
-      "evidence_kind": "absent",
-      "artifact_path": null,
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json",
       "observed": {
-        "convergence_gate_status": "not_run"
+        "convergence_gate_status": "fail",
+        "run_status": "solver_executed_but_not_converged",
+        "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/artifacts/convergence_gate.v1.json",
+        "convergence_comparability_level": "not_comparable",
+        "final_iteration": 11
       },
       "blockers": [
-        "convergence_gate_not_run"
+        "solver_executed_but_not_converged",
+        "main_wing_real_reference_geometry_warn"
       ]
     }
   ],
   "blocking_reasons": [
     "main_wing_real_reference_geometry_warn",
-    "main_wing_solver_not_run",
-    "convergence_gate_not_run"
+    "solver_executed_but_not_converged"
   ],
   "next_actions": [
-    "run_main_wing_solver_smoke_from_real_su2_handoff",
-    "run_solver_smoke_then_convergence_gate_after_real_su2_handoff",
+    "diagnose_main_wing_solver_nonconvergence_before_cfd_claims",
+    "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],
   "notes": [

@@ -24,6 +24,9 @@ OverallStatusType = Literal[
     "blocked_at_real_su2_handoff",
     "solver_not_run",
     "convergence_not_run",
+    "solver_smoke_blocked",
+    "solver_executed_not_converged",
+    "convergence_gate_passed",
 ]
 HPAFlowStatusType = Literal[
     "hpa_standard_6p5_observed",
@@ -143,6 +146,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_real_su2_handoff_probe"
         / "main_wing_real_su2_handoff_probe.v1.json"
     )
+    solver_smoke_path = (
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -157,6 +165,7 @@ def build_main_wing_route_readiness_report(
     synthetic_mesh = _load_json(synthetic_mesh_path)
     synthetic_su2 = _load_json(synthetic_su2_path)
     real_su2 = _load_json(real_su2_path)
+    solver_smoke = _load_json(solver_smoke_path)
     synthetic_su2_runtime = _load_json(synthetic_su2_runtime_path)
     hpa_flow_status, observed_velocity = _flow_status(synthetic_su2_runtime)
 
@@ -183,6 +192,22 @@ def build_main_wing_route_readiness_report(
         isinstance(real_su2, dict)
         and real_su2.get("materialization_status") == "su2_handoff_written"
     )
+    solver_executed = (
+        isinstance(solver_smoke, dict)
+        and solver_smoke.get("solver_execution_status") == "solver_executed"
+    )
+    solver_blocked = (
+        isinstance(solver_smoke, dict)
+        and solver_smoke.get("solver_execution_status")
+        in {"solver_failed", "solver_timeout", "solver_unavailable", "blocked_before_solver"}
+    )
+    convergence_status = (
+        solver_smoke.get("convergence_gate_status")
+        if isinstance(solver_smoke, dict)
+        else None
+    )
+    convergence_pass = solver_executed and convergence_status == "pass"
+    convergence_blocked = solver_executed and convergence_status in {"warn", "fail", "unavailable"}
 
     stages = [
         _stage(
@@ -290,19 +315,61 @@ def build_main_wing_route_readiness_report(
         ),
         _stage(
             stage="solver_smoke",
-            status="not_run",
-            evidence_kind="absent",
-            artifact_path=None,
-            observed={"solver_execution_status": "not_run"},
-            blockers=["main_wing_solver_not_run"],
+            status="pass" if solver_executed else "blocked" if solver_blocked else "not_run",
+            evidence_kind="real" if isinstance(solver_smoke, dict) else "absent",
+            artifact_path=solver_smoke_path if isinstance(solver_smoke, dict) else None,
+            observed={
+                "solver_execution_status": (
+                    None if solver_smoke is None else solver_smoke.get("solver_execution_status")
+                )
+                or "not_run",
+                "run_status": None if solver_smoke is None else solver_smoke.get("run_status"),
+                "return_code": None if solver_smoke is None else solver_smoke.get("return_code"),
+                "history_path": None if solver_smoke is None else solver_smoke.get("history_path"),
+                "solver_log_path": (
+                    None if solver_smoke is None else solver_smoke.get("solver_log_path")
+                ),
+                "observed_velocity_mps": (
+                    None if solver_smoke is None else solver_smoke.get("observed_velocity_mps")
+                ),
+            },
+            blockers=(
+                _blocking_reasons(solver_smoke)
+                if solver_blocked
+                else []
+                if solver_executed
+                else ["main_wing_solver_not_run"]
+            ),
         ),
         _stage(
             stage="convergence_gate",
-            status="not_run",
-            evidence_kind="absent",
-            artifact_path=None,
-            observed={"convergence_gate_status": "not_run"},
-            blockers=["convergence_gate_not_run"],
+            status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
+            evidence_kind="real" if solver_executed else "absent",
+            artifact_path=solver_smoke_path if solver_executed else None,
+            observed={
+                "convergence_gate_status": convergence_status or "not_run",
+                "run_status": None if solver_smoke is None else solver_smoke.get("run_status"),
+                "convergence_gate_path": (
+                    None
+                    if solver_smoke is None
+                    else solver_smoke.get("convergence_gate_path")
+                ),
+                "convergence_comparability_level": (
+                    None
+                    if solver_smoke is None
+                    else solver_smoke.get("convergence_comparability_level")
+                ),
+                "final_iteration": (
+                    None if solver_smoke is None else solver_smoke.get("final_iteration")
+                ),
+            },
+            blockers=(
+                _blocking_reasons(solver_smoke)
+                if convergence_blocked
+                else []
+                if convergence_pass
+                else ["convergence_gate_not_run"]
+            ),
         ),
     ]
 
@@ -312,8 +379,16 @@ def build_main_wing_route_readiness_report(
         overall_status = "blocked_at_real_mesh_handoff"
     elif not real_su2_materialized:
         overall_status = "blocked_at_real_su2_handoff"
-    else:
+    elif solver_blocked:
+        overall_status = "solver_smoke_blocked"
+    elif not solver_executed:
         overall_status = "solver_not_run"
+    elif convergence_pass:
+        overall_status = "convergence_gate_passed"
+    elif convergence_blocked:
+        overall_status = "solver_executed_not_converged"
+    else:
+        overall_status = "convergence_not_run"
 
     blocking_reasons = []
     for stage in stages:
@@ -323,16 +398,31 @@ def build_main_wing_route_readiness_report(
             if reason not in blocking_reasons:
                 blocking_reasons.append(reason)
 
+    secondary_next_action = (
+        "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean"
+        if convergence_blocked
+        else "inspect_main_wing_solver_log_and_runtime_cfg"
+        if solver_blocked
+        else "promote_real_solver_artifacts_into_readiness_contract"
+        if convergence_pass
+        else "run_solver_smoke_then_convergence_gate_after_real_su2_handoff"
+    )
     next_actions = [
         (
-            "run_main_wing_solver_smoke_from_real_su2_handoff"
-            if real_su2_materialized
+            "diagnose_main_wing_solver_nonconvergence_before_cfd_claims"
+            if convergence_blocked
+            else "repair_main_wing_solver_smoke_blocker"
+            if solver_blocked
+            else "run_main_wing_solver_smoke_from_real_su2_handoff"
+            if real_su2_materialized and not solver_executed
+            else "harden_main_wing_reference_geometry_and_mesh_independence_before_product_cfd"
+            if convergence_pass
             else
             "materialize_real_main_wing_su2_handoff_from_real_mesh_handoff_v1"
             if real_mesh_pass
             else "repair_real_main_wing_mesh3d_volume_insertion_policy"
         ),
-        "run_solver_smoke_then_convergence_gate_after_real_su2_handoff",
+        secondary_next_action,
         "preserve_synthetic_su2_as_wiring_evidence_only",
     ]
     if "main_wing_real_geometry_invalid_boundary_mesh_overlapping_facets" in blocking_reasons:

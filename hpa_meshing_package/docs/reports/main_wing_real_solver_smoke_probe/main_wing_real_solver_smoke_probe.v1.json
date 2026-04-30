@@ -1,0 +1,66 @@
+{
+  "schema_version": "main_wing_real_solver_smoke_probe.v1",
+  "component": "main_wing",
+  "source_su2_probe_schema": "main_wing_real_su2_handoff_probe.v1",
+  "execution_mode": "real_su2_handoff_solver_smoke",
+  "production_default_changed": false,
+  "materialized_handoff_consumed": true,
+  "source_su2_probe_path": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.json",
+  "source_materialization_status": "su2_handoff_written",
+  "source_mesh_case_report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/report.json",
+  "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe",
+  "su2_handoff_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/su2_handoff.json",
+  "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/su2_runtime.cfg",
+  "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/solver.log",
+  "history_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/history.csv",
+  "convergence_gate_path": "hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/artifacts/convergence_gate.v1.json",
+  "pruned_output_paths": [
+    "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/restart.csv",
+    "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/surface.csv",
+    "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/vol_solution.vtk"
+  ],
+  "solver_command": [
+    "SU2_CFD",
+    "-t",
+    "4",
+    "su2_runtime.cfg"
+  ],
+  "timeout_seconds": 180.0,
+  "solver_execution_status": "solver_executed",
+  "convergence_gate_status": "fail",
+  "run_status": "solver_executed_but_not_converged",
+  "return_code": 0,
+  "final_iteration": 11,
+  "final_coefficients": {
+    "cl": 0.2642006921,
+    "cd": 0.01886786009,
+    "cm": -0.1388126065,
+    "cm_axis": "CMy"
+  },
+  "convergence_comparability_level": "not_comparable",
+  "component_force_ownership_status": "owned",
+  "reference_geometry_status": "warn",
+  "observed_velocity_mps": 6.5,
+  "volume_element_count": 584460,
+  "hpa_mdo_guarantees": [
+    "real_main_wing_su2_handoff_v1_consumed",
+    "solver_not_claimed_converged_without_gate_pass",
+    "production_default_unchanged",
+    "hpa_standard_flow_conditions_6p5_mps",
+    "su2_solver_executed",
+    "history_file_written",
+    "convergence_gate_v1_emitted",
+    "heavy_solver_outputs_pruned"
+  ],
+  "blocking_reasons": [
+    "solver_executed_but_not_converged",
+    "main_wing_real_reference_geometry_warn"
+  ],
+  "limitations": [
+    "Solver execution is not the same as convergence; only a pass convergence gate can be called converged.",
+    "Reference geometry warn/fail remains a comparability blocker even when the solver runs.",
+    "The upstream mesh is a coarse bounded probe, not production default sizing.",
+    "Production defaults were not changed."
+  ],
+  "error": null
+}

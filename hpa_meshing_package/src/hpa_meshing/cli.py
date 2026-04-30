@@ -50,6 +50,10 @@ from .main_wing_real_su2_handoff_probe import (
     build_main_wing_real_su2_handoff_probe_report,
     write_main_wing_real_su2_handoff_probe_report,
 )
+from .main_wing_real_solver_smoke_probe import (
+    build_main_wing_real_solver_smoke_probe_report,
+    write_main_wing_real_solver_smoke_probe_report,
+)
 from .main_wing_su2_handoff_smoke import (
     build_main_wing_su2_handoff_smoke_report,
     write_main_wing_su2_handoff_smoke_report,
@@ -408,6 +412,26 @@ def cmd_main_wing_real_su2_handoff_probe(args: argparse.Namespace) -> int:
     return 0 if report.materialization_status == "su2_handoff_written" else 2
 
 
+def cmd_main_wing_real_solver_smoke_probe(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    source_su2_probe_report_path = (
+        None if args.source_su2_probe_report is None else Path(args.source_su2_probe_report)
+    )
+    report = build_main_wing_real_solver_smoke_probe_report(
+        out_dir,
+        source_su2_probe_report_path=source_su2_probe_report_path,
+        timeout_seconds=float(args.timeout_seconds),
+    )
+    write_main_wing_real_solver_smoke_probe_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.solver_execution_status in {
+        "solver_executed",
+        "solver_failed",
+        "solver_timeout",
+        "solver_unavailable",
+    } else 2
+
+
 def cmd_tail_wing_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report = build_tail_wing_mesh_handoff_smoke_report(out_dir)
@@ -649,6 +673,12 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_real_su2_probe.add_argument("--timeout-seconds", type=float, default=45.0)
     main_wing_real_su2_probe.add_argument("--source-mesh-probe-report", type=str)
     main_wing_real_su2_probe.set_defaults(func=cmd_main_wing_real_su2_handoff_probe)
+
+    main_wing_real_solver_probe = sub.add_parser("main-wing-real-solver-smoke-probe")
+    main_wing_real_solver_probe.add_argument("--out", type=str, required=True)
+    main_wing_real_solver_probe.add_argument("--source-su2-probe-report", type=str)
+    main_wing_real_solver_probe.add_argument("--timeout-seconds", type=float, default=120.0)
+    main_wing_real_solver_probe.set_defaults(func=cmd_main_wing_real_solver_smoke_probe)
 
     tail_wing_smoke = sub.add_parser("tail-wing-mesh-handoff-smoke")
     tail_wing_smoke.add_argument("--out", type=str, required=True)
