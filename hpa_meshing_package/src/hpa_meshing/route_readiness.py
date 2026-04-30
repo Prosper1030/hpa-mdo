@@ -28,6 +28,7 @@ SU2ReadinessStatusType = Literal[
     "blocked_until_su2_handoff",
     "handoff_materialized_solver_not_run",
     "handoff_materialized_force_marker_owned_solver_not_run",
+    "real_handoff_materialized_force_marker_owned_solver_not_run_reference_warn",
 ]
 BLContractPolicyType = Literal[
     "not_required_for_baseline",
@@ -250,21 +251,23 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             provider_strategy="direct_cad_or_future_fairing_provider",
             productization_status="registered_not_productized",
             route_role="registered_future_route",
-            su2_status="handoff_materialized_force_marker_owned_solver_not_run",
+            su2_status="real_handoff_materialized_force_marker_owned_solver_not_run_reference_warn",
             bl_contract_policy="not_default",
             gmsh_boundary_recovery_policy="baseline_gmsh_backend_boundary_recovery",
             blocking_reasons=[
-                "fairing_real_geometry_su2_handoff_not_run",
                 "fairing_solver_not_run",
                 "convergence_gate_not_run",
+                "fairing_real_reference_geometry_warn",
             ],
             next_actions=[
-                "materialize_real_fairing_su2_handoff_before_solver_claims",
+                "resolve_real_fairing_reference_geometry_before_coefficients_are_trusted",
+                "run_real_fairing_solver_smoke_only_after_reference_policy_is_explicit",
                 "promote_to_product_line_only_after_convergence_gate_artifact",
             ],
             notes=[
                 "fairing_solid_real_geometry_smoke_available",
                 "fairing_solid_real_mesh_handoff_probe_pass_available",
+                "fairing_solid_real_su2_handoff_probe_available",
                 "fairing_solid_mesh_handoff_smoke_available",
                 "fairing_component_specific_force_marker_available_in_mesh_handoff_smoke",
                 "su2_backend_materializes_fairing_solid_marker_without_running_su2",

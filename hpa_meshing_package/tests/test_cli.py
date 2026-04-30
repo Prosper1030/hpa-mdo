@@ -321,6 +321,29 @@ def test_parser_supports_fairing_solid_su2_handoff_smoke_command():
     assert args.out == "artifacts/fairing_su2_smoke"
 
 
+def test_parser_supports_fairing_solid_real_su2_handoff_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "fairing-solid-real-su2-handoff-probe",
+            "--out",
+            "artifacts/fairing_real_su2_probe",
+            "--source",
+            "fairing.vsp3",
+            "--timeout-seconds",
+            "30",
+            "--source-mesh-probe-report",
+            "artifacts/fairing_real_mesh_probe.v1.json",
+        ]
+    )
+
+    assert args.command == "fairing-solid-real-su2-handoff-probe"
+    assert args.out == "artifacts/fairing_real_su2_probe"
+    assert args.source == "fairing.vsp3"
+    assert args.timeout_seconds == 30.0
+    assert args.source_mesh_probe_report == "artifacts/fairing_real_mesh_probe.v1.json"
+
+
 def test_python_m_cli_runs_validate_geometry(tmp_path: Path):
     geometry = tmp_path / "wing.step"
     geometry.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")

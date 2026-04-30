@@ -165,10 +165,43 @@ Observed result:
 - SU2, BL runtime, and convergence are not run
 
 Engineering reading: fairing is now the cleanest component-family branch after
-the formal aircraft assembly. The next fairing task should not be more geometry
-smoke; it should materialize real fairing `su2_handoff.v1`, then decide whether
-the resulting SU2 case is physically meaningful enough for a solver/convergence
-gate.
+the formal aircraft assembly. It has now earned a real SU2 handoff
+materialization probe; the next fairing question is reference-quantity
+credibility before any coefficient or convergence claim.
+
+The first real fairing SU2 handoff probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-real-su2-handoff-probe \
+  --out .tmp/runs/fairing_solid_real_su2_handoff_probe \
+  --source-mesh-probe-report docs/reports/fairing_solid_real_mesh_handoff_probe/fairing_solid_real_mesh_handoff_probe.v1.json
+```
+
+It writes:
+
+- `fairing_solid_real_su2_handoff_probe.v1.json`
+- `fairing_solid_real_su2_handoff_probe.v1.md`
+
+A committed snapshot is kept at:
+
+- `hpa_meshing_package/docs/reports/fairing_solid_real_su2_handoff_probe/fairing_solid_real_su2_handoff_probe.v1.json`
+- `hpa_meshing_package/docs/reports/fairing_solid_real_su2_handoff_probe/fairing_solid_real_su2_handoff_probe.v1.md`
+
+Observed result:
+
+- `materialization_status = su2_handoff_written`
+- `source_mesh_handoff_status = written`
+- `wall_marker_status = fairing_solid_marker_present`
+- `force_surface_scope = component_subset`
+- `reference_geometry_status = warn`
+- `SU2_CFD` and convergence are not run
+
+Engineering reading: fairing has crossed provider, real Gmsh mesh handoff, and
+real SU2 handoff materialization. It is still not a credible CFD product line:
+the current reference quantities come from available fairing provider metadata
+with warning status, no solver history exists, and `convergence_gate.v1` is
+absent.
 
 The synthetic closed-solid route-specific Gmsh smoke selected from that matrix is:
 
@@ -496,7 +529,7 @@ The current expected strategic reading is:
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | repair real ESP/VSP 3D volume-insertion timeout, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
-| `fairing_solid` | registered future route | no | real fairing SU2 handoff, then solver/convergence gate |
+| `fairing_solid` | registered future route | no | resolve reference-quantity policy, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 
 ## Boundary-Layer Promotion Policy
@@ -547,7 +580,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Materialize real fairing `su2_handoff.v1` from the bounded real-geometry
-   mesh handoff before any solver/convergence claim.
+1. Resolve real fairing reference geometry policy before coefficient claims,
+   then run a bounded real fairing solver smoke.
 2. Repair the real ESP/VSP main-wing 3D volume-insertion timeout before any
    solver/convergence claim.
