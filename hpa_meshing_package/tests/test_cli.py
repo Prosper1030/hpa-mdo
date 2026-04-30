@@ -403,6 +403,26 @@ def test_parser_supports_main_wing_gmsh_defect_entity_trace_command():
     )
 
 
+def test_parser_supports_main_wing_gmsh_curve_station_rebuild_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-gmsh-curve-station-rebuild-audit",
+            "--out",
+            "artifacts/main_wing_gmsh_curve_station_rebuild_audit",
+            "--gmsh-defect-entity-trace",
+            "artifacts/main_wing/entity_trace.json",
+            "--source-vsp3",
+            "artifacts/main_wing/main_wing.vsp3",
+        ]
+    )
+
+    assert args.command == "main-wing-gmsh-curve-station-rebuild-audit"
+    assert args.out == "artifacts/main_wing_gmsh_curve_station_rebuild_audit"
+    assert args.gmsh_defect_entity_trace == "artifacts/main_wing/entity_trace.json"
+    assert args.source_vsp3 == "artifacts/main_wing/main_wing.vsp3"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

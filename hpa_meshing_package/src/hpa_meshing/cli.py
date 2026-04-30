@@ -102,6 +102,10 @@ from .main_wing_gmsh_defect_entity_trace import (
     build_main_wing_gmsh_defect_entity_trace_report,
     write_main_wing_gmsh_defect_entity_trace_report,
 )
+from .main_wing_gmsh_curve_station_rebuild_audit import (
+    build_main_wing_gmsh_curve_station_rebuild_audit_report,
+    write_main_wing_gmsh_curve_station_rebuild_audit_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -611,6 +615,28 @@ def cmd_main_wing_gmsh_defect_entity_trace(args: argparse.Namespace) -> int:
     return 0 if report.trace_status != "blocked" else 2
 
 
+def cmd_main_wing_gmsh_curve_station_rebuild_audit(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    gmsh_defect_entity_trace_path = (
+        None
+        if args.gmsh_defect_entity_trace is None
+        else Path(args.gmsh_defect_entity_trace)
+    )
+    source_vsp3_path = None if args.source_vsp3 is None else Path(args.source_vsp3)
+    report = build_main_wing_gmsh_curve_station_rebuild_audit_report(
+        gmsh_defect_entity_trace_path=gmsh_defect_entity_trace_path,
+        source_vsp3_path=source_vsp3_path,
+    )
+    write_main_wing_gmsh_curve_station_rebuild_audit_report(
+        out_dir,
+        report=report,
+        gmsh_defect_entity_trace_path=gmsh_defect_entity_trace_path,
+        source_vsp3_path=source_vsp3_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.curve_station_rebuild_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1113,6 +1139,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_gmsh_defect_entity_trace.set_defaults(
         func=cmd_main_wing_gmsh_defect_entity_trace
+    )
+
+    main_wing_gmsh_curve_station_rebuild_audit = sub.add_parser(
+        "main-wing-gmsh-curve-station-rebuild-audit"
+    )
+    main_wing_gmsh_curve_station_rebuild_audit.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_gmsh_curve_station_rebuild_audit.add_argument(
+        "--gmsh-defect-entity-trace",
+        type=str,
+    )
+    main_wing_gmsh_curve_station_rebuild_audit.add_argument("--source-vsp3", type=str)
+    main_wing_gmsh_curve_station_rebuild_audit.set_defaults(
+        func=cmd_main_wing_gmsh_curve_station_rebuild_audit
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

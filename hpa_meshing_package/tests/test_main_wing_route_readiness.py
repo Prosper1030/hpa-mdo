@@ -1075,6 +1075,87 @@ def test_main_wing_route_readiness_records_gmsh_defect_entity_trace_stage(
     )
 
 
+def test_main_wing_route_readiness_records_gmsh_curve_station_rebuild_audit_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_gmsh_curve_station_rebuild_audit"
+        / "main_wing_gmsh_curve_station_rebuild_audit.v1.json",
+        {
+            "curve_station_rebuild_status": (
+                "curve_tags_match_vsp3_section_profile_scale"
+            ),
+            "match_summary": {
+                "curve_match_count": 2,
+                "matched_curve_tags": [36, 50],
+                "all_within_tolerance": True,
+            },
+            "curve_matches": [
+                {"curve_tag": 36, "relative_length_delta": -0.01},
+                {"curve_tag": 50, "relative_length_delta": -0.02},
+            ],
+            "engineering_findings": [
+                "curve_tags_match_vsp3_section_profile_scale"
+            ],
+            "next_actions": [
+                "build_minimal_openvsp_section_station_topology_fixture"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    audit_stage = stages["gmsh_curve_station_rebuild_audit"]
+    assert audit_stage.status == "pass"
+    assert audit_stage.evidence_kind == "real"
+    assert audit_stage.observed["match_summary"]["matched_curve_tags"] == [36, 50]
+    assert report.next_actions[0] == (
+        "build_minimal_openvsp_section_station_topology_fixture"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):
