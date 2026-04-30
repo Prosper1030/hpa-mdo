@@ -602,6 +602,26 @@ def test_parser_supports_main_wing_station_seam_export_strategy_probe_command():
     assert args.timeout_seconds == 12.5
 
 
+def test_parser_supports_main_wing_station_seam_internal_cap_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-internal-cap-probe",
+            "--out",
+            "artifacts/main_wing_station_seam_internal_cap_probe",
+            "--export-strategy-probe",
+            "artifacts/main_wing/export_strategy_probe.json",
+            "--station-plane-tolerance",
+            "1e-4",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-internal-cap-probe"
+    assert args.out == "artifacts/main_wing_station_seam_internal_cap_probe"
+    assert args.export_strategy_probe == "artifacts/main_wing/export_strategy_probe.json"
+    assert args.station_plane_tolerance == 1e-4
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

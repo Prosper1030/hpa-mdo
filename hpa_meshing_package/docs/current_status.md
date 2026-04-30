@@ -253,6 +253,21 @@ with y-bounds ending at `13.5 m` instead of the expected `16.5 m`. This blocks
 split-bay promotion; the next gate is internal-cap inspection or a PCurve /
 export rebuild strategy before mesh handoff or solver-budget work.
 
+The main-wing split-candidate internal-cap probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-internal-cap-probe --out .tmp/runs/main_wing_station_seam_internal_cap_probe
+```
+
+This writes `main_wing_station_seam_internal_cap_probe.v1.json` and
+`main_wing_station_seam_internal_cap_probe.v1.md`. The committed snapshot
+records `split_candidate_internal_cap_risk_confirmed`: the no-union candidate
+has duplicate station cap faces at both `y=-10.5 m` and `y=13.5 m` and remains
+3 volumes; the union candidate is one volume but truncates the right span and
+leaves 6 cap fragments at `y=13.5 m`. This confirms the split-bay strategy is
+negative evidence, not a mesh-handoff candidate.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash

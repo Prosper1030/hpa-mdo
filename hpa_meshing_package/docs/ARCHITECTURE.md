@@ -297,7 +297,9 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Record that the generated OpenCSM export currently uses one multi-section `rule` loft and that the unrecovered station defects map to internal rule sections
 - Prototype split-at-defect-section OpenCSM export candidates under report artifacts only
 - Record that split candidates move the target sections to rule boundaries but remain blocked by multi-volume / span-bound topology risk
-- Promote the next gate to internal-cap inspection or PCurve/export rebuild before compound meshing policy or solver-budget campaigns
+- Inspect split-candidate station-plane cap faces before mesh handoff
+- Record that the split candidates remain blocked by duplicate internal caps, multi-volume topology, or span truncation
+- Promote the next gate to PCurve/export rebuild before compound meshing policy or solver-budget campaigns
 
 ### 22. main_wing Mesh-Handoff Smoke Layer
 

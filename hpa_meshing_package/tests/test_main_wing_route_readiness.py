@@ -1752,6 +1752,96 @@ def test_main_wing_route_readiness_records_station_seam_export_strategy_probe_st
     )
 
 
+def test_main_wing_route_readiness_records_station_seam_internal_cap_probe_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_station_seam_internal_cap_probe"
+        / "main_wing_station_seam_internal_cap_probe.v1.json",
+        {
+            "probe_status": "split_candidate_internal_cap_risk_confirmed",
+            "target_station_y_m": [-10.5, 13.5],
+            "candidate_inspections": [
+                {
+                    "candidate": "split_at_defect_sections_no_union",
+                    "candidate_mesh_handoff_ready": False,
+                    "span_y_bounds_preserved": True,
+                    "volume_count": 3,
+                    "target_station_face_groups": [
+                        {
+                            "station_y_m": -10.5,
+                            "plane_face_count": 2,
+                            "duplicate_station_cap_faces": True,
+                        }
+                    ],
+                }
+            ],
+            "engineering_findings": [
+                "split_at_defect_sections_no_union_duplicate_station_cap_faces_confirmed"
+            ],
+            "blocking_reasons": [
+                "internal_station_cap_faces_present",
+                "split_candidate_not_mesh_handoff_ready",
+            ],
+            "next_actions": ["try_pcurve_rebuild_strategy_without_split_caps"],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    cap_stage = stages["station_seam_internal_cap_probe"]
+    assert cap_stage.status == "blocked"
+    assert cap_stage.evidence_kind == "real"
+    assert cap_stage.observed["target_station_y_m"] == [-10.5, 13.5]
+    assert cap_stage.observed["candidate_summaries"][0][
+        "candidate_mesh_handoff_ready"
+    ] is False
+    assert "internal_station_cap_faces_present" in report.blocking_reasons
+    assert report.next_actions[0] == "try_pcurve_rebuild_strategy_without_split_caps"
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

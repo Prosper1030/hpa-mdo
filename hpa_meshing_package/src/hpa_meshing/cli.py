@@ -134,6 +134,10 @@ from .main_wing_station_seam_export_strategy_probe import (
     build_main_wing_station_seam_export_strategy_probe_report,
     write_main_wing_station_seam_export_strategy_probe_report,
 )
+from .main_wing_station_seam_internal_cap_probe import (
+    build_main_wing_station_seam_internal_cap_probe_report,
+    write_main_wing_station_seam_internal_cap_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -855,6 +859,27 @@ def cmd_main_wing_station_seam_export_strategy_probe(
     return 0 if report.probe_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_internal_cap_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    export_strategy_probe_path = (
+        None if args.export_strategy_probe is None else Path(args.export_strategy_probe)
+    )
+    report = build_main_wing_station_seam_internal_cap_probe_report(
+        export_strategy_probe_path=export_strategy_probe_path,
+        station_plane_tolerance=args.station_plane_tolerance,
+    )
+    write_main_wing_station_seam_internal_cap_probe_report(
+        out_dir,
+        report=report,
+        export_strategy_probe_path=export_strategy_probe_path,
+        station_plane_tolerance=args.station_plane_tolerance,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.probe_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -1549,6 +1574,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_export_strategy_probe.set_defaults(
         func=cmd_main_wing_station_seam_export_strategy_probe
+    )
+
+    main_wing_station_seam_internal_cap_probe = sub.add_parser(
+        "main-wing-station-seam-internal-cap-probe"
+    )
+    main_wing_station_seam_internal_cap_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_internal_cap_probe.add_argument(
+        "--export-strategy-probe",
+        type=str,
+    )
+    main_wing_station_seam_internal_cap_probe.add_argument(
+        "--station-plane-tolerance",
+        type=float,
+        default=1.0e-4,
+    )
+    main_wing_station_seam_internal_cap_probe.set_defaults(
+        func=cmd_main_wing_station_seam_internal_cap_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

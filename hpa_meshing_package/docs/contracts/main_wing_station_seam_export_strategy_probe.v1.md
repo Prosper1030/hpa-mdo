@@ -40,6 +40,9 @@ sections 2 and 9 moves the defect stations to rule boundaries, but the no-union
 candidate materializes as three volumes, while the union candidate materializes
 as one volume that does not preserve the full `y=-16.5..16.5 m` station bounds.
 
-This is evidence against promoting a split-bay OpenCSM export default as the
-main-wing repair. The next gate should inspect split-candidate internal caps or
-try a PCurve/export rebuild strategy before mesh handoff or solver-budget work.
+The follow-up internal-cap probe confirms this is evidence against promoting a
+split-bay OpenCSM export default as the main-wing repair. The no-union
+candidate keeps duplicate station cap faces and multiple volumes; the union
+candidate truncates the right span and leaves cap fragments. The next gate
+should try a PCurve/export rebuild strategy before mesh handoff or solver-budget
+work.

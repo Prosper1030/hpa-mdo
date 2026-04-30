@@ -1,0 +1,295 @@
+{
+  "schema_version": "main_wing_station_seam_internal_cap_probe.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_split_candidate_internal_cap_probe",
+  "production_default_changed": false,
+  "probe_status": "split_candidate_internal_cap_risk_confirmed",
+  "export_strategy_probe_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/main_wing_station_seam_export_strategy_probe.v1.json",
+  "export_source_audit_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_source_audit/main_wing_station_seam_export_source_audit.v1.json",
+  "station_plane_tolerance": 0.0001,
+  "target_station_y_m": [
+    -10.5,
+    13.5
+  ],
+  "candidate_inspections": [
+    {
+      "candidate": "split_at_defect_sections_no_union",
+      "apply_union": false,
+      "materialization_status": "materialized",
+      "step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_no_union/candidate_raw_dump.stp",
+      "inventory_status": "topology_counted",
+      "body_count": 3,
+      "volume_count": 3,
+      "surface_count": 36,
+      "bbox": [
+        -0.001259412194113,
+        -16.5000001,
+        -0.06803684311580001,
+        1.302329369,
+        16.5000001,
+        0.835306042127
+      ],
+      "span_y_bounds_preserved": true,
+      "target_boundary_duplication_count": 2,
+      "target_station_face_groups": [
+        {
+          "station_y_m": -10.5,
+          "plane_face_count": 2,
+          "face_tags": [
+            27,
+            36
+          ],
+          "face_bboxes": [
+            [
+              0.057328939052374295,
+              -10.5000001,
+              0.283554501375,
+              1.0961382614200001,
+              -10.4999999,
+              0.4629404482343904
+            ],
+            [
+              0.057328939052211016,
+              -10.5000001,
+              0.283554501375,
+              1.0961382614200001,
+              -10.4999999,
+              0.462940448234463
+            ]
+          ],
+          "duplicate_station_cap_faces": true,
+          "station_cap_faces_present": true,
+          "unique_bbox_signature_count": 1,
+          "bbox_signatures": [
+            [
+              0.057329,
+              -10.5,
+              0.283555,
+              1.096138,
+              -10.5,
+              0.46294
+            ]
+          ]
+        },
+        {
+          "station_y_m": 13.5,
+          "plane_face_count": 2,
+          "face_tags": [
+            4,
+            28
+          ],
+          "face_bboxes": [
+            [
+              0.11812889511292361,
+              13.4999999,
+              0.501434463583,
+              0.947083385548,
+              13.5000001,
+              0.6445519774571149
+            ],
+            [
+              0.11803793542592621,
+              13.4999999,
+              0.501434463583,
+              0.947083385548,
+              13.5000001,
+              0.6446557875753554
+            ]
+          ],
+          "duplicate_station_cap_faces": true,
+          "station_cap_faces_present": true,
+          "unique_bbox_signature_count": 2,
+          "bbox_signatures": [
+            [
+              0.118129,
+              13.5,
+              0.501434,
+              0.947083,
+              13.5,
+              0.644552
+            ],
+            [
+              0.118038,
+              13.5,
+              0.501434,
+              0.947083,
+              13.5,
+              0.644656
+            ]
+          ]
+        }
+      ],
+      "candidate_mesh_handoff_ready": false
+    },
+    {
+      "candidate": "split_at_defect_sections_union",
+      "apply_union": true,
+      "materialization_status": "materialized",
+      "step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/artifacts/split_at_defect_sections_union/candidate_raw_dump.stp",
+      "inventory_status": "topology_counted",
+      "body_count": 1,
+      "volume_count": 1,
+      "surface_count": 34,
+      "bbox": [
+        -0.0012596026137576667,
+        -16.500000290419646,
+        -0.06803703353544467,
+        1.3023295594196447,
+        13.500000290419644,
+        0.8352749987586446
+      ],
+      "span_y_bounds_preserved": false,
+      "target_boundary_duplication_count": 2,
+      "target_station_face_groups": [
+        {
+          "station_y_m": -10.5,
+          "plane_face_count": 0,
+          "face_tags": [],
+          "face_bboxes": [],
+          "duplicate_station_cap_faces": false,
+          "station_cap_faces_present": false,
+          "unique_bbox_signature_count": 0,
+          "bbox_signatures": []
+        },
+        {
+          "station_y_m": 13.5,
+          "plane_face_count": 6,
+          "face_tags": [
+            29,
+            30,
+            31,
+            32,
+            33,
+            34
+          ],
+          "face_bboxes": [
+            [
+              0.11815517971474596,
+              13.499999599997995,
+              0.5014343635809959,
+              0.9470834855500041,
+              13.500000200002004,
+              0.6444771041169443
+            ],
+            [
+              0.8732029301524283,
+              13.499999599997995,
+              0.5094342932941246,
+              0.9150873931193683,
+              13.500000200002004,
+              0.5167352616385278
+            ],
+            [
+              0.14503450479047322,
+              13.499999599997999,
+              0.5245696061918751,
+              0.16111985616468505,
+              13.500000200002,
+              0.52650132451097
+            ],
+            [
+              0.12418180114076774,
+              13.499999599998,
+              0.5295146079784425,
+              0.13302744398921051,
+              13.500000200001999,
+              0.5341789566944481
+            ],
+            [
+              0.11802955676527196,
+              13.499999599998,
+              0.5453072286576531,
+              0.12537358575468574,
+              13.500000200001999,
+              0.561034187476092
+            ],
+            [
+              0.6247702020847573,
+              13.499999509580356,
+              0.5252214451812783,
+              0.7138476556838715,
+              13.500000290419644,
+              0.5264712304411453
+            ]
+          ],
+          "duplicate_station_cap_faces": true,
+          "station_cap_faces_present": true,
+          "unique_bbox_signature_count": 6,
+          "bbox_signatures": [
+            [
+              0.118155,
+              13.5,
+              0.501434,
+              0.947083,
+              13.5,
+              0.644477
+            ],
+            [
+              0.873203,
+              13.5,
+              0.509434,
+              0.915087,
+              13.5,
+              0.516735
+            ],
+            [
+              0.145035,
+              13.5,
+              0.52457,
+              0.16112,
+              13.5,
+              0.526501
+            ],
+            [
+              0.124182,
+              13.5,
+              0.529515,
+              0.133027,
+              13.5,
+              0.534179
+            ],
+            [
+              0.11803,
+              13.5,
+              0.545307,
+              0.125374,
+              13.5,
+              0.561034
+            ],
+            [
+              0.62477,
+              13.5,
+              0.525221,
+              0.713848,
+              13.5,
+              0.526471
+            ]
+          ]
+        }
+      ],
+      "candidate_mesh_handoff_ready": false
+    }
+  ],
+  "engineering_findings": [
+    "station_seam_internal_cap_probe_captured",
+    "split_at_defect_sections_no_union_duplicate_station_cap_faces_confirmed",
+    "split_at_defect_sections_no_union_multi_volume_topology_reconfirmed",
+    "split_at_defect_sections_union_duplicate_station_cap_faces_confirmed",
+    "split_at_defect_sections_union_span_truncation_reconfirmed"
+  ],
+  "blocking_reasons": [
+    "internal_station_cap_faces_present",
+    "duplicate_station_cap_faces_present",
+    "split_candidate_span_truncation_confirmed",
+    "split_candidate_multi_volume_topology_confirmed",
+    "split_candidate_not_mesh_handoff_ready"
+  ],
+  "next_actions": [
+    "try_pcurve_rebuild_strategy_without_split_caps",
+    "keep_split_bay_strategy_as_negative_evidence_not_product_route"
+  ],
+  "limitations": [
+    "This report classifies station-plane cap faces from OCC/Gmsh surface bounding boxes; it does not mesh or run SU2.",
+    "A clean result here would only authorize a bounded mesh-handoff probe, not production-route promotion."
+  ]
+}

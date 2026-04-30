@@ -39,6 +39,7 @@
 | `station_seam_shape_fix_feasibility` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_shape_fix_feasibility/main_wing_station_seam_shape_fix_feasibility.v1.json` |
 | `station_seam_export_source_audit` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_source_audit/main_wing_station_seam_export_source_audit.v1.json` |
 | `station_seam_export_strategy_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_strategy_probe/main_wing_station_seam_export_strategy_probe.v1.json` |
+| `station_seam_internal_cap_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_internal_cap_probe/main_wing_station_seam_internal_cap_probe.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -68,10 +69,15 @@
 - `split_candidate_topology_not_single_volume_or_has_duplicate_cap_risk`
 - `split_candidate_does_not_preserve_full_span_bounds`
 - `split_candidate_duplicates_target_station_sections`
+- `internal_station_cap_faces_present`
+- `duplicate_station_cap_faces_present`
+- `split_candidate_span_truncation_confirmed`
+- `split_candidate_multi_volume_topology_confirmed`
+- `split_candidate_not_mesh_handoff_ready`
 
 ## Next Actions
 
-- `inspect_split_candidate_internal_caps_before_mesh_handoff`
+- `try_pcurve_rebuild_strategy_without_split_caps`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 
