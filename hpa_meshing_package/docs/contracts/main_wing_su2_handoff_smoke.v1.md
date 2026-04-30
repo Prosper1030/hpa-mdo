@@ -41,17 +41,15 @@ A materialization pass means hpa-mdo can turn the synthetic main-wing
 the solver to run.
 
 It does **not** mean the route is CFD-ready. The current smoke still uses the
-generic `aircraft` wall marker because the synthetic main-wing mesh handoff does
-not yet own a component-specific `main_wing` force marker. Solver execution,
-history parsing, convergence, and real aerodynamic geometry remain blocking
-gates.
+component-owned `main_wing` wall marker, but the mesh remains synthetic.
+Solver execution, history parsing, convergence, and real aerodynamic geometry
+remain blocking gates.
 
 ## Promotion Rule
 
 This smoke can move the route past "missing SU2 handoff", but it cannot promote
 the route to solver credibility. The next gates are:
 
-1. component-specific main-wing force marker / force-surface ownership
-2. real VSP/ESP main-wing geometry evidence
-3. solver run
-4. `convergence_gate.v1`
+1. real VSP/ESP main-wing geometry evidence
+2. solver run
+3. `convergence_gate.v1`

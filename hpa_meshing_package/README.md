@@ -171,7 +171,8 @@ This produces:
 
 This is the first real Gmsh handoff smoke for `fairing_solid`. It emits
 `mesh_handoff.v1` for a synthetic closed-solid fixture, but it still does not
-run SU2 or prove fairing-specific force-surface ownership.
+run SU2. It does include a component-owned `fairing_solid` force marker in the
+mesh-handoff evidence.
 
 ### 8. Write the main wing mesh-handoff smoke
 
@@ -187,8 +188,8 @@ This produces:
 - `main_wing_mesh_handoff_smoke.v1.md`
 
 This is a real Gmsh non-BL handoff smoke for `main_wing`. It emits
-`mesh_handoff.v1` for a synthetic thin closed-solid wing slab with generic
-`aircraft` / `farfield` markers. It does not run BL runtime, SU2, or a
+`mesh_handoff.v1` for a synthetic thin closed-solid wing slab with
+component-owned `main_wing` / `farfield` markers. It does not run BL runtime, SU2, or a
 convergence gate, and it does not prove real aerodynamic main-wing geometry.
 
 ### 9. Write the main wing SU2-handoff smoke
@@ -206,8 +207,8 @@ This produces:
 
 This consumes the synthetic non-BL main-wing mesh handoff and materializes
 `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` without executing `SU2_CFD`.
-It still uses a generic `aircraft` wall marker, so component-specific main-wing
-force ownership, solver history, and convergence remain blocking gates.
+It now consumes the component-owned `main_wing` wall marker, so the remaining
+blocking gates are real main-wing geometry, solver history, and convergence.
 
 ## Artifact Contracts
 
@@ -233,9 +234,9 @@ force ownership, solver history, and convergence remain blocking gates.
 | `su2_handoff.v1` | fixed contract | baseline case materialization + history parse |
 | `convergence_gate.v1` | fixed contract | machine-readable mesh / iterative / overall comparability gate |
 | Reference provenance gate | fixed contract | `geometry_derived`, `baseline_envelope_derived`, or `user_declared` |
-| Force-surface provenance gate | fixed contract | currently whole-aircraft wall only |
+| Force-surface provenance gate | fixed contract | supports whole-aircraft wall and component-owned `fairing_solid` / lifting-surface markers |
 | `esp_rebuilt` | experimental | native OpenCSM rule-loft provider is runnable on this machine, but blackcat meshing smoke still hangs in downstream Gmsh `Mesh2D` |
-| `main_wing` non-BL smoke | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist for a synthetic thin closed-solid wing slab; component force marker, real geometry, solver, and convergence are not productized |
+| `main_wing` non-BL smoke | experimental | real `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist for a synthetic thin closed-solid wing slab with a `main_wing` marker; real geometry, solver, and convergence are not productized |
 | `fairing_solid` closed-solid route | experimental | first real `mesh_handoff.v1` smoke exists with a `fairing_solid` force marker; SU2 handoff can materialize from that marker, but solver/convergence are not productized |
 | Other component families | experimental | schema/dispatch exists, but route-specific mesh/SU2 evidence is incomplete |
 | Component-family route readiness | report-only `v1` | emits current route status so root_last3 / shell_v4 does not get mistaken for the product mainline |
@@ -247,7 +248,7 @@ force ownership, solver history, and convergence remain blocking gates.
 ## Recommended Next Gates
 
 1. `alpha sweep`, but only after `mesh_study.v1` says the baseline is at least `preliminary_compare`
-2. add component-specific force markers before solver claims on component-family routes
+2. replace synthetic `main_wing` slab evidence with real ESP/VSP main-wing geometry before solver claims
 3. materialize `su2_handoff.v1` for `fairing_solid` as a committed report artifact
 4. component-level force mapping
 5. more providers only after the current product line is harder to validate

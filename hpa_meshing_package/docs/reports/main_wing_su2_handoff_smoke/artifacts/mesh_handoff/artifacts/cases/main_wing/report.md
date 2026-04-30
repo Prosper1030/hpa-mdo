@@ -6,6 +6,6 @@
 
 - route_stage: baseline
 - backend: gmsh
-- node_count: 310
-- element_count: 1585
-- volume_element_count: 845
+- node_count: 311
+- element_count: 1587
+- volume_element_count: 847

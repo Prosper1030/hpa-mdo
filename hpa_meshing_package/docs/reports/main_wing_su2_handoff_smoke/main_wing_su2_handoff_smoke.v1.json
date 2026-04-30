@@ -15,9 +15,9 @@
   "solver_execution_status": "not_run",
   "convergence_gate_status": "not_run",
   "run_status": "not_started",
-  "wall_marker_status": "generic_aircraft_wall_present",
-  "force_surface_scope": "whole_aircraft_wall",
-  "component_force_ownership_status": "missing",
+  "wall_marker_status": "main_wing_marker_present",
+  "force_surface_scope": "component_subset",
+  "component_force_ownership_status": "owned",
   "reference_geometry_status": "pass",
   "source_mesh_smoke_path": "docs/reports/main_wing_su2_handoff_smoke/artifacts/mesh_handoff/main_wing_mesh_handoff_smoke.v1.json",
   "source_mesh_case_report_path": "docs/reports/main_wing_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/main_wing/report.json",
@@ -31,11 +31,11 @@
     "su2_handoff_v1_written",
     "runtime_cfg_written",
     "su2_mesh_written",
+    "main_wing_force_marker_owned",
     "solver_not_executed",
     "production_default_unchanged"
   ],
   "blocking_reasons": [
-    "main_wing_component_specific_force_marker_missing",
     "su2_solver_not_run",
     "convergence_gate_not_run",
     "synthetic_fixture_not_real_aerodynamic_wing_geometry",
@@ -45,7 +45,7 @@
     "This smoke materializes an SU2 case only; it does not run SU2_CFD.",
     "convergence_gate.v1 is not emitted because no solver history exists.",
     "The input mesh is a synthetic thin closed-solid slab, not real aerodynamic main-wing geometry.",
-    "The handoff still uses the generic aircraft wall marker, not component-owned main_wing force surfaces.",
+    "The handoff uses a component-owned main_wing wall marker, but the geometry is still synthetic.",
     "Production defaults were not changed."
   ],
   "error": null

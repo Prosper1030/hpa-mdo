@@ -119,6 +119,11 @@ def _group_exists(group: Any) -> bool:
 def _required_wall_marker(handoff: MeshHandoff) -> str:
     if handoff.meshing_route == "gmsh_closed_solid_volume":
         return "fairing_solid"
+    if handoff.meshing_route == "gmsh_thin_sheet_surface":
+        for marker_name in ("main_wing", "tail_wing", "horizontal_tail", "vertical_tail"):
+            marker = handoff.marker_summary.get(marker_name, {})
+            if isinstance(marker, dict) and marker.get("exists") is True:
+                return marker_name
     return "aircraft"
 
 

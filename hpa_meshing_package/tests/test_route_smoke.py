@@ -50,7 +50,8 @@ def test_component_family_route_smoke_keeps_productization_status_visible(tmp_pa
     assert rows["main_wing"].productization_status == "experimental"
     assert rows["main_wing"].promotion_status == "blocked_before_solver_convergence"
     assert "explicit_bl_to_core_handoff_topology_not_owned" in rows["main_wing"].blocking_reasons
-    assert "main_wing_component_specific_force_marker_missing" in rows["main_wing"].blocking_reasons
+    assert "main_wing_component_specific_force_marker_missing" not in rows["main_wing"].blocking_reasons
+    assert "main_wing_real_geometry_smoke_missing" in rows["main_wing"].blocking_reasons
     assert rows["fairing_solid"].productization_status == "registered_not_productized"
     assert rows["fairing_solid"].promotion_status == "blocked_before_su2_handoff"
     assert "fairing_su2_handoff_artifact_missing" in rows["fairing_solid"].blocking_reasons

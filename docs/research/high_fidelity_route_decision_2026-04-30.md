@@ -151,12 +151,12 @@ A committed snapshot is kept at:
 - `hpa_meshing_package/docs/reports/main_wing_mesh_handoff_smoke/main_wing_mesh_handoff_smoke.v1.md`
 
 This smoke emits a real `mesh_handoff.v1` for `main_wing ->
-gmsh_thin_sheet_surface` on a synthetic thin closed-solid wing slab. It is not a
-BL route, not real aerodynamic wing geometry, not a solver handoff, and not a
-convergence claim. Its engineering value is narrower but important: the main-wing
-family now has a real package-native mesh-handoff artifact outside `root_last3`,
-so the next honest gate is `su2_handoff.v1` materialization rather than more
-BL topology microscopy.
+gmsh_thin_sheet_surface` on a synthetic thin closed-solid wing slab with
+component-owned `main_wing` / `farfield` markers. It is not a BL route, not real
+aerodynamic wing geometry, not a solver handoff, and not a convergence claim.
+Its engineering value is narrower but important: the main-wing family now has a
+real package-native mesh-handoff artifact outside `root_last3`, and the marker
+scope no longer collapses to whole-aircraft force accounting.
 
 The first main-wing SU2 handoff materialization smoke is:
 
@@ -177,16 +177,17 @@ A committed snapshot is kept at:
 - `hpa_meshing_package/docs/reports/main_wing_su2_handoff_smoke/main_wing_su2_handoff_smoke.v1.md`
 
 This smoke emits `su2_handoff.v1`, `mesh.su2`, and `su2_runtime.cfg` without
-running `SU2_CFD`. It deliberately reports the remaining engineering blocker:
-the current synthetic main-wing handoff still uses the generic `aircraft` wall
-marker, so main-wing component force-surface ownership is not yet proven.
+running `SU2_CFD`. It now consumes the component-owned `main_wing` wall marker
+and reports `force_surface_scope=component_subset`. It deliberately keeps the
+remaining engineering blockers visible: the geometry is still synthetic, solver
+history is absent, and convergence has not been evaluated.
 
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | component-specific force marker, then solver/convergence smoke |
+| `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | tail-specific geometry and mesh smoke |
 | `fairing_solid` | registered future route | no | committed SU2 materialization smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -239,7 +240,7 @@ If a task cannot answer those questions, it should not become a repair loop.
 
 ## Next Two Tasks
 
-1. Add component-specific force marker ownership for the main-wing non-BL route,
-   then run only a bounded solver/convergence smoke.
+1. Replace the synthetic main-wing slab with real ESP/VSP main-wing geometry
+   evidence before any solver/convergence claim.
 2. Write the committed `fairing_solid` `su2_handoff.v1` materialization report
    artifact, then add the next tail-family non-BL mesh-handoff smoke.

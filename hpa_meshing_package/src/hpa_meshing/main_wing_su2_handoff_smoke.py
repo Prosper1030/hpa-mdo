@@ -199,6 +199,7 @@ def build_main_wing_su2_handoff_smoke_report(
             "su2_handoff_v1_written",
             "runtime_cfg_written",
             "su2_mesh_written",
+            "main_wing_force_marker_owned",
             "solver_not_executed",
             "production_default_unchanged",
         ],
@@ -207,7 +208,7 @@ def build_main_wing_su2_handoff_smoke_report(
             "This smoke materializes an SU2 case only; it does not run SU2_CFD.",
             "convergence_gate.v1 is not emitted because no solver history exists.",
             "The input mesh is a synthetic thin closed-solid slab, not real aerodynamic main-wing geometry.",
-            "The handoff still uses the generic aircraft wall marker, not component-owned main_wing force surfaces.",
+            "The handoff uses a component-owned main_wing wall marker, but the geometry is still synthetic.",
             "Production defaults were not changed.",
         ],
     )

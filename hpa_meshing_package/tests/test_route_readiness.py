@@ -45,15 +45,17 @@ def test_route_readiness_keeps_shell_v4_bl_as_promotion_only():
     assert main_wing.geometry_family == "thin_sheet_lifting_surface"
     assert main_wing.default_route == "gmsh_thin_sheet_surface"
     assert main_wing.route_role == "experimental_and_diagnostic"
-    assert main_wing.su2_status == "handoff_materialized_solver_not_run"
+    assert main_wing.su2_status == "handoff_materialized_force_marker_owned_solver_not_run"
     assert main_wing.bl_contract_policy == "promotion_only_when_hpa_mdo_owns_handoff_topology"
     assert main_wing.gmsh_boundary_recovery_policy == "not_allowed_as_owned_boundary_handoff"
     assert "shell_v4_root_last3_is_not_product_route" in main_wing.blocking_reasons
     assert "explicit_bl_to_core_handoff_topology_not_owned" in main_wing.blocking_reasons
-    assert "main_wing_component_specific_force_marker_missing" in main_wing.blocking_reasons
+    assert "main_wing_component_specific_force_marker_missing" not in main_wing.blocking_reasons
+    assert "main_wing_real_geometry_smoke_missing" in main_wing.blocking_reasons
     assert "main_wing_solver_not_run" in main_wing.blocking_reasons
     assert "main_wing_mesh_handoff_smoke_available_non_bl_synthetic" in main_wing.notes
     assert "main_wing_su2_handoff_materialization_smoke_available" in main_wing.notes
+    assert "main_wing_component_specific_force_marker_available" in main_wing.notes
 
 
 def test_route_readiness_marks_fairing_solid_mesh_handoff_smoke_as_available_not_productized():

@@ -63,7 +63,7 @@
       "blocking_reasons": [
         "shell_v4_root_last3_is_not_product_route",
         "explicit_bl_to_core_handoff_topology_not_owned",
-        "main_wing_component_specific_force_marker_missing",
+        "main_wing_real_geometry_smoke_missing",
         "main_wing_solver_not_run",
         "convergence_gate_not_run"
       ],
@@ -288,7 +288,7 @@
   ],
   "next_actions": [
     "promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate",
-    "add main_wing component-specific force markers before solver claims",
+    "replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims",
     "keep BL prelaunch excluded until handoff topology ownership passes"
   ]
 }

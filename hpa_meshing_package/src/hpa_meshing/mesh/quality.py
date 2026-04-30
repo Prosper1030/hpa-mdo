@@ -5,13 +5,21 @@ from typing import Dict, Any
 from ..schema import MeshJobConfig
 
 
+def _required_wall_marker(config: MeshJobConfig) -> str:
+    if config.component == "fairing_solid":
+        return "fairing_solid"
+    if config.component in {"main_wing", "tail_wing", "horizontal_tail", "vertical_tail"}:
+        return config.component
+    return "aircraft"
+
+
 def quality_check(run_result: Dict[str, Any], config: MeshJobConfig) -> Dict[str, Any]:
     backend_result = run_result.get("backend_result", {})
     mesh_handoff = backend_result.get("mesh_handoff", {})
     route_stage = backend_result.get("route_stage")
     mesh_stats = mesh_handoff.get("mesh_stats", backend_result.get("mesh_stats", {}))
     marker_summary = mesh_handoff.get("marker_summary", backend_result.get("marker_summary", {}))
-    wall_marker = "fairing_solid" if config.component == "fairing_solid" else "aircraft"
+    wall_marker = _required_wall_marker(config)
     missing_markers = [
         name
         for name in (wall_marker, "farfield")

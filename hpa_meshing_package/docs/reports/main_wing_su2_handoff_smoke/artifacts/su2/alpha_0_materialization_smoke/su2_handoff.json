@@ -6,16 +6,16 @@
   "units": "m",
   "input_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_handoff_smoke/artifacts/mesh_handoff/artifacts/cases/main_wing/artifacts/mesh/mesh.msh",
   "mesh_markers": {
-    "wall": "aircraft",
+    "wall": "main_wing",
     "farfield": "farfield",
     "monitoring": [
-      "aircraft"
+      "main_wing"
     ],
     "plotting": [
-      "aircraft"
+      "main_wing"
     ],
     "euler": [
-      "aircraft"
+      "main_wing"
     ]
   },
   "reference_geometry": {
@@ -133,20 +133,20 @@
     "gate_status": "pass",
     "confidence": "medium",
     "source_kind": "mesh_physical_group",
-    "wall_marker": "aircraft",
+    "wall_marker": "main_wing",
     "monitoring_markers": [
-      "aircraft"
+      "main_wing"
     ],
     "plotting_markers": [
-      "aircraft"
+      "main_wing"
     ],
     "euler_markers": [
-      "aircraft"
+      "main_wing"
     ],
     "source_groups": [
       {
-        "marker_name": "aircraft",
-        "physical_name": "aircraft",
+        "marker_name": "main_wing",
+        "physical_name": "main_wing",
         "physical_tag": 2,
         "dimension": 2,
         "entity_count": 6,
@@ -154,22 +154,24 @@
       }
     ],
     "primary_group": {
-      "marker_name": "aircraft",
-      "physical_name": "aircraft",
+      "marker_name": "main_wing",
+      "physical_name": "main_wing",
       "physical_tag": 2,
       "dimension": 2,
       "entity_count": 6,
       "element_count": 48
     },
     "matches_wall_marker": true,
-    "matches_entire_aircraft_wall": true,
-    "scope": "whole_aircraft_wall",
+    "matches_entire_aircraft_wall": false,
+    "scope": "component_subset",
     "body_count": null,
     "component_labels_present_in_geometry": null,
     "component_label_schema": null,
-    "component_provenance": "not_available",
+    "component_provenance": "component_groups_mapped",
     "warnings": [],
-    "notes": []
+    "notes": [
+      "force monitoring uses a component-specific mesh physical group"
+    ]
   },
   "provenance_gates": {
     "overall_status": "pass",
@@ -185,7 +187,9 @@
       "status": "pass",
       "confidence": "medium",
       "warnings": [],
-      "notes": []
+      "notes": [
+        "force monitoring uses a component-specific mesh physical group"
+      ]
     },
     "warnings": []
   },

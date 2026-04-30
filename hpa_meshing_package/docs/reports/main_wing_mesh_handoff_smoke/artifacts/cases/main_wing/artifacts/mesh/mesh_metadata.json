@@ -135,7 +135,7 @@
     "status": "completed_without_timeout",
     "timeout_seconds": 20.0,
     "triggered_at_elapsed_sec": null,
-    "completed_elapsed_sec": 0.01560520799830556,
+    "completed_elapsed_sec": 0.01092320797033608,
     "meshing_stage_at_timeout": null,
     "last_meshing_curve_tag": null,
     "last_meshing_surface_tag": null
@@ -185,17 +185,17 @@
     "sliver_volume_pocket_policy": null,
     "pre_generate3_mesh_stats": {
       "mesh_dim": 3,
-      "node_count": 310,
-      "element_count": 740,
-      "surface_element_count": 612,
+      "node_count": 312,
+      "element_count": 744,
+      "surface_element_count": 616,
       "volume_element_count": 0
     },
     "watchdog_status": "completed_without_timeout",
     "watchdog_artifact": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh3d_watchdog.json",
     "watchdog_sample_artifact": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh3d_watchdog_sample.txt",
     "burden_metrics": {
-      "boundary_node_count": 310,
-      "surface_triangle_count": 612,
+      "boundary_node_count": 312,
+      "surface_triangle_count": 616,
       "iteration_count": 0,
       "nodes_created": 0,
       "nodes_created_per_boundary_node": 0.0,
@@ -213,13 +213,13 @@
     "status": "completed_without_timeout",
     "timeout_seconds": 20.0,
     "triggered_at_elapsed_sec": null,
-    "completed_elapsed_sec": 0.011623624945059419,
+    "completed_elapsed_sec": 0.014585708966478705,
     "meshing_stage_at_timeout": null,
     "meshing_stage_after_return": "meshing_3d",
     "timeout_phase_classification": "optimization",
     "phase_classification_after_return": "optimization",
-    "boundary_node_count": 310,
-    "surface_triangle_count": 612,
+    "boundary_node_count": 312,
+    "surface_triangle_count": 616,
     "iteration_count": 0,
     "nodes_created": 0,
     "nodes_created_per_boundary_node": 0.0,
@@ -228,7 +228,7 @@
     "hxt_mesh_vertex_count": null,
     "hxt_points_filtered": null,
     "hxt_points_added": null,
-    "tetrahedrizing_node_count": 318,
+    "tetrahedrizing_node_count": 320,
     "volume_count": 1,
     "connected_component_count": 1,
     "error": null
@@ -257,28 +257,28 @@
   },
   "mesh_stats": {
     "mesh_dim": 3,
-    "node_count": 310,
-    "element_count": 1582,
-    "surface_element_count": 612,
-    "volume_element_count": 842,
+    "node_count": 318,
+    "element_count": 1609,
+    "surface_element_count": 616,
+    "volume_element_count": 865,
     "element_type_counts": {
       "1": 112,
-      "2": 612,
-      "4": 842,
+      "2": 616,
+      "4": 865,
       "15": 16
     },
     "surface_element_type_counts": {
-      "2": 612
+      "2": 616
     },
     "volume_element_type_counts": {
-      "4": 842
+      "4": 865
     }
   },
   "marker_summary": {
-    "aircraft": {
+    "main_wing": {
       "exists": true,
       "dimension": 2,
-      "physical_name": "aircraft",
+      "physical_name": "main_wing",
       "physical_tag": 2,
       "entity_count": 6,
       "entities": [
@@ -308,9 +308,9 @@
         11,
         12
       ],
-      "element_count": 564,
+      "element_count": 568,
       "element_type_counts": {
-        "2": 564
+        "2": 568
       }
     }
   },
@@ -327,10 +327,10 @@
       "element_count": 0,
       "element_type_counts": {}
     },
-    "aircraft": {
+    "main_wing": {
       "exists": true,
       "dimension": 2,
-      "physical_name": "aircraft",
+      "physical_name": "main_wing",
       "physical_tag": 2,
       "entity_count": 6,
       "entities": [
@@ -360,9 +360,9 @@
         11,
         12
       ],
-      "element_count": 564,
+      "element_count": 568,
       "element_type_counts": {
-        "2": 564
+        "2": 568
       }
     }
   },
@@ -497,673 +497,673 @@
   "mesh": {
     "format": "msh",
     "mesh_dim": 3,
-    "node_count": 310,
-    "element_count": 1582,
-    "surface_element_count": 612,
-    "volume_element_count": 842,
+    "node_count": 318,
+    "element_count": 1609,
+    "surface_element_count": 616,
+    "volume_element_count": 865,
     "element_type_counts": {
       "1": 112,
-      "2": 612,
-      "4": 842,
+      "2": 616,
+      "4": 865,
       "15": 16
     },
     "surface_element_type_counts": {
-      "2": 612
+      "2": 616
     },
     "volume_element_type_counts": {
-      "4": 842
+      "4": 865
     }
   },
   "quality_metrics": {
-    "tetrahedron_count": 842,
+    "tetrahedron_count": 865,
     "ill_shaped_tet_count": 0,
     "non_positive_min_sicn_count": 0,
     "non_positive_min_sige_count": 0,
     "non_positive_volume_count": 0,
-    "min_gamma": 0.027220832737788133,
-    "min_sicn": 0.027305780095795536,
-    "min_sige": 0.03839532017067875,
-    "min_volume": 0.00047307093889863725,
+    "min_gamma": 0.12929015339521296,
+    "min_sicn": 0.11287661530718439,
+    "min_sige": 0.23535106878996015,
+    "min_volume": 0.000699638957511417,
     "gamma_percentiles": {
-      "p01": 0.1432768377890889,
-      "p05": 0.1630222448302219,
-      "p50": 0.5794722151681772
+      "p01": 0.14487403038720742,
+      "p05": 0.16686992796115624,
+      "p50": 0.5633431019704539
     },
     "min_sicn_percentiles": {
-      "p01": 0.1288168762527801,
-      "p05": 0.2425338768395397,
-      "p50": 0.548090900712529
+      "p01": 0.13137656255885646,
+      "p05": 0.2564303342912505,
+      "p50": 0.5310244318890978
     },
     "min_sige_percentiles": {
-      "p01": 0.2937745417359559,
-      "p05": 0.3589440109120803,
-      "p50": 0.7701207450449812
+      "p01": 0.2942541231151222,
+      "p05": 0.36519008412869974,
+      "p50": 0.7622447446209346
     },
     "volume_percentiles": {
-      "p01": 0.0020234796502184805,
-      "p05": 0.0041666875,
-      "p50": 0.02004071183252981
+      "p01": 0.002341361372502587,
+      "p05": 0.004184242387276505,
+      "p50": 0.019659797543896768
     },
     "worst_20_tets": [
       {
-        "element_id": 1185,
+        "element_id": 667,
         "barycenter": [
-          -1.6648339068481737,
-          2.5030602123788586,
-          0.0
+          -0.32114193552740733,
+          -0.17325499183165072,
+          0.06250025000000001
         ],
-        "min_sicn": 0.027305780095795536,
-        "min_sige": 0.03839532017067875,
-        "gamma": 0.027220832737788133,
-        "volume": 0.00047307093889863725,
+        "min_sicn": 0.11287661530718439,
+        "min_sige": 0.6101450582658688,
+        "gamma": 0.1386035960128887,
+        "volume": 0.0042544619363825194,
         "physical_volume_name": "fluid",
         "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.025,
-          "closest_point": [
-            -1.6648339068481737,
-            2.5030602123788586,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          50,
-          278,
-          38,
-          115
-        ],
-        "tetra_edge_length_min": 0.25000100000000003,
-        "tetra_edge_length_max": 0.8100029412561814
-      },
-      {
-        "element_id": 1372,
-        "barycenter": [
-          -1.6681424640765008,
-          -2.124237194113309,
-          0.0
-        ],
-        "min_sicn": 0.06008717102843254,
-        "min_sige": 0.08465707952112611,
-        "gamma": 0.05560012847673724,
-        "volume": 0.0010616351789149714,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.025,
-          "closest_point": [
-            -1.6681424640765012,
-            -2.1242371941133094,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          114,
-          32,
-          214,
-          44
-        ],
-        "tetra_edge_length_min": 0.25000100000000003,
-        "tetra_edge_length_max": 0.8223043623075422
-      },
-      {
-        "element_id": 650,
-        "barycenter": [
-          -0.3128585300483639,
-          -0.187531743486829,
-          -0.06250025000000001
-        ],
-        "min_sicn": 0.11435144935352885,
-        "min_sige": 0.6147744390506127,
-        "gamma": 0.14040928806428798,
-        "volume": 0.0042026583200902405,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
+          "surface_tag": 6,
+          "physical_name": "main_wing",
           "distance": 0.037500250000000006,
           "closest_point": [
-            -0.3128585300483639,
-            -0.187531743486829,
-            -0.025
+            -0.3211419355274073,
+            -0.17325499183165072,
+            0.025
           ]
         },
         "corner_node_tags": [
+          129,
           17,
-          274,
-          265,
+          128,
           19
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.9502572272645704
+        "tetra_edge_length_max": 0.9704425020710693
       },
       {
-        "element_id": 1281,
+        "element_id": 654,
         "barycenter": [
-          -0.3164360001067011,
-          0.8797687082141876,
-          -0.06250025000000001
+          -0.15954186201528425,
+          0.012218912695680872,
+          0.025000125000000005
         ],
-        "min_sicn": 0.11666319888428801,
-        "min_sige": 0.6243596699167294,
-        "gamma": 0.14457443381777238,
-        "volume": 0.004199129656557185,
+        "min_sicn": 0.1147556402872766,
+        "min_sige": 0.5729823826203021,
+        "gamma": 0.13608748632435214,
+        "volume": 0.0035453747114507616,
         "physical_volume_name": "fluid",
         "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.037500250000000006,
+          "surface_tag": 6,
+          "physical_name": "main_wing",
+          "distance": 1.2500000000359446e-07,
           "closest_point": [
-            -0.3164360001067011,
-            0.8797687082141876,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          229,
-          4,
-          274,
-          3
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.9078896582841879
-      },
-      {
-        "element_id": 647,
-        "barycenter": [
-          -0.15728359648310158,
-          0.00738048434523475,
-          -0.037500125
-        ],
-        "min_sicn": 0.11843121162161147,
-        "min_sige": 0.5845162344613092,
-        "gamma": 0.14119872631148858,
-        "volume": 0.0034951910329578135,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.012500125,
-          "closest_point": [
-            -0.15728359648310158,
-            0.00738048434523475,
-            -0.025
+            -0.15954186201528425,
+            0.012218912695680872,
+            0.025
           ]
         },
         "corner_node_tags": [
           17,
-          274,
+          128,
           19,
           18
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.9502572272645704
+        "tetra_edge_length_max": 0.9704425020710693
       },
       {
-        "element_id": 1279,
+        "element_id": 1475,
         "barycenter": [
-          -0.15728359648310158,
-          0.6740471510119014,
-          -0.025000125000000005
-        ],
-        "min_sicn": 0.11954763613314019,
-        "min_sige": 0.5952333982858056,
-        "gamma": 0.1462754471625813,
-        "volume": 0.003495191032957812,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 1.2500000000359446e-07,
-          "closest_point": [
-            -0.15728359648310158,
-            0.6740471510119015,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          20,
-          274,
-          4,
-          3
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.9078896582841879
-      },
-      {
-        "element_id": 1286,
-        "barycenter": [
-          -0.30877311525076684,
-          -0.9231439287692504,
+          -0.3239070038213291,
+          -0.9011246575261773,
           -0.06250025000000001
         ],
-        "min_sicn": 0.12025116477518429,
-        "min_sige": 0.6330106365973461,
-        "gamma": 0.14901332743803766,
-        "volume": 0.004104511704836153,
+        "min_sicn": 0.11708718681502989,
+        "min_sige": 0.6291231745340706,
+        "gamma": 0.14593852765960758,
+        "volume": 0.004255258927863872,
         "physical_volume_name": "fluid",
         "nearest_surface": {
           "surface_tag": 5,
-          "physical_name": "aircraft",
+          "physical_name": "main_wing",
           "distance": 0.037500250000000006,
           "closest_point": [
-            -0.3087731152507668,
-            -0.9231439287692504,
+            -0.3239070038213291,
+            -0.9011246575261773,
             -0.025
           ]
         },
         "corner_node_tags": [
-          265,
+          256,
+          230,
           2,
-          266,
           1
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8463589950090449
+        "tetra_edge_length_max": 0.8888937288200548
       },
       {
         "element_id": 695,
         "barycenter": [
-          -0.1555749335652623,
-          -0.6949122278320636,
+          -0.3171511706871756,
+          0.8887057803519589,
+          0.06250025000000001
+        ],
+        "min_sicn": 0.1172957707854479,
+        "min_sige": 0.625107979626535,
+        "gamma": 0.1453580318845827,
+        "volume": 0.004163626526362202,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "main_wing",
+          "distance": 0.037500250000000006,
+          "closest_point": [
+            -0.3171511706871756,
+            0.8887057803519589,
+            0.025
+          ]
+        },
+        "corner_node_tags": [
+          163,
+          3,
+          4,
+          128
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.9007905311847082
+      },
+      {
+        "element_id": 684,
+        "barycenter": [
+          -0.15954186201528425,
+          0.6788855793623475,
+          0.037500125
+        ],
+        "min_sicn": 0.12183680605238774,
+        "min_sige": 0.6065728521322499,
+        "gamma": 0.14945294801121783,
+        "volume": 0.0035453747114507603,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "main_wing",
+          "distance": 0.012500125,
+          "closest_point": [
+            -0.15954186201528425,
+            0.6788855793623476,
+            0.025
+          ]
+        },
+        "corner_node_tags": [
+          4,
+          20,
+          128,
+          3
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.9007905311847082
+      },
+      {
+        "element_id": 1477,
+        "barycenter": [
+          -0.16160007351212308,
+          -0.6854739045273315,
           -0.037500125
         ],
-        "min_sicn": 0.1260816996505931,
-        "min_sige": 0.6207059058389544,
-        "gamma": 0.15717897815370885,
-        "volume": 0.0034572207458947184,
+        "min_sicn": 0.12247002000624457,
+        "min_sige": 0.6128013969867597,
+        "gamma": 0.1512371548410499,
+        "volume": 0.0035911127447138466,
         "physical_volume_name": "fluid",
         "nearest_surface": {
           "surface_tag": 5,
-          "physical_name": "aircraft",
+          "physical_name": "main_wing",
           "distance": 0.012500125,
           "closest_point": [
-            -0.1555749335652623,
-            -0.6949122278320636,
+            -0.16160007351212308,
+            -0.6854739045273315,
             -0.025
           ]
         },
         "corner_node_tags": [
           17,
           2,
-          265,
+          230,
           1
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8463589950090449
+        "tetra_edge_length_max": 0.8888937288200548
       },
       {
-        "element_id": 646,
+        "element_id": 655,
         "barycenter": [
-          -0.15728359648310158,
-          0.17404715101190144,
-          -0.025000125000000005
+          -0.15954186201528425,
+          0.17888557936234756,
+          0.037500125
         ],
-        "min_sicn": 0.12787347787348027,
-        "min_sige": 0.595524200469722,
-        "gamma": 0.14256757224649494,
-        "volume": 0.0034951910329578135,
+        "min_sicn": 0.12657819881516816,
+        "min_sige": 0.5922267146200949,
+        "gamma": 0.13933993917476872,
+        "volume": 0.0035453747114507616,
         "physical_volume_name": "fluid",
         "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 1.2500000000359446e-07,
-          "closest_point": [
-            -0.15728359648310158,
-            0.1740471510119015,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          20,
-          19,
-          274,
-          18
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.9502572272645704
-      },
-      {
-        "element_id": 1277,
-        "barycenter": [
-          -0.15728359648310158,
-          0.5073804843452348,
-          -0.037500125
-        ],
-        "min_sicn": 0.1301744495303091,
-        "min_sige": 0.6135607953941941,
-        "gamma": 0.1494137378350808,
-        "volume": 0.003495191032957812,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
+          "surface_tag": 6,
+          "physical_name": "main_wing",
           "distance": 0.012500125,
           "closest_point": [
-            -0.15728359648310158,
-            0.5073804843452348,
-            -0.025
+            -0.15954186201528425,
+            0.1788855793623476,
+            0.025
           ]
         },
         "corner_node_tags": [
-          3,
           20,
-          274,
+          19,
+          128,
           18
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.9009792348436114
+        "tetra_edge_length_max": 0.9639806013743002
       },
       {
-        "element_id": 1289,
+        "element_id": 682,
         "barycenter": [
-          1.2327718914561068,
-          -1.110781657915812,
-          -0.06250025000000001
+          -0.15954186201528425,
+          0.5122189126956809,
+          0.025000125000000005
         ],
-        "min_sicn": 0.13124736992937291,
-        "min_sige": 0.6170832261100789,
-        "gamma": 0.15515263653183511,
-        "volume": 0.003085910238800548,
+        "min_sicn": 0.12948955723545677,
+        "min_sige": 0.6151826023746806,
+        "gamma": 0.15041340543394843,
+        "volume": 0.00354537471145076,
         "physical_volume_name": "fluid",
         "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.037500250000000006,
+          "surface_tag": 6,
+          "physical_name": "main_wing",
+          "distance": 1.2500000000359446e-07,
           "closest_point": [
-            1.2327718914561068,
-            -1.110781657915812,
-            -0.025
+            -0.15954186201528425,
+            0.5122189126956809,
+            0.025
           ]
         },
         "corner_node_tags": [
-          239,
-          241,
-          6,
-          5
+          128,
+          18,
+          3,
+          20
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8000026932598916
+        "tetra_edge_length_max": 0.9007905311847082
       },
       {
-        "element_id": 1338,
+        "element_id": 690,
         "barycenter": [
-          -0.13136682096724633,
-          -1.2210572917541351,
+          -0.16160007351212308,
+          -0.5188072378606648,
+          0.037500125
+        ],
+        "min_sicn": 0.1298901607606128,
+        "min_sige": 0.6231845734901823,
+        "gamma": 0.15225920823870973,
+        "volume": 0.0035911127447138466,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "main_wing",
+          "distance": 0.012500125,
+          "closest_point": [
+            -0.16160007351212308,
+            -0.5188072378606648,
+            0.025
+          ]
+        },
+        "corner_node_tags": [
+          2,
+          17,
+          129,
+          19
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.881834457897638
+      },
+      {
+        "element_id": 859,
+        "barycenter": [
+          -0.15334942450487515,
+          -1.2039811828671643,
           -0.06250025000000001
         ],
-        "min_sicn": 0.13216767576359775,
-        "min_sige": 0.631870822441871,
-        "gamma": 0.1576418568111116,
-        "volume": 0.0034370629746930345,
+        "min_sicn": 0.1322126635703685,
+        "min_sige": 0.6304129610450323,
+        "gamma": 0.15722915605620713,
+        "volume": 0.003412783757743127,
         "physical_volume_name": "fluid",
         "nearest_surface": {
           "surface_tag": 5,
-          "physical_name": "aircraft",
+          "physical_name": "main_wing",
           "distance": 0.037500250000000006,
           "closest_point": [
-            -0.13136682096724633,
-            -1.2210572917541351,
+            -0.15334942450487515,
+            -1.2039811828671643,
             -0.025
           ]
         },
         "corner_node_tags": [
-          266,
           2,
-          271,
+          269,
+          256,
           1
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8022476601179751
+        "tetra_edge_length_max": 0.805682472536649
       },
       {
-        "element_id": 672,
+        "element_id": 923,
         "barycenter": [
-          -0.1555749335652623,
-          -0.528245561165397,
-          -0.025000125000000005
-        ],
-        "min_sicn": 0.1322553061819825,
-        "min_sige": 0.6272039765925709,
-        "gamma": 0.1577748259758468,
-        "volume": 0.0034572207458947184,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 1.2500000000359446e-07,
-          "closest_point": [
-            -0.1555749335652623,
-            -0.528245561165397,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          19,
-          2,
-          265,
-          17
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8463589950090449
-      },
-      {
-        "element_id": 1434,
-        "barycenter": [
-          0.4526597390030238,
-          -1.2175565968237332,
-          0.0
-        ],
-        "min_sicn": 0.13271385016811937,
-        "min_sige": 0.5639343495185465,
-        "gamma": 0.15270791715329943,
-        "volume": 0.0019859483953066403,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.025,
-          "closest_point": [
-            0.4526597390030238,
-            -1.2175565968237332,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          271,
-          134,
-          21,
-          22
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.7947221443904089
-      },
-      {
-        "element_id": 1298,
-        "barycenter": [
-          1.0607645657261018,
-          -1.2128328017028127,
-          -0.06250025000000001
-        ],
-        "min_sicn": 0.13367120578541553,
-        "min_sige": 0.5768538596676515,
-        "gamma": 0.14983606731183877,
-        "volume": 0.00207748804143308,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.037500250000000006,
-          "closest_point": [
-            1.0607645657261018,
-            -1.2128328017028127,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          241,
-          240,
-          6,
-          5
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.7999899487505706
-      },
-      {
-        "element_id": 1353,
-        "barycenter": [
-          1.223237028549652,
-          -0.3824711433823357,
-          0.0
-        ],
-        "min_sicn": 0.13561033297913522,
-        "min_sige": 0.6030104156903305,
-        "gamma": 0.15933839782416742,
-        "volume": 0.0028784715249345035,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.025,
-          "closest_point": [
-            1.223237028549652,
-            -0.3824711433823357,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          137,
-          239,
-          25,
-          23
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8195503760739243
-      },
-      {
-        "element_id": 1309,
-        "barycenter": [
-          1.2167190990377672,
-          1.0898288776869782,
-          -0.06250025000000001
-        ],
-        "min_sicn": 0.13566481330117783,
-        "min_sige": 0.6151326043188736,
-        "gamma": 0.15700902054573163,
-        "volume": 0.0029244724932773756,
-        "physical_volume_name": "fluid",
-        "nearest_surface": {
-          "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.037500250000000006,
-          "closest_point": [
-            1.2167190990377672,
-            1.089828877686978,
-            -0.025
-          ]
-        },
-        "corner_node_tags": [
-          267,
-          236,
-          8,
-          7
-        ],
-        "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8028969625557426
-      },
-      {
-        "element_id": 1311,
-        "barycenter": [
-          1.0446354220108498,
-          1.1872331008702584,
+          -0.1403315089652875,
+          1.1868960805975477,
           -1.734723475976807e-18
         ],
-        "min_sicn": 0.13663014262497974,
-        "min_sige": 0.5465154943790022,
-        "gamma": 0.1481550993978447,
-        "volume": 0.0017884513184315328,
+        "min_sicn": 0.13274981684097403,
+        "min_sige": 0.6054380089225819,
+        "gamma": 0.15610716529972513,
+        "volume": 0.0031201015290321867,
         "physical_volume_name": "fluid",
         "nearest_surface": {
           "surface_tag": 5,
-          "physical_name": "aircraft",
+          "physical_name": "main_wing",
           "distance": 0.025,
           "closest_point": [
-            1.0446354220108498,
-            1.1872331008702584,
+            -0.1403315089652875,
+            1.1868960805975477,
             -0.025
           ]
         },
         "corner_node_tags": [
-          8,
-          175,
           267,
+          4,
+          163,
+          3
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.8448425297293202
+      },
+      {
+        "element_id": 1034,
+        "barycenter": [
+          1.2080130023928364,
+          -1.1208448513038267,
+          0.06250025000000001
+        ],
+        "min_sicn": 0.1340685101951768,
+        "min_sige": 0.6092698929753747,
+        "gamma": 0.15561925489436107,
+        "volume": 0.0027952279605077783,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "main_wing",
+          "distance": 0.037500250000000006,
+          "closest_point": [
+            1.2080130023928364,
+            -1.1208448513038267,
+            0.025
+          ]
+        },
+        "corner_node_tags": [
+          135,
+          6,
+          5,
+          136
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.8000424020540966
+      },
+      {
+        "element_id": 687,
+        "barycenter": [
+          0.43978588408909647,
+          -1.2130614358751035,
+          -0.06250025000000001
+        ],
+        "min_sicn": 0.1347478697746534,
+        "min_sige": 0.5777423105077153,
+        "gamma": 0.15137101102705341,
+        "volume": 0.002052155639899538,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "main_wing",
+          "distance": 0.037500250000000006,
+          "closest_point": [
+            0.43978588408909647,
+            -1.2130614358751035,
+            -0.025
+          ]
+        },
+        "corner_node_tags": [
+          22,
+          235,
+          269,
+          21
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.7892837890096046
+      },
+      {
+        "element_id": 1481,
+        "barycenter": [
+          1.0334801189149858,
+          -1.2184828884331602,
+          0.06250025000000001
+        ],
+        "min_sicn": 0.13547388853611342,
+        "min_sige": 0.5877563187342506,
+        "gamma": 0.15255790059449495,
+        "volume": 0.002274242226103674,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 3,
+          "physical_name": "main_wing",
+          "distance": 0.03348011891498581,
+          "closest_point": [
+            1.0,
+            -1.2184828884331602,
+            0.06250025000000001
+          ]
+        },
+        "corner_node_tags": [
+          136,
+          5,
+          134,
+          6
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.7999965210108635
+      },
+      {
+        "element_id": 1074,
+        "barycenter": [
+          1.2211351465795013,
+          1.0791691585772991,
+          -0.06250025000000001
+        ],
+        "min_sicn": 0.13598014087338223,
+        "min_sige": 0.6163878169908951,
+        "gamma": 0.1575946275897216,
+        "volume": 0.0029353606741370055,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "main_wing",
+          "distance": 0.037500250000000006,
+          "closest_point": [
+            1.2211351465795013,
+            1.0791691585772991,
+            -0.025
+          ]
+        },
+        "corner_node_tags": [
+          247,
+          8,
+          249,
           7
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8271679377858973
+        "tetra_edge_length_max": 0.7998566491661314
       },
       {
-        "element_id": 1429,
+        "element_id": 1471,
         "barycenter": [
-          0.45348017757629167,
-          1.1862442809775164,
+          0.45564519293368266,
+          1.185720883725288,
           0.0
         ],
-        "min_sicn": 0.13681303655816224,
-        "min_sige": 0.546249490885876,
-        "gamma": 0.1482199640808563,
-        "volume": 0.0017834354682044495,
+        "min_sicn": 0.13666422118408883,
+        "min_sige": 0.5453804729681511,
+        "gamma": 0.14717325234635067,
+        "volume": 0.001817411910412107,
         "physical_volume_name": "fluid",
         "nearest_surface": {
           "surface_tag": 5,
-          "physical_name": "aircraft",
+          "physical_name": "main_wing",
           "distance": 0.025,
           "closest_point": [
-            0.45348017757629167,
-            1.1862442809775162,
+            0.45564519293368266,
+            1.185720883725288,
             -0.025
           ]
         },
         "corner_node_tags": [
-          166,
-          233,
+          267,
+          175,
           28,
           27
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.8264768239734998
+        "tetra_edge_length_max": 0.8345910084214601
       },
       {
-        "element_id": 1293,
+        "element_id": 1084,
         "barycenter": [
-          -0.14686262574036069,
-          1.179346815640918,
-          -0.06250025000000001
+          1.0501074777164912,
+          1.1815381225041905,
+          1.734723475976807e-18
         ],
-        "min_sicn": 0.13747281743398895,
-        "min_sige": 0.6218327621908504,
-        "gamma": 0.15932069161310428,
-        "volume": 0.003041036402590292,
+        "min_sicn": 0.13696380057025492,
+        "min_sige": 0.5416002965806157,
+        "gamma": 0.14638112166925854,
+        "volume": 0.0017722795102640943,
         "physical_volume_name": "fluid",
         "nearest_surface": {
           "surface_tag": 5,
-          "physical_name": "aircraft",
-          "distance": 0.037500250000000006,
+          "physical_name": "main_wing",
+          "distance": 0.025,
           "closest_point": [
-            -0.14686262574036069,
-            1.1793468156409181,
+            1.0501074777164912,
+            1.1815381225041905,
             -0.025
           ]
         },
         "corner_node_tags": [
-          231,
-          4,
-          229,
-          3
+          175,
+          7,
+          249,
+          8
         ],
         "tetra_edge_length_min": 0.05,
-        "tetra_edge_length_max": 0.796405512469983
+        "tetra_edge_length_max": 0.8341367776749221
+      },
+      {
+        "element_id": 894,
+        "barycenter": [
+          1.2133976095289283,
+          -0.3874999288046864,
+          0.06250025000000001
+        ],
+        "min_sicn": 0.139039732456044,
+        "min_sige": 0.6133808360615306,
+        "gamma": 0.15820610381537167,
+        "volume": 0.0028552366536180847,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 6,
+          "physical_name": "main_wing",
+          "distance": 0.037500250000000006,
+          "closest_point": [
+            1.2133976095289283,
+            -0.3874999288046864,
+            0.025
+          ]
+        },
+        "corner_node_tags": [
+          135,
+          23,
+          25,
+          137
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.8001489198660066
+      },
+      {
+        "element_id": 902,
+        "barycenter": [
+          1.2174314098564007,
+          0.3458690802632254,
+          -0.06250025000000001
+        ],
+        "min_sicn": 0.13978099158085974,
+        "min_sige": 0.6148035492586214,
+        "gamma": 0.15865677793837943,
+        "volume": 0.002898186725176816,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "main_wing",
+          "distance": 0.037500250000000006,
+          "closest_point": [
+            1.2174314098564007,
+            0.3458690802632254,
+            -0.025
+          ]
+        },
+        "corner_node_tags": [
+          26,
+          24,
+          247,
+          238
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.8000837931297614
+      },
+      {
+        "element_id": 688,
+        "barycenter": [
+          0.25895750580433086,
+          -1.1549970965349852,
+          -0.025000125000000005
+        ],
+        "min_sicn": 0.13980261804676228,
+        "min_sige": 0.6044915482407762,
+        "gamma": 0.16626225706048145,
+        "volume": 0.002583284942249753,
+        "physical_volume_name": "fluid",
+        "nearest_surface": {
+          "surface_tag": 5,
+          "physical_name": "main_wing",
+          "distance": 1.2500000000359446e-07,
+          "closest_point": [
+            0.25895750580433086,
+            -1.1549970965349852,
+            -0.025
+          ]
+        },
+        "corner_node_tags": [
+          2,
+          21,
+          22,
+          269
+        ],
+        "tetra_edge_length_min": 0.05,
+        "tetra_edge_length_max": 0.788884982931662
       }
     ]
   },
@@ -1178,7 +1178,9 @@
   "hotspot_patch_report": {
     "artifact": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/hotspot_patch_report.json",
     "selected_surface_tags": [
-      5
+      6,
+      5,
+      3
     ],
     "requested_surface_tags": []
   },

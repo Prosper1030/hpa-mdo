@@ -35,8 +35,8 @@ It is intentionally narrow:
 
 A pass means `main_wing -> thin_sheet_lifting_surface ->
 gmsh_thin_sheet_surface` can produce a real package-native `mesh_handoff.v1`
-on a synthetic non-BL fixture with positive volume elements and generic
-`aircraft` / `farfield` markers.
+on a synthetic non-BL fixture with positive volume elements and component-owned
+`main_wing` / `farfield` markers.
 
 It does **not** mean the main-wing route is productized. It is not real
 aerodynamic wing geometry, not a BL promotion, not a solver handoff, and not a

@@ -38,5 +38,5 @@ This is a pre-mesh dispatch smoke matrix. It does not execute Gmsh, BL runtime, 
 ## Next Actions
 
 - `promote fairing_solid only after a committed su2_handoff.v1 artifact and convergence gate`
-- `add main_wing component-specific force markers before solver claims`
+- `replace synthetic main_wing fixture with real ESP/VSP geometry before solver claims`
 - `keep BL prelaunch excluded until handoff topology ownership passes`

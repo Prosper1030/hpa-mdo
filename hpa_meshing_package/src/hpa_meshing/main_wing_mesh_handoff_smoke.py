@@ -15,12 +15,14 @@ from .schema import FarfieldConfig, MeshJobConfig
 SmokeStatusType = Literal["mesh_handoff_pass", "mesh_handoff_fail", "unavailable"]
 MeshHandoffStatusType = Literal["written", "missing", "unavailable"]
 MarkerSummaryStatusType = Literal[
+    "component_wall_and_farfield_present",
     "generic_wall_and_farfield_present",
     "missing_required_markers",
     "unavailable",
 ]
 WallMarkerStatusType = Literal[
     "generic_aircraft_wall_present",
+    "main_wing_marker_present",
     "missing",
     "unavailable",
 ]
@@ -98,8 +100,16 @@ def _write_thin_wing_step_fixture(out_dir: Path) -> Path:
 
 
 def _marker_summary_status(marker_summary: Dict[str, object]) -> MarkerSummaryStatusType:
+    main_wing = marker_summary.get("main_wing")
     aircraft = marker_summary.get("aircraft")
     farfield = marker_summary.get("farfield")
+    if (
+        isinstance(main_wing, dict)
+        and main_wing.get("exists") is True
+        and isinstance(farfield, dict)
+        and farfield.get("exists") is True
+    ):
+        return "component_wall_and_farfield_present"
     if (
         isinstance(aircraft, dict)
         and aircraft.get("exists") is True
@@ -111,6 +121,9 @@ def _marker_summary_status(marker_summary: Dict[str, object]) -> MarkerSummarySt
 
 
 def _wall_marker_status(marker_summary: Dict[str, object]) -> WallMarkerStatusType:
+    main_wing = marker_summary.get("main_wing")
+    if isinstance(main_wing, dict) and main_wing.get("exists") is True:
+        return "main_wing_marker_present"
     aircraft = marker_summary.get("aircraft")
     if isinstance(aircraft, dict) and aircraft.get("exists") is True:
         return "generic_aircraft_wall_present"
@@ -180,7 +193,7 @@ def build_main_wing_mesh_handoff_smoke_report(
     pass_status = (
         result.get("status") == "success"
         and mesh_contract == "mesh_handoff.v1"
-        and marker_status == "generic_wall_and_farfield_present"
+        and marker_status == "component_wall_and_farfield_present"
         and isinstance(volume_element_count, int)
         and volume_element_count > 0
     )
@@ -215,7 +228,8 @@ def build_main_wing_mesh_handoff_smoke_report(
             "gmsh_thin_sheet_surface_dispatched",
             "mesh_handoff_v1_written",
             "non_bl_runtime_confirmed",
-            "generic_wall_and_farfield_markers_present",
+            "main_wing_wall_and_farfield_markers_present",
+            "main_wing_specific_force_marker_present",
         ]
         if pass_status
         else [

@@ -25,10 +25,11 @@ def test_main_wing_mesh_handoff_smoke_writes_real_non_bl_handoff(tmp_path: Path)
     assert report.smoke_status == "mesh_handoff_pass"
     assert report.mesh_handoff_status == "written"
     assert report.mesh_contract == "mesh_handoff.v1"
-    assert report.marker_summary_status == "generic_wall_and_farfield_present"
-    assert report.wall_marker_status == "generic_aircraft_wall_present"
+    assert report.marker_summary_status == "component_wall_and_farfield_present"
+    assert report.wall_marker_status == "main_wing_marker_present"
     assert report.su2_promotion_status == "blocked_before_su2_handoff"
     assert report.volume_element_count > 0
+    assert "main_wing_specific_force_marker_present" in report.hpa_mdo_guarantees
 
 
 def test_main_wing_mesh_handoff_smoke_writer_outputs_json_and_markdown(tmp_path: Path):

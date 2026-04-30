@@ -83,6 +83,11 @@ LAST_MESHING_SURFACE_PATTERN = re.compile(
 def _wall_marker_name_for_recipe(recipe: MeshRecipe) -> str:
     if recipe.component == "fairing_solid" and recipe.geometry_family == "closed_solid":
         return "fairing_solid"
+    if (
+        recipe.component in {"main_wing", "tail_wing", "horizontal_tail", "vertical_tail"}
+        and recipe.geometry_family == "thin_sheet_lifting_surface"
+    ):
+        return recipe.component
     return "aircraft"
 LAST_MESHING_CURVE_PATTERN = re.compile(
     r"Meshing curve\s+(\d+)\b",

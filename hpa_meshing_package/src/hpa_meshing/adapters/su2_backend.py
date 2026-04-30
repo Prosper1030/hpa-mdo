@@ -51,9 +51,25 @@ def _require_marker(mesh_handoff: MeshHandoff, name: str) -> dict[str, Any]:
     return marker
 
 
+COMPONENT_WALL_MARKERS = frozenset(
+    {
+        "fairing_solid",
+        "main_wing",
+        "tail_wing",
+        "horizontal_tail",
+        "vertical_tail",
+    }
+)
+
+
 def _resolve_wall_marker(mesh_handoff: MeshHandoff) -> tuple[str, dict[str, Any]]:
     if mesh_handoff.meshing_route == "gmsh_closed_solid_volume":
         return "fairing_solid", _require_marker(mesh_handoff, "fairing_solid")
+    if mesh_handoff.meshing_route == "gmsh_thin_sheet_surface":
+        for marker_name in ("main_wing", "tail_wing", "horizontal_tail", "vertical_tail"):
+            marker = mesh_handoff.marker_summary.get(marker_name, {})
+            if marker.get("exists", False):
+                return marker_name, marker
     return "aircraft", _require_marker(mesh_handoff, "aircraft")
 
 
@@ -313,7 +329,7 @@ def _build_force_surface_provenance(
     body_count = provider_topology.get("body_count")
 
     matches_wall_marker = bool(monitoring_markers) and set(monitoring_markers) == {wall_marker}
-    component_wall_marker = wall_marker in {"fairing_solid"}
+    component_wall_marker = wall_marker in COMPONENT_WALL_MARKERS
     matches_entire_aircraft_wall = (
         matches_wall_marker
         and len(monitoring_markers) == 1

@@ -8,10 +8,10 @@ It does not run SU2, BL runtime, or production defaults.
 - smoke_status: `mesh_handoff_pass`
 - mesh_handoff_status: `written`
 - mesh_contract: `mesh_handoff.v1`
-- marker_summary_status: `generic_wall_and_farfield_present`
-- wall_marker_status: `generic_aircraft_wall_present`
+- marker_summary_status: `component_wall_and_farfield_present`
+- wall_marker_status: `main_wing_marker_present`
 - su2_promotion_status: `blocked_before_su2_handoff`
-- volume_element_count: `842`
+- volume_element_count: `865`
 
 ## Blocking Reasons
 

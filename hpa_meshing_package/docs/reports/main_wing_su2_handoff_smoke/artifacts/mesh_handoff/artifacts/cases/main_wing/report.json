@@ -107,15 +107,15 @@
       "z_min": -0.12500050000000001,
       "z_max": 0.12500050000000001
     },
-    "node_count": 310,
-    "element_count": 1585,
+    "node_count": 311,
+    "element_count": 1587,
     "surface_element_count": 612,
-    "volume_element_count": 845,
+    "volume_element_count": 847,
     "marker_summary": {
-      "aircraft": {
+      "main_wing": {
         "exists": true,
         "dimension": 2,
-        "physical_name": "aircraft",
+        "physical_name": "main_wing",
         "physical_tag": 2,
         "entity_count": 6,
         "entities": [
@@ -164,10 +164,10 @@
         "element_count": 0,
         "element_type_counts": {}
       },
-      "aircraft": {
+      "main_wing": {
         "exists": true,
         "dimension": 2,
-        "physical_name": "aircraft",
+        "physical_name": "main_wing",
         "physical_tag": 2,
         "entity_count": 6,
         "entities": [
@@ -365,10 +365,10 @@
         "classify_angle_probe": null
       },
       "marker_summary": {
-        "aircraft": {
+        "main_wing": {
           "exists": true,
           "dimension": 2,
-          "physical_name": "aircraft",
+          "physical_name": "main_wing",
           "physical_tag": 2,
           "entity_count": 6,
           "entities": [
@@ -417,10 +417,10 @@
           "element_count": 0,
           "element_type_counts": {}
         },
-        "aircraft": {
+        "main_wing": {
           "exists": true,
           "dimension": 2,
-          "physical_name": "aircraft",
+          "physical_name": "main_wing",
           "physical_tag": 2,
           "entity_count": 6,
           "entities": [
@@ -458,21 +458,21 @@
       },
       "mesh_stats": {
         "mesh_dim": 3,
-        "node_count": 310,
-        "element_count": 1585,
+        "node_count": 311,
+        "element_count": 1587,
         "surface_element_count": 612,
-        "volume_element_count": 845,
+        "volume_element_count": 847,
         "element_type_counts": {
           "1": 112,
           "2": 612,
-          "4": 845,
+          "4": 847,
           "15": 16
         },
         "surface_element_type_counts": {
           "2": 612
         },
         "volume_element_type_counts": {
-          "4": 845
+          "4": 847
         }
       },
       "mesh_handoff": {
@@ -506,28 +506,28 @@
         },
         "mesh_stats": {
           "mesh_dim": 3,
-          "node_count": 310,
-          "element_count": 1585,
+          "node_count": 311,
+          "element_count": 1587,
           "surface_element_count": 612,
-          "volume_element_count": 845,
+          "volume_element_count": 847,
           "element_type_counts": {
             "1": 112,
             "2": 612,
-            "4": 845,
+            "4": 847,
             "15": 16
           },
           "surface_element_type_counts": {
             "2": 612
           },
           "volume_element_type_counts": {
-            "4": 845
+            "4": 847
           }
         },
         "marker_summary": {
-          "aircraft": {
+          "main_wing": {
             "exists": true,
             "dimension": 2,
-            "physical_name": "aircraft",
+            "physical_name": "main_wing",
             "physical_tag": 2,
             "entity_count": 6,
             "entities": [
@@ -576,10 +576,10 @@
             "element_count": 0,
             "element_type_counts": {}
           },
-          "aircraft": {
+          "main_wing": {
             "exists": true,
             "dimension": 2,
-            "physical_name": "aircraft",
+            "physical_name": "main_wing",
             "physical_tag": 2,
             "entity_count": 6,
             "entities": [
@@ -818,9 +818,9 @@
     "checked_backend_capability": "sheet_lifting_surface_meshing",
     "notes": [
       "max_elements=None",
-      "node_count=310",
-      "element_count=1585",
-      "volume_element_count=845",
+      "node_count=311",
+      "element_count=1587",
+      "volume_element_count=847",
       "missing_markers=[]"
     ]
   },

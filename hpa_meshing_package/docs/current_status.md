@@ -68,8 +68,9 @@ PYTHONPATH=src python -m hpa_meshing.cli fairing-solid-mesh-handoff-smoke --out 
 This writes `fairing_solid_mesh_handoff_smoke.v1.json` and
 `fairing_solid_mesh_handoff_smoke.v1.md`. It runs real Gmsh for a synthetic
 closed-solid fairing fixture and emits `mesh_handoff.v1`. It still does not run
-SU2, does not emit `su2_handoff.v1`, does not emit `convergence_gate.v1`, and
-does not prove fairing-specific force-surface ownership.
+SU2, does not emit `su2_handoff.v1`, and does not emit `convergence_gate.v1`.
+It does include a component-owned `fairing_solid` marker in the mesh-handoff
+evidence.
 
 The first route-specific main-wing mesh smoke is emitted by:
 
@@ -80,8 +81,8 @@ PYTHONPATH=src python -m hpa_meshing.cli main-wing-mesh-handoff-smoke --out .tmp
 
 This writes `main_wing_mesh_handoff_smoke.v1.json` and
 `main_wing_mesh_handoff_smoke.v1.md`. It runs real Gmsh for a synthetic thin
-closed-solid wing slab and emits `mesh_handoff.v1` with generic `aircraft` /
-`farfield` markers. It still does not run BL runtime, does not run SU2, does
+closed-solid wing slab and emits `mesh_handoff.v1` with component-owned
+`main_wing` / `farfield` markers. It still does not run BL runtime, does not run SU2, does
 not emit `su2_handoff.v1`, does not emit `convergence_gate.v1`, and does not
 prove real aerodynamic main-wing geometry.
 
@@ -95,9 +96,9 @@ PYTHONPATH=src python -m hpa_meshing.cli main-wing-su2-handoff-smoke --out .tmp/
 This writes `main_wing_su2_handoff_smoke.v1.json` and
 `main_wing_su2_handoff_smoke.v1.md`. It consumes the synthetic non-BL
 main-wing `mesh_handoff.v1` and materializes `su2_handoff.v1`, `mesh.su2`, and
-`su2_runtime.cfg` without executing `SU2_CFD`. It still uses a generic
-`aircraft` wall marker, so component-specific main-wing force ownership,
-solver history, and convergence remain missing.
+`su2_runtime.cfg` without executing `SU2_CFD`. It consumes the component-owned
+`main_wing` wall marker; real main-wing geometry, solver history, and
+convergence remain missing.
 
 ## Formal v1 Capabilities
 
@@ -113,14 +114,14 @@ solver history, and convergence remain missing.
 | `convergence_gate.v1` | fixed | mesh / iterative / overall comparability verdict for the baseline route |
 | `mesh_study.v1` | formal minimal `v1` | three-tier coarse / medium / fine baseline study that aggregates per-case gates into one study verdict |
 | reference provenance gate | fixed | `geometry_derived`, `baseline_envelope_derived`, `user_declared` |
-| force-surface provenance gate | fixed | currently whole-aircraft wall only |
+| force-surface provenance gate | fixed | whole-aircraft wall plus component-owned `fairing_solid` / lifting-surface markers |
 
 ## Experimental
 
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist; component force marker, real geometry, solver history, and convergence gate are missing |
+| `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real geometry, solver history, and convergence gate are missing |
 | `tail_wing` | experimental | dispatch exists, real backend not productized |
 | `fairing_solid` | experimental | first real mesh-handoff smoke exists with a `fairing_solid` marker; SU2 handoff materialization can consume it, but solver / convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
@@ -149,7 +150,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Component-specific force marker ownership before solver claims on component-family routes
+2. Real ESP/VSP main-wing geometry smoke before solver claims on the `main_wing` route
 3. Component-family `su2_handoff.v1` materialization smoke for fairing before solver claims
 4. Component-level force mapping after the wall-marker story is stronger
 

@@ -17,12 +17,12 @@
   "mesh_artifact": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh.msh",
   "mesh_metadata_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/mesh_metadata.json",
   "marker_summary_path": "docs/reports/main_wing_mesh_handoff_smoke/artifacts/cases/main_wing/artifacts/mesh/marker_summary.json",
-  "marker_summary_status": "generic_wall_and_farfield_present",
-  "wall_marker_status": "generic_aircraft_wall_present",
+  "marker_summary_status": "component_wall_and_farfield_present",
+  "wall_marker_status": "main_wing_marker_present",
   "su2_promotion_status": "blocked_before_su2_handoff",
-  "node_count": 310,
-  "element_count": 1582,
-  "volume_element_count": 842,
+  "node_count": 318,
+  "element_count": 1609,
+  "volume_element_count": 865,
   "body_bounds": {
     "x_min": -1e-07,
     "x_max": 1.0000001,
@@ -44,7 +44,8 @@
     "gmsh_thin_sheet_surface_dispatched",
     "mesh_handoff_v1_written",
     "non_bl_runtime_confirmed",
-    "generic_wall_and_farfield_markers_present"
+    "main_wing_wall_and_farfield_markers_present",
+    "main_wing_specific_force_marker_present"
   ],
   "blocking_reasons": [
     "main_wing_su2_handoff_not_run",

@@ -160,6 +160,36 @@ def _build_fairing_solid_mesh_handoff(tmp_path: Path) -> MeshHandoff:
     return MeshHandoff.model_validate(result["run"]["backend_result"]["mesh_handoff"])
 
 
+def _build_main_wing_mesh_handoff(tmp_path: Path) -> MeshHandoff:
+    geometry = _write_occ_box_step(tmp_path, "main_wing_slab.step")
+    config = MeshJobConfig(
+        component="main_wing",
+        geometry=geometry,
+        out_dir=tmp_path / "main_wing_out",
+        geometry_source="direct_cad",
+        geometry_family="thin_sheet_lifting_surface",
+        meshing_route="gmsh_thin_sheet_surface",
+        mesh_dim=3,
+        global_min_size=0.8,
+        global_max_size=2.0,
+        metadata={
+            "reference_geometry": {
+                "ref_area": 0.2,
+                "ref_length": 1.0,
+                "ref_origin_moment": {"x": 0.5, "y": 0.1, "z": 0.05},
+                "area_method": "synthetic_main_wing_slab.area",
+                "length_method": "synthetic_main_wing_slab.chord",
+                "moment_method": "synthetic_main_wing_slab.centroid",
+                "warnings": [],
+            },
+        },
+    )
+    result = run_job(config)
+    assert result["status"] == "success"
+    assert result["mesh"]["marker_summary"]["main_wing"]["exists"] is True
+    return MeshHandoff.model_validate(result["run"]["backend_result"]["mesh_handoff"])
+
+
 def test_materialize_baseline_case_writes_su2_handoff_and_runtime_cfg(tmp_path: Path):
     mesh_handoff = _build_mesh_handoff(tmp_path)
     runtime = SU2RuntimeConfig(enabled=True, max_iterations=12)
@@ -252,6 +282,56 @@ def test_materialize_baseline_case_consumes_fairing_solid_marker_without_running
     payload = json.loads(case.case_output_paths.contract_path.read_text(encoding="utf-8"))
     assert payload["run_status"] == "not_started"
     assert payload["mesh_markers"]["wall"] == "fairing_solid"
+    assert payload["force_surface_provenance"]["scope"] == "component_subset"
+
+
+def test_materialize_baseline_case_consumes_main_wing_marker_without_running_su2(tmp_path: Path):
+    mesh_handoff = _build_main_wing_mesh_handoff(tmp_path)
+    runtime = SU2RuntimeConfig(
+        enabled=True,
+        max_iterations=12,
+        reference_mode="user_declared",
+        reference_override={
+            "ref_area": 0.2,
+            "ref_length": 1.0,
+            "ref_origin_moment": {"x": 0.5, "y": 0.1, "z": 0.05},
+            "source_label": "synthetic_main_wing_slab_reference",
+        },
+    )
+
+    case = materialize_baseline_case(
+        mesh_handoff,
+        runtime,
+        tmp_path / "main_wing_su2_case",
+        source_root=Path.cwd(),
+    )
+
+    assert case.contract == "su2_handoff.v1"
+    assert case.run_status == "not_started"
+    assert case.mesh_markers["wall"] == "main_wing"
+    assert case.mesh_markers["monitoring"] == ["main_wing"]
+    assert case.mesh_markers["plotting"] == ["main_wing"]
+    assert case.mesh_markers["euler"] == ["main_wing"]
+    assert case.case_output_paths.su2_mesh.exists()
+    assert case.case_output_paths.history.exists() is False
+    assert case.reference_geometry.gate_status == "pass"
+    assert case.force_surface_provenance.scope == "component_subset"
+    assert case.force_surface_provenance.matches_wall_marker is True
+    assert case.force_surface_provenance.matches_entire_aircraft_wall is False
+    assert case.force_surface_provenance.component_provenance == "component_groups_mapped"
+    assert case.force_surface_provenance.primary_group is not None
+    assert case.force_surface_provenance.primary_group.marker_name == "main_wing"
+    assert case.provenance_gates.overall_status == "pass"
+
+    runtime_cfg = case.runtime_cfg_path.read_text(encoding="utf-8")
+    assert "MARKER_EULER= ( main_wing )" in runtime_cfg
+    assert "MARKER_MONITORING= ( main_wing )" in runtime_cfg
+    assert "MARKER_PLOTTING= ( main_wing )" in runtime_cfg
+    assert "MARKER_EULER= ( aircraft )" not in runtime_cfg
+
+    payload = json.loads(case.case_output_paths.contract_path.read_text(encoding="utf-8"))
+    assert payload["run_status"] == "not_started"
+    assert payload["mesh_markers"]["wall"] == "main_wing"
     assert payload["force_surface_provenance"]["scope"] == "component_subset"
 
 

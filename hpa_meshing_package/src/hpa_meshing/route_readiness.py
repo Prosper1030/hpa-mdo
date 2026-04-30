@@ -27,6 +27,7 @@ SU2ReadinessStatusType = Literal[
     "blocked_until_route_smoke",
     "blocked_until_su2_handoff",
     "handoff_materialized_solver_not_run",
+    "handoff_materialized_force_marker_owned_solver_not_run",
 ]
 BLContractPolicyType = Literal[
     "not_required_for_baseline",
@@ -150,18 +151,18 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             provider_strategy="esp_rebuilt_experimental_or_direct_cad",
             productization_status="experimental",
             route_role="experimental_and_diagnostic",
-            su2_status="handoff_materialized_solver_not_run",
+            su2_status="handoff_materialized_force_marker_owned_solver_not_run",
             bl_contract_policy="promotion_only_when_hpa_mdo_owns_handoff_topology",
             gmsh_boundary_recovery_policy="not_allowed_as_owned_boundary_handoff",
             blocking_reasons=[
                 "shell_v4_root_last3_is_not_product_route",
                 "explicit_bl_to_core_handoff_topology_not_owned",
-                "main_wing_component_specific_force_marker_missing",
+                "main_wing_real_geometry_smoke_missing",
                 "main_wing_solver_not_run",
                 "convergence_gate_not_run",
             ],
             next_actions=[
-                "add_main_wing_component_specific_force_marker_handoff",
+                "replace_synthetic_main_wing_fixture_with_real_esp_or_vsp_geometry_smoke",
                 "run_solver_only_after_force_marker_and_real_geometry_evidence",
                 "keep_bl_transition_contract_as_promotion_gate_not_default_runtime",
             ],
@@ -170,6 +171,7 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
                 "shell_v4 is a BL diagnostic and solver-entry exploration branch.",
                 "main_wing_mesh_handoff_smoke_available_non_bl_synthetic",
                 "main_wing_su2_handoff_materialization_smoke_available",
+                "main_wing_component_specific_force_marker_available",
             ],
         ),
         _row(

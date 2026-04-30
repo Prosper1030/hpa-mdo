@@ -1,8 +1,8 @@
 {
-  "aircraft": {
+  "main_wing": {
     "exists": true,
     "dimension": 2,
-    "physical_name": "aircraft",
+    "physical_name": "main_wing",
     "physical_tag": 2,
     "entity_count": 6,
     "entities": [
