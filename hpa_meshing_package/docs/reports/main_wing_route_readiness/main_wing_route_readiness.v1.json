@@ -312,6 +312,41 @@
             "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/vol_solution.vtk"
           ]
         },
+        "force_breakdown_observed": {
+          "status": "available",
+          "path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/forces_breakdown.dat",
+          "surface_names": [
+            "main_wing"
+          ],
+          "total_coefficients": {
+            "cl": 0.263162,
+            "cd": 0.024969,
+            "csf": -0.001195,
+            "cl_over_cd": 10.539497,
+            "cmx": 0.108619,
+            "cmy": -0.20968,
+            "cmz": -0.024814,
+            "cfx": 0.024969,
+            "cfy": -0.001195,
+            "cfz": 0.263162
+          },
+          "surface_coefficients": {
+            "main_wing": {
+              "cl": 0.263162,
+              "cd": 0.024969,
+              "csf": -0.001195,
+              "cl_over_cd": 10.539497,
+              "cmx": 0.108619,
+              "cmy": -0.20968,
+              "cmz": -0.024814,
+              "cfx": 0.024969,
+              "cfy": -0.001195,
+              "cfz": 0.263162
+            }
+          },
+          "history_cl_delta_abs": 8.699999998196262e-08,
+          "panel_to_force_breakdown_cl_ratio": 4.892976554149155
+        },
         "panel_reference_observed": {
           "status": "available",
           "panel_reference_cl": 1.287645495943,
@@ -323,7 +358,8 @@
         "engineering_flags": [
           "solver_executed_but_not_converged",
           "main_wing_lift_acceptance_failed_cl_below_one",
-          "hpa_standard_flow_conditions_6p5_mps_observed"
+          "hpa_standard_flow_conditions_6p5_mps_observed",
+          "forces_breakdown_cl_below_panel_reference"
         ]
       },
       "blockers": []
@@ -646,7 +682,7 @@
     "panel_to_su2_cl_ratio_above_four"
   ],
   "next_actions": [
-    "resolve_main_wing_cl_below_expected_lift_before_convergence_claims",
+    "debug_panel_su2_lift_gap_from_retained_force_breakdown",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

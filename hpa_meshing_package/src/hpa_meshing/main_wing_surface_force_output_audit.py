@@ -28,6 +28,7 @@ class MainWingSurfaceForceOutputAuditReport(BaseModel):
     solver_execution_observed: Dict[str, Any] = Field(default_factory=dict)
     expected_outputs_from_log: Dict[str, str | None] = Field(default_factory=dict)
     artifact_retention_observed: Dict[str, Any] = Field(default_factory=dict)
+    force_breakdown_observed: Dict[str, Any] = Field(default_factory=dict)
     panel_reference_observed: Dict[str, Any] = Field(default_factory=dict)
     checks: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     engineering_flags: List[str] = Field(default_factory=list)
@@ -173,6 +174,56 @@ def _pruned_outputs_matching(
     ]
 
 
+def _coefficient_key(label: str) -> str:
+    return label.lower().replace("/", "_over_")
+
+
+def _parse_force_value(line: str) -> tuple[str, float] | None:
+    match = re.search(
+        r"Total\s+(CL/CD|CL|CD|CSF|CMx|CMy|CMz|CFx|CFy|CFz)"
+        r"(?:\s*\([^)]*\))?\s*:\s*([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)",
+        line,
+    )
+    if match is None:
+        return None
+    return _coefficient_key(match.group(1)), float(match.group(2))
+
+
+def _parse_forces_breakdown(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return {"status": "unavailable"}
+
+    total_coefficients: dict[str, float] = {}
+    surface_coefficients: dict[str, dict[str, float]] = {}
+    current_surface: str | None = None
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        surface_match = re.match(r"\s*Surface name:\s*(.+?)\s*$", line)
+        if surface_match is not None:
+            current_surface = surface_match.group(1).strip()
+            surface_coefficients.setdefault(current_surface, {})
+            continue
+        parsed = _parse_force_value(line)
+        if parsed is None:
+            continue
+        key, value = parsed
+        if current_surface is None:
+            total_coefficients[key] = value
+        else:
+            surface_coefficients.setdefault(current_surface, {})[key] = value
+
+    return {
+        "status": "available" if total_coefficients or surface_coefficients else "unparsed",
+        "path": str(path.resolve()),
+        "surface_names": list(surface_coefficients.keys()),
+        "total_coefficients": total_coefficients,
+        "surface_coefficients": surface_coefficients,
+    }
+
+
+def _numeric(value: Any) -> float | None:
+    return float(value) if isinstance(value, (int, float)) else None
+
+
 def _panel_reference_observed(panel: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(panel, dict):
         return {"status": "unavailable"}
@@ -302,6 +353,8 @@ def build_main_wing_surface_force_output_audit_report(
         solver_report,
         expected_outputs["forces_breakdown"],
     )
+    force_breakdown_path = Path(force_outputs[0]) if force_outputs else None
+    force_breakdown_observed = _parse_forces_breakdown(force_breakdown_path)
 
     solver_execution_observed = {
         "solver_execution_status": (
@@ -338,6 +391,18 @@ def build_main_wing_surface_force_output_audit_report(
         ),
     }
     panel_observed = _panel_reference_observed(panel_report)
+    solver_cl = _numeric(solver_execution_observed["final_coefficients"].get("cl"))
+    force_cl = _numeric(
+        force_breakdown_observed.get("total_coefficients", {}).get("cl")
+        if isinstance(force_breakdown_observed.get("total_coefficients"), dict)
+        else None
+    )
+    panel_cl = _numeric(panel_observed.get("panel_reference_cl"))
+    if solver_cl is not None and force_cl is not None:
+        force_breakdown_observed["history_cl_delta_abs"] = abs(force_cl - solver_cl)
+    if panel_cl is not None and force_cl is not None and force_cl != 0.0:
+        force_breakdown_observed["panel_to_force_breakdown_cl_ratio"] = panel_cl / force_cl
+
     raw_files = sorted(str(path.resolve()) for path in raw_dir.glob("*") if path.is_file())
     artifact_retention_observed = {
         "raw_solver_dir": str(raw_dir),
@@ -405,6 +470,27 @@ def build_main_wing_surface_force_output_audit_report(
             "forces_breakdown_retained": True,
         },
     )
+    surface_names = force_breakdown_observed.get("surface_names", [])
+    marker_owned = surface_names == ["main_wing"]
+    checks["forces_breakdown_marker_owned"] = _check(
+        "pass" if marker_owned else "blocked" if force_outputs else "unavailable",
+        {
+            "surface_names": surface_names,
+            "force_breakdown_path": force_breakdown_observed.get("path"),
+        },
+        {"surface_names": ["main_wing"]},
+    )
+    history_delta = force_breakdown_observed.get("history_cl_delta_abs")
+    history_matches = isinstance(history_delta, (int, float)) and history_delta <= 1.0e-6
+    checks["forces_breakdown_matches_history_cl"] = _check(
+        "pass" if history_matches else "blocked" if force_outputs else "unavailable",
+        {
+            "history_cl_delta_abs": history_delta,
+            "solver_history_cl": solver_cl,
+            "forces_breakdown_cl": force_cl,
+        },
+        {"history_cl_delta_abs": "<= 1e-6"},
+    )
 
     blocking_reasons: list[str] = []
     if checks["solver_report_available"]["status"] == "blocked":
@@ -417,6 +503,10 @@ def build_main_wing_surface_force_output_audit_report(
         blocking_reasons.append("forces_breakdown_output_missing")
     if checks["panel_force_comparison_ready"]["status"] == "blocked":
         blocking_reasons.append("panel_force_comparison_not_ready")
+    if checks["forces_breakdown_marker_owned"]["status"] == "blocked":
+        blocking_reasons.append("forces_breakdown_main_wing_marker_not_owned")
+    if checks["forces_breakdown_matches_history_cl"]["status"] == "blocked":
+        blocking_reasons.append("forces_breakdown_history_cl_mismatch")
 
     engineering_flags: list[str] = []
     if solver_execution_observed["run_status"] == "solver_executed_but_not_converged":
@@ -425,6 +515,11 @@ def build_main_wing_surface_force_output_audit_report(
         engineering_flags.append("main_wing_lift_acceptance_failed_cl_below_one")
     if solver_execution_observed["observed_velocity_mps"] == 6.5:
         engineering_flags.append("hpa_standard_flow_conditions_6p5_mps_observed")
+    if (
+        force_breakdown_observed.get("panel_to_force_breakdown_cl_ratio")
+        and force_breakdown_observed["panel_to_force_breakdown_cl_ratio"] > 2.0
+    ):
+        engineering_flags.append("forces_breakdown_cl_below_panel_reference")
 
     if blocking_reasons:
         audit_status: AuditStatusType = "blocked"
@@ -442,6 +537,8 @@ def build_main_wing_surface_force_output_audit_report(
         next_actions.append("rerun_surface_force_output_audit_before_panel_delta_debug")
     if not blocking_reasons:
         next_actions.append("surface_force_outputs_available_for_panel_delta_debug")
+    if "forces_breakdown_cl_below_panel_reference" in engineering_flags:
+        next_actions.append("debug_panel_su2_lift_gap_from_retained_force_breakdown")
 
     return MainWingSurfaceForceOutputAuditReport(
         audit_status=audit_status,
@@ -452,6 +549,7 @@ def build_main_wing_surface_force_output_audit_report(
         solver_execution_observed=solver_execution_observed,
         expected_outputs_from_log=expected_outputs,
         artifact_retention_observed=artifact_retention_observed,
+        force_breakdown_observed=force_breakdown_observed,
         panel_reference_observed=panel_observed,
         checks=checks,
         engineering_flags=list(dict.fromkeys(engineering_flags)),
@@ -496,6 +594,9 @@ def _render_markdown(report: MainWingSurfaceForceOutputAuditReport) -> str:
     lines.extend(["", "## Checks", "", "| check | status |", "|---|---|"])
     for name, check in report.checks.items():
         lines.append(f"| `{name}` | `{check.get('status')}` |")
+    lines.extend(["", "## Force Breakdown Observed", ""])
+    for key, value in report.force_breakdown_observed.items():
+        lines.append(f"- `{key}`: `{_fmt(value)}`")
     lines.extend(["", "## Panel Reference Observed", ""])
     for key, value in report.panel_reference_observed.items():
         lines.append(f"- `{key}`: `{_fmt(value)}`")

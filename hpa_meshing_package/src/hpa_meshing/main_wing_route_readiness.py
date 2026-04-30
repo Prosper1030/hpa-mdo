@@ -133,6 +133,13 @@ def _blocking_reasons(payload: dict[str, Any] | None) -> list[str]:
     return [str(reason) for reason in reasons] if isinstance(reasons, list) else []
 
 
+def _engineering_flags(payload: dict[str, Any] | None) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    flags = payload.get("engineering_flags", [])
+    return [str(flag) for flag in flags] if isinstance(flags, list) else []
+
+
 def _real_su2_stage_blockers(payload: dict[str, Any] | None) -> list[str]:
     solver_stage_blockers = {"main_wing_solver_not_run", "convergence_gate_not_run"}
     return [
@@ -367,6 +374,9 @@ def _surface_force_output_audit_observed(
         ),
         "artifact_retention_observed": (
             {} if payload is None else payload.get("artifact_retention_observed", {})
+        ),
+        "force_breakdown_observed": (
+            {} if payload is None else payload.get("force_breakdown_observed", {})
         ),
         "panel_reference_observed": (
             {} if payload is None else payload.get("panel_reference_observed", {})
@@ -1165,6 +1175,14 @@ def build_main_wing_route_readiness_report(
             next_actions[0] = (
                 "resolve_main_wing_forces_breakdown_output_before_panel_delta_debug"
             )
+    surface_force_output_flags = set(_engineering_flags(surface_force_output_audit))
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and not surface_force_output_blocked
+        and "forces_breakdown_cl_below_panel_reference" in surface_force_output_flags
+    ):
+        next_actions[0] = "debug_panel_su2_lift_gap_from_retained_force_breakdown"
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

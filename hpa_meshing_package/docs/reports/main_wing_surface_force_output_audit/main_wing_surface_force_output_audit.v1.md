@@ -33,6 +33,18 @@ This report reads existing solver artifacts only; it does not execute SU2.
 | `surface_csv_retained` | `pass` |
 | `forces_breakdown_retained` | `pass` |
 | `panel_force_comparison_ready` | `pass` |
+| `forces_breakdown_marker_owned` | `pass` |
+| `forces_breakdown_matches_history_cl` | `pass` |
+
+## Force Breakdown Observed
+
+- `status`: `available`
+- `path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/forces_breakdown.dat`
+- `surface_names`: `["main_wing"]`
+- `total_coefficients`: `{"cl": 0.263162, "cd": 0.024969, "csf": -0.001195, "cl_over_cd": 10.539497, "cmx": 0.108619, "cmy": -0.20968, "cmz": -0.024814, "cfx": 0.024969, "cfy": -0.001195, "cfz": 0.263162}`
+- `surface_coefficients`: `{"main_wing": {"cl": 0.263162, "cd": 0.024969, "csf": -0.001195, "cl_over_cd": 10.539497, "cmx": 0.108619, "cmy": -0.20968, "cmz": -0.024814, "cfx": 0.024969, "cfy": -0.001195, "cfz": 0.263162}}`
+- `history_cl_delta_abs`: `8.699999998196262e-08`
+- `panel_to_force_breakdown_cl_ratio`: `4.892976554149155`
 
 ## Panel Reference Observed
 
@@ -51,10 +63,12 @@ This report reads existing solver artifacts only; it does not execute SU2.
 - `solver_executed_but_not_converged`
 - `main_wing_lift_acceptance_failed_cl_below_one`
 - `hpa_standard_flow_conditions_6p5_mps_observed`
+- `forces_breakdown_cl_below_panel_reference`
 
 ## Next Actions
 
 - `surface_force_outputs_available_for_panel_delta_debug`
+- `debug_panel_su2_lift_gap_from_retained_force_breakdown`
 
 ## Limitations
 

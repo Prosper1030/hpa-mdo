@@ -683,6 +683,13 @@ def test_main_wing_route_readiness_records_surface_force_output_audit_stage(
                 "forces_breakdown_candidates": [],
                 "pruned_surface_outputs": ["case/surface.csv"],
             },
+            "force_breakdown_observed": {
+                "status": "available",
+                "surface_names": ["main_wing"],
+                "total_coefficients": {"cl": 0.263162},
+                "history_cl_delta_abs": 8.7e-8,
+                "panel_to_force_breakdown_cl_ratio": 4.892976554149155,
+            },
             "panel_reference_observed": {
                 "status": "available",
                 "panel_reference_cl": 1.287645495943,
@@ -714,6 +721,12 @@ def test_main_wing_route_readiness_records_surface_force_output_audit_stage(
     assert surface_force_stage.observed["panel_reference_observed"][
         "panel_reference_cl"
     ] == pytest.approx(1.287645495943)
+    assert surface_force_stage.observed["force_breakdown_observed"][
+        "surface_names"
+    ] == ["main_wing"]
+    assert surface_force_stage.observed["force_breakdown_observed"][
+        "panel_to_force_breakdown_cl_ratio"
+    ] == pytest.approx(4.892976554149155)
     assert "surface_force_output_pruned_or_missing" in surface_force_stage.blockers
     assert "panel_force_comparison_not_ready" in report.blocking_reasons
 
@@ -850,6 +863,69 @@ def test_main_wing_route_readiness_prioritizes_force_breakdown_when_surface_exis
     assert "forces_breakdown_output_missing" in report.blocking_reasons
     assert report.next_actions[0] == (
         "resolve_main_wing_forces_breakdown_output_before_panel_delta_debug"
+    )
+
+
+def test_main_wing_route_readiness_prioritizes_retained_force_breakdown_lift_gap(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "pass",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "warn",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_surface_force_output_audit"
+        / "main_wing_surface_force_output_audit.v1.json",
+        {
+            "audit_status": "warn",
+            "engineering_flags": [
+                "forces_breakdown_cl_below_panel_reference",
+            ],
+            "blocking_reasons": [],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    assert report.next_actions[0] == (
+        "debug_panel_su2_lift_gap_from_retained_force_breakdown"
     )
 
 

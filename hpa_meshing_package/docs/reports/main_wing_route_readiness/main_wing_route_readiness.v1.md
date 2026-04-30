@@ -44,7 +44,7 @@
 
 ## Next Actions
 
-- `resolve_main_wing_cl_below_expected_lift_before_convergence_claims`
+- `debug_panel_su2_lift_gap_from_retained_force_breakdown`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

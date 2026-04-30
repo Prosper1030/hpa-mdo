@@ -92,7 +92,7 @@ artifacts. SU2 lift acceptance remains blocked because the selected
 current-route smoke has `CL=0.263161913`, about `4.89x` lower than the VSPAERO
 panel baseline and below the main-wing `CL > 1.0` acceptance gate for the HPA
 operating point. The current readiness next action is
-`resolve_main_wing_cl_below_expected_lift_before_convergence_claims`.
+`debug_panel_su2_lift_gap_from_retained_force_breakdown`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 

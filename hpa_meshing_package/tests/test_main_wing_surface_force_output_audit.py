@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from hpa_meshing.main_wing_surface_force_output_audit import (
     build_main_wing_surface_force_output_audit_report,
     write_main_wing_surface_force_output_audit_report,
@@ -21,7 +23,21 @@ def _write_solver_fixture(tmp_path: Path, *, retain_surface_outputs: bool = Fals
     if retain_surface_outputs:
         (raw_dir / "surface.csv").write_text("PointID,Pressure\n1,0.0\n", encoding="utf-8")
         (raw_dir / "forces_breakdown.dat").write_text(
-            "MARKER_TAG CL CD\nmain_wing 1.10 0.05\n",
+            "\n".join(
+                [
+                    "Forces breakdown:",
+                    "Total CL:       0.263162 | Pressure (   99%):    0.263162",
+                    "Total CD:       0.024969 | Pressure (   99%):    0.024969",
+                    "Total CMy:     -0.209680 | Pressure (  100%):   -0.209680",
+                    "",
+                    "Surface name: main_wing",
+                    "",
+                    "Total CL    (   99%):    0.263162 | Pressure (   99%):    0.263162",
+                    "Total CD    (   99%):    0.024969 | Pressure (   99%):    0.024969",
+                    "Total CMy   (  100%):   -0.209680 | Pressure (  100%):   -0.209680",
+                    "",
+                ]
+            ),
             encoding="utf-8",
         )
     solver_log = raw_dir / "solver.log"
@@ -115,8 +131,22 @@ def test_surface_force_output_audit_passes_when_committed_surface_outputs_exist(
     assert report.checks["surface_csv_retained"]["status"] == "pass"
     assert report.checks["forces_breakdown_retained"]["status"] == "pass"
     assert report.checks["panel_force_comparison_ready"]["status"] == "pass"
+    assert report.checks["forces_breakdown_marker_owned"]["status"] == "pass"
+    assert report.checks["forces_breakdown_matches_history_cl"]["status"] == "pass"
+    assert report.force_breakdown_observed["surface_names"] == ["main_wing"]
+    assert report.force_breakdown_observed["total_coefficients"]["cl"] == pytest.approx(
+        0.263162
+    )
+    assert report.force_breakdown_observed["surface_coefficients"]["main_wing"][
+        "cl"
+    ] == pytest.approx(0.263162)
+    assert report.force_breakdown_observed["history_cl_delta_abs"] < 1e-6
+    assert report.force_breakdown_observed[
+        "panel_to_force_breakdown_cl_ratio"
+    ] == pytest.approx(4.892976554733587)
+    assert "forces_breakdown_cl_below_panel_reference" in report.engineering_flags
     assert not report.blocking_reasons
-    assert "surface_force_outputs_available_for_panel_delta_debug" in report.next_actions
+    assert "debug_panel_su2_lift_gap_from_retained_force_breakdown" in report.next_actions
 
 
 def test_write_main_wing_surface_force_output_audit_report(tmp_path: Path):
