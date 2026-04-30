@@ -2,7 +2,7 @@
   "schema_version": "main_wing_route_readiness.v1",
   "component": "main_wing",
   "target_route": "real_main_wing_vsp_or_esp_to_gmsh_to_su2",
-  "overall_status": "blocked_at_real_su2_handoff",
+  "overall_status": "solver_not_run",
   "hpa_standard_velocity_mps": 6.5,
   "observed_velocity_mps": 6.5,
   "hpa_standard_flow_status": "hpa_standard_6p5_observed",
@@ -73,14 +73,20 @@
     },
     {
       "stage": "real_su2_handoff",
-      "status": "blocked",
-      "evidence_kind": "absent",
-      "artifact_path": null,
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.json",
       "observed": {
-        "reason": "real_su2_handoff_artifact_missing_after_mesh_handoff"
+        "materialization_status": "su2_handoff_written",
+        "su2_contract": "su2_handoff.v1",
+        "input_mesh_contract": "mesh_handoff.v1",
+        "component_force_ownership_status": "owned",
+        "reference_geometry_status": "warn",
+        "observed_velocity_mps": 6.5,
+        "reason": null
       },
       "blockers": [
-        "real_main_wing_su2_handoff_not_materialized"
+        "main_wing_real_reference_geometry_warn"
       ]
     },
     {
@@ -109,12 +115,12 @@
     }
   ],
   "blocking_reasons": [
-    "real_main_wing_su2_handoff_not_materialized",
+    "main_wing_real_reference_geometry_warn",
     "main_wing_solver_not_run",
     "convergence_gate_not_run"
   ],
   "next_actions": [
-    "materialize_real_main_wing_su2_handoff_from_real_mesh_handoff_v1",
+    "run_main_wing_solver_smoke_from_real_su2_handoff",
     "run_solver_smoke_then_convergence_gate_after_real_su2_handoff",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

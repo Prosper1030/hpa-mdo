@@ -141,6 +141,56 @@ def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     )
 
 
+def test_main_wing_route_readiness_moves_to_solver_after_real_su2_handoff(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": ["main_wing_solver_not_run", "convergence_gate_not_run"],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "su2_contract": "su2_handoff.v1",
+            "input_mesh_contract": "mesh_handoff.v1",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": [
+                "main_wing_solver_not_run",
+                "convergence_gate_not_run",
+                "main_wing_real_reference_geometry_warn",
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    assert report.overall_status == "solver_not_run"
+    assert stages["real_su2_handoff"].status == "pass"
+    assert stages["real_su2_handoff"].evidence_kind == "real"
+    assert stages["real_su2_handoff"].observed["observed_velocity_mps"] == 6.5
+    assert "real_main_wing_su2_handoff_not_materialized" not in report.blocking_reasons
+    assert "main_wing_real_reference_geometry_warn" in report.blocking_reasons
+    assert "main_wing_solver_not_run" in report.blocking_reasons
+    assert report.next_actions[0] == "run_main_wing_solver_smoke_from_real_su2_handoff"
+
+
 def test_main_wing_route_readiness_prioritizes_invalid_boundary_mesh_action(
     tmp_path: Path,
 ):

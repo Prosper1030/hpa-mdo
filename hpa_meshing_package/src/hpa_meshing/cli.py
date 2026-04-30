@@ -46,6 +46,10 @@ from .main_wing_real_mesh_handoff_probe import (
     build_main_wing_real_mesh_handoff_probe_report,
     write_main_wing_real_mesh_handoff_probe_report,
 )
+from .main_wing_real_su2_handoff_probe import (
+    build_main_wing_real_su2_handoff_probe_report,
+    write_main_wing_real_su2_handoff_probe_report,
+)
 from .main_wing_su2_handoff_smoke import (
     build_main_wing_su2_handoff_smoke_report,
     write_main_wing_su2_handoff_smoke_report,
@@ -385,6 +389,25 @@ def cmd_main_wing_route_readiness(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_main_wing_real_su2_handoff_probe(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    source_path = None if args.source is None else Path(args.source)
+    source_mesh_probe_report_path = (
+        None
+        if args.source_mesh_probe_report is None
+        else Path(args.source_mesh_probe_report)
+    )
+    report = build_main_wing_real_su2_handoff_probe_report(
+        out_dir,
+        source_path=source_path,
+        timeout_seconds=float(args.timeout_seconds),
+        source_mesh_probe_report_path=source_mesh_probe_report_path,
+    )
+    write_main_wing_real_su2_handoff_probe_report(out_dir, report=report)
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.materialization_status == "su2_handoff_written" else 2
+
+
 def cmd_tail_wing_mesh_handoff_smoke(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report = build_tail_wing_mesh_handoff_smoke_report(out_dir)
@@ -619,6 +642,13 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_route_readiness = sub.add_parser("main-wing-route-readiness")
     main_wing_route_readiness.add_argument("--out", type=str, required=True)
     main_wing_route_readiness.set_defaults(func=cmd_main_wing_route_readiness)
+
+    main_wing_real_su2_probe = sub.add_parser("main-wing-real-su2-handoff-probe")
+    main_wing_real_su2_probe.add_argument("--out", type=str, required=True)
+    main_wing_real_su2_probe.add_argument("--source", type=str)
+    main_wing_real_su2_probe.add_argument("--timeout-seconds", type=float, default=45.0)
+    main_wing_real_su2_probe.add_argument("--source-mesh-probe-report", type=str)
+    main_wing_real_su2_probe.set_defaults(func=cmd_main_wing_real_su2_handoff_probe)
 
     tail_wing_smoke = sub.add_parser("tail-wing-mesh-handoff-smoke")
     tail_wing_smoke.add_argument("--out", type=str, required=True)

@@ -78,6 +78,15 @@ def _blocking_reasons(payload: dict[str, Any] | None) -> list[str]:
     return [str(reason) for reason in reasons] if isinstance(reasons, list) else []
 
 
+def _real_su2_stage_blockers(payload: dict[str, Any] | None) -> list[str]:
+    solver_stage_blockers = {"main_wing_solver_not_run", "convergence_gate_not_run"}
+    return [
+        reason
+        for reason in _blocking_reasons(payload)
+        if reason not in solver_stage_blockers
+    ]
+
+
 def _stage(
     *,
     stage: StageType,
@@ -129,6 +138,11 @@ def build_main_wing_route_readiness_report(
     synthetic_su2_path = (
         root / "main_wing_su2_handoff_smoke" / "main_wing_su2_handoff_smoke.v1.json"
     )
+    real_su2_path = (
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -142,6 +156,7 @@ def build_main_wing_route_readiness_report(
     real_mesh = _load_json(real_mesh_path)
     synthetic_mesh = _load_json(synthetic_mesh_path)
     synthetic_su2 = _load_json(synthetic_su2_path)
+    real_su2 = _load_json(real_su2_path)
     synthetic_su2_runtime = _load_json(synthetic_su2_runtime_path)
     hpa_flow_status, observed_velocity = _flow_status(synthetic_su2_runtime)
 
@@ -163,6 +178,10 @@ def build_main_wing_route_readiness_report(
     synthetic_su2_materialized = (
         isinstance(synthetic_su2, dict)
         and synthetic_su2.get("materialization_status") == "su2_handoff_written"
+    )
+    real_su2_materialized = (
+        isinstance(real_su2, dict)
+        and real_su2.get("materialization_status") == "su2_handoff_written"
     )
 
     stages = [
@@ -231,20 +250,42 @@ def build_main_wing_route_readiness_report(
         ),
         _stage(
             stage="real_su2_handoff",
-            status="blocked",
-            evidence_kind="absent",
-            artifact_path=None,
+            status="pass" if real_su2_materialized else "blocked",
+            evidence_kind="real" if real_su2_materialized else "absent",
+            artifact_path=real_su2_path if real_su2_materialized else None,
             observed={
-                "reason": (
+                "materialization_status": (
+                    None if real_su2 is None else real_su2.get("materialization_status")
+                ),
+                "su2_contract": None if real_su2 is None else real_su2.get("su2_contract"),
+                "input_mesh_contract": (
+                    None if real_su2 is None else real_su2.get("input_mesh_contract")
+                ),
+                "component_force_ownership_status": (
+                    None
+                    if real_su2 is None
+                    else real_su2.get("component_force_ownership_status")
+                ),
+                "reference_geometry_status": (
+                    None if real_su2 is None else real_su2.get("reference_geometry_status")
+                ),
+                "observed_velocity_mps": (
+                    None if real_su2 is None else real_su2.get("observed_velocity_mps")
+                ),
+                "reason": None if real_su2_materialized else (
                     "real_su2_handoff_artifact_missing_after_mesh_handoff"
                     if real_mesh_pass
                     else "real_mesh_handoff_required_first"
                 ),
             },
             blockers=(
-                ["real_main_wing_su2_handoff_not_materialized"]
-                if real_mesh_pass
-                else ["blocked_until_real_main_wing_mesh_handoff_v1_exists"]
+                _real_su2_stage_blockers(real_su2)
+                if real_su2_materialized
+                else (
+                    ["real_main_wing_su2_handoff_not_materialized"]
+                    if real_mesh_pass
+                    else ["blocked_until_real_main_wing_mesh_handoff_v1_exists"]
+                )
             ),
         ),
         _stage(
@@ -269,8 +310,10 @@ def build_main_wing_route_readiness_report(
         overall_status: OverallStatusType = "blocked_at_real_geometry"
     elif not real_mesh_pass:
         overall_status = "blocked_at_real_mesh_handoff"
-    else:
+    elif not real_su2_materialized:
         overall_status = "blocked_at_real_su2_handoff"
+    else:
+        overall_status = "solver_not_run"
 
     blocking_reasons = []
     for stage in stages:
@@ -282,6 +325,9 @@ def build_main_wing_route_readiness_report(
 
     next_actions = [
         (
+            "run_main_wing_solver_smoke_from_real_su2_handoff"
+            if real_su2_materialized
+            else
             "materialize_real_main_wing_su2_handoff_from_real_mesh_handoff_v1"
             if real_mesh_pass
             else "repair_real_main_wing_mesh3d_volume_insertion_policy"

@@ -1,0 +1,254 @@
+{
+  "contract": "su2_handoff.v1",
+  "route_stage": "baseline",
+  "source_contract": "mesh_handoff.v1",
+  "geometry_family": "thin_sheet_lifting_surface",
+  "units": "m",
+  "input_mesh_artifact": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh.msh",
+  "mesh_markers": {
+    "wall": "main_wing",
+    "farfield": "farfield",
+    "monitoring": [
+      "main_wing"
+    ],
+    "plotting": [
+      "main_wing"
+    ],
+    "euler": [
+      "main_wing"
+    ]
+  },
+  "reference_geometry": {
+    "ref_area": 34.65,
+    "ref_length": 1.05,
+    "ref_origin_moment": {
+      "x": 0.2625,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "area_provenance": {
+      "source_category": "user_declared",
+      "method": "runtime.reference_override.ref_area",
+      "confidence": "high",
+      "source_path": null,
+      "source_units": null,
+      "details": {
+        "source_label": "blackcat_main_wing_full_span_reference"
+      },
+      "warnings": []
+    },
+    "length_provenance": {
+      "source_category": "user_declared",
+      "method": "runtime.reference_override.ref_length",
+      "confidence": "high",
+      "source_path": null,
+      "source_units": null,
+      "details": {
+        "source_label": "blackcat_main_wing_full_span_reference"
+      },
+      "warnings": []
+    },
+    "moment_origin_provenance": {
+      "source_category": "user_declared",
+      "method": "runtime.reference_override.ref_origin_moment",
+      "confidence": "medium",
+      "source_path": null,
+      "source_units": null,
+      "details": {
+        "source_label": "blackcat_main_wing_full_span_reference"
+      },
+      "warnings": [
+        "coarse_real_geometry_probe_reference_not_production_certified"
+      ]
+    },
+    "gate_status": "warn",
+    "confidence": "medium",
+    "warnings": [
+      "coarse_real_geometry_probe_reference_not_production_certified"
+    ],
+    "notes": [
+      "Reference quantities supplied via blackcat_main_wing_full_span_reference."
+    ]
+  },
+  "runtime": {
+    "enabled": true,
+    "alpha_deg": 0.0,
+    "velocity_mps": 6.5,
+    "density_kgpm3": 1.225,
+    "temperature_k": 288.15,
+    "dynamic_viscosity_pas": 1.7894e-05,
+    "flow_conditions": {
+      "velocity_mps": 6.5,
+      "density_kgpm3": 1.225,
+      "temperature_k": 288.15,
+      "dynamic_viscosity_pas": 1.7894e-05,
+      "source_label": "hpa_standard_6p5_mps",
+      "notes": []
+    },
+    "solver": "INC_NAVIER_STOKES",
+    "inc_nondim": "INITIAL_VALUES",
+    "inc_density_model": "CONSTANT",
+    "fluid_model": "CONSTANT_DENSITY",
+    "solver_command": "SU2_CFD",
+    "parallel_mode": "threads",
+    "mpi_launcher": "mpirun",
+    "cpu_threads": 4,
+    "mpi_ranks": 4,
+    "case_name": "alpha_0_real_main_wing_materialization_probe",
+    "max_iterations": 12,
+    "cfl_number": 5.0,
+    "linear_solver_error": 1e-06,
+    "linear_solver_iterations": 8,
+    "reference_mode": "user_declared",
+    "reference_override": {
+      "ref_area": 34.65,
+      "ref_length": 1.05,
+      "ref_origin_moment": {
+        "x": 0.2625,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "source_label": "blackcat_main_wing_full_span_reference",
+      "source_path": null,
+      "warnings": [
+        "coarse_real_geometry_probe_reference_not_production_certified"
+      ],
+      "notes": [
+        "REF_AREA uses 33.0 m full span times 1.05 m chord for the Blackcat main wing probe.",
+        "REF_ORIGIN_MOMENT uses quarter chord on the declared reference chord."
+      ]
+    },
+    "wall_boundary_condition": "euler"
+  },
+  "runtime_cfg_path": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/su2_runtime.cfg",
+  "case_output_paths": {
+    "case_dir": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe",
+    "su2_mesh": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/mesh.su2",
+    "history": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/history.csv",
+    "solver_log": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/solver.log",
+    "surface_output": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/surface.csv",
+    "restart_output": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/restart.csv",
+    "volume_output": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/vol_solution.vtk",
+    "contract_path": "hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/artifacts/su2/alpha_0_real_main_wing_materialization_probe/su2_handoff.json"
+  },
+  "history": {
+    "history_path": null,
+    "final_iteration": null,
+    "cl": null,
+    "cd": null,
+    "cm": null,
+    "cm_axis": null,
+    "source_columns": {}
+  },
+  "run_status": "not_started",
+  "solver_command": [
+    "SU2_CFD",
+    "-t",
+    "4",
+    "su2_runtime.cfg"
+  ],
+  "force_surface_provenance": {
+    "gate_status": "pass",
+    "confidence": "medium",
+    "source_kind": "mesh_physical_group",
+    "wall_marker": "main_wing",
+    "monitoring_markers": [
+      "main_wing"
+    ],
+    "plotting_markers": [
+      "main_wing"
+    ],
+    "euler_markers": [
+      "main_wing"
+    ],
+    "source_groups": [
+      {
+        "marker_name": "main_wing",
+        "physical_name": "main_wing",
+        "physical_tag": 2,
+        "dimension": 2,
+        "entity_count": 32,
+        "element_count": 2424
+      }
+    ],
+    "primary_group": {
+      "marker_name": "main_wing",
+      "physical_name": "main_wing",
+      "physical_tag": 2,
+      "dimension": 2,
+      "entity_count": 32,
+      "element_count": 2424
+    },
+    "matches_wall_marker": true,
+    "matches_entire_aircraft_wall": false,
+    "scope": "component_subset",
+    "body_count": 1,
+    "component_labels_present_in_geometry": true,
+    "component_label_schema": "preserve_component_labels",
+    "component_provenance": "component_groups_mapped",
+    "warnings": [],
+    "notes": [
+      "force monitoring uses a component-specific mesh physical group"
+    ]
+  },
+  "provenance_gates": {
+    "overall_status": "warn",
+    "reference_quantities": {
+      "status": "warn",
+      "confidence": "medium",
+      "warnings": [
+        "coarse_real_geometry_probe_reference_not_production_certified"
+      ],
+      "notes": [
+        "Reference quantities supplied via blackcat_main_wing_full_span_reference."
+      ]
+    },
+    "force_surface": {
+      "status": "pass",
+      "confidence": "medium",
+      "warnings": [],
+      "notes": [
+        "force monitoring uses a component-specific mesh physical group"
+      ]
+    },
+    "warnings": [
+      "coarse_real_geometry_probe_reference_not_production_certified"
+    ]
+  },
+  "convergence_gate": null,
+  "provenance": {
+    "source_contract": "mesh_handoff.v1",
+    "source_mesh_metadata": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+    "source_marker_summary": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+    "source_units": "m",
+    "source_geometry_family": "thin_sheet_lifting_surface",
+    "source_body_bounds": {
+      "x_min": -0.0012594121939531132,
+      "x_max": 1.3023293688346513,
+      "y_min": -16.500000097905104,
+      "y_max": 16.500000097905104,
+      "z_min": -0.0680368431071618,
+      "z_max": 0.8441453609632887
+    },
+    "source_farfield_bounds": {
+      "x_min": -2.608436974251162,
+      "x_max": 5.213095711920465,
+      "y_min": -82.50000048952552,
+      "y_max": 82.50000048952552,
+      "z_min": -1.892401251248063,
+      "z_max": 2.66850976910419
+    },
+    "reference_source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+    "reference_mode_requested": "user_declared",
+    "parallel_mode_requested": "threads",
+    "mpi_launcher": "mpirun",
+    "mpi_ranks": 4,
+    "omp_threads_per_rank": 4,
+    "reference_gate_status": "warn",
+    "force_surface_gate_status": "pass"
+  },
+  "notes": [
+    "Package-native SU2 baseline case materialized directly from mesh_handoff.v1.",
+    "This baseline route trusts mesh_handoff markers, units, and bounds without recomputing them."
+  ]
+}
