@@ -3592,6 +3592,102 @@
       ]
     },
     {
+      "stage": "station_seam_side_aware_projected_pcurve_builder_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_projected_pcurve_builder_probe/main_wing_station_seam_side_aware_projected_pcurve_builder_probe.v1.json",
+      "observed": {
+        "projected_builder_status": "side_aware_station_projected_pcurve_builder_partial",
+        "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/side_aware_profile_parametrization_single_rule/candidate_raw_dump.stp",
+        "target_edge_count": 6,
+        "strategy_attempt_summary": {
+          "attempt_count": 3,
+          "strategies_evaluated": [
+            "geomprojlib_curve2d_update_edge_then_same_parameter",
+            "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+            "sampled_surface_project_approx_update_edge_then_same_parameter"
+          ],
+          "recovered_attempt_count": 0,
+          "first_recovered_strategy": null,
+          "projected_pcurve_built_face_count": 36,
+          "endpoint_orientation_pass_face_count": 36,
+          "max_projection_distance_m": 1.8343894894033213e-15,
+          "best_bounded_face_count": 12,
+          "best_passed_face_count": 0,
+          "partial_progress_observed": true,
+          "same_parameter_or_same_range_flags_true_but_gate_failed": true,
+          "attempt_summaries": [
+            {
+              "strategy": "geomprojlib_curve2d_update_edge_then_same_parameter",
+              "target_edge_count": 6,
+              "target_face_count": 12,
+              "pcurve_present_face_count": 12,
+              "bounded_pcurve_face_count": 12,
+              "same_parameter_pass_face_count": 0,
+              "curve3d_with_pcurve_pass_face_count": 0,
+              "vertex_tolerance_pass_face_count": 0,
+              "passed_face_count": 0,
+              "check_error_count": 0,
+              "all_station_metadata_checks_pass": false,
+              "projected_pcurve_built_face_count": 12,
+              "endpoint_orientation_pass_face_count": 12,
+              "max_projection_distance_m": null
+            },
+            {
+              "strategy": "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+              "target_edge_count": 6,
+              "target_face_count": 12,
+              "pcurve_present_face_count": 12,
+              "bounded_pcurve_face_count": 12,
+              "same_parameter_pass_face_count": 0,
+              "curve3d_with_pcurve_pass_face_count": 0,
+              "vertex_tolerance_pass_face_count": 0,
+              "passed_face_count": 0,
+              "check_error_count": 0,
+              "all_station_metadata_checks_pass": false,
+              "projected_pcurve_built_face_count": 12,
+              "endpoint_orientation_pass_face_count": 12,
+              "max_projection_distance_m": 1.8343894894033213e-15
+            },
+            {
+              "strategy": "sampled_surface_project_approx_update_edge_then_same_parameter",
+              "target_edge_count": 6,
+              "target_face_count": 12,
+              "pcurve_present_face_count": 12,
+              "bounded_pcurve_face_count": 12,
+              "same_parameter_pass_face_count": 0,
+              "curve3d_with_pcurve_pass_face_count": 0,
+              "vertex_tolerance_pass_face_count": 0,
+              "passed_face_count": 0,
+              "check_error_count": 0,
+              "all_station_metadata_checks_pass": false,
+              "projected_pcurve_built_face_count": 12,
+              "endpoint_orientation_pass_face_count": 12,
+              "max_projection_distance_m": 1.8343894894033213e-15
+            }
+          ]
+        },
+        "engineering_findings": [
+          "side_aware_projected_pcurve_builder_evaluated",
+          "upstream_bounded_pcurve_builder_not_recovered",
+          "projected_or_sampled_pcurves_materialized_in_memory",
+          "projected_endpoint_orientation_gate_passed",
+          "projected_sampled_geometry_residuals_within_projection_tolerance",
+          "shape_analysis_gate_still_fails_after_projected_or_sampled_pcurves",
+          "same_parameter_flags_are_not_shape_analysis_truth_source"
+        ],
+        "next_actions": [
+          "move_repair_upstream_to_section_parametrization_or_export_pcurve_generation",
+          "do_not_advance_to_mesh_until_shape_analysis_gate_passes",
+          "use_projected_pcurve_probe_as_negative_control_for_future_export_changes"
+        ]
+      },
+      "blockers": [
+        "side_aware_station_projected_pcurve_builder_not_recovered",
+        "side_aware_candidate_mesh_handoff_not_run"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -3651,10 +3747,11 @@
     "side_aware_candidate_mesh_handoff_not_run",
     "side_aware_station_shape_analysis_flags_still_block_mesh_handoff",
     "side_aware_station_metadata_repair_not_recovered",
-    "side_aware_station_pcurve_metadata_builder_not_recovered"
+    "side_aware_station_pcurve_metadata_builder_not_recovered",
+    "side_aware_station_projected_pcurve_builder_not_recovered"
   ],
   "next_actions": [
-    "prototype_projected_or_sampled_pcurve_builder_with_vertex_orientation_gate",
+    "move_repair_upstream_to_section_parametrization_or_export_pcurve_generation",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

@@ -178,6 +178,10 @@ from .main_wing_station_seam_side_aware_pcurve_metadata_builder_probe import (
     build_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe_report,
     write_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe_report,
 )
+from .main_wing_station_seam_side_aware_projected_pcurve_builder_probe import (
+    build_main_wing_station_seam_side_aware_projected_pcurve_builder_probe_report,
+    write_main_wing_station_seam_side_aware_projected_pcurve_builder_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -1236,6 +1240,35 @@ def cmd_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe(
     return 0 if report.metadata_builder_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_side_aware_projected_pcurve_builder_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    pcurve_metadata_builder_probe_path = (
+        None
+        if args.pcurve_metadata_builder_probe is None
+        else Path(args.pcurve_metadata_builder_probe)
+    )
+    report = build_main_wing_station_seam_side_aware_projected_pcurve_builder_probe_report(
+        pcurve_metadata_builder_probe_path=pcurve_metadata_builder_probe_path,
+        strategies=args.strategies,
+        sample_count=args.sample_count,
+        projection_tolerance_m=args.projection_tolerance_m,
+        interpolation_tolerance=args.interpolation_tolerance,
+    )
+    write_main_wing_station_seam_side_aware_projected_pcurve_builder_probe_report(
+        out_dir,
+        report=report,
+        pcurve_metadata_builder_probe_path=pcurve_metadata_builder_probe_path,
+        strategies=args.strategies,
+        sample_count=args.sample_count,
+        projection_tolerance_m=args.projection_tolerance_m,
+        interpolation_tolerance=args.interpolation_tolerance,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.projected_builder_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -2258,6 +2291,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.set_defaults(
         func=cmd_main_wing_station_seam_side_aware_pcurve_metadata_builder_probe
+    )
+
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe = sub.add_parser(
+        "main-wing-station-seam-side-aware-projected-pcurve-builder-probe"
+    )
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe.add_argument(
+        "--pcurve-metadata-builder-probe",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe.add_argument(
+        "--strategies",
+        nargs="+",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe.add_argument(
+        "--sample-count",
+        type=int,
+        default=23,
+    )
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe.add_argument(
+        "--projection-tolerance-m",
+        type=float,
+        default=1.0e-7,
+    )
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe.add_argument(
+        "--interpolation-tolerance",
+        type=float,
+        default=1.0e-9,
+    )
+    main_wing_station_seam_side_aware_projected_pcurve_builder_probe.set_defaults(
+        func=cmd_main_wing_station_seam_side_aware_projected_pcurve_builder_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

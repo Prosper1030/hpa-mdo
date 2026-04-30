@@ -1,0 +1,3291 @@
+{
+  "schema_version": "main_wing_station_seam_side_aware_projected_pcurve_builder_probe.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_side_aware_station_projected_pcurve_builder",
+  "production_default_changed": false,
+  "projected_builder_status": "side_aware_station_projected_pcurve_builder_partial",
+  "pcurve_metadata_builder_probe_path": "docs/reports/main_wing_station_seam_side_aware_pcurve_metadata_builder_probe/main_wing_station_seam_side_aware_pcurve_metadata_builder_probe.v1.json",
+  "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/side_aware_profile_parametrization_single_rule/candidate_raw_dump.stp",
+  "target_edges": [
+    {
+      "curve_id": 7,
+      "edge_index": 7,
+      "face_ids": [
+        2,
+        3
+      ]
+    },
+    {
+      "curve_id": 28,
+      "edge_index": 28,
+      "face_ids": [
+        9,
+        10
+      ]
+    },
+    {
+      "curve_id": 36,
+      "edge_index": 36,
+      "face_ids": [
+        12,
+        13
+      ]
+    },
+    {
+      "curve_id": 50,
+      "edge_index": 50,
+      "face_ids": [
+        19,
+        20
+      ]
+    },
+    {
+      "curve_id": 55,
+      "edge_index": 55,
+      "face_ids": [
+        22,
+        23
+      ]
+    },
+    {
+      "curve_id": 62,
+      "edge_index": 62,
+      "face_ids": [
+        29,
+        30
+      ]
+    }
+  ],
+  "strategies": [
+    "geomprojlib_curve2d_update_edge_then_same_parameter",
+    "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+    "sampled_surface_project_approx_update_edge_then_same_parameter"
+  ],
+  "sample_count": 23,
+  "projection_tolerance_m": 1e-07,
+  "interpolation_tolerance": 1e-09,
+  "api_semantics": {
+    "primary_api_family": "OCCT/OCP in-memory projected PCurve reconstruction",
+    "candidate_operations": [
+      "GeomProjLib.Curve2d(c3d, first, last, surface, tolerance)",
+      "GeomAPI_ProjectPointOnSurf sampled on BRepTools.UVBounds(face)",
+      "Geom2dAPI_Interpolate(points, parameters)",
+      "Geom2dAPI_PointsToBSpline(points, parameters)",
+      "BRep_Builder.UpdateEdge(edge, projected_pcurve, face, tolerance)",
+      "BRep_Builder.UpdateVertex(vertex, parameter, edge, face, tolerance)",
+      "BRepLib.SameParameter(edge, tolerance)"
+    ],
+    "success_gate": [
+      "projected PCurve built",
+      "endpoint orientation gate preserved",
+      "bounded PCurve domain",
+      "CheckPCurveRange",
+      "CheckSameParameter",
+      "CheckCurve3dWithPCurve",
+      "CheckVertexTolerance"
+    ],
+    "truth_source": "ShapeAnalysis_Edge checks, not SameParameter/SameRange flags alone"
+  },
+  "upstream_pcurve_metadata_builder_summary": {
+    "metadata_builder_status": "side_aware_station_pcurve_metadata_builder_partial",
+    "baseline_summary": {
+      "target_edge_count": 6,
+      "target_face_count": 12,
+      "pcurve_present_face_count": 12,
+      "bounded_pcurve_face_count": 0,
+      "same_parameter_pass_face_count": 0,
+      "curve3d_with_pcurve_pass_face_count": 0,
+      "vertex_tolerance_pass_face_count": 0,
+      "passed_face_count": 0,
+      "check_error_count": 0,
+      "all_station_metadata_checks_pass": false
+    },
+    "strategy_attempt_summary": {
+      "attempt_count": 4,
+      "strategies_evaluated": [
+        "bounded_existing_pcurve_update_edge",
+        "bounded_existing_pcurve_update_edge_and_vertex_params",
+        "bounded_existing_pcurve_replace",
+        "bounded_existing_pcurve_replace_and_vertex_params"
+      ],
+      "recovered_attempt_count": 0,
+      "first_recovered_strategy": null,
+      "best_bounded_face_count": 12,
+      "best_passed_face_count": 0,
+      "partial_progress_observed": true,
+      "attempt_summaries": [
+        {
+          "strategy": "bounded_existing_pcurve_update_edge",
+          "target_edge_count": 6,
+          "target_face_count": 12,
+          "pcurve_present_face_count": 12,
+          "bounded_pcurve_face_count": 12,
+          "same_parameter_pass_face_count": 0,
+          "curve3d_with_pcurve_pass_face_count": 0,
+          "vertex_tolerance_pass_face_count": 0,
+          "passed_face_count": 0,
+          "check_error_count": 0,
+          "all_station_metadata_checks_pass": false
+        },
+        {
+          "strategy": "bounded_existing_pcurve_update_edge_and_vertex_params",
+          "target_edge_count": 6,
+          "target_face_count": 12,
+          "pcurve_present_face_count": 12,
+          "bounded_pcurve_face_count": 12,
+          "same_parameter_pass_face_count": 0,
+          "curve3d_with_pcurve_pass_face_count": 0,
+          "vertex_tolerance_pass_face_count": 0,
+          "passed_face_count": 0,
+          "check_error_count": 0,
+          "all_station_metadata_checks_pass": false
+        },
+        {
+          "strategy": "bounded_existing_pcurve_replace",
+          "target_edge_count": 6,
+          "target_face_count": 12,
+          "pcurve_present_face_count": 12,
+          "bounded_pcurve_face_count": 12,
+          "same_parameter_pass_face_count": 0,
+          "curve3d_with_pcurve_pass_face_count": 0,
+          "vertex_tolerance_pass_face_count": 0,
+          "passed_face_count": 0,
+          "check_error_count": 0,
+          "all_station_metadata_checks_pass": false
+        },
+        {
+          "strategy": "bounded_existing_pcurve_replace_and_vertex_params",
+          "target_edge_count": 6,
+          "target_face_count": 12,
+          "pcurve_present_face_count": 12,
+          "bounded_pcurve_face_count": 12,
+          "same_parameter_pass_face_count": 0,
+          "curve3d_with_pcurve_pass_face_count": 0,
+          "vertex_tolerance_pass_face_count": 0,
+          "passed_face_count": 0,
+          "check_error_count": 0,
+          "all_station_metadata_checks_pass": false
+        }
+      ]
+    },
+    "blocking_reasons": [
+      "side_aware_station_pcurve_metadata_builder_not_recovered",
+      "side_aware_candidate_mesh_handoff_not_run"
+    ]
+  },
+  "baseline_checks": [
+    {
+      "curve_id": 7,
+      "edge_index": 7,
+      "face_ids": [
+        2,
+        3
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 2,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        },
+        {
+          "face_id": 3,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        }
+      ]
+    },
+    {
+      "curve_id": 28,
+      "edge_index": 28,
+      "face_ids": [
+        9,
+        10
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 9,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        },
+        {
+          "face_id": 10,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        }
+      ]
+    },
+    {
+      "curve_id": 36,
+      "edge_index": 36,
+      "face_ids": [
+        12,
+        13
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 12,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        },
+        {
+          "face_id": 13,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        }
+      ]
+    },
+    {
+      "curve_id": 50,
+      "edge_index": 50,
+      "face_ids": [
+        19,
+        20
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 19,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        },
+        {
+          "face_id": 20,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        }
+      ]
+    },
+    {
+      "curve_id": 55,
+      "edge_index": 55,
+      "face_ids": [
+        22,
+        23
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 22,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        },
+        {
+          "face_id": 23,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        }
+      ]
+    },
+    {
+      "curve_id": 62,
+      "edge_index": 62,
+      "face_ids": [
+        29,
+        30
+      ],
+      "edge_found": true,
+      "edge_tolerance": 1e-07,
+      "same_parameter_flag": true,
+      "same_range_flag": true,
+      "face_checks": [
+        {
+          "face_id": 29,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        },
+        {
+          "face_id": 30,
+          "face_found": true,
+          "has_pcurve": true,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_edge_range": [
+            0.0,
+            1.0
+          ],
+          "pcurve_type": "Geom2d_Line",
+          "pcurve_first_parameter": -2e+100,
+          "pcurve_last_parameter": 2e+100,
+          "pcurve_domain_bounded": false,
+          "check_pcurve_range": true,
+          "check_same_parameter": false,
+          "check_curve3d_with_pcurve": false,
+          "check_vertex_tolerance": false,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": null,
+          "check_errors": [],
+          "same_parameter_flag": true,
+          "same_range_flag": true
+        }
+      ]
+    }
+  ],
+  "baseline_summary": {
+    "target_edge_count": 6,
+    "target_face_count": 12,
+    "pcurve_present_face_count": 12,
+    "bounded_pcurve_face_count": 0,
+    "same_parameter_pass_face_count": 0,
+    "curve3d_with_pcurve_pass_face_count": 0,
+    "vertex_tolerance_pass_face_count": 0,
+    "passed_face_count": 0,
+    "check_error_count": 0,
+    "all_station_metadata_checks_pass": false
+  },
+  "strategy_attempts": [
+    {
+      "strategy": "geomprojlib_curve2d_update_edge_then_same_parameter",
+      "operation_results": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 2,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  1.0924726021824954e-15,
+                  1.0
+                ],
+                "end_uv": [
+                  0.9999999999999818,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.010151388133646747,
+                "end_surface_to_first_vertex_m": 0.010151388133646747,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.010151388133646747,
+                "end_surface_to_first_vertex_m": 0.010151388133646747,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 9,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  2.4546672491004925e-15,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 3.3306690738754696e-16,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 3.3306690738754696e-16,
+                "start_surface_to_last_vertex_m": 0.028928371604672563,
+                "end_surface_to_first_vertex_m": 0.028928371604672886,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.028928371604672886,
+                "end_surface_to_first_vertex_m": 0.028928371604672886,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 12,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.003515200130598177,
+                "end_surface_to_first_vertex_m": 0.003515200130598177,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  1.619438417031315e-16,
+                  1.891954489372545e-16
+                ],
+                "end_uv": [
+                  1.0,
+                  1.5243758366595437e-16
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 1.6653345369377348e-16,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.003515200130598177,
+                "end_surface_to_first_vertex_m": 0.0035152001305980107,
+                "end_surface_to_last_vertex_m": 1.6653345369377348e-16,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 19,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.005671376328445923,
+                "end_surface_to_first_vertex_m": 0.005671376328445923,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.005671376328445923,
+                "end_surface_to_first_vertex_m": 0.005671376328445923,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 22,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.011309738135821127,
+                "end_surface_to_first_vertex_m": 0.011309738135821127,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.011309738135821127,
+                "end_surface_to_first_vertex_m": 0.011309738135821127,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 29,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.030410893329204356,
+                "end_surface_to_first_vertex_m": 0.030410893329204356,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomProjLib.Curve2d",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": null,
+              "mean_projection_distance_m": null,
+              "sample_count": null,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.030410893329204356,
+                "end_surface_to_first_vertex_m": 0.030410893329204356,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 2,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 6.753223014464259e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 3,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 6.753223014464259e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 9,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 3.3306690738754696e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 10,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.5700924586837752e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 12,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 3.3306690738754696e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 13,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7806883670196607e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 19,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7903959895615594e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 20,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7798229048217483e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 22,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 2.2887833992611187e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 23,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 2.7755575615628914e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 29,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 2.482534153247273e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 30,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 3.3306690738754696e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+      "operation_results": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 2,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 4.440892098500626e-16,
+              "mean_projection_distance_m": 1.154667010118285e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  1.0924726021824954e-15,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.010151388133646747,
+                "end_surface_to_first_vertex_m": 0.010151388133646747,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 2.2887833992611187e-16,
+              "mean_projection_distance_m": 9.319967051274784e-17,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.010151388133646747,
+                "end_surface_to_first_vertex_m": 0.010151388133646747,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 9,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.7832822334594722e-15,
+              "mean_projection_distance_m": 2.0344421000166323e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  2.4546672491004925e-15,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 3.3306690738754696e-16,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 3.3306690738754696e-16,
+                "start_surface_to_last_vertex_m": 0.028928371604672563,
+                "end_surface_to_first_vertex_m": 0.028928371604672886,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 3.510833468576701e-16,
+              "mean_projection_distance_m": 1.479057761521895e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  0.9999999999999954,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.028928371604672886,
+                "end_surface_to_first_vertex_m": 0.028928371604672886,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 12,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.808164448713604e-15,
+              "mean_projection_distance_m": 1.3315079339114137e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.003515200130598177,
+                "end_surface_to_first_vertex_m": 0.003515200130598177,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.7772239894833365e-15,
+              "mean_projection_distance_m": 1.5395795374624918e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  3.954165595876295e-17
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.003515200130598177,
+                "end_surface_to_first_vertex_m": 0.003515200130598177,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 19,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.8343894894033213e-15,
+              "mean_projection_distance_m": 2.334749936885929e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  2.941332517931914e-17,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 3.3306690738754696e-16,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 3.3306690738754696e-16,
+                "start_surface_to_last_vertex_m": 0.005671376328445949,
+                "end_surface_to_first_vertex_m": 0.005671376328445923,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.805819642665476e-15,
+              "mean_projection_distance_m": 1.633056668566594e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  5.854116421877321e-16
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 5.339468714465245e-15,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 5.339468714465245e-15,
+                "start_surface_to_last_vertex_m": 0.005671376328445949,
+                "end_surface_to_first_vertex_m": 0.005671376328445923,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 22,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 4.965068306494546e-16,
+              "mean_projection_distance_m": 1.6659657943990904e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  0.9999999999999841,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 1.6653345369377348e-16,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.011309738135821127,
+                "end_surface_to_first_vertex_m": 0.01130973813582104,
+                "end_surface_to_last_vertex_m": 1.6653345369377348e-16,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 2.7755575615628914e-16,
+              "mean_projection_distance_m": 1.29813369575119e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  8.042840020655259e-15,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  8.783233435600542e-16
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 6.866350197783356e-16,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.011309738135821127,
+                "end_surface_to_first_vertex_m": 0.011309738135821782,
+                "end_surface_to_last_vertex_m": 6.866350197783356e-16,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 29,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 3.3306690738754696e-16,
+              "mean_projection_distance_m": 1.3774793410864064e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.9999999999999998
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.030410893329204356,
+                "end_surface_to_first_vertex_m": 0.030410893329204356,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_Interpolate",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 2.482534153247273e-16,
+              "mean_projection_distance_m": 8.950909466212835e-17,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  4.99930942158766e-16
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 5.339468714465245e-15,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.030410893329204356,
+                "end_surface_to_first_vertex_m": 0.030410893329204054,
+                "end_surface_to_last_vertex_m": 5.339468714465245e-15,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 2,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 4.577566798522237e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 3,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 2.482534153247273e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 9,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 4.577566798522237e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 10,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 3.510833468576701e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 12,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.790180836524724e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 13,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7798229048217483e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 19,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7832822334594722e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 20,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 5.339468714465245e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 22,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 4.965068306494546e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 23,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 6.866350197783356e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 29,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 3.3306690738754696e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 30,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 5.339468714465245e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "sampled_surface_project_approx_update_edge_then_same_parameter",
+      "operation_results": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 2,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 4.440892098500626e-16,
+              "mean_projection_distance_m": 1.154667010118285e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  1.0924726021824954e-15,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.010151388133646747,
+                "end_surface_to_first_vertex_m": 0.010151388133646747,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 3,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 2.2887833992611187e-16,
+              "mean_projection_distance_m": 9.319967051274784e-17,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.010151388133646747,
+                "end_surface_to_first_vertex_m": 0.010151388133646747,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 9,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.7832822334594722e-15,
+              "mean_projection_distance_m": 2.0344421000166323e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  2.4546672491004925e-15,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 3.3306690738754696e-16,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 3.3306690738754696e-16,
+                "start_surface_to_last_vertex_m": 0.028928371604672563,
+                "end_surface_to_first_vertex_m": 0.028928371604672886,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 10,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 3.510833468576701e-16,
+              "mean_projection_distance_m": 1.479057761521895e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  0.9999999999999954,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.028928371604672886,
+                "end_surface_to_first_vertex_m": 0.028928371604672886,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 12,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.808164448713604e-15,
+              "mean_projection_distance_m": 1.3315079339114137e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.003515200130598177,
+                "end_surface_to_first_vertex_m": 0.003515200130598177,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 13,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.7772239894833365e-15,
+              "mean_projection_distance_m": 1.5395795374624918e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  3.954165595876295e-17
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.003515200130598177,
+                "end_surface_to_first_vertex_m": 0.003515200130598177,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 19,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.8343894894033213e-15,
+              "mean_projection_distance_m": 2.334749936885929e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  2.941332517931914e-17,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 3.3306690738754696e-16,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 3.3306690738754696e-16,
+                "start_surface_to_last_vertex_m": 0.005671376328445949,
+                "end_surface_to_first_vertex_m": 0.005671376328445923,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 20,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 1.805819642665476e-15,
+              "mean_projection_distance_m": 1.633056668566594e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  5.854116421877321e-16
+                ],
+                "end_uv": [
+                  1.0,
+                  0.0
+                ],
+                "start_surface_to_curve3d_m": 5.339468714465245e-15,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 5.339468714465245e-15,
+                "start_surface_to_last_vertex_m": 0.005671376328445949,
+                "end_surface_to_first_vertex_m": 0.005671376328445923,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 22,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 4.965068306494546e-16,
+              "mean_projection_distance_m": 1.6659657943990904e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  0.9999999999999841,
+                  1.0
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 1.6653345369377348e-16,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.011309738135821127,
+                "end_surface_to_first_vertex_m": 0.01130973813582104,
+                "end_surface_to_last_vertex_m": 1.6653345369377348e-16,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 23,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 2.7755575615628914e-16,
+              "mean_projection_distance_m": 1.29813369575119e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  8.042840020655259e-15,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  8.783233435600542e-16
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 6.866350197783356e-16,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.011309738135821127,
+                "end_surface_to_first_vertex_m": 0.011309738135821782,
+                "end_surface_to_last_vertex_m": 6.866350197783356e-16,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "edge_range": [
+            0.0,
+            1.0
+          ],
+          "face_operations": [
+            {
+              "face_id": 29,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 3.3306690738754696e-16,
+              "mean_projection_distance_m": 1.3774793410864064e-16,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  1.0
+                ],
+                "end_uv": [
+                  1.0,
+                  0.9999999999999998
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 0.0,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.030410893329204356,
+                "end_surface_to_first_vertex_m": 0.030410893329204356,
+                "end_surface_to_last_vertex_m": 0.0,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            },
+            {
+              "face_id": 30,
+              "called": true,
+              "projected_pcurve_built": true,
+              "projection_method": "GeomAPI_ProjectPointOnSurf+Geom2dAPI_PointsToBSpline",
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "max_projection_distance_m": 2.482534153247273e-16,
+              "mean_projection_distance_m": 8.950909466212835e-17,
+              "sample_count": 23,
+              "endpoint_orientation_gate": {
+                "start_uv": [
+                  0.0,
+                  0.0
+                ],
+                "end_uv": [
+                  1.0,
+                  4.99930942158766e-16
+                ],
+                "start_surface_to_curve3d_m": 0.0,
+                "end_surface_to_curve3d_m": 5.339468714465245e-15,
+                "start_surface_to_first_vertex_m": 0.0,
+                "start_surface_to_last_vertex_m": 0.030410893329204356,
+                "end_surface_to_first_vertex_m": 0.030410893329204054,
+                "end_surface_to_last_vertex_m": 5.339468714465245e-15,
+                "orientation_preserved": true,
+                "endpoint_residual_within_tolerance": true
+              },
+              "error": null
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "curve_id": 7,
+          "edge_index": 7,
+          "face_ids": [
+            2,
+            3
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 2,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 4.47545209131181e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 3,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 4.440892098500626e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 28,
+          "edge_index": 28,
+          "face_ids": [
+            9,
+            10
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 9,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 3.3306690738754696e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 10,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 3.1401849173675503e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 36,
+          "edge_index": 36,
+          "face_ids": [
+            12,
+            13
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 12,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7910412935974927e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 13,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7910412935974927e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 50,
+          "edge_index": 50,
+          "face_ids": [
+            19,
+            20
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 19,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 1.7798229048217483e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 20,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 5.339468714465245e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 55,
+          "edge_index": 55,
+          "face_ids": [
+            22,
+            23
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 22,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 2.482534153247273e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 23,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 5.329359630937609e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        },
+        {
+          "curve_id": 62,
+          "edge_index": 62,
+          "face_ids": [
+            29,
+            30
+          ],
+          "edge_found": true,
+          "edge_tolerance": 1e-07,
+          "same_parameter_flag": true,
+          "same_range_flag": true,
+          "face_checks": [
+            {
+              "face_id": 29,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 2.220446049250313e-16,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            },
+            {
+              "face_id": 30,
+              "face_found": true,
+              "has_pcurve": true,
+              "edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_edge_range": [
+                0.0,
+                1.0
+              ],
+              "pcurve_type": "Geom2d_BSplineCurve",
+              "pcurve_first_parameter": 0.0,
+              "pcurve_last_parameter": 1.0,
+              "pcurve_domain_bounded": true,
+              "check_pcurve_range": true,
+              "check_same_parameter": false,
+              "check_curve3d_with_pcurve": false,
+              "check_vertex_tolerance": false,
+              "max_sample_distance_m": 5.339468714465245e-15,
+              "max_sample_distance_over_edge_tolerance": null,
+              "check_errors": [],
+              "same_parameter_flag": true,
+              "same_range_flag": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "strategy_attempt_summary": {
+    "attempt_count": 3,
+    "strategies_evaluated": [
+      "geomprojlib_curve2d_update_edge_then_same_parameter",
+      "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+      "sampled_surface_project_approx_update_edge_then_same_parameter"
+    ],
+    "recovered_attempt_count": 0,
+    "first_recovered_strategy": null,
+    "projected_pcurve_built_face_count": 36,
+    "endpoint_orientation_pass_face_count": 36,
+    "max_projection_distance_m": 1.8343894894033213e-15,
+    "best_bounded_face_count": 12,
+    "best_passed_face_count": 0,
+    "partial_progress_observed": true,
+    "same_parameter_or_same_range_flags_true_but_gate_failed": true,
+    "attempt_summaries": [
+      {
+        "strategy": "geomprojlib_curve2d_update_edge_then_same_parameter",
+        "target_edge_count": 6,
+        "target_face_count": 12,
+        "pcurve_present_face_count": 12,
+        "bounded_pcurve_face_count": 12,
+        "same_parameter_pass_face_count": 0,
+        "curve3d_with_pcurve_pass_face_count": 0,
+        "vertex_tolerance_pass_face_count": 0,
+        "passed_face_count": 0,
+        "check_error_count": 0,
+        "all_station_metadata_checks_pass": false,
+        "projected_pcurve_built_face_count": 12,
+        "endpoint_orientation_pass_face_count": 12,
+        "max_projection_distance_m": null
+      },
+      {
+        "strategy": "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+        "target_edge_count": 6,
+        "target_face_count": 12,
+        "pcurve_present_face_count": 12,
+        "bounded_pcurve_face_count": 12,
+        "same_parameter_pass_face_count": 0,
+        "curve3d_with_pcurve_pass_face_count": 0,
+        "vertex_tolerance_pass_face_count": 0,
+        "passed_face_count": 0,
+        "check_error_count": 0,
+        "all_station_metadata_checks_pass": false,
+        "projected_pcurve_built_face_count": 12,
+        "endpoint_orientation_pass_face_count": 12,
+        "max_projection_distance_m": 1.8343894894033213e-15
+      },
+      {
+        "strategy": "sampled_surface_project_approx_update_edge_then_same_parameter",
+        "target_edge_count": 6,
+        "target_face_count": 12,
+        "pcurve_present_face_count": 12,
+        "bounded_pcurve_face_count": 12,
+        "same_parameter_pass_face_count": 0,
+        "curve3d_with_pcurve_pass_face_count": 0,
+        "vertex_tolerance_pass_face_count": 0,
+        "passed_face_count": 0,
+        "check_error_count": 0,
+        "all_station_metadata_checks_pass": false,
+        "projected_pcurve_built_face_count": 12,
+        "endpoint_orientation_pass_face_count": 12,
+        "max_projection_distance_m": 1.8343894894033213e-15
+      }
+    ]
+  },
+  "engineering_findings": [
+    "side_aware_projected_pcurve_builder_evaluated",
+    "upstream_bounded_pcurve_builder_not_recovered",
+    "projected_or_sampled_pcurves_materialized_in_memory",
+    "projected_endpoint_orientation_gate_passed",
+    "projected_sampled_geometry_residuals_within_projection_tolerance",
+    "shape_analysis_gate_still_fails_after_projected_or_sampled_pcurves",
+    "same_parameter_flags_are_not_shape_analysis_truth_source"
+  ],
+  "blocking_reasons": [
+    "side_aware_station_projected_pcurve_builder_not_recovered",
+    "side_aware_candidate_mesh_handoff_not_run"
+  ],
+  "next_actions": [
+    "move_repair_upstream_to_section_parametrization_or_export_pcurve_generation",
+    "do_not_advance_to_mesh_until_shape_analysis_gate_passes",
+    "use_projected_pcurve_probe_as_negative_control_for_future_export_changes"
+  ],
+  "limitations": [
+    "This probe edits topology metadata in memory only; it does not export a repaired STEP.",
+    "A projected or sampled PCurve is not accepted unless the full ShapeAnalysis gate passes.",
+    "SameParameter/SameRange flags are recorded as diagnostics only, not as pass criteria."
+  ]
+}

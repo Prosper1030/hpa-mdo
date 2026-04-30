@@ -129,10 +129,16 @@ SameParameter / ShapeFix repair gate on those six station edges: 5
 operation/tolerance attempts all have `recovered_attempt_count = 0`. The
 side-aware PCurve metadata builder probe then tests four bounded-existing-PCurve
 strategies: all 12 edge-face PCurve domains can be made bounded, but 0 / 12
-edge-face pairs pass the full ShapeAnalysis metadata gate. The next repair
-target is therefore a projected or sampled PCurve builder with explicit
-vertex-parameter and orientation validation for the side-aware export, rather
-than mesh or solver budget. The export-source audit
+edge-face pairs pass the full ShapeAnalysis metadata gate. The side-aware
+projected PCurve builder probe then tests `GeomProjLib.Curve2d`, sampled
+`GeomAPI_ProjectPointOnSurf + Geom2dAPI_Interpolate`, and sampled
+`GeomAPI_ProjectPointOnSurf + Geom2dAPI_PointsToBSpline`: all 36
+strategy/edge-face operations build bounded PCurves, all 36 endpoint orientation
+gates pass, and sampled projection residual max is
+`1.8343894894033213e-15 m`, but 0 / 12 edge-face pairs pass the full
+ShapeAnalysis metadata gate. The next repair target is therefore upstream
+section parametrization or export PCurve metadata generation for the side-aware
+export, rather than mesh or solver budget. The export-source audit
 then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
@@ -142,7 +148,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`prototype_projected_or_sampled_pcurve_builder_with_vertex_orientation_gate`.
+`move_repair_upstream_to_section_parametrization_or_export_pcurve_generation`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -491,6 +497,25 @@ leave 0 / 12 edge-face pairs passing same-parameter,
 curve-3D-with-PCurve, and vertex-tolerance checks. This is partial CAD
 metadata progress only, not mesh readiness; the next gate is projected/sampled
 PCurve construction with vertex/orientation validation.
+
+The main-wing side-aware projected PCurve builder probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-side-aware-projected-pcurve-builder-probe --out .tmp/runs/main_wing_station_seam_side_aware_projected_pcurve_builder_probe
+```
+
+This writes
+`main_wing_station_seam_side_aware_projected_pcurve_builder_probe.v1.json` and
+`.md`. The committed result is
+`side_aware_station_projected_pcurve_builder_partial`: 36 / 36 projected or
+sampled PCurve operations materialize bounded PCurves and pass endpoint
+orientation, with sampled projection residual max
+`1.8343894894033213e-15 m`, but the full ShapeAnalysis metadata gate remains
+0 / 12. SameParameter / SameRange flags are therefore diagnostic only, not
+truth-source pass criteria. The route remains blocked before Gmsh mesh handoff;
+the next repair should move upstream to section parametrization or export
+PCurve metadata generation.
 
 The first real fairing geometry smoke is emitted by:
 

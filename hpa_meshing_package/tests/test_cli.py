@@ -764,6 +764,44 @@ def test_parser_supports_main_wing_station_seam_side_aware_pcurve_metadata_build
     ]
 
 
+def test_parser_supports_main_wing_station_seam_side_aware_projected_pcurve_builder_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-side-aware-projected-pcurve-builder-probe",
+            "--out",
+            "artifacts/main_wing_side_aware_projected_pcurve_builder",
+            "--pcurve-metadata-builder-probe",
+            "artifacts/main_wing/pcurve_metadata_builder.json",
+            "--strategies",
+            "geomprojlib_curve2d_update_edge_then_same_parameter",
+            "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+            "--sample-count",
+            "31",
+            "--projection-tolerance-m",
+            "1e-8",
+            "--interpolation-tolerance",
+            "1e-10",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-side-aware-projected-pcurve-builder-probe"
+    )
+    assert args.out == "artifacts/main_wing_side_aware_projected_pcurve_builder"
+    assert args.pcurve_metadata_builder_probe == (
+        "artifacts/main_wing/pcurve_metadata_builder.json"
+    )
+    assert args.strategies == [
+        "geomprojlib_curve2d_update_edge_then_same_parameter",
+        "sampled_surface_project_interpolate_update_edge_then_same_parameter",
+    ]
+    assert args.sample_count == 31
+    assert args.projection_tolerance_m == 1.0e-8
+    assert args.interpolation_tolerance == 1.0e-10
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(
