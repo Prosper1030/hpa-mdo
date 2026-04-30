@@ -789,6 +789,53 @@
       "blockers": []
     },
     {
+      "stage": "su2_mesh_normal_audit",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_mesh_normal_audit/main_wing_su2_mesh_normal_audit.v1.json",
+      "observed": {
+        "normal_audit_status": "pass",
+        "main_wing_surface_entity_count": 32,
+        "surface_triangle_count": 2424,
+        "normal_orientation": {
+          "status": "pass",
+          "valid_triangle_count": 2424,
+          "missing_node_triangle_count": 0,
+          "z_positive_fraction": 0.511963696369637,
+          "z_negative_fraction": 0.4839108910891089,
+          "z_near_zero_fraction": 0.004125412541254125,
+          "area_weighted_mean_normal": [
+            1.0143938927015298e-18,
+            -0.0008604344522536509,
+            -1.261221222764421e-17
+          ],
+          "area_weighted_abs_z_mean": 0.8919616320431857,
+          "min_normal": [
+            -0.9999452769580452,
+            -1.0,
+            -0.9999626426937179
+          ],
+          "max_normal": [
+            0.513631443714756,
+            1.0,
+            0.9999802566224099
+          ],
+          "total_surface_area": 42.43206367601745
+        },
+        "engineering_findings": [
+          "main_wing_surface_normals_mixed_upper_lower",
+          "single_global_normal_flip_not_supported",
+          "main_wing_normals_mostly_lift_axis_oriented"
+        ],
+        "next_actions": [
+          "compare_openvsp_panel_wake_model_against_su2_thin_sheet_wall_semantics",
+          "inspect_wing_surface_pairing_and_lifting_surface_export",
+          "check_upper_lower_surface_incidence_against_panel_geometry"
+        ]
+      },
+      "blockers": []
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -827,7 +874,7 @@
     "panel_to_force_breakdown_cl_ratio_above_four"
   ],
   "next_actions": [
-    "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics",
+    "compare_openvsp_panel_wake_model_against_su2_thin_sheet_wall_semantics",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

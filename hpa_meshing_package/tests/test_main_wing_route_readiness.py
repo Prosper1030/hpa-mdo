@@ -562,6 +562,103 @@ def test_main_wing_route_readiness_records_panel_su2_lift_gap_debug_stage(
     )
 
 
+def test_main_wing_route_readiness_records_su2_mesh_normal_audit_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263161913, "cd": 0.025},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_panel_su2_lift_gap_debug"
+        / "main_wing_panel_su2_lift_gap_debug.v1.json",
+        {
+            "debug_status": "gap_confirmed_debug_ready",
+            "next_actions": [
+                "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+            ],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_su2_mesh_normal_audit"
+        / "main_wing_su2_mesh_normal_audit.v1.json",
+        {
+            "normal_audit_status": "pass",
+            "main_wing_surface_entity_count": 32,
+            "surface_triangle_count": 2424,
+            "normal_orientation": {
+                "z_positive_fraction": 0.511963696369637,
+                "z_negative_fraction": 0.4839108910891089,
+                "area_weighted_mean_normal": [
+                    1.0143938927015298e-18,
+                    -0.0008604344522536509,
+                    -1.261221222764421e-17,
+                ],
+            },
+            "engineering_findings": [
+                "main_wing_surface_normals_mixed_upper_lower",
+                "single_global_normal_flip_not_supported",
+            ],
+            "next_actions": [
+                "compare_openvsp_panel_wake_model_against_su2_thin_sheet_wall_semantics"
+            ],
+            "blocking_reasons": [],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    normal_stage = stages["su2_mesh_normal_audit"]
+    assert normal_stage.status == "pass"
+    assert normal_stage.evidence_kind == "real"
+    assert normal_stage.observed["surface_triangle_count"] == 2424
+    assert "single_global_normal_flip_not_supported" in normal_stage.observed[
+        "engineering_findings"
+    ]
+    assert report.next_actions[0] == (
+        "compare_openvsp_panel_wake_model_against_su2_thin_sheet_wall_semantics"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

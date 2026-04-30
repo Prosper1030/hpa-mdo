@@ -278,6 +278,23 @@ def test_parser_supports_main_wing_panel_su2_lift_gap_debug_command():
     assert args.report_root == "docs/reports"
 
 
+def test_parser_supports_main_wing_su2_mesh_normal_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-su2-mesh-normal-audit",
+            "--out",
+            "artifacts/main_wing_su2_mesh_normal_audit",
+            "--mesh",
+            "artifacts/main_wing/mesh.msh",
+        ]
+    )
+
+    assert args.command == "main-wing-su2-mesh-normal-audit"
+    assert args.out == "artifacts/main_wing_su2_mesh_normal_audit"
+    assert args.mesh == "artifacts/main_wing/mesh.msh"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

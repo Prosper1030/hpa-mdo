@@ -78,6 +78,10 @@ from .main_wing_panel_su2_lift_gap_debug import (
     build_main_wing_panel_su2_lift_gap_debug_report,
     write_main_wing_panel_su2_lift_gap_debug_report,
 )
+from .main_wing_su2_mesh_normal_audit import (
+    build_main_wing_su2_mesh_normal_audit_report,
+    write_main_wing_su2_mesh_normal_audit_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -462,6 +466,19 @@ def cmd_main_wing_panel_su2_lift_gap_debug(args: argparse.Namespace) -> int:
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if report.debug_status != "insufficient_evidence" else 2
+
+
+def cmd_main_wing_su2_mesh_normal_audit(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    mesh_path = None if args.mesh is None else Path(args.mesh)
+    report = build_main_wing_su2_mesh_normal_audit_report(mesh_path=mesh_path)
+    write_main_wing_su2_mesh_normal_audit_report(
+        out_dir,
+        report=report,
+        mesh_path=mesh_path,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.normal_audit_status == "pass" else 2
 
 
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
@@ -870,6 +887,15 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_panel_su2_lift_gap_debug.add_argument("--report-root", type=str)
     main_wing_panel_su2_lift_gap_debug.set_defaults(
         func=cmd_main_wing_panel_su2_lift_gap_debug
+    )
+
+    main_wing_su2_mesh_normal_audit = sub.add_parser(
+        "main-wing-su2-mesh-normal-audit"
+    )
+    main_wing_su2_mesh_normal_audit.add_argument("--out", type=str, required=True)
+    main_wing_su2_mesh_normal_audit.add_argument("--mesh", type=str)
+    main_wing_su2_mesh_normal_audit.set_defaults(
+        func=cmd_main_wing_su2_mesh_normal_audit
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(
