@@ -105,6 +105,25 @@ not high-fidelity CFD, but it supports the engineering sanity gate that a
 main-wing route claiming convergence at this operating point must not pass with
 `CL <= 1.0`; the current selected SU2 smoke is about `4.89x` lower in `CL`.
 
+The main-wing SU2 force-marker audit is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-su2-force-marker-audit --out .tmp/runs/main_wing_su2_force_marker_audit
+```
+
+This writes `main_wing_su2_force_marker_audit.v1.json` and
+`main_wing_su2_force_marker_audit.v1.md`. The committed snapshot under
+`docs/reports/main_wing_su2_force_marker_audit/` reads the OpenVSP-reference
+SU2 handoff and runtime config. Current result is `warn`: `MARKER_EULER`,
+`MARKER_MONITORING`, and `MARKER_PLOTTING` all include `main_wing`, `MARKER_FAR`
+includes `farfield`, mesh marker counts are positive (`main_wing=2424` surface
+elements, `farfield=5376`), and `V=6.5 m/s` plus OpenVSP reference area/chord
+are preserved. The warning is scope-related: the current solver smoke uses an
+Euler wall condition and the reference moment origin is still not formally
+certified, so this audit supports force-marker ownership but does not make the
+route viscous-CFD-ready.
+
 The first real fairing geometry smoke is emitted by:
 
 ```bash
