@@ -528,6 +528,17 @@ tail stability, but does not clear the residual gate. The next numerics work
 should inspect mesh quality / residual behavior / solver settings, not merely
 claim success from a zero return code.
 
+Additional mesh-quality evidence from the SU2 preprocessing log:
+
+- minimum orthogonality angle ~= `31.47 deg`
+- maximum CV face area aspect ratio ~= `377.9`
+- maximum CV sub-volume ratio ~= `13256`
+- maximum reported surface curvature ~= `1768`
+
+These are observed log values, not a proven root-cause diagnosis. They are
+nevertheless enough to make mesh-quality/local-sizing inspection a higher-value
+next task than another blind iteration-budget increase.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash

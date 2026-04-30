@@ -293,6 +293,10 @@ remains `warn/run_only` with `final_iteration=79`, `CL ~= 0.2632`,
 `CD ~= 0.02497`, and `CMy ~= -0.2097`. The useful engineering signal is that
 coefficient stability is now tight, while median residual log drop is still only
 about `0.358` against the `0.5` pass threshold; this is still not convergence.
+The SU2 preprocessing log also reports high mesh-quality ratios
+(`CV Face Area Aspect Ratio max ~= 377.9`, `CV Sub-Volume Ratio max ~= 13256`),
+so the next numerics work should inspect mesh quality and local sizing rather
+than only raising the iteration budget again.
 
 The main-wing reference-geometry gate is emitted by:
 

@@ -29,3 +29,14 @@ the residual gate still warns: median residual log drop is about `0.358` against
 the `0.5` pass threshold. The run is therefore still blocked by
 `solver_executed_but_not_converged`, with `main_wing_real_reference_geometry_warn`
 also remaining active.
+
+Mesh-quality observations from `artifacts/raw_solver/solver.log`:
+
+- minimum orthogonality angle: `31.473 deg`
+- maximum CV face area aspect ratio: `377.909`
+- maximum CV sub-volume ratio: `13256.1`
+- maximum surface curvature reported by SU2 preprocessing: `1768.33`
+
+These numbers do not by themselves prove the convergence blocker root cause,
+but they are strong enough to make mesh-quality and local sizing/numerics checks
+more useful than simply increasing the iteration count again.
