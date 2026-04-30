@@ -466,6 +466,102 @@ def test_main_wing_route_readiness_records_vspaero_panel_reference_stage(
     assert "su2_smoke_below_vspaero_panel_reference" not in report.blocking_reasons
 
 
+def test_main_wing_route_readiness_records_panel_su2_lift_gap_debug_stage(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    real_mesh_path = (
+        root
+        / "main_wing_real_mesh_handoff_probe"
+        / "main_wing_real_mesh_handoff_probe.v1.json"
+    )
+    real_mesh = json.loads(real_mesh_path.read_text(encoding="utf-8"))
+    real_mesh.update(
+        {
+            "probe_status": "mesh_handoff_pass",
+            "mesh_handoff_status": "written",
+            "blocking_reasons": [],
+        }
+    )
+    _write_json(real_mesh_path, real_mesh)
+    _write_json(
+        root
+        / "main_wing_real_su2_handoff_probe"
+        / "main_wing_real_su2_handoff_probe.v1.json",
+        {
+            "materialization_status": "su2_handoff_written",
+            "su2_contract": "su2_handoff.v1",
+            "input_mesh_contract": "mesh_handoff.v1",
+            "component_force_ownership_status": "owned",
+            "reference_geometry_status": "warn",
+            "observed_velocity_mps": 6.5,
+            "blocking_reasons": ["main_wing_real_reference_geometry_warn"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_real_solver_smoke_probe"
+        / "main_wing_real_solver_smoke_probe.v1.json",
+        {
+            "solver_execution_status": "solver_executed",
+            "convergence_gate_status": "fail",
+            "run_status": "solver_executed_but_not_converged",
+            "final_iteration": 80,
+            "observed_velocity_mps": 6.5,
+            "final_coefficients": {"cl": 0.263, "cd": 0.02, "cm": -0.2},
+            "blocking_reasons": ["solver_executed_but_not_converged"],
+        },
+    )
+    _write_json(
+        root
+        / "main_wing_panel_su2_lift_gap_debug"
+        / "main_wing_panel_su2_lift_gap_debug.v1.json",
+        {
+            "debug_status": "gap_confirmed_debug_ready",
+            "flow_reference_alignment": {
+                "status": "pass",
+                "ref_area_relative_delta": 0.0,
+            },
+            "panel_reference_decomposition": {
+                "cltot": 1.287645495943,
+                "induced_lift_fraction_of_cltot": 1.0021338531262347,
+            },
+            "su2_force_breakdown": {
+                "forces_breakdown_cl": 0.263162,
+                "force_breakdown_marker_owned": True,
+                "force_breakdown_matches_history_cl": True,
+            },
+            "engineering_findings": [
+                "panel_su2_lift_gap_confirmed",
+                "reference_normalization_not_primary_cause",
+                "panel_lift_dominated_by_wake_induced_terms",
+                "su2_wall_bc_is_euler_smoke",
+            ],
+            "primary_hypotheses": [
+                {
+                    "hypothesis": "panel_su2_lifting_surface_semantics_or_geometry_mismatch",
+                    "priority": "high",
+                }
+            ],
+            "next_actions": [
+                "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    debug_stage = stages["panel_su2_lift_gap_debug"]
+    assert debug_stage.status == "pass"
+    assert debug_stage.evidence_kind == "real"
+    assert debug_stage.observed["debug_status"] == "gap_confirmed_debug_ready"
+    assert debug_stage.observed["primary_hypotheses"][0]["priority"] == "high"
+    assert report.next_actions[0] == (
+        "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+    )
+
+
 def test_main_wing_route_readiness_surfaces_real_mesh_quality_advisories(
     tmp_path: Path,
 ):

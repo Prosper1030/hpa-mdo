@@ -18,6 +18,7 @@ StageType = Literal[
     "openvsp_reference_su2_handoff",
     "su2_force_marker_audit",
     "surface_force_output_audit",
+    "panel_su2_lift_gap_debug",
     "openvsp_reference_geometry_gate",
     "openvsp_reference_solver_smoke",
     "openvsp_reference_solver_budget_probe",
@@ -523,6 +524,50 @@ def _lift_acceptance_blockers(payload: dict[str, Any] | None) -> list[str]:
     return list(dict.fromkeys([f"main_wing_lift_acceptance_{status}", *flags]))
 
 
+def _panel_su2_lift_gap_debug_status(payload: dict[str, Any] | None) -> StageStatusType:
+    if not isinstance(payload, dict):
+        return "not_run"
+    return (
+        "blocked"
+        if payload.get("debug_status") == "insufficient_evidence"
+        else "pass"
+    )
+
+
+def _panel_su2_lift_gap_debug_observed(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "debug_status": None if payload is None else payload.get("debug_status"),
+        "flow_reference_alignment": (
+            {} if payload is None else payload.get("flow_reference_alignment", {})
+        ),
+        "panel_reference_decomposition": (
+            {} if payload is None else payload.get("panel_reference_decomposition", {})
+        ),
+        "su2_force_breakdown": (
+            {} if payload is None else payload.get("su2_force_breakdown", {})
+        ),
+        "engineering_findings": (
+            [] if payload is None else payload.get("engineering_findings", [])
+        ),
+        "primary_hypotheses": (
+            [] if payload is None else payload.get("primary_hypotheses", [])
+        ),
+        "next_actions": [] if payload is None else payload.get("next_actions", []),
+    }
+
+
+def _panel_su2_lift_gap_debug_blockers(
+    payload: dict[str, Any] | None,
+) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    if payload.get("debug_status") == "insufficient_evidence":
+        return ["panel_su2_lift_gap_debug_insufficient_evidence"]
+    return []
+
+
 def build_main_wing_route_readiness_report(
     *,
     report_root: Path | None = None,
@@ -599,6 +644,11 @@ def build_main_wing_route_readiness_report(
         / "main_wing_lift_acceptance_diagnostic"
         / "main_wing_lift_acceptance_diagnostic.v1.json"
     )
+    panel_su2_lift_gap_debug_path = (
+        root
+        / "main_wing_panel_su2_lift_gap_debug"
+        / "main_wing_panel_su2_lift_gap_debug.v1.json"
+    )
     synthetic_su2_runtime_path = (
         root
         / "main_wing_su2_handoff_smoke"
@@ -630,6 +680,7 @@ def build_main_wing_route_readiness_report(
     reference_gate = _load_json(reference_gate_path)
     solver_smoke = _load_json(solver_smoke_path)
     lift_acceptance = _load_json(lift_acceptance_path)
+    panel_su2_lift_gap_debug = _load_json(panel_su2_lift_gap_debug_path)
     solver_budget_path, solver_budget = _load_latest_solver_budget_probe(
         root,
         directory_prefix="main_wing_real_solver_smoke_probe_iter",
@@ -1061,6 +1112,20 @@ def build_main_wing_route_readiness_report(
             blockers=_lift_acceptance_blockers(lift_acceptance),
         ),
         _stage(
+            stage="panel_su2_lift_gap_debug",
+            status=_panel_su2_lift_gap_debug_status(panel_su2_lift_gap_debug),
+            evidence_kind=(
+                "real" if isinstance(panel_su2_lift_gap_debug, dict) else "absent"
+            ),
+            artifact_path=(
+                panel_su2_lift_gap_debug_path
+                if isinstance(panel_su2_lift_gap_debug, dict)
+                else None
+            ),
+            observed=_panel_su2_lift_gap_debug_observed(panel_su2_lift_gap_debug),
+            blockers=_panel_su2_lift_gap_debug_blockers(panel_su2_lift_gap_debug),
+        ),
+        _stage(
             stage="convergence_gate",
             status="pass" if convergence_pass else "blocked" if convergence_blocked else "not_run",
             evidence_kind="real" if solver_executed else "absent",
@@ -1183,6 +1248,15 @@ def build_main_wing_route_readiness_report(
         and "forces_breakdown_cl_below_panel_reference" in surface_force_output_flags
     ):
         next_actions[0] = "debug_panel_su2_lift_gap_from_retained_force_breakdown"
+    if (
+        convergence_blocked
+        and solver_lift_acceptance_failed
+        and isinstance(panel_su2_lift_gap_debug, dict)
+        and panel_su2_lift_gap_debug.get("debug_status") == "gap_confirmed_debug_ready"
+    ):
+        debug_next_actions = panel_su2_lift_gap_debug.get("next_actions", [])
+        if isinstance(debug_next_actions, list) and debug_next_actions:
+            next_actions[0] = str(debug_next_actions[0])
 
     return MainWingRouteReadinessReport(
         overall_status=overall_status,

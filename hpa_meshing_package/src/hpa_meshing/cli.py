@@ -74,6 +74,10 @@ from .main_wing_lift_acceptance_diagnostic import (
     build_main_wing_lift_acceptance_diagnostic_report,
     write_main_wing_lift_acceptance_diagnostic_report,
 )
+from .main_wing_panel_su2_lift_gap_debug import (
+    build_main_wing_panel_su2_lift_gap_debug_report,
+    write_main_wing_panel_su2_lift_gap_debug_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -445,6 +449,19 @@ def cmd_main_wing_lift_acceptance_diagnostic(args: argparse.Namespace) -> int:
     )
     print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0
+
+
+def cmd_main_wing_panel_su2_lift_gap_debug(args: argparse.Namespace) -> int:
+    out_dir = Path(args.out)
+    report_root = None if args.report_root is None else Path(args.report_root)
+    report = build_main_wing_panel_su2_lift_gap_debug_report(report_root=report_root)
+    write_main_wing_panel_su2_lift_gap_debug_report(
+        out_dir,
+        report=report,
+        report_root=report_root,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.debug_status != "insufficient_evidence" else 2
 
 
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
@@ -844,6 +861,15 @@ def build_parser() -> argparse.ArgumentParser:
     main_wing_lift_acceptance.add_argument("--report-root", type=str)
     main_wing_lift_acceptance.set_defaults(
         func=cmd_main_wing_lift_acceptance_diagnostic
+    )
+
+    main_wing_panel_su2_lift_gap_debug = sub.add_parser(
+        "main-wing-panel-su2-lift-gap-debug"
+    )
+    main_wing_panel_su2_lift_gap_debug.add_argument("--out", type=str, required=True)
+    main_wing_panel_su2_lift_gap_debug.add_argument("--report-root", type=str)
+    main_wing_panel_su2_lift_gap_debug.set_defaults(
+        func=cmd_main_wing_panel_su2_lift_gap_debug
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

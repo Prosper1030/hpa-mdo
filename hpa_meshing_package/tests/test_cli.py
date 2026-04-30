@@ -261,6 +261,23 @@ def test_parser_supports_main_wing_lift_acceptance_diagnostic_command():
     assert args.report_root == "docs/reports"
 
 
+def test_parser_supports_main_wing_panel_su2_lift_gap_debug_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-panel-su2-lift-gap-debug",
+            "--out",
+            "artifacts/main_wing_panel_su2_lift_gap_debug",
+            "--report-root",
+            "docs/reports",
+        ]
+    )
+
+    assert args.command == "main-wing-panel-su2-lift-gap-debug"
+    assert args.out == "artifacts/main_wing_panel_su2_lift_gap_debug"
+    assert args.report_root == "docs/reports"
+
+
 def test_parser_supports_main_wing_su2_force_marker_audit_command():
     parser = build_parser()
     args = parser.parse_args(

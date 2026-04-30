@@ -1,0 +1,149 @@
+{
+  "schema_version": "main_wing_panel_su2_lift_gap_debug.v1",
+  "component": "main_wing",
+  "execution_scope": "report_only_existing_artifacts",
+  "production_default_changed": false,
+  "hpa_standard_velocity_mps": 6.5,
+  "minimum_acceptable_cl": 1.0,
+  "debug_status": "gap_confirmed_debug_ready",
+  "flow_reference_alignment": {
+    "status": "pass",
+    "panel_sref_m2": 35.175,
+    "su2_ref_area_m2": 35.175,
+    "ref_area_relative_delta": 0.0,
+    "panel_cref_m": 1.0425,
+    "su2_ref_length_m": 1.0425,
+    "ref_length_relative_delta": 0.0,
+    "panel_velocity_mps": 6.5,
+    "su2_velocity_mps": 6.5,
+    "velocity_relative_delta": 0.0,
+    "panel_density_kgpm3": 1.225,
+    "su2_density_kgpm3": 1.225,
+    "density_relative_delta": 0.0,
+    "force_marker_flow_reference_status": "pass",
+    "force_marker_flow_reference_observed": {
+      "velocity_mps": 6.5,
+      "cfg_velocity_x_mps": 6.5,
+      "ref_area_m2": 35.175,
+      "cfg_ref_area_m2": 35.175,
+      "ref_length_m": 1.0425,
+      "cfg_ref_length_m": 1.0425,
+      "wall_boundary_condition": "euler",
+      "solver": "INC_NAVIER_STOKES"
+    }
+  },
+  "panel_reference_decomposition": {
+    "alpha_deg": 0.0,
+    "clo": -0.002747646367,
+    "cli": 1.29039314231,
+    "cltot": 1.287645495943,
+    "cdtot": 0.045068093845,
+    "cfztot": 1.287645495943,
+    "clwtot": 1.289971668181,
+    "induced_lift_fraction_of_cltot": 1.0021338531262347,
+    "interpretation": "panel_lift_dominated_by_wake_induced_terms"
+  },
+  "su2_force_breakdown": {
+    "forces_breakdown_status": "available",
+    "surface_names": [
+      "main_wing"
+    ],
+    "forces_breakdown_cl": 0.263162,
+    "selected_su2_cl": 0.263161913,
+    "vspaero_panel_cl": 1.287645495943,
+    "panel_to_force_breakdown_cl_ratio": 4.892976554149155,
+    "force_breakdown_marker_owned": true,
+    "force_breakdown_matches_history_cl": true,
+    "history_cl_delta_abs": 8.699999998196262e-08
+  },
+  "solver_state": {
+    "solver_execution_status": "solver_executed",
+    "run_status": "solver_executed_but_not_converged",
+    "convergence_gate_status": "fail",
+    "convergence_comparability_level": "not_comparable",
+    "runtime_max_iterations": 80,
+    "final_iteration": 79,
+    "final_coefficients": {
+      "cl": 0.263161913,
+      "cd": 0.02496911575,
+      "cm": -0.2096803732,
+      "cm_axis": "CMy"
+    }
+  },
+  "boundary_condition_observed": {
+    "solver": "INC_NAVIER_STOKES",
+    "wall_boundary_condition": "euler",
+    "engineering_flags": [
+      "main_wing_solver_wall_bc_is_euler_smoke_not_viscous",
+      "main_wing_reference_geometry_warn"
+    ]
+  },
+  "mesh_quality_observed": {
+    "max_cv_face_area_aspect_ratio": 377.909,
+    "max_cv_sub_volume_ratio": 13256.1,
+    "mesh_quality_pathology_present": true
+  },
+  "engineering_findings": [
+    "panel_su2_lift_gap_confirmed",
+    "reference_normalization_not_primary_cause",
+    "panel_lift_dominated_by_wake_induced_terms",
+    "force_marker_ownership_not_primary_cause",
+    "su2_force_breakdown_confirms_main_wing_low_cl",
+    "su2_wall_bc_is_euler_smoke",
+    "mesh_quality_pathology_present",
+    "solver_not_converged"
+  ],
+  "primary_hypotheses": [
+    {
+      "hypothesis": "panel_su2_lifting_surface_semantics_or_geometry_mismatch",
+      "priority": "high",
+      "evidence": [
+        "Panel CL is dominated by induced/wake terms.",
+        "SU2 force breakdown confirms low CL on the main_wing marker.",
+        "Current SU2 smoke uses an Euler wall on the thin-sheet main-wing route."
+      ],
+      "next_gate": "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics"
+    },
+    {
+      "hypothesis": "mesh_quality_or_dual_control_volume_pathology",
+      "priority": "high",
+      "evidence": [
+        "SU2 preprocessing reports high dual-volume quality ratios."
+      ],
+      "next_gate": "localize_bad_dual_volume_cells_before_larger_solver_budget"
+    },
+    {
+      "hypothesis": "solver_state_not_converged",
+      "priority": "medium",
+      "evidence": [
+        "The selected smoke is solver-executed but convergence-gate failed."
+      ],
+      "next_gate": "use_source_backed_iteration_budget_only_after_geometry_and_mesh_debug"
+    },
+    {
+      "hypothesis": "reference_normalization_unlikely_primary_cause",
+      "priority": "low",
+      "evidence": [
+        "Panel and SU2 use matching Sref/Cref/V/rho in the observed artifacts."
+      ],
+      "next_gate": "keep_reference_warning_visible_but_do_not_prioritize_area_normalization"
+    }
+  ],
+  "next_actions": [
+    "compare_openvsp_panel_geometry_against_su2_mesh_normals_incidence_and_wake_semantics",
+    "inspect_thin_sheet_wall_bc_against_vspaero_lifting_surface_assumption",
+    "localize_main_wing_su2_mesh_quality_hotspots_before_iteration_sweep",
+    "defer_convergence_claim_until_source_backed_iteration_budget"
+  ],
+  "hpa_mdo_guarantees": [
+    "report_only_no_solver_execution",
+    "production_default_unchanged",
+    "hpa_standard_flow_conditions_6p5_mps_checked",
+    "main_wing_cl_gt_one_required_for_acceptance"
+  ],
+  "limitations": [
+    "This report ranks debug hypotheses from existing artifacts; it is not a CFD convergence result.",
+    "VSPAERO panel evidence is a lower-order sanity baseline, not high-fidelity CFD truth.",
+    "Solver execution remains separate from convergence."
+  ]
+}
