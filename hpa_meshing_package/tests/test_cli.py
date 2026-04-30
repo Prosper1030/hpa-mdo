@@ -244,6 +244,23 @@ def test_parser_supports_main_wing_solver_budget_comparison_command():
     assert args.report_root == "docs/reports"
 
 
+def test_parser_supports_main_wing_lift_acceptance_diagnostic_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-lift-acceptance-diagnostic",
+            "--out",
+            "artifacts/main_wing_lift_acceptance_diagnostic",
+            "--report-root",
+            "docs/reports",
+        ]
+    )
+
+    assert args.command == "main-wing-lift-acceptance-diagnostic"
+    assert args.out == "artifacts/main_wing_lift_acceptance_diagnostic"
+    assert args.report_root == "docs/reports"
+
+
 def test_parser_supports_main_wing_real_su2_handoff_probe_command():
     parser = build_parser()
     args = parser.parse_args(

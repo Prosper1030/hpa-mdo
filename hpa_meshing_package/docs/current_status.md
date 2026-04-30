@@ -299,6 +299,25 @@ The SU2 preprocessing log also reports high mesh-quality ratios
 so the next numerics work should inspect mesh quality and local sizing rather
 than only raising the iteration budget again.
 
+The main-wing lift-acceptance diagnostic is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-lift-acceptance-diagnostic --out .tmp/runs/main_wing_lift_acceptance_diagnostic
+```
+
+This writes `main_wing_lift_acceptance_diagnostic.v1.json` and
+`main_wing_lift_acceptance_diagnostic.v1.md`. The current committed result is
+`lift_deficit_observed`: the selected OpenVSP-reference 80-iteration smoke
+uses `V=6.5 m/s`, `rho=1.225 kg/m^3`, `alpha=0 deg`, and
+`REF_AREA=35.175 m^2`, but ends at `CL ~= 0.2632`. At this flow condition,
+that corresponds to about `240 N` of normalized lift versus about `910 N` at
+the minimum acceptable `CL=1.0`. The report therefore treats the current
+solver smoke as below the main-wing lift acceptance gate. This is not a claim
+that the aircraft cannot trim; it means the alpha-zero route smoke cannot be
+accepted as converged main-wing evidence until a bounded alpha/trim sanity
+probe and geometry incidence/twist/camber provenance are recorded.
+
 The main-wing reference-geometry gate is emitted by:
 
 ```bash

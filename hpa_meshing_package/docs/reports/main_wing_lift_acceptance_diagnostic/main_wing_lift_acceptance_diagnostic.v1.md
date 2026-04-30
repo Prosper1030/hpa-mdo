@@ -1,0 +1,75 @@
+# Main Wing Lift Acceptance Diagnostic v1
+
+This report reads existing solver-smoke artifacts only; it does not execute SU2.
+
+- diagnostic_status: `lift_deficit_observed`
+- hpa_standard_velocity_mps: `6.5`
+- minimum_acceptable_cl: `1.0`
+- production_default_changed: `False`
+
+## Selected Solver Report
+
+- `report_path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json`
+- `reference_policy`: `openvsp_geometry_derived`
+- `runtime_max_iterations`: `80`
+- `final_iteration`: `79`
+- `convergence_gate_status`: `warn`
+- `convergence_comparability_level`: `run_only`
+- `coefficient_stability_status`: `pass`
+- `final_coefficients`: `{"cl": 0.263161913, "cd": 0.02496911575, "cm": -0.2096803732, "cm_axis": "CMy"}`
+- `su2_handoff_path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2_handoff.json`
+- `su2_handoff_path_source`: `committed_openvsp_reference_su2_handoff_probe`
+- `solver_report_su2_handoff_path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/su2_handoff.json`
+
+## Flow And Reference
+
+- `velocity_mps`: `6.5`
+- `density_kgpm3`: `1.225`
+- `alpha_deg`: `0`
+- `flow_conditions_source_label`: `hpa_standard_6p5_mps`
+- `ref_area_m2`: `35.175`
+- `ref_length_m`: `1.0425`
+- `reference_geometry_status`: `warn`
+- `declared_vs_openvsp_area_relative_error`: `0.0149254`
+
+## Lift Metrics
+
+- `cl`: `0.263162`
+- `minimum_acceptable_cl_exclusive`: `1`
+- `dynamic_pressure_pa`: `25.8781`
+- `reference_area_m2`: `35.175`
+- `observed_lift_n`: `239.547`
+- `lift_at_minimum_acceptable_cl_n`: `910.263`
+- `observed_cl_to_minimum_ratio`: `0.263162`
+- `cl_shortfall_to_minimum`: `0.736838`
+
+## Engineering Flags
+
+- `main_wing_cl_below_expected_lift`
+- `alpha_zero_operating_lift_not_demonstrated`
+- `solver_not_converged`
+- `reference_geometry_warn`
+- `mesh_quality_warning_present`
+- `reference_area_delta_too_small_to_explain_lift_deficit`
+
+## Engineering Assessment
+
+- This diagnostic reads existing solver-smoke artifacts only and does not execute SU2.
+- Main-wing convergence acceptance at the HPA standard flow requires CL > 1.0.
+- The selected current-route solver smoke ends at CL=0.263162, which is below the required main-wing lift margin.
+- The selected SU2 handoff is an alpha=0 case, so it is a route smoke point, not proof that the operational trim/angle condition can carry the aircraft.
+- The declared-vs-OpenVSP reference-area delta is only warn-level; by itself it is far too small to explain a CL below 1.
+- Mesh-quality warnings remain relevant for convergence and coefficient trust, but the low-lift finding should first be separated from alpha/trim provenance.
+
+## Next Actions
+
+- `run_bounded_main_wing_alpha_trim_sanity_probe_without_changing_default`
+- `extract_openvsp_main_wing_incidence_twist_camber_provenance`
+- `inspect_main_wing_mesh_quality_before_larger_solver_budget`
+- `resolve_reference_moment_origin_before_final_force_claims`
+
+## Limitations
+
+- This diagnostic cannot identify a converged lift curve without a bounded alpha or trim sweep.
+- A low alpha=0 CL does not prove the aircraft cannot trim; it proves this route point cannot be accepted as converged main-wing evidence.
+- Reference and mesh-quality warnings still need separate closure before CFD promotion.
