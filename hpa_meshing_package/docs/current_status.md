@@ -156,6 +156,20 @@ tail-wing `mesh_handoff.v1` and materializes `su2_handoff.v1`, `mesh.su2`, and
 `tail_wing` wall marker; real tail geometry, solver history, and convergence
 remain missing.
 
+The first real tail-wing mesh handoff probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-real-mesh-handoff-probe --out .tmp/runs/tail_wing_real_mesh_handoff_probe
+```
+
+This writes `tail_wing_real_mesh_handoff_probe.v1.json` and
+`tail_wing_real_mesh_handoff_probe.v1.md`. The current result is
+`mesh_handoff_blocked`: real ESP tail geometry is surface-only
+(`surface_count=6`, `volume_count=0`), and the existing
+`gmsh_thin_sheet_surface` route expects OCC volumes. Synthetic tail slab
+evidence must not be treated as real tail mesh handoff evidence.
+
 ## Formal v1 Capabilities
 
 | Capability | Status | Notes |
@@ -178,7 +192,7 @@ remain missing.
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
 | `main_wing` | experimental | synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `main_wing` marker; real geometry, solver history, and convergence gate are missing |
-| `tail_wing` | experimental | real ESP/VSP geometry smoke exists, plus synthetic non-BL `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes with a `tail_wing` marker; real-geometry mesh handoff, solver history, and convergence gate are missing |
+| `tail_wing` | experimental | real ESP/VSP geometry smoke exists; real mesh handoff is blocked by surface-only provider output vs OCC-volume route expectation; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | synthetic `mesh_handoff.v1` and `su2_handoff.v1` materialization smokes exist with a `fairing_solid` marker; real geometry, solver history, and convergence gate are missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
 | direct multi-family package configs | experimental | do not present as formal current route |

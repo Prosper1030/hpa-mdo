@@ -277,13 +277,36 @@ This smoke consumes `data/blackcat_004_origin.vsp3`, selects the OpenVSP
 STEP through `esp_rebuilt`. It does not run Gmsh or SU2. The next tail blocker
 is now a real-geometry mesh handoff, not provider geometry availability.
 
+The first real tail-wing mesh handoff probe is:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli tail-wing-real-mesh-handoff-probe \
+  --out .tmp/runs/tail_wing_real_mesh_handoff_probe
+```
+
+It writes:
+
+- `tail_wing_real_mesh_handoff_probe.v1.json`
+- `tail_wing_real_mesh_handoff_probe.v1.md`
+
+Observed result:
+
+- `probe_status = mesh_handoff_blocked`
+- provider geometry has `surface_count = 6`, `volume_count = 0`
+- Gmsh route error: `normalized STEP did not import any OCC volumes for gmsh_thin_sheet_surface`
+
+Engineering reading: the synthetic closed-solid tail slab route is not
+representative of real ESP tail geometry. The next real route decision is
+surface-only lifting-surface meshing versus provider-side solidification/capping.
+
 The current expected strategic reading is:
 
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
 | `main_wing` | experimental + diagnostic | no | real ESP/VSP geometry smoke, then solver/convergence smoke |
-| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | real tail geometry mesh handoff, then horizontal/vertical tail mesh smoke |
+| `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | surface-only mesh route or provider solidification, then horizontal/vertical tail mesh smoke |
 | `fairing_solid` | registered future route | no | real fairing geometry smoke, then solver/convergence gate |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
 

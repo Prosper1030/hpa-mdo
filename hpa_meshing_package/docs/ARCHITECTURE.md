@@ -208,6 +208,17 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Keeps Gmsh, mesh handoff, SU2, convergence, BL runtime, and production defaults off
 - Promotes the blocker from "real tail geometry missing" to "real tail geometry mesh handoff not run"
 
+### 17. tail_wing Real Mesh-Handoff Probe Layer
+
+`src/hpa_meshing/tail_wing_real_mesh_handoff_probe.py`
+
+- Consumes the real ESP-rebuilt tail geometry
+- Invokes the current `gmsh_thin_sheet_surface` route without SU2
+- Records `mesh_handoff_blocked` when the provider geometry is surface-only
+- Writes `tail_wing_real_mesh_handoff_probe.v1.json` and `.md`
+- Keeps BL runtime, SU2, convergence, and production defaults off
+- Makes the next architecture decision explicit: surface-only lifting-surface route or provider solidification
+
 ## Real vs Placeholder Boundary
 
 The package intentionally distinguishes between:
@@ -223,7 +234,7 @@ Current truth:
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
 - `fairing_solid` has real closed-solid mesh-handoff and SU2-handoff materialization smokes on a synthetic box with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
 - `main_wing` has real non-BL mesh-handoff and SU2-handoff materialization smokes on a synthetic slab with component-owned force markers, but is not yet a real-geometry, solver, or convergence route
-- `tail_wing` has real ESP/VSP provider geometry evidence and synthetic non-BL mesh/SU2 handoff smokes with component-owned force markers, but is not yet a real-geometry mesh, solver, or convergence route
+- `tail_wing` has real ESP/VSP provider geometry evidence and a real mesh-handoff blocker report; synthetic non-BL mesh/SU2 handoff smokes exist with component-owned force markers, but they are not real tail mesh evidence
 - `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
 
@@ -245,6 +256,7 @@ MeshJobConfig
   -> main_wing_mesh_handoff_smoke.v1
   -> main_wing_su2_handoff_smoke.v1
   -> tail_wing_esp_rebuilt_geometry_smoke.v1
+  -> tail_wing_real_mesh_handoff_probe.v1
   -> tail_wing_mesh_handoff_smoke.v1
   -> tail_wing_su2_handoff_smoke.v1
   -> report.json
@@ -277,6 +289,9 @@ but still leaves real geometry, solver history, and convergence outside the guar
 `tail_wing_esp_rebuilt_geometry_smoke.v1` proves the VSP/ESP provider can
 materialize the real tail source geometry, but it does not replace the missing
 real-geometry mesh handoff.
+`tail_wing_real_mesh_handoff_probe.v1` proves that the current real tail handoff
+is blocked before `mesh_handoff.v1`: the provider output is surface-only and the
+current route expects OCC volumes.
 
 ## Why This Boundary Matters
 

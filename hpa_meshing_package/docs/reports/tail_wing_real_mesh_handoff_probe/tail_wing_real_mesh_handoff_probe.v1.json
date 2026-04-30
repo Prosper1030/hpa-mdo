@@ -1,0 +1,47 @@
+{
+  "schema_version": "tail_wing_real_mesh_handoff_probe.v1",
+  "component": "tail_wing",
+  "source_fixture": "blackcat_004_origin_vsp3",
+  "geometry_provider": "esp_rebuilt",
+  "geometry_family": "thin_sheet_lifting_surface",
+  "meshing_route": "gmsh_thin_sheet_surface",
+  "execution_mode": "real_provider_mesh_handoff_probe_no_su2",
+  "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+  "case_dir": "docs/reports/tail_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe",
+  "no_su2_execution": true,
+  "no_bl_runtime": true,
+  "production_default_changed": false,
+  "probe_status": "mesh_handoff_blocked",
+  "mesh_handoff_status": "missing",
+  "provider_status": "materialized",
+  "failure_code": "gmsh_backend_failed",
+  "error": "normalized STEP did not import any OCC volumes for gmsh_thin_sheet_surface.",
+  "provider_surface_count": 6,
+  "provider_body_count": 0,
+  "provider_volume_count": 0,
+  "normalized_geometry_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/tail_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/providers/esp_rebuilt/esp_runtime/normalized.stp",
+  "mesh_metadata_path": "docs/reports/tail_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/mesh_metadata.json",
+  "marker_summary_path": "docs/reports/tail_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/marker_summary.json",
+  "gmsh_log_path": "docs/reports/tail_wing_real_mesh_handoff_probe/artifacts/real_mesh_probe/artifacts/mesh/gmsh_log.txt",
+  "hpa_mdo_guarantees": [
+    "real_vsp3_source_consumed",
+    "esp_rebuilt_tail_wing_geometry_materialized",
+    "gmsh_route_invoked_for_real_tail_geometry",
+    "surface_only_volume_blocker_recorded",
+    "no_su2_execution",
+    "production_default_unchanged"
+  ],
+  "blocking_reasons": [
+    "real_tail_geometry_surface_only_no_occ_volume",
+    "tail_wing_solver_not_run",
+    "convergence_gate_not_run"
+  ],
+  "limitations": [
+    "synthetic_tail_slab_is_not_real_tail_mesh_evidence",
+    "Real ESP tail geometry currently materializes as surface-only STEP evidence.",
+    "The current gmsh_thin_sheet_surface backend expects OCC volumes for its external-flow route.",
+    "mesh_handoff.v1 is not emitted for the real tail geometry in this probe.",
+    "SU2_CFD was not executed.",
+    "convergence_gate.v1 was not emitted."
+  ]
+}

@@ -60,7 +60,8 @@ def test_component_family_route_smoke_keeps_productization_status_visible(tmp_pa
     assert "tail_family_backend_not_productized" not in rows["tail_wing"].blocking_reasons
     assert "tail_wing_su2_handoff_not_run" not in rows["tail_wing"].blocking_reasons
     assert "tail_real_geometry_smoke_missing" not in rows["tail_wing"].blocking_reasons
-    assert "tail_real_geometry_mesh_handoff_not_run" in rows["tail_wing"].blocking_reasons
+    assert "tail_real_geometry_mesh_handoff_not_run" not in rows["tail_wing"].blocking_reasons
+    assert "tail_real_geometry_mesh_handoff_blocked_surface_only" in rows["tail_wing"].blocking_reasons
     assert "tail_wing_solver_not_run" in rows["tail_wing"].blocking_reasons
 
 

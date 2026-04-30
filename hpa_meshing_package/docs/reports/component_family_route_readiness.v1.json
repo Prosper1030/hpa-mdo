@@ -70,17 +70,18 @@
       "bl_contract_policy": "not_default",
       "gmsh_boundary_recovery_policy": "core_tetra_only_after_owned_boundary_handoff",
       "blocking_reasons": [
-        "tail_real_geometry_mesh_handoff_not_run",
+        "tail_real_geometry_mesh_handoff_blocked_surface_only",
         "tail_wing_solver_not_run",
         "convergence_gate_not_run"
       ],
       "next_actions": [
-        "run_real_tail_wing_mesh_handoff_from_esp_rebuilt_geometry",
+        "choose_surface_only_lifting_surface_mesh_route_or_provider_solidification",
         "run_solver_only_after_force_marker_and_real_geometry_evidence",
         "keep_bl_transition_contract_as_promotion_gate_not_default_runtime"
       ],
       "notes": [
         "tail_wing_esp_rebuilt_geometry_smoke_available",
+        "tail_wing_real_mesh_handoff_probe_surface_only_blocker_available",
         "tail_wing_mesh_handoff_smoke_available_non_bl_synthetic",
         "tail_wing_su2_handoff_materialization_smoke_available",
         "tail_wing_specific_force_marker_available"
