@@ -507,6 +507,27 @@ Engineering reading: the longer budget moves the OpenVSP-reference smoke from
 evidence, but it is still not converged and the reference moment-origin policy
 remains unowned.
 
+The current highest committed OpenVSP-reference budget probe is:
+
+- `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/`
+
+Observed result:
+
+- `solver_execution_status = solver_executed`
+- `run_status = solver_executed_but_not_converged`
+- `convergence_gate_status = warn`
+- `convergence_comparability_level = run_only`
+- `final_iteration = 79`
+- `CL ~= 0.2632`
+- `CD ~= 0.02497`
+- `CMy ~= -0.2097`
+- median residual log drop ~= `0.358`, below the `0.5` pass threshold
+
+Engineering reading: extending from 40 to 80 iterations improves coefficient
+tail stability, but does not clear the residual gate. The next numerics work
+should inspect mesh quality / residual behavior / solver settings, not merely
+claim success from a zero return code.
+
 The matching non-BL main-wing mesh smoke is:
 
 ```bash
@@ -719,7 +740,7 @@ The current expected strategic reading is:
 | Component family | Current role | Productized? | Next useful promotion gate |
 | --- | --- | --- | --- |
 | `aircraft_assembly` | current product line | yes, formal `v1` | mesh-study / convergence promotion |
-| `main_wing` | experimental + diagnostic | no | own reference-area / moment-origin provenance, then continue residual/numerics work beyond the current 40-iteration `warn/run_only` smoke |
+| `main_wing` | experimental + diagnostic | no | own reference-area / moment-origin provenance, then continue residual/numerics work beyond the current 80-iteration OpenVSP-reference `warn/run_only` smoke |
 | `tail_wing` / `horizontal_tail` / `vertical_tail` | registered future route | no | explicit volume orientation repair or baffle-surface ownership, then real volume mesh/SU2 smoke |
 | `fairing_solid` | registered future route | no | bounded solver/convergence smoke; moment-origin policy before moment coefficients |
 | `fairing_vented` | registered future route | no | perforation ownership and marker contract |
@@ -776,6 +797,6 @@ If a task cannot answer those questions, it should not become a repair loop.
    is explicit; keep moment coefficients blocked until moment-origin policy is
    owned.
 2. Own main-wing reference-area / moment-origin provenance, then continue
-   residual/numerics work beyond the current 40-iteration `warn/run_only`
+   residual/numerics work beyond the current 80-iteration OpenVSP-reference `warn/run_only`
    smoke; keep both current solver smokes labeled
    `solver_executed_but_not_converged`.

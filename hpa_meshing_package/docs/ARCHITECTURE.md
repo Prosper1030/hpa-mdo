@@ -391,7 +391,7 @@ Current truth:
 
 - `aircraft_assembly` with `openvsp_surface_intersection` is real
 - `fairing_solid` has real VSP geometry smoke for a Fuselage closed solid, a bounded real-geometry `mesh_handoff.v1` pass with component-owned force markers, a real-geometry `su2_handoff.v1` materialization probe, an external reference-policy mismatch report, and a gated reference-override SU2 handoff; it is not yet a solver or convergence route
-- `main_wing` has real ESP/VSP provider geometry evidence, a bounded real-geometry `mesh_handoff.v1` pass, real `su2_handoff.v1`, and solver-executed evidence; it is still not converged or productized because the default 12-iteration smoke fails, the non-default 40-iteration follow-up only reaches `warn/run_only`, and reference-area / moment-origin provenance remains `warn`
+- `main_wing` has real ESP/VSP provider geometry evidence, a bounded real-geometry `mesh_handoff.v1` pass, real `su2_handoff.v1`, and solver-executed evidence; it is still not converged or productized because the default 12-iteration smoke fails, solver-budget follow-ups only reach `warn/run_only`, and reference-area / moment-origin provenance remains `warn`
 - `tail_wing` has real ESP/VSP provider geometry evidence, real surface-mesh evidence, a naive-solidification no-volume probe, an explicit-volume-route blocker probe, and a real mesh-handoff blocker report; synthetic non-BL mesh/SU2 handoff smokes exist with component-owned force markers, but they are not real tail mesh evidence
 - `horizontal_tail`, `vertical_tail`, and `fairing_vented` are not yet real meshing products in this package
 - `shell_v4` evidence is useful for BL handoff promotion, but it is not a substitute for component-family productization
@@ -482,8 +482,8 @@ geometry-derived `Sref/cref/CG` without changing production defaults.
 history. The default committed smoke is `fail/not_comparable`; the non-default
 40-iteration follow-up is `warn/run_only`, still not converged. The
 OpenVSP-reference solver smoke also executes. Its 12-iteration snapshot remains
-`fail/not_comparable`; the non-default 40-iteration OpenVSP-reference follow-up
-reaches `warn/run_only`, still not converged.
+`fail/not_comparable`; the non-default 40- and 80-iteration OpenVSP-reference
+follow-ups reach `warn/run_only`, still not converged.
 `main_wing_reference_geometry_gate.v1` records the current reference blocker:
 span and chord are cross-checked, but reference-area and moment-origin
 provenance remain `warn`.
