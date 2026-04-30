@@ -290,6 +290,60 @@ def test_main_wing_route_readiness_includes_side_aware_pcurve_residual_diagnosti
     )
 
 
+def test_main_wing_route_readiness_includes_side_aware_metadata_repair_probe(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_side_aware_metadata_repair_probe"
+        / "main_wing_station_seam_side_aware_metadata_repair_probe.v1.json",
+        {
+            "metadata_repair_status": "side_aware_station_metadata_repair_not_recovered",
+            "candidate_step_path": "artifacts/side_aware_candidate_raw_dump.stp",
+            "target_edges": [
+                {"curve_id": 7, "edge_index": 7, "face_ids": [2, 3]},
+                {"curve_id": 50, "edge_index": 50, "face_ids": [19, 20]},
+            ],
+            "residual_context_summary": {
+                "max_sample_distance_m": 0.0,
+                "shape_analysis_flag_failure_count": 4,
+                "unbounded_pcurve_domain_count": 4,
+            },
+            "same_parameter_attempt_summary": {
+                "attempt_count": 5,
+                "recovered_attempt_count": 0,
+            },
+            "shape_fix_attempt_summary": {
+                "attempt_count": 25,
+                "recovered_attempt_count": 0,
+            },
+            "engineering_findings": [
+                "side_aware_sampled_residual_zero_but_metadata_repair_not_recovered"
+            ],
+            "blocking_reasons": [
+                "side_aware_station_metadata_repair_not_recovered"
+            ],
+            "next_actions": [
+                "prototype_side_aware_station_pcurve_rewrite_or_export_metadata_builder"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    stage = stages["station_seam_side_aware_metadata_repair_probe"]
+    assert stage.status == "blocked"
+    assert stage.evidence_kind == "real"
+    assert stage.observed["target_edge_count"] == 2
+    assert stage.observed["residual_context_summary"]["max_sample_distance_m"] == 0.0
+    assert stage.observed["shape_fix_attempt_summary"]["recovered_attempt_count"] == 0
+    assert "side_aware_station_metadata_repair_not_recovered" in (
+        report.blocking_reasons
+    )
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

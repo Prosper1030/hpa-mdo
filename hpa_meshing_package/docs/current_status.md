@@ -123,7 +123,11 @@ side-aware PCurve residual diagnostic then samples all 12 edge-face PCurves:
 sampled 3D-vs-PCurve residual max is `0.0 m`, but all 12 ShapeAnalysis /
 same-parameter / vertex-tolerance flags still fail and the PCurves are
 unbounded `Geom2d_Line` domains. The side-aware candidate is therefore not
-mesh-ready; the next repair target is same-parameter / PCurve metadata for the
+mesh-ready. The side-aware metadata repair probe then runs the bounded
+SameParameter / ShapeFix repair gate on those six station edges: 5
+`BRepLib.SameParameter` tolerances and 25 `ShapeFix_Edge`
+operation/tolerance attempts all have `recovered_attempt_count = 0`. The next
+repair target is explicit PCurve/export metadata construction for the
 side-aware export rather than mesh or solver budget. The export-source audit
 then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
@@ -134,7 +138,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`test_side_aware_same_parameter_metadata_repair_before_mesh_handoff`.
+`prototype_side_aware_station_pcurve_rewrite_or_export_metadata_builder`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -446,6 +450,25 @@ However, all 12 ShapeAnalysis / same-parameter / vertex-tolerance flags still
 fail and all sampled PCurves are unbounded `Geom2d_Line` domains. This keeps the
 route blocked before Gmsh mesh handoff; the next gate is a bounded
 same-parameter / metadata repair probe on the side-aware candidate.
+
+The main-wing side-aware metadata repair probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-side-aware-metadata-repair-probe --out .tmp/runs/main_wing_station_seam_side_aware_metadata_repair_probe
+```
+
+This writes `main_wing_station_seam_side_aware_metadata_repair_probe.v1.json`
+and `main_wing_station_seam_side_aware_metadata_repair_probe.v1.md`. The
+committed snapshot records
+`side_aware_station_metadata_repair_not_recovered`: six target station edges
+are evaluated, the preceding residual diagnostic context is preserved
+(`max_sample_distance_m=0.0`, `shape_analysis_flag_failure_count=12`), five
+`BRepLib.SameParameter` tolerances and 25 `ShapeFix_Edge`
+operation/tolerance attempts all report `recovered_attempt_count=0`. This keeps
+the route blocked before Gmsh mesh handoff; the next gate is a side-aware
+station PCurve rewrite or export-metadata builder, not more generic
+SameParameter/ShapeFix sweeps or solver budget.
 
 The first real fairing geometry smoke is emitted by:
 

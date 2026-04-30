@@ -24,7 +24,8 @@
 18. main-wing mesh-handoff smoke reporting
 19. main-wing SU2-handoff smoke reporting
 20. main-wing station-seam topology / BRep feasibility reporting
-21. machine-readable reporting
+21. main-wing side-aware station metadata repair reporting
+22. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 

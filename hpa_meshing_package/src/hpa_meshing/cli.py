@@ -170,6 +170,10 @@ from .main_wing_station_seam_side_aware_pcurve_residual_diagnostic import (
     build_main_wing_station_seam_side_aware_pcurve_residual_diagnostic_report,
     write_main_wing_station_seam_side_aware_pcurve_residual_diagnostic_report,
 )
+from .main_wing_station_seam_side_aware_metadata_repair_probe import (
+    build_main_wing_station_seam_side_aware_metadata_repair_probe_report,
+    write_main_wing_station_seam_side_aware_metadata_repair_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -1168,6 +1172,38 @@ def cmd_main_wing_station_seam_side_aware_pcurve_residual_diagnostic(
     return 0 if report.diagnostic_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_side_aware_metadata_repair_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    side_aware_brep_validation_probe_path = (
+        None
+        if args.side_aware_brep_validation_probe is None
+        else Path(args.side_aware_brep_validation_probe)
+    )
+    pcurve_residual_diagnostic_path = (
+        None
+        if args.pcurve_residual_diagnostic is None
+        else Path(args.pcurve_residual_diagnostic)
+    )
+    report = build_main_wing_station_seam_side_aware_metadata_repair_probe_report(
+        side_aware_brep_validation_probe_path=side_aware_brep_validation_probe_path,
+        pcurve_residual_diagnostic_path=pcurve_residual_diagnostic_path,
+        tolerances=args.tolerances,
+        operations=args.operations,
+    )
+    write_main_wing_station_seam_side_aware_metadata_repair_probe_report(
+        out_dir,
+        report=report,
+        side_aware_brep_validation_probe_path=side_aware_brep_validation_probe_path,
+        pcurve_residual_diagnostic_path=pcurve_residual_diagnostic_path,
+        tolerances=args.tolerances,
+        operations=args.operations,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.metadata_repair_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -2135,6 +2171,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_side_aware_pcurve_residual_diagnostic.set_defaults(
         func=cmd_main_wing_station_seam_side_aware_pcurve_residual_diagnostic
+    )
+
+    main_wing_station_seam_side_aware_metadata_repair_probe = sub.add_parser(
+        "main-wing-station-seam-side-aware-metadata-repair-probe"
+    )
+    main_wing_station_seam_side_aware_metadata_repair_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_side_aware_metadata_repair_probe.add_argument(
+        "--side-aware-brep-validation-probe",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_metadata_repair_probe.add_argument(
+        "--pcurve-residual-diagnostic",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_metadata_repair_probe.add_argument(
+        "--tolerances",
+        nargs="+",
+        type=float,
+    )
+    main_wing_station_seam_side_aware_metadata_repair_probe.add_argument(
+        "--operations",
+        nargs="+",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_metadata_repair_probe.set_defaults(
+        func=cmd_main_wing_station_seam_side_aware_metadata_repair_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

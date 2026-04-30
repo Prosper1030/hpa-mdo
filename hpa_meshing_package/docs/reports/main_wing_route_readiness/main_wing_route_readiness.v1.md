@@ -48,6 +48,7 @@
 | `station_seam_side_aware_parametrization_probe` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/main_wing_station_seam_side_aware_parametrization_probe.v1.json` |
 | `station_seam_side_aware_brep_validation_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_brep_validation_probe/main_wing_station_seam_side_aware_brep_validation_probe.v1.json` |
 | `station_seam_side_aware_pcurve_residual_diagnostic` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_pcurve_residual_diagnostic/main_wing_station_seam_side_aware_pcurve_residual_diagnostic.v1.json` |
+| `station_seam_side_aware_metadata_repair_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_metadata_repair_probe/main_wing_station_seam_side_aware_metadata_repair_probe.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -91,10 +92,11 @@
 - `side_aware_candidate_station_brep_pcurve_checks_suspect`
 - `side_aware_candidate_mesh_handoff_not_run`
 - `side_aware_station_shape_analysis_flags_still_block_mesh_handoff`
+- `side_aware_station_metadata_repair_not_recovered`
 
 ## Next Actions
 
-- `test_side_aware_same_parameter_metadata_repair_before_mesh_handoff`
+- `prototype_side_aware_station_pcurve_rewrite_or_export_metadata_builder`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

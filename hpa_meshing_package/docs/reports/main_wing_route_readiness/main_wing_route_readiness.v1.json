@@ -3413,6 +3413,77 @@
       ]
     },
     {
+      "stage": "station_seam_side_aware_metadata_repair_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_metadata_repair_probe/main_wing_station_seam_side_aware_metadata_repair_probe.v1.json",
+      "observed": {
+        "metadata_repair_status": "side_aware_station_metadata_repair_not_recovered",
+        "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/side_aware_profile_parametrization_single_rule/candidate_raw_dump.stp",
+        "target_edge_count": 6,
+        "residual_context_summary": {
+          "diagnostic_status": "side_aware_station_pcurve_residuals_below_tolerance_but_shape_analysis_flags_fail",
+          "edge_face_residual_count": 12,
+          "sampled_edge_face_count": 12,
+          "max_sample_distance_m": 0.0,
+          "max_sample_distance_over_edge_tolerance": 0.0,
+          "shape_analysis_flag_failure_count": 12,
+          "residual_exceeds_edge_tolerance_count": 0,
+          "unbounded_pcurve_domain_count": 12,
+          "pcurve_missing_count": 0
+        },
+        "same_parameter_attempt_summary": {
+          "attempt_count": 5,
+          "tolerances_evaluated": [
+            1e-07,
+            1e-06,
+            1e-05,
+            0.0001,
+            0.001
+          ],
+          "recovered_attempt_count": 0,
+          "first_recovered_tolerance": null
+        },
+        "shape_fix_attempt_summary": {
+          "attempt_count": 25,
+          "tolerances_evaluated": [
+            1e-07,
+            1e-06,
+            1e-05,
+            0.0001,
+            0.001
+          ],
+          "recovered_attempt_count": 0,
+          "first_recovered_tolerance": null,
+          "operations_evaluated": [
+            "fix_reversed_2d_then_same_parameter",
+            "fix_same_parameter_edge",
+            "fix_same_parameter_edge_face",
+            "fix_vertex_tolerance_then_same_parameter",
+            "remove_add_pcurve_then_same_parameter"
+          ],
+          "first_recovered_operation": null
+        },
+        "engineering_findings": [
+          "side_aware_station_metadata_repair_evaluated",
+          "side_aware_station_target_pcurves_are_present",
+          "side_aware_breplib_same_parameter_not_recovered",
+          "side_aware_shape_fix_not_recovered",
+          "side_aware_sampled_residual_zero_but_metadata_repair_not_recovered",
+          "side_aware_export_pcurve_rebuild_needed"
+        ],
+        "next_actions": [
+          "prototype_side_aware_station_pcurve_rewrite_or_export_metadata_builder",
+          "avoid_more_generic_same_parameter_shape_fix_sweeps",
+          "do_not_advance_to_solver_budget_until_station_metadata_gate_changes"
+        ]
+      },
+      "blockers": [
+        "side_aware_station_metadata_repair_not_recovered",
+        "side_aware_candidate_mesh_handoff_not_run"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -3470,10 +3541,11 @@
     "side_aware_candidate_needs_station_brep_validation_before_mesh_handoff",
     "side_aware_candidate_station_brep_pcurve_checks_suspect",
     "side_aware_candidate_mesh_handoff_not_run",
-    "side_aware_station_shape_analysis_flags_still_block_mesh_handoff"
+    "side_aware_station_shape_analysis_flags_still_block_mesh_handoff",
+    "side_aware_station_metadata_repair_not_recovered"
   ],
   "next_actions": [
-    "test_side_aware_same_parameter_metadata_repair_before_mesh_handoff",
+    "prototype_side_aware_station_pcurve_rewrite_or_export_metadata_builder",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

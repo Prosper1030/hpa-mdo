@@ -696,6 +696,40 @@ def test_parser_supports_main_wing_station_seam_side_aware_pcurve_residual_diagn
     assert args.absolute_tolerance == 1e-12
 
 
+def test_parser_supports_main_wing_station_seam_side_aware_metadata_repair_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-side-aware-metadata-repair-probe",
+            "--out",
+            "artifacts/main_wing_side_aware_metadata_repair",
+            "--side-aware-brep-validation-probe",
+            "artifacts/main_wing/side_aware_brep_validation.json",
+            "--pcurve-residual-diagnostic",
+            "artifacts/main_wing/side_aware_pcurve_residual.json",
+            "--tolerances",
+            "1e-7",
+            "1e-5",
+            "--operations",
+            "fix_same_parameter_edge",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-side-aware-metadata-repair-probe"
+    )
+    assert args.out == "artifacts/main_wing_side_aware_metadata_repair"
+    assert args.side_aware_brep_validation_probe == (
+        "artifacts/main_wing/side_aware_brep_validation.json"
+    )
+    assert args.pcurve_residual_diagnostic == (
+        "artifacts/main_wing/side_aware_pcurve_residual.json"
+    )
+    assert args.tolerances == [1e-7, 1e-5]
+    assert args.operations == ["fix_same_parameter_edge"]
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(
