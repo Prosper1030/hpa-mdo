@@ -6,6 +6,9 @@ This report checks the provenance of the reference quantities used by the real m
 - observed_velocity_mps: `6.5`
 - ref_area: `34.65`
 - ref_length: `1.05`
+- openvsp_reference_status: `available`
+- openvsp_sref: `35.175`
+- openvsp_cref: `1.0425`
 - derived_full_span_m: `33.0`
 - geometry_bounds_span_y_m: `33.0`
 - selected_geom_full_span_y_m: `32.94930391715896`
@@ -19,13 +22,14 @@ This report checks the provenance of the reference quantities used by the real m
 | `positive_reference_values` | `pass` |
 | `declared_span_vs_bounds_y` | `pass` |
 | `declared_span_vs_selected_geom_span` | `pass` |
-| `ref_length_independent_source` | `warn` |
+| `ref_length_independent_source` | `pass` |
+| `applied_ref_area_vs_openvsp_sref` | `warn` |
 | `moment_origin_policy` | `warn` |
 
 ## Blocking Reasons
 
 - `main_wing_reference_geometry_incomplete`
-- `main_wing_reference_chord_not_independently_certified`
+- `main_wing_reference_area_differs_from_openvsp_sref`
 - `main_wing_moment_origin_not_certified`
 
 ## HPA-MDO Guarantees
@@ -35,11 +39,13 @@ This report checks the provenance of the reference quantities used by the real m
 - `production_default_unchanged`
 - `ref_area_ref_length_and_origin_present`
 - `declared_span_crosschecked_against_real_geometry_bounds`
+- `ref_length_crosschecked_against_openvsp_cref`
 - `hpa_standard_flow_conditions_6p5_mps_observed`
 
 ## Limitations
 
 - This gate is report-only and does not change the SU2 runtime config.
-- Span is cross-checked against real geometry bounds, but the reference chord is still user-declared.
-- Moment origin is a declared quarter-chord probe policy, not a certified aircraft CG or aerodynamic-reference policy.
+- Span is cross-checked against real geometry bounds, and reference chord is cross-checked against OpenVSP/VSPAERO cref when available.
 - A reference-geometry warn must remain a comparability blocker for solver/convergence results.
+- Applied reference area currently differs from OpenVSP/VSPAERO Sref and must not be silently changed.
+- Moment origin is a declared quarter-chord probe policy and currently differs from OpenVSP/VSPAERO CG settings.

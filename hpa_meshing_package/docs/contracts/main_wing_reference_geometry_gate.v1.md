@@ -9,8 +9,10 @@ It is intentionally non-runtime:
 - it reads the main-wing real mesh handoff probe
 - it reads the main-wing real SU2 handoff probe
 - it reads the applied SU2 reference values
+- it reads OpenVSP/VSPAERO reference-wing quantities when available
 - it cross-checks declared span against real geometry bounds
-- it keeps reference chord and moment-origin provenance explicit
+- it cross-checks reference chord against OpenVSP/VSPAERO `cref` when available
+- it keeps reference area and moment-origin provenance explicit
 - it does not run Gmsh
 - it does not run `SU2_CFD`
 - it does not edit `su2_runtime.cfg`
@@ -27,6 +29,8 @@ It is intentionally non-runtime:
 - source geometry, mesh-probe, SU2-probe, and SU2-handoff paths
 - `observed_velocity_mps`
 - `applied_reference`
+- `openvsp_reference_status`
+- `openvsp_reference`
 - `derived_full_span_m`
 - `geometry_bounds_span_y_m`
 - `selected_geom_full_span_y_m`
@@ -42,15 +46,18 @@ independent provenance checks required by this gate.
 
 `warn` means the route has useful reference evidence but must remain blocked for
 comparability. The current committed report cross-checks the 33 m full span
-against real geometry bounds, but the 1.05 m reference chord and quarter-chord
-moment origin are still not independently certified.
+against real geometry bounds and cross-checks the 1.05 m reference chord
+against OpenVSP/VSPAERO `cref=1.0425 m` within the pass tolerance. It remains
+`warn` because applied `REF_AREA=34.65` differs from OpenVSP/VSPAERO
+`Sref=35.175` by about 1.49%, and the quarter-chord moment origin differs from
+the VSPAERO CG settings.
 
 ## Promotion Rule
 
 This gate can move reference geometry from vague warning to explicit blocker
 labels. It cannot make solver coefficients credible until:
 
-1. reference chord provenance is independently owned
+1. reference-area normalization is reconciled or explicitly owned
 2. moment-origin or aircraft-CG policy is documented and owned
 3. the solver run has a passing convergence gate
 4. the mesh sizing / BL policy is promoted separately

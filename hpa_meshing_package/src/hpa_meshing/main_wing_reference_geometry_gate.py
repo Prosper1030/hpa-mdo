@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Literal
 
 from pydantic import BaseModel, Field
 
+from .reference_geometry import load_openvsp_reference_data as _load_openvsp_reference_data
+
 
 GateStatusType = Literal["pass", "warn", "fail", "unavailable"]
 
@@ -28,6 +30,8 @@ class MainWingReferenceGeometryGateReport(BaseModel):
     su2_handoff_path: str | None = None
     observed_velocity_mps: float | None = None
     applied_reference: Dict[str, Any] = Field(default_factory=dict)
+    openvsp_reference_status: str | None = None
+    openvsp_reference: Dict[str, Any] = Field(default_factory=dict)
     derived_full_span_m: float | None = None
     geometry_bounds_span_y_m: float | None = None
     selected_geom_full_span_y_m: float | None = None
@@ -116,6 +120,39 @@ def _relative_error(observed: float | None, expected: float | None) -> float | N
     if observed is None or expected is None or abs(expected) <= 1.0e-12:
         return None
     return abs(observed - expected) / abs(expected)
+
+
+def _relative_status(
+    relative_error: float | None,
+    *,
+    pass_limit: float = 0.01,
+    warn_limit: float = 0.03,
+) -> GateStatusType:
+    if relative_error is None:
+        return "unavailable"
+    if relative_error <= pass_limit:
+        return "pass"
+    if relative_error <= warn_limit:
+        return "warn"
+    return "fail"
+
+
+def _optional_relative_status(relative_error: float | None) -> GateStatusType:
+    status = _relative_status(relative_error)
+    return "warn" if status == "unavailable" else status
+
+
+def _point_delta_norm(a: Any, b: Any) -> float | None:
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        return None
+    deltas = []
+    for axis in ("x", "y", "z"):
+        av = _float(a.get(axis))
+        bv = _float(b.get(axis))
+        if av is None or bv is None:
+            return None
+        deltas.append(av - bv)
+    return sum(delta * delta for delta in deltas) ** 0.5
 
 
 def _reference_from_su2_handoff(su2_handoff: dict[str, Any]) -> dict[str, Any]:
@@ -246,6 +283,32 @@ def build_main_wing_reference_geometry_gate_report(
     )
     if selected_chord is None and isinstance(mesh_probe, dict):
         selected_chord = _float(mesh_probe.get("selected_geom_chord_x"))
+    source_path = None if geometry is None else geometry.get("source_path")
+    source_vsp_path = (
+        _resolve_payload_path(source_path, report_path=geometry_path)
+        if isinstance(source_path, str)
+        else None
+    )
+    openvsp_reference = (
+        _load_openvsp_reference_data(source_vsp_path)
+        if source_vsp_path is not None
+        else None
+    )
+    openvsp_ref_area = (
+        _float(openvsp_reference.get("ref_area"))
+        if isinstance(openvsp_reference, dict)
+        else None
+    )
+    openvsp_ref_length = (
+        _float(openvsp_reference.get("ref_length"))
+        if isinstance(openvsp_reference, dict)
+        else None
+    )
+    openvsp_ref_origin = (
+        openvsp_reference.get("ref_origin_moment")
+        if isinstance(openvsp_reference, dict)
+        else None
+    )
 
     checks: dict[str, dict[str, Any]] = {}
     positive_status: GateStatusType = (
@@ -308,10 +371,14 @@ def build_main_wing_reference_geometry_gate_report(
     )
 
     chord_error = _relative_error(ref_length, selected_chord)
+    openvsp_chord_error = _relative_error(ref_length, openvsp_ref_length)
+    openvsp_chord_status = _optional_relative_status(openvsp_chord_error)
     checks["ref_length_independent_source"] = _check(
-        "warn",
+        openvsp_chord_status,
         observed={
             "ref_length_m": ref_length,
+            "openvsp_cref_m": openvsp_ref_length,
+            "ref_length_vs_openvsp_cref_relative_error": openvsp_chord_error,
             "selected_geom_chord_x_m": selected_chord,
             "geometry_bounds_chord_x_m": bounds_chord_x,
             "ref_length_vs_selected_chord_relative_error": chord_error,
@@ -319,19 +386,72 @@ def build_main_wing_reference_geometry_gate_report(
         expected={
             "independent_aerodynamic_chord_source": True,
             "selected_geom_chord_x_is_not_certified_ref_chord": True,
+            "openvsp_cref_relative_error_pass_max": 0.01,
+            "openvsp_cref_relative_error_warn_max": 0.03,
         },
-        warnings=["main_wing_reference_chord_not_independently_certified"],
+        warnings=[]
+        if openvsp_chord_status == "pass"
+        else [
+            warning
+            for warning in [
+                "main_wing_reference_chord_not_independently_certified",
+                "main_wing_openvsp_reference_unavailable"
+                if openvsp_ref_length is None
+                else None,
+            ]
+            if warning is not None
+        ],
         notes=[
-            "The declared 1.05 m reference chord is plausible but not independently certified by the current geometry artifacts.",
+            "OpenVSP/VSPAERO cref is treated as the independent aerodynamic chord source when available.",
             "The x-projection bounds include geometric projection effects and must not be treated as the reference chord by itself.",
         ],
     )
 
+    openvsp_area_error = _relative_error(ref_area, openvsp_ref_area)
+    openvsp_area_status = _optional_relative_status(openvsp_area_error)
+    checks["applied_ref_area_vs_openvsp_sref"] = _check(
+        openvsp_area_status,
+        observed={
+            "applied_ref_area_m2": ref_area,
+            "openvsp_sref_m2": openvsp_ref_area,
+            "relative_error": openvsp_area_error,
+        },
+        expected={
+            "openvsp_sref_relative_error_pass_max": 0.01,
+            "openvsp_sref_relative_error_warn_max": 0.03,
+        },
+        warnings=[]
+        if openvsp_area_status == "pass"
+        else [
+            "main_wing_reference_area_not_independently_crosschecked"
+            if openvsp_ref_area is None
+            else "main_wing_reference_area_differs_from_openvsp_sref"
+        ],
+        notes=[
+            "OpenVSP/VSPAERO Sref is useful independent reference evidence but this report does not change the SU2 runtime config.",
+        ],
+    )
+
     override_warnings = override.get("warnings", []) if isinstance(override, dict) else []
+    origin_delta = _point_delta_norm(origin, openvsp_ref_origin)
+    origin_warnings = ["main_wing_moment_origin_not_certified"]
+    if origin_delta is not None and origin_delta > 1.0e-9:
+        origin_warnings.append("main_wing_moment_origin_differs_from_openvsp_settings_cg")
+    elif openvsp_ref_origin is None:
+        origin_warnings.append("main_wing_openvsp_moment_origin_unavailable")
+    origin_note = (
+        "Quarter-chord moment origin is declared for this probe but does not yet have an OpenVSP VSPAERO CG cross-check."
+        if openvsp_ref_origin is None
+        else "Quarter-chord moment origin is declared for this probe but differs from the current OpenVSP VSPAERO CG settings."
+        if origin_delta is not None and origin_delta > 1.0e-9
+        else "Quarter-chord moment origin is declared for this probe and still needs aerodynamic-reference policy approval."
+    )
     checks["moment_origin_policy"] = _check(
         "warn",
         observed={
             "ref_origin_moment": origin,
+            "openvsp_ref_origin_moment": openvsp_ref_origin,
+            "applied_vs_openvsp_origin_delta_m": origin_delta,
             "source_label": override.get("source_label") if isinstance(override, dict) else None,
             "override_warnings": override_warnings,
         },
@@ -339,10 +459,8 @@ def build_main_wing_reference_geometry_gate_report(
             "moment_origin_independent_source": True,
             "cg_or_aerodynamic_reference_policy": "documented",
         },
-        warnings=["main_wing_moment_origin_not_certified"],
-        notes=[
-            "Quarter-chord moment origin is declared for this probe but not yet tied to an aircraft CG or approved aerodynamic reference policy.",
-        ],
+        warnings=origin_warnings,
+        notes=[origin_note],
     )
 
     status = _overall_status(checks)
@@ -351,6 +469,10 @@ def build_main_wing_reference_geometry_gate_report(
         blocking_reasons.append("main_wing_reference_geometry_incomplete")
     if checks["ref_length_independent_source"]["status"] != "pass":
         blocking_reasons.append("main_wing_reference_chord_not_independently_certified")
+    if openvsp_ref_area is None:
+        blocking_reasons.append("main_wing_reference_area_not_independently_crosschecked")
+    elif checks["applied_ref_area_vs_openvsp_sref"]["status"] != "pass":
+        blocking_reasons.append("main_wing_reference_area_differs_from_openvsp_sref")
     if checks["moment_origin_policy"]["status"] != "pass":
         blocking_reasons.append("main_wing_moment_origin_not_certified")
 
@@ -363,8 +485,36 @@ def build_main_wing_reference_geometry_gate_report(
         hpa_mdo_guarantees.append("ref_area_ref_length_and_origin_present")
     if checks["declared_span_vs_bounds_y"]["status"] == "pass":
         hpa_mdo_guarantees.append("declared_span_crosschecked_against_real_geometry_bounds")
+    if checks["ref_length_independent_source"]["status"] == "pass":
+        hpa_mdo_guarantees.append("ref_length_crosschecked_against_openvsp_cref")
     if observed_velocity == 6.5:
         hpa_mdo_guarantees.append("hpa_standard_flow_conditions_6p5_mps_observed")
+
+    limitations = [
+        "This gate is report-only and does not change the SU2 runtime config.",
+        "Span is cross-checked against real geometry bounds, and reference chord is cross-checked against OpenVSP/VSPAERO cref when available.",
+        "A reference-geometry warn must remain a comparability blocker for solver/convergence results.",
+    ]
+    if openvsp_ref_area is None:
+        limitations.append(
+            "Applied reference area does not yet have independent OpenVSP/VSPAERO Sref cross-check evidence."
+        )
+    elif checks["applied_ref_area_vs_openvsp_sref"]["status"] != "pass":
+        limitations.append(
+            "Applied reference area currently differs from OpenVSP/VSPAERO Sref and must not be silently changed."
+        )
+    if openvsp_ref_origin is None:
+        limitations.append(
+            "Moment origin is a declared quarter-chord probe policy and does not yet have an OpenVSP/VSPAERO CG cross-check."
+        )
+    elif origin_delta is not None and origin_delta > 1.0e-9:
+        limitations.append(
+            "Moment origin is a declared quarter-chord probe policy and currently differs from OpenVSP/VSPAERO CG settings."
+        )
+    else:
+        limitations.append(
+            "Moment origin is a declared quarter-chord probe policy and still needs aerodynamic-reference policy approval."
+        )
 
     return MainWingReferenceGeometryGateReport(
         reference_gate_status=status,
@@ -381,6 +531,10 @@ def build_main_wing_reference_geometry_gate_report(
             "ref_origin_moment": origin,
             "source_label": override.get("source_label") if isinstance(override, dict) else None,
         },
+        openvsp_reference_status="available"
+        if isinstance(openvsp_reference, dict)
+        else "unavailable",
+        openvsp_reference=openvsp_reference or {},
         derived_full_span_m=derived_full_span,
         geometry_bounds_span_y_m=bounds_span_y,
         selected_geom_full_span_y_m=selected_full_span,
@@ -389,12 +543,7 @@ def build_main_wing_reference_geometry_gate_report(
         checks=checks,
         hpa_mdo_guarantees=hpa_mdo_guarantees,
         blocking_reasons=blocking_reasons,
-        limitations=[
-            "This gate is report-only and does not change the SU2 runtime config.",
-            "Span is cross-checked against real geometry bounds, but the reference chord is still user-declared.",
-            "Moment origin is a declared quarter-chord probe policy, not a certified aircraft CG or aerodynamic-reference policy.",
-            "A reference-geometry warn must remain a comparability blocker for solver/convergence results.",
-        ],
+        limitations=limitations,
     )
 
 
@@ -408,6 +557,9 @@ def _render_markdown(report: MainWingReferenceGeometryGateReport) -> str:
         f"- observed_velocity_mps: `{report.observed_velocity_mps}`",
         f"- ref_area: `{report.applied_reference.get('ref_area')}`",
         f"- ref_length: `{report.applied_reference.get('ref_length')}`",
+        f"- openvsp_reference_status: `{report.openvsp_reference_status}`",
+        f"- openvsp_sref: `{report.openvsp_reference.get('ref_area')}`",
+        f"- openvsp_cref: `{report.openvsp_reference.get('ref_length')}`",
         f"- derived_full_span_m: `{report.derived_full_span_m}`",
         f"- geometry_bounds_span_y_m: `{report.geometry_bounds_span_y_m}`",
         f"- selected_geom_full_span_y_m: `{report.selected_geom_full_span_y_m}`",

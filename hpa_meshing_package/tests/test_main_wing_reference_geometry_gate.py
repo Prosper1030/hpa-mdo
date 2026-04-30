@@ -87,7 +87,24 @@ def _fixture_reports(tmp_path: Path) -> Path:
 
 def test_main_wing_reference_geometry_gate_records_warned_provenance(
     tmp_path: Path,
+    monkeypatch,
 ):
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_reference_geometry_gate._load_openvsp_reference_data",
+        lambda source_path: {
+            "ref_area": 35.175,
+            "ref_length": 1.0425,
+            "ref_origin_moment": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "area_method": "openvsp_reference_wing.sref",
+            "length_method": "openvsp_reference_wing.cref",
+            "moment_method": "openvsp_vspaero_settings.cg",
+            "reference_wing_name": "Main Wing",
+            "settings": {"sref": 35.175, "bref": 33.0, "cref": 1.0425},
+            "wing_quantities": {"sref": 35.175, "bref": 33.0, "cref": 1.0425},
+            "warnings": [],
+        },
+    )
+
     report = build_main_wing_reference_geometry_gate_report(
         report_root=_fixture_reports(tmp_path)
     )
@@ -98,12 +115,18 @@ def test_main_wing_reference_geometry_gate_records_warned_provenance(
     assert report.applied_reference["ref_length"] == 1.05
     assert report.derived_full_span_m == 33.0
     assert report.geometry_bounds_span_y_m == 33.0
+    assert report.openvsp_reference_status == "available"
+    assert report.openvsp_reference["ref_length"] == 1.0425
     assert report.checks["declared_span_vs_bounds_y"]["status"] == "pass"
     assert report.checks["declared_span_vs_selected_geom_span"]["status"] == "pass"
-    assert report.checks["ref_length_independent_source"]["status"] == "warn"
+    assert report.checks["ref_length_independent_source"]["status"] == "pass"
+    assert report.checks["applied_ref_area_vs_openvsp_sref"]["status"] == "warn"
     assert report.checks["moment_origin_policy"]["status"] == "warn"
     assert "main_wing_reference_geometry_incomplete" in report.blocking_reasons
+    assert "main_wing_reference_chord_not_independently_certified" not in report.blocking_reasons
+    assert "main_wing_reference_area_differs_from_openvsp_sref" in report.blocking_reasons
     assert "declared_span_crosschecked_against_real_geometry_bounds" in report.hpa_mdo_guarantees
+    assert "ref_length_crosschecked_against_openvsp_cref" in report.hpa_mdo_guarantees
     assert "reference_geometry_not_promoted_to_pass" in report.hpa_mdo_guarantees
 
 

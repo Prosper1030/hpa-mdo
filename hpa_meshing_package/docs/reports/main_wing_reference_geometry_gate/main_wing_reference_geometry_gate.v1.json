@@ -21,6 +21,37 @@
     },
     "source_label": "blackcat_main_wing_full_span_reference"
   },
+  "openvsp_reference_status": "available",
+  "openvsp_reference": {
+    "ref_area": 35.175,
+    "ref_length": 1.0425,
+    "ref_origin_moment": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "area_method": "openvsp_reference_wing.sref",
+    "length_method": "openvsp_reference_wing.cref",
+    "moment_method": "openvsp_vspaero_settings.cg",
+    "reference_wing_name": "Main Wing",
+    "reference_wing_id": "IPAWXFWPQF",
+    "settings": {
+      "sref": 35.175,
+      "bref": 33.0,
+      "cref": 1.0425,
+      "xcg": 0.0,
+      "ycg": 0.0,
+      "zcg": 0.0,
+      "ref_flag": 1.0,
+      "mac_flag": 0.0
+    },
+    "wing_quantities": {
+      "sref": 35.175,
+      "bref": 33.0,
+      "cref": 1.0425
+    },
+    "warnings": []
+  },
   "derived_full_span_m": 33.0,
   "geometry_bounds_span_y_m": 33.0,
   "selected_geom_full_span_y_m": 32.94930391715896,
@@ -73,23 +104,43 @@
       "notes": []
     },
     "ref_length_independent_source": {
-      "status": "warn",
+      "status": "pass",
       "observed": {
         "ref_length_m": 1.05,
+        "openvsp_cref_m": 1.0425,
+        "ref_length_vs_openvsp_cref_relative_error": 0.007194244604316606,
         "selected_geom_chord_x_m": 1.3023502084398801,
         "geometry_bounds_chord_x_m": 1.3035885811941128,
         "ref_length_vs_selected_chord_relative_error": 0.1937652459411644
       },
       "expected": {
         "independent_aerodynamic_chord_source": true,
-        "selected_geom_chord_x_is_not_certified_ref_chord": true
+        "selected_geom_chord_x_is_not_certified_ref_chord": true,
+        "openvsp_cref_relative_error_pass_max": 0.01,
+        "openvsp_cref_relative_error_warn_max": 0.03
+      },
+      "warnings": [],
+      "notes": [
+        "OpenVSP/VSPAERO cref is treated as the independent aerodynamic chord source when available.",
+        "The x-projection bounds include geometric projection effects and must not be treated as the reference chord by itself."
+      ]
+    },
+    "applied_ref_area_vs_openvsp_sref": {
+      "status": "warn",
+      "observed": {
+        "applied_ref_area_m2": 34.65,
+        "openvsp_sref_m2": 35.175,
+        "relative_error": 0.01492537313432832
+      },
+      "expected": {
+        "openvsp_sref_relative_error_pass_max": 0.01,
+        "openvsp_sref_relative_error_warn_max": 0.03
       },
       "warnings": [
-        "main_wing_reference_chord_not_independently_certified"
+        "main_wing_reference_area_differs_from_openvsp_sref"
       ],
       "notes": [
-        "The declared 1.05 m reference chord is plausible but not independently certified by the current geometry artifacts.",
-        "The x-projection bounds include geometric projection effects and must not be treated as the reference chord by itself."
+        "OpenVSP/VSPAERO Sref is useful independent reference evidence but this report does not change the SU2 runtime config."
       ]
     },
     "moment_origin_policy": {
@@ -100,6 +151,12 @@
           "y": 0.0,
           "z": 0.0
         },
+        "openvsp_ref_origin_moment": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "applied_vs_openvsp_origin_delta_m": 0.2625,
         "source_label": "blackcat_main_wing_full_span_reference",
         "override_warnings": [
           "coarse_real_geometry_probe_reference_not_production_certified"
@@ -110,10 +167,11 @@
         "cg_or_aerodynamic_reference_policy": "documented"
       },
       "warnings": [
-        "main_wing_moment_origin_not_certified"
+        "main_wing_moment_origin_not_certified",
+        "main_wing_moment_origin_differs_from_openvsp_settings_cg"
       ],
       "notes": [
-        "Quarter-chord moment origin is declared for this probe but not yet tied to an aircraft CG or approved aerodynamic reference policy."
+        "Quarter-chord moment origin is declared for this probe but differs from the current OpenVSP VSPAERO CG settings."
       ]
     }
   },
@@ -123,18 +181,20 @@
     "production_default_unchanged",
     "ref_area_ref_length_and_origin_present",
     "declared_span_crosschecked_against_real_geometry_bounds",
+    "ref_length_crosschecked_against_openvsp_cref",
     "hpa_standard_flow_conditions_6p5_mps_observed"
   ],
   "blocking_reasons": [
     "main_wing_reference_geometry_incomplete",
-    "main_wing_reference_chord_not_independently_certified",
+    "main_wing_reference_area_differs_from_openvsp_sref",
     "main_wing_moment_origin_not_certified"
   ],
   "limitations": [
     "This gate is report-only and does not change the SU2 runtime config.",
-    "Span is cross-checked against real geometry bounds, but the reference chord is still user-declared.",
-    "Moment origin is a declared quarter-chord probe policy, not a certified aircraft CG or aerodynamic-reference policy.",
-    "A reference-geometry warn must remain a comparability blocker for solver/convergence results."
+    "Span is cross-checked against real geometry bounds, and reference chord is cross-checked against OpenVSP/VSPAERO cref when available.",
+    "A reference-geometry warn must remain a comparability blocker for solver/convergence results.",
+    "Applied reference area currently differs from OpenVSP/VSPAERO Sref and must not be silently changed.",
+    "Moment origin is a declared quarter-chord probe policy and currently differs from OpenVSP/VSPAERO CG settings."
   ],
   "error": null
 }
