@@ -17,9 +17,10 @@ This report reads existing solver-smoke artifacts only; it does not execute SU2.
 - `convergence_comparability_level`: `not_comparable`
 - `coefficient_stability_status`: `pass`
 - `final_coefficients`: `{"cl": 0.263161913, "cd": 0.02496911575, "cm": -0.2096803732, "cm_axis": "CMy"}`
-- `su2_handoff_path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_su2_handoff_probe/artifacts/su2_handoff.json`
-- `su2_handoff_path_source`: `committed_openvsp_reference_su2_handoff_probe`
+- `su2_handoff_path`: `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/source_su2/su2_handoff.json`
+- `su2_handoff_path_source`: `retained_solver_report_su2_handoff_path`
 - `solver_report_su2_handoff_path`: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/su2_handoff.json`
+- `retained_solver_report_su2_handoff_path`: `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/source_su2/su2_handoff.json`
 
 ## Panel Reference
 

@@ -605,13 +605,24 @@ def build_main_wing_lift_acceptance_diagnostic_report(
         report_root=root,
         anchor_path=solver_report_path,
     )
+    retained_solver_handoff_path = _resolve_path(
+        solver_payload.get("retained_su2_handoff_path")
+        if isinstance(solver_payload, dict)
+        else None,
+        report_root=root,
+        anchor_path=solver_report_path,
+    )
     committed_handoff_path, handoff_path_source = _committed_su2_handoff_path(
         root,
         reference_policy=selected_row.get("reference_policy"),
     )
-    solver_handoff_path = committed_handoff_path or solver_report_handoff_path
-    if handoff_path_source is None and solver_handoff_path is not None:
-        handoff_path_source = "solver_report_su2_handoff_path"
+    if retained_solver_handoff_path is not None:
+        solver_handoff_path = retained_solver_handoff_path
+        handoff_path_source = "retained_solver_report_su2_handoff_path"
+    else:
+        solver_handoff_path = committed_handoff_path or solver_report_handoff_path
+        if handoff_path_source is None and solver_handoff_path is not None:
+            handoff_path_source = "solver_report_su2_handoff_path"
     handoff = _load_json(solver_handoff_path)
     runtime = handoff.get("runtime", {}) if isinstance(handoff, dict) else {}
     flow_conditions = (
@@ -688,6 +699,11 @@ def build_main_wing_lift_acceptance_diagnostic_report(
                 None
                 if solver_report_handoff_path is None
                 else str(solver_report_handoff_path)
+            ),
+            "retained_solver_report_su2_handoff_path": (
+                None
+                if retained_solver_handoff_path is None
+                else str(retained_solver_handoff_path)
             ),
         },
         panel_reference_observed=panel_reference,

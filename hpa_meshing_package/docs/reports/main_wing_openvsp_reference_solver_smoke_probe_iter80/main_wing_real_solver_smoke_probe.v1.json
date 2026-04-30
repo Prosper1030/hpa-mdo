@@ -22,6 +22,8 @@
     "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv",
     "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/forces_breakdown.dat"
   ],
+  "retained_su2_handoff_path": "hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/source_su2/su2_handoff.json",
+  "retained_runtime_cfg_path": "hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/source_su2/su2_runtime.cfg",
   "solver_command": [
     "SU2_CFD",
     "-t",
@@ -78,7 +80,8 @@
     "history_file_written",
     "convergence_gate_v1_emitted",
     "heavy_solver_outputs_pruned",
-    "surface_force_outputs_retained"
+    "surface_force_outputs_retained",
+    "source_su2_provenance_retained"
   ],
   "blocking_reasons": [
     "solver_executed_but_not_converged",

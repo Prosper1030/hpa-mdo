@@ -214,6 +214,72 @@ def test_main_wing_lift_acceptance_diagnostic_uses_retained_force_breakdown(
     )
 
 
+def test_main_wing_lift_acceptance_diagnostic_prefers_retained_solver_handoff(
+    tmp_path: Path,
+):
+    report_root = _write_solver_fixture(tmp_path)
+    stale_committed_handoff = (
+        report_root
+        / "main_wing_openvsp_reference_su2_handoff_probe"
+        / "artifacts"
+        / "su2_handoff.json"
+    )
+    _write_json(
+        stale_committed_handoff,
+        {
+            "runtime": {
+                "alpha_deg": 0.0,
+                "velocity_mps": 6.5,
+                "density_kgpm3": 1.225,
+                "flow_conditions": {
+                    "velocity_mps": 6.5,
+                    "density_kgpm3": 1.225,
+                    "source_label": "stale_committed_probe",
+                },
+            },
+            "reference_geometry": {"ref_area": 35.175, "ref_length": 9.9},
+        },
+    )
+    retained_handoff = tmp_path / "retained_solver_handoff" / "su2_handoff.json"
+    _write_json(
+        retained_handoff,
+        {
+            "runtime": {
+                "alpha_deg": 0.0,
+                "velocity_mps": 6.5,
+                "density_kgpm3": 1.225,
+                "flow_conditions": {
+                    "velocity_mps": 6.5,
+                    "density_kgpm3": 1.225,
+                    "source_label": "exact_solver_smoke",
+                },
+            },
+            "reference_geometry": {"ref_area": 35.175, "ref_length": 1.234},
+        },
+    )
+    solver_report_path = (
+        report_root
+        / "main_wing_openvsp_reference_solver_smoke_probe_iter80"
+        / "main_wing_real_solver_smoke_probe.v1.json"
+    )
+    solver_report = json.loads(solver_report_path.read_text(encoding="utf-8"))
+    solver_report["retained_su2_handoff_path"] = str(retained_handoff)
+    _write_json(solver_report_path, solver_report)
+
+    report = build_main_wing_lift_acceptance_diagnostic_report(
+        report_root=report_root
+    )
+
+    assert report.selected_solver_report["su2_handoff_path"] == str(retained_handoff)
+    assert report.selected_solver_report["su2_handoff_path_source"] == (
+        "retained_solver_report_su2_handoff_path"
+    )
+    assert report.flow_condition_observed["flow_conditions_source_label"] == (
+        "exact_solver_smoke"
+    )
+    assert report.reference_observed["ref_length_m"] == pytest.approx(1.234)
+
+
 def test_main_wing_lift_acceptance_diagnostic_passes_only_when_cl_above_one_and_gate_passes(
     tmp_path: Path,
 ):

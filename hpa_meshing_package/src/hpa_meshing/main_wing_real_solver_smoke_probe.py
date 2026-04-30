@@ -53,6 +53,8 @@ class MainWingRealSolverSmokeProbeReport(BaseModel):
     convergence_gate_path: str | None = None
     pruned_output_paths: List[str] = Field(default_factory=list)
     retained_output_paths: List[str] = Field(default_factory=list)
+    retained_su2_handoff_path: str | None = None
+    retained_runtime_cfg_path: str | None = None
     solver_command: List[str] = Field(default_factory=list)
     timeout_seconds: float
     solver_execution_status: SolverExecutionStatusType
@@ -356,6 +358,30 @@ def _copy_solver_raw_artifacts(
             continue
         shutil.copy2(source, destination)
         copied.add(resolved)
+
+
+def _copy_solver_provenance_artifacts(
+    out_dir: Path,
+    report: MainWingRealSolverSmokeProbeReport,
+) -> dict[str, Path]:
+    provenance_dir = out_dir / "artifacts" / "source_su2"
+    retained: dict[str, Path] = {}
+    source_by_name = {
+        "su2_handoff.json": report.su2_handoff_path,
+        "su2_runtime.cfg": report.runtime_cfg_path,
+    }
+    for filename, raw_source in source_by_name.items():
+        if not raw_source:
+            continue
+        source = Path(raw_source)
+        if not source.exists() or not source.is_file():
+            continue
+        destination = provenance_dir / filename
+        provenance_dir.mkdir(parents=True, exist_ok=True)
+        if not (destination.exists() and destination.resolve() == source.resolve()):
+            shutil.copy2(source, destination)
+        retained[filename] = destination
+    return retained
 
 
 def _blocked_report(
@@ -938,6 +964,8 @@ def _render_markdown(report: MainWingRealSolverSmokeProbeReport) -> str:
         f"- component_force_ownership_status: `{report.component_force_ownership_status}`",
         f"- reference_geometry_status: `{report.reference_geometry_status}`",
         f"- runtime_max_iterations: `{report.runtime_max_iterations}`",
+        f"- retained_su2_handoff_path: `{report.retained_su2_handoff_path}`",
+        f"- retained_runtime_cfg_path: `{report.retained_runtime_cfg_path}`",
         f"- history_path: `{report.history_path}`",
         f"- solver_log_path: `{report.solver_log_path}`",
         f"- convergence_gate_path: `{report.convergence_gate_path}`",
@@ -985,6 +1013,17 @@ def write_main_wing_real_solver_smoke_probe_report(
             timeout_seconds=timeout_seconds,
         )
     out_dir.mkdir(parents=True, exist_ok=True)
+    retained_provenance = _copy_solver_provenance_artifacts(out_dir, report)
+    if "su2_handoff.json" in retained_provenance:
+        report.retained_su2_handoff_path = str(retained_provenance["su2_handoff.json"])
+    if "su2_runtime.cfg" in retained_provenance:
+        report.retained_runtime_cfg_path = str(retained_provenance["su2_runtime.cfg"])
+    if (
+        report.retained_su2_handoff_path
+        and report.retained_runtime_cfg_path
+        and "source_su2_provenance_retained" not in report.hpa_mdo_guarantees
+    ):
+        report.hpa_mdo_guarantees.append("source_su2_provenance_retained")
     json_path = out_dir / "main_wing_real_solver_smoke_probe.v1.json"
     markdown_path = out_dir / "main_wing_real_solver_smoke_probe.v1.md"
     json_path.write_text(

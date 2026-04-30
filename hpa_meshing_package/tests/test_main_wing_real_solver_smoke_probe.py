@@ -245,6 +245,64 @@ def test_main_wing_real_solver_smoke_probe_writer_copies_raw_force_outputs(
     assert not (raw_dir / "vol_solution.vtk").exists()
 
 
+def test_main_wing_real_solver_smoke_probe_writer_retains_exact_handoff_provenance(
+    tmp_path: Path,
+    monkeypatch,
+):
+    probe_path = _write_source_su2_probe(tmp_path)
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.shutil.which",
+        lambda command: f"/fake/bin/{command}",
+    )
+
+    def fake_run(command, cwd, stdout, stderr, text, check, timeout, env):
+        stdout.write(_solver_quality_log_text())
+        (Path(cwd) / "history.csv").write_text(_history_text(), encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.subprocess.run",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "hpa_meshing.main_wing_real_solver_smoke_probe.evaluate_baseline_convergence_gate",
+        lambda mesh_handoff, **kwargs: SimpleNamespace(
+            overall_convergence_gate=SimpleNamespace(
+                status="warn",
+                comparability_level="run_only",
+            ),
+            model_dump=lambda mode="json": {
+                "contract": "convergence_gate.v1",
+                "overall_convergence_gate": {
+                    "status": "warn",
+                    "comparability_level": "run_only",
+                },
+            },
+        ),
+    )
+
+    out_dir = tmp_path / "solver_probe"
+    paths = write_main_wing_real_solver_smoke_probe_report(
+        out_dir,
+        source_su2_probe_report_path=probe_path,
+        timeout_seconds=12.0,
+    )
+
+    payload = json.loads(paths["json"].read_text(encoding="utf-8"))
+    provenance_dir = out_dir / "artifacts" / "source_su2"
+    retained_handoff = provenance_dir / "su2_handoff.json"
+    retained_cfg = provenance_dir / "su2_runtime.cfg"
+    assert payload["retained_su2_handoff_path"] == str(retained_handoff)
+    assert payload["retained_runtime_cfg_path"] == str(retained_cfg)
+    assert retained_handoff.exists()
+    assert retained_cfg.exists()
+    assert json.loads(retained_handoff.read_text(encoding="utf-8"))["runtime"][
+        "max_iterations"
+    ] == 40
+    assert "MESH_FILENAME= mesh.su2" in retained_cfg.read_text(encoding="utf-8")
+
+
 def test_main_wing_real_solver_smoke_probe_rejects_pass_gate_when_cl_below_one(
     tmp_path: Path,
     monkeypatch,

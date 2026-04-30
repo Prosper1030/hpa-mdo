@@ -14,6 +14,8 @@ This probe runs SU2_CFD from the real main-wing SU2 handoff and keeps solver exe
 - component_force_ownership_status: `owned`
 - reference_geometry_status: `warn`
 - runtime_max_iterations: `80`
+- retained_su2_handoff_path: `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/source_su2/su2_handoff.json`
+- retained_runtime_cfg_path: `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/source_su2/su2_runtime.cfg`
 - history_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/history.csv`
 - solver_log_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/solver.log`
 - convergence_gate_path: `hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/convergence_gate.v1.json`
@@ -43,6 +45,7 @@ This probe runs SU2_CFD from the real main-wing SU2 handoff and keeps solver exe
 - `convergence_gate_v1_emitted`
 - `heavy_solver_outputs_pruned`
 - `surface_force_outputs_retained`
+- `source_su2_provenance_retained`
 
 ## Limitations
 
