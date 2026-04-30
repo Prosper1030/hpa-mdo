@@ -17,7 +17,7 @@
 | `real_su2_handoff` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.json` |
 | `openvsp_reference_su2_handoff` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_su2_handoff_probe/main_wing_openvsp_reference_su2_handoff_probe.v1.json` |
 | `su2_force_marker_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_su2_force_marker_audit/main_wing_su2_force_marker_audit.v1.json` |
-| `surface_force_output_audit` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_surface_force_output_audit/main_wing_surface_force_output_audit.v1.json` |
+| `surface_force_output_audit` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_surface_force_output_audit/main_wing_surface_force_output_audit.v1.json` |
 | `openvsp_reference_geometry_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_geometry_gate/main_wing_reference_geometry_gate.v1.json` |
 | `openvsp_reference_solver_smoke` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 | `openvsp_reference_solver_budget_probe` | `pass` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json` |
@@ -32,8 +32,6 @@
 - `main_wing_reference_geometry_incomplete`
 - `main_wing_reference_area_differs_from_openvsp_sref`
 - `main_wing_moment_origin_not_certified`
-- `forces_breakdown_output_missing`
-- `panel_force_comparison_not_ready`
 - `solver_executed_but_not_converged`
 - `main_wing_cl_below_expected_lift`
 - `alpha_zero_operating_lift_not_demonstrated`
@@ -46,7 +44,7 @@
 
 ## Next Actions
 
-- `resolve_main_wing_forces_breakdown_output_before_panel_delta_debug`
+- `resolve_main_wing_cl_below_expected_lift_before_convergence_claims`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

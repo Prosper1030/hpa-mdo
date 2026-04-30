@@ -306,8 +306,14 @@ Maximum number of iterations reached (ITER = 80) before convergence.
 |        File Writing Summary       |              Filename             |
 +-----------------------------------------------------------------------+
 |SU2 ASCII restart                  |restart.csv                        |
+
+Writing the forces breakdown file (forces_breakdown.dat).
 |Paraview ASCII                     |vol_solution.vtk                   |
+
+Writing the forces breakdown file (forces_breakdown.dat).
 |CSV file                           |surface.csv                        |
+
+Writing the forces breakdown file (forces_breakdown.dat).
 +-----------------------------------------------------------------------+
 
 --------------------------- Finalizing Solver ---------------------------

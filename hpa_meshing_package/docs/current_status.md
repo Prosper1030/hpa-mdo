@@ -85,14 +85,14 @@ OpenVSP provenance is available (`Y_Rotation=3 deg`, cambered airfoils, zero
 parsed local twist), VSPAERO panel reference evidence is available at
 `CLtot=1.287645495943`, and the OpenVSP-reference geometry gate records
 `Bref=33.0 m` as the span provenance. The force-marker audit is real evidence
-with marker checks passing but scope `warn`; the surface-force output audit is
-still blocked, but the blocker has narrowed: `surface.csv` is now retained under
-the 80-iteration raw solver artifacts, while `forces_breakdown.dat` is still
-missing. SU2 lift acceptance remains blocked because the selected current-route
-smoke has `CL=0.263161913`, about `4.89x` lower than the VSPAERO panel baseline
-and below the main-wing `CL > 1.0` acceptance gate for the HPA operating point.
-The current readiness next action is
-`resolve_main_wing_forces_breakdown_output_before_panel_delta_debug`.
+with marker checks passing but scope `warn`; the surface-force output audit now
+passes the output-retention checks because `surface.csv` and
+`forces_breakdown.dat` are both retained under the 80-iteration raw solver
+artifacts. SU2 lift acceptance remains blocked because the selected
+current-route smoke has `CL=0.263161913`, about `4.89x` lower than the VSPAERO
+panel baseline and below the main-wing `CL > 1.0` acceptance gate for the HPA
+operating point. The current readiness next action is
+`resolve_main_wing_cl_below_expected_lift_before_convergence_claims`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -141,12 +141,12 @@ This writes `main_wing_surface_force_output_audit.v1.json` and
 `main_wing_surface_force_output_audit.v1.md`. The committed snapshot under
 `docs/reports/main_wing_surface_force_output_audit/` reads the OpenVSP-reference
 80-iteration solver smoke, its raw solver log, and the VSPAERO panel reference.
-Current result is `blocked`: the solver log advertises both `surface.csv` and
+Current result is `warn`: the solver log advertises both `surface.csv` and
 `forces_breakdown.dat`; the committed raw-solver artifact directory now retains
-`history.csv`, `solver.log`, and `surface.csv`, but `forces_breakdown.dat` is
-not materialized. This means force-marker ownership and surface output retention
-are established, but panel/SU2 force-breakdown debugging is not ready. The audit
-still observes `V=6.5 m/s`, derives
+`history.csv`, `solver.log`, `surface.csv`, and `forces_breakdown.dat`. This
+means force-marker ownership and surface-output retention are established, and
+panel/SU2 force-breakdown debugging is now ready from an artifact-retention
+standpoint. The audit still observes `V=6.5 m/s`, derives
 `main_wing_lift_acceptance_status=fail` from `CL=0.263161913`, and keeps the
 VSPAERO panel baseline visible at `CLtot=1.287645495943`; none of this is a
 convergence claim.
@@ -367,9 +367,9 @@ remains `solver_executed_but_not_converged`, now with
 `convergence_comparability_level=not_comparable` after the CL gate is applied.
 It reaches `final_iteration=79`, `CL ~= 0.2632`, `CD ~= 0.02497`, and
 `CMy ~= -0.2097`. The useful engineering signal is that coefficient stability
-is now tight and `surface.csv` is retained, while median residual log drop is
-still only about `0.358` against the `0.5` pass threshold and
-`forces_breakdown.dat` is still missing; this is still not convergence.
+is now tight and both `surface.csv` and `forces_breakdown.dat` are retained,
+while median residual log drop is still only about `0.358` against the `0.5`
+pass threshold; this is still not convergence.
 The SU2 preprocessing log also reports high mesh-quality ratios
 (`CV Face Area Aspect Ratio max ~= 377.9`, `CV Sub-Volume Ratio max ~= 13256`),
 so the next numerics work should inspect mesh quality and local sizing rather
@@ -601,7 +601,7 @@ ownership cleanup, not solver execution.
 | Capability | Status | Why |
 | --- | --- | --- |
 | `esp_rebuilt` provider | experimental | native OpenCSM rule-loft rebuild 已可 materialize normalized geometry；`main_wing` aircraft-only coarse 2D 已可穿過，但 full external-flow route 的 default sizing 仍卡在 downstream Gmsh meshing |
-| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; a probe-local OpenVSP reference-policy handoff and solver smoke also materialize; force-marker audit passes marker checks with Euler-wall/reference scope warnings; default and OpenVSP-reference 12-iteration solver smokes fail the convergence gate, the OpenVSP-reference 80-iteration probe is also `fail/not_comparable` after CL gating, `surface.csv` is retained but `forces_breakdown.dat` is missing, reference chord now cross-checks against OpenVSP/VSPAERO `cref`; readiness records the OpenVSP-reference geometry gate with span from `Bref=33.0`; lift diagnostic records VSPAERO panel `CLtot=1.2876` vs selected SU2 `CL=0.2632`, while default reference-area and all formal moment-origin policy remain `warn` |
+| `main_wing` | experimental | real ESP/VSP geometry smoke exists for `Main Wing`; bounded real-geometry mesh handoff now writes `mesh_handoff.v1`; real-geometry `su2_handoff.v1` materializes with a `main_wing` force marker and `V=6.5`; a probe-local OpenVSP reference-policy handoff and solver smoke also materialize; force-marker audit passes marker checks with Euler-wall/reference scope warnings; default and OpenVSP-reference 12-iteration solver smokes fail the convergence gate, the OpenVSP-reference 80-iteration probe is also `fail/not_comparable` after CL gating, `surface.csv` and `forces_breakdown.dat` are retained, reference chord now cross-checks against OpenVSP/VSPAERO `cref`; readiness records the OpenVSP-reference geometry gate with span from `Bref=33.0`; lift diagnostic records VSPAERO panel `CLtot=1.2876` vs selected SU2 `CL=0.2632`, while default reference-area and all formal moment-origin policy remain `warn` |
 | `tail_wing` | experimental | real ESP/VSP geometry, surface-mesh, naive-solidification, and explicit-volume-route probes exist; real volume mesh handoff is blocked by surface-only provider output, negative signed-volume explicit surface-loop behavior, and baffle-fragment PLC failure; synthetic non-BL `mesh_handoff.v1` / `su2_handoff.v1` smokes exist but are not real tail mesh evidence |
 | `fairing_solid` | experimental | real fairing VSP geometry smoke exists for a `best_design` Fuselage with closed-solid topology; bounded real-geometry mesh handoff writes `mesh_handoff.v1` with a `fairing_solid` marker; real-geometry `su2_handoff.v1` materialization exists; external fairing reference policy is now applied in a gated override handoff; borrowed zero moment origin, solver history, and convergence gate are still missing |
 | `fairing_vented` | experimental | dispatch exists, real backend not productized |
@@ -631,7 +631,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Main-wing `forces_breakdown.dat` output, then reference-area / moment-origin provenance before any larger residual/numerics campaign; do not call either smoke converged
+2. Use retained main-wing `forces_breakdown.dat` / `surface.csv` to debug the panel-vs-SU2 lift gap, then fix reference-area / moment-origin provenance before any larger residual/numerics campaign; do not call either smoke converged
 3. Run real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
 4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
 5. Component-level force mapping after the wall-marker story is stronger

@@ -13,6 +13,8 @@ evidence only, not a convergence or CFD-ready claim.
   directory.
 - `artifacts/raw_solver/surface.csv`: raw SU2 surface output retained from the
   `.tmp` case directory.
+- `artifacts/raw_solver/forces_breakdown.dat`: raw SU2 forces-breakdown output
+  retained from the `.tmp` case directory.
 
 Observed result:
 
@@ -31,8 +33,9 @@ to the 40-iteration OpenVSP-reference smoke, coefficient stability improves and
 main-wing lift gate fails because `CL <= 1.0`. The run is therefore still
 blocked by `solver_executed_but_not_converged`,
 `main_wing_cl_below_expected_lift`, and `main_wing_real_reference_geometry_warn`.
-The solver log advertises `forces_breakdown.dat`, but that file is not
-materialized in the retained raw solver artifacts.
+The rerun explicitly enables `WRT_FORCES_BREAKDOWN= YES` and retains
+`forces_breakdown.dat`. The force breakdown confirms the only monitored surface
+is `main_wing`, with the same low `CL = 0.263161913` observed in `history.csv`.
 
 Mesh-quality observations from `artifacts/raw_solver/solver.log`:
 

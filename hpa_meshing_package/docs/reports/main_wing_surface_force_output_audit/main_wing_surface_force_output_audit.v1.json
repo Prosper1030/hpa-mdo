@@ -3,7 +3,7 @@
   "component": "main_wing",
   "execution_scope": "report_only_existing_solver_artifacts",
   "production_default_changed": false,
-  "audit_status": "blocked",
+  "audit_status": "warn",
   "selected_solver_report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json",
   "solver_report_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80",
   "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/solver.log",
@@ -30,6 +30,7 @@
   "artifact_retention_observed": {
     "raw_solver_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver",
     "committed_raw_solver_files": [
+      "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/forces_breakdown.dat",
       "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/history.csv",
       "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/solver.log",
       "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/surface.csv"
@@ -38,7 +39,10 @@
       "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/surface.csv",
       "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/surface.csv"
     ],
-    "forces_breakdown_candidates": [],
+    "forces_breakdown_candidates": [
+      "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/forces_breakdown.dat",
+      "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/forces_breakdown.dat"
+    ],
     "pruned_surface_outputs": [],
     "pruned_force_breakdown_outputs": [],
     "declared_pruned_output_paths": [
@@ -101,10 +105,13 @@
       }
     },
     "forces_breakdown_retained": {
-      "status": "blocked",
+      "status": "pass",
       "observed": {
         "expected_from_solver_log": "forces_breakdown.dat",
-        "retained_candidates": [],
+        "retained_candidates": [
+          "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/forces_breakdown.dat",
+          "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/.tmp/runs/main_wing_openvsp_reference_su2_handoff_probe_iter80/artifacts/su2/alpha_0_real_main_wing_openvsp_reference_probe/forces_breakdown.dat"
+        ],
         "pruned_candidates": []
       },
       "expected": {
@@ -112,11 +119,11 @@
       }
     },
     "panel_force_comparison_ready": {
-      "status": "blocked",
+      "status": "pass",
       "observed": {
         "panel_reference_status": "available",
         "surface_csv_retained": true,
-        "forces_breakdown_retained": false
+        "forces_breakdown_retained": true
       },
       "expected": {
         "panel_reference_status": "available",
@@ -130,13 +137,9 @@
     "main_wing_lift_acceptance_failed_cl_below_one",
     "hpa_standard_flow_conditions_6p5_mps_observed"
   ],
-  "blocking_reasons": [
-    "forces_breakdown_output_missing",
-    "panel_force_comparison_not_ready"
-  ],
+  "blocking_reasons": [],
   "next_actions": [
-    "preserve_forces_breakdown_dat_in_solver_smoke_artifacts",
-    "rerun_surface_force_output_audit_before_panel_delta_debug"
+    "surface_force_outputs_available_for_panel_delta_debug"
   ],
   "limitations": [
     "This audit reads existing solver artifacts only and does not execute SU2.",

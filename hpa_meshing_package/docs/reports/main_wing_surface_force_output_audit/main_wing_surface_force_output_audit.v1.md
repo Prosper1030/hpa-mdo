@@ -2,7 +2,7 @@
 
 This report reads existing solver artifacts only; it does not execute SU2.
 
-- audit_status: `blocked`
+- audit_status: `warn`
 - production_default_changed: `False`
 - selected_solver_report_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/main_wing_real_solver_smoke_probe.v1.json`
 - solver_log_path: `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_openvsp_reference_solver_smoke_probe_iter80/artifacts/raw_solver/solver.log`
@@ -31,8 +31,8 @@ This report reads existing solver artifacts only; it does not execute SU2.
 | `solver_report_available` | `pass` |
 | `solver_executed` | `pass` |
 | `surface_csv_retained` | `pass` |
-| `forces_breakdown_retained` | `blocked` |
-| `panel_force_comparison_ready` | `blocked` |
+| `forces_breakdown_retained` | `pass` |
+| `panel_force_comparison_ready` | `pass` |
 
 ## Panel Reference Observed
 
@@ -45,8 +45,6 @@ This report reads existing solver artifacts only; it does not execute SU2.
 
 ## Blocking Reasons
 
-- `forces_breakdown_output_missing`
-- `panel_force_comparison_not_ready`
 
 ## Engineering Flags
 
@@ -56,8 +54,7 @@ This report reads existing solver artifacts only; it does not execute SU2.
 
 ## Next Actions
 
-- `preserve_forces_breakdown_dat_in_solver_smoke_artifacts`
-- `rerun_surface_force_output_audit_before_panel_delta_debug`
+- `surface_force_outputs_available_for_panel_delta_debug`
 
 ## Limitations
 
