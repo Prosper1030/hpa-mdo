@@ -630,6 +630,41 @@ def test_parser_supports_main_wing_station_seam_side_aware_parametrization_probe
     assert args.timeout_seconds == 15
 
 
+def test_parser_supports_main_wing_station_seam_side_aware_brep_validation_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-side-aware-brep-validation-probe",
+            "--out",
+            "artifacts/main_wing_side_aware_brep_validation",
+            "--side-aware-parametrization-probe",
+            "artifacts/main_wing/side_aware_parametrization.json",
+            "--candidate-step",
+            "artifacts/main_wing/side_aware_candidate_raw_dump.stp",
+            "--station-y-targets",
+            "-10.5",
+            "13.5",
+            "--station-tolerance",
+            "1e-4",
+            "--scale-to-output-units",
+            "1.0",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-side-aware-brep-validation-probe"
+    )
+    assert args.out == "artifacts/main_wing_side_aware_brep_validation"
+    assert args.side_aware_parametrization_probe == (
+        "artifacts/main_wing/side_aware_parametrization.json"
+    )
+    assert args.candidate_step == "artifacts/main_wing/side_aware_candidate_raw_dump.stp"
+    assert args.station_y_targets == [-10.5, 13.5]
+    assert args.station_tolerance == 1e-4
+    assert args.scale_to_output_units == 1.0
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(

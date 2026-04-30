@@ -42,4 +42,7 @@ full `y=-16.5..16.5 m` span, and has no station-plane cap faces at
 
 This is not mesh-ready or CFD-ready evidence. The next gate must run candidate
 station BRep/PCurve validation on the side-aware STEP before any mesh handoff,
-solver-budget work, or convergence claims.
+solver-budget work, or convergence claims. That downstream gate now exists as
+`main_wing_station_seam_side_aware_brep_validation_probe.v1`; current evidence
+shows the side-aware candidate remains blocked at station-edge PCurve
+consistency, so this parametrization status must not be read as mesh-ready.

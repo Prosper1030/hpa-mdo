@@ -114,8 +114,14 @@ curves match terminal `linseg` fragments, and 2 long station curves match
 spline rest arcs. The side-aware parametrization probe then preserves TE/LE
 anchors, resamples upper/lower sides independently to 30 / 30 points, and
 materializes a `1 volume / 32 surfaces` full-span candidate with no target
-station cap faces; it still requires station BRep/PCurve validation before any
-mesh handoff. The export-source audit then traces those target
+station cap faces. The side-aware BRep validation probe then selects target
+station edges by candidate station-y geometry (`source_fixture_tags_replayed=false`):
+the candidate remains `1 volume / 32 surfaces`, 6 station edges and 12 owner
+faces are checked, PCurves are present, and owner-face wires are valid, but all
+6 station edges still fail the combined PCurve consistency checks. The
+side-aware candidate is therefore not mesh-ready, and the next repair target is
+OpenCSM/export-side PCurve generation rather than mesh or solver budget. The
+export-source audit then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
 `y=-10.5 m` and `y=13.5 m`. The mesh-quality hotspot audit now partitions the
@@ -124,7 +130,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`run_profile_resample_brep_validation_on_side_aware_candidate`.
+`repair_side_aware_candidate_pcurve_export_before_mesh_handoff`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -399,6 +405,24 @@ sections are resampled to 30 upper-side and 30 lower-side points, TE/LE anchors
 are preserved exactly, the candidate materializes as `1 volume / 32 surfaces`,
 full span is preserved, and no target-station cap faces are observed. This is
 not mesh-ready; the next gate is BRep/PCurve validation on the side-aware STEP.
+
+The main-wing side-aware BRep validation probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-side-aware-brep-validation-probe --out .tmp/runs/main_wing_station_seam_side_aware_brep_validation_probe
+```
+
+This writes `main_wing_station_seam_side_aware_brep_validation_probe.v1.json`
+and `main_wing_station_seam_side_aware_brep_validation_probe.v1.md`. The
+committed snapshot records `side_aware_candidate_station_brep_edges_suspect`:
+station edges are selected geometrically from the side-aware candidate STEP
+(`source_fixture_tags_replayed=false`), 6 station edges and 12 owner faces are
+checked, PCurves are present, and owner-face wires are closed / connected /
+ordered. However, all 6 station edges fail curve-3D-with-PCurve,
+same-parameter-by-face, and vertex-tolerance-by-face checks. This keeps the
+route blocked before Gmsh mesh handoff and shifts the next action to repairing
+side-aware OpenCSM/export PCurve generation.
 
 The first real fairing geometry smoke is emitted by:
 
