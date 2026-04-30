@@ -3086,6 +3086,228 @@
       ]
     },
     {
+      "stage": "station_seam_side_aware_parametrization_probe",
+      "status": "pass",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/main_wing_station_seam_side_aware_parametrization_probe.v1.json",
+      "observed": {
+        "probe_status": "side_aware_parametrization_candidate_materialized_needs_brep_validation",
+        "source_profile_point_counts": [
+          57,
+          57,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          57,
+          57
+        ],
+        "candidate_profile_point_counts": [
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59,
+          59
+        ],
+        "target_station_y_m": [
+          -10.5,
+          13.5
+        ],
+        "side_parametrization_summary": {
+          "target_upper_side_point_count": 30,
+          "target_lower_side_point_count": 30,
+          "candidate_profile_point_count": 59,
+          "max_le_anchor_delta_m": 0.0,
+          "max_te_anchor_delta_m": 0.0,
+          "section_summaries": [
+            {
+              "csm_section_index": 0,
+              "station_y_m": -16.5,
+              "source_point_count": 57,
+              "source_upper_side_point_count": 29,
+              "source_lower_side_point_count": 29,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 1,
+              "station_y_m": -13.5,
+              "source_point_count": 57,
+              "source_upper_side_point_count": 29,
+              "source_lower_side_point_count": 29,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 2,
+              "station_y_m": -10.5,
+              "source_point_count": 59,
+              "source_upper_side_point_count": 30,
+              "source_lower_side_point_count": 30,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 3,
+              "station_y_m": -7.5,
+              "source_point_count": 59,
+              "source_upper_side_point_count": 30,
+              "source_lower_side_point_count": 30,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 4,
+              "station_y_m": -4.5,
+              "source_point_count": 59,
+              "source_upper_side_point_count": 30,
+              "source_lower_side_point_count": 30,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 5,
+              "station_y_m": 0.0,
+              "source_point_count": 59,
+              "source_upper_side_point_count": 30,
+              "source_lower_side_point_count": 30,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 6,
+              "station_y_m": 4.5,
+              "source_point_count": 59,
+              "source_upper_side_point_count": 30,
+              "source_lower_side_point_count": 30,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 7,
+              "station_y_m": 7.5,
+              "source_point_count": 59,
+              "source_upper_side_point_count": 30,
+              "source_lower_side_point_count": 30,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 8,
+              "station_y_m": 10.5,
+              "source_point_count": 59,
+              "source_upper_side_point_count": 30,
+              "source_lower_side_point_count": 30,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 9,
+              "station_y_m": 13.5,
+              "source_point_count": 57,
+              "source_upper_side_point_count": 29,
+              "source_lower_side_point_count": 29,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            },
+            {
+              "csm_section_index": 10,
+              "station_y_m": 16.5,
+              "source_point_count": 57,
+              "source_upper_side_point_count": 29,
+              "source_lower_side_point_count": 29,
+              "candidate_point_count": 59,
+              "candidate_upper_side_point_count": 30,
+              "candidate_lower_side_point_count": 30,
+              "leading_edge_anchor_delta_m": 0.0,
+              "trailing_edge_anchor_delta_m": 0.0
+            }
+          ]
+        },
+        "candidate_summary": {
+          "candidate": "side_aware_profile_parametrization_single_rule",
+          "materialization_status": "materialized",
+          "body_count": 1,
+          "volume_count": 1,
+          "surface_count": 32,
+          "span_y_bounds_preserved": true,
+          "target_station_face_groups": [
+            {
+              "station_y_m": -10.5,
+              "plane_face_count": 0,
+              "face_tags": [],
+              "face_bboxes": [],
+              "station_cap_faces_present": false,
+              "duplicate_station_cap_faces": false
+            },
+            {
+              "station_y_m": 13.5,
+              "plane_face_count": 0,
+              "face_tags": [],
+              "face_bboxes": [],
+              "station_cap_faces_present": false,
+              "duplicate_station_cap_faces": false
+            }
+          ]
+        },
+        "engineering_findings": [
+          "side_aware_parametrization_probe_captured",
+          "side_aware_profile_sections_uniformized_by_upper_lower_correspondence",
+          "leading_edge_anchors_preserved",
+          "trailing_edge_anchors_preserved",
+          "side_aware_candidate_single_volume_full_span_observed",
+          "side_aware_candidate_no_target_cap_faces_detected"
+        ],
+        "next_actions": [
+          "run_profile_resample_brep_validation_on_side_aware_candidate",
+          "compare_side_aware_candidate_against_uniform_profile_resample",
+          "keep_side_aware_candidate_behind_report_only_gate"
+        ]
+      },
+      "blockers": [
+        "side_aware_candidate_needs_station_brep_validation_before_mesh_handoff"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -3139,10 +3361,11 @@
     "profile_resample_candidate_station_brep_pcurve_checks_suspect",
     "profile_resample_candidate_mesh_handoff_not_run",
     "profile_resample_station_shape_fix_repair_not_recovered",
-    "profile_parametrization_export_change_needed_before_mesh_handoff"
+    "profile_parametrization_export_change_needed_before_mesh_handoff",
+    "side_aware_candidate_needs_station_brep_validation_before_mesh_handoff"
   ],
   "next_actions": [
-    "prototype_side_aware_profile_parametrization_candidate",
+    "run_profile_resample_brep_validation_on_side_aware_candidate",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

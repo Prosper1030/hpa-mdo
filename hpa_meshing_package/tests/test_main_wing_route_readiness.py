@@ -149,6 +149,48 @@ def test_main_wing_route_readiness_includes_profile_parametrization_audit(
     )
 
 
+def test_main_wing_route_readiness_includes_side_aware_parametrization_probe(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_side_aware_parametrization_probe"
+        / "main_wing_station_seam_side_aware_parametrization_probe.v1.json",
+        {
+            "probe_status": "side_aware_parametrization_candidate_materialized_needs_brep_validation",
+            "side_parametrization_summary": {
+                "target_upper_side_point_count": 30,
+                "target_lower_side_point_count": 30,
+                "max_le_anchor_delta_m": 0.0,
+            },
+            "candidate_report": {
+                "materialization_status": "materialized",
+                "body_count": 1,
+                "volume_count": 1,
+                "span_y_bounds_preserved": True,
+            },
+            "blocking_reasons": [
+                "side_aware_candidate_needs_station_brep_validation_before_mesh_handoff"
+            ],
+            "next_actions": [
+                "run_profile_resample_brep_validation_on_side_aware_candidate"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+
+    stages = {stage.stage: stage for stage in report.stages}
+    stage = stages["station_seam_side_aware_parametrization_probe"]
+    assert stage.status == "pass"
+    assert stage.evidence_kind == "real"
+    assert stage.observed["candidate_summary"]["volume_count"] == 1
+    assert "side_aware_candidate_needs_station_brep_validation_before_mesh_handoff" in (
+        report.blocking_reasons
+    )
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

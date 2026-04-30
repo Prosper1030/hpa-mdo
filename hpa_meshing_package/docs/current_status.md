@@ -111,7 +111,11 @@ recovered station checks. The profile parametrization audit now correlates the
 current profile-resample candidate back to its CSM section segments: across the
 two target stations, all 6 station-edge PCurve checks fail, 4 short station
 curves match terminal `linseg` fragments, and 2 long station curves match
-spline rest arcs. The export-source audit then traces those target
+spline rest arcs. The side-aware parametrization probe then preserves TE/LE
+anchors, resamples upper/lower sides independently to 30 / 30 points, and
+materializes a `1 volume / 32 surfaces` full-span candidate with no target
+station cap faces; it still requires station BRep/PCurve validation before any
+mesh handoff. The export-source audit then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
 `y=-10.5 m` and `y=13.5 m`. The mesh-quality hotspot audit now partitions the
@@ -120,7 +124,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`prototype_side_aware_profile_parametrization_candidate`.
+`run_profile_resample_brep_validation_on_side_aware_candidate`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -378,6 +382,23 @@ station curves match the candidate CSM terminal `linseg` fragments, and two
 long station curves match the spline rest arcs. This is report-only geometry
 evidence for the next export change; it is not a mesh-handoff, solver, or
 convergence claim.
+
+The main-wing side-aware parametrization probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-side-aware-parametrization-probe --out .tmp/runs/main_wing_station_seam_side_aware_parametrization_probe --materialize-candidate
+```
+
+This writes
+`main_wing_station_seam_side_aware_parametrization_probe.v1.json`,
+`main_wing_station_seam_side_aware_parametrization_probe.v1.md`, and candidate
+CSM/STEP/log artifacts. The committed snapshot records
+`side_aware_parametrization_candidate_materialized_needs_brep_validation`: all
+sections are resampled to 30 upper-side and 30 lower-side points, TE/LE anchors
+are preserved exactly, the candidate materializes as `1 volume / 32 surfaces`,
+full span is preserved, and no target-station cap faces are observed. This is
+not mesh-ready; the next gate is BRep/PCurve validation on the side-aware STEP.
 
 The first real fairing geometry smoke is emitted by:
 

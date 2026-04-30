@@ -597,6 +597,39 @@ def test_parser_supports_main_wing_station_seam_profile_parametrization_audit_co
     assert args.match_tolerance == 0.02
 
 
+def test_parser_supports_main_wing_station_seam_side_aware_parametrization_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-side-aware-parametrization-probe",
+            "--out",
+            "artifacts/main_wing_side_aware_parametrization",
+            "--profile-parametrization-audit",
+            "artifacts/main_wing/profile_parametrization_audit.json",
+            "--materialize-candidate",
+            "--target-upper-side-point-count",
+            "30",
+            "--target-lower-side-point-count",
+            "30",
+            "--timeout-seconds",
+            "15",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-side-aware-parametrization-probe"
+    )
+    assert args.out == "artifacts/main_wing_side_aware_parametrization"
+    assert args.profile_parametrization_audit == (
+        "artifacts/main_wing/profile_parametrization_audit.json"
+    )
+    assert args.materialize_candidate is True
+    assert args.target_upper_side_point_count == 30
+    assert args.target_lower_side_point_count == 30
+    assert args.timeout_seconds == 15
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(
