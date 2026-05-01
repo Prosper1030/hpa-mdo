@@ -30,6 +30,7 @@ def load_blackcat_main_wing_spec_from_avl(
     avl_path: Path | str,
     *,
     points_per_side: int = 16,
+    spanwise_subdivisions: int = 1,
 ) -> WingSpec:
     """Build a mesh-native full-span main-wing spec from the Black Cat AVL file.
 
@@ -40,6 +41,8 @@ def load_blackcat_main_wing_spec_from_avl(
     """
     if points_per_side < 3:
         raise ValueError("points_per_side must be at least 3")
+    if spanwise_subdivisions < 1:
+        raise ValueError("spanwise_subdivisions must be at least 1")
 
     path = Path(avl_path)
     lines = _clean_avl_lines(path.read_text(encoding="utf-8"))
@@ -63,6 +66,7 @@ def load_blackcat_main_wing_spec_from_avl(
         stations.append(_station_from_avl_section(section, loop, y=-section.y_le))
     for section, loop in resampled:
         stations.append(_station_from_avl_section(section, loop, y=section.y_le))
+    stations = _subdivide_spanwise_stations(stations, spanwise_subdivisions)
 
     return WingSpec(
         stations=stations,
@@ -79,6 +83,7 @@ def build_blackcat_main_wing_surfaces_from_avl(
     avl_path: Path | str,
     *,
     points_per_side: int = 16,
+    spanwise_subdivisions: int = 1,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
@@ -87,6 +92,7 @@ def build_blackcat_main_wing_surfaces_from_avl(
     spec = load_blackcat_main_wing_spec_from_avl(
         avl_path,
         points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
     )
     wing = build_wing_surface(spec)
     farfield = build_farfield_box_surface(
@@ -542,6 +548,43 @@ def _station_from_avl_section(
         x_le=section.x_le,
         z_le=section.z_le,
     )
+
+
+def _subdivide_spanwise_stations(
+    stations: list[Station],
+    spanwise_subdivisions: int,
+) -> list[Station]:
+    if spanwise_subdivisions == 1:
+        return stations
+
+    refined: list[Station] = []
+    for left, right in zip(stations[:-1], stations[1:]):
+        refined.append(left)
+        for step in range(1, spanwise_subdivisions):
+            eta = step / spanwise_subdivisions
+            refined.append(_interpolate_station(left, right, eta))
+    refined.append(stations[-1])
+    return refined
+
+
+def _interpolate_station(left: Station, right: Station, eta: float) -> Station:
+    if len(left.airfoil_xz) != len(right.airfoil_xz):
+        raise ValueError("Cannot interpolate stations with different airfoil point counts")
+    return Station(
+        y=_lerp(left.y, right.y, eta),
+        airfoil_xz=[
+            (_lerp(left_point[0], right_point[0], eta), _lerp(left_point[1], right_point[1], eta))
+            for left_point, right_point in zip(left.airfoil_xz, right.airfoil_xz)
+        ],
+        chord=_lerp(left.chord, right.chord, eta),
+        twist_deg=_lerp(left.twist_deg, right.twist_deg, eta),
+        x_le=_lerp(left.x_le, right.x_le, eta),
+        z_le=_lerp(left.z_le, right.z_le, eta),
+    )
+
+
+def _lerp(left: float, right: float, eta: float) -> float:
+    return float(left) + (float(right) - float(left)) * float(eta)
 
 
 def _distance_2d(

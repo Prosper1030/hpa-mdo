@@ -35,6 +35,32 @@ def test_load_blackcat_main_wing_spec_from_avl_builds_full_span_mesh_native_spec
     assert spec.stations[0].airfoil_xz[0] == pytest.approx((1.0, 0.0))
 
 
+def test_load_blackcat_main_wing_spec_can_subdivide_spanwise_stations():
+    coarse = load_blackcat_main_wing_spec_from_avl(
+        AVL_PATH,
+        points_per_side=8,
+    )
+    refined = load_blackcat_main_wing_spec_from_avl(
+        AVL_PATH,
+        points_per_side=8,
+        spanwise_subdivisions=2,
+    )
+
+    assert len(refined.stations) == 21
+    assert refined.stations[0].y == pytest.approx(-16.5)
+    assert refined.stations[1].y == pytest.approx(-15.0)
+    assert refined.stations[2].y == pytest.approx(-13.5)
+    assert refined.stations[1].chord == pytest.approx(
+        0.5 * (coarse.stations[0].chord + coarse.stations[1].chord)
+    )
+
+    surface = build_wing_surface(refined)
+    assert surface.metadata["station_count"] == 21
+    assert surface.metadata["span_m"] == pytest.approx(33.0)
+    assert surface.metadata["planform_area_m2"] == pytest.approx(35.175)
+    assert surface.marker_counts() == {"wing_wall": 308}
+
+
 def test_blackcat_main_wing_spec_builds_watertight_mesh_native_surface():
     spec = load_blackcat_main_wing_spec_from_avl(AVL_PATH, points_per_side=8)
 
