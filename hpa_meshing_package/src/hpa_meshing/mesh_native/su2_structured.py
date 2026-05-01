@@ -10,6 +10,7 @@ import shutil
 import subprocess
 from typing import Any, Iterable, Literal, Sequence
 
+from .near_wall_block import WingBoundaryLayerBlock
 from .wing_surface import SurfaceMesh, Vertex
 
 SU2_QUAD = 9
@@ -41,6 +42,47 @@ def write_structured_box_shell_su2(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(_su2_text(volume), encoding="utf-8")
     return _report(volume)
+
+
+def write_wing_boundary_layer_block_su2(
+    block: WingBoundaryLayerBlock,
+    out_path: Path | str,
+) -> dict[str, Any]:
+    """Write the owned near-wall hexa block to SU2 for parser/marker smoke checks."""
+    out_path = Path(out_path)
+    marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
+    for face in block.boundary_faces:
+        marker_faces.setdefault(face.marker, []).append((SU2_QUAD, face.nodes))
+
+    volume = {
+        "nodes": block.vertices,
+        "elements": [(SU2_HEXAHEDRON, cell.nodes) for cell in block.cells],
+        "marker_faces": marker_faces,
+    }
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        _su2_volume_text(
+            volume,
+            comments=(
+                "% Mesh-native wing boundary-layer block smoke mesh.",
+                "% This is not a complete farfield CFD domain.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "route": "mesh_native_wing_boundary_layer_block_su2",
+        "mesh_path": str(out_path),
+        "node_count": len(block.vertices),
+        "volume_element_count": len(block.cells),
+        "marker_summary": _marker_summary(marker_faces),
+        "block_quality": block.quality,
+        "block_metadata": block.metadata,
+        "caveats": [
+            "not a complete farfield CFD domain",
+            "intended for SU2 parser and marker ownership smoke before core-volume merge",
+        ],
+    }
 
 
 def write_structured_box_shell_su2_case(
@@ -696,9 +738,18 @@ def _outside_grid(cell: tuple[int, int, int]) -> bool:
 
 
 def _su2_text(volume: dict[str, Any]) -> str:
+    return _su2_volume_text(
+        volume,
+        comments=(
+            "% Mesh-native structured box-shell smoke mesh.",
+            "% The inner wing_wall marker is the wing bounding box, not the true wing surface.",
+        ),
+    )
+
+
+def _su2_volume_text(volume: dict[str, Any], *, comments: Sequence[str]) -> str:
     lines = [
-        "% Mesh-native structured box-shell smoke mesh.",
-        "% The inner wing_wall marker is the wing bounding box, not the true wing surface.",
+        *comments,
         "NDIME= 3",
         f"NELEM= {len(volume['elements'])}",
     ]

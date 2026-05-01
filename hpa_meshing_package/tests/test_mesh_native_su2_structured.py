@@ -7,8 +7,13 @@ from hpa_meshing.mesh_native.su2_structured import (
     audit_su2_case_markers,
     parse_su2_marker_summary,
     run_structured_box_shell_su2_smoke,
+    write_wing_boundary_layer_block_su2,
     write_structured_box_shell_su2_case,
     write_structured_box_shell_su2,
+)
+from hpa_meshing.mesh_native.near_wall_block import (
+    BoundaryLayerBlockSpec,
+    build_wing_boundary_layer_block,
 )
 from hpa_meshing.mesh_native.wing_surface import (
     Face,
@@ -80,6 +85,49 @@ def test_structured_box_shell_su2_writer_preserves_volume_and_markers(tmp_path: 
     assert parsed["nelem"] == 26
     assert parsed["npoin"] == 64
     assert parsed["nmark"] == 2
+    assert parsed["markers"] == report["marker_summary"]
+
+
+def test_wing_boundary_layer_block_su2_writer_preserves_hexes_and_boundary_markers(
+    tmp_path: Path,
+):
+    wing = WingSpec(
+        stations=[
+            Station(y=0.0, airfoil_xz=_rect_loop(), chord=1.0, twist_deg=0.0),
+            Station(y=1.0, airfoil_xz=_rect_loop(), chord=0.8, twist_deg=2.0),
+            Station(y=2.0, airfoil_xz=_rect_loop(), chord=0.6, twist_deg=4.0),
+        ],
+        side="full",
+        te_rule="finite_thickness",
+        tip_rule="planar_cap",
+        root_rule="wall_cap",
+        reference=Reference(sref_full=1.6, cref=0.8, bref_full=2.0),
+    )
+    block = build_wing_boundary_layer_block(
+        wing,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=1.0e-3,
+            growth_ratio=1.2,
+            layer_count=3,
+        ),
+    )
+    out_path = tmp_path / "wing_bl_block.su2"
+
+    report = write_wing_boundary_layer_block_su2(block, out_path)
+
+    assert report["route"] == "mesh_native_wing_boundary_layer_block_su2"
+    assert report["node_count"] == len(block.vertices)
+    assert report["volume_element_count"] == len(block.cells)
+    assert report["marker_summary"] == {
+        marker: {"element_count": count, "element_type_counts": {"9": count}}
+        for marker, count in block.boundary_marker_counts().items()
+    }
+    assert "not a complete farfield CFD domain" in report["caveats"][0]
+
+    parsed = parse_su2_marker_summary(out_path)
+    assert parsed["ndime"] == 3
+    assert parsed["nelem"] == len(block.cells)
+    assert parsed["npoin"] == len(block.vertices)
     assert parsed["markers"] == report["marker_summary"]
 
 
