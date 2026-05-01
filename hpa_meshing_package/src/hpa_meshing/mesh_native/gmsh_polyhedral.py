@@ -7,6 +7,10 @@ from pathlib import Path
 import subprocess
 from typing import Any, Iterable, Mapping, Sequence
 
+from .near_wall_block import (
+    WingBoundaryLayerBlock,
+    build_boundary_layer_core_interface_surface,
+)
 from .su2_structured import (
     _parse_smoke_history,
     _resolve_solver_command,
@@ -195,6 +199,160 @@ def write_faceted_volume_mesh(
             "caveats": [
                 "wing boundary is faceted from mesh-native panels",
                 "tet volume mesh only; no boundary-layer prism strategy",
+            ],
+        }
+    finally:
+        gmsh.finalize()
+
+
+def write_boundary_layer_block_core_tet_mesh(
+    block: WingBoundaryLayerBlock,
+    farfield: SurfaceMesh,
+    out_path: Path | str,
+    *,
+    su2_path: Path | str | None = None,
+    mesh_size: float = 0.5,
+    farfield_mesh_size: float | None = None,
+    fluid_marker: str = "fluid_core",
+    production_target_volume_elements: int = 1_000_000,
+) -> dict[str, Any]:
+    """Tet-fill the region outside an owned BL block for core-mesh smoke tests.
+
+    This uses the BL block outer envelope as the inner core boundary. It proves
+    Gmsh can mesh outside the owned BL topology without invoking Gmsh
+    boundary-layer extrusion, but it is not yet the final conformal BL+core
+    merged mesh used for viscous CFD.
+    """
+    import gmsh
+
+    msh_path = Path(out_path)
+    msh_path.parent.mkdir(parents=True, exist_ok=True)
+    su2_output_path = Path(su2_path) if su2_path is not None else None
+    if su2_output_path is not None:
+        su2_output_path.parent.mkdir(parents=True, exist_ok=True)
+    if mesh_size <= 0.0:
+        raise ValueError("mesh_size must be positive")
+    resolved_farfield_mesh_size = mesh_size if farfield_mesh_size is None else farfield_mesh_size
+    if resolved_farfield_mesh_size <= 0.0:
+        raise ValueError("farfield_mesh_size must be positive")
+
+    inner_boundary = build_boundary_layer_core_interface_surface(block)
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("mesh_native_bl_block_core_tet_smoke")
+
+        point_tags = [
+            *[
+                gmsh.model.geo.addPoint(x, y, z, mesh_size)
+                for x, y, z in inner_boundary.vertices
+            ],
+            *[
+                gmsh.model.geo.addPoint(x, y, z, resolved_farfield_mesh_size)
+                for x, y, z in farfield.vertices
+            ],
+        ]
+        line_cache: dict[tuple[int, int], tuple[int, int, int]] = {}
+        inner_surfaces_by_marker = _add_marked_mesh_surfaces(
+            gmsh,
+            inner_boundary.faces,
+            point_tags=point_tags,
+            line_cache=line_cache,
+            node_offset=0,
+        )
+        farfield_surfaces_by_marker = _add_marked_mesh_surfaces(
+            gmsh,
+            farfield.faces,
+            point_tags=point_tags,
+            line_cache=line_cache,
+            node_offset=len(inner_boundary.vertices),
+        )
+        inner_surfaces = [
+            surface
+            for surfaces in inner_surfaces_by_marker.values()
+            for surface in surfaces
+        ]
+        farfield_surfaces = [
+            surface
+            for surfaces in farfield_surfaces_by_marker.values()
+            for surface in surfaces
+        ]
+        outer_loop = gmsh.model.geo.addSurfaceLoop(farfield_surfaces)
+        inner_loop = gmsh.model.geo.addSurfaceLoop(inner_surfaces)
+        core_volume = gmsh.model.geo.addVolume([outer_loop, inner_loop])
+        gmsh.model.geo.synchronize()
+
+        physical_groups: dict[str, dict[str, int]] = {}
+        for marker, surfaces in {
+            **inner_surfaces_by_marker,
+            **farfield_surfaces_by_marker,
+        }.items():
+            group = gmsh.model.addPhysicalGroup(2, surfaces)
+            gmsh.model.setPhysicalName(2, group, marker)
+            physical_groups[marker] = {
+                "dimension": 2,
+                "physical_tag": int(group),
+                "entity_count": len(surfaces),
+            }
+        fluid_group = gmsh.model.addPhysicalGroup(3, [core_volume])
+        gmsh.model.setPhysicalName(3, fluid_group, fluid_marker)
+        physical_groups[fluid_marker] = {
+            "dimension": 3,
+            "physical_tag": int(fluid_group),
+            "entity_count": 1,
+        }
+
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min(mesh_size, resolved_farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max(mesh_size, resolved_farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.Algorithm", 5)
+        gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+        gmsh.option.setNumber("Mesh.Optimize", 1)
+        gmsh.model.mesh.generate(3)
+
+        node_tags, _, _ = gmsh.model.mesh.getNodes()
+        volume_element_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
+        volume_type_counts = {
+            str(element_type): len(tags)
+            for element_type, tags in zip(volume_element_types, volume_element_tags)
+        }
+        volume_element_count = sum(volume_type_counts.values())
+        quality_metrics = _collect_volume_quality_metrics(gmsh)
+        gmsh.write(str(msh_path))
+        if su2_output_path is not None:
+            gmsh.write(str(su2_output_path))
+
+        return {
+            "status": "meshed",
+            "route": "mesh_native_bl_block_core_tet_smoke",
+            "mesh_path": str(msh_path),
+            "su2_path": None if su2_output_path is None else str(su2_output_path),
+            "volume_count": 1,
+            "node_count": len(node_tags),
+            "volume_element_count": volume_element_count,
+            "volume_element_type_counts": volume_type_counts,
+            "inner_boundary": {
+                "marker_counts": inner_boundary.marker_counts(),
+                "surface_entity_count": len(inner_surfaces),
+            },
+            "farfield": {
+                "marker_counts": farfield.marker_counts(),
+                "surface_entity_count": len(farfield_surfaces),
+            },
+            "mesh_sizing": {
+                "inner_mesh_size": float(mesh_size),
+                "farfield_mesh_size": float(resolved_farfield_mesh_size),
+            },
+            "quality_metrics": quality_metrics,
+            "mesh_quality_gate": _mesh_quality_gate(quality_metrics),
+            "production_scale_gate": _production_scale_gate(
+                volume_element_count,
+                target_volume_elements=production_target_volume_elements,
+            ),
+            "physical_groups": physical_groups,
+            "caveats": [
+                "not a final conformal BL+core merge",
+                "BL block outer envelope is treated as an inner obstacle for core smoke only",
+                "Gmsh is used only for outer core tet fill; BL cells remain mesh-native owned",
             ],
         }
     finally:
@@ -883,6 +1041,31 @@ def _add_mesh_surfaces(
             )
             surfaces.append(gmsh.model.geo.addPlaneSurface([curve_loop]))
     return surfaces
+
+
+def _add_marked_mesh_surfaces(
+    gmsh,
+    faces: list[Face],
+    *,
+    point_tags: list[int],
+    line_cache: dict[tuple[int, int], tuple[int, int, int]],
+    node_offset: int,
+) -> dict[str, list[int]]:
+    surfaces_by_marker: dict[str, list[int]] = {}
+    for face in faces:
+        for triangle in _triangulate(face):
+            shifted = tuple(node + node_offset for node in triangle)
+            curve_loop = gmsh.model.geo.addCurveLoop(
+                [
+                    _line_between(gmsh, point_tags, line_cache, shifted[0], shifted[1]),
+                    _line_between(gmsh, point_tags, line_cache, shifted[1], shifted[2]),
+                    _line_between(gmsh, point_tags, line_cache, shifted[2], shifted[0]),
+                ]
+            )
+            surfaces_by_marker.setdefault(face.marker, []).append(
+                gmsh.model.geo.addPlaneSurface([curve_loop])
+            )
+    return surfaces_by_marker
 
 
 def _triangulate(face: Face) -> list[tuple[int, int, int]]:

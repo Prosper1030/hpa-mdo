@@ -12,9 +12,15 @@ from hpa_meshing.mesh_native.gmsh_polyhedral import (
     infer_wing_feature_extents,
     run_faceted_volume_refinement_ladder,
     run_faceted_volume_su2_smoke,
+    write_boundary_layer_block_core_tet_mesh,
     write_faceted_volume_mesh,
     write_faceted_volume_mesh_with_boundary_layer,
     write_faceted_volume_su2_case,
+)
+from hpa_meshing.mesh_native.near_wall_block import (
+    BoundaryLayerBlockSpec,
+    build_boundary_layer_block_boundary_surface,
+    build_wing_boundary_layer_block,
 )
 from hpa_meshing.mesh_native.su2_structured import parse_su2_marker_summary
 from hpa_meshing.mesh_native.wing_surface import (
@@ -60,6 +66,21 @@ def _wing_and_close_farfield():
     return wing, farfield
 
 
+def _simple_wing_spec() -> WingSpec:
+    return WingSpec(
+        stations=[
+            Station(y=0.0, airfoil_xz=_rect_loop(), chord=1.0, twist_deg=0.0),
+            Station(y=1.0, airfoil_xz=_rect_loop(), chord=0.8, twist_deg=2.0),
+            Station(y=2.0, airfoil_xz=_rect_loop(), chord=0.6, twist_deg=4.0),
+        ],
+        side="full",
+        te_rule="finite_thickness",
+        tip_rule="planar_cap",
+        root_rule="wall_cap",
+        reference=Reference(sref_full=1.6, cref=0.8, bref_full=2.0),
+    )
+
+
 def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path):
     pytest.importorskip("gmsh")
     wing, farfield = _wing_and_close_farfield()
@@ -100,6 +121,62 @@ def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path
     assert set(su2_summary["markers"]) == {"wing_wall", "farfield"}
     assert su2_summary["markers"]["wing_wall"]["element_count"] > 0
     assert su2_summary["markers"]["farfield"]["element_count"] > 0
+
+
+def test_write_boundary_layer_block_core_tet_mesh_uses_owned_bl_block_boundary(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    block = build_wing_boundary_layer_block(
+        _simple_wing_spec(),
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=0.01,
+            growth_ratio=1.2,
+            layer_count=2,
+        ),
+    )
+    boundary = build_boundary_layer_block_boundary_surface(block)
+    farfield = build_farfield_box_surface(
+        boundary,
+        upstream_factor=1.5,
+        downstream_factor=2.0,
+        lateral_factor=1.5,
+        vertical_factor=1.5,
+    )
+
+    report = write_boundary_layer_block_core_tet_mesh(
+        block,
+        farfield,
+        tmp_path / "core.msh",
+        su2_path=tmp_path / "core.su2",
+        mesh_size=0.8,
+        farfield_mesh_size=1.5,
+    )
+
+    assert report["status"] == "meshed"
+    assert report["route"] == "mesh_native_bl_block_core_tet_smoke"
+    assert report["volume_element_count"] > 0
+    assert report["volume_element_type_counts"].get("4", 0) == report["volume_element_count"]
+    assert report["mesh_quality_gate"]["status"] == "pass"
+    assert report["inner_boundary"]["marker_counts"] == {
+        "bl_outer_interface": 10,
+        "wake_cut": 2,
+        "span_cap": 8,
+    }
+    assert "wing_wall" not in report["physical_groups"]
+    assert report["physical_groups"]["bl_outer_interface"]["entity_count"] > 0
+    assert report["physical_groups"]["wake_cut"]["entity_count"] > 0
+    assert report["physical_groups"]["span_cap"]["entity_count"] > 0
+    assert report["physical_groups"]["farfield"]["entity_count"] == 12
+    assert "not a final conformal BL+core merge" in report["caveats"][0]
+
+    su2_summary = parse_su2_marker_summary(tmp_path / "core.su2")
+    assert set(su2_summary["markers"]) == {
+        "bl_outer_interface",
+        "wake_cut",
+        "span_cap",
+        "farfield",
+    }
 
 
 def test_write_faceted_volume_mesh_with_boundary_layer_writes_mixed_su2_mesh(
