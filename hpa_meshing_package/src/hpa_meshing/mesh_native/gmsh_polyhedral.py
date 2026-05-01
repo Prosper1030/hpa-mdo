@@ -487,6 +487,7 @@ def run_faceted_volume_su2_smoke(
         iterative_gate_status=iterative_gate_status,
         history=history,
     )
+    coefficient_sanity_gate = _coefficient_sanity_gate(history)
     failure_code = None
     if completed.returncode != 0:
         failure_code = "solver_execution_failed"
@@ -506,18 +507,23 @@ def run_faceted_volume_su2_smoke(
         "iterative_gate": iterative_gate,
         "iterative_gate_status": iterative_gate_status,
         "cfd_evidence_gate": cfd_evidence_gate,
+        "coefficient_sanity_gate": coefficient_sanity_gate,
         "engineering_assessment": {
             "solver_readability": "pass" if run_status == "completed" else "fail",
             "marker_ownership": case_report["marker_audit"]["status"],
             "iterative_convergence": iterative_gate_status,
             "cfd_evidence": cfd_evidence_gate["status"],
+            "coefficient_sanity": coefficient_sanity_gate["status"],
             "aero_coefficients_interpretable": (
                 iterative_gate_status == "pass" and cfd_evidence_gate["status"] == "pass"
+                and coefficient_sanity_gate["status"] == "pass"
             ),
             "reason": (
-                "iterative_and_cfd_evidence_gates_passed_mesh_study_still_required"
-                if iterative_gate_status == "pass" and cfd_evidence_gate["status"] == "pass"
-                else "cfd_evidence_gate_not_passed"
+                "all_case_level_gates_passed_mesh_study_still_required"
+                if iterative_gate_status == "pass"
+                and cfd_evidence_gate["status"] == "pass"
+                and coefficient_sanity_gate["status"] == "pass"
+                else "case_level_cfd_gate_not_passed"
             ),
         },
     }
@@ -552,6 +558,31 @@ def _cfd_evidence_gate(
         "iterative_gate_status": iterative_gate_status,
         "reasons": reasons,
         "policy": "configured_solver_budget_must_allow_1000plus_iterations_for_cfd_evidence",
+    }
+
+
+def _coefficient_sanity_gate(history: Mapping[str, Any] | None) -> dict[str, Any]:
+    coefficients = {}
+    if isinstance(history, Mapping):
+        coefficients = history.get("final_coefficients") or {}
+    cd = coefficients.get("cd") if isinstance(coefficients, Mapping) else None
+    reasons = []
+    cd_value = None
+    if cd is None:
+        reasons.append("missing_cd")
+    else:
+        try:
+            cd_value = float(cd)
+        except (TypeError, ValueError):
+            reasons.append("non_numeric_cd")
+    if cd_value is not None and not math.isfinite(cd_value):
+        reasons.append("non_finite_cd")
+    if cd_value is not None and cd_value < 0.0:
+        reasons.append("negative_cd")
+    return {
+        "status": "pass" if not reasons else "fail",
+        "reasons": reasons,
+        "observed_cd": cd_value,
     }
 
 

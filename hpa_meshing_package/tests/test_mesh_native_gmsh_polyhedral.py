@@ -5,6 +5,7 @@ import pytest
 
 from hpa_meshing.mesh_native.gmsh_polyhedral import (
     _cfd_evidence_gate,
+    _coefficient_sanity_gate,
     _mesh_quality_gate,
     build_wing_feature_refinement_boxes,
     infer_wing_feature_extents,
@@ -246,6 +247,21 @@ def test_cfd_evidence_gate_accepts_long_budget_with_iterative_pass():
     assert gate["reasons"] == []
 
 
+def test_coefficient_sanity_gate_rejects_negative_drag():
+    gate = _coefficient_sanity_gate(
+        {
+            "final_coefficients": {
+                "cl": 0.696,
+                "cd": -0.148,
+                "cmy": 0.137,
+            }
+        }
+    )
+
+    assert gate["status"] == "fail"
+    assert gate["reasons"] == ["negative_cd"]
+
+
 def test_run_faceted_volume_refinement_ladder_increases_mesh_density(tmp_path: Path):
     pytest.importorskip("gmsh")
     wing, farfield = _wing_and_close_farfield()
@@ -379,6 +395,7 @@ def test_run_faceted_volume_su2_smoke_runs_when_su2_is_available(tmp_path: Path)
         "marker_ownership": "pass",
         "iterative_convergence": "fail",
         "cfd_evidence": "fail",
+        "coefficient_sanity": "fail",
         "aero_coefficients_interpretable": False,
-        "reason": "cfd_evidence_gate_not_passed",
+        "reason": "case_level_cfd_gate_not_passed",
     }
