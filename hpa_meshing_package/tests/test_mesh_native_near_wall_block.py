@@ -6,9 +6,11 @@ from hpa_meshing.mesh_native.blackcat import load_blackcat_main_wing_spec_from_v
 from hpa_meshing.mesh_native.near_wall_block import (
     BoundaryLayerBlockSpec,
     build_airfoil_boundary_layer_block,
+    build_boundary_layer_block_boundary_surface,
     build_wing_boundary_layer_block,
     split_airfoil_wall_loop,
 )
+from hpa_meshing.mesh_native.wing_surface import validate_surface_mesh
 from hpa_meshing.mesh_native.wing_surface import Station
 
 
@@ -126,3 +128,32 @@ def test_vsp_main_wing_bl_block_connects_spanwise_stations_with_positive_volumes
     assert block.quality["non_positive_volume_count"] == 0
     assert block.quality["min_estimated_volume_m3"] > 0.0
     assert block.quality["min_span_interval_m"] > 0.0
+
+
+def test_bl_block_boundary_surface_is_closed_with_owned_markers():
+    pytest.importorskip("openvsp")
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=12,
+    )
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=5.0e-5,
+            growth_ratio=1.18,
+            layer_count=8,
+        ),
+    )
+
+    surface = build_boundary_layer_block_boundary_surface(block)
+
+    assert surface.marker_counts() == block.boundary_marker_counts()
+    assert surface.metadata["surface_role"] == "boundary_layer_block_boundary"
+    validate_surface_mesh(
+        surface,
+        allowed_markers=frozenset(
+            {"wing_wall", "bl_outer_interface", "wake_cut", "span_cap"}
+        ),
+        required_markers=("wing_wall", "bl_outer_interface", "wake_cut", "span_cap"),
+    )

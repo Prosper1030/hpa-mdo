@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import math
 from typing import Literal, Sequence
 
-from .wing_surface import Station, Vertex, WingSpec
+from .wing_surface import Face, Station, SurfaceMesh, Vertex, WingSpec
 
 
 Point2D = tuple[float, float]
@@ -236,6 +236,23 @@ def build_wing_boundary_layer_block(
             "twist_axis_x": wing.twist_axis_x,
         },
         quality=quality,
+    )
+
+
+def build_boundary_layer_block_boundary_surface(block: WingBoundaryLayerBlock) -> SurfaceMesh:
+    """Convert the closed BL block boundary to a mesh-native surface shell."""
+    return SurfaceMesh(
+        vertices=list(block.vertices),
+        faces=[
+            Face(nodes=tuple(face.nodes), marker=face.marker)
+            for face in block.boundary_faces
+        ],
+        metadata={
+            "surface_role": "boundary_layer_block_boundary",
+            "source_volume_cell_count": len(block.cells),
+            "source_boundary_face_count": len(block.boundary_faces),
+            **block.boundary_marker_counts(),
+        },
     )
 
 
