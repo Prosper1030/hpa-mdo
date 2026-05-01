@@ -581,12 +581,16 @@ def test_run_blackcat_main_wing_boundary_layer_stability_ladder_uses_bl_runner(
     assert calls[0]["kwargs"]["wall_profile"] == "adiabatic_no_slip"
     assert calls[0]["kwargs"]["conv_num_method_flow"] == "JST"
     assert calls[0]["kwargs"]["cfl_number"] == pytest.approx(0.05)
+    assert calls[0]["kwargs"]["threads"] == 4
+    assert calls[0]["kwargs"]["gmsh_threads"] == 4
     assert report["route"] == (
         "blackcat_main_wing_mesh_native_boundary_layer_su2_stability_ladder"
     )
     assert report["status"] == "stable_mesh_selected"
     assert report["boundary_layer"]["layers"] == 24
     assert report["runtime"]["max_iterations"] == 2000
+    assert report["runtime"]["threads"] == 4
+    assert report["runtime"]["gmsh_threads"] == 4
     assert report["stability_selection"]["selected_case"]["wing_mesh_size"] == 0.35
     assert report["stability_selection"]["compared_to_case"]["wing_mesh_size"] == 0.25
     assert report["engineering_assessment"]["wall_resolved_boundary_layer_present"] is True

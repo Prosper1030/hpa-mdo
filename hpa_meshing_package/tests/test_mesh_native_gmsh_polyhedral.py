@@ -271,6 +271,8 @@ def test_write_faceted_volume_mesh_with_boundary_layer_writes_mixed_su2_mesh(
     assert report["boundary_layer"]["volume_element_type_counts"]
     assert report["boundary_layer"]["quality_metrics"]["element_count"] > 0
     assert report["core_volume"]["volume_element_type_counts"]
+    assert report["compute"]["gmsh_threads"] == 4
+    assert report["compute"]["mesh_max_num_threads_3d"] == 4
     assert report["physical_groups"]["wing_wall"]["entity_count"] == 24
     assert report["physical_groups"]["farfield"]["entity_count"] == 12
     assert report["mesh_quality_gate"]["status"] == "pass"
@@ -307,6 +309,8 @@ def test_write_faceted_boundary_layer_su2_case_prepares_no_slip_runtime(
     assert report["runtime"]["wall_profile"] == "adiabatic_no_slip"
     assert report["runtime"]["conv_num_method_flow"] == "JST"
     assert report["runtime"]["boundary_layer"]["layers"] == 3
+    assert report["runtime"]["gmsh_threads"] == 4
+    assert report["mesh_report"]["compute"]["gmsh_threads"] == 4
     assert report["mesh_report"]["boundary_layer"]["volume_element_type_counts"]
     assert report["mesh_report"]["mesh_quality_gate"]["status"] == "pass"
     assert "MARKER_HEATFLUX= ( wing_wall, 0.0 )" in Path(
