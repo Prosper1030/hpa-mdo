@@ -215,6 +215,7 @@ def write_boundary_layer_block_core_tet_mesh(
     farfield_mesh_size: float | None = None,
     fluid_marker: str = "fluid_core",
     production_target_volume_elements: int = 1_000_000,
+    preserve_boundary_mesh: bool = False,
 ) -> dict[str, Any]:
     """Tet-fill the region outside an owned BL block for core-mesh smoke tests.
 
@@ -304,7 +305,11 @@ def write_boundary_layer_block_core_tet_mesh(
 
         gmsh.option.setNumber("Mesh.MeshSizeMin", min(mesh_size, resolved_farfield_mesh_size))
         gmsh.option.setNumber("Mesh.MeshSizeMax", max(mesh_size, resolved_farfield_mesh_size))
-        gmsh.option.setNumber("Mesh.Algorithm", 5)
+        if preserve_boundary_mesh:
+            gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+            gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+            gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+        gmsh.option.setNumber("Mesh.Algorithm", 6 if preserve_boundary_mesh else 5)
         gmsh.option.setNumber("Mesh.Algorithm3D", 1)
         gmsh.option.setNumber("Mesh.Optimize", 1)
         gmsh.model.mesh.generate(3)
@@ -359,6 +364,7 @@ def write_boundary_layer_block_core_tet_mesh(
             "mesh_sizing": {
                 "inner_mesh_size": float(mesh_size),
                 "farfield_mesh_size": float(resolved_farfield_mesh_size),
+                "preserve_boundary_mesh": bool(preserve_boundary_mesh),
             },
             "quality_metrics": quality_metrics,
             "mesh_quality_gate": _mesh_quality_gate(quality_metrics),

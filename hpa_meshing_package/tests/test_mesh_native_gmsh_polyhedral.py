@@ -189,6 +189,44 @@ def test_write_boundary_layer_block_core_tet_mesh_uses_owned_bl_block_boundary(
     }
 
 
+def test_write_boundary_layer_block_core_tet_mesh_can_preserve_input_interface(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    block = build_wing_boundary_layer_block(
+        _simple_wing_spec(),
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=0.01,
+            growth_ratio=1.2,
+            layer_count=2,
+        ),
+    )
+    boundary = build_boundary_layer_block_boundary_surface(block)
+    farfield = build_farfield_box_surface(
+        boundary,
+        upstream_factor=1.5,
+        downstream_factor=2.0,
+        lateral_factor=1.5,
+        vertical_factor=1.5,
+    )
+
+    report = write_boundary_layer_block_core_tet_mesh(
+        block,
+        farfield,
+        tmp_path / "core_preserved.msh",
+        su2_path=tmp_path / "core_preserved.su2",
+        mesh_size=10.0,
+        farfield_mesh_size=10.0,
+        preserve_boundary_mesh=True,
+    )
+
+    assert report["status"] == "meshed"
+    assert report["interface_conformality"]["status"] == "preserved"
+    assert report["interface_conformality"]["can_merge_with_owned_bl_block"] is True
+    assert report["interface_conformality"]["remeshed_markers"] == []
+    assert report["mesh_sizing"]["preserve_boundary_mesh"] is True
+
+
 def test_write_faceted_volume_mesh_with_boundary_layer_writes_mixed_su2_mesh(
     tmp_path: Path,
 ):
