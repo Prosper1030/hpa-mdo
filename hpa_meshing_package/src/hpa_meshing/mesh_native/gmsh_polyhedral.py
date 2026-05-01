@@ -309,6 +309,16 @@ def write_boundary_layer_block_core_tet_mesh(
         gmsh.option.setNumber("Mesh.Optimize", 1)
         gmsh.model.mesh.generate(3)
 
+        inner_input_element_counts = _input_surface_mesh_element_counts(inner_boundary.faces)
+        inner_generated_element_counts = _surface_mesh_element_counts_by_marker(
+            gmsh,
+            inner_surfaces_by_marker,
+        )
+        farfield_input_element_counts = _input_surface_mesh_element_counts(farfield.faces)
+        farfield_generated_element_counts = _surface_mesh_element_counts_by_marker(
+            gmsh,
+            farfield_surfaces_by_marker,
+        )
         node_tags, _, _ = gmsh.model.mesh.getNodes()
         volume_element_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
         volume_type_counts = {
@@ -333,11 +343,19 @@ def write_boundary_layer_block_core_tet_mesh(
             "inner_boundary": {
                 "marker_counts": inner_boundary.marker_counts(),
                 "surface_entity_count": len(inner_surfaces),
+                "input_mesh_element_counts": inner_input_element_counts,
+                "generated_mesh_element_counts": inner_generated_element_counts,
             },
             "farfield": {
                 "marker_counts": farfield.marker_counts(),
                 "surface_entity_count": len(farfield_surfaces),
+                "input_mesh_element_counts": farfield_input_element_counts,
+                "generated_mesh_element_counts": farfield_generated_element_counts,
             },
+            "interface_conformality": _surface_conformality_report(
+                inner_input_element_counts,
+                inner_generated_element_counts,
+            ),
             "mesh_sizing": {
                 "inner_mesh_size": float(mesh_size),
                 "farfield_mesh_size": float(resolved_farfield_mesh_size),
@@ -1066,6 +1084,79 @@ def _add_marked_mesh_surfaces(
                 gmsh.model.geo.addPlaneSurface([curve_loop])
             )
     return surfaces_by_marker
+
+
+def _input_surface_mesh_element_counts(faces: Sequence[Face]) -> dict[str, dict[str, int]]:
+    counts: dict[str, dict[str, int]] = {}
+    for face in faces:
+        marker_counts = counts.setdefault(
+            face.marker,
+            {
+                "face_count": 0,
+                "triangle_face_count": 0,
+                "quad_face_count": 0,
+                "triangulated_face_count": 0,
+            },
+        )
+        marker_counts["face_count"] += 1
+        if len(face.nodes) == 3:
+            marker_counts["triangle_face_count"] += 1
+        elif len(face.nodes) == 4:
+            marker_counts["quad_face_count"] += 1
+        marker_counts["triangulated_face_count"] += len(_triangulate(face))
+    return dict(sorted(counts.items()))
+
+
+def _surface_mesh_element_counts_by_marker(
+    gmsh,
+    surfaces_by_marker: Mapping[str, Sequence[int]],
+) -> dict[str, dict[str, Any]]:
+    counts: dict[str, dict[str, Any]] = {}
+    for marker, surfaces in surfaces_by_marker.items():
+        type_counts = _entity_type_counts(gmsh, 2, surfaces)
+        counts[marker] = {
+            "entity_count": len(surfaces),
+            "element_count": sum(type_counts.values()),
+            "element_type_counts": type_counts,
+        }
+    return dict(sorted(counts.items()))
+
+
+def _surface_conformality_report(
+    input_counts: Mapping[str, Mapping[str, int]],
+    generated_counts: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    missing_markers = sorted(set(input_counts) - set(generated_counts))
+    extra_markers = sorted(set(generated_counts) - set(input_counts))
+    remeshed_markers: list[str] = []
+    marker_reports: dict[str, dict[str, Any]] = {}
+    for marker in sorted(set(input_counts) & set(generated_counts)):
+        expected = int(input_counts[marker]["triangulated_face_count"])
+        observed = int(generated_counts[marker]["element_count"])
+        preserved = expected == observed
+        if not preserved:
+            remeshed_markers.append(marker)
+        marker_reports[marker] = {
+            "input_triangulated_face_count": expected,
+            "generated_element_count": observed,
+            "generated_element_type_counts": generated_counts[marker]["element_type_counts"],
+            "preserved": preserved,
+        }
+    can_merge = not missing_markers and not extra_markers and not remeshed_markers
+    return {
+        "status": "preserved" if can_merge else "remeshed",
+        "can_merge_with_owned_bl_block": can_merge,
+        "missing_markers": missing_markers,
+        "extra_markers": extra_markers,
+        "remeshed_markers": remeshed_markers,
+        "markers": marker_reports,
+        "interpretation": (
+            "Core boundary mesh matches the input interface element counts."
+            if can_merge
+            else "Gmsh changed the inner interface surface mesh; do not merge this core "
+            "with the owned BL block as a viscous CFD mesh."
+        ),
+    }
 
 
 def _triangulate(face: Face) -> list[tuple[int, int, int]]:

@@ -163,6 +163,16 @@ def test_write_boundary_layer_block_core_tet_mesh_uses_owned_bl_block_boundary(
         "wake_cut": 2,
         "span_cap": 8,
     }
+    assert report["inner_boundary"]["generated_mesh_element_counts"][
+        "bl_outer_interface"
+    ]["element_count"] > report["inner_boundary"]["input_mesh_element_counts"][
+        "bl_outer_interface"
+    ][
+        "triangulated_face_count"
+    ]
+    assert report["interface_conformality"]["status"] == "remeshed"
+    assert report["interface_conformality"]["can_merge_with_owned_bl_block"] is False
+    assert "bl_outer_interface" in report["interface_conformality"]["remeshed_markers"]
     assert "wing_wall" not in report["physical_groups"]
     assert report["physical_groups"]["bl_outer_interface"]["entity_count"] > 0
     assert report["physical_groups"]["wake_cut"]["entity_count"] > 0
