@@ -1,0 +1,69 @@
+{
+  "schema_version": "mesh_native_blackcat_vsp_su2_iter1000.v1",
+  "date": "2026-05-01",
+  "geometry_source": "openvsp_mesh_native_blackcat_main_wing",
+  "case_dir": "/tmp/hpa_mdo_blackcat_vsp_native_incns_heatflux_iter1000",
+  "mesh_source_case_dir": "/tmp/hpa_mdo_blackcat_vsp_native_mesh_h0025_feature3",
+  "mesh": {
+    "ndime": 3,
+    "volume_elements": 717901,
+    "nodes": 258378,
+    "markers": {
+      "wing_wall": 469776,
+      "farfield": 518
+    },
+    "quality_notes": [
+      "no non-positive volume/SICN/SIGE observed in source mesh report",
+      "min_gamma was very low and p01_gamma was slightly below production target in source mesh report",
+      "tet-only volume mesh; no boundary-layer prism cells"
+    ]
+  },
+  "solver": {
+    "solver": "INC_NAVIER_STOKES",
+    "wall_boundary": "MARKER_HEATFLUX=(wing_wall,0.0)",
+    "farfield_boundary": "MARKER_FAR=(farfield)",
+    "threads": 8,
+    "configured_iterations": 1000,
+    "return_status": "exit_success",
+    "marker_audit": "pass"
+  },
+  "history": {
+    "row_count": 1000,
+    "final_iteration": 999,
+    "final_coefficients": {
+      "cl": 0.2599127154,
+      "cd": 0.1534721017,
+      "cmx": -0.2697569844,
+      "cmy": -0.09039456897,
+      "cmz": 0.04526481492,
+      "l_over_d": 1.693550245
+    },
+    "tail_200_relative_ranges": {
+      "cl": 5.994320045965813e-7,
+      "cd": 1.4224083567974182e-6,
+      "cmy": 7.434074942194816e-8,
+      "cmz": 5.22484551713454e-5
+    },
+    "su2_cauchy_cd_final": {
+      "value": 3.91123e-9,
+      "criterion": 1e-10,
+      "converged": false
+    }
+  },
+  "vspaero_reference": {
+    "source": "docs/reports/main_wing_vspaero_panel_reference_probe/main_wing_vspaero_panel_reference_probe.v1.json",
+    "aoa_deg": 0.0,
+    "vinf_mps": 6.5,
+    "sref_m2": 35.175,
+    "cl": 1.287645495943,
+    "cd": 0.045068093845,
+    "l_over_d": 28.571110648168
+  },
+  "engineering_assessment": {
+    "cd_positive_after_1000_iter": true,
+    "force_coefficients_flat_over_last_200": true,
+    "aerodynamic_coefficients_physics_comparable": false,
+    "reason": "The no-BL tetra mesh is useful solver evidence, but it does not resolve near-wall viscous physics and should not be used as final drag or grid-independence evidence.",
+    "next_route": "half-wing symmetry mesh with explicit prism boundary layer and INC_RANS/SA wall-resolved setup"
+  }
+}
