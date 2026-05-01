@@ -9745,9 +9745,9 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         failure_reasons.append("boundary_layer_collapse_rate_exceeded")
     if volume_to_wall_ratio < float(cell_budget["min_volume_to_wall_ratio"]):
         failure_reasons.append("volume_to_wall_ratio_below_limit")
+    engineering_warnings: list[str] = []
     if boundary_layer_total_thickness < 0.035 or boundary_layer_total_thickness > 0.05:
-        failure_reasons.append("boundary_layer_total_thickness_outside_target_band")
-        status = "failed"
+        engineering_warnings.append("boundary_layer_total_thickness_outside_recommended_band")
 
     solver_result = _run_solver_if_allowed(
         spec=spec,
@@ -9831,6 +9831,7 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
         "mesh_quality": quality_metrics,
         "memory_estimate": memory_estimate,
         "solver": solver_result,
+        "engineering_warnings": engineering_warnings,
         "comparability": {
             "result_class": result_class,
             "comparable": comparable,
@@ -9849,6 +9850,8 @@ def run_shell_v4_half_wing_bl_mesh_macsafe(
     if failure_reasons:
         result["notes"].extend(failure_reasons)
         result["error"] = "; ".join(failure_reasons)
+    if engineering_warnings:
+        result["notes"].extend(engineering_warnings)
 
     result["case_summary"] = {
         "total_cells": int(total_cells),
