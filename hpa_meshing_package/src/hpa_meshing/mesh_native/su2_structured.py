@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import csv
 import json
 import math
+import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 from typing import Any, Iterable, Literal
 
 from .wing_surface import SurfaceMesh, Vertex
@@ -112,6 +116,79 @@ def write_structured_box_shell_su2_case(
     return report
 
 
+def run_structured_box_shell_su2_smoke(
+    wing: SurfaceMesh,
+    farfield: SurfaceMesh,
+    case_dir: Path | str,
+    *,
+    ref_area: float,
+    ref_length: float,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 3,
+    solver: str = "INC_EULER",
+    solver_command: str = "SU2_CFD",
+    threads: int = 1,
+) -> dict[str, Any]:
+    case_report = write_structured_box_shell_su2_case(
+        wing,
+        farfield,
+        case_dir,
+        ref_area=ref_area,
+        ref_length=ref_length,
+        velocity_mps=velocity_mps,
+        alpha_deg=alpha_deg,
+        max_iterations=max_iterations,
+        solver=solver,
+    )
+    case_path = Path(case_dir)
+    solver_path = _resolve_solver_command(solver_command)
+    solver_log_path = case_path / "solver.log"
+    history_path = case_path / "history.csv"
+    worker_count = max(1, int(threads))
+    command = [solver_path, "-t", str(worker_count), "su2_runtime.cfg"]
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = str(worker_count)
+
+    with solver_log_path.open("w", encoding="utf-8") as handle:
+        completed = subprocess.run(
+            command,
+            cwd=case_path,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            env=env,
+        )
+
+    history = _parse_smoke_history(history_path) if history_path.exists() else None
+    failure_code = None
+    if completed.returncode != 0:
+        failure_code = "solver_execution_failed"
+    elif history is None:
+        failure_code = "history_missing"
+
+    run_status = "completed" if failure_code is None else "failed"
+    run_report = {
+        **case_report,
+        "run_status": run_status,
+        "failure_code": failure_code,
+        "returncode": completed.returncode,
+        "solver_command": command,
+        "solver_log_path": str(solver_log_path),
+        "history_path": str(history_path) if history_path.exists() else None,
+        "history": history,
+        "engineering_assessment": {
+            "solver_readability": "pass" if run_status == "completed" else "fail",
+            "marker_ownership": case_report["marker_audit"]["status"],
+            "aero_coefficients_interpretable": False,
+            "reason": "bounding_box_obstacle_26_hexa_smoke_mesh",
+        },
+    }
+    Path(case_report["report_path"]).write_text(json.dumps(run_report, indent=2), encoding="utf-8")
+    return run_report
+
+
 def audit_su2_case_markers(mesh_path: Path | str, runtime_cfg_path: Path | str) -> dict[str, Any]:
     mesh_summary = parse_su2_marker_summary(mesh_path)
     cfg_text = Path(runtime_cfg_path).read_text(encoding="utf-8", errors="replace")
@@ -185,6 +262,66 @@ def parse_su2_marker_summary(path: Path | str) -> dict[str, Any]:
         "nmark": nmark,
         "markers": markers,
     }
+
+
+def _resolve_solver_command(solver_command: str) -> str:
+    command_path = Path(solver_command)
+    if command_path.exists():
+        return str(command_path)
+    resolved = shutil.which(solver_command)
+    if resolved is None:
+        raise FileNotFoundError(f"SU2 solver command not found: {solver_command}")
+    return resolved
+
+
+def _parse_smoke_history(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.reader(handle))
+    if len(rows) < 2:
+        raise ValueError(f"SU2 history has insufficient rows: {path}")
+
+    header = [_normalize_history_header(value) for value in rows[0]]
+    data_rows = [
+        {key: value.strip() for key, value in zip(header, raw_values)}
+        for raw_values in rows[1:]
+        if len(raw_values) == len(header)
+    ]
+    if not data_rows:
+        raise ValueError(f"SU2 history has no parseable data rows: {path}")
+
+    final = data_rows[-1]
+    return {
+        "row_count": len(data_rows),
+        "final_iteration": _history_int(final, "Inner_Iter"),
+        "final_coefficients": {
+            "cl": _history_float(final, "CL"),
+            "cd": _history_float(final, "CD"),
+            "cmx": _history_float(final, "CMx"),
+            "cmy": _history_float(final, "CMy"),
+            "cmz": _history_float(final, "CMz"),
+        },
+    }
+
+
+def _normalize_history_header(value: str) -> str:
+    return value.strip().strip('"').strip()
+
+
+def _history_float(row: dict[str, str], key: str) -> float | None:
+    value = row.get(key)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _history_int(row: dict[str, str], key: str) -> int | None:
+    value = _history_float(row, key)
+    if value is None:
+        return None
+    return int(value)
 
 
 def _smoke_cfg_text(

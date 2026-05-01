@@ -1,10 +1,12 @@
 from pathlib import Path
+import shutil
 
 import pytest
 
 from hpa_meshing.mesh_native.su2_structured import (
     audit_su2_case_markers,
     parse_su2_marker_summary,
+    run_structured_box_shell_su2_smoke,
     write_structured_box_shell_su2_case,
     write_structured_box_shell_su2,
 )
@@ -155,3 +157,36 @@ def test_structured_box_shell_case_rejects_zero_reference_area(tmp_path: Path):
             ref_area=0.0,
             ref_length=1.0,
         )
+
+
+def test_structured_box_shell_su2_solver_smoke_runs_when_su2_is_available(tmp_path: Path):
+    solver = shutil.which("SU2_CFD")
+    if solver is None:
+        pytest.skip("SU2_CFD not available")
+
+    wing, farfield = _wing_and_farfield()
+    report = run_structured_box_shell_su2_smoke(
+        wing,
+        farfield,
+        tmp_path / "solver_case",
+        ref_area=2.0,
+        ref_length=1.0,
+        max_iterations=3,
+        solver_command=solver,
+        threads=1,
+    )
+
+    assert report["run_status"] == "completed"
+    assert report["returncode"] == 0
+    assert report["marker_audit"]["status"] == "pass"
+    assert Path(report["history_path"]).exists()
+    assert Path(report["solver_log_path"]).exists()
+    assert report["history"]["final_iteration"] == 2
+    assert report["history"]["final_coefficients"]["cl"] is not None
+    assert report["history"]["final_coefficients"]["cd"] is not None
+    assert report["engineering_assessment"] == {
+        "solver_readability": "pass",
+        "marker_ownership": "pass",
+        "aero_coefficients_interpretable": False,
+        "reason": "bounding_box_obstacle_26_hexa_smoke_mesh",
+    }
