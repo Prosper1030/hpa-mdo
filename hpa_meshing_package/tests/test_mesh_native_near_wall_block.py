@@ -7,6 +7,7 @@ from hpa_meshing.mesh_native.near_wall_block import (
     BoundaryLayerBlockSpec,
     build_airfoil_boundary_layer_block,
     build_boundary_layer_block_boundary_surface,
+    build_boundary_layer_core_interface_surface,
     build_wing_boundary_layer_block,
     split_airfoil_wall_loop,
 )
@@ -156,4 +157,36 @@ def test_bl_block_boundary_surface_is_closed_with_owned_markers():
             {"wing_wall", "bl_outer_interface", "wake_cut", "span_cap"}
         ),
         required_markers=("wing_wall", "bl_outer_interface", "wake_cut", "span_cap"),
+    )
+
+
+def test_bl_block_core_interface_surface_is_closed_without_wing_wall():
+    pytest.importorskip("openvsp")
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=12,
+    )
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=5.0e-5,
+            growth_ratio=1.18,
+            layer_count=8,
+        ),
+    )
+
+    surface = build_boundary_layer_core_interface_surface(block)
+
+    assert surface.marker_counts() == {
+        "bl_outer_interface": 240,
+        "wake_cut": 10,
+        "span_cap": 46,
+    }
+    assert "wing_wall" not in surface.marker_counts()
+    assert surface.metadata["surface_role"] == "boundary_layer_core_interface"
+    validate_surface_mesh(
+        surface,
+        allowed_markers=frozenset({"bl_outer_interface", "wake_cut", "span_cap"}),
+        required_markers=("bl_outer_interface", "wake_cut", "span_cap"),
     )

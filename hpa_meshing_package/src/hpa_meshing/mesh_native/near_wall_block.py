@@ -256,6 +256,94 @@ def build_boundary_layer_block_boundary_surface(block: WingBoundaryLayerBlock) -
     )
 
 
+def build_boundary_layer_core_interface_surface(block: WingBoundaryLayerBlock) -> SurfaceMesh:
+    """Build the closed outer envelope used as the core tet mesh inner boundary."""
+    wall_count = int(block.section_blocks[0].metadata["wall_node_count"])
+    layer_count = int(block.metadata["layer_count"])
+    section_vertex_count = int(block.metadata["section_vertex_count"])
+    section_count = int(block.metadata["station_count"])
+    wake_start = (layer_count + 1) * wall_count
+
+    vertices = list(block.vertices)
+    faces: list[Face] = []
+
+    def section_node(section: int, local_node: int) -> int:
+        return section * section_vertex_count + local_node
+
+    def grid(section: int, index: int) -> int:
+        return section_node(section, layer_count * wall_count + index)
+
+    def wake(section: int, side: int) -> int:
+        return section_node(section, wake_start + 2 * layer_count + side)
+
+    for section in range(section_count - 1):
+        for index in range(wall_count - 1):
+            faces.append(
+                Face(
+                    nodes=(
+                        grid(section, index),
+                        grid(section + 1, index),
+                        grid(section + 1, index + 1),
+                        grid(section, index + 1),
+                    ),
+                    marker="bl_outer_interface",
+                )
+            )
+        faces.append(
+            Face(
+                nodes=(
+                    grid(section, 0),
+                    wake(section, 0),
+                    wake(section + 1, 0),
+                    grid(section + 1, 0),
+                ),
+                marker="bl_outer_interface",
+            )
+        )
+        faces.append(
+            Face(
+                nodes=(
+                    grid(section, wall_count - 1),
+                    grid(section + 1, wall_count - 1),
+                    wake(section + 1, 1),
+                    wake(section, 1),
+                ),
+                marker="bl_outer_interface",
+            )
+        )
+        faces.append(
+            Face(
+                nodes=(
+                    wake(section, 0),
+                    wake(section, 1),
+                    wake(section + 1, 1),
+                    wake(section + 1, 0),
+                ),
+                marker="wake_cut",
+            )
+        )
+
+    for section in (0, section_count - 1):
+        contour = [
+            *(grid(section, index) for index in range(wall_count)),
+            wake(section, 1),
+            wake(section, 0),
+        ]
+        for triangle in _triangulate_polygon_xz(vertices, contour):
+            face_nodes = tuple(reversed(triangle)) if section == 0 else triangle
+            faces.append(Face(nodes=face_nodes, marker="span_cap"))
+
+    return SurfaceMesh(
+        vertices=vertices,
+        faces=faces,
+        metadata={
+            "surface_role": "boundary_layer_core_interface",
+            "source_volume_cell_count": len(block.cells),
+            "source_boundary_face_count": len(faces),
+        },
+    )
+
+
 def build_airfoil_boundary_layer_block(
     station: Station,
     spec: BoundaryLayerBlockSpec,
@@ -559,6 +647,79 @@ def _hex_faces(cell: HexCell) -> tuple[tuple[int, int, int, int], ...]:
 
 def _canonical_face(face: Sequence[int]) -> tuple[int, int, int, int]:
     return tuple(sorted(face))
+
+
+def _triangulate_polygon_xz(vertices: Sequence[Vertex], contour: Sequence[int]) -> list[tuple[int, int, int]]:
+    if len(contour) < 3:
+        raise ValueError("Polygon contour must contain at least three nodes")
+    polygon = list(contour)
+    if _polygon_area_xz(vertices, polygon) < 0.0:
+        polygon.reverse()
+
+    triangles: list[tuple[int, int, int]] = []
+    guard = 0
+    while len(polygon) > 3:
+        guard += 1
+        if guard > len(contour) * len(contour):
+            raise ValueError("Could not triangulate core-interface polygon")
+
+        clipped = False
+        for index, current in enumerate(polygon):
+            previous = polygon[index - 1]
+            next_node = polygon[(index + 1) % len(polygon)]
+            if not _is_convex_xz(vertices[previous], vertices[current], vertices[next_node]):
+                continue
+            if any(
+                _point_in_triangle_xz(
+                    vertices[candidate],
+                    vertices[previous],
+                    vertices[current],
+                    vertices[next_node],
+                )
+                for candidate in polygon
+                if candidate not in {previous, current, next_node}
+            ):
+                continue
+            triangles.append((previous, current, next_node))
+            del polygon[index]
+            clipped = True
+            break
+        if not clipped:
+            raise ValueError("Could not find an ear in core-interface polygon")
+
+    triangles.append((polygon[0], polygon[1], polygon[2]))
+    return triangles
+
+
+def _polygon_area_xz(vertices: Sequence[Vertex], contour: Sequence[int]) -> float:
+    area = 0.0
+    for left, right in zip(contour, [*contour[1:], contour[0]]):
+        x_left, z_left = vertices[left][0], vertices[left][2]
+        x_right, z_right = vertices[right][0], vertices[right][2]
+        area += x_left * z_right - x_right * z_left
+    return 0.5 * area
+
+
+def _is_convex_xz(a: Vertex, b: Vertex, c: Vertex, *, tolerance: float = 1.0e-14) -> bool:
+    return _cross_xz(a, b, c) > tolerance
+
+
+def _point_in_triangle_xz(
+    point: Vertex,
+    a: Vertex,
+    b: Vertex,
+    c: Vertex,
+    *,
+    tolerance: float = 1.0e-14,
+) -> bool:
+    ab = _cross_xz(a, b, point)
+    bc = _cross_xz(b, c, point)
+    ca = _cross_xz(c, a, point)
+    return ab >= -tolerance and bc >= -tolerance and ca >= -tolerance
+
+
+def _cross_xz(a: Vertex, b: Vertex, c: Vertex) -> float:
+    return (b[0] - a[0]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[0] - a[0])
 
 
 def _transform_local_xz_to_station_xyz(
