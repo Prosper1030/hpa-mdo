@@ -23,6 +23,35 @@ DEFAULT_GRID_INDEPENDENCE_RELATIVE_TOLERANCES = {
     "cmy": 0.05,
 }
 
+DEFAULT_HPA_EXTERNAL_FLOW_TURBULENCE = {
+    "freestream_turbulence_intensity": 0.01,
+    "freestream_turb2lam_visc_ratio": 3.0,
+}
+
+DEFAULT_HPA_MESH_QUALITY_TARGETS = {
+    "hard_blockers": {
+        "ill_shaped_tet_count": 0,
+        "non_positive_volume_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "missing_required_markers": 0,
+    },
+    "production_targets": {
+        "gamma_p01_min": 0.02,
+        "min_sicn_p01_min": 0.02,
+        "min_sige_p01_min": 0.30,
+        "boundary_layer_collapse_rate_max": 0.02,
+        "target_first_cell_yplus_range": (0.5, 1.5),
+    },
+    "warnings": {
+        "min_gamma_below": 1.0e-4,
+        "note": (
+            "An isolated low min_gamma can be tolerated for smoke runs, but should be "
+            "localized and improved before long production CFD."
+        ),
+    },
+}
+
 
 def reynolds_number(
     *,
@@ -185,16 +214,21 @@ def hpa_main_wing_cfd_advisory(
                 "stage": "primary_grid_study",
                 "solver": "INC_RANS",
                 "turbulence_model": "SA",
+                "conv_num_method_flow": "FDS",
                 "wall": "wall-resolved no-slip, y+ about 1",
+                "freestream_turbulence": DEFAULT_HPA_EXTERNAL_FLOW_TURBULENCE,
                 "purpose": "first credible grid-convergence route",
             },
             {
                 "stage": "secondary_physics_check",
                 "solver": "INC_RANS",
-                "turbulence_model": "SST or transition SST",
+                "turbulence_model": "SST",
+                "transition_model": "LM",
+                "freestream_turbulence": DEFAULT_HPA_EXTERNAL_FLOW_TURBULENCE,
                 "purpose": "low-Re/transition sensitivity after BL mesh is reliable",
             },
         ],
+        "mesh_quality_targets": DEFAULT_HPA_MESH_QUALITY_TARGETS,
         "half_wing_mesh_ladder_targets": [
             {
                 "level": "coarse",
@@ -220,6 +254,34 @@ def hpa_main_wing_cfd_advisory(
             "tail_window_iterations": 200,
             "coefficient_relative_tolerances": DEFAULT_GRID_INDEPENDENCE_RELATIVE_TOLERANCES,
             "selection": "choose the cheapest adjacent mesh pair whose CL/CD/Cm changes are inside tolerance",
+        },
+        "current_route_status": {
+            "vsp_native_no_bl_tet_mesh": (
+                "valid for high-density SU2 readability and solver-stability smoke, "
+                "not final drag quality"
+            ),
+            "real_main_wing_bl_mesh": (
+                "not yet available; current shell_v4 real-wing BL attempts fail in "
+                "Gmsh PLC/boundary-recovery before a volume mesh exists"
+            ),
+            "recommended_next_mesh_work": (
+                "own the near-wall and BL-to-core transition topology before launching "
+                "2000-iteration physical grid studies"
+            ),
+        },
+        "source_alignment": {
+            "su2_low_speed_family": "INC_NAVIER_STOKES / INC_RANS",
+            "su2_viscous_wall": "MARKER_HEATFLUX=(wing_wall,0.0) for adiabatic no-slip",
+            "su2_wall_functions": "only if y+ cannot be kept near 1; wall-resolved is preferred",
+            "nasa_tmr_mesh_practice": (
+                "wall spacing, farfield placement, and trailing-edge spacing materially "
+                "affect lift/drag/moment convergence"
+            ),
+            "gmsh_bl_limit": (
+                "topological boundary layers are simple extrusion without special fan "
+                "or re-entrant corner handling, so terminal wing/tip BL topology should "
+                "be owned by hpa-mdo"
+            ),
         },
         "ram_cap_gb": float(ram_cap_gb),
     }

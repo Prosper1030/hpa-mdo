@@ -466,6 +466,8 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
         turbulence_model="SA",
         transition_model="NONE",
         wall_function="STANDARD_WALL_FUNCTION",
+        freestream_turbulence_intensity=0.01,
+        freestream_turb2lam_visc_ratio=3.0,
         conv_num_method_flow="JST",
         cfl_number=100.0,
         linear_solver_error="1e-12",
@@ -483,6 +485,8 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
     assert calls[0]["kwargs"]["turbulence_model"] == "SA"
     assert calls[0]["kwargs"]["transition_model"] == "NONE"
     assert calls[0]["kwargs"]["wall_function"] == "STANDARD_WALL_FUNCTION"
+    assert calls[0]["kwargs"]["freestream_turbulence_intensity"] == 0.01
+    assert calls[0]["kwargs"]["freestream_turb2lam_visc_ratio"] == 3.0
     assert calls[0]["kwargs"]["conv_num_method_flow"] == "JST"
     assert calls[0]["kwargs"]["cfl_number"] == 100.0
     assert calls[0]["kwargs"]["linear_solver_error"] == "1e-12"
@@ -499,6 +503,8 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
     assert report["runtime"]["wall_profile"] == "adiabatic_no_slip"
     assert report["runtime"]["turbulence_model"] == "SA"
     assert report["runtime"]["wall_function"] == "STANDARD_WALL_FUNCTION"
+    assert report["runtime"]["freestream_turbulence_intensity"] == 0.01
+    assert report["runtime"]["freestream_turb2lam_visc_ratio"] == 3.0
     assert report["runtime"]["coefficient_relative_tolerances"] == {
         "cl": 0.03,
         "cd": 0.05,

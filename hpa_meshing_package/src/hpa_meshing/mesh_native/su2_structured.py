@@ -344,6 +344,8 @@ def _smoke_cfg_text(
     linear_solver_iter: int = 10,
     jst_sensor_coeff: Sequence[float] | None = None,
     wall_function: str | None = None,
+    freestream_turbulence_intensity: float = 0.05,
+    freestream_turb2lam_visc_ratio: float = 10.0,
     conv_cauchy_elems: int | None = None,
     conv_cauchy_eps: float | str | None = None,
     output_files: Sequence[str] = ("RESTART_ASCII", "PARAVIEW_ASCII", "SURFACE_CSV"),
@@ -369,6 +371,10 @@ def _smoke_cfg_text(
         raise ValueError("turbulence_model requires RANS or INC_RANS solver")
     if wall_function is not None and resolved_turbulence_model == "NONE":
         raise ValueError("wall_function requires a turbulence model")
+    if freestream_turbulence_intensity <= 0.0:
+        raise ValueError("freestream_turbulence_intensity must be positive")
+    if freestream_turb2lam_visc_ratio <= 0.0:
+        raise ValueError("freestream_turb2lam_visc_ratio must be positive")
 
     alpha_rad = math.radians(alpha_deg)
     vx = velocity_mps * math.cos(alpha_rad)
@@ -415,8 +421,10 @@ def _smoke_cfg_text(
             []
             if resolved_turbulence_model == "NONE"
             else [
-                "FREESTREAM_TURBULENCEINTENSITY= 0.05",
-                "FREESTREAM_TURB2LAMVISCRATIO= 10.0",
+                "FREESTREAM_TURBULENCEINTENSITY= "
+                f"{_format_su2_value(freestream_turbulence_intensity)}",
+                "FREESTREAM_TURB2LAMVISCRATIO= "
+                f"{_format_su2_value(freestream_turb2lam_visc_ratio)}",
             ]
         ),
         "NUM_METHOD_GRAD= WEIGHTED_LEAST_SQUARES",

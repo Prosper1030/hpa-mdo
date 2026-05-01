@@ -27,6 +27,14 @@ def test_hpa_main_wing_advisory_estimates_blackcat_reynolds_and_bl_targets():
         )
     )
     assert advisory["solver_sequence"][2]["solver"] == "INC_RANS"
+    assert advisory["solver_sequence"][2]["freestream_turbulence"] == {
+        "freestream_turbulence_intensity": 0.01,
+        "freestream_turb2lam_visc_ratio": 3.0,
+    }
+    assert advisory["solver_sequence"][3]["transition_model"] == "LM"
+    assert advisory["mesh_quality_targets"]["production_targets"][
+        "target_first_cell_yplus_range"
+    ] == (0.5, 1.5)
     assert advisory["grid_independence_policy"]["max_iter"] == 2000
 
 
@@ -91,11 +99,15 @@ def test_smoke_cfg_text_can_emit_incompressible_rans_wall_function_setup():
         wall_profile="adiabatic_no_slip",
         conv_num_method_flow="FDS",
         wall_function="STANDARD_WALL_FUNCTION",
+        freestream_turbulence_intensity=0.01,
+        freestream_turb2lam_visc_ratio=3.0,
     )
 
     assert "SOLVER= INC_RANS" in cfg
     assert "KIND_TURB_MODEL= SA" in cfg
     assert "MARKER_HEATFLUX= ( wing_wall, 0.0 )" in cfg
     assert "MARKER_WALL_FUNCTIONS= ( wing_wall, STANDARD_WALL_FUNCTION )" in cfg
+    assert "FREESTREAM_TURBULENCEINTENSITY= 0.01" in cfg
+    assert "FREESTREAM_TURB2LAMVISCRATIO= 3" in cfg
     assert "CONV_NUM_METHOD_TURB= SCALAR_UPWIND" in cfg
     assert "MUSCL_FLOW= YES" in cfg
