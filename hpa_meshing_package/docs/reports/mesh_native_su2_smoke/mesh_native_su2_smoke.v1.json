@@ -1,0 +1,64 @@
+{
+  "contract": "mesh_native_su2_smoke_report.v1",
+  "date": "2026-05-01",
+  "route": "mesh_native_structured_box_shell_su2_smoke_case",
+  "objective": "Prove SU2 readability and deterministic marker ownership without STEP/BREP repair.",
+  "artifacts": {
+    "mesh": "artifacts/structured_box_shell/mesh.su2",
+    "runtime_cfg": "artifacts/structured_box_shell/su2_runtime.cfg",
+    "solver_log": "artifacts/structured_box_shell/solver.log",
+    "history": "artifacts/structured_box_shell/history.csv",
+    "case_report": "artifacts/structured_box_shell/mesh_native_su2_smoke_report.json"
+  },
+  "mesh_gate": {
+    "ndime": 3,
+    "nelem": 26,
+    "npoin": 64,
+    "nmark": 2,
+    "markers": {
+      "wing_wall": {
+        "element_count": 6,
+        "element_type_counts": {
+          "9": 6
+        }
+      },
+      "farfield": {
+        "element_count": 54,
+        "element_type_counts": {
+          "9": 54
+        }
+      }
+    },
+    "marker_audit_status": "pass",
+    "missing_config_markers": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": []
+  },
+  "su2_smoke": {
+    "command": "SU2_CFD -t 1 su2_runtime.cfg",
+    "exit_status": "success",
+    "solver": "INC_EULER",
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 3,
+    "history_rows": 3,
+    "final_iteration": 2,
+    "final_coefficients": {
+      "cl": -2.308114465e-09,
+      "cd": -0.007227698717
+    }
+  },
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "marker_ownership": "pass",
+    "aero_coefficients_interpretable": false,
+    "reason": "bounding_box_obstacle_26_hexa_smoke_mesh",
+    "caveats": [
+      "The inner wing boundary is the wing bounding box, not the true wing surface.",
+      "The mesh has only 26 volume elements.",
+      "The 3-iteration run is not converged.",
+      "SU2 reports dynamic pressure as 0 in the properties table while RefForce is consistent with q*Sref; audit before coefficient validation."
+    ]
+  },
+  "verdict": "pass_for_su2_readability_and_marker_regression_only"
+}

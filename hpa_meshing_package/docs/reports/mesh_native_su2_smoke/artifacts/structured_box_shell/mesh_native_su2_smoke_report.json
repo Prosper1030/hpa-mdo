@@ -1,0 +1,124 @@
+{
+  "route": "mesh_native_structured_box_shell_su2_smoke_case",
+  "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_su2_smoke/artifacts/structured_box_shell/mesh.su2",
+  "runtime_cfg_path": "hpa_meshing_package/docs/reports/mesh_native_su2_smoke/artifacts/structured_box_shell/su2_runtime.cfg",
+  "report_path": "hpa_meshing_package/docs/reports/mesh_native_su2_smoke/artifacts/structured_box_shell/mesh_native_su2_smoke_report.json",
+  "mesh_report": {
+    "route": "mesh_native_structured_box_shell_smoke",
+    "node_count": 64,
+    "volume_element_count": 26,
+    "marker_summary": {
+      "farfield": {
+        "element_count": 54,
+        "element_type_counts": {
+          "9": 54
+        }
+      },
+      "wing_wall": {
+        "element_count": 6,
+        "element_type_counts": {
+          "9": 6
+        }
+      }
+    },
+    "wing_bounds": {
+      "x_min": 0.0,
+      "x_max": 1.0,
+      "y_min": 0.0,
+      "y_max": 2.0,
+      "z_min": -0.05,
+      "z_max": 0.05
+    },
+    "farfield_bounds": {
+      "x_min": -5.0,
+      "x_max": 13.0,
+      "y_min": -16.0,
+      "y_max": 18.0,
+      "z_min": -16.05,
+      "z_max": 16.05
+    },
+    "caveats": [
+      "wing boundary is represented by the wing bounding box for SU2 smoke only",
+      "not valid for aerodynamic coefficient interpretation"
+    ]
+  },
+  "marker_audit": {
+    "status": "pass",
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "missing_from_mesh": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 26,
+      "npoin": 64,
+      "nmark": 2,
+      "markers": {
+        "farfield": {
+          "element_count": 54,
+          "element_type_counts": {
+            "9": 54
+          }
+        },
+        "wing_wall": {
+          "element_count": 6,
+          "element_type_counts": {
+            "9": 6
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "solver": "INC_EULER",
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 3,
+    "ref_area": 2.0,
+    "ref_length": 1.0
+  },
+  "caveats": [
+    "wing boundary is represented by the wing bounding box for SU2 smoke only",
+    "not valid for aerodynamic coefficient interpretation",
+    "case is intended to prove SU2 readability and marker ownership only"
+  ],
+  "run_status": "completed",
+  "failure_code": null,
+  "returncode": 0,
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "1",
+    "su2_runtime.cfg"
+  ],
+  "solver_log_path": "hpa_meshing_package/docs/reports/mesh_native_su2_smoke/artifacts/structured_box_shell/solver.log",
+  "history_path": "hpa_meshing_package/docs/reports/mesh_native_su2_smoke/artifacts/structured_box_shell/history.csv",
+  "history": {
+    "row_count": 3,
+    "final_iteration": 2,
+    "final_coefficients": {
+      "cl": -2.308114465e-09,
+      "cd": -0.007227698717,
+      "cmx": 1.502110519e-10,
+      "cmy": -4.292815747e-10,
+      "cmz": 2.37828702e-12
+    }
+  },
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "marker_ownership": "pass",
+    "aero_coefficients_interpretable": false,
+    "reason": "bounding_box_obstacle_26_hexa_smoke_mesh"
+  }
+}
