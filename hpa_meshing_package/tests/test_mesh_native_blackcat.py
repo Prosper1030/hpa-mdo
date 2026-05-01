@@ -9,6 +9,7 @@ from hpa_meshing.mesh_native.blackcat import (
     run_blackcat_main_wing_coupled_refinement_ladder,
     run_blackcat_main_wing_faceted_refinement_ladder,
     run_blackcat_main_wing_faceted_su2_smoke,
+    run_blackcat_main_wing_su2_stability_ladder,
 )
 from hpa_meshing.mesh_native.wing_surface import build_wing_surface
 
@@ -324,3 +325,56 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_selects_best_quality_c
     assert candidate["volume_element_count"] > report["cases"][0]["volume_element_count"]
     assert candidate["excluded_warnings"] == ["very_low_min_gamma", "very_low_min_sicn"]
     assert candidate["mesh_quality_gate"]["status"] == "pass"
+
+
+def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mesh(
+    tmp_path: Path,
+):
+    calls = []
+
+    def fake_case_runner(*args, **kwargs):
+        calls.append({"args": args, "kwargs": kwargs})
+        case_dir = Path(args[2])
+        mesh_size = kwargs["mesh_size"]
+        volume_count = {0.14: 60_000, 0.09: 110_000, 0.06: 180_000}[mesh_size]
+        coefficients = {
+            0.14: {"cl": 0.30, "cd": 0.070, "cmy": -0.10},
+            0.09: {"cl": 0.42, "cd": 0.052, "cmy": -0.18},
+            0.06: {"cl": 0.425, "cd": 0.053, "cmy": -0.181},
+        }[mesh_size]
+        return {
+            "case_dir": str(case_dir),
+            "run_status": "completed",
+            "returncode": 0,
+            "mesh_report": {
+                "volume_element_count": volume_count,
+                "node_count": volume_count // 3,
+                "mesh_quality_gate": {"status": "pass", "warnings": []},
+            },
+            "marker_audit": {"status": "pass"},
+            "history": {
+                "final_iteration": 19,
+                "final_coefficients": coefficients,
+            },
+        }
+
+    report = run_blackcat_main_wing_su2_stability_ladder(
+        AVL_PATH,
+        tmp_path / "su2_stability_ladder",
+        points_per_side=8,
+        spanwise_subdivisions=1,
+        mesh_sizes=(0.14, 0.09, 0.06),
+        feature_refinement_size=3.0,
+        max_iterations=20,
+        coefficient_tolerances={"cl": 0.01, "cd": 0.002, "cmy": 0.005},
+        case_runner=fake_case_runner,
+    )
+
+    assert len(calls) == 3
+    assert report["route"] == "blackcat_main_wing_mesh_native_su2_stability_ladder"
+    assert report["status"] == "stable_mesh_selected"
+    assert report["feature_extents"]["span_m"] == pytest.approx(33.0)
+    assert report["stability_selection"]["selected_case"]["mesh_size"] == 0.09
+    assert report["stability_selection"]["compared_to_case"]["mesh_size"] == 0.06
+    assert report["cases"][1]["volume_element_count"] == 110_000
+    assert Path(report["report_path"]).exists()

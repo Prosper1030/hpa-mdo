@@ -301,6 +301,10 @@ def write_faceted_volume_su2_case(
     alpha_deg: float = 0.0,
     max_iterations: int = 3,
     solver: str = "INC_EULER",
+    wing_mesh_size: float | None = None,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
+    refinement_boxes: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if ref_area <= 0.0:
         raise ValueError("ref_area must be positive")
@@ -322,6 +326,10 @@ def write_faceted_volume_su2_case(
         msh_path,
         su2_path=su2_path,
         mesh_size=mesh_size,
+        wing_mesh_size=wing_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+        wing_refinement_radius=wing_refinement_radius,
+        refinement_boxes=refinement_boxes,
     )
     runtime_cfg_path.write_text(
         _smoke_cfg_text(
@@ -378,6 +386,10 @@ def run_faceted_volume_su2_smoke(
     solver: str = "INC_EULER",
     solver_command: str = "SU2_CFD",
     threads: int = 1,
+    wing_mesh_size: float | None = None,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
+    refinement_boxes: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     case_report = write_faceted_volume_su2_case(
         wing,
@@ -390,6 +402,10 @@ def run_faceted_volume_su2_smoke(
         alpha_deg=alpha_deg,
         max_iterations=max_iterations,
         solver=solver,
+        wing_mesh_size=wing_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+        wing_refinement_radius=wing_refinement_radius,
+        refinement_boxes=refinement_boxes,
     )
     case_path = Path(case_dir)
     solver_path = _resolve_solver_command(solver_command)

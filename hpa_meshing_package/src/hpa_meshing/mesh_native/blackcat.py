@@ -4,7 +4,7 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from .wing_surface import (
     Reference,
@@ -442,6 +442,153 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
             "no boundary-layer prism strategy yet",
             "million-scale target is an engineering credibility gate, not a convergence proof",
         ],
+    }
+    Path(report["report_path"]).write_text(
+        json.dumps(report, indent=2),
+        encoding="utf-8",
+    )
+    return report
+
+
+def run_blackcat_main_wing_su2_stability_ladder(
+    avl_path: Path | str,
+    case_dir: Path | str,
+    *,
+    points_per_side: int = 16,
+    spanwise_subdivisions: int = 4,
+    mesh_sizes: Sequence[float] = (0.14, 0.09, 0.06),
+    feature_refinement_size: float | None = 3.0,
+    target_volume_elements: int = 100_000,
+    max_volume_elements: int = 500_000,
+    farfield_mesh_size: float | None = 18.0,
+    wing_refinement_radius: float | None = 12.0,
+    coefficient_tolerances: Mapping[str, float] | None = None,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 20,
+    solver: str = "INC_EULER",
+    solver_command: str = "SU2_CFD",
+    threads: int = 1,
+    case_runner: Callable[..., dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    from .gmsh_polyhedral import (
+        build_wing_feature_refinement_boxes,
+        infer_wing_feature_extents,
+        run_faceted_volume_su2_smoke,
+    )
+    from .mesh_stability import select_cheapest_stable_mesh
+
+    if target_volume_elements <= 0:
+        raise ValueError("target_volume_elements must be positive")
+    if max_volume_elements <= 0:
+        raise ValueError("max_volume_elements must be positive")
+    ordered_mesh_sizes = sorted((float(value) for value in mesh_sizes), reverse=True)
+    if not ordered_mesh_sizes:
+        raise ValueError("mesh_sizes must not be empty")
+    if any(value <= 0.0 for value in ordered_mesh_sizes):
+        raise ValueError("mesh_sizes must all be positive")
+
+    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+        avl_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    refinement_boxes = (
+        build_wing_feature_refinement_boxes(wing, mesh_size=feature_refinement_size)
+        if feature_refinement_size is not None
+        else None
+    )
+    runner = run_faceted_volume_su2_smoke if case_runner is None else case_runner
+
+    ladder_path = Path(case_dir)
+    ladder_path.mkdir(parents=True, exist_ok=True)
+    cases: list[dict[str, Any]] = []
+    for index, mesh_size in enumerate(ordered_mesh_sizes):
+        mesh_case_path = ladder_path / (
+            f"{index:02d}_span_{spanwise_subdivisions}"
+            f"_pps_{points_per_side}"
+            f"_feat_{_feature_size_slug(feature_refinement_size)}"
+            f"_h_{_value_slug(mesh_size)}"
+        )
+        run_report = runner(
+            wing,
+            farfield,
+            mesh_case_path,
+            ref_area=spec.reference.sref_full,
+            ref_length=spec.reference.cref,
+            mesh_size=mesh_size,
+            wing_mesh_size=mesh_size,
+            farfield_mesh_size=farfield_mesh_size,
+            wing_refinement_radius=wing_refinement_radius,
+            refinement_boxes=refinement_boxes,
+            velocity_mps=velocity_mps,
+            alpha_deg=alpha_deg,
+            max_iterations=max_iterations,
+            solver=solver,
+            solver_command=solver_command,
+            threads=threads,
+        )
+        mesh_report = run_report.get("mesh_report", {})
+        case_report = {
+            **run_report,
+            "case_name": mesh_case_path.name,
+            "case_dir": str(mesh_case_path),
+            "mesh_size": mesh_size,
+            "spanwise_subdivisions": spanwise_subdivisions,
+            "points_per_side": points_per_side,
+            "feature_refinement_size": feature_refinement_size,
+            "volume_element_count": int(mesh_report.get("volume_element_count", 0)),
+            "node_count": int(mesh_report.get("node_count", 0)),
+            "mesh_quality_gate": mesh_report.get("mesh_quality_gate"),
+        }
+        cases.append(case_report)
+        if case_report["volume_element_count"] > max_volume_elements:
+            break
+
+    stability_selection = select_cheapest_stable_mesh(
+        cases,
+        coefficient_tolerances=coefficient_tolerances,
+    )
+    status = (
+        "stable_mesh_selected"
+        if stability_selection["status"] == "stable_pair_found"
+        else "no_stable_mesh"
+    )
+    report = {
+        "route": "blackcat_main_wing_mesh_native_su2_stability_ladder",
+        "status": status,
+        "report_path": str(ladder_path / "su2_stability_ladder_report.json"),
+        "target_volume_elements": int(target_volume_elements),
+        "max_volume_elements": int(max_volume_elements),
+        "mesh_sizes": ordered_mesh_sizes,
+        "feature_extents": infer_wing_feature_extents(wing),
+        "size_field_policy": {
+            "spanwise_subdivisions": spanwise_subdivisions,
+            "points_per_side": points_per_side,
+            "feature_refinement_size": feature_refinement_size,
+            "farfield_mesh_size": farfield_mesh_size,
+            "wing_refinement_radius": wing_refinement_radius,
+            "feature_refinement_box_count": (
+                0 if refinement_boxes is None else len(refinement_boxes)
+            ),
+        },
+        "runtime": {
+            "solver": solver,
+            "velocity_mps": velocity_mps,
+            "alpha_deg": alpha_deg,
+            "max_iterations": max_iterations,
+            "threads": threads,
+        },
+        "stability_selection": stability_selection,
+        "cases": cases,
+        "engineering_assessment": {
+            "aero_coefficients_interpretable": status == "stable_mesh_selected",
+            "reason": (
+                "adjacent_mesh_coefficients_within_tolerance"
+                if status == "stable_mesh_selected"
+                else "no_adjacent_mesh_pair_with_stable_coefficients"
+            ),
+        },
     }
     Path(report["report_path"]).write_text(
         json.dumps(report, indent=2),
