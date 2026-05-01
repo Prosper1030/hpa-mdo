@@ -425,6 +425,9 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
         feature_refinement_size=3.0,
         max_iterations=1200,
         wall_profile="adiabatic_no_slip",
+        turbulence_model="SA",
+        transition_model="NONE",
+        wall_function="STANDARD_WALL_FUNCTION",
         conv_num_method_flow="JST",
         cfl_number=100.0,
         linear_solver_error="1e-12",
@@ -434,10 +437,14 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
         conv_cauchy_eps="1E-6",
         output_files=("RESTART_ASCII",),
         coefficient_tolerances={"cl": 0.01, "cd": 0.002, "cmy": 0.005},
+        coefficient_relative_tolerances={"cl": 0.03, "cd": 0.05, "cmy": 0.05},
         case_runner=fake_case_runner,
     )
 
     assert len(calls) == 3
+    assert calls[0]["kwargs"]["turbulence_model"] == "SA"
+    assert calls[0]["kwargs"]["transition_model"] == "NONE"
+    assert calls[0]["kwargs"]["wall_function"] == "STANDARD_WALL_FUNCTION"
     assert calls[0]["kwargs"]["conv_num_method_flow"] == "JST"
     assert calls[0]["kwargs"]["cfl_number"] == 100.0
     assert calls[0]["kwargs"]["linear_solver_error"] == "1e-12"
@@ -452,6 +459,13 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
     assert report["status"] == "stable_mesh_selected"
     assert report["runtime"]["conv_num_method_flow"] == "JST"
     assert report["runtime"]["wall_profile"] == "adiabatic_no_slip"
+    assert report["runtime"]["turbulence_model"] == "SA"
+    assert report["runtime"]["wall_function"] == "STANDARD_WALL_FUNCTION"
+    assert report["runtime"]["coefficient_relative_tolerances"] == {
+        "cl": 0.03,
+        "cd": 0.05,
+        "cmy": 0.05,
+    }
     assert report["runtime"]["cfl_number"] == 100.0
     assert report["runtime"]["output_files"] == ["RESTART_ASCII"]
     assert report["feature_extents"]["span_m"] == pytest.approx(33.0)

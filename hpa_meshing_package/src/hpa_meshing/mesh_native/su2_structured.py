@@ -328,6 +328,8 @@ def _smoke_cfg_text(
     wing: SurfaceMesh,
     *,
     solver: str,
+    turbulence_model: str = "NONE",
+    transition_model: str | None = None,
     ref_area: float,
     ref_length: float,
     velocity_mps: float,
@@ -341,6 +343,7 @@ def _smoke_cfg_text(
     linear_solver_error: float | str = "1e-6",
     linear_solver_iter: int = 10,
     jst_sensor_coeff: Sequence[float] | None = None,
+    wall_function: str | None = None,
     conv_cauchy_elems: int | None = None,
     conv_cauchy_eps: float | str | None = None,
     output_files: Sequence[str] = ("RESTART_ASCII", "PARAVIEW_ASCII", "SURFACE_CSV"),
@@ -357,6 +360,15 @@ def _smoke_cfg_text(
         raise ValueError("jst_sensor_coeff must contain exactly two values")
     if wall_profile not in {"euler_slip", "adiabatic_no_slip"}:
         raise ValueError(f"Unsupported wall_profile: {wall_profile}")
+    resolved_solver = solver.strip().upper()
+    resolved_turbulence_model = turbulence_model.strip().upper()
+    resolved_transition_model = (
+        "NONE" if transition_model is None else transition_model.strip().upper()
+    )
+    if resolved_turbulence_model != "NONE" and resolved_solver not in {"RANS", "INC_RANS"}:
+        raise ValueError("turbulence_model requires RANS or INC_RANS solver")
+    if wall_function is not None and resolved_turbulence_model == "NONE":
+        raise ValueError("wall_function requires a turbulence model")
 
     alpha_rad = math.radians(alpha_deg)
     vx = velocity_mps * math.cos(alpha_rad)
@@ -367,8 +379,9 @@ def _smoke_cfg_text(
         "% Auto-generated mesh-native SU2 smoke case.",
         "% This smoke case proves mesh readability and marker ownership only.",
         "% Do not interpret aerodynamic coefficients from this case.",
-        f"SOLVER= {solver}",
-        "KIND_TURB_MODEL= NONE",
+        f"SOLVER= {resolved_solver}",
+        f"KIND_TURB_MODEL= {resolved_turbulence_model}",
+        f"KIND_TRANS_MODEL= {resolved_transition_model}",
         "MATH_PROBLEM= DIRECT",
         "SYSTEM_MEASUREMENTS= SI",
         "RESTART_SOL= NO",
@@ -393,9 +406,40 @@ def _smoke_cfg_text(
         f"MARKER_MONITORING= ( {wall_marker} )",
         f"MARKER_PLOTTING= ( {wall_marker} )",
         f"MARKER_FAR= ( {farfield_marker} )",
+        *(
+            []
+            if wall_function is None
+            else [f"MARKER_WALL_FUNCTIONS= ( {wall_marker}, {wall_function.strip().upper()} )"]
+        ),
+        *(
+            []
+            if resolved_turbulence_model == "NONE"
+            else [
+                "FREESTREAM_TURBULENCEINTENSITY= 0.05",
+                "FREESTREAM_TURB2LAMVISCRATIO= 10.0",
+            ]
+        ),
         "NUM_METHOD_GRAD= WEIGHTED_LEAST_SQUARES",
         f"CONV_NUM_METHOD_FLOW= {flow_method}",
+        *(
+            []
+            if flow_method == "JST"
+            else [
+                "MUSCL_FLOW= YES",
+                "SLOPE_LIMITER_FLOW= NONE",
+            ]
+        ),
         "TIME_DISCRE_FLOW= EULER_IMPLICIT",
+        *(
+            []
+            if resolved_turbulence_model == "NONE"
+            else [
+                "CONV_NUM_METHOD_TURB= SCALAR_UPWIND",
+                "MUSCL_TURB= NO",
+                "SLOPE_LIMITER_TURB= VENKATAKRISHNAN",
+                "TIME_DISCRE_TURB= EULER_IMPLICIT",
+            ]
+        ),
         "LINEAR_SOLVER= FGMRES",
         "LINEAR_SOLVER_PREC= ILU",
         f"LINEAR_SOLVER_ERROR= {_format_su2_value(linear_solver_error)}",

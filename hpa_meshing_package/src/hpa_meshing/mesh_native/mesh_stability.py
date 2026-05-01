@@ -21,12 +21,19 @@ def select_cheapest_stable_mesh(
     cases: Sequence[Mapping[str, Any]],
     *,
     coefficient_tolerances: Mapping[str, float] | None = None,
+    coefficient_relative_tolerances: Mapping[str, float] | None = None,
+    relative_scale_floor: float = 1.0e-6,
     require_successful_case_gates: bool = False,
     require_iterative_gate_pass: bool = False,
     require_coefficient_sanity: bool = False,
     require_cfd_evidence_gate_pass: bool = False,
 ) -> dict[str, Any]:
     tolerances = dict(coefficient_tolerances or DEFAULT_COEFFICIENT_TOLERANCES)
+    relative_tolerances = (
+        None if coefficient_relative_tolerances is None else dict(coefficient_relative_tolerances)
+    )
+    if relative_scale_floor <= 0.0:
+        raise ValueError("relative_scale_floor must be positive")
     ordered_cases = sorted(cases, key=lambda case: int(case["volume_element_count"]))
     ineligible_cases = []
     if require_successful_case_gates:
@@ -53,18 +60,46 @@ def select_cheapest_stable_mesh(
 
     for coarse, fine in zip(ordered_cases[:-1], ordered_cases[1:]):
         deltas = _coefficient_deltas(coarse, fine, tolerances.keys())
+        relative_deltas = _coefficient_relative_deltas(
+            coarse,
+            fine,
+            (relative_tolerances or tolerances).keys(),
+            scale_floor=relative_scale_floor,
+        )
         missing = sorted(key for key, value in deltas.items() if value is None)
+        missing_relative = (
+            []
+            if relative_tolerances is None
+            else sorted(key for key, value in relative_deltas.items() if value is None)
+        )
         numeric_deltas = {key: value for key, value in deltas.items() if value is not None}
-        stable = not missing and all(
+        numeric_relative_deltas = {
+            key: value for key, value in relative_deltas.items() if value is not None
+        }
+        absolute_stable = not missing and all(
             float(numeric_deltas[key]) <= float(tolerances[key]) for key in tolerances
         )
+        relative_stable = (
+            True
+            if relative_tolerances is None
+            else not missing_relative
+            and all(
+                float(numeric_relative_deltas[key]) <= float(relative_tolerances[key])
+                for key in relative_tolerances
+            )
+        )
+        stable = absolute_stable and relative_stable
         comparison = {
             "status": "stable" if stable else "unstable",
             "coarse_case": coarse,
             "fine_case": fine,
             "deltas": numeric_deltas,
+            "relative_deltas": numeric_relative_deltas,
             "missing_coefficients": missing,
+            "missing_relative_coefficients": missing_relative,
             "coefficient_tolerances": tolerances,
+            "coefficient_relative_tolerances": relative_tolerances,
+            "relative_scale_floor": float(relative_scale_floor),
         }
         comparisons.append(comparison)
         if stable:
@@ -104,6 +139,29 @@ def _coefficient_deltas(
             deltas[key] = None
         else:
             deltas[key] = abs(float(right) - float(left))
+    return deltas
+
+
+def _coefficient_relative_deltas(
+    coarse: Mapping[str, Any],
+    fine: Mapping[str, Any],
+    coefficient_keys,
+    *,
+    scale_floor: float,
+) -> dict[str, float | None]:
+    coarse_coefficients = _final_coefficients(coarse)
+    fine_coefficients = _final_coefficients(fine)
+    deltas: dict[str, float | None] = {}
+    for key in coefficient_keys:
+        left = _coefficient_value(coarse_coefficients, key)
+        right = _coefficient_value(fine_coefficients, key)
+        if left is None or right is None:
+            deltas[key] = None
+        else:
+            left_value = float(left)
+            right_value = float(right)
+            scale = max(abs(left_value), abs(right_value), scale_floor)
+            deltas[key] = abs(right_value - left_value) / scale
     return deltas
 
 
