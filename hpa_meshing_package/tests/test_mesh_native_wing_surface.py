@@ -1,3 +1,4 @@
+import json
 import math
 
 import pytest
@@ -9,6 +10,7 @@ from hpa_meshing.mesh_native.wing_surface import (
     SurfaceMesh,
     WingSpec,
     build_wing_surface,
+    load_wing_spec,
     validate_surface_mesh,
 )
 
@@ -155,3 +157,91 @@ def test_validate_surface_mesh_rejects_zero_area_face():
 
     with pytest.raises(ValueError, match="Zero or tiny face area"):
         validate_surface_mesh(mesh)
+
+
+def test_load_wing_spec_from_json_manifest_builds_surface(tmp_path):
+    spec_path = tmp_path / "main_wing.mesh_native.json"
+    spec_path.write_text(
+        json.dumps(
+            {
+                "units": "m",
+                "side": "full",
+                "te_rule": "finite_thickness",
+                "tip_rule": "planar_cap",
+                "root_rule": "wall_cap",
+                "reference": {
+                    "sref_full": 2.0,
+                    "cref": 1.0,
+                    "bref_full": 2.0,
+                },
+                "stations": [
+                    {
+                        "y": 0.0,
+                        "airfoil_xz": _rect_loop(),
+                        "chord": 1.0,
+                        "twist_deg": 0.0,
+                    },
+                    {
+                        "y": 1.0,
+                        "airfoil_xz": _rect_loop(),
+                        "chord": 1.0,
+                        "twist_deg": 0.0,
+                    },
+                    {
+                        "y": 2.0,
+                        "airfoil_xz": _rect_loop(),
+                        "chord": 1.0,
+                        "twist_deg": 0.0,
+                    },
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    spec = load_wing_spec(spec_path)
+    mesh = build_wing_surface(spec)
+
+    assert spec.reference.sref_full == pytest.approx(2.0)
+    assert mesh.metadata["span_m"] == pytest.approx(2.0)
+    assert mesh.marker_counts() == {"wing_wall": 16}
+
+
+def test_load_wing_spec_rejects_non_meter_units(tmp_path):
+    spec_path = tmp_path / "main_wing.mesh_native.json"
+    spec_path.write_text(
+        json.dumps(
+            {
+                "units": "mm",
+                "side": "full",
+                "te_rule": "finite_thickness",
+                "tip_rule": "planar_cap",
+                "root_rule": "wall_cap",
+                "reference": {
+                    "sref_full": 2.0,
+                    "cref": 1.0,
+                    "bref_full": 2.0,
+                },
+                "stations": [
+                    {
+                        "y": 0.0,
+                        "airfoil_xz": _rect_loop(),
+                        "chord": 1.0,
+                        "twist_deg": 0.0,
+                    },
+                    {
+                        "y": 1.0,
+                        "airfoil_xz": _rect_loop(),
+                        "chord": 1.0,
+                        "twist_deg": 0.0,
+                    },
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Mesh-native wing spec units must be m"):
+        load_wing_spec(spec_path)

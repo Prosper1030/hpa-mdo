@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 import math
-from typing import Literal, Sequence
+from pathlib import Path
+from typing import Any, Literal, Mapping, Sequence
+
+import yaml
 
 
 TERule = Literal["sharp", "finite_thickness", "blunt"]
@@ -132,6 +136,59 @@ def build_wing_surface(spec: WingSpec) -> SurfaceMesh:
     return mesh
 
 
+def load_wing_spec(path: Path | str) -> WingSpec:
+    spec_path = Path(path)
+    if spec_path.suffix.lower() == ".json":
+        payload = json.loads(spec_path.read_text(encoding="utf-8"))
+    elif spec_path.suffix.lower() in {".yaml", ".yml"}:
+        payload = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+    else:
+        raise ValueError(f"Unsupported mesh-native wing spec suffix: {spec_path.suffix}")
+    if not isinstance(payload, Mapping):
+        raise ValueError("Mesh-native wing spec must contain a mapping")
+    return wing_spec_from_mapping(payload)
+
+
+def wing_spec_from_mapping(payload: Mapping[str, Any]) -> WingSpec:
+    units = payload.get("units")
+    if units != "m":
+        raise ValueError("Mesh-native wing spec units must be m")
+
+    reference_payload = _required_mapping(payload, "reference")
+    stations_payload = payload.get("stations")
+    if not isinstance(stations_payload, list):
+        raise ValueError("Mesh-native wing spec stations must be a list")
+
+    stations = [
+        Station(
+            y=_required_float(station_payload, "y"),
+            airfoil_xz=_required_airfoil_xz(station_payload),
+            chord=_required_float(station_payload, "chord"),
+            twist_deg=_required_float(station_payload, "twist_deg"),
+            x_le=float(station_payload.get("x_le", 0.0)),
+            z_le=float(station_payload.get("z_le", 0.0)),
+        )
+        for station_payload in stations_payload
+        if isinstance(station_payload, Mapping)
+    ]
+    if len(stations) != len(stations_payload):
+        raise ValueError("Every station must be a mapping")
+
+    return WingSpec(
+        stations=stations,
+        side=_literal_value(payload, "side", {"full", "half"}),
+        te_rule=_literal_value(payload, "te_rule", {"sharp", "finite_thickness", "blunt"}),
+        tip_rule=_literal_value(payload, "tip_rule", {"planar_cap", "rounded_cap", "pinched"}),
+        root_rule=_literal_value(payload, "root_rule", {"full", "symmetry", "wall_cap"}),
+        reference=Reference(
+            sref_full=_required_float(reference_payload, "sref_full"),
+            cref=_required_float(reference_payload, "cref"),
+            bref_full=_required_float(reference_payload, "bref_full"),
+        ),
+        twist_axis_x=float(payload.get("twist_axis_x", 0.25)),
+    )
+
+
 def _ordered_stations(spec: WingSpec) -> list[Station]:
     if len(spec.stations) < 2:
         raise ValueError("At least two stations are required")
@@ -143,6 +200,43 @@ def _ordered_stations(spec: WingSpec) -> list[Station]:
         if right.y <= left.y:
             raise ValueError("Station y values must be strictly increasing")
     return list(spec.stations)
+
+
+def _required_mapping(payload: Mapping[str, Any], key: str) -> Mapping[str, Any]:
+    value = payload.get(key)
+    if not isinstance(value, Mapping):
+        raise ValueError(f"Mesh-native wing spec field must be a mapping: {key}")
+    return value
+
+
+def _required_float(payload: Mapping[str, Any], key: str) -> float:
+    value = payload.get(key)
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"Mesh-native wing spec field must be numeric: {key}")
+    return float(value)
+
+
+def _required_airfoil_xz(payload: Mapping[str, Any]) -> list[tuple[float, float]]:
+    value = payload.get("airfoil_xz")
+    if not isinstance(value, list):
+        raise ValueError("Mesh-native wing spec airfoil_xz must be a list")
+    points: list[tuple[float, float]] = []
+    for item in value:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            raise ValueError("Each airfoil_xz point must have two coordinates")
+        x, z = item
+        if not isinstance(x, (int, float)) or not isinstance(z, (int, float)):
+            raise ValueError("Each airfoil_xz coordinate must be numeric")
+        points.append((float(x), float(z)))
+    return points
+
+
+def _literal_value(payload: Mapping[str, Any], key: str, allowed: set[str]) -> Any:
+    value = payload.get(key)
+    if value not in allowed:
+        allowed_values = ", ".join(sorted(allowed))
+        raise ValueError(f"Mesh-native wing spec {key} must be one of: {allowed_values}")
+    return value
 
 
 def validate_surface_mesh(
