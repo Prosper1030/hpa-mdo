@@ -1,0 +1,95 @@
+from pathlib import Path
+
+import pytest
+
+from hpa_meshing.mesh_native.blackcat import load_blackcat_main_wing_spec_from_vsp
+from hpa_meshing.mesh_native.near_wall_block import (
+    BoundaryLayerBlockSpec,
+    build_airfoil_boundary_layer_block,
+    split_airfoil_wall_loop,
+)
+from hpa_meshing.mesh_native.wing_surface import Station
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+AVL_PATH = REPO_ROOT / "data" / "blackcat_004_full.avl"
+VSP_PATH = REPO_ROOT / "data" / "blackcat_004_origin.vsp3"
+
+
+def _finite_te_station() -> Station:
+    return Station(
+        y=0.0,
+        airfoil_xz=[
+            (1.0, 0.05),
+            (0.0, 0.05),
+            (0.0, -0.05),
+            (1.0, -0.05),
+        ],
+        chord=1.0,
+        twist_deg=0.0,
+    )
+
+
+def test_split_airfoil_wall_loop_restores_vsp_sharp_te_lower_terminal():
+    pytest.importorskip("openvsp")
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=12,
+    )
+    root_station = min(spec.stations, key=lambda station: abs(station.y))
+
+    split = split_airfoil_wall_loop(root_station.airfoil_xz)
+
+    assert split.leading_edge_index == 11
+    assert split.upper_path[0] == pytest.approx((1.0, 0.0))
+    assert split.upper_path[-1] == pytest.approx((0.0, 0.0))
+    assert split.lower_path[0] == pytest.approx((0.0, 0.0))
+    assert split.lower_path[-1] == pytest.approx((1.0, 0.0))
+    assert split.added_lower_trailing_edge is True
+
+
+def test_vsp_main_wing_airfoil_bl_block_has_positive_cells_and_owned_te_connector():
+    pytest.importorskip("openvsp")
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=12,
+    )
+    root_station = min(spec.stations, key=lambda station: abs(station.y))
+
+    block = build_airfoil_boundary_layer_block(
+        root_station,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=5.0e-5,
+            growth_ratio=1.18,
+            layer_count=16,
+        ),
+    )
+
+    assert block.marker_counts()["boundary_layer"] == 352
+    assert block.marker_counts()["trailing_edge_connector"] == 32
+    assert block.metadata["te_cap_extrusion_cells"] == 0
+    assert block.metadata["added_lower_trailing_edge"] is True
+    assert block.metadata["first_layer_height_m"] == pytest.approx(5.0e-5)
+    assert block.quality["non_positive_area_count"] == 0
+    assert block.quality["min_area_m2"] > 0.0
+    assert block.quality["min_first_layer_height_m"] == pytest.approx(5.0e-5, rel=0.05)
+
+
+def test_finite_te_airfoil_bl_block_preserves_distinct_te_wall_nodes():
+    block = build_airfoil_boundary_layer_block(
+        _finite_te_station(),
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=1.0e-3,
+            growth_ratio=1.2,
+            layer_count=8,
+        ),
+    )
+
+    assert block.metadata["added_lower_trailing_edge"] is False
+    assert block.metadata["sharp_trailing_edge"] is False
+    assert block.metadata["te_cap_extrusion_cells"] == 0
+    assert block.marker_counts()["trailing_edge_connector"] == 16
+    assert block.quality["non_positive_area_count"] == 0
+    assert block.wall_nodes.upper_te != block.wall_nodes.lower_te
