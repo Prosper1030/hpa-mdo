@@ -4,10 +4,11 @@ benchmarks:
   daedalus_88:
     label: MIT Daedalus 88
     role: distance_endurance_reference
-    benchmark_use: calibration_sanity_check_only
+    benchmark_use: mission_context_reference_only
     notes:
       - Values combine public MIT/NASA historical descriptions with the MDPI Daedalus FSI reconstruction.
-      - Do not use this as a geometry clone target; use it to check power, drag, CL, AR, and wing-loading magnitude.
+      - Do not use this as a geometry clone target or a hard feasibility standard because mission, rule, pilot, and structural assumptions differ.
+      - Use it only to keep power, drag, CL, AR, and wing-loading order of magnitude visible during review.
     sources:
       - id: mit_news_2008
         title: Record-breaking Daedalus project marks 20th anniversary
@@ -88,28 +89,25 @@ benchmarks:
         value: 201.0
         tolerance: 30.0
         source_ids: [mdpi_fsi_2016]
-    calibration_targets:
+    reference_comparison_bands:
       pilot_power_w:
-        target: 201.0
-        warning_relative_error: 0.15
-        fail_relative_error: 0.25
+        reference: 201.0
+        advisory_relative_error: 0.15
       gliding_drag_n:
-        target: 27.0
-        warning_relative_error: 0.15
-        fail_relative_error: 0.25
+        reference: 27.0
+        advisory_relative_error: 0.15
       cruise_cl:
-        warning_relative_error: 0.15
-        fail_relative_error: 0.25
+        advisory_relative_error: 0.15
       wing_loading_Npm2:
-        warning_relative_error: 0.12
-        fail_relative_error: 0.20
+        advisory_relative_error: 0.12
   light_eagle:
     label: MIT Light Eagle
     role: prototype_high_ar_reference
-    benchmark_use: geometry_structure_power_sanity_check_only
+    benchmark_use: mission_context_reference_only
     notes:
       - Use mainly to prevent the concept search from excluding high-AR HPA designs.
       - NASA report values are from a Light Eagle comparison table and flight-research discussion.
+      - Treat comparisons as advisory only; this prototype is not a hard pass/fail standard for the Birdman mission.
     sources:
       - id: nasa_ntrs_19890001519
         title: Flight Research with the Daedalus and Light Eagle Aircraft
@@ -173,16 +171,13 @@ benchmarks:
         value: 200.0
         tolerance: 35.0
         source_ids: [nasa_ntrs_19890001519]
-    calibration_targets:
+    reference_comparison_bands:
       design_power_w:
-        target: 225.0
-        warning_relative_error: 0.15
-        fail_relative_error: 0.25
+        reference: 225.0
+        advisory_relative_error: 0.15
       design_airspeed_mps:
-        target: 7.8
-        warning_relative_error: 0.10
-        fail_relative_error: 0.18
+        reference: 7.8
+        advisory_relative_error: 0.10
       aspect_ratio:
-        target: 39.4
-        warning_relative_error: 0.08
-        fail_relative_error: 0.15
+        reference: 39.4
+        advisory_relative_error: 0.08
