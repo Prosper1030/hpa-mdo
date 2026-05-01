@@ -1,0 +1,614 @@
+{
+  "route": "blackcat_main_wing_mesh_native_faceted_refinement_ladder",
+  "status": "target_not_reached",
+  "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/refinement_ladder_report.json",
+  "target_volume_elements": 1000000,
+  "max_volume_elements": 25000,
+  "mesh_sizes": [
+    14.0,
+    10.0,
+    8.0,
+    6.0,
+    4.5,
+    3.0
+  ],
+  "selected_case": null,
+  "cases": [
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/00_h_14/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 312,
+      "volume_element_count": 903,
+      "volume_element_type_counts": {
+        "4": 903
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 14.0,
+        "wing_mesh_size": 14.0,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "background_field": {
+          "type": "DistanceThreshold",
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2,
+          "node_count": 156
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 903,
+        "tetrahedron_count": 903,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.000517122329038461,
+        "min_sicn": 0.00046547925837448195,
+        "min_sige": 0.03910987498044197,
+        "min_volume": 0.00031487318889880146,
+        "gamma_percentiles": {
+          "p01": 0.0030765699288505,
+          "p05": 0.009084333983993461,
+          "p50": 0.14871161651776413
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.0029169207682091503,
+          "p05": 0.00967566188942887,
+          "p50": 0.1816183673663257
+        },
+        "min_sige_percentiles": {
+          "p01": 0.09737141305193295,
+          "p05": 0.29263206008281967,
+          "p50": 0.5807023704444305
+        },
+        "volume_percentiles": {
+          "p01": 0.0013805440035104084,
+          "p05": 0.07682029761570364,
+          "p50": 9.46997082470992
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": []
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 903,
+        "shortfall_volume_elements": 999097,
+        "observed_to_target_ratio": 0.000903
+      },
+      "surface_triangle_count": 320,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 308
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/00_h_14",
+      "mesh_size": 14.0
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/01_h_10/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 313,
+      "volume_element_count": 915,
+      "volume_element_type_counts": {
+        "4": 915
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 10.0,
+        "wing_mesh_size": 10.0,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "background_field": {
+          "type": "DistanceThreshold",
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2,
+          "node_count": 156
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 915,
+        "tetrahedron_count": 915,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.0004997291935259886,
+        "min_sicn": 0.0004517677556822727,
+        "min_sige": 0.03034314280646339,
+        "min_volume": 0.00010390956091040994,
+        "gamma_percentiles": {
+          "p01": 0.0026211182698906666,
+          "p05": 0.007035250152838653,
+          "p50": 0.16324762699860984
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.0027629189010827584,
+          "p05": 0.007070724558593694,
+          "p50": 0.16051268057129323
+        },
+        "min_sige_percentiles": {
+          "p01": 0.06435005720627528,
+          "p05": 0.2467537859831554,
+          "p50": 0.5633645653814858
+        },
+        "volume_percentiles": {
+          "p01": 0.0010403225310356699,
+          "p05": 0.05291405605349626,
+          "p50": 10.988332906004683
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": []
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 915,
+        "shortfall_volume_elements": 999085,
+        "observed_to_target_ratio": 0.000915
+      },
+      "surface_triangle_count": 320,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 308
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/01_h_10",
+      "mesh_size": 10.0
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/02_h_8/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 325,
+      "volume_element_count": 944,
+      "volume_element_type_counts": {
+        "4": 944
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 8.0,
+        "wing_mesh_size": 8.0,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "background_field": {
+          "type": "DistanceThreshold",
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2,
+          "node_count": 156
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 944,
+        "tetrahedron_count": 944,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.0006792809963415638,
+        "min_sicn": 0.0006479129836211914,
+        "min_sige": 0.020604557799020064,
+        "min_volume": 9.96761532512994e-05,
+        "gamma_percentiles": {
+          "p01": 0.003012279625122835,
+          "p05": 0.012202708877058465,
+          "p50": 0.21284435948859542
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.0038745575245678772,
+          "p05": 0.011696574939414608,
+          "p50": 0.25875711780259514
+        },
+        "min_sige_percentiles": {
+          "p01": 0.09433795553478594,
+          "p05": 0.3292926899365518,
+          "p50": 0.5784061444581645
+        },
+        "volume_percentiles": {
+          "p01": 0.0006588035768801961,
+          "p05": 0.08404047153619476,
+          "p50": 15.599808889957755
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": []
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 944,
+        "shortfall_volume_elements": 999056,
+        "observed_to_target_ratio": 0.000944
+      },
+      "surface_triangle_count": 320,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 308
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/02_h_8",
+      "mesh_size": 8.0
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/03_h_6/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 333,
+      "volume_element_count": 976,
+      "volume_element_type_counts": {
+        "4": 976
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 6.0,
+        "wing_mesh_size": 6.0,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "background_field": {
+          "type": "DistanceThreshold",
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2,
+          "node_count": 156
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 976,
+        "tetrahedron_count": 976,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.0005308392594485925,
+        "min_sicn": 0.0006301036072215186,
+        "min_sige": 0.03153975958275719,
+        "min_volume": 0.00020618098095818928,
+        "gamma_percentiles": {
+          "p01": 0.0038681914532696267,
+          "p05": 0.011693948895336146,
+          "p50": 0.28740486550005806
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.003842464274885958,
+          "p05": 0.010858902716166213,
+          "p50": 0.30598327874257075
+        },
+        "min_sige_percentiles": {
+          "p01": 0.09713885159080009,
+          "p05": 0.31253179206387893,
+          "p50": 0.6028353110441729
+        },
+        "volume_percentiles": {
+          "p01": 0.0011827056694315662,
+          "p05": 0.05925997149762145,
+          "p50": 16.704007719677556
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": []
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 976,
+        "shortfall_volume_elements": 999024,
+        "observed_to_target_ratio": 0.000976
+      },
+      "surface_triangle_count": 320,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 308
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/03_h_6",
+      "mesh_size": 6.0
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/04_h_4p5/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 340,
+      "volume_element_count": 1007,
+      "volume_element_type_counts": {
+        "4": 1007
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 4.5,
+        "wing_mesh_size": 4.5,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "background_field": {
+          "type": "DistanceThreshold",
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2,
+          "node_count": 156
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 1007,
+        "tetrahedron_count": 1007,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.0009006719686945463,
+        "min_sicn": 0.0008719486936968622,
+        "min_sige": 0.04458925203170378,
+        "min_volume": 0.00033383789135831325,
+        "gamma_percentiles": {
+          "p01": 0.005511553963258705,
+          "p05": 0.014060894513171848,
+          "p50": 0.331070819917564
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.004872015176175683,
+          "p05": 0.01318800504523279,
+          "p50": 0.3345005504080255
+        },
+        "min_sige_percentiles": {
+          "p01": 0.13818715521979083,
+          "p05": 0.320897173447296,
+          "p50": 0.6060649157389556
+        },
+        "volume_percentiles": {
+          "p01": 0.0012474916577584758,
+          "p05": 0.07230583735851498,
+          "p50": 19.18843736533738
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": []
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 1007,
+        "shortfall_volume_elements": 998993,
+        "observed_to_target_ratio": 0.001007
+      },
+      "surface_triangle_count": 320,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 308
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/04_h_4p5",
+      "mesh_size": 4.5
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/05_h_3/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 427,
+      "volume_element_count": 1269,
+      "volume_element_type_counts": {
+        "4": 1269
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 3.0,
+        "wing_mesh_size": 3.0,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "background_field": {
+          "type": "DistanceThreshold",
+          "distance_field_tag": 1,
+          "threshold_field_tag": 2,
+          "node_count": 156
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 1269,
+        "tetrahedron_count": 1269,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 1.6974520863233414e-05,
+        "min_sicn": 0.0006143668226559926,
+        "min_sige": 0.003172724095545646,
+        "min_volume": 3.4439882363719166e-05,
+        "gamma_percentiles": {
+          "p01": 0.003321736802505964,
+          "p05": 0.01162295498142265,
+          "p50": 0.21065672198489982
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.003869587936128853,
+          "p05": 0.01204703218173201,
+          "p50": 0.19514385328408274
+        },
+        "min_sige_percentiles": {
+          "p01": 0.05977153956897299,
+          "p05": 0.3448264213354332,
+          "p50": 0.6140631690802362
+        },
+        "volume_percentiles": {
+          "p01": 0.0013985917417212693,
+          "p05": 0.026196502370369336,
+          "p50": 3.5229816431672907
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": []
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 1269,
+        "shortfall_volume_elements": 998731,
+        "observed_to_target_ratio": 0.001269
+      },
+      "surface_triangle_count": 320,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 308
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_local_refinement_ladder/artifacts/05_h_3",
+      "mesh_size": 3.0
+    }
+  ],
+  "engineering_assessment": {
+    "production_scale_target_volume_elements": 1000000,
+    "budget_guard_volume_elements": 25000,
+    "selected_for_cfd_interpretation": false,
+    "aero_coefficients_interpretable": false,
+    "reason": "mesh_density_ladder_only_no_converged_su2_solution"
+  },
+  "caveats": [
+    "mesh-size ladder changes global tet sizing only",
+    "no local curvature/wake/boundary-layer refinement policy yet",
+    "million-scale target is an engineering credibility gate, not a convergence proof"
+  ],
+  "blackcat_source": {
+    "avl_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_full.avl",
+    "points_per_side": 8,
+    "station_count": 11,
+    "points_per_station": 14,
+    "reference": {
+      "sref_full": 35.175,
+      "cref": 1.130189765,
+      "bref_full": 33.0
+    },
+    "surface_metadata": {
+      "station_count": 11,
+      "points_per_station": 14,
+      "span_m": 33.0,
+      "planform_area_m2": 35.175000000000004,
+      "side": "full",
+      "te_rule": "sharp",
+      "tip_rule": "planar_cap",
+      "root_rule": "full",
+      "orientation": "outward_consistent"
+    },
+    "farfield_metadata": {
+      "surface_role": "farfield_box",
+      "x_min": -1.9475963491243293,
+      "x_max": 3.8956719127937403,
+      "y_min": -56.1,
+      "y_max": 56.1,
+      "z_min": -39.651027557336874,
+      "z_max": 40.448766935643995,
+      "orientation": "outward_consistent"
+    },
+    "farfield_factors": {
+      "upstream": 1.5,
+      "downstream": 2.0,
+      "lateral": 1.2,
+      "vertical": 1.2
+    }
+  }
+}
