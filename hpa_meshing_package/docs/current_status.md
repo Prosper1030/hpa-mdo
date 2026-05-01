@@ -138,7 +138,12 @@ gates pass, and sampled projection residual max is
 `1.8343894894033213e-15 m`, but 0 / 12 edge-face pairs pass the full
 ShapeAnalysis metadata gate. The next repair target is therefore upstream
 section parametrization or export PCurve metadata generation for the side-aware
-export, rather than mesh or solver budget. The export-source audit
+export, rather than mesh or solver budget. The side-aware export opcode variant
+probe then tests report-local OpenCSM opcode changes: `upper_lower_spline_split`
+materializes as `1 volume / 52 surfaces` but still does not recover the station
+BRep / PCurve gate, while `all_linseg` materializes as `1 volume / 582 surfaces`
+and is stopped by the surface-count guard. Simple opcode variants are therefore
+negative-control evidence, not a product repair. The export-source audit
 then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
@@ -148,7 +153,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`move_repair_upstream_to_section_parametrization_or_export_pcurve_generation`.
+`inspect_export_pcurve_metadata_generation_instead_of_simple_opcode_variants`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -516,6 +521,24 @@ orientation, with sampled projection residual max
 truth-source pass criteria. The route remains blocked before Gmsh mesh handoff;
 the next repair should move upstream to section parametrization or export
 PCurve metadata generation.
+
+The main-wing side-aware export opcode variant probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-side-aware-export-opcode-variant-probe --out .tmp/runs/main_wing_station_seam_side_aware_export_opcode_variant_probe --materialize-variants
+```
+
+This writes
+`main_wing_station_seam_side_aware_export_opcode_variant_probe.v1.json` and
+`.md`. The committed result is
+`side_aware_export_opcode_variant_not_recovered`: the
+`upper_lower_spline_split` report-local candidate materializes as
+`1 volume / 52 surfaces` but remains station-PCurve suspect, while the
+`all_linseg` candidate materializes as `1 volume / 582 surfaces` and is stopped
+by the surface-count guard before expensive validation. This is evidence that
+simple OpenCSM opcode switching is not the product repair; the next gate is
+inspection of the export PCurve metadata generation path itself.
 
 The first real fairing geometry smoke is emitted by:
 
@@ -998,10 +1021,11 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Use retained main-wing `forces_breakdown.dat` / `surface.csv` to debug the panel-vs-SU2 lift gap, then fix reference-area / moment-origin provenance before any larger residual/numerics campaign; do not call either smoke converged
-3. Run real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
-4. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
-5. Component-level force mapping after the wall-marker story is stronger
+2. Inspect side-aware export PCurve metadata generation directly; simple opcode variants are now negative-control evidence, not a product repair
+3. Use retained main-wing `forces_breakdown.dat` / `surface.csv` to debug the panel-vs-SU2 lift gap, then fix reference-area / moment-origin provenance before any larger residual/numerics campaign; do not call either smoke converged
+4. Run real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
+5. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims
+6. Component-level force mapping after the wall-marker story is stronger
 
 ## What A New Contributor Should Assume
 

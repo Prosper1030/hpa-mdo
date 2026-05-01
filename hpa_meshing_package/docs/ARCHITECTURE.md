@@ -27,7 +27,8 @@
 21. main-wing side-aware station metadata repair reporting
 22. main-wing side-aware PCurve metadata builder reporting
 23. main-wing side-aware projected PCurve builder reporting
-24. machine-readable reporting
+24. main-wing side-aware export opcode variant reporting
+25. machine-readable reporting
 
 目前不要把它理解成「任意 CAD -> 任意 mesher -> 最終可信數值」的全能框架。這一輪的正式產品線只有一條：
 
@@ -288,6 +289,7 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 `src/hpa_meshing/main_wing_station_seam_shape_fix_feasibility.py`
 `src/hpa_meshing/main_wing_station_seam_export_source_audit.py`
 `src/hpa_meshing/main_wing_station_seam_export_strategy_probe.py`
+`src/hpa_meshing/main_wing_station_seam_side_aware_export_opcode_variant_probe.py`
 
 - Keep the main-wing station-seam route risk visible as report-only evidence
 - Do not run Gmsh, SU2, BL runtime, convergence gates, or production defaults
@@ -310,7 +312,8 @@ This is a baseline CFD route, not the repo's final high-quality validation frame
 - Record that bounded SameParameter / ShapeFix metadata repair does not recover the side-aware station metadata gate
 - Probe bounded-existing-PCurve metadata construction and record partial bounded-domain progress separately from full metadata recovery
 - Probe projected/sampled side-aware PCurve construction with vertex/orientation validation and record that bounded PCurves plus clean projection endpoints still do not recover the ShapeAnalysis metadata gate
-- Move the next repair upstream to section parametrization or export PCurve metadata generation before compound meshing policy, mesh handoff, or solver-budget campaigns
+- Probe report-local side-aware OpenCSM opcode variants and record that `upper_lower_spline_split` still fails the BRep/PCurve gate while `all_linseg` explodes to hundreds of surfaces
+- Move the next repair upstream to direct export PCurve metadata generation inspection before compound meshing policy, mesh handoff, or solver-budget campaigns
 
 ### 22. main_wing Mesh-Handoff Smoke Layer
 

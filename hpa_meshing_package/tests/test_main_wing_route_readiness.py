@@ -453,6 +453,54 @@ def test_main_wing_route_readiness_includes_side_aware_projected_pcurve_builder_
     )
 
 
+def test_main_wing_route_readiness_includes_side_aware_export_opcode_variant_probe(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_side_aware_export_opcode_variant_probe"
+        / "main_wing_station_seam_side_aware_export_opcode_variant_probe.v1.json",
+        {
+            "schema_version": "main_wing_station_seam_side_aware_export_opcode_variant_probe.v1",
+            "opcode_variant_status": "side_aware_export_opcode_variant_not_recovered",
+            "source_csm_path": "rebuild.csm",
+            "variants": ["upper_lower_spline_split", "all_linseg"],
+            "variant_summary": {
+                "variant_count": 2,
+                "validated_variant_count": 1,
+                "recovered_variant_count": 0,
+                "surface_count_guard_skipped_count": 1,
+                "best_station_edge_check_count": 10,
+            },
+            "engineering_findings": [
+                "upper_lower_spline_split_still_pcurve_suspect",
+                "all_linseg_surface_count_explosion_observed",
+            ],
+            "blocking_reasons": [
+                "side_aware_export_opcode_variants_not_recovered",
+                "side_aware_candidate_mesh_handoff_not_run",
+            ],
+            "next_actions": [
+                "inspect_export_pcurve_metadata_generation_instead_of_simple_opcode_variants"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+    stages = {stage.stage: stage for stage in report.stages}
+
+    stage = stages["station_seam_side_aware_export_opcode_variant_probe"]
+    assert stage.status == "blocked"
+    assert stage.evidence_kind == "real"
+    assert (
+        stage.observed["opcode_variant_status"]
+        == "side_aware_export_opcode_variant_not_recovered"
+    )
+    assert stage.observed["variant_summary"]["surface_count_guard_skipped_count"] == 1
+    assert "side_aware_export_opcode_variants_not_recovered" in stage.blockers
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

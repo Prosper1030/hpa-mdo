@@ -802,6 +802,40 @@ def test_parser_supports_main_wing_station_seam_side_aware_projected_pcurve_buil
     assert args.interpolation_tolerance == 1.0e-10
 
 
+def test_parser_supports_main_wing_station_seam_side_aware_export_opcode_variant_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-side-aware-export-opcode-variant-probe",
+            "--out",
+            "artifacts/main_wing_side_aware_opcode_variant",
+            "--profile-parametrization-audit",
+            "artifacts/main_wing/profile_parametrization_audit.json",
+            "--variants",
+            "upper_lower_spline_split",
+            "all_linseg",
+            "--materialize-variants",
+            "--materialization-root",
+            "artifacts/main_wing/opcode_variants",
+            "--max-surface-count-for-validation",
+            "96",
+        ]
+    )
+
+    assert (
+        args.command
+        == "main-wing-station-seam-side-aware-export-opcode-variant-probe"
+    )
+    assert args.out == "artifacts/main_wing_side_aware_opcode_variant"
+    assert args.profile_parametrization_audit == (
+        "artifacts/main_wing/profile_parametrization_audit.json"
+    )
+    assert args.variants == ["upper_lower_spline_split", "all_linseg"]
+    assert args.materialize_variants is True
+    assert args.materialization_root == "artifacts/main_wing/opcode_variants"
+    assert args.max_surface_count_for_validation == 96
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(

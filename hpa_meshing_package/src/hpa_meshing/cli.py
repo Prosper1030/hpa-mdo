@@ -182,6 +182,10 @@ from .main_wing_station_seam_side_aware_projected_pcurve_builder_probe import (
     build_main_wing_station_seam_side_aware_projected_pcurve_builder_probe_report,
     write_main_wing_station_seam_side_aware_projected_pcurve_builder_probe_report,
 )
+from .main_wing_station_seam_side_aware_export_opcode_variant_probe import (
+    build_main_wing_station_seam_side_aware_export_opcode_variant_probe_report,
+    write_main_wing_station_seam_side_aware_export_opcode_variant_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -1269,6 +1273,44 @@ def cmd_main_wing_station_seam_side_aware_projected_pcurve_builder_probe(
     return 0 if report.projected_builder_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_side_aware_export_opcode_variant_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    profile_parametrization_audit_path = (
+        None
+        if args.profile_parametrization_audit is None
+        else Path(args.profile_parametrization_audit)
+    )
+    materialization_root = (
+        None if args.materialization_root is None else Path(args.materialization_root)
+    )
+    report = build_main_wing_station_seam_side_aware_export_opcode_variant_probe_report(
+        profile_parametrization_audit_path=profile_parametrization_audit_path,
+        variants=args.variants,
+        materialize_variants=args.materialize_variants,
+        materialization_root=materialization_root,
+        timeout_seconds=args.timeout_seconds,
+        max_surface_count_for_validation=args.max_surface_count_for_validation,
+        target_upper_side_point_count=args.target_upper_side_point_count,
+        target_lower_side_point_count=args.target_lower_side_point_count,
+    )
+    write_main_wing_station_seam_side_aware_export_opcode_variant_probe_report(
+        out_dir,
+        report=report,
+        profile_parametrization_audit_path=profile_parametrization_audit_path,
+        variants=args.variants,
+        materialize_variants=args.materialize_variants,
+        materialization_root=materialization_root,
+        timeout_seconds=args.timeout_seconds,
+        max_surface_count_for_validation=args.max_surface_count_for_validation,
+        target_upper_side_point_count=args.target_upper_side_point_count,
+        target_lower_side_point_count=args.target_lower_side_point_count,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.opcode_variant_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -2327,6 +2369,55 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_side_aware_projected_pcurve_builder_probe.set_defaults(
         func=cmd_main_wing_station_seam_side_aware_projected_pcurve_builder_probe
+    )
+
+    main_wing_station_seam_side_aware_export_opcode_variant_probe = sub.add_parser(
+        "main-wing-station-seam-side-aware-export-opcode-variant-probe"
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--profile-parametrization-audit",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--variants",
+        nargs="+",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--materialize-variants",
+        action="store_true",
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--materialization-root",
+        type=str,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=120.0,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--max-surface-count-for-validation",
+        type=int,
+        default=128,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--target-upper-side-point-count",
+        type=int,
+        default=30,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.add_argument(
+        "--target-lower-side-point-count",
+        type=int,
+        default=30,
+    )
+    main_wing_station_seam_side_aware_export_opcode_variant_probe.set_defaults(
+        func=cmd_main_wing_station_seam_side_aware_export_opcode_variant_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(
