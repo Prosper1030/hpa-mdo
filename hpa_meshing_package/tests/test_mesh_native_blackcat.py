@@ -511,4 +511,10 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
     assert report["stability_selection"]["ineligible_cases"] == []
     assert report["stability_selection"]["compared_to_case"]["mesh_size"] == 0.06
     assert report["cases"][1]["volume_element_count"] == 110_000
+    assert report["engineering_assessment"] == {
+        "solver_stability_evidence": True,
+        "aero_coefficients_interpretable": False,
+        "interpretation_level": "solver_stability_only_no_boundary_layer_prisms",
+        "reason": "adjacent_converged_mesh_coefficients_within_tolerance_but_no_bl_prism_mesh",
+    }
     assert Path(report["report_path"]).exists()

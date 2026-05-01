@@ -778,9 +778,11 @@ def run_blackcat_main_wing_su2_stability_ladder(
         "stability_selection": stability_selection,
         "cases": cases,
         "engineering_assessment": {
-            "aero_coefficients_interpretable": status == "stable_mesh_selected",
+            "solver_stability_evidence": status == "stable_mesh_selected",
+            "aero_coefficients_interpretable": False,
+            "interpretation_level": "solver_stability_only_no_boundary_layer_prisms",
             "reason": (
-                "adjacent_converged_mesh_coefficients_within_tolerance"
+                "adjacent_converged_mesh_coefficients_within_tolerance_but_no_bl_prism_mesh"
                 if status == "stable_mesh_selected"
                 else "no_adjacent_converged_mesh_pair_with_stable_coefficients"
             ),
