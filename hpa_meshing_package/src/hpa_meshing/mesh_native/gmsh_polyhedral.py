@@ -23,6 +23,9 @@ def write_faceted_volume_mesh(
     *,
     su2_path: Path | str | None = None,
     mesh_size: float = 2.0,
+    wing_mesh_size: float | None = None,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
     wall_marker: str = "wing_wall",
     farfield_marker: str = "farfield",
     fluid_marker: str = "fluid",
@@ -44,17 +47,38 @@ def write_faceted_volume_mesh(
 
     if mesh_size <= 0.0:
         raise ValueError("mesh_size must be positive")
+    resolved_wing_mesh_size = mesh_size if wing_mesh_size is None else float(wing_mesh_size)
+    resolved_farfield_mesh_size = (
+        mesh_size if farfield_mesh_size is None else float(farfield_mesh_size)
+    )
+    if resolved_wing_mesh_size <= 0.0:
+        raise ValueError("wing_mesh_size must be positive")
+    if resolved_farfield_mesh_size <= 0.0:
+        raise ValueError("farfield_mesh_size must be positive")
+    resolved_wing_refinement_radius = (
+        max(resolved_farfield_mesh_size, 3.0 * resolved_wing_mesh_size)
+        if wing_refinement_radius is None
+        else float(wing_refinement_radius)
+    )
+    if resolved_wing_refinement_radius <= 0.0:
+        raise ValueError("wing_refinement_radius must be positive")
 
     gmsh.initialize()
     try:
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.add("mesh_native_faceted_volume")
 
-        vertices = [*wing.vertices, *farfield.vertices]
         point_tags = [
-            gmsh.model.geo.addPoint(x, y, z, mesh_size)
-            for x, y, z in vertices
+            *[
+                gmsh.model.geo.addPoint(x, y, z, resolved_wing_mesh_size)
+                for x, y, z in wing.vertices
+            ],
+            *[
+                gmsh.model.geo.addPoint(x, y, z, resolved_farfield_mesh_size)
+                for x, y, z in farfield.vertices
+            ],
         ]
+        wing_point_tags = point_tags[: len(wing.vertices)]
         line_cache: dict[tuple[int, int], tuple[int, int, int]] = {}
         wing_surfaces = _add_mesh_surfaces(
             gmsh,
@@ -75,6 +99,13 @@ def write_faceted_volume_mesh(
         inner_loop = gmsh.model.geo.addSurfaceLoop(wing_surfaces)
         fluid_volume = gmsh.model.geo.addVolume([outer_loop, inner_loop])
         gmsh.model.geo.synchronize()
+        mesh_size_field = _install_wing_refinement_field(
+            gmsh,
+            wing_point_tags=wing_point_tags,
+            wing_mesh_size=resolved_wing_mesh_size,
+            farfield_mesh_size=resolved_farfield_mesh_size,
+            wing_refinement_radius=resolved_wing_refinement_radius,
+        )
 
         wing_group = gmsh.model.addPhysicalGroup(2, wing_surfaces)
         gmsh.model.setPhysicalName(2, wing_group, wall_marker)
@@ -83,8 +114,14 @@ def write_faceted_volume_mesh(
         fluid_group = gmsh.model.addPhysicalGroup(3, [fluid_volume])
         gmsh.model.setPhysicalName(3, fluid_group, fluid_marker)
 
-        gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+        gmsh.option.setNumber(
+            "Mesh.MeshSizeMin",
+            min(resolved_wing_mesh_size, resolved_farfield_mesh_size),
+        )
+        gmsh.option.setNumber(
+            "Mesh.MeshSizeMax",
+            max(resolved_wing_mesh_size, resolved_farfield_mesh_size),
+        )
         gmsh.option.setNumber("Mesh.Algorithm", 5)
         gmsh.option.setNumber("Mesh.Algorithm3D", 1)
         gmsh.option.setNumber("Mesh.Optimize", 1)
@@ -111,6 +148,13 @@ def write_faceted_volume_mesh(
             "node_count": len(node_tags),
             "volume_element_count": volume_element_count,
             "volume_element_type_counts": volume_type_counts,
+            "mesh_sizing": {
+                "default_mesh_size": float(mesh_size),
+                "wing_mesh_size": float(resolved_wing_mesh_size),
+                "farfield_mesh_size": float(resolved_farfield_mesh_size),
+                "wing_refinement_radius": float(resolved_wing_refinement_radius),
+                "background_field": mesh_size_field,
+            },
             "quality_metrics": quality_metrics,
             "mesh_quality_gate": _mesh_quality_gate(quality_metrics),
             "production_scale_gate": _production_scale_gate(
@@ -152,6 +196,8 @@ def run_faceted_volume_refinement_ladder(
     mesh_sizes: Sequence[float],
     target_volume_elements: int = 1_000_000,
     max_volume_elements: int = 250_000,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
     write_su2: bool = True,
 ) -> dict[str, Any]:
     """Run a coarse-to-fine mesh-size ladder with explicit cell-count guardrails."""
@@ -182,6 +228,9 @@ def run_faceted_volume_refinement_ladder(
             mesh_case_path / "mesh.msh",
             su2_path=su2_path,
             mesh_size=mesh_size,
+            wing_mesh_size=mesh_size,
+            farfield_mesh_size=farfield_mesh_size,
+            wing_refinement_radius=wing_refinement_radius,
             production_target_volume_elements=target_volume_elements,
         )
         case_report = {
@@ -426,6 +475,37 @@ def _line_between(
         )
     line_tag, stored_start, stored_end = line_cache[key]
     return line_tag if (start, end) == (stored_start, stored_end) else -line_tag
+
+
+def _install_wing_refinement_field(
+    gmsh,
+    *,
+    wing_point_tags: list[int],
+    wing_mesh_size: float,
+    farfield_mesh_size: float,
+    wing_refinement_radius: float,
+) -> dict[str, Any] | None:
+    if (
+        not wing_point_tags
+        or abs(float(wing_mesh_size) - float(farfield_mesh_size)) <= 1.0e-12
+    ):
+        return None
+
+    distance_field = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(distance_field, "NodesList", wing_point_tags)
+    threshold_field = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", float(wing_mesh_size))
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", float(farfield_mesh_size))
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0.0)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", float(wing_refinement_radius))
+    gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
+    return {
+        "type": "DistanceThreshold",
+        "distance_field_tag": int(distance_field),
+        "threshold_field_tag": int(threshold_field),
+        "node_count": len(wing_point_tags),
+    }
 
 
 def _collect_volume_quality_metrics(gmsh) -> dict[str, Any]:

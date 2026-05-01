@@ -178,6 +178,8 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
     mesh_sizes: Sequence[float] = (14.0, 10.0, 8.0),
     target_volume_elements: int = 1_000_000,
     max_volume_elements: int = 250_000,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
     write_su2: bool = True,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
@@ -201,6 +203,8 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
         mesh_sizes=mesh_sizes,
         target_volume_elements=target_volume_elements,
         max_volume_elements=max_volume_elements,
+        farfield_mesh_size=farfield_mesh_size,
+        wing_refinement_radius=wing_refinement_radius,
         write_su2=write_su2,
     )
     enriched_report = {

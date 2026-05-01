@@ -103,9 +103,11 @@ def test_run_blackcat_main_wing_faceted_refinement_ladder_reports_scale_gap(
         AVL_PATH,
         tmp_path / "blackcat_refinement_ladder",
         points_per_side=6,
-        mesh_sizes=(14.0, 10.0),
-        target_volume_elements=1_000,
+        mesh_sizes=(14.0, 10.0, 8.0, 6.0),
+        target_volume_elements=850,
         max_volume_elements=20_000,
+        farfield_mesh_size=18.0,
+        wing_refinement_radius=12.0,
         write_su2=False,
     )
 
@@ -115,6 +117,8 @@ def test_run_blackcat_main_wing_faceted_refinement_ladder_reports_scale_gap(
     assert [case["volume_element_count"] for case in report["cases"]] == sorted(
         case["volume_element_count"] for case in report["cases"]
     )
-    assert report["selected_case"]["mesh_size"] == 10.0
+    assert report["selected_case"]["mesh_size"] == 6.0
+    assert report["selected_case"]["mesh_sizing"]["farfield_mesh_size"] == 18.0
+    assert report["selected_case"]["mesh_sizing"]["wing_refinement_radius"] == 12.0
     assert report["selected_case"]["mesh_quality_gate"]["status"] == "pass"
     assert report["engineering_assessment"]["aero_coefficients_interpretable"] is False

@@ -95,6 +95,34 @@ def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path
     assert su2_summary["markers"]["farfield"]["element_count"] > 0
 
 
+def test_write_faceted_volume_mesh_supports_wing_local_sizing(tmp_path: Path):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    coarse = write_faceted_volume_mesh(
+        wing,
+        farfield,
+        tmp_path / "coarse.msh",
+        mesh_size=3.0,
+    )
+    locally_refined = write_faceted_volume_mesh(
+        wing,
+        farfield,
+        tmp_path / "wing_local.msh",
+        mesh_size=3.0,
+        wing_mesh_size=1.0,
+        farfield_mesh_size=3.0,
+    )
+
+    assert locally_refined["mesh_sizing"]["default_mesh_size"] == 3.0
+    assert locally_refined["mesh_sizing"]["wing_mesh_size"] == 1.0
+    assert locally_refined["mesh_sizing"]["farfield_mesh_size"] == 3.0
+    assert locally_refined["mesh_sizing"]["wing_refinement_radius"] == 3.0
+    assert locally_refined["mesh_sizing"]["background_field"]["type"] == "DistanceThreshold"
+    assert locally_refined["volume_element_count"] > coarse["volume_element_count"]
+    assert locally_refined["mesh_quality_gate"]["status"] == "pass"
+
+
 def test_run_faceted_volume_refinement_ladder_increases_mesh_density(tmp_path: Path):
     pytest.importorskip("gmsh")
     wing, farfield = _wing_and_close_farfield()
