@@ -110,6 +110,17 @@ Final coefficients:
 
 This proves the solver can be made numerically stable on the mesh, but it does not validate the physics. The converged negative CD is a blocking diagnostic.
 
+## Orientation Probe
+
+A temporary all-wing-face reversal probe was run on the same `h=0.09` setup.
+It also passed the iterative gate, but still converged to negative CD:
+
+| CL | CD | CMy |
+| -: | -: | -: |
+| 0.688007 | -0.145600 | 0.139576 |
+
+This suggests the negative drag is not fixed by simply reversing every generated wing face. The next diagnostic should look at force convention, surface-force breakdown, Kutta/trailing-edge behavior, and solver control-volume quality rather than assuming a one-line normal flip.
+
 ## Million-Cell Mesh Probe
 
 Pure mesh generation was run without SU2 on the high-density ladder:
@@ -155,7 +166,7 @@ What is not valid yet:
 Recommended next actions:
 
 1. Add a source-controlled SU2 numerics profile instead of hardcoded smoke settings.
-2. Audit wing boundary orientation and force-sign convention against SU2 surface force output.
+2. Audit force-sign convention and surface-force breakdown; all-wing face reversal did not remove negative CD.
 3. Investigate dual-control-volume quality hotspots before spending longer high-density SU2 runs.
 4. Only run medium/fine SU2 stability after one clean mesh gives nonnegative, converged coefficients.
 

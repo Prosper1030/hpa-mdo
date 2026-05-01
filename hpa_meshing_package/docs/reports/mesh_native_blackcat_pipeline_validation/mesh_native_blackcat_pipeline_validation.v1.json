@@ -109,6 +109,22 @@
     },
     "engineering_assessment": "solver_converges_but_negative_cd_is_not_accepted_as_valid_aero"
   },
+  "reversed_wing_face_orientation_probe": {
+    "mesh_size": 0.09,
+    "volume_elements": 105397,
+    "nodes": null,
+    "solver": "INC_EULER",
+    "scheme": "JST",
+    "cfl": 100.0,
+    "observed_final_iteration": 69,
+    "iterative_gate_status": "pass",
+    "final_coefficients": {
+      "cl": 0.6880070449,
+      "cd": -0.1455998462,
+      "cmy": 0.1395762263
+    },
+    "engineering_assessment": "reversing_all_wing_surface_faces_did_not_fix_negative_cd"
+  },
   "million_mesh_probe": {
     "settings": {
       "points_per_side": 16,
@@ -143,7 +159,7 @@
     ],
     "recommended_next_actions": [
       "Add a source-controlled SU2 numerics profile instead of hardcoded smoke settings.",
-      "Audit wing boundary orientation and force-sign convention against SU2 surface force output.",
+      "Audit force-sign convention and surface force output; all-wing face reversal did not remove negative CD.",
       "Investigate dual-control-volume quality hotspots before spending longer high-density SU2 runs.",
       "Only run medium/fine SU2 stability after a single clean mesh produces nonnegative, converged coefficients."
     ]
