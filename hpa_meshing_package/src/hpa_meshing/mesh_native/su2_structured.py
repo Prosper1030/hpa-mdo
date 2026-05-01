@@ -85,6 +85,70 @@ def write_wing_boundary_layer_block_su2(
     }
 
 
+def write_wing_boundary_layer_block_su2_case(
+    block: WingBoundaryLayerBlock,
+    case_dir: Path | str,
+    *,
+    ref_area: float,
+    ref_length: float,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 1,
+    solver: str = "INC_EULER",
+) -> dict[str, Any]:
+    if ref_area <= 0.0:
+        raise ValueError("ref_area must be positive")
+    if ref_length <= 0.0:
+        raise ValueError("ref_length must be positive")
+    if max_iterations <= 0:
+        raise ValueError("max_iterations must be positive")
+
+    case_dir = Path(case_dir)
+    case_dir.mkdir(parents=True, exist_ok=True)
+    mesh_path = case_dir / "mesh.su2"
+    runtime_cfg_path = case_dir / "su2_runtime.cfg"
+    report_path = case_dir / "wing_bl_block_su2_smoke_report.json"
+
+    mesh_report = write_wing_boundary_layer_block_su2(block, mesh_path)
+    runtime_cfg_path.write_text(
+        _bl_block_smoke_cfg_text(
+            block,
+            solver=solver,
+            ref_area=ref_area,
+            ref_length=ref_length,
+            velocity_mps=velocity_mps,
+            alpha_deg=alpha_deg,
+            max_iterations=max_iterations,
+        ),
+        encoding="utf-8",
+    )
+    marker_audit = audit_su2_case_markers(mesh_path, runtime_cfg_path)
+    report = {
+        "route": "mesh_native_wing_boundary_layer_block_su2_smoke_case",
+        "mesh_path": str(mesh_path),
+        "runtime_cfg_path": str(runtime_cfg_path),
+        "report_path": str(report_path),
+        "mesh_report": mesh_report,
+        "marker_audit": marker_audit,
+        "runtime": {
+            "solver": solver,
+            "velocity_mps": velocity_mps,
+            "alpha_deg": alpha_deg,
+            "max_iterations": max_iterations,
+            "ref_area": ref_area,
+            "ref_length": ref_length,
+        },
+        "engineering_assessment": {
+            "solver_readability": "not_run",
+            "marker_ownership": marker_audit["status"],
+            "aero_coefficients_interpretable": False,
+            "reason": "near_wall_block_only_no_farfield_core_domain",
+        },
+    }
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return report
+
+
 def write_structured_box_shell_su2_case(
     wing: SurfaceMesh,
     farfield: SurfaceMesh,
@@ -532,12 +596,105 @@ def _wall_boundary_lines(
     raise ValueError(f"Unsupported wall_profile: {wall_profile}")
 
 
+def _bl_block_smoke_cfg_text(
+    block: WingBoundaryLayerBlock,
+    *,
+    solver: str,
+    ref_area: float,
+    ref_length: float,
+    velocity_mps: float,
+    alpha_deg: float,
+    max_iterations: int,
+) -> str:
+    alpha_rad = math.radians(alpha_deg)
+    vx = velocity_mps * math.cos(alpha_rad)
+    vz = velocity_mps * math.sin(alpha_rad)
+    origin = _bounds_center(_vertex_bounds(block.vertices))
+    marker_counts = block.boundary_marker_counts()
+    far_markers = [
+        marker
+        for marker in ("bl_outer_interface", "wake_cut", "span_cap")
+        if marker_counts.get(marker, 0) > 0
+    ]
+    if marker_counts.get("wing_wall", 0) <= 0:
+        raise ValueError("BL block SU2 smoke case requires wing_wall boundary faces")
+    if not far_markers:
+        raise ValueError("BL block SU2 smoke case requires non-wall boundary faces")
+
+    return "\n".join(
+        [
+            "% Auto-generated mesh-native BL-block SU2 smoke case.",
+            "% This checks SU2 readability and marker ownership only.",
+            "% Do not interpret aerodynamic coefficients from this near-wall-only domain.",
+            f"SOLVER= {solver.strip().upper()}",
+            "KIND_TURB_MODEL= NONE",
+            "MATH_PROBLEM= DIRECT",
+            "SYSTEM_MEASUREMENTS= SI",
+            "RESTART_SOL= NO",
+            "INC_NONDIM= DIMENSIONAL",
+            "INC_DENSITY_MODEL= CONSTANT",
+            "FLUID_MODEL= INC_IDEAL_GAS",
+            "VISCOSITY_MODEL= CONSTANT_VISCOSITY",
+            "MU_CONSTANT= 1.789400e-05",
+            "INC_DENSITY_INIT= 1.225000",
+            "INC_TEMPERATURE_INIT= 288.150000",
+            f"INC_VELOCITY_INIT= ( {vx:.6f}, 0.000000, {vz:.6f} )",
+            f"AOA= {alpha_deg:.6f}",
+            "SIDESLIP_ANGLE= 0.000000",
+            f"REF_AREA= {ref_area:.6f}",
+            f"REF_LENGTH= {ref_length:.6f}",
+            f"REF_ORIGIN_MOMENT_X= {origin[0]:.6f}",
+            f"REF_ORIGIN_MOMENT_Y= {origin[1]:.6f}",
+            f"REF_ORIGIN_MOMENT_Z= {origin[2]:.6f}",
+            "MESH_FILENAME= mesh.su2",
+            "MESH_FORMAT= SU2",
+            "MARKER_EULER= ( wing_wall )",
+            "MARKER_MONITORING= ( wing_wall )",
+            "MARKER_PLOTTING= ( wing_wall )",
+            f"MARKER_FAR= ( {', '.join(far_markers)} )",
+            "NUM_METHOD_GRAD= WEIGHTED_LEAST_SQUARES",
+            "CONV_NUM_METHOD_FLOW= FDS",
+            "MUSCL_FLOW= YES",
+            "SLOPE_LIMITER_FLOW= NONE",
+            "TIME_DISCRE_FLOW= EULER_IMPLICIT",
+            "LINEAR_SOLVER= FGMRES",
+            "LINEAR_SOLVER_PREC= ILU",
+            "LINEAR_SOLVER_ERROR= 1e-6",
+            "LINEAR_SOLVER_ITER= 10",
+            f"ITER= {max_iterations}",
+            "CFL_NUMBER= 0.1",
+            "CONV_FIELD= DRAG",
+            "CONV_RESIDUAL_MINVAL= -9",
+            "CONV_STARTITER= 1",
+            "CONV_FILENAME= history",
+            "TABULAR_FORMAT= CSV",
+            "SCREEN_OUTPUT= (INNER_ITER, RMS_RES, AERO_COEFF)",
+            "HISTORY_OUTPUT= (ITER, RMS_RES, AERO_COEFF)",
+            "OUTPUT_FILES= (RESTART_ASCII)",
+            "",
+        ]
+    )
+
+
 def _bounds_center(bounds: dict[str, float]) -> Vertex:
     return (
         0.5 * (bounds["x_min"] + bounds["x_max"]),
         0.5 * (bounds["y_min"] + bounds["y_max"]),
         0.5 * (bounds["z_min"] + bounds["z_max"]),
     )
+
+
+def _vertex_bounds(vertices: Sequence[Vertex]) -> dict[str, float]:
+    if not vertices:
+        raise ValueError("Cannot compute bounds for an empty vertex list")
+    return {
+        "x_min": min(vertex[0] for vertex in vertices),
+        "x_max": max(vertex[0] for vertex in vertices),
+        "y_min": min(vertex[1] for vertex in vertices),
+        "y_max": max(vertex[1] for vertex in vertices),
+        "z_min": min(vertex[2] for vertex in vertices),
+        "z_max": max(vertex[2] for vertex in vertices),
+    }
 
 
 def _format_su2_value(value: float | str) -> str:

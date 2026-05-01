@@ -8,6 +8,7 @@ from hpa_meshing.mesh_native.su2_structured import (
     parse_su2_marker_summary,
     run_structured_box_shell_su2_smoke,
     write_wing_boundary_layer_block_su2,
+    write_wing_boundary_layer_block_su2_case,
     write_structured_box_shell_su2_case,
     write_structured_box_shell_su2,
 )
@@ -129,6 +130,47 @@ def test_wing_boundary_layer_block_su2_writer_preserves_hexes_and_boundary_marke
     assert parsed["nelem"] == len(block.cells)
     assert parsed["npoin"] == len(block.vertices)
     assert parsed["markers"] == report["marker_summary"]
+
+
+def test_wing_boundary_layer_block_case_assigns_all_smoke_markers(tmp_path: Path):
+    wing = WingSpec(
+        stations=[
+            Station(y=0.0, airfoil_xz=_rect_loop(), chord=1.0, twist_deg=0.0),
+            Station(y=1.0, airfoil_xz=_rect_loop(), chord=0.8, twist_deg=2.0),
+            Station(y=2.0, airfoil_xz=_rect_loop(), chord=0.6, twist_deg=4.0),
+        ],
+        side="full",
+        te_rule="finite_thickness",
+        tip_rule="planar_cap",
+        root_rule="wall_cap",
+        reference=Reference(sref_full=1.6, cref=0.8, bref_full=2.0),
+    )
+    block = build_wing_boundary_layer_block(
+        wing,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=1.0e-3,
+            growth_ratio=1.2,
+            layer_count=3,
+        ),
+    )
+
+    report = write_wing_boundary_layer_block_su2_case(
+        block,
+        tmp_path / "wing_bl_case",
+        ref_area=1.6,
+        ref_length=0.8,
+        max_iterations=1,
+    )
+
+    assert report["marker_audit"]["status"] == "pass"
+    assert report["marker_audit"]["boundary_condition_markers"] == {
+        "MARKER_EULER": ["wing_wall"],
+        "MARKER_FAR": ["bl_outer_interface", "wake_cut", "span_cap"],
+    }
+    assert report["engineering_assessment"]["aero_coefficients_interpretable"] is False
+    cfg_text = Path(report["runtime_cfg_path"]).read_text(encoding="utf-8")
+    assert "SOLVER= INC_EULER" in cfg_text
+    assert "MARKER_FAR= ( bl_outer_interface, wake_cut, span_cap )" in cfg_text
 
 
 def test_structured_box_shell_su2_writer_requires_enclosing_farfield(tmp_path: Path):
