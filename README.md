@@ -198,6 +198,8 @@ Birdman rules / environment / rider power / mass
 
 最新防誤判補強：`concept_summary.json`、`concept_ranked_pool.json`、`frontier_summary.json` 與候選 bundle 的 `concept_summary.json` 現在會輸出 `artifact_trust`，明確標示目前仍是 `diagnostic_only`，並列出 stub worker、worker fallback、missing polar、spanwise fallback、簡化 prop、OpenVSP 輸出關閉等非 decision-grade 原因。
 
+校準基準資料：`data/reference_aircraft/hpa_benchmarks.yaml` 保存 Daedalus 88 與 Light Eagle 的可解析 SI 基準值與來源 URL；目前用途是 sanity/calibration target，避免搜尋範圍排除歷史 HPA 量級，不是要求 optimizer 複製歷史外型。
+
 常用指令：
 
 ```bash

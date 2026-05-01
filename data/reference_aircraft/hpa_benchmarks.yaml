@@ -1,0 +1,188 @@
+schema_version: hpa_reference_benchmarks_v1
+unit_system: SI
+benchmarks:
+  daedalus_88:
+    label: MIT Daedalus 88
+    role: distance_endurance_reference
+    benchmark_use: calibration_sanity_check_only
+    notes:
+      - Values combine public MIT/NASA historical descriptions with the MDPI Daedalus FSI reconstruction.
+      - Do not use this as a geometry clone target; use it to check power, drag, CL, AR, and wing-loading magnitude.
+    sources:
+      - id: mit_news_2008
+        title: Record-breaking Daedalus project marks 20th anniversary
+        organization: MIT News
+        url: https://news.mit.edu/2008/daedalus-0422
+        used_for:
+          - record distance 115 km
+          - record duration 3 h 54 min
+          - empty aircraft mass 69 lb
+          - bicycle drivetrain and slow propeller context
+      - id: nasa_image_article
+        title: Daedalus Human-Powered Aircraft
+        organization: NASA
+        url: https://www.nasa.gov/image-article/daedalus-human-powered-aircraft/
+        used_for:
+          - Light Eagle and Daedalus project context
+          - aircraft empty mass context
+          - Dryden power-required flight-research context
+      - id: mdpi_fsi_2016
+        title: Optimization of a Human-Powered Aircraft Using Fluid-Structure Interaction Simulations
+        organization: Aerospace, MDPI
+        url: https://www.mdpi.com/2226-4310/3/3/26
+        used_for:
+          - span 34 m
+          - wing area 31 m2
+          - taper ratio 1/3
+          - cruise speed 6.7 m/s
+          - total mass 105.4 kg
+          - MIT-estimate drag and pilot power comparison
+      - id: mit_drela_hpa_page
+        title: MIT Human Powered Aircraft and Hydrofoil info web page
+        organization: MIT / Mark Drela
+        url: https://web.mit.edu/drela/Public/web/hpa/
+        used_for:
+          - Daedalus airfoil family and drawing index
+    geometry:
+      span_m:
+        value: 34.0
+        tolerance: 0.5
+        source_ids: [mdpi_fsi_2016]
+      wing_area_m2:
+        value: 31.0
+        tolerance: 1.0
+        source_ids: [mdpi_fsi_2016]
+      taper_ratio:
+        value: 0.3333333333
+        tolerance: 0.03
+        source_ids: [mdpi_fsi_2016]
+    mass:
+      empty_mass_kg:
+        value: 31.3
+        tolerance: 1.0
+        source_ids: [mit_news_2008, nasa_image_article]
+        conversion_note: 69 lb converted with 0.45359237 kg/lb.
+      total_mass_kg:
+        value: 105.4
+        tolerance: 5.0
+        source_ids: [mdpi_fsi_2016]
+    mission:
+      record_distance_km:
+        value: 115.0
+        tolerance: 2.0
+        source_ids: [mit_news_2008]
+      record_duration_min:
+        value: 234.0
+        tolerance: 1.0
+        source_ids: [mit_news_2008]
+      cruise_speed_mps:
+        value: 6.7
+        tolerance: 0.3
+        source_ids: [mdpi_fsi_2016]
+    aero:
+      gliding_drag_n:
+        value: 27.0
+        tolerance: 4.0
+        source_ids: [mdpi_fsi_2016]
+      pilot_power_w:
+        value: 201.0
+        tolerance: 30.0
+        source_ids: [mdpi_fsi_2016]
+    calibration_targets:
+      pilot_power_w:
+        target: 201.0
+        warning_relative_error: 0.15
+        fail_relative_error: 0.25
+      gliding_drag_n:
+        target: 27.0
+        warning_relative_error: 0.15
+        fail_relative_error: 0.25
+      cruise_cl:
+        warning_relative_error: 0.15
+        fail_relative_error: 0.25
+      wing_loading_Npm2:
+        warning_relative_error: 0.12
+        fail_relative_error: 0.20
+  light_eagle:
+    label: MIT Light Eagle
+    role: prototype_high_ar_reference
+    benchmark_use: geometry_structure_power_sanity_check_only
+    notes:
+      - Use mainly to prevent the concept search from excluding high-AR HPA designs.
+      - NASA report values are from a Light Eagle comparison table and flight-research discussion.
+    sources:
+      - id: nasa_ntrs_19890001519
+        title: Flight Research with the Daedalus and Light Eagle Aircraft
+        organization: NASA NTRS
+        url: https://ntrs.nasa.gov/api/citations/19890001519/downloads/19890001519.pdf
+        used_for:
+          - wing area 31 m2
+          - span 34.7 m
+          - aspect ratio 39.4
+          - empty weight 42 kg
+          - design power 225 W
+          - design airspeed 7.8 m/s
+          - total weight and power-required context
+      - id: nasa_image_article
+        title: Daedalus Human-Powered Aircraft
+        organization: NASA
+        url: https://www.nasa.gov/image-article/daedalus-human-powered-aircraft/
+        used_for:
+          - prototype context
+          - 92 lb aircraft mass context
+          - closed-course record context
+      - id: mit_drela_hpa_page
+        title: MIT Human Powered Aircraft and Hydrofoil info web page
+        organization: MIT / Mark Drela
+        url: https://web.mit.edu/drela/Public/web/hpa/
+        used_for:
+          - Light Eagle drawing and airfoil index
+    geometry:
+      span_m:
+        value: 34.7
+        tolerance: 0.5
+        source_ids: [nasa_ntrs_19890001519]
+      wing_area_m2:
+        value: 31.0
+        tolerance: 1.0
+        source_ids: [nasa_ntrs_19890001519]
+      aspect_ratio:
+        value: 39.4
+        tolerance: 1.0
+        source_ids: [nasa_ntrs_19890001519]
+    mass:
+      empty_mass_kg:
+        value: 42.0
+        tolerance: 2.0
+        source_ids: [nasa_ntrs_19890001519]
+      total_mass_kg:
+        value: 110.0
+        tolerance: 8.0
+        source_ids: [nasa_ntrs_19890001519]
+    mission:
+      design_airspeed_mps:
+        value: 7.8
+        tolerance: 0.4
+        source_ids: [nasa_ntrs_19890001519]
+    aero:
+      design_power_w:
+        value: 225.0
+        tolerance: 35.0
+        source_ids: [nasa_ntrs_19890001519]
+      power_required_context_w:
+        value: 200.0
+        tolerance: 35.0
+        source_ids: [nasa_ntrs_19890001519]
+    calibration_targets:
+      design_power_w:
+        target: 225.0
+        warning_relative_error: 0.15
+        fail_relative_error: 0.25
+      design_airspeed_mps:
+        target: 7.8
+        warning_relative_error: 0.10
+        fail_relative_error: 0.18
+      aspect_ratio:
+        target: 39.4
+        warning_relative_error: 0.08
+        fail_relative_error: 0.15
