@@ -342,7 +342,8 @@ def _smoke_cfg_text(
     origin = _bounds_center(wing.bounds())
     lines = [
         "% Auto-generated mesh-native SU2 smoke case.",
-        "% The wing marker is a bounding-box obstacle; do not interpret aerodynamic coefficients.",
+        "% This smoke case proves mesh readability and marker ownership only.",
+        "% Do not interpret aerodynamic coefficients from this case.",
         f"SOLVER= {solver}",
         "KIND_TURB_MODEL= NONE",
         "MATH_PROBLEM= DIRECT",
