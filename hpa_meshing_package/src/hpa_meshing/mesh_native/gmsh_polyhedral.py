@@ -579,6 +579,7 @@ def _collect_volume_quality_metrics(gmsh) -> dict[str, Any]:
 
 def _mesh_quality_gate(quality_metrics: dict[str, Any]) -> dict[str, Any]:
     blockers: list[str] = []
+    warnings: list[str] = []
     if int(quality_metrics.get("tetra_element_count") or 0) <= 0:
         blockers.append("tetra_elements_missing")
     if int(quality_metrics.get("non_positive_min_sicn_count") or 0) > 0:
@@ -590,9 +591,24 @@ def _mesh_quality_gate(quality_metrics: dict[str, Any]) -> dict[str, Any]:
     min_gamma = quality_metrics.get("min_gamma")
     if min_gamma is not None and float(min_gamma) <= 0.0:
         blockers.append("non_positive_gamma")
+    if min_gamma is not None and 0.0 < float(min_gamma) < 1.0e-4:
+        warnings.append("very_low_min_gamma")
+    min_sicn = quality_metrics.get("min_sicn")
+    if min_sicn is not None and 0.0 < float(min_sicn) < 1.0e-4:
+        warnings.append("very_low_min_sicn")
+    gamma_percentiles = quality_metrics.get("gamma_percentiles") or {}
+    p01_gamma = gamma_percentiles.get("p01") if isinstance(gamma_percentiles, dict) else None
+    if p01_gamma is not None and float(p01_gamma) < 0.02:
+        warnings.append("low_p01_gamma")
     return {
         "status": "pass" if not blockers else "fail",
         "blockers": blockers,
+        "warnings": warnings,
+        "warning_thresholds": {
+            "min_gamma": 1.0e-4,
+            "min_sicn": 1.0e-4,
+            "p01_gamma": 0.02,
+        },
     }
 
 

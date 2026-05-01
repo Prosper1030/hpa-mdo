@@ -4,6 +4,7 @@ import shutil
 import pytest
 
 from hpa_meshing.mesh_native.gmsh_polyhedral import (
+    _mesh_quality_gate,
     run_faceted_volume_refinement_ladder,
     run_faceted_volume_su2_smoke,
     write_faceted_volume_mesh,
@@ -121,6 +122,25 @@ def test_write_faceted_volume_mesh_supports_wing_local_sizing(tmp_path: Path):
     assert locally_refined["mesh_sizing"]["background_field"]["type"] == "DistanceThreshold"
     assert locally_refined["volume_element_count"] > coarse["volume_element_count"]
     assert locally_refined["mesh_quality_gate"]["status"] == "pass"
+
+
+def test_mesh_quality_gate_warns_on_near_zero_positive_tets():
+    gate = _mesh_quality_gate(
+        {
+            "tetra_element_count": 1,
+            "non_positive_min_sicn_count": 0,
+            "non_positive_min_sige_count": 0,
+            "non_positive_volume_count": 0,
+            "min_gamma": 1.0e-7,
+            "min_sicn": 5.0e-5,
+            "gamma_percentiles": {"p01": 0.005, "p05": 0.02, "p50": 0.3},
+        }
+    )
+
+    assert gate["status"] == "pass"
+    assert "very_low_min_gamma" in gate["warnings"]
+    assert "very_low_min_sicn" in gate["warnings"]
+    assert "low_p01_gamma" in gate["warnings"]
 
 
 def test_run_faceted_volume_refinement_ladder_increases_mesh_density(tmp_path: Path):
