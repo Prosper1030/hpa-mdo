@@ -1,0 +1,89 @@
+{
+  "route": "blackcat_main_wing_mesh_native_high_density_su2_smoke",
+  "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/mesh.su2",
+  "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/su2_runtime.cfg",
+  "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/solver.log",
+  "history_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/history.csv",
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "4",
+    "su2_runtime.cfg"
+  ],
+  "returncode": 0,
+  "run_status": "completed",
+  "mesh_summary": {
+    "ndime": 3,
+    "nelem": 107415,
+    "npoin": 35993,
+    "nmark": 2,
+    "markers": {
+      "wing_wall": {
+        "element_count": 62736,
+        "element_type_counts": {
+          "5": 62736
+        }
+      },
+      "farfield": {
+        "element_count": 516,
+        "element_type_counts": {
+          "5": 516
+        }
+      }
+    }
+  },
+  "marker_audit": {
+    "status": "pass",
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "missing_from_mesh": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 107415,
+      "npoin": 35993,
+      "nmark": 2,
+      "markers": {
+        "wing_wall": {
+          "element_count": 62736,
+          "element_type_counts": {
+            "5": 62736
+          }
+        },
+        "farfield": {
+          "element_count": 516,
+          "element_type_counts": {
+            "5": 516
+          }
+        }
+      }
+    }
+  },
+  "history": {
+    "row_count": 3,
+    "final_iteration": 2,
+    "final_coefficients": {
+      "cl": 0.1088195619,
+      "cd": 0.06000507882,
+      "cmx": -0.003848427239,
+      "cmy": -0.06840025443,
+      "cmz": 0.007152783968
+    }
+  },
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "aero_coefficients_interpretable": false,
+    "reason": "three_iteration_high_density_mesh_readability_smoke_only"
+  }
+}

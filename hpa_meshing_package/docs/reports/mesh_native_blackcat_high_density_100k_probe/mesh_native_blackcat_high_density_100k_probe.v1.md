@@ -39,6 +39,8 @@ Feature boxes:
 
 - Report JSON: `mesh_native_blackcat_high_density_100k_probe.v1.json`
 - Runtime report JSON: `artifacts/coupled_refinement_ladder_report.json`
+- SU2 smoke report JSON:
+  `artifacts/01_span_4_pps_16_feat_3_h_0p09/high_density_su2_smoke_report.json`
 - Mesh artifacts:
   - `artifacts/00_span_4_pps_16_feat_3_h_0p1/mesh.msh`
   - `artifacts/00_span_4_pps_16_feat_3_h_0p1/mesh.su2`
@@ -70,10 +72,28 @@ Marker element counts in the selected SU2 mesh:
 | `wing_wall` | 62,736 |
 | `farfield` | 516 |
 
+## SU2 Smoke
+
+The selected `h = 0.09` mesh was run through `SU2_CFD` with `INC_EULER` for
+three iterations using 4 threads.
+
+Smoke result:
+
+- return code: `0`
+- run status: `completed`
+- marker audit: `pass`
+- final iteration: `2`
+- final smoke `CL`: `0.1088195619`
+- final smoke `CD`: `0.06000507882`
+
+These coefficients are not aerodynamic evidence. The run is only a readability
+and marker-ownership smoke test for the high-density mesh.
+
 ## Engineering Assessment
 
 This is the first mesh-native Black Cat main-wing evidence packet that reaches
-a `100k`-class volume mesh and writes a SU2 mesh with expected markers.
+a `100k`-class volume mesh, writes a SU2 mesh with expected markers, and starts
+`SU2_CFD` without immediate solver failure.
 
 The result is encouraging but bounded. It proves that the current mesh-native
 route can generate a higher-density tetrahedral mesh automatically on this
