@@ -9,6 +9,7 @@ from .wing_surface import Station, Vertex, WingSpec
 
 Point2D = tuple[float, float]
 CellMarker = Literal["boundary_layer", "trailing_edge_connector"]
+BoundaryFaceMarker = Literal["wing_wall", "bl_outer_interface", "wake_cut", "span_cap"]
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,12 @@ class HexCell:
 
 
 @dataclass(frozen=True)
+class BlockBoundaryFace:
+    nodes: tuple[int, int, int, int]
+    marker: BoundaryFaceMarker
+
+
+@dataclass(frozen=True)
 class WallNodeIndices:
     upper_te: int
     leading_edge: int
@@ -70,6 +77,7 @@ class AirfoilBoundaryLayerBlock:
 class WingBoundaryLayerBlock:
     vertices: list[Vertex]
     cells: list[HexCell]
+    boundary_faces: list[BlockBoundaryFace]
     section_blocks: list[AirfoilBoundaryLayerBlock]
     metadata: dict[str, bool | float | int | str]
     quality: dict[str, float | int]
@@ -78,6 +86,12 @@ class WingBoundaryLayerBlock:
         counts: dict[str, int] = {}
         for cell in self.cells:
             counts[cell.marker] = counts.get(cell.marker, 0) + 1
+        return counts
+
+    def boundary_marker_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for face in self.boundary_faces:
+            counts[face.marker] = counts.get(face.marker, 0) + 1
         return counts
 
 
@@ -175,6 +189,15 @@ def build_wing_boundary_layer_block(
             right_area = _cell_signed_area(right_section.vertices, right_cell.nodes)
             estimated_volumes.append(0.5 * (left_area + right_area) * span_interval)
 
+    wall_count = int(section_blocks[0].metadata["wall_node_count"])
+    boundary_faces = _build_block_boundary_faces(
+        section_count=len(stations),
+        section_vertex_count=section_vertex_count,
+        section_cells=section_blocks[0].cells,
+        wall_count=wall_count,
+        layer_count=bl_spec.layer_count,
+    )
+    unowned_boundary_count = _unowned_boundary_face_count(cells, boundary_faces)
     quality = {
         "cell_count": len(cells),
         "min_estimated_volume_m3": min(estimated_volumes) if estimated_volumes else 0.0,
@@ -189,13 +212,18 @@ def build_wing_boundary_layer_block(
         "max_section_first_layer_height_m": max(
             float(section.quality["max_first_layer_height_m"]) for section in section_blocks
         ),
+        "boundary_face_count": len(boundary_faces),
+        "unowned_boundary_face_count": unowned_boundary_count,
     }
     if quality["non_positive_volume_count"] != 0:
         raise ValueError("Wing boundary-layer block contains non-positive estimated volumes")
+    if quality["unowned_boundary_face_count"] != 0:
+        raise ValueError("Wing boundary-layer block contains unowned boundary faces")
 
     return WingBoundaryLayerBlock(
         vertices=vertices,
         cells=cells,
+        boundary_faces=boundary_faces,
         section_blocks=section_blocks,
         metadata={
             "station_count": len(stations),
@@ -358,6 +386,162 @@ def _validate_matching_section_blocks(sections: Sequence[AirfoilBoundaryLayerBlo
             raise ValueError("Boundary-layer section vertex topology mismatch")
         if [cell.marker for cell in section.cells] != markers:
             raise ValueError("Boundary-layer section cell topology mismatch")
+
+
+def _build_block_boundary_faces(
+    *,
+    section_count: int,
+    section_vertex_count: int,
+    section_cells: Sequence[QuadCell],
+    wall_count: int,
+    layer_count: int,
+) -> list[BlockBoundaryFace]:
+    faces: list[BlockBoundaryFace] = []
+    wake_start = (layer_count + 1) * wall_count
+
+    def section_node(section: int, local_node: int) -> int:
+        return section * section_vertex_count + local_node
+
+    def grid(section: int, layer: int, index: int) -> int:
+        return section_node(section, layer * wall_count + index)
+
+    def wake(section: int, layer: int, side: int) -> int:
+        return section_node(section, wake_start + 2 * layer + side)
+
+    for section in range(section_count - 1):
+        for index in range(wall_count - 1):
+            faces.append(
+                BlockBoundaryFace(
+                    nodes=(
+                        grid(section, 0, index),
+                        grid(section + 1, 0, index),
+                        grid(section + 1, 0, index + 1),
+                        grid(section, 0, index + 1),
+                    ),
+                    marker="wing_wall",
+                )
+            )
+            faces.append(
+                BlockBoundaryFace(
+                    nodes=(
+                        grid(section, layer_count, index),
+                        grid(section, layer_count, index + 1),
+                        grid(section + 1, layer_count, index + 1),
+                        grid(section + 1, layer_count, index),
+                    ),
+                    marker="bl_outer_interface",
+                )
+            )
+
+        faces.append(
+            BlockBoundaryFace(
+                nodes=(
+                    grid(section, layer_count, 0),
+                    grid(section + 1, layer_count, 0),
+                    wake(section + 1, layer_count, 0),
+                    wake(section, layer_count, 0),
+                ),
+                marker="bl_outer_interface",
+            )
+        )
+        faces.append(
+            BlockBoundaryFace(
+                nodes=(
+                    grid(section, layer_count, wall_count - 1),
+                    wake(section, layer_count, 1),
+                    wake(section + 1, layer_count, 1),
+                    grid(section + 1, layer_count, wall_count - 1),
+                ),
+                marker="bl_outer_interface",
+            )
+        )
+
+        faces.append(
+            BlockBoundaryFace(
+                nodes=(
+                    grid(section, 0, 0),
+                    wake(section, 0, 0),
+                    wake(section + 1, 0, 0),
+                    grid(section + 1, 0, 0),
+                ),
+                marker="wake_cut",
+            )
+        )
+        faces.append(
+            BlockBoundaryFace(
+                nodes=(
+                    grid(section, 0, wall_count - 1),
+                    grid(section + 1, 0, wall_count - 1),
+                    wake(section + 1, 0, 1),
+                    wake(section, 0, 1),
+                ),
+                marker="wake_cut",
+            )
+        )
+
+        for layer in range(layer_count):
+            faces.append(
+                BlockBoundaryFace(
+                    nodes=(
+                        wake(section, layer, 0),
+                        wake(section + 1, layer, 0),
+                        wake(section + 1, layer + 1, 0),
+                        wake(section, layer + 1, 0),
+                    ),
+                    marker="wake_cut",
+                )
+            )
+            faces.append(
+                BlockBoundaryFace(
+                    nodes=(
+                        wake(section, layer, 1),
+                        wake(section, layer + 1, 1),
+                        wake(section + 1, layer + 1, 1),
+                        wake(section + 1, layer, 1),
+                    ),
+                    marker="wake_cut",
+                )
+            )
+
+    for section in (0, section_count - 1):
+        for cell in section_cells:
+            faces.append(
+                BlockBoundaryFace(
+                    nodes=tuple(section_node(section, node) for node in cell.nodes),
+                    marker="span_cap",
+                )
+            )
+    return faces
+
+
+def _unowned_boundary_face_count(
+    cells: Sequence[HexCell],
+    boundary_faces: Sequence[BlockBoundaryFace],
+) -> int:
+    face_counts: dict[tuple[int, int, int, int], int] = {}
+    for cell in cells:
+        for face in _hex_faces(cell):
+            key = _canonical_face(face)
+            face_counts[key] = face_counts.get(key, 0) + 1
+    actual_boundary = {face for face, count in face_counts.items() if count == 1}
+    owned_boundary = {_canonical_face(face.nodes) for face in boundary_faces}
+    return len(actual_boundary - owned_boundary)
+
+
+def _hex_faces(cell: HexCell) -> tuple[tuple[int, int, int, int], ...]:
+    a, b, c, d, e, f, g, h = cell.nodes
+    return (
+        (a, b, c, d),
+        (e, f, g, h),
+        (a, e, f, b),
+        (b, f, g, c),
+        (c, g, h, d),
+        (d, h, e, a),
+    )
+
+
+def _canonical_face(face: Sequence[int]) -> tuple[int, int, int, int]:
+    return tuple(sorted(face))
 
 
 def _transform_local_xz_to_station_xyz(

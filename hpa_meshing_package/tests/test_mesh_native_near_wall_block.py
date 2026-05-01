@@ -118,6 +118,11 @@ def test_vsp_main_wing_bl_block_connects_spanwise_stations_with_positive_volumes
     assert len(block.cells) == 1920
     assert block.marker_counts()["boundary_layer"] == 1760
     assert block.marker_counts()["trailing_edge_connector"] == 160
+    assert block.boundary_marker_counts()["wing_wall"] == 220
+    assert block.boundary_marker_counts()["bl_outer_interface"] == 240
+    assert block.boundary_marker_counts()["wake_cut"] == 180
+    assert block.boundary_marker_counts()["span_cap"] == 384
+    assert block.quality["unowned_boundary_face_count"] == 0
     assert block.quality["non_positive_volume_count"] == 0
     assert block.quality["min_estimated_volume_m3"] > 0.0
     assert block.quality["min_span_interval_m"] > 0.0
