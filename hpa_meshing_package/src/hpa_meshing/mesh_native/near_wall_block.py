@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import math
 from typing import Literal, Sequence
 
-from .wing_surface import Station
+from .wing_surface import Station, Vertex, WingSpec
 
 
 Point2D = tuple[float, float]
@@ -39,6 +39,12 @@ class QuadCell:
 
 
 @dataclass(frozen=True)
+class HexCell:
+    nodes: tuple[int, int, int, int, int, int, int, int]
+    marker: CellMarker
+
+
+@dataclass(frozen=True)
 class WallNodeIndices:
     upper_te: int
     leading_edge: int
@@ -50,6 +56,21 @@ class AirfoilBoundaryLayerBlock:
     vertices: list[Point2D]
     cells: list[QuadCell]
     wall_nodes: WallNodeIndices
+    metadata: dict[str, bool | float | int | str]
+    quality: dict[str, float | int]
+
+    def marker_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for cell in self.cells:
+            counts[cell.marker] = counts.get(cell.marker, 0) + 1
+        return counts
+
+
+@dataclass(frozen=True)
+class WingBoundaryLayerBlock:
+    vertices: list[Vertex]
+    cells: list[HexCell]
+    section_blocks: list[AirfoilBoundaryLayerBlock]
     metadata: dict[str, bool | float | int | str]
     quality: dict[str, float | int]
 
@@ -104,6 +125,89 @@ def split_airfoil_wall_loop(
         leading_edge_index=leading_edge_index,
         added_lower_trailing_edge=added_lower_te,
         sharp_trailing_edge=sharp_te,
+    )
+
+
+def build_wing_boundary_layer_block(
+    wing: WingSpec,
+    bl_spec: BoundaryLayerBlockSpec,
+) -> WingBoundaryLayerBlock:
+    stations = _ordered_stations(wing)
+    section_blocks = [build_airfoil_boundary_layer_block(station, bl_spec) for station in stations]
+    _validate_matching_section_blocks(section_blocks)
+
+    section_vertex_count = len(section_blocks[0].vertices)
+    section_cell_count = len(section_blocks[0].cells)
+    vertices: list[Vertex] = []
+    for station, section in zip(stations, section_blocks):
+        vertices.extend(
+            _transform_local_xz_to_station_xyz(point, station, wing.twist_axis_x)
+            for point in section.vertices
+        )
+
+    def node(section_index: int, local_node: int) -> int:
+        return section_index * section_vertex_count + local_node
+
+    cells: list[HexCell] = []
+    estimated_volumes: list[float] = []
+    span_intervals: list[float] = []
+    for station_index, (left_station, right_station) in enumerate(
+        zip(stations[:-1], stations[1:])
+    ):
+        span_interval = right_station.y - left_station.y
+        span_intervals.append(span_interval)
+        left_section = section_blocks[station_index]
+        right_section = section_blocks[station_index + 1]
+        for cell_index, left_cell in enumerate(left_section.cells):
+            right_cell = right_section.cells[cell_index]
+            if left_cell.marker != right_cell.marker:
+                raise ValueError("Boundary-layer section marker topology mismatch")
+            cells.append(
+                HexCell(
+                    nodes=(
+                        *(node(station_index, local) for local in left_cell.nodes),
+                        *(node(station_index + 1, local) for local in right_cell.nodes),
+                    ),
+                    marker=left_cell.marker,
+                )
+            )
+            left_area = _cell_signed_area(left_section.vertices, left_cell.nodes)
+            right_area = _cell_signed_area(right_section.vertices, right_cell.nodes)
+            estimated_volumes.append(0.5 * (left_area + right_area) * span_interval)
+
+    quality = {
+        "cell_count": len(cells),
+        "min_estimated_volume_m3": min(estimated_volumes) if estimated_volumes else 0.0,
+        "non_positive_volume_count": sum(
+            1 for volume in estimated_volumes if volume <= 0.0
+        ),
+        "min_span_interval_m": min(span_intervals) if span_intervals else 0.0,
+        "max_span_interval_m": max(span_intervals) if span_intervals else 0.0,
+        "min_section_first_layer_height_m": min(
+            float(section.quality["min_first_layer_height_m"]) for section in section_blocks
+        ),
+        "max_section_first_layer_height_m": max(
+            float(section.quality["max_first_layer_height_m"]) for section in section_blocks
+        ),
+    }
+    if quality["non_positive_volume_count"] != 0:
+        raise ValueError("Wing boundary-layer block contains non-positive estimated volumes")
+
+    return WingBoundaryLayerBlock(
+        vertices=vertices,
+        cells=cells,
+        section_blocks=section_blocks,
+        metadata={
+            "station_count": len(stations),
+            "span_interval_count": len(stations) - 1,
+            "section_vertex_count": section_vertex_count,
+            "section_cell_count": section_cell_count,
+            "layer_count": bl_spec.layer_count,
+            "first_layer_height_m": bl_spec.first_layer_height_m,
+            "growth_ratio": bl_spec.growth_ratio,
+            "twist_axis_x": wing.twist_axis_x,
+        },
+        quality=quality,
     )
 
 
@@ -232,6 +336,43 @@ def _validate_block_spec(spec: BoundaryLayerBlockSpec) -> None:
         raise ValueError("growth_ratio must be a finite value >= 1")
     if spec.layer_count < 1:
         raise ValueError("layer_count must be at least 1")
+
+
+def _ordered_stations(wing: WingSpec) -> list[Station]:
+    if len(wing.stations) < 2:
+        raise ValueError("At least two stations are required")
+    stations = list(wing.stations)
+    for left, right in zip(stations[:-1], stations[1:]):
+        if right.y <= left.y:
+            raise ValueError("Station y values must be strictly increasing")
+    return stations
+
+
+def _validate_matching_section_blocks(sections: Sequence[AirfoilBoundaryLayerBlock]) -> None:
+    if not sections:
+        raise ValueError("At least one section block is required")
+    vertex_count = len(sections[0].vertices)
+    markers = [cell.marker for cell in sections[0].cells]
+    for section in sections[1:]:
+        if len(section.vertices) != vertex_count:
+            raise ValueError("Boundary-layer section vertex topology mismatch")
+        if [cell.marker for cell in section.cells] != markers:
+            raise ValueError("Boundary-layer section cell topology mismatch")
+
+
+def _transform_local_xz_to_station_xyz(
+    point: Point2D,
+    station: Station,
+    twist_axis_x: float,
+) -> Vertex:
+    x, z = point
+    theta = math.radians(station.twist_deg)
+    cos_theta = math.cos(theta)
+    sin_theta = math.sin(theta)
+    twist_axis = station.chord * twist_axis_x
+    x_rot = twist_axis + cos_theta * (x - twist_axis) + sin_theta * z
+    z_rot = -sin_theta * (x - twist_axis) + cos_theta * z
+    return station.x_le + x_rot, station.y, station.z_le + z_rot
 
 
 def _clean_points(points: Sequence[Point2D], *, tolerance: float = 1.0e-12) -> list[Point2D]:

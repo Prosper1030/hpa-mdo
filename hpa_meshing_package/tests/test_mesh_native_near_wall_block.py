@@ -6,6 +6,7 @@ from hpa_meshing.mesh_native.blackcat import load_blackcat_main_wing_spec_from_v
 from hpa_meshing.mesh_native.near_wall_block import (
     BoundaryLayerBlockSpec,
     build_airfoil_boundary_layer_block,
+    build_wing_boundary_layer_block,
     split_airfoil_wall_loop,
 )
 from hpa_meshing.mesh_native.wing_surface import Station
@@ -93,3 +94,30 @@ def test_finite_te_airfoil_bl_block_preserves_distinct_te_wall_nodes():
     assert block.marker_counts()["trailing_edge_connector"] == 16
     assert block.quality["non_positive_area_count"] == 0
     assert block.wall_nodes.upper_te != block.wall_nodes.lower_te
+
+
+def test_vsp_main_wing_bl_block_connects_spanwise_stations_with_positive_volumes():
+    pytest.importorskip("openvsp")
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=12,
+    )
+
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=5.0e-5,
+            growth_ratio=1.18,
+            layer_count=8,
+        ),
+    )
+
+    assert block.metadata["station_count"] == 11
+    assert block.metadata["section_cell_count"] == 192
+    assert len(block.cells) == 1920
+    assert block.marker_counts()["boundary_layer"] == 1760
+    assert block.marker_counts()["trailing_edge_connector"] == 160
+    assert block.quality["non_positive_volume_count"] == 0
+    assert block.quality["min_estimated_volume_m3"] > 0.0
+    assert block.quality["min_span_interval_m"] > 0.0
