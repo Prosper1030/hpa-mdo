@@ -13,6 +13,7 @@ from hpa_meshing.mesh_native.wing_surface import (
     build_wing_surface,
     load_wing_spec,
     merge_surface_meshes,
+    surface_orientation_summary,
     validate_surface_mesh,
 )
 
@@ -54,9 +55,14 @@ def test_build_wing_surface_creates_deterministic_closed_rectangular_mesh():
 
     assert mesh.vertices[0] == pytest.approx((1.0, 0.0, 0.05))
     assert mesh.vertices[4] == pytest.approx((1.0, 1.0, 0.05))
-    assert mesh.faces[0].nodes == (0, 4, 5, 1)
     assert mesh.faces[0].marker == "wing_wall"
     assert all(face.marker for face in mesh.faces)
+
+    orientation = surface_orientation_summary(mesh)
+    assert orientation["component_count"] == 1
+    assert orientation["inconsistent_edge_count"] == 0
+    assert orientation["negative_signed_volume_component_count"] == 0
+    assert orientation["signed_volume"] > 0.0
 
 
 def test_build_wing_surface_applies_chord_and_twist_about_quarter_chord():
@@ -270,6 +276,9 @@ def test_build_farfield_box_surface_wraps_wing_bounds_with_farfield_marker():
     assert farfield.metadata["z_min"] == pytest.approx(-10.05)
     assert farfield.metadata["z_max"] == pytest.approx(10.05)
     validate_surface_mesh(farfield, required_markers=("farfield",))
+    orientation = surface_orientation_summary(farfield)
+    assert orientation["inconsistent_edge_count"] == 0
+    assert orientation["negative_signed_volume_component_count"] == 0
 
 
 def test_merge_surface_meshes_preserves_wing_and_farfield_marker_ownership():

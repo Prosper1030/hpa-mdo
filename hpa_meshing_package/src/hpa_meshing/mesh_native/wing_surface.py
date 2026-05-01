@@ -136,7 +136,9 @@ def build_wing_surface(spec: WingSpec) -> SurfaceMesh:
         },
     )
     validate_surface_mesh(mesh)
-    return mesh
+    oriented = orient_surface_mesh_outward(mesh)
+    validate_surface_mesh(oriented)
+    return oriented
 
 
 def build_farfield_box_surface(
@@ -193,7 +195,9 @@ def build_farfield_box_surface(
         },
     )
     validate_surface_mesh(mesh, required_markers=(marker,))
-    return mesh
+    oriented = orient_surface_mesh_outward(mesh)
+    validate_surface_mesh(oriented, required_markers=(marker,))
+    return oriented
 
 
 def merge_surface_meshes(meshes: Sequence[SurfaceMesh]) -> SurfaceMesh:
@@ -387,6 +391,46 @@ def validate_surface_mesh(
         raise ValueError(f"Non-watertight surface: {len(bad_edges)} bad edges")
 
 
+def orient_surface_mesh_outward(mesh: SurfaceMesh) -> SurfaceMesh:
+    """Return a copy with consistently oriented closed-surface components."""
+    components = _surface_face_components(mesh)
+    faces = list(mesh.faces)
+
+    for component in components:
+        flipped = _component_orientation_flips(mesh, component)
+        for face_index in component:
+            if flipped.get(face_index, False):
+                face = faces[face_index]
+                faces[face_index] = Face(nodes=tuple(reversed(face.nodes)), marker=face.marker)
+
+        if _signed_volume_for_faces(mesh.vertices, [faces[index] for index in component]) < 0.0:
+            for face_index in component:
+                face = faces[face_index]
+                faces[face_index] = Face(nodes=tuple(reversed(face.nodes)), marker=face.marker)
+
+    return SurfaceMesh(
+        vertices=list(mesh.vertices),
+        faces=faces,
+        metadata={**mesh.metadata, "orientation": "outward_consistent"},
+    )
+
+
+def surface_orientation_summary(mesh: SurfaceMesh) -> dict[str, float | int]:
+    components = _surface_face_components(mesh)
+    component_signed_volumes = [
+        _signed_volume_for_faces(mesh.vertices, [mesh.faces[index] for index in component])
+        for component in components
+    ]
+    return {
+        "component_count": len(components),
+        "inconsistent_edge_count": _inconsistent_oriented_edge_count(mesh),
+        "signed_volume": sum(component_signed_volumes),
+        "negative_signed_volume_component_count": sum(
+            1 for volume in component_signed_volumes if volume < 0.0
+        ),
+    }
+
+
 def _transform_station(station: Station, twist_axis_x: float) -> list[Vertex]:
     theta = math.radians(station.twist_deg)
     cos_theta = math.cos(theta)
@@ -454,6 +498,142 @@ def _triangle_area(a: Vertex, b: Vertex, c: Vertex) -> float:
     return 0.5 * math.sqrt(
         cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]
     )
+
+
+def _surface_face_components(mesh: SurfaceMesh) -> list[list[int]]:
+    edge_to_faces: dict[tuple[int, int], list[int]] = {}
+    for face_index, face in enumerate(mesh.faces):
+        for edge in _undirected_face_edges(face):
+            edge_to_faces.setdefault(edge, []).append(face_index)
+
+    adjacency: dict[int, set[int]] = {index: set() for index in range(len(mesh.faces))}
+    for face_indices in edge_to_faces.values():
+        for left in face_indices:
+            for right in face_indices:
+                if left != right:
+                    adjacency[left].add(right)
+
+    seen: set[int] = set()
+    components: list[list[int]] = []
+    for seed in range(len(mesh.faces)):
+        if seed in seen:
+            continue
+        stack = [seed]
+        seen.add(seed)
+        component: list[int] = []
+        while stack:
+            current = stack.pop()
+            component.append(current)
+            for neighbor in sorted(adjacency[current]):
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    stack.append(neighbor)
+        components.append(component)
+    return components
+
+
+def _component_orientation_flips(mesh: SurfaceMesh, component: list[int]) -> dict[int, bool]:
+    edge_to_faces: dict[tuple[int, int], list[int]] = {}
+    for face_index in component:
+        for edge in _undirected_face_edges(mesh.faces[face_index]):
+            edge_to_faces.setdefault(edge, []).append(face_index)
+
+    flips: dict[int, bool] = {component[0]: False}
+    stack = [component[0]]
+    while stack:
+        current = stack.pop()
+        for edge in _undirected_face_edges(mesh.faces[current]):
+            adjacent = [index for index in edge_to_faces[edge] if index != current]
+            if not adjacent:
+                continue
+            for neighbor in adjacent:
+                current_direction = _oriented_edge_direction(
+                    mesh.faces[current],
+                    edge,
+                    flipped=flips[current],
+                )
+                if neighbor not in flips:
+                    neighbor_direction = _oriented_edge_direction(
+                        mesh.faces[neighbor],
+                        edge,
+                        flipped=False,
+                    )
+                    should_flip_neighbor = current_direction == neighbor_direction
+                    flips[neighbor] = should_flip_neighbor
+                    stack.append(neighbor)
+                    continue
+
+                neighbor_direction = _oriented_edge_direction(
+                    mesh.faces[neighbor],
+                    edge,
+                    flipped=flips[neighbor],
+                )
+                if current_direction == neighbor_direction:
+                    raise ValueError("Surface mesh face orientation is not consistently orientable")
+    return flips
+
+
+def _inconsistent_oriented_edge_count(mesh: SurfaceMesh) -> int:
+    edge_directions: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for face in mesh.faces:
+        for left, right in _directed_face_edges(face):
+            edge = tuple(sorted((left, right)))
+            edge_directions.setdefault(edge, []).append((left, right))
+    bad_edges = 0
+    for directions in edge_directions.values():
+        if len(directions) != 2:
+            bad_edges += 1
+            continue
+        if directions[0] == directions[1]:
+            bad_edges += 1
+    return bad_edges
+
+
+def _signed_volume_for_faces(vertices: Sequence[Vertex], faces: Sequence[Face]) -> float:
+    volume = 0.0
+    for face in faces:
+        for a, b, c in _triangulated_face_nodes(face):
+            volume += _tetra_signed_volume(vertices[a], vertices[b], vertices[c])
+    return volume
+
+
+def _tetra_signed_volume(a: Vertex, b: Vertex, c: Vertex) -> float:
+    return (
+        a[0] * (b[1] * c[2] - b[2] * c[1])
+        - a[1] * (b[0] * c[2] - b[2] * c[0])
+        + a[2] * (b[0] * c[1] - b[1] * c[0])
+    ) / 6.0
+
+
+def _triangulated_face_nodes(face: Face) -> list[tuple[int, int, int]]:
+    nodes = tuple(face.nodes)
+    if len(nodes) == 3:
+        return [nodes]
+    if len(nodes) == 4:
+        return [(nodes[0], nodes[1], nodes[2]), (nodes[0], nodes[2], nodes[3])]
+    raise ValueError("Only triangle and quad faces are supported")
+
+
+def _undirected_face_edges(face: Face) -> list[tuple[int, int]]:
+    return [tuple(sorted(edge)) for edge in _directed_face_edges(face)]
+
+
+def _directed_face_edges(face: Face) -> list[tuple[int, int]]:
+    nodes = tuple(face.nodes)
+    return list(zip(nodes, nodes[1:] + nodes[:1]))
+
+
+def _oriented_edge_direction(
+    face: Face,
+    edge: tuple[int, int],
+    *,
+    flipped: bool,
+) -> tuple[int, int]:
+    nodes = tuple(reversed(face.nodes)) if flipped else tuple(face.nodes)
+    for left, right in zip(nodes, nodes[1:] + nodes[:1]):
+        if tuple(sorted((left, right))) == edge:
+            return left, right
+    raise ValueError("Face does not contain requested edge")
 
 
 def _planform_area(stations: list[Station]) -> float:
