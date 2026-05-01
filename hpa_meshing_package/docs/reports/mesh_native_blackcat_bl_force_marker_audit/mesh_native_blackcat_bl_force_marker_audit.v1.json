@@ -1,0 +1,113 @@
+{
+  "schema_version": "mesh_native_blackcat_bl_force_marker_audit.v1",
+  "generated_at_local": "2026-05-01T22:17:00+08:00",
+  "route": "mesh_native_vsp_faceted_gmsh_boundary_layer",
+  "case_id": "pps32_span2_wing020",
+  "execution_scope": "restart_force_breakdown_audit",
+  "source_case_dir": "/tmp/hpa_mdo_vsp_faceted_gmsh_bl_probe_20260501/pps32_span2_wing020",
+  "force_audit_dir": "/tmp/hpa_mdo_vsp_faceted_gmsh_bl_probe_20260501/pps32_span2_wing020_force_audit",
+  "source_case": {
+    "volume_cells": 1137058,
+    "nodes": 532403,
+    "su2_converged": true,
+    "source_history_final_inner_iter": 751,
+    "source_history_final_coefficients": {
+      "cd": 0.7226281625,
+      "cl": 0.4500948651,
+      "cmy": -0.4423051199,
+      "cfx": 0.7226281625,
+      "cfy": -9.086027412e-7,
+      "cfz": 0.4500948651
+    }
+  },
+  "reference_alignment": {
+    "su2_cfg_ref_area_m2": 35.175,
+    "su2_cfg_ref_length_m": 1.13019,
+    "su2_cfg_ref_origin_m": [0.651164, 0.0, 0.382683],
+    "avl_blackcat_004_full": {
+      "sref_m2": 35.175,
+      "cref_m": 1.130189765,
+      "bref_m": 33.0
+    },
+    "sampled_vsp_surface": {
+      "span_m": 32.94930391715896,
+      "planform_area_m2": 35.1314813836065,
+      "station_count": 21,
+      "points_per_station": 62
+    },
+    "assessment": "Current mesh-native case uses AVL/VSPAERO-style full-wing Sref and AVL Cref for SU2 REF_AREA/REF_LENGTH. Sampled VSP span and area are slightly lower because the faceted station surface samples the VSP geometry; this is a provenance note, not evidence of force normalization failure."
+  },
+  "force_direction_check": {
+    "inc_velocity_init_mps": [6.5, 0.0, 0.0],
+    "aoa_deg": 0.0,
+    "sideslip_deg": 0.0,
+    "source_history_cd_equals_cfx": true,
+    "source_history_cl_equals_cfz": true,
+    "assessment": "At AOA=0 and V=(6.5,0,0), SU2 CD is aligned with the positive freestream/x direction and CL with z for this case."
+  },
+  "marker_audit": {
+    "mesh_boundary_markers": {
+      "wing_wall": {
+        "marker_elements": 41348,
+        "su2_boundary_element_types": {
+          "5": 41348
+        }
+      },
+      "farfield": {
+        "marker_elements": 4076,
+        "su2_boundary_element_types": {
+          "5": 4076
+        }
+      }
+    },
+    "wall_boundary_markers": ["wing_wall"],
+    "monitoring_markers": ["wing_wall"],
+    "plotting_markers": ["wing_wall"],
+    "farfield_markers": ["farfield"],
+    "assessment": "Only wing_wall is assigned as no-slip wall and only wing_wall is in MARKER_MONITORING. Farfield is not monitored for force."
+  },
+  "force_breakdown": {
+    "path": "/tmp/hpa_mdo_vsp_faceted_gmsh_bl_probe_20260501/pps32_span2_wing020_force_audit/forces_breakdown.dat",
+    "restart_audit_inner_iter": 0,
+    "total_coefficients": {
+      "cl": 0.450181,
+      "cd": 0.722552,
+      "csf": -0.000001,
+      "cl_over_cd": 0.623042,
+      "cmx": 0.000652,
+      "cmy": -0.442323,
+      "cmz": -0.001214,
+      "cfx": 0.722552,
+      "cfy": -0.000001,
+      "cfz": 0.450181
+    },
+    "surface_coefficients": {
+      "wing_wall": {
+        "cl": 0.450181,
+        "cd": 0.722552,
+        "csf": -0.000001,
+        "cl_over_cd": 0.623042,
+        "cmx": 0.000652,
+        "cmy": -0.442323,
+        "cmz": -0.001214,
+        "cfx": 0.722552,
+        "cfy": -0.000001,
+        "cfz": 0.450181
+      }
+    },
+    "pressure_friction_split": {
+      "cd_pressure": 0.60732,
+      "cd_friction": 0.115232,
+      "cl_pressure": 0.455783,
+      "cl_friction": -0.005603,
+      "cmy_pressure": -0.434068,
+      "cmy_friction": -0.008255
+    },
+    "assessment": "No unexpected marker force contribution was observed. Total force equals the only monitored surface, wing_wall."
+  },
+  "engineering_notes": [
+    "The current long-run CD is positive after convergence; it is not the earlier negative-short-transient issue.",
+    "The force audit proves marker ownership and coefficient direction. It does not prove final aerodynamic fidelity or grid independence.",
+    "The computed CL is still far below the VSPAERO panel reference, so next physics work should focus on grid refinement, half-wing/symmetry cost reduction, viscous/turbulence/transition modeling, and geometry incidence/reference provenance rather than force-marker leakage."
+  ]
+}
