@@ -1,0 +1,81 @@
+{
+  "report": "mesh_native_blackcat_su2_cfd_evidence_probe.v1",
+  "date": "2026-05-01",
+  "route": "mesh_native_blackcat_main_wing_su2_cfd_evidence_probe",
+  "status": "euler_slip_drag_not_validated",
+  "raw_large_artifacts_committed": false,
+  "cases": [
+    {
+      "case": "h_0p09_euler_slip",
+      "solver": "INC_EULER",
+      "wall_bc": "MARKER_EULER",
+      "volume_element_count": 107415,
+      "node_count": 35993,
+      "mesh_quality_status": "pass",
+      "mesh_quality_warnings": [],
+      "final_iteration": 70,
+      "coefficients": {
+        "cl": 0.6962247412,
+        "cd": -0.1480305402,
+        "cmy": 0.1374332346
+      }
+    },
+    {
+      "case": "h_0p025_euler_slip",
+      "solver": "INC_EULER",
+      "wall_bc": "MARKER_EULER",
+      "volume_element_count": 615453,
+      "node_count": 210476,
+      "mesh_quality_status": "pass",
+      "mesh_quality_warnings": [],
+      "final_iteration": 81,
+      "coefficients": {
+        "cl": 0.8984595326,
+        "cd": -0.08746243658,
+        "cmy": 0.1417845161
+      }
+    },
+    {
+      "case": "h_0p018_euler_slip",
+      "solver": "INC_EULER",
+      "wall_bc": "MARKER_EULER",
+      "volume_element_count": 1063040,
+      "node_count": 367629,
+      "mesh_quality_status": "pass",
+      "mesh_quality_warnings": [],
+      "final_iteration": 92,
+      "coefficients": {
+        "cl": 0.9004204805,
+        "cd": -0.07535318706,
+        "cmy": 0.1389538134
+      }
+    },
+    {
+      "case": "h_0p025_inc_ns_heatflux",
+      "solver": "INC_NAVIER_STOKES",
+      "wall_bc": "MARKER_HEATFLUX=(wing_wall,0)",
+      "volume_element_count": 615453,
+      "node_count": 210476,
+      "mesh_quality_status": "pass",
+      "mesh_quality_warnings": [],
+      "final_iteration": 93,
+      "coefficients": {
+        "cl": 0.2889708881,
+        "cd": 0.145999729,
+        "cmy": -0.06941751179
+      }
+    }
+  ],
+  "engineering_assessment": {
+    "mesh_native_generation": "million_cell_su2_handoff_demonstrated",
+    "euler_slip_trend": "cl_refines_to_about_0p90_but_cd_remains_negative",
+    "viscous_wall_diagnostic": "same_615k_mesh_switches_cd_positive",
+    "main_blocker": "current_euler_slip_route_is_not_a_valid_drag_route_for_closed_thin_wing",
+    "recommended_next_route": "add_solver_wall_profiles_and_boundary_layer_refinement_for_inc_ns_heatflux"
+  },
+  "source_urls": [
+    "https://su2code.github.io/docs_v7/Markers-and-BC/",
+    "https://su2code.github.io/docs_v7/Physical-Definition/",
+    "https://su2code.github.io/docs_v7/Custom-Output/"
+  ]
+}
