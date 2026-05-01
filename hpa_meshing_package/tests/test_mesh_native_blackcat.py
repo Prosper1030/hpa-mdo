@@ -323,6 +323,44 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_can_add_feature_boxes(
     assert case["mesh_sizing"]["background_field"]["type"] == "Min"
 
 
+def test_run_blackcat_main_wing_coupled_refinement_ladder_can_use_vsp_native_geometry(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    pytest.importorskip("openvsp")
+
+    report = run_blackcat_main_wing_coupled_refinement_ladder(
+        AVL_PATH,
+        tmp_path / "blackcat_vsp_coupled_ladder",
+        points_per_side_values=(4,),
+        spanwise_subdivision_values=(1,),
+        mesh_sizes=(8.0,),
+        target_volume_elements=1_000,
+        max_volume_elements=50_000,
+        farfield_mesh_size=18.0,
+        wing_refinement_radius=12.0,
+        write_su2=False,
+        vsp_path=VSP_PATH,
+    )
+
+    assert report["blackcat_source"]["geometry_source"] == {
+        "type": "openvsp_mesh_native",
+        "path": str(VSP_PATH),
+        "reference_avl_path": str(AVL_PATH),
+    }
+    assert report["blackcat_source"]["reference"] == {
+        "sref_full": pytest.approx(35.175),
+        "cref": pytest.approx(1.130189765),
+        "bref_full": pytest.approx(33.0),
+    }
+    assert report["cases"][0]["surface_metadata"]["span_m"] == pytest.approx(
+        32.949303917,
+        abs=1.0e-9,
+    )
+    assert report["cases"][0]["volume_element_count"] > 0
+    assert "source sections" in report["caveats"][0]
+
+
 def test_run_blackcat_main_wing_coupled_refinement_ladder_sweeps_feature_box_size(
     tmp_path: Path,
 ):

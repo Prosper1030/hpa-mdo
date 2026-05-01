@@ -312,15 +312,18 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
     farfield_vertical_factor: float = 1.2,
+    vsp_path: Path | str | None = None,
 ) -> dict:
     from .gmsh_polyhedral import (
         build_wing_feature_refinement_boxes,
         run_faceted_volume_refinement_ladder,
     )
 
-    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+    spec, wing, farfield, geometry_source = _build_blackcat_surfaces_for_route(
         avl_path,
+        vsp_path=vsp_path,
         points_per_side=points_per_side,
+        spanwise_subdivisions=1,
         farfield_upstream_factor=farfield_upstream_factor,
         farfield_downstream_factor=farfield_downstream_factor,
         farfield_lateral_factor=farfield_lateral_factor,
@@ -348,6 +351,7 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
         "route": "blackcat_main_wing_mesh_native_faceted_refinement_ladder",
         "blackcat_source": {
             "avl_path": str(avl_path),
+            "geometry_source": geometry_source,
             "points_per_side": points_per_side,
             "station_count": len(spec.stations),
             "points_per_station": len(spec.stations[0].airfoil_xz),
@@ -395,6 +399,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
     farfield_vertical_factor: float = 1.2,
+    vsp_path: Path | str | None = None,
 ) -> dict[str, Any]:
     from .gmsh_polyhedral import (
         build_wing_feature_refinement_boxes,
@@ -425,6 +430,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         feature_refinement_size=feature_refinement_size,
         feature_refinement_size_values=feature_refinement_size_values,
     )
+    geometry_source = _blackcat_geometry_source(avl_path, vsp_path=vsp_path)
 
     ladder_path = Path(case_dir)
     ladder_path.mkdir(parents=True, exist_ok=True)
@@ -436,8 +442,9 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
 
     for spanwise_subdivisions in ordered_spanwise:
         for points_per_side in ordered_points:
-            spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+            spec, wing, farfield, _ = _build_blackcat_surfaces_for_route(
                 avl_path,
+                vsp_path=vsp_path,
                 points_per_side=points_per_side,
                 spanwise_subdivisions=spanwise_subdivisions,
                 farfield_upstream_factor=farfield_upstream_factor,
@@ -545,6 +552,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         },
         "blackcat_source": {
             "avl_path": str(avl_path),
+            "geometry_source": geometry_source,
             "reference": reference_payload,
             "farfield_factors": {
                 "upstream": farfield_upstream_factor,
@@ -554,7 +562,11 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
             },
         },
         "caveats": [
-            "spanwise station interpolation is linear between AVL sections",
+            (
+                "spanwise station interpolation is linear between source sections"
+                if vsp_path is not None
+                else "spanwise station interpolation is linear between AVL sections"
+            ),
             "feature boxes are axis-aligned first-pass TE/tip/wake sizing regions",
             "no boundary-layer prism strategy yet",
             "million-scale target is an engineering credibility gate, not a convergence proof",
@@ -779,6 +791,56 @@ def run_blackcat_main_wing_su2_stability_ladder(
         encoding="utf-8",
     )
     return report
+
+
+def _blackcat_geometry_source(
+    avl_path: Path | str,
+    *,
+    vsp_path: Path | str | None,
+) -> dict[str, str]:
+    if vsp_path is None:
+        return {"type": "avl", "path": str(avl_path)}
+    return {
+        "type": "openvsp_mesh_native",
+        "path": str(vsp_path),
+        "reference_avl_path": str(avl_path),
+    }
+
+
+def _build_blackcat_surfaces_for_route(
+    avl_path: Path | str,
+    *,
+    vsp_path: Path | str | None,
+    points_per_side: int,
+    spanwise_subdivisions: int,
+    farfield_upstream_factor: float,
+    farfield_downstream_factor: float,
+    farfield_lateral_factor: float,
+    farfield_vertical_factor: float,
+) -> tuple[WingSpec, SurfaceMesh, SurfaceMesh, dict[str, str]]:
+    geometry_source = _blackcat_geometry_source(avl_path, vsp_path=vsp_path)
+    if vsp_path is None:
+        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+            avl_path,
+            points_per_side=points_per_side,
+            spanwise_subdivisions=spanwise_subdivisions,
+            farfield_upstream_factor=farfield_upstream_factor,
+            farfield_downstream_factor=farfield_downstream_factor,
+            farfield_lateral_factor=farfield_lateral_factor,
+            farfield_vertical_factor=farfield_vertical_factor,
+        )
+    else:
+        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_vsp(
+            vsp_path,
+            reference_avl_path=avl_path,
+            points_per_side=points_per_side,
+            spanwise_subdivisions=spanwise_subdivisions,
+            farfield_upstream_factor=farfield_upstream_factor,
+            farfield_downstream_factor=farfield_downstream_factor,
+            farfield_lateral_factor=farfield_lateral_factor,
+            farfield_vertical_factor=farfield_vertical_factor,
+        )
+    return spec, wing, farfield, geometry_source
 
 
 def _recommended_quality_candidate(cases: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
