@@ -9,8 +9,10 @@ from hpa_meshing.mesh_native.wing_surface import (
     Station,
     SurfaceMesh,
     WingSpec,
+    build_farfield_box_surface,
     build_wing_surface,
     load_wing_spec,
+    merge_surface_meshes,
     validate_surface_mesh,
 )
 
@@ -245,3 +247,38 @@ def test_load_wing_spec_rejects_non_meter_units(tmp_path):
 
     with pytest.raises(ValueError, match="Mesh-native wing spec units must be m"):
         load_wing_spec(spec_path)
+
+
+def test_build_farfield_box_surface_wraps_wing_bounds_with_farfield_marker():
+    wing = build_wing_surface(_rect_spec())
+
+    farfield = build_farfield_box_surface(
+        wing,
+        upstream_factor=2.0,
+        downstream_factor=3.0,
+        lateral_factor=4.0,
+        vertical_factor=5.0,
+    )
+
+    assert len(farfield.vertices) == 8
+    assert len(farfield.faces) == 6
+    assert farfield.marker_counts() == {"farfield": 6}
+    assert farfield.metadata["x_min"] == pytest.approx(-2.0)
+    assert farfield.metadata["x_max"] == pytest.approx(4.0)
+    assert farfield.metadata["y_min"] == pytest.approx(-8.0)
+    assert farfield.metadata["y_max"] == pytest.approx(10.0)
+    assert farfield.metadata["z_min"] == pytest.approx(-10.05)
+    assert farfield.metadata["z_max"] == pytest.approx(10.05)
+    validate_surface_mesh(farfield, required_markers=("farfield",))
+
+
+def test_merge_surface_meshes_preserves_wing_and_farfield_marker_ownership():
+    wing = build_wing_surface(_rect_spec())
+    farfield = build_farfield_box_surface(wing)
+
+    merged = merge_surface_meshes([wing, farfield])
+
+    assert len(merged.vertices) == len(wing.vertices) + len(farfield.vertices)
+    assert len(merged.faces) == len(wing.faces) + len(farfield.faces)
+    assert merged.marker_counts() == {"wing_wall": 16, "farfield": 6}
+    validate_surface_mesh(merged, required_markers=("wing_wall", "farfield"))

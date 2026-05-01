@@ -72,6 +72,9 @@ class SurfaceMesh:
             counts[face.marker] = counts.get(face.marker, 0) + 1
         return counts
 
+    def bounds(self) -> dict[str, float]:
+        return _bounds(self.vertices)
+
 
 def build_wing_surface(spec: WingSpec) -> SurfaceMesh:
     stations = _ordered_stations(spec)
@@ -134,6 +137,93 @@ def build_wing_surface(spec: WingSpec) -> SurfaceMesh:
     )
     validate_surface_mesh(mesh)
     return mesh
+
+
+def build_farfield_box_surface(
+    body: SurfaceMesh,
+    *,
+    upstream_factor: float = 5.0,
+    downstream_factor: float = 12.0,
+    lateral_factor: float = 8.0,
+    vertical_factor: float = 8.0,
+    marker: str = "farfield",
+) -> SurfaceMesh:
+    body_bounds = body.bounds()
+    x_span = max(body_bounds["x_max"] - body_bounds["x_min"], 1.0e-9)
+    y_span = max(body_bounds["y_max"] - body_bounds["y_min"], 1.0e-9)
+    z_span = max(body_bounds["z_max"] - body_bounds["z_min"], 1.0e-9)
+    z_reference = max(x_span, y_span, z_span)
+
+    x_min = body_bounds["x_min"] - upstream_factor * x_span
+    x_max = body_bounds["x_max"] + downstream_factor * x_span
+    y_min = body_bounds["y_min"] - lateral_factor * y_span
+    y_max = body_bounds["y_max"] + lateral_factor * y_span
+    z_min = body_bounds["z_min"] - vertical_factor * z_reference
+    z_max = body_bounds["z_max"] + vertical_factor * z_reference
+
+    vertices: list[Vertex] = [
+        (x_min, y_min, z_min),
+        (x_max, y_min, z_min),
+        (x_max, y_max, z_min),
+        (x_min, y_max, z_min),
+        (x_min, y_min, z_max),
+        (x_max, y_min, z_max),
+        (x_max, y_max, z_max),
+        (x_min, y_max, z_max),
+    ]
+    faces = [
+        Face(nodes=(0, 3, 2, 1), marker=marker),
+        Face(nodes=(4, 5, 6, 7), marker=marker),
+        Face(nodes=(0, 1, 5, 4), marker=marker),
+        Face(nodes=(1, 2, 6, 5), marker=marker),
+        Face(nodes=(2, 3, 7, 6), marker=marker),
+        Face(nodes=(3, 0, 4, 7), marker=marker),
+    ]
+    mesh = SurfaceMesh(
+        vertices=vertices,
+        faces=faces,
+        metadata={
+            "surface_role": "farfield_box",
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_min,
+            "y_max": y_max,
+            "z_min": z_min,
+            "z_max": z_max,
+        },
+    )
+    validate_surface_mesh(mesh, required_markers=(marker,))
+    return mesh
+
+
+def merge_surface_meshes(meshes: Sequence[SurfaceMesh]) -> SurfaceMesh:
+    vertices: list[Vertex] = []
+    faces: list[Face] = []
+    marker_counts: dict[str, int] = {}
+
+    for mesh in meshes:
+        offset = len(vertices)
+        vertices.extend(mesh.vertices)
+        for face in mesh.faces:
+            faces.append(
+                Face(
+                    nodes=tuple(node + offset for node in face.nodes),
+                    marker=face.marker,
+                )
+            )
+            marker_counts[face.marker] = marker_counts.get(face.marker, 0) + 1
+
+    merged = SurfaceMesh(
+        vertices=vertices,
+        faces=faces,
+        metadata={
+            "surface_role": "merged_boundary_shells",
+            "source_mesh_count": len(meshes),
+            **_bounds(vertices),
+        },
+    )
+    validate_surface_mesh(merged, required_markers=tuple(sorted(marker_counts)))
+    return merged
 
 
 def load_wing_spec(path: Path | str) -> WingSpec:
@@ -200,6 +290,19 @@ def _ordered_stations(spec: WingSpec) -> list[Station]:
         if right.y <= left.y:
             raise ValueError("Station y values must be strictly increasing")
     return list(spec.stations)
+
+
+def _bounds(vertices: Sequence[Vertex]) -> dict[str, float]:
+    if not vertices:
+        raise ValueError("Cannot compute bounds for an empty vertex list")
+    return {
+        "x_min": min(vertex[0] for vertex in vertices),
+        "x_max": max(vertex[0] for vertex in vertices),
+        "y_min": min(vertex[1] for vertex in vertices),
+        "y_max": max(vertex[1] for vertex in vertices),
+        "z_min": min(vertex[2] for vertex in vertices),
+        "z_max": max(vertex[2] for vertex in vertices),
+    }
 
 
 def _required_mapping(payload: Mapping[str, Any], key: str) -> Mapping[str, Any]:
