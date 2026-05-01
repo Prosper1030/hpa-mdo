@@ -1,0 +1,1038 @@
+{
+  "route": "blackcat_main_wing_mesh_native_coupled_refinement_ladder",
+  "status": "target_reached",
+  "report_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/coupled_refinement_ladder_report.json",
+  "target_volume_elements": 100000,
+  "max_volume_elements": 300000,
+  "points_per_side_values": [
+    16
+  ],
+  "spanwise_subdivision_values": [
+    4
+  ],
+  "mesh_sizes": [
+    0.1,
+    0.09
+  ],
+  "feature_refinement_size": 3.0,
+  "feature_refinement_size_values": [
+    3.0
+  ],
+  "selected_case": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/mesh.msh",
+    "su2_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/mesh.su2",
+    "volume_count": 1,
+    "node_count": 35993,
+    "volume_element_count": 107415,
+    "volume_element_type_counts": {
+      "4": 107415
+    },
+    "mesh_sizing": {
+      "default_mesh_size": 0.09,
+      "wing_mesh_size": 0.09,
+      "farfield_mesh_size": 18.0,
+      "wing_refinement_radius": 12.0,
+      "refinement_boxes": [
+        {
+          "name": "trailing_edge_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.0389629847449064,
+          "x_max": 1.5583646080265126,
+          "y_min": -16.5,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_left_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": -16.5,
+          "y_max": -15.201495941795985,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_right_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": 15.201495941795985,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "wake_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.2986637963857095,
+          "x_max": 6.492680029201772,
+          "y_min": -17.14925202910201,
+          "y_max": 17.14925202910201,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        }
+      ],
+      "background_field": {
+        "type": "Min",
+        "field_tag": 7,
+        "fields": [
+          {
+            "type": "DistanceThreshold",
+            "field_tag": 2,
+            "distance_field_tag": 1,
+            "threshold_field_tag": 2,
+            "node_count": 1232
+          },
+          {
+            "type": "Box",
+            "field_tag": 3,
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 4,
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 5,
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 6,
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ]
+      }
+    },
+    "quality_metrics": {
+      "tetra_element_count": 107415,
+      "tetrahedron_count": 107415,
+      "ill_shaped_tet_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_gamma": 0.0003083643704851507,
+      "min_sicn": 0.0017954641910020886,
+      "min_sige": 0.01382986060719213,
+      "min_volume": 1.014072894013786e-07,
+      "gamma_percentiles": {
+        "p01": 0.029752264071573165,
+        "p05": 0.07656067634297986,
+        "p50": 0.35665104001458237
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.02656614891755514,
+        "p05": 0.0689446530098403,
+        "p50": 0.3858564416575768
+      },
+      "min_sige_percentiles": {
+        "p01": 0.3709944776491678,
+        "p05": 0.4593758978496707,
+        "p50": 0.6436673503658809
+      },
+      "volume_percentiles": {
+        "p01": 5.483371170410289e-06,
+        "p05": 1.670773883545459e-05,
+        "p50": 0.00010132580652895444
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "production_scale_gate": {
+      "status": "meets_target",
+      "target_volume_elements": 100000,
+      "observed_volume_elements": 107415,
+      "shortfall_volume_elements": 0,
+      "observed_to_target_ratio": 1.07415
+    },
+    "surface_triangle_count": 2472,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 2460
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ],
+    "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09",
+    "spanwise_subdivisions": 4,
+    "points_per_side": 16,
+    "points_per_station": 30,
+    "mesh_size": 0.09,
+    "surface_metadata": {
+      "station_count": 41,
+      "points_per_station": 30,
+      "span_m": 33.0,
+      "planform_area_m2": 35.17499999999999,
+      "side": "full",
+      "te_rule": "sharp",
+      "tip_rule": "planar_cap",
+      "root_rule": "full",
+      "orientation": "outward_consistent"
+    },
+    "farfield_metadata": {
+      "surface_role": "farfield_box",
+      "x_min": -1.9475963491243293,
+      "x_max": 3.8956719127937403,
+      "y_min": -56.1,
+      "y_max": 56.1,
+      "z_min": -39.651027557336874,
+      "z_max": 40.45005780756614,
+      "orientation": "outward_consistent"
+    },
+    "feature_refinement_size": 3.0,
+    "feature_refinement_box_count": 4
+  },
+  "recommended_quality_candidate": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/mesh.msh",
+    "su2_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/mesh.su2",
+    "volume_count": 1,
+    "node_count": 35993,
+    "volume_element_count": 107415,
+    "volume_element_type_counts": {
+      "4": 107415
+    },
+    "mesh_sizing": {
+      "default_mesh_size": 0.09,
+      "wing_mesh_size": 0.09,
+      "farfield_mesh_size": 18.0,
+      "wing_refinement_radius": 12.0,
+      "refinement_boxes": [
+        {
+          "name": "trailing_edge_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.0389629847449064,
+          "x_max": 1.5583646080265126,
+          "y_min": -16.5,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_left_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": -16.5,
+          "y_max": -15.201495941795985,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_right_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": 15.201495941795985,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "wake_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.2986637963857095,
+          "x_max": 6.492680029201772,
+          "y_min": -17.14925202910201,
+          "y_max": 17.14925202910201,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        }
+      ],
+      "background_field": {
+        "type": "Min",
+        "field_tag": 7,
+        "fields": [
+          {
+            "type": "DistanceThreshold",
+            "field_tag": 2,
+            "distance_field_tag": 1,
+            "threshold_field_tag": 2,
+            "node_count": 1232
+          },
+          {
+            "type": "Box",
+            "field_tag": 3,
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 4,
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 5,
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 6,
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ]
+      }
+    },
+    "quality_metrics": {
+      "tetra_element_count": 107415,
+      "tetrahedron_count": 107415,
+      "ill_shaped_tet_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_gamma": 0.0003083643704851507,
+      "min_sicn": 0.0017954641910020886,
+      "min_sige": 0.01382986060719213,
+      "min_volume": 1.014072894013786e-07,
+      "gamma_percentiles": {
+        "p01": 0.029752264071573165,
+        "p05": 0.07656067634297986,
+        "p50": 0.35665104001458237
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.02656614891755514,
+        "p05": 0.0689446530098403,
+        "p50": 0.3858564416575768
+      },
+      "min_sige_percentiles": {
+        "p01": 0.3709944776491678,
+        "p05": 0.4593758978496707,
+        "p50": 0.6436673503658809
+      },
+      "volume_percentiles": {
+        "p01": 5.483371170410289e-06,
+        "p05": 1.670773883545459e-05,
+        "p50": 0.00010132580652895444
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "production_scale_gate": {
+      "status": "meets_target",
+      "target_volume_elements": 100000,
+      "observed_volume_elements": 107415,
+      "shortfall_volume_elements": 0,
+      "observed_to_target_ratio": 1.07415
+    },
+    "surface_triangle_count": 2472,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 2460
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ],
+    "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09",
+    "spanwise_subdivisions": 4,
+    "points_per_side": 16,
+    "points_per_station": 30,
+    "mesh_size": 0.09,
+    "surface_metadata": {
+      "station_count": 41,
+      "points_per_station": 30,
+      "span_m": 33.0,
+      "planform_area_m2": 35.17499999999999,
+      "side": "full",
+      "te_rule": "sharp",
+      "tip_rule": "planar_cap",
+      "root_rule": "full",
+      "orientation": "outward_consistent"
+    },
+    "farfield_metadata": {
+      "surface_role": "farfield_box",
+      "x_min": -1.9475963491243293,
+      "x_max": 3.8956719127937403,
+      "y_min": -56.1,
+      "y_max": 56.1,
+      "z_min": -39.651027557336874,
+      "z_max": 40.45005780756614,
+      "orientation": "outward_consistent"
+    },
+    "feature_refinement_size": 3.0,
+    "feature_refinement_box_count": 4,
+    "case_index": 1,
+    "selection_policy": "densest_case_without_blockers_or_severe_warnings",
+    "excluded_warnings": [
+      "very_low_min_gamma",
+      "very_low_min_sicn"
+    ]
+  },
+  "quality_warning_cases": [
+    {
+      "case_index": 0,
+      "spanwise_subdivisions": 4,
+      "points_per_side": 16,
+      "mesh_size": 0.1,
+      "volume_element_count": 92645,
+      "warnings": [
+        "very_low_min_gamma"
+      ],
+      "min_gamma": 1.991246169809145e-05,
+      "p01_gamma": 0.025589035093742503
+    }
+  ],
+  "cases": [
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/00_span_4_pps_16_feat_3_h_0p1/mesh.msh",
+      "su2_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/00_span_4_pps_16_feat_3_h_0p1/mesh.su2",
+      "volume_count": 1,
+      "node_count": 31077,
+      "volume_element_count": 92645,
+      "volume_element_type_counts": {
+        "4": 92645
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 0.1,
+        "wing_mesh_size": 0.1,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "refinement_boxes": [
+          {
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ],
+        "background_field": {
+          "type": "Min",
+          "field_tag": 7,
+          "fields": [
+            {
+              "type": "DistanceThreshold",
+              "field_tag": 2,
+              "distance_field_tag": 1,
+              "threshold_field_tag": 2,
+              "node_count": 1232
+            },
+            {
+              "type": "Box",
+              "field_tag": 3,
+              "name": "trailing_edge_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.0389629847449064,
+              "x_max": 1.5583646080265126,
+              "y_min": -16.5,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 4,
+              "name": "tip_left_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": -16.5,
+              "y_max": -15.201495941795985,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 5,
+              "name": "tip_right_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": 15.201495941795985,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 6,
+              "name": "wake_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.2986637963857095,
+              "x_max": 6.492680029201772,
+              "y_min": -17.14925202910201,
+              "y_max": 17.14925202910201,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            }
+          ]
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 92645,
+        "tetrahedron_count": 92645,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 1.991246169809145e-05,
+        "min_sicn": 0.001761044127616022,
+        "min_sige": 0.004091558390110007,
+        "min_volume": 6.099586839558291e-08,
+        "gamma_percentiles": {
+          "p01": 0.025589035093742503,
+          "p05": 0.06942907370637953,
+          "p50": 0.3420191349265516
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.023931113807427944,
+          "p05": 0.062298713899142516,
+          "p50": 0.3693467974034201
+        },
+        "min_sige_percentiles": {
+          "p01": 0.34472537894070543,
+          "p05": 0.44956923531564597,
+          "p50": 0.6344736516746662
+        },
+        "volume_percentiles": {
+          "p01": 6.824607842772725e-06,
+          "p05": 2.055000595966066e-05,
+          "p50": 0.0001260948410935042
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": [],
+        "warnings": [
+          "very_low_min_gamma"
+        ],
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        }
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 100000,
+        "observed_volume_elements": 92645,
+        "shortfall_volume_elements": 7355,
+        "observed_to_target_ratio": 0.92645
+      },
+      "surface_triangle_count": 2472,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 2460
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/00_span_4_pps_16_feat_3_h_0p1",
+      "spanwise_subdivisions": 4,
+      "points_per_side": 16,
+      "points_per_station": 30,
+      "mesh_size": 0.1,
+      "surface_metadata": {
+        "station_count": 41,
+        "points_per_station": 30,
+        "span_m": 33.0,
+        "planform_area_m2": 35.17499999999999,
+        "side": "full",
+        "te_rule": "sharp",
+        "tip_rule": "planar_cap",
+        "root_rule": "full",
+        "orientation": "outward_consistent"
+      },
+      "farfield_metadata": {
+        "surface_role": "farfield_box",
+        "x_min": -1.9475963491243293,
+        "x_max": 3.8956719127937403,
+        "y_min": -56.1,
+        "y_max": 56.1,
+        "z_min": -39.651027557336874,
+        "z_max": 40.45005780756614,
+        "orientation": "outward_consistent"
+      },
+      "feature_refinement_size": 3.0,
+      "feature_refinement_box_count": 4
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/mesh.msh",
+      "su2_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09/mesh.su2",
+      "volume_count": 1,
+      "node_count": 35993,
+      "volume_element_count": 107415,
+      "volume_element_type_counts": {
+        "4": 107415
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 0.09,
+        "wing_mesh_size": 0.09,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "refinement_boxes": [
+          {
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ],
+        "background_field": {
+          "type": "Min",
+          "field_tag": 7,
+          "fields": [
+            {
+              "type": "DistanceThreshold",
+              "field_tag": 2,
+              "distance_field_tag": 1,
+              "threshold_field_tag": 2,
+              "node_count": 1232
+            },
+            {
+              "type": "Box",
+              "field_tag": 3,
+              "name": "trailing_edge_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.0389629847449064,
+              "x_max": 1.5583646080265126,
+              "y_min": -16.5,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 4,
+              "name": "tip_left_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": -16.5,
+              "y_max": -15.201495941795985,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 5,
+              "name": "tip_right_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": 15.201495941795985,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 6,
+              "name": "wake_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.2986637963857095,
+              "x_max": 6.492680029201772,
+              "y_min": -17.14925202910201,
+              "y_max": 17.14925202910201,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            }
+          ]
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 107415,
+        "tetrahedron_count": 107415,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.0003083643704851507,
+        "min_sicn": 0.0017954641910020886,
+        "min_sige": 0.01382986060719213,
+        "min_volume": 1.014072894013786e-07,
+        "gamma_percentiles": {
+          "p01": 0.029752264071573165,
+          "p05": 0.07656067634297986,
+          "p50": 0.35665104001458237
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.02656614891755514,
+          "p05": 0.0689446530098403,
+          "p50": 0.3858564416575768
+        },
+        "min_sige_percentiles": {
+          "p01": 0.3709944776491678,
+          "p05": 0.4593758978496707,
+          "p50": 0.6436673503658809
+        },
+        "volume_percentiles": {
+          "p01": 5.483371170410289e-06,
+          "p05": 1.670773883545459e-05,
+          "p50": 0.00010132580652895444
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": [],
+        "warnings": [],
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        }
+      },
+      "production_scale_gate": {
+        "status": "meets_target",
+        "target_volume_elements": 100000,
+        "observed_volume_elements": 107415,
+        "shortfall_volume_elements": 0,
+        "observed_to_target_ratio": 1.07415
+      },
+      "surface_triangle_count": 2472,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 2460
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/mesh_native_blackcat_high_density_100k_probe/artifacts/01_span_4_pps_16_feat_3_h_0p09",
+      "spanwise_subdivisions": 4,
+      "points_per_side": 16,
+      "points_per_station": 30,
+      "mesh_size": 0.09,
+      "surface_metadata": {
+        "station_count": 41,
+        "points_per_station": 30,
+        "span_m": 33.0,
+        "planform_area_m2": 35.17499999999999,
+        "side": "full",
+        "te_rule": "sharp",
+        "tip_rule": "planar_cap",
+        "root_rule": "full",
+        "orientation": "outward_consistent"
+      },
+      "farfield_metadata": {
+        "surface_role": "farfield_box",
+        "x_min": -1.9475963491243293,
+        "x_max": 3.8956719127937403,
+        "y_min": -56.1,
+        "y_max": 56.1,
+        "z_min": -39.651027557336874,
+        "z_max": 40.45005780756614,
+        "orientation": "outward_consistent"
+      },
+      "feature_refinement_size": 3.0,
+      "feature_refinement_box_count": 4
+    }
+  ],
+  "engineering_assessment": {
+    "surface_and_volume_refinement_coupled": true,
+    "production_scale_target_volume_elements": 100000,
+    "budget_guard_volume_elements": 300000,
+    "selected_for_cfd_interpretation": true,
+    "quality_warnings_present": true,
+    "aero_coefficients_interpretable": false,
+    "reason": "coupled_refinement_ladder_only_no_converged_su2_solution"
+  },
+  "blackcat_source": {
+    "avl_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_full.avl",
+    "reference": {
+      "sref_full": 35.175,
+      "cref": 1.130189765,
+      "bref_full": 33.0
+    },
+    "farfield_factors": {
+      "upstream": 1.5,
+      "downstream": 2.0,
+      "lateral": 1.2,
+      "vertical": 1.2
+    }
+  },
+  "caveats": [
+    "spanwise station interpolation is linear between AVL sections",
+    "feature boxes are axis-aligned first-pass TE/tip/wake sizing regions",
+    "no boundary-layer prism strategy yet",
+    "million-scale target is an engineering credibility gate, not a convergence proof"
+  ],
+  "selected_su2_marker_summary": {
+    "ndime": 3,
+    "nelem": 107415,
+    "npoin": 35993,
+    "nmark": 2,
+    "markers": {
+      "wing_wall": {
+        "element_count": 62736,
+        "element_type_counts": {
+          "5": 62736
+        }
+      },
+      "farfield": {
+        "element_count": 516,
+        "element_type_counts": {
+          "5": 516
+        }
+      }
+    }
+  }
+}
