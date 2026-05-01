@@ -8,6 +8,7 @@ from hpa_meshing.mesh_native.blackcat import (
     build_blackcat_main_wing_surfaces_from_vsp,
     load_blackcat_main_wing_spec_from_avl,
     load_blackcat_main_wing_spec_from_vsp,
+    run_blackcat_main_wing_boundary_layer_su2_stability_ladder,
     run_blackcat_main_wing_coupled_refinement_ladder,
     run_blackcat_main_wing_faceted_refinement_ladder,
     run_blackcat_main_wing_faceted_su2_smoke,
@@ -523,4 +524,72 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
         "interpretation_level": "solver_stability_only_no_boundary_layer_prisms",
         "reason": "adjacent_converged_mesh_coefficients_within_tolerance_but_no_bl_prism_mesh",
     }
+    assert Path(report["report_path"]).exists()
+
+
+def test_run_blackcat_main_wing_boundary_layer_stability_ladder_uses_bl_runner(
+    tmp_path: Path,
+):
+    calls = []
+
+    def fake_case_runner(*args, **kwargs):
+        calls.append({"args": args, "kwargs": kwargs})
+        wing_mesh_size = kwargs["wing_mesh_size"]
+        volume_count = {0.50: 380_000, 0.35: 1_100_000, 0.25: 2_200_000}[
+            wing_mesh_size
+        ]
+        coefficients = {
+            0.50: {"cl": 0.38, "cd": 0.80, "cmy": -0.39},
+            0.35: {"cl": 0.42, "cd": 0.73, "cmy": -0.42},
+            0.25: {"cl": 0.428, "cd": 0.74, "cmy": -0.421},
+        }[wing_mesh_size]
+        return {
+            "case_dir": str(args[2]),
+            "run_status": "completed",
+            "returncode": 0,
+            "mesh_report": {
+                "volume_element_count": volume_count,
+                "node_count": volume_count // 3,
+                "mesh_quality_gate": {"status": "pass", "warnings": ["low_p01_gamma"]},
+            },
+            "marker_audit": {"status": "pass"},
+            "iterative_gate_status": "pass",
+            "cfd_evidence_gate": {"status": "pass", "reasons": []},
+            "coefficient_sanity_gate": {"status": "pass", "reasons": []},
+            "history": {
+                "final_iteration": 1400,
+                "final_coefficients": coefficients,
+            },
+        }
+
+    report = run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
+        AVL_PATH,
+        tmp_path / "bl_su2_ladder",
+        points_per_side=8,
+        spanwise_subdivisions=1,
+        wing_mesh_sizes=(0.50, 0.35, 0.25),
+        max_iterations=2000,
+        coefficient_tolerances={"cl": 0.02, "cd": 0.02, "cmy": 0.01},
+        coefficient_relative_tolerances={"cl": 0.03, "cd": 0.05, "cmy": 0.05},
+        case_runner=fake_case_runner,
+    )
+
+    assert [call["kwargs"]["wing_mesh_size"] for call in calls] == [0.5, 0.35, 0.25]
+    assert calls[0]["kwargs"]["boundary_layer_first_height"] == pytest.approx(5.0e-5)
+    assert calls[0]["kwargs"]["boundary_layer_growth_ratio"] == pytest.approx(1.24)
+    assert calls[0]["kwargs"]["boundary_layer_layers"] == 24
+    assert calls[0]["kwargs"]["wall_profile"] == "adiabatic_no_slip"
+    assert calls[0]["kwargs"]["conv_num_method_flow"] == "JST"
+    assert calls[0]["kwargs"]["cfl_number"] == pytest.approx(0.05)
+    assert report["route"] == (
+        "blackcat_main_wing_mesh_native_boundary_layer_su2_stability_ladder"
+    )
+    assert report["status"] == "stable_mesh_selected"
+    assert report["boundary_layer"]["layers"] == 24
+    assert report["runtime"]["max_iterations"] == 2000
+    assert report["stability_selection"]["selected_case"]["wing_mesh_size"] == 0.35
+    assert report["stability_selection"]["compared_to_case"]["wing_mesh_size"] == 0.25
+    assert report["engineering_assessment"]["wall_resolved_boundary_layer_present"] is True
+    assert report["engineering_assessment"]["target_density_reached"] is True
+    assert report["engineering_assessment"]["aero_coefficients_interpretable"] is True
     assert Path(report["report_path"]).exists()

@@ -12,6 +12,7 @@ from hpa_meshing.mesh_native.gmsh_polyhedral import (
     infer_wing_feature_extents,
     run_faceted_volume_refinement_ladder,
     run_faceted_volume_su2_smoke,
+    write_faceted_boundary_layer_su2_case,
     write_boundary_layer_block_core_tet_mesh,
     write_faceted_volume_mesh,
     write_faceted_volume_mesh_with_boundary_layer,
@@ -280,6 +281,37 @@ def test_write_faceted_volume_mesh_with_boundary_layer_writes_mixed_su2_mesh(
     assert set(su2_summary["markers"]) == {"wing_wall", "farfield"}
     assert su2_summary["markers"]["wing_wall"]["element_count"] > 0
     assert su2_summary["markers"]["farfield"]["element_count"] > 0
+
+
+def test_write_faceted_boundary_layer_su2_case_prepares_no_slip_runtime(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    report = write_faceted_boundary_layer_su2_case(
+        wing,
+        farfield,
+        tmp_path / "faceted_bl_case",
+        ref_area=2.0,
+        ref_length=1.0,
+        mesh_size=2.0,
+        max_iterations=5,
+        boundary_layer_first_height=0.005,
+        boundary_layer_growth_ratio=1.3,
+        boundary_layer_layers=3,
+    )
+
+    assert report["route"] == "mesh_native_faceted_gmsh_boundary_layer_su2_case"
+    assert report["marker_audit"]["status"] == "pass"
+    assert report["runtime"]["wall_profile"] == "adiabatic_no_slip"
+    assert report["runtime"]["conv_num_method_flow"] == "JST"
+    assert report["runtime"]["boundary_layer"]["layers"] == 3
+    assert report["mesh_report"]["boundary_layer"]["volume_element_type_counts"]
+    assert report["mesh_report"]["mesh_quality_gate"]["status"] == "pass"
+    assert "MARKER_HEATFLUX= ( wing_wall, 0.0 )" in Path(
+        report["runtime_cfg_path"]
+    ).read_text(encoding="utf-8")
 
 
 def test_write_faceted_volume_mesh_supports_wing_local_sizing(tmp_path: Path):

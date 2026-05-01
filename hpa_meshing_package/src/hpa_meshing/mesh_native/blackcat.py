@@ -801,6 +801,246 @@ def run_blackcat_main_wing_su2_stability_ladder(
     return report
 
 
+def run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
+    avl_path: Path | str,
+    case_dir: Path | str,
+    *,
+    points_per_side: int = 32,
+    spanwise_subdivisions: int = 2,
+    wing_mesh_sizes: Sequence[float] = (0.50, 0.35, 0.25),
+    base_mesh_size: float = 4.0,
+    feature_refinement_size: float | None = 0.80,
+    target_volume_elements: int = 1_000_000,
+    max_volume_elements: int = 3_500_000,
+    farfield_mesh_size: float | None = 8.0,
+    wing_refinement_radius: float | None = 6.0,
+    boundary_layer_first_height: float = 5.0e-5,
+    boundary_layer_growth_ratio: float = 1.24,
+    boundary_layer_layers: int = 24,
+    coefficient_tolerances: Mapping[str, float] | None = None,
+    coefficient_relative_tolerances: Mapping[str, float] | None = None,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 2000,
+    solver: str = "INC_NAVIER_STOKES",
+    turbulence_model: str = "NONE",
+    transition_model: str | None = None,
+    solver_command: str = "SU2_CFD",
+    threads: int = 1,
+    wall_profile: str = "adiabatic_no_slip",
+    conv_num_method_flow: str = "JST",
+    cfl_number: float = 0.05,
+    linear_solver_error: float | str = "1e-6",
+    linear_solver_iter: int = 20,
+    jst_sensor_coeff: Sequence[float] | None = (0.5, 0.02),
+    wall_function: str | None = None,
+    freestream_turbulence_intensity: float = 0.01,
+    freestream_turb2lam_visc_ratio: float = 3.0,
+    conv_cauchy_elems: int | None = 100,
+    conv_cauchy_eps: float | str | None = "1e-4",
+    output_files: Sequence[str] = ("RESTART_ASCII",),
+    cfd_evidence_min_iterations: int = 1000,
+    vsp_path: Path | str | None = None,
+    case_runner: Callable[..., dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    from .gmsh_polyhedral import (
+        build_wing_feature_refinement_boxes,
+        infer_wing_feature_extents,
+        run_faceted_boundary_layer_su2_smoke,
+    )
+    from .mesh_stability import select_cheapest_stable_mesh
+
+    if target_volume_elements <= 0:
+        raise ValueError("target_volume_elements must be positive")
+    if max_volume_elements <= 0:
+        raise ValueError("max_volume_elements must be positive")
+    if cfd_evidence_min_iterations <= 0:
+        raise ValueError("cfd_evidence_min_iterations must be positive")
+    ordered_wing_mesh_sizes = sorted((float(value) for value in wing_mesh_sizes), reverse=True)
+    if not ordered_wing_mesh_sizes:
+        raise ValueError("wing_mesh_sizes must not be empty")
+    if any(value <= 0.0 for value in ordered_wing_mesh_sizes):
+        raise ValueError("wing_mesh_sizes must all be positive")
+
+    spec, wing, farfield, geometry_source = _build_blackcat_surfaces_for_route(
+        avl_path,
+        vsp_path=vsp_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+        farfield_upstream_factor=2.0,
+        farfield_downstream_factor=4.0,
+        farfield_lateral_factor=2.0,
+        farfield_vertical_factor=2.0,
+    )
+    runner = run_faceted_boundary_layer_su2_smoke if case_runner is None else case_runner
+
+    ladder_path = Path(case_dir)
+    ladder_path.mkdir(parents=True, exist_ok=True)
+    cases: list[dict[str, Any]] = []
+    for index, wing_mesh_size in enumerate(ordered_wing_mesh_sizes):
+        resolved_feature_size = (
+            None
+            if feature_refinement_size is None
+            else min(float(feature_refinement_size), 1.6 * wing_mesh_size)
+        )
+        refinement_boxes = (
+            build_wing_feature_refinement_boxes(wing, mesh_size=resolved_feature_size)
+            if resolved_feature_size is not None
+            else None
+        )
+        mesh_case_path = ladder_path / (
+            f"{index:02d}_span_{spanwise_subdivisions}"
+            f"_pps_{points_per_side}"
+            f"_wing_h_{_value_slug(wing_mesh_size)}"
+        )
+        run_report = runner(
+            wing,
+            farfield,
+            mesh_case_path,
+            ref_area=spec.reference.sref_full,
+            ref_length=spec.reference.cref,
+            mesh_size=base_mesh_size,
+            wing_mesh_size=wing_mesh_size,
+            farfield_mesh_size=farfield_mesh_size,
+            wing_refinement_radius=wing_refinement_radius,
+            refinement_boxes=refinement_boxes,
+            boundary_layer_first_height=boundary_layer_first_height,
+            boundary_layer_growth_ratio=boundary_layer_growth_ratio,
+            boundary_layer_layers=boundary_layer_layers,
+            velocity_mps=velocity_mps,
+            alpha_deg=alpha_deg,
+            max_iterations=max_iterations,
+            solver=solver,
+            turbulence_model=turbulence_model,
+            transition_model=transition_model,
+            solver_command=solver_command,
+            threads=threads,
+            wall_profile=wall_profile,
+            conv_num_method_flow=conv_num_method_flow,
+            cfl_number=cfl_number,
+            linear_solver_error=linear_solver_error,
+            linear_solver_iter=linear_solver_iter,
+            jst_sensor_coeff=jst_sensor_coeff,
+            wall_function=wall_function,
+            freestream_turbulence_intensity=freestream_turbulence_intensity,
+            freestream_turb2lam_visc_ratio=freestream_turb2lam_visc_ratio,
+            conv_cauchy_elems=conv_cauchy_elems,
+            conv_cauchy_eps=conv_cauchy_eps,
+            output_files=output_files,
+            cfd_evidence_min_iterations=cfd_evidence_min_iterations,
+        )
+        mesh_report = run_report.get("mesh_report", {})
+        case_report = {
+            **run_report,
+            "case_name": mesh_case_path.name,
+            "case_dir": str(mesh_case_path),
+            "wing_mesh_size": wing_mesh_size,
+            "base_mesh_size": base_mesh_size,
+            "spanwise_subdivisions": spanwise_subdivisions,
+            "points_per_side": points_per_side,
+            "feature_refinement_size": resolved_feature_size,
+            "volume_element_count": int(mesh_report.get("volume_element_count", 0)),
+            "node_count": int(mesh_report.get("node_count", 0)),
+            "mesh_quality_gate": mesh_report.get("mesh_quality_gate"),
+        }
+        cases.append(case_report)
+        if case_report["volume_element_count"] > max_volume_elements:
+            break
+
+    stability_selection = select_cheapest_stable_mesh(
+        cases,
+        coefficient_tolerances=coefficient_tolerances,
+        coefficient_relative_tolerances=coefficient_relative_tolerances,
+        require_successful_case_gates=True,
+        require_iterative_gate_pass=True,
+        require_coefficient_sanity=True,
+        require_cfd_evidence_gate_pass=True,
+    )
+    status = (
+        "stable_mesh_selected"
+        if stability_selection["status"] == "stable_pair_found"
+        else "no_stable_mesh"
+    )
+    report = {
+        "route": "blackcat_main_wing_mesh_native_boundary_layer_su2_stability_ladder",
+        "status": status,
+        "report_path": str(ladder_path / "boundary_layer_su2_stability_ladder_report.json"),
+        "target_volume_elements": int(target_volume_elements),
+        "max_volume_elements": int(max_volume_elements),
+        "wing_mesh_sizes": ordered_wing_mesh_sizes,
+        "feature_extents": infer_wing_feature_extents(wing),
+        "size_field_policy": {
+            "geometry_source": geometry_source,
+            "spanwise_subdivisions": spanwise_subdivisions,
+            "points_per_side": points_per_side,
+            "feature_refinement_size": feature_refinement_size,
+            "farfield_mesh_size": farfield_mesh_size,
+            "wing_refinement_radius": wing_refinement_radius,
+        },
+        "boundary_layer": {
+            "first_height_m": float(boundary_layer_first_height),
+            "growth_ratio": float(boundary_layer_growth_ratio),
+            "layers": int(boundary_layer_layers),
+        },
+        "runtime": {
+            "solver": solver,
+            "turbulence_model": turbulence_model,
+            "transition_model": transition_model,
+            "velocity_mps": velocity_mps,
+            "alpha_deg": alpha_deg,
+            "max_iterations": max_iterations,
+            "threads": threads,
+            "wall_profile": wall_profile,
+            "conv_num_method_flow": conv_num_method_flow.strip().upper(),
+            "cfl_number": float(cfl_number),
+            "linear_solver_error": str(linear_solver_error),
+            "linear_solver_iter": int(linear_solver_iter),
+            "jst_sensor_coeff": (
+                None if jst_sensor_coeff is None else [float(value) for value in jst_sensor_coeff]
+            ),
+            "wall_function": wall_function,
+            "freestream_turbulence_intensity": float(freestream_turbulence_intensity),
+            "freestream_turb2lam_visc_ratio": float(freestream_turb2lam_visc_ratio),
+            "conv_cauchy_elems": conv_cauchy_elems,
+            "conv_cauchy_eps": None if conv_cauchy_eps is None else str(conv_cauchy_eps),
+            "output_files": list(output_files),
+            "cfd_evidence_min_iterations": int(cfd_evidence_min_iterations),
+            "coefficient_tolerances": dict(coefficient_tolerances or {}),
+            "coefficient_relative_tolerances": dict(coefficient_relative_tolerances or {}),
+        },
+        "stability_selection": stability_selection,
+        "cases": cases,
+        "engineering_assessment": {
+            "wall_resolved_boundary_layer_present": True,
+            "mesh_quality_passed_cases": sum(
+                1
+                for case in cases
+                if case.get("mesh_quality_gate", {}).get("status") == "pass"
+            ),
+            "target_density_reached": any(
+                int(case.get("volume_element_count", 0)) >= target_volume_elements
+                for case in cases
+            ),
+            "solver_stability_evidence": status == "stable_mesh_selected",
+            "aero_coefficients_interpretable": status == "stable_mesh_selected",
+            "reason": (
+                "adjacent_wall_resolved_bl_cases_stable_within_tolerance"
+                if status == "stable_mesh_selected"
+                else "no_adjacent_wall_resolved_bl_mesh_pair_with_stable_coefficients"
+            ),
+        },
+        "caveats": [
+            "closed-surface Gmsh topological BL is a practical validation route, not the final owned-transition topology",
+            "tip and trailing-edge low-quality warnings should be localized before production drag claims",
+        ],
+    }
+    Path(report["report_path"]).write_text(
+        json.dumps(report, indent=2),
+        encoding="utf-8",
+    )
+    return report
+
+
 def _blackcat_geometry_source(
     avl_path: Path | str,
     *,

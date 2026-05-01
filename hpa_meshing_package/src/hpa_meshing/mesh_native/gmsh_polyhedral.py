@@ -869,6 +869,311 @@ def write_faceted_volume_su2_case(
     return report
 
 
+def write_faceted_boundary_layer_su2_case(
+    wing: SurfaceMesh,
+    farfield: SurfaceMesh,
+    case_dir: Path | str,
+    *,
+    ref_area: float,
+    ref_length: float,
+    mesh_size: float = 4.0,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 200,
+    solver: str = "INC_NAVIER_STOKES",
+    turbulence_model: str = "NONE",
+    transition_model: str | None = None,
+    wall_profile: str = "adiabatic_no_slip",
+    conv_num_method_flow: str = "JST",
+    cfl_number: float = 0.05,
+    linear_solver_error: float | str = "1e-6",
+    linear_solver_iter: int = 20,
+    jst_sensor_coeff: Sequence[float] | None = (0.5, 0.02),
+    wall_function: str | None = None,
+    freestream_turbulence_intensity: float = 0.01,
+    freestream_turb2lam_visc_ratio: float = 3.0,
+    conv_cauchy_elems: int | None = 50,
+    conv_cauchy_eps: float | str | None = "1e-4",
+    output_files: Sequence[str] = ("RESTART_ASCII",),
+    wing_mesh_size: float | None = None,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
+    refinement_boxes: Sequence[dict[str, Any]] | None = None,
+    boundary_layer_first_height: float = 5.0e-5,
+    boundary_layer_growth_ratio: float = 1.24,
+    boundary_layer_layers: int = 24,
+) -> dict[str, Any]:
+    if ref_area <= 0.0:
+        raise ValueError("ref_area must be positive")
+    if ref_length <= 0.0:
+        raise ValueError("ref_length must be positive")
+    if max_iterations <= 0:
+        raise ValueError("max_iterations must be positive")
+
+    case_path = Path(case_dir)
+    case_path.mkdir(parents=True, exist_ok=True)
+    msh_path = case_path / "mesh.msh"
+    su2_path = case_path / "mesh.su2"
+    runtime_cfg_path = case_path / "su2_runtime.cfg"
+    report_path = case_path / "mesh_native_faceted_bl_su2_report.json"
+
+    mesh_report = write_faceted_volume_mesh_with_boundary_layer(
+        wing,
+        farfield,
+        msh_path,
+        su2_path=su2_path,
+        mesh_size=mesh_size,
+        wing_mesh_size=wing_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+        wing_refinement_radius=wing_refinement_radius,
+        refinement_boxes=refinement_boxes,
+        boundary_layer_first_height=boundary_layer_first_height,
+        boundary_layer_growth_ratio=boundary_layer_growth_ratio,
+        boundary_layer_layers=boundary_layer_layers,
+    )
+    runtime_cfg_path.write_text(
+        _smoke_cfg_text(
+            wing,
+            solver=solver,
+            turbulence_model=turbulence_model,
+            transition_model=transition_model,
+            ref_area=ref_area,
+            ref_length=ref_length,
+            velocity_mps=velocity_mps,
+            alpha_deg=alpha_deg,
+            max_iterations=max_iterations,
+            wall_marker="wing_wall",
+            farfield_marker="farfield",
+            wall_profile=wall_profile,
+            conv_num_method_flow=conv_num_method_flow,
+            cfl_number=cfl_number,
+            linear_solver_error=linear_solver_error,
+            linear_solver_iter=linear_solver_iter,
+            jst_sensor_coeff=jst_sensor_coeff,
+            wall_function=wall_function,
+            freestream_turbulence_intensity=freestream_turbulence_intensity,
+            freestream_turb2lam_visc_ratio=freestream_turb2lam_visc_ratio,
+            conv_cauchy_elems=conv_cauchy_elems,
+            conv_cauchy_eps=conv_cauchy_eps,
+            output_files=output_files,
+        ),
+        encoding="utf-8",
+    )
+    marker_audit = audit_su2_case_markers(su2_path, runtime_cfg_path)
+    report = {
+        "route": "mesh_native_faceted_gmsh_boundary_layer_su2_case",
+        "mesh_path": str(su2_path),
+        "gmsh_mesh_path": str(msh_path),
+        "runtime_cfg_path": str(runtime_cfg_path),
+        "report_path": str(report_path),
+        "mesh_report": mesh_report,
+        "marker_audit": marker_audit,
+        "runtime": {
+            "solver": solver.strip().upper(),
+            "turbulence_model": turbulence_model.strip().upper(),
+            "transition_model": None if transition_model is None else transition_model.strip().upper(),
+            "velocity_mps": velocity_mps,
+            "alpha_deg": alpha_deg,
+            "max_iterations": max_iterations,
+            "ref_area": ref_area,
+            "ref_length": ref_length,
+            "mesh_size": mesh_size,
+            "wall_profile": wall_profile,
+            "conv_num_method_flow": conv_num_method_flow.strip().upper(),
+            "cfl_number": float(cfl_number),
+            "linear_solver_error": str(linear_solver_error),
+            "linear_solver_iter": int(linear_solver_iter),
+            "jst_sensor_coeff": (
+                None if jst_sensor_coeff is None else [float(value) for value in jst_sensor_coeff]
+            ),
+            "wall_function": wall_function,
+            "freestream_turbulence_intensity": float(freestream_turbulence_intensity),
+            "freestream_turb2lam_visc_ratio": float(freestream_turb2lam_visc_ratio),
+            "conv_cauchy_elems": conv_cauchy_elems,
+            "conv_cauchy_eps": None if conv_cauchy_eps is None else str(conv_cauchy_eps),
+            "output_files": list(output_files),
+            "boundary_layer": {
+                "first_height_m": float(boundary_layer_first_height),
+                "growth_ratio": float(boundary_layer_growth_ratio),
+                "layers": int(boundary_layer_layers),
+            },
+        },
+        "engineering_assessment": {
+            "mesh_quality": mesh_report["mesh_quality_gate"]["status"],
+            "marker_ownership": marker_audit["status"],
+            "wall_model": "wall_resolved_no_slip"
+            if wall_profile == "adiabatic_no_slip"
+            else "slip_wall",
+            "aero_coefficients_interpretable": False,
+            "reason": "mesh_and_case_prepared_solver_not_run",
+        },
+        "caveats": [
+            *mesh_report["caveats"],
+            "closed-surface topological BL is valid only after mesh quality and solver trends pass",
+        ],
+    }
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return report
+
+
+def run_faceted_boundary_layer_su2_smoke(
+    wing: SurfaceMesh,
+    farfield: SurfaceMesh,
+    case_dir: Path | str,
+    *,
+    ref_area: float,
+    ref_length: float,
+    mesh_size: float = 4.0,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 200,
+    solver: str = "INC_NAVIER_STOKES",
+    turbulence_model: str = "NONE",
+    transition_model: str | None = None,
+    solver_command: str = "SU2_CFD",
+    threads: int = 1,
+    wall_profile: str = "adiabatic_no_slip",
+    conv_num_method_flow: str = "JST",
+    cfl_number: float = 0.05,
+    linear_solver_error: float | str = "1e-6",
+    linear_solver_iter: int = 20,
+    jst_sensor_coeff: Sequence[float] | None = (0.5, 0.02),
+    wall_function: str | None = None,
+    freestream_turbulence_intensity: float = 0.01,
+    freestream_turb2lam_visc_ratio: float = 3.0,
+    conv_cauchy_elems: int | None = 50,
+    conv_cauchy_eps: float | str | None = "1e-4",
+    output_files: Sequence[str] = ("RESTART_ASCII",),
+    cfd_evidence_min_iterations: int = 1000,
+    wing_mesh_size: float | None = None,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
+    refinement_boxes: Sequence[dict[str, Any]] | None = None,
+    boundary_layer_first_height: float = 5.0e-5,
+    boundary_layer_growth_ratio: float = 1.24,
+    boundary_layer_layers: int = 24,
+) -> dict[str, Any]:
+    if cfd_evidence_min_iterations <= 0:
+        raise ValueError("cfd_evidence_min_iterations must be positive")
+    case_report = write_faceted_boundary_layer_su2_case(
+        wing,
+        farfield,
+        case_dir,
+        ref_area=ref_area,
+        ref_length=ref_length,
+        mesh_size=mesh_size,
+        velocity_mps=velocity_mps,
+        alpha_deg=alpha_deg,
+        max_iterations=max_iterations,
+        solver=solver,
+        turbulence_model=turbulence_model,
+        transition_model=transition_model,
+        wall_profile=wall_profile,
+        conv_num_method_flow=conv_num_method_flow,
+        cfl_number=cfl_number,
+        linear_solver_error=linear_solver_error,
+        linear_solver_iter=linear_solver_iter,
+        jst_sensor_coeff=jst_sensor_coeff,
+        wall_function=wall_function,
+        freestream_turbulence_intensity=freestream_turbulence_intensity,
+        freestream_turb2lam_visc_ratio=freestream_turb2lam_visc_ratio,
+        conv_cauchy_elems=conv_cauchy_elems,
+        conv_cauchy_eps=conv_cauchy_eps,
+        output_files=output_files,
+        wing_mesh_size=wing_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+        wing_refinement_radius=wing_refinement_radius,
+        refinement_boxes=refinement_boxes,
+        boundary_layer_first_height=boundary_layer_first_height,
+        boundary_layer_growth_ratio=boundary_layer_growth_ratio,
+        boundary_layer_layers=boundary_layer_layers,
+    )
+    case_path = Path(case_dir)
+    solver_path = _resolve_solver_command(solver_command)
+    solver_log_path = case_path / "solver.log"
+    history_path = case_path / "history.csv"
+    worker_count = max(1, int(threads))
+    command = [solver_path, "-t", str(worker_count), "su2_runtime.cfg"]
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = str(worker_count)
+
+    with solver_log_path.open("w", encoding="utf-8") as handle:
+        completed = subprocess.run(
+            command,
+            cwd=case_path,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            env=env,
+        )
+
+    history = _parse_smoke_history(history_path) if history_path.exists() else None
+    iterative_gate = None
+    iterative_gate_status = None
+    if history_path.exists():
+        from ..convergence import evaluate_iterative_gate
+
+        iterative_gate_model = evaluate_iterative_gate(history_path)
+        iterative_gate = iterative_gate_model.model_dump(mode="json")
+        iterative_gate_status = iterative_gate.get("status")
+    cfd_evidence_gate = _cfd_evidence_gate(
+        max_iterations=max_iterations,
+        min_iterations=cfd_evidence_min_iterations,
+        iterative_gate_status=iterative_gate_status,
+        history=history,
+    )
+    coefficient_sanity_gate = _coefficient_sanity_gate(history)
+    failure_code = None
+    if completed.returncode != 0:
+        failure_code = "solver_execution_failed"
+    elif history is None:
+        failure_code = "history_missing"
+
+    run_status = "completed" if failure_code is None else "failed"
+    mesh_quality_status = case_report["mesh_report"]["mesh_quality_gate"]["status"]
+    run_report = {
+        **case_report,
+        "run_status": run_status,
+        "failure_code": failure_code,
+        "returncode": completed.returncode,
+        "solver_command": command,
+        "solver_log_path": str(solver_log_path),
+        "history_path": str(history_path) if history_path.exists() else None,
+        "history": history,
+        "iterative_gate": iterative_gate,
+        "iterative_gate_status": iterative_gate_status,
+        "cfd_evidence_gate": cfd_evidence_gate,
+        "coefficient_sanity_gate": coefficient_sanity_gate,
+        "engineering_assessment": {
+            "solver_readability": "pass" if run_status == "completed" else "fail",
+            "mesh_quality": mesh_quality_status,
+            "marker_ownership": case_report["marker_audit"]["status"],
+            "iterative_convergence": iterative_gate_status,
+            "cfd_evidence": cfd_evidence_gate["status"],
+            "coefficient_sanity": coefficient_sanity_gate["status"],
+            "aero_coefficients_interpretable": (
+                run_status == "completed"
+                and mesh_quality_status == "pass"
+                and iterative_gate_status == "pass"
+                and cfd_evidence_gate["status"] == "pass"
+                and coefficient_sanity_gate["status"] == "pass"
+            ),
+            "reason": (
+                "wall_resolved_bl_case_level_evidence_passed_mesh_ladder_still_required"
+                if run_status == "completed"
+                and mesh_quality_status == "pass"
+                and iterative_gate_status == "pass"
+                and cfd_evidence_gate["status"] == "pass"
+                and coefficient_sanity_gate["status"] == "pass"
+                else "case_level_boundary_layer_cfd_evidence_not_passed"
+            ),
+        },
+    }
+    Path(case_report["report_path"]).write_text(json.dumps(run_report, indent=2), encoding="utf-8")
+    return run_report
+
+
 def run_faceted_volume_su2_smoke(
     wing: SurfaceMesh,
     farfield: SurfaceMesh,
