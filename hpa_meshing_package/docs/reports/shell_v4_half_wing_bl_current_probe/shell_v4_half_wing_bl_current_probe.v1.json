@@ -1,0 +1,243 @@
+{
+  "schema": "shell_v4_half_wing_bl_current_probe.v1",
+  "generated_at": "2026-05-01",
+  "objective": "Check whether the current half-wing boundary-layer route is ready for a physical SU2 grid-independence run on the real Black Cat main wing.",
+  "engineering_context": {
+    "aircraft_class": "human-powered aircraft",
+    "freestream_velocity_mps": 6.5,
+    "reynolds_number_estimates": {
+      "tip_chord": 193566.98,
+      "mean_aerodynamic_chord": 502913.6,
+      "root_chord": 578476.03
+    },
+    "recommended_solver_sequence": [
+      "INC_EULER or INC_NAVIER_STOKES for mesh/marker smoke only",
+      "INC_RANS with Spalart-Allmaras as the first production viscous comparison",
+      "SST or transition model only after the SA wall-resolved route is stable"
+    ],
+    "wall_resolution_target": {
+      "first_cell_height_for_yplus_1_m": 4.85469e-05,
+      "practical_first_layer_height_m": 5e-05,
+      "typical_layer_count": 24,
+      "typical_growth_ratio": 1.24,
+      "typical_total_thickness_m": 0.03617304985338917
+    },
+    "half_wing_mesh_scale_guidance": {
+      "coarse_cells": 900000,
+      "medium_cells": 1800000,
+      "fine_cells": 3000000,
+      "ram_cap_gb": 12.0,
+      "note": "These are engineering targets, not absolute gates. The mesh must still have valid BL topology, reasonable element quality, and stable coefficients before VSPAERO comparison is meaningful."
+    }
+  },
+  "external_research_notes": {
+    "su2_incompressible_setup": {
+      "source": "https://su2code.github.io/docs_v7/Physical-Definition/",
+      "read": "SU2's incompressible solvers use INC_DENSITY_INIT, INC_VELOCITY_INIT, and INC_TEMPERATURE_INIT for initialization/non-dimensionalization; the initial state is also used by MARKER_FAR.",
+      "engineering_implication": "For the HPA main-wing route, INC_RANS or INC_NAVIER_STOKES with dimensional velocity and constant viscosity is the appropriate low-Mach setup family."
+    },
+    "su2_wall_and_symmetry_bcs": {
+      "source": "https://su2code.github.io/docs_v7/Markers-and-BC/",
+      "read": "SU2 supports incompressible no-slip heatflux walls, farfield markers, symmetry markers, turbulence inlet defaults, and wall functions.",
+      "engineering_implication": "The half-wing mesh should explicitly carry wing_wall, symmetry, and farfield markers; wall-resolved y+ near 1 should be preferred before considering wall functions."
+    },
+    "su2_rans_and_transition": {
+      "source": "https://su2code.github.io/docs_v7/Physical-Definition/",
+      "read": "SU2 supports SA and SST RANS models, and LM transition can be used with RANS/INC_RANS.",
+      "engineering_implication": "SA is a good first robust RANS baseline, but at Re about 2e5-6e5 the final drag study should keep SST+LM transition as a follow-up because the wing is in a low-Re transitional regime."
+    },
+    "su2_transition_tutorial": {
+      "source": "https://su2code.github.io/tutorials/Transitional_Flat_Plate_T3A/",
+      "read": "SU2's transition tutorial uses steady incompressible RANS with SST-2003m and Langtry-Menter transition; it notes that fully turbulent analyses do not account for transition or separation bubbles.",
+      "engineering_implication": "Do not over-interpret fully turbulent SA drag as final HPA drag; use it to stabilize the mesh/solver first."
+    },
+    "nasa_tmr_grid_practice": {
+      "source": "https://tmbwg.github.io/turbmodels/naca0012numerics_grids.html",
+      "read": "NASA/TMR NACA0012 numerical grids use nested C-grid families, very fine wall spacing, farfield about 500 chords, and controlled TE spacing because TE spacing strongly affects convergence.",
+      "engineering_implication": "The robust high-fidelity route should own C-grid/O-grid-like near-wall topology and TE/wake spacing instead of relying on late OCC/Gmsh repair around thin wing tips."
+    },
+    "gmsh_boundary_layer_limit": {
+      "source": "https://gmsh.info/doc/texinfo/gmsh.html",
+      "read": "Gmsh topological boundary layers are simple extrusions with no special fans or re-entrant corner treatment, and are available only with the built-in kernel.",
+      "engineering_implication": "The current OCC/Gmsh tip failure is consistent with tool limitations. For the real main wing, the safer route is mesh-native near-wall ownership or a dedicated structured/hybrid meshing topology."
+    }
+  },
+  "real_main_wing_geometry_provenance": {
+    "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+    "provenance_report": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_geometry_provenance_probe/main_wing_geometry_provenance_probe.v1.json",
+    "airfoil_summary": {
+      "unique_airfoil_names": [
+        "CLARK-Y 11.7% smoothed",
+        "FX 76-MP-140"
+      ],
+      "cambered_airfoil_coordinates_observed": true,
+      "max_abs_camber_over_chord": 0.07121500198263675,
+      "max_thickness_over_chord": 0.14107999438419938
+    },
+    "section_notes": [
+      "The real main-wing route is not using NACA0012.",
+      "The successful NACA0012 result in this report is only a surrogate pipeline check for half-wing symmetry and prism BL machinery.",
+      "The real route uses provider-extracted VSP sections from blackcat_004_origin.vsp3."
+    ]
+  },
+  "evidence": {
+    "surrogate_half_wing_bl_mesh": {
+      "case_dir": "/tmp/hpa_mdo_shell_v4_surrogate_bl_mesh_macsafe_current",
+      "geometry_shape_mode": "surrogate_naca0012",
+      "role": "pipeline machinery proof only",
+      "status": "success",
+      "total_cells": 1179420,
+      "total_nodes": 484481,
+      "requested_bl_layers": 24,
+      "achieved_bl_layers": 24,
+      "boundary_layer_cell_count": 829296,
+      "bl_collapse_rate": 0.0,
+      "estimated_first_cell_yplus_range": {
+        "min": 0.4904232488238563,
+        "max": 1.037748523778421
+      },
+      "memory_estimate_gb": 9.8917636608,
+      "mesh_quality": {
+        "min_sicn_min": 9.969803555862299e-05,
+        "min_sige_min": 0.01565164261637494,
+        "gamma_min": 0.00022493691021366493,
+        "gamma_p05": 0.10106145139571787
+      },
+      "engineering_read": "The half-wing, symmetry, prism-BL, and million-cell machinery can run under the 12 GB target on a clean surrogate."
+    },
+    "real_main_wing_bl_baseline_prelaunch": {
+      "case_dir": "/tmp/hpa_mdo_shell_v4_real_main_wing_bl_prelaunch_current",
+      "geometry_shape_mode": "esp_rebuilt_main_wing",
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+      "status": "failed",
+      "error": "PLC Error: A segment and a facet intersect at point; boundary_layer_collapse_rate_exceeded; volume_to_wall_ratio_below_limit; boundary_layer_total_thickness_outside_target_band",
+      "total_cells": 0,
+      "total_nodes": 0,
+      "requested_bl_layers": 8,
+      "achieved_bl_layers": 0,
+      "bl_collapse_rate": 1.0,
+      "diagnostic_first_layer_height_m": 0.001,
+      "diagnostic_total_bl_thickness_m": 0.0164990848,
+      "diagnostic_estimated_first_cell_yplus_range": {
+        "min": 9.808464976477127,
+        "max": 20.754970475568417
+      },
+      "failure_region": {
+        "triggered_span_y_range_m": {
+          "min": 14.90424107189542,
+          "max": 14.99200613888889
+        },
+        "tip_truncation_start_y_m": 14.998333333333333,
+        "connector_band_start_y_m": 14.992006138888888,
+        "outboard_scaling_zone_y_range_m": {
+          "min": 14.929839000000001,
+          "max": 15.060902500000001
+        },
+        "suppressed_tip_zone_y_range_m": {
+          "min": 15.060902500000001,
+          "max": 16.5
+        }
+      },
+      "engineering_read": "The real VSP main wing currently fails before a volume mesh exists. This is a topology/BL-termination problem around the outboard wing and tip, not a simple mesh-density problem."
+    },
+    "real_main_wing_stage_guard_probe": {
+      "case_dir": "/tmp/hpa_mdo_shell_v4_real_main_wing_bl_stage_guard_current",
+      "geometry_shape_mode": "esp_rebuilt_main_wing",
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+      "status": "failed",
+      "applied_candidate": "stage_with_termination_guard_8_to_7_focused",
+      "error": "PLC Error: A segment and a facet intersect at point; boundary_layer_collapse_rate_exceeded; volume_to_wall_ratio_below_limit; boundary_layer_total_thickness_outside_target_band",
+      "total_cells": 0,
+      "achieved_bl_layers": 0,
+      "engineering_read": "The mild staged BL reduction did not resolve the real-wing topology family. Continuing to tune this one parameter would be low-value."
+    },
+    "real_main_wing_thin_yplus_bl_probe": {
+      "case_dir": "/tmp/hpa_mdo_shell_v4_real_main_wing_thin_yplus_bl_current",
+      "geometry_shape_mode": "esp_rebuilt_main_wing",
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+      "status": "failed",
+      "error": "PLC Error: A segment and a facet intersect at point; boundary_layer_collapse_rate_exceeded; volume_to_wall_ratio_below_limit",
+      "requested_bl_layers": 12,
+      "achieved_bl_layers": 0,
+      "first_layer_height_m": 5e-05,
+      "growth_ratio": 1.25,
+      "target_total_thickness_m": 0.0027103830456733707,
+      "estimated_first_cell_yplus_range": {
+        "min": 0.4904232488238563,
+        "max": 1.037748523778421
+      },
+      "engineering_warnings": [
+        "boundary_layer_total_thickness_outside_recommended_band"
+      ],
+      "failure_region": {
+        "triggered_span_y_range_m": {
+          "min": 16.21428571428571,
+          "max": 16.500000000000007
+        },
+        "tip_truncation_enabled": false
+      },
+      "engineering_read": "A thin y+~1 near-wall stack reduces the clearance-pressure issue and avoids automatic tip truncation, but the same Gmsh PLC boundary-recovery family still appears. The blocker is therefore the real-wing CAD/topology path, not only BL thickness."
+    },
+    "vsp_native_no_bl_solver_context": {
+      "case_dir": "/tmp/hpa_mdo_blackcat_vsp_native_incns_heatflux_iter1000",
+      "role": "solver smoke and geometry-marker evidence only",
+      "mesh": {
+        "total_tetra": 717901,
+        "nodes": 258378,
+        "wing_wall_boundary_elements": 469776,
+        "farfield_boundary_elements": 518
+      },
+      "solver": "INC_NAVIER_STOKES",
+      "iterations_completed": 1000,
+      "final_coefficients": {
+        "cl": 0.2599127154,
+        "cd": 0.1534721017,
+        "cmy": -0.09039456897,
+        "lift_to_drag": 1.693550245
+      },
+      "last_200_relative_ranges": {
+        "cl": 5.9943e-7,
+        "cd": 1.4224e-6,
+        "cmy": 7.4341e-8
+      },
+      "engineering_read": "The no-BL tet route has positive, flat CD after 1000 iterations, but it is not a physical drag-quality grid for this low-Re wing."
+    }
+  },
+  "engineering_decision": {
+    "ready_for_2000_iter_real_main_wing_grid_independence": false,
+    "reason": "A real main-wing boundary-layer volume mesh is not generated yet. Thick, staged, and thin y+~1 BL probes all fail in the same Gmsh boundary-recovery/PLC family. A 2000-iteration SU2 run on the no-BL tetra route would test solver stability, not physical grid independence.",
+    "do_not_blame_airfoil_or_vspaero_mismatch_yet": true,
+    "mesh_quality_status": {
+      "surrogate_bl_mesh": "good enough to prove machinery and memory scale",
+      "real_main_wing_bl_mesh": "not available because BL topology fails before volume meshing",
+      "vsp_native_no_bl_mesh": "valid for smoke, not final CFD quality"
+    }
+  },
+  "next_actions": [
+    {
+      "priority": 1,
+      "action": "Switch the next implementation slice to mesh-native near-wall topology, not more OCC/Gmsh repair.",
+      "details": "Create an indexed C-grid/O-grid-like half-wing near-wall block from the VSP airfoil sections, with explicit chord/span/radial ownership, TE/wake spacing, root symmetry, and tip closure. Then either write SU2 prism/hexa connectivity directly or hand only the outer block to Gmsh for tet fill."
+    },
+    {
+      "priority": 2,
+      "action": "Keep real VSP airfoils in the route.",
+      "details": "Use the VSP embedded FX 76-MP-140 and CLARK-Y smoothed coordinates; the NACA surrogate should stay a pipeline-only fixture."
+    },
+    {
+      "priority": 3,
+      "action": "After the real BL mesh exists, run half-wing INC_RANS SA at 2000 iterations.",
+      "details": "Use wall-resolved y+ near 1, symmetry marker on the root plane, farfield outer boundary, and half-wing reference-area convention."
+    },
+    {
+      "priority": 4,
+      "action": "Run coarse/medium/fine grid independence under the 12 GB RAM cap.",
+      "details": "Start around 0.9M, 1.8M, and 3.0M half-wing cells if quality and memory allow. Select the cheapest mesh with CL/CD/Cm changes within the engineering tolerance band, then compare to VSPAERO only as the final sanity check."
+    }
+  ],
+  "source_notes": [
+    "SU2 supports marker-based symmetry, wall, farfield, incompressible RANS setups, and transition-model options.",
+    "Gmsh supports boundary-layer extrusion, but the current real-wing failure is a topological PLC/boundary recovery failure before SU2 can be launched.",
+    "NASA TMR-style airfoil validation practice supports wall-resolved, nested C-grid/O-grid thinking and careful TE spacing; this project still needs a valid real-wing BL mesh before applying that solver standard."
+  ]
+}
