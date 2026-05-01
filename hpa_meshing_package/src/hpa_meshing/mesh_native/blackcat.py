@@ -248,6 +248,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
     case_dir: Path | str,
     *,
     points_per_side_values: Sequence[int] = (6, 8, 12),
+    spanwise_subdivision_values: Sequence[int] = (1,),
     mesh_sizes: Sequence[float] = (10.0, 8.0, 6.0),
     target_volume_elements: int = 1_000_000,
     max_volume_elements: int = 250_000,
@@ -267,13 +268,18 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         raise ValueError("max_volume_elements must be positive")
 
     ordered_points = sorted(int(value) for value in points_per_side_values)
+    ordered_spanwise = sorted(int(value) for value in spanwise_subdivision_values)
     ordered_mesh_sizes = sorted((float(value) for value in mesh_sizes), reverse=True)
     if not ordered_points:
         raise ValueError("points_per_side_values must not be empty")
+    if not ordered_spanwise:
+        raise ValueError("spanwise_subdivision_values must not be empty")
     if not ordered_mesh_sizes:
         raise ValueError("mesh_sizes must not be empty")
     if any(value < 3 for value in ordered_points):
         raise ValueError("points_per_side_values must all be at least 3")
+    if any(value < 1 for value in ordered_spanwise):
+        raise ValueError("spanwise_subdivision_values must all be at least 1")
     if any(value <= 0.0 for value in ordered_mesh_sizes):
         raise ValueError("mesh_sizes must all be positive")
 
@@ -285,60 +291,68 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
     stop = False
     reference_payload: dict[str, Any] | None = None
 
-    for points_per_side in ordered_points:
-        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
-            avl_path,
-            points_per_side=points_per_side,
-            farfield_upstream_factor=farfield_upstream_factor,
-            farfield_downstream_factor=farfield_downstream_factor,
-            farfield_lateral_factor=farfield_lateral_factor,
-            farfield_vertical_factor=farfield_vertical_factor,
-        )
-        if reference_payload is None:
-            reference_payload = {
-                "sref_full": spec.reference.sref_full,
-                "cref": spec.reference.cref,
-                "bref_full": spec.reference.bref_full,
-            }
-
-        for mesh_size in ordered_mesh_sizes:
-            case_index = len(cases)
-            mesh_case_path = (
-                ladder_path
-                / f"{case_index:02d}_pps_{points_per_side}_h_{_value_slug(mesh_size)}"
+    for spanwise_subdivisions in ordered_spanwise:
+        for points_per_side in ordered_points:
+            spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+                avl_path,
+                points_per_side=points_per_side,
+                spanwise_subdivisions=spanwise_subdivisions,
+                farfield_upstream_factor=farfield_upstream_factor,
+                farfield_downstream_factor=farfield_downstream_factor,
+                farfield_lateral_factor=farfield_lateral_factor,
+                farfield_vertical_factor=farfield_vertical_factor,
             )
-            mesh_case_path.mkdir(parents=True, exist_ok=True)
-            su2_path = mesh_case_path / "mesh.su2" if write_su2 else None
-            mesh_report = write_faceted_volume_mesh(
-                wing,
-                farfield,
-                mesh_case_path / "mesh.msh",
-                su2_path=su2_path,
-                mesh_size=mesh_size,
-                wing_mesh_size=mesh_size,
-                farfield_mesh_size=farfield_mesh_size,
-                wing_refinement_radius=wing_refinement_radius,
-                production_target_volume_elements=target_volume_elements,
-            )
-            case_report = {
-                **mesh_report,
-                "case_dir": str(mesh_case_path),
-                "points_per_side": points_per_side,
-                "points_per_station": len(spec.stations[0].airfoil_xz),
-                "mesh_size": mesh_size,
-                "surface_metadata": wing.metadata,
-                "farfield_metadata": farfield.metadata,
-            }
-            cases.append(case_report)
+            if reference_payload is None:
+                reference_payload = {
+                    "sref_full": spec.reference.sref_full,
+                    "cref": spec.reference.cref,
+                    "bref_full": spec.reference.bref_full,
+                }
 
-            if int(case_report["volume_element_count"]) > max_volume_elements:
-                status = "blocked_by_volume_element_guard"
-                stop = True
-                break
-            if int(case_report["volume_element_count"]) >= target_volume_elements:
-                selected_case = case_report
-                status = "target_reached"
-                stop = True
+            for mesh_size in ordered_mesh_sizes:
+                case_index = len(cases)
+                mesh_case_path = (
+                    ladder_path
+                    / (
+                        f"{case_index:02d}_span_{spanwise_subdivisions}"
+                        f"_pps_{points_per_side}_h_{_value_slug(mesh_size)}"
+                    )
+                )
+                mesh_case_path.mkdir(parents=True, exist_ok=True)
+                su2_path = mesh_case_path / "mesh.su2" if write_su2 else None
+                mesh_report = write_faceted_volume_mesh(
+                    wing,
+                    farfield,
+                    mesh_case_path / "mesh.msh",
+                    su2_path=su2_path,
+                    mesh_size=mesh_size,
+                    wing_mesh_size=mesh_size,
+                    farfield_mesh_size=farfield_mesh_size,
+                    wing_refinement_radius=wing_refinement_radius,
+                    production_target_volume_elements=target_volume_elements,
+                )
+                case_report = {
+                    **mesh_report,
+                    "case_dir": str(mesh_case_path),
+                    "spanwise_subdivisions": spanwise_subdivisions,
+                    "points_per_side": points_per_side,
+                    "points_per_station": len(spec.stations[0].airfoil_xz),
+                    "mesh_size": mesh_size,
+                    "surface_metadata": wing.metadata,
+                    "farfield_metadata": farfield.metadata,
+                }
+                cases.append(case_report)
+
+                if int(case_report["volume_element_count"]) > max_volume_elements:
+                    status = "blocked_by_volume_element_guard"
+                    stop = True
+                    break
+                if int(case_report["volume_element_count"]) >= target_volume_elements:
+                    selected_case = case_report
+                    status = "target_reached"
+                    stop = True
+                    break
+            if stop:
                 break
         if stop:
             break
@@ -350,6 +364,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         "target_volume_elements": int(target_volume_elements),
         "max_volume_elements": int(max_volume_elements),
         "points_per_side_values": ordered_points,
+        "spanwise_subdivision_values": ordered_spanwise,
         "mesh_sizes": ordered_mesh_sizes,
         "selected_case": selected_case,
         "cases": cases,

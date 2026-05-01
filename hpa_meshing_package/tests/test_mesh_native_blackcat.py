@@ -175,3 +175,33 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_varies_surface_density
     assert report["cases"][1]["volume_element_count"] > report["cases"][0]["volume_element_count"]
     assert report["cases"][1]["mesh_quality_gate"]["status"] == "pass"
     assert report["engineering_assessment"]["surface_and_volume_refinement_coupled"] is True
+
+
+def test_run_blackcat_main_wing_coupled_refinement_ladder_varies_spanwise_density(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+
+    report = run_blackcat_main_wing_coupled_refinement_ladder(
+        AVL_PATH,
+        tmp_path / "blackcat_spanwise_coupled_ladder",
+        points_per_side_values=(4,),
+        spanwise_subdivision_values=(1, 2),
+        mesh_sizes=(6.0,),
+        target_volume_elements=10_000,
+        max_volume_elements=50_000,
+        farfield_mesh_size=18.0,
+        wing_refinement_radius=12.0,
+        write_su2=False,
+    )
+
+    assert [case["spanwise_subdivisions"] for case in report["cases"]] == [1, 2]
+    assert report["cases"][1]["surface_metadata"]["station_count"] > report["cases"][0][
+        "surface_metadata"
+    ]["station_count"]
+    assert report["cases"][1]["surface_triangle_count"] > report["cases"][0][
+        "surface_triangle_count"
+    ]
+    assert report["cases"][1]["volume_element_count"] > report["cases"][0][
+        "volume_element_count"
+    ]
