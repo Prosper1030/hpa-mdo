@@ -1,0 +1,157 @@
+{
+  "route": "blackcat_main_wing_mesh_native_faceted_su2_smoke",
+  "mesh_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/mesh.su2",
+  "gmsh_mesh_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/mesh.msh",
+  "runtime_cfg_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/su2_runtime.cfg",
+  "report_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/mesh_native_faceted_su2_smoke_report.json",
+  "mesh_report": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/mesh.msh",
+    "su2_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/mesh.su2",
+    "volume_count": 1,
+    "node_count": 751,
+    "volume_element_count": 2191,
+    "volume_element_type_counts": {
+      "4": 2191
+    },
+    "surface_triangle_count": 320,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 308
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ]
+  },
+  "marker_audit": {
+    "status": "pass",
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "missing_from_mesh": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 2191,
+      "npoin": 751,
+      "nmark": 2,
+      "markers": {
+        "wing_wall": {
+          "element_count": 308,
+          "element_type_counts": {
+            "5": 308
+          }
+        },
+        "farfield": {
+          "element_count": 1168,
+          "element_type_counts": {
+            "5": 1168
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "solver": "INC_EULER",
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 3,
+    "ref_area": 35.175,
+    "ref_length": 1.130189765,
+    "mesh_size": 8.0
+  },
+  "caveats": [
+    "wing boundary is faceted from mesh-native panels",
+    "tet volume mesh only; no boundary-layer prism strategy",
+    "smoke case is not a convergence or aerodynamic validation case"
+  ],
+  "run_status": "completed",
+  "failure_code": null,
+  "returncode": 0,
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "1",
+    "su2_runtime.cfg"
+  ],
+  "solver_log_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/solver.log",
+  "history_path": "hpa_meshing_package/docs/reports/blackcat_mesh_native_su2_smoke/artifacts/blackcat_main_wing/history.csv",
+  "history": {
+    "row_count": 3,
+    "final_iteration": 2,
+    "final_coefficients": {
+      "cl": 0.03138246626,
+      "cd": -0.04357673071,
+      "cmx": -0.4548779929,
+      "cmy": -0.007863122175,
+      "cmz": 0.0188046601
+    }
+  },
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "marker_ownership": "pass",
+    "aero_coefficients_interpretable": false,
+    "reason": "faceted_wing_tet_smoke_not_converged"
+  },
+  "blackcat_source": {
+    "avl_path": "data/blackcat_004_full.avl",
+    "points_per_side": 8,
+    "station_count": 11,
+    "points_per_station": 14,
+    "reference": {
+      "sref_full": 35.175,
+      "cref": 1.130189765,
+      "bref_full": 33.0
+    },
+    "surface_metadata": {
+      "station_count": 11,
+      "points_per_station": 14,
+      "span_m": 33.0,
+      "planform_area_m2": 35.175000000000004,
+      "side": "full",
+      "te_rule": "sharp",
+      "tip_rule": "planar_cap",
+      "root_rule": "full"
+    },
+    "farfield_metadata": {
+      "surface_role": "farfield_box",
+      "x_min": -1.9475963491243293,
+      "x_max": 3.8956719127937403,
+      "y_min": -56.1,
+      "y_max": 56.1,
+      "z_min": -39.651027557336874,
+      "z_max": 40.448766935643995
+    },
+    "farfield_factors": {
+      "upstream": 1.5,
+      "downstream": 2.0,
+      "lateral": 1.2,
+      "vertical": 1.2
+    }
+  }
+}

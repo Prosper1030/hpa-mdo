@@ -1,0 +1,97 @@
+{
+  "contract": "blackcat_mesh_native_su2_smoke.v1",
+  "date": "2026-05-01",
+  "route": "blackcat_main_wing_mesh_native_faceted_su2_smoke",
+  "objective": "Prove the repository Black Cat main-wing station/reference data can reach SU2 through the mesh-native faceted Gmsh volume route without STEP/BREP repair.",
+  "source": {
+    "avl_path": "data/blackcat_004_full.avl",
+    "station_source": "AVL Main Wing SECTION blocks with inline AIRFOIL coordinates",
+    "points_per_side": 8,
+    "full_span_station_count": 11,
+    "points_per_station": 14,
+    "reference": {
+      "sref_full_m2": 35.175,
+      "cref_m": 1.130189765,
+      "bref_full_m": 33.0
+    },
+    "surface_metadata": {
+      "span_m": 33.0,
+      "planform_area_m2": 35.175000000000004,
+      "side": "full",
+      "te_rule": "sharp",
+      "tip_rule": "planar_cap",
+      "root_rule": "full"
+    }
+  },
+  "artifacts": {
+    "gmsh_mesh": "artifacts/blackcat_main_wing/mesh.msh",
+    "su2_mesh": "artifacts/blackcat_main_wing/mesh.su2",
+    "runtime_cfg": "artifacts/blackcat_main_wing/su2_runtime.cfg",
+    "solver_log": "artifacts/blackcat_main_wing/solver.log",
+    "history": "artifacts/blackcat_main_wing/history.csv",
+    "case_report": "artifacts/blackcat_main_wing/mesh_native_faceted_su2_smoke_report.json"
+  },
+  "mesh_gate": {
+    "gmsh_volume_count": 1,
+    "node_count": 751,
+    "volume_element_count": 2191,
+    "volume_element_type_counts": {
+      "4": 2191
+    },
+    "source_surface_triangle_count": 320,
+    "su2_nmark": 2,
+    "markers": {
+      "wing_wall": {
+        "element_count": 308,
+        "element_type_counts": {
+          "5": 308
+        }
+      },
+      "farfield": {
+        "element_count": 1168,
+        "element_type_counts": {
+          "5": 1168
+        }
+      }
+    },
+    "marker_audit_status": "pass",
+    "missing_config_markers": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "su2_orientation_status": "volume_oriented_surface_reoriented_by_su2",
+    "su2_surface_reoriented_count": 1196
+  },
+  "su2_smoke": {
+    "command": "SU2_CFD -t 1 su2_runtime.cfg",
+    "exit_status": "success",
+    "solver": "INC_EULER",
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 3,
+    "history_rows": 3,
+    "final_iteration": 2,
+    "final_coefficients": {
+      "cl": 0.03138246626,
+      "cd": -0.04357673071,
+      "cmx": -0.4548779929,
+      "cmy": -0.007863122175,
+      "cmz": 0.0188046601
+    }
+  },
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "marker_ownership": "pass",
+    "pipeline_connectivity": "pass",
+    "aero_coefficients_interpretable": false,
+    "reason": "blackcat_faceted_tet_smoke_not_converged",
+    "caveats": [
+      "This is a coarse faceted Euler smoke run, not a validated aerodynamic solution.",
+      "The mesh has only 2191 tetrahedral volume elements and no boundary-layer prism strategy.",
+      "The run uses three iterations only and residual/force convergence is not evaluated.",
+      "SU2 reports Dynamic Pressure as 0 in the properties table while RefForce is finite; audit the incompressible reporting path before coefficient validation.",
+      "SU2 re-oriented 1196 triangular surface elements; volume orientation passes, but surface-normal convention should be cleaned before production use.",
+      "The farfield is deliberately close for a fast smoke case and should not be used for final CFD."
+    ]
+  },
+  "verdict": "pass_for_blackcat_mesh_native_pipeline_connectivity_to_su2_smoke"
+}
