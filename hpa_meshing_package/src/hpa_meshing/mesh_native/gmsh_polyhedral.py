@@ -371,6 +371,10 @@ def write_faceted_volume_mesh_with_boundary_layer(
         core_type_counts = _entity_type_counts(gmsh, 3, [core_volume])
         quality_metrics = _collect_volume_quality_metrics(gmsh)
         boundary_layer_quality = _collect_entity_quality_metrics(gmsh, 3, bl_volume_tags)
+        mesh_quality_gate = _boundary_layer_mesh_quality_gate(
+            core_quality_metrics=quality_metrics,
+            boundary_layer_quality_metrics=boundary_layer_quality,
+        )
         gmsh.write(str(msh_path))
         if su2_output_path is not None:
             gmsh.write(str(su2_output_path))
@@ -409,7 +413,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
                 "volume_element_type_counts": core_type_counts,
             },
             "quality_metrics": quality_metrics,
-            "mesh_quality_gate": _mesh_quality_gate(quality_metrics),
+            "mesh_quality_gate": mesh_quality_gate,
             "production_scale_gate": _production_scale_gate(
                 volume_element_count,
                 target_volume_elements=production_target_volume_elements,
@@ -1333,6 +1337,37 @@ def _mesh_quality_gate(quality_metrics: dict[str, Any]) -> dict[str, Any]:
             "min_gamma": 1.0e-4,
             "min_sicn": 1.0e-4,
             "p01_gamma": 0.02,
+        },
+    }
+
+
+def _boundary_layer_mesh_quality_gate(
+    *,
+    core_quality_metrics: dict[str, Any],
+    boundary_layer_quality_metrics: dict[str, Any],
+) -> dict[str, Any]:
+    core_gate = _mesh_quality_gate(core_quality_metrics)
+    blockers = list(core_gate["blockers"])
+    warnings = list(core_gate["warnings"])
+    if int(boundary_layer_quality_metrics.get("element_count") or 0) <= 0:
+        blockers.append("boundary_layer_elements_missing")
+    if int(boundary_layer_quality_metrics.get("non_positive_min_sicn_count") or 0) > 0:
+        blockers.append("boundary_layer_non_positive_min_sicn")
+    if int(boundary_layer_quality_metrics.get("non_positive_min_sige_count") or 0) > 0:
+        blockers.append("boundary_layer_non_positive_min_sige")
+    if int(boundary_layer_quality_metrics.get("non_positive_volume_count") or 0) > 0:
+        blockers.append("boundary_layer_non_positive_volume")
+    sicn_percentiles = boundary_layer_quality_metrics.get("min_sicn_percentiles") or {}
+    p01_sicn = sicn_percentiles.get("p01") if isinstance(sicn_percentiles, dict) else None
+    if p01_sicn is not None and float(p01_sicn) < 0.02:
+        warnings.append("boundary_layer_low_p01_min_sicn")
+    return {
+        "status": "pass" if not blockers else "fail",
+        "blockers": blockers,
+        "warnings": sorted(set(warnings)),
+        "warning_thresholds": {
+            **core_gate["warning_thresholds"],
+            "boundary_layer_p01_min_sicn": 0.02,
         },
     }
 
