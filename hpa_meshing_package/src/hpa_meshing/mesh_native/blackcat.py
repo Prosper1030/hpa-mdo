@@ -4,7 +4,7 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from .wing_surface import (
     Reference,
@@ -237,6 +237,147 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
     return enriched_report
 
 
+def run_blackcat_main_wing_coupled_refinement_ladder(
+    avl_path: Path | str,
+    case_dir: Path | str,
+    *,
+    points_per_side_values: Sequence[int] = (6, 8, 12),
+    mesh_sizes: Sequence[float] = (10.0, 8.0, 6.0),
+    target_volume_elements: int = 1_000_000,
+    max_volume_elements: int = 250_000,
+    farfield_mesh_size: float | None = None,
+    wing_refinement_radius: float | None = None,
+    write_su2: bool = True,
+    farfield_upstream_factor: float = 1.5,
+    farfield_downstream_factor: float = 2.0,
+    farfield_lateral_factor: float = 1.2,
+    farfield_vertical_factor: float = 1.2,
+) -> dict[str, Any]:
+    from .gmsh_polyhedral import write_faceted_volume_mesh
+
+    if target_volume_elements <= 0:
+        raise ValueError("target_volume_elements must be positive")
+    if max_volume_elements <= 0:
+        raise ValueError("max_volume_elements must be positive")
+
+    ordered_points = sorted(int(value) for value in points_per_side_values)
+    ordered_mesh_sizes = sorted((float(value) for value in mesh_sizes), reverse=True)
+    if not ordered_points:
+        raise ValueError("points_per_side_values must not be empty")
+    if not ordered_mesh_sizes:
+        raise ValueError("mesh_sizes must not be empty")
+    if any(value < 3 for value in ordered_points):
+        raise ValueError("points_per_side_values must all be at least 3")
+    if any(value <= 0.0 for value in ordered_mesh_sizes):
+        raise ValueError("mesh_sizes must all be positive")
+
+    ladder_path = Path(case_dir)
+    ladder_path.mkdir(parents=True, exist_ok=True)
+    cases: list[dict[str, Any]] = []
+    selected_case: dict[str, Any] | None = None
+    status = "target_not_reached"
+    stop = False
+    reference_payload: dict[str, Any] | None = None
+
+    for points_per_side in ordered_points:
+        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+            avl_path,
+            points_per_side=points_per_side,
+            farfield_upstream_factor=farfield_upstream_factor,
+            farfield_downstream_factor=farfield_downstream_factor,
+            farfield_lateral_factor=farfield_lateral_factor,
+            farfield_vertical_factor=farfield_vertical_factor,
+        )
+        if reference_payload is None:
+            reference_payload = {
+                "sref_full": spec.reference.sref_full,
+                "cref": spec.reference.cref,
+                "bref_full": spec.reference.bref_full,
+            }
+
+        for mesh_size in ordered_mesh_sizes:
+            case_index = len(cases)
+            mesh_case_path = (
+                ladder_path
+                / f"{case_index:02d}_pps_{points_per_side}_h_{_value_slug(mesh_size)}"
+            )
+            mesh_case_path.mkdir(parents=True, exist_ok=True)
+            su2_path = mesh_case_path / "mesh.su2" if write_su2 else None
+            mesh_report = write_faceted_volume_mesh(
+                wing,
+                farfield,
+                mesh_case_path / "mesh.msh",
+                su2_path=su2_path,
+                mesh_size=mesh_size,
+                wing_mesh_size=mesh_size,
+                farfield_mesh_size=farfield_mesh_size,
+                wing_refinement_radius=wing_refinement_radius,
+                production_target_volume_elements=target_volume_elements,
+            )
+            case_report = {
+                **mesh_report,
+                "case_dir": str(mesh_case_path),
+                "points_per_side": points_per_side,
+                "points_per_station": len(spec.stations[0].airfoil_xz),
+                "mesh_size": mesh_size,
+                "surface_metadata": wing.metadata,
+                "farfield_metadata": farfield.metadata,
+            }
+            cases.append(case_report)
+
+            if int(case_report["volume_element_count"]) > max_volume_elements:
+                status = "blocked_by_volume_element_guard"
+                stop = True
+                break
+            if int(case_report["volume_element_count"]) >= target_volume_elements:
+                selected_case = case_report
+                status = "target_reached"
+                stop = True
+                break
+        if stop:
+            break
+
+    report = {
+        "route": "blackcat_main_wing_mesh_native_coupled_refinement_ladder",
+        "status": status,
+        "report_path": str(ladder_path / "coupled_refinement_ladder_report.json"),
+        "target_volume_elements": int(target_volume_elements),
+        "max_volume_elements": int(max_volume_elements),
+        "points_per_side_values": ordered_points,
+        "mesh_sizes": ordered_mesh_sizes,
+        "selected_case": selected_case,
+        "cases": cases,
+        "engineering_assessment": {
+            "surface_and_volume_refinement_coupled": True,
+            "production_scale_target_volume_elements": int(target_volume_elements),
+            "budget_guard_volume_elements": int(max_volume_elements),
+            "selected_for_cfd_interpretation": status == "target_reached",
+            "aero_coefficients_interpretable": False,
+            "reason": "coupled_refinement_ladder_only_no_converged_su2_solution",
+        },
+        "blackcat_source": {
+            "avl_path": str(avl_path),
+            "reference": reference_payload,
+            "farfield_factors": {
+                "upstream": farfield_upstream_factor,
+                "downstream": farfield_downstream_factor,
+                "lateral": farfield_lateral_factor,
+                "vertical": farfield_vertical_factor,
+            },
+        },
+        "caveats": [
+            "surface refinement is airfoil chordwise resampling only",
+            "no station interpolation, wake zone, tip zone, or boundary-layer prism strategy yet",
+            "million-scale target is an engineering credibility gate, not a convergence proof",
+        ],
+    }
+    Path(report["report_path"]).write_text(
+        json.dumps(report, indent=2),
+        encoding="utf-8",
+    )
+    return report
+
+
 def _clean_avl_lines(text: str) -> list[str]:
     lines: list[str] = []
     for raw in text.splitlines():
@@ -408,3 +549,7 @@ def _distance_2d(
     right: tuple[float, float],
 ) -> float:
     return math.hypot(left[0] - right[0], left[1] - right[1])
+
+
+def _value_slug(value: float) -> str:
+    return f"{float(value):.6g}".replace("-", "m").replace(".", "p")
