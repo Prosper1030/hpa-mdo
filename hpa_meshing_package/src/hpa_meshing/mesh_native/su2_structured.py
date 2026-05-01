@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import math
 from pathlib import Path
+import re
 from typing import Any, Iterable, Literal
 
 from .wing_surface import SurfaceMesh, Vertex
@@ -34,6 +37,115 @@ def write_structured_box_shell_su2(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(_su2_text(volume), encoding="utf-8")
     return _report(volume)
+
+
+def write_structured_box_shell_su2_case(
+    wing: SurfaceMesh,
+    farfield: SurfaceMesh,
+    case_dir: Path | str,
+    *,
+    ref_area: float,
+    ref_length: float,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 5,
+    solver: str = "INC_EULER",
+    wall_marker: str = "wing_wall",
+    farfield_marker: str = "farfield",
+) -> dict[str, Any]:
+    if ref_area <= 0.0:
+        raise ValueError("ref_area must be positive")
+    if ref_length <= 0.0:
+        raise ValueError("ref_length must be positive")
+    if max_iterations <= 0:
+        raise ValueError("max_iterations must be positive")
+
+    case_dir = Path(case_dir)
+    case_dir.mkdir(parents=True, exist_ok=True)
+    mesh_path = case_dir / "mesh.su2"
+    runtime_cfg_path = case_dir / "su2_runtime.cfg"
+    report_path = case_dir / "mesh_native_su2_smoke_report.json"
+
+    mesh_report = write_structured_box_shell_su2(
+        wing,
+        farfield,
+        mesh_path,
+        wall_marker=wall_marker,
+        farfield_marker=farfield_marker,
+    )
+    runtime_cfg_path.write_text(
+        _smoke_cfg_text(
+            wing,
+            solver=solver,
+            ref_area=ref_area,
+            ref_length=ref_length,
+            velocity_mps=velocity_mps,
+            alpha_deg=alpha_deg,
+            max_iterations=max_iterations,
+            wall_marker=wall_marker,
+            farfield_marker=farfield_marker,
+        ),
+        encoding="utf-8",
+    )
+    marker_audit = audit_su2_case_markers(mesh_path, runtime_cfg_path)
+    report = {
+        "route": "mesh_native_structured_box_shell_su2_smoke_case",
+        "mesh_path": str(mesh_path),
+        "runtime_cfg_path": str(runtime_cfg_path),
+        "report_path": str(report_path),
+        "mesh_report": mesh_report,
+        "marker_audit": marker_audit,
+        "runtime": {
+            "solver": solver,
+            "velocity_mps": velocity_mps,
+            "alpha_deg": alpha_deg,
+            "max_iterations": max_iterations,
+            "ref_area": ref_area,
+            "ref_length": ref_length,
+        },
+        "caveats": [
+            *mesh_report["caveats"],
+            "case is intended to prove SU2 readability and marker ownership only",
+        ],
+    }
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return report
+
+
+def audit_su2_case_markers(mesh_path: Path | str, runtime_cfg_path: Path | str) -> dict[str, Any]:
+    mesh_summary = parse_su2_marker_summary(mesh_path)
+    cfg_text = Path(runtime_cfg_path).read_text(encoding="utf-8", errors="replace")
+    boundary_condition_markers = _boundary_condition_markers(cfg_text)
+
+    mesh_markers = set(mesh_summary["markers"])
+    assigned_bc_markers = {
+        marker
+        for markers in boundary_condition_markers.values()
+        for marker in markers
+    }
+    zero_element_markers = sorted(
+        marker
+        for marker, summary in mesh_summary["markers"].items()
+        if int(summary.get("element_count", 0)) <= 0
+    )
+    missing_from_mesh = sorted(assigned_bc_markers - mesh_markers)
+    unassigned_mesh_markers = sorted(mesh_markers - assigned_bc_markers)
+    status = (
+        "pass"
+        if not zero_element_markers
+        and not missing_from_mesh
+        and not unassigned_mesh_markers
+        else "fail"
+    )
+    return {
+        "status": status,
+        "mesh_markers": sorted(mesh_markers),
+        "boundary_condition_markers": boundary_condition_markers,
+        "missing_from_mesh": missing_from_mesh,
+        "unassigned_mesh_markers": unassigned_mesh_markers,
+        "zero_element_markers": zero_element_markers,
+        "mesh_summary": mesh_summary,
+    }
 
 
 def parse_su2_marker_summary(path: Path | str) -> dict[str, Any]:
@@ -73,6 +185,111 @@ def parse_su2_marker_summary(path: Path | str) -> dict[str, Any]:
         "nmark": nmark,
         "markers": markers,
     }
+
+
+def _smoke_cfg_text(
+    wing: SurfaceMesh,
+    *,
+    solver: str,
+    ref_area: float,
+    ref_length: float,
+    velocity_mps: float,
+    alpha_deg: float,
+    max_iterations: int,
+    wall_marker: str,
+    farfield_marker: str,
+) -> str:
+    alpha_rad = math.radians(alpha_deg)
+    vx = velocity_mps * math.cos(alpha_rad)
+    vz = velocity_mps * math.sin(alpha_rad)
+    origin = _bounds_center(wing.bounds())
+    lines = [
+        "% Auto-generated mesh-native SU2 smoke case.",
+        "% The wing marker is a bounding-box obstacle; do not interpret aerodynamic coefficients.",
+        f"SOLVER= {solver}",
+        "KIND_TURB_MODEL= NONE",
+        "MATH_PROBLEM= DIRECT",
+        "SYSTEM_MEASUREMENTS= SI",
+        "RESTART_SOL= NO",
+        "INC_NONDIM= DIMENSIONAL",
+        "INC_DENSITY_MODEL= CONSTANT",
+        "FLUID_MODEL= INC_IDEAL_GAS",
+        "VISCOSITY_MODEL= CONSTANT_VISCOSITY",
+        "MU_CONSTANT= 1.789400e-05",
+        "INC_DENSITY_INIT= 1.225000",
+        "INC_TEMPERATURE_INIT= 288.150000",
+        f"INC_VELOCITY_INIT= ( {vx:.6f}, 0.000000, {vz:.6f} )",
+        f"AOA= {alpha_deg:.6f}",
+        "SIDESLIP_ANGLE= 0.000000",
+        f"REF_AREA= {ref_area:.6f}",
+        f"REF_LENGTH= {ref_length:.6f}",
+        f"REF_ORIGIN_MOMENT_X= {origin[0]:.6f}",
+        f"REF_ORIGIN_MOMENT_Y= {origin[1]:.6f}",
+        f"REF_ORIGIN_MOMENT_Z= {origin[2]:.6f}",
+        "MESH_FILENAME= mesh.su2",
+        "MESH_FORMAT= SU2",
+        f"MARKER_EULER= ( {wall_marker} )",
+        f"MARKER_MONITORING= ( {wall_marker} )",
+        f"MARKER_PLOTTING= ( {wall_marker} )",
+        f"MARKER_FAR= ( {farfield_marker} )",
+        "NUM_METHOD_GRAD= WEIGHTED_LEAST_SQUARES",
+        "CONV_NUM_METHOD_FLOW= FDS",
+        "TIME_DISCRE_FLOW= EULER_IMPLICIT",
+        "LINEAR_SOLVER= FGMRES",
+        "LINEAR_SOLVER_PREC= ILU",
+        "LINEAR_SOLVER_ERROR= 1e-6",
+        "LINEAR_SOLVER_ITER= 10",
+        f"ITER= {max_iterations}",
+        "CFL_NUMBER= 1.0",
+        "CONV_FIELD= DRAG",
+        "CONV_RESIDUAL_MINVAL= -9",
+        "CONV_STARTITER= 1",
+        "CONV_FILENAME= history",
+        "TABULAR_FORMAT= CSV",
+        "SCREEN_OUTPUT= (INNER_ITER, RMS_RES, AERO_COEFF)",
+        "HISTORY_OUTPUT= (ITER, RMS_RES, AERO_COEFF)",
+        "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW_ASCII, SURFACE_CSV)",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _bounds_center(bounds: dict[str, float]) -> Vertex:
+    return (
+        0.5 * (bounds["x_min"] + bounds["x_max"]),
+        0.5 * (bounds["y_min"] + bounds["y_max"]),
+        0.5 * (bounds["z_min"] + bounds["z_max"]),
+    )
+
+
+def _boundary_condition_markers(cfg_text: str) -> dict[str, list[str]]:
+    parsed: dict[str, list[str]] = {}
+    for key in ("MARKER_EULER", "MARKER_HEATFLUX", "MARKER_SYM", "MARKER_FAR"):
+        markers = _cfg_marker_list(cfg_text, key)
+        if markers:
+            parsed[key] = markers
+    return parsed
+
+
+def _cfg_marker_list(cfg_text: str, key: str) -> list[str]:
+    match = re.search(rf"^\s*{re.escape(key)}\s*=\s*\(([^)]*)\)", cfg_text, flags=re.MULTILINE)
+    if match is None:
+        return []
+    markers: list[str] = []
+    for raw_token in match.group(1).split(","):
+        token = raw_token.strip()
+        if not token or _is_number(token):
+            continue
+        markers.append(token)
+    return markers
+
+
+def _is_number(value: str) -> bool:
+    try:
+        float(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _header_int(lines: Iterable[str], key: str) -> int:
