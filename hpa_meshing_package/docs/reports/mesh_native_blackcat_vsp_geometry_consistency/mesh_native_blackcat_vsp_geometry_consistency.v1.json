@@ -1,0 +1,127 @@
+{
+  "schema_version": "mesh_native_blackcat_vsp_geometry_consistency.v1",
+  "verdict": "old_avl_mesh_native_source_not_identical_to_reference_vsp",
+  "source_files": {
+    "reference_vsp": "data/blackcat_004_origin.vsp3",
+    "historical_avl": "data/blackcat_004_full.avl"
+  },
+  "engineering_summary": {
+    "planform_reference_matches": true,
+    "airfoil_coordinates_match": true,
+    "old_avl_missing_vsp_le_sweep": true,
+    "old_avl_uses_unprojected_span_stations": true,
+    "old_avl_uses_quarter_chord_mesh_twist_axis": true,
+    "vsp_native_uses_projected_station_y": true,
+    "vsp_native_uses_le_twist_axis": true,
+    "max_abs_delta_x_le_m": 0.23121458687027435,
+    "max_abs_delta_y_m": 0.025348041420521383,
+    "max_abs_delta_z_le_m": 0.011004499194517181
+  },
+  "surface_bounds": {
+    "old_avl_mesh_native": {
+      "x_min": 0.00015973818169396037,
+      "x_max": 1.2986637963857095,
+      "y_min": -16.5,
+      "y_max": 16.5,
+      "z_min": -0.05102755733687024,
+      "z_max": 0.8500978899570032,
+      "twist_axis_x": 0.25
+    },
+    "vsp_native_mesh": {
+      "x_min": 0.0,
+      "x_max": 1.3023286428893068,
+      "y_min": -16.47465195857948,
+      "y_max": 16.47465195857948,
+      "z_min": -0.06803674311582698,
+      "z_max": 0.8334018557409658,
+      "twist_axis_x": 0.0
+    }
+  },
+  "station_comparison_positive_semispan": [
+    {
+      "station_index": 0,
+      "avl_y": 0.0,
+      "vsp_y": 0.0,
+      "delta_y_m": 0.0,
+      "avl_x_le": 0.0,
+      "vsp_x_le": 0.0,
+      "delta_x_le_m": 0.0,
+      "avl_z_le": 0.0,
+      "vsp_z_le": 0.0,
+      "delta_z_le_m": 0.0,
+      "chord_m": 1.3,
+      "incidence_deg": 3.0
+    },
+    {
+      "station_index": 1,
+      "avl_y": 4.5,
+      "vsp_y": 4.499314628203761,
+      "delta_y_m": -0.0006853717962389538,
+      "avl_x_le": 0.0,
+      "vsp_x_le": 0.004110247708360835,
+      "delta_x_le_m": 0.004110247708360835,
+      "avl_z_le": 0.078535829,
+      "vsp_z_le": 0.07842819834365473,
+      "delta_z_le_m": -0.00010763065634526725,
+      "chord_m": 1.3,
+      "incidence_deg": 3.0
+    },
+    {
+      "station_index": 2,
+      "avl_y": 7.5,
+      "vsp_y": 7.497487109261049,
+      "delta_y_m": -0.0025128907389513344,
+      "avl_x_le": 0.0,
+      "vsp_x_le": 0.009589743305329397,
+      "delta_x_le_m": 0.009589743305329397,
+      "avl_z_le": 0.183234319,
+      "vsp_z_le": 0.18298320280921673,
+      "delta_z_le_m": -0.00025111619078327374,
+      "chord_m": 1.1749999999999996,
+      "incidence_deg": 3.0
+    },
+    {
+      "station_index": 3,
+      "avl_y": 10.5,
+      "vsp_y": 10.49337571352477,
+      "delta_y_m": -0.006624286475229724,
+      "avl_x_le": 0.0,
+      "vsp_x_le": 0.05749373832199002,
+      "delta_x_le_m": 0.05749373832199002,
+      "avl_z_le": 0.340242188,
+      "vsp_z_le": 0.33769599866073124,
+      "delta_z_le_m": -0.0025461893392687562,
+      "chord_m": 1.0399999999999998,
+      "incidence_deg": 3.0
+    },
+    {
+      "station_index": 4,
+      "avl_y": 13.5,
+      "vsp_y": 13.486067864304243,
+      "delta_y_m": -0.013932135695757353,
+      "avl_x_le": 0.0,
+      "vsp_x_le": 0.11800330654650065,
+      "delta_x_le_m": 0.11800330654650065,
+      "avl_z_le": 0.549511609,
+      "vsp_z_le": 0.5440814378498005,
+      "delta_z_le_m": -0.005430171150199503,
+      "chord_m": 0.83,
+      "incidence_deg": 3.0
+    },
+    {
+      "station_index": 5,
+      "avl_y": 16.5,
+      "vsp_y": 16.47465195857948,
+      "delta_y_m": -0.025348041420521383,
+      "avl_x_le": 0.0,
+      "vsp_x_le": 0.23121458687027435,
+      "delta_x_le_m": 0.23121458687027435,
+      "avl_z_le": 0.810978837,
+      "vsp_z_le": 0.7999743378054828,
+      "delta_z_le_m": -0.011004499194517181,
+      "chord_m": 0.435,
+      "incidence_deg": 3.0
+    }
+  ],
+  "recommendation": "Use the VSP-native mesh-native builder for Black Cat CFD geometry; keep the AVL source as an aerodynamic/reference baseline only."
+}
