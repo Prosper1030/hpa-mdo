@@ -219,6 +219,7 @@ def run_blackcat_main_wing_faceted_su2_smoke(
     solver_command: str = "SU2_CFD",
     threads: int = 4,
     gmsh_threads: int = 4,
+    mesh_algorithm3d: int = 10,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
@@ -266,6 +267,7 @@ def run_blackcat_main_wing_faceted_su2_smoke(
         solver_command=solver_command,
         threads=threads,
         gmsh_threads=gmsh_threads,
+        mesh_algorithm3d=mesh_algorithm3d,
     )
     enriched_report = {
         **report,
@@ -310,6 +312,8 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
     wing_refinement_radius: float | None = None,
     feature_refinement_size: float | None = None,
     write_su2: bool = True,
+    gmsh_threads: int = 4,
+    mesh_algorithm3d: int = 10,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
@@ -347,6 +351,8 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
         wing_refinement_radius=wing_refinement_radius,
         refinement_boxes=refinement_boxes,
         write_su2=write_su2,
+        gmsh_threads=gmsh_threads,
+        mesh_algorithm3d=mesh_algorithm3d,
     )
     enriched_report = {
         **report,
@@ -374,6 +380,10 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
             "feature_refinement_box_count": (
                 0 if refinement_boxes is None else len(refinement_boxes)
             ),
+            "compute": {
+                "gmsh_threads": int(max(1, gmsh_threads)),
+                "mesh_algorithm3d": int(mesh_algorithm3d),
+            },
         },
     }
     Path(report["report_path"]).write_text(
@@ -397,6 +407,8 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
     feature_refinement_size: float | None = None,
     feature_refinement_size_values: Sequence[float | None] | None = None,
     write_su2: bool = True,
+    gmsh_threads: int = 4,
+    mesh_algorithm3d: int = 10,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
@@ -491,6 +503,8 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
                         wing_refinement_radius=wing_refinement_radius,
                         refinement_boxes=refinement_boxes,
                         production_target_volume_elements=target_volume_elements,
+                        gmsh_threads=gmsh_threads,
+                        mesh_algorithm3d=mesh_algorithm3d,
                     )
                     case_report = {
                         **mesh_report,
@@ -537,6 +551,10 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         if len(ordered_feature_sizes) == 1
         else None,
         "feature_refinement_size_values": ordered_feature_sizes,
+        "compute": {
+            "gmsh_threads": int(max(1, gmsh_threads)),
+            "mesh_algorithm3d": int(mesh_algorithm3d),
+        },
         "selected_case": selected_case,
         "recommended_quality_candidate": _recommended_quality_candidate(cases),
         "quality_warning_cases": _quality_warning_cases(cases),
@@ -604,6 +622,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
     solver_command: str = "SU2_CFD",
     threads: int = 4,
     gmsh_threads: int = 4,
+    mesh_algorithm3d: int = 10,
     wall_profile: str = "euler_slip",
     conv_num_method_flow: str = "FDS",
     cfl_number: float = 1.0,
@@ -695,6 +714,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
             solver_command=solver_command,
             threads=threads,
             gmsh_threads=gmsh_threads,
+            mesh_algorithm3d=mesh_algorithm3d,
             wall_profile=wall_profile,
             conv_num_method_flow=conv_num_method_flow,
             cfl_number=cfl_number,
@@ -768,6 +788,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
             "max_iterations": max_iterations,
             "threads": threads,
             "gmsh_threads": gmsh_threads,
+            "mesh_algorithm3d": mesh_algorithm3d,
             "wall_profile": wall_profile,
             "conv_num_method_flow": conv_num_method_flow.strip().upper(),
             "cfl_number": float(cfl_number),
@@ -833,6 +854,7 @@ def run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
     solver_command: str = "SU2_CFD",
     threads: int = 4,
     gmsh_threads: int = 4,
+    mesh_algorithm3d: int = 10,
     wall_profile: str = "adiabatic_no_slip",
     conv_num_method_flow: str = "JST",
     cfl_number: float = 0.05,
@@ -922,6 +944,7 @@ def run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
             solver_command=solver_command,
             threads=threads,
             gmsh_threads=gmsh_threads,
+            mesh_algorithm3d=mesh_algorithm3d,
             wall_profile=wall_profile,
             conv_num_method_flow=conv_num_method_flow,
             cfl_number=cfl_number,
@@ -998,6 +1021,7 @@ def run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
             "max_iterations": max_iterations,
             "threads": threads,
             "gmsh_threads": gmsh_threads,
+            "mesh_algorithm3d": mesh_algorithm3d,
             "wall_profile": wall_profile,
             "conv_num_method_flow": conv_num_method_flow.strip().upper(),
             "cfl_number": float(cfl_number),

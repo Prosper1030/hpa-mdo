@@ -58,6 +58,7 @@ def write_faceted_volume_mesh(
     fluid_marker: str = "fluid",
     production_target_volume_elements: int = 1_000_000,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
 ) -> dict[str, Any]:
     """Generate a Gmsh volume from mesh-native faceted boundary surfaces.
 
@@ -94,10 +95,14 @@ def write_faceted_volume_mesh(
         refinement_boxes or (),
         farfield_mesh_size=resolved_farfield_mesh_size,
     )
+    resolved_mesh_algorithm3d = int(mesh_algorithm3d)
+    if resolved_mesh_algorithm3d <= 0:
+        raise ValueError("mesh_algorithm3d must be positive")
 
     gmsh.initialize()
     try:
         thread_settings = _configure_gmsh_threads(gmsh, gmsh_threads)
+        thread_settings["mesh_algorithm3d"] = resolved_mesh_algorithm3d
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.add("mesh_native_faceted_volume")
 
@@ -163,7 +168,7 @@ def write_faceted_volume_mesh(
             max(resolved_wing_mesh_size, resolved_farfield_mesh_size),
         )
         gmsh.option.setNumber("Mesh.Algorithm", 5)
-        gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+        gmsh.option.setNumber("Mesh.Algorithm3D", resolved_mesh_algorithm3d)
         gmsh.option.setNumber("Mesh.Optimize", 1)
         gmsh.model.mesh.generate(3)
 
@@ -242,6 +247,7 @@ def write_boundary_layer_block_core_tet_mesh(
     production_target_volume_elements: int = 1_000_000,
     preserve_boundary_mesh: bool = False,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 1,
 ) -> dict[str, Any]:
     """Tet-fill the region outside an owned BL block for core-mesh smoke tests.
 
@@ -262,6 +268,9 @@ def write_boundary_layer_block_core_tet_mesh(
     resolved_farfield_mesh_size = mesh_size if farfield_mesh_size is None else farfield_mesh_size
     if resolved_farfield_mesh_size <= 0.0:
         raise ValueError("farfield_mesh_size must be positive")
+    resolved_mesh_algorithm3d = int(mesh_algorithm3d)
+    if resolved_mesh_algorithm3d <= 0:
+        raise ValueError("mesh_algorithm3d must be positive")
 
     inner_boundary = orient_surface_mesh_outward(
         build_boundary_layer_core_interface_surface(block)
@@ -269,6 +278,7 @@ def write_boundary_layer_block_core_tet_mesh(
     gmsh.initialize()
     try:
         thread_settings = _configure_gmsh_threads(gmsh, gmsh_threads)
+        thread_settings["mesh_algorithm3d"] = resolved_mesh_algorithm3d
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.add("mesh_native_bl_block_core_tet_smoke")
 
@@ -358,7 +368,7 @@ def write_boundary_layer_block_core_tet_mesh(
             gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
             gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
         gmsh.option.setNumber("Mesh.Algorithm", 6 if preserve_boundary_mesh else 5)
-        gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+        gmsh.option.setNumber("Mesh.Algorithm3D", resolved_mesh_algorithm3d)
         gmsh.option.setNumber("Mesh.Optimize", 1)
         gmsh.model.mesh.generate(3)
 
@@ -455,6 +465,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
     fluid_marker: str = "fluid",
     production_target_volume_elements: int = 1_000_000,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
 ) -> dict[str, Any]:
     """Generate a mesh-native mixed prism/tet volume mesh with a wall BL.
 
@@ -497,10 +508,14 @@ def write_faceted_volume_mesh_with_boundary_layer(
         refinement_boxes or (),
         farfield_mesh_size=resolved_farfield_mesh_size,
     )
+    resolved_mesh_algorithm3d = int(mesh_algorithm3d)
+    if resolved_mesh_algorithm3d <= 0:
+        raise ValueError("mesh_algorithm3d must be positive")
 
     gmsh.initialize()
     try:
         thread_settings = _configure_gmsh_threads(gmsh, gmsh_threads)
+        thread_settings["mesh_algorithm3d"] = resolved_mesh_algorithm3d
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.add("mesh_native_faceted_bl_volume")
 
@@ -556,7 +571,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
             max(resolved_wing_mesh_size, resolved_farfield_mesh_size),
         )
         gmsh.option.setNumber("Mesh.Algorithm", 5)
-        gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+        gmsh.option.setNumber("Mesh.Algorithm3D", resolved_mesh_algorithm3d)
         gmsh.option.setNumber("Mesh.Optimize", 1)
 
         gmsh.model.mesh.generate(2)
@@ -697,6 +712,8 @@ def run_faceted_volume_refinement_ladder(
     wing_refinement_radius: float | None = None,
     write_su2: bool = True,
     refinement_boxes: Sequence[dict[str, Any]] | None = None,
+    gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
 ) -> dict[str, Any]:
     """Run a coarse-to-fine mesh-size ladder with explicit cell-count guardrails."""
     if target_volume_elements <= 0:
@@ -731,6 +748,8 @@ def run_faceted_volume_refinement_ladder(
             wing_refinement_radius=wing_refinement_radius,
             refinement_boxes=refinement_boxes,
             production_target_volume_elements=target_volume_elements,
+            gmsh_threads=gmsh_threads,
+            mesh_algorithm3d=mesh_algorithm3d,
         )
         case_report = {
             **mesh_report,
@@ -754,6 +773,10 @@ def run_faceted_volume_refinement_ladder(
         "target_volume_elements": int(target_volume_elements),
         "max_volume_elements": int(max_volume_elements),
         "mesh_sizes": ordered_mesh_sizes,
+        "compute": {
+            "gmsh_threads": int(max(1, gmsh_threads)),
+            "mesh_algorithm3d": int(mesh_algorithm3d),
+        },
         "selected_case": selected_case,
         "cases": cases,
         "engineering_assessment": {
@@ -804,6 +827,7 @@ def write_faceted_volume_su2_case(
     wing_refinement_radius: float | None = None,
     refinement_boxes: Sequence[dict[str, Any]] | None = None,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
 ) -> dict[str, Any]:
     if ref_area <= 0.0:
         raise ValueError("ref_area must be positive")
@@ -830,6 +854,7 @@ def write_faceted_volume_su2_case(
         wing_refinement_radius=wing_refinement_radius,
         refinement_boxes=refinement_boxes,
         gmsh_threads=gmsh_threads,
+        mesh_algorithm3d=mesh_algorithm3d,
     )
     runtime_cfg_path.write_text(
         _smoke_cfg_text(
@@ -893,6 +918,7 @@ def write_faceted_volume_su2_case(
             "conv_cauchy_eps": None if conv_cauchy_eps is None else str(conv_cauchy_eps),
             "output_files": list(output_files),
             "gmsh_threads": int(max(1, gmsh_threads)),
+            "mesh_algorithm3d": int(mesh_algorithm3d),
         },
         "caveats": [
             *mesh_report["caveats"],
@@ -937,6 +963,7 @@ def write_faceted_boundary_layer_su2_case(
     boundary_layer_growth_ratio: float = 1.24,
     boundary_layer_layers: int = 24,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
 ) -> dict[str, Any]:
     if ref_area <= 0.0:
         raise ValueError("ref_area must be positive")
@@ -966,6 +993,7 @@ def write_faceted_boundary_layer_su2_case(
         boundary_layer_growth_ratio=boundary_layer_growth_ratio,
         boundary_layer_layers=boundary_layer_layers,
         gmsh_threads=gmsh_threads,
+        mesh_algorithm3d=mesh_algorithm3d,
     )
     runtime_cfg_path.write_text(
         _smoke_cfg_text(
@@ -1029,6 +1057,7 @@ def write_faceted_boundary_layer_su2_case(
             "conv_cauchy_eps": None if conv_cauchy_eps is None else str(conv_cauchy_eps),
             "output_files": list(output_files),
             "gmsh_threads": int(max(1, gmsh_threads)),
+            "mesh_algorithm3d": int(mesh_algorithm3d),
             "boundary_layer": {
                 "first_height_m": float(boundary_layer_first_height),
                 "growth_ratio": float(boundary_layer_growth_ratio),
@@ -1090,6 +1119,7 @@ def run_faceted_boundary_layer_su2_smoke(
     boundary_layer_growth_ratio: float = 1.24,
     boundary_layer_layers: int = 24,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
 ) -> dict[str, Any]:
     if cfd_evidence_min_iterations <= 0:
         raise ValueError("cfd_evidence_min_iterations must be positive")
@@ -1126,6 +1156,7 @@ def run_faceted_boundary_layer_su2_smoke(
         boundary_layer_growth_ratio=boundary_layer_growth_ratio,
         boundary_layer_layers=boundary_layer_layers,
         gmsh_threads=gmsh_threads,
+        mesh_algorithm3d=mesh_algorithm3d,
     )
     case_path = Path(case_dir)
     solver_path = _resolve_solver_command(solver_command)
@@ -1179,6 +1210,7 @@ def run_faceted_boundary_layer_su2_smoke(
         "solver_command": command,
         "compute": {
             "gmsh_threads": int(max(1, gmsh_threads)),
+            "mesh_algorithm3d": int(mesh_algorithm3d),
             "su2_threads": worker_count,
         },
         "solver_log_path": str(solver_log_path),
@@ -1251,6 +1283,7 @@ def run_faceted_volume_su2_smoke(
     wing_refinement_radius: float | None = None,
     refinement_boxes: Sequence[dict[str, Any]] | None = None,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
 ) -> dict[str, Any]:
     if cfd_evidence_min_iterations <= 0:
         raise ValueError("cfd_evidence_min_iterations must be positive")
@@ -1284,6 +1317,7 @@ def run_faceted_volume_su2_smoke(
         wing_refinement_radius=wing_refinement_radius,
         refinement_boxes=refinement_boxes,
         gmsh_threads=gmsh_threads,
+        mesh_algorithm3d=mesh_algorithm3d,
     )
     case_path = Path(case_dir)
     solver_path = _resolve_solver_command(solver_command)
@@ -1336,6 +1370,7 @@ def run_faceted_volume_su2_smoke(
         "solver_command": command,
         "compute": {
             "gmsh_threads": int(max(1, gmsh_threads)),
+            "mesh_algorithm3d": int(mesh_algorithm3d),
             "su2_threads": worker_count,
         },
         "solver_log_path": str(solver_log_path),

@@ -189,7 +189,7 @@ def test_run_blackcat_main_wing_faceted_refinement_ladder_reports_scale_gap(
         tmp_path / "blackcat_refinement_ladder",
         points_per_side=6,
         mesh_sizes=(14.0, 10.0, 8.0, 6.0),
-        target_volume_elements=850,
+        target_volume_elements=750,
         max_volume_elements=20_000,
         farfield_mesh_size=18.0,
         wing_refinement_radius=12.0,
@@ -198,6 +198,8 @@ def test_run_blackcat_main_wing_faceted_refinement_ladder_reports_scale_gap(
 
     assert report["route"] == "blackcat_main_wing_mesh_native_faceted_refinement_ladder"
     assert report["status"] == "target_reached"
+    assert report["compute"]["gmsh_threads"] == 4
+    assert report["compute"]["mesh_algorithm3d"] == 10
     assert report["blackcat_source"]["station_count"] == 11
     assert [case["volume_element_count"] for case in report["cases"]] == sorted(
         case["volume_element_count"] for case in report["cases"]
@@ -416,7 +418,7 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_selects_best_quality_c
     )
 
     candidate = report["recommended_quality_candidate"]
-    assert candidate["feature_refinement_size"] == 3.0
+    assert candidate["feature_refinement_size"] == 1.0
     assert candidate["volume_element_count"] > report["cases"][0]["volume_element_count"]
     assert candidate["excluded_warnings"] == ["very_low_min_gamma", "very_low_min_sicn"]
     assert candidate["mesh_quality_gate"]["status"] == "pass"
@@ -583,6 +585,7 @@ def test_run_blackcat_main_wing_boundary_layer_stability_ladder_uses_bl_runner(
     assert calls[0]["kwargs"]["cfl_number"] == pytest.approx(0.05)
     assert calls[0]["kwargs"]["threads"] == 4
     assert calls[0]["kwargs"]["gmsh_threads"] == 4
+    assert calls[0]["kwargs"]["mesh_algorithm3d"] == 10
     assert report["route"] == (
         "blackcat_main_wing_mesh_native_boundary_layer_su2_stability_ladder"
     )
@@ -591,6 +594,7 @@ def test_run_blackcat_main_wing_boundary_layer_stability_ladder_uses_bl_runner(
     assert report["runtime"]["max_iterations"] == 2000
     assert report["runtime"]["threads"] == 4
     assert report["runtime"]["gmsh_threads"] == 4
+    assert report["runtime"]["mesh_algorithm3d"] == 10
     assert report["stability_selection"]["selected_case"]["wing_mesh_size"] == 0.35
     assert report["stability_selection"]["compared_to_case"]["wing_mesh_size"] == 0.25
     assert report["engineering_assessment"]["wall_resolved_boundary_layer_present"] is True
