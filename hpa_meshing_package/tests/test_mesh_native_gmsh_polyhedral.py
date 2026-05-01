@@ -12,6 +12,7 @@ from hpa_meshing.mesh_native.gmsh_polyhedral import (
     run_faceted_volume_refinement_ladder,
     run_faceted_volume_su2_smoke,
     write_faceted_volume_mesh,
+    write_faceted_volume_mesh_with_boundary_layer,
     write_faceted_volume_su2_case,
 )
 from hpa_meshing.mesh_native.su2_structured import parse_su2_marker_summary
@@ -95,6 +96,47 @@ def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path
     assert su2_summary["ndime"] == 3
     assert su2_summary["nelem"] == report["volume_element_count"]
     assert su2_summary["nmark"] == 2
+    assert set(su2_summary["markers"]) == {"wing_wall", "farfield"}
+    assert su2_summary["markers"]["wing_wall"]["element_count"] > 0
+    assert su2_summary["markers"]["farfield"]["element_count"] > 0
+
+
+def test_write_faceted_volume_mesh_with_boundary_layer_writes_mixed_su2_mesh(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+    msh_path = tmp_path / "faceted_wing_bl_volume.msh"
+    su2_path = tmp_path / "faceted_wing_bl_volume.su2"
+
+    report = write_faceted_volume_mesh_with_boundary_layer(
+        wing,
+        farfield,
+        msh_path,
+        su2_path=su2_path,
+        mesh_size=2.0,
+        boundary_layer_first_height=0.005,
+        boundary_layer_growth_ratio=1.3,
+        boundary_layer_layers=3,
+    )
+
+    assert report["status"] == "meshed"
+    assert report["route"] == "mesh_native_faceted_gmsh_boundary_layer_volume"
+    assert report["volume_element_count"] > 0
+    assert report["boundary_layer"]["layers"] == 3
+    assert report["boundary_layer"]["total_thickness_m"] == pytest.approx(
+        0.005 + 0.005 * 1.3 + 0.005 * 1.3**2
+    )
+    assert report["boundary_layer"]["volume_element_type_counts"]
+    assert report["boundary_layer"]["quality_metrics"]["element_count"] > 0
+    assert report["core_volume"]["volume_element_type_counts"]
+    assert report["physical_groups"]["wing_wall"]["entity_count"] == 24
+    assert report["physical_groups"]["farfield"]["entity_count"] == 12
+    assert report["mesh_quality_gate"]["status"] == "pass"
+
+    su2_summary = parse_su2_marker_summary(su2_path)
+    assert su2_summary["ndime"] == 3
+    assert su2_summary["nelem"] == report["volume_element_count"]
     assert set(su2_summary["markers"]) == {"wing_wall", "farfield"}
     assert su2_summary["markers"]["wing_wall"]["element_count"] > 0
     assert su2_summary["markers"]["farfield"]["element_count"] > 0
