@@ -91,3 +91,51 @@ def test_select_cheapest_stable_mesh_accepts_cm_tolerance_for_cmy_history_key():
     assert result["comparison"]["deltas"] == pytest.approx(
         {"cl": 0.006, "cd": 0.001, "cm": 0.002}
     )
+
+
+def test_select_cheapest_stable_mesh_can_require_successful_case_gates():
+    cases = [
+        {
+            "case_name": "coarse_failed",
+            "volume_element_count": 100_000,
+            "run_status": "failed",
+            "returncode": 1,
+            "mesh_quality_gate": {"status": "pass"},
+            "marker_audit": {"status": "pass"},
+            "history": {"final_coefficients": {"cl": 0.50, "cd": 0.040, "cmy": -0.100}},
+        },
+        {
+            "case_name": "medium",
+            "volume_element_count": 220_000,
+            "run_status": "completed",
+            "returncode": 0,
+            "mesh_quality_gate": {"status": "pass"},
+            "marker_audit": {"status": "pass"},
+            "history": {"final_coefficients": {"cl": 0.620, "cd": 0.045, "cmy": -0.130}},
+        },
+        {
+            "case_name": "fine",
+            "volume_element_count": 480_000,
+            "run_status": "completed",
+            "returncode": 0,
+            "mesh_quality_gate": {"status": "pass"},
+            "marker_audit": {"status": "pass"},
+            "history": {"final_coefficients": {"cl": 0.626, "cd": 0.046, "cmy": -0.132}},
+        },
+    ]
+
+    result = select_cheapest_stable_mesh(
+        cases,
+        coefficient_tolerances={"cl": 0.01, "cd": 0.002, "cm": 0.005},
+        require_successful_case_gates=True,
+    )
+
+    assert result["status"] == "stable_pair_found"
+    assert result["selected_case"]["case_name"] == "medium"
+    assert result["ineligible_cases"] == [
+        {
+            "case_name": "coarse_failed",
+            "volume_element_count": 100_000,
+            "reasons": ["run_status_not_completed", "returncode_nonzero"],
+        }
+    ]

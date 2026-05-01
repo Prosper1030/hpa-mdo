@@ -20,9 +20,26 @@ def select_cheapest_stable_mesh(
     cases: Sequence[Mapping[str, Any]],
     *,
     coefficient_tolerances: Mapping[str, float] | None = None,
+    require_successful_case_gates: bool = False,
 ) -> dict[str, Any]:
     tolerances = dict(coefficient_tolerances or DEFAULT_COEFFICIENT_TOLERANCES)
     ordered_cases = sorted(cases, key=lambda case: int(case["volume_element_count"]))
+    ineligible_cases = []
+    if require_successful_case_gates:
+        eligible_cases = []
+        for case in ordered_cases:
+            reasons = _case_gate_failure_reasons(case)
+            if reasons:
+                ineligible_cases.append(
+                    {
+                        "case_name": case.get("case_name"),
+                        "volume_element_count": int(case["volume_element_count"]),
+                        "reasons": reasons,
+                    }
+                )
+            else:
+                eligible_cases.append(case)
+        ordered_cases = eligible_cases
     comparisons: list[dict[str, Any]] = []
 
     for coarse, fine in zip(ordered_cases[:-1], ordered_cases[1:]):
@@ -48,6 +65,7 @@ def select_cheapest_stable_mesh(
                 "compared_to_case": fine,
                 "comparison": comparison,
                 "comparisons": comparisons,
+                "ineligible_cases": ineligible_cases,
                 "selection_policy": "cheapest_case_from_first_stable_adjacent_pair",
             }
 
@@ -57,6 +75,7 @@ def select_cheapest_stable_mesh(
         "compared_to_case": None,
         "comparison": None,
         "comparisons": comparisons,
+        "ineligible_cases": ineligible_cases,
         "selection_policy": "cheapest_case_from_first_stable_adjacent_pair",
     }
 
@@ -85,6 +104,19 @@ def _coefficient_value(coefficients: Mapping[str, Any], key: str) -> Any:
         if value is not None:
             return value
     return None
+
+
+def _case_gate_failure_reasons(case: Mapping[str, Any]) -> list[str]:
+    reasons = []
+    if case.get("run_status") != "completed":
+        reasons.append("run_status_not_completed")
+    if case.get("returncode") != 0:
+        reasons.append("returncode_nonzero")
+    if (case.get("marker_audit") or {}).get("status") != "pass":
+        reasons.append("marker_audit_not_pass")
+    if (case.get("mesh_quality_gate") or {}).get("status") != "pass":
+        reasons.append("mesh_quality_gate_not_pass")
+    return reasons
 
 
 def _final_coefficients(case: Mapping[str, Any]) -> Mapping[str, Any]:
