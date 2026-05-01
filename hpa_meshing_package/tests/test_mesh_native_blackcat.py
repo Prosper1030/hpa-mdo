@@ -368,6 +368,7 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
         mesh_sizes=(0.14, 0.09, 0.06),
         feature_refinement_size=3.0,
         max_iterations=1200,
+        wall_profile="adiabatic_no_slip",
         conv_num_method_flow="JST",
         cfl_number=100.0,
         linear_solver_error="1e-12",
@@ -390,9 +391,11 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
     assert calls[0]["kwargs"]["conv_cauchy_eps"] == "1E-6"
     assert calls[0]["kwargs"]["output_files"] == ("RESTART_ASCII",)
     assert calls[0]["kwargs"]["cfd_evidence_min_iterations"] == 1000
+    assert calls[0]["kwargs"]["wall_profile"] == "adiabatic_no_slip"
     assert report["route"] == "blackcat_main_wing_mesh_native_su2_stability_ladder"
     assert report["status"] == "stable_mesh_selected"
     assert report["runtime"]["conv_num_method_flow"] == "JST"
+    assert report["runtime"]["wall_profile"] == "adiabatic_no_slip"
     assert report["runtime"]["cfl_number"] == 100.0
     assert report["runtime"]["output_files"] == ["RESTART_ASCII"]
     assert report["feature_extents"]["span_m"] == pytest.approx(33.0)

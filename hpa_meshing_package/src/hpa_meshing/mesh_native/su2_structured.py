@@ -335,6 +335,7 @@ def _smoke_cfg_text(
     max_iterations: int,
     wall_marker: str,
     farfield_marker: str,
+    wall_profile: Literal["euler_slip", "adiabatic_no_slip"] = "euler_slip",
     conv_num_method_flow: str = "FDS",
     cfl_number: float = 1.0,
     linear_solver_error: float | str = "1e-6",
@@ -354,6 +355,8 @@ def _smoke_cfg_text(
         raise ValueError("output_files must not be empty")
     if jst_sensor_coeff is not None and len(jst_sensor_coeff) != 2:
         raise ValueError("jst_sensor_coeff must contain exactly two values")
+    if wall_profile not in {"euler_slip", "adiabatic_no_slip"}:
+        raise ValueError(f"Unsupported wall_profile: {wall_profile}")
 
     alpha_rad = math.radians(alpha_deg)
     vx = velocity_mps * math.cos(alpha_rad)
@@ -386,7 +389,7 @@ def _smoke_cfg_text(
         f"REF_ORIGIN_MOMENT_Z= {origin[2]:.6f}",
         "MESH_FILENAME= mesh.su2",
         "MESH_FORMAT= SU2",
-        f"MARKER_EULER= ( {wall_marker} )",
+        *_wall_boundary_lines(wall_marker, wall_profile=wall_profile),
         f"MARKER_MONITORING= ( {wall_marker} )",
         f"MARKER_PLOTTING= ( {wall_marker} )",
         f"MARKER_FAR= ( {farfield_marker} )",
@@ -421,6 +424,18 @@ def _smoke_cfg_text(
     if conv_cauchy_eps is not None:
         lines.insert(-1, f"CONV_CAUCHY_EPS= {_format_su2_value(conv_cauchy_eps)}")
     return "\n".join(lines)
+
+
+def _wall_boundary_lines(
+    wall_marker: str,
+    *,
+    wall_profile: Literal["euler_slip", "adiabatic_no_slip"],
+) -> list[str]:
+    if wall_profile == "euler_slip":
+        return [f"MARKER_EULER= ( {wall_marker} )"]
+    if wall_profile == "adiabatic_no_slip":
+        return [f"MARKER_HEATFLUX= ( {wall_marker}, 0.0 )"]
+    raise ValueError(f"Unsupported wall_profile: {wall_profile}")
 
 
 def _bounds_center(bounds: dict[str, float]) -> Vertex:

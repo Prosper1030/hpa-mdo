@@ -360,6 +360,31 @@ def test_write_faceted_volume_su2_case_accepts_su2_numerics_profile(tmp_path: Pa
     assert report["runtime"]["output_files"] == ["RESTART_ASCII"]
 
 
+def test_write_faceted_volume_su2_case_supports_adiabatic_no_slip_wall_profile(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    report = write_faceted_volume_su2_case(
+        wing,
+        farfield,
+        tmp_path / "faceted_ns_case",
+        ref_area=2.0,
+        ref_length=1.0,
+        mesh_size=2.0,
+        solver="INC_NAVIER_STOKES",
+        wall_profile="adiabatic_no_slip",
+    )
+
+    cfg_text = Path(report["runtime_cfg_path"]).read_text(encoding="utf-8")
+    assert "SOLVER= INC_NAVIER_STOKES" in cfg_text
+    assert "MARKER_HEATFLUX= ( wing_wall, 0.0 )" in cfg_text
+    assert "MARKER_EULER= ( wing_wall )" not in cfg_text
+    assert report["marker_audit"]["status"] == "pass"
+    assert report["runtime"]["wall_profile"] == "adiabatic_no_slip"
+
+
 def test_run_faceted_volume_su2_smoke_runs_when_su2_is_available(tmp_path: Path):
     pytest.importorskip("gmsh")
     solver = shutil.which("SU2_CFD")
