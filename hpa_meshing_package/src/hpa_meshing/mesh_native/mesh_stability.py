@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Mapping, Sequence
 
 
@@ -22,6 +23,7 @@ def select_cheapest_stable_mesh(
     coefficient_tolerances: Mapping[str, float] | None = None,
     require_successful_case_gates: bool = False,
     require_iterative_gate_pass: bool = False,
+    require_coefficient_sanity: bool = False,
 ) -> dict[str, Any]:
     tolerances = dict(coefficient_tolerances or DEFAULT_COEFFICIENT_TOLERANCES)
     ordered_cases = sorted(cases, key=lambda case: int(case["volume_element_count"]))
@@ -32,6 +34,7 @@ def select_cheapest_stable_mesh(
             reasons = _case_gate_failure_reasons(
                 case,
                 require_iterative_gate_pass=require_iterative_gate_pass,
+                require_coefficient_sanity=require_coefficient_sanity,
             )
             if reasons:
                 ineligible_cases.append(
@@ -114,6 +117,7 @@ def _case_gate_failure_reasons(
     case: Mapping[str, Any],
     *,
     require_iterative_gate_pass: bool,
+    require_coefficient_sanity: bool,
 ) -> list[str]:
     reasons = []
     if case.get("run_status") != "completed":
@@ -129,7 +133,25 @@ def _case_gate_failure_reasons(
         iterative_gate_status = case["iterative_gate"].get("status")
     if require_iterative_gate_pass and iterative_gate_status != "pass":
         reasons.append("iterative_gate_not_pass")
+    if require_coefficient_sanity:
+        reasons.extend(_coefficient_sanity_failure_reasons(case))
     return reasons
+
+
+def _coefficient_sanity_failure_reasons(case: Mapping[str, Any]) -> list[str]:
+    coefficients = _final_coefficients(case)
+    cd = _coefficient_value(coefficients, "cd")
+    if cd is None:
+        return ["missing_cd"]
+    try:
+        cd_value = float(cd)
+    except (TypeError, ValueError):
+        return ["non_numeric_cd"]
+    if not math.isfinite(cd_value):
+        return ["non_finite_cd"]
+    if cd_value < 0.0:
+        return ["negative_cd"]
+    return []
 
 
 def _final_coefficients(case: Mapping[str, Any]) -> Mapping[str, Any]:

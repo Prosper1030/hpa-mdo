@@ -550,6 +550,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
         coefficient_tolerances=coefficient_tolerances,
         require_successful_case_gates=True,
         require_iterative_gate_pass=True,
+        require_coefficient_sanity=True,
     )
     status = (
         "stable_mesh_selected"
