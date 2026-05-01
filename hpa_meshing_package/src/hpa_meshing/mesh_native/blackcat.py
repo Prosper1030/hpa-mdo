@@ -549,6 +549,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
         cases,
         coefficient_tolerances=coefficient_tolerances,
         require_successful_case_gates=True,
+        require_iterative_gate_pass=True,
     )
     status = (
         "stable_mesh_selected"
@@ -585,9 +586,9 @@ def run_blackcat_main_wing_su2_stability_ladder(
         "engineering_assessment": {
             "aero_coefficients_interpretable": status == "stable_mesh_selected",
             "reason": (
-                "adjacent_mesh_coefficients_within_tolerance"
+                "adjacent_converged_mesh_coefficients_within_tolerance"
                 if status == "stable_mesh_selected"
-                else "no_adjacent_mesh_pair_with_stable_coefficients"
+                else "no_adjacent_converged_mesh_pair_with_stable_coefficients"
             ),
         },
     }

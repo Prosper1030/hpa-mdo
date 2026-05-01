@@ -21,6 +21,7 @@ def select_cheapest_stable_mesh(
     *,
     coefficient_tolerances: Mapping[str, float] | None = None,
     require_successful_case_gates: bool = False,
+    require_iterative_gate_pass: bool = False,
 ) -> dict[str, Any]:
     tolerances = dict(coefficient_tolerances or DEFAULT_COEFFICIENT_TOLERANCES)
     ordered_cases = sorted(cases, key=lambda case: int(case["volume_element_count"]))
@@ -28,7 +29,10 @@ def select_cheapest_stable_mesh(
     if require_successful_case_gates:
         eligible_cases = []
         for case in ordered_cases:
-            reasons = _case_gate_failure_reasons(case)
+            reasons = _case_gate_failure_reasons(
+                case,
+                require_iterative_gate_pass=require_iterative_gate_pass,
+            )
             if reasons:
                 ineligible_cases.append(
                     {
@@ -106,7 +110,11 @@ def _coefficient_value(coefficients: Mapping[str, Any], key: str) -> Any:
     return None
 
 
-def _case_gate_failure_reasons(case: Mapping[str, Any]) -> list[str]:
+def _case_gate_failure_reasons(
+    case: Mapping[str, Any],
+    *,
+    require_iterative_gate_pass: bool,
+) -> list[str]:
     reasons = []
     if case.get("run_status") != "completed":
         reasons.append("run_status_not_completed")
@@ -116,6 +124,11 @@ def _case_gate_failure_reasons(case: Mapping[str, Any]) -> list[str]:
         reasons.append("marker_audit_not_pass")
     if (case.get("mesh_quality_gate") or {}).get("status") != "pass":
         reasons.append("mesh_quality_gate_not_pass")
+    iterative_gate_status = case.get("iterative_gate_status")
+    if iterative_gate_status is None and isinstance(case.get("iterative_gate"), Mapping):
+        iterative_gate_status = case["iterative_gate"].get("status")
+    if require_iterative_gate_pass and iterative_gate_status != "pass":
+        reasons.append("iterative_gate_not_pass")
     return reasons
 
 

@@ -308,9 +308,12 @@ def test_run_faceted_volume_su2_smoke_runs_when_su2_is_available(tmp_path: Path)
     assert report["history"]["final_iteration"] == 2
     assert report["history"]["final_coefficients"]["cl"] is not None
     assert report["history"]["final_coefficients"]["cd"] is not None
+    assert report["iterative_gate_status"] == "fail"
+    assert report["iterative_gate"]["status"] == "fail"
     assert report["engineering_assessment"] == {
         "solver_readability": "pass",
         "marker_ownership": "pass",
+        "iterative_convergence": "fail",
         "aero_coefficients_interpretable": False,
-        "reason": "faceted_wing_tet_smoke_not_converged",
+        "reason": "iterative_gate_not_passed",
     }

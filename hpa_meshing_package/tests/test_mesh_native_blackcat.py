@@ -352,6 +352,7 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
                 "mesh_quality_gate": {"status": "pass", "warnings": []},
             },
             "marker_audit": {"status": "pass"},
+            "iterative_gate_status": "pass",
             "history": {
                 "final_iteration": 19,
                 "final_coefficients": coefficients,
@@ -375,6 +376,7 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
     assert report["status"] == "stable_mesh_selected"
     assert report["feature_extents"]["span_m"] == pytest.approx(33.0)
     assert report["stability_selection"]["selected_case"]["mesh_size"] == 0.09
+    assert report["stability_selection"]["ineligible_cases"] == []
     assert report["stability_selection"]["compared_to_case"]["mesh_size"] == 0.06
     assert report["cases"][1]["volume_element_count"] == 110_000
     assert Path(report["report_path"]).exists()

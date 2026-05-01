@@ -428,6 +428,14 @@ def run_faceted_volume_su2_smoke(
         )
 
     history = _parse_smoke_history(history_path) if history_path.exists() else None
+    iterative_gate = None
+    iterative_gate_status = None
+    if history_path.exists():
+        from ..convergence import evaluate_iterative_gate
+
+        iterative_gate_model = evaluate_iterative_gate(history_path)
+        iterative_gate = iterative_gate_model.model_dump(mode="json")
+        iterative_gate_status = iterative_gate.get("status")
     failure_code = None
     if completed.returncode != 0:
         failure_code = "solver_execution_failed"
@@ -444,11 +452,18 @@ def run_faceted_volume_su2_smoke(
         "solver_log_path": str(solver_log_path),
         "history_path": str(history_path) if history_path.exists() else None,
         "history": history,
+        "iterative_gate": iterative_gate,
+        "iterative_gate_status": iterative_gate_status,
         "engineering_assessment": {
             "solver_readability": "pass" if run_status == "completed" else "fail",
             "marker_ownership": case_report["marker_audit"]["status"],
-            "aero_coefficients_interpretable": False,
-            "reason": "faceted_wing_tet_smoke_not_converged",
+            "iterative_convergence": iterative_gate_status,
+            "aero_coefficients_interpretable": iterative_gate_status == "pass",
+            "reason": (
+                "iterative_gate_passed_mesh_study_still_required"
+                if iterative_gate_status == "pass"
+                else "iterative_gate_not_passed"
+            ),
         },
     }
     Path(case_report["report_path"]).write_text(json.dumps(run_report, indent=2), encoding="utf-8")
