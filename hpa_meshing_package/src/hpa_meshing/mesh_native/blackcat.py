@@ -16,6 +16,9 @@ from .wing_surface import (
 )
 
 
+_SEVERE_QUALITY_WARNINGS = frozenset({"very_low_min_gamma", "very_low_min_sicn"})
+
+
 @dataclass(frozen=True)
 class _AvlMainWingSection:
     x_le: float
@@ -409,6 +412,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         else None,
         "feature_refinement_size_values": ordered_feature_sizes,
         "selected_case": selected_case,
+        "recommended_quality_candidate": _recommended_quality_candidate(cases),
         "quality_warning_cases": _quality_warning_cases(cases),
         "cases": cases,
         "engineering_assessment": {
@@ -444,6 +448,28 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         encoding="utf-8",
     )
     return report
+
+
+def _recommended_quality_candidate(cases: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    candidates: list[dict[str, Any]] = []
+    for index, case in enumerate(cases):
+        gate = case.get("mesh_quality_gate", {})
+        warnings = set(gate.get("warnings", []))
+        if gate.get("status") != "pass":
+            continue
+        if warnings.intersection(_SEVERE_QUALITY_WARNINGS):
+            continue
+        candidates.append(
+            {
+                **case,
+                "case_index": index,
+                "selection_policy": "densest_case_without_blockers_or_severe_warnings",
+                "excluded_warnings": sorted(_SEVERE_QUALITY_WARNINGS),
+            }
+        )
+    if not candidates:
+        return None
+    return max(candidates, key=lambda case: int(case["volume_element_count"]))
 
 
 def _quality_warning_cases(cases: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:

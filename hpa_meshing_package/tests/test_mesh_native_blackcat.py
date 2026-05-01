@@ -298,3 +298,29 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_sweeps_feature_box_siz
     assert report["cases"][2]["volume_element_count"] > report["cases"][1][
         "volume_element_count"
     ]
+
+
+def test_run_blackcat_main_wing_coupled_refinement_ladder_selects_best_quality_candidate(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+
+    report = run_blackcat_main_wing_coupled_refinement_ladder(
+        AVL_PATH,
+        tmp_path / "blackcat_coupled_quality_selection_ladder",
+        points_per_side_values=(8,),
+        spanwise_subdivision_values=(1,),
+        mesh_sizes=(6.0,),
+        feature_refinement_size_values=(None, 3.0, 1.0),
+        target_volume_elements=10_000,
+        max_volume_elements=50_000,
+        farfield_mesh_size=18.0,
+        wing_refinement_radius=12.0,
+        write_su2=False,
+    )
+
+    candidate = report["recommended_quality_candidate"]
+    assert candidate["feature_refinement_size"] == 3.0
+    assert candidate["volume_element_count"] > report["cases"][0]["volume_element_count"]
+    assert candidate["excluded_warnings"] == ["very_low_min_gamma", "very_low_min_sicn"]
+    assert candidate["mesh_quality_gate"]["status"] == "pass"
