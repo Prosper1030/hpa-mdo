@@ -378,6 +378,7 @@ def write_boundary_layer_block_core_tet_mesh(
                     "native" if preserve_boundary_mesh else "triangulated"
                 ),
             ),
+            "bl_block_coupling": _bl_block_coupling_report(block, inner_boundary),
             "mesh_sizing": {
                 "inner_mesh_size": float(mesh_size),
                 "farfield_mesh_size": float(resolved_farfield_mesh_size),
@@ -1279,6 +1280,62 @@ def _surface_conformality_report(
             if can_merge
             else "Gmsh changed the inner interface surface mesh; do not merge this core "
             "with the owned BL block as a viscous CFD mesh."
+        ),
+    }
+
+
+def _bl_block_coupling_report(
+    block: WingBoundaryLayerBlock,
+    core_interface: SurfaceMesh,
+) -> dict[str, Any]:
+    block_boundary: dict[tuple[int, ...], str] = {
+        tuple(sorted(face.nodes)): face.marker for face in block.boundary_faces
+    }
+    core_interface_faces = {tuple(sorted(face.nodes)): face.marker for face in core_interface.faces}
+
+    matched_by_marker: dict[str, int] = {}
+    unmatched_core_by_marker: dict[str, int] = {}
+    for face in core_interface.faces:
+        key = tuple(sorted(face.nodes))
+        if key in block_boundary:
+            marker_pair = f"{face.marker}->{block_boundary[key]}"
+            matched_by_marker[marker_pair] = matched_by_marker.get(marker_pair, 0) + 1
+        else:
+            unmatched_core_by_marker[face.marker] = (
+                unmatched_core_by_marker.get(face.marker, 0) + 1
+            )
+
+    unmatched_block_by_marker: dict[str, int] = {}
+    for face in block.boundary_faces:
+        if face.marker == "wing_wall":
+            continue
+        key = tuple(sorted(face.nodes))
+        if key not in core_interface_faces:
+            unmatched_block_by_marker[face.marker] = (
+                unmatched_block_by_marker.get(face.marker, 0) + 1
+            )
+
+    unmatched_core_count = sum(unmatched_core_by_marker.values())
+    unmatched_block_count = sum(unmatched_block_by_marker.values())
+    can_merge = unmatched_core_count == 0 and unmatched_block_count == 0
+    return {
+        "status": "complete" if can_merge else "partial",
+        "can_merge_core_with_bl_block": can_merge,
+        "matched_face_count": sum(matched_by_marker.values()),
+        "matched_face_counts_by_marker_pair": dict(sorted(matched_by_marker.items())),
+        "unmatched_core_interface_face_count": unmatched_core_count,
+        "unmatched_core_interface_face_counts_by_marker": dict(
+            sorted(unmatched_core_by_marker.items())
+        ),
+        "unmatched_bl_boundary_face_count": unmatched_block_count,
+        "unmatched_bl_boundary_face_counts_by_marker": dict(
+            sorted(unmatched_block_by_marker.items())
+        ),
+        "interpretation": (
+            "Core interface faces match non-wall BL block boundary faces."
+            if can_merge
+            else "Core interface is mesh-preserved but does not yet match every "
+            "non-wall BL block boundary face; do not write a merged viscous mesh."
         ),
     }
 

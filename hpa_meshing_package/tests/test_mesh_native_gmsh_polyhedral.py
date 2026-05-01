@@ -235,6 +235,8 @@ def test_write_boundary_layer_block_core_tet_mesh_can_preserve_input_interface(
     assert report["inner_boundary"]["generated_mesh_element_counts"][
         "bl_outer_interface"
     ]["element_type_counts"] == {"3": 10}
+    assert report["bl_block_coupling"]["can_merge_core_with_bl_block"] is False
+    assert report["bl_block_coupling"]["unmatched_core_interface_face_count"] > 0
     assert report["mesh_sizing"]["preserve_boundary_mesh"] is True
 
 
