@@ -205,3 +205,34 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_varies_spanwise_densit
     assert report["cases"][1]["volume_element_count"] > report["cases"][0][
         "volume_element_count"
     ]
+
+
+def test_run_blackcat_main_wing_coupled_refinement_ladder_summarizes_quality_warnings(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+
+    report = run_blackcat_main_wing_coupled_refinement_ladder(
+        AVL_PATH,
+        tmp_path / "blackcat_coupled_warning_ladder",
+        points_per_side_values=(16,),
+        spanwise_subdivision_values=(1,),
+        mesh_sizes=(6.0,),
+        target_volume_elements=10_000,
+        max_volume_elements=50_000,
+        farfield_mesh_size=18.0,
+        wing_refinement_radius=12.0,
+        write_su2=False,
+    )
+
+    assert report["engineering_assessment"]["quality_warnings_present"] is True
+    assert len(report["quality_warning_cases"]) == 1
+    warning_case = report["quality_warning_cases"][0]
+    assert warning_case["case_index"] == 0
+    assert warning_case["spanwise_subdivisions"] == 1
+    assert warning_case["points_per_side"] == 16
+    assert warning_case["mesh_size"] == 6.0
+    assert "low_p01_gamma" in warning_case["warnings"]
+    assert warning_case["min_gamma"] == pytest.approx(
+        report["cases"][0]["quality_metrics"]["min_gamma"]
+    )

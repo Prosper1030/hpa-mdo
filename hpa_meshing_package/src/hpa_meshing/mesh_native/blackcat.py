@@ -367,12 +367,16 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         "spanwise_subdivision_values": ordered_spanwise,
         "mesh_sizes": ordered_mesh_sizes,
         "selected_case": selected_case,
+        "quality_warning_cases": _quality_warning_cases(cases),
         "cases": cases,
         "engineering_assessment": {
             "surface_and_volume_refinement_coupled": True,
             "production_scale_target_volume_elements": int(target_volume_elements),
             "budget_guard_volume_elements": int(max_volume_elements),
             "selected_for_cfd_interpretation": status == "target_reached",
+            "quality_warnings_present": any(
+                case.get("mesh_quality_gate", {}).get("warnings", []) for case in cases
+            ),
             "aero_coefficients_interpretable": False,
             "reason": "coupled_refinement_ladder_only_no_converged_su2_solution",
         },
@@ -397,6 +401,29 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         encoding="utf-8",
     )
     return report
+
+
+def _quality_warning_cases(cases: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    warning_cases: list[dict[str, Any]] = []
+    for index, case in enumerate(cases):
+        warnings = case.get("mesh_quality_gate", {}).get("warnings", [])
+        if not warnings:
+            continue
+        quality = case.get("quality_metrics", {})
+        gamma_percentiles = quality.get("gamma_percentiles", {})
+        warning_cases.append(
+            {
+                "case_index": index,
+                "spanwise_subdivisions": case.get("spanwise_subdivisions"),
+                "points_per_side": case.get("points_per_side"),
+                "mesh_size": case.get("mesh_size"),
+                "volume_element_count": case.get("volume_element_count"),
+                "warnings": list(warnings),
+                "min_gamma": quality.get("min_gamma"),
+                "p01_gamma": gamma_percentiles.get("p01"),
+            }
+        )
+    return warning_cases
 
 
 def _clean_avl_lines(text: str) -> list[str]:
