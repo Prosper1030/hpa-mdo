@@ -24,6 +24,7 @@ def select_cheapest_stable_mesh(
     require_successful_case_gates: bool = False,
     require_iterative_gate_pass: bool = False,
     require_coefficient_sanity: bool = False,
+    require_cfd_evidence_gate_pass: bool = False,
 ) -> dict[str, Any]:
     tolerances = dict(coefficient_tolerances or DEFAULT_COEFFICIENT_TOLERANCES)
     ordered_cases = sorted(cases, key=lambda case: int(case["volume_element_count"]))
@@ -35,6 +36,7 @@ def select_cheapest_stable_mesh(
                 case,
                 require_iterative_gate_pass=require_iterative_gate_pass,
                 require_coefficient_sanity=require_coefficient_sanity,
+                require_cfd_evidence_gate_pass=require_cfd_evidence_gate_pass,
             )
             if reasons:
                 ineligible_cases.append(
@@ -118,6 +120,7 @@ def _case_gate_failure_reasons(
     *,
     require_iterative_gate_pass: bool,
     require_coefficient_sanity: bool,
+    require_cfd_evidence_gate_pass: bool,
 ) -> list[str]:
     reasons = []
     if case.get("run_status") != "completed":
@@ -135,6 +138,10 @@ def _case_gate_failure_reasons(
         reasons.append("iterative_gate_not_pass")
     if require_coefficient_sanity:
         reasons.extend(_coefficient_sanity_failure_reasons(case))
+    if require_cfd_evidence_gate_pass:
+        gate = case.get("cfd_evidence_gate")
+        if not isinstance(gate, Mapping) or gate.get("status") != "pass":
+            reasons.append("cfd_evidence_gate_not_pass")
     return reasons
 
 

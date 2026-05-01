@@ -5,7 +5,7 @@ import math
 import os
 from pathlib import Path
 import subprocess
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from .su2_structured import (
     _parse_smoke_history,
@@ -420,11 +420,14 @@ def run_faceted_volume_su2_smoke(
     conv_cauchy_elems: int | None = None,
     conv_cauchy_eps: float | str | None = None,
     output_files: Sequence[str] = ("RESTART_ASCII", "PARAVIEW_ASCII", "SURFACE_CSV"),
+    cfd_evidence_min_iterations: int = 1000,
     wing_mesh_size: float | None = None,
     farfield_mesh_size: float | None = None,
     wing_refinement_radius: float | None = None,
     refinement_boxes: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    if cfd_evidence_min_iterations <= 0:
+        raise ValueError("cfd_evidence_min_iterations must be positive")
     case_report = write_faceted_volume_su2_case(
         wing,
         farfield,
@@ -478,6 +481,12 @@ def run_faceted_volume_su2_smoke(
         iterative_gate_model = evaluate_iterative_gate(history_path)
         iterative_gate = iterative_gate_model.model_dump(mode="json")
         iterative_gate_status = iterative_gate.get("status")
+    cfd_evidence_gate = _cfd_evidence_gate(
+        max_iterations=max_iterations,
+        min_iterations=cfd_evidence_min_iterations,
+        iterative_gate_status=iterative_gate_status,
+        history=history,
+    )
     failure_code = None
     if completed.returncode != 0:
         failure_code = "solver_execution_failed"
@@ -496,20 +505,54 @@ def run_faceted_volume_su2_smoke(
         "history": history,
         "iterative_gate": iterative_gate,
         "iterative_gate_status": iterative_gate_status,
+        "cfd_evidence_gate": cfd_evidence_gate,
         "engineering_assessment": {
             "solver_readability": "pass" if run_status == "completed" else "fail",
             "marker_ownership": case_report["marker_audit"]["status"],
             "iterative_convergence": iterative_gate_status,
-            "aero_coefficients_interpretable": iterative_gate_status == "pass",
+            "cfd_evidence": cfd_evidence_gate["status"],
+            "aero_coefficients_interpretable": (
+                iterative_gate_status == "pass" and cfd_evidence_gate["status"] == "pass"
+            ),
             "reason": (
-                "iterative_gate_passed_mesh_study_still_required"
-                if iterative_gate_status == "pass"
-                else "iterative_gate_not_passed"
+                "iterative_and_cfd_evidence_gates_passed_mesh_study_still_required"
+                if iterative_gate_status == "pass" and cfd_evidence_gate["status"] == "pass"
+                else "cfd_evidence_gate_not_passed"
             ),
         },
     }
     Path(case_report["report_path"]).write_text(json.dumps(run_report, indent=2), encoding="utf-8")
     return run_report
+
+
+def _cfd_evidence_gate(
+    *,
+    max_iterations: int,
+    min_iterations: int,
+    iterative_gate_status: str | None,
+    history: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    reasons = []
+    if min_iterations <= 0:
+        raise ValueError("min_iterations must be positive")
+    if max_iterations < min_iterations:
+        reasons.append("iteration_budget_below_cfd_evidence_minimum")
+    if iterative_gate_status != "pass":
+        reasons.append("iterative_gate_not_pass")
+    observed_final_iteration = None
+    if isinstance(history, Mapping):
+        observed_final_iteration = history.get("final_iteration")
+    if history is None:
+        reasons.append("history_missing")
+    return {
+        "status": "pass" if not reasons else "fail",
+        "minimum_iterations": int(min_iterations),
+        "configured_max_iterations": int(max_iterations),
+        "observed_final_iteration": observed_final_iteration,
+        "iterative_gate_status": iterative_gate_status,
+        "reasons": reasons,
+        "policy": "configured_solver_budget_must_allow_1000plus_iterations_for_cfd_evidence",
+    }
 
 
 def _add_mesh_surfaces(

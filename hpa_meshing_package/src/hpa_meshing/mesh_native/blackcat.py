@@ -477,6 +477,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
     conv_cauchy_elems: int | None = None,
     conv_cauchy_eps: float | str | None = None,
     output_files: Sequence[str] = ("RESTART_ASCII", "PARAVIEW_ASCII", "SURFACE_CSV"),
+    cfd_evidence_min_iterations: int = 1000,
     case_runner: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     from .gmsh_polyhedral import (
@@ -490,6 +491,8 @@ def run_blackcat_main_wing_su2_stability_ladder(
         raise ValueError("target_volume_elements must be positive")
     if max_volume_elements <= 0:
         raise ValueError("max_volume_elements must be positive")
+    if cfd_evidence_min_iterations <= 0:
+        raise ValueError("cfd_evidence_min_iterations must be positive")
     ordered_mesh_sizes = sorted((float(value) for value in mesh_sizes), reverse=True)
     if not ordered_mesh_sizes:
         raise ValueError("mesh_sizes must not be empty")
@@ -543,6 +546,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
             conv_cauchy_elems=conv_cauchy_elems,
             conv_cauchy_eps=conv_cauchy_eps,
             output_files=output_files,
+            cfd_evidence_min_iterations=cfd_evidence_min_iterations,
         )
         mesh_report = run_report.get("mesh_report", {})
         case_report = {
@@ -567,6 +571,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
         require_successful_case_gates=True,
         require_iterative_gate_pass=True,
         require_coefficient_sanity=True,
+        require_cfd_evidence_gate_pass=True,
     )
     status = (
         "stable_mesh_selected"
@@ -607,6 +612,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
             "conv_cauchy_elems": conv_cauchy_elems,
             "conv_cauchy_eps": None if conv_cauchy_eps is None else str(conv_cauchy_eps),
             "output_files": list(output_files),
+            "cfd_evidence_min_iterations": int(cfd_evidence_min_iterations),
         },
         "stability_selection": stability_selection,
         "cases": cases,

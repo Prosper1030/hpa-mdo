@@ -4,6 +4,7 @@ import shutil
 import pytest
 
 from hpa_meshing.mesh_native.gmsh_polyhedral import (
+    _cfd_evidence_gate,
     _mesh_quality_gate,
     build_wing_feature_refinement_boxes,
     infer_wing_feature_extents,
@@ -218,6 +219,33 @@ def test_mesh_quality_gate_warns_on_near_zero_positive_tets():
     assert "low_p01_gamma" in gate["warnings"]
 
 
+def test_cfd_evidence_gate_rejects_short_iteration_budget():
+    gate = _cfd_evidence_gate(
+        max_iterations=100,
+        min_iterations=1000,
+        iterative_gate_status="pass",
+        history={"final_iteration": 70},
+    )
+
+    assert gate["status"] == "fail"
+    assert gate["minimum_iterations"] == 1000
+    assert gate["configured_max_iterations"] == 100
+    assert gate["observed_final_iteration"] == 70
+    assert gate["reasons"] == ["iteration_budget_below_cfd_evidence_minimum"]
+
+
+def test_cfd_evidence_gate_accepts_long_budget_with_iterative_pass():
+    gate = _cfd_evidence_gate(
+        max_iterations=1200,
+        min_iterations=1000,
+        iterative_gate_status="pass",
+        history={"final_iteration": 780},
+    )
+
+    assert gate["status"] == "pass"
+    assert gate["reasons"] == []
+
+
 def test_run_faceted_volume_refinement_ladder_increases_mesh_density(tmp_path: Path):
     pytest.importorskip("gmsh")
     wing, farfield = _wing_and_close_farfield()
@@ -350,6 +378,7 @@ def test_run_faceted_volume_su2_smoke_runs_when_su2_is_available(tmp_path: Path)
         "solver_readability": "pass",
         "marker_ownership": "pass",
         "iterative_convergence": "fail",
+        "cfd_evidence": "fail",
         "aero_coefficients_interpretable": False,
-        "reason": "iterative_gate_not_passed",
+        "reason": "cfd_evidence_gate_not_passed",
     }

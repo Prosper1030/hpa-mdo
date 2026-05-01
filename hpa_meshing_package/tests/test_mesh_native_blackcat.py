@@ -353,8 +353,9 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
             },
             "marker_audit": {"status": "pass"},
             "iterative_gate_status": "pass",
+            "cfd_evidence_gate": {"status": "pass", "reasons": []},
             "history": {
-                "final_iteration": 19,
+                "final_iteration": 70,
                 "final_coefficients": coefficients,
             },
         }
@@ -366,7 +367,7 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
         spanwise_subdivisions=1,
         mesh_sizes=(0.14, 0.09, 0.06),
         feature_refinement_size=3.0,
-        max_iterations=20,
+        max_iterations=1200,
         conv_num_method_flow="JST",
         cfl_number=100.0,
         linear_solver_error="1e-12",
@@ -388,6 +389,7 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
     assert calls[0]["kwargs"]["conv_cauchy_elems"] == 50
     assert calls[0]["kwargs"]["conv_cauchy_eps"] == "1E-6"
     assert calls[0]["kwargs"]["output_files"] == ("RESTART_ASCII",)
+    assert calls[0]["kwargs"]["cfd_evidence_min_iterations"] == 1000
     assert report["route"] == "blackcat_main_wing_mesh_native_su2_stability_ladder"
     assert report["status"] == "stable_mesh_selected"
     assert report["runtime"]["conv_num_method_flow"] == "JST"
