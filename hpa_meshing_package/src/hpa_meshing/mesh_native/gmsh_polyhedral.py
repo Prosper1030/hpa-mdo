@@ -17,7 +17,7 @@ from .su2_structured import (
     _smoke_cfg_text,
     audit_su2_case_markers,
 )
-from .wing_surface import Face, SurfaceMesh
+from .wing_surface import Face, SurfaceMesh, orient_surface_mesh_outward
 
 
 def write_faceted_volume_mesh(
@@ -237,7 +237,9 @@ def write_boundary_layer_block_core_tet_mesh(
     if resolved_farfield_mesh_size <= 0.0:
         raise ValueError("farfield_mesh_size must be positive")
 
-    inner_boundary = build_boundary_layer_core_interface_surface(block)
+    inner_boundary = orient_surface_mesh_outward(
+        build_boundary_layer_core_interface_surface(block)
+    )
     gmsh.initialize()
     try:
         gmsh.option.setNumber("General.Terminal", 0)
@@ -293,7 +295,12 @@ def write_boundary_layer_block_core_tet_mesh(
             for surface in surfaces
         ]
         outer_loop = gmsh.model.geo.addSurfaceLoop(farfield_surfaces)
-        inner_loop = gmsh.model.geo.addSurfaceLoop(inner_surfaces)
+        inner_loop_surfaces = (
+            [-surface for surface in inner_surfaces]
+            if preserve_boundary_mesh
+            else inner_surfaces
+        )
+        inner_loop = gmsh.model.geo.addSurfaceLoop(inner_loop_surfaces)
         core_volume = gmsh.model.geo.addVolume([outer_loop, inner_loop])
         gmsh.model.geo.synchronize()
 
@@ -1742,7 +1749,7 @@ def _collect_volume_quality_metrics(gmsh) -> dict[str, Any]:
 
     min_sicn = _element_quality_values(gmsh, all_volume_tags, "minSICN")
     min_sige = _element_quality_values(gmsh, all_volume_tags, "minSIGE")
-    gamma = _element_quality_values(gmsh, all_volume_tags, "gamma")
+    gamma = _element_quality_values(gmsh, tetra_tags, "gamma")
     volume = _element_quality_values(gmsh, all_volume_tags, "volume")
     ill_shaped_volume_count = sum(
         1

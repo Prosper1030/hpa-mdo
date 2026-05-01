@@ -228,6 +228,7 @@ def test_write_boundary_layer_block_core_tet_mesh_can_preserve_input_interface(
     assert report["quality_metrics"]["volume_element_count"] == report[
         "volume_element_count"
     ]
+    assert "non_positive_gamma" not in report["mesh_quality_gate"]["blockers"]
     assert report["interface_conformality"]["status"] == "preserved"
     assert report["interface_conformality"]["can_merge_with_owned_bl_block"] is True
     assert report["interface_conformality"]["expected_boundary_representation"] == "native"
