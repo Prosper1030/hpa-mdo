@@ -243,30 +243,44 @@ def write_boundary_layer_block_core_tet_mesh(
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.add("mesh_native_bl_block_core_tet_smoke")
 
+        if preserve_boundary_mesh:
+            inner_surfaces_by_marker = _add_discrete_marked_mesh_surfaces(
+                gmsh,
+                inner_boundary,
+                first_tag=1_000_001,
+            )
+            inner_point_offset = 0
+        else:
+            inner_point_offset = len(inner_boundary.vertices)
         point_tags = [
-            *[
-                gmsh.model.geo.addPoint(x, y, z, mesh_size)
-                for x, y, z in inner_boundary.vertices
-            ],
+            *(
+                []
+                if preserve_boundary_mesh
+                else [
+                    gmsh.model.geo.addPoint(x, y, z, mesh_size)
+                    for x, y, z in inner_boundary.vertices
+                ]
+            ),
             *[
                 gmsh.model.geo.addPoint(x, y, z, resolved_farfield_mesh_size)
                 for x, y, z in farfield.vertices
             ],
         ]
         line_cache: dict[tuple[int, int], tuple[int, int, int]] = {}
-        inner_surfaces_by_marker = _add_marked_mesh_surfaces(
-            gmsh,
-            inner_boundary.faces,
-            point_tags=point_tags,
-            line_cache=line_cache,
-            node_offset=0,
-        )
+        if not preserve_boundary_mesh:
+            inner_surfaces_by_marker = _add_marked_mesh_surfaces(
+                gmsh,
+                inner_boundary.faces,
+                point_tags=point_tags,
+                line_cache=line_cache,
+                node_offset=0,
+            )
         farfield_surfaces_by_marker = _add_marked_mesh_surfaces(
             gmsh,
             farfield.faces,
             point_tags=point_tags,
             line_cache=line_cache,
-            node_offset=len(inner_boundary.vertices),
+            node_offset=inner_point_offset,
         )
         inner_surfaces = [
             surface
@@ -360,6 +374,9 @@ def write_boundary_layer_block_core_tet_mesh(
             "interface_conformality": _surface_conformality_report(
                 inner_input_element_counts,
                 inner_generated_element_counts,
+                expected_boundary_representation=(
+                    "native" if preserve_boundary_mesh else "triangulated"
+                ),
             ),
             "mesh_sizing": {
                 "inner_mesh_size": float(mesh_size),
@@ -1092,6 +1109,85 @@ def _add_marked_mesh_surfaces(
     return surfaces_by_marker
 
 
+def _add_discrete_marked_mesh_surfaces(
+    gmsh,
+    mesh: SurfaceMesh,
+    *,
+    first_tag: int,
+) -> dict[str, list[int]]:
+    point_tag_offset = int(first_tag)
+    curve_tag_cursor = point_tag_offset + len(mesh.vertices) + 1
+    surface_tag_cursor = curve_tag_cursor + _unique_edge_count(mesh.faces) + 1
+    node_tags = [point_tag_offset + index for index in range(len(mesh.vertices))]
+    point_tags = list(node_tags)
+
+    for point_tag, node_tag, (x, y, z) in zip(point_tags, node_tags, mesh.vertices):
+        gmsh.model.addDiscreteEntity(0, point_tag)
+        gmsh.model.setCoordinates(point_tag, x, y, z)
+        gmsh.model.mesh.addNodes(0, point_tag, [node_tag], [x, y, z])
+        gmsh.model.mesh.addElementsByType(point_tag, 15, [], [node_tag])
+
+    curve_cache: dict[tuple[int, int], tuple[int, int, int]] = {}
+    surfaces_by_marker: dict[str, list[int]] = {}
+    for face in mesh.faces:
+        signed_curves: list[int] = []
+        face_nodes = tuple(face.nodes)
+        for start, end in zip(face_nodes, [*face_nodes[1:], face_nodes[0]]):
+            key = tuple(sorted((start, end)))
+            if key not in curve_cache:
+                curve_tag = curve_tag_cursor
+                curve_tag_cursor += 1
+                curve_cache[key] = (curve_tag, key[0], key[1])
+                gmsh.model.addDiscreteEntity(
+                    1,
+                    curve_tag,
+                    [point_tags[key[0]], point_tags[key[1]]],
+                )
+                gmsh.model.mesh.addElementsByType(
+                    curve_tag,
+                    1,
+                    [],
+                    [node_tags[key[0]], node_tags[key[1]]],
+                )
+            curve_tag, stored_start, stored_end = curve_cache[key]
+            signed_curves.append(
+                curve_tag if (start, end) == (stored_start, stored_end) else -curve_tag
+            )
+
+        surface_tag = surface_tag_cursor
+        surface_tag_cursor += 1
+        gmsh.model.addDiscreteEntity(2, surface_tag, signed_curves)
+        if len(face_nodes) == 3:
+            gmsh.model.mesh.addElementsByType(
+                surface_tag,
+                2,
+                [],
+                [node_tags[node] for node in face_nodes],
+            )
+        elif len(face_nodes) == 4:
+            gmsh.model.mesh.addElementsByType(
+                surface_tag,
+                3,
+                [],
+                [node_tags[node] for node in face_nodes],
+            )
+        else:
+            raise ValueError("Only triangle and quad faces can be discrete surfaces")
+        surfaces_by_marker.setdefault(face.marker, []).append(surface_tag)
+
+    gmsh.model.mesh.reclassifyNodes()
+    return surfaces_by_marker
+
+
+def _unique_edge_count(faces: Sequence[Face]) -> int:
+    edges: set[tuple[int, int]] = set()
+    for face in faces:
+        nodes = tuple(face.nodes)
+        for start, end in zip(nodes, [*nodes[1:], nodes[0]]):
+            edges.add(tuple(sorted((start, end))))
+    return len(edges)
+
+
 def _input_surface_mesh_element_counts(faces: Sequence[Face]) -> dict[str, dict[str, int]]:
     counts: dict[str, dict[str, int]] = {}
     for face in faces:
@@ -1131,27 +1227,49 @@ def _surface_mesh_element_counts_by_marker(
 def _surface_conformality_report(
     input_counts: Mapping[str, Mapping[str, int]],
     generated_counts: Mapping[str, Mapping[str, Any]],
+    *,
+    expected_boundary_representation: str = "triangulated",
 ) -> dict[str, Any]:
     missing_markers = sorted(set(input_counts) - set(generated_counts))
     extra_markers = sorted(set(generated_counts) - set(input_counts))
     remeshed_markers: list[str] = []
     marker_reports: dict[str, dict[str, Any]] = {}
     for marker in sorted(set(input_counts) & set(generated_counts)):
-        expected = int(input_counts[marker]["triangulated_face_count"])
+        if expected_boundary_representation == "native":
+            expected_type_counts = {
+                "2": int(input_counts[marker]["triangle_face_count"]),
+                "3": int(input_counts[marker]["quad_face_count"]),
+            }
+            expected_type_counts = {
+                key: value for key, value in expected_type_counts.items() if value > 0
+            }
+            expected = sum(expected_type_counts.values())
+        elif expected_boundary_representation == "triangulated":
+            expected_type_counts = {
+                "2": int(input_counts[marker]["triangulated_face_count"]),
+            }
+            expected = int(input_counts[marker]["triangulated_face_count"])
+        else:
+            raise ValueError(
+                "expected_boundary_representation must be 'triangulated' or 'native'"
+            )
         observed = int(generated_counts[marker]["element_count"])
-        preserved = expected == observed
+        observed_type_counts = generated_counts[marker]["element_type_counts"]
+        preserved = expected == observed and expected_type_counts == observed_type_counts
         if not preserved:
             remeshed_markers.append(marker)
         marker_reports[marker] = {
-            "input_triangulated_face_count": expected,
+            "input_expected_element_count": expected,
+            "input_expected_element_type_counts": expected_type_counts,
             "generated_element_count": observed,
-            "generated_element_type_counts": generated_counts[marker]["element_type_counts"],
+            "generated_element_type_counts": observed_type_counts,
             "preserved": preserved,
         }
     can_merge = not missing_markers and not extra_markers and not remeshed_markers
     return {
         "status": "preserved" if can_merge else "remeshed",
         "can_merge_with_owned_bl_block": can_merge,
+        "expected_boundary_representation": expected_boundary_representation,
         "missing_markers": missing_markers,
         "extra_markers": extra_markers,
         "remeshed_markers": remeshed_markers,
