@@ -44,12 +44,16 @@ def test_route_readiness_keeps_shell_v4_bl_as_promotion_only():
 
     assert main_wing.geometry_family == "thin_sheet_lifting_surface"
     assert main_wing.default_route == "gmsh_thin_sheet_surface"
+    assert main_wing.recommended_primary_route == "gmsh_mesh_native_lifting_surface"
+    assert main_wing.recommended_primary_geometry_family == "mesh_native_lifting_surface"
     assert main_wing.route_role == "experimental_and_diagnostic"
     assert main_wing.su2_status == "handoff_materialized_force_marker_owned_solver_not_run"
     assert main_wing.bl_contract_policy == "promotion_only_when_hpa_mdo_owns_handoff_topology"
     assert main_wing.gmsh_boundary_recovery_policy == "not_allowed_as_owned_boundary_handoff"
+    assert "step_brep_repair_route_not_primary_product_path" in main_wing.blocking_reasons
     assert "shell_v4_root_last3_is_not_product_route" in main_wing.blocking_reasons
     assert "explicit_bl_to_core_handoff_topology_not_owned" in main_wing.blocking_reasons
+    assert "mesh_native_indexed_surface_builder_missing" in main_wing.next_actions
     assert "main_wing_component_specific_force_marker_missing" not in main_wing.blocking_reasons
     assert "main_wing_real_geometry_smoke_missing" not in main_wing.blocking_reasons
     assert "main_wing_real_geometry_mesh_handoff_not_run" not in main_wing.blocking_reasons
@@ -134,6 +138,8 @@ def test_route_readiness_report_writer_outputs_json_and_markdown(tmp_path: Path)
     markdown = paths["markdown"].read_text(encoding="utf-8")
 
     assert payload["primary_decision"] == "switch_to_component_family_route_architecture"
+    assert "gmsh_mesh_native_lifting_surface" in markdown
+    assert "mesh-native" in markdown
     assert "main_wing" in markdown
     assert "shell_v4" in markdown
     assert "Gmsh" in markdown

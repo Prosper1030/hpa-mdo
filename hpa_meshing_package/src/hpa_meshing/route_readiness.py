@@ -47,6 +47,8 @@ class ComponentFamilyRouteReadiness(BaseModel):
     component: ComponentType
     geometry_family: GeometryFamilyType
     default_route: MeshingRouteType
+    recommended_primary_geometry_family: GeometryFamilyType | None = None
+    recommended_primary_route: MeshingRouteType | None = None
     backend: str = "gmsh"
     backend_capability: str
     provider_strategy: str
@@ -87,6 +89,8 @@ def _row(
     component: ComponentType,
     geometry_family: GeometryFamilyType,
     default_route: MeshingRouteType,
+    recommended_primary_geometry_family: GeometryFamilyType | None = None,
+    recommended_primary_route: MeshingRouteType | None = None,
     provider_strategy: str,
     productization_status: ProductizationStatusType,
     route_role: RouteRoleType,
@@ -101,6 +105,8 @@ def _row(
         component=component,
         geometry_family=geometry_family,
         default_route=default_route,
+        recommended_primary_geometry_family=recommended_primary_geometry_family,
+        recommended_primary_route=recommended_primary_route,
         backend_capability=_backend_capability(default_route),
         provider_strategy=provider_strategy,
         productization_status=productization_status,
@@ -150,6 +156,8 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             component="main_wing",
             geometry_family="thin_sheet_lifting_surface",
             default_route="gmsh_thin_sheet_surface",
+            recommended_primary_geometry_family="mesh_native_lifting_surface",
+            recommended_primary_route="gmsh_mesh_native_lifting_surface",
             provider_strategy="esp_rebuilt_experimental_or_direct_cad",
             productization_status="experimental",
             route_role="experimental_and_diagnostic",
@@ -157,6 +165,7 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             bl_contract_policy="promotion_only_when_hpa_mdo_owns_handoff_topology",
             gmsh_boundary_recovery_policy="not_allowed_as_owned_boundary_handoff",
             blocking_reasons=[
+                "step_brep_repair_route_not_primary_product_path",
                 "shell_v4_root_last3_is_not_product_route",
                 "explicit_bl_to_core_handoff_topology_not_owned",
                 "main_wing_real_geometry_mesh_handoff_timeout",
@@ -165,6 +174,9 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
                 "convergence_gate_not_run",
             ],
             next_actions=[
+                "mesh_native_indexed_surface_builder_missing",
+                "mesh_native_topology_gate_missing",
+                "mesh_native_gmsh_discrete_volume_smoke_missing",
                 "repair_real_main_wing_mesh3d_volume_insertion_policy",
                 "run_solver_only_after_force_marker_and_real_geometry_evidence",
                 "keep_bl_transition_contract_as_promotion_gate_not_default_runtime",
@@ -177,6 +189,7 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
                 "main_wing_mesh_handoff_smoke_available_non_bl_synthetic",
                 "main_wing_su2_handoff_materialization_smoke_available",
                 "main_wing_component_specific_force_marker_available",
+                "STEP/BREP repair evidence is now diagnostic evidence for route retirement, not the product critical path.",
             ],
         ),
         _row(
@@ -309,6 +322,8 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
             "su2_handoff_v1_written",
             "convergence_gate_v1_reported",
             "bl_transition_contract_passed_only_for_bl_promotions",
+            "mesh_native_indexed_surface_topology_gate_passed_before_primary_main_wing_promotion",
+            "mesh_native_su2_marker_smoke_passed_before_primary_main_wing_promotion",
         ],
         shell_v4_policy={
             "role": "diagnostic_regression_branch",
@@ -324,6 +339,7 @@ def build_component_family_route_readiness() -> ComponentFamilyRouteReadinessRep
         route_order=[
             "aircraft_assembly_formal_v1_baseline",
             "component_family_route_matrix",
+            "main_wing_mesh-native_primary_route_contract",
             "robust_non_bl_or_baseline_mesh_route",
             "su2_baseline_and_convergence_gate",
             "bl_route_promotion_after_owned_handoff_topology",
@@ -341,8 +357,8 @@ def _render_markdown(report: ComponentFamilyRouteReadinessReport) -> str:
         "",
         "## Route Matrix",
         "",
-        "| component | status | route role | default route | SU2 | BL policy | Gmsh boundary policy |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| component | status | route role | default route | recommended primary route | SU2 | BL policy | Gmsh boundary policy |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in report.components:
         lines.append(
@@ -353,6 +369,11 @@ def _render_markdown(report: ComponentFamilyRouteReadinessReport) -> str:
                     f"`{row.productization_status}`",
                     f"`{row.route_role}`",
                     f"`{row.default_route}`",
+                    (
+                        f"`{row.recommended_primary_route}`"
+                        if row.recommended_primary_route is not None
+                        else "`same_as_default`"
+                    ),
                     f"`{row.su2_status}`",
                     f"`{row.bl_contract_policy}`",
                     f"`{row.gmsh_boundary_recovery_policy}`",
@@ -375,6 +396,11 @@ def _render_markdown(report: ComponentFamilyRouteReadinessReport) -> str:
             "## Gmsh Source Policy",
             "",
             *[f"- `{key}`: `{value}`" for key, value in report.gmsh_source_policy.items()],
+            "",
+            "## Mesh-Native Main Wing Policy",
+            "",
+            "- mesh-native indexed surfaces are the recommended primary CFD geometry route for the main wing.",
+            "- STEP/BREP repair remains useful as diagnostic evidence and fallback comparison, not as the product critical path.",
             "",
             "## Blocking Reasons",
             "",

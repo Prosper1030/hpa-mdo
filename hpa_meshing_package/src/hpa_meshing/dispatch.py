@@ -23,10 +23,10 @@ COMPONENT_DEFAULT_FAMILIES: Dict[ComponentType, GeometryFamilyType] = {
 }
 
 COMPONENT_SUPPORTED_FAMILIES: Dict[ComponentType, List[GeometryFamilyType]] = {
-    "main_wing": ["thin_sheet_lifting_surface"],
-    "tail_wing": ["thin_sheet_lifting_surface"],
-    "horizontal_tail": ["thin_sheet_lifting_surface"],
-    "vertical_tail": ["thin_sheet_lifting_surface"],
+    "main_wing": ["thin_sheet_lifting_surface", "mesh_native_lifting_surface"],
+    "tail_wing": ["thin_sheet_lifting_surface", "mesh_native_lifting_surface"],
+    "horizontal_tail": ["thin_sheet_lifting_surface", "mesh_native_lifting_surface"],
+    "vertical_tail": ["thin_sheet_lifting_surface", "mesh_native_lifting_surface"],
     "fairing_solid": ["closed_solid"],
     "fairing_vented": ["perforated_solid"],
     "aircraft_assembly": ["thin_sheet_aircraft_assembly"],
@@ -41,6 +41,16 @@ ROUTE_REGISTRY: Dict[MeshingRouteType, Dict[str, object]] = {
             "watertight_volume",
             "farfield_volume",
             "solid_wall_marker_preservation",
+        ],
+    },
+    "gmsh_mesh_native_lifting_surface": {
+        "geometry_family": "mesh_native_lifting_surface",
+        "backend": "gmsh",
+        "backend_capability": "mesh_native_lifting_surface_meshing",
+        "family_features": [
+            "deterministic_indexed_surface",
+            "generator_owned_boundary_markers",
+            "step_brep_free_cfd_geometry_source",
         ],
     },
     "gmsh_perforated_solid_volume": {

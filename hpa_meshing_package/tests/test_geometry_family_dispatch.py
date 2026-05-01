@@ -20,6 +20,12 @@ def _write_step(tmp_path: Path, name: str = "demo.step") -> Path:
     return path
 
 
+def _write_mesh_native_spec(tmp_path: Path, name: str = "wing_spec.json") -> Path:
+    path = tmp_path / name
+    path.write_text('{"units": "m", "stations": []}\n', encoding="utf-8")
+    return path
+
+
 def test_geometry_classifier_reports_explicit_family_and_source(tmp_path: Path):
     geometry = _write_step(tmp_path, "assembly.step")
     cfg = MeshJobConfig(
@@ -117,6 +123,28 @@ def test_recipe_dispatch_supports_explicit_horizontal_and_vertical_tail_componen
     assert vtail_recipe.geometry_family == "thin_sheet_lifting_surface"
     assert htail_recipe.meshing_route == "gmsh_thin_sheet_surface"
     assert vtail_recipe.meshing_route == "gmsh_thin_sheet_surface"
+
+
+def test_recipe_dispatch_supports_mesh_native_lifting_surface_route(tmp_path: Path):
+    geometry = _write_mesh_native_spec(tmp_path)
+    cfg = MeshJobConfig(
+        component="main_wing",
+        geometry=geometry,
+        out_dir=tmp_path / "mesh-native-out",
+        geometry_source="manifest_declared",
+        geometry_family="mesh_native_lifting_surface",
+    )
+
+    handle = load_geometry(cfg.geometry, cfg)
+    classification = classify_geometry_family(handle, cfg)
+    validation = validate_component_geometry(handle, classification, cfg)
+    recipe = build_recipe(handle, classification, cfg)
+
+    assert validation.ok is True
+    assert classification.geometry_family == "mesh_native_lifting_surface"
+    assert recipe.meshing_route == "gmsh_mesh_native_lifting_surface"
+    assert recipe.backend_capability == "mesh_native_lifting_surface_meshing"
+    assert "deterministic_indexed_surface" in recipe.family_features
 
 
 def test_geometry_classifier_prefers_provider_family_hint(tmp_path: Path):

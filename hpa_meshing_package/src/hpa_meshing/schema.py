@@ -29,18 +29,21 @@ GeometryProviderStageType = Literal["v1", "experimental"]
 GeometryProviderStatusType = Literal["materialized", "not_materialized", "failed"]
 GeometryFamilyType = Literal[
     "closed_solid",
+    "mesh_native_lifting_surface",
     "thin_sheet_lifting_surface",
     "thin_sheet_aircraft_assembly",
     "perforated_solid",
 ]
 MeshingRouteType = Literal[
     "gmsh_closed_solid_volume",
+    "gmsh_mesh_native_lifting_surface",
     "gmsh_perforated_solid_volume",
     "gmsh_thin_sheet_surface",
     "gmsh_thin_sheet_aircraft_assembly",
 ]
 BackendCapabilityType = Literal[
     "occ_closed_solid_meshing",
+    "mesh_native_lifting_surface_meshing",
     "occ_perforated_solid_meshing",
     "sheet_lifting_surface_meshing",
     "sheet_aircraft_assembly_meshing",

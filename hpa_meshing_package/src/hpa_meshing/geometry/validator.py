@@ -11,7 +11,9 @@ from ..schema import (
 )
 
 
-SUPPORTED_SUFFIXES = {".step", ".stp", ".iges", ".igs"}
+CAD_SUPPORTED_SUFFIXES = {".step", ".stp", ".iges", ".igs"}
+MESH_NATIVE_SUPPORTED_SUFFIXES = {".json", ".yaml", ".yml"}
+SUPPORTED_SUFFIXES = CAD_SUPPORTED_SUFFIXES | MESH_NATIVE_SUPPORTED_SUFFIXES
 
 
 def classify_geometry_family(
@@ -60,7 +62,12 @@ def validate_component_geometry(
     provider_ready = True
     if handle.provider_result is not None:
         provider_ready = handle.provider_result.status == "materialized"
-    suffix_ok = handle.suffix in SUPPORTED_SUFFIXES
+    expected_suffixes = (
+        MESH_NATIVE_SUPPORTED_SUFFIXES
+        if classification.geometry_family == "mesh_native_lifting_surface"
+        else CAD_SUPPORTED_SUFFIXES
+    )
+    suffix_ok = handle.suffix in expected_suffixes
     exists_ok = handle.exists
     supported_families = supported_families_for_component(config.component)
     component_family_ok = classification.geometry_family in supported_families
@@ -90,7 +97,7 @@ def validate_component_geometry(
         geometry_provider=handle.provider,
         geometry_family=classification.geometry_family,
         failure_code=failure_code,
-        supported_suffixes=sorted(SUPPORTED_SUFFIXES),
+        supported_suffixes=sorted(expected_suffixes),
         supported_families=supported_families,
         notes=notes,
     )
