@@ -191,6 +191,11 @@ Birdman rules / environment / rider power / mass
 
 工程判讀：mass closure 已經修掉最危險的假訊號，現在不能再單純用「加大翼面積」買 stall margin，因為需要的 repair area 會超過目前 gross-mass cap。下一步比較合理的是在約 `S = 34..40 m2`、`W/S = 27..31 N/m2` 內改善 `CLmax`、twist、planform distribution，並同時審核 rider-power / endurance model，而不是繼續把低翼載、大面積 box 往外推。
 
+外部嚴格審查紀錄：
+
+- [docs/superpowers/reports/2026-05-02-birdman-upstream-concept-gpt-pro-packet.md](docs/superpowers/reports/2026-05-02-birdman-upstream-concept-gpt-pro-packet.md) - 給 GPT Pro 的自包含偽代碼 / 公式 / 審查 prompt。
+- [docs/superpowers/reports/2026-05-02-birdman-upstream-gpt-pro-review-response.md](docs/superpowers/reports/2026-05-02-birdman-upstream-gpt-pro-review-response.md) - GPT Pro 回覆後整理出的 decision-grade、Daedalus benchmark、rider endurance、prop / `CLmax` / structure 修正建議。
+
 常用指令：
 
 ```bash
